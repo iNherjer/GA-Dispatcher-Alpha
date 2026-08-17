@@ -1893,6 +1893,7 @@ const MISSION_RUNTIME_RESUME_KEY = 'ga_active_mission_runtime';
 const MISSION_AUTHORITY_STORAGE_KEY = 'ga_mission_authority_v1';
 const MISSION_AUTHORITY_CAPABILITY = 'mission.authority.v1';
 const MISSION_SNAPSHOT_V2_CAPABILITY = 'mission.snapshot.v2';
+const MISSION_SCENE_GROUP_CAPABILITY = 'mission.scene.group.v1';
 const TELEMETRY_WAKE_CAPABILITY = 'telemetry.wake.v1';
 const missionAuthorityAckWaiters = new Map();
 const missionAuthorityLocalCommandIds = new Map();
@@ -2043,6 +2044,12 @@ function _trackerSupportsTelemetryWake() {
         && window.liveTrackerCapabilities.includes(TELEMETRY_WAKE_CAPABILITY);
 }
 window.trackerSupportsTelemetryWake = _trackerSupportsTelemetryWake;
+
+function _trackerSupportsMissionSceneGroup() {
+    return Array.isArray(window.liveTrackerCapabilities)
+        && window.liveTrackerCapabilities.includes(MISSION_SCENE_GROUP_CAPABILITY);
+}
+window.trackerSupportsMissionSceneGroup = _trackerSupportsMissionSceneGroup;
 
 function _missionAuthorityAdapter(runtimeSnapshot = null, missionState = null) {
     if (typeof window.GAMissionResumeAdapters?.detectPrimaryAdapter === 'function') {
@@ -5593,6 +5600,14 @@ function _missionScenePaxCount() {
         return Math.max(0, Math.min(6, passengerItems.reduce((sum, item) => sum + Math.max(1, Number(item.passengerCount) || 1), 0)));
     }
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const explicitPassengerCount = [
+        md?.passengerCount,
+        md?.missionContract?.passengerCount,
+        window.activeMissionContract?.passengerCount
+    ].find(value => value !== null && value !== undefined && Number.isFinite(Number(value)));
+    if (explicitPassengerCount !== undefined) {
+        return Math.max(0, Math.min(6, Math.round(Number(explicitPassengerCount) || 0)));
+    }
     const text = [
         md?.paxText,
         md?.missionContract?.paxText,
@@ -5605,7 +5620,46 @@ function _missionScenePaxCount() {
     return window.activePassenger ? 1 : 0;
 }
 
+function _missionSceneRequestedGroupPlan() {
+    if (typeof window.GAMissionSceneGroup?.normalizeGroupSequenceCommand !== 'function') return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const party = md?.party || md?.missionContract?.party || window.activeMissionContract?.party || null;
+    const partyKind = String(party?.kind || '').trim().toLowerCase();
+    const partyCount = Number(party?.count);
+    if (!partyKind || partyKind === 'single' || !Number.isInteger(partyCount) || partyCount < 2 || partyCount > 5) return null;
+    const plan = window.GAMissionSceneGroup.normalizeGroupSequenceCommand({
+        groupSequence: true,
+        expectedPassengerCount: partyCount,
+        groupSpacingM: 1,
+        boardingStaggerMs: 1100
+    });
+    return plan?.valid === true ? plan : null;
+}
+
+function _missionSceneGroupPlan() {
+    if (!_trackerSupportsMissionSceneGroup()) return null;
+    return _missionSceneRequestedGroupPlan();
+}
+
+function _missionSceneGroupCapabilityMissing() {
+    return !!_missionSceneRequestedGroupPlan() && !_trackerSupportsMissionSceneGroup();
+}
+
+function _missionSceneGroupCommandFields() {
+    const groupPlan = _missionSceneGroupPlan();
+    if (!groupPlan) return {};
+    return {
+        groupSequence: true,
+        expectedPassengerCount: groupPlan.expectedPassengerCount,
+        groupSpacingM: groupPlan.groupSpacingM,
+        boardingStaggerMs: groupPlan.boardingStaggerMs,
+        groupVehicleKind: groupPlan.groupVehicleKind
+    };
+}
+
 function _missionSceneBoarderCount() {
+    const groupPlan = _missionSceneGroupPlan();
+    if (groupPlan) return groupPlan.expectedPassengerCount;
     const paxCount = _missionScenePaxCount();
     if (paxCount <= 0) return 0;
     return Math.max(1, Math.min(2, paxCount));
@@ -6044,6 +6098,24 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
 
 
 function _missionSceneVehicleAsset() {
+    const groupPlan = _missionSceneGroupPlan();
+    if (groupPlan) {
+        const pool = groupPlan.groupVehicleKind === 'bus'
+            ? MISSION_SCENE_ASSET_POOLS.buses
+            : MISSION_SCENE_ASSET_POOLS.vans;
+        const fallback = groupPlan.groupVehicleKind === 'bus'
+            ? 'Microsoft_MiniBus_ASIA_01'
+            : 'Microsoft_Van_EUR';
+        const preferred = _sceneObjectTitleOverride(
+            'vehicle',
+            _scenePickTitle(pool, `vehicle-group-${groupPlan.groupVehicleKind}-${groupPlan.expectedPassengerCount}`, pool[0] || fallback),
+            pool
+        );
+        return {
+            title: preferred,
+            candidates: _sceneAssetCandidates(preferred, pool)
+        };
+    }
     const taskDomain = _missionSceneTaskDomain();
     if (_missionBushIsPickupPassengerMission()) {
         const bushPool = _missionSceneFilteredVehiclePool(
@@ -6226,6 +6298,7 @@ function _activeBushMissionSpec() {
 }
 
 function _missionSceneVehicleSupportEnabled() {
+    if (_missionSceneGroupPlan()) return true;
     if (_missionBushIsPickupPassengerMission()) return true;
     try {
         const raw = String(localStorage.getItem('ga_scene_apt_vehicle_enabled') || '').trim().toLowerCase();
@@ -6261,7 +6334,8 @@ function _missionSceneCommonSceneCommandFields() {
         walkSpeedKts: Number.isFinite(Number(boardingConfig.walkSpeedKts)) ? Number(boardingConfig.walkSpeedKts) : 3.3,
         openDoor: boardingConfig.openDoor !== false,
         doorProfile: boardingConfig.doorProfile || 'default',
-        doorIndex: 1
+        doorIndex: 1,
+        ..._missionSceneGroupCommandFields()
     };
     if (vehicleSupportEnabled) {
         fields.vehiclePoint = _missionSceneVehiclePoint();
@@ -6280,6 +6354,14 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     if (!debugReason && _missionIsFreeflightOnly()) {
         if (window.missionSceneStatus) window.missionSceneStatus.blockReason = 'freeflight_only';
         if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return false;
+    }
+    if (_missionSceneGroupCapabilityMissing()) {
+        if (window.missionSceneStatus) {
+            window.missionSceneStatus.blockReason = 'tracker_group_capability_required';
+            window.missionSceneStatus.error = 'tracker_group_capability_required';
+        }
+        _missionPhaseDebugPush('scene_spawn_blocked', { reason: 'tracker_group_capability_required' });
         return false;
     }
     const pos = window.lastLiveGpsPos || {};
@@ -6324,6 +6406,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const cargoItems = _missionSceneCargoItems(cargoPoint, cargoAsset);
     const vehiclePoint = vehicleSupportEnabled ? _missionSceneVehiclePoint() : null;
     const boarderCount = _missionSceneBoarderCount();
+    const groupPlan = _missionSceneGroupPlan();
     const primaryGender = _missionScenePassengerGender();
     const secondaryGender = primaryGender === 'male' ? 'female' : 'male';
     const primaryPersonTitle = _missionSceneMovingPersonTitle(primaryGender, 'boarding-primary');
@@ -6332,7 +6415,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const idlePersonTitle = _missionScenePersonTitle(primaryGender, 'vehicle-idle');
     const vehicleCrewOne = { forwardM: 19.5, rightM: -14 };
     const vehicleCrewTwo = { forwardM: 19, rightM: -11.5 };
-    const personItems = vehicleSupportEnabled ? [
+    const legacyPersonItems = vehicleSupportEnabled ? [
         ...(boarderCount > 0 ? [{
             kind: 'person_boarder_1',
             label: 'Boarding Pax 1',
@@ -6381,16 +6464,35 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
             altOffsetFt: Number.isFinite(Number(personSpawn.altOffsetFt)) ? Number(personSpawn.altOffsetFt) : 0
         };
     });
+    const groupMembers = groupPlan && typeof window.GAMissionSceneGroup?.buildGroupMemberPlans === 'function'
+        ? window.GAMissionSceneGroup.buildGroupMemberPlans(boarderCount, groupPlan)
+        : [];
+    const personItems = groupPlan ? groupMembers.map((member, index) => {
+        const gender = index % 2 === 0 ? primaryGender : secondaryGender;
+        const title = _missionSceneMovingPersonTitle(gender, `boarding-group-${index + 1}`);
+        return {
+            kind: member.kind,
+            label: `Boarding Pax ${index + 1}`,
+            objectTitle: title,
+            titleCandidates: _missionSceneMovingPersonCandidates(gender, title),
+            forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
+            rightM: (Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8) + member.lateralOffsetM,
+            headingMode: 'face_aircraft',
+            altOffsetFt: Number.isFinite(Number(personSpawn.altOffsetFt)) ? Number(personSpawn.altOffsetFt) : 0
+        };
+    }) : legacyPersonItems;
     const sceneItems = [];
     if (vehicleSupportEnabled && vehicleAsset && vehiclePoint) {
         const taskDomain = _missionSceneTaskDomain();
-        const vehicleLabel = taskDomain === 'fire_watch'
+        const vehicleLabel = groupPlan
+            ? (groupPlan.groupVehicleKind === 'bus' ? 'Gruppenbus' : 'Gruppenvan')
+            : (taskDomain === 'fire_watch'
             ? 'Feuerwehrfahrzeug'
             : (taskDomain === 'medical_transfer'
                 ? 'Medizinisches Bringfahrzeug'
                 : (taskDomain === 'search_and_rescue'
                     ? 'Rettungsfahrzeug'
-                    : (taskDomain === 'cargo' ? 'Frachtfahrzeug' : 'Szenenfahrzeug')));
+                    : (taskDomain === 'cargo' ? 'Frachtfahrzeug' : 'Szenenfahrzeug'))));
         sceneItems.push({
             kind: 'vehicle',
             label: vehicleLabel,
@@ -6414,6 +6516,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         passengerCount: _missionScenePaxCount(),
         vehicleDeparture: vehicleSupportEnabled,
         vehicleArrival: vehicleSupportEnabled,
+        ..._missionSceneGroupCommandFields(),
         items: sceneItems.concat(cargoItems, personItems)
     });
     if (!commandId) return false;
@@ -6424,6 +6527,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         reason,
         boarderCount,
         passengerCount: _missionScenePaxCount(),
+        groupSequence: !!groupPlan,
+        groupVehicleKind: groupPlan?.groupVehicleKind || null,
         personTitles: personItems.map(item => item.objectTitle).filter(Boolean),
         itemCount: sceneItems.length + cargoItems.length + personItems.length,
         startPhase: _missionStartPhase(),
@@ -8895,6 +9000,11 @@ window.trackerDebugSetInputEvent = async function(nameOrOptions, value = 1, opti
 })();
 
 window.missionSceneBoarding = async function(reason = 'boarding') {
+    if (_missionSceneGroupCapabilityMissing()) {
+        if (window.missionSceneStatus) window.missionSceneStatus.boardingError = 'tracker_group_capability_required';
+        _missionPhaseDebugPush('boarding_blocked', { reason, source: 'tracker_group_capability_required' });
+        return { status: 'error', error: 'tracker_group_capability_required' };
+    }
     if (missionSceneBoardingPromise) {
         _missionPhaseDebugPush('boarding_reused', { reason, source: 'missionSceneBoardingPromise' });
         return missionSceneBoardingPromise;
@@ -9107,11 +9217,13 @@ function _missionSceneArmDeboardingWatchdog(commandId, reason = 'mission-end') {
 }
 
 function _missionSceneDeboardingPaxCount() {
+    const groupPlan = _missionSceneRequestedGroupPlan();
+    const maxVisiblePassengers = groupPlan ? groupPlan.expectedPassengerCount : 3;
     const manifest = typeof _missionCargoGetManifest === 'function' ? _missionCargoGetManifest() : null;
     if (Array.isArray(manifest?.items) && manifest.items.length > 0) {
         const passengerItems = manifest.items.filter(item => _missionCargoIsPassengerItem(item));
         if (!passengerItems.length) return 0;
-        return Math.max(0, Math.min(3, passengerItems
+        return Math.max(0, Math.min(maxVisiblePassengers, passengerItems
             .filter(item => (
                 item.status === 'loaded'
                 && item.handoffComplete !== true
@@ -9120,11 +9232,16 @@ function _missionSceneDeboardingPaxCount() {
             .reduce((sum, item) => sum + Math.max(1, Number(item.passengerCount) || 1), 0)));
     }
     if (!window.missionSceneStatus?.personBoarded) return 0;
-    return Math.max(1, Math.min(3, typeof _missionScenePaxCount === 'function' ? _missionScenePaxCount() : 1));
+    return Math.max(1, Math.min(maxVisiblePassengers, typeof _missionScenePaxCount === 'function' ? _missionScenePaxCount() : 1));
 }
 
 window.missionSceneDeboarding = function(reason = 'mission-end', options = {}) {
     if (window.simModeActive && !window.liveTrackerConnected) return false;
+    if (_missionSceneGroupCapabilityMissing()) {
+        if (window.missionSceneStatus) window.missionSceneStatus.deboardingError = 'tracker_group_capability_required';
+        _missionPhaseDebugPush('deboarding_blocked', { reason: 'tracker_group_capability_required' });
+        return false;
+    }
     const trackerVersionCode = Number(window.liveTrackerVersionCode);
     if (options?.coordinateFarewell === true && (!Number.isFinite(trackerVersionCode) || trackerVersionCode < MIN_TRACKER_VERSION_CODE)) {
         window.missionSceneStatus.deboardingError = `tracker_${MIN_TRACKER_VERSION_LABEL}_required`;
@@ -9393,6 +9510,26 @@ window.missionComplianceReleaseGroundVisit = function(state = null) {
     }) || false;
 };
 
+function _missionSceneValidateGroupFinalAck(ack = {}) {
+    const groupPlan = _missionSceneRequestedGroupPlan();
+    const type = String(ack?.type || '').toLowerCase();
+    if (!groupPlan || String(ack?.status || '').toLowerCase() !== 'ok') return ack;
+    const countField = type === 'mission_scene_boarding_ack'
+        ? 'boarded'
+        : (type === 'mission_scene_deboarding_ack' ? 'deboarded' : '');
+    if (!countField) return ack;
+    const reportedCount = Number(ack?.[countField]);
+    if (Number.isInteger(reportedCount) && reportedCount === groupPlan.expectedPassengerCount) return ack;
+    return {
+        ...ack,
+        status: 'error',
+        error: 'passenger_count_mismatch',
+        expectedPassengerCount: groupPlan.expectedPassengerCount,
+        reportedStatus: ack.status || '',
+        reportedPassengerCount: Number.isFinite(reportedCount) ? reportedCount : null
+    };
+}
+
 function _handleTrackerAck(ack) {
     if (!ack || typeof ack !== 'object') return;
     const ackType = String(ack.type || '').toLowerCase();
@@ -9429,6 +9566,7 @@ function _handleTrackerAck(ack) {
         }
         return;
     }
+    ack = _missionSceneValidateGroupFinalAck(ack);
     _trackerPendingHandleAck(ack);
     const authorityAck = /^mission_(authority|snapshot)_.*_ack$/i.test(String(ack.type || ''));
     if (authorityAck) {
@@ -13343,6 +13481,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'missionSubType', 'poiChain',
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
+        'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',

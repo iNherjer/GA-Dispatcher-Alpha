@@ -16873,6 +16873,10 @@ body.airport-type-picker-open {
     overflow: hidden;
 }
 
+body.aircraft-preset-editor-open {
+    overflow: hidden;
+}
+
 .airport-type-picker-dialog {
     box-sizing: border-box;
     width: min(620px, 100%);
@@ -17073,6 +17077,337 @@ body.airport-type-picker-open {
 .ops-airport-type-button:focus-visible {
     outline: 2px solid var(--drawer-accent, #8bcdf8);
     outline-offset: 2px;
+}
+
+/* Aircraft Presets: Schnell-Editor im selben Auswahlblatt-System. */
+.aircraft-preset-editor-dialog {
+    width: min(700px, 100%);
+}
+
+.aircraft-preset-editor-form {
+    margin: 0;
+}
+
+.aircraft-preset-editor-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 0 22px 18px;
+}
+
+.aircraft-preset-editor-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+}
+
+.aircraft-preset-editor-field-wide {
+    grid-column: 1 / -1;
+}
+
+.aircraft-preset-editor-field > span:first-child,
+.aircraft-preset-editor-group legend {
+    color: rgba(222, 237, 247, 0.72);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+}
+
+.aircraft-preset-editor-field > input,
+.aircraft-preset-editor-input-unit {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 43px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    color: #f5fbff;
+    background: rgba(255, 255, 255, 0.07);
+    font: 700 14px/1.2 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.aircraft-preset-editor-field > input {
+    padding: 10px 12px;
+}
+
+.aircraft-preset-editor-input-unit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    overflow: hidden;
+}
+
+.aircraft-preset-editor-input-unit input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 41px;
+    padding: 10px 4px 10px 12px;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    box-shadow: none;
+    font: inherit;
+}
+
+.aircraft-preset-editor-input-unit small {
+    padding: 0 12px 0 7px;
+    color: rgba(218, 234, 245, 0.56);
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.aircraft-preset-editor-field > input:focus,
+.aircraft-preset-editor-input-unit:focus-within {
+    border-color: rgba(85, 180, 243, 0.78);
+    outline: 2px solid rgba(85, 180, 243, 0.2);
+    outline-offset: 1px;
+}
+
+.aircraft-preset-editor-input-unit input:focus {
+    outline: 0;
+}
+
+.aircraft-preset-editor-group {
+    min-width: 0;
+    margin: 0;
+    padding: 0 22px 18px;
+    border: 0;
+}
+
+.aircraft-preset-editor-group legend {
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+.aircraft-preset-editor-options {
+    display: grid;
+    gap: 8px;
+}
+
+.aircraft-preset-class-options {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.aircraft-preset-tag-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.aircraft-preset-editor-dialog .aircraft-preset-editor-option {
+    min-height: 58px;
+    padding: 10px;
+}
+
+.aircraft-preset-editor-dialog .aircraft-preset-editor-option .airport-type-option-copy {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.aircraft-preset-editor-dialog .aircraft-preset-editor-option .airport-type-option-copy strong,
+.aircraft-preset-editor-dialog .aircraft-preset-editor-option .airport-type-option-copy small {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    -webkit-hyphens: auto;
+    hyphens: auto;
+}
+
+.aircraft-preset-editor-dialog .aircraft-preset-editor-option input[type="radio"],
+.aircraft-preset-editor-dialog .aircraft-preset-editor-option input[type="checkbox"] {
+    position: static;
+    z-index: auto;
+    flex: 0 0 20px;
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    min-height: 20px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    background: none;
+    background-image: none;
+    box-shadow: none;
+    text-shadow: none;
+    transform: none;
+    accent-color: #55b4f3;
+    -webkit-appearance: auto;
+    appearance: auto;
+}
+
+.aircraft-preset-editor-footer {
+    margin-top: 2px;
+}
+
+.aircraft-preset-settings-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin: 3px 0 10px;
+    color: #aab4bd;
+    font-size: 10px;
+}
+
+.aircraft-preset-settings-tags > span {
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+}
+
+.aircraft-preset-settings-tags label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.aircraft-preset-settings-tags input {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    accent-color: #55b4f3;
+}
+
+.aircraft-preset-profile-hint {
+    display: block;
+    flex: 1 0 100%;
+    margin-top: 2px;
+    color: rgba(188, 207, 220, 0.68);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.aircraft-preset-editor-group > .aircraft-preset-profile-hint {
+    margin-top: 9px;
+}
+
+[data-aircraft-slot],
+[data-aircraft-slot] * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+[data-aircraft-slot] {
+    touch-action: manipulation;
+}
+
+[data-aircraft-slot].aircraft-preset-longpress-active {
+    outline: 2px solid rgba(99, 186, 244, 0.9) !important;
+    outline-offset: 2px;
+    filter: brightness(1.14);
+}
+
+body.theme-retro .aircraft-preset-editor-field > span:first-child,
+body.theme-retro .aircraft-preset-editor-group legend {
+    color: #493923;
+}
+
+body.theme-retro .aircraft-preset-editor-field > input,
+body.theme-retro .aircraft-preset-editor-input-unit {
+    border-color: #806b49;
+    border-radius: 2px;
+    color: #2d2417;
+    background: rgba(247, 235, 198, 0.82);
+    font-family: Georgia, serif;
+}
+
+body.theme-retro .aircraft-preset-editor-input-unit small {
+    color: #715d3d;
+}
+
+body.theme-navcom .aircraft-preset-editor-field > span:first-child,
+body.theme-navcom .aircraft-preset-editor-group legend {
+    color: #73d973;
+}
+
+body.theme-navcom .aircraft-preset-editor-field > input,
+body.theme-navcom .aircraft-preset-editor-input-unit {
+    border-color: #2c6e36;
+    border-radius: 0;
+    color: #8aff8a;
+    background: #031006;
+    font-family: 'Courier New', monospace;
+}
+
+body.theme-navcom .aircraft-preset-editor-input-unit small {
+    color: #4f9857;
+}
+
+body.theme-ops1940 .aircraft-preset-editor-field > span:first-child,
+body.theme-ops1940 .aircraft-preset-editor-group legend {
+    color: #d8c18e;
+}
+
+body.theme-ops1940 .aircraft-preset-editor-field > input,
+body.theme-ops1940 .aircraft-preset-editor-input-unit {
+    border-color: #9e8048;
+    border-radius: 2px;
+    color: #f0dfb8;
+    background: #15170f;
+    font-family: 'Courier New', monospace;
+}
+
+body.theme-win95 .aircraft-preset-editor-field > span:first-child,
+body.theme-win95 .aircraft-preset-editor-group legend {
+    color: #000;
+    font-family: Arial, sans-serif;
+}
+
+body.theme-win95 .aircraft-preset-editor-field > input,
+body.theme-win95 .aircraft-preset-editor-input-unit {
+    min-height: 30px;
+    border: 2px inset #fff;
+    border-radius: 0;
+    color: #000;
+    background: #fff;
+    font: 13px Arial, sans-serif;
+}
+
+body.theme-win95 .aircraft-preset-editor-input-unit input {
+    min-height: 26px;
+}
+
+body.theme-win95 .aircraft-preset-editor-input-unit small {
+    color: #333;
+}
+
+@media (max-width: 600px) {
+    .aircraft-preset-editor-fields,
+    .aircraft-preset-editor-group {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .aircraft-preset-class-options,
+    .aircraft-preset-tag-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .aircraft-preset-editor-dialog .aircraft-preset-editor-option {
+        min-height: 54px;
+        gap: 7px;
+        padding: 9px 8px;
+    }
+
+    .aircraft-preset-editor-dialog .aircraft-preset-editor-option input[type="radio"],
+    .aircraft-preset-editor-dialog .aircraft-preset-editor-option input[type="checkbox"] {
+        flex-basis: 18px;
+        width: 18px;
+        min-width: 18px;
+        height: 18px;
+        min-height: 18px;
+    }
+
+    .aircraft-preset-editor-footer .airport-type-picker-count {
+        display: none;
+    }
 }
 
 /* Retro: Auswahlblatt aus demselben Papier-/Klemmbrettsystem wie das Briefing. */

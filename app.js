@@ -37,12 +37,18 @@ const MISSION_PARAMETER_RADIO_IDS = {
 };
 const AIRCRAFT_PRESET_STORAGE_KEY = 'ga_aircraft_presets_v1';
 const AIRCRAFT_PRESET_DEFAULTS = {
-    'C172': { name: 'C172', tas: 115, gph: 9, pax: 4 },
+    'C172': {
+        name: 'C172', tas: 115, gph: 9, pax: 4, maxPayloadKg: 400,
+        aircraftClass: 'sep', aircraftTags: ['training', 'touring']
+    },
     'PA-24': {
         name: 'Comanche',
         tas: 160,
         gph: 14,
         pax: 4,
+        maxPayloadKg: 520,
+        aircraftClass: 'sep',
+        aircraftTags: ['touring'],
         boarding: {
             spawn: { forwardM: 18, rightM: -8 },
             cargo: { forwardM: 7, rightM: 3 },
@@ -50,8 +56,30 @@ const AIRCRAFT_PRESET_DEFAULTS = {
             waypoints: [{ forwardM: 4, rightM: 3.5, beforeCargo: false }]
         }
     },
-    'AERO': { name: 'Aerostar', tas: 220, gph: 25, pax: 6 }
+    'AERO': {
+        name: 'Aerostar', tas: 220, gph: 25, pax: 6, maxPayloadKg: 950,
+        aircraftClass: 'mep', aircraftTags: ['business', 'touring']
+    }
 };
+const AIRCRAFT_CLASS_OPTIONS = Object.freeze([
+    Object.freeze({ id: 'sep', label: 'SEP', description: 'Einmotorig · Kolben' }),
+    Object.freeze({ id: 'mep', label: 'MEP', description: 'Mehrmotorig · Kolben' }),
+    Object.freeze({ id: 'set', label: 'SET', description: 'Einmotorig · Turbine' }),
+    Object.freeze({ id: 'met', label: 'MET', description: 'Mehrmotorig · Turbine' }),
+    Object.freeze({ id: 'jet', label: 'Jet', description: 'Strahlflugzeug' }),
+    Object.freeze({ id: 'heli', label: 'Heli', description: 'Hubschrauber' }),
+    Object.freeze({ id: 'other', label: 'Sonstige', description: 'Andere Bauart' })
+]);
+const AIRCRAFT_TAG_OPTIONS = Object.freeze([
+    Object.freeze({ id: 'touring', label: 'Privat / Reise' }),
+    Object.freeze({ id: 'business', label: 'Business / Charter' }),
+    Object.freeze({ id: 'cargo', label: 'Cargo' }),
+    Object.freeze({ id: 'bush', label: 'Bush / STOL' }),
+    Object.freeze({ id: 'training', label: 'Training' }),
+    Object.freeze({ id: 'utility', label: 'Utility / Arbeit' })
+]);
+const AIRCRAFT_CLASS_IDS = new Set(AIRCRAFT_CLASS_OPTIONS.map(option => option.id));
+const AIRCRAFT_TAG_IDS = new Set(AIRCRAFT_TAG_OPTIONS.map(option => option.id));
 const AIRCRAFT_BOARDING_DEFAULT = {
     spawn: { forwardM: 16, rightM: -8 },
     cargo: { forwardM: 4, rightM: 4 },
@@ -73,6 +101,8 @@ let activeAircraftPresetSettingsSlot = 'C172';
 window.activeAircraftPresetSettingsSlot = activeAircraftPresetSettingsSlot;
 let activeBoardingPointKey = 'spawn';
 let aircraftPresetCloudSyncTimer = null;
+let activeAircraftPresetEditorSlot = null;
+let aircraftPresetEditorReturnFocus = null;
 const AIRCRAFT_PRESET_SLOT_LABELS = {
     'C172': 'Slot 1',
     'PA-24': 'Slot 2',
@@ -83,6 +113,24 @@ function sanitizeAircraftPresetName(slotId, value) {
     const fallback = AIRCRAFT_PRESET_DEFAULTS[slotId]?.name || slotId;
     const text = String(value || '').trim().replace(/\s+/g, ' ');
     return text ? text.slice(0, 20) : fallback;
+}
+
+function normalizeAircraftClass(value, fallback = 'other') {
+    const normalized = String(value || '').trim().toLowerCase();
+    return AIRCRAFT_CLASS_IDS.has(normalized) ? normalized : (AIRCRAFT_CLASS_IDS.has(fallback) ? fallback : 'other');
+}
+
+function normalizeAircraftTags(value, fallback = []) {
+    const source = Array.isArray(value)
+        ? value
+        : (typeof value === 'string' ? value.split(/[;,|]/) : fallback);
+    return Array.from(new Set(source
+        .map(item => String(item || '').trim().toLowerCase())
+        .filter(item => AIRCRAFT_TAG_IDS.has(item))));
+}
+
+function getAircraftClassOption(classId) {
+    return AIRCRAFT_CLASS_OPTIONS.find(option => option.id === classId) || AIRCRAFT_CLASS_OPTIONS[AIRCRAFT_CLASS_OPTIONS.length - 1];
 }
 
 function clampBoardingOffset(value, fallback = 0) {
@@ -172,6 +220,15 @@ function normalizeAircraftPreset(slotId, source) {
         tas: clampMainPerfSetting(preset.tas, 80, 300, 5, defaults.tas),
         gph: clampMainPerfSetting(preset.gph, 0, 80, 1, defaults.gph),
         pax: clampMainPerfSetting(preset.pax, 1, 6, 1, defaults.pax),
+        maxPayloadKg: clampMainPerfSetting(
+            preset.maxPayloadKg ?? preset.maxPayload ?? preset.payloadKg,
+            0,
+            10000,
+            5,
+            defaults.maxPayloadKg || 0
+        ),
+        aircraftClass: normalizeAircraftClass(preset.aircraftClass ?? preset.class, defaults.aircraftClass),
+        aircraftTags: normalizeAircraftTags(preset.aircraftTags ?? preset.tags, defaults.aircraftTags),
         boarding: normalizeAircraftBoardingConfig(boardingSource)
     };
 }
@@ -230,6 +287,42 @@ function getAircraftPreset(slotId) {
     }
     return aircraftPresets[resolvedSlot];
 }
+
+function getAircraftPresetData(slotId = selectedAC) {
+    const preset = getAircraftPreset(slotId);
+    try {
+        return JSON.parse(JSON.stringify(preset));
+    } catch (_) {
+        return { ...preset, aircraftTags: [...(preset.aircraftTags || [])] };
+    }
+}
+window.getAircraftPresetData = getAircraftPresetData;
+
+function getMissionAircraftCapabilitySnapshot({ slotId = selectedAC, totalSeats = null } = {}) {
+    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    const preset = getAircraftPresetData(resolvedSlot);
+    const capabilityCore = window.aircraftMissionCapabilityCore;
+    if (capabilityCore && typeof capabilityCore.buildAircraftCapabilitySnapshot === 'function') {
+        return capabilityCore.buildAircraftCapabilitySnapshot({
+            slotId: resolvedSlot,
+            preset,
+            totalSeats: totalSeats ?? preset.pax,
+            crewSeats: 1
+        });
+    }
+    const seats = clampMainPerfSetting(totalSeats ?? preset.pax, 1, 6, 1, preset.pax || 4);
+    return {
+        slotId: resolvedSlot,
+        name: preset.name || resolvedSlot,
+        totalSeats: seats,
+        crewSeats: 1,
+        passengerCapacity: Math.max(0, seats - 1),
+        maxPayloadKg: Math.max(0, Math.round(Number(preset.maxPayloadKg) || 0)),
+        aircraftClass: preset.aircraftClass || 'other',
+        aircraftTags: [...(preset.aircraftTags || [])]
+    };
+}
+window.getMissionAircraftCapabilitySnapshot = getMissionAircraftCapabilitySnapshot;
 
 function setAircraftPresetStatus(msg, color = '#888') {
     const el = document.getElementById('aircraftPresetStatus');
@@ -533,15 +626,30 @@ function updateNavComAircraftButtons() {
 function updateAircraftPresetButtonsUI() {
     AIRCRAFT_PRESET_SLOT_ORDER.forEach(slotId => {
         const preset = getAircraftPreset(slotId);
+        const aircraftClass = getAircraftClassOption(preset.aircraftClass);
+        const tagLabels = (preset.aircraftTags || [])
+            .map(tagId => AIRCRAFT_TAG_OPTIONS.find(option => option.id === tagId)?.label)
+            .filter(Boolean);
+        const summary = [
+            preset.name,
+            aircraftClass.label,
+            `${preset.tas} TAS`,
+            `${String(preset.gph).padStart(2, '0')} GPH`,
+            `${preset.pax} Sitze`,
+            `${preset.maxPayloadKg} kg Zuladung`,
+            ...tagLabels
+        ].join(' · ');
         document.querySelectorAll(`.btn-preset[data-aircraft-slot="${slotId}"]`).forEach(btn => {
             btn.textContent = preset.name;
-            btn.title = `${preset.name} · ${preset.tas} TAS · ${String(preset.gph).padStart(2, '0')} GPH · ${preset.pax} PAX`;
+            btn.title = `${summary} · Rechtsklick/Langdruck: bearbeiten`;
+            btn.setAttribute('aria-label', `${preset.name} auswählen. Rechtsklick oder Langdruck zum Bearbeiten.`);
         });
         document.querySelectorAll(`.audio-btn[data-aircraft-slot="${slotId}"]`).forEach(btn => {
             const led = btn.querySelector('.audio-led');
             btn.textContent = preset.name;
             if (led) btn.appendChild(led);
-            btn.title = `${preset.name} · ${preset.tas} TAS · ${String(preset.gph).padStart(2, '0')} GPH · ${preset.pax} PAX`;
+            btn.title = `${summary} · Rechtsklick/Langdruck: bearbeiten`;
+            btn.setAttribute('aria-label', `${preset.name} auswählen. Rechtsklick oder Langdruck zum Bearbeiten.`);
         });
     });
     if (typeof updateOpsAircraftSwitches === 'function') updateOpsAircraftSwitches();
@@ -559,15 +667,36 @@ function selectAircraftPresetSlotFromSettings(slotId) {
     const tasInput = document.getElementById('aircraftPresetTas');
     const gphInput = document.getElementById('aircraftPresetGph');
     const paxInput = document.getElementById('aircraftPresetPax');
+    const payloadInput = document.getElementById('aircraftPresetMaxPayload');
+    const classSelect = document.getElementById('aircraftPresetClass');
     if (slotSelect && slotSelect.value !== slotId) slotSelect.value = slotId;
     if (nameInput) nameInput.value = preset.name;
     if (tasInput) tasInput.value = String(preset.tas);
     if (gphInput) gphInput.value = String(preset.gph);
     if (paxInput) paxInput.value = String(preset.pax);
+    if (payloadInput) payloadInput.value = String(preset.maxPayloadKg);
+    if (classSelect) classSelect.value = preset.aircraftClass;
+    const activeTags = new Set(preset.aircraftTags || []);
+    document.querySelectorAll('[data-aircraft-settings-tag]').forEach(input => {
+        input.checked = activeTags.has(input.value);
+    });
     updateBoardingPresetEditorUI(preset.boarding);
     setAircraftPresetStatus(`${getAircraftPresetSlotLabel(slotId)} geladen`, '#9aa3ad');
 }
 window.selectAircraftPresetSlotFromSettings = selectAircraftPresetSlotFromSettings;
+
+function commitAircraftPresetUpdate(slotId, candidate, options = {}) {
+    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    const next = normalizeAircraftPreset(resolvedSlot, candidate);
+    aircraftPresets[resolvedSlot] = next;
+    saveAircraftPresets();
+    updateAircraftPresetButtonsUI();
+    if (options.selectSettingsSlot !== false) selectAircraftPresetSlotFromSettings(resolvedSlot);
+    if (selectedAC === resolvedSlot) applyPreset(next.tas, next.gph, next.pax, resolvedSlot);
+    setAircraftPresetStatus(options.statusText || `${getAircraftPresetSlotLabel(resolvedSlot)} gespeichert`, '#4caf50');
+    scheduleAircraftPresetCloudSync();
+    return next;
+}
 
 function saveAircraftPresetFromSettings() {
     const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
@@ -576,26 +705,187 @@ function saveAircraftPresetFromSettings() {
     const tasInput = document.getElementById('aircraftPresetTas');
     const gphInput = document.getElementById('aircraftPresetGph');
     const paxInput = document.getElementById('aircraftPresetPax');
+    const payloadInput = document.getElementById('aircraftPresetMaxPayload');
+    const classSelect = document.getElementById('aircraftPresetClass');
+    const settingsTagInputs = Array.from(document.querySelectorAll('[data-aircraft-settings-tag]'));
+    const aircraftTags = settingsTagInputs.length
+        ? settingsTagInputs.filter(input => input.checked).map(input => input.value)
+        : getAircraftPreset(slotId).aircraftTags;
 
     const candidate = {
         name: nameInput?.value ?? defaults.name,
         tas: tasInput?.value ?? defaults.tas,
         gph: gphInput?.value ?? defaults.gph,
         pax: paxInput?.value ?? defaults.pax,
+        maxPayloadKg: payloadInput?.value ?? getAircraftPreset(slotId).maxPayloadKg,
+        aircraftClass: classSelect?.value ?? getAircraftPreset(slotId).aircraftClass,
+        aircraftTags,
         boarding: getAircraftPreset(slotId).boarding
     };
-    const next = normalizeAircraftPreset(slotId, candidate);
-    aircraftPresets[slotId] = next;
-    saveAircraftPresets();
-    updateAircraftPresetButtonsUI();
-    selectAircraftPresetSlotFromSettings(slotId);
-    setAircraftPresetStatus(`${getAircraftPresetSlotLabel(slotId)} gespeichert`, '#4caf50');
-    if (selectedAC === slotId) {
-        applyPreset(next.tas, next.gph, next.pax, slotId);
-    }
-    scheduleAircraftPresetCloudSync();
+    commitAircraftPresetUpdate(slotId, candidate);
 }
 window.saveAircraftPresetFromSettings = saveAircraftPresetFromSettings;
+
+function populateAircraftPresetEditor(slotId) {
+    const preset = getAircraftPreset(slotId);
+    const slotLabel = document.getElementById('aircraftPresetEditorSlotLabel');
+    const nameInput = document.getElementById('aircraftPresetEditorName');
+    const tasInput = document.getElementById('aircraftPresetEditorTas');
+    const gphInput = document.getElementById('aircraftPresetEditorGph');
+    const paxInput = document.getElementById('aircraftPresetEditorPax');
+    const payloadInput = document.getElementById('aircraftPresetEditorMaxPayload');
+    if (slotLabel) slotLabel.textContent = `${getAircraftPresetSlotLabel(slotId)} · ${preset.name}`;
+    if (nameInput) nameInput.value = preset.name;
+    if (tasInput) tasInput.value = String(preset.tas);
+    if (gphInput) gphInput.value = String(preset.gph);
+    if (paxInput) paxInput.value = String(preset.pax);
+    if (payloadInput) payloadInput.value = String(preset.maxPayloadKg);
+    document.querySelectorAll('input[name="aircraftPresetEditorClass"]').forEach(input => {
+        input.checked = input.value === preset.aircraftClass;
+    });
+    const activeTags = new Set(preset.aircraftTags || []);
+    document.querySelectorAll('[data-aircraft-editor-tag]').forEach(input => {
+        input.checked = activeTags.has(input.value);
+    });
+}
+
+function openAircraftPresetEditor(slotId, event = null, sourceControl = null) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    const backdrop = document.getElementById('aircraftPresetEditorBackdrop');
+    const dialog = document.getElementById('aircraftPresetEditorDialog');
+    if (!backdrop || !dialog) return;
+    if (typeof closeSettingsHelp === 'function') closeSettingsHelp();
+    if (!document.getElementById('airportTypePickerBackdrop')?.hidden) window.gaAirportTypes?.close?.();
+    activeAircraftPresetEditorSlot = resolvedSlot;
+    aircraftPresetEditorReturnFocus = sourceControl || event?.currentTarget || document.activeElement;
+    populateAircraftPresetEditor(resolvedSlot);
+    backdrop.hidden = false;
+    dialog.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('aircraft-preset-editor-open');
+    requestAnimationFrame(() => document.getElementById('aircraftPresetEditorName')?.focus?.({ preventScroll: true }));
+}
+window.openAircraftPresetEditor = openAircraftPresetEditor;
+
+function closeAircraftPresetEditor(event = null, options = {}) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const backdrop = document.getElementById('aircraftPresetEditorBackdrop');
+    const dialog = document.getElementById('aircraftPresetEditorDialog');
+    if (!backdrop || !dialog) return;
+    backdrop.hidden = true;
+    dialog.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('aircraft-preset-editor-open');
+    activeAircraftPresetEditorSlot = null;
+    const returnFocus = aircraftPresetEditorReturnFocus;
+    aircraftPresetEditorReturnFocus = null;
+    if (options.restoreFocus !== false) returnFocus?.focus?.({ preventScroll: true });
+}
+window.closeAircraftPresetEditor = closeAircraftPresetEditor;
+
+function saveAircraftPresetFromEditor(event = null) {
+    event?.preventDefault?.();
+    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetEditorSlot)
+        ? activeAircraftPresetEditorSlot
+        : 'C172';
+    const current = getAircraftPreset(slotId);
+    const selectedClass = document.querySelector('input[name="aircraftPresetEditorClass"]:checked')?.value;
+    const aircraftTags = Array.from(document.querySelectorAll('[data-aircraft-editor-tag]:checked'))
+        .map(input => input.value);
+    const next = commitAircraftPresetUpdate(slotId, {
+        name: document.getElementById('aircraftPresetEditorName')?.value ?? current.name,
+        tas: document.getElementById('aircraftPresetEditorTas')?.value ?? current.tas,
+        gph: document.getElementById('aircraftPresetEditorGph')?.value ?? current.gph,
+        pax: document.getElementById('aircraftPresetEditorPax')?.value ?? current.pax,
+        maxPayloadKg: document.getElementById('aircraftPresetEditorMaxPayload')?.value ?? current.maxPayloadKg,
+        aircraftClass: selectedClass ?? current.aircraftClass,
+        aircraftTags,
+        boarding: current.boarding
+    });
+    setAircraftPresetStatus(`${getAircraftPresetSlotLabel(slotId)} · ${next.name} gespeichert`, '#4caf50');
+    closeAircraftPresetEditor(null, { restoreFocus: true });
+    return false;
+}
+window.saveAircraftPresetFromEditor = saveAircraftPresetFromEditor;
+
+function initAircraftPresetInteractions() {
+    document.querySelectorAll('[data-aircraft-slot]').forEach(control => {
+        if (control.dataset.aircraftPresetEditorBound === '1') return;
+        control.dataset.aircraftPresetEditorBound = '1';
+        control.setAttribute('aria-haspopup', 'dialog');
+        if (control.tagName !== 'BUTTON') {
+            control.setAttribute('role', 'button');
+            if (!control.hasAttribute('tabindex')) control.tabIndex = 0;
+        }
+        control.setAttribute('draggable', 'false');
+
+        let pressTimer = null;
+        let startX = 0;
+        let startY = 0;
+        const cancelPress = () => {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+            control.classList.remove('aircraft-preset-longpress-active');
+        };
+        control.addEventListener('pointerdown', event => {
+            if (event.button !== 0 || event.isPrimary === false) return;
+            cancelPress();
+            startX = event.clientX;
+            startY = event.clientY;
+            control.classList.add('aircraft-preset-longpress-active');
+            pressTimer = setTimeout(() => {
+                pressTimer = null;
+                control.classList.remove('aircraft-preset-longpress-active');
+                try { window.getSelection?.()?.removeAllRanges?.(); } catch (_) {}
+                control.dataset.aircraftPresetSuppressClickUntil = String(Date.now() + 1200);
+                openAircraftPresetEditor(control.dataset.aircraftSlot, event, control);
+            }, 650);
+        });
+        control.addEventListener('pointermove', event => {
+            if (Math.hypot(event.clientX - startX, event.clientY - startY) > 12) cancelPress();
+        });
+        ['pointerup', 'pointercancel', 'pointerleave', 'blur'].forEach(type => {
+            control.addEventListener(type, cancelPress);
+        });
+        control.addEventListener('click', event => {
+            const suppressUntil = Number(control.dataset.aircraftPresetSuppressClickUntil || 0);
+            if (suppressUntil <= Date.now()) return;
+            delete control.dataset.aircraftPresetSuppressClickUntil;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }, true);
+        control.addEventListener('contextmenu', event => {
+            cancelPress();
+            try { window.getSelection?.()?.removeAllRanges?.(); } catch (_) {}
+            openAircraftPresetEditor(control.dataset.aircraftSlot, event);
+        });
+        control.addEventListener('selectstart', event => event.preventDefault());
+        control.addEventListener('dragstart', event => event.preventDefault());
+        control.addEventListener('keydown', event => {
+            if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                openAircraftPresetEditor(control.dataset.aircraftSlot, event);
+            }
+        });
+    });
+
+    const backdrop = document.getElementById('aircraftPresetEditorBackdrop');
+    if (backdrop && backdrop.dataset.aircraftPresetBound !== '1') {
+        backdrop.addEventListener('click', event => {
+            if (event.target === backdrop) closeAircraftPresetEditor(event);
+        });
+        backdrop.dataset.aircraftPresetBound = '1';
+    }
+    if (document.documentElement.dataset.aircraftPresetKeyBound !== '1') {
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !document.getElementById('aircraftPresetEditorBackdrop')?.hidden) {
+                closeAircraftPresetEditor(event);
+            }
+        });
+        document.documentElement.dataset.aircraftPresetKeyBound = '1';
+    }
+}
+window.initAircraftPresetInteractions = initAircraftPresetInteractions;
 
 function applyAircraftPresetSlot(slotId) {
     const preset = getAircraftPreset(slotId);
@@ -1638,11 +1928,15 @@ const SETTINGS_HELP_CONTENT = {
         intro: 'Aircraft Presets speichern die wichtigsten Planungswerte deines Flugzeugs, damit Missionen und Zeiten realistischer werden.',
         items: [
             { term: 'Slot', text: 'Waehlt einen von drei Speicherplaetzen fuer Flugzeugprofile.' },
+            { term: 'Schnell bearbeiten', text: 'Rechtsklick oder Langdruck auf einen Preset-Button oeffnet den Editor direkt. Ein normaler Klick waehlt das Preset weiterhin aus.' },
             { term: 'Name', text: 'Freier Anzeigename fuer das Flugzeug.' },
             { term: 'TAS', text: 'True Airspeed in Knoten. Dieser Wert bestimmt die geplante Reisegeschwindigkeit.' },
             { term: 'GPH', text: 'Fuel Flow in Gallonen pro Stunde. Damit schaetzt die App den Verbrauch.' },
-            { term: 'PAX', text: 'Maximale Sitzplaetze oder Personenanzahl fuer Missionsplanung.' },
-            { term: 'Preset speichern', text: 'Speichert Name und Werte im gewaehlten Slot. Angemeldet koennen sie auch synchronisiert werden.' }
+            { term: 'Sitze', text: 'Gesamtzahl der Sitzplaetze fuer die Missionsplanung, einschliesslich Pilotensitz.' },
+            { term: 'Max. Zuladung', text: 'Maximale Zuladung in Kilogramm. Der Wert wird als Flugzeug-Metadatum gespeichert und kann spaeter fuer Payload-Pruefungen genutzt werden.' },
+            { term: 'Klasse', text: 'Technische Klasse wie SEP, MEP, Turboprop, Jet oder Heli.' },
+            { term: 'Einsatzprofile', text: 'Privat/Reise, Business/Charter, Cargo, Utility/Arbeit, Bush/STOL und Training begrenzen nur die echte Zufallsrotation. Ohne Auswahl bleibt Auto uneingeschraenkt; eine konkrete Mission-Picker-Auswahl bleibt immer moeglich.' },
+            { term: 'Preset speichern', text: 'Speichert alle Werte im gewaehlten Slot. Angemeldet koennen sie auch synchronisiert werden.' }
         ]
     },
     'boarding-scene': {
@@ -2700,20 +2994,20 @@ const MISSION_ROLE_TASK_PROFILES = {
         personas: [
             {
                 name: 'Sophie Lang',
-                role: 'Tour-Guide',
+                role: 'Ausflugsgast',
                 gender: 'female',
                 personality: 'freundlich, gelassen, kommunikativ',
-                storySeed: '{name} begleitet zwei Gäste, die {targetName} bewusst als kleinen Ausflugsmoment aus der Luft erleben möchten.',
-                sightseeingInterestSeed: '{firstName} begleitet zwei Gaeste, die nach der Landung in die Zielregion wollen und den Ort mit einem ersten persoenlichen Blick beginnen moechten.',
-                greetingText: 'Hi, ich habe heute zwei Gäste dabei, die sich genau auf diesen Blick von oben freuen. Lass uns die Runde weich und entspannt fliegen.'
+                storySeed: '{name} möchte {targetName} bewusst als kleinen Ausflugsmoment aus der Luft erleben.',
+                sightseeingInterestSeed: '{firstName} moechte nach der Landung in die Zielregion und den Ort mit einem ersten persoenlichen Blick beginnen.',
+                greetingText: 'Hi, ich freue mich genau auf diesen Blick von oben. Lass uns die Runde weich und entspannt fliegen.'
             },
             {
                 name: 'Felix Braun',
                 role: 'Stadtführer',
                 gender: 'male',
                 personality: 'locker, charmant, aufmerksam',
-                storySeed: '{name} zeigt zwei Besuchern {targetName} einmal aus der Luft, damit Ortsbild und Umgebung als Ganzes hängen bleiben.',
-                sightseeingInterestSeed: '{firstName} moechte seinen Gaesten nach der Landung nicht nur irgendeinen Ort zeigen, sondern die Stadt mit Orientierung, Ortskern und einem kleinen Spazierplan aufmachen.',
+                storySeed: '{name} möchte {targetName} einmal aus der Luft sehen, damit Ortsbild und Umgebung als Ganzes hängen bleiben.',
+                sightseeingInterestSeed: '{firstName} moechte nach der Landung nicht nur irgendeinen Ort sehen, sondern die Stadt mit Orientierung, Ortskern und einem kleinen Spazierplan erschliessen.',
                 greetingText: 'Hi, heute geht es um einen schönen Blick auf den Ort, nicht um Tempo. Weiche Kurven reichen völlig.'
             },
             {
@@ -2721,7 +3015,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Ausflugsgast',
                 gender: 'female',
                 personality: 'neugierig, warm, ruhig',
-                storySeed: '{name} hat den Rundflug als kleines Geschenk organisiert und möchte {targetName} gemeinsam mit einer Begleitung von oben sehen.',
+                storySeed: '{name} hat den Rundflug als kleines Geschenk bekommen und möchte {targetName} von oben sehen.',
                 sightseeingInterestSeed: '{firstName} hat den Flug als Geschenk organisiert; nach der Landung sollen Zielort, ein Cafe und ein gemeinsamer Spaziergang den Tag tragen.',
                 greetingText: 'Hi, das ist heute ein kleines Geschenk. Ich freu mich auf den Blick auf den Ort, bitte einfach ruhig und angenehm.'
             },
@@ -2739,8 +3033,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Heimatbesucherin',
                 gender: 'female',
                 personality: 'persönlich, gelassen, aufmerksam',
-                storySeed: '{name} kennt {targetName} vom Boden und möchte den Ort heute mit einer Begleitung aus einer neuen Perspektive wiedersehen.',
-                sightseeingInterestSeed: '{firstName} kennt die Gegend von frueher und freut sich darauf, nach der Landung vertraute Ecken mit einer Begleitung neu zu sehen.',
+                storySeed: '{name} kennt {targetName} vom Boden und möchte den Ort heute aus einer neuen Perspektive wiedersehen.',
+                sightseeingInterestSeed: '{firstName} kennt die Gegend von frueher und freut sich darauf, nach der Landung vertraute Ecken neu zu sehen.',
                 greetingText: 'Hi, ich kenne den Ort von unten und möchte ihn heute einfach mal von oben sehen. Kein Stress, nur ein schöner Rundflug.'
             },
             {
@@ -2750,29 +3044,29 @@ const MISSION_ROLE_TASK_PROFILES = {
                 personality: 'locker, freundlich, staunend',
                 storySeed: '{name} nutzt den guten Rundflug-Slot fuer einen kurzen Wochenendausflug zu {targetName} mit Blick, Fotos und entspannter Rückkehr.',
                 sightseeingInterestSeed: '{firstName} macht daraus einen kleinen Wochenend-Stadtbesuch: ruhig ankommen, Zielregion ansehen, Fotos machen und den Tag ohne Termindruck beginnen.',
-                greetingText: 'Hi, fuer uns ist das heute der kleine Wochenend-Hoehepunkt. Schön ruhig zum Ziel und dann gemütlich zurück.'
+                greetingText: 'Hi, fuer mich ist das heute der kleine Wochenend-Hoehepunkt. Schön ruhig zum Ziel und dann gemütlich zurück.'
             },
             {
                 name: 'Clara Vogt',
-                role: 'Reisebegleiterin',
+                role: 'Reisegast',
                 gender: 'female',
                 personality: 'hellwach, freundlich, gelassen',
-                storySeed: '{name} begleitet einen Gast, der {targetName} bisher nur aus Erzählungen kennt und den Ort einmal aus der Luft einordnen möchte.',
-                sightseeingInterestSeed: '{firstName} begleitet jemanden, der die Zielregion bisher nur aus Erzaehlungen kennt und nach der Landung endlich selbst durch den Ort laufen moechte.',
-                greetingText: 'Hi, mein Gast kennt den Ort nur aus Geschichten. Ich würde ihm gern zeigen, wie er von oben in der Landschaft liegt.'
+                storySeed: '{name} kennt {targetName} bisher nur aus Erzählungen und möchte den Ort einmal aus der Luft einordnen.',
+                sightseeingInterestSeed: '{firstName} kennt die Zielregion bisher nur aus Erzaehlungen und moechte nach der Landung endlich selbst durch den Ort laufen.',
+                greetingText: 'Hi, ich kenne den Ort nur aus Geschichten. Ich würde gern sehen, wie er von oben in der Landschaft liegt.'
             },
             {
                 name: 'David Schuster',
                 role: 'Freund der Familie',
                 gender: 'male',
                 personality: 'bodenständig, ruhig, herzlich',
-                storySeed: '{name} nimmt eine Freundin oder einen Freund mit, um {targetName} als gemeinsamen Ausblick und kleinen Ausflugsmoment zu erleben.',
-                sightseeingInterestSeed: '{firstName} nimmt einen Familiengast mit, der nach der Landung einen ruhigen Ortsbesuch, ein paar Fotos und einen gemeinsamen Blick auf die Gegend vor sich hat.',
-                greetingText: 'Hi, ich habe heute jemanden dabei, der sich auf den gemeinsamen Ausblick freut. Bitte eher weich als sportlich.'
+                storySeed: '{name} möchte {targetName} als persönlichen Ausblick und kleinen Ausflugsmoment erleben.',
+                sightseeingInterestSeed: '{firstName} hat nach der Landung einen ruhigen Ortsbesuch und ein paar Fotos von der Gegend vor sich.',
+                greetingText: 'Hi, ich freue mich auf den Ausblick. Bitte eher weich als sportlich.'
             }
         ],
-        greetingText: 'Hi, heute gehts um entspannten Ausblick. Bitte eher weich fliegen, damit alle die Aussicht genießen.',
-        paxText: '2 PAX (Sightseeing-Gäste)',
+        greetingText: 'Hi, heute gehts um entspannten Ausblick. Bitte eher weich fliegen, damit ich die Aussicht genießen kann.',
+        paxText: '1 PAX (Sightseeing-Gast)',
         cargoPool: ['Kleine Kamerataschen (12 lbs)', 'Tagesrucksäcke (15 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: persoenlicher, ruhiger Rundflug mit Blickmoment, Fotos, Orientierung und entspannter Rueckkehr.'
@@ -2948,7 +3242,7 @@ const MISSION_ROLE_TASK_PROFILES = {
             }
         ],
         greetingText: 'Hi, heute geht es einfach um unseren kleinen Plan am Ziel. Ruhig hin, Tasche raus, dann fangen wir dort an.',
-        paxText: '2 PAX (privater Ausflug)',
+        paxText: '1 PAX (privater Mitflieger)',
         cargoPool: ['Tagesrucksäcke und Jacken (14 lbs)', 'Picknicktasche und Thermoskanne (16 lbs)', 'Kleine Kameratasche und Sonnenbrillen (10 lbs)', 'Wellness- und Wochenendtasche (18 lbs)', 'Wanderrucksack und Schuhe (20 lbs)', 'Badetasche und Handtücher (16 lbs)', 'Leichte Einkaufstasche und Jacken (12 lbs)', 'Museumsrucksack und Kameratasche (10 lbs)', 'Frühstücksbeutel und Jacken (12 lbs)', 'Abendjacken und kleine Tasche (14 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: Pilot und Mitflieger unternehmen gemeinsam einen privaten GA-Ausflug wie Burger, Picknick, Eis, Kaffee, Frühstück, Abendessen, Einkauf, Markt, Wandern, Schwimmen, Museum, Familie, ruhiger Paartag, schöne Strecke oder Tapetenwechsel am Ziel.'
@@ -4390,10 +4684,10 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Geländekanten-Check: ${n}`, i: '⛰️', cat: 'poi', s: `Der Geomorphologe bewertet bei ${n} einen markanten Geländehinweis. Der Flug braucht klare Blickwinkel, aber keine Einsatzdramaturgie.`, payloadText: '1 PAX (Geomorphologe)', cargoText: 'Kamera und Karten (13 lbs)' }
         ],
         sightseeing_tour: [
-            { t: `Panorama-Rundflug: ${n}`, i: '🌤️', cat: 'poi', s: `Zwei Gäste haben sich ${n} als kleinen Höhepunkt ihres Rundflugs ausgesucht. Der Blick von oben soll Ort, Landschaft und Umgebung als gemeinsames Bild zeigen, mit Zeit für ein paar persönliche Fotos. Danach geht es ohne Eile zurück zum Heimatplatz.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Kleine Kamerataschen (12 lbs)' },
-            { t: `Aussichtsflug: ${n}`, i: '🏞️', cat: 'poi', s: `Ein Besuchsgast kennt ${n} bisher nur vom Boden und möchte den Ort heute aus der Luft wiedererkennen. Weiche Kurven, ein ruhiger Blick und ein paar Erinnerungsfotos sind wichtiger als Tempo. Nach der Runde bleibt nur die entspannte Rückkehr.`, payloadText: '2 PAX (Tour-Gäste)', cargoText: 'Tagesrucksäcke (15 lbs)' },
-            { t: `Foto-Ausflug: ${n}`, i: '📸', cat: 'poi', s: `Der Rundflug ist als kleines Geschenk geplant: ${n} soll der Moment sein, an den sich die Gäste später erinnern. Wir geben ihnen einen ruhigen Blick auf Ziel und Umgebung, mit genug Zeit für persönliche Fotos. Danach fliegen wir gemütlich heim.`, payloadText: '2 PAX (Ausflugsgäste)', cargoText: 'Kleine Kamerataschen (10 lbs)' },
-            { t: `Orientierungsrunde: ${n}`, i: '🧭', cat: 'poi', s: `Ein Freund oder Familiengast möchte einmal sehen, wie ${n} in der Landschaft liegt. Wir zeigen den Zielbereich ruhig aus der Luft, lassen Zeit für Orientierung und Fotos und gehen anschließend entspannt zurück zum Heimatplatz.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Tagesrucksäcke (12 lbs)' }
+            { t: `Panorama-Rundflug: ${n}`, i: '🌤️', cat: 'poi', s: `Ein Gast hat sich ${n} als kleinen Höhepunkt des Rundflugs ausgesucht. Der Blick von oben soll Ort, Landschaft und Umgebung als gemeinsames Bild zeigen, mit Zeit für ein paar persönliche Fotos. Danach geht es ohne Eile zurück zum Heimatplatz.`, payloadText: '1 PAX (Sightseeing-Gast)', cargoText: 'Kleine Kameratasche (8 lbs)' },
+            { t: `Aussichtsflug: ${n}`, i: '🏞️', cat: 'poi', s: `Ein Besuchsgast kennt ${n} bisher nur vom Boden und möchte den Ort heute aus der Luft wiedererkennen. Weiche Kurven, ein ruhiger Blick und ein paar Erinnerungsfotos sind wichtiger als Tempo. Nach der Runde bleibt nur die entspannte Rückkehr.`, payloadText: '1 PAX (Tour-Gast)', cargoText: 'Tagesrucksack (9 lbs)' },
+            { t: `Foto-Ausflug: ${n}`, i: '📸', cat: 'poi', s: `Der Rundflug ist als kleines Geschenk geplant: ${n} soll der Moment sein, an den sich der Gast später erinnert. Wir geben genug Zeit für einen ruhigen Blick auf Ziel und Umgebung und für persönliche Fotos. Danach fliegen wir gemütlich heim.`, payloadText: '1 PAX (Ausflugsgast)', cargoText: 'Kleine Kameratasche (8 lbs)' },
+            { t: `Orientierungsrunde: ${n}`, i: '🧭', cat: 'poi', s: `Ein Freund oder Familiengast möchte einmal sehen, wie ${n} in der Landschaft liegt. Wir zeigen den Zielbereich ruhig aus der Luft, lassen Zeit für Orientierung und Fotos und gehen anschließend entspannt zurück zum Heimatplatz.`, payloadText: '1 PAX (Sightseeing-Gast)', cargoText: 'Tagesrucksack (8 lbs)' }
         ],
         tour_guide_knowledge: [
             { t: `Wissensflug: ${n}`, i: '📚', cat: 'poi', s: `Der Lern-Guide erklaert dir bei ${n} kurze Fakten zu Lage, Nutzung und sichtbarer Umgebung. Es gibt keinen Arbeitsauftrag, nur Orientierung und Einordnung.`, payloadText: '1 PAX (Lern-Guide)', cargoText: 'Tablet mit Ortsfakten (3 lbs)' },
@@ -6413,6 +6707,7 @@ function bootAppOnce() {
     applySavedPanelTheme();
     loadAircraftPresets();
     applyPersistedMainPerformanceSettings();
+    initAircraftPresetInteractions();
     applyPersistedMissionParameterSettings();
     window.gaAirportTypes?.initUi?.();
     initLazyPayPalDonateButton();
@@ -7724,6 +8019,10 @@ function refreshMissionDebugSnapshotFromRestoredState(state = {}, options = {}) 
             contractTargetScene: md.targetScene || contract?.targetScene || null
         },
         paxText: missionRestoreFirstText(md.paxText, md.initialPaxText, contract?.paxText, state?.mPay),
+        passengerCount: Math.max(0, Math.min(6, Math.round(Number(md.passengerCount ?? contract?.passengerCount) || 0))),
+        plannedPassengerCount: Math.max(0, Math.min(6, Math.round(Number(md.plannedPassengerCount ?? contract?.plannedPassengerCount ?? md.passengerCount ?? contract?.passengerCount) || 0))),
+        party: md.party || contract?.party || null,
+        aircraftCapability: md.aircraftCapability || contract?.aircraftCapability || null,
         cargoText: missionRestoreFirstText(md.cargoText, contract?.cargoText, md.cargo, state?.mWeight),
         passenger: {
             name: p.name || null,
@@ -8489,6 +8788,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'poiTerrainFt', 'poiTerrainMaxFt', 'poiTerrainRadiusNm', 'poiTerrainEnvelope',
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
+        'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
@@ -19497,24 +19797,24 @@ function _missionSightseeingGuestInterestLine(missionLike = {}, target = 'Zielge
         return `Der Verlauf der Bahnlinie ist der eigentliche Reiz: Von oben wird sichtbar, wie ${target} als Linie durch Ort und Landschaft führt.`;
     }
     if (cat === 'bridge') {
-        return `Gerade die Brücke interessiert die Gäste, weil man aus der Luft erkennt, wie Bauwerk, Wege und Landschaft an dieser Stelle zusammenkommen.`;
+        return `Gerade die Brücke interessiert den Gast, weil man aus der Luft erkennt, wie Bauwerk, Wege und Landschaft an dieser Stelle zusammenkommen.`;
     }
     if (cat === 'dam') {
-        return `Der Damm ist für die Gäste spannend, weil Wasserfläche, Mauer und Umgebung aus der Luft als ein zusammenhängendes Bild wirken.`;
+        return `Der Damm ist für den Gast spannend, weil Wasserfläche, Mauer und Umgebung aus der Luft als ein zusammenhängendes Bild wirken.`;
     }
     if (cat === 'city') {
-        return `Die Gäste kennen einzelne Straßen, Wege oder Erinnerungen vom Boden; aus der Luft soll daraus ein ganzer Ortszusammenhang werden.`;
+        return `Der Gast kennt einzelne Straßen, Wege oder Erinnerungen vom Boden; aus der Luft soll daraus ein ganzer Ortszusammenhang werden.`;
     }
     if (cat === 'castle' || cat === 'historic') {
         return `Der historische Reiz liegt darin, wie ${target} in der Landschaft sitzt und warum genau diese Lage aus der Luft besser begreifbar wird.`;
     }
     if (cat === 'mountain' || cat === 'terrain' || cat === 'forest') {
-        return `Die Gäste interessieren sich für die Form des Geländes: Kanten, Höhen, Täler und der ruhige Landschaftsblick sollen als Erinnerung hängen bleiben.`;
+        return `Der Gast interessiert sich für die Form des Geländes: Kanten, Höhen, Täler und der ruhige Landschaftsblick sollen als Erinnerung hängen bleiben.`;
     }
     if (cat === 'water') {
         return `Bei ${target} geht es um den ruhigen Wasserblick: Uferlinie, Fläche und Umgebung sollen als gemeinsames Ausflugsbild wirken.`;
     }
-    return `Der Zielbereich ${target} soll für die Gäste mehr sein als ein Punkt auf der Karte: ein gemeinsamer Blickmoment mit erkennbarem Bezug zur Landschaft.`;
+    return `Der Zielbereich ${target} soll für den Gast mehr sein als ein Punkt auf der Karte: ein persönlicher Blickmoment mit erkennbarem Bezug zur Landschaft.`;
 }
 
 function _missionSightseeingWhyNowLine(missionLike = {}) {
@@ -19531,7 +19831,7 @@ function _missionSightseeingWhyNowLine(missionLike = {}) {
 }
 
 function _missionSightseeingMemoryOutcomeLine(target = 'Zielgebiet') {
-    return `Nach der Runde soll ${target} für die Gäste nicht abstrakt bleiben, sondern als persönliches Bild im Kopf und auf ein paar privaten Fotos mit nach Hause gehen.`;
+    return `Nach der Runde soll ${target} für den Gast nicht abstrakt bleiben, sondern als persönliches Bild im Kopf und auf ein paar privaten Fotos mit nach Hause gehen.`;
 }
 
 function _missionSightseeingAptPlaceLabel(target = '') {
@@ -19728,19 +20028,19 @@ function _missionSightseeingAptFallbackAnchors(place = 'die Zielregion', seed = 
         {
             attractions: `den Ortskern, einen kleinen Spazierweg und ein paar Motive in ${targetPlace}`,
             attractionNames: ['Ortskern', 'Spazierweg', 'Fotomotive'],
-            approach: `${targetPlace} ist fuer die Gaeste heute der Ort, an dem aus dem Flug ein kleiner Stadt- oder Ortsbesuch wird.`,
-            groundPlan: `Nach dem Abstellen wollen die Gaeste erst ankommen, dann mit Kamera und leichter Jacke in Richtung Ort aufbrechen und den ersten Spaziergang beginnen.`
+            approach: `${targetPlace} ist fuer den Gast heute der Ort, an dem aus dem Flug ein kleiner Stadt- oder Ortsbesuch wird.`,
+            groundPlan: `Nach dem Abstellen moechte der Gast erst ankommen, dann mit Kamera und leichter Jacke in Richtung Ort aufbrechen und den ersten Spaziergang beginnen.`
         },
         {
             attractions: `Aussicht, Ortsbild und einen passenden Cafe- oder Spazierstopp in ${targetPlace}`,
             attractionNames: ['Aussicht', 'Ortsbild', 'Cafe- oder Spazierstopp'],
-            approach: `Der Zielflugplatz bringt die Gaeste nah genug an ${targetPlace}, damit der private Besuch nach dem Aussteigen direkt greifbar wird.`,
+            approach: `Der Zielflugplatz bringt den Gast nah genug an ${targetPlace}, damit der private Besuch nach dem Aussteigen direkt greifbar wird.`,
             groundPlan: `Am Vorfeld bleibt es schlicht: aussteigen, Taschen sortieren, kurz die Richtung klaeren und dann mit Zeit fuer Fotos und einen Kaffee in den Zielort wechseln.`
         },
         {
             attractions: `ein paar ruhige Stellen im Ort, die Aussicht in die Umgebung und private Erinnerungsfotos bei ${targetPlace}`,
             attractionNames: ['ruhige Stellen im Ort', 'Aussicht', 'Erinnerungsfotos'],
-            approach: `Die Gaeste haben ${targetPlace} gewaehlt, weil der Flug den Beginn eines privaten Tages am Boden spuerbar macht.`,
+            approach: `Der Gast hat ${targetPlace} gewaehlt, weil der Flug den Beginn eines privaten Tages am Boden spuerbar macht.`,
             groundPlan: `Nach dem Abstellen bleibt der Plan leicht: ein erster Blick in den Ort, ein paar Fotos und genug Zeit, den Zielbesuch langsam zu starten.`
         }
     ];
@@ -19760,14 +20060,14 @@ function _missionSightseeingAptRegionAnchors(target = '', knowledgeContext = nul
         const firstStop = names[0] || visitText;
         const wikiGroundPlans = [
             `Nach dem Abstellen geht es vom Vorfeld weiter in den Zielort; Kamera oder Tagesrucksack kommen mit, und ${firstStop} wird zum ersten konkreten Stopp des kleinen Ausflugs.`,
-            `Nach der Landung wollen die Gaeste direkt in den privaten Plan wechseln: Taschen greifen, kurz orientieren und dann zuerst Richtung ${firstStop} aufbrechen.`,
+            `Nach der Landung moechte der Gast direkt in den privaten Plan wechseln: Tasche greifen, kurz orientieren und dann zuerst Richtung ${firstStop} aufbrechen.`,
             `Am Boden beginnt der eigentliche Sightseeing-Teil mit einem ruhigen Weg vom Vorfeld in den Ort; ${firstStop} gibt dem Ausflug den ersten festen Anker.`
         ];
         return {
             place: String(wikiContext?.sightseeingPlace || place).replace(/\s+/g, ' ').trim() || place,
             attractions: visitText,
             attractionNames: names,
-            approach: `Der Flug hat einen einfachen privaten Grund: Die Gaeste wollen nach der Landung ${visitText} anschauen und den Zielort in Ruhe erleben.`,
+            approach: `Der Flug hat einen einfachen privaten Grund: Der Gast moechte nach der Landung ${visitText} anschauen und den Zielort in Ruhe erleben.`,
             groundPlan: _missionSightseeingAptPickVariant(wikiGroundPlans, variantSeed, 23),
             source: 'wiki'
         };
@@ -19828,7 +20128,7 @@ function _missionSightseeingAptPersonaLine(missionLike = {}, passenger = {}, tar
         return `${firstName} bringt die Kamera mit, weil ${anchors.place} nach der Landung mehr verspricht als einen beliebigen Flugplatzstopp: ${anchors.attractions} sollen zu guten privaten Bildern werden.`;
     }
     if (/\bstadtfuehr|stadtführ|guide|reisebegleit/.test(roleText)) {
-        return `${firstName} begleitet heute Gäste, die ${anchors.place} nach der Landung mit Orientierung und einem echten Stadtgefühl erleben wollen.`;
+        return `${firstName} möchte ${anchors.place} nach der Landung mit Orientierung und einem echten Stadtgefühl erleben.`;
     }
     if (/\bheimat|familie|freund|besuch/.test(roleText)) {
         return `${firstName} freut sich auf ${anchors.place}, weil dort nach der Landung vertraute Geschichten, ein gemeinsamer Spaziergang und neue Fotos zusammenkommen.`;
@@ -19886,10 +20186,10 @@ function _missionSightseeingComposeAptDestinationStory(missionLike = {}, target 
         ? cue
         : _missionSightseeingAptPersonaLine(missionLike, passenger || {}, target, variantSeed);
     const visitLines = [
-        `${anchors.place} ist heute das Sightseeing-Ziel: Nach der Landung wollen die Gäste ${anchors.attractions} anschauen, ein paar Fotos machen und mit Zeit für den ersten Eindruck in den Ort starten.`,
+        `${anchors.place} ist heute das Sightseeing-Ziel: Nach der Landung möchte der Gast ${anchors.attractions} anschauen, ein paar Fotos machen und mit Zeit für den ersten Eindruck in den Ort starten.`,
         `Der Zielflugplatz ist für sie der praktische Anfang: Nach dem Aussteigen steht der Besuch von ${anchors.attractions} an, mit Kamera, Orientierung und einem entspannten ersten Weg in den Ort.`,
         `Im Kopf beginnt der Ausflug schon vor dem Abheben; am Boden soll der Besuch in ${anchors.place} konkret werden, mit ${anchors.attractions} und genug Zeit für den ersten Eindruck.`,
-        `Darum passt genau dieser A-B-Flug: Er bringt die Gäste nah an ${anchors.place}, wo ${anchors.attractions} den Sightseeing-Plan am Boden tragen.`
+        `Darum passt genau dieser A-B-Flug: Er bringt den Gast nah an ${anchors.place}, wo ${anchors.attractions} den Sightseeing-Plan am Boden tragen.`
     ];
     const ordered = [
         [personalLine, _missionSightseeingAptPickVariant(visitLines, variantSeed, 61), _missionSightseeingAptWeatherLine(missionLike, missionLike?.storyFrame?.whyNow || '', variantSeed), anchors.groundPlan],
@@ -19949,7 +20249,7 @@ function _missionSightseeingPoiAnchors(missionLike = {}, target = 'Zielgebiet', 
         ? `${_missionSightseeingEnsureSentence(facts[0])} Genau dieser Hintergrund macht den Blick aus der Luft spannend.`
         : (categoryHooks[cat] || `Der Zielbereich ist mehr als ein Punkt auf der Karte: Lage, Umgebung und Blickrichtung sollen als gemeinsamer Eindruck hängen bleiben.`);
     const returnLines = [
-        `Nach dem Blickmoment geht es zurück zum Startplatz; mitnehmen sollen die Gäste ein paar gute Fotos und ein klares Bild von ${title}.`,
+        `Nach dem Blickmoment geht es zurück zum Startplatz; mitnehmen soll der Gast ein paar gute Fotos und ein klares Bild von ${title}.`,
         `Zurück am Startplatz sollen die Fotos und der Eindruck von ${title} noch nachhallen.`,
         `Der Abschluss bleibt sauber und professionell: ruhiger Rückflug, kurze Nachbesprechung, und ${title} bleibt als persönlicher Blick von oben hängen.`
     ];
@@ -22953,6 +23253,77 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     return _pickFromWeighted(weighted, 'auto');
 }
 
+function resolveAircraftAutoMissionSelection({ baseType = 'apt', preset = null, passengerCapacity = null } = {}) {
+    const activePreset = preset && typeof preset === 'object'
+        ? preset
+        : getAircraftPresetData(selectedAC);
+    const aircraftTags = Array.isArray(activePreset?.aircraftTags) ? activePreset.aircraftTags : [];
+    const profileCore = window.aircraftMissionProfileCore;
+    if (!profileCore || typeof profileCore.getAutoMissionCandidatePool !== 'function') {
+        return {
+            restricted: aircraftTags.length > 0,
+            selection: null,
+            candidates: [],
+            moduleMissing: true
+        };
+    }
+    const policy = profileCore.getAutoMissionCandidatePool({
+        baseType,
+        aircraftTags,
+        aircraftClass: activePreset?.aircraftClass,
+        allowSarHeli: SAR_HELI_PICKER_ACTIVE,
+        passengerCapacity
+    });
+    if (!policy.restricted) return { ...policy, selection: null };
+
+    const candidates = Array.isArray(policy.candidates) ? policy.candidates : [];
+    const weightedKeys = [];
+    candidates.forEach(candidate => {
+        const count = Math.max(1, Math.round(Number(candidate?.weight) || 1));
+        for (let i = 0; i < count; i++) weightedKeys.push(candidate.key);
+    });
+    if (!weightedKeys.length) return { ...policy, selection: null };
+
+    const normalizedBaseType = String(baseType || 'apt').toLowerCase();
+    const selectedKey = _pickFromWeightedWithRecentGuard(
+        weightedKeys,
+        `ga_aircraft_auto_profile_history_${normalizedBaseType}`,
+        { fallback: weightedKeys[0], recentLimit: normalizedBaseType === 'poi' ? 5 : 3 }
+    );
+    const selection = candidates.find(candidate => candidate.key === selectedKey) || candidates[0] || null;
+    return { ...policy, selection };
+}
+
+function aircraftAutoMissionProfileError({ baseType = 'apt', preset = null, moduleMissing = false } = {}) {
+    const activePreset = preset && typeof preset === 'object'
+        ? preset
+        : getAircraftPresetData(selectedAC);
+    const presetName = String(activePreset?.name || selectedAC || 'Aktives Preset').trim();
+    const typeLabel = baseType === 'bush' ? 'Bush' : (baseType === 'poi' ? 'POI' : 'Airport');
+    const tagHint = baseType === 'bush'
+        ? 'Bush / STOL, Cargo oder Utility / Arbeit'
+        : (baseType === 'poi'
+            ? 'Privat / Reise, Utility / Arbeit oder Training'
+            : 'Privat / Reise, Business / Charter, Cargo, Utility / Arbeit oder Training');
+    const reason = moduleMissing
+        ? 'Der Profilfilter konnte nicht geladen werden.'
+        : `Im Preset „${presetName}“ ist kein passendes Einsatzprofil aktiviert.`;
+    const error = new Error(`${reason} Aktiviere für ${typeLabel}-Auto ${tagHint} oder wähle im Mission Picker ein konkretes Profil.`);
+    error.code = 'AIRCRAFT_AUTO_PROFILE_EMPTY';
+    return error;
+}
+
+function missionPassengerCapacityError({ capability = null, baseType = 'apt', category = 'all', profileId = 'auto' } = {}) {
+    const aircraftName = String(capability?.name || capability?.slotId || 'Aktives Preset').trim();
+    const seats = Math.max(1, Math.round(Number(capability?.totalSeats) || 1));
+    const missionLabel = String(profileId || 'auto').toLowerCase() !== 'auto'
+        ? `Profil „${profileId}“`
+        : `Kategorie „${category || baseType}“`;
+    const error = new Error(`${aircraftName} hat mit ${seats} Sitz${seats === 1 ? '' : 'en'} keinen freien Passagierplatz. ${missionLabel} benötigt mindestens eine Person an Bord. Wähle eine 0-PAX-Mission oder ein Preset mit mindestens zwei Sitzen.`);
+    error.code = 'MISSION_PASSENGER_CAPACITY';
+    return error;
+}
+
 const ANIMAL_TRANSPORT_SCENE_OPTIONS = [
     { title: 'Seagull', label: 'Möwe', role: 'animal.waterfowl', keywords: /möwe|moewe|seagull|wildvogel|vogelstation/i },
     { title: 'Goose', label: 'Gans', role: 'animal.waterfowl', keywords: /gans|goose|wasservogel/i },
@@ -23204,7 +23575,7 @@ function sanitizePoiBriefingRuleLeaks(text = '', missionData = null) {
     return out;
 }
 
-function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null, infraInspectionOutcome = null, poiChain = null } = {}) {
+function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', passengerCount = null, plannedPassengerCount = null, party = null, aircraftCapability = null, cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null, infraInspectionOutcome = null, poiChain = null } = {}) {
     const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', isPOI);
     const profileGroup = normalizedMissionType === 'bush' ? 'bush' : (normalizedMissionType === 'poi' ? 'poi' : 'apt');
     const profile = getMissionTaskProfile(appliedProfileId, profileGroup) || getMissionTaskProfile('auto', profileGroup);
@@ -23245,6 +23616,16 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         roleProfile,
         urgencyPriority,
         paxText: String(paxText || ''),
+        passengerCount: Math.max(0, Math.min(6, Math.round(Number(passengerCount ?? mission?.passengerCount) || 0))),
+        plannedPassengerCount: Math.max(0, Math.min(6, Math.round(Number(plannedPassengerCount ?? mission?.plannedPassengerCount ?? passengerCount ?? mission?.passengerCount) || 0))),
+        party: party && typeof party === 'object'
+            ? { ...party }
+            : (mission?.party && typeof mission.party === 'object' ? { ...mission.party } : null),
+        aircraftCapability: aircraftCapability && typeof aircraftCapability === 'object'
+            ? { ...aircraftCapability, aircraftTags: [...(aircraftCapability.aircraftTags || [])] }
+            : (mission?.aircraftCapability && typeof mission.aircraftCapability === 'object'
+                ? { ...mission.aircraftCapability, aircraftTags: [...(mission.aircraftCapability.aircraftTags || [])] }
+                : null),
         cargoText: String(cargoText || ''),
         missionTitle: title,
         missionStory: story,
@@ -23893,6 +24274,53 @@ function sanitizeTrainingPlan(rawPlan, isTrainingMission) {
         ? 'Heute mit gemischtem Programm: Airwork im Uebungsgebiet, dann eine saubere Landeuebung am Platz.'
         : 'Heute konzentrieren wir uns auf Airwork mit ruhigem, sauberem Ablauf.';
     return { mode, trigger, focus, instructorLine: instructorLine || instructorFallback, requiredCount };
+}
+
+function resolveMissionPassengerCapacityPlan({
+    paxText = '',
+    passengerCount = null,
+    pickupPassengerCount = null,
+    aircraftCapability = null,
+    roleLabel = '',
+    preserveDash = false
+} = {}) {
+    const capability = aircraftCapability && typeof aircraftCapability === 'object'
+        ? aircraftCapability
+        : getMissionAircraftCapabilitySnapshot();
+    const capabilityCore = window.aircraftMissionCapabilityCore;
+    if (capabilityCore && typeof capabilityCore.resolveMissionPassengerPlan === 'function') {
+        return capabilityCore.resolveMissionPassengerPlan({
+            paxText,
+            passengerCount,
+            pickupPassengerCount,
+            passengerCapacity: capability.passengerCapacity,
+            maxPartySize: 1,
+            roleLabel,
+            preserveDash
+        });
+    }
+    const match = String(paxText || '').match(/(\d+)\s*PAX/i);
+    const requested = passengerCount !== null
+        && passengerCount !== undefined
+        && passengerCount !== ''
+        && Number.isFinite(Number(passengerCount))
+        ? Math.max(0, Math.min(6, Math.round(Number(passengerCount))))
+        : Math.max(0, Math.min(6, parseInt(match?.[1] || '0', 10) || 0));
+    const capacity = Math.max(0, Math.min(6, Math.round(Number(capability.passengerCapacity) || 0)));
+    const count = requested > 0 && capacity > 0 ? 1 : 0;
+    return {
+        passengerCapacity: capacity,
+        requestedPassengerCount: requested,
+        requestedPickupPassengerCount: 0,
+        passengerCount: count,
+        pickupPassengerCount: 0,
+        plannedPassengerCount: count,
+        requiresPassenger: requested > 0,
+        blocked: requested > 0 && capacity <= 0,
+        deferredPickup: false,
+        paxText: count > 0 ? `1 PAX${roleLabel ? ` (${roleLabel})` : ''}` : (preserveDash && /^\s*-\s*$/.test(String(paxText || '')) ? '-' : '0 PAX'),
+        party: count > 0 ? { count: 1, kind: 'single', label: roleLabel || 'Passagier' } : null
+    };
 }
 
 function formatPaxBriefingText(paxText, passenger) {
@@ -28278,7 +28706,7 @@ const MISSION_SEMANTICS_V4_RULESET = {
             ],
             writer: [
                 'Story bleibt entspannt und driftet nicht in Arbeitssprache.',
-                'APT-Sightseeing erzaehlt, was die Gaeste in der Zielregion sehen moechten und worauf sie sich nach der Landung freuen.',
+                'APT-Sightseeing erzaehlt, was der Gast in der Zielregion sehen moechte und worauf er sich nach der Landung freut.',
                 'Keine Begriffe wie Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund oder Arbeitsauftrag.'
             ],
             forceSceneNone: true
@@ -30446,7 +30874,7 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         if (isAptMode) {
             const anchors = _missionSightseeingAptRegionAnchors(targetLabel, options?.knowledgeContext);
             const sightseeingSubject = _missionPipelineV4PickOne([
-                `Gaeste mit privatem Zielplan fuer ${anchors.place}`,
+                `ein Gast mit privatem Zielplan fuer ${anchors.place}`,
                 `ein kleiner Stadt- oder Zielregionsbesuch rund um ${anchors.place}`,
                 `ein Foto- und Spazierplan, der nach der Landung in ${anchors.place} beginnt`,
                 `ein Besuch, bei dem ${anchors.place} nach der Landung endlich konkret werden soll`
@@ -30454,9 +30882,9 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             return {
                 trigger: `${targetLabel} ist heute der Zielflugplatz fuer einen privaten Sightseeing-Ausflug in die Zielregion.`,
                 focusSubject: sightseeingSubject,
-                keyQuestion: `Was die Gaeste in ${anchors.place} nach der Landung sehen moechten und warum der Zielflugplatz dafuer der passende Zugang ist.`,
+                keyQuestion: `Was der Gast in ${anchors.place} nach der Landung sehen moechte und warum der Zielflugplatz dafuer der passende Zugang ist.`,
                 stakes: 'Wenn der Flug nur wie ein generischer Rundflug klingt, fehlt dem A-B-Ausflug der persoenliche Zielgrund.',
-                completionSignal: `Nach der Landung am Ziel steigen die Gaeste aus und beginnen den privaten Plan in ${anchors.place}.`,
+                completionSignal: `Nach der Landung am Ziel steigt der Gast aus und beginnt den privaten Plan in ${anchors.place}.`,
                 subjectDetail: sightseeingSubject,
                 incidentContext: `${anchors.approach} Der Flug bringt sie dorthin, damit der Zielort nach dem Aussteigen wirklich beginnen kann.`,
                 whyNow: weatherShort
@@ -30466,14 +30894,14 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             };
         }
         return {
-            trigger: `Zwei Gäste haben den Flug zu ${targetLabel} als ruhigen Ausflugsmoment geplant; der Blick auf das Ziel ist der eigentliche Anlass.`,
+            trigger: `Ein Gast hat den Flug zu ${targetLabel} als ruhigen Ausflugsmoment geplant; der Blick auf das Ziel ist der eigentliche Anlass.`,
             focusSubject: targetLabel,
             keyQuestion: `Welche Perspektive, Orientierung oder Stimmung ${targetLabel} aus der Luft als schoene Erinnerung traegt.`,
             stakes: 'Wenn der Ueberflug beliebig bleibt, fehlt dem Ausflug der persoenliche Hoehepunkt.',
-            completionSignal: 'Nach der ruhigen Runde haben die Gaeste ihren Blickmoment und der Flug kann entspannt zum Heimatplatz zurueckgehen.',
+            completionSignal: 'Nach der ruhigen Runde hat der Gast seinen Blickmoment und der Flug kann entspannt zum Heimatplatz zurueckgehen.',
             subjectDetail: _missionPipelineV4PickOne([
-                'zwei Gaeste, die sich genau auf diesen Aussichtsmoment gefreut haben',
-                'einen geplanten Panorama-Ueberflug als kleinen Hoehepunkt eines gemeinsamen Ausflugs',
+                'einen Gast, der sich genau auf diesen Aussichtsmoment gefreut hat',
+                'einen geplanten Panorama-Ueberflug als kleinen Hoehepunkt des Ausflugs',
                 'einen entspannten Rundflug, bei dem dieser Zielbereich der persoenliche Blickfang ist',
                 'einen Besuch oder Geschenkflug, bei dem der Ort von oben neu erlebt werden soll'
             ]),
@@ -31303,7 +31731,7 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
     if (isAptMode) {
         const anchors = _missionSightseeingAptRegionAnchors(targetLabel, options?.knowledgeContext);
         const hooksFallback = [
-            `Die Gaeste fliegen nach ${targetLabel}, weil sie in ${anchors.place} nach der Landung ${anchors.attractions} anschauen moechten.`,
+            `Der Gast fliegt nach ${targetLabel}, weil er in ${anchors.place} nach der Landung ${anchors.attractions} anschauen moechte.`,
             storyFrame.subjectDetail,
             storyFrame.incidentContext,
             storyFrame.whyNow,
@@ -31312,13 +31740,13 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
         plan.primaryObjective = `Privater A-B-Sightseeing-Ausflug nach ${targetLabel}; der Zielflugplatz ist Zugang zu ${anchors.place} und den Sehenswuerdigkeiten nach der Landung.`;
         plan.localFacts = cleanList(plan.localFacts, [
             `${targetLabel} ist der Zielflugplatz fuer den privaten Besuch in ${anchors.place}.`,
-            `Die Gaeste wollen nach der Landung ${anchors.attractions} anschauen.`
+            `Der Gast moechte nach der Landung ${anchors.attractions} anschauen.`
         ]);
         const cleanedOperationalDetails = cleanList(plan.operationalDetails, [])
             .filter(x => !/\b(rueckkehr|ruckkehr|zurueck|zurück|runde|rundflug)\b/.test(normalizeMissionText(x)));
         plan.operationalDetails = Array.from(new Set([
             'Ruhiger A-B-Hinflug, Landung am Zielplatz, Ausstieg am GA-/Vorfeldbereich.',
-            'Der Flug bringt die Gaeste zum Zielort; die Sehenswuerdigkeiten werden nach der Landung am Boden besucht.',
+            'Der Flug bringt den Gast zum Zielort; die Sehenswuerdigkeiten werden nach der Landung am Boden besucht.',
             ...cleanedOperationalDetails
         ].filter(Boolean))).slice(0, 5);
         plan.narrativeHooks = Array.from(new Set([
@@ -31330,7 +31758,7 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
             targetLabel,
             anchors.place,
             'Persoenlicher Zielplan nach der Landung',
-            'Was die Gaeste in der Zielregion sehen moechten'
+            'Was der Gast in der Zielregion sehen moechte'
         ].filter(Boolean))).slice(0, 6);
         plan.mustAvoid = Array.from(new Set([
             ...plan.mustAvoid,
@@ -31338,17 +31766,17 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
             'Keine reine Panorama- oder Rundflug-Story ohne Zielregionsgrund.',
             'Keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache.'
         ].filter(Boolean))).slice(0, 12);
-        plan.realismBrief = `Der Flug ist glaubwuerdig als privater A-B-Sightseeing-Ausflug: ${targetLabel} ist der Zugang zu ${anchors.place}; die Gaeste wollen dort nach der Landung ${anchors.attractions} anschauen.`;
+        plan.realismBrief = `Der Flug ist glaubwuerdig als privater A-B-Sightseeing-Ausflug: ${targetLabel} ist der Zugang zu ${anchors.place}; der Gast moechte dort nach der Landung ${anchors.attractions} anschauen.`;
         return plan;
     }
     const hooksFallback = [
-        `Die Gaeste moechten ${targetLabel} als gemeinsamen Ausflugsmoment aus der Luft erleben.`,
+        `Der Gast moechte ${targetLabel} als persoenlichen Ausflugsmoment aus der Luft erleben.`,
         storyFrame.subjectDetail,
         storyFrame.incidentContext,
         storyFrame.whyNow,
         storyFrame.soughtOutcome
     ].map(x => String(x || '').trim()).filter(Boolean);
-    plan.primaryObjective = `Ruhiger Panorama-Rundflug ueber ${targetLabel}, bei dem Aussicht, Orientierung und ein persoenlicher Blickmoment fuer die Gaeste im Mittelpunkt stehen.`;
+    plan.primaryObjective = `Ruhiger Panorama-Rundflug ueber ${targetLabel}, bei dem Aussicht, Orientierung und ein persoenlicher Blickmoment fuer den Gast im Mittelpunkt stehen.`;
     plan.localFacts = cleanList(plan.localFacts, [
         `${targetLabel} ist der Blickfang der Rundflugrunde.`,
         'Die Umgebung dient nur als Orientierung fuer Aussicht, Fotos und Wiedererkennung.'
@@ -31368,7 +31796,7 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
         ...cleanList(plan.mustMention, []),
         targetLabel,
         'Die entspannte Natur des Rundflugs',
-        'Den persoenlichen Blickmoment fuer die Gaeste'
+        'Den persoenlichen Blickmoment fuer den Gast'
     ].filter(Boolean))).slice(0, 6);
     plan.mustAvoid = Array.from(new Set([
         ...plan.mustAvoid,
@@ -32099,9 +32527,9 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         routeRules.push('APT-Charter-Pickup-Story: Der Plan beantwortet aus dem Follow-up-Kontext wer, was, wo, wann, wie und warum. Der Passagier ist nicht am Start an Bord, sondern wartet am Zielplatz.');
         realismTargets.unshift('APT-Charter-Pickup braucht Termin-/Aufenthaltsdetails, Wartepunkt am GA-/Vorfeldbereich, Rückkehrgrund und nächsten Handoff am Ausgangsplatz.');
     } else if (context.isPOI && profileId === 'sightseeing_tour') {
-        routeRules.push('POI-Sightseeing: Das belegte Ziel ist der Reisegrund der Gaeste; der Flug liefert den besonderen Blick aus der Luft und endet mit Rueckkehr zum Startplatz.');
+        routeRules.push('POI-Sightseeing: Das belegte Ziel ist der Reisegrund des Gasts; der Flug liefert den besonderen Blick aus der Luft und endet mit Rueckkehr zum Startplatz.');
         routeRules.push('Wenn knowledgeContext.status="accept" vorhanden ist, nutze title und facts als Rohmaterial fuer einen natuerlichen Pax-Wunsch: sehen, einordnen, fotografieren oder jemandem zeigen. Keine zusaetzlichen harten Ortsfakten erfinden.');
-        realismTargets.unshift('POI-Sightseeing braucht einen konkreten Gast oder eine kleine Gaesterunde, ein Ziel mit erkennbarem Reiz, ruhigen Luftblick, persoenliche Fotos und einen sauberen Rueckflug.');
+        realismTargets.unshift('POI-Sightseeing braucht einen konkreten Gast, ein Ziel mit erkennbarem Reiz, ruhigen Luftblick, persoenliche Fotos und einen sauberen Rueckflug.');
     } else if (!context.isPOI && profileId === 'sightseeing_tour') {
         routeRules.push('APT-Sightseeing: Zielplatz ist Gateway zur Zielregion nach der Landung; der Abschluss liegt am Zielplatz, nicht am Heimatplatz.');
         routeRules.push('Wenn knowledgeContext.status="accept" vorhanden ist, nutze die darin enthaltenen Zielort-Fakten als belegtes Rohmaterial, aber forme daraus einen natuerlichen Pax-Wunsch fuer Sehenswuerdigkeiten nach der Landung. Keine zusaetzlichen harten Ortsfakten erfinden.');
@@ -32379,7 +32807,7 @@ Arbeitsweise:
 9a. Bei Bush-Profilen mit CONTEXT_BUNDLE.missionVarietyBrief nutze diesen Brief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende, Zweck und Folgegrund nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Das Profil-Rezept bleibt bindend: Supply liefert, Charter setzt ab, Adventure bringt den Gast zur Landung und zum Beginn des Aufenthalts am Ziel, Recon kehrt nach Luftcheck heim, Cargo-Pickup holt Fracht zurueck.
 9b. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
 9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
-9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial fuer eine natuerliche Besuchsabsicht. Plane nicht "wir haben Fakten ueber X", sondern "die Gaeste fliegen dorthin, weil sie nach der Landung X und Y anschauen, Fotos machen oder durch den Ort gehen wollen". Waehle 1-2 passende Sehenswuerdigkeiten aus; keine Listen weiterreichen, keine Begriffe wie Wiki, GeoSearch, Zielanker, Faktenbasis oder knowledgeContext im Plantext. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
+9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial fuer eine natuerliche Besuchsabsicht. Plane nicht "wir haben Fakten ueber X", sondern "der Gast fliegt dorthin, weil er nach der Landung X und Y anschauen, Fotos machen oder durch den Ort gehen will". Waehle 1-2 passende Sehenswuerdigkeiten aus; keine Listen weiterreichen, keine Begriffe wie Wiki, GeoSearch, Zielanker, Faktenbasis oder knowledgeContext im Plantext. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
 9e. Bei APT-private_outing plane einen offenen privaten Fly-out statt einer mustMention-Checkliste: Pilot und Pax fliegen gemeinsam irgendwo hin, wie man privat mit Freund, Partner, Familie oder aehnlicher Begleitung fliegt. Waehle frei genau einen netten Anlass: eine Aktivitaet am Ziel wie Burger, Picknick, Eis, Kaffee, Frühstück, Abendessen, Einkaufen, Markt, Wandern, Schwimmen, Museum, Wellness oder Familienbesuch; oder einen Zielort-Tapetenwechsel mit erstem Weg, Kaffee, kleinem Laden oder spontaner Entdeckung; oder die Strecke als bewusst gewaehlten kleinen Reiseflug. Dieser Anlass muss das Rueckgrat der Story sein, nicht nur ein Stichwort: Warum ist der Kaffee den Flug wert, warum reizt diese Fotorunde, warum macht der Burger den Zielplatz zur Ausrede, warum lohnen Picknickdecke, Eis-Stopp, Markt oder der Weg dorthin den Flug? Bei Familie reicht "Besuch" nicht: mach daraus einen konkreten weichen Anlass wie Kuchen am Tisch, alte Fotoalben, Familienkaffee, kleine Überraschung, verschobene Runde, Abschluss- oder Wiedersehensmoment; Abholung und Route sind nur Übergang. Lege Beziehung, Ausflugsgrund, Tagesgepaeck, Wetterstimmung und Zielgefuehl in storyFrame, localFacts, narrativeHooks oder operationalDetails ab. Plane nicht nur "Aktivitaet beginnt" oder "ein kleiner Plan wartet", sondern Vorfreude auf einen persoenlichen Motiv-Haken. Solche privaten Genussgruende duerfen phantasievoll sein, solange sie nicht zu harten Geofakten, echten Sehenswuerdigkeiten oder operativen Auftraegen aufgeblasen werden. Gib dem Writer Rohmaterial fuer ein gesprochenes, persoenliches Dispatcher-Briefing: warum die beiden heute rauswollen, was den Anlass traegt, was das Gepaeck verraet und welche Route-/Wetterstimmung den Hinflug rund macht. Die Situation am Boden ist Kontext, aber kein eigener Pflichtpunkt und kein separater Schluss-Satz. Keine Beispielsaetze oder Satzmodule in den Plan schreiben; mustMention darf leer bleiben. Keine Rueckkehr zum Heimatplatz als Pflichtpunkt setzen und keine Sightseeing-/Panorama-/Rundflugstory planen.
 9f. Bei APT-club_utility plane eine kleine, originelle Vereinsgeschichte statt "irgendwas liefern". Es gibt zwei gleichwertige Muster: (1) konkrete Vereinsladung mit Empfaenger und naechstem Club-, Hangar-, Flugtag-, Werkstatt- oder Briefingtisch-Schritt; (2) eingeladener Clubbesuch ohne Lieferauftrag, z.B. Fly-In mit Grillwurst, Vereinsstammtisch, VFR-Planungstool-Gespraech, bekannte Gesichter am Clubheim oder lockere Vereinsrunde. Nutze CONTEXT_BUNDLE.loadout.cargoText als Signal: Banner, Funkakkus, Helferlisten, Schluessel, Checkkarten, Leuchtmittel, Lash-Straps oder Werkzeugtasche bleiben Ladung; Clubjacke, Bordtasche, Notizbuch, Sonnenbrille oder persoenliche Sachen sind nur Bordzeug fuer den Besuch. Wenn es Ladung ist, benenne was genau damit am Ziel passiert. Wenn es Besuch ist, benenne warum die Runde den Flug wert ist. Bleibe A-B zum Zielplatz; kein POI-Arbeitsauftrag, kein kuenstlicher Notfall.
 9g. Bei APT-cargo ist CONTEXT_BUNDLE.cargoOnlyPolicy bindend. Wenn cargoOnlyPolicy.enabled=true, plane einen reinen Frachtflug ohne Begleitperson: primaryObjective, missionTrigger, focusSubject, storyFrame, realismBrief, mustMention und objectFamilies duerfen keine transportierten Menschen enthalten. objectFamilies duerfen nur Fracht-, Uebergabe- oder Fahrzeuggruppen beschreiben, z.B. cargo_crates, cargo_equipment, transport_vehicle oder cargo_handoff; keine pax/person/crew/civilian-Werte. Keine Techniker, Servicetechniker, Experten, Frachtbegleiter, Fachpersonal oder Passagiere an Bord, keine "drei Passagiere", kein "Technikerteam reist mit", kein "Transport eines Technikers", kein objectFamily "ground_crew" oder "civilian_pax". Diese Personen duerfen nur als Zielkontakt, Werkstatt, Empfaenger oder Werkstransport am Zielflugplatz warten. Im Plan stehen Sendung, Zweck, Empfaenger, Wetter-/Routenanker und naechster Schritt nach der Landung.
@@ -32781,6 +33209,16 @@ function buildMissionContractV4({
         status: String(plan?.status || 'invalid'),
         mode,
         paxText: String(plannerContext.paxText || profile.paxText || ''),
+        passengerCount: Math.max(0, Math.min(6, Math.round(Number(plannerContext.passengerCount) || 0))),
+        party: plannerContext.party && typeof plannerContext.party === 'object'
+            ? { ...plannerContext.party }
+            : null,
+        aircraftCapability: plannerContext.aircraftCapability && typeof plannerContext.aircraftCapability === 'object'
+            ? {
+                ...plannerContext.aircraftCapability,
+                aircraftTags: [...(plannerContext.aircraftCapability.aircraftTags || [])]
+            }
+            : null,
         cargoText: animalTransportBrief?.cargoText || String(plannerContext.cargoText || ''),
         animalTransportBrief,
         route: {
@@ -32882,8 +33320,8 @@ Regeln:
 19f. bush + bush_pickup_strip / taskDomain bush_pickup_return: Das Briefing braucht einen kurzen, natuerlichen Wetter-/Pistenanker aus CONTRACT.weather und dem Zielstrip: Wind/Sicht/Temperatur knapp einbauen, dazu Zielpiste, Bahnzustand oder Randbereich im Anflug nennen. Nicht als Checkliste schreiben.
 19g. Follow-up-Missionen: Wenn CONTRACT.followUpContext vorhanden ist, schreibe die Mission als natürliche Fortsetzung des vorherigen Auftrags. Nutze sourceMission, storyFrame, lockedPassenger, pickupStory oder missionVarietyBrief als Faktenanker. Das Briefing darf nicht nach Systemanweisung, Debugtext oder Formularfeldern klingen; es soll wie ein neuer Dispatcher-Auftrag mit vertrautem Teamkontext wirken.
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
-19i. sightseeing_tour + POI: Schreibe wie eine professionelle, warme Sightseeing-Notiz: ein konkreter Gast oder eine kleine Gästerunde freut sich auf genau dieses Ziel, der Zielbereich ist der Reisegrund, und der Flug liefert den besonderen Blick aus der Luft. Wenn CONTRACT.knowledgeContext.status="accept", nutze title und 1-2 facts als belegten Anlass: Der Pax will dieses Ziel sehen, einordnen, fotografieren oder jemandem zeigen, weil daran etwas Besonderes hängt. Forme Fakten zu Begeisterung und Kontext, nicht zu einer Liste; keine Begriffe wie Wiki, Faktenbasis oder knowledgeContext im Briefing. Der POI bleibt ein Luft-Blickmoment mit Rückkehr zum Startplatz, nicht der Beginn einer Bodenaktivität. Halte den Ton ruhig, gastorientiert und etwas hochwertiger als einen privaten Spaßflug; Arbeitswörter wie Erfassung, Inspektion, Lagebild, Befund oder abgearbeitet passen hier nicht.
-19k. sightseeing_tour + APT: Schreibe einen professionell klingenden A-B-Sightseeing-Ausflug zur Zielregion: Die Gäste fliegen zum Zielplatz, weil sie nach der Landung einen konkreten Besuchswunsch am Zielort haben. Nutze die Leitfragen als Auswahl, nicht als Checkliste: Gast + Reisegrund + Zielflugplatz + Wetterstimmung oder Gast + Sehenswürdigkeit + erster Weg am Boden reicht oft. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial für 1-2 konkrete Besuchswünsche am Zielort. Verwandle die Fakten in eine kurze Geschichte: Die Pax wollen am Zielort bestimmte schöne oder interessante Stellen anschauen, Fotos machen und den Ort erleben, darum fliegen wir sie dorthin. Reiche keine ganzen Wiki-Sätze als Sehenswürdigkeit weiter; topografische oder historische Fakten sind Hintergrundfarbe, nicht automatisch Besuchsziele. Wenn keine geprüften Sehenswürdigkeiten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern wie Ortskern, Aussicht, Café, Spaziergang oder Fotos. Varriere Einstieg, Wetteranker und Bodenplan sichtbar; nicht jede APT-Sightseeing-Mission soll mit derselben "Tagesziel/Fotos/Ortskern"-Schablone klingen. Der Zielflugplatz ist Gateway zur Aktivität am Boden; keine Rückkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist.
+19i. sightseeing_tour + POI: Schreibe wie eine professionelle, warme Sightseeing-Notiz: ein konkreter Gast freut sich auf genau dieses Ziel, der Zielbereich ist der Reisegrund, und der Flug liefert den besonderen Blick aus der Luft. Wenn CONTRACT.knowledgeContext.status="accept", nutze title und 1-2 facts als belegten Anlass: Der Pax will dieses Ziel sehen, einordnen, fotografieren oder jemandem zeigen, weil daran etwas Besonderes hängt. Forme Fakten zu Begeisterung und Kontext, nicht zu einer Liste; keine Begriffe wie Wiki, Faktenbasis oder knowledgeContext im Briefing. Der POI bleibt ein Luft-Blickmoment mit Rückkehr zum Startplatz, nicht der Beginn einer Bodenaktivität. Halte den Ton ruhig, gastorientiert und etwas hochwertiger als einen privaten Spaßflug; Arbeitswörter wie Erfassung, Inspektion, Lagebild, Befund oder abgearbeitet passen hier nicht.
+19k. sightseeing_tour + APT: Schreibe einen professionell klingenden A-B-Sightseeing-Ausflug zur Zielregion: Der Gast fliegt zum Zielplatz, weil er nach der Landung einen konkreten Besuchswunsch am Zielort hat. Nutze die Leitfragen als Auswahl, nicht als Checkliste: Gast + Reisegrund + Zielflugplatz + Wetterstimmung oder Gast + Sehenswürdigkeit + erster Weg am Boden reicht oft. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial für 1-2 konkrete Besuchswünsche am Zielort. Verwandle die Fakten in eine kurze Geschichte: Der Pax möchte am Zielort bestimmte schöne oder interessante Stellen anschauen, Fotos machen und den Ort erleben, darum fliegen wir ihn dorthin. Reiche keine ganzen Wiki-Sätze als Sehenswürdigkeit weiter; topografische oder historische Fakten sind Hintergrundfarbe, nicht automatisch Besuchsziele. Wenn keine geprüften Sehenswürdigkeiten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern wie Ortskern, Aussicht, Café, Spaziergang oder Fotos. Varriere Einstieg, Wetteranker und Bodenplan sichtbar; nicht jede APT-Sightseeing-Mission soll mit derselben "Tagesziel/Fotos/Ortskern"-Schablone klingen. Der Zielflugplatz ist Gateway zur Aktivität am Boden; keine Rückkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist.
 19l. private_outing + APT: Schreibe eine warme private Fly-out-Story, keine Formularantwort. Pilot und Pax fliegen zusammen als Freund, Partner, Familie oder aehnliche private Begleitung irgendwo hin, weil der Zielplan selbst Spass macht. Zielton: ein gesprochenes Dispatcher-Briefing mit persoenlichem Touch, als wuerde ein Vereinskollege kurz erklaeren, warum die beiden heute rauswollen. Nutze storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen; mustMention ist hier keine abzuarbeitende Liste. Ein gutes Briefing darf frei variieren: Burger, Picknick, Eis, Kaffee, Frühstück, Abendessen, Einkauf, Markt, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch, Paartag, Zielort-Tapetenwechsel mit erstem Weg, kleinem Laden oder spontaner Entdeckung, schoene Strecke oder ein anderer plausibler Privatgrund. Waehle einen konkreten, sinnlichen Motiv-Haken und mache ihn zum Rueckgrat des Textes statt nur "nach dem Flug beginnt die Aktivitaet" zu sagen: z.B. der beste Burger weit und breit, ein Eiskaffee statt kuehler Kaffee, Picknickdecke und Thermoskanne, der Kaffee am Platz, der den Fly-out wert ist, der See als verdiente Abkuehlung, die Wanderrunde in den Bergen, die Ausstellung als ruhiger Anlass, der kleine Markt am Ziel oder der Hinflug als bewusster Reiseflug. Bei Familienbesuch musst du eine kleine weiche Hintergrundgeschichte erfinden: Kuchen, Familienkaffee, alte Fotoalben, gedeckter Tisch, Familienchat, kleine Überraschung, Abschluss- oder Wiedersehensmoment. Die Abholung am Vorfeld und die Route sind nur der Übergang zu dieser Szene, nicht der Grund des Briefings. Du darfst solche privaten Genussgruende phantasievoll erfinden; halte sie als charmante Privatstory, nicht als neue harten Ortsfakten, echte Landmarken, Einsatzlage oder Arbeitsauftrag. Ziele auf 4-5 natuerliche Saetze, wenn die Story dadurch mehr Luft bekommt; ein zusaetzlicher Satz soll Hauptgeschichte, Route, Wetterstimmung oder ersten Schritt am Ziel organisch weitertragen, nicht als Datenanhang wirken. Keine Semikolons, keine Namens-/Rollenformel wie "X ist als Y an Bord", keine Standardanfaenge wie "Heute bleibt es herrlich privat", "Euer Plan ist simpel" oder "dort wartet genau dieser kleine Plan", kein aufgesetztes "Viel Spaß". Keine Rueckkehr zum Heimatplatz als Abschluss behaupten. Keine Sightseeing-/Panorama-/Rundflugstory, keine Arbeits-/Charterlogik und keine Begriffe wie Profil, Pipeline, Muss nennen oder Handoff.
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
 20. cargo_fragile und APT-Cargo: Schreibe eine kleine Frachtgeschichte aus Dispatcher-Perspektive. Wenn CONTRACT.pax oder OUTPUT.pax 0 PAX bedeutet, gibt es keine Person an Bord; Techniker, Pruefer, Werftkontakt, Empfaenger oder Shuttle warten am Ziel und steigen nicht mit ein. Normale APT-Cargo-Fracht ist unbegleitet und nicht automatisch hochsensibel; echte High-Care-Fracht mit Begleitung gehoert zur expliziten cargo_fragile-Logik. Cargo darf viele Anlaesse haben: AOG-Teil, Industrie-Schnellkurier, Postsendungen, Eventkiste, Dorffest-Getraenke, Drucksachen, Messgeraet, Werkstattkit oder Archivbox. Wenn CONTRACT.route.startName, CONTRACT.route.targetName und CONTRACT.route.distanceNm vorhanden sind, baue Route und Entfernung als natuerlichen Story-Satz ein, aber variiere die Formulierung und mache daraus keinen wiederkehrenden Bodenrouten-Vergleich. Wetter darf als ruhiger Realitaetsanker vorkommen, wenn es Behandlung, Flugtakt oder Ankunftsablauf erzaehlerisch stuetzt. Im Mittelpunkt stehen konkrete Sendung, Grund fuer den Flug, Empfaenger oder Zielkontakt, ruhige Behandlung unterwegs und der naechste Schritt nach der Landung. Diese Punkte sind Rohmaterial; ein gutes Briefing darf 4-5 fluessige Saetze bilden und muss nicht jeden Punkt sichtbar abhaken.
@@ -33580,15 +34018,15 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
         softFreedom: 'Allgemeine Besuchspläne wie Ortskern, Aussicht, Fotos oder Café sind erlaubt; echte Sehenswürdigkeiten nur aus Faktenbasis.',
         requiredMeaning: [
             'Der Zielflugplatz ist der Zugang zur Zielregion.',
-            'Die Gäste haben nach der Landung einen konkreten Besuchswunsch.',
+            'Der Gast hat nach der Landung einen konkreten Besuchswunsch.',
             'Keine Rückkehr zum Heimatplatz behaupten, wenn der Contract A-B ist.'
         ],
         qualityQuestions: [
-            'Warum wollen die Gäste genau diesen Zielort besuchen?',
+            'Warum will der Gast genau diesen Zielort besuchen?',
             'Was passiert nach dem Abstellen am Zielplatz?',
             'Welche 1-2 belegten oder plausiblen Zielanker tragen die Geschichte?'
         ],
-        styleRecipe: 'Der Zielflugplatz ist Gateway zum Zielort. Die Gäste wollen nach der Landung einen kleinen Besuch, Fotos, Aussicht, Ortskern oder geprüfte Landmarken erleben. Keine Rückkehr zum Heimatplatz behaupten.'
+        styleRecipe: 'Der Zielflugplatz ist Gateway zum Zielort. Der Gast möchte nach der Landung einen kleinen Besuch, Fotos, Aussicht, Ortskern oder geprüfte Landmarken erleben. Keine Rückkehr zum Heimatplatz behaupten.'
     },
     poi_sightseeing: {
         tone: 'ruhige, hochwertige Sightseeing-Notiz mit dem POI als Reisegrund',
@@ -33601,7 +34039,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Der Text bleibt gastorientiert und nicht einsatz- oder arbeitsartig.'
         ],
         qualityQuestions: [
-            'Warum ist dieser POI für die Gäste interessant?',
+            'Warum ist dieser POI für den Gast interessant?',
             'Was soll der Luftblick zeigen, das vom Boden weniger stark wäre?',
             'Bleibt der Ton Sightseeing statt Inspektion oder Lagebild?'
         ],
@@ -33866,7 +34304,7 @@ function _missionWriterV5BuildPeopleForm(contract = {}, context = {}, family = '
     } else if (String(profile.taskDomain || '').toLowerCase() === 'news_coverage') {
         relationshipOrFunction = _missionWriterV5Text(passenger?.role || 'Reporter oder Redakteurin', 140);
     } else if (String(profile.taskDomain || '').toLowerCase() === 'sightseeing_tour') {
-        relationshipOrFunction = _missionWriterV5Text(passenger?.role || 'Sightseeing-Gast oder kleine Gästerunde', 140);
+        relationshipOrFunction = _missionWriterV5Text(passenger?.role || 'Sightseeing-Gast', 140);
     }
     return {
         passengerName,
@@ -35971,6 +36409,8 @@ function _missionPipelineV4CargoNoPaxPersonLeak(text = '', contract = {}, contex
     if (!normalized) return false;
     if (_missionPipelineV4CargoTextHasOnboardPerson(text)) return true;
     const person = _missionPipelineV4CargoOnboardPersonPattern();
+    const explicitTravel = new RegExp(`\\b(?:ein(?:e|em|en|er)?\\s+)?${person}\\b[^.!?]{0,90}\\b(?:muss|soll|will|moechte|möchte|braucht)\\b[^.!?]{0,50}\\b(?:nach\\s+(?!der\\s+landung|dem\\s+abstellen|der\\s+ankunft|der\\s+uebergabe|der\\s+übergabe)|zum\\s+(?!empfang|zielkontakt)|zur\\s+(?!annahme|uebergabe|übergabe))`);
+    if (explicitTravel.test(normalized)) return true;
     return new RegExp(`\\b(?:${person}\\s+(?:ist\\s+)?an\\s+bord|an\\s+bord\\s+(?:ist|sitzt|reist|fliegt)?\\s*(?:ein(?:e|em|er|en)?\\s+)?${person}|zusammen\\s+mit\\s+(?:ein(?:em|er|en)?\\s+)?${person}|${person}\\s+(?:fliegt|reist|kommt|sitzt|steigt)\\s+(?:mit|ein)|mit\\s+(?:ein(?:em|er|en)?\\s+)?${person}\\s+an\\s+bord)\\b`).test(normalized);
 }
 
@@ -37311,7 +37751,7 @@ function _missionWriterV5WeatherSentence(contract = {}, family = '') {
     return `Das Wetter passt als kurzer Realitätsanker: ${summary}.`;
 }
 
-function _missionWriterV5PassengerLabel(passenger = {}, fallback = 'die Gäste') {
+function _missionWriterV5PassengerLabel(passenger = {}, fallback = 'der Gast') {
     const name = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
     const role = String(passenger?.role || '').replace(/\s+/g, ' ').trim();
     if (name && role && !/^(gast|passagier|passagierin|pax)$/i.test(role)) return `${name}, ${role}`;
@@ -37349,7 +37789,7 @@ function _missionWriterV5PassengerFirstName(passenger = {}) {
 
 function _missionWriterV5SightseeingGroupLabel(passenger = {}) {
     const firstName = _missionWriterV5PassengerFirstName(passenger);
-    return firstName ? `${firstName} und die Gäste` : 'Die Gäste';
+    return firstName || 'Der Sightseeing-Gast';
 }
 
 function _missionWriterV5PrivateHook(contract = {}, passenger = {}, context = {}) {
@@ -38282,7 +38722,7 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
         const pax = _missionWriterV5SightseeingGroupLabel(passenger);
         return _missionWriterV5SentenceJoin([
             routeSentence || `Heute geht es nach ${targetName}`,
-            `${pax} wollen ${place} nach der Landung wirklich anschauen: ${attractions} geben dem Ausflug den Grund`,
+            `${pax} möchte ${place} nach der Landung wirklich anschauen: ${attractions} geben dem Ausflug den Grund`,
             weatherSentence,
             `Nach dem Abstellen geht es vom Vorfeld in den Zielort, mit Kamera oder Tagesrucksack und genug Zeit für den ersten Eindruck`
         ]);
@@ -38293,7 +38733,7 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
             .find(Boolean);
         const pax = _missionWriterV5SightseeingGroupLabel(passenger);
         return _missionWriterV5SentenceJoin([
-            `${pax} freuen sich heute auf ${targetName}; der Blick aus der Luft ist der eigentliche Reisegrund`,
+            `${pax} freut sich heute auf ${targetName}; der Blick aus der Luft ist der eigentliche Reisegrund`,
             fact ? `${fact} Genau deshalb lohnt sich die ruhige Runde über dem Ziel.` : 'Der Flug soll den Ort aus der Luft einordnen, ohne daraus einen Arbeitsauftrag zu machen',
             weatherSentence,
             `Nach dem Blickmoment geht es sauber zurück zum Startplatz`
@@ -38880,6 +39320,12 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
     const briefingBrief = _missionWriterV5BuildBriefingBrief(contract, context);
     const requiredRoleProfile = String(contract?.profile?.roleProfile || plan.roleProfile || 'general_passenger_v1').toLowerCase();
     const requiredTaskDomain = String(contract?.profile?.taskDomain || plan.taskDomain || 'general').toLowerCase();
+    const plannedPassengerValue = contract?.plannedPassengerCount ?? contract?.passengerCount;
+    const missionHasNoPassenger = plannedPassengerValue !== null
+        && plannedPassengerValue !== undefined
+        && plannedPassengerValue !== ''
+        && Number.isFinite(Number(plannedPassengerValue))
+        && Number(plannedPassengerValue) <= 0;
     const isPOI = !!context.isPOI;
     let sceneIntent = sanitizeMissionSceneIntentSpec(src.sceneIntent || null, {
         isPOI,
@@ -38927,6 +39373,7 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
     if (requiredTaskDomain === 'private_outing') {
         passenger = _missionPrivateOutingNormalizePassenger(passenger, getMissionTaskProfile('private_outing', 'apt'), contract);
     }
+    if (missionHasNoPassenger) passenger = null;
     let writerStoryText = String(src.story || '').trim();
     if (requiredTaskDomain === 'infra_chain_recon' && contract?.poiChain?.points?.length >= 2) {
         const previousPassenger = { ...passenger };
@@ -39010,8 +39457,12 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
     const nameAligned = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract, finalStory);
     passenger = nameAligned.passenger;
     finalStory = nameAligned.story;
-    passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
-    finalStory = _missionWriterV5AlignPassengerRoleInStory(finalStory, passenger);
+    if (missionHasNoPassenger) {
+        passenger = null;
+    } else {
+        passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
+        finalStory = _missionWriterV5AlignPassengerRoleInStory(finalStory, passenger);
+    }
     if ((requiredTaskDomain === 'infra_chain_recon' && contract?.poiChain?.points?.length >= 2) || requiredTaskDomain === 'animal_transport') {
         finalStory = _missionPipelineV4PolishGermanVisibleText(finalStory);
         if (passenger?.greetingText) passenger.greetingText = _missionPipelineV4PolishGermanVisibleText(passenger.greetingText);
@@ -39466,7 +39917,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ],
         sightseeing_tour: isPOI ? [
             'Entspannter Ausflugs- und Sightseeingflug',
-            'Ruhiger Fotostopp fuer Gaeste mit Fokus auf Aussicht und Orientierung',
+            'Ruhiger Fotostopp fuer einen Gast mit Fokus auf Aussicht und Orientierung',
             'Privater Rundflug zu einem markanten POI als persoenlicher Blickmoment',
             'Panorama-Tour mit weichen Manoevern und gutem Blick auf Ziel und Umgebung'
         ] : [
@@ -40225,7 +40676,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
   },
   "title": "Kreativer Titel",
   "story": "Briefing, max 3-4 Sätze",
-  "pax": "z.B. '2 PAX (...)' oder '0 PAX'",
+  "pax": "z.B. '1 PAX (...)' oder '0 PAX'",
   "cargo": "z.B. 'Kamera-Gimbal (80 lbs)'",
   "targetInfo": "Bei POI: 2-3 sachliche Sätze für die Ziel-Info-Seite aus belegten Kontextdaten; bei A-B leerer String",
   "sceneIntent": {
@@ -41644,12 +42095,12 @@ function missionProposalPoiProfileConfig(profileId = '') {
     const profile = String(profileId || '').toLowerCase();
     const configs = {
         sightseeing_tour: {
-            intro: 'Wähle den Blickpunkt für die Runde. Alle Optionen sind entspannte Rundflüge mit Rückkehr zum Start; die Gäste wollen genau diesen Ort sehen und fotografieren.',
+            intro: 'Wähle den Blickpunkt für die Runde. Alle Optionen sind entspannte Rundflüge mit Rückkehr zum Start; der Gast möchte genau diesen Ort sehen und fotografieren.',
             fallbackSubtitle: 'Sightseeing-Runde',
             fallbackCargo: 'Kleine Kamerataschen (12 lbs)',
-            fallbackPax: '2 PAX (Sightseeing-Gäste)',
+            fallbackPax: '1 PAX (Sightseeing-Gast)',
             subtitle: typeLabel => typeLabel ? `${typeLabel} als Blickpunkt` : 'Sightseeing-Runde',
-            storySeed: targetTitle => `Die Gäste wollen ${targetTitle} bewusst aus der Luft sehen und fotografieren.`
+            storySeed: targetTitle => `Der Gast möchte ${targetTitle} bewusst aus der Luft sehen und fotografieren.`
         },
         inspection_infra: {
             intro: 'Wähle einen Inspektionsauftrag. Alle Optionen sind Rundflüge mit Rückkehr zum Start; geflogen werden ruhige, gut planbare Passes für erste Zustands- oder Wartungsbilder.',
@@ -42297,7 +42748,7 @@ function missionProposalAptProfileConfig(profileId = '') {
             selectedCategory: 'private',
             intro: 'Wähle den privaten Ausflug. Jede Option setzt Zielplatz, Mitflug-Anlass und Gepäck für das folgende Dispatcher-Briefing fest.',
             fallbackCargo: 'Tagesrucksäcke und Jacken (14 lbs)',
-            fallbackPax: '2 PAX (privater Ausflug)',
+            fallbackPax: '1 PAX (privater Mitflieger)',
             titleMode: 'scenario',
             description: ({ route, scenario }) => `Route: ${route.label} vom Start. ${missionProposalShortSentence(scenario?.s, 'Der private Plan gehoert an den Zielplatz.')}`,
             storySeed: ({ scenario, cargoText, targetName }) => `${scenario?.s || 'Der private Ausflug hat am Zielplatz seinen Anlass.'} Gepäck: ${cargoText}. Zielplatz: ${targetName}.`
@@ -42306,10 +42757,10 @@ function missionProposalAptProfileConfig(profileId = '') {
             selectedCategory: 'private',
             intro: 'Wähle den APT-Ausflug. Jede Option setzt Zielplatz, Blick- oder Besuchsanlass und Gepäck für das folgende Dispatcher-Briefing fest.',
             fallbackCargo: 'Kleine Kamerataschen (12 lbs)',
-            fallbackPax: '2 PAX (Sightseeing-Gäste)',
+            fallbackPax: '1 PAX (Sightseeing-Gast)',
             titleMode: 'scenario',
             description: ({ route, scenario }) => `Route: ${route.label} vom Start. ${missionProposalShortSentence(scenario?.s, 'Der Zielplatz ist der Zugang zur Zielregion nach der Landung.')}`,
-            storySeed: ({ scenario, cargoText, targetName }) => `${scenario?.s || 'Die Gäste wollen die Zielregion nach der Landung bewusst erleben.'} Gepäck: ${cargoText}. Zielplatz: ${targetName}.`
+            storySeed: ({ scenario, cargoText, targetName }) => `${scenario?.s || 'Der Gast möchte die Zielregion nach der Landung bewusst erleben.'} Gepäck: ${cargoText}. Zielplatz: ${targetName}.`
         },
         news_coverage: {
             selectedCategory: 'charter',
@@ -42823,11 +43274,70 @@ async function generateMission(options = {}) {
     const followupSeed = (dispatchOptions.followupSeed && typeof dispatchOptions.followupSeed === 'object')
         ? dispatchOptions.followupSeed
         : null;
+    const requestedPickerValueAtStart = String(document.getElementById('targetType')?.value || 'apt:all');
+    const missionAircraftCapability = getMissionAircraftCapabilitySnapshot({
+        slotId: selectedAC,
+        totalSeats: document.getElementById('maxSeats')?.value
+    });
     if (!dispatchOptions.skipOverwriteConfirm && !confirmMissionOverwriteIfNeeded()) {
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Aktive Mission bleibt bestehen.';
         setMissionGenerationProgress({ visible: false, force: true });
         return false;
+    }
+    let preflightAircraftAutoResolution = null;
+    if (!missionProposalChoice && !followupSeed) {
+        const preflightPicker = parseMissionPickerValue(requestedPickerValueAtStart);
+        const profileCore = window.aircraftMissionProfileCore;
+        const preflightGenericAuto = typeof profileCore?.shouldFilterAutoMissionPicker === 'function'
+            ? profileCore.shouldFilterAutoMissionPicker(preflightPicker)
+            : (String(preflightPicker.category || 'all').toLowerCase() === 'all'
+                && String(preflightPicker.profile || 'auto').toLowerCase() === 'auto');
+        if (preflightGenericAuto) {
+            const activePreset = getAircraftPresetData(selectedAC);
+            preflightAircraftAutoResolution = resolveAircraftAutoMissionSelection({
+                baseType: preflightPicker.baseType,
+                preset: activePreset,
+                passengerCapacity: missionAircraftCapability.passengerCapacity
+            });
+            if (preflightAircraftAutoResolution?.restricted && !preflightAircraftAutoResolution.selection) {
+                const preflightError = aircraftAutoMissionProfileError({
+                    baseType: preflightPicker.baseType,
+                    preset: activePreset,
+                    moduleMissing: preflightAircraftAutoResolution.moduleMissing
+                });
+                const indicator = document.getElementById('searchIndicator');
+                if (indicator) indicator.innerText = preflightError.message;
+                setMissionGenerationProgress({ visible: false, force: true });
+                try { alert(preflightError.message); } catch (_) {}
+                return false;
+            }
+        }
+        const capacitySelection = preflightAircraftAutoResolution?.selection || {
+            category: preflightPicker.category,
+            profileId: preflightPicker.profile
+        };
+        const minimumPassengerCount = typeof profileCore?.getMissionSelectionMinimumPassengerCount === 'function'
+            ? profileCore.getMissionSelectionMinimumPassengerCount({
+                baseType: preflightPicker.baseType,
+                category: capacitySelection.category,
+                profileId: capacitySelection.profileId
+            })
+            : null;
+        if (Number.isFinite(minimumPassengerCount)
+            && minimumPassengerCount > missionAircraftCapability.passengerCapacity) {
+            const capacityError = missionPassengerCapacityError({
+                capability: missionAircraftCapability,
+                baseType: preflightPicker.baseType,
+                category: capacitySelection.category,
+                profileId: capacitySelection.profileId
+            });
+            const indicator = document.getElementById('searchIndicator');
+            if (indicator) indicator.innerText = capacityError.message;
+            setMissionGenerationProgress({ visible: false, force: true });
+            try { alert(capacityError.message); } catch (_) {}
+            return false;
+        }
     }
     const dispatchRunId = _startDispatchRun();
     setMissionGenerationProgress({ phase: 'start', progress: 2, force: true });
@@ -43016,9 +43526,9 @@ async function generateMission(options = {}) {
             ? 'apt:charter'
             : `bush:all+${followupDispatchProfileId}`)
         : '');
-    const targetType = followupPickerValue || document.getElementById("targetType").value, dirPref = document.getElementById("dirPref").value;
+    const targetType = followupPickerValue || requestedPickerValueAtStart, dirPref = document.getElementById("dirPref").value;
     const missionPicker = parseMissionPickerValue(targetType);
-    const maxSeats = parseInt(document.getElementById("maxSeats").value);
+    const maxSeats = missionAircraftCapability.totalSeats;
     const selectedTasRaw = parseInt(document.getElementById("tasSlider").value);
     const selectedGphRaw = parseInt(document.getElementById("gphSlider").value);
     const selectedTas = Number.isFinite(selectedTasRaw) ? selectedTasRaw : 160;
@@ -43067,19 +43577,50 @@ async function generateMission(options = {}) {
     }
     const selectedMissionProfile = String(missionPicker.profile || 'auto').toLowerCase();
     const proposalProfileId = String(missionProposalChoice?.profileId || '').trim().toLowerCase();
+    const aircraftAutoBaseType = isBushDispatch ? 'bush' : effectiveType;
+    const activeAircraftMissionPreset = getAircraftPresetData(selectedAC);
+    const profileCore = window.aircraftMissionProfileCore;
+    const genericAutoPicker = typeof profileCore?.shouldFilterAutoMissionPicker === 'function'
+        ? profileCore.shouldFilterAutoMissionPicker(missionPicker)
+        : (String(missionPicker.category || 'all').toLowerCase() === 'all' && selectedMissionProfile === 'auto');
+    const aircraftAutoResolution = (!missionProposalChoice && !followupSeed && genericAutoPicker)
+        ? preflightAircraftAutoResolution
+        : null;
+    if (aircraftAutoResolution?.restricted && !aircraftAutoResolution.selection) {
+        throw aircraftAutoMissionProfileError({
+            baseType: aircraftAutoBaseType,
+            preset: activeAircraftMissionPreset,
+            moduleMissing: aircraftAutoResolution.moduleMissing
+        });
+    }
+    if (aircraftAutoResolution?.selection) {
+        if (aircraftAutoBaseType === 'apt') {
+            selectedAptCategory = String(aircraftAutoResolution.selection.category || 'all').toLowerCase();
+        } else if (aircraftAutoBaseType === 'poi') {
+            selectedPoiCategory = String(aircraftAutoResolution.selection.category || 'all').toLowerCase();
+        }
+        console.debug('[Aircraft Mission Profiles] Auto-Auswahl', {
+            slotId: selectedAC,
+            aircraftTags: aircraftAutoResolution.tags,
+            baseType: aircraftAutoBaseType,
+            category: aircraftAutoResolution.selection.category,
+            profileId: aircraftAutoResolution.selection.profileId
+        });
+    }
+    const aircraftAutoProfileId = String(aircraftAutoResolution?.selection?.profileId || '').toLowerCase();
     const seededProfileId = proposalProfileId || ((poiChainCategoryRequested && selectedMissionProfile === 'auto')
         ? 'infra_chain_recon'
         : (selectedMissionProfile === 'auto')
         ? (followupDispatchProfileId && !isBushDispatch
             ? followupDispatchProfileId
-            : (isBushDispatch
+            : (aircraftAutoProfileId || (isBushDispatch
             ? pickAutoBushProfileId()
             : pickAutoMissionTaskProfileId({
                 isPOI: effectiveType === 'poi',
                 selectedAptCategory,
                 selectedPoiCategory,
                 missionCat: ''
-            })))
+            }))))
         : selectedMissionProfile);
     let dispatchProfileId = String(seededProfileId || 'auto').toLowerCase();
     const requestedPoiCategory = poiChainCategoryRequested ? 'chain' : selectedPoiCategory;
@@ -43493,11 +44034,19 @@ async function generateMission(options = {}) {
         await ensurePoiMissionContext('prefetch');
     }
 
-    const maxPax = Math.max(1, maxSeats - 1), randomPax = Math.floor(Math.random() * maxPax) + 1;
+    const maxPax = Math.max(0, Math.min(1, missionAircraftCapability.passengerCapacity));
+    const randomPax = maxPax > 0 ? 1 : 0;
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
     if (missionProposalChoice?.paxText) paxText = missionProposalChoice.paxText;
     if (missionProposalChoice?.cargoText) cargoText = missionProposalChoice.cargoText;
-    const preWriterProfile = getMissionTaskProfile(dispatchProfileId || 'auto', isPOI ? 'poi' : 'apt') || null;
+    if (!isPOI && selectedAptCategory === 'cargo' && !missionProposalChoice?.paxText) paxText = '0 PAX';
+    if (!isPOI && ['charter', 'trn'].includes(String(selectedAptCategory || '').toLowerCase()) && !missionProposalChoice?.paxText) {
+        paxText = '1 PAX';
+    }
+    if (isPOI && selectedPoiCategory === 'trn' && !missionProposalChoice?.paxText) paxText = '1 PAX (Instruktor)';
+    const preWriterProfileGroup = isBushDispatch ? 'bush' : (isPOI ? 'poi' : 'apt');
+    const preWriterProfile = getMissionTaskProfile(dispatchProfileId || 'auto', preWriterProfileGroup) || null;
+    if (preWriterProfile?.paxText && !missionProposalChoice?.paxText) paxText = preWriterProfile.paxText;
     const animalTransportCargoPool = preWriterProfile?.id === 'animal_transport' && Array.isArray(preWriterProfile.cargoPool)
         ? preWriterProfile.cargoPool.filter(Boolean)
         : [];
@@ -43536,6 +44085,21 @@ async function generateMission(options = {}) {
     }
 
     const isPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
+    if (isPlanningOnlyMode) paxText = '-';
+    const preWriterPassengerPlan = resolveMissionPassengerCapacityPlan({
+        paxText,
+        aircraftCapability: missionAircraftCapability,
+        preserveDash: isPlanningOnlyMode
+    });
+    if (preWriterPassengerPlan.blocked) {
+        throw missionPassengerCapacityError({
+            capability: missionAircraftCapability,
+            baseType: isBushDispatch ? 'bush' : (isPOI ? 'poi' : 'apt'),
+            category: isPOI ? selectedPoiCategory : selectedAptCategory,
+            profileId: dispatchProfileId
+        });
+    }
+    paxText = preWriterPassengerPlan.paxText;
     let missionPlanV2 = null;
     let missionPlanV3Attempt = null;
     let missionPlanV4 = null;
@@ -43633,6 +44197,9 @@ async function generateMission(options = {}) {
         missionWeather,
         missionFireHazard,
         paxText,
+        passengerCount: preWriterPassengerPlan.passengerCount,
+        party: preWriterPassengerPlan.party,
+        aircraftCapability: missionAircraftCapability,
         cargoText,
         animalTransportBrief,
         selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
@@ -44764,6 +45331,54 @@ async function generateMission(options = {}) {
             }
         }
     }
+    const finalPassengerPlan = resolveMissionPassengerCapacityPlan({
+        paxText,
+        passengerCount: m?.passengerCount !== null
+            && m?.passengerCount !== undefined
+            && m?.passengerCount !== ''
+            && Number.isFinite(Number(m.passengerCount))
+            ? Number(m.passengerCount)
+            : null,
+        pickupPassengerCount: m?.bush?.pickupPassengerCount !== null
+            && m?.bush?.pickupPassengerCount !== undefined
+            && m?.bush?.pickupPassengerCount !== ''
+            && Number.isFinite(Number(m.bush.pickupPassengerCount))
+            ? Number(m.bush.pickupPassengerCount)
+            : null,
+        aircraftCapability: missionAircraftCapability,
+        roleLabel: m?.passenger?.role || '',
+        preserveDash: isPlanningOnlyMode
+    });
+    if (finalPassengerPlan.blocked) {
+        throw missionPassengerCapacityError({
+            capability: missionAircraftCapability,
+            baseType: isBushDispatch ? 'bush' : (isPOI ? 'poi' : 'apt'),
+            category: isPOI ? selectedPoiCategory : selectedAptCategory,
+            profileId: m?._appliedProfile || dispatchProfileId
+        });
+    }
+    paxText = finalPassengerPlan.paxText;
+    if (m && typeof m === 'object') {
+        m.pax = paxText;
+        m.paxText = paxText;
+        m.passengerCount = finalPassengerPlan.passengerCount;
+        m.plannedPassengerCount = finalPassengerPlan.plannedPassengerCount;
+        m.party = finalPassengerPlan.party;
+        m.aircraftCapability = missionAircraftCapability;
+        if (finalPassengerPlan.plannedPassengerCount <= 0) m.passenger = null;
+        if (finalPassengerPlan.deferredPickup && m.bush && typeof m.bush === 'object') {
+            m.bush.pickupPassengerCount = finalPassengerPlan.pickupPassengerCount;
+        }
+    }
+    if (missionContractV4 && typeof missionContractV4 === 'object') {
+        missionContractV4.paxText = paxText;
+        missionContractV4.passengerCount = finalPassengerPlan.passengerCount;
+        missionContractV4.plannedPassengerCount = finalPassengerPlan.plannedPassengerCount;
+        missionContractV4.party = finalPassengerPlan.party;
+        missionContractV4.aircraftCapability = missionAircraftCapability;
+        if (finalPassengerPlan.plannedPassengerCount <= 0) missionContractV4.passenger = null;
+        if (m && typeof m === 'object') m._missionContractV4 = missionContractV4;
+    }
     _ensureDispatchAlive();
     setMissionGenerationProgress('assemble_mission');
 
@@ -44953,6 +45568,13 @@ async function generateMission(options = {}) {
             elevation: Number.isFinite(Number(dest?.elevation)) ? Number(dest.elevation) : null,
             source: dest?.source || null
         } : null,
+        aircraftCapability: {
+            ...missionAircraftCapability,
+            aircraftTags: [...(missionAircraftCapability.aircraftTags || [])]
+        },
+        passengerCount: finalPassengerPlan.passengerCount,
+        plannedPassengerCount: finalPassengerPlan.plannedPassengerCount,
+        party: finalPassengerPlan.party ? { ...finalPassengerPlan.party } : null,
         paxText: String(paxText || ''),
         initialPaxText: String(paxText || ''),
         cargoText: String(cargoText || ''),
@@ -45233,6 +45855,10 @@ async function generateMission(options = {}) {
         mission: m,
         passenger: window.activePassenger,
         paxText,
+        passengerCount: finalPassengerPlan.passengerCount,
+        plannedPassengerCount: finalPassengerPlan.plannedPassengerCount,
+        party: finalPassengerPlan.party,
+        aircraftCapability: missionAircraftCapability,
         cargoText,
         category: poolCategory,
         targetSceneOverride: initialTargetScene,
@@ -45678,6 +46304,19 @@ async function generateMission(options = {}) {
     } catch (e) {
         if (e && e.name === 'AbortError') {
             // Benutzerabbruch über Clear: kein zusätzlicher Fehlerdialog.
+        } else if (e?.code === 'AIRCRAFT_AUTO_PROFILE_EMPTY' || e?.code === 'MISSION_PASSENGER_CAPACITY') {
+            console.info('[Aircraft Mission]', e.message);
+            const indicator = document.getElementById('searchIndicator');
+            if (indicator) indicator.innerText = e.message;
+            setMissionGenerationProgress('error', { error: true });
+            const btn = document.getElementById('generateBtn');
+            resetBtn(btn);
+            setDispatchLampState('error');
+            if (window.meterInterval) clearInterval(window.meterInterval);
+            const needle = document.getElementById('meterNeedle');
+            if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`;
+            document.querySelectorAll('.marker-light').forEach(light => light.classList.remove('blinking', 'on'));
+            try { alert(e.message); } catch (_) {}
         } else {
             console.error('[Dispatch] Fehler:', e);
             const indicator = document.getElementById('searchIndicator');
@@ -46338,7 +46977,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const swBypassMode = window.__gaLocalDevNoSw === true || params.has('fireCacheFresh') || params.has('noSw') || params.has('swBypass');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1656', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1659', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

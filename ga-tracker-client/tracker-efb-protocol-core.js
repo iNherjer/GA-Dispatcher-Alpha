@@ -24,6 +24,7 @@
     MISSION_SNAPSHOT_V2: 'mission.snapshot.v2',
     MISSION_VIEW: 'mission.view.v1',
     MISSION_AUTHORITY: 'mission.authority.v1',
+    MISSION_SCENE_GROUP: 'mission.scene.group.v1',
     CHECKLIST_LIBRARY: 'checklist.library.v1',
     EFB_INTERACTION: 'efb.interaction.v1',
     EFB_WEB_CLIENT: 'efb.web-client.v1',

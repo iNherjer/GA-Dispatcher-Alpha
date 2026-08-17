@@ -126,11 +126,11 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=airport-display-name-20260817-02" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=aircraft-preset-editor-20260817-02" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-main-launch-20260724-01">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=airport-display-name-20260817-02">
+        <link rel="stylesheet" href="styles.css?v=aircraft-preset-editor-20260817-02">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -276,7 +276,7 @@
                 <option value="W">Westen</option>
             </select></div>
             <div><label>Sitze</label><select id="maxSeats" onchange="syncToNavCom('maxSeatsRadio', this.value); window.persistMainPerformanceSetting && persistMainPerformanceSetting('maxSeats', this.value)">
-                <option value="2">2</option><option value="4" selected>4</option><option value="6">6</option>
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
             </select></div>
         </div>
 
@@ -514,7 +514,7 @@
                 <div class="xpdr-pax" style="text-align: center; border-left: 2px solid #222; padding-left: 10px;">
                     <span class="lcd-label">PAX</span>
                     <select id="maxSeatsRadio" class="lcd-input" style="width:30px;" onchange="document.getElementById('maxSeats').value = this.value; window.persistMainPerformanceSetting && persistMainPerformanceSetting('maxSeats', this.value); window.updateOps1940Panel && updateOps1940Panel();">
-                        <option value="2">2</option><option value="4" selected>4</option><option value="6">6</option>
+                        <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
                     </select>
                 </div>
 
@@ -978,6 +978,28 @@
             <input type="number" id="aircraftPresetGph" placeholder="GPH" min="0" max="80" step="1" style="flex: 1;">
             <input type="number" id="aircraftPresetPax" placeholder="PAX" min="1" max="6" step="1" style="flex: 1;">
         </div>
+        <div class="settings-form-row">
+            <input type="number" id="aircraftPresetMaxPayload" placeholder="Max. Zuladung (kg)" min="0" max="10000" step="5" style="flex: 1.2;">
+            <select id="aircraftPresetClass" aria-label="Flugzeugklasse" style="flex: 1;">
+                <option value="sep">SEP</option>
+                <option value="mep">MEP</option>
+                <option value="set">SET</option>
+                <option value="met">MET</option>
+                <option value="jet">Jet</option>
+                <option value="heli">Heli</option>
+                <option value="other">Sonstige</option>
+            </select>
+        </div>
+        <div class="aircraft-preset-settings-tags" aria-label="Flugzeugprofile">
+            <span>Profil</span>
+            <label><input type="checkbox" value="touring" data-aircraft-settings-tag> Privat / Reise</label>
+            <label><input type="checkbox" value="business" data-aircraft-settings-tag> Business / Charter</label>
+            <label><input type="checkbox" value="cargo" data-aircraft-settings-tag> Cargo</label>
+            <label><input type="checkbox" value="bush" data-aircraft-settings-tag> Bush / STOL</label>
+            <label><input type="checkbox" value="training" data-aircraft-settings-tag> Training</label>
+            <label><input type="checkbox" value="utility" data-aircraft-settings-tag> Utility / Arbeit</label>
+            <small class="aircraft-preset-profile-hint">Nur für die Zufallsrotation. Keine Auswahl = alle Auto-Profile; konkrete Picker-Auswahlen bleiben möglich.</small>
+        </div>
         <div class="settings-action-row">
             <button class="btn-preset sync-req-btn" style="flex: 1; margin: 0; height: 42px; background: #333; color: #f2c12e;" onclick="saveAircraftPresetFromSettings()">💾 Preset speichern</button>
         </div>
@@ -1025,7 +1047,7 @@
             </div>
         </div>
         <div class="api-hint">
-            Slot auswählen, Name und Werte bearbeiten und speichern. Boarding-Punkte werden pro Slot gespeichert und mit der Pilot-ID synchronisiert.
+            Normaler Klick wählt ein Preset. Rechtsklick oder Langdruck öffnet den Schnell-Editor. Alle Werte und Boarding-Punkte werden pro Slot gespeichert und mit der Pilot-ID synchronisiert.
         </div>
     </div>
 
@@ -2569,6 +2591,77 @@
     </div>
 </div>
 
+<div id="aircraftPresetEditorBackdrop" class="airport-type-picker-backdrop aircraft-preset-editor-backdrop" hidden>
+    <section id="aircraftPresetEditorDialog" class="airport-type-picker-dialog aircraft-preset-editor-dialog" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="aircraftPresetEditorTitle">
+        <header class="airport-type-picker-header">
+            <div>
+                <span id="aircraftPresetEditorSlotLabel" class="airport-type-picker-kicker">AIRCRAFT PRESET</span>
+                <h2 id="aircraftPresetEditorTitle">Flugzeug-Preset bearbeiten</h2>
+            </div>
+            <button type="button" class="airport-type-picker-close" onclick="closeAircraftPresetEditor(event)" aria-label="Preset-Editor schließen">×</button>
+        </header>
+        <form class="aircraft-preset-editor-form" onsubmit="return saveAircraftPresetFromEditor(event)">
+            <p class="airport-type-picker-intro">Die Werte gelten für Planung und Missionen. Klasse und Profile speichern zusätzliche Flugzeug-Infos für spätere Funktionen.</p>
+            <div class="aircraft-preset-editor-fields">
+                <label class="aircraft-preset-editor-field aircraft-preset-editor-field-wide">
+                    <span>Name</span>
+                    <input type="text" id="aircraftPresetEditorName" maxlength="20" required autocomplete="off" spellcheck="false">
+                </label>
+                <label class="aircraft-preset-editor-field">
+                    <span>Reise-TAS</span>
+                    <span class="aircraft-preset-editor-input-unit"><input type="number" id="aircraftPresetEditorTas" min="80" max="300" step="5" required><small>kt</small></span>
+                </label>
+                <label class="aircraft-preset-editor-field">
+                    <span>Standard Fuel Flow</span>
+                    <span class="aircraft-preset-editor-input-unit"><input type="number" id="aircraftPresetEditorGph" min="0" max="80" step="1" required><small>GPH</small></span>
+                </label>
+                <label class="aircraft-preset-editor-field">
+                    <span>Sitze gesamt</span>
+                    <input type="number" id="aircraftPresetEditorPax" min="1" max="6" step="1" required>
+                </label>
+                <label class="aircraft-preset-editor-field">
+                    <span>Max. Zuladung</span>
+                    <span class="aircraft-preset-editor-input-unit"><input type="number" id="aircraftPresetEditorMaxPayload" min="0" max="10000" step="5" required><small>kg</small></span>
+                </label>
+            </div>
+
+            <fieldset class="aircraft-preset-editor-group">
+                <legend>Flugzeugklasse</legend>
+                <div class="aircraft-preset-editor-options aircraft-preset-class-options">
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="radio" name="aircraftPresetEditorClass" value="sep"><span class="airport-type-option-copy"><strong>SEP</strong><small>Einmotorig · Kolben</small></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="radio" name="aircraftPresetEditorClass" value="mep"><span class="airport-type-option-copy"><strong>MEP</strong><small>Mehrmotorig · Kolben</small></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="radio" name="aircraftPresetEditorClass" value="set"><span class="airport-type-option-copy"><strong>SET</strong><small>Einmotorig · Turbine</small></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="radio" name="aircraftPresetEditorClass" value="met"><span class="airport-type-option-copy"><strong>MET</strong><small>Mehrmotorig · Turbine</small></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="radio" name="aircraftPresetEditorClass" value="jet"><span class="airport-type-option-copy"><strong>Jet</strong><small>Strahlflugzeug</small></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="radio" name="aircraftPresetEditorClass" value="heli"><span class="airport-type-option-copy"><strong>Heli</strong><small>Hubschrauber</small></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="radio" name="aircraftPresetEditorClass" value="other"><span class="airport-type-option-copy"><strong>Sonstige</strong><small>Andere Bauart</small></span></label>
+                </div>
+            </fieldset>
+
+            <fieldset class="aircraft-preset-editor-group">
+                <legend>Profile (mehrere möglich)</legend>
+                <div class="aircraft-preset-editor-options aircraft-preset-tag-options">
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="checkbox" value="touring" data-aircraft-editor-tag><span class="airport-type-option-copy"><strong>Privat / Reise</strong></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="checkbox" value="business" data-aircraft-editor-tag><span class="airport-type-option-copy"><strong>Business / Charter</strong></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="checkbox" value="cargo" data-aircraft-editor-tag><span class="airport-type-option-copy"><strong>Cargo</strong></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="checkbox" value="bush" data-aircraft-editor-tag><span class="airport-type-option-copy"><strong>Bush / STOL</strong></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="checkbox" value="training" data-aircraft-editor-tag><span class="airport-type-option-copy"><strong>Training</strong></span></label>
+                    <label class="airport-type-option aircraft-preset-editor-option"><input type="checkbox" value="utility" data-aircraft-editor-tag><span class="airport-type-option-copy"><strong>Utility / Arbeit</strong></span></label>
+                </div>
+                <small class="aircraft-preset-profile-hint">Diese Auswahl begrenzt nur die Zufallsrotation. Ohne Haken bleibt Auto uneingeschränkt; ein konkret gewähltes Picker-Profil bleibt immer verfügbar.</small>
+            </fieldset>
+
+            <footer class="airport-type-picker-footer aircraft-preset-editor-footer">
+                <span class="airport-type-picker-count">Klick = auswählen · Langdruck/Rechtsklick = bearbeiten</span>
+                <div class="airport-type-picker-actions">
+                    <button type="button" onclick="closeAircraftPresetEditor(event)">Abbrechen</button>
+                    <button type="submit" class="airport-type-picker-done">Preset speichern</button>
+                </div>
+            </footer>
+        </form>
+    </section>
+</div>
+
 <div id="airportTypePickerBackdrop" class="airport-type-picker-backdrop" hidden>
     <section id="airportTypePickerDialog" class="airport-type-picker-dialog" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="airportTypePickerTitle">
         <header class="airport-type-picker-header">
@@ -2610,7 +2703,8 @@
 <script defer src="aviation-data-hosted.js?v=hosted-aviation-data-20260728-01"></script>
 <script defer src="relay-compression-core.js?v=relay-failover-20260813-01"></script>
 <script defer src="relay-failover-core.js?v=relay-failover-20260813-01"></script>
-<script defer src="sync.js?v=airport-search-types-20260815-01"></script>
+<script defer src="ga-tracker-client/mission-scene-group-core.js?v=mission-scene-group-20260817-01"></script>
+<script defer src="sync.js?v=mission-scene-group-20260817-01"></script>
 <script defer src="homebase/homebase-asset-catalog.js?v=homebase-proximity-automation-optout-20260816-01"></script>
 <script defer src="homebase-capability-retry-core.js?v=homebase-capability-backoff-20260814-01"></script>
 <script defer src="homebase-integration.js?v=homebase-crew-share-v100-20260815-01"></script>
@@ -2618,7 +2712,9 @@
 <script defer src="profile.js?v=awm-queue-retain-20260809-01"></script>
 <script defer src="map.js?v=map-single-click-20260729-07"></script>
 <script defer src="map-utility-tools.js?v=e6b-viewport-20260812-01"></script>
-<script defer src="app.js?v=airport-code-suggestions-20260817-06"></script>
+<script defer src="aircraft-mission-capability-core.js?v=aircraft-mission-capability-20260817-01"></script>
+<script defer src="aircraft-mission-profile-core.js?v=aircraft-mission-capability-20260817-01"></script>
+<script defer src="app.js?v=aircraft-mission-capability-20260817-01"></script>
 <script defer src="mission-survey-pattern.js?v=overlay-throttle-20260710-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
 <script defer src="mission-poi-chain-runtime.js?v=overlay-throttle-20260710-01"></script>

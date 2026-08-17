@@ -1080,6 +1080,27 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-17: Der additive Gruppen-Szenenvertrag ist lokal im Tracker-v357-
+  Kandidaten und in der Web-App implementiert. Die Capability
+  `mission.scene.group.v1` schaltet 2-5 Personen, zentrierte 1-m-Aufstellung,
+  1100-ms-Stagger und die feste Fahrzeugwahl Van fuer 2-3 beziehungsweise
+  Minibus/Bus fuer 4-5 Personen frei. Partielle Spawns oder Routen duerfen
+  weder ein erfolgreiches ACK noch Manifestfortschritt ausloesen. Der
+  Windows-Build ist lokal verifiziert (48.109.342 Bytes, SHA-256
+  `fd63d93715a5451482352c941757f3b9709db148d327d31cab90119c007024c6`),
+  aber noch nicht veroeffentlicht; Alpha und Stable bleiben daher vorerst auf
+  v356.
+
+- 2026-08-17: Flugzeug-Preset-Profile, Sitzplatzgrenzen und spaetere
+  Charter-/Privat-/Sightseeing-Gruppen werden nach dem lokalen
+  `docs/Aircraft-Mission-Integration-Plan.md` schrittweise integriert. Die
+  Gruppenanimation bleibt ein additiver Szeneneffekt hinter
+  `mission.scene.group.v1`; bestehende Boarding-/Deboarding-ACKs, Manifest-
+  Handoff und Missionsphasen bleiben unveraendert. App-Aenderungen gehen nach
+  `origin/main`. Der dafuer notwendige neue Tracker wird zuerst ausschliesslich
+  als Alpha-Artefakt veroeffentlicht; Stable bleibt bis zur ausdruecklichen
+  Testerfreigabe auf dem bisherigen unveraenderten Release.
+
 - 2026-08-17: Nach erfolgreicher Alpha-Freigabe und erneuter Live-Pruefung der
   GitHub-Release-Assets wurden Tracker v356 und EFB 0.4.11 in die Stable-
   Kanaele promotet. `channel/stable.json` verweist auf Tracker-v356, die

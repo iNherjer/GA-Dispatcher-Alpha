@@ -2830,7 +2830,7 @@ function installForcedSarIncidentDryrun(context, incidentType = '') {
   `, context);
 }
 
-function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, apiKey = 'DRYRUN_KEY' } = {}) {
+function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, apiKey = 'DRYRUN_KEY', totalSeats = 4 } = {}) {
   const pickerValue = dryrunVisiblePickerValue(targetType);
   const values = {
     startLoc: 'EDTW',
@@ -2840,7 +2840,7 @@ function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = fa
     distRange: 'medium',
     regionFilter: 'any',
     dirPref: 'any',
-    maxSeats: '4',
+    maxSeats: String(Math.max(1, Math.min(6, Math.round(Number(totalSeats) || 4)))),
     tasSlider: '160',
     gphSlider: '14',
     altSlider: '3500',
@@ -2904,7 +2904,7 @@ function promptRecords(prompts) {
   }));
 }
 
-async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY', sharedLocalStorage = null }) {
+async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY', totalSeats = 4, sharedLocalStorage = null }) {
   const { context, prompts } = setupContext(seed, { liveGemini, sharedLocalStorage });
   loadScript(context, 'datenbank.js');
   loadScript(context, 'missions.js');
@@ -2916,6 +2916,8 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
   loadScript(context, 'mission-cargo-core.js');
   loadScript(context, 'mission-poi-chain.js');
   loadScript(context, 'sync.js');
+  loadScript(context, 'aircraft-mission-capability-core.js');
+  loadScript(context, 'aircraft-mission-profile-core.js');
   loadScript(context, 'app.js');
   loadScript(context, 'mission-poi-chain-runtime.js');
   loadScript(context, 'passenger-voice.js');
@@ -2940,7 +2942,7 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
     resetBtn = function(btn) { if (btn) btn.disabled = false; };
     vpUpdatePosition = function() {};
   `, context);
-  initUiForRun(context, targetType, { pipelineV2, pipelineV3, pipelineV4, apiKey });
+  initUiForRun(context, targetType, { pipelineV2, pipelineV3, pipelineV4, apiKey, totalSeats });
 
   await vm.runInContext('generateMission()', context);
   await wait(900);
@@ -3105,6 +3107,7 @@ function parseCliArgs(argv) {
     pipelineV3: false,
     pipelineV4: false,
     liveGemini: false,
+    totalSeats: 4,
     help: false,
     out: 'mission-pipeline-dryrun-edtw.json'
   };
@@ -3126,6 +3129,7 @@ function parseCliArgs(argv) {
     else if (arg === '--live-gemini') args.liveGemini = true;
     else if (arg.startsWith('--runs=')) args.runs = Math.max(1, Math.min(20, Number.parseInt(arg.slice(7), 10) || args.runs));
     else if (arg.startsWith('--seed=')) args.seed = Number.parseInt(arg.slice(7), 10) || args.seed;
+    else if (arg.startsWith('--seats=')) args.totalSeats = Math.max(1, Math.min(6, Number.parseInt(arg.slice(8), 10) || args.totalSeats));
     else if (arg.startsWith('--types=')) {
       args.targetTypes = arg.slice(8).split(',').map(s => s.trim()).filter(Boolean);
     } else if (arg.startsWith('--base=')) {
@@ -3245,6 +3249,7 @@ Options:
   --pipeline-v4                  Use V4 contract writer pipeline
   --runs=N                       Number of runs, 1-20
   --seed=N                       Deterministic seed
+  --seats=N                     Aircraft total seats, 1-6 (default 4)
   --types=A,B                    Explicit picker/dryrun target types
   --profile=PROFILE             Force task profile, e.g. search_and_rescue
   --categories=A,B              Force categories with --profile, e.g. road,forest,water,mountain
@@ -3278,6 +3283,7 @@ async function main() {
   const sharedLocalStorage = makeStore();
   const runs = buildRunConfigs(args).map(cfg => ({
     ...cfg,
+    totalSeats: args.totalSeats,
     apiKey: args.liveGemini ? apiKey : 'DRYRUN_KEY',
     sharedLocalStorage
   }));
@@ -3297,6 +3303,7 @@ async function main() {
       run: i + 1,
       seed: runs[i]?.seed,
       targetType: runs[i]?.targetType,
+      totalSeats: runs[i]?.totalSeats,
       blocked: !!r.blocked,
       blockPhase: r.blockPhase || null,
       blockReason: r.blockReason || null,
@@ -3309,6 +3316,10 @@ async function main() {
       missionPipelineMode: md.missionPipelineMode || null,
       missionPipelineV2Enabled: (md.missionPipelineMode || '') === 'v2',
       missionPipelineV3Enabled: !!md.missionPlanV3,
+      passengerCount: md.passengerCount ?? null,
+      plannedPassengerCount: md.plannedPassengerCount ?? null,
+      party: md.party || null,
+      aircraftCapability: md.aircraftCapability || null,
       missionPlanV2: md.missionPlanV2 || null,
       missionPlanV3: md.missionPlanV3 || null,
       missionVariety: md.missionVariety || md.missionContractV4?.pickupCreativeBrief?.variety || md.missionPlanV4?.variety || null,

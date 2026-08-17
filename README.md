@@ -45,7 +45,7 @@ Die Flugzeugwerte bestimmen Zeiten, Fuel-Schaetzung, Profil und Missionsauswahl:
 - **V/S Rate**: Steig- und Sinkrate fuer TOC/TOD und Profil.
 - **Sitze / PAX**: begrenzt, wie viele Passagiere ein Auftrag einplanen darf.
 
-Es gibt drei Schnellslots: **C172**, **Comanche / PA-24** und **Aerostar**. Unter **Aircraft > Presets** kannst du Name, TAS, GPH und PAX pro Slot speichern. Die Boarding-Szene kann ebenfalls pro Slot angepasst werden: Tuer, Marker, Wegpunkte, Reihenfolge und relative Positionen zum Flugzeug.
+Es gibt drei Schnellslots: **C172**, **Comanche / PA-24** und **Aerostar**. Ein normaler Klick waehlt das Preset; Rechtsklick oder Langdruck oeffnet den Schnell-Editor. Dort lassen sich Name, TAS, Standard-Fuel-Flow, Sitze, maximale Zuladung sowie Flugzeugklasse (zum Beispiel SEP, MEP oder Heli) und die Einsatzprofile **Privat / Reise**, **Business / Charter**, **Cargo**, **Utility / Arbeit**, **Bush / STOL** und **Training** speichern. Die angehakten Einsatzprofile begrenzen nur die automatische Zufallsrotation; konkrete Mission-Picker-Auswahlen bleiben moeglich. Ohne Haken bleibt die Auto-Rotation wie bisher uneingeschraenkt. Dieselben Werte sind unter **Aircraft > Presets** erreichbar. Die Boarding-Szene kann ebenfalls pro Slot angepasst werden: Tuer, Marker, Wegpunkte, Reihenfolge und relative Positionen zum Flugzeug.
 
 Tipps:
 
