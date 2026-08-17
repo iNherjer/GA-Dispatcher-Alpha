@@ -5717,13 +5717,13 @@ function _missionSceneGroupDebugPosition() {
 
 function _missionSceneGroupDebugSend(command, expectedAckType, timeoutMs = 70000) {
     const trackerVersionCode = Number(window.liveTrackerVersionCode);
-    if (!Number.isFinite(trackerVersionCode) || trackerVersionCode < 361) {
+    if (!Number.isFinite(trackerVersionCode) || trackerVersionCode < 362) {
         return Promise.resolve({
             type: expectedAckType,
             sceneId: command?.sceneId || '',
             status: 'error',
-            error: 'tracker_v361_required',
-            requiredTrackerVersion: 'v361'
+            error: 'tracker_v362_required',
+            requiredTrackerVersion: 'v362'
         });
     }
     const commandId = window.sendTrackerCommand?.({ ...command, groupSceneDebug: true });

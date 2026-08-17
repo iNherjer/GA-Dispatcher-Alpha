@@ -94,6 +94,7 @@ test('tracker and web app gate the additive sequence on the explicit capability'
   assert.match(trackerSource, /const groupSceneDebugCommand = isGroupSceneDebugCommand\(command\)/);
   assert.match(trackerSource, /!groupSceneDebugCommand[\s\S]*?rememberMissionCommand\(command\)/);
   assert.match(trackerSource, /for \(let index = 0; index < personPlans\.length; index\+\+\)[\s\S]*?await sleep\(groupPlan\.boardingStaggerMs\)[\s\S]*?spawnSceneObjectFromPlan\(sceneId, plan, 3000\)[\s\S]*?sendWaypointRoute\(obj\.objectId/);
+  assert.match(trackerSource, /const baseStart = groupPlan\.enabled\s*\? \{ \.\.\.start \}\s*: \{ \.\.\.start, rightM:/);
   assert.match(syncSource, /window\.liveTrackerCapabilities\.includes\(MISSION_SCENE_GROUP_CAPABILITY\)/);
   assert.match(syncSource, /if \(!partyKind \|\| partyKind === 'single'/);
   assert.match(syncSource, /groupSequence: true/);

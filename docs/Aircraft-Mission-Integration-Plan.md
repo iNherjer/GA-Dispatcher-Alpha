@@ -206,6 +206,8 @@ Alte Tracker ignorieren unbekannte Felder. Die Web-App sendet sie dennoch nur na
 
 - Van oder Bus kommt vor dem Ausstieg am bestehenden Fahrzeugpunkt an.
 - Farewell-, Cue- und Tuer-Gate bleiben unveraendert.
+- Alle Gruppenmitglieder spawnen exakt am selben definierten Boarding-/Tuerpunkt;
+  beim Spawn wird kein seitlicher Gruppenversatz angewendet.
 - Personen steigen seriell aus: Jede Person erscheint am Flugzeugausstieg und
   beginnt sofort ihren Weg; die naechste Person folgt 2000 ms spaeter.
 - Die Tuer schliesst erst, nachdem das letzte Gruppenmitglied aus dem Flugzeug gespawnt wurde.
@@ -281,6 +283,15 @@ Bytes und SHA-256
 `43b7aaddd0809f3ad6f10b4586aa0286d4861f142778a146e2139e0b49aa29f4`.
 Release `v361` ist veroeffentlicht und nur in `channel/alpha.json` aktiviert;
 Stable bleibt unveraendert auf v356.
+
+Der anschliessende Realtest zeigte, dass der seitliche Aufstellungsversatz beim
+Deboarding einzelne Personenmodelle in den Flugzeugrumpf setzte. Tracker v362
+verwendet deshalb fuer alle Gruppenmitglieder exakt denselben definierten
+Boarding-/Tuerpunkt als Spawnposition. Der 1-m-Versatz am Abflug-Boarding und
+die aufgefaecherten Laufwege bleiben bestehen; nur der serielle Deboarding-
+Spawn ist jetzt deckungsgleich. Der lokale v362-Build hat 48.113.280 Bytes und
+SHA-256
+`6d39d93a413ee18b0534fdd0c80f0167edf56a3cfaef7a838ee2acf9ff15c060`.
 
 Der reale Test kann ohne Missionsfortschritt in der Browser-Konsole ausgefuehrt
 werden. Die Debug-Sequenzen verwenden eigene Szenen- und Command-IDs; ihre ACKs
