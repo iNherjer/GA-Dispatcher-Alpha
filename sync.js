@@ -5642,7 +5642,7 @@ function _missionSceneRequestedGroupPlan() {
         groupSequence: true,
         expectedPassengerCount: partyCount,
         groupSpacingM: 1,
-        boardingStaggerMs: 1100
+        boardingStaggerMs: 2000
     });
     return plan?.valid === true ? plan : null;
 }
@@ -5680,7 +5680,7 @@ function _missionSceneGroupDebugPlan(count) {
         groupSequence: true,
         expectedPassengerCount: Number(count),
         groupSpacingM: 1,
-        boardingStaggerMs: 1100
+        boardingStaggerMs: 2000
     });
     if (!group?.valid) return { ok: false, error: group?.error || 'invalid_group_count' };
     const members = window.GAMissionSceneGroup.buildGroupMemberPlans(group.expectedPassengerCount, group);
@@ -5717,13 +5717,13 @@ function _missionSceneGroupDebugPosition() {
 
 function _missionSceneGroupDebugSend(command, expectedAckType, timeoutMs = 70000) {
     const trackerVersionCode = Number(window.liveTrackerVersionCode);
-    if (!Number.isFinite(trackerVersionCode) || trackerVersionCode < 358) {
+    if (!Number.isFinite(trackerVersionCode) || trackerVersionCode < 361) {
         return Promise.resolve({
             type: expectedAckType,
             sceneId: command?.sceneId || '',
             status: 'error',
-            error: 'tracker_v358_required',
-            requiredTrackerVersion: 'v358'
+            error: 'tracker_v361_required',
+            requiredTrackerVersion: 'v361'
         });
     }
     const commandId = window.sendTrackerCommand?.({ ...command, groupSceneDebug: true });

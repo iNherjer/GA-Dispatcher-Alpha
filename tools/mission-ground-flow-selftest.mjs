@@ -57,15 +57,19 @@ assertOrder('deboarding sequence', deboarding, [
     "'deboarding-open'",
     "stage: 'door_open'",
     'await farewellGatePromise',
+    'for (let index = 0; index < personPlans.length; index++)',
+    'await sleep(groupPlan.boardingStaggerMs)',
     'spawnSceneObjectFromPlan',
-    "'deboarding-close-before-walk'",
-    'sendWaypointRoute(person.objectId',
+    'sendWaypointRoute(obj.objectId',
+    'SCENE_DEBOARDING_PERSON_START',
+    "'deboarding-close-after-last-exit'",
     'people.forEach(person => removeSceneObject(',
     "stage: boardedPickup ? 'passenger_vehicle_boarded' : 'passenger_handoff_complete'",
     'pickupVehicleDepartureMs = departVehicle',
     'await sleep(pickupVehicleDepartureMs)',
     "type: 'mission_scene_deboarding_ack'"
 ]);
+assert.match(deboarding, /if \(groupPlan\.enabled && index > 0\) await sleep\(groupPlan\.boardingStaggerMs\)/);
 assert.match(deboarding, /boarderCount \?\? command\?\.passengerCount \?\? 1, 0, 3/);
 assert.match(deboarding, /stagedPickupVehicle/);
 assert.match(deboarding, /boarding-finally-close|deboarding-finally-close/);

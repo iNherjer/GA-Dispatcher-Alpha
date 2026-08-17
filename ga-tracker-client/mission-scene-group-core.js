@@ -9,7 +9,7 @@
     const MIN_GROUP_SIZE = 2;
     const MAX_GROUP_SIZE = 5;
     const DEFAULT_SPACING_M = 1;
-    const DEFAULT_STAGGER_MS = 1100;
+    const DEFAULT_STAGGER_MS = 2000;
     const DEBUG_SCENE_ID_PATTERN = /^mission-scene-group-debug-(board|deboard)-([2-5])-(\d{10,})$/;
     const DEBUG_COMMAND_TYPES = new Set([
         'mission_scene_spawn',

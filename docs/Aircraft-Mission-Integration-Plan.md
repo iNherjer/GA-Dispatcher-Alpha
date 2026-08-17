@@ -176,7 +176,7 @@ Optionale additive Command-Felder:
     groupSequence: true,
     expectedPassengerCount: 4,
     groupSpacingM: 1.0,
-    boardingStaggerMs: 1100,
+    boardingStaggerMs: 2000,
     groupVehicleKind: 'bus' // van | bus
 }
 ```
@@ -196,7 +196,7 @@ Alte Tracker ignorieren unbekannte Felder. Die Web-App sendet sie dennoch nur na
 ### Boarding
 
 - Der vorhandene Preset-Pfad bleibt die gemeinsame Grundlage.
-- Person 1 startet sofort, jede weitere Person standardmaessig 1100 ms spaeter.
+- Person 1 startet sofort, jede weitere Person standardmaessig 2000 ms spaeter.
 - Jede Person startet an ihrer eigenen Spawnposition und konvergiert danach auf den vorhandenen Pfad.
 - Das SimObject wird erst nach Erreichen des Boardingpunkts entfernt.
 - `passenger_boarded` und das finale Boarding-ACK werden genau einmal nach der vollstaendigen Gruppe gesendet.
@@ -206,7 +206,8 @@ Alte Tracker ignorieren unbekannte Felder. Die Web-App sendet sie dennoch nur na
 
 - Van oder Bus kommt vor dem Ausstieg am bestehenden Fahrzeugpunkt an.
 - Farewell-, Cue- und Tuer-Gate bleiben unveraendert.
-- Personen erscheinen zeitversetzt am Flugzeugausstieg und laufen mit demselben Grundversatz zum Fahrzeug.
+- Personen steigen seriell aus: Jede Person erscheint am Flugzeugausstieg und
+  beginnt sofort ihren Weg; die naechste Person folgt 2000 ms spaeter.
 - Die Tuer schliesst erst, nachdem das letzte Gruppenmitglied aus dem Flugzeug gespawnt wurde.
 - `passenger_vehicle_boarded` beziehungsweise `passenger_handoff_complete` wird genau einmal nach der vollstaendigen Gruppe gesendet.
 - Das Fahrzeug faehrt erst nach Ankunft der letzten Person ab.
@@ -268,6 +269,16 @@ und SHA-256
 `46d13bed5983410f94fb0c8e5028de3d2896ccf62841e440ceee63e668b56af0`.
 Release `v358` ist veroeffentlicht und `channel/alpha.json` zeigt auf exakt
 dieses Artefakt; Stable bleibt unveraendert auf v356.
+
+Der reale Gruppentest bestaetigte danach die korrekte Authority-Isolation,
+zeigte aber einen zu kleinen Personenabstand und einen zweigeteilten
+Deboarding-Ablauf (erst alle spawnen, danach alle loslaufen). Tracker v361
+setzt den Standard-Stagger fuer Boarding und Deboarding auf 2000 ms. Beim
+Deboarding werden Spawn und Laufstart nun pro Person seriell gekoppelt; erst
+2000 ms nach dem Laufstart folgt die naechste Person. ACK-, Manifest-, Voice-
+und Runtime-Logik bleiben unveraendert. Der lokale v361-Build hat 48.113.368
+Bytes und SHA-256
+`43b7aaddd0809f3ad6f10b4586aa0286d4861f142778a146e2139e0b49aa29f4`.
 
 Der reale Test kann ohne Missionsfortschritt in der Browser-Konsole ausgefuehrt
 werden. Die Debug-Sequenzen verwenden eigene Szenen- und Command-IDs; ihre ACKs

@@ -58,8 +58,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v360';
-const TRACKER_VERSION_CODE = 360;
+const TRACKER_VERSION = 'v361';
+const TRACKER_VERSION_CODE = 361;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -2752,15 +2752,50 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       });
     }
 
+    const pickupPoint = stagedPickupVehicle
+      ? {
+          worldLat: Number(stagedPickupVehicle.lat),
+          worldLon: Number(stagedPickupVehicle.lon),
+          worldAltFt: Number(stagedPickupVehicle.altFt),
+          lat: Number(stagedPickupVehicle.lat),
+          lon: Number(stagedPickupVehicle.lon),
+          altFt: Number(stagedPickupVehicle.altFt)
+        }
+      : (vehicleArrivalEnabled ? null : (command?.deboardingPickupPoint || command?.pickupPoint || null));
+    const deboardingBase = sceneBaseFromCommand(command, rec);
+    const pickupRoutePoint = pickupPoint
+      ? (worldPointToRelativeScenePoint(deboardingBase, pickupPoint, vehiclePoint)
+        || relativeScenePoint(deboardingBase, normalizeBoardingPathPoint(pickupPoint, vehiclePoint), vehiclePoint))
+      : null;
+    const walkOffRoute = (!pickupRoutePoint && !vehicleArrivalEnabled)
+      ? buildRelativeSceneRoute(command, rec, command?.deboardingWalkOffPath, defaultVehicleDeparturePath(command))
+      : [];
+    const routeToExit = pickupRoutePoint
+      ? reversePath.concat([pickupRoutePoint])
+      : (vehicleArrivalEnabled ? reversePath.concat([vehiclePark]) : reversePath.concat(walkOffRoute));
+    const walkSpeedKts = Math.max(2.8, Math.min(4.5, Number(command?.walkSpeedKts || 3.3) || 3.3));
     const people = [];
+    let routeSentCount = 0;
     for (let index = 0; index < personPlans.length; index++) {
       if (groupPlan.enabled && index > 0) await sleep(groupPlan.boardingStaggerMs);
       const plan = personPlans[index];
       const obj = await spawnSceneObjectFromPlan(sceneId, plan, 3000);
-      if (obj) {
-        rec.objects.push(obj);
-        people.push(obj);
-      }
+      if (!obj) continue;
+      rec.objects.push(obj);
+      people.push(obj);
+      const personRoute = (!groupPlan.enabled && index === 0) ? routeToExit : routeToExit.map((pt, ptIndex) => {
+        if (ptIndex === 0) return pt;
+        return {
+          ...pt,
+          rightM: Number(pt.rightM || 0) + (groupPlan.enabled
+            ? groupLateralOffsetM(index, requestedBoarders, groupPlan.groupSpacingM)
+            : (index * 0.8))
+        };
+      });
+      const absRoute = buildRelativeSceneRoute(command, rec, personRoute, personRoute);
+      const sent = sendWaypointRoute(obj.objectId, absRoute.slice(1), walkSpeedKts);
+      routeSentCount += sent ? 1 : 0;
+      debugLog(`SCENE_DEBOARDING_PERSON_START scene=${sceneId} index=${index + 1}/${personPlans.length} objectId=${obj.objectId} routeSent=${sent ? 1 : 0} staggerMs=${groupPlan.enabled ? groupPlan.boardingStaggerMs : 0}`);
     }
     if (!people.length || (groupPlan.enabled && people.length !== requestedBoarders)) {
       if (doorEnabled) {
@@ -2786,53 +2821,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return;
     }
 
-    // Der Passagier steht jetzt neben dem Flugzeug. Erst die Tür schließen,
-    // danach beginnt der Weg zum wartenden Fahrzeug bzw. Abholpunkt.
+    // Jede Person beginnt direkt nach ihrem Spawn zu laufen. Die Tuer bleibt
+    // bis zum letzten seriellen Ausstieg offen und schliesst erst danach.
     if (doorEnabled) {
       await sleep(clampInt(command?.deboardingPostSpawnHoldMs ?? 500, 150, 1800));
-      stopDoorHold('deboarding-close-before-walk');
-      await setUserAircraftDoor(false, doorIndex, 'deboarding-close-before-walk', doorProfile);
+      stopDoorHold('deboarding-close-after-last-exit');
+      await setUserAircraftDoor(false, doorIndex, 'deboarding-close-after-last-exit', doorProfile);
       doorOpened = false;
-    }
-
-    const pickupPoint = stagedPickupVehicle
-      ? {
-          worldLat: Number(stagedPickupVehicle.lat),
-          worldLon: Number(stagedPickupVehicle.lon),
-          worldAltFt: Number(stagedPickupVehicle.altFt),
-          lat: Number(stagedPickupVehicle.lat),
-          lon: Number(stagedPickupVehicle.lon),
-          altFt: Number(stagedPickupVehicle.altFt)
-        }
-      : (vehicleArrivalEnabled ? null : (command?.deboardingPickupPoint || command?.pickupPoint || null));
-    const deboardingBase = sceneBaseFromCommand(command, rec);
-    const pickupRoutePoint = pickupPoint
-      ? (worldPointToRelativeScenePoint(deboardingBase, pickupPoint, vehiclePoint)
-        || relativeScenePoint(deboardingBase, normalizeBoardingPathPoint(pickupPoint, vehiclePoint), vehiclePoint))
-      : null;
-    const walkOffRoute = (!pickupRoutePoint && !vehicleArrivalEnabled)
-      ? buildRelativeSceneRoute(command, rec, command?.deboardingWalkOffPath, defaultVehicleDeparturePath(command))
-      : [];
-    const routeToExit = pickupRoutePoint
-      ? reversePath.concat([pickupRoutePoint])
-      : (vehicleArrivalEnabled ? reversePath.concat([vehiclePark]) : reversePath.concat(walkOffRoute));
-    const walkSpeedKts = Math.max(2.8, Math.min(4.5, Number(command?.walkSpeedKts || 3.3) || 3.3));
-    let routeSentCount = 0;
-    for (let index = 0; index < people.length; index++) {
-      if (groupPlan.enabled && index > 0) await sleep(groupPlan.boardingStaggerMs);
-      const person = people[index];
-      const personRoute = (!groupPlan.enabled && index === 0) ? routeToExit : routeToExit.map((pt, ptIndex) => {
-        if (ptIndex === 0) return pt;
-        return {
-          ...pt,
-          rightM: Number(pt.rightM || 0) + (groupPlan.enabled
-            ? groupLateralOffsetM(index, people.length, groupPlan.groupSpacingM)
-            : (index * 0.8))
-        };
-      });
-      const absRoute = buildRelativeSceneRoute(command, rec, personRoute, personRoute);
-      const sent = sendWaypointRoute(person.objectId, absRoute.slice(1), walkSpeedKts);
-      routeSentCount += sent ? 1 : 0;
     }
     const walkMs = clampInt(
       (pathDistanceM(routeToExit) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 1200,
@@ -2915,7 +2910,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       routeSentCount,
       expectedPassengerCount: groupPlan.enabled ? requestedBoarders : undefined,
       deboarded: allPersonRoutesSent ? (groupPlan.enabled ? requestedBoarders : routeSentCount) : 0,
-      durationMs: vehicleArrivalMs + walkMs + pickupVehicleDepartureMs + (deboardingGroupStaggerMs * 2),
+      durationMs: vehicleArrivalMs + walkMs + pickupVehicleDepartureMs + deboardingGroupStaggerMs,
       error: allPersonRoutesSent ? '' : (groupPlan.enabled ? groupCompletion.error : 'waypoint_route_failed')
     });
     } finally {

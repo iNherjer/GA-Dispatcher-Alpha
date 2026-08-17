@@ -9,15 +9,15 @@ for (const count of [2, 3, 4, 5]) {
     const plan = groupCore.normalizeGroupSequenceCommand({
       groupSequence: true,
       expectedPassengerCount: count,
-      groupSpacingM: 1,
-      boardingStaggerMs: 1100
+      groupSpacingM: 1
     });
     const members = groupCore.buildGroupMemberPlans(count, plan);
     assert.equal(plan.valid, true);
     assert.equal(plan.groupVehicleKind, count <= 3 ? 'van' : 'bus');
     assert.equal(members.length, count);
     assert.equal(new Set(members.map(member => member.kind)).size, count);
-    assert.deepEqual(members.map(member => member.startDelayMs), Array.from({ length: count }, (_, index) => index * 1100));
+    assert.equal(plan.boardingStaggerMs, 2000);
+    assert.deepEqual(members.map(member => member.startDelayMs), Array.from({ length: count }, (_, index) => index * 2000));
     for (let index = 1; index < members.length; index++) {
       assert.equal(Math.round((members[index].lateralOffsetM - members[index - 1].lateralOffsetM) * 10) / 10, 1);
     }
@@ -93,6 +93,7 @@ test('tracker and web app gate the additive sequence on the explicit capability'
   assert.match(trackerSource, /groupPlan\.enabled[\s\S]*?passenger_count_mismatch/);
   assert.match(trackerSource, /const groupSceneDebugCommand = isGroupSceneDebugCommand\(command\)/);
   assert.match(trackerSource, /!groupSceneDebugCommand[\s\S]*?rememberMissionCommand\(command\)/);
+  assert.match(trackerSource, /for \(let index = 0; index < personPlans\.length; index\+\+\)[\s\S]*?await sleep\(groupPlan\.boardingStaggerMs\)[\s\S]*?spawnSceneObjectFromPlan\(sceneId, plan, 3000\)[\s\S]*?sendWaypointRoute\(obj\.objectId/);
   assert.match(syncSource, /window\.liveTrackerCapabilities\.includes\(MISSION_SCENE_GROUP_CAPABILITY\)/);
   assert.match(syncSource, /if \(!partyKind \|\| partyKind === 'single'/);
   assert.match(syncSource, /groupSequence: true/);
