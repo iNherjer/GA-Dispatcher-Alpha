@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v361 Alpha-Kandidat | v356 | v361 serialisiert Gruppen-Deboarding mit 2-s-Abstand; Stable bleibt unveraendert |
+| Tracker-Runtime | v361 Alpha | v356 | v361 serialisiert Gruppen-Deboarding mit 2-s-Abstand; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -1098,6 +1098,8 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   Manifest-Handoff, Voice-Gate und Missionsphasen bleiben unveraendert. Der
   lokale Windows-Build umfasst 48.113.368 Bytes und hat SHA-256
   `43b7aaddd0809f3ad6f10b4586aa0286d4861f142778a146e2139e0b49aa29f4`.
+  Release `v361` ist veroeffentlicht, remote verifiziert und nur in
+  `channel/alpha.json` aktiviert; Stable bleibt auf v356.
 
 - 2026-08-17: Tracker v360 / Host 0.6.5 korrigiert den im echten EFB noch
   verbleibenden E6B-Schliesspfad. Der frische Browserstand von v359 konnte den

@@ -279,6 +279,8 @@ Deboarding werden Spawn und Laufstart nun pro Person seriell gekoppelt; erst
 und Runtime-Logik bleiben unveraendert. Der lokale v361-Build hat 48.113.368
 Bytes und SHA-256
 `43b7aaddd0809f3ad6f10b4586aa0286d4861f142778a146e2139e0b49aa29f4`.
+Release `v361` ist veroeffentlicht und nur in `channel/alpha.json` aktiviert;
+Stable bleibt unveraendert auf v356.
 
 Der reale Test kann ohne Missionsfortschritt in der Browser-Konsole ausgefuehrt
 werden. Die Debug-Sequenzen verwenden eigene Szenen- und Command-IDs; ihre ACKs
