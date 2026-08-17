@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v358 Alpha-Kandidat | v356 | Gruppen-Szenen nur in Alpha; v358 isoliert den Debug-Helfer von der Missions-Authority, Stable bleibt unveraendert |
+| Tracker-Runtime | v358 Alpha | v356 | Gruppen-Szenen nur in Alpha; v358 isoliert den Debug-Helfer von der Missions-Authority, Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -1120,6 +1120,8 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   ist nach Alpha-Veroeffentlichung von v358 ausstehend. Der lokale Windows-
   Build umfasst 48.110.783 Bytes und hat SHA-256
   `46d13bed5983410f94fb0c8e5028de3d2896ccf62841e440ceee63e668b56af0`.
+  Release `v358` ist veroeffentlicht, remote verifiziert und nur in
+  `channel/alpha.json` aktiviert; Stable bleibt auf v356.
 
 - 2026-08-17: Flugzeug-Preset-Profile, Sitzplatzgrenzen und spaetere
   Charter-/Privat-/Sightseeing-Gruppen werden nach dem lokalen

@@ -266,6 +266,8 @@ bleiben unveraendert authority-pflichtig. Der erneute reale MSFS-Test erfolgt
 daher mit Tracker v358 oder neuer. Der lokale v358-Build hat 48.110.783 Bytes
 und SHA-256
 `46d13bed5983410f94fb0c8e5028de3d2896ccf62841e440ceee63e668b56af0`.
+Release `v358` ist veroeffentlicht und `channel/alpha.json` zeigt auf exakt
+dieses Artefakt; Stable bleibt unveraendert auf v356.
 
 Der reale Test kann ohne Missionsfortschritt in der Browser-Konsole ausgefuehrt
 werden. Die Debug-Sequenzen verwenden eigene Szenen- und Command-IDs; ihre ACKs
