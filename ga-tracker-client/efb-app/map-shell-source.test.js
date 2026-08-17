@@ -66,6 +66,11 @@ test('native EFB buttons bind real DOM click handlers after render', () => {
   assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-calc\]'\)/);
 });
 
+test('native EFB tool launchers toggle their currently open tool closed', () => {
+  assert.match(tsx, /this\.activeTool === tool && this\.toolPanelRef\.getOrDefault\(\)\?\.classList\.contains\('is-open'\)/);
+  assert.match(tsx, /this\.closeDrawers\(\);[\s\S]*?this\.closeToolPanel\(\);[\s\S]*?return;/);
+});
+
 test('tracker map contract feeds route, profile and compass without embedding mission narrative', () => {
   assert.match(tsx, /fetch\(`\$\{TRACKER_API_URL\}\/api\/v1\/map`/);
   assert.match(tsx, /'map\.snapshot',\s*'map\.snapshot\.v1'/);

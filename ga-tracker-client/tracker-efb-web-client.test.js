@@ -18,17 +18,17 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '35401');
+  assert.equal(EFB_WEB_ASSET_REVISION, '35901');
   assert.match(page, /data-efb-view-version="6"/);
-  assert.match(page, /host\.css\?v=35401/);
-  assert.match(page, /host\.js\?v=35401/);
+  assert.match(page, /host\.css\?v=35901/);
+  assert.match(page, /host\.js\?v=35901/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
   assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=35401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=35901"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
@@ -36,7 +36,7 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
     '/efb/v1/assets/leaflet.js',
     '/efb/v1/assets/map-shell-core.js',
     '/efb/v1/assets/map-utility-tools.js',
-    '/efb/v1/assets/host.js?v=35401'
+    '/efb/v1/assets/host.js?v=35901'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -163,6 +163,12 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.doesNotMatch(hostSource, /definition\.localUrl \|\| definition\.url/);
   assert.match(hostSource, /event=map-tile|map-tile/);
   assert.match(utilitySource, /ga-efb-e6b-input-surface/);
+  assert.match(utilitySource, /function toggleMapUtilityTool\(tool\)/);
+  assert.match(utilitySource, /if \(isMapUtilityToolOpen\(tool\)\) \{[\s\S]*?closeMapUtilityTool\(tool\);[\s\S]*?return false;/);
+  assert.match(utilitySource, /window\.toggleMapUtilityTool = toggleMapUtilityTool/);
+  assert.match(hostSource, /window\.toggleMapUtilityTool\('stopwatch'\)/);
+  assert.match(hostSource, /window\.toggleMapUtilityTool\('calculator'\)/);
+  assert.match(hostSource, /window\.toggleMapUtilityTool\('e6b'\)/);
   assert.match(utilitySource, /ga-e6b-rotate-delta/);
   assert.match(utilitySource, /ga-e6b-wind-slide-delta/);
   assert.match(utilitySource, /ga-e6b-wind-dot-set/);
@@ -292,7 +298,13 @@ test('versioned tracker assets keep shared sources in sync and EFB interaction p
   assert.doesNotMatch(appUtilitySource, /ga-e6b-wind-slide-delta/);
   assert.match(appUtilitySource, /function fitE6BFrameToViewport\(panel\)/);
   assert.match(appUtilitySource, /frame\.style\.width = `\$\{viewportWidth\}px`/);
+  assert.match(appUtilitySource, /function toggleMapUtilityTool\(tool\)/);
+  assert.match(appUtilitySource, /window\.toggleMapUtilityTool = toggleMapUtilityTool/);
   assert.doesNotMatch(efbUtilitySource, /fitE6BFrameToViewport/);
+  const appMapSource = fs.readFileSync(path.join(projectRoot, 'map.js'), 'utf8');
+  assert.match(appMapSource, /window\.toggleMapUtilityTool\('stopwatch'\)/);
+  assert.match(appMapSource, /window\.toggleMapUtilityTool\('calculator'\)/);
+  assert.match(appMapSource, /window\.toggleMapUtilityTool\('e6b'\)/);
   [
     'e6b-core.js',
     'e6b-workbench-front-disc.json',

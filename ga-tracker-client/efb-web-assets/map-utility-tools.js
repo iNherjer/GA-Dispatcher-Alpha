@@ -800,6 +800,15 @@
         syncToolButtons();
     }
 
+    function toggleMapUtilityTool(tool) {
+        if (isMapUtilityToolOpen(tool)) {
+            closeMapUtilityTool(tool);
+            return false;
+        }
+        openMapUtilityTool(tool);
+        return true;
+    }
+
     function isMapUtilityToolOpen(tool) {
         const cfg = getToolConfig(tool);
         const panel = cfg ? el(cfg.panel) : null;
@@ -2421,6 +2430,7 @@
 
     window.openMapUtilityTool = openMapUtilityTool;
     window.closeMapUtilityTool = closeMapUtilityTool;
+    window.toggleMapUtilityTool = toggleMapUtilityTool;
     window.isMapUtilityToolOpen = isMapUtilityToolOpen;
     window.toggleMapUtilityFormulaDrawer = toggleFormulaDrawer;
 

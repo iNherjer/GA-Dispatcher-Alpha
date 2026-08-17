@@ -13,17 +13,18 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v358 Alpha | v356 | Gruppen-Szenen nur in Alpha; v358 isoliert den Debug-Helfer von der Missions-Authority, Stable bleibt unveraendert |
+| Tracker-Runtime | v359 Alpha-Kandidat | v356 | v359 liefert den Werkzeug-Toggle fuer den EFB-Host; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 ## Aktueller EFB-Kanalstand
 
-Der aktuelle Quellstand behandelt die Werkzeugstarter fuer Uhr/Stoppuhr,
+Tracker v359 / Host 0.6.4 behandelt die Werkzeugstarter fuer Uhr/Stoppuhr,
 Rechner und E6B als echte Umschalter. Ein erneuter Klick auf denselben Starter
 schliesst das bereits sichtbare Werkzeug sowohl im tracker-gehosteten
-Kartentisch als auch in der nativen EFB-Oberflaeche. Das ist noch keine neue
-Paket- oder Kanalversion; die freigegebenen Artefakte bleiben unveraendert.
+Kartentisch als auch in der nativen EFB-Oberflaeche. Das EFB-Community-Paket
+bleibt auf 0.4.11; fuer den primaeren tracker-gehosteten Kartentisch ist kein
+neuer SDK-Build erforderlich.
 
 Tracker v348 / Host 0.6.2 und EFB 0.4.11 wurden mit dem offiziellen
 MSFS-2024-SDK 1.7.2 auf Windows gebaut, in MSFS getestet und fuer Alpha
@@ -1085,6 +1086,15 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-17: Web-Cache v1666 und Tracker v359 / Host 0.6.4 behandeln die
+  Starter fuer Uhr/Stoppuhr, Rechner und E6B als Umschalter. Ein zweiter Klick
+  auf denselben Starter schliesst das Werkzeug im Web-Kartentisch und im
+  tracker-gehosteten EFB. Der native EFB-Quellstand behaelt dieselbe Semantik;
+  das freigegebene Community-Paket 0.4.11 wird fuer den Host-Fix nicht neu
+  gebaut. Alle 103 Tracker-/EFB-Tests bestehen. Der lokale Windows-Build
+  umfasst 48.111.252 Bytes und hat SHA-256
+  `04962f7ce2f943c2cd5b37b575ee2694384516d8e38060390a760854a08f5b42`.
 
 - 2026-08-17: Tracker-Desktop 1.6.2 akzeptiert Pilot-PINs nun wie die Web-App
   mit 4 bis 8 Ziffern statt ausschliesslich vier Ziffern. Eingabe, lokale

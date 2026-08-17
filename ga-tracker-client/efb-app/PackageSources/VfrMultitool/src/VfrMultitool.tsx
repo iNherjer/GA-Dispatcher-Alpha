@@ -650,6 +650,11 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
   private openTool(tool: string): void {
     if (tool !== 'clock' && tool !== 'calculator' && tool !== 'e6b') return;
+    if (this.activeTool === tool && this.toolPanelRef.getOrDefault()?.classList.contains('is-open')) {
+      this.closeDrawers();
+      this.closeToolPanel();
+      return;
+    }
     this.activeTool = tool;
     this.closeDrawers();
     const titles = { clock: 'Uhr & Stoppuhr', calculator: 'Flugrechner', e6b: 'E6B Flight Computer' };

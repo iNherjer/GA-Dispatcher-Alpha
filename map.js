@@ -6489,13 +6489,16 @@ function activateMapDrawTool(kind, evt) {
     } else if (kind === 'measureClear') {
         clearMeasure();
     } else if (kind === 'stopwatch') {
-        if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('stopwatch');
+        if (typeof window.toggleMapUtilityTool === 'function') window.toggleMapUtilityTool('stopwatch');
+        else if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('stopwatch');
         mapDrawState.menuOpen = false;
     } else if (kind === 'calculator') {
-        if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('calculator');
+        if (typeof window.toggleMapUtilityTool === 'function') window.toggleMapUtilityTool('calculator');
+        else if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('calculator');
         mapDrawState.menuOpen = false;
     } else if (kind === 'e6b') {
-        if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('e6b');
+        if (typeof window.toggleMapUtilityTool === 'function') window.toggleMapUtilityTool('e6b');
+        else if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('e6b');
         if (mapDrawState.enabled) toggleMapDrawMode(false);
         mapDrawState.menuOpen = false;
     }

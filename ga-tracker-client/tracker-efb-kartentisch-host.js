@@ -839,7 +839,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.3');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.4');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -865,9 +865,9 @@
         { label: 'Werkzeugleiste', action: function () { window.toggleMapToolRail(); } },
         { label: 'Zeichnen', action: function () { setDrawMode('pen'); } },
         { label: 'Strecke messen', action: function () { setDrawMode('measure'); } },
-        { label: 'Uhr / Timer', action: function () { window.openMapUtilityTool('stopwatch'); } },
-        { label: 'Rechner', action: function () { window.openMapUtilityTool('calculator'); } },
-        { label: 'E6B Flight Computer', action: function () { window.openMapUtilityTool('e6b'); } }
+        { label: 'Uhr / Timer', action: function () { window.toggleMapUtilityTool('stopwatch'); } },
+        { label: 'Rechner', action: function () { window.toggleMapUtilityTool('calculator'); } },
+        { label: 'E6B Flight Computer', action: function () { window.toggleMapUtilityTool('e6b'); } }
       ]);
       missionMenu.insertAdjacentElement('afterend', toolsMenu);
       actions.appendChild(makeButton('ga-efb-host-state', 'Tracker wird verbunden', function () {}));
@@ -2390,8 +2390,9 @@
   window.activateMapDrawTool = function (tool, event) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
     if (tool === 'stopwatch' || tool === 'calculator' || tool === 'e6b') {
-      report('info', 'tool-action', 'open-' + tool, 'Kartenwerkzeug angefordert');
-      if (window.openMapUtilityTool) window.openMapUtilityTool(tool);
+      report('info', 'tool-action', 'toggle-' + tool, 'Kartenwerkzeug umgeschaltet');
+      if (window.toggleMapUtilityTool) window.toggleMapUtilityTool(tool);
+      else if (window.openMapUtilityTool) window.openMapUtilityTool(tool);
       return;
     }
     if (tool === 'drawClear') {
