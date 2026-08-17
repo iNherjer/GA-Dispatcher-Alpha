@@ -666,6 +666,10 @@ body.ga-efb-tracker-host .ga-efb-host-menu.is-open .ga-efb-host-menu-panel {
   display: block;
 }
 
+body.ga-efb-tracker-host .ga-efb-host-menu-panel.is-open {
+  display: block;
+}
+
 body.ga-efb-tracker-host .ga-efb-host-menu-item {
   display: block;
   width: 100%;

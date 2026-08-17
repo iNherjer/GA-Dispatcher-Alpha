@@ -18,25 +18,28 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '35901');
+  assert.equal(EFB_WEB_ASSET_REVISION, '36001');
   assert.match(page, /data-efb-view-version="6"/);
-  assert.match(page, /host\.css\?v=35901/);
-  assert.match(page, /host\.js\?v=35901/);
+  assert.match(page, /app-styles\.css\?v=36001/);
+  assert.match(page, /host\.css\?v=36001/);
+  assert.match(page, /map-shell-core\.js\?v=36001/);
+  assert.match(page, /map-utility-tools\.js\?v=36001/);
+  assert.match(page, /host\.js\?v=36001/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=35901"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=36001"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=36001"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js',
-    '/efb/v1/assets/map-utility-tools.js',
-    '/efb/v1/assets/host.js?v=35901'
+    '/efb/v1/assets/map-shell-core.js?v=36001',
+    '/efb/v1/assets/map-utility-tools.js?v=36001',
+    '/efb/v1/assets/host.js?v=36001'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -166,9 +169,16 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(utilitySource, /function toggleMapUtilityTool\(tool\)/);
   assert.match(utilitySource, /if \(isMapUtilityToolOpen\(tool\)\) \{[\s\S]*?closeMapUtilityTool\(tool\);[\s\S]*?return false;/);
   assert.match(utilitySource, /window\.toggleMapUtilityTool = toggleMapUtilityTool/);
-  assert.match(hostSource, /window\.toggleMapUtilityTool\('stopwatch'\)/);
-  assert.match(hostSource, /window\.toggleMapUtilityTool\('calculator'\)/);
-  assert.match(hostSource, /window\.toggleMapUtilityTool\('e6b'\)/);
+  assert.match(hostSource, /function toggleUtilityTool\(tool\)/);
+  assert.match(hostSource, /typeof window\.toggleMapUtilityTool === 'function'/);
+  assert.match(hostSource, /window\.isMapUtilityToolOpen\(tool\)/);
+  assert.match(hostSource, /window\.closeMapUtilityTool\(tool\)/);
+  assert.match(hostSource, /toggleUtilityTool\('stopwatch'\)/);
+  assert.match(hostSource, /toggleUtilityTool\('calculator'\)/);
+  assert.match(hostSource, /toggleUtilityTool\('e6b'\)/);
+  assert.match(hostSource, /function openHostMenuPanel\(wrapper, trigger, panel\)/);
+  assert.match(hostSource, /document\.body\.appendChild\(panel\)/);
+  assert.match(hostSource, /wrapper\._gaHostMenuPanel = panel/);
   assert.match(utilitySource, /ga-e6b-rotate-delta/);
   assert.match(utilitySource, /ga-e6b-wind-slide-delta/);
   assert.match(utilitySource, /ga-e6b-wind-dot-set/);
@@ -194,6 +204,7 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostCss, /\.ga-efb-context-airspaces > span > b > i/);
   assert.match(hostCss, /grid-template-columns: 132px minmax\(0, 1fr\)/);
   assert.match(hostCss, /\.map-e6b-device\.map-e6b-half \{[\s\S]*?transform: scale\(\.7\) !important/);
+  assert.match(hostCss, /\.ga-efb-host-menu-panel\.is-open \{[\s\S]*?display: block;/);
   assert.match(hostCss, /\.calculator-formula-drawer,[\s\S]*?background: #f7f4e8 !important/);
   assert.match(hostCss, /\.ga-efb-context-windrose \.ga-efb-context-runway rect/);
   assert.match(hostCss, /#mapSideDrawer \{[\s\S]*?--checklist-panel-width: 66\.6667vw/);
@@ -209,6 +220,31 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /function normalizeCoherentGlyphs\(root\)/);
   assert.match(hostSource, /new window\.MutationObserver/);
   assert.match(hostSource, /element\.hasAttribute\('data-ga-efb-font-base'\)/);
+});
+
+test('EFB host toggles utilities even when Coherent still serves the legacy utility module', () => {
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const toggleSource = hostSource.match(/function toggleUtilityTool\(tool\) \{[\s\S]*?\n  \}\n\n  function configureOriginalChrome/)?.[0]
+    .replace(/\n\n  function configureOriginalChrome$/, '');
+  assert.ok(toggleSource);
+
+  const calls = [];
+  const legacyWindow = {
+    isMapUtilityToolOpen: () => true,
+    closeMapUtilityTool: (tool) => calls.push(`close:${tool}`),
+    openMapUtilityTool: (tool) => calls.push(`open:${tool}`)
+  };
+  const legacyToggle = new Function('window', `return (${toggleSource});`)(legacyWindow);
+  assert.equal(legacyToggle('e6b'), false);
+  assert.deepEqual(calls, ['close:e6b']);
+
+  legacyWindow.isMapUtilityToolOpen = () => false;
+  assert.equal(legacyToggle('e6b'), true);
+  assert.deepEqual(calls, ['close:e6b', 'open:e6b']);
+
+  legacyWindow.toggleMapUtilityTool = (tool) => calls.push(`toggle:${tool}`) && 'modern';
+  assert.equal(legacyToggle('e6b'), 'modern');
+  assert.deepEqual(calls, ['close:e6b', 'open:e6b', 'toggle:e6b']);
 });
 
 test('mission drawer signatures ignore volatile relay and flight fields', () => {

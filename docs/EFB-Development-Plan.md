@@ -13,18 +13,20 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v359 Alpha | v356 | v359 liefert den Werkzeug-Toggle fuer den EFB-Host; Stable bleibt unveraendert |
+| Tracker-Runtime | v360 Alpha | v356 | v360 erzwingt frische EFB-Assets und haelt das Werkzeugmenue ueber dem E6B; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 ## Aktueller EFB-Kanalstand
 
-Tracker v359 / Host 0.6.4 behandelt die Werkzeugstarter fuer Uhr/Stoppuhr,
-Rechner und E6B als echte Umschalter. Ein erneuter Klick auf denselben Starter
-schliesst das bereits sichtbare Werkzeug sowohl im tracker-gehosteten
-Kartentisch als auch in der nativen EFB-Oberflaeche. Das EFB-Community-Paket
-bleibt auf 0.4.11; fuer den primaeren tracker-gehosteten Kartentisch ist kein
-neuer SDK-Build erforderlich.
+Tracker v360 / Host 0.6.5 behandelt die Werkzeugstarter fuer Uhr/Stoppuhr,
+Rechner und E6B als echte Umschalter. Der Host kann dabei auch mit einem noch
+gecacheten aelteren Utility-Modul schliessen. Alle veraenderlichen CSS- und
+JavaScript-Dateien des tracker-gehosteten Kartentischs tragen Revision 36001.
+Das obere Werkzeugmenue wird beim Oeffnen direkt ueber der Kartenoberflaeche
+gerendert, sodass sein E6B-Eintrag nicht mehr von der E6B-Eingabeflaeche
+abgefangen wird. Das EFB-Community-Paket bleibt auf 0.4.11; fuer diesen
+tracker-gehosteten Fix ist kein neuer SDK-Build erforderlich.
 
 Tracker v348 / Host 0.6.2 und EFB 0.4.11 wurden mit dem offiziellen
 MSFS-2024-SDK 1.7.2 auf Windows gebaut, in MSFS getestet und fuer Alpha
@@ -1086,6 +1088,22 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-17: Tracker v360 / Host 0.6.5 korrigiert den im echten EFB noch
+  verbleibenden E6B-Schliesspfad. Der frische Browserstand von v359 konnte den
+  E6B bereits zweimal ueber denselben Starter umschalten; im laufenden EFB war
+  das Utility-Modul jedoch ohne Revisionsparameter cachebar. Zusaetzlich lag
+  das geoeffnete obere Werkzeugmenue in einem niedrigeren Stacking-Kontext als
+  die E6B-Eingabeflaeche. Revision 36001 versioniert App-CSS, Map-Core,
+  Utility-Modul und Host gemeinsam. Der Host enthaelt einen Rueckwaerts-Fallback
+  auf `isMapUtilityToolOpen` plus `closeMapUtilityTool`, und geoeffnete
+  Host-Menues werden als Body-Layer ueber dem E6B positioniert. Im lokalen
+  Touch-Viewport schliessen sowohl der E6B-Eintrag im oberen Werkzeugmenue als
+  auch der E6B-Button der schwebenden Werkzeugleiste nach dem zweiten Klick.
+  Alle 106 Tracker-/EFB-Tests bestehen. Der Windows-Build umfasst 48.113.240
+  Bytes und hat SHA-256
+  `7a7c5e34034c829552e5b4973b4fcca778402fd7ad78f987b9ed9c34f681a2c6`.
+  Stable bleibt auf v356; das EFB-Community-Paket bleibt auf 0.4.11.
 
 - 2026-08-17: Web-Cache v1666 und Tracker v359 / Host 0.6.4 behandeln die
   Starter fuer Uhr/Stoppuhr, Rechner und E6B als Umschalter. Ein zweiter Klick

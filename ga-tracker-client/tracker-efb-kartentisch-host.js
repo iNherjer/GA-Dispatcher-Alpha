@@ -793,7 +793,42 @@
       menu.classList.remove('is-open');
       var trigger = menu.querySelector('.ga-efb-host-menu-trigger');
       if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      var panel = menu._gaHostMenuPanel || menu.querySelector('.ga-efb-host-menu-panel');
+      if (panel) {
+        panel.classList.remove('is-open');
+        panel.style.position = '';
+        panel.style.top = '';
+        panel.style.right = '';
+        panel.style.bottom = '';
+        panel.style.left = '';
+        if (panel.parentNode !== menu) menu.appendChild(panel);
+      }
     });
+  }
+
+  function openHostMenuPanel(wrapper, trigger, panel) {
+    document.body.appendChild(panel);
+    panel.classList.add('is-open');
+    panel.style.position = 'fixed';
+    panel.style.top = '0px';
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+    panel.style.left = '0px';
+    var triggerRect = trigger.getBoundingClientRect();
+    var panelWidth = panel.offsetWidth || 180;
+    var panelHeight = panel.offsetHeight || 180;
+    var margin = 8;
+    var gap = 7;
+    var left = wrapper.classList.contains('ga-efb-host-tools-menu')
+      ? triggerRect.right - panelWidth
+      : triggerRect.left;
+    left = Math.max(margin, Math.min(window.innerWidth - panelWidth - margin, left));
+    var top = triggerRect.bottom + gap;
+    if (top + panelHeight > window.innerHeight - margin) {
+      top = Math.max(margin, triggerRect.top - panelHeight - gap);
+    }
+    panel.style.left = Math.round(left) + 'px';
+    panel.style.top = Math.round(top) + 'px';
   }
 
   function makeHostMenu(className, label, items) {
@@ -804,6 +839,7 @@
       closeHostMenus(wrapper);
       wrapper.classList.toggle('is-open', open);
       trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) openHostMenuPanel(wrapper, trigger, panel);
     });
     trigger.setAttribute('aria-haspopup', 'true');
     trigger.setAttribute('aria-expanded', 'false');
@@ -826,6 +862,7 @@
     });
     wrapper.appendChild(trigger);
     wrapper.appendChild(panel);
+    wrapper._gaHostMenuPanel = panel;
     return wrapper;
   }
 
@@ -836,10 +873,27 @@
     report('info', 'toolbar', 'layers', 'Layerauswahl umgeschaltet');
   }
 
+  function toggleUtilityTool(tool) {
+    if (typeof window.toggleMapUtilityTool === 'function') {
+      return window.toggleMapUtilityTool(tool);
+    }
+    if (typeof window.isMapUtilityToolOpen === 'function' &&
+        window.isMapUtilityToolOpen(tool) &&
+        typeof window.closeMapUtilityTool === 'function') {
+      window.closeMapUtilityTool(tool);
+      return false;
+    }
+    if (typeof window.openMapUtilityTool === 'function') {
+      window.openMapUtilityTool(tool);
+      return true;
+    }
+    return false;
+  }
+
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.4');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.5');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -865,16 +919,17 @@
         { label: 'Werkzeugleiste', action: function () { window.toggleMapToolRail(); } },
         { label: 'Zeichnen', action: function () { setDrawMode('pen'); } },
         { label: 'Strecke messen', action: function () { setDrawMode('measure'); } },
-        { label: 'Uhr / Timer', action: function () { window.toggleMapUtilityTool('stopwatch'); } },
-        { label: 'Rechner', action: function () { window.toggleMapUtilityTool('calculator'); } },
-        { label: 'E6B Flight Computer', action: function () { window.toggleMapUtilityTool('e6b'); } }
+        { label: 'Uhr / Timer', action: function () { toggleUtilityTool('stopwatch'); } },
+        { label: 'Rechner', action: function () { toggleUtilityTool('calculator'); } },
+        { label: 'E6B Flight Computer', action: function () { toggleUtilityTool('e6b'); } }
       ]);
       missionMenu.insertAdjacentElement('afterend', toolsMenu);
       actions.appendChild(makeButton('ga-efb-host-state', 'Tracker wird verbunden', function () {}));
       if (!document.body.getAttribute('data-ga-host-menu-bound')) {
         document.body.setAttribute('data-ga-host-menu-bound', '1');
         document.addEventListener('click', function (event) {
-          if (event.target && event.target.closest && event.target.closest('.ga-efb-host-menu')) return;
+          if (event.target && event.target.closest &&
+              (event.target.closest('.ga-efb-host-menu') || event.target.closest('.ga-efb-host-menu-panel'))) return;
           closeHostMenus();
         });
       }
@@ -2391,8 +2446,7 @@
     if (event) { event.preventDefault(); event.stopPropagation(); }
     if (tool === 'stopwatch' || tool === 'calculator' || tool === 'e6b') {
       report('info', 'tool-action', 'toggle-' + tool, 'Kartenwerkzeug umgeschaltet');
-      if (window.toggleMapUtilityTool) window.toggleMapUtilityTool(tool);
-      else if (window.openMapUtilityTool) window.openMapUtilityTool(tool);
+      toggleUtilityTool(tool);
       return;
     }
     if (tool === 'drawClear') {
