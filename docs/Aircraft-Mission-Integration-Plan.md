@@ -256,6 +256,17 @@ Die EXE enthaelt den neuen Gruppen-Core und die Capability. Release `v357` ist
 veroeffentlicht und `channel/alpha.json` auf dieses Artefakt gesetzt;
 `stable.json` bleibt unveraendert auf v356. Der reale MSFS-Test steht noch aus.
 
+Beim ersten realen Aufruf wurde der isolierte Debug-Spawn vom Tracker korrekt
+als nicht autorisierter missionsgebundener Szenenbefehl abgewiesen
+(`ack:conflict`). Der v358-Fix kennzeichnet ausschliesslich die eng validierten
+Debug-Szenen `mission-scene-group-debug-(board|deboard)-<2-5>-<timestamp>` als
+authority-frei. Sie erhalten weder Mission-/Run-Metadaten noch werden sie im
+aktiven Missionslauf als Effekt protokolliert. Alle normalen Szenenbefehle
+bleiben unveraendert authority-pflichtig. Der erneute reale MSFS-Test erfolgt
+daher mit Tracker v358 oder neuer. Der lokale v358-Build hat 48.110.783 Bytes
+und SHA-256
+`46d13bed5983410f94fb0c8e5028de3d2896ccf62841e440ceee63e668b56af0`.
+
 Der reale Test kann ohne Missionsfortschritt in der Browser-Konsole ausgefuehrt
 werden. Die Debug-Sequenzen verwenden eigene Szenen- und Command-IDs; ihre ACKs
 werden vor Manifest, Runtime und Voice abgefangen:

@@ -13,11 +13,17 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v357 Alpha | v356 | Gruppen-Szenen nur in Alpha; Stable bleibt auf dem unveraenderten v356-Artefakt |
+| Tracker-Runtime | v358 Alpha-Kandidat | v356 | Gruppen-Szenen nur in Alpha; v358 isoliert den Debug-Helfer von der Missions-Authority, Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 ## Aktueller EFB-Kanalstand
+
+Der aktuelle Quellstand behandelt die Werkzeugstarter fuer Uhr/Stoppuhr,
+Rechner und E6B als echte Umschalter. Ein erneuter Klick auf denselben Starter
+schliesst das bereits sichtbare Werkzeug sowohl im tracker-gehosteten
+Kartentisch als auch in der nativen EFB-Oberflaeche. Das ist noch keine neue
+Paket- oder Kanalversion; die freigegebenen Artefakte bleiben unveraendert.
 
 Tracker v348 / Host 0.6.2 und EFB 0.4.11 wurden mit dem offiziellen
 MSFS-2024-SDK 1.7.2 auf Windows gebaut, in MSFS getestet und fuer Alpha
@@ -1104,6 +1110,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   `fd63d93715a5451482352c941757f3b9709db148d327d31cab90119c007024c6`),
   als Release `v357` veroeffentlicht und nur in `channel/alpha.json`
   freigeschaltet. Stable bleibt bis zum realen MSFS-Test auf v356.
+
+- 2026-08-17: Der erste reale Aufruf des Gruppen-Debug-Helfers erreichte den
+  Tracker, wurde aber mit `ack:conflict` abgewiesen, weil der Testbefehl noch
+  unter die normale Missions-Authority fiel. Der v358-Alpha-Kandidat erlaubt
+  deshalb nur streng validierte `mission-scene-group-debug-*`-Befehle ohne
+  Mission-/Run-Zuordnung und ohne Eintrag im aktiven Authority-Lauf. Normale
+  Missionsszenen koennen diese Ausnahme nicht verwenden. Der erneute MSFS-Test
+  ist nach Alpha-Veroeffentlichung von v358 ausstehend. Der lokale Windows-
+  Build umfasst 48.110.783 Bytes und hat SHA-256
+  `46d13bed5983410f94fb0c8e5028de3d2896ccf62841e440ceee63e668b56af0`.
 
 - 2026-08-17: Flugzeug-Preset-Profile, Sitzplatzgrenzen und spaetere
   Charter-/Privat-/Sightseeing-Gruppen werden nach dem lokalen

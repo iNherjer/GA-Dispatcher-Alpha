@@ -10,6 +10,13 @@
     const MAX_GROUP_SIZE = 5;
     const DEFAULT_SPACING_M = 1;
     const DEFAULT_STAGGER_MS = 1100;
+    const DEBUG_SCENE_ID_PATTERN = /^mission-scene-group-debug-(board|deboard)-([2-5])-(\d{10,})$/;
+    const DEBUG_COMMAND_TYPES = new Set([
+        'mission_scene_spawn',
+        'mission_scene_boarding',
+        'mission_scene_deboarding',
+        'mission_scene_clear'
+    ]);
     const GROUP_VEHICLE_TITLES = Object.freeze({
         van: Object.freeze([
             'Microsoft_Van_EUR',
@@ -150,6 +157,21 @@
         });
     }
 
+    function isGroupSceneDebugCommand(command = {}) {
+        if (command?.groupSceneDebug !== true) return false;
+        const type = String(command?.type || command?.command || '').trim().toLowerCase();
+        if (!DEBUG_COMMAND_TYPES.has(type)) return false;
+        const sceneMatch = String(command?.sceneId || '').trim().match(DEBUG_SCENE_ID_PATTERN);
+        if (!sceneMatch) return false;
+        if (type === 'mission_scene_clear') return true;
+        if ((type === 'mission_scene_spawn' || type === 'mission_scene_boarding') && sceneMatch[1] !== 'board') return false;
+        if (type === 'mission_scene_deboarding' && sceneMatch[1] !== 'deboard') return false;
+        const groupPlan = normalizeGroupSequenceCommand(command);
+        return groupPlan.enabled === true
+            && groupPlan.valid === true
+            && groupPlan.expectedPassengerCount === Number(sceneMatch[2]);
+    }
+
     return Object.freeze({
         CAPABILITY,
         DEFAULT_SPACING_M,
@@ -161,6 +183,7 @@
         evaluateGroupSequenceCompletion,
         groupLateralOffsetM,
         groupStartDelayMs,
+        isGroupSceneDebugCommand,
         normalizeGroupSequenceCommand,
         resolveGroupVehicleSelection
     });

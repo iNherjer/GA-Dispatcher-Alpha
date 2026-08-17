@@ -29,6 +29,7 @@ const {
   GROUP_VEHICLE_TITLES,
   evaluateGroupSequenceCompletion,
   groupLateralOffsetM,
+  isGroupSceneDebugCommand,
   normalizeGroupSequenceCommand,
   resolveGroupVehicleSelection
 } = require('./mission-scene-group-core.js');
@@ -57,8 +58,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v357';
-const TRACKER_VERSION_CODE = 357;
+const TRACKER_VERSION = 'v358';
+const TRACKER_VERSION_CODE = 358;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4132,16 +4133,19 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     handleCommand(command) {
       const type = String(command?.type || command?.command || '').trim();
       if (handleAuthorityCommand(type, command)) return true;
-      if (authorityReleasePending && (/^mission_(scene|smoke)_/i.test(type) || type === 'mission_lifecycle')) {
+      const groupSceneDebugCommand = isGroupSceneDebugCommand(command);
+      if (authorityReleasePending && !groupSceneDebugCommand && (/^mission_(scene|smoke)_/i.test(type) || type === 'mission_lifecycle')) {
         sendAuthorityResult(type, command, { ok: false, status: 'conflict', error: 'mission_authority_release_pending', activeRun: missionAuthority?.getActiveRun?.() || null });
         return true;
       }
-      const authorityValidation = missionAuthority?.validate?.(command);
+      const authorityValidation = groupSceneDebugCommand
+        ? { ok: true, debugScene: true }
+        : missionAuthority?.validate?.(command);
       if (authorityValidation && !authorityValidation.ok) {
         sendAuthorityResult(type, command, authorityValidation);
         return true;
       }
-      if (/^mission_(scene|smoke)_/i.test(type) || type === 'mission_lifecycle') rememberMissionCommand(command);
+      if (!groupSceneDebugCommand && (/^mission_(scene|smoke)_/i.test(type) || type === 'mission_lifecycle')) rememberMissionCommand(command);
       if (type === 'mission_lifecycle') {
         const lifecycleTerminal = /^(ended|closed|reset|cleared)$/i.test(String(command?.state || ''));
         if (lifecycleTerminal || /^closing$/i.test(String(command?.state || ''))) {

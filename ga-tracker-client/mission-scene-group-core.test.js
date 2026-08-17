@@ -57,6 +57,32 @@ test('legacy commands do not enable group behavior', () => {
   assert.equal(plan.expectedPassengerCount, null);
 });
 
+test('only strictly scoped group debug commands bypass mission authority', () => {
+  const base = {
+    groupSceneDebug: true,
+    groupSequence: true,
+    expectedPassengerCount: 3,
+    sceneId: 'mission-scene-group-debug-board-3-1786988349935'
+  };
+  assert.equal(groupCore.isGroupSceneDebugCommand({ ...base, type: 'mission_scene_spawn' }), true);
+  assert.equal(groupCore.isGroupSceneDebugCommand({ ...base, type: 'mission_scene_boarding' }), true);
+  assert.equal(groupCore.isGroupSceneDebugCommand({ ...base, type: 'mission_scene_clear' }), true);
+  assert.equal(groupCore.isGroupSceneDebugCommand({
+    ...base,
+    type: 'mission_scene_deboarding',
+    sceneId: 'mission-scene-group-debug-deboard-3-1786988349935'
+  }), true);
+  assert.equal(groupCore.isGroupSceneDebugCommand({ ...base, groupSceneDebug: false, type: 'mission_scene_spawn' }), false);
+  assert.equal(groupCore.isGroupSceneDebugCommand({ ...base, sceneId: 'real-mission-scene', type: 'mission_scene_spawn' }), false);
+  assert.equal(groupCore.isGroupSceneDebugCommand({ ...base, expectedPassengerCount: 4, type: 'mission_scene_spawn' }), false);
+  assert.equal(groupCore.isGroupSceneDebugCommand({ ...base, type: 'mission_smoke_clear' }), false);
+  assert.equal(groupCore.isGroupSceneDebugCommand({
+    groupSceneDebug: true,
+    type: 'mission_scene_clear',
+    sceneId: 'mission-scene-group-debug-board-3-1786988349935'
+  }), true);
+});
+
 test('tracker and web app gate the additive sequence on the explicit capability', () => {
   const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
   const syncSource = fs.readFileSync(path.join(__dirname, '..', 'sync.js'), 'utf8');
@@ -65,10 +91,13 @@ test('tracker and web app gate the additive sequence on the explicit capability'
   assert.match(trackerSource, /normalizeGroupSequenceCommand\(command\)/);
   assert.match(trackerSource, /groupPlan\.enabled \? groupCompletion\.complete : routeSent/);
   assert.match(trackerSource, /groupPlan\.enabled[\s\S]*?passenger_count_mismatch/);
+  assert.match(trackerSource, /const groupSceneDebugCommand = isGroupSceneDebugCommand\(command\)/);
+  assert.match(trackerSource, /!groupSceneDebugCommand[\s\S]*?rememberMissionCommand\(command\)/);
   assert.match(syncSource, /window\.liveTrackerCapabilities\.includes\(MISSION_SCENE_GROUP_CAPABILITY\)/);
   assert.match(syncSource, /if \(!partyKind \|\| partyKind === 'single'/);
   assert.match(syncSource, /groupSequence: true/);
   assert.match(syncSource, /_missionSceneValidateGroupFinalAck/);
   assert.match(syncSource, /window\.missionSceneGroupDebug = Object\.freeze/);
-  assert.match(syncSource, /missionSceneGroupDebugWaiters\.has\(ackCommandId\)[\s\S]*?_trackerPendingHandleAck\(ack\)[\s\S]*?_missionSceneGroupDebugHandleAck\(ack\)/);
+  assert.match(syncSource, /GAMissionSceneGroup\?\.isGroupSceneDebugCommand\?\.\(command\)/);
+  assert.match(syncSource, /missionSceneGroupDebugWaiters\.has\(ackCommandId\)[\s\S]*?_trackerPendingClear\(ackCommandId\)[\s\S]*?_missionSceneGroupDebugHandleAck\(ack\)/);
 });

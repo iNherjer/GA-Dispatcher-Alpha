@@ -4337,10 +4337,12 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
     const commandType = String(command.type || '');
     const missionAuthorityProtocol = /^mission_(authority|snapshot)_/i.test(commandType);
     const missionScopedCommand = /^mission_(scene|smoke)_/i.test(commandType) || commandType === 'mission_lifecycle';
-    const missionId = missionScopedCommand
+    const groupSceneDebugCommand = window.GAMissionSceneGroup?.isGroupSceneDebugCommand?.(command) === true;
+    const missionAuthorityScopedCommand = missionScopedCommand && !groupSceneDebugCommand;
+    const missionId = missionAuthorityScopedCommand
         ? _normalizeMissionRuntimeId(command.missionId || _activeMissionRuntimeId('active'))
         : (missionAuthorityProtocol ? _normalizeMissionRuntimeId(command.missionId || '') : '');
-    const missionPhase = missionScopedCommand && typeof _missionRuntimePhaseSnapshot === 'function'
+    const missionPhase = missionAuthorityScopedCommand && typeof _missionRuntimePhaseSnapshot === 'function'
         ? _missionRuntimePhaseSnapshot()
         : '';
     const trackerCommand = {
@@ -4348,9 +4350,16 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
         commandId,
         pin: getSyncPin()
     };
-    if ((missionScopedCommand || missionAuthorityProtocol) && missionId) trackerCommand.missionId = missionId;
-    if (missionScopedCommand && missionPhase) trackerCommand.missionPhase = missionPhase;
-    if (_trackerSupportsMissionAuthority() && (missionScopedCommand || missionAuthorityProtocol)) {
+    if ((missionAuthorityScopedCommand || missionAuthorityProtocol) && missionId) trackerCommand.missionId = missionId;
+    if (missionAuthorityScopedCommand && missionPhase) trackerCommand.missionPhase = missionPhase;
+    if (groupSceneDebugCommand) {
+        delete trackerCommand.missionId;
+        delete trackerCommand.missionPhase;
+        delete trackerCommand.clientId;
+        delete trackerCommand.runId;
+        delete trackerCommand.expectedRevision;
+    }
+    if (_trackerSupportsMissionAuthority() && (missionAuthorityScopedCommand || missionAuthorityProtocol)) {
         const authority = _readMissionAuthorityState();
         trackerCommand.clientId = String(command.clientId || authority?.clientId || _missionAuthorityClientId());
         if (authority?.missionId === missionId && authority.runId) {
@@ -5707,7 +5716,17 @@ function _missionSceneGroupDebugPosition() {
 }
 
 function _missionSceneGroupDebugSend(command, expectedAckType, timeoutMs = 70000) {
-    const commandId = window.sendTrackerCommand?.(command);
+    const trackerVersionCode = Number(window.liveTrackerVersionCode);
+    if (!Number.isFinite(trackerVersionCode) || trackerVersionCode < 358) {
+        return Promise.resolve({
+            type: expectedAckType,
+            sceneId: command?.sceneId || '',
+            status: 'error',
+            error: 'tracker_v358_required',
+            requiredTrackerVersion: 'v358'
+        });
+    }
+    const commandId = window.sendTrackerCommand?.({ ...command, groupSceneDebug: true });
     if (!commandId) return Promise.resolve({ type: expectedAckType, status: 'error', error: 'command_not_sent' });
     return new Promise(resolve => {
         const timer = setTimeout(() => {
@@ -5884,7 +5903,8 @@ async function _missionSceneGroupDebugClear() {
     const ack = await _missionSceneGroupDebugSend({
         type: 'mission_scene_clear',
         sceneId,
-        reason: 'group-debug-clear'
+        reason: 'group-debug-clear',
+        groupSceneDebug: true
     }, 'mission_scene_clear_ack', 30000);
     if (ack?.status === 'ok' || ack?.status === 'noop') missionSceneGroupDebugState = null;
     return ack;
@@ -9808,7 +9828,7 @@ function _handleTrackerAck(ack) {
         return;
     }
     if (missionSceneGroupDebugWaiters.has(ackCommandId)) {
-        _trackerPendingHandleAck(ack);
+        _trackerPendingClear(ackCommandId);
         _missionSceneGroupDebugHandleAck(ack);
         return;
     }
