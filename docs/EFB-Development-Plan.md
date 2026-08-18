@@ -14,6 +14,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
+| Tracker-Desktop | 1.6.3 manueller Origin-Installer | Auto-Update 1.6.2 | 1.6.3 startet weiter auf Stable; Alpha muss fuer den APT-Test ausdruecklich gewaehlt werden |
 | Tracker-Runtime | v366 Alpha | v356 | v366 protokolliert den seiteneffektfreien APT-Event-Replay automatisch in einer einzelnen Testerdatei; Stable bleibt bis zum Realtest auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
@@ -1349,11 +1350,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   AWM-Audio-Selftest bestehen. Die v366-Windows-EXE umfasst 48.269.254 Bytes
   mit SHA-256
   `79bc7759b6fd183a849e1a89cffb409b0f9a42ff592031f090b61fbb0834aa23`.
-  Der lokale Desktop-1.6.3-Installer umfasst 100.263.558 Bytes mit SHA-256
+  Der Desktop-1.6.3-Installer umfasst 100.263.558 Bytes mit SHA-256
   `32e32b0870ee4a28fb81c046f55ec10dc9fe0c32e1351467b266210be91573d3`.
+  Installer, Blockmap und `latest.yml` sind unter dem unveraenderlichen Release
+  `tracker-desktop-v1.6.3` veroeffentlicht und remote verifiziert. Die
+  Origin-Web-App verlinkt den Installer direkt und weist darauf hin, dass
+  Stable der Standard bleibt und Alpha fuer den Test ausdruecklich gewaehlt
+  werden muss.
   Tracker v366 geht ausschliesslich in Alpha; Stable, EFB und Toolbar bleiben
-  unveraendert. Der Desktop-Kanal wird durch den lokalen Installer-Build noch
-  nicht umgeschaltet.
+  unveraendert. Der globale Desktop-Autoupdate-Kanal bleibt vorerst auf 1.6.2;
+  es erfolgt daher kein automatischer Rollout an bestehende Installationen.
 
 - 2026-08-18: Der lokale v365-Kandidat fuehrt fuer normale APT-Missionen ein
   persistentes, narrativfreies Shadow-Journal ein. Der Browser leitet aus den
