@@ -57,6 +57,7 @@ function compareEnvelope(browserEnvelope, trackerEnvelope) {
 function createTrackerMissionShadow(options = {}) {
   const now = typeof options.now === 'function' ? options.now : () => Date.now();
   const log = typeof options.log === 'function' ? options.log : () => {};
+  const onObservation = typeof options.onObservation === 'function' ? options.onObservation : () => {};
   const historyLimit = Math.max(4, Math.min(120, Math.round(Number(options.historyLimit) || DEFAULT_HISTORY_LIMIT)));
   let current = null;
   let history = [];
@@ -65,12 +66,26 @@ function createTrackerMissionShadow(options = {}) {
     current = entry;
     history.push(entry);
     history = history.slice(-historyLimit);
-    return publicState();
+    const state = publicState();
+    try { onObservation(state); } catch (_) {}
+    return state;
   };
 
-  const unavailable = (input, reason) => remember({
+  const unavailable = (input, reason) => {
+    const resumeBundle = safeObject(input.resumeBundle);
+    const browserEnvelope = safeObject(input.browserEnvelope || resumeBundle.execution);
+    const replayBundle = safeObject(input.replayBundle || resumeBundle.executionReplay);
+    return remember({
     status: 'unavailable',
     reason,
+    mode: replayBundle.schema === executionCore.BUNDLE_SCHEMA ? 'event-replay' : 'snapshot-shadow',
+    recipe: cleanString(
+      replayBundle.recipe
+      || browserEnvelope.recipe
+      || safeObject(resumeBundle.descriptor).primaryAdapter
+      || resumeBundle.adapter,
+      80
+    ).toLowerCase() || null,
     missionId: cleanString(input.missionId || safeObject(input.resumeBundle).missionId),
     runId: cleanString(input.runId, 220),
     authorityRevision: Math.max(0, Math.round(Number(input.authorityRevision) || 0)),
@@ -82,6 +97,7 @@ function createTrackerMissionShadow(options = {}) {
     eventTrace: [],
     observedAt: now()
   });
+  };
 
   const observe = (rawInput = {}) => {
     const input = safeObject(rawInput);
@@ -119,6 +135,7 @@ function createTrackerMissionShadow(options = {}) {
         ? 'shadow_replay_drift'
         : (legacyDriftFields.length ? 'shadow_legacy_projection_drift' : 'shadow_replay_match'),
       mode: hasReplayBundle ? 'event-replay' : 'snapshot-shadow',
+      recipe: cleanString(trackerEnvelope.recipe, 80).toLowerCase() || null,
       missionId,
       runId,
       authorityRevision,
@@ -177,6 +194,7 @@ function createTrackerMissionShadow(options = {}) {
       sideEffects: false,
       status: current.status,
       reason: current.reason,
+      recipe: current.recipe || null,
       missionId: current.missionId || null,
       runId: current.runId || null,
       authorityRevision: current.authorityRevision,
@@ -201,6 +219,7 @@ function createTrackerMissionShadow(options = {}) {
       return history.map(entry => ({
         status: entry.status,
         reason: entry.reason,
+        recipe: entry.recipe || null,
         missionId: entry.missionId,
         runId: entry.runId,
         authorityRevision: entry.authorityRevision,

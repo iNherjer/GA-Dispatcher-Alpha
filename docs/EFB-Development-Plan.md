@@ -14,7 +14,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v365 Alpha | v356 | v365 enthaelt zentrale Voice, Cockpit-Sitzungen, den gesperrten Intent-Gateway sowie den vollstaendigen APT-Event-Replay; Stable bleibt bis zum Realtest auf v356 |
+| Tracker-Runtime | v366 Alpha | v356 | v366 protokolliert den seiteneffektfreien APT-Event-Replay automatisch in einer einzelnen Testerdatei; Stable bleibt bis zum Realtest auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-Transport | HTTP-Loopback; Mission read-only, Voice-Effekte und Session-Heartbeats lokal schreibbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` bleibt gesperrt |
@@ -24,8 +24,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 Tracker v360 / Host 0.6.5 behandelt die Werkzeugstarter fuer Uhr/Stoppuhr,
 Rechner und E6B als echte Umschalter. Der Host kann dabei auch mit einem noch
 gecacheten aelteren Utility-Modul schliessen. Alle veraenderlichen CSS- und
-JavaScript-Dateien des lokalen tracker-gehosteten v365-Kandidaten verwenden
-weiterhin Revision 36301; v365 aendert keine Host-Assets. Der freigegebene
+JavaScript-Dateien des tracker-gehosteten v366-Hosts verwenden weiterhin
+Revision 36301; v366 aendert keine Host-Assets. Der freigegebene
 v360-Host bleibt auf Revision 36001.
 Das obere Werkzeugmenue wird beim Oeffnen direkt ueber der Kartenoberflaeche
 gerendert, sodass sein E6B-Eintrag nicht mehr von der E6B-Eingabeflaeche
@@ -944,6 +944,16 @@ Effektpayloads bleiben aus Diagnose und Log heraus. `sideEffects=false` und
 `executionAuthority=web` bleiben unveraendert; der Reducer kann weiterhin
 keine Szene, Voice, Payload-Aenderung oder Missionsaktion ausfuehren.
 
+Tracker v366 macht den Realtest fuer externe Tester automatisch. Jeder normale
+APT-Lauf schreibt ohne Schalter in das separate, rotierte
+`GA-APT-Missionstest.txt`: Session-/Kanalstand, jeden akzeptierten Checkpoint,
+Phase, Eventfolge, Browser-/Tracker-Hash, Driftfelder und am terminalen Close
+ein `APT_TEST_END parity=PASS|FAIL`. Ein frueher Drift bleibt im Laufsummary
+erhalten. Story, sichtbare Cargo-/Pax-Texte, Zugangsdaten und Effekt-Payloads
+werden nicht aufgenommen. Desktop 1.6.3 markiert die Datei ueber den Button
+`APT-Testlog` direkt im Explorer. Der Tester muss damit nur Alpha v366 starten,
+eine normale APT-Mission vollstaendig fliegen und diese eine Datei senden.
+
 ### E4 - Autoritaet kontrolliert an den Tracker uebergeben
 
 Status: geplant
@@ -1327,6 +1337,23 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Tracker-Reducer spiegeln und Drift ueber komplette APT-Replays messen.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-18: Tracker v366 aktiviert fuer alle normalen APT-Laeufe den
+  automatischen, separaten Shadow-Realtest. `GA-APT-Missionstest.txt` erfasst
+  jeden akzeptierten Checkpoint sowie ein ueber den gesamten Run klebendes
+  PASS-/FAIL-Ergebnis, bleibt aber frei von Narrativ, sichtbaren Labels,
+  Zugangsdaten und Effekt-Payloads. Desktop 1.6.3 bietet einen direkten
+  Explorer-Button fuer diese Datei. Browser-Authority, bestehende
+  Missions-/Cargo-/Voice-/Szenenpfade und der read-only Intent-Gateway bleiben
+  unveraendert. 149 Tracker-/EFB-/Web-Core-Tests, 45 Desktop-Tests und der
+  AWM-Audio-Selftest bestehen. Die v366-Windows-EXE umfasst 48.269.254 Bytes
+  mit SHA-256
+  `79bc7759b6fd183a849e1a89cffb409b0f9a42ff592031f090b61fbb0834aa23`.
+  Der lokale Desktop-1.6.3-Installer umfasst 100.263.558 Bytes mit SHA-256
+  `32e32b0870ee4a28fb81c046f55ec10dc9fe0c32e1351467b266210be91573d3`.
+  Tracker v366 geht ausschliesslich in Alpha; Stable, EFB und Toolbar bleiben
+  unveraendert. Der Desktop-Kanal wird durch den lokalen Installer-Build noch
+  nicht umgeschaltet.
 
 - 2026-08-18: Der lokale v365-Kandidat fuehrt fuer normale APT-Missionen ein
   persistentes, narrativfreies Shadow-Journal ein. Der Browser leitet aus den

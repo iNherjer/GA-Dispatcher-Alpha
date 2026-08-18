@@ -12,6 +12,8 @@ zwischen `Stable` und `Alpha` gewechselt werden.
 - eigenes Tracker-Icon fuer Tray, Taskleiste und Windows-Installer
 - Pilot-ID/PIN-Pruefung ueber den bestehenden Auth-Endpunkt
 - geschuetztes Voice-Provider-/API-Key-Feld fuer die zentrale Tracker-TTS
+- direkter Zugriff auf das automatisch erzeugte `GA-APT-Missionstest.txt`
+  fuer den APT-Shadow-Realtest
 - Download, Pruefung, Update und Start/Stopp der Tracker-Engine
 - umschaltbare Tracker-Kanaele `Stable` und `Alpha`
 - getrennte Runtime-Verzeichnisse fuer sicheren Rueckwechsel auf Stable
@@ -178,6 +180,21 @@ auch Desktop-App und Installer signiert und mit Zeitstempel versehen werden.
 
 Ohne ein solches Zertifikat bleibt der Installer technisch nutzbar, Windows kann
 aber wie bei der bisherigen portablen EXE eine SmartScreen-Warnung anzeigen.
+
+## Automatischer APT-Missionstest
+
+Tracker v366 protokolliert jeden normalen APT-Lauf automatisch und
+seiteneffektfrei in:
+
+`Dokumente/VFR Multitool/Tracker/GA-APT-Missionstest.txt`
+
+Die Datei enthaelt Tracker-/Kanalstand, jeden akzeptierten fachlichen
+Checkpoint, Eventfolge, Browser-/Tracker-Hashes, Driftfelder und ein finales
+`APT_TEST_END parity=PASS|FAIL`. Sie enthaelt keine Storytexte, sichtbaren
+Cargo-/Pax-Texte, Zugangsdaten oder Effekt-Payloads. Im Desktop-Fenster markiert
+`APT-Testlog` die Datei direkt im Explorer; existiert sie noch nicht, wird der
+Datenordner geoeffnet. Tester muessen deshalb nur eine normale APT-Mission bis
+zum Abschluss fliegen und diese einzelne Datei weitergeben.
 
 ## MSFS-2024-EFB-Paket
 

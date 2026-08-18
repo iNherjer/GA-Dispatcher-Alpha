@@ -76,6 +76,7 @@ const elements = {
   stopBridgeWithTrackerCheckbox: document.getElementById('stopBridgeWithTrackerCheckbox'),
   startButton: document.getElementById('startButton'),
   stopButton: document.getElementById('stopButton'),
+  aptTestLogButton: document.getElementById('aptTestLogButton'),
   openFolderButton: document.getElementById('openFolderButton'),
   detailStatus: document.getElementById('detailStatus'),
   logOutput: document.getElementById('logOutput'),
@@ -527,6 +528,13 @@ elements.startButton.addEventListener('click', async () => {
 });
 
 elements.stopButton.addEventListener('click', () => window.trackerDesktop.stopTracker());
+elements.aptTestLogButton.addEventListener('click', async () => {
+  const result = await window.trackerDesktop.showAptTestLog();
+  if (result?.missing) {
+    elements.formMessage.className = 'form-message';
+    elements.formMessage.textContent = result.message;
+  }
+});
 elements.openFolderButton.addEventListener('click', () => window.trackerDesktop.openDataFolder());
 elements.checkDesktopUpdateButton.addEventListener('click', () => window.trackerDesktop.checkDesktopUpdate());
 elements.installDesktopUpdateButton.addEventListener('click', () => window.trackerDesktop.installDesktopUpdate());

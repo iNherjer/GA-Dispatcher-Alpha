@@ -49,6 +49,7 @@ const MANAGED_UPDATE_MODULES = Object.freeze({
   efb: Object.freeze({ policyKey: 'efbUpdatePolicy' }),
   bridge: Object.freeze({ policyKey: 'bridgeUpdatePolicy' })
 });
+const APT_MISSION_TEST_LOG_FILENAME = 'GA-APT-Missionstest.txt';
 
 function iconPath() {
   return app.isPackaged
@@ -503,6 +504,19 @@ function registerIpc() {
   ipcMain.handle('system:open-data-folder', async () => {
     const error = await shell.openPath(configStore.dataDirectory);
     return { ok: !error, message: error || '' };
+  });
+  ipcMain.handle('system:show-apt-test-log', async () => {
+    const filename = path.join(configStore.dataDirectory, APT_MISSION_TEST_LOG_FILENAME);
+    if (!fs.existsSync(filename)) {
+      const error = await shell.openPath(configStore.dataDirectory);
+      return {
+        ok: false,
+        missing: true,
+        message: error || 'Das APT-Testlog entsteht automatisch, sobald Tracker v366 gestartet wurde.'
+      };
+    }
+    shell.showItemInFolder(filename);
+    return { ok: true, filename };
   });
 }
 

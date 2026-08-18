@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   installEfbPackage: (repair = false) => ipcRenderer.invoke('efb:install', { confirmed: true, repair }),
   uninstallEfbPackage: () => ipcRenderer.invoke('efb:uninstall', { confirmed: true }),
   openDataFolder: () => ipcRenderer.invoke('system:open-data-folder'),
+  showAptTestLog: () => ipcRenderer.invoke('system:show-apt-test-log'),
   onStateChanged: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, state) => callback(state);

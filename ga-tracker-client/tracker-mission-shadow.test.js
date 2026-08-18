@@ -86,6 +86,7 @@ test('tracker independently replays the transported APT event bundle', () => {
   });
   assert.equal(status.status, 'match');
   assert.equal(status.mode, 'event-replay');
+  assert.equal(status.recipe, 'apt');
   assert.deepEqual(status.driftFields, []);
   assert.deepEqual(status.legacyDriftFields, []);
   assert.deepEqual(status.eventTrace.map(event => event.type), [
@@ -93,6 +94,18 @@ test('tracker independently replays the transported APT event bundle', () => {
     'BOARDING_STARTED',
     'CARGO_STATE_CHANGED'
   ]);
+});
+
+test('tracker shadow publishes every sanitized observation to diagnostics', () => {
+  const observations = [];
+  const bundle = resumeBundle();
+  bundle.execution = executionCore.createShadowEnvelope(bundle, { sourceRevision: 2 });
+  const shadow = createTrackerMissionShadow({ onObservation: state => observations.push(state) });
+  shadow.observe({ missionId: bundle.missionId, runId: 'run-observer', authorityRevision: 3, resumeBundle: bundle });
+  assert.equal(observations.length, 1);
+  assert.equal(observations[0].recipe, 'apt');
+  assert.equal(observations[0].status, 'match');
+  assert.doesNotMatch(JSON.stringify(observations), /Private Pilot|Private Passenger|Private Cargo|never enter/);
 });
 
 test('tracker reports event replay drift from the current legacy authority projection separately', () => {

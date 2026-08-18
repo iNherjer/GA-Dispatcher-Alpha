@@ -505,6 +505,19 @@ Der lokale Windows-Build v365 umfasst 48.255.926 Bytes mit SHA-256
 `mission.intent.v1`-Pfad bleiben bestehen. Nur der Tracker-Alpha-Kanal zeigt
 auf v365; Stable bleibt bis zum realen APT-No-Drift-Test auf v356.
 
+Tracker v366 aktiviert fuer alle normalen APT-Laeufe automatisch ein separates,
+rotiertes `GA-APT-Missionstest.txt`. Es schreibt fuer jeden akzeptierten
+Authority-Snapshot den narrativfreien Shadow-Checkpoint mit Revision, Phase,
+Event-Trace, Browser-/Tracker-Hash und Driftfeldern. Beim terminalen `closed`
+fasst `APT_TEST_END` den gesamten Lauf als `parity=PASS|FAIL` zusammen; ein
+frueherer Drift, ein fehlender Replay-Vertrag oder ein Hash-Mismatch bleibt bis
+zum Ende fehlschlagend. Der Desktop-1.6.3-Kandidat kann die Datei direkt im
+Explorer markieren. Die Diagnose ist weiterhin reiner Beobachter:
+`executionAuthority=web`, `sideEffects=false`, Missions-Intents read-only.
+Der v366-Windows-Build umfasst 48.269.254 Bytes mit SHA-256
+`79bc7759b6fd183a849e1a89cffb409b0f9a42ff592031f090b61fbb0834aa23`;
+nur der Alpha-Kanal wird aktualisiert, Stable bleibt auf v356.
+
 Der 0.4.3-In-Sim-Log zeigt, dass die Dateien in richtiger Reihenfolge geladen
 werden, Coherent aber Optional Chaining und Object Spread nicht parst.
 Tracker v329 und EFB 0.4.4 definieren deshalb eine zusaetzliche Hostgrenze:
