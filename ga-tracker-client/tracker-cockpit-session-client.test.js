@@ -46,6 +46,46 @@ test('toolbar role is inferred explicitly from the tracker-hosted URL', () => {
   globalThis.location = previousLocation;
 });
 
+test('cockpit client sends revision-bound intents and reads the shared mission control snapshot', async () => {
+  const calls = [];
+  const fetchRemote = async (url, init = {}) => {
+    const body = init.body ? JSON.parse(init.body) : null;
+    calls.push({ url, method: init.method || 'GET', body });
+    if (url.endsWith('/cockpit/sessions')) return response({
+      session: { sessionId: 'session-intent', expiresAt: Date.now() + 45000 },
+      sessionToken: 'token-intent',
+      heartbeatAfterMs: 999999
+    });
+    if (url.endsWith('/mission/intents')) return response({
+      ok: true,
+      status: 'ok',
+      activeRun: { missionId: 'mission-a', runId: 'run-a', revision: 8 }
+    });
+    if (url.endsWith('/mission')) return response({
+      missionId: 'mission-a',
+      control: { executionAuthority: 'tracker', authorityRevision: 8 }
+    });
+    throw new Error(`unexpected:${url}`);
+  };
+  const client = createClient({ role: 'efb', clientId: 'efb-intent', fetchRemote });
+  const intent = await client.submitIntent({
+    commandId: 'cmd-start',
+    intent: 'start_mission',
+    missionId: 'mission-a',
+    runId: 'run-a',
+    expectedRevision: 7,
+    payload: {}
+  });
+  assert.equal(intent.ok, true);
+  const request = calls.find(call => call.url.endsWith('/mission/intents'));
+  assert.equal(request.body.sessionId, 'session-intent');
+  assert.equal(request.body.sessionToken, 'token-intent');
+  assert.equal(request.body.expectedRevision, 7);
+  const snapshot = await client.missionSnapshot();
+  assert.equal(snapshot.control.authorityRevision, 8);
+  await client.stop();
+});
+
 test('an enabled cockpit audio instance claims and completes the next shared tracker voice job', async () => {
   const calls = [];
   const audioInstances = [];

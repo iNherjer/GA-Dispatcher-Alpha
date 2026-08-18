@@ -453,7 +453,7 @@ function createTrackerEfbHttpServer(options = {}) {
       jsonResponse(response, 200, {
         hello,
         message: createMessage('mission.snapshot', snapshot && typeof snapshot === 'object'
-          ? { ...snapshot, available: true }
+          ? { ...snapshot, available: snapshot.available !== false }
           : { available: false })
       });
       return;

@@ -6,6 +6,7 @@ const MAX_DRAIN_EFFECTS = 16;
 const APT_EFFECT_FOLLOW_UPS = Object.freeze({
   'scene.prepare': 'BOARDING_STARTED',
   'scene.boarding': 'BOARDING_CONFIRMED',
+  'scene.deboarding': 'PAX_DEBOARDING_CONFIRMED',
   'mission.close_requested': 'MISSION_CLOSED'
 });
 

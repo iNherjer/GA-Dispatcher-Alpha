@@ -236,6 +236,23 @@ test('explicitly enabled commit is atomic, blocks web snapshots and permits zero
   assert.equal(committed.ok, true);
   assert.equal(committed.executionAuthority, 'tracker');
   assert.equal(committed.activeRun.stateHash, replay.stateHash);
+  const publicSnapshot = manager.getPublicSnapshot();
+  assert.equal(publicSnapshot.execution.executionAuthority, 'tracker');
+  assert.equal(publicSnapshot.execution.authorityRevision, committed.activeRun.revision);
+  assert.deepEqual(publicSnapshot.execution.allowedActions, ['prepare_mission', 'reset_mission', 'abort_mission'].sort());
+  assert.equal(publicSnapshot.execution.cargo.items[0].id, 'mission-passenger');
+
+  const blockedLegacyScene = manager.validate({
+    type: 'mission_scene_spawn',
+    commandId: 'legacy-scene-after-commit',
+    missionId: committed.activeRun.missionId,
+    runId: committed.activeRun.runId,
+    clientId: 'web-owner'
+  });
+  assert.equal(blockedLegacyScene.ok, false);
+  assert.equal(blockedLegacyScene.status, 'blocked');
+  assert.equal(blockedLegacyScene.error, 'mission_execution_authority_tracker');
+  assert.equal(blockedLegacyScene.sideEffect, false);
 
   const rejectedSnapshot = manager.updateSnapshot({
     missionId: committed.activeRun.missionId,
@@ -295,6 +312,54 @@ test('an intervening web snapshot invalidates a prepared handoff', (t) => {
     handoffId: prepared.handoff.handoffId
   });
   assert.equal(commit.error, 'mission_execution_handoff_conflict');
+});
+
+test('physical execution effects fail closed after a tracker restart until recovery is reconciled', (t) => {
+  const fixture = createFixture(t, { executionAuthorityEnabled: true });
+  const manager = fixture.createManager();
+  const { acquired, replay } = acquireApt(manager);
+  const prepared = manager.prepareExecutionAuthority(prepareRequest(acquired.activeRun, replay));
+  const committed = manager.commitExecutionAuthority({
+    missionId: prepared.activeRun.missionId,
+    runId: prepared.activeRun.runId,
+    clientId: 'web-owner',
+    expectedRevision: prepared.activeRun.revision,
+    expectedExecutionStateHash: replay.stateHash,
+    handoffId: prepared.handoff.handoffId
+  });
+  const command = {
+    type: 'mission_scene_spawn',
+    commandId: 'mfx-persisted-dispatch',
+    missionId: committed.activeRun.missionId,
+    runId: committed.activeRun.runId,
+    sceneId: 'scene-departure'
+  };
+  const first = manager.beginExecutionEffectDispatch(command);
+  assert.equal(first.ok, true);
+  assert.equal(first.status, 'ok');
+
+  const recovered = fixture.createManager({ executionAuthorityEnabled: true });
+  const blocked = recovered.beginExecutionEffectDispatch(command);
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.status, 'blocked');
+  assert.equal(blocked.error, 'mission_effect_recovery_confirmation_required');
+  assert.equal(blocked.recoveryRequired, true);
+  assert.equal(blocked.sideEffect, false);
+
+  assert.equal(manager.recordEffectAck({
+    type: 'mission_scene_spawn_ack',
+    commandId: command.commandId,
+    missionId: command.missionId,
+    sceneId: command.sceneId,
+    status: 'ok',
+    spawned: 2
+  }), true);
+  const acknowledgedRecovery = fixture.createManager({ executionAuthorityEnabled: true });
+  const replayed = acknowledgedRecovery.beginExecutionEffectDispatch(command);
+  assert.equal(replayed.ok, true);
+  assert.equal(replayed.status, 'completed');
+  assert.equal(replayed.duplicate, true);
+  assert.equal(replayed.sideEffect, false);
 });
 
 test('tracker-authority applies ordered semantic events idempotently and persists their state', (t) => {

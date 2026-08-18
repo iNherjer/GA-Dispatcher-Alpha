@@ -38,6 +38,16 @@ function runWithPlan(overrides = {}) {
                 { forwardM: 4.5, rightM: 8.5 }
               ]
             }
+          },
+          'scene.deboarding': {
+            command: {
+              type: 'mission_scene_deboarding',
+              sceneId: 'scene-mission-apt-1',
+              path: [
+                { forwardM: 4.5, rightM: 8.5 },
+                { forwardM: 16, rightM: -8 }
+              ]
+            }
           }
         }
       }
@@ -138,6 +148,32 @@ test('boarding failures are terminal acknowledgements while unrelated ACKs remai
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(acknowledgements[0].status, 'failed');
   assert.equal(acknowledgements[0].simulatorAck.error, 'no_scene');
+});
+
+test('deboarding uses the planned path with the current tracker position', async () => {
+  const commands = [];
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => runWithPlan() },
+    getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 900, hdg: 180 }),
+    dispatchCommand: command => {
+      commands.push(command);
+      return { ok: true, status: 'pending' };
+    }
+  });
+  const result = await bridge.dispatch({
+    commandId: 'effect-deboarding',
+    missionId: 'mission-apt-1',
+    runId: 'run-1',
+    effect: { type: 'scene.deboarding' }
+  });
+  assert.equal(result.status, 'pending');
+  assert.equal(commands.length, 1);
+  assert.equal(commands[0].type, 'mission_scene_deboarding');
+  assert.equal(commands[0].lat, 48.3);
+  assert.equal(commands[0].lon, 8.5);
+  assert.equal(commands[0].altFt, 900);
+  assert.equal(commands[0].hdg, 180);
+  assert.equal(commands[0].commandId, 'effect-deboarding');
 });
 
 test('invalid or missing effect plans never reach the simulator handler', async () => {

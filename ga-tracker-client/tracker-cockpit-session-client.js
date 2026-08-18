@@ -73,6 +73,17 @@
       return { response, payload: responsePayload(body) };
     }
 
+    async function get(pathname) {
+      if (typeof fetchRemote !== 'function') throw new Error('fetch_unavailable');
+      const response = await fetchRemote(`${baseUrl}${pathname}`, {
+        method: 'GET',
+        cache: 'no-store'
+      });
+      let body = null;
+      try { body = await response.json(); } catch (_) {}
+      return { response, payload: responsePayload(body) };
+    }
+
     function schedule(ms) {
       if (heartbeatTimer) clearTimeout(heartbeatTimer);
       if (stopped) return;
@@ -231,18 +242,48 @@
       return { sessionId: session.sessionId, sessionToken };
     }
 
+    async function missionSnapshot() {
+      const result = await get('/mission');
+      if (!result.response.ok) {
+        const error = new Error('mission_snapshot_unavailable');
+        error.status = result.response.status;
+        throw error;
+      }
+      return result.payload;
+    }
+
+    async function submitIntent(request = {}) {
+      let auth = authEnvelope();
+      if (!auth) {
+        await register();
+        auth = authEnvelope();
+      }
+      if (!auth) {
+        return { ok: false, status: 'blocked', error: 'cockpit_session_unavailable', sideEffect: false };
+      }
+      const result = await post('/mission/intents', Object.assign({}, request, auth));
+      return result.payload || {
+        ok: false,
+        status: 'error',
+        error: `mission_intent_http_${result.response.status}`,
+        sideEffect: false
+      };
+    }
+
     return Object.freeze({
       authEnvelope,
       baseUrl,
       clientId,
       get session() { return session ? Object.assign({}, session) : null; },
       heartbeat,
+      missionSnapshot,
       pollVoice,
       register,
       role,
       start: register,
       stop,
-      stopVoice
+      stopVoice,
+      submitIntent
     });
   }
 

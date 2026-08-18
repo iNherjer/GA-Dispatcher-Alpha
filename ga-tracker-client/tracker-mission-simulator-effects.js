@@ -9,6 +9,10 @@ const EFFECT_COMMANDS = Object.freeze({
   'scene.boarding': Object.freeze({
     commandType: 'mission_scene_boarding',
     ackType: 'mission_scene_boarding_ack'
+  }),
+  'scene.deboarding': Object.freeze({
+    commandType: 'mission_scene_deboarding',
+    ackType: 'mission_scene_deboarding_ack'
   })
 });
 
@@ -64,7 +68,7 @@ function commandTemplateFor(plan, effectType) {
   if (contract.commandType === 'mission_scene_spawn') {
     if (!Array.isArray(command.items) || command.items.length < 1 || command.items.length > 80) return null;
   }
-  if (contract.commandType === 'mission_scene_boarding') {
+  if (contract.commandType === 'mission_scene_boarding' || contract.commandType === 'mission_scene_deboarding') {
     if (!Array.isArray(command.path) || command.path.length < 2 || command.path.length > 24) return null;
   }
   return clone(command);
@@ -146,6 +150,10 @@ function createTrackerMissionSimulatorEffects(options = {}) {
         error: cleanString(result.error, 180) || 'mission_simulator_dispatch_failed',
         sideEffect: result.sideEffect === true
       };
+    }
+    if (cleanString(result.status, 40).toLowerCase() === 'completed') {
+      pending.delete(commandId);
+      return { ok: true, status: 'completed', sideEffect: false, commandId, duplicate: result.duplicate === true };
     }
     return { ok: true, status: 'pending', sideEffect: true, commandId };
   };

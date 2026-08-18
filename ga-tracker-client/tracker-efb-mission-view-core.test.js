@@ -64,6 +64,30 @@ test('legacy authority bundles still produce a useful read-only mission menu', (
   assert.equal(result.view.flight.gsKts, 95);
 });
 
+test('tracker execution control overrides stale legacy phase and cargo presentation', () => {
+  const result = projectTrackerEfbMissionView({
+    missionId: 'apt-control', runId: 'run-control', state: 'active', active: true, phase: 'planned', revision: 3,
+    resumeBundle: {
+      missionState: { currentMissionData: { mission: 'APT Test', start: 'EDTW', dest: 'EDTL' } },
+      runtime: { runtime: { active: false, phase: 'planned' } }
+    }
+  }, null, null, {
+    missionId: 'apt-control',
+    runId: 'run-control',
+    executionAuthority: 'tracker',
+    authorityRevision: 12,
+    phase: 'end_unloading',
+    nextStep: 'complete_unload',
+    flags: { active: true },
+    cargo: { summary: { total: 2, requiredTotal: 2, loaded: 1, unloaded: 1, pending: 0, failed: false } }
+  });
+  assert.equal(result.phase, 'end_unloading');
+  assert.equal(result.revision, 12);
+  assert.equal(result.view.status, 'Mission aktiv');
+  assert.equal(result.view.currentTask, 'Ladung am Ziel entladen');
+  assert.equal(result.view.cargo.state, '1 geladen / 1 entladen');
+});
+
 test('mission view row and phase counts are capped', () => {
   const sanitized = sanitizeMissionView({
     phase: { current: 99, stages: Array.from({ length: 20 }, (_, index) => ({ label: `Phase ${index}` })) },

@@ -38,6 +38,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     handlers: {
       'scene.prepare': dispatchSimulatorEffect,
       'scene.boarding': dispatchSimulatorEffect,
+      'scene.deboarding': dispatchSimulatorEffect,
       'mission.close_requested': dispatchSimulatorEffect
     }
   });

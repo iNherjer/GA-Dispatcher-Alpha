@@ -67,8 +67,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v369';
-const TRACKER_VERSION_CODE = 369;
+const TRACKER_VERSION = 'v370';
+const TRACKER_VERSION_CODE = 370;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4274,6 +4274,16 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (missionId !== activeRun.missionId || runId !== activeRun.runId) {
         return { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false };
       }
+      const dispatchLease = missionAuthority?.beginExecutionEffectDispatch?.(command) || {
+        ok: false,
+        status: 'blocked',
+        error: 'mission_effect_dispatch_journal_unavailable',
+        sideEffect: false
+      };
+      if (!dispatchLease.ok || dispatchLease.status === 'completed') return dispatchLease;
+      if (dispatchLease.status === 'pending' && dispatchLease.duplicate === true) {
+        return { ...dispatchLease, ok: true, status: 'pending', sideEffect: false };
+      }
       if (type === 'mission_scene_spawn') {
         const sceneId = String(command?.sceneId || '').trim();
         if (!sceneId) return { ok: false, status: 'blocked', error: 'mission_scene_id_required', sideEffect: false };
@@ -4289,6 +4299,15 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         debugLog(`MISSION_EFFECT_DISPATCH type=${type} commandId=${commandId} scene=${sceneId}`);
         enqueueSceneOperation(sceneId, () => animateMissionSceneBoarding(command)).catch(error => {
           sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, missionId, status: 'error', error: error?.message || String(error) });
+        });
+        return { ok: true, status: 'pending', sideEffect: true };
+      }
+      if (type === 'mission_scene_deboarding') {
+        const sceneId = String(command?.sceneId || '').trim();
+        if (!sceneId) return { ok: false, status: 'blocked', error: 'mission_scene_id_required', sideEffect: false };
+        debugLog(`MISSION_EFFECT_DISPATCH type=${type} commandId=${commandId} scene=${sceneId}`);
+        enqueueSceneOperation(sceneId, () => animateMissionSceneDeboarding(command)).catch(error => {
+          sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, missionId, status: 'error', error: error?.message || String(error) });
         });
         return { ok: true, status: 'pending', sideEffect: true };
       }
@@ -4780,14 +4799,25 @@ function startTracker(syncId, pin, voiceCredentials = null) {
         _lastEfbSnapshot
       ),
       getMissionSnapshot: () => {
+        const authoritySnapshot = missionAuthorityManager.getPublicSnapshot();
+        const executionControl = authoritySnapshot.execution || null;
         const projected = projectTrackerEfbMissionView(
           missionAuthorityManager.getActiveRun({ includeBundle: true }),
           _lastEfbSnapshot,
-          _lastEfbMissionSnapshot
+          _lastEfbMissionSnapshot,
+          executionControl
         );
-        return projected ? {
+        if (projected) return {
           ...projected,
-          authoritySnapshot: missionAuthorityManager.getPublicSnapshot(),
+          authoritySnapshot,
+          control: executionControl,
+          executionShadow: trackerMissionShadow.publicState()
+        };
+        return authoritySnapshot.lastExecution?.phase === 'closed' ? {
+          available: false,
+          authoritySnapshot,
+          lastControl: authoritySnapshot.lastExecution,
+          completedRun: authoritySnapshot.lastRun,
           executionShadow: trackerMissionShadow.publicState()
         } : null;
       },

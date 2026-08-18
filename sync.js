@@ -1896,6 +1896,7 @@ const MISSION_AUTHORITY_STORAGE_KEY = 'ga_mission_authority_v1';
 const MISSION_EXECUTION_SHADOW_JOURNAL_KEY = 'ga_mission_execution_shadow_journal_v1';
 const MISSION_AUTHORITY_CAPABILITY = 'mission.authority.v1';
 const MISSION_SNAPSHOT_V2_CAPABILITY = 'mission.snapshot.v2';
+const MISSION_INTENT_CAPABILITY = 'mission.intent.v1';
 const MISSION_SCENE_GROUP_CAPABILITY = 'mission.scene.group.v1';
 const TELEMETRY_WAKE_CAPABILITY = 'telemetry.wake.v1';
 const missionAuthorityAckWaiters = new Map();
@@ -1917,6 +1918,8 @@ let missionAuthorityAdoptPromise = null;
 let missionAuthorityAcquirePromise = null;
 let missionAuthorityCapabilityWaitPromise = null;
 let missionAuthorityLateBindPending = false;
+let missionExecutionHandoffPromise = null;
+let missionExecutionIntentPromise = null;
 let missionAuthorityForeignAckLastSig = '';
 let missionAuthorityForeignAckLastLogAt = 0;
 const MISSION_AUTHORITY_LOCAL_COMMAND_TTL_MS = 10 * 60 * 1000;
@@ -2044,6 +2047,26 @@ function _trackerSupportsMissionAuthority() {
         && window.liveTrackerCapabilities.includes(MISSION_AUTHORITY_CAPABILITY);
 }
 window.trackerSupportsMissionAuthority = _trackerSupportsMissionAuthority;
+
+function _trackerSupportsMissionIntents() {
+    return Array.isArray(window.liveTrackerCapabilities)
+        && window.liveTrackerCapabilities.includes(MISSION_INTENT_CAPABILITY);
+}
+window.trackerSupportsMissionIntents = _trackerSupportsMissionIntents;
+
+function _missionExecutionControlSnapshot() {
+    const authority = window.lastTrackerMissionAuthority;
+    return authority?.execution && typeof authority.execution === 'object'
+        ? authority.execution
+        : null;
+}
+
+function _missionExecutionAuthorityIsTracker() {
+    const active = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
+    return active?.executionAuthority === 'tracker'
+        || _missionExecutionControlSnapshot()?.executionAuthority === 'tracker';
+}
+window.gaTrackerExecutionHandlesMission = _missionExecutionAuthorityIsTracker;
 
 function _waitForMissionAuthorityCapability(timeoutMs = 1400) {
     if (_trackerSupportsMissionAuthority()) return Promise.resolve(true);
@@ -2648,6 +2671,282 @@ function _sendMissionAuthorityRequest(command = {}, timeoutMs = 10000) {
     });
 }
 
+function _trackerExecutionNormalizeItemId(value = '') {
+    return String(value || '').trim().toLowerCase()
+        .replace(/[^a-z0-9_.:-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+function _applyTrackerExecutionControl(control = null, activeRun = null, reason = 'tracker-execution') {
+    if (!control || typeof control !== 'object' || control.executionAuthority !== 'tracker') return false;
+    const missionId = _normalizeMissionRuntimeId(control.missionId || activeRun?.missionId || '');
+    if (!missionId || missionId !== _activeMissionRuntimeId('')) return false;
+    const phase = String(control.phase || 'planned').trim().toLowerCase();
+    const flags = control.flags && typeof control.flags === 'object' ? control.flags : {};
+    const startPhase = phase === 'planned'
+        ? 'planned'
+        : (phase === 'prepare' ? 'prepare' : (phase === 'boarding' ? 'boarding' : 'boarded'));
+    _setMissionStartPhase(startPhase, { persist: false });
+    missionRuntime.phase = phase;
+    missionRuntime.active = flags.active === true;
+    missionRuntime.armed = flags.active === true;
+    missionRuntime.manual = flags.started === true;
+    missionRuntime.closingPending = flags.closingPending === true || phase === 'closing';
+    if (flags.started === true && !missionRuntime.startedAt) missionRuntime.startedAt = Date.now();
+    if (window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
+        window.missionSceneStatus.boardingPreparing = phase === 'prepare';
+        window.missionSceneStatus.boardingRequested = phase === 'boarding' && flags.boardingConfirmed !== true;
+        window.missionSceneStatus.boardingActive = phase === 'boarding' && flags.boardingConfirmed !== true;
+        window.missionSceneStatus.boardingComplete = flags.boardingConfirmed === true;
+        window.missionSceneStatus.boardingVoiceComplete = flags.boardingConfirmed === true;
+        window.missionSceneStatus.personBoarded = flags.boardingConfirmed === true;
+    }
+    const manifest = typeof _missionCargoEnsureManifest === 'function' ? _missionCargoEnsureManifest() : null;
+    const trackerCargo = control.cargo && typeof control.cargo === 'object' ? control.cargo : null;
+    if (manifest && trackerCargo && Array.isArray(trackerCargo.items)) {
+        const byId = new Map(trackerCargo.items.map(item => [_trackerExecutionNormalizeItemId(item?.id), item]));
+        (manifest.items || []).forEach(item => {
+            const tracked = byId.get(_trackerExecutionNormalizeItemId(item?.id));
+            if (!tracked) return;
+            item.status = String(tracked.status || item.status || 'pending');
+            if (Number.isFinite(Number(tracked.healthPct))) item.healthPct = Number(tracked.healthPct);
+        });
+        const signatureScope = String(trackerCargo.signatureScope || '').trim();
+        manifest.dispatchSignature = signatureScope ? {
+            by: 'Tracker',
+            at: Number(control.updatedAt || Date.now()),
+            aircraft: typeof _missionCargoAircraftLabel === 'function' ? _missionCargoAircraftLabel() : '',
+            scope: signatureScope,
+            note: 'Autoritativ vom Tracker'
+        } : null;
+        if (window.missionCargoStatus) {
+            window.missionCargoStatus.loadConfirmed = flags.loadConfirmed === true;
+            window.missionCargoStatus.error = null;
+        }
+        try {
+            if (typeof currentMissionData !== 'undefined' && currentMissionData) currentMissionData.cargoManifest = manifest;
+            if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
+                window.activeMissionContract.cargoManifest = manifest;
+            }
+        } catch (_) {}
+    }
+    window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
+    _missionPhaseDebugPush('tracker_execution_projection', {
+        reason,
+        missionId,
+        runId: control.runId || activeRun?.runId || null,
+        phase,
+        authorityRevision: Number(control.authorityRevision || 0),
+        executionRevision: Number(control.executionRevision || 0),
+        allowedActions: Array.isArray(control.allowedActions) ? control.allowedActions.slice() : []
+    });
+    if (document.getElementById('missionCargoOverlay')?.style.display === 'flex'
+        && typeof _missionCargoRenderDialog === 'function') {
+        _missionCargoRenderDialog(window.missionCargoStatus?.lastMode || 'load', { skipPayloadRefresh: true });
+    }
+    _updateMissionRuntimeUi();
+    return true;
+}
+
+function _finalizeTrackerExecutionProjection(control = null, reason = 'tracker-execution-finalized') {
+    if (!control || typeof control !== 'object' || control.executionAuthority !== 'tracker') return false;
+    if (String(control.phase || '').toLowerCase() !== 'closed' || control.flags?.closed !== true) return false;
+    const missionId = _normalizeMissionRuntimeId(control.missionId || '');
+    if (!missionId || missionId !== _activeMissionRuntimeId('')) return false;
+    const runId = String(control.runId || '').trim();
+    if (window.gaTrackerExecutionFinalizedRunId === runId) return true;
+    _applyTrackerExecutionControl(control, { missionId, runId }, reason);
+    window.gaTrackerExecutionFinalizedRunId = runId;
+    missionRuntime.phase = 'closing';
+    missionRuntime.active = false;
+    missionRuntime.armed = false;
+    missionRuntime.manual = false;
+    missionRuntime.closingPending = true;
+    missionRuntime.closingReason = reason;
+    missionRuntime.closingRequestedAt = Number(control.updatedAt || Date.now());
+    let outcome = null;
+    if (typeof _missionCargoFinalizeMissionOutcome === 'function') {
+        try { outcome = _missionCargoFinalizeMissionOutcome({ source: reason }); } catch (_) {}
+    }
+    missionRuntime.closingOutcome = outcome || { status: 'completed', failed: false };
+    const record = _buildMissionCompletionRecord({ outcome: missionRuntime.closingOutcome });
+    if (record) {
+        missionRuntime.completionRecord = record;
+        _persistMissionCompletion(record);
+        _showMissionCompletionDebrief(record);
+    }
+    _clearMissionRuntimeSnapshot(reason);
+    _clearActiveMissionRuntimeMarker(reason);
+    _missionPhaseDebugPush('tracker_execution_finalized', {
+        reason,
+        missionId,
+        runId: runId || null,
+        authorityRevision: Number(control.authorityRevision || 0),
+        executionRevision: Number(control.executionRevision || 0),
+        debrief: !!record
+    });
+    _updateMissionRuntimeUi();
+    return true;
+}
+
+async function _refreshTrackerExecutionControl(reason = 'intent-refresh') {
+    const client = window.gaCockpitSessionClient;
+    if (!client || typeof client.missionSnapshot !== 'function') return null;
+    try {
+        const snapshot = await client.missionSnapshot();
+        const activeRun = snapshot?.authoritySnapshot?.activeRun || null;
+        if (snapshot?.authoritySnapshot) {
+            window.lastTrackerMissionAuthority = { ...snapshot.authoritySnapshot, receivedAt: Date.now() };
+        }
+        if (activeRun) window.lastTrackerMissionStatus = { ...activeRun, receivedAt: Date.now() };
+        if (!_applyTrackerExecutionControl(snapshot?.control, activeRun, reason)) {
+            _finalizeTrackerExecutionProjection(snapshot?.lastControl, `${reason}:completed`);
+        }
+        return snapshot;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function _pushMissionAuthoritySnapshotForExecutionHandoff(reason = 'execution-handoff-seed') {
+    const local = _readMissionAuthorityState();
+    const missionId = _activeMissionRuntimeId('');
+    if (!local?.runId || !missionId || local.missionId !== missionId || local.clientId !== _missionAuthorityClientId()) {
+        return { status: 'conflict', error: 'mission_authority_owner_mismatch' };
+    }
+    const bundle = _buildMissionAuthorityResumeBundle(reason);
+    if (!bundle || String(bundle.adapter || '').toLowerCase() !== 'apt') {
+        return { status: 'blocked', error: 'mission_execution_recipe_not_enabled' };
+    }
+    const stateHash = _missionAuthorityResumeBundleHash(bundle);
+    missionAuthoritySnapshotSequence = Math.max(missionAuthoritySnapshotSequence + 1, Date.now());
+    const ack = await _sendMissionAuthorityRequest({
+        type: 'mission_snapshot_update',
+        missionId,
+        runId: local.runId,
+        clientId: local.clientId,
+        snapshotSequence: missionAuthoritySnapshotSequence,
+        state: 'active',
+        missionPhase: 'planned',
+        stateHash,
+        reason,
+        resumeBundle: bundle
+    }, 12000);
+    if (ack.status === 'ok') {
+        missionAuthorityLastSnapshotHash = stateHash;
+        missionAuthorityLastSnapshotPushAt = Date.now();
+    }
+    return ack;
+}
+
+async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
+    if (_missionExecutionAuthorityIsTracker()) return true;
+    if (missionExecutionHandoffPromise) return missionExecutionHandoffPromise;
+    missionExecutionHandoffPromise = (async () => {
+        if (window.simModeActive || !_trackerSupportsMissionIntents() || _missionStartPhase() !== 'planned') return false;
+        const authorityReady = await _ensureMissionAuthorityForStart(`${reason}:authority`);
+        if (!authorityReady) return false;
+        const client = window.gaCockpitSessionClient;
+        if (!client || typeof client.start !== 'function' || typeof client.submitIntent !== 'function') return false;
+        const session = await client.start();
+        if (!session) return false;
+        const seeded = await _pushMissionAuthoritySnapshotForExecutionHandoff(`${reason}:snapshot`);
+        const seededRun = seeded.authoritativeRun;
+        if (seeded.status !== 'ok' || !seededRun?.executionStateHash || !seededRun?.stateHash) return false;
+        const prepared = await _sendMissionAuthorityRequest({
+            type: 'mission_execution_authority_prepare',
+            missionId: seededRun.missionId,
+            runId: seededRun.runId,
+            clientId: _missionAuthorityClientId(),
+            expectedRevision: Number(seededRun.revision),
+            expectedStateHash: seededRun.stateHash,
+            expectedExecutionStateHash: seededRun.executionStateHash,
+            reason: `${reason}:prepare`
+        }, 12000);
+        if (prepared.status !== 'ok' || !prepared.handoff?.handoffId) return false;
+        const preparedRun = prepared.authoritativeRun;
+        const committed = await _sendMissionAuthorityRequest({
+            type: 'mission_execution_authority_commit',
+            missionId: preparedRun.missionId,
+            runId: preparedRun.runId,
+            clientId: _missionAuthorityClientId(),
+            expectedRevision: Number(preparedRun.revision),
+            expectedExecutionStateHash: preparedRun.executionStateHash,
+            handoffId: prepared.handoff.handoffId,
+            reason: `${reason}:commit`
+        }, 12000);
+        if (committed.status !== 'ok' && committed.status !== 'noop') return false;
+        const committedRun = committed.authoritativeRun;
+        if (committedRun?.executionAuthority !== 'tracker') return false;
+        window.lastTrackerMissionAuthority = {
+            ...(window.lastTrackerMissionAuthority || {}),
+            activeRun: committedRun,
+            receivedAt: Date.now()
+        };
+        window.lastTrackerMissionStatus = { ...committedRun, receivedAt: Date.now() };
+        await _refreshTrackerExecutionControl(`${reason}:committed`);
+        return true;
+    })();
+    try {
+        return await missionExecutionHandoffPromise;
+    } finally {
+        missionExecutionHandoffPromise = null;
+    }
+}
+
+window.gaTrackerExecutionSubmitIntent = async function(intent, payload = {}, options = {}) {
+    if (missionExecutionIntentPromise && options.allowParallel !== true) return missionExecutionIntentPromise;
+    const execute = async () => {
+        const ready = _missionExecutionAuthorityIsTracker()
+            || (intent === 'prepare_mission' && await _ensureTrackerExecutionAuthority(`intent:${intent}`));
+        if (!ready) return { ok: false, status: 'blocked', error: 'mission_execution_authority_web' };
+        const client = window.gaCockpitSessionClient;
+        const activeRun = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
+        if (!client || typeof client.submitIntent !== 'function' || !activeRun?.missionId || !activeRun?.runId) {
+            return { ok: false, status: 'blocked', error: 'cockpit_session_unavailable' };
+        }
+        const commandId = `intent-${String(intent || 'action').replace(/[^a-z0-9_-]/gi, '-')}-${Date.now()}-${++missionSmokeCommandSeq}`;
+        const result = await client.submitIntent({
+            commandId,
+            intent,
+            missionId: activeRun.missionId,
+            runId: activeRun.runId,
+            expectedRevision: Number(activeRun.revision || 0),
+            payload: payload && typeof payload === 'object' ? payload : {}
+        });
+        _missionPhaseDebugPush('tracker_execution_intent', {
+            intent,
+            commandId,
+            status: result?.status || '',
+            error: result?.error || '',
+            revision: result?.activeRun?.revision || null
+        });
+        if (result?.activeRun) {
+            window.lastTrackerMissionAuthority = {
+                ...(window.lastTrackerMissionAuthority || {}),
+                activeRun: result.activeRun,
+                receivedAt: Date.now()
+            };
+            window.lastTrackerMissionStatus = { ...result.activeRun, receivedAt: Date.now() };
+        }
+        await _refreshTrackerExecutionControl(`intent:${intent}:ack`);
+        if (result?.ok !== true && options.silent !== true) {
+            const message = result?.error === 'mission_revision_conflict'
+                ? 'Der Missionsstand wurde bereits in einer anderen Ansicht geändert. Die Anzeige wurde aktualisiert.'
+                : `Tracker-Aktion nicht möglich: ${result?.error || result?.status || 'unbekannter Fehler'}`;
+            try { alert(message); } catch (_) {}
+        }
+        return result;
+    };
+    if (options.allowParallel === true) return execute();
+    missionExecutionIntentPromise = execute();
+    try {
+        return await missionExecutionIntentPromise;
+    } finally {
+        missionExecutionIntentPromise = null;
+    }
+};
+
 async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
     if (missionAuthorityAcquirePromise) return missionAuthorityAcquirePromise;
     const acquire = async () => {
@@ -2739,6 +3038,7 @@ window.addEventListener('gatrackercapabilitieschange', () => {
 });
 
 function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     if (!_trackerSupportsMissionAuthority() || !window.liveTrackerConnected) return false;
     const local = _readMissionAuthorityState();
     const missionId = _activeMissionRuntimeId('');
@@ -3448,6 +3748,7 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
 }
 
 function _persistMissionRuntimeSnapshot(reason = 'runtime', options = {}) {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     const immediate = options.immediate === true;
     const minIntervalMs = Math.max(250, Number(options.minIntervalMs) || 2500);
     missionRuntimePendingSnapshotReason = String(reason || 'runtime');
@@ -4311,6 +4612,7 @@ function _missionSceneSpawnPendingActive(status = {}, sceneId = '') {
 }
 
 function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
+    if (_missionExecutionAuthorityIsTracker()) return;
     if (typeof window.missionSceneSpawn !== 'function' || typeof window.missionSceneClear !== 'function') return;
     if (_missionIsFreeflightOnly()) return;
     const startPhase = _missionStartPhase();
@@ -4675,6 +4977,7 @@ window.requestTrackerTelemetryWake = function(reason = 'app-interaction', option
 };
 
 window.missionSmokeEnsureSpawned = function(reason = 'mission-active') {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     const fs = _activeFireScenario();
     if (!fs || fs.truth !== 'fire' || !fs.smoke || fs.smoke.spawned) return false;
     _ensureFireSmokeSites(fs);
@@ -5118,7 +5421,11 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
     const active = snapshot.activeRun && typeof snapshot.activeRun === 'object' ? snapshot.activeRun : null;
     let local = _readMissionAuthorityState();
     if (!active?.missionId || !active?.runId) {
+        const completed = snapshot.lastExecution?.phase === 'closed'
+            ? _finalizeTrackerExecutionProjection(snapshot.lastExecution, `${reason}:completed`)
+            : false;
         window.lastTrackerMissionAuthority = { ...snapshot, receivedAt: Date.now() };
+        if (!completed) window.gaTrackerExecutionControl = null;
         window.lastTrackerMissionStatus = null;
         if (local?.runId) _clearMissionAuthorityState(`${reason}:tracker-no-active-run`);
         if (window.missionRuntimeResumeConflict?.trackerActive) {
@@ -5139,6 +5446,9 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
         return false;
     }
     window.lastTrackerMissionAuthority = { ...snapshot, receivedAt: Date.now() };
+    if (snapshot.execution?.executionAuthority === 'tracker') {
+        _applyTrackerExecutionControl(snapshot.execution, active, reason);
+    }
     if (relation === 'demote') {
         _clearMissionAuthorityState(`${reason}:owner-transferred`);
         local = null;
@@ -5734,6 +6044,7 @@ function _missionAptArrivalSceneItems(plan = {}) {
 }
 
 window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage') {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     if (window.simModeActive || !window.liveTrackerConnected) return false;
     const plan = _missionAptArrivalPlan();
     if (!plan) return false;
@@ -7022,11 +7333,55 @@ function _missionSceneBuildBoardingEffectCommand(reason = 'boarding', position =
     return command;
 }
 
+function _missionSceneBuildDeboardingEffectCommand(reason = 'mission-end', position = {}, sceneId = _missionSceneId()) {
+    const pos = position && typeof position === 'object' ? position : {};
+    const deboardingPaxCount = Math.max(
+        _missionSceneDeboardingPaxCount(),
+        typeof _missionScenePaxCount === 'function' ? Number(_missionScenePaxCount() || 0) : 0
+    );
+    if (deboardingPaxCount <= 0) return null;
+    const commonFields = _missionSceneCommonSceneCommandFields();
+    commonFields.vehicleDeparture = true;
+    commonFields.vehicleArrival = true;
+    commonFields.vehicleReturn = true;
+    commonFields.vehiclePoint = _missionSceneVehiclePoint();
+    commonFields.vehicleDeparturePath = _missionSceneVehicleDeparturePath();
+    commonFields.vehicleReturnPath = _missionSceneVehicleDeparturePath().slice().reverse();
+    commonFields.vehicleSpeedKts = 7;
+    const primaryGender = _missionScenePassengerGender();
+    const personTitle = _missionSceneMovingPersonTitle(primaryGender, 'deboarding');
+    const vehicleAsset = _missionSceneVehicleAsset();
+    const command = {
+        type: 'mission_scene_deboarding',
+        sceneId,
+        reason,
+        ...commonFields,
+        coordinateFarewell: false,
+        boarderCount: deboardingPaxCount,
+        passengerCount: deboardingPaxCount,
+        personTitle,
+        personTitleCandidates: _missionSceneMovingPersonCandidates(primaryGender, personTitle)
+    };
+    if (vehicleAsset) {
+        const vehicleTitle = vehicleAsset.title || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
+        command.vehicleTitle = vehicleTitle;
+        command.vehicleTitleCandidates = _sceneAssetCandidates(vehicleTitle, vehicleAsset.candidates || []);
+    }
+    if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon ?? pos.lng))) {
+        command.lat = Number(pos.lat);
+        command.lon = Number(pos.lon ?? pos.lng);
+        command.altFt = Number.isFinite(Number(pos.altFt ?? pos.alt)) ? Number(pos.altFt ?? pos.alt) : 0;
+        command.hdg = Number.isFinite(Number(pos.hdg ?? pos.heading)) ? Number(pos.hdg ?? pos.heading) : 0;
+    }
+    return command;
+}
+
 function _buildMissionAptExecutionEffectPlan() {
     const missionId = _activeMissionRuntimeId('');
     if (!missionId) return null;
     const spawn = _missionSceneBuildSpawnEffectCommand('tracker-execution:scene.prepare', { lat: 0, lon: 0, alt: 0, hdg: 0 });
     const boarding = _missionSceneBuildBoardingEffectCommand('tracker-execution:scene.boarding', {}, spawn.command.sceneId);
+    const deboarding = _missionSceneBuildDeboardingEffectCommand('tracker-execution:scene.deboarding', {}, spawn.command.sceneId);
     const stripLivePosition = command => {
         const copy = _safeCloneJson(command, null);
         if (!copy) return null;
@@ -7044,7 +7399,8 @@ function _buildMissionAptExecutionEffectPlan() {
         sceneId: spawn.command.sceneId,
         effects: {
             'scene.prepare': { command: stripLivePosition(spawn.command) },
-            'scene.boarding': { command: stripLivePosition(boarding) }
+            'scene.boarding': { command: stripLivePosition(boarding) },
+            ...(deboarding ? { 'scene.deboarding': { command: stripLivePosition(deboarding) } } : {})
         }
     };
 }
@@ -8916,6 +9272,7 @@ function _missionTargetSceneItems(kind) {
 }
 
 window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     if (window.simModeActive || !window.liveTrackerConnected) return false;
     const sceneId = _missionTargetSceneId();
     const kind = _missionTargetSceneKind();
@@ -10099,7 +10456,7 @@ function _handleTrackerAck(ack) {
         } catch (_) {}
         return;
     }
-    const authorityScopedAck = /^(mission_(authority|snapshot|scene|smoke)_|mission_lifecycle_ack)/i.test(ackType);
+    const authorityScopedAck = /^(mission_(authority|snapshot|execution_authority|scene|smoke)_|mission_lifecycle_ack)/i.test(ackType);
     if (_trackerSupportsMissionAuthority()
         && authorityScopedAck
         && ackCommandId
@@ -10126,7 +10483,7 @@ function _handleTrackerAck(ack) {
     }
     ack = _missionSceneValidateGroupFinalAck(ack);
     _trackerPendingHandleAck(ack);
-    const authorityAck = /^mission_(authority|snapshot)_.*_ack$/i.test(String(ack.type || ''));
+    const authorityAck = /^mission_(authority|snapshot|execution_authority)_.*_ack$/i.test(String(ack.type || ''));
     if (authorityAck) {
         _resolveMissionAuthorityAck(ack);
         const run = ack.authoritativeRun && typeof ack.authoritativeRun === 'object' ? ack.authoritativeRun : null;
@@ -10134,6 +10491,14 @@ function _handleTrackerAck(ack) {
         if (run?.missionId && run?.runId && run.ownerClientId === _missionAuthorityClientId()
             && (!local || local.runId === run.runId || ack.type === 'mission_authority_takeover_ack' || ack.type === 'mission_authority_acquire_ack')) {
             _writeMissionAuthorityState({ ...run, clientId: _missionAuthorityClientId() });
+        }
+        if (run?.missionId && run?.runId) {
+            window.lastTrackerMissionAuthority = {
+                ...(window.lastTrackerMissionAuthority || {}),
+                activeRun: run,
+                receivedAt: Date.now()
+            };
+            window.lastTrackerMissionStatus = { ...run, receivedAt: Date.now() };
         }
         if (ack.type === 'mission_authority_release_ack' && TRACKER_ACK_SUCCESS.has(String(ack.status || '').toLowerCase())) {
             _clearMissionAuthorityState(`tracker-ack:${ack.outcome || 'released'}`);
@@ -13273,6 +13638,9 @@ window.startMissionBoarding = async function() {
 };
 
 window.manualMissionStart = function() {
+    if (_missionExecutionAuthorityIsTracker()) {
+        return window.gaTrackerExecutionSubmitIntent?.('start_mission') || false;
+    }
     _missionPhaseDebugPush('mission_start_attempt', {
         runtimePhase: _missionRuntimePhaseSnapshot(),
         startPhase: _missionStartPhase(),
@@ -13369,6 +13737,9 @@ window.manualMissionStart = function() {
 };
 
 window.manualMissionEnd = function(options = {}) {
+    if (_missionExecutionAuthorityIsTracker()) {
+        return window.gaTrackerExecutionSubmitIntent?.('request_close') || false;
+    }
     _missionPhaseDebugPush('trigger', {
         name: 'manualMissionEnd',
         skipCargoUnload: !!options?.skipCargoUnload
@@ -13609,6 +13980,10 @@ window.handleMissionStartBannerAction = async function() {
             return;
         }
         if (missionRuntime.closingPending) {
+            if (_missionExecutionAuthorityIsTracker()) {
+                await _refreshTrackerExecutionControl('banner-closing-refresh');
+                return true;
+            }
             window.completeMissionClose('banner-close');
             return;
         }
@@ -13640,10 +14015,18 @@ window.handleMissionStartBannerAction = async function() {
                 window.completeSimMissionEnd();
                 return;
             }
+            if (_missionExecutionAuthorityIsTracker()) {
+                await window.gaTrackerExecutionSubmitIntent?.('request_close');
+                return;
+            }
             window.manualMissionEnd();
             return;
         }
         if (phase === 'planned') {
+            if (_trackerSupportsMissionIntents()) {
+                const result = await window.gaTrackerExecutionSubmitIntent?.('prepare_mission');
+                return result?.ok === true;
+            }
             const authorityReady = await _ensureMissionAuthorityForStart('mission-start-prepare');
             if (!authorityReady) {
                 const runningId = window.missionRuntimeResumeConflict?.trackerMissionId || 'eine andere Mission';
@@ -13666,10 +14049,18 @@ window.handleMissionStartBannerAction = async function() {
             return;
         }
         if (phase === 'prepare') {
+            if (_missionExecutionAuthorityIsTracker()) {
+                await _refreshTrackerExecutionControl('banner-prepare-refresh');
+                return true;
+            }
             await window.startMissionBoarding();
             return;
         }
         if (phase === 'boarding') {
+            if (_missionExecutionAuthorityIsTracker()) {
+                window.openMissionCargoDialog?.('load');
+                return true;
+            }
             const scene = window.missionSceneStatus || {};
             if (scene.boardingPreparing || scene.boardingRequested || scene.boardingActive || missionStartBoardingPromise) {
                 _updateMissionRuntimeUi();
@@ -13679,6 +14070,10 @@ window.handleMissionStartBannerAction = async function() {
             return;
         }
         if (phase !== 'boarded') return false;
+        if (_missionExecutionAuthorityIsTracker()) {
+            const result = await window.gaTrackerExecutionSubmitIntent?.('start_mission');
+            return result?.ok === true;
+        }
         window.manualMissionStart();
     })();
     try {
@@ -17467,6 +17862,7 @@ function _renderLiveTrailIfNeeded(now = Date.now(), force = false) {
 }
 
 function _runLiveMissionTriggerTick(lat, lon, alt) {
+    if (_missionExecutionAuthorityIsTracker()) return;
     updateFlightRecorder(lat, lon, alt);
     if (missionRuntime.active && typeof window.missionSmokeEnsureSpawned === 'function') {
         window.missionSmokeEnsureSpawned('gps-tick');

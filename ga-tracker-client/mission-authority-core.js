@@ -220,6 +220,48 @@ function publicRun(run, options = {}) {
   return result;
 }
 
+function publicExecutionSnapshot(run) {
+  if (!run?.missionId || !run?.runId || !run.executionState) return null;
+  const state = executionCore.normalizeState(run.executionState);
+  const view = executionCore.deriveView(state);
+  return {
+    schema: 'ga.mission-execution-control.v1',
+    version: 1,
+    missionId: cleanString(run.missionId),
+    runId: cleanString(run.runId, 220),
+    executionAuthority: run.executionAuthority === EXECUTION_AUTHORITY_TRACKER
+      ? EXECUTION_AUTHORITY_TRACKER
+      : EXECUTION_AUTHORITY_WEB,
+    recipe: cleanString(run.executionRecipe || state.recipe, 80).toLowerCase() || null,
+    authorityRevision: Math.max(1, Math.round(Number(run.revision) || 1)),
+    executionRevision: Math.max(0, Math.round(Number(run.executionRevision) || 0)),
+    executionStateHash: cleanString(run.executionStateHash, 180) || null,
+    updatedAt: Number(run.updatedAt || 0) || null,
+    phase: state.phase,
+    subphase: state.subphase,
+    flags: jsonClone(state.flags),
+    progress: jsonClone(state.progress),
+    cargo: {
+      signatureScope: state.cargo.signatureScope,
+      summary: jsonClone(state.cargo.summary),
+      items: state.cargo.items.map(item => ({
+        id: item.id,
+        itemType: item.itemType,
+        status: item.status,
+        required: item.required,
+        pickup: item.pickup,
+        delivery: item.delivery,
+        passengerCount: item.passengerCount,
+        weightLbs: item.weightLbs,
+        healthPct: item.healthPct
+      }))
+    },
+    allowedActions: view.allowedActions.slice(),
+    blockingReasons: view.blockingReasons.slice(),
+    nextStep: view.nextStep
+  };
+}
+
 function commandType(command = {}) {
   return cleanString(command.type || command.command, 140).toLowerCase();
 }
@@ -457,6 +499,15 @@ function createMissionAuthorityManager(options = {}) {
     const missionId = cleanString(command.missionId);
     if (!missionId || missionId !== state.activeRun.missionId) {
       return { ok: false, status: 'conflict', error: 'mission_authority_conflict', activeRun: publicRun(state.activeRun) };
+    }
+    if (state.activeRun.executionAuthority === EXECUTION_AUTHORITY_TRACKER && !isLegacyCleanupCommand(command)) {
+      return {
+        ok: false,
+        status: 'blocked',
+        error: 'mission_execution_authority_tracker',
+        sideEffect: false,
+        activeRun: publicRun(state.activeRun)
+      };
     }
     const hasAuthorityEnvelope = Boolean(command.runId || command.clientId);
     if (!hasAuthorityEnvelope) {
@@ -1075,6 +1126,51 @@ function createMissionAuthorityManager(options = {}) {
     return true;
   };
 
+  const beginExecutionEffectDispatch = (command = {}) => {
+    const active = state.activeRun;
+    const commandId = cleanString(command.commandId, 220);
+    const type = commandType(command);
+    if (!active || !commandId) {
+      return { ok: false, status: 'blocked', error: !active ? 'no_active_run' : 'mission_effect_command_id_required', sideEffect: false };
+    }
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', sideEffect: false };
+    }
+    if (cleanString(command.missionId) !== active.missionId || cleanString(command.runId, 220) !== active.runId) {
+      return { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false };
+    }
+    if (!/^mission_(scene|smoke)_/.test(type)) {
+      return { ok: false, status: 'blocked', error: 'mission_effect_command_not_allowed', sideEffect: false };
+    }
+    const existing = active.effects.find(effect => effect.commandId === commandId) || null;
+    if (existing?.completedAt) {
+      return {
+        ok: true,
+        status: 'completed',
+        duplicate: true,
+        sideEffect: false,
+        effect: publicEffect(existing),
+        replayAck: effectAckSummary(existing.ack)
+      };
+    }
+    if (existing && existing.managerSessionId !== managerSessionId) {
+      return {
+        ok: false,
+        status: 'blocked',
+        error: 'mission_effect_recovery_confirmation_required',
+        recoveryRequired: true,
+        sideEffect: false,
+        effect: publicEffect(existing)
+      };
+    }
+    if (existing) {
+      return { ok: true, status: 'pending', duplicate: true, sideEffect: false, effect: publicEffect(existing) };
+    }
+    recordCommand(command);
+    const recorded = active.effects.find(effect => effect.commandId === commandId) || null;
+    return { ok: true, status: 'ok', sideEffect: false, effect: publicEffect(recorded) };
+  };
+
   load();
 
   return {
@@ -1089,6 +1185,7 @@ function createMissionAuthorityManager(options = {}) {
     rollbackExecutionAuthority,
     release,
     releaseLegacy,
+    beginExecutionEffectDispatch,
     recordCommand,
     recordEffectAck,
     getExecutionSnapshot,
@@ -1098,7 +1195,9 @@ function createMissionAuthorityManager(options = {}) {
         schema: STATE_SCHEMA,
         version: STATE_VERSION,
         activeRun: publicRun(state.activeRun, { includeBundle: options.includeBundle === true }),
+        execution: publicExecutionSnapshot(state.activeRun),
         lastRun: publicRun(state.lastRun, { includeBundle: options.includeBundle === true }),
+        lastExecution: publicExecutionSnapshot(state.lastRun),
         updatedAt: Number(state.activeRun?.updatedAt || state.lastRun?.updatedAt || 0) || null
       };
     },

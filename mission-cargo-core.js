@@ -1368,6 +1368,17 @@ function _missionCargoStartSignatureAnimation(options = {}) {
 }
 
 window.missionCargoSignDispatchList = function(options = {}) {
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
+        return window.gaTrackerExecutionSubmitIntent?.('sign_manifest')
+            .then(result => {
+                if (result?.ok !== true && window.missionCargoStatus) {
+                    window.missionCargoStatus.error = result?.error || 'tracker_manifest_signature_failed';
+                }
+                if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+                return result?.ok === true;
+            }) || false;
+    }
     const manifest = _missionCargoEnsureManifest();
     const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
     const isArrival = renderMode === 'unload';
@@ -1412,6 +1423,12 @@ window.missionCargoSignDispatchList = function(options = {}) {
 };
 
 window.missionCargoClearDispatchSignature = function(options = {}) {
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        if (window.missionCargoStatus) window.missionCargoStatus.error = 'Die Tracker-Signatur ist autoritativ und kann nicht lokal gelöscht werden.';
+        const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+        return false;
+    }
     const manifest = _missionCargoEnsureManifest();
     const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
     if (!_missionCargoSignatureMatchesMode(manifest.dispatchSignature, renderMode)) return false;
@@ -4807,6 +4824,18 @@ function _missionCargoActionDialogMode(options = {}, fallback = 'load') {
 }
 
 window.missionCargoLoadItem = function(itemId, options = {}) {
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        const renderMode = _missionCargoActionDialogMode(options, 'load');
+        if (window.missionCargoStatus) window.missionCargoStatus.error = null;
+        window.gaTrackerExecutionSubmitIntent?.('set_manifest_item', { itemId, action: 'load' })
+            .then(result => {
+                if (result?.ok !== true && window.missionCargoStatus) {
+                    window.missionCargoStatus.error = result?.error || 'tracker_manifest_load_failed';
+                }
+                if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+            });
+        return true;
+    }
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item || item.status === 'loaded') return false;
@@ -5195,6 +5224,26 @@ function _missionCargoPassengerAlreadyUnloaded() {
 }
 
 window.missionCargoUnloadItem = function(itemId, options = {}) {
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        const renderMode = _missionCargoActionDialogMode(options, 'unload');
+        const trackerManifest = _missionCargoEnsureManifest();
+        const trackerItem = (trackerManifest.items || []).find(entry => entry.id === itemId);
+        const trackerIntent = trackerItem && _missionCargoIsPassengerItem(trackerItem)
+            ? 'request_pax_interaction'
+            : 'set_manifest_item';
+        const trackerPayload = trackerIntent === 'request_pax_interaction'
+            ? { itemId, action: 'deboard' }
+            : { itemId, action: 'unload' };
+        if (window.missionCargoStatus) window.missionCargoStatus.error = null;
+        window.gaTrackerExecutionSubmitIntent?.(trackerIntent, trackerPayload)
+            .then(result => {
+                if (result?.ok !== true && window.missionCargoStatus) {
+                    window.missionCargoStatus.error = result?.error || 'tracker_manifest_unload_failed';
+                }
+                if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+            });
+        return true;
+    }
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item || item.status !== 'loaded') return false;
@@ -5332,6 +5381,12 @@ window.missionCargoSetBoardBookTime = function(itemId, field, options = {}) {
 
 window.finishMissionCargoLoadingAndStart = async function() {
     _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoLoadingAndStart' });
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        const result = await window.gaTrackerExecutionSubmitIntent?.('confirm_load');
+        if (result?.ok === true) window.closeMissionCargoDialog?.();
+        else _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+        return result?.ok === true;
+    }
     if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly()) {
         window.closeMissionCargoDialog?.();
         return false;
@@ -5498,6 +5553,18 @@ window.finishMissionCargoPickupAndContinue = function() {
 window.finishMissionCargoUnloadAndEnd = function(options = {}) {
     const source = String(options.source || 'cargo-primary');
     _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd', source });
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        return (async () => {
+            const unloaded = await window.gaTrackerExecutionSubmitIntent?.('confirm_unload');
+            if (unloaded?.ok !== true) {
+                _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
+                return false;
+            }
+            const closed = await window.gaTrackerExecutionSubmitIntent?.('request_close');
+            if (closed?.ok === true) window.closeMissionCargoDialog?.();
+            return closed?.ok === true;
+        })();
+    }
     if (!_missionCargoHasActiveMission()) {
         window.closeMissionCargoDialog?.();
         window.openMissionGroundCargoDialog?.();

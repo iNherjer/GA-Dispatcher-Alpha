@@ -199,8 +199,8 @@ test('browser shell and tracker wire the shared core additively behind existing 
     const trackerSource = fs.readFileSync(path.join(__dirname, 'ga-tracker-client', 'tracker.js'), 'utf8');
     assert.ok(indexSource.indexOf('mission-location-core.js') < indexSource.indexOf('mission-runtime-core.js'));
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
-    assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v=mission-shadow'));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1684/);
+    assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v=tracker-controller'));
+    assert.match(serviceWorkerSource, /ga-dispatcher-v1685/);
     assert.match(serviceWorkerSource, /\.\/mission-location-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-shadow-journal\.js/);
@@ -212,6 +212,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(syncSource, /executionEffectPlan: adapter === 'apt'/);
     assert.match(syncSource, /_missionSceneBuildSpawnEffectCommand/);
     assert.match(syncSource, /_missionSceneBuildBoardingEffectCommand/);
+    assert.match(syncSource, /_missionSceneBuildDeboardingEffectCommand/);
     assert.match(trackerSource, /createTrackerMissionShadow/);
     assert.match(trackerSource, /observeAuthorityResult/);
     assert.match(trackerSource, /executionShadow: trackerMissionShadow\.publicState\(\)/);

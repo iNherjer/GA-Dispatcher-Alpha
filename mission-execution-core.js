@@ -21,6 +21,7 @@
         'BOARDING_CONFIRMED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
         'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
+        'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'EFFECT_ACKNOWLEDGED', 'CLOSE_REQUESTED', 'MISSION_CLOSED',
         'AUTHORITATIVE_SNAPSHOT_IMPORTED'
     ]);
@@ -459,6 +460,22 @@
                 && eventCargo.summary.destinationRemaining === 0
                 && eventCargo.signatureScope === 'arrival';
         }
+        if (event.type === 'PAX_DEBOARDING_REQUESTED') {
+            return state.flags.active
+                && state.flags.groundStill
+                && (phase === 'end_unloading' || phase === 'end_ready')
+                && state.cargo.items.some(function (item) {
+                    return item.itemType === 'passenger' && item.status === 'loaded' && item.delivery === 'destination';
+                });
+        }
+        if (event.type === 'PAX_DEBOARDING_CONFIRMED') {
+            return state.flags.active
+                && state.flags.groundStill
+                && (phase === 'end_unloading' || phase === 'end_ready')
+                && state.cargo.items.some(function (item) {
+                    return item.itemType === 'passenger' && item.status === 'loaded' && item.delivery === 'destination';
+                });
+        }
         if (event.type === 'FAREWELL_STARTED' || event.type === 'FAREWELL_COMPLETED') {
             return phase === 'end_ready' || phase === 'end_unloading' || phase === 'closing';
         }
@@ -509,6 +526,12 @@
             appendEffect(state, createEffect(state, event, 'scene.boarding', { operation: 'boarding' }));
         } else if (event.type === 'BOARDING_CONFIRMED') {
             applyCargoFromEvent(state, event);
+            var boardedCargo = clone(state.cargo, {});
+            boardedCargo.items = boardedCargo.items.map(function (item) {
+                if (item.itemType !== 'passenger' || item.status !== 'pending' || item.pickup !== 'departure') return item;
+                return Object.assign({}, item, { status: 'loaded' });
+            });
+            state.cargo = normalizeCargo(boardedCargo);
             state.flags.boardingConfirmed = true;
             state.phase = state.flags.loadConfirmed ? 'boarded' : 'boarding';
             state.subphase = state.flags.loadConfirmed ? 'start_ready' : 'awaiting_load_confirmation';
@@ -564,6 +587,18 @@
             state.phase = 'end_ready';
             state.subphase = 'unload_complete';
             appendEffect(state, createEffect(state, event, 'cargo.unload_confirmed', { operation: 'unload' }));
+        } else if (event.type === 'PAX_DEBOARDING_REQUESTED') {
+            state.subphase = 'pax_deboarding';
+            appendEffect(state, createEffect(state, event, 'scene.deboarding', { operation: 'pax_deboarding' }));
+        } else if (event.type === 'PAX_DEBOARDING_CONFIRMED') {
+            var deboardedCargo = clone(state.cargo, {});
+            deboardedCargo.items = deboardedCargo.items.map(function (item) {
+                if (item.itemType !== 'passenger' || item.status !== 'loaded' || item.delivery !== 'destination') return item;
+                return Object.assign({}, item, { status: 'unloaded' });
+            });
+            state.cargo = normalizeCargo(deboardedCargo);
+            state.phase = state.cargo.summary.destinationRemaining > 0 ? 'end_unloading' : 'end_ready';
+            state.subphase = 'pax_deboarded';
         } else if (event.type === 'FAREWELL_STARTED') {
             state.subphase = 'farewell_wait';
         } else if (event.type === 'FAREWELL_COMPLETED') {

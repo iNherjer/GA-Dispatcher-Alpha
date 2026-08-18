@@ -560,6 +560,65 @@ body.ga-efb-tracker-host .ga-efb-mission-footer {
   text-align: center;
 }
 
+body.ga-efb-tracker-host .ga-efb-mission-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-actions button,
+body.ga-efb-tracker-host .ga-efb-mission-cargo-row button {
+  min-height: 36px;
+  border: 1px solid var(--drawer-accent);
+  border-radius: 7px;
+  background: var(--drawer-surface-strong);
+  color: var(--drawer-accent);
+  font: 700 11px/1.2 var(--drawer-font);
+  cursor: pointer;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-actions button:disabled,
+body.ga-efb-tracker-host .ga-efb-mission-cargo-row button:disabled {
+  opacity: .45;
+  cursor: wait;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-cargo-list {
+  display: grid;
+  gap: 6px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-cargo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+  padding: 6px 8px;
+  border: 1px solid var(--drawer-border-soft);
+  border-radius: 7px;
+  background: var(--drawer-surface-strong);
+  color: var(--drawer-text);
+  font: 600 11px/1.2 var(--drawer-font);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-cargo-row b {
+  color: var(--drawer-muted);
+  text-transform: uppercase;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-cargo-row button {
+  min-height: 30px;
+  padding: 0 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-intent-status {
+  margin: 8px 0 0;
+  color: var(--drawer-muted);
+  font: 600 11px/1.35 var(--drawer-font);
+}
+
 body.ga-efb-tracker-host .pinboard-header {
   flex: 0 0 auto !important;
   position: relative;

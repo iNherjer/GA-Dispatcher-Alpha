@@ -179,7 +179,7 @@ function fallbackView(activeRun, flightSnapshot) {
   }, activeRun);
 }
 
-function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapshot = null) {
+function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapshot = null, executionControl = null) {
   if (!activeRun?.missionId || !activeRun?.runId) return null;
   const bundle = object(activeRun.resumeBundle);
   const view = bundle.efbMission
@@ -196,16 +196,62 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     };
   }
   const technical = object(technicalSnapshot);
+  const control = object(executionControl);
+  if (control.executionAuthority === 'tracker' && text(control.missionId, 180) === text(activeRun.missionId, 180)) {
+    const controlFlags = object(control.flags);
+    const controlCargo = object(control.cargo);
+    const cargoSummary = object(controlCargo.summary);
+    const controlPhase = text(control.phase, 80).toLowerCase() || 'planned';
+    const phaseCurrent = /^(closing|closed)$/.test(controlPhase)
+      ? 3
+      : (/^(end_unloading|end_ready)$/.test(controlPhase)
+        ? 2
+        : (/^(active|enroute|on_task|return_leg)$/.test(controlPhase) ? 1 : 0));
+    const taskLabels = {
+      prepare: 'Mission vorbereiten',
+      complete_departure_manifest: 'Abflugmanifest vervollständigen',
+      sign_departure_manifest: 'Abflugmanifest unterschreiben',
+      confirm_load: 'Verladung bestätigen',
+      await_boarding: 'Boarding abwarten',
+      start_mission: 'Mission starten',
+      fly_to_target: 'Zum Ziel fliegen',
+      complete_pickup: 'Pickup abschließen',
+      complete_task: 'Auftrag am Ziel erfüllen',
+      return_and_land: 'Zurückfliegen und landen',
+      complete_unload: 'Ladung am Ziel entladen',
+      close_mission: 'Mission abschließen',
+      await_close: 'Missionsabschluss wird verarbeitet',
+      complete: 'Mission abgeschlossen'
+    };
+    view.active = controlFlags.active === true;
+    view.status = controlFlags.closed === true
+      ? 'Mission abgeschlossen'
+      : (controlFlags.active === true ? 'Mission aktiv' : 'Mission in Vorbereitung');
+    view.currentTask = taskLabels[text(control.nextStep, 80)] || view.currentTask;
+    view.detail = 'Ausführungsstand und erlaubte Aktionen kommen direkt vom Tracker.';
+    view.phase.current = phaseCurrent;
+    view.cargo = {
+      available: Number(cargoSummary.total || 0) > 0,
+      conditionPct: view.cargo.conditionPct,
+      tone: Number(cargoSummary.failed || 0) > 0 ? 'danger' : (Number(cargoSummary.pending || 0) > 0 ? 'warn' : 'good'),
+      state: `${Math.max(0, Number(cargoSummary.loaded || 0))} geladen / ${Math.max(0, Number(cargoSummary.unloaded || 0))} entladen`,
+      detail: Number(cargoSummary.pending || 0) > 0
+        ? `${Math.max(0, Number(cargoSummary.pending || 0))} Positionen noch offen`
+        : 'Manifest synchron',
+      requiredLoaded: Math.max(0, Number(cargoSummary.loaded || 0)),
+      requiredTotal: Math.max(0, Number(cargoSummary.requiredTotal || 0))
+    };
+  }
   return {
     schema: 'ga.mission-snapshot.v2',
     version: 2,
     missionId: text(activeRun.missionId, 180),
     runId: text(activeRun.runId, 220),
     authority: 'tracker',
-    state: text(activeRun.state, 60) || 'active',
+    state: control.executionAuthority === 'tracker' ? text(control.phase, 60) : (text(activeRun.state, 60) || 'active'),
     active: activeRun.active !== false,
-    phase: text(activeRun.phase, 100),
-    revision: Math.max(1, Math.round(Number(activeRun.revision) || 1)),
+    phase: control.executionAuthority === 'tracker' ? text(control.phase, 100) : text(activeRun.phase, 100),
+    revision: Math.max(1, Math.round(Number(control.authorityRevision || activeRun.revision) || 1)),
     updatedAt: Math.max(0, Math.round(Number(activeRun.updatedAt) || 0)),
     sceneCount: Math.max(0, Math.round(Number(technical.sceneCount) || 0)),
     scenes: (Array.isArray(technical.scenes) ? technical.scenes : []).slice(0, 12).map(scene => ({

@@ -9,6 +9,7 @@ const GROUND_STILL_MAX_GS_KTS = 3;
 const SYSTEM_EVENT_TYPES = new Set([
   'BOARDING_STARTED',
   'BOARDING_CONFIRMED',
+  'PAX_DEBOARDING_CONFIRMED',
   'FAREWELL_STARTED',
   'FAREWELL_COMPLETED',
   'MISSION_CLOSED'
@@ -22,7 +23,6 @@ const INTENT_EVENT_TYPES = Object.freeze({
 });
 const DEFERRED_INTENTS = new Set([
   'confirm_pickup',
-  'request_pax_interaction',
   'request_voice_playback',
   'submit_compliance_evidence',
   'abort_mission',
@@ -250,6 +250,17 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     if (intent === 'set_manifest_item') return setManifestItem(snapshot, request);
     if (intent === 'sign_manifest') return signManifest(snapshot, request);
+    if (intent === 'request_pax_interaction') {
+      const action = cleanString(safeObject(request.payload).action, 40).toLowerCase();
+      if (action !== 'deboard') return errorResult('mission_pax_interaction_not_migrated', { view: snapshot.view });
+      return submitEvent(
+        snapshot,
+        'PAX_DEBOARDING_REQUESTED',
+        {},
+        `${snapshot.runId}:intent:${commandId}`,
+        'intent:request_pax_interaction:deboard'
+      );
+    }
     const eventType = INTENT_EVENT_TYPES[intent];
     if (!eventType) return errorResult('mission_intent_not_supported');
     const eventPayload = ['LOAD_CONFIRMED', 'UNLOAD_CONFIRMED'].includes(eventType)

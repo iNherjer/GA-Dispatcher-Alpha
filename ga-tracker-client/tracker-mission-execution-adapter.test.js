@@ -324,6 +324,72 @@ test('tracker telemetry requires stable evidence and drives APT landing and clos
   const closed = systemCurrent(fixture, 'MISSION_CLOSED', 'mission-closed');
   assert.equal(closed.ok, true);
   assert.equal(closed.view.phase, 'closed');
+  for (const pendingEffect of fixture.manager.getExecutionSnapshot().state.effects.filter(effect => effect.status === 'requested')) {
+    const effectSnapshot = fixture.manager.getExecutionSnapshot();
+    const acknowledged = fixture.manager.applyExecutionEvent({
+      missionId: effectSnapshot.missionId,
+      runId: effectSnapshot.runId,
+      expectedRevision: effectSnapshot.authorityRevision,
+      expectedExecutionRevision: effectSnapshot.executionRevision,
+      expectedExecutionStateHash: effectSnapshot.executionStateHash,
+      event: {
+        eventId: `${pendingEffect.effectId}:ack:test`,
+        type: 'EFFECT_ACKNOWLEDGED',
+        sequence: effectSnapshot.executionRevision + 1,
+        payload: { effectId: pendingEffect.effectId, status: 'completed' }
+      }
+    });
+    assert.equal(acknowledged.ok, true);
+  }
+  const finalized = fixture.manager.finalizeExecutionRun({ commandId: 'finalize-test' });
+  assert.equal(finalized.ok, true);
+  const authority = fixture.manager.getPublicSnapshot();
+  assert.equal(authority.activeRun, null);
+  assert.equal(authority.execution, null);
+  assert.equal(authority.lastRun.runId, finalized.releasedRun.runId);
+  assert.equal(authority.lastExecution.phase, 'closed');
+  assert.equal(authority.lastExecution.flags.closed, true);
+});
+
+test('passenger deboarding is a scene-backed intent and only its system ACK unloads the PAX', (t) => {
+  const bundle = aptResumeBundle();
+  bundle.runtime.cargoManifest.dispatchSignature = { scope: 'departure' };
+  bundle.runtime.cargoManifest.items = [{
+    id: 'passenger-one',
+    itemType: 'passenger',
+    required: true,
+    status: 'loaded',
+    passengerCount: 1,
+    deliverAtDestination: true
+  }];
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, {
+    sourceRevision: 1,
+    legacyBundle: bundle
+  });
+  const fixture = createCommittedFixture(t, { bundle });
+  executeCurrent(fixture, 'prepare_mission', 'prepare-pax');
+  systemCurrent(fixture, 'BOARDING_STARTED', 'boarding-started-pax');
+  executeCurrent(fixture, 'confirm_load', 'confirm-load-pax');
+  systemCurrent(fixture, 'BOARDING_CONFIRMED', 'boarding-confirmed-pax');
+  executeCurrent(fixture, 'start_mission', 'start-pax');
+
+  fixture.adapter.observeTelemetry({ observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 });
+  fixture.adapter.observeTelemetry({ observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 65 });
+  fixture.adapter.observeTelemetry({ observedAt: 13000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 20 });
+  fixture.adapter.observeTelemetry({ observedAt: 14000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 });
+  fixture.adapter.observeTelemetry({ observedAt: 17000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 });
+  assert.equal(fixture.manager.getExecutionSnapshot().state.phase, 'end_unloading');
+
+  const requested = executeCurrent(fixture, 'request_pax_interaction', 'deboard-pax', { action: 'deboard' });
+  assert.equal(requested.ok, true);
+  assert.equal(requested.effectsPending[0].type, 'scene.deboarding');
+  assert.equal(fixture.manager.getExecutionSnapshot().state.cargo.items[0].status, 'loaded');
+
+  const confirmed = systemCurrent(fixture, 'PAX_DEBOARDING_CONFIRMED', 'deboarding-confirmed-pax');
+  assert.equal(confirmed.ok, true);
+  assert.equal(confirmed.view.phase, 'end_ready');
+  assert.equal(fixture.manager.getExecutionSnapshot().state.cargo.items[0].status, 'unloaded');
 });
 
 test('adapter rejects web authority, stale revisions and passenger cargo mutation', (t) => {

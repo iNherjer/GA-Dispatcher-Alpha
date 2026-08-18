@@ -628,21 +628,23 @@ Der lokale `tracker-mission-effect-runner.js` konsumiert ausschliesslich die
 vom Execution-Core erzeugten deklarativen Effekte. Die `effectId` ist zugleich
 die stabile Dispatch-`commandId`. Positive oder terminal negative Ergebnisse
 werden mit `EFFECT_ACKNOWLEDGED` in demselben Replay persistiert. Vor einem
-positiven ACK wendet der Runner fuer `scene.prepare`, `scene.boarding` und
-`mission.close_requested` die fest zugeordneten internen Folgeevents an. Wird
-der Tracker zwischen Dispatch und ACK beendet, bleibt der Effekt `requested`
-und wird nach Recovery mit identischer ID wieder aufgenommen. Ist das ACK
-persistiert, wird der Handler nicht erneut aufgerufen. Damit ist die
-At-least-once-Ausfuehrung nach aussen an eine idempotente Command-ID gebunden,
-waehrend der Missionszustand exakt einmal fortgeschaltet wird.
+positiven ACK wendet der Runner fuer `scene.prepare`, `scene.boarding`,
+`scene.deboarding` und `mission.close_requested` die fest zugeordneten
+internen Folgeevents an. Ist das ACK persistiert, wird der Handler nicht erneut
+aufgerufen. Wurde nur der physische Dispatch persistiert und der Tracker vor
+dem ACK beendet, haelt die Controller-Grenze den Effekt nach Recovery mit
+`mission_effect_recovery_confirmation_required` an. Dieser bewusst
+fail-closed Ambiguitaetsfall verhindert doppelte SimObjects; ein expliziter
+Abgleich-/Recoverydialog folgt erst nach dem realen In-Sim-Test.
 
 Der lokale v369-Schnitt verdrahtet die echten Simulatorhandler hinter einem
 zweifachen, standardmaessig inaktiven Alpha-Gate. Die App transportiert dazu
 `ga.mission-apt-effect-plan.v1`, erzeugt aus denselben bestehenden Spawn- und
 Boarding-Buildern wie der Web-Ablauf. Der Tracker validiert den vorbereiteten
 Command-Typ und ersetzt ausschliesslich Liveposition, Run und deterministische
-`effectId`. Die interne Controller-Grenze erlaubt nur Scene-Spawn und Boarding;
-deren echte ACKs erreichen den Effect-Runner auch ohne offenen Relay-Socket.
+`effectId`. Die interne Controller-Grenze erlaubt Scene-Spawn, Boarding und
+Deboarding; deren echte ACKs erreichen den Effect-Runner auch ohne offenen
+Relay-Socket.
 
 `tracker-mission-execution-runtime.js` verbindet Adapter, Runner,
 SimConnect-Telemetrie und diese Controller-Grenze. Aktiv wird sie nur bei
@@ -650,10 +652,29 @@ Tracker-Kanal `alpha` plus `VFR_MULTITOOL_APT_EXECUTION=1`; erst dann wird
 `mission.intent.v1` in Relay- und Loopback-Hello ergaenzt. Der normale Start,
 Stable und eine Alpha ohne Umgebungsvariable bleiben bei
 `executionAuthority=web`, read-only Intents und unveraenderten Web-
-Seiteneffekten. Eine automatische Autoritaetsuebergabe ist noch nicht
-implementiert. Vor dem Einschalten im Alpha-Kanal muessen Web-/EFB-Aktionen
-auf Intents umgestellt und ein In-Sim-Recoverytest zwischen physischem Effekt
-und ACK bestanden werden, damit kein SimObject doppelt entsteht.
+Seiteneffekten.
+
+Der v370-Alpha-Kandidat ergaenzt die kontrollierte Uebergabe. Beim ersten
+APT-Prepare sendet die Web-App einen letzten exakten Resume-/Replay-Snapshot,
+bereitet den Handoff vor und committet nur bei unveraenderten Revisionen und
+Hashes. Danach schreibt sie keine Runtime-Snapshots und keine alten
+Szenenbefehle mehr. App und EFB senden denselben allowlist-basierten
+Loopback-Intentvertrag; der Tracker liefert fuer beide einen begrenzten
+`ga.mission-execution-control.v1` mit Phase, Flags, Cargo, Signatur,
+Blockierungsgruenden und erlaubten Aktionen.
+
+Cargo-Items werden erst nach einem akzeptierten Intent im Trackerzustand
+geaendert. Passagiere bleiben szenengebunden: Ein Deboard-Intent erzeugt
+`scene.deboarding`, und erst das positive Sim-ACK erzeugt
+`PAX_DEBOARDING_CONFIRMED`. Bei Abschluss verschiebt der Tracker den Lauf nach
+`lastRun` und behaelt zusaetzlich eine begrenzte `lastExecution`-Projektion.
+Dadurch zeigt das EFB keine aktive Mission mehr und die Web-App kann denselben
+Run genau einmal in ihr bestehendes Debrief uebernehmen.
+
+Nicht migriert sind in v370 die zentrale Sim-Payload-Verteilung,
+missionsgetriggerte Voice-Intents, Pickup/POI/Sonderrezepte sowie die manuelle
+Aufloesung eines fail-closed Recoveryfalls. Deshalb bleiben Alpha-Kanal und
+`VFR_MULTITOOL_APT_EXECUTION=1` weiterhin gemeinsam erforderlich.
 
 Ein autoritativ geschlossenes APT-Replay bleibt nicht als scheinbar aktive
 Mission liegen: Sobald `MISSION_CLOSED` und alle Effekt-ACKs atomar gespeichert

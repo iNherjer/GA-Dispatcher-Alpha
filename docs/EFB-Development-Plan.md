@@ -15,18 +15,18 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.3 manueller Origin-Installer | Auto-Update 1.6.2 | 1.6.3 startet weiter auf Stable; Alpha muss fuer den APT-Test ausdruecklich gewaehlt werden |
-| Tracker-Runtime | v369 Alpha | v356 | v369 enthaelt die echte APT-Execution-Bridge zweifach gesperrt; ohne Alpha plus Umgebungs-Opt-in bleibt Web-Authority unveraendert. Stable bleibt auf v356 |
+| Tracker-Runtime | v370 Alpha-Kandidat | v356 | v370 schaltet App- und EFB-Aktionen nach einem atomaren APT-Handoff auf Tracker-Intents; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
-| EFB-Transport | HTTP-Loopback; Mission read-only, Voice-Effekte und Session-Heartbeats lokal schreibbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` bleibt gesperrt |
+| EFB-Transport | HTTP-Loopback; Mission im Standard read-only, in der gegateten APT-Alpha revisionsgebunden steuerbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` erscheint nur bei aktiver Tracker-Execution |
 
 ## Aktueller EFB-Kanalstand
 
-Tracker v360 / Host 0.6.5 behandelt die Werkzeugstarter fuer Uhr/Stoppuhr,
-Rechner und E6B als echte Umschalter. Der Host kann dabei auch mit einem noch
-gecacheten aelteren Utility-Modul schliessen. Alle veraenderlichen CSS- und
-JavaScript-Dateien des tracker-gehosteten v367-Hosts verwenden weiterhin
-Revision 36301; v366 bis v368 aendern keine Host-Assets. Der freigegebene
+Tracker v370 / Host 0.6.6 ergaenzt die revisionsgebundene Mission-Control-
+Bedienung und Cargo-Projektion. Alle veraenderlichen CSS- und JavaScript-
+Dateien dieses tracker-gehosteten Hosts verwenden Revision 37001. Das
+installierte EFB-Community-Paket bleibt unveraendert auf 0.4.11; ein neuer
+SDK-Build ist fuer diesen Host-Test nicht erforderlich. Der freigegebene
 v360-Host bleibt auf Revision 36001.
 Das obere Werkzeugmenue wird beim Oeffnen direkt ueber der Kartenoberflaeche
 gerendert, sodass sein E6B-Eintrag nicht mehr von der E6B-Eingabeflaeche
@@ -1004,8 +1004,8 @@ nur Alpha wird aktualisiert, Stable bleibt auf v356.
 
 ### E4 - Autoritaet kontrolliert an den Tracker uebergeben
 
-Status: atomarer Zwei-Phasen-Untervertrag lokal implementiert; produktive
-Umschaltung bleibt gesperrt
+Status: atomarer Zwei-Phasen-Untervertrag und App-Handoff im gegateten
+v370-Alpha-Kandidaten implementiert; realer Recovery-Test ausstehend
 
 Die Uebergabe erfolgt recipe-weise: zuerst ein normaler APT-A-nach-B-Ablauf,
 danach Bush/Pickup, POI/Survey und zuletzt SAR sowie komplexe Sonderablaeufe.
@@ -1032,12 +1032,13 @@ Legacy-Drift und exakt passender Run-Revision sowie Web- und Execution-Hash.
 Ein zwischen Vorbereitung und Commit eintreffender Web-Snapshot oder ein
 Owner-Wechsel verwirft die Vorbereitung.
 
-`commitExecutionAuthority()` ist im normalen Trackerbetrieb noch nicht
-aktiviert. Der lokale Testschalter bestaetigt atomare Persistenz, blockierte
-Web-Snapshots nach dem Commit und einen sicheren Rollback, solange der Tracker
-noch kein neues Execution-Event angewendet hat. Damit ist der
-Transaktionsvertrag testbar, ohne `mission.intent.v1` zu bewerben oder die
-bestehende Web-Missionslogik umzuschalten.
+`commitExecutionAuthority()` bleibt im normalen Trackerbetrieb deaktiviert.
+Nur der Alpha-Kanal mit `VFR_MULTITOOL_APT_EXECUTION=1` aktiviert ihn und
+bewirbt danach `mission.intent.v1`. Der v370-Webclient schreibt unmittelbar
+vor Prepare noch einen exakten Snapshot und schaltet erst nach dem positiven
+Commit auf die Tracker-Projektion um. Atomare Persistenz, blockierte
+Web-Snapshots und ein sicherer Rollback vor dem ersten Execution-Event bleiben
+automatisiert abgedeckt.
 
 Nach einem lokal aktivierten Commit nimmt `applyExecutionEvent()` nur exakt
 sequenzierte, idempotente Core-Events mit passender Authority-Revision,
@@ -1049,8 +1050,8 @@ akzeptierten Event ist der einfache Zero-Event-Rollback gesperrt.
 
 ### E5 - Schreibende Cockpit-Intents
 
-Status: APT-Adapter und echte Szenenhandler lokal verdrahtet; produktive
-Umschaltung und Capability bleiben standardmaessig gesperrt
+Status: APT-Adapter, App-/EFB-Controller und echte Szenenhandler im gegateten
+v370-Alpha-Kandidaten verdrahtet; Standard und Stable bleiben read-only
 
 Der heutige offene GET-Loopback wird nicht einfach um ungeschuetzte POSTs
 erweitert. Derselbe Vertrag bedient spaeter EFB und Toolbar-Panel.
@@ -1088,11 +1089,12 @@ signieren, `confirm_load`, `start_mission`, `confirm_unload` und
 `request_close`. Boarding- und Close-ACKs besitzen einen getrennten internen
 Systemeingang und bleiben an ihre exakte Vorphase gebunden.
 
-Passagier-Items sind bewusst nicht ueber `set_manifest_item` veraenderbar,
-weil deren Status spaeter aus den Szenen-/Pax-ACKs entstehen muss. Pickup,
-Pax-Interaktion, Voice, Compliance, Abort und Reset antworten in dieser Stufe
-weiterhin seiteneffektfrei mit `mission_intent_not_migrated`. Deklarative
-Core-Effekte werden als ausstehend zurueckgegeben, aber noch nicht ausgefuehrt.
+Passagier-Items bleiben bewusst nicht ueber `set_manifest_item` veraenderbar.
+`request_pax_interaction { action: deboard }` erzeugt stattdessen den
+deklarativen Effekt `scene.deboarding`; erst dessen positives Simulator-ACK
+markiert die Ziel-PAX als entladen. Pickup, missionsgetriggerte Voice,
+Compliance, Abort und Reset antworten in dieser Stufe weiterhin
+seiteneffektfrei mit `mission_intent_not_migrated`.
 
 Der gleiche Adapter besitzt einen internen APT-Telemetrieeingang. Airborne
 benoetigt zwei Sekunden zusammenhaengende Evidenz, Ground-Still drei Sekunden
@@ -1120,12 +1122,15 @@ einfach eine vergroesserte APT-Policy.
 liest nur vom Core erzeugte `requested`-Effekte, dispatcht sie ueber registrierte
 Handler mit der deterministischen `effectId` als `commandId` und persistiert
 den Abschluss als `EFFECT_ACKNOWLEDGED` im Execution-Replay. Die APT-Folgen
-`scene.prepare -> BOARDING_STARTED`, `scene.boarding -> BOARDING_CONFIRMED`
-und `mission.close_requested -> MISSION_CLOSED` werden erst nach positivem
-Handler-Ergebnis angewendet. Ein Neustart nimmt einen nicht bestaetigten Effekt
-mit derselben ID wieder auf; ein bereits persistiertes ACK verhindert die
-erneute Ausfuehrung. Der lokale Gesamttest deckt Prepare, Boarding, Flug,
-Entladung, Close und Recovery ab.
+`scene.prepare -> BOARDING_STARTED`, `scene.boarding -> BOARDING_CONFIRMED`,
+`scene.deboarding -> PAX_DEBOARDING_CONFIRMED` und
+`mission.close_requested -> MISSION_CLOSED` werden erst nach positivem
+Handler-Ergebnis angewendet. Ein bereits persistiertes ACK verhindert die
+erneute Ausfuehrung. Ein beim Neustart nur als dispatcht, aber nicht bestaetigt
+gespeicherter physischer Effekt wird fail-closed angehalten, statt ein
+moeglicherweise bereits vorhandenes SimObject zu duplizieren. Der lokale
+Gesamttest deckt Prepare, Boarding, Flug, Deboarding, Entladung, Close und
+beide Recovery-Faelle ab.
 
 Der lokale v369-Schnitt verbindet diese Effektgrenze erstmals mit den echten,
 bereits vorhandenen Tracker-Szenenhandlern. Die App legt fuer ein APT-Rezept
@@ -1159,10 +1164,32 @@ verschwindet die aktive Mission fuer alle Cockpit-Clients.
 Die gesamte Runtime bleibt zweifach gesperrt: Sie wird nur im Alpha-Kanal und
 nur mit `VFR_MULTITOOL_APT_EXECUTION=1` erstellt. Ohne beide Bedingungen
 bleiben Manager-Commit, Cockpit-Intents und Simulator-Bridge inaktiv,
-`executionAuthority=web` und `mission.intent.v1` unsichtbar. Auch mit Schalter
-findet noch keine automatische Web-zu-Tracker-Uebergabe statt. Vor einer
-Alpha-Aktivierung fehlen noch die UI-Umschaltung der bisherigen Web-Aktionen
-auf Intents sowie ein echter In-Sim-Neustarttest gegen doppelte SimObjects.
+`executionAuthority=web` und `mission.intent.v1` unsichtbar.
+
+Der v370-Kandidat schliesst die UI-Grenze fuer APT. Beim ersten
+`prepare_mission` schreibt die Web-App einen letzten exakten Snapshot, fuehrt
+Prepare und Commit aus und wird danach Beobachter. App und EFB senden nur noch
+kurzlebig authentifizierte, revisionsgebundene Intents. Manifeststatus,
+Signatur, Start-/Endphase und erlaubte Aktionen werden aus
+`ga.mission-execution-control.v1` projiziert; eine zweite Ansicht kann damit
+keinen veralteten lokalen Cargo-Stand weiterschreiben. Boarding und Deboarding
+laufen als Tracker-Effekte und schalten PAX erst nach dem echten Szenen-ACK um.
+
+Nach dem Commit blockiert der Tracker alte Web-Szenenbefehle. Physische
+Effektdispatches werden vor dem Aufruf persistent markiert: Ein bereits
+gespeichertes ACK wird ohne erneuten Simulatoraufruf wiedergegeben. Endete der
+Tracker dagegen zwischen Dispatch und ACK, wird der Effekt nach dem Neustart
+bewusst nicht automatisch wiederholt, sondern mit
+`mission_effect_recovery_confirmation_required` angehalten. Das verhindert
+doppelte SimObjects, bis ein realer Recovery-Test und ein expliziter
+Abgleichspfad vorliegen.
+
+Ein geschlossener Lauf bleibt als begrenztes `lastExecution` sichtbar. EFB
+meldet danach keine aktive Mission; die Web-App uebernimmt denselben Run genau
+einmal in ihr bestehendes Debrief und raeumt ihn erst beim Schliessen des
+Debriefs lokal auf. Noch nicht Teil dieser Stufe sind die zentrale
+Sim-Payload-Verteilung, missionsgetriggerte Voice-Intents, POI-/Sonderrezepte
+und ein Recovery-Dialog fuer den absichtlich angehaltenen Ambiguitaetsfall.
 
 ### E6 - Bord-/Behoerdenkontrolle als untergeordneter Workflow
 
@@ -1260,6 +1287,18 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] Revisionsgebundenen Intent-Gateway mit Allowlist, Idempotenz und
       Konflikt-ACK implementieren, aber bei Web-Authority ohne Side Effect
       sperren und `mission.intent.v1` noch nicht bewerben.
+- [x] Gegateten APT-Handoff und gemeinsame App-/EFB-Bedienung auf
+      revisionsgebundene Tracker-Intents umstellen; alte Web-Szenenbefehle nach
+      Commit sperren, Cargo-/PAX-Projektion und terminales Debrief synchronisieren.
+- [ ] v370 real mit App plus EFB in MSFS testen: Prepare, Boarding, Cargo aus
+      beiden Instanzen, Start, Ziel-Ground-Still, Deboarding, Entladung, Close
+      sowie finaler Debrief ohne doppeltes SimObject.
+- [ ] Ambiguitaetsfall Tracker-Neustart nach physischem Dispatch und vor ACK
+      real provozieren; bestaetigen, dass der Lauf fail-closed bleibt, und erst
+      danach einen expliziten Recovery-/Abgleichdialog entwerfen.
+- [ ] Sim-Payload-Verteilung und missionsgetriggerte Voice-Intents in die
+      Tracker-Execution migrieren, bevor die APT-Authority ohne Alpha-Gate
+      freigegeben wird.
 - [x] EFB 0.2.0 am physischen EFB und im 2D-Panel des primaeren Testsystems
       ohne Orientation-Flapping getestet.
 - [ ] EFB 0.2.0 auf dem urspruenglich betroffenen Testsystem gegenpruefen.
@@ -1501,6 +1540,25 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Tracker-Reducer spiegeln und Drift ueber komplette APT-Replays messen.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-18: Der v370-Alpha-Kandidat schaltet einen geplanten APT-Lauf erst
+  nach letztem exakten Snapshot sowie positivem Prepare/Commit von Web- auf
+  Tracker-Execution. Danach sind App und EFB gleichberechtigte Controller mit
+  kurzlebiger Cockpit-Sitzung, `commandId` und erwarteter Revision; Status,
+  erlaubte Aktionen, Manifest und Signatur stammen fuer alle Instanzen aus
+  `ga.mission-execution-control.v1`. Alte Web-Szenenbefehle werden blockiert.
+  Prepare/Boarding, PAX-Deboarding und Close laufen nur ueber deklarative
+  Tracker-Effekte und echte Simulator-ACKs. Persistierte ACKs werden ohne
+  erneuten Effekt wiedergegeben; ein Neustart zwischen Dispatch und ACK haelt
+  fail-closed an. Der letzte geschlossene Lauf traegt einen begrenzten
+  Abschlussmarker, sodass die App genau einmal ihr bestehendes Debrief oeffnet
+  und EFB keine aktive Mission mehr meldet. 170 Missions-, Tracker-, EFB- und
+  Recovery-Tests sind gruen. Offene Freigabepunkte bleiben der reale
+  Mehrinstanz-/Neustarttest, zentrale Sim-Payload-Verteilung und
+  missionsgetriggerte Voice-Intents. Der reproduzierbare Windows-Build umfasst
+  48.396.976 Bytes mit SHA-256
+  `df127e4884fb1dc67b7b713cd2450e77af563764ad13d659e63e0b95355fb57e`.
+  Stable bleibt auf v356; das EFB-Community-Paket bleibt 0.4.11.
 
 - 2026-08-18: Der lokale v369-Schnitt verbindet den APT-Effect-Runner mit den
   vorhandenen SimConnect-Szenenhandlern. Die App nimmt einen versionierten,

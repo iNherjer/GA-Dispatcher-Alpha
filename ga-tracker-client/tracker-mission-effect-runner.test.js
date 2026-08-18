@@ -8,7 +8,12 @@ const test = require('node:test');
 const executionCore = require('../mission-execution-core.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
 const { createTrackerMissionExecutionAdapter } = require('./tracker-mission-execution-adapter.js');
-const { createTrackerMissionEffectRunner } = require('./tracker-mission-effect-runner.js');
+const { APT_EFFECT_FOLLOW_UPS, createTrackerMissionEffectRunner } = require('./tracker-mission-effect-runner.js');
+
+test('APT scene effects advance boarding and deboarding only through their simulator ACKs', () => {
+  assert.equal(APT_EFFECT_FOLLOW_UPS['scene.boarding'], 'BOARDING_CONFIRMED');
+  assert.equal(APT_EFFECT_FOLLOW_UPS['scene.deboarding'], 'PAX_DEBOARDING_CONFIRMED');
+});
 
 function aptResumeBundle() {
   const bundle = {

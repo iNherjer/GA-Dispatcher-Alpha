@@ -67,6 +67,8 @@
   var drawerInteractionTimer = 0;
   var drawerInputGeneration = 0;
   var drawerRefreshPending = false;
+  var missionIntentPending = false;
+  var missionIntentStatus = '';
   var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
   var EFB_PROFILE_HEIGHT_KEY = 'ga_efb_tracker_profile_height_v1';
   var EFB_OVERLAY_PANES = {
@@ -541,6 +543,42 @@
     }).join('');
     var comfort = view.comfort && typeof view.comfort === 'object' ? view.comfort : {};
     var cargo = view.cargo && typeof view.cargo === 'object' ? view.cargo : {};
+    var control = mission.control && typeof mission.control === 'object' ? mission.control : null;
+    var allowedActions = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
+    var canIntent = !!(control && control.executionAuthority === 'tracker');
+    var actionLabels = {
+      prepare_mission: 'Mission vorbereiten',
+      sign_manifest: 'Manifest unterschreiben',
+      confirm_load: 'Verladung bestaetigen',
+      start_mission: 'Mission starten',
+      request_pax_interaction: 'PAX aussteigen lassen',
+      confirm_unload: 'Entladung bestaetigen',
+      request_close: 'Mission beenden'
+    };
+    var primaryActions = ['prepare_mission', 'sign_manifest', 'confirm_load', 'start_mission'];
+    var hasLoadedArrivalPassenger = control && control.cargo && Array.isArray(control.cargo.items) && control.cargo.items.some(function (item) {
+      return item && item.itemType === 'passenger' && item.status === 'loaded' && item.delivery === 'destination';
+    });
+    if (hasLoadedArrivalPassenger && /^(end_unloading|end_ready)$/.test(String(control && control.phase || ''))) {
+      primaryActions.push('request_pax_interaction');
+    }
+    primaryActions.push('confirm_unload', 'request_close');
+    var actionHtml = primaryActions.filter(function (intent) {
+      return allowedActions.indexOf(intent) >= 0;
+    }).map(function (intent) {
+      return '<button type="button" data-efb-drawer-action="mission-intent" data-mission-intent="' + drawerEscape(intent) + '"'
+        + (missionIntentPending ? ' disabled' : '') + '>' + drawerEscape(actionLabels[intent] || intent) + '</button>';
+    }).join('');
+    var cargoItems = control && control.cargo && Array.isArray(control.cargo.items) ? control.cargo.items : [];
+    var cargoRows = cargoItems.filter(function (item) { return item && item.itemType !== 'passenger'; }).map(function (item) {
+      var nextAction = item.status === 'pending' ? 'load' : (item.status === 'loaded' ? 'unload' : '');
+      var canChange = allowedActions.indexOf('set_manifest_item') >= 0 && !!nextAction;
+      return '<div class="ga-efb-mission-cargo-row"><span>' + drawerEscape(item.id || 'Ladung') + '</span><b>'
+        + drawerEscape(item.status || 'pending') + '</b>'
+        + (canChange ? '<button type="button" data-efb-drawer-action="mission-intent" data-mission-intent="set_manifest_item" data-mission-item-id="'
+          + drawerEscape(item.id) + '" data-mission-item-action="' + nextAction + '"' + (missionIntentPending ? ' disabled' : '') + '>'
+          + (nextAction === 'load' ? 'Laden' : 'Entladen') + '</button>' : '') + '</div>';
+    }).join('');
     var conditions = '<div class="ga-efb-mission-conditions">'
       + '<section class="is-' + drawerEscape(comfort.tone || 'muted') + '"><span>PAX-STIMMUNG</span><strong>'
       + (comfort.score == null ? '--' : drawerEscape(comfort.score) + '%') + '</strong><b>' + drawerEscape(comfort.state || 'Keine Wertung')
@@ -561,9 +599,49 @@
       + (progressHtml ? '<section class="ga-efb-mission-section"><small>LIVE-FORTSCHRITT</small>' + progressHtml + '</section>' : '')
       + (requirementsHtml ? '<section class="ga-efb-mission-section"><small>BEDINGUNGEN</small><div class="ga-efb-mission-requirements">' + requirementsHtml + '</div></section>' : '')
       + conditions
+      + (canIntent ? '<section class="ga-efb-mission-section"><small>BEDIENUNG</small>'
+        + (cargoRows ? '<div class="ga-efb-mission-cargo-list">' + cargoRows + '</div>' : '')
+        + (actionHtml ? '<div class="ga-efb-mission-actions">' + actionHtml + '</div>' : '')
+        + (missionIntentStatus ? '<p class="ga-efb-mission-intent-status">' + drawerEscape(missionIntentStatus) + '</p>' : '')
+        + '</section>' : '')
       + (feedbackHtml ? '<section class="ga-efb-mission-section"><small>LAGEBERICHT</small><div class="ga-efb-mission-feedback-list">' + feedbackHtml + '</div></section>' : '')
-      + '<div class="ga-efb-mission-footer">Read-only | Mission und Fortschritt kommen vom Tracker | ' + drawerEscape(mission.sceneCount || 0) + ' Szenen</div>'
+      + '<div class="ga-efb-mission-footer">' + (canIntent ? 'Tracker-Controller' : 'Nur Lesen') + ' | Mission und Fortschritt kommen vom Tracker | ' + drawerEscape(mission.sceneCount || 0) + ' Szenen</div>'
       + '</div>';
+  }
+
+  function submitMissionIntent(intent, payload) {
+    var client = window.gaCockpitSessionClient;
+    var control = missionSnapshot && missionSnapshot.control;
+    if (missionIntentPending || !client || typeof client.submitIntent !== 'function' || !control) return Promise.resolve(false);
+    missionIntentPending = true;
+    missionIntentStatus = 'Tracker verarbeitet die Aktion ...';
+    renderSideDrawer(true);
+    var commandId = 'efb-intent-' + String(intent || 'action').replace(/[^a-z0-9_-]/gi, '-') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    return client.submitIntent({
+      commandId: commandId,
+      intent: intent,
+      missionId: control.missionId,
+      runId: control.runId,
+      expectedRevision: Number(control.authorityRevision || 0),
+      payload: payload || {}
+    }).then(function (result) {
+      missionIntentStatus = result && result.ok === true
+        ? 'Aktion bestaetigt. Stand wird aktualisiert.'
+        : (result && result.error === 'mission_revision_conflict'
+          ? 'Eine andere Ansicht war schneller. Stand wurde neu geladen.'
+          : 'Aktion abgelehnt: ' + String(result && (result.error || result.status) || 'unbekannt'));
+      return fetchJson('/api/v1/mission').then(function (envelope) {
+        renderMissionPayload(safePayload(envelope));
+        return result && result.ok === true;
+      }).catch(function () { return result && result.ok === true; });
+    }).catch(function (error) {
+      missionIntentStatus = 'Tracker-Aktion fehlgeschlagen: ' + String(error && error.message || error || 'unbekannt');
+      return false;
+    }).then(function (ok) {
+      missionIntentPending = false;
+      renderSideDrawer(true);
+      return ok;
+    });
   }
 
   function checklistListMarkup() {
@@ -706,6 +784,19 @@
       var actionNode = event.target && event.target.closest ? event.target.closest('[data-efb-drawer-action]') : null;
       if (!actionNode) return;
       var action = actionNode.getAttribute('data-efb-drawer-action');
+      if (action === 'mission-intent') {
+        var intent = actionNode.getAttribute('data-mission-intent') || '';
+        var payload = {};
+        if (intent === 'set_manifest_item') {
+          payload.itemId = actionNode.getAttribute('data-mission-item-id') || '';
+          payload.action = actionNode.getAttribute('data-mission-item-action') || '';
+        }
+        if (intent === 'request_pax_interaction') payload.action = 'deboard';
+        submitMissionIntent(intent, payload);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (action === 'mission') { drawerView = 'mission'; drawerChecklistId = ''; }
       if (action === 'checklists' || action === 'checklist-list') { drawerView = 'checklists'; drawerChecklistId = ''; }
       if (action === 'open-checklist') { drawerView = 'checklists'; drawerChecklistId = actionNode.getAttribute('data-checklist-id') || ''; }
@@ -1360,6 +1451,7 @@
       feedback: view.feedback || [],
       comfort: view.comfort || null,
       cargo: view.cargo || null,
+      control: payload.control || null,
       trackerLive: flightView.trackerLive === true
     });
   }
