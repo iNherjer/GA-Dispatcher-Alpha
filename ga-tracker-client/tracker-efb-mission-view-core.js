@@ -133,6 +133,53 @@ function missionParts(activeRun) {
   return { bundle, state, mission, contract, passenger, runtimeRoot, runtime };
 }
 
+function manifestItemId(raw, index) {
+  const source = object(raw);
+  return text(source.id || source.cargoItemId || `item-${index + 1}`, 120).toLowerCase()
+    .replace(/[^a-z0-9_.:-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || `item-${index + 1}`;
+}
+
+function projectMissionManifest(activeRun, executionControl) {
+  const parts = missionParts(activeRun);
+  const rawManifest = object(parts.runtimeRoot.cargoManifest || parts.state.cargoManifest || parts.mission.cargoManifest);
+  const control = object(executionControl);
+  const controlCargo = object(control.cargo);
+  const controlItems = Array.isArray(controlCargo.items) ? controlCargo.items : [];
+  const controlById = new Map(controlItems.map(item => [text(object(item).id, 120), object(item)]));
+  const rawItems = Array.isArray(rawManifest.items) ? rawManifest.items : [];
+  const items = rawItems.slice(0, 160).map((rawItem, index) => {
+    const source = object(rawItem);
+    const id = manifestItemId(source, index);
+    const authoritative = controlById.get(id) || {};
+    const passenger = text(authoritative.itemType || source.itemType, 30).toLowerCase() === 'passenger';
+    const persistentEquipment = source.persistentEquipment === true;
+    return {
+      id,
+      label: text(source.storyName || source.label || source.name || id, 180),
+      itemType: passenger ? 'passenger' : (persistentEquipment ? 'equipment' : 'cargo'),
+      status: text(authoritative.status || source.status || 'pending', 30).toLowerCase(),
+      required: authoritative.required === true || source.required === true,
+      pickup: text(authoritative.pickup || source.pickup || source.pickupLocation || 'departure', 30).toLowerCase(),
+      delivery: text(authoritative.delivery || source.delivery || 'destination', 30).toLowerCase(),
+      persistentEquipment,
+      passengerCount: passenger
+        ? Math.max(1, Math.min(6, Math.round(Number(authoritative.passengerCount || source.passengerCount) || 1)))
+        : 0,
+      weightLbs: Math.max(0, Math.round(Number(authoritative.weightLbs ?? source.weightLbs) || 0)),
+      healthPct: Math.max(0, Math.min(100, Math.round(Number(authoritative.healthPct ?? source.healthPct) || 100))),
+      station: text(source.stationLabel || source.seatLabel || source.station || source.position, 100)
+    };
+  });
+  return {
+    signatureScope: ['departure', 'pickup', 'arrival'].includes(text(controlCargo.signatureScope || rawManifest.signatureScope || object(rawManifest.dispatchSignature).scope, 20).toLowerCase())
+      ? text(controlCargo.signatureScope || rawManifest.signatureScope || object(rawManifest.dispatchSignature).scope, 20).toLowerCase()
+      : null,
+    summary: object(controlCargo.summary),
+    items
+  };
+}
+
 function fallbackView(activeRun, flightSnapshot) {
   const parts = missionParts(activeRun);
   const { mission, contract, passenger, runtimeRoot, runtime } = parts;
@@ -197,6 +244,7 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
   }
   const technical = object(technicalSnapshot);
   const control = object(executionControl);
+  const manifest = projectMissionManifest(activeRun, control);
   if (control.executionAuthority === 'tracker' && text(control.missionId, 180) === text(activeRun.missionId, 180)) {
     const controlFlags = object(control.flags);
     const controlCargo = object(control.cargo);
@@ -245,6 +293,7 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
   return {
     schema: 'ga.mission-snapshot.v2',
     version: 2,
+    available: true,
     missionId: text(activeRun.missionId, 180),
     runId: text(activeRun.runId, 220),
     authority: 'tracker',
@@ -261,6 +310,7 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     })).filter(scene => scene.sceneId),
     title: view.title,
     story: view.story,
+    manifest,
     view
   };
 }
@@ -268,6 +318,7 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
 module.exports = {
   MISSION_VIEW_SCHEMA,
   MISSION_VIEW_VERSION,
+  projectMissionManifest,
   sanitizeMissionView,
   projectTrackerEfbMissionView
 };

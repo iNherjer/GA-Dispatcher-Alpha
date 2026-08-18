@@ -30,6 +30,12 @@ test('rich app mission views are bounded before the EFB receives them', () => {
         feedback: [{ tone: 'warn', text: 'Noch etwas zu hoch.' }],
         comfort: { score: 82, mood: 'zufrieden', detail: '0 Pilot | 1 Wetter' },
         cargo: { conditionPct: 94, state: 'gesichert', requiredLoaded: 2, requiredTotal: 2 }
+      },
+      runtime: {
+        cargoManifest: {
+          dispatchSignature: { scope: 'departure' },
+          items: [{ id: 'medical-box', storyName: '<b>Medizin-Kiste</b>', itemType: 'cargo', required: true, status: 'loaded', weightLbs: 24 }]
+        }
       }
     }
   }, { alt: 4400, flight: { aglFt: 1770, gsKts: 101, onGround: false } }, { sceneCount: 2, scenes: [{ sceneId: 'start', objectCount: 3 }] });
@@ -44,6 +50,10 @@ test('rich app mission views are bounded before the EFB receives them', () => {
   assert.equal(result.view.flight.gsKts, 101);
   assert.equal(result.view.flight.trackerLive, true);
   assert.equal(result.sceneCount, 2);
+  assert.equal(result.available, true);
+  assert.equal(result.manifest.signatureScope, 'departure');
+  assert.equal(result.manifest.items[0].label, 'Medizin-Kiste');
+  assert.equal(result.manifest.items[0].weightLbs, 24);
 });
 
 test('legacy authority bundles still produce a useful read-only mission menu', () => {
@@ -69,7 +79,10 @@ test('tracker execution control overrides stale legacy phase and cargo presentat
     missionId: 'apt-control', runId: 'run-control', state: 'active', active: true, phase: 'planned', revision: 3,
     resumeBundle: {
       missionState: { currentMissionData: { mission: 'APT Test', start: 'EDTW', dest: 'EDTL' } },
-      runtime: { runtime: { active: false, phase: 'planned' } }
+      runtime: {
+        runtime: { active: false, phase: 'planned' },
+        cargoManifest: { items: [{ id: 'box-one', storyName: 'Kühlbox', itemType: 'cargo', required: true, status: 'loaded', weightLbs: 12 }] }
+      }
     }
   }, null, null, {
     missionId: 'apt-control',
@@ -79,13 +92,20 @@ test('tracker execution control overrides stale legacy phase and cargo presentat
     phase: 'end_unloading',
     nextStep: 'complete_unload',
     flags: { active: true },
-    cargo: { summary: { total: 2, requiredTotal: 2, loaded: 1, unloaded: 1, pending: 0, failed: false } }
+    cargo: {
+      signatureScope: 'arrival',
+      items: [{ id: 'box-one', itemType: 'cargo', status: 'unloaded', required: true, pickup: 'departure', delivery: 'destination', weightLbs: 12 }],
+      summary: { total: 2, requiredTotal: 2, loaded: 1, unloaded: 1, pending: 0, failed: false }
+    }
   });
   assert.equal(result.phase, 'end_unloading');
   assert.equal(result.revision, 12);
   assert.equal(result.view.status, 'Mission aktiv');
   assert.equal(result.view.currentTask, 'Ladung am Ziel entladen');
   assert.equal(result.view.cargo.state, '1 geladen / 1 entladen');
+  assert.equal(result.manifest.items[0].label, 'Kühlbox');
+  assert.equal(result.manifest.items[0].status, 'unloaded');
+  assert.equal(result.manifest.signatureScope, 'arrival');
 });
 
 test('mission view row and phase counts are capped', () => {

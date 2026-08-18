@@ -15,16 +15,16 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.4 manueller Origin-Installer mit APT-Opt-in-Schalter | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
-| Tracker-Runtime | v371 Alpha-Folgefix | v356 | v371 korrigiert den App-Handoff und ergaenzt den synchronen EFB-Missionsbanner; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
+| Tracker-Runtime | v372 Alpha-Feldtest-Fix | v356 | v372 haelt die Missionstelemetrie bei geoeffnetem EFB aktiv und liefert Kartenbanner plus eigenstaendigen Verlade-Manager; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-Transport | HTTP-Loopback; Mission im Standard read-only, in der gegateten APT-Alpha revisionsgebunden steuerbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` erscheint nur bei aktiver Tracker-Execution |
 
 ## Aktueller EFB-Kanalstand
 
-Tracker v371 / Host 0.6.7 ergaenzt die revisionsgebundene Mission-Control-
+Tracker v372 / Host 0.6.8 liefert die revisionsgebundene Mission-Control-
 Bedienung und Cargo-Projektion. Alle veraenderlichen CSS- und JavaScript-
-Dateien dieses tracker-gehosteten Hosts verwenden Revision 37101. Das
+Dateien dieses tracker-gehosteten Hosts verwenden Revision 37201. Das
 installierte EFB-Community-Paket bleibt unveraendert auf 0.4.11; ein neuer
 SDK-Build ist fuer diesen Host-Test nicht erforderlich. Der freigegebene
 v360-Host bleibt auf Revision 36001.
@@ -40,6 +40,24 @@ Das obere Werkzeugmenue wird beim Oeffnen direkt ueber der Kartenoberflaeche
 gerendert, sodass sein E6B-Eintrag nicht mehr von der E6B-Eingabeflaeche
 abgefangen wird. Das EFB-Community-Paket bleibt auf 0.4.11; fuer diesen
 tracker-gehosteten Fix ist kein neuer SDK-Build erforderlich.
+
+Der freigegebene Folgefix Tracker v372 / Host 0.6.8 verwendet Assetrevision
+37201 und reagiert auf den ersten vollstaendigeren v371-Feldlauf. MSFS setzte
+beim geoeffneten Cockpit-EFB `DialogMode=1`; die Missions-Telemetrie behandelte
+das bislang wie einen echten SimStop und blieb deshalb trotz Flug auf
+`active/departure`. v372 trennt den UI-Dialogzustand von der Missionssperre:
+echte Pause und `SimStop` bleiben fail-closed, ein geoeffnetes EFB unterbricht
+Airborne-, Touchdown- und Ground-Still-Erkennung nicht. Verwerfungen werden
+rate-limitiert als `MISSION_EXECUTION_TELEMETRY_IGNORED` auch in den
+automatischen Missionstest geschrieben. Der bisherige kompakte Statusstreifen
+wird durch das vorhandene App-Kartenbanner ersetzt, das nur bei einer konkret
+freigegebenen Aktion erscheint. Die Frachtgutliste liegt als eigener
+Verlade-Manager ausserhalb des Seitendrawers; Manifestbezeichnungen und
+autoritativ erlaubte Aktionen kommen aus demselben Tracker-Snapshot. Auch die
+Web-App prueft vor Cargo-/PAX-Intents die aktuelle `allowedActions`-Liste und
+zeigt eine lokale Warteerklaerung statt eines erwartbaren Tracker-Fehlers.
+Reducer, Radien, Briefing, Missionsvertrag und Szeneneffekte bleiben
+unveraendert. Nur Alpha zeigt auf v372; Stable bleibt auf v356.
 
 Tracker v348 / Host 0.6.2 und EFB 0.4.11 wurden mit dem offiziellen
 MSFS-2024-SDK 1.7.2 auf Windows gebaut, in MSFS getestet und fuer Alpha
@@ -1306,14 +1324,20 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] Gegateten APT-Handoff und gemeinsame App-/EFB-Bedienung auf
       revisionsgebundene Tracker-Intents umstellen; alte Web-Szenenbefehle nach
       Commit sperren, Cargo-/PAX-Projektion und terminales Debrief synchronisieren.
-- [ ] v371 real mit App plus EFB in MSFS testen: Prepare, Boarding, Cargo aus
+- [ ] v372 real mit App plus EFB in MSFS testen: Prepare, Boarding, Cargo aus
       beiden Instanzen, Start, Ziel-Ground-Still, Deboarding, Entladung, Close
       sowie finaler Debrief ohne doppeltes SimObject.
       Erster Versuch: Transport und zehn APT-Shadow-Checkpoints waren ohne
       Drift, der App-Filter verwarf jedoch das positive Prepare-ACK und liess
       dadurch weder Commit noch Boarding zu. Der lokale Filterfix und der neue
-      EFB-Statusbanner sind automatisiert abgedeckt; der reale Ablauf muss mit
-      dem Folge-Build wiederholt werden.
+      EFB-Statusbanner sind automatisiert abgedeckt. Der zweite Versuch
+      erreichte die Interaktionen, die Missions-Telemetrie blieb bei
+      geoeffnetem EFB wegen `DialogMode=1` jedoch auf Abflug; dadurch lehnte
+      der Tracker das Entladen mit `mission_manifest_unload_not_allowed` ab.
+      v372 trennt DialogMode von SimStop, protokolliert verworfene Telemetrie,
+      nutzt das App-artige Kartenbanner und den eigenstaendigen
+      Verlade-Manager. Der reale Ablauf muss mit diesem Folge-Build wiederholt
+      werden.
 - [ ] Ambiguitaetsfall Tracker-Neustart nach physischem Dispatch und vor ACK
       real provozieren; bestaetigen, dass der Lauf fail-closed bleibt, und erst
       danach einen expliziten Recovery-/Abgleichdialog entwerfen.
@@ -1618,6 +1642,21 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   SHA-256
   `e302c94546c029c1d14e184313d93429f747f1e256fd733408f1e62bb413b489`.
   Nur Alpha zeigt auf v371; Stable bleibt unveraendert auf v356 und das
+  EFB-Community-Paket auf 0.4.11.
+
+- 2026-08-18: Tracker v372 / Host 0.6.8 ist als gezielter Feldtest-Fix in
+  Alpha veroeffentlicht. Die Tracker-Missionstelemetrie ignoriert den blossen
+  `DialogMode` des geoeffneten EFB und sperrt weiterhin bei echter Pause oder
+  `SimStop`. Ein rate-limitierter `MISSION_EXECUTION_TELEMETRY_IGNORED`-Eintrag
+  landet auch im automatischen Missionstestlog. Das EFB nutzt nun den
+  vorhandenen App-Banner als kontextuelle Kartenaktion und fuehrt die
+  Frachtgutliste als eigenen, aus dem Missionsmenue erreichbaren Dialog. Die
+  App sendet Cargo-/PAX-Intents nur noch, wenn der Tracker sie im aktuellen
+  Stand erlaubt. APT-Core, Missionsradien, Briefings, Manifestregeln und
+  Szeneneffekte wurden nicht veraendert. Assetrevision ist 37201. Der
+  Windows-Build umfasst 48.421.316 Bytes mit SHA-256
+  `fd8201dd8a6ddc73182c19e78fa42d9d67ca978804d477cc8e129701ad0d963d`.
+  Nur Alpha zeigt auf v372; Stable bleibt auf v356 und das
   EFB-Community-Paket auf 0.4.11.
 
 - 2026-08-18: Der lokale v369-Schnitt verbindet den APT-Effect-Runner mit den

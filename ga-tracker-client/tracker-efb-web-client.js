@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '37101';
+const EFB_WEB_ASSET_REVISION = '37201';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -65,7 +65,7 @@ function createTrackerEfbWebClientPage() {
   <link rel="stylesheet" href="/efb/v1/assets/app-styles.css?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbReport('info','style-loaded','app-styles.css')" onerror="__gaEfbReport('error','style-error','app-styles.css')">
   <link rel="stylesheet" href="/efb/v1/assets/host.css?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbReport('info','style-loaded','host.css')" onerror="__gaEfbReport('error','style-error','host.css')">
 </head>
-<body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="7">
+<body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="8">
 <div id="gaEfbBootStatus" class="ga-efb-boot-status">Kartentisch-Skripte werden geladen</div>
 ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/leaflet.js" onload="__gaEfbScriptLoaded('leaflet.js')" onerror="__gaEfbScriptError('leaflet.js')"></script>

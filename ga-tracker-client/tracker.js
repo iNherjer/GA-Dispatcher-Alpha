@@ -67,8 +67,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v371';
-const TRACKER_VERSION_CODE = 371;
+const TRACKER_VERSION = 'v372';
+const TRACKER_VERSION_CODE = 372;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5812,6 +5812,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 pauseFlagsUpdatedAt: runtimeState.pauseFlagsUpdatedAt
               });
               const inMenuOrMap = isInMenuOrMap();
+              // MSFS reports DialogMode while cockpit surfaces such as the EFB
+              // are open as well. That is useful UI telemetry, but it must not
+              // stop the authoritative mission detector while the aircraft is
+              // still flying. SimStop remains the fail-closed menu signal.
+              const missionTelemetryInMenu = runtimeState.simRunning === 0;
 
               const ws = getWs();
               currentTelemetryHibernateState = telemetryHibernateController.update({
@@ -5862,7 +5867,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     onGround: Boolean(onGround),
                     gsKts: Number.isFinite(groundSpeedKts) ? groundSpeedKts : null,
                     simPaused,
-                    inMenuOrMap
+                    inMenuOrMap: missionTelemetryInMenu,
+                    dialogMode: runtimeState.dialogMode
                   });
                   if (executionTelemetry?.acceptedEvent) {
                     debugLog(`MISSION_EXECUTION_TELEMETRY event=${executionTelemetry.acceptedEvent.type || ''} sequence=${executionTelemetry.acceptedEvent.sequence || 0} phase=${executionTelemetry.activeRun?.phase || ''}`);

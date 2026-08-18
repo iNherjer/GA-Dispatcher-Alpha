@@ -76,18 +76,21 @@ aus dem bereits von der App genutzten GA-Sync in den lokalen Tracker-Cache.
 Das vorherige Alpha-Artefakt 0.4.8/v345 bleibt als unveraenderlicher
 Ruecksprungpunkt erhalten.
 
-Tracker v370 im Alpha-Kanal verwendet View 7/Assetrevision 37001. Der
+Tracker v372 im Alpha-Kanal verwendet View 8/Assetrevision 37201. Der
 gemeinsame Kartentisch registriert jedes EFB- beziehungsweise spaetere
 Toolbar-Fenster als kurzlebige Cockpit-Sitzung und zeigt im Audio-Menue
 `Audio auf diesem Geraet abspielen`. Aktivierte Cockpit-Instanzen koennen eine
 fertige zentrale Tracker-Ansage ueber dieselbe exklusive Playback-Lease
 streamen. Im zweifach gegateten APT-Execution-Test zeigt derselbe Host nun auch
 den Trackerzustand von Mission und Cargo und sendet revisionsgebundene Intents;
-im Standard bleibt Mission Control read-only. Das ist ein tracker-gehostetes
-Update und aendert weder das freigegebene EFB-0.4.11-Archiv noch dessen Alpha-/
-Stable-Kanaldateien. Coherent-Playback, schreibende Mission Control und der
-spaetere Toolbar-Host muessen vor einer breiteren Freigabe real im Simulator
-getestet werden.
+im Standard bleibt Mission Control read-only. Der Host zeigt die naechste
+freigegebene Aktion als Kartenbanner und fuehrt die Frachtgutliste in einem
+eigenstaendigen Verlade-Manager. `DialogMode` des geoeffneten EFB stoppt die
+Missionsdetektoren nicht mehr; echte Pause und SimStop bleiben gesperrt. Das
+ist ein tracker-gehostetes Update und aendert weder das freigegebene
+EFB-0.4.11-Archiv noch dessen Alpha-/Stable-Kanaldateien. Coherent-Playback,
+schreibende Mission Control und der spaetere Toolbar-Host muessen vor einer
+breiteren Freigabe real im Simulator getestet werden.
 
 Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
 Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als

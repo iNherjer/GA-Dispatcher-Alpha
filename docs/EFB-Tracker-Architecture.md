@@ -678,6 +678,26 @@ oeffnet den gemeinsamen Mission-Drawer. Er uebernimmt keine Mission und besitzt
 keine eigene Autoritaet; EFB und spaeter Toolbar bleiben weiterhin parallele
 Ansichten desselben Trackerzustands.
 
+Der lokale v372-Folgefix schaerft diese Projektion nach dem ersten
+Mehrinstanz-Feldlauf. `DialogMode=1` darf die Missionsdetektoren nicht sperren,
+weil MSFS diesen Zustand bereits beim geoeffneten Cockpit-EFB setzt. Fuer die
+autoritative Missions-Telemetrie gilt deshalb nur `SimStop` als Menue-/Map-
+Sperre; echte Pause bleibt weiterhin separat gesperrt. Der allgemeine
+Flugsnapshot behaelt `dialogMode` und `inMenuOrMap` unveraendert fuer Anzeige
+und Diagnose. Ignorierte Missions-Telemetrie wird rate-limitiert mit Phase,
+On-Ground, Groundspeed, Pause, SimStop und Dialogzustand protokolliert.
+
+Die EFB-Bedienung verwendet ab Host 0.6.8 das bereits aus der App bekannte
+Kartenbanner, aber nur fuer die naechste aktuell erlaubte Aktion. Im
+Reiseflug gibt es keinen permanenten Statusstreifen. Verladung, Pickup,
+Entladung und PAX-Deboarding oeffnen einen eigenstaendigen Verlade-Manager;
+der Mission-Drawer bleibt Statusansicht und Link auf diesen Dialog. Anzeigen
+duerfen beschreibende Manifestnamen aus dem privaten Authority-Bundle
+projizieren, waehrend Status, Signatur und Aktionsfreigabe ausschliesslich aus
+`ga.mission-execution-control.v1` stammen. App und EFB pruefen die aktuelle
+`allowedActions`-Liste vor jedem Cargo-/PAX-Intent. Diese UI-Grenze aendert
+weder Reducer noch Missionsradien, Briefings oder Effektplaene.
+
 Cargo-Items werden erst nach einem akzeptierten Intent im Trackerzustand
 geaendert. Passagiere bleiben szenengebunden: Ein Deboard-Intent erzeugt
 `scene.deboarding`, und erst das positive Sim-ACK erzeugt

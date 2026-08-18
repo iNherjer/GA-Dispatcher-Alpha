@@ -196,11 +196,12 @@ test('browser shell and tracker wire the shared core additively behind existing 
     const indexSource = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
     const syncSource = fs.readFileSync(path.join(__dirname, 'sync.js'), 'utf8');
     const serviceWorkerSource = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8');
+    const cargoSource = fs.readFileSync(path.join(__dirname, 'mission-cargo-core.js'), 'utf8');
     const trackerSource = fs.readFileSync(path.join(__dirname, 'ga-tracker-client', 'tracker.js'), 'utf8');
     assert.ok(indexSource.indexOf('mission-location-core.js') < indexSource.indexOf('mission-runtime-core.js'));
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
     assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v=tracker-controller'));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1687/);
+    assert.match(serviceWorkerSource, /ga-dispatcher-v1688/);
     assert.match(serviceWorkerSource, /\.\/mission-location-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-shadow-journal\.js/);
@@ -223,6 +224,9 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(syncSource, /if \(missionScopedCommand \|\| missionAuthorityProtocol\) \{\s*_rememberMissionAuthorityLocalCommand\(commandId, commandType\);/);
     assert.match(syncSource, /_missionSceneBuildSpawnEffectCommand/);
     assert.match(syncSource, /_missionSceneBuildBoardingEffectCommand/);
+    assert.match(cargoSource, /function _missionCargoTrackerIntentAllowed\(intent = ''\)/);
+    assert.match(cargoSource, /if \(!_missionCargoTrackerIntentAllowed\('set_manifest_item'\)\)[\s\S]*?gaTrackerExecutionSubmitIntent/);
+    assert.match(cargoSource, /if \(!_missionCargoTrackerIntentAllowed\(trackerIntent\)\)[\s\S]*?gaTrackerExecutionSubmitIntent/);
     assert.match(syncSource, /_missionSceneBuildDeboardingEffectCommand/);
     assert.match(trackerSource, /createTrackerMissionShadow/);
     assert.match(trackerSource, /observeAuthorityResult/);

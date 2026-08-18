@@ -38,7 +38,6 @@ body.ga-efb-tracker-host #mapMissionToggleBtn,
 body.ga-efb-tracker-host #mapGroundCargoBtn,
 body.ga-efb-tracker-host .map-toolbar-help-btn,
 body.ga-efb-tracker-host #manualSimPanel,
-body.ga-efb-tracker-host #missionStartBanner,
 body.ga-efb-tracker-host #btnVpSettings,
 body.ga-efb-tracker-host #vpSettingsMenu,
 body.ga-efb-tracker-host #btnToggleVpMode,
@@ -46,6 +45,34 @@ body.ga-efb-tracker-host #btnSimMode,
 body.ga-efb-tracker-host #btnManualSimMode,
 body.ga-efb-tracker-host #simSpeedStrip {
   display: none !important;
+}
+
+body.ga-efb-tracker-host #missionStartBanner {
+  z-index: 100060;
+  width: min(620px, calc(100% - 24px));
+}
+
+body.ga-efb-tracker-host #missionStartBannerBtn:disabled,
+body.ga-efb-tracker-host .ga-efb-cargo-manager button:disabled {
+  cursor: wait;
+  opacity: .56;
+}
+
+body.ga-efb-tracker-host .ga-efb-cargo-manager {
+  z-index: 190000;
+}
+
+body.ga-efb-tracker-host .ga-efb-cargo-manager .mission-cargo-panel {
+  width: min(820px, calc(100vw - 24px));
+}
+
+body.ga-efb-tracker-host .ga-efb-cargo-manager .mission-cargo-sheet-table td strong {
+  display: block;
+}
+
+body.ga-efb-tracker-host .ga-efb-cargo-intent-status {
+  color: #ffd46a;
+  font-weight: 700;
 }
 
 body.ga-efb-tracker-host #mapSideDrawer {

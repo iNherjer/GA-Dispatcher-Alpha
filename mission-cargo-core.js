@@ -4823,9 +4823,35 @@ function _missionCargoActionDialogMode(options = {}, fallback = 'load') {
     return fallback;
 }
 
+function _missionCargoTrackerIntentAllowed(intent = '') {
+    if (window.gaTrackerExecutionHandlesMission?.() !== true) return true;
+    const actions = Array.isArray(window.gaTrackerExecutionControl?.allowedActions)
+        ? window.gaTrackerExecutionControl.allowedActions
+        : [];
+    return actions.includes(String(intent || ''));
+}
+
+function _missionCargoTrackerBlockedMessage(intent = '') {
+    const phase = String(window.gaTrackerExecutionControl?.phase || '').toLowerCase();
+    if (intent === 'set_manifest_item' && !['prepare', 'boarding', 'on_task', 'end_unloading', 'end_ready'].includes(phase)) {
+        return 'Der Tracker hat die Bodenaktion noch nicht freigegeben. Bitte Flug-, Ziel- und Landeerkennung abwarten.';
+    }
+    if (intent === 'request_pax_interaction') {
+        return 'Der Tracker hat das Deboarding noch nicht freigegeben. Bitte Ziel und Stillstand abwarten.';
+    }
+    return 'Diese Aktion ist im aktuellen Tracker-Missionsstand noch nicht freigegeben.';
+}
+
 window.missionCargoLoadItem = function(itemId, options = {}) {
     if (window.gaTrackerExecutionHandlesMission?.()) {
         const renderMode = _missionCargoActionDialogMode(options, 'load');
+        if (!_missionCargoTrackerIntentAllowed('set_manifest_item')) {
+            if (window.missionCargoStatus) {
+                window.missionCargoStatus.error = _missionCargoTrackerBlockedMessage('set_manifest_item');
+            }
+            if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+            return false;
+        }
         if (window.missionCargoStatus) window.missionCargoStatus.error = null;
         window.gaTrackerExecutionSubmitIntent?.('set_manifest_item', { itemId, action: 'load' })
             .then(result => {
@@ -5234,6 +5260,13 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         const trackerPayload = trackerIntent === 'request_pax_interaction'
             ? { itemId, action: 'deboard' }
             : { itemId, action: 'unload' };
+        if (!_missionCargoTrackerIntentAllowed(trackerIntent)) {
+            if (window.missionCargoStatus) {
+                window.missionCargoStatus.error = _missionCargoTrackerBlockedMessage(trackerIntent);
+            }
+            if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+            return false;
+        }
         if (window.missionCargoStatus) window.missionCargoStatus.error = null;
         window.gaTrackerExecutionSubmitIntent?.(trackerIntent, trackerPayload)
             .then(result => {

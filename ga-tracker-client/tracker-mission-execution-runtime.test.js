@@ -113,7 +113,8 @@ async function waitUntil(predicate, attempts = 40) {
 test('enabled runtime dispatches app-prepared APT scenes and advances only from simulator ACKs', async (t) => {
   const manager = committedManager(t);
   const commands = [];
-  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true });
+  const runtimeLogs = [];
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true, log: line => runtimeLogs.push(line) });
   const bridge = runtime.attachSimulator({
     getLivePosition: () => ({ lat: 48.01, lon: 8.02, alt: 1200, hdg: 180 }),
     dispatchCommand: command => {
@@ -166,6 +167,10 @@ test('enabled runtime dispatches app-prepared APT scenes and advances only from 
     runId: startRun.runId,
     expectedRevision: startRun.revision
   })).ok, true);
+  runtime.observeTelemetry({ observedAt: 8000, lat: 48.1, lon: 8.2, onGround: true, gsKts: 0, simPaused: true, dialogMode: 1 });
+  runtime.observeTelemetry({ observedAt: 8500, lat: 48.1, lon: 8.2, onGround: true, gsKts: 0, simPaused: true, dialogMode: 1 });
+  assert.equal(runtimeLogs.filter(line => line.startsWith('MISSION_EXECUTION_TELEMETRY_IGNORED')).length, 1);
+  assert.match(runtimeLogs.join('\n'), /reason=simulation_not_running .*paused=1 .*dialog=1/);
   runtime.observeTelemetry({ observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 });
   runtime.observeTelemetry({ observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 70 });
   runtime.observeTelemetry({ observedAt: 13000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 20 });

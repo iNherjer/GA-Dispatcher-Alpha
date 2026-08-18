@@ -26,6 +26,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const adapter = createTrackerMissionExecutionAdapter({ authorityManager });
   let simulatorEffects = null;
   let recoveryDrain = Promise.resolve();
+  let lastTelemetryDiagnosticKey = '';
+  let lastTelemetryDiagnosticAt = 0;
   const dispatchSimulatorEffect = request => {
     if (!simulatorEffects) {
       return { ok: false, status: 'blocked', error: 'mission_simulator_not_connected', sideEffect: false };
@@ -133,7 +135,39 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     detachSimulator,
     observeTelemetry: sample => {
       const result = adapter.observeTelemetry(sample);
-      if (result?.acceptedEvent) logCheckpoint(`telemetry:${result.acceptedEvent.type || 'event'}`);
+      if (result?.acceptedEvent) {
+        lastTelemetryDiagnosticKey = '';
+        lastTelemetryDiagnosticAt = 0;
+        logCheckpoint(`telemetry:${result.acceptedEvent.type || 'event'}`);
+      } else if (result?.status === 'ignored') {
+        const snapshot = authorityManager.getExecutionSnapshot?.();
+        const reason = String(result.reason || result.error || 'ignored');
+        const diagnosticKey = [
+          snapshot?.runId || '',
+          snapshot?.state?.phase || '',
+          reason,
+          sample.simPaused === true ? 'paused' : 'running',
+          sample.inMenuOrMap === true ? 'menu' : 'world',
+          Number(sample.dialogMode) === 1 ? 'dialog' : 'no-dialog'
+        ].join(':');
+        const observedAt = Number(sample.observedAt) || Date.now();
+        if (diagnosticKey !== lastTelemetryDiagnosticKey || observedAt - lastTelemetryDiagnosticAt >= 15000) {
+          lastTelemetryDiagnosticKey = diagnosticKey;
+          lastTelemetryDiagnosticAt = observedAt;
+          log([
+            'MISSION_EXECUTION_TELEMETRY_IGNORED',
+            `mission=${snapshot?.missionId || 'none'}`,
+            `run=${snapshot?.runId || 'none'}`,
+            `phase=${snapshot?.state?.phase || 'unknown'}`,
+            `reason=${reason.replace(/\s+/g, '_').slice(0, 80)}`,
+            `onGround=${sample.onGround === true ? 1 : 0}`,
+            `gsKts=${Number.isFinite(Number(sample.gsKts)) ? Number(sample.gsKts).toFixed(1) : 'n/a'}`,
+            `paused=${sample.simPaused === true ? 1 : 0}`,
+            `menu=${sample.inMenuOrMap === true ? 1 : 0}`,
+            `dialog=${Number(sample.dialogMode) === 1 ? 1 : 0}`
+          ].join(' '));
+        }
+      }
       return result;
     },
     publicState: () => ({

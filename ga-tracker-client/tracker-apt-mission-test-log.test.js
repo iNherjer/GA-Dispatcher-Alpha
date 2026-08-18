@@ -124,6 +124,14 @@ test('redacted mission protocol diagnostics are admitted to the dedicated file',
   assert.equal(lines.length, 2);
 });
 
+test('ignored execution telemetry is admitted so field tests expose detector gating', () => {
+  const lines = [];
+  const logger = createMissionTestLog({ filename: '/tmp/unused-mission-test.txt', write: line => lines.push(line) });
+
+  assert.equal(logger.recordSystemLine('MISSION_EXECUTION_TELEMETRY_IGNORED mission=set run=set phase=active reason=simulation_not_running onGround=1 gsKts=0.0 paused=0 menu=0 dialog=1'), true);
+  assert.match(lines.join('\n'), /MISSION_TEST_SYSTEM MISSION_EXECUTION_TELEMETRY_IGNORED .*dialog=1/);
+});
+
 test('a rejected authority release keeps the run open for a successful retry', () => {
   const lines = [];
   const logger = createMissionTestLog({ filename: '/tmp/unused-mission-test.txt', write: line => lines.push(line) });
