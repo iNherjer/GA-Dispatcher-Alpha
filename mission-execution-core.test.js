@@ -199,7 +199,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     const trackerSource = fs.readFileSync(path.join(__dirname, 'ga-tracker-client', 'tracker.js'), 'utf8');
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
     assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v=mission-shadow'));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1676/);
+    assert.match(serviceWorkerSource, /ga-dispatcher-v1681/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-shadow-journal\.js/);
     assert.match(syncSource, /GAMissionExecutionCore\.createShadowEnvelope/);

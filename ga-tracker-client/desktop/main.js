@@ -512,7 +512,7 @@ function registerIpc() {
       return {
         ok: false,
         missing: true,
-        message: error || 'Das APT-Testlog entsteht automatisch, sobald Tracker v366 gestartet wurde.'
+        message: error || 'Das APT-Testlog entsteht automatisch, sobald Tracker v366 oder neuer gestartet wurde.'
       };
     }
     shell.showItemInFolder(filename);

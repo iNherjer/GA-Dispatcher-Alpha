@@ -172,6 +172,43 @@ vm.runInNewContext(
 assert.equal(ackContext._missionAuthorityAckWasSentLocally({ commandId: 'local-command' }), true);
 assert.equal(ackContext._missionAuthorityAckWasSentLocally({ commandId: 'foreign-command' }), false);
 
+const capabilityListeners = new Set();
+let capabilityHeartbeatFresh = false;
+const capabilityWaitContext = {
+  Promise,
+  setTimeout,
+  clearTimeout,
+  MISSION_AUTHORITY_CAPABILITY: 'mission.authority.v1',
+  missionAuthorityCapabilityWaitPromise: null,
+  _trackerHeartbeatIsFresh: () => capabilityHeartbeatFresh,
+  window: {
+    liveTrackerConnected: true,
+    liveTrackerCapabilities: [],
+    addEventListener: (type, listener) => {
+      if (type === 'gatrackercapabilitieschange') capabilityListeners.add(listener);
+    },
+    removeEventListener: (type, listener) => {
+      if (type === 'gatrackercapabilitieschange') capabilityListeners.delete(listener);
+    }
+  }
+};
+vm.runInNewContext(
+  `${functionSource(syncSource, '_trackerSupportsMissionAuthority')}\n${functionSource(syncSource, '_waitForMissionAuthorityCapability')}`,
+  capabilityWaitContext
+);
+const capabilityWait = capabilityWaitContext._waitForMissionAuthorityCapability(500);
+capabilityWaitContext.window.liveTrackerCapabilities = ['mission.authority.v1'];
+capabilityHeartbeatFresh = true;
+for (const listener of [...capabilityListeners]) listener();
+assert.equal(await capabilityWait, true, 'the pending start must continue when the capability heartbeat arrives');
+assert.equal(capabilityListeners.size, 0, 'the temporary capability listener must be removed');
+capabilityWaitContext.window.liveTrackerCapabilities = [];
+assert.equal(
+  await capabilityWaitContext._waitForMissionAuthorityCapability(500),
+  false,
+  'a fresh legacy heartbeat without mission authority must not be delayed'
+);
+
 const profileRefreshCalls = [];
 const profileRefreshContext = {
   clearTimeout: () => {},
@@ -221,6 +258,7 @@ const recoveryContext = {
   _syncCompactActiveMission: state => JSON.parse(JSON.stringify(state)),
   _missionAuthorityInjectLiveRoute: state => state,
   _missionAuthorityAdapter: () => 'apt',
+  _missionAuthorityAttachExecutionShadow: bundle => bundle,
   _buildMissionAuthorityMapProfile: () => null,
   _validateMissionAuthorityResumeBundle: bundle => ({
     ok: !!(bundle?.missionId && bundle?.missionState && bundle?.runtime)
@@ -285,6 +323,31 @@ assert.match(
   syncSource,
   /legacy-device-handoff-recovery-seed[\s\S]*?resumeBundle: bundle/,
   'an explicitly recovered legacy run must be seeded with a complete resume bundle'
+);
+assert.match(
+  syncSource,
+  /function _waitForMissionAuthorityCapability\([\s\S]*?addEventListener\('gatrackercapabilitieschange', handleCapabilities\)/,
+  'mission start must wait briefly for the tracker capability heartbeat'
+);
+assert.match(
+  syncSource,
+  /window\.addEventListener\('gatrackercapabilitieschange',[\s\S]*?_attemptMissionAuthorityLateBind\('tracker-capability-late-bind'\)/,
+  'a mission that started during the relay handshake must bind authority once capabilities arrive'
+);
+assert.match(
+  syncSource,
+  /_queueMissionAuthoritySnapshot\('tracker-authority-acquired-seed', \{ immediate: true \}\)/,
+  'a resumed implicit run must immediately receive the complete replay bundle'
+);
+assert.match(
+  syncSource,
+  /\(_trackerSupportsMissionAuthority\(\) \|\| missionAuthorityLateBindPending\)[\s\S]*?trackerCommand\.clientId/,
+  'commands sent while capability negotiation is pending must keep the browser owner identity'
+);
+assert.match(
+  syncSource,
+  /setTimeout\(async \(\) => \{[\s\S]*?_ensureMissionAuthorityForStart\('websocket-open-resume'\)[\s\S]*?_sendMissionLifecycleToTracker\(state, 'websocket-open-resume'\)/,
+  'reconnect lifecycle must not create a legacy run before authority negotiation finishes'
 );
 
 console.log('mission-authority handoff selftest: ok');

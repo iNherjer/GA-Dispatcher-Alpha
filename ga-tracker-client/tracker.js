@@ -65,8 +65,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v366';
-const TRACKER_VERSION_CODE = 366;
+const TRACKER_VERSION = 'v367';
+const TRACKER_VERSION_CODE = 367;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4010,7 +4010,71 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return normalized ? `${normalized}_ack` : 'mission_authority_rejected_ack';
   };
 
+  const missionProtocolTypes = new Set([
+    'mission_authority_acquire',
+    'mission_authority_takeover',
+    'mission_authority_release',
+    'mission_snapshot_request',
+    'mission_snapshot_update'
+  ]);
+
+  const missionProtocolToken = (value, fallback = 'none', maxLength = 100) => {
+    const cleaned = String(value == null ? '' : value)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_.:-]+/g, '_')
+      .slice(0, maxLength);
+    return cleaned || fallback;
+  };
+
+  const missionProtocolBundleSummary = (value = null) => {
+    const bundle = value && typeof value === 'object' ? value : null;
+    return {
+      bundle: bundle ? 1 : 0,
+      adapter: missionProtocolToken(bundle?.adapter || bundle?.descriptor?.primaryAdapter),
+      execution: bundle?.execution && typeof bundle.execution === 'object' ? 1 : 0,
+      replay: bundle?.executionReplay && typeof bundle.executionReplay === 'object' ? 1 : 0
+    };
+  };
+
+  const logMissionProtocolReceived = (type, command = {}) => {
+    const summary = missionProtocolBundleSummary(command?.resumeBundle);
+    const active = missionAuthority?.getActiveRun?.() || null;
+    debugLog([
+      'MISSION_PROTOCOL_RECEIVED',
+      `type=${missionProtocolToken(type)}`,
+      `mission=${command?.missionId ? 'set' : 'none'}`,
+      `run=${command?.runId ? 'set' : 'none'}`,
+      `authorityActive=${active?.runId ? 1 : 0}`,
+      `bundle=${summary.bundle}`,
+      `adapter=${summary.adapter}`,
+      `execution=${summary.execution}`,
+      `replay=${summary.replay}`
+    ].join(' '));
+  };
+
+  const logMissionProtocolResult = (type, command = {}, result = {}) => {
+    const bundle = command?.resumeBundle || result?.resumeBundle || null;
+    const summary = missionProtocolBundleSummary(bundle);
+    const run = result?.activeRun || result?.releasedRun || missionAuthority?.getActiveRun?.() || null;
+    debugLog([
+      'MISSION_PROTOCOL_RESULT',
+      `type=${missionProtocolToken(type)}`,
+      `status=${missionProtocolToken(result?.status || (result?.ok ? 'ok' : 'error'))}`,
+      `error=${missionProtocolToken(result?.error)}`,
+      `mission=${command?.missionId || run?.missionId ? 'set' : 'none'}`,
+      `run=${command?.runId || run?.runId ? 'set' : 'none'}`,
+      `bundle=${summary.bundle}`,
+      `adapter=${summary.adapter}`,
+      `execution=${summary.execution}`,
+      `replay=${summary.replay}`
+    ].join(' '));
+  };
+
   const sendAuthorityResult = (type, command, result = {}) => {
+    if (missionProtocolTypes.has(String(type || '').trim())) {
+      logMissionProtocolResult(type, command, result);
+    }
     sendAck({
       ...(result?.replayAck && typeof result.replayAck === 'object' ? result.replayAck : {}),
       type: authorityAckType(type),
@@ -4080,6 +4144,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   const handleAuthorityCommand = (type, command) => {
     if (!missionAuthority) return false;
+    if (missionProtocolTypes.has(type)) logMissionProtocolReceived(type, command);
     if (authorityReleasePending && type !== 'mission_snapshot_request' && type !== 'mission_authority_release') {
       sendAuthorityResult(type, command, {
         ok: false,
@@ -4142,6 +4207,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
               debugLog(`MISSION_SHADOW_ERROR mission=${command?.missionId || ''} run=${command?.runId || ''} error=${error?.message || error}`);
             }
           }
+          logMissionProtocolResult(type, command, result);
           sendAck({
             type: 'mission_authority_release_ack',
             commandId: command?.commandId || null,
@@ -4168,6 +4234,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     handleCommand(command) {
       const type = String(command?.type || command?.command || '').trim();
       if (handleAuthorityCommand(type, command)) return true;
+      if (type === 'mission_lifecycle') logMissionProtocolReceived(type, command);
       const groupSceneDebugCommand = isGroupSceneDebugCommand(command);
       if (authorityReleasePending && !groupSceneDebugCommand && (/^mission_(scene|smoke)_/i.test(type) || type === 'mission_lifecycle')) {
         sendAuthorityResult(type, command, { ok: false, status: 'conflict', error: 'mission_authority_release_pending', activeRun: missionAuthority?.getActiveRun?.() || null });
@@ -4176,6 +4243,18 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const authorityValidation = groupSceneDebugCommand
         ? { ok: true, debugScene: true }
         : missionAuthority?.validate?.(command);
+      if (authorityValidation?.legacyImplicit === true) {
+        debugLog([
+          'MISSION_PROTOCOL_LEGACY_ACQUIRE',
+          `type=${missionProtocolToken(type)}`,
+          `mission=${command?.missionId ? 'set' : 'none'}`,
+          `run=${authorityValidation?.activeRun?.runId ? 'set' : 'none'}`,
+          `owner=${command?.clientId ? 'identified' : 'legacy'}`,
+          'bundle=0',
+          'execution=0',
+          'replay=0'
+        ].join(' '));
+      }
       if (authorityValidation && !authorityValidation.ok) {
         sendAuthorityResult(type, command, authorityValidation);
         return true;

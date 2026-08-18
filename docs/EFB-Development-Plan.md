@@ -15,7 +15,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.3 manueller Origin-Installer | Auto-Update 1.6.2 | 1.6.3 startet weiter auf Stable; Alpha muss fuer den APT-Test ausdruecklich gewaehlt werden |
-| Tracker-Runtime | v366 Alpha | v356 | v366 protokolliert den seiteneffektfreien APT-Event-Replay automatisch in einer einzelnen Testerdatei; Stable bleibt bis zum Realtest auf v356 |
+| Tracker-Runtime | v367 Alpha | v356 | v367 schliesst die beim ersten Realbericht gefundene Capability-/Authority-Startluecke und erweitert das automatische APT-Testlog; Stable bleibt bis zum Realtest auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-Transport | HTTP-Loopback; Mission read-only, Voice-Effekte und Session-Heartbeats lokal schreibbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` bleibt gesperrt |
@@ -25,8 +25,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 Tracker v360 / Host 0.6.5 behandelt die Werkzeugstarter fuer Uhr/Stoppuhr,
 Rechner und E6B als echte Umschalter. Der Host kann dabei auch mit einem noch
 gecacheten aelteren Utility-Modul schliessen. Alle veraenderlichen CSS- und
-JavaScript-Dateien des tracker-gehosteten v366-Hosts verwenden weiterhin
-Revision 36301; v366 aendert keine Host-Assets. Der freigegebene
+JavaScript-Dateien des tracker-gehosteten v367-Hosts verwenden weiterhin
+Revision 36301; v366/v367 aendern keine Host-Assets. Der freigegebene
 v360-Host bleibt auf Revision 36001.
 Das obere Werkzeugmenue wird beim Oeffnen direkt ueber der Kartenoberflaeche
 gerendert, sodass sein E6B-Eintrag nicht mehr von der E6B-Eingabeflaeche
@@ -952,8 +952,28 @@ Phase, Eventfolge, Browser-/Tracker-Hash, Driftfelder und am terminalen Close
 ein `APT_TEST_END parity=PASS|FAIL`. Ein frueher Drift bleibt im Laufsummary
 erhalten. Story, sichtbare Cargo-/Pax-Texte, Zugangsdaten und Effekt-Payloads
 werden nicht aufgenommen. Desktop 1.6.3 markiert die Datei ueber den Button
-`APT-Testlog` direkt im Explorer. Der Tester muss damit nur Alpha v366 starten,
+`APT-Testlog` direkt im Explorer. Der Tester muss damit nur Alpha v367 starten,
 eine normale APT-Mission vollstaendig fliegen und diese eine Datei senden.
+
+Der erste externe v366-Bericht enthielt vier Tracker-Sitzungen und erfolgreiche
+zentrale Voice-Auftraege, aber keinen `APT_TEST_BEGIN`. Die Ursache liegt im
+Web-Reconnect: Der Relay-Socket galt bereits als offen, bevor der erste
+Tracker-Heartbeat `mission.authority.v1` gemeldet hatte. In diesem kurzen
+Fenster konnte der Missionsstart die versionierte Acquire-Anfrage ueberspringen;
+der 180-ms-Reconnect sendete anschliessend bereits einen Legacy-Lifecycle und
+legte damit einen Authority-Lauf ohne Resume-/Replay-Bundle an.
+
+Web-Cache `ga-dispatcher-v1681` wartet beim Start und Reconnect kurz auf den
+Capability-Heartbeat, bindet einen bereits begonnenen Lauf nach spaeter
+Erkennung automatisch und sendet direkt danach einen vollstaendigen
+Authority-Snapshot. Solange die Aushandlung noch offen ist, behalten
+Missionscommands bereits die stabile Browser-Owner-ID. Tracker v367 erweitert
+das Testlog auf `ga.apt-mission-test-log.v2`: `APT_TEST_WAITING` macht einen
+noch nicht beobachteten Lauf explizit, redigierte `MISSION_PROTOCOL_*`-Zeilen
+zeigen Eingang, Ergebnis sowie Bundle-/Execution-/Replay-Vorhandensein, und
+wiederholte Render-503-/Close-Ereignisse werden nur noch einmal pro Minute
+zusammengefasst. Autoritaet, Seiteneffekte und Stable-Verhalten bleiben
+unveraendert.
 
 ### E4 - Autoritaet kontrolliert an den Tracker uebergeben
 
@@ -1338,6 +1358,20 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Tracker-Reducer spiegeln und Drift ueber komplette APT-Replays messen.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-18: Der erste v366-Realbericht weist die fehlende APT-Mitfuehrung auf
+  die Zeit zwischen Relay-Open und Tracker-Capability-Heartbeat zurueck. Die App
+  konnte dort auf den Legacy-Pfad fallen; der fruehe Reconnect-Lifecycle legte
+  dann einen Lauf ohne Execution-Replay an. Web-Cache `ga-dispatcher-v1681`
+  wartet auf die Aushandlung, bindet spaet erkannte Authority automatisch und
+  seedet sofort den vollstaendigen Snapshot. Tracker v367 protokolliert den
+  redigierten Protokollweg und fasst die Render-503-Flut minutenweise zusammen.
+  131 Tracker-/EFB-/Web-Core-Tests sowie Resume-, Authority-Handoff-, Ground-
+  und Update-Selbsttests bestehen. Die v367-Windows-EXE umfasst 48.275.590
+  Bytes mit SHA-256
+  `893d8387aa584ef0eccbb28e7a113c36fbc3c8c530ea094b9531c37dddd6a57e`.
+  Nur Alpha und Origin werden aktualisiert; Stable, EFB 0.4.11, Toolbar-Panel
+  und Desktop-Installer 1.6.3 bleiben unveraendert.
 
 - 2026-08-18: Tracker v366 aktiviert fuer alle normalen APT-Laeufe den
   automatischen, separaten Shadow-Realtest. `GA-APT-Missionstest.txt` erfasst

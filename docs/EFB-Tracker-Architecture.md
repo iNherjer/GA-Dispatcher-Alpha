@@ -518,6 +518,30 @@ Der v366-Windows-Build umfasst 48.269.254 Bytes mit SHA-256
 `79bc7759b6fd183a849e1a89cffb409b0f9a42ff592031f090b61fbb0834aa23`;
 nur der Alpha-Kanal wird aktualisiert, Stable bleibt auf v356.
 
+Der erste externe v366-Bericht zeigte erfolgreiche Tracker-TTS, aber keinen
+Shadow-Checkpoint. Der WebSocket wurde in der App bereits bei Relay-Open als
+verbunden markiert; `mission.authority.v1` traf erst mit dem Tracker-Heartbeat
+ein. Ein Missionsstart oder der auf 180 ms geplante Reconnect-Lifecycle konnte
+deshalb vorher einen impliziten Legacy-Lauf ohne Resume-Bundle erzeugen.
+
+Web-Cache `ga-dispatcher-v1681` wartet in diesem Zustand begrenzt auf den
+Capability-Heartbeat. Ein bereits gestarteter Lauf wird bei spaeter Erkennung
+automatisch versioniert gebunden und unmittelbar mit einem vollstaendigen
+Resume-/Execution-Replay-Snapshot geseedet. Missionscommands behalten waehrend
+der offenen Aushandlung bereits die stabile Browser-Owner-ID, sodass kein
+anonymer Legacy-Owner entsteht. Alte Tracker mit einem frischen Heartbeat ohne
+Capability bleiben ohne zusaetzliche Wartezeit im bisherigen Legacy-Pfad.
+
+Tracker v367 verwendet fuer `GA-APT-Missionstest.txt` das additive Schema
+`ga.apt-mission-test-log.v2`. Neben den unveraenderten Checkpoints schreibt es
+einen expliziten Wartezustand und redigierte Protokolldiagnose fuer Acquire,
+Snapshot und Release. Diese zeigt nur Typ, Status, Fehlercode und das
+Vorhandensein von Bundle, Execution und Replay. Wiederholte Render-503- und
+Close-Zeilen werden pro Ereignis auf ein Minuten-Summary begrenzt. Der
+v367-Windows-Build umfasst 48.275.590 Bytes mit SHA-256
+`893d8387aa584ef0eccbb28e7a113c36fbc3c8c530ea094b9531c37dddd6a57e`;
+Alpha wird aktualisiert, Stable bleibt auf v356.
+
 Der 0.4.3-In-Sim-Log zeigt, dass die Dateien in richtiger Reihenfolge geladen
 werden, Coherent aber Optional Chaining und Object Spread nicht parst.
 Tracker v329 und EFB 0.4.4 definieren deshalb eine zusaetzliche Hostgrenze:

@@ -4,8 +4,9 @@ const path = require('node:path');
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 
 const APT_MISSION_TEST_LOG_FILENAME = 'GA-APT-Missionstest.txt';
-const APT_MISSION_TEST_LOG_SCHEMA = 'ga.apt-mission-test-log.v1';
-const SYSTEM_LINE_PATTERN = /^(?:TRACKER_RELAY_(?:OPEN|CLOSE|ERROR)|TRACKER_TELEMETRY_MODE|EFB_HTTP_(?:LISTEN|START_ERROR|PORT_CONFLICT|CONFIG_ERROR)|MISSION_AUTHORITY_(?:LOADED|LOAD_ERROR|PERSIST_ERROR)|MISSION_SHADOW_ERROR|VOICE_TTS_(?:READY|ERROR))\b/;
+const APT_MISSION_TEST_LOG_SCHEMA = 'ga.apt-mission-test-log.v2';
+const DEFAULT_SYSTEM_REPEAT_WINDOW_MS = 60000;
+const SYSTEM_LINE_PATTERN = /^(?:TRACKER_RELAY_(?:OPEN|CLOSE|ERROR)|TRACKER_TELEMETRY_MODE|EFB_HTTP_(?:LISTEN|START_ERROR|PORT_CONFLICT|CONFIG_ERROR)|MISSION_AUTHORITY_(?:LOADED|LOAD_ERROR|PERSIST_ERROR)|MISSION_PROTOCOL_(?:RECEIVED|RESULT|LEGACY_ACQUIRE)|MISSION_SHADOW_ERROR|VOICE_TTS_(?:READY|ERROR))\b/;
 
 function clean(value, maxLength = 240) {
   return String(value == null ? '' : value)
@@ -46,8 +47,16 @@ function createAptMissionTestLog(options = {}) {
       maxLineBytes: 8 * 1024,
       dedupeWindowMs: 1
     });
+  const now = typeof options.now === 'function' ? options.now : () => Date.now();
+  const systemRepeatWindowMs = Math.max(5000, Math.round(Number(options.systemRepeatWindowMs) || DEFAULT_SYSTEM_REPEAT_WINDOW_MS));
+  const repeatedSystemLines = new Map();
   const runs = new Map();
   let started = false;
+
+  function repeatedSystemKey(line = '') {
+    const match = String(line || '').match(/^(TRACKER_RELAY_(?:ERROR|CLOSE))\s+relay=(render)\b/i);
+    return match ? `${match[1].toUpperCase()}:${match[2].toLowerCase()}` : '';
+  }
 
   function start(meta = {}) {
     if (started) return false;
@@ -63,12 +72,36 @@ function createAptMissionTestLog(options = {}) {
       'automatic=1'
     ].join(' '));
     write('APT_TEST_INFO text=Automatischer_APT-Shadow-Test_aktiv._Datei_unveraendert_an_den_Entwickler_senden.');
+    write('APT_TEST_WAITING reason=no_apt_authority_observed action=Mission_in_der_App_normal_starten_und_beenden.');
     return true;
   }
 
   function recordSystemLine(rawLine) {
     const line = clean(rawLine, 2000);
     if (!SYSTEM_LINE_PATTERN.test(line)) return false;
+    const repeatKey = repeatedSystemKey(line);
+    if (repeatKey) {
+      const currentAt = Math.max(0, Number(now()) || Date.now());
+      const previous = repeatedSystemLines.get(repeatKey);
+      if (!previous) {
+        repeatedSystemLines.set(repeatKey, { lastWrittenAt: currentAt, suppressed: 0 });
+      } else if (currentAt - previous.lastWrittenAt < systemRepeatWindowMs) {
+        previous.suppressed += 1;
+        return false;
+      } else {
+        const repeats = previous.suppressed + 1;
+        previous.lastWrittenAt = currentAt;
+        previous.suppressed = 0;
+        const [event, relay] = repeatKey.split(':');
+        return write([
+          'APT_TEST_SYSTEM_SUMMARY',
+          `event=${event}`,
+          `relay=${relay}`,
+          `repeats=${repeats}`,
+          `windowMs=${systemRepeatWindowMs}`
+        ].join(' ')) !== false;
+      }
+    }
     return write(`APT_TEST_SYSTEM ${line}`) !== false;
   }
 
@@ -172,6 +205,7 @@ function createAptMissionTestLog(options = {}) {
 module.exports = {
   APT_MISSION_TEST_LOG_FILENAME,
   APT_MISSION_TEST_LOG_SCHEMA,
+  DEFAULT_SYSTEM_REPEAT_WINDOW_MS,
   SYSTEM_LINE_PATTERN,
   createAptMissionTestLog
 };

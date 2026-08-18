@@ -1914,6 +1914,9 @@ let missionAuthorityLastSnapshotHash = '';
 let missionAuthorityLastSnapshotPushAt = 0;
 let missionAuthoritySnapshotPushTimer = null;
 let missionAuthorityAdoptPromise = null;
+let missionAuthorityAcquirePromise = null;
+let missionAuthorityCapabilityWaitPromise = null;
+let missionAuthorityLateBindPending = false;
 let missionAuthorityForeignAckLastSig = '';
 let missionAuthorityForeignAckLastLogAt = 0;
 const MISSION_AUTHORITY_LOCAL_COMMAND_TTL_MS = 10 * 60 * 1000;
@@ -2041,6 +2044,47 @@ function _trackerSupportsMissionAuthority() {
         && window.liveTrackerCapabilities.includes(MISSION_AUTHORITY_CAPABILITY);
 }
 window.trackerSupportsMissionAuthority = _trackerSupportsMissionAuthority;
+
+function _waitForMissionAuthorityCapability(timeoutMs = 1400) {
+    if (_trackerSupportsMissionAuthority()) return Promise.resolve(true);
+    if (!window.liveTrackerConnected) return Promise.resolve(false);
+    if (typeof _trackerHeartbeatIsFresh === 'function' && _trackerHeartbeatIsFresh()) return Promise.resolve(false);
+    if (missionAuthorityCapabilityWaitPromise) return missionAuthorityCapabilityWaitPromise;
+    missionAuthorityCapabilityWaitPromise = new Promise(resolve => {
+        let settled = false;
+        let timer = null;
+        const finish = supported => {
+            if (settled) return;
+            settled = true;
+            if (timer) clearTimeout(timer);
+            window.removeEventListener('gatrackercapabilitieschange', handleCapabilities);
+            resolve(supported === true);
+        };
+        const handleCapabilities = () => {
+            if (_trackerSupportsMissionAuthority()) {
+                finish(true);
+                return;
+            }
+            if (typeof _trackerHeartbeatIsFresh === 'function' && _trackerHeartbeatIsFresh()) finish(false);
+        };
+        window.addEventListener('gatrackercapabilitieschange', handleCapabilities);
+        timer = setTimeout(() => finish(_trackerSupportsMissionAuthority()), Math.max(300, Number(timeoutMs) || 1400));
+    }).finally(() => {
+        missionAuthorityCapabilityWaitPromise = null;
+    });
+    return missionAuthorityCapabilityWaitPromise;
+}
+
+function _missionAuthorityRuntimeNeedsLateBind() {
+    if (window.simModeActive || !_activeMissionRuntimeId('') || _missionIsFreeflightOnly()) return false;
+    if (_readMissionAuthorityState()?.runId) return false;
+    if (window.missionRuntimeResumeConflict?.trackerActive === true) return false;
+    const startPhase = String(_missionStartPhase() || '').toLowerCase();
+    return missionAuthorityLateBindPending
+        || missionRuntime.active
+        || missionRuntime.closingPending
+        || ['prepare', 'boarding', 'boarded'].includes(startPhase);
+}
 
 function _trackerSupportsTelemetryWake() {
     return Array.isArray(window.liveTrackerCapabilities)
@@ -2548,52 +2592,94 @@ function _sendMissionAuthorityRequest(command = {}, timeoutMs = 10000) {
 }
 
 async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
-    if (window.simModeActive || !_trackerSupportsMissionAuthority()) return true;
-    const missionId = _activeMissionRuntimeId('');
-    if (!missionId) return false;
-    const local = _readMissionAuthorityState();
-    const command = {
-        type: 'mission_authority_acquire',
-        missionId,
-        clientId: _missionAuthorityClientId(),
-        reason,
-        state: 'active',
-        missionPhase: 'planned',
-        resumeBundle: _buildMissionAuthorityResumeBundle(reason)
-    };
-    if (local?.missionId === missionId && local.runId) {
-        command.runId = local.runId;
-    }
-    const ack = await _sendMissionAuthorityRequest(command, 12000);
-    if (ack.status === 'ok' && ack.authoritativeRun?.missionId === missionId) {
-        _writeMissionAuthorityState({
-            ...ack.authoritativeRun,
-            clientId: _missionAuthorityClientId()
-        });
-        window.missionRuntimeResumeConflict = null;
-        _missionPhaseDebugPush('authority_acquired', {
+    if (missionAuthorityAcquirePromise) return missionAuthorityAcquirePromise;
+    const acquire = async () => {
+        if (window.simModeActive) return true;
+        const missionId = _activeMissionRuntimeId('');
+        if (!missionId) {
+            missionAuthorityLateBindPending = false;
+            return false;
+        }
+        if (!_trackerSupportsMissionAuthority()) {
+            missionAuthorityLateBindPending = true;
+            const capabilityReady = await _waitForMissionAuthorityCapability();
+            if (!capabilityReady) {
+                _missionPhaseDebugPush('authority_acquire_deferred', {
+                    missionId,
+                    reason,
+                    trackerConnected: !!window.liveTrackerConnected,
+                    heartbeatFresh: typeof _trackerHeartbeatIsFresh === 'function' && _trackerHeartbeatIsFresh(),
+                    capabilities: Array.isArray(window.liveTrackerCapabilities) ? window.liveTrackerCapabilities.slice() : []
+                });
+                return true;
+            }
+        }
+        const local = _readMissionAuthorityState();
+        const command = {
+            type: 'mission_authority_acquire',
             missionId,
-            runId: ack.authoritativeRun.runId,
-            resumed: ack.resumed === true,
-            reason
-        });
-        _scheduleMissionAuthorityProfileRefresh('tracker-authority-acquired');
-        return true;
-    }
-    const active = ack.authoritativeRun || null;
-    window.missionRuntimeResumeConflict = {
-        reason: ack.error || 'mission-authority-conflict',
-        trackerMissionId: active?.missionId || null,
-        trackerRunId: active?.runId || null,
-        ownerClientId: active?.ownerClientId || null,
-        activeMissionId: missionId,
-        trackerActive: !!active,
-        at: Date.now()
+            clientId: _missionAuthorityClientId(),
+            reason,
+            state: 'active',
+            missionPhase: 'planned',
+            resumeBundle: _buildMissionAuthorityResumeBundle(reason)
+        };
+        if (local?.missionId === missionId && local.runId) {
+            command.runId = local.runId;
+        }
+        const ack = await _sendMissionAuthorityRequest(command, 12000);
+        if (ack.status === 'ok' && ack.authoritativeRun?.missionId === missionId) {
+            _writeMissionAuthorityState({
+                ...ack.authoritativeRun,
+                clientId: _missionAuthorityClientId()
+            });
+            missionAuthorityLateBindPending = false;
+            window.missionRuntimeResumeConflict = null;
+            _missionPhaseDebugPush('authority_acquired', {
+                missionId,
+                runId: ack.authoritativeRun.runId,
+                resumed: ack.resumed === true,
+                reason
+            });
+            _queueMissionAuthoritySnapshot('tracker-authority-acquired-seed', { immediate: true });
+            _scheduleMissionAuthorityProfileRefresh('tracker-authority-acquired');
+            return true;
+        }
+        const active = ack.authoritativeRun || null;
+        missionAuthorityLateBindPending = ['authority_timeout', 'tracker_not_connected'].includes(String(ack.error || ''));
+        window.missionRuntimeResumeConflict = {
+            reason: ack.error || 'mission-authority-conflict',
+            trackerMissionId: active?.missionId || null,
+            trackerRunId: active?.runId || null,
+            ownerClientId: active?.ownerClientId || null,
+            activeMissionId: missionId,
+            trackerActive: !!active,
+            at: Date.now()
+        };
+        _missionPhaseDebugPush('authority_acquire_rejected', window.missionRuntimeResumeConflict);
+        _updateMissionRuntimeUi();
+        return false;
     };
-    _missionPhaseDebugPush('authority_acquire_rejected', window.missionRuntimeResumeConflict);
-    _updateMissionRuntimeUi();
-    return false;
+    missionAuthorityAcquirePromise = acquire();
+    try {
+        return await missionAuthorityAcquirePromise;
+    } finally {
+        missionAuthorityAcquirePromise = null;
+    }
 }
+
+function _attemptMissionAuthorityLateBind(reason = 'tracker-capability-ready') {
+    if (!_trackerSupportsMissionAuthority() || !_missionAuthorityRuntimeNeedsLateBind()) return false;
+    if (missionAuthorityAdoptPromise) return true;
+    missionAuthorityAdoptPromise = _ensureMissionAuthorityForStart(reason)
+        .catch(() => false)
+        .finally(() => { missionAuthorityAdoptPromise = null; });
+    return true;
+}
+
+window.addEventListener('gatrackercapabilitieschange', () => {
+    _attemptMissionAuthorityLateBind('tracker-capability-late-bind');
+});
 
 function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
     if (!_trackerSupportsMissionAuthority() || !window.liveTrackerConnected) return false;
@@ -4456,7 +4542,8 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
         delete trackerCommand.runId;
         delete trackerCommand.expectedRevision;
     }
-    if (_trackerSupportsMissionAuthority() && (missionAuthorityScopedCommand || missionAuthorityProtocol)) {
+    if ((_trackerSupportsMissionAuthority() || missionAuthorityLateBindPending)
+        && (missionAuthorityScopedCommand || missionAuthorityProtocol)) {
         const authority = _readMissionAuthorityState();
         trackerCommand.clientId = String(command.clientId || authority?.clientId || _missionAuthorityClientId());
         if (authority?.missionId === missionId && authority.runId) {
@@ -5202,6 +5289,7 @@ function _releaseMissionAuthority(outcome = 'reset', reason = 'mission-runtime-r
     const local = _readMissionAuthorityState();
     if (!local?.missionId || !local?.runId || local.clientId !== _missionAuthorityClientId()) return false;
     if (window.missionAuthorityReleasePending?.runId === local.runId) return true;
+    missionAuthorityLateBindPending = false;
     const resumeBundle = _missionAuthorityFinalizeExecutionShadow(
         _buildMissionAuthorityResumeBundle(`authority-release:${reason}`)
     );
@@ -12809,6 +12897,7 @@ window.missionRuntimeReset = function(options = {}) {
         lastCommand: window.missionSceneStatus?.lastCommand || null,
         lastAck: window.missionSceneStatus?.lastAck || null
     });
+    missionAuthorityLateBindPending = false;
     if (window.missionSceneStatus?.deboardingRequested || window.missionSceneStatus?.deboardingActive) {
         try { window.missionSceneCancelDeboarding?.('mission-runtime-reset'); } catch (_) {}
     }
@@ -16909,10 +16998,14 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
             setTimeout(() => _missionSceneCancelInterruptedDeboarding('websocket-open'), 350);
         }
         setTimeout(() => _trackerPendingResendAll('websocket-open'), 300);
-        if (missionRuntime.active) {
-            setTimeout(() => _sendMissionLifecycleToTracker('active', 'websocket-open-resume'), 180);
-        } else if (missionRuntime.closingPending) {
-            setTimeout(() => _sendMissionLifecycleToTracker('closing', 'websocket-open-resume'), 180);
+        if (missionRuntime.active || missionRuntime.closingPending) {
+            missionAuthorityLateBindPending = true;
+            setTimeout(async () => {
+                const state = missionRuntime.closingPending ? 'closing' : 'active';
+                const authorityReady = await _ensureMissionAuthorityForStart('websocket-open-resume');
+                if (_trackerSupportsMissionAuthority() && !authorityReady) return;
+                _sendMissionLifecycleToTracker(state, 'websocket-open-resume');
+            }, 180);
         }
         let missionSceneTickDelayMs = 900;
         if (missionSceneReconnectResyncPending && !missionRuntime.active && !window.simModeActive) {

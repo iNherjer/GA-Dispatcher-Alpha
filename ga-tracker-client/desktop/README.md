@@ -183,7 +183,7 @@ aber wie bei der bisherigen portablen EXE eine SmartScreen-Warnung anzeigen.
 
 ## Automatischer APT-Missionstest
 
-Tracker v366 protokolliert jeden normalen APT-Lauf automatisch und
+Tracker v366 oder neuer protokolliert jeden normalen APT-Lauf automatisch und
 seiteneffektfrei in:
 
 `Dokumente/VFR Multitool/Tracker/GA-APT-Missionstest.txt`
