@@ -1,12 +1,18 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const executionCore = require('../mission-execution-core.js');
+const locationCore = require('../mission-location-core.js');
 
 const STATE_SCHEMA = 'ga.mission-authority.v1';
 const STATE_VERSION = 1;
 const MAX_EVENTS = 120;
 const MAX_EFFECTS = 160;
 const MAX_RESUME_BYTES = 384 * 1024;
+const MAX_EXECUTION_EVENTS = 160;
+const EXECUTION_AUTHORITY_WEB = 'web';
+const EXECUTION_AUTHORITY_TRACKER = 'tracker';
+const EXECUTION_HANDOFF_RECIPE = 'apt';
 
 const TERMINAL_STATES = new Set(['ended', 'closed', 'reset', 'cleared', 'aborted', 'completed']);
 const AUTHORITY_COMMANDS = new Set([
@@ -14,7 +20,10 @@ const AUTHORITY_COMMANDS = new Set([
   'mission_authority_takeover',
   'mission_authority_release',
   'mission_snapshot_request',
-  'mission_snapshot_update'
+  'mission_snapshot_update',
+  'mission_execution_authority_prepare',
+  'mission_execution_authority_commit',
+  'mission_execution_authority_rollback'
 ]);
 
 function cleanString(value, maxLength = 180) {
@@ -41,6 +50,105 @@ function safeResumeBundle(value) {
     throw error;
   }
   return cloned;
+}
+
+function safeObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function executionLocationProjection(resumeBundle = null) {
+  const bundle = safeObject(resumeBundle);
+  const missionState = safeObject(bundle.missionState);
+  const missionData = safeObject(missionState.currentMissionData);
+  const contract = safeObject(missionState.activeMissionContract);
+  const arrivalCandidates = [missionData.aptArrivalPlan, contract.aptArrivalPlan];
+  const arrivalPoint = arrivalCandidates
+    .map(candidate => locationCore.normalizePoint(candidate))
+    .find(Boolean) || null;
+  const routeCandidates = [
+    missionData.routeWaypoints,
+    missionData.missionRouteWaypoints,
+    missionState.routeWaypoints,
+    missionState.missionRouteWaypoints,
+    contract.routeWaypoints,
+    contract.missionRouteWaypoints
+  ];
+  let missionTarget = null;
+  for (const route of routeCandidates) {
+    if (!Array.isArray(route) || !route.length) continue;
+    const points = route.map(point => locationCore.normalizePoint(point)).filter(Boolean);
+    if (!points.length) continue;
+    missionTarget = points[points.length - 1];
+    break;
+  }
+  const policyCandidates = [missionData.executionLocationPolicy, contract.executionLocationPolicy];
+  const policy = policyCandidates.find(candidate => safeObject(candidate).schema === locationCore.APT_POLICY_SCHEMA) || null;
+  return locationCore.normalizeAptLocation({ arrivalPoint, missionTarget, policy });
+}
+
+function publicExecutionHandoff(value = null) {
+  const handoff = safeObject(value);
+  const handoffId = cleanString(handoff.handoffId, 220);
+  if (!handoffId) return null;
+  return {
+    handoffId,
+    status: cleanString(handoff.status, 40) || 'prepared',
+    recipe: cleanString(handoff.recipe, 80) || null,
+    phase: cleanString(handoff.phase, 100) || null,
+    authorityRevision: Math.max(0, Math.round(Number(handoff.authorityRevision) || 0)),
+    stateHash: cleanString(handoff.stateHash, 180) || null,
+    executionStateHash: cleanString(handoff.executionStateHash, 180) || null,
+    preparedAt: Number(handoff.preparedAt || 0) || null
+  };
+}
+
+function executionProjection(resumeBundle = null) {
+  const bundle = safeObject(resumeBundle);
+  const replayBundle = safeObject(bundle.executionReplay);
+  const browserEnvelope = safeObject(bundle.execution);
+  if (replayBundle.schema !== executionCore.BUNDLE_SCHEMA) {
+    return { ok: false, error: 'mission_execution_replay_required' };
+  }
+  if (browserEnvelope.schema !== executionCore.SHADOW_SCHEMA
+      || Number(browserEnvelope.version) !== executionCore.CORE_VERSION) {
+    return { ok: false, error: 'mission_execution_shadow_required' };
+  }
+  const replay = executionCore.replay(replayBundle);
+  if (!replay.ok) return { ok: false, error: replay.error || 'mission_execution_replay_invalid' };
+  const recipe = cleanString(replayBundle.recipe || replay.state?.recipe || bundle.adapter, 80).toLowerCase();
+  const trackerEnvelope = executionCore.createReplayShadowEnvelope(replayBundle, {
+    sourceRevision: Math.max(0, Math.round(Number(browserEnvelope.sourceRevision) || 0)),
+    legacyBundle: bundle,
+    legacyComparison: 'compared'
+  });
+  if (!trackerEnvelope) return { ok: false, error: 'mission_execution_projection_failed' };
+  const parityMatches = cleanString(browserEnvelope.missionId) === cleanString(trackerEnvelope.missionId)
+    && cleanString(browserEnvelope.stateHash, 180) === cleanString(trackerEnvelope.stateHash, 180)
+    && cleanString(browserEnvelope.replaySemanticHash, 180) === cleanString(trackerEnvelope.replaySemanticHash, 180)
+    && cleanString(browserEnvelope.legacyStateHash, 180) === cleanString(trackerEnvelope.legacyStateHash, 180)
+    && executionCore.canonicalStringify(browserEnvelope.allowedActions) === executionCore.canonicalStringify(trackerEnvelope.allowedActions)
+    && executionCore.canonicalStringify(browserEnvelope.blockingReasons) === executionCore.canonicalStringify(trackerEnvelope.blockingReasons)
+    && executionCore.canonicalStringify(browserEnvelope.cargo) === executionCore.canonicalStringify(trackerEnvelope.cargo)
+    && executionCore.canonicalStringify(browserEnvelope.workflows) === executionCore.canonicalStringify(trackerEnvelope.workflows)
+    && executionCore.canonicalStringify(browserEnvelope.effects) === executionCore.canonicalStringify(trackerEnvelope.effects);
+  const legacyDriftFields = Array.from(new Set([
+    ...(Array.isArray(browserEnvelope.legacyDriftFields) ? browserEnvelope.legacyDriftFields : []),
+    ...(Array.isArray(trackerEnvelope.legacyDriftFields) ? trackerEnvelope.legacyDriftFields : [])
+  ].map(field => cleanString(field, 100)).filter(Boolean)));
+  if (!parityMatches) return { ok: false, error: 'mission_execution_shadow_drift' };
+  if (legacyDriftFields.length) {
+    return { ok: false, error: 'mission_execution_legacy_drift', driftFields: legacyDriftFields };
+  }
+  return {
+    ok: true,
+    recipe,
+    phase: cleanString(replay.state?.phase, 100).toLowerCase(),
+    state: replay.state,
+    stateHash: cleanString(replay.stateHash, 180),
+    stateRevision: Math.max(0, Math.round(Number(replay.state?.revision) || 0)),
+    allowedActions: Array.isArray(replay.view?.allowedActions) ? replay.view.allowedActions.slice() : [],
+    blockingReasons: Array.isArray(replay.view?.blockingReasons) ? replay.view.blockingReasons.slice() : []
+  };
 }
 
 function publicEffect(effect = {}) {
@@ -87,6 +195,13 @@ function publicRun(run, options = {}) {
     runId: cleanString(run.runId, 220),
     ownerClientId: cleanString(run.ownerClientId, 220) || 'unknown',
     authority: 'tracker',
+    executionAuthority: run.executionAuthority === EXECUTION_AUTHORITY_TRACKER
+      ? EXECUTION_AUTHORITY_TRACKER
+      : EXECUTION_AUTHORITY_WEB,
+    executionRecipe: cleanString(run.executionRecipe, 80) || null,
+    executionRevision: Math.max(0, Math.round(Number(run.executionRevision) || 0)),
+    executionStateHash: cleanString(run.executionStateHash, 180) || null,
+    executionHandoff: publicExecutionHandoff(run.executionHandoff),
     state: cleanString(run.state, 60) || 'active',
     active: run.active !== false,
     phase: cleanString(run.phase, 100) || null,
@@ -135,6 +250,9 @@ function normalizeStoredRun(run) {
   if (!run?.missionId || !run?.runId) return null;
   return {
     ...publicRun(run, { includeBundle: true }),
+    executionState: run.executionState ? executionCore.normalizeState(run.executionState) : null,
+    executionWebStateHash: cleanString(run.executionWebStateHash, 180) || null,
+    executionAppliedEvents: Math.max(0, Math.round(Number(run.executionAppliedEvents) || 0)),
     effects: (Array.isArray(run.effects) ? run.effects : []).slice(-MAX_EFFECTS).map(effect => ({
       ...publicEffect(effect),
       managerSessionId: cleanString(effect.managerSessionId, 160),
@@ -152,6 +270,7 @@ function createMissionAuthorityManager(options = {}) {
     : () => `run-${Date.now().toString(36)}-${crypto.randomBytes(7).toString('hex')}`;
   const managerSessionId = `tracker-${Date.now().toString(36)}-${crypto.randomBytes(5).toString('hex')}`;
   const log = typeof options.log === 'function' ? options.log : () => {};
+  const executionAuthorityEnabled = options.executionAuthorityEnabled === true;
   let state = newState();
 
   const addEvent = (kind, payload = {}) => {
@@ -242,11 +361,23 @@ function createMissionAuthorityManager(options = {}) {
     }
     const timestamp = now();
     const runId = cleanString(request.runId, 220) || idFactory();
+    const initialResumeBundle = safeResumeBundle(request.resumeBundle);
+    const initialExecution = executionProjection(initialResumeBundle);
     state.activeRun = {
       missionId,
       runId,
       ownerClientId: clientId,
       authority: 'tracker',
+      executionAuthority: EXECUTION_AUTHORITY_WEB,
+      executionRecipe: initialExecution.ok
+        ? initialExecution.recipe
+        : cleanString(initialResumeBundle?.adapter || initialResumeBundle?.descriptor?.primaryAdapter, 80).toLowerCase() || null,
+      executionRevision: initialExecution.ok ? initialExecution.stateRevision : 0,
+      executionStateHash: initialExecution.ok ? initialExecution.stateHash : null,
+      executionState: initialExecution.ok ? initialExecution.state : null,
+      executionWebStateHash: null,
+      executionAppliedEvents: 0,
+      executionHandoff: null,
       state: cleanString(request.state, 60).toLowerCase() || 'active',
       active: true,
       phase: cleanString(request.phase || request.missionPhase, 100).toLowerCase() || 'planned',
@@ -257,7 +388,7 @@ function createMissionAuthorityManager(options = {}) {
       lastCommandType: 'mission_authority_acquire',
       lastReason: cleanString(request.reason, 240) || 'mission-start',
       lastSnapshotSequence: 0,
-      resumeBundle: safeResumeBundle(request.resumeBundle),
+      resumeBundle: initialResumeBundle,
       effects: []
     };
     addEvent('acquired', { missionId, runId, clientId, commandId: request.commandId, reason: request.reason });
@@ -284,12 +415,16 @@ function createMissionAuthorityManager(options = {}) {
     if (expectedRevision && expectedRevision !== active.revision) {
       return { ok: false, status: 'conflict', error: 'mission_revision_conflict', activeRun: publicRun(active) };
     }
+    if (active.executionAuthority === EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'conflict', error: 'mission_execution_authority_tracker', activeRun: publicRun(active) };
+    }
     const previousOwner = active.ownerClientId;
     active.ownerClientId = clientId;
     active.revision += 1;
     active.updatedAt = now();
     active.lastCommandType = 'mission_authority_takeover';
     active.lastReason = cleanString(request.reason, 240) || 'device-handoff';
+    active.executionHandoff = null;
     addEvent('takeover', { missionId, runId, clientId, commandId: request.commandId, reason: `from:${previousOwner}` });
     persist();
     return {
@@ -360,6 +495,9 @@ function createMissionAuthorityManager(options = {}) {
     const match = activeMatches(request, { requireOwner: true });
     if (!match.ok) return { ok: false, status: 'conflict', error: match.error, activeRun: publicRun(state.activeRun) };
     const active = match.activeRun;
+    if (active.executionAuthority === EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'conflict', error: 'mission_execution_authority_tracker', activeRun: publicRun(active) };
+    }
     const snapshotSequence = Math.max(0, Math.round(Number(request.snapshotSequence) || 0));
     if (snapshotSequence && snapshotSequence <= active.lastSnapshotSequence) {
       return { ok: true, status: 'noop', reason: 'stale_snapshot', activeRun: publicRun(active) };
@@ -370,7 +508,17 @@ function createMissionAuthorityManager(options = {}) {
     } catch (error) {
       return { ok: false, status: 'error', error: error.code || error.message, activeRun: publicRun(active) };
     }
-    if (resumeBundle) active.resumeBundle = resumeBundle;
+    if (resumeBundle) {
+      active.resumeBundle = resumeBundle;
+      const projected = executionProjection(resumeBundle);
+      active.executionRecipe = projected.ok
+        ? projected.recipe
+        : cleanString(resumeBundle.adapter || resumeBundle.descriptor?.primaryAdapter, 80).toLowerCase() || active.executionRecipe;
+      active.executionRevision = projected.ok ? projected.stateRevision : 0;
+      active.executionStateHash = projected.ok ? projected.stateHash : null;
+      active.executionState = projected.ok ? projected.state : null;
+    }
+    active.executionHandoff = null;
     if (snapshotSequence) active.lastSnapshotSequence = snapshotSequence;
     active.state = cleanString(request.state, 60).toLowerCase() || active.state;
     active.phase = cleanString(request.phase || request.missionPhase, 100).toLowerCase() || active.phase;
@@ -384,6 +532,364 @@ function createMissionAuthorityManager(options = {}) {
     return { ok: true, status: 'ok', activeRun: publicRun(active) };
   };
 
+  const prepareExecutionAuthority = (request = {}) => {
+    const match = activeMatches(request, { requireOwner: true });
+    if (!match.ok) return { ok: false, status: 'conflict', error: match.error, activeRun: publicRun(state.activeRun) };
+    const active = match.activeRun;
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_WEB) {
+      return { ok: false, status: 'noop', error: 'mission_execution_authority_already_tracker', activeRun: publicRun(active) };
+    }
+    if (!Object.hasOwn(request, 'expectedRevision') || !Number.isSafeInteger(Number(request.expectedRevision))) {
+      return { ok: false, status: 'error', error: 'expected_revision_required', activeRun: publicRun(active) };
+    }
+    if (Number(request.expectedRevision) !== active.revision) {
+      return { ok: false, status: 'conflict', error: 'mission_revision_conflict', activeRun: publicRun(active) };
+    }
+    const expectedStateHash = cleanString(request.expectedStateHash, 180);
+    if (!expectedStateHash) return { ok: false, status: 'error', error: 'expected_state_hash_required', activeRun: publicRun(active) };
+    if (!active.stateHash || expectedStateHash !== active.stateHash) {
+      return { ok: false, status: 'conflict', error: 'mission_state_hash_conflict', activeRun: publicRun(active) };
+    }
+    const projected = executionProjection(active.resumeBundle);
+    if (!projected.ok) {
+      return {
+        ok: false,
+        status: 'blocked',
+        error: projected.error,
+        driftFields: projected.driftFields || [],
+        activeRun: publicRun(active)
+      };
+    }
+    if (projected.recipe !== EXECUTION_HANDOFF_RECIPE) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_recipe_not_enabled', activeRun: publicRun(active) };
+    }
+    if (projected.phase !== 'planned' || projected.stateRevision !== 0 || projected.state.effects.length !== 0) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_handoff_phase_not_safe', activeRun: publicRun(active) };
+    }
+    const expectedExecutionStateHash = cleanString(request.expectedExecutionStateHash, 180);
+    if (!expectedExecutionStateHash) {
+      return { ok: false, status: 'error', error: 'expected_execution_state_hash_required', activeRun: publicRun(active) };
+    }
+    if (expectedExecutionStateHash !== projected.stateHash) {
+      return { ok: false, status: 'conflict', error: 'mission_execution_state_hash_conflict', activeRun: publicRun(active) };
+    }
+    const previousState = jsonClone(state);
+    const handoffId = `execution-handoff-${crypto.randomBytes(12).toString('hex')}`;
+    active.executionRecipe = projected.recipe;
+    active.executionRevision = projected.stateRevision;
+    active.executionStateHash = projected.stateHash;
+    active.executionState = projected.state;
+    active.executionHandoff = {
+      handoffId,
+      status: 'prepared',
+      recipe: projected.recipe,
+      phase: projected.phase,
+      authorityRevision: active.revision,
+      stateHash: active.stateHash,
+      executionStateHash: projected.stateHash,
+      preparedAt: now()
+    };
+    active.revision += 1;
+    active.updatedAt = now();
+    active.lastCommandType = 'mission_execution_authority_prepare';
+    active.lastReason = cleanString(request.reason, 240) || 'execution-authority-prepare';
+    addEvent('execution_authority_prepared', {
+      missionId: active.missionId,
+      runId: active.runId,
+      clientId: active.ownerClientId,
+      commandId: request.commandId,
+      reason: projected.recipe
+    });
+    if (!persist()) {
+      state = previousState;
+      return {
+        ok: false,
+        status: 'error',
+        error: 'mission_execution_persist_failed',
+        sideEffect: false,
+        activeRun: publicRun(state.activeRun)
+      };
+    }
+    return {
+      ok: true,
+      status: 'ok',
+      executionAuthority: EXECUTION_AUTHORITY_WEB,
+      sideEffect: false,
+      handoff: publicExecutionHandoff(active.executionHandoff),
+      activeRun: publicRun(active)
+    };
+  };
+
+  const commitExecutionAuthority = (request = {}) => {
+    const match = activeMatches(request, { requireOwner: true });
+    if (!match.ok) return { ok: false, status: 'conflict', error: match.error, activeRun: publicRun(state.activeRun) };
+    const active = match.activeRun;
+    if (!executionAuthorityEnabled) {
+      return {
+        ok: false,
+        status: 'blocked',
+        error: 'mission_execution_authority_not_enabled',
+        sideEffect: false,
+        activeRun: publicRun(active)
+      };
+    }
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_WEB) {
+      return {
+        ok: true,
+        status: 'noop',
+        executionAuthority: EXECUTION_AUTHORITY_TRACKER,
+        sideEffect: false,
+        activeRun: publicRun(active)
+      };
+    }
+    const handoff = safeObject(active.executionHandoff);
+    if (!cleanString(handoff.handoffId, 220) || cleanString(request.handoffId, 220) !== handoff.handoffId) {
+      return { ok: false, status: 'conflict', error: 'mission_execution_handoff_conflict', activeRun: publicRun(active) };
+    }
+    if (!Object.hasOwn(request, 'expectedRevision')
+        || !Number.isSafeInteger(Number(request.expectedRevision))
+        || Number(request.expectedRevision) !== active.revision) {
+      return { ok: false, status: 'conflict', error: 'mission_revision_conflict', activeRun: publicRun(active) };
+    }
+    const projected = executionProjection(active.resumeBundle);
+    if (!projected.ok || projected.recipe !== EXECUTION_HANDOFF_RECIPE) {
+      return {
+        ok: false,
+        status: 'blocked',
+        error: projected.error || 'mission_execution_recipe_not_enabled',
+        activeRun: publicRun(active)
+      };
+    }
+    if (cleanString(request.expectedExecutionStateHash, 180) !== projected.stateHash
+        || handoff.executionStateHash !== projected.stateHash
+        || handoff.stateHash !== active.stateHash) {
+      return { ok: false, status: 'conflict', error: 'mission_execution_state_hash_conflict', activeRun: publicRun(active) };
+    }
+    const previousState = jsonClone(state);
+    active.executionAuthority = EXECUTION_AUTHORITY_TRACKER;
+    active.executionRecipe = projected.recipe;
+    active.executionRevision = projected.stateRevision;
+    active.executionStateHash = projected.stateHash;
+    active.executionState = projected.state;
+    active.executionWebStateHash = active.stateHash;
+    active.executionAppliedEvents = 0;
+    active.executionHandoff = null;
+    active.phase = projected.phase;
+    active.stateHash = projected.stateHash;
+    active.revision += 1;
+    active.updatedAt = now();
+    active.lastCommandType = 'mission_execution_authority_commit';
+    active.lastReason = cleanString(request.reason, 240) || 'execution-authority-commit';
+    addEvent('execution_authority_committed', {
+      missionId: active.missionId,
+      runId: active.runId,
+      clientId: active.ownerClientId,
+      commandId: request.commandId,
+      reason: projected.recipe
+    });
+    if (!persist()) {
+      state = previousState;
+      return {
+        ok: false,
+        status: 'error',
+        error: 'mission_execution_persist_failed',
+        sideEffect: false,
+        activeRun: publicRun(state.activeRun)
+      };
+    }
+    return {
+      ok: true,
+      status: 'ok',
+      executionAuthority: EXECUTION_AUTHORITY_TRACKER,
+      sideEffect: false,
+      activeRun: publicRun(active)
+    };
+  };
+
+  const rollbackExecutionAuthority = (request = {}) => {
+    const match = activeMatches(request, { requireOwner: true });
+    if (!match.ok) return { ok: false, status: 'conflict', error: match.error, activeRun: publicRun(state.activeRun) };
+    const active = match.activeRun;
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
+      return {
+        ok: true,
+        status: 'noop',
+        executionAuthority: EXECUTION_AUTHORITY_WEB,
+        sideEffect: false,
+        activeRun: publicRun(active)
+      };
+    }
+    if (!Object.hasOwn(request, 'expectedRevision')
+        || !Number.isSafeInteger(Number(request.expectedRevision))
+        || Number(request.expectedRevision) !== active.revision) {
+      return { ok: false, status: 'conflict', error: 'mission_revision_conflict', activeRun: publicRun(active) };
+    }
+    if (cleanString(request.expectedStateHash, 180) !== active.stateHash) {
+      return { ok: false, status: 'conflict', error: 'mission_state_hash_conflict', activeRun: publicRun(active) };
+    }
+    if (Math.max(0, Math.round(Number(active.executionAppliedEvents) || 0)) !== 0 || !active.executionWebStateHash) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_rollback_not_safe', activeRun: publicRun(active) };
+    }
+    const previousState = jsonClone(state);
+    active.executionAuthority = EXECUTION_AUTHORITY_WEB;
+    active.stateHash = active.executionWebStateHash;
+    active.executionWebStateHash = null;
+    active.executionHandoff = null;
+    active.revision += 1;
+    active.updatedAt = now();
+    active.lastCommandType = 'mission_execution_authority_rollback';
+    active.lastReason = cleanString(request.reason, 240) || 'execution-authority-rollback';
+    addEvent('execution_authority_rolled_back', {
+      missionId: active.missionId,
+      runId: active.runId,
+      clientId: active.ownerClientId,
+      commandId: request.commandId
+    });
+    if (!persist()) {
+      state = previousState;
+      return {
+        ok: false,
+        status: 'error',
+        error: 'mission_execution_persist_failed',
+        sideEffect: false,
+        activeRun: publicRun(state.activeRun)
+      };
+    }
+    return {
+      ok: true,
+      status: 'ok',
+      executionAuthority: EXECUTION_AUTHORITY_WEB,
+      sideEffect: false,
+      activeRun: publicRun(active)
+    };
+  };
+
+  const applyExecutionEvent = (request = {}) => {
+    const active = state.activeRun;
+    if (!active) return { ok: false, status: 'conflict', error: 'no_active_run', activeRun: null };
+    if (cleanString(request.missionId) !== active.missionId || cleanString(request.runId, 220) !== active.runId) {
+      return { ok: false, status: 'conflict', error: 'mission_run_conflict', activeRun: publicRun(active) };
+    }
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', activeRun: publicRun(active) };
+    }
+    if (active.executionRecipe !== EXECUTION_HANDOFF_RECIPE) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_recipe_not_enabled', activeRun: publicRun(active) };
+    }
+    const rawEvent = safeObject(request.event);
+    const eventId = cleanString(rawEvent.eventId || rawEvent.id, 220);
+    if (!eventId) return { ok: false, status: 'error', error: 'mission_execution_event_id_required', activeRun: publicRun(active) };
+    const currentState = executionCore.normalizeState(active.executionState);
+    if (currentState.processedEventIds.includes(eventId)) {
+      const priorEvent = (Array.isArray(safeObject(active.resumeBundle).executionReplay?.events)
+        ? active.resumeBundle.executionReplay.events
+        : []).find(item => cleanString(item?.eventId || item?.id, 220) === eventId);
+      const duplicateEvent = executionCore.normalizeEvent(rawEvent, Number(priorEvent?.sequence) || 0);
+      if (!priorEvent || !duplicateEvent
+          || executionCore.canonicalStringify(priorEvent) !== executionCore.canonicalStringify(duplicateEvent)) {
+        return { ok: false, status: 'conflict', error: 'mission_execution_event_id_conflict', activeRun: publicRun(active) };
+      }
+      return {
+        ok: true,
+        status: 'noop',
+        duplicate: true,
+        stateChanged: false,
+        externalSideEffect: false,
+        activeRun: publicRun(active),
+        view: executionCore.deriveView(currentState)
+      };
+    }
+    if (!Object.hasOwn(request, 'expectedRevision')
+        || !Number.isSafeInteger(Number(request.expectedRevision))
+        || Number(request.expectedRevision) !== active.revision) {
+      return { ok: false, status: 'conflict', error: 'mission_revision_conflict', activeRun: publicRun(active) };
+    }
+    if (!Object.hasOwn(request, 'expectedExecutionRevision')
+        || !Number.isSafeInteger(Number(request.expectedExecutionRevision))
+        || Number(request.expectedExecutionRevision) !== active.executionRevision) {
+      return { ok: false, status: 'conflict', error: 'mission_execution_revision_conflict', activeRun: publicRun(active) };
+    }
+    if (cleanString(request.expectedExecutionStateHash, 180) !== active.executionStateHash) {
+      return { ok: false, status: 'conflict', error: 'mission_execution_state_hash_conflict', activeRun: publicRun(active) };
+    }
+    const event = executionCore.normalizeEvent(rawEvent, active.executionRevision + 1);
+    if (!event) return { ok: false, status: 'error', error: 'mission_execution_event_invalid', activeRun: publicRun(active) };
+    if (event.sequence !== active.executionRevision + 1) {
+      return { ok: false, status: 'conflict', error: 'mission_execution_event_sequence_conflict', activeRun: publicRun(active) };
+    }
+    const nextState = executionCore.reduce(currentState, event);
+    const currentHash = executionCore.stateHash(currentState);
+    const nextHash = executionCore.stateHash(nextState);
+    if (nextHash === currentHash) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_transition_blocked', activeRun: publicRun(active) };
+    }
+    const currentReplay = executionCore.normalizeBundle(safeObject(active.resumeBundle).executionReplay);
+    if (!currentReplay) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_replay_required', activeRun: publicRun(active) };
+    }
+    if (currentReplay.events.length >= MAX_EXECUTION_EVENTS) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_event_log_full', activeRun: publicRun(active) };
+    }
+    const nextReplay = executionCore.normalizeBundle({
+      ...currentReplay,
+      events: currentReplay.events.concat(event)
+    });
+    if (!nextReplay) return { ok: false, status: 'error', error: 'mission_execution_replay_invalid', activeRun: publicRun(active) };
+    const nextResumeBundle = jsonClone(active.resumeBundle);
+    nextResumeBundle.executionReplay = nextReplay;
+    nextResumeBundle.execution = executionCore.createReplayShadowEnvelope(nextReplay, {
+      sourceRevision: active.revision + 1,
+      legacyComparison: 'tracker_authority'
+    });
+    let persistedResumeBundle;
+    try {
+      persistedResumeBundle = safeResumeBundle(nextResumeBundle);
+    } catch (error) {
+      return { ok: false, status: 'error', error: error.code || error.message, activeRun: publicRun(active) };
+    }
+    const previousState = jsonClone(state);
+    const previousEffectIds = new Set(currentState.effects.map(effect => effect.effectId));
+    active.resumeBundle = persistedResumeBundle;
+    active.executionState = nextState;
+    active.executionRevision = nextState.revision;
+    active.executionStateHash = nextHash;
+    active.executionAppliedEvents = Math.max(0, Math.round(Number(active.executionAppliedEvents) || 0)) + 1;
+    active.phase = nextState.phase;
+    active.stateHash = nextHash;
+    active.revision += 1;
+    active.updatedAt = now();
+    active.lastCommandType = 'mission_execution_event';
+    active.lastReason = cleanString(request.reason || event.type, 240) || 'mission-execution-event';
+    addEvent('execution_event', {
+      missionId: active.missionId,
+      runId: active.runId,
+      clientId: cleanString(request.clientId, 220) || 'tracker-core',
+      commandId: request.commandId,
+      reason: event.type
+    });
+    if (!persist()) {
+      state = previousState;
+      return {
+        ok: false,
+        status: 'error',
+        error: 'mission_execution_persist_failed',
+        stateChanged: false,
+        externalSideEffect: false,
+        activeRun: publicRun(state.activeRun)
+      };
+    }
+    return {
+      ok: true,
+      status: 'ok',
+      stateChanged: true,
+      externalSideEffect: false,
+      acceptedEvent: { eventId: event.eventId, type: event.type, sequence: event.sequence },
+      effects: nextState.effects.filter(effect => !previousEffectIds.has(effect.effectId)),
+      view: executionCore.deriveView(nextState),
+      activeRun: publicRun(active)
+    };
+  };
+
   const requestSnapshot = (request = {}) => {
     const active = state.activeRun;
     if (!active) return { ok: false, status: 'noop', error: 'no_active_run', activeRun: null, resumeBundle: null };
@@ -393,6 +899,70 @@ function createMissionAuthorityManager(options = {}) {
       return { ok: false, status: 'conflict', error: 'mission_run_conflict', activeRun: publicRun(active), resumeBundle: null };
     }
     return { ok: true, status: active.resumeBundle ? 'ok' : 'noop', activeRun: publicRun(active), resumeBundle: jsonClone(active.resumeBundle) };
+  };
+
+  const getExecutionSnapshot = () => {
+    const active = state.activeRun;
+    if (!active?.missionId || !active?.runId || !active.executionState) return null;
+    const executionState = executionCore.normalizeState(active.executionState);
+    return {
+      schema: 'ga.mission-execution-authority-snapshot.v1',
+      missionId: active.missionId,
+      runId: active.runId,
+      executionAuthority: active.executionAuthority === EXECUTION_AUTHORITY_TRACKER
+        ? EXECUTION_AUTHORITY_TRACKER
+        : EXECUTION_AUTHORITY_WEB,
+      recipe: cleanString(active.executionRecipe || executionState.recipe, 80).toLowerCase() || null,
+      authorityRevision: Math.max(1, Math.round(Number(active.revision) || 1)),
+      executionRevision: Math.max(0, Math.round(Number(active.executionRevision) || 0)),
+      executionStateHash: cleanString(active.executionStateHash, 180) || null,
+      updatedAt: Number(active.updatedAt || 0) || null,
+      location: executionLocationProjection(active.resumeBundle),
+      state: jsonClone(executionState),
+      view: executionCore.deriveView(executionState)
+    };
+  };
+
+  const finalizeExecutionRun = (request = {}) => {
+    const active = state.activeRun;
+    if (!active) return { ok: true, status: 'noop', activeRun: null, releasedRun: publicRun(state.lastRun) };
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', activeRun: publicRun(active) };
+    }
+    const executionState = executionCore.normalizeState(active.executionState);
+    if (executionState.phase !== 'closed' || executionState.flags.closed !== true) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_not_closed', activeRun: publicRun(active) };
+    }
+    if (executionState.effects.some(effect => effect.status === 'requested')) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_effects_pending', activeRun: publicRun(active) };
+    }
+    const previousState = jsonClone(state);
+    active.active = false;
+    active.state = 'completed';
+    active.phase = 'closed';
+    active.revision += 1;
+    active.updatedAt = now();
+    active.lastCommandType = 'mission_execution_finalize';
+    active.lastReason = cleanString(request.reason, 240) || 'tracker-execution-closed';
+    state.lastRun = normalizeStoredRun(active);
+    state.activeRun = null;
+    addEvent('execution_finalized', {
+      missionId: active.missionId,
+      runId: active.runId,
+      clientId: cleanString(request.clientId, 220) || 'tracker-execution-runtime',
+      commandId: request.commandId,
+      reason: active.lastReason
+    });
+    if (!persist()) {
+      state = previousState;
+      return {
+        ok: false,
+        status: 'error',
+        error: 'mission_execution_persist_failed',
+        activeRun: publicRun(state.activeRun)
+      };
+    }
+    return { ok: true, status: 'ok', outcome: 'completed', releasedRun: publicRun(state.lastRun), activeRun: null };
   };
 
   const release = (request = {}) => {
@@ -509,14 +1079,20 @@ function createMissionAuthorityManager(options = {}) {
 
   return {
     acquire,
+    applyExecutionEvent,
+    commitExecutionAuthority,
     takeover,
     validate,
     updateSnapshot,
+    prepareExecutionAuthority,
     requestSnapshot,
+    rollbackExecutionAuthority,
     release,
     releaseLegacy,
     recordCommand,
     recordEffectAck,
+    getExecutionSnapshot,
+    finalizeExecutionRun,
     getPublicSnapshot(options = {}) {
       return {
         schema: STATE_SCHEMA,
@@ -539,6 +1115,8 @@ function createMissionAuthorityManager(options = {}) {
 }
 
 module.exports = {
+  EXECUTION_AUTHORITY_TRACKER,
+  EXECUTION_AUTHORITY_WEB,
   STATE_SCHEMA,
   STATE_VERSION,
   createMissionAuthorityManager,

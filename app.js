@@ -47111,7 +47111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const swBypassMode = window.__gaLocalDevNoSw === true || params.has('fireCacheFresh') || params.has('noSw') || params.has('swBypass');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1681', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1684', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

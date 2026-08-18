@@ -7,7 +7,7 @@ const APT_MISSION_TEST_LOG_FILENAME = 'GA-APT-Missionstest.txt';
 const MISSION_TEST_LOG_SCHEMA = 'ga.mission-test-log.v3';
 const APT_MISSION_TEST_LOG_SCHEMA = MISSION_TEST_LOG_SCHEMA;
 const DEFAULT_SYSTEM_REPEAT_WINDOW_MS = 60000;
-const SYSTEM_LINE_PATTERN = /^(?:TRACKER_RELAY_(?:OPEN|CLOSE|ERROR)|TRACKER_TELEMETRY_MODE|EFB_HTTP_(?:LISTEN|START_ERROR|PORT_CONFLICT|CONFIG_ERROR)|MISSION_AUTHORITY_(?:LOADED|LOAD_ERROR|PERSIST_ERROR)|MISSION_PROTOCOL_(?:RECEIVED|RESULT|LEGACY_ACQUIRE)|MISSION_SHADOW_ERROR|VOICE_TTS_(?:READY|ERROR))\b/;
+const SYSTEM_LINE_PATTERN = /^(?:TRACKER_RELAY_(?:OPEN|CLOSE|ERROR)|TRACKER_TELEMETRY_MODE|EFB_HTTP_(?:LISTEN|START_ERROR|PORT_CONFLICT|CONFIG_ERROR)|MISSION_AUTHORITY_(?:LOADED|LOAD_ERROR|PERSIST_ERROR)|MISSION_PROTOCOL_(?:RECEIVED|RESULT|LEGACY_ACQUIRE)|MISSION_EXECUTION_(?:RUNTIME|CHECKPOINT|FINALIZED|FINALIZE_ERROR)|MISSION_SHADOW_ERROR|VOICE_TTS_(?:READY|ERROR))\b/;
 
 function clean(value, maxLength = 240) {
   return String(value == null ? '' : value)
@@ -71,6 +71,7 @@ function createMissionTestLog(options = {}) {
       `channel=${token(meta.runtimeChannel)}`,
       'executionAuthority=web',
       'sideEffects=0',
+      `executionRuntime=${meta.executionRuntimeEnabled === true ? 'guarded' : 'disabled'}`,
       'automatic=1',
       'scope=all'
     ].join(' '));
@@ -109,6 +110,7 @@ function createMissionTestLog(options = {}) {
     if (/^MISSION_PROTOCOL_RESULT\s+type=mission_authority_release\s+status=ok\b/i.test(line)) {
       endActiveRun('authority_released');
     }
+    if (/^MISSION_EXECUTION_FINALIZED\b/i.test(line)) endActiveRun('execution_finalized');
     return written;
   }
 
@@ -201,7 +203,10 @@ function createMissionTestLog(options = {}) {
     const shadow = run.unavailableCount > 0
       ? 'UNAVAILABLE'
       : ((run.driftCount > 0 || run.mismatchCount > 0 || run.lastStatus === 'drift') ? 'DRIFT' : (run.lastStatus === 'match' ? 'MATCH' : 'UNKNOWN'));
-    const parity = hasEventReplay
+    const executionFinalized = completion === 'execution_finalized';
+    const parity = executionFinalized
+      ? 'NOT_APPLICABLE'
+      : hasEventReplay
       ? (shadow === 'MATCH' && run.lastMode === 'event-replay' && run.lastPhase === 'closed' ? 'PASS' : 'FAIL')
       : 'NOT_APPLICABLE';
     write([
@@ -209,7 +214,7 @@ function createMissionTestLog(options = {}) {
       `mission=${run.missionId || 'unknown-mission'}`,
       `run=${run.runId || 'unknown-run'}`,
       `recipe=${run.recipes[run.recipes.length - 1] || 'unknown'}`,
-      `mode=${run.lastMode || 'unknown'}`,
+      `mode=${executionFinalized ? 'tracker-execution' : (run.lastMode || 'unknown')}`,
       `transport=PASS`,
       `shadow=${shadow}`,
       `parity=${parity}`,

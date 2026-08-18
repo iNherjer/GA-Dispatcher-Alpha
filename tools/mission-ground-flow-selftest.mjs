@@ -84,10 +84,12 @@ assert.doesNotMatch(movingTarmacCatalog, /Black|Tarmac_(?:Male|Female)_(?:Summer
 const movingPersonPool = section(sync, 'function _missionSceneMovingPersonPool', 'function _missionSceneHeadingOffsetBetween');
 assert.match(movingPersonPool, /MISSION_SCENE_MOVING_TARMAC_PERSON_TITLES/);
 assert.doesNotMatch(movingPersonPool, /Marshaller_/i);
+const boardingScenePlan = section(sync, 'function _missionSceneBuildSpawnEffectCommand', 'function _missionSceneBuildBoardingEffectCommand');
+assert.match(boardingScenePlan, /_missionSceneMovingPersonTitle\(primaryGender, 'boarding-primary'\)/);
+assert.match(boardingScenePlan, /_missionSceneMovingPersonCandidates\(primaryGender, primaryPersonTitle\)/);
+assert.match(boardingScenePlan, /_missionScenePersonTitle\(primaryGender, 'vehicle-idle'\)/);
 const boardingSceneSpawn = section(sync, 'window.missionSceneSpawn = function', 'window.missionSceneClear = function');
-assert.match(boardingSceneSpawn, /_missionSceneMovingPersonTitle\(primaryGender, 'boarding-primary'\)/);
-assert.match(boardingSceneSpawn, /_missionSceneMovingPersonCandidates\(primaryGender, primaryPersonTitle\)/);
-assert.match(boardingSceneSpawn, /_missionScenePersonTitle\(primaryGender, 'vehicle-idle'\)/);
+assert.match(boardingSceneSpawn, /_missionSceneBuildSpawnEffectCommand\(reason, pos\)/);
 const appDeboarding = section(sync, 'window.missionSceneDeboarding = function', 'window.missionSceneContinueDeboarding = function');
 assert.match(appDeboarding, /_missionSceneMovingPersonTitle\(primaryGender, 'deboarding'\)/);
 assert.match(appDeboarding, /_missionSceneMovingPersonCandidates\(primaryGender, personTitle\)/);

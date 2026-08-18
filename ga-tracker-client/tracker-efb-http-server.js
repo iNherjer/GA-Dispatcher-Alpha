@@ -87,7 +87,7 @@ function createTrackerEfbHttpHello(options = {}) {
     role: 'tracker',
     clientId: String(options.clientId || 'ga-tracker-local').trim(),
     appVersion: trackerVersion,
-    capabilities: TRACKER_EFB_HTTP_CAPABILITIES,
+    capabilities: TRACKER_EFB_HTTP_CAPABILITIES.concat(Array.isArray(options.extraCapabilities) ? options.extraCapabilities : []),
     id: options.id,
     timestamp: options.timestamp
   });

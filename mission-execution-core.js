@@ -21,7 +21,7 @@
         'BOARDING_CONFIRMED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
         'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
-        'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'CLOSE_REQUESTED', 'MISSION_CLOSED',
+        'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'EFFECT_ACKNOWLEDGED', 'CLOSE_REQUESTED', 'MISSION_CLOSED',
         'AUTHORITATIVE_SNAPSHOT_IMPORTED'
     ]);
     var EVENT_SET = new Set(KNOWN_EVENT_TYPES);
@@ -431,7 +431,7 @@
             : state.cargo;
         var compliance = state.workflows.complianceInspection;
         if (event.type === 'MISSION_ACCEPTED' || event.type === 'AUTHORITATIVE_SNAPSHOT_IMPORTED') return true;
-        if (state.flags.closed && event.type !== 'MISSION_CLOSED') return false;
+        if (state.flags.closed && event.type !== 'MISSION_CLOSED' && event.type !== 'EFFECT_ACKNOWLEDGED') return false;
         if (event.type === 'CARGO_STATE_CHANGED') return true;
         if (event.type === 'PREPARE_REQUESTED') return phase === 'planned';
         if (event.type === 'BOARDING_STARTED') return phase === 'prepare' || phase === 'boarding';
@@ -463,6 +463,15 @@
             return phase === 'end_ready' || phase === 'end_unloading' || phase === 'closing';
         }
         if (event.type === 'COMPLIANCE_EVENT') return !state.flags.closed;
+        if (event.type === 'EFFECT_ACKNOWLEDGED') {
+            var effectId = text(object(event.payload).effectId, 220);
+            var effectStatus = text(object(event.payload).status, 40).toLowerCase();
+            return !!effectId
+                && (effectStatus === 'completed' || effectStatus === 'failed')
+                && state.effects.some(function (effect) {
+                    return effect.effectId === effectId && effect.status === 'requested';
+                });
+        }
         if (event.type === 'CLOSE_REQUESTED') {
             return (phase === 'end_ready' || phase === 'closing')
                 && eventCargo.summary.destinationRemaining === 0
@@ -576,6 +585,19 @@
                 remediation: { required: compliance.remediationRequired === true },
                 result: { status: compliance.result },
                 releasedAt: compliance.released === true ? event.occurredAt || 1 : 0
+            });
+        } else if (event.type === 'EFFECT_ACKNOWLEDGED') {
+            var acknowledgedEffectId = text(object(event.payload).effectId, 220);
+            var acknowledgedStatus = text(object(event.payload).status, 40).toLowerCase();
+            state.effects = state.effects.map(function (effect) {
+                if (effect.effectId !== acknowledgedEffectId || effect.status !== 'requested') return effect;
+                return {
+                    effectId: effect.effectId,
+                    type: effect.type,
+                    status: acknowledgedStatus,
+                    sourceEventId: effect.sourceEventId,
+                    payload: effect.payload
+                };
             });
         } else if (event.type === 'CLOSE_REQUESTED') {
             state.phase = 'closing';

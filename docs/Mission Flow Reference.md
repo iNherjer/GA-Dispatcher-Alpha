@@ -335,6 +335,19 @@ haben.
   versionierter Owner bleibt gesperrt.
 - Sim- und Live-Modus verwenden dieselben fachlichen Gates. Nur Scene-ACK,
   Telemetriequelle und sichtbare Animation unterscheiden sich.
+- Der vorbereitete Tracker-APT-Pfad darf keine zweite Szenenentscheidung
+  erzeugen. `ga.mission-apt-effect-plan.v1` wird aus denselben Spawn- und
+  Boarding-Buildern wie der aktive Web-Pfad erzeugt; der Tracker ersetzt beim
+  Effekt nur aktuelle Simposition, Run und deterministische Command-ID.
+- Ein Tracker-Execution-Effekt darf den fachlichen Zustand erst nach dem echten
+  ACK des bestehenden Simulatorhandlers fortschalten. Fehlender Plan,
+  `no_scene`, `busy`, `noop` oder ein SimConnect-Fehler sind kein Boarding-
+  beziehungsweise Prepare-Erfolg.
+- APT-Zielradien verwenden standardmaessig 0,16 NM am Arrival-Anker, 0,35 NM
+  am Airport-Fallback und 1,2 NM am routenbasierten Ziel. Abweichungen duerfen
+  nur als vollstaendige `ga.mission-location-policy.apt.v1` innerhalb der im
+  Location-Core definierten Grenzen transportiert werden. POI-/Sonderzonen
+  sind eigene Rezepte und keine vergroesserten APT-Radien.
 
 ## 8. Code-Eigentuemer
 
@@ -344,10 +357,13 @@ haben.
 | Missionsemantik und Contract-Hydration | `app.js` |
 | Manifest, Signatur, Verlade-Manager | `mission-cargo-core.js` |
 | Runtime und Ground Readiness | `mission-runtime-core.js` |
+| Gemeinsame APT-Zielradien und Distanzentscheidung | `mission-location-core.js` |
 | UI-Orchestrierung, Scene Commands, Mission Lifecycle | `sync.js` |
 | APT-/Pickup-Ankunftsrollen | `mission-arrival-core.js` |
 | PAX-Text, TTS, Voice-Queue | `passenger-voice.js` |
 | Tracker-Animation und SimObjects | `ga-tracker-client/tracker.js` |
+| Tracker-APT-Intent-/Effekt-Orchestrierung | `ga-tracker-client/tracker-mission-execution-runtime.js` |
+| Validierung vorbereiteter APT-Szeneneffekte | `ga-tracker-client/tracker-mission-simulator-effects.js` |
 
 Fachliche Manifest-Erfolgskriterien gehoeren nach `mission-cargo-core.js`.
 `sync.js` verbindet UI und Ereignisse. Voice und Tracker duerfen den fachlichen
@@ -360,6 +376,7 @@ Mindestens:
 ```bash
 node --check app.js
 node --check mission-cargo-core.js
+node --check mission-location-core.js
 node --check mission-runtime-core.js
 node --check passenger-voice.js
 node --check sync.js
@@ -367,6 +384,7 @@ node tools/mission-flow-simulation-selftest.mjs
 node tools/mission-ground-flow-selftest.mjs
 node tools/mission-cargo-persistence-selftest.mjs
 node tools/mission-update-sync-selftest.mjs
+node --test mission-location-core.test.js
 ```
 
 Bei Profil-, Contract- oder Szenenaenderungen zusaetzlich einen erzwungenen

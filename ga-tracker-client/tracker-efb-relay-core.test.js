@@ -39,3 +39,13 @@ test('invalid channels fall back to Stable and invalid envelopes stay legacy-saf
     trackerVersionCode: 320
   }), /passen/);
 });
+
+test('relay hello accepts the guarded alpha mission-intent capability without changing defaults', () => {
+  const hello = createTrackerRelayHello({
+    trackerVersion: 'v369',
+    trackerVersionCode: 369,
+    runtimeChannel: 'alpha',
+    extraCapabilities: [protocol.CAPABILITIES.MISSION_INTENT]
+  });
+  assert.equal(hello.payload.capabilities.includes(protocol.CAPABILITIES.MISSION_INTENT), true);
+});

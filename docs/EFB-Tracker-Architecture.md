@@ -562,6 +562,104 @@ Der v368-Windows-Build umfasst 48.277.654 Bytes mit SHA-256
 `9db300c13488d7f18b97d2f1712f2d59d18608d61b99e01337536a0c18da8692`;
 nur der Alpha-Kanal wird aktualisiert, Stable bleibt auf v356.
 
+Der nachfolgende unvollstaendige v368-Realbericht ist als Transport- und
+Snapshot-Shadow-Nachweis freigegeben: 35 Checkpoints stimmten ohne Drift
+ueberein, der Sim-Abbruch verhinderte lediglich den terminalen Release. Da der
+Lauf weiterhin `adapter=poi`, `replay=0` und `snapshot-shadow` meldete, gilt er
+nicht als unabhaengiger APT-Event-Replay-Nachweis. Die erste E4-Grenze verlangt
+deshalb weiterhin technisch ein echtes `adapter=apt`-Event-Replay ohne Browser-
+oder Legacy-Drift.
+
+Der lokale E4-Unterbau erweitert denselben atomar persistierten Run um
+`executionAuthority`, Rezept, Execution-Revision, Execution-State-Hash und
+einen vorbereiteten Zwei-Phasen-Handoff. Die Vorbereitung ist nur im noch
+seiteneffektfreien APT-`planned`-Zustand erlaubt und prueft Run/Owner, exakte
+Authority-Revision, Web-State-Hash, Execution-State-Hash sowie die vollstaendige
+Browser-/Tracker-Projektion. Ein weiterer Web-Snapshot oder Owner-Wechsel
+verwirft die Vorbereitung. Commit ist standardmaessig gesperrt und wird weder
+vom Tracker-Protokoll aufgerufen noch als Capability beworben. Lokale Tests
+koennen ihn ausdruecklich aktivieren und bestaetigen dann persistente Recovery,
+die Sperre weiterer Web-Snapshots und einen Rollback, solange noch kein neues
+Tracker-Execution-Event angewendet wurde.
+
+Der danach liegende interne Event-Eingang ist ebenfalls noch nicht an Relay,
+EFB oder Toolbar angeschlossen. Er akzeptiert nur das naechste normalisierte
+Core-Event mit exakter Authority-/Execution-Revision und Execution-State-Hash,
+bestaetigt bereits verarbeitete `eventId` idempotent und persistiert
+Execution-State, Replay-Bundle, Phase und Hash in derselben atomaren
+Run-Transaktion. Deklarative Effekte verlassen diese Grenze noch nicht. Nach
+dem ersten akzeptierten Event wird der einfache Rollback blockiert; ein
+Persistenzfehler setzt die In-Memory-Transaktion zurueck und kann kein
+erfolgreiches ACK erzeugen.
+
+Auf diesem Eingang liegt lokal ein erster reiner APT-Adapter. Sein interner
+Execution-Snapshot enthaelt nur normalisierten Core-State, abgeleitete Aktionen,
+Run-/Authority-Revision und Execution-Hash; Owner, Resume-Bundle, Briefing und
+Mission-Narrative werden nicht weitergereicht. Cockpit-Aktionen koennen nur
+vordefinierte Core-Events erzeugen. Manifest-Aenderungen werden aus Item-ID,
+Aktion und dem aktuellen autoritativen Zustand neu aufgebaut, loeschen eine
+vorhandene Signatur und erlauben Passagiere ausschliesslich ueber spaetere
+Szenen-/Pax-ACKs.
+
+Der Telemetriepfad des Adapters bildet mit stabilen Zeitfenstern ausschliesslich
+`AIRBORNE`, `TOUCHDOWN` und `GROUND_STILL` ab. Pause und Menuezustand liefern
+keine Missionszeit. Die Zielortentscheidung laeuft jetzt ueber den in Browser
+und Node identischen `mission-location-core.js`. Der Authority-Core projiziert
+aus dem privaten Resume-Bundle nur `aptArrivalPlan` und letzten gueltigen
+Routenpunkt; Briefing, Owner und Narrative bleiben ausserhalb des Adapters.
+Die Liveposition kommt ausschliesslich aus der Tracker-Telemetrie. Ein externes
+`atDestination`-Flag kann die Entscheidung nicht ueberschreiben. Die Radien
+entsprechen der bestehenden App: 0,16 NM Arrival-Anker, 0,35 NM
+Flugplatz-Fallback und 1,2 NM Missionsziel, wenn kein APT-Anker vorhanden ist.
+Die App-Runtime nutzt denselben Core mit ihrer bisherigen Rechnung als
+kompatiblem Fallback.
+
+APT-Radien koennen additiv ueber
+`ga.mission-location-policy.apt.v1` variiert werden. Der Authority-Core nimmt
+die Policy nur als vollstaendiges Dreierprofil an und der Location-Core
+begrenzt Arrival-Anker, Airport-Fallback und routenbasiertes Missionsziel auf
+0,05-0,5 NM, 0,1-1,0 NM beziehungsweise 0,25-3,0 NM. Bei jedem Schema- oder
+Wertefehler gelten wieder 0,16/0,35/1,2 NM. Ein spaeteres POI-Rezept erhaelt
+einen eigenen Zonenvertrag und kann damit zusaetzlich Hoehenband,
+Geschwindigkeit, Dwell-Zeit und mehrere Zonen ausdruecken, ohne die
+APT-Semantik umzudeuten.
+
+Der lokale `tracker-mission-effect-runner.js` konsumiert ausschliesslich die
+vom Execution-Core erzeugten deklarativen Effekte. Die `effectId` ist zugleich
+die stabile Dispatch-`commandId`. Positive oder terminal negative Ergebnisse
+werden mit `EFFECT_ACKNOWLEDGED` in demselben Replay persistiert. Vor einem
+positiven ACK wendet der Runner fuer `scene.prepare`, `scene.boarding` und
+`mission.close_requested` die fest zugeordneten internen Folgeevents an. Wird
+der Tracker zwischen Dispatch und ACK beendet, bleibt der Effekt `requested`
+und wird nach Recovery mit identischer ID wieder aufgenommen. Ist das ACK
+persistiert, wird der Handler nicht erneut aufgerufen. Damit ist die
+At-least-once-Ausfuehrung nach aussen an eine idempotente Command-ID gebunden,
+waehrend der Missionszustand exakt einmal fortgeschaltet wird.
+
+Der lokale v369-Schnitt verdrahtet die echten Simulatorhandler hinter einem
+zweifachen, standardmaessig inaktiven Alpha-Gate. Die App transportiert dazu
+`ga.mission-apt-effect-plan.v1`, erzeugt aus denselben bestehenden Spawn- und
+Boarding-Buildern wie der Web-Ablauf. Der Tracker validiert den vorbereiteten
+Command-Typ und ersetzt ausschliesslich Liveposition, Run und deterministische
+`effectId`. Die interne Controller-Grenze erlaubt nur Scene-Spawn und Boarding;
+deren echte ACKs erreichen den Effect-Runner auch ohne offenen Relay-Socket.
+
+`tracker-mission-execution-runtime.js` verbindet Adapter, Runner,
+SimConnect-Telemetrie und diese Controller-Grenze. Aktiv wird sie nur bei
+Tracker-Kanal `alpha` plus `VFR_MULTITOOL_APT_EXECUTION=1`; erst dann wird
+`mission.intent.v1` in Relay- und Loopback-Hello ergaenzt. Der normale Start,
+Stable und eine Alpha ohne Umgebungsvariable bleiben bei
+`executionAuthority=web`, read-only Intents und unveraenderten Web-
+Seiteneffekten. Eine automatische Autoritaetsuebergabe ist noch nicht
+implementiert. Vor dem Einschalten im Alpha-Kanal muessen Web-/EFB-Aktionen
+auf Intents umgestellt und ein In-Sim-Recoverytest zwischen physischem Effekt
+und ACK bestanden werden, damit kein SimObject doppelt entsteht.
+
+Ein autoritativ geschlossenes APT-Replay bleibt nicht als scheinbar aktive
+Mission liegen: Sobald `MISSION_CLOSED` und alle Effekt-ACKs atomar gespeichert
+sind, finalisiert der Authority-Core den Run nach `lastRun`. Ein noch offener
+oder effektbehafteter Lauf kann diesen internen Abschluss nicht aufrufen.
+
 Der 0.4.3-In-Sim-Log zeigt, dass die Dateien in richtiger Reihenfolge geladen
 werden, Coherent aber Optional Chaining und Object Spread nicht parst.
 Tracker v329 und EFB 0.4.4 definieren deshalb eine zusaetzliche Hostgrenze:

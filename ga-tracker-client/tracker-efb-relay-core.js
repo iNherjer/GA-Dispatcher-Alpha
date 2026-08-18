@@ -31,7 +31,7 @@ function createTrackerRelayHello(options = {}) {
     role: 'tracker',
     clientId: String(options.clientId || 'ga-tracker').trim(),
     appVersion: trackerVersion,
-    capabilities: TRACKER_RELAY_CAPABILITIES,
+    capabilities: TRACKER_RELAY_CAPABILITIES.concat(Array.isArray(options.extraCapabilities) ? options.extraCapabilities : []),
     id: options.id,
     timestamp: options.timestamp
   });

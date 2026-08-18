@@ -2470,10 +2470,11 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
     } catch (_) {
         efbMission = null;
     }
+    const adapter = _missionAuthorityAdapter(runtime, missionState);
     return _missionAuthorityAttachExecutionShadow({
         version: 2,
         missionId: runtime.missionId,
-        adapter: _missionAuthorityAdapter(runtime, missionState),
+        adapter,
         descriptor: typeof window.GAMissionResumeAdapters?.createDescriptor === 'function'
             ? window.GAMissionResumeAdapters.createDescriptor(runtime, missionState)
             : null,
@@ -2481,7 +2482,8 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
         mapProfile: options.includeMapProfile === false ? null : _buildMissionAuthorityMapProfile(),
         efbMission,
         missionState,
-        runtime
+        runtime,
+        executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null
     });
 }
 
@@ -2562,10 +2564,11 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
     } catch (_) {
         efbMission = null;
     }
+    const adapter = _missionAuthorityAdapter(runtime, compactMissionState);
     const bundle = _missionAuthorityAttachExecutionShadow({
         version: 2,
         missionId: trackerMissionId,
-        adapter: _missionAuthorityAdapter(runtime, compactMissionState),
+        adapter,
         descriptor: typeof window.GAMissionResumeAdapters?.createDescriptor === 'function'
             ? window.GAMissionResumeAdapters.createDescriptor(runtime, compactMissionState)
             : null,
@@ -2573,7 +2576,8 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
         mapProfile: _buildMissionAuthorityMapProfile(),
         efbMission,
         missionState: compactMissionState,
-        runtime
+        runtime,
+        executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null
     });
     const validation = _validateMissionAuthorityResumeBundle(bundle);
     if (!validation.ok) return { ok: false, error: validation.error || 'local_resume_invalid' };
@@ -2602,6 +2606,7 @@ function _missionAuthorityResumeBundleHash(bundle = null) {
         missionId: bundle.missionId,
         descriptor: bundle.descriptor,
         mapProfile: bundle.mapProfile,
+        executionEffectPlan: bundle.executionEffectPlan,
         efbMission: efbMissionForHash,
         missionState: bundle.missionState,
         runtime: runtimeForHash,
@@ -6852,53 +6857,8 @@ function _missionSceneCommonSceneCommandFields() {
     return fields;
 }
 
-window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
-    const debugReason = String(reason || '').includes('debug');
-    if (!debugReason && _missionIsFreeflightOnly()) {
-        if (window.missionSceneStatus) window.missionSceneStatus.blockReason = 'freeflight_only';
-        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
-        return false;
-    }
-    if (_missionSceneGroupCapabilityMissing()) {
-        if (window.missionSceneStatus) {
-            window.missionSceneStatus.blockReason = 'tracker_group_capability_required';
-            window.missionSceneStatus.error = 'tracker_group_capability_required';
-        }
-        _missionPhaseDebugPush('scene_spawn_blocked', { reason: 'tracker_group_capability_required' });
-        return false;
-    }
-    const pos = window.lastLiveGpsPos || {};
-    const gate = _missionSceneFlightGate(window.lastLiveFlightData || {});
-    if (!gate.rawHasPosition || !gate.plausiblePosition || !gate.nearDeparture) {
-        window.missionSceneStatus.blockReason = !gate.rawHasPosition ? 'no_live_position' : (!gate.plausiblePosition ? 'bad_live_position' : `away_from_start_${Math.round(Number(gate.depDistNm || 0))}nm`);
-        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
-        return false;
-    }
-    if (!debugReason && !gate.canStage) {
-        window.missionSceneStatus.blockReason = gate.paused || gate.inMenuOrMap ? 'sim_paused_or_menu'
-            : (!gate.groundLike ? 'not_on_ground'
-                : (!gate.lowGround ? 'agl_too_high'
-                    : (!gate.stationary ? 'too_fast_for_stage' : 'scene_gate_closed')));
-        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
-        return false;
-    }
+function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position = {}) {
     const sceneId = _missionSceneId();
-    if (!debugReason && _missionSceneSpawnBackoffActive(window.missionSceneStatus || {}, sceneId)) {
-        window.missionSceneStatus.blockReason = 'spawn_error_cooldown';
-        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
-        return false;
-    }
-    const sameSceneAlreadyRequested = !!(
-        !debugReason
-        && window.missionSceneStatus?.sceneId === sceneId
-        && (_missionSceneSpawnPendingActive(window.missionSceneStatus || {}, sceneId) || window.missionSceneStatus?.spawned)
-        && (Date.now() - Number(window.missionSceneStatus?.lastCommandAt || 0)) < 15000
-    );
-    if (sameSceneAlreadyRequested) {
-        window.missionSceneStatus.blockReason = 'spawn_already_requested';
-        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
-        return true;
-    }
     const vehicleSupportEnabled = _missionSceneVehicleSupportEnabled();
     const vehicleAsset = vehicleSupportEnabled ? _missionSceneVehicleAsset() : null;
     const vehicleTitle = vehicleAsset?.title || '';
@@ -6961,7 +6921,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
             label: `Boarding Pax ${idx + 1}`,
             objectTitle: title,
             titleCandidates: _missionSceneMovingPersonCandidates(gender, title),
-            forwardM: (Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16),
+            forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
             rightM: (Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8) + (idx * 0.8),
             headingMode: 'face_aircraft',
             altOffsetFt: Number.isFinite(Number(personSpawn.altOffsetFt)) ? Number(personSpawn.altOffsetFt) : 0
@@ -7007,33 +6967,144 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
             altOffsetFt: 0
         });
     }
-    const commandId = window.sendTrackerCommand({
-        type: 'mission_scene_spawn',
+    const pos = position && typeof position === 'object' ? position : {};
+    return {
+        command: {
+            type: 'mission_scene_spawn',
+            sceneId,
+            reason,
+            lat: Number(pos.lat),
+            lon: Number(pos.lon ?? pos.lng),
+            altFt: Number.isFinite(Number(pos.altFt ?? pos.alt)) ? Number(pos.altFt ?? pos.alt) : 0,
+            hdg: Number.isFinite(Number(pos.hdg ?? pos.heading)) ? Number(pos.hdg ?? pos.heading) : 0,
+            boarderCount,
+            passengerCount: _missionScenePaxCount(),
+            vehicleDeparture: vehicleSupportEnabled,
+            vehicleArrival: vehicleSupportEnabled,
+            ..._missionSceneGroupCommandFields(),
+            items: sceneItems.concat(cargoItems, personItems)
+        },
+        debug: {
+            boarderCount,
+            passengerCount: _missionScenePaxCount(),
+            groupSequence: !!groupPlan,
+            groupVehicleKind: groupPlan?.groupVehicleKind || null,
+            personTitles: personItems.map(item => item.objectTitle).filter(Boolean),
+            itemCount: sceneItems.length + cargoItems.length + personItems.length
+        }
+    };
+}
+
+function _missionSceneBuildBoardingEffectCommand(reason = 'boarding', position = {}, sceneId = _missionSceneId()) {
+    const boardingConfig = _missionSceneBoardingConfig();
+    const pos = position && typeof position === 'object' ? position : {};
+    const command = {
+        type: 'mission_scene_boarding',
         sceneId,
         reason,
-        lat: Number(pos.lat),
-        lon: Number(pos.lon),
-        altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
-        hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
-        boarderCount,
-        passengerCount: _missionScenePaxCount(),
-        vehicleDeparture: vehicleSupportEnabled,
-        vehicleArrival: vehicleSupportEnabled,
-        ..._missionSceneGroupCommandFields(),
-        items: sceneItems.concat(cargoItems, personItems)
-    });
+        ..._missionSceneCommonSceneCommandFields(),
+        durationMs: Number.isFinite(Number(boardingConfig.durationMs)) ? Number(boardingConfig.durationMs) : 18000,
+        finalHoldMs: 450,
+        removePerson: true,
+        removeCargoAtWaypoint: false,
+        splitCargoRoute: false,
+        cargoArrivalSlackMs: 250,
+        cargoTimingFactor: 1,
+        cargoHoldMs: 0,
+        cargoObjectKind: 'cargo'
+    };
+    if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon ?? pos.lng))) {
+        command.lat = Number(pos.lat);
+        command.lon = Number(pos.lon ?? pos.lng);
+        command.altFt = Number.isFinite(Number(pos.altFt ?? pos.alt)) ? Number(pos.altFt ?? pos.alt) : 0;
+        command.hdg = Number.isFinite(Number(pos.hdg ?? pos.heading)) ? Number(pos.hdg ?? pos.heading) : 0;
+    }
+    return command;
+}
+
+function _buildMissionAptExecutionEffectPlan() {
+    const missionId = _activeMissionRuntimeId('');
+    if (!missionId) return null;
+    const spawn = _missionSceneBuildSpawnEffectCommand('tracker-execution:scene.prepare', { lat: 0, lon: 0, alt: 0, hdg: 0 });
+    const boarding = _missionSceneBuildBoardingEffectCommand('tracker-execution:scene.boarding', {}, spawn.command.sceneId);
+    const stripLivePosition = command => {
+        const copy = _safeCloneJson(command, null);
+        if (!copy) return null;
+        delete copy.lat;
+        delete copy.lon;
+        delete copy.altFt;
+        delete copy.hdg;
+        return copy;
+    };
+    return {
+        schema: 'ga.mission-apt-effect-plan.v1',
+        version: 1,
+        recipe: 'apt',
+        missionId,
+        sceneId: spawn.command.sceneId,
+        effects: {
+            'scene.prepare': { command: stripLivePosition(spawn.command) },
+            'scene.boarding': { command: stripLivePosition(boarding) }
+        }
+    };
+}
+
+window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
+    const debugReason = String(reason || '').includes('debug');
+    if (!debugReason && _missionIsFreeflightOnly()) {
+        if (window.missionSceneStatus) window.missionSceneStatus.blockReason = 'freeflight_only';
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return false;
+    }
+    if (_missionSceneGroupCapabilityMissing()) {
+        if (window.missionSceneStatus) {
+            window.missionSceneStatus.blockReason = 'tracker_group_capability_required';
+            window.missionSceneStatus.error = 'tracker_group_capability_required';
+        }
+        _missionPhaseDebugPush('scene_spawn_blocked', { reason: 'tracker_group_capability_required' });
+        return false;
+    }
+    const pos = window.lastLiveGpsPos || {};
+    const gate = _missionSceneFlightGate(window.lastLiveFlightData || {});
+    if (!gate.rawHasPosition || !gate.plausiblePosition || !gate.nearDeparture) {
+        window.missionSceneStatus.blockReason = !gate.rawHasPosition ? 'no_live_position' : (!gate.plausiblePosition ? 'bad_live_position' : `away_from_start_${Math.round(Number(gate.depDistNm || 0))}nm`);
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return false;
+    }
+    if (!debugReason && !gate.canStage) {
+        window.missionSceneStatus.blockReason = gate.paused || gate.inMenuOrMap ? 'sim_paused_or_menu'
+            : (!gate.groundLike ? 'not_on_ground'
+                : (!gate.lowGround ? 'agl_too_high'
+                    : (!gate.stationary ? 'too_fast_for_stage' : 'scene_gate_closed')));
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return false;
+    }
+    const sceneId = _missionSceneId();
+    if (!debugReason && _missionSceneSpawnBackoffActive(window.missionSceneStatus || {}, sceneId)) {
+        window.missionSceneStatus.blockReason = 'spawn_error_cooldown';
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return false;
+    }
+    const sameSceneAlreadyRequested = !!(
+        !debugReason
+        && window.missionSceneStatus?.sceneId === sceneId
+        && (_missionSceneSpawnPendingActive(window.missionSceneStatus || {}, sceneId) || window.missionSceneStatus?.spawned)
+        && (Date.now() - Number(window.missionSceneStatus?.lastCommandAt || 0)) < 15000
+    );
+    if (sameSceneAlreadyRequested) {
+        window.missionSceneStatus.blockReason = 'spawn_already_requested';
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return true;
+    }
+    const planned = _missionSceneBuildSpawnEffectCommand(reason, pos);
+    const commandId = window.sendTrackerCommand(planned.command);
     if (!commandId) return false;
     _missionPhaseDebugPush('scene_command', {
         type: 'mission_scene_spawn',
         commandId,
         sceneId,
         reason,
-        boarderCount,
-        passengerCount: _missionScenePaxCount(),
-        groupSequence: !!groupPlan,
-        groupVehicleKind: groupPlan?.groupVehicleKind || null,
-        personTitles: personItems.map(item => item.objectTitle).filter(Boolean),
-        itemCount: sceneItems.length + cargoItems.length + personItems.length,
+        ...planned.debug,
         startPhase: _missionStartPhase(),
         runtimePhase: _missionRuntimePhaseSnapshot()
     });
@@ -9535,28 +9606,7 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         if (!window.missionSceneStatus?.spawned) return { status: 'no_scene' };
         const pos = window.lastLiveGpsPos || {};
         const sceneId = status.sceneId || _missionSceneId();
-        const boardingConfig = _missionSceneBoardingConfig();
-        const command = {
-            type: 'mission_scene_boarding',
-            sceneId,
-            reason,
-            ..._missionSceneCommonSceneCommandFields(),
-            durationMs: Number.isFinite(Number(boardingConfig.durationMs)) ? Number(boardingConfig.durationMs) : 18000,
-            finalHoldMs: 450,
-            removePerson: true,
-            removeCargoAtWaypoint: false,
-            splitCargoRoute: false,
-            cargoArrivalSlackMs: 250,
-            cargoTimingFactor: 1,
-            cargoHoldMs: 0,
-            cargoObjectKind: 'cargo'
-        };
-        if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon))) {
-            command.lat = Number(pos.lat);
-            command.lon = Number(pos.lon);
-            command.altFt = Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0;
-            command.hdg = Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0;
-        }
+        const command = _missionSceneBuildBoardingEffectCommand(reason, pos, sceneId);
         const commandId = window.sendTrackerCommand(command);
         if (!commandId) return { status: 'not_sent' };
         _missionPhaseDebugPush('boarding_command', {
@@ -13996,7 +14046,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
         'missionPlanV2', 'missionPlanV4', 'missionContractV4', 'missionVariety',
-        'aptArrivalPlan', 'surveyPattern', 'cargoManifest', 'cargoOutcome', 'fireScenario', 'complianceInspection'
+        'aptArrivalPlan', 'executionLocationPolicy', 'surveyPattern', 'cargoManifest', 'cargoOutcome', 'fireScenario', 'complianceInspection'
     ];
     const out = {};
     keep.forEach(key => {

@@ -15,11 +15,11 @@ const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core'
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
 test('current tracker exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v368'/);
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v369'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 368/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 369/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);
   assert.match(trackerSource, /currentTelemetryHibernateState\.shouldSendTelemetry/);
@@ -71,6 +71,18 @@ test('local EFB hello advertises snapshots, web client and bounded client diagno
   assert.equal(hello.payload.capabilities.includes('cockpit.session.v1'), true);
   assert.equal(hello.payload.capabilities.includes('mission.intent.v1'), false);
   assert.equal(hello.payload.capabilities.includes('voice.playback.v1'), true);
+});
+
+test('local EFB hello advertises mission intents only when explicitly added by the alpha runtime', () => {
+  const hello = createTrackerEfbHttpHello({
+    trackerVersion: 'v369',
+    trackerVersionCode: 369,
+    runtimeChannel: 'alpha',
+    extraCapabilities: ['mission.intent.v1'],
+    id: 'hello-execution-test',
+    timestamp: 1
+  });
+  assert.equal(hello.payload.capabilities.includes('mission.intent.v1'), true);
 });
 
 test('loopback EFB server exposes versioned status, flight and mission snapshots read-only', async (t) => {

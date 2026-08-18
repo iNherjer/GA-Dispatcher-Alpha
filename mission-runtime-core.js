@@ -1031,13 +1031,35 @@ function _missionEndReadiness(lat = null, lon = null) {
     const onGround = typeof fd.onGround === 'boolean' ? !!fd.onGround : (Number.isFinite(agl) ? agl <= 40 : false);
     const parkingBrakeSet = fd.parkingBrake === true || fd.parkingBrake === 1;
     const groundStill = onGround && ((Number.isFinite(gs) && gs <= 2.0) || parkingBrakeSet);
-    const hasAptArrival = _hasAptArrivalRuntimePoint();
-    const dArrivalNm = hasAptArrival ? _distanceToAptArrivalNm(curLat, curLon) : null;
-    const dMissionNm = _distanceToMissionTargetNm(curLat, curLon);
-    const atArrivalPoint = hasAptArrival && Number.isFinite(dArrivalNm) && dArrivalNm <= 0.16;
-    const atAirportFallback = hasAptArrival && Number.isFinite(dMissionNm) && dMissionNm <= 0.35;
-    const atMissionTarget = !hasAptArrival && Number.isFinite(dMissionNm) && dMissionNm <= 1.2;
-    const atTarget = atArrivalPoint || atAirportFallback || atMissionTarget;
+    let sharedDestination = null;
+    if (typeof window.GAMissionLocationCore?.resolveAptDestination === 'function') {
+        const arrivalPoint = _aptArrivalPointForRuntime();
+        const missionTarget = _targetPointForMission();
+        const missionData = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+        const missionContract = missionData?.missionContract || window.activeMissionContract || null;
+        const policy = missionData?.executionLocationPolicy || missionContract?.executionLocationPolicy || null;
+        sharedDestination = window.GAMissionLocationCore.resolveAptDestination(
+            { arrivalPoint, missionTarget, policy },
+            { lat: curLat, lon: curLon }
+        );
+    }
+    const hasAptArrival = sharedDestination ? sharedDestination.hasAptArrival : _hasAptArrivalRuntimePoint();
+    const dArrivalNm = sharedDestination
+        ? sharedDestination.dArrivalNm
+        : (hasAptArrival ? _distanceToAptArrivalNm(curLat, curLon) : null);
+    const dMissionNm = sharedDestination ? sharedDestination.dMissionNm : _distanceToMissionTargetNm(curLat, curLon);
+    const atArrivalPoint = sharedDestination
+        ? sharedDestination.reason === 'apt_arrival_point'
+        : (hasAptArrival && Number.isFinite(dArrivalNm) && dArrivalNm <= 0.16);
+    const atAirportFallback = sharedDestination
+        ? sharedDestination.reason === 'apt_airport_fallback'
+        : (hasAptArrival && Number.isFinite(dMissionNm) && dMissionNm <= 0.35);
+    const atMissionTarget = sharedDestination
+        ? sharedDestination.reason === 'mission_target'
+        : (!hasAptArrival && Number.isFinite(dMissionNm) && dMissionNm <= 1.2);
+    const atTarget = sharedDestination
+        ? sharedDestination.atDestination === true
+        : (atArrivalPoint || atAirportFallback || atMissionTarget);
     const reason = !groundStill ? 'not_stopped'
         : (!atTarget ? 'not_at_target'
             : (atArrivalPoint ? 'apt_arrival_point'

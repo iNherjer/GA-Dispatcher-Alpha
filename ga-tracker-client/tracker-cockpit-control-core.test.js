@@ -115,6 +115,18 @@ test('an enabled tracker executor receives only the normalized intent and contro
   assert.equal(app.control.publicState().missionIntentsEnabled, true);
 });
 
+test('cockpit presence reports the current run authority instead of a startup constant', () => {
+  let authority = 'web';
+  const app = fixture({
+    executionAuthority: 'tracker',
+    getExecutionAuthority: () => authority,
+    executeIntent: async () => ({ ok: true })
+  });
+  assert.equal(app.control.publicState().executionAuthority, 'web');
+  authority = 'tracker';
+  assert.equal(app.control.publicState().executionAuthority, 'tracker');
+});
+
 test('one cockpit session cannot flood mission intents', async () => {
   const app = fixture();
   const registered = app.control.register({ clientId: 'web-rate', role: 'web' });

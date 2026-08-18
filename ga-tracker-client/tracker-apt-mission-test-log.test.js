@@ -80,6 +80,19 @@ test('non-APT snapshot shadows receive transport and shadow results without clai
   assert.doesNotMatch(lines.join('\n'), /apiKey/);
 });
 
+test('tracker execution checkpoints stay redacted and finalize the test without claiming browser parity', () => {
+  const lines = [];
+  const logger = createMissionTestLog({ filename: '/tmp/unused-mission-test.txt', write: line => lines.push(line) });
+  logger.start({ trackerVersion: 'v369', trackerVersionCode: 369, runtimeChannel: 'alpha', executionRuntimeEnabled: true });
+  logger.observe(aptState());
+  logger.recordSystemLine('MISSION_EXECUTION_CHECKPOINT mission=mission-apt-test run=run-apt-test reason=intent:start_mission authorityRevision=9 executionRevision=7 phase=enroute stateHash=mex1-safe effectsRequested=0 effectsCompleted=2 effectsFailed=0');
+  logger.recordSystemLine('MISSION_EXECUTION_FINALIZED mission=mission-apt-test run=run-apt-test');
+  assert.match(lines.join('\n'), /executionRuntime=guarded/);
+  assert.match(lines.join('\n'), /MISSION_TEST_SYSTEM MISSION_EXECUTION_CHECKPOINT .*phase=enroute/);
+  assert.match(lines.join('\n'), /MISSION_TEST_END .*mode=tracker-execution .*parity=NOT_APPLICABLE .*completion=execution_finalized/);
+  assert.doesNotMatch(lines.join('\n'), /briefing|apiKey|cargoText/);
+});
+
 test('repeating Render relay failures are summarized instead of flooding the test file', () => {
   const lines = [];
   let now = 1000;

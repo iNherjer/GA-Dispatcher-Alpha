@@ -79,7 +79,11 @@ function createTrackerCockpitControl(options = {}) {
     : () => crypto.randomBytes(32).toString('base64url');
   const getMissionRun = typeof options.getMissionRun === 'function' ? options.getMissionRun : () => null;
   const executeIntent = typeof options.executeIntent === 'function' ? options.executeIntent : null;
-  const executionAuthority = cleanString(options.executionAuthority, 40) || (executeIntent ? 'tracker' : 'web');
+  const configuredExecutionAuthority = cleanString(options.executionAuthority, 40) || (executeIntent ? 'tracker' : 'web');
+  const getExecutionAuthority = typeof options.getExecutionAuthority === 'function'
+    ? options.getExecutionAuthority
+    : () => configuredExecutionAuthority;
+  const executionAuthority = () => cleanString(getExecutionAuthority(), 40) || configuredExecutionAuthority;
   const sessions = new Map();
   const commandResults = new Map();
 
@@ -201,7 +205,7 @@ function createTrackerCockpitControl(options = {}) {
         ok: false,
         status: 'blocked',
         error: 'mission_intents_read_only',
-        executionAuthority,
+        executionAuthority: executionAuthority(),
         sideEffect: false,
         activeRun
       };
@@ -231,7 +235,7 @@ function createTrackerCockpitControl(options = {}) {
     const activeSessions = Array.from(sessions.values()).map(publicSession);
     return {
       schema: 'ga.cockpit-sessions.v1',
-      executionAuthority,
+      executionAuthority: executionAuthority(),
       missionIntentsEnabled: Boolean(executeIntent),
       activeCount: activeSessions.length,
       audioPlaybackCandidates: activeSessions.filter(session => session.audioPlaybackEnabled).length,
