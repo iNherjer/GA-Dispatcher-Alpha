@@ -1893,6 +1893,7 @@ const missionSceneGroupDebugWaiters = new Map();
 let missionSceneGroupDebugState = null;
 const MISSION_RUNTIME_RESUME_KEY = 'ga_active_mission_runtime';
 const MISSION_AUTHORITY_STORAGE_KEY = 'ga_mission_authority_v1';
+const MISSION_EXECUTION_SHADOW_JOURNAL_KEY = 'ga_mission_execution_shadow_journal_v1';
 const MISSION_AUTHORITY_CAPABILITY = 'mission.authority.v1';
 const MISSION_SNAPSHOT_V2_CAPABILITY = 'mission.snapshot.v2';
 const MISSION_SCENE_GROUP_CAPABILITY = 'mission.scene.group.v1';
@@ -2077,6 +2078,95 @@ function _missionAuthorityStateHash(value) {
         hash = Math.imul(hash, 16777619);
     }
     return `fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}-${raw.length}`;
+}
+
+function _missionAuthorityAttachExecutionShadow(bundle = null) {
+    if (!bundle || typeof bundle !== 'object') return bundle;
+    try {
+        if (typeof window.GAMissionExecutionCore?.createShadowEnvelope !== 'function') return bundle;
+        const localAuthority = _readMissionAuthorityState();
+        const sourceRevision = Math.max(0, Math.round(Number(localAuthority?.revision) || 0));
+        let envelope = null;
+        if (String(bundle.adapter || '').toLowerCase() === 'apt'
+            && typeof window.GAMissionExecutionShadowJournal?.advance === 'function') {
+            let journal = null;
+            try {
+                journal = window.GAMissionExecutionShadowJournal.normalizeJournal(
+                    JSON.parse(localStorage.getItem(MISSION_EXECUTION_SHADOW_JOURNAL_KEY) || 'null')
+                );
+            } catch (_) {
+                journal = null;
+            }
+            if ((!journal || journal.missionId !== bundle.missionId) && bundle.executionReplay) {
+                journal = window.GAMissionExecutionShadowJournal.recover(bundle.executionReplay, bundle);
+            }
+            const advanced = window.GAMissionExecutionShadowJournal.advance(journal, bundle, {
+                occurredAt: Number(bundle.savedAt || 0)
+            });
+            if (advanced?.journal && advanced?.bundle) {
+                try {
+                    localStorage.setItem(MISSION_EXECUTION_SHADOW_JOURNAL_KEY, JSON.stringify(advanced.journal));
+                } catch (_) {}
+                bundle.executionReplay = advanced.bundle;
+                envelope = window.GAMissionExecutionCore.createReplayShadowEnvelope(advanced.bundle, {
+                    sourceRevision,
+                    legacyBundle: bundle
+                });
+            }
+        }
+        if (!envelope) {
+            envelope = window.GAMissionExecutionCore.createShadowEnvelope(bundle, { sourceRevision });
+        }
+        if (envelope) bundle.execution = envelope;
+    } catch (error) {
+        _missionPhaseDebugPush('execution_shadow_projection_error', {
+            missionId: bundle.missionId || null,
+            error: String(error?.message || error || 'unknown').slice(0, 180)
+        });
+    }
+    return bundle;
+}
+
+function _missionAuthorityRecoverExecutionShadow(bundle = null) {
+    if (!bundle?.executionReplay || typeof window.GAMissionExecutionShadowJournal?.recover !== 'function') return false;
+    try {
+        const journal = window.GAMissionExecutionShadowJournal.recover(bundle.executionReplay, bundle);
+        if (!journal) return false;
+        localStorage.setItem(MISSION_EXECUTION_SHADOW_JOURNAL_KEY, JSON.stringify(journal));
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function _missionAuthorityFinalizeExecutionShadow(bundle = null) {
+    if (!bundle || String(bundle.adapter || '').toLowerCase() !== 'apt'
+        || typeof window.GAMissionExecutionShadowJournal?.finalize !== 'function') return bundle;
+    try {
+        let journal = null;
+        try {
+            journal = window.GAMissionExecutionShadowJournal.normalizeJournal(
+                JSON.parse(localStorage.getItem(MISSION_EXECUTION_SHADOW_JOURNAL_KEY) || 'null')
+            );
+        } catch (_) {}
+        const finalized = window.GAMissionExecutionShadowJournal.finalize(journal, bundle, {
+            occurredAt: Date.now()
+        });
+        if (!finalized?.journal || !finalized?.bundle) return bundle;
+        localStorage.setItem(MISSION_EXECUTION_SHADOW_JOURNAL_KEY, JSON.stringify(finalized.journal));
+        bundle.executionReplay = finalized.bundle;
+        const localAuthority = _readMissionAuthorityState();
+        bundle.execution = window.GAMissionExecutionCore.createReplayShadowEnvelope(finalized.bundle, {
+            sourceRevision: Math.max(0, Math.round(Number(localAuthority?.revision) || 0)),
+            legacyComparison: 'terminal_release'
+        });
+    } catch (error) {
+        _missionPhaseDebugPush('execution_shadow_finalize_error', {
+            missionId: bundle.missionId || null,
+            error: String(error?.message || error || 'unknown').slice(0, 180)
+        });
+    }
+    return bundle;
 }
 
 function _buildMissionAuthorityMapProfile() {
@@ -2284,7 +2374,7 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
     } catch (_) {
         efbMission = null;
     }
-    return {
+    return _missionAuthorityAttachExecutionShadow({
         version: 2,
         missionId: runtime.missionId,
         adapter: _missionAuthorityAdapter(runtime, missionState),
@@ -2296,7 +2386,7 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
         efbMission,
         missionState,
         runtime
-    };
+    });
 }
 
 function _validateMissionAuthorityResumeBundle(bundle = null) {
@@ -2376,7 +2466,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
     } catch (_) {
         efbMission = null;
     }
-    const bundle = {
+    const bundle = _missionAuthorityAttachExecutionShadow({
         version: 2,
         missionId: trackerMissionId,
         adapter: _missionAuthorityAdapter(runtime, compactMissionState),
@@ -2388,7 +2478,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
         efbMission,
         missionState: compactMissionState,
         runtime
-    };
+    });
     const validation = _validateMissionAuthorityResumeBundle(bundle);
     if (!validation.ok) return { ok: false, error: validation.error || 'local_resume_invalid' };
     return {
@@ -2418,7 +2508,14 @@ function _missionAuthorityResumeBundleHash(bundle = null) {
         mapProfile: bundle.mapProfile,
         efbMission: efbMissionForHash,
         missionState: bundle.missionState,
-        runtime: runtimeForHash
+        runtime: runtimeForHash,
+        execution: bundle.execution ? {
+            stateHash: bundle.execution.stateHash || null,
+            legacyStateHash: bundle.execution.legacyStateHash || null,
+            legacyDriftFields: Array.isArray(bundle.execution.legacyDriftFields)
+                ? bundle.execution.legacyDriftFields
+                : []
+        } : null
     });
 }
 
@@ -5057,6 +5154,7 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
         });
     }
 
+    _missionAuthorityRecoverExecutionShadow(bundle);
     try {
         localStorage.setItem('ga_active_mission', JSON.stringify(bundle.missionState));
         localStorage.setItem(MISSION_RUNTIME_RESUME_KEY, JSON.stringify(bundle.runtime));
@@ -5104,6 +5202,9 @@ function _releaseMissionAuthority(outcome = 'reset', reason = 'mission-runtime-r
     const local = _readMissionAuthorityState();
     if (!local?.missionId || !local?.runId || local.clientId !== _missionAuthorityClientId()) return false;
     if (window.missionAuthorityReleasePending?.runId === local.runId) return true;
+    const resumeBundle = _missionAuthorityFinalizeExecutionShadow(
+        _buildMissionAuthorityResumeBundle(`authority-release:${reason}`)
+    );
     const commandId = window.sendTrackerCommand({
         type: 'mission_authority_release',
         missionId: local.missionId,
@@ -5111,7 +5212,8 @@ function _releaseMissionAuthority(outcome = 'reset', reason = 'mission-runtime-r
         clientId: local.clientId,
         expectedRevision: local.revision,
         outcome,
-        reason
+        reason,
+        resumeBundle
     }, { authorityProtocol: true });
     if (commandId) {
         window.missionAuthorityReleasePending = {

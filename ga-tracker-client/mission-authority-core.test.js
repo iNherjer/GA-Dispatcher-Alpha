@@ -109,11 +109,13 @@ const released = reloaded.release({
   missionId: 'mission-a',
   runId: first.activeRun.runId,
   clientId: 'app-b',
-  outcome: 'completed'
+  outcome: 'completed',
+  resumeBundle: { adapter: 'apt', executionReplay: { schema: 'ga.mission-execution-bundle.v1', events: [{ type: 'MISSION_CLOSED' }] } }
 });
 assert.equal(released.ok, true);
 assert.equal(reloaded.getActiveRun(), null);
 assert.equal(reloaded.getPublicSnapshot().lastRun.state, 'completed');
+assert.equal(reloaded.getPublicSnapshot({ includeBundle: true }).lastRun.resumeBundle.executionReplay.events[0].type, 'MISSION_CLOSED');
 
 const legacy = reloaded.validate({ type: 'mission_scene_spawn', commandId: 'legacy-1', missionId: 'mission-legacy' });
 assert.equal(legacy.ok, true);

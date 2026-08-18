@@ -54,6 +54,8 @@ test('credentials are encrypted in app data while personal tracker config is pre
   assert.deepEqual(store.publicSettings(), {
     pilotId: 'Foxtrot-Mike-764',
     hasPin: true,
+    voiceProvider: 'gemini',
+    hasVoiceApiKey: false,
     runtimeChannel: 'alpha',
     desktopUpdatePolicy: 'automatic',
     updatePolicy: 'automatic',
@@ -97,6 +99,8 @@ test('startup preferences default to automatic tracker start and visible window'
   assert.deepEqual(store.publicSettings(), {
     pilotId: '',
     hasPin: false,
+    voiceProvider: 'gemini',
+    hasVoiceApiKey: false,
     runtimeChannel: 'stable',
     desktopUpdatePolicy: 'ask',
     updatePolicy: 'ask',
@@ -126,4 +130,37 @@ test('PIN validation and unavailable OS encryption are rejected', () => {
     secureStorage: { isEncryptionAvailable: () => false }
   });
   assert.throws(() => unavailable.saveCredentials('Pilot', '1234'), /Windows-Schutz/);
+});
+
+test('voice API key is OS-encrypted, never exposed through public settings, and can be removed', () => {
+  const store = createStore();
+  store.saveVoiceCredentials('openai', 'sk-secret-voice-value');
+
+  const desktopConfig = store.readDesktop();
+  const serialized = JSON.stringify(desktopConfig);
+  assert.equal(desktopConfig.voice.provider, 'openai');
+  assert.equal(desktopConfig.voice.encryptedApiKey, Buffer.from('protected:sk-secret-voice-value').toString('base64'));
+  assert.equal(serialized.includes('sk-secret-voice-value'), false);
+  assert.deepEqual(store.voiceCredentials(), { provider: 'openai', apiKey: 'sk-secret-voice-value' });
+  assert.equal(store.publicSettings().voiceProvider, 'openai');
+  assert.equal(store.publicSettings().hasVoiceApiKey, true);
+  assert.equal(Object.hasOwn(store.publicSettings(), 'apiKey'), false);
+  assert.equal(Object.hasOwn(store.publicSettings(), 'encryptedApiKey'), false);
+
+  store.clearVoiceCredentials();
+  assert.equal(store.voiceCredentials(), null);
+  assert.equal(store.publicSettings().hasVoiceApiKey, false);
+  assert.equal(store.readDesktop().voice.encryptedApiKey, undefined);
+});
+
+test('voice API key requires OS encryption and a bounded non-empty value', () => {
+  const store = createStore();
+  assert.throws(() => store.saveVoiceCredentials('gemini', ''), /API-Key fehlt/);
+  assert.throws(() => store.saveVoiceCredentials('gemini', 'x'.repeat(1025)), /API-Key fehlt oder ist zu lang/);
+  const unavailable = new TrackerConfigStore({
+    documentsDirectory: path.join(os.tmpdir(), 'voice-documents'),
+    applicationDataDirectory: path.join(os.tmpdir(), 'voice-appdata'),
+    secureStorage: { isEncryptionAvailable: () => false }
+  });
+  assert.throws(() => unavailable.saveVoiceCredentials('gemini', 'secret'), /Windows-Schutz/);
 });

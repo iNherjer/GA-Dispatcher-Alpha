@@ -9,15 +9,17 @@ const {
   createTrackerEfbHttpHello,
   createTrackerEfbHttpServer
 } = require('./tracker-efb-http-server');
+const { createTrackerVoiceService } = require('./tracker-voice-service');
+const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core');
 
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
 test('current tracker exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v362'/);
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v365'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 362/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 365/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);
   assert.match(trackerSource, /currentTelemetryHibernateState\.shouldSendTelemetry/);
@@ -59,13 +61,16 @@ test('local EFB hello advertises snapshots, web client and bounded client diagno
     timestamp: 1
   });
   assert.deepEqual(hello.payload.capabilities, TRACKER_EFB_HTTP_CAPABILITIES);
-  assert.equal(hello.payload.transport, 'http-loopback-readonly');
+  assert.equal(hello.payload.transport, 'http-loopback');
   assert.equal(hello.payload.runtimeChannel, 'alpha');
   assert.equal(hello.payload.capabilities.includes('efb.web-client.v1'), true);
   assert.equal(hello.payload.capabilities.includes('efb.client-diagnostics.v1'), true);
   assert.equal(hello.payload.capabilities.includes('map.context.v1'), true);
   assert.equal(hello.payload.capabilities.includes('checklist.library.v1'), true);
   assert.equal(hello.payload.capabilities.includes('mission.view.v1'), true);
+  assert.equal(hello.payload.capabilities.includes('cockpit.session.v1'), true);
+  assert.equal(hello.payload.capabilities.includes('mission.intent.v1'), false);
+  assert.equal(hello.payload.capabilities.includes('voice.playback.v1'), true);
 });
 
 test('loopback EFB server exposes versioned status, flight and mission snapshots read-only', async (t) => {
@@ -125,6 +130,8 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   const statusBody = JSON.parse(status.body);
   assert.equal(statusBody.message.type, 'tracker.status');
   assert.equal(statusBody.message.payload.relayConnected, true);
+  assert.deepEqual(statusBody.message.payload.voice, { configured: false });
+  assert.deepEqual(statusBody.message.payload.cockpit, { activeCount: 0, missionIntentsEnabled: false });
   assert.equal(statusBody.hello.payload.trackerVersionCode, 324);
 
   const snapshot = JSON.parse((await request(address, '/api/v1/snapshot')).body);
@@ -162,7 +169,7 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   const webClient = await request(address, '/efb/v1/');
   assert.equal(webClient.statusCode, 200);
   assert.match(webClient.headers['content-type'], /^text\/html/);
-  assert.match(webClient.body, /data-efb-view-version="6"/);
+  assert.match(webClient.body, /data-efb-view-version="7"/);
   assert.match(webClient.body, /id="mapTableOverlay"/);
 
   const hostScript = await request(address, '/efb/v1/assets/host.js');
@@ -263,4 +270,156 @@ test('map tiles are fetched once through the bounded loopback proxy and then cac
 test('EFB HTTP server rejects non-loopback bind addresses', () => {
   const hello = createTrackerEfbHttpHello({ trackerVersion: 'v324', trackerVersionCode: 324 });
   assert.throws(() => createTrackerEfbHttpServer({ host: '0.0.0.0', hello }), /Loopback/);
+});
+
+test('loopback voice API deduplicates synthesis, streams audio and leases playback to one client', async (t) => {
+  const hello = createTrackerEfbHttpHello({ trackerVersion: 'v363', trackerVersionCode: 363 });
+  let providerCalls = 0;
+  const voiceService = createTrackerVoiceService({
+    provider: 'openai',
+    apiKey: 'server-test-secret',
+    fetchRemote: async () => {
+      providerCalls += 1;
+      return { ok: true, status: 200, arrayBuffer: async () => Buffer.from('shared-mp3') };
+    }
+  });
+  const server = createTrackerEfbHttpServer({ host: '127.0.0.1', port: 0, hello, voiceService });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const jobBody = JSON.stringify({ effectId: 'mission-1:boarding', text: 'Willkommen an Bord.', speaker: { gender: 'female' } });
+
+  const rejected = await request(address, '/api/v1/voice/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://malicious.example' },
+    body: jobBody
+  });
+  assert.equal(rejected.statusCode, 403);
+
+  const created = await request(address, '/api/v1/voice/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://inherjer.github.io' },
+    body: jobBody
+  });
+  assert.equal(created.statusCode, 202);
+  assert.equal(JSON.parse(created.body).message.type, 'voice.job');
+  const duplicate = await request(address, '/api/v1/voice/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: `http://127.0.0.1:${address.port}` },
+    body: jobBody
+  });
+  assert.ok([200, 202].includes(duplicate.statusCode));
+
+  await voiceService.wait('mission-1:boarding');
+  assert.equal(providerCalls, 1);
+  const job = await request(address, '/api/v1/voice/jobs/mission-1%3Aboarding');
+  assert.equal(JSON.parse(job.body).message.payload.status, 'ready');
+  assert.equal(job.body.includes('server-test-secret'), false);
+  const nextBeforeClaim = JSON.parse((await request(address, '/api/v1/voice/playback/next')).body).message.payload;
+  assert.equal(nextBeforeClaim.available, true);
+  assert.equal(nextBeforeClaim.job.effectId, 'mission-1:boarding');
+  const audio = await request(address, '/api/v1/voice/jobs/mission-1%3Aboarding/audio');
+  assert.equal(audio.statusCode, 200);
+  assert.equal(audio.headers['content-type'], 'audio/mpeg');
+  assert.equal(audio.rawBody.toString(), 'shared-mp3');
+
+  const claimA = await request(address, '/api/v1/voice/playback/claim', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ effectId: 'mission-1:boarding', clientId: 'efb-a' })
+  });
+  assert.equal(JSON.parse(claimA.body).message.payload.claimed, true);
+  const claimB = await request(address, '/api/v1/voice/playback/claim', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ effectId: 'mission-1:boarding', clientId: 'toolbar-b' })
+  });
+  assert.equal(JSON.parse(claimB.body).message.payload.reason, 'owned');
+  const release = await request(address, '/api/v1/voice/playback/release', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ effectId: 'mission-1:boarding', clientId: 'efb-a', completed: true })
+  });
+  assert.equal(JSON.parse(release.body).message.payload.completed, true);
+  assert.equal(JSON.parse((await request(address, '/api/v1/voice/playback/next')).body).message.payload.available, false);
+});
+
+test('cockpit sessions synchronize device presence while mission intents remain revision-bound and read-only', async (t) => {
+  const hello = createTrackerEfbHttpHello({ trackerVersion: 'v363', trackerVersionCode: 363 });
+  const cockpitControl = createTrackerCockpitControl({
+    idFactory: () => 'session-one',
+    tokenFactory: () => 'protected-token',
+    getMissionRun: () => ({
+      missionId: 'mission-a',
+      runId: 'run-a',
+      authority: 'tracker',
+      revision: 4,
+      phase: 'boarding'
+    })
+  });
+  const server = createTrackerEfbHttpServer({ host: '127.0.0.1', port: 0, hello, cockpitControl });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const trustedHeaders = { 'Content-Type': 'application/json', Origin: 'https://inherjer.github.io' };
+
+  const registeredResponse = await request(address, '/api/v1/cockpit/sessions', {
+    method: 'POST',
+    headers: trustedHeaders,
+    body: JSON.stringify({ clientId: 'toolbar-one', role: 'toolbar', audioPlaybackEnabled: true })
+  });
+  assert.equal(registeredResponse.statusCode, 200);
+  const registered = JSON.parse(registeredResponse.body).message.payload;
+  assert.equal(registered.session.role, 'toolbar');
+  assert.equal(registered.sessionToken, 'protected-token');
+
+  const publicSessions = JSON.parse((await request(address, '/api/v1/cockpit/sessions')).body).message.payload;
+  assert.equal(publicSessions.activeCount, 1);
+  assert.equal(publicSessions.audioPlaybackCandidates, 1);
+  assert.doesNotMatch(JSON.stringify(publicSessions), /protected-token/);
+
+  const envelope = { sessionId: registered.session.sessionId, sessionToken: registered.sessionToken };
+  const heartbeat = await request(address, '/api/v1/cockpit/sessions/heartbeat', {
+    method: 'POST',
+    headers: trustedHeaders,
+    body: JSON.stringify({ ...envelope, audioPlaybackEnabled: false })
+  });
+  assert.equal(heartbeat.statusCode, 200);
+  assert.equal(JSON.parse(heartbeat.body).message.payload.session.audioPlaybackEnabled, false);
+
+  const intentBody = {
+    ...envelope,
+    commandId: 'intent-one',
+    intent: 'confirm_load',
+    missionId: 'mission-a',
+    runId: 'run-a',
+    expectedRevision: 4,
+    payload: { cargoId: 'cargo-one' }
+  };
+  const blocked = await request(address, '/api/v1/mission/intents', {
+    method: 'POST',
+    headers: trustedHeaders,
+    body: JSON.stringify(intentBody)
+  });
+  assert.equal(blocked.statusCode, 423);
+  assert.equal(JSON.parse(blocked.body).message.payload.error, 'mission_intents_read_only');
+  const duplicate = await request(address, '/api/v1/mission/intents', {
+    method: 'POST',
+    headers: trustedHeaders,
+    body: JSON.stringify(intentBody)
+  });
+  assert.equal(JSON.parse(duplicate.body).message.payload.duplicate, true);
+
+  const stale = await request(address, '/api/v1/mission/intents', {
+    method: 'POST',
+    headers: trustedHeaders,
+    body: JSON.stringify({ ...intentBody, commandId: 'intent-stale', expectedRevision: 3 })
+  });
+  assert.equal(stale.statusCode, 409);
+  assert.equal(JSON.parse(stale.body).message.payload.error, 'mission_revision_conflict');
+
+  const rejectedOrigin = await request(address, '/api/v1/cockpit/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://attacker.invalid' },
+    body: JSON.stringify({ clientId: 'bad', role: 'web' })
+  });
+  assert.equal(rejectedOrigin.statusCode, 403);
 });

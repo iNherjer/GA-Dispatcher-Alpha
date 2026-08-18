@@ -15,6 +15,12 @@ const elements = {
   credentialsForm: document.getElementById('credentialsForm'),
   saveCredentialsButton: document.getElementById('saveCredentialsButton'),
   formMessage: document.getElementById('formMessage'),
+  voiceCredentialsForm: document.getElementById('voiceCredentialsForm'),
+  voiceProviderSelect: document.getElementById('voiceProviderSelect'),
+  voiceApiKeyInput: document.getElementById('voiceApiKeyInput'),
+  saveVoiceCredentialsButton: document.getElementById('saveVoiceCredentialsButton'),
+  clearVoiceCredentialsButton: document.getElementById('clearVoiceCredentialsButton'),
+  voiceFormMessage: document.getElementById('voiceFormMessage'),
   runtimeChannelSelect: document.getElementById('runtimeChannelSelect'),
   runtimeChannelMessage: document.getElementById('runtimeChannelMessage'),
   trackerAutoUpdateCheckbox: document.getElementById('trackerAutoUpdateCheckbox'),
@@ -382,6 +388,9 @@ function render(state) {
 
   if (document.activeElement !== elements.pilotIdInput) elements.pilotIdInput.value = settings.pilotId || '';
   elements.pinInput.placeholder = settings.hasPin ? 'gespeichert' : '••••';
+  if (document.activeElement !== elements.voiceProviderSelect) elements.voiceProviderSelect.value = settings.voiceProvider === 'openai' ? 'openai' : 'gemini';
+  elements.voiceApiKeyInput.placeholder = settings.hasVoiceApiKey ? 'geschützt gespeichert' : 'API-Key eingeben';
+  elements.clearVoiceCredentialsButton.disabled = !settings.hasVoiceApiKey;
   if (document.activeElement !== elements.runtimeChannelSelect && !channelChangePending) elements.runtimeChannelSelect.value = runtimeChannel;
   if (!channelChangePending) {
     elements.runtimeChannelMessage.className = 'channel-message subtle';
@@ -431,6 +440,38 @@ elements.credentialsForm.addEventListener('submit', async (event) => {
   elements.pinInput.value = '';
   elements.formMessage.className = 'form-message success';
   elements.formMessage.textContent = `Verbunden als ${result.pilotId}.`;
+});
+
+elements.voiceCredentialsForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const provider = elements.voiceProviderSelect.value;
+  const apiKey = elements.voiceApiKeyInput.value.trim();
+  elements.saveVoiceCredentialsButton.disabled = true;
+  elements.voiceFormMessage.className = 'form-message';
+  elements.voiceFormMessage.textContent = 'API-Key wird mit dem Windows-Konto geschützt …';
+  const result = await window.trackerDesktop.saveVoiceCredentials(provider, apiKey);
+  elements.saveVoiceCredentialsButton.disabled = false;
+  if (!result?.ok) {
+    elements.voiceFormMessage.className = 'form-message error';
+    elements.voiceFormMessage.textContent = result?.message || 'API-Key konnte nicht gespeichert werden.';
+    return;
+  }
+  elements.voiceApiKeyInput.value = '';
+  elements.voiceFormMessage.className = 'form-message success';
+  elements.voiceFormMessage.textContent = 'API-Key geschützt gespeichert. Ein laufender Tracker wird neu gestartet.';
+});
+
+elements.clearVoiceCredentialsButton.addEventListener('click', async () => {
+  if (!window.confirm('Den geschützten Voice-API-Key aus der Tracker-App entfernen?')) return;
+  const result = await window.trackerDesktop.clearVoiceCredentials();
+  if (!result?.ok) {
+    elements.voiceFormMessage.className = 'form-message error';
+    elements.voiceFormMessage.textContent = result?.message || 'API-Key konnte nicht entfernt werden.';
+    return;
+  }
+  elements.voiceApiKeyInput.value = '';
+  elements.voiceFormMessage.className = 'form-message success';
+  elements.voiceFormMessage.textContent = 'Voice-API-Key entfernt.';
 });
 
 elements.trackerAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setUpdatePolicy(elements.trackerAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));

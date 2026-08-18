@@ -63,6 +63,9 @@ window.paxVoiceGetDebugState = function() {
         }))
         : [];
     return {
+        playOnThisDevice: typeof window.awmShouldPlayOnThisDevice === 'function'
+            ? !!window.awmShouldPlayOnThisDevice()
+            : true,
         voiceEnabled: !!_paxVoiceEnabled,
         audioEffectsEnabled: !!_paxAudioEffectsEnabled,
         strictMode: !!_paxStrictMode,
@@ -420,6 +423,7 @@ let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
 let _paxMissionEpoch  = 1;
 let _paxCurrentPlayback = null;
+const _paxActiveEffectSources = new Set();
 let _paxWrongStartActive = false;
 let _paxWrongStartContinueDone = false;
 let _paxOffDestLastAt = 0;
@@ -492,6 +496,14 @@ function _paxStopCurrentPlayback(reason = 'mission-reset') {
         _paxLog(`Aktive Wiedergabe gestoppt (${reason})`, 'state');
     }
 }
+
+window.paxVoiceStopLocalPlayback = function(reason = 'manual') {
+    _paxStopCurrentPlayback(reason);
+    for (const source of Array.from(_paxActiveEffectSources)) {
+        try { source.stop?.(0); } catch (_) {}
+    }
+    _paxActiveEffectSources.clear();
+};
 
 function _paxMissionTimeout(fn, delayMs) {
     const epoch = _paxMissionEpoch;
@@ -1088,6 +1100,45 @@ function _getApiKey() {
 function _getAiProvider() {
     if (typeof window.getSelectedAiProvider === 'function') return window.getSelectedAiProvider();
     return 'gemini';
+}
+
+let _paxTrackerVoiceClient = null;
+
+function _getTrackerVoiceClient() {
+    if (_paxTrackerVoiceClient) return _paxTrackerVoiceClient;
+    try {
+        const factory = window.GATrackerVoiceClient?.createTrackerVoiceClient;
+        if (typeof factory !== 'function') return null;
+        _paxTrackerVoiceClient = factory({
+            clientId: String(window.gaCockpitSessionClient?.clientId || '').trim() || undefined
+        });
+        return _paxTrackerVoiceClient;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _paxTrackerVoiceEffectId(effectKey, text, speaker = null) {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : (window.currentMissionData || {});
+    let contract = window.activeMissionContract || md?.missionContract || null;
+    if (!contract) {
+        try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
+    }
+    const explicitRunSeed = String(
+        md?.missionRunId
+        || md?.missionId
+        || md?.missionKey
+        || contract?.missionRunId
+        || contract?.missionId
+        || contract?.missionKey
+        || ''
+    ).trim();
+    const contextualRunSeed = `${md?.start || md?.startName || ''}|${md?.dest || md?.targetName || ''}|${md?.story || ''}`;
+    const hasContextualRunSeed = contextualRunSeed.replace(/\|/g, '').trim().length > 0;
+    const runSeed = explicitRunSeed || (hasContextualRunSeed ? contextualRunSeed : `mission-epoch-${Number(_paxMissionEpoch || 0)}`);
+    const runKey = _hashStable(runSeed).toString(36);
+    const effectSeed = `${String(effectKey || 'voice')}|${String(text || '')}|${String(speaker?.name || '')}|${String(speaker?.role || '')}`;
+    return `mission-${runKey}:voice-${_hashStable(effectSeed).toString(36)}`;
 }
 
 function _paxAiTextModels(provider = _getAiProvider()) {
@@ -4251,6 +4302,7 @@ function _trainingBoardingTextOrFallback(text, fallbackText) {
 
 async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'Audio') {
     if (!_paxEpochCurrent(epoch)) return false;
+    if (typeof window.awmShouldPlayOnThisDevice === 'function' && !window.awmShouldPlayOnThisDevice()) return false;
     const ctx = (typeof window.paxVoiceUnlockAudio === 'function')
         ? window.paxVoiceUnlockAudio('playback')
         : window._tawsAudioCtx;
@@ -4371,6 +4423,31 @@ async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch
     const bytes  = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     return _paxDecodeAudioBufferAndPlay(bytes.buffer, mimeType, epoch, sourceLabel);
+}
+
+async function _paxPlayResolvedTtsAudio(audio, epoch = _paxMissionEpoch) {
+    if (!audio?.b64) return false;
+    if (typeof window.awmShouldPlayOnThisDevice === 'function' && !window.awmShouldPlayOnThisDevice()) {
+        _paxLog('TTS bleibt auf diesem Gerät stumm (Audio-Wiedergabeinstanz deaktiviert)', 'state');
+        return true;
+    }
+    const trackerEffectId = String(audio.trackerEffectId || '').trim();
+    const trackerClient = trackerEffectId ? _getTrackerVoiceClient() : null;
+    if (!trackerEffectId || !trackerClient) {
+        return _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS');
+    }
+    const claim = await trackerClient.claimPlayback(trackerEffectId, 120000);
+    if (!claim?.claimed) {
+        _paxLog(`Tracker TTS nicht lokal abgespielt (${claim?.reason || 'keine Playback-Lease'}): ${trackerEffectId}`, 'state');
+        return claim?.reason === 'owned' || claim?.reason === 'completed';
+    }
+    let played = false;
+    try {
+        played = await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'Tracker TTS');
+        return played;
+    } finally {
+        await trackerClient.releasePlayback(trackerEffectId, played === true);
+    }
 }
 
 const _PAX_TTS_VOICE_POOL = {
@@ -4803,6 +4880,7 @@ window.paxGetAudioCueCatalog = function() {
 
 async function _paxDecodeAudioEffectAndPlay(rawAudioBuffer, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'Audioeffekt', options = {}) {
     if (!_paxEpochCurrent(epoch)) return false;
+    if (typeof window.awmShouldPlayOnThisDevice === 'function' && !window.awmShouldPlayOnThisDevice()) return false;
     const ctx = (typeof window.paxVoiceUnlockAudio === 'function')
         ? window.paxVoiceUnlockAudio('effect')
         : window._tawsAudioCtx;
@@ -4833,6 +4911,7 @@ async function _paxDecodeAudioEffectAndPlay(rawAudioBuffer, mimeType, epoch = _p
                 if (done) return;
                 done = true;
                 if (watchdog) clearTimeout(watchdog);
+                _paxActiveEffectSources.delete(src);
                 try { src.onended = null; } catch (_) {}
                 try { src.disconnect(); } catch (_) {}
                 try { gain.disconnect(); } catch (_) {}
@@ -4843,6 +4922,7 @@ async function _paxDecodeAudioEffectAndPlay(rawAudioBuffer, mimeType, epoch = _p
             gain.gain.value = Math.max(0, Math.min(1.2, gainValue));
             src.connect(gain);
             gain.connect(window._awmMasterGain || ctx.destination);
+            _paxActiveEffectSources.add(src);
             src.onended = finish;
             src.onerror = finish;
             watchdog = setTimeout(finish, Math.max(1200, Math.round((buf.duration + 0.8) * 1000)));
@@ -5270,10 +5350,19 @@ function _requestTTSAudioHedged(apiKey, text, pax, voiceCandidates, primaryModel
     });
 }
 
-async function _requestTTSAudio(text, speaker = null) {
-    const apiKey = _getApiKey();
-    if (!apiKey) { _paxLog('Kein API-Key für TTS', 'warn'); return null; }
+async function _requestTTSAudio(text, speaker = null, options = {}) {
     const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
+    const trackerClient = _getTrackerVoiceClient();
+    if (trackerClient) {
+        const trackerEffectId = _paxTrackerVoiceEffectId(options.effectKey || options.eventLabel, text, pax);
+        const sharedAudio = await trackerClient.requestAudio({ effectId: trackerEffectId, text, speaker: pax || {} });
+        if (sharedAudio?.b64) {
+            _paxLog(`Tracker TTS bereit: ${trackerEffectId} | ${sharedAudio.provider || 'provider'} / ${sharedAudio.voiceName || 'voice'}`, 'recv');
+            return { ...sharedAudio, text, speaker: pax };
+        }
+    }
+    const apiKey = _getApiKey();
+    if (!apiKey) { _paxLog('Kein API-Key für TTS und keine Tracker-Voice verfügbar', 'warn'); return null; }
     const resolvedGender = _normSpeakerGender(pax);
     if (_getAiProvider() === 'openai') {
         const openAiVoices = _openAiTtsVoiceCandidatesForSpeaker(pax);
@@ -5318,14 +5407,14 @@ async function _requestTTSAudio(text, speaker = null) {
 }
 
 function _prepareTextAsTTS(key, text, speaker = null, epoch = _paxMissionEpoch) {
-    if (!key || !text || !_paxVoiceEnabled || !_getApiKey()) return Promise.resolve(null);
+    if (!key || !text || !_paxVoiceEnabled) return Promise.resolve(null);
     const existing = _paxPreparedAudio.get(key);
     if (existing && existing.epoch != null && !_paxEpochCurrent(existing.epoch)) {
         _paxPreparedAudio.delete(key);
     } else if (existing?.audio || existing?.promise) {
         return existing.promise || Promise.resolve(existing.audio);
     }
-    const promise = _requestTTSAudio(text, speaker).then(audio => {
+    const promise = _requestTTSAudio(text, speaker, { effectKey: key }).then(audio => {
         const rec = _paxPreparedAudio.get(key) || {};
         if (!_paxEpochCurrent(epoch) || (rec.promise && rec.promise !== promise)) return null;
         rec.audio = audio;
@@ -5390,7 +5479,7 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
             const rec = _paxPreparedAudio.get(key);
             const audio = rec?.audio || await (rec?.promise || _prepareTextAsTTS(key, text, speaker, epoch));
             if (epoch !== _paxMissionEpoch) return;
-            if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS');
+            if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch);
             else await _playTextAsTTS(text, speaker, epoch);
             if (typeof options.afterAudio === 'function') {
                 await options.afterAudio(epoch);
@@ -6492,13 +6581,13 @@ async function _playTextAsTTS(text, speaker = null, epoch = _paxMissionEpoch, op
         _paxLog(`${options.eventLabel || 'Ansage'} verworfen: Farewell/Missionsende aktiv`, 'state');
         return;
     }
-    const audio = await _requestTTSAudio(text, speaker);
+    const audio = await _requestTTSAudio(text, speaker, { effectKey: options.effectKey || options.eventLabel, eventLabel: options.eventLabel });
     if (!_paxEpochCurrent(epoch)) return;
     if (_paxSpeechCanceledByMissionEnd(options)) {
         _paxLog(`${options.eventLabel || 'Ansage'} nach TTS verworfen: Farewell/Missionsende aktiv`, 'state');
         return;
     }
-    if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS');
+    if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch);
 }
 
 async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null, epoch = _paxMissionEpoch, options = {}) {

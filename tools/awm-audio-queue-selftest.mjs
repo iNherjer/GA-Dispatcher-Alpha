@@ -123,4 +123,21 @@ await new Promise(resolve => setTimeout(resolve, 100));
 assert.equal(context.awmGetAudioQueueDebugState().queueDepth, 0);
 assert.equal(context.awmGetAudioQueueDebugState().queueBusy, false);
 
+vm.runInContext(`_awEnqueue(['a']);`, context);
+assert.equal(events.at(-1), 'start:a');
+context.awmSetPlayOnThisDevice(false);
+assert.equal(events.at(-1), 'stop:a', 'disabling this playback device must stop local warning audio');
+assert.equal(context.awmGetAudioQueueDebugState().playOnThisDevice, false);
+assert.equal(context.awmGetAudioQueueDebugState().queueDepth, 0);
+assert.equal(storage.get('awm_play_on_this_device'), '0');
+
+const eventCountWhileMuted = events.length;
+vm.runInContext(`_awEnqueue(['b']);`, context);
+assert.equal(events.length, eventCountWhileMuted, 'muted device must not enqueue or start warning audio');
+
+context.awmSetPlayOnThisDevice(true);
+vm.runInContext(`_awEnqueue(['b']);`, context);
+assert.equal(events.at(-1), 'start:b', 're-enabled device may play audio again');
+assert.equal(storage.get('awm_play_on_this_device'), '1');
+
 console.log('AWM audio queue self-test passed');

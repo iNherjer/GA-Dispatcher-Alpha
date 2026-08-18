@@ -1334,6 +1334,15 @@
                             <div style="font-size:11px; color:#888; letter-spacing:0.04em;">AUDIO WARNINGS</div>
                             <button type="button" class="settings-help-btn map-voice-help-btn" onclick="showSettingsHelp('map-voice', event)" aria-label="Hilfe zum Audio-Menue" aria-expanded="false">?</button>
                         </div>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 4px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmPlayOnThisDeviceCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetPlayOnThisDevice(this.checked)">
+                            🔊 Audio auf diesem Gerät abspielen
+                        </label>
+                        <div id="awmPlayOnThisDeviceStatus" style="font-size:10px; line-height:1.35; color:#8294a8; margin:0 2px 8px 22px;">
+                            Diese Instanz darf zentrale Ansagen übernehmen.
+                        </div>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
                             <span style="font-size:13px;">🔊</span>
                             <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"
@@ -2694,6 +2703,8 @@
 <script defer src="mission-arrival-core.js?v=bush-pickup-manager-20260730-01"></script>
 <script defer src="mission-runtime-core.js?v=mission-cargo-flow-20260730-02"></script>
 <script defer src="mission-resume-adapters-core.js?v=mission-authority-20260810-01"></script>
+<script defer src="mission-execution-core.js?v=mission-shadow-20260818-01"></script>
+<script defer src="mission-execution-shadow-journal.js?v=mission-shadow-20260818-02"></script>
 <script defer src="mission-cargo-core.js?v=bush-pickup-manager-20260730-02"></script>
 <script defer src="mission-compliance-core.js?v=authority-inspection-debug-now-20260729-02"></script>
 <script defer src="mission-infra-outcome-core.js?v=infra-outcome-chain-20260618-02"></script>
@@ -2704,7 +2715,7 @@
 <script defer src="relay-compression-core.js?v=relay-failover-20260813-01"></script>
 <script defer src="relay-failover-core.js?v=relay-failover-20260813-01"></script>
 <script defer src="ga-tracker-client/mission-scene-group-core.js?v=mission-scene-group-20260817-01"></script>
-<script defer src="sync.js?v=mission-scene-group-debug-20260817-04"></script>
+<script defer src="sync.js?v=mission-shadow-20260818-01"></script>
 <script defer src="homebase/homebase-asset-catalog.js?v=homebase-proximity-automation-optout-20260816-01"></script>
 <script defer src="homebase-capability-retry-core.js?v=homebase-capability-backoff-20260814-01"></script>
 <script defer src="homebase-integration.js?v=homebase-crew-share-v100-20260815-01"></script>
@@ -2721,7 +2732,9 @@
 <script defer src="board.js?v=mission-debrief-data-20260722-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="sim-manual-flight.js?v=cargo-left-behind-20260729-01"></script>
-<script defer src="passenger-voice.js?v=pax-voice-priority-20260805-01"></script>
+<script defer src="ga-tracker-client/tracker-cockpit-session-client.js?v=cockpit-session-20260817-01" data-role="web"></script>
+<script defer src="tracker-voice-client.js?v=tracker-voice-share-20260817-01"></script>
+<script defer src="passenger-voice.js?v=tracker-voice-share-20260817-01"></script>
 <script defer src="tutorial.js?v=mission-airport-types-20260728-01"></script>
 <script>
     function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {
@@ -3048,6 +3061,9 @@
 
     // Audio-Menü aus localStorage initialisieren
     window.addEventListener('load', () => {
+        if (typeof window.awmSyncPlaybackDeviceControls === 'function') {
+            window.awmSyncPlaybackDeviceControls();
+        }
         const saved = localStorage.getItem('awm_volume');
         if (saved !== null) {
             const pct = Math.round(parseFloat(saved) * 100);
@@ -3144,6 +3160,7 @@
         };
 
         window.awmPlayVoiceDemo = function(pack) {
+            if (typeof window.awmShouldPlayOnThisDevice === 'function' && !window.awmShouldPlayOnThisDevice()) return;
             const audio = document.getElementById('awmDemoAudio');
             if (!audio) return;
             audio.src    = `./audio-warnings/voices/${pack}/demo.mp3`;

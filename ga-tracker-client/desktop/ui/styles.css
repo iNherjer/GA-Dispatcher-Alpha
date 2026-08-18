@@ -419,6 +419,21 @@ summary {
   grid-column: 1 / -1;
 }
 
+.voice-credentials-form {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 8px;
+  align-items: end;
+  margin-top: 12px;
+}
+
+.voice-credentials-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
 label > span {
   display: block;
   margin: 0 0 6px;

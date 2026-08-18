@@ -399,6 +399,13 @@ function createMissionAuthorityManager(options = {}) {
     const match = activeMatches(request, { requireOwner: true });
     if (!match.ok) return { ok: false, status: 'conflict', error: match.error, activeRun: publicRun(state.activeRun) };
     const active = match.activeRun;
+    let resumeBundle;
+    try {
+      resumeBundle = safeResumeBundle(request.resumeBundle);
+    } catch (error) {
+      return { ok: false, status: 'error', error: error.code || error.message, activeRun: publicRun(state.activeRun) };
+    }
+    if (resumeBundle) active.resumeBundle = resumeBundle;
     const outcome = cleanString(request.outcome || request.state, 60).toLowerCase() || 'aborted';
     active.active = false;
     active.state = outcome === 'completed' ? 'completed' : 'ended';

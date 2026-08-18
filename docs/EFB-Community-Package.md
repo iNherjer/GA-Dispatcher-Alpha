@@ -1,4 +1,4 @@
-# EFB Community Package und Rollout
+# EFB- und Toolbar-Panel-Community-Packages und Rollout
 
 ## Entscheidung
 
@@ -15,6 +15,13 @@ Tracker-Desktop-Manager ein gefundenes Update per Dialog an. Ist die getrennte
 EFB-Auto-Update-Option aktiviert, wird es stattdessen bei geschlossenem MSFS
 automatisch installiert und nur als laufendes Statusbanner angezeigt. Die
 Erstinstallation, Reparatur und Deinstallation bleiben ausdrückliche Aktionen.
+
+Das geplante globale Toolbar-Panel wird zunaechst als zweites, getrennt
+versioniertes Community-Package entwickelt. Es enthaelt nur Toolbar-
+Registrierung, Icon, Coherent-Host/Lifecycle und eine kleine Offline-Shell; der
+eigentliche Kartentisch wird wie beim EFB vom lokalen Tracker bereitgestellt.
+Ein Panel-Fehler oder ein noch nicht bestaetigter MSFS-SDK-Vertrag darf weder
+Installation noch Stable-Update des bestehenden EFB-Pakets beeinflussen.
 
 ## Paketvertrag
 
@@ -35,6 +42,22 @@ Desktop-App verwendet. Die Vorlage aktiviert den Online-Kanal nicht selbst;
 das geschieht erst nach Upload des unveränderlichen GitHub-Release-Assets und
 dem In-Sim-Test.
 
+### Geplanter Toolbar-Panel-Paketvertrag
+
+- Paketordner: vorlaeufig `vfr-multitool-toolbar-panel`
+- Release-Tag: `toolbar-panel-v<packageVersion>`
+- Archiv: genau ein Root-Ordner mit demselben Namen wie der Paketordner
+- Kanaldateien: vorlaeufig
+  `ga-tracker-client/toolbar-panel/channel/{alpha,stable}.json`
+- gemeinsam mit dem EFB: tracker-gehostete Seite, Snapshots, Intents,
+  Kartentisch-Komponenten und Tests des fachlichen Hostadapters
+- panel-spezifisch: Toolbar-Registrierung, Icon, Fenster-/Detach-/Fokus-
+  Lifecycle, Offline-Shell und Parent-Nachrichten
+
+Ausgabepfad, Registrierungsdateien und PackageDefinition werden erst nach dem
+TP0-Spike gegen das installierte MSFS-2024-SDK verbindlich festgeschrieben.
+Vorher gibt es keinen aktiven Panel-Kanal und kein Desktop-Autoupdate.
+
 ## Aktueller Kanalstand
 
 EFB 0.4.11 ist seit 2026-08-13 als Alpha-Release unter
@@ -52,6 +75,18 @@ Liveupdates, erhalten echte deutsche Umlaute und laden Custom-Listen direkt
 aus dem bereits von der App genutzten GA-Sync in den lokalen Tracker-Cache.
 Das vorherige Alpha-Artefakt 0.4.8/v345 bleibt als unveraenderlicher
 Ruecksprungpunkt erhalten.
+
+Tracker v365 im Alpha-Kanal verwendet weiterhin View 7/Assetrevision 36301; sein
+APT-Event-Replay und die Execution-/Shadow-Diagnostik aendern keine
+Host-Assets. Der
+gemeinsame Kartentisch registriert jedes EFB- beziehungsweise spaetere
+Toolbar-Fenster als kurzlebige Cockpit-Sitzung und zeigt im Audio-Menue
+`Audio auf diesem Geraet abspielen`. Aktivierte Cockpit-Instanzen koennen eine
+fertige zentrale Tracker-Ansage ueber dieselbe exklusive Playback-Lease
+streamen. Das ist ein tracker-gehostetes Update und aendert weder das
+freigegebene EFB-0.4.11-Archiv noch Alpha-/Stable-Kanaldateien. Coherent-
+Playback und der spaetere Toolbar-Host muessen vor einer Freigabe real im
+Simulator getestet werden.
 
 Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
 Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als
@@ -168,7 +203,9 @@ Route und Manifest werden bewusst noch nicht durch das externe Relay
 transportiert. Reichere Inhalte benötigen zuerst einen getrennt abgesicherten
 lokalen Datenpfad.
 
-Schreibende EFB-Aktionen werden erst später mit eigener Capability,
-kurzlebiger Sitzung und expliziter Eingabevalidierung ergänzt. CommBus bleibt
-als native MSFS-Transportoption vorgesehen, ist aber keine Voraussetzung für
-den ersten PC-Alpha-Test.
+Der erste Toolbar-Panel-Spike verwendet ebenfalls nur diese read-only
+Loopback-Projektion und die tracker-gehostete Seite. Schreibende EFB- und
+Panel-Aktionen werden erst spaeter mit eigener Capability, kurzlebiger Sitzung,
+erwarteter Mission-Revision, idempotenter `commandId` und expliziter
+Eingabevalidierung ergaenzt. CommBus bleibt als native MSFS-Transportoption
+vorgesehen, ist aber keine Voraussetzung fuer den ersten PC-Alpha-Test.

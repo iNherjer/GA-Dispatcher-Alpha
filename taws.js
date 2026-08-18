@@ -32,6 +32,51 @@ let _tawsSpeechUnlocked = false;
 // Master-Lautstärke (0–1), persistent via localStorage
 let _awmVolume = Math.min(1, Math.max(0, parseFloat(localStorage.getItem('awm_volume') ?? '1')));
 let _awmMasterGain = null;
+let _awmPlayOnThisDevice = (localStorage.getItem('awm_play_on_this_device') !== '0');
+
+window.awmShouldPlayOnThisDevice = function() {
+    return !!_awmPlayOnThisDevice;
+};
+
+window.awmSyncPlaybackDeviceControls = function() {
+    const checkbox = document.getElementById('awmPlayOnThisDeviceCheck');
+    const status = document.getElementById('awmPlayOnThisDeviceStatus');
+    if (checkbox) checkbox.checked = !!_awmPlayOnThisDevice;
+    if (status) {
+        status.textContent = _awmPlayOnThisDevice
+            ? 'Diese Instanz darf zentrale Ansagen übernehmen.'
+            : 'Diese Instanz bleibt synchron, gibt aber kein Audio aus.';
+        status.style.color = _awmPlayOnThisDevice ? '#8294a8' : '#d7a65a';
+    }
+};
+
+window.awmSetPlayOnThisDevice = function(on) {
+    const enabled = !!on;
+    if (_awmPlayOnThisDevice === enabled) {
+        window.awmSyncPlaybackDeviceControls();
+        return;
+    }
+    _awmPlayOnThisDevice = enabled;
+    localStorage.setItem('awm_play_on_this_device', enabled ? '1' : '0');
+    if (!enabled) {
+        _awInterruptCurrentPlayback();
+        _awQueue.length = 0;
+        try { window.paxVoiceStopLocalPlayback?.('device-disabled'); } catch (_) {}
+        const demo = document.getElementById('awmDemoAudio');
+        if (demo) {
+            try { demo.pause(); } catch (_) {}
+            try { demo.currentTime = 0; } catch (_) {}
+        }
+    } else {
+        try { window.awmEnsureAudioUnlocked?.('playback-device-enabled'); } catch (_) {}
+    }
+    window.awmSyncPlaybackDeviceControls();
+    try {
+        window.dispatchEvent(new CustomEvent('ga:audio-playback-device-changed', {
+            detail: { enabled }
+        }));
+    } catch (_) {}
+};
 
 // Von index.html Slider aufgerufen
 window.awmSetVolume = function(val) {
@@ -337,6 +382,7 @@ window.awmEndPriorityAudio = function(token) {
 };
 
 function _awEnqueue(keys) {
+    if (!_awmPlayOnThisDevice) return;
     if (!Array.isArray(keys) || !keys.length) return;
     _awQueue.push(keys);
     _awQueueStats.enqueued += 1;
@@ -349,6 +395,11 @@ function _awEnqueue(keys) {
 }
 
 function _awDrainQueue() {
+    if (!_awmPlayOnThisDevice) {
+        _awQueue.length = 0;
+        _awQueueBusy = false;
+        return;
+    }
     if (!_awQueue.length) { _awQueueBusy = false; return; }
     if (_awPriorityAudioActive()) { _awQueueBusy = false; return; }
     // Queue-Eintraege niemals entfernen, solange AudioContext oder Clips noch
@@ -478,6 +529,7 @@ function _awPlaySequence(keys) {
 
 window.awmGetAudioQueueDebugState = function() {
     return {
+        playOnThisDevice: !!_awmPlayOnThisDevice,
         wpEnabled: !!_awmWpAlert,
         airspaceEnabled: !!_awmAirspaceWarn,
         frequencyEnabled: !!_awmReadFreq,

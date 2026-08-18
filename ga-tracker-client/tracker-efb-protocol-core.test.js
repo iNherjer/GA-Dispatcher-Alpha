@@ -35,6 +35,37 @@ test('capabilities are normalized and negotiated explicitly', () => {
   assert.equal(protocol.supportsCapability(negotiated, protocol.CAPABILITIES.MISSION_SNAPSHOT), true);
 });
 
+test('toolbar is an explicit cockpit peer without receiving write capabilities implicitly', () => {
+  const hello = protocol.createHello({
+    role: 'toolbar',
+    clientId: 'toolbar-window-1',
+    appVersion: '0.0.1',
+    capabilities: [
+      protocol.CAPABILITIES.COCKPIT_SESSION,
+      protocol.CAPABILITIES.MISSION_SNAPSHOT_V2,
+      protocol.CAPABILITIES.MISSION_INTENT,
+      protocol.CAPABILITIES.VOICE_PLAYBACK
+    ],
+    id: 'toolbar-hello-1',
+    timestamp: 123456
+  });
+
+  const peer = protocol.describePeer(hello);
+  assert.equal(peer.role, 'toolbar');
+  assert.deepEqual(peer.capabilities, [
+    protocol.CAPABILITIES.COCKPIT_SESSION,
+    protocol.CAPABILITIES.MISSION_INTENT,
+    protocol.CAPABILITIES.MISSION_SNAPSHOT_V2,
+    protocol.CAPABILITIES.VOICE_PLAYBACK
+  ].sort());
+
+  const readOnlyTrackerCapabilities = [protocol.CAPABILITIES.MISSION_SNAPSHOT_V2];
+  const negotiated = protocol.negotiateCapabilities(readOnlyTrackerCapabilities, hello);
+  assert.deepEqual(negotiated.capabilities, [protocol.CAPABILITIES.MISSION_SNAPSHOT_V2]);
+  assert.equal(protocol.supportsCapability(negotiated, protocol.CAPABILITIES.MISSION_INTENT), false);
+  assert.equal(protocol.supportsCapability(negotiated, protocol.CAPABILITIES.VOICE_PLAYBACK), false);
+});
+
 test('peers without a valid hello remain on the existing legacy contract', () => {
   const peer = protocol.describePeer({ type: 'position', payload: {} });
   assert.equal(peer.legacy, true);

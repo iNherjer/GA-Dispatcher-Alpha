@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   stopBridge: () => ipcRenderer.invoke('bridge:stop'),
   showBridgeSettings: () => ipcRenderer.invoke('bridge:show-settings'),
   saveCredentials: (pilotId, pin) => ipcRenderer.invoke('settings:save-credentials', { pilotId, pin }),
+  saveVoiceCredentials: (provider, apiKey) => ipcRenderer.invoke('settings:save-voice-credentials', { provider, apiKey }),
+  clearVoiceCredentials: () => ipcRenderer.invoke('settings:clear-voice-credentials'),
   setRuntimeChannel: (channel) => ipcRenderer.invoke('settings:set-runtime-channel', { channel }),
   setUpdatePolicy: (policy) => ipcRenderer.invoke('settings:set-update-policy', { policy }),
   setModuleUpdatePolicy: (module, policy) => ipcRenderer.invoke('settings:set-module-update-policy', { module, policy }),

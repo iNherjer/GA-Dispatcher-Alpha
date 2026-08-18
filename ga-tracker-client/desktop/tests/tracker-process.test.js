@@ -42,12 +42,21 @@ test('desktop credentials use stdin and are not copied into the child environmen
     electronApp: { isPackaged: false },
     dataDirectory: path.join(os.tmpdir(), 'vfr-tracker-process-test'),
     getRuntimeChannel: () => 'alpha',
-    getCredentials: () => ({ pilotId: 'Pipe-Pilot', pin: '1234' })
+    getCredentials: () => ({
+      pilotId: 'Pipe-Pilot',
+      pin: '1234',
+      voice: { provider: 'openai', apiKey: 'sk-pipe-secret' }
+    })
   });
   const spec = tracker.executableSpec();
-  assert.deepEqual(spec.credentials, { pilotId: 'Pipe-Pilot', pin: '1234' });
+  assert.deepEqual(spec.credentials, {
+    pilotId: 'Pipe-Pilot',
+    pin: '1234',
+    voice: { provider: 'openai', apiKey: 'sk-pipe-secret' }
+  });
   assert.equal(spec.env.VFR_MULTITOOL_TRACKER_SYNC_ID, undefined);
   assert.equal(spec.env.VFR_MULTITOOL_TRACKER_PIN, undefined);
+  assert.equal(Object.values(spec.env).includes('sk-pipe-secret'), false);
   assert.equal(spec.env.VFR_MULTITOOL_TRACKER_HEADLESS, '1');
   assert.equal(spec.env.VFR_MULTITOOL_TRACKER_CHANNEL, 'alpha');
 });

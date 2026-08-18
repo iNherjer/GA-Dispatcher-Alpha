@@ -8,6 +8,7 @@ const {
 } = require('./pilot-pin-policy');
 
 const UPDATE_POLICIES = new Set(['ask', 'automatic']);
+const VOICE_PROVIDERS = new Set(['gemini', 'openai']);
 const MODULE_UPDATE_POLICY_KEYS = Object.freeze({
   desktop: 'desktopUpdatePolicy',
   homebase: 'homebaseUpdatePolicy',
@@ -21,6 +22,11 @@ function normalizeUpdatePolicy(value) {
 
 function normalizeBoolean(value, fallback) {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeVoiceProvider(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return VOICE_PROVIDERS.has(normalized) ? normalized : 'gemini';
 }
 
 function resolveTrackerDataDirectory(documentsDirectory) {
@@ -110,6 +116,8 @@ class TrackerConfigStore {
     return {
       pilotId: String(desktop.pilotId || tracker.syncId || '').trim(),
       hasPin: Boolean(String(desktop.encryptedPin || '').trim()) && this.encryptionAvailable(),
+      voiceProvider: normalizeVoiceProvider(desktop.voice?.provider),
+      hasVoiceApiKey: Boolean(String(desktop.voice?.encryptedApiKey || '').trim()) && this.encryptionAvailable(),
       runtimeChannel: normalizeRuntimeChannel(preferences.runtimeChannel),
       desktopUpdatePolicy: normalizeUpdatePolicy(preferences.desktopUpdatePolicy),
       updatePolicy: normalizeUpdatePolicy(preferences.updatePolicy),
@@ -139,6 +147,59 @@ class TrackerConfigStore {
 
   hasCredentials() {
     return Boolean(this.credentials());
+  }
+
+  voiceCredentials() {
+    const desktop = this.readDesktop();
+    const voice = safeObject(desktop.voice);
+    const encryptedApiKey = String(voice.encryptedApiKey || '').trim();
+    if (!encryptedApiKey || !this.encryptionAvailable()) return null;
+    try {
+      const apiKey = String(this.secureStorage.decryptString(Buffer.from(encryptedApiKey, 'base64')) || '').trim();
+      if (!apiKey || apiKey.length > 1024) return null;
+      return {
+        provider: normalizeVoiceProvider(voice.provider),
+        apiKey
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  saveVoiceCredentials(provider, apiKey) {
+    const normalizedProvider = normalizeVoiceProvider(provider);
+    const normalizedApiKey = String(apiKey || '').trim();
+    if (!normalizedApiKey || normalizedApiKey.length > 1024) throw new Error('API-Key fehlt oder ist zu lang.');
+    if (!this.encryptionAvailable()) throw new Error('Der Windows-Schutz für Zugangsdaten ist derzeit nicht verfügbar.');
+
+    const encryptedApiKey = this.secureStorage.encryptString(normalizedApiKey).toString('base64');
+    const desktop = this.readDesktop();
+    this.writeDesktop({
+      ...desktop,
+      schemaVersion: 2,
+      voice: {
+        ...safeObject(desktop.voice),
+        provider: normalizedProvider,
+        encryptedApiKey
+      }
+    });
+    return { provider: normalizedProvider, hasVoiceApiKey: true };
+  }
+
+  clearVoiceCredentials() {
+    const desktop = this.readDesktop();
+    const voice = safeObject(desktop.voice);
+    const nextVoice = {
+      ...voice,
+      provider: normalizeVoiceProvider(voice.provider)
+    };
+    delete nextVoice.encryptedApiKey;
+    this.writeDesktop({
+      ...desktop,
+      schemaVersion: 2,
+      voice: nextVoice
+    });
+    return { provider: nextVoice.provider, hasVoiceApiKey: false };
   }
 
   saveCredentials(pilotId, pin) {
@@ -275,5 +336,6 @@ module.exports = {
   TrackerConfigStore,
   normalizeBoolean,
   normalizeUpdatePolicy,
+  normalizeVoiceProvider,
   resolveTrackerDataDirectory
 };

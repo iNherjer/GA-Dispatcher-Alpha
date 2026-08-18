@@ -63,6 +63,8 @@ function currentState() {
     settings: configStore?.publicSettings() || {
       pilotId: '',
       hasPin: false,
+      voiceProvider: 'gemini',
+      hasVoiceApiKey: false,
       runtimeChannel: 'stable',
       desktopUpdatePolicy: 'ask',
       updatePolicy: 'ask',
@@ -394,6 +396,32 @@ function registerIpc() {
     broadcastState();
     return { ok: true, pilotId: verification.pilotId };
   });
+  ipcMain.handle('settings:save-voice-credentials', (_event, payload) => {
+    try {
+      const saved = configStore.saveVoiceCredentials(payload?.provider, payload?.apiKey);
+      if (trackerProcess.child) {
+        trackerProcess.once('exit', () => startTrackerIfReady().catch(() => {}));
+        trackerProcess.stop();
+      }
+      broadcastState();
+      return { ok: true, ...saved };
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) };
+    }
+  });
+  ipcMain.handle('settings:clear-voice-credentials', () => {
+    try {
+      const cleared = configStore.clearVoiceCredentials();
+      if (trackerProcess.child) {
+        trackerProcess.once('exit', () => startTrackerIfReady().catch(() => {}));
+        trackerProcess.stop();
+      }
+      broadcastState();
+      return { ok: true, ...cleared };
+    } catch (error) {
+      return { ok: false, message: error?.message || String(error) };
+    }
+  });
   ipcMain.handle('settings:set-update-policy', (_event, payload) => {
     configStore.setUpdatePolicy(payload?.policy);
     broadcastState();
@@ -559,7 +587,12 @@ async function startApplication() {
     electronApp: app,
     dataDirectory: configStore.dataDirectory,
     runtimeManager,
-    getCredentials: () => configStore.credentials(),
+    getCredentials: () => {
+      const credentials = configStore.credentials();
+      if (!credentials) return null;
+      const voice = configStore.voiceCredentials();
+      return voice ? { ...credentials, voice } : credentials;
+    },
     getRuntimeChannel: () => configStore.publicSettings().runtimeChannel
   });
   const developmentBridgeDirectory = path.resolve(__dirname, '..', 'accusim-router-desktop');

@@ -26,7 +26,17 @@ const {
 const DEFAULT_EFB_HTTP_HOST = '127.0.0.1';
 const DEFAULT_EFB_HTTP_PORT = 49880;
 const EFB_CLIENT_LOG_PATH = '/api/v1/client-log';
+const EFB_VOICE_JOB_PATH = '/api/v1/voice/jobs';
+const EFB_VOICE_PLAYBACK_CLAIM_PATH = '/api/v1/voice/playback/claim';
+const EFB_VOICE_PLAYBACK_RELEASE_PATH = '/api/v1/voice/playback/release';
+const EFB_VOICE_PLAYBACK_NEXT_PATH = '/api/v1/voice/playback/next';
+const EFB_COCKPIT_SESSION_PATH = '/api/v1/cockpit/sessions';
+const EFB_COCKPIT_SESSION_HEARTBEAT_PATH = '/api/v1/cockpit/sessions/heartbeat';
+const EFB_COCKPIT_SESSION_RELEASE_PATH = '/api/v1/cockpit/sessions/release';
+const EFB_MISSION_INTENT_PATH = '/api/v1/mission/intents';
 const MAX_EFB_CLIENT_LOG_BYTES = 8192;
+const MAX_EFB_VOICE_REQUEST_BYTES = 16384;
+const MAX_EFB_COCKPIT_REQUEST_BYTES = 16384;
 const MAX_EFB_CLIENT_LOGS_PER_MINUTE = 120;
 const TRACKER_EFB_HTTP_CAPABILITIES = Object.freeze([
   CAPABILITIES.FLIGHT_SNAPSHOT,
@@ -38,7 +48,9 @@ const TRACKER_EFB_HTTP_CAPABILITIES = Object.freeze([
   CAPABILITIES.CHECKLIST_LIBRARY,
   CAPABILITIES.TRACKER_STATUS,
   CAPABILITIES.EFB_WEB_CLIENT,
-  CAPABILITIES.EFB_CLIENT_DIAGNOSTICS
+  CAPABILITIES.EFB_CLIENT_DIAGNOSTICS,
+  CAPABILITIES.COCKPIT_SESSION,
+  CAPABILITIES.VOICE_PLAYBACK
 ].sort());
 
 function safeObject(value) {
@@ -49,6 +61,20 @@ function isLoopbackAddress(value) {
   const address = String(value || '').toLowerCase();
   return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
 }
+
+function isTrustedVoiceOrigin(request) {
+  const origin = String(request?.headers?.origin || '').trim();
+  if (!origin) return true;
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname.toLowerCase())) return true;
+    return parsed.protocol === 'https:' && parsed.hostname.toLowerCase() === 'inherjer.github.io';
+  } catch (_) {
+    return false;
+  }
+}
+
+const isTrustedCockpitOrigin = isTrustedVoiceOrigin;
 
 function createTrackerEfbHttpHello(options = {}) {
   const trackerVersion = String(options.trackerVersion || '').trim();
@@ -69,7 +95,7 @@ function createTrackerEfbHttpHello(options = {}) {
     ...hello.payload,
     trackerVersionCode,
     runtimeChannel: String(options.runtimeChannel || '').trim().toLowerCase() === 'alpha' ? 'alpha' : 'stable',
-    transport: 'http-loopback-readonly'
+    transport: 'http-loopback'
   };
   return hello;
 }
@@ -93,6 +119,7 @@ function emptyResponse(response, statusCode = 204) {
     'Access-Control-Allow-Headers': 'Accept, Content-Type',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Private-Network': 'true',
     'Cache-Control': 'no-store',
     'Content-Length': 0,
     'X-Content-Type-Options': 'nosniff'
@@ -181,6 +208,30 @@ function tileResponse(response, tile) {
   response.end(body);
 }
 
+function audioResponse(response, audio) {
+  const body = Buffer.isBuffer(audio?.body) ? audio.body : Buffer.from(audio?.body || '');
+  response.writeHead(200, {
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'no-store',
+    'Content-Length': body.length,
+    'Content-Type': String(audio?.contentType || 'application/octet-stream'),
+    'Referrer-Policy': 'no-referrer',
+    'X-Content-Type-Options': 'nosniff',
+    'X-GA-Voice-Effect': String(audio?.effectId || '')
+  });
+  response.end(body);
+}
+
+function parseVoiceJobPath(pathname) {
+  const match = String(pathname || '').match(/^\/api\/v1\/voice\/jobs\/([^/]+?)(\/audio)?$/);
+  if (!match) return null;
+  try {
+    return { effectId: decodeURIComponent(match[1]), audio: match[2] === '/audio' };
+  } catch (_) {
+    return null;
+  }
+}
+
 function createTrackerEfbHttpServer(options = {}) {
   const host = String(options.host || DEFAULT_EFB_HTTP_HOST).trim();
   const port = Number(options.port ?? DEFAULT_EFB_HTTP_PORT);
@@ -193,6 +244,8 @@ function createTrackerEfbHttpServer(options = {}) {
   const getMapSnapshot = typeof options.getMapSnapshot === 'function' ? options.getMapSnapshot : () => null;
   const getMissionSnapshot = typeof options.getMissionSnapshot === 'function' ? options.getMissionSnapshot : () => null;
   const getChecklistSnapshot = typeof options.getChecklistSnapshot === 'function' ? options.getChecklistSnapshot : () => null;
+  const voiceService = options.voiceService && typeof options.voiceService === 'object' ? options.voiceService : null;
+  const cockpitControl = options.cockpitControl && typeof options.cockpitControl === 'object' ? options.cockpitControl : null;
   const log = typeof options.log === 'function' ? options.log : () => {};
   let server = null;
   const loggedAssets = new Set();
@@ -256,6 +309,68 @@ function createTrackerEfbHttpServer(options = {}) {
       }
       return;
     }
+    if (request.method === 'POST' && [
+      EFB_COCKPIT_SESSION_PATH,
+      EFB_COCKPIT_SESSION_HEARTBEAT_PATH,
+      EFB_COCKPIT_SESSION_RELEASE_PATH,
+      EFB_MISSION_INTENT_PATH
+    ].includes(pathname)) {
+      if (!cockpitControl || !isTrustedCockpitOrigin(request)) {
+        request.resume();
+        jsonResponse(response, cockpitControl ? 403 : 503, { error: cockpitControl ? 'cockpit_origin_rejected' : 'cockpit_sessions_unavailable' });
+        return;
+      }
+      try {
+        const payload = await readJsonBody(request, MAX_EFB_COCKPIT_REQUEST_BYTES);
+        let result;
+        let messageType = 'cockpit.session';
+        if (pathname === EFB_COCKPIT_SESSION_PATH) result = cockpitControl.register(payload);
+        else if (pathname === EFB_COCKPIT_SESSION_HEARTBEAT_PATH) result = cockpitControl.heartbeat(payload);
+        else if (pathname === EFB_COCKPIT_SESSION_RELEASE_PATH) result = cockpitControl.release(payload);
+        else {
+          messageType = 'mission.intent.ack';
+          result = await cockpitControl.submitIntent(payload);
+        }
+        let statusCode = 200;
+        if (result?.status === 'conflict') statusCode = 409;
+        else if (result?.status === 'blocked') statusCode = 423;
+        else if (result?.status === 'rate_limited') statusCode = 429;
+        else if (result?.ok === false) statusCode = ['cockpit_session_required', 'cockpit_session_invalid'].includes(result?.error) ? 401 : 400;
+        jsonResponse(response, statusCode, { hello, message: createMessage(messageType, result) });
+      } catch (error) {
+        const statusCode = Math.max(400, Math.min(599, Number(error?.statusCode) || 400));
+        log(`EFB_COCKPIT_REJECT path=${sanitizeLogField(pathname, 120)} status=${statusCode} code=${sanitizeLogField(error?.code || 'invalid_request', 80)}`);
+        jsonResponse(response, statusCode, { error: error?.code || 'invalid_request' });
+      }
+      return;
+    }
+    if (request.method === 'POST' && [
+      EFB_VOICE_JOB_PATH,
+      EFB_VOICE_PLAYBACK_CLAIM_PATH,
+      EFB_VOICE_PLAYBACK_RELEASE_PATH
+    ].includes(pathname)) {
+      if (!voiceService || !isTrustedVoiceOrigin(request)) {
+        request.resume();
+        jsonResponse(response, voiceService ? 403 : 503, { error: voiceService ? 'voice_origin_rejected' : 'voice_unavailable' });
+        return;
+      }
+      try {
+        const payload = await readJsonBody(request, MAX_EFB_VOICE_REQUEST_BYTES);
+        let result;
+        if (pathname === EFB_VOICE_JOB_PATH) result = voiceService.request(payload);
+        else if (pathname === EFB_VOICE_PLAYBACK_CLAIM_PATH) result = voiceService.claimPlayback(payload);
+        else result = voiceService.releasePlayback(payload);
+        jsonResponse(response, pathname === EFB_VOICE_JOB_PATH && result?.status === 'pending' ? 202 : 200, {
+          hello,
+          message: createMessage(pathname === EFB_VOICE_JOB_PATH ? 'voice.job' : 'voice.playback', result)
+        });
+      } catch (error) {
+        const statusCode = Math.max(400, Math.min(599, Number(error?.statusCode) || 400));
+        log(`EFB_VOICE_REJECT path=${sanitizeLogField(pathname, 120)} status=${statusCode} code=${sanitizeLogField(error?.code || 'invalid_request', 80)}`);
+        jsonResponse(response, statusCode, { error: error?.code || 'invalid_request' });
+      }
+      return;
+    }
     if (request.method !== 'GET') {
       log(`EFB_HTTP_REJECT method=${sanitizeLogField(request.method, 12)} path=${sanitizeLogField(pathname, 160)}`);
       jsonResponse(response, 405, { error: 'method_not_allowed' });
@@ -268,8 +383,59 @@ function createTrackerEfbHttpServer(options = {}) {
     if (pathname === '/api/v1/status') {
       jsonResponse(response, 200, {
         hello,
-        message: createMessage('tracker.status', safeObject(getStatus()))
+        message: createMessage('tracker.status', {
+          ...safeObject(getStatus()),
+          cockpit: cockpitControl?.publicState?.() || { activeCount: 0, missionIntentsEnabled: false },
+          voice: voiceService?.publicState?.() || { configured: false }
+        })
       });
+      return;
+    }
+    if (pathname === EFB_VOICE_PLAYBACK_NEXT_PATH) {
+      if (!voiceService) {
+        jsonResponse(response, 503, { error: 'voice_unavailable' });
+        return;
+      }
+      const job = voiceService.getNextPlayback?.() || null;
+      jsonResponse(response, 200, {
+        hello,
+        message: createMessage('voice.playback.next', {
+          available: Boolean(job),
+          job
+        })
+      });
+      return;
+    }
+    if (pathname === EFB_COCKPIT_SESSION_PATH) {
+      jsonResponse(response, 200, {
+        hello,
+        message: createMessage('cockpit.sessions', cockpitControl?.publicState?.() || {
+          activeCount: 0,
+          missionIntentsEnabled: false,
+          sessions: []
+        })
+      });
+      return;
+    }
+    const voiceJobRequest = parseVoiceJobPath(pathname);
+    if (voiceJobRequest) {
+      if (!voiceService) {
+        jsonResponse(response, 503, { error: 'voice_unavailable' });
+        return;
+      }
+      try {
+        if (voiceJobRequest.audio) {
+          const audio = voiceService.getAudio(voiceJobRequest.effectId);
+          if (!audio) jsonResponse(response, 404, { error: 'voice_audio_not_ready' });
+          else audioResponse(response, audio);
+        } else {
+          const job = voiceService.get(voiceJobRequest.effectId);
+          if (!job) jsonResponse(response, 404, { error: 'voice_job_not_found' });
+          else jsonResponse(response, 200, { hello, message: createMessage('voice.job', job) });
+        }
+      } catch (error) {
+        jsonResponse(response, Number(error?.statusCode) || 400, { error: error?.code || 'invalid_voice_job' });
+      }
       return;
     }
     if (pathname === '/api/v1/snapshot') {
@@ -407,9 +573,22 @@ module.exports = {
   DEFAULT_EFB_HTTP_HOST,
   DEFAULT_EFB_HTTP_PORT,
   EFB_CLIENT_LOG_PATH,
+  EFB_COCKPIT_SESSION_PATH,
+  EFB_COCKPIT_SESSION_HEARTBEAT_PATH,
+  EFB_COCKPIT_SESSION_RELEASE_PATH,
+  EFB_MISSION_INTENT_PATH,
+  EFB_VOICE_JOB_PATH,
+  EFB_VOICE_PLAYBACK_CLAIM_PATH,
+  EFB_VOICE_PLAYBACK_NEXT_PATH,
+  EFB_VOICE_PLAYBACK_RELEASE_PATH,
   MAX_EFB_CLIENT_LOG_BYTES,
+  MAX_EFB_COCKPIT_REQUEST_BYTES,
+  MAX_EFB_VOICE_REQUEST_BYTES,
   TRACKER_EFB_HTTP_CAPABILITIES,
   createTrackerEfbHttpHello,
   createTrackerEfbHttpServer,
-  isLoopbackAddress
+  isLoopbackAddress,
+  isTrustedCockpitOrigin,
+  isTrustedVoiceOrigin,
+  parseVoiceJobPath
 };

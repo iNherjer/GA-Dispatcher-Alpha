@@ -1,4 +1,4 @@
-# EFB-/Tracker-Architektur
+# EFB-/Toolbar-Panel-/Tracker-Architektur
 
 Der chatuebergreifende Umsetzungsstand, die priorisierte Roadmap und der Plan
 zur Migration des Missionskerns stehen in `docs/EFB-Development-Plan.md`.
@@ -7,9 +7,10 @@ Diese Datei beschreibt die dauerhaften Architekturgrenzen.
 ## Zielbild
 
 Der Windows-Tracker wird schrittweise zur lokalen Ausfuehrungs- und
-Rechenebene. Das MSFS-2024-EFB bleibt eine schlanke Bedienoberflaeche. Damit
-liegen SimConnect, hochfrequente Telemetrie, Szenenbefehle und spaeter
-ausgelagerte Berechnungen in dem Prozess, der auf dem PC ohnehin laufen muss.
+Rechenebene. Das MSFS-2024-EFB und das globale Toolbar-Panel bleiben schlanke
+Bedienoberflaechen derselben tracker-gehosteten Cockpit-UI. Damit liegen
+SimConnect, hochfrequente Telemetrie, Szenenbefehle und spaeter ausgelagerte
+Berechnungen in dem Prozess, der auf dem PC ohnehin laufen muss.
 
 Die laufende Web-App und der produktive Tracker werden dabei nicht auf einmal
 ersetzt. Neue Funktionen werden additiv hinter einem versionierten
@@ -26,12 +27,14 @@ Web-/Relay-Vertrag weiterhin beherrschen, solange Stable ihn noch verwendet.
 - spaeter: transportneutrale Missions-Snapshots und Befehlsausfuehrung
 - Abwaertskompatibilitaet zum bestehenden Web-/Relay-Protokoll
 
-### EFB
+### EFB und Toolbar-Panel
 
 - Darstellung, Navigation und direkte Benutzerinteraktion
 - Anfordern von Snapshots statt eigener Polling-/Rechenloops
 - Senden klarer Benutzerabsichten statt direkter SimConnect-Details
 - sichtbarer Fallback, wenn eine Tracker-Capability fehlt
+- identische fachliche Views und Actions; nur Host-Lifecycle, Fenster-Chrome,
+  Input/Fokus und Offline-Shell unterscheiden sich
 
 ### Bestehende Web-App
 
@@ -50,8 +53,105 @@ werden.
 
 `ga-tracker-client/tracker-efb-protocol-core.js` definiert nur Nachrichten,
 Versionen und Capability-Aushandlung. Es bindet sich bewusst weder an WebSocket
-noch an MSFS CommBus. Dadurch koennen der heutige Relay-Pfad und ein kuenftiger
-EFB-Transport dieselben Nachrichten verwenden.
+noch an MSFS CommBus. Dadurch koennen der heutige Relay-Pfad sowie kuenftige
+EFB- und Toolbar-Panel-Transporte dieselben Nachrichten verwenden.
+
+## Gemeinsamer Cockpit-View
+
+Der tracker-gehostete Kartentisch unter `/efb/v1/` ist die gemeinsame
+Funktionsoberflaeche fuer EFB und Toolbar-Panel. Ein expliziter Hostkontext
+`efb|toolbar` darf ausschliesslich Layout, Input-/Fokusbehandlung,
+Fenster-Lifecycle, Close-Nachricht und Offline-Darstellung variieren. Karte,
+Mission Control, Verlade-Manager, Pax-Interaktion, Voice-Status und Werkzeuge
+verwenden dieselben Komponenten und versionierten Snapshots.
+
+Jedes sichtbare Fenster besitzt einen eigenen zufaelligen Channel und eine
+eigene kurzlebige lokale Sitzung. Der Hosttyp und Channel dienen Diagnose,
+Antwort-Routing und Audio-Playback-Koordination; sie begruenden keine
+Missionsautoritaet. Zwei gleichzeitig geoeffnete Clients duerfen dieselbe
+Mission beobachten, aber nur Intents gegen die eine autoritative Revision
+senden.
+
+Der lokale v363-Kandidat setzt diese Sitzungsgrenze erstmals konkret um.
+Web-App und tracker-gehosteter Cockpit-View registrieren `web|efb|toolbar` mit
+einer stabilen Fenster-`clientId`; der Tracker gibt eine zufaellige
+`sessionId` und ein separates Token mit 45 Sekunden Lebensdauer zurueck.
+Heartbeats verlaengern die Sitzung und projizieren unter anderem, ob dieses
+Fenster Audio wiedergeben darf. Token werden weder im oeffentlichen
+Sessionstatus noch in Logs oder Snapshots ausgegeben. Abgelaufene, ersetzte
+oder explizit geschlossene Sitzungen koennen keine Cockpit-Intents senden.
+
+### Authority, Owner und Bedienfenster sind getrennte Ebenen
+
+Der heutige `ownerClientId` bezeichnet waehrend der Migration den Web-Client,
+der den vollstaendigen Resume-Snapshot schreibt. Er bezeichnet weder das
+sichtbare Fenster noch einen allgemeinen UI-Master. Fuer den Zielbetrieb gelten
+drei getrennte Ebenen:
+
+1. `executionAuthority`: `web` im Legacy-/Migrationsmodus oder `tracker`, sobald
+   der gemeinsame Execution-Core das Rezept autoritativ ausfuehrt.
+2. `runtimeOwnerClientId`: nur im Web-Authority-Modus der Browser, der
+   Resume-Snapshots schreiben darf. EFB und Toolbar-Panel uebernehmen diesen
+   Owner nicht.
+3. `controllerSession`: jede geoeffnete App-, EFB- oder Panel-Ansicht mit
+   eigener kurzlebiger Session. Controller duerfen parallel existieren und
+   senden Intents mit `commandId` und erwarteter Revision.
+
+Es gibt keinen dauerhaften „aktiven UI-Master“. Der erste gueltige Intent auf
+der aktuellen Revision gewinnt. Ein gleichzeitig gesendeter veralteter Intent
+wird ohne Seiteneffekt mit `mission_revision_conflict` und dem aktuellen
+Snapshot beantwortet. Laenger laufende fachliche Effekte wie Boarding,
+Signatur, Payload-Anwendung, Deboarding, Close oder Voice tragen eine
+autoritative `operationId` beziehungsweise `effectId`; waehrenddessen zeigen
+alle Clients denselben Busy-Zustand. Das ist eine Operationssperre, keine
+Uebergabe der Mission an ein Fenster.
+
+### Wann ein Uebergabebanner erscheint
+
+Zwischen EFB und Toolbar-Panel erscheint kein „Mission hierher uebernehmen“-
+Banner. Beide haengen am selben lokalen Tracker, sehen denselben Snapshot und
+koennen nach Freigabe der Intent-Capability synchron als Controller arbeiten.
+
+Der bestehende Uebergabedialog bleibt ausschliesslich fuer einen echten
+Runtime-Owner-Wechsel im Web-Authority-Modus erhalten, beispielsweise von
+einem anderen Browser oder Geraet. Solange dieser Modus aktiv ist, zeigen EFB
+und Panel den Zustand lesend mit dem Hinweis „Mission wird von der App
+ausgefuehrt“; sie duerfen den Browser-Owner nicht selbst uebernehmen. Nach der
+recipe-weisen Tracker-Authority entfaellt auch dieser Hinweis fuer das
+unterstuetzte Rezept.
+
+Ein Revisionskonflikt, ein laufender Effekt oder ein kurz getrennter Client ist
+kein Owner-Konflikt. In diesen Faellen aktualisiert der Client den Snapshot und
+zeigt eine kurze Statusmeldung statt eines Uebergabebanners.
+
+Die Toolbar-Shell wird als eigenes Community-Package entwickelt und bleibt bis
+zum positiven SDK-/In-Sim-Nachweis vom Stable-EFB-Paket getrennt. Der erste
+Panel-Spike ist read-only. Ein erfolgreicher iframe-Start beweist noch nicht
+die Freigabe von Mission-, Cargo-, Pax- oder Voice-Commands.
+
+## Schreibende Cockpit-Aktionen
+
+Schreibende EFB-/Panel-Funktionen werden als fachliche Intents modelliert. Der
+Tracker prueft Capability, Sitzung, `missionId`, `runId`, erwartete Revision,
+`commandId`, Schema, Rate-Limit und `allowedActions`, bevor Core-Event oder
+Effekt erzeugt werden. Clients duerfen insbesondere keine Runtime-Phase,
+Manifestbewertung, Payloadzahl, Voice-Gate oder SimConnect-Variable frei
+setzen.
+
+Start, Pickup, Unload und Abschluss benutzen die unveraenderten Missions- und
+Manifestgates. `request_close` ist nur im autoritativen Endzustand erlaubt;
+`abort_mission` und `reset_mission` sind getrennte, ausdruecklich bestaetigte
+Aktionen. Pax-Buttons senden semantische Interaktionen wie Status-,
+Orientierungs-, Wohlbefindens-, Wetter-, Ladungs- oder Fundanfrage. Der
+Missionskern entscheidet, welche davon im aktuellen Rezept erlaubt ist.
+
+Voice ist ein abgeleiteter Effekt. Der Tracker fuehrt eine deduplizierte
+Voice-/Effekt-Queue und koordiniert pro Run genau einen Playback-Owner, damit
+Web-App, EFB und Toolbar-Panel dieselbe Ansage nicht parallel ausgeben.
+Sprecher, Text, Queue- und Playbackstatus duerfen projiziert werden; API-Keys
+und Provider-Zugangsdaten bleiben ausserhalb der Cockpit-Clients. Eine spaete
+TTS-Antwort nach Farewell-/End-Lock wird wie heute verworfen und darf keinen
+Missionszustand fortschalten.
 
 Ohne gueltiges `protocol.hello` wird ein Peer als `legacy` behandelt. Der neue
 Tracker darf dann nur die bestehenden Telemetrie- und Command-Pfade voraussetzen.
@@ -66,7 +166,7 @@ beiden Legacy-Capabilities. Tracker v325 meldet additiv
 `mission.authority.v1` und `mission.snapshot.v2`; alte Clients ignorieren diese
 Felder weiterhin.
 
-Tracker v323 ergaenzt daneben eine getrennte read-only Loopback-Schnittstelle
+Tracker v323 ergaenzt daneben eine getrennte, zu diesem Stand read-only Loopback-Schnittstelle
 auf `127.0.0.1:49880`. Sie liefert mit eigenem Hello ausschließlich
 `tracker.status.v1` und `flight.snapshot.v1`. Dieser lokale Pfad funktioniert
 auch dann, wenn das Cloud-Relay voruebergehend getrennt ist. Die Relay-Nachricht,
@@ -252,7 +352,7 @@ Tracker validiert diese Huelle vor jeder Status- oder SimConnect-Mutation.
 Abgelehnte oder veraltete Befehle erhalten den aktuellen oeffentlichen Run als
 Konfliktantwort und haben keine Seiteneffekte.
 
-Der lokale HTTP-Endpunkt bleibt read-only. `/api/v1/mission` liefert bei einem
+Der lokale Missionsendpunkt bleibt read-only. `/api/v1/mission` liefert bei einem
 aktiven Run weiterhin die bisherigen flachen Felder fuer EFB 0.2.x und daneben
 den neuen Authority-Snapshot. Ohne aktiven Run wird keine alte beendete Mission
 mehr als aktive Mission ausgegeben; `lastRun` bleibt im getrennten
@@ -288,9 +388,9 @@ Web-App: `map.js`, `profile.js`, Cloud-Sync, Missionsautoritaet,
 Benutzergeheimnisse und die uebrige App-DOM bleiben draussen. Ein kleiner
 Hostadapter rendert Flugzeug, Route, Missionsgeometrie, Navigation, Kompass und
 Planprofil aus den versionierten Tracker-Snapshots. `map-shell-core.js` ist als
-gemeinsamer Node-/Browser-Kern nutzbar. Voice bleibt ein eigener Tracker-
-Dienst und wird nicht aus dem eingebetteten EFB-Dokument heraus autoritativ
-gesteuert.
+gemeinsamer Node-/Browser-Kern nutzbar. Voice bleibt ein eigener
+Tracker-koordinierter Dienst und wird weder aus dem eingebetteten EFB-Dokument
+noch aus der Toolbar-Shell heraus autoritativ gesteuert.
 
 Tracker v328 und EFB 0.4.3 haerten ausschliesslich diese lokale Hostgrenze.
 Der HTML-Einstieg enthaelt einen kleinen ES5-kompatiblen Inline-Bootstrap,
@@ -306,6 +406,104 @@ Snapshots nur an Loopback gebunden, nimmt hoechstens 8 KiB pro Meldung und 120
 Meldungen pro Minute an und entfernt Steuerzeichen. Er schreibt keine Daten in
 Missions-, Cloud- oder SimConnect-Zustaende. Der fachliche EFB-Vertrag bleibt
 deshalb read-only; der POST ist nur ein lokaler Debug-Rueckkanal.
+
+Der lokale v363-Kandidat erweitert diese Grenze erstmals um den getrennten
+Voice-Effektvertrag `voice.playback.v1`; Missions-, Cargo-, Pax- und
+SimConnect-Endpunkte bleiben weiterhin read-only. Der Tracker-Desktop 1.6.3
+speichert genau einen aktiven Gemini- oder OpenAI-Key mit Electron
+`safeStorage` und damit unter Windows benutzergebunden per DPAPI. Nur der
+Ciphertext liegt in LocalAppData. Der entschluesselte Key erreicht die Engine
+einmal ueber ihre lokale `stdin`-Pipe und bleibt aus Prozessargumenten,
+Umgebung, Tracker-Dateien, Logs, Hellos und Statusprojektionen heraus.
+
+`POST /api/v1/voice/jobs` nimmt einen begrenzten Text-/Sprecherauftrag mit
+stabiler `effectId` an. Dieselbe ID und derselbe Inhalt verwenden denselben
+laufenden oder fertigen Provider-Job; abweichender Inhalt unter derselben ID
+erhaelt `409 effect_id_conflict`. Status und Audio liegen getrennt unter
+`GET /api/v1/voice/jobs/:effectId` und
+`GET /api/v1/voice/jobs/:effectId/audio`. Gemini-Roh-PCM wird vor der Ausgabe
+als WAV gekapselt. Der In-Memory-Cache ist begrenzt und enthaelt nie den Key.
+`POST /api/v1/voice/playback/claim` vergibt eine zeitlich begrenzte Lease an
+genau eine `clientId`; `release` gibt sie frei oder markiert den Effekt nach
+erfolgreicher Wiedergabe als abgeschlossen. Der Web-Client versucht diesen
+Pfad zuerst und faellt bei nicht konfiguriertem oder nicht erreichbarem Tracker
+auf die bestehende Browser-TTS zurueck. Damit wird die heutige Voice-Runtime
+nicht entfernt, bevor EFB und Toolbar den neuen Vertrag real In-Sim bestaetigt
+haben.
+
+`GET /api/v1/voice/playback/next` projiziert die aelteste fertige, noch nicht
+abgeschlossene und nicht aktiv geleaste Ansage. Der gemeinsame Cockpit-Host
+pollt diesen Endpunkt nur, wenn im Audio-Menue
+`Audio auf diesem Geraet abspielen` aktiv ist. Danach beansprucht er dieselbe
+Lease, streamt das Audio und markiert es erst nach `ended` als abgeschlossen.
+Mehrere aktivierte Fenster duerfen parallel offen sein; die atomare
+Tracker-Lease laesst trotzdem nur einen Gewinner zu. Beim Ausschalten stoppt
+das Fenster seine lokale Wiedergabe, gibt eine offene Lease ohne
+Abschlussmarker frei und bleibt fuer Zustand und Bedienmoeglichkeiten weiter
+synchron. Browser-Warnungen, Demo-Clips, Pax-TTS und Audioeffekte respektieren
+dieselbe lokale Praeferenz.
+
+Parallel implementiert v363 `cockpit.session.v1` und den noch gesperrten
+Intent-Gateway als Migrationsfundament. Die Allowlist, `commandId`,
+`missionId`, `runId`, exakte `expectedRevision`, Tokenpruefung und idempotente
+ACK-Wiederholung sind bereits automatisiert getestet. Solange
+`executionAuthority=web` gilt, antwortet ein ansonsten gueltiger Intent mit
+`423 mission_intents_read_only`, fuehrt garantiert keinen Effekt aus und
+`mission.intent.v1` wird im Tracker-Hello nicht angeboten. Die bestehende
+Browser-Missionslogik und `mission-authority-core.js` bleiben damit fuer diesen
+Schnitt unveraendert aktiv.
+
+Der lokale v364-Kandidat setzt davor die erste echte Rechengrenze fuer die
+Missionsmigration. `mission-execution-core.js` ist derselbe reine UMD-Kern in
+Browser und Node. Die Web-App projiziert ihren bestehenden Runtime-, Manifest-
+und Compliance-Zustand additiv als `ga.mission-execution-shadow.v1` in das
+Resume-v2-Bundle. Diese Projektion enthaelt keine Story, sichtbaren Cargo-/Pax-
+Labels oder Zugangsdaten. Der produktive Ablauf bleibt vollstaendig in
+`sync.js`, `mission-runtime-core.js`, `mission-cargo-core.js` und
+`mission-compliance-core.js`; der neue Reducer wird in dieser Stufe noch nicht
+als Execution-Authority verwendet.
+
+`tracker-mission-shadow.js` verarbeitet nur einen vom Authority-Manager
+erfolgreich akzeptierten Snapshot. Der Tracker erzeugt aus dessen gespeichertem
+Resume-Bundle unabhaengig dieselbe Projektion und vergleicht Phase, Unterphase,
+`allowedActions`, `blockingReasons`, Cargo, Workflows, Revision, deklarative
+Effekte und State-Hash. Ein veraltetes `noop`, ein Owner-/Run-Konflikt oder ein
+ungueltiges Bundle kann den Shadow-Zustand nicht fortschalten. Oeffentlich sind
+nur `match`, `drift` oder `unavailable`, abweichende Feldnamen, Hashes und ein
+gehashter Event-Trace. Der Vertrag fuehrt fest `sideEffects=false`; er ruft
+keinen Scene-, Voice-, Cargo-, SimConnect- oder Close-Adapter auf. Alte Web-
+Clients ohne `execution` bleiben als `unavailable` voll funktionsfaehig.
+Der lokale Windows-Build v364 umfasst 48.249.734 Bytes mit SHA-256
+`69f828c5d5006b1a157b890c777ad34654f62d1ae19855ac6dc85b4dad872825` und ist
+nicht in einen Runtime-Kanal eingetragen.
+
+Der lokale v365-Kandidat erweitert diese Grenze fuer normale APT-Laeufe um ein
+persistentes Browser-Journal und das transportierte
+`ga.mission-execution-bundle.v1`. Das Journal speichert ausschliesslich den
+normalisierten Initialzustand, bis zu 160 normalisierte Ereignisse und die
+letzte narrativfreie Projektion. Es wird aus bestehenden autoritativen
+Snapshots gespeist und besitzt keine Hooks, die Runtime, Manifest, Szene,
+Voice oder Simulator veraendern koennen. Wiederholte Snapshots bleiben
+idempotent; fehlende Zwischenphasen werden durch die minimal notwendigen,
+vom Reducer akzeptierten Vorbedingungen ergaenzt. Bei Reload und expliziter
+Geraeteuebergabe wird dasselbe Bundle fortgesetzt; ein neuer geplanter Lauf
+setzt auch bei gleicher `missionId` neu an.
+
+Der Resume-v2-Snapshot traegt nun additiv `executionReplay` und die daraus
+erzeugte `execution`-Huelle. Der Tracker berechnet die Huelle aus Initialzustand
+und Ereignissen selbst und vergleicht Browser- gegen Tracker-Replay sowie den
+Replay-Endzustand gegen die aktuelle Legacy-Projektion. Der Replay-Hash ist in
+die Browser-Snapshot-Deduplizierung aufgenommen, sodass semantische
+Airborne-/Touchdown-/Ground-Still-Aenderungen uebertragen werden, ohne rohe
+Live-Telemetrie in den Authority-Hash aufzunehmen. Beim finalen
+`mission_authority_release` wird das Bundle nach `MISSION_CLOSED` im `lastRun`
+gespeichert und vor dem Entfernen der aktiven Authority nochmals verglichen.
+
+Der lokale Windows-Build v365 umfasst 48.255.926 Bytes mit SHA-256
+`a9443a959b58ea21bdfaccd2f4dec01e13ab2a5f616f01648d3b6345d94ef42a`.
+`executionAuthority=web`, `sideEffects=false` und der gesperrte
+`mission.intent.v1`-Pfad bleiben bestehen. Nur der Tracker-Alpha-Kanal zeigt
+auf v365; Stable bleibt bis zum realen APT-No-Drift-Test auf v356.
 
 Der 0.4.3-In-Sim-Log zeigt, dass die Dateien in richtiger Reihenfolge geladen
 werden, Coherent aber Optional Chaining und Object Spread nicht parst.
@@ -511,12 +709,17 @@ die Web-App fordert deshalb nicht pauschal den jeweils neuesten Alpha-Tracker.
 1. Desktop-Kanaele trennen: Stable bleibt Standard, Alpha erhaelt eine eigene Runtime.
 2. Protokollkern additiv bereitstellen, noch ohne laufende Missionslogik umzubauen.
 3. Hello/Capabilities zuerst im Alpha-Tracker und in einem Test-Client integrieren.
-4. EFB zunaechst nur lesend mit Status und Telemetrie anbinden.
-5. Benutzeraktionen einzeln als versionierte Commands freigeben.
+4. EFB und Toolbar-Panel zunaechst nur lesend mit Status und Telemetrie
+   anbinden.
+5. Benutzeraktionen einzeln als versionierte Commands fuer beide Hosts
+   freigeben.
 6. Rechenlogik nur modulweise verschieben und jeweils gegen die bestehende Web-App testen.
 7. Dasselbe unveraenderliche Tracker-Artefakt nach Alpha-Test in Stable promoten.
 
-`mission-runtime-core.js`, `mission-cargo-core.js` und der bestehende
-Web-/Relay-Ablauf werden in dieser Stufe nicht umverdrahtet. Dadurch ist die
-neue Grenze vorhanden, ohne den aktuell produktiven Missionsablauf zu
-beeinflussen.
+`mission-runtime-core.js`, `mission-cargo-core.js`,
+`mission-compliance-core.js` und der bestehende Web-/Relay-Ablauf werden in
+dieser Stufe nicht umverdrahtet. Der additive Execution-Snapshot, der
+APT-Event-Replay und der seiteneffektfreie Tracker-Shadow schaffen die neue
+Grenze, ohne den aktuell produktiven Missionsablauf zu beeinflussen. Der
+naechste Schritt ist ein realer APT-No-Drift-Lauf; erst danach folgt eine
+recipe-weise Tracker-Authority.

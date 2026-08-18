@@ -128,6 +128,15 @@
                             <div style="font-size:11px; color:#888; letter-spacing:0.04em;">AUDIO WARNINGS</div>
                             <button type="button" class="settings-help-btn map-voice-help-btn" onclick="showSettingsHelp('map-voice', event)" aria-label="Hilfe zum Audio-Menue" aria-expanded="false">?</button>
                         </div>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 4px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmPlayOnThisDeviceCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetPlayOnThisDevice(this.checked)">
+                            🔊 Audio auf diesem Gerät abspielen
+                        </label>
+                        <div id="awmPlayOnThisDeviceStatus" style="font-size:10px; line-height:1.35; color:#8294a8; margin:0 2px 8px 22px;">
+                            Diese Instanz darf zentrale Ansagen übernehmen.
+                        </div>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
                             <span style="font-size:13px;">🔊</span>
                             <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"

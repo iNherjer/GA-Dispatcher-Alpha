@@ -11,6 +11,7 @@ zwischen `Stable` und `Alpha` gewechselt werden.
 - kleines Statusfenster und Windows-Tray
 - eigenes Tracker-Icon fuer Tray, Taskleiste und Windows-Installer
 - Pilot-ID/PIN-Pruefung ueber den bestehenden Auth-Endpunkt
+- geschuetztes Voice-Provider-/API-Key-Feld fuer die zentrale Tracker-TTS
 - Download, Pruefung, Update und Start/Stopp der Tracker-Engine
 - umschaltbare Tracker-Kanaele `Stable` und `Alpha`
 - getrennte Runtime-Verzeichnisse fuer sicheren Rueckwechsel auf Stable
@@ -46,6 +47,15 @@ Pilot-ID und der 4- bis 8-stellige PIN werden vor dem Speichern am Auth-Endpunkt
 geprueft. Die PIN wird mit Electrons `safeStorage`/Windows DPAPI geschuetzt in
 LocalAppData gespeichert und nur ueber eine lokale Prozess-Pipe an die Engine
 uebergeben. Sie steht weder im Dokumente-Ordner noch in der Prozessumgebung.
+
+Der optionale Gemini- oder OpenAI-Key fuer die zentrale Sprachausgabe verwendet
+denselben Windows-benutzergebundenen Schutz. Die Desktop-App speichert nur den
+von `safeStorage` erzeugten Ciphertext. Beim Trackerstart werden Provider und Key
+einmal ueber dieselbe lokale Prozess-Pipe in den Arbeitsspeicher der Engine
+gegeben. Der Key wird weder in `tracker-config.json` noch in Logs,
+Prozessargumenten, Umgebungsvariablen, EFB-/Panel-Hellos oder oeffentlichen
+Statusantworten ausgegeben. Ein Wechsel oder Entfernen startet eine laufende
+Engine kontrolliert neu, damit kein alter Key im Prozess verbleibt.
 
 Eine vorhandene Klartext-PIN in `tracker-config.json` wird erst nach erfolgreicher
 Online-Pruefung und sicherer Migration entfernt. Homebase-Fallback,

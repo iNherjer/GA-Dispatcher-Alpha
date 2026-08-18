@@ -88,6 +88,30 @@
           </section>
 
           <section class="settings-group">
+            <p class="eyebrow">VOICE</p>
+            <h2>Zentrale Sprachausgabe</h2>
+            <p class="subtle">Der Tracker erzeugt jede Ansage einmal und stellt sie EFB und Toolbar-Panel gemeinsam bereit. Der Schlüssel bleibt auf diesem Windows-Konto geschützt.</p>
+            <form id="voiceCredentialsForm" class="voice-credentials-form">
+              <label>
+                <span>Provider</span>
+                <select id="voiceProviderSelect" name="voiceProvider">
+                  <option value="gemini">Gemini</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </label>
+              <label>
+                <span>API-Key</span>
+                <input id="voiceApiKeyInput" name="voiceApiKey" type="password" maxlength="1024" autocomplete="new-password" placeholder="API-Key eingeben">
+              </label>
+              <div class="voice-credentials-actions">
+                <button id="saveVoiceCredentialsButton" class="primary-button" type="submit">Sicher speichern</button>
+                <button id="clearVoiceCredentialsButton" class="secondary-button" type="button">Entfernen</button>
+              </div>
+            </form>
+            <p id="voiceFormMessage" class="form-message" role="status"></p>
+          </section>
+
+          <section class="settings-group">
             <p class="eyebrow">START</p>
             <h2>Startverhalten</h2>
             <label class="toggle-row">

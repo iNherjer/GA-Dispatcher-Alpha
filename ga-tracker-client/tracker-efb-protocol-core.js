@@ -24,7 +24,10 @@
     MISSION_SNAPSHOT_V2: 'mission.snapshot.v2',
     MISSION_VIEW: 'mission.view.v1',
     MISSION_AUTHORITY: 'mission.authority.v1',
+    MISSION_INTENT: 'mission.intent.v1',
     MISSION_SCENE_GROUP: 'mission.scene.group.v1',
+    COCKPIT_SESSION: 'cockpit.session.v1',
+    VOICE_PLAYBACK: 'voice.playback.v1',
     CHECKLIST_LIBRARY: 'checklist.library.v1',
     EFB_INTERACTION: 'efb.interaction.v1',
     EFB_WEB_CLIENT: 'efb.web-client.v1',
@@ -108,7 +111,7 @@
 
   function createHello(options = {}) {
     const role = String(options.role || '').trim().toLowerCase();
-    if (!['tracker', 'efb', 'web'].includes(role)) throw new Error('Tracker-/EFB-Hello benoetigt eine gueltige Rolle.');
+    if (!['tracker', 'efb', 'toolbar', 'web'].includes(role)) throw new Error('Tracker-/Cockpit-Hello benoetigt eine gueltige Rolle.');
     return createMessage('protocol.hello', {
       role,
       clientId: String(options.clientId || '').trim(),
