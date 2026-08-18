@@ -14,6 +14,7 @@ const MISSION_INTENTS = new Set([
   'prepare_mission',
   'set_manifest_item',
   'sign_manifest',
+  'clear_manifest_signature',
   'confirm_load',
   'start_mission',
   'confirm_pickup',

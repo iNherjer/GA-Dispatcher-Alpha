@@ -71,6 +71,7 @@
   var missionIntentStatus = '';
   var missionBannerDismissedKey = '';
   var cargoManagerOpen = false;
+  var cargoManagerSignature = '';
   var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
   var EFB_PROFILE_HEIGHT_KEY = 'ga_efb_tracker_profile_height_v1';
   var EFB_OVERLAY_PANES = {
@@ -672,6 +673,8 @@
       load_not_confirmed: 'Verladung noch nicht bestätigt',
       pickup_manifest_incomplete: 'Pickup am Ziel noch offen',
       destination_unload_incomplete: 'Pflichtladung noch zu entladen',
+      arrival_signature_missing: 'Ankunftsmanifest noch nicht unterschrieben',
+      arrival_unload_not_confirmed: 'Entladung noch nicht bestätigt',
       compliance_inspection_active: 'Bordkontrolle noch aktiv',
       compliance_remediation_required: 'Beanstandung noch zu beheben',
       task_aborted: 'Auftrag wurde abgebrochen',
@@ -715,14 +718,23 @@
       return null;
     }
     if (allowedActions.indexOf('set_manifest_item') < 0) return null;
-    if (/^(prepare|boarding)$/.test(phase) && status === 'pending' && String(item.pickup || 'departure') !== 'target') {
+    var departureItem = String(item.pickup || 'departure') !== 'target';
+    var arrivalItem = String(item.delivery || 'destination') === 'destination';
+    var equipmentItem = item.persistentEquipment === true;
+    if (/^(prepare|boarding)$/.test(phase) && departureItem && (status === 'pending' || status === 'unloaded')) {
       return { intent: 'set_manifest_item', action: 'load', label: 'Verladen' };
+    }
+    if (/^(prepare|boarding)$/.test(phase) && departureItem && status === 'loaded') {
+      return { intent: 'set_manifest_item', action: 'unload', label: 'Ausladen' };
     }
     if (phase === 'on_task' && status === 'pending' && String(item.pickup || '') === 'target') {
       return { intent: 'set_manifest_item', action: 'load', label: 'Aufnehmen' };
     }
-    if (/^(end_unloading|end_ready)$/.test(phase) && status === 'loaded' && String(item.delivery || 'destination') === 'destination') {
+    if (/^(end_unloading|end_ready)$/.test(phase) && status === 'loaded' && (arrivalItem || equipmentItem)) {
       return { intent: 'set_manifest_item', action: 'unload', label: 'Entladen' };
+    }
+    if (/^(end_unloading|end_ready)$/.test(phase) && (status === 'pending' || status === 'unloaded') && (arrivalItem || equipmentItem)) {
+      return { intent: 'set_manifest_item', action: 'load', label: 'Wieder laden' };
     }
     return null;
   }
@@ -760,6 +772,7 @@
     }).join('');
     var directActions = [
       { intent: 'sign_manifest', label: 'Manifest unterschreiben', className: 'mission-cargo-secondary' },
+      { intent: 'clear_manifest_signature', label: 'Zurück zur Liste', className: 'mission-cargo-secondary' },
       { intent: 'confirm_load', label: 'Verladung bestätigen', className: 'mission-cargo-primary' },
       { intent: 'confirm_pickup', label: 'Pickup bestätigen', className: 'mission-cargo-primary' },
       { intent: 'confirm_unload', label: 'Entladung bestätigen', className: 'mission-cargo-primary' }
@@ -836,7 +849,13 @@
     var overlay = byId('gaEfbCargoManager');
     if (!overlay || !cargoManagerOpen) return;
     var body = byId('gaEfbCargoBody');
-    if (body) body.innerHTML = cargoManagerMarkup();
+    if (!body) return;
+    var markup = cargoManagerMarkup();
+    if (markup === cargoManagerSignature) return;
+    var scrollTop = body.scrollTop;
+    cargoManagerSignature = markup;
+    body.innerHTML = markup;
+    body.scrollTop = scrollTop;
   }
 
   function openCargoManager() {
@@ -1209,7 +1228,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.8');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.1');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -1679,7 +1698,18 @@
       comfort: view.comfort || null,
       cargo: view.cargo || null,
       manifest: payload.manifest || null,
-      control: payload.control || null,
+      control: payload.control && typeof payload.control === 'object' ? {
+        missionId: payload.control.missionId || '',
+        runId: payload.control.runId || '',
+        executionAuthority: payload.control.executionAuthority || '',
+        phase: payload.control.phase || '',
+        subphase: payload.control.subphase || '',
+        nextStep: payload.control.nextStep || '',
+        flags: payload.control.flags || null,
+        cargo: payload.control.cargo || null,
+        blockingReasons: payload.control.blockingReasons || [],
+        allowedActions: payload.control.allowedActions || []
+      } : null,
       trackerLive: flightView.trackerLive === true
     });
   }
@@ -1702,7 +1732,7 @@
     } else if (allowedActions.indexOf('start_mission') >= 0) {
       model = { kicker: 'Mission startbereit', text: task, button: 'Mission starten', kind: 'intent', intent: 'start_mission', className: 'is-begin-action' };
     } else {
-      var cargoAction = ['set_manifest_item', 'sign_manifest', 'confirm_load', 'confirm_pickup', 'confirm_unload'].some(function (intent) {
+      var cargoAction = ['set_manifest_item', 'sign_manifest', 'clear_manifest_signature', 'confirm_load', 'confirm_pickup', 'confirm_unload'].some(function (intent) {
         return allowedActions.indexOf(intent) >= 0;
       });
       var manifestItems = payload.manifest && Array.isArray(payload.manifest.items) ? payload.manifest.items : [];

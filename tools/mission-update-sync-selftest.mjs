@@ -333,6 +333,7 @@ const uploadContext = {
     _syncHomebasePush: async () => ({ ok: true, skipped: true }),
     _missionLogbookForSync: () => [],
     _syncActiveMissionPayload: () => draftState,
+    _syncTrackerMissionSeedPayload: () => null,
     getGroupName: () => '',
     getGroupNick: () => '',
     getAircraftPresetsForSync: () => ({}),

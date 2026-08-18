@@ -268,6 +268,8 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       complete_task: 'Auftrag am Ziel erfüllen',
       return_and_land: 'Zurückfliegen und landen',
       complete_unload: 'Ladung am Ziel entladen',
+      sign_arrival_manifest: 'Ankunftsmanifest unterschreiben',
+      confirm_unload: 'Entladung bestätigen',
       close_mission: 'Mission abschließen',
       await_close: 'Missionsabschluss wird verarbeitet',
       complete: 'Mission abgeschlossen'

@@ -50,6 +50,18 @@ function errorResult(error, details = {}) {
   return { ok: false, status: 'blocked', error, sideEffect: false, ...details };
 }
 
+function noopResult(authorityManager, snapshot, details = {}) {
+  return {
+    ok: true,
+    status: 'noop',
+    sideEffect: false,
+    executionAuthority: 'tracker',
+    activeRun: authorityManager.getActiveRun(),
+    view: snapshot.view,
+    ...details
+  };
+}
+
 function createTrackerMissionExecutionAdapter(options = {}) {
   const authorityManager = options.authorityManager;
   if (!authorityManager || typeof authorityManager.getExecutionSnapshot !== 'function'
@@ -152,39 +164,21 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (item.itemType === 'passenger') return errorResult('mission_manifest_item_scene_required');
 
     const load = action === 'load' || action === 'loaded';
-    if (load) {
-      if (!['prepare', 'boarding'].includes(snapshot.state.phase) || item.pickup !== 'departure') {
-        return errorResult('mission_manifest_load_not_allowed');
-      }
-      if (item.status === 'loaded') {
-        return {
-          ok: true,
-          status: 'noop',
-          sideEffect: false,
-          executionAuthority: 'tracker',
-          activeRun: authorityManager.getActiveRun(),
-          view: snapshot.view
-        };
-      }
-      if (item.status !== 'pending') return errorResult('mission_manifest_item_state_conflict');
-    } else {
-      if (!['end_unloading', 'end_ready'].includes(snapshot.state.phase)
-          || !snapshot.state.flags.groundStill
-          || item.delivery !== 'destination') {
-        return errorResult('mission_manifest_unload_not_allowed');
-      }
-      if (item.status === 'unloaded' || item.status === 'handed_off') {
-        return {
-          ok: true,
-          status: 'noop',
-          sideEffect: false,
-          executionAuthority: 'tracker',
-          activeRun: authorityManager.getActiveRun(),
-          view: snapshot.view
-        };
-      }
-      if (item.status !== 'loaded') return errorResult('mission_manifest_item_state_conflict');
+    const departurePhase = ['prepare', 'boarding'].includes(snapshot.state.phase);
+    const arrivalPhase = ['end_unloading', 'end_ready'].includes(snapshot.state.phase)
+      && snapshot.state.flags.groundStill;
+    const departureItem = item.pickup === 'departure';
+    const arrivalItem = item.delivery === 'destination';
+    const equipmentItem = item.persistentEquipment === true;
+    const mutableHere = (departurePhase && departureItem)
+      || (arrivalPhase && (arrivalItem || equipmentItem));
+    if (!mutableHere) {
+      return errorResult(load ? 'mission_manifest_load_not_allowed' : 'mission_manifest_unload_not_allowed');
     }
+    if (load && item.status === 'loaded') return noopResult(authorityManager, snapshot);
+    if (!load && (item.status === 'unloaded' || item.status === 'handed_off')) return noopResult(authorityManager, snapshot);
+    if (load && !['pending', 'unloaded'].includes(item.status)) return errorResult('mission_manifest_item_state_conflict');
+    if (!load && item.status !== 'loaded') return errorResult('mission_manifest_item_state_conflict');
 
     const cargo = normalizedCargo(snapshot, nextCargo => {
       const nextItem = nextCargo.items.find(candidate => candidate.id === itemId);
@@ -197,6 +191,26 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       { cargo },
       `${snapshot.runId}:intent:${cleanString(request.commandId, 120)}`,
       `intent:set_manifest_item:${load ? 'load' : 'unload'}`
+    );
+  };
+
+  const clearManifestSignature = (snapshot, request) => {
+    const scope = snapshot.state.cargo.signatureScope;
+    if (!scope) return noopResult(authorityManager, snapshot);
+    const allowedScope = (['prepare', 'boarding'].includes(snapshot.state.phase) && scope === 'departure')
+      || (['end_unloading', 'end_ready'].includes(snapshot.state.phase)
+        && snapshot.state.flags.groundStill
+        && scope === 'arrival');
+    if (!allowedScope) return errorResult('mission_manifest_signature_clear_not_allowed');
+    const cargo = normalizedCargo(snapshot, nextCargo => {
+      nextCargo.signatureScope = null;
+    });
+    return submitEvent(
+      snapshot,
+      'CARGO_STATE_CHANGED',
+      { cargo },
+      `${snapshot.runId}:intent:${cleanString(request.commandId, 120)}`,
+      `intent:clear_manifest_signature:${scope}`
     );
   };
 
@@ -258,9 +272,14 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     if (intent === 'set_manifest_item') return setManifestItem(snapshot, request);
     if (intent === 'sign_manifest') return signManifest(snapshot, request);
+    if (intent === 'clear_manifest_signature') return clearManifestSignature(snapshot, request);
     if (intent === 'request_pax_interaction') {
       const action = cleanString(safeObject(request.payload).action, 40).toLowerCase();
       if (action !== 'deboard') return errorResult('mission_pax_interaction_not_migrated', { view: snapshot.view });
+      const deboardingPending = snapshot.state.effects.some(effect => (
+        effect.type === 'scene.deboarding' && effect.status === 'requested'
+      ));
+      if (deboardingPending) return noopResult(authorityManager, snapshot, { pending: true });
       return submitEvent(
         snapshot,
         'PAX_DEBOARDING_REQUESTED',
@@ -271,6 +290,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     const eventType = INTENT_EVENT_TYPES[intent];
     if (!eventType) return errorResult('mission_intent_not_supported');
+    if (eventType === 'UNLOAD_CONFIRMED' && snapshot.state.flags.unloadConfirmed) {
+      return noopResult(authorityManager, snapshot, { confirmed: true });
+    }
+    if (eventType === 'CLOSE_REQUESTED' && snapshot.state.phase === 'closing') {
+      return noopResult(authorityManager, snapshot, { closing: true });
+    }
     const eventPayload = ['LOAD_CONFIRMED', 'UNLOAD_CONFIRMED'].includes(eventType)
       ? { cargo: snapshot.state.cargo }
       : {};
@@ -400,6 +425,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     if (onGround === true && snapshot.state.flags.groundStill && gsKts <= GROUND_STILL_MAX_GS_KTS
         && destination.atDestination === true
+        && snapshot.state.progress.airborneSeen === true
         && !['end_unloading', 'end_ready', 'closing', 'closed'].includes(snapshot.state.phase)) {
       const applied = submitEvent(
         snapshot,

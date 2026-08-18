@@ -15,16 +15,16 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.4 manueller Origin-Installer mit APT-Opt-in-Schalter | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
-| Tracker-Runtime | v374 Alpha-Feldtest | v356 | v374 ergaenzt EFB-Cloudstart, synchronisiert Banner/Cargo und korrigiert die Pause-Erkennung; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
+| Tracker-Runtime | v375 Alpha-Feldtest | v356 | v375 uebernimmt die App-Manifestregeln in den Tracker, dedupliziert Deboarding/Entladeeffekte und stabilisiert App-/EFB-Rendering; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-Transport | HTTP-Loopback; Mission im Standard read-only, in der gegateten APT-Alpha revisionsgebunden steuerbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` erscheint nur bei aktiver Tracker-Execution |
 
 ## Aktueller EFB-Kanalstand
 
-Tracker v374 / Host 0.7.0 liefert die revisionsgebundene Mission-Control-
+Tracker v375 / Host 0.7.1 liefert die revisionsgebundene Mission-Control-
 Bedienung und Cargo-Projektion. Alle veraenderlichen CSS- und JavaScript-
-Dateien dieses tracker-gehosteten Hosts verwenden Revision 37401. Das
+Dateien dieses tracker-gehosteten Hosts verwenden Revision 37501. Das
 installierte EFB-Community-Paket bleibt unveraendert auf 0.4.11; ein neuer
 SDK-Build ist fuer diesen Host-Test nicht erforderlich. Der freigegebene
 v360-Host bleibt auf Revision 36001.
@@ -118,6 +118,21 @@ Kartenbanner und beide Verlade-Manager werden ausschliesslich aus der aktuellen
 Tracker-Revision abgeleitet. Der letzte lokale Cargo-Toggle, der unter
 Tracker-Authority noch nur den App-Clone aenderte, ist entfernt. Stable und
 eine Alpha ohne APT-Gate laden weder Cloud-Seed noch schreibende Aktionen.
+
+Tracker v375 / Host 0.7.1 uebernimmt fuer den autoritativen Lauf die bereits
+in der App geltenden Manifestregeln: Fracht kann vor der Bestaetigung wieder
+ausgeladen beziehungsweise am Ziel erneut geladen werden, jede Aenderung
+loescht die passende Unterschrift, und `Zurueck zur Liste` ist in App und EFB
+ein revisionsgebundener Tracker-Intent. Passagiere bleiben szenengebunden;
+solange ein Deboarding-Effekt offen ist, wird kein zweiter erzeugt. Die lokalen
+Pickup-/Unload-Buchhaltungseffekte werden im Tracker direkt quittiert, damit
+sie den FIFO-Effect-Runner und den Missionsabschluss nicht blockieren.
+Entlade-Unterschrift und Entladebestaetigung sind harte Core-Gates vor Close.
+Semantisch unveraenderte Polls bauen weder EFB-Verladefenster noch App-
+Projektion neu auf. Nach Annahme einer Mission wird der geplante Cloud-Seed
+gezielt sofort gespeichert, damit `Mission beginnen` im EFB nicht auf einen
+spaeteren App-Save warten muss. Missionsradien, Briefings und Effektplaene
+bleiben unveraendert; EFB 0.4.11 muss nicht neu gebaut werden.
 
 Am 2026-08-17 wurden Tracker v356 und EFB 0.4.11 nach Stable promoviert. Beide
 Stable-Kanaldateien referenzieren die bereits fuer Alpha veroeffentlichten,
@@ -1120,8 +1135,8 @@ akzeptierten Event ist der einfache Zero-Event-Rollback gesperrt.
 ### E5 - Schreibende Cockpit-Intents
 
 Status: APT-Adapter, App-/EFB-Controller und echte Szenenhandler im gegateten
-Alpha-Pfad verdrahtet; v374 ergaenzt Cloud-Start und den korrigierten
-Pause-/Cargo-Abgleich, Standard
+Alpha-Pfad verdrahtet; v375 ergaenzt Cloud-Start, den korrigierten
+Pause-/Cargo-Abgleich und die App-paritaetischen Manifestregeln, Standard
 und Stable bleiben read-only
 
 Der heutige offene GET-Loopback wird nicht einfach um ungeschuetzte POSTs
@@ -1136,6 +1151,7 @@ Schreibzugriff benoetigt:
 - nachvollziehbare ACK-/Fehlerantworten
 
 Beispiele sind `prepare_mission`, `set_manifest_item`, `sign_manifest`,
+`clear_manifest_signature`,
 `confirm_load`, `start_mission`, `confirm_pickup`, `confirm_unload`,
 `request_pax_interaction`, `request_voice_playback`,
 `submit_compliance_evidence`, `request_close`, `abort_mission` und
@@ -1386,7 +1402,13 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       sodass der Tracker alle Flug- und Landeuebergaenge verwarf. v374 nutzt
       das explizite Pause-Event als Zustandswahrheit, startet eine geplante
       Cloud-Mission direkt aus dem EFB und synchronisiert App-/EFB-Banner sowie
-      Cargo nur noch aus der Tracker-Revision.
+      Cargo nur noch aus der Tracker-Revision. Der anschliessende Feldlauf
+      erreichte Boarding, Flug und Zielentladung, zeigte aber noch App-/EFB-
+      Reloadflackern, nicht reversible Signaturen, mehrfach erzeugtes PAX-
+      Deboarding und einen durch unbehandelte Unload-Effekte blockierten Close.
+      v375 uebernimmt dafuer die bestehenden App-Toggle-/Signaturregeln in den
+      Tracker-Core, dedupliziert PAX und quittiert lokale Cargo-Effekte. Der
+      gesamte Ablauf muss mit v375 real wiederholt werden.
 - [ ] Ambiguitaetsfall Tracker-Neustart nach physischem Dispatch und vor ACK
       real provozieren; bestaetigen, dass der Lauf fail-closed bleibt, und erst
       danach einen expliziten Recovery-/Abgleichdialog entwerfen.
@@ -1723,6 +1745,20 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   `37dd0432401073c74caec9903424b7fab524891e83ac3a11f5fc73dffc1783bc`,
   ist aber noch nicht nach Alpha ausgerollt; die Kanaldateien bleiben
   unveraendert.
+
+- 2026-08-18: Tracker v375 / Host 0.7.1 uebernimmt die bereits in der App
+  geltenden reversiblen Manifest-/Signaturregeln in die Tracker-Execution.
+  Deboarding-Intents werden waehrend eines offenen Szeneneffekts dedupliziert;
+  reine Pickup-/Unload-Buchhaltungseffekte werden lokal quittiert und koennen
+  Close nicht mehr blockieren. Arrival-Signatur und Entladebestaetigung sind
+  harte Core-Gates. App und EFB aktualisieren Mission/Cargo nur bei einer
+  semantischen Aenderung, und ein akzeptierter Missionsentwurf queued seinen
+  geplanten Tracker-Cloud-Seed sofort nach dem Runtime-Reset. Host-
+  Assetrevision ist 37501; EFB 0.4.11 bleibt unveraendert. Stable bleibt auf
+  v356. 166 Tracker-/Missions-/EFB-Tests und vier Missions-Selbsttests laufen
+  gruen. Der Windows-Build umfasst 48.466.443 Bytes mit SHA-256
+  `7a422956d36deec2278f6507ea9f682fd30927a06845b57be47f939bfb416f5f`.
+  Der unveraenderliche Build ist im Alpha-Kanal ausgerollt.
 
 - 2026-08-18: Der lokale Tracker-v374-/Host-0.7.0-Kandidat korrigiert den
   Folge-Feldlauf. Ein ausdrueckliches `Pause/Pause_EX1=OFF` gewinnt nach der

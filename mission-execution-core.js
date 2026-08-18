@@ -257,6 +257,7 @@
                 prepared: false,
                 boardingConfirmed: false,
                 loadConfirmed: false,
+                unloadConfirmed: false,
                 started: false,
                 active: false,
                 closingPending: false,
@@ -318,6 +319,7 @@
             prepared: phaseIndex(phase) >= phaseIndex('prepare'),
             boardingConfirmed: phaseAtLeastBoarded,
             loadConfirmed: phaseAtLeastBoarded,
+            unloadConfirmed: closing || closed,
             started: active || phaseAtLeastActive || Number(runtime.startedAt || runtimeRoot.startedAt || 0) > 0,
             active: active,
             closingPending: closing,
@@ -456,6 +458,7 @@
         if (event.type === 'UNLOAD_CONFIRMED') {
             return state.flags.active
                 && state.flags.groundStill
+                && !state.flags.unloadConfirmed
                 && eventCargo.summary.destinationTotal > 0
                 && eventCargo.summary.destinationRemaining === 0
                 && eventCargo.signatureScope === 'arrival';
@@ -472,9 +475,14 @@
             return state.flags.active
                 && state.flags.groundStill
                 && (phase === 'end_unloading' || phase === 'end_ready')
-                && state.cargo.items.some(function (item) {
-                    return item.itemType === 'passenger' && item.status === 'loaded' && item.delivery === 'destination';
-                });
+                && (
+                    state.cargo.items.some(function (item) {
+                        return item.itemType === 'passenger' && item.status === 'loaded' && item.delivery === 'destination';
+                    })
+                    || state.effects.some(function (effect) {
+                        return effect.type === 'scene.deboarding' && effect.status === 'requested';
+                    })
+                );
         }
         if (event.type === 'FAREWELL_STARTED' || event.type === 'FAREWELL_COMPLETED') {
             return phase === 'end_ready' || phase === 'end_unloading' || phase === 'closing';
@@ -492,6 +500,8 @@
         if (event.type === 'CLOSE_REQUESTED') {
             return (phase === 'end_ready' || phase === 'closing')
                 && eventCargo.summary.destinationRemaining === 0
+                && (eventCargo.summary.destinationTotal === 0
+                    || (eventCargo.signatureScope === 'arrival' && state.flags.unloadConfirmed))
                 && !(compliance.selected === true && !compliance.released)
                 && !compliance.remediationRequired;
         }
@@ -586,6 +596,7 @@
             applyCargoFromEvent(state, event);
             state.phase = 'end_ready';
             state.subphase = 'unload_complete';
+            state.flags.unloadConfirmed = true;
             appendEffect(state, createEffect(state, event, 'cargo.unload_confirmed', { operation: 'unload' }));
         } else if (event.type === 'PAX_DEBOARDING_REQUESTED') {
             state.subphase = 'pax_deboarding';
@@ -607,6 +618,12 @@
             appendEffect(state, createEffect(state, event, 'scene.deboarding_continue', { operation: 'farewell' }));
         } else if (event.type === 'CARGO_STATE_CHANGED') {
             applyCargoFromEvent(state, event);
+            if ((state.phase === 'prepare' || state.phase === 'boarding') && state.cargo.signatureScope !== 'departure') {
+                state.flags.loadConfirmed = false;
+            }
+            if ((state.phase === 'end_unloading' || state.phase === 'end_ready') && state.cargo.signatureScope !== 'arrival') {
+                state.flags.unloadConfirmed = false;
+            }
         } else if (event.type === 'COMPLIANCE_EVENT') {
             var compliance = object(event.payload);
             state.workflows.complianceInspection = normalizeCompliance({
@@ -662,6 +679,13 @@
         if (phase === 'boarding' && !state.flags.loadConfirmed) result.push('load_not_confirmed');
         if (phase === 'on_task' && state.cargo.summary.pickupMissing > 0) result.push('pickup_manifest_incomplete');
         if ((phase === 'end_unloading' || phase === 'end_ready') && state.cargo.summary.destinationRemaining > 0) result.push('destination_unload_incomplete');
+        if ((phase === 'end_unloading' || phase === 'end_ready')
+            && state.cargo.summary.destinationTotal > 0
+            && state.cargo.summary.destinationRemaining === 0
+            && state.cargo.signatureScope !== 'arrival') result.push('arrival_signature_missing');
+        if (phase === 'end_ready'
+            && state.cargo.summary.destinationTotal > 0
+            && !state.flags.unloadConfirmed) result.push('arrival_unload_not_confirmed');
         var compliance = state.workflows.complianceInspection;
         if (compliance.selected === true && !compliance.released) result.push('compliance_inspection_active');
         if (compliance.remediationRequired) result.push('compliance_remediation_required');
@@ -677,12 +701,13 @@
         if (phase === 'planned') actions.push('prepare_mission');
         if (phase === 'prepare' || phase === 'boarding') {
             actions.push('set_manifest_item');
-            if (state.cargo.summary.departureReady) actions.push('sign_manifest');
-            if (state.cargo.summary.departureReady && state.cargo.signatureScope === 'departure') actions.push('confirm_load');
+            if (state.cargo.summary.departureReady && state.cargo.signatureScope !== 'departure') actions.push('sign_manifest');
+            if (state.cargo.signatureScope === 'departure') actions.push('clear_manifest_signature');
+            if (state.cargo.summary.departureReady && state.cargo.signatureScope === 'departure' && !state.flags.loadConfirmed) actions.push('confirm_load');
         }
         if (phase === 'boarded') actions.push('start_mission');
         if (state.flags.active) {
-            actions.push('request_pax_interaction', 'request_voice_playback');
+            actions.push('request_voice_playback');
             if (state.flags.groundStill && state.phase === 'on_task' && state.cargo.summary.pickupTotal > 0) {
                 actions.push('set_manifest_item');
                 if (state.cargo.summary.pickupMissing === 0) actions.push('sign_manifest');
@@ -690,13 +715,21 @@
             }
             if (state.flags.groundStill && state.progress.airborneSeen && state.cargo.summary.destinationTotal > 0) {
                 actions.push('set_manifest_item');
-                if (state.cargo.summary.destinationRemaining === 0) actions.push('sign_manifest');
-                if (state.cargo.summary.destinationRemaining === 0 && state.cargo.signatureScope === 'arrival') actions.push('confirm_unload');
+                var deboardingPending = state.effects.some(function (effect) {
+                    return effect.type === 'scene.deboarding' && effect.status === 'requested';
+                });
+                var loadedDestinationPax = state.cargo.items.some(function (item) {
+                    return item.itemType === 'passenger' && item.status === 'loaded' && item.delivery === 'destination';
+                });
+                if ((phase === 'end_unloading' || phase === 'end_ready') && loadedDestinationPax && !deboardingPending) {
+                    actions.push('request_pax_interaction');
+                }
+                if (state.cargo.summary.destinationRemaining === 0 && state.cargo.signatureScope !== 'arrival') actions.push('sign_manifest');
+                if (state.cargo.signatureScope === 'arrival') actions.push('clear_manifest_signature');
+                if (state.cargo.summary.destinationRemaining === 0 && state.cargo.signatureScope === 'arrival' && !state.flags.unloadConfirmed) actions.push('confirm_unload');
             }
         }
-        if (phase === 'end_ready' && blockingReasons(state).every(function (reason) {
-            return reason !== 'destination_unload_incomplete' && reason !== 'compliance_inspection_active' && reason !== 'compliance_remediation_required';
-        })) actions.push('request_close');
+        if (phase === 'end_ready' && blockingReasons(state).length === 0) actions.push('request_close');
         if (!state.flags.closed) actions.push('abort_mission', 'reset_mission');
         return Array.from(new Set(actions)).sort();
     }
@@ -714,8 +747,12 @@
         if (state.phase === 'active' || state.phase === 'enroute') return 'fly_to_target';
         if (state.phase === 'on_task') return state.cargo.summary.pickupMissing > 0 ? 'complete_pickup' : 'complete_task';
         if (state.phase === 'return_leg') return 'return_and_land';
-        if (state.phase === 'end_unloading') return 'complete_unload';
-        if (state.phase === 'end_ready') return 'close_mission';
+        if (state.phase === 'end_unloading' || state.phase === 'end_ready') {
+            if (state.cargo.summary.destinationRemaining > 0) return 'complete_unload';
+            if (state.cargo.summary.destinationTotal > 0 && state.cargo.signatureScope !== 'arrival') return 'sign_arrival_manifest';
+            if (state.cargo.summary.destinationTotal > 0 && !state.flags.unloadConfirmed) return 'confirm_unload';
+            return 'close_mission';
+        }
         if (state.phase === 'closing') return 'await_close';
         return 'complete';
     }
@@ -768,6 +805,7 @@
                 prepared: state.flags.prepared,
                 boardingConfirmed: state.flags.boardingConfirmed,
                 loadConfirmed: state.flags.loadConfirmed,
+                unloadConfirmed: state.flags.unloadConfirmed,
                 started: state.flags.started,
                 active: state.flags.active,
                 closingPending: state.flags.closingPending,

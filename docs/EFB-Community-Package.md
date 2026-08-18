@@ -106,6 +106,14 @@ derselben Tracker-Revision. Das installierte EFB-Community-Paket 0.4.11 muss
 weiterhin nicht neu gebaut werden. Der unveraenderliche v374-Build ist im
 Alpha-Kanal eingetragen; Stable bleibt auf v356.
 
+Tracker v375 aktualisiert den tracker-gehosteten Host auf Assetrevision
+37501 und Host 0.7.1. App und EFB verwenden damit dieselben reversiblen
+Manifest-/Signaturregeln; Deboarding wird dedupliziert, lokale Cargo-Effekte
+blockieren den Abschluss nicht mehr und semantisch unveraenderte Polls bauen
+die Missionsdialoge nicht neu auf. Das installierte EFB-Community-Paket
+0.4.11 bleibt unveraendert und muss fuer diesen Host-Fix nicht neu gebaut
+werden. Stable bleibt auf v356.
+
 Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
 Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als
 Entwicklungsmaske sichtbaren E6B-Ansicht verworfen und niemals in einen Kanal

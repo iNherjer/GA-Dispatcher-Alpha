@@ -18,31 +18,31 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '37401');
+  assert.equal(EFB_WEB_ASSET_REVISION, '37501');
   assert.match(page, /data-efb-view-version="8"/);
-  assert.match(page, /app-styles\.css\?v=37401/);
-  assert.match(page, /host\.css\?v=37401/);
-  assert.match(page, /map-shell-core\.js\?v=37401/);
-  assert.match(page, /map-utility-tools\.js\?v=37401/);
-  assert.match(page, /cockpit-session-client\.js\?v=37401/);
-  assert.match(page, /host\.js\?v=37401/);
+  assert.match(page, /app-styles\.css\?v=37501/);
+  assert.match(page, /host\.css\?v=37501/);
+  assert.match(page, /map-shell-core\.js\?v=37501/);
+  assert.match(page, /map-utility-tools\.js\?v=37501/);
+  assert.match(page, /cockpit-session-client\.js\?v=37501/);
+  assert.match(page, /host\.js\?v=37501/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37401"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37401"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37501"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37501"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37501"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=37401',
-    '/efb/v1/assets/map-utility-tools.js?v=37401',
-    '/efb/v1/assets/cockpit-session-client.js?v=37401',
-    '/efb/v1/assets/host.js?v=37401'
+    '/efb/v1/assets/map-shell-core.js?v=37501',
+    '/efb/v1/assets/map-utility-tools.js?v=37501',
+    '/efb/v1/assets/cockpit-session-client.js?v=37501',
+    '/efb/v1/assets/host.js?v=37501'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -89,6 +89,16 @@ test('tracker-hosted static assets are allowlisted and browser scripts parse', (
   assert.doesNotThrow(() => new Function(sessionScript.body.toString('utf8')));
   assert.equal(getTrackerEfbWebClientAsset('/efb/v1/e6b/../index.html'), null);
   assert.equal(getTrackerEfbWebClientAsset('/efb/v1/assets/unknown.js'), null);
+});
+
+test('EFB cargo manager keeps app toggle semantics and avoids poll-time DOM rebuilds', () => {
+  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  assert.match(source, /clear_manifest_signature/);
+  assert.match(source, /label: 'Zurück zur Liste'/);
+  assert.match(source, /status === 'loaded'\) \{\s*return \{ intent: 'set_manifest_item', action: 'unload'/);
+  assert.match(source, /label: 'Wieder laden'/);
+  assert.match(source, /if \(markup === cargoManagerSignature\) return;/);
+  assert.match(source, /HOST 0\.7\.1/);
 });
 
 test('all Coherent-facing scripts avoid syntax rejected by the simulator engine', () => {
@@ -325,6 +335,11 @@ test('mission drawer signatures ignore volatile relay and flight fields', () => 
   const missionRenderSignature = new Function(`return (${signatureSource});`)();
   const first = {
     missionId: 'mission-1', runId: 'run-1', revision: 4, state: 'active', phase: 'enroute', sceneCount: 1,
+    control: {
+      missionId: 'mission-1', runId: 'run-1', executionAuthority: 'tracker', authorityRevision: 4,
+      executionRevision: 7, phase: 'enroute', subphase: 'outbound_flight', nextStep: 'fly_to_target',
+      flags: { active: true }, cargo: { summary: { loaded: 1 } }, blockingReasons: [], allowedActions: ['request_voice_playback']
+    },
     view: {
       capturedAt: 100,
       title: 'Überführungsflug', story: 'Öl prüfen und zur Küste fliegen.', currentTask: 'Ziel anfliegen',
@@ -335,6 +350,8 @@ test('mission drawer signatures ignore volatile relay and flight fields', () => 
   };
   const volatileUpdate = JSON.parse(JSON.stringify(first));
   volatileUpdate.revision = 9;
+  volatileUpdate.control.authorityRevision = 9;
+  volatileUpdate.control.executionRevision = 12;
   volatileUpdate.view.capturedAt = 200;
   volatileUpdate.view.target.distanceNm = 21.8;
   volatileUpdate.view.target.bearingDeg = 44;

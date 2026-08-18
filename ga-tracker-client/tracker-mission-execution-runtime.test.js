@@ -66,7 +66,7 @@ function aptBundle() {
   return bundle;
 }
 
-function committedManager(t) {
+function committedManager(t, bundle = aptBundle()) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-execution-runtime-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const manager = createMissionAuthorityManager({
@@ -74,7 +74,6 @@ function committedManager(t) {
     idFactory: () => 'run-runtime-apt',
     executionAuthorityEnabled: true
   });
-  const bundle = aptBundle();
   const replay = executionCore.replay(bundle.executionReplay);
   const acquired = manager.acquire({
     missionId: bundle.missionId,
@@ -90,6 +89,7 @@ function committedManager(t) {
     expectedStateHash: acquired.activeRun.stateHash,
     expectedExecutionStateHash: replay.stateHash
   });
+  assert.equal(prepared.ok, true, JSON.stringify(prepared));
   const committed = manager.commitExecutionAuthority({
     missionId: prepared.activeRun.missionId,
     runId: prepared.activeRun.runId,
@@ -101,6 +101,120 @@ function committedManager(t) {
   assert.equal(committed.ok, true);
   return manager;
 }
+
+test('runtime acknowledges unload bookkeeping before closing the tracker run', async (t) => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest = {
+    version: 6,
+    key: 'arrival-manifest',
+    items: [{
+      id: 'medical-box',
+      itemType: 'cargo',
+      required: true,
+      status: 'pending',
+      deliverAtDestination: true
+    }]
+  };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, {
+    sourceRevision: 1,
+    legacyBundle: bundle
+  });
+  const manager = committedManager(t, bundle);
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true });
+  runtime.attachSimulator({
+    getLivePosition: () => ({ lat: 48.3, lon: 8.5, alt: 500, hdg: 90 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed', sideEffect: false })
+  });
+
+  let run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'prepare-arrival-runtime',
+    intent: 'prepare_mission',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  })).ok, true);
+  run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'load-arrival-runtime',
+    intent: 'set_manifest_item',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision,
+    payload: { itemId: 'medical-box', action: 'load' }
+  })).ok, true);
+  run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'sign-departure-runtime',
+    intent: 'sign_manifest',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  })).ok, true);
+  run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'confirm-load-runtime',
+    intent: 'confirm_load',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  })).ok, true);
+  run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'start-arrival-runtime',
+    intent: 'start_mission',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  })).ok, true);
+  runtime.observeTelemetry({ observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 });
+  runtime.observeTelemetry({ observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 65 });
+  runtime.observeTelemetry({ observedAt: 13000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 20 });
+  runtime.observeTelemetry({ observedAt: 14000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
+  runtime.observeTelemetry({ observedAt: 17000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
+  run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'unload-arrival-runtime',
+    intent: 'set_manifest_item',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision,
+    payload: { itemId: 'medical-box', action: 'unload' }
+  })).ok, true);
+  run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'sign-arrival-runtime',
+    intent: 'sign_manifest',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  })).ok, true);
+  run = manager.getActiveRun();
+  const confirmed = await runtime.executeIntent({
+    commandId: 'confirm-arrival-runtime',
+    intent: 'confirm_unload',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  });
+  assert.equal(confirmed.ok, true);
+  assert.equal(confirmed.effectDispatch.pendingCount, 0);
+  assert.equal(manager.getExecutionSnapshot().state.flags.unloadConfirmed, true);
+  assert.equal(manager.getExecutionSnapshot().state.effects.every(effect => effect.status === 'completed'), true);
+
+  run = manager.getActiveRun();
+  const closed = await runtime.executeIntent({
+    commandId: 'close-arrival-runtime',
+    intent: 'request_close',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  });
+  assert.equal(closed.ok, true);
+  assert.equal(manager.getActiveRun(), null);
+  assert.equal(manager.getPublicSnapshot().lastExecution.phase, 'closed');
+});
 
 async function waitUntil(predicate, attempts = 40) {
   for (let index = 0; index < attempts; index += 1) {

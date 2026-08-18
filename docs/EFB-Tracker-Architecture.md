@@ -750,6 +750,22 @@ den Owner uebernehmen noch Web-Snapshots zurueckschreiben. Ein bereits
 abgeschlossener Run unterdrueckt denselben unveraenderten Cloud-Seed; ein neu
 gespeicherter Missionsstand besitzt einen neueren Seed-Zeitstempel.
 
+Der v375-Folgefix macht dabei nicht die EFB-UI zu einer zweiten
+Missionslogik, sondern hebt die bewaehrten App-Manifestregeln in den
+gemeinsamen Execution-Core: Nicht-PAX-Positionen koennen in der jeweiligen
+Bodenphase geladen und wieder ausgeladen werden; jede Item-Aenderung loescht
+die Signatur des Abschnitts. `clear_manifest_signature` ist ein eigener,
+revisionsgebundener Intent. Arrival-Signatur und `UNLOAD_CONFIRMED` sind harte
+Close-Gates. PAX bleibt ausschliesslich ueber `scene.deboarding` veraenderbar,
+und ein noch offener Effekt unterdrueckt weitere Deboarding-Intents.
+
+`cargo.pickup_confirmed` und `cargo.unload_confirmed` sind reine lokale
+Buchhaltungseffekte und werden vom Tracker-Runtime-Handler sofort quittiert;
+damit koennen sie den persistenten FIFO-Effect-Runner nicht mehr vor dem
+Close-Effekt blockieren. App- und EFB-Projektionen vergleichen semantische
+Signaturen und ersetzen ihr DOM nicht bei unveraenderten Polls. Das aendert
+weder Missionsradien, Briefings noch den bestehenden APT-Effektplan.
+
 Nicht migriert sind in v371 die zentrale Sim-Payload-Verteilung,
 missionsgetriggerte Voice-Intents, Pickup/POI/Sonderrezepte sowie die manuelle
 Aufloesung eines fail-closed Recoveryfalls. Deshalb bleiben Alpha-Kanal und

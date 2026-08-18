@@ -1921,6 +1921,7 @@ let missionAuthorityLateBindPending = false;
 let missionExecutionHandoffPromise = null;
 let missionExecutionIntentPromise = null;
 let missionExecutionAbortPromise = null;
+let missionExecutionProjectionSignature = '';
 let missionAuthorityForeignAckLastSig = '';
 let missionAuthorityForeignAckLastLogAt = 0;
 const MISSION_AUTHORITY_LOCAL_COMMAND_TTL_MS = 10 * 60 * 1000;
@@ -2687,12 +2688,25 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     if (!control || typeof control !== 'object' || control.executionAuthority !== 'tracker') return false;
     const missionId = _normalizeMissionRuntimeId(control.missionId || activeRun?.missionId || '');
     if (!missionId || missionId !== _activeMissionRuntimeId('')) return false;
+    const projectionSignature = JSON.stringify({
+        missionId,
+        runId: control.runId || activeRun?.runId || '',
+        authorityRevision: Number(control.authorityRevision || 0),
+        executionRevision: Number(control.executionRevision || 0),
+        phase: control.phase || '',
+        subphase: control.subphase || '',
+        flags: control.flags || null,
+        cargo: control.cargo || null,
+        allowedActions: control.allowedActions || [],
+        blockingReasons: control.blockingReasons || []
+    });
+    if (projectionSignature === missionExecutionProjectionSignature) {
+        window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
+        return true;
+    }
+    missionExecutionProjectionSignature = projectionSignature;
     const phase = String(control.phase || 'planned').trim().toLowerCase();
     const flags = control.flags && typeof control.flags === 'object' ? control.flags : {};
-    const startPhase = phase === 'planned'
-        ? 'planned'
-        : (phase === 'prepare' ? 'prepare' : (phase === 'boarding' ? 'boarding' : 'boarded'));
-    _setMissionStartPhase(startPhase, { persist: false });
     missionRuntime.phase = phase;
     missionRuntime.active = flags.active === true;
     missionRuntime.armed = flags.active === true;
@@ -5536,7 +5550,10 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
             ? _finalizeTrackerExecutionProjection(snapshot.lastExecution, `${reason}:completed`)
             : false;
         window.lastTrackerMissionAuthority = { ...snapshot, receivedAt: Date.now() };
-        if (!completed || aborted) window.gaTrackerExecutionControl = null;
+        if (!completed || aborted) {
+            window.gaTrackerExecutionControl = null;
+            missionExecutionProjectionSignature = '';
+        }
         window.lastTrackerMissionStatus = null;
         if (local?.runId) _clearMissionAuthorityState(`${reason}:tracker-no-active-run`);
         if (window.missionRuntimeResumeConflict?.trackerActive) {
@@ -11207,6 +11224,13 @@ function _missionStartPhaseKey() {
 
 function _missionStartPhase() {
     try {
+        if (_missionExecutionAuthorityIsTracker()) {
+            const trackerPhase = String(window.gaTrackerExecutionControl?.phase || _missionExecutionControlSnapshot()?.phase || '').toLowerCase();
+            if (trackerPhase === 'planned') return 'planned';
+            if (trackerPhase === 'prepare') return 'prepare';
+            if (trackerPhase === 'boarding') return 'boarding';
+            if (trackerPhase) return 'boarded';
+        }
         const key = _missionStartPhaseKey();
         const raw = key ? localStorage.getItem(key) : '';
         if (raw === 'boarded') return 'boarded';
@@ -11220,6 +11244,7 @@ function _missionStartPhase() {
 
 function _setMissionStartPhase(phase, options = {}) {
     try {
+        if (_missionExecutionAuthorityIsTracker()) return;
         const key = _missionStartPhaseKey();
         if (!key) return;
         const prev = _missionStartPhase();
@@ -12135,7 +12160,7 @@ function _trackerMissionBannerModel(control = null) {
     } else if (actions.includes('start_mission')) {
         model = { intent: 'start_mission', kind: 'intent', kicker: 'Mission startbereit', text: labels.start_mission, button: 'Mission starten', className: 'is-begin-action' };
     } else {
-        const cargoAction = ['set_manifest_item', 'sign_manifest', 'confirm_load', 'confirm_pickup', 'confirm_unload']
+        const cargoAction = ['set_manifest_item', 'sign_manifest', 'clear_manifest_signature', 'confirm_load', 'confirm_pickup', 'confirm_unload']
             .some(intent => actions.includes(intent));
         const manifestItems = Array.isArray(control.cargo?.items) ? control.cargo.items : [];
         const arrivalPax = /^(end_unloading|end_ready)$/.test(phase)

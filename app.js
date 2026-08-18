@@ -27374,6 +27374,9 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
     updateMissionAcceptanceUi();
     if (typeof window.refreshMissionRuntimeUi === 'function') window.refreshMissionRuntimeUi();
     if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
+    if (typeof window.queueActiveMissionCloudSave === 'function') {
+        window.queueActiveMissionCloudSave('mission-accepted-tracker-seed', { delayMs: 0 });
+    }
     refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-accepted');
     return true;
 }

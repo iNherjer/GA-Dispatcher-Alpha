@@ -1424,10 +1424,17 @@ window.missionCargoSignDispatchList = function(options = {}) {
 
 window.missionCargoClearDispatchSignature = function(options = {}) {
     if (window.gaTrackerExecutionHandlesMission?.()) {
-        if (window.missionCargoStatus) window.missionCargoStatus.error = 'Die Tracker-Signatur ist autoritativ und kann nicht lokal gelöscht werden.';
         const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
-        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
-        return false;
+        return window.gaTrackerExecutionSubmitIntent?.('clear_manifest_signature')
+            .then(result => {
+                if (window.missionCargoStatus) {
+                    window.missionCargoStatus.error = result?.ok === true
+                        ? null
+                        : (result?.error || 'tracker_manifest_signature_clear_failed');
+                }
+                if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+                return result?.ok === true;
+            }) || false;
     }
     const manifest = _missionCargoEnsureManifest();
     const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
@@ -4436,7 +4443,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const canLoadAtStage = _missionCargoItemCanLoadAtCurrentStage(item);
         const canReloadNearby = !unloaded || _missionCargoCanReloadUnloadedItem(item, MISSION_CARGO_RELOAD_MAX_DISTANCE_M);
         const pendingEquipmentLocked = isEquipment && pending && (missionRuntime.active || complianceUi.active === true);
-        const usesArrivalDeboarding = isUnload && isPassenger && onboard && unloadCompletesMission;
+        const usesArrivalDeboarding = isUnload && isPassenger && onboard && unloadCompletesMission && !trackerExecutionManaged;
         let rowActionJs = '';
         let rowActionLabel = '';
         let rowActionDisabled = true;
@@ -4543,7 +4550,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                     rowActionDisabled = !canComplianceLoad || !groundHandlingAllowed || !canReloadNearby || !canLoadAtStage;
                 }
             } else {
-                if (trackerExecutionManaged && onboard) {
+                if (trackerExecutionManaged && onboard && isPassenger) {
                     rowActionLabel = isPassenger ? 'An Bord' : 'Geladen';
                     rowActionDisabled = true;
                 } else {
@@ -5032,15 +5039,8 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     if (!item) return false;
     const renderMode = _missionCargoActionDialogMode(options, 'load');
     if (window.gaTrackerExecutionHandlesMission?.()) {
-        // Unter Tracker-Autoritaet darf dieser historische Toggle-Pfad nie den
-        // lokalen Manifest-Clone mutieren. Ein bereits geladenes Item bleibt
-        // bis zur autoritativ freigegebenen Zielentladung gesperrt.
         if (item.status === 'loaded') {
-            if (window.missionCargoStatus) {
-                window.missionCargoStatus.error = 'Die geladene Position ist jetzt autoritativ im Tracker gespeichert.';
-            }
-            if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
-            return false;
+            return window.missionCargoUnloadItem?.(itemId, { ...options, mode: renderMode }) || false;
         }
         return window.missionCargoLoadItem?.(itemId, { ...options, mode: renderMode }) || false;
     }

@@ -245,6 +245,55 @@ test('APT intents and system acknowledgements create only gated semantic core ev
   ]);
 });
 
+test('tracker manifest follows the app toggle, signature reset and confirmation rules', (t) => {
+  const fixture = createCommittedFixture(t);
+  executeCurrent(fixture, 'prepare_mission', 'prepare-toggle');
+  systemCurrent(fixture, 'BOARDING_STARTED', 'boarding-toggle');
+
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'load-toggle', {
+    itemId: 'medical-box', action: 'load'
+  }).ok, true);
+  assert.equal(executeCurrent(fixture, 'sign_manifest', 'sign-toggle').ok, true);
+  assert.equal(executeCurrent(fixture, 'clear_manifest_signature', 'clear-toggle').ok, true);
+  assert.equal(fixture.manager.getExecutionSnapshot().state.cargo.signatureScope, null);
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'unload-toggle', {
+    itemId: 'medical-box', action: 'unload'
+  }).ok, true);
+  assert.equal(fixture.manager.getExecutionSnapshot().state.cargo.summary.departureMissing, 1);
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'reload-toggle', {
+    itemId: 'medical-box', action: 'load'
+  }).ok, true);
+  assert.equal(executeCurrent(fixture, 'sign_manifest', 'resign-toggle').ok, true);
+  assert.equal(executeCurrent(fixture, 'confirm_load', 'confirm-toggle').ok, true);
+  systemCurrent(fixture, 'BOARDING_CONFIRMED', 'boarded-toggle');
+  assert.equal(executeCurrent(fixture, 'start_mission', 'start-toggle').ok, true);
+
+  fixture.adapter.observeTelemetry({ observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 });
+  fixture.adapter.observeTelemetry({ observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 65 });
+  fixture.adapter.observeTelemetry({ observedAt: 13000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 20 });
+  fixture.adapter.observeTelemetry({ observedAt: 14000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 });
+  fixture.adapter.observeTelemetry({ observedAt: 17000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 });
+
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'arrival-unload', {
+    itemId: 'medical-box', action: 'unload'
+  }).ok, true);
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'arrival-reload', {
+    itemId: 'medical-box', action: 'load'
+  }).ok, true);
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'arrival-unload-again', {
+    itemId: 'medical-box', action: 'unload'
+  }).ok, true);
+  assert.equal(executeCurrent(fixture, 'sign_manifest', 'arrival-sign').ok, true);
+  assert.equal(fixture.manager.getExecutionSnapshot().view.allowedActions.includes('request_close'), false);
+  assert.equal(executeCurrent(fixture, 'clear_manifest_signature', 'arrival-clear').ok, true);
+  assert.equal(fixture.manager.getExecutionSnapshot().view.allowedActions.includes('confirm_unload'), false);
+  assert.equal(executeCurrent(fixture, 'sign_manifest', 'arrival-resign').ok, true);
+  assert.equal(executeCurrent(fixture, 'confirm_unload', 'arrival-confirm').ok, true);
+  assert.equal(fixture.manager.getExecutionSnapshot().state.flags.unloadConfirmed, true);
+  assert.equal(fixture.manager.getExecutionSnapshot().view.allowedActions.includes('request_close'), true);
+  assert.equal(executeCurrent(fixture, 'confirm_unload', 'arrival-confirm-duplicate').error, 'mission_intent_not_allowed_in_state');
+});
+
 test('tracker telemetry requires stable evidence and drives APT landing and close flow', (t) => {
   const fixture = createCommittedFixture(t);
   executeCurrent(fixture, 'prepare_mission', 'prepare');
@@ -385,6 +434,11 @@ test('passenger deboarding is a scene-backed intent and only its system ACK unlo
   assert.equal(requested.ok, true);
   assert.equal(requested.effectsPending[0].type, 'scene.deboarding');
   assert.equal(fixture.manager.getExecutionSnapshot().state.cargo.items[0].status, 'loaded');
+  assert.equal(fixture.manager.getExecutionSnapshot().view.allowedActions.includes('request_pax_interaction'), false);
+  assert.equal(
+    executeCurrent(fixture, 'request_pax_interaction', 'deboard-pax-again', { action: 'deboard' }).error,
+    'mission_intent_not_allowed_in_state'
+  );
 
   const confirmed = systemCurrent(fixture, 'PAX_DEBOARDING_CONFIRMED', 'deboarding-confirmed-pax');
   assert.equal(confirmed.ok, true);

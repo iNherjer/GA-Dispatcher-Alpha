@@ -35,6 +35,12 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     }
     return simulatorEffects.dispatch(request);
   };
+  const completeLocalEffect = request => ({
+    ok: true,
+    status: 'completed',
+    sideEffect: false,
+    commandId: request?.commandId || null
+  });
   const effectRunner = createTrackerMissionEffectRunner({
     authorityManager,
     applySystemEvent: request => adapter.applySystemEvent(request),
@@ -42,6 +48,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       'scene.prepare': dispatchSimulatorEffect,
       'scene.boarding': dispatchSimulatorEffect,
       'scene.deboarding': dispatchSimulatorEffect,
+      'cargo.pickup_confirmed': completeLocalEffect,
+      'cargo.unload_confirmed': completeLocalEffect,
       'mission.close_requested': dispatchSimulatorEffect
     }
   });

@@ -196,12 +196,13 @@ test('browser shell and tracker wire the shared core additively behind existing 
     const indexSource = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
     const syncSource = fs.readFileSync(path.join(__dirname, 'sync.js'), 'utf8');
     const serviceWorkerSource = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8');
+    const appSource = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8');
     const cargoSource = fs.readFileSync(path.join(__dirname, 'mission-cargo-core.js'), 'utf8');
     const trackerSource = fs.readFileSync(path.join(__dirname, 'ga-tracker-client', 'tracker.js'), 'utf8');
     assert.ok(indexSource.indexOf('mission-location-core.js') < indexSource.indexOf('mission-runtime-core.js'));
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
     assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v=tracker-recovery'));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1689/);
+    assert.match(serviceWorkerSource, /ga-dispatcher-v1690/);
     assert.match(serviceWorkerSource, /\.\/mission-location-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-shadow-journal\.js/);
@@ -212,6 +213,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(syncSource, /ga\.mission-apt-effect-plan\.v1/);
     assert.match(syncSource, /executionEffectPlan: adapter === 'apt'/);
     assert.match(syncSource, /activeMissionTrackerSeed: _syncTrackerMissionSeedPayload\(activeMission\)/);
+    assert.match(appSource, /missionRuntimeReset\(\);[\s\S]*?queueActiveMissionCloudSave\('mission-accepted-tracker-seed', \{ delayMs: 0 \}\)/);
     assert.match(syncSource, /function _trackerMissionBannerModel\(control = null\)/);
     assert.match(syncSource, /activate_cloud_mission/);
     const authorityCommandClassifierSource = syncSource.match(/function _isMissionAuthorityProtocolCommandType\(commandType = ''\) \{[\s\S]*?\n\}/)?.[0];
