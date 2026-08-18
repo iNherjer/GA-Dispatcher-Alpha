@@ -644,6 +644,10 @@ select:focus {
   background: #7dd0ff;
 }
 
+.toggle-control input:disabled + .toggle-track {
+  opacity: 0.42;
+}
+
 .toggle-control input:focus-visible + .toggle-track {
   box-shadow: 0 0 0 3px rgba(84, 184, 255, 0.16);
 }

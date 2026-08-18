@@ -42,6 +42,7 @@ test('desktop credentials use stdin and are not copied into the child environmen
     electronApp: { isPackaged: false },
     dataDirectory: path.join(os.tmpdir(), 'vfr-tracker-process-test'),
     getRuntimeChannel: () => 'alpha',
+    getAptMissionExecutionEnabled: () => true,
     getCredentials: () => ({
       pilotId: 'Pipe-Pilot',
       pin: '1234',
@@ -59,4 +60,31 @@ test('desktop credentials use stdin and are not copied into the child environmen
   assert.equal(Object.values(spec.env).includes('sk-pipe-secret'), false);
   assert.equal(spec.env.VFR_MULTITOOL_TRACKER_HEADLESS, '1');
   assert.equal(spec.env.VFR_MULTITOOL_TRACKER_CHANNEL, 'alpha');
+  assert.equal(spec.env.VFR_MULTITOOL_APT_EXECUTION, '1');
+});
+
+test('APT execution opt-in is forced off outside Alpha and overrides inherited process state', () => {
+  const inherited = process.env.VFR_MULTITOOL_APT_EXECUTION;
+  process.env.VFR_MULTITOOL_APT_EXECUTION = '1';
+  try {
+    const stable = new TrackerProcess({
+      electronApp: { isPackaged: false },
+      dataDirectory: path.join(os.tmpdir(), 'vfr-tracker-process-stable-test'),
+      getRuntimeChannel: () => 'stable',
+      getAptMissionExecutionEnabled: () => true,
+      getCredentials: () => ({ pilotId: 'Stable-Pilot', pin: '1234' })
+    });
+    const alphaOff = new TrackerProcess({
+      electronApp: { isPackaged: false },
+      dataDirectory: path.join(os.tmpdir(), 'vfr-tracker-process-alpha-off-test'),
+      getRuntimeChannel: () => 'alpha',
+      getAptMissionExecutionEnabled: () => false,
+      getCredentials: () => ({ pilotId: 'Alpha-Pilot', pin: '1234' })
+    });
+    assert.equal(stable.executableSpec().env.VFR_MULTITOOL_APT_EXECUTION, '0');
+    assert.equal(alphaOff.executableSpec().env.VFR_MULTITOOL_APT_EXECUTION, '0');
+  } finally {
+    if (inherited === undefined) delete process.env.VFR_MULTITOOL_APT_EXECUTION;
+    else process.env.VFR_MULTITOOL_APT_EXECUTION = inherited;
+  }
 });

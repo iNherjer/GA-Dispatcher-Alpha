@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   saveVoiceCredentials: (provider, apiKey) => ipcRenderer.invoke('settings:save-voice-credentials', { provider, apiKey }),
   clearVoiceCredentials: () => ipcRenderer.invoke('settings:clear-voice-credentials'),
   setRuntimeChannel: (channel) => ipcRenderer.invoke('settings:set-runtime-channel', { channel }),
+  setAptMissionExecutionEnabled: (enabled) => ipcRenderer.invoke('settings:set-apt-mission-execution', { enabled }),
   setUpdatePolicy: (policy) => ipcRenderer.invoke('settings:set-update-policy', { policy }),
   setModuleUpdatePolicy: (module, policy) => ipcRenderer.invoke('settings:set-module-update-policy', { module, policy }),
   setStartupPreferences: (preferences) => ipcRenderer.invoke('settings:set-startup-preferences', preferences),

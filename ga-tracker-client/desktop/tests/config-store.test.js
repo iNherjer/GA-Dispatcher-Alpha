@@ -36,6 +36,7 @@ test('credentials are encrypted in app data while personal tracker config is pre
   store.setModuleUpdatePolicy('homebase', 'automatic');
   store.setModuleUpdatePolicy('efb', 'automatic');
   store.setModuleUpdatePolicy('bridge', 'automatic');
+  store.setAptMissionExecutionEnabled(true);
   store.setStartupPreferences({
     autoStartTracker: false,
     startMinimized: true,
@@ -62,6 +63,7 @@ test('credentials are encrypted in app data while personal tracker config is pre
     homebaseUpdatePolicy: 'automatic',
     efbUpdatePolicy: 'automatic',
     bridgeUpdatePolicy: 'automatic',
+    aptMissionExecutionEnabled: true,
     autoStartTracker: false,
     startMinimized: true,
     autoStartBridge: true,
@@ -107,6 +109,7 @@ test('startup preferences default to automatic tracker start and visible window'
     homebaseUpdatePolicy: 'ask',
     efbUpdatePolicy: 'ask',
     bridgeUpdatePolicy: 'ask',
+    aptMissionExecutionEnabled: false,
     autoStartTracker: true,
     startMinimized: false,
     autoStartBridge: false,

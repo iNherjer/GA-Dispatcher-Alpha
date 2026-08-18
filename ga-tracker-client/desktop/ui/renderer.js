@@ -23,6 +23,8 @@ const elements = {
   voiceFormMessage: document.getElementById('voiceFormMessage'),
   runtimeChannelSelect: document.getElementById('runtimeChannelSelect'),
   runtimeChannelMessage: document.getElementById('runtimeChannelMessage'),
+  aptMissionExecutionCheckbox: document.getElementById('aptMissionExecutionCheckbox'),
+  aptMissionExecutionMessage: document.getElementById('aptMissionExecutionMessage'),
   trackerAutoUpdateCheckbox: document.getElementById('trackerAutoUpdateCheckbox'),
   desktopAutoUpdateCheckbox: document.getElementById('desktopAutoUpdateCheckbox'),
   desktopUpdateVersion: document.getElementById('desktopUpdateVersion'),
@@ -130,6 +132,7 @@ const updateModules = {
 let latestState = null;
 let activeUpdateDialog = null;
 let channelChangePending = false;
+let aptMissionExecutionChangePending = false;
 let dismissedDesktopInstallVersion = '';
 const dismissedUpdates = new Set();
 
@@ -399,6 +402,13 @@ function render(state) {
       ? 'Alpha erhält neue Tracker-Versionen zuerst. Die Stable-Runtime bleibt als Rückweg erhalten.'
       : 'Stable verwendet ausschließlich freigegebene Tracker-Versionen.';
   }
+  setChecked(elements.aptMissionExecutionCheckbox, runtimeChannel === 'alpha' && settings.aptMissionExecutionEnabled === true);
+  elements.aptMissionExecutionCheckbox.disabled = runtimeChannel !== 'alpha' || aptMissionExecutionChangePending;
+  elements.aptMissionExecutionMessage.textContent = runtimeChannel !== 'alpha'
+    ? 'Nur im Alpha-Kanal verfügbar. Stable verwendet immer die bisherige Missionssteuerung.'
+    : (settings.aptMissionExecutionEnabled === true
+      ? 'Aktiv: Der Tracker führt unterstützte APT-Missionen autoritativ aus.'
+      : 'Aus: Die bisherige Missionssteuerung der App bleibt aktiv.');
   setChecked(elements.trackerAutoUpdateCheckbox, modulePolicy(settings, 'tracker') === 'automatic');
   setChecked(elements.desktopAutoUpdateCheckbox, modulePolicy(settings, 'desktop') === 'automatic');
   setChecked(elements.homebaseAutoUpdateCheckbox, modulePolicy(settings, 'homebase') === 'automatic');
@@ -499,6 +509,29 @@ elements.runtimeChannelSelect.addEventListener('change', async () => {
   if (!result?.ok) {
     elements.runtimeChannelMessage.className = 'channel-message subtle error';
     elements.runtimeChannelMessage.textContent = result?.message || 'Tracker-Kanal konnte nicht gewechselt werden.';
+  }
+});
+
+elements.aptMissionExecutionCheckbox.addEventListener('change', async () => {
+  const previous = latestState?.settings?.aptMissionExecutionEnabled === true;
+  const enabled = elements.aptMissionExecutionCheckbox.checked;
+  if (enabled && !window.confirm('Experimentelle APT-Tracker-Steuerung aktivieren? Ein laufender Tracker wird neu gestartet. Verwende diese Funktion vorerst nur für den Alpha-Missionstest.')) {
+    elements.aptMissionExecutionCheckbox.checked = previous;
+    return;
+  }
+  aptMissionExecutionChangePending = true;
+  elements.aptMissionExecutionCheckbox.disabled = true;
+  elements.aptMissionExecutionMessage.textContent = enabled
+    ? 'Tracker-Steuerung wird aktiviert und der Tracker bei Bedarf neu gestartet …'
+    : 'Tracker-Steuerung wird deaktiviert und der Tracker bei Bedarf neu gestartet …';
+  const result = await window.trackerDesktop.setAptMissionExecutionEnabled(enabled);
+  aptMissionExecutionChangePending = false;
+  render(await window.trackerDesktop.getState());
+  if (!result?.ok) {
+    elements.aptMissionExecutionCheckbox.checked = previous;
+    elements.aptMissionExecutionMessage.textContent = result?.message || 'APT-Tracker-Steuerung konnte nicht geändert werden.';
+  } else if (result.restartFailed) {
+    elements.aptMissionExecutionMessage.textContent = result.message;
   }
 });
 

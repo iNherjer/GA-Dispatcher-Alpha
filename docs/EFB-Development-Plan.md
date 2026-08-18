@@ -14,7 +14,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Desktop | 1.6.3 manueller Origin-Installer | Auto-Update 1.6.2 | 1.6.3 startet weiter auf Stable; Alpha muss fuer den APT-Test ausdruecklich gewaehlt werden |
+| Tracker-Desktop | 1.6.4 manueller Origin-Installer mit APT-Opt-in-Schalter | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
 | Tracker-Runtime | v370 Alpha-Kandidat | v356 | v370 schaltet App- und EFB-Aktionen nach einem atomaren APT-Handoff auf Tracker-Intents; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
@@ -214,6 +214,14 @@ Bis zur Freigabe bleibt der Alpha-Kanal auf 0.2.0; es gibt keine automatische
 Vorabinstallation des Karten-Prototyps.
 
 ## Verbindliche Architekturentscheidungen
+
+Die Tracker-Desktop-App speichert den Opt-in fuer die experimentelle
+APT-Missionsausfuehrung standardmaessig ausgeschaltet in ihren lokalen
+Einstellungen. Sie reicht `VFR_MULTITOOL_APT_EXECUTION=1` ausschliesslich an
+einen Alpha-Tracker weiter und setzt fuer Stable beziehungsweise bei
+ausgeschaltetem Schalter explizit `0`. Eine moeglicherweise noch vorhandene
+systemweite Testvariable kann Stable deshalb nicht versehentlich aktivieren.
+Beim Umschalten wird eine laufende Engine kontrolliert neu gestartet.
 
 1. Der Windows-Tracker wird schrittweise zur lokalen Ausfuehrungs- und
    Rechenebene. SimConnect, Telemetrie, Szenen, persistente Missionslaufzeit und
@@ -1540,6 +1548,21 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Tracker-Reducer spiegeln und Drift ueber komplette APT-Replays messen.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-18: Desktop 1.6.4 fuehrt den standardmaessig ausgeschalteten
+  Schalter `Experimentelle APT-Tracker-Steuerung` ein. Er ist nur im
+  Alpha-Kanal bedienbar, wird lokal in den Desktop-Einstellungen gespeichert
+  und startet eine laufende Engine nach Aenderung kontrolliert neu. Der
+  gestartete Prozess erhaelt fuer Alpha plus Opt-in
+  `VFR_MULTITOOL_APT_EXECUTION=1`, andernfalls explizit `0`; damit kann auch
+  eine alte systemweite Variable Stable nicht aktivieren. Die 46 Desktop-
+  Tests sind gruen. Der lokale Windows-Installer umfasst 100.264.250 Bytes
+  mit SHA-256
+  `5577a2c8adfcb6e7044597e3489135ff5fe6b0146c38a0c7bda70f6be080ed34`;
+  Installer, Blockmap und `latest.yml` werden unter dem unveraenderlichen
+  Release `tracker-desktop-v1.6.4` veroeffentlicht und die Origin-Web-App
+  verlinkt den Installer direkt. Der produktive Desktop-Autoupdatekanal bleibt
+  auf 1.6.2; bestehende Installationen erhalten 1.6.4 daher nicht automatisch.
 
 - 2026-08-18: Der v370-Alpha-Kandidat schaltet einen geplanten APT-Lauf erst
   nach letztem exakten Snapshot sowie positivem Prepare/Commit von Web- auf

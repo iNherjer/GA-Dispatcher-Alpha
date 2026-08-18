@@ -124,6 +124,7 @@ class TrackerConfigStore {
       homebaseUpdatePolicy: normalizeUpdatePolicy(preferences.homebaseUpdatePolicy),
       efbUpdatePolicy: normalizeUpdatePolicy(preferences.efbUpdatePolicy),
       bridgeUpdatePolicy: normalizeUpdatePolicy(preferences.bridgeUpdatePolicy),
+      aptMissionExecutionEnabled: normalizeBoolean(preferences.aptMissionExecutionEnabled, false),
       autoStartTracker: normalizeBoolean(preferences.autoStartTracker, true),
       startMinimized: normalizeBoolean(preferences.startMinimized, false),
       autoStartBridge: normalizeBoolean(preferences.autoStartBridge, false),
@@ -262,6 +263,17 @@ class TrackerConfigStore {
     });
   }
 
+  setAptMissionExecutionEnabled(enabled) {
+    const desktop = this.readDesktop();
+    return this.writeDesktop({
+      ...desktop,
+      preferences: {
+        ...safeObject(desktop.preferences),
+        aptMissionExecutionEnabled: enabled === true
+      }
+    });
+  }
+
   setStartupPreferences(preferences = {}) {
     const desktop = this.readDesktop();
     const current = safeObject(desktop.preferences);
@@ -291,6 +303,7 @@ class TrackerConfigStore {
         homebaseUpdatePolicy: normalizeUpdatePolicy(legacy.homebaseUpdatePolicy),
         efbUpdatePolicy: normalizeUpdatePolicy(legacy.efbUpdatePolicy),
         bridgeUpdatePolicy: normalizeUpdatePolicy(legacy.bridgeUpdatePolicy),
+        aptMissionExecutionEnabled: normalizeBoolean(legacy.aptMissionExecutionEnabled, false),
         autoStartTracker: normalizeBoolean(legacy.autoStartTracker, true),
         startMinimized: normalizeBoolean(legacy.startMinimized, false),
         autoStartBridge: normalizeBoolean(legacy.autoStartBridge, false),
