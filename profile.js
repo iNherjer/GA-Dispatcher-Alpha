@@ -4666,6 +4666,7 @@ window.vpBuildWeatherDebugReport = function() {
         };
         const rawSimDeltaM = cargoPositionDistanceM(cargoDbg.rawPos, cargoDbg.simPos);
         lines.push(`- Quelle: ${cargoDbg.source || '-'} | Sim=${cargoDbg.simMode ? 'ja' : 'nein'} | Tracker=${cargoDbg.trackerConnected ? 'verbunden' : 'getrennt'}`);
+        lines.push(`- Debug-Slew-Schutz: ${cargoDbg.motionProtectionEnabled ? 'aktiv (Pax-Komfort und Cargo-Stressschaden deaktiviert)' : 'aus'}`);
         lines.push(`- Cargo-Flugzeugposition: ${fmtCargoPos(cargoDbg.cargoPos)}`);
         lines.push(`- Sim-Position: ${fmtCargoPos(cargoDbg.simPos)}`);
         lines.push(`- Raw-Live-Position: ${fmtCargoPos(cargoDbg.rawPos)}${Number.isFinite(rawSimDeltaM) ? ` | Δ zur Sim-Position ${Math.round(rawSimDeltaM)} m` : ''}`);
@@ -4837,6 +4838,7 @@ window.vpRefreshWeatherDebugReport = function() {
         body.textContent = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : 'Debug-Daten nicht verfügbar';
         if (typeof window.missionFollowupInit === 'function') window.missionFollowupInit();
         if (typeof window.updatePoiChainDebugForceButtonUi === 'function') window.updatePoiChainDebugForceButtonUi();
+        if (typeof window.missionDebugUpdateMotionProtectionButtonUi === 'function') window.missionDebugUpdateMotionProtectionButtonUi();
     } catch (err) {
         const msg = err && (err.stack || err.message || String(err));
         body.textContent = `Debug-Report Fehler:\n${msg || 'unknown'}`;
@@ -5123,6 +5125,7 @@ window.vpToggleWeatherDebugPanel = function(forceState) {
         window.updateMissionPipelineV2ButtonUi && window.updateMissionPipelineV2ButtonUi();
         window.updateMissionWriterModeButtonUi && window.updateMissionWriterModeButtonUi();
         window.updateOpenAipDataModeButtonUi && window.updateOpenAipDataModeButtonUi();
+        window.missionDebugUpdateMotionProtectionButtonUi && window.missionDebugUpdateMotionProtectionButtonUi();
         window.vpRefreshWeatherDebugReport && window.vpRefreshWeatherDebugReport();
     }
 };

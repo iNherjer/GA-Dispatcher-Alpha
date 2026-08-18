@@ -13,6 +13,17 @@
 const _paxLogEntries = [];
 const _PAX_LOG_MAX   = 120;
 
+function _paxDebugMotionProtectionEnabled() {
+    try {
+        if (typeof window.missionDebugMotionProtectionEnabled === 'function') {
+            return window.missionDebugMotionProtectionEnabled() === true;
+        }
+        return localStorage.getItem('ga_debug_motion_protection_v1') === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
 function _paxFlowRecord(kind, payload = {}) {
     try {
         window.gaMissionPhaseDebugRecord?.(String(kind || 'voice_event'), payload && typeof payload === 'object' ? payload : { value: payload });
@@ -69,6 +80,7 @@ window.paxVoiceGetDebugState = function() {
         voiceEnabled: !!_paxVoiceEnabled,
         audioEffectsEnabled: !!_paxAudioEffectsEnabled,
         strictMode: !!_paxStrictMode,
+        debugMotionProtection: _paxDebugMotionProtectionEnabled(),
         hasApiKey: !!_getApiKey(),
         audioContextState: audioCtx?.state || 'unavailable',
         masterGain: Number.isFinite(gainValue) ? gainValue : null,
@@ -3609,7 +3621,7 @@ function _missionScoreRegisterEvent(key, active, severe = false, bucket = 'pilot
 }
 
 function _recordMissionComfortSample(flightData) {
-    if (!flightData) return;
+    if (!flightData || _paxDebugMotionProtectionEnabled()) return;
     const score = _missionComfortScoreState();
     score.samples += 1;
     const g = Number(flightData.gForce || 1.0);
@@ -3640,6 +3652,30 @@ function _recordMissionComfortSample(flightData) {
 
 function _missionComfortSummary() {
     const score = _missionComfortScoreState();
+    if (_paxDebugMotionProtectionEnabled()) {
+        return {
+            ...score,
+            samples: 0,
+            pilotEvents: 0,
+            pilotSevere: 0,
+            weatherEvents: 0,
+            weatherSevere: 0,
+            cargoRiskEvents: 0,
+            gEvents: 0,
+            bankEvents: 0,
+            descentEvents: 0,
+            comfortScore: 100,
+            mood: 'nicht bewertet (Debug-Slew-Schutz)',
+            maxG: '1.00',
+            maxBankDeg: 0,
+            maxDescentFpm: 0,
+            maxWindKts: 0,
+            maxGustSpreadKts: 0,
+            maxTurbulencePct: 0,
+            maxPrecipRate: '0.0',
+            debugMotionProtection: true
+        };
+    }
     const pilotPenalty = score.pilotEvents * 9 + score.pilotSevere * 10;
     const weatherPenalty = score.weatherEvents * 3 + score.weatherSevere * 5;
     const cargoPenalty = (_cargoMissionFocus() ? score.cargoRiskEvents * 8 : 0);
@@ -3708,6 +3744,10 @@ window.paxVoiceGetComfortState = function() {
 
 window.paxVoiceRestoreComfortState = function(snapshot = null) {
     if (!snapshot || typeof snapshot !== 'object') return false;
+    if (_paxDebugMotionProtectionEnabled()) {
+        _missionComfortScore = _createMissionComfortScore();
+        return true;
+    }
     const restored = _createMissionComfortScore();
     const counterKeys = [
         'samples', 'pilotEvents', 'pilotSevere', 'weatherEvents', 'weatherSevere',
@@ -3734,6 +3774,16 @@ window.paxVoiceRestoreComfortState = function(snapshot = null) {
     );
     _missionComfortScore = restored;
     return true;
+};
+
+window.paxVoiceHandleDebugMotionProtectionChange = function(enabled) {
+    _paxComfortLastAt = 0;
+    _paxComfortCount = 0;
+    _paxComfortBusy = false;
+    _paxComfortBreachState = Object.create(null);
+    _resetPaxComfortMotionAnalysis();
+    _missionComfortScore = _createMissionComfortScore();
+    _paxLog(`Debug-Slew-Schutz ${enabled ? 'aktiv: Komfortwertung pausiert' : 'deaktiviert: Komfortwertung neu gestartet'}`, 'state');
 };
 
 function _missionWeatherReactionLine(flightData = null) {
@@ -8894,6 +8944,7 @@ function _maybePaxComfortFeedback(flightData, lat, lon) {
         _paxComfortBreachState = Object.create(null);
         _resetPaxComfortMotionAnalysis();
     };
+    if (_paxDebugMotionProtectionEnabled()) { resetDetection(); return; }
     if (!window.activePassenger || !_missionHasPax() || !flightData) { resetDetection(); return; }
     if (!_paxGreetingDone || _paxAtTargetDone || _paxFarewellDone) { resetDetection(); return; }
     if (_paxLandingPhaseAnnounced || _aptTrainingLandingBriefDone || _poiTrainingLandingBriefDone) { resetDetection(); return; }
@@ -8943,20 +8994,21 @@ function _farewellPrompt(record) {
     if (!ctx || !pax) return null;
 
     const rec = (record && typeof record === 'object') ? record : {};
+    const motionProtectionEnabled = _paxDebugMotionProtectionEnabled();
     const durationSec = Number.isFinite(Number(rec.durationSec)) ? Number(rec.durationSec) : null;
     const min = durationSec != null ? Math.max(1, Math.round(durationSec / 60)) : null;
     const distanceNm = Number.isFinite(Number(rec.distanceNm)) ? Number(rec.distanceNm) : null;
     const maxAltFt = Number.isFinite(Number(rec.maxAltFt)) ? Math.round(Number(rec.maxAltFt)) : null;
     const isSimRecord = !!rec.simulated || durationSec == null;
-    const td = (!isSimRecord && rec.touchdownVsFpm != null) ? `${Math.abs(rec.touchdownVsFpm)} ft/min` : null;
+    const td = (!motionProtectionEnabled && !isSimRecord && rec.touchdownVsFpm != null) ? `${Math.abs(rec.touchdownVsFpm)} ft/min` : null;
     const bank = (Number(rec.maxBankDeg) || 0).toFixed(1);
     const maxG = (Number(rec.maxGForce) || 1.0).toFixed(2);
     const wx   = _weatherContext(window.lastLiveFlightData);
 
     let highlights = '';
-    if (pax.gTolerance === 'niedrig' && (Number(rec.maxGForce) || 1) > 1.6) highlights += ' Etwas viel G für mich, aber okay.';
-    if (pax.bankTolerance === 'niedrig' && (Number(rec.maxBankDeg) || 0) > 34) highlights += ' Die Kurven waren schon sportlich.';
-    if (!isSimRecord && Number.isFinite(Number(rec.maxDescentFpm)) && Number(rec.maxDescentFpm) <= -1500) {
+    if (!motionProtectionEnabled && pax.gTolerance === 'niedrig' && (Number(rec.maxGForce) || 1) > 1.6) highlights += ' Etwas viel G für mich, aber okay.';
+    if (!motionProtectionEnabled && pax.bankTolerance === 'niedrig' && (Number(rec.maxBankDeg) || 0) > 34) highlights += ' Die Kurven waren schon sportlich.';
+    if (!motionProtectionEnabled && !isSimRecord && Number.isFinite(Number(rec.maxDescentFpm)) && Number(rec.maxDescentFpm) <= -1500) {
         highlights += ` Der Sinkflug mit ${Math.abs(Math.round(Number(rec.maxDescentFpm)))} ft/min ging etwas auf Ohren und Magen.`;
     }
     if (td && Math.abs(Number(rec.touchdownVsFpm)) < 200) highlights += ' Die Landung war richtig sanft — Kompliment!';
@@ -9043,9 +9095,11 @@ function _farewellPrompt(record) {
     const farewellTask = isMissionFailed
         ? `Verabschiede dich persönlich beim Piloten aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Bleib freundlich, aber nenne den Fehlschlag klar und ohne ihn schönzureden.${missionFailureTask}`
         : (sarHeliFarewellTask || scienceFarewellTask || `Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}`);
-    const facts = (min != null && distanceNm != null && maxAltFt != null)
-        ? `${min} min, ${distanceNm.toFixed(1)} NM, max ${maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.`
-        : `Flugdaten teilweise unvollständig (z. B. Slew/Teleport). Max Bank ${bank}°, max G ${maxG}g.`;
+    const facts = motionProtectionEnabled
+        ? 'Bewegungs-, Komfort- und Landebewertung deaktiviert (Debug-Slew-Schutz).'
+        : (min != null && distanceNm != null && maxAltFt != null)
+            ? `${min} min, ${distanceNm.toFixed(1)} NM, max ${maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.`
+            : `Flugdaten teilweise unvollständig (z. B. Slew/Teleport). Max Bank ${bank}°, max G ${maxG}g.`;
 
     return `${ctx}
 
@@ -9112,8 +9166,11 @@ function _landingRollPrompt(record = null) {
     if (!ctx || !pax) return null;
     const hint = _aptArrivalAfterLandingHint();
     if (!hint) return null;
-    const td = (record && record.touchdownVsFpm != null) ? Math.abs(Math.round(record.touchdownVsFpm)) : null;
-    const landingFact = td != null ? `Touchdown etwa ${td} ft/min.` : 'Touchdown erfolgt.';
+    const motionProtectionEnabled = _paxDebugMotionProtectionEnabled();
+    const td = (!motionProtectionEnabled && record && record.touchdownVsFpm != null) ? Math.abs(Math.round(record.touchdownVsFpm)) : null;
+    const landingFact = motionProtectionEnabled
+        ? 'Landebewertung deaktiviert (Debug-Slew-Schutz). Keine Aussage zur Landungsqualität machen.'
+        : (td != null ? `Touchdown etwa ${td} ft/min.` : 'Touchdown erfolgt.');
     const wx = _weatherContext(window.lastLiveFlightData);
     return `${ctx}
 

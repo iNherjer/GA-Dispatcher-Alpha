@@ -4,6 +4,53 @@
 
 let missionCargoComplianceDebugManifest = null;
 let missionCargoGroundInventoryManifest = null;
+const MISSION_DEBUG_MOTION_PROTECTION_STORAGE_KEY = 'ga_debug_motion_protection_v1';
+
+function _missionDebugMotionProtectionEnabled() {
+    try {
+        return localStorage.getItem(MISSION_DEBUG_MOTION_PROTECTION_STORAGE_KEY) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+window.missionDebugMotionProtectionEnabled = _missionDebugMotionProtectionEnabled;
+
+window.missionDebugUpdateMotionProtectionButtonUi = function() {
+    const btn = document.getElementById('btnDebugMotionProtection');
+    if (!btn) return;
+    const enabled = _missionDebugMotionProtectionEnabled();
+    btn.textContent = enabled ? 'Slew-Schutz An' : 'Slew-Schutz Aus';
+    btn.style.borderColor = enabled ? '#3f8b5d' : '#657080';
+    btn.style.background = enabled ? '#183c28' : '#252b33';
+    btn.style.color = enabled ? '#adf0c5' : '#d8e1ec';
+    btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+};
+
+window.missionDebugToggleMotionProtection = function(forceState) {
+    const enabled = typeof forceState === 'boolean'
+        ? forceState
+        : !_missionDebugMotionProtectionEnabled();
+    try {
+        localStorage.setItem(MISSION_DEBUG_MOTION_PROTECTION_STORAGE_KEY, enabled ? '1' : '0');
+    } catch (_) {}
+    window.missionDebugUpdateMotionProtectionButtonUi?.();
+    window.paxVoiceHandleDebugMotionProtectionChange?.(enabled);
+    window.vpRefreshWeatherDebugReport?.();
+    try {
+        window.gaDebugPush?.('mission-debug', `Slew-Schutz ${enabled ? 'aktiviert' : 'deaktiviert'}`, {
+            paxComfort: enabled ? 'disabled' : 'enabled',
+            cargoStressDamage: enabled ? 'disabled' : 'enabled'
+        });
+    } catch (_) {}
+    return enabled;
+};
+
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', window.missionDebugUpdateMotionProtectionButtonUi, { once: true });
+} else {
+    window.missionDebugUpdateMotionProtectionButtonUi();
+}
 
 function _missionCargoMissionKey() {
     if (missionCargoComplianceDebugManifest?.key) {
@@ -3431,6 +3478,7 @@ async function _missionCargoSyncPayloadBeforeStart(reason = 'cargo-finish-loadin
 }
 
 function _missionCargoStressDamage(record = null) {
+    if (_missionDebugMotionProtectionEnabled()) return 0;
     const fd = window.lastLiveFlightData || {};
     const maxG = Math.max(Number(record?.maxGForce || 1), Number(flightRecorder?.maxGForce || 1), Number(fd.gForce || 1));
     const maxBank = Math.max(Math.abs(Number(record?.maxBankDeg || 0)), Math.abs(Number(flightRecorder?.maxBankDeg || 0)), Math.abs(Number(fd.bankDeg || 0)));
@@ -5602,6 +5650,7 @@ window.missionCargoDebugSnapshot = function() {
         source,
         simMode: !!window.simModeActive,
         trackerConnected: !!window.liveTrackerConnected,
+        motionProtectionEnabled: _missionDebugMotionProtectionEnabled(),
         cargoPos: formatPos(cargoPos),
         simPos: formatPos(simPos),
         rawPos: formatPos(rawPos),
