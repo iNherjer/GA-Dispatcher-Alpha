@@ -1953,6 +1953,10 @@ function _missionAuthorityClientId() {
     }
 }
 
+function _isMissionAuthorityProtocolCommandType(commandType = '') {
+    return /^mission_(authority|snapshot|execution_authority)_/i.test(String(commandType || ''));
+}
+
 function _rememberMissionAuthorityLocalCommand(commandId = '', type = '') {
     const id = String(commandId || '').trim();
     if (!id) return false;
@@ -4877,7 +4881,7 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
         : (Number.isFinite(Number(command.hdg ?? command.heading)) ? Number(command.hdg ?? command.heading) : 0);
     const commandId = command.commandId || `cmd-${Date.now()}-${++missionSmokeCommandSeq}`;
     const commandType = String(command.type || '');
-    const missionAuthorityProtocol = /^mission_(authority|snapshot)_/i.test(commandType);
+    const missionAuthorityProtocol = _isMissionAuthorityProtocolCommandType(commandType);
     const missionScopedCommand = /^mission_(scene|smoke)_/i.test(commandType) || commandType === 'mission_lifecycle';
     const groupSceneDebugCommand = window.GAMissionSceneGroup?.isGroupSceneDebugCommand?.(command) === true;
     const missionAuthorityScopedCommand = missionScopedCommand && !groupSceneDebugCommand;

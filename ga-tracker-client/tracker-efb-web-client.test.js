@@ -18,31 +18,31 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '37001');
+  assert.equal(EFB_WEB_ASSET_REVISION, '37101');
   assert.match(page, /data-efb-view-version="7"/);
-  assert.match(page, /app-styles\.css\?v=37001/);
-  assert.match(page, /host\.css\?v=37001/);
-  assert.match(page, /map-shell-core\.js\?v=37001/);
-  assert.match(page, /map-utility-tools\.js\?v=37001/);
-  assert.match(page, /cockpit-session-client\.js\?v=37001/);
-  assert.match(page, /host\.js\?v=37001/);
+  assert.match(page, /app-styles\.css\?v=37101/);
+  assert.match(page, /host\.css\?v=37101/);
+  assert.match(page, /map-shell-core\.js\?v=37101/);
+  assert.match(page, /map-utility-tools\.js\?v=37101/);
+  assert.match(page, /cockpit-session-client\.js\?v=37101/);
+  assert.match(page, /host\.js\?v=37101/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37001"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37001"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37001"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37101"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37101"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37101"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=37001',
-    '/efb/v1/assets/map-utility-tools.js?v=37001',
-    '/efb/v1/assets/cockpit-session-client.js?v=37001',
-    '/efb/v1/assets/host.js?v=37001'
+    '/efb/v1/assets/map-shell-core.js?v=37101',
+    '/efb/v1/assets/map-utility-tools.js?v=37101',
+    '/efb/v1/assets/cockpit-session-client.js?v=37101',
+    '/efb/v1/assets/host.js?v=37101'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -130,6 +130,10 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /bindInfoBoxDrag/);
   assert.match(hostSource, /ga-info-box-close/);
   assert.match(hostSource, /renderMissionPayload/);
+  assert.match(hostSource, /function missionBannerModel\(payload\)/);
+  assert.match(hostSource, /function ensureMissionBanner\(\)/);
+  assert.match(hostSource, /function renderMissionBanner\(payload\)/);
+  assert.match(hostSource, /mission-banner/);
   assert.match(hostSource, /setupSideDrawer/);
   assert.match(hostSource, /data-efb-check-row/);
   assert.match(hostSource, /checklist-action/);
@@ -214,6 +218,7 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostCss, /\.calculator-formula-drawer,[\s\S]*?background: #f7f4e8 !important/);
   assert.match(hostCss, /\.ga-efb-context-windrose \.ga-efb-context-runway rect/);
   assert.match(hostCss, /#mapSideDrawer \{[\s\S]*?--checklist-panel-width: 66\.6667vw/);
+  assert.match(hostCss, /\.ga-efb-mission-banner\.is-visible \{[\s\S]*?display: grid;/);
   assert.match(hostSource, /Schrift kleiner \(-\)/);
   assert.match(hostSource, /Schrift größer \(\+\)/);
   assert.match(hostSource, /Schriftgröße:/);
@@ -226,6 +231,38 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /function normalizeCoherentGlyphs\(root\)/);
   assert.match(hostSource, /new window\.MutationObserver/);
   assert.match(hostSource, /element\.hasAttribute\('data-ga-efb-font-base'\)/);
+});
+
+test('EFB mission banner mirrors tracker authority without taking ownership', () => {
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const modelSource = hostSource.match(/function missionBannerModel\(payload\) \{[\s\S]*?\n  \}\n\n  function ensureMissionBanner/)?.[0]
+    .replace(/\n\n  function ensureMissionBanner$/, '');
+  assert.ok(modelSource);
+  const missionBannerModel = new Function(`return (${modelSource});`)();
+
+  assert.equal(missionBannerModel(null), null);
+  const readOnly = missionBannerModel({
+    available: true,
+    missionId: 'mission-1',
+    phase: 'planned',
+    view: { title: 'Kurzer Sprung', currentTask: 'Mission vorbereiten' },
+    control: { executionAuthority: 'web', allowedActions: [] }
+  });
+  assert.equal(readOnly.badge, 'NUR LESEN');
+  assert.equal(readOnly.trackerAuthority, false);
+  assert.equal(readOnly.actionable, false);
+
+  const controllable = missionBannerModel({
+    available: true,
+    missionId: 'mission-1',
+    phase: 'planned',
+    view: { title: 'Kurzer Sprung', currentTask: 'Mission vorbereiten' },
+    control: { executionAuthority: 'tracker', phase: 'prepare', allowedActions: ['sign_manifest'] }
+  });
+  assert.equal(controllable.label, 'MISSION | PREPARE');
+  assert.equal(controllable.badge, 'AKTION BEREIT');
+  assert.equal(controllable.trackerAuthority, true);
+  assert.equal(controllable.actionable, true);
 });
 
 test('EFB host toggles utilities even when Coherent still serves the legacy utility module', () => {
@@ -255,8 +292,8 @@ test('EFB host toggles utilities even when Coherent still serves the legacy util
 
 test('mission drawer signatures ignore volatile relay and flight fields', () => {
   const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
-  const signatureSource = hostSource.match(/function missionRenderSignature\(payload\) \{[\s\S]*?\n  \}\n\n  function updateMissionLiveFields/)?.[0]
-    .replace(/\n\n  function updateMissionLiveFields$/, '');
+  const signatureSource = hostSource.match(/function missionRenderSignature\(payload\) \{[\s\S]*?\n  \}\n\n  function missionBannerModel/)?.[0]
+    .replace(/\n\n  function missionBannerModel$/, '');
   assert.ok(signatureSource);
   const missionRenderSignature = new Function(`return (${signatureSource});`)();
   const first = {

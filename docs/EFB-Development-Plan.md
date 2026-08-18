@@ -15,19 +15,27 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.4 manueller Origin-Installer mit APT-Opt-in-Schalter | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
-| Tracker-Runtime | v370 Alpha-Kandidat | v356 | v370 schaltet App- und EFB-Aktionen nach einem atomaren APT-Handoff auf Tracker-Intents; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
+| Tracker-Runtime | v371 Alpha-Folgefix | v356 | v371 korrigiert den App-Handoff und ergaenzt den synchronen EFB-Missionsbanner; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-Transport | HTTP-Loopback; Mission im Standard read-only, in der gegateten APT-Alpha revisionsgebunden steuerbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` erscheint nur bei aktiver Tracker-Execution |
 
 ## Aktueller EFB-Kanalstand
 
-Tracker v370 / Host 0.6.6 ergaenzt die revisionsgebundene Mission-Control-
+Tracker v371 / Host 0.6.7 ergaenzt die revisionsgebundene Mission-Control-
 Bedienung und Cargo-Projektion. Alle veraenderlichen CSS- und JavaScript-
-Dateien dieses tracker-gehosteten Hosts verwenden Revision 37001. Das
+Dateien dieses tracker-gehosteten Hosts verwenden Revision 37101. Das
 installierte EFB-Community-Paket bleibt unveraendert auf 0.4.11; ein neuer
 SDK-Build ist fuer diesen Host-Test nicht erforderlich. Der freigegebene
 v360-Host bleibt auf Revision 36001.
+Der erste reale v370-Starttest zeigte einen asymmetrischen App-Transportfilter:
+`mission_execution_authority_prepare` wurde erfolgreich vom Tracker bestaetigt,
+das ACK aber vom sendenden Browser als fremd verworfen. Der v371-Folgefix
+klassifiziert Prepare, Commit und Rollback wie die vorhandenen Authority- und
+Snapshot-Befehle als lokal gesendetes Missionsprotokoll. Der EFB-Host zeigt bei
+einem aktiven Tracker-Snapshot zusaetzlich einen kompakten Missionsbanner mit
+Phase, Aufgabe und Controllerstatus. Der Banner oeffnet nur den gemeinsamen
+Mission-Drawer und ist kein Ownership- oder Uebernahmebanner.
 Das obere Werkzeugmenue wird beim Oeffnen direkt ueber der Kartenoberflaeche
 gerendert, sodass sein E6B-Eintrag nicht mehr von der E6B-Eingabeflaeche
 abgefangen wird. Das EFB-Community-Paket bleibt auf 0.4.11; fuer diesen
@@ -1013,7 +1021,7 @@ nur Alpha wird aktualisiert, Stable bleibt auf v356.
 ### E4 - Autoritaet kontrolliert an den Tracker uebergeben
 
 Status: atomarer Zwei-Phasen-Untervertrag und App-Handoff im gegateten
-v370-Alpha-Kandidaten implementiert; realer Recovery-Test ausstehend
+v371-Alpha-Folgefix implementiert; realer Recovery-Test ausstehend
 
 Die Uebergabe erfolgt recipe-weise: zuerst ein normaler APT-A-nach-B-Ablauf,
 danach Bush/Pickup, POI/Survey und zuletzt SAR sowie komplexe Sonderablaeufe.
@@ -1042,7 +1050,7 @@ Owner-Wechsel verwirft die Vorbereitung.
 
 `commitExecutionAuthority()` bleibt im normalen Trackerbetrieb deaktiviert.
 Nur der Alpha-Kanal mit `VFR_MULTITOOL_APT_EXECUTION=1` aktiviert ihn und
-bewirbt danach `mission.intent.v1`. Der v370-Webclient schreibt unmittelbar
+bewirbt danach `mission.intent.v1`. Der v371-Webclient schreibt unmittelbar
 vor Prepare noch einen exakten Snapshot und schaltet erst nach dem positiven
 Commit auf die Tracker-Projektion um. Atomare Persistenz, blockierte
 Web-Snapshots und ein sicherer Rollback vor dem ersten Execution-Event bleiben
@@ -1059,7 +1067,7 @@ akzeptierten Event ist der einfache Zero-Event-Rollback gesperrt.
 ### E5 - Schreibende Cockpit-Intents
 
 Status: APT-Adapter, App-/EFB-Controller und echte Szenenhandler im gegateten
-v370-Alpha-Kandidaten verdrahtet; Standard und Stable bleiben read-only
+v371-Alpha-Folgefix verdrahtet; Standard und Stable bleiben read-only
 
 Der heutige offene GET-Loopback wird nicht einfach um ungeschuetzte POSTs
 erweitert. Derselbe Vertrag bedient spaeter EFB und Toolbar-Panel.
@@ -1174,7 +1182,7 @@ nur mit `VFR_MULTITOOL_APT_EXECUTION=1` erstellt. Ohne beide Bedingungen
 bleiben Manager-Commit, Cockpit-Intents und Simulator-Bridge inaktiv,
 `executionAuthority=web` und `mission.intent.v1` unsichtbar.
 
-Der v370-Kandidat schliesst die UI-Grenze fuer APT. Beim ersten
+Der v371-Kandidat schliesst die UI-Grenze fuer APT. Beim ersten
 `prepare_mission` schreibt die Web-App einen letzten exakten Snapshot, fuehrt
 Prepare und Commit aus und wird danach Beobachter. App und EFB senden nur noch
 kurzlebig authentifizierte, revisionsgebundene Intents. Manifeststatus,
@@ -1298,9 +1306,14 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] Gegateten APT-Handoff und gemeinsame App-/EFB-Bedienung auf
       revisionsgebundene Tracker-Intents umstellen; alte Web-Szenenbefehle nach
       Commit sperren, Cargo-/PAX-Projektion und terminales Debrief synchronisieren.
-- [ ] v370 real mit App plus EFB in MSFS testen: Prepare, Boarding, Cargo aus
+- [ ] v371 real mit App plus EFB in MSFS testen: Prepare, Boarding, Cargo aus
       beiden Instanzen, Start, Ziel-Ground-Still, Deboarding, Entladung, Close
       sowie finaler Debrief ohne doppeltes SimObject.
+      Erster Versuch: Transport und zehn APT-Shadow-Checkpoints waren ohne
+      Drift, der App-Filter verwarf jedoch das positive Prepare-ACK und liess
+      dadurch weder Commit noch Boarding zu. Der lokale Filterfix und der neue
+      EFB-Statusbanner sind automatisiert abgedeckt; der reale Ablauf muss mit
+      dem Folge-Build wiederholt werden.
 - [ ] Ambiguitaetsfall Tracker-Neustart nach physischem Dispatch und vor ACK
       real provozieren; bestaetigen, dass der Lauf fail-closed bleibt, und erst
       danach einen expliziten Recovery-/Abgleichdialog entwerfen.
@@ -1582,6 +1595,30 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   48.396.976 Bytes mit SHA-256
   `df127e4884fb1dc67b7b713cd2450e77af563764ad13d659e63e0b95355fb57e`.
   Stable bleibt auf v356; das EFB-Community-Paket bleibt 0.4.11.
+
+- 2026-08-18: Der erste v370-App-/EFB-Test erreichte den geplanten Zustand,
+  zehn APT-Event-Replay-Shadow-Checkpoints blieben `MATCH`. Der Tracker nahm
+  jedes `mission_execution_authority_prepare` an, die App registrierte diesen
+  Befehlstyp jedoch nicht in ihrer lokalen ACK-Allowlist und protokollierte das
+  eigene positive ACK als `foreign_tracker_ack_ignored`. Der gezielte Fix
+  erweitert nur die Transportklassifizierung um `execution_authority`; Core,
+  Mission, Manifest, Briefing und Effektregeln bleiben unveraendert. Der
+  tracker-gehostete EFB-Client erhaelt ausserdem einen rein projektiven Banner,
+  der Phase, aktuelle Aufgabe sowie `NUR LESEN`, `TRACKER LIVE` oder
+  `AKTION BEREIT` anzeigt und den Mission-Drawer oeffnet.
+
+- 2026-08-18: Tracker v371 / Host 0.6.7 ist als gezielter Alpha-Folgefix
+  veroeffentlicht. Der Browser registriert jetzt
+  `mission_execution_authority_prepare`, `commit` und `rollback` vor dem
+  Broadcast-ACK lokal; der Zwei-Phasen-Handoff kann damit nach einem positiven
+  Prepare bis zum Commit fortschreiten. Der EFB-Host zeigt den synchronen,
+  rein projektiven Missionsbanner und verwendet Assetrevision 37101. Die
+  Missions-/Cockpit-/EFB-Suite umfasst 108 gruene Tests, die unveraenderte
+  Desktop-App 1.6.4 weitere 46. Der Windows-Build umfasst 48.402.930 Bytes mit
+  SHA-256
+  `e302c94546c029c1d14e184313d93429f747f1e256fd733408f1e62bb413b489`.
+  Nur Alpha zeigt auf v371; Stable bleibt unveraendert auf v356 und das
+  EFB-Community-Paket auf 0.4.11.
 
 - 2026-08-18: Der lokale v369-Schnitt verbindet den APT-Effect-Runner mit den
   vorhandenen SimConnect-Szenenhandlern. Die App nimmt einen versionierten,

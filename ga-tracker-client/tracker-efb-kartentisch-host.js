@@ -984,7 +984,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.5');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.7');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -1025,6 +1025,7 @@
         });
       }
     }
+    ensureMissionBanner();
 
     var reset = actions && actions.querySelector('button[onclick="resetMainRoute()"]');
     if (reset) { reset.textContent = 'Route'; reset.disabled = true; reset.title = 'Read-only: Die Route kommt aus dem Tracker'; }
@@ -1456,6 +1457,85 @@
     });
   }
 
+  function missionBannerModel(payload) {
+    if (!payload || payload.available !== true || !payload.missionId) return null;
+    var view = payload.view && typeof payload.view === 'object' ? payload.view : {};
+    var control = payload.control && typeof payload.control === 'object' ? payload.control : null;
+    var trackerAuthority = !!(control && control.executionAuthority === 'tracker');
+    var allowedActions = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
+    var phase = String(trackerAuthority && control.phase || payload.phase || payload.state || 'aktiv')
+      .replace(/_/g, ' ')
+      .toUpperCase();
+    return {
+      missionId: String(payload.missionId),
+      label: 'MISSION | ' + phase,
+      title: String(view.title || payload.title || 'Aktive Mission'),
+      task: String(view.currentTask || view.status || 'Missionsstatus oeffnen'),
+      badge: trackerAuthority
+        ? (allowedActions.length ? 'AKTION BEREIT' : 'TRACKER LIVE')
+        : 'NUR LESEN',
+      trackerAuthority: trackerAuthority,
+      actionable: trackerAuthority && allowedActions.length > 0
+    };
+  }
+
+  function ensureMissionBanner() {
+    var existing = byId('gaEfbMissionBanner');
+    if (existing) return existing;
+    var toolbar = byId('mapToolbarInner');
+    if (!toolbar || !toolbar.parentNode) return null;
+    var banner = document.createElement('button');
+    banner.type = 'button';
+    banner.id = 'gaEfbMissionBanner';
+    banner.className = 'ga-efb-mission-banner';
+    banner.setAttribute('aria-label', 'Missionsstatus oeffnen');
+
+    var label = document.createElement('span');
+    label.id = 'gaEfbMissionBannerLabel';
+    label.className = 'ga-efb-mission-banner-label';
+    var copy = document.createElement('span');
+    copy.className = 'ga-efb-mission-banner-copy';
+    var title = document.createElement('strong');
+    title.id = 'gaEfbMissionBannerTitle';
+    var task = document.createElement('small');
+    task.id = 'gaEfbMissionBannerTask';
+    copy.appendChild(title);
+    copy.appendChild(task);
+    var badge = document.createElement('span');
+    badge.id = 'gaEfbMissionBannerBadge';
+    badge.className = 'ga-efb-mission-banner-badge';
+    banner.appendChild(label);
+    banner.appendChild(copy);
+    banner.appendChild(badge);
+    banner.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      openSideDrawer('mission');
+      report('info', 'mission-banner', 'open', 'Missionsstatus ueber Banner geoeffnet', banner.getAttribute('data-mission-id') || '');
+    });
+    toolbar.parentNode.insertBefore(banner, toolbar.nextSibling);
+    return banner;
+  }
+
+  function renderMissionBanner(payload) {
+    var banner = ensureMissionBanner();
+    if (!banner) return;
+    var model = missionBannerModel(payload);
+    banner.classList.toggle('is-visible', !!model);
+    banner.classList.toggle('is-controllable', !!(model && model.trackerAuthority));
+    banner.classList.toggle('is-actionable', !!(model && model.actionable));
+    if (!model) {
+      banner.removeAttribute('data-mission-id');
+      return;
+    }
+    banner.setAttribute('data-mission-id', model.missionId);
+    banner.setAttribute('aria-label', model.title + ': ' + model.task + '. Missionsstatus oeffnen');
+    setText('gaEfbMissionBannerLabel', model.label);
+    setText('gaEfbMissionBannerTitle', model.title);
+    setText('gaEfbMissionBannerTask', model.task);
+    setText('gaEfbMissionBannerBadge', model.badge);
+  }
+
   function updateMissionLiveFields(view) {
     if (!view || typeof view !== 'object') return;
     var target = view.target && typeof view.target === 'object' ? view.target : {};
@@ -1477,6 +1557,7 @@
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};
     var signature = missionRenderSignature(next);
     missionSnapshot = next;
+    renderMissionBanner(next);
     var drawer = byId('mapSideDrawer');
     var drawerOpen = drawer && drawer.classList.contains('is-open') && drawerView === 'mission';
     if (signature === missionSignature) {

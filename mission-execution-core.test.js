@@ -200,7 +200,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.ok(indexSource.indexOf('mission-location-core.js') < indexSource.indexOf('mission-runtime-core.js'));
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
     assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v=tracker-controller'));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1685/);
+    assert.match(serviceWorkerSource, /ga-dispatcher-v1687/);
     assert.match(serviceWorkerSource, /\.\/mission-location-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-shadow-journal\.js/);
@@ -210,6 +210,17 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(syncSource, /bundle\.execution = envelope/);
     assert.match(syncSource, /ga\.mission-apt-effect-plan\.v1/);
     assert.match(syncSource, /executionEffectPlan: adapter === 'apt'/);
+    const authorityCommandClassifierSource = syncSource.match(/function _isMissionAuthorityProtocolCommandType\(commandType = ''\) \{[\s\S]*?\n\}/)?.[0];
+    assert.ok(authorityCommandClassifierSource);
+    const isMissionAuthorityProtocolCommandType = new Function(`return (${authorityCommandClassifierSource});`)();
+    assert.equal(isMissionAuthorityProtocolCommandType('mission_authority_acquire'), true);
+    assert.equal(isMissionAuthorityProtocolCommandType('mission_snapshot_update'), true);
+    assert.equal(isMissionAuthorityProtocolCommandType('mission_execution_authority_prepare'), true);
+    assert.equal(isMissionAuthorityProtocolCommandType('mission_execution_authority_commit'), true);
+    assert.equal(isMissionAuthorityProtocolCommandType('mission_execution_authority_rollback'), true);
+    assert.equal(isMissionAuthorityProtocolCommandType('mission_scene_spawn'), false);
+    assert.match(syncSource, /const missionAuthorityProtocol = _isMissionAuthorityProtocolCommandType\(commandType\)/);
+    assert.match(syncSource, /if \(missionScopedCommand \|\| missionAuthorityProtocol\) \{\s*_rememberMissionAuthorityLocalCommand\(commandId, commandType\);/);
     assert.match(syncSource, /_missionSceneBuildSpawnEffectCommand/);
     assert.match(syncSource, /_missionSceneBuildBoardingEffectCommand/);
     assert.match(syncSource, /_missionSceneBuildDeboardingEffectCommand/);

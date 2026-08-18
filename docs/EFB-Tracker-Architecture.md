@@ -663,6 +663,21 @@ Loopback-Intentvertrag; der Tracker liefert fuer beide einen begrenzten
 `ga.mission-execution-control.v1` mit Phase, Flags, Cargo, Signatur,
 Blockierungsgruenden und erlaubten Aktionen.
 
+Der erste reale v370-Test deckte an der App-Transportgrenze einen lokalen
+Klassifizierungsfehler auf: Prepare-ACKs wurden zwar vom Tracker positiv
+erzeugt, vom sendenden Browser aber als fremde Broadcast-ACKs verworfen, weil
+`mission_execution_authority_*` beim Senden nicht in die lokale Command-ID-
+Allowlist aufgenommen wurde. Der v371-Folgefix schliesst Prepare, Commit und
+Rollback in dieselbe Klassifizierung wie `mission_authority_*` und
+`mission_snapshot_*` ein. Er aendert weder Handoff-Pruefungen noch Reducer,
+Manifest, Effekte oder Missionssemantik.
+
+Ein sichtbarer EFB-Missionsbanner wird ausschliesslich aus dem aktuellen
+Tracker-Snapshot projiziert. Er zeigt Phase, Aufgabe und Controllerstatus und
+oeffnet den gemeinsamen Mission-Drawer. Er uebernimmt keine Mission und besitzt
+keine eigene Autoritaet; EFB und spaeter Toolbar bleiben weiterhin parallele
+Ansichten desselben Trackerzustands.
+
 Cargo-Items werden erst nach einem akzeptierten Intent im Trackerzustand
 geaendert. Passagiere bleiben szenengebunden: Ein Deboard-Intent erzeugt
 `scene.deboarding`, und erst das positive Sim-ACK erzeugt
@@ -671,7 +686,7 @@ geaendert. Passagiere bleiben szenengebunden: Ein Deboard-Intent erzeugt
 Dadurch zeigt das EFB keine aktive Mission mehr und die Web-App kann denselben
 Run genau einmal in ihr bestehendes Debrief uebernehmen.
 
-Nicht migriert sind in v370 die zentrale Sim-Payload-Verteilung,
+Nicht migriert sind in v371 die zentrale Sim-Payload-Verteilung,
 missionsgetriggerte Voice-Intents, Pickup/POI/Sonderrezepte sowie die manuelle
 Aufloesung eines fail-closed Recoveryfalls. Deshalb bleiben Alpha-Kanal und
 `VFR_MULTITOOL_APT_EXECUTION=1` weiterhin gemeinsam erforderlich.

@@ -652,6 +652,98 @@ body.ga-efb-tracker-host .ga-efb-boot-status.error {
   background: #6a2929;
 }
 
+body.ga-efb-tracker-host .ga-efb-mission-banner {
+  display: none;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 10px;
+  border: 1px solid #526b77;
+  border-left: 4px solid #7f96a1;
+  border-radius: 5px;
+  box-sizing: border-box;
+  color: #e8f2f5;
+  background: rgba(8, 20, 28, .97);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, .35);
+  font-family: Arial, sans-serif;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner.is-visible {
+  display: grid;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner.is-controllable {
+  border-color: #2d8278;
+  border-left-color: #69ded0;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner.is-actionable {
+  border-left-color: #f2c12e;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner:focus,
+body.ga-efb-tracker-host .ga-efb-mission-banner:hover {
+  outline: none;
+  border-color: #69ded0;
+  background: rgba(15, 39, 48, .98);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner-label {
+  color: #69ded0;
+  font: 800 9px/1.2 monospace;
+  letter-spacing: .5px;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner-copy strong,
+body.ga-efb-tracker-host .ga-efb-mission-banner-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner-copy strong {
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner-copy small {
+  color: #9eb2bc;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner-badge {
+  padding: 4px 6px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  color: #9eb2bc;
+  font: 800 8px/1 monospace;
+  letter-spacing: .4px;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner.is-controllable .ga-efb-mission-banner-badge {
+  color: #69ded0;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-banner.is-actionable .ga-efb-mission-banner-badge {
+  color: #f2c12e;
+}
+
 body.ga-efb-tracker-host #mapToolbarInner {
   width: 100%;
   min-width: 0;
@@ -2199,6 +2291,15 @@ body.ga-efb-tracker-host #autoFollowBtn {
 }
 
 @media (max-width: 760px) {
+  body.ga-efb-tracker-host .ga-efb-mission-banner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px;
+  }
+
+  body.ga-efb-tracker-host .ga-efb-mission-banner-label {
+    display: none;
+  }
+
   body.ga-efb-tracker-host #navStationLabel {
     font-size: 10px;
   }
