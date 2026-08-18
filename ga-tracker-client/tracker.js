@@ -23,7 +23,8 @@ const { createMissionAuthorityManager } = require('./mission-authority-core.js')
 const { createTrackerMissionShadow } = require('./tracker-mission-shadow.js');
 const {
   APT_MISSION_TEST_LOG_FILENAME,
-  createAptMissionTestLog
+  MISSION_TEST_LOG_SCHEMA,
+  createMissionTestLog
 } = require('./tracker-apt-mission-test-log.js');
 const { projectTrackerMapSnapshot } = require('./tracker-efb-map-snapshot-core.js');
 const { projectTrackerEfbMissionView } = require('./tracker-efb-mission-view-core.js');
@@ -65,8 +66,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v367';
-const TRACKER_VERSION_CODE = 367;
+const TRACKER_VERSION = 'v368';
+const TRACKER_VERSION_CODE = 368;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -128,7 +129,7 @@ const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const TRACKER_DEBUG_FILE = path.join(TRACKER_DATA_DIR, 'ga-tracker-debug.txt');
 const APT_MISSION_TEST_FILE = path.join(TRACKER_DATA_DIR, APT_MISSION_TEST_LOG_FILENAME);
-const aptMissionTestLog = createAptMissionTestLog({ filename: APT_MISSION_TEST_FILE });
+const missionTestLog = createMissionTestLog({ filename: APT_MISSION_TEST_FILE });
 const writeDebugLog = createRotatingDebugLog({
   filename: TRACKER_DEBUG_FILE,
   maxBytes: 8 * 1024 * 1024,
@@ -138,7 +139,7 @@ const writeDebugLog = createRotatingDebugLog({
 });
 const debugLog = (line) => {
   const written = writeDebugLog(line);
-  aptMissionTestLog.recordSystemLine(line);
+  missionTestLog.recordSystemLine(line);
   return written;
 };
 const MISSION_AUTHORITY_FILE = path.join(TRACKER_DATA_DIR, 'mission-authority-v1.json');
@@ -4536,17 +4537,17 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
 function startTracker(syncId, pin, voiceCredentials = null) {
   debugLog(`START ${TRACKER_DISPLAY_NAME} dataDir=${TRACKER_DATA_DIR} debugFile=${TRACKER_DEBUG_FILE}`);
-  aptMissionTestLog.start({
+  missionTestLog.start({
     trackerVersion: TRACKER_VERSION,
     trackerVersionCode: TRACKER_VERSION_CODE,
     runtimeChannel: TRACKER_RUNTIME_CHANNEL
   });
-  debugLog(`APT_TEST_LOG_READY file=${APT_MISSION_TEST_FILE} automatic=1 recipe=apt`);
-  trackerLog(`🧪 Automatischer APT-Testmodus aktiv: ${APT_MISSION_TEST_LOG_FILENAME}`);
+  debugLog(`MISSION_TEST_LOG_READY file=${APT_MISSION_TEST_FILE} automatic=1 scope=all schema=${MISSION_TEST_LOG_SCHEMA}`);
+  trackerLog(`🧪 Automatischer Missionstestmodus aktiv: ${APT_MISSION_TEST_LOG_FILENAME}`);
   for (const event of TRACKER_STORAGE.events) debugLog(event);
   const trackerMissionShadow = createTrackerMissionShadow({
     log: debugLog,
-    onObservation: state => aptMissionTestLog.observe(state)
+    onObservation: state => missionTestLog.observe(state)
   });
   const missionAuthorityManager = createMissionAuthorityManager({
     storageFile: MISSION_AUTHORITY_FILE,
@@ -4688,7 +4689,9 @@ function startTracker(syncId, pin, voiceCredentials = null) {
         aptMissionTest: {
           enabled: true,
           automatic: true,
-          recipe: 'apt',
+          scope: 'all',
+          recipe: 'all',
+          schema: MISSION_TEST_LOG_SCHEMA,
           filename: APT_MISSION_TEST_LOG_FILENAME
         },
         customChecklistCount: efbChecklistStore.getSnapshot().checklists.length,

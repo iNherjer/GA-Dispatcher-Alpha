@@ -542,6 +542,26 @@ v367-Windows-Build umfasst 48.275.590 Bytes mit SHA-256
 `893d8387aa584ef0eccbb28e7a113c36fbc3c8c530ea094b9531c37dddd6a57e`;
 Alpha wird aktualisiert, Stable bleibt auf v356.
 
+Der v368-Kandidat trennt die technische Logabdeckung von der Rezeptauswahl.
+`ga.mission-test-log.v3` beginnt bei der ersten akzeptierten Shadow-Beobachtung
+jedes Authority-Laufs, schreibt recipe- und mode-spezifische Checkpoints und
+endet nach erfolgreichem `mission_authority_release`. Ein
+`snapshot-shadow` kann Transport und Projektion bestaetigen, behauptet aber
+keine unabhaengige Replay-Paritaet; nur `event-replay` liefert weiterhin
+`parity=PASS|FAIL`.
+
+Parallel wird die Resume-Adapterwahl auf bereits vorhandene explizite
+Missionsmerkmale gestuetzt. Ein allgemeines leeres POI-Fortschrittsobjekt und
+das bei APT wie POI vorhandene `targetName` duerfen die Auswahl nicht mehr auf
+`poi` ziehen. Diese Aenderung betrifft nur Resume-Deskriptor, Shadow-Rezept und
+spaetere recipe-weise Wiederaufnahme. Missionsbriefing, Web-Runtime, Cargo,
+Pax, Voice, Szenen und Erfolgsgates lesen den Adapter nicht zurueck und bleiben
+unveraendert. Dateiname und Desktop-Button behalten vorerst ihre bisherige
+APT-Bezeichnung, damit installierte Tester keine neue Ablage suchen muessen.
+Der v368-Windows-Build umfasst 48.277.654 Bytes mit SHA-256
+`9db300c13488d7f18b97d2f1712f2d59d18608d61b99e01337536a0c18da8692`;
+nur der Alpha-Kanal wird aktualisiert, Stable bleibt auf v356.
+
 Der 0.4.3-In-Sim-Log zeigt, dass die Dateien in richtiger Reihenfolge geladen
 werden, Coherent aber Optional Chaining und Object Spread nicht parst.
 Tracker v329 und EFB 0.4.4 definieren deshalb eine zusaetzliche Hostgrenze:

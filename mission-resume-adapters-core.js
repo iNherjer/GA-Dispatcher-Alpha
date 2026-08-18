@@ -26,6 +26,67 @@
     return object(value.currentMissionData || value);
   }
 
+  function explicitMissionMode(missionState = null) {
+    const state = object(missionState);
+    const mission = missionDataFromState(state);
+    const contract = object(mission.missionContract || state.activeMissionContract);
+    const contractV4 = object(
+      mission.missionContractV4
+      || mission._missionContractV4
+      || contract.missionContractV4
+      || contract._missionContractV4
+    );
+    const candidates = [
+      mission.missionType,
+      mission.mode,
+      object(mission.missionContext).mode,
+      object(object(mission.missionPlanV4).plan).missionType,
+      object(object(mission.missionPlanV2).plan).missionType,
+      contract.missionType,
+      contract.mode,
+      object(contract.route).mode,
+      contractV4.mode,
+      contractV4.missionType,
+      object(contractV4.route).mode
+    ];
+    for (const value of candidates) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (!normalized) continue;
+      if (normalized === 'poi' || /^poi[:_\s-]/.test(normalized) || normalized === 'point-of-interest') return 'poi';
+      if (normalized === 'bush' || /^bush[:_\s-]/.test(normalized)) return 'bush';
+      if (normalized === 'apt' || normalized === 'a-b' || normalized === 'a_b' || normalized === 'ab'
+        || normalized === 'airport' || /^apt[:_\s-]/.test(normalized)) return 'apt';
+    }
+    return '';
+  }
+
+  function hasLegacyPoiSignal(runtimeSnapshot = null, missionState = null) {
+    const runtime = object(runtimeSnapshot);
+    const progress = object(runtime.poiProgress);
+    const state = object(missionState);
+    const mission = missionDataFromState(state);
+    const contract = object(mission.missionContract || state.activeMissionContract);
+    const progressed = !!(
+      progress.satisfied
+      || progress.aborted
+      || progress.manualConfirmed
+      || progress.atTargetDone
+      || Number(progress.dwellSec) > 0
+      || Number(progress.attempts) > 0
+    );
+    return !!(
+      state.isPOI === true
+      || mission.isPOI === true
+      || mission.poiPresentation === true
+      || mission.poiName
+      || contract.isPOI === true
+      || contract.poiPresentation === true
+      || contract.poiName
+      || String(mission.dest || state.currentDestICAO || '').trim().toUpperCase() === 'POI'
+      || progressed
+    );
+  }
+
   function detectPrimaryAdapter(runtimeSnapshot = null, missionState = null) {
     const runtime = object(runtimeSnapshot);
     const progress = object(runtime.poiProgress);
@@ -36,7 +97,11 @@
     if (progress.poiChain || mission.poiChain || contract.poiChain) return 'poi_chain';
     if (progress.trainingProcedure || mission.trainingProcedure || contract.trainingProcedure) return 'training';
     if (runtime.bushProgress || mission.bush || mission.bushProgress || contract.bush) return 'bush_pickup';
-    if (runtime.poiProgress || mission.isPOI || mission.poiName || mission.targetName) return 'poi';
+    const explicitMode = explicitMissionMode(missionState);
+    if (explicitMode === 'poi') return 'poi';
+    if (explicitMode === 'bush') return 'bush_pickup';
+    if (explicitMode === 'apt') return 'apt';
+    if (hasLegacyPoiSignal(runtime, missionState)) return 'poi';
     return 'apt';
   }
 
@@ -84,6 +149,8 @@
     VERSION,
     createDescriptor,
     detectFacets,
+    explicitMissionMode,
+    hasLegacyPoiSignal,
     detectPrimaryAdapter,
     validateBundle
   });

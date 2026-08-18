@@ -15,7 +15,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.3 manueller Origin-Installer | Auto-Update 1.6.2 | 1.6.3 startet weiter auf Stable; Alpha muss fuer den APT-Test ausdruecklich gewaehlt werden |
-| Tracker-Runtime | v367 Alpha | v356 | v367 schliesst die beim ersten Realbericht gefundene Capability-/Authority-Startluecke und erweitert das automatische APT-Testlog; Stable bleibt bis zum Realtest auf v356 |
+| Tracker-Runtime | v368 Alpha | v356 | v368 klassifiziert APT/POI fuer Resume explizit und protokolliert alle Authority-Rezepte im kompatiblen Testlog; Stable bleibt bis zum Realtest auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-Transport | HTTP-Loopback; Mission read-only, Voice-Effekte und Session-Heartbeats lokal schreibbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` bleibt gesperrt |
@@ -26,7 +26,7 @@ Tracker v360 / Host 0.6.5 behandelt die Werkzeugstarter fuer Uhr/Stoppuhr,
 Rechner und E6B als echte Umschalter. Der Host kann dabei auch mit einem noch
 gecacheten aelteren Utility-Modul schliessen. Alle veraenderlichen CSS- und
 JavaScript-Dateien des tracker-gehosteten v367-Hosts verwenden weiterhin
-Revision 36301; v366/v367 aendern keine Host-Assets. Der freigegebene
+Revision 36301; v366 bis v368 aendern keine Host-Assets. Der freigegebene
 v360-Host bleibt auf Revision 36001.
 Das obere Werkzeugmenue wird beim Oeffnen direkt ueber der Kartenoberflaeche
 gerendert, sodass sein E6B-Eintrag nicht mehr von der E6B-Eingabeflaeche
@@ -974,6 +974,33 @@ zeigen Eingang, Ergebnis sowie Bundle-/Execution-/Replay-Vorhandensein, und
 wiederholte Render-503-/Close-Ereignisse werden nur noch einmal pro Minute
 zusammengefasst. Autoritaet, Seiteneffekte und Stable-Verhalten bleiben
 unveraendert.
+
+Der zweite externe Bericht mit v367 bestaetigte den korrigierten
+Authority-Handshake: Acquire, 57 Snapshots, drei zentrale Voice-Ergebnisse und
+Release wurden erfolgreich verarbeitet. Der normale APT-Lauf wurde im
+Resume-Bundle jedoch als `adapter=poi execution=1 replay=0` klassifiziert. Die
+Ursache war kein Missions- oder Briefingdrift, sondern die technische
+Resume-Erkennung: `targetName` existiert auch bei APT, und der allgemeine
+Passenger-Voice-Fortschritt liefert auch ausserhalb von POI immer ein leeres
+Objekt.
+
+Der v368-Kandidat priorisiert deshalb die expliziten, bereits persistierten
+Missionsmerkmale aus Mission und Contract. `targetName` und ein bloss
+vorhandenes leeres `poiProgress` sind keine POI-Beweise mehr; eindeutige
+Sonderadapter und belastbare Legacy-Merkmale bleiben erhalten. Web-Cache
+`ga-dispatcher-v1682` enthaelt denselben Fallback. Briefing, Passenger-Voice,
+Cargo, Runtime-Gates und Web-Authority werden nicht veraendert.
+
+Das automatische Log verwendet ab v368 das allgemeine Schema
+`ga.mission-test-log.v3` und die Praefixe `MISSION_TEST_*`. Es beobachtet alle
+Authority-Rezepte und schliesst einen Lauf erst nach erfolgreichem
+Authority-Release ab. `event-replay` darf weiterhin ein echtes
+`parity=PASS|FAIL` melden; `snapshot-shadow` meldet Transport und Shadow separat
+mit `parity=NOT_APPLICABLE`. Dateiname und Desktop-1.6.3-Zugriff bleiben fuer
+Tester kompatibel bei `GA-APT-Missionstest.txt` beziehungsweise `APT-Testlog`.
+Der veroeffentlichte Windows-Build umfasst 48.277.654 Bytes mit SHA-256
+`9db300c13488d7f18b97d2f1712f2d59d18608d61b99e01337536a0c18da8692`;
+nur Alpha wird aktualisiert, Stable bleibt auf v356.
 
 ### E4 - Autoritaet kontrolliert an den Tracker uebergeben
 

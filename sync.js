@@ -2102,14 +2102,66 @@ function _missionAuthorityAdapter(runtimeSnapshot = null, missionState = null) {
     if (typeof window.GAMissionResumeAdapters?.detectPrimaryAdapter === 'function') {
         try { return window.GAMissionResumeAdapters.detectPrimaryAdapter(runtimeSnapshot, missionState); } catch (_) {}
     }
-    const progress = runtimeSnapshot?.poiProgress || {};
+    const runtime = runtimeSnapshot && typeof runtimeSnapshot === 'object' ? runtimeSnapshot : {};
+    const progress = runtime.poiProgress && typeof runtime.poiProgress === 'object' ? runtime.poiProgress : {};
+    const state = missionState && typeof missionState === 'object' ? missionState : {};
+    const md = (state.currentMissionData && typeof state.currentMissionData === 'object')
+        ? state.currentMissionData
+        : ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : state);
+    const contract = (md.missionContract && typeof md.missionContract === 'object')
+        ? md.missionContract
+        : ((state.activeMissionContract && typeof state.activeMissionContract === 'object') ? state.activeMissionContract : {});
     if (progress.sarHeli) return 'sar_heli';
     if (progress.surveyPattern) return 'survey_pattern';
     if (progress.poiChain) return 'poi_chain';
     if (progress.trainingProcedure) return 'training';
-    if (runtimeSnapshot?.bushProgress) return 'bush_pickup';
-    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : {};
-    if (md.isPOI || md.poiName || md.targetName) return 'poi';
+    if (runtime.bushProgress || md.bush || md.bushProgress || contract.bush) return 'bush_pickup';
+    const explicitCandidates = [
+        md.missionType,
+        md.mode,
+        md.missionContext?.mode,
+        md.missionPlanV4?.plan?.missionType,
+        md.missionPlanV2?.plan?.missionType,
+        contract.missionType,
+        contract.mode,
+        contract.route?.mode,
+        md.missionContractV4?.mode,
+        md.missionContractV4?.missionType,
+        md.missionContractV4?.route?.mode,
+        md._missionContractV4?.mode,
+        md._missionContractV4?.missionType,
+        md._missionContractV4?.route?.mode
+    ];
+    let explicitMode = '';
+    for (const value of explicitCandidates) {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (!normalized) continue;
+        if (normalized === 'poi' || /^poi[:_\s-]/.test(normalized) || normalized === 'point-of-interest') explicitMode = 'poi';
+        else if (normalized === 'bush' || /^bush[:_\s-]/.test(normalized)) explicitMode = 'bush';
+        else if (normalized === 'apt' || normalized === 'a-b' || normalized === 'a_b' || normalized === 'ab'
+            || normalized === 'airport' || /^apt[:_\s-]/.test(normalized)) explicitMode = 'apt';
+        if (explicitMode) break;
+    }
+    if (explicitMode === 'poi') return 'poi';
+    if (explicitMode === 'bush') return 'bush_pickup';
+    if (explicitMode === 'apt') return 'apt';
+    const progressedAsPoi = !!(
+        progress.satisfied
+        || progress.aborted
+        || progress.manualConfirmed
+        || progress.atTargetDone
+        || Number(progress.dwellSec) > 0
+        || Number(progress.attempts) > 0
+    );
+    if (state.isPOI === true
+        || md.isPOI === true
+        || md.poiPresentation === true
+        || md.poiName
+        || contract.isPOI === true
+        || contract.poiPresentation === true
+        || contract.poiName
+        || String(md.dest || state.currentDestICAO || '').trim().toUpperCase() === 'POI'
+        || progressedAsPoi) return 'poi';
     return 'apt';
 }
 

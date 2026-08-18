@@ -4,7 +4,8 @@ const path = require('node:path');
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 
 const APT_MISSION_TEST_LOG_FILENAME = 'GA-APT-Missionstest.txt';
-const APT_MISSION_TEST_LOG_SCHEMA = 'ga.apt-mission-test-log.v2';
+const MISSION_TEST_LOG_SCHEMA = 'ga.mission-test-log.v3';
+const APT_MISSION_TEST_LOG_SCHEMA = MISSION_TEST_LOG_SCHEMA;
 const DEFAULT_SYSTEM_REPEAT_WINDOW_MS = 60000;
 const SYSTEM_LINE_PATTERN = /^(?:TRACKER_RELAY_(?:OPEN|CLOSE|ERROR)|TRACKER_TELEMETRY_MODE|EFB_HTTP_(?:LISTEN|START_ERROR|PORT_CONFLICT|CONFIG_ERROR)|MISSION_AUTHORITY_(?:LOADED|LOAD_ERROR|PERSIST_ERROR)|MISSION_PROTOCOL_(?:RECEIVED|RESULT|LEGACY_ACQUIRE)|MISSION_SHADOW_ERROR|VOICE_TTS_(?:READY|ERROR))\b/;
 
@@ -35,9 +36,9 @@ function trace(value) {
   return entries.length ? entries.join('>') : 'none';
 }
 
-function createAptMissionTestLog(options = {}) {
+function createMissionTestLog(options = {}) {
   const filename = path.resolve(String(options.filename || '').trim());
-  if (!String(options.filename || '').trim()) throw new Error('APT-Missionstest benoetigt einen Dateinamen.');
+  if (!String(options.filename || '').trim()) throw new Error('Missionstest benoetigt einen Dateinamen.');
   const write = typeof options.write === 'function'
     ? options.write
     : createRotatingDebugLog({
@@ -51,6 +52,7 @@ function createAptMissionTestLog(options = {}) {
   const systemRepeatWindowMs = Math.max(5000, Math.round(Number(options.systemRepeatWindowMs) || DEFAULT_SYSTEM_REPEAT_WINDOW_MS));
   const repeatedSystemLines = new Map();
   const runs = new Map();
+  let activeRunKey = '';
   let started = false;
 
   function repeatedSystemKey(line = '') {
@@ -62,17 +64,18 @@ function createAptMissionTestLog(options = {}) {
     if (started) return false;
     started = true;
     write([
-      'APT_TEST_SESSION_START',
-      `schema=${APT_MISSION_TEST_LOG_SCHEMA}`,
+      'MISSION_TEST_SESSION_START',
+      `schema=${MISSION_TEST_LOG_SCHEMA}`,
       `tracker=${token(meta.trackerVersion)}`,
       `build=${Math.max(0, Math.round(Number(meta.trackerVersionCode) || 0))}`,
       `channel=${token(meta.runtimeChannel)}`,
       'executionAuthority=web',
       'sideEffects=0',
-      'automatic=1'
+      'automatic=1',
+      'scope=all'
     ].join(' '));
-    write('APT_TEST_INFO text=Automatischer_APT-Shadow-Test_aktiv._Datei_unveraendert_an_den_Entwickler_senden.');
-    write('APT_TEST_WAITING reason=no_apt_authority_observed action=Mission_in_der_App_normal_starten_und_beenden.');
+    write('MISSION_TEST_INFO text=Automatischer_Missions-Transport-und-Shadow-Test_aktiv._Datei_unveraendert_an_den_Entwickler_senden.');
+    write('MISSION_TEST_WAITING reason=no_mission_authority_observed action=Mission_in_der_App_normal_starten_und_beenden.');
     return true;
   }
 
@@ -94,7 +97,7 @@ function createAptMissionTestLog(options = {}) {
         previous.suppressed = 0;
         const [event, relay] = repeatKey.split(':');
         return write([
-          'APT_TEST_SYSTEM_SUMMARY',
+          'MISSION_TEST_SYSTEM_SUMMARY',
           `event=${event}`,
           `relay=${relay}`,
           `repeats=${repeats}`,
@@ -102,36 +105,50 @@ function createAptMissionTestLog(options = {}) {
         ].join(' ')) !== false;
       }
     }
-    return write(`APT_TEST_SYSTEM ${line}`) !== false;
+    const written = write(`MISSION_TEST_SYSTEM ${line}`) !== false;
+    if (/^MISSION_PROTOCOL_RESULT\s+type=mission_authority_release\s+status=ok\b/i.test(line)) {
+      endActiveRun('authority_released');
+    }
+    return written;
   }
 
   function observe(rawState = {}) {
     const state = rawState && typeof rawState === 'object' ? rawState : {};
-    if (clean(state.recipe, 80).toLowerCase() !== 'apt') return false;
+    const recipe = token(state.recipe, 'unknown', 80).toLowerCase();
+    const mode = token(state.mode, 'unknown', 80).toLowerCase();
     const missionId = token(state.missionId, 'unknown-mission', 180);
     const runId = token(state.runId, 'unknown-run', 220);
     const runKey = `${missionId}:${runId}`;
     let run = runs.get(runKey);
     if (!run) {
       run = {
+        missionId,
+        runId,
         comparisons: 0,
         driftCount: 0,
         unavailableCount: 0,
         mismatchCount: 0,
         phases: [],
         events: [],
+        recipes: [],
+        modes: [],
+        lastStatus: 'unknown',
+        lastPhase: 'unknown',
+        lastMode: mode,
         ended: false
       };
       runs.set(runKey, run);
       write([
-        'APT_TEST_BEGIN',
+        'MISSION_TEST_BEGIN',
         `mission=${missionId}`,
         `run=${runId}`,
-        `mode=${token(state.mode, 'unknown', 80)}`,
+        `recipe=${recipe}`,
+        `mode=${mode}`,
         'executionAuthority=web',
         'sideEffects=0'
       ].join(' '));
     }
+    activeRunKey = runKey;
 
     run.comparisons += 1;
     const status = token(state.status, 'unknown', 80).toLowerCase();
@@ -142,6 +159,11 @@ function createAptMissionTestLog(options = {}) {
     }
     const phase = token(state.phase, 'unknown', 80).toLowerCase();
     if (phase && run.phases[run.phases.length - 1] !== phase) run.phases.push(phase);
+    if (recipe && run.recipes[run.recipes.length - 1] !== recipe) run.recipes.push(recipe);
+    if (mode && run.modes[run.modes.length - 1] !== mode) run.modes.push(mode);
+    run.lastStatus = status;
+    run.lastPhase = phase;
+    run.lastMode = mode;
     for (const rawEvent of Array.isArray(state.eventTrace) ? state.eventTrace : []) {
       const event = rawEvent && typeof rawEvent === 'object' ? rawEvent : {};
       const eventToken = `${Math.max(0, Math.round(Number(event.sequence) || 0))}:${token(event.type, '', 100).toUpperCase()}`;
@@ -149,13 +171,14 @@ function createAptMissionTestLog(options = {}) {
     }
 
     write([
-      'APT_TEST_CHECKPOINT',
+      'MISSION_TEST_CHECKPOINT',
       `mission=${missionId}`,
       `run=${runId}`,
       `comparison=${run.comparisons}`,
       `authorityRevision=${Math.max(0, Math.round(Number(state.authorityRevision) || 0))}`,
       `sourceRevision=${Math.max(0, Math.round(Number(state.sourceRevision) || 0))}`,
-      `mode=${token(state.mode, 'unknown', 80)}`,
+      `recipe=${recipe}`,
+      `mode=${mode}`,
       `status=${status}`,
       `reason=${token(state.reason, 'none', 120)}`,
       `phase=${phase}`,
@@ -167,30 +190,40 @@ function createAptMissionTestLog(options = {}) {
       `trace=${trace(state.eventTrace)}`,
       `observedAt=${Math.max(0, Math.round(Number(state.observedAt) || 0))}`
     ].join(' '));
+    return true;
+  }
 
-    if (phase === 'closed' && !run.ended) {
-      run.ended = true;
-      const parity = run.driftCount === 0
-        && run.unavailableCount === 0
-        && run.mismatchCount === 0
-        && status === 'match'
-        && clean(state.mode, 80) === 'event-replay'
-        ? 'PASS'
-        : 'FAIL';
-      write([
-        'APT_TEST_END',
-        `mission=${missionId}`,
-        `run=${runId}`,
-        `parity=${parity}`,
-        'completion=closed',
-        `comparisons=${run.comparisons}`,
-        `drifts=${run.driftCount}`,
-        `unavailable=${run.unavailableCount}`,
-        `hashMismatches=${run.mismatchCount}`,
-        `phases=${run.phases.join('>') || 'none'}`,
-        `events=${run.events.join('>') || 'none'}`
-      ].join(' '));
-    }
+  function endActiveRun(completion = 'authority_released') {
+    const run = activeRunKey ? runs.get(activeRunKey) : null;
+    if (!run || run.ended) return false;
+    run.ended = true;
+    const hasEventReplay = run.modes.includes('event-replay');
+    const shadow = run.unavailableCount > 0
+      ? 'UNAVAILABLE'
+      : ((run.driftCount > 0 || run.mismatchCount > 0 || run.lastStatus === 'drift') ? 'DRIFT' : (run.lastStatus === 'match' ? 'MATCH' : 'UNKNOWN'));
+    const parity = hasEventReplay
+      ? (shadow === 'MATCH' && run.lastMode === 'event-replay' && run.lastPhase === 'closed' ? 'PASS' : 'FAIL')
+      : 'NOT_APPLICABLE';
+    write([
+      'MISSION_TEST_END',
+      `mission=${run.missionId || 'unknown-mission'}`,
+      `run=${run.runId || 'unknown-run'}`,
+      `recipe=${run.recipes[run.recipes.length - 1] || 'unknown'}`,
+      `mode=${run.lastMode || 'unknown'}`,
+      `transport=PASS`,
+      `shadow=${shadow}`,
+      `parity=${parity}`,
+      `completion=${token(completion, 'authority_released', 80)}`,
+      `comparisons=${run.comparisons}`,
+      `drifts=${run.driftCount}`,
+      `unavailable=${run.unavailableCount}`,
+      `hashMismatches=${run.mismatchCount}`,
+      `recipes=${run.recipes.join('>') || 'none'}`,
+      `modes=${run.modes.join('>') || 'none'}`,
+      `phases=${run.phases.join('>') || 'none'}`,
+      `events=${run.events.join('>') || 'none'}`
+    ].join(' '));
+    activeRunKey = '';
     return true;
   }
 
@@ -198,14 +231,19 @@ function createAptMissionTestLog(options = {}) {
     filename,
     start,
     observe,
-    recordSystemLine
+    recordSystemLine,
+    endActiveRun
   };
 }
+
+const createAptMissionTestLog = createMissionTestLog;
 
 module.exports = {
   APT_MISSION_TEST_LOG_FILENAME,
   APT_MISSION_TEST_LOG_SCHEMA,
+  MISSION_TEST_LOG_SCHEMA,
   DEFAULT_SYSTEM_REPEAT_WINDOW_MS,
   SYSTEM_LINE_PATTERN,
+  createMissionTestLog,
   createAptMissionTestLog
 };

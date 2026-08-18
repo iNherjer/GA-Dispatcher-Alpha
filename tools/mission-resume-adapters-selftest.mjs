@@ -6,7 +6,12 @@ const adapters = require('../mission-resume-adapters-core.js');
 
 const cases = [
   ['apt', {}, { currentMissionData: { missionId: 'm', missionType: 'apt' } }],
+  ['apt', { poiProgress: { hasSignal: true, satisfied: false, dwellSec: 0, attempts: 0 } }, { currentMissionData: { missionId: 'm', missionType: 'apt', targetName: 'EDDM Airport' } }],
+  ['apt', { poiProgress: { hasSignal: true, satisfied: false, dwellSec: 0, attempts: 0 } }, { currentMissionData: { missionId: 'm', targetName: 'Unklassifiziertes A-B-Ziel' } }],
   ['poi', { poiProgress: { satisfied: false } }, { currentMissionData: { missionId: 'm', isPOI: true } }],
+  ['poi', { poiProgress: { hasSignal: true, satisfied: false, dwellSec: 0 } }, { currentMissionData: { missionId: 'm', missionType: 'poi', poiName: 'Stausee' } }],
+  ['poi', { poiProgress: { hasSignal: true, satisfied: false, dwellSec: 0 } }, { isPOI: true, currentDestICAO: 'POI', currentMissionData: { missionId: 'm', targetName: 'Altbestand' } }],
+  ['poi', { poiProgress: { hasSignal: true, satisfied: true, dwellSec: 120 } }, { currentMissionData: { missionId: 'm', targetName: 'Legacy-Ziel' } }],
   ['survey_pattern', { poiProgress: { surveyPattern: { legIndex: 2 } } }, {}],
   ['poi_chain', { poiProgress: { poiChain: { index: 3 } } }, {}],
   ['training', { poiProgress: { trainingProcedure: { step: 4 } } }, {}],

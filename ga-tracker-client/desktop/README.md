@@ -181,20 +181,23 @@ auch Desktop-App und Installer signiert und mit Zeitstempel versehen werden.
 Ohne ein solches Zertifikat bleibt der Installer technisch nutzbar, Windows kann
 aber wie bei der bisherigen portablen EXE eine SmartScreen-Warnung anzeigen.
 
-## Automatischer APT-Missionstest
+## Automatischer Missionstest
 
-Tracker v366 oder neuer protokolliert jeden normalen APT-Lauf automatisch und
-seiteneffektfrei in:
+Tracker v368 oder neuer protokolliert jeden Authority-Missionslauf automatisch
+und seiteneffektfrei in der aus Kompatibilitaetsgruenden unveraendert benannten
+Datei:
 
 `Dokumente/VFR Multitool/Tracker/GA-APT-Missionstest.txt`
 
 Die Datei enthaelt Tracker-/Kanalstand, jeden akzeptierten fachlichen
 Checkpoint, Eventfolge, Browser-/Tracker-Hashes, Driftfelder und ein finales
-`APT_TEST_END parity=PASS|FAIL`. Sie enthaelt keine Storytexte, sichtbaren
-Cargo-/Pax-Texte, Zugangsdaten oder Effekt-Payloads. Im Desktop-Fenster markiert
-`APT-Testlog` die Datei direkt im Explorer; existiert sie noch nicht, wird der
-Datenordner geoeffnet. Tester muessen deshalb nur eine normale APT-Mission bis
-zum Abschluss fliegen und diese einzelne Datei weitergeben.
+`MISSION_TEST_END`. APT-Event-Replays melden `parity=PASS|FAIL`; andere Rezepte
+melden Transport- und Snapshot-Shadow-Status mit
+`parity=NOT_APPLICABLE`. Sie enthaelt keine Storytexte, sichtbaren Cargo-/Pax-
+Texte, Zugangsdaten oder Effekt-Payloads. Der aus Kompatibilitaetsgruenden noch
+`APT-Testlog` beschriftete Desktop-Button markiert die Datei direkt im Explorer;
+existiert sie noch nicht, wird der Datenordner geoeffnet. Tester fliegen eine
+Mission bis zum regulaeren Abschluss und geben nur diese einzelne Datei weiter.
 
 ## MSFS-2024-EFB-Paket
 

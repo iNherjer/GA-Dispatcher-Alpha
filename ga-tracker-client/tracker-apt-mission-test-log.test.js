@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { createAptMissionTestLog } = require('./tracker-apt-mission-test-log.js');
+const { createMissionTestLog } = require('./tracker-apt-mission-test-log.js');
 
 function aptState(patch = {}) {
   return {
@@ -26,10 +26,10 @@ function aptState(patch = {}) {
   };
 }
 
-test('automatic APT test log records every redacted checkpoint and a passing terminal summary', () => {
+test('automatic mission test log records every redacted APT replay checkpoint and a passing release summary', () => {
   const lines = [];
-  const logger = createAptMissionTestLog({ filename: '/tmp/unused-apt-test.txt', write: line => lines.push(line) });
-  logger.start({ trackerVersion: 'v366', trackerVersionCode: 366, runtimeChannel: 'alpha' });
+  const logger = createMissionTestLog({ filename: '/tmp/unused-mission-test.txt', write: line => lines.push(line) });
+  logger.start({ trackerVersion: 'v368', trackerVersionCode: 368, runtimeChannel: 'alpha' });
   logger.observe(aptState());
   logger.observe(aptState({
     authorityRevision: 3,
@@ -45,15 +45,16 @@ test('automatic APT test log records every redacted checkpoint and a passing ter
     subphase: 'closed',
     eventTrace: [{ type: 'MISSION_CLOSED', sequence: 12 }]
   }));
+  logger.recordSystemLine('MISSION_PROTOCOL_RESULT type=mission_authority_release status=ok error=none mission=set run=set bundle=1 adapter=apt execution=1 replay=1');
 
-  assert.equal(lines.filter(line => line.startsWith('APT_TEST_CHECKPOINT')).length, 3);
-  assert.match(lines.join('\n'), /APT_TEST_END .*parity=PASS/);
+  assert.equal(lines.filter(line => line.startsWith('MISSION_TEST_CHECKPOINT')).length, 3);
+  assert.match(lines.join('\n'), /MISSION_TEST_END .*transport=PASS shadow=MATCH parity=PASS/);
   assert.match(lines.join('\n'), /events=4:MISSION_STARTED>5:AIRBORNE>12:MISSION_CLOSED/);
 });
 
-test('APT test log marks any earlier drift as failed and never records narrative payloads', () => {
+test('mission test log marks any earlier APT replay drift as failed and never records narrative payloads', () => {
   const lines = [];
-  const logger = createAptMissionTestLog({ filename: '/tmp/unused-apt-test.txt', write: line => lines.push(line) });
+  const logger = createMissionTestLog({ filename: '/tmp/unused-mission-test.txt', write: line => lines.push(line) });
   logger.observe(aptState({
     status: 'drift',
     reason: 'shadow_replay_drift',
@@ -61,25 +62,29 @@ test('APT test log marks any earlier drift as failed and never records narrative
     privateStory: 'This private story must not be written.'
   }));
   logger.observe(aptState({ phase: 'closed', subphase: 'closed' }));
+  logger.recordSystemLine('MISSION_PROTOCOL_RESULT type=mission_authority_release status=ok error=none mission=set run=set bundle=1 adapter=apt execution=1 replay=1');
 
-  assert.match(lines.join('\n'), /APT_TEST_END .*parity=FAIL/);
+  assert.match(lines.join('\n'), /MISSION_TEST_END .*shadow=DRIFT parity=FAIL/);
   assert.doesNotMatch(lines.join('\n'), /private story/i);
 });
 
-test('non-APT shadows and unapproved system lines stay outside the dedicated file', () => {
+test('non-APT snapshot shadows receive transport and shadow results without claiming replay parity', () => {
   const lines = [];
-  const logger = createAptMissionTestLog({ filename: '/tmp/unused-apt-test.txt', write: line => lines.push(line) });
-  assert.equal(logger.observe(aptState({ recipe: 'poi' })), false);
+  const logger = createMissionTestLog({ filename: '/tmp/unused-mission-test.txt', write: line => lines.push(line) });
+  assert.equal(logger.observe(aptState({ recipe: 'poi', mode: 'snapshot-shadow', phase: 'on_task' })), true);
+  logger.recordSystemLine('MISSION_PROTOCOL_RESULT type=mission_authority_release status=ok error=none mission=set run=set bundle=1 adapter=poi execution=1 replay=0');
   assert.equal(logger.recordSystemLine('SECRET apiKey=never-log'), false);
   assert.equal(logger.recordSystemLine('TRACKER_RELAY_OPEN relay=cloudflare channel=alpha'), true);
-  assert.deepEqual(lines, ['APT_TEST_SYSTEM TRACKER_RELAY_OPEN relay=cloudflare channel=alpha']);
+  assert.match(lines.join('\n'), /MISSION_TEST_BEGIN .*recipe=poi mode=snapshot-shadow/);
+  assert.match(lines.join('\n'), /MISSION_TEST_END .*recipe=poi mode=snapshot-shadow transport=PASS shadow=MATCH parity=NOT_APPLICABLE/);
+  assert.doesNotMatch(lines.join('\n'), /apiKey/);
 });
 
 test('repeating Render relay failures are summarized instead of flooding the test file', () => {
   const lines = [];
   let now = 1000;
-  const logger = createAptMissionTestLog({
-    filename: '/tmp/unused-apt-test.txt',
+  const logger = createMissionTestLog({
+    filename: '/tmp/unused-mission-test.txt',
     write: line => lines.push(line),
     now: () => now,
     systemRepeatWindowMs: 60000
@@ -94,14 +99,24 @@ test('repeating Render relay failures are summarized instead of flooding the tes
   assert.equal(logger.recordSystemLine('TRACKER_RELAY_ERROR relay=render opened=no error=Unexpected server response: 503'), true);
 
   assert.equal(lines.length, 2);
-  assert.match(lines[1], /^APT_TEST_SYSTEM_SUMMARY event=TRACKER_RELAY_ERROR relay=render repeats=11 windowMs=60000$/);
+  assert.match(lines[1], /^MISSION_TEST_SYSTEM_SUMMARY event=TRACKER_RELAY_ERROR relay=render repeats=11 windowMs=60000$/);
 });
 
 test('redacted mission protocol diagnostics are admitted to the dedicated file', () => {
   const lines = [];
-  const logger = createAptMissionTestLog({ filename: '/tmp/unused-apt-test.txt', write: line => lines.push(line) });
+  const logger = createMissionTestLog({ filename: '/tmp/unused-mission-test.txt', write: line => lines.push(line) });
 
   assert.equal(logger.recordSystemLine('MISSION_PROTOCOL_RECEIVED type=mission_authority_acquire mission=yes run=no adapter=apt execution=1 replay=1'), true);
   assert.equal(logger.recordSystemLine('MISSION_PROTOCOL_RESULT type=mission_authority_acquire status=ok error=none mission=yes run=yes bundle=1 adapter=apt execution=1 replay=1'), true);
   assert.equal(lines.length, 2);
+});
+
+test('a rejected authority release keeps the run open for a successful retry', () => {
+  const lines = [];
+  const logger = createMissionTestLog({ filename: '/tmp/unused-mission-test.txt', write: line => lines.push(line) });
+  logger.observe(aptState({ recipe: 'poi', mode: 'snapshot-shadow', phase: 'ready_to_close' }));
+  logger.recordSystemLine('MISSION_PROTOCOL_RESULT type=mission_authority_release status=conflict error=mission_revision_conflict mission=set run=set bundle=1 adapter=poi execution=1 replay=0');
+  assert.equal(lines.some(line => line.startsWith('MISSION_TEST_END')), false);
+  logger.recordSystemLine('MISSION_PROTOCOL_RESULT type=mission_authority_release status=ok error=none mission=set run=set bundle=1 adapter=poi execution=1 replay=0');
+  assert.equal(lines.filter(line => line.startsWith('MISSION_TEST_END')).length, 1);
 });
