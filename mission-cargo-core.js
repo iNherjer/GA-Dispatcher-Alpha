@@ -4215,6 +4215,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const isEquipment = mode === 'equipment';
     const isLoad = mode === 'load';
     const usesManifestSheet = isLoad || isUnload || isPickup || isEquipment;
+    const trackerExecutionManaged = window.gaTrackerExecutionHandlesMission?.() === true;
     const complianceUi = typeof window.missionComplianceGetCargoUiState === 'function'
         ? (window.missionComplianceGetCargoUiState() || { active: false })
         : { active: false };
@@ -4542,18 +4543,32 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                     rowActionDisabled = !canComplianceLoad || !groundHandlingAllowed || !canReloadNearby || !canLoadAtStage;
                 }
             } else {
-                rowActionJs = `window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}', { mode: 'load' })`;
-                rowActionLabel = rowBusy
-                    ? _missionCargoPassengerBusyLabel()
-                    : (!groundHandlingAllowed
-                        ? 'Nur am Boden'
-                        : (!canLoadAtStage
-                            ? 'Am Ziel'
-                            : (onboard ? (isPassenger ? 'Aussteigen' : 'Ausladen') : (isPassenger ? 'Einsteigen' : 'Laden'))));
-                rowActionDisabled = rowBusy
-                    || !groundHandlingAllowed
-                    || !canLoadAtStage
-                    || (onboard ? !canComplianceUnload : !canComplianceLoad);
+                if (trackerExecutionManaged && onboard) {
+                    rowActionLabel = isPassenger ? 'An Bord' : 'Geladen';
+                    rowActionDisabled = true;
+                } else {
+                    rowActionJs = `window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}', { mode: 'load' })`;
+                    rowActionLabel = rowBusy
+                        ? _missionCargoPassengerBusyLabel()
+                        : (!groundHandlingAllowed
+                            ? 'Nur am Boden'
+                            : (!canLoadAtStage
+                                ? 'Am Ziel'
+                                : (onboard ? (isPassenger ? 'Aussteigen' : 'Ausladen') : (isPassenger ? 'Einsteigen' : 'Laden'))));
+                    rowActionDisabled = rowBusy
+                        || !groundHandlingAllowed
+                        || !canLoadAtStage
+                        || (onboard ? !canComplianceUnload : !canComplianceLoad);
+                }
+            }
+        }
+        if (trackerExecutionManaged && rowActionJs) {
+            const trackerRowIntent = isPassenger && isUnload && onboard
+                ? 'request_pax_interaction'
+                : 'set_manifest_item';
+            if (!_missionCargoTrackerIntentAllowed(trackerRowIntent)) {
+                rowActionLabel = _missionCargoTrackerBlockedMessage(trackerRowIntent);
+                rowActionDisabled = true;
             }
         }
         const rowCanInteract = !!rowActionJs && !rowActionDisabled;
@@ -4586,7 +4601,9 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const signatureBlockingMissing = isUnload
         ? requiredUnloadBlockingMissing
         : (isPickup ? requiredPickupMissing : requiredMissing);
-    const signatureActionEnabled = (!!signature || signatureBlockingMissing === 0) && !manualPassengerSceneBusy;
+    const signatureActionEnabled = (!!signature || signatureBlockingMissing === 0)
+        && !manualPassengerSceneBusy
+        && (!trackerExecutionManaged || _missionCargoTrackerIntentAllowed('sign_manifest'));
     const signaturePanel = (isLoad || isUnload || isPickup) ? `
         <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} ${signatureAnimating ? 'is-animating' : ''} ${(!signatureAnimating && signatureActionEnabled) ? 'is-clickable' : ''}" onclick="${(!signatureAnimating && signatureActionEnabled) ? `window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature({ mode: '${signatureMode}' })` : ''}">
             <div class="mission-cargo-signature-line">${signature ? `<span class="mission-cargo-signature-name">${signatureName}</span>` : '&nbsp;'}</div>
@@ -4624,6 +4641,13 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     } else if (payloadFinalizeRunning) {
         primaryActionLabel = 'Sim-Zuladung wird geprüft ...';
     }
+    const trackerPrimaryIntent = (!isEquipment && !signatureReady)
+        ? 'sign_manifest'
+        : (isUnload ? 'confirm_unload' : (isPickup ? 'confirm_pickup' : (isLoad && !window.missionCargoStatus?.loadConfirmed ? 'confirm_load' : '')));
+    const trackerPrimaryAllowed = !trackerExecutionManaged
+        || !trackerPrimaryIntent
+        || _missionCargoTrackerIntentAllowed(trackerPrimaryIntent);
+    if (!trackerPrimaryAllowed) primaryActionJs = '';
     const secondaryAction = ((isLoad || isUnload || isPickup) && signatureReady && !(isLoad && window.missionCargoStatus?.loadConfirmed))
         ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature({ mode: '${signatureMode}' })">Zurueck zur Liste</button>`
         : '';
@@ -4631,13 +4655,19 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const pickupPlaceLabel = String(_activeBushMissionSpec()?.profileId || '').toLowerCase() === 'apt_charter_pickup'
         ? 'Zielplatz'
         : 'Zielstrip';
-    const modeHint = isEquipment
+    const trackerModeIntent = isUnload ? 'set_manifest_item' : (isPickup || isLoad ? 'set_manifest_item' : '');
+    const trackerModeLocked = trackerExecutionManaged
+        && !!trackerModeIntent
+        && !_missionCargoTrackerIntentAllowed(trackerModeIntent);
+    const modeHint = trackerModeLocked
+        ? `<div class="mission-cargo-summary mission-cargo-tracker-lock">${_missionCargoEscape(_missionCargoTrackerBlockedMessage(trackerModeIntent))}</div>`
+        : (isEquipment
         ? '<div class="mission-cargo-summary">Bordbestand zum Pruefen zuerst ausladen. Gültigkeit und Aktionen erscheinen direkt unter dem jeweiligen Item.</div>'
         : (isUnload
         ? (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Im Flug kann Ladung nur abgeworfen werden. Als geliefert gilt sie erst nach Ausladen am Boden.</div>' : '')
         : (isPickup
             ? (!groundHandlingAllowed ? `<div class="mission-cargo-summary">Pickup ist nur im Stillstand am ${pickupPlaceLabel} moeglich.</div>` : '<div class="mission-cargo-summary">Zum Treffpunkt rollen, Pickup vollständig laden, unterschreiben und danach den Rueckflug bestaetigen.</div>')
-            : (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Verladung ist nur am Boden moeglich. Im Flug bleibt diese Liste nur zur Dokumentation sichtbar.</div>' : '<div class="mission-cargo-summary">Bordbestand direkt in der Frachtgutliste anklicken. Nach dem Ausladen erscheint das Gueltigkeitsdatum unter dem Namen.</div>')));
+            : (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Verladung ist nur am Boden moeglich. Im Flug bleibt diese Liste nur zur Dokumentation sichtbar.</div>' : '<div class="mission-cargo-summary">Bordbestand direkt in der Frachtgutliste anklicken. Nach dem Ausladen erscheint das Gueltigkeitsdatum unter dem Namen.</div>'))));
     const onboardWeightLbs = manifest.items.reduce((sum, item) => sum + (item.status === 'loaded' ? Number(item.weightLbs || 0) : 0), 0);
     const unloadedWeightLbs = manifest.items.reduce((sum, item) => sum + (item.status === 'unloaded' ? Number(item.weightLbs || 0) : 0), 0);
     const weightSummary = `${Math.round(onboardWeightLbs)} lbs an Bord${unloadedWeightLbs > 0 ? ` · ${Math.round(unloadedWeightLbs)} lbs entladen` : ''}`;
@@ -4651,6 +4681,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 <button class="mission-cargo-close" onclick="window.closeMissionCargoDialog && closeMissionCargoDialog()" title="Schliessen">×</button>
             </div>
             ${modeHint}
+            ${window.missionCargoStatus?.error ? `<div class="mission-cargo-summary mission-cargo-error">${_missionCargoEscape(window.missionCargoStatus.error)}</div>` : ''}
             ${complianceUi.active === true ? `<div class="mission-cargo-summary mission-cargo-compliance-summary">${_missionCargoEscape(complianceUi.message || 'Behoerdenkontrolle laeuft.')}</div>` : ''}
             <div class="mission-cargo-copy">${isEquipment
                 ? 'Hier kannst du Bordbuch, Feuerloescher und Verbandzeug ausladen, pruefen, bei Bedarf austauschen und wieder einladen.'
@@ -4696,7 +4727,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
             <div class="mission-cargo-actions">
                 ${secondaryAction}
-                <button class="mission-cargo-primary" ${((isUnload && (!groundHandlingAllowed || signatureAnimating || manualPassengerSceneBusy || complianceActionBusy || requiredUnloadBlockingMissing > 0)) || (isPickup && (!groundHandlingAllowed || !pickupItemsComplete || signatureAnimating || manualPassengerSceneBusy)) || (isLoad && (!groundHandlingAllowed || signatureAnimating || payloadFinalizeRunning || manualPassengerSceneBusy || requiredMissing > 0))) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
+                <button class="mission-cargo-primary" ${(!trackerPrimaryAllowed || (isUnload && (!groundHandlingAllowed || signatureAnimating || manualPassengerSceneBusy || complianceActionBusy || requiredUnloadBlockingMissing > 0)) || (isPickup && (!groundHandlingAllowed || !pickupItemsComplete || signatureAnimating || manualPassengerSceneBusy)) || (isLoad && (!groundHandlingAllowed || signatureAnimating || payloadFinalizeRunning || manualPassengerSceneBusy || requiredMissing > 0))) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
     overlay.style.display = 'flex';
@@ -5000,6 +5031,19 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item) return false;
     const renderMode = _missionCargoActionDialogMode(options, 'load');
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        // Unter Tracker-Autoritaet darf dieser historische Toggle-Pfad nie den
+        // lokalen Manifest-Clone mutieren. Ein bereits geladenes Item bleibt
+        // bis zur autoritativ freigegebenen Zielentladung gesperrt.
+        if (item.status === 'loaded') {
+            if (window.missionCargoStatus) {
+                window.missionCargoStatus.error = 'Die geladene Position ist jetzt autoritativ im Tracker gespeichert.';
+            }
+            if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+            return false;
+        }
+        return window.missionCargoLoadItem?.(itemId, { ...options, mode: renderMode }) || false;
+    }
     if (!_missionCargoGroundHandlingAllowed()) {
         window.missionCargoStatus.error = 'Verladen ist nur am Boden und im Stillstand moeglich.';
         if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });

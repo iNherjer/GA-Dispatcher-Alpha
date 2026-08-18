@@ -706,6 +706,50 @@ geaendert. Passagiere bleiben szenengebunden: Ein Deboard-Intent erzeugt
 Dadurch zeigt das EFB keine aktive Mission mehr und die Web-App kann denselben
 Run genau einmal in ihr bestehendes Debrief uebernehmen.
 
+Der lokale v373-Recovery-Kandidat schliesst den zuvor offenen fail-closed
+Abbruchpfad. `abort_mission` bleibt revisionsgebunden und wird nur akzeptiert,
+wenn der aktive Tracker-Run dieselbe Mission und Run-ID besitzt und der Core
+die Aktion in `allowedActions` ausweist. Bei verbundener Sim-Instanz entfernt
+der Tracker zuerst alle dem Run zugeordneten Mission-/Szenenobjekte. Nur nach
+positiver Bereinigung verschiebt der Authority-Core den Lauf atomar als
+`state=aborted`, `phase=closed` und
+`lastCommandType=mission_execution_abort` nach `lastRun`; bei Fehler bleibt
+die Authority aktiv und der Abbruch kann wiederholt werden. Ohne verbundene
+Sim-Instanz darf der persistente Lauf ebenfalls beendet werden, weil dort
+keine lebende SimConnect-Szene bereinigt werden kann.
+
+App und EFB bieten diesen Abbruch als getrennte, bestaetigungspflichtige
+destruktive Aktion an. Nach dem gemeinsamen ACK entfernen alle App-Instanzen
+den passenden lokalen Runtime-/Briefingstand ohne alten Web-Release und ohne
+Abschluss-Debrief. `Clear`, `Mission Reset` und Missionsersetzung routen bei
+Tracker-Authority ueber denselben Intent. Der Verlade-Manager zeigt waehrend
+nicht freigegebener Flugphasen eine konkrete Tracker-Sperre und deaktiviert
+Item-, Signatur- und Abschlussaktionen statt wirkungslos zu erscheinen.
+`reset_mission` bleibt weiterhin nicht migriert.
+
+Der lokale v374-Kandidat schliesst zwei weitere Grenzen, ohne den APT-Reducer
+oder seine Zielradien zu veraendern. Erstens ist nach der ersten expliziten
+`Pause`-/`Pause_EX1`-Meldung deren `OFF` der autoritative Pausezustand;
+widerspruechlich auf `1` stehende MSFS-SimVars duerfen einen echten Flug nicht
+mehr einfrieren. Ohne empfangenen Eventzustand bleiben die SimVars der
+Fallback. Zweitens darf eine noch geplante APT-Mission einen begrenzten
+`ga.tracker-cloud-mission-seed.v1` im bestehenden, PIN-geschuetzten
+Cloudprofil ablegen. Er enthaelt keine Zugangsdaten, sondern Mission-ID,
+initiales Manifest, Descriptor, begrenzte EFB-Projektion und den bereits von
+der App erzeugten exakten APT-Effektplan.
+
+Der Tracker liest diesen Seed ausschliesslich bei aktivem Alpha-Execution-
+Gate. `activate_cloud_mission` ist nur ohne aktiven Run, mit kurzlebiger
+Cockpit-Sitzung und Revision `0` erlaubt. Der Tracker erzeugt daraus denselben
+Execution-Replay, akquiriert den Run, durchlaeuft Prepare/Commit der vorhandenen
+Zwei-Phasen-Grenze und sendet danach intern `prepare_mission`. Der Seed wird
+nicht zu einer zweiten Wahrheit: Nach der Aktivierung kommen Phase, Manifest,
+Banner und `allowedActions` nur aus dem persistenten Tracker-Run. Eine
+Browser-App darf dessen privates Bundle als Observer restaurieren, aber weder
+den Owner uebernehmen noch Web-Snapshots zurueckschreiben. Ein bereits
+abgeschlossener Run unterdrueckt denselben unveraenderten Cloud-Seed; ein neu
+gespeicherter Missionsstand besitzt einen neueren Seed-Zeitstempel.
+
 Nicht migriert sind in v371 die zentrale Sim-Payload-Verteilung,
 missionsgetriggerte Voice-Intents, Pickup/POI/Sonderrezepte sowie die manuelle
 Aufloesung eines fail-closed Recoveryfalls. Deshalb bleiben Alpha-Kanal und

@@ -92,6 +92,20 @@ EFB-0.4.11-Archiv noch dessen Alpha-/Stable-Kanaldateien. Coherent-Playback,
 schreibende Mission Control und der spaetere Toolbar-Host muessen vor einer
 breiteren Freigabe real im Simulator getestet werden.
 
+Der in v374 aufgegangene Tracker-v373-Kandidat aktualisiert nur den tracker-gehosteten Host
+auf Assetrevision 37301. Er fuegt einen bestaetigungspflichtigen
+`abort_mission`-Recovery-Pfad und erklaerte Cargo-Sperrzustaende hinzu. Das
+installierte EFB-Community-Paket 0.4.11 muss dafuer nicht neu gebaut werden.
+Er wurde nicht separat ausgerollt; Stable bleibt auf v356.
+
+Tracker v374 aktualisiert denselben Host auf
+Assetrevision 37401. Er korrigiert die fehlerhafte Pause-Erkennung des
+Feldlaufs, kann eine geplante APT-Cloudmission im gegateten Alpha-Modus direkt
+aus dem EFB aktivieren und bezieht App-/EFB-Banner sowie Cargo-Aktionen aus
+derselben Tracker-Revision. Das installierte EFB-Community-Paket 0.4.11 muss
+weiterhin nicht neu gebaut werden. Der unveraenderliche v374-Build ist im
+Alpha-Kanal eingetragen; Stable bleibt auf v356.
+
 Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
 Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als
 Entwicklungsmaske sichtbaren E6B-Ansicht verworfen und niemals in einen Kanal

@@ -15,16 +15,16 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.4 manueller Origin-Installer mit APT-Opt-in-Schalter | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
-| Tracker-Runtime | v372 Alpha-Feldtest-Fix | v356 | v372 haelt die Missionstelemetrie bei geoeffnetem EFB aktiv und liefert Kartenbanner plus eigenstaendigen Verlade-Manager; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
+| Tracker-Runtime | v374 Alpha-Feldtest | v356 | v374 ergaenzt EFB-Cloudstart, synchronisiert Banner/Cargo und korrigiert die Pause-Erkennung; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-Transport | HTTP-Loopback; Mission im Standard read-only, in der gegateten APT-Alpha revisionsgebunden steuerbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` erscheint nur bei aktiver Tracker-Execution |
 
 ## Aktueller EFB-Kanalstand
 
-Tracker v372 / Host 0.6.8 liefert die revisionsgebundene Mission-Control-
+Tracker v374 / Host 0.7.0 liefert die revisionsgebundene Mission-Control-
 Bedienung und Cargo-Projektion. Alle veraenderlichen CSS- und JavaScript-
-Dateien dieses tracker-gehosteten Hosts verwenden Revision 37201. Das
+Dateien dieses tracker-gehosteten Hosts verwenden Revision 37401. Das
 installierte EFB-Community-Paket bleibt unveraendert auf 0.4.11; ein neuer
 SDK-Build ist fuer diesen Host-Test nicht erforderlich. Der freigegebene
 v360-Host bleibt auf Revision 36001.
@@ -59,6 +59,21 @@ zeigt eine lokale Warteerklaerung statt eines erwartbaren Tracker-Fehlers.
 Reducer, Radien, Briefing, Missionsvertrag und Szeneneffekte bleiben
 unveraendert. Nur Alpha zeigt auf v372; Stable bleibt auf v356.
 
+Der in v374 enthaltene Recovery-Stand Tracker v373 verwendet
+Host-Assetrevision 37301 und ergaenzt einen expliziten Recovery-Abbruch fuer
+autoritative APT-Laeufe. App und EFB senden `abort_mission` nach Bestaetigung
+mit exakter Run-Revision. Der Tracker bereinigt zuerst die zugehoerigen
+SimObjects und gibt den Lauf erst danach als `aborted` frei; eine fehlgeschlagene
+Bereinigung laesst die Authority aktiv. Browser-Instanzen verwerfen danach nur
+den passenden lokalen Missions-/Cloudstand, erzeugen kein Abschluss-Debrief
+und senden keinen alten Web-Release. Clear, Mission Reset und
+Missionsersetzung verwenden bei Tracker-Authority denselben Pfad. Der
+Verlade-Manager erklaert nicht freigegebene Flugphasen und deaktiviert die
+betroffenen Item-, Signatur- und Abschlussaktionen. Reducer, Radien,
+Briefing, Manifestregeln und normale Close-Logik bleiben unveraendert;
+`reset_mission` bleibt nicht migriert. v373 wurde nicht separat veroeffentlicht,
+sondern in v374 uebernommen; Stable bleibt auf v356.
+
 Tracker v348 / Host 0.6.2 und EFB 0.4.11 wurden mit dem offiziellen
 MSFS-2024-SDK 1.7.2 auf Windows gebaut, in MSFS getestet und fuer Alpha
 freigegeben. Der 0.4.10/v347-Test bestaetigte zuvor Modern-
@@ -83,6 +98,26 @@ Hangars und die Buerocontainertuer behalten ihr bisheriges automatisches und
 manuelles Verhalten. Der Opt-out bleibt beim Merge eines aelteren installierten
 Asset-Katalogs erhalten; das Homebase-Asset-Paket und EFB 0.4.11 bleiben
 unveraendert.
+
+Der als Alpha ausgerollte Tracker v374 / Host 0.7.0 verwendet Assetrevision
+37401. Er korrigiert den neuen Feldbefund, bei dem MSFS waehrend eines echten
+Flugs eine Pause-SimVar dauerhaft auf `1` liess: Sobald `Pause`/`Pause_EX1`
+einen expliziten Zustand geliefert haben, gewinnt deren `OFF` gegen diese
+widerspruechliche SimVar. Dadurch koennen Airborne, Touchdown und Ground-Still
+wieder bis zur Zielentladung fortschreiten. Die ignorierte Telemetrie loggt
+dafuer zusaetzlich beide Roh-SimVars und die Eventflags.
+
+Eine geplante APT-Mission erhaelt beim normalen App-Cloudsave additiv einen
+begrenzten Tracker-Seed mit demselben Manifest und demselben bereits
+existierenden Szenen-Effektplan. Nur Alpha plus APT-Execution-Gate liest ihn.
+Liegt kein aktiver Run vor, zeigt das EFB `Mission beginnen`; der Tracker legt
+den Run mit dem vorhandenen Zwei-Phasen-Handoff an und fuehrt direkt
+`prepare_mission` aus. App-Instanzen restaurieren einen solchen
+Tracker-Execution-Run automatisch als Beobachter, ohne Runtime-Owner-Wechsel.
+Kartenbanner und beide Verlade-Manager werden ausschliesslich aus der aktuellen
+Tracker-Revision abgeleitet. Der letzte lokale Cargo-Toggle, der unter
+Tracker-Authority noch nur den App-Clone aenderte, ist entfernt. Stable und
+eine Alpha ohne APT-Gate laden weder Cloud-Seed noch schreibende Aktionen.
 
 Am 2026-08-17 wurden Tracker v356 und EFB 0.4.11 nach Stable promoviert. Beide
 Stable-Kanaldateien referenzieren die bereits fuer Alpha veroeffentlichten,
@@ -1085,7 +1120,9 @@ akzeptierten Event ist der einfache Zero-Event-Rollback gesperrt.
 ### E5 - Schreibende Cockpit-Intents
 
 Status: APT-Adapter, App-/EFB-Controller und echte Szenenhandler im gegateten
-v371-Alpha-Folgefix verdrahtet; Standard und Stable bleiben read-only
+Alpha-Pfad verdrahtet; v374 ergaenzt Cloud-Start und den korrigierten
+Pause-/Cargo-Abgleich, Standard
+und Stable bleiben read-only
 
 Der heutige offene GET-Loopback wird nicht einfach um ungeschuetzte POSTs
 erweitert. Derselbe Vertrag bedient spaeter EFB und Toolbar-Panel.
@@ -1126,9 +1163,10 @@ Systemeingang und bleiben an ihre exakte Vorphase gebunden.
 Passagier-Items bleiben bewusst nicht ueber `set_manifest_item` veraenderbar.
 `request_pax_interaction { action: deboard }` erzeugt stattdessen den
 deklarativen Effekt `scene.deboarding`; erst dessen positives Simulator-ACK
-markiert die Ziel-PAX als entladen. Pickup, missionsgetriggerte Voice,
-Compliance, Abort und Reset antworten in dieser Stufe weiterhin
-seiteneffektfrei mit `mission_intent_not_migrated`.
+markiert die Ziel-PAX als entladen. `abort_mission` besitzt ab v373 einen
+eigenen Recovery-Pfad mit Sim-Bereinigung und atomarer Authority-Freigabe.
+Pickup, missionsgetriggerte Voice, Compliance und Reset antworten in dieser
+Stufe weiterhin seiteneffektfrei mit `mission_intent_not_migrated`.
 
 Der gleiche Adapter besitzt einen internen APT-Telemetrieeingang. Airborne
 benoetigt zwei Sekunden zusammenhaengende Evidenz, Ground-Still drei Sekunden
@@ -1324,7 +1362,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] Gegateten APT-Handoff und gemeinsame App-/EFB-Bedienung auf
       revisionsgebundene Tracker-Intents umstellen; alte Web-Szenenbefehle nach
       Commit sperren, Cargo-/PAX-Projektion und terminales Debrief synchronisieren.
-- [ ] v372 real mit App plus EFB in MSFS testen: Prepare, Boarding, Cargo aus
+- [x] Expliziten revisionsgebundenen Tracker-Abbruch als Recovery-Pfad
+      implementieren: Sim-Szenen zuerst bereinigen, Authority danach als
+      `aborted` freigeben, App-/EFB-Stand ohne Debrief synchron leeren und
+      gesperrte Cargo-Aktionen sichtbar erklaeren.
+- [ ] v374 real mit App plus EFB in MSFS testen: Cloud-Start, Prepare, Boarding, Cargo aus
       beiden Instanzen, Start, Ziel-Ground-Still, Deboarding, Entladung, Close
       sowie finaler Debrief ohne doppeltes SimObject.
       Erster Versuch: Transport und zehn APT-Shadow-Checkpoints waren ohne
@@ -1337,7 +1379,14 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       v372 trennt DialogMode von SimStop, protokolliert verworfene Telemetrie,
       nutzt das App-artige Kartenbanner und den eigenstaendigen
       Verlade-Manager. Der reale Ablauf muss mit diesem Folge-Build wiederholt
-      werden.
+      werden. Der abgebrochene Feldlauf hinterliess anschliessend einen nicht
+      mehr loesbaren Tracker-Run; der lokale v373-Kandidat stellt dafuer den
+      bestaetigten Recovery-Abbruch bereit. Der folgende Lauf belegte eine
+      zweite Ursache: Trotz rund 450 kt meldete eine Pause-SimVar weiter `1`,
+      sodass der Tracker alle Flug- und Landeuebergaenge verwarf. v374 nutzt
+      das explizite Pause-Event als Zustandswahrheit, startet eine geplante
+      Cloud-Mission direkt aus dem EFB und synchronisiert App-/EFB-Banner sowie
+      Cargo nur noch aus der Tracker-Revision.
 - [ ] Ambiguitaetsfall Tracker-Neustart nach physischem Dispatch und vor ACK
       real provozieren; bestaetigen, dass der Lauf fail-closed bleibt, und erst
       danach einen expliziten Recovery-/Abgleichdialog entwerfen.
@@ -1658,6 +1707,40 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   `fd8201dd8a6ddc73182c19e78fa42d9d67ca978804d477cc8e129701ad0d963d`.
   Nur Alpha zeigt auf v372; Stable bleibt auf v356 und das
   EFB-Community-Paket auf 0.4.11.
+
+- 2026-08-18: Der lokale Tracker-v373-/Host-0.6.9-Kandidat schliesst den im
+  v372-Feldlauf sichtbaren Recovery-Fehler. `abort_mission` validiert Sitzung,
+  Mission, Run, Revision und `allowedActions`, raeumt bei verbundener Sim zuerst
+  die Missions-/Szenenobjekte auf und persistiert den Lauf anschliessend als
+  `aborted`. App-Clear, Mission Reset, Missionsersetzung und der destruktiv
+  markierte EFB-Button verwenden denselben Pfad; andere Browserinstanzen
+  leeren den passenden lokalen Zustand beim naechsten Snapshot ohne Debrief.
+  App- und EFB-Verlade-Manager zeigen eine erklaerte Tracker-Sperre statt
+  scheinbar wirkungsloser Eingaben. Der automatische Missionstest beendet den
+  Lauf mit `completion=execution_aborted`. Assetrevision ist 37301. Dieser
+  Stand ist mit 175 gruenen Tracker-/Missions-Tests geprueft. Der lokale
+  Windows-Build umfasst 48.430.489 Bytes mit SHA-256
+  `37dd0432401073c74caec9903424b7fab524891e83ac3a11f5fc73dffc1783bc`,
+  ist aber noch nicht nach Alpha ausgerollt; die Kanaldateien bleiben
+  unveraendert.
+
+- 2026-08-18: Der lokale Tracker-v374-/Host-0.7.0-Kandidat korrigiert den
+  Folge-Feldlauf. Ein ausdrueckliches `Pause/Pause_EX1=OFF` gewinnt nach der
+  ersten Eventmeldung gegen fehlerhaft weiter gesetzte Pause-SimVars; die
+  Missionsdetektoren erhalten dadurch Airborne, Touchdown und Ground-Still.
+  Geplante APT-Missionen speichern additiv einen begrenzten Cloud-Seed mit
+  Manifest und bestehendem Effektplan. Im gegateten Alpha-Modus kann das EFB
+  daraus ohne vorherigen App-Start einen neuen Tracker-Run anlegen und direkt
+  vorbereiten. Weitere Apps restaurieren diesen Run automatisch nur als
+  Beobachter. App- und EFB-Banner sowie Cargo-Aktionen stammen aus derselben
+  Tracker-Revision; ein verbliebener lokaler App-Cargo-Toggle wurde auf den
+  Intentpfad umgestellt. Host-Assetrevision ist 37401. Stable und Alpha ohne
+  `VFR_MULTITOOL_APT_EXECUTION=1` bleiben ohne diesen Cloud-Start read-only.
+  146 relevante Tracker-/Missions-/EFB-Tests laufen gruen. Der lokale
+  Windows-Build umfasst 48.460.239 Bytes mit SHA-256
+  `de00206bd8a09f50e09482361997ed2ae3ecbc757b46303ed9ce057639c2c14d`.
+  Der unveraenderliche Build ist im Alpha-Kanal ausgerollt; Stable bleibt auf
+  v356 und das EFB-Community-Paket auf 0.4.11.
 
 - 2026-08-18: Der lokale v369-Schnitt verbindet den APT-Effect-Runner mit den
   vorhandenen SimConnect-Szenenhandlern. Die App nimmt einen versionierten,

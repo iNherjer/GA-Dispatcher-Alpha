@@ -25,6 +25,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const adapter = createTrackerMissionExecutionAdapter({ authorityManager });
   let simulatorEffects = null;
+  let cleanupExecutionRun = null;
   let recoveryDrain = Promise.resolve();
   let lastTelemetryDiagnosticKey = '';
   let lastTelemetryDiagnosticAt = 0;
@@ -81,6 +82,53 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const executeIntent = async (request = {}) => {
     await recoveryDrain;
+    if (String(request.intent || request.action || '').trim().toLowerCase() === 'abort_mission') {
+      const validated = adapter.validateIntent(request);
+      if (!validated.ok) return validated;
+      let cleanup = { ok: true, status: 'simulator_not_connected', cleared: 0, sideEffect: false };
+      if (cleanupExecutionRun) {
+        try {
+          cleanup = await cleanupExecutionRun({
+            missionId: validated.snapshot.missionId,
+            runId: validated.snapshot.runId,
+            commandId: request.commandId,
+            reason: String(request.payload?.reason || request.reason || 'mission-execution-abort')
+          });
+        } catch (error) {
+          cleanup = { ok: false, status: 'error', error: error?.code || error?.message || String(error), cleared: 0, sideEffect: false };
+        }
+        if (!cleanup || cleanup.ok !== true) {
+          return {
+            ok: false,
+            status: cleanup?.status || 'error',
+            error: cleanup?.error || 'mission_execution_cleanup_failed',
+            sideEffect: cleanup?.sideEffect === true,
+            cleanup,
+            activeRun: authorityManager.getActiveRun(),
+            view: validated.snapshot.view
+          };
+        }
+      }
+      const aborted = authorityManager.abortExecutionRun({
+        missionId: validated.snapshot.missionId,
+        runId: validated.snapshot.runId,
+        expectedRevision: validated.snapshot.authorityRevision,
+        commandId: request.commandId,
+        clientId: request.controllerSession?.clientId || 'tracker-execution-runtime',
+        reason: String(request.payload?.reason || request.reason || 'mission-execution-abort')
+      });
+      if (aborted.ok) {
+        log([
+          'MISSION_EXECUTION_ABORTED',
+          `mission=${aborted.releasedRun?.missionId || validated.snapshot.missionId}`,
+          `run=${aborted.releasedRun?.runId || validated.snapshot.runId}`,
+          `cleared=${Math.max(0, Number(cleanup?.cleared) || 0)}`,
+          `cleanup=${String(cleanup?.status || 'ok').replace(/\s+/g, '_').slice(0, 80)}`,
+          `source=${String(request.controllerSession?.role || 'unknown').replace(/\s+/g, '_').slice(0, 40)}`
+        ].join(' '));
+      }
+      return { ...aborted, sideEffect: cleanup?.sideEffect === true, cleanup };
+    }
     const result = adapter.executeIntent(request);
     if (!result.ok) return result;
     const effects = await effectRunner.drain();
@@ -113,6 +161,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       log
     });
     simulatorEffects = bridge;
+    cleanupExecutionRun = typeof simulator.cleanupMission === 'function' ? simulator.cleanupMission : null;
     recoveryDrain = effectRunner.drain().then((result) => {
       if (!result.ok && !['mission_execution_authority_web', 'no_active_run'].includes(result.error)) {
         log(`MISSION_EFFECT_RECOVERY status=${result.status || 'error'} error=${result.error || ''}`);
@@ -124,6 +173,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const detachSimulator = (bridge = null) => {
     if (bridge && simulatorEffects !== bridge) return false;
     simulatorEffects = null;
+    cleanupExecutionRun = null;
     return true;
   };
 
@@ -163,6 +213,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
             `onGround=${sample.onGround === true ? 1 : 0}`,
             `gsKts=${Number.isFinite(Number(sample.gsKts)) ? Number(sample.gsKts).toFixed(1) : 'n/a'}`,
             `paused=${sample.simPaused === true ? 1 : 0}`,
+            `pauseA=${Number.isFinite(Number(sample.simPausedA)) ? Number(sample.simPausedA).toFixed(0) : 'n/a'}`,
+            `pauseB=${Number.isFinite(Number(sample.simPausedB)) ? Number(sample.simPausedB).toFixed(0) : 'n/a'}`,
+            `pauseFlags=${Math.max(0, Math.round(Number(sample.pauseFlags) || 0))}`,
             `menu=${sample.inMenuOrMap === true ? 1 : 0}`,
             `dialog=${Number(sample.dialogMode) === 1 ? 1 : 0}`
           ].join(' '));

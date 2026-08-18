@@ -93,6 +93,16 @@ test('tracker execution checkpoints stay redacted and finalize the test without 
   assert.doesNotMatch(lines.join('\n'), /briefing|apiKey|cargoText/);
 });
 
+test('tracker execution abort closes the dedicated test run with an explicit recovery reason', () => {
+  const lines = [];
+  const logger = createMissionTestLog({ filename: '/tmp/unused-mission-test.txt', write: line => lines.push(line) });
+  logger.observe(aptState({ phase: 'active', subphase: 'departure' }));
+  logger.recordSystemLine('MISSION_EXECUTION_ABORTED mission=mission-apt-test run=run-apt-test cleared=2 cleanup=ok source=efb');
+
+  assert.match(lines.join('\n'), /MISSION_TEST_SYSTEM MISSION_EXECUTION_ABORTED/);
+  assert.match(lines.join('\n'), /MISSION_TEST_END .*completion=execution_aborted/);
+});
+
 test('repeating Render relay failures are summarized instead of flooding the test file', () => {
   const lines = [];
   let now = 1000;

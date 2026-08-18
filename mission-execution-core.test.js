@@ -200,8 +200,8 @@ test('browser shell and tracker wire the shared core additively behind existing 
     const trackerSource = fs.readFileSync(path.join(__dirname, 'ga-tracker-client', 'tracker.js'), 'utf8');
     assert.ok(indexSource.indexOf('mission-location-core.js') < indexSource.indexOf('mission-runtime-core.js'));
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
-    assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v=tracker-controller'));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1688/);
+    assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v=tracker-recovery'));
+    assert.match(serviceWorkerSource, /ga-dispatcher-v1689/);
     assert.match(serviceWorkerSource, /\.\/mission-location-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-execution-shadow-journal\.js/);
@@ -211,6 +211,9 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(syncSource, /bundle\.execution = envelope/);
     assert.match(syncSource, /ga\.mission-apt-effect-plan\.v1/);
     assert.match(syncSource, /executionEffectPlan: adapter === 'apt'/);
+    assert.match(syncSource, /activeMissionTrackerSeed: _syncTrackerMissionSeedPayload\(activeMission\)/);
+    assert.match(syncSource, /function _trackerMissionBannerModel\(control = null\)/);
+    assert.match(syncSource, /activate_cloud_mission/);
     const authorityCommandClassifierSource = syncSource.match(/function _isMissionAuthorityProtocolCommandType\(commandType = ''\) \{[\s\S]*?\n\}/)?.[0];
     assert.ok(authorityCommandClassifierSource);
     const isMissionAuthorityProtocolCommandType = new Function(`return (${authorityCommandClassifierSource});`)();
@@ -227,6 +230,12 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(cargoSource, /function _missionCargoTrackerIntentAllowed\(intent = ''\)/);
     assert.match(cargoSource, /if \(!_missionCargoTrackerIntentAllowed\('set_manifest_item'\)\)[\s\S]*?gaTrackerExecutionSubmitIntent/);
     assert.match(cargoSource, /if \(!_missionCargoTrackerIntentAllowed\(trackerIntent\)\)[\s\S]*?gaTrackerExecutionSubmitIntent/);
+    assert.match(cargoSource, /window\.missionCargoToggleItemLoadState[\s\S]*?window\.gaTrackerExecutionHandlesMission/);
+    assert.match(cargoSource, /mission-cargo-tracker-lock/);
+    assert.match(cargoSource, /trackerPrimaryAllowed/);
+    assert.match(syncSource, /window\.gaAbortTrackerMission = async function/);
+    assert.match(syncSource, /_applyTrackerExecutionAbortLocally/);
+    assert.match(syncSource, /skipAuthorityRelease/);
     assert.match(syncSource, /_missionSceneBuildDeboardingEffectCommand/);
     assert.match(trackerSource, /createTrackerMissionShadow/);
     assert.match(trackerSource, /observeAuthorityResult/);
@@ -234,4 +243,6 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(trackerSource, /VFR_MULTITOOL_APT_EXECUTION/);
     assert.match(trackerSource, /createTrackerMissionExecutionRuntime/);
     assert.match(trackerSource, /missionExecutionRuntime\.observeTelemetry/);
+    assert.match(trackerSource, /fetchTrackerCloudMission/);
+    assert.match(trackerSource, /activateCloudMission/);
 });

@@ -64,8 +64,14 @@ function resolveSimPausedState(input = {}) {
     .filter(Number.isFinite);
   const hasPauseVar = pauseVars.length > 0;
   const pausedFromVar = pauseVars.some(value => value > 0.5);
+  const hasPauseEventState = pauseFlagsUpdatedAt > 0;
   const eventIsFresh = pauseFlagsUpdatedAt > 0
     && now - pauseFlagsUpdatedAt <= eventGraceMs;
+  // Pause/Pause_EX1 liefern beim Subscribe sofort den aktuellen Zustand und
+  // danach jede Aenderung. Ein explizites OFF muss deshalb Vorrang vor den
+  // MSFS-2024-SimVars haben: einzelne Flugzeuge melden dort auch waehrend des
+  // echten Flugs dauerhaft 1.
+  if (hasPauseEventState && pauseFlags === 0) return false;
   const pausedFromEvent = pauseFlags !== 0 && (!hasPauseVar || eventIsFresh);
   return pausedFromVar || pausedFromEvent;
 }

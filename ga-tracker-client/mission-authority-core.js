@@ -1016,6 +1016,58 @@ function createMissionAuthorityManager(options = {}) {
     return { ok: true, status: 'ok', outcome: 'completed', releasedRun: publicRun(state.lastRun), activeRun: null };
   };
 
+  const abortExecutionRun = (request = {}) => {
+    const active = state.activeRun;
+    if (!active) return { ok: true, status: 'noop', outcome: 'aborted', activeRun: null, releasedRun: publicRun(state.lastRun) };
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', activeRun: publicRun(active) };
+    }
+    const missionId = cleanString(request.missionId);
+    const runId = cleanString(request.runId, 220);
+    if (missionId !== active.missionId || runId !== active.runId) {
+      return { ok: false, status: 'conflict', error: 'mission_run_conflict', activeRun: publicRun(active) };
+    }
+    if (!Object.hasOwn(request, 'expectedRevision')
+        || !Number.isSafeInteger(Number(request.expectedRevision))
+        || Number(request.expectedRevision) < 0) {
+      return { ok: false, status: 'error', error: 'expected_revision_required', activeRun: publicRun(active) };
+    }
+    if (Number(request.expectedRevision) !== Number(active.revision)) {
+      return { ok: false, status: 'conflict', error: 'mission_revision_conflict', activeRun: publicRun(active) };
+    }
+    const executionState = executionCore.normalizeState(active.executionState);
+    if (!executionCore.deriveView(executionState).allowedActions.includes('abort_mission')) {
+      return { ok: false, status: 'blocked', error: 'mission_intent_not_allowed_in_state', activeRun: publicRun(active) };
+    }
+    const previousState = jsonClone(state);
+    active.active = false;
+    active.state = 'aborted';
+    active.phase = 'closed';
+    active.revision += 1;
+    active.updatedAt = now();
+    active.lastCommandType = 'mission_execution_abort';
+    active.lastReason = cleanString(request.reason, 240) || 'tracker-execution-aborted';
+    state.lastRun = normalizeStoredRun(active);
+    state.activeRun = null;
+    addEvent('execution_aborted', {
+      missionId: active.missionId,
+      runId: active.runId,
+      clientId: cleanString(request.clientId, 220) || 'tracker-execution-runtime',
+      commandId: request.commandId,
+      reason: active.lastReason
+    });
+    if (!persist()) {
+      state = previousState;
+      return {
+        ok: false,
+        status: 'error',
+        error: 'mission_execution_persist_failed',
+        activeRun: publicRun(state.activeRun)
+      };
+    }
+    return { ok: true, status: 'ok', outcome: 'aborted', releasedRun: publicRun(state.lastRun), activeRun: null };
+  };
+
   const release = (request = {}) => {
     const match = activeMatches(request, { requireOwner: true });
     if (!match.ok) return { ok: false, status: 'conflict', error: match.error, activeRun: publicRun(state.activeRun) };
@@ -1189,6 +1241,7 @@ function createMissionAuthorityManager(options = {}) {
     recordCommand,
     recordEffectAck,
     getExecutionSnapshot,
+    abortExecutionRun,
     finalizeExecutionRun,
     getPublicSnapshot(options = {}) {
       return {

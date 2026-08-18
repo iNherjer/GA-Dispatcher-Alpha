@@ -10,6 +10,7 @@ const MAX_COMMAND_RESULTS = 256;
 const MAX_INTENTS_PER_MINUTE = 60;
 const COCKPIT_ROLES = new Set(['web', 'efb', 'toolbar']);
 const MISSION_INTENTS = new Set([
+  'activate_cloud_mission',
   'prepare_mission',
   'set_manifest_item',
   'sign_manifest',
@@ -79,6 +80,7 @@ function createTrackerCockpitControl(options = {}) {
     : () => crypto.randomBytes(32).toString('base64url');
   const getMissionRun = typeof options.getMissionRun === 'function' ? options.getMissionRun : () => null;
   const executeIntent = typeof options.executeIntent === 'function' ? options.executeIntent : null;
+  const activateMission = typeof options.activateMission === 'function' ? options.activateMission : null;
   const configuredExecutionAuthority = cleanString(options.executionAuthority, 40) || (executeIntent ? 'tracker' : 'web');
   const getExecutionAuthority = typeof options.getExecutionAuthority === 'function'
     ? options.getExecutionAuthority
@@ -194,7 +196,28 @@ function createTrackerCockpitControl(options = {}) {
     auth.session.intentTimestamps.push(timestamp);
     const activeRun = publicRun(getMissionRun());
     let result;
-    if (!activeRun) {
+    if (intent === 'activate_cloud_mission') {
+      if (!activateMission) {
+        result = { ok: false, status: 'blocked', error: 'cloud_mission_activation_unavailable', sideEffect: false, activeRun };
+      } else if (activeRun) {
+        result = { ok: false, status: 'conflict', error: 'mission_authority_conflict', sideEffect: false, activeRun };
+      } else {
+        try {
+          const activated = safeObject(await activateMission({
+            commandId,
+            intent,
+            missionId: cleanString(request.missionId),
+            runId: cleanString(request.runId, 220),
+            expectedRevision: Number(request.expectedRevision),
+            payload: safeObject(request.payload),
+            controllerSession: publicSession(auth.session)
+          }));
+          result = { ...activated, activeRun: publicRun(activated.activeRun || getMissionRun()) };
+        } catch (error) {
+          result = { ok: false, status: 'error', error: cleanString(error?.code || error?.message || error, 160) || 'cloud_mission_activation_failed', activeRun: publicRun(getMissionRun()) };
+        }
+      }
+    } else if (!activeRun) {
       result = { ok: false, status: 'conflict', error: 'no_active_run', sideEffect: false, activeRun: null };
     } else if (cleanString(request.missionId) !== activeRun.missionId || cleanString(request.runId, 220) !== activeRun.runId) {
       result = { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false, activeRun };
@@ -236,7 +259,7 @@ function createTrackerCockpitControl(options = {}) {
     return {
       schema: 'ga.cockpit-sessions.v1',
       executionAuthority: executionAuthority(),
-      missionIntentsEnabled: Boolean(executeIntent),
+      missionIntentsEnabled: Boolean(executeIntent || activateMission),
       activeCount: activeSessions.length,
       audioPlaybackCandidates: activeSessions.filter(session => session.audioPlaybackEnabled).length,
       roles: Object.fromEntries(Array.from(COCKPIT_ROLES).map(role => [role, activeSessions.filter(session => session.role === role).length])),

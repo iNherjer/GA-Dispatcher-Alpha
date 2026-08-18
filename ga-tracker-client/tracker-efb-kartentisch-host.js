@@ -549,17 +549,22 @@
     var allowedActions = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
     var canIntent = !!(control && control.executionAuthority === 'tracker');
     var actionLabels = {
+      activate_cloud_mission: 'Mission aus der Cloud beginnen',
       prepare_mission: 'Mission vorbereiten',
       start_mission: 'Mission starten',
       request_close: 'Mission beenden'
     };
-    var primaryActions = ['prepare_mission', 'start_mission', 'request_close'];
+    var primaryActions = ['activate_cloud_mission', 'prepare_mission', 'start_mission', 'request_close'];
     var actionHtml = primaryActions.filter(function (intent) {
       return allowedActions.indexOf(intent) >= 0;
     }).map(function (intent) {
       return '<button type="button" data-efb-drawer-action="mission-intent" data-mission-intent="' + drawerEscape(intent) + '"'
         + (missionIntentPending ? ' disabled' : '') + '>' + drawerEscape(actionLabels[intent] || intent) + '</button>';
     }).join('');
+    var abortHtml = allowedActions.indexOf('abort_mission') >= 0
+      ? '<div class="ga-efb-mission-actions is-danger"><button type="button" data-efb-drawer-action="mission-intent" data-mission-intent="abort_mission"'
+        + (missionIntentPending ? ' disabled' : '') + '>Mission abbrechen</button></div>'
+      : '';
     var conditions = '<div class="ga-efb-mission-conditions">'
       + '<section class="is-' + drawerEscape(comfort.tone || 'muted') + '"><span>PAX-STIMMUNG</span><strong>'
       + (comfort.score == null ? '--' : drawerEscape(comfort.score) + '%') + '</strong><b>' + drawerEscape(comfort.state || 'Keine Wertung')
@@ -583,11 +588,23 @@
       + (canIntent ? '<section class="ga-efb-mission-section"><small>BEDIENUNG</small>'
         + '<div class="ga-efb-mission-actions"><button type="button" data-efb-drawer-action="open-cargo">Verlade-Manager öffnen</button></div>'
         + (actionHtml ? '<div class="ga-efb-mission-actions">' + actionHtml + '</div>' : '')
+        + abortHtml
         + (missionIntentStatus ? '<p class="ga-efb-mission-intent-status">' + drawerEscape(missionIntentStatus) + '</p>' : '')
         + '</section>' : '')
       + (feedbackHtml ? '<section class="ga-efb-mission-section"><small>LAGEBERICHT</small><div class="ga-efb-mission-feedback-list">' + feedbackHtml + '</div></section>' : '')
       + '<div class="ga-efb-mission-footer">' + (canIntent ? 'Tracker-Controller' : 'Nur Lesen') + ' | Mission und Fortschritt kommen vom Tracker | ' + drawerEscape(mission.sceneCount || 0) + ' Szenen</div>'
       + '</div>';
+  }
+
+  function requestMissionIntent(intent, payload) {
+    if (intent === 'abort_mission') {
+      var confirmed = false;
+      try {
+        confirmed = window.confirm('Mission wirklich abbrechen?\n\nDer Tracker beendet die Mission auf allen verbundenen Ansichten und entfernt ihre Sim-Objekte. Der Flug wird nicht als abgeschlossen gewertet.');
+      } catch (_) {}
+      if (!confirmed) return Promise.resolve(false);
+    }
+    return submitMissionIntent(intent, payload);
   }
 
   function submitMissionIntent(intent, payload) {
@@ -664,6 +681,21 @@
     return labels[key] || key.replace(/_/g, ' ');
   }
 
+  function cargoInteractionHint(phase) {
+    var normalized = String(phase || '').toLowerCase();
+    if (normalized === 'planned' && missionSnapshot && missionSnapshot.cloudPending === true) {
+      return 'Mission zuerst ueber das Kartenbanner aus der Cloud beginnen. Danach gibt der Tracker die Verladung frei.';
+    }
+    if (normalized === 'planned') return 'Mission zuerst im Missionsmenü vorbereiten. Danach gibt der Tracker die Verladung frei.';
+    if (normalized === 'boarded') return 'Die Verladung ist abgeschlossen. Starte die Mission im Missionsmenü.';
+    if (/^(active|enroute|return_leg)$/.test(normalized)) {
+      return 'Ladung ist während des Flugabschnitts gesperrt. Entladen wird erst nach erkannter Landung am Missionsziel und Stillstand freigegeben.';
+    }
+    if (normalized === 'on_task') return 'Der Tracker hat die Bodenaktion am Ziel noch nicht freigegeben. Position und Stillstand werden weiter geprüft.';
+    if (normalized === 'closing') return 'Der Tracker schließt die Mission gerade ab. Ladungsaktionen sind gesperrt.';
+    return 'Im aktuellen Tracker-Missionsstand ist keine Ladungsaktion freigegeben.';
+  }
+
   function cargoManagerItems(mission, control) {
     var manifest = mission && mission.manifest && typeof mission.manifest === 'object' ? mission.manifest : {};
     if (Array.isArray(manifest.items) && manifest.items.length) return manifest.items;
@@ -705,8 +737,10 @@
     var items = cargoManagerItems(mission, control);
     var allowedActions = Array.isArray(control.allowedActions) ? control.allowedActions : [];
     var phase = String(control.phase || '').toLowerCase();
+    var interactiveItems = 0;
     var rows = items.map(function (item, index) {
       var action = cargoItemAction(item, control, allowedActions);
+      if (action) interactiveItems += 1;
       var label = item && (item.label || item.storyName || item.id) || 'Position ' + String(index + 1);
       var type = cargoTypeLabel(item);
       var weight = item && item.itemType === 'passenger'
@@ -734,6 +768,7 @@
       return '<button type="button" class="' + action.className + '" data-efb-cargo-action="intent" data-mission-intent="'
         + action.intent + '"' + (missionIntentPending ? ' disabled' : '') + '>' + action.label + '</button>';
     }).join('');
+    var lockHint = interactiveItems === 0 && directActions.length === 0 ? cargoInteractionHint(phase) : '';
     var signatureScope = String(manifest.signatureScope || (control.cargo && control.cargo.signatureScope) || '');
     var signatureLabels = { departure: 'Abflugmanifest unterschrieben', pickup: 'Pickup-Manifest unterschrieben', arrival: 'Ankunftsmanifest unterschrieben' };
     var summary = control.cargo && control.cargo.summary || {};
@@ -753,6 +788,7 @@
       + drawerEscape(signatureLabels[signatureScope] || 'Unterschrift ausstehend') + '</span></div><div class="mission-cargo-signature-meta">Tracker-Manifest</div></div></div>'
       + '<div class="mission-cargo-summary"><span>' + drawerEscape(Number(summary.loaded || 0)) + ' geladen / '
       + drawerEscape(Number(summary.unloaded || 0)) + ' entladen</span><span>' + drawerEscape(blocker) + '</span></div>'
+      + (lockHint ? '<div class="ga-efb-cargo-lock-hint">' + drawerEscape(lockHint) + '</div>' : '')
       + (missionIntentStatus ? '<div class="mission-cargo-copy ga-efb-cargo-intent-status">' + drawerEscape(missionIntentStatus) + '</div>' : '')
       + (actions ? '<div class="mission-cargo-actions">' + actions + '</div>' : '');
   }
@@ -784,7 +820,7 @@
           payload.action = actionNode.getAttribute('data-mission-item-action') || '';
         }
         if (intent === 'request_pax_interaction') payload.action = 'deboard';
-        submitMissionIntent(intent, payload);
+        requestMissionIntent(intent, payload);
       }
       event.preventDefault();
       event.stopPropagation();
@@ -975,7 +1011,7 @@
           payload.action = actionNode.getAttribute('data-mission-item-action') || '';
         }
         if (intent === 'request_pax_interaction') payload.action = 'deboard';
-        submitMissionIntent(intent, payload);
+        requestMissionIntent(intent, payload);
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -1657,7 +1693,9 @@
     var phase = String(control.phase || payload.phase || payload.state || '').toLowerCase();
     var task = String(view.currentTask || view.status || 'Mission fortsetzen');
     var model = null;
-    if (allowedActions.indexOf('request_close') >= 0) {
+    if (allowedActions.indexOf('activate_cloud_mission') >= 0) {
+      model = { kicker: 'Cloud-Mission bereit', text: task, button: 'Mission beginnen', kind: 'intent', intent: 'activate_cloud_mission', className: 'is-begin-action' };
+    } else if (allowedActions.indexOf('request_close') >= 0) {
       model = { kicker: 'Mission abschließen', text: task, button: 'Mission beenden', kind: 'intent', intent: 'request_close', className: 'is-final-action' };
     } else if (allowedActions.indexOf('prepare_mission') >= 0) {
       model = { kicker: 'Mission bereit', text: task, button: 'Mission beginnen', kind: 'intent', intent: 'prepare_mission', className: 'is-begin-action' };
@@ -1701,7 +1739,7 @@
       var model = banner._gaMissionActionModel;
       if (!model || missionIntentPending) return false;
       if (model.kind === 'cargo') openCargoManager();
-      else submitMissionIntent(model.intent, {});
+      else requestMissionIntent(model.intent, {});
       report('info', 'mission-action-banner', model.kind, 'Missionsaktion über Kartenbanner ausgelöst', model.intent || 'cargo');
       return false;
     };

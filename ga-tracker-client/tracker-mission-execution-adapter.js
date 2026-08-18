@@ -92,6 +92,21 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     return { ok: true, snapshot };
   };
 
+  const validateIntent = (request = {}) => {
+    const commandId = cleanString(request.commandId, 220);
+    const intent = cleanString(request.intent || request.action, 80).toLowerCase();
+    if (!commandId) return errorResult('command_id_required');
+    const validated = validateSnapshot(request);
+    if (!validated.ok) return validated;
+    if (!validated.snapshot.view.allowedActions.includes(intent)) {
+      return errorResult('mission_intent_not_allowed_in_state', {
+        activeRun: authorityManager.getActiveRun(),
+        view: validated.snapshot.view
+      });
+    }
+    return { ok: true, intent, snapshot: validated.snapshot };
+  };
+
   const submitEvent = (snapshot, type, payload, eventId, reason) => {
     const result = authorityManager.applyExecutionEvent({
       missionId: snapshot.missionId,
@@ -230,18 +245,11 @@ function createTrackerMissionExecutionAdapter(options = {}) {
   };
 
   const executeIntent = (request = {}) => {
-    const commandId = cleanString(request.commandId, 220);
-    const intent = cleanString(request.intent || request.action, 80).toLowerCase();
-    if (!commandId) return errorResult('command_id_required');
-    const validated = validateSnapshot(request);
+    const validated = validateIntent(request);
     if (!validated.ok) return validated;
+    const commandId = cleanString(request.commandId, 220);
+    const intent = validated.intent;
     const snapshot = validated.snapshot;
-    if (!snapshot.view.allowedActions.includes(intent)) {
-      return errorResult('mission_intent_not_allowed_in_state', {
-        activeRun: authorityManager.getActiveRun(),
-        view: snapshot.view
-      });
-    }
     if (DEFERRED_INTENTS.has(intent)) {
       return errorResult('mission_intent_not_migrated', {
         activeRun: authorityManager.getActiveRun(),
@@ -409,6 +417,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
   return Object.freeze({
     applySystemEvent,
     executeIntent,
+    validateIntent,
     observeTelemetry
   });
 }

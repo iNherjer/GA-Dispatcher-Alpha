@@ -31,6 +31,10 @@ const { projectTrackerMapSnapshot } = require('./tracker-efb-map-snapshot-core.j
 const { projectTrackerEfbMissionView } = require('./tracker-efb-mission-view-core.js');
 const { createTrackerEfbChecklistStore } = require('./tracker-efb-checklist-library.js');
 const { fetchTrackerEfbChecklistLibrary } = require('./tracker-efb-checklist-cloud.js');
+const {
+  CLOUD_MISSION_PENDING_RUN_ID,
+  fetchTrackerCloudMission
+} = require('./tracker-mission-cloud.js');
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 const { createTrackerVoiceService } = require('./tracker-voice-service.js');
 const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core.js');
@@ -67,8 +71,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v372';
-const TRACKER_VERSION_CODE = 372;
+const TRACKER_VERSION = 'v374';
+const TRACKER_VERSION_CODE = 374;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -158,7 +162,7 @@ const DOOR_TOGGLE_EVENT_ID = 9365;
 const DOOR_OPEN_SINGLE_EVENT_ID = 9369;
 const DOOR_CLOSE_SINGLE_EVENT_ID = 9370;
 const PARKING_BRAKE_DEF_ID = 9371;
-const INPUT_EVENT_ENUM_REQUEST_ID = 9372;
+const INPUT_EVENT_ENUM_REQUEST_ID = 9373;
 const SCENE_GROUND_FREEZE_ALTITUDE_EVENT_ID = 9380;
 const SCENE_GROUND_EVENT_GROUP_PRIORITY_HIGHEST = 1;
 const SCENE_GROUND_EVENT_FLAG_GROUP_ID_IS_PRIORITY = 16;
@@ -4260,6 +4264,26 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   return {
+    async cleanupExecutionRun(request = {}) {
+      const activeRun = missionAuthority?.getActiveRun?.() || null;
+      const missionId = String(request?.missionId || '').trim();
+      const runId = String(request?.runId || '').trim();
+      if (!activeRun?.missionId || !activeRun?.runId) {
+        return { ok: false, status: 'conflict', error: 'no_active_run', cleared: 0, sideEffect: false };
+      }
+      if (activeRun.executionAuthority !== 'tracker') {
+        return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', cleared: 0, sideEffect: false };
+      }
+      if (missionId !== activeRun.missionId || runId !== activeRun.runId) {
+        return { ok: false, status: 'conflict', error: 'mission_run_conflict', cleared: 0, sideEffect: false };
+      }
+      try {
+        const cleared = await clearAuthorityRunEffects(missionId, request?.reason || 'mission-execution-abort');
+        return { ok: true, status: cleared > 0 ? 'ok' : 'noop', cleared, sideEffect: cleared > 0 };
+      } catch (error) {
+        return { ok: false, status: 'error', error: error?.code || error?.message || String(error), cleared: 0, sideEffect: false };
+      }
+    },
     dispatchExecutionCommand(command) {
       const type = String(command?.type || '').trim().toLowerCase();
       const commandId = String(command?.commandId || '').trim();
@@ -4652,11 +4676,146 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       source: 'tracker-recovery'
     });
   }
+  let _cloudMissionCandidate = null;
+  let _cloudMissionSyncInProgress = false;
+  let _cloudMissionLastAttemptAt = 0;
+  let _cloudMissionLastSuccessAt = 0;
+  let _cloudMissionLastStatus = TRACKER_APT_EXECUTION_ENABLED ? 'pending' : 'disabled';
+  const refreshCloudMissionCandidate = async (reason = 'interval') => {
+    if (!TRACKER_APT_EXECUTION_ENABLED) return null;
+    if (_cloudMissionSyncInProgress) return _cloudMissionCandidate;
+    _cloudMissionSyncInProgress = true;
+    _cloudMissionLastAttemptAt = Date.now();
+    try {
+      const result = await fetchTrackerCloudMission(syncId, pin);
+      if (!result.ok) {
+        _cloudMissionLastStatus = result.status || result.code || 'error';
+        debugLog(`MISSION_CLOUD_SYNC_ERROR reason=${reason} code=${result.code || 'unknown'} error=${result.message || 'unknown'}`);
+        return _cloudMissionCandidate;
+      }
+      const completedRun = missionAuthorityManager.getPublicSnapshot().lastRun;
+      if (result.candidate
+          && completedRun?.state === 'completed'
+          && completedRun.missionId === result.candidate.missionId
+          && Number(completedRun.acquiredAt || completedRun.updatedAt || 0) >= Number(result.candidate.updatedAt || 0)) {
+        result.candidate = null;
+        result.status = 'consumed';
+      }
+      _cloudMissionLastStatus = result.status || 'empty';
+      const previousKey = `${_cloudMissionCandidate?.missionId || ''}:${_cloudMissionCandidate?.updatedAt || 0}`;
+      _cloudMissionCandidate = result.candidate || null;
+      _cloudMissionLastSuccessAt = Date.now();
+      const nextKey = `${_cloudMissionCandidate?.missionId || ''}:${_cloudMissionCandidate?.updatedAt || 0}`;
+      if (previousKey !== nextKey || reason !== 'interval') {
+        debugLog(`MISSION_CLOUD_SYNC reason=${reason} status=${_cloudMissionLastStatus} mission=${_cloudMissionCandidate?.missionId || 'none'} updatedAt=${_cloudMissionCandidate?.updatedAt || 0}`);
+      }
+      return _cloudMissionCandidate;
+    } catch (error) {
+      _cloudMissionLastStatus = 'exception';
+      debugLog(`MISSION_CLOUD_SYNC_ERROR reason=${reason} code=exception error=${error?.message || error}`);
+      return _cloudMissionCandidate;
+    } finally {
+      _cloudMissionSyncInProgress = false;
+    }
+  };
+  const activateCloudMission = async (request = {}) => {
+    if (!TRACKER_APT_EXECUTION_ENABLED || !missionExecutionRuntime.enabled) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_not_enabled', sideEffect: false };
+    }
+    if (!missionExecutionRuntime.publicState().simulatorAttached) {
+      return { ok: false, status: 'blocked', error: 'mission_simulator_not_connected', sideEffect: false };
+    }
+    if (missionAuthorityManager.getActiveRun()) {
+      return { ok: false, status: 'conflict', error: 'mission_authority_conflict', sideEffect: false, activeRun: missionAuthorityManager.getActiveRun() };
+    }
+    const candidate = _cloudMissionCandidate || await refreshCloudMissionCandidate('activation');
+    if (!candidate) return { ok: false, status: 'blocked', error: 'cloud_mission_not_available', sideEffect: false };
+    if (String(request.missionId || '') !== candidate.missionId
+        || String(request.runId || '') !== CLOUD_MISSION_PENDING_RUN_ID
+        || Number(request.expectedRevision) !== 0) {
+      return { ok: false, status: 'conflict', error: 'cloud_mission_revision_conflict', sideEffect: false };
+    }
+    const ownerClientId = `tracker-cloud:${String(request.controllerSession?.clientId || 'efb').slice(0, 180)}`;
+    const acquired = missionAuthorityManager.acquire({
+      missionId: candidate.missionId,
+      clientId: ownerClientId,
+      commandId: `${request.commandId}:acquire`,
+      reason: 'efb-cloud-mission-activation',
+      state: 'active',
+      missionPhase: 'planned',
+      stateHash: candidate.bundle.execution.stateHash,
+      resumeBundle: candidate.bundle
+    });
+    if (!acquired.ok) return { ...acquired, sideEffect: false };
+    let active = missionAuthorityManager.getActiveRun();
+    const prepared = missionAuthorityManager.prepareExecutionAuthority({
+      missionId: active.missionId,
+      runId: active.runId,
+      clientId: ownerClientId,
+      commandId: `${request.commandId}:handoff-prepare`,
+      reason: 'efb-cloud-mission-activation',
+      expectedRevision: active.revision,
+      expectedStateHash: active.stateHash,
+      expectedExecutionStateHash: active.executionStateHash
+    });
+    if (!prepared.ok) {
+      missionAuthorityManager.release({
+        missionId: active.missionId,
+        runId: active.runId,
+        clientId: ownerClientId,
+        commandId: `${request.commandId}:rollback-release`,
+        reason: prepared.error || 'cloud-handoff-prepare-failed'
+      });
+      return { ...prepared, sideEffect: false };
+    }
+    active = missionAuthorityManager.getActiveRun();
+    const committed = missionAuthorityManager.commitExecutionAuthority({
+      missionId: active.missionId,
+      runId: active.runId,
+      clientId: ownerClientId,
+      commandId: `${request.commandId}:handoff-commit`,
+      reason: 'efb-cloud-mission-activation',
+      expectedRevision: active.revision,
+      handoffId: prepared.handoff?.handoffId,
+      expectedExecutionStateHash: prepared.handoff?.executionStateHash
+    });
+    if (!committed.ok) {
+      missionAuthorityManager.release({
+        missionId: active.missionId,
+        runId: active.runId,
+        clientId: ownerClientId,
+        commandId: `${request.commandId}:commit-release`,
+        reason: committed.error || 'cloud-handoff-commit-failed'
+      });
+      return { ...committed, sideEffect: false };
+    }
+    active = missionAuthorityManager.getActiveRun({ includeBundle: true });
+    trackerMissionShadow.observe({
+      missionId: active.missionId,
+      runId: active.runId,
+      authorityRevision: active.revision,
+      resumeBundle: active.resumeBundle,
+      source: 'tracker-cloud-activation'
+    });
+    const started = await missionExecutionRuntime.executeIntent({
+      commandId: `${request.commandId}:prepare-mission`,
+      intent: 'prepare_mission',
+      missionId: active.missionId,
+      runId: active.runId,
+      expectedRevision: active.revision,
+      payload: {},
+      controllerSession: request.controllerSession
+    });
+    _cloudMissionCandidate = null;
+    debugLog(`MISSION_CLOUD_ACTIVATE mission=${candidate.missionId} run=${active.runId} status=${started.status || (started.ok ? 'ok' : 'error')} error=${started.error || 'none'}`);
+    return { ...started, cloudActivated: true, sideEffect: started.sideEffect === true };
+  };
   const trackerCockpitControl = createTrackerCockpitControl({
     executionAuthority: missionExecutionRuntime.executionAuthority,
     getExecutionAuthority: () => missionAuthorityManager.getActiveRun()?.executionAuthority || 'web',
     getMissionRun: () => missionAuthorityManager.getActiveRun(),
-    executeIntent: missionExecutionRuntime.executeIntent
+    executeIntent: missionExecutionRuntime.executeIntent,
+    activateMission: activateCloudMission
   });
   const efbChecklistStore = createTrackerEfbChecklistStore({
     storageFile: EFB_CHECKLIST_LIBRARY_FILE,
@@ -4774,8 +4933,12 @@ function startTracker(syncId, pin, voiceCredentials = null) {
         telemetryPauseForMs: Number(_telemetryHibernateState.pauseForMs) || 0,
         telemetryAvailable: Boolean(_lastEfbSnapshot),
         lastSnapshotAt: Number(_lastEfbSnapshot?.capturedAt) || null,
-        missionAvailable: Boolean(missionAuthorityManager.getActiveRun()),
-        lastMissionSnapshotAt: Number(missionAuthorityManager.getActiveRun()?.updatedAt) || null,
+        missionAvailable: Boolean(missionAuthorityManager.getActiveRun() || (TRACKER_APT_EXECUTION_ENABLED && _cloudMissionCandidate)),
+        lastMissionSnapshotAt: Number(missionAuthorityManager.getActiveRun()?.updatedAt || (TRACKER_APT_EXECUTION_ENABLED ? _cloudMissionCandidate?.updatedAt : 0)) || null,
+        cloudMissionStatus: _cloudMissionLastStatus,
+        cloudMissionAvailable: Boolean(TRACKER_APT_EXECUTION_ENABLED && _cloudMissionCandidate),
+        cloudMissionLastAttemptAt: _cloudMissionLastAttemptAt || null,
+        cloudMissionLastSuccessAt: _cloudMissionLastSuccessAt || null,
         missionShadow: trackerMissionShadow.publicState(),
         missionExecution: missionExecutionRuntime.publicState(),
         aptMissionTest: {
@@ -4813,6 +4976,27 @@ function startTracker(syncId, pin, voiceCredentials = null) {
           control: executionControl,
           executionShadow: trackerMissionShadow.publicState()
         };
+        if (TRACKER_APT_EXECUTION_ENABLED && _cloudMissionCandidate) {
+          const cloudProjected = projectTrackerEfbMissionView({
+            missionId: _cloudMissionCandidate.missionId,
+            runId: _cloudMissionCandidate.runId,
+            authority: 'tracker',
+            executionAuthority: 'tracker',
+            active: false,
+            state: 'cloud_ready',
+            phase: 'planned',
+            revision: 0,
+            updatedAt: _cloudMissionCandidate.updatedAt,
+            resumeBundle: _cloudMissionCandidate.bundle
+          }, _lastEfbSnapshot, null, _cloudMissionCandidate.control);
+          if (cloudProjected) return {
+            ...cloudProjected,
+            cloudPending: true,
+            authoritySnapshot,
+            control: _cloudMissionCandidate.control,
+            executionShadow: trackerMissionShadow.publicState()
+          };
+        }
         return authoritySnapshot.lastExecution?.phase === 'closed' ? {
           available: false,
           authoritySnapshot,
@@ -5396,8 +5580,16 @@ function startTracker(syncId, pin, voiceCredentials = null) {
 
   const checklistCloudStartTimer = setTimeout(() => refreshChecklistLibraryFromCloud('startup'), 600);
   const checklistCloudInterval = setInterval(() => refreshChecklistLibraryFromCloud('interval'), 60000);
+  const missionCloudStartTimer = TRACKER_APT_EXECUTION_ENABLED
+    ? setTimeout(() => refreshCloudMissionCandidate('startup'), 800)
+    : null;
+  const missionCloudInterval = TRACKER_APT_EXECUTION_ENABLED
+    ? setInterval(() => refreshCloudMissionCandidate('interval'), 10000)
+    : null;
   if (typeof checklistCloudStartTimer.unref === 'function') checklistCloudStartTimer.unref();
   if (typeof checklistCloudInterval.unref === 'function') checklistCloudInterval.unref();
+  if (typeof missionCloudStartTimer?.unref === 'function') missionCloudStartTimer.unref();
+  if (typeof missionCloudInterval?.unref === 'function') missionCloudInterval.unref();
   startSimConnectOnce();
   for (const state of _relayStates.values()) connectRelay(state);
 }
@@ -5423,7 +5615,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       );
       missionSimulatorEffects = missionExecutionRuntime?.attachSimulator?.({
         getLivePosition: () => lastGpsMsg,
-        dispatchCommand: command => missionSmokeController.dispatchExecutionCommand(command)
+        dispatchCommand: command => missionSmokeController.dispatchExecutionCommand(command),
+        cleanupMission: request => missionSmokeController.cleanupExecutionRun(request)
       }) || null;
       const sendHomebaseAck = (payload = {}) => {
         const ws = getWs();
@@ -5867,6 +6060,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     onGround: Boolean(onGround),
                     gsKts: Number.isFinite(groundSpeedKts) ? groundSpeedKts : null,
                     simPaused,
+                    simPausedA: Number.isFinite(Number(simPausedA)) ? Number(simPausedA) : null,
+                    simPausedB: Number.isFinite(Number(simPausedB)) ? Number(simPausedB) : null,
+                    pauseFlags: runtimeState.pauseFlags || 0,
                     inMenuOrMap: missionTelemetryInMenu,
                     dialogMode: runtimeState.dialogMode
                   });

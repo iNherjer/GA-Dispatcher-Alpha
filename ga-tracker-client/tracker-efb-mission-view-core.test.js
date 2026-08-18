@@ -108,6 +108,34 @@ test('tracker execution control overrides stale legacy phase and cargo presentat
   assert.equal(result.manifest.signatureScope, 'arrival');
 });
 
+test('cloud-pending tracker mission projects the activation task and original manifest', () => {
+  const result = projectTrackerEfbMissionView({
+    missionId: 'cloud-apt', runId: 'cloud-pending', state: 'cloud_ready', active: false, phase: 'planned', revision: 0,
+    resumeBundle: {
+      missionState: { currentMissionData: { missionId: 'cloud-apt', mission: 'Cloud APT', start: 'EDTW', dest: 'EDTL' } },
+      runtime: {
+        runtime: { active: false, phase: 'planned' },
+        cargoManifest: { items: [{ id: 'box', storyName: 'Ersatzteil', itemType: 'cargo', required: true, status: 'pending', weightLbs: 18 }] }
+      }
+    }
+  }, null, null, {
+    missionId: 'cloud-apt',
+    runId: 'cloud-pending',
+    executionAuthority: 'tracker',
+    authorityRevision: 0,
+    phase: 'planned',
+    nextStep: 'activate_cloud_mission',
+    flags: { active: false },
+    cargo: {
+      items: [{ id: 'box', itemType: 'cargo', required: true, status: 'pending', pickup: 'departure', delivery: 'destination', weightLbs: 18 }],
+      summary: { total: 1, requiredTotal: 1, loaded: 0, unloaded: 0, pending: 1 }
+    }
+  });
+  assert.equal(result.view.currentTask, 'Mission aus der Cloud übernehmen und vorbereiten');
+  assert.equal(result.manifest.items[0].label, 'Ersatzteil');
+  assert.equal(result.manifest.items[0].status, 'pending');
+});
+
 test('mission view row and phase counts are capped', () => {
   const sanitized = sanitizeMissionView({
     phase: { current: 99, stages: Array.from({ length: 20 }, (_, index) => ({ label: `Phase ${index}` })) },

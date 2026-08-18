@@ -256,6 +256,7 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
         ? 2
         : (/^(active|enroute|on_task|return_leg)$/.test(controlPhase) ? 1 : 0));
     const taskLabels = {
+      activate_cloud_mission: 'Mission aus der Cloud übernehmen und vorbereiten',
       prepare: 'Mission vorbereiten',
       complete_departure_manifest: 'Abflugmanifest vervollständigen',
       sign_departure_manifest: 'Abflugmanifest unterschreiben',

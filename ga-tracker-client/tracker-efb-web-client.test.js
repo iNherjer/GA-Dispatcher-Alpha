@@ -18,31 +18,31 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '37201');
+  assert.equal(EFB_WEB_ASSET_REVISION, '37401');
   assert.match(page, /data-efb-view-version="8"/);
-  assert.match(page, /app-styles\.css\?v=37201/);
-  assert.match(page, /host\.css\?v=37201/);
-  assert.match(page, /map-shell-core\.js\?v=37201/);
-  assert.match(page, /map-utility-tools\.js\?v=37201/);
-  assert.match(page, /cockpit-session-client\.js\?v=37201/);
-  assert.match(page, /host\.js\?v=37201/);
+  assert.match(page, /app-styles\.css\?v=37401/);
+  assert.match(page, /host\.css\?v=37401/);
+  assert.match(page, /map-shell-core\.js\?v=37401/);
+  assert.match(page, /map-utility-tools\.js\?v=37401/);
+  assert.match(page, /cockpit-session-client\.js\?v=37401/);
+  assert.match(page, /host\.js\?v=37401/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37201"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37201"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37201"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37401"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=37201',
-    '/efb/v1/assets/map-utility-tools.js?v=37201',
-    '/efb/v1/assets/cockpit-session-client.js?v=37201',
-    '/efb/v1/assets/host.js?v=37201'
+    '/efb/v1/assets/map-shell-core.js?v=37401',
+    '/efb/v1/assets/map-utility-tools.js?v=37401',
+    '/efb/v1/assets/cockpit-session-client.js?v=37401',
+    '/efb/v1/assets/host.js?v=37401'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -133,10 +133,17 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /function missionActionBannerModel\(payload\)/);
   assert.match(hostSource, /function setupMissionActionBanner\(\)/);
   assert.match(hostSource, /function renderMissionActionBanner\(payload\)/);
+  assert.match(hostSource, /activate_cloud_mission/);
+  assert.match(hostSource, /Cloud-Mission bereit/);
   assert.match(hostSource, /mission-action-banner/);
   assert.match(hostSource, /function ensureCargoManager\(\)/);
   assert.match(hostSource, /function openCargoManager\(\)/);
   assert.match(hostSource, /Verlade-Manager/);
+  assert.match(hostSource, /Mission abbrechen/);
+  assert.match(hostSource, /function requestMissionIntent\(intent, payload\)/);
+  assert.match(hostSource, /Mission wirklich abbrechen/);
+  assert.match(hostSource, /function cargoInteractionHint\(phase\)/);
+  assert.match(hostSource, /Ladung ist während des Flugabschnitts gesperrt/);
   assert.match(hostSource, /setupSideDrawer/);
   assert.match(hostSource, /data-efb-check-row/);
   assert.match(hostSource, /checklist-action/);
@@ -223,6 +230,8 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostCss, /#mapSideDrawer \{[\s\S]*?--checklist-panel-width: 66\.6667vw/);
   assert.match(hostCss, /#missionStartBanner \{[\s\S]*?z-index: 100060/);
   assert.match(hostCss, /\.ga-efb-cargo-manager \{[\s\S]*?z-index: 190000/);
+  assert.match(hostCss, /\.ga-efb-mission-actions\.is-danger button/);
+  assert.match(hostCss, /\.ga-efb-cargo-lock-hint/);
   assert.match(hostSource, /Schrift kleiner \(-\)/);
   assert.match(hostSource, /Schrift größer \(\+\)/);
   assert.match(hostSource, /Schriftgröße:/);

@@ -11688,6 +11688,14 @@ body.map-drawing-active #map.leaflet-dragging {
     color: #ffe7a1;
     font-weight: 800;
 }
+.mission-cargo-tracker-lock,
+.mission-cargo-error {
+    border-top: 0;
+    border-bottom: 1px solid rgba(255, 126, 112, 0.28);
+    background: rgba(100, 35, 28, 0.34);
+    color: #ffd0c8;
+    font-weight: 800;
+}
 
 .mission-compliance-banner {
     position: fixed;

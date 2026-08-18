@@ -115,6 +115,36 @@ test('an enabled tracker executor receives only the normalized intent and contro
   assert.equal(app.control.publicState().missionIntentsEnabled, true);
 });
 
+test('an EFB session can activate an exact cloud candidate when no run exists', async () => {
+  let activeRun = null;
+  const activated = [];
+  const control = createTrackerCockpitControl({
+    now: () => 1000,
+    idFactory: () => 'cockpit-cloud',
+    tokenFactory: () => 'secret-cloud',
+    getMissionRun: () => activeRun,
+    activateMission: async request => {
+      activated.push(request);
+      activeRun = { missionId: request.missionId, runId: 'run-cloud', revision: 4, authority: 'tracker' };
+      return { ok: true, status: 'ok', sideEffect: true, activeRun };
+    }
+  });
+  const registered = control.register({ clientId: 'efb-cloud', role: 'efb' });
+  const result = await control.submitIntent({
+    sessionId: registered.session.sessionId,
+    sessionToken: registered.sessionToken,
+    commandId: 'activate-1',
+    intent: 'activate_cloud_mission',
+    missionId: 'mission-cloud',
+    runId: 'cloud-pending',
+    expectedRevision: 0
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.activeRun.runId, 'run-cloud');
+  assert.equal(activated[0].controllerSession.role, 'efb');
+  assert.equal(control.publicState().missionIntentsEnabled, true);
+});
+
 test('cockpit presence reports the current run authority instead of a startup constant', () => {
   let authority = 'web';
   const app = fixture({

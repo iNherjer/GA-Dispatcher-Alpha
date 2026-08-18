@@ -192,6 +192,63 @@ test('enabled runtime dispatches app-prepared APT scenes and advances only from 
   assert.equal(manager.getPublicSnapshot().lastRun.phase, 'closed');
 });
 
+test('tracker abort cleans simulator effects before atomically releasing the active run', async (t) => {
+  const manager = committedManager(t);
+  const cleanupCalls = [];
+  const logs = [];
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true, log: line => logs.push(line) });
+  runtime.attachSimulator({
+    getLivePosition: () => null,
+    dispatchCommand: () => ({ ok: true, status: 'noop', sideEffect: false }),
+    cleanupMission: async request => {
+      cleanupCalls.push(request);
+      return { ok: true, status: 'ok', cleared: 3, sideEffect: true };
+    }
+  });
+  const run = manager.getActiveRun();
+  const aborted = await runtime.executeIntent({
+    commandId: 'intent-abort',
+    intent: 'abort_mission',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision,
+    payload: { reason: 'test-recovery' },
+    controllerSession: { clientId: 'efb-test', role: 'efb' }
+  });
+
+  assert.equal(aborted.ok, true);
+  assert.equal(aborted.outcome, 'aborted');
+  assert.equal(cleanupCalls.length, 1);
+  assert.equal(cleanupCalls[0].missionId, run.missionId);
+  assert.equal(manager.getActiveRun(), null);
+  assert.equal(manager.getPublicSnapshot().lastRun.state, 'aborted');
+  assert.equal(manager.getPublicSnapshot().lastRun.phase, 'closed');
+  assert.equal(manager.getPublicSnapshot().lastRun.lastCommandType, 'mission_execution_abort');
+  assert.match(logs.join('\n'), /MISSION_EXECUTION_ABORTED .*cleared=3 .*source=efb/);
+});
+
+test('tracker abort retains authority when simulator cleanup fails', async (t) => {
+  const manager = committedManager(t);
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true });
+  runtime.attachSimulator({
+    getLivePosition: () => null,
+    dispatchCommand: () => ({ ok: true, status: 'noop', sideEffect: false }),
+    cleanupMission: async () => ({ ok: false, status: 'error', error: 'sim_cleanup_failed', cleared: 0 })
+  });
+  const run = manager.getActiveRun();
+  const aborted = await runtime.executeIntent({
+    commandId: 'intent-abort-failed',
+    intent: 'abort_mission',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  });
+
+  assert.equal(aborted.ok, false);
+  assert.equal(aborted.error, 'sim_cleanup_failed');
+  assert.equal(manager.getActiveRun().runId, run.runId);
+});
+
 test('disabled runtime remains read-only and cannot attach simulator effects', () => {
   const manager = { getActiveRun: () => null };
   const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: false });

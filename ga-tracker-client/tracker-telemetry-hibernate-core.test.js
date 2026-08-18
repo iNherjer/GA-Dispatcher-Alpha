@@ -129,6 +129,13 @@ test('fresh pause events bridge SimVar lag but stale event flags cannot hold the
   }), true);
   assert.equal(resolveSimPausedState({
     now: 4000,
+    simPausedA: 1,
+    simPausedB: 0,
+    pauseFlags: 0,
+    pauseFlagsUpdatedAt: 3500
+  }), false);
+  assert.equal(resolveSimPausedState({
+    now: 4000,
     simPausedA: NaN,
     simPausedB: NaN,
     pauseFlags: 1,

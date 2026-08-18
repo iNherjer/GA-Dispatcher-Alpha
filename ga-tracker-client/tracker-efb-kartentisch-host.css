@@ -611,6 +611,22 @@ body.ga-efb-tracker-host .ga-efb-mission-cargo-row button:disabled {
   cursor: wait;
 }
 
+body.ga-efb-tracker-host .ga-efb-mission-actions.is-danger button {
+  border-color: rgba(239, 99, 90, .78);
+  background: rgba(105, 35, 35, .72);
+  color: #ffd4cf;
+}
+
+body.ga-efb-tracker-host .ga-efb-cargo-lock-hint {
+  margin: 8px 12px 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(242, 193, 46, .45);
+  border-radius: 7px;
+  background: rgba(84, 65, 15, .35);
+  color: #ffe9a6;
+  font: 700 11px/1.4 var(--drawer-font);
+}
+
 body.ga-efb-tracker-host .ga-efb-mission-cargo-list {
   display: grid;
   gap: 6px;

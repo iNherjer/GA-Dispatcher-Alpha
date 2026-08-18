@@ -9715,6 +9715,12 @@ async function restoreMissionState(state, options = {}) {
 }
 
 function clearAppMissionState(options = {}) {
+    if (options.trackerAbortCompleted !== true
+        && options.skipRuntimeReset !== true
+        && window.gaTrackerExecutionHandlesMission?.()) {
+        window.gaAbortTrackerMission?.({ reason: options.reason || 'clear-app-mission-state' });
+        return false;
+    }
     if (options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
         try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
         return false;
@@ -9799,6 +9805,11 @@ function clearAppMissionState(options = {}) {
 window.clearAppMissionState = clearAppMissionState;
 
 function resetApp() {
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        if (!confirm("Tracker-Mission wirklich abbrechen und das aktuelle Briefing verwerfen?\n\nDie Mission wird auf allen verbundenen Ansichten beendet.")) return false;
+        window.gaAbortTrackerMission?.({ skipConfirm: true, reason: 'reset-app' });
+        return false;
+    }
     if (!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return false;
     return clearAppMissionState({ reason: 'reset-app' });
 }
