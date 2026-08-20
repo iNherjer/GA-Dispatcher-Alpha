@@ -12,6 +12,7 @@ const runtime = read('mission-runtime-core.js');
 const cargo = read('mission-cargo-core.js');
 const missionDefinition = read('mission-definition-core.js');
 const missionArrival = read('mission-arrival-core.js');
+const missionLocation = read('mission-location-core.js');
 const simRoute = read('sim-route.js');
 const voice = read('passenger-voice.js');
 const index = read('index.html');
@@ -90,6 +91,8 @@ assert.match(boardingScenePlan, /_missionSceneMovingPersonCandidates\(primaryGen
 assert.match(boardingScenePlan, /_missionScenePersonTitle\(primaryGender, 'vehicle-idle'\)/);
 const boardingSceneSpawn = section(sync, 'window.missionSceneSpawn = function', 'window.missionSceneClear = function');
 assert.match(boardingSceneSpawn, /_missionSceneBuildSpawnEffectCommand\(reason, pos\)/);
+assert.match(boardingSceneSpawn, /no_departure_scene_items/);
+assert.match(boardingSceneSpawn, /scene_spawn_skipped/);
 const appDeboarding = section(sync, 'window.missionSceneDeboarding = function', 'window.missionSceneContinueDeboarding = function');
 assert.match(appDeboarding, /_missionSceneMovingPersonTitle\(primaryGender, 'deboarding'\)/);
 assert.match(appDeboarding, /_missionSceneMovingPersonCandidates\(primaryGender, personTitle\)/);
@@ -99,6 +102,10 @@ assert.match(aptArrivalItems, /movingPerson: isMovingPickupPerson/);
 assert.match(aptArrivalItems, /kind: isMovingPickupPerson \? 'person_boarder_1' : item\.kind/);
 const aptArrivalAsset = section(sync, 'function _missionAptArrivalAssetForItem', 'function _missionAptArrivalSceneItems');
 assert.match(aptArrivalAsset, /options\.movingPerson === true[\s\S]*\^tarmac_/i);
+const aptArrivalLifecycle = section(sync, 'window.missionAptArrivalEnsureSpawned = function', 'window.missionAptArrivalClear = function');
+assert.match(aptArrivalLifecycle, /bush_pickup_scene_retired/);
+assert.match(aptArrivalLifecycle, /distanceNm > 5/);
+assert.match(aptArrivalLifecycle, /missionAptArrivalClear\('bush-pickup-scene-retired'\)/);
 const manualPax = section(cargo, 'function _missionCargoSendManualPassengerCommand', 'function _missionCargoVisibleKind');
 assert.match(manualPax, /_missionSceneMovingPersonTitle/);
 assert.match(manualPax, /_missionSceneMovingPersonCandidates/);
@@ -120,6 +127,8 @@ assert.match(cargo, /Aussteigen läuft/);
 assert.match(cargo, /const passengerEndReleased = signatureReady[\s\S]{0,160}requiredUnloadBlockingMissing === 0/);
 assert.match(cargo, /Pflichtfracht zuerst/);
 assert.match(cargo, /finishMissionCargoUnloadAndEnd\(\{ source: 'passenger-row', skipConfirm: true \}\)/);
+assert.match(cargo, /function _missionCargoPassengerWaitsForFarewellDeboarding/);
+assert.match(cargo, /Der Passagier steigt nach Verabschiedung und Deboarding-Sequenz aus/);
 assert.match(cargo, /id: 'pickup-companion-cargo'/);
 assert.match(cargo, /const usesManifestSheet = isLoad \|\| isUnload \|\| isPickup \|\| isEquipment/);
 assert.match(cargo, /else if \(isPickup\) \{[\s\S]{0,650}mode: 'pickup'/);
@@ -136,6 +145,8 @@ assert.match(missionArrival, /explicitEquipmentLabel \|\| 'Uebergabeausruestung'
 assert.match(app, /'cargo\.equipment_case'/);
 assert.match(app, /const isBushPickupRole = String\(basePlan\.role \|\| ''\)\.toLowerCase\(\) === 'bush_strip_pickup'/);
 assert.match(app, /requiredPickupCargo[\s\S]{0,650}if \(!alreadyIncluded\) sourceItems = \[\.\.\.sourceItems, fallbackItem\]/);
+assert.match(app, /const runwaySidePlacement = String\(basePlan\.source \|\| ''\)\.toLowerCase\(\) === 'osm_runway_side'/);
+assert.match(app, /rightM: runwaySidePlacement[\s\S]{0,160}runwaySideSign \* Math\.abs/);
 assert.match(sync, /item\?\.pickupLocation === 'target'[\s\S]{0,100}!_missionCargoIsPassengerItem\(item\)/);
 assert.match(cargo, /function _missionCargoCompletePassengerHandoff\(/);
 assert.match(cargo, /handoffComplete/);
@@ -150,6 +161,7 @@ assert.doesNotMatch(sync, /missionCargoMaybeOpenArrivalDialog\?\.\('runtime-grou
 assert.doesNotMatch(cargo, /window\.missionCargoMaybeOpenArrivalDialog\s*=/);
 const manualMissionEndSection = section(sync, 'window.manualMissionEnd = function', 'window.completeMissionClose = function');
 assert.match(manualMissionEndSection, /groundAction\.action === 'unload'/);
+assert.match(manualMissionEndSection, /!endReady\.atTarget && !poiGroundEndReady && !bushGroundEndReady && !runtimeGroundEndReady/);
 assert.doesNotMatch(manualMissionEndSection, /groundAction\.action === 'unload' \|\| poiGroundEndReady/);
 assert.doesNotMatch(simRoute, /mode: '(?:unload|pickup)', trigger: 'sim:end_hold'/);
 assert.match(simRoute, /groundAction\?\.action === 'unload'[\s\S]{0,220}openMissionCargoDialog\('unload'\)[\s\S]{0,100}return false/);
@@ -171,6 +183,10 @@ assert.match(cargo, /item\.status !== 'loaded'\);/);
 assert.doesNotMatch(cargo, /if \(manifest\.isPoi\) return false/);
 assert.match(cargo, /function _missionCargoNeedsArrivalWorkflow\(/);
 assert.match(cargo, /deliverAtDestination: !isBushReturnHomeRecon/);
+assert.match(runtime, /function _missionBushReturnHomeIsCurrentDestination\(/);
+assert.match(runtime, /source: 'bush_return_home'/);
+assert.match(missionArrival, /source: 'osm_runway_side'/);
+assert.match(missionArrival, /bush_strip_runway_axis_side_clearance/);
 const runtimeGroundEndSection = section(runtime, 'function _missionRuntimeGroundEndReady', 'function _missionPoiEndedAtHome');
 assertOrder('bush ground gate before POI ground gate', runtimeGroundEndSection, [
     'if (_missionSceneIsBushMission())',
@@ -241,6 +257,24 @@ assert.equal(readiness.groundStill, false, 'missing ground telemetry must not im
 context.window.lastLiveFlightData = { onGround: true, gsKts: 0, aglFt: 0 };
 readiness = context._missionEndReadiness(48, 8);
 assert.equal(readiness.ready, true, 'explicit stopped-on-ground telemetry should allow end readiness');
+
+vm.runInContext(missionLocation, context, { filename: 'mission-location-core.js' });
+context.window.GAMissionLocationCore = context.GAMissionLocationCore;
+context.currentMissionData = {
+    aptArrivalPlan: { lat: 44.91156, lon: -115.48552 }
+};
+context._missionSceneIsPoiMission = () => false;
+context._missionBushIsPickupMission = () => true;
+context._activeBushMissionProgress = () => ({ pickupCompleted: true, pickupConfirmed: true, status: 'return_leg' });
+context._missionHomePointForRuntime = () => ({ lat: 44.88970, lon: -116.10100 });
+context._targetPointForMission = () => ({ lat: 44.91156, lon: -115.48552 });
+context.window.lastLiveGpsPos = { lat: 44.886576, lon: -116.101005 };
+context.window.lastLiveFlightData = { onGround: true, gsKts: 0, aglFt: 0 };
+readiness = context._missionEndReadiness();
+assert.equal(readiness.ready, true, 'Bush pickup return must use home instead of the stale pickup arrival anchor');
+assert.equal(readiness.reason, 'apt_airport_fallback');
+assert.ok(readiness.dArrivalNm < 0.2, 'KMYL test position must be near the home arrival point');
+assert.ok(readiness.dMissionNm < 0.2, 'airport fallback must also use the Bush home point');
 
 context._missionSceneIsBushMission = () => true;
 context._missionBushIsPickupMission = () => true;
@@ -360,6 +394,78 @@ assert.equal(
 assert.equal(passengerHandoffCalls, 1);
 assert.equal(context.window.missionSceneStatus.personBoarded, false);
 context.missionRuntime.waitingFarewellDeboarding = false;
+
+const memoryStore = {
+    length: 0,
+    key: () => null,
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {}
+};
+const arrivalContext = {
+    window: {},
+    localStorage: memoryStore,
+    sessionStorage: memoryStore,
+    console,
+    Date,
+    Math,
+    JSON,
+    Number,
+    String,
+    Boolean,
+    Array,
+    Object,
+    Map,
+    AbortController,
+    setTimeout,
+    clearTimeout
+};
+vm.createContext(arrivalContext);
+vm.runInContext(missionArrival, arrivalContext, { filename: 'mission-arrival-core.js' });
+const runwayContext = {
+    parkingPositions: [],
+    aprons: [],
+    avoidZones: [{
+        type: 'runway',
+        name: '17/35',
+        center: { lat: 44.9110, lon: -115.4855 },
+        line: [
+            { lat: 44.9060, lon: -115.4855 },
+            { lat: 44.9160, lon: -115.4855 }
+        ],
+        polygon: [],
+        bufferM: 45,
+        distM: 0
+    }]
+};
+const runwayPlan = {
+    role: 'bush_strip_pickup',
+    lat: 44.9110,
+    lon: -115.4853,
+    airportLat: 44.9110,
+    airportLon: -115.4855,
+    hdg: 87,
+    items: [
+        { kind: 'arrival_vehicle', forwardM: 6, rightM: 8 },
+        { kind: 'arrival_person_1', forwardM: 0, rightM: 5 },
+        { kind: 'arrival_equipment_1', forwardM: -2, rightM: 10 }
+    ]
+};
+const runwayPlacement = arrivalContext.pickAptArrivalBushRunwaySidePlacement(runwayContext, runwayPlan);
+assert.equal(runwayPlacement?.source, 'osm_runway_side');
+assert.ok(Math.min(Math.abs(runwayPlacement.hdg), Math.abs(runwayPlacement.hdg - 180), Math.abs(runwayPlacement.hdg - 360)) < 2);
+const runwayScenePoints = [runwayPlacement.point].concat(runwayPlacement.items.map(item => (
+    arrivalContext.offsetAptArrivalLatLon(
+        runwayPlacement.point.lat,
+        runwayPlacement.point.lon,
+        runwayPlacement.hdg,
+        item.forwardM,
+        item.rightM
+    )
+)));
+runwayScenePoints.forEach(point => {
+    assert.equal(arrivalContext.aptArrivalBlockedZone(runwayContext, point), null, 'Bush pickup scene item must remain outside the runway buffer');
+});
 
 context._missionPhaseDebugPush = () => {};
 context._missionCargoNeedsArrivalWorkflow = () => true;

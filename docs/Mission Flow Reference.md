@@ -225,6 +225,21 @@ empty outbound
 -> close
 ```
 
+Szenen- und Zielregeln:
+
+- Der leere Hinflug erzeugt am Start keine dekorative Fahrzeug-/Crew-Szene.
+  Dispatch-Liste, Signatur und Startbestaetigung bleiben davon unberuehrt.
+- Die Abholszene wird erst im Zielanflug vorgestaged. Nach Pickup-Signatur und
+  -Bestaetigung ist sie terminal beendet; ein GPS-Tick darf sie weder komplett
+  noch teilweise erneut spawnen.
+- Am Strip muss sich die Abstellseite aus einer vorhandenen Runway-Geometrie
+  ableiten. Der Streckenkurs zum Platz ist kein Runway-Heading.
+- Ab `return_leg` ist der Heimatplatz das einzige Runtime-Ziel. Der alte
+  Pickup-Anker darf weder Landeerkennung noch Off-Destination-Voice steuern.
+- Ein Pickup-Passagier bleibt im Manifest `loaded`, bis Farewell und die
+  koordinierte Deboarding-Sequenz ihn aussteigen lassen. Manueller Unload am
+  gueltigen Heimat-Endpunkt darf keinen statischen Ersatz-PAX spawnen.
+
 Verboten:
 
 - Rueckflug vor Pickup-Signatur und Bestaetigung

@@ -195,7 +195,7 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
         narrativeHint: role.narrativeHint,
         snapPolicy: {
             prefer: isBushStripRole ? ['parking_position', 'apron', 'pavement'] : ['taxi_parking', 'apron', 'pavement', 'parking_position'],
-            avoid: isBushStripRole ? ['occupied', 'building', 'water'] : ['occupied', 'runway', 'taxiway', 'building', 'water'],
+            avoid: ['occupied', 'runway', 'taxiway', 'building', 'water'],
             liveResolver: 'simconnect_facility_or_osm_apron'
         },
         bushProfileId: bush?.profileId || '',
@@ -579,6 +579,120 @@ function aptArrivalBlockedZone(ctx = null, point = null) {
     return null;
 }
 
+function aptArrivalRunwayAxis(zone = null) {
+    const raw = Array.isArray(zone?.polygon) && zone.polygon.length >= 4
+        ? zone.polygon.slice(0, -1)
+        : (Array.isArray(zone?.line) ? zone.line : []);
+    const points = raw.map(aptArrivalRoundPoint).filter(Boolean);
+    if (points.length < 2) return null;
+    let best = null;
+    for (let i = 0; i < points.length - 1; i++) {
+        for (let j = i + 1; j < points.length; j++) {
+            const nav = aptArrivalNavM(points[i].lat, points[i].lon, points[j].lat, points[j].lon);
+            if (!nav || !Number.isFinite(nav.distM) || nav.distM <= Number(best?.lengthM || 0)) continue;
+            best = {
+                start: points[i],
+                end: points[j],
+                lengthM: nav.distM,
+                hdg: nav.bearingDeg
+            };
+        }
+    }
+    if (!best || best.lengthM < 20) return null;
+    const center = aptArrivalRoundPoint(zone?.center)
+        || aptArrivalGeoCentroid(points)
+        || offsetAptArrivalLatLon(best.start.lat, best.start.lon, best.hdg, best.lengthM / 2, 0);
+    if (!center) return null;
+    let halfWidthM = 0;
+    points.forEach(point => {
+        const nav = aptArrivalNavM(center.lat, center.lon, point.lat, point.lon);
+        if (!nav || !Number.isFinite(nav.distM) || !Number.isFinite(nav.bearingDeg)) return;
+        const deltaRad = (nav.bearingDeg - best.hdg) * Math.PI / 180;
+        halfWidthM = Math.max(halfWidthM, Math.abs(Math.sin(deltaRad) * nav.distM));
+    });
+    return {
+        ...best,
+        center,
+        halfWidthM
+    };
+}
+
+function pickAptArrivalBushRunwaySidePlacement(ctx = null, plan = null) {
+    if (!ctx || typeof ctx !== 'object' || !plan) return null;
+    if (!/^bush_strip_/.test(String(plan.role || '').toLowerCase())) return null;
+    const runwayZones = (Array.isArray(ctx.avoidZones) ? ctx.avoidZones : [])
+        .filter(zone => String(zone?.type || '').toLowerCase() === 'runway')
+        .sort((a, b) => Number(a?.distM ?? 999999) - Number(b?.distM ?? 999999));
+    const candidates = [];
+    runwayZones.forEach(zone => {
+        const axis = aptArrivalRunwayAxis(zone);
+        if (!axis) return;
+        const clearanceM = Math.max(
+            52,
+            Math.min(110, Number(zone?.bufferM || 45) + 12),
+            Math.min(110, Number(axis.halfWidthM || 0) + 14)
+        );
+        [1, -1].forEach(side => {
+            const point = offsetAptArrivalLatLon(axis.center.lat, axis.center.lon, axis.hdg, 0, side * clearanceM);
+            if (!point) return;
+            const items = (Array.isArray(plan.items) ? plan.items : []).map(item => ({
+                ...item,
+                rightM: side * Math.abs(Number.isFinite(Number(item?.rightM)) ? Number(item.rightM) : 0)
+            }));
+            const scenePoints = [point].concat(items.map(item => offsetAptArrivalLatLon(
+                point.lat,
+                point.lon,
+                axis.hdg,
+                Number(item.forwardM || 0),
+                Number(item.rightM || 0)
+            )).filter(Boolean));
+            const blocked = scenePoints.map(candidate => aptArrivalBlockedZone(ctx, candidate)).find(Boolean) || null;
+            if (blocked) return;
+            const originalDistanceM = aptArrivalNavM(point.lat, point.lon, Number(plan.lat), Number(plan.lon))?.distM;
+            candidates.push({
+                point: aptArrivalRoundPoint(point),
+                hdg: Math.round(axis.hdg),
+                items,
+                side,
+                clearanceM: Math.round(clearanceM),
+                runwayName: String(zone?.name || ''),
+                runwayLengthM: Math.round(axis.lengthM),
+                score: Number.isFinite(originalDistanceM) ? originalDistanceM : candidates.length
+            });
+        });
+    });
+    candidates.sort((a, b) => a.score - b.score);
+    if (!candidates.length) return null;
+    const best = candidates[0];
+    return {
+        source: 'osm_runway_side',
+        anchorType: 'osm_runway_side',
+        point: best.point,
+        hdg: best.hdg,
+        items: best.items,
+        confidence: 0.68,
+        reason: 'bush_strip_runway_axis_side_clearance',
+        sourceId: best.runwayName || '',
+        name: best.runwayName || 'Runway side',
+        contextMatch: ['runway_axis', `clearance_${best.clearanceM}m`],
+        counts: {
+            parking: Array.isArray(ctx.parkingPositions) ? ctx.parkingPositions.length : 0,
+            aprons: Array.isArray(ctx.aprons) ? ctx.aprons.length : 0,
+            avoidZones: Array.isArray(ctx.avoidZones) ? ctx.avoidZones.length : 0
+        },
+        alternates: {
+            runwaySide: candidates.slice(0, 4).map(candidate => ({
+                lat: candidate.point.lat,
+                lon: candidate.point.lon,
+                source: 'osm_runway_side',
+                runwayName: candidate.runwayName,
+                clearanceM: candidate.clearanceM,
+                side: candidate.side
+            }))
+        }
+    };
+}
+
 function aptArrivalContainingApron(ctx = null, point = null) {
     const p = aptArrivalRoundPoint(point);
     if (!ctx || !p) return null;
@@ -759,7 +873,8 @@ function pickAptArrivalOsmPlacement(ctx = null, plan = null) {
 async function resolveAptArrivalPlanPlacement(plan = null) {
     if (!plan || typeof plan !== 'object') return plan || null;
     const ctx = await fetchAptArrivalGeoContext(plan);
-    const placement = pickAptArrivalOsmPlacement(ctx, plan);
+    const placement = pickAptArrivalOsmPlacement(ctx, plan)
+        || pickAptArrivalBushRunwaySidePlacement(ctx, plan);
     if (!placement?.point) {
         return {
             ...plan,
@@ -789,11 +904,14 @@ async function resolveAptArrivalPlanPlacement(plan = null) {
         source: placement.source,
         confidence: placement.confidence,
         anchorType: placement.anchorType,
-        semantic: placement.source === 'osm_apron' ? 'safe_osm_apron' : 'safe_osm_parking_position',
+        semantic: placement.source === 'osm_apron'
+            ? 'safe_osm_apron'
+            : (placement.source === 'osm_runway_side' ? 'strip_side_handoff' : 'safe_osm_parking_position'),
         lat: placement.point.lat,
         lon: placement.point.lon,
         hdg: placement.hdg,
         footprintRadiusM: placement.source === 'osm_apron' ? 42 : 34,
+        items: Array.isArray(placement.items) ? placement.items : plan.items,
         osmPlacement: {
             source: placement.source,
             point: placement.point,

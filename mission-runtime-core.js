@@ -983,10 +983,34 @@ function _missionPoiEndedAtHome(endReady = null) {
     return _isAtMissionHome(curLat, curLon);
 }
 
+function _missionBushReturnHomeIsCurrentDestination() {
+    if (!_missionBushIsPickupMission()) return false;
+    const progress = _activeBushMissionProgress();
+    const status = String(progress?.status || '').toLowerCase();
+    return progress?.pickupConfirmed === true
+        || ['return_leg', 'home_unloading', 'ready_to_close'].includes(status);
+}
+
+function _missionBushReturnHomeRuntimePoint() {
+    if (!_missionBushReturnHomeIsCurrentDestination()) return null;
+    const home = typeof _missionHomePointForRuntime === 'function' ? _missionHomePointForRuntime() : null;
+    const lat = Number(home?.lat);
+    const lon = Number(home?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+}
+
 function _aptArrivalPointForRuntime() {
     if (_missionSceneIsPoiMission()) return null;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (md?.poiName || (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI')) return null;
+    const returnHome = _missionBushReturnHomeRuntimePoint();
+    if (returnHome) {
+        return {
+            ...returnHome,
+            plan: { source: 'bush_return_home', semantic: 'return_home_destination' }
+        };
+    }
     const contract = md?.missionContract || window.activeMissionContract || {};
     const truth = md?.missionTruth || contract?.missionTruth || null;
     const plan = md?.aptArrivalPlan || contract?.aptArrivalPlan || truth?.arrivalScene || null;
@@ -1034,7 +1058,7 @@ function _missionEndReadiness(lat = null, lon = null) {
     let sharedDestination = null;
     if (typeof window.GAMissionLocationCore?.resolveAptDestination === 'function') {
         const arrivalPoint = _aptArrivalPointForRuntime();
-        const missionTarget = _targetPointForMission();
+        const missionTarget = _missionBushReturnHomeRuntimePoint() || _targetPointForMission();
         const missionData = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
         const missionContract = missionData?.missionContract || window.activeMissionContract || null;
         const policy = missionData?.executionLocationPolicy || missionContract?.executionLocationPolicy || null;

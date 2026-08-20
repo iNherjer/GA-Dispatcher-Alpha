@@ -100,3 +100,15 @@ All 24 titles are confirmed through the Homebase moving-person flow:
 - `Tarmac_Male_Winter_Indian`
 
 Homebase confirmation proves that these exact SimObject titles can be spawned and moved. Mission boarding still has a separate command/ACK and spawn/remove lifecycle and must be diagnosed independently if a person reappears after boarding.
+
+## Bush Strip Pickup Placement and Lifecycle
+
+- A pickup scene is prestaged only when the aircraft approaches the target
+  strip. An empty outbound leg has no decorative departure crew or vehicle.
+- If OSM has no parking position or apron but contains runway geometry, derive
+  the scene heading from the runway axis, place the anchor beyond the runway
+  buffer, and validate the anchor plus every item against runway, taxiway,
+  building, and water zones.
+- Route bearing is not a valid substitute for runway heading.
+- Pickup confirmation terminally retires the target scene. A subsequent GPS or
+  reconnect tick must not spawn the removed passenger, vehicle, or equipment.

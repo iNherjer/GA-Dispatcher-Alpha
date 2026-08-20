@@ -26954,6 +26954,8 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
     const src = raw && typeof raw === 'object' ? raw : {};
     const out = { ...basePlan };
     const fallbackItems = Array.isArray(basePlan.items) ? basePlan.items : [];
+    const runwaySidePlacement = String(basePlan.source || '').toLowerCase() === 'osm_runway_side';
+    const runwaySideSign = Math.sign(Number(fallbackItems.find(item => Number(item?.rightM))?.rightM || 0)) || 1;
     const rawItems = Array.isArray(src.items) ? src.items : [];
     const baseRoleSet = new Set([
         ...(Array.isArray(basePlan.roles) ? basePlan.roles : []),
@@ -27015,7 +27017,9 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
                 role: role || fallbackItems[index]?.role || '',
                 objectTitle: scenePlannerV3CleanText(item?.objectTitle || item?.title || fallbackItems[index]?.objectTitle || fallbackItems[index]?.title || item?.label || '', 90),
                 forwardM: Math.max(-45, Math.min(45, Math.round(Number.isFinite(forwardM) ? forwardM : 0))),
-                rightM: Math.max(-45, Math.min(45, Math.round(Number.isFinite(rightM) ? rightM : 0))),
+                rightM: runwaySidePlacement
+                    ? runwaySideSign * Math.abs(Math.max(-45, Math.min(45, Math.round(Number.isFinite(rightM) ? rightM : 0))))
+                    : Math.max(-45, Math.min(45, Math.round(Number.isFinite(rightM) ? rightM : 0))),
                 hdgOffsetDeg: Number.isFinite(hdgOffsetDeg) ? Math.round(((hdgOffsetDeg % 360) + 360) % 360) : 0,
                 altOffsetFt: Number.isFinite(altOffsetFt) ? Math.max(0, Math.min(8, Math.round(altOffsetFt))) : 0
             };

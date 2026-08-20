@@ -3966,6 +3966,7 @@ window.missionSceneStatus = {
     personBoarded: false,
     autoSpawnedFor: null,
     autoClearedFor: null,
+    emptySceneFor: null,
     respawnAfterClear: false,
     respawnAfterClearReason: ''
 };
@@ -4044,6 +4045,7 @@ window.missionAptArrivalSceneStatus = {
     clearRequested: false,
     cleared: false,
     clearedCount: 0,
+    lifecycleBlockReason: '',
     error: null
 };
 let missionSceneReconnectResyncPending = false;
@@ -4789,6 +4791,10 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     }
     if (status.autoClearedFor === sceneId) {
         status.blockReason = 'already_airborne_cleared';
+        return;
+    }
+    if (status.emptySceneFor === sceneId) {
+        status.blockReason = 'no_departure_scene_items';
         return;
     }
     const spawnPending = _missionSceneSpawnPendingActive(status, sceneId);
@@ -6243,6 +6249,40 @@ window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage'
     if (!plan) return false;
     const sceneId = _missionAptArrivalSceneId();
     const status = window.missionAptArrivalSceneStatus || {};
+    const clearPending = status.clearRequested
+        && (Date.now() - Number(status.lastCommandAt || 0)) < 15000;
+    if (status.clearRequested && !clearPending) status.clearRequested = false;
+    if (_missionBushIsPickupMission()) {
+        const progress = _activeBushMissionProgress();
+        const progressStatus = String(progress?.status || '').toLowerCase();
+        const retired = progress?.pickupConfirmed === true
+            || ['return_leg', 'home_unloading', 'ready_to_close'].includes(progressStatus);
+        if (retired) {
+            status.lifecycleBlockReason = 'bush_pickup_scene_retired';
+            if ((status.spawned || status.spawnRequested) && !clearPending && typeof window.missionAptArrivalClear === 'function') {
+                window.missionAptArrivalClear('bush-pickup-scene-retired');
+            }
+            return false;
+        }
+        const pos = window.lastLiveGpsPos || {};
+        const lat = Number(pos.lat);
+        const lon = Number(pos.lon ?? pos.lng);
+        const planLat = Number(plan.lat);
+        const planLon = Number(plan.lon);
+        const distanceNm = [lat, lon, planLat, planLon].every(Number.isFinite)
+            ? _haversineNmLocal(lat, lon, planLat, planLon)
+            : null;
+        if (!Number.isFinite(distanceNm) || distanceNm > 5) {
+            status.lifecycleBlockReason = Number.isFinite(distanceNm)
+                ? `bush_pickup_outside_prestage_${Math.round(distanceNm)}nm`
+                : 'bush_pickup_no_live_position';
+            if ((status.spawned || status.spawnRequested) && !clearPending && typeof window.missionAptArrivalClear === 'function') {
+                window.missionAptArrivalClear('bush-pickup-outside-prestage');
+            }
+            return false;
+        }
+        status.lifecycleBlockReason = '';
+    }
     const planSignature = _missionAptArrivalPlanSignature(plan);
     if (status.sceneId === sceneId && (status.spawned || status.spawnRequested || status.clearRequested) && !_missionAptArrivalStatusMatchesPlan(status, plan, planSignature)) {
         if (typeof window.missionAptArrivalClear === 'function' && !status.clearRequested) window.missionAptArrivalClear('apt-arrival-plan-changed');
@@ -7310,6 +7350,13 @@ function _activeBushMissionSpec() {
 }
 
 function _missionSceneVehicleSupportEnabled() {
+    if (_missionBushIsPickupMission()) {
+        const progress = _activeBushMissionProgress();
+        const status = String(progress?.status || '').toLowerCase();
+        const returnLegActive = progress?.pickupConfirmed === true
+            || ['return_leg', 'home_unloading', 'ready_to_close'].includes(status);
+        if (!returnLegActive) return false;
+    }
     if (_missionSceneGroupPlan()) return true;
     if (_missionBushIsPickupPassengerMission()) return true;
     try {
@@ -7646,6 +7693,23 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         return true;
     }
     const planned = _missionSceneBuildSpawnEffectCommand(reason, pos);
+    if (!Array.isArray(planned.command?.items) || planned.command.items.length === 0) {
+        window.missionSceneStatus.sceneId = sceneId;
+        window.missionSceneStatus.emptySceneFor = sceneId;
+        window.missionSceneStatus.blockReason = 'no_departure_scene_items';
+        window.missionSceneStatus.spawnRequested = false;
+        window.missionSceneStatus.spawned = false;
+        _missionPhaseDebugPush('scene_spawn_skipped', {
+            sceneId,
+            reason,
+            blockReason: 'no_departure_scene_items',
+            startPhase: _missionStartPhase(),
+            runtimePhase: _missionRuntimePhaseSnapshot()
+        });
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return true;
+    }
+    window.missionSceneStatus.emptySceneFor = null;
     const commandId = window.sendTrackerCommand(planned.command);
     if (!commandId) return false;
     _missionPhaseDebugPush('scene_command', {
@@ -13718,6 +13782,7 @@ window.missionRuntimeReset = function(options = {}) {
         personBoarded: false,
         autoSpawnedFor: null,
         autoClearedFor: null,
+        emptySceneFor: null,
         respawnAfterClear,
         respawnAfterClearReason: respawnAfterClear ? 'mission-runtime-reset' : ''
     });
@@ -13746,6 +13811,7 @@ window.missionRuntimeReset = function(options = {}) {
         clearRequested: false,
         cleared: false,
         clearedCount: 0,
+        lifecycleBlockReason: '',
         error: null
     });
     _resetMissionRuntime();
@@ -14120,7 +14186,7 @@ window.manualMissionEnd = function(options = {}) {
         needsRideHome: poiNeedsRideHome
     });
     cargoOutcome = _missionOutcomeApplyEndReadiness(cargoOutcome, endReady);
-    if (!endReady.atTarget && !poiGroundEndReady && typeof window.triggerPaxOffDestinationLanding === 'function') {
+    if (!endReady.atTarget && !poiGroundEndReady && !bushGroundEndReady && !runtimeGroundEndReady && typeof window.triggerPaxOffDestinationLanding === 'function') {
         const dTargetNm = endReady.hasAptArrival && Number.isFinite(Number(endReady.dArrivalNm))
             ? Number(endReady.dArrivalNm)
             : Number(endReady.dMissionNm);
@@ -19237,7 +19303,7 @@ function updateFlightRecorder(lat, lon, alt) {
             ? endReady.dArrivalNm
             : endReady.dMissionNm;
         missionRuntime.pendingEndAt = 0;
-        if (!runtimeGroundEndReady && r.hadAirbornePhase && (now - missionRuntime.lastOffDestAt) > 90000) {
+        if (!runtimeGroundEndReady && !bushGroundEndReady && r.hadAirbornePhase && (now - missionRuntime.lastOffDestAt) > 90000) {
             missionRuntime.lastOffDestAt = now;
             if (typeof window.triggerPaxOffDestinationLanding === 'function') {
                 window.triggerPaxOffDestinationLanding(dTargetNm);

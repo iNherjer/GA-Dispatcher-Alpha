@@ -1876,6 +1876,13 @@ function _missionCargoItemNeedsUnloadHere(item = null) {
     return item.deliverAtDestination !== false;
 }
 
+function _missionCargoPassengerWaitsForFarewellDeboarding(item = null) {
+    if (!_missionCargoIsPassengerItem(item) || item?.status !== 'loaded') return false;
+    if (!_missionBushIsPickupPassengerMission()) return false;
+    if (typeof _missionBushReturnHomeIsCurrentDestination !== 'function' || !_missionBushReturnHomeIsCurrentDestination()) return false;
+    return _missionCargoItemNeedsUnloadHere(item);
+}
+
 function _missionCargoLoadedPassengerItems(manifest = _missionCargoEnsureManifest()) {
     return (manifest.items || []).filter(item => _missionCargoIsPassengerItem(item) && item.status === 'loaded');
 }
@@ -5298,6 +5305,13 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         const renderMode = _missionCargoActionDialogMode(options, 'unload');
         const trackerManifest = _missionCargoEnsureManifest();
         const trackerItem = (trackerManifest.items || []).find(entry => entry.id === itemId);
+        if (_missionCargoPassengerWaitsForFarewellDeboarding(trackerItem)) {
+            if (window.missionCargoStatus) {
+                window.missionCargoStatus.error = 'Der Passagier steigt nach Verabschiedung und Deboarding-Sequenz aus.';
+            }
+            if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+            return false;
+        }
         const trackerIntent = trackerItem && _missionCargoIsPassengerItem(trackerItem)
             ? 'request_pax_interaction'
             : 'set_manifest_item';
@@ -5337,6 +5351,11 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         return false;
     }
     if (_missionCargoIsPassengerItem(item) && dropped) return false;
+    if (_missionCargoPassengerWaitsForFarewellDeboarding(item)) {
+        window.missionCargoStatus.error = 'Der Passagier steigt nach Verabschiedung und Deboarding-Sequenz aus.';
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+        return false;
+    }
     if (!_missionCargoIsPassengerItem(item)) _missionCargoDetachInheritedEquipmentFromBaseline(item);
     if (dropped) {
         const livePos = _missionCargoCommandBasePos();

@@ -1032,6 +1032,19 @@ Typische Erfolgslogik:
 8. optional Handoff-Szene
 9. Mission schließen
 
+Lifecycle-Guardrails:
+
+- Der leere Hinflug hat keine Start-Fahrzeug-/Crew-Szene; die Pickup-Szene wird
+  erst in Zielnaehe vorgestaged.
+- Die Pickup-Szene ist nach der separaten Pickup-Bestaetigung verbraucht und
+  darf durch GPS-/Reconnect-Ticks nicht respawnen.
+- Strip-Fallbacks verwenden nach Moeglichkeit die OSM-Runway-Achse und einen
+  geprueften Seitenabstand fuer Anker und alle Items, nicht den Streckenkurs.
+- Mit Beginn des `return_leg` werden Home-Anker und Home-Airport fuer die
+  Landeerkennung verwendet; der Pickup-Anker ist dann nur noch Historie.
+- Der Passenger bleibt bis Farewell/Deboarding `loaded`. Ein direkter manueller
+  Passenger-Unload am Home-Endpunkt ist kein Ersatz fuer diese Sequenz.
+
 ### 7.8 Bush Pickup Cargo
 
 Bausteine:
