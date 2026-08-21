@@ -57,7 +57,7 @@ assert.match(liveSocketHandlers, /shouldFallbackToRender[\s\S]*?relayKey:\s*'ren
 assert.match(source, /_liveGpsIndicatorConnectionLabel\(versionLabel\)/, 'relay code must be shown beside the tracker version');
 assert.match(source, /LIVE_GPS_PRIMARY_RETRY_MS/, 'Render fallback must keep probing the Cloudflare primary');
 assert.ok(
-    index.indexOf('relay-failover-core.js') < index.indexOf('sync.js?v=relay-failover'),
+    index.indexOf('relay-failover-core.js') < index.indexOf('sync.js?v='),
     'relay failover core must load before sync.js'
 );
 

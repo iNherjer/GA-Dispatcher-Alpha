@@ -13,6 +13,10 @@ const EFFECT_COMMANDS = Object.freeze({
   'scene.deboarding': Object.freeze({
     commandType: 'mission_scene_deboarding',
     ackType: 'mission_scene_deboarding_ack'
+  }),
+  'scene.compliance_visit': Object.freeze({
+    commandType: 'mission_scene_ground_visit',
+    ackType: 'mission_scene_ground_visit_ack'
   })
 });
 
@@ -71,6 +75,11 @@ function commandTemplateFor(plan, effectType) {
   if (contract.commandType === 'mission_scene_boarding' || contract.commandType === 'mission_scene_deboarding') {
     if (!Array.isArray(command.path) || command.path.length < 2 || command.path.length > 24) return null;
   }
+  if (contract.commandType === 'mission_scene_ground_visit') {
+    if (!Array.isArray(command.vehicleArrivalPath) || command.vehicleArrivalPath.length < 2
+        || !Array.isArray(command.visitorPaths) || command.visitorPaths.length !== 2
+        || command.visitorPaths.some(visitor => !Array.isArray(visitor?.path) || visitor.path.length < 2)) return null;
+  }
   return clone(command);
 }
 
@@ -79,6 +88,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
   const getLivePosition = typeof options.getLivePosition === 'function' ? options.getLivePosition : () => null;
   const dispatchCommand = typeof options.dispatchCommand === 'function' ? options.dispatchCommand : null;
   const log = typeof options.log === 'function' ? options.log : () => {};
+  const onStage = typeof options.onStage === 'function' ? options.onStage : null;
   let acknowledgeEffect = typeof options.acknowledgeEffect === 'function' ? options.acknowledgeEffect : null;
   const pending = new Map();
 
@@ -92,10 +102,66 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (effectType === 'mission.close_requested') {
       return { ok: true, status: 'completed', sideEffect: false, commandId };
     }
+    if (effectType === 'scene.compliance_departure') {
+      if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
+      if (!dispatchCommand) return errorResult('mission_simulator_not_connected');
+      const run = authorityManager.getActiveRun({ includeBundle: true });
+      if (!run?.missionId || !run?.runId) return errorResult('no_active_run');
+      if (run.executionAuthority !== 'tracker') return errorResult('mission_execution_authority_web');
+      if (cleanString(request.missionId) !== cleanString(run.missionId)
+          || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
+        return errorResult('mission_run_conflict');
+      }
+      const visit = [...pending.values()].find(record => record.effectType === 'scene.compliance_visit') || null;
+      const plan = effectPlanFromRun(run);
+      const sceneId = cleanString(safeObject(safeObject(plan?.effects)['scene.compliance_visit']).command?.sceneId, 220);
+      if (!visit?.effectId || !sceneId) return errorResult('mission_compliance_visit_target_missing');
+      const released = safeObject(await dispatchCommand({
+        type: 'mission_scene_ground_visit_release',
+        commandId,
+        missionId: run.missionId,
+        runId: run.runId,
+        sceneId,
+        visitCommandId: visit.effectId,
+        reason: 'tracker-execution:authority-inspection-complete'
+      }));
+      if (released.ok !== true) return errorResult(released.error || 'mission_compliance_departure_failed');
+      return { ok: true, status: 'completed', sideEffect: released.sideEffect === true, commandId };
+    }
+    if (effectType === 'scene.deboarding_continue') {
+      if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
+      if (!dispatchCommand) return errorResult('mission_simulator_not_connected');
+      const run = authorityManager.getActiveRun({ includeBundle: true });
+      if (!run?.missionId || !run?.runId) return errorResult('no_active_run');
+      if (run.executionAuthority !== 'tracker') return errorResult('mission_execution_authority_web');
+      if (cleanString(request.missionId) !== cleanString(run.missionId)
+          || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
+        return errorResult('mission_run_conflict');
+      }
+      const targetEffectId = cleanString(request?.effect?.payload?.deboardingEffectId, 220);
+      const plan = effectPlanFromRun(run);
+      const sceneId = cleanString(safeObject(safeObject(plan?.effects)['scene.deboarding']).command?.sceneId, 220);
+      if (!targetEffectId || !sceneId) return errorResult('mission_deboarding_continuation_target_missing');
+      const continued = safeObject(await dispatchCommand({
+        type: 'mission_scene_deboarding_continue',
+        commandId,
+        missionId: run.missionId,
+        runId: run.runId,
+        sceneId,
+        deboardingCommandId: targetEffectId,
+        reason: 'tracker-execution:farewell-complete'
+      }));
+      if (continued.ok !== true) return errorResult(continued.error || 'mission_deboarding_continuation_failed');
+      return { ok: true, status: 'completed', sideEffect: continued.sideEffect === true, commandId };
+    }
     const contract = EFFECT_COMMANDS[effectType];
     if (!contract) return errorResult('mission_simulator_effect_not_supported');
     if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
-    if (!dispatchCommand) return errorResult('mission_simulator_not_connected');
+    if (!dispatchCommand) {
+      return effectType === 'scene.compliance_visit'
+        ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
+        : errorResult('mission_simulator_not_connected');
+    }
 
     const run = authorityManager.getActiveRun({ includeBundle: true });
     if (!run?.missionId || !run?.runId) return errorResult('no_active_run');
@@ -105,11 +171,17 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       return errorResult('mission_run_conflict');
     }
     const plan = effectPlanFromRun(run);
-    if (!plan) return errorResult('mission_apt_effect_plan_missing');
+    if (!plan) return effectType === 'scene.compliance_visit'
+      ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
+      : errorResult('mission_apt_effect_plan_missing');
     const template = commandTemplateFor(plan, effectType);
-    if (!template) return errorResult('mission_apt_effect_command_invalid');
+    if (!template) return effectType === 'scene.compliance_visit'
+      ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
+      : errorResult('mission_apt_effect_command_invalid');
     const position = normalizeLivePosition(getLivePosition());
-    if (!position) return errorResult('mission_simulator_live_position_missing');
+    if (!position) return effectType === 'scene.compliance_visit'
+      ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
+      : errorResult('mission_simulator_live_position_missing');
 
     const command = {
       ...template,
@@ -123,12 +195,16 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       altFt: position.altFt,
       hdg: position.hdg
     };
+    if (effectType === 'scene.deboarding') {
+      command.coordinateFarewell = request?.effect?.payload?.coordinateFarewell === true;
+    }
     pending.set(commandId, {
       effectId: commandId,
       effectType,
       ackType: contract.ackType,
       missionId: run.missionId,
-      runId: run.runId
+      runId: run.runId,
+      coordinateFarewell: effectType === 'scene.deboarding' && request?.effect?.payload?.coordinateFarewell === true
     });
     let result;
     try {
@@ -144,6 +220,9 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     }
     if (result.ok !== true) {
       pending.delete(commandId);
+      if (effectType === 'scene.compliance_visit') {
+        return { ok: true, status: 'completed', sideEffect: result.sideEffect === true, commandId, logicalFallback: true };
+      }
       return {
         ok: false,
         status: cleanString(result.status, 40) || 'error',
@@ -161,6 +240,27 @@ function createTrackerMissionSimulatorEffects(options = {}) {
   const handleAck = (ack = {}) => {
     const commandId = cleanString(ack.commandId, 220);
     const record = pending.get(commandId);
+    const ackType = cleanString(ack.type, 140).toLowerCase();
+    const isDeboardingStage = record?.effectType === 'scene.deboarding'
+      && ackType === 'mission_scene_deboarding_stage';
+    const isComplianceStage = record?.effectType === 'scene.compliance_visit'
+      && ackType === 'mission_scene_ground_visit_stage';
+    if (record && (isDeboardingStage || isComplianceStage)) {
+      if (onStage) {
+        Promise.resolve(onStage({
+          effectId: record.effectId,
+          effectType: record.effectType,
+          missionId: record.missionId,
+          runId: record.runId,
+          coordinateFarewell: record.coordinateFarewell === true,
+          stage: cleanString(ack.stage, 80).toLowerCase(),
+          simulatorAck: clone(ack)
+        })).catch((error) => {
+          log(`MISSION_EFFECT_STAGE_ERROR effect=${record.effectType} commandId=${commandId} error=${error?.message || error}`);
+        });
+      }
+      return true;
+    }
     if (!record || cleanString(ack.type, 140).toLowerCase() !== record.ackType) return false;
     pending.delete(commandId);
     const ackStatus = cleanString(ack.status, 40).toLowerCase();
@@ -189,6 +289,8 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     handlers: Object.freeze({
       'scene.prepare': dispatch,
       'scene.boarding': dispatch,
+      'scene.compliance_visit': dispatch,
+      'scene.compliance_departure': dispatch,
       'mission.close_requested': dispatch
     }),
     pendingCount: () => pending.size,

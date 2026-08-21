@@ -23,10 +23,17 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     });
   }
 
-  const adapter = createTrackerMissionExecutionAdapter({ authorityManager });
+  const adapter = createTrackerMissionExecutionAdapter({
+    authorityManager,
+    flightLog: options.flightLog
+  });
   let simulatorEffects = null;
+  let simulatorPayloadSyncBeforeStart = null;
+  let simulatorPayloadSyncManifestState = null;
+  let cancelSimulatorPayloadSync = null;
   let cleanupExecutionRun = null;
   let recoveryDrain = Promise.resolve();
+  let effectRunner = null;
   let lastTelemetryDiagnosticKey = '';
   let lastTelemetryDiagnosticAt = 0;
   const dispatchSimulatorEffect = request => {
@@ -41,13 +48,127 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     sideEffect: false,
     commandId: request?.commandId || null
   });
-  const effectRunner = createTrackerMissionEffectRunner({
+  const missingEffectHandler = type => request => ({
+    ok: false,
+    status: 'blocked',
+    error: `${type}_handler_missing`,
+    terminal: false,
+    sideEffect: false,
+    commandId: request?.commandId || null
+  });
+  const fallbackPayloadOutcome = (result = {}, error = null) => ({
+    schema: 'ga.mission-payload-outcome.v1',
+    status: error || result?.ok !== true ? 'warning' : 'ok',
+    override: Boolean(error || result?.ok !== true),
+    adapter: null,
+    error: error
+      ? String(error?.code || error?.message || error).trim().slice(0, 180)
+      : (result?.ok !== true ? String(result?.error || 'payload_sync_failed').trim().slice(0, 180) : null),
+    plan: null,
+    verification: null,
+    updatedAt: null
+  });
+  const configuredPayloadSyncBeforeStart = typeof options.payloadSyncBeforeStart === 'function'
+    ? options.payloadSyncBeforeStart
+    : null;
+  const payloadSyncBeforeStart = request => {
+    const handler = simulatorPayloadSyncBeforeStart || configuredPayloadSyncBeforeStart;
+    if (!handler) return missingEffectHandler('mission_payload_sync')(request);
+    const snapshot = authorityManager.getExecutionSnapshot?.() || null;
+    return handler({
+      ...request,
+      manifest: snapshot?.manifest || snapshot?.state?.manifest || null,
+      payloadContext: request?.effect?.payload?.payloadContext || null
+    });
+  };
+  const payloadSyncManifestState = request => {
+    const handler = simulatorPayloadSyncManifestState;
+    if (!handler) return missingEffectHandler('mission_payload_manifest_sync')(request);
+    const snapshot = authorityManager.getExecutionSnapshot?.() || null;
+    const scheduled = Promise.resolve(handler({
+      ...request,
+      manifest: snapshot?.manifest || snapshot?.state?.manifest || null,
+      payloadContext: request?.effect?.payload?.payloadContext || null
+    }));
+    scheduled.then(async result => {
+      const status = String(result?.status || '').trim().toLowerCase();
+      if (status === 'cancelled') return;
+      const acknowledged = await effectRunner.acknowledge({
+        effectId: request.effect?.effectId || request.commandId,
+        status: 'completed',
+        ...(status !== 'superseded'
+          ? { result: result?.payloadOutcome || fallbackPayloadOutcome(result) }
+          : {})
+      });
+      if (!acknowledged.ok) {
+        log(`MISSION_PAYLOAD_EFFECT_ACK_ERROR effect=${request.effect?.effectId || request.commandId || ''} error=${acknowledged.error || acknowledged.status || 'unknown'}`);
+        return;
+      }
+      await effectRunner.drain();
+      logCheckpoint(`payload-ack:${status || 'completed'}`);
+      finalizeIfClosed(request.effect?.effectId || request.commandId || 'payload');
+    }).catch(async error => {
+      const effectId = request.effect?.effectId || request.commandId;
+      log(`MISSION_PAYLOAD_EFFECT_ERROR effect=${effectId || ''} error=${error?.code || error?.message || error}`);
+      const acknowledged = await effectRunner.acknowledge({
+        effectId,
+        status: 'completed',
+        result: fallbackPayloadOutcome({}, error)
+      });
+      if (acknowledged.ok) {
+        await effectRunner.drain();
+        logCheckpoint('payload-ack:error');
+        finalizeIfClosed(effectId || 'payload');
+      }
+    });
+    return {
+      ok: true,
+      status: 'pending',
+      sideEffect: false,
+      commandId: request.commandId || request.effect?.effectId || null
+    };
+  };
+  const playBoardingVoice = typeof options.playBoardingVoice === 'function'
+    ? options.playBoardingVoice
+    : missingEffectHandler('mission_boarding_voice');
+  const configuredFarewellVoice = typeof options.playFarewellVoice === 'function'
+    ? options.playFarewellVoice
+    : completeLocalEffect;
+  const playFarewellVoice = request => configuredFarewellVoice({
+    ...request,
+    farewellRecipe: adapter.getFarewellVoiceRecipe?.() || null,
+    farewellContext: adapter.getFarewellAuthorityContext?.() || null,
+    farewellDynamicContext: adapter.getFarewellDynamicContext?.() || null
+  });
+  const playComplianceVoice = typeof options.playComplianceVoice === 'function'
+    ? options.playComplianceVoice
+    : completeLocalEffect;
+  const recordAuthoritySanction = typeof options.recordAuthoritySanction === 'function'
+    ? options.recordAuthoritySanction
+    : completeLocalEffect;
+  const releaseComplianceLogically = async request => {
+    const delayMs = Math.max(0, Math.min(5000, Number(request?.effect?.payload?.delayMs) || 900));
+    if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
+    return completeLocalEffect(request);
+  };
+  effectRunner = createTrackerMissionEffectRunner({
     authorityManager,
     applySystemEvent: request => adapter.applySystemEvent(request),
     handlers: {
       'scene.prepare': dispatchSimulatorEffect,
       'scene.boarding': dispatchSimulatorEffect,
+      'voice.boarding': playBoardingVoice,
+      'voice.farewell': playFarewellVoice,
+      'voice.compliance_request': playComplianceVoice,
+      'voice.compliance_result': playComplianceVoice,
+      'payload.sync_before_start': payloadSyncBeforeStart,
+      'payload.sync_manifest_state': payloadSyncManifestState,
       'scene.deboarding': dispatchSimulatorEffect,
+      'scene.deboarding_continue': dispatchSimulatorEffect,
+      'scene.compliance_visit': dispatchSimulatorEffect,
+      'scene.compliance_departure': dispatchSimulatorEffect,
+      'compliance.logical_release': releaseComplianceLogically,
+      'crewboard.authority_sanction': recordAuthoritySanction,
       'cargo.pickup_confirmed': completeLocalEffect,
       'cargo.unload_confirmed': completeLocalEffect,
       'mission.close_requested': dispatchSimulatorEffect
@@ -79,12 +200,13 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     if (snapshot?.state?.phase !== 'closed'
         || snapshot.state.effects.some(effect => effect.status === 'requested')
         || typeof authorityManager.finalizeExecutionRun !== 'function') return null;
+    const flightRecord = adapter.finalizeFlightLog?.({ status: 'completed' }) || null;
     const finalized = authorityManager.finalizeExecutionRun({
       commandId: `${effectId}:finalize`,
       reason: 'tracker-execution-close-ack'
     });
     if (!finalized.ok) log(`MISSION_EXECUTION_FINALIZE_ERROR error=${finalized.error || finalized.status || 'unknown'}`);
-    else log(`MISSION_EXECUTION_FINALIZED mission=${finalized.releasedRun?.missionId || ''} run=${finalized.releasedRun?.runId || ''}`);
+    else log(`MISSION_EXECUTION_FINALIZED mission=${finalized.releasedRun?.missionId || ''} run=${finalized.releasedRun?.runId || ''} segments=${Math.max(0, Number(flightRecord?.segmentCount || 0))}`);
     return finalized;
   };
 
@@ -116,7 +238,32 @@ function createTrackerMissionExecutionRuntime(options = {}) {
             view: validated.snapshot.view
           };
         }
+      } else if (typeof authorityManager.getExecutionPayloadRecovery === 'function') {
+        const recovery = authorityManager.getExecutionPayloadRecovery({
+          missionId: validated.snapshot.missionId,
+          runId: validated.snapshot.runId
+        });
+        if (recovery?.writeAttempted === true && recovery?.restored !== true) {
+          cleanup = {
+            ok: false,
+            status: 'blocked',
+            error: 'mission_payload_restore_simulator_not_connected',
+            cleared: 0,
+            sideEffect: false,
+            payloadRestore: { status: 'pending', restored: false }
+          };
+          return {
+            ok: false,
+            status: cleanup.status,
+            error: cleanup.error,
+            sideEffect: false,
+            cleanup,
+            activeRun: authorityManager.getActiveRun(),
+            view: validated.snapshot.view
+          };
+        }
       }
+      adapter.finalizeFlightLog?.({ status: 'aborted' });
       const aborted = authorityManager.abortExecutionRun({
         missionId: validated.snapshot.missionId,
         runId: validated.snapshot.runId,
@@ -132,6 +279,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           `run=${aborted.releasedRun?.runId || validated.snapshot.runId}`,
           `cleared=${Math.max(0, Number(cleanup?.cleared) || 0)}`,
           `cleanup=${String(cleanup?.status || 'ok').replace(/\s+/g, '_').slice(0, 80)}`,
+          `payloadRestore=${String(cleanup?.payloadRestore?.status || 'noop').replace(/\s+/g, '_').slice(0, 80)}`,
           `source=${String(request.controllerSession?.role || 'unknown').replace(/\s+/g, '_').slice(0, 40)}`
         ].join(' '));
       }
@@ -153,6 +301,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   };
 
   const attachSimulator = (simulator = {}) => {
+    simulatorPayloadSyncBeforeStart = typeof simulator.syncPayloadBeforeStart === 'function'
+      ? simulator.syncPayloadBeforeStart
+      : null;
+    simulatorPayloadSyncManifestState = typeof simulator.syncPayloadManifestState === 'function'
+      ? simulator.syncPayloadManifestState
+      : null;
+    cancelSimulatorPayloadSync = typeof simulator.cancelPayloadSync === 'function'
+      ? simulator.cancelPayloadSync
+      : null;
     const bridge = createTrackerMissionSimulatorEffects({
       authorityManager,
       getLivePosition: simulator.getLivePosition,
@@ -165,6 +322,45 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           finalizeIfClosed(request.effectId);
         }
         return acknowledged;
+      },
+      onStage: async stage => {
+        if (stage?.effectType === 'scene.compliance_visit'
+            && stage?.stage === 'visitors_at_aircraft') {
+          const waiting = adapter.applySystemEvent({
+            type: 'COMPLIANCE_INSPECTORS_WAITING',
+            eventId: `${stage.effectId}:visitors-at-aircraft`,
+            missionId: stage.missionId,
+            runId: stage.runId,
+            payload: {
+              sceneFallback: ['fallback', 'error'].includes(String(stage.simulatorAck?.status || '').toLowerCase())
+            }
+          });
+          if (!waiting.ok) {
+            if (waiting.status === 'noop') return true;
+            log(`MISSION_COMPLIANCE_STAGE_ERROR effect=${stage.effectId || ''} error=${waiting.error || waiting.status || 'unknown'}`);
+            return false;
+          }
+          await effectRunner.drain();
+          logCheckpoint('compliance-stage:visitors-at-aircraft');
+          return true;
+        }
+        if (stage?.effectType !== 'scene.deboarding'
+            || stage?.coordinateFarewell !== true
+            || stage?.stage !== 'cue') return false;
+        const started = adapter.applySystemEvent({
+          type: 'FAREWELL_STARTED',
+          eventId: `${stage.effectId}:farewell-cue`,
+          missionId: stage.missionId,
+          runId: stage.runId
+        });
+        if (!started.ok) {
+          if (started.status === 'noop') return true;
+          log(`MISSION_FAREWELL_STAGE_ERROR effect=${stage.effectId || ''} error=${started.error || started.status || 'unknown'}`);
+          return false;
+        }
+        await effectRunner.drain();
+        logCheckpoint('deboarding-stage:farewell-cue');
+        return true;
       },
       log
     });
@@ -181,6 +377,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const detachSimulator = (bridge = null) => {
     if (bridge && simulatorEffects !== bridge) return false;
     simulatorEffects = null;
+    simulatorPayloadSyncBeforeStart = null;
+    simulatorPayloadSyncManifestState = null;
+    if (cancelSimulatorPayloadSync) {
+      Promise.resolve(cancelSimulatorPayloadSync('simulator-detached')).catch(error => {
+        log(`MISSION_PAYLOAD_CANCEL_ERROR error=${error?.code || error?.message || error}`);
+      });
+    }
+    cancelSimulatorPayloadSync = null;
+    effectRunner.releasePending();
     cleanupExecutionRun = null;
     return true;
   };

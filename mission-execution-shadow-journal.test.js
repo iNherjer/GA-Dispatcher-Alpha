@@ -30,7 +30,9 @@ function bundle(options = {}) {
         closingPending: options.closingPending === true,
         startedAt: options.started === true ? 900 : 0,
         waitingFarewellDeboarding: options.waitingFarewell === true,
-        deboardingAfterFarewellStarted: options.farewellComplete === true
+        deboardingAfterFarewellStarted: options.farewellComplete === true,
+        farewellSpeechStarted: options.waitingFarewell === true,
+        farewellSpeechComplete: options.farewellComplete === true
       },
       cargoManifest: {
         version: 6,
@@ -95,6 +97,7 @@ test('normal APT lifecycle becomes a deterministic event replay without legacy d
   assert.equal(result.state.flags.closed, true);
   assert.deepEqual(result.bundle.events.map(event => event.type), [
     'PREPARE_REQUESTED',
+    'EFFECT_ACKNOWLEDGED',
     'BOARDING_STARTED',
     'CARGO_STATE_CHANGED',
     'LOAD_CONFIRMED',
@@ -106,10 +109,14 @@ test('normal APT lifecycle becomes a deterministic event replay without legacy d
     'CARGO_STATE_CHANGED',
     'UNLOAD_CONFIRMED',
     'CLOSE_REQUESTED',
+    'FAREWELL_COMPLETED',
     'MISSION_CLOSED'
   ]);
   assert.equal(result.bundle.events.length, new Set(result.bundle.events.map(event => event.eventId)).size);
-  assert.doesNotMatch(JSON.stringify(result.bundle), /Private Pilot|Private cargo|Private mission/);
+  const serializedBundle = JSON.stringify(result.bundle);
+  assert.match(serializedBundle, /Private Pilot/);
+  assert.match(serializedBundle, /Private cargo narrative/);
+  assert.doesNotMatch(serializedBundle, /Private mission narrative/);
 });
 
 test('skipped APT snapshots synthesize prerequisite transitions and duplicate snapshots add no events', () => {
@@ -118,6 +125,7 @@ test('skipped APT snapshots synthesize prerequisite transitions and duplicate sn
   const first = advance(initial, active, 2000);
   assert.deepEqual(first.bundle.events.map(event => event.type), [
     'PREPARE_REQUESTED',
+    'EFFECT_ACKNOWLEDGED',
     'BOARDING_STARTED',
     'CARGO_STATE_CHANGED',
     'LOAD_CONFIRMED',
@@ -154,13 +162,13 @@ test('farewell wait and a skipped completion snapshot remain drift-free before c
     phase: 'end_ready', active: true, started: true, airborne: true, onGround: true,
     cargoStatus: 'unloaded', signatureScope: 'arrival', waitingFarewell: true
   }), 3200);
-  assert.deepEqual(result.acceptedEvents, ['FAREWELL_STARTED']);
+  assert.deepEqual(result.acceptedEvents, ['CLOSE_REQUESTED']);
   assert.deepEqual(result.legacyDriftFields, []);
   result = advance(result.journal, bundle({
     phase: 'closing', closingPending: true, started: true, airborne: true, onGround: true,
     cargoStatus: 'unloaded', signatureScope: 'arrival'
   }), 3210);
-  assert.deepEqual(result.acceptedEvents, ['FAREWELL_COMPLETED', 'CLOSE_REQUESTED']);
+  assert.deepEqual(result.acceptedEvents, ['FAREWELL_COMPLETED']);
   assert.deepEqual(result.legacyDriftFields, []);
 });
 
@@ -179,9 +187,9 @@ test('compliance revisions and release gates replay exactly before closing', () 
   result = advance(result.journal, bundle({
     phase: 'closing', closingPending: true, started: true, airborne: true, onGround: true,
     cargoStatus: 'unloaded', signatureScope: 'arrival',
-    compliance: { selected: true, phase: 'released', revision: 7, released: true }
+    compliance: { selected: true, phase: 'released', revision: 7, released: true, releasedAt: 3310 }
   }), 3310);
-  assert.deepEqual(result.acceptedEvents, ['COMPLIANCE_EVENT', 'CLOSE_REQUESTED']);
+  assert.deepEqual(result.acceptedEvents, ['COMPLIANCE_EVENT', 'CLOSE_REQUESTED', 'FAREWELL_COMPLETED']);
   assert.deepEqual(result.legacyDriftFields, []);
   assert.equal(result.state.workflows.complianceInspection.revision, 7);
   assert.equal(result.state.workflows.complianceInspection.released, true);
@@ -209,9 +217,13 @@ test('a new planned run with the same mission id cannot inherit a closed journal
 });
 
 test('browser and Node journal modules create byte-equivalent replay bundles', () => {
+  const payloadSource = fs.readFileSync(path.join(__dirname, 'mission-payload-core.js'), 'utf8');
+  const complianceSource = fs.readFileSync(path.join(__dirname, 'mission-compliance-domain-core.js'), 'utf8');
   const coreSource = fs.readFileSync(path.join(__dirname, 'mission-execution-core.js'), 'utf8');
   const journalSource = fs.readFileSync(path.join(__dirname, 'mission-execution-shadow-journal.js'), 'utf8');
   const context = vm.createContext({ console });
+  vm.runInContext(payloadSource, context, { filename: 'mission-payload-core.js' });
+  vm.runInContext(complianceSource, context, { filename: 'mission-compliance-domain-core.js' });
   vm.runInContext(coreSource, context, { filename: 'mission-execution-core.js' });
   vm.runInContext(journalSource, context, { filename: 'mission-execution-shadow-journal.js' });
   const target = bundle({ phase: 'active', active: true, started: true, airborne: true, onGround: false, cargoStatus: 'loaded', signatureScope: 'departure' });

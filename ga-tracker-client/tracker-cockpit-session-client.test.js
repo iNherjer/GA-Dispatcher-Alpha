@@ -130,3 +130,59 @@ test('an enabled cockpit audio instance claims and completes the next shared tra
   assert.equal(calls.some(call => call.body?.completed === true && call.url.endsWith('/release')), true);
   await client.stop();
 });
+
+test('cockpit playback keeps the App order: boarding cue first, then the central voice', async () => {
+  const calls = [];
+  const audioInstances = [];
+  class FakeAudio {
+    constructor(url) {
+      this.url = url;
+      this.volume = 1;
+      this.onended = null;
+      this.onerror = null;
+      audioInstances.push(this);
+    }
+    async play() { calls.push({ kind: 'play', url: this.url, volume: this.volume }); }
+    pause() {}
+  }
+  const fetchRemote = async (url, init = {}) => {
+    calls.push({ kind: 'fetch', url, body: init.body ? JSON.parse(init.body) : null });
+    if (url.endsWith('/cockpit/sessions')) return response({
+      session: { sessionId: 'session-cue', expiresAt: Date.now() + 45000, audioPlaybackEnabled: true },
+      sessionToken: 'token-cue',
+      heartbeatAfterMs: 999999
+    });
+    if (url.endsWith('/voice/playback/next')) return response({
+      available: true,
+      job: { effectId: 'run-cue:boarding', cue: { id: 'boarding_pax', audioAvailable: true, gain: 0.38 } }
+    });
+    if (url.endsWith('/voice/playback/claim')) return response({ claimed: true });
+    if (url.endsWith('/voice/playback/release')) return response({ released: true, completed: true });
+    throw new Error(`unexpected:${url}`);
+  };
+  const client = createClient({
+    role: 'efb',
+    clientId: 'efb-cue',
+    fetchRemote,
+    getAudioPlaybackEnabled: () => true,
+    listenForVoice: true,
+    Audio: FakeAudio
+  });
+  await client.start();
+  await client.pollVoice();
+  assert.equal(audioInstances.length, 2);
+  const voice = audioInstances.find(item => item.url.endsWith('/audio'));
+  const cue = audioInstances.find(item => item.url.endsWith('/cue'));
+  assert.ok(voice);
+  assert.ok(cue);
+  assert.equal(calls.filter(call => call.kind === 'play').length, 1);
+  assert.match(calls.find(call => call.kind === 'play').url, /\/cue$/);
+  assert.equal(calls.find(call => call.kind === 'play').volume, 0.38);
+  cue.onended();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(calls.filter(call => call.kind === 'play')[1].url, /\/audio$/);
+  voice.onended();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.some(call => call.body?.completed === true && call.url.endsWith('/release')), true);
+  await client.stop();
+});

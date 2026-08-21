@@ -50,7 +50,9 @@
     const getAudioPlaybackEnabled = typeof options.getAudioPlaybackEnabled === 'function'
       ? options.getAudioPlaybackEnabled
       : () => options.audioPlaybackEnabled === true;
-    const listenForVoice = options.listenForVoice === true;
+    const listenForVoice = typeof options.listenForVoice === 'function'
+      ? options.listenForVoice
+      : () => options.listenForVoice === true;
     let session = null;
     let sessionToken = '';
     let heartbeatTimer = null;
@@ -92,7 +94,7 @@
 
     function scheduleVoice(ms = 900) {
       if (voiceTimer) clearTimeout(voiceTimer);
-      if (stopped || !listenForVoice) return;
+      if (stopped) return;
       voiceTimer = setTimeout(() => pollVoice().catch(() => {}), Math.max(300, Number(ms) || 900));
     }
 
@@ -106,54 +108,99 @@
       const current = activeVoice;
       activeVoice = null;
       if (!current) return;
-      try { current.audio.onended = null; current.audio.onerror = null; } catch (_) {}
-      try { current.audio.pause(); } catch (_) {}
-      try { current.audio.currentTime = 0; } catch (_) {}
+      for (const audio of [current.cueAudio, current.audio].filter(Boolean)) {
+        try { audio.onended = null; audio.onerror = null; } catch (_) {}
+        try { audio.pause(); } catch (_) {}
+        try { audio.currentTime = 0; } catch (_) {}
+      }
       await releaseVoice(current.effectId, completed);
     }
 
     async function playVoiceJob(job) {
-      const effectId = String(job && job.effectId || '').trim();
+      const jobSource = job && typeof job === 'object' ? job : {};
+      const effectId = String(jobSource.effectId || '').trim();
       if (!effectId || activeVoice || getAudioPlaybackEnabled() !== true) return false;
       const claim = await post('/voice/playback/claim', { effectId, clientId, leaseMs: 120000 });
       if (!claim.response.ok || !claim.payload || claim.payload.claimed !== true) return false;
+      try {
+        runtime.dispatchEvent(new runtime.CustomEvent('ga:tracker-voice-playback', {
+          detail: {
+            effectId,
+            kind: String(jobSource.kind || ''),
+            text: String(jobSource.text || ''),
+            speaker: jobSource.speaker && typeof jobSource.speaker === 'object' ? Object.assign({}, jobSource.speaker) : {},
+            provider: String(jobSource.provider || ''),
+            model: String(jobSource.model || ''),
+            voiceName: String(jobSource.voiceName || '')
+          }
+        }));
+      } catch (_) {}
       const AudioCtor = options.Audio || runtime.Audio;
       if (typeof AudioCtor !== 'function') {
         await releaseVoice(effectId, false);
         return false;
       }
       const audio = new AudioCtor(`${baseUrl}/voice/jobs/${encodeURIComponent(effectId)}/audio`);
+      const cue = jobSource.cue && typeof jobSource.cue === 'object' ? jobSource.cue : null;
+      const cueAudio = cue && cue.audioAvailable === true
+        ? new AudioCtor(`${baseUrl}/voice/jobs/${encodeURIComponent(effectId)}/cue`)
+        : null;
+      let masterVolume = 1;
+      try {
+        audio.volume = 1;
+        if (cueAudio) cueAudio.volume = Math.max(0, Math.min(1, Number(cue.gain) || 0.38));
+      } catch (_) {}
       try {
         const storedVolume = typeof runtime.document !== 'undefined' && runtime.localStorage
           ? Number(runtime.localStorage.getItem('awm_volume'))
           : NaN;
-        audio.volume = Number.isFinite(storedVolume) ? Math.max(0, Math.min(1, storedVolume)) : 1;
+        masterVolume = Number.isFinite(storedVolume) ? Math.max(0, Math.min(1, storedVolume)) : 1;
+        audio.volume = masterVolume;
+        if (cueAudio) cueAudio.volume = Math.max(0, Math.min(1, masterVolume * (Number(cue.gain) || 0.38)));
       } catch (_) {}
-      activeVoice = { effectId, audio };
+      activeVoice = { effectId, audio, cueAudio };
       let finished = false;
+      let voiceStarted = false;
       const finish = async (completed) => {
         if (finished) return;
         finished = true;
         if (activeVoice && activeVoice.audio === audio) activeVoice = null;
-        try { audio.onended = null; audio.onerror = null; } catch (_) {}
+        for (const item of [cueAudio, audio].filter(Boolean)) {
+          try { item.onended = null; item.onerror = null; } catch (_) {}
+        }
         if (!completed) voiceCooldowns.set(effectId, Date.now() + 10000);
         await releaseVoice(effectId, completed);
         scheduleVoice(completed ? 250 : 1500);
       };
       audio.onended = () => finish(true).catch(() => {});
       audio.onerror = () => finish(false).catch(() => {});
+      const startVoice = async () => {
+        if (voiceStarted || finished) return true;
+        voiceStarted = true;
+        try {
+          await audio.play();
+          return true;
+        } catch (_) {
+          await finish(false);
+          return false;
+        }
+      };
+      if (cueAudio) {
+        cueAudio.onended = () => startVoice().catch(() => {});
+        cueAudio.onerror = () => startVoice().catch(() => {});
+      }
       try {
-        await audio.play();
+        if (cueAudio) await cueAudio.play();
+        else await startVoice();
         return true;
       } catch (_) {
-        await finish(false);
-        return false;
+        return startVoice();
       }
     }
 
     async function pollVoice() {
-      if (stopped || !listenForVoice) return;
-      if (!session || !session.sessionId || getAudioPlaybackEnabled() !== true || activeVoice) {
+      if (stopped) return;
+      if (listenForVoice() !== true || !session || !session.sessionId || getAudioPlaybackEnabled() !== true || activeVoice) {
         scheduleVoice(activeVoice ? 500 : 1200);
         return;
       }
@@ -306,7 +353,9 @@
       role,
       appVersion: String(script && script.dataset && script.dataset.appVersion || ''),
       capabilities: ['cockpit.session.v1', 'mission.snapshot.v2', 'voice.playback.v1'],
-      listenForVoice: role !== 'web',
+      listenForVoice: () => role !== 'web'
+        || (typeof runtime.gaTrackerExecutionHandlesMission === 'function'
+          && runtime.gaTrackerExecutionHandlesMission() === true),
       getAudioPlaybackEnabled: () => typeof runtime.awmShouldPlayOnThisDevice === 'function'
         ? runtime.awmShouldPlayOnThisDevice() === true
         : false

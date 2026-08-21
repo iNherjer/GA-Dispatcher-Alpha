@@ -106,3 +106,73 @@ node tools/generate-gemini-pax-voice-assets.mjs --takes 2 --voices all --clips a
 - Stimmen entsprechen dem Passenger-Voice-Pool: `Charon`, `Puck`, `Kore`, `Leda`, `Aoede`.
 - Gemini PCM/L16 wird als WAV gespeichert, damit der bestehende AudioContext-Player die Clips direkt decodieren kann.
 - Das Script schreibt `audio-pax/gemini-survey-v1/catalog.json`; erst dieser Katalog aktiviert die lokalen Clips in der Runtime.
+
+# Autoritative Tracker-Boarding-Voice
+
+Wenn ein APT-Lauf spaeter den noch geschlossenen Tracker-Authority-Gate
+passiert, fuehrt der Tracker `voice.boarding` aus. Die App uebergibt dabei
+keinen API-Key, sondern ein begrenztes
+`ga.mission-boarding-voice-recipe.v1` mit Prompt, App-Fallbacktext,
+Task-Domain, Sprecher und Modellreihenfolge. Der gemeinsame
+`mission-boarding-voice-core.js` wird in Browser und Node verwendet und
+enthaelt insbesondere dieselben Regeln fuer Pickup-Unterdrueckung,
+Cargo-only-Ansage, Training-Fallback und Voice-Rotation.
+
+Der Tracker-Job wird ueber seine stabile `effectId` dedupliziert und lokal in
+`tracker-voice-cache-v1.json` wiederanlaufbar gespeichert. Der Cache enthaelt
+den aufgeloesten Text, begrenzte Provider-/Modellmetadaten und das fertige
+Audio, aber weder API-Key noch Prompt. Bei PAX wird zuerst der nach demselben
+App-Missionsseed gewaehlte `audio-cues/boarding_pax*.mp3`-Clip mit Gain `0.38`
+und danach TTS abgespielt. Beide Streams teilen dieselbe exklusive
+Playback-Lease des im Audio-Menue ausgewaehlten Geraets. Cargo-only erzeugt
+die App-identische Loadmaster-Ansage ohne Pax-Cue. Fehlender Provider, Cue,
+Audioclient oder Playbackfehler ist best effort und darf den Missionsstart
+nicht sperren.
+
+Dieser Schnitt ersetzt den Legacy-Pfad nicht allgemein. Im vorbereiteten
+v376-Feldkandidaten ist `TRACKER_AUTHORITY_READY` fuer Standard-APT geoeffnet,
+wirkt aber nur bei Alpha plus aktiviertem APT-Opt-in. Stable sowie Alpha ohne
+Opt-in verwenden weiterhin die vorhandene Voice-Logik in
+`passenger-voice.js`. Farewell/Deboarding ist fuer Standard-APT ebenfalls
+gemeinsam extrahiert. POI-/Pickup-/Sonderansagen und der reale In-Sim-
+Playbacknachweis bleiben weiterhin offen.
+
+# Autoritative Tracker-Farewell-Voice
+
+Der lokale Farewell-Migrationsblock verwendet
+`ga.mission-farewell-voice-recipe.v1`. Das Recipe kommt aus demselben
+`_farewellPreparedContext()` wie der App-Fallback und behaelt damit
+Passenger-Prompt, Failure-Direkttext, Cargo-only-Prompt, Sprecher,
+Task-Domain und Modellreihenfolge. Beim Close aus der vollstaendigen App/EFB
+wird das situationsaktuelle Recipe nur privat an den Tracker gereicht; Prompt
+und API-Key sind kein Teil der oeffentlichen Mission-Control-Projektion.
+
+Bei PAX beginnt der zentrale Job am Deboarding-Stage `cue`. Der ausgewaehlte
+Audioclient spielt zuerst `deboarding_pax*.mp3` mit Gain `0.38` und danach den
+Farewell-TTS-Stream. Erst die bestaetigte oder best-effort beendete Wiedergabe
+gibt `mission_scene_deboarding_continue` frei. Ein 75-Sekunden-Watchdog
+entspricht dem App-End-Fallback; der abgebrochene Job wird aus dem zentralen
+Cache entfernt, damit er nicht nach Missionsende verspaetet abgespielt wird.
+Der Passenger-Manifeststatus bleibt bis zum finalen Deboarding-/Handoff-ACK
+geladen.
+
+Fuer Standard-APT erzeugt der Tracker den situationsaktuellen Kontext nun
+selbst: `mission-flight-recorder-core.js` bildet App-Arming, Pause,
+Reposition, GPS-VS-Smoothing, Flugaggregate, Touchdown und Cargo-Stress ab.
+Die Farewell-Flugdaten werden wie in der App am Touchdown eingefroren; nach
+fuenf Sekunden stabiler Zwischenlandung wird nur der Recorder fuer einen
+moeglichen Folgeabschnitt zurueckgesetzt.
+Der beim Handoff privat gespeicherte statische App-Kontext enthaelt Rolle,
+Narrativ-, APT-, Text-, Sprecher- und Modellregeln; Record und letztes Wetter
+werden privat und neustartfest im Tracker fortgeschrieben. Ein Close allein
+aus der tracker-gehosteten Oberflaeche erzeugt daraus denselben aktuellen
+Passenger-, Failure- oder Cargo-Prompt. Ein von der App beim Close geliefertes
+aktuelles Recipe hat Vorrang, das alte Handoff-Recipe dient nur noch als
+Rueckwaertskompatibilitaets-Fallback. Bei Tracker-Authority bereitet die App
+selbst keinen zweiten Farewell-Job mehr vor.
+
+Dieser lokale Block oeffnet den Authority-Gate noch nicht. Training, POI,
+Bush/Pickup und SAR-Heli werden bewusst als nicht migriert abgewiesen, weil
+ihre zusaetzlichen Auswertungs- und Narrativregeln noch in
+`passenger-voice.js` liegen. Auch kanonisches UI und realer In-Sim-
+Gesamtnachweis bleiben offen.

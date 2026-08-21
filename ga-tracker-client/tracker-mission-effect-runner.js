@@ -3,9 +3,21 @@
 const DEFAULT_ACK_LEASE_MS = 30000;
 const DEFAULT_RETRY_DELAY_MS = 2000;
 const MAX_DRAIN_EFFECTS = 16;
+const PAYLOAD_EFFECT_TYPES = new Set(['payload.sync_before_start', 'payload.sync_manifest_state']);
+const VOICE_EFFECT_TYPES = new Set([
+  'voice.boarding',
+  'voice.farewell',
+  'voice.compliance_request',
+  'voice.compliance_result'
+]);
 const APT_EFFECT_FOLLOW_UPS = Object.freeze({
-  'scene.prepare': 'BOARDING_STARTED',
-  'scene.boarding': 'BOARDING_CONFIRMED',
+  'scene.boarding': 'BOARDING_SCENE_CONFIRMED',
+  'voice.boarding': 'BOARDING_CONFIRMED',
+  'voice.farewell': 'FAREWELL_COMPLETED',
+  'voice.compliance_request': 'COMPLIANCE_REQUEST_COMPLETED',
+  'voice.compliance_result': 'COMPLIANCE_RESULT_COMPLETED',
+  'compliance.logical_release': 'COMPLIANCE_RELEASED',
+  'payload.sync_before_start': 'LOAD_CONFIRMED',
   'scene.deboarding': 'PAX_DEBOARDING_CONFIRMED',
   'mission.close_requested': 'MISSION_CLOSED'
 });
@@ -70,7 +82,7 @@ function createTrackerMissionEffectRunner(options = {}) {
     return null;
   };
 
-  const applyEffectAck = (effect, status) => {
+  const applyEffectAck = (effect, status, result = null) => {
     const validated = executionSnapshot();
     if (!validated.ok) return validated;
     const snapshot = validated.snapshot;
@@ -101,13 +113,24 @@ function createTrackerMissionEffectRunner(options = {}) {
         type: 'EFFECT_ACKNOWLEDGED',
         sequence: snapshot.executionRevision + 1,
         occurredAt: Math.max(0, Math.round(Number(now()) || 0)),
-        payload: { effectId: effect.effectId, status }
+        payload: {
+          effectId: effect.effectId,
+          status,
+          ...(PAYLOAD_EFFECT_TYPES.has(effect.type) && safeObject(result).schema === 'ga.mission-payload-outcome.v1'
+            ? { result: safeObject(result) }
+            : (VOICE_EFFECT_TYPES.has(effect.type) && safeObject(result).schema === 'ga.mission-voice-outcome.v1'
+              ? { result: safeObject(result) }
+              : {}))
+        }
       }
     });
   };
 
-  const applyFollowUp = effect => {
-    const followUpType = APT_EFFECT_FOLLOW_UPS[effect.type] || null;
+  const applyFollowUp = (effect, result = null) => {
+    const outcome = safeObject(result);
+    const followUpType = effect.type === 'scene.compliance_visit'
+      ? (outcome.logicalFallback === true ? 'COMPLIANCE_INSPECTORS_WAITING' : 'COMPLIANCE_RELEASED')
+      : (APT_EFFECT_FOLLOW_UPS[effect.type] || null);
     if (!followUpType) return { ok: true, status: 'noop', sideEffect: false };
     if (!applySystemEvent) return errorResult('mission_effect_follow_up_handler_required');
     const snapshot = authorityManager.getExecutionSnapshot();
@@ -117,7 +140,10 @@ function createTrackerMissionEffectRunner(options = {}) {
       eventId: `${effect.effectId}:complete`,
       missionId: snapshot.missionId,
       runId: snapshot.runId,
-      expectedRevision: snapshot.authorityRevision
+      expectedRevision: snapshot.authorityRevision,
+      payload: followUpType === 'COMPLIANCE_INSPECTORS_WAITING'
+        ? { sceneFallback: outcome.logicalFallback === true }
+        : {}
     });
   };
 
@@ -139,10 +165,55 @@ function createTrackerMissionEffectRunner(options = {}) {
     }
     const completed = resultStatus === 'ok' || resultStatus === 'completed';
     if (completed) {
-      const followUp = await applyFollowUp(effect);
+      const followUp = await applyFollowUp(effect, request.result || request.simulatorAck);
       if (!followUp.ok) return { ...followUp, effect };
+    } else if (effect.type === 'scene.deboarding' && effect.payload.coordinateFarewell === true) {
+      if (!applySystemEvent) return errorResult('mission_effect_follow_up_handler_required');
+      const beforeFallback = authorityManager.getExecutionSnapshot();
+      if (!beforeFallback?.state?.flags?.farewellStarted) {
+        const farewellStarted = await applySystemEvent({
+          type: 'FAREWELL_STARTED',
+          eventId: `${effect.effectId}:fallback-farewell`,
+          missionId: beforeFallback?.missionId,
+          runId: beforeFallback?.runId,
+          expectedRevision: beforeFallback?.authorityRevision
+        });
+        if (!farewellStarted.ok) return { ...farewellStarted, effect };
+      }
+      const fallbackSnapshot = authorityManager.getExecutionSnapshot();
+      const passengerFallback = await applySystemEvent({
+        type: 'PAX_DEBOARDING_CONFIRMED',
+        eventId: `${effect.effectId}:fallback-handoff`,
+        missionId: fallbackSnapshot?.missionId,
+        runId: fallbackSnapshot?.runId,
+        expectedRevision: fallbackSnapshot?.authorityRevision
+      });
+      if (!passengerFallback.ok) return { ...passengerFallback, effect };
+    } else if (effect.type === 'scene.compliance_visit') {
+      if (!applySystemEvent) return errorResult('mission_effect_follow_up_handler_required');
+      const fallbackSnapshot = authorityManager.getExecutionSnapshot();
+      const fallback = await applySystemEvent({
+        type: 'COMPLIANCE_INSPECTORS_WAITING',
+        eventId: `${effect.effectId}:fallback-visitors`,
+        missionId: fallbackSnapshot?.missionId,
+        runId: fallbackSnapshot?.runId,
+        expectedRevision: fallbackSnapshot?.authorityRevision,
+        payload: { sceneFallback: true }
+      });
+      if (!fallback.ok && fallback.status !== 'noop') return { ...fallback, effect };
+    } else if (effect.type === 'scene.compliance_departure') {
+      if (!applySystemEvent) return errorResult('mission_effect_follow_up_handler_required');
+      const fallbackSnapshot = authorityManager.getExecutionSnapshot();
+      const fallback = await applySystemEvent({
+        type: 'COMPLIANCE_RELEASED',
+        eventId: `${effect.effectId}:fallback-release`,
+        missionId: fallbackSnapshot?.missionId,
+        runId: fallbackSnapshot?.runId,
+        expectedRevision: fallbackSnapshot?.authorityRevision
+      });
+      if (!fallback.ok && fallback.status !== 'noop') return { ...fallback, effect };
     }
-    const acknowledged = applyEffectAck(effect, completed ? 'completed' : 'failed');
+    const acknowledged = applyEffectAck(effect, completed ? 'completed' : 'failed', request.result);
     if (acknowledged.ok) {
       pendingDispatches.delete(effectId);
       retryAfter.delete(effectId);
@@ -154,18 +225,36 @@ function createTrackerMissionEffectRunner(options = {}) {
     const validated = executionSnapshot();
     if (!validated.ok) return validated;
     const snapshot = validated.snapshot;
-    const effect = requestedEffects(snapshot)[0] || null;
-    if (!effect) return { ok: true, status: 'noop', sideEffect: false, pendingCount: 0, view: snapshot.view };
+    const effects = requestedEffects(snapshot);
+    if (!effects.length) return { ok: true, status: 'noop', sideEffect: false, pendingCount: 0, view: snapshot.view };
+    const timestamp = now();
+    const effect = effects.find(candidate => {
+      const pending = pendingDispatches.get(candidate.effectId);
+      if (pending && pending.expiresAt > timestamp) return false;
+      return Number(retryAfter.get(candidate.effectId) || 0) <= timestamp;
+    }) || null;
+    if (!effect) {
+      const pendingEffect = effects.find(candidate => {
+        const pending = pendingDispatches.get(candidate.effectId);
+        return pending && pending.expiresAt > timestamp;
+      }) || null;
+      if (pendingEffect) {
+        return { ok: true, status: 'pending', sideEffect: false, effect: pendingEffect, commandId: pendingEffect.effectId };
+      }
+      const retryEffect = effects
+        .map(candidate => ({ effect: candidate, retryAt: Number(retryAfter.get(candidate.effectId) || 0) }))
+        .filter(candidate => candidate.retryAt > timestamp)
+        .sort((left, right) => left.retryAt - right.retryAt)[0] || null;
+      return {
+        ok: true,
+        status: 'retry_wait',
+        sideEffect: false,
+        effect: retryEffect?.effect || effects[0],
+        retryAt: retryEffect?.retryAt || null
+      };
+    }
     const handler = handlerFor(effect.type);
     if (!handler) return errorResult('mission_effect_handler_missing', { effect, pendingCount: requestedEffects(snapshot).length });
-    const timestamp = now();
-    const pending = pendingDispatches.get(effect.effectId);
-    if (pending && pending.expiresAt > timestamp) {
-      return { ok: true, status: 'pending', sideEffect: false, effect, commandId: effect.effectId };
-    }
-    if (Number(retryAfter.get(effect.effectId) || 0) > timestamp) {
-      return { ok: true, status: 'retry_wait', sideEffect: false, effect, retryAt: retryAfter.get(effect.effectId) };
-    }
     pendingDispatches.delete(effect.effectId);
     let dispatched;
     try {
@@ -189,15 +278,31 @@ function createTrackerMissionEffectRunner(options = {}) {
     }
     const dispatchStatus = cleanString(dispatched.status, 40).toLowerCase();
     if (dispatched.ok === true && dispatchStatus === 'pending') {
-      pendingDispatches.set(effect.effectId, { expiresAt: timestamp + ackLeaseMs });
+      pendingDispatches.set(effect.effectId, {
+        expiresAt: timestamp + (effect.type === 'scene.compliance_visit' ? 30 * 60 * 1000 : ackLeaseMs)
+      });
       return { ok: true, status: 'pending', dispatchAttempted: true, sideEffect: true, effect, commandId: effect.effectId };
     }
     if (dispatched.ok === true) {
-      const acknowledged = await acknowledge({ effectId: effect.effectId, status: 'completed' });
+      const acknowledged = await acknowledge({
+        effectId: effect.effectId,
+        status: 'completed',
+        result: PAYLOAD_EFFECT_TYPES.has(effect.type)
+          ? dispatched.payloadOutcome
+          : (VOICE_EFFECT_TYPES.has(effect.type)
+            ? dispatched.voiceOutcome
+            : (effect.type === 'scene.compliance_visit' ? dispatched : null))
+      });
       return { ...acknowledged, dispatchAttempted: true, sideEffect: true };
     }
     if (dispatched.terminal === true) {
-      const acknowledged = await acknowledge({ effectId: effect.effectId, status: 'failed' });
+      const acknowledged = await acknowledge({
+        effectId: effect.effectId,
+        status: 'failed',
+        result: PAYLOAD_EFFECT_TYPES.has(effect.type)
+          ? dispatched.payloadOutcome
+          : (VOICE_EFFECT_TYPES.has(effect.type) ? dispatched.voiceOutcome : null)
+      });
       return { ...acknowledged, dispatchAttempted: true, sideEffect: true };
     }
     retryAfter.set(effect.effectId, timestamp + retryDelayMs);
@@ -227,7 +332,8 @@ function createTrackerMissionEffectRunner(options = {}) {
     for (let index = 0; index < limit; index += 1) {
       const result = await pump();
       results.push(result);
-      if (!result.ok || result.status === 'noop' || result.status === 'pending' || result.status === 'retry_wait') break;
+      if (!result.ok || result.status === 'noop' || result.status === 'retry_wait') break;
+      if (result.status === 'pending' && result.dispatchAttempted !== true) break;
     }
     const snapshot = authorityManager.getExecutionSnapshot();
     return {
@@ -250,11 +356,19 @@ function createTrackerMissionEffectRunner(options = {}) {
     };
   };
 
+  const releasePending = () => {
+    const released = pendingDispatches.size;
+    pendingDispatches.clear();
+    retryAfter.clear();
+    return released;
+  };
+
   return Object.freeze({
     acknowledge,
     drain,
     publicState,
-    pump
+    pump,
+    releasePending
   });
 }
 

@@ -114,6 +114,24 @@ die Missionsdialoge nicht neu auf. Das installierte EFB-Community-Paket
 0.4.11 bleibt unveraendert und muss fuer diesen Host-Fix nicht neu gebaut
 werden. Stable bleibt auf v356.
 
+Die Quellparitaetspruefung vom 20.08.2026 stuft die schreibende v375-Execution
+nachtraeglich als Prototyp ein. Das EFB-Paket und der Host bleiben fuer Karte,
+read-only Mission Control, Audio-Lease und Cargo-Darstellung verwendbar. Der
+Tracker bewirbt `mission.intent.v1` jedoch auch bei Alpha plus Opt-in erst
+wieder, wenn `TRACKER_AUTHORITY_READY` nach den noch fehlenden Payload-,
+Voice-, Farewell-/Deboarding- und UI-Goldens explizit freigegeben ist. Bis
+dahin fuehrt die bestehende Web-App die Mission unveraendert aus.
+
+Tracker v376 / Host 0.7.2 / Assetrevision 37601 ist als noch nicht
+veroeffentlichter Alpha-Feldkandidat vorbereitet. Die lokalen und direkten
+App-Differentialnachweise fuer die Standard-APT-Cores sind gruen; deshalb ist
+`TRACKER_AUTHORITY_READY` fuer diesen Kandidaten geoeffnet. Die Capability
+`mission.intent.v1` erscheint weiterhin nur bei Alpha plus eingeschaltetem
+APT-Opt-in. Stable und Alpha ohne Opt-in behalten unveraendert die App-
+Authority. Der Kandidat dient dem realen Stufe-E-Nachweis und darf vor dessen
+PASS nicht nach Stable promoviert werden. Das vorhandene EFB-Paket 0.4.11
+muss fuer den tracker-gehosteten v376-Host nicht neu gebaut werden.
+
 Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
 Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als
 Entwicklungsmaske sichtbaren E6B-Ansicht verworfen und niemals in einen Kanal

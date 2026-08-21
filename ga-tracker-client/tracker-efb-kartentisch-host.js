@@ -72,6 +72,9 @@
   var missionBannerDismissedKey = '';
   var cargoManagerOpen = false;
   var cargoManagerSignature = '';
+  var cargoSignatureAnimationEndsAt = 0;
+  var cargoSignatureAnimationScope = '';
+  var cargoSignatureAnimationTimer = 0;
   var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
   var EFB_PROFILE_HEIGHT_KEY = 'ga_efb_tracker_profile_height_v1';
   var EFB_OVERLAY_PANES = {
@@ -546,16 +549,24 @@
     }).join('');
     var comfort = view.comfort && typeof view.comfort === 'object' ? view.comfort : {};
     var cargo = view.cargo && typeof view.cargo === 'object' ? view.cargo : {};
+    var voice = mission.voice && typeof mission.voice === 'object' ? mission.voice : {};
+    var voiceSpeaker = voice.speaker && typeof voice.speaker === 'object' ? voice.speaker : {};
+    var voiceHtml = voice.text
+      ? '<section class="ga-efb-mission-section"><small>LETZTE ANSAGE</small><div class="ga-efb-mission-feedback-list"><div class="ga-efb-mission-feedback is-info"><span>i</span><p>'
+        + (voiceSpeaker.name ? '<b>' + drawerEscape(voiceSpeaker.name) + ':</b> ' : '')
+        + drawerEscape(voice.text) + '</p></div></div></section>'
+      : '';
     var control = mission.control && typeof mission.control === 'object' ? mission.control : null;
     var allowedActions = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
     var canIntent = !!(control && control.executionAuthority === 'tracker');
     var actionLabels = {
       activate_cloud_mission: 'Mission aus der Cloud beginnen',
       prepare_mission: 'Mission vorbereiten',
+      start_boarding: 'Boarding und Verladen beginnen',
       start_mission: 'Mission starten',
       request_close: 'Mission beenden'
     };
-    var primaryActions = ['activate_cloud_mission', 'prepare_mission', 'start_mission', 'request_close'];
+    var primaryActions = ['activate_cloud_mission', 'prepare_mission', 'start_boarding', 'start_mission', 'request_close'];
     var actionHtml = primaryActions.filter(function (intent) {
       return allowedActions.indexOf(intent) >= 0;
     }).map(function (intent) {
@@ -586,6 +597,7 @@
       + (progressHtml ? '<section class="ga-efb-mission-section"><small>LIVE-FORTSCHRITT</small>' + progressHtml + '</section>' : '')
       + (requirementsHtml ? '<section class="ga-efb-mission-section"><small>BEDINGUNGEN</small><div class="ga-efb-mission-requirements">' + requirementsHtml + '</div></section>' : '')
       + conditions
+      + voiceHtml
       + (canIntent ? '<section class="ga-efb-mission-section"><small>BEDIENUNG</small>'
         + '<div class="ga-efb-mission-actions"><button type="button" data-efb-drawer-action="open-cargo">Verlade-Manager öffnen</button></div>'
         + (actionHtml ? '<div class="ga-efb-mission-actions">' + actionHtml + '</div>' : '')
@@ -705,6 +717,195 @@
     return control && control.cargo && Array.isArray(control.cargo.items) ? control.cargo.items : [];
   }
 
+  function cargoDateLabel(value) {
+    var timestamp = Number(value || 0);
+    if (!timestamp) return '--';
+    try {
+      return new Intl.DateTimeFormat('de-DE', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      }).format(new Date(timestamp));
+    } catch (_) {
+      return new Date(timestamp).toLocaleString();
+    }
+  }
+
+  function projectedCargoModel(mission) {
+    return mission && mission.ui && mission.ui.schema === 'ga.mission-apt-ui.v1'
+      && mission.ui.cargo && mission.ui.cargo.presentation === 'app-cargo-dialog-v1'
+      ? mission.ui.cargo
+      : null;
+  }
+
+  function cargoActionAttributes(action, kind) {
+    if (!action || action.disabled === true || !action.intent) return '';
+    var attributes = ' data-efb-cargo-action="' + drawerEscape(kind || 'intent') + '" data-mission-intent="'
+      + drawerEscape(action.intent) + '"';
+    if (action.followupIntent) attributes += ' data-mission-followup-intent="' + drawerEscape(action.followupIntent) + '"';
+    if (kind === 'item') {
+      attributes += ' data-mission-item-id="' + drawerEscape(action.itemId || '') + '" data-mission-item-action="'
+        + drawerEscape(action.action || '') + '"';
+    }
+    return attributes;
+  }
+
+  function appCargoPayloadMarkup(payload, mode) {
+    var source = payload && typeof payload === 'object' ? payload : {};
+    var summary = source.summary && typeof source.summary === 'object' ? source.summary : null;
+    var status = source.message
+      ? '<div class="mission-cargo-payload-message ' + drawerEscape(source.className || 'is-warn') + '">'
+        + drawerEscape(source.message) + '</div>'
+      : '';
+    if (!summary || !summary.adapter) return status;
+    var pounds = function (value) {
+      return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+        ? Math.round(Number(value))
+        : '&mdash;';
+    };
+    if (summary.isPa24 === true) {
+      return '<div class="mission-cargo-payload-summary is-pa24"><div class="mission-cargo-payload-metrics">'
+        + '<span><small>Max. Gewicht</small><strong>' + pounds(summary.maximumWeightLbs) + ' lbs</strong></span>'
+        + '<span><small>PAX</small><strong>' + pounds(summary.paxWeightLbs) + ' lbs</strong></span>'
+        + '<span><small>Payload</small><strong>' + pounds(summary.cargoWeightLbs) + ' lbs</strong></span>'
+        + '<span><small>Fuel</small><strong>' + pounds(summary.fuelWeightLbs) + ' lbs</strong></span>'
+        + '<span class="is-half"><small>Gesamt</small><strong>' + pounds(summary.totalWeightLbs) + ' lbs</strong></span>'
+        + '<span class="is-half"><small>Leer</small><strong>' + pounds(summary.emptyWeightLbs) + ' lbs</strong></span>'
+        + '</div>' + status + '</div>';
+    }
+    var stationList = (Array.isArray(summary.stations) ? summary.stations : []).map(function (row) {
+      var hasBase = row.baselineWeightLbs !== null && row.baselineWeightLbs !== undefined && row.baselineWeightLbs !== '';
+      var hasExtra = row.missionExtraLbs !== null && row.missionExtraLbs !== undefined && row.missionExtraLbs !== '';
+      var hasWeight = row.weightLbs !== null && row.weightLbs !== undefined && row.weightLbs !== '';
+      var detail = hasBase && hasExtra && Number.isFinite(Number(row.baselineWeightLbs)) && Number.isFinite(Number(row.missionExtraLbs))
+        ? ' (Basis ' + Math.round(Number(row.baselineWeightLbs)) + ' + ' + Math.round(Number(row.missionExtraLbs)) + ' lbs)'
+        : '';
+      return 'S' + Math.round(Number(row.index) || 0) + ': ' + (hasWeight && Number.isFinite(Number(row.weightLbs)) ? Math.round(Number(row.weightLbs)) : '-') + ' lbs' + detail;
+    }).join(' &middot; ');
+    var list = function (values) {
+      return (Array.isArray(values) ? values : []).length ? values.map(function (value) { return 'S' + value; }).join('/') : '-';
+    };
+    return '<div class="mission-cargo-payload-summary">'
+      + '<div>Sim aktuell: Gesamt ' + pounds(summary.totalWeightLbs) + ' lbs &middot; Leer ' + pounds(summary.emptyWeightLbs)
+      + ' lbs &middot; Fuel ' + pounds(summary.fuelWeightLbs) + ' lbs</div>'
+      + '<div>Nutzlaststationen: ' + drawerEscape(summary.payloadStationCount || 0) + ' &middot; Verteilung: Copilot S'
+      + drawerEscape(summary.copilotIndex || '-') + ' &middot; Ruecksitze ' + drawerEscape(list(summary.rearSeatIndices))
+      + ' &middot; Cargo ' + drawerEscape(list(summary.cargoIndices)) + '</div>'
+      + '<div>Mission-Plan (' + (mode === 'unload' ? 'Entladen' : 'Verladen') + '): Pax ' + pounds(summary.paxWeightLbs)
+      + ' lbs &middot; Cargo ' + pounds(summary.cargoWeightLbs) + ' lbs &middot; Zusatz ' + pounds(summary.missionWeightLbs) + ' lbs</div>'
+      + '<div>Stationen: ' + (stationList || '-') + '</div>' + status + '</div>';
+  }
+
+  function appCargoManagerMarkup(mission, model) {
+    var signature = model.signature && typeof model.signature === 'object' ? model.signature : {};
+    var localSignatureAnimation = signature.signed === true
+      && cargoSignatureAnimationScope === String(signature.scope || '')
+      && cargoSignatureAnimationEndsAt > Date.now();
+    if (!signature.signed) {
+      cargoSignatureAnimationEndsAt = 0;
+      cargoSignatureAnimationScope = '';
+    }
+    var rows = (Array.isArray(model.items) ? model.items : []).map(function (item) {
+      var action = item && item.action && typeof item.action === 'object' ? Object.assign({ itemId: item.id }, item.action) : null;
+      var stationAction = item && item.stationAction && typeof item.stationAction === 'object'
+        ? Object.assign({ itemId: item.id }, item.stationAction)
+        : null;
+      var canInteract = action && action.disabled !== true && action.intent;
+      var rowClasses = String(item && item.rowClasses || '');
+      var attributes = canInteract ? cargoActionAttributes(action, 'item') : '';
+      var disabled = action && action.disabled === true ? ' aria-disabled="true"' : '';
+      var title = action && action.label ? ' title="' + drawerEscape(action.label) + '"' : '';
+      var expiryDetail = item && item.equipmentDetail && item.equipmentDetail.kind === 'expiry'
+        ? '<span class="mission-cargo-sheet-item-date">Gültig bis ' + drawerEscape(String(item.equipmentDetail.text || '')
+          .replace(/^Ablaufdatum:\s*/, '').split(' \u00b7 ')[0]) + '</span>'
+        : '';
+      var stationButton = stationAction
+        ? '<button type="button" class="mission-cargo-sheet-action"'
+          + ((missionIntentPending || stationAction.disabled === true) ? ' disabled' : '')
+          + cargoActionAttributes(stationAction, 'item') + '>' + drawerEscape(stationAction.label || '') + '</button>'
+        : '';
+      return '<tr class="' + drawerEscape(rowClasses) + '"' + disabled + attributes + title + '>'
+        + '<td>' + drawerEscape(item.index || 0) + '</td>'
+        + '<td><span>' + drawerEscape(item.label || item.id || '') + '</span>' + expiryDetail + '</td>'
+        + '<td>' + drawerEscape(item.typeLabel || '') + '</td>'
+        + '<td>' + drawerEscape(item.weightLbs || 0) + ' lbs</td>'
+        + '<td><span class="mission-cargo-sheet-station">' + drawerEscape(item.station || '-') + '</span>' + stationButton + '</td>'
+        + '<td><div class="mission-cargo-sheet-status"><span>' + drawerEscape(item.statusLabel || 'offen') + '</span>'
+        + (action && action.label ? '<span class="mission-cargo-sheet-status-hint">' + drawerEscape(action.label) + '</span>' : '')
+        + '</div></td></tr>';
+    }).join('') || '<tr><td colspan="6">Keine Ladung fuer diese Mission.</td></tr>';
+    var signatureDate = signature.signed ? cargoDateLabel(signature.at) : 'noch offen';
+    var signatureState = localSignatureAnimation ? 'wird eingetragen' : String(signature.stateText || '');
+    var signatureAction = signature.clickable === true && !localSignatureAnimation
+      ? {
+          intent: signature.action || (signature.signed ? 'clear_manifest_signature' : 'sign_manifest'),
+          disabled: false
+        }
+      : null;
+    var signatureMarkup = signature.visible === true
+      ? '<div class="mission-cargo-signature' + (signature.signed ? ' is-signed' : '')
+        + (localSignatureAnimation ? ' is-animating' : '')
+        + (signatureAction ? ' is-clickable' : '') + '"' + cargoActionAttributes(signatureAction, 'intent') + '>'
+        + '<div class="mission-cargo-signature-line">' + (signature.signed
+          ? '<span class="mission-cargo-signature-name">' + drawerEscape(signature.name || 'Tracker') + '</span>'
+          : '&nbsp;') + '</div>'
+        + '<div class="mission-cargo-signature-meta">Unterschrift Pilot &middot; ' + drawerEscape(signatureDate) + ' &middot; '
+        + drawerEscape(signatureState) + '</div></div>'
+      : '';
+    var primary = model.actions && model.actions.primary ? Object.assign({}, model.actions.primary) : null;
+    if (primary && localSignatureAnimation) {
+      primary.intent = '';
+      primary.action = '';
+      primary.label = 'Unterschrift wird eingetragen ...';
+      primary.disabled = true;
+    }
+    var secondary = model.actions && model.actions.secondary ? model.actions.secondary : null;
+    function actionButton(action) {
+      if (!action) return '';
+      var localClose = action.action === 'close' && !action.intent;
+      var attributes = localClose
+        ? ' data-efb-cargo-action="close"'
+        : cargoActionAttributes(action, 'intent');
+      return '<button type="button" class="' + drawerEscape(action.className || 'mission-cargo-primary') + '"'
+        + ((missionIntentPending || action.disabled === true) ? ' disabled' : '') + attributes + '>'
+        + drawerEscape(action.label || '') + '</button>';
+    }
+    var payload = appCargoPayloadMarkup(model.payload, model.mode);
+    var intentStatus = missionIntentStatus
+      ? '<div class="mission-cargo-summary ' + (/abgelehnt|fehlgeschlagen/i.test(missionIntentStatus) ? 'mission-cargo-error' : '') + '">'
+        + drawerEscape(missionIntentStatus) + '</div>'
+      : '';
+    var compliance = model.compliance && model.compliance.active === true
+      ? '<div class="mission-cargo-summary mission-cargo-compliance"><strong>BEHOERDENKONTROLLE</strong><span>'
+        + drawerEscape(model.compliance.message || '') + '</span></div>'
+      : '';
+    return (model.modeHint ? '<div class="mission-cargo-summary mission-cargo-tracker-lock">' + drawerEscape(model.modeHint) + '</div>' : '')
+      + intentStatus
+      + compliance
+      + '<div class="mission-cargo-copy">' + drawerEscape(model.copy || '') + '</div>'
+      + '<div class="mission-cargo-clipboard"><div class="mission-cargo-sheet-title">Frachtgutliste</div>'
+      + '<div class="mission-cargo-sheet-meta"><span><b>Flugzeug Kennung:</b> ' + drawerEscape(model.meta && model.meta.aircraft || 'N/A') + '</span>'
+      + '<span><b>Pilot-ID:</b> ' + drawerEscape(model.meta && model.meta.pilot || 'Tracker') + '</span>'
+      + '<span><b>Datum:</b> ' + drawerEscape(cargoDateLabel(model.meta && model.meta.dateAt)) + '</span></div>'
+      + '<table class="mission-cargo-sheet-table"><thead><tr><th>#</th><th>Position</th><th>Typ</th><th>Gewicht</th><th>Station</th><th>Status</th></tr></thead>'
+      + '<tbody>' + rows + '</tbody></table>' + signatureMarkup + '</div>'
+      + payload
+      + '<div class="mission-cargo-summary"><span>' + drawerEscape(model.summary && model.summary.left || '') + '</span><span>'
+      + drawerEscape(model.summary && model.summary.right || '') + '</span></div>'
+      + '<div class="mission-cargo-actions">' + actionButton(secondary) + actionButton(primary) + '</div>';
+  }
+
+  function cargoPayloadStatusMarkup(control) {
+    var payload = control && control.payload && typeof control.payload === 'object' ? control.payload : null;
+    var presentation = payload && payload.presentation && typeof payload.presentation === 'object'
+      ? payload.presentation
+      : null;
+    var message = presentation ? String(presentation.message || '').trim() : '';
+    if (!message) return '';
+    var className = ['is-pending', 'is-ok', 'is-warn'].indexOf(String(presentation.className || '')) >= 0
+      ? String(presentation.className)
+      : 'is-warn';
+    return '<div class="mission-cargo-payload-message ' + className + '">' + drawerEscape(message) + '</div>';
+  }
+
   function cargoItemAction(item, control, allowedActions) {
     if (!item || !control) return null;
     var phase = String(control.phase || '').toLowerCase();
@@ -727,6 +928,9 @@
     if (/^(prepare|boarding)$/.test(phase) && departureItem && status === 'loaded') {
       return { intent: 'set_manifest_item', action: 'unload', label: 'Ausladen' };
     }
+    if (/^(active|enroute|return_leg)$/.test(phase) && status === 'loaded') {
+      return { intent: 'set_manifest_item', action: 'unload', label: 'Abwerfen' };
+    }
     if (phase === 'on_task' && status === 'pending' && String(item.pickup || '') === 'target') {
       return { intent: 'set_manifest_item', action: 'load', label: 'Aufnehmen' };
     }
@@ -745,13 +949,24 @@
     if (!mission || !mission.missionId || !control) {
       return '<div class="mission-cargo-empty"><strong>Keine aktive Tracker-Mission</strong><br>Eine Frachtgutliste steht zur Verfügung, sobald der Tracker eine Mission übernommen hat.</div>';
     }
+    var exactModel = projectedCargoModel(mission);
+    if (exactModel) return appCargoManagerMarkup(mission, exactModel);
     var manifest = mission.manifest && typeof mission.manifest === 'object' ? mission.manifest : {};
     var items = cargoManagerItems(mission, control);
     var allowedActions = Array.isArray(control.allowedActions) ? control.allowedActions : [];
     var phase = String(control.phase || '').toLowerCase();
+    var projectedCargo = mission.ui && mission.ui.schema === 'ga.mission-apt-ui.v1'
+      && mission.ui.cargo && typeof mission.ui.cargo === 'object'
+      ? mission.ui.cargo
+      : null;
+    var projectedItemActions = new Map((projectedCargo && Array.isArray(projectedCargo.items) ? projectedCargo.items : []).map(function (item) {
+      return [String(item && item.id || ''), item && item.action || null];
+    }));
     var interactiveItems = 0;
     var rows = items.map(function (item, index) {
-      var action = cargoItemAction(item, control, allowedActions);
+      var action = projectedCargo
+        ? (projectedItemActions.get(String(item && item.id || '')) || null)
+        : cargoItemAction(item, control, allowedActions);
       if (action) interactiveItems += 1;
       var label = item && (item.label || item.storyName || item.id) || 'Position ' + String(index + 1);
       var type = cargoTypeLabel(item);
@@ -770,7 +985,7 @@
           + drawerEscape(action.action) + '"' + (missionIntentPending ? ' disabled' : '') + '>' + drawerEscape(action.label) + '</button>' : '')
         + '</span></td></tr>';
     }).join('');
-    var directActions = [
+    var directActions = projectedCargo && Array.isArray(projectedCargo.directActions) ? projectedCargo.directActions : [
       { intent: 'sign_manifest', label: 'Manifest unterschreiben', className: 'mission-cargo-secondary' },
       { intent: 'clear_manifest_signature', label: 'Zurück zur Liste', className: 'mission-cargo-secondary' },
       { intent: 'confirm_load', label: 'Verladung bestätigen', className: 'mission-cargo-primary' },
@@ -779,15 +994,22 @@
     ].filter(function (action) { return allowedActions.indexOf(action.intent) >= 0; });
     var actions = directActions.map(function (action) {
       return '<button type="button" class="' + action.className + '" data-efb-cargo-action="intent" data-mission-intent="'
-        + action.intent + '"' + (missionIntentPending ? ' disabled' : '') + '>' + action.label + '</button>';
+        + action.intent + '"' + (action.followupIntent ? ' data-mission-followup-intent="' + drawerEscape(action.followupIntent) + '"' : '')
+        + (missionIntentPending ? ' disabled' : '') + '>' + action.label + '</button>';
     }).join('');
-    var lockHint = interactiveItems === 0 && directActions.length === 0 ? cargoInteractionHint(phase) : '';
+    var lockHint = projectedCargo
+      ? String(projectedCargo.lockHint || '')
+      : (interactiveItems === 0 && directActions.length === 0 ? cargoInteractionHint(phase) : '');
     var signatureScope = String(manifest.signatureScope || (control.cargo && control.cargo.signatureScope) || '');
     var signatureLabels = { departure: 'Abflugmanifest unterschrieben', pickup: 'Pickup-Manifest unterschrieben', arrival: 'Ankunftsmanifest unterschrieben' };
     var summary = control.cargo && control.cargo.summary || {};
-    var blocker = Array.isArray(control.blockingReasons) && control.blockingReasons.length
-      ? control.blockingReasons.map(cargoBlockerLabel).join(' | ')
-      : 'Keine offenen Tracker-Sperren';
+    var payloadStatus = cargoPayloadStatusMarkup(control);
+    var projectedBlockers = projectedCargo && Array.isArray(projectedCargo.blockingReasons) ? projectedCargo.blockingReasons : null;
+    var blocker = projectedBlockers && projectedBlockers.length
+      ? projectedBlockers.join(' | ')
+      : (Array.isArray(control.blockingReasons) && control.blockingReasons.length
+        ? control.blockingReasons.map(cargoBlockerLabel).join(' | ')
+        : 'Keine offenen Tracker-Sperren');
     var mode = /^(prepare|boarding|boarded)$/.test(phase)
       ? 'Abflug und Boarding'
       : (phase === 'on_task' ? 'Auftrag am Ziel' : (/^(end_unloading|end_ready)$/.test(phase) ? 'Ankunft und Entladung' : 'Synchroner Missionsstand'));
@@ -801,6 +1023,7 @@
       + drawerEscape(signatureLabels[signatureScope] || 'Unterschrift ausstehend') + '</span></div><div class="mission-cargo-signature-meta">Tracker-Manifest</div></div></div>'
       + '<div class="mission-cargo-summary"><span>' + drawerEscape(Number(summary.loaded || 0)) + ' geladen / '
       + drawerEscape(Number(summary.unloaded || 0)) + ' entladen</span><span>' + drawerEscape(blocker) + '</span></div>'
+      + payloadStatus
       + (lockHint ? '<div class="ga-efb-cargo-lock-hint">' + drawerEscape(lockHint) + '</div>' : '')
       + (missionIntentStatus ? '<div class="mission-cargo-copy ga-efb-cargo-intent-status">' + drawerEscape(missionIntentStatus) + '</div>' : '')
       + (actions ? '<div class="mission-cargo-actions">' + actions + '</div>' : '');
@@ -814,8 +1037,8 @@
     overlay.className = 'mission-cargo-overlay ga-efb-cargo-manager';
     overlay.setAttribute('aria-hidden', 'true');
     overlay.innerHTML = '<section class="mission-cargo-panel" role="dialog" aria-modal="true" aria-labelledby="gaEfbCargoTitle">'
-      + '<div class="mission-cargo-head"><div><div class="mission-cargo-kicker">Tracker Mission Control</div><div id="gaEfbCargoTitle" class="mission-cargo-title">Verlade-Manager</div></div>'
-      + '<button type="button" class="mission-cargo-close" data-efb-cargo-action="close" title="Verlade-Manager schließen">X</button></div>'
+      + '<div class="mission-cargo-head"><div><div id="gaEfbCargoKicker" class="mission-cargo-kicker">Bodenservice</div><div id="gaEfbCargoTitle" class="mission-cargo-title">Verladung</div></div>'
+      + '<button type="button" class="mission-cargo-close" data-efb-cargo-action="close" title="Schliessen">&times;</button></div>'
       + '<div id="gaEfbCargoBody"></div></section>';
     overlay.addEventListener('click', function (event) {
       var actionNode = event.target && event.target.closest ? event.target.closest('[data-efb-cargo-action]') : null;
@@ -827,13 +1050,40 @@
       if (action === 'close') closeCargoManager();
       if (action === 'intent' || action === 'item') {
         var intent = actionNode.getAttribute('data-mission-intent') || '';
+        var followupIntent = actionNode.getAttribute('data-mission-followup-intent') || '';
         var payload = {};
         if (action === 'item') {
           payload.itemId = actionNode.getAttribute('data-mission-item-id') || '';
           payload.action = actionNode.getAttribute('data-mission-item-action') || '';
         }
         if (intent === 'request_pax_interaction') payload.action = 'deboard';
-        requestMissionIntent(intent, payload);
+        var requested = requestMissionIntent(intent, payload);
+        if (intent === 'clear_manifest_signature') {
+          cargoSignatureAnimationEndsAt = 0;
+          cargoSignatureAnimationScope = '';
+        }
+        if (followupIntent && requested && typeof requested.then === 'function') {
+          requested.then(function (ok) {
+            if (ok) return requestMissionIntent(followupIntent, {});
+            return false;
+          });
+        } else if (intent === 'sign_manifest' && requested && typeof requested.then === 'function') {
+          requested.then(function (ok) {
+            if (!ok) return false;
+            var exactModel = projectedCargoModel(missionSnapshot);
+            cargoSignatureAnimationScope = String(exactModel && exactModel.signature && exactModel.signature.scope || '');
+            cargoSignatureAnimationEndsAt = Date.now() + 1600;
+            if (cargoSignatureAnimationTimer) window.clearTimeout(cargoSignatureAnimationTimer);
+            cargoSignatureAnimationTimer = window.setTimeout(function () {
+              cargoSignatureAnimationTimer = 0;
+              cargoSignatureAnimationEndsAt = 0;
+              renderCargoManager();
+            }, 1640);
+            cargoManagerSignature = '';
+            renderCargoManager();
+            return true;
+          });
+        }
       }
       event.preventDefault();
       event.stopPropagation();
@@ -850,6 +1100,9 @@
     if (!overlay || !cargoManagerOpen) return;
     var body = byId('gaEfbCargoBody');
     if (!body) return;
+    var exactModel = projectedCargoModel(missionSnapshot);
+    setText('gaEfbCargoKicker', exactModel && exactModel.header ? exactModel.header.kicker : 'Tracker Mission Control');
+    setText('gaEfbCargoTitle', exactModel && exactModel.header ? exactModel.header.title : 'Verlade-Manager');
     var markup = cargoManagerMarkup();
     if (markup === cargoManagerSignature) return;
     var scrollTop = body.scrollTop;
@@ -1228,7 +1481,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.1');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.2');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -1695,9 +1948,11 @@
       progress: view.progress || [],
       requirements: view.requirements || [],
       feedback: view.feedback || [],
+      voice: payload.voice || null,
       comfort: view.comfort || null,
       cargo: view.cargo || null,
       manifest: payload.manifest || null,
+      ui: payload.ui || null,
       control: payload.control && typeof payload.control === 'object' ? {
         missionId: payload.control.missionId || '',
         runId: payload.control.runId || '',
@@ -1707,6 +1962,8 @@
         nextStep: payload.control.nextStep || '',
         flags: payload.control.flags || null,
         cargo: payload.control.cargo || null,
+        payload: payload.control.payload || null,
+        voice: payload.control.voice || null,
         blockingReasons: payload.control.blockingReasons || [],
         allowedActions: payload.control.allowedActions || []
       } : null,
@@ -1719,6 +1976,11 @@
     var view = payload.view && typeof payload.view === 'object' ? payload.view : {};
     var control = payload.control && typeof payload.control === 'object' ? payload.control : null;
     if (!control || control.executionAuthority !== 'tracker') return null;
+    var projected = payload.ui && payload.ui.schema === 'ga.mission-apt-ui.v1'
+      && payload.ui.banner && typeof payload.ui.banner === 'object'
+      ? payload.ui.banner
+      : null;
+    if (projected) return Object.assign({}, projected);
     var allowedActions = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
     var phase = String(control.phase || payload.phase || payload.state || '').toLowerCase();
     var task = String(view.currentTask || view.status || 'Mission fortsetzen');
@@ -1769,7 +2031,8 @@
       var model = banner._gaMissionActionModel;
       if (!model || missionIntentPending) return false;
       if (model.kind === 'cargo') openCargoManager();
-      else requestMissionIntent(model.intent, {});
+      else if (model.intent) requestMissionIntent(model.intent, {});
+      else return false;
       report('info', 'mission-action-banner', model.kind, 'Missionsaktion über Kartenbanner ausgelöst', model.intent || 'cargo');
       return false;
     };
@@ -1795,7 +2058,9 @@
       banner.style.display = 'none';
       return;
     }
-    banner.classList.add(model.className);
+    if (model.begin === true || model.className === 'is-begin-action') banner.classList.add('is-begin-action');
+    if (model.endReady === true || model.className === 'is-end-ready') banner.classList.add('is-end-ready');
+    if (model.final === true || model.className === 'is-final-action') banner.classList.add('is-final-action');
     banner.style.display = 'flex';
     banner.setAttribute('data-mission-id', model.missionId);
     banner.setAttribute('aria-label', model.kicker + ': ' + model.text + '. ' + model.button);
@@ -1803,7 +2068,9 @@
     setText('missionStartBannerText', missionIntentPending ? 'Tracker verarbeitet die Aktion ...' : model.text);
     setText('missionStartBannerBtn', missionIntentPending ? 'Bitte warten ...' : model.button);
     var button = byId('missionStartBannerBtn');
-    if (button) button.disabled = missionIntentPending;
+    if (button) button.disabled = missionIntentPending || model.disabled === true;
+    var close = banner.querySelector ? banner.querySelector('.mission-start-banner-close') : null;
+    if (close) close.style.display = model.closeHidden === true ? 'none' : '';
   }
 
   function updateMissionLiveFields(view) {

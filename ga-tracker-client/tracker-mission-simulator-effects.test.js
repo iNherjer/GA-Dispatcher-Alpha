@@ -48,6 +48,20 @@ function runWithPlan(overrides = {}) {
                 { forwardM: 16, rightM: -8 }
               ]
             }
+          },
+          'scene.compliance_visit': {
+            command: {
+              type: 'mission_scene_ground_visit',
+              sceneId: 'scene-mission-apt-1-authority-inspection',
+              vehicleArrivalPath: [
+                { forwardM: -24, rightM: 18 },
+                { forwardM: 22, rightM: 12 }
+              ],
+              visitorPaths: [
+                { id: 'one', path: [{ forwardM: 21, rightM: 11 }, { forwardM: 4.5, rightM: 8.5 }] },
+                { id: 'two', path: [{ forwardM: 22, rightM: 13 }, { forwardM: 4.9, rightM: 4.5 }] }
+              ]
+            }
           }
         }
       }
@@ -174,6 +188,124 @@ test('deboarding uses the planned path with the current tracker position', async
   assert.equal(commands[0].altFt, 900);
   assert.equal(commands[0].hdg, 180);
   assert.equal(commands[0].commandId, 'effect-deboarding');
+});
+
+test('coordinated deboarding forwards the cue stage and continues only with the original effect id', async () => {
+  const commands = [];
+  const stages = [];
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => runWithPlan() },
+    getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 900, hdg: 180 }),
+    dispatchCommand: command => {
+      commands.push(command);
+      return { ok: true, status: command.type === 'mission_scene_deboarding' ? 'pending' : 'completed', sideEffect: true };
+    },
+    onStage: stage => stages.push(stage)
+  });
+  await bridge.dispatch({
+    commandId: 'effect-deboarding-farewell',
+    missionId: 'mission-apt-1',
+    runId: 'run-1',
+    effect: { type: 'scene.deboarding', payload: { coordinateFarewell: true } }
+  });
+  assert.equal(commands[0].coordinateFarewell, true);
+  assert.equal(bridge.handleAck({
+    type: 'mission_scene_deboarding_stage',
+    commandId: 'effect-deboarding-farewell',
+    stage: 'cue',
+    status: 'ok'
+  }), true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stages.length, 1);
+  assert.equal(stages[0].coordinateFarewell, true);
+  assert.equal(stages[0].stage, 'cue');
+  assert.equal(bridge.pendingCount(), 1);
+
+  const continued = await bridge.dispatch({
+    commandId: 'effect-farewell-continue',
+    missionId: 'mission-apt-1',
+    runId: 'run-1',
+    effect: {
+      type: 'scene.deboarding_continue',
+      payload: { deboardingEffectId: 'effect-deboarding-farewell' }
+    }
+  });
+  assert.equal(continued.status, 'completed');
+  assert.equal(commands[1].type, 'mission_scene_deboarding_continue');
+  assert.equal(commands[1].deboardingCommandId, 'effect-deboarding-farewell');
+  assert.equal(commands[1].sceneId, 'scene-mission-apt-1');
+});
+
+test('compliance visit uses the App plan, forwards inspector arrival and releases the same visit', async () => {
+  const commands = [];
+  const stages = [];
+  const acknowledgements = [];
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => runWithPlan() },
+    getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 900, hdg: 180 }),
+    dispatchCommand: command => {
+      commands.push(command);
+      return { ok: true, status: command.type === 'mission_scene_ground_visit' ? 'pending' : 'completed', sideEffect: true };
+    },
+    onStage: stage => stages.push(stage),
+    acknowledgeEffect: request => acknowledgements.push(request)
+  });
+  const visit = await bridge.dispatch({
+    commandId: 'effect-compliance-visit',
+    missionId: 'mission-apt-1',
+    runId: 'run-1',
+    effect: { type: 'scene.compliance_visit' }
+  });
+  assert.equal(visit.status, 'pending');
+  assert.equal(commands[0].type, 'mission_scene_ground_visit');
+  assert.equal(commands[0].lat, 48.3);
+  assert.equal(commands[0].visitorPaths.length, 2);
+  assert.equal(bridge.handleAck({
+    type: 'mission_scene_ground_visit_stage',
+    commandId: 'effect-compliance-visit',
+    stage: 'visitors_at_aircraft',
+    status: 'ok'
+  }), true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stages[0].stage, 'visitors_at_aircraft');
+  assert.equal(acknowledgements.length, 0);
+
+  const departure = await bridge.dispatch({
+    commandId: 'effect-compliance-departure',
+    missionId: 'mission-apt-1',
+    runId: 'run-1',
+    effect: { type: 'scene.compliance_departure' }
+  });
+  assert.equal(departure.status, 'completed');
+  assert.equal(commands[1].type, 'mission_scene_ground_visit_release');
+  assert.equal(commands[1].visitCommandId, 'effect-compliance-visit');
+  assert.equal(commands[1].sceneId, 'scene-mission-apt-1-authority-inspection');
+
+  assert.equal(bridge.handleAck({
+    type: 'mission_scene_ground_visit_ack',
+    commandId: 'effect-compliance-visit',
+    status: 'ok'
+  }), true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(acknowledgements[0].effectId, 'effect-compliance-visit');
+  assert.equal(acknowledgements[0].status, 'completed');
+});
+
+test('unavailable compliance scene follows the App logical fallback instead of hard-locking', async () => {
+  const activeRun = runWithPlan({ resumeBundle: {} });
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => activeRun },
+    getLivePosition: () => null
+  });
+  const result = await bridge.dispatch({
+    commandId: 'effect-compliance-fallback',
+    missionId: 'mission-apt-1',
+    runId: 'run-1',
+    effect: { type: 'scene.compliance_visit' }
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.logicalFallback, true);
 });
 
 test('invalid or missing effect plans never reach the simulator handler', async () => {

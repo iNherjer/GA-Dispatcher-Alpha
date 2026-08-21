@@ -44,7 +44,8 @@
       "tracker-efb-bootstrap-inline.js",
       "tracker-cockpit-session-client.js",
       "tracker-efb-kartentisch-host.css",
-      "tracker-efb-kartentisch-host.js"
+      "tracker-efb-kartentisch-host.js",
+      "../audio-cues/*.mp3"
     ],
     "targets": ["node20-win-x64"],
     "outputPath": "dist"

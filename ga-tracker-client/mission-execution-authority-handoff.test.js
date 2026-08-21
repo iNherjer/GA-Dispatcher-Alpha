@@ -162,10 +162,19 @@ test('handoff preparation rejects snapshot-only, drifted, non-APT and already-st
       mutate(bundle) {
         const events = [
           { eventId: 'prepare', type: 'PREPARE_REQUESTED', sequence: 1 },
-          { eventId: 'boarding', type: 'BOARDING_STARTED', sequence: 2 },
-          { eventId: 'load', type: 'LOAD_CONFIRMED', sequence: 3, payload: { cargo: bundle.runtime.cargoManifest } },
-          { eventId: 'boarded', type: 'BOARDING_CONFIRMED', sequence: 4, payload: { cargo: bundle.runtime.cargoManifest } },
-          { eventId: 'started', type: 'MISSION_STARTED', sequence: 5 }
+          {
+            eventId: 'prepare-effect-complete',
+            type: 'EFFECT_ACKNOWLEDGED',
+            sequence: 2,
+            payload: {
+              effectId: `mfx-${executionCore.hashValue({ missionId: bundle.missionId, eventId: 'prepare', type: 'scene.prepare' })}`,
+              status: 'completed'
+            }
+          },
+          { eventId: 'boarding', type: 'BOARDING_STARTED', sequence: 3 },
+          { eventId: 'load', type: 'LOAD_CONFIRMED', sequence: 4, payload: { manifest: bundle.runtime.cargoManifest } },
+          { eventId: 'boarded', type: 'BOARDING_CONFIRMED', sequence: 5, payload: { manifest: bundle.runtime.cargoManifest } },
+          { eventId: 'started', type: 'MISSION_STARTED', sequence: 6 }
         ];
         bundle.executionReplay.events = events.map((event, index) => executionCore.normalizeEvent(event, index + 1));
         bundle.runtime.runtime.phase = 'active';
@@ -286,6 +295,144 @@ test('explicitly enabled commit is atomic, blocks web snapshots and permits zero
   });
   assert.equal(acceptedSnapshot.ok, true);
   assert.equal(acceptedSnapshot.activeRun.executionAuthority, 'web');
+});
+
+test('tracker flight context persists privately without changing the public execution revision', (t) => {
+  const fixture = createFixture(t, { executionAuthorityEnabled: true });
+  const manager = fixture.createManager();
+  const { acquired, replay } = acquireApt(manager);
+  const prepared = manager.prepareExecutionAuthority(prepareRequest(acquired.activeRun, replay));
+  const committed = manager.commitExecutionAuthority({
+    missionId: prepared.activeRun.missionId,
+    runId: prepared.activeRun.runId,
+    clientId: 'web-owner',
+    expectedRevision: prepared.activeRun.revision,
+    expectedExecutionStateHash: replay.stateHash,
+    handoffId: prepared.handoff.handoffId,
+    commandId: 'commit-runtime-context'
+  });
+  const revision = committed.activeRun.revision;
+  const publicBefore = manager.getPublicSnapshot();
+  const saved = manager.recordExecutionRuntimeContext({
+    missionId: committed.activeRun.missionId,
+    runId: committed.activeRun.runId,
+    context: {
+      flightRecorder: {
+        active: true,
+        startTs: 1000,
+        hadAirbornePhase: true,
+        gsSamples: 20,
+        maxBankDeg: 31.5
+      },
+      latestTelemetry: {
+        observedAt: 5000,
+        lat: 48.2,
+        lon: 8.1,
+        windKts: 18,
+        visKm: 10
+      }
+    }
+  });
+  assert.equal(saved.ok, true);
+  assert.equal(manager.getActiveRun().revision, revision);
+  assert.deepEqual(manager.getPublicSnapshot(), publicBefore);
+  assert.doesNotMatch(JSON.stringify(manager.getPublicSnapshot()), /maxBankDeg|windKts|flightRecorder/);
+
+  const recovered = fixture.createManager();
+  const context = recovered.getExecutionRuntimeContext({
+    missionId: committed.activeRun.missionId,
+    runId: committed.activeRun.runId
+  });
+  assert.equal(context.flightRecorder.maxBankDeg, 31.5);
+  assert.equal(context.latestTelemetry.windKts, 18);
+  assert.equal(recovered.getActiveRun().revision, revision);
+});
+
+test('payload recovery baseline is durable, first-write-wins, and never public', (t) => {
+  const fixture = createFixture(t, { executionAuthorityEnabled: true });
+  const manager = fixture.createManager();
+  const { acquired, replay } = acquireApt(manager);
+  const prepared = manager.prepareExecutionAuthority(prepareRequest(acquired.activeRun, replay));
+  const committed = manager.commitExecutionAuthority({
+    missionId: prepared.activeRun.missionId,
+    runId: prepared.activeRun.runId,
+    clientId: 'web-owner',
+    expectedRevision: prepared.activeRun.revision,
+    expectedExecutionStateHash: replay.stateHash,
+    handoffId: prepared.handoff.handoffId
+  });
+  const baseline = {
+    payloadAdapter: 'msfs_payload_stations',
+    aircraft: { title: 'Private test aircraft', ignored: 'must-not-persist' },
+    payloadStationCount: 3,
+    sampledStationCount: 3,
+    stations: [
+      { index: 1, weightLbs: 170 },
+      { index: 2, weightLbs: 12 },
+      { index: 3, weightLbs: 10 }
+    ]
+  };
+  const credentials = { missionId: committed.activeRun.missionId, runId: committed.activeRun.runId };
+  const revisionBeforeRecovery = manager.getActiveRun().revision;
+  const captured = manager.recordExecutionPayloadRecovery({ ...credentials, action: 'capture', baseline });
+  assert.equal(captured.ok, true);
+  assert.equal(captured.recovery.baseline.aircraft.title, 'Private test aircraft');
+  assert.equal(captured.recovery.baseline.aircraft.ignored, undefined);
+  assert.equal(manager.getActiveRun().revision, revisionBeforeRecovery);
+
+  const duplicate = manager.recordExecutionPayloadRecovery({
+    ...credentials,
+    action: 'capture',
+    baseline: { ...baseline, stations: baseline.stations.map(row => ({ ...row, weightLbs: 999 })) }
+  });
+  assert.equal(duplicate.status, 'noop');
+  assert.equal(duplicate.recovery.baseline.stations[0].weightLbs, 170);
+  const detached = manager.recordExecutionPayloadRecovery({
+    ...credentials,
+    action: 'detach_inherited',
+    item: {
+      id: 'inherited-kit',
+      itemType: 'cargo',
+      label: 'Private inherited equipment',
+      weightLbs: 10,
+      persistentEquipment: true,
+      persistentEquipmentInherited: true
+    }
+  });
+  assert.equal(detached.ok, true);
+  assert.equal(detached.recovery.baseline.stations[1].weightLbs, 12);
+  assert.equal(detached.recovery.baseline.stations[2].weightLbs, 0);
+  assert.deepEqual(detached.recovery.detachedInheritedEquipmentIds, ['inherited-kit']);
+  const duplicateDetach = manager.recordExecutionPayloadRecovery({
+    ...credentials,
+    action: 'detach_inherited',
+    item: {
+      id: 'inherited-kit',
+      itemType: 'cargo',
+      weightLbs: 10,
+      persistentEquipment: true,
+      persistentEquipmentInherited: true
+    }
+  });
+  assert.equal(duplicateDetach.status, 'noop');
+  assert.equal(duplicateDetach.recovery.baseline.stations[1].weightLbs, 12);
+  assert.equal(duplicateDetach.recovery.baseline.stations[2].weightLbs, 0);
+  assert.equal(manager.recordExecutionPayloadRecovery({ ...credentials, action: 'write_attempted' }).ok, true);
+
+  assert.equal(Object.hasOwn(manager.getActiveRun({ includeBundle: true }), 'executionPayloadRecovery'), false);
+  assert.equal(JSON.stringify(manager.getPublicSnapshot({ includeBundle: true })).includes('Private test aircraft'), false);
+  assert.equal(fs.readFileSync(fixture.storageFile, 'utf8').includes('Private test aircraft'), true);
+
+  const reloaded = fixture.createManager({ executionAuthorityEnabled: true });
+  const recovery = reloaded.getExecutionPayloadRecovery(credentials);
+  assert.equal(recovery.writeAttempted, true);
+  assert.equal(recovery.restored, false);
+  assert.equal(recovery.baseline.stations[1].weightLbs, 12);
+  assert.equal(recovery.baseline.stations[2].weightLbs, 0);
+  assert.deepEqual(recovery.detachedInheritedEquipmentIds, ['inherited-kit']);
+  assert.equal(JSON.stringify(reloaded.getPublicSnapshot({ includeBundle: true })).includes('Private test aircraft'), false);
+  assert.equal(reloaded.recordExecutionPayloadRecovery({ ...credentials, action: 'restore_attempt' }).recovery.restoreAttempts, 1);
+  assert.equal(reloaded.recordExecutionPayloadRecovery({ ...credentials, action: 'restored' }).recovery.restored, true);
 });
 
 test('an intervening web snapshot invalidates a prepared handoff', (t) => {

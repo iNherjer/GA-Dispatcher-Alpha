@@ -1,5 +1,8 @@
 'use strict';
 
+const aptUiCore = require('../mission-apt-ui-core.js');
+const payloadCore = require('../mission-payload-core.js');
+
 const MISSION_VIEW_SCHEMA = 'ga.efb-mission-view.v1';
 const MISSION_VIEW_VERSION = 1;
 const TONES = new Set(['active', 'good', 'warn', 'danger', 'info', 'muted', 'neutral']);
@@ -135,43 +138,92 @@ function missionParts(activeRun) {
 
 function manifestItemId(raw, index) {
   const source = object(raw);
-  return text(source.id || source.cargoItemId || `item-${index + 1}`, 120).toLowerCase()
-    .replace(/[^a-z0-9_.:-]+/g, '-')
-    .replace(/^-+|-+$/g, '') || `item-${index + 1}`;
+  return text(source.id || source.cargoItemId || `item-${index + 1}`, 120) || `item-${index + 1}`;
 }
 
-function projectMissionManifest(activeRun, executionControl) {
+function distanceMeters(leftLat, leftLon, rightLat, rightLon) {
+  const values = [leftLat, leftLon, rightLat, rightLon].map(Number);
+  if (!values.every(Number.isFinite)) return null;
+  const [lat1, lon1, lat2, lon2] = values.map(value => value * Math.PI / 180);
+  const dLat = lat2 - lat1;
+  const dLon = lon2 - lon1;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+}
+
+function manifestStationLabel(source) {
+  const direct = text(source.stationLabel || source.seatLabel || source.station || source.position, 100);
+  if (direct) return direct;
+  const stations = Array.from(new Set((Array.isArray(source.payloadStations) ? source.payloadStations : [])
+    .map(value => Math.round(Number(value)))
+    .filter(value => Number.isFinite(value) && value >= 1)));
+  if (!stations.length) return '';
+  if (text(source.payloadStationAdapter, 80) !== 'pa24_accusim') return stations.join('/');
+  const labels = { 2: 'Sitz 2', 3: 'Sitz 3', 4: 'Sitz 4', 5: 'Gepäckfach' };
+  return stations.map(station => labels[station] || `S${station}`).join(' / ');
+}
+
+function projectMissionManifest(activeRun, executionControl, flightSnapshot = null) {
   const parts = missionParts(activeRun);
-  const rawManifest = object(parts.runtimeRoot.cargoManifest || parts.state.cargoManifest || parts.mission.cargoManifest);
   const control = object(executionControl);
+  const controlManifest = object(control.manifest);
+  const rawManifest = Array.isArray(controlManifest.items)
+    ? controlManifest
+    : object(parts.runtimeRoot.cargoManifest || parts.state.cargoManifest || parts.mission.cargoManifest);
   const controlCargo = object(control.cargo);
   const controlItems = Array.isArray(controlCargo.items) ? controlCargo.items : [];
   const controlById = new Map(controlItems.map(item => [text(object(item).id, 120), object(item)]));
   const rawItems = Array.isArray(rawManifest.items) ? rawManifest.items : [];
+  const liveFlight = object(flightSnapshot?.flight);
+  const liveLat = finite(flightSnapshot?.lat ?? liveFlight.lat);
+  const liveLon = finite(flightSnapshot?.lon ?? liveFlight.lon);
   const items = rawItems.slice(0, 160).map((rawItem, index) => {
     const source = object(rawItem);
     const id = manifestItemId(source, index);
     const authoritative = controlById.get(id) || {};
     const passenger = text(authoritative.itemType || source.itemType, 30).toLowerCase() === 'passenger';
     const persistentEquipment = source.persistentEquipment === true;
+    const unloadDistanceM = distanceMeters(liveLat, liveLon, source.unloadLat, source.unloadLon);
     return {
       id,
       label: text(source.storyName || source.label || source.name || id, 180),
       itemType: passenger ? 'passenger' : (persistentEquipment ? 'equipment' : 'cargo'),
       status: text(authoritative.status || source.status || 'pending', 30).toLowerCase(),
       required: authoritative.required === true || source.required === true,
-      pickup: text(authoritative.pickup || source.pickup || source.pickupLocation || 'departure', 30).toLowerCase(),
-      delivery: text(authoritative.delivery || source.delivery || 'destination', 30).toLowerCase(),
+      pickup: text(authoritative.pickup || source.pickup || (source.pickupLocation === 'target' ? 'target' : 'departure'), 30).toLowerCase(),
+      delivery: text(authoritative.delivery || source.delivery || (source.deliverAtHome === true
+        ? 'home'
+        : (source.deliverAtDestination === false ? 'onboard' : 'destination')), 30).toLowerCase(),
       persistentEquipment,
+      equipmentType: text(source.equipmentType, 40).toLowerCase(),
+      expiresAt: text(source.expiresAt, 20),
+      issuedAt: Math.max(0, Math.round(Number(source.issuedAt) || 0)) || null,
+      serialId: text(source.serialId, 180),
+      log: source.log && typeof source.log === 'object' ? { ...source.log } : {},
+      persistentEquipmentInherited: source.persistentEquipmentInherited === true,
+      handoffComplete: authoritative.status === 'handed_off' || source.handoffComplete === true,
       passengerCount: passenger
         ? Math.max(1, Math.min(6, Math.round(Number(authoritative.passengerCount || source.passengerCount) || 1)))
         : 0,
       weightLbs: Math.max(0, Math.round(Number(authoritative.weightLbs ?? source.weightLbs) || 0)),
       healthPct: Math.max(0, Math.min(100, Math.round(Number(authoritative.healthPct ?? source.healthPct) || 100))),
-      station: text(source.stationLabel || source.seatLabel || source.station || source.position, 100)
+      station: manifestStationLabel(source),
+      reloadDistanceM: unloadDistanceM === null ? null : Math.round(unloadDistanceM),
+      reloadAllowed: text(authoritative.status || source.status, 30).toLowerCase() !== 'unloaded'
+        || (unloadDistanceM !== null && unloadDistanceM <= 200)
     };
   });
   return {
+    aircraftSlot: text(rawManifest.aircraftSlot, 120) || null,
+    createdAt: Math.max(0, Math.round(Number(rawManifest.createdAt) || 0)) || null,
+    dispatchSignature: rawManifest.dispatchSignature && typeof rawManifest.dispatchSignature === 'object'
+      ? { ...rawManifest.dispatchSignature }
+      : null,
+    flightEvents: {
+      flightId: `${text(control.missionId, 180)}|flight`,
+      ...object(rawManifest.flightEvents),
+      ...object(control.flightEvents)
+    },
     signatureScope: ['departure', 'pickup', 'arrival'].includes(text(controlCargo.signatureScope || rawManifest.signatureScope || object(rawManifest.dispatchSignature).scope, 20).toLowerCase())
       ? text(controlCargo.signatureScope || rawManifest.signatureScope || object(rawManifest.dispatchSignature).scope, 20).toLowerCase()
       : null,
@@ -226,8 +278,9 @@ function fallbackView(activeRun, flightSnapshot) {
   }, activeRun);
 }
 
-function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapshot = null, executionControl = null) {
+function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapshot = null, executionControl = null, payloadSnapshot = null) {
   if (!activeRun?.missionId || !activeRun?.runId) return null;
+  const parts = missionParts(activeRun);
   const bundle = object(activeRun.resumeBundle);
   const view = bundle.efbMission
     ? sanitizeMissionView(bundle.efbMission, activeRun)
@@ -244,7 +297,32 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
   }
   const technical = object(technicalSnapshot);
   const control = object(executionControl);
-  const manifest = projectMissionManifest(activeRun, control);
+  const uiControl = control.executionAuthority === 'tracker' && payloadSnapshot
+    ? {
+        ...control,
+        payload: payloadCore.projectOutcome({
+          ...object(control.payload),
+          weightAndBalance: payloadSnapshot
+        })
+      }
+    : control;
+  const boardingVoice = object(object(control.voice).boarding);
+  const farewellVoice = object(object(control.voice).farewell);
+  const voice = farewellVoice.text && Number(farewellVoice.updatedAt || 0) >= Number(boardingVoice.updatedAt || 0)
+    ? farewellVoice
+    : boardingVoice;
+  const manifest = projectMissionManifest(activeRun, control, flightSnapshot);
+  const ui = control.executionAuthority === 'tracker'
+    ? aptUiCore.project({
+        missionId: activeRun.missionId,
+        revision: control.authorityRevision || activeRun.revision,
+        control: uiControl,
+        manifest,
+        missionProfileId: text(parts.mission?.bush?.profileId || parts.contract?.bush?.profileId || parts.mission?.profileId, 100).toLowerCase(),
+        pickupKind: text(parts.mission?.bush?.pickupKind || parts.contract?.bush?.pickupKind, 40).toLowerCase(),
+        destination: object(control.flight).destination
+      })
+    : null;
   if (control.executionAuthority === 'tracker' && text(control.missionId, 180) === text(activeRun.missionId, 180)) {
     const controlFlags = object(control.flags);
     const controlCargo = object(control.cargo);
@@ -270,6 +348,8 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       complete_unload: 'Ladung am Ziel entladen',
       sign_arrival_manifest: 'Ankunftsmanifest unterschreiben',
       confirm_unload: 'Entladung bestätigen',
+      await_farewell: 'Verabschiedung abwarten',
+      await_deboarding: 'Deboarding abwarten',
       close_mission: 'Mission abschließen',
       await_close: 'Missionsabschluss wird verarbeitet',
       complete: 'Mission abgeschlossen'
@@ -314,6 +394,19 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     title: view.title,
     story: view.story,
     manifest,
+    ui,
+    voice: voice.text ? {
+      kind: text(voice.kind, 40) || 'boarding',
+      status: text(voice.status, 40),
+      text: text(voice.text, 4000),
+      speaker: {
+        name: text(object(voice.speaker).name, 120),
+        role: text(object(voice.speaker).role, 160),
+        gender: text(object(voice.speaker).gender, 20)
+      },
+      playback: text(voice.playback, 80) || null,
+      updatedAt: Math.max(0, Math.round(Number(voice.updatedAt) || 0)) || null
+    } : null,
     view
   };
 }

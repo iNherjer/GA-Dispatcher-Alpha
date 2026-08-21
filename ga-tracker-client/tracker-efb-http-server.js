@@ -223,10 +223,14 @@ function audioResponse(response, audio) {
 }
 
 function parseVoiceJobPath(pathname) {
-  const match = String(pathname || '').match(/^\/api\/v1\/voice\/jobs\/([^/]+?)(\/audio)?$/);
+  const match = String(pathname || '').match(/^\/api\/v1\/voice\/jobs\/([^/]+?)(\/(?:audio|cue))?$/);
   if (!match) return null;
   try {
-    return { effectId: decodeURIComponent(match[1]), audio: match[2] === '/audio' };
+    return {
+      effectId: decodeURIComponent(match[1]),
+      audio: match[2] === '/audio',
+      cue: match[2] === '/cue'
+    };
   } catch (_) {
     return null;
   }
@@ -424,8 +428,10 @@ function createTrackerEfbHttpServer(options = {}) {
         return;
       }
       try {
-        if (voiceJobRequest.audio) {
-          const audio = voiceService.getAudio(voiceJobRequest.effectId);
+        if (voiceJobRequest.audio || voiceJobRequest.cue) {
+          const audio = voiceJobRequest.cue
+            ? voiceService.getCueAudio?.(voiceJobRequest.effectId)
+            : voiceService.getAudio(voiceJobRequest.effectId);
           if (!audio) jsonResponse(response, 404, { error: 'voice_audio_not_ready' });
           else audioResponse(response, audio);
         } else {

@@ -23,7 +23,7 @@ const preserveHelper = sourceBetween(
 );
 const cloudApply = sourceBetween(
     syncSource,
-    'async function _syncApplyActiveMissionFromCloud(activeMission = null)',
+    'async function _syncApplyActiveMissionFromCloud(activeMission = null, options = {})',
     'function setLastSyncedPayload()'
 );
 
@@ -58,6 +58,8 @@ const context = {
     _missionIsFreeflightOnly(state) {
         return state?.currentMissionData?.freeflightOnly === true;
     },
+    _syncActiveTrackerRunForCloudPull() { return null; },
+    _syncRecordCloudMissionPullOutcome() { return null; },
     _syncConfirmReplaceRunningLocalMission() { return true; },
     currentMissionData: { freeflightOnly: true },
     routeWaypoints: [{ lat: 48, lng: 8 }, { lat: 49, lng: 9 }]

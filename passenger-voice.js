@@ -561,6 +561,7 @@ window.paxVoiceResetMission = function() {
     _paxOffDestLastAt = 0;
     _paxBoardingDone = false;
     _paxBoardingPromise = null;
+    _paxTrackerVoicePresentationKey = '';
     _pattonvilleJuliusMentioned = false;
     _pattonvilleReportingPointsMentioned = false;
     _aptTrainingBriefDone = false;
@@ -1115,6 +1116,7 @@ function _getAiProvider() {
 }
 
 let _paxTrackerVoiceClient = null;
+let _paxTrackerVoicePresentationKey = '';
 
 function _getTrackerVoiceClient() {
     if (_paxTrackerVoiceClient) return _paxTrackerVoiceClient;
@@ -4323,7 +4325,7 @@ function _buildIntercomChain(ctx, destination, durationSec, options = {}) {
     return { input: hp, noise };
 }
 
-function _normalizeSpokenText(text) {
+function _normalizeSpokenTextLegacy(text) {
     if (!text) return text;
     return String(text)
         .replace(/[–—]+/g, ', ')
@@ -4334,9 +4336,28 @@ function _normalizeSpokenText(text) {
         .trim();
 }
 
+function _normalizeSpokenText(text) {
+    const shared = window.GAMissionBoardingVoiceCore;
+    return shared && typeof shared.normalizeSpokenText === 'function'
+        ? shared.normalizeSpokenText(text)
+        : _normalizeSpokenTextLegacy(text);
+}
+
 function _trainingBoardingTextOrFallback(text, fallbackText) {
     const clean = String(text || '').trim();
     const fallback = String(fallbackText || '').trim();
+    const shared = window.GAMissionBoardingVoiceCore;
+    if (shared && typeof shared.finalizeBoardingText === 'function') {
+        const finalText = shared.finalizeBoardingText({
+            generatedText: clean,
+            fallbackText: fallback,
+            taskDomain: _activeTaskDomain()
+        });
+        if (clean && finalText === fallback && clean !== fallback) {
+            _paxLog('Training-Boarding Textgen verworfen; nutze stabile Boarding-Ansage', 'warn');
+        }
+        return finalText;
+    }
     if (!/^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain())) {
         return clean || fallback;
     }
@@ -5199,7 +5220,7 @@ function _boardingFallbackVariantIndex(seed = '') {
     return h >>> 0;
 }
 
-function _buildBoardingText() {
+function _buildBoardingTextLegacy() {
     const cargoCtx = _cargoOnlyVoiceContext();
     if (cargoCtx) {
         const requiredItems = _missionRequiredItemNames(4);
@@ -5242,6 +5263,40 @@ function _buildBoardingText() {
     ];
     const idx = _boardingFallbackVariantIndex(`${md?.missionId || md?.missionKey || ''}|boarding`) % variants.length;
     return variants[idx];
+}
+
+function _buildBoardingText() {
+    const shared = window.GAMissionBoardingVoiceCore;
+    if (!shared || typeof shared.buildBoardingText !== 'function') return _buildBoardingTextLegacy();
+    const cargoCtx = _cargoOnlyVoiceContext();
+    const requiredItems = _missionRequiredItemNames(4);
+    if (cargoCtx) {
+        return shared.buildBoardingText({
+            cargoOnly: true,
+            requiredItems,
+            cargoText: cargoCtx.cargoText,
+            destination: cargoCtx.dest
+        }) || _buildBoardingTextLegacy();
+    }
+    let contract = null;
+    try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
+    contract = contract || window.activeMissionContract || (typeof currentMissionData !== 'undefined' ? currentMissionData?.missionContract : null) || {};
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const pax = window.activePassenger || {};
+    const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
+    const result = shared.buildBoardingText({
+        missionSeed: md?.missionId || md?.missionKey || '',
+        paxText: String(contract.paxText || document.getElementById('mPay')?.innerText || '').trim(),
+        cargoText: String(contract.cargoText || document.getElementById('mWeight')?.innerText || '').trim(),
+        targetName: contract?.targetName || md?.targetName || md?.dest || '',
+        targetPickupMission: !!(bush && String(bush.targetMode || '') === 'strip_then_return' && String(bush.pickupKind || '').trim()),
+        hasPaxMission: _missionHasPax(),
+        taskDomain: _activeTaskDomain(),
+        trainingSchedule: _trainingProcedureScheduleText(),
+        speaker: pax,
+        requiredItems
+    });
+    return result || _buildBoardingTextLegacy();
 }
 
 async function _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidates, signal = null) {
@@ -6726,19 +6781,51 @@ function _distanceFromDepartureNm(lat, lon) {
     return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 3440.065;
 }
 
-window.paxVoicePrepareBoarding = function() {
-    const epoch = _paxMissionEpoch;
+window.paxVoiceBuildBoardingEffectRecipe = function() {
+    const shared = window.GAMissionBoardingVoiceCore;
+    if (!shared || typeof shared.createRecipe !== 'function') return null;
     let contract = null;
     try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
     contract = contract || window.activeMissionContract || (typeof currentMissionData !== 'undefined' ? currentMissionData?.missionContract : null) || {};
-    const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
-    const pickupKind = String(bush?.pickupKind || '').toLowerCase();
-    const suppressOutboundPickupBoarding = !!(
-        bush
-        && String(bush.targetMode || '') === 'strip_then_return'
-        && (pickupKind === 'passenger' || pickupKind === 'cargo')
-    );
-    if (suppressOutboundPickupBoarding) return Promise.resolve(null);
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const speaker = _speakerSnapshotForMissionVoice('boarding');
+    const modelIds = provider => _paxAiTextModels(provider).map(entry => Array.isArray(entry) ? entry[0] : entry).filter(Boolean);
+    const hasBoardingPassenger = !!(window.activePassenger || _missionHasPax());
+    const cueId = hasBoardingPassenger && _paxAudioEffectsEnabled
+        ? _paxMissionAudioCueId('cargo', 'passenger_load', 'boarding_pax')
+        : 'none';
+    return shared.createRecipe({
+        missionId: String(md?.missionId || md?.missionKey || _paxMissionAudioKey('boarding')).trim(),
+        contract,
+        hasPassenger: !!window.activePassenger,
+        hasPaxMission: _missionHasPax(),
+        hasCargoContext: !!_activeCargoText(),
+        audioEnabled: !!_paxVoiceEnabled,
+        playCue: cueId !== 'none',
+        cueId,
+        missionAudioKey: _paxMissionAudioKey('boarding'),
+        prompt: _boardingBriefingPrompt(),
+        fallbackText: _buildBoardingText(),
+        taskDomain: _activeTaskDomain(),
+        speaker,
+        textModels: {
+            gemini: modelIds('gemini'),
+            openai: modelIds('openai')
+        },
+        ttsModels: _paxTtsModelPref === '3.1'
+            ? ['gemini-3.1-flash-tts-preview']
+            : (_paxTtsModelPref === '2.5'
+                ? ['gemini-2.5-flash-preview-tts']
+                : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']),
+        ttsHedgeEnabled: _paxTtsHedgeEnabled(),
+        ttsHedgeDelayMs: _paxTtsHedgeDelayMs()
+    });
+};
+
+window.paxVoicePrepareBoarding = function() {
+    const epoch = _paxMissionEpoch;
+    const sharedRecipe = window.paxVoiceBuildBoardingEffectRecipe?.() || null;
+    if (sharedRecipe && sharedRecipe.enabled !== true) return Promise.resolve(null);
     const hasPassenger = !!window.activePassenger;
     const hasPaxMission = _missionHasPax();
     const hasCargoContext = !!_activeCargoText();
@@ -6755,10 +6842,10 @@ window.paxVoicePrepareBoarding = function() {
     const key = _paxMissionAudioKey('boarding');
     const existing = _paxPreparedAudio.get(key);
     if (existing?.text || existing?.textPromise) return existing.textPromise || Promise.resolve(existing);
-    const speaker = _speakerSnapshotForMissionVoice('boarding');
-    const prompt = _boardingBriefingPrompt();
+    const speaker = sharedRecipe?.speaker || _speakerSnapshotForMissionVoice('boarding');
+    const prompt = sharedRecipe?.prompt || _boardingBriefingPrompt();
     if (!prompt) {
-        const fallbackText = _buildBoardingText();
+        const fallbackText = sharedRecipe?.fallbackText || _buildBoardingText();
         _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null, epoch });
         _prepareTextAsTTS(key, fallbackText, speaker, epoch);
         return Promise.resolve(_paxPreparedAudio.get(key) || { key, text: fallbackText, speaker });
@@ -6767,7 +6854,7 @@ window.paxVoicePrepareBoarding = function() {
         if (!_paxEpochCurrent(epoch)) return null;
         const apiKey = _getApiKey();
         if (!apiKey) {
-            const fallbackText = _buildBoardingText();
+            const fallbackText = sharedRecipe?.fallbackText || _buildBoardingText();
             if (!_paxEpochCurrent(epoch)) return null;
             _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null, epoch });
             _prepareTextAsTTS(key, fallbackText, speaker, epoch);
@@ -6785,15 +6872,19 @@ window.paxVoicePrepareBoarding = function() {
                 ),
                 'Boarding'
             );
-            const fallbackText = _buildBoardingText();
-            const finalText = _trainingBoardingTextOrFallback(spokenText, fallbackText);
+            const fallbackText = sharedRecipe?.fallbackText || _buildBoardingText();
+            const finalText = window.GAMissionBoardingVoiceCore?.finalizeBoardingText?.({
+                generatedText: spokenText,
+                fallbackText,
+                taskDomain: sharedRecipe?.taskDomain || _activeTaskDomain()
+            }) || _trainingBoardingTextOrFallback(spokenText, fallbackText);
             _paxPreparedAudio.set(key, { text: finalText, speaker, audio: null, promise: null, epoch });
             _prepareTextAsTTS(key, finalText, speaker, epoch);
             return _paxPreparedAudio.get(key) || null;
         } catch (e) {
             if (!_paxEpochCurrent(epoch)) return null;
             _paxLog(`Boarding-Briefing Preload Fehler: ${e.message || e}`, 'warn');
-            const fallbackText = _buildBoardingText();
+            const fallbackText = sharedRecipe?.fallbackText || _buildBoardingText();
             _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null, epoch });
             _prepareTextAsTTS(key, fallbackText, speaker, epoch);
             return _paxPreparedAudio.get(key) || null;
@@ -6879,6 +6970,52 @@ window.paxVoicePlayBoarding = async function(options = {}) {
 window.paxVoiceBoardingDone = function() {
     return !!_paxBoardingDone;
 };
+
+function _applyTrackerBoardingVoicePresentation(detail = {}) {
+    const text = String(detail.text || '').trim();
+    if (!text) return false;
+    const speaker = detail.speaker && typeof detail.speaker === 'object' ? detail.speaker : null;
+    const key = `${text}|${String(speaker?.name || '')}|${String(detail.updatedAt || '')}`;
+    if (_paxTrackerVoicePresentationKey === key || _paxTrackerVoicePresentationKey.startsWith(`${text}|${String(speaker?.name || '')}|`)) return true;
+    _paxTrackerVoicePresentationKey = key;
+    _rememberAndShowPrepared(text, speaker, 'Boarding');
+    _paxBoardingDone = true;
+    _paxGreetingDone = true;
+    return true;
+}
+
+function _applyTrackerFarewellVoicePresentation(detail = {}) {
+    const text = String(detail.text || '').trim();
+    if (!text) return false;
+    const speaker = detail.speaker && typeof detail.speaker === 'object' ? detail.speaker : null;
+    const key = `farewell|${text}|${String(speaker?.name || '')}|${String(detail.updatedAt || '')}`;
+    if (_paxTrackerVoicePresentationKey === key || _paxTrackerVoicePresentationKey.startsWith(`farewell|${text}|${String(speaker?.name || '')}|`)) return true;
+    _paxTrackerVoicePresentationKey = key;
+    _rememberAndShowPrepared(text, speaker, 'Verabschiedung');
+    _paxFarewellDone = true;
+    return true;
+}
+
+window.paxVoiceApplyTrackerOutcome = function(outcome = null) {
+    if (typeof window.gaTrackerExecutionHandlesMission !== 'function'
+        || window.gaTrackerExecutionHandlesMission() !== true) return false;
+    const source = outcome && typeof outcome === 'object' ? outcome : {};
+    const kind = String(source.kind || 'boarding').toLowerCase();
+    if (kind === 'boarding') return _applyTrackerBoardingVoicePresentation(source);
+    if (kind === 'farewell') return _applyTrackerFarewellVoicePresentation(source);
+    return false;
+};
+
+window.addEventListener('ga:tracker-voice-playback', event => {
+    if (typeof window.gaTrackerExecutionHandlesMission !== 'function'
+        || window.gaTrackerExecutionHandlesMission() !== true) return;
+    const detail = event?.detail && typeof event.detail === 'object' ? event.detail : {};
+    const text = String(detail.text || '').trim();
+    if (!text) return;
+    const kind = String(detail.kind || '').toLowerCase();
+    if (kind === 'boarding') _applyTrackerBoardingVoicePresentation(detail);
+    else if (kind === 'farewell') _applyTrackerFarewellVoicePresentation(detail);
+});
 
 window.paxVoicePrepareGreeting = function(lat = null, lon = null) {
     const epoch = _paxMissionEpoch;
@@ -9566,6 +9703,179 @@ function _farewellPreparedContext(record = null) {
         logLabel: 'Farewell'
     };
 }
+
+function _farewellAuthorityContext() {
+    const shared = window.GAMissionFarewellVoiceCore;
+    if (!shared || typeof shared.createContext !== 'function') return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (!md) return null;
+    const cargoOnly = !window.activePassenger || !_missionHasPax();
+    const trainingPlan = _activeAptTrainingPlan();
+    const isPoi = _isPOIMission();
+    const isBush = typeof _isBushVoiceMission === 'function' && _isBushVoiceMission();
+    const isSarHeli = typeof window.missionIsSarHeliMission === 'function'
+        && window.missionIsSarHeliMission(md);
+    const supported = !isPoi && !trainingPlan && !isBush && !isSarHeli;
+    const unsupportedReason = isPoi
+        ? 'farewell_context_poi_not_migrated'
+        : (trainingPlan
+            ? 'farewell_context_training_not_migrated'
+            : (isBush
+                ? 'farewell_context_bush_not_migrated'
+                : (isSarHeli ? 'farewell_context_sar_heli_not_migrated' : null)));
+    const modelIds = provider => _paxAiTextModels(provider)
+        .map(entry => Array.isArray(entry) ? entry[0] : entry)
+        .filter(Boolean);
+    const storyFrame = _activeMissionStoryFrame();
+    const common = {
+        missionId: String(md.missionId || md.missionKey || _paxMissionAudioKey('farewell')).trim(),
+        missionAudioKey: _paxMissionAudioKey('farewell'),
+        enabled: true,
+        audioEnabled: !!_paxVoiceEnabled,
+        taskDomain: _activeTaskDomain(),
+        textModels: {
+            gemini: modelIds('gemini'),
+            openai: modelIds('openai')
+        },
+        ttsModels: _paxTtsModelPref === '3.1'
+            ? ['gemini-3.1-flash-tts-preview']
+            : (_paxTtsModelPref === '2.5'
+                ? ['gemini-2.5-flash-preview-tts']
+                : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']),
+        ttsHedgeEnabled: _paxTtsHedgeEnabled(),
+        ttsHedgeDelayMs: _paxTtsHedgeDelayMs(),
+        scope: 'apt_standard',
+        supported,
+        unsupportedReason,
+        motionProtectionEnabled: _paxDebugMotionProtectionEnabled(),
+        followUpDeboardingHint: _followUpDeboardingHintLine(),
+        toneHint: _toneHint(),
+        storyFocusSubject: String(storyFrame?.focusSubject || 'den Auftrag').trim(),
+        missionFailed: !!(md.missionFailed || String(md.missionResult || '').toLowerCase() === 'failed'),
+        briefingWeather: _briefingDestWeather(),
+        weatherMismatchAlreadyUsed: !!_paxWxMismatchDone,
+        flight: {
+            depLabel: String(md.start || (typeof currentStartICAO !== 'undefined' ? currentStartICAO : '') || 'START').trim(),
+            arrLabel: String(md.dest || (typeof currentDestICAO !== 'undefined' ? currentDestICAO : '') || 'LANDUNG').trim()
+        }
+    };
+    if (cargoOnly) {
+        const cargoCtx = _cargoOnlyVoiceContext();
+        if (!cargoCtx) return null;
+        const arrivalPlan = _activeAptArrivalPlan();
+        const requiredNames = _missionRequiredItemNames(3);
+        const cargoName = requiredNames.join(', ') || cargoCtx.cargoText;
+        const speaker = _cargoMissionSpeaker('farewell');
+        return shared.createContext({
+            ...common,
+            mode: 'cargo',
+            key: _paxMissionAudioKey('farewell-cargo'),
+            speaker,
+            playCue: false,
+            cargo: {
+                receiver: String(arrivalPlan?.expectedBy || arrivalPlan?.roleLabel || 'Frachtkontakt am Ziel').trim(),
+                start: cargoCtx.start,
+                dest: cargoCtx.dest,
+                dist: cargoCtx.dist,
+                paxText: cargoCtx.paxText,
+                cargoText: cargoCtx.cargoText,
+                story: cargoCtx.story,
+                contractSummary: cargoCtx.contractSummary,
+                arrivalLocation: _aptArrivalLocationLabel(arrivalPlan),
+                arrivalCue: _aptArrivalCue(arrivalPlan),
+                cargoName,
+                taskDomain: cargoCtx.taskDomain,
+                narrativeHint: _bushCargoPickupNarrativeHint('final')
+            }
+        });
+    }
+    const pax = window.activePassenger || {};
+    const cueId = _paxAudioEffectsEnabled
+        ? _paxMissionAudioCueId('cargo', 'passenger_unload', 'deboarding_pax')
+        : 'none';
+    return shared.createContext({
+        ...common,
+        mode: 'passenger',
+        key: _paxMissionAudioKey('farewell'),
+        baseContext: _baseContext(),
+        speaker: _speakerSnapshotForActivePax(),
+        playCue: cueId !== 'none',
+        cueId,
+        passenger: {
+            role: pax.role,
+            gTolerance: pax.gTolerance,
+            bankTolerance: pax.bankTolerance
+        },
+        aptFarewellHint: _aptArrivalFarewellHint(),
+        professionalLandingHint: _professionalLandingToneHint(),
+        farewellDriftGuard: _domainDriftGuard('result')
+    });
+}
+
+window.paxVoiceBuildFarewellAuthorityContext = function() {
+    return _farewellAuthorityContext();
+};
+
+window.paxVoiceBuildFarewellEffectRecipe = function(record = null) {
+    const shared = window.GAMissionFarewellVoiceCore;
+    if (!shared || typeof shared.createRecipe !== 'function') return null;
+    const authorityContext = _farewellAuthorityContext();
+    if (authorityContext?.supported === true && typeof shared.createRecipeFromContext === 'function') {
+        let rec = (record && typeof record === 'object') ? { ...record } : {};
+        if (!rec.missionCargoOutcome && typeof _missionCargoEvaluateFarewellOutcome === 'function') {
+            try {
+                const outcome = _missionCargoEvaluateFarewellOutcome();
+                if (outcome && typeof outcome === 'object' && outcome.status !== 'none') {
+                    rec.missionCargoOutcome = outcome;
+                    rec.missionFailed = !!outcome.failed;
+                }
+            } catch (_) {}
+        }
+        const recipe = shared.createRecipeFromContext(authorityContext, {
+            record: rec,
+            cargoOutcome: rec.missionCargoOutcome || null,
+            missionFailed: !!rec.missionFailed,
+            liveWeather: window.lastLiveFlightData || null
+        });
+        if (record && recipe?.prompt?.includes('Wetter fühlt sich gerade deutlich anders an als gemeldet')) {
+            _paxWxMismatchDone = true;
+        }
+        return recipe;
+    }
+    const ctx = _farewellPreparedContext(record);
+    if (!ctx?.key) return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const modelIds = provider => _paxAiTextModels(provider).map(entry => Array.isArray(entry) ? entry[0] : entry).filter(Boolean);
+    const cargoOnly = !window.activePassenger || !_missionHasPax();
+    const cueId = !cargoOnly && _paxAudioEffectsEnabled
+        ? _paxMissionAudioCueId('cargo', 'passenger_unload', 'deboarding_pax')
+        : 'none';
+    return shared.createRecipe({
+        missionId: String(md?.missionId || md?.missionKey || _paxMissionAudioKey('farewell')).trim(),
+        enabled: true,
+        cargoOnly,
+        audioEnabled: !!_paxVoiceEnabled,
+        playCue: cueId !== 'none',
+        cueId,
+        missionAudioKey: _paxMissionAudioKey('farewell'),
+        prompt: ctx.prompt || '',
+        text: ctx.text || '',
+        fallbackText: '',
+        taskDomain: _activeTaskDomain(),
+        speaker: ctx.speaker || _speakerSnapshotForMissionVoice('farewell'),
+        textModels: {
+            gemini: modelIds('gemini'),
+            openai: modelIds('openai')
+        },
+        ttsModels: _paxTtsModelPref === '3.1'
+            ? ['gemini-3.1-flash-tts-preview']
+            : (_paxTtsModelPref === '2.5'
+                ? ['gemini-2.5-flash-preview-tts']
+                : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']),
+        ttsHedgeEnabled: _paxTtsHedgeEnabled(),
+        ttsHedgeDelayMs: _paxTtsHedgeDelayMs()
+    });
+};
 
 window.paxVoicePrepareFarewell = function(record = null) {
     const epoch = _paxMissionEpoch;

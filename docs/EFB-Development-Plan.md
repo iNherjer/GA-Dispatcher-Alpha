@@ -1,6 +1,6 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
-Stand: 2026-08-18
+Stand: 2026-08-21
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-Cockpit-Clients: EFB-App und globales Toolbar-Panel. Neue Chats lesen
@@ -15,12 +15,95 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.4 manueller Origin-Installer mit APT-Opt-in-Schalter | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
-| Tracker-Runtime | v375 Alpha-Feldtest | v356 | v375 uebernimmt die App-Manifestregeln in den Tracker, dedupliziert Deboarding/Entladeeffekte und stabilisiert App-/EFB-Rendering; Alpha plus Umgebungs-Opt-in bleibt Pflicht. Stable bleibt auf v356 |
+| Tracker-Runtime | v375 als Transport-/Shadow-Basis; schreibende APT-Authority wieder fail-closed | v356 | Manifest-, Start-, Payload-, Boarding-/Farewell-Voice- und Standard-APT-UI-Core sind gegen echte App-Fallbackfunktionen abgesichert. Banner, Load-/Unload-Frachtliste, Bordbuch-/Ablauf-Equipment-Aktionen, reine Fracht-Pickups, Live-Weight-&-Balance und der Standard-APT-Compliance-Core samt lokaler Effektkette sind kanonisch. Passenger-Pickup sowie der reale Compliance-/Mehrinstanz-Gesamtnachweis bleiben offen. Training, POI, Bush/Pickup und SAR bleiben fail-closed. Nichts davon ist ausgerollt, und der Prototyp bewirbt trotz Alpha plus Opt-in keine Mission-Intent-Capability. |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
-| EFB-Transport | HTTP-Loopback; Mission im Standard read-only, in der gegateten APT-Alpha revisionsgebunden steuerbar | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert, `mission.intent.v1` erscheint nur bei aktiver Tracker-Execution |
+| EFB-Transport | HTTP-Loopback; Mission waehrend der erneuten Paritaetsmigration read-only | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert. `mission.intent.v1` erscheint erst wieder, wenn Alpha, Opt-in und der Core-Paritaetsgate gemeinsam erfuellt sind. |
+
+### Vorbereiteter Alpha-Feldkandidat v376
+
+Tracker v376 / Host 0.7.2 / Assetrevision 37601 ist als naechster, noch nicht
+veroeffentlichter Alpha-Feldkandidat vorbereitet. Die gemeinsamen Manifest-,
+Start-, Payload-, Boarding-/Farewell-, Standard-APT-UI- und Compliance-
+Differentialtests sind lokal gruen. Deshalb meldet der Core fuer diesen
+Kandidaten `TRACKER_AUTHORITY_READY=true` und bewirbt `mission.intent.v1`
+ausschliesslich bei gleichzeitigem Alpha-Kanal und aktiviertem Desktop-Opt-in.
+Stable sowie Alpha ohne Opt-in bleiben vollstaendig unter Web-Authority.
+
+Diese Freigabe ist nur das technische Gate fuer Stufe E, nicht deren PASS:
+Standard-APT-End-to-End, parallele App-/EFB-Bedienung, Reload/Duplicate-
+Recovery, die exklusive Voice-Playback-Lease, Abort/Clear/neue Mission und
+erzwungene Compliance muessen mit genau diesem unveraenderten Kandidaten real
+im Simulator bestaetigt werden. Passenger-Pickup, Training, POI, Bush/Pickup
+und SAR bleiben weiterhin fail-closed. Das EFB-Community-Paket bleibt auf
+0.4.11; der Host wird von der Tracker-Runtime geliefert.
 
 ## Aktueller EFB-Kanalstand
+
+Am 20.08.2026 wurde der vereinfachte erste Execution-Ansatz als nicht
+autoritaetsreif eingestuft. Der App-Code bleibt die aktive Referenz. Der
+gemeinsame `mission-manifest-core.js` fuehrt dieselben Load-, Unload-, Reload-,
+Drop-, Reset-, Passenger- und Signaturtransitionen aus und wird durch einen
+Differentialtest direkt gegen die noch ausfuehrbaren App-Fallbackfunktionen
+geprueft. Der Execution-Core behaelt Replay, Persistenz und Shadow-Vergleich.
+Der damalige v375-Stand meldete deshalb `TRACKER_AUTHORITY_READY=false`; erst
+der oben beschriebene v376-Kandidat oeffnet das Gate nach der vollstaendigen
+gemeinsamen Extraktion fuer den ausdruecklichen Alpha-Feldtest.
+Die App-Startfolge wurde bereits auf die getrennten Schritte `prepare_mission`
+und `start_boarding` korrigiert. Der gemeinsame `mission-start-core.js`
+sichert jetzt zusaetzlich die App-Reihenfolge fuer Manifest-/Signaturgate,
+Payload-Finalisierung und Start-ready-Promotion. Der Tracker-Reducer trennt
+Boarding-Szene, Boarding-Voice und Payload in drei echte ACK-Grenzen und kann
+weder Szenen- noch Load-Intent als Abkuerzung nach `boarded` verwenden.
+`mission-payload-core.js` ist inzwischen aus dem wirklichen App-Planer
+extrahiert und wird von App und Tracker gemeinsam fuer Standardstationen und
+PA-24 verwendet. Der Tracker fuehrt auch die bisherigen SimConnect-Schreib-,
+Reassert- und Stabilitaetspruefungen aus. Plan, Readback, Override und der aus
+dem App-Text extrahierte Status werden nun begrenzt im Execution-State
+persistiert und aus derselben Trackerrevision in App und EFB projiziert. Der
+Abort-/Reset-Rueckbau nutzt nun ebenfalls exakt die App-Reihenfolge, persistiert
+die erste Baseline privat vor dem Sim-Schreibversuch und bleibt ueber einen
+Tracker-Neustart retrybar. Auch laufende Load-, Reload-, Unload-, Drop- und
+Pax-Transitionen verwenden nun denselben Planer, dieselbe 500-ms-/2-s-
+Single-Flight-Queue und dieselben Readbackregeln. Der lokale Payload-Block ist
+damit implementiert und lokal differential abgesichert. Payload bleibt Teil
+des noch offenen realen APT-Gesamtnachweises, blockiert aber nicht mehr das
+dreifach geschuetzte v376-Alpha-Feldgate.
+Der Boarding-Voice-Schnitt verwendet bereits
+denselben App-Fallbacktext, dieselbe Textvalidierung, Sprecher-/Modellrotation
+und bei PAX dieselbe deterministische Cue-Auswahl. Der Tracker persistiert
+Text und Audio ohne Key oder Prompt, dedupliziert ueber die Effekt-ID und
+laesst Cue plus TTS von genau einer ausgewaehlten Cockpit-Instanz abspielen.
+Farewell und Deboarding verwenden lokal dieselbe zentrale Lease und die
+App-Reihenfolge aus Cue, Abschied, Continue, Handoff, Pax-Commit und Close.
+Der Standard-APT-Farewell wird aus tracker-eigenem App-identischem
+Flight-/Wetter-/Cargo-Kontext erzeugt; Sondermissionen brechen bewusst
+geschlossen ab. Standard-APT-Farewell und -Deboarding sind lokal parity-ready;
+der reale Voice-Lease-/Mehrinstanznachweis und die getrennte Migration der
+Sonderpfade bleiben offen.
+
+Der Standard-APT-UI-Schnitt ist lokal einen Schritt weiter: Neben den bereits
+charakterisierten Kartenbannern liefert `mission-apt-ui-core.js` nun ein
+vollstaendigeres `app-cargo-dialog-v1` fuer Load und Unload. Der EFB verwendet
+daraus dieselbe Frachtgutlistenstruktur, Item-/PAX-Texte, Signaturfolge,
+Primaer-/Sekundaeraktion, Summen, Sperrerklaerung und Payload-Ergebnisanzeige
+wie die App. Eine ausfuehrbare Charakterisierung vergleicht dieses Modell mit
+der echten `_missionCargoRenderDialog()`-Funktion in sechs kritischen
+Zustaenden. Die App startet nach einem Tracker-Signatur-ACK wieder ihre
+bestehende 1,6-s-Schreibanimation. Semantisch gleiche Polls bleiben durch die
+Markup-Signatur ohne DOM-Neuaufbau. Bordbuch-Start-/Landeeintraege und der
+Austausch bald ablaufender Ausruestung laufen nun ueber denselben Manifest-
+Core wie die App. Reine Fracht-Pickups koennen inklusive profilabhaengiger
+App-Texte autoritativ abgeschlossen werden. Ein tracker-eigener Fuenf-
+Sekunden-Read projiziert ausserdem die vollstaendige, aber begrenzte Weight-&-
+Balance-Zusammenfassung in beide Clients. Die Standard-APT-UI ist damit lokal
+parity-ready; Passenger-Pickup gehoert zum weiterhin gesperrten Bush/Pickup-
+Strang, und der reale App-/EFB-Mehrinstanzlauf fehlt. Der Standard-APT-
+Compliance-Pfad ist lokal
+aus dem App-Code extrahiert, ueber fuenf ausfuehrbare Differentialvarianten
+gegen dessen unveraenderte Fallbacks abgesichert und in beiden Oberflaechen
+projiziert. Force, Reload, genau eine Sanktion und Mehrinstanzbetrieb bleiben
+als reale Feldnachweise des v376-Kandidaten offen.
 
 Tracker v375 / Host 0.7.1 liefert die revisionsgebundene Mission-Control-
 Bedienung und Cargo-Projektion. Alle veraenderlichen CSS- und JavaScript-
@@ -291,6 +374,13 @@ Vorabinstallation des Karten-Prototyps.
 
 ## Verbindliche Architekturentscheidungen
 
+Der vollstaendige Ziel-, Paritaets- und Feature-Gate-Vertrag steht in
+`docs/Mission Runtime Authority Contract.md`. Fuer alle weiteren APT-Arbeiten
+gilt damit verbindlich: Die bestehende App ist die Verhaltensreferenz; der
+Tracker darf ihre Logik nicht angenaehert neu implementieren. Pro Run ist
+entweder die vollstaendige App-Ausfuehrung oder nach atomarem Commit die
+vollstaendige Tracker-Ausfuehrung aktiv.
+
 Die Tracker-Desktop-App speichert den Opt-in fuer die experimentelle
 APT-Missionsausfuehrung standardmaessig ausgeschaltet in ihren lokalen
 Einstellungen. Sie reicht `VFR_MULTITOOL_APT_EXECUTION=1` ausschliesslich an
@@ -313,10 +403,16 @@ Beim Umschalten wird eine laufende Engine kontrolliert neu gestartet.
    den Web und Tracker mit denselben Tests ausfuehren koennen.
 5. Pro Missionslauf gibt es genau eine schreibende Autoritaet. Web und Tracker
    duerfen nie gleichzeitig nach Last-write-wins denselben Zustand veraendern.
-6. Neue Funktionen sind additiv und werden ueber Capabilities ausgehandelt.
+6. Der aktuelle experimentelle `mission-execution-core.js` ist ein
+   Migrationsprototyp. Er gilt erst nach Golden-Master-Paritaet fuer Zustand,
+   Manifest, UI-Modell, Effekte und Fehlerpfade als Ersatz der App-Logik.
+7. Der EXE-Schalter waehlt keine Teilfunktionen aus. Alpha plus Opt-in erlaubt
+   nur einen atomaren APT-Authority-Commit; ohne Commit bleibt der gesamte Run
+   im bisherigen App-internen Ablauf.
+8. Neue Funktionen sind additiv und werden ueber Capabilities ausgehandelt.
    Fehlt eine Capability, bleibt die Web-App Autoritaet und der betroffene
    Cockpit-Client zeigt einen begrenzten, erklaerten Fallback.
-7. Alpha und Stable verwenden unveraenderliche Release-Artefakte. Ein getestetes
+9. Alpha und Stable verwenden unveraenderliche Release-Artefakte. Ein getestetes
    Alpha-Artefakt wird durch Kanalumschaltung nach Stable promotet und nicht neu
    gebaut.
 
@@ -725,7 +821,7 @@ bevor ein Releasevertrag oder Desktop-Autoupdate aktiviert wird.
 
 ### TP1 - Gemeinsamer Cockpit-Host
 
-Status: geplant
+Status: lokal implementiert; realer Gesamtnachweis ausstehend
 
 Nach positivem TP0 wird `/efb/v1/` zu einem gemeinsamen Cockpit-View mit
 explizitem `host=efb|toolbar`-Kontext. Der Kontext darf nur Chrome, Layout,
@@ -794,7 +890,8 @@ Fallback. Das gemeinsame Audio-Menue besitzt nun
 Praeferenz in ihrer kurzlebigen Cockpit-Sitzung. EFB/Toolbar koennen die
 aelteste fertige Ansage pollen, exklusiv leasen, direkt vom Tracker streamen
 und nach erfolgreichem Ende abschliessen. Noch offen sind die fachliche
-Voice-Aktionsprojektion, Farewell-/End-Lock-Tests gegen den migrierten
+Voice-Aktionsprojektion ausserhalb der nun migrierten Boarding-Ansage,
+Farewell-/End-Lock-Tests gegen den migrierten
 Execution-Core, Remote-Audio ueber den Relay-Pfad und der reale
 Coherent-/Toolbar-Playback-Test.
 
@@ -1082,6 +1179,19 @@ Authority-Release ab. `event-replay` darf weiterhin ein echtes
 `parity=PASS|FAIL` melden; `snapshot-shadow` meldet Transport und Shadow separat
 mit `parity=NOT_APPLICABLE`. Dateiname und Desktop-1.6.3-Zugriff bleiben fuer
 Tester kompatibel bei `GA-APT-Missionstest.txt` beziehungsweise `APT-Testlog`.
+
+`tools/mission-log-replay-selftest.mjs` kann diese vorhandenen Testlogs nun
+offline als reales Zeit- und Reihenfolgeprofil lesen. Der Parser prueft
+Checkpointabdeckung, Revisionen, Phasen und Effektstaus. Ein heutiger
+Standard-APT-Compliance-Tail laeuft anschliessend mit den aufgezeichneten
+Touchdown-, Ground-Still-, Cargo-, Unload- und Close-Zeitankern durch den
+aktuellen Execution-Core. Jede Transition wird zusaetzlich nach Serialisierung
+neu geladen, doppelt eingespielt und identisch fuer App und EFB projiziert;
+Simulator-, TTS- und Crewboard-Effekte bleiben Dry-Run. Da das redigierte Log
+absichtlich keine Manifest-, Positions- oder Effektpayloads enthaelt, ersetzt
+ein als synthetisch markierter kanonischer Fixture diese Daten. Eine im alten
+Lauf nicht aufgezeichnete Kontrolle darf nur als `synthetic-force` gelten und
+nicht als realer Compliance-Feldnachweis.
 Der veroeffentlichte Windows-Build umfasst 48.277.654 Bytes mit SHA-256
 `9db300c13488d7f18b97d2f1712f2d59d18608d61b99e01337536a0c18da8692`;
 nur Alpha wird aktualisiert, Stable bleibt auf v356.
@@ -1281,7 +1391,7 @@ und ein Recovery-Dialog fuer den absichtlich angehaltenen Ambiguitaetsfall.
 
 ### E6 - Bord-/Behoerdenkontrolle als untergeordneter Workflow
 
-Status: geplant
+Status: lokal implementiert, Feld- und Mehrinstanznachweis offen
 
 Die Compliance-Logik wird nicht isoliert in den Tracker verschoben. Sie haengt
 von Manifest, Boarding, Voice, Inspector-Szenen, Sanktionen und
@@ -1296,10 +1406,13 @@ mission
    `- complianceInspection
 ```
 
-Zuerst wird ihr Zustand in `mission.snapshot.v2` nur dargestellt. Danach werden
-fachliche Bewertung und Phasenreducer transportneutral extrahiert. Szenen und
-Voice bleiben Effekte; Profil-/Cloud-Synchronisation kann ueber eine persistente
-ausstehende Effect-Queue erfolgen.
+`mission-compliance-domain-core.js` fuehrt nun Bewertung, Snapshot,
+Nachbesserung, Ergebnistext, Sanktion und UI-Projektion transportneutral aus;
+der vorhandene App-Pfad delegiert darauf. Der Tracker-Reducer fuehrt den
+verschachtelten Workflow replaybar. Ground-Visit, beide Voice-Auftraege,
+Crewboard-Sanktion und Abfahrt sind persistente Effekte. Der Feldtest muss noch
+Force-Auswahl, Reload in jeder Phase, Szenenfallback, genau eine Audioinstanz,
+idempotenten Crewboard-Eintrag und synchrones App-/EFB-Cargo belegen.
 
 ## Kompatibilitaets- und Rolloutregeln
 
@@ -1350,6 +1463,41 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Naechste priorisierte Schritte
 
+- [x] Verbindlichen `Mission Runtime Authority Contract` festlegen: App als
+      Verhaltensreferenz, genau eine Autoritaet pro Run und Alpha-Opt-in nur
+      fuer einen atomaren vollstaendigen APT-Tracker-Pfad.
+- [x] Die exakten Legacy-APT-Kartenbanner fuer Planned, Prepare, Boarding,
+      Boarded, Enroute, Unload, End-ready, Deboarding und Debrief als ersten
+      Golden-Charakterisierungstest sichern.
+- [x] Explizite App-Recovery fuer einen aktiven Tracker-Run schliessen: Clear,
+      Reset und Neue Mission warten auf Cleanup und `abort_mission`, leeren
+      danach den lokalen Zustand und setzen die angeforderte Aktion ohne
+      zweiten Klick fort. Ein reiner Seitenreload bleibt Restore/Reattach.
+- [x] Ersten gemeinsamen `mission-manifest-core.js` extrahieren und die
+      bestehende App ohne UI-/Ablaufaenderung daran anbinden: Passenger,
+      Handoff-Lock, Signatur-Scope/-Invalidierung, Pickup-/Home-Delivery sowie
+      APT-Load-/Unload-Pflichtgates laufen in Browser und Node durch dieselben
+      Golden Tests.
+- [x] Deterministische Manifesttransitionen fuer Load, Unload, Drop, Reload,
+      Zurueck-auf-Pending sowie Sign/Unsign in denselben Core verschieben. Die
+      Web-App committed diese Transitionen, behaelt aber ihre vorhandenen
+      Payload-, Audio-, SimObject- und UI-Seiteneffekte; PAX fordert vorerst
+      deklarativ die unveraenderte Boarding-/Deboarding-Sequenz an.
+- [ ] Den APT-Referenzkatalog um Verlade-Manager, Manifesttransitionen,
+      Signaturen, PAX, Boarding/Deboarding, Voice, Szeneneffekte, Fehler und
+      Restore erweitern. Die erwarteten Ergebnisse werden aus der bestehenden
+      App entnommen, nicht aus dem experimentellen Tracker-Core.
+- [x] Den Standard-APT-Load-/Unload-Verlade-Manager aus der echten App-
+      Renderfunktion charakterisieren: Frachtzeilen, PAX, Signatur,
+      Signaturanimation, Confirm-/Close-Aktion, Summen und Tracker-Sperren
+      laufen differentiell gegen `app-cargo-dialog-v1`.
+- [ ] Danach den gemeinsamen APT-Domain- und Presentation-Core aus den
+      bestehenden App-Pfaden extrahieren und zuerst bei weiterhin aktiver
+      Web-Authority gegen alle Goldens laufen lassen.
+- [ ] Erst nach unveraenderter App-Paritaet denselben Core hinter Alpha plus
+      EXE-Schalter im Tracker ausfuehren. Der bisherige v375-Feldlauf bleibt
+      Diagnose des Prototyps und ist keine Freigabegrundlage fuer weitere
+      angenaeherte Einzelkorrekturen.
 - [ ] TP0 als isoliertes read-only Toolbar-Panel-Paket gegen das installierte
       MSFS-2024-SDK aufbauen; keine bestehende EFB-Kanaldatei veraendern.
 - [ ] TP0 im Simulator auf Registrierung, Loopback-iframe, Eingabe, Resize,
@@ -1382,7 +1530,8 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       implementieren: Sim-Szenen zuerst bereinigen, Authority danach als
       `aborted` freigeben, App-/EFB-Stand ohne Debrief synchron leeren und
       gesperrte Cargo-Aktionen sichtbar erklaeren.
-- [ ] v374 real mit App plus EFB in MSFS testen: Cloud-Start, Prepare, Boarding, Cargo aus
+- [ ] Nach abgeschlossenem Core-Paritaetsgate einen neuen Kandidaten real mit
+      App plus EFB in MSFS testen: Cloud-Start, Prepare, Boarding, Cargo aus
       beiden Instanzen, Start, Ziel-Ground-Still, Deboarding, Entladung, Close
       sowie finaler Debrief ohne doppeltes SimObject.
       Erster Versuch: Transport und zehn APT-Shadow-Checkpoints waren ohne
@@ -1406,15 +1555,27 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       erreichte Boarding, Flug und Zielentladung, zeigte aber noch App-/EFB-
       Reloadflackern, nicht reversible Signaturen, mehrfach erzeugtes PAX-
       Deboarding und einen durch unbehandelte Unload-Effekte blockierten Close.
-      v375 uebernimmt dafuer die bestehenden App-Toggle-/Signaturregeln in den
-      Tracker-Core, dedupliziert PAX und quittiert lokale Cargo-Effekte. Der
-      gesamte Ablauf muss mit v375 real wiederholt werden.
+      v375 uebernahm dafuer Teile der App-Toggle-/Signaturregeln, deduplizierte
+      PAX und quittierte lokale Cargo-Effekte. Die anschliessende Quellpruefung
+      belegte jedoch, dass Payload, Boarding-Voice, Farewell/Deboarding und UI
+      weiterhin nur angenaehert waren. Dieser Prototyp wird deshalb nicht
+      erneut als autoritativer Feldtest verwendet; erst der vollstaendig
+      extrahierte Folge-Core darf das Paritaetsgate wieder oeffnen.
 - [ ] Ambiguitaetsfall Tracker-Neustart nach physischem Dispatch und vor ACK
       real provozieren; bestaetigen, dass der Lauf fail-closed bleibt, und erst
       danach einen expliziten Recovery-/Abgleichdialog entwerfen.
-- [ ] Sim-Payload-Verteilung und missionsgetriggerte Voice-Intents in die
-      Tracker-Execution migrieren, bevor die APT-Authority ohne Alpha-Gate
-      freigegeben wird.
+- [x] Sim-Payload-Verteilung einschliesslich inkrementeller Cargo-/Pax-Wirkung
+      in die Tracker-Execution migrieren: Plan, Standard-/PA-24-Write/Readback,
+      Ergebnisprojektion, 500-ms-/2-s-Single-Flight, Load/Reload/Unload/Drop,
+      Pax-Boarding/Deboarding, persistente Ausruestungsbaseline, Reconnect und
+      Rueckbau bei Abbruch/Ersetzen sind lokal automatisiert abgesichert.
+- [x] `voice.boarding` aus der App exakt in den Tracker-Schnitt migrieren:
+      Pickup-Unterdrueckung, Cargo-only-Loadmastertext, Training-Fallback,
+      Sprecher-/Modellrotation, PAX-Cue vor TTS, 120-s-/Effekt-Deduplizierung,
+      Neustartcache, exklusive Geraete-Lease und best-effort Freigabe sind
+      lokal automatisiert abgesichert.
+- [ ] Missionsgetriggerte Voice-Intents vollstaendig in die Tracker-Execution
+      migrieren, bevor die APT-Authority ohne Alpha-Gate freigegeben wird.
 - [x] EFB 0.2.0 am physischen EFB und im 2D-Panel des primaeren Testsystems
       ohne Orientation-Flapping getestet.
 - [ ] EFB 0.2.0 auf dem urspruenglich betroffenen Testsystem gegenpruefen.
@@ -1656,6 +1817,225 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Tracker-Reducer spiegeln und Drift ueber komplette APT-Replays messen.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-21: Der Standard-APT-Compliance-Workflow verwendet nun in App und
+  Tracker denselben `mission-compliance-domain-core.js`. Ein direkter
+  Differentialtest bestaetigt fuer gueltige Evidence, noch geladene Items,
+  im Flug fehlende Ausruestung, Bordbuch-Nachbesserung sowie Verwarnung plus
+  Behoerdeneintrag dieselben Snapshots, Regeln, Texte, UI-Sperren und
+  Sanktionen wie die weiterhin ausfuehrbaren App-Fallbacks. Der Tracker fuehrt
+  lokal die App-Reihenfolge Ground-Visit, Farewell, Kontrollansage, Evidence,
+  Sanktion, Ergebnisansage, Abfahrt und Close aus. Replay-/Restart-, Voice-,
+  Simulator-, UI- und Loopback-Suite sind gruen. Das Authority-Gate bleibt
+  fuer den realen Force-/Reload-/Fallback-/Mehrinstanzlauf mit
+  `TRACKER_AUTHORITY_READY=false` geschlossen; nichts wurde ausgerollt.
+
+- 2026-08-21: Bordbuch und Ablauf-Equipment verwenden keine EFB-Sonderlogik
+  mehr. `mission-manifest-core.js` plant Start-/Landeeintrag und Austausch mit
+  denselben App-Gates; Metadatenwechsel lassen die Manifest-Unterschrift
+  unveraendert. `mission-execution-core.js` projiziert nur die jeweils
+  erlaubte Aktion, der Adapter committed sie revisionsgebunden. Reine Fracht-
+  Pickups verwenden nun denselben Manifestzustand und koennen nach der
+  Pickup-Signatur `return_leg` freigeben. Passenger-Pickup bleibt bis zur
+  gemeinsamen Boarding-Szene bewusst deaktiviert. Der Tracker liest bei
+  aktivem APT-Lauf alle fuenf Sekunden die aktuelle Sim-Payload und liefert
+  App und EFB Gesamt-, Leer-, Fuel-, Pax-, Cargo-, Missions- und
+  Stationsgewichte; rohe Assignments und Snapshots bleiben privat. Direkte
+  App-Differenztests fuer Manifest, Cargo-UI und Payload sowie die neuen
+  Core-/Adapter-/EFB-Tests sind gruen. Compliance bleibt wegen Ground-Visit,
+  Voice, Evidence, Remediation und Crewboard-Sanktion fail-closed.
+  `TRACKER_AUTHORITY_READY=false`; nichts wurde ausgerollt.
+
+- 2026-08-21: Zwischenlandungen trennen nun Segment- und Missionsrecord. Nach
+  fuenf Sekunden stabilem Halt wird das abgeschlossene Segment in den
+  missionsweiten Record gemergt und nur der Segmentrecorder neu begonnen.
+  Farewell verwendet weiterhin den eingefrorenen letzten Touchdown; das finale
+  Debrief erhaelt dagegen Summe, Extremwerte und Stichproben aller Segmente.
+  Rohtelemetrie liegt pro Run append-only als JSONL unter dem bestehenden
+  Tracker-Dokumentordner, am Ende entsteht eine kompakte Summary fuer App-
+  Debrief und vorhandenen Cloud-Sync. Damit waechst `localStorage` nicht mit
+  Rohpunkten. Gleichzeitig liefert `mission-apt-ui-core.js` die aus der App
+  charakterisierten APT-Banner- und Cargoentscheidungen an App und EFB.
+  Planned, Prepare, Boarding, Boarded, Unload, End-ready, Deboarding und
+  Debrief werden differentiell gegen den unveraenderten App-Legacy-Pfad
+  geprueft. Der Authority-Gate bleibt bis zu Dialogfeld-, Animations- und
+  realem Gesamtnachweis geschlossen; nichts wurde ausgerollt.
+
+- 2026-08-21: Standard-APT-Farewell benoetigt fuer einen Close aus der
+  tracker-gehosteten EFB kein veraltetes Handoff-Recipe mehr. Der gemeinsame
+  `mission-flight-recorder-core.js` bildet die App-Regeln fuer Arming,
+  Pause/Reconnect, Reposition, GPS-VS-Smoothing, Flugaggregate und Touchdown
+  ab. Der Farewell-Record wird App-identisch am Touchdown eingefroren; nach
+  fuenf Sekunden stabiler Zwischenlandung beginnt ein moeglicher Folgeabschnitt
+  mit einem neuen Recorder. Der Tracker persistiert Record und letztes Wetter privat und
+  neustartfest, ohne Authority-/Execution-Revision oder oeffentliches
+  `updatedAt` zu veraendern. `mission-farewell-voice-core.js` kombiniert diese
+  Werte mit dem beim Handoff privat uebernommenen App-Kontext fuer
+  Passenger-Erfolg, direkten Failure-Text und Cargo-only. Cargo-Stress nutzt
+  wie die App Record, Aggregate und den letzten Live-VS-Fallback; der geladene
+  PAX wird fuer die Farewell-Auswertung nur projiziert entladen. Ein beim
+  App-Close geliefertes aktuelles Recipe behaelt Vorrang. Bei
+  Tracker-Authority ist die lokale App-Farewell-Vorbereitung gesperrt, damit
+  kein zweiter TTS-Job entsteht. Der direkte Differentialtest fuehrt sowohl
+  die originalen App-Promptfunktionen als auch den echten App-Authority-
+  Context-Builder aus; Passenger-, Failure-, Cargo-, Wetter-, Flightrecord-
+  und Cargo-Outcome-Ausgaben stimmen ueberein. Private Restart-,
+  Handler-/Runtime- und breite Regressionstests sind gruen. Training, POI,
+  Bush/Pickup und SAR-Heli liefern bis zu ihrer eigenen Migration ein
+  deaktiviertes Recipe. `TRACKER_AUTHORITY_READY=false` und
+  `farewell_deboarding_parity` bleiben bis zum realen APT-Gesamtlauf und den
+  uebrigen Gates geschlossen. Nichts wurde ausgerollt.
+
+- 2026-08-21: Der naechste APT-Schnitt bildet die App-Reihenfolge fuer
+  Farewell und Deboarding nun explizit im Tracker ab: koordinierte Szene,
+  Stage-Cue, Farewell-Voice, Continue, Handoff/ACK, Pax-Commit, inkrementeller
+  Payload-Sync und erst danach Close beziehungsweise Compliance. Der neue
+  `mission-farewell-voice-core.js` verpackt den unveraenderten Ausgang von
+  `_farewellPreparedContext()` fuer Passenger-Erfolg, Failure-Fallback und
+  Cargo-only. Der Tracker erzeugt einen deduplizierten `voice.farewell`-Job;
+  der ausgewaehlte Audioclient spielt Deboarding-Cue und TTS auf derselben
+  Lease. App/EFB reichen beim Close den aktuellen Flight-/Cargo-Kontext privat
+  nach; er erscheint weder in Effects noch in der Mission-Control-Projektion.
+  Szenenfehler schalten auf die gleiche best-effort Farewell-/Handoff-Fallback-
+  Reihenfolge, Voice-Timeouts entfernen den Job vor einem moeglichen spaeten
+  Playback. Core-, Handler-, Simulator-, Runtime-, Voice-Service- und direkte
+  App-Recipe-Differentialtests sind lokal gruen. Der Authority-Gate und
+  `farewell_deboarding_parity` bleiben dennoch geschlossen, bis der Tracker
+  den dynamischen Flight-/Training-/Narrativkontext auch ohne eine
+  vollstaendige App-Instanz selbst erzeugt und ein realer APT-Gesamtlauf die
+  Sequenz bestaetigt. Nichts wurde ausgerollt.
+
+- 2026-08-21: Der erste autoritative Voice-Effekt ist nicht angenaehert neu
+  gebaut, sondern aus dem Boarding-Pfad der App extrahiert. Der gemeinsame
+  `mission-boarding-voice-core.js` bildet Pickup-Suppression, Cargo-only-Pfad,
+  dynamischen Prompt, Fallback- und Training-Validierung sowie die exakte
+  Sprecher-/Modellrotation ab; ein Differentialtest fuehrt die behaltenen
+  App-Fallbackfunktionen direkt dagegen aus. `voice.boarding` erzeugt im
+  Tracker genau einen neustartfesten Job. Text, Sprecher und begrenzter
+  Providerstatus werden autoritativ projiziert, der Key und der Prompt nie.
+  Bei PAX waehlt derselbe Seed aus derselben Cue-Kandidatenreihenfolge und die
+  gewinnende Cockpit-Instanz spielt Cue mit Gain `0.38` vor dem TTS-Stream auf
+  einer Lease. Cargo-only erzeugt wie die App eine Ansage, aber keinen Pax-Cue.
+  Tracker-, Provider-, Cue- oder Playbackfehler bleiben best effort und
+  koennen den Missionsstart nicht verriegeln. Der lokale App-Cue ist nur bei
+  Tracker-Authority gesperrt; mit ausgeschaltetem Gate bleibt der originale
+  App-Ablauf aktiv. Core-, Service-, Handler-, Cockpit-, HTTP- und
+  Differentialtests sind gruen. Nichts wurde ausgerollt; das Authority-Gate
+  bleibt wegen Farewell/Deboarding, weiteren Voice-Arten, kanonischem UI und
+  dem realen APT-Gesamtnachweis geschlossen.
+
+- 2026-08-21: Der inkrementelle Payload-Pfad verwendet jetzt dieselben
+  App-Regeln fuer Load, Reload, Unload, Airborne-Drop und automatisches
+  Pax-Boarding/Deboarding. Jede fachliche Transition erzeugt einen
+  persistierten `payload.sync_manifest_state`-Effekt; reine Signaturaktionen
+  erzeugen keinen. Der Tracker entprellt wie die App 500 ms, erzwingt nach
+  hoechstens zwei Sekunden einen Lauf und verarbeitet Write/Readback als
+  Single-Flight auf den neuesten Manifeststand. Geerbte permanente Ausruestung
+  wird vor dem Coalescing aus der privaten Baseline geloest und ihre Item-ID
+  neustartfest gespeichert. SimConnect-Detach bricht eine alte Queue ab und
+  gibt offene ACK-Leases fuer den sofortigen Reconnect-Dispatch frei. Die
+  gezielten Core-/Runtime-/Recovery-Testreihen und fuenf direkte App-Fallback-
+  Differenzszenarien waren gruen. Nichts wurde ausgerollt; der Authority-Gate
+  bleibt wegen Voice, Farewell/Deboarding, kanonischem UI und realem
+  APT-Gesamtnachweis geschlossen.
+
+- 2026-08-21: Der Payload-Abort-/Reset-Rueckbau ist aus der vorhandenen
+  App-Fallbackreihenfolge in `mission-payload-core.js` extrahiert. App und
+  Tracker planen damit identisch Standard-Baseline, Baseline plus persistente
+  Ausruestung, den Current-minus-Mission-Fallback bei geaendertem
+  Stationslayout sowie PA-24-Sitze, Charactergewichte und Gepaeck. Der Tracker
+  persistiert die erste gelesene Baseline atomar vor dem ersten
+  Sim-Schreibversuch in `ga.mission-payload-recovery.v1`; dieser Datensatz wird
+  weder in `activeRun` noch in Mission-/Execution-Control an App oder EFB
+  projiziert und ueberlebt einen Tracker-Neustart. `abort_mission` stellt eine
+  geschriebene Payload vor Szenencleanup und Authority-Freigabe wieder her und
+  liest den Zustand erneut. Schreib-, Readback- oder Persistenzfehler sowie
+  fehlendes SimConnect behalten den Run fuer einen Retry. Standard-,
+  Persistent-, Stationswechsel-, PA-24-, Neustart-, Nicht-Publikations- und
+  Fehlerretry-Tests sind lokal gruen. Das Authority-Gate bleibt geschlossen,
+  weil inkrementelle Load-/Unload-/Pax-Payloadwirkungen, Voice,
+  Farewell/Deboarding und das kanonische UI noch fehlen. Es wurde nichts
+  ausgerollt.
+
+- 2026-08-21: Das Ergebnis von `payload.sync_before_start` wird nicht mehr am
+  Effect-Runner verworfen. Der Handler liefert einen begrenzten
+  `ga.mission-payload-outcome.v1` mit Status, Override, Adapter, Fehler,
+  Zielgewichten und zusammengefasster Readbackpruefung. Das nachfolgende
+  `EFFECT_ACKNOWLEDGED` persistiert diesen Datensatz deterministisch im
+  Execution-State; Roh-SimConnect-Snapshot, Assignments und einzelne
+  Mismatchzeilen werden nicht publiziert. `ga.mission-execution-control.v1`
+  projiziert denselben Zustand samt gemeinsamem App-Warntext an Web-App und
+  EFB-Verlade-Manager. Auch der Legacy-Shadow kann den lokalen App-Ausgang im
+  Runtime-Snapshot abbilden, ohne die bestehende App-Ausfuehrung zu ersetzen.
+  Der Authority-Gate bleibt geschlossen: Als naechster Payload-Block fehlen
+  der Rueckbau der gesetzten Sim-Zuladung bei Abbruch/Ersetzen und dessen
+  Neustart-/Restore-Nachweis. Es wurde nichts ausgerollt.
+
+- 2026-08-20: Die Sim-Payload-Verteilung verwendet nun einen gemeinsamen
+  `mission-payload-core.js`, der direkt aus den App-Funktionen fuer
+  Snapshotnormalisierung, Standardstationsverteilung, PA-24-Sitz-/Character-
+  und Gepaeckplanung, Limits sowie Readbackvergleich extrahiert wurde. Die App
+  ruft den Core auf und behaelt ihre bisherigen Funktionen als ausfuehrbaren
+  Differential-Fallback. Im Tracker fuehrt ein injizierter SimConnect-Handler
+  denselben Plan mit den App-Wartezeiten `900/2400 ms` beziehungsweise
+  `350/650 ms`, dem `220 ms` PA-24-Reassert und genau einem Reassert-Versuch
+  bei reinem Sitzstatusdrift aus. Planfehler, Schreibablehnung oder instabile
+  Flugzeugwerte folgen weiterhin dem App-Vertrag "Tracker verbunden, Start
+  mit Payload-Warnung erlaubt" und erzeugen keinen Hard-Lock. Das
+  `payload_effect_parity`-Gate bleibt dennoch geschlossen, bis Plan,
+  Readback, Override-/Fehlertext sowie Reset/Restore autoritativ persistiert
+  und identisch an App, EFB und Panel projiziert werden. Der Legacy-App-Modus
+  und die originale Fallbacklogik bleiben erhalten; es wurde nichts
+  ausgerollt.
+
+- 2026-08-20: Der naechste APT-Paritaetsschnitt extrahiert die bisherige
+  App-Startentscheidung in `mission-start-core.js`. Die Web-App verwendet den
+  Core fuer die unveraenderte Load-Confirm-Pruefreihenfolge, den bestehenden
+  Payload-Override-Vertrag und `_missionCargoMaybePromoteStartReady`; ein
+  Differentialtest fuehrt die Start-ready-Funktion mit gemeinsamem Core und
+  ihrem App-Fallback aus. Der Tracker erzeugt auf `confirm_load` nur noch
+  `LOAD_CONFIRMATION_REQUESTED` plus `payload.sync_before_start` und nach dem
+  Szenen-ACK zunaechst `BOARDING_SCENE_CONFIRMED`. Bei PAX folgt getrennt
+  `voice.boarding`; erst dessen ACK bestaetigt Boarding. Der Authority-Adapter
+  akzeptiert diese internen Folgeevents nur bei wirklich offenem zugehoerigem
+  Effekt. Payload-Fehler geben einen Retry frei, Voice-Fehler folgen dem
+  best-effort-Verhalten der App und erzeugen keinen Hard-Lock. Der
+  Effect-Runner blockiert einen unabhaengigen Payload-Effekt nicht hinter
+  einem noch offenen Boarding-Szenen-ACK; damit bleibt die in der App erlaubte
+  parallele Finalisierung erhalten. Der echte SimConnect-Payloadplan war zu
+  diesem Zeitpunkt noch offen; der nachfolgende Eintrag dokumentiert seine
+  gemeinsame Extraktion. `TRACKER_AUTHORITY_READY=false` bleibt unveraendert.
+
+- 2026-08-20: Der Manifestteil ist nun direkt gegen die ausfuehrbaren
+  App-Fallbackfunktionen differenziell getestet und wird vollstaendig, ohne
+  reduzierte Cargo-Kopie, zwischen Tracker, App und EFB transportiert. Die
+  automatische Prototyp-Abkuerzung `prepare -> boarding` wurde entfernt;
+  `start_boarding` bildet wieder den zweiten sichtbaren App-Klick ab. Da die
+  uebrigen Effektketten noch nicht gleichartig extrahiert sind, meldet der
+  Execution-Core `TRACKER_AUTHORITY_READY=false`. Selbst Alpha plus Desktop-
+  Opt-in bewirbt bis zum gruenen Payload-/Voice-/Farewell-/UI-Nachweis keine
+  `mission.intent.v1`-Capability. Der unveraenderte Legacy-App-Pfad bleibt
+  damit die einzige fachliche Autoritaet.
+
+- 2026-08-20: Die APT-Migration wird auf exakte App-Paritaet zurueckgesetzt.
+  Der neue `Mission Runtime Authority Contract` definiert den Tracker als
+  einziges Hirn eines gegateten Runs und App, EFB sowie Toolbar-Panel als
+  Interfaces desselben Zustands. Stable, Alpha ohne EXE-Opt-in, nicht
+  freigegebene Rezepte und fehlgeschlagene Handoffs bleiben vollstaendig bei
+  der bestehenden App-internen Ausfuehrung. Der aktuelle Execution-Core und
+  seine Tracker-/EFB-Projektionen gelten als Migrationsprototyp, bis Zustand,
+  Manifest, UI-Modell, Effekte, Voice und Recovery gegen Golden-Ausgaben der
+  App identisch sind. `tools/apt-legacy-ui-characterization-selftest.mjs`
+  sichert als ersten Referenzschnitt die bestehenden APT-Kartenbanner vom
+  geplanten Start bis zum Debrief. Der reale v375-Prototyptest wird nicht durch
+  weitere angenaeherte Feldfixes fortgesetzt, bevor Cargo, Pax,
+  Boarding/Deboarding und Voice gleichartig charakterisiert und extrahiert
+  sind. Clear, Reset, Neue-Mission-Erzeugung und die Annahme einer Folgemission
+  warten bei Tracker-Authority auf den bestaetigten `abort_mission`-Pfad:
+  Simulatorbereinigung und Authority-Freigabe laufen zuerst, danach wird der
+  lokale App-Stand auch nach einem Reload erzwungen geleert und die
+  angeforderte Aktion ohne zweiten Klick fortgesetzt. Ein normaler
+  Seitenreload selbst bleibt ein Reattach und bricht keine Mission ab.
 
 - 2026-08-18: Desktop 1.6.4 fuehrt den standardmaessig ausgeschalteten
   Schalter `Experimentelle APT-Tracker-Steuerung` ein. Er ist nur im

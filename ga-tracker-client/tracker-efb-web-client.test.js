@@ -18,31 +18,31 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '37501');
+  assert.equal(EFB_WEB_ASSET_REVISION, '37601');
   assert.match(page, /data-efb-view-version="8"/);
-  assert.match(page, /app-styles\.css\?v=37501/);
-  assert.match(page, /host\.css\?v=37501/);
-  assert.match(page, /map-shell-core\.js\?v=37501/);
-  assert.match(page, /map-utility-tools\.js\?v=37501/);
-  assert.match(page, /cockpit-session-client\.js\?v=37501/);
-  assert.match(page, /host\.js\?v=37501/);
+  assert.match(page, /app-styles\.css\?v=37601/);
+  assert.match(page, /host\.css\?v=37601/);
+  assert.match(page, /map-shell-core\.js\?v=37601/);
+  assert.match(page, /map-utility-tools\.js\?v=37601/);
+  assert.match(page, /cockpit-session-client\.js\?v=37601/);
+  assert.match(page, /host\.js\?v=37601/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37501"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37501"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37501"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37601"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37601"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37601"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=37501',
-    '/efb/v1/assets/map-utility-tools.js?v=37501',
-    '/efb/v1/assets/cockpit-session-client.js?v=37501',
-    '/efb/v1/assets/host.js?v=37501'
+    '/efb/v1/assets/map-shell-core.js?v=37601',
+    '/efb/v1/assets/map-utility-tools.js?v=37601',
+    '/efb/v1/assets/cockpit-session-client.js?v=37601',
+    '/efb/v1/assets/host.js?v=37601'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -93,12 +93,19 @@ test('tracker-hosted static assets are allowlisted and browser scripts parse', (
 
 test('EFB cargo manager keeps app toggle semantics and avoids poll-time DOM rebuilds', () => {
   const source = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  assert.match(source, /function appCargoManagerMarkup\(mission, model\)/);
+  assert.match(source, /app-cargo-dialog-v1/);
+  assert.match(source, /mission-cargo-sheet-table/);
+  assert.match(source, /<th>Station<\/th><th>Status<\/th>/);
+  assert.match(source, /cargoSignatureAnimationEndsAt = Date\.now\(\) \+ 1600/);
+  assert.match(source, /Unterschrift wird eingetragen/);
+  assert.match(source, /if \(markup === cargoManagerSignature\) return;/);
   assert.match(source, /clear_manifest_signature/);
   assert.match(source, /label: 'Zurück zur Liste'/);
   assert.match(source, /status === 'loaded'\) \{\s*return \{ intent: 'set_manifest_item', action: 'unload'/);
+  assert.match(source, /\^\(active\|enroute\|return_leg\)\$[\s\S]*?label: 'Abwerfen'/);
   assert.match(source, /label: 'Wieder laden'/);
-  assert.match(source, /if \(markup === cargoManagerSignature\) return;/);
-  assert.match(source, /HOST 0\.7\.1/);
+  assert.match(source, /HOST 0\.7\.2/);
 });
 
 test('all Coherent-facing scripts avoid syntax rejected by the simulator engine', () => {
@@ -151,6 +158,8 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /Verlade-Manager/);
   assert.match(hostSource, /Mission abbrechen/);
   assert.match(hostSource, /function requestMissionIntent\(intent, payload\)/);
+  assert.match(hostSource, /data-mission-followup-intent/);
+  assert.match(hostSource, /requestMissionIntent\(followupIntent, \{\}\)/);
   assert.match(hostSource, /Mission wirklich abbrechen/);
   assert.match(hostSource, /function cargoInteractionHint\(phase\)/);
   assert.match(hostSource, /Ladung ist während des Flugabschnitts gesperrt/);
@@ -242,6 +251,8 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostCss, /\.ga-efb-cargo-manager \{[\s\S]*?z-index: 190000/);
   assert.match(hostCss, /\.ga-efb-mission-actions\.is-danger button/);
   assert.match(hostCss, /\.ga-efb-cargo-lock-hint/);
+  assert.match(hostSource, /function cargoPayloadStatusMarkup\(control\)/);
+  assert.match(hostSource, /mission-cargo-payload-message/);
   assert.match(hostSource, /Schrift kleiner \(-\)/);
   assert.match(hostSource, /Schrift größer \(\+\)/);
   assert.match(hostSource, /Schriftgröße:/);
@@ -359,6 +370,9 @@ test('mission drawer signatures ignore volatile relay and flight fields', () => 
   volatileUpdate.view.flight.aglFt = 2100;
   volatileUpdate.view.flight.gsKts = 106;
   assert.equal(missionRenderSignature(first), missionRenderSignature(volatileUpdate));
+  volatileUpdate.control.payload = { status: 'pending', presentation: { className: 'is-pending', message: 'Payload pending' } };
+  assert.notEqual(missionRenderSignature(first), missionRenderSignature(volatileUpdate));
+  delete volatileUpdate.control.payload;
   volatileUpdate.view.story = 'Geänderter Missionstext';
   assert.notEqual(missionRenderSignature(first), missionRenderSignature(volatileUpdate));
 });

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   MISSION_VIEW_SCHEMA,
+  projectMissionManifest,
   projectTrackerEfbMissionView,
   sanitizeMissionView
 } = require('./tracker-efb-mission-view-core');
@@ -91,7 +92,18 @@ test('tracker execution control overrides stale legacy phase and cargo presentat
     authorityRevision: 12,
     phase: 'end_unloading',
     nextStep: 'complete_unload',
+    allowedActions: ['set_manifest_item'],
     flags: { active: true },
+    voice: {
+      boarding: {
+        kind: 'boarding',
+        status: 'ok',
+        text: '<b>Die Kühlbox ist an Bord.</b>',
+        speaker: { name: 'Loadmaster', role: 'Lademeister', gender: 'male' },
+        playback: 'completed',
+        updatedAt: 1234
+      }
+    },
     cargo: {
       signatureScope: 'arrival',
       items: [{ id: 'box-one', itemType: 'cargo', status: 'unloaded', required: true, pickup: 'departure', delivery: 'destination', weightLbs: 12 }],
@@ -106,6 +118,55 @@ test('tracker execution control overrides stale legacy phase and cargo presentat
   assert.equal(result.manifest.items[0].label, 'Kühlbox');
   assert.equal(result.manifest.items[0].status, 'unloaded');
   assert.equal(result.manifest.signatureScope, 'arrival');
+  assert.equal(result.voice.text, 'Die Kühlbox ist an Bord.');
+  assert.equal(result.voice.speaker.name, 'Loadmaster');
+  assert.equal(result.voice.playback, 'completed');
+  assert.equal(result.ui.schema, 'ga.mission-apt-ui.v1');
+  assert.equal(result.ui.banner.kicker, 'Ladung entladen');
+  assert.equal(result.ui.banner.button, 'Ausladen');
+  assert.equal(result.ui.cargo.presentation, 'app-cargo-dialog-v1');
+  assert.equal(result.ui.cargo.header.title, 'Verladung');
+  assert.equal(result.ui.cargo.items[0].statusLabel, 'ausgeladen');
+});
+
+test('tracker execution projects the full authoritative manifest without rewriting item ids', () => {
+  const result = projectTrackerEfbMissionView({
+    missionId: 'apt-manifest', runId: 'run-manifest', state: 'active', active: true, phase: 'boarding', revision: 3,
+    resumeBundle: {
+      missionState: { currentMissionData: { mission: 'APT Manifest', start: 'EDTW', dest: 'EDTL' } },
+      runtime: { cargoManifest: { items: [{ id: 'Box-ONE', label: 'Veraltete Bezeichnung', status: 'pending' }] } }
+    }
+  }, null, null, {
+    missionId: 'apt-manifest',
+    runId: 'run-manifest',
+    executionAuthority: 'tracker',
+    authorityRevision: 9,
+    phase: 'boarding',
+    nextStep: 'confirm_load',
+    flags: { active: false },
+    manifest: {
+      dispatchSignature: { scope: 'departure', by: 'Pilot' },
+      items: [{
+        id: 'Box-ONE',
+        storyName: 'Autoritative Kühlbox',
+        itemType: 'cargo',
+        status: 'loaded',
+        required: true,
+        deliverAtDestination: true,
+        weightLbs: 12
+      }]
+    },
+    cargo: {
+      signatureScope: 'departure',
+      items: [{ id: 'Box-ONE', itemType: 'cargo', status: 'loaded', required: true, pickup: 'departure', delivery: 'destination', weightLbs: 12 }],
+      summary: { total: 1, requiredTotal: 1, loaded: 1, unloaded: 0, pending: 0, failed: false }
+    }
+  });
+  assert.equal(result.manifest.items[0].id, 'Box-ONE');
+  assert.equal(result.manifest.items[0].label, 'Autoritative Kühlbox');
+  assert.equal(result.manifest.dispatchSignature.by, 'Pilot');
+  assert.equal(result.ui.cargo.signature.name, 'Pilot');
+  assert.equal(result.ui.cargo.actions.primary.label, 'Verladung abschließen');
 });
 
 test('cloud-pending tracker mission projects the activation task and original manifest', () => {
@@ -156,4 +217,54 @@ test('German mission text keeps composed and decomposed umlauts', () => {
   assert.equal(sanitized.title, 'Überführungsflug');
   assert.equal(sanitized.story, decomposed);
   assert.equal(sanitized.currentTask, 'Zurückkehren und Mission abschließen');
+});
+
+test('projected reload action follows the App 200 m ground-item radius', () => {
+  const activeRun = { resumeBundle: {} };
+  const control = {
+    manifest: {
+      items: [{
+        id: 'box', storyName: 'Kühlbox', status: 'unloaded', required: true,
+        unloadLat: 48, unloadLon: 8, weightLbs: 12,
+        payloadStations: [2, 4], payloadStationAdapter: 'pa24_accusim'
+      }]
+    },
+    cargo: { items: [{ id: 'box', status: 'unloaded', required: true, itemType: 'cargo' }] }
+  };
+  const nearby = projectMissionManifest(activeRun, control, { lat: 48, lon: 8.001 });
+  const far = projectMissionManifest(activeRun, control, { lat: 48, lon: 8.01 });
+  assert.equal(nearby.items[0].reloadAllowed, true);
+  assert.equal(nearby.items[0].station, 'Sitz 2 / Sitz 4');
+  assert.ok(nearby.items[0].reloadDistanceM < 200);
+  assert.equal(far.items[0].reloadAllowed, false);
+  assert.ok(far.items[0].reloadDistanceM > 200);
+});
+
+test('live tracker payload snapshot feeds the EFB App-style weight-and-balance block before confirmation', () => {
+  const result = projectTrackerEfbMissionView({
+    missionId: 'apt-wb', runId: 'run-wb', active: false, phase: 'boarding', revision: 2,
+    resumeBundle: {
+      missionState: { currentMissionData: { missionId: 'apt-wb', start: 'EDTW', dest: 'EDTL' } },
+      runtime: { cargoManifest: { items: [] } }
+    }
+  }, null, null, {
+    missionId: 'apt-wb', runId: 'run-wb', executionAuthority: 'tracker', authorityRevision: 2,
+    phase: 'boarding', flags: { groundStill: true, boardingConfirmed: true },
+    cargo: { items: [], summary: { departureMissing: 0 } },
+    payload: {
+      status: 'idle',
+      plan: {
+        paxWeightLbs: 180, cargoWeightLbs: 42, missionWeightLbs: 222,
+        stations: [{ index: 2, baselineWeightLbs: 0, missionExtraLbs: 180, weightLbs: 180 }]
+      }
+    },
+    allowedActions: []
+  }, {
+    payloadAdapter: 'msfs_payload_stations', totalWeightLbs: 2400, emptyWeightLbs: 1500,
+    fuelWeightLbs: 300, payloadStationCount: 5, sampledStationCount: 5,
+    stations: [{ index: 1, weightLbs: 170 }, { index: 2, weightLbs: 180 }]
+  });
+  assert.equal(result.ui.cargo.payload.summary.totalWeightLbs, 2400);
+  assert.equal(result.ui.cargo.payload.summary.payloadStationCount, 5);
+  assert.equal(result.ui.cargo.payload.summary.stations[0].weightLbs, 180);
 });

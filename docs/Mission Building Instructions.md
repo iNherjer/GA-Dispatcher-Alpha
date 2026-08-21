@@ -92,7 +92,29 @@ Die Runtime trennt zwei Dinge:
 
 Diese Trennung ist wichtig. Viele alte Bugs entstanden dort, wo UI, Cargo-Status und Missionsabschluss nur über lose `if/else`-Kombinationen gekoppelt waren.
 
-### 3.3 Manifest-/Ladungslogik in `mission-cargo-core.js`
+### 3.3 Manifest-/Ladungslogik in `mission-manifest-core.js` und `mission-cargo-core.js`
+
+`mission-manifest-core.js` ist die transportneutrale fachliche Basis fuer
+Itemrollen, Departure-/Pickup-/Arrival-Signaturen, Load-/Unload-Gates und die
+deterministischen Itemtransitionen Load, Unload, Drop, Reload und Zurueck auf
+Pending.
+Das Modul laeuft unveraendert in Browser und Node und kennt weder DOM,
+SimConnect, Voice noch Persistenz. Die App verwendet diesen Core bereits als
+Web-Authority; bei fehlendem Modul bleiben voruebergehend die identischen
+Legacy-Fallbacks aktiv.
+
+`mission-cargo-core.js` behaelt waehrend der schrittweisen Migration die
+Manifest-Erzeugung, UI, Payload-/SimObject-Seiteneffekte, Animationen,
+Persistenz und Outcome-Orchestrierung. Neue fachliche Gate-Regeln duerfen
+nicht wieder nur dort oder im Tracker entstehen, sondern muessen zuerst in
+den gemeinsamen Manifest-Core.
+
+Der Manifest-Core plant eine Transition zunaechst ohne Mutation und liefert
+einen stabilen Fehlercode oder einen Patch. Erst `commitItemTransition()`
+wendet den Patch an und invalidiert die passende Unterschrift. Passenger-
+Transitionen liefern bis zur Extraktion der gemeinsamen Szenenrezepte einen
+deklarativen Boarding-/Deboarding-Effekt; die vorhandene App-Sequenz bleibt
+fuer Animation, Audio und SimObject-ACK die Referenz.
 
 Wichtige Funktionen:
 
@@ -122,7 +144,8 @@ Für neue Missionen gilt: Erfolgskriterien nach Möglichkeit über Manifest und 
 
 Faustregel:
 
-- `mission-cargo-core.js` entscheidet ueber Manifest, Payload, Load/Pickup/Unload und Missionsauswertung.
+- `mission-manifest-core.js` entscheidet ueber gemeinsame Item-, Signatur- und Gate-Semantik.
+- `mission-cargo-core.js` erzeugt und persistiert das Manifest und fuehrt Payload-, UI- und Simulatorfolgen aus.
 - `sync.js` oeffnet nur die passenden Dialoge und haengt diese Entscheidungen an die Runtime-/Szenensteuerung an.
 
 ### 3.4 Bush-Progression in `mission-runtime-core.js`

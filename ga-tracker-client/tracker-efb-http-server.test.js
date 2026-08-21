@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 const test = require('node:test');
+const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const {
   MAX_EFB_CLIENT_LOG_BYTES,
   TRACKER_EFB_HTTP_CAPABILITIES,
@@ -15,11 +16,11 @@ const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core'
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
 test('current tracker exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v375'/);
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v376'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 375/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 376/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);
   assert.match(trackerSource, /currentTelemetryHibernateState\.shouldSendTelemetry/);
@@ -324,7 +325,17 @@ test('loopback voice API deduplicates synthesis, streams audio and leases playba
   const server = createTrackerEfbHttpServer({ host: '127.0.0.1', port: 0, hello, voiceService });
   t.after(() => server.stop());
   const address = await server.start();
-  const jobBody = JSON.stringify({ effectId: 'mission-1:boarding', text: 'Willkommen an Bord.', speaker: { gender: 'female' } });
+  const jobBody = JSON.stringify({
+    effectId: 'mission-1:boarding',
+    kind: 'boarding',
+    text: 'Willkommen an Bord.',
+    speaker: { gender: 'female' },
+    cue: {
+      id: 'boarding_pax',
+      variantSeed: boardingVoiceCore.boardingCueVariantSeed('boarding_pax', 'boarding:mission-1'),
+      gain: 0.38
+    }
+  });
 
   const rejected = await request(address, '/api/v1/voice/jobs', {
     method: 'POST',
@@ -359,6 +370,10 @@ test('loopback voice API deduplicates synthesis, streams audio and leases playba
   assert.equal(audio.statusCode, 200);
   assert.equal(audio.headers['content-type'], 'audio/mpeg');
   assert.equal(audio.rawBody.toString(), 'shared-mp3');
+  const cue = await request(address, '/api/v1/voice/jobs/mission-1%3Aboarding/cue');
+  assert.equal(cue.statusCode, 200);
+  assert.equal(cue.headers['content-type'], 'audio/mpeg');
+  assert.ok(cue.rawBody.length > 0);
 
   const claimA = await request(address, '/api/v1/voice/playback/claim', {
     method: 'POST',

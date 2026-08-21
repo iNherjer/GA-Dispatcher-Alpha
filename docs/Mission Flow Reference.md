@@ -1,5 +1,10 @@
 # Mission Flow Reference
 
+Fuer die Verschiebung dieser Ablaeufe zwischen App und Tracker gilt zusaetzlich
+der verbindliche `Mission Runtime Authority Contract.md`. Die hier
+beschriebenen Regeln duerfen im Tracker nicht vereinfacht oder angenaehert
+nachgebaut werden.
+
 Stand: 10.08.2026
 
 Diese Datei ist die kurze operative Referenz fuer den aktuellen Missionsablauf.
@@ -293,6 +298,22 @@ haben.
 - Start- und Landezeitbanner sind Abkuerzungen zum selben Logbuchzustand.
 - Am Boden zurueckgelassene Items werden nach Abflug als verloren markiert.
 
+### 6.1 Flugaufzeichnung, Zwischenlandung und Debrief
+
+- Der aktive Flight-Recorder beschreibt immer genau einen Flugabschnitt.
+- Nach Touchdown bleibt dieser Abschnitt fuer Farewell eingefroren. Erst nach
+  fuenf Sekunden stabilem Halt wird er abgeschlossen und ein neuer
+  Segmentrecorder freigegeben.
+- Ein Zwischenhalt loescht nie die vorherigen Flugwerte. Der Tracker fuehrt
+  parallel einen missionsweiten Record aus allen abgeschlossenen Segmenten und
+  dem noch offenen letzten Segment.
+- Farewell beurteilt die letzte Ankunft. Das finale Debrief verwendet den
+  missionsweiten Record mit gesamter Flugzeit, Strecke, Extremwerten und
+  Stichprobenzahl.
+- Rohtelemetrie wird im Tracker append-only lokal gespeichert. Authority,
+  App/EFB-Snapshots und Cloud erhalten nur begrenzte Zustands- beziehungsweise
+  Abschlussmodelle; `localStorage` ist kein Flightlog-Rohdatenspeicher.
+
 ## 7. Wiederherstellung und Sackgassen-Schutz
 
 - Missionsentwuerfe und akzeptierte, noch nicht begonnene Missionen bleiben
@@ -370,7 +391,9 @@ haben.
 | --- | --- |
 | Profil und Bush-Rezept | `mission-definition-core.js` |
 | Missionsemantik und Contract-Hydration | `app.js` |
-| Manifest, Signatur, Verlade-Manager | `mission-cargo-core.js` |
+| Transportneutrale Manifest-, Signatur-, Cargo-, Bordbuch- und Ablauf-Equipment-Gates | `mission-manifest-core.js` |
+| Transportneutrale Payloadplanung, Readback, begrenzte Live-W&B-Projektion und Abort-/Reset-Rueckbau | `mission-payload-core.js` |
+| Manifest-Erzeugung, Verlade-Manager, Payload und Cargo-Seiteneffekte | `mission-cargo-core.js` |
 | Runtime und Ground Readiness | `mission-runtime-core.js` |
 | Gemeinsame APT-Zielradien und Distanzentscheidung | `mission-location-core.js` |
 | UI-Orchestrierung, Scene Commands, Mission Lifecycle | `sync.js` |
@@ -378,11 +401,30 @@ haben.
 | PAX-Text, TTS, Voice-Queue | `passenger-voice.js` |
 | Tracker-Animation und SimObjects | `ga-tracker-client/tracker.js` |
 | Tracker-APT-Intent-/Effekt-Orchestrierung | `ga-tracker-client/tracker-mission-execution-runtime.js` |
+| Tracker-Payload-Write, private Baseline und Rueckbau | `ga-tracker-client/tracker-mission-payload-handler.js` |
+| Gemeinsame APT-Banner-, Frachtlisten-, Signatur-, Label- und Cargo-Aktionsprojektion | `mission-apt-ui-core.js` |
+| Segment- und Missionsflugaggregate | `mission-flight-recorder-core.js` |
+| Lokaler append-only Tracker-Flightlog | `ga-tracker-client/tracker-flight-log-store.js` |
 | Validierung vorbereiteter APT-Szeneneffekte | `ga-tracker-client/tracker-mission-simulator-effects.js` |
 
-Fachliche Manifest-Erfolgskriterien gehoeren nach `mission-cargo-core.js`.
-`sync.js` verbindet UI und Ereignisse. Voice und Tracker duerfen den fachlichen
-Erfolg nicht eigenstaendig setzen.
+Fachliche Manifest-, Itemtransition-, Signatur- und Cargo-Gates gehoeren in
+`mission-manifest-core.js`. `mission-cargo-core.js` erzeugt und persistiert das
+Manifest und fuehrt die bestehenden Payload-, Audio-, SimObject-, Animations-
+und UI-Seiteneffekte aus. `sync.js` verbindet UI und Ereignisse. Voice und
+Tracker duerfen den fachlichen Erfolg nicht eigenstaendig setzen.
+
+`mission-apt-ui-core.js` entscheidet ausschliesslich, wie ein bereits
+autoritativ bestimmter APT-Zustand in App, EFB oder spaeter Toolbar-Panel
+erscheint. Die Standard-APT-Frachtgutliste wird als
+`app-cargo-dialog-v1` mit denselben Itemstatus-, Signatur-, Summen- und
+Buttontexten projiziert. Dazu gehoeren Bordbuch-/Ablauf-Equipment-Aktionen,
+profilabhaengige Pickup-Texte und die begrenzte Live-Weight-&-Balance-
+Zusammenfassung. Dadurch darf kein Client aus einem sichtbaren Button selbst
+auf Missionserfolg oder eine Cargo-Transition schliessen. Reine Fracht-
+Pickups koennen der Tracker-Core und sein Adapter bereits bestaetigen;
+Passenger-Pickup bleibt bis zum gemeinsamen Boarding-Szenenrezept gesperrt.
+Compliance bleibt bis zur Extraktion seiner Ground-Visit-, Voice-, Evidence-,
+Remediation- und Sanktionskette fail-closed.
 
 ## 9. Pflichtnachweis bei Ablaufaenderungen
 
@@ -390,6 +432,7 @@ Mindestens:
 
 ```bash
 node --check app.js
+node --check mission-manifest-core.js
 node --check mission-cargo-core.js
 node --check mission-location-core.js
 node --check mission-runtime-core.js
@@ -398,6 +441,9 @@ node --check sync.js
 node tools/mission-flow-simulation-selftest.mjs
 node tools/mission-ground-flow-selftest.mjs
 node tools/mission-cargo-persistence-selftest.mjs
+node --test mission-manifest-core.test.js
+node --test mission-payload-core.test.js ga-tracker-client/tracker-mission-payload-handler.test.js
+node tools/mission-payload-app-differential-selftest.mjs
 node tools/mission-update-sync-selftest.mjs
 node --test mission-location-core.test.js
 ```

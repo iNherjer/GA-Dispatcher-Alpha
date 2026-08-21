@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const executionCore = require('../mission-execution-core.js');
+const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
 const { createTrackerMissionExecutionRuntime } = require('./tracker-mission-execution-runtime.js');
 const { EFFECT_PLAN_SCHEMA } = require('./tracker-mission-simulator-effects.js');
@@ -28,6 +29,7 @@ function aptBundle() {
     runtime: {
       missionId: 'mission-runtime-apt',
       startPhase: 'planned',
+      lastLiveFlightData: { onGround: true, gsKts: 0, simPaused: false, inMenuOrMap: false },
       runtime: { missionId: 'mission-runtime-apt', phase: 'planned', active: false },
       cargoManifest: {
         version: 6,
@@ -121,16 +123,42 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
     legacyBundle: bundle
   });
   const manager = committedManager(t, bundle);
-  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true });
+  const runtime = createTrackerMissionExecutionRuntime({
+    authorityManager: manager,
+    enabled: true,
+    payloadSyncBeforeStart: () => ({ ok: true, status: 'completed', sideEffect: false }),
+    playBoardingVoice: request => ({
+      ok: true,
+      status: 'completed',
+      sideEffect: false,
+      commandId: request.commandId,
+      voiceOutcome: {
+        schema: 'ga.mission-voice-outcome.v1',
+        kind: 'boarding',
+        status: 'ok',
+        text: 'Die Fracht ist verladen, wir sind bereit.',
+        playback: 'audio_disabled'
+      }
+    })
+  });
   runtime.attachSimulator({
     getLivePosition: () => ({ lat: 48.3, lon: 8.5, alt: 500, hdg: 90 }),
-    dispatchCommand: () => ({ ok: true, status: 'completed', sideEffect: false })
+    dispatchCommand: () => ({ ok: true, status: 'completed', sideEffect: false }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed', sideEffect: false })
   });
 
   let run = manager.getActiveRun();
   assert.equal((await runtime.executeIntent({
     commandId: 'prepare-arrival-runtime',
     intent: 'prepare_mission',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  })).ok, true);
+  run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'start-boarding-arrival-runtime',
+    intent: 'start_boarding',
     missionId: run.missionId,
     runId: run.runId,
     expectedRevision: run.revision
@@ -199,6 +227,8 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
     expectedRevision: run.revision
   });
   assert.equal(confirmed.ok, true);
+  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().state.effects.every(effect => effect.status === 'completed')), true);
+  assert.equal(manager.getExecutionSnapshot().state.payload.status, 'ok');
   assert.equal(confirmed.effectDispatch.pendingCount, 0);
   assert.equal(manager.getExecutionSnapshot().state.flags.unloadConfirmed, true);
   assert.equal(manager.getExecutionSnapshot().state.effects.every(effect => effect.status === 'completed'), true);
@@ -224,13 +254,189 @@ async function waitUntil(predicate, attempts = 40) {
   return false;
 }
 
+test('coordinated Farewell keeps the passenger loaded until voice, continuation and deboarding ACK finish', async (t) => {
+  const bundle = aptBundle();
+  bundle.runtime.lastLiveFlightData = { onGround: true, gsKts: 0, simPaused: false, inMenuOrMap: false };
+  bundle.runtime.cargoManifest = {
+    version: 6,
+    key: 'farewell-manifest',
+    dispatchSignature: { scope: 'arrival' },
+    items: [{
+      id: 'farewell-passenger',
+      itemType: 'passenger',
+      required: true,
+      status: 'loaded',
+      passengerCount: 1,
+      deliverAtDestination: true
+    }]
+  };
+  bundle.executionEffectPlan.effects['scene.deboarding'] = {
+    command: {
+      type: 'mission_scene_deboarding',
+      sceneId: 'scene-mission-runtime-apt',
+      path: [{ forwardM: 4.5, rightM: 8.5 }, { forwardM: 16, rightM: -8 }]
+    }
+  };
+  const farewellContext = farewellVoiceCore.createContext({
+    missionId: bundle.missionId,
+    missionAudioKey: `farewell:${bundle.missionId}`,
+    key: `farewell:${bundle.missionId}`,
+    mode: 'passenger',
+    baseContext: 'ROLLE: Mara (Passagier)\nAUSGABE: Nur gesprochener Text.',
+    speaker: { name: 'Mara', role: 'Passagier', gender: 'female' },
+    passenger: { role: 'Passagier' },
+    flight: { depLabel: 'EDTW', arrLabel: 'EDTL' }
+  });
+  bundle.executionEffectPlan.effects['voice.farewell'] = {
+    recipe: farewellVoiceCore.createRecipe({
+      missionId: bundle.missionId,
+      prompt: 'Veralteter Prompt aus dem Handoff.',
+      speaker: farewellContext.speaker
+    }),
+    context: farewellContext
+  };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, {
+    sourceRevision: 1,
+    legacyBundle: bundle
+  });
+
+  const manager = committedManager(t, bundle);
+  const importedBundle = JSON.parse(JSON.stringify(bundle));
+  importedBundle.runtime.startPhase = 'end_ready';
+  importedBundle.runtime.runtime = {
+    missionId: bundle.missionId,
+    phase: 'end_ready',
+    active: true,
+    startedAt: 1000
+  };
+  importedBundle.runtime.flightRecorder = { hadAirbornePhase: true };
+  const importedSnapshot = manager.getExecutionSnapshot();
+  const imported = manager.applyExecutionEvent({
+    missionId: importedSnapshot.missionId,
+    runId: importedSnapshot.runId,
+    expectedRevision: importedSnapshot.authorityRevision,
+    expectedExecutionRevision: importedSnapshot.executionRevision,
+    expectedExecutionStateHash: importedSnapshot.executionStateHash,
+    commandId: 'farewell-import-end-ready',
+    reason: 'test:farewell-end-ready',
+    event: {
+      eventId: 'farewell-import-end-ready',
+      type: 'AUTHORITATIVE_SNAPSHOT_IMPORTED',
+      sequence: importedSnapshot.executionRevision + 1,
+      occurredAt: 2000,
+      payload: { resumeBundle: importedBundle }
+    }
+  });
+  assert.equal(imported.ok, true);
+  assert.equal(manager.getExecutionSnapshot().state.phase, 'end_ready');
+  const commands = [];
+  let releaseFarewell;
+  let farewellCalls = 0;
+  const farewellGate = new Promise(resolve => { releaseFarewell = resolve; });
+  const runtime = createTrackerMissionExecutionRuntime({
+    authorityManager: manager,
+    enabled: true,
+    playFarewellVoice: async request => {
+      farewellCalls += 1;
+      assert.equal(request.farewellRecipe?.prompt, 'Dynamischer App-Farewell zur Landung.');
+      assert.equal(request.farewellContext?.schema, farewellVoiceCore.CONTEXT_SCHEMA);
+      assert.equal(request.farewellContext?.flight.depLabel, 'EDTW');
+      assert.equal(typeof request.farewellDynamicContext?.record, 'object');
+      await farewellGate;
+      return {
+        ok: true,
+        status: 'completed',
+        sideEffect: true,
+        commandId: request.commandId,
+        voiceOutcome: {
+          schema: 'ga.mission-voice-outcome.v1',
+          kind: 'farewell',
+          status: 'ok',
+          text: 'Danke fuers Mitnehmen.',
+          playback: 'completed'
+        }
+      };
+    }
+  });
+  const bridge = runtime.attachSimulator({
+    getLivePosition: () => ({ lat: 48.3, lon: 8.5, alt: 900, hdg: 180 }),
+    dispatchCommand: command => {
+      commands.push(command);
+      return {
+        ok: true,
+        status: command.type === 'mission_scene_deboarding' ? 'pending' : 'completed',
+        sideEffect: true
+      };
+    },
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed', sideEffect: false })
+  });
+  const run = manager.getActiveRun();
+  const close = await runtime.executeIntent({
+    commandId: 'farewell-close',
+    intent: 'request_close',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision,
+    payload: {
+      farewellVoiceRecipe: farewellVoiceCore.createRecipe({
+        missionId: run.missionId,
+        prompt: 'Dynamischer App-Farewell zur Landung.',
+        speaker: { name: 'Mara', gender: 'female' },
+        playCue: true,
+        cueId: 'deboarding_pax'
+      })
+    }
+  });
+  assert.equal(close.ok, true);
+  assert.equal(commands[0].type, 'mission_scene_deboarding');
+  assert.equal(commands[0].coordinateFarewell, true);
+  assert.equal(manager.getExecutionSnapshot().state.manifest.items[0].status, 'loaded');
+  assert.doesNotMatch(JSON.stringify(manager.getPublicSnapshot()), /Dynamischer App-Farewell/);
+
+  assert.equal(bridge.handleAck({
+    type: 'mission_scene_deboarding_stage',
+    commandId: commands[0].commandId,
+    stage: 'cue',
+    status: 'ok'
+  }), true);
+  assert.equal(await waitUntil(() => farewellCalls === 1), true);
+  assert.equal(commands.length, 1, 'deboarding must not continue while Farewell is playing');
+  assert.equal(manager.getExecutionSnapshot().state.manifest.items[0].status, 'loaded');
+
+  releaseFarewell();
+  assert.equal(await waitUntil(() => commands.some(command => command.type === 'mission_scene_deboarding_continue')), true);
+  const continuation = commands.find(command => command.type === 'mission_scene_deboarding_continue');
+  assert.equal(continuation.deboardingCommandId, commands[0].commandId);
+  assert.equal(manager.getExecutionSnapshot().state.manifest.items[0].status, 'loaded');
+
+  assert.equal(bridge.handleAck({
+    type: 'mission_scene_deboarding_ack',
+    commandId: commands[0].commandId,
+    status: 'ok'
+  }), true);
+  assert.equal(await waitUntil(() => manager.getActiveRun() === null), true);
+  assert.equal(manager.getPublicSnapshot().lastExecution.voice.farewell.text, 'Danke fuers Mitnehmen.');
+  assert.equal(manager.getPublicSnapshot().lastExecution.phase, 'closed');
+});
+
 test('enabled runtime dispatches app-prepared APT scenes and advances only from simulator ACKs', async (t) => {
   const manager = committedManager(t);
   const commands = [];
   const runtimeLogs = [];
-  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true, log: line => runtimeLogs.push(line) });
+  let payloadSyncs = 0;
+  const runtime = createTrackerMissionExecutionRuntime({
+    authorityManager: manager,
+    enabled: true,
+    log: line => runtimeLogs.push(line)
+  });
   const bridge = runtime.attachSimulator({
     getLivePosition: () => ({ lat: 48.01, lon: 8.02, alt: 1200, hdg: 180 }),
+    syncPayloadBeforeStart: request => {
+      payloadSyncs += 1;
+      assert.equal(Array.isArray(request.manifest.items), true);
+      return { ok: true, status: 'completed', sideEffect: false };
+    },
     dispatchCommand: command => {
       commands.push(command);
       return { ok: true, status: 'pending', sideEffect: true };
@@ -251,16 +457,24 @@ test('enabled runtime dispatches app-prepared APT scenes and advances only from 
 
   bridge.handleAck({ type: 'mission_scene_spawn_ack', commandId: commands[0].commandId, status: 'ok' });
   assert.equal(
-    await waitUntil(() => commands.length === 2),
+    await waitUntil(() => manager.getExecutionSnapshot().view.allowedActions.includes('start_boarding')),
     true,
     JSON.stringify({ commands, snapshot: manager.getExecutionSnapshot() })
   );
+  const boardingStartRun = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'intent-start-boarding',
+    intent: 'start_boarding',
+    missionId: boardingStartRun.missionId,
+    runId: boardingStartRun.runId,
+    expectedRevision: boardingStartRun.revision
+  })).ok, true);
+  assert.equal(await waitUntil(() => commands.length === 2), true);
   assert.equal(commands[1].type, 'mission_scene_boarding');
   assert.equal(manager.getExecutionSnapshot().state.phase, 'boarding');
 
-  bridge.handleAck({ type: 'mission_scene_boarding_ack', commandId: commands[1].commandId, status: 'ok' });
-  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().state.effects.every(effect => effect.status === 'completed')), true);
-  assert.equal(manager.getExecutionSnapshot().state.phase, 'boarding');
+  // App parity: payload finalization may complete while the independent
+  // boarding animation still waits for its simulator ACK.
   const boardingRun = manager.getActiveRun();
   const loaded = await runtime.executeIntent({
     commandId: 'intent-confirm-load',
@@ -270,6 +484,12 @@ test('enabled runtime dispatches app-prepared APT scenes and advances only from 
     expectedRevision: boardingRun.revision
   });
   assert.equal(loaded.ok, true);
+  assert.equal(payloadSyncs, 1);
+  assert.equal(manager.getExecutionSnapshot().state.flags.loadConfirmed, true);
+  assert.equal(manager.getExecutionSnapshot().state.phase, 'boarding');
+
+  bridge.handleAck({ type: 'mission_scene_boarding_ack', commandId: commands[1].commandId, status: 'ok' });
+  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().state.effects.every(effect => effect.status === 'completed')), true);
   assert.equal(manager.getExecutionSnapshot().state.phase, 'boarded');
   assert.equal(manager.getExecutionSnapshot().state.effects.every(effect => effect.status === 'completed'), true);
 
@@ -304,6 +524,46 @@ test('enabled runtime dispatches app-prepared APT scenes and advances only from 
   assert.equal(manager.getActiveRun(), null);
   assert.equal(manager.getPublicSnapshot().lastRun.state, 'completed');
   assert.equal(manager.getPublicSnapshot().lastRun.phase, 'closed');
+});
+
+test('simulator reconnect cancels payload work and immediately redrives persisted effects', async (t) => {
+  const manager = committedManager(t);
+  const runtime = createTrackerMissionExecutionRuntime({
+    authorityManager: manager,
+    enabled: true
+  });
+  let dispatches = 0;
+  let cancellations = 0;
+  const simulator = {
+    getLivePosition: () => ({ lat: 48, lon: 8, alt: 1000, hdg: 90 }),
+    dispatchCommand: () => {
+      dispatches += 1;
+      return { ok: true, status: 'pending', sideEffect: true };
+    },
+    cancelPayloadSync: () => {
+      cancellations += 1;
+      return { ok: true, status: 'cancelled' };
+    }
+  };
+  const firstBridge = runtime.attachSimulator(simulator);
+  let run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({
+    commandId: 'prepare-before-reconnect',
+    intent: 'prepare_mission',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  })).ok, true);
+  assert.equal(dispatches, 1);
+  assert.equal(runtime.publicState().effects.awaitingAck.length, 1);
+  assert.equal(runtime.detachSimulator(firstBridge), true);
+  assert.equal(await waitUntil(() => cancellations === 1), true);
+  assert.equal(runtime.publicState().effects.awaitingAck.length, 0);
+
+  runtime.attachSimulator(simulator);
+  assert.equal(await waitUntil(() => dispatches === 2
+    && runtime.publicState().effects.awaitingAck.length === 1), true);
+  assert.equal(manager.getExecutionSnapshot().state.effects.some(effect => effect.status === 'requested'), true);
 });
 
 test('tracker abort cleans simulator effects before atomically releasing the active run', async (t) => {
@@ -360,6 +620,35 @@ test('tracker abort retains authority when simulator cleanup fails', async (t) =
 
   assert.equal(aborted.ok, false);
   assert.equal(aborted.error, 'sim_cleanup_failed');
+  assert.equal(manager.getActiveRun().runId, run.runId);
+});
+
+test('tracker abort retains authority while a written payload still needs a connected simulator restore', async (t) => {
+  const manager = committedManager(t);
+  const run = manager.getActiveRun();
+  const recoveryCredentials = { missionId: run.missionId, runId: run.runId };
+  assert.equal(manager.recordExecutionPayloadRecovery({
+    ...recoveryCredentials,
+    action: 'capture',
+    baseline: {
+      payloadAdapter: 'msfs_payload_stations',
+      payloadStationCount: 2,
+      sampledStationCount: 2,
+      stations: [{ index: 1, weightLbs: 170 }, { index: 2, weightLbs: 0 }]
+    }
+  }).ok, true);
+  assert.equal(manager.recordExecutionPayloadRecovery({ ...recoveryCredentials, action: 'write_attempted' }).ok, true);
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true });
+  const blocked = await runtime.executeIntent({
+    commandId: 'intent-abort-without-simulator',
+    intent: 'abort_mission',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision
+  });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.status, 'blocked');
+  assert.equal(blocked.error, 'mission_payload_restore_simulator_not_connected');
   assert.equal(manager.getActiveRun().runId, run.runId);
 });
 

@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const executionCore = require('../mission-execution-core.js');
 const locationCore = require('../mission-location-core.js');
+const payloadCore = require('../mission-payload-core.js');
+const flightRecorderCore = require('../mission-flight-recorder-core.js');
 
 const STATE_SCHEMA = 'ga.mission-authority.v1';
 const STATE_VERSION = 1;
@@ -13,6 +15,8 @@ const MAX_EXECUTION_EVENTS = 160;
 const EXECUTION_AUTHORITY_WEB = 'web';
 const EXECUTION_AUTHORITY_TRACKER = 'tracker';
 const EXECUTION_HANDOFF_RECIPE = 'apt';
+const EXECUTION_PAYLOAD_RECOVERY_SCHEMA = 'ga.mission-payload-recovery.v1';
+const EXECUTION_RUNTIME_CONTEXT_SCHEMA = 'ga.mission-runtime-context.v1';
 
 const TERMINAL_STATES = new Set(['ended', 'closed', 'reset', 'cleared', 'aborted', 'completed']);
 const AUTHORITY_COMMANDS = new Set([
@@ -54,6 +58,149 @@ function safeResumeBundle(value) {
 
 function safeObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function normalizePayloadRecoveryBaseline(value) {
+  const normalized = payloadCore.normalizeSnapshot(value);
+  if (!normalized) return null;
+  const aircraft = safeObject(normalized.aircraft);
+  return {
+    payloadAdapter: cleanString(normalized.payloadAdapter, 80) || 'msfs_payload_stations',
+    aircraft: Object.keys(aircraft).length ? {
+      title: cleanString(aircraft.title, 240) || null,
+      model: cleanString(aircraft.model, 240) || null,
+      type: cleanString(aircraft.type, 120) || null
+    } : null,
+    pa24: normalized.pa24 ? jsonClone(normalized.pa24) : null,
+    totalWeightLbs: Number.isFinite(Number(normalized.totalWeightLbs)) ? Number(normalized.totalWeightLbs) : null,
+    emptyWeightLbs: Number.isFinite(Number(normalized.emptyWeightLbs)) ? Number(normalized.emptyWeightLbs) : null,
+    fuelWeightLbs: Number.isFinite(Number(normalized.fuelWeightLbs)) ? Number(normalized.fuelWeightLbs) : null,
+    payloadWeightLbs: Number.isFinite(Number(normalized.payloadWeightLbs)) ? Number(normalized.payloadWeightLbs) : null,
+    payloadStationCount: normalized.payloadStationCount,
+    sampledStationCount: normalized.sampledStationCount,
+    stations: normalized.stations.map(row => ({ index: row.index, weightLbs: row.weightLbs }))
+  };
+}
+
+function normalizeExecutionPayloadRecovery(value) {
+  const source = safeObject(value);
+  const baseline = normalizePayloadRecoveryBaseline(source.baseline);
+  if (!baseline) return null;
+  return {
+    schema: EXECUTION_PAYLOAD_RECOVERY_SCHEMA,
+    baseline,
+    capturedAt: Number(source.capturedAt || 0) || null,
+    writeAttempted: source.writeAttempted === true,
+    writeAttemptedAt: Number(source.writeAttemptedAt || 0) || null,
+    restoreAttempts: Math.max(0, Math.min(100, Math.round(Number(source.restoreAttempts) || 0))),
+    lastRestoreAttemptAt: Number(source.lastRestoreAttemptAt || 0) || null,
+    restored: source.restored === true,
+    restoredAt: Number(source.restoredAt || 0) || null,
+    detachedInheritedEquipmentIds: Array.from(new Set(
+      (Array.isArray(source.detachedInheritedEquipmentIds) ? source.detachedInheritedEquipmentIds : [])
+        .map(value => cleanString(value, 120))
+        .filter(Boolean)
+    )).slice(0, 80),
+    lastError: cleanString(source.lastError, 240) || null
+  };
+}
+
+function normalizeFlightRecord(value) {
+  const source = safeObject(value);
+  if (!Object.keys(source).length) return null;
+  const numberOrNull = value => value == null || value === '' || !Number.isFinite(Number(value))
+    ? null
+    : Number(value);
+  return {
+    depLabel: cleanString(source.depLabel, 180) || 'START',
+    arrLabel: cleanString(source.arrLabel, 180) || 'LANDUNG',
+    startTs: numberOrNull(source.startTs),
+    endTs: numberOrNull(source.endTs),
+    createdAt: numberOrNull(source.createdAt),
+    durationSec: numberOrNull(source.durationSec),
+    distanceNm: numberOrNull(source.distanceNm),
+    distanceSource: cleanString(source.distanceSource, 40) || 'unavailable',
+    avgGs: numberOrNull(source.avgGs),
+    maxGs: numberOrNull(source.maxGs),
+    maxAltFt: numberOrNull(source.maxAltFt),
+    touchdownVsFpm: numberOrNull(source.touchdownVsFpm),
+    maxBankDeg: numberOrNull(source.maxBankDeg),
+    maxGForce: numberOrNull(source.maxGForce),
+    avgGForce: numberOrNull(source.avgGForce),
+    maxClimbFpm: numberOrNull(source.maxClimbFpm),
+    maxDescentFpm: numberOrNull(source.maxDescentFpm),
+    minEnrouteAglFt: numberOrNull(source.minEnrouteAglFt),
+    cruiseAltitudeMeanFt: numberOrNull(source.cruiseAltitudeMeanFt),
+    cruiseAltitudeStdDevFt: numberOrNull(source.cruiseAltitudeStdDevFt),
+    cruiseAltitudeRangeFt: numberOrNull(source.cruiseAltitudeRangeFt),
+    telemetrySampleCount: numberOrNull(source.telemetrySampleCount),
+    bankSampleCount: numberOrNull(source.bankSampleCount),
+    gForceSampleCount: numberOrNull(source.gForceSampleCount),
+    enrouteSampleCount: numberOrNull(source.enrouteSampleCount),
+    aglSampleCount: numberOrNull(source.aglSampleCount),
+    cruiseSampleCount: numberOrNull(source.cruiseSampleCount),
+    cruiseDurationSec: numberOrNull(source.cruiseDurationSec),
+    telemetryStatus: cleanString(source.telemetryStatus, 40) || 'unavailable',
+    segmentCount: Math.max(1, Math.round(Number(source.segmentCount) || 1))
+  };
+}
+
+function normalizeExecutionRuntimeContext(value) {
+  const source = safeObject(value);
+  if (source.schema !== EXECUTION_RUNTIME_CONTEXT_SCHEMA || Number(source.version) !== 1) return null;
+  const latest = safeObject(source.latestTelemetry);
+  const numberOrNull = value => value == null || value === '' || !Number.isFinite(Number(value))
+    ? null
+    : Number(value);
+  const arrivalFlightRecord = normalizeFlightRecord(source.arrivalFlightRecord);
+  const missionFlightRecord = normalizeFlightRecord(source.missionFlightRecord);
+  const rawDestination = safeObject(source.latestDestination);
+  return {
+    schema: EXECUTION_RUNTIME_CONTEXT_SCHEMA,
+    version: 1,
+    missionId: cleanString(source.missionId, 180),
+    runId: cleanString(source.runId, 220),
+    flightRecorder: flightRecorderCore.createState(source.flightRecorder),
+    arrivalFlightRecord,
+    missionFlightRecord,
+    lastFinalizedSegmentStartTs: Math.max(0, Math.round(Number(source.lastFinalizedSegmentStartTs) || 0)) || null,
+    segmentDepartureLabel: cleanString(source.segmentDepartureLabel, 180) || null,
+    recorderLowSpeedSince: Math.max(0, Math.round(Number(source.recorderLowSpeedSince) || 0)) || null,
+    latestDestination: {
+      atDestination: rawDestination.atDestination === true,
+      hasAptArrival: rawDestination.hasAptArrival === true,
+      dArrivalNm: numberOrNull(rawDestination.dArrivalNm),
+      dMissionNm: numberOrNull(rawDestination.dMissionNm),
+      reason: cleanString(rawDestination.reason, 80) || null
+    },
+    latestTelemetry: {
+      observedAt: Math.max(0, Math.round(Number(latest.observedAt) || 0)),
+      lat: numberOrNull(latest.lat),
+      lon: numberOrNull(latest.lon),
+      altFt: numberOrNull(latest.altFt),
+      aglFt: numberOrNull(latest.aglFt),
+      hdg: numberOrNull(latest.hdg),
+      gsKts: numberOrNull(latest.gsKts),
+      onGround: typeof latest.onGround === 'boolean' ? latest.onGround : null,
+      bankDeg: numberOrNull(latest.bankDeg),
+      gForce: numberOrNull(latest.gForce),
+      vsFpm: numberOrNull(latest.vsFpm),
+      touchdownFpm: numberOrNull(latest.touchdownFpm),
+      windKts: numberOrNull(latest.windKts),
+      windDeg: numberOrNull(latest.windDeg),
+      windGustKts: numberOrNull(latest.windGustKts),
+      tempC: numberOrNull(latest.tempC),
+      visKm: numberOrNull(latest.visKm),
+      precipRateMmH: numberOrNull(latest.precipRateMmH),
+      precipActive: latest.precipActive === true,
+      inCloud: latest.inCloud === true,
+      turbulencePct: numberOrNull(latest.turbulencePct),
+      simPaused: latest.simPaused === true,
+      inMenuOrMap: latest.inMenuOrMap === true,
+      parkingBrake: typeof latest.parkingBrake === 'boolean' ? latest.parkingBrake : null
+    },
+    updatedAt: Math.max(0, Math.round(Number(source.updatedAt) || 0)) || null
+  };
 }
 
 function executionLocationProjection(resumeBundle = null) {
@@ -224,6 +371,25 @@ function publicExecutionSnapshot(run) {
   if (!run?.missionId || !run?.runId || !run.executionState) return null;
   const state = executionCore.normalizeState(run.executionState);
   const view = executionCore.deriveView(state);
+  const runtime = normalizeExecutionRuntimeContext(run.executionRuntimeContext);
+  let missionFlightRecord = runtime?.missionFlightRecord || null;
+  const currentSegmentRecord = runtime?.flightRecorder?.active === true
+    && Number(runtime.flightRecorder.startTs || 0) !== Number(runtime.lastFinalizedSegmentStartTs || 0)
+    ? flightRecorderCore.buildRecord(runtime.flightRecorder, {
+        now: runtime.latestTelemetry?.observedAt || runtime.updatedAt || Date.now(),
+        depLabel: runtime.segmentDepartureLabel || missionFlightRecord?.arrLabel || 'START',
+        arrLabel: runtime.latestDestination?.atDestination === true ? (runtime.arrivalFlightRecord?.arrLabel || 'LANDUNG') : 'ZWISCHENLANDUNG'
+      })
+    : null;
+  if (currentSegmentRecord) {
+    currentSegmentRecord.startTs = runtime.flightRecorder.startTs || null;
+    currentSegmentRecord.endTs = runtime.latestTelemetry?.observedAt || runtime.updatedAt || null;
+    currentSegmentRecord.createdAt = currentSegmentRecord.endTs;
+    currentSegmentRecord.segmentCount = 1;
+    missionFlightRecord = flightRecorderCore.mergeRecords([missionFlightRecord, currentSegmentRecord].filter(Boolean));
+  }
+  const exposeFlight = runtime && /^(end_unloading|end_ready|closing|closed)$/.test(state.phase);
+  const exposeCompletionRecord = /^(closing|closed)$/.test(state.phase);
   return {
     schema: 'ga.mission-execution-control.v1',
     version: 1,
@@ -241,6 +407,20 @@ function publicExecutionSnapshot(run) {
     subphase: state.subphase,
     flags: jsonClone(state.flags),
     progress: jsonClone(state.progress),
+    manifest: jsonClone(state.manifest),
+    flightEvents: jsonClone(view.flightEvents),
+    payload: jsonClone(view.payload),
+    voice: jsonClone(view.voice),
+    workflows: jsonClone(view.workflows),
+    authoritySanction: jsonClone(
+      [...state.effects].reverse().find(effect => effect.type === 'crewboard.authority_sanction')?.payload?.record || null
+    ),
+    flight: exposeFlight ? {
+      missionRecord: exposeCompletionRecord ? jsonClone(missionFlightRecord) : null,
+      arrivalRecord: exposeCompletionRecord ? jsonClone(runtime.arrivalFlightRecord) : null,
+      segmentCount: exposeCompletionRecord ? Math.max(0, Number(missionFlightRecord?.segmentCount || 0)) : 0,
+      destination: jsonClone(runtime.latestDestination)
+    } : null,
     cargo: {
       signatureScope: state.cargo.signatureScope,
       summary: jsonClone(state.cargo.summary),
@@ -295,6 +475,8 @@ function normalizeStoredRun(run) {
     executionState: run.executionState ? executionCore.normalizeState(run.executionState) : null,
     executionWebStateHash: cleanString(run.executionWebStateHash, 180) || null,
     executionAppliedEvents: Math.max(0, Math.round(Number(run.executionAppliedEvents) || 0)),
+    executionPayloadRecovery: normalizeExecutionPayloadRecovery(run.executionPayloadRecovery),
+    executionRuntimeContext: normalizeExecutionRuntimeContext(run.executionRuntimeContext),
     effects: (Array.isArray(run.effects) ? run.effects : []).slice(-MAX_EFFECTS).map(effect => ({
       ...publicEffect(effect),
       managerSessionId: cleanString(effect.managerSessionId, 160),
@@ -419,6 +601,8 @@ function createMissionAuthorityManager(options = {}) {
       executionState: initialExecution.ok ? initialExecution.state : null,
       executionWebStateHash: null,
       executionAppliedEvents: 0,
+      executionPayloadRecovery: null,
+      executionRuntimeContext: null,
       executionHandoff: null,
       state: cleanString(request.state, 60).toLowerCase() || 'active',
       active: true,
@@ -724,6 +908,7 @@ function createMissionAuthorityManager(options = {}) {
     active.executionState = projected.state;
     active.executionWebStateHash = active.stateHash;
     active.executionAppliedEvents = 0;
+    active.executionRuntimeContext = null;
     active.executionHandoff = null;
     active.phase = projected.phase;
     active.stateHash = projected.stateHash;
@@ -786,6 +971,7 @@ function createMissionAuthorityManager(options = {}) {
     active.stateHash = active.executionWebStateHash;
     active.executionWebStateHash = null;
     active.executionHandoff = null;
+    active.executionRuntimeContext = null;
     active.revision += 1;
     active.updatedAt = now();
     active.lastCommandType = 'mission_execution_authority_rollback';
@@ -1223,6 +1409,155 @@ function createMissionAuthorityManager(options = {}) {
     return { ok: true, status: 'ok', sideEffect: false, effect: publicEffect(recorded) };
   };
 
+  const getExecutionPayloadRecovery = (request = {}) => {
+    const active = state.activeRun;
+    if (!active?.missionId || !active?.runId) return null;
+    const missionId = cleanString(request.missionId);
+    const runId = cleanString(request.runId, 220);
+    if ((missionId && missionId !== active.missionId) || (runId && runId !== active.runId)) return null;
+    return jsonClone(normalizeExecutionPayloadRecovery(active.executionPayloadRecovery));
+  };
+
+  const recordExecutionPayloadRecovery = (request = {}) => {
+    const match = activeMatches(request);
+    if (!match.ok) return { ok: false, status: 'conflict', error: match.error, recovery: null };
+    const active = match.activeRun;
+    if (!cleanString(request.missionId) || !cleanString(request.runId, 220)) {
+      return { ok: false, status: 'error', error: 'mission_payload_recovery_credentials_required', recovery: null };
+    }
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', recovery: null };
+    }
+    const action = cleanString(request.action, 60).toLowerCase();
+    const current = normalizeExecutionPayloadRecovery(active.executionPayloadRecovery);
+    const timestamp = now();
+    let next = current;
+    let changed = false;
+    if (action === 'capture') {
+      if (current) {
+        return { ok: true, status: 'noop', recovery: jsonClone(current) };
+      }
+      const baseline = normalizePayloadRecoveryBaseline(request.baseline);
+      if (!baseline) return { ok: false, status: 'error', error: 'mission_payload_baseline_required', recovery: null };
+      next = normalizeExecutionPayloadRecovery({
+        baseline,
+        capturedAt: timestamp,
+        writeAttempted: false,
+        restoreAttempts: 0,
+        detachedInheritedEquipmentIds: [],
+        restored: false
+      });
+      changed = true;
+    } else {
+      if (!current) return { ok: false, status: 'error', error: 'mission_payload_baseline_missing', recovery: null };
+      if (action === 'write_attempted') {
+        if (!current.writeAttempted || current.restored) {
+          next = { ...current, writeAttempted: true, writeAttemptedAt: timestamp, restored: false, restoredAt: null, lastError: null };
+          changed = true;
+        }
+      } else if (action === 'restore_attempt') {
+        next = {
+          ...current,
+          restoreAttempts: Math.min(100, current.restoreAttempts + 1),
+          lastRestoreAttemptAt: timestamp,
+          lastError: null
+        };
+        changed = true;
+      } else if (action === 'restored') {
+        if (!current.restored || current.lastError) {
+          next = { ...current, restored: true, restoredAt: timestamp, lastError: null };
+          changed = true;
+        }
+      } else if (action === 'restore_failed') {
+        next = { ...current, restored: false, restoredAt: null, lastError: cleanString(request.error, 240) || 'mission_payload_restore_failed' };
+        changed = true;
+      } else if (action === 'detach_inherited') {
+        const item = safeObject(request.item);
+        const itemId = cleanString(item.id, 120);
+        if (!itemId) return { ok: false, status: 'error', error: 'mission_payload_equipment_id_required', recovery: jsonClone(current) };
+        if (current.detachedInheritedEquipmentIds.includes(itemId)) {
+          return { ok: true, status: 'noop', recovery: jsonClone(current) };
+        }
+        const detached = payloadCore.detachInheritedEquipmentFromBaseline({
+          ...item,
+          id: itemId,
+          persistentEquipment: true,
+          persistentEquipmentInherited: true
+        }, current.baseline);
+        if (!detached?.baseline) {
+          return { ok: false, status: 'error', error: 'mission_payload_equipment_baseline_adjust_failed', recovery: jsonClone(current) };
+        }
+        next = {
+          ...current,
+          baseline: detached.baseline,
+          detachedInheritedEquipmentIds: current.detachedInheritedEquipmentIds.concat(itemId).slice(-80)
+        };
+        changed = true;
+      } else {
+        return { ok: false, status: 'error', error: 'mission_payload_recovery_action_invalid', recovery: jsonClone(current) };
+      }
+    }
+    if (!changed) return { ok: true, status: 'noop', recovery: jsonClone(current) };
+    const previousRecovery = active.executionPayloadRecovery;
+    active.executionPayloadRecovery = normalizeExecutionPayloadRecovery(next);
+    if (!persist()) {
+      active.executionPayloadRecovery = previousRecovery;
+      return {
+        ok: false,
+        status: 'error',
+        error: 'mission_payload_recovery_persist_failed',
+        recovery: jsonClone(normalizeExecutionPayloadRecovery(previousRecovery))
+      };
+    }
+    log(`MISSION_PAYLOAD_RECOVERY action=${action} mission=${active.missionId} run=${active.runId}`);
+    return { ok: true, status: 'ok', recovery: jsonClone(active.executionPayloadRecovery) };
+  };
+
+  const getExecutionRuntimeContext = (request = {}) => {
+    const active = state.activeRun;
+    if (!active?.missionId || !active?.runId) return null;
+    const missionId = cleanString(request.missionId);
+    const runId = cleanString(request.runId, 220);
+    if ((missionId && missionId !== active.missionId) || (runId && runId !== active.runId)) return null;
+    return jsonClone(normalizeExecutionRuntimeContext(active.executionRuntimeContext));
+  };
+
+  const recordExecutionRuntimeContext = (request = {}) => {
+    const match = activeMatches(request);
+    if (!match.ok) return { ok: false, status: 'conflict', error: match.error, context: null };
+    const active = match.activeRun;
+    if (!cleanString(request.missionId) || !cleanString(request.runId, 220)) {
+      return { ok: false, status: 'error', error: 'mission_runtime_context_credentials_required', context: null };
+    }
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', context: null };
+    }
+    const normalized = normalizeExecutionRuntimeContext({
+      ...safeObject(request.context),
+      schema: EXECUTION_RUNTIME_CONTEXT_SCHEMA,
+      version: 1,
+      missionId: active.missionId,
+      runId: active.runId,
+      updatedAt: now()
+    });
+    if (!normalized) return { ok: false, status: 'error', error: 'mission_runtime_context_invalid', context: null };
+    const previous = active.executionRuntimeContext;
+    if (executionCore.canonicalStringify(previous) === executionCore.canonicalStringify(normalized)) {
+      return { ok: true, status: 'noop', context: jsonClone(normalized) };
+    }
+    active.executionRuntimeContext = normalized;
+    if (!persist()) {
+      active.executionRuntimeContext = previous;
+      return {
+        ok: false,
+        status: 'error',
+        error: 'mission_runtime_context_persist_failed',
+        context: jsonClone(normalizeExecutionRuntimeContext(previous))
+      };
+    }
+    return { ok: true, status: 'ok', context: jsonClone(normalized) };
+  };
+
   load();
 
   return {
@@ -1240,6 +1575,10 @@ function createMissionAuthorityManager(options = {}) {
     beginExecutionEffectDispatch,
     recordCommand,
     recordEffectAck,
+    getExecutionPayloadRecovery,
+    recordExecutionPayloadRecovery,
+    getExecutionRuntimeContext,
+    recordExecutionRuntimeContext,
     getExecutionSnapshot,
     abortExecutionRun,
     finalizeExecutionRun,
@@ -1269,6 +1608,8 @@ function createMissionAuthorityManager(options = {}) {
 module.exports = {
   EXECUTION_AUTHORITY_TRACKER,
   EXECUTION_AUTHORITY_WEB,
+  EXECUTION_PAYLOAD_RECOVERY_SCHEMA,
+  EXECUTION_RUNTIME_CONTEXT_SCHEMA,
   STATE_SCHEMA,
   STATE_VERSION,
   createMissionAuthorityManager,

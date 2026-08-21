@@ -110,6 +110,10 @@
     function advance(rawJournal, resumeBundle, options) {
         var config = object(options);
         var desired = core && core.projectLegacyBundle(resumeBundle);
+        var legacyRuntime = object(object(resumeBundle).runtime);
+        var legacyComplianceProvided = legacyRuntime.complianceInspection
+            && typeof legacyRuntime.complianceInspection === 'object'
+            && !Array.isArray(legacyRuntime.complianceInspection);
         var journal = normalizeJournal(rawJournal) || create(resumeBundle);
         if (!journal || !desired || journal.missionId !== desired.missionId) journal = create(resumeBundle);
         if (!journal || !desired) return null;
@@ -159,17 +163,23 @@
 
         if (isAtOrAfter(desired.phase, 'prepare') && state.phase === 'planned') append('PREPARE_REQUESTED');
         if (isAtOrAfter(desired.phase, 'boarding') && (state.phase === 'prepare' || state.phase === 'boarding')) {
-            if (state.phase === 'prepare') append('BOARDING_STARTED');
+            if (state.phase === 'prepare') {
+                var prepareEffect = state.effects.find(function (effect) {
+                    return effect.type === 'scene.prepare' && effect.status === 'requested';
+                });
+                if (prepareEffect) append('EFFECT_ACKNOWLEDGED', {
+                    effectId: prepareEffect.effectId,
+                    status: 'completed'
+                });
+                append('BOARDING_STARTED');
+            }
         }
-        if (!same(state.cargo, desired.cargo)) append('CARGO_STATE_CHANGED', { cargo: desired.cargo });
-        if (!same(state.workflows.complianceInspection, desired.workflows.complianceInspection)) {
-            append('COMPLIANCE_EVENT', desired.workflows.complianceInspection);
-        }
+        if (!same(state.manifest, desired.manifest)) append('CARGO_STATE_CHANGED', { manifest: desired.manifest });
         if (isAtOrAfter(desired.phase, 'boarded') && !state.flags.loadConfirmed) {
-            append('LOAD_CONFIRMED', { cargo: desired.cargo });
+            append('LOAD_CONFIRMED', { manifest: desired.manifest, payloadOutcome: desired.payload });
         }
         if (isAtOrAfter(desired.phase, 'boarded') && !state.flags.boardingConfirmed) {
-            append('BOARDING_CONFIRMED', { cargo: desired.cargo });
+            append('BOARDING_CONFIRMED', { manifest: desired.manifest });
         }
         if (isAtOrAfter(desired.phase, 'active') && !state.flags.started) append('MISSION_STARTED');
 
@@ -183,19 +193,52 @@
             });
         }
 
+        // Older App snapshots did not always carry the optional compliance
+        // object. Absence means "not projected", not "reset the tracker
+        // decision". Compare an explicitly projected App state only; otherwise
+        // retain the replayed state (including the deterministic decision made
+        // by GROUND_STILL) for the semantic shadow comparison.
+        if (legacyComplianceProvided) {
+            if (!same(state.workflows.complianceInspection, desired.workflows.complianceInspection)) {
+                append('COMPLIANCE_EVENT', desired.workflows.complianceInspection);
+            }
+        } else {
+            desired.workflows.complianceInspection = clone(state.workflows.complianceInspection, {});
+        }
+
         var previousDestinationRemaining = Number(object(object(previous).cargo).summary?.destinationRemaining || 0);
         if (desired.cargo.summary.destinationTotal > 0
             && desired.cargo.summary.destinationRemaining === 0
             && desired.cargo.signatureScope === 'arrival'
-            && (previousDestinationRemaining > 0 || state.phase === 'end_unloading')) {
-            append('UNLOAD_CONFIRMED', { cargo: desired.cargo });
+            && !state.flags.unloadConfirmed
+            && (previousDestinationRemaining > 0
+                || state.phase === 'end_unloading'
+                || desired.phase === 'closing'
+                || desired.phase === 'closed')) {
+            append('UNLOAD_CONFIRMED', { manifest: desired.manifest });
         }
-        if (desired.subphase === 'farewell_wait' && state.subphase !== 'farewell_wait') append('FAREWELL_STARTED');
+        if (desired.subphase === 'farewell_wait' && state.subphase !== 'farewell_wait') {
+            var pendingDeboarding = state.effects.some(function (effect) {
+                return effect.type === 'scene.deboarding' && effect.status === 'requested';
+            });
+            // With a coordinated passenger scene the door-open stage starts
+            // Farewell. Without a scene, the App's close request enters the
+            // Farewell wait and starts voice immediately.
+            if (pendingDeboarding) append('FAREWELL_STARTED');
+            else append('CLOSE_REQUESTED', { manifest: desired.manifest });
+        }
         if ((desired.flags.farewellCompleted
             || ((desired.phase === 'closing' || desired.phase === 'closed') && previous.subphase === 'farewell_wait'))
             && !state.flags.farewellCompleted) append('FAREWELL_COMPLETED');
         if ((desired.phase === 'closing' || desired.phase === 'closed') && !state.flags.closingPending) {
-            append('CLOSE_REQUESTED', { cargo: desired.cargo });
+            append('CLOSE_REQUESTED', { manifest: desired.manifest });
+            // Legacy snapshots can jump directly from end_ready to closing.
+            // Replay the elided best-effort Farewell completion so the event
+            // journal follows the same prerequisites as the authoritative
+            // tracker runtime instead of restoring a shortcut state.
+            if (!state.flags.closingPending
+                && state.flags.farewellStarted
+                && !state.flags.farewellCompleted) append('FAREWELL_COMPLETED');
         }
         if (desired.phase === 'closed' && !state.flags.closed) append('MISSION_CLOSED');
 

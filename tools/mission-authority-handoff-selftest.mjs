@@ -259,6 +259,12 @@ const recoveryContext = {
   _missionAuthorityInjectLiveRoute: state => state,
   _missionAuthorityAdapter: () => 'apt',
   _missionAuthorityAttachExecutionShadow: bundle => bundle,
+  _buildMissionAptExecutionEffectPlan: () => ({
+    schema: 'ga.mission-execution-effect-plan.v1',
+    recipe: 'apt',
+    missionId: 'mission-a',
+    effects: {}
+  }),
   _buildMissionAuthorityMapProfile: () => null,
   _validateMissionAuthorityResumeBundle: bundle => ({
     ok: !!(bundle?.missionId && bundle?.missionState && bundle?.runtime)

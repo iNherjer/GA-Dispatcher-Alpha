@@ -2684,6 +2684,26 @@ function _trackerExecutionNormalizeItemId(value = '') {
         .replace(/^-+|-+$/g, '');
 }
 
+function _applyTrackerPayloadControl(rawPayload = null) {
+    if (!window.missionCargoStatus || !rawPayload || typeof rawPayload !== 'object') return false;
+    const payload = window.GAMissionPayloadCore?.projectOutcome
+        ? window.GAMissionPayloadCore.projectOutcome(rawPayload)
+        : rawPayload;
+    const status = String(payload.status || 'idle').toLowerCase();
+    window.missionCargoStatus.payloadSyncRunning = false;
+    window.missionCargoStatus.payloadSyncQueued = '';
+    window.missionCargoStatus.payloadVerificationRunning = status === 'pending';
+    window.missionCargoStatus.payloadStartOverride = payload.override === true;
+    window.missionCargoStatus.payloadNeedsSync = status === 'warning' || status === 'error';
+    window.missionCargoStatus.payloadPlan = payload.plan || null;
+    window.missionCargoStatus.payloadVerification = status === 'pending'
+        ? { status: 'running' }
+        : (payload.verification || (status === 'ok' ? { status: 'ok' } : null));
+    window.missionCargoStatus.error = payload.error || null;
+    window.missionCargoStatus.payloadSyncAt = Number(payload.updatedAt || 0);
+    return true;
+}
+
 function _applyTrackerExecutionControl(control = null, activeRun = null, reason = 'tracker-execution') {
     if (!control || typeof control !== 'object' || control.executionAuthority !== 'tracker') return false;
     const missionId = _normalizeMissionRuntimeId(control.missionId || activeRun?.missionId || '');
@@ -2696,7 +2716,13 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         phase: control.phase || '',
         subphase: control.subphase || '',
         flags: control.flags || null,
+        manifest: control.manifest || null,
         cargo: control.cargo || null,
+        payload: control.payload || null,
+        voice: control.voice || null,
+        workflows: control.workflows || null,
+        authoritySanction: control.authoritySanction || null,
+        flight: control.flight || null,
         allowedActions: control.allowedActions || [],
         blockingReasons: control.blockingReasons || []
     });
@@ -2707,6 +2733,26 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     missionExecutionProjectionSignature = projectionSignature;
     const phase = String(control.phase || 'planned').trim().toLowerCase();
     const flags = control.flags && typeof control.flags === 'object' ? control.flags : {};
+    _applyTrackerPayloadControl(control.payload);
+    try { window.paxVoiceApplyTrackerOutcome?.(control.voice?.boarding || null); } catch (_) {}
+    try { window.paxVoiceApplyTrackerOutcome?.(control.voice?.farewell || null); } catch (_) {}
+    const trackerCompliance = control.workflows?.complianceInspection;
+    if (trackerCompliance && typeof trackerCompliance === 'object') {
+        try {
+            if (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') {
+                currentMissionData.complianceInspection = _safeCloneJson(trackerCompliance, null);
+                if (currentMissionData.missionContract && typeof currentMissionData.missionContract === 'object') {
+                    currentMissionData.missionContract.complianceInspection = currentMissionData.complianceInspection;
+                }
+            }
+            if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
+                window.activeMissionContract.complianceInspection = _safeCloneJson(trackerCompliance, null);
+            }
+        } catch (_) {}
+    }
+    if (control.authoritySanction?.type === 'authority_sanction' && control.authoritySanction?.flightId) {
+        try { window.addAuthoritySanctionToCrewboard?.(control.authoritySanction); } catch (_) {}
+    }
     missionRuntime.phase = phase;
     missionRuntime.active = flags.active === true;
     missionRuntime.armed = flags.active === true;
@@ -2722,8 +2768,26 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         window.missionSceneStatus.personBoarded = flags.boardingConfirmed === true;
     }
     const manifest = typeof _missionCargoEnsureManifest === 'function' ? _missionCargoEnsureManifest() : null;
+    const trackerManifest = control.manifest && typeof control.manifest === 'object'
+        && Array.isArray(control.manifest.items)
+        ? control.manifest
+        : null;
     const trackerCargo = control.cargo && typeof control.cargo === 'object' ? control.cargo : null;
-    if (manifest && trackerCargo && Array.isArray(trackerCargo.items)) {
+    if (manifest && trackerManifest) {
+        const authoritativeManifest = JSON.parse(JSON.stringify(trackerManifest));
+        Object.keys(manifest).forEach(key => { delete manifest[key]; });
+        Object.assign(manifest, authoritativeManifest);
+        if (window.missionCargoStatus) {
+            window.missionCargoStatus.loadConfirmed = flags.loadConfirmed === true;
+            if (!control.payload) window.missionCargoStatus.error = null;
+        }
+        try {
+            if (typeof currentMissionData !== 'undefined' && currentMissionData) currentMissionData.cargoManifest = manifest;
+            if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
+                window.activeMissionContract.cargoManifest = manifest;
+            }
+        } catch (_) {}
+    } else if (manifest && trackerCargo && Array.isArray(trackerCargo.items)) {
         const byId = new Map(trackerCargo.items.map(item => [_trackerExecutionNormalizeItemId(item?.id), item]));
         (manifest.items || []).forEach(item => {
             const tracked = byId.get(_trackerExecutionNormalizeItemId(item?.id));
@@ -2741,7 +2805,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         } : null;
         if (window.missionCargoStatus) {
             window.missionCargoStatus.loadConfirmed = flags.loadConfirmed === true;
-            window.missionCargoStatus.error = null;
+            if (!control.payload) window.missionCargoStatus.error = null;
         }
         try {
             if (typeof currentMissionData !== 'undefined' && currentMissionData) currentMissionData.cargoManifest = manifest;
@@ -2764,6 +2828,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         && typeof _missionCargoRenderDialog === 'function') {
         _missionCargoRenderDialog(window.missionCargoStatus?.lastMode || 'load', { skipPayloadRefresh: true });
     }
+    try { window.missionComplianceRefreshUi?.(); } catch (_) {}
     _updateMissionRuntimeUi();
     return true;
 }
@@ -2789,7 +2854,10 @@ function _finalizeTrackerExecutionProjection(control = null, reason = 'tracker-e
         try { outcome = _missionCargoFinalizeMissionOutcome({ source: reason }); } catch (_) {}
     }
     missionRuntime.closingOutcome = outcome || { status: 'completed', failed: false };
-    const record = _buildMissionCompletionRecord({ outcome: missionRuntime.closingOutcome });
+    const record = _buildMissionCompletionRecord({
+        flightRecord: control.flight?.missionRecord || null,
+        outcome: missionRuntime.closingOutcome
+    });
     if (record) {
         missionRuntime.completionRecord = record;
         _persistMissionCompletion(record);
@@ -2930,6 +2998,19 @@ window.gaTrackerExecutionSubmitIntent = async function(intent, payload = {}, opt
         if (!client || typeof client.submitIntent !== 'function' || !activeRun?.missionId || !activeRun?.runId) {
             return { ok: false, status: 'blocked', error: 'cockpit_session_unavailable' };
         }
+        const intentPayload = payload && typeof payload === 'object' ? { ...payload } : {};
+        if (intent === 'request_close'
+            && !intentPayload.farewellVoiceRecipe
+            && typeof window.paxVoiceBuildFarewellEffectRecipe === 'function') {
+            try {
+                const farewellRecord = missionRuntime.arrivalFlightRecord
+                    || missionRuntime.pendingFarewellRecord
+                    || _buildFlightRecordSnapshot(Date.now())
+                    || null;
+                const farewellVoiceRecipe = window.paxVoiceBuildFarewellEffectRecipe(farewellRecord);
+                if (farewellVoiceRecipe) intentPayload.farewellVoiceRecipe = farewellVoiceRecipe;
+            } catch (_) {}
+        }
         const commandId = `intent-${String(intent || 'action').replace(/[^a-z0-9_-]/gi, '-')}-${Date.now()}-${++missionSmokeCommandSeq}`;
         const result = await client.submitIntent({
             commandId,
@@ -2937,7 +3018,7 @@ window.gaTrackerExecutionSubmitIntent = async function(intent, payload = {}, opt
             missionId: activeRun.missionId,
             runId: activeRun.runId,
             expectedRevision: Number(activeRun.revision || 0),
-            payload: payload && typeof payload === 'object' ? payload : {}
+            payload: intentPayload
         });
         _missionPhaseDebugPush('tracker_execution_intent', {
             intent,
@@ -2980,7 +3061,7 @@ function _trackerExecutionAbortedRun(snapshot = null) {
         : null;
 }
 
-function _applyTrackerExecutionAbortLocally(snapshot = null, reason = 'tracker-execution-aborted') {
+function _applyTrackerExecutionAbortLocally(snapshot = null, reason = 'tracker-execution-aborted', options = {}) {
     const abortedRun = _trackerExecutionAbortedRun(snapshot);
     if (!abortedRun) return false;
     const missionId = _normalizeMissionRuntimeId(abortedRun.missionId);
@@ -2988,9 +3069,9 @@ function _applyTrackerExecutionAbortLocally(snapshot = null, reason = 'tracker-e
     const localAuthority = _readMissionAuthorityState();
     const matchesLocalMission = !!missionId && missionId === activeMissionId;
     const matchesLocalRun = !!localAuthority?.runId && localAuthority.runId === abortedRun.runId;
-    if (!matchesLocalMission && !matchesLocalRun) return false;
+    const forceLocalCleanup = options?.forceLocalCleanup === true;
+    if (!matchesLocalMission && !matchesLocalRun && !forceLocalCleanup) return false;
     if (window.gaTrackerExecutionAbortedRunId === abortedRun.runId) return true;
-    window.gaTrackerExecutionAbortedRunId = abortedRun.runId;
     window.lastTrackerMissionAuthority = {
         ...(window.lastTrackerMissionAuthority || {}),
         ...(snapshot && typeof snapshot === 'object' ? snapshot : {}),
@@ -3020,11 +3101,13 @@ function _applyTrackerExecutionAbortLocally(snapshot = null, reason = 'tracker-e
             reason
         });
     }
+    if (resetOk !== false) window.gaTrackerExecutionAbortedRunId = abortedRun.runId;
     _missionPhaseDebugPush('tracker_execution_aborted', {
         reason,
         missionId,
         runId: abortedRun.runId,
         revision: Number(abortedRun.revision || 0),
+        forceLocalCleanup,
         localCleared: resetOk !== false
     });
     try { triggerCloudSave(true); } catch (_) {}
@@ -3033,7 +3116,21 @@ function _applyTrackerExecutionAbortLocally(snapshot = null, reason = 'tracker-e
 }
 
 window.gaAbortTrackerMission = async function(options = {}) {
-    if (missionExecutionAbortPromise) return missionExecutionAbortPromise;
+    if (missionExecutionAbortPromise) {
+        const pendingResult = await missionExecutionAbortPromise;
+        if (pendingResult?.ok === true && options.forceLocalCleanup === true) {
+            const localCleared = _applyTrackerExecutionAbortLocally(
+                { lastRun: pendingResult.releasedRun },
+                options.reason || 'app-tracker-abort',
+                { forceLocalCleanup: true }
+            );
+            if (!localCleared) {
+                try { alert('Die Tracker-Mission wurde beendet, aber der lokale App-Stand konnte nicht vollständig geleert werden. Bitte Clear erneut ausführen.'); } catch (_) {}
+                return { ...pendingResult, ok: false, status: 'error', error: 'mission_local_cleanup_failed' };
+            }
+        }
+        return pendingResult;
+    }
     missionExecutionAbortPromise = (async () => {
         if (!_missionExecutionAuthorityIsTracker()) {
             return { ok: false, status: 'blocked', error: 'mission_execution_authority_web' };
@@ -3047,7 +3144,15 @@ window.gaAbortTrackerMission = async function(options = {}) {
         const reason = String(options.reason || 'app-tracker-abort');
         const result = await window.gaTrackerExecutionSubmitIntent?.('abort_mission', { reason }, { silent: true });
         if (result?.ok === true) {
-            _applyTrackerExecutionAbortLocally({ lastRun: result.releasedRun }, reason);
+            const localCleared = _applyTrackerExecutionAbortLocally(
+                { lastRun: result.releasedRun },
+                reason,
+                { forceLocalCleanup: options.forceLocalCleanup === true }
+            );
+            if (options.forceLocalCleanup === true && !localCleared) {
+                try { alert('Die Tracker-Mission wurde beendet, aber der lokale App-Stand konnte nicht vollständig geleert werden. Bitte Clear erneut ausführen.'); } catch (_) {}
+                return { ...result, ok: false, status: 'error', error: 'mission_local_cleanup_failed' };
+            }
             return result;
         }
         const message = result?.error === 'mission_revision_conflict'
@@ -3762,6 +3867,29 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
     const cargoManifest = (typeof _missionCargoGetManifest === 'function')
         ? _safeCloneJson(_missionCargoGetManifest(), null)
         : null;
+    const payloadStatus = window.missionCargoStatus && typeof window.missionCargoStatus === 'object'
+        ? window.missionCargoStatus
+        : {};
+    const payloadVerification = payloadStatus.payloadVerification && typeof payloadStatus.payloadVerification === 'object'
+        ? payloadStatus.payloadVerification
+        : null;
+    const payloadOutcomeStatus = payloadStatus.payloadSyncRunning || payloadStatus.payloadVerificationRunning
+        ? 'pending'
+        : (payloadVerification?.status === 'ok'
+            ? 'ok'
+            : (payloadVerification?.status === 'unstable' || (payloadStatus.payloadNeedsSync && payloadStatus.error)
+                ? 'warning'
+                : 'idle'));
+    const missionCargoPayloadOutcome = window.GAMissionPayloadCore?.normalizeOutcome
+        ? window.GAMissionPayloadCore.normalizeOutcome({
+            status: payloadOutcomeStatus,
+            override: payloadStatus.payloadStartOverride === true,
+            adapter: payloadStatus.payloadPlan?.payloadAdapter || payloadStatus.payloadBaseline?.payloadAdapter || null,
+            error: payloadStatus.error || null,
+            plan: payloadStatus.payloadPlan || null,
+            verification: payloadVerification
+        }, { updatedAt: Number(payloadStatus.payloadSyncAt || 0) })
+        : null;
     return {
         version: 1,
         missionId,
@@ -3802,6 +3930,7 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
         } : null,
         bushProgress: bushProgress ? _safeCloneJson(bushProgress, null) : null,
         cargoManifest,
+        missionCargoPayloadOutcome,
         complianceInspection: (typeof currentMissionData !== 'undefined' && currentMissionData?.complianceInspection)
             ? _safeCloneJson(currentMissionData.complianceInspection, null)
             : null,
@@ -7622,6 +7751,32 @@ function _buildMissionAptExecutionEffectPlan() {
     const spawn = _missionSceneBuildSpawnEffectCommand('tracker-execution:scene.prepare', { lat: 0, lon: 0, alt: 0, hdg: 0 });
     const boarding = _missionSceneBuildBoardingEffectCommand('tracker-execution:scene.boarding', {}, spawn.command.sceneId);
     const deboarding = _missionSceneBuildDeboardingEffectCommand('tracker-execution:scene.deboarding', {}, spawn.command.sceneId);
+    const complianceVisit = typeof window.missionComplianceBuildGroundVisitEffectCommand === 'function'
+        ? window.missionComplianceBuildGroundVisitEffectCommand('tracker-execution:scene.compliance_visit')
+        : null;
+    let boardingVoice = null;
+    let farewellVoice = null;
+    let farewellContext = null;
+    try {
+        boardingVoice = typeof window.paxVoiceBuildBoardingEffectRecipe === 'function'
+            ? window.paxVoiceBuildBoardingEffectRecipe()
+            : null;
+        if (boardingVoice && typeof boardingVoice === 'object') boardingVoice.missionId = missionId;
+    } catch (_) {
+        boardingVoice = null;
+    }
+    try {
+        farewellContext = typeof window.paxVoiceBuildFarewellAuthorityContext === 'function'
+            ? window.paxVoiceBuildFarewellAuthorityContext()
+            : null;
+        farewellVoice = typeof window.paxVoiceBuildFarewellEffectRecipe === 'function'
+            ? window.paxVoiceBuildFarewellEffectRecipe(null)
+            : null;
+        if (farewellVoice && typeof farewellVoice === 'object') farewellVoice.missionId = missionId;
+    } catch (_) {
+        farewellContext = null;
+        farewellVoice = null;
+    }
     const stripLivePosition = command => {
         const copy = _safeCloneJson(command, null);
         if (!copy) return null;
@@ -7640,7 +7795,15 @@ function _buildMissionAptExecutionEffectPlan() {
         effects: {
             'scene.prepare': { command: stripLivePosition(spawn.command) },
             'scene.boarding': { command: stripLivePosition(boarding) },
-            ...(deboarding ? { 'scene.deboarding': { command: stripLivePosition(deboarding) } } : {})
+            ...(boardingVoice ? { 'voice.boarding': { recipe: _safeCloneJson(boardingVoice, null) } } : {}),
+            ...(farewellVoice || farewellContext ? {
+                'voice.farewell': {
+                    ...(farewellVoice ? { recipe: _safeCloneJson(farewellVoice, null) } : {}),
+                    ...(farewellContext ? { context: _safeCloneJson(farewellContext, null) } : {})
+                }
+            } : {}),
+            ...(deboarding ? { 'scene.deboarding': { command: stripLivePosition(deboarding) } } : {}),
+            ...(complianceVisit ? { 'scene.compliance_visit': { command: stripLivePosition(complianceVisit) } } : {})
         }
     };
 }
@@ -10271,6 +10434,7 @@ function _missionSceneBoardingCueId() {
 }
 
 function _missionScenePrepareBoardingCue() {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     const cueId = _missionSceneBoardingCueId();
     if (!cueId || cueId === 'none' || typeof window.paxPrepareAudioCue !== 'function') return false;
     try {
@@ -10291,6 +10455,7 @@ function _missionSceneDeboardingCueId() {
 }
 
 function _missionScenePrepareDeboardingCue() {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     const cueId = _missionSceneDeboardingCueId();
     if (!cueId || cueId === 'none' || typeof window.paxPrepareAudioCue !== 'function') return false;
     try {
@@ -10318,6 +10483,7 @@ async function _missionSceneAwaitCuePlayback(playback = null, timeoutMs = 15000)
 }
 
 function _missionScenePlayBoardingCue(commandId = '', reason = 'boarding-passenger-seated') {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     if (typeof window.paxPlayAudioCue !== 'function') return false;
     const id = String(commandId || window.missionSceneStatus?.lastCommand?.commandId || 'boarding');
     if (window.missionSceneStatus?.boardingCueCommandId === id) return false;
@@ -10340,6 +10506,7 @@ function _missionScenePlayBoardingCue(commandId = '', reason = 'boarding-passeng
 }
 
 function _missionScenePlayDeboardingCue(reason = 'mission-end', commandId = '') {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     if (typeof window.paxPlayAudioCue !== 'function') return;
     const hasPassenger = !!(
         window.activePassenger
@@ -10587,13 +10754,7 @@ window.missionComplianceDebugGroundVisitStatus = function() {
     };
 };
 
-window.missionComplianceStartGroundVisit = function(state = null, reason = 'authority-inspection') {
-    if (window.simModeActive || !window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') return false;
-    const trackerVersionCode = Number(window.liveTrackerVersionCode);
-    if (!Number.isFinite(trackerVersionCode) || trackerVersionCode < 316) return false;
-    const pos = window.lastLiveGpsPos || {};
-    if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
-
+function _missionComplianceBuildGroundVisitCommand(state = null, reason = 'authority-inspection', pos = {}) {
     const boarding = _missionSceneBoardingConfig();
     const boardingPoint = {
         ...(boarding.target || { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 })
@@ -10661,9 +10822,23 @@ window.missionComplianceStartGroundVisit = function(state = null, reason = 'auth
         walkSpeedKts: 3.1,
         releaseTimeoutMs: 30 * 60 * 1000
     };
+    return command;
+}
+
+window.missionComplianceBuildGroundVisitEffectCommand = function(reason = 'tracker-execution:scene.compliance_visit') {
+    return _missionComplianceBuildGroundVisitCommand(null, reason, { lat: 0, lon: 0, alt: 0, hdg: 0 });
+};
+
+window.missionComplianceStartGroundVisit = function(state = null, reason = 'authority-inspection') {
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') return false;
+    const trackerVersionCode = Number(window.liveTrackerVersionCode);
+    if (!Number.isFinite(trackerVersionCode) || trackerVersionCode < 316) return false;
+    const pos = window.lastLiveGpsPos || {};
+    if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
+    const command = _missionComplianceBuildGroundVisitCommand(state, reason, pos);
     const commandId = window.sendTrackerCommand(command);
     if (!commandId) return false;
-    return { commandId, sceneId };
+    return { commandId, sceneId: command.sceneId };
 };
 
 window.missionComplianceReleaseGroundVisit = function(state = null) {
@@ -11407,11 +11582,21 @@ function _missionCargoLoadInteractionReady() {
 
 function _missionCargoMaybePromoteStartReady(reason = 'cargo-ready-check') {
     const manifest = _missionCargoEnsureManifest();
-    if (!window.missionCargoStatus?.loadConfirmed) return false;
-    if (!manifest?.dispatchSignature) return false;
-    if (!_missionCargoLoadInteractionReady()) return false;
-    if (!window.missionSceneStatus?.boardingVoiceComplete) return false;
-    if (_missionStartPhase() === 'boarded') return true;
+    const startPolicy = window.GAMissionStartCore;
+    const readiness = startPolicy?.deriveStartReadiness?.({
+        loadConfirmed: !!window.missionCargoStatus?.loadConfirmed,
+        dispatchSigned: !!manifest?.dispatchSignature,
+        loadInteractionReady: _missionCargoLoadInteractionReady(),
+        boardingVoiceComplete: !!window.missionSceneStatus?.boardingVoiceComplete,
+        alreadyBoarded: _missionStartPhase() === 'boarded'
+    });
+    if (readiness ? !readiness.ready : (
+        !window.missionCargoStatus?.loadConfirmed
+        || !manifest?.dispatchSignature
+        || !_missionCargoLoadInteractionReady()
+        || !window.missionSceneStatus?.boardingVoiceComplete
+    )) return false;
+    if (readiness?.alreadyBoarded || _missionStartPhase() === 'boarded') return true;
     _setMissionStartPhase('boarded');
     _setMissionRuntimePhase('boarded', { updateUi: false });
     window.missionCargoStatus.error = null;
@@ -11635,7 +11820,12 @@ function _buildMissionCompletionRecord(options = {}) {
     const missionId = _activeMissionRuntimeId('mission');
     const existing = _readPendingMissionDebrief();
     if (existing?.missionId === missionId) return existing;
-    const flight = options.flightRecord || missionRuntime.pendingFarewellRecord || missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(Date.now()) || {};
+    const flight = options.flightRecord
+        || window.gaTrackerExecutionControl?.flight?.missionRecord
+        || missionRuntime.pendingFarewellRecord
+        || missionRuntime.arrivalFlightRecord
+        || _buildFlightRecordSnapshot(Date.now())
+        || {};
     const endedAt = Number(flight.createdAt || flight.endTs || Date.now()) || Date.now();
     const startedAt = Number(flight.startTs || missionRuntime.startedAt || 0);
     const durationSec = _completionFinite(flight.durationSec)
@@ -11713,6 +11903,7 @@ function _buildMissionCompletionRecord(options = {}) {
         aglSampleCount,
         cruiseSampleCount: cruiseCount,
         cruiseDurationSec,
+        segmentCount: Math.max(1, Math.round(Number(flight.segmentCount) || 1)),
         comfort: comfort ? {
             score: _completionFinite(comfort.comfortScore),
             mood: _completionText(comfort.mood, 80),
@@ -12206,11 +12397,20 @@ window.confirmMissionCriticalAction = _confirmMissionCriticalAction;
 
 function _trackerMissionBannerModel(control = null) {
     if (!control || control.executionAuthority !== 'tracker') return null;
+    const canonical = window.GAMissionAptUiCore?.bannerModel?.({
+        missionId: control.missionId,
+        revision: control.authorityRevision,
+        control,
+        manifest: control.manifest || (typeof _missionCargoGetManifest === 'function' ? _missionCargoGetManifest() : null),
+        destination: control.flight?.destination || null
+    });
+    if (canonical) return canonical;
     const actions = Array.isArray(control.allowedActions) ? control.allowedActions : [];
     const phase = String(control.phase || '').toLowerCase();
     const labels = {
         activate_cloud_mission: 'Mission aus der Cloud übernehmen und vorbereiten.',
         prepare_mission: 'Mission liegt bereit und kann jetzt vorbereitet werden.',
+        start_boarding: 'Missionstart freigegeben. Mit dem nächsten Klick beginnt Boarding und Verladen.',
         start_mission: 'Boarding und Verladung sind abgeschlossen. Die Mission ist startbereit.',
         request_close: 'Alle Abschlussbedingungen sind erfüllt.'
     };
@@ -12221,6 +12421,8 @@ function _trackerMissionBannerModel(control = null) {
         model = { intent: 'request_close', kind: 'intent', kicker: 'Mission abschließen', text: labels.request_close, button: 'Mission beenden', className: 'is-final-action' };
     } else if (actions.includes('prepare_mission')) {
         model = { intent: 'prepare_mission', kind: 'intent', kicker: 'Mission bereit', text: labels.prepare_mission, button: 'Mission beginnen', className: 'is-begin-action' };
+    } else if (actions.includes('start_boarding')) {
+        model = { intent: 'start_boarding', kind: 'intent', kicker: 'Mission bereit', text: labels.start_boarding, button: 'Boarding und Verladen beginnen', className: '' };
     } else if (actions.includes('start_mission')) {
         model = { intent: 'start_mission', kind: 'intent', kicker: 'Mission startbereit', text: labels.start_mission, button: 'Mission starten', className: 'is-begin-action' };
     } else {
@@ -12256,9 +12458,9 @@ function _renderTrackerMissionBanner(banner, control, elements = {}) {
     const model = _trackerMissionBannerModel(control);
     banner._gaTrackerAction = model;
     banner._gaMissionActionKey = model?.key || '';
-    banner.classList.toggle('is-end-ready', model?.className === 'is-end-ready');
-    banner.classList.toggle('is-begin-action', model?.className === 'is-begin-action');
-    banner.classList.toggle('is-final-action', model?.className === 'is-final-action');
+    banner.classList.toggle('is-end-ready', model?.endReady === true || model?.className === 'is-end-ready');
+    banner.classList.toggle('is-begin-action', model?.begin === true || model?.className === 'is-begin-action');
+    banner.classList.toggle('is-final-action', model?.final === true || model?.className === 'is-final-action');
     if (!model || _missionStartBannerDismissed(model.key)) {
         banner.style.display = 'none';
         return true;
@@ -12266,10 +12468,10 @@ function _renderTrackerMissionBanner(banner, control, elements = {}) {
     banner.style.display = 'flex';
     if (elements.kicker) elements.kicker.textContent = model.kicker;
     if (elements.text) elements.text.textContent = model.text;
-    if (elements.close) elements.close.style.display = '';
+    if (elements.close) elements.close.style.display = model.closeHidden === true ? 'none' : '';
     if (elements.button) {
         elements.button.textContent = model.button;
-        elements.button.disabled = !!missionExecutionIntentPromise;
+        elements.button.disabled = !!missionExecutionIntentPromise || model.disabled === true;
     }
     return true;
 }
@@ -12286,6 +12488,13 @@ function _updateMissionStartBanner() {
         : null;
     const trackerControl = window.gaTrackerExecutionControl;
     if (!authorityConflict && trackerControl?.executionAuthority === 'tracker') {
+        const complianceUi = window.missionComplianceGetCargoUiState?.() || null;
+        if (complianceUi?.active === true
+            && !['selected', 'not_selected', 'none', 'released'].includes(String(complianceUi.phase || ''))) {
+            banner.style.display = 'none';
+            try { window.missionComplianceRefreshUi?.(); } catch (_) {}
+            return;
+        }
         _renderTrackerMissionBanner(banner, trackerControl, {
             kicker: kickerEl,
             text: textEl,
@@ -14284,6 +14493,7 @@ window.toggleManualMissionRuntime = function() {
 };
 
 function _missionPrepareFarewellVoice(record = null, reason = 'farewell-preload') {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     if (!missionRuntime.active || missionRuntime.waitingFarewellDeboarding || missionRuntime.closingPending) return false;
     if (missionRuntime.farewellPreloadRequestedAt) return false;
     if (typeof window.paxVoicePrepareFarewell !== 'function') return false;
@@ -14330,6 +14540,7 @@ window.handleMissionStartBannerAction = async function() {
                 window.openMissionCargoDialog?.(trackerBannerAction.cargoMode || 'load');
                 return true;
             }
+            if (!trackerBannerAction.intent || trackerBannerAction.disabled === true) return false;
             const result = await window.gaTrackerExecutionSubmitIntent?.(trackerBannerAction.intent);
             return result?.ok === true;
         }
@@ -18972,6 +19183,27 @@ function _buildFlightRecordSnapshot(now) {
     const arrLabel = (typeof currentDestICAO !== 'undefined' && currentDestICAO && currentDestICAO !== 'POI')
         ? currentDestICAO
         : (arr ? nearestAirportLabel(arr[0], arr[1]) : 'LANDUNG');
+    const sharedRecorder = window.GAMissionFlightRecorderCore;
+    if (sharedRecorder && typeof sharedRecorder.buildRecord === 'function') {
+        const sharedRecord = sharedRecorder.buildRecord(r, {
+            now: endTs,
+            depLabel,
+            arrLabel
+        });
+        if (!sharedRecord) return null;
+        const cargoOutcome = (typeof currentMissionData !== 'undefined' && currentMissionData)
+            ? (currentMissionData.cargoOutcome || currentMissionData.missionContract?.cargoOutcome || null)
+            : null;
+        const record = {
+            id: Date.now(),
+            createdAt: Date.now(),
+            dateLabel: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+            ...sharedRecord,
+            track
+        };
+        if (cargoOutcome) record.missionCargoOutcome = cargoOutcome;
+        return record;
+    }
     const measuredDistanceNm = Number.isFinite(Number(r.distNm)) && Number(r.distNm) >= 0.05
         ? Number(Number(r.distNm).toFixed(1))
         : null;

@@ -91,6 +91,7 @@ test('tracker independently replays the transported APT event bundle', () => {
   assert.deepEqual(status.legacyDriftFields, []);
   assert.deepEqual(status.eventTrace.map(event => event.type), [
     'PREPARE_REQUESTED',
+    'EFFECT_ACKNOWLEDGED',
     'BOARDING_STARTED',
     'CARGO_STATE_CHANGED'
   ]);

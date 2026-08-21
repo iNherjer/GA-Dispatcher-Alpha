@@ -12,6 +12,7 @@ Diese Datei ist der verbindliche Einstiegspunkt fuer Codex/AI-Arbeit in diesem R
 ## Pflichtlekture nach Arbeitsbereich
 
 - Missionslogik, neue Missionstypen, Bush/POI/APT, Runtime, Manifest, Cargo, Ground Actions:
+  - `docs/Mission Runtime Authority Contract.md`, wenn Missionsausfuehrung zwischen App und Tracker verschoben wird
   - `docs/Mission Flow Reference.md`
   - `docs/Mission Building Instructions.md`
   - `docs/Mission Semantics Rules V4.md`
@@ -30,6 +31,7 @@ Diese Datei ist der verbindliche Einstiegspunkt fuer Codex/AI-Arbeit in diesem R
 - GAFOR-Sektor-Editor:
   - `tools/gafor-sector-editor.md`
 - MSFS-2024-EFB, Community-Package und Tracker/EFB-Protokoll:
+  - `docs/Mission Runtime Authority Contract.md`, wenn Missionen, Cargo, Pax, Voice oder UI-Aktionen betroffen sind
   - `docs/EFB-Development-Plan.md` zuerst lesen und nach Entscheidungen aktualisieren
   - `docs/EFB-Tracker-Architecture.md`
   - `docs/EFB-Community-Package.md`, wenn Build, Installation oder Release betroffen sind

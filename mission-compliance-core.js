@@ -3,15 +3,16 @@
 // UI, Voice und Tracker fuehren diesen Zustand nur aus; Abschlussentscheidungen
 // bleiben hier zentral und werden reload-sicher im aktiven Missionsdatensatz gespeichert.
 
+const MISSION_COMPLIANCE_DOMAIN_CORE = window.GAMissionComplianceDomainCore || null;
 // Vorübergehend deaktiviert, bis der vollständige Ablauf manuell abgenommen ist.
 // Debug-Forcing bleibt über missionComplianceShouldInspect(..., true) aktiv.
-const MISSION_COMPLIANCE_PROBABILITY = 0;
-const MISSION_COMPLIANCE_REQUESTED_ITEM_IDS = Object.freeze([
+const MISSION_COMPLIANCE_PROBABILITY = Number(MISSION_COMPLIANCE_DOMAIN_CORE?.PROBABILITY ?? 0);
+const MISSION_COMPLIANCE_REQUESTED_ITEM_IDS = MISSION_COMPLIANCE_DOMAIN_CORE?.REQUESTED_ITEM_IDS || Object.freeze([
     'bordbuch',
     'fire-extinguisher',
     'first-aid'
 ]);
-const MISSION_COMPLIANCE_PHASE_ORDER = Object.freeze({
+const MISSION_COMPLIANCE_PHASE_ORDER = MISSION_COMPLIANCE_DOMAIN_CORE?.PHASE_ORDER || Object.freeze({
     none: 0,
     not_selected: 1,
     selected: 2,
@@ -26,7 +27,7 @@ const MISSION_COMPLIANCE_PHASE_ORDER = Object.freeze({
 const MISSION_COMPLIANCE_APPROACH_FALLBACK_MS = 75000;
 const MISSION_COMPLIANCE_DEPARTURE_FALLBACK_MS = 70000;
 const MISSION_COMPLIANCE_VOICE_FALLBACK_MS = 75000;
-const MISSION_COMPLIANCE_INSPECTOR_SPEAKER = Object.freeze({
+const MISSION_COMPLIANCE_INSPECTOR_SPEAKER = MISSION_COMPLIANCE_DOMAIN_CORE?.INSPECTOR_SPEAKER || Object.freeze({
     name: 'Luftaufsicht',
     role: 'Behoerdenkontrolleur',
     gender: 'male',
@@ -40,6 +41,15 @@ let missionComplianceResumeTimer = null;
 let missionComplianceRequestPromise = null;
 let missionComplianceResultPromise = null;
 let missionComplianceStandaloneState = null;
+
+function _missionComplianceTrackerAuthority() {
+    try {
+        return window.gaTrackerExecutionHandlesMission?.() === true
+            || window.gaTrackerExecutionControl?.executionAuthority === 'tracker';
+    } catch (_) {
+        return false;
+    }
+}
 
 function _missionComplianceClone(value, fallback = null) {
     try { return JSON.parse(JSON.stringify(value)); } catch (_) { return fallback; }
@@ -85,6 +95,12 @@ function _missionComplianceFlightId() {
 }
 
 function _missionComplianceNormalizeState(raw = null) {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.normalizeState) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.normalizeState(raw, {
+            missionKey: _missionComplianceMissionKey(),
+            flightId: _missionComplianceFlightId()
+        });
+    }
     const source = raw && typeof raw === 'object' ? raw : {};
     const phase = Object.prototype.hasOwnProperty.call(MISSION_COMPLIANCE_PHASE_ORDER, source.phase)
         ? source.phase
@@ -136,6 +152,12 @@ function _missionComplianceGetState(create = false) {
     if (missionComplianceStandaloneState) {
         missionComplianceStandaloneState = _missionComplianceNormalizeState(missionComplianceStandaloneState);
         return missionComplianceStandaloneState;
+    }
+    if (_missionComplianceTrackerAuthority()) {
+        const trackerState = window.gaTrackerExecutionControl?.workflows?.complianceInspection;
+        if (trackerState && typeof trackerState === 'object') {
+            return _missionComplianceNormalizeState(trackerState);
+        }
     }
     const md = _missionComplianceMissionData();
     if (!md) return null;
@@ -203,6 +225,9 @@ function _missionComplianceSetPhase(state, phase, reason = phase) {
 }
 
 function _missionCompliancePhaseAtLeast(state, phase) {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.phaseAtLeast) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.phaseAtLeast(state, phase);
+    }
     return Number(MISSION_COMPLIANCE_PHASE_ORDER[state?.phase] || 0) >= Number(MISSION_COMPLIANCE_PHASE_ORDER[phase] || 0);
 }
 
@@ -239,6 +264,9 @@ function _missionComplianceManifest() {
 }
 
 function _missionComplianceItemLabel(item = null, fallback = '') {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.itemLabel) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.itemLabel(item, fallback);
+    }
     const id = String(item?.id || fallback || '');
     if (id === 'bordbuch') return 'Bordbuch';
     if (id === 'fire-extinguisher') return 'Feuerloescher';
@@ -247,12 +275,18 @@ function _missionComplianceItemLabel(item = null, fallback = '') {
 }
 
 function _missionComplianceDateDayNumber(value) {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.dateDayNumber) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.dateDayNumber(value);
+    }
     const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!match) return null;
     return Math.floor(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86400000);
 }
 
 function missionComplianceExpiryStatus(expiresAt, now = Date.now()) {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.expiryStatus) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.expiryStatus(expiresAt, now);
+    }
     const expiryDay = _missionComplianceDateDayNumber(expiresAt);
     const date = new Date(Number(now) || Date.now());
     const todayDay = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000);
@@ -269,6 +303,9 @@ function missionComplianceExpiryStatus(expiresAt, now = Date.now()) {
 }
 
 function missionComplianceClassifyOverdue(overdueDays) {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.classifyOverdue) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.classifyOverdue(overdueDays);
+    }
     const days = Math.max(0, Math.round(Number(overdueDays || 0)));
     if (days <= 0) return 'valid';
     if (days <= 3) return 'warning';
@@ -276,6 +313,9 @@ function missionComplianceClassifyOverdue(overdueDays) {
 }
 
 function missionComplianceShouldInspect(roll, forced = false) {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.shouldInspect) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.shouldInspect(roll, forced);
+    }
     if (forced) return true;
     const value = Number(roll);
     return Number.isFinite(value) && value >= 0 && value < MISSION_COMPLIANCE_PROBABILITY;
@@ -289,6 +329,9 @@ function _missionComplianceCanDecide() {
 }
 
 window.missionComplianceEnsureFinalDecision = function(options = {}) {
+    if (_missionComplianceTrackerAuthority()) {
+        return _missionComplianceGetState(false)?.selected ?? null;
+    }
     if (!_missionComplianceCanDecide() && options.force !== true) return null;
     const state = _missionComplianceGetState(true);
     if (!state) return null;
@@ -300,13 +343,23 @@ window.missionComplianceEnsureFinalDecision = function(options = {}) {
     }
     if (state.phase === 'released') return false;
     const roll = Number.isFinite(Number(options.roll)) ? Number(options.roll) : Math.random();
-    state.forced = state.forced || options.force === true;
-    state.roll = roll;
-    state.selected = missionComplianceShouldInspect(roll, state.forced);
-    state.decisionAt = Date.now();
-    state.flightId = _missionComplianceFlightId();
-    state.phase = state.selected ? 'selected' : 'not_selected';
-    state.phaseAt = state.decisionAt;
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.decide) {
+        Object.assign(state, MISSION_COMPLIANCE_DOMAIN_CORE.decide(state, {
+            roll,
+            force: options.force === true,
+            now: Date.now(),
+            missionKey: _missionComplianceMissionKey(),
+            flightId: _missionComplianceFlightId()
+        }));
+    } else {
+        state.forced = state.forced || options.force === true;
+        state.roll = roll;
+        state.selected = missionComplianceShouldInspect(roll, state.forced);
+        state.decisionAt = Date.now();
+        state.flightId = _missionComplianceFlightId();
+        state.phase = state.selected ? 'selected' : 'not_selected';
+        state.phaseAt = state.decisionAt;
+    }
     _missionCompliancePersist(state, options.force === true ? 'decision-forced' : 'decision-random');
     if (state.selected) {
         _missionComplianceTakeSnapshot(state);
@@ -399,6 +452,7 @@ window.missionComplianceDebugStartNow = function() {
 };
 
 function _missionComplianceRequestText() {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.REQUEST_TEXT) return MISSION_COMPLIANCE_DOMAIN_CORE.REQUEST_TEXT;
     return 'Guten Tag, Luftaufsicht. Es handelt sich um eine Behoerdenkontrolle. Bitte laden Sie jetzt das Bordbuch, den Feuerloescher und das Verbandzeug aus. Anschliessend pruefen wir die Gueltigkeit und den Eintrag des aktuellen Fluges.';
 }
 
@@ -426,6 +480,14 @@ function _missionCompliancePreloadRequest(state = _missionComplianceGetState(fal
 
 function _missionComplianceTakeSnapshot(state, manifest = _missionComplianceManifest()) {
     if (!state || state.snapshot) return state?.snapshot || null;
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.createSnapshot) {
+        state.snapshot = MISSION_COMPLIANCE_DOMAIN_CORE.createSnapshot(state, manifest, {
+            now: Date.now(),
+            flightId: _missionComplianceFlightId()
+        });
+        _missionCompliancePersist(state, 'snapshot');
+        return state.snapshot;
+    }
     const items = Array.isArray(manifest?.items) ? manifest.items : [];
     state.snapshot = {
         at: Date.now(),
@@ -448,6 +510,12 @@ function _missionComplianceTakeSnapshot(state, manifest = _missionComplianceMani
 
 function _missionComplianceUpdateRemediation(state, manifest = _missionComplianceManifest()) {
     if (!state) return [];
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.remediationState) {
+        state.remediation = MISSION_COMPLIANCE_DOMAIN_CORE.remediationState(state, manifest, {
+            flightId: _missionComplianceFlightId()
+        });
+        return state.remediation.missingFields;
+    }
     const item = (manifest?.items || []).find(entry => String(entry?.id || '') === 'bordbuch') || null;
     const log = item?.log && typeof item.log === 'object' ? item.log : {};
     const correctFlight = String(log.flightId || '') === String(state.flightId || _missionComplianceFlightId());
@@ -539,6 +607,7 @@ function _missionComplianceStartSelectedArrival(state, reason = 'mission-end-act
 }
 
 window.missionComplianceStartArrival = function(reason = 'mission-end-action') {
+    if (_missionComplianceTrackerAuthority()) return false;
     const current = _missionComplianceGetState(false);
     if (current?.debugStandalone === true) {
         return _missionComplianceStartSelectedArrival(current, reason);
@@ -584,6 +653,7 @@ window.missionComplianceHandleGroundVisitAck = function(ack = {}) {
 };
 
 window.missionComplianceRequestClose = function(options = {}) {
+    if (_missionComplianceTrackerAuthority()) return false;
     const state = _missionComplianceGetState(false);
     if (!state?.selected || state.phase === 'released') return false;
     state.pendingClose = {
@@ -600,6 +670,7 @@ window.missionComplianceRequestClose = function(options = {}) {
 };
 
 window.missionComplianceNotifyFarewellComplete = function(options = {}) {
+    if (_missionComplianceTrackerAuthority()) return false;
     const state = _missionComplianceGetState(false);
     if (!state?.selected || state.phase === 'released') return false;
     state.farewellComplete = true;
@@ -635,6 +706,9 @@ window.missionComplianceBeforeEquipmentReplace = function() {
 
 window.missionComplianceCanMutateCargo = function(itemId, action = '') {
     const state = _missionComplianceGetState(false);
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.canMutateCargo) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.canMutateCargo(state, itemId, action);
+    }
     if (!state?.selected || state.phase === 'released') return true;
     if (!MISSION_COMPLIANCE_REQUESTED_ITEM_IDS.includes(String(itemId || ''))) return true;
     if (state.phase === 'result_playing' || state.phase === 'departing') return false;
@@ -644,6 +718,9 @@ window.missionComplianceCanMutateCargo = function(itemId, action = '') {
 
 window.missionComplianceBoardBookWriteAllowed = function(field = 'start', options = {}) {
     const state = _missionComplianceGetState(false);
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.boardBookWriteAllowed) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.boardBookWriteAllowed(state, field);
+    }
     if (!state?.selected || state.phase === 'released') return true;
     if (!_missionCompliancePhaseAtLeast(state, 'request_playing')) return true;
     if (state.phase !== 'evidence_open') return false;
@@ -652,6 +729,7 @@ window.missionComplianceBoardBookWriteAllowed = function(field = 'start', option
 };
 
 window.missionComplianceNotifyCargoChanged = function(reason = 'cargo-change') {
+    if (_missionComplianceTrackerAuthority()) return false;
     const state = _missionComplianceGetState(false);
     if (!state?.selected || state.phase === 'released') return false;
     if (state.phase === 'result_playing' || state.phase === 'departing') return false;
@@ -662,6 +740,9 @@ window.missionComplianceNotifyCargoChanged = function(reason = 'cargo-change') {
 };
 
 function _missionComplianceEvidenceResult(state, manifest = _missionComplianceManifest()) {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.evaluateEvidence) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.evaluateEvidence(state, manifest, { now: Date.now() });
+    }
     const items = Array.isArray(manifest?.items) ? manifest.items : [];
     const inspectedItems = Array.isArray(state?.snapshot?.items) ? state.snapshot.items : [];
     const offences = [];
@@ -759,6 +840,9 @@ function _missionComplianceEvidenceResult(state, manifest = _missionComplianceMa
 }
 
 function _missionComplianceResultVoiceText(result) {
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.resultVoiceText) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.resultVoiceText(result);
+    }
     const entries = (result?.offences || []).filter(offence => offence.severity === 'entry');
     const warnings = (result?.offences || []).filter(offence => offence.severity === 'warning');
     const equipment = Array.isArray(result?.equipment) ? result.equipment : [];
@@ -777,20 +861,25 @@ function _missionComplianceResultVoiceText(result) {
 }
 
 function _missionComplianceCreateSanction(state, result) {
-    const entries = (result?.offences || []).filter(offence => offence.severity === 'entry');
-    if (!entries.length) return false;
-    const now = Date.now();
-    const record = {
-        id: `authority-${String(state.flightId || '').replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 80)}-${now}`,
-        type: 'authority_sanction',
-        createdAt: now,
-        immutableUntil: now + (7 * 24 * 60 * 60 * 1000),
-        expiresAt: now + (7 * 24 * 60 * 60 * 1000),
-        flightId: state.flightId,
-        aircraftSlot: String(state.snapshot?.aircraftSlot || ''),
-        offences: entries.map(entry => _missionComplianceClone(entry, {})),
-        text: `BEHOERDENEINTRAG\n\n${entries.map(entry => `• ${entry.description}`).join('\n')}\n\nNicht loeschbar fuer 7 Tage.`
-    };
+    const record = MISSION_COMPLIANCE_DOMAIN_CORE?.createSanctionRecord
+        ? MISSION_COMPLIANCE_DOMAIN_CORE.createSanctionRecord(state, result, Date.now())
+        : (() => {
+            const entries = (result?.offences || []).filter(offence => offence.severity === 'entry');
+            if (!entries.length) return null;
+            const now = Date.now();
+            return {
+                id: `authority-${String(state.flightId || '').replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 80)}-${now}`,
+                type: 'authority_sanction',
+                createdAt: now,
+                immutableUntil: now + (7 * 24 * 60 * 60 * 1000),
+                expiresAt: now + (7 * 24 * 60 * 60 * 1000),
+                flightId: state.flightId,
+                aircraftSlot: String(state.snapshot?.aircraftSlot || ''),
+                offences: entries.map(entry => _missionComplianceClone(entry, {})),
+                text: `BEHOERDENEINTRAG\n\n${entries.map(entry => `• ${entry.description}`).join('\n')}\n\nNicht loeschbar fuer 7 Tage.`
+            };
+        })();
+    if (!record) return false;
     if (typeof window.addAuthoritySanctionToCrewboard === 'function') {
         try { return !!window.addAuthoritySanctionToCrewboard(record); } catch (_) {}
     }
@@ -834,6 +923,9 @@ function _missionCompliancePlayResult(state) {
 }
 
 window.missionComplianceSubmitEvidence = function() {
+    if (_missionComplianceTrackerAuthority()) {
+        return window.gaTrackerExecutionSubmitIntent?.('submit_compliance_evidence') || false;
+    }
     const state = _missionComplianceGetState(false);
     if (!state?.selected || state.phase !== 'evidence_open') return false;
     const manifest = _missionComplianceManifest();
@@ -852,9 +944,14 @@ window.missionComplianceSubmitEvidence = function() {
         try { window.openMissionCargoDialog?.('unload'); } catch (_) {}
         return false;
     }
-    result.completedAt = Date.now();
-    result.warningCount = result.offences.filter(offence => offence.severity === 'warning').length;
-    result.entryCount = result.offences.filter(offence => offence.severity === 'entry').length;
+    result = MISSION_COMPLIANCE_DOMAIN_CORE?.completeEvidenceResult
+        ? MISSION_COMPLIANCE_DOMAIN_CORE.completeEvidenceResult(result, Date.now())
+        : {
+            ...result,
+            completedAt: Date.now(),
+            warningCount: result.offences.filter(offence => offence.severity === 'warning').length,
+            entryCount: result.offences.filter(offence => offence.severity === 'entry').length
+        };
     state.result = result;
     state.resultText = _missionComplianceResultVoiceText(result);
     state.remediation = { required: false, missingFields: [] };
@@ -912,6 +1009,9 @@ function _missionComplianceRelease(state, reason = 'released') {
 
 window.missionComplianceGetCargoUiState = function() {
     const state = _missionComplianceGetState(false);
+    if (MISSION_COMPLIANCE_DOMAIN_CORE?.projectCargoUiState) {
+        return MISSION_COMPLIANCE_DOMAIN_CORE.projectCargoUiState(state);
+    }
     if (!state?.selected || state.phase === 'released') {
         return {
             active: false,
@@ -996,6 +1096,10 @@ function _missionComplianceRender() {
 }
 
 window.missionComplianceResume = function(reason = 'resume') {
+    if (_missionComplianceTrackerAuthority()) {
+        _missionComplianceRender();
+        return true;
+    }
     _missionComplianceClearTimer('resume');
     missionComplianceResumeTimer = setTimeout(() => {
         missionComplianceResumeTimer = null;
@@ -1053,12 +1157,18 @@ window.missionComplianceGetDebugState = function() {
     return _missionComplianceClone(_missionComplianceGetState(false), null);
 };
 
+window.missionComplianceRefreshUi = function() {
+    _missionComplianceRender();
+    return true;
+};
+
 window.MissionComplianceCore = Object.freeze({
     probability: MISSION_COMPLIANCE_PROBABILITY,
     requestedItemIds: MISSION_COMPLIANCE_REQUESTED_ITEM_IDS,
     shouldInspect: missionComplianceShouldInspect,
     expiryStatus: missionComplianceExpiryStatus,
-    classifyOverdue: missionComplianceClassifyOverdue
+    classifyOverdue: missionComplianceClassifyOverdue,
+    domain: MISSION_COMPLIANCE_DOMAIN_CORE
 });
 
 window.addEventListener('missioncargochange', () => {

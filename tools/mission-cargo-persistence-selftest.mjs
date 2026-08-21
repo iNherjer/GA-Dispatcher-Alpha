@@ -418,7 +418,10 @@ livePositionContext.window.simModeActive = false;
 assert.equal(livePositionContext._missionCargoLivePos().lat, 49.2);
 assert.equal(livePositionContext._missionCargoLivePos().lon, 9.2);
 
-const signatureScopeContext = { String };
+const signatureScopeContext = {
+    _missionCargoManifestCore: () => null,
+    String
+};
 vm.runInNewContext([
     functionSource('_missionCargoSignatureScope'),
     functionSource('_missionCargoSignatureMatchesMode')
@@ -439,7 +442,8 @@ const signatureContext = {
         missionCargoStatus: {
             loadConfirmed: true
         }
-    }
+    },
+    _missionCargoManifestCore: () => null
 };
 vm.runInNewContext(functionSource('_missionCargoInvalidateDispatchSignature'), signatureContext);
 const signedManifest = { dispatchSignature: { by: 'TEST' } };

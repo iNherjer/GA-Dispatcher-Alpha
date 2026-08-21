@@ -20,8 +20,13 @@ const {
   createTrackerEfbHttpServer
 } = require('./tracker-efb-http-server.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
+const missionExecutionCore = require('../mission-execution-core.js');
 const { createTrackerMissionShadow } = require('./tracker-mission-shadow.js');
 const { createTrackerMissionExecutionRuntime } = require('./tracker-mission-execution-runtime.js');
+const { createTrackerMissionPayloadHandler } = require('./tracker-mission-payload-handler.js');
+const { createTrackerMissionBoardingVoice } = require('./tracker-mission-boarding-voice.js');
+const { createTrackerMissionFarewellVoice } = require('./tracker-mission-farewell-voice.js');
+const { createTrackerMissionComplianceVoice } = require('./tracker-mission-compliance-voice.js');
 const {
   APT_MISSION_TEST_LOG_FILENAME,
   MISSION_TEST_LOG_SCHEMA,
@@ -38,6 +43,7 @@ const {
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 const { createTrackerVoiceService } = require('./tracker-voice-service.js');
 const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core.js');
+const { createTrackerFlightLogStore } = require('./tracker-flight-log-store.js');
 const {
   GROUP_VEHICLE_TITLES,
   evaluateGroupSequenceCompletion,
@@ -71,13 +77,18 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v375';
-const TRACKER_VERSION_CODE = 375;
+const TRACKER_VERSION = 'v376';
+const TRACKER_VERSION_CODE = 376;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
-const TRACKER_APT_EXECUTION_ENABLED = TRACKER_RUNTIME_CHANNEL === 'alpha'
+const TRACKER_APT_EXECUTION_REQUESTED = TRACKER_RUNTIME_CHANNEL === 'alpha'
   && process.env.VFR_MULTITOOL_APT_EXECUTION === '1';
+const TRACKER_APT_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_REQUESTED
+  && missionExecutionCore.TRACKER_AUTHORITY_READY === true;
+const TRACKER_APT_EXECUTION_BLOCK_REASON = TRACKER_APT_EXECUTION_REQUESTED && !TRACKER_APT_EXECUTION_ENABLED
+  ? `parity_pending:${(missionExecutionCore.TRACKER_AUTHORITY_PENDING || []).join(',')}`
+  : '';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED ? ['mission.intent.v1'] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
@@ -153,7 +164,9 @@ const debugLog = (line) => {
   return written;
 };
 const MISSION_AUTHORITY_FILE = path.join(TRACKER_DATA_DIR, 'mission-authority-v1.json');
+const TRACKER_VOICE_CACHE_FILE = path.join(TRACKER_DATA_DIR, 'tracker-voice-cache-v1.json');
 const EFB_CHECKLIST_LIBRARY_FILE = path.join(TRACKER_DATA_DIR, 'efb-checklists-v1.json');
+const TRACKER_FLIGHT_LOG_DIR = path.join(TRACKER_DATA_DIR, 'flightlogs');
 const TELEPORT_DEF_ID = 9361;
 const WAYPOINT_DEF_ID = 9362;
 const DOOR_OPEN_EVENT_ID = 9363;
@@ -390,7 +403,7 @@ function buildTitleCandidates(title, extra = []) {
   return uniqueStrings(candidates);
 }
 
-function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null, missionAuthority = null, missionShadow = null, onExecutionAck = null) {
+function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null, missionAuthority = null, missionShadow = null, onExecutionAck = null, onPayloadSnapshot = null) {
   const missions = new Map();
   const scenes = new Map();
   let lastAuthorityMapProjectionSignature = '';
@@ -1384,6 +1397,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         pendingPayloadReads.delete(requestId);
         reject(err);
       }
+    }).then((snapshot) => {
+      try { onPayloadSnapshot?.(snapshot); } catch (_) {}
+      return snapshot;
     });
   };
 
@@ -1499,6 +1515,40 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     });
     return { changed, changedSeats, state };
   };
+
+  const reassertPa24PayloadSeats = async (rawState = {}, options = {}) => {
+    const state = normalizePa24PayloadState(rawState);
+    const applied = [];
+    [2, 3, 4].forEach((seat) => {
+      const character = Math.max(0, Math.min(4, Math.round(Number(state.seats[seat] || 0))));
+      if (character <= 0) return;
+      if (!setNamedVarValue(
+        `L:Seat${seat}Character`,
+        character,
+        'enum',
+        options.reason || 'pa24-payload-seat-reassert'
+      )) {
+        throw new Error(`pa24_seat_reassert_failed_${seat}`);
+      }
+      applied.push({ seat, character });
+    });
+    return { status: 'ok', applied };
+  };
+
+  const missionPayloadHandler = createTrackerMissionPayloadHandler({
+    readSnapshot: maxStations => requestPayloadSnapshot(maxStations),
+    applyStations: stations => applyPayloadStations(stations),
+    applyPa24State: (state, previousState) => applyPa24PayloadState(state, previousState),
+    reassertPa24Seats: (state, options) => reassertPa24PayloadSeats(state, options),
+    recordRecovery: missionAuthority?.recordExecutionPayloadRecovery
+      ? request => missionAuthority.recordExecutionPayloadRecovery(request)
+      : null,
+    getRecovery: missionAuthority?.getExecutionPayloadRecovery
+      ? request => missionAuthority.getExecutionPayloadRecovery(request)
+      : null,
+    sleep,
+    log: debugLog
+  });
 
   const resolveDoorProfile = (command) => {
     const raw = String(command?.doorProfile || command?.aircraftDoorProfile || '').trim();
@@ -4264,6 +4314,39 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   return {
+    async syncExecutionPayload(request = {}) {
+      const activeRun = missionAuthority?.getActiveRun?.() || null;
+      const missionId = String(request?.missionId || '').trim();
+      const runId = String(request?.runId || '').trim();
+      if (!activeRun?.missionId || !activeRun?.runId) {
+        return { ok: false, status: 'conflict', error: 'no_active_run', sideEffect: false };
+      }
+      if (activeRun.executionAuthority !== 'tracker') {
+        return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', sideEffect: false };
+      }
+      if (missionId !== activeRun.missionId || runId !== activeRun.runId) {
+        return { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false };
+      }
+      return missionPayloadHandler.syncBeforeStart(request);
+    },
+    async scheduleExecutionPayload(request = {}) {
+      const activeRun = missionAuthority?.getActiveRun?.() || null;
+      const missionId = String(request?.missionId || '').trim();
+      const runId = String(request?.runId || '').trim();
+      if (!activeRun?.missionId || !activeRun?.runId) {
+        return { ok: false, status: 'conflict', error: 'no_active_run', sideEffect: false };
+      }
+      if (activeRun.executionAuthority !== 'tracker') {
+        return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', sideEffect: false };
+      }
+      if (missionId !== activeRun.missionId || runId !== activeRun.runId) {
+        return { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false };
+      }
+      return missionPayloadHandler.scheduleManifestSync(request);
+    },
+    cancelExecutionPayloadSync(reason = 'simulator-detached') {
+      return missionPayloadHandler.cancelPayloadSyncQueue(reason);
+    },
     async cleanupExecutionRun(request = {}) {
       const activeRun = missionAuthority?.getActiveRun?.() || null;
       const missionId = String(request?.missionId || '').trim();
@@ -4278,8 +4361,29 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         return { ok: false, status: 'conflict', error: 'mission_run_conflict', cleared: 0, sideEffect: false };
       }
       try {
+        const executionSnapshot = missionAuthority?.getExecutionSnapshot?.() || null;
+        const payloadRestore = await missionPayloadHandler.restoreForAbort({
+          ...request,
+          manifest: executionSnapshot?.state?.manifest || null
+        });
+        if (!payloadRestore?.ok) {
+          return {
+            ok: false,
+            status: payloadRestore?.status || 'error',
+            error: payloadRestore?.error || 'mission_payload_restore_failed',
+            cleared: 0,
+            sideEffect: payloadRestore?.sideEffect === true,
+            payloadRestore
+          };
+        }
         const cleared = await clearAuthorityRunEffects(missionId, request?.reason || 'mission-execution-abort');
-        return { ok: true, status: cleared > 0 ? 'ok' : 'noop', cleared, sideEffect: cleared > 0 };
+        return {
+          ok: true,
+          status: cleared > 0 || payloadRestore?.sideEffect === true ? 'ok' : 'noop',
+          cleared,
+          sideEffect: cleared > 0 || payloadRestore?.sideEffect === true,
+          payloadRestore
+        };
       } catch (error) {
         return { ok: false, status: 'error', error: error?.code || error?.message || String(error), cleared: 0, sideEffect: false };
       }
@@ -4325,6 +4429,22 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, missionId, status: 'error', error: error?.message || String(error) });
         });
         return { ok: true, status: 'pending', sideEffect: true };
+      }
+      if (type === 'mission_scene_deboarding_continue') {
+        const sceneId = String(command?.sceneId || '').trim();
+        const deboardingCommandId = String(command?.deboardingCommandId || '').trim();
+        if (!sceneId || !deboardingCommandId) {
+          return { ok: false, status: 'blocked', error: 'mission_deboarding_continuation_target_missing', sideEffect: false };
+        }
+        debugLog(`MISSION_EFFECT_DISPATCH type=${type} commandId=${commandId} scene=${sceneId} deboardingCommandId=${deboardingCommandId}`);
+        const continued = resolveDeboardingContinuation(command, 'continue');
+        return {
+          ok: true,
+          status: 'completed',
+          sideEffect: continued === true,
+          duplicate: continued !== true,
+          commandId
+        };
       }
       if (type === 'mission_scene_deboarding') {
         const sceneId = String(command?.sceneId || '').trim();
@@ -4630,6 +4750,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     getPayloadAdapter() {
       return currentPayloadAdapter;
     },
+    refreshPayloadSnapshot(maxStations = 12) {
+      return requestPayloadSnapshot(maxStations);
+    },
     clearAll(reason = 'shutdown') {
       return Promise.all([
         ...[...missions.keys()].map(id => clearMission(id, reason)),
@@ -4642,6 +4765,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
 function startTracker(syncId, pin, voiceCredentials = null) {
   debugLog(`START ${TRACKER_DISPLAY_NAME} dataDir=${TRACKER_DATA_DIR} debugFile=${TRACKER_DEBUG_FILE}`);
+  if (TRACKER_APT_EXECUTION_BLOCK_REASON) {
+    debugLog(`MISSION_EXECUTION_AUTHORITY_BLOCKED requested=1 reason=${TRACKER_APT_EXECUTION_BLOCK_REASON}`);
+    trackerLog('APT-Tracker-Ausführung bleibt bis zum vollständigen App-Paritätsnachweis im Legacy-/Shadow-Modus.');
+  }
   missionTestLog.start({
     trackerVersion: TRACKER_VERSION,
     trackerVersionCode: TRACKER_VERSION_CODE,
@@ -4660,9 +4787,47 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     log: debugLog,
     executionAuthorityEnabled: TRACKER_APT_EXECUTION_ENABLED
   });
+  const trackerFlightLogStore = createTrackerFlightLogStore({
+    directory: TRACKER_FLIGHT_LOG_DIR,
+    log: debugLog
+  });
+  debugLog(`FLIGHT_LOG_READY directory=${TRACKER_FLIGHT_LOG_DIR} format=jsonl summary=compact-v1`);
+  const trackerVoiceService = createTrackerVoiceService({
+    provider: voiceCredentials?.provider,
+    apiKey: voiceCredentials?.apiKey,
+    storageFile: TRACKER_VOICE_CACHE_FILE,
+    log: debugLog
+  });
+  const trackerVoiceState = trackerVoiceService.publicState();
+  trackerLog(trackerVoiceState.configured
+    ? `🔊 Zentrale Voice-Ausgabe bereit (${trackerVoiceState.provider}).`
+    : '🔇 Zentrale Voice-Ausgabe nicht konfiguriert; Browser-Fallback bleibt aktiv.');
+  let trackerCockpitControl = null;
+  const missionBoardingVoice = createTrackerMissionBoardingVoice({
+    authorityManager: missionAuthorityManager,
+    voiceService: trackerVoiceService,
+    getAudioPlaybackCandidates: () => trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+    log: debugLog
+  });
+  const missionFarewellVoice = createTrackerMissionFarewellVoice({
+    authorityManager: missionAuthorityManager,
+    voiceService: trackerVoiceService,
+    getAudioPlaybackCandidates: () => trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+    log: debugLog
+  });
+  const missionComplianceVoice = createTrackerMissionComplianceVoice({
+    authorityManager: missionAuthorityManager,
+    voiceService: trackerVoiceService,
+    getAudioPlaybackCandidates: () => trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+    log: debugLog
+  });
   const missionExecutionRuntime = createTrackerMissionExecutionRuntime({
     authorityManager: missionAuthorityManager,
     enabled: TRACKER_APT_EXECUTION_ENABLED,
+    playBoardingVoice: missionBoardingVoice.dispatch,
+    playFarewellVoice: missionFarewellVoice.dispatch,
+    playComplianceVoice: missionComplianceVoice.dispatch,
+    flightLog: trackerFlightLogStore,
     log: debugLog
   });
   debugLog(`MISSION_EXECUTION_RUNTIME channel=${TRACKER_RUNTIME_CHANNEL} enabled=${missionExecutionRuntime.enabled ? 1 : 0} default=web`);
@@ -4810,7 +4975,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     debugLog(`MISSION_CLOUD_ACTIVATE mission=${candidate.missionId} run=${active.runId} status=${started.status || (started.ok ? 'ok' : 'error')} error=${started.error || 'none'}`);
     return { ...started, cloudActivated: true, sideEffect: started.sideEffect === true };
   };
-  const trackerCockpitControl = createTrackerCockpitControl({
+  trackerCockpitControl = createTrackerCockpitControl({
     executionAuthority: missionExecutionRuntime.executionAuthority,
     getExecutionAuthority: () => missionAuthorityManager.getActiveRun()?.executionAuthority || 'web',
     getMissionRun: () => missionAuthorityManager.getActiveRun(),
@@ -4821,15 +4986,6 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     storageFile: EFB_CHECKLIST_LIBRARY_FILE,
     log: debugLog
   });
-  const trackerVoiceService = createTrackerVoiceService({
-    provider: voiceCredentials?.provider,
-    apiKey: voiceCredentials?.apiKey,
-    log: debugLog
-  });
-  const trackerVoiceState = trackerVoiceService.publicState();
-  trackerLog(trackerVoiceState.configured
-    ? `🔊 Zentrale Voice-Ausgabe bereit (${trackerVoiceState.provider}).`
-    : '🔇 Zentrale Voice-Ausgabe nicht konfiguriert; Browser-Fallback bleibt aktiv.');
   let _checklistCloudSyncInProgress = false;
   let _checklistCloudLastAttemptAt = 0;
   let _checklistCloudLastSuccessAt = 0;
@@ -4894,6 +5050,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
   let _telemetryHibernateState = disconnectedTelemetryHibernateState();
   let _lastEfbSnapshot = null;
   let _lastEfbMissionSnapshot = missionAuthorityManager.getActiveRun();
+  let _lastPayloadSnapshot = null;
   let _efbHttpServer = null;
   const updateEfbState = (patch = {}) => {
     if (Object.hasOwn(patch, 'relayConnected')) _relayConnected = patch.relayConnected === true;
@@ -4909,6 +5066,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     }
     if (Object.hasOwn(patch, 'snapshot')) _lastEfbSnapshot = patch.snapshot && typeof patch.snapshot === 'object' ? patch.snapshot : null;
     if (Object.hasOwn(patch, 'missionSnapshot')) _lastEfbMissionSnapshot = patch.missionSnapshot && typeof patch.missionSnapshot === 'object' ? patch.missionSnapshot : null;
+    if (Object.hasOwn(patch, 'payloadSnapshot')) _lastPayloadSnapshot = patch.payloadSnapshot && typeof patch.payloadSnapshot === 'object' ? patch.payloadSnapshot : null;
   };
   try {
     const configuredPort = Number(process.env.VFR_MULTITOOL_EFB_PORT || DEFAULT_EFB_HTTP_PORT);
@@ -4941,6 +5099,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
         cloudMissionLastSuccessAt: _cloudMissionLastSuccessAt || null,
         missionShadow: trackerMissionShadow.publicState(),
         missionExecution: missionExecutionRuntime.publicState(),
+        flightLog: trackerFlightLogStore.publicState(),
         aptMissionTest: {
           enabled: true,
           automatic: true,
@@ -4968,7 +5127,8 @@ function startTracker(syncId, pin, voiceCredentials = null) {
           missionAuthorityManager.getActiveRun({ includeBundle: true }),
           _lastEfbSnapshot,
           _lastEfbMissionSnapshot,
-          executionControl
+          executionControl,
+          _lastPayloadSnapshot
         );
         if (projected) return {
           ...projected,
@@ -4988,7 +5148,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
             revision: 0,
             updatedAt: _cloudMissionCandidate.updatedAt,
             resumeBundle: _cloudMissionCandidate.bundle
-          }, _lastEfbSnapshot, null, _cloudMissionCandidate.control);
+          }, _lastEfbSnapshot, null, _cloudMissionCandidate.control, _lastPayloadSnapshot);
           if (cloudProjected) return {
             ...cloudProjected,
             cloudPending: true,
@@ -5611,11 +5771,28 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         () => latestGroundTrafficSnapshot,
         missionAuthorityManager,
         trackerMissionShadow,
-        ack => missionSimulatorEffects?.handleAck?.(ack)
+        ack => missionSimulatorEffects?.handleAck?.(ack),
+        payloadSnapshot => {
+          if (typeof updateEfbState === 'function') updateEfbState({ payloadSnapshot });
+        }
       );
+      let payloadSnapshotRefreshPending = false;
+      const refreshMissionPayloadSnapshot = () => {
+        const execution = missionAuthorityManager?.getExecutionSnapshot?.();
+        if (!execution || execution.executionAuthority !== 'tracker' || execution.recipe !== 'apt' || payloadSnapshotRefreshPending) return;
+        payloadSnapshotRefreshPending = true;
+        missionSmokeController.refreshPayloadSnapshot(12)
+          .catch(() => null)
+          .finally(() => { payloadSnapshotRefreshPending = false; });
+      };
+      const payloadSnapshotInterval = setInterval(refreshMissionPayloadSnapshot, 5000);
+      refreshMissionPayloadSnapshot();
       missionSimulatorEffects = missionExecutionRuntime?.attachSimulator?.({
         getLivePosition: () => lastGpsMsg,
         dispatchCommand: command => missionSmokeController.dispatchExecutionCommand(command),
+        syncPayloadBeforeStart: request => missionSmokeController.syncExecutionPayload(request),
+        syncPayloadManifestState: request => missionSmokeController.scheduleExecutionPayload(request),
+        cancelPayloadSync: reason => missionSmokeController.cancelExecutionPayloadSync(reason),
         cleanupMission: request => missionSmokeController.cleanupExecutionRun(request)
       }) || null;
       const sendHomebaseAck = (payload = {}) => {
@@ -6059,12 +6236,31 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     lon,
                     onGround: Boolean(onGround),
                     gsKts: Number.isFinite(groundSpeedKts) ? groundSpeedKts : null,
+                    altFt: Number.isFinite(alt) ? Math.round(alt) : null,
+                    aglFt: Number.isFinite(agl) ? Math.round(agl) : null,
+                    hdg: Number.isFinite(hdg) ? Math.round(hdg) : null,
+                    bankDeg: Number.isFinite(bank) ? Math.round(bank * 10) / 10 : null,
+                    gForce: Number.isFinite(gForce) ? Math.round(gForce * 100) / 100 : null,
+                    vsFpm: Number.isFinite(vsFpm) ? Math.round(vsFpm) : null,
+                    touchdownFpm: Number.isFinite(touchdownFps) ? Math.round(touchdownFps * 60) : null,
+                    windKts: Number.isFinite(windKts) ? Math.round(windKts * 10) / 10 : null,
+                    windDeg: Number.isFinite(windDeg) ? Math.round(windDeg) : null,
+                    windGustKts: Number.isFinite(windGustKts) ? Math.round(windGustKts * 10) / 10 : null,
+                    tempC: Number.isFinite(tempC) ? Math.round(tempC * 10) / 10 : null,
+                    visKm: Number.isFinite(visMeters) ? Math.round(visMeters / 100) / 10 : null,
+                    precipRateMmH: Number.isFinite(precipRateMmH) ? Math.round(precipRateMmH * 10) / 10 : null,
+                    precipActive: Number.isFinite(precipRateMmH)
+                      ? precipRateMmH > 0.05
+                      : (Number.isFinite(precipState) ? precipState > 0 : null),
+                    inCloud: Number.isFinite(inCloud) ? inCloud > 0.5 : null,
+                    turbulencePct: Number.isFinite(turbulencePct) ? Math.round(turbulencePct) : null,
                     simPaused,
                     simPausedA: Number.isFinite(Number(simPausedA)) ? Number(simPausedA) : null,
                     simPausedB: Number.isFinite(Number(simPausedB)) ? Number(simPausedB) : null,
                     pauseFlags: runtimeState.pauseFlags || 0,
                     inMenuOrMap: missionTelemetryInMenu,
-                    dialogMode: runtimeState.dialogMode
+                    dialogMode: runtimeState.dialogMode,
+                    parkingBrake: Number.isFinite(parkingBrake) ? parkingBrake > 0.5 : null
                   });
                   if (executionTelemetry?.acceptedEvent) {
                     debugLog(`MISSION_EXECUTION_TELEMETRY event=${executionTelemetry.acceptedEvent.type || ''} sequence=${executionTelemetry.acceptedEvent.sequence || 0} phase=${executionTelemetry.activeRun?.phase || ''}`);
@@ -6259,13 +6455,15 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (typeof updateEfbState === 'function') updateEfbState({
           simulatorConnected: false,
           telemetryHibernate: disconnectedTelemetryHibernateState(),
-          snapshot: null
+          snapshot: null,
+          payloadSnapshot: null
         });
         if (typeof setTrackerCommandHandler === 'function') setTrackerCommandHandler(null);
         if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
         if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
+        clearInterval(payloadSnapshotInterval);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
         setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime), 5000);
       });
@@ -6274,7 +6472,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       if (typeof updateEfbState === 'function') updateEfbState({
         simulatorConnected: false,
         telemetryHibernate: disconnectedTelemetryHibernateState(),
-        snapshot: null
+        snapshot: null,
+        payloadSnapshot: null
       });
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
       if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);

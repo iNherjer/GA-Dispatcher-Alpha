@@ -132,7 +132,9 @@ assert.match(cargo, /Der Passagier steigt nach Verabschiedung und Deboarding-Seq
 assert.match(cargo, /id: 'pickup-companion-cargo'/);
 assert.match(cargo, /const usesManifestSheet = isLoad \|\| isUnload \|\| isPickup \|\| isEquipment/);
 assert.match(cargo, /else if \(isPickup\) \{[\s\S]{0,650}mode: 'pickup'/);
-assert.match(cargo, /const requiredPickupMissing = pickupItems\.filter\(item => item\.required && item\.status !== 'loaded'\)/);
+assert.match(cargo, /const manifestGates = _missionCargoManifestGateState\(manifest\)/);
+assert.match(cargo, /manifestGates\.requiredPickupMissingItems/);
+assert.match(cargo, /pickupItems\.filter\(item => item\.required && item\.status !== 'loaded'\)/);
 assert.match(cargo, /if \(normalizedMode === 'pickup'\) return 'pickup'/);
 assert.match(cargo, /const signatureMode = isUnload \? 'unload' : \(isPickup \? 'pickup' : 'load'\)/);
 assert.match(cargo, /const signaturePanel = \(isLoad \|\| isUnload \|\| isPickup\)/);

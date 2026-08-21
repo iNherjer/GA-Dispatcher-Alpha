@@ -1,6 +1,9 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 
 const VOICE_PROVIDERS = new Set(['gemini', 'openai']);
 const EFFECT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
@@ -32,22 +35,52 @@ function normalizeEffectId(value) {
 function normalizeVoiceRequest(value = {}) {
   const effectId = normalizeEffectId(value.effectId);
   const text = String(value.text || '').trim();
-  if (!text || text.length > 4000) throw voiceError('invalid_voice_text', 400, 'Voice-Text fehlt oder ist zu lang.');
+  const prompt = String(value.prompt || '').trim();
+  const fallbackText = String(value.fallbackText || '').trim();
+  if (text.length > 4000 || fallbackText.length > 4000 || prompt.length > 24000 || (!text && !fallbackText && !prompt)) {
+    throw voiceError('invalid_voice_text', 400, 'Voice-Text fehlt oder ist zu lang.');
+  }
   const speaker = value.speaker && typeof value.speaker === 'object' && !Array.isArray(value.speaker)
     ? value.speaker
     : {};
-  const gender = /^(male|m|mann|maennlich|männlich)$/i.test(String(speaker.gender || '')) ? 'male' : 'female';
+  const normalizedSpeaker = boardingVoiceCore.normalizeSpeaker(speaker);
   const voiceName = String(value.voiceName || '').trim().slice(0, 80);
+  const normalizeModels = (raw, fallback, max = 8) => (Array.isArray(raw) ? raw : fallback)
+    .map((entry) => String(Array.isArray(entry) ? entry[0] : entry || '').trim().slice(0, 100))
+    .filter((entry, index, list) => /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/.test(entry) && list.indexOf(entry) === index)
+    .slice(0, max);
+  const textModelSource = value.textModels && typeof value.textModels === 'object' && !Array.isArray(value.textModels)
+    ? value.textModels
+    : {};
+  const requestedKind = String(value.kind || '').trim().toLowerCase();
+  const kind = requestedKind === 'boarding' || requestedKind === 'farewell' ? requestedKind : 'direct';
+  const cueSource = value.cue && typeof value.cue === 'object' && !Array.isArray(value.cue) ? value.cue : {};
+  const cueId = kind === 'boarding' || kind === 'farewell'
+    ? boardingVoiceCore.normalizeCueId(cueSource.id)
+    : 'none';
   return {
     effectId,
     text,
-    gender,
+    prompt,
+    fallbackText,
+    kind,
+    synthesizeAudio: value.synthesizeAudio !== false,
+    taskDomain: String(value.taskDomain || normalizedSpeaker.taskDomain || '').trim().toLowerCase().slice(0, 120),
+    gender: normalizedSpeaker.gender,
     voiceName,
-    speaker: {
-      name: String(speaker.name || '').trim().slice(0, 120),
-      role: String(speaker.role || '').trim().slice(0, 160),
-      gender
-    }
+    speaker: normalizedSpeaker,
+    cue: {
+      id: cueId,
+      variantSeed: cueId === 'none' ? '' : String(cueSource.variantSeed || '').trim().slice(0, 500),
+      gain: cueId === 'none' ? 0 : Math.max(0, Math.min(1, Number(cueSource.gain) || 0.38))
+    },
+    textModels: {
+      gemini: normalizeModels(textModelSource.gemini, boardingVoiceCore.GEMINI_TEXT_MODELS),
+      openai: normalizeModels(textModelSource.openai, boardingVoiceCore.OPENAI_TEXT_MODELS)
+    },
+    ttsModels: normalizeModels(value.ttsModels, boardingVoiceCore.GEMINI_TTS_MODELS, 4),
+    ttsHedgeEnabled: value.ttsHedgeEnabled !== false,
+    ttsHedgeDelayMs: Math.max(1000, Math.min(10000, Math.round(Number(value.ttsHedgeDelayMs) || 3000)))
   };
 }
 
@@ -87,47 +120,175 @@ function normalizeGeminiAudio(buffer, mimeType) {
   return { audio: Buffer.from(buffer), contentType: String(mimeType || 'application/octet-stream') };
 }
 
+async function generateOpenAiText({ apiKey, request, fetchRemote }) {
+  for (const model of request.textModels.openai) {
+    try {
+      const response = await fetchRemote('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: 'Schreibe kurze, natuerliche deutsche Passenger-Voice-Zeilen. Keine Markdown-Formatierung.' },
+            { role: 'user', content: request.prompt }
+          ]
+        })
+      });
+      if (!response?.ok) continue;
+      const data = await response.json();
+      const generatedText = String(data?.choices?.[0]?.message?.content || '').trim();
+      if (generatedText) return { generatedText, textModel: model };
+    } catch (_) {}
+  }
+  return { generatedText: '', textModel: '' };
+}
+
+async function generateGeminiText({ apiKey, request, fetchRemote }) {
+  for (const model of request.textModels.gemini) {
+    try {
+      const response = await fetchRemote(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: request.prompt }] }],
+          generationConfig: { response_mime_type: 'text/plain', temperature: 0.95, topP: 0.9 }
+        })
+      });
+      if (!response?.ok) continue;
+      const data = await response.json();
+      const generatedText = String(data?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+      if (generatedText) return { generatedText, textModel: model };
+    } catch (_) {}
+  }
+  return { generatedText: '', textModel: '' };
+}
+
+async function resolveRequestText({ provider, apiKey, request, fetchRemote }) {
+  if (request.text) return { text: request.text, textModel: '' };
+  let generated = { generatedText: '', textModel: '' };
+  if (request.prompt) {
+    try {
+      generated = provider === 'openai'
+        ? await generateOpenAiText({ apiKey, request, fetchRemote })
+        : await generateGeminiText({ apiKey, request, fetchRemote });
+    } catch (_) {}
+  }
+  const text = request.kind === 'boarding'
+    ? boardingVoiceCore.finalizeBoardingText({
+      generatedText: generated.generatedText,
+      fallbackText: request.fallbackText,
+      taskDomain: request.taskDomain
+    })
+    : (boardingVoiceCore.normalizeSpokenText(generated.generatedText) || request.text || request.fallbackText);
+  if (!text) throw voiceError('voice_text_generation_empty', 502, 'Voice-Textgenerierung lieferte keinen verwendbaren Text.');
+  return { text, textModel: generated.textModel };
+}
+
 async function synthesizeOpenAi({ apiKey, request, fetchRemote }) {
-  const voiceName = request.voiceName || (request.gender === 'male' ? 'onyx' : 'nova');
   const model = 'gpt-4o-mini-tts';
-  const response = await fetchRemote('https://api.openai.com/v1/audio/speech', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ model, voice: voiceName, input: request.text, response_format: 'mp3' })
-  });
-  if (!response?.ok) throw voiceError('voice_provider_error', 502, `OpenAI TTS antwortete mit HTTP ${Number(response?.status) || 0}.`);
-  const audio = Buffer.from(await response.arrayBuffer());
-  if (!audio.length) throw voiceError('voice_provider_empty', 502, 'OpenAI TTS lieferte keine Audiodaten.');
-  return { audio, contentType: 'audio/mpeg', model, voiceName };
+  let lastStatus = 0;
+  for (const voiceName of boardingVoiceCore.voiceCandidates('openai', request.speaker, request.voiceName)) {
+    try {
+      const response = await fetchRemote('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, voice: voiceName, input: request.text, response_format: 'mp3' })
+      });
+      lastStatus = Number(response?.status) || 0;
+      if (!response?.ok) continue;
+      const audio = Buffer.from(await response.arrayBuffer());
+      if (audio.length) return { audio, contentType: 'audio/mpeg', model, voiceName };
+    } catch (_) {}
+  }
+  throw voiceError('voice_provider_error', 502, `OpenAI TTS antwortete ohne Audio${lastStatus ? ` (HTTP ${lastStatus})` : ''}.`);
+}
+
+async function synthesizeGeminiModel({ apiKey, request, fetchRemote, model, signal = null }) {
+  let lastStatus = 0;
+  for (const voiceName of boardingVoiceCore.voiceCandidates('gemini', request.speaker, request.voiceName)) {
+    try {
+      const response = await fetchRemote(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: request.text }] }],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
+          }
+        }),
+        ...(signal ? { signal } : {})
+      });
+      lastStatus = Number(response?.status) || 0;
+      if (!response?.ok) continue;
+      const data = await response.json();
+      const inlineData = data?.candidates?.[0]?.content?.parts?.find?.((part) => part?.inlineData?.data)?.inlineData
+        || data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+      const audio = Buffer.from(String(inlineData?.data || ''), 'base64');
+      if (audio.length) return { ...normalizeGeminiAudio(audio, inlineData?.mimeType), model, voiceName };
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+    }
+  }
+  throw voiceError('voice_provider_error', 502, `Gemini TTS ${model} antwortete ohne Audio${lastStatus ? ` (HTTP ${lastStatus})` : ''}.`);
 }
 
 async function synthesizeGemini({ apiKey, request, fetchRemote }) {
-  const voiceName = request.voiceName || (request.gender === 'male' ? 'Charon' : 'Kore');
-  const model = 'gemini-3.1-flash-tts-preview';
-  const response = await fetchRemote(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey
-    },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: request.text }] }],
-      generationConfig: {
-        responseModalities: ['AUDIO'],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
+  const models = request.ttsModels.length ? request.ttsModels : boardingVoiceCore.GEMINI_TTS_MODELS;
+  if (request.ttsHedgeEnabled !== true || models.length < 2) {
+    let lastError = null;
+    for (const model of models) {
+      try {
+        return await synthesizeGeminiModel({ apiKey, request, fetchRemote, model });
+      } catch (error) {
+        lastError = error;
       }
-    })
+    }
+    throw lastError || voiceError('voice_provider_error', 502, 'Gemini TTS antwortete ohne Audio.');
+  }
+  const canAbort = typeof AbortController === 'function';
+  const primaryController = canAbort ? new AbortController() : null;
+  const fallbackController = canAbort ? new AbortController() : null;
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let primaryDone = false;
+    let fallbackStarted = false;
+    let fallbackDone = false;
+    let lastError = null;
+    let timer = null;
+    const finish = (result, source) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        if (source === 'primary') fallbackController?.abort();
+        else primaryController?.abort();
+      } catch (_) {}
+      resolve(result);
+    };
+    const maybeReject = () => {
+      if (!settled && primaryDone && fallbackDone) {
+        settled = true;
+        reject(lastError || voiceError('voice_provider_error', 502, 'Gemini TTS antwortete ohne Audio.'));
+      }
+    };
+    const startFallback = () => {
+      if (settled || fallbackStarted) return;
+      fallbackStarted = true;
+      synthesizeGeminiModel({ apiKey, request, fetchRemote, model: models[1], signal: fallbackController?.signal })
+        .then((result) => finish(result, 'fallback'))
+        .catch((error) => { if (error?.name !== 'AbortError') lastError = error; })
+        .finally(() => { fallbackDone = true; maybeReject(); });
+    };
+    synthesizeGeminiModel({ apiKey, request, fetchRemote, model: models[0], signal: primaryController?.signal })
+      .then((result) => finish(result, 'primary'))
+      .catch((error) => {
+        if (error?.name !== 'AbortError') lastError = error;
+        startFallback();
+      })
+      .finally(() => { primaryDone = true; maybeReject(); });
+    timer = setTimeout(startFallback, request.ttsHedgeDelayMs);
   });
-  if (!response?.ok) throw voiceError('voice_provider_error', 502, `Gemini TTS antwortete mit HTTP ${Number(response?.status) || 0}.`);
-  const data = await response.json();
-  const inlineData = data?.candidates?.[0]?.content?.parts?.find?.((part) => part?.inlineData?.data)?.inlineData
-    || data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-  const audio = Buffer.from(String(inlineData?.data || ''), 'base64');
-  if (!audio.length) throw voiceError('voice_provider_empty', 502, 'Gemini TTS lieferte keine Audiodaten.');
-  return { ...normalizeGeminiAudio(audio, inlineData?.mimeType), model, voiceName };
 }
 
 function createTrackerVoiceService(options = {}) {
@@ -140,24 +301,64 @@ function createTrackerVoiceService(options = {}) {
   const maxAudioBytes = Math.max(1024 * 1024, Number(options.maxAudioBytes) || DEFAULT_MAX_AUDIO_BYTES);
   const maxPendingJobs = Math.max(1, Math.min(64, Number(options.maxPendingJobs) || DEFAULT_MAX_PENDING_JOBS));
   const maxProviderConcurrency = Math.max(1, Math.min(4, Number(options.maxProviderConcurrency) || DEFAULT_MAX_PROVIDER_CONCURRENCY));
+  const storageFile = String(options.storageFile || '').trim();
+  const audioCueDirectory = options.audioCueDirectory === false
+    ? ''
+    : path.resolve(String(options.audioCueDirectory || path.join(__dirname, '..', 'audio-cues')));
+  const io = options.io && typeof options.io === 'object' ? options.io : fs;
   const records = new Map();
   const providerQueue = [];
   const newJobTimestamps = [];
+  const playbackWaiters = new Map();
   let totalAudioBytes = 0;
   let activeProviderJobs = 0;
 
   const configured = Boolean(apiKey && typeof fetchRemote === 'function');
+
+  function resolveAudioCue(cue) {
+    const source = cue && typeof cue === 'object' && !Array.isArray(cue) ? cue : {};
+    const id = boardingVoiceCore.normalizeCueId(source.id);
+    if (!audioCueDirectory || id === 'none') return null;
+    try {
+      const availableNames = io.readdirSync(audioCueDirectory, { withFileTypes: true })
+        .filter((entry) => entry?.isFile?.() && /\.mp3$/i.test(entry.name))
+        .map((entry) => entry.name);
+      const assetName = boardingVoiceCore.selectAudioCueAsset({
+        id,
+        variantSeed: String(source.variantSeed || '').trim().slice(0, 500)
+      }, availableNames);
+      if (!assetName) return null;
+      return {
+        id,
+        variantSeed: String(source.variantSeed || '').trim().slice(0, 500),
+        gain: Math.max(0, Math.min(1, Number(source.gain) || 0.38)),
+        assetName,
+        filePath: path.join(audioCueDirectory, assetName)
+      };
+    } catch (_) {
+      return null;
+    }
+  }
 
   function publicRecord(record) {
     if (!record) return null;
     const playback = record.playback || {};
     return {
       effectId: record.effectId,
+      kind: record.kind || 'direct',
+      synthesizeAudio: record.synthesizeAudio !== false,
       status: record.status,
       provider: record.provider,
       model: record.model || '',
+      textModel: record.textModel || '',
       voiceName: record.voiceName || '',
+      text: record.text || '',
       speaker: { ...record.speaker },
+      cue: {
+        id: record.cue?.id || 'none',
+        audioAvailable: Boolean(record.cue?.filePath),
+        gain: Number(record.cue?.gain) || 0
+      },
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       audioAvailable: record.status === 'ready' && Buffer.isBuffer(record.audio),
@@ -185,11 +386,123 @@ function createTrackerVoiceService(options = {}) {
     }
   }
 
+  function persist() {
+    if (!storageFile) return true;
+    try {
+      const directory = path.dirname(storageFile);
+      const temporaryFile = `${storageFile}.tmp`;
+      io.mkdirSync(directory, { recursive: true });
+      const storedRecords = [...records.values()]
+        .filter((record) => record.status === 'ready' && (Buffer.isBuffer(record.audio) || record.synthesizeAudio === false))
+        .map((record) => ({
+          effectId: record.effectId,
+          fingerprint: record.fingerprint,
+          kind: record.kind || 'direct',
+          synthesizeAudio: record.synthesizeAudio !== false,
+          provider: record.provider,
+          speaker: record.speaker,
+          cue: record.cue ? {
+            id: record.cue.id,
+            variantSeed: record.cue.variantSeed,
+            gain: record.cue.gain,
+            assetName: record.cue.assetName
+          } : null,
+          status: 'ready',
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+          text: record.text || '',
+          textModel: record.textModel || '',
+          contentType: record.contentType || '',
+          model: record.model || '',
+          voiceName: record.voiceName || '',
+          playback: record.playback,
+          audioBase64: Buffer.isBuffer(record.audio) ? record.audio.toString('base64') : ''
+        }));
+      io.writeFileSync(temporaryFile, JSON.stringify({ schema: 'ga.tracker-voice-cache.v1', records: storedRecords }), { mode: 0o600 });
+      io.renameSync(temporaryFile, storageFile);
+      return true;
+    } catch (error) {
+      log(`VOICE_CACHE_WRITE_ERROR code=${error?.code || error?.message || error}`);
+      return false;
+    }
+  }
+
+  function loadPersisted() {
+    if (!storageFile || !io.existsSync(storageFile)) return;
+    try {
+      const parsed = JSON.parse(io.readFileSync(storageFile, 'utf8'));
+      if (parsed?.schema !== 'ga.tracker-voice-cache.v1' || !Array.isArray(parsed.records)) return;
+      for (const source of parsed.records.slice(-maxEntries)) {
+        const effectId = normalizeEffectId(source?.effectId);
+        const audio = Buffer.from(String(source?.audioBase64 || ''), 'base64');
+        const synthesizeAudio = source?.synthesizeAudio !== false;
+        if ((synthesizeAudio && !audio.length) || totalAudioBytes + audio.length > maxAudioBytes) continue;
+        const timestamp = Math.max(0, Number(source.updatedAt) || Number(source.createdAt) || now());
+        const playback = source.playback && typeof source.playback === 'object' ? source.playback : {};
+        const cue = resolveAudioCue(source.cue);
+        const record = {
+          effectId,
+          fingerprint: String(source.fingerprint || ''),
+          kind: ['boarding', 'farewell'].includes(String(source.kind || '').trim().toLowerCase())
+            ? String(source.kind || '').trim().toLowerCase()
+            : 'direct',
+          synthesizeAudio,
+          provider: normalizeVoiceProvider(source.provider),
+          speaker: boardingVoiceCore.normalizeSpeaker(source.speaker),
+          cue,
+          status: 'ready',
+          createdAt: Math.max(0, Number(source.createdAt) || timestamp),
+          updatedAt: timestamp,
+          text: String(source.text || '').trim().slice(0, 4000),
+          textModel: String(source.textModel || '').trim().slice(0, 100),
+          audio: audio.length ? audio : null,
+          contentType: String(source.contentType || 'application/octet-stream').slice(0, 120),
+          model: String(source.model || '').slice(0, 100),
+          voiceName: String(source.voiceName || '').slice(0, 80),
+          error: '',
+          playback: playback.status === 'completed'
+            ? { status: 'completed', ownerClientId: String(playback.ownerClientId || '').slice(0, 160), leaseUntil: 0, completedAt: Number(playback.completedAt) || timestamp }
+            : { status: 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 },
+          promise: null
+        };
+        records.set(effectId, record);
+        totalAudioBytes += audio.length;
+      }
+      log(`VOICE_CACHE_LOADED jobs=${records.size} bytes=${totalAudioBytes}`);
+    } catch (error) {
+      log(`VOICE_CACHE_READ_ERROR code=${error?.code || error?.message || error}`);
+    }
+  }
+
+  function settlePlaybackWaiters(effectId, result) {
+    const waiters = playbackWaiters.get(effectId) || [];
+    playbackWaiters.delete(effectId);
+    for (const waiter of waiters) {
+      clearTimeout(waiter.timer);
+      waiter.resolve(result);
+    }
+  }
+
+  loadPersisted();
+
   async function produce(record, request) {
     try {
+      const resolvedText = await resolveRequestText({ provider, apiKey, request, fetchRemote });
+      if (record.cancelled === true) return publicRecord(record);
+      request = { ...request, text: resolvedText.text };
+      record.text = resolvedText.text;
+      record.textModel = resolvedText.textModel;
+      if (request.synthesizeAudio === false) {
+        record.status = 'ready';
+        record.updatedAt = now();
+        log(`VOICE_TEXT_READY effectId=${record.effectId} provider=${provider} model=${record.textModel || 'fallback'}`);
+        persist();
+        return publicRecord(record);
+      }
       const result = provider === 'openai'
         ? await synthesizeOpenAi({ apiKey, request, fetchRemote })
         : await synthesizeGemini({ apiKey, request, fetchRemote });
+      if (record.cancelled === true) return publicRecord(record);
       record.audio = result.audio;
       record.contentType = result.contentType;
       record.model = result.model;
@@ -199,12 +512,14 @@ function createTrackerVoiceService(options = {}) {
       totalAudioBytes += result.audio.length;
       log(`VOICE_TTS_READY effectId=${record.effectId} provider=${provider} model=${result.model} bytes=${result.audio.length}`);
       evict();
+      persist();
       return publicRecord(record);
     } catch (error) {
       record.status = 'failed';
       record.error = error?.code || 'voice_generation_failed';
       record.updatedAt = now();
       log(`VOICE_TTS_ERROR effectId=${record.effectId} provider=${provider} code=${record.error}`);
+      settlePlaybackWaiters(record.effectId, { status: 'failed', completed: false, job: publicRecord(record) });
       return publicRecord(record);
     } finally {
       record.promise = null;
@@ -230,10 +545,24 @@ function createTrackerVoiceService(options = {}) {
   }
 
   function request(rawRequest) {
-    if (!configured) throw voiceError('voice_not_configured', 503, 'Zentrale Voice-Ausgabe ist im Tracker nicht konfiguriert.');
     const request = normalizeVoiceRequest(rawRequest);
     const fingerprint = crypto.createHash('sha256')
-      .update(`${provider}\0${request.text}\0${request.gender}\0${request.voiceName}`)
+      .update(JSON.stringify({
+        provider,
+        text: request.text,
+        prompt: request.prompt,
+        fallbackText: request.fallbackText,
+        kind: request.kind,
+        synthesizeAudio: request.synthesizeAudio,
+        taskDomain: request.taskDomain,
+        speaker: request.speaker,
+        cue: request.cue,
+        voiceName: request.voiceName,
+        textModels: request.textModels,
+        ttsModels: request.ttsModels,
+        ttsHedgeEnabled: request.ttsHedgeEnabled,
+        ttsHedgeDelayMs: request.ttsHedgeDelayMs
+      }))
       .digest('hex');
     const existing = records.get(request.effectId);
     if (existing) {
@@ -242,6 +571,7 @@ function createTrackerVoiceService(options = {}) {
       }
       return publicRecord(existing);
     }
+    if (!configured) throw voiceError('voice_not_configured', 503, 'Zentrale Voice-Ausgabe ist im Tracker nicht konfiguriert.');
     const timestamp = now();
     while (newJobTimestamps.length && timestamp - newJobTimestamps[0] >= 60000) newJobTimestamps.shift();
     if (newJobTimestamps.length >= DEFAULT_MAX_NEW_JOBS_PER_MINUTE) {
@@ -253,11 +583,16 @@ function createTrackerVoiceService(options = {}) {
     const record = {
       effectId: request.effectId,
       fingerprint,
+      kind: request.kind,
+      synthesizeAudio: request.synthesizeAudio,
       provider,
       speaker: request.speaker,
+      cue: resolveAudioCue(request.cue),
       status: 'pending',
       createdAt: timestamp,
       updatedAt: timestamp,
+      text: request.text,
+      textModel: '',
       audio: null,
       contentType: '',
       model: '',
@@ -276,10 +611,39 @@ function createTrackerVoiceService(options = {}) {
     return publicRecord(records.get(normalizeEffectId(effectId)));
   }
 
+  function cancel(effectId, reason = 'voice_cancelled') {
+    const normalizedEffectId = normalizeEffectId(effectId);
+    const record = records.get(normalizedEffectId);
+    if (!record) return { cancelled: false, reason: 'missing', job: null };
+    records.delete(normalizedEffectId);
+    if (Buffer.isBuffer(record.audio)) totalAudioBytes = Math.max(0, totalAudioBytes - record.audio.length);
+    record.cancelled = true;
+    record.status = 'cancelled';
+    record.error = String(reason || 'voice_cancelled').trim().slice(0, 180);
+    record.updatedAt = now();
+    settlePlaybackWaiters(normalizedEffectId, { status: 'cancelled', completed: false, job: publicRecord(record) });
+    persist();
+    return { cancelled: true, reason: record.error, job: publicRecord(record) };
+  }
+
   function getAudio(effectId) {
     const record = records.get(normalizeEffectId(effectId));
     if (!record || record.status !== 'ready' || !Buffer.isBuffer(record.audio)) return null;
     return { body: record.audio, contentType: record.contentType, effectId: record.effectId };
+  }
+
+  function getCueAudio(effectId) {
+    const record = records.get(normalizeEffectId(effectId));
+    if (!record || record.status !== 'ready' || !record.cue?.filePath) return null;
+    try {
+      return {
+        body: io.readFileSync(record.cue.filePath),
+        contentType: 'audio/mpeg',
+        effectId: record.effectId
+      };
+    } catch (_) {
+      return null;
+    }
   }
 
   function getNextPlayback() {
@@ -297,6 +661,30 @@ function createTrackerVoiceService(options = {}) {
     if (!record) return null;
     if (record.promise) await record.promise;
     return publicRecord(record);
+  }
+
+  function waitForPlayback(effectId, options = {}) {
+    const normalizedEffectId = normalizeEffectId(effectId);
+    const record = records.get(normalizedEffectId);
+    if (!record) return Promise.resolve({ status: 'missing', completed: false, job: null });
+    if (record.status === 'failed') return Promise.resolve({ status: 'failed', completed: false, job: publicRecord(record) });
+    if (record.playback?.status === 'completed') {
+      return Promise.resolve({ status: 'completed', completed: true, job: publicRecord(record) });
+    }
+    const timeoutMs = Math.max(1000, Math.min(180000, Number(options.timeoutMs) || 120000));
+    return new Promise((resolve) => {
+      const waiter = {
+        resolve,
+        timer: setTimeout(() => {
+          const current = playbackWaiters.get(normalizedEffectId) || [];
+          playbackWaiters.set(normalizedEffectId, current.filter((candidate) => candidate !== waiter));
+          resolve({ status: 'timeout', completed: false, job: publicRecord(records.get(normalizedEffectId)) });
+        }, timeoutMs)
+      };
+      const current = playbackWaiters.get(normalizedEffectId) || [];
+      current.push(waiter);
+      playbackWaiters.set(normalizedEffectId, current);
+    });
   }
 
   function claimPlayback(value = {}) {
@@ -332,7 +720,10 @@ function createTrackerVoiceService(options = {}) {
       ? { status: 'completed', ownerClientId: clientId, leaseUntil: 0, completedAt: timestamp }
       : { status: 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 };
     record.updatedAt = timestamp;
-    return { released: true, completed, job: publicRecord(record) };
+    const result = { released: true, completed, job: publicRecord(record) };
+    persist();
+    settlePlaybackWaiters(effectId, { status: completed ? 'completed' : 'released', completed, job: result.job });
+    return result;
   }
 
   function publicState() {
@@ -350,14 +741,17 @@ function createTrackerVoiceService(options = {}) {
   }
 
   return Object.freeze({
+    cancel,
     claimPlayback,
     get,
     getAudio,
+    getCueAudio,
     getNextPlayback,
     publicState,
     releasePlayback,
     request,
-    wait
+    wait,
+    waitForPlayback
   });
 }
 

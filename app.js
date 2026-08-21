@@ -7363,10 +7363,26 @@ function isAcceptedOrActiveMissionPresent() {
 }
 window.isAcceptedOrActiveMissionPresent = isAcceptedOrActiveMissionPresent;
 
-function confirmMissionOverwriteIfNeeded() {
-    if (!isAcceptedOrActiveMissionPresent()) return true;
-    const confirmed = confirm("Es ist bereits eine Mission aktiv. Neue Mission erstellen und die aktuelle Mission ersetzen?");
+async function confirmMissionOverwriteIfNeeded() {
+    const trackerExecutionActive = window.gaTrackerExecutionHandlesMission?.() === true
+        || window.missionRuntimeResumeConflict?.trackerActive === true;
+    if (!isAcceptedOrActiveMissionPresent() && !trackerExecutionActive) return true;
+    const confirmed = confirm(trackerExecutionActive
+        ? "Auf dem Tracker läuft bereits eine Mission. Diese Mission auf allen Ansichten abbrechen und eine neue Mission erstellen?"
+        : "Es ist bereits eine Mission aktiv. Neue Mission erstellen und die aktuelle Mission ersetzen?");
     if (!confirmed) return false;
+    if (trackerExecutionActive) {
+        if (typeof window.gaAbortTrackerMission !== 'function') {
+            try { alert('Die Tracker-Mission kann noch nicht sicher beendet werden. Bitte Tracker-Verbindung prüfen.'); } catch (_) {}
+            return false;
+        }
+        const result = await window.gaAbortTrackerMission({
+            skipConfirm: true,
+            forceLocalCleanup: true,
+            reason: 'new-mission-replacement'
+        });
+        return result?.ok === true;
+    }
     if (typeof window.missionRuntimeReset === 'function') {
         const reset = window.missionRuntimeReset({
             respawnAfterClear: false,
@@ -9718,7 +9734,10 @@ function clearAppMissionState(options = {}) {
     if (options.trackerAbortCompleted !== true
         && options.skipRuntimeReset !== true
         && window.gaTrackerExecutionHandlesMission?.()) {
-        window.gaAbortTrackerMission?.({ reason: options.reason || 'clear-app-mission-state' });
+        window.gaAbortTrackerMission?.({
+            forceLocalCleanup: true,
+            reason: options.reason || 'clear-app-mission-state'
+        });
         return false;
     }
     if (options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
@@ -9804,11 +9823,15 @@ function clearAppMissionState(options = {}) {
 }
 window.clearAppMissionState = clearAppMissionState;
 
-function resetApp() {
+async function resetApp() {
     if (window.gaTrackerExecutionHandlesMission?.()) {
         if (!confirm("Tracker-Mission wirklich abbrechen und das aktuelle Briefing verwerfen?\n\nDie Mission wird auf allen verbundenen Ansichten beendet.")) return false;
-        window.gaAbortTrackerMission?.({ skipConfirm: true, reason: 'reset-app' });
-        return false;
+        const result = await window.gaAbortTrackerMission?.({
+            skipConfirm: true,
+            forceLocalCleanup: true,
+            reason: 'reset-app'
+        });
+        return result?.ok === true;
     }
     if (!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return false;
     return clearAppMissionState({ reason: 'reset-app' });
@@ -43377,7 +43400,9 @@ function applyMissionProposalChoiceToMissionContractV4(contract = null, choice =
 
 async function generateMission(options = {}) {
     const dispatchOptions = (options && typeof options === 'object') ? options : {};
-    if (window.missionComplianceBlockReset?.()) {
+    const trackerExecutionReplacement = window.gaTrackerExecutionHandlesMission?.() === true
+        || window.missionRuntimeResumeConflict?.trackerActive === true;
+    if (!trackerExecutionReplacement && window.missionComplianceBlockReset?.()) {
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.';
         try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
@@ -43393,7 +43418,7 @@ async function generateMission(options = {}) {
         slotId: selectedAC,
         totalSeats: document.getElementById('maxSeats')?.value
     });
-    if (!dispatchOptions.skipOverwriteConfirm && !confirmMissionOverwriteIfNeeded()) {
+    if (!dispatchOptions.skipOverwriteConfirm && !await confirmMissionOverwriteIfNeeded()) {
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Aktive Mission bleibt bestehen.';
         setMissionGenerationProgress({ visible: false, force: true });
@@ -47129,7 +47154,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const swBypassMode = window.__gaLocalDevNoSw === true || params.has('fireCacheFresh') || params.has('noSw') || params.has('swBypass');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1684', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1697', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

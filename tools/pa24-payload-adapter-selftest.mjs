@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import payloadCore from '../mission-payload-core.js';
 
 const cargoSource = fs.readFileSync(new URL('../mission-cargo-core.js', import.meta.url), 'utf8');
 const trackerSource = fs.readFileSync(new URL('../ga-tracker-client/tracker.js', import.meta.url), 'utf8');
@@ -38,7 +39,14 @@ const trackerFunctionSource = (name) => {
 };
 
 const context = {
-    window: { lastLiveFlightData: {} },
+    window: { lastLiveFlightData: {}, GAMissionPayloadCore: payloadCore },
+    _missionCargoPayloadCore: () => payloadCore,
+    _missionCargoPayloadCoreOptions: options => ({
+        ...(options || {}),
+        fallbackPaxCount: 0,
+        fallbackPaxWeightLbs: 180,
+        isPassengerItem: item => item?.itemType === 'passenger'
+    }),
     _missionCargoIsPassengerItem: item => item?.itemType === 'passenger',
     _missionCargoBoardedPaxCount: () => 0,
     _missionCargoPaxWeightLbs: () => 180,

@@ -2317,7 +2317,7 @@
             alert('Diese Folgeanfrage ist noch nicht fällig.');
             return false;
         }
-        if (typeof window.confirmMissionOverwriteIfNeeded === 'function' && !window.confirmMissionOverwriteIfNeeded()) {
+        if (typeof window.confirmMissionOverwriteIfNeeded === 'function' && !await window.confirmMissionOverwriteIfNeeded()) {
             return false;
         }
         const home = airportFromRef(req.route?.homeRef);

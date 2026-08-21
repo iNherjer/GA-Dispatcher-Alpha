@@ -12,6 +12,7 @@ const COCKPIT_ROLES = new Set(['web', 'efb', 'toolbar']);
 const MISSION_INTENTS = new Set([
   'activate_cloud_mission',
   'prepare_mission',
+  'start_boarding',
   'set_manifest_item',
   'sign_manifest',
   'clear_manifest_signature',
