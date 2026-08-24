@@ -584,12 +584,15 @@ function _missionResolveGroundAction(options = {}) {
     const arrivalWorkflowOpen = active
         && typeof _missionCargoNeedsArrivalWorkflow === 'function'
         && _missionCargoNeedsArrivalWorkflow({ ignorePassenger: true });
-    const unloadActionReady = active
-        && _missionCargoGroundHandlingAllowed()
-        && (
-            (runtimeGroundEndReady && arrivalWorkflowOpen)
-            || (!runtimeGroundEndReady && !poiRuntime && cargoNeedsUnload)
-        );
+    const unloadActionReady = active && (
+        (runtimeGroundEndReady && arrivalWorkflowOpen)
+        || (
+            _missionCargoGroundHandlingAllowed()
+            && !runtimeGroundEndReady
+            && !poiRuntime
+            && cargoNeedsUnload
+        )
+    );
 
     let resolved = null;
     if (missionRuntime.closingPending) {
@@ -672,7 +675,9 @@ function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
     if (_missionBushIsPickupMission()) {
         const pickupState = _missionBushPickupLoadState();
         const pickupLoaded = pickupState.complete;
-        const pickupUnloadedHome = pickupState.unloaded && _isAtMissionHome(curLat, curLon);
+        const atHome = Number.isFinite(curLat) && Number.isFinite(curLon) && _isAtMissionHome(curLat, curLon);
+        const pickupUnloadedHome = pickupState.unloaded && atHome;
+        const arrivedHomeNow = pickupLoaded && endReady?.groundStill && atHome;
         const atPickup = _missionBushPickupAtTargetNow(curLat, curLon);
         next.pickupReady = !!(atPickup && pickupState.hasItems && !pickupLoaded);
         next.pickupCompleted = !!pickupLoaded;
@@ -681,11 +686,15 @@ function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
             next.status = pickupState.pickedCount > 0 ? 'pickup_loading' : 'pickup_ready';
         }
         if (pickupLoaded && !next.pickupConfirmed) next.status = 'pickup_complete';
-        if (pickupLoaded && next.pickupConfirmed && bush.requiresReturnHome && !pickupUnloadedHome) next.status = 'return_leg';
-        if (pickupLoaded && endReady?.groundStill && _isAtMissionHome(curLat, curLon)) {
+        if (pickupLoaded && next.pickupConfirmed && bush.requiresReturnHome && !pickupUnloadedHome && !next.returnHomeQualified) {
+            next.status = 'return_leg';
+        }
+        if (arrivedHomeNow) {
             next.returnHomeQualified = true;
             next.status = pickupUnloadedHome ? 'ready_to_close' : 'home_unloading';
-            next.groundStopQualified = !!pickupUnloadedHome;
+            next.groundStopQualified = !!(next.groundStopQualified || pickupUnloadedHome);
+        } else if (next.returnHomeQualified) {
+            next.status = pickupUnloadedHome ? 'ready_to_close' : 'home_unloading';
         }
         if (pickupUnloadedHome) {
             if (pickupState.hasPassenger) next.passengerDropped = true;
@@ -717,6 +726,8 @@ function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
             if (next.areaQualified && endReady?.groundStill && _isAtMissionHome(curLat, curLon)) {
                 next.returnHomeQualified = true;
                 next.groundStopQualified = true;
+                next.status = 'ready_to_close';
+            } else if (next.returnHomeQualified && next.groundStopQualified) {
                 next.status = 'ready_to_close';
             } else if (next.areaQualified && bush.requiresReturnHome) {
                 next.status = 'return_leg';
@@ -762,6 +773,8 @@ function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
         if (next.areaQualified && endReady?.groundStill && _isAtMissionHome(curLat, curLon)) {
             next.returnHomeQualified = true;
             next.groundStopQualified = true;
+            next.status = 'ready_to_close';
+        } else if (next.returnHomeQualified && next.groundStopQualified) {
             next.status = 'ready_to_close';
         } else if (next.areaQualified && bush.requiresReturnHome) {
             next.status = 'return_leg';
@@ -913,17 +926,28 @@ function _missionBushGroundEndReady(endReady = null) {
         const pos = window.lastLiveGpsPos || {};
         const curLat = Number(pos.lat);
         const curLon = Number(pos.lon);
-        if (progress?.status === 'ready_to_close' && ready?.groundStill && Number.isFinite(curLat) && Number.isFinite(curLon) && _isAtMissionHome(curLat, curLon)) {
+        const atHome = Number.isFinite(curLat) && Number.isFinite(curLon) && _isAtMissionHome(curLat, curLon);
+        const nearSurfaceAfterQualifiedArrival = ready?.onGround === true
+            || (Number.isFinite(Number(ready?.agl)) && Number(ready.agl) <= 60);
+        const stationaryAfterQualifiedArrival = !!(
+            progress?.returnHomeQualified
+            && atHome
+            && nearSurfaceAfterQualifiedArrival
+            && (
+                ready?.parkingBrakeSet
+                || (Number.isFinite(Number(ready?.gs)) && Number(ready.gs) <= 2)
+            )
+        );
+        const groundStopHeld = !!(ready?.groundStill || stationaryAfterQualifiedArrival);
+        if (progress?.status === 'ready_to_close' && groundStopHeld && atHome) {
             return true;
         }
         return !!(
-            ready?.groundStill
-            && Number.isFinite(curLat)
-            && Number.isFinite(curLon)
-            && _isAtMissionHome(curLat, curLon)
+            groundStopHeld
+            && atHome
             && progress?.pickupCompleted
             && progress?.pickupConfirmed
-            && _missionHasReachedEndEligibleFlightPhase()
+            && (_missionHasReachedEndEligibleFlightPhase() || progress?.returnHomeQualified)
         );
     }
     const completionMode = _missionBushEffectiveCompletionMode();
@@ -949,13 +973,27 @@ function _missionBushGroundEndReady(endReady = null) {
         const pos = window.lastLiveGpsPos || {};
         const curLat = Number(pos.lat);
         const curLon = Number(pos.lon);
-        return !!(
+        const atHome = Number.isFinite(curLat) && Number.isFinite(curLon) && _isAtMissionHome(curLat, curLon);
+        const nearSurfaceAfterQualifiedArrival = ready?.onGround === true
+            || (Number.isFinite(Number(ready?.agl)) && Number(ready.agl) <= 60);
+        const groundStopHeld = !!(
             ready?.groundStill
-            && Number.isFinite(curLat)
-            && Number.isFinite(curLon)
-            && _isAtMissionHome(curLat, curLon)
+            || (
+                progress?.groundStopQualified
+                && progress?.returnHomeQualified
+                && atHome
+                && nearSurfaceAfterQualifiedArrival
+                && (
+                    ready?.parkingBrakeSet
+                    || (Number.isFinite(Number(ready?.gs)) && Number(ready.gs) <= 2)
+                )
+            )
+        );
+        return !!(
+            groundStopHeld
+            && atHome
             && progress?.areaQualified
-            && _missionHasReachedEndEligibleFlightPhase()
+            && (_missionHasReachedEndEligibleFlightPhase() || progress?.returnHomeQualified)
         );
     }
     return !!(ready?.groundStill && ready?.atTarget && _missionHasReachedEndEligibleFlightPhase());
@@ -1097,6 +1135,7 @@ function _missionEndReadiness(lat = null, lon = null) {
         dArrivalNm,
         dMissionNm,
         gs,
+        agl,
         onGround,
         parkingBrakeSet
     };

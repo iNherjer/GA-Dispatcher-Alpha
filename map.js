@@ -12062,6 +12062,14 @@ function toggleMapTable(forceInternal) {
         if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
 
         if (board.classList.contains('active')) {
+            if (typeof window.requestTrackerTelemetryWake === 'function') {
+                window.requestTrackerTelemetryWake('mission-map-open');
+            }
+            if (typeof window.reconcileMissionGroundState === 'function') {
+                window.reconcileMissionGroundState('mission-map-open');
+            } else if (typeof window.refreshMissionRuntimeUi === 'function') {
+                window.refreshMissionRuntimeUi();
+            }
             // Die große Airport-Datei erst laden, wenn der Kartentisch wirklich
             // geöffnet wird. Verdeckte Karten-/Routeninitialisierung bleibt leicht.
             void ensureGlobalAirportsForMapClicks();
@@ -12089,6 +12097,11 @@ function toggleMapTable(forceInternal) {
             }
 
             setTimeout(() => {
+                if (typeof window.reconcileMissionGroundState === 'function') {
+                    window.reconcileMissionGroundState('mission-map-open-layout');
+                } else if (typeof window.refreshMissionRuntimeUi === 'function') {
+                    window.refreshMissionRuntimeUi();
+                }
                 refreshMapTableLayout().catch((error) => {
                     console.error('Map table refresh failed:', error);
                 });

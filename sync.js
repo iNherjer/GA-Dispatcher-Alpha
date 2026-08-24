@@ -12959,6 +12959,42 @@ function _updateMissionRuntimeUi() {
 }
 window.refreshMissionRuntimeUi = _updateMissionRuntimeUi;
 
+window.reconcileMissionGroundState = function(reason = 'mission-ground-refresh') {
+    if (!missionRuntime.active || missionRuntime.closingPending) {
+        _updateMissionRuntimeUi();
+        return false;
+    }
+    const runtimePhase = String(missionRuntime.phase || '').toLowerCase();
+    if (_missionEndDeboardingBusy() || runtimePhase === 'inspection' || runtimePhase === 'closing') {
+        _updateMissionRuntimeUi();
+        return runtimePhase === 'end_ready';
+    }
+    const pos = window.lastLiveGpsPos || {};
+    const lat = Number(pos.lat);
+    const lon = Number(pos.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        _updateMissionRuntimeUi();
+        return false;
+    }
+    if (_missionSceneIsBushMission()) {
+        try { _missionBushUpdateProgress(lat, lon, Date.now()); } catch (_) {}
+    }
+    const endReady = _missionEndReadiness(lat, lon);
+    const runtimeGroundEndReady = _missionRuntimeGroundEndReady(endReady);
+    const nextPhase = runtimeGroundEndReady ? 'end_ready' : 'active';
+    if (missionRuntime.phase !== nextPhase) {
+        _missionPhaseDebugPush('runtime_phase', {
+            from: String(missionRuntime.phase || 'idle'),
+            to: nextPhase,
+            trigger: String(reason || 'mission-ground-refresh')
+        });
+    }
+    missionRuntime.phase = nextPhase;
+    missionRuntime.endReadinessKey = `${runtimeGroundEndReady ? 'ready' : 'wait'}:${endReady.reason || ''}`;
+    _updateMissionRuntimeUi();
+    return runtimeGroundEndReady;
+};
+
 function _resetMissionRuntime() {
     _missionSceneClearDeboardingWatchdog();
     window.missionPickupDepartureVoicePending = null;
@@ -19382,6 +19418,9 @@ function updateFlightRecorder(lat, lon, alt) {
         r.pauseActive = true;
         r.wasOnGround = onGroundNow;
         r.lowSpeedSince = 0;
+        if (missionRuntime.active && onGroundNow && stationaryForPause) {
+            window.reconcileMissionGroundState?.('paused-ground-tick');
+        }
         return;
     }
 

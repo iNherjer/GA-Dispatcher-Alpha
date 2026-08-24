@@ -14,6 +14,7 @@ const missionDefinition = read('mission-definition-core.js');
 const missionArrival = read('mission-arrival-core.js');
 const missionLocation = read('mission-location-core.js');
 const simRoute = read('sim-route.js');
+const mapSource = read('map.js');
 const voice = read('passenger-voice.js');
 const index = read('index.html');
 const app = read('app.js');
@@ -187,6 +188,8 @@ assert.match(cargo, /function _missionCargoNeedsArrivalWorkflow\(/);
 assert.match(cargo, /deliverAtDestination: !isBushReturnHomeRecon/);
 assert.match(runtime, /function _missionBushReturnHomeIsCurrentDestination\(/);
 assert.match(runtime, /source: 'bush_return_home'/);
+assert.match(mapSource, /window\.reconcileMissionGroundState\('mission-map-open'\)/);
+assert.match(mapSource, /window\.requestTrackerTelemetryWake\('mission-map-open'\)/);
 assert.match(missionArrival, /source: 'osm_runway_side'/);
 assert.match(missionArrival, /bush_strip_runway_axis_side_clearance/);
 const runtimeGroundEndSection = section(runtime, 'function _missionRuntimeGroundEndReady', 'function _missionPoiEndedAtHome');
@@ -295,6 +298,51 @@ assert.equal(
     'pickup return must become unload/end-ready before passenger deboarding'
 );
 
+let latchedPickupProgress = {
+    pickupCompleted: true,
+    pickupConfirmed: true,
+    returnHomeQualified: false,
+    groundStopQualified: false,
+    status: 'return_leg'
+};
+let pickupReadiness = { groundStill: true, gs: 0, agl: 0, onGround: true, parkingBrakeSet: false };
+context._activeBushMissionSpec = () => ({ requiresReturnHome: true });
+context._activeBushMissionProgress = () => latchedPickupProgress;
+context._persistBushMissionProgress = next => {
+    latchedPickupProgress = { ...next };
+    return latchedPickupProgress;
+};
+context._missionCargoEnsureManifest = () => ({
+    items: [{ id: 'pickup-pax', required: true, pickupLocation: 'target', itemType: 'passenger', status: 'loaded' }]
+});
+context._missionCargoIsPassengerItem = item => item?.itemType === 'passenger';
+context._missionBushPickupAtTargetNow = () => false;
+context._missionEndReadiness = () => pickupReadiness;
+context._isAtMissionHome = () => true;
+context._missionBushUpdateProgress(44.88, -116.1, Date.now());
+assert.equal(latchedPickupProgress.returnHomeQualified, true, 'first valid home stop must qualify the return');
+assert.equal(latchedPickupProgress.status, 'home_unloading');
+
+pickupReadiness = { groundStill: false, gs: 0, agl: 0, onGround: false, parkingBrakeSet: false };
+context._missionBushUpdateProgress(44.88, -116.1, Date.now());
+assert.equal(
+    latchedPickupProgress.status,
+    'home_unloading',
+    'a single on-ground telemetry dropout must not regress the qualified return to return_leg'
+);
+context._missionHasReachedEndEligibleFlightPhase = () => false;
+assert.equal(
+    context._missionBushGroundEndReady(pickupReadiness),
+    true,
+    'a qualified home arrival must keep its action while the aircraft remains stationary'
+);
+pickupReadiness = { groundStill: false, gs: 24, agl: 0, onGround: false, parkingBrakeSet: false };
+assert.equal(
+    context._missionBushGroundEndReady(pickupReadiness),
+    false,
+    'the qualified arrival must not expose ground actions while the aircraft is moving'
+);
+
 context._missionSceneIsPoiMission = () => true;
 context._missionSceneIsBushMission = () => true;
 assert.equal(
@@ -345,6 +393,16 @@ assert.equal(
     poiGroundAction.action,
     'unload',
     'end-ready POI flights must enter the central arrival loading window'
+);
+context._missionCargoGroundHandlingAllowed = () => false;
+poiGroundAction = context._missionResolveGroundAction({
+    active: true,
+    endReady: { groundStill: false, ready: false, atTarget: false }
+});
+assert.equal(
+    poiGroundAction.action,
+    'unload',
+    'an end-ready mission must retain its required unload action through transient ground-telemetry loss'
 );
 context._missionSceneIsPoiMission = () => false;
 context._missionCargoNeedsArrivalWorkflow = options => options?.ignorePassenger !== true;
