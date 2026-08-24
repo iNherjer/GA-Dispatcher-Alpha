@@ -147,6 +147,14 @@
         </div>
     </div>
 </div>
+<div id="missionMainNotification" class="mission-start-banner mission-main-notification" role="status" aria-live="polite" aria-hidden="true">
+    <button type="button" class="mission-start-banner-close" onclick="window.dismissMissionStartBanner && dismissMissionStartBanner()" title="Benachrichtigung ausblenden">×</button>
+    <div class="mission-start-banner-body">
+        <div id="missionMainNotificationKicker" class="mission-start-banner-kicker">Mission bereit</div>
+        <div id="missionMainNotificationText" class="mission-start-banner-text">Die nächste Missionsaktion ist verfügbar.</div>
+    </div>
+    <button type="button" class="mission-start-banner-btn" id="missionMainNotificationBtn" onclick="window.handleMissionMainNotificationAction && handleMissionMainNotificationAction()">Mission öffnen</button>
+</div>
 <div class="win95-desktop-decor">
     <button type="button" class="win95-desktop-icon win95-icon-main" onclick="openWin95DesktopApp('main')" aria-label="VFR Multitool Hauptfenster">
         <span class="win95-icon-glyph"></span>

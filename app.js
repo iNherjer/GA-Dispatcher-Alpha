@@ -10246,6 +10246,12 @@ function _isDispatchRunAlive(runId) {
     return !!(_dispatchState && _dispatchState.active && !_dispatchState.cancelled && _dispatchState.runId === runId);
 }
 
+function _dispatchUiCommitAllowed(options = {}) {
+    const dispatchRunId = Number(options?.dispatchRunId || 0);
+    if (!Number.isFinite(dispatchRunId) || dispatchRunId <= 0) return true;
+    return !!(_dispatchState && !_dispatchState.cancelled && _dispatchState.runId === dispatchRunId);
+}
+
 function _abortDispatchRun(reason = 'Abbruch') {
     if (!_dispatchState.active) return false;
     _dispatchState.cancelled = true;
@@ -10793,6 +10799,8 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
     let container = document.getElementById(containerId);
     if (!container) return;
     const loadOptions = options && typeof options === 'object' ? options : {};
+    const commitAllowed = () => _dispatchUiCommitAllowed(loadOptions);
+    if (!commitAllowed()) return;
     const requestedRunwayIcao = String(loadOptions.runwayIcao || '').trim().toUpperCase();
 
     // Zwingt das Widget ins "Modern"-Design, auch wenn das Retro-Theme aktiv ist (wichtig für Karten-Popups)
@@ -10857,6 +10865,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
                     timeoutMs: 3500,
                     retryDelayMs: 350
                 });
+                if (!commitAllowed()) return;
                 if (Array.isArray(mainData)) metarDataList = mainData;
             }
 
@@ -10871,6 +10880,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
                     timeoutMs: 3500,
                     retryDelayMs: 350
                 });
+                if (!commitAllowed()) return;
                 if (Array.isArray(fbData)) {
                     _storeMetarRegion(fbData, { latMin, lonMin, latMax, lonMax });
                     try {
@@ -10918,6 +10928,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
         // Kontext-Popups werden während parallel laufender Gelände-/Luftraum-
         // Abfragen neu gerendert. Danach immer das aktuell sichtbare Ziel
         // verwenden statt eines inzwischen abgehängten DOM-Knotens.
+        if (!commitAllowed()) return;
         container = document.getElementById(containerId);
         if (!container) return;
 
@@ -11007,9 +11018,11 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
         if (!isMini && !loadOptions.skipRunwayWait) {
             while (runwayIcao && !runwayCache[runwayIcao] && retries < 15) {
                 await new Promise(r => setTimeout(r, 200));
+                if (!commitAllowed()) return;
                 retries++;
             }
         }
+        if (!commitAllowed()) return;
         container = document.getElementById(containerId);
         if (!container) return;
 
@@ -11185,6 +11198,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
         }
     } catch (err) {
         console.error("METAR fetch error:", err);
+        if (!commitAllowed()) return;
         container = document.getElementById(containerId);
         if (!container) return;
         const loadingCard = container.querySelector?.('[data-ga-metar-loading="true"]');
@@ -16165,9 +16179,12 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
     const imgContainer = document.getElementById(imgContainerId);
     const imgElement = document.getElementById(imgElId);
     const textElement = document.getElementById(elementId);
+    const commitAllowed = () => _dispatchUiCommitAllowed(options);
+    if (!commitAllowed()) return;
     if (imgContainer) imgContainer.style.display = 'none';
     if (!textElement) return;
     const applyPoiFallback = () => {
+        if (!commitAllowed()) return false;
         const fallback = buildAreaDescriptionPoiFallback(lat, lon, elementId, exactTitle, icaoCode, options);
         if (!fallback) return false;
         textElement.innerText = fallback;
@@ -16177,10 +16194,13 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
     try {
         let titleToFetch = exactTitle;
         if (!titleToFetch && icaoCode) titleToFetch = await getWikiTitleForAirport(icaoCode, lat, lon);
+        if (!commitAllowed()) return;
 
         if (!titleToFetch) {
             const geoRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=10000&gslimit=1&format=json&origin=*`);
+            if (!commitAllowed()) return;
             const geoData = await geoRes.json();
+            if (!commitAllowed()) return;
             if (geoData?.query?.geosearch?.length > 0) titleToFetch = geoData.query.geosearch[0].title;
             else {
                 if (applyPoiFallback()) return;
@@ -16191,7 +16211,9 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
 
         if (titleToFetch) {
             const extRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages&exintro=true&explaintext=true&exsentences=4&pithumbsize=1200&titles=${encodeURIComponent(titleToFetch)}&format=json&origin=*`);
+            if (!commitAllowed()) return;
             const extData = await extRes.json();
+            if (!commitAllowed()) return;
 
             if (extData?.query?.pages) {
                 const pageId = Object.keys(extData.query.pages)[0];
@@ -16211,6 +16233,7 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
         if (applyPoiFallback()) return;
         textElement.innerText = "Der Artikel konnte nicht von Wikipedia abgerufen werden.";
     } catch (e) {
+        if (!commitAllowed()) return;
         if (applyPoiFallback()) return;
         textElement.innerText = "Wiki-Daten konnten nicht geladen werden.";
     }
@@ -16307,9 +16330,11 @@ function renderRunwayDetailsResult(domEl, result, icaoCode) {
     }
 }
 
-async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
+async function fetchRunwayDetails(lat, lon, elementId, icaoCode, options = {}) {
     let domEl = document.getElementById(elementId);
     if (!domEl) return;
+    const commitAllowed = () => _dispatchUiCommitAllowed(options);
+    if (!commitAllowed()) return;
     const normalizedIcao = String(icaoCode || '').trim().toUpperCase();
     const lookupKey = normalizedIcao || `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
 
@@ -16355,6 +16380,7 @@ async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
         runwayTemporaryCache.set(lookupKey, Date.now());
         console.warn('[Runway] Quelle vorübergehend nicht verfügbar:', normalizedIcao || lookupKey, result.error || result.source);
     }
+    if (!commitAllowed()) return;
     domEl = document.getElementById(elementId);
     if (!domEl) return;
     renderRunwayDetailsResult(domEl, result, normalizedIcao);
@@ -40991,8 +41017,10 @@ function updateApiFuelMeter() {
     needle.style.transform = `translateX(-50%) rotate(${angle}deg)`;
 }
 
-async function fetchAirportFreq(icao, elementId, type, airportHint = null) {
+async function fetchAirportFreq(icao, elementId, type, airportHint = null, options = {}) {
     const el = document.getElementById(elementId);
+    const commitAllowed = () => _dispatchUiCommitAllowed(options);
+    if (!commitAllowed()) return null;
     if (el) el.innerText = '📻 Sucht Frequenz...';
     const proxy = 'https://ga-proxy.einherjer.workers.dev';
     const icaoQuery = String(icao || '').trim().toUpperCase();
@@ -41023,6 +41051,7 @@ async function fetchAirportFreq(icao, elementId, type, airportHint = null) {
         if (typeof window.gaGetAviationCollectionForBounds === 'function') {
             if (!airportHint && (!globalAirports || Object.keys(globalAirports).length === 0)) {
                 await loadGlobalAirports();
+                if (!commitAllowed()) return null;
             }
             const directAirport = globalAirports?.[icaoQuery];
             const resolvedAirport = directAirport
@@ -41041,6 +41070,7 @@ async function fetchAirportFreq(icao, elementId, type, airportHint = null) {
                     east: Math.min(180, lon + lonPadding),
                     north: Math.min(90, lat + 0.4)
                 });
+                if (!commitAllowed()) return null;
             }
         }
         const directSearchIdent = airportRealIcao(airportHint || {}) || icaoQuery;
@@ -41048,7 +41078,9 @@ async function fetchAirportFreq(icao, elementId, type, airportHint = null) {
             // Nur für ältere Builds oder Plätze ohne bekannte Koordinate bleibt
             // die direkte OpenAIP-Suche als letzter Kompatibilitätsfallback.
             const res = await fetch(`${proxy}/api/airports?search=${encodeURIComponent(directSearchIdent)}&limit=25&t=${Date.now()}`);
+            if (!commitAllowed()) return null;
             const data = await res.json();
+            if (!commitAllowed()) return null;
             items = Array.isArray(data?.items) ? data.items : [];
         }
         if (items.length > 0) {
@@ -41127,6 +41159,7 @@ async function fetchAirportFreq(icao, elementId, type, airportHint = null) {
         if (el) el.innerText = '';
         freqCache[icaoQuery] = []; // Mark as fetched but empty
     } catch (e) {
+        if (!commitAllowed()) return null;
         if (el) el.innerText = '';
         freqCache[icaoQuery] = []; // Mark as fetched but empty
     }
@@ -43564,6 +43597,16 @@ async function generateMission(options = {}) {
 
     if (document.getElementById("wikiDepDescText")) document.getElementById("wikiDepDescText").innerText = "Lade Start-Info...";
     if (document.getElementById("wikiDestDescText")) document.getElementById("wikiDestDescText").innerText = "Lade Ziel-Info...";
+    for (const elementId of ['wikiDepFreqText', 'wikiDestFreqText', 'metarContainerDep', 'metarContainerDest']) {
+        const element = document.getElementById(elementId);
+        if (element) element.innerHTML = '';
+    }
+    for (const imageContainerId of ['wikiDepImageContainer', 'wikiDestImageContainer']) {
+        const imageContainer = document.getElementById(imageContainerId);
+        if (imageContainer) imageContainer.style.display = 'none';
+    }
+    currentDepFreq = '';
+    currentDestFreq = '';
 
     const indicator = document.getElementById('searchIndicator');
     if (indicator) indicator.innerText = "Sucht Route & Daten...";
@@ -46388,14 +46431,15 @@ async function generateMission(options = {}) {
 
     indicator.innerText = `Flugplan bereit (${dataSource}). Lade Infos...`;
     setMissionGenerationProgress('enrichment');
-    fetchRunwayDetails(start.lat, start.lon, 'mDepRwy', currentStartICAO);
+    const dispatchUiOptions = { dispatchRunId };
+    fetchRunwayDetails(start.lat, start.lon, 'mDepRwy', currentStartICAO, dispatchUiOptions);
 
     _dispatchDeferredFinalize = true;
     setTimeout(() => {
         if (!_isDispatchRunAlive(dispatchRunId)) return;
-        if (!missionActsLikePoi) fetchRunwayDetails(dest.lat, dest.lon, 'mDestRwy', currentDestICAO);
+        if (!missionActsLikePoi) fetchRunwayDetails(dest.lat, dest.lon, 'mDestRwy', currentDestICAO, dispatchUiOptions);
 
-        fetchAreaDescription(start.lat, start.lon, 'wikiDepDescText', null, airportRealIcao(start) || null, 'wikiDepImageContainer', 'wikiDepImage');
+        fetchAreaDescription(start.lat, start.lon, 'wikiDepDescText', null, airportRealIcao(start) || null, 'wikiDepImageContainer', 'wikiDepImage', dispatchUiOptions);
         fetchAreaDescription(
             dest.lat,
             dest.lon,
@@ -46403,26 +46447,27 @@ async function generateMission(options = {}) {
             missionActsLikePoi ? dest.n : null,
             missionActsLikePoi ? null : (airportRealIcao(dest) || null),
             'wikiDestImageContainer',
-            'wikiDestImage'
+            'wikiDestImage',
+            dispatchUiOptions
         );
 
         currentDepFreq = "";
         currentDestFreq = "";
 
-        fetchAirportFreq(currentStartICAO, 'wikiDepFreqText', 'dep', start);
+        fetchAirportFreq(currentStartICAO, 'wikiDepFreqText', 'dep', start, dispatchUiOptions);
 
         // --- NEU: METAR Start laden ---
-        loadMetarWidget(currentStartICAO, 'metarContainerDep', start.lat, start.lon);
+        loadMetarWidget(currentStartICAO, 'metarContainerDep', start.lat, start.lon, false, dispatchUiOptions);
 
         if (!missionActsLikePoi) {
-            fetchAirportFreq(currentDestICAO, 'wikiDestFreqText', 'dest', dest);
+            fetchAirportFreq(currentDestICAO, 'wikiDestFreqText', 'dest', dest, dispatchUiOptions);
         } else {
             const df = document.getElementById('wikiDestFreqText');
             if (df) df.innerHTML = '';
         }
 
         // --- NEU: METAR Ziel laden (nur wenn kein POI) ---
-        loadMetarWidget(missionActsLikePoi ? null : currentDestICAO, 'metarContainerDest', dest.lat, dest.lon);
+        loadMetarWidget(missionActsLikePoi ? null : currentDestICAO, 'metarContainerDest', dest.lat, dest.lon, false, dispatchUiOptions);
 
         indicator.innerText = `Briefing komplett.`; resetBtn(btn);
         setMissionGenerationProgress('complete', { completed: true, force: true });
@@ -46463,6 +46508,7 @@ async function generateMission(options = {}) {
         window.debouncedSaveMissionState();
         if (followupSeed && typeof window.missionFollowupMarkAccepted === 'function') {
             setTimeout(() => {
+                if (!_dispatchUiCommitAllowed(dispatchUiOptions)) return;
                 try { window.missionFollowupMarkAccepted(followupSeed.id, currentMissionData); } catch (err) {
                     console.warn('[FollowUp] Accept-Markierung fehlgeschlagen:', err?.message || err);
                 }

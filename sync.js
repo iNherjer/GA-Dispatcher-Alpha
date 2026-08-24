@@ -1885,6 +1885,7 @@ const trackerPendingMissionCommands = new Map();
 let missionSceneBoardingPromise = null;
 let missionStartBoardingPromise = null;
 let missionStartActionPromise = null;
+let missionMainNotificationActionPromise = null;
 let missionSceneDeboardingWatchdogTimer = null;
 let missionSceneBoardingCuePlayback = null;
 let missionSceneDeboardingCuePlayback = null;
@@ -12476,6 +12477,36 @@ function _renderTrackerMissionBanner(banner, control, elements = {}) {
     return true;
 }
 
+function _syncMissionMainNotificationFromBanner(sourceBanner = null) {
+    const notification = document.getElementById('missionMainNotification');
+    if (!notification) return;
+    const source = sourceBanner || document.getElementById('missionStartBanner');
+    const visible = !!source && source.style.display !== 'none';
+    notification.classList.toggle('is-visible', visible);
+    notification.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    for (const className of ['is-end-ready', 'is-begin-action', 'is-final-action']) {
+        notification.classList.toggle(className, !!source?.classList.contains(className));
+    }
+    if (!visible) return;
+
+    const sourceKicker = document.getElementById('missionStartBannerKicker');
+    const sourceText = document.getElementById('missionStartBannerText');
+    const sourceButton = document.getElementById('missionStartBannerBtn');
+    const sourceClose = source.querySelector('.mission-start-banner-close');
+    const notificationKicker = document.getElementById('missionMainNotificationKicker');
+    const notificationText = document.getElementById('missionMainNotificationText');
+    const notificationButton = document.getElementById('missionMainNotificationBtn');
+    const notificationClose = notification.querySelector('.mission-start-banner-close');
+    if (notificationKicker) notificationKicker.textContent = sourceKicker?.textContent || 'Mission';
+    if (notificationText) notificationText.textContent = sourceText?.textContent || 'Die nächste Missionsaktion ist verfügbar.';
+    if (notificationButton) {
+        notificationButton.textContent = sourceButton?.textContent || 'Kartentisch öffnen';
+        notificationButton.disabled = !!sourceButton?.disabled || !!missionMainNotificationActionPromise;
+        notificationButton.title = sourceButton?.title || 'Kartentisch öffnen und Missionsaktion ausführen';
+    }
+    if (notificationClose) notificationClose.style.display = sourceClose?.style.display || '';
+}
+
 function _updateMissionStartBanner() {
     const banner = document.getElementById('missionStartBanner');
     if (!banner) return;
@@ -12923,6 +12954,7 @@ function _updateMissionRuntimeUi() {
         bMap.classList.toggle('is-active', missionRuntime.active);
     }
     _updateMissionStartBanner();
+    _syncMissionMainNotificationFromBanner();
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
 }
 window.refreshMissionRuntimeUi = _updateMissionRuntimeUi;
@@ -14665,6 +14697,47 @@ window.handleMissionStartBannerAction = async function() {
         return await missionStartActionPromise;
     } finally {
         missionStartActionPromise = null;
+    }
+};
+
+function _missionMapTableIsOpen() {
+    return !!document.getElementById('mapTableOverlay')?.classList.contains('active');
+}
+
+function _missionWaitForNextPaint() {
+    return new Promise(resolve => {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve());
+        else setTimeout(resolve, 0);
+    });
+}
+
+async function _openMissionMapForMainNotification() {
+    if (_missionMapTableIsOpen()) return true;
+    if (typeof window.openWin95DesktopApp === 'function') window.openWin95DesktopApp('map');
+    else if (typeof window.toggleMapTable === 'function') window.toggleMapTable(true);
+    await _missionWaitForNextPaint();
+    if (!_missionMapTableIsOpen() && typeof window.toggleMapTable === 'function') {
+        window.toggleMapTable(true);
+        await _missionWaitForNextPaint();
+    }
+    return _missionMapTableIsOpen();
+}
+
+window.handleMissionMainNotificationAction = async function() {
+    if (missionMainNotificationActionPromise) return missionMainNotificationActionPromise;
+    const sourceButton = document.getElementById('missionStartBannerBtn');
+    if (sourceButton?.disabled) return false;
+    missionMainNotificationActionPromise = (async () => {
+        _syncMissionMainNotificationFromBanner();
+        const mapOpened = await _openMissionMapForMainNotification();
+        if (!mapOpened || typeof window.handleMissionStartBannerAction !== 'function') return false;
+        return await window.handleMissionStartBannerAction();
+    })();
+    try {
+        return await missionMainNotificationActionPromise;
+    } finally {
+        missionMainNotificationActionPromise = null;
+        _updateMissionRuntimeUi();
     }
 };
 
