@@ -21,11 +21,9 @@ const MISSION_INTENTS = new Set([
   'confirm_pickup',
   'confirm_unload',
   'request_pax_interaction',
-  'request_voice_playback',
   'submit_compliance_evidence',
   'request_close',
-  'abort_mission',
-  'reset_mission'
+  'abort_mission'
 ]);
 
 function cleanString(value, maxLength = 180) {
@@ -43,6 +41,7 @@ function publicRun(value) {
     missionId: cleanString(run.missionId),
     runId: cleanString(run.runId, 220),
     authority: cleanString(run.authority, 40) || 'tracker',
+    executionAuthority: cleanString(run.executionAuthority, 40) || null,
     state: cleanString(run.state, 60) || null,
     phase: cleanString(run.phase, 100) || null,
     revision: Math.max(0, Math.round(Number(run.revision) || 0)),
@@ -255,6 +254,33 @@ function createTrackerCockpitControl(options = {}) {
     return result;
   };
 
+  const submitTrustedIntent = async (request = {}, controller = {}) => {
+    cleanup();
+    const clientId = cleanString(controller.clientId || request.clientId, 220);
+    const role = cleanString(controller.role || request.role || 'web', 24).toLowerCase();
+    if (!clientId) return resultError('client_id_required');
+    if (!COCKPIT_ROLES.has(role)) return resultError('cockpit_role_invalid');
+    let session = Array.from(sessions.values()).find(candidate => (
+      candidate.clientId === clientId && candidate.role === role
+    ));
+    if (!session) {
+      const registered = register({
+        clientId,
+        role,
+        appVersion: cleanString(controller.appVersion || request.appVersion, 80),
+        capabilities: Array.isArray(controller.capabilities) ? controller.capabilities : [],
+        audioPlaybackEnabled: controller.audioPlaybackEnabled === true
+      });
+      if (!registered.ok) return registered;
+      session = sessions.get(registered.session.sessionId);
+    }
+    return submitIntent({
+      ...request,
+      sessionId: session.sessionId,
+      sessionToken: session.token
+    });
+  };
+
   const publicState = () => {
     cleanup();
     const activeSessions = Array.from(sessions.values()).map(publicSession);
@@ -276,7 +302,8 @@ function createTrackerCockpitControl(options = {}) {
     publicState,
     register,
     release,
-    submitIntent
+    submitIntent,
+    submitTrustedIntent
   });
 }
 

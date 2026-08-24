@@ -3,6 +3,7 @@ const {
   TRACKER_RELAY_ENDPOINTS,
   buildTrackerRelayUrl,
   createRelayFanout,
+  isTrustedMissionIntentEnvelope,
   trackerRoomKey
 } = require('./tracker-relay-routing-core');
 
@@ -14,6 +15,10 @@ assert.equal(trackerRoomKey('pilot-42'), trackerRoomKey(' PILOT-42 '));
 assert.match(trackerRoomKey('pilot-42'), /^[a-f0-9]{64}$/);
 assert.equal(new URL(buildTrackerRelayUrl(cloudflare, 'pilot-42')).searchParams.get('room'), trackerRoomKey('pilot-42'));
 assert.equal(buildTrackerRelayUrl(render, 'pilot-42'), render.url);
+assert.equal(isTrustedMissionIntentEnvelope({}, { type: 'mission_execution_intent' }, '0815'), false);
+assert.equal(isTrustedMissionIntentEnvelope({ pin: '0815' }, { type: 'mission_execution_intent' }, '0815'), true);
+assert.equal(isTrustedMissionIntentEnvelope({}, { type: 'mission_execution_intent', pin: '0815' }, '0815'), true);
+assert.equal(isTrustedMissionIntentEnvelope({}, { type: 'mission_scene_spawn' }, '0815'), true);
 
 const sent = [];
 const states = [

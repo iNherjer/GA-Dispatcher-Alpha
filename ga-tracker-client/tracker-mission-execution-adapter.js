@@ -37,9 +37,7 @@ const INTENT_EVENT_TYPES = Object.freeze({
   request_close: 'CLOSE_REQUESTED'
 });
 const DEFERRED_INTENTS = new Set([
-  'request_voice_playback',
-  'abort_mission',
-  'reset_mission'
+  'abort_mission'
 ]);
 
 function cleanString(value, maxLength = 180) {

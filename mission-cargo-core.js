@@ -1404,6 +1404,25 @@ function _missionCargoStartSignatureAnimation(options = {}) {
     }, durationMs + 40);
 }
 
+window.missionCargoAdoptTrackerSignatureAnimation = function(signature = null, options = {}) {
+    if (!signature || typeof signature !== 'object') return false;
+    const at = Math.max(0, Number(signature.at) || 0);
+    const scope = String(signature.scope || '').trim().toLowerCase();
+    if (!at || !scope) return false;
+    const key = `${scope}:${at}`;
+    if (window.gaTrackerSignatureAnimationKey === key) return false;
+    const ageMs = Date.now() - at;
+    if (ageMs < -30000 || ageMs >= 1600) return false;
+    window.gaTrackerSignatureAnimationKey = key;
+    const durationMs = ageMs < 0 ? 1600 : Math.max(300, 1600 - ageMs);
+    _missionCargoStartSignatureAnimation({
+        durationMs,
+        mode: scope === 'arrival' ? 'unload' : (scope === 'pickup' ? 'pickup' : 'load'),
+        render: options.render !== false
+    });
+    return true;
+};
+
 window.missionCargoSignDispatchList = function(options = {}) {
     if (window.gaTrackerExecutionHandlesMission?.()) {
         const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
@@ -1416,9 +1435,11 @@ window.missionCargoSignDispatchList = function(options = {}) {
         })
             .then(result => {
                 if (result?.ok !== true && window.missionCargoStatus) {
-                    window.missionCargoStatus.error = result?.error || 'tracker_manifest_signature_failed';
+                    window.missionCargoStatus.error = _missionCargoTrackerIntentError(result);
                 }
-                if (result?.ok === true && options.animate !== false) {
+                if (result?.ok === true
+                    && options.animate !== false
+                    && Number(window.missionCargoStatus?.signatureAnimationEndsAt || 0) <= Date.now()) {
                     _missionCargoStartSignatureAnimation({
                         render: options.render !== false,
                         mode: renderMode
@@ -1504,7 +1525,7 @@ window.missionCargoClearDispatchSignature = function(options = {}) {
                 if (window.missionCargoStatus) {
                     window.missionCargoStatus.error = result?.ok === true
                         ? null
-                        : (result?.error || 'tracker_manifest_signature_clear_failed');
+                        : _missionCargoTrackerIntentError(result);
                 }
                 if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
                 return result?.ok === true;
@@ -4085,7 +4106,7 @@ window.missionCargoReplaceEquipment = function(itemId) {
         window.missionCargoStatus.error = null;
         window.gaTrackerExecutionSubmitIntent?.('replace_equipment', { itemId: id })
             .then(result => {
-                if (result?.ok !== true) window.missionCargoStatus.error = result?.error || 'tracker_equipment_replace_failed';
+                if (result?.ok !== true) window.missionCargoStatus.error = _missionCargoTrackerIntentError(result);
                 _missionCargoRenderDialog(window.missionCargoStatus?.lastMode || 'load', { skipPayloadRefresh: true });
             });
         return true;
@@ -5250,6 +5271,15 @@ function _missionCargoTrackerBlockedMessage(intent = '') {
     return 'Diese Aktion ist im aktuellen Tracker-Missionsstand noch nicht freigegeben.';
 }
 
+function _missionCargoTrackerIntentError(result = null) {
+    if (typeof window.GAMissionControlUiCore?.formatIntentResult === 'function') {
+        return window.GAMissionControlUiCore.formatIntentResult(result).text;
+    }
+    return result?.error === 'mission_revision_conflict'
+        ? 'Eine andere Ansicht war schneller. Der aktuelle Missionsstand wurde übernommen.'
+        : 'Die Tracker-Aktion konnte nicht ausgeführt werden. Bitte den aktuellen Missionsstand erneut prüfen.';
+}
+
 function _missionCargoCommitCoreItemTransition(manifest, item, action, context = {}) {
     const core = _missionCargoManifestCore();
     if (!manifest || !item || typeof core?.planItemTransition !== 'function' || typeof core?.commitItemTransition !== 'function') {
@@ -5288,7 +5318,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         window.gaTrackerExecutionSubmitIntent?.('set_manifest_item', { itemId, action: 'load' })
             .then(result => {
                 if (result?.ok !== true && window.missionCargoStatus) {
-                    window.missionCargoStatus.error = result?.error || 'tracker_manifest_load_failed';
+                    window.missionCargoStatus.error = _missionCargoTrackerIntentError(result);
                 }
                 if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
             });
@@ -5735,7 +5765,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         window.gaTrackerExecutionSubmitIntent?.(trackerIntent, trackerPayload)
             .then(result => {
                 if (result?.ok !== true && window.missionCargoStatus) {
-                    window.missionCargoStatus.error = result?.error || 'tracker_manifest_unload_failed';
+                    window.missionCargoStatus.error = _missionCargoTrackerIntentError(result);
                 }
                 if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
             });
@@ -5855,7 +5885,7 @@ window.missionCargoSetBoardBookTime = function(itemId, field, options = {}) {
             field: normalizedField,
             source: String(options.source || 'cargo')
         }).then(result => {
-            if (result?.ok !== true) window.missionCargoStatus.error = result?.error || 'tracker_boardbook_write_failed';
+            if (result?.ok !== true) window.missionCargoStatus.error = _missionCargoTrackerIntentError(result);
             _missionCargoRenderDialog(window.missionCargoStatus?.lastMode || 'load', { skipPayloadRefresh: true });
         });
         return true;
@@ -6040,7 +6070,7 @@ window.finishMissionCargoPickupAndContinue = function() {
             .then(result => {
                 if (result?.ok === true) window.closeMissionCargoDialog?.();
                 else {
-                    window.missionCargoStatus.error = result?.error || 'tracker_pickup_confirm_failed';
+                    window.missionCargoStatus.error = _missionCargoTrackerIntentError(result);
                     _missionCargoRenderDialog('pickup', { skipPayloadRefresh: true });
                 }
             });

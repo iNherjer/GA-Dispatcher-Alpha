@@ -202,7 +202,7 @@ test('internal execution snapshot is normalized and contains no resume or owner 
       missionTargetRadiusNm: 1.2
     }
   });
-  assert.deepEqual(snapshot.view.allowedActions, ['abort_mission', 'prepare_mission', 'reset_mission']);
+  assert.deepEqual(snapshot.view.allowedActions, ['abort_mission', 'prepare_mission']);
   assert.equal(Object.hasOwn(snapshot, 'resumeBundle'), false);
   assert.equal(Object.hasOwn(snapshot, 'ownerClientId'), false);
   assert.equal(Object.hasOwn(snapshot.state, 'missionState'), false);
@@ -278,9 +278,13 @@ test('APT intents and system acknowledgements create only gated semantic core ev
   assert.equal(started.ok, true);
   assert.equal(started.view.phase, 'active');
 
-  const deferred = executeCurrent(fixture, 'request_voice_playback', 'voice');
-  assert.equal(deferred.error, 'mission_intent_not_migrated');
-  assert.equal(deferred.sideEffect, false);
+  const unpublishedVoice = executeCurrent(fixture, 'request_voice_playback', 'voice');
+  assert.equal(unpublishedVoice.error, 'mission_intent_not_allowed_in_state');
+  assert.equal(unpublishedVoice.sideEffect, false);
+
+  const unpublishedReset = executeCurrent(fixture, 'reset_mission', 'reset');
+  assert.equal(unpublishedReset.error, 'mission_intent_not_allowed_in_state');
+  assert.equal(unpublishedReset.sideEffect, false);
 
   const replay = executionCore.replay(fixture.manager.getActiveRun({ includeBundle: true }).resumeBundle.executionReplay);
   assert.equal(replay.ok, true);

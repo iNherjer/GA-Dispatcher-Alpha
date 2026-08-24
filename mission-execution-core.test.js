@@ -357,7 +357,7 @@ test('invalid event order cannot bypass the universal start gates', () => {
     assert.equal(replay.state.phase, 'planned');
     assert.equal(replay.state.revision, 0);
     assert.deepEqual(replay.rejectedEvents.map(event => event.reason), ['transition_blocked', 'transition_blocked']);
-    assert.deepEqual(core.allowedActions(replay.state), ['abort_mission', 'prepare_mission', 'reset_mission']);
+    assert.deepEqual(core.allowedActions(replay.state), ['abort_mission', 'prepare_mission']);
 });
 
 test('cargo signatures, unload completion and compliance remain hard reducer gates', () => {
@@ -556,7 +556,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.ok(indexSource.indexOf('mission-start-core.js') < indexSource.indexOf('mission-execution-core.js'));
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
     assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v='));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1697/);
+    assert.match(serviceWorkerSource, /ga-dispatcher-v1701/);
     assert.match(serviceWorkerSource, /\.\/mission-manifest-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-start-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-location-core\.js/);

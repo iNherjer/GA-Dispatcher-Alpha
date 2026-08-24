@@ -33,6 +33,13 @@ function buildTrackerRelayUrl(endpoint, syncId) {
   return url.toString();
 }
 
+function isTrustedMissionIntentEnvelope(envelope, command, expectedPin) {
+  if (String(command?.type || '').trim() !== 'mission_execution_intent') return true;
+  const expected = String(expectedPin || '');
+  if (!expected) return false;
+  return String(command?.pin || '') === expected || String(envelope?.pin || '') === expected;
+}
+
 function createRelayFanout(getStates, WebSocketImpl, onSendError = null) {
   if (typeof getStates !== 'function') throw new Error('Relay-State-Leser fehlt.');
   const OPEN = Number(WebSocketImpl?.OPEN ?? 1);
@@ -65,6 +72,7 @@ module.exports = {
   TRACKER_RELAY_ENDPOINTS,
   buildTrackerRelayUrl,
   createRelayFanout,
+  isTrustedMissionIntentEnvelope,
   normalizeSyncId,
   trackerRoomKey
 };

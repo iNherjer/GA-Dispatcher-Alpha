@@ -929,7 +929,7 @@ window.missionComplianceSubmitEvidence = function() {
     const state = _missionComplianceGetState(false);
     if (!state?.selected || state.phase !== 'evidence_open') return false;
     const manifest = _missionComplianceManifest();
-    const result = _missionComplianceEvidenceResult(state, manifest);
+    let result = _missionComplianceEvidenceResult(state, manifest);
     if (result.blockingUnload?.length) {
         window.missionCargoStatus = window.missionCargoStatus || {};
         window.missionCargoStatus.error = `Fuer die Kontrolle noch ausladen: ${result.blockingUnload.join(', ')}.`;

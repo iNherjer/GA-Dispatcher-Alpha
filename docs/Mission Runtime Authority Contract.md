@@ -144,6 +144,15 @@ lokal daran vorbeischreiben. Die App fuehrt dafuer eine atomare Kette aus:
 7. Erst danach darf Clear/Reset enden oder die Erzeugung der neuen Mission
    beginnen.
 
+Falls ein bereits terminaler Run aus einem Fehlerfall noch eine unaufgeraeumte
+Missionszuladung im Simulator hinterlassen hat, uebernimmt der erste
+Payload-Sync eines kompatiblen Ersatz-Runs dessen privat persistierte
+Vor-Missions-Baseline. Er schreibt daraus direkt das neue Manifest; alte
+Missionsfracht wird daher ersetzt und nicht als neue Baseline mitaddiert.
+Persoenliche beziehungsweise persistente Bordausruestung bleibt Teil dieser
+Baseline. Bei abweichendem Flugzeug, Payload-Adapter oder Station-Layout wird
+die alte Baseline aus Sicherheitsgruenden nicht uebernommen.
+
 Schlaegt Abbruch, Szenenbereinigung oder Authority-Freigabe fehl, wird keine
 neue Mission erzeugt und der bestehende Run bleibt sichtbar wiederholbar. Der
 Benutzer muss die urspruengliche Aktion nach einem erfolgreichen Abbruch nicht
@@ -571,9 +580,38 @@ Authority-Unterbau, aber noch nicht den Gleichheitsvertrag:
   gemeinsam extrahiert. POI-/Pickup-/Training-/SAR-Sonderrezepte liegen
   weiterhin wesentlich in `passenger-voice.js` und sind noch nicht Teil
   derselben autoritativen Ausfuehrung.
+- App und EFB reichen bei Tracker-Authority ausschliesslich Benutzer-Intents
+  ein. Das EFB tut dies ueber die lokale Cockpit-HTTP-Session, eine entfernte
+  Origin-App ueber das vorhandene PIN-geschuetzte Tracker-Relay. Beide Wege
+  verwenden denselben Revision-, Dedupe- und Rate-Limit-Controller. Nach dem
+  Commit sendet der Tracker den neuen Authority-Snapshot sofort an alle
+  Ansichten; ein zweites Geraet darf deshalb weder einen lokalen Cargo-Toggle
+  noch einen veralteten Missionsstand behalten.
+- Die obere Missionsleiste ist ebenfalls nur eine Projektion dieses
+  Authority-Snapshots. Der primaere Button folgt demselben Banner-/Allowlist-
+  Modell, `Verladung` oeffnet den synchronen Manager jederzeit erneut und
+  `Mission Reset` sendet nach ausdruecklicher Rueckfrage den sicheren
+  `abort_mission`-Pfad. App und EFB verwenden dafuer denselben
+  `ga.mission-toolbar.v1`-View. Der Reset setzt keine Phase lokal und darf
+  weder Manifest noch SimObjects direkt veraendern; erst Tracker-Cleanup und
+  ACK leeren alle verbundenen Ansichten. Im Web-Authority-Fallback bleiben
+  die vorhandenen App-Buttons und die bestehende lokale Reset-Logik erhalten.
+- Physische Missionsanimationen sind Tracker-Effekte: Entweder die Runtime
+  loest sie selbst aus oder ein App-/EFB-Intent fuehrt im Tracker-Reducer zu
+  diesem Effekt. Erst der Tracker sendet das Szenenkommando an den Simulator
+  und committed PAX/Cargo nach dessen ACK. Kein Client fuehrt Boarding,
+  Deboarding oder SimObject-Bewegungen eigenstaendig aus. Reine UI-Effekte wie
+  die 1,6-sekuendige Schreibanimation der Manifest-Unterschrift werden aus dem
+  autoritativen Signaturzeitpunkt in App und EFB gespiegelt und haben keinen
+  Einfluss auf den Simulatorzustand.
+- Das bestehende App-Debrief und die lokale Flightlog-Persistenz bleiben fuer
+  diese Migration erhalten. Ein identisches Debrief im EFB/Toolbar-Panel sowie
+  Flightlog-Explorer, Export und das endgueltige kompakte Cloudmodell sind
+  ausdruecklich nachgelagertes Backlog und keine Voraussetzung fuer die
+  aktuelle Standard-APT-Mehrinstanzparitaet.
 
 Der bestehende Schalter bleibt experimentell und standardmaessig aus. Fuer den
-vorbereiteten v376-Alpha-Feldkandidaten sind die gemeinsamen Standard-APT-
+freigegebenen v378-Alpha-Feldkandidaten sind die gemeinsamen Standard-APT-
 Policies und lokalen Effektketten durch Core-, Charakterisierungs- und direkte
 App-Differentialtests abgesichert; deshalb meldet der Execution-Core
 `TRACKER_AUTHORITY_READY=true`. Schreibende Mission-Intents werden trotzdem

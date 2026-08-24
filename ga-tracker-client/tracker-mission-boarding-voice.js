@@ -44,6 +44,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
     : () => 0;
   const log = typeof options.log === 'function' ? options.log : () => {};
   const playbackTimeoutMs = Math.max(1000, Math.min(180000, Number(options.playbackTimeoutMs) || 120000));
+  const generationTimeoutMs = Math.max(1000, Math.min(180000, Number(options.generationTimeoutMs) || 75000));
   if (!authorityManager || typeof authorityManager.getActiveRun !== 'function') {
     throw new TypeError('mission_boarding_voice_authority_manager_required');
   }
@@ -93,7 +94,18 @@ function createTrackerMissionBoardingVoice(options = {}) {
         ttsHedgeDelayMs: recipe.ttsHedgeDelayMs,
         synthesizeAudio: recipe.audioEnabled === true
       });
-      job = await voiceService.wait(effectId);
+      let generationTimer = null;
+      try {
+        job = await Promise.race([
+          voiceService.wait(effectId),
+          new Promise(resolve => {
+            generationTimer = setTimeout(() => resolve({ status: 'timeout', error: 'boarding_voice_timeout' }), generationTimeoutMs);
+          })
+        ]);
+      } finally {
+        if (generationTimer) clearTimeout(generationTimer);
+      }
+      if (job?.status === 'timeout') voiceService.cancel?.(effectId, 'boarding_voice_timeout');
     } catch (error) {
       log(`MISSION_BOARDING_VOICE_BEST_EFFORT effect=${effectId} reason=${error?.code || error?.message || error}`);
       return completed(request, {

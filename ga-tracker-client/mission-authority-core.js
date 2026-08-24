@@ -1418,6 +1418,24 @@ function createMissionAuthorityManager(options = {}) {
     return jsonClone(normalizeExecutionPayloadRecovery(active.executionPayloadRecovery));
   };
 
+  // A terminal run is retained locally so that the first payload write of a
+  // replacement run can use its original baseline instead of treating a
+  // stranded mission load as the new aircraft baseline.
+  const getLastExecutionPayloadRecovery = (request = {}) => {
+    const previous = state.lastRun;
+    if (!previous?.missionId || !previous?.runId) return null;
+    const missionId = cleanString(request.missionId);
+    const runId = cleanString(request.runId, 220);
+    if (missionId === previous.missionId && runId === previous.runId) return null;
+    const recovery = normalizeExecutionPayloadRecovery(previous.executionPayloadRecovery);
+    if (!recovery) return null;
+    return {
+      missionId: previous.missionId,
+      runId: previous.runId,
+      recovery: jsonClone(recovery)
+    };
+  };
+
   const recordExecutionPayloadRecovery = (request = {}) => {
     const match = activeMatches(request);
     if (!match.ok) return { ok: false, status: 'conflict', error: match.error, recovery: null };
@@ -1576,6 +1594,7 @@ function createMissionAuthorityManager(options = {}) {
     recordCommand,
     recordEffectAck,
     getExecutionPayloadRecovery,
+    getLastExecutionPayloadRecovery,
     recordExecutionPayloadRecovery,
     getExecutionRuntimeContext,
     recordExecutionRuntimeContext,

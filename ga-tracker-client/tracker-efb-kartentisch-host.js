@@ -69,6 +69,8 @@
   var drawerRefreshPending = false;
   var missionIntentPending = false;
   var missionIntentStatus = '';
+  var missionIntentTone = '';
+  var missionStoryExpanded = false;
   var missionBannerDismissedKey = '';
   var cargoManagerOpen = false;
   var cargoManagerSignature = '';
@@ -513,7 +515,18 @@
   function missionStatusMarkup() {
     var mission = missionSnapshot && missionSnapshot.available !== false ? missionSnapshot : null;
     if (!mission || !mission.missionId) {
-      return '<div class="ga-efb-drawer-empty"><strong>Keine aktive Mission</strong><span>Der Tracker meldet aktuell keine priorisierte Mission.</span></div>';
+      return window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.renderEmpty === 'function'
+        ? window.GAMissionControlUiCore.renderEmpty()
+        : '<div class="ga-efb-drawer-empty"><strong>Keine aktive Mission</strong><span>Der Tracker meldet aktuell keine priorisierte Mission.</span></div>';
+    }
+    if (window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.render === 'function') {
+      return window.GAMissionControlUiCore.render(mission.view && typeof mission.view === 'object' ? mission.view : mission, {
+        storyExpanded: missionStoryExpanded,
+        control: mission.control && typeof mission.control === 'object' ? mission.control : null,
+        intentPending: missionIntentPending,
+        intentStatus: missionIntentStatus,
+        intentTone: missionIntentTone
+      });
     }
     var view = mission.view && typeof mission.view === 'object' ? mission.view : mission;
     var target = view.target && typeof view.target === 'object' ? view.target : {};
@@ -613,7 +626,10 @@
     if (intent === 'abort_mission') {
       var confirmed = false;
       try {
-        confirmed = window.confirm('Mission wirklich abbrechen?\n\nDer Tracker beendet die Mission auf allen verbundenen Ansichten und entfernt ihre Sim-Objekte. Der Flug wird nicht als abgeschlossen gewertet.');
+        var prompt = window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.abortConfirmation === 'function'
+          ? window.GAMissionControlUiCore.abortConfirmation()
+          : 'Mission wirklich abbrechen?';
+        confirmed = window.confirm(prompt);
       } catch (_) {}
       if (!confirmed) return Promise.resolve(false);
     }
@@ -625,10 +641,15 @@
     var control = missionSnapshot && missionSnapshot.control;
     if (missionIntentPending || !client || typeof client.submitIntent !== 'function' || !control) return Promise.resolve(false);
     missionIntentPending = true;
-    missionIntentStatus = 'Tracker verarbeitet die Aktion ...';
+    var pendingPresentation = window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.formatIntentResult === 'function'
+      ? window.GAMissionControlUiCore.formatIntentResult({ pending: true })
+      : { tone: 'info', text: 'Tracker verarbeitet die Aktion ...' };
+    missionIntentStatus = pendingPresentation.text;
+    missionIntentTone = pendingPresentation.tone;
     renderSideDrawer(true);
     renderCargoManager();
     renderMissionActionBanner(missionSnapshot);
+    renderMissionToolbar(missionSnapshot);
     var commandId = 'efb-intent-' + String(intent || 'action').replace(/[^a-z0-9_-]/gi, '-') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     return client.submitIntent({
       commandId: commandId,
@@ -638,23 +659,28 @@
       expectedRevision: Number(control.authorityRevision || 0),
       payload: payload || {}
     }).then(function (result) {
-      missionIntentStatus = result && result.ok === true
-        ? 'Aktion bestaetigt. Stand wird aktualisiert.'
-        : (result && result.error === 'mission_revision_conflict'
-          ? 'Eine andere Ansicht war schneller. Stand wurde neu geladen.'
-          : 'Aktion abgelehnt: ' + String(result && (result.error || result.status) || 'unbekannt'));
+      var presentation = window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.formatIntentResult === 'function'
+        ? window.GAMissionControlUiCore.formatIntentResult(result)
+        : { tone: result && result.ok === true ? 'good' : 'danger', text: result && result.ok === true ? 'Aktion bestaetigt.' : 'Aktion abgelehnt.' };
+      missionIntentStatus = presentation.text;
+      missionIntentTone = presentation.tone;
       return fetchJson('/api/v1/mission').then(function (envelope) {
         renderMissionPayload(safePayload(envelope));
         return result && result.ok === true;
       }).catch(function () { return result && result.ok === true; });
     }).catch(function (error) {
-      missionIntentStatus = 'Tracker-Aktion fehlgeschlagen: ' + String(error && error.message || error || 'unbekannt');
+      var presentation = window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.formatIntentResult === 'function'
+        ? window.GAMissionControlUiCore.formatIntentResult({ ok: false, error: error && error.message || 'mission_intent_failed' })
+        : { tone: 'danger', text: 'Tracker-Aktion fehlgeschlagen.' };
+      missionIntentStatus = presentation.text;
+      missionIntentTone = presentation.tone;
       return false;
     }).then(function (ok) {
       missionIntentPending = false;
       renderSideDrawer(true);
       renderCargoManager();
       renderMissionActionBanner(missionSnapshot);
+      renderMissionToolbar(missionSnapshot);
       return ok;
     });
   }
@@ -797,8 +823,9 @@
   function appCargoManagerMarkup(mission, model) {
     var signature = model.signature && typeof model.signature === 'object' ? model.signature : {};
     var localSignatureAnimation = signature.signed === true
-      && cargoSignatureAnimationScope === String(signature.scope || '')
-      && cargoSignatureAnimationEndsAt > Date.now();
+      && (signature.animating === true
+        || (cargoSignatureAnimationScope === String(signature.scope || '')
+          && cargoSignatureAnimationEndsAt > Date.now()));
     if (!signature.signed) {
       cargoSignatureAnimationEndsAt = 0;
       cargoSignatureAnimationScope = '';
@@ -1294,6 +1321,13 @@
         event.stopPropagation();
         return;
       }
+      if (action === 'toggle-mission-story') {
+        missionStoryExpanded = !missionStoryExpanded;
+        renderSideDrawer(true);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (action === 'mission') { drawerView = 'mission'; drawerChecklistId = ''; }
       if (action === 'checklists' || action === 'checklist-list') { drawerView = 'checklists'; drawerChecklistId = ''; }
       if (action === 'open-checklist') { drawerView = 'checklists'; drawerChecklistId = actionNode.getAttribute('data-checklist-id') || ''; }
@@ -1481,7 +1515,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.2');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.4');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -2027,6 +2061,16 @@
     var banner = byId('missionStartBanner');
     if (!banner || banner.getAttribute('data-ga-tracker-bound') === '1') return banner;
     banner.setAttribute('data-ga-tracker-bound', '1');
+    window.openMissionToolbarCargo = function () {
+      if (missionIntentPending) return false;
+      openCargoManager();
+      return false;
+    };
+    window.requestMissionRuntimeReset = function (options) {
+      if (missionIntentPending) return Promise.resolve(false);
+      var settings = options && typeof options === 'object' ? options : {};
+      return requestMissionIntent('abort_mission', { reason: String(settings.reason || 'efb-toolbar-reset') });
+    };
     window.handleMissionStartBannerAction = function () {
       var model = banner._gaMissionActionModel;
       if (!model || missionIntentPending) return false;
@@ -2044,6 +2088,59 @@
       return false;
     };
     return banner;
+  }
+
+  function missionToolbarProjection(payload) {
+    var banner = missionActionBannerModel(payload);
+    if (window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.missionToolbarModel === 'function') {
+      return window.GAMissionControlUiCore.missionToolbarModel(payload, { banner: banner });
+    }
+    if (!payload || !payload.control || payload.control.executionAuthority !== 'tracker') return null;
+    var allowed = Array.isArray(payload.control.allowedActions) ? payload.control.allowedActions : [];
+    var active = !!(payload.missionId && payload.runId && allowed.indexOf('abort_mission') >= 0);
+    return {
+      primary: banner ? {
+        kind: banner.kind,
+        intent: banner.intent || '',
+        label: banner.button || 'Mission fortsetzen',
+        title: banner.text || banner.kicker || 'Aktuelle Missionsaktion ausführen',
+        disabled: banner.disabled === true
+      } : null,
+      cargo: { visible: active, label: 'Verladung', title: 'Verlade-Manager mit dem aktuellen Tracker-Stand öffnen', disabled: false },
+      reset: { visible: active, label: 'Mission Reset', title: 'Mission auf allen Ansichten zurücksetzen', disabled: false }
+    };
+  }
+
+  function renderMissionToolbar(payload) {
+    var model = missionToolbarProjection(payload);
+    var primaryButton = byId('mapMissionToggleBtn');
+    var cargoButton = byId('mapGroundCargoBtn');
+    var resetButton = byId('mapMissionResetBtn');
+    var primary = model && model.primary;
+    if (primaryButton) {
+      primaryButton.style.display = primary ? 'inline-flex' : 'none';
+      if (primary) {
+        var prefix = primary.kind === 'cargo' ? '📦 ' : (primary.intent === 'request_close' ? '■ ' : '▶ ');
+        primaryButton.textContent = prefix + primary.label;
+        primaryButton.title = primary.title;
+        primaryButton.disabled = missionIntentPending || primary.disabled === true;
+        primaryButton.classList.toggle('is-active', primary.intent === 'request_close');
+      } else {
+        primaryButton.classList.remove('is-active');
+      }
+    }
+    if (cargoButton) {
+      cargoButton.style.display = model && model.cargo && model.cargo.visible ? 'inline-flex' : 'none';
+      cargoButton.disabled = missionIntentPending || !!(model && model.cargo && model.cargo.disabled);
+      cargoButton.textContent = '📦 ' + String(model && model.cargo && model.cargo.label || 'Verladung');
+      cargoButton.title = String(model && model.cargo && model.cargo.title || 'Verlade-Manager öffnen');
+    }
+    if (resetButton) {
+      resetButton.style.display = model && model.reset && model.reset.visible ? 'inline-flex' : 'none';
+      resetButton.disabled = missionIntentPending || !!(model && model.reset && model.reset.disabled);
+      resetButton.textContent = '↺ ' + String(model && model.reset && model.reset.label || 'Mission Reset');
+      resetButton.title = String(model && model.reset && model.reset.title || 'Mission zurücksetzen') + ' (mit Rückfrage)';
+    }
   }
 
   function renderMissionActionBanner(payload) {
@@ -2075,6 +2172,13 @@
 
   function updateMissionLiveFields(view) {
     if (!view || typeof view !== 'object') return;
+    if (window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.projectLiveFields === 'function') {
+      var shared = window.GAMissionControlUiCore.projectLiveFields(view);
+      setText('gaEfbMissionTargetLine', coherentText(shared.targetLine));
+      setText('gaEfbMissionAltitude', coherentText(shared.altitudeLine));
+      setText('gaEfbMissionAltitudeDetail', coherentText(shared.altitudeDetail));
+      return;
+    }
     var target = view.target && typeof view.target === 'object' ? view.target : {};
     var live = view.flight && typeof view.flight === 'object' ? view.flight : {};
     var targetLine = target.distanceNm != null
@@ -2095,6 +2199,7 @@
     var signature = missionRenderSignature(next);
     missionSnapshot = next;
     renderMissionActionBanner(next);
+    renderMissionToolbar(next);
     renderCargoManager();
     var drawer = byId('mapSideDrawer');
     var drawerOpen = drawer && drawer.classList.contains('is-open') && drawerView === 'mission';

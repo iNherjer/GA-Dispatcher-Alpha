@@ -1524,7 +1524,6 @@
         }
         if (phase === 'boarded') actions.push('start_mission');
         if (state.flags.active) {
-            actions.push('request_voice_playback');
             if (state.flags.onGround === false
                 && (phase === 'active' || phase === 'enroute' || phase === 'return_leg')) {
                 actions.push('set_manifest_item');
@@ -1589,7 +1588,10 @@
         if (phase === 'end_ready' && (closeReasons.length === 0 || complianceCloseStart) && !closeDeboardingPending) {
             actions.push('request_close');
         }
-        if (!state.flags.closed) actions.push('abort_mission', 'reset_mission');
+        // The visible reset control is deliberately mapped to abort_mission by
+        // the shared UI core. Do not publish a second reset intent until its
+        // own transactional semantics exist in the tracker runtime.
+        if (!state.flags.closed) actions.push('abort_mission');
         return Array.from(new Set(actions)).sort();
     }
 

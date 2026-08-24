@@ -43,6 +43,7 @@
       "efb-app/map-shell-core.js",
       "tracker-efb-bootstrap-inline.js",
       "tracker-cockpit-session-client.js",
+      "mission-control-ui-core.js",
       "tracker-efb-kartentisch-host.css",
       "tracker-efb-kartentisch-host.js",
       "../audio-cues/*.mp3"

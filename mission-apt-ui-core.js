@@ -415,7 +415,11 @@
         var signature = object(manifest.dispatchSignature);
         var signed = text(signature.scope || manifest.signatureScope || object(control.cargo).signatureScope, 20).toLowerCase() === signatureScope;
         if (!signed) signature = {};
-        var signatureAnimating = source.signatureAnimating === true && signed;
+        var signatureAt = Math.max(0, Number(signature.at) || 0);
+        var currentTime = Number.isFinite(Number(source.now)) ? Number(source.now) : Date.now();
+        var signatureAgeMs = signatureAt > 0 ? currentTime - signatureAt : Number.POSITIVE_INFINITY;
+        var signatureAnimating = signed && (source.signatureAnimating === true
+            || (signatureAgeMs >= -5000 && signatureAgeMs < 1600));
         var signatureReady = signed && !signatureAnimating;
         var groundHandlingAllowed = flags.groundStill === true;
         var requiredMissing = mode === 'unload'
@@ -615,7 +619,7 @@
                 animating: signatureAnimating,
                 clickable: !signatureAnimating && signatureActionEnabled,
                 name: signed ? text(signature.by || 'Tracker', 180) : '',
-                at: signed ? Math.max(0, Number(signature.at) || 0) : 0,
+                at: signed ? signatureAt : 0,
                 stateText: signatureStateText,
                 action: signed ? 'clear_manifest_signature' : 'sign_manifest'
             },

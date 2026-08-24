@@ -16,11 +16,11 @@ const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core'
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
 test('current tracker exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v376'/);
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v378'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 376/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 378/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);
   assert.match(trackerSource, /currentTelemetryHibernateState\.shouldSendTelemetry/);
@@ -182,7 +182,7 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   const webClient = await request(address, '/efb/v1/');
   assert.equal(webClient.statusCode, 200);
   assert.match(webClient.headers['content-type'], /^text\/html/);
-  assert.match(webClient.body, /data-efb-view-version="8"/);
+  assert.match(webClient.body, /data-efb-view-version="9"/);
   assert.match(webClient.body, /id="mapTableOverlay"/);
 
   const hostScript = await request(address, '/efb/v1/assets/host.js');

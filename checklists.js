@@ -1342,6 +1342,21 @@
             `;
             return;
         }
+        const sharedView = typeof window.gaGetEfbMissionViewSnapshot === 'function'
+            ? window.gaGetEfbMissionViewSnapshot()
+            : null;
+        if (sharedView
+            && window.gaTrackerExecutionControl?.executionAuthority === 'tracker'
+            && typeof window.GAMissionControlUiCore?.render === 'function') {
+            bodyEl.innerHTML = `${toolTopline('mission')}${window.GAMissionControlUiCore.render(sharedView, {
+                storyExpanded: state.missionStoryExpanded,
+                control: window.gaTrackerExecutionControl || null,
+                intentPending: window.gaMissionControlIntentPending === true,
+                intentStatus: window.gaMissionControlIntentStatus?.text || '',
+                intentTone: window.gaMissionControlIntentStatus?.tone || ''
+            })}`;
+            return;
+        }
         const runtimeSnapshot = missionRuntimePhaseSnapshot();
         const active = runtimeSnapshot
             ? !!runtimeSnapshot.active
@@ -4209,6 +4224,29 @@ ${routeLines}`;
         } else if (action === 'toggle-mission-story') {
             state.missionStoryExpanded = !state.missionStoryExpanded;
             render();
+        } else if (action === 'mission-control-open-cargo') {
+            const phase = String(window.gaTrackerExecutionControl?.phase || '').toLowerCase();
+            const cargoMode = phase === 'on_task'
+                ? 'pickup'
+                : (/^(arrival|end_unloading|end_ready|closing)$/.test(phase) ? 'unload' : 'load');
+            if (typeof window.openMissionCargoDialog === 'function') window.openMissionCargoDialog(cargoMode);
+        } else if (action === 'mission-control-intent') {
+            const intent = String(button.dataset.missionIntent || '');
+            if (!intent || window.gaMissionControlIntentPending === true) return;
+            let confirmed = true;
+            if (intent === 'abort_mission') {
+                const prompt = typeof window.GAMissionControlUiCore?.abortConfirmation === 'function'
+                    ? window.GAMissionControlUiCore.abortConfirmation()
+                    : 'Mission wirklich abbrechen?';
+                try { confirmed = window.confirm(prompt); } catch (_) { confirmed = false; }
+            }
+            if (!confirmed) return;
+            const submit = intent === 'abort_mission' && typeof window.gaAbortTrackerMission === 'function'
+                ? window.gaAbortTrackerMission({ skipConfirm: true, reason: 'mission-control' })
+                : window.gaTrackerExecutionSubmitIntent?.(intent);
+            Promise.resolve(submit).finally(() => {
+                if (state.view === 'mission') render();
+            });
         } else if (action === 'open-list') {
             abortOtherToolRequests('');
             openList();
@@ -4505,6 +4543,9 @@ ${routeLines}`;
     });
     window.addEventListener('missioncargopayloadchange', () => {
         if (state.view === 'cargo') render();
+    });
+    window.addEventListener('missioncontrolchange', () => {
+        if (state.view === 'mission') render();
     });
     window.addEventListener('ga-sleepchange', (event) => {
         if (event?.detail?.sleeping) return;

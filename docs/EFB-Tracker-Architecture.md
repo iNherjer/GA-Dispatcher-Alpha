@@ -154,8 +154,9 @@ setzen.
 
 Start, Pickup, Unload und Abschluss benutzen die unveraenderten Missions- und
 Manifestgates. `request_close` ist nur im autoritativen Endzustand erlaubt;
-`abort_mission` und `reset_mission` sind getrennte, ausdruecklich bestaetigte
-Aktionen. Pax-Buttons senden semantische Interaktionen wie Status-,
+`abort_mission` ist eine ausdruecklich bestaetigte Aktion. Der sichtbare
+"Mission Reset" ist bis zur Migration einer eigenen Reset-Transaktion ein
+Alias fuer diesen sicheren Abbruch. Pax-Buttons senden semantische Interaktionen wie Status-,
 Orientierungs-, Wohlbefindens-, Wetter-, Ladungs- oder Fundanfrage. Der
 Missionskern entscheidet, welche davon im aktuellen Rezept erlaubt ist.
 
@@ -780,7 +781,7 @@ App und EFB bieten diesen Abbruch als getrennte, bestaetigungspflichtige
 destruktive Aktion an. Nach dem gemeinsamen ACK entfernen alle App-Instanzen
 den passenden lokalen Runtime-/Briefingstand ohne alten Web-Release und ohne
 Abschluss-Debrief. `Clear`, `Mission Reset` und Missionsersetzung routen bei
-Tracker-Authority ueber denselben Intent. Der Verlade-Manager zeigt waehrend
+Tracker-Authority ueber `abort_mission`. Der Verlade-Manager zeigt waehrend
 nicht freigegebener Flugphasen eine konkrete Tracker-Sperre und deaktiviert
 Item-, Signatur- und Abschlussaktionen statt wirkungslos zu erscheinen.
 `reset_mission` bleibt weiterhin nicht migriert.
@@ -826,7 +827,7 @@ weder Missionsradien, Briefings noch den bestehenden APT-Effektplan.
 
 Die nachfolgende Migration hat den vereinfachten Prototyp durch gemeinsam mit
 der App verwendete Manifest-, Start-, Payload-, Boarding-/Farewell-, UI- und
-Compliance-Policies ersetzt. Fuer den vorbereiteten v376-Feldkandidaten ist
+Compliance-Policies ersetzt. Fuer den freigegebenen v378-Feldkandidaten ist
 `TRACKER_AUTHORITY_READY=true`; `mission.intent.v1` wird trotzdem nur bei
 Alpha-Kanal plus `VFR_MULTITOOL_APT_EXECUTION=1` angeboten. Stable und Alpha
 ohne Opt-in bleiben unter Web-Authority. Der reale End-to-End-, Mehrinstanz-,

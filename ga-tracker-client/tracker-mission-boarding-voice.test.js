@@ -80,6 +80,27 @@ test('tracker boarding handler waits for the selected cockpit playback instance'
   assert.equal(result.voiceStatus, 'completed');
 });
 
+test('a stalled boarding voice request times out, is cancelled and still releases the boarding gate', async () => {
+  let cancelled = null;
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: { getActiveRun: () => run() },
+    voiceService: {
+      publicState: () => ({ configured: true }),
+      request: () => ({}),
+      wait: () => new Promise(() => {}),
+      cancel: (effectId, reason) => { cancelled = { effectId, reason }; }
+    },
+    generationTimeoutMs: 10
+  });
+
+  const result = await handler.dispatch(request());
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.voiceStatus, 'boarding_voice_timeout');
+  assert.equal(result.voiceOutcome.status, 'warning');
+  assert.deepEqual(cancelled, { effectId: 'mfx-boarding', reason: 'boarding_voice_timeout' });
+});
+
 test('missing provider and disabled App voice preserve the best-effort boarding gate', async () => {
   const noProvider = createTrackerMissionBoardingVoice({
     authorityManager: { getActiveRun: () => run() },

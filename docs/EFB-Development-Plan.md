@@ -1,6 +1,6 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
-Stand: 2026-08-21
+Stand: 2026-08-24
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-Cockpit-Clients: EFB-App und globales Toolbar-Panel. Neue Chats lesen
@@ -15,20 +15,26 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.4 manueller Origin-Installer mit APT-Opt-in-Schalter | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
-| Tracker-Runtime | v375 als Transport-/Shadow-Basis; schreibende APT-Authority wieder fail-closed | v356 | Manifest-, Start-, Payload-, Boarding-/Farewell-Voice- und Standard-APT-UI-Core sind gegen echte App-Fallbackfunktionen abgesichert. Banner, Load-/Unload-Frachtliste, Bordbuch-/Ablauf-Equipment-Aktionen, reine Fracht-Pickups, Live-Weight-&-Balance und der Standard-APT-Compliance-Core samt lokaler Effektkette sind kanonisch. Passenger-Pickup sowie der reale Compliance-/Mehrinstanz-Gesamtnachweis bleiben offen. Training, POI, Bush/Pickup und SAR bleiben fail-closed. Nichts davon ist ausgerollt, und der Prototyp bewirbt trotz Alpha plus Opt-in keine Mission-Intent-Capability. |
+| Tracker-Runtime | v378 als freigegebener APT-Feldkandidat | v356 | Manifest-, Start-, Payload-, Boarding-/Farewell-Voice- und Standard-APT-UI-Core sind gegen echte App-Fallbackfunktionen abgesichert. App und EFB nutzen denselben Mission-Control-Renderer und revisionsgebundene Intents. Passenger-Pickup sowie der reale Compliance-/Mehrinstanz-Gesamtnachweis bleiben offen. Training, POI, Bush/Pickup und SAR bleiben fail-closed. |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
-| EFB-Transport | HTTP-Loopback; Mission waehrend der erneuten Paritaetsmigration read-only | - | `127.0.0.1:49880`; Provider-Keys und Session-Token werden nie oeffentlich projiziert. `mission.intent.v1` erscheint erst wieder, wenn Alpha, Opt-in und der Core-Paritaetsgate gemeinsam erfuellt sind. |
+| EFB-/App-Transport | EFB ueber HTTP-Loopback, entfernte Origin-App ueber das bestehende PIN-geschuetzte Tracker-Relay | - | Beide Wege enden im selben revisionsgebundenen Intent-Controller. Provider-Keys und Session-Token werden nie oeffentlich projiziert. `mission.intent.v1` erscheint nur, wenn Alpha, Opt-in und Core-Paritaetsgate gemeinsam erfuellt sind. |
 
-### Vorbereiteter Alpha-Feldkandidat v376
+### Alpha-Feldkandidat v378
 
-Tracker v376 / Host 0.7.2 / Assetrevision 37601 ist als naechster, noch nicht
-veroeffentlichter Alpha-Feldkandidat vorbereitet. Die gemeinsamen Manifest-,
+Tracker v378 / Host 0.7.4 / Assetrevision 37801 ist der fuer den Alpha-Test
+freigegebene Feldkandidat. Die gemeinsamen Manifest-,
 Start-, Payload-, Boarding-/Farewell-, Standard-APT-UI- und Compliance-
 Differentialtests sind lokal gruen. Deshalb meldet der Core fuer diesen
 Kandidaten `TRACKER_AUTHORITY_READY=true` und bewirbt `mission.intent.v1`
 ausschliesslich bei gleichzeitigem Alpha-Kanal und aktiviertem Desktop-Opt-in.
 Stable sowie Alpha ohne Opt-in bleiben vollstaendig unter Web-Authority.
+Die entfernte Origin-App reicht ihre Intents ueber das Tracker-Relay ein; das
+lokale EFB verwendet weiterhin HTTP. Nach jeder erfolgreichen Aktion verteilt
+der Tracker sofort denselben Authority-Snapshot an alle Ansichten. Mission
+Control wird in App und EFB aus `mission-control-ui-core.js` erzeugt, sodass
+Texte, Phasen, Bedingungen, Fortschritt und Bedienelemente nicht mehr in zwei
+getrennten Renderern auseinanderlaufen koennen.
 
 Diese Freigabe ist nur das technische Gate fuer Stufe E, nicht deren PASS:
 Standard-APT-End-to-End, parallele App-/EFB-Bedienung, Reload/Duplicate-
@@ -37,6 +43,18 @@ erzwungene Compliance muessen mit genau diesem unveraenderten Kandidaten real
 im Simulator bestaetigt werden. Passenger-Pickup, Training, POI, Bush/Pickup
 und SAR bleiben weiterhin fail-closed. Das EFB-Community-Paket bleibt auf
 0.4.11; der Host wird von der Tracker-Runtime geliefert.
+
+### Explizites Backlog nach dem APT-Mehrinstanznachweis
+
+- **Debrief-Oberflaeche:** Das bestehende App-Debrief bleibt erhalten. Eine
+  App-identische Darstellung im EFB/Toolbar-Panel, terminales Wiedereroeffnen
+  und die Mehrinstanz-Synchronisierung des geschlossenen Runs werden als
+  eigener Schritt umgesetzt; sie sind nicht Teil dieser Lueckenschliessung.
+- **Flightlog-Ausbau:** Der Tracker schreibt Rohtelemetrie weiterhin lokal als
+  append-only JSONL und erzeugt eine kompakte Summary. Explorer, Export,
+  Langzeitverwaltung sowie das endgueltige komprimierte Cloudmodell werden
+  spaeter separat umgesetzt. Rohpunkte sollen nicht wieder in den Browser-
+  `localStorage` wandern.
 
 ## Aktueller EFB-Kanalstand
 
@@ -89,12 +107,14 @@ daraus dieselbe Frachtgutlistenstruktur, Item-/PAX-Texte, Signaturfolge,
 Primaer-/Sekundaeraktion, Summen, Sperrerklaerung und Payload-Ergebnisanzeige
 wie die App. Eine ausfuehrbare Charakterisierung vergleicht dieses Modell mit
 der echten `_missionCargoRenderDialog()`-Funktion in sechs kritischen
-Zustaenden. Die App startet nach einem Tracker-Signatur-ACK wieder ihre
-bestehende 1,6-s-Schreibanimation. Semantisch gleiche Polls bleiben durch die
-Markup-Signatur ohne DOM-Neuaufbau. Bordbuch-Start-/Landeeintraege und der
+Zustaenden. Semantisch gleiche Polls bleiben durch die Markup-Signatur ohne
+DOM-Neuaufbau. Bordbuch-Start-/Landeeintraege und der
 Austausch bald ablaufender Ausruestung laufen nun ueber denselben Manifest-
-Core wie die App. Reine Fracht-Pickups koennen inklusive profilabhaengiger
-App-Texte autoritativ abgeschlossen werden. Ein tracker-eigener Fuenf-
+Core wie die App. Die 1,6-sekuendige Schreibanimation wird aus dem
+autoritativen Signaturzeitpunkt in App und EFB gespiegelt; sie ist ein reiner
+UI-Effekt, waehrend Boarding, Deboarding und SimObject-Bewegungen weiterhin
+ausschliesslich als Tracker-Effekte im Simulator laufen. Reine Fracht-Pickups
+koennen inklusive profilabhaengiger App-Texte autoritativ abgeschlossen werden. Ein tracker-eigener Fuenf-
 Sekunden-Read projiziert ausserdem die vollstaendige, aber begrenzte Weight-&-
 Balance-Zusammenfassung in beide Clients. Die Standard-APT-UI ist damit lokal
 parity-ready; Passenger-Pickup gehoert zum weiterhin gesperrten Bush/Pickup-
@@ -1263,11 +1283,12 @@ Schreibzugriff benoetigt:
 Beispiele sind `prepare_mission`, `set_manifest_item`, `sign_manifest`,
 `clear_manifest_signature`,
 `confirm_load`, `start_mission`, `confirm_pickup`, `confirm_unload`,
-`request_pax_interaction`, `request_voice_playback`,
-`submit_compliance_evidence`, `request_close`, `abort_mission` und
-`reset_mission`. Nicht erlaubte Aktionen werden vom Tracker mit einem
-strukturierten Blockierungsgrund abgewiesen. Normales Close, Abort und Reset
-bleiben getrennte Intents mit getrennten Folgen.
+`request_pax_interaction`, `submit_compliance_evidence`, `request_close` und
+`abort_mission`. Nicht erlaubte Aktionen werden vom Tracker mit einem
+strukturierten Blockierungsgrund abgewiesen. Voice wird als abgeleiteter,
+trackerinterner Effekt ausgelöst; der sichtbare, bestaetigungspflichtige
+"Mission Reset" ist bis zur Migration einer eigenen Reset-Transaktion ein
+Alias fuer `abort_mission`.
 
 Der sendende Host (`web`, `efb`, `toolbar`) wird fuer Diagnose und
 Playback-Koordination erfasst, verleiht aber keine eigene Autoritaet. Alle
@@ -1817,6 +1838,18 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Tracker-Reducer spiegeln und Drift ueber komplette APT-Replays messen.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-21: Die obere Missionsleiste von App und tracker-gehostetem EFB
+  verwendet jetzt denselben `ga.mission-toolbar.v1`-View. Der kontextuelle
+  Start-/Boarding-/Pickup-/Entlade-/Ende-Button folgt dem bereits gemeinsamen
+  Banner, der Verlade-Manager kann unabhaengig von einem weggeklickten Banner
+  erneut geoeffnet werden und ein sichtbarer `Mission Reset` fuehrt nach
+  Rueckfrage den revisionsgebundenen Tracker-Abbruch samt Simulator-Cleanup
+  aus. Der EFB-Host blendet die Originalbuttons nicht mehr aus und aktualisiert
+  Text, Sichtbarkeit und Sperrzustand nach jedem Mission-Snapshot und waehrend
+  eines laufenden Intents. Ohne Tracker-Authority bleibt der unveraenderte
+  App-Legacy-Pfad aktiv; ein eigenstaendiges MSFS-Toolbar-Panel ist davon
+  weiterhin getrennt und noch nicht real implementiert.
 
 - 2026-08-21: Der Standard-APT-Compliance-Workflow verwendet nun in App und
   Tracker denselben `mission-compliance-domain-core.js`. Ein direkter

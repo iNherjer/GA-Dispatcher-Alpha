@@ -18,31 +18,37 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '37601');
-  assert.match(page, /data-efb-view-version="8"/);
-  assert.match(page, /app-styles\.css\?v=37601/);
-  assert.match(page, /host\.css\?v=37601/);
-  assert.match(page, /map-shell-core\.js\?v=37601/);
-  assert.match(page, /map-utility-tools\.js\?v=37601/);
-  assert.match(page, /cockpit-session-client\.js\?v=37601/);
-  assert.match(page, /host\.js\?v=37601/);
+  assert.equal(EFB_WEB_ASSET_REVISION, '37801');
+  assert.match(page, /data-efb-view-version="9"/);
+  assert.match(page, /app-styles\.css\?v=37801/);
+  assert.match(page, /host\.css\?v=37801/);
+  assert.match(page, /map-shell-core\.js\?v=37801/);
+  assert.match(page, /map-utility-tools\.js\?v=37801/);
+  assert.match(page, /mission-control-ui-core\.js\?v=37801/);
+  assert.match(page, /cockpit-session-client\.js\?v=37801/);
+  assert.match(page, /host\.js\?v=37801/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37601"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37601"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37601"/);
+  assert.match(page, /id="mapMissionToggleBtn"/);
+  assert.match(page, /id="mapGroundCargoBtn"/);
+  assert.match(page, /id="mapMissionResetBtn"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=37801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37801"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=37601',
-    '/efb/v1/assets/map-utility-tools.js?v=37601',
-    '/efb/v1/assets/cockpit-session-client.js?v=37601',
-    '/efb/v1/assets/host.js?v=37601'
+    '/efb/v1/assets/map-shell-core.js?v=37801',
+    '/efb/v1/assets/map-utility-tools.js?v=37801',
+    '/efb/v1/assets/mission-control-ui-core.js?v=37801',
+    '/efb/v1/assets/cockpit-session-client.js?v=37801',
+    '/efb/v1/assets/host.js?v=37801'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -80,12 +86,14 @@ test('tracker-hosted static assets are allowlisted and browser scripts parse', (
   const hostScript = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js');
   const utilityScript = getTrackerEfbWebClientAsset('/efb/v1/assets/map-utility-tools.js');
   const coreScript = getTrackerEfbWebClientAsset('/efb/v1/assets/map-shell-core.js');
+  const missionUiScript = getTrackerEfbWebClientAsset('/efb/v1/assets/mission-control-ui-core.js');
   const sessionScript = getTrackerEfbWebClientAsset('/efb/v1/assets/cockpit-session-client.js');
   assert.equal(hostScript.contentType, 'text/javascript; charset=utf-8');
   assert.ok(hostScript.body.length > 10000);
   assert.doesNotThrow(() => new Function(hostScript.body.toString('utf8')));
   assert.doesNotThrow(() => new Function(utilityScript.body.toString('utf8')));
   assert.doesNotThrow(() => new Function(coreScript.body.toString('utf8')));
+  assert.doesNotThrow(() => new Function(missionUiScript.body.toString('utf8')));
   assert.doesNotThrow(() => new Function(sessionScript.body.toString('utf8')));
   assert.equal(getTrackerEfbWebClientAsset('/efb/v1/e6b/../index.html'), null);
   assert.equal(getTrackerEfbWebClientAsset('/efb/v1/assets/unknown.js'), null);
@@ -105,7 +113,7 @@ test('EFB cargo manager keeps app toggle semantics and avoids poll-time DOM rebu
   assert.match(source, /status === 'loaded'\) \{\s*return \{ intent: 'set_manifest_item', action: 'unload'/);
   assert.match(source, /\^\(active\|enroute\|return_leg\)\$[\s\S]*?label: 'Abwerfen'/);
   assert.match(source, /label: 'Wieder laden'/);
-  assert.match(source, /HOST 0\.7\.2/);
+  assert.match(source, /HOST 0\.7\.4/);
 });
 
 test('all Coherent-facing scripts avoid syntax rejected by the simulator engine', () => {
@@ -113,6 +121,7 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
     '/efb/v1/assets/host.js',
     '/efb/v1/assets/map-utility-tools.js',
     '/efb/v1/assets/map-shell-core.js',
+    '/efb/v1/assets/mission-control-ui-core.js',
     '/efb/v1/assets/cockpit-session-client.js',
     '/efb/v1/e6b/e6b-core.js',
     '/efb/v1/e6b/e6b-flight-computer.js'
@@ -150,6 +159,8 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /function missionActionBannerModel\(payload\)/);
   assert.match(hostSource, /function setupMissionActionBanner\(\)/);
   assert.match(hostSource, /function renderMissionActionBanner\(payload\)/);
+  assert.match(hostSource, /function renderMissionToolbar\(payload\)/);
+  assert.match(hostSource, /missionToolbarModel\(payload/);
   assert.match(hostSource, /activate_cloud_mission/);
   assert.match(hostSource, /Cloud-Mission bereit/);
   assert.match(hostSource, /mission-action-banner/);
@@ -308,7 +319,7 @@ test('EFB map banner exposes only contextual tracker-approved actions', () => {
     available: true,
     missionId: 'mission-1',
     view: { currentTask: 'Zum Ziel fliegen' },
-    control: { executionAuthority: 'tracker', phase: 'enroute', allowedActions: ['request_pax_interaction', 'request_voice_playback'] }
+    control: { executionAuthority: 'tracker', phase: 'enroute', allowedActions: ['request_pax_interaction'] }
   });
   assert.equal(enroute, null);
 });
@@ -349,7 +360,7 @@ test('mission drawer signatures ignore volatile relay and flight fields', () => 
     control: {
       missionId: 'mission-1', runId: 'run-1', executionAuthority: 'tracker', authorityRevision: 4,
       executionRevision: 7, phase: 'enroute', subphase: 'outbound_flight', nextStep: 'fly_to_target',
-      flags: { active: true }, cargo: { summary: { loaded: 1 } }, blockingReasons: [], allowedActions: ['request_voice_playback']
+      flags: { active: true }, cargo: { summary: { loaded: 1 } }, blockingReasons: [], allowedActions: []
     },
     view: {
       capturedAt: 100,

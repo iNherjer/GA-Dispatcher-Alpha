@@ -509,6 +509,58 @@ test('standard payload keeps the first baseline and restores it before abort', a
   assert.equal(writes.length, 3);
 });
 
+test('a replacement mission uses the last unresolved compatible baseline instead of adding stale mission cargo', async () => {
+  const original = standardBaseline();
+  const staleMissionLoad = clone(original);
+  staleMissionLoad.stations = staleMissionLoad.stations.map(row => ({
+    ...row,
+    weightLbs: row.index === 2 ? 90 : row.weightLbs
+  }));
+  const nextManifest = { items: [
+    { id: 'new-mission-box', itemType: 'cargo', status: 'loaded', weightLbs: 42 }
+  ] };
+  const recovery = createRecoveryStore();
+  let snapshot = clone(staleMissionLoad);
+  const writes = [];
+  const handler = createTrackerMissionPayloadHandler({
+    readSnapshot: async () => clone(snapshot),
+    applyStations: async stations => {
+      writes.push(clone(stations));
+      snapshot.stations = snapshot.stations.map(row => ({
+        ...row,
+        weightLbs: stations.find(target => target.index === row.index)?.weightLbs ?? row.weightLbs
+      }));
+      return { stations: clone(stations) };
+    },
+    applyPa24State: async () => { throw new Error('unexpected_pa24_write'); },
+    reassertPa24Seats: async () => { throw new Error('unexpected_pa24_reassert'); },
+    recordRecovery: recovery.record,
+    getRecovery: recovery.get,
+    getPreviousRecovery: async () => ({
+      missionId: 'apt-old',
+      runId: 'run-old',
+      recovery: { baseline: clone(original), writeAttempted: true, restored: false }
+    }),
+    sleep: async () => {}
+  });
+
+  const request = {
+    missionId: 'apt-new',
+    runId: 'run-new',
+    manifest: nextManifest,
+    effect: effectFor(nextManifest)
+  };
+  const result = await handler.syncBeforeStart(request);
+  assert.equal(result.payloadStatus, 'ok');
+  assert.equal(result.payloadPlan.missionWeightLbs, 42);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].find(row => row.index === 2).weightLbs, 0);
+  assert.equal(writes[0].filter(row => row.index !== 1).reduce((sum, row) => sum + row.weightLbs, 0), 42);
+  assert.equal(recovery.value.baseline.stations.find(row => row.index === 2).weightLbs, 0);
+  assert.equal(snapshot.stations.find(row => row.index === 2).weightLbs, 0);
+  assert.equal(snapshot.stations.filter(row => row.index !== 1).reduce((sum, row) => sum + row.weightLbs, 0), 42);
+});
+
 test('PA24 abort restore reapplies baseline seats, characters, and baggage', async () => {
   const manifest = { items: [
     { id: 'pax', itemType: 'passenger', status: 'loaded', passengerCount: 1, weightLbs: 180 },

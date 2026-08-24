@@ -248,7 +248,7 @@ test('explicitly enabled commit is atomic, blocks web snapshots and permits zero
   const publicSnapshot = manager.getPublicSnapshot();
   assert.equal(publicSnapshot.execution.executionAuthority, 'tracker');
   assert.equal(publicSnapshot.execution.authorityRevision, committed.activeRun.revision);
-  assert.deepEqual(publicSnapshot.execution.allowedActions, ['prepare_mission', 'reset_mission', 'abort_mission'].sort());
+  assert.deepEqual(publicSnapshot.execution.allowedActions, ['prepare_mission', 'abort_mission'].sort());
   assert.equal(publicSnapshot.execution.cargo.items[0].id, 'mission-passenger');
 
   const blockedLegacyScene = manager.validate({
@@ -433,6 +433,16 @@ test('payload recovery baseline is durable, first-write-wins, and never public',
   assert.equal(JSON.stringify(reloaded.getPublicSnapshot({ includeBundle: true })).includes('Private test aircraft'), false);
   assert.equal(reloaded.recordExecutionPayloadRecovery({ ...credentials, action: 'restore_attempt' }).recovery.restoreAttempts, 1);
   assert.equal(reloaded.recordExecutionPayloadRecovery({ ...credentials, action: 'restored' }).recovery.restored, true);
+  const activeBeforeAbort = reloaded.getActiveRun();
+  assert.equal(reloaded.abortExecutionRun({
+    ...credentials,
+    expectedRevision: activeBeforeAbort.revision,
+    commandId: 'payload-recovery-terminal-test'
+  }).ok, true);
+  const previousRecovery = reloaded.getLastExecutionPayloadRecovery({ missionId: 'apt-replacement', runId: 'run-replacement' });
+  assert.equal(previousRecovery.missionId, credentials.missionId);
+  assert.equal(previousRecovery.runId, credentials.runId);
+  assert.equal(previousRecovery.recovery.restored, true);
 });
 
 test('an intervening web snapshot invalidates a prepared handoff', (t) => {

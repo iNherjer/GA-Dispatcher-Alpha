@@ -217,6 +217,27 @@ test('canonical cargo sheet exposes App lock text instead of clickable stale act
   assert.equal(boarded.actions.primary.label, 'Fenster schließen');
 });
 
+test('a fresh tracker signature projects the shared writing animation on every client', () => {
+  const now = 1787300000000;
+  const model = core.cargoModel({
+    now,
+    control: {
+      ...control('boarding', ['clear_manifest_signature', 'confirm_load'], {
+        boardingConfirmed: true, groundStill: true, loadConfirmed: false
+      }),
+      cargo: { signatureScope: 'departure', summary: { departureMissing: 0 } }
+    },
+    manifest: {
+      dispatchSignature: { scope: 'departure', by: 'DEINA', at: now - 250 },
+      items: [{ id: 'box', storyName: 'Kühlbox', itemType: 'cargo', required: true, status: 'loaded', weightLbs: 24 }]
+    }
+  });
+  assert.equal(model.signature.animating, true);
+  assert.equal(model.signature.clickable, false);
+  assert.equal(model.signature.stateText, 'wird eingetragen');
+  assert.equal(model.actions.primary.label, 'Unterschrift wird eingetragen ...');
+});
+
 test('pickup wording follows the App profile and pickup-kind variants', () => {
   const passengerAndCargo = core.cargoModel({
     missionProfileId: 'apt_charter_pickup',

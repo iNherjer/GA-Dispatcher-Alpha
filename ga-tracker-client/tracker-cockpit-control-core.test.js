@@ -86,6 +86,8 @@ test('mission intents require session, allowlist, run and exact revision while m
   assert.equal((await app.control.submitIntent({ ...base, payload: { cargoId: 'cargo-2' } })).error, 'command_id_conflict');
   assert.equal((await app.control.submitIntent({ ...base, commandId: 'cmd-2', expectedRevision: 6 })).error, 'mission_revision_conflict');
   assert.equal((await app.control.submitIntent({ ...base, commandId: 'cmd-3', intent: 'set_phase' })).error, 'mission_intent_not_allowed');
+  assert.equal((await app.control.submitIntent({ ...base, commandId: 'cmd-4', intent: 'request_voice_playback' })).error, 'mission_intent_not_allowed');
+  assert.equal((await app.control.submitIntent({ ...base, commandId: 'cmd-5', intent: 'reset_mission' })).error, 'mission_intent_not_allowed');
 });
 
 test('an enabled tracker executor receives only the normalized intent and controller session', async () => {
@@ -113,6 +115,100 @@ test('an enabled tracker executor receives only the normalized intent and contro
   assert.equal(executed[0].controllerSession.role, 'web');
   assert.equal(executed[0].expectedRevision, 7);
   assert.equal(app.control.publicState().missionIntentsEnabled, true);
+});
+
+test('a PIN-validated relay controller uses the same revision, dedupe and rate-limited intent path', async () => {
+  const executed = [];
+  const app = fixture({
+    executionAuthority: 'tracker',
+    executeIntent: async intent => {
+      executed.push(intent);
+      return { ok: true, status: 'ok', sideEffect: true, activeRun: { missionId: 'mission-a', runId: 'run-a', revision: 8 } };
+    }
+  });
+  const request = {
+    commandId: 'relay-start',
+    intent: 'start_mission',
+    missionId: 'mission-a',
+    runId: 'run-a',
+    expectedRevision: 7
+  };
+  const result = await app.control.submitTrustedIntent(request, {
+    clientId: 'web-relay-one',
+    role: 'web',
+    appVersion: 'origin'
+  });
+  assert.equal(result.ok, true);
+  assert.equal(executed.length, 1);
+  assert.equal(executed[0].controllerSession.clientId, 'web-relay-one');
+  assert.equal(executed[0].controllerSession.role, 'web');
+  assert.equal(app.control.publicState().roles.web, 1);
+
+  const duplicate = await app.control.submitTrustedIntent(request, {
+    clientId: 'web-relay-one',
+    role: 'web'
+  });
+  assert.equal(duplicate.duplicate, true);
+  assert.equal(executed.length, 1);
+  assert.equal((await app.control.submitTrustedIntent({ ...request, commandId: 'relay-stale', expectedRevision: 6 }, {
+    clientId: 'web-relay-one',
+    role: 'web'
+  })).error, 'mission_revision_conflict');
+});
+
+test('relay App and local EFB serialize against one authoritative run revision', async () => {
+  let sessionSequence = 0;
+  let run = {
+    missionId: 'mission-shared',
+    runId: 'run-shared',
+    authority: 'tracker',
+    executionAuthority: 'tracker',
+    revision: 12,
+    phase: 'boarding'
+  };
+  const control = createTrackerCockpitControl({
+    now: () => 2000,
+    idFactory: prefix => `${prefix}-shared-${++sessionSequence}`,
+    tokenFactory: () => 'secret-shared',
+    executionAuthority: 'tracker',
+    getMissionRun: () => run,
+    executeIntent: async request => {
+      run = { ...run, revision: run.revision + 1, phase: request.intent === 'start_mission' ? 'active' : run.phase };
+      return { ok: true, status: 'ok', sideEffect: true, activeRun: run };
+    }
+  });
+  const efb = control.register({ clientId: 'efb-shared', role: 'efb' });
+  const appResult = await control.submitTrustedIntent({
+    commandId: 'app-start',
+    intent: 'start_mission',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: 12
+  }, { clientId: 'app-shared', role: 'web' });
+  assert.equal(appResult.activeRun.revision, 13);
+  assert.equal(control.publicState().activeCount, 2);
+
+  const staleEfb = await control.submitIntent({
+    sessionId: efb.session.sessionId,
+    sessionToken: efb.sessionToken,
+    commandId: 'efb-stale',
+    intent: 'confirm_load',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: 12
+  });
+  assert.equal(staleEfb.error, 'mission_revision_conflict');
+  const currentEfb = await control.submitIntent({
+    sessionId: efb.session.sessionId,
+    sessionToken: efb.sessionToken,
+    commandId: 'efb-current',
+    intent: 'confirm_load',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: 13
+  });
+  assert.equal(currentEfb.ok, true);
+  assert.equal(currentEfb.activeRun.revision, 14);
 });
 
 test('an EFB session can activate an exact cloud candidate when no run exists', async () => {

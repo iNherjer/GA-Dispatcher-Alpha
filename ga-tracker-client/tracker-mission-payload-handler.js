@@ -59,6 +59,7 @@ function createTrackerMissionPayloadHandler(options = {}) {
   const reassertPa24Seats = typeof options.reassertPa24Seats === 'function' ? options.reassertPa24Seats : null;
   const recordRecovery = typeof options.recordRecovery === 'function' ? options.recordRecovery : null;
   const getRecovery = typeof options.getRecovery === 'function' ? options.getRecovery : null;
+  const getPreviousRecovery = typeof options.getPreviousRecovery === 'function' ? options.getPreviousRecovery : null;
   const wait = typeof options.sleep === 'function'
     ? options.sleep
     : milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -95,6 +96,43 @@ function createTrackerMissionPayloadHandler(options = {}) {
     isPassengerItem: manifestCore.isPassengerItem
   });
 
+  const compatiblePriorBaseline = (previous = {}, liveBaseline = null) => {
+    const entry = safeObject(previous);
+    const recovery = safeObject(entry.recovery);
+    const baseline = payloadCore.normalizeSnapshot(recovery.baseline);
+    if (!baseline || !liveBaseline || recovery.writeAttempted !== true || recovery.restored === true) return null;
+    if (baseline.payloadAdapter !== liveBaseline.payloadAdapter
+        || baseline.payloadStationCount !== liveBaseline.payloadStationCount) return null;
+    const previousTitle = cleanString(safeObject(baseline.aircraft).title, 240);
+    const liveTitle = cleanString(safeObject(liveBaseline.aircraft).title, 240);
+    if (previousTitle && liveTitle && previousTitle !== liveTitle) return null;
+    return {
+      baseline,
+      missionId: cleanString(entry.missionId),
+      runId: cleanString(entry.runId, 220)
+    };
+  };
+
+  const resolvePayloadBaseline = async (request = {}) => {
+    let currentRecovery = null;
+    if (getRecovery) currentRecovery = await getRecovery(recoveryRequest(request, 'get'));
+    const currentBaseline = payloadCore.normalizeSnapshot(safeObject(currentRecovery).baseline);
+    if (currentBaseline) return { baseline: currentBaseline, currentRecovery, source: 'current-recovery' };
+
+    const liveBaseline = payloadCore.normalizeSnapshot(await readSnapshot(20));
+    if (!liveBaseline) return { baseline: null, currentRecovery: null, source: 'none' };
+    let prior = null;
+    if (getPreviousRecovery) {
+      const previous = await getPreviousRecovery(recoveryRequest(request, 'previous'));
+      prior = compatiblePriorBaseline(previous, liveBaseline);
+    }
+    if (prior) {
+      log(`MISSION_PAYLOAD_BASELINE_CARRYOVER mission=${cleanString(request.missionId) || 'none'} previous=${prior.missionId || 'unknown'}`);
+      return { baseline: prior.baseline, currentRecovery: null, source: 'previous-recovery', previous: prior };
+    }
+    return { baseline: liveBaseline, currentRecovery: null, source: 'live-snapshot' };
+  };
+
   const runPayloadSync = async (request = {}, syncContext = {}) => {
     const isCurrent = typeof syncContext.isCurrent === 'function' ? syncContext.isCurrent : () => true;
     const manifest = safeObject(request.manifest);
@@ -115,19 +153,24 @@ function createTrackerMissionPayloadHandler(options = {}) {
 
     const plannerOptions = plannerOptionsFor(manifest, payloadContext);
 
-    let baseline;
+    let baselineResolution;
     try {
-      baseline = payloadCore.normalizeSnapshot(await readSnapshot(20));
+      baselineResolution = await resolvePayloadBaseline(request);
     } catch (error) {
       return warningResult(error?.code || error?.message || error, { sideEffect: false });
     }
+    let baseline = baselineResolution?.baseline || null;
     if (!baseline) return warningResult('no_baseline', { sideEffect: false });
     if (recordRecovery) {
       let captured;
-      try {
-        captured = await recordRecovery(recoveryRequest(request, 'capture', { baseline }));
-      } catch (error) {
-        captured = { ok: false, error: error?.code || error?.message || String(error) };
+      if (baselineResolution?.currentRecovery) {
+        captured = { ok: true, status: 'noop', recovery: baselineResolution.currentRecovery };
+      } else {
+        try {
+          captured = await recordRecovery(recoveryRequest(request, 'capture', { baseline }));
+        } catch (error) {
+          captured = { ok: false, error: error?.code || error?.message || String(error) };
+        }
       }
       if (!captured?.ok) {
         return warningResult(captured?.error || 'mission_payload_recovery_persist_failed', { sideEffect: false });
@@ -286,9 +329,10 @@ function createTrackerMissionPayloadHandler(options = {}) {
     if (!recordRecovery) return { ok: true };
     let recovery = null;
     try {
-      recovery = getRecovery ? await getRecovery(recoveryRequest(request, 'get')) : null;
+      const baselineResolution = await resolvePayloadBaseline(request);
+      recovery = baselineResolution.currentRecovery;
       if (!recovery?.baseline) {
-        const baseline = payloadCore.normalizeSnapshot(await readSnapshot(20));
+        const baseline = baselineResolution.baseline;
         if (!baseline) return { ok: false, error: 'no_baseline' };
         const captured = await recordRecovery(recoveryRequest(request, 'capture', { baseline }));
         if (!captured?.ok) return { ok: false, error: captured?.error || 'mission_payload_recovery_persist_failed' };

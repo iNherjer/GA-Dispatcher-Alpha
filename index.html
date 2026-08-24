@@ -1460,7 +1460,8 @@
             </div>
             <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
             <button class="pb-btn map-mission-btn" id="mapMissionToggleBtn" onclick="window.handleMissionStartBannerAction ? handleMissionStartBannerAction() : (window.toggleManualMissionRuntime && toggleManualMissionRuntime())" style="display:none;">▶ Mission starten</button>
-            <button class="pb-btn" id="mapGroundCargoBtn" onclick="window.openMissionGroundCargoDialog && openMissionGroundCargoDialog()" style="display:none;" title="Verladefenster am Boden öffnen">📦 Verladung</button>
+            <button class="pb-btn" id="mapGroundCargoBtn" onclick="window.openMissionToolbarCargo ? openMissionToolbarCargo() : (window.openMissionGroundCargoDialog && openMissionGroundCargoDialog())" style="display:none;" title="Verladefenster am Boden öffnen">📦 Verladung</button>
+            <button class="pb-btn map-mission-reset-btn" id="mapMissionResetBtn" onclick="window.requestMissionRuntimeReset && requestMissionRuntimeReset({ reason: 'map-toolbar-reset' })" style="display:none;" title="Mission zurücksetzen">↺ Mission Reset</button>
             <button type="button" class="pb-btn map-toolbar-help-btn" onclick="showSettingsHelp('map-table', event)" aria-label="Hilfe zum Kartentisch" aria-expanded="false">?</button>
             <button class="pb-btn close" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()">❌ Schließen</button>
         </div>
@@ -2722,6 +2723,7 @@
 <script defer src="mission-flight-recorder-core.js?v=mission-flight-recorder-core-20260821-01"></script>
 <script defer src="mission-farewell-voice-core.js?v=mission-farewell-voice-core-20260821-01"></script>
 <script defer src="mission-apt-ui-core.js?v=mission-apt-ui-core-20260821-01"></script>
+<script defer src="ga-tracker-client/mission-control-ui-core.js?v=mission-control-ui-core-20260821-02"></script>
 <script defer src="mission-payload-core.js?v=mission-payload-core-20260820-01"></script>
 <script defer src="mission-compliance-domain-core.js?v=mission-compliance-domain-core-20260821-01"></script>
 <script defer src="mission-execution-core.js?v=tracker-controller-20260820-03"></script>
