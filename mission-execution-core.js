@@ -692,6 +692,24 @@
         }));
     }
 
+    function appendCargoVisualTransitionEffect(state, event, transition) {
+        var transitionSource = object(transition);
+        var action = text(transitionSource.action, 40).toLowerCase();
+        var itemId = text(transitionSource.itemId, 120);
+        if (!action || !itemId) return;
+        var item = (Array.isArray(state.manifest.items) ? state.manifest.items : []).find(function (candidate) {
+            return text(candidate && candidate.id, 120) === itemId;
+        });
+        if (!item || text(item.itemType, 40).toLowerCase() === 'passenger') return;
+        appendEffect(state, createEffect(state, event, 'scene.cargo_item_transition', {
+            operation: 'cargo_item_transition',
+            action: action,
+            itemId: itemId,
+            manifestKey: text(state.manifest.key || state.manifest.manifestKey, 180) || state.missionId,
+            item: canonicalValue(item)
+        }));
+    }
+
     function applyCargoFromEvent(state, event) {
         var payload = object(event.payload);
         var manifest = payload.manifest;
@@ -1258,6 +1276,7 @@
             }
             var cargoPayloadTransition = object(event.payload).payloadTransition;
             if (text(object(cargoPayloadTransition).action, 40)) {
+                appendCargoVisualTransitionEffect(state, event, cargoPayloadTransition);
                 appendPayloadManifestSyncEffect(state, event, cargoPayloadTransition);
             }
             if ((state.phase === 'prepare' || state.phase === 'boarding') && state.cargo.signatureScope !== 'departure') {

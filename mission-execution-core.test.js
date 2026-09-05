@@ -220,7 +220,10 @@ test('only real cargo and passenger transitions request incremental payload sync
             payloadTransition: { action: 'load', itemId: 'box' }
         }
     });
-    assert.equal(state.effects.length, beforeCargoEffects + 1);
+    assert.equal(state.effects.length, beforeCargoEffects + 2);
+    assert.equal(state.effects.at(-2).type, 'scene.cargo_item_transition');
+    assert.equal(state.effects.at(-2).payload.action, 'load');
+    assert.equal(state.effects.at(-2).payload.itemId, 'box');
     assert.equal(state.effects.at(-1).type, 'payload.sync_manifest_state');
     assert.equal(state.effects.at(-1).payload.transition.itemId, 'box');
 
@@ -556,7 +559,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.ok(indexSource.indexOf('mission-start-core.js') < indexSource.indexOf('mission-execution-core.js'));
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
     assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v='));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1702/);
+    assert.match(serviceWorkerSource, /ga-dispatcher-v1703/);
     assert.match(serviceWorkerSource, /\.\/mission-manifest-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-start-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-location-core\.js/);
@@ -607,6 +610,8 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(trackerSource, /VFR_MULTITOOL_APT_EXECUTION/);
     assert.match(trackerSource, /missionExecutionCore\.TRACKER_AUTHORITY_READY === true/);
     assert.match(trackerSource, /createTrackerMissionExecutionRuntime/);
+    assert.match(trackerSource, /if \(type === 'mission_scene_object_remove'\)[\s\S]*?enqueueSceneObjectOperation/);
+    assert.match(trackerSource, /if \(type === 'mission_scene_object_spawn'\)[\s\S]*?enqueueSceneObjectOperation/);
     assert.match(trackerSource, /missionExecutionRuntime\.observeTelemetry/);
     assert.match(trackerSource, /fetchTrackerCloudMission/);
     assert.match(trackerSource, /activateCloudMission/);
@@ -614,6 +619,8 @@ test('browser shell and tracker wire the shared core additively behind existing 
 
 test('remote Origin handoff uses the tracker relay without requiring a loopback cockpit session', async () => {
     const syncSource = fs.readFileSync(path.join(__dirname, 'sync.js'), 'utf8');
+    assert.match(syncSource, /const ackIsStale = sameRun/);
+    assert.match(syncSource, /const resultIsStale = sameRun/);
     const relaySelectorSource = syncSource.match(/function _trackerExecutionUsesRelayController\(\) \{[\s\S]*?\n\}/)?.[0];
     const handoffSource = syncSource.match(/async function _ensureTrackerExecutionAuthority\(reason = 'apt-ui-intent'\) \{[\s\S]*?\n\}\n\nfunction _publishMissionControlIntentStatus/)?.[0]
         .replace(/\n\nfunction _publishMissionControlIntentStatus$/, '');

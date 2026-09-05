@@ -621,3 +621,23 @@ Gate ist die Voraussetzung fuer den realen Stufe-E-Test, aber kein Ersatz fuer
 dessen End-to-End-, Mehrinstanz-, Reload-, Voice-Lease-, Recovery- und
 Compliance-Nachweis. Passenger-Pickup, POI, Training, Bush/Pickup und SAR
 bleiben fail-closed.
+
+### Feldtest-Nachbesserung nach v1702
+
+- Ein Relay-Intent wird nach erfolgreichem Core-Commit sofort bestaetigt. Lang
+  laufende Simulator-, Payload- und Voice-Effekte werden anschliessend vom
+  Tracker weiter abgearbeitet und ueber die normale Authority-Projektion
+  sichtbar. Ein langsamer TTS-Aufruf darf deshalb keinen falschen
+  `authority_timeout` im ausloesenden App-Client mehr erzeugen.
+- Ein spaet eintreffendes Intent-ACK darf einen bereits neueren, ueber den
+  Authority-Kanal empfangenen `activeRun` nicht mehr zurueckschreiben. App und
+  EFB behalten dadurch auch bei parallelen Aktionen stets die hoechste bekannte
+  Revision.
+- Jede Nicht-PAX-Aenderung am Manifest erzeugt zusaetzlich zum Payload-Sync
+  einen persistenten `scene.cargo_item_transition`-Effekt. Laden/erneutes Laden
+  entfernt das zugehoerige SimObject aus allen Missionsszenen; Entladen oder
+  Abwerfen erzeugt es an der aktuellen Trackerposition. Wie bei den uebrigen
+  Szeneneffekten gilt der Zustand erst nach Simulator-ACK als abgearbeitet.
+- Passenger bleiben weiterhin ausschliesslich ueber die bestehenden Boarding-
+  und Deboarding-Effekte steuerbar; der neue Cargo-Effekt darf diesen Pfad
+  nicht umgehen.

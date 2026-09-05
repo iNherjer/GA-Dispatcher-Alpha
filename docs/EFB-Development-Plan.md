@@ -2961,3 +2961,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   sichtbar, waehrend neue und terminale Snapshots sofort gewinnen. Diese
   Schutzschicht setzt selbst keine Missionsphase und verschiebt keine
   Missionsautoritaet.
+- 2026-09-05: Der Tracker-hosted Kartentisch trennt den Missionsabruf vom
+  schwereren Status-/Karten-Poll. Mission, Banner und Cargo werden im aktiven
+  Fenster alle 300 bis 550 ms aktualisiert und warten nicht mehr auf Karten-
+  oder Checklistenantworten. Der EFB-Verlade-Manager besitzt einen eigenen
+  begrenzten Scrollbereich mit dauerhaft erreichbarem Kopf; das bestehende
+  Menue `Audio auf diesem Geraet abspielen` ist im EFB wieder sichtbar und kann
+  den erforderlichen Wiedergabe-/Audio-Unlock per Benutzeraktion setzen.

@@ -131,7 +131,8 @@ test('a PIN-validated relay controller uses the same revision, dedupe and rate-l
     intent: 'start_mission',
     missionId: 'mission-a',
     runId: 'run-a',
-    expectedRevision: 7
+    expectedRevision: 7,
+    deferEffects: true
   };
   const result = await app.control.submitTrustedIntent(request, {
     clientId: 'web-relay-one',
@@ -142,6 +143,7 @@ test('a PIN-validated relay controller uses the same revision, dedupe and rate-l
   assert.equal(executed.length, 1);
   assert.equal(executed[0].controllerSession.clientId, 'web-relay-one');
   assert.equal(executed[0].controllerSession.role, 'web');
+  assert.equal(executed[0].deferEffects, true);
   assert.equal(app.control.publicState().roles.web, 1);
 
   const duplicate = await app.control.submitTrustedIntent(request, {

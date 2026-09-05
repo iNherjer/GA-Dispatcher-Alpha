@@ -17,6 +17,8 @@ function runWithPlan(overrides = {}) {
         schema: EFFECT_PLAN_SCHEMA,
         recipe: 'apt',
         missionId: 'mission-apt-1',
+        sceneId: 'scene-mission-apt-1',
+        cargoPlacement: { forwardM: 4, rightM: 5, altOffsetFt: 0.2 },
         effects: {
           'scene.prepare': {
             command: {
@@ -69,6 +71,52 @@ function runWithPlan(overrides = {}) {
     ...overrides
   };
 }
+
+test('cargo transitions remove loaded objects and spawn unloaded objects through the tracker scene bridge', async () => {
+  const activeRun = runWithPlan();
+  const commands = [];
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => activeRun },
+    getLivePosition: () => ({ lat: 48.1, lon: 7.9, alt: 510, hdg: 90 }),
+    dispatchCommand: command => {
+      commands.push(command);
+      return { ok: true, status: 'pending' };
+    },
+    acknowledgeEffect: () => ({ ok: true })
+  });
+  const item = {
+    id: 'club-bag',
+    itemType: 'cargo',
+    sceneKind: 'cargo',
+    label: 'Clubtasche',
+    objectTitle: 'Cardboard',
+    forwardM: 1,
+    rightM: -2
+  };
+  const loaded = await bridge.dispatch({
+    commandId: 'cargo-load-effect',
+    missionId: activeRun.missionId,
+    runId: activeRun.runId,
+    effect: { type: 'scene.cargo_item_transition', payload: { action: 'load', itemId: item.id, manifestKey: 'manifest-a', item } }
+  });
+  assert.equal(loaded.status, 'pending');
+  assert.equal(commands[0].type, 'mission_scene_object_remove');
+  assert.equal(commands[0].allScenes, true);
+  assert.equal(commands[0].itemIds[0], 'club-bag');
+  bridge.handleAck({ type: 'mission_scene_object_remove_ack', commandId: 'cargo-load-effect', status: 'ok' });
+
+  const unloaded = await bridge.dispatch({
+    commandId: 'cargo-unload-effect',
+    missionId: activeRun.missionId,
+    runId: activeRun.runId,
+    effect: { type: 'scene.cargo_item_transition', payload: { action: 'unload', itemId: item.id, manifestKey: 'manifest-a', item } }
+  });
+  assert.equal(unloaded.status, 'pending');
+  assert.equal(commands[1].type, 'mission_scene_object_spawn');
+  assert.equal(commands[1].sceneId, 'scene-mission-apt-1-cargo-unload');
+  assert.equal(commands[1].items[0].forwardM, 5);
+  assert.equal(commands[1].items[0].rightM, 3);
+});
 
 test('APT simulator effects reuse the prepared app command and force live tracker position plus stable IDs', async () => {
   let activeRun = runWithPlan();

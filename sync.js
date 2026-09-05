@@ -3078,12 +3078,19 @@ window.gaTrackerExecutionSubmitIntent = async function(intent, payload = {}, opt
             revision: result?.activeRun?.revision || null
         });
         if (result?.activeRun) {
-            window.lastTrackerMissionAuthority = {
-                ...(window.lastTrackerMissionAuthority || {}),
-                activeRun: result.activeRun,
-                receivedAt: Date.now()
-            };
-            window.lastTrackerMissionStatus = { ...result.activeRun, receivedAt: Date.now() };
+            const currentRun = window.lastTrackerMissionAuthority?.activeRun || null;
+            const sameRun = currentRun?.missionId === result.activeRun.missionId
+                && currentRun?.runId === result.activeRun.runId;
+            const resultIsStale = sameRun
+                && Number(currentRun.revision || 0) > Number(result.activeRun.revision || 0);
+            if (!resultIsStale) {
+                window.lastTrackerMissionAuthority = {
+                    ...(window.lastTrackerMissionAuthority || {}),
+                    activeRun: result.activeRun,
+                    receivedAt: Date.now()
+                };
+                window.lastTrackerMissionStatus = { ...result.activeRun, receivedAt: Date.now() };
+            }
         }
         if (result?.trackerMissionAuthority && typeof result.trackerMissionAuthority === 'object') {
             _handleTrackerMissionAuthoritySnapshot(result.trackerMissionAuthority, `intent:${intent}:ack`);
@@ -7832,6 +7839,16 @@ function _buildMissionAptExecutionEffectPlan() {
     const complianceVisit = typeof window.missionComplianceBuildGroundVisitEffectCommand === 'function'
         ? window.missionComplianceBuildGroundVisitEffectCommand('tracker-execution:scene.compliance_visit')
         : null;
+    const boardingConfig = typeof _missionSceneBoardingConfig === 'function'
+        ? (_missionSceneBoardingConfig() || {})
+        : {};
+    const cargoPlacement = boardingConfig.cargo && typeof boardingConfig.cargo === 'object'
+        ? {
+            forwardM: Number.isFinite(Number(boardingConfig.cargo.forwardM)) ? Number(boardingConfig.cargo.forwardM) : 4,
+            rightM: Number.isFinite(Number(boardingConfig.cargo.rightM)) ? Number(boardingConfig.cargo.rightM) : 4,
+            altOffsetFt: Number.isFinite(Number(boardingConfig.cargo.altOffsetFt)) ? Number(boardingConfig.cargo.altOffsetFt) : 0
+        }
+        : { forwardM: 4, rightM: 4, altOffsetFt: 0 };
     let boardingVoice = null;
     let farewellVoice = null;
     let farewellContext = null;
@@ -7870,6 +7887,7 @@ function _buildMissionAptExecutionEffectPlan() {
         recipe: 'apt',
         missionId,
         sceneId: spawn.command.sceneId,
+        cargoPlacement,
         effects: {
             'scene.prepare': { command: stripLivePosition(spawn.command) },
             'scene.boarding': { command: stripLivePosition(boarding) },
@@ -10971,12 +10989,17 @@ function _handleTrackerAck(ack) {
         _resolveMissionAuthorityAck(ack);
         const run = ack.activeRun && typeof ack.activeRun === 'object' ? ack.activeRun : null;
         if (run?.missionId && run?.runId) {
-            window.lastTrackerMissionAuthority = {
-                ...(window.lastTrackerMissionAuthority || {}),
-                activeRun: run,
-                receivedAt: Date.now()
-            };
-            window.lastTrackerMissionStatus = { ...run, receivedAt: Date.now() };
+            const currentRun = window.lastTrackerMissionAuthority?.activeRun || null;
+            const sameRun = currentRun?.missionId === run.missionId && currentRun?.runId === run.runId;
+            const ackIsStale = sameRun && Number(currentRun.revision || 0) > Number(run.revision || 0);
+            if (!ackIsStale) {
+                window.lastTrackerMissionAuthority = {
+                    ...(window.lastTrackerMissionAuthority || {}),
+                    activeRun: run,
+                    receivedAt: Date.now()
+                };
+                window.lastTrackerMissionStatus = { ...run, receivedAt: Date.now() };
+            }
         }
         _missionPhaseDebugPush('tracker_execution_intent_ack', {
             intent: ack.intent || '',

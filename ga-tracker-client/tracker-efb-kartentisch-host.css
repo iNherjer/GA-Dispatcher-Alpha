@@ -31,8 +31,6 @@ body.ga-efb-tracker-host .map-fullscreen-close-btn,
 body.ga-efb-tracker-host #mapToolbarInner .pb-btn.close,
 body.ga-efb-tracker-host #mapHintsBtn,
 body.ga-efb-tracker-host #mapHintsMenu,
-body.ga-efb-tracker-host #mapVoiceBtn,
-body.ga-efb-tracker-host #mapVoiceMenu,
 body.ga-efb-tracker-host #freeflightBtn,
 body.ga-efb-tracker-host .map-toolbar-help-btn,
 body.ga-efb-tracker-host #manualSimPanel,
@@ -58,10 +56,32 @@ body.ga-efb-tracker-host .ga-efb-cargo-manager button:disabled {
 
 body.ga-efb-tracker-host .ga-efb-cargo-manager {
   z-index: 190000;
+  align-items: stretch;
+  padding: 6px;
 }
 
 body.ga-efb-tracker-host .ga-efb-cargo-manager .mission-cargo-panel {
   width: min(820px, calc(100vw - 24px));
+  max-height: calc(100% - 2px);
+  overflow: hidden;
+  margin: auto;
+}
+
+body.ga-efb-tracker-host .ga-efb-cargo-manager .mission-cargo-head {
+  flex: 0 0 auto;
+}
+
+body.ga-efb-tracker-host .ga-efb-cargo-manager #gaEfbCargoBody {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+body.ga-efb-tracker-host #mapVoiceMenu {
+  max-height: calc(100vh - 58px);
+  overflow-y: auto;
 }
 
 body.ga-efb-tracker-host .ga-efb-cargo-manager .mission-cargo-sheet-table td strong {

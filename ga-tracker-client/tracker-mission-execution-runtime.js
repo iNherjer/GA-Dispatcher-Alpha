@@ -163,6 +163,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       'voice.compliance_result': playComplianceVoice,
       'payload.sync_before_start': payloadSyncBeforeStart,
       'payload.sync_manifest_state': payloadSyncManifestState,
+      'scene.cargo_item_transition': dispatchSimulatorEffect,
       'scene.deboarding': dispatchSimulatorEffect,
       'scene.deboarding_continue': dispatchSimulatorEffect,
       'scene.compliance_visit': dispatchSimulatorEffect,
@@ -287,9 +288,26 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     }
     const result = adapter.executeIntent(request);
     if (!result.ok) return result;
-    const effects = await effectRunner.drain();
-    logCheckpoint(`intent:${request.intent || 'unknown'}`);
-    finalizeIfClosed(request.commandId || 'intent');
+    const drainEffects = async () => {
+      const effects = await effectRunner.drain();
+      logCheckpoint(`intent:${request.intent || 'unknown'}`);
+      finalizeIfClosed(request.commandId || 'intent');
+      return effects;
+    };
+    if (request.deferEffects === true) {
+      Promise.resolve().then(drainEffects).catch(error => {
+        log(`MISSION_EFFECT_DEFERRED_ERROR intent=${request.intent || 'unknown'} error=${error?.code || error?.message || error}`);
+      });
+      return {
+        ...result,
+        activeRun: authorityManager.getActiveRun(),
+        effectDispatch: {
+          status: 'scheduled',
+          pendingCount: effectRunner.publicState().pendingEffects.length
+        }
+      };
+    }
+    const effects = await drainEffects();
     return {
       ...result,
       activeRun: authorityManager.getActiveRun(),

@@ -29,6 +29,7 @@
   var firstRouteFit = false;
   var firstFlightCenter = false;
   var pollTimer = 0;
+  var missionPollTimer = 0;
   var trackerOnline = false;
   var profileZoom = 0;
   var profileYAxis = 0;
@@ -3198,7 +3199,6 @@
       fetchJson('/api/v1/status'),
       fetchJson('/api/v1/snapshot'),
       fetchJson('/api/v1/map'),
-      fetchJson('/api/v1/mission'),
       checklistRequest
     ]).then(function (responses) {
       trackerOnline = true;
@@ -3206,8 +3206,7 @@
       setTrackerState(status && status.simulatorConnected ? 'Tracker + Simulator verbunden' : 'Tracker verbunden | warte auf Simulator', false);
       renderFlight(safePayload(responses[1]));
       renderMapPayload(safePayload(responses[2]));
-      renderMissionPayload(safePayload(responses[3]));
-      if (responses[4]) renderChecklistPayload(safePayload(responses[4]));
+      if (responses[3]) renderChecklistPayload(safePayload(responses[3]));
       notifyParentState('live');
       pollTimer = window.setTimeout(poll, 1000);
     }).catch(function () {
@@ -3216,6 +3215,15 @@
       notifyParentState('error');
       report('warn', 'poll', 'tracker-unreachable', 'Snapshot-Polling fehlgeschlagen');
       pollTimer = window.setTimeout(poll, 1800);
+    });
+  }
+
+  function pollMission() {
+    fetchJson('/api/v1/mission').then(function (envelope) {
+      renderMissionPayload(safePayload(envelope));
+      missionPollTimer = window.setTimeout(pollMission, missionIntentPending || cargoManagerOpen ? 300 : 550);
+    }).catch(function () {
+      missionPollTimer = window.setTimeout(pollMission, 1000);
     });
   }
 
@@ -3354,6 +3362,7 @@
       report('info', 'boot', 'host-ready', 'Kartentisch und Karte bereit');
       notifyParentState('ready', { stage: 'host-ready' });
       poll();
+      pollMission();
     } catch (error) {
       var message = error && error.message || String(error);
       setTrackerState('Kartentisch konnte nicht starten', true);
@@ -3367,6 +3376,7 @@
   else init();
   window.addEventListener('beforeunload', function () {
     if (pollTimer) window.clearTimeout(pollTimer);
+    if (missionPollTimer) window.clearTimeout(missionPollTimer);
     if (efbUiRefreshTimer) window.clearTimeout(efbUiRefreshTimer);
     if (efbUiObserver) efbUiObserver.disconnect();
   });

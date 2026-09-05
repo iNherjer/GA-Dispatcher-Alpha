@@ -242,6 +242,7 @@ function createTrackerCockpitControl(options = {}) {
           runId: activeRun.runId,
           expectedRevision: activeRun.revision,
           payload: safeObject(request.payload),
+          deferEffects: request.deferEffects === true,
           controllerSession: publicSession(auth.session)
         }));
         result = { ...executed, activeRun: publicRun(executed.activeRun || getMissionRun()) };

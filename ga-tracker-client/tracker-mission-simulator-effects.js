@@ -37,6 +37,12 @@ function finite(value, fallback = null) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function normalizedKey(value, fallback = 'cargo-item') {
+  return cleanString(value, 220).toLowerCase()
+    .replace(/[^a-z0-9_.:-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || fallback;
+}
+
 function errorResult(error, details = {}) {
   return { ok: false, status: 'blocked', error, sideEffect: false, ...details };
 }
@@ -154,6 +160,109 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       if (continued.ok !== true) return errorResult(continued.error || 'mission_deboarding_continuation_failed');
       return { ok: true, status: 'completed', sideEffect: continued.sideEffect === true, commandId };
     }
+    if (effectType === 'scene.cargo_item_transition') {
+      if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
+      if (!dispatchCommand) return errorResult('mission_simulator_not_connected');
+      const run = authorityManager.getActiveRun({ includeBundle: true });
+      if (!run?.missionId || !run?.runId) return errorResult('no_active_run');
+      if (run.executionAuthority !== 'tracker') return errorResult('mission_execution_authority_web');
+      if (cleanString(request.missionId) !== cleanString(run.missionId)
+          || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
+        return errorResult('mission_run_conflict');
+      }
+      const plan = effectPlanFromRun(run);
+      if (!plan) return errorResult('mission_apt_effect_plan_missing');
+      const payload = safeObject(request?.effect?.payload);
+      const item = safeObject(payload.item);
+      const itemId = cleanString(payload.itemId || item.id, 120);
+      const action = cleanString(payload.action, 40).toLowerCase();
+      if (!itemId || !['load', 'reload', 'unload', 'drop'].includes(action)) {
+        return errorResult('mission_cargo_visual_transition_invalid');
+      }
+      const baseKind = cleanString(item.sceneKind || item.id || itemId, 120) || itemId;
+      const unloadedKind = `unloaded_${baseKind}`;
+      const manifestKey = normalizedKey(payload.manifestKey || run.missionId, 'active-mission');
+      const objectKey = item.persistentEquipment === true
+        ? `aircraft-equipment:tracker:${normalizedKey(itemId)}`
+        : `mission-cargo:${manifestKey}:${normalizedKey(itemId)}`;
+      let command;
+      let ackType;
+      if (action === 'load' || action === 'reload') {
+        command = {
+          type: 'mission_scene_object_remove',
+          commandId,
+          missionId: run.missionId,
+          runId: run.runId,
+          sceneId: cleanString(plan.sceneId, 220),
+          reason: `tracker-execution:cargo-${action}`,
+          objectKey,
+          allScenes: true,
+          objectKeys: [objectKey],
+          kinds: Array.from(new Set([baseKind, unloadedKind, item.pickupLocation === 'target' ? 'arrival_equipment_1' : 'cargo'].filter(Boolean))),
+          labels: [item.label, item.storyName].map(value => cleanString(value, 180)).filter(Boolean),
+          itemIds: [itemId],
+          cargoSceneKinds: [baseKind, unloadedKind]
+        };
+        ackType = 'mission_scene_object_remove_ack';
+      } else {
+        const position = normalizeLivePosition(getLivePosition());
+        if (!position) return errorResult('mission_simulator_live_position_missing');
+        const placement = safeObject(plan.cargoPlacement);
+        command = {
+          type: 'mission_scene_object_spawn',
+          commandId,
+          missionId: run.missionId,
+          runId: run.runId,
+          sceneId: `${cleanString(plan.sceneId, 180)}-cargo-unload`,
+          reason: `tracker-execution:cargo-${action}`,
+          objectKey,
+          replaceExisting: true,
+          lat: position.lat,
+          lon: position.lon,
+          altFt: position.altFt,
+          hdg: position.hdg,
+          items: [{
+            kind: unloadedKind,
+            itemId,
+            cargoItemId: itemId,
+            cargoSceneKind: baseKind,
+            objectKey,
+            label: cleanString(item.storyName || item.label || itemId, 180),
+            objectTitle: cleanString(item.objectTitle, 180) || 'Cardboard',
+            titleCandidates: Array.isArray(item.titleCandidates) ? item.titleCandidates.slice(0, 24) : [],
+            forwardM: finite(placement.forwardM, 4) + finite(item.forwardM ?? item.forwardOffsetM, 0),
+            rightM: finite(placement.rightM, 4) + finite(item.rightM ?? item.rightOffsetM, 0),
+            headingMode: 'with_aircraft',
+            altOffsetFt: finite(placement.altOffsetFt, 0) + finite(item.altOffsetFt, 0)
+          }]
+        };
+        ackType = 'mission_scene_object_spawn_ack';
+      }
+      pending.set(commandId, {
+        effectId: commandId,
+        effectType,
+        ackType,
+        missionId: run.missionId,
+        runId: run.runId,
+        coordinateFarewell: false
+      });
+      let result;
+      try {
+        result = safeObject(await dispatchCommand(command));
+      } catch (error) {
+        pending.delete(commandId);
+        return { ok: false, status: 'error', error: cleanString(error?.code || error?.message || error, 180) || 'mission_simulator_dispatch_failed', sideEffect: false };
+      }
+      if (result.ok !== true) {
+        pending.delete(commandId);
+        return errorResult(result.error || 'mission_simulator_dispatch_failed', { sideEffect: result.sideEffect === true });
+      }
+      if (cleanString(result.status, 40).toLowerCase() === 'completed') {
+        pending.delete(commandId);
+        return { ok: true, status: 'completed', sideEffect: result.sideEffect === true, commandId };
+      }
+      return { ok: true, status: 'pending', sideEffect: true, commandId };
+    }
     const contract = EFFECT_COMMANDS[effectType];
     if (!contract) return errorResult('mission_simulator_effect_not_supported');
     if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
@@ -264,7 +373,8 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (!record || cleanString(ack.type, 140).toLowerCase() !== record.ackType) return false;
     pending.delete(commandId);
     const ackStatus = cleanString(ack.status, 40).toLowerCase();
-    const completed = ackStatus === 'ok';
+    const completed = ackStatus === 'ok'
+      || (record.effectType === 'scene.cargo_item_transition' && ackStatus === 'noop');
     if (!acknowledgeEffect) {
       log(`MISSION_EFFECT_ACK_DROPPED effect=${record.effectType} commandId=${commandId} reason=acknowledger_missing`);
       return true;
@@ -289,6 +399,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     handlers: Object.freeze({
       'scene.prepare': dispatch,
       'scene.boarding': dispatch,
+      'scene.cargo_item_transition': dispatch,
       'scene.compliance_visit': dispatch,
       'scene.compliance_departure': dispatch,
       'mission.close_requested': dispatch
