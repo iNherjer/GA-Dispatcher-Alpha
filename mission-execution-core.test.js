@@ -556,7 +556,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.ok(indexSource.indexOf('mission-start-core.js') < indexSource.indexOf('mission-execution-core.js'));
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
     assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v='));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1701/);
+    assert.match(serviceWorkerSource, /ga-dispatcher-v1702/);
     assert.match(serviceWorkerSource, /\.\/mission-manifest-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-start-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-location-core\.js/);
@@ -610,4 +610,75 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(trackerSource, /missionExecutionRuntime\.observeTelemetry/);
     assert.match(trackerSource, /fetchTrackerCloudMission/);
     assert.match(trackerSource, /activateCloudMission/);
+});
+
+test('remote Origin handoff uses the tracker relay without requiring a loopback cockpit session', async () => {
+    const syncSource = fs.readFileSync(path.join(__dirname, 'sync.js'), 'utf8');
+    const relaySelectorSource = syncSource.match(/function _trackerExecutionUsesRelayController\(\) \{[\s\S]*?\n\}/)?.[0];
+    const handoffSource = syncSource.match(/async function _ensureTrackerExecutionAuthority\(reason = 'apt-ui-intent'\) \{[\s\S]*?\n\}\n\nfunction _publishMissionControlIntentStatus/)?.[0]
+        .replace(/\n\nfunction _publishMissionControlIntentStatus$/, '');
+    assert.ok(relaySelectorSource);
+    assert.ok(handoffSource);
+
+    let loopbackStarts = 0;
+    const authorityCommands = [];
+    const window = {
+        simModeActive: false,
+        liveTrackerConnected: true,
+        sendTrackerCommand() {},
+        gaCockpitSessionClient: {
+            async start() {
+                loopbackStarts += 1;
+                throw new Error('Quest darf den PC-Loopback nicht erreichen');
+            },
+            async submitIntent() {}
+        },
+        lastTrackerMissionAuthority: null,
+        lastTrackerMissionStatus: null
+    };
+    const seededRun = {
+        missionId: 'mission-quest-apt',
+        runId: 'run-quest-apt',
+        revision: 20,
+        stateHash: 'state-20',
+        executionStateHash: 'execution-20'
+    };
+    const context = vm.createContext({
+        window,
+        missionExecutionHandoffPromise: null,
+        _missionExecutionAuthorityIsTracker: () => false,
+        _trackerSupportsMissionIntents: () => true,
+        _missionStartPhase: () => 'planned',
+        _ensureMissionAuthorityForStart: async () => true,
+        _pushMissionAuthoritySnapshotForExecutionHandoff: async () => ({
+            status: 'ok',
+            authoritativeRun: seededRun
+        }),
+        _missionAuthorityClientId: () => 'quest-origin-client',
+        _sendMissionAuthorityRequest: async command => {
+            authorityCommands.push(command.type);
+            if (command.type === 'mission_execution_authority_prepare') {
+                return {
+                    status: 'ok',
+                    handoff: { handoffId: 'handoff-quest' },
+                    authoritativeRun: { ...seededRun, revision: 21 }
+                };
+            }
+            return {
+                status: 'ok',
+                authoritativeRun: { ...seededRun, revision: 22, executionAuthority: 'tracker' }
+            };
+        },
+        _refreshTrackerExecutionControl: async () => null,
+        Date
+    });
+    vm.runInContext(`${relaySelectorSource}\n${handoffSource}\nthis.ensureTrackerAuthority = _ensureTrackerExecutionAuthority;`, context);
+
+    assert.equal(await context.ensureTrackerAuthority('quest-start'), true);
+    assert.equal(loopbackStarts, 0);
+    assert.deepEqual(authorityCommands, [
+        'mission_execution_authority_prepare',
+        'mission_execution_authority_commit'
+    ]);
+    assert.equal(window.lastTrackerMissionStatus.executionAuthority, 'tracker');
 });

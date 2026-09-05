@@ -2934,6 +2934,11 @@ async function _pushMissionAuthoritySnapshotForExecutionHandoff(reason = 'execut
     return ack;
 }
 
+function _trackerExecutionUsesRelayController() {
+    return window.liveTrackerConnected === true
+        && typeof window.sendTrackerCommand === 'function';
+}
+
 async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
     if (_missionExecutionAuthorityIsTracker()) return true;
     if (missionExecutionHandoffPromise) return missionExecutionHandoffPromise;
@@ -2941,10 +2946,12 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
         if (window.simModeActive || !_trackerSupportsMissionIntents() || _missionStartPhase() !== 'planned') return false;
         const authorityReady = await _ensureMissionAuthorityForStart(`${reason}:authority`);
         if (!authorityReady) return false;
-        const client = window.gaCockpitSessionClient;
-        if (!client || typeof client.start !== 'function' || typeof client.submitIntent !== 'function') return false;
-        const session = await client.start();
-        if (!session) return false;
+        if (!_trackerExecutionUsesRelayController()) {
+            const client = window.gaCockpitSessionClient;
+            if (!client || typeof client.start !== 'function' || typeof client.submitIntent !== 'function') return false;
+            const session = await client.start();
+            if (!session) return false;
+        }
         const seeded = await _pushMissionAuthoritySnapshotForExecutionHandoff(`${reason}:snapshot`);
         const seededRun = seeded.authoritativeRun;
         if (seeded.status !== 'ok' || !seededRun?.executionStateHash || !seededRun?.stateHash) return false;

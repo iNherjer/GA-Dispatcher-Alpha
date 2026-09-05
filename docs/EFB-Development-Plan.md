@@ -1,6 +1,6 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
-Stand: 2026-08-24
+Stand: 2026-09-05
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-Cockpit-Clients: EFB-App und globales Toolbar-Panel. Neue Chats lesen
@@ -35,6 +35,16 @@ der Tracker sofort denselben Authority-Snapshot an alle Ansichten. Mission
 Control wird in App und EFB aus `mission-control-ui-core.js` erzeugt, sodass
 Texte, Phasen, Bedingungen, Fortschritt und Bedienelemente nicht mehr in zwei
 getrennten Renderern auseinanderlaufen koennen.
+
+Der erste entfernte Origin-Test am 05.09.2026 zeigte eine Transportluecke vor
+dem eigentlichen `prepare_mission`: Nach erfolgreichem Authority-Acquire
+verlangte die App zusaetzlich eine HTTP-Session auf `127.0.0.1`, die ein
+Quest-/Remote-Browser naturgemaess nicht zum Sim-PC aufbauen kann. Der
+Handoff waehlt deshalb nun den bereits verbundenen Tracker-Relay-Controller
+ohne Loopback-Voraussetzung. Nur Clients ohne aktiven Relay-Controller muessen
+weiterhin eine lokale Cockpit-Session nachweisen. Ein ausfuehrbarer
+Regressionstest prueft, dass Prepare und Commit ueber Relay laufen, ohne den
+Loopback-Client zu starten. Der reale Wiederholungstest bleibt offen.
 
 Diese Freigabe ist nur das technische Gate fuer Stufe E, nicht deren PASS:
 Standard-APT-End-to-End, parallele App-/EFB-Bedienung, Reload/Duplicate-
