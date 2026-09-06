@@ -1576,6 +1576,41 @@ function createMissionAuthorityManager(options = {}) {
     return { ok: true, status: 'ok', context: jsonClone(normalized) };
   };
 
+  // Ausschliesslich fuer den lokal bestaetigten Desktop-Recoverypfad. Ein
+  // aktiver Run muss vorher durch den normalen Abort inklusive Payload- und
+  // Szenen-Cleanup beendet sein; dadurch kann dieser Schritt keine Simulator-
+  // Effekte stillschweigend ueberspringen.
+  const clearMissionRecoveryState = (request = {}) => {
+    if (state.activeRun) {
+      return {
+        ok: false,
+        status: 'blocked',
+        error: 'mission_execution_abort_required',
+        activeRun: publicRun(state.activeRun)
+      };
+    }
+    const hadLastRun = Boolean(state.lastRun);
+    const clearedEvents = Array.isArray(state.events) ? state.events.length : 0;
+    if (!hadLastRun && !clearedEvents) {
+      return { ok: true, status: 'noop', clearedLastRun: false, clearedEvents: 0, activeRun: null };
+    }
+    const previousState = jsonClone(state);
+    state.lastRun = null;
+    state.events = [];
+    if (!persist()) {
+      state = previousState;
+      return { ok: false, status: 'error', error: 'mission_execution_recovery_clear_persist_failed', activeRun: null };
+    }
+    log(`MISSION_EXECUTION_RECOVERY_CLEARED command=${cleanString(request.commandId, 220) || 'desktop-hard-reset'} reason=${cleanString(request.reason, 240) || 'desktop-hard-reset'} lastRun=${hadLastRun ? 1 : 0} events=${clearedEvents}`);
+    return {
+      ok: true,
+      status: 'ok',
+      clearedLastRun: hadLastRun,
+      clearedEvents,
+      activeRun: null
+    };
+  };
+
   load();
 
   return {
@@ -1598,6 +1633,7 @@ function createMissionAuthorityManager(options = {}) {
     recordExecutionPayloadRecovery,
     getExecutionRuntimeContext,
     recordExecutionRuntimeContext,
+    clearMissionRecoveryState,
     getExecutionSnapshot,
     abortExecutionRun,
     finalizeExecutionRun,

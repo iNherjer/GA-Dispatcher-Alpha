@@ -163,6 +163,20 @@ Interface wieder mit dem laufenden Tracker-Run und darf die Mission nicht
 automatisch abbrechen. Nach dem Reload bleiben die ausdruecklichen Clear-,
 Reset- und Neue-Mission-Aktionen als Recovery verfuegbar.
 
+### 3.5 Lokaler Desktop-Hard-Reset
+
+Der Tracker-Desktop darf fuer einen festgefahrenen **Tracker-authoritativen**
+APT-Run einen separat bestaetigten Hard-Reset anbieten. Er ist kein zweiter
+fachlicher Resetpfad: Er sendet intern zuerst denselben `abort_mission` mit
+Payload-Restore und Szenenbereinigung. Nur nach dessen Erfolg entfernt er den
+lokalen Authority-LastRun, Effect-/Shadow-Recovery und die zugehoerige
+Tracker-Projektion; Flightlog und die Cloud-Mission der App bleiben erhalten.
+Danach liest der Tracker den aktuellen Cloud-Seed neu ein. Ist die sichere
+Bereinigung nicht moeglich, bleibt der Run erhalten und der Desktop meldet den
+Blocker statt ihn gewaltsam zu verwerfen. Der Endpunkt ist ausschliesslich an
+Loopback gebunden und durch ein pro Trackerprozess erzeugtes Desktop-Token
+geschuetzt; weder App noch EFB erhalten dieses Token.
+
 ## 4. Verantwortungsgrenzen im Tracker-Modus
 
 ### 4.1 Tracker: fachliche Autoritaet

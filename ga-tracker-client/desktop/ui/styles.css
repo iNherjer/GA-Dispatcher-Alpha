@@ -395,6 +395,30 @@ summary {
   padding-top: 16px;
 }
 
+.mission-recovery-control {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0 3px;
+  padding: 11px;
+  border: 1px solid rgba(255, 116, 134, 0.2);
+  border-radius: 11px;
+  background: rgba(255, 116, 134, 0.045);
+}
+
+.mission-recovery-control > strong {
+  font-size: 12px;
+}
+
+.mission-recovery-control > small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.mission-recovery-control > .secondary-button {
+  justify-self: start;
+}
+
 .settings-group h2,
 .dialog-card h2 {
   font-size: 16px;

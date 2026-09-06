@@ -412,6 +412,11 @@ function registerIpc() {
     return startTrackerIfReady();
   });
   ipcMain.handle('tracker:stop', () => trackerProcess.stop());
+  ipcMain.handle('tracker:hard-reset-mission', async () => {
+    const result = await trackerProcess.hardResetMission();
+    broadcastState();
+    return result;
+  });
   ipcMain.handle('bridge:refresh', () => refreshManagedModule('bridge', { force: true }));
   ipcMain.handle('bridge:install', () => bridgeAction(() => bridgeManager.install()));
   ipcMain.handle('bridge:start', () => bridgeAction(() => bridgeManager.start()));

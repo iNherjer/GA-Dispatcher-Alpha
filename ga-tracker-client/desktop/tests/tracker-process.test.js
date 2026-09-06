@@ -61,6 +61,8 @@ test('desktop credentials use stdin and are not copied into the child environmen
   assert.equal(spec.env.VFR_MULTITOOL_TRACKER_HEADLESS, '1');
   assert.equal(spec.env.VFR_MULTITOOL_TRACKER_CHANNEL, 'alpha');
   assert.equal(spec.env.VFR_MULTITOOL_APT_EXECUTION, '1');
+  assert.match(spec.env.VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN, /^[a-f0-9]{64}$/);
+  assert.equal(tracker.publicState().desktopControlToken, undefined);
 });
 
 test('APT execution opt-in is forced off outside Alpha and overrides inherited process state', () => {

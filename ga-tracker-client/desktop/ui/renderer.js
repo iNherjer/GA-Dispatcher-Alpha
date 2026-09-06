@@ -25,6 +25,8 @@ const elements = {
   runtimeChannelMessage: document.getElementById('runtimeChannelMessage'),
   aptMissionExecutionCheckbox: document.getElementById('aptMissionExecutionCheckbox'),
   aptMissionExecutionMessage: document.getElementById('aptMissionExecutionMessage'),
+  hardMissionResetButton: document.getElementById('hardMissionResetButton'),
+  hardMissionResetMessage: document.getElementById('hardMissionResetMessage'),
   trackerAutoUpdateCheckbox: document.getElementById('trackerAutoUpdateCheckbox'),
   desktopAutoUpdateCheckbox: document.getElementById('desktopAutoUpdateCheckbox'),
   desktopUpdateVersion: document.getElementById('desktopUpdateVersion'),
@@ -133,6 +135,7 @@ let latestState = null;
 let activeUpdateDialog = null;
 let channelChangePending = false;
 let aptMissionExecutionChangePending = false;
+let hardMissionResetPending = false;
 let dismissedDesktopInstallVersion = '';
 const dismissedUpdates = new Set();
 
@@ -409,6 +412,16 @@ function render(state) {
     : (settings.aptMissionExecutionEnabled === true
       ? 'Aktiv: Der Tracker führt unterstützte APT-Missionen autoritativ aus.'
       : 'Aus: Die bisherige Missionssteuerung der App bleibt aktiv.');
+  const hardMissionResetAvailable = tracker.process === 'running'
+    && runtimeChannel === 'alpha'
+    && settings.aptMissionExecutionEnabled === true;
+  elements.hardMissionResetButton.disabled = !hardMissionResetAvailable || hardMissionResetPending;
+  if (!hardMissionResetPending && !elements.hardMissionResetMessage.textContent) {
+    elements.hardMissionResetMessage.className = 'form-message';
+    elements.hardMissionResetMessage.textContent = hardMissionResetAvailable
+      ? 'Nur verwenden, wenn eine Tracker-Mission festhängt. Eine Rückfrage schützt vor Versehen.'
+      : 'Verfügbar nur bei laufendem Alpha-Tracker mit aktivierter experimenteller APT-Steuerung.';
+  }
   setChecked(elements.trackerAutoUpdateCheckbox, modulePolicy(settings, 'tracker') === 'automatic');
   setChecked(elements.desktopAutoUpdateCheckbox, modulePolicy(settings, 'desktop') === 'automatic');
   setChecked(elements.homebaseAutoUpdateCheckbox, modulePolicy(settings, 'homebase') === 'automatic');
@@ -533,6 +546,22 @@ elements.aptMissionExecutionCheckbox.addEventListener('change', async () => {
   } else if (result.restartFailed) {
     elements.aptMissionExecutionMessage.textContent = result.message;
   }
+});
+
+elements.hardMissionResetButton.addEventListener('click', async () => {
+  if (hardMissionResetPending) return;
+  if (!window.confirm('Laufende Tracker-Mission wirklich hart zurücksetzen?\n\nDer Tracker stellt zuerst Payload und Simulator-Szenen wieder her, entfernt danach nur seinen Missionszustand und lädt die aktuelle Mission erneut aus der App. Fluglog und App-Mission werden nicht gelöscht.')) return;
+  hardMissionResetPending = true;
+  elements.hardMissionResetButton.disabled = true;
+  elements.hardMissionResetMessage.className = 'form-message';
+  elements.hardMissionResetMessage.textContent = 'Tracker-Mission wird sicher zurückgesetzt …';
+  const result = await window.trackerDesktop.hardResetMission();
+  hardMissionResetPending = false;
+  await window.trackerDesktop.getState().then(render);
+  elements.hardMissionResetMessage.className = result?.ok ? 'form-message success' : 'form-message error';
+  elements.hardMissionResetMessage.textContent = result?.message || (result?.ok
+    ? 'Tracker-Mission wurde zurückgesetzt und der App-Stand wird neu geladen.'
+    : 'Der Tracker konnte den Missionsreset nicht sicher ausführen.');
 });
 
 async function saveStartupPreferences() {

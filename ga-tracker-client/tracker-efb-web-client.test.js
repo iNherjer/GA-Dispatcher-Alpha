@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '37901');
+  assert.equal(EFB_WEB_ASSET_REVISION, '38001');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=37901/);
-  assert.match(page, /host\.css\?v=37901/);
-  assert.match(page, /map-shell-core\.js\?v=37901/);
-  assert.match(page, /map-utility-tools\.js\?v=37901/);
-  assert.match(page, /mission-control-ui-core\.js\?v=37901/);
-  assert.match(page, /cockpit-session-client\.js\?v=37901/);
-  assert.match(page, /host\.js\?v=37901/);
+  assert.match(page, /app-styles\.css\?v=38001/);
+  assert.match(page, /host\.css\?v=38001/);
+  assert.match(page, /map-shell-core\.js\?v=38001/);
+  assert.match(page, /map-utility-tools\.js\?v=38001/);
+  assert.match(page, /mission-control-ui-core\.js\?v=38001/);
+  assert.match(page, /cockpit-session-client\.js\?v=38001/);
+  assert.match(page, /host\.js\?v=38001/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,20 +35,20 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=37901"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=37901"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=37901"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=37901"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=38001"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=38001"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=38001"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=38001"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=37901',
-    '/efb/v1/assets/map-utility-tools.js?v=37901',
-    '/efb/v1/assets/mission-control-ui-core.js?v=37901',
-    '/efb/v1/assets/cockpit-session-client.js?v=37901',
-    '/efb/v1/assets/host.js?v=37901'
+    '/efb/v1/assets/map-shell-core.js?v=38001',
+    '/efb/v1/assets/map-utility-tools.js?v=38001',
+    '/efb/v1/assets/mission-control-ui-core.js?v=38001',
+    '/efb/v1/assets/cockpit-session-client.js?v=38001',
+    '/efb/v1/assets/host.js?v=38001'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -114,6 +114,20 @@ test('EFB cargo manager keeps app toggle semantics and avoids poll-time DOM rebu
   assert.match(source, /\^\(active\|enroute\|return_leg\)\$[\s\S]*?label: 'Abwerfen'/);
   assert.match(source, /label: 'Wieder laden'/);
   assert.match(source, /HOST 0\.7\.4/);
+});
+
+test('unchanged mission polls do not redraw the EFB banner, toolbar or cargo overlay', () => {
+  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  assert.match(source, /var missionPresentationSignature = ''/);
+  const renderStart = source.indexOf('function renderMissionPayload(payload)');
+  const presentationGuard = source.indexOf('if (presentationSignature !== missionPresentationSignature)', renderStart);
+  const bannerRender = source.indexOf('renderMissionActionBanner(next);', renderStart);
+  const toolbarRender = source.indexOf('renderMissionToolbar(next);', renderStart);
+  const cargoRender = source.indexOf('renderCargoManager();', renderStart);
+  assert.ok(renderStart >= 0 && presentationGuard > renderStart);
+  assert.ok(bannerRender > presentationGuard);
+  assert.ok(toolbarRender > presentationGuard);
+  assert.ok(cargoRender > presentationGuard);
 });
 
 test('all Coherent-facing scripts avoid syntax rejected by the simulator engine', () => {

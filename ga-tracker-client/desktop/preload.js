@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   getState: () => ipcRenderer.invoke('app:get-state'),
   startTracker: () => ipcRenderer.invoke('tracker:start'),
   stopTracker: () => ipcRenderer.invoke('tracker:stop'),
+  hardResetMission: () => ipcRenderer.invoke('tracker:hard-reset-mission'),
   refreshBridge: () => ipcRenderer.invoke('bridge:refresh'),
   installBridge: () => ipcRenderer.invoke('bridge:install'),
   startBridge: () => ipcRenderer.invoke('bridge:start'),

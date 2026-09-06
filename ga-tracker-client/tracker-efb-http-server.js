@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const http = require('node:http');
 const {
   CAPABILITIES,
@@ -34,9 +35,11 @@ const EFB_COCKPIT_SESSION_PATH = '/api/v1/cockpit/sessions';
 const EFB_COCKPIT_SESSION_HEARTBEAT_PATH = '/api/v1/cockpit/sessions/heartbeat';
 const EFB_COCKPIT_SESSION_RELEASE_PATH = '/api/v1/cockpit/sessions/release';
 const EFB_MISSION_INTENT_PATH = '/api/v1/mission/intents';
+const TRACKER_MISSION_HARD_RESET_PATH = '/api/v1/tracker/mission/hard-reset';
 const MAX_EFB_CLIENT_LOG_BYTES = 8192;
 const MAX_EFB_VOICE_REQUEST_BYTES = 16384;
 const MAX_EFB_COCKPIT_REQUEST_BYTES = 16384;
+const MAX_TRACKER_CONTROL_REQUEST_BYTES = 1024;
 const MAX_EFB_CLIENT_LOGS_PER_MINUTE = 120;
 const TRACKER_EFB_HTTP_CAPABILITIES = Object.freeze([
   CAPABILITIES.FLIGHT_SNAPSHOT,
@@ -60,6 +63,16 @@ function safeObject(value) {
 function isLoopbackAddress(value) {
   const address = String(value || '').toLowerCase();
   return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+}
+
+function hasDesktopControlToken(request, expectedToken) {
+  const expected = String(expectedToken || '').trim();
+  const provided = String(request?.headers?.['x-ga-tracker-desktop-control'] || '').trim();
+  if (!expected || !provided) return false;
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  const providedBuffer = Buffer.from(provided, 'utf8');
+  return expectedBuffer.length === providedBuffer.length
+    && crypto.timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
 function isTrustedVoiceOrigin(request) {
@@ -250,6 +263,8 @@ function createTrackerEfbHttpServer(options = {}) {
   const getChecklistSnapshot = typeof options.getChecklistSnapshot === 'function' ? options.getChecklistSnapshot : () => null;
   const voiceService = options.voiceService && typeof options.voiceService === 'object' ? options.voiceService : null;
   const cockpitControl = options.cockpitControl && typeof options.cockpitControl === 'object' ? options.cockpitControl : null;
+  const desktopControlToken = String(options.desktopControlToken || '').trim();
+  const hardResetMission = typeof options.hardResetMission === 'function' ? options.hardResetMission : null;
   const log = typeof options.log === 'function' ? options.log : () => {};
   let server = null;
   const loggedAssets = new Set();
@@ -310,6 +325,33 @@ function createTrackerEfbHttpServer(options = {}) {
         const statusCode = Number(error?.statusCode) === 413 ? 413 : 400;
         log(`EFB_CLIENT_REJECT status=${statusCode} error=${sanitizeLogField(error?.message || error, 120)}`);
         jsonResponse(response, statusCode, { error: statusCode === 413 ? 'payload_too_large' : 'invalid_payload' });
+      }
+      return;
+    }
+    if (request.method === 'POST' && pathname === TRACKER_MISSION_HARD_RESET_PATH) {
+      if (!hardResetMission) {
+        request.resume();
+        jsonResponse(response, 503, { error: 'tracker_mission_reset_unavailable' });
+        return;
+      }
+      if (!hasDesktopControlToken(request, desktopControlToken)) {
+        request.resume();
+        jsonResponse(response, 403, { error: 'tracker_desktop_control_rejected' });
+        return;
+      }
+      try {
+        const payload = await readJsonBody(request, MAX_TRACKER_CONTROL_REQUEST_BYTES);
+        const result = await hardResetMission(payload);
+        const statusCode = result?.status === 'conflict' ? 409
+          : (result?.status === 'blocked' ? 423 : (result?.ok === false ? 400 : 200));
+        jsonResponse(response, statusCode, {
+          hello,
+          message: createMessage('tracker.mission.hard-reset', result)
+        });
+      } catch (error) {
+        const statusCode = Math.max(400, Math.min(599, Number(error?.statusCode) || 400));
+        log(`TRACKER_MISSION_HARD_RESET_REJECT status=${statusCode} code=${sanitizeLogField(error?.code || 'invalid_request', 80)}`);
+        jsonResponse(response, statusCode, { error: error?.code || 'invalid_request' });
       }
       return;
     }
@@ -583,16 +625,19 @@ module.exports = {
   EFB_COCKPIT_SESSION_HEARTBEAT_PATH,
   EFB_COCKPIT_SESSION_RELEASE_PATH,
   EFB_MISSION_INTENT_PATH,
+  TRACKER_MISSION_HARD_RESET_PATH,
   EFB_VOICE_JOB_PATH,
   EFB_VOICE_PLAYBACK_CLAIM_PATH,
   EFB_VOICE_PLAYBACK_NEXT_PATH,
   EFB_VOICE_PLAYBACK_RELEASE_PATH,
   MAX_EFB_CLIENT_LOG_BYTES,
   MAX_EFB_COCKPIT_REQUEST_BYTES,
+  MAX_TRACKER_CONTROL_REQUEST_BYTES,
   MAX_EFB_VOICE_REQUEST_BYTES,
   TRACKER_EFB_HTTP_CAPABILITIES,
   createTrackerEfbHttpHello,
   createTrackerEfbHttpServer,
+  hasDesktopControlToken,
   isLoopbackAddress,
   isTrustedCockpitOrigin,
   isTrustedVoiceOrigin,

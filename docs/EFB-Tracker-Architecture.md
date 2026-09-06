@@ -160,6 +160,16 @@ Alias fuer diesen sicheren Abbruch. Pax-Buttons senden semantische Interaktionen
 Orientierungs-, Wohlbefindens-, Wetter-, Ladungs- oder Fundanfrage. Der
 Missionskern entscheidet, welche davon im aktuellen Rezept erlaubt ist.
 
+Der Tracker-Desktop besitzt zusaetzlich einen bewusst getrennten,
+bestaetigungspflichtigen **Hard-Reset** fuer festgefahrene Tracker-Runs. Der
+Desktop ruft dafuer einen nur lokal erreichbaren und mit einem frischen
+prozesslokalen Token geschuetzten Endpoint auf. Der Endpoint fuehrt zuerst den
+normalen autoritativen Abort mit Payload-Baseline-Restore und Szenen-Cleanup
+aus. Erst bei Erfolg leert er den lokalen Mission-Recovery-/Shadow-Zustand und
+laedt den App-Cloud-Seed neu. Er ist kein Browser- oder EFB-Intent, gibt keine
+zusaetzliche Missionsautoritaet und darf bei fehlendem Cleanup keinen Run
+freigeben.
+
 Voice ist ein abgeleiteter Effekt. Der Tracker fuehrt eine deduplizierte
 Voice-/Effekt-Queue und koordiniert pro Run genau einen Playback-Owner, damit
 Web-App, EFB und Toolbar-Panel dieselbe Ansage nicht parallel ausgeben.

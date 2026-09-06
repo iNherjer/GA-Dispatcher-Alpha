@@ -78,11 +78,15 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v379';
-const TRACKER_VERSION_CODE = 379;
+const TRACKER_VERSION = 'v380';
+const TRACKER_VERSION_CODE = 380;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
+// Wird fuer jeden Desktop-Start frisch erzeugt und nur ueber die private
+// Parent→Child-Umgebung weitergereicht. Er ist weder Teil eines Snapshots noch
+// einer Browser-/EFB-Session und schützt den lokalen Desktop-Recovery-Endpunkt.
+const TRACKER_DESKTOP_CONTROL_TOKEN = String(process.env.VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN || '').trim();
 const TRACKER_APT_EXECUTION_REQUESTED = TRACKER_RUNTIME_CHANNEL === 'alpha'
   && process.env.VFR_MULTITOOL_APT_EXECUTION === '1';
 const TRACKER_APT_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_REQUESTED
@@ -5097,6 +5101,87 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     if (Object.hasOwn(patch, 'missionSnapshot')) _lastEfbMissionSnapshot = patch.missionSnapshot && typeof patch.missionSnapshot === 'object' ? patch.missionSnapshot : null;
     if (Object.hasOwn(patch, 'payloadSnapshot')) _lastPayloadSnapshot = patch.payloadSnapshot && typeof patch.payloadSnapshot === 'object' ? patch.payloadSnapshot : null;
   };
+  let _hardMissionResetInProgress = false;
+  const hardResetTrackerMission = async () => {
+    if (!TRACKER_APT_EXECUTION_ENABLED || !missionExecutionRuntime.enabled) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_not_enabled', sideEffect: false };
+    }
+    if (_hardMissionResetInProgress) {
+      return { ok: false, status: 'blocked', error: 'tracker_mission_reset_in_progress', sideEffect: false };
+    }
+    _hardMissionResetInProgress = true;
+    const commandId = `desktop-hard-reset-${Date.now().toString(36)}`;
+    try {
+      const activeRun = missionAuthorityManager.getActiveRun({ includeBundle: true, includeEffects: true });
+      if (activeRun && activeRun.executionAuthority !== 'tracker') {
+        return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', activeRun, sideEffect: false };
+      }
+      const voiceEffectIds = (Array.isArray(activeRun?.effects) ? activeRun.effects : [])
+        .filter(effect => /^voice\./.test(String(effect?.type || '')))
+        .map(effect => String(effect?.effectId || effect?.commandId || '').trim())
+        .filter(Boolean);
+      let aborted = { ok: true, status: 'noop', activeRun: null, releasedRun: null, sideEffect: false };
+      if (activeRun) {
+        aborted = await missionExecutionRuntime.executeIntent({
+          commandId,
+          intent: 'abort_mission',
+          missionId: activeRun.missionId,
+          runId: activeRun.runId,
+          expectedRevision: activeRun.revision,
+          payload: { reason: 'desktop-hard-reset' },
+          controllerSession: {
+            clientId: 'tracker-desktop-recovery',
+            role: 'desktop-recovery',
+            capabilities: ['mission.snapshot.v2', 'mission.intent.v1']
+          }
+        });
+        if (aborted?.ok !== true) {
+          debugLog(`MISSION_DESKTOP_HARD_RESET_BLOCKED command=${commandId} mission=${activeRun.missionId} run=${activeRun.runId} status=${aborted?.status || 'error'} error=${aborted?.error || 'unknown'}`);
+          broadcastMissionAuthorityUpdate('desktop-hard-reset-blocked', { commandId }, aborted);
+          return { ...aborted, hardReset: false };
+        }
+      }
+      let voiceCancelled = 0;
+      for (const effectId of voiceEffectIds) {
+        try {
+          if (trackerVoiceService.cancel?.(effectId, 'desktop-hard-reset')?.cancelled === true) voiceCancelled += 1;
+        } catch (_) {}
+      }
+      const recovery = missionAuthorityManager.clearMissionRecoveryState({
+        commandId,
+        clientId: 'tracker-desktop-recovery',
+        reason: 'desktop-hard-reset'
+      });
+      if (recovery?.ok !== true) {
+        debugLog(`MISSION_DESKTOP_HARD_RESET_CLEAR_ERROR command=${commandId} status=${recovery?.status || 'error'} error=${recovery?.error || 'unknown'}`);
+        broadcastMissionAuthorityUpdate('desktop-hard-reset-clear-failed', { commandId }, recovery);
+        return { ...recovery, hardReset: false, aborted, voiceCancelled };
+      }
+      trackerMissionShadow.clear();
+      updateEfbState({ missionSnapshot: null, payloadSnapshot: null });
+      _cloudMissionCandidate = null;
+      broadcastMissionAuthorityUpdate('desktop-hard-reset', { commandId }, { ...aborted, status: 'ok' });
+      const cloudMission = await refreshCloudMissionCandidate('desktop-hard-reset');
+      const result = {
+        ok: true,
+        status: 'ok',
+        hardReset: true,
+        activeRun: null,
+        releasedRun: aborted?.releasedRun || null,
+        cleanup: aborted?.cleanup || null,
+        recovery,
+        voiceCancelled,
+        cloudMissionAvailable: Boolean(cloudMission),
+        cloudMissionId: cloudMission?.missionId || null,
+        sideEffect: aborted?.sideEffect === true
+      };
+      debugLog(`MISSION_DESKTOP_HARD_RESET command=${commandId} cleared=${Math.max(0, Number(aborted?.cleanup?.cleared) || 0)} voiceCancelled=${voiceCancelled} cloud=${cloudMission?.missionId || 'none'}`);
+      broadcastMissionAuthorityUpdate('desktop-hard-reset-cloud-sync', { commandId }, result);
+      return result;
+    } finally {
+      _hardMissionResetInProgress = false;
+    }
+  };
   try {
     const configuredPort = Number(process.env.VFR_MULTITOOL_EFB_PORT || DEFAULT_EFB_HTTP_PORT);
     _efbHttpServer = createTrackerEfbHttpServer({
@@ -5197,6 +5282,8 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       getChecklistSnapshot: () => efbChecklistStore.getSnapshot(),
       cockpitControl: trackerCockpitControl,
       voiceService: trackerVoiceService,
+      desktopControlToken: TRACKER_DESKTOP_CONTROL_TOKEN,
+      hardResetMission: hardResetTrackerMission,
       log: debugLog
     });
     _efbHttpServer.start().then((address) => {
@@ -6601,7 +6688,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         clearInterval(trafficInterval);
         clearInterval(payloadSnapshotInterval);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl), 5000);
       });
     })
     .catch(err => {
@@ -6614,7 +6701,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
       if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
       if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
-      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime), 5000);
+      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl), 5000);
     });
 }
 

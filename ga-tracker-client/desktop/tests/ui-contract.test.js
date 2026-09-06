@@ -28,6 +28,18 @@ test('renderer only calls desktop methods exposed by the preload bridge', () => 
   for (const method of methods) assert.match(preload, new RegExp(`\\b${method}\\s*:`), `Fehlende Preload-Methode: ${method}`);
 });
 
+test('desktop exposes a confirmed, local-only tracker mission recovery control', () => {
+  const html = fs.readFileSync(path.join(desktopRoot, 'ui', 'index.html'), 'utf8');
+  const renderer = fs.readFileSync(path.join(desktopRoot, 'ui', 'renderer.js'), 'utf8');
+  const preload = fs.readFileSync(path.join(desktopRoot, 'preload.js'), 'utf8');
+  const main = fs.readFileSync(path.join(desktopRoot, 'main.js'), 'utf8');
+  assert.match(html, /id="hardMissionResetButton"/);
+  assert.match(renderer, /Laufende Tracker-Mission wirklich hart zurücksetzen/);
+  assert.match(renderer, /trackerDesktop\.hardResetMission\(\)/);
+  assert.match(preload, /hardResetMission: \(\) => ipcRenderer\.invoke\('tracker:hard-reset-mission'\)/);
+  assert.match(main, /ipcMain\.handle\('tracker:hard-reset-mission'/);
+});
+
 test('status controls stay visible while modules are closed and ordered', () => {
   const html = fs.readFileSync(path.join(desktopRoot, 'ui', 'index.html'), 'utf8');
   const modules = Array.from(html.matchAll(/<details class="module-panel" data-module-panel>/g));

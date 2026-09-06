@@ -157,4 +157,16 @@ assert.equal(reloaded.release({
 }).ok, true);
 assert.equal(reloaded.getActiveRun(), null);
 
+const clearedRecovery = reloaded.clearMissionRecoveryState({
+  commandId: 'desktop-hard-reset-test',
+  reason: 'desktop-hard-reset'
+});
+assert.equal(clearedRecovery.ok, true);
+assert.equal(clearedRecovery.clearedLastRun, true);
+assert.equal(reloaded.getPublicSnapshot().lastRun, null);
+assert.equal(reloaded.clearMissionRecoveryState({ commandId: 'desktop-hard-reset-noop' }).status, 'noop');
+const recoveredAfterClear = createManager();
+assert.equal(recoveredAfterClear.getActiveRun(), null);
+assert.equal(recoveredAfterClear.getPublicSnapshot().lastRun, null);
+
 console.log('mission-authority-core tests: ok');

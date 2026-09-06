@@ -14,15 +14,15 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Desktop | 1.6.4 manueller Origin-Installer mit APT-Opt-in-Schalter | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
-| Tracker-Runtime | v378 als freigegebener APT-Feldkandidat | v356 | Manifest-, Start-, Payload-, Boarding-/Farewell-Voice- und Standard-APT-UI-Core sind gegen echte App-Fallbackfunktionen abgesichert. App und EFB nutzen denselben Mission-Control-Renderer und revisionsgebundene Intents. Passenger-Pickup sowie der reale Compliance-/Mehrinstanz-Gesamtnachweis bleiben offen. Training, POI, Bush/Pickup und SAR bleiben fail-closed. |
+| Tracker-Desktop | 1.6.5 manueller Origin-Installer mit APT-Opt-in-Schalter und lokalem Hard-Reset | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
+| Tracker-Runtime | v380 als freigegebener APT-Feldkandidat | v356 | Manifest-, Start-, Payload-, Boarding-/Farewell-Voice- und Standard-APT-UI-Core sind gegen echte App-Fallbackfunktionen abgesichert. App und EFB nutzen denselben Mission-Control-Renderer und revisionsgebundene Intents. Passenger-Pickup sowie der reale Compliance-/Mehrinstanz-Gesamtnachweis bleiben offen. Training, POI, Bush/Pickup und SAR bleiben fail-closed. |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-/App-Transport | EFB ueber HTTP-Loopback, entfernte Origin-App ueber das bestehende PIN-geschuetzte Tracker-Relay | - | Beide Wege enden im selben revisionsgebundenen Intent-Controller. Provider-Keys und Session-Token werden nie oeffentlich projiziert. `mission.intent.v1` erscheint nur, wenn Alpha, Opt-in und Core-Paritaetsgate gemeinsam erfuellt sind. |
 
-### Alpha-Feldkandidat v378
+### Alpha-Feldkandidat v380
 
-Tracker v378 / Host 0.7.4 / Assetrevision 37801 ist der fuer den Alpha-Test
+Tracker v380 / Host 0.7.4 / Assetrevision 38001 ist der fuer den Alpha-Test
 freigegebene Feldkandidat. Die gemeinsamen Manifest-,
 Start-, Payload-, Boarding-/Farewell-, Standard-APT-UI- und Compliance-
 Differentialtests sind lokal gruen. Deshalb meldet der Core fuer diesen
@@ -45,6 +45,23 @@ ohne Loopback-Voraussetzung. Nur Clients ohne aktiven Relay-Controller muessen
 weiterhin eine lokale Cockpit-Session nachweisen. Ein ausfuehrbarer
 Regressionstest prueft, dass Prepare und Commit ueber Relay laufen, ohne den
 Loopback-Client zu starten. Der reale Wiederholungstest bleibt offen.
+
+### Freigegebener Folgefix v380 / Desktop 1.6.5
+
+Der Folgefix schliesst zwei reale Feldbefunde, ohne die APT-Semantik oder
+Legacy-Authority zu aendern: Nach einem SimConnect-Reconnect reicht der
+Tracker den vorhandenen vertrauenswuerdigen Cockpit-Controller jetzt wieder an
+den neuen Command-Handler durch; App-Intents bleiben damit nicht mehr mit
+`mission_execution_authority_not_enabled` haengen. Der EFB trennt ausserdem
+den fachlichen Missionssnapshot von seiner Presentation-Signatur und zeichnet
+Banner, Toolbar und geoeffneten Verlade-Manager bei identischen Polls nicht
+neu, damit Coherent nicht blinkt oder Scroll-/Touch-Fokus verliert.
+
+Desktop 1.6.5 ergaenzt einen bestaetigten lokalen Hard-Reset fuer aktive
+Tracker-APT-Runs. Dieser verwendet vor dem Loeschen des lokalen Recovery-
+Zustands den normalen Abort mit Payload-Restore und Szenenbereinigung und
+ruft anschliessend die aktuelle App-Mission wieder ab. Kann der sichere Abort
+nicht ausgefuehrt werden, bleibt der Run bewusst sichtbar und retrybar.
 
 Diese Freigabe ist nur das technische Gate fuer Stufe E, nicht deren PASS:
 Standard-APT-End-to-End, parallele App-/EFB-Bedienung, Reload/Duplicate-

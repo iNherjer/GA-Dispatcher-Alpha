@@ -10,6 +10,9 @@
   var mapSnapshot = null;
   var missionSnapshot = null;
   var missionSignature = '';
+  // Semantically unchanged mission polls must not reset banner/toolbar/cargo
+  // DOM. Coherent otherwise renders a visible blink and loses scroll/touch.
+  var missionPresentationSignature = '';
   var mapRevision = 0;
   var routeSignature = '';
   var planeMarker = null;
@@ -2198,10 +2201,20 @@
     var next = payload && payload.available === true ? payload : null;
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};
     var signature = missionRenderSignature(next);
+    var presentationSignature = JSON.stringify({
+      mission: signature,
+      intentPending: missionIntentPending === true,
+      intentStatus: missionIntentStatus || '',
+      intentTone: missionIntentTone || '',
+      cargoManagerOpen: cargoManagerOpen === true
+    });
     missionSnapshot = next;
-    renderMissionActionBanner(next);
-    renderMissionToolbar(next);
-    renderCargoManager();
+    if (presentationSignature !== missionPresentationSignature) {
+      missionPresentationSignature = presentationSignature;
+      renderMissionActionBanner(next);
+      renderMissionToolbar(next);
+      renderCargoManager();
+    }
     var drawer = byId('mapSideDrawer');
     var drawerOpen = drawer && drawer.classList.contains('is-open') && drawerView === 'mission';
     if (signature === missionSignature) {

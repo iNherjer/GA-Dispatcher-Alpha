@@ -6,6 +6,7 @@ const test = require('node:test');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const {
   MAX_EFB_CLIENT_LOG_BYTES,
+  TRACKER_MISSION_HARD_RESET_PATH,
   TRACKER_EFB_HTTP_CAPABILITIES,
   createTrackerEfbHttpHello,
   createTrackerEfbHttpServer
@@ -16,17 +17,23 @@ const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core'
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
 test('current tracker exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v379'/);
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v380'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 379/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 380/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);
   assert.match(trackerSource, /currentTelemetryHibernateState\.shouldSendTelemetry/);
   assert.match(trackerSource, /const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12/);
   assert.match(trackerSource, /if \(error\?\.code === 'EADDRINUSE'\)[\s\S]*?process\.exit\(EFB_HTTP_PORT_CONFLICT_EXIT_CODE\)/);
   assert.match(trackerSource, /Diese zweite Tracker-Instanz wird beendet/);
+});
+
+test('every SimConnect reconnect retains the trusted cockpit intent controller', () => {
+  const reconnects = trackerSource.match(/setTimeout\(\(\) => connectSimConnect\([\s\S]*?missionExecutionRuntime, trackerCockpitControl\), 5000\);/g) || [];
+  assert.equal(reconnects.length, 2);
+  assert.doesNotMatch(trackerSource, /missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime\), 5000\)/);
 });
 
 function request(address, pathname, options = {}) {
@@ -269,6 +276,45 @@ test('mission endpoint preserves a bounded completed-run marker while reporting 
   assert.equal(mission.message.payload.available, false);
   assert.equal(mission.message.payload.lastControl.phase, 'closed');
   assert.equal(mission.message.payload.lastControl.runId, 'run-finished');
+});
+
+test('desktop hard reset is a token-gated loopback recovery command', async (t) => {
+  const hello = createTrackerEfbHttpHello({ trackerVersion: 'v380', trackerVersionCode: 380 });
+  const calls = [];
+  const server = createTrackerEfbHttpServer({
+    host: '127.0.0.1',
+    port: 0,
+    hello,
+    desktopControlToken: 'desktop-control-test-token',
+    hardResetMission: async payload => {
+      calls.push(payload);
+      return { ok: true, status: 'ok', hardReset: true, cloudMissionAvailable: true };
+    }
+  });
+  t.after(() => server.stop());
+  const address = await server.start();
+
+  const rejected = await request(address, TRACKER_MISSION_HARD_RESET_PATH, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source: 'desktop' })
+  });
+  assert.equal(rejected.statusCode, 403);
+  assert.equal(calls.length, 0);
+
+  const accepted = await request(address, TRACKER_MISSION_HARD_RESET_PATH, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-GA-Tracker-Desktop-Control': 'desktop-control-test-token'
+    },
+    body: JSON.stringify({ source: 'desktop' })
+  });
+  assert.equal(accepted.statusCode, 200);
+  const body = JSON.parse(accepted.body);
+  assert.equal(body.message.type, 'tracker.mission.hard-reset');
+  assert.equal(body.message.payload.hardReset, true);
+  assert.deepEqual(calls, [{ source: 'desktop' }]);
 });
 
 test('map tiles are fetched once through the bounded loopback proxy and then cached', async (t) => {
