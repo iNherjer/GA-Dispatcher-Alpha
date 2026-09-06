@@ -1007,7 +1007,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
 
     if (onGround === true && snapshot.state.flags.onGround === false) {
       observations.groundStillCandidateAt = gsKts <= GROUND_STILL_MAX_GS_KTS ? observedAt : null;
-      return submitEvent(
+      const applied = submitEvent(
         snapshot,
         'TOUCHDOWN',
         {
@@ -1021,6 +1021,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         `${snapshot.runId}:telemetry:touchdown:${snapshot.executionRevision + 1}`,
         'telemetry:touchdown'
       );
+      return { ...applied, destination };
     }
 
     if (onGround === true && !snapshot.state.flags.groundStill && gsKts <= GROUND_STILL_MAX_GS_KTS) {

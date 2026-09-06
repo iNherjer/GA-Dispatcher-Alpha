@@ -6,6 +6,11 @@ function cleanString(value, maxLength = 180) {
   return String(value || '').trim().slice(0, maxLength);
 }
 
+function preloadEffectId(runId) {
+  const safeRunId = cleanString(runId, 130).replace(/[^A-Za-z0-9._:-]+/g, '-');
+  return `prewarm:${safeRunId || 'run'}:farewell`;
+}
+
 function object(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
@@ -49,6 +54,63 @@ function createTrackerMissionFarewellVoice(options = {}) {
     throw new TypeError('mission_farewell_voice_authority_manager_required');
   }
 
+  const resolveRecipe = (request, run) => {
+    const plan = object(run.resumeBundle?.executionEffectPlan);
+    const effectPlan = object(object(plan.effects)['voice.farewell']);
+    const authorityContext = farewellVoiceCore.normalizeContext(request.farewellContext)
+      || farewellVoiceCore.normalizeContext(effectPlan.context);
+    return farewellVoiceCore.normalizeRecipe(request.farewellRecipe)
+      || (authorityContext
+        ? farewellVoiceCore.createRecipeFromContext(authorityContext, request.farewellDynamicContext)
+        : null)
+      || farewellVoiceCore.normalizeRecipe(effectPlan.recipe);
+  };
+
+  const voiceRequest = (effectId, recipe, deferPlayback = false) => ({
+    effectId,
+    kind: 'farewell',
+    text: recipe.text,
+    prompt: recipe.prompt,
+    fallbackText: recipe.fallbackText,
+    taskDomain: recipe.taskDomain,
+    speaker: recipe.speaker,
+    cue: recipe.playCue === true ? recipe.cue : null,
+    textModels: recipe.textModels,
+    ttsModels: recipe.ttsModels,
+    ttsHedgeEnabled: recipe.ttsHedgeEnabled,
+    ttsHedgeDelayMs: recipe.ttsHedgeDelayMs,
+    synthesizeAudio: recipe.audioEnabled === true,
+    deferPlayback
+  });
+
+  const prepare = (request = {}) => {
+    const run = authorityManager.getActiveRun({ includeBundle: true });
+    if (!run?.missionId || !run?.runId || run.executionAuthority !== 'tracker') {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', sideEffect: false };
+    }
+    if (cleanString(request.missionId) !== cleanString(run.missionId)
+        || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
+      return { ok: false, status: 'blocked', error: 'mission_run_conflict', sideEffect: false };
+    }
+    const recipe = resolveRecipe(request, run);
+    if (!recipe || recipe.missionId && recipe.missionId !== run.missionId || recipe.enabled !== true
+        || (!recipe.prompt && !recipe.text && !recipe.fallbackText)) {
+      return { ok: true, status: 'skipped', sideEffect: false };
+    }
+    if (!voiceService || voiceService.publicState?.().configured !== true) {
+      return { ok: true, status: 'voice_not_configured', sideEffect: false };
+    }
+    const effectId = preloadEffectId(run.runId);
+    try {
+      const job = voiceService.request(voiceRequest(effectId, recipe, true));
+      log(`MISSION_FAREWELL_VOICE_PREWARM effect=${effectId} status=${job?.status || 'pending'}`);
+      return { ok: true, status: job?.status || 'pending', sideEffect: true, effectId };
+    } catch (error) {
+      log(`MISSION_FAREWELL_VOICE_PREWARM_ERROR effect=${effectId} reason=${error?.code || error?.message || error}`);
+      return { ok: true, status: error?.code || 'voice_request_failed', sideEffect: false };
+    }
+  };
+
   const dispatch = async (request = {}) => {
     const effectId = cleanString(request?.effect?.effectId || request.commandId, 220);
     const run = authorityManager.getActiveRun({ includeBundle: true });
@@ -58,15 +120,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
         || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
       return { ok: false, status: 'blocked', error: 'mission_run_conflict', terminal: false, sideEffect: false, commandId: effectId };
     }
-    const plan = object(run.resumeBundle?.executionEffectPlan);
-    const effectPlan = object(object(plan.effects)['voice.farewell']);
-    const authorityContext = farewellVoiceCore.normalizeContext(request.farewellContext)
-      || farewellVoiceCore.normalizeContext(effectPlan.context);
-    const recipe = farewellVoiceCore.normalizeRecipe(request.farewellRecipe)
-      || (authorityContext
-        ? farewellVoiceCore.createRecipeFromContext(authorityContext, request.farewellDynamicContext)
-        : null)
-      || farewellVoiceCore.normalizeRecipe(effectPlan.recipe);
+    const recipe = resolveRecipe(request, run);
     if (!recipe || (recipe.missionId && recipe.missionId !== run.missionId)) {
       log(`MISSION_FAREWELL_VOICE_FALLBACK effect=${effectId} reason=recipe_missing`);
       return completed(request, {
@@ -89,26 +143,21 @@ function createTrackerMissionFarewellVoice(options = {}) {
       });
     }
     let job;
+    let voiceEffectId = effectId;
     try {
-      voiceService.request({
-        effectId,
-        kind: 'farewell',
-        text: recipe.text,
-        prompt: recipe.prompt,
-        fallbackText: recipe.fallbackText,
-        taskDomain: recipe.taskDomain,
-        speaker: recipe.speaker,
-        cue: recipe.playCue === true ? recipe.cue : null,
-        textModels: recipe.textModels,
-        ttsModels: recipe.ttsModels,
-        ttsHedgeEnabled: recipe.ttsHedgeEnabled,
-        ttsHedgeDelayMs: recipe.ttsHedgeDelayMs,
-        synthesizeAudio: recipe.audioEnabled === true
-      });
+      const preparedEffectId = preloadEffectId(run.runId);
+      try {
+        voiceService.request(voiceRequest(preparedEffectId, recipe, true));
+        voiceEffectId = preparedEffectId;
+        voiceService.activatePlayback?.(voiceEffectId);
+      } catch (preloadError) {
+        if (preloadError?.code === 'effect_id_conflict') voiceService.cancel?.(preparedEffectId, 'farewell_preload_stale');
+        voiceService.request(voiceRequest(effectId, recipe, false));
+      }
       let generationTimer = null;
       try {
         job = await Promise.race([
-          voiceService.wait(effectId),
+          voiceService.wait(voiceEffectId),
           new Promise(resolve => {
             generationTimer = setTimeout(() => resolve({ status: 'timeout', error: 'farewell_voice_timeout' }), generationTimeoutMs);
           })
@@ -116,7 +165,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
       } finally {
         if (generationTimer) clearTimeout(generationTimer);
       }
-      if (job?.status === 'timeout') voiceService.cancel?.(effectId, 'farewell_voice_timeout');
+      if (job?.status === 'timeout') voiceService.cancel?.(voiceEffectId, 'farewell_voice_timeout');
     } catch (error) {
       log(`MISSION_FAREWELL_VOICE_BEST_EFFORT effect=${effectId} reason=${error?.code || error?.message || error}`);
       return completed(request, {
@@ -136,7 +185,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
       : 0;
     let playback = { status: recipe.audioEnabled === true ? (candidates > 0 ? 'pending' : 'no_audio_instance') : 'audio_disabled', completed: false };
     if (recipe.audioEnabled === true && candidates > 0 && typeof voiceService.waitForPlayback === 'function') {
-      playback = await voiceService.waitForPlayback(effectId, { timeoutMs: playbackTimeoutMs });
+      playback = await voiceService.waitForPlayback(voiceEffectId, { timeoutMs: playbackTimeoutMs });
     }
     log(`MISSION_FAREWELL_VOICE_COMPLETE effect=${effectId} job=${job.status} playback=${playback.status} candidates=${candidates}`);
     return completed(request, {
@@ -156,7 +205,8 @@ function createTrackerMissionFarewellVoice(options = {}) {
     });
   };
 
-  return Object.freeze({ dispatch });
+  dispatch.prepare = prepare;
+  return Object.freeze({ dispatch, prepare });
 }
 
 module.exports = { createTrackerMissionFarewellVoice };

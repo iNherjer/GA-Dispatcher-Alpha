@@ -99,6 +99,50 @@ test('farewell uses one selected-device job with the App deboarding cue before T
   assert.equal(requests[0].cue.gain, 0.38);
 });
 
+test('touchdown prewarm generates once and stays silent until Farewell dispatch', async () => {
+  const requests = [];
+  const activations = [];
+  const jobs = new Map();
+  const voiceService = {
+    publicState: () => ({ configured: true }),
+    request: value => {
+      requests.push(value);
+      const existing = jobs.get(value.effectId);
+      if (existing) return existing;
+      const job = { effectId: value.effectId, status: 'ready', audioAvailable: true, text: 'Vorbereitet.', speaker: value.speaker };
+      jobs.set(value.effectId, job);
+      return job;
+    },
+    activatePlayback: effectId => {
+      activations.push(effectId);
+      return { activated: true, job: jobs.get(effectId) };
+    },
+    wait: async effectId => jobs.get(effectId),
+    waitForPlayback: async () => ({ status: 'completed', completed: true })
+  };
+  const handler = createTrackerMissionFarewellVoice({
+    authorityManager: { getActiveRun: () => activeRun() },
+    voiceService,
+    getAudioPlaybackCandidates: () => 1
+  });
+  const dynamic = { record: { durationSec: 1200, distanceNm: 40, maxAltFt: 5000, touchdownVsFpm: -160 } };
+  const prepared = handler.prepare({
+    missionId: 'mission-farewell',
+    runId: 'run-farewell',
+    farewellDynamicContext: dynamic
+  });
+  assert.equal(prepared.ok, true);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].deferPlayback, true);
+  assert.equal(activations.length, 0);
+
+  const result = await handler.dispatch({ ...request(), farewellDynamicContext: dynamic });
+  assert.equal(result.voiceStatus, 'completed');
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].effectId, requests[0].effectId);
+  assert.equal(activations[0], requests[0].effectId);
+});
+
 test('direct failure text and unavailable voice remain best effort', async () => {
   const directRequests = [];
   const direct = createTrackerMissionFarewellVoice({

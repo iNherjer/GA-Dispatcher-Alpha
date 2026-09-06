@@ -1,6 +1,6 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
-Stand: 2026-09-05
+Stand: 2026-09-06
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-Cockpit-Clients: EFB-App und globales Toolbar-Panel. Neue Chats lesen
@@ -15,7 +15,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.5 manueller Origin-Installer mit APT-Opt-in-Schalter und lokalem Hard-Reset | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
-| Tracker-Runtime | v380 als freigegebener APT-Feldkandidat | v356 | Manifest-, Start-, Payload-, Boarding-/Farewell-Voice- und Standard-APT-UI-Core sind gegen echte App-Fallbackfunktionen abgesichert. App und EFB nutzen denselben Mission-Control-Renderer und revisionsgebundene Intents. Passenger-Pickup sowie der reale Compliance-/Mehrinstanz-Gesamtnachweis bleiben offen. Training, POI, Bush/Pickup und SAR bleiben fail-closed. |
+| Tracker-Runtime | v382 als freigegebener APT-Feldkandidat | v356 | Manifest-, Start-, Payload-, Boarding-/Farewell-Voice- und Standard-APT-UI-Core sind gegen echte App-Fallbackfunktionen abgesichert. App und EFB nutzen denselben Mission-Control-Renderer und revisionsgebundene Intents. Passenger-Pickup sowie der reale Compliance-/Mehrinstanz-Gesamtnachweis bleiben offen. Training, POI, Bush/Pickup und SAR bleiben fail-closed. |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-/App-Transport | EFB ueber HTTP-Loopback, entfernte Origin-App ueber das bestehende PIN-geschuetzte Tracker-Relay | - | Beide Wege enden im selben revisionsgebundenen Intent-Controller. Provider-Keys und Session-Token werden nie oeffentlich projiziert. `mission.intent.v1` erscheint nur, wenn Alpha, Opt-in und Core-Paritaetsgate gemeinsam erfuellt sind. |
@@ -70,6 +70,16 @@ erzwungene Compliance muessen mit genau diesem unveraenderten Kandidaten real
 im Simulator bestaetigt werden. Passenger-Pickup, Training, POI, Bush/Pickup
 und SAR bleiben weiterhin fail-closed. Das EFB-Community-Paket bleibt auf
 0.4.11; der Host wird von der Tracker-Runtime geliefert.
+
+### Alpha-Folgefix v382
+
+Tracker v382 startet den Standard-APT-Farewell-Job bereits beim bestaetigten
+Ziel-Touchdown. Text und TTS werden dabei vollstaendig vorgerendert, bleiben
+aber bis zum autoritativen Deboarding-Cue fuer alle Playback-Clients gesperrt.
+Erst dieses Missionsgate gibt den vorbereiteten Job frei. Touchdowns ausserhalb
+des Zielradius sowie nicht migrierte Sonderprofile erzeugen keinen Preload.
+Stable bleibt unveraendert auf v356; das EFB-Community-Paket bleibt auf 0.4.11
+und der unveraenderte Host nutzt weiterhin Assetrevision 38101.
 
 ### Explizites Backlog nach dem APT-Mehrinstanznachweis
 
@@ -126,6 +136,11 @@ Flight-/Wetter-/Cargo-Kontext erzeugt; Sondermissionen brechen bewusst
 geschlossen ab. Standard-APT-Farewell und -Deboarding sind lokal parity-ready;
 der reale Voice-Lease-/Mehrinstanznachweis und die getrennte Migration der
 Sonderpfade bleiben offen.
+Die Farewell-Text- und TTS-Erzeugung wird fuer Tracker-Authority bereits beim
+bestaetigten Ziel-Touchdown angestossen. Der vorbereitete Voice-Job bleibt bis
+zum autoritativen Deboarding-Cue aus der Playback-Auswahl ausgeblendet; erst
+dieses Gate gibt ihn zur Wiedergabe frei. Der Web-Authority-Pfad behaelt seinen
+bereits vorhandenen Touchdown-Preload unveraendert bei.
 
 Der Standard-APT-UI-Schnitt ist lokal einen Schritt weiter: Neben den bereits
 charakterisierten Kartenbannern liefert `mission-apt-ui-core.js` nun ein

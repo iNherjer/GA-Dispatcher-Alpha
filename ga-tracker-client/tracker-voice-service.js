@@ -64,6 +64,7 @@ function normalizeVoiceRequest(value = {}) {
     prompt,
     fallbackText,
     kind,
+    deferPlayback: value.deferPlayback === true,
     synthesizeAudio: value.synthesizeAudio !== false,
     taskDomain: String(value.taskDomain || normalizedSpeaker.taskDomain || '').trim().toLowerCase().slice(0, 120),
     gender: normalizedSpeaker.gender,
@@ -462,7 +463,9 @@ function createTrackerVoiceService(options = {}) {
           error: '',
           playback: playback.status === 'completed'
             ? { status: 'completed', ownerClientId: String(playback.ownerClientId || '').slice(0, 160), leaseUntil: 0, completedAt: Number(playback.completedAt) || timestamp }
-            : { status: 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 },
+            : (playback.status === 'deferred'
+              ? { status: 'deferred', ownerClientId: '', leaseUntil: 0, completedAt: 0 }
+              : { status: 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 }),
           promise: null
         };
         records.set(effectId, record);
@@ -598,7 +601,7 @@ function createTrackerVoiceService(options = {}) {
       model: '',
       voiceName: request.voiceName,
       error: '',
-      playback: { status: 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 },
+      playback: { status: request.deferPlayback ? 'deferred' : 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 },
       promise: null
     };
     records.set(record.effectId, record);
@@ -650,10 +653,23 @@ function createTrackerVoiceService(options = {}) {
     const timestamp = now();
     const record = [...records.values()]
       .filter((candidate) => candidate.status === 'ready' && Buffer.isBuffer(candidate.audio))
+      .filter((candidate) => candidate.playback?.status !== 'deferred')
       .filter((candidate) => candidate.playback?.status !== 'completed')
       .filter((candidate) => candidate.playback?.status !== 'claimed' || Number(candidate.playback?.leaseUntil || 0) <= timestamp)
       .sort((left, right) => left.createdAt - right.createdAt)[0];
     return publicRecord(record);
+  }
+
+  function activatePlayback(effectId) {
+    const normalizedEffectId = normalizeEffectId(effectId);
+    const record = records.get(normalizedEffectId);
+    if (!record) return { activated: false, reason: 'missing', job: null };
+    if (record.playback?.status === 'deferred') {
+      record.playback = { status: 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 };
+      record.updatedAt = now();
+      persist();
+    }
+    return { activated: true, reason: '', job: publicRecord(record) };
   }
 
   async function wait(effectId) {
@@ -695,6 +711,7 @@ function createTrackerVoiceService(options = {}) {
     if (!record) throw voiceError('voice_job_not_found', 404, 'Voice-Effekt wurde nicht gefunden.');
     if (record.status !== 'ready') return { claimed: false, reason: record.status, job: publicRecord(record) };
     const timestamp = now();
+    if (record.playback.status === 'deferred') return { claimed: false, reason: 'deferred', job: publicRecord(record) };
     if (record.playback.status === 'completed') return { claimed: false, reason: 'completed', job: publicRecord(record) };
     if (record.playback.status === 'claimed' && record.playback.leaseUntil > timestamp && record.playback.ownerClientId !== clientId) {
       return { claimed: false, reason: 'owned', job: publicRecord(record) };
@@ -741,6 +758,7 @@ function createTrackerVoiceService(options = {}) {
   }
 
   return Object.freeze({
+    activatePlayback,
     cancel,
     claimPlayback,
     get,

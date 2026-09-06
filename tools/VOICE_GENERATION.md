@@ -156,6 +156,13 @@ Cache entfernt, damit er nicht nach Missionsende verspaetet abgespielt wird.
 Der Passenger-Manifeststatus bleibt bis zum finalen Deboarding-/Handoff-ACK
 geladen.
 
+Bei einem autoritativen Standard-APT-Lauf startet der Tracker die Text- und
+TTS-Erzeugung bereits beim bestaetigten Touchdown am Missionsziel. Der fertige
+Job bleibt bis zum spaeteren Farewell-Effekt fuer alle Playback-Clients
+gesperrt und wird erst am Deboarding-Cue freigegeben. Touchdowns ausserhalb des
+Zielradius, Zwischenlandungen und nicht migrierte Missionsprofile erzeugen
+keinen solchen Preload.
+
 Fuer Standard-APT erzeugt der Tracker den situationsaktuellen Kontext nun
 selbst: `mission-flight-recorder-core.js` bildet App-Arming, Pause,
 Reposition, GPS-VS-Smoothing, Flugaggregate, Touchdown und Cargo-Stress ab.

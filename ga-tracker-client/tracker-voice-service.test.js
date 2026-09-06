@@ -106,6 +106,24 @@ test('only one cockpit client owns playback until release or lease expiry', asyn
   assert.equal(service.claimPlayback({ effectId: 'run-3:event', clientId: 'efb-a' }).reason, 'completed');
 });
 
+test('deferred voice jobs stay hidden until their mission phase activates playback', async () => {
+  const service = createTrackerVoiceService({
+    provider: 'openai',
+    apiKey: 'secret',
+    fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('audio') })
+  });
+  service.request({ effectId: 'run-landing:farewell', kind: 'farewell', text: 'Bis bald.', deferPlayback: true });
+  const ready = await service.wait('run-landing:farewell');
+  assert.equal(ready.status, 'ready');
+  assert.equal(ready.playback.status, 'deferred');
+  assert.equal(service.getNextPlayback(), null);
+  assert.equal(service.claimPlayback({ effectId: 'run-landing:farewell', clientId: 'efb-a' }).reason, 'deferred');
+
+  const activated = service.activatePlayback('run-landing:farewell');
+  assert.equal(activated.activated, true);
+  assert.equal(service.getNextPlayback().effectId, 'run-landing:farewell');
+});
+
 test('voice jobs stay unavailable when no protected key reached the tracker', () => {
   const service = createTrackerVoiceService({ provider: 'gemini', apiKey: '' });
   assert.equal(service.publicState().configured, false);

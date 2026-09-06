@@ -140,6 +140,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     farewellContext: adapter.getFarewellAuthorityContext?.() || null,
     farewellDynamicContext: adapter.getFarewellDynamicContext?.() || null
   });
+  const configuredPrepareFarewellVoice = typeof options.prepareFarewellVoice === 'function'
+    ? options.prepareFarewellVoice
+    : (typeof options.playFarewellVoice?.prepare === 'function' ? options.playFarewellVoice.prepare : null);
+  const prepareFarewellVoice = request => configuredPrepareFarewellVoice?.({
+    ...request,
+    farewellRecipe: adapter.getFarewellVoiceRecipe?.() || null,
+    farewellContext: adapter.getFarewellAuthorityContext?.() || null,
+    farewellDynamicContext: adapter.getFarewellDynamicContext?.() || null
+  });
   const playComplianceVoice = typeof options.playComplianceVoice === 'function'
     ? options.playComplianceVoice
     : completeLocalEffect;
@@ -420,6 +429,22 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         lastTelemetryDiagnosticKey = '';
         lastTelemetryDiagnosticAt = 0;
         logCheckpoint(`telemetry:${result.acceptedEvent.type || 'event'}`);
+        const nearFarewellTarget = result.destination?.atDestination === true
+          || (Number.isFinite(Number(result.destination?.dArrivalNm)) && Number(result.destination.dArrivalNm) <= 1.2)
+          || (Number.isFinite(Number(result.destination?.dMissionNm)) && Number(result.destination.dMissionNm) <= 1.2);
+        if (result.acceptedEvent.type === 'TOUCHDOWN'
+            && nearFarewellTarget
+            && configuredPrepareFarewellVoice) {
+          const run = authorityManager.getActiveRun();
+          try {
+            const prepared = prepareFarewellVoice({ missionId: run?.missionId, runId: run?.runId });
+            if (prepared && typeof prepared.catch === 'function') {
+              prepared.catch(error => log(`MISSION_FAREWELL_VOICE_PREWARM_ERROR reason=${error?.code || error?.message || error}`));
+            }
+          } catch (error) {
+            log(`MISSION_FAREWELL_VOICE_PREWARM_ERROR reason=${error?.code || error?.message || error}`);
+          }
+        }
       } else if (result?.status === 'ignored') {
         const snapshot = authorityManager.getExecutionSnapshot?.();
         const reason = String(result.reason || result.error || 'ignored');

@@ -123,6 +123,17 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
     legacyBundle: bundle
   });
   const manager = committedManager(t, bundle);
+  const farewellPrewarms = [];
+  const farewellVoice = request => ({
+    ok: true,
+    status: 'completed',
+    sideEffect: false,
+    commandId: request.commandId
+  });
+  farewellVoice.prepare = request => {
+    farewellPrewarms.push(request);
+    return { ok: true, status: 'pending', sideEffect: true };
+  };
   const runtime = createTrackerMissionExecutionRuntime({
     authorityManager: manager,
     enabled: true,
@@ -139,7 +150,8 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
         text: 'Die Fracht ist verladen, wir sind bereit.',
         playback: 'audio_disabled'
       }
-    })
+    }),
+    playFarewellVoice: farewellVoice
   });
   runtime.attachSimulator({
     getLivePosition: () => ({ lat: 48.3, lon: 8.5, alt: 500, hdg: 90 }),
@@ -198,7 +210,13 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
   })).ok, true);
   runtime.observeTelemetry({ observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 });
   runtime.observeTelemetry({ observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 65 });
-  runtime.observeTelemetry({ observedAt: 13000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 20 });
+  assert.equal(farewellPrewarms.length, 0);
+  const touchdown = runtime.observeTelemetry({ observedAt: 13000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 20 });
+  assert.equal(touchdown.acceptedEvent?.type, 'TOUCHDOWN', JSON.stringify(touchdown));
+  assert.equal(farewellPrewarms.length, 1, JSON.stringify(touchdown));
+  assert.equal(farewellPrewarms[0].missionId, bundle.missionId);
+  assert.equal(farewellPrewarms[0].farewellContext, null);
+  assert.equal(typeof farewellPrewarms[0].farewellDynamicContext?.record, 'object');
   runtime.observeTelemetry({ observedAt: 14000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
   runtime.observeTelemetry({ observedAt: 17000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
   run = manager.getActiveRun();
