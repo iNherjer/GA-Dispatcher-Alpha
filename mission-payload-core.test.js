@@ -110,6 +110,35 @@ test('payload queue timing keeps the App 500 ms quiet window and 2 s burst cap',
   }), 50);
 });
 
+test('PA24 character selectors without payload weight do not consume passenger seats', () => {
+  const baseline = {
+    ...standardBaseline(),
+    payloadAdapter: payloadCore.PA24_ADAPTER,
+    payloadStationCount: 20,
+    sampledStationCount: 20,
+    stations: Array.from({ length: 20 }, (_, index) => ({ index: index + 1, weightLbs: index === 0 ? 170 : 0 })),
+    pa24: {
+      // Accu-Sim retains these template selections even when the rear seats
+      // are empty.  They must not be interpreted as three real passengers.
+      seats: { 1: 1, 2: 2, 3: 3, 4: 4 },
+      characterWeights: { 1: 170, 2: 0, 3: 0, 4: 0 },
+      baggageWeightLbs: 10,
+      totalWeightLbs: 2400,
+      grossWeightLbs: 3000
+    }
+  };
+  const manifest = { items: [
+    { id: 'pax', itemType: 'passenger', status: 'loaded', passengerCount: 1, weightLbs: 180 },
+    { id: 'bag', itemType: 'cargo', status: 'loaded', weightLbs: 16 }
+  ] };
+  const plan = payloadCore.buildPlanFromManifest(manifest, baseline, { isPassengerItem: item => item.itemType === 'passenger' });
+  assert.equal(plan.error, undefined);
+  assert.equal(plan.boardedPaxCount, 1);
+  assert.equal(plan.pa24State.seats[2], 2);
+  assert.equal(plan.pa24State.characterWeights[2], 180);
+  assert.equal(plan.pa24State.baggageWeightLbs, 26);
+});
+
 test('inherited equipment detaches from standard and PA24 baselines exactly once', () => {
   const item = {
     id: 'survival-kit',

@@ -78,8 +78,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v380';
-const TRACKER_VERSION_CODE = 380;
+const TRACKER_VERSION = 'v381';
+const TRACKER_VERSION_CODE = 381;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -688,11 +688,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         altitudeFt,
         altFt: altitudeFt,
         groundAltitudeFt,
-        modelGroundClearanceFt,
+        modelGroundClearanceFt: modelClearanceFt,
         groundStabilized: true
       });
       debugLog(`SCENE_GROUND_STABILIZED objectId=${objectId} title="${title}" groundAltFt=${groundAltitudeFt} userOffsetFt=${userOffsetFt} clearanceFt=${modelClearanceFt} finalAltFt=${altitudeFt}`);
-      return { applied: true, altitudeFt, groundAltitudeFt, modelGroundClearanceFt };
+      return { applied: true, altitudeFt, groundAltitudeFt, modelGroundClearanceFt: modelClearanceFt };
     } catch (err) {
       debugLog(`SCENE_GROUND_STABILIZE_ERROR objectId=${objectId} title="${title}" error=${err?.message || err}`);
       return { applied: false, error: err?.message || String(err) };

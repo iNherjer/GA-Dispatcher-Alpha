@@ -154,3 +154,7 @@ test('hosted map survives transient polls and parent rendering failures without 
   assert.match(tsx, /catch \(error\) \{[\s\S]*?this\.handleTrackerPollFailure\(error\)/);
   assert.match(tsx, /if \(!this\.serverFrameStarted\) return;[\s\S]*?this\.reportServerFrameEvent\('iframe', 'load'/);
 });
+
+test('native EFB resume renews a potentially discarded tracker iframe', () => {
+  assert.match(tsx, /public onResume\(\): void \{[\s\S]*?this\.serverFrameStarted = false;[\s\S]*?this\.serverFrameChannel = '';[\s\S]*?this\.activate\(\);[\s\S]*?\}/);
+});

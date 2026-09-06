@@ -14768,6 +14768,14 @@ window.handleMissionStartBannerAction = async function() {
             }
             if (!trackerBannerAction.intent || trackerBannerAction.disabled === true) return false;
             const result = await window.gaTrackerExecutionSubmitIntent?.(trackerBannerAction.intent);
+            // Keep the tracker-authority path visually identical to the
+            // established App flow: the boarding action opens this client's
+            // loading dialog straight away.  It is deliberately local UI
+            // state; the manifest itself still changes only after tracker
+            // intents and snapshots.
+            if (result?.ok === true && trackerBannerAction.intent === 'start_boarding') {
+                window.openMissionCargoDialog?.('load');
+            }
             return result?.ok === true;
         }
         if (_missionIsFreeflightOnly()) {

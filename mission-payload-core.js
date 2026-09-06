@@ -225,7 +225,14 @@
         var changedSeats = new Set();
         [2, 3, 4].forEach(function (seat) {
             var character = Math.round(Number(state.seats[seat] || 0));
-            if (character > 0) {
+            // Accu-Sim keeps the selected character in an empty seat.  The
+            // selector alone is therefore not an occupied seat; only a
+            // selected character with an actual payload weight reserves it.
+            // Treating every non-zero selector as a passenger made a fresh
+            // Comanche manifest report pa24_no_free_seat despite no person
+            // being on board.
+            var characterWeight = Number(state.characterWeights[character] || 0);
+            if (character > 0 && Number.isFinite(characterWeight) && characterWeight > 0.05) {
                 occupiedSeats.add(seat);
                 occupiedCharacters.add(character);
             }

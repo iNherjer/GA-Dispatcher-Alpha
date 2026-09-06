@@ -279,7 +279,15 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   };
 
   public onOpen(): void { this.activate(); }
-  public onResume(): void { this.activate(); }
+  public onResume(): void {
+    // MSFS can discard the Coherent iframe while an EFB app is paused for an
+    // interior/exterior view change.  The old boolean then claimed that the
+    // frame was still alive and left the native surface black.  A resume is a
+    // lifecycle boundary, so obtain a fresh channel and reload only here.
+    this.serverFrameStarted = false;
+    this.serverFrameChannel = '';
+    this.activate();
+  }
   public onPause(): void { this.deactivate(false); }
   public onClose(): void { this.deactivate(true); }
   public onAfterRender(node: VNode): void {

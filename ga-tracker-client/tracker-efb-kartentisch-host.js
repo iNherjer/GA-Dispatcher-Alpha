@@ -655,6 +655,7 @@
     renderMissionActionBanner(missionSnapshot);
     renderMissionToolbar(missionSnapshot);
     var commandId = 'efb-intent-' + String(intent || 'action').replace(/[^a-z0-9_-]/gi, '-') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    var opensCargoAfterBoarding = intent === 'start_boarding';
     return client.submitIntent({
       commandId: commandId,
       intent: intent,
@@ -668,10 +669,18 @@
         : { tone: result && result.ok === true ? 'good' : 'danger', text: result && result.ok === true ? 'Aktion bestaetigt.' : 'Aktion abgelehnt.' };
       missionIntentStatus = presentation.text;
       missionIntentTone = presentation.tone;
+      var finalize = function () {
+        var ok = result && result.ok === true;
+        // Mirror the App flow for the device that started boarding.  Opening
+        // the manager is a local presentation choice; all cargo mutations
+        // continue to use the authoritative tracker intent path.
+        if (ok && opensCargoAfterBoarding) openCargoManager();
+        return ok;
+      };
       return fetchJson('/api/v1/mission').then(function (envelope) {
         renderMissionPayload(safePayload(envelope));
-        return result && result.ok === true;
-      }).catch(function () { return result && result.ok === true; });
+        return finalize();
+      }).catch(function () { return finalize(); });
     }).catch(function (error) {
       var presentation = window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.formatIntentResult === 'function'
         ? window.GAMissionControlUiCore.formatIntentResult({ ok: false, error: error && error.message || 'mission_intent_failed' })
@@ -826,10 +835,15 @@
 
   function appCargoManagerMarkup(mission, model) {
     var signature = model.signature && typeof model.signature === 'object' ? model.signature : {};
+    if (cargoSignatureAnimationEndsAt > 0 && cargoSignatureAnimationEndsAt <= Date.now()) {
+      if (cargoSignatureAnimationTimer) window.clearTimeout(cargoSignatureAnimationTimer);
+      cargoSignatureAnimationTimer = 0;
+      cargoSignatureAnimationEndsAt = 0;
+      cargoSignatureAnimationScope = '';
+    }
     var localSignatureAnimation = signature.signed === true
-      && (signature.animating === true
-        || (cargoSignatureAnimationScope === String(signature.scope || '')
-          && cargoSignatureAnimationEndsAt > Date.now()));
+      && cargoSignatureAnimationScope === String(signature.scope || '')
+      && cargoSignatureAnimationEndsAt > Date.now();
     if (!signature.signed) {
       cargoSignatureAnimationEndsAt = 0;
       cargoSignatureAnimationScope = '';

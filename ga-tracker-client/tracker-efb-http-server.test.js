@@ -17,11 +17,12 @@ const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core'
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
 test('current tracker exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v380'/);
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v381'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 380/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 381/);
+  assert.match(trackerSource, /modelGroundClearanceFt: modelClearanceFt/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);
   assert.match(trackerSource, /currentTelemetryHibernateState\.shouldSendTelemetry/);
@@ -279,7 +280,7 @@ test('mission endpoint preserves a bounded completed-run marker while reporting 
 });
 
 test('desktop hard reset is a token-gated loopback recovery command', async (t) => {
-  const hello = createTrackerEfbHttpHello({ trackerVersion: 'v380', trackerVersionCode: 380 });
+  const hello = createTrackerEfbHttpHello({ trackerVersion: 'v381', trackerVersionCode: 381 });
   const calls = [];
   const server = createTrackerEfbHttpServer({
     host: '127.0.0.1',
