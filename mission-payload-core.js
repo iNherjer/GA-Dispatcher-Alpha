@@ -223,16 +223,16 @@
         var occupiedSeats = new Set();
         var occupiedCharacters = new Set();
         var changedSeats = new Set();
+        var baselineByStation = new Map(snapshot.stations.map(function (row) { return [Number(row.index), Number(row.weightLbs || 0)]; }));
         [2, 3, 4].forEach(function (seat) {
             var character = Math.round(Number(state.seats[seat] || 0));
-            // Accu-Sim keeps the selected character in an empty seat.  The
-            // selector alone is therefore not an occupied seat; only a
-            // selected character with an actual payload weight reserves it.
-            // Treating every non-zero selector as a passenger made a fresh
-            // Comanche manifest report pa24_no_free_seat despite no person
-            // being on board.
-            var characterWeight = Number(state.characterWeights[character] || 0);
-            if (character > 0 && Number.isFinite(characterWeight) && characterWeight > 0.05) {
+            // Accu-Sim may retain both a character selector and that
+            // character's configured weight while the actual seat station is
+            // empty.  The SimConnect payload station is the App's real
+            // occupancy signal; otherwise three empty template seats can
+            // still produce pa24_no_free_seat.
+            var stationWeight = Number(baselineByStation.get(seat) || 0);
+            if (character > 0 && Number.isFinite(stationWeight) && stationWeight > 0.05) {
                 occupiedSeats.add(seat);
                 occupiedCharacters.add(character);
             }
@@ -340,7 +340,6 @@
             };
         }
 
-        var baselineByStation = new Map(snapshot.stations.map(function (row) { return [Number(row.index), Number(row.weightLbs || 0)]; }));
         var stationTargets = [2, 3, 4, 5].map(function (index) {
             var targetWeight = Number(baselineByStation.get(index) || 0);
             if (index >= 2 && index <= 4 && changedSeats.has(index) && Number(state.seats[index] || 0) > 0) {

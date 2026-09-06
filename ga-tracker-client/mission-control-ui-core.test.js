@@ -134,8 +134,22 @@ test('App and EFB top toolbars share tracker actions and expose the guarded miss
   assert.match(html, /id="mapGroundCargoBtn"[\s\S]*?openMissionToolbarCargo/);
   assert.match(appSource, /missionToolbarModel\?\.\(trackerControl/);
   assert.match(appSource, /window\.openMissionToolbarCargo = function/);
+  assert.match(appSource, /preserveMission: true/);
+  assert.match(appSource, /tracker-mission-reset-to-planned/);
+  assert.match(appSource, /tracker_execution_intent_retry/);
+  assert.match(appSource, /mission_revision_conflict[\s\S]*?mission_intent_not_allowed_in_state/);
   assert.match(efbSource, /function renderMissionToolbar\(payload\)/);
-  assert.match(efbSource, /requestMissionIntent\('abort_mission'/);
+  assert.match(efbSource, /submitMissionIntent\('abort_mission'/);
+  assert.match(efbSource, /Auftrag bleibt zum Neustart erhalten/);
   assert.doesNotMatch(efbCss, /#mapMissionToggleBtn,/);
   assert.doesNotMatch(efbCss, /#mapGroundCargoBtn,/);
+});
+
+test('pinboard mission restore publishes a fresh tracker seed immediately', () => {
+  const boardSource = fs.readFileSync(path.resolve(__dirname, '..', 'board.js'), 'utf8');
+  const restoreStart = boardSource.indexOf('async function loadPinnedFlight');
+  const restoreEnd = boardSource.indexOf('\nfunction pinboardCreateElement', restoreStart);
+  const restoreSource = boardSource.slice(restoreStart, restoreEnd);
+  assert.match(restoreSource, /restoreMissionState\(note\.flightData, \{ source: 'pinboard' \}\)/);
+  assert.match(restoreSource, /queueActiveMissionCloudSave\('pinboard-mission-restored', \{ delayMs: 0 \}\)/);
 });

@@ -10,7 +10,9 @@ const flightRecorderCore = require('../mission-flight-recorder-core.js');
 const AIRBORNE_EVIDENCE_MS = 2000;
 const GROUND_STILL_EVIDENCE_MS = 3000;
 const GROUND_STILL_MAX_GS_KTS = 3;
-const RELOAD_MAX_DISTANCE_M = 45;
+// App parity: mission-cargo-core.js uses 200 m for reloading an item at the
+// place where it was unloaded.
+const RELOAD_MAX_DISTANCE_M = 200;
 const RUNTIME_CONTEXT_PERSIST_INTERVAL_MS = 5000;
 const COMPLIANCE_REQUESTED_ITEM_IDS = new Set(['bordbuch', 'fire-extinguisher', 'first-aid']);
 const SYSTEM_EVENT_TYPES = new Set([
@@ -49,6 +51,7 @@ function safeObject(value) {
 }
 
 function finite(value, fallback = null) {
+  if (value === null || value === undefined || value === '') return fallback;
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }

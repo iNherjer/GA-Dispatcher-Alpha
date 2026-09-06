@@ -238,6 +238,13 @@ test('projected reload action follows the App 200 m ground-item radius', () => {
   assert.ok(nearby.items[0].reloadDistanceM < 200);
   assert.equal(far.items[0].reloadAllowed, false);
   assert.ok(far.items[0].reloadDistanceM > 200);
+
+  const legacyWithoutPosition = projectMissionManifest(activeRun, {
+    manifest: { items: [{ id: 'legacy-box', status: 'unloaded', unloadLat: null, unloadLon: null }] },
+    cargo: { items: [{ id: 'legacy-box', status: 'unloaded', itemType: 'cargo' }] }
+  }, { lat: 48, lon: 8 });
+  assert.equal(legacyWithoutPosition.items[0].reloadAllowed, true);
+  assert.equal(legacyWithoutPosition.items[0].reloadDistanceM, null);
 });
 
 test('live tracker payload snapshot feeds the EFB App-style weight-and-balance block before confirmation', () => {

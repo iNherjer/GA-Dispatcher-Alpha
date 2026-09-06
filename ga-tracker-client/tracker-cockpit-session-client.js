@@ -58,8 +58,32 @@
     let heartbeatTimer = null;
     let voiceTimer = null;
     let activeVoice = null;
+    let audioUnlockPromise = null;
+    let audioUnlocked = false;
     const voiceCooldowns = new Map();
     let stopped = false;
+
+    function unlockAudioPlayback() {
+      if (audioUnlocked) return Promise.resolve(true);
+      if (audioUnlockPromise) return audioUnlockPromise;
+      if (getAudioPlaybackEnabled() !== true) return Promise.resolve(false);
+      const AudioCtor = options.Audio || runtime.Audio;
+      if (typeof AudioCtor !== 'function') return Promise.resolve(false);
+      audioUnlockPromise = Promise.resolve().then(async () => {
+        var probe = new AudioCtor('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAACAgICA');
+        try { probe.volume = 0; } catch (_) {}
+        try {
+          await Promise.resolve(probe.play());
+          try { probe.pause(); } catch (_) {}
+          try { probe.currentTime = 0; } catch (_) {}
+          audioUnlocked = true;
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }).finally(() => { audioUnlockPromise = null; });
+      return audioUnlockPromise;
+    }
 
     async function post(pathname, payload, keepalive = false) {
       if (typeof fetchRemote !== 'function') throw new Error('fetch_unavailable');
@@ -308,13 +332,38 @@
       if (!auth) {
         return { ok: false, status: 'blocked', error: 'cockpit_session_unavailable', sideEffect: false };
       }
-      const result = await post('/mission/intents', Object.assign({}, request, auth));
-      return result.payload || {
-        ok: false,
-        status: 'error',
-        error: `mission_intent_http_${result.response.status}`,
-        sideEffect: false
+      const submit = async value => {
+        const result = await post('/mission/intents', Object.assign({}, value, auth));
+        return result.payload || {
+          ok: false,
+          status: 'error',
+          error: `mission_intent_http_${result.response.status}`,
+          sideEffect: false
+        };
       };
+      const first = await submit(request);
+      const retryable = first && (first.error === 'mission_revision_conflict'
+        || first.error === 'mission_intent_not_allowed_in_state');
+      if (!retryable) return first;
+      try {
+        const latest = await missionSnapshot();
+        const control = latest && latest.control && typeof latest.control === 'object' ? latest.control : null;
+        const allowed = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
+        const intent = String(request.intent || request.action || '').toLowerCase();
+        if (!control || control.executionAuthority !== 'tracker'
+            || String(control.missionId || '') !== String(request.missionId || '')
+            || allowed.indexOf(intent) < 0) {
+          return first;
+        }
+        return submit(Object.assign({}, request, {
+          commandId: `${String(request.commandId || 'intent')}:retry:${Date.now()}`,
+          missionId: control.missionId,
+          runId: control.runId,
+          expectedRevision: Number(control.authorityRevision || 0)
+        }));
+      } catch (_) {
+        return first;
+      }
     }
 
     return Object.freeze({
@@ -330,6 +379,7 @@
       start: register,
       stop,
       stopVoice,
+      unlockAudioPlayback,
       submitIntent
     });
   }
@@ -364,6 +414,14 @@
     client.start().catch(() => {});
     if (typeof runtime.addEventListener === 'function') {
       runtime.addEventListener('ga:audio-playback-device-changed', () => client.heartbeat().catch(() => {}));
+      var unlockFromGesture = function () {
+        if (typeof runtime.awmShouldPlayOnThisDevice === 'function' && runtime.awmShouldPlayOnThisDevice() === true) {
+          client.unlockAudioPlayback().catch(() => {});
+        }
+      };
+      runtime.addEventListener('pointerdown', unlockFromGesture, true);
+      runtime.addEventListener('touchend', unlockFromGesture, true);
+      runtime.addEventListener('keydown', unlockFromGesture, true);
       runtime.addEventListener('pagehide', () => client.stop().catch(() => {}), { once: true });
     }
     return client;
@@ -372,8 +430,8 @@
   function installAudioPreferenceFallback(role = 'web') {
     if (typeof runtime.document === 'undefined') return;
     if (typeof runtime.awmShouldPlayOnThisDevice !== 'function') {
-      let enabled = false;
-      try { enabled = runtime.localStorage && runtime.localStorage.getItem('awm_play_on_this_device') === '1'; } catch (_) {}
+      let enabled = true;
+      try { enabled = !runtime.localStorage || runtime.localStorage.getItem('awm_play_on_this_device') !== '0'; } catch (_) {}
       runtime.awmShouldPlayOnThisDevice = () => enabled;
       runtime.awmSyncPlaybackDeviceControls = () => {
         const checkbox = runtime.document.getElementById('awmPlayOnThisDeviceCheck');
@@ -391,6 +449,9 @@
         try { if (runtime.localStorage) runtime.localStorage.setItem('awm_play_on_this_device', enabled ? '1' : '0'); } catch (_) {}
         if (!enabled && runtime.gaCockpitSessionClient && typeof runtime.gaCockpitSessionClient.stopVoice === 'function') {
           runtime.gaCockpitSessionClient.stopVoice(false).catch(() => {});
+        }
+        if (enabled && runtime.gaCockpitSessionClient && typeof runtime.gaCockpitSessionClient.unlockAudioPlayback === 'function') {
+          runtime.gaCockpitSessionClient.unlockAudioPlayback().catch(() => {});
         }
         runtime.awmSyncPlaybackDeviceControls();
         try { runtime.dispatchEvent(new runtime.CustomEvent('ga:audio-playback-device-changed', { detail: { enabled } })); } catch (_) {}

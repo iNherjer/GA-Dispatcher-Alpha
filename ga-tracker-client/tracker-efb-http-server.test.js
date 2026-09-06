@@ -17,11 +17,11 @@ const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core'
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
 test('current tracker exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v382'/);
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v383'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 382/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 383/);
   assert.match(trackerSource, /modelGroundClearanceFt: modelClearanceFt/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);

@@ -948,6 +948,14 @@ async function loadPinnedFlight(id, isGroup) {
             alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
             return;
         }
+        // A pinboard restore is a new planned mission selection.  Publish the
+        // refreshed mission timestamp and Tracker seed immediately so the EFB
+        // can start it exactly like a freshly generated mission.
+        if (typeof window.queueActiveMissionCloudSave === 'function') {
+            window.queueActiveMissionCloudSave('pinboard-mission-restored', { delayMs: 0 });
+        } else {
+            triggerCloudSave(true);
+        }
         togglePinboard();
         setTimeout(() => {
             if (typeof map !== 'undefined' && map && routeWaypoints.length >= 2) {

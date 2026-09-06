@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '38101');
+  assert.equal(EFB_WEB_ASSET_REVISION, '38301');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=38101/);
-  assert.match(page, /host\.css\?v=38101/);
-  assert.match(page, /map-shell-core\.js\?v=38101/);
-  assert.match(page, /map-utility-tools\.js\?v=38101/);
-  assert.match(page, /mission-control-ui-core\.js\?v=38101/);
-  assert.match(page, /cockpit-session-client\.js\?v=38101/);
-  assert.match(page, /host\.js\?v=38101/);
+  assert.match(page, /app-styles\.css\?v=38301/);
+  assert.match(page, /host\.css\?v=38301/);
+  assert.match(page, /map-shell-core\.js\?v=38301/);
+  assert.match(page, /map-utility-tools\.js\?v=38301/);
+  assert.match(page, /mission-control-ui-core\.js\?v=38301/);
+  assert.match(page, /cockpit-session-client\.js\?v=38301/);
+  assert.match(page, /host\.js\?v=38301/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,20 +35,20 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=38101"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=38101"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=38101"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=38101"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=38301"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=38301"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=38301"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=38301"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=38101',
-    '/efb/v1/assets/map-utility-tools.js?v=38101',
-    '/efb/v1/assets/mission-control-ui-core.js?v=38101',
-    '/efb/v1/assets/cockpit-session-client.js?v=38101',
-    '/efb/v1/assets/host.js?v=38101'
+    '/efb/v1/assets/map-shell-core.js?v=38301',
+    '/efb/v1/assets/map-utility-tools.js?v=38301',
+    '/efb/v1/assets/mission-control-ui-core.js?v=38301',
+    '/efb/v1/assets/cockpit-session-client.js?v=38301',
+    '/efb/v1/assets/host.js?v=38301'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -113,7 +113,7 @@ test('EFB cargo manager keeps app toggle semantics and avoids poll-time DOM rebu
   assert.match(source, /status === 'loaded'\) \{\s*return \{ intent: 'set_manifest_item', action: 'unload'/);
   assert.match(source, /\^\(active\|enroute\|return_leg\)\$[\s\S]*?label: 'Abwerfen'/);
   assert.match(source, /label: 'Wieder laden'/);
-  assert.match(source, /HOST 0\.7\.4/);
+  assert.match(source, /HOST 0\.7\.5/);
 });
 
 test('tracker-controlled boarding opens the initiating client cargo manager once accepted', () => {
@@ -292,6 +292,8 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostCss, /#missionStartBanner \{[\s\S]*?z-index: 100060/);
   assert.match(hostCss, /\.ga-efb-cargo-manager \{[\s\S]*?z-index: 190000/);
   assert.match(hostCss, /#gaEfbCargoBody \{[\s\S]*?overflow-y: auto/);
+  assert.match(hostCss, /#gaEfbCargoBody \{[\s\S]*?flex: 1 1 auto/);
+  assert.match(hostCss, /#gaEfbCargoBody \{[\s\S]*?touch-action: pan-y/);
   assert.doesNotMatch(hostCss, /#mapVoiceBtn,\s*\nbody\.ga-efb-tracker-host #mapVoiceMenu/);
   assert.match(hostCss, /\.ga-efb-mission-actions\.is-danger button/);
   assert.match(hostCss, /\.ga-efb-cargo-lock-hint/);
@@ -355,6 +357,15 @@ test('EFB map banner exposes only contextual tracker-approved actions', () => {
     control: { executionAuthority: 'tracker', phase: 'enroute', allowedActions: ['request_pax_interaction'] }
   });
   assert.equal(enroute, null);
+
+  const canonicalEnroute = missionActionBannerModel({
+    available: true,
+    missionId: 'mission-1',
+    view: { currentTask: 'Zum Ziel fliegen' },
+    ui: { schema: 'ga.mission-apt-ui.v1', banner: null },
+    control: { executionAuthority: 'tracker', phase: 'enroute', allowedActions: ['set_manifest_item'] }
+  });
+  assert.equal(canonicalEnroute, null);
 });
 
 test('EFB host toggles utilities even when Coherent still serves the legacy utility module', () => {

@@ -3056,6 +3056,41 @@ window.gaTrackerExecutionSubmitIntent = async function(intent, payload = {}, opt
                 ...ack,
                 ok: ack?.ok === true || TRACKER_ACK_SUCCESS.has(String(ack?.status || '').toLowerCase())
             };
+            const retryable = result?.error === 'mission_revision_conflict'
+                || result?.error === 'mission_intent_not_allowed_in_state';
+            const retryRun = result?.activeRun;
+            const latestControl = window.gaTrackerExecutionControl;
+            const allowedActions = Array.isArray(latestControl?.allowedActions) ? latestControl.allowedActions : [];
+            const sameRun = retryRun?.missionId === activeRun.missionId
+                && retryRun?.runId === activeRun.runId;
+            const stillAllowed = latestControl?.executionAuthority === 'tracker'
+                && latestControl?.missionId === activeRun.missionId
+                && allowedActions.includes(intent);
+            if (retryable && sameRun && stillAllowed && Number(retryRun.revision || 0) > 0) {
+                const retryCommandId = `${commandId}:retry:${Date.now()}`;
+                const retryAck = await _sendMissionAuthorityRequest({
+                    type: 'mission_execution_intent',
+                    commandId: retryCommandId,
+                    clientId: _missionAuthorityClientId(),
+                    appVersion: 'origin',
+                    intent,
+                    missionId: retryRun.missionId,
+                    runId: retryRun.runId,
+                    expectedRevision: Number(retryRun.revision),
+                    payload: intentPayload
+                }, 15000);
+                result = {
+                    ...retryAck,
+                    ok: retryAck?.ok === true || TRACKER_ACK_SUCCESS.has(String(retryAck?.status || '').toLowerCase())
+                };
+                _missionPhaseDebugPush('tracker_execution_intent_retry', {
+                    intent,
+                    commandId: retryCommandId,
+                    status: result?.status || '',
+                    error: result?.error || '',
+                    revision: result?.activeRun?.revision || null
+                });
+            }
         } else {
             const client = window.gaCockpitSessionClient;
             if (!client || typeof client.submitIntent !== 'function') {
@@ -3143,6 +3178,8 @@ function _applyTrackerExecutionAbortLocally(snapshot = null, reason = 'tracker-e
     const matchesLocalMission = !!missionId && missionId === activeMissionId;
     const matchesLocalRun = !!localAuthority?.runId && localAuthority.runId === abortedRun.runId;
     const forceLocalCleanup = options?.forceLocalCleanup === true;
+    const preserveMission = options?.preserveMission === true
+        || ['mission-reset-button', 'map-toolbar-reset', 'efb-toolbar-reset'].includes(String(abortedRun.lastReason || ''));
     if (!matchesLocalMission && !matchesLocalRun && !forceLocalCleanup) return false;
     if (window.gaTrackerExecutionAbortedRunId === abortedRun.runId) return true;
     window.lastTrackerMissionAuthority = {
@@ -3164,7 +3201,7 @@ function _applyTrackerExecutionAbortLocally(snapshot = null, reason = 'tracker-e
         authorityOutcome: 'aborted',
         reason
     });
-    if (resetOk !== false && typeof window.clearAppMissionState === 'function') {
+    if (resetOk !== false && !preserveMission && typeof window.clearAppMissionState === 'function') {
         window.clearAppMissionState({
             trackerAbortCompleted: true,
             skipRuntimeReset: true,
@@ -3181,9 +3218,22 @@ function _applyTrackerExecutionAbortLocally(snapshot = null, reason = 'tracker-e
         runId: abortedRun.runId,
         revision: Number(abortedRun.revision || 0),
         forceLocalCleanup,
+        preserveMission,
         localCleared: resetOk !== false
     });
-    try { triggerCloudSave(true); } catch (_) {}
+    if (resetOk !== false && preserveMission && typeof window.queueActiveMissionCloudSave === 'function') {
+        // Publish the planned seed only after the asynchronous manifest and
+        // simulator-payload reset has finished. A fixed timer can otherwise
+        // upload the previous progressed cargo state again on slow aircraft.
+        const publishResetSeed = () => {
+            window.queueActiveMissionCloudSave('tracker-mission-reset-to-planned', { delayMs: 0 });
+        };
+        const cargoReset = window.missionCargoResetPromise;
+        if (cargoReset && typeof cargoReset.finally === 'function') cargoReset.finally(publishResetSeed);
+        else publishResetSeed();
+    } else {
+        try { triggerCloudSave(true); } catch (_) {}
+    }
     _updateMissionRuntimeUi();
     return resetOk !== false;
 }
@@ -3208,7 +3258,7 @@ window.gaAbortTrackerMission = async function(options = {}) {
         if (!_missionExecutionAuthorityIsTracker()) {
             return { ok: false, status: 'blocked', error: 'mission_execution_authority_web' };
         }
-        if (options.skipConfirm !== true && !_confirmMissionCriticalAction('abort', options)) {
+        if (options.skipConfirm !== true && !_confirmMissionCriticalAction(options.confirmAction || 'abort', options)) {
             return { ok: false, status: 'cancelled', error: 'user_cancelled' };
         }
         if (missionExecutionIntentPromise) {
@@ -3220,7 +3270,10 @@ window.gaAbortTrackerMission = async function(options = {}) {
             const localCleared = _applyTrackerExecutionAbortLocally(
                 { lastRun: result.releasedRun },
                 reason,
-                { forceLocalCleanup: options.forceLocalCleanup === true }
+                {
+                    forceLocalCleanup: options.forceLocalCleanup === true,
+                    preserveMission: options.preserveMission === true
+                }
             );
             if (options.forceLocalCleanup === true && !localCleared) {
                 try { alert('Die Tracker-Mission wurde beendet, aber der lokale App-Stand konnte nicht vollständig geleert werden. Bitte Clear erneut ausführen.'); } catch (_) {}
@@ -3243,7 +3296,12 @@ window.gaAbortTrackerMission = async function(options = {}) {
 
 window.requestMissionRuntimeReset = async function(options = {}) {
     if (_missionExecutionAuthorityIsTracker()) {
-        return window.gaAbortTrackerMission({ ...options, reason: options.reason || 'mission-reset-button' });
+        return window.gaAbortTrackerMission({
+            ...options,
+            reason: options.reason || 'mission-reset-button',
+            confirmAction: 'reset',
+            preserveMission: true
+        });
     }
     if (!_confirmMissionCriticalAction('reset', options)) return false;
     return window.missionRuntimeReset?.({ ...options, respawnAfterClear: false }) !== false;
@@ -14180,9 +14238,11 @@ window.missionRuntimeReset = function(options = {}) {
     if (typeof window.paxVoiceResetMission === 'function') {
         try { window.paxVoiceResetMission(); } catch (_) {}
     }
+    window.missionCargoResetPromise = null;
     if (typeof _missionCargoResetForMissionReset === 'function') {
-        _missionCargoResetForMissionReset('mission-runtime-reset').catch(err => {
+        window.missionCargoResetPromise = _missionCargoResetForMissionReset('mission-runtime-reset').catch(err => {
             console.warn('[MissionCargo] Reset payload sync failed:', err?.message || err);
+            return false;
         });
     }
     if (!skipAuthorityRelease && !authorityReleaseRequested) {

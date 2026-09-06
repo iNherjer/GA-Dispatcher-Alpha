@@ -1533,7 +1533,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.4');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.5');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -2028,11 +2028,14 @@
     var view = payload.view && typeof payload.view === 'object' ? payload.view : {};
     var control = payload.control && typeof payload.control === 'object' ? payload.control : null;
     if (!control || control.executionAuthority !== 'tracker') return null;
-    var projected = payload.ui && payload.ui.schema === 'ga.mission-apt-ui.v1'
-      && payload.ui.banner && typeof payload.ui.banner === 'object'
-      ? payload.ui.banner
-      : null;
-    if (projected) return Object.assign({}, projected);
+    // A canonical null banner is an explicit UI decision.  Falling back in
+    // that case resurrected the old airborne "Verladung öffnen" banner even
+    // though the shared App UI core intentionally hides it.
+    if (payload.ui && payload.ui.schema === 'ga.mission-apt-ui.v1') {
+      return payload.ui.banner && typeof payload.ui.banner === 'object'
+        ? Object.assign({}, payload.ui.banner)
+        : null;
+    }
     var allowedActions = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
     var phase = String(control.phase || payload.phase || payload.state || '').toLowerCase();
     var task = String(view.currentTask || view.status || 'Mission fortsetzen');
@@ -2087,7 +2090,12 @@
     window.requestMissionRuntimeReset = function (options) {
       if (missionIntentPending) return Promise.resolve(false);
       var settings = options && typeof options === 'object' ? options : {};
-      return requestMissionIntent('abort_mission', { reason: String(settings.reason || 'efb-toolbar-reset') });
+      var confirmed = false;
+      try {
+        confirmed = window.confirm('Mission wirklich zurücksetzen? Fortschritt und missionsspezifische Ladung werden zurückgesetzt; der Auftrag bleibt zum Neustart erhalten.');
+      } catch (_) {}
+      if (!confirmed) return Promise.resolve(false);
+      return submitMissionIntent('abort_mission', { reason: String(settings.reason || 'efb-toolbar-reset') });
     };
     window.handleMissionStartBannerAction = function () {
       var model = banner._gaMissionActionModel;

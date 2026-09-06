@@ -86,6 +86,60 @@ test('cockpit client sends revision-bound intents and reads the shared mission c
   await client.stop();
 });
 
+test('cockpit client retries one stale UI intent with the latest tracker revision', async () => {
+  const intentBodies = [];
+  const fetchRemote = async (url, init = {}) => {
+    const body = init.body ? JSON.parse(init.body) : null;
+    if (url.endsWith('/cockpit/sessions')) return response({
+      session: { sessionId: 'session-retry', expiresAt: Date.now() + 45000 },
+      sessionToken: 'token-retry', heartbeatAfterMs: 999999
+    });
+    if (url.endsWith('/mission/intents')) {
+      intentBodies.push(body);
+      if (intentBodies.length === 1) return response({ ok: false, status: 'conflict', error: 'mission_revision_conflict' });
+      return response({ ok: true, status: 'ok' });
+    }
+    if (url.endsWith('/mission')) return response({
+      missionId: 'mission-retry',
+      control: {
+        executionAuthority: 'tracker', missionId: 'mission-retry', runId: 'run-retry',
+        authorityRevision: 12, allowedActions: ['sign_manifest']
+      }
+    });
+    if (url.endsWith('/cockpit/sessions/release')) return response({ released: true });
+    throw new Error(`unexpected:${url}`);
+  };
+  const client = createClient({ role: 'efb', clientId: 'efb-retry', fetchRemote });
+  const result = await client.submitIntent({
+    commandId: 'sign-old', intent: 'sign_manifest', missionId: 'mission-retry',
+    runId: 'run-retry', expectedRevision: 11, payload: {}
+  });
+  assert.equal(result.ok, true);
+  assert.equal(intentBodies.length, 2);
+  assert.equal(intentBodies[1].expectedRevision, 12);
+  assert.match(intentBodies[1].commandId, /^sign-old:retry:/);
+  await client.stop();
+});
+
+test('cockpit audio can be unlocked by a user gesture before a voice job arrives', async () => {
+  const instances = [];
+  class UnlockAudio {
+    constructor(url) { this.url = url; this.volume = 1; instances.push(this); }
+    async play() { this.played = true; }
+    pause() { this.paused = true; }
+  }
+  const client = createClient({
+    role: 'efb', clientId: 'efb-unlock', fetchRemote: async () => response({}),
+    getAudioPlaybackEnabled: () => true, Audio: UnlockAudio
+  });
+  assert.equal(await client.unlockAudioPlayback(), true);
+  assert.equal(instances.length, 1);
+  assert.match(instances[0].url, /^data:audio\/wav;base64,/);
+  assert.equal(instances[0].played, true);
+  assert.equal(instances[0].paused, true);
+  await client.stop();
+});
+
 test('an enabled cockpit audio instance claims and completes the next shared tracker voice job', async () => {
   const calls = [];
   const audioInstances = [];

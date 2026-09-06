@@ -3000,3 +3000,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   begrenzten Scrollbereich mit dauerhaft erreichbarem Kopf; das bestehende
   Menue `Audio auf diesem Geraet abspielen` ist im EFB wieder sichtbar und kann
   den erforderlichen Wiedergabe-/Audio-Unlock per Benutzeraktion setzen.
+- 2026-09-06: Der EFB-Verlade-Manager bildet Kopf und Inhalt als echte
+  begrenzte Flex-Spalte ab; Touch-Scroll und untere Signatur-/Abschlussbuttons
+  bleiben erreichbar. Der gemeinsame APT-UI-Kern unterdrueckt im Reiseflug
+  Banner explizit, zeigt `Deboarding laeuft` bereits waehrend der physischen
+  PAX-Sequenz und bleibt bei Signatur-/Cargo-Aktionen revisionsgebunden. Voice
+  wird bei einer Benutzeraktion fuer Coherent entsperrt. Pinnwand-Restore und
+  bestaetigter Mission Reset publizieren unmittelbar einen neuen geplanten
+  Trackerstand, damit App und EFB denselben Neustart anbieten.

@@ -235,6 +235,10 @@ const fullSeatPlan = context._missionCargoBuildPa24PlanFromManifest({
     items: [{ id: 'crate', itemType: 'cargo', status: 'loaded', weightLbs: 65, label: 'Kiste' }]
 }, {
     ...baseline,
+    stations: baseline.stations.map(row => ({
+        ...row,
+        weightLbs: [2, 3, 4].includes(row.index) ? 170 : row.weightLbs
+    })),
     pa24: {
         ...baseline.pa24,
         seats: { 1: 1, 2: 2, 3: 3, 4: 4 }

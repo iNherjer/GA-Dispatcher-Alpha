@@ -40,6 +40,12 @@ test('arrival banner keeps unload, deboarding and final App states distinct', ()
   assert.equal(unload.button, 'Ausladen');
   const busy = core.bannerModel(control('end_ready', [], { farewellStarted: true, farewellCompleted: false }));
   assert.equal(busy.text, 'Deboarding laeuft. Missionabschluss wird vorbereitet.');
+  const busyBeforeFarewell = core.bannerModel({
+    ...control('end_ready', ['set_manifest_item'], { farewellStarted: false, deboardingCompleted: false }),
+    subphase: 'pax_deboarding'
+  });
+  assert.equal(busyBeforeFarewell.kind, 'wait');
+  assert.equal(busyBeforeFarewell.text, 'Deboarding laeuft. Missionabschluss wird vorbereitet.');
   const ready = core.bannerModel({
     control: { ...control('end_ready', ['request_close']), flight: { destination: { hasAptArrival: true, dArrivalNm: 0.04 } } }
   });
@@ -197,6 +203,25 @@ test('canonical unload sheet keeps cargo, PAX and mission-end actions distinct',
   assert.equal(ready.actions.primary.followupIntent, 'request_close');
   assert.equal(ready.actions.secondary.intent, 'clear_manifest_signature');
   assert.equal(ready.summary.left, '0 Pflicht-Items noch zu entladen · PAX via Deboarding');
+
+  const deboarding = core.cargoModel({
+    control: {
+      ...control('end_ready', ['set_manifest_item'], {
+        active: true, airborneSeen: true, groundStill: true,
+        farewellStarted: true, farewellCompleted: false, deboardingCompleted: false
+      }),
+      subphase: 'pax_deboarding',
+      cargo: { signatureScope: 'arrival', summary: { destinationRemaining: 0 } }
+    },
+    manifest: {
+      dispatchSignature: { scope: 'arrival', by: 'DEINA', at: 789 },
+      items: [{ id: 'pax', itemType: 'passenger', status: 'loaded', delivery: 'destination', required: true }]
+    }
+  });
+  assert.equal(deboarding.items[0].statusLabel, 'Deboarding läuft');
+  assert.equal(deboarding.items[0].action.label, 'Deboarding läuft');
+  assert.equal(deboarding.items[0].action.disabled, true);
+  assert.equal(deboarding.summary.deboardingBusy, true);
 });
 
 test('canonical cargo sheet exposes App lock text instead of clickable stale actions', () => {

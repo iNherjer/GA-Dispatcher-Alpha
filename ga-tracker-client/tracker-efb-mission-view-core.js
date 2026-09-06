@@ -21,6 +21,7 @@ function text(value, maxLength = 360) {
 }
 
 function finite(value) {
+  if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -142,8 +143,8 @@ function manifestItemId(raw, index) {
 }
 
 function distanceMeters(leftLat, leftLon, rightLat, rightLon) {
-  const values = [leftLat, leftLon, rightLat, rightLon].map(Number);
-  if (!values.every(Number.isFinite)) return null;
+  const values = [leftLat, leftLon, rightLat, rightLon].map(finite);
+  if (values.some(value => value === null)) return null;
   const [lat1, lon1, lat2, lon2] = values.map(value => value * Math.PI / 180);
   const dLat = lat2 - lat1;
   const dLon = lon2 - lon1;
@@ -183,6 +184,9 @@ function projectMissionManifest(activeRun, executionControl, flightSnapshot = nu
     const authoritative = controlById.get(id) || {};
     const passenger = text(authoritative.itemType || source.itemType, 30).toLowerCase() === 'passenger';
     const persistentEquipment = source.persistentEquipment === true;
+    const unloadLat = finite(source.unloadLat);
+    const unloadLon = finite(source.unloadLon);
+    const hasUnloadPosition = unloadLat !== null && unloadLon !== null && !(unloadLat === 0 && unloadLon === 0);
     const unloadDistanceM = distanceMeters(liveLat, liveLon, source.unloadLat, source.unloadLon);
     return {
       id,
@@ -210,6 +214,7 @@ function projectMissionManifest(activeRun, executionControl, flightSnapshot = nu
       station: manifestStationLabel(source),
       reloadDistanceM: unloadDistanceM === null ? null : Math.round(unloadDistanceM),
       reloadAllowed: text(authoritative.status || source.status, 30).toLowerCase() !== 'unloaded'
+        || !hasUnloadPosition
         || (unloadDistanceM !== null && unloadDistanceM <= 200)
     };
   });

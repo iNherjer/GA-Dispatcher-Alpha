@@ -139,10 +139,12 @@ lokal daran vorbeischreiben. Die App fuehrt dafuer eine atomare Kette aus:
 4. Der Tracker bereinigt danach alle Simulator- und Szeneneffekte dieses Runs.
 5. Nur nach erfolgreicher Bereinigung markiert er den Run als `aborted`, gibt
    die Authority frei und verteilt die neue Revision.
-6. Die App verwirft danach ihren lokalen Missions-, Runtime-, Cargo-, Pax- und
-   Briefingzustand.
-7. Erst danach darf Clear/Reset enden oder die Erzeugung der neuen Mission
-   beginnen.
+6. Bei `Clear` oder Missionsersetzung verwirft die App danach ihren lokalen
+   Missions-, Runtime-, Cargo-, Pax- und Briefingzustand. Bei `Reset` verwirft
+   sie nur Laufzeitfortschritt und missionsspezifische Zuladung; Auftrag und
+   Briefing bleiben als geplanter Neustart erhalten.
+7. Erst danach darf Clear/Reset enden, der geplante Reset-Seed erneut
+   veroeffentlicht oder die Erzeugung der neuen Mission begonnen werden.
 
 Falls ein bereits terminaler Run aus einem Fehlerfall noch eine unaufgeraeumte
 Missionszuladung im Simulator hinterlassen hat, uebernimmt der erste
@@ -606,10 +608,14 @@ Authority-Unterbau, aber noch nicht den Gleichheitsvertrag:
   Modell, `Verladung` oeffnet den synchronen Manager jederzeit erneut und
   `Mission Reset` sendet nach ausdruecklicher Rueckfrage den sicheren
   `abort_mission`-Pfad. App und EFB verwenden dafuer denselben
-  `ga.mission-toolbar.v1`-View. Der Reset setzt keine Phase lokal und darf
-  weder Manifest noch SimObjects direkt veraendern; erst Tracker-Cleanup und
-  ACK leeren alle verbundenen Ansichten. Im Web-Authority-Fallback bleiben
-  die vorhandenen App-Buttons und die bestehende lokale Reset-Logik erhalten.
+  `ga.mission-toolbar.v1`-View. Der Reset setzt vor dem Tracker-ACK keine Phase
+  lokal und darf weder Manifest noch SimObjects direkt veraendern. Erst nach
+  Tracker-Cleanup und ACK wird der lokale Lauf auf `planned` zurueckgesetzt;
+  Auftrag und Briefing bleiben erhalten und werden als frischer Cloud-Seed
+  wieder allen Ansichten zum Neustart angeboten. `Clear`, Missionsersetzung
+  und ein echter Abbruch duerfen den Auftrag dagegen weiterhin entfernen. Im
+  Web-Authority-Fallback bleiben die vorhandenen App-Buttons und die bestehende
+  lokale Reset-Logik erhalten.
 - Physische Missionsanimationen sind Tracker-Effekte: Entweder die Runtime
   loest sie selbst aus oder ein App-/EFB-Intent fuehrt im Tracker-Reducer zu
   diesem Effekt. Erst der Tracker sendet das Szenenkommando an den Simulator
@@ -655,3 +661,28 @@ bleiben fail-closed.
 - Passenger bleiben weiterhin ausschliesslich ueber die bestehenden Boarding-
   und Deboarding-Effekte steuerbar; der neue Cargo-Effekt darf diesen Pfad
   nicht umgehen.
+
+### Feldtest-Nachbesserung nach Tracker v382
+
+- Ein kanonischer `ui.banner: null` ist eine ausdrueckliche Entscheidung des
+  gemeinsamen App-/EFB-UI-Kerns. Der EFB-Host darf daraus im Reiseflug kein
+  altes Verlade-Fallback-Banner rekonstruieren.
+- Der Reload-Radius betraegt wie im produktiven App-Pfad 200 m. Fehlende alte
+  Entladekoordinaten bleiben reloadbar; vorhandene Koordinaten werden gegen die
+  aktuelle Trackerposition geprueft.
+- Eine aus der Pinnwand geladene Mission erhaelt nach dem Restore einen neuen
+  Zeitstempel und wird sofort als Tracker-Seed hochgeladen. Ein Missions-Reset
+  aktualisiert den Cloud-Kandidaten unmittelbar statt erst im Zehn-Sekunden-
+  Poll.
+- `pax_deboarding`, Farewell-Wartezeit und die anschliessende Uebergabe werden
+  in App und EFB als laufendes Deboarding projiziert. Der noch physisch im
+  Simulator vorhandene PAX darf waehrenddessen nicht nur als `an Bord`
+  erscheinen.
+- Die PA-24-Sitzbelegung wird aus den realen SimConnect-Payloadstationen
+  abgeleitet. Persistente Character-Auswahl und Character-Gewicht allein sind
+  keine Belegung, weil Accu-Sim diese Werte auch fuer leere Sitze behalten kann.
+- Cockpit-Clients entsperren HTML-Audio bei der naechsten Benutzeraktion und
+  verwenden fuer `Audio auf diesem Geraet abspielen` denselben standardmaessig
+  aktiven Zustand wie die App. Revisionskonflikte eines gerade veralteten
+  UI-Klicks werden in EFB und Live-App genau einmal gegen denselben neuesten,
+  weiterhin fuer die Aktion freigegebenen Tracker-Run wiederholt.

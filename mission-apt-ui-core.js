@@ -77,6 +77,7 @@
         if (control.executionAuthority !== 'tracker') return null;
         var allowed = actions(control.allowedActions);
         var phase = phaseOf(source, control);
+        var subphase = text(control.subphase, 80).toLowerCase();
         var flags = object(control.flags);
         var manifest = object(source.manifest);
         var manifestItems = Array.isArray(manifest.items)
@@ -151,7 +152,9 @@
                 button: 'Mission starten', className: '', disabled: false
             };
         } else if (ARRIVAL_PHASES.test(phase)
-            && ((flags.farewellStarted === true && flags.farewellCompleted !== true)
+            && ((/^(pax_deboarding|farewell_wait|farewell_complete)$/.test(subphase)
+                    && flags.deboardingCompleted !== true)
+                || (flags.farewellStarted === true && flags.farewellCompleted !== true)
                 || (flags.farewellCompleted === true && flags.deboardingCompleted !== true))) {
             model = {
                 intent: '', kind: 'wait', kicker: 'Mission abschliessen',
@@ -430,11 +433,20 @@
         var passengerDeboardPending = mode === 'unload' && visibleItems.some(function (item) {
             return itemIsPassenger(item) && text(object(item).status, 30).toLowerCase() === 'loaded';
         });
+        var deboardingBusy = mode === 'unload'
+            && flags.deboardingCompleted !== true
+            && (/^(pax_deboarding|farewell_wait|farewell_complete)$/.test(text(control.subphase, 80).toLowerCase())
+                || flags.farewellStarted === true
+                || flags.farewellCompleted === true);
         var projectedItems = visibleItems.map(function (rawItem, index) {
             var item = object(rawItem);
             var status = text(item.status || 'pending', 30).toLowerCase();
             var handedOff = item.handoffComplete === true || status === 'handed_off';
             var action = rowAction(item, control, mode);
+            var passengerDeboarding = deboardingBusy && itemIsPassenger(item) && status === 'loaded';
+            if (passengerDeboarding) {
+                action = { intent: '', action: '', label: 'Deboarding läuft', disabled: true };
+            }
             var classes = [];
             if (status === 'loaded') classes.push('is-loaded');
             if (status === 'unloaded') classes.push('is-unloaded');
@@ -494,7 +506,7 @@
                 weightLbs: Math.max(0, Math.round(Number(item.weightLbs) || 0)),
                 station: text(item.station || item.stationLabel || item.seatLabel || item.position || '-', 100) || '-',
                 status: status,
-                statusLabel: itemStatusLabel(item),
+                statusLabel: passengerDeboarding ? 'Deboarding läuft' : itemStatusLabel(item),
                 rowClasses: classes.join(' '),
                 action: action,
                 equipmentDetail: equipmentDetail,
@@ -641,7 +653,8 @@
                     : (mode === 'pickup' ? requiredMissing + ' Pickup-Items offen' : requiredMissing + ' Pflicht-Items offen'),
                 right: Math.round(onboardWeightLbs) + ' lbs an Bord' + (unloadedWeightLbs > 0 ? ' · ' + Math.round(unloadedWeightLbs) + ' lbs entladen' : ''),
                 requiredMissing: requiredMissing,
-                passengerDeboardPending: passengerDeboardPending
+                passengerDeboardPending: passengerDeboardPending,
+                deboardingBusy: deboardingBusy
             },
             actions: { secondary: secondary, primary: primary },
             meta: {

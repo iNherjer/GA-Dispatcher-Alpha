@@ -121,7 +121,9 @@ test('PA24 character selectors without payload weight do not consume passenger s
       // Accu-Sim retains these template selections even when the rear seats
       // are empty.  They must not be interpreted as three real passengers.
       seats: { 1: 1, 2: 2, 3: 3, 4: 4 },
-      characterWeights: { 1: 170, 2: 0, 3: 0, 4: 0 },
+      // Character weights are profile values and can remain non-zero even
+      // when the corresponding payload stations above are empty.
+      characterWeights: { 1: 170, 2: 180, 3: 165, 4: 155 },
       baggageWeightLbs: 10,
       totalWeightLbs: 2400,
       grossWeightLbs: 3000

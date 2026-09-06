@@ -72,11 +72,15 @@ body.ga-efb-tracker-host .ga-efb-cargo-manager .mission-cargo-head {
 }
 
 body.ga-efb-tracker-host .ga-efb-cargo-manager #gaEfbCargoBody {
+  flex: 1 1 auto;
   min-height: 0;
+  max-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
 }
 
 body.ga-efb-tracker-host #mapVoiceMenu {

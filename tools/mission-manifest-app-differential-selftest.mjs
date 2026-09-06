@@ -140,7 +140,7 @@ function runScenario({ coreEnabled, manifest, action, itemId = 'box', options = 
         _missionCargoPassengerWaitsForFarewellDeboarding: () => false,
         _missionBushPickupBoarding: () => Promise.resolve(true),
         _activeBushMissionSpec: () => null,
-        MISSION_CARGO_RELOAD_MAX_DISTANCE_M: 45,
+        MISSION_CARGO_RELOAD_MAX_DISTANCE_M: 200,
         setTimeout,
         clearTimeout
     };
