@@ -5,7 +5,7 @@ const manifestCore = require('../mission-manifest-core.js');
 const payloadCore = require('../mission-payload-core.js');
 
 const STANDARD_VERIFY_DELAYS_MS = Object.freeze([900, 2400]);
-const PA24_VERIFY_DELAYS_MS = Object.freeze([350, 650]);
+const PA24_VERIFY_DELAYS_MS = Object.freeze([700, 1600, 3200]);
 const PA24_SEAT_REASSERT_DELAY_MS = 220;
 
 function cleanString(value, maxLength = 180) {
@@ -244,6 +244,7 @@ function createTrackerMissionPayloadHandler(options = {}) {
     let stationCheck = null;
     let pa24Check = null;
     let pa24ReassertAttempts = 0;
+    let consecutiveStableSamples = 0;
     try {
       for (const delayMs of delays) {
         await wait(delayMs);
@@ -254,14 +255,22 @@ function createTrackerMissionPayloadHandler(options = {}) {
         pa24Check = isPa24 && plan.pa24State
           ? payloadCore.comparePa24State(lastSnapshot, plan.pa24State, 1, plannerOptions)
           : null;
-        if (stationCheck.ok && (!pa24Check || pa24Check.ok)) continue;
-        if (stationCheck.ok && pa24Check && !pa24Check.ok && pa24ReassertAttempts < 1) {
+        if (stationCheck.ok && (!pa24Check || pa24Check.ok)) {
+          consecutiveStableSamples += 1;
+          if (consecutiveStableSamples >= 2) break;
+          continue;
+        }
+        consecutiveStableSamples = 0;
+        if (pa24Check && !pa24Check.ok && pa24ReassertAttempts < 1) {
           pa24ReassertAttempts += 1;
           await reassertPa24Seats(plan.pa24State, { reason: 'pa24-payload-seat-verify-retry' });
           if (!isCurrent()) return supersededResult({ sideEffect: true, payloadPlan: plan, applied, snapshot: lastSnapshot });
           continue;
         }
-        break;
+        // Accu-Sim may rewrite seats and station weights for several frames.
+        // Keep sampling the full stabilization window instead of turning the
+        // first transient mismatch into a mission-visible warning.
+        continue;
       }
     } catch (error) {
       return warningResult(error?.code || error?.message || error, {
@@ -282,7 +291,7 @@ function createTrackerMissionPayloadHandler(options = {}) {
       maxStations: baseline.sampledStationCount || baseline.payloadStationCount || 12
     };
     if (!stable) {
-      log(`MISSION_PAYLOAD_WARNING mission=${cleanString(request.missionId) || 'none'} error=payload_unstable_aircraft_override adapter=${plan.payloadAdapter || baseline.payloadAdapter}`);
+      log(`MISSION_PAYLOAD_WARNING mission=${cleanString(request.missionId) || 'none'} error=payload_unstable_aircraft_override adapter=${plan.payloadAdapter || baseline.payloadAdapter} station=${JSON.stringify(stationCheck || null)} pa24=${JSON.stringify(pa24Check || null)}`);
       return warningResult('payload_unstable_aircraft_override', {
         sideEffect: true,
         payloadAdapter: plan.payloadAdapter || baseline.payloadAdapter,

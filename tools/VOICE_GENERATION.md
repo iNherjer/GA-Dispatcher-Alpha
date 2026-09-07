@@ -129,6 +129,15 @@ die App-identische Loadmaster-Ansage ohne Pax-Cue. Fehlender Provider, Cue,
 Audioclient oder Playbackfehler ist best effort und darf den Missionsstart
 nicht sperren.
 
+Seit Tracker v386 wartet der Missionseffekt bis zu 15 Sekunden auf den echten
+Playback-Claim eines ausgewaehlten Geraets. Nicht abgespielte, nicht
+zurueckgestellte Jobs verfallen nach zehn Minuten und koennen deshalb keinen
+neueren Missionsclip mehr blockieren. Der Cockpit-Client beendet eine
+haengengebliebene Audioinstanz nach 75 Sekunden und gibt ihre Lease frei;
+auch ein anschliessender Tracker-Playback-Timeout entfernt den Job. Bewusst
+zurueckgestellte Farewell-Preloads sind von der Zehn-Minuten-Grenze
+ausgenommen, bis der Missionsablauf sie aktiviert.
+
 Dieser Schnitt ersetzt den Legacy-Pfad nicht allgemein. Im vorbereiteten
 v376-Feldkandidaten ist `TRACKER_AUTHORITY_READY` fuer Standard-APT geoeffnet,
 wirkt aber nur bei Alpha plus aktiviertem APT-Opt-in. Stable sowie Alpha ohne

@@ -1557,15 +1557,21 @@
                 var deboardingPending = state.effects.some(function (effect) {
                     return effect.type === 'scene.deboarding' && effect.status === 'requested';
                 });
+                var arrivalTransitionPending = state.flags.payloadSyncRequested === true || state.effects.some(function (effect) {
+                    return effect.status === 'requested' && (effect.type === 'payload.sync_manifest_state'
+                        || effect.type === 'scene.deboarding'
+                        || effect.type === 'scene.deboarding_continue'
+                        || effect.type === 'voice.farewell');
+                });
                 var loadedDestinationPax = state.cargo.items.some(function (item) {
                     return item.itemType === 'passenger' && item.status === 'loaded' && item.delivery === 'destination';
                 });
                 if ((phase === 'end_unloading' || phase === 'end_ready') && loadedDestinationPax && !deboardingPending) {
                     actions.push('request_pax_interaction');
                 }
-                if (state.cargo.summary.destinationRemaining === 0 && state.cargo.signatureScope !== 'arrival') actions.push('sign_manifest');
-                if (state.cargo.signatureScope === 'arrival') actions.push('clear_manifest_signature');
-                if (state.cargo.summary.destinationRemaining === 0 && state.cargo.signatureScope === 'arrival' && !state.flags.unloadConfirmed) actions.push('confirm_unload');
+                if (!arrivalTransitionPending && state.cargo.summary.destinationRemaining === 0 && state.cargo.signatureScope !== 'arrival') actions.push('sign_manifest');
+                if (!arrivalTransitionPending && state.cargo.signatureScope === 'arrival') actions.push('clear_manifest_signature');
+                if (!arrivalTransitionPending && state.cargo.summary.destinationRemaining === 0 && state.cargo.signatureScope === 'arrival' && !state.flags.unloadConfirmed) actions.push('confirm_unload');
             }
         }
         var closeDeboardingPending = state.effects.some(function (effect) {

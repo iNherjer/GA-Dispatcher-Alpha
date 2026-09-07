@@ -48,8 +48,8 @@ function createTrackerMissionFarewellVoice(options = {}) {
     ? options.getAudioPlaybackCandidates
     : () => 0;
   const log = typeof options.log === 'function' ? options.log : () => {};
-  const playbackClaimTimeoutMs = Math.max(250, Math.min(30000, Number(options.playbackClaimTimeoutMs) || 5000));
-  const playbackTimeoutMs = Math.max(1000, Math.min(180000, Number(options.playbackTimeoutMs) || 45000));
+  const playbackClaimTimeoutMs = Math.max(250, Math.min(30000, Number(options.playbackClaimTimeoutMs) || 15000));
+  const playbackTimeoutMs = Math.max(1000, Math.min(180000, Number(options.playbackTimeoutMs) || 90000));
   const generationTimeoutMs = Math.max(1000, Math.min(180000, Number(options.generationTimeoutMs) || 75000));
   if (!authorityManager || typeof authorityManager.getActiveRun !== 'function') {
     throw new TypeError('mission_farewell_voice_authority_manager_required');
@@ -192,6 +192,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
           playback = claim.status === 'completed'
             ? { status: 'completed', completed: true, job: claim.job || null }
             : await voiceService.waitForPlayback(voiceEffectId, { timeoutMs: playbackTimeoutMs });
+          if (playback?.status === 'timeout') voiceService.cancel?.(voiceEffectId, 'farewell_voice_playback_timeout');
         } else {
           voiceService.cancel?.(voiceEffectId, 'farewell_voice_unclaimed');
           playback = { status: 'no_audio_claim', completed: false, job: claim?.job || null };

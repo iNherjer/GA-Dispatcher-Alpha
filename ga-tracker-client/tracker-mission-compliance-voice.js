@@ -44,7 +44,7 @@ function createTrackerMissionComplianceVoice(options = {}) {
     : () => 0;
   const log = typeof options.log === 'function' ? options.log : () => {};
   const timeoutMs = Math.max(1000, Math.min(180000, Number(options.timeoutMs) || 75000));
-  const playbackClaimTimeoutMs = Math.max(250, Math.min(30000, Number(options.playbackClaimTimeoutMs) || 5000));
+  const playbackClaimTimeoutMs = Math.max(250, Math.min(30000, Number(options.playbackClaimTimeoutMs) || 15000));
   if (!authorityManager || typeof authorityManager.getActiveRun !== 'function') {
     throw new TypeError('mission_compliance_voice_authority_manager_required');
   }
@@ -126,6 +126,7 @@ function createTrackerMissionComplianceVoice(options = {}) {
           playback = claim.status === 'completed'
             ? { status: 'completed', completed: true, job: claim.job || null }
             : await voiceService.waitForPlayback(effectId, { timeoutMs });
+          if (playback?.status === 'timeout') voiceService.cancel?.(effectId, 'compliance_voice_playback_timeout');
         } else {
           voiceService.cancel?.(effectId, 'compliance_voice_unclaimed');
           playback = { status: 'no_audio_claim', completed: false, job: claim?.job || null };

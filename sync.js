@@ -1909,6 +1909,9 @@ let missionRuntimeResumeAppliedFor = '';
 let missionRuntimeResumeSuppressedFor = '';
 let missionRuntimeResumeSuppressedLastSig = '';
 let missionRuntimeResumeSuppressedLastLogAt = 0;
+let missionPhaseDebugPersistTimer = null;
+let missionPhaseDebugLastPersistAt = 0;
+let missionPhaseDebugRefreshTimer = null;
 let missionRuntimeResumeConflictLastSig = '';
 let missionRuntimeResumeConflictLastLogAt = 0;
 let missionAuthoritySnapshotSequence = 0;
@@ -2711,7 +2714,11 @@ function _applyTrackerPayloadControl(rawPayload = null) {
     window.missionCargoStatus.payloadVerification = status === 'pending'
         ? { status: 'running' }
         : (payload.verification || (status === 'ok' ? { status: 'ok' } : null));
-    window.missionCargoStatus.error = payload.error || null;
+    // The projected payload warning already contains the human-readable App
+    // wording. Do not render the internal tracker code as a second red error.
+    window.missionCargoStatus.error = payload.presentation?.message
+        ? null
+        : (payload.error || null);
     window.missionCargoStatus.payloadSyncAt = Number(payload.updatedAt || 0);
     return true;
 }
@@ -3021,11 +3028,22 @@ function _publishMissionControlIntentStatus(result = null, pending = false) {
     try {
         window.dispatchEvent(new CustomEvent('missioncontrolchange', { detail: { pending: pending === true, result, presentation } }));
     } catch (_) {}
+    if (document.getElementById('missionCargoOverlay')?.style.display === 'flex'
+        && typeof _missionCargoRenderDialog === 'function') {
+        _missionCargoRenderDialog(window.missionCargoStatus?.lastMode || 'load', { skipPayloadRefresh: true });
+    }
     return presentation;
 }
 
 window.gaTrackerExecutionSubmitIntent = async function(intent, payload = {}, options = {}) {
-    if (missionExecutionIntentPromise && options.allowParallel !== true) return missionExecutionIntentPromise;
+    if (missionExecutionIntentPromise && options.allowParallel !== true) {
+        return {
+            ok: false,
+            status: 'pending',
+            error: 'mission_intent_pending',
+            intent: String(intent || '')
+        };
+    }
     const execute = async () => {
         const cloudControl = intent === 'activate_cloud_mission'
             && window.gaTrackerExecutionControl?.cloudPending === true
@@ -3768,6 +3786,32 @@ function _missionPhaseDebugPersist(dbg = null) {
     }
 }
 
+function _missionPhaseDebugSchedulePersist(dbg = null) {
+    if (!dbg || !Array.isArray(dbg.events)) return false;
+    const now = Date.now();
+    const waitMs = Math.max(0, 2000 - (now - missionPhaseDebugLastPersistAt));
+    if (waitMs === 0 && !missionPhaseDebugPersistTimer) {
+        missionPhaseDebugLastPersistAt = now;
+        return _missionPhaseDebugPersist(dbg);
+    }
+    if (!missionPhaseDebugPersistTimer) {
+        missionPhaseDebugPersistTimer = setTimeout(() => {
+            missionPhaseDebugPersistTimer = null;
+            missionPhaseDebugLastPersistAt = Date.now();
+            _missionPhaseDebugPersist(_missionPhaseDebugState());
+        }, waitMs || 1);
+    }
+    return true;
+}
+
+function _missionPhaseDebugScheduleReportRefresh() {
+    if (missionPhaseDebugRefreshTimer || typeof window.vpRefreshWeatherDebugReport !== 'function') return;
+    missionPhaseDebugRefreshTimer = setTimeout(() => {
+        missionPhaseDebugRefreshTimer = null;
+        try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+    }, 1000);
+}
+
 function _missionPhaseDebugState() {
     if (!window.gaMissionPhaseDebug || typeof window.gaMissionPhaseDebug !== 'object') {
         const persistedEvents = _missionPhaseDebugReadPersistedEvents();
@@ -3799,11 +3843,9 @@ function _missionPhaseDebugPush(kind = 'event', payload = {}) {
     if (dbg.events.length > MISSION_PHASE_DEBUG_MAX_EVENTS) {
         dbg.events.splice(0, dbg.events.length - MISSION_PHASE_DEBUG_MAX_EVENTS);
     }
-    _missionPhaseDebugPersist(dbg);
+    _missionPhaseDebugSchedulePersist(dbg);
     try { console.debug('[MISSION PHASE]', entry.kind, entry.payload); } catch (_) {}
-    if (typeof window.vpRefreshWeatherDebugReport === 'function') {
-        try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
-    }
+    _missionPhaseDebugScheduleReportRefresh();
     return entry;
 }
 
@@ -5818,7 +5860,10 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
     missionRuntimeResumeConflictLastLogAt = 0;
     if (trackerActive && missionRuntimeResumeSuppressedFor === trackerMissionId && !missionRuntime.active && !missionRuntime.closingPending) {
         const now = Date.now();
-        const signature = `${trackerMissionId}|${status.runId || ''}|${status.state || ''}|${reason}`;
+        // Status, GPS and intent projections alternate every few seconds. The
+        // source is deliberately excluded so one unchanged suppression state
+        // produces at most one log entry per 30 seconds.
+        const signature = `${trackerMissionId}|${status.runId || ''}|${status.state || ''}`;
         if (signature !== missionRuntimeResumeSuppressedLastSig || now - missionRuntimeResumeSuppressedLastLogAt > 30000) {
             missionRuntimeResumeSuppressedLastSig = signature;
             missionRuntimeResumeSuppressedLastLogAt = now;
@@ -18529,6 +18574,16 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
         if (missionRuntime.active || missionRuntime.closingPending) {
             missionAuthorityLateBindPending = true;
             setTimeout(async () => {
+                const missionId = _activeMissionRuntimeId('');
+                const completedExecution = window.lastTrackerMissionAuthority?.lastExecution;
+                const alreadyCompleted = !!missionId
+                    && _normalizeMissionRuntimeId(completedExecution?.missionId || '') === missionId
+                    && String(completedExecution?.phase || '').toLowerCase() === 'closed';
+                if (alreadyCompleted || (window.gaTrackerExecutionFinalizedRunId
+                    && String(completedExecution?.runId || '') === String(window.gaTrackerExecutionFinalizedRunId))) {
+                    missionAuthorityLateBindPending = false;
+                    return;
+                }
                 const state = missionRuntime.closingPending ? 'closing' : 'active';
                 const authorityReady = await _ensureMissionAuthorityForStart('websocket-open-resume');
                 if (_trackerSupportsMissionAuthority() && !authorityReady) return;

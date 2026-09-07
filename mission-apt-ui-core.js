@@ -397,6 +397,7 @@
         var phase = phaseOf(source, control);
         var mode = cargoMode(phase);
         var flags = object(control.flags);
+        var intentPending = source.intentPending === true;
         var allowed = actions(control.allowedActions);
         var compliance = complianceCore && typeof complianceCore.projectCargoUiState === 'function'
             ? complianceCore.projectCargoUiState(object(object(control.workflows).complianceInspection))
@@ -443,6 +444,9 @@
             var status = text(item.status || 'pending', 30).toLowerCase();
             var handedOff = item.handoffComplete === true || status === 'handed_off';
             var action = rowAction(item, control, mode);
+            if (intentPending && action && action.intent) {
+                action = { intent: action.intent, action: action.action, label: 'Tracker verarbeitet ...', disabled: true };
+            }
             var passengerDeboarding = deboardingBusy && itemIsPassenger(item) && status === 'loaded';
             if (passengerDeboarding) {
                 action = { intent: '', action: '', label: 'Deboarding läuft', disabled: true };
@@ -513,7 +517,7 @@
                 stationAction: stationAction
             };
         });
-        var signatureActionEnabled = (signed || requiredMissing === 0) && includes(allowed, 'sign_manifest');
+        var signatureActionEnabled = !intentPending && (signed || requiredMissing === 0) && includes(allowed, 'sign_manifest');
         var signatureStateText = signatureAnimating
             ? 'wird eingetragen'
             : (signatureReady
@@ -578,9 +582,16 @@
                 className: 'mission-cargo-secondary', disabled: !includes(allowed, 'clear_manifest_signature')
             }
             : null;
+        if (intentPending) {
+            primary.disabled = true;
+            primary.label = 'Tracker verarbeitet ...';
+            if (secondary) secondary.disabled = true;
+        }
         var trackerModeIntent = mode === 'load' || mode === 'pickup' || mode === 'unload' ? 'set_manifest_item' : '';
         var trackerModeLocked = trackerModeIntent && !includes(allowed, trackerModeIntent);
-        var modeHint = trackerModeLocked
+        var modeHint = intentPending
+            ? 'Tracker verarbeitet die letzte Eingabe. Der aktuelle Stand wird automatisch übernommen.'
+            : (trackerModeLocked
             ? blockedMessage(trackerModeIntent, phase)
             : (mode === 'unload'
                 ? (!groundHandlingAllowed ? 'Im Flug kann Ladung nur abgeworfen werden. Als geliefert gilt sie erst nach Ausladen am Boden.' : '')
@@ -590,7 +601,7 @@
                         : 'Zum Treffpunkt rollen, Pickup vollständig laden, unterschreiben und danach den Rueckflug bestaetigen.')
                     : (!groundHandlingAllowed
                         ? 'Verladung ist nur am Boden moeglich. Im Flug bleibt diese Liste nur zur Dokumentation sichtbar.'
-                        : 'Bordbestand direkt in der Frachtgutliste anklicken. Nach dem Ausladen erscheint das Gueltigkeitsdatum unter dem Namen.')));
+                        : 'Bordbestand direkt in der Frachtgutliste anklicken. Nach dem Ausladen erscheint das Gueltigkeitsdatum unter dem Namen.'))));
         var onboardWeightLbs = items.reduce(function (sum, item) {
             return sum + (text(object(item).status, 30).toLowerCase() === 'loaded' ? Number(object(item).weightLbs || 0) : 0);
         }, 0);

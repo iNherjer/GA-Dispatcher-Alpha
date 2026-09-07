@@ -4603,6 +4603,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             missionProfileId: String(_activeBushMissionSpec()?.profileId || '').toLowerCase(),
             pickupKind: String(_activeBushMissionSpec()?.pickupKind || '').toLowerCase(),
             signatureAnimating,
+            intentPending: window.gaMissionControlIntentPending === true,
             updatedAt: Number(window.gaTrackerExecutionControl?.updatedAt || 0)
         });
         if (trackerCargoPresentation?.presentation === 'app-cargo-dialog-v1'

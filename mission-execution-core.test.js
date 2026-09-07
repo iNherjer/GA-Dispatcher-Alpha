@@ -351,6 +351,29 @@ test('farewell gates coordinated passenger deboarding and commits handoff only a
     assert.equal(state.effects.some(effect => effect.type === 'mission.close_requested'), true);
 });
 
+test('arrival signature stays locked until deboarding payload effects settle', () => {
+    let state = core.normalizeState({
+        missionId: 'mission-arrival-lock',
+        recipe: 'apt',
+        phase: 'end_ready',
+        subphase: 'pax_deboarding',
+        flags: { started: true, active: true, onGround: true, groundStill: true, payloadSyncRequested: true },
+        progress: { airborneSeen: true },
+        manifest: {
+            version: 6,
+            dispatchSignature: null,
+            items: [{ id: 'cargo', itemType: 'cargo', required: true, status: 'unloaded', deliverAtDestination: true }]
+        },
+        effects: [{ effectId: 'payload-arrival', type: 'payload.sync_manifest_state', status: 'requested' }]
+    });
+    assert.equal(state.cargo.summary.destinationRemaining, 0);
+    assert.equal(core.allowedActions(state).includes('sign_manifest'), false);
+    state.flags.payloadSyncRequested = false;
+    state.effects[0].status = 'completed';
+    state = core.normalizeState(state);
+    assert.equal(core.allowedActions(state).includes('sign_manifest'), true);
+});
+
 test('invalid event order cannot bypass the universal start gates', () => {
     const executionBundle = core.createExecutionBundle(makeLegacyBundle());
     const replay = core.replay(executionBundle, [

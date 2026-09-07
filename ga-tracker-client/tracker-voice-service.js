@@ -10,6 +10,7 @@ const EFFECT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
 const DEFAULT_MAX_ENTRIES = 64;
 const DEFAULT_MAX_AUDIO_BYTES = 48 * 1024 * 1024;
 const DEFAULT_PLAYBACK_LEASE_MS = 30000;
+const DEFAULT_PLAYBACK_JOB_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_MAX_PENDING_JOBS = 16;
 const DEFAULT_MAX_PROVIDER_CONCURRENCY = 2;
 const DEFAULT_MAX_NEW_JOBS_PER_MINUTE = 60;
@@ -302,6 +303,8 @@ function createTrackerVoiceService(options = {}) {
   const maxAudioBytes = Math.max(1024 * 1024, Number(options.maxAudioBytes) || DEFAULT_MAX_AUDIO_BYTES);
   const maxPendingJobs = Math.max(1, Math.min(64, Number(options.maxPendingJobs) || DEFAULT_MAX_PENDING_JOBS));
   const maxProviderConcurrency = Math.max(1, Math.min(4, Number(options.maxProviderConcurrency) || DEFAULT_MAX_PROVIDER_CONCURRENCY));
+  const playbackJobTtlMs = Math.max(60000, Math.min(24 * 60 * 60 * 1000,
+    Number(options.playbackJobTtlMs) || DEFAULT_PLAYBACK_JOB_TTL_MS));
   const storageFile = String(options.storageFile || '').trim();
   const audioCueDirectory = options.audioCueDirectory === false
     ? ''
@@ -441,6 +444,9 @@ function createTrackerVoiceService(options = {}) {
         if ((synthesizeAudio && !audio.length) || totalAudioBytes + audio.length > maxAudioBytes) continue;
         const timestamp = Math.max(0, Number(source.updatedAt) || Number(source.createdAt) || now());
         const playback = source.playback && typeof source.playback === 'object' ? source.playback : {};
+        const createdAt = Math.max(0, Number(source.createdAt) || timestamp);
+        if (playback.status !== 'completed' && playback.status !== 'deferred'
+            && now() - createdAt > playbackJobTtlMs) continue;
         const cue = resolveAudioCue(source.cue);
         const record = {
           effectId,
@@ -453,7 +459,7 @@ function createTrackerVoiceService(options = {}) {
           speaker: boardingVoiceCore.normalizeSpeaker(source.speaker),
           cue,
           status: 'ready',
-          createdAt: Math.max(0, Number(source.createdAt) || timestamp),
+          createdAt,
           updatedAt: timestamp,
           text: String(source.text || '').trim().slice(0, 4000),
           textModel: String(source.textModel || '').trim().slice(0, 100),
@@ -663,6 +669,19 @@ function createTrackerVoiceService(options = {}) {
 
   function getNextPlayback() {
     const timestamp = now();
+    let pruned = false;
+    for (const candidate of records.values()) {
+      const playbackStatus = String(candidate.playback?.status || 'available');
+      if (candidate.status !== 'ready' || playbackStatus === 'completed' || playbackStatus === 'deferred') continue;
+      if (timestamp - Number(candidate.createdAt || timestamp) <= playbackJobTtlMs) continue;
+      records.delete(candidate.effectId);
+      totalAudioBytes = Math.max(0, totalAudioBytes - (Number(candidate.audio?.length) || 0));
+      settlePlaybackWaiters(candidate.effectId, { status: 'expired', completed: false, job: publicRecord(candidate) });
+      settlePlaybackClaimWaiters(candidate.effectId, { status: 'expired', claimed: false, job: publicRecord(candidate) });
+      log(`VOICE_PLAYBACK_EXPIRED effectId=${candidate.effectId}`);
+      pruned = true;
+    }
+    if (pruned) persist();
     const record = [...records.values()]
       .filter((candidate) => candidate.status === 'ready' && Buffer.isBuffer(candidate.audio))
       .filter((candidate) => candidate.playback?.status !== 'deferred')
@@ -827,6 +846,7 @@ module.exports = {
   DEFAULT_MAX_PENDING_JOBS,
   DEFAULT_MAX_PROVIDER_CONCURRENCY,
   DEFAULT_PLAYBACK_LEASE_MS,
+  DEFAULT_PLAYBACK_JOB_TTL_MS,
   createTrackerVoiceService,
   normalizeVoiceProvider,
   normalizeVoiceRequest,

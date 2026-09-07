@@ -106,6 +106,24 @@ test('only one cockpit client owns playback until release or lease expiry', asyn
   assert.equal(service.claimPlayback({ effectId: 'run-3:event', clientId: 'efb-a' }).reason, 'completed');
 });
 
+test('stale unplayed voice cannot block a newer mission job', async () => {
+  let clock = 1000;
+  const service = createTrackerVoiceService({
+    provider: 'openai',
+    apiKey: 'secret',
+    now: () => clock,
+    playbackJobTtlMs: 60000,
+    fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('audio') })
+  });
+  service.request({ effectId: 'old-run:boarding', text: 'Alt.' });
+  await service.wait('old-run:boarding');
+  clock += 60001;
+  service.request({ effectId: 'new-run:boarding', text: 'Neu.' });
+  await service.wait('new-run:boarding');
+  assert.equal(service.getNextPlayback().effectId, 'new-run:boarding');
+  assert.equal(service.get('old-run:boarding'), null);
+});
+
 test('deferred voice jobs stay hidden until their mission phase activates playback', async () => {
   const service = createTrackerVoiceService({
     provider: 'openai',

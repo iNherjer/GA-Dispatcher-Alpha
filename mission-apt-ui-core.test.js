@@ -346,3 +346,24 @@ test('canonical cargo model carries the full App weight-and-balance presentation
     { index: 2, weightLbs: 180, baselineWeightLbs: 0, missionExtraLbs: 180 }
   ]);
 });
+
+test('canonical cargo model locks every control while an intent is in flight', () => {
+  const model = core.cargoModel({
+    intentPending: true,
+    control: {
+      ...control('boarding', ['set_manifest_item', 'sign_manifest'], {
+        groundStill: true, boardingConfirmed: true
+      }),
+      cargo: { summary: { departureMissing: 1 } }
+    },
+    manifest: {
+      dispatchSignature: null,
+      items: [{ id: 'box', itemType: 'cargo', required: true, status: 'pending', pickupLocation: 'departure' }]
+    }
+  });
+  assert.equal(model.items[0].action.disabled, true);
+  assert.equal(model.items[0].action.label, 'Tracker verarbeitet ...');
+  assert.equal(model.actions.primary.disabled, true);
+  assert.equal(model.actions.primary.label, 'Tracker verarbeitet ...');
+  assert.match(model.modeHint, /letzte Eingabe/);
+});

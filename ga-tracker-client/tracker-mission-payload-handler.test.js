@@ -203,7 +203,7 @@ test('PA24 payload preserves post-write seat reassert and one verification retry
   const result = await handler.syncBeforeStart({ missionId: 'apt-pa24', manifest, effect: effectFor(manifest) });
   assert.equal(result.ok, true);
   assert.equal(result.payloadStatus, 'ok');
-  assert.deepEqual(waits, [220, 350, 650]);
+  assert.deepEqual(waits, [220, 700, 1600, 3200]);
   assert.deepEqual(reassertions, ['pa24-payload-seat-post-write', 'pa24-payload-seat-verify-retry']);
   assert.equal(result.payloadVerification.pa24ReassertAttempts, 1);
 });

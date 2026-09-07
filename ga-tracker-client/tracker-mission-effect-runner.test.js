@@ -348,6 +348,7 @@ test('APT effect runner persists ACKs, advances system events and closes the rep
     itemId: 'medical-box',
     action: 'unload'
   }).ok, true);
+  assert.equal((await runner.drain()).pendingCount, 0);
   assert.equal(executeCurrent(fixture, 'sign_manifest', 'sign-arrival').ok, true);
   assert.equal(executeCurrent(fixture, 'confirm_unload', 'confirm-unload').ok, true);
   assert.equal((await runner.drain()).pendingCount, 0);

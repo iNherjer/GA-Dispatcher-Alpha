@@ -3023,3 +3023,12 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   frueh `request_close` sendet. Ein geschlossener Run derselben Mission darf
   durch Capability-Late-Bind nicht erneut auferstehen. Verladeaktionen bleiben
   in beiden Oberflaechen auf die passenden Bodenphasen begrenzt.
+- 2026-09-07: Tracker v386 serialisiert sichtbare Cargo-/Signaturaktionen auch
+  in der Origin-App: Waehrend ein Intent laeuft, sind alle weiteren Aktionen
+  mit einem gemeinsamen `Tracker verarbeitet ...`-Stand gesperrt und koennen
+  nicht mehr versehentlich mit dem Promise einer anderen Aktion quittiert
+  werden. Ankunftssignatur und Bestaetigung werden erst nach abgeschlossenen
+  Deboarding- und Payload-Effekten freigegeben. Ein terminal geschlossener Run
+  wird bei einem Relay-Reconnect nicht erneut akquiriert. App- und EFB-Assets
+  tragen getrennte Cache-Revisionsmarker; Stable und der Alpha-Legacy-Pfad
+  bleiben unveraendert.

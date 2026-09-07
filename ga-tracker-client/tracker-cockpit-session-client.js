@@ -53,6 +53,8 @@
     const listenForVoice = typeof options.listenForVoice === 'function'
       ? options.listenForVoice
       : () => options.listenForVoice === true;
+    const voicePlaybackWatchdogMs = Math.max(1000, Math.min(180000,
+      Number(options.voicePlaybackWatchdogMs) || 75000));
     let session = null;
     let sessionToken = '';
     let heartbeatTimer = null;
@@ -144,6 +146,7 @@
         try { audio.pause(); } catch (_) {}
         try { audio.currentTime = 0; } catch (_) {}
       }
+      if (current.watchdogTimer) clearTimeout(current.watchdogTimer);
       await releaseVoice(current.effectId, completed);
     }
 
@@ -189,12 +192,13 @@
         audio.volume = masterVolume;
         if (cueAudio) cueAudio.volume = Math.max(0, Math.min(1, masterVolume * (Number(cue.gain) || 0.38)));
       } catch (_) {}
-      activeVoice = { effectId, audio, cueAudio };
+      activeVoice = { effectId, audio, cueAudio, watchdogTimer: null };
       let finished = false;
       let voiceStarted = false;
       const finish = async (completed) => {
         if (finished) return;
         finished = true;
+        if (activeVoice && activeVoice.watchdogTimer) clearTimeout(activeVoice.watchdogTimer);
         if (activeVoice && activeVoice.audio === audio) activeVoice = null;
         for (const item of [cueAudio, audio].filter(Boolean)) {
           try { item.onended = null; item.onerror = null; } catch (_) {}
@@ -203,6 +207,9 @@
         await releaseVoice(effectId, completed);
         scheduleVoice(completed ? 250 : 1500);
       };
+      activeVoice.watchdogTimer = setTimeout(() => {
+        finish(false).catch(() => {});
+      }, voicePlaybackWatchdogMs);
       audio.onended = () => finish(true).catch(() => {});
       audio.onerror = () => finish(false).catch(() => {});
       const startVoice = async () => {

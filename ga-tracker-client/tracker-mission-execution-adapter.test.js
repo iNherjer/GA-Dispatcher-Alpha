@@ -177,6 +177,16 @@ function acknowledgeFirstPendingEffect(fixture, suffix = 'test') {
   return result;
 }
 
+function acknowledgeAllPendingEffects(fixture, suffix = 'test') {
+  let count = 0;
+  while (fixture.manager.getExecutionSnapshot().state.effects.some(effect => effect.status === 'requested')) {
+    acknowledgeFirstPendingEffect(fixture, `${suffix}-${count + 1}`);
+    count += 1;
+    assert.ok(count < 20, 'pending effect acknowledgement did not converge');
+  }
+  return count;
+}
+
 function beginBoarding(fixture, suffix = 'test') {
   acknowledgeFirstPendingEffect(fixture, `prepare-${suffix}`);
   return executeCurrent(fixture, 'start_boarding', `start-boarding-${suffix}`);
@@ -336,12 +346,15 @@ test('tracker manifest follows the app toggle, signature reset and confirmation 
   assert.equal(executeCurrent(fixture, 'set_manifest_item', 'arrival-unload', {
     itemId: 'medical-box', action: 'unload'
   }).ok, true);
+  acknowledgeAllPendingEffects(fixture, 'arrival-unload');
   assert.equal(executeCurrent(fixture, 'set_manifest_item', 'arrival-reload', {
     itemId: 'medical-box', action: 'load'
   }).ok, true);
+  acknowledgeAllPendingEffects(fixture, 'arrival-reload');
   assert.equal(executeCurrent(fixture, 'set_manifest_item', 'arrival-unload-again', {
     itemId: 'medical-box', action: 'unload'
   }).ok, true);
+  acknowledgeAllPendingEffects(fixture, 'arrival-unload-again');
   assert.equal(executeCurrent(fixture, 'sign_manifest', 'arrival-sign').ok, true);
   assert.equal(fixture.manager.getExecutionSnapshot().view.allowedActions.includes('request_close'), false);
   assert.equal(executeCurrent(fixture, 'clear_manifest_signature', 'arrival-clear').ok, true);
@@ -457,6 +470,7 @@ test('tracker telemetry requires stable evidence and drives APT landing and clos
   assert.equal(unloaded.view.cargo.destinationRemaining, 0);
   assert.equal(fixture.manager.getExecutionSnapshot().state.cargo.signatureScope, null);
 
+  acknowledgeAllPendingEffects(fixture, 'arrival');
   assert.equal(executeCurrent(fixture, 'sign_manifest', 'sign-arrival').ok, true);
   const unloadConfirmed = executeCurrent(fixture, 'confirm_unload', 'confirm-unload');
   assert.equal(unloadConfirmed.ok, true);

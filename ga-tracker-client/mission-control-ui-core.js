@@ -1,10 +1,13 @@
 (function (root, factory) {
   'use strict';
+
   var api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.GAMissionControlUiCore = api;
 }(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
+
+  var BUILD_ID = 'tracker-mission-ui-20260907-01';
 
   var ACTION_LABELS = Object.freeze({
     activate_cloud_mission: 'Mission aus der Cloud beginnen',
@@ -281,6 +284,9 @@
       return { tone: 'good', text: 'Aktion bestätigt. Der Missionsstand wurde auf allen Ansichten aktualisiert.' };
     }
     var error = String(value.error || value.status || '').toLowerCase();
+    if (error === 'mission_intent_pending') {
+      return { tone: 'info', text: 'Der Tracker verarbeitet bereits eine Aktion. Bitte den aktualisierten Stand kurz abwarten.' };
+    }
     if (error === 'mission_revision_conflict') {
       return { tone: 'warn', text: 'Eine andere Ansicht war schneller. Der aktuelle Missionsstand wurde übernommen.' };
     }
@@ -298,6 +304,7 @@
   }
 
   return Object.freeze({
+    BUILD_ID: BUILD_ID,
     ACTION_LABELS: ACTION_LABELS,
     render: render,
     renderEmpty: renderEmpty,
