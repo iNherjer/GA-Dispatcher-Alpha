@@ -2107,13 +2107,24 @@ function _waitForMissionAuthorityCapability(timeoutMs = 1400) {
 }
 
 function _missionAuthorityRuntimeNeedsLateBind() {
-    if (window.simModeActive || !_activeMissionRuntimeId('') || _missionIsFreeflightOnly()) return false;
+    const missionId = _activeMissionRuntimeId('');
+    if (window.simModeActive || !missionId || _missionIsFreeflightOnly()) return false;
+    const authority = window.lastTrackerMissionAuthority;
+    const lastExecution = authority?.lastExecution;
+    const trackerFinishedThisMission = !authority?.activeRun
+        && _normalizeMissionRuntimeId(lastExecution?.missionId || '') === missionId
+        && String(lastExecution?.phase || '').toLowerCase() === 'closed';
+    if (trackerFinishedThisMission
+        || (window.gaTrackerExecutionFinalizedRunId
+            && String(lastExecution?.runId || '') === String(window.gaTrackerExecutionFinalizedRunId))) {
+        missionAuthorityLateBindPending = false;
+        return false;
+    }
     if (_readMissionAuthorityState()?.runId) return false;
     if (window.missionRuntimeResumeConflict?.trackerActive === true) return false;
     const startPhase = String(_missionStartPhase() || '').toLowerCase();
     return missionAuthorityLateBindPending
         || missionRuntime.active
-        || missionRuntime.closingPending
         || ['prepare', 'boarding', 'boarded'].includes(startPhase);
 }
 
@@ -2848,6 +2859,7 @@ function _finalizeTrackerExecutionProjection(control = null, reason = 'tracker-e
     if (window.gaTrackerExecutionFinalizedRunId === runId) return true;
     _applyTrackerExecutionControl(control, { missionId, runId }, reason);
     window.gaTrackerExecutionFinalizedRunId = runId;
+    missionAuthorityLateBindPending = false;
     missionRuntime.phase = 'closing';
     missionRuntime.active = false;
     missionRuntime.armed = false;
@@ -2871,6 +2883,7 @@ function _finalizeTrackerExecutionProjection(control = null, reason = 'tracker-e
     }
     _clearMissionRuntimeSnapshot(reason);
     _clearActiveMissionRuntimeMarker(reason);
+    try { window.closeMissionCargoDialog?.(); } catch (_) {}
     _missionPhaseDebugPush('tracker_execution_finalized', {
         reason,
         missionId,
@@ -3332,6 +3345,20 @@ async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
         const missionId = _activeMissionRuntimeId('');
         if (!missionId) {
             missionAuthorityLateBindPending = false;
+            return false;
+        }
+        const authority = window.lastTrackerMissionAuthority;
+        const completedExecution = authority?.lastExecution;
+        if (!authority?.activeRun
+            && _normalizeMissionRuntimeId(completedExecution?.missionId || '') === missionId
+            && String(completedExecution?.phase || '').toLowerCase() === 'closed') {
+            missionAuthorityLateBindPending = false;
+            _missionPhaseDebugPush('authority_acquire_suppressed', {
+                missionId,
+                runId: completedExecution?.runId || null,
+                reason,
+                completed: true
+            });
             return false;
         }
         if (!_trackerSupportsMissionAuthority()) {

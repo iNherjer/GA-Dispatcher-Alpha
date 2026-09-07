@@ -3015,3 +3015,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   unterscheiden jetzt eine lediglich audiofaehige Sitzung von einer wirklich
   beanspruchten Playback-Lease; ohne Claim bleiben Boarding, Signatur und
   Abschluss nicht mehr bis zum langen Audio-Timeout blockiert.
+- 2026-09-07: Jeder autoritative Execution-Checkpoint wird unmittelbar an alle
+  Relay-Clients verteilt; der schnellere EFB-Poll ist damit nicht mehr noetig,
+  um Signatur-, Payload- oder Deboarding-Fortschritt zuerst zu sehen. Nach der
+  Entladebestaetigung wartet allein der Tracker auf Farewell-, Payload- und
+  Szenen-ACKs und schliesst den Run anschliessend, statt dass ein Client zu
+  frueh `request_close` sendet. Ein geschlossener Run derselben Mission darf
+  durch Capability-Late-Bind nicht erneut auferstehen. Verladeaktionen bleiben
+  in beiden Oberflaechen auf die passenden Bodenphasen begrenzt.

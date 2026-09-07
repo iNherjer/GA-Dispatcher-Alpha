@@ -8,6 +8,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const authorityManager = options.authorityManager;
   const enabled = options.enabled === true;
   const log = typeof options.log === 'function' ? options.log : () => {};
+  const onAuthorityChanged = typeof options.onAuthorityChanged === 'function'
+    ? options.onAuthorityChanged
+    : () => {};
   if (!authorityManager || typeof authorityManager.getActiveRun !== 'function') {
     throw new TypeError('mission_execution_runtime_authority_manager_required');
   }
@@ -34,6 +37,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   let cleanupExecutionRun = null;
   let recoveryDrain = Promise.resolve();
   let effectRunner = null;
+  let autoCloseAfterUnloadRunId = '';
+  let autoClosePromise = null;
   let lastTelemetryDiagnosticKey = '';
   let lastTelemetryDiagnosticAt = 0;
   const dispatchSimulatorEffect = request => {
@@ -106,6 +111,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       }
       await effectRunner.drain();
       logCheckpoint(`payload-ack:${status || 'completed'}`);
+      await maybeAutoCloseConfirmedUnload(`payload-ack:${status || 'completed'}`);
       finalizeIfClosed(request.effect?.effectId || request.commandId || 'payload');
     }).catch(async error => {
       const effectId = request.effect?.effectId || request.commandId;
@@ -118,6 +124,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       if (acknowledged.ok) {
         await effectRunner.drain();
         logCheckpoint('payload-ack:error');
+        await maybeAutoCloseConfirmedUnload('payload-ack:error');
         finalizeIfClosed(effectId || 'payload');
       }
     });
@@ -202,6 +209,11 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       `effectsCompleted=${effects.filter(effect => effect.status === 'completed').length}`,
       `effectsFailed=${effects.filter(effect => effect.status === 'failed').length}`
     ].join(' '));
+    try {
+      onAuthorityChanged(reason, snapshot);
+    } catch (error) {
+      log(`MISSION_EXECUTION_NOTIFY_ERROR reason=${String(reason || 'runtime').replace(/\s+/g, '_').slice(0, 100)} error=${error?.message || error}`);
+    }
     return true;
   };
 
@@ -216,8 +228,51 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       reason: 'tracker-execution-close-ack'
     });
     if (!finalized.ok) log(`MISSION_EXECUTION_FINALIZE_ERROR error=${finalized.error || finalized.status || 'unknown'}`);
-    else log(`MISSION_EXECUTION_FINALIZED mission=${finalized.releasedRun?.missionId || ''} run=${finalized.releasedRun?.runId || ''} segments=${Math.max(0, Number(flightRecord?.segmentCount || 0))}`);
+    else {
+      log(`MISSION_EXECUTION_FINALIZED mission=${finalized.releasedRun?.missionId || ''} run=${finalized.releasedRun?.runId || ''} segments=${Math.max(0, Number(flightRecord?.segmentCount || 0))}`);
+      try {
+        onAuthorityChanged(`finalized:${effectId}`, null);
+      } catch (error) {
+        log(`MISSION_EXECUTION_NOTIFY_ERROR reason=finalized error=${error?.message || error}`);
+      }
+    }
     return finalized;
+  };
+
+  const maybeAutoCloseConfirmedUnload = async (reason = 'arrival-effects') => {
+    if (!autoCloseAfterUnloadRunId) return { ok: true, status: 'noop' };
+    if (autoClosePromise) return autoClosePromise;
+    autoClosePromise = (async () => {
+      const snapshot = authorityManager.getExecutionSnapshot?.();
+      if (!snapshot || snapshot.runId !== autoCloseAfterUnloadRunId) {
+        autoCloseAfterUnloadRunId = '';
+        return { ok: true, status: 'noop' };
+      }
+      if (!snapshot.state?.flags?.unloadConfirmed
+          || !Array.isArray(snapshot.view?.allowedActions)
+          || !snapshot.view.allowedActions.includes('request_close')) {
+        return { ok: true, status: 'pending' };
+      }
+      const closed = adapter.executeIntent({
+        commandId: `${snapshot.runId}:auto-close-after-unload`,
+        intent: 'request_close',
+        missionId: snapshot.missionId,
+        runId: snapshot.runId,
+        expectedRevision: snapshot.authorityRevision,
+        reason: `auto-close:${reason}`
+      });
+      if (!closed.ok) return closed;
+      autoCloseAfterUnloadRunId = '';
+      await effectRunner.drain();
+      logCheckpoint(`auto-close:${reason}`);
+      finalizeIfClosed(`${snapshot.runId}:auto-close-after-unload`);
+      return closed;
+    })();
+    try {
+      return await autoClosePromise;
+    } finally {
+      autoClosePromise = null;
+    }
   };
 
   const executeIntent = async (request = {}) => {
@@ -297,9 +352,13 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     }
     const result = adapter.executeIntent(request);
     if (!result.ok) return result;
+    if (String(request.intent || request.action || '').trim().toLowerCase() === 'confirm_unload') {
+      autoCloseAfterUnloadRunId = String(result.activeRun?.runId || authorityManager.getActiveRun()?.runId || '');
+    }
     const drainEffects = async () => {
       const effects = await effectRunner.drain();
       logCheckpoint(`intent:${request.intent || 'unknown'}`);
+      await maybeAutoCloseConfirmedUnload(`intent:${request.intent || 'unknown'}`);
       finalizeIfClosed(request.commandId || 'intent');
       return effects;
     };
@@ -346,6 +405,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         if (acknowledged.ok) {
           await effectRunner.drain();
           logCheckpoint(`effect-ack:${request.status || 'unknown'}`);
+          await maybeAutoCloseConfirmedUnload(`effect-ack:${request.status || 'unknown'}`);
           finalizeIfClosed(request.effectId);
         }
         return acknowledged;
@@ -397,6 +457,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       if (!result.ok && !['mission_execution_authority_web', 'no_active_run'].includes(result.error)) {
         log(`MISSION_EFFECT_RECOVERY status=${result.status || 'error'} error=${result.error || ''}`);
       }
+      return maybeAutoCloseConfirmedUnload('effect-recovery');
     }).catch(error => log(`MISSION_EFFECT_RECOVERY_ERROR error=${error?.message || error}`));
     return bridge;
   };

@@ -31,7 +31,11 @@ test('one mission-control renderer produces the shared App/EFB markup and dual a
   const options = {
     storyExpanded: false,
     control: {
+      missionId: 'mission-render',
+      runId: 'run-render',
       executionAuthority: 'tracker',
+      phase: 'boarding',
+      flags: { groundStill: true },
       allowedActions: ['start_mission', 'abort_mission']
     },
     intentPending: false,
@@ -115,6 +119,28 @@ test('cloud candidate toolbar does not expose cargo or reset before tracker auth
   assert.equal(core.missionToolbarModel({ executionAuthority: 'web' }), null);
 });
 
+test('tracker cargo controls disappear in flight and return for ground handling', () => {
+  const airborne = {
+    missionId: 'mission-flight',
+    runId: 'run-flight',
+    executionAuthority: 'tracker',
+    phase: 'enroute',
+    flags: { onGround: false, groundStill: false },
+    allowedActions: ['set_manifest_item', 'abort_mission']
+  };
+  assert.equal(core.missionToolbarModel(airborne).cargo.visible, false);
+  assert.doesNotMatch(core.render(sampleView(), { control: airborne }), /mission-control-open-cargo/);
+
+  const arrived = {
+    ...airborne,
+    phase: 'end_unloading',
+    flags: { onGround: true, groundStill: true },
+    allowedActions: ['set_manifest_item', 'abort_mission']
+  };
+  assert.equal(core.missionToolbarModel(arrived).cargo.visible, true);
+  assert.match(core.render(sampleView(), { control: arrived }), /mission-control-open-cargo/);
+});
+
 test('App and EFB wire the shared renderer while the legacy App path stays gated', () => {
   const projectRoot = path.resolve(__dirname, '..');
   const appSource = fs.readFileSync(path.join(projectRoot, 'checklists.js'), 'utf8');
@@ -139,6 +165,8 @@ test('App and EFB top toolbars share tracker actions and expose the guarded miss
   assert.match(appSource, /tracker_execution_intent_retry/);
   assert.match(appSource, /mission_revision_conflict[\s\S]*?mission_intent_not_allowed_in_state[\s\S]*?mission_run_conflict/);
   assert.match(appSource, /authoritativeRunRebind[\s\S]*?retryRun\?\.executionAuthority === 'tracker'/);
+  assert.match(appSource, /trackerFinishedThisMission/);
+  assert.match(appSource, /authority_acquire_suppressed/);
   assert.match(efbSource, /function renderMissionToolbar\(payload\)/);
   assert.match(efbSource, /submitMissionIntent\('abort_mission'/);
   assert.match(efbSource, /Auftrag bleibt zum Neustart erhalten/);

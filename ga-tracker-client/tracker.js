@@ -78,8 +78,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v384';
-const TRACKER_VERSION_CODE = 384;
+const TRACKER_VERSION = 'v385';
+const TRACKER_VERSION_CODE = 385;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4845,6 +4845,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     getAudioPlaybackCandidates: () => trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
     log: debugLog
   });
+  let broadcastMissionAuthorityUpdate = () => false;
   const missionExecutionRuntime = createTrackerMissionExecutionRuntime({
     authorityManager: missionAuthorityManager,
     enabled: TRACKER_APT_EXECUTION_ENABLED,
@@ -4852,6 +4853,14 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     playFarewellVoice: missionFarewellVoice.dispatch,
     playComplianceVoice: missionComplianceVoice.dispatch,
     flightLog: trackerFlightLogStore,
+    onAuthorityChanged: (reason, snapshot) => broadcastMissionAuthorityUpdate(
+      `execution:${reason}`,
+      {},
+      {
+        ok: true,
+        status: snapshot?.state?.phase || (missionAuthorityManager.getActiveRun() ? 'updated' : 'finalized')
+      }
+    ),
     log: debugLog
   });
   debugLog(`MISSION_EXECUTION_RUNTIME channel=${TRACKER_RUNTIME_CHANNEL} enabled=${missionExecutionRuntime.enabled ? 1 : 0} default=web`);
@@ -4870,7 +4879,6 @@ function startTracker(syncId, pin, voiceCredentials = null) {
   let _cloudMissionLastAttemptAt = 0;
   let _cloudMissionLastSuccessAt = 0;
   let _cloudMissionLastStatus = TRACKER_APT_EXECUTION_ENABLED ? 'pending' : 'disabled';
-  let broadcastMissionAuthorityUpdate = () => false;
   const refreshCloudMissionCandidate = async (reason = 'interval') => {
     if (!TRACKER_APT_EXECUTION_ENABLED) return null;
     if (_cloudMissionSyncInProgress) return _cloudMissionCandidate;

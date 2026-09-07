@@ -6176,9 +6176,10 @@ window.finishMissionCargoUnloadAndEnd = function(options = {}) {
                 _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
                 return false;
             }
-            const closed = await window.gaTrackerExecutionSubmitIntent?.('request_close');
-            if (closed?.ok === true) window.closeMissionCargoDialog?.();
-            return closed?.ok === true;
+            // The tracker owns the original App continuation: it waits for
+            // Farewell, deboarding and payload effects before closing. Sending
+            // request_close here used to race those acknowledgements.
+            return true;
         })();
     }
     if (!_missionCargoHasActiveMission()) {

@@ -373,7 +373,7 @@
             { intent: 'confirm_load', label: 'Verladung abschließen', className: 'mission-cargo-primary' },
             { intent: 'confirm_pickup', label: 'Pickup bestätigen und Rückflug freigeben', className: 'mission-cargo-primary' },
             {
-                intent: 'confirm_unload', followupIntent: 'request_close',
+                intent: 'confirm_unload',
                 label: 'Entladung abgeschlossen - Mission beenden', className: 'mission-cargo-primary'
             }
         ].filter(function (entry) { return includes(allowed, entry.intent); });
@@ -541,7 +541,7 @@
             };
         } else if (mode === 'unload') {
             primary = {
-                intent: 'confirm_unload', followupIntent: 'request_close', action: 'confirm',
+                intent: 'confirm_unload', action: 'confirm',
                 label: passengerDeboardPending && requiredMissing === 0
                     ? 'Abschied und Deboarding starten'
                     : 'Entladung abgeschlossen - Mission beenden',

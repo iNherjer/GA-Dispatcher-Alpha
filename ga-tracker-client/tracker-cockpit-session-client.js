@@ -81,7 +81,14 @@
         } catch (_) {
           return false;
         }
-      }).finally(() => { audioUnlockPromise = null; });
+      });
+      // MSFS Coherent does not expose Promise.prototype.finally reliably.
+      // Keep the cleanup on both settlement paths without depending on it.
+      audioUnlockPromise.then(function () {
+        audioUnlockPromise = null;
+      }, function () {
+        audioUnlockPromise = null;
+      });
       return audioUnlockPromise;
     }
 

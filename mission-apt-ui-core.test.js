@@ -109,7 +109,7 @@ test('cargo actions use the existing App labels and tracker permissions', () => 
   assert.equal(core.itemAction({ itemType: 'cargo', status: 'unloaded', delivery: 'destination' }, arrival).label, 'Wieder laden');
   const closeAction = core.directActions(control('end_ready', ['confirm_unload']))[0];
   assert.equal(closeAction.label, 'Entladung abgeschlossen - Mission beenden');
-  assert.equal(closeAction.followupIntent, 'request_close');
+  assert.equal(closeAction.followupIntent, undefined);
 });
 
 test('canonical load sheet preserves App rows, signature and confirmation sequence', () => {
@@ -200,7 +200,7 @@ test('canonical unload sheet keeps cargo, PAX and mission-end actions distinct',
   });
   assert.equal(ready.actions.primary.label, 'Abschied und Deboarding starten');
   assert.equal(ready.actions.primary.intent, 'confirm_unload');
-  assert.equal(ready.actions.primary.followupIntent, 'request_close');
+  assert.equal(ready.actions.primary.followupIntent, undefined);
   assert.equal(ready.actions.secondary.intent, 'clear_manifest_signature');
   assert.equal(ready.summary.left, '0 Pflicht-Items noch zu entladen · PAX via Deboarding');
 

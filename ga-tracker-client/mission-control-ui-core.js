@@ -135,6 +135,11 @@
       }
     }
     var activeRun = !!(missionId && runId && allowed.indexOf('abort_mission') >= 0);
+    var flags = control.flags && typeof control.flags === 'object' ? control.flags : {};
+    var cargoVisible = activeRun && (
+      /^(planned|prepare|boarding|boarded|end_unloading|end_ready)$/.test(phase)
+      || (flags.groundStill === true && /^(active|on_task)$/.test(phase))
+    );
     return {
       schema: 'ga.mission-toolbar.v1',
       missionId: missionId,
@@ -142,7 +147,7 @@
       phase: phase,
       primary: primary,
       cargo: {
-        visible: activeRun,
+        visible: cargoVisible,
         mode: /^(end_unloading|end_ready)$/.test(phase) ? 'unload' : (phase === 'on_task' ? 'pickup' : 'load'),
         label: 'Verladung',
         title: 'Verlade-Manager mit dem aktuellen Tracker-Stand öffnen',
@@ -181,12 +186,16 @@
       ? '<div class="mission-control-actions is-danger"><button type="button" data-action="mission-control-intent" data-efb-drawer-action="mission-intent" data-mission-intent="abort_mission"'
         + disabled + '>Mission abbrechen</button></div>'
       : '';
+    var toolbar = missionToolbarModel(control, { banner: settings.banner || null });
+    var cargoHtml = toolbar && toolbar.cargo && toolbar.cargo.visible
+      ? '<div class="mission-control-actions"><button type="button" data-action="mission-control-open-cargo" data-efb-drawer-action="open-cargo"'
+        + disabled + '>Verlade-Manager öffnen</button></div>'
+      : '';
     var status = String(settings.intentStatus || '');
     var statusTone = safeTone(settings.intentTone || (/abgelehnt|fehlgeschlagen|nicht verfuegbar|nicht verfügbar/i.test(status) ? 'danger' : 'info'), 'info');
     return '<section class="mission-control-card mission-control-operations">'
       + '<div class="mission-control-section-kicker">BEDIENUNG</div>'
-      + '<div class="mission-control-actions"><button type="button" data-action="mission-control-open-cargo" data-efb-drawer-action="open-cargo"'
-      + disabled + '>Verlade-Manager öffnen</button></div>'
+      + cargoHtml
       + (actionHtml ? '<div class="mission-control-actions">' + actionHtml + '</div>' : '')
       + abortHtml
       + (status ? '<p class="mission-control-intent-status is-' + statusTone + '">' + escapeHtml(status) + '</p>' : '')

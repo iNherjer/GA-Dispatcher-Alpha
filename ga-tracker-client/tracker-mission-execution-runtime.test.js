@@ -134,9 +134,14 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
     farewellPrewarms.push(request);
     return { ok: true, status: 'pending', sideEffect: true };
   };
+  const authorityChanges = [];
   const runtime = createTrackerMissionExecutionRuntime({
     authorityManager: manager,
     enabled: true,
+    onAuthorityChanged: (reason, snapshot) => authorityChanges.push({
+      reason,
+      phase: snapshot?.state?.phase || null
+    }),
     payloadSyncBeforeStart: () => ({ ok: true, status: 'completed', sideEffect: false }),
     playBoardingVoice: request => ({
       ok: true,
@@ -245,23 +250,16 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
     expectedRevision: run.revision
   });
   assert.equal(confirmed.ok, true);
-  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().state.effects.every(effect => effect.status === 'completed')), true);
-  assert.equal(manager.getExecutionSnapshot().state.payload.status, 'ok');
   assert.equal(confirmed.effectDispatch.pendingCount, 0);
-  assert.equal(manager.getExecutionSnapshot().state.flags.unloadConfirmed, true);
-  assert.equal(manager.getExecutionSnapshot().state.effects.every(effect => effect.status === 'completed'), true);
-
-  run = manager.getActiveRun();
-  const closed = await runtime.executeIntent({
-    commandId: 'close-arrival-runtime',
-    intent: 'request_close',
-    missionId: run.missionId,
-    runId: run.runId,
-    expectedRevision: run.revision
-  });
-  assert.equal(closed.ok, true);
+  assert.equal(await waitUntil(() => manager.getActiveRun() === null), true);
+  const completed = manager.getPublicSnapshot().lastExecution;
+  assert.equal(completed.payload.status, 'ok');
+  assert.equal(completed.flags.unloadConfirmed, true);
   assert.equal(manager.getActiveRun(), null);
-  assert.equal(manager.getPublicSnapshot().lastExecution.phase, 'closed');
+  assert.equal(completed.phase, 'closed');
+  assert.equal(authorityChanges.some(change => change.reason === 'intent:sign_manifest'), true);
+  assert.equal(authorityChanges.some(change => change.reason.startsWith('payload-ack:')), true);
+  assert.equal(authorityChanges.some(change => change.reason.startsWith('finalized:')), true);
 });
 
 async function waitUntil(predicate, attempts = 40) {

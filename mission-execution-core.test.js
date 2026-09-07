@@ -559,7 +559,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.ok(indexSource.indexOf('mission-start-core.js') < indexSource.indexOf('mission-execution-core.js'));
     assert.ok(indexSource.indexOf('mission-execution-core.js') < indexSource.indexOf('mission-execution-shadow-journal.js'));
     assert.ok(indexSource.indexOf('mission-execution-shadow-journal.js') < indexSource.indexOf('sync.js?v='));
-    assert.match(serviceWorkerSource, /ga-dispatcher-v1703/);
+    assert.match(serviceWorkerSource, /ga-dispatcher-v\d+/);
     assert.match(serviceWorkerSource, /\.\/mission-manifest-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-start-core\.js/);
     assert.match(serviceWorkerSource, /\.\/mission-location-core\.js/);
