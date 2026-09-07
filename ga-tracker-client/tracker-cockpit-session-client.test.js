@@ -121,6 +121,41 @@ test('cockpit client retries one stale UI intent with the latest tracker revisio
   await client.stop();
 });
 
+test('cockpit client rebinds one rejected intent to the authoritative run of the same mission', async () => {
+  const intentBodies = [];
+  const fetchRemote = async (url, init = {}) => {
+    const body = init.body ? JSON.parse(init.body) : null;
+    if (url.endsWith('/cockpit/sessions')) return response({
+      session: { sessionId: 'session-run-retry', expiresAt: Date.now() + 45000 },
+      sessionToken: 'token-run-retry', heartbeatAfterMs: 999999
+    });
+    if (url.endsWith('/mission/intents')) {
+      intentBodies.push(body);
+      if (intentBodies.length === 1) return response({ ok: false, status: 'conflict', error: 'mission_run_conflict' });
+      return response({ ok: true, status: 'ok' });
+    }
+    if (url.endsWith('/mission')) return response({
+      missionId: 'mission-retry',
+      control: {
+        executionAuthority: 'tracker', missionId: 'mission-retry', runId: 'run-current',
+        authorityRevision: 4, allowedActions: ['prepare_mission']
+      }
+    });
+    if (url.endsWith('/cockpit/sessions/release')) return response({ released: true });
+    throw new Error(`unexpected:${url}`);
+  };
+  const client = createClient({ role: 'efb', clientId: 'efb-run-retry', fetchRemote });
+  const result = await client.submitIntent({
+    commandId: 'prepare-old', intent: 'prepare_mission', missionId: 'mission-retry',
+    runId: 'run-stale', expectedRevision: 3, payload: {}
+  });
+  assert.equal(result.ok, true);
+  assert.equal(intentBodies.length, 2);
+  assert.equal(intentBodies[1].runId, 'run-current');
+  assert.equal(intentBodies[1].expectedRevision, 4);
+  await client.stop();
+});
+
 test('cockpit audio can be unlocked by a user gesture before a voice job arrives', async () => {
   const instances = [];
   class UnlockAudio {

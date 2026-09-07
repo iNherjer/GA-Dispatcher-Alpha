@@ -44,6 +44,7 @@ function createTrackerMissionComplianceVoice(options = {}) {
     : () => 0;
   const log = typeof options.log === 'function' ? options.log : () => {};
   const timeoutMs = Math.max(1000, Math.min(180000, Number(options.timeoutMs) || 75000));
+  const playbackClaimTimeoutMs = Math.max(250, Math.min(30000, Number(options.playbackClaimTimeoutMs) || 5000));
   if (!authorityManager || typeof authorityManager.getActiveRun !== 'function') {
     throw new TypeError('mission_compliance_voice_authority_manager_required');
   }
@@ -119,14 +120,26 @@ function createTrackerMissionComplianceVoice(options = {}) {
     const candidates = Math.max(0, Math.round(Number(getAudioPlaybackCandidates()) || 0));
     let playback = { status: candidates > 0 ? 'pending' : 'no_audio_instance', completed: false };
     if (candidates > 0 && typeof voiceService.waitForPlayback === 'function') {
-      playback = await voiceService.waitForPlayback(effectId, { timeoutMs });
+      if (typeof voiceService.waitForPlaybackClaim === 'function') {
+        const claim = await voiceService.waitForPlaybackClaim(effectId, { timeoutMs: playbackClaimTimeoutMs });
+        if (claim?.claimed === true) {
+          playback = claim.status === 'completed'
+            ? { status: 'completed', completed: true, job: claim.job || null }
+            : await voiceService.waitForPlayback(effectId, { timeoutMs });
+        } else {
+          voiceService.cancel?.(effectId, 'compliance_voice_unclaimed');
+          playback = { status: 'no_audio_claim', completed: false, job: claim?.job || null };
+        }
+      } else {
+        playback = await voiceService.waitForPlayback(effectId, { timeoutMs });
+      }
     }
     log(`MISSION_COMPLIANCE_VOICE_COMPLETE effect=${effectId} job=${job.status} playback=${playback.status} candidates=${candidates}`);
     return completed(request, {
       sideEffect: true,
       voiceStatus: playback.status,
       voiceOutcome: voiceOutcome(kind, text, speaker, {
-        status: playback.status === 'timeout' ? 'warning' : 'ok',
+        status: ['timeout', 'no_audio_claim'].includes(playback.status) ? 'warning' : 'ok',
         text: job.text,
         speaker: job.speaker,
         provider: job.provider,
@@ -134,7 +147,9 @@ function createTrackerMissionComplianceVoice(options = {}) {
         model: job.model,
         voiceName: job.voiceName,
         playback: playback.status,
-        error: playback.status === 'timeout' ? 'voice_playback_timeout' : null
+        error: playback.status === 'timeout'
+          ? 'voice_playback_timeout'
+          : (playback.status === 'no_audio_claim' ? 'voice_playback_unclaimed' : null)
       })
     });
   };

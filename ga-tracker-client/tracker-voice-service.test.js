@@ -301,6 +301,39 @@ test('playback waiter resolves on success and on a best-effort failed local play
   assert.equal((await waiting).status, 'released');
 });
 
+test('playback claim waiter distinguishes an available job from an actually listening cockpit', async () => {
+  const service = createTrackerVoiceService({
+    provider: 'openai',
+    apiKey: 'secret',
+    fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('audio') })
+  });
+  service.request({ effectId: 'run-claim:boarding', text: 'Hallo.' });
+  await service.wait('run-claim:boarding');
+  const waiting = service.waitForPlaybackClaim('run-claim:boarding', { timeoutMs: 5000 });
+  service.claimPlayback({ effectId: 'run-claim:boarding', clientId: 'efb-a' });
+  const claimed = await waiting;
+  assert.equal(claimed.status, 'claimed');
+  assert.equal(claimed.claimed, true);
+  assert.equal(claimed.job.playback.ownerClientId, 'efb-a');
+});
+
+test('a playback failure released before the mission waiter attaches is still observed immediately', async () => {
+  const service = createTrackerVoiceService({
+    provider: 'openai',
+    apiKey: 'secret',
+    fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('audio') })
+  });
+  service.request({ effectId: 'run-release-race:boarding', text: 'Hallo.' });
+  await service.wait('run-release-race:boarding');
+  service.claimPlayback({ effectId: 'run-release-race:boarding', clientId: 'efb-a' });
+  service.releasePlayback({ effectId: 'run-release-race:boarding', clientId: 'efb-a', completed: false });
+  const claim = await service.waitForPlaybackClaim('run-release-race:boarding');
+  const playback = await service.waitForPlayback('run-release-race:boarding');
+  assert.equal(claim.status, 'released');
+  assert.equal(claim.claimed, true);
+  assert.equal(playback.status, 'released');
+});
+
 test('muted boarding still generates and persists the canonical text without a TTS call', async (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-voice-text-cache-'));
   const storageFile = path.join(directory, 'voice.json');

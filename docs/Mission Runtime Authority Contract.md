@@ -686,3 +686,21 @@ bleiben fail-closed.
   aktiven Zustand wie die App. Revisionskonflikte eines gerade veralteten
   UI-Klicks werden in EFB und Live-App genau einmal gegen denselben neuesten,
   weiterhin fuer die Aktion freigegebenen Tracker-Run wiederholt.
+
+### Feldtest-Nachbesserung nach Tracker v383
+
+- Direkt nach dem Web-zu-Tracker-Handoff kann ein noch eintreffender alter
+  Snapshot denselben UI-Klick mit einer ueberholten `runId` absenden. Ein
+  seiteneffektfreier `mission_run_conflict` wird fuer dieselbe Mission genau
+  einmal an den vom Tracker zurueckgegebenen autoritativen Run gebunden und
+  wiederholt. Eine fremde Mission oder Web-Authority wird nicht uebernommen.
+- Die Anzahl audiofaehiger Sitzungen gilt nicht mehr als Nachweis, dass ein
+  Geraet den Voice-Auftrag wirklich wiedergibt. Boarding, Compliance und
+  Farewell warten zunaechst nur kurz auf eine echte Playback-Lease. Bleibt sie
+  aus, wird der Voice-Auftrag als Best-Effort-Warnung beendet und der
+  Missionsablauf freigegeben; dadurch duerfen Manifest- und Signaturaktionen
+  nicht hinter einem zweiminuetigen Audio-Timeout auflaufen.
+- Solange kein aktiver Mission-Run existiert, liest der Tracker den
+  Cloud-Kandidaten in einem kurzen 2,5-Sekunden-Intervall. Bei aktivem Run
+  pausiert dieser schnellere Poll; Abort und Hard-Reset behalten ihren
+  unmittelbaren gezielten Refresh.

@@ -3057,16 +3057,22 @@ window.gaTrackerExecutionSubmitIntent = async function(intent, payload = {}, opt
                 ok: ack?.ok === true || TRACKER_ACK_SUCCESS.has(String(ack?.status || '').toLowerCase())
             };
             const retryable = result?.error === 'mission_revision_conflict'
-                || result?.error === 'mission_intent_not_allowed_in_state';
+                || result?.error === 'mission_intent_not_allowed_in_state'
+                || result?.error === 'mission_run_conflict';
             const retryRun = result?.activeRun;
             const latestControl = window.gaTrackerExecutionControl;
             const allowedActions = Array.isArray(latestControl?.allowedActions) ? latestControl.allowedActions : [];
             const sameRun = retryRun?.missionId === activeRun.missionId
                 && retryRun?.runId === activeRun.runId;
+            const authoritativeRunRebind = result?.error === 'mission_run_conflict'
+                && retryRun?.missionId === activeRun.missionId
+                && retryRun?.executionAuthority === 'tracker';
             const stillAllowed = latestControl?.executionAuthority === 'tracker'
                 && latestControl?.missionId === activeRun.missionId
                 && allowedActions.includes(intent);
-            if (retryable && sameRun && stillAllowed && Number(retryRun.revision || 0) > 0) {
+            if (retryable
+                && (authoritativeRunRebind || (sameRun && stillAllowed))
+                && Number(retryRun.revision || 0) > 0) {
                 const retryCommandId = `${commandId}:retry:${Date.now()}`;
                 const retryAck = await _sendMissionAuthorityRequest({
                     type: 'mission_execution_intent',

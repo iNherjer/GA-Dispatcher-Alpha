@@ -3008,3 +3008,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   wird bei einer Benutzeraktion fuer Coherent entsperrt. Pinnwand-Restore und
   bestaetigter Mission Reset publizieren unmittelbar einen neuen geplanten
   Trackerstand, damit App und EFB denselben Neustart anbieten.
+- 2026-09-07: App und EFB wiederholen einen seiteneffektfreien Run-Konflikt
+  desselben Missionsstarts genau einmal mit der vom Tracker bestaetigten
+  aktuellen Run-ID. Ein frisch geladener Cloud-Auftrag erscheint im leeren
+  Tracker-Zustand nach hoechstens rund 2,5 Sekunden. Zentrale Voice-Gates
+  unterscheiden jetzt eine lediglich audiofaehige Sitzung von einer wirklich
+  beanspruchten Playback-Lease; ohne Claim bleiben Boarding, Signatur und
+  Abschluss nicht mehr bis zum langen Audio-Timeout blockiert.

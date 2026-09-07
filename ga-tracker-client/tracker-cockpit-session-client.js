@@ -343,7 +343,8 @@
       };
       const first = await submit(request);
       const retryable = first && (first.error === 'mission_revision_conflict'
-        || first.error === 'mission_intent_not_allowed_in_state');
+        || first.error === 'mission_intent_not_allowed_in_state'
+        || first.error === 'mission_run_conflict');
       if (!retryable) return first;
       try {
         const latest = await missionSnapshot();

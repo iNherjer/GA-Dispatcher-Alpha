@@ -48,7 +48,8 @@ function createTrackerMissionFarewellVoice(options = {}) {
     ? options.getAudioPlaybackCandidates
     : () => 0;
   const log = typeof options.log === 'function' ? options.log : () => {};
-  const playbackTimeoutMs = Math.max(1000, Math.min(180000, Number(options.playbackTimeoutMs) || 75000));
+  const playbackClaimTimeoutMs = Math.max(250, Math.min(30000, Number(options.playbackClaimTimeoutMs) || 5000));
+  const playbackTimeoutMs = Math.max(1000, Math.min(180000, Number(options.playbackTimeoutMs) || 45000));
   const generationTimeoutMs = Math.max(1000, Math.min(180000, Number(options.generationTimeoutMs) || 75000));
   if (!authorityManager || typeof authorityManager.getActiveRun !== 'function') {
     throw new TypeError('mission_farewell_voice_authority_manager_required');
@@ -185,14 +186,26 @@ function createTrackerMissionFarewellVoice(options = {}) {
       : 0;
     let playback = { status: recipe.audioEnabled === true ? (candidates > 0 ? 'pending' : 'no_audio_instance') : 'audio_disabled', completed: false };
     if (recipe.audioEnabled === true && candidates > 0 && typeof voiceService.waitForPlayback === 'function') {
-      playback = await voiceService.waitForPlayback(voiceEffectId, { timeoutMs: playbackTimeoutMs });
+      if (typeof voiceService.waitForPlaybackClaim === 'function') {
+        const claim = await voiceService.waitForPlaybackClaim(voiceEffectId, { timeoutMs: playbackClaimTimeoutMs });
+        if (claim?.claimed === true) {
+          playback = claim.status === 'completed'
+            ? { status: 'completed', completed: true, job: claim.job || null }
+            : await voiceService.waitForPlayback(voiceEffectId, { timeoutMs: playbackTimeoutMs });
+        } else {
+          voiceService.cancel?.(voiceEffectId, 'farewell_voice_unclaimed');
+          playback = { status: 'no_audio_claim', completed: false, job: claim?.job || null };
+        }
+      } else {
+        playback = await voiceService.waitForPlayback(voiceEffectId, { timeoutMs: playbackTimeoutMs });
+      }
     }
     log(`MISSION_FAREWELL_VOICE_COMPLETE effect=${effectId} job=${job.status} playback=${playback.status} candidates=${candidates}`);
     return completed(request, {
       sideEffect: true,
       voiceStatus: playback.status,
       voiceOutcome: voiceOutcome(recipe, {
-        status: playback.status === 'timeout' ? 'warning' : 'ok',
+        status: ['timeout', 'no_audio_claim'].includes(playback.status) ? 'warning' : 'ok',
         text: job.text,
         speaker: job.speaker,
         provider: job.provider,
@@ -200,7 +213,9 @@ function createTrackerMissionFarewellVoice(options = {}) {
         model: job.model,
         voiceName: job.voiceName,
         playback: playback.status,
-        error: playback.status === 'timeout' ? 'voice_playback_timeout' : null
+        error: playback.status === 'timeout'
+          ? 'voice_playback_timeout'
+          : (playback.status === 'no_audio_claim' ? 'voice_playback_unclaimed' : null)
       })
     });
   };

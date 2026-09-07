@@ -406,6 +406,11 @@ function createTrackerEfbHttpServer(options = {}) {
         if (pathname === EFB_VOICE_JOB_PATH) result = voiceService.request(payload);
         else if (pathname === EFB_VOICE_PLAYBACK_CLAIM_PATH) result = voiceService.claimPlayback(payload);
         else result = voiceService.releasePlayback(payload);
+        if (pathname === EFB_VOICE_PLAYBACK_CLAIM_PATH) {
+          log(`EFB_VOICE_PLAYBACK_CLAIM effect=${sanitizeLogField(payload?.effectId || '', 220)} client=${sanitizeLogField(payload?.clientId || '', 160)} claimed=${result?.claimed === true ? 1 : 0} reason=${sanitizeLogField(result?.reason || 'none', 80)}`);
+        } else if (pathname === EFB_VOICE_PLAYBACK_RELEASE_PATH) {
+          log(`EFB_VOICE_PLAYBACK_RELEASE effect=${sanitizeLogField(payload?.effectId || '', 220)} client=${sanitizeLogField(payload?.clientId || '', 160)} completed=${result?.completed === true ? 1 : 0}`);
+        }
         jsonResponse(response, pathname === EFB_VOICE_JOB_PATH && result?.status === 'pending' ? 202 : 200, {
           hello,
           message: createMessage(pathname === EFB_VOICE_JOB_PATH ? 'voice.job' : 'voice.playback', result)

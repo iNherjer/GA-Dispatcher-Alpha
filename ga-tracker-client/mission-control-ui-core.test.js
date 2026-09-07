@@ -137,7 +137,8 @@ test('App and EFB top toolbars share tracker actions and expose the guarded miss
   assert.match(appSource, /preserveMission: true/);
   assert.match(appSource, /tracker-mission-reset-to-planned/);
   assert.match(appSource, /tracker_execution_intent_retry/);
-  assert.match(appSource, /mission_revision_conflict[\s\S]*?mission_intent_not_allowed_in_state/);
+  assert.match(appSource, /mission_revision_conflict[\s\S]*?mission_intent_not_allowed_in_state[\s\S]*?mission_run_conflict/);
+  assert.match(appSource, /authoritativeRunRebind[\s\S]*?retryRun\?\.executionAuthority === 'tracker'/);
   assert.match(efbSource, /function renderMissionToolbar\(payload\)/);
   assert.match(efbSource, /submitMissionIntent\('abort_mission'/);
   assert.match(efbSource, /Auftrag bleibt zum Neustart erhalten/);

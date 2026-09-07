@@ -311,6 +311,7 @@ function createTrackerVoiceService(options = {}) {
   const providerQueue = [];
   const newJobTimestamps = [];
   const playbackWaiters = new Map();
+  const playbackClaimWaiters = new Map();
   let totalAudioBytes = 0;
   let activeProviderJobs = 0;
 
@@ -486,6 +487,15 @@ function createTrackerVoiceService(options = {}) {
     }
   }
 
+  function settlePlaybackClaimWaiters(effectId, result) {
+    const waiters = playbackClaimWaiters.get(effectId) || [];
+    playbackClaimWaiters.delete(effectId);
+    for (const waiter of waiters) {
+      clearTimeout(waiter.timer);
+      waiter.resolve(result);
+    }
+  }
+
   loadPersisted();
 
   async function produce(record, request) {
@@ -523,6 +533,7 @@ function createTrackerVoiceService(options = {}) {
       record.updatedAt = now();
       log(`VOICE_TTS_ERROR effectId=${record.effectId} provider=${provider} code=${record.error}`);
       settlePlaybackWaiters(record.effectId, { status: 'failed', completed: false, job: publicRecord(record) });
+      settlePlaybackClaimWaiters(record.effectId, { status: 'failed', claimed: false, job: publicRecord(record) });
       return publicRecord(record);
     } finally {
       record.promise = null;
@@ -625,6 +636,7 @@ function createTrackerVoiceService(options = {}) {
     record.error = String(reason || 'voice_cancelled').trim().slice(0, 180);
     record.updatedAt = now();
     settlePlaybackWaiters(normalizedEffectId, { status: 'cancelled', completed: false, job: publicRecord(record) });
+    settlePlaybackClaimWaiters(normalizedEffectId, { status: 'cancelled', claimed: false, job: publicRecord(record) });
     persist();
     return { cancelled: true, reason: record.error, job: publicRecord(record) };
   }
@@ -687,6 +699,9 @@ function createTrackerVoiceService(options = {}) {
     if (record.playback?.status === 'completed') {
       return Promise.resolve({ status: 'completed', completed: true, job: publicRecord(record) });
     }
+    if (record.playback?.status === 'released') {
+      return Promise.resolve({ status: 'released', completed: false, job: publicRecord(record) });
+    }
     const timeoutMs = Math.max(1000, Math.min(180000, Number(options.timeoutMs) || 120000));
     return new Promise((resolve) => {
       const waiter = {
@@ -700,6 +715,36 @@ function createTrackerVoiceService(options = {}) {
       const current = playbackWaiters.get(normalizedEffectId) || [];
       current.push(waiter);
       playbackWaiters.set(normalizedEffectId, current);
+    });
+  }
+
+  function waitForPlaybackClaim(effectId, options = {}) {
+    const normalizedEffectId = normalizeEffectId(effectId);
+    const record = records.get(normalizedEffectId);
+    if (!record) return Promise.resolve({ status: 'missing', claimed: false, job: null });
+    if (record.status === 'failed') return Promise.resolve({ status: 'failed', claimed: false, job: publicRecord(record) });
+    if (record.playback?.status === 'completed') {
+      return Promise.resolve({ status: 'completed', claimed: true, job: publicRecord(record) });
+    }
+    if (record.playback?.status === 'released') {
+      return Promise.resolve({ status: 'released', claimed: true, job: publicRecord(record) });
+    }
+    if (record.playback?.status === 'claimed' && Number(record.playback?.leaseUntil || 0) > now()) {
+      return Promise.resolve({ status: 'claimed', claimed: true, job: publicRecord(record) });
+    }
+    const timeoutMs = Math.max(250, Math.min(30000, Number(options.timeoutMs) || 5000));
+    return new Promise((resolve) => {
+      const waiter = {
+        resolve,
+        timer: setTimeout(() => {
+          const current = playbackClaimWaiters.get(normalizedEffectId) || [];
+          playbackClaimWaiters.set(normalizedEffectId, current.filter((candidate) => candidate !== waiter));
+          resolve({ status: 'timeout', claimed: false, job: publicRecord(records.get(normalizedEffectId)) });
+        }, timeoutMs)
+      };
+      const current = playbackClaimWaiters.get(normalizedEffectId) || [];
+      current.push(waiter);
+      playbackClaimWaiters.set(normalizedEffectId, current);
     });
   }
 
@@ -720,7 +765,9 @@ function createTrackerVoiceService(options = {}) {
     const leaseMs = Math.max(5000, Math.min(120000, requestedLease));
     record.playback = { status: 'claimed', ownerClientId: clientId, leaseUntil: timestamp + leaseMs, completedAt: 0 };
     record.updatedAt = timestamp;
-    return { claimed: true, reason: '', job: publicRecord(record) };
+    const result = { claimed: true, reason: '', job: publicRecord(record) };
+    settlePlaybackClaimWaiters(effectId, { status: 'claimed', claimed: true, job: result.job });
+    return result;
   }
 
   function releasePlayback(value = {}) {
@@ -735,11 +782,12 @@ function createTrackerVoiceService(options = {}) {
     const completed = value.completed === true;
     record.playback = completed
       ? { status: 'completed', ownerClientId: clientId, leaseUntil: 0, completedAt: timestamp }
-      : { status: 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 };
+      : { status: 'released', ownerClientId: '', leaseUntil: 0, completedAt: 0 };
     record.updatedAt = timestamp;
     const result = { released: true, completed, job: publicRecord(record) };
     persist();
     settlePlaybackWaiters(effectId, { status: completed ? 'completed' : 'released', completed, job: result.job });
+    if (completed) settlePlaybackClaimWaiters(effectId, { status: 'completed', claimed: true, job: result.job });
     return result;
   }
 
@@ -769,7 +817,8 @@ function createTrackerVoiceService(options = {}) {
     releasePlayback,
     request,
     wait,
-    waitForPlayback
+    waitForPlayback,
+    waitForPlaybackClaim
   });
 }
 

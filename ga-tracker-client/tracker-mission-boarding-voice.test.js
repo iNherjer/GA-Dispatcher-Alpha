@@ -80,6 +80,30 @@ test('tracker boarding handler waits for the selected cockpit playback instance'
   assert.equal(result.voiceStatus, 'completed');
 });
 
+test('tracker boarding handler releases the mission gate when no cockpit claims ready audio', async () => {
+  let playbackWaits = 0;
+  let cancelled = null;
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: { getActiveRun: () => run() },
+    voiceService: {
+      publicState: () => ({ configured: true }),
+      request: () => ({}),
+      wait: async () => ({ effectId: 'mfx-boarding', status: 'ready', audioAvailable: true, text: 'Hallo.', speaker: {} }),
+      waitForPlaybackClaim: async () => ({ status: 'timeout', claimed: false }),
+      waitForPlayback: async () => { playbackWaits += 1; return { status: 'completed', completed: true }; },
+      cancel: (effectId, reason) => { cancelled = { effectId, reason }; }
+    },
+    getAudioPlaybackCandidates: () => 2
+  });
+  const result = await handler.dispatch(request());
+  assert.equal(playbackWaits, 0);
+  assert.equal(result.ok, true);
+  assert.equal(result.voiceStatus, 'no_audio_claim');
+  assert.equal(result.voiceOutcome.status, 'warning');
+  assert.equal(result.voiceOutcome.error, 'voice_playback_unclaimed');
+  assert.deepEqual(cancelled, { effectId: 'mfx-boarding', reason: 'boarding_voice_unclaimed' });
+});
+
 test('a stalled boarding voice request times out, is cancelled and still releases the boarding gate', async () => {
   let cancelled = null;
   const handler = createTrackerMissionBoardingVoice({
