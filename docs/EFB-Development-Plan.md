@@ -3483,3 +3483,7 @@ und den Schutz der Authority-Uebergabe vor Hintergrund-Snapshots. Signatur,
 Boarding-Gates und physische Sim-Wartezeiten bleiben unveraendert.
 42 Core-/Authority-/EFB-Tests sowie die Interface-Regressionssuite bestanden.
 Desktop bleibt 1.6.7; kein Worker- oder Community-Package-Update erforderlich.
+
+Rollout v391: Code-Commit `011df5f7c`, EXE-Upload verifiziert, 50553927 Bytes,
+SHA-256 `34092deed8d4f2a3a19be70046bdd93d4bcb38bbe85d79c43e941fc10ac15aca`.
+Alpha-Zeiger folgt diesem Asset; finaler App-Cache v1722. Stable unveraendert.
