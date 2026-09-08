@@ -3503,3 +3503,7 @@ Standalone-Ablauf, Unterschrift, Boarding- und Start-Gates bleiben unveraendert.
 38 Boarding-Voice-/Runtime-Tests bestanden, darunter Vorbereitung ohne Warten,
 Reuse einer laufenden Generierung und Verwerfen eines unpassenden Preloads.
 Rollout vorbereitet als Tracker Alpha v392; App-Cache v1723.
+
+Tracker Alpha v392 veroeffentlicht, Asset-Upload mit Groesse und SHA-256 verifiziert.
+Alpha-Kanal: 50556079 Bytes, SHA-256 `272ee4943b3186cb42dced9de555ea08ed3865b92a7a7041d45c26cf62a0738b`.
+Finaler App-Cache v1724. Desktop-Installer und Stable bleiben unveraendert.
