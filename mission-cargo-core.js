@@ -4217,6 +4217,42 @@ function _missionCargoManualPassengerLoadOptions(item = null, wasUnloaded = fals
     };
 }
 
+window.missionCargoBuildVisibleItemAssets = function() {
+    return (_missionCargoGetManifest()?.items || []).filter(item => !_missionCargoIsPassengerItem(item)).map(item => ({
+        itemId: item.id, titleCandidates: item.titleCandidates || _sceneAssetCandidates(item.objectTitle || 'Cardboard', MISSION_SCENE_ASSET_POOLS.cargo)
+    }));
+};
+
+// Private, declarative recipes for tracker authority. The standalone command path stays unchanged.
+window.missionCargoBuildManualPassengerEffectPlan = function() {
+    const manifest = _missionCargoGetManifest();
+    const gender = _missionScenePassengerGender();
+    const common = typeof _missionSceneCommonSceneCommandFields === 'function' ? _missionSceneCommonSceneCommandFields() : {};
+    return (manifest?.items || []).filter(_missionCargoIsPassengerItem).flatMap(item => ['load', 'reload', 'unload'].map(operation => {
+        const action = operation === 'unload' ? 'unload' : 'load';
+        const options = action === 'load' ? _missionCargoManualPassengerLoadOptions(item, operation === 'reload') : {};
+        const requestedTitle = String(item.objectTitle || '').trim();
+        const personTitle = /^tarmac_/i.test(requestedTitle) ? requestedTitle
+            : (typeof _missionSceneMovingPersonTitle === 'function'
+                ? _missionSceneMovingPersonTitle(gender, `manual-passenger-${action}`)
+                : _missionScenePersonTitle(gender, `manual-passenger-${action}`));
+        const boardingPoint = options.boardingPoint || _missionCargoPassengerBoardingPoint();
+        return { itemId: item.id, operation, command: {
+            type: 'mission_scene_manual_pax', action,
+            sceneId: options.sceneId || _missionCargoUnloadSceneId(),
+            reason: options.reason || `passenger-manual-${action}`, ...common,
+            boardingPoint, targetPoint: boardingPoint,
+            personKind: options.personKind || `unloaded_${item.sceneKind || item.id}`,
+            personKinds: options.personKinds || [],
+            personLabel: options.personLabel || item.storyName || item.label || 'Passenger',
+            personLabels: options.personLabels || [], personTitle,
+            personTitleCandidates: typeof _missionSceneMovingPersonCandidates === 'function'
+                ? _missionSceneMovingPersonCandidates(gender, personTitle) : _missionScenePersonCandidates(gender, personTitle),
+            doorOpenWaitMs: 2000, doorCloseWaitMs: 1000, hdgOffsetDeg: 165
+        } };
+    }));
+};
+
 function _missionCargoMarkPassengerLoaded(options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = (manifest.items || []).find(_missionCargoIsPassengerItem);
@@ -4604,6 +4640,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             pickupKind: String(_activeBushMissionSpec()?.pickupKind || '').toLowerCase(),
             signatureAnimating,
             intentPending: window.gaMissionControlIntentPending === true,
+            queuedItemIds: window.gaTrackerQueuedItemIds,
             updatedAt: Number(window.gaTrackerExecutionControl?.updatedAt || 0)
         });
         if (trackerCargoPresentation?.presentation === 'app-cargo-dialog-v1'
@@ -4933,8 +4970,12 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 rowActionJs = trackerAction.action === 'unload'
                     ? `window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}', { mode: '${mode}' })`
                     : `window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${mode}' })`;
+            } else if (!rowActionDisabled && trackerAction?.intent === 'confirm_unload') {
+                rowActionJs = "window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd({ source: 'passenger-row', skipConfirm: true })";
             } else if (!rowActionDisabled && trackerAction?.intent === 'request_pax_interaction') {
-                rowActionJs = `window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}', { mode: '${mode}' })`;
+                rowActionJs = trackerAction.action === 'load'
+                    ? `window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${mode}' })`
+                    : `window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}', { mode: '${mode}' })`;
             }
         }
         const rowCanInteract = !!rowActionJs && !rowActionDisabled;
@@ -5051,7 +5092,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         && !!trackerModeIntent
         && !_missionCargoTrackerIntentAllowed(trackerModeIntent);
     const modeHint = trackerCargoPresentation?.modeHint
-        ? `<div class="mission-cargo-summary mission-cargo-tracker-lock">${_missionCargoEscape(trackerCargoPresentation.modeHint)}</div>`
+        ? `<div class="mission-cargo-summary ${_missionCargoEscape(trackerCargoPresentation.modeHintClassName || '')}">${_missionCargoEscape(trackerCargoPresentation.modeHint)}</div>`
         : (trackerModeLocked
         ? `<div class="mission-cargo-summary mission-cargo-tracker-lock">${_missionCargoEscape(_missionCargoTrackerBlockedMessage(trackerModeIntent))}</div>`
         : (isEquipment
@@ -5308,15 +5349,17 @@ function _missionCargoRejectCoreItemTransition(result, renderMode, options = {})
 window.missionCargoLoadItem = function(itemId, options = {}) {
     if (window.gaTrackerExecutionHandlesMission?.()) {
         const renderMode = _missionCargoActionDialogMode(options, 'load');
-        if (!_missionCargoTrackerIntentAllowed('set_manifest_item')) {
+        const trackerItem = (_missionCargoEnsureManifest().items || []).find(item => item.id === itemId);
+        const trackerIntent = _missionCargoIsPassengerItem(trackerItem) ? 'request_pax_interaction' : 'set_manifest_item';
+        if (!_missionCargoTrackerIntentAllowed(trackerIntent)) {
             if (window.missionCargoStatus) {
-                window.missionCargoStatus.error = _missionCargoTrackerBlockedMessage('set_manifest_item');
+                window.missionCargoStatus.error = _missionCargoTrackerBlockedMessage(trackerIntent);
             }
             if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
             return false;
         }
         if (window.missionCargoStatus) window.missionCargoStatus.error = null;
-        window.gaTrackerExecutionSubmitIntent?.('set_manifest_item', { itemId, action: 'load' })
+        window.gaTrackerExecutionSubmitIntent?.(trackerIntent, { itemId, action: 'load' })
             .then(result => {
                 if (result?.ok !== true && window.missionCargoStatus) {
                     window.missionCargoStatus.error = _missionCargoTrackerIntentError(result);
@@ -5753,7 +5796,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
             ? 'request_pax_interaction'
             : 'set_manifest_item';
         const trackerPayload = trackerIntent === 'request_pax_interaction'
-            ? { itemId, action: 'deboard' }
+            ? { itemId, action: 'unload' }
             : { itemId, action: 'unload' };
         if (!_missionCargoTrackerIntentAllowed(trackerIntent)) {
             if (window.missionCargoStatus) {

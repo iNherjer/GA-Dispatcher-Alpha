@@ -142,3 +142,67 @@ test('missing provider and disabled App voice preserve the best-effort boarding 
   });
   assert.equal((await muted.dispatch(request())).voiceStatus, 'audio_disabled');
 });
+
+test('APT approach uses live flight data and the selected passenger settings without a boarding cue', async () => {
+  const active = run();
+  active.resumeBundle.executionEffectPlan.effects['voice.approach'] = { context: {
+    supported: true, mode: 'passenger', missionId: active.missionId, enabled: true, audioEnabled: false,
+    baseContext: 'Passagier Mara.', dest: 'EDTL', passenger: { bankTolerance: 'niedrig' },
+    briefingWeather: {}, speaker: { name: 'Mara', gender: 'female' }
+  } };
+  const calls = [];
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: { getActiveRun: () => active, getExecutionSnapshot: () => ({ runId: active.runId, state: { phase: 'enroute', flags: { active: true } } }) },
+    voiceService: {
+      publicState: () => ({ configured: true }), request: value => calls.push(value),
+      wait: async () => ({ status: 'ready', text: 'Wir sind gleich da.', speaker: { name: 'Mara' } })
+    }
+  });
+  const result = await handler.dispatch({ ...request(), effect: { effectId: 'mfx-approach', type: 'voice.approach', payload: { flightData: { bankDeg: 38 } } } });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].kind, 'approach');
+  assert.equal(calls[0].cue, null);
+  assert.match(calls[0].prompt, /Wir nähern uns EDTL/);
+  assert.match(calls[0].prompt, /Kurven haben mich/);
+  assert.equal(result.voiceOutcome.kind, 'approach');
+  assert.equal(result.voiceOutcome.text, 'Wir sind gleich da.');
+});
+
+test('late generated landing-roll speech is cancelled when farewell starts', async () => {
+  const active = run();
+  active.resumeBundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, audioEnabled: true } };
+  const state = { runId: active.runId, state: { phase: 'active', flags: { active: true } } };
+  let finishGeneration;
+  let generatedRequest;
+  let cancelled;
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: { getActiveRun: () => active, getExecutionSnapshot: () => state },
+    voiceService: { publicState: () => ({ configured: true }),
+      request: value => { generatedRequest = value; },
+      wait: () => new Promise(resolve => { finishGeneration = resolve; }),
+      cancel: id => { cancelled = id; }, activatePlayback: () => { throw new Error('late playback'); } }
+  });
+  const pending = handler.dispatch({ ...request(), effect: { effectId: 'late-roll', type: 'voice.flight',
+    payload: { kind: 'landing_roll', prompt: 'Ankunft', delayMs: 0 } } });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(generatedRequest.deferPlayback, true);
+  state.state.flags.farewellStarted = true;
+  assert.equal(generatedRequest.isPlaybackAllowed(), false);
+  finishGeneration({ status: 'ready', audioAvailable: true, text: 'Ankunft' });
+  assert.equal((await pending).voiceStatus, 'mission_end');
+  assert.equal(cancelled, 'late-roll');
+});
+
+test('fresh boarding uses current simulator position before mission telemetry is active', async () => {
+  const active = run();
+  active.resumeBundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true,
+    departure: { lat: 48, lon: 8 }, passenger: {}, start: 'EDTW', baseContext: 'Passagier' } };
+  let recipe;
+  const handler = createTrackerMissionBoardingVoice({ authorityManager: { getActiveRun: () => active },
+    voiceService: { publicState: () => ({ configured: true }), request: value => { recipe = value; },
+      wait: async () => ({ status: 'ready', audioAvailable: true, text: 'Anderer Startort' }) } });
+  const result = await handler.dispatch({ ...request(), livePosition: { lat: 49, lon: 8 } });
+  assert.equal(result.voiceOutcome.wrongStartActive, true);
+  assert.equal(recipe.cue, null);
+  assert.match(recipe.prompt, /EDTW/);
+});

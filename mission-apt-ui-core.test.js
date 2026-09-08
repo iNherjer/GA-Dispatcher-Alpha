@@ -115,7 +115,7 @@ test('cargo actions use the existing App labels and tracker permissions', () => 
 test('canonical load sheet preserves App rows, signature and confirmation sequence', () => {
   const unsigned = core.cargoModel({
     control: {
-      ...control('boarding', ['set_manifest_item', 'sign_manifest'], { boardingConfirmed: true, groundStill: true, loadConfirmed: false }),
+      ...control('boarding', ['set_manifest_item', 'sign_manifest', 'request_pax_interaction'], { boardingConfirmed: true, groundStill: true, loadConfirmed: false }),
       cargo: { summary: { departureMissing: 0 } },
       payload: { status: 'idle', presentation: {} }
     },
@@ -131,8 +131,8 @@ test('canonical load sheet preserves App rows, signature and confirmation sequen
   assert.equal(unsigned.header.kicker, 'Bodenservice');
   assert.equal(unsigned.copy, 'Die Boarding-Animation ist abgeschlossen. Nach dem Abschliessen der Verladung ist die Mission startbereit.');
   assert.equal(unsigned.items[0].statusLabel, 'an bord');
-  assert.equal(unsigned.items[0].action.label, 'An Bord');
-  assert.equal(unsigned.items[0].action.disabled, true);
+  assert.equal(unsigned.items[0].action.label, 'Aussteigen');
+  assert.equal(unsigned.items[0].action.disabled, false);
   assert.equal(unsigned.items[1].action.label, 'Ausladen');
   assert.equal(unsigned.signature.stateText, 'Klick: unterschreiben');
   assert.equal(unsigned.actions.primary.label, 'Unterschrift eintragen');
@@ -175,8 +175,9 @@ test('canonical unload sheet keeps cargo, PAX and mission-end actions distinct',
       ]
     }
   });
-  assert.equal(unload.items[0].action.label, 'Aussteigen');
-  assert.equal(unload.items[0].action.intent, 'request_pax_interaction');
+  assert.equal(unload.items[0].action.label, 'Pflichtfracht zuerst');
+  assert.equal(unload.items[0].action.disabled, true);
+  assert.equal(unload.items[0].action.intent, 'confirm_unload');
   assert.equal(unload.items[1].action.label, 'Ausladen');
   assert.equal(unload.signature.stateText, 'Pflichtladung zuerst vollständig entladen');
   assert.equal(unload.actions.primary.label, 'Unterschrift eintragen');
@@ -198,6 +199,9 @@ test('canonical unload sheet keeps cargo, PAX and mission-end actions distinct',
       ]
     }
   });
+  assert.equal(ready.items[0].action.label, 'Aussteigen');
+  assert.equal(ready.items[0].action.intent, 'confirm_unload');
+  assert.equal(ready.items[0].action.disabled, false);
   assert.equal(ready.actions.primary.label, 'Abschied und Deboarding starten');
   assert.equal(ready.actions.primary.intent, 'confirm_unload');
   assert.equal(ready.actions.primary.followupIntent, undefined);
@@ -362,8 +366,8 @@ test('canonical cargo model locks every control while an intent is in flight', (
     }
   });
   assert.equal(model.items[0].action.disabled, true);
-  assert.equal(model.items[0].action.label, 'Tracker verarbeitet ...');
+  assert.equal(model.items[0].action.label, 'Laden');
   assert.equal(model.actions.primary.disabled, true);
-  assert.equal(model.actions.primary.label, 'Tracker verarbeitet ...');
-  assert.match(model.modeHint, /letzte Eingabe/);
+  assert.equal(model.actions.primary.label, 'Unterschrift eintragen');
+  assert.match(model.modeHint, /Bordbestand direkt/);
 });

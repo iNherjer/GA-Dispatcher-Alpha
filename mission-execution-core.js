@@ -48,7 +48,7 @@
         'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL',
+        'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -393,6 +393,7 @@
             kind: text(source.kind || 'boarding', 40).toLowerCase() || 'boarding',
             status: statuses.includes(rawStatus) ? rawStatus : 'idle',
             text: text(source.text, 4000),
+            ...(source.wrongStartActive === true ? { wrongStartActive: true } : {}),
             speaker: {
                 name: text(speaker.name, 120),
                 role: text(speaker.role, 160),
@@ -615,6 +616,10 @@
                 kind: 'farewell'
             })
         };
+        if (object(source.voice).flight) state.voice.flight = normalizeVoiceOutcome(source.voice.flight);
+        if (object(source.voice).approach) state.voice.approach = normalizeVoiceOutcome({
+            ...object(source.voice.approach), kind: 'approach'
+        });
         var workflows = object(source.workflows);
         state.workflows = { complianceInspection: normalizeCompliance(workflows.complianceInspection) };
         state.effects = (Array.isArray(source.effects) ? source.effects : []).slice(-MAX_EFFECTS).map(normalizeEffect);
@@ -700,12 +705,21 @@
         var item = (Array.isArray(state.manifest.items) ? state.manifest.items : []).find(function (candidate) {
             return text(candidate && candidate.id, 120) === itemId;
         });
-        if (!item || text(item.itemType, 40).toLowerCase() === 'passenger') return;
+        if (!item) return;
+        if (text(item.itemType, 40).toLowerCase() === 'passenger') {
+            if (transitionSource.manualPassenger === true) appendEffect(state, createEffect(state, event, 'scene.manual_pax', {
+                operation: action, itemId: itemId, position: canonicalValue(transitionSource.position), previousItem: canonicalValue(transitionSource.previousItem),
+                requestedAt: transitionSource.requestedAt || event.occurredAt
+            }));
+            return;
+        }
         appendEffect(state, createEffect(state, event, 'scene.cargo_item_transition', {
             operation: 'cargo_item_transition',
             action: action,
             itemId: itemId,
             manifestKey: text(state.manifest.key || state.manifest.manifestKey, 180) || state.missionId,
+            aircraftSlot: text(state.manifest.aircraftSlot, 80),
+            position: canonicalValue(transitionSource.position),
             item: canonicalValue(item)
         }));
     }
@@ -971,6 +985,15 @@
                     })
                 );
         }
+        if (event.type === 'APT_FLIGHT_VOICE_REQUESTED') return state.flags.active && !state.flags.closingPending
+            && !state.flags.farewellStarted && !state.flags.farewellCompleted && phase !== 'closing';
+        if (event.type === 'APT_APPROACH_VOICE_REQUESTED') {
+            return state.flags.active && phase !== 'closing' && !state.flags.closingPending && !state.flags.farewellStarted
+                && !state.flags.farewellCompleted && !state.flags.unloadConfirmed
+                && !state.voice.approach && !state.effects.some(function (effect) {
+                    return effect.type === 'voice.approach' || effect.type === 'scene.deboarding';
+                });
+        }
         if (event.type === 'FAREWELL_STARTED') {
             return !state.flags.farewellStarted
                 && (phase === 'end_ready' || phase === 'end_unloading' || phase === 'closing')
@@ -1101,6 +1124,11 @@
                 state.flags.boardingConfirmed = true;
                 applyStartReadiness(state);
             }
+        } else if (event.type === 'APT_FLIGHT_VOICE_REQUESTED') {
+            appendEffect(state, createEffect(state, event, 'voice.flight', canonicalValue(event.payload)));
+        } else if (event.type === 'APT_APPROACH_VOICE_REQUESTED') {
+            state.voice.approach = normalizeVoiceOutcome({ status: 'pending', kind: 'approach' });
+            appendEffect(state, createEffect(state, event, 'voice.approach', { flightData: clone(event.payload.flightData, {}), weatherMismatchUsed: event.payload.weatherMismatchUsed === true }));
         } else if (event.type === 'BOARDING_CONFIRMED') {
             applyCargoFromEvent(state, event);
             var boardingPayloadChanged = false;
@@ -1278,10 +1306,16 @@
             if (text(object(cargoPayloadTransition).action, 40)) {
                 appendCargoVisualTransitionEffect(state, event, cargoPayloadTransition);
                 appendPayloadManifestSyncEffect(state, event, cargoPayloadTransition);
+                var audioItem = state.manifest.items.find(function (item) { return item.id === cargoPayloadTransition.itemId; });
+                if (audioItem) appendEffect(state, createEffect(state, event, 'voice.cargo', {
+                    action: cargoPayloadTransition.action, item: canonicalValue(audioItem)
+                }));
+                if (audioItem && audioItem.required && cargoPayloadTransition.action === 'drop') appendEffect(state, createEffect(state, event, 'voice.flight', { kind: 'cargo_event', item: canonicalValue(audioItem), delayMs: 0 }));
             }
-            if ((state.phase === 'prepare' || state.phase === 'boarding') && state.cargo.signatureScope !== 'departure') {
+            if ((state.phase === 'prepare' || state.phase === 'boarding' || state.phase === 'boarded') && state.cargo.signatureScope !== 'departure') {
                 state.flags.loadConfirmed = false;
                 state.flags.payloadSyncRequested = false;
+                if (state.phase === 'boarded') state.phase = 'boarding';
             }
             if ((state.phase === 'end_unloading' || state.phase === 'end_ready') && state.cargo.signatureScope !== 'arrival') {
                 state.flags.unloadConfirmed = false;
@@ -1412,6 +1446,16 @@
                     payload: effect.payload
                 };
             });
+            if (acknowledgedEffect && acknowledgedEffect.type === 'scene.manual_pax' && acknowledgedStatus === 'failed') {
+                var previousPassenger = object(acknowledgedEffect.payload.previousItem);
+                var passengerIndex = state.manifest.items.findIndex(function (item) { return item.id === previousPassenger.id; });
+                if (passengerIndex >= 0) {
+                    // Match standalone rollback: restore the item, not the invalidated signature.
+                    state.manifest.items[passengerIndex] = canonicalValue(previousPassenger);
+                    state.cargo = normalizeCargo(state.manifest);
+                    appendPayloadManifestSyncEffect(state, event, { action: 'manual_passenger_rollback', itemId: previousPassenger.id });
+                }
+            }
             if (acknowledgedEffect && (acknowledgedEffect.type === 'payload.sync_before_start'
                 || acknowledgedEffect.type === 'payload.sync_manifest_state')
                 && payloadCore && typeof payloadCore.normalizeOutcome === 'function') {
@@ -1431,6 +1475,17 @@
                         || (acknowledgedStatus === 'completed' ? 'ok' : 'failed'),
                     error: object(object(event.payload).result).error
                         || (acknowledgedStatus === 'failed' ? 'boarding_voice_failed' : null),
+                    updatedAt: event.occurredAt
+                });
+            }
+            if (acknowledgedEffect && acknowledgedEffect.type === 'voice.flight') {
+                state.voice.flight = normalizeVoiceOutcome({ ...object(object(event.payload).result),
+                    kind: acknowledgedEffect.payload.kind, updatedAt: event.occurredAt });
+            }
+            if (acknowledgedEffect && acknowledgedEffect.type === 'voice.approach') {
+                state.voice.approach = normalizeVoiceOutcome({
+                    ...object(object(event.payload).result), kind: 'approach',
+                    status: object(object(event.payload).result).status || (acknowledgedStatus === 'completed' ? 'ok' : 'failed'),
                     updatedAt: event.occurredAt
                 });
             }
@@ -1475,7 +1530,9 @@
             var loadedDestinationPax = state.cargo.summary.destinationPassengerRemaining > 0;
             state.flags.farewellStarted = false;
             state.flags.farewellCompleted = false;
-            state.flags.deboardingCompleted = false;
+            // A manual passenger handoff may already have completed. Farewell
+            // alone must not be projected as another running deboarding scene.
+            if (loadedDestinationPax) state.flags.deboardingCompleted = false;
             if (loadedDestinationPax) {
                 state.subphase = 'deboarding_prepare';
                 appendEffect(state, createEffect(state, event, 'scene.deboarding', {
@@ -1541,7 +1598,13 @@
                 if (state.cargo.summary.departureReady && state.cargo.signatureScope === 'departure' && !state.flags.loadConfirmed) actions.push('confirm_load');
             }
         }
-        if (phase === 'boarded') actions.push('start_mission');
+        if (phase === 'boarded') {
+            actions.push('start_mission');
+            if (state.flags.groundStill && !state.flags.payloadSyncRequested) {
+                actions.push('set_manifest_item');
+                if (state.cargo.signatureScope === 'departure') actions.push('clear_manifest_signature');
+            }
+        }
         if (state.flags.active) {
             if (state.flags.onGround === false
                 && (phase === 'active' || phase === 'enroute' || phase === 'return_leg')) {
@@ -1616,6 +1679,19 @@
         // The visible reset control is deliberately mapped to abort_mission by
         // the shared UI core. Do not publish a second reset intent until its
         // own transactional semantics exist in the tracker runtime.
+        var passengerAnimationPending = state.effects.some(function (effect) {
+            return effect.status === 'requested' && (effect.type === 'scene.manual_pax'
+                || (effect.type === 'scene.boarding' && !state.flags.boardingSceneConfirmed)
+                || (effect.type === 'scene.deboarding' && !state.flags.deboardingCompleted));
+        });
+        if (!state.flags.closed && !state.flags.closingPending && !state.flags.unloadConfirmed && !state.flags.farewellStarted
+            && state.flags.groundStill && !passengerAnimationPending && !state.flags.payloadSyncRequested
+            && ((phase === 'boarding' && state.flags.boardingSceneConfirmed) || phase === 'boarded' || state.flags.active)) {
+            actions.push('request_pax_interaction');
+        }
+        if (state.effects.some(function (effect) { return effect.type === 'scene.manual_pax' && effect.status === 'requested'; })) actions = actions.filter(function (action) {
+            return !['request_pax_interaction', 'sign_manifest', 'clear_manifest_signature', 'confirm_load', 'confirm_unload', 'start_mission', 'request_close'].includes(action);
+        });
         if (!state.flags.closed) actions.push('abort_mission');
         return Array.from(new Set(actions)).sort();
     }

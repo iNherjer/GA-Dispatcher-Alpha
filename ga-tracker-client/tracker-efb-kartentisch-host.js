@@ -162,7 +162,7 @@
     catch (_) { source = {}; }
     normalized = API.normalizePreferences(source);
     normalized.theme = 'classic';
-    normalized.fontScale = clamp(Number(source.fontScale) || 1.1, 0.9, 1.3);
+    normalized.fontScale = clamp(Number(source.fontScale) || 1, 0.9, 1.3);
     return normalized;
   }
 
@@ -228,6 +228,16 @@
     setInfoBoxAvailability('liveNextWpBox', !!(mapSnapshot && mapSnapshot.navigation));
     updateInfoRestoreButton();
     report('info', 'info-box', 'restore-all', 'Infofenster wieder eingeblendet');
+  }
+
+  function toggleInfoBox(id) {
+    if (infoBoxVisible(id)) hideInfoBox(id);
+    else {
+      infoBoxState[id].hidden = false;
+      saveInfoBoxState();
+      setInfoBoxAvailability(id, id === 'liveNextWpBox' ? !!(mapSnapshot && mapSnapshot.navigation) : !!flight);
+      updateInfoRestoreButton();
+    }
   }
 
   function hideInfoBox(id) {
@@ -345,10 +355,6 @@
     Object.keys(infoBoxState).forEach(function (id) {
       var node = byId(id);
       if (!node) return;
-      var close = makeButton('ga-info-box-close', 'X', function () { hideInfoBox(id); });
-      close.title = 'Infofenster schliessen';
-      close.setAttribute('aria-label', 'Infofenster schliessen');
-      node.appendChild(close);
       bindInfoBoxDrag(node);
     });
     updateInfoRestoreButton();
@@ -432,8 +438,23 @@
   }
 
   function applyEfbFontScale() {
-    var nextScale = clamp(Number(preferences.fontScale) || 1.1, 0.9, 1.3);
+    var nextScale = clamp(Number(preferences.fontScale) || 1, 0.9, 1.3);
     var elements = fontScaleElements();
+    if (nextScale === 1) {
+      elements.forEach(function (element) {
+        if (element.hasAttribute('data-ga-efb-font-original')) {
+          element.style.fontSize = element.getAttribute('data-ga-efb-font-original');
+          element.removeAttribute('data-ga-efb-font-original');
+          element.removeAttribute('data-ga-efb-font-base');
+        }
+      });
+      document.body.setAttribute('data-ga-efb-font-scale', '100');
+      syncFontScaleControls();
+      return;
+    }
+    elements.forEach(function (element) {
+      if (!element.hasAttribute('data-ga-efb-font-original')) element.setAttribute('data-ga-efb-font-original', element.style.fontSize || '');
+    });
     elements.forEach(function (element) {
       if (!element.hasAttribute('data-ga-efb-font-base')) return;
       var stored = Number(element.getAttribute('data-ga-efb-font-base'));
@@ -455,7 +476,7 @@
   }
 
   function setEfbFontScale(value) {
-    preferences.fontScale = clamp(Math.round((Number(value) || 1.1) * 10) / 10, 0.9, 1.3);
+    preferences.fontScale = clamp(Math.round((Number(value) || 1) * 10) / 10, 0.9, 1.3);
     savePreferences();
     applyEfbFontScale();
     report('info', 'font-scale', String(Math.round(preferences.fontScale * 100)), 'EFB-Schriftgroesse aktualisiert');
@@ -640,10 +661,30 @@
     return submitMissionIntent(intent, payload);
   }
 
+  var missionIntentQueue = null;
   function submitMissionIntent(intent, payload) {
+    if (!missionIntentQueue) missionIntentQueue = window.GAMissionControlUiCore.createIntentQueue(function () {
+      missionIntentPending = missionIntentQueue.size() > 0;
+      renderCargoManager();
+      renderMissionToolbar(missionSnapshot);
+    });
+    var control = missionSnapshot && missionSnapshot.control;
+    if (!control) return Promise.resolve(false);
+    var runId = control.runId;
+    var missionId = control.missionId;
+    var data = payload || {};
+    var key = [missionId, runId, intent, data.itemId || '', data.action || ''].join('|');
+    return missionIntentQueue.enqueue(key, data.itemId, function () {
+      var current = missionSnapshot && missionSnapshot.control;
+      if (!current || current.runId !== runId || current.missionId !== missionId) return false;
+      return executeMissionIntent(intent, data);
+    });
+  }
+
+  function executeMissionIntent(intent, payload) {
     var client = window.gaCockpitSessionClient;
     var control = missionSnapshot && missionSnapshot.control;
-    if (missionIntentPending || !client || typeof client.submitIntent !== 'function' || !control) return Promise.resolve(false);
+    if (!client || typeof client.submitIntent !== 'function' || !control) return Promise.resolve(false);
     missionIntentPending = true;
     var pendingPresentation = window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.formatIntentResult === 'function'
       ? window.GAMissionControlUiCore.formatIntentResult({ pending: true })
@@ -769,14 +810,19 @@
   }
 
   function projectedCargoModel(mission) {
-    return mission && mission.ui && mission.ui.schema === 'ga.mission-apt-ui.v1'
+    var model = mission && mission.ui && mission.ui.schema === 'ga.mission-apt-ui.v1'
       && mission.ui.cargo && mission.ui.cargo.presentation === 'app-cargo-dialog-v1'
       ? mission.ui.cargo
       : null;
+    if (model && model.afterSignatureAnimation && model.signature
+        && Date.now() >= Number(model.signature.at) + 1600) return model.afterSignatureAnimation;
+    return model;
   }
 
   function cargoActionAttributes(action, kind) {
     if (!action || action.disabled === true || !action.intent) return '';
+    if (missionIntentPending && (action.intent !== 'set_manifest_item'
+      || (missionIntentQueue && missionIntentQueue.pendingItemIds().indexOf(action.itemId) >= 0))) return '';
     var attributes = ' data-efb-cargo-action="' + drawerEscape(kind || 'intent') + '" data-mission-intent="'
       + drawerEscape(action.intent) + '"';
     if (action.followupIntent) attributes += ' data-mission-followup-intent="' + drawerEscape(action.followupIntent) + '"';
@@ -835,28 +881,34 @@
 
   function appCargoManagerMarkup(mission, model) {
     var signature = model.signature && typeof model.signature === 'object' ? model.signature : {};
-    if (cargoSignatureAnimationEndsAt > 0 && cargoSignatureAnimationEndsAt <= Date.now()) {
+    // Use the committed signature time on every interface, including remote signing.
+    var signatureAt = Number(signature.at) || 0;
+    var signatureAge = Date.now() - signatureAt;
+    var signatureEndsAt = signature.signed === true && signatureAt > 0
+      && signatureAge >= -5000 && signatureAge < 1600 ? signatureAt + 1600 : 0;
+    if (signatureEndsAt !== cargoSignatureAnimationEndsAt) {
       if (cargoSignatureAnimationTimer) window.clearTimeout(cargoSignatureAnimationTimer);
       cargoSignatureAnimationTimer = 0;
-      cargoSignatureAnimationEndsAt = 0;
-      cargoSignatureAnimationScope = '';
+      cargoSignatureAnimationEndsAt = signatureEndsAt;
+      cargoSignatureAnimationScope = String(signature.scope || '');
+      if (signatureEndsAt) cargoSignatureAnimationTimer = window.setTimeout(function () {
+        cargoSignatureAnimationTimer = 0;
+        renderCargoManager();
+      }, Math.max(0, signatureEndsAt - Date.now()));
     }
-    var localSignatureAnimation = signature.signed === true
-      && cargoSignatureAnimationScope === String(signature.scope || '')
-      && cargoSignatureAnimationEndsAt > Date.now();
-    if (!signature.signed) {
-      cargoSignatureAnimationEndsAt = 0;
-      cargoSignatureAnimationScope = '';
-    }
+    var localSignatureAnimation = signature.signed === true && signatureEndsAt > Date.now();
     var rows = (Array.isArray(model.items) ? model.items : []).map(function (item) {
       var action = item && item.action && typeof item.action === 'object' ? Object.assign({ itemId: item.id }, item.action) : null;
       var stationAction = item && item.stationAction && typeof item.stationAction === 'object'
         ? Object.assign({ itemId: item.id }, item.stationAction)
         : null;
       var canInteract = action && action.disabled !== true && action.intent;
+      var queued = missionIntentQueue && missionIntentQueue.pendingItemIds().indexOf(item.id) >= 0;
+      if (queued) canInteract = false;
       var rowClasses = String(item && item.rowClasses || '');
       var attributes = canInteract ? cargoActionAttributes(action, 'item') : '';
-      var disabled = action && action.disabled === true ? ' aria-disabled="true"' : '';
+      if (queued) rowClasses = rowClasses.replace(/\bis-interactive\b/g, '').trim();
+      var disabled = queued || action && action.disabled === true ? ' aria-disabled="true"' : '';
       var title = action && action.label ? ' title="' + drawerEscape(action.label) + '"' : '';
       var expiryDetail = item && item.equipmentDetail && item.equipmentDetail.kind === 'expiry'
         ? '<span class="mission-cargo-sheet-item-date">Gültig bis ' + drawerEscape(String(item.equipmentDetail.text || '')
@@ -878,8 +930,9 @@
         + '</div></td></tr>';
     }).join('') || '<tr><td colspan="6">Keine Ladung fuer diese Mission.</td></tr>';
     var signatureDate = signature.signed ? cargoDateLabel(signature.at) : 'noch offen';
-    var signatureState = localSignatureAnimation ? 'wird eingetragen' : String(signature.stateText || '');
-    var signatureAction = signature.clickable === true && !localSignatureAnimation
+    var signatureState = localSignatureAnimation ? 'wird eingetragen'
+      : (signature.signed ? 'Klick: Signatur löschen' : String(signature.stateText || ''));
+    var signatureAction = signature.clickable === true && !localSignatureAnimation && !missionIntentPending
       ? {
           intent: signature.action || (signature.signed ? 'clear_manifest_signature' : 'sign_manifest'),
           disabled: false
@@ -914,15 +967,15 @@
         + drawerEscape(action.label || '') + '</button>';
     }
     var payload = appCargoPayloadMarkup(model.payload, model.mode);
-    var intentStatus = missionIntentStatus
+    var intentStatus = missionIntentTone === 'danger' && missionIntentStatus
       ? '<div class="mission-cargo-summary ' + (/abgelehnt|fehlgeschlagen/i.test(missionIntentStatus) ? 'mission-cargo-error' : '') + '">'
         + drawerEscape(missionIntentStatus) + '</div>'
       : '';
     var compliance = model.compliance && model.compliance.active === true
-      ? '<div class="mission-cargo-summary mission-cargo-compliance"><strong>BEHOERDENKONTROLLE</strong><span>'
-        + drawerEscape(model.compliance.message || '') + '</span></div>'
+      ? '<div class="mission-cargo-summary mission-cargo-compliance-summary">'
+        + drawerEscape(model.compliance.message || 'Behoerdenkontrolle laeuft.') + '</div>'
       : '';
-    return (model.modeHint ? '<div class="mission-cargo-summary mission-cargo-tracker-lock">' + drawerEscape(model.modeHint) + '</div>' : '')
+    return (model.modeHint ? '<div class="mission-cargo-summary ' + drawerEscape(model.modeHintClassName || '') + '">' + drawerEscape(model.modeHint) + '</div>' : '')
       + intentStatus
       + compliance
       + '<div class="mission-cargo-copy">' + drawerEscape(model.copy || '') + '</div>'
@@ -1081,10 +1134,7 @@
     overlay.id = 'gaEfbCargoManager';
     overlay.className = 'mission-cargo-overlay ga-efb-cargo-manager';
     overlay.setAttribute('aria-hidden', 'true');
-    overlay.innerHTML = '<section class="mission-cargo-panel" role="dialog" aria-modal="true" aria-labelledby="gaEfbCargoTitle">'
-      + '<div class="mission-cargo-head"><div><div id="gaEfbCargoKicker" class="mission-cargo-kicker">Bodenservice</div><div id="gaEfbCargoTitle" class="mission-cargo-title">Verladung</div></div>'
-      + '<button type="button" class="mission-cargo-close" data-efb-cargo-action="close" title="Schliessen">&times;</button></div>'
-      + '<div id="gaEfbCargoBody"></div></section>';
+    overlay.innerHTML = '<div id="gaEfbCargoBody" class="mission-cargo-panel" role="dialog" aria-modal="true" aria-labelledby="gaEfbCargoTitle"></div>';
     overlay.addEventListener('click', function (event) {
       var actionNode = event.target && event.target.closest ? event.target.closest('[data-efb-cargo-action]') : null;
       if (!actionNode) {
@@ -1101,7 +1151,10 @@
           payload.itemId = actionNode.getAttribute('data-mission-item-id') || '';
           payload.action = actionNode.getAttribute('data-mission-item-action') || '';
         }
-        if (intent === 'request_pax_interaction') payload.action = 'deboard';
+        if (intent === 'request_pax_interaction' && !payload.action) payload.action = 'deboard';
+        if (intent === 'confirm_unload' && action !== 'item') {
+          if (!window.confirm('Entladung abschliessen und Mission beenden?\n\nDanach startet der Missionsabschluss mit Farewell/Endszene.')) return;
+        }
         var requested = requestMissionIntent(intent, payload);
         if (intent === 'clear_manifest_signature') {
           cargoSignatureAnimationEndsAt = 0;
@@ -1111,22 +1164,6 @@
           requested.then(function (ok) {
             if (ok) return requestMissionIntent(followupIntent, {});
             return false;
-          });
-        } else if (intent === 'sign_manifest' && requested && typeof requested.then === 'function') {
-          requested.then(function (ok) {
-            if (!ok) return false;
-            var exactModel = projectedCargoModel(missionSnapshot);
-            cargoSignatureAnimationScope = String(exactModel && exactModel.signature && exactModel.signature.scope || '');
-            cargoSignatureAnimationEndsAt = Date.now() + 1600;
-            if (cargoSignatureAnimationTimer) window.clearTimeout(cargoSignatureAnimationTimer);
-            cargoSignatureAnimationTimer = window.setTimeout(function () {
-              cargoSignatureAnimationTimer = 0;
-              cargoSignatureAnimationEndsAt = 0;
-              renderCargoManager();
-            }, 1640);
-            cargoManagerSignature = '';
-            renderCargoManager();
-            return true;
           });
         }
       }
@@ -1146,14 +1183,23 @@
     var body = byId('gaEfbCargoBody');
     if (!body) return;
     var exactModel = projectedCargoModel(missionSnapshot);
-    setText('gaEfbCargoKicker', exactModel && exactModel.header ? exactModel.header.kicker : 'Tracker Mission Control');
-    setText('gaEfbCargoTitle', exactModel && exactModel.header ? exactModel.header.title : 'Verlade-Manager');
-    var markup = cargoManagerMarkup();
+    var header = exactModel && exactModel.header || {};
+    var markup = '<div class="mission-cargo-head"><div><div class="mission-cargo-kicker">'
+      + drawerEscape(header.kicker || 'Bodenservice') + '</div><div id="gaEfbCargoTitle" class="mission-cargo-title">'
+      + drawerEscape(header.title || 'Verladung') + '</div></div>'
+      + '<button class="mission-cargo-close" data-efb-cargo-action="close" title="Schliessen">&times;</button></div>'
+      + cargoManagerMarkup();
     if (markup === cargoManagerSignature) return;
-    var scrollTop = body.scrollTop;
+    var scroll = [body, body.querySelector('.mission-cargo-clipboard'), body.querySelector('.mission-cargo-list')]
+      .map(function (node) { return node ? { top: node.scrollTop, left: node.scrollLeft } : null; });
     cargoManagerSignature = markup;
     body.innerHTML = markup;
-    body.scrollTop = scrollTop;
+    var signatureName = body.querySelector('.mission-cargo-signature.is-animating .mission-cargo-signature-name');
+    if (signatureName && exactModel && exactModel.signature) {
+      signatureName.style.animationDelay = '-' + Math.max(0, Date.now() - Number(exactModel.signature.at)) + 'ms';
+    }
+    [body, body.querySelector('.mission-cargo-clipboard'), body.querySelector('.mission-cargo-list')]
+      .forEach(function (node, index) { if (node && scroll[index]) { node.scrollTop = scroll[index].top; node.scrollLeft = scroll[index].left; } });
   }
 
   function openCargoManager() {
@@ -1327,7 +1373,7 @@
           payload.itemId = actionNode.getAttribute('data-mission-item-id') || '';
           payload.action = actionNode.getAttribute('data-mission-item-action') || '';
         }
-        if (intent === 'request_pax_interaction') payload.action = 'deboard';
+        if (intent === 'request_pax_interaction' && !payload.action) payload.action = 'deboard';
         requestMissionIntent(intent, payload);
         event.preventDefault();
         event.stopPropagation();
@@ -1542,11 +1588,14 @@
       actions.classList.add('ga-efb-host-actions');
       var displayMenu = makeHostMenu('ga-efb-host-display-menu', 'Anzeige', [
         { label: 'Infofenster einblenden', action: showAllInfoBoxes },
+        { label: 'Telemetrie ein-/ausblenden', action: function () { toggleInfoBox('liveTelemetryBox'); } },
+        { label: 'Aktuelle Position ein-/ausblenden', action: function () { toggleInfoBox('liveCurrentBox'); } },
+        { label: 'Next Leg ein-/ausblenden', action: function () { toggleInfoBox('liveNextWpBox'); } },
         { label: 'Kartenlayer', action: toggleLayerMenu },
         { label: 'Schrift kleiner (-)', action: function () { setEfbFontScale(preferences.fontScale - 0.1); } },
         { label: 'Schriftgröße: ' + Math.round(preferences.fontScale * 100) + '%', hint: true, className: 'ga-efb-font-size-hint' },
         { label: 'Schrift größer (+)', action: function () { setEfbFontScale(preferences.fontScale + 0.1); } },
-        { label: 'Schrift Standard (110%)', action: function () { setEfbFontScale(1.1); } },
+        { label: 'Schrift Standard (100%)', action: function () { setEfbFontScale(1); } },
         { label: 'Was ist hier: Karte kurz halten', hint: true }
       ]);
       profileButton.insertAdjacentElement('afterend', displayMenu);
@@ -1872,10 +1921,8 @@
         map.panTo([flight.lat, flight.lon], { animate: false });
       }
     }
-    setText('teleGS', flight.gsKts);
-    setText('teleVS', '--');
-    setText('teleAGL', flight.altFt);
-    setText('currentPosRef', flight.lat.toFixed(4) + ', ' + flight.lon.toFixed(4) + ' | ' + flight.altFt + ' ft');
+    updateStandaloneTelemetry(flight);
+    setText('currentPosRef', mapSnapshot && mapSnapshot.context.currentPosition || 'Position aktiv');
     var telemetry = byId('liveTelemetryBox');
     var current = byId('liveCurrentBox');
     setInfoBoxAvailability('liveTelemetryBox', !!telemetry);
@@ -2188,8 +2235,8 @@
     banner.setAttribute('data-mission-id', model.missionId);
     banner.setAttribute('aria-label', model.kicker + ': ' + model.text + '. ' + model.button);
     setText('missionStartBannerKicker', model.kicker);
-    setText('missionStartBannerText', missionIntentPending ? 'Tracker verarbeitet die Aktion ...' : model.text);
-    setText('missionStartBannerBtn', missionIntentPending ? 'Bitte warten ...' : model.button);
+    setText('missionStartBannerText', model.text);
+    setText('missionStartBannerBtn', model.button);
     var button = byId('missionStartBannerBtn');
     if (button) button.disabled = missionIntentPending || model.disabled === true;
     var close = banner.querySelector ? banner.querySelector('.mission-start-banner-close') : null;
@@ -2222,6 +2269,10 @@
   function renderMissionPayload(payload) {
     var next = payload && payload.available === true ? payload : null;
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};
+    var previousControl = missionSnapshot && missionSnapshot.control;
+    var nextControl = next && next.control;
+    var openBoardingDialog = nextControl && nextControl.executionAuthority === 'tracker' && nextControl.phase === 'boarding'
+      && (!previousControl || previousControl.phase !== 'boarding' || previousControl.runId !== nextControl.runId);
     var signature = missionRenderSignature(next);
     var presentationSignature = JSON.stringify({
       mission: signature,
@@ -2231,6 +2282,7 @@
       cargoManagerOpen: cargoManagerOpen === true
     });
     missionSnapshot = next;
+    if (openBoardingDialog) openCargoManager();
     if (presentationSignature !== missionPresentationSignature) {
       missionPresentationSignature = presentationSignature;
       renderMissionActionBanner(next);
@@ -2324,7 +2376,32 @@
     }
   }
 
+  var telemetryPrevious = null;
+  function updateStandaloneTelemetry(sample) {
+    var altitude = Math.max(0, Math.round(sample.altFt));
+    setText('teleAGL', altitude);
+    var altitudeNode = byId('teleAGL');
+    if (altitudeNode) altitudeNode.style.color = altitude < 1500 ? '#ff4444' : (altitude < 3000 ? '#ffcc44' : '#8ec5ff');
+    var timestamp = sample.capturedAt || Date.now();
+    if (!telemetryPrevious || timestamp < telemetryPrevious.timestamp) {
+      telemetryPrevious = { timestamp: timestamp, altitude: sample.altFt };
+      return;
+    }
+    var dt = (timestamp - telemetryPrevious.timestamp) / 1000;
+    if (dt <= 1) return;
+    var vs = (sample.altFt - telemetryPrevious.altitude) / dt * 60;
+    setText('teleGS', Number(sample.gsKts).toFixed(1));
+    setText('teleVS', Math.round(vs));
+    var node = byId('teleVS');
+    if (node) node.style.color = vs > 100 ? 'var(--green)' : (vs < -100 ? 'var(--red)' : '#fff');
+    telemetryPrevious = { timestamp: timestamp, altitude: sample.altFt };
+  }
+
   function renderProgress() {
+    var currentContext = mapSnapshot && mapSnapshot.context || {};
+    setText('currentPosRef', currentContext.currentPosition || 'Position aktiv');
+    setText('currentFreqValue', currentContext.frequency || '\u2014');
+    setText('currentFreqSource', currentContext.frequencySource || '');
     var navigation = mapSnapshot && mapSnapshot.navigation;
     var route = mapSnapshot && mapSnapshot.route;
     var bar = byId('routeProgressBar');
@@ -2352,8 +2429,14 @@
     Array.prototype.forEach.call(document.querySelectorAll('.route-progress-target'), function (node) {
       node.textContent = routeProgressTarget === 'route' ? 'RTE' : 'WPT';
     });
-    setText('nextWpName', selected.waypoint.name || selected.waypoint.id || 'NEXT');
-    setText('nextWpCourse', leftPad(Math.round(selected.bearingDeg || 0), 3) + ' deg');
+    var labels = context.waypointLabels || [];
+    var label = labels.filter(function (item) { return item.lat === selected.waypoint.lat && item.lon === selected.waypoint.lon; })[0];
+    var name = label && label.name || selected.waypoint.name || selected.waypoint.id || 'NEXT';
+    setText('nextWpName', name);
+    if (label && label.frequency && byId('nextWpName')) {
+      byId('nextWpName').innerHTML = drawerEscape(name) + '<div style="font-size:11px;color:#9fd3ff;margin-top:1px;line-height:1.1;">' + drawerEscape(label.frequency) + '</div>';
+    }
+    setText('nextWpCourse', leftPad(Math.round(selected.bearingDeg || 0), 3) + '\u00b0');
     setText('nextWpDist', formatNumber(selected.distanceNm, 1));
     var previousButton = byId('nextLegPrevBtn');
     var nextButton = byId('nextLegNextBtn');

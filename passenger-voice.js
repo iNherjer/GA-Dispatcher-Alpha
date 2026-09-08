@@ -6996,6 +6996,17 @@ function _applyTrackerFarewellVoicePresentation(detail = {}) {
     return true;
 }
 
+function _applyTrackerApproachVoicePresentation(detail = {}) {
+    const text = String(detail.text || '').trim();
+    if (!text) return false;
+    const speaker = detail.speaker || null;
+    const key = `approach|${text}|${String(speaker?.name || '')}`;
+    if (_paxTrackerVoicePresentationKey === key) return true;
+    _paxTrackerVoicePresentationKey = key;
+    _rememberAndShowPrepared(text, speaker, _activeAptArrivalPlan() ? 'Ankunft' : 'Landung');
+    return true;
+}
+
 window.paxVoiceApplyTrackerOutcome = function(outcome = null) {
     if (typeof window.gaTrackerExecutionHandlesMission !== 'function'
         || window.gaTrackerExecutionHandlesMission() !== true) return false;
@@ -7003,6 +7014,15 @@ window.paxVoiceApplyTrackerOutcome = function(outcome = null) {
     const kind = String(source.kind || 'boarding').toLowerCase();
     if (kind === 'boarding') return _applyTrackerBoardingVoicePresentation(source);
     if (kind === 'farewell') return _applyTrackerFarewellVoicePresentation(source);
+    if (kind === 'approach') return _applyTrackerApproachVoicePresentation(source);
+    if (['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(kind)) {
+        const key = `${kind}|${source.text}|${source.updatedAt}`;
+        if (_paxTrackerVoicePresentationKey !== key) {
+            _paxTrackerVoicePresentationKey = key;
+            _rememberAndShowPrepared(source.text, source.speaker, ({ comfort: 'Komfort-Hinweis', wrong_start: 'Route läuft ab hier', off_destination: 'Falscher Landeplatz', landing_roll: 'Nach der Landung', cargo_event: 'Ladung' })[kind]);
+        }
+        return true;
+    }
     return false;
 };
 
@@ -7015,6 +7035,8 @@ window.addEventListener('ga:tracker-voice-playback', event => {
     const kind = String(detail.kind || '').toLowerCase();
     if (kind === 'boarding') _applyTrackerBoardingVoicePresentation(detail);
     else if (kind === 'farewell') _applyTrackerFarewellVoicePresentation(detail);
+    else if (kind === 'approach') _applyTrackerApproachVoicePresentation(detail);
+    else if (['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(kind)) window.paxVoiceApplyTrackerOutcome(detail);
 });
 
 window.paxVoicePrepareGreeting = function(lat = null, lon = null) {
@@ -9811,6 +9833,36 @@ function _farewellAuthorityContext() {
         farewellDriftGuard: _domainDriftGuard('result')
     });
 }
+
+// Private tracker recipe context only; standalone triggers and prompt stay unchanged.
+window.paxVoiceBuildCargoAudioContext = function() {
+    return { enabled: _paxAudioEffectsEnabled, missionAudioKey: _paxMissionAudioKey(''),
+        missionKey: typeof _missionCargoMissionKey === 'function' ? _missionCargoMissionKey() : '',
+        sources: _paxMissionAudioCueSourceCandidates(), catalog: _PAX_AUDIO_CUE_CATALOG };
+};
+
+window.paxVoiceBuildApproachAuthorityContext = function() {
+    const context = _farewellAuthorityContext();
+    if (!context?.supported || context.mode !== 'passenger') return null;
+    const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
+    return {
+        ...context,
+        dest: md?.dest || 'dem Flughafen',
+        start: md?.start || '?',
+        departure: typeof routeWaypoints !== 'undefined' ? routeWaypoints?.[0] : null,
+        passenger: window.activePassenger ? { ...window.activePassenger } : null,
+        wrongStartActive: _paxWrongStartActive,
+        hasAptArrivalRuntimePoint: typeof _hasAptArrivalRuntimePoint === 'function' && _hasAptArrivalRuntimePoint(),
+        afterLandingHint: _aptArrivalAfterLandingHint(),
+        aptArrivalApproachHint: _aptArrivalApproachHint(),
+        inspectionLiveHint: _inspectionMissionMeta()
+            ? ' Falls es zu deiner Rolle passt, nenne direkt eine erste fachliche Beobachtung am Objekt (z.B. unauffaellig, Verdacht, klarer Schaden).'
+            : '',
+        professionalProgressHint: _professionalTaskHint('progress'),
+        bushContinuityHint: _bushPickupNarrativeHint('arrival'),
+        driftGuard: _domainDriftGuard('progress')
+    };
+};
 
 window.paxVoiceBuildFarewellAuthorityContext = function() {
     return _farewellAuthorityContext();

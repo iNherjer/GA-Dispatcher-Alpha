@@ -386,3 +386,58 @@ test('muted boarding still generates and persists the canonical text without a T
   }).text, 'Wir sind bereit.');
   assert.equal(calls, 1);
 });
+
+test('failed playback is terminal for automatic selection and cannot starve the next clip', async () => {
+  const service = createTrackerVoiceService({ provider: 'openai', apiKey: 'test',
+    fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('audio') }) });
+  service.request({ effectId: 'first-failed', text: 'Erste Ansage' });
+  service.request({ effectId: 'next-ready', text: 'Naechste Ansage' });
+  await service.wait('first-failed'); await service.wait('next-ready');
+  assert.equal(service.claimPlayback({ effectId: 'first-failed', clientId: 'efb' }).claimed, true);
+  service.releasePlayback({ effectId: 'first-failed', clientId: 'efb', completed: false });
+  assert.equal(service.getNextPlayback().effectId, 'next-ready');
+  assert.equal(service.claimPlayback({ effectId: 'first-failed', clientId: 'efb' }).claimed, false);
+});
+
+test('cargo cues need no API key or speech request and keep exclusive playback across restart', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-cargo-cue-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(directory, 'cargo-load.mp3'), Buffer.from('test-cue'));
+  let networkCalls = 0;
+  const options = { audioCueDirectory: directory, storageFile: path.join(directory, 'voice.json'),
+    fetchRemote: async () => { networkCalls++; throw new Error('No network expected'); } };
+  const service = createTrackerVoiceService(options);
+  service.request({ effectId: 'cargo:load:1', kind: 'cargo', cue: { id: 'cargo_load', gain: 0.62, variantSeed: 'fixture' } });
+  const ready = await service.wait('cargo:load:1');
+  assert.equal(ready.status, 'ready');
+  assert.equal(ready.text, '');
+  assert.equal(ready.audioAvailable, false);
+  assert.equal(ready.cue.audioAvailable, true);
+  assert.equal(service.getNextPlayback().effectId, ready.effectId);
+  assert.equal(service.claimPlayback({ effectId: ready.effectId, clientId: 'efb' }).claimed, true);
+  assert.equal(service.claimPlayback({ effectId: ready.effectId, clientId: 'phone' }).claimed, false);
+  const restored = createTrackerVoiceService(options);
+  assert.equal(restored.get(ready.effectId).kind, 'cargo');
+  assert.equal(networkCalls, 0);
+});
+
+test('different devices cannot play different jobs concurrently; late mission-end jobs are rejected', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-voice-order-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(directory, 'cargo-load.mp3'), 'cue');
+  const service = createTrackerVoiceService({ audioCueDirectory: directory });
+  let allowed = true;
+  for (const effectId of ['first', 'second']) {
+    service.request({ effectId, kind: 'cargo', cue: { id: 'cargo_load' },
+      isPlaybackAllowed: () => allowed });
+    await service.wait(effectId);
+  }
+  assert.equal(service.claimPlayback({ effectId: 'first', clientId: 'efb' }).claimed, true);
+  assert.equal(service.getNextPlayback(), null);
+  assert.equal(service.claimPlayback({ effectId: 'second', clientId: 'phone' }).reason, 'playback_busy');
+  service.releasePlayback({ effectId: 'first', clientId: 'efb', completed: true });
+  assert.equal(service.getNextPlayback().effectId, 'second');
+  allowed = false;
+  assert.equal(service.getNextPlayback(), null);
+  assert.equal(service.get('second'), null);
+});

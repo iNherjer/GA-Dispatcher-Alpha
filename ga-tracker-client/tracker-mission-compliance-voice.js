@@ -140,7 +140,7 @@ function createTrackerMissionComplianceVoice(options = {}) {
       sideEffect: true,
       voiceStatus: playback.status,
       voiceOutcome: voiceOutcome(kind, text, speaker, {
-        status: ['timeout', 'no_audio_claim'].includes(playback.status) ? 'warning' : 'ok',
+        status: ['timeout', 'no_audio_claim', 'released', 'failed', 'cancelled', 'expired'].includes(playback.status) ? 'warning' : 'ok',
         text: job.text,
         speaker: job.speaker,
         provider: job.provider,
@@ -150,7 +150,8 @@ function createTrackerMissionComplianceVoice(options = {}) {
         playback: playback.status,
         error: playback.status === 'timeout'
           ? 'voice_playback_timeout'
-          : (playback.status === 'no_audio_claim' ? 'voice_playback_unclaimed' : null)
+          : (playback.status === 'no_audio_claim' ? 'voice_playback_unclaimed'
+            : (playback.status === 'released' ? 'voice_playback_failed' : null))
       })
     });
   };

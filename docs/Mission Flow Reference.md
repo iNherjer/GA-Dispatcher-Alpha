@@ -280,6 +280,12 @@ Voice-Queues mit Lande- oder Zielansagen muessen beim Beginn von Farewell oder
 End-Lock abbrechen. Eine verspaetete Netzantwort darf nicht nach dem Farewell
 noch eine Landeansage abspielen.
 
+Standard-A–B: Neben dem normalen 4-NM-Anflugtrigger prueft der Tracker wie
+Standalone beim ersten langsamen Landekandidaten den 4,5-NM-Fallback
+(aktiver Flugrecorder, vorherige Airborne-Phase, unter 18 kt und unter
+140 ft AGL). Beide Wege nutzen denselben einmaligen Anflugeffekt und
+2 Sekunden Vorlauf. Pause/Menu verbrauchen keinen neuen Landekandidaten.
+
 Die zufaellige Kontrollwahrscheinlichkeit steht waehrend der manuellen
 Testphase auf `0 %`; Debug-Forcing bleibt erlaubt.
 

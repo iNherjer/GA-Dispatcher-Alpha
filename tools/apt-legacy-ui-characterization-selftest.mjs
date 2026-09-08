@@ -113,7 +113,7 @@ vm.runInNewContext(
     { filename: 'sync.js#_updateMissionStartBanner' }
 );
 
-function render(overrides = {}) {
+export function render(overrides = {}) {
     resetElements();
     Object.assign(state, {
         phase: 'planned',

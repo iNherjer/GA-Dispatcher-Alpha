@@ -237,6 +237,7 @@ test('APT effect runner persists ACKs, advances system events and closes the rep
     'voice.farewell',
     'scene.deboarding_continue',
     'scene.cargo_item_transition',
+    'voice.cargo',
     'payload.sync_manifest_state',
     'payload.sync_before_start',
     'cargo.unload_confirmed',

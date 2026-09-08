@@ -375,7 +375,7 @@ function createTrackerEfbHttpServer(options = {}) {
         else if (pathname === EFB_COCKPIT_SESSION_RELEASE_PATH) result = cockpitControl.release(payload);
         else {
           messageType = 'mission.intent.ack';
-          result = await cockpitControl.submitIntent(payload);
+          result = await cockpitControl.submitIntent({ ...payload, deferEffects: true });
         }
         let statusCode = 200;
         if (result?.status === 'conflict') statusCode = 409;

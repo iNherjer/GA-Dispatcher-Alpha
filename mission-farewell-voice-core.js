@@ -477,6 +477,7 @@
         normalizeContext: normalizeContext,
         normalizeRecipe: normalizeRecipe,
         normalizeSpeaker: normalizeSpeaker,
+        weatherMismatchHint: weatherMismatchHint,
         weatherContext: weatherContext
     });
 }));

@@ -16,6 +16,7 @@ const RELOAD_MAX_DISTANCE_M = 200;
 const RUNTIME_CONTEXT_PERSIST_INTERVAL_MS = 5000;
 const COMPLIANCE_REQUESTED_ITEM_IDS = new Set(['bordbuch', 'fire-extinguisher', 'first-aid']);
 const SYSTEM_EVENT_TYPES = new Set([
+  'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED',
   'BOARDING_STARTED',
   'BOARDING_SCENE_CONFIRMED',
   'BOARDING_CONFIRMED',
@@ -117,6 +118,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     recorderLowSpeedSince: null,
     latestTelemetry: null,
     latestDestination: null,
+    flightVoiceState: {},
+    cargoObjectRevision: 0,
     lastGpsTick: null,
     smoothedVsFpm: 0,
     runtimeContextPersistedAt: 0
@@ -127,9 +130,13 @@ function createTrackerMissionExecutionAdapter(options = {}) {
   const farewellAuthorityContext = () => {
     const run = authorityManager.getActiveRun?.({ includeBundle: true }) || null;
     const plan = safeObject(run?.resumeBundle?.executionEffectPlan);
-    return farewellVoiceCore.normalizeContext(
+    const context = farewellVoiceCore.normalizeContext(
       safeObject(safeObject(plan.effects)['voice.farewell']).context
     );
+    if (context && current()?.state?.effects.some(effect => effect.type === 'voice.approach' && effect.payload?.weatherMismatchUsed)) {
+      context.weatherMismatchAlreadyUsed = true;
+    }
+    return context;
   };
 
   const missionFlightLabels = () => {
@@ -226,6 +233,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         segmentDepartureLabel: observations.segmentDepartureLabel,
         recorderLowSpeedSince: observations.recorderLowSpeedSince,
         latestTelemetry: observations.latestTelemetry,
+        flightVoiceState: observations.flightVoiceState,
+        cargoObjectRevision: observations.cargoObjectRevision,
         latestDestination: observations.latestDestination
       }
     });
@@ -373,7 +382,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     };
   };
 
-  const setManifestItem = (snapshot, request) => {
+  const setManifestItem = (snapshot, request, manualPassenger = false) => {
     const payload = safeObject(request.payload);
     const itemId = cleanString(payload.itemId || payload.id, 120);
     const action = cleanString(payload.action || payload.status, 30).toLowerCase();
@@ -384,7 +393,15 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const manifest = executionCore.normalizeManifest(snapshot.state.manifest);
     const item = manifest.items.find(candidate => candidate.id === itemId);
     if (!item) return errorResult('mission_manifest_item_not_found');
-    if (item.itemType === 'passenger') return errorResult('mission_manifest_item_scene_required');
+    if (item.itemType === 'passenger' && !manualPassenger) return errorResult('mission_manifest_item_scene_required');
+    if (manualPassenger && item.itemType !== 'passenger') return errorResult('mission_passenger_item_required');
+    const previousItem = manualPassenger ? JSON.parse(JSON.stringify(item)) : null;
+    if (manualPassenger && (snapshot.state.flags.farewellStarted || snapshot.state.flags.unloadConfirmed
+        || snapshot.state.effects.some(effect => effect.status === 'requested'
+          && (effect.type === 'scene.manual_pax' || (effect.type === 'scene.boarding' && !snapshot.state.flags.boardingSceneConfirmed)
+            || (effect.type === 'scene.deboarding' && !snapshot.state.flags.deboardingCompleted))))) {
+      return errorResult('mission_passenger_animation_pending');
+    }
 
     const load = action === 'load' || action === 'loaded';
     const detachedInheritedEquipment = !load
@@ -401,7 +418,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
           persistentEquipmentInherited: true
         }
       : null;
-    const departurePhase = ['prepare', 'boarding'].includes(snapshot.state.phase);
+    const departurePhase = ['prepare', 'boarding', 'boarded'].includes(snapshot.state.phase);
     const arrivalPhase = ['end_unloading', 'end_ready'].includes(snapshot.state.phase)
       && snapshot.state.flags.groundStill;
     const pickupPhase = snapshot.state.phase === 'on_task' && snapshot.state.flags.groundStill;
@@ -417,7 +434,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const mutableHere = (departurePhase && departureItem)
       || (pickupPhase && item.pickupLocation === 'target')
       || (arrivalPhase && (arrivalItem || equipmentItem))
-      || airborneDrop;
+      || airborneDrop
+      || (manualPassenger && snapshot.state.flags.groundStill && snapshot.state.flags.active);
     if (!mutableHere) {
       return errorResult(load ? 'mission_manifest_load_not_allowed' : 'mission_manifest_unload_not_allowed');
     }
@@ -429,7 +447,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       airborne: airborneDrop,
       atTarget: snapshot.state.phase === 'on_task' && snapshot.state.flags.groundStill === true,
       position: observations.lastPosition,
-      ...reloadFacts(item)
+      ...reloadFacts(item),
+      ...(manualPassenger ? { skipPassengerEffect: true, effectAcknowledged: load ? 'passenger.board' : 'passenger.deboard' } : {})
     };
     const plan = manifestCore.planItemTransition(manifest, {
       action: load ? 'load' : 'unload',
@@ -454,7 +473,9 @@ function createTrackerMissionExecutionAdapter(options = {}) {
             ? 'drop'
             : (load ? (committed.previousStatus === 'unloaded' ? 'reload' : 'load') : 'unload'),
           itemId,
-          detachedInheritedEquipment
+          detachedInheritedEquipment,
+          position: observations.lastPosition,
+          ...(manualPassenger ? { manualPassenger: true, previousItem, requestedAt: transitionContext.now } : {})
         }
       },
       `${snapshot.runId}:intent:${cleanString(request.commandId, 120)}`,
@@ -466,7 +487,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const manifest = executionCore.normalizeManifest(snapshot.state.manifest);
     const scope = manifest.dispatchSignature?.scope || null;
     if (!scope) return noopResult(authorityManager, snapshot);
-    const allowedScope = (['prepare', 'boarding'].includes(snapshot.state.phase) && scope === 'departure')
+    const allowedScope = (['prepare', 'boarding', 'boarded'].includes(snapshot.state.phase) && scope === 'departure')
       || (snapshot.state.phase === 'on_task' && snapshot.state.flags.groundStill && scope === 'pickup')
       || (['end_unloading', 'end_ready'].includes(snapshot.state.phase)
         && snapshot.state.flags.groundStill
@@ -704,6 +725,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (intent === 'submit_compliance_evidence') return submitComplianceEvidence(snapshot, request);
     if (intent === 'request_pax_interaction') {
       const action = cleanString(safeObject(request.payload).action, 40).toLowerCase();
+      if (action === 'load' || action === 'unload') return setManifestItem(snapshot, request, true);
       if (action !== 'deboard') return errorResult('mission_pax_interaction_not_migrated', { view: snapshot.view });
       const deboardingPending = snapshot.state.effects.some(effect => (
         effect.type === 'scene.deboarding' && effect.status === 'requested'
@@ -811,7 +833,14 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       ? { manifest: snapshot.state.manifest }
       : (type === 'COMPLIANCE_INSPECTORS_WAITING'
         ? { sceneFallback: safeObject(request.payload).sceneFallback === true }
-        : {});
+        : (type === 'APT_FLIGHT_VOICE_REQUESTED'
+          ? { kind: cleanString(request.payload?.kind, 40), prompt: cleanString(request.payload?.prompt, 24000),
+              label: cleanString(request.payload?.label, 120), debugDetail: cleanString(request.payload?.debugDetail, 1800),
+              delayMs: Math.max(0, Math.min(2000, Number(request.payload?.delayMs) || 0)),
+              triggerAt: Math.max(0, Number(request.payload?.triggerAt) || 0) }
+          : (type === 'APT_APPROACH_VOICE_REQUESTED'
+            ? { flightData: safeObject(request.payload?.flightData), weatherMismatchUsed: request.payload?.weatherMismatchUsed === true }
+            : {})));
     return submitEvent(
       snapshot,
       type,
@@ -836,6 +865,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     observations.lastFinalizedSegmentStartTs = Math.max(0, Number(persisted?.lastFinalizedSegmentStartTs || 0)) || null;
     observations.segmentDepartureLabel = cleanString(persisted?.segmentDepartureLabel, 180) || null;
     observations.recorderLowSpeedSince = Math.max(0, Number(persisted?.recorderLowSpeedSince || 0)) || null;
+    observations.flightVoiceState = persisted?.flightVoiceState || {};
+    observations.cargoObjectRevision = Number(persisted?.cargoObjectRevision) || 0;
     observations.latestTelemetry = persisted?.latestTelemetry || null;
     observations.latestDestination = persisted?.latestDestination || null;
     observations.lastPosition = observations.latestTelemetry
@@ -876,7 +907,9 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     return observations.smoothedVsFpm;
   };
 
+  let landingApproachCandidate = false;
   const observeTelemetry = (sample = {}) => {
+    landingApproachCandidate = false;
     const validated = validateSnapshot(sample);
     if (!validated.ok) return validated;
     const snapshot = validated.snapshot;
@@ -956,7 +989,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const landingCandidate = observations.flightRecorder.hadAirbornePhase === true
       && gsKts < 18
       && aglFt < 140;
-    if (landingCandidate) {
+    const simulationRunning = sample.simPaused !== true && sample.inMenuOrMap !== true;
+    // Standalone asks for fallback approach speech only on entry into its
+    // low-speed landing candidate, before the recorder's 5-second finalization.
+    landingApproachCandidate = simulationRunning && observations.flightRecorder.active === true
+      && landingCandidate && observations.recorderLowSpeedSince == null;
+    if (simulationRunning && landingCandidate) {
       if (observations.recorderLowSpeedSince == null) observations.recorderLowSpeedSince = observedAt;
       if (observedAt - observations.recorderLowSpeedSince >= 5000) {
         const segment = observations.arrivalFlightRecord
@@ -967,7 +1005,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         observations.flightRecorder = flightRecorderCore.createState();
         observations.recorderLowSpeedSince = null;
       }
-    } else {
+    } else if (simulationRunning) {
       observations.recorderLowSpeedSince = null;
     }
     persistRuntimeContext(snapshot, recorded.status === 'started'
@@ -1092,6 +1130,16 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         });
       } catch (_) {}
       return record;
+    },
+    getCargoRevision() { const snapshot = current(); if (snapshot) resetObservationIfNeeded(snapshot); return observations.cargoObjectRevision; },
+    setCargoRevision(value) { const snapshot = current(); if (snapshot) { resetObservationIfNeeded(snapshot); observations.cargoObjectRevision = Math.max(observations.cargoObjectRevision, value); persistRuntimeContext(snapshot, true); } },
+    getFlightVoiceState: () => observations.flightVoiceState,
+    hasNewLandingApproachCandidate: () => landingApproachCandidate,
+    hasRecordedAirbornePhase: () => observations.flightRecorder.hadAirbornePhase === true,
+    setFlightVoiceState(value, force = false) {
+      observations.flightVoiceState = value;
+      const snapshot = current();
+      if (snapshot) persistRuntimeContext(snapshot, force);
     },
     validateIntent,
     observeTelemetry

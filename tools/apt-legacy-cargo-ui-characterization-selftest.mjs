@@ -131,7 +131,8 @@ vm.runInNewContext(
     { filename: 'mission-cargo-core.js#_missionCargoRenderDialog' }
 );
 
-function renderLegacy(scenario, useCanonicalCore = false) {
+function renderLegacy(scenario, useCanonicalCore = false, trackerManaged = true) {
+    context.window.gaTrackerExecutionHandlesMission = () => trackerManaged;
     overlay = null;
     manifest = JSON.parse(JSON.stringify(scenario.manifest));
     endReady = scenario.endReady === true;
@@ -182,8 +183,12 @@ function renderCanonical(scenario) {
 }
 
 function assertPresentationParity(scenario) {
-    const legacy = renderLegacy(scenario);
+    const legacy = renderLegacy(scenario, false, false);
     const integratedApp = renderLegacy(scenario, true);
+    if (scenario.mode === 'unload' && scenario.manifest.dispatchSignature?.scope === 'arrival'
+        && scenario.summary.destinationRemaining === 0) {
+        assert.match(overlay.innerHTML, /finishMissionCargoUnloadAndEnd\(\{ source: 'passenger-row', skipConfirm: true \}\)/);
+    }
     const canonical = renderCanonical(scenario);
     const expectedTexts = [
         canonical.header.kicker,
@@ -211,7 +216,7 @@ const loadedItems = [
 
 assertPresentationParity({
     name: 'boarding-unsigned', mode: 'load', phase: 'boarding', endReady: false,
-    allowedActions: ['set_manifest_item', 'sign_manifest'],
+    allowedActions: ['request_pax_interaction', 'set_manifest_item', 'sign_manifest'],
     flags: { boardingConfirmed: true, groundStill: true, loadConfirmed: false },
     summary: { departureMissing: 0 },
     manifest: { aircraftSlot: 'PA-24', createdAt: 123, items: loadedItems }
@@ -219,7 +224,7 @@ assertPresentationParity({
 
 assertPresentationParity({
     name: 'boarding-signed', mode: 'load', phase: 'boarding', endReady: false,
-    allowedActions: ['set_manifest_item', 'clear_manifest_signature', 'confirm_load'],
+    allowedActions: ['request_pax_interaction', 'set_manifest_item', 'clear_manifest_signature', 'confirm_load'],
     flags: { boardingConfirmed: true, groundStill: true, loadConfirmed: false },
     summary: { departureMissing: 0 },
     manifest: {
@@ -231,7 +236,7 @@ assertPresentationParity({
 
 assertPresentationParity({
     name: 'boarding-signature-animation', mode: 'load', phase: 'boarding', endReady: false,
-    allowedActions: ['set_manifest_item', 'clear_manifest_signature', 'confirm_load'],
+    allowedActions: ['request_pax_interaction', 'set_manifest_item', 'clear_manifest_signature', 'confirm_load'],
     flags: { boardingConfirmed: true, groundStill: true, loadConfirmed: false },
     summary: { departureMissing: 0 }, signatureAnimating: true,
     manifest: {
@@ -243,7 +248,7 @@ assertPresentationParity({
 
 assertPresentationParity({
     name: 'boarded-locked', mode: 'load', phase: 'boarded', endReady: false,
-    allowedActions: ['start_mission'],
+    allowedActions: ['start_mission', 'set_manifest_item', 'request_pax_interaction', 'clear_manifest_signature'],
     flags: { boardingConfirmed: true, groundStill: true, loadConfirmed: true },
     summary: { departureMissing: 0 },
     manifest: {
@@ -255,7 +260,7 @@ assertPresentationParity({
 
 assertPresentationParity({
     name: 'arrival-unload', mode: 'unload', phase: 'end_unloading', endReady: true,
-    allowedActions: ['set_manifest_item', 'request_pax_interaction'],
+    allowedActions: ['request_pax_interaction', 'set_manifest_item', 'request_pax_interaction'],
     flags: { active: true, groundStill: true, unloadConfirmed: false },
     summary: { destinationRemaining: 1 },
     manifest: { aircraftSlot: 'PA-24', createdAt: 123, items: loadedItems }
@@ -263,7 +268,7 @@ assertPresentationParity({
 
 const arrivalReady = assertPresentationParity({
     name: 'arrival-ready-with-pax', mode: 'unload', phase: 'end_unloading', endReady: true,
-    allowedActions: ['set_manifest_item', 'clear_manifest_signature', 'confirm_unload'],
+    allowedActions: ['request_pax_interaction', 'set_manifest_item', 'clear_manifest_signature', 'confirm_unload'],
     flags: { active: true, groundStill: true, unloadConfirmed: false },
     summary: { destinationRemaining: 0 },
     manifest: {
@@ -272,6 +277,19 @@ const arrivalReady = assertPresentationParity({
         items: [loadedItems[0], { ...loadedItems[1], status: 'unloaded', reloadAllowed: true }]
     }
 });
-assert.equal(arrivalReady.actions.primary.followupIntent, 'request_close');
+// Tracker finalization already moved to the runtime in v386. The client sends
+// only confirm_unload; the runtime closes after farewell/payload/scene ACKs.
+assert.equal(arrivalReady.actions.primary.intent, 'confirm_unload');
+assert.equal(arrivalReady.actions.primary.followupIntent, undefined);
 
 console.log('apt-legacy-cargo-ui-characterization-selftest: ok');
+
+// Browser parity fixtures execute the original standalone renderer as-is.
+export function renderStandaloneFixture(scenario) {
+    const previousFormatter = context._missionCargoFormatDate;
+    vm.runInNewContext(functionSource(cargoSource, '_missionCargoFormatDate'), context);
+    try {
+        renderLegacy(scenario, false, false);
+        return { markup: overlay.innerHTML, model: renderCanonical(scenario) };
+    } finally { context._missionCargoFormatDate = previousFormatter; }
+}

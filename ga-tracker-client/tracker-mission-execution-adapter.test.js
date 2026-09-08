@@ -964,3 +964,38 @@ test('cargo pickup confirmation uses the existing gated PICKUP_CONFIRMED reducer
   assert.equal(snapshot.state.progress.pickupCompleted, true);
   assert.equal(snapshot.state.effects.some(effect => effect.type === 'cargo.pickup_confirmed'), true);
 });
+
+test('manual PAX mutates once, invalidates signature and restores only the item on failed animation', t => {
+  const bundle = aptResumeBundle();
+
+  const original = { id: 'pax', itemType: 'passenger', status: 'loaded', required: true, loadedAt: 500, weightLbs: 180 };
+  bundle.runtime.cargoManifest.items = [original];
+  bundle.runtime.cargoManifest.dispatchSignature = { scope: 'departure', by: 'Pilot', at: 900 };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const fixture = createCommittedFixture(t, { bundle });
+  assert.equal(executeCurrent(fixture, 'prepare_mission', 'manual-prepare').ok, true);
+  acknowledgeFirstPendingEffect(fixture, 'manual-prepared');
+  assert.equal(executeCurrent(fixture, 'start_boarding', 'manual-boarding').ok, true);
+  assert.equal(acknowledgeBoardingCurrent(fixture, 'manual').ok, true);
+  const unloaded = executeCurrent(fixture, 'request_pax_interaction', 'manual-unload', { itemId: 'pax', action: 'unload' });
+  assert.equal(unloaded.ok, true, JSON.stringify(unloaded));
+  let snapshot = fixture.manager.getExecutionSnapshot();
+  assert.equal(snapshot.state.manifest.items[0].status, 'unloaded');
+  assert.equal(snapshot.state.manifest.dispatchSignature, null);
+  const effect = snapshot.state.effects.find(effect => effect.type === 'scene.manual_pax');
+  assert.deepEqual(effect.payload.previousItem, original);
+  assert.equal(snapshot.view.allowedActions.includes('request_pax_interaction'), false);
+  assert.equal(snapshot.view.allowedActions.includes('sign_manifest'), false);
+  assert.equal(fixture.manager.getPublicSnapshot().execution.passengerInteraction.status, 'requested');
+  const result = fixture.manager.applyExecutionEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
+    expectedRevision: snapshot.authorityRevision, expectedExecutionRevision: snapshot.executionRevision,
+    expectedExecutionStateHash: snapshot.executionStateHash, event: { eventId: 'manual-failed', type: 'EFFECT_ACKNOWLEDGED',
+      sequence: snapshot.executionRevision + 1, payload: { effectId: effect.effectId, status: 'failed' } } });
+  assert.equal(result.ok, true);
+  snapshot = fixture.manager.getExecutionSnapshot();
+  assert.deepEqual(snapshot.state.manifest.items[0], original);
+  assert.equal(snapshot.state.manifest.dispatchSignature, null);
+  assert(snapshot.state.effects.some(effect => effect.type === 'payload.sync_manifest_state' && effect.payload.transition.action === 'manual_passenger_rollback'));
+  assert(snapshot.view.allowedActions.includes('request_pax_interaction'));
+});

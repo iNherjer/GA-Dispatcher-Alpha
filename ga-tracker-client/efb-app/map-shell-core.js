@@ -240,6 +240,10 @@ function normalizeTrackerMapSnapshot(value) {
     } : null,
     context: {
       position: String(contextSource.position || '').slice(0, 60),
+      currentPosition: String(contextSource.currentPosition || '').slice(0, 100),
+      waypointLabels: (Array.isArray(contextSource.waypointLabels) ? contextSource.waypointLabels : []).slice(0, 128)
+        .filter(item => item && Number.isFinite(item.lat) && Number.isFinite(item.lon))
+        .map(item => ({ lat: item.lat, lon: item.lon, name: String(item.name || '').slice(0, 100), frequency: String(item.frequency || '').slice(0, 100) })),
       frequency: String(contextSource.frequency || '').slice(0, 40),
       frequencySource: String(contextSource.frequencySource || '').slice(0, 80)
     },
@@ -400,7 +404,7 @@ function normalizeFlightSnapshot(value) {
     lon,
     altFt: Math.round(finite(value.alt) || 0),
     headingDeg: normalizeHeading(value.hdg),
-    gsKts: Math.max(0, Math.round(finite(flight.gsKts) || 0)),
+    gsKts: Math.max(0, finite(flight.gsKts) || 0),
     iasKts: Math.max(0, Math.round(finite(flight.iasKts) || 0)),
     onGround: flight.onGround === true,
     capturedAt: capturedAt === null ? 0 : Math.max(0, Math.round(capturedAt))

@@ -310,6 +310,9 @@
         var label = '';
         var disabled = true;
 
+        var paxOperation = object(control.passengerInteraction);
+        if (passenger && paxOperation.status === 'requested') return { intent: '', action: '',
+            label: object(paxOperation.payload).operation === 'unload' ? 'Aussteigen läuft' : 'Einsteigen läuft', disabled: true };
         if (handedOff) return { intent: '', action: '', label: passenger ? 'Verabschiedet' : 'Vom PAX mitgenommen', disabled: true };
         if (status === 'dropped') return { intent: '', action: '', label: 'Abgeworfen', disabled: true };
         if (status === 'lost') return { intent: '', action: '', label: 'Verloren', disabled: true };
@@ -320,10 +323,10 @@
                 label = groundHandlingAllowed ? (passenger ? 'Aussteigen' : 'Ausladen') : (passenger ? 'Nur am Boden' : 'Abwerfen');
                 disabled = passenger ? (!groundHandlingAllowed || !includes(allowed, intent)) : !includes(allowed, intent);
             } else if (status === 'unloaded') {
-                intent = 'set_manifest_item';
+                intent = passenger ? 'request_pax_interaction' : 'set_manifest_item';
                 action = 'load';
                 label = !groundHandlingAllowed ? 'Nur am Boden' : (reloadAllowed ? (passenger ? 'Einsteigen' : 'Wieder laden') : 'Zu weit weg');
-                disabled = passenger || !groundHandlingAllowed || !reloadAllowed || !includes(allowed, intent) || !canLoadAtStage;
+                disabled = !groundHandlingAllowed || !reloadAllowed || !includes(allowed, intent) || !canLoadAtStage;
             } else {
                 return { intent: '', action: '', label: 'Nicht an Bord', disabled: true };
             }
@@ -335,14 +338,10 @@
             label = !groundHandlingAllowed ? 'Nur am Boden' : (!canLoadAtStage ? 'Am Ziel' : (passenger ? 'Einsteigen' : 'Laden'));
             disabled = passenger || !groundHandlingAllowed || !canLoadAtStage || !includes(allowed, intent);
         } else if (mode === 'load') {
-            if (passenger) {
-                if (status === 'loaded') return { intent: '', action: '', label: 'An Bord', disabled: true };
-                return { intent: '', action: '', label: 'Via Boarding', disabled: true };
-            }
-            intent = 'set_manifest_item';
+            intent = passenger ? 'request_pax_interaction' : 'set_manifest_item';
             action = status === 'loaded' ? 'unload' : 'load';
-            if (status === 'loaded') label = !groundHandlingAllowed ? 'Nur am Boden' : 'Ausladen';
-            else label = !groundHandlingAllowed ? 'Nur am Boden' : (status === 'unloaded' ? (reloadAllowed ? 'Wieder laden' : 'Zu weit weg') : 'Laden');
+            if (status === 'loaded') label = !groundHandlingAllowed ? 'Nur am Boden' : (passenger ? 'Aussteigen' : 'Ausladen');
+            else label = !groundHandlingAllowed ? 'Nur am Boden' : (status === 'unloaded' && !reloadAllowed ? 'Zu weit weg' : (passenger ? 'Einsteigen' : (status === 'unloaded' ? 'Wieder laden' : 'Laden')));
             disabled = !groundHandlingAllowed || !reloadAllowed || !canLoadAtStage || !includes(allowed, intent);
             if (equipment && status === 'loaded' && groundHandlingAllowed) label = 'Ausladen';
         } else {
@@ -444,8 +443,17 @@
             var status = text(item.status || 'pending', 30).toLowerCase();
             var handedOff = item.handoffComplete === true || status === 'handed_off';
             var action = rowAction(item, control, mode);
-            if (intentPending && action && action.intent) {
-                action = { intent: action.intent, action: action.action, label: 'Tracker verarbeitet ...', disabled: true };
+            // At the final stop the standalone passenger row starts the same
+            // signed farewell/deboarding sequence as the primary button.
+            if (mode === 'unload' && itemIsPassenger(item) && status === 'loaded' && !handedOff) {
+                action = { intent: 'confirm_unload', action: 'confirm',
+                    label: requiredMissing > 0 ? 'Pflichtfracht zuerst' : (signatureReady ? 'Aussteigen' : 'Nach Unterschrift'),
+                    disabled: requiredMissing > 0 || !signatureReady || !groundHandlingAllowed || !includes(allowed, 'confirm_unload') };
+            }
+            if (intentPending && action && action.intent
+                && (action.intent !== 'set_manifest_item' || !Array.isArray(source.queuedItemIds)
+                    || source.queuedItemIds.indexOf(text(item.id, 120)) >= 0)) {
+                action = { intent: action.intent, action: action.action, label: action.label, disabled: true };
             }
             var passengerDeboarding = deboardingBusy && itemIsPassenger(item) && status === 'loaded';
             if (passengerDeboarding) {
@@ -457,7 +465,7 @@
             if (handedOff) classes.push('is-handed-off');
             if (status === 'lost') classes.push('is-lost');
             if (action && action.disabled !== true && action.intent) classes.push('is-interactive');
-            if (action && action.disabled === true && itemIsPassenger(item)) classes.push('is-disabled');
+            if (passengerDeboarding) classes.push('is-disabled');
             var equipmentDetail = null;
             var stationAction = null;
             var isBoardBook = /bordbuch/i.test(text(item.id, 120) + ' ' + text(item.label, 180) + ' ' + text(item.storyName, 180));
@@ -517,7 +525,7 @@
                 stationAction: stationAction
             };
         });
-        var signatureActionEnabled = !intentPending && (signed || requiredMissing === 0) && includes(allowed, 'sign_manifest');
+        var signatureActionEnabled = !intentPending && (signed || requiredMissing === 0) && includes(allowed, signed ? 'clear_manifest_signature' : 'sign_manifest');
         var signatureStateText = signatureAnimating
             ? 'wird eingetragen'
             : (signatureReady
@@ -584,14 +592,11 @@
             : null;
         if (intentPending) {
             primary.disabled = true;
-            primary.label = 'Tracker verarbeitet ...';
             if (secondary) secondary.disabled = true;
         }
         var trackerModeIntent = mode === 'load' || mode === 'pickup' || mode === 'unload' ? 'set_manifest_item' : '';
         var trackerModeLocked = trackerModeIntent && !includes(allowed, trackerModeIntent);
-        var modeHint = intentPending
-            ? 'Tracker verarbeitet die letzte Eingabe. Der aktuelle Stand wird automatisch übernommen.'
-            : (trackerModeLocked
+        var modeHint = trackerModeLocked
             ? blockedMessage(trackerModeIntent, phase)
             : (mode === 'unload'
                 ? (!groundHandlingAllowed ? 'Im Flug kann Ladung nur abgeworfen werden. Als geliefert gilt sie erst nach Ausladen am Boden.' : '')
@@ -601,7 +606,7 @@
                         : 'Zum Treffpunkt rollen, Pickup vollständig laden, unterschreiben und danach den Rueckflug bestaetigen.')
                     : (!groundHandlingAllowed
                         ? 'Verladung ist nur am Boden moeglich. Im Flug bleibt diese Liste nur zur Dokumentation sichtbar.'
-                        : 'Bordbestand direkt in der Frachtgutliste anklicken. Nach dem Ausladen erscheint das Gueltigkeitsdatum unter dem Namen.'))));
+                        : 'Bordbestand direkt in der Frachtgutliste anklicken. Nach dem Ausladen erscheint das Gueltigkeitsdatum unter dem Namen.')));
         var onboardWeightLbs = items.reduce(function (sum, item) {
             return sum + (text(object(item).status, 30).toLowerCase() === 'loaded' ? Number(object(item).weightLbs || 0) : 0);
         }, 0);
@@ -635,6 +640,7 @@
             },
             copy: copy,
             modeHint: modeHint,
+            modeHintClassName: trackerModeLocked ? 'mission-cargo-tracker-lock' : '',
             signature: {
                 visible: mode === 'load' || mode === 'unload' || mode === 'pickup',
                 scope: signed ? signatureScope : null,
@@ -680,11 +686,19 @@
     }
 
     function project(rawSource) {
+        var cargo = cargoModel(rawSource);
+        if (cargo && cargo.signature.animating) {
+            // Both timer states are authored by the same rules. A remote display
+            // can finish the animation without waiting for another network poll.
+            cargo.afterSignatureAnimation = cargoModel(Object.assign({}, rawSource, {
+                now: cargo.signature.at + 1600, signatureAnimating: false
+            }));
+        }
         return {
             schema: UI_SCHEMA,
             version: UI_VERSION,
             banner: bannerModel(rawSource),
-            cargo: cargoModel(rawSource)
+            cargo: cargo
         };
     }
 

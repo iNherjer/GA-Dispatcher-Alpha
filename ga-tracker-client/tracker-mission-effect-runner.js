@@ -5,6 +5,9 @@ const DEFAULT_RETRY_DELAY_MS = 2000;
 const MAX_DRAIN_EFFECTS = 16;
 const PAYLOAD_EFFECT_TYPES = new Set(['payload.sync_before_start', 'payload.sync_manifest_state']);
 const VOICE_EFFECT_TYPES = new Set([
+  'voice.approach',
+  'voice.cargo',
+  'voice.flight',
   'voice.boarding',
   'voice.farewell',
   'voice.compliance_request',
@@ -279,7 +282,7 @@ function createTrackerMissionEffectRunner(options = {}) {
     const dispatchStatus = cleanString(dispatched.status, 40).toLowerCase();
     if (dispatched.ok === true && dispatchStatus === 'pending') {
       pendingDispatches.set(effect.effectId, {
-        expiresAt: timestamp + (effect.type === 'scene.compliance_visit' ? 30 * 60 * 1000 : ackLeaseMs)
+        expiresAt: timestamp + (effect.type === 'scene.compliance_visit' ? 30 * 60 * 1000 : (effect.type === 'scene.manual_pax' ? 75000 : ackLeaseMs))
       });
       return { ok: true, status: 'pending', dispatchAttempted: true, sideEffect: true, effect, commandId: effect.effectId };
     }

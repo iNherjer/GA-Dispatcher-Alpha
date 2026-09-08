@@ -275,3 +275,74 @@ test('cockpit playback keeps the App order: boarding cue first, then the central
   assert.equal(calls.some(call => call.body?.completed === true && call.url.endsWith('/release')), true);
   await client.stop();
 });
+
+test('new cockpit with no saved volume is audible and uses decoded cue then speech', async (t) => {
+  const previousStorage = globalThis.localStorage;
+  const previousDocument = globalThis.document;
+  globalThis.document = {};
+  globalThis.localStorage = { getItem: () => null };
+  t.after(() => { globalThis.localStorage = previousStorage; globalThis.document = previousDocument; });
+  const sources = [], gains = [], releases = [];
+  class Context {
+    constructor() { this.state = 'running'; this.destination = {}; }
+    async resume() {}
+    decodeAudioData(bytes, resolve) { resolve({ duration: 1 }); }
+    createGain() { const gain = { gain: { value: 0 }, connect() {}, disconnect() {} }; gains.push(gain); return gain; }
+    createBufferSource() { const source = { connect() {}, disconnect() {}, start() {}, stop() {} }; sources.push(source); return source; }
+  }
+  const client = createClient({
+    role: 'efb', clientId: 'decoded', AudioContext: Context, listenForVoice: true,
+    getAudioPlaybackEnabled: () => true,
+    fetchRemote: async (url, init = {}) => {
+      if (url.endsWith('/cockpit/sessions')) return response({ session: { sessionId: 's', expiresAt: Date.now() + 45000 }, sessionToken: 't', heartbeatAfterMs: 999999 });
+      if (url.endsWith('/voice/playback/next')) return response({ available: true, job: { effectId: 'decoded-job', cue: { audioAvailable: true, gain: 0.38 } } });
+      if (url.endsWith('/voice/playback/claim')) return response({ claimed: true });
+      if (url.endsWith('/voice/playback/release')) { releases.push(JSON.parse(init.body)); return response({ released: true }); }
+      if (/\/(audio|cue)$/.test(url)) return { ok: true, arrayBuffer: async () => new ArrayBuffer(2) };
+      return response({});
+    }
+  });
+  t.after(() => client.stop());
+  await client.start();
+  assert.equal(await client.unlockAudioPlayback(), true);
+  const playback = client.pollVoice();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sources.length, 1);
+  assert.equal(gains[0].gain.value, 0.38);
+  sources[0].onended();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sources.length, 2);
+  assert.equal(gains[1].gain.value, 1, 'absent preference must not mean muted');
+  sources[1].onended();
+  await playback;
+  assert.equal(releases.length, 1);
+  assert.equal(releases[0].completed, true);
+});
+
+test('cue-only playback decodes the cargo sound and never requests a speech track', async t => {
+  const urls = [], gains = [], releases = [];
+  class Context {
+    constructor() { this.state = 'running'; this.destination = {}; }
+    async resume() {}
+    decodeAudioData(bytes, resolve) { resolve({ duration: 1 }); }
+    createGain() { const gain = { gain: { value: 0 }, connect() {}, disconnect() {} }; gains.push(gain); return gain; }
+    createBufferSource() { const source = { connect() {}, disconnect() {}, stop() {}, start() { queueMicrotask(() => source.onended?.()); } }; return source; }
+  }
+  const client = createClient({ role: 'efb', clientId: 'cargo-decoded', AudioContext: Context, listenForVoice: true,
+    getAudioPlaybackEnabled: () => true, fetchRemote: async (url, init = {}) => {
+      urls.push(url);
+      if (url.endsWith('/cockpit/sessions')) return response({ session: { sessionId: 's', expiresAt: Date.now() + 45000 }, sessionToken: 't', heartbeatAfterMs: 999999 });
+      if (url.endsWith('/voice/playback/next')) return response({ available: true, job: { effectId: 'cargo-job', kind: 'cargo', audioAvailable: false, cue: { audioAvailable: true, gain: 0.62 } } });
+      if (url.endsWith('/voice/playback/claim')) return response({ claimed: true });
+      if (url.endsWith('/voice/playback/release')) { releases.push(JSON.parse(init.body)); return response({ released: true }); }
+      if (url.endsWith('/cue')) return { ok: true, arrayBuffer: async () => new ArrayBuffer(2) };
+      return response({});
+    }
+  });
+  t.after(() => client.stop());
+  await client.start(); await client.unlockAudioPlayback(); await client.pollVoice();
+  assert.equal(urls.some(url => url.endsWith('/audio')), false);
+  assert.equal(gains.length, 1);
+  assert.equal(gains[0].gain.value, 0.62);
+  assert.equal(releases[0].completed, true);
+});

@@ -62,6 +62,14 @@
     let activeVoice = null;
     let audioUnlockPromise = null;
     let audioUnlocked = false;
+    let playbackContext = null;
+    function getPlaybackContext() {
+      const Ctor = options.AudioContext || runtime.AudioContext || runtime.webkitAudioContext;
+      if (!playbackContext && typeof Ctor === 'function') {
+        try { playbackContext = new Ctor(); } catch (_) { return null; }
+      }
+      return playbackContext;
+    }
     const voiceCooldowns = new Map();
     let stopped = false;
 
@@ -69,6 +77,11 @@
       if (audioUnlocked) return Promise.resolve(true);
       if (audioUnlockPromise) return audioUnlockPromise;
       if (getAudioPlaybackEnabled() !== true) return Promise.resolve(false);
+      const context = getPlaybackContext();
+      if (context) {
+        // Called directly in the user gesture, before any network await.
+        return Promise.resolve(context.resume()).then(() => context.state === 'running').catch(() => false);
+      }
       const AudioCtor = options.Audio || runtime.Audio;
       if (typeof AudioCtor !== 'function') return Promise.resolve(false);
       audioUnlockPromise = Promise.resolve().then(async () => {
@@ -141,6 +154,8 @@
       const current = activeVoice;
       activeVoice = null;
       if (!current) return;
+      current.cancelled = true;
+      if (current.cancel) current.cancel();
       for (const audio of [current.cueAudio, current.audio].filter(Boolean)) {
         try { audio.onended = null; audio.onerror = null; } catch (_) {}
         try { audio.pause(); } catch (_) {}
@@ -148,6 +163,71 @@
       }
       if (current.watchdogTimer) clearTimeout(current.watchdogTimer);
       await releaseVoice(current.effectId, completed);
+    }
+
+    async function playDecodedVoice(job) {
+      const context = getPlaybackContext();
+      const current = { effectId: job.effectId, watchdogTimer: null, source: null, cancelled: false, cancel: null };
+      activeVoice = current;
+      let done = false;
+      const finish = async completed => {
+        if (done) return;
+        done = true;
+        current.cancelled = true;
+        if (current.cancel) current.cancel();
+        if (current.watchdogTimer) clearTimeout(current.watchdogTimer);
+        if (activeVoice === current) activeVoice = null;
+        await releaseVoice(job.effectId, completed);
+        scheduleVoice(250);
+      };
+      // A suspended/undecodable player should fail promptly, not consume the
+      // entire mission watchdog. Once playing, use the clip's real duration.
+      current.watchdogTimer = setTimeout(() => { finish(false).catch(() => {}); }, 8000);
+      async function clip(suffix, gain) {
+        const response = await fetchRemote(`${baseUrl}/voice/jobs/${encodeURIComponent(job.effectId)}/${suffix}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error('voice_audio_fetch_failed');
+        const bytes = await response.arrayBuffer();
+        const buffer = await new Promise((resolve, reject) => {
+          const decoded = context.decodeAudioData(bytes, resolve, reject);
+          if (decoded && typeof decoded.then === 'function') decoded.then(resolve, reject);
+        });
+        if (current.cancelled) return;
+        await context.resume();
+        if (current.cancelled) return;
+        if (context.state !== 'running') throw new Error('voice_audio_locked');
+        const source = context.createBufferSource();
+        const volume = context.createGain();
+        let master = 1;
+        try {
+          const stored = runtime.localStorage && runtime.localStorage.getItem('awm_volume');
+          if (stored != null && Number.isFinite(Number(stored))) master = Math.max(0, Math.min(1, Number(stored)));
+        } catch (_) {}
+        volume.gain.value = master * gain;
+        source.buffer = buffer;
+        source.connect(volume);
+        volume.connect(context.destination);
+        current.source = source;
+        clearTimeout(current.watchdogTimer);
+        current.watchdogTimer = setTimeout(() => { finish(false).catch(() => {}); }, Math.min(180000, Math.max(8000, buffer.duration * 1000 + 5000)));
+        await new Promise(resolve => {
+          function cleanup() {
+            source.onended = null;
+            try { source.disconnect(); volume.disconnect(); } catch (_) {}
+            resolve();
+          }
+          source.onended = cleanup;
+          current.cancel = () => { try { source.stop(); } catch (_) {} cleanup(); };
+          source.start(0);
+        });
+      }
+      try {
+        if (job.cue && job.cue.audioAvailable === true) {
+          try { await clip('cue', Math.max(0, Math.min(1, Number(job.cue.gain) || 0.38))); } catch (error) { if (job.kind === 'cargo') throw error; }
+        }
+        if (!current.cancelled && job.kind !== 'cargo') await clip('audio', 1);
+        if (!current.cancelled) await finish(true);
+      } catch (_) { await finish(false); }
+      return !current.cancelled || done;
     }
 
     async function playVoiceJob(job) {
@@ -169,12 +249,14 @@
           }
         }));
       } catch (_) {}
+      if (getPlaybackContext()) return playDecodedVoice(jobSource);
       const AudioCtor = options.Audio || runtime.Audio;
       if (typeof AudioCtor !== 'function') {
         await releaseVoice(effectId, false);
         return false;
       }
-      const audio = new AudioCtor(`${baseUrl}/voice/jobs/${encodeURIComponent(effectId)}/audio`);
+      const audio = jobSource.kind === 'cargo' ? new AudioCtor()
+        : new AudioCtor(`${baseUrl}/voice/jobs/${encodeURIComponent(effectId)}/audio`);
       const cue = jobSource.cue && typeof jobSource.cue === 'object' ? jobSource.cue : null;
       const cueAudio = cue && cue.audioAvailable === true
         ? new AudioCtor(`${baseUrl}/voice/jobs/${encodeURIComponent(effectId)}/cue`)
@@ -185,9 +267,9 @@
         if (cueAudio) cueAudio.volume = Math.max(0, Math.min(1, Number(cue.gain) || 0.38));
       } catch (_) {}
       try {
-        const storedVolume = typeof runtime.document !== 'undefined' && runtime.localStorage
-          ? Number(runtime.localStorage.getItem('awm_volume'))
-          : NaN;
+        const storedValue = typeof runtime.document !== 'undefined' && runtime.localStorage
+          ? runtime.localStorage.getItem('awm_volume') : null;
+        const storedVolume = storedValue == null ? NaN : Number(storedValue);
         masterVolume = Number.isFinite(storedVolume) ? Math.max(0, Math.min(1, storedVolume)) : 1;
         audio.volume = masterVolume;
         if (cueAudio) cueAudio.volume = Math.max(0, Math.min(1, masterVolume * (Number(cue.gain) || 0.38)));
@@ -215,6 +297,7 @@
       const startVoice = async () => {
         if (voiceStarted || finished) return true;
         voiceStarted = true;
+        if (jobSource.kind === 'cargo') { await finish(true); return true; }
         try {
           await audio.play();
           return true;
@@ -225,13 +308,14 @@
       };
       if (cueAudio) {
         cueAudio.onended = () => startVoice().catch(() => {});
-        cueAudio.onerror = () => startVoice().catch(() => {});
+        cueAudio.onerror = () => (jobSource.kind === 'cargo' ? finish(false) : startVoice()).catch(() => {});
       }
       try {
         if (cueAudio) await cueAudio.play();
         else await startVoice();
         return true;
       } catch (_) {
+        if (jobSource.kind === 'cargo') { await finish(false); return false; }
         return startVoice();
       }
     }

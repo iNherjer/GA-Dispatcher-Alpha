@@ -106,7 +106,7 @@ test('flight snapshots are range checked and normalized for the map renderer', (
     lon: 8.42969,
     altFt: 2207,
     headingDeg: 355,
-    gsKts: 13,
+    gsKts: 12.6,
     iasKts: 0,
     onGround: true,
     capturedAt: 1234
@@ -149,7 +149,7 @@ test('versioned map snapshots are bounded before entering the renderer', () => {
       obstacles: [{ distanceNm: 5, heightFt: 420, type: 'mast' }],
       airspaces: [{ name: 'CTR Test', startDistanceNm: 2, endDistanceNm: 8, lowerFt: 2500, upperFt: 4500, frequencies: ['118.100'] }]
     },
-    context: { position: '0.2 NM SE EDTW', frequency: 'FIS 128.950', frequencySource: 'Offenes Gebiet' },
+    context: { currentPosition: '0.3 NM E Pattonville', position: '0.2 NM SE EDTW', frequency: 'FIS 128.950', frequencySource: 'Offenes Gebiet' },
     missionGeometry: { target: { id: 'target', name: 'Ziel', lat: 48.4, lon: 8.7 }, poiChain: [] }
   });
   assert.equal(snapshot.missionId, 'mission-42');
@@ -159,6 +159,7 @@ test('versioned map snapshots are bounded before entering the renderer', () => {
   assert.equal(snapshot.profile.points[0].lat, 48.279);
   assert.equal(snapshot.profile.obstacles[0].heightFt, 420);
   assert.equal(snapshot.profile.airspaces[0].frequencies[0], '118.100');
+  assert.equal(snapshot.context.currentPosition, '0.3 NM E Pattonville');
   assert.equal(snapshot.context.frequency, 'FIS 128.950');
   assert.equal(core.normalizeTrackerMapSnapshot({ schema: 'ga.map-snapshot.v2', version: 2 }), null);
 });

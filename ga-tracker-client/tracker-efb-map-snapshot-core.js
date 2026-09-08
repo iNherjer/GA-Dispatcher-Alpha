@@ -269,6 +269,10 @@ function normalizeMapContext(parts) {
   const source = object(object(parts.bundle.mapProfile).context);
   return {
     position: cleanText(source.position, 60),
+    currentPosition: cleanText(source.currentPosition, 100),
+    waypointLabels: (Array.isArray(source.waypointLabels) ? source.waypointLabels : []).slice(0, 128)
+      .filter(item => item && Number.isFinite(item.lat) && Number.isFinite(item.lon))
+      .map(item => ({ lat: item.lat, lon: item.lon, name: cleanText(item.name, 100), frequency: cleanText(item.frequency, 100) })),
     frequency: cleanText(source.frequency, 40),
     frequencySource: cleanText(source.frequencySource, 80)
   };

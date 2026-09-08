@@ -1,0 +1,152 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import ui from '../mission-apt-ui-core.js';
+import controlUi from '../ga-tracker-client/mission-control-ui-core.js';
+const sync = fs.readFileSync(new URL('../sync.js', import.meta.url), 'utf8');
+const cargo = fs.readFileSync(new URL('../mission-cargo-core.js', import.meta.url), 'utf8');
+const between = (text, start, end) => {
+  const a = text.indexOf(start), b = text.indexOf(end, a + start.length);
+  assert.ok(a >= 0 && b > a, start);
+  return text.slice(a, b);
+};
+// Execute the real App wrapper, including its historical fallback.
+const bannerContext = { window: { GAMissionAptUiCore: ui }, Date };
+vm.createContext(bannerContext);
+vm.runInContext(between(sync, 'function _trackerMissionBannerModel(', 'function _renderTrackerMissionBanner('), bannerContext);
+assert.equal(bannerContext._trackerMissionBannerModel({ executionAuthority: 'tracker', missionId: 'm', phase: 'enroute',
+  flags: { active: true, onGround: false }, allowedActions: ['set_manifest_item'] }), null);
+
+// A projected signature must repaint when its timer ends even without another snapshot.
+let clock = 100000, redraws = 0, timer;
+const signatureContext = {
+  Date: { now: () => clock }, clearTimeout() {},
+  document: { getElementById: () => ({ style: { display: 'flex' } }) },
+  _missionCargoActionDialogMode: options => options.mode,
+  _missionCargoRenderDialog: () => { redraws++; },
+  window: { missionCargoStatus: { lastMode: 'load' }, setTimeout: callback => { timer = callback; return 1; } }
+};
+vm.createContext(signatureContext);
+vm.runInContext(between(cargo, 'function _missionCargoClearSignatureAnimation(', 'window.missionCargoSignDispatchList ='), signatureContext);
+assert.equal(signatureContext.window.missionCargoAdoptTrackerSignatureAnimation({ scope: 'departure', at: clock }), true);
+clock += 1640; timer();
+assert.equal(redraws, 1);
+assert.equal(signatureContext.window.missionCargoStatus.signatureAnimationEndsAt, 0);
+assert.doesNotMatch(between(sync, 'function _applyTrackerExecutionControl(', 'function _finalizeTrackerExecutionProjection('), /AdoptTrackerSignatureAnimation[^\n]*render: false/);
+
+// Ordered item commands survive rapid clicks; duplicate clicks join, failures do not poison the queue.
+let release, revision = 1;
+const calls = [];
+const queue = controlUi.createIntentQueue();
+const first = queue.enqueue('run|item-a|load', 'a', async () => { calls.push(revision); await new Promise(r => { release = r; }); revision++; return true; });
+assert.equal(queue.enqueue('run|item-a|load', 'a', () => { throw new Error('duplicate'); }), first);
+const second = queue.enqueue('run|item-b|load', 'b', () => { calls.push(revision); throw new Error('rejected'); });
+const caught = second.catch(e => e.message);
+const third = queue.enqueue('run|item-c|load', 'c', () => { calls.push(revision); return true; });
+await Promise.resolve();
+assert.deepEqual(queue.pendingItemIds(), ['a', 'b', 'c']);
+release();
+assert.equal(await first, true);
+assert.equal(await caught, 'rejected');
+assert.equal(await third, true);
+assert.deepEqual(calls, [1, 2, 2]);
+assert.equal(queue.size(), 0);
+
+// A tracker observer ignores browser ownership; Web-Authority still detects it.
+let projected = 0, restores = 0;
+const statusContext = {
+  Date, _normalizeMissionRuntimeId: value => value, _activeMissionRuntimeId: () => 'm',
+  _readMissionAuthorityState: () => ({ runId: 'old-run' }), _missionAuthorityClientId: () => 'phone',
+  _missionExecutionControlSnapshot: () => ({ runId: 'run' }), _applyTrackerExecutionControl: () => projected++,
+  _missionPhaseDebugPush() {}, _updateMissionRuntimeUi() {},
+  missionRuntimeResumeConflictLastSig: '', missionRuntimeResumeConflictLastLogAt: 0,
+  missionTrackerObserverPromise: null, missionTrackerObserverRetryAt: 0,
+  window: { resumeTrackerMissionOnThisDevice: async () => { restores++; return true; } }
+};
+vm.createContext(statusContext);
+vm.runInContext(between(sync, 'function _handleTrackerMissionStatus(', 'function _handleTrackerMissionAuthoritySnapshot('), statusContext);
+const status = { missionId: 'm', runId: 'run', ownerClientId: 'other-device', active: true, state: 'active', executionAuthority: 'tracker' };
+assert.equal(statusContext._handleTrackerMissionStatus(status), true);
+assert.equal(statusContext.window.missionRuntimeResumeConflict, null);
+assert.equal(projected, 1);
+assert.equal(statusContext._handleTrackerMissionStatus({ ...status, executionAuthority: 'web' }), false);
+assert.equal(statusContext.window.missionRuntimeResumeConflict.trackerActive, true);
+statusContext._activeMissionRuntimeId = () => 'different-cloud-copy';
+assert.equal(statusContext._handleTrackerMissionStatus(status), true);
+assert.equal(statusContext._handleTrackerMissionStatus(status), true);
+assert.equal(restores, 1, 'only one observer restore may run at a time');
+await Promise.resolve(); await Promise.resolve();
+console.log('PASS tracker interface regressions: airborne banner, signature timer, ordered item queue, observer vs legacy owner');
+
+// An authoritative boarding transition opens the EFB dialog once, including
+// boarding started from another interface; repeated polling preserves a close.
+const host = fs.readFileSync(new URL('../ga-tracker-client/tracker-efb-kartentisch-host.js', import.meta.url), 'utf8');
+let opened = 0;
+const efb = { missionSnapshot: null, missionIntentPending: false, missionIntentStatus: '', missionIntentTone: '',
+  cargoManagerOpen: false, missionPresentationSignature: '', missionSignature: '',
+  missionRenderSignature: value => JSON.stringify(value), openCargoManager: () => opened++,
+  renderMissionActionBanner() {}, renderMissionToolbar() {}, renderCargoManager() {}, byId: () => null,
+  document: { querySelector: () => null }, report() {} };
+vm.createContext(efb);
+vm.runInContext(between(host, '  function renderMissionPayload(', '  function renderChecklistPayload('), efb);
+const boarding = { available: true, missionId: 'm', control: { missionId: 'm', runId: 'r', executionAuthority: 'tracker', phase: 'boarding' } };
+efb.renderMissionPayload(boarding);
+efb.renderMissionPayload(boarding);
+assert.equal(opened, 1);
+efb.renderMissionPayload({ ...boarding, control: { ...boarding.control, runId: 'next-run' } });
+assert.equal(opened, 2);
+console.log('PASS EFB boarding dialog opens once per phase/run transition.');
+
+// EFB metadata buttons must retain item ID and field, just like manifest rows.
+const listeners = {};
+const metadataCalls = [];
+const metadata = {
+  byId: () => null,
+  document: { createElement: () => ({ setAttribute() {}, addEventListener: (type, callback) => { listeners[type] = callback; } }), body: { appendChild() {} } },
+  requestMissionIntent: (intent, payload) => { metadataCalls.push({ intent, payload }); return Promise.resolve(true); },
+  window: {}
+};
+vm.createContext(metadata);
+vm.runInContext(between(host, '  function ensureCargoManager()', '  function renderCargoManager()'), metadata);
+metadata.ensureCargoManager();
+for (const [intent, itemId, action] of [['set_boardbook_time', 'aircraft-bordbuch', 'landing'], ['replace_equipment', 'first-aid', 'replace'], ['request_pax_interaction', 'pax', 'load'], ['request_pax_interaction', 'pax', 'unload']]) {
+  const attrs = { 'data-efb-cargo-action': 'item', 'data-mission-intent': intent, 'data-mission-item-id': itemId, 'data-mission-item-action': action };
+  listeners.click({ target: { closest: () => ({ getAttribute: name => attrs[name] || '' }) }, preventDefault() {}, stopPropagation() {} });
+  assert.equal(metadataCalls.at(-1).payload.itemId, itemId);
+  assert.equal(metadataCalls.at(-1).payload.action, action);
+}
+console.log('PASS EFB board-book field and equipment item reach the tracker unchanged.');
+
+// A signature from another device uses its committed timestamp, even if polls stop.
+let signatureNow = 100000, signatureTimer, signatureDelay, signatureRenders = 0;
+const efbSignature = {
+  Date: { now: () => signatureNow },
+  cargoSignatureAnimationEndsAt: 0, cargoSignatureAnimationScope: '', cargoSignatureAnimationTimer: 0,
+  missionIntentPending: false, missionIntentQueue: null, missionIntentTone: '', missionIntentStatus: '',
+  drawerEscape: value => String(value || ''), cargoDateLabel: () => 'date',
+  renderCargoManager: () => { signatureRenders++; },
+  window: { clearTimeout() {}, setTimeout(callback, delay) { signatureTimer = callback; signatureDelay = delay; return 1; } }
+};
+vm.createContext(efbSignature);
+vm.runInContext(between(host, '  function projectedCargoModel(', '  function cargoPayloadStatusMarkup('), efbSignature);
+const signatureProjection = ui.project({ missionId: 'm', now: signatureNow, control: {
+  executionAuthority: 'tracker', missionId: 'm',
+  phase: 'boarding', flags: { groundStill: true },
+  allowedActions: ['clear_manifest_signature', 'confirm_load'], cargo: { summary: { departureMissing: 0 } }
+}, manifest: { items: [], dispatchSignature: { scope: 'departure', at: signatureNow - 600, by: 'Pilot' } } });
+const signatureMission = { ui: signatureProjection };
+let signatureModel = efbSignature.projectedCargoModel(signatureMission);
+assert.match(efbSignature.appCargoManagerMarkup(signatureMission, signatureModel), /is-animating/);
+assert.equal(signatureDelay, 1000, 'remote display must only animate the remaining time');
+signatureNow += 500;
+efbSignature.appCargoManagerMarkup(signatureMission, signatureModel);
+assert.equal(signatureDelay, 1000, 'polls must not restart the timer');
+signatureNow += 500;
+signatureTimer();
+assert.equal(signatureRenders, 1);
+signatureModel = efbSignature.projectedCargoModel(signatureMission);
+const settledMarkup = efbSignature.appCargoManagerMarkup(signatureMission, signatureModel);
+assert.doesNotMatch(settledMarkup, /is-animating|Unterschrift wird eingetragen/);
+assert.equal(signatureModel.actions.primary.intent, 'confirm_load');
+assert.equal(signatureModel.signature.clickable, true);
+console.log('PASS remote EFB signature uses remaining time and releases actions without another poll.');

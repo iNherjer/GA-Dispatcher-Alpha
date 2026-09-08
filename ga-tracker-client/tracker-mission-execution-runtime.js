@@ -1,5 +1,8 @@
 'use strict';
 
+const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
+const locationCore = require('../mission-location-core.js');
+const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const { createTrackerMissionExecutionAdapter } = require('./tracker-mission-execution-adapter.js');
 const { createTrackerMissionEffectRunner } = require('./tracker-mission-effect-runner.js');
 const { createTrackerMissionSimulatorEffects } = require('./tracker-mission-simulator-effects.js');
@@ -135,8 +138,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       commandId: request.commandId || request.effect?.effectId || null
     };
   };
+  let getSimulatorPosition = () => null;
   const playBoardingVoice = typeof options.playBoardingVoice === 'function'
-    ? options.playBoardingVoice
+    ? request => options.playBoardingVoice({ ...request, livePosition: getSimulatorPosition() })
     : missingEffectHandler('mission_boarding_voice');
   const configuredFarewellVoice = typeof options.playFarewellVoice === 'function'
     ? options.playFarewellVoice
@@ -167,19 +171,49 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
     return completeLocalEffect(request);
   };
+  // Voice rendering/playback has its own persistent ACK gate. It must not hold
+  // the effect pump while independent manifest/payload changes are waiting.
+  const voiceOperations = new Map();
+  const backgroundVoice = handler => request => {
+    const id = request.effect.effectId;
+    if (!voiceOperations.has(id)) {
+      const operation = Promise.resolve().then(() => handler(request)).catch(error => ({
+        ok: true, status: 'completed', voiceOutcome: { schema: 'ga.mission-voice-outcome.v1', status: 'warning',
+          kind: request.effect.type.replace('voice.', ''), playback: 'failed', error: error?.message || 'voice_effect_failed' }
+      }));
+      voiceOperations.set(id, operation);
+      operation.then(async result => {
+        const current = authorityManager.getExecutionSnapshot?.();
+        if (current?.runId !== request.runId || current?.missionId !== request.missionId || result?.status === 'pending') return;
+        await effectRunner.acknowledge({ effectId: id, status: result?.ok === true ? 'completed' : 'failed', result: result?.voiceOutcome });
+        logCheckpoint('voice-ack');
+        await effectRunner.drain();
+        await maybeAutoCloseConfirmedUnload('voice-ack');
+        finalizeIfClosed(id);
+      }).catch(error => {
+        log(`MISSION_VOICE_EFFECT_ERROR effect=${id} error=${error?.message || error}`);
+      }).then(() => { voiceOperations.delete(id); });
+    }
+    return { ok: true, status: 'pending', sideEffect: true, commandId: id };
+  };
   effectRunner = createTrackerMissionEffectRunner({
     authorityManager,
     applySystemEvent: request => adapter.applySystemEvent(request),
     handlers: {
       'scene.prepare': dispatchSimulatorEffect,
       'scene.boarding': dispatchSimulatorEffect,
-      'voice.boarding': playBoardingVoice,
-      'voice.farewell': playFarewellVoice,
-      'voice.compliance_request': playComplianceVoice,
-      'voice.compliance_result': playComplianceVoice,
+      'voice.boarding': backgroundVoice(playBoardingVoice),
+      'voice.cargo': backgroundVoice(request => authorityManager.getActiveRun({ includeBundle: true })?.resumeBundle?.executionEffectPlan?.cargoAudio
+        ? playBoardingVoice(request) : completeLocalEffect(request)),
+      'voice.flight': backgroundVoice(playBoardingVoice),
+      'voice.approach': backgroundVoice(playBoardingVoice),
+      'voice.farewell': backgroundVoice(playFarewellVoice),
+      'voice.compliance_request': backgroundVoice(playComplianceVoice),
+      'voice.compliance_result': backgroundVoice(playComplianceVoice),
       'payload.sync_before_start': payloadSyncBeforeStart,
       'payload.sync_manifest_state': payloadSyncManifestState,
       'scene.cargo_item_transition': dispatchSimulatorEffect,
+      'scene.manual_pax': dispatchSimulatorEffect,
       'scene.deboarding': dispatchSimulatorEffect,
       'scene.deboarding_continue': dispatchSimulatorEffect,
       'scene.compliance_visit': dispatchSimulatorEffect,
@@ -387,6 +421,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   };
 
   const attachSimulator = (simulator = {}) => {
+    getSimulatorPosition = typeof simulator.getLivePosition === 'function' ? simulator.getLivePosition : () => null;
     simulatorPayloadSyncBeforeStart = typeof simulator.syncPayloadBeforeStart === 'function'
       ? simulator.syncPayloadBeforeStart
       : null;
@@ -397,6 +432,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       ? simulator.cancelPayloadSync
       : null;
     const bridge = createTrackerMissionSimulatorEffects({
+      getCargoRevision: adapter.getCargoRevision, onCargoRevision: adapter.setCargoRevision,
       authorityManager,
       getLivePosition: simulator.getLivePosition,
       dispatchCommand: simulator.dispatchCommand,
@@ -464,6 +500,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const detachSimulator = (bridge = null) => {
     if (bridge && simulatorEffects !== bridge) return false;
+    getSimulatorPosition = () => null;
+    simulatorEffects?.cancelPending?.({ preserveManual: true });
     simulatorEffects = null;
     simulatorPayloadSyncBeforeStart = null;
     simulatorPayloadSyncManifestState = null;
@@ -486,6 +524,74 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     detachSimulator,
     observeTelemetry: sample => {
       const result = adapter.observeTelemetry(sample);
+      if (result?.ok && result.status !== 'ignored') {
+        const snapshot = authorityManager.getExecutionSnapshot?.();
+        const run = authorityManager.getActiveRun({ includeBundle: true });
+        const context = run?.resumeBundle?.executionEffectPlan?.effects?.['voice.approach']?.context;
+        if (snapshot && context?.supported && context.mode === 'passenger') {
+          const previous = { ...adapter.getFlightVoiceState() };
+          const flights = snapshot.state.effects.filter(effect => effect.type === 'voice.flight');
+          const comfort = flights.filter(effect => effect.payload.kind === 'comfort');
+          previous.count = Math.max(Number(previous.count) || 0, comfort.length);
+          previous.lastAt = Math.max(Number(previous.lastAt) || 0, ...comfort.map(effect => Number(effect.payload.triggerAt) || 0));
+          previous.offDestLastAt = Math.max(Number(previous.offDestLastAt) || 0, ...flights.filter(effect => effect.payload.kind === 'off_destination').map(effect => Number(effect.payload.triggerAt) || 0));
+          previous.landingRollTriggered = previous.landingRollTriggered || flights.some(effect => effect.payload.kind === 'landing_roll');
+          previous.wrongStartContinueDone = previous.wrongStartContinueDone || flights.some(effect => effect.payload.kind === 'wrong_start');
+          const departure = context.departure;
+          const departureDistanceNm = departure ? locationCore.haversineNm(Number(sample.lat), Number(sample.lon), Number(departure.lat), Number(departure.lng ?? departure.lon)) : null;
+          const triggerAt = Number(sample.observedAt) || Date.now();
+          const detected = observeFlightVoice(context, previous, {
+            now: triggerAt, active: snapshot.state.flags.active,
+            ending: snapshot.state.flags.closingPending || snapshot.state.flags.farewellStarted || snapshot.state.flags.farewellCompleted || snapshot.state.flags.unloadConfirmed,
+            greetingDone: snapshot.state.flags.boardingConfirmed,
+            approachDone: !!snapshot.state.voice.approach || snapshot.state.effects.some(effect => effect.type === 'voice.approach')
+              || (result.destination?.dMissionNm != null && Number(result.destination.dMissionNm) <= 4)
+              || (result.destination?.dMissionNm != null && Number(result.destination.dMissionNm) <= 4.5 && adapter.hasNewLandingApproachCandidate()),
+            wrongStartActive: snapshot.state.voice.boarding?.wrongStartActive,
+            motionProtectionEnabled: context.motionProtectionEnabled,
+            comfortPending: comfort.some(effect => effect.status === 'requested'),
+            touchdown: result.acceptedEvent?.type === 'TOUCHDOWN',
+            offDestinationLanding: sample.onGround === true && Number(sample.gsKts) <= 3
+              && snapshot.state.flags.groundStill && result.destination?.atDestination !== true
+              && adapter.hasRecordedAirbornePhase(),
+            destinationDistanceNm: result.destination?.dArrivalNm ?? result.destination?.dMissionNm,
+            departureDistanceNm, lat: sample.lat, lon: sample.lon, flightData: sample
+          });
+          for (const effect of detected.effects) adapter.applySystemEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
+            type: 'APT_FLIGHT_VOICE_REQUESTED', eventId: `flight-voice:${effect.kind}:${triggerAt}`, payload: { ...effect, triggerAt } });
+          adapter.setFlightVoiceState(detected.state, detected.effects.length > 0);
+          if (detected.effects.length) effectRunner.drain().catch(error => log(`MISSION_FLIGHT_VOICE_ERROR ${error?.message || error}`));
+        }
+      }
+      const distance = result?.destination?.dMissionNm;
+      if (result?.ok && result.status !== 'ignored'
+          && distance != null && Number.isFinite(Number(distance))
+          && (Number(distance) <= 4
+            || (Number(distance) <= 4.5 && adapter.hasNewLandingApproachCandidate()))) {
+        const snapshot = authorityManager.getExecutionSnapshot?.();
+        if (snapshot?.state?.flags?.active && snapshot.state.phase !== 'closing'
+            && !snapshot.state.flags.closingPending
+            && !snapshot.state.flags.farewellStarted && !snapshot.state.flags.farewellCompleted
+            && !snapshot.state.flags.unloadConfirmed
+            && !snapshot.state.effects.some(effect => effect.type === 'scene.deboarding') && !snapshot.state.voice?.approach
+            && !snapshot.state.effects.some(effect => effect.type === 'voice.approach')) {
+          const run = authorityManager.getActiveRun({ includeBundle: true });
+          const context = run?.resumeBundle?.executionEffectPlan?.effects?.['voice.approach']?.context;
+          if (context?.supported && context.mode === 'passenger') {
+            const flightData = {};
+            for (const key of ['gForce', 'bankDeg', 'windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'precipRateMmH', 'turbulencePct']) {
+              if (sample[key] != null && Number.isFinite(Number(sample[key]))) flightData[key] = Number(sample[key]);
+            }
+            for (const key of ['precipActive', 'inCloud']) if (typeof sample[key] === 'boolean') flightData[key] = sample[key];
+            const approach = adapter.applySystemEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
+              type: 'APT_APPROACH_VOICE_REQUESTED', eventId: 'apt-approach', payload: { flightData, weatherMismatchUsed: !!farewellVoiceCore.weatherMismatchHint({ ...context, briefingWeather: context.briefingWeather || {} }, flightData) } });
+            if (approach?.ok) {
+              logCheckpoint('telemetry:APT_APPROACH_VOICE_REQUESTED');
+              effectRunner.drain().catch(error => log(`MISSION_APPROACH_VOICE_ERROR error=${error?.message || error}`));
+            }
+          }
+        }
+      }
       if (result?.acceptedEvent) {
         lastTelemetryDiagnosticKey = '';
         lastTelemetryDiagnosticAt = 0;

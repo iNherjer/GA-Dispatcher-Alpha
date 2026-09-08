@@ -313,9 +313,8 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     : control;
   const boardingVoice = object(object(control.voice).boarding);
   const farewellVoice = object(object(control.voice).farewell);
-  const voice = farewellVoice.text && Number(farewellVoice.updatedAt || 0) >= Number(boardingVoice.updatedAt || 0)
-    ? farewellVoice
-    : boardingVoice;
+  const voice = [farewellVoice, object(object(control.voice).flight), object(object(control.voice).approach), boardingVoice]
+    .filter(value => value.text).sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))[0] || {};
   const manifest = projectMissionManifest(activeRun, control, flightSnapshot);
   const ui = control.executionAuthority === 'tracker'
     ? aptUiCore.project({

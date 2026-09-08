@@ -299,11 +299,40 @@
     return { tone: 'danger', text: 'Die Tracker-Aktion konnte nicht ausgeführt werden. Bitte den aktuellen Missionsstand erneut prüfen.' };
   }
 
+  // Transport queue only: state/revision is read by execute at dispatch time.
+  // A repeated click on the same item joins its outstanding command.
+  function createIntentQueue(onChange) {
+    var entries = [];
+    var tail = Promise.resolve();
+    function changed() { if (typeof onChange === 'function') onChange(); }
+    function enqueue(key, itemId, execute) {
+      var existing = entries.find(function (entry) { return entry.key === key; });
+      if (existing) return existing.promise;
+      var entry = { key: key, itemId: itemId || '', promise: null };
+      entries.push(entry);
+      var operation = tail.then(execute);
+      function settle() {
+        entries.splice(entries.indexOf(entry), 1);
+        changed();
+      }
+      entry.promise = operation.then(function (value) { settle(); return value; }, function (error) { settle(); throw error; });
+      tail = entry.promise.then(function () {}, function () {});
+      changed();
+      return entry.promise;
+    }
+    return {
+      enqueue: enqueue,
+      pendingItemIds: function () { return entries.map(function (entry) { return entry.itemId; }).filter(Boolean); },
+      size: function () { return entries.length; }
+    };
+  }
+
   function abortConfirmation() {
     return 'Mission wirklich abbrechen?\n\nDer Tracker beendet die Mission auf allen verbundenen Ansichten und entfernt ihre Sim-Objekte. Der Flug wird nicht als abgeschlossen gewertet.';
   }
 
   return Object.freeze({
+    createIntentQueue: createIntentQueue,
     BUILD_ID: BUILD_ID,
     ACTION_LABELS: ACTION_LABELS,
     render: render,

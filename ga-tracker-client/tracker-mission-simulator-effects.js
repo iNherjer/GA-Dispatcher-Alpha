@@ -97,12 +97,18 @@ function createTrackerMissionSimulatorEffects(options = {}) {
   const onStage = typeof options.onStage === 'function' ? options.onStage : null;
   let acknowledgeEffect = typeof options.acknowledgeEffect === 'function' ? options.acknowledgeEffect : null;
   const pending = new Map();
+  const cargoQueue = new Map();
+  const cargoRevisions = new Map();
+  let cargoRevision = 0;
+  const now = typeof options.now === 'function' ? options.now : Date.now;
+  const scheduleTimeout = options.setTimeout || setTimeout;
+  const cancelTimeout = options.clearTimeout || clearTimeout;
 
   if (!authorityManager || typeof authorityManager.getActiveRun !== 'function') {
     throw new TypeError('mission_simulator_effect_authority_manager_required');
   }
 
-  const dispatch = async (request = {}) => {
+  const dispatch = async (request = {}, flushCargo = false) => {
     const effectType = cleanString(request?.effect?.type, 100).toLowerCase();
     const commandId = cleanString(request.commandId, 220);
     if (effectType === 'mission.close_requested') {
@@ -160,6 +166,38 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       if (continued.ok !== true) return errorResult(continued.error || 'mission_deboarding_continuation_failed');
       return { ok: true, status: 'completed', sideEffect: continued.sideEffect === true, commandId };
     }
+    if (effectType === 'scene.manual_pax') {
+      const fail = error => ({ ...errorResult(error), terminal: true });
+      const run = authorityManager.getActiveRun({ includeBundle: true });
+      if (!run || run.executionAuthority !== 'tracker' || run.missionId !== request.missionId || run.runId !== request.runId) return fail('mission_run_conflict');
+      if (pending.has(commandId)) return { ok: true, status: 'pending', commandId };
+      const payload = safeObject(request.effect?.payload);
+      const plan = effectPlanFromRun(run);
+      const recipe = (plan?.manualPassengerCommands || []).find(entry => entry.itemId === payload.itemId && entry.operation === payload.operation);
+      if (!recipe?.command || recipe.command.type !== 'mission_scene_manual_pax') return fail('mission_manual_passenger_recipe_missing');
+      const remainingMs = 70000 - Math.max(0, now() - Number(payload.requestedAt || now()));
+      if (remainingMs <= 0) return fail('manual_pax_timeout');
+      const position = normalizeLivePosition(payload.position || getLivePosition());
+      if (!dispatchCommand || !position) return fail('mission_simulator_live_position_missing');
+      const record = { effectId: commandId, effectType, ackType: 'mission_scene_manual_pax_ack', missionId: run.missionId, runId: run.runId };
+      pending.set(commandId, record);
+      try {
+        const result = safeObject(await dispatchCommand({ ...clone(recipe.command), ...position,
+          commandId, missionId: run.missionId, runId: run.runId }));
+        if (result.ok !== true || result.status === 'completed') {
+          pending.delete(commandId);
+          return result.ok === true ? { ok: true, status: 'completed', commandId } : fail(result.error || 'manual_pax_failed');
+        }
+        if (pending.has(commandId)) {
+          record.timer = scheduleTimeout(() => handleAck({ commandId, type: record.ackType, status: 'timeout', error: 'manual_pax_timeout' }), remainingMs);
+          record.timer?.unref?.();
+        }
+        return { ok: true, status: 'pending', commandId };
+      } catch (error) {
+        pending.delete(commandId);
+        return fail(error?.message || 'manual_pax_failed');
+      }
+    }
     if (effectType === 'scene.cargo_item_transition') {
       if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
       if (!dispatchCommand) return errorResult('mission_simulator_not_connected');
@@ -183,8 +221,43 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       const unloadedKind = `unloaded_${baseKind}`;
       const manifestKey = normalizedKey(payload.manifestKey || run.missionId, 'active-mission');
       const objectKey = item.persistentEquipment === true
-        ? `aircraft-equipment:tracker:${normalizedKey(itemId)}`
+        ? `aircraft-equipment:${String(payload.aircraftSlot || 'PA-24').trim().toUpperCase().replace(/[^A-Z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'PA-24'}:${normalizedKey(itemId)}`
         : `mission-cargo:${manifestKey}:${normalizedKey(itemId)}`;
+      if (!flushCargo) {
+        const previous = cargoQueue.get(objectKey);
+        if (previous?.request.commandId === commandId) return { ok: true, status: 'pending', commandId };
+        if (previous) {
+          cancelTimeout(previous.timer);
+          cargoRevisions.delete(previous.request.commandId);
+          Promise.resolve(acknowledgeEffect?.({ effectId: previous.request.commandId, status: 'completed',
+            simulatorAck: { status: 'superseded' } })).catch(error => log(`MISSION_CARGO_QUEUE_ACK_ERROR ${error?.message || error}`));
+        }
+        if (!cargoRevisions.has(commandId)) {
+          cargoRevision = Math.max(cargoRevision, Number(plan.cargoObjectRevision) || 0, Number(options.getCargoRevision?.()) || 0) + 1;
+          options.onCargoRevision?.(cargoRevision);
+          cargoRevisions.set(commandId, cargoRevision);
+        }
+        const entry = { request: clone(request), timer: null };
+        entry.timer = scheduleTimeout(async () => {
+          if (cargoQueue.get(objectKey) !== entry) return;
+          cargoQueue.delete(objectKey);
+          try {
+            const result = await dispatch(entry.request, true);
+            if (result.status !== 'pending') {
+              cargoRevisions.delete(commandId);
+              await acknowledgeEffect?.({ effectId: commandId,
+                status: result.ok ? 'completed' : 'failed', simulatorAck: { status: result.status, error: result.error || null } });
+            }
+          } catch (error) {
+            cargoRevisions.delete(commandId);
+            await acknowledgeEffect?.({ effectId: commandId, status: 'failed', simulatorAck: { status: 'error', error: error?.message } });
+          }
+        }, 180);
+        entry.timer?.unref?.();
+        cargoQueue.set(objectKey, entry);
+        return { ok: true, status: 'pending', commandId };
+      }
+      const objectRevision = cargoRevisions.get(commandId) || ++cargoRevision;
       let command;
       let ackType;
       if (action === 'load' || action === 'reload') {
@@ -196,6 +269,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
           sceneId: cleanString(plan.sceneId, 220),
           reason: `tracker-execution:cargo-${action}`,
           objectKey,
+          objectRevision,
           allScenes: true,
           objectKeys: [objectKey],
           kinds: Array.from(new Set([baseKind, unloadedKind, item.pickupLocation === 'target' ? 'arrival_equipment_1' : 'cargo'].filter(Boolean))),
@@ -205,7 +279,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
         };
         ackType = 'mission_scene_object_remove_ack';
       } else {
-        const position = normalizeLivePosition(getLivePosition());
+        const position = normalizeLivePosition(payload.position || getLivePosition());
         if (!position) return errorResult('mission_simulator_live_position_missing');
         const placement = safeObject(plan.cargoPlacement);
         command = {
@@ -216,6 +290,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
           sceneId: `${cleanString(plan.sceneId, 180)}-cargo-unload`,
           reason: `tracker-execution:cargo-${action}`,
           objectKey,
+          objectRevision,
           replaceExisting: true,
           lat: position.lat,
           lon: position.lon,
@@ -225,13 +300,15 @@ function createTrackerMissionSimulatorEffects(options = {}) {
             kind: unloadedKind,
             itemId,
             cargoItemId: itemId,
-            cargoSceneKind: baseKind,
+            cargoSceneKind: item.sceneKind || unloadedKind,
             objectKey,
+            objectRevision,
             label: cleanString(item.storyName || item.label || itemId, 180),
             objectTitle: cleanString(item.objectTitle, 180) || 'Cardboard',
-            titleCandidates: Array.isArray(item.titleCandidates) ? item.titleCandidates.slice(0, 24) : [],
-            forwardM: finite(placement.forwardM, 4) + finite(item.forwardM ?? item.forwardOffsetM, 0),
-            rightM: finite(placement.rightM, 4) + finite(item.rightM ?? item.rightOffsetM, 0),
+            titleCandidates: Array.isArray(item.titleCandidates) ? item.titleCandidates.slice(0, 24)
+              : (plan.cargoItemAssets || []).find(entry => entry.itemId === itemId)?.titleCandidates || [],
+            forwardM: finite(placement.forwardM, 4) + finite(item.forwardM, finite(item.forwardOffsetM, 0)),
+            rightM: finite(placement.rightM, 4) + finite(item.rightM, finite(item.rightOffsetM, 0)),
             headingMode: 'with_aircraft',
             altOffsetFt: finite(placement.altOffsetFt, 0) + finite(item.altOffsetFt, 0)
           }]
@@ -372,9 +449,11 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     }
     if (!record || cleanString(ack.type, 140).toLowerCase() !== record.ackType) return false;
     pending.delete(commandId);
+    cargoRevisions.delete(commandId);
+    if (record.timer) cancelTimeout(record.timer);
     const ackStatus = cleanString(ack.status, 40).toLowerCase();
     const completed = ackStatus === 'ok'
-      || (record.effectType === 'scene.cargo_item_transition' && ackStatus === 'noop');
+      || (['scene.cargo_item_transition', 'scene.manual_pax'].includes(record.effectType) && ackStatus === 'noop');
     if (!acknowledgeEffect) {
       log(`MISSION_EFFECT_ACK_DROPPED effect=${record.effectType} commandId=${commandId} reason=acknowledger_missing`);
       return true;
@@ -396,6 +475,16 @@ function createTrackerMissionSimulatorEffects(options = {}) {
   return Object.freeze({
     dispatch,
     handleAck,
+    cancelPending({ preserveManual = false } = {}) {
+      for (const entry of cargoQueue.values()) cancelTimeout(entry.timer);
+      cargoQueue.clear();
+      cargoRevisions.clear();
+      for (const [id, record] of pending) {
+        if (preserveManual && record.effectType === 'scene.manual_pax') continue;
+        if (record.timer) cancelTimeout(record.timer);
+        pending.delete(id);
+      }
+    },
     handlers: Object.freeze({
       'scene.prepare': dispatch,
       'scene.boarding': dispatch,

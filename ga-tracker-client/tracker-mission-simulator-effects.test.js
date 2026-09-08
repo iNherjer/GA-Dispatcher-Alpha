@@ -100,6 +100,7 @@ test('cargo transitions remove loaded objects and spawn unloaded objects through
     effect: { type: 'scene.cargo_item_transition', payload: { action: 'load', itemId: item.id, manifestKey: 'manifest-a', item } }
   });
   assert.equal(loaded.status, 'pending');
+  await new Promise(resolve => setTimeout(resolve, 200));
   assert.equal(commands[0].type, 'mission_scene_object_remove');
   assert.equal(commands[0].allScenes, true);
   assert.equal(commands[0].itemIds[0], 'club-bag');
@@ -112,6 +113,7 @@ test('cargo transitions remove loaded objects and spawn unloaded objects through
     effect: { type: 'scene.cargo_item_transition', payload: { action: 'unload', itemId: item.id, manifestKey: 'manifest-a', item } }
   });
   assert.equal(unloaded.status, 'pending');
+  await new Promise(resolve => setTimeout(resolve, 200));
   assert.equal(commands[1].type, 'mission_scene_object_spawn');
   assert.equal(commands[1].sceneId, 'scene-mission-apt-1-cargo-unload');
   assert.equal(commands[1].items[0].forwardM, 5);
@@ -402,4 +404,59 @@ test('close effect completes without a simulator scene command', async () => {
     sideEffect: false,
     commandId: 'effect-close'
   });
+});
+
+test('cargo coalesces desired state for 180 ms per object, without blocking another object', async () => {
+  const activeRun = runWithPlan();
+  const timers = new Map(), commands = [], acks = [];
+  let seq = 0;
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => activeRun },
+    getLivePosition: () => ({ lat: 48, lon: 8 }),
+    setTimeout: (callback, delay) => { assert.equal(delay, 180); timers.set(++seq, callback); return seq; },
+    clearTimeout: id => timers.delete(id),
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending' }; },
+    acknowledgeEffect: ack => { acks.push(ack); return { ok: true }; }
+  });
+  const send = (commandId, itemId, action) => bridge.dispatch({ commandId, missionId: activeRun.missionId, runId: activeRun.runId,
+    effect: { type: 'scene.cargo_item_transition', payload: { itemId, action, item: { id: itemId }, manifestKey: 'manifest' } } });
+  await send('load-a', 'a', 'load');
+  await send('unload-a', 'a', 'unload');
+  await send('load-b', 'b', 'load');
+  assert.equal(commands.length, 0);
+  assert.equal(timers.size, 2);
+  assert.equal(acks[0].effectId, 'load-a');
+  assert.equal(acks[0].simulatorAck.status, 'superseded');
+  for (const callback of [...timers.values()]) await callback();
+  assert.deepEqual(commands.map(command => command.type), ['mission_scene_object_spawn', 'mission_scene_object_remove']);
+  assert(commands[0].objectRevision < commands[1].objectRevision);
+  assert.equal(commands[0].items[0].objectRevision, commands[0].objectRevision);
+  bridge.cancelPending();
+});
+
+test('manual passenger command preserves recipe and waits 70 seconds before rollback ACK', async () => {
+  const run = runWithPlan();
+  run.resumeBundle.executionEffectPlan.manualPassengerCommands = [{ itemId: 'pax', operation: 'reload', command: {
+    type: 'mission_scene_manual_pax', action: 'load', sceneId: 'scene-unloaded',
+    doorOpenWaitMs: 2000, doorCloseWaitMs: 1000, boardingPoint: { forwardM: 4, rightM: 8 },
+    personKind: 'unloaded_pax', personTitle: 'Tarmac_Female'
+  } }];
+  const commands = [], acks = []; let timeout;
+  const bridge = createTrackerMissionSimulatorEffects({ authorityManager: { getActiveRun: () => run }, now: () => 100000,
+    getLivePosition: () => ({ lat: 48, lon: 8, hdg: 90 }),
+    setTimeout: (callback, delay) => { assert.equal(delay, 70000); timeout = callback; return 1; }, clearTimeout() {},
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending' }; },
+    acknowledgeEffect: ack => { acks.push(ack); return { ok: true }; }
+  });
+  const request = { commandId: 'manual-pax', missionId: run.missionId, runId: run.runId,
+    effect: { type: 'scene.manual_pax', payload: { itemId: 'pax', operation: 'reload', requestedAt: 100000 } } };
+  assert.equal((await bridge.dispatch(request)).status, 'pending');
+  await bridge.dispatch(request);
+  assert.equal(commands.length, 1, 'duplicate dispatch cannot animate twice');
+  assert.equal(commands[0].doorOpenWaitMs, 2000);
+  assert.equal(commands[0].doorCloseWaitMs, 1000);
+  timeout();
+  assert.equal(acks[0].status, 'failed');
+  assert.equal(acks[0].simulatorAck.error, 'manual_pax_timeout');
+  assert.equal(bridge.handleAck({ type: 'mission_scene_manual_pax_ack', commandId: 'manual-pax', status: 'ok' }), false);
 });

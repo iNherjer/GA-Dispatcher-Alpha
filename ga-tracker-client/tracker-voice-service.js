@@ -38,7 +38,7 @@ function normalizeVoiceRequest(value = {}) {
   const text = String(value.text || '').trim();
   const prompt = String(value.prompt || '').trim();
   const fallbackText = String(value.fallbackText || '').trim();
-  if (text.length > 4000 || fallbackText.length > 4000 || prompt.length > 24000 || (!text && !fallbackText && !prompt)) {
+  if (text.length > 4000 || fallbackText.length > 4000 || prompt.length > 24000 || (!text && !fallbackText && !prompt && value.kind !== 'cargo')) {
     throw voiceError('invalid_voice_text', 400, 'Voice-Text fehlt oder ist zu lang.');
   }
   const speaker = value.speaker && typeof value.speaker === 'object' && !Array.isArray(value.speaker)
@@ -54,9 +54,9 @@ function normalizeVoiceRequest(value = {}) {
     ? value.textModels
     : {};
   const requestedKind = String(value.kind || '').trim().toLowerCase();
-  const kind = requestedKind === 'boarding' || requestedKind === 'farewell' ? requestedKind : 'direct';
+  const kind = ['boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(requestedKind) ? requestedKind : 'direct';
   const cueSource = value.cue && typeof value.cue === 'object' && !Array.isArray(value.cue) ? value.cue : {};
-  const cueId = kind === 'boarding' || kind === 'farewell'
+  const cueId = kind === 'boarding' || kind === 'farewell' || kind === 'cargo'
     ? boardingVoiceCore.normalizeCueId(cueSource.id)
     : 'none';
   return {
@@ -66,7 +66,7 @@ function normalizeVoiceRequest(value = {}) {
     fallbackText,
     kind,
     deferPlayback: value.deferPlayback === true,
-    synthesizeAudio: value.synthesizeAudio !== false,
+    synthesizeAudio: kind !== 'cargo' && value.synthesizeAudio !== false,
     taskDomain: String(value.taskDomain || normalizedSpeaker.taskDomain || '').trim().toLowerCase().slice(0, 120),
     gender: normalizedSpeaker.gender,
     voiceName,
@@ -311,6 +311,13 @@ function createTrackerVoiceService(options = {}) {
     : path.resolve(String(options.audioCueDirectory || path.join(__dirname, '..', 'audio-cues')));
   const io = options.io && typeof options.io === 'object' ? options.io : fs;
   const records = new Map();
+  const playbackGuards = new Map();
+  function checkPlaybackGuard(effectId) {
+    if (!records.has(effectId)) { playbackGuards.delete(effectId); return true; }
+    const guard = playbackGuards.get(effectId);
+    if (guard && !guard()) { cancel(effectId, 'mission_end'); return false; }
+    return true;
+  }
   const providerQueue = [];
   const newJobTimestamps = [];
   const playbackWaiters = new Map();
@@ -451,7 +458,7 @@ function createTrackerVoiceService(options = {}) {
         const record = {
           effectId,
           fingerprint: String(source.fingerprint || ''),
-          kind: ['boarding', 'farewell'].includes(String(source.kind || '').trim().toLowerCase())
+          kind: ['boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(String(source.kind || '').trim().toLowerCase())
             ? String(source.kind || '').trim().toLowerCase()
             : 'direct',
           synthesizeAudio,
@@ -506,7 +513,8 @@ function createTrackerVoiceService(options = {}) {
 
   async function produce(record, request) {
     try {
-      const resolvedText = await resolveRequestText({ provider, apiKey, request, fetchRemote });
+      const resolvedText = request.kind === 'cargo' ? { text: '', textModel: '' }
+        : await resolveRequestText({ provider, apiKey, request, fetchRemote });
       if (record.cancelled === true) return publicRecord(record);
       request = { ...request, text: resolvedText.text };
       record.text = resolvedText.text;
@@ -565,6 +573,7 @@ function createTrackerVoiceService(options = {}) {
   }
 
   function request(rawRequest) {
+    if (typeof rawRequest?.isPlaybackAllowed === 'function') playbackGuards.set(normalizeEffectId(rawRequest.effectId), rawRequest.isPlaybackAllowed);
     const request = normalizeVoiceRequest(rawRequest);
     const fingerprint = crypto.createHash('sha256')
       .update(JSON.stringify({
@@ -591,7 +600,7 @@ function createTrackerVoiceService(options = {}) {
       }
       return publicRecord(existing);
     }
-    if (!configured) throw voiceError('voice_not_configured', 503, 'Zentrale Voice-Ausgabe ist im Tracker nicht konfiguriert.');
+    if (!configured && request.kind !== 'cargo') throw voiceError('voice_not_configured', 503, 'Zentrale Voice-Ausgabe ist im Tracker nicht konfiguriert.');
     const timestamp = now();
     while (newJobTimestamps.length && timestamp - newJobTimestamps[0] >= 60000) newJobTimestamps.shift();
     if (newJobTimestamps.length >= DEFAULT_MAX_NEW_JOBS_PER_MINUTE) {
@@ -636,6 +645,7 @@ function createTrackerVoiceService(options = {}) {
     const record = records.get(normalizedEffectId);
     if (!record) return { cancelled: false, reason: 'missing', job: null };
     records.delete(normalizedEffectId);
+    playbackGuards.delete(normalizedEffectId);
     if (Buffer.isBuffer(record.audio)) totalAudioBytes = Math.max(0, totalAudioBytes - record.audio.length);
     record.cancelled = true;
     record.status = 'cancelled';
@@ -669,6 +679,8 @@ function createTrackerVoiceService(options = {}) {
 
   function getNextPlayback() {
     const timestamp = now();
+    for (const id of playbackGuards.keys()) checkPlaybackGuard(id);
+    if ([...records.values()].some(record => record.playback?.status === 'claimed' && record.playback.leaseUntil > timestamp)) return null;
     let pruned = false;
     for (const candidate of records.values()) {
       const playbackStatus = String(candidate.playback?.status || 'available');
@@ -683,9 +695,9 @@ function createTrackerVoiceService(options = {}) {
     }
     if (pruned) persist();
     const record = [...records.values()]
-      .filter((candidate) => candidate.status === 'ready' && Buffer.isBuffer(candidate.audio))
+      .filter((candidate) => candidate.status === 'ready' && (Buffer.isBuffer(candidate.audio) || (candidate.kind === 'cargo' && candidate.cue?.filePath)))
       .filter((candidate) => candidate.playback?.status !== 'deferred')
-      .filter((candidate) => candidate.playback?.status !== 'completed')
+      .filter((candidate) => candidate.playback?.status !== 'completed' && candidate.playback?.status !== 'released')
       .filter((candidate) => candidate.playback?.status !== 'claimed' || Number(candidate.playback?.leaseUntil || 0) <= timestamp)
       .sort((left, right) => left.createdAt - right.createdAt)[0];
     return publicRecord(record);
@@ -752,15 +764,24 @@ function createTrackerVoiceService(options = {}) {
       return Promise.resolve({ status: 'claimed', claimed: true, job: publicRecord(record) });
     }
     const timeoutMs = Math.max(250, Math.min(30000, Number(options.timeoutMs) || 5000));
+    const startedWaitingAt = now();
     return new Promise((resolve) => {
       const waiter = {
         resolve,
-        timer: setTimeout(() => {
+        timer: null
+      };
+      const expire = () => {
+          // Waiting behind another player is not an unclaimed-audio failure.
+          if (now() - startedWaitingAt < 180000 && [...records.values()].some(other => other.effectId !== normalizedEffectId
+              && other.playback?.status === 'claimed' && other.playback.leaseUntil > now())) {
+            waiter.timer = setTimeout(expire, timeoutMs);
+            return;
+          }
           const current = playbackClaimWaiters.get(normalizedEffectId) || [];
           playbackClaimWaiters.set(normalizedEffectId, current.filter((candidate) => candidate !== waiter));
           resolve({ status: 'timeout', claimed: false, job: publicRecord(records.get(normalizedEffectId)) });
-        }, timeoutMs)
       };
+      waiter.timer = setTimeout(expire, timeoutMs);
       const current = playbackClaimWaiters.get(normalizedEffectId) || [];
       current.push(waiter);
       playbackClaimWaiters.set(normalizedEffectId, current);
@@ -769,14 +790,18 @@ function createTrackerVoiceService(options = {}) {
 
   function claimPlayback(value = {}) {
     const effectId = normalizeEffectId(value.effectId);
+    if (!checkPlaybackGuard(effectId)) return { claimed: false, reason: 'mission_end', job: null };
     const clientId = String(value.clientId || '').trim().slice(0, 160);
     if (!clientId) throw voiceError('invalid_client_id', 400, 'Playback-Client-ID fehlt.');
     const record = records.get(effectId);
     if (!record) throw voiceError('voice_job_not_found', 404, 'Voice-Effekt wurde nicht gefunden.');
     if (record.status !== 'ready') return { claimed: false, reason: record.status, job: publicRecord(record) };
     const timestamp = now();
+    if ([...records.values()].some(other => other.effectId !== effectId && other.playback?.status === 'claimed' && other.playback.leaseUntil > timestamp)) {
+      return { claimed: false, reason: 'playback_busy', job: publicRecord(record) };
+    }
     if (record.playback.status === 'deferred') return { claimed: false, reason: 'deferred', job: publicRecord(record) };
-    if (record.playback.status === 'completed') return { claimed: false, reason: 'completed', job: publicRecord(record) };
+    if (record.playback.status === 'completed' || record.playback.status === 'released') return { claimed: false, reason: record.playback.status, job: publicRecord(record) };
     if (record.playback.status === 'claimed' && record.playback.leaseUntil > timestamp && record.playback.ownerClientId !== clientId) {
       return { claimed: false, reason: 'owned', job: publicRecord(record) };
     }
@@ -799,6 +824,7 @@ function createTrackerVoiceService(options = {}) {
     }
     const timestamp = now();
     const completed = value.completed === true;
+    playbackGuards.delete(effectId);
     record.playback = completed
       ? { status: 'completed', ownerClientId: clientId, leaseUntil: 0, completedAt: timestamp }
       : { status: 'released', ownerClientId: '', leaseUntil: 0, completedAt: 0 };

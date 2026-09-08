@@ -220,12 +220,14 @@ test('only real cargo and passenger transitions request incremental payload sync
             payloadTransition: { action: 'load', itemId: 'box' }
         }
     });
-    assert.equal(state.effects.length, beforeCargoEffects + 2);
-    assert.equal(state.effects.at(-2).type, 'scene.cargo_item_transition');
-    assert.equal(state.effects.at(-2).payload.action, 'load');
-    assert.equal(state.effects.at(-2).payload.itemId, 'box');
-    assert.equal(state.effects.at(-1).type, 'payload.sync_manifest_state');
-    assert.equal(state.effects.at(-1).payload.transition.itemId, 'box');
+    assert.equal(state.effects.length, beforeCargoEffects + 3);
+    assert.equal(state.effects.at(-3).type, 'scene.cargo_item_transition');
+    assert.equal(state.effects.at(-3).payload.action, 'load');
+    assert.equal(state.effects.at(-3).payload.itemId, 'box');
+    assert.equal(state.effects.at(-2).type, 'payload.sync_manifest_state');
+    assert.equal(state.effects.at(-2).payload.transition.itemId, 'box');
+
+    assert.equal(state.effects.at(-1).type, 'voice.cargo');
 
     const signedManifest = core.normalizeManifest(state.manifest);
     signedManifest.dispatchSignature = { scope: 'departure', by: 'Tracker', at: 500 };
@@ -618,7 +620,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(cargoSource, /function _missionCargoTrackerIntentAllowed\(intent = ''\)/);
     assert.match(cargoSource, /GAMissionManifestCore/);
     assert.match(cargoSource, /deriveGateState/);
-    assert.match(cargoSource, /if \(!_missionCargoTrackerIntentAllowed\('set_manifest_item'\)\)[\s\S]*?gaTrackerExecutionSubmitIntent/);
+    assert.match(cargoSource, /if \(!_missionCargoTrackerIntentAllowed\(trackerIntent\)\)[\s\S]*?gaTrackerExecutionSubmitIntent/);
     assert.match(cargoSource, /if \(!_missionCargoTrackerIntentAllowed\(trackerIntent\)\)[\s\S]*?gaTrackerExecutionSubmitIntent/);
     assert.match(cargoSource, /window\.missionCargoToggleItemLoadState[\s\S]*?window\.gaTrackerExecutionHandlesMission/);
     assert.match(cargoSource, /mission-cargo-tracker-lock/);

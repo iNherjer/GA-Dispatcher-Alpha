@@ -148,7 +148,12 @@ function createTrackerMissionFarewellVoice(options = {}) {
     try {
       const preparedEffectId = preloadEffectId(run.runId);
       try {
-        voiceService.request(voiceRequest(preparedEffectId, recipe, true));
+        const prepared = voiceService.get?.(preparedEffectId);
+        // The touchdown context is deliberately frozen. Manifest handoff and
+        // later telemetry must not invalidate an already rendered farewell.
+        if (!prepared || !['pending', 'ready'].includes(prepared.status)) {
+          voiceService.request(voiceRequest(preparedEffectId, recipe, true));
+        }
         voiceEffectId = preparedEffectId;
         voiceService.activatePlayback?.(voiceEffectId);
       } catch (preloadError) {
@@ -206,7 +211,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
       sideEffect: true,
       voiceStatus: playback.status,
       voiceOutcome: voiceOutcome(recipe, {
-        status: ['timeout', 'no_audio_claim'].includes(playback.status) ? 'warning' : 'ok',
+        status: ['timeout', 'no_audio_claim', 'released', 'failed', 'cancelled', 'expired'].includes(playback.status) ? 'warning' : 'ok',
         text: job.text,
         speaker: job.speaker,
         provider: job.provider,
@@ -216,7 +221,8 @@ function createTrackerMissionFarewellVoice(options = {}) {
         playback: playback.status,
         error: playback.status === 'timeout'
           ? 'voice_playback_timeout'
-          : (playback.status === 'no_audio_claim' ? 'voice_playback_unclaimed' : null)
+          : (playback.status === 'no_audio_claim' ? 'voice_playback_unclaimed'
+            : (playback.status === 'released' ? 'voice_playback_failed' : null))
       })
     });
   };

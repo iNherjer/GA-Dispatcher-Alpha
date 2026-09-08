@@ -3032,3 +3032,99 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   wird bei einem Relay-Reconnect nicht erneut akquiriert. App- und EFB-Assets
   tragen getrennte Cache-Revisionsmarker; Stable und der Alpha-Legacy-Pfad
   bleiben unveraendert.
+- 2026-09-08: Lokale Korrekturen nach dem v386-APT-Test (noch kein Release):
+  - Tracker-Apps sind Beobachter desselben Runs. Browser-Owner und abweichende
+    lokale/Cloud-Missionskopien erzwingen im Tracker-Modus keine Uebernahme;
+    ein weiteres Geraet restauriert den Trackerstand automatisch. Die bisherigen
+    Konflikt- und Owner-Regeln bei Web-Authority bleiben erhalten.
+  - App und EFB reihen verschiedene Manifest-Intents mit der jeweils aktuellen
+    Revision ein; doppelte Klicks auf dieselbe ausstehende Aktion werden vereint.
+    Payload-Pruefung und Sim-ACK bleiben zentral. HTTP-Intent-ACKs warten wie
+    Relay-ACKs nur auf den Commit; Voice blockiert den Effect-Runner nicht mehr.
+  - Eintritt in Boarding oeffnet den Verlade-Manager auf beiden Interfaces.
+    Signaturanimationen repainten nach ihrem Timer auch ohne neuen Snapshot.
+    Ein explizit leeres Banner des APT-UI-Kerns bleibt im Flug leer.
+  - Auf ausdruecklichen Wunsch bleibt das Verladefenster optisch und in der
+    Bedienung am Standalone-Vorbild. Der EFB rendert dieselbe Panelhierarchie
+    und nutzt deren unveraenderte styles.css-Regeln fuer Groesse, Abstaende
+    und Scrollen. Der zuvor zusaetzliche Flex-/Scroll-Body entfaellt. Normale
+    Hinweise erscheinen ohne Tracker-Warnstil, Bestaetigungen ohne zusaetzliche
+    Erfolgszeile. Vergleich von Standalone-Renderer und EFB mit identischen
+    Daten: Texte und Elementgeometrie gleich; Abschlussbuttons auch bei
+    24 Positionen per Scrollen erreichbar (1024x768, 800x480 und 390x660).
+  - Zentral erzeugtes Audio spielt ueber WebAudio (HTMLAudio als Fallback).
+    Fehlende gespeicherte Lautstaerke bedeutet 100 Prozent, nicht stumm.
+    Fehlgeschlagene Playback-Leases werden nicht endlos erneut beansprucht;
+    ein haengender Decoder gibt nach 8 Sekunden frei. Laufende Clips verwenden
+    ihre echte Dauer. Der beim Touchdown vorbereitete Farewell-Job wird wiederverwendet.
+  - Die PAX-Zeile am Ziel wartet wie in Standalone auf Pflichtfracht und
+    Unterschrift und startet danach denselben confirm_unload-Ablauf mit
+    Farewell und Deboarding wie der Hauptbutton. Ein verfruehtes separates
+    Deboarding ueber diese Zeile entfaellt. Bereits bestaetigte manuelle
+    Sequenzen bleiben beim Abschluss als abgeschlossen markiert. Die
+    Standalone-Funktionen und Manifest-Erfolgskriterien bleiben unveraendert.
+  - Standard-APT mit Passagier: zentraler 4-NM-Anflugtrigger, einmal pro Run,
+    mit 2 Sekunden Vorlauf, privatem App-Kontext und Live-Telemetrie. Der
+    Prompt ist gegen die unveraenderte `_atTargetPrompt`-Funktion verglichen.
+    `voice.approach` ist ein additiver, persistierter Effekt ohne Missionsgate;
+    App/EFB zeigen die neueste Ansage. Die alte Standalone-Triggerkette bleibt.
+  - Pruefung: Tracker-/Core-Suite, zehn App-/Differential-Selftests und lokaler
+    Windows-pkg-Build. Ein aelterer Cargo-UI-Test erwartete faelschlich noch
+    `request_close` als Client-Folgebefehl; das ist seit v386 Tracker-Aufgabe.
+    MSFS-Coherent, tatsaechlicher Audioausgang und paralleles Smartphone muessen
+    mit einem neuen APT-Testlauf auf dem naechsten Alpha-Build bestaetigt werden.
+
+### 08.09.2026 — weitere Standard-A–B-Paritaet
+
+Anflug-Guards an den unveraenderten Standard-APT-Trigger angeglichen
+(keine extra Enroute-/Airborne-/Manifest-Loaded-Bedingung, weiterhin
+Missionsende- und Duplikatschutz). Cargo-Equipment nutzt den originalen
+normalisierten Flugzeugslot im Objektschluessel. EFB-Signaturanimation und
+Freigabe verwenden die zentrale Signaturzeit auch bei Remote-Aktionen;
+der zentrale UI-Core liefert beide Timerzustaende nach denselben Regeln.
+Neue Differentialnachweise und verbleibende Luecken stehen in
+`Tracker Standalone Parity Audit 2026-09-08.md`. Kein Standalone-Missionspfad
+geaendert; volle A–B-Ablaufparitaet bleibt noch offen.
+
+### 08.09.2026 — manuelle PAX und weitere Standard-A–B-Effekte
+
+Tracker fuehrt jetzt manuelles Ein-/Aussteigen mit originalen Sim-Rezepten,
+Tuertimern und 70-s-Rollback aus. App/EFB projizieren denselben laufenden
+Vorgang. Cargo-Objekte nutzen pro Objekt eine 180-ms-Sollzustandsqueue und
+persistierte Revisionen; originale Cargo-/PAX-Sounds laufen als Cue-only Jobs
+ueber die zentrale Audiovergabe. Komfort-, Wrong-Start-, Off-Destination-,
+Landing-Roll- und Pflichtfracht-Ansagen verwenden generierte Kopien der
+unveraenderten Standalone-Funktionen samt originalen Timern und Guards.
+Der Eventadapter behaelt die Anflug-/Flugansage-Payloads jetzt vollstaendig.
+336 Tracker-/Core-Tests und 18 Fenstervergleiche sind gruen; weitere
+Differentialtests pruefen die echten Standalone-Funktionen. Restgrenzen und
+der noch abzugleichende 4,5-NM-Low-Speed-Anflugfallback stehen im Paritaetsaudit.
+Reale MSFS-Animationen und Audioausgabe sind weiterhin im Sim zu bestaetigen.
+
+### 08.09.2026 — Low-Speed-Anflugfallback
+
+Der zentrale Standard-A–B-Lauf uebernimmt auch den Standalone-Fallback bis
+4,5 NM beim ersten langsamen Landekandidaten nach einer Flugphase. Unter
+18 kt und unter 140 ft AGL, aktiver Recorder, gemeinsamer Anflugeffekt mit
+Ende-/Duplikat-Guards und bestehender 2-s-Verzoegerung. Pausen/Menu verbrauchen
+den Kandidaten nicht. 12 Ereignisspuren gegen den echten Standalone-Zweig
+decken Grenzwerte, erneute Kandidaten und einmalige Ansage ab. Standalone
+bleibt unveraendert; keine zusaetzliche Client-Triggerlogik.
+
+
+### 08.09.2026 — weitere Ablaufkorrekturen und Karten-UI-Paritaet
+
+Audiovergabe auch zwischen verschiedenen Jobs geraeteuebergreifend exklusiv;
+Anflug-/Landing-Roll-Jobs werden bei Missionsende waehrend Generierung oder
+vor Playback abgebrochen. Komfort sperrt schon beim Anfordern des Anflugs.
+Boarding bekommt Live-Position direkt aus dem Simulator; Off-Destination
+prueft Boden-Ticks und den Original-Recorder-Lebenszyklus samt Cooldown.
+Keine Veraenderung der Standalone-Ausfuehrungsfunktionen.
+
+EFB-Banner verwendet originale Breite und Texte. Die drei Telemetriefenster
+verwenden originale Abstaende/Hintergruende, Schriftstandard 100 Prozent und
+Ausblenden ueber das Anzeigemenue. Steigrate, GS-Nachkommastelle, MSL-Farben,
+AKTUELL-Ortsreferenz und NEXT-LEG-Frequenz/Gradzeichen angeglichen. Bestehende
+explizite Schriftgroessen bleiben erhalten; Standard stellt CSS-Regeln wieder
+her. 378 Node-Tests und 15 Browservergleiche dieser Kartenkomponenten gruen.
+Vollstaendige MSFS-/Coherent-/Mehrgeraete-Pruefung weiterhin im Simulator.

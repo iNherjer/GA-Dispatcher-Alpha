@@ -1924,8 +1924,11 @@ let missionAuthorityCapabilityWaitPromise = null;
 let missionAuthorityLateBindPending = false;
 let missionExecutionHandoffPromise = null;
 let missionExecutionIntentPromise = null;
+let missionExecutionIntentQueue = null;
 let missionExecutionAbortPromise = null;
 let missionExecutionProjectionSignature = '';
+let missionTrackerObserverPromise = null;
+let missionTrackerObserverRetryAt = 0;
 let missionAuthorityForeignAckLastSig = '';
 let missionAuthorityForeignAckLastLogAt = 0;
 const MISSION_AUTHORITY_LOCAL_COMMAND_TTL_MS = 10 * 60 * 1000;
@@ -2408,6 +2411,15 @@ function _buildMissionAuthorityMapProfile() {
                 ? getCurrentFrequencyInfo(lat, lon, Number.isFinite(alt) ? alt : null)
                 : null;
             context = {
+                waypointLabels: (typeof routeWaypoints !== 'undefined' ? routeWaypoints : []).slice(0, 128).map((wp, index) => ({
+                    lat: Number(wp.lat), lon: Number(wp.lng ?? wp.lon),
+                    name: typeof getWpDisplayName === 'function' ? getWpDisplayName(index) : wp.name || '',
+                    frequency: typeof getWpFrequencyText === 'function' ? getWpFrequencyText(index) : ''
+                })),
+                currentPosition: (() => {
+                    const ref = findNearestCurrentReference(lat, lon);
+                    return ref ? `${currentInfoNm(ref.dist)} NM ${currentInfoCardinalFromBearing(ref.brngFromRef)} ${ref.label}`.replace(/\s+/g, ' ').trim() : 'Position aktiv';
+                })(),
                 position: typeof formatRouteProgressPosition === 'function'
                     ? String(formatRouteProgressPosition(lat, lon) || '').slice(0, 60)
                     : '',
@@ -2727,6 +2739,9 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     if (!control || typeof control !== 'object' || control.executionAuthority !== 'tracker') return false;
     const missionId = _normalizeMissionRuntimeId(control.missionId || activeRun?.missionId || '');
     if (!missionId || missionId !== _activeMissionRuntimeId('')) return false;
+    const previousControl = window.gaTrackerExecutionControl;
+    const openBoardingDialog = control.phase === 'boarding' && (previousControl?.phase !== 'boarding'
+        || previousControl?.runId !== (control.runId || activeRun?.runId));
     const projectionSignature = JSON.stringify({
         missionId,
         runId: control.runId || activeRun?.runId || '',
@@ -2752,9 +2767,15 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     missionExecutionProjectionSignature = projectionSignature;
     const phase = String(control.phase || 'planned').trim().toLowerCase();
     const flags = control.flags && typeof control.flags === 'object' ? control.flags : {};
+    if (typeof missionCargoObjectActionRevision === 'number') {
+        missionCargoObjectActionRevision = Math.max(missionCargoObjectActionRevision, Number(control.cargoObjectRevision) || 0);
+    }
     _applyTrackerPayloadControl(control.payload);
-    try { window.paxVoiceApplyTrackerOutcome?.(control.voice?.boarding || null); } catch (_) {}
-    try { window.paxVoiceApplyTrackerOutcome?.(control.voice?.farewell || null); } catch (_) {}
+    try {
+        const latestVoice = ['boarding', 'approach', 'flight', 'farewell'].map(kind => control.voice?.[kind])
+            .filter(voice => voice?.text).sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))[0];
+        window.paxVoiceApplyTrackerOutcome?.(latestVoice || null);
+    } catch (_) {}
     const trackerCompliance = control.workflows?.complianceInspection;
     if (trackerCompliance && typeof trackerCompliance === 'object') {
         try {
@@ -2796,7 +2817,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         const authoritativeManifest = JSON.parse(JSON.stringify(trackerManifest));
         Object.keys(manifest).forEach(key => { delete manifest[key]; });
         Object.assign(manifest, authoritativeManifest);
-        try { window.missionCargoAdoptTrackerSignatureAnimation?.(manifest.dispatchSignature, { render: false }); } catch (_) {}
+        try { window.missionCargoAdoptTrackerSignatureAnimation?.(manifest.dispatchSignature); } catch (_) {}
         if (window.missionCargoStatus) {
             window.missionCargoStatus.loadConfirmed = flags.loadConfirmed === true;
             if (!control.payload) window.missionCargoStatus.error = null;
@@ -2823,7 +2844,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
             scope: signatureScope,
             note: 'Autoritativ vom Tracker'
         } : null;
-        try { window.missionCargoAdoptTrackerSignatureAnimation?.(manifest.dispatchSignature, { render: false }); } catch (_) {}
+        try { window.missionCargoAdoptTrackerSignatureAnimation?.(manifest.dispatchSignature); } catch (_) {}
         if (window.missionCargoStatus) {
             window.missionCargoStatus.loadConfirmed = flags.loadConfirmed === true;
             if (!control.payload) window.missionCargoStatus.error = null;
@@ -2836,6 +2857,9 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         } catch (_) {}
     }
     window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
+    if (openBoardingDialog) {
+        try { window.openMissionCargoDialog?.('load'); } catch (_) {}
+    }
     _missionPhaseDebugPush('tracker_execution_projection', {
         reason,
         missionId,
@@ -3016,8 +3040,10 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
     }
 }
 
-function _publishMissionControlIntentStatus(result = null, pending = false) {
-    const presentation = typeof window.GAMissionControlUiCore?.formatIntentResult === 'function'
+function _publishMissionControlIntentStatus(result = null, pending = false, preservePresentation = false) {
+    const presentation = preservePresentation && !pending && window.gaMissionControlIntentStatus
+        ? window.gaMissionControlIntentStatus
+        : typeof window.GAMissionControlUiCore?.formatIntentResult === 'function'
         ? window.GAMissionControlUiCore.formatIntentResult(pending ? { pending: true } : result)
         : {
             tone: pending ? 'info' : (result?.ok === true ? 'good' : 'danger'),
@@ -3035,7 +3061,7 @@ function _publishMissionControlIntentStatus(result = null, pending = false) {
     return presentation;
 }
 
-window.gaTrackerExecutionSubmitIntent = async function(intent, payload = {}, options = {}) {
+async function _submitTrackerExecutionIntent(intent, payload = {}, options = {}) {
     if (missionExecutionIntentPromise && options.allowParallel !== true) {
         return {
             ok: false,
@@ -3196,6 +3222,27 @@ window.gaTrackerExecutionSubmitIntent = async function(intent, payload = {}, opt
         missionExecutionIntentPromise = null;
         window.gaMissionControlIntentPending = false;
     }
+};
+
+window.gaTrackerExecutionSubmitIntent = function(intent, payload = {}, options = {}) {
+    if (!window.GAMissionControlUiCore?.createIntentQueue) return _submitTrackerExecutionIntent(intent, payload, options);
+    if (!missionExecutionIntentQueue) {
+        missionExecutionIntentQueue = window.GAMissionControlUiCore.createIntentQueue(() => {
+            window.gaTrackerQueuedItemIds = missionExecutionIntentQueue.pendingItemIds();
+            _publishMissionControlIntentStatus(null, missionExecutionIntentQueue.size() > 0, true);
+        });
+    }
+    const run = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || window.gaTrackerExecutionControl;
+    const runId = run?.runId;
+    const missionId = run?.missionId;
+    const key = [missionId, runId, intent, payload.itemId || '', payload.action || ''].join('|');
+    return missionExecutionIntentQueue.enqueue(key, payload.itemId, () => {
+        const current = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || window.gaTrackerExecutionControl;
+        if (current?.runId !== runId || current?.missionId !== missionId) {
+            return { ok: false, error: 'mission_run_conflict' };
+        }
+        return _submitTrackerExecutionIntent(intent, payload, options);
+    });
 };
 
 function _trackerExecutionAbortedRun(snapshot = null) {
@@ -5795,6 +5842,20 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
     const activeMissionId = _activeMissionRuntimeId('');
     const localAuthority = _readMissionAuthorityState();
     const trackerRunId = String(status.runId || '').trim();
+    if (status.executionAuthority === 'tracker') {
+        if (status.active === false || /^(ended|closed|reset|cleared|completed|aborted)$/.test(String(status.state || ''))) return true;
+        window.missionRuntimeResumeConflict = null;
+        missionRuntimeResumeConflictLastSig = '';
+        if (trackerMissionId === activeMissionId) {
+            const control = _missionExecutionControlSnapshot();
+            if (control?.runId === trackerRunId) _applyTrackerExecutionControl(control, status, reason);
+        } else if (!missionTrackerObserverPromise && Date.now() >= missionTrackerObserverRetryAt) {
+            missionTrackerObserverRetryAt = Date.now() + 10000;
+            missionTrackerObserverPromise = window.resumeTrackerMissionOnThisDevice({ source: 'tracker-auto-observer' })
+                .catch(() => false).finally(() => { missionTrackerObserverPromise = null; });
+        }
+        return true;
+    }
     const runConflict = !!(trackerRunId && localAuthority?.runId && trackerRunId !== localAuthority.runId);
     const ownerConflict = !!(status.ownerClientId && status.ownerClientId !== _missionAuthorityClientId());
     const trackerActive = status.active !== false && !/^(ended|closed|reset|cleared)$/i.test(String(status.state || ''));
@@ -5951,7 +6012,7 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
     }
     window.lastTrackerMissionStatus = { ...active, receivedAt: Date.now() };
     _handleTrackerMissionStatus(window.lastTrackerMissionStatus, reason);
-    if (sameOwner && !local?.runId && !missionAuthorityAdoptPromise && trackerMissionId === _activeMissionRuntimeId('')) {
+    if (active.executionAuthority !== 'tracker' && sameOwner && !local?.runId && !missionAuthorityAdoptPromise && trackerMissionId === _activeMissionRuntimeId('')) {
         missionAuthorityAdoptPromise = _ensureMissionAuthorityForStart('tracker-authority-rebind')
             .catch(() => false)
             .finally(() => { missionAuthorityAdoptPromise = null; });
@@ -6036,7 +6097,12 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
         window.missionRuntimeResumeConflict = null;
         missionRuntimeResumeConflictLastSig = '';
         missionRuntimeResumeConflictLastLogAt = 0;
-        await _refreshTrackerExecutionControl('tracker-execution-observer');
+        const observerControl = _missionExecutionControlSnapshot();
+        if (observerControl?.runId === authoritativeRun.runId) {
+            _applyTrackerExecutionControl(observerControl, authoritativeRun, 'tracker-execution-observer');
+        } else {
+            await _refreshTrackerExecutionControl('tracker-execution-observer');
+        }
         _missionPhaseDebugPush('tracker_execution_observer_restored', {
             missionId: authoritativeRun.missionId,
             runId: authoritativeRun.runId,
@@ -7988,6 +8054,7 @@ function _buildMissionAptExecutionEffectPlan() {
     let boardingVoice = null;
     let farewellVoice = null;
     let farewellContext = null;
+    let approachContext = null;
     try {
         boardingVoice = typeof window.paxVoiceBuildBoardingEffectRecipe === 'function'
             ? window.paxVoiceBuildBoardingEffectRecipe()
@@ -7997,6 +8064,8 @@ function _buildMissionAptExecutionEffectPlan() {
         boardingVoice = null;
     }
     try {
+        approachContext = typeof window.paxVoiceBuildApproachAuthorityContext === 'function'
+            ? window.paxVoiceBuildApproachAuthorityContext() : null;
         farewellContext = typeof window.paxVoiceBuildFarewellAuthorityContext === 'function'
             ? window.paxVoiceBuildFarewellAuthorityContext()
             : null;
@@ -8024,10 +8093,15 @@ function _buildMissionAptExecutionEffectPlan() {
         missionId,
         sceneId: spawn.command.sceneId,
         cargoPlacement,
+        cargoObjectRevision: typeof missionCargoObjectActionRevision === 'number' ? missionCargoObjectActionRevision : 0,
+        cargoItemAssets: window.missionCargoBuildVisibleItemAssets?.() || [],
+        cargoAudio: window.paxVoiceBuildCargoAudioContext?.() || null,
+        manualPassengerCommands: window.missionCargoBuildManualPassengerEffectPlan?.() || [],
         effects: {
             'scene.prepare': { command: stripLivePosition(spawn.command) },
             'scene.boarding': { command: stripLivePosition(boarding) },
             ...(boardingVoice ? { 'voice.boarding': { recipe: _safeCloneJson(boardingVoice, null) } } : {}),
+            ...(approachContext ? { 'voice.approach': { context: _safeCloneJson(approachContext, null) } } : {}),
             ...(farewellVoice || farewellContext ? {
                 'voice.farewell': {
                     ...(farewellVoice ? { recipe: _safeCloneJson(farewellVoice, null) } : {}),
@@ -12662,7 +12736,8 @@ function _trackerMissionBannerModel(control = null) {
         manifest: control.manifest || (typeof _missionCargoGetManifest === 'function' ? _missionCargoGetManifest() : null),
         destination: control.flight?.destination || null
     });
-    if (canonical) return canonical;
+    // null is the canonical decision to hide the banner (e.g. in flight).
+    if (typeof window.GAMissionAptUiCore?.bannerModel === 'function') return canonical;
     const actions = Array.isArray(control.allowedActions) ? control.allowedActions : [];
     const phase = String(control.phase || '').toLowerCase();
     const labels = {
@@ -16118,6 +16193,11 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
             cloudMatchesTracker
         };
         const trackerExecutionObserver = trackerRun.executionAuthority === 'tracker';
+        if (trackerExecutionObserver && _activeMissionRuntimeId('') === trackerRun.missionId
+            && window.gaTrackerExecutionControl?.runId === trackerRun.runId) {
+            _syncRecordCloudMissionPullOutcome('tracker-observer-current', commonOutcome);
+            return true;
+        }
         if ((!trackerExecutionObserver && options.allowTrackerHandoff !== true)
             || typeof window.resumeTrackerMissionOnThisDevice !== 'function') {
             _syncRecordCloudMissionPullOutcome('tracker-authority-retained', commonOutcome);
@@ -16725,6 +16805,10 @@ async function checkCloudAfterIdle() {
         if (!res.ok) throw await _syncFetchError(res);
         const data = await res.json();
         if (data.lastModified && data.lastModified > localSyncTime) {
+            const trackerObserver = _syncActiveTrackerRunForCloudPull()?.executionAuthority === 'tracker';
+            if (trackerObserver) {
+                await _syncApplyActiveMissionFromCloud(data.activeMission || null, { source: 'idle-tracker-observer' });
+            }
             // Lokalen Status abgleichen (Habe ich hier ungespeicherte Änderungen?)
             const activeMission = _syncActiveMissionPayload();
             const payloadToCompare = {
@@ -16741,7 +16825,24 @@ async function checkCloudAfterIdle() {
                 followUpRequests: _syncFollowupPayload()
             };
             const currentPayloadStr = JSON.stringify(payloadToCompare);
-            const hasLocalUnsavedChanges = (currentPayloadStr !== lastSyncedPayloadStr);
+            let hasLocalUnsavedChanges = (currentPayloadStr !== lastSyncedPayloadStr);
+            if (trackerObserver) {
+                // Only mission copies lose authority here. Preserve the usual
+                // conflict handling for independently edited profile/logbook data.
+                let previous = {};
+                try { previous = JSON.parse(lastSyncedPayloadStr || '{}'); } catch (_) {}
+                const profileKeys = Object.keys(payloadToCompare).filter(key => !['activeMission', 'activeMissionTrackerSeed'].includes(key));
+                hasLocalUnsavedChanges = profileKeys.some(key => JSON.stringify(payloadToCompare[key]) !== JSON.stringify(previous[key]));
+                const cloudProfileChanged = profileKeys.some(key => Object.prototype.hasOwnProperty.call(data, key)
+                    && JSON.stringify(data[key]) !== JSON.stringify(previous[key]));
+                if (!hasLocalUnsavedChanges && !cloudProfileChanged) {
+                    localSyncTime = data.lastModified;
+                    localStorage.setItem('ga_sync_time', localSyncTime);
+                    setLastSyncedPayload();
+                    updateSyncStatus('Tracker-Mission verbunden');
+                    return;
+                }
+            }
             let msg = "☁️ NEUE CLOUD DATEN VERFÜGBAR\n\nEin anderes Gerät hat in der Zwischenzeit neue Daten gespeichert.\nMöchtest du deinen aktuellen Bildschirm aktualisieren?";
             if (hasLocalUnsavedChanges) {
                 msg = "⚠️ CLOUD KONFLIKT\n\nEin anderes Gerät hat in der Zwischenzeit neue Daten gespeichert. Du hast hier aber UNGESPEICHERTE lokale Änderungen!\n\nMöchtest du die Cloud-Daten laden? (Deine lokalen Änderungen hier gehen dann verloren!)";

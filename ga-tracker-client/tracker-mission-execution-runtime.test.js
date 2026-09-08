@@ -250,7 +250,7 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
     expectedRevision: run.revision
   });
   assert.equal(confirmed.ok, true);
-  assert.equal(confirmed.effectDispatch.pendingCount, 0);
+  assert.equal(confirmed.effectDispatch.pendingCount, 1, 'the 180-ms cargo object queue is still pending');
   assert.equal(await waitUntil(() => manager.getActiveRun() === null), true);
   const completed = manager.getPublicSnapshot().lastExecution;
   assert.equal(completed.payload.status, 'ok');
@@ -675,4 +675,225 @@ test('disabled runtime remains read-only and cannot attach simulator effects', (
   assert.equal(runtime.executeIntent, null);
   assert.equal(runtime.attachSimulator({}), null);
   assert.equal(runtime.observeTelemetry({}).error, 'mission_execution_runtime_disabled');
+});
+
+
+for (const approachOnGround of [false, true]) {
+test(`stalled voice does not block cargo; APT approach triggers once at 4 NM (onGround=${approachOnGround})`, async t => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [
+    { id: 'pax', itemType: 'passenger', required: true, status: 'pending', passengerCount: 1, deliverAtDestination: true },
+    { id: 'box', itemType: 'cargo', required: true, status: 'pending', deliverAtDestination: true }
+  ];
+  bundle.missionState.routeWaypoints = [{ lat: 48.1, lng: 8.2 }, { lat: 48.3, lng: 8.5 }];
+  bundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, mode: 'passenger' } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  let releaseBoarding;
+  const calls = [];
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,
+    playBoardingVoice: request => {
+      calls.push(request.effect.type);
+      if (request.effect.type === 'voice.boarding') return new Promise(resolve => { releaseBoarding = resolve; });
+      return { ok: true, status: 'completed', voiceOutcome: { schema: 'ga.mission-voice-outcome.v1', kind: 'approach', status: 'ok', text: 'Anflug.', playback: 'completed' } };
+    }
+  });
+  runtime.attachSimulator({
+    getLivePosition: () => ({ lat: 48.1, lon: 8.2, alt: 500, hdg: 90 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed', sideEffect: false }),
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed', sideEffect: false }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed', sideEffect: false })
+  });
+  let seq = 0;
+  const intent = async (name, payload = {}) => {
+    const run = manager.getActiveRun();
+    const result = await runtime.executeIntent({ missionId: run.missionId, runId: run.runId, expectedRevision: run.revision,
+      commandId: `regression-${++seq}`, intent: name, payload });
+    assert.equal(result.ok, true, JSON.stringify(result));
+  };
+  await intent('prepare_mission');
+  await intent('start_boarding');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(typeof releaseBoarding, 'function');
+  await intent('set_manifest_item', { itemId: 'box', action: 'load' });
+  assert.equal(manager.getExecutionSnapshot().state.cargo.items.find(item => item.id === 'box').status, 'loaded');
+  releaseBoarding({ ok: true, status: 'completed' });
+  await new Promise(resolve => setImmediate(resolve));
+  await intent('sign_manifest');
+  await intent('confirm_load');
+  await intent('start_mission');
+  runtime.observeTelemetry({ observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 });
+  runtime.observeTelemetry({ observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 65 });
+  assert.equal(manager.getExecutionSnapshot().state.phase, 'enroute');
+  assert.equal(calls.filter(type => type === 'voice.approach').length, 0);
+  runtime.observeTelemetry({ observedAt: 14000, lat: 48.28, lon: 8.48, onGround: approachOnGround, gsKts: 65, simPaused: true });
+  assert.equal(manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'voice.approach').length, 0);
+  runtime.observeTelemetry({ observedAt: 16000, lat: 48.28, lon: 8.48, onGround: approachOnGround, gsKts: 65 });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.filter(type => type === 'voice.approach').length, 1);
+  runtime.observeTelemetry({ observedAt: 18000, lat: 48.29, lon: 8.49, onGround: false, gsKts: 65 });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.filter(type => type === 'voice.approach').length, 1);
+  assert.equal(manager.getExecutionSnapshot().state.voice.approach.text, 'Anflug.');
+});
+
+}
+
+test('central comfort trigger persists its cooldown and does not repeat after runtime recreation', async t => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [{ id: 'pax', itemType: 'passenger', status: 'pending', required: true, passengerCount: 1 }];
+  bundle.missionState.routeWaypoints = [{ lat: 48.1, lng: 8.2 }, { lat: 48.3, lng: 8.5 }];
+  bundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, mode: 'passenger', passenger: {},
+    baseContext: 'Passenger', departure: { lat: 48.1, lng: 8.2 } } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const calls = [];
+  const options = { authorityManager: manager, enabled: true, playBoardingVoice: request => {
+    calls.push(request.effect.type);
+    return { ok: true, status: 'completed', voiceOutcome: { kind: request.effect.payload.kind || 'boarding', text: 'Komforttest', status: 'ok' } };
+  } };
+  let runtime = createTrackerMissionExecutionRuntime(options);
+  const simulator = { getLivePosition: () => ({ lat: 48.1, lon: 8.2 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }), syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' }) };
+  runtime.attachSimulator(simulator);
+  let seq = 0;
+  for (const intent of ['prepare_mission', 'start_boarding', 'sign_manifest', 'confirm_load', 'start_mission']) {
+    const run = manager.getActiveRun();
+    const result = await runtime.executeIntent({ missionId: run.missionId, runId: run.runId, expectedRevision: run.revision,
+      commandId: `flight-trigger-${++seq}`, intent });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  const tick = observedAt => runtime.observeTelemetry({ observedAt, lat: 48.2, lon: 8.3, onGround: false,
+    gsKts: 70, aglFt: 2000, gForce: 1, bankDeg: 0, vsFpm: 0, windKts: 50 });
+  for (let now = 100000; now <= 101500; now += 250) { tick(now); await new Promise(resolve => setImmediate(resolve)); }
+  assert.equal(calls.filter(type => type === 'voice.flight').length, 1);
+  assert.equal(manager.getExecutionSnapshot().state.voice.flight.kind, 'comfort');
+  const run = manager.getActiveRun();
+  assert.equal(manager.getExecutionRuntimeContext({ missionId: run.missionId, runId: run.runId }).flightVoiceState.count, 1);
+  runtime.detachSimulator();
+  runtime = createTrackerMissionExecutionRuntime(options); runtime.attachSimulator(simulator);
+  for (let now = 102000; now < 106000; now += 250) { tick(now); await new Promise(resolve => setImmediate(resolve)); }
+  assert.equal(calls.filter(type => type === 'voice.flight').length, 1);
+  const snapshot = manager.getExecutionSnapshot();
+  assert.equal(manager.applyExecutionEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
+    expectedRevision: snapshot.authorityRevision, expectedExecutionRevision: snapshot.executionRevision,
+    expectedExecutionStateHash: snapshot.executionStateHash, commandId: 'pending-approach',
+    event: { eventId: 'pending-approach', type: 'APT_APPROACH_VOICE_REQUESTED',
+      sequence: snapshot.executionRevision + 1, occurredAt: 190000, payload: {} }
+  }).ok, true);
+  for (let now = 200000; now < 204000; now += 250) tick(now);
+  assert.equal(manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'voice.flight' && effect.payload.kind === 'comfort').length, 1,
+    'a requested approach already blocks comfort, before any voice ACK');
+});
+
+// Run the real Standalone landing-fallback branch against the same trace.
+const vm = require('node:vm');
+const standaloneSync = fs.readFileSync(path.join(__dirname, '../sync.js'), 'utf8');
+const fallbackStart = standaloneSync.indexOf('    if (!r.armed || !r.hadAirbornePhase) return;');
+const fallbackEnd = standaloneSync.indexOf('        if ((now - r.lowSpeedSince) >= 5000)', fallbackStart);
+assert.ok(fallbackStart >= 0 && fallbackEnd > fallbackStart);
+const standaloneFallback = standaloneSync.slice(fallbackStart, fallbackEnd)
+  + '\n} else { r.lowSpeedSince = 0; }';
+for (const scenario of [
+  { name: 'first slow candidate inside 4.5 NM', steps: [{}], expected: 1 },
+  { name: 'slow candidate before ground contact', steps: [{ onGround: false }], expected: 1 },
+  { name: 'no previous flight', airborne: false, steps: [{}], expected: 0 },
+  { name: '18 kt boundary', steps: [{ gsKts: 18 }], expected: 0 },
+  { name: '140 ft boundary', steps: [{ aglFt: 140 }], expected: 0 },
+  { name: 'outside 4.5 NM', steps: [{ distance: 4.51 }], expected: 0 },
+  { name: 'just inside 4.5 NM', steps: [{ distance: 4.499 }], expected: 1 },
+  { name: 'continuous low speed entering radius does not retrigger', steps: [{ distance: 4.6 }, {}], expected: 0 },
+  { name: 'new low speed candidate after acceleration', steps: [{ distance: 4.6 }, { gsKts: 20 }, {}], expected: 1 },
+  { name: 'paused candidate does not consume trigger', steps: [{ simPaused: true }, {}], expected: 1 },
+  { name: 'menu candidate does not consume trigger', steps: [{ inMenuOrMap: true }, {}], expected: 1 },
+  { name: 'fallback and normal approach remain once-only', steps: [{}, {}, { distance: 3.8 }], expected: 1 }
+]) test(`Standalone landing approach parity: ${scenario.name}`, async t => {
+  const bundle = aptBundle();
+  bundle.missionState.routeWaypoints = [{ lat: 48.38, lng: 8.5 }, { lat: 48.3, lng: 8.5 }];
+  bundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, mode: 'passenger' } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,
+    playBoardingVoice: () => ({ ok: true, status: 'completed' }) });
+  t.after(() => runtime.detachSimulator());
+  runtime.attachSimulator({
+    dispatchCommand: () => ({ ok: true, status: 'completed' }),
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    getLivePosition: () => ({ lat: 48.38, lon: 8.5, alt: 1500, hdg: 180 })
+  });
+  let seq = 0;
+  for (const intent of ['prepare_mission', 'start_boarding', 'confirm_load', 'start_mission']) {
+    const run = manager.getActiveRun();
+    const result = await runtime.executeIntent({ missionId: run.missionId, runId: run.runId,
+      expectedRevision: run.revision, commandId: `fallback-${++seq}`, intent });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  const airborne = scenario.airborne !== false;
+  if (airborne) for (const observedAt of [10000, 14000, 18000]) runtime.observeTelemetry({
+    observedAt, lat: 48.38, lon: 8.5, altFt: 2000, aglFt: 600, onGround: false, gsKts: 65
+  });
+  let expectedCalls = 0;
+  const reference = { r: { armed: airborne, hadAirbornePhase: airborne, lowSpeedSince: 0 },
+    missionRuntime: {}, smoothedVS: 0, lat: 0, lon: 0,
+    _missionBushRequiresReturnHome: () => false,
+    _distanceToMissionTargetNm: () => reference.distance,
+    window: { lastLiveFlightData: {}, triggerPaxAtTarget() { expectedCalls = 1; } } };
+  vm.createContext(reference);
+  for (const [index, step] of scenario.steps.entries()) {
+    const distance = step.distance ?? 4.4;
+    const sample = { observedAt: 20000 + index * 1000, lon: 8.5,
+      lat: 48.3 + distance / (6371 / 1.852 * Math.PI / 180),
+      altFt: 1400, onGround: true, gsKts: 17, aglFt: 139, ...step };
+    reference.now = sample.observedAt;
+    reference.gs = sample.gsKts;
+    reference.agl = sample.aglFt;
+    reference.distance = distance;
+    if (!sample.simPaused && !sample.inMenuOrMap) vm.runInContext(`(function(){${standaloneFallback}})()`, reference);
+    runtime.observeTelemetry(sample);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'voice.approach').length,
+      expectedCalls, `trace step ${index}`);
+  }
+  assert.equal(expectedCalls, scenario.expected);
+});
+
+test('off-destination cooldown can expire after GROUND_STILL, until the original recorder resets', async t => {
+  const bundle = aptBundle();
+  bundle.missionState.routeWaypoints = [{ lat: 48.1, lng: 8.2 }, { lat: 48.3, lng: 8.5 }];
+  bundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, mode: 'passenger',
+    passenger: {}, departure: { lat: 48.1, lon: 8.2 }, baseContext: 'Passagier' } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const run = manager.getActiveRun();
+  manager.recordExecutionRuntimeContext({ missionId: run.missionId, runId: run.runId,
+    context: { flightVoiceState: { offDestLastAt: 104000 } } });
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,
+    playBoardingVoice: () => ({ ok: true, status: 'completed' }) });
+  t.after(() => runtime.detachSimulator());
+  runtime.attachSimulator({ dispatchCommand: () => ({ ok: true, status: 'completed' }),
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    getLivePosition: () => ({ lat: 48.1, lon: 8.2 }) });
+  for (const intent of ['prepare_mission', 'start_boarding', 'confirm_load', 'start_mission']) {
+    const current = manager.getActiveRun();
+    assert.equal((await runtime.executeIntent({ missionId: current.missionId, runId: current.runId,
+      expectedRevision: current.revision, commandId: `offdest-${intent}`, intent })).ok, true);
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  const tick = (observedAt, ground) => runtime.observeTelemetry({ observedAt, lat: 48.1, lon: 8.2,
+    onGround: ground, gsKts: ground ? 0 : 65, aglFt: ground ? 0 : 600, altFt: ground ? 1000 : 1600 });
+  for (const at of [180000,184000,188000]) tick(at, false);
+  tick(190000,true);tick(193000,true);
+  const calls = () => manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'voice.flight' && effect.payload.kind === 'off_destination');
+  assert.equal(calls().length, 0);
+  tick(194500,true);
+  assert.equal(calls().length, 1, 'cooldown expired on a noop telemetry tick');
+  tick(195001,true);tick(300000,true);
+  assert.equal(calls().length, 1, 'stable landing reset does not invent repeated landing warnings');
 });
