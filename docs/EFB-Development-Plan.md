@@ -3444,3 +3444,8 @@ und Checkbox-Groessen, ohne horizontales Abschneiden von Inhalten.
 38 Core-/Authority-/Audio-/EFB-Tests, die Interface-Regressionssuite sowie
 der Chromium-Audio-UI-Test bestanden. Safari-Hoertest bleibt Feldtest.
 Desktop 1.6.7 und Stable bleiben unveraendert; kein Worker-Deployment.
+
+Rollout: Code-Commit `7262735f4`, Tag `v390`; EXE-Upload auf GitHub
+verifiziert, 50553671 Bytes, SHA-256
+`ba7bc55aed739941ba21db5e440ff6c42b091efa54664b81f02bd3680d5903aa`.
+Alpha-Zeiger folgt diesem Asset; finaler App-Cache v1720.
