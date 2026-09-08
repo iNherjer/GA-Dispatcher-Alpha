@@ -454,7 +454,11 @@
             if (intentPending && action && action.intent
                 && (action.intent !== 'set_manifest_item' || !Array.isArray(source.queuedItemIds)
                     || source.queuedItemIds.indexOf(text(item.id, 120)) >= 0)) {
-                action = { intent: action.intent, action: action.action, label: action.label, disabled: true };
+                action = { intent: action.intent, action: action.action,
+                    label: action.intent === 'set_manifest_item' && Array.isArray(source.queuedItemIds)
+                        ? (action.action === 'unload' ? 'Entladen vorgemerkt …' : 'Laden vorgemerkt …')
+                        : action.label,
+                    disabled: true };
             }
             var passengerDeboarding = deboardingBusy && itemIsPassenger(item) && status === 'loaded';
             if (passengerDeboarding) {

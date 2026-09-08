@@ -3561,13 +3561,16 @@ window.addEventListener('gatrackercapabilitieschange', () => {
 });
 
 function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
-    if (_missionExecutionAuthorityIsTracker()) return false;
+    // Handoff sends its own seed. Background snapshots would invalidate
+    // the exact revision/hash between prepare and commit.
+    if (missionExecutionHandoffPromise || _missionExecutionAuthorityIsTracker()) return false;
     if (!_trackerSupportsMissionAuthority() || !window.liveTrackerConnected) return false;
     const local = _readMissionAuthorityState();
     const missionId = _activeMissionRuntimeId('');
     if (!local?.runId || !missionId || local.missionId !== missionId) return false;
     const push = () => {
         missionAuthoritySnapshotPushTimer = null;
+        if (missionExecutionHandoffPromise || _missionExecutionAuthorityIsTracker()) return;
         const currentLocal = _readMissionAuthorityState();
         if (!currentLocal?.runId
             || currentLocal.missionId !== missionId

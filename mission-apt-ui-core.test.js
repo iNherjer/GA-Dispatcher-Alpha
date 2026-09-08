@@ -384,3 +384,20 @@ test('completed local signature animation stays complete despite tracker clock s
   assert.equal(rendered.actions.primary.intent, 'confirm_load');
   assert.equal(rendered.actions.primary.disabled, false);
 });
+
+test('queued loading and unloading immediately show feedback while other items stay usable', () => {
+  const model = core.cargoModel({
+    intentPending: true, queuedItemIds: ['box', 'equipment'],
+    control: control('boarding', ['set_manifest_item'], { groundStill: true }),
+    manifest: { items: [
+      {id:'box',itemType:'cargo',required:true,status:'pending',pickupLocation:'departure'},
+      {id:'other',itemType:'cargo',required:true,status:'pending',pickupLocation:'departure'},
+      {id:'equipment',itemType:'cargo',persistentEquipment:true,status:'loaded',pickupLocation:'departure'}
+    ] }
+  });
+  assert.equal(model.items.find(i=>i.id==='box').action.label,'Laden vorgemerkt …');
+  assert.equal(model.items.find(i=>i.id==='box').action.disabled,true);
+  assert.equal(model.items.find(i=>i.id==='other').action.disabled,false);
+  assert.equal(model.items.find(i=>i.id==='equipment').action.label,'Entladen vorgemerkt …');
+  assert.equal(model.items.find(i=>i.id==='box').status,'pending');
+});

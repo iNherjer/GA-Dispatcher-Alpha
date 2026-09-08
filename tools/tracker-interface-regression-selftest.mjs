@@ -262,3 +262,28 @@ assert.equal(startMode._missionStartUsesTrackerExecution(),false);
 startMode.window.simModeActive=true;
 assert.equal(startMode._missionStartUsesTrackerExecution(),false);
 console.log('PASS tracker start retains execution mode across a capability gap.');
+
+// Background/previously scheduled snapshots cannot invalidate an in-flight handoff.
+let snapshotTimer, snapshotBuilds = 0;
+const snapshotContext = {
+  window:{liveTrackerConnected:true,lastTrackerMissionAuthority:{activeRun:{runId:'r'}}},
+  missionExecutionHandoffPromise:null, missionAuthoritySnapshotPushTimer:null,
+  missionAuthorityLastSnapshotPushAt:0, Date, Math,
+  _missionExecutionAuthorityIsTracker:()=>false,
+  _trackerSupportsMissionAuthority:()=>true,
+  _readMissionAuthorityState:()=>({missionId:'m',runId:'r',clientId:'c'}),
+  _activeMissionRuntimeId:()=> 'm', _missionAuthorityClientId:()=> 'c',
+  _missionAuthorityIncomingRunRelation:()=> 'same',
+  _buildMissionAuthorityResumeBundle:()=>{snapshotBuilds++;return null;},
+  setTimeout:fn=>{snapshotTimer=fn;return 1;},clearTimeout(){}
+};
+vm.createContext(snapshotContext);
+vm.runInContext(between(sync,'function _queueMissionAuthoritySnapshot(', 'window.gaPushMissionAuthorityProfile ='),snapshotContext);
+assert.equal(snapshotContext._queueMissionAuthoritySnapshot(),true);
+snapshotContext.missionExecutionHandoffPromise=Promise.resolve();
+snapshotTimer();assert.equal(snapshotBuilds,0);
+assert.equal(snapshotContext._queueMissionAuthoritySnapshot('immediate',{immediate:true}),false);
+snapshotContext.missionExecutionHandoffPromise=null;
+snapshotContext._queueMissionAuthoritySnapshot('normal',{immediate:true});
+assert.equal(snapshotBuilds,1,'normal standalone snapshots remain enabled outside handoff');
+console.log('PASS handoff suppresses new and previously scheduled background snapshots.');

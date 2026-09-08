@@ -3449,3 +3449,37 @@ Rollout: Code-Commit `7262735f4`, Tag `v390`; EXE-Upload auf GitHub
 verifiziert, 50553671 Bytes, SHA-256
 `ba7bc55aed739941ba21db5e440ff6c42b091efa54664b81f02bd3680d5903aa`.
 Alpha-Zeiger folgt diesem Asset; finaler App-Cache v1720.
+
+### Feldtest v390 / lokale Nacharbeit: unmittelbare Cargo-Rueckmeldung
+
+Feldtest 18:46–18:52 bestaetigt Tracker-Ausfuehrung und hoerbare Voice am
+Smartphone. Altlauf benoetigte Clear, neue Mission startete. Die Signatur
+wurde erst nach dem Boarding-ACK angeboten. Der aktuelle echte Standalone-
+Sim-Pfad wartet ebenfalls auf den geladenen PAX; die gewuenschte fruehere
+Signatur ist deshalb als explizite Entkopplung zu behandeln, nicht als bereits
+nachgewiesene Paritaet. Start-Gates duerfen dabei nicht vorzeitig oeffnen.
+
+Lokaler UI-Fix: ausstehende Item-Intents zeigen unmittelbar Laden/Entladen
+vorgemerkt, sperren nur die betroffenen Items und behalten den bestaetigten
+Manifeststatus. 14 APT-UI-Tests bestanden. Noch nicht ausgerollt. Die physische
+Bearbeitungsdauer und Altlauf-Blockade benoetigen die Tracker-Logs des neuen
+Testfensters; der App-Auszug enthaelt keine vollstaendige Item-ACK-Zeitlinie.
+
+Nachtrag: User bestaetigt, dass die bisherige Signaturwahrnehmung taeuschte;
+Unterschrift und Boarding-Gates bleiben ausdruecklich unveraendert.
+Tracker-Logs zeigen beim Altlauf bereits MISSION_STARTED im Replay und
+spaeter mission_execution_handoff_phase_not_safe. Kein automatisches Reset
+oder erzwungener Mid-Run-Handoff. Beim neuen Lauf scheiterte der erste Prepare
+18:46:49 an einer konkurrierenden Snapshot-Revision; der zweite gelang.
+_queueMissionAuthoritySnapshot unterdrueckt nun neue sowie bereits geplante
+Hintergrund-Sends waehrend des Handoff-Promises. Der explizite Handoff-Seed
+bleibt erhalten. Ausfuehrbarer Regressionstest bestaetigt beide Sperren und
+normale Snapshot-Funktion ausserhalb der Uebergabe. Lokal, noch kein Rollout.
+
+### Release-Kandidat 08.09.2026: Tracker v391
+
+v391 / EFB-Assetrevision 39101 enthaelt die unmittelbare Item-Queue-Anzeige
+und den Schutz der Authority-Uebergabe vor Hintergrund-Snapshots. Signatur,
+Boarding-Gates und physische Sim-Wartezeiten bleiben unveraendert.
+42 Core-/Authority-/EFB-Tests sowie die Interface-Regressionssuite bestanden.
+Desktop bleibt 1.6.7; kein Worker- oder Community-Package-Update erforderlich.
