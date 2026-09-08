@@ -45,7 +45,7 @@
         'on_task', 'return_leg', 'end_unloading', 'end_ready', 'closing', 'closed'
     ]);
     var KNOWN_EVENT_TYPES = Object.freeze([
-        'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
+        'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
         'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL',
@@ -605,6 +605,7 @@
                 ? source.flightEvents
                 : state.manifest.flightEvents
         );
+        if (source.cargoWindowCloseId) state.cargoWindowCloseId = text(source.cargoWindowCloseId, 220);
         state.cargo = normalizeCargo(state.manifest);
         state.payload = payloadCore && typeof payloadCore.normalizeOutcome === 'function'
             ? payloadCore.normalizeOutcome(source.payload)
@@ -622,7 +623,7 @@
         });
         var workflows = object(source.workflows);
         state.workflows = { complianceInspection: normalizeCompliance(workflows.complianceInspection) };
-        state.effects = (Array.isArray(source.effects) ? source.effects : []).slice(-MAX_EFFECTS).map(normalizeEffect);
+        state.effects = retainEffects((Array.isArray(source.effects) ? source.effects : []).map(normalizeEffect));
         state.processedEventIds = (Array.isArray(source.processedEventIds) ? source.processedEventIds : [])
             .map(function (value) { return text(value, 220); })
             .filter(Boolean)
@@ -661,11 +662,16 @@
         };
     }
 
+    function retainEffects(effects) {
+        var keepFrom = Math.max(0, effects.length - MAX_EFFECTS);
+        return effects.filter(function (effect, index) { return index >= keepFrom || effect.status === 'requested'; });
+    }
+
     function appendEffect(state, effect) {
         if (!effect || !effect.effectId) return;
         if (state.effects.some(function (item) { return item.effectId === effect.effectId; })) return;
         state.effects.push(effect);
-        state.effects = state.effects.slice(-MAX_EFFECTS);
+        state.effects = retainEffects(state.effects);
     }
 
     function appendPayloadManifestSyncEffect(state, event, transition) {
@@ -912,6 +918,7 @@
                 : state.cargo);
         var compliance = state.workflows.complianceInspection;
         if (event.type === 'MISSION_ACCEPTED' || event.type === 'AUTHORITATIVE_SNAPSHOT_IMPORTED') return true;
+        if (event.type === 'CARGO_WINDOW_CLOSED') return !state.flags.closed;
         if (state.flags.closed && event.type !== 'MISSION_CLOSED' && event.type !== 'EFFECT_ACKNOWLEDGED') return false;
         if (event.type === 'CARGO_STATE_CHANGED') return true;
         if (event.type === 'PREPARE_REQUESTED') return phase === 'planned';
@@ -1071,7 +1078,9 @@
             imported.processedEventIds = state.processedEventIds.concat(event.eventId).slice(-MAX_EVENTS);
             return normalizeState(imported);
         }
-        if (event.type === 'MISSION_ACCEPTED') {
+        if (event.type === 'CARGO_WINDOW_CLOSED') {
+            state.cargoWindowCloseId = event.eventId;
+        } else if (event.type === 'MISSION_ACCEPTED') {
             state.phase = 'planned';
             state.subphase = 'accepted';
             state.flags.accepted = true;
@@ -1081,6 +1090,7 @@
             state.flags.prepared = true;
             appendEffect(state, createEffect(state, event, 'scene.prepare', { operation: 'prepare' }));
         } else if (event.type === 'BOARDING_STARTED') {
+            delete state.cargoWindowCloseId;
             state.phase = 'boarding';
             state.subphase = 'boarding';
             state.flags.prepared = true;

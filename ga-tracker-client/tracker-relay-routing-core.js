@@ -34,7 +34,7 @@ function buildTrackerRelayUrl(endpoint, syncId) {
 }
 
 function isTrustedMissionIntentEnvelope(envelope, command, expectedPin) {
-  if (String(command?.type || '').trim() !== 'mission_execution_intent') return true;
+  if (!['mission_execution_intent', 'mission_voice_playback'].includes(String(command?.type || '').trim())) return true;
   const expected = String(expectedPin || '');
   if (!expected) return false;
   return String(command?.pin || '') === expected || String(envelope?.pin || '') === expected;

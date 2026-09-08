@@ -95,6 +95,16 @@ efb.renderMissionPayload(boarding);
 assert.equal(opened, 1);
 efb.renderMissionPayload({ ...boarding, control: { ...boarding.control, runId: 'next-run' } });
 assert.equal(opened, 2);
+let closed = 0;
+efb.closeCargoManager = fromTracker => { assert.equal(fromTracker, true); closed++; };
+const closedBoarding = { ...boarding, control: { ...boarding.control, cargoWindowCloseId: 'close-from-app' } };
+efb.renderMissionPayload(closedBoarding);
+efb.renderMissionPayload(closedBoarding);
+assert.equal(closed, 1);
+assert.equal(opened, 2);
+efb.missionSnapshot = null;
+efb.renderMissionPayload(closedBoarding);
+assert.equal(opened, 2, 'new device must not reopen a centrally closed boarding window');
 console.log('PASS EFB boarding dialog opens once per phase/run transition.');
 
 // EFB metadata buttons must retain item ID and field, just like manifest rows.
@@ -150,3 +160,47 @@ assert.doesNotMatch(settledMarkup, /is-animating|Unterschrift wird eingetragen/)
 assert.equal(signatureModel.actions.primary.intent, 'confirm_load');
 assert.equal(signatureModel.signature.clickable, true);
 console.log('PASS remote EFB signature uses remaining time and releases actions without another poll.');
+
+// Tracker observers never reacquire the runtime on heartbeat/capability updates.
+const lateBind = { missionAuthorityLateBindPending: true, _missionExecutionAuthorityIsTracker: () => true };
+vm.createContext(lateBind);
+vm.runInContext(between(sync, 'function _missionAuthorityRuntimeNeedsLateBind()', 'function _trackerSupportsTelemetryWake()'), lateBind);
+assert.equal(lateBind._missionAuthorityRuntimeNeedsLateBind(), false);
+assert.equal(lateBind.missionAuthorityLateBindPending, false);
+
+// A local close is only an intent; the shared projection actually hides the window.
+const cargoOverlay = { style: { display: 'flex' } }, closeIntents = [];
+const closeContext = { document: { getElementById: () => cargoOverlay }, window: {
+  gaTrackerExecutionHandlesMission: () => true,
+  gaTrackerExecutionSubmitIntent: (...args) => closeIntents.push(args)
+} };
+vm.createContext(closeContext);
+vm.runInContext(between(cargo, 'window.closeMissionCargoDialog =', 'function _missionCargoActionDialogMode('), closeContext);
+closeContext.window.closeMissionCargoDialog();
+assert.equal(closeIntents[0][0], 'close_cargo_window');
+assert.equal(cargoOverlay.style.display, 'flex');
+closeContext.window.closeMissionCargoDialog({ trackerProjection: true });
+assert.equal(cargoOverlay.style.display, 'none');
+assert.equal(closeIntents.length, 1);
+closeContext.window.gaTrackerExecutionHandlesMission = () => false;
+cargoOverlay.style.display = 'flex';
+closeContext.window.closeMissionCargoDialog();
+assert.equal(cargoOverlay.style.display, 'none');
+console.log('PASS observer does not reacquire and cargo close waits for shared projection; standalone stays local.');
+
+// Apply a newly received close before either the unchanged-snapshot fast path
+// or the normal manifest projection can replace the previous control.
+const projectionPrefix = between(sync, 'function _applyTrackerExecutionControl(', '    const projectionSignature =');
+let projectedCloses = 0;
+const appProjection = { _normalizeMissionRuntimeId: value => value, _activeMissionRuntimeId: () => 'm',
+  window: { gaTrackerExecutionControl: { missionId: 'm', runId: 'r', phase: 'boarding' },
+    closeMissionCargoDialog: options => { assert.equal(options.trackerProjection, true); projectedCloses++; } } };
+vm.createContext(appProjection);
+vm.runInContext(projectionPrefix + '\nreturn openBoardingDialog;\n}', appProjection);
+const closedControl = { missionId: 'm', runId: 'r', phase: 'boarding', executionAuthority: 'tracker', cargoWindowCloseId: 'new-close' };
+assert.equal(appProjection._applyTrackerExecutionControl(closedControl), false);
+assert.equal(projectedCloses, 1);
+appProjection.window.gaTrackerExecutionControl = closedControl;
+appProjection._applyTrackerExecutionControl(closedControl);
+assert.equal(projectedCloses, 1);
+console.log('PASS App applies the central close on the first new snapshot, exactly once.');

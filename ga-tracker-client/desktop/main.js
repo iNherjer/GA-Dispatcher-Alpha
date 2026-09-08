@@ -10,6 +10,7 @@ const {
   shell,
   Tray
 } = require('electron');
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 const { autoUpdater } = require('electron-updater');
 const { TrackerConfigStore } = require('./lib/config-store');
 const {
@@ -288,9 +289,14 @@ function createWindow({ showOnReady = true } = {}) {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      backgroundThrottling: false
     }
   });
+  mainWindow.webContents.session.setPermissionCheckHandler((contents, permission) =>
+    contents === mainWindow.webContents && permission === 'speaker-selection');
+  mainWindow.webContents.session.setPermissionRequestHandler((contents, permission, callback) =>
+    callback(contents === mainWindow.webContents && permission === 'speaker-selection'));
   mainWindow.setMenuBarVisibility(false);
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, url) => {
@@ -412,6 +418,8 @@ function registerIpc() {
     return startTrackerIfReady();
   });
   ipcMain.handle('tracker:stop', () => trackerProcess.stop());
+  ipcMain.handle('tracker:audio', (_event, kind, payload) => trackerProcess.audioRequest(kind, payload));
+  ipcMain.handle('settings:audio-output', (_event, id) => { configStore.setAudioOutputDeviceId(id); broadcastState(); return { ok: true }; });
   ipcMain.handle('tracker:hard-reset-mission', async () => {
     const result = await trackerProcess.hardResetMission();
     broadcastState();

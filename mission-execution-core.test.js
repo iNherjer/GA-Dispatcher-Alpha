@@ -714,3 +714,15 @@ test('remote Origin handoff uses the tracker relay without requiring a loopback 
     ]);
     assert.equal(window.lastTrackerMissionStatus.executionAuthority, 'tracker');
 });
+
+test('pending boarding effects survive more than 48 later cargo effects', () => {
+    const source = core.normalizeState({ missionId: 'many-items' });
+    source.effects = Array.from({ length: 75 }, (_, i) => ({
+        effectId: `effect-${i}`, type: i === 0 ? 'voice.boarding' : 'voice.cargo',
+        status: i === 0 || i === 1 ? 'requested' : 'completed', payload: {}
+    }));
+    const normalized = core.normalizeState(source);
+    assert.ok(normalized.effects.some(effect => effect.effectId === 'effect-0'));
+    assert.ok(normalized.effects.some(effect => effect.effectId === 'effect-1'));
+    assert.equal(normalized.effects.length, 50);
+});

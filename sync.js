@@ -2113,6 +2113,10 @@ function _waitForMissionAuthorityCapability(timeoutMs = 1400) {
 }
 
 function _missionAuthorityRuntimeNeedsLateBind() {
+    if (_missionExecutionAuthorityIsTracker()) {
+        missionAuthorityLateBindPending = false;
+        return false;
+    }
     const missionId = _activeMissionRuntimeId('');
     if (window.simModeActive || !missionId || _missionIsFreeflightOnly()) return false;
     const authority = window.lastTrackerMissionAuthority;
@@ -2705,6 +2709,33 @@ function _sendMissionAuthorityRequest(command = {}, timeoutMs = 10000) {
     });
 }
 
+window.gaTrackerVoiceRelayAvailable = () => window.liveTrackerConnected === true
+    && _missionExecutionAuthorityIsTracker()
+    && (window.liveTrackerCapabilities || []).includes('voice.relay.v1');
+window.gaTrackerVoiceRelayRequest = async function(payload) {
+    if (!window.gaTrackerVoiceRelayAvailable()) throw new Error('voice_relay_unavailable');
+    const ack = await _sendMissionAuthorityRequest({ ...payload, type: 'mission_voice_playback' }, 12000);
+    if (ack.status !== 'ok') throw new Error(ack.error || 'voice_relay_failed');
+    return ack.payload;
+};
+
+window.gaTrackerAudioRelayClientId = function() {
+    if (window.__gaAudioRelayClientId) return window.__gaAudioRelayClientId;
+    let id = '';
+    try { id = sessionStorage.getItem('ga_cockpit_client_id_v1:web') || ''; } catch (_) {}
+    if (!id) id = 'web-' + (window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    try { sessionStorage.setItem('ga_cockpit_client_id_v1:web', id); } catch (_) {}
+    window.__gaAudioRelayClientId = id;
+    return id;
+};
+
+window.gaTrackerAudioRelayRequest = async function(payload) {
+    if (!window.liveTrackerConnected || !(window.liveTrackerCapabilities || []).includes('voice.relay.v1')) throw new Error('Tracker nicht verbunden.');
+    const ack = await _sendMissionAuthorityRequest({ ...payload, type: 'mission_voice_playback' }, 12000);
+    if (ack.status !== 'ok') throw new Error(ack.error || 'Audio-Anfrage fehlgeschlagen.');
+    return ack.payload;
+};
+
 function _trackerExecutionNormalizeItemId(value = '') {
     return String(value || '').trim().toLowerCase()
         .replace(/[^a-z0-9_.:-]+/g, '-')
@@ -2740,7 +2771,10 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     const missionId = _normalizeMissionRuntimeId(control.missionId || activeRun?.missionId || '');
     if (!missionId || missionId !== _activeMissionRuntimeId('')) return false;
     const previousControl = window.gaTrackerExecutionControl;
-    const openBoardingDialog = control.phase === 'boarding' && (previousControl?.phase !== 'boarding'
+    if (control.cargoWindowCloseId && control.cargoWindowCloseId !== previousControl?.cargoWindowCloseId) {
+        window.closeMissionCargoDialog?.({ trackerProjection: true });
+    }
+    const openBoardingDialog = !control.cargoWindowCloseId && control.phase === 'boarding' && (previousControl?.phase !== 'boarding'
         || previousControl?.runId !== (control.runId || activeRun?.runId));
     const projectionSignature = JSON.stringify({
         missionId,
@@ -3126,7 +3160,7 @@ async function _submitTrackerExecutionIntent(intent, payload = {}, options = {})
                 && retryRun?.executionAuthority === 'tracker';
             const stillAllowed = latestControl?.executionAuthority === 'tracker'
                 && latestControl?.missionId === activeRun.missionId
-                && allowedActions.includes(intent);
+                && (allowedActions.includes(intent) || intent === 'close_cargo_window');
             if (retryable
                 && (authoritativeRunRebind || (sameRun && stillAllowed))
                 && Number(retryRun.revision || 0) > 0) {
@@ -3413,6 +3447,10 @@ async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
             return false;
         }
         const authority = window.lastTrackerMissionAuthority;
+        if (_missionExecutionAuthorityIsTracker() && authority?.activeRun?.missionId === missionId) {
+            missionAuthorityLateBindPending = false;
+            return true;
+        }
         const completedExecution = authority?.lastExecution;
         if (!authority?.activeRun
             && _normalizeMissionRuntimeId(completedExecution?.missionId || '') === missionId
@@ -11194,6 +11232,10 @@ function _handleTrackerAck(ack) {
         } catch (_) {}
         return;
     }
+    if (ackType === 'mission_voice_playback_ack') {
+        _resolveMissionAuthorityAck(ack);
+        return;
+    }
     if (ackType === 'mission_execution_intent_ack') {
         _trackerPendingHandleAck(ack);
         _resolveMissionAuthorityAck(ack);
@@ -17255,6 +17297,7 @@ function _clearTrackerHeartbeat() {
 
 function _markTrackerHeartbeat(pkt) {
     lastTrackerHeartbeatAt = Date.now();
+    if (pkt?.trackerAudio) window.dispatchEvent(new CustomEvent('ga:tracker-audio-state', { detail: pkt.trackerAudio }));
     const reportedTelemetryMode = String(pkt?.telemetryMode || '').trim().toLowerCase();
     if (reportedTelemetryMode === 'active' || reportedTelemetryMode === 'hibernate') {
         window.liveTrackerTelemetryMode = reportedTelemetryMode;
@@ -18551,6 +18594,7 @@ async function _probeLiveGpsRelay(relayKey, syncId, expectedSeq) {
             syncId,
             pin: getSyncPin(),
             relayRole: 'viewer',
+            clientId: window.gaTrackerAudioRelayClientId(),
             ...(relayCapabilities.length ? { relayCapabilities } : {})
         }));
     };
@@ -18666,6 +18710,7 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
             syncId: syncId,
             pin: getSyncPin(),
             relayRole: 'viewer',
+            clientId: window.gaTrackerAudioRelayClientId(),
             ...(relayCapabilities.length ? { relayCapabilities } : {})
         }));
         if (missionInterruptedDeboardingRecovery) {

@@ -897,3 +897,62 @@ test('off-destination cooldown can expire after GROUND_STILL, until the original
   tick(195001,true);tick(300000,true);
   assert.equal(calls().length, 1, 'stable landing reset does not invent repeated landing warnings');
 });
+
+test('long loading sessions checkpoint their journal and still confirm payload and restore', async t => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = Array.from({ length: 35 }, (_, i) => ({
+    id: `box-${i}`, itemType: 'cargo', required: true, status: 'loaded',
+    label: `Equipment ${i} ${'description '.repeat(12)}`, weightLbs: 2, deliverAtDestination: true
+  }));
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  for (let index = 0; index < 190; index++) {
+    const snapshot = manager.getExecutionSnapshot();
+    const result = manager.applyExecutionEvent({
+      missionId: snapshot.missionId, runId: snapshot.runId,
+      expectedRevision: snapshot.authorityRevision, expectedExecutionRevision: snapshot.executionRevision,
+      expectedExecutionStateHash: snapshot.executionStateHash,
+      event: { type: index === 0 ? 'PREPARE_REQUESTED' : index === 2 ? 'BOARDING_STARTED' : (index === 1 || index === 3) ? 'EFFECT_ACKNOWLEDGED' : 'CARGO_STATE_CHANGED', eventId: `many-loads-${index}`, sequence: snapshot.executionRevision + 1,
+        occurredAt: 10000 + index, payload: (index === 1 || index === 3)
+          ? { effectId: snapshot.state.effects.at(-1).effectId, status: 'completed' } : { manifest: snapshot.state.manifest } }
+    });
+    assert.equal(result.ok, true, `event ${index}: ${JSON.stringify(result)}`);
+  }
+  const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager,
+    payloadSyncBeforeStart: () => ({ ok: true, status: 'completed' }) });
+  const run = manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({ intent: 'confirm_load', commandId: 'confirm-after-many-loads',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision })).ok, true);
+  const snapshot = manager.getExecutionSnapshot();
+  assert.equal(snapshot.state.flags.loadConfirmed, true);
+  const replay = executionCore.replay(manager.getActiveRun({ includeBundle: true }).resumeBundle.executionReplay);
+  assert.equal(replay.stateHash, snapshot.executionStateHash);
+  assert.equal(replay.state.cargo.items.length, 35);
+  const saved = manager.getActiveRun({ includeBundle: true }).resumeBundle;
+  const receipt = saved.executionEventReceipts.at(-1);
+  const index = Number(receipt.eventId.split('-').at(-1));
+  const duplicate = manager.applyExecutionEvent({ missionId: run.missionId, runId: run.runId,
+    event: { type: 'CARGO_STATE_CHANGED', eventId: receipt.eventId, sequence: receipt.sequence,
+      occurredAt: 10000 + index, payload: { manifest: snapshot.state.manifest } } });
+  assert.equal(duplicate.duplicate, true, JSON.stringify(duplicate));
+  const changedDuplicate = manager.applyExecutionEvent({ missionId: run.missionId, runId: run.runId,
+    event: { type: 'CARGO_STATE_CHANGED', eventId: receipt.eventId, sequence: receipt.sequence,
+      occurredAt: 10000 + index, payload: { manifest: {} } } });
+  assert.equal(changedDuplicate.error, 'mission_execution_event_id_conflict');
+});
+
+test('cargo close is a shared run event and changes no mission flags or manifest', async t => {
+  const manager = committedManager(t);
+  const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager });
+  const before = manager.getExecutionSnapshot().state;
+  const run = manager.getActiveRun();
+  const result = await runtime.executeIntent({ intent: 'close_cargo_window', commandId: 'close-on-phone',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  assert.equal(result.ok, true);
+  const after = manager.getExecutionSnapshot().state;
+  assert.match(after.cargoWindowCloseId, /close-on-phone/);
+  assert.deepEqual(after.flags, before.flags);
+  assert.deepEqual(after.manifest, before.manifest);
+  assert.equal(manager.getPublicSnapshot().execution.cargoWindowCloseId, after.cargoWindowCloseId);
+});

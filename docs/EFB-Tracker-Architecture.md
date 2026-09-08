@@ -1171,3 +1171,94 @@ APT-Event-Replay und der seiteneffektfreie Tracker-Shadow schaffen die neue
 Grenze, ohne den aktuell produktiven Missionsablauf zu beeinflussen. Der
 naechste Schritt ist ein realer APT-No-Drift-Lauf; erst danach folgt eine
 recipe-weise Tracker-Authority.
+
+### v387-Feldtest: Playback-Relay und begrenztes Journal (lokaler Folgefix)
+
+Entfernte Apps nutzen bei Tracker-Authority und Capability `voice.relay.v1`
+`mission_voice_playback` / `mission_voice_playback_ack` ueber das vorhandene
+PIN-authentifizierte Relay. Erlaubt sind ausschliesslich `next`, `claim`,
+`release`, `audio` und `cue` fuer bereits erzeugte Jobs. Audioantworten enthalten
+maximal 24 KiB binaere Daten als Base64, Offset und Gesamtlaenge; die App setzt
+sie vor dem Dekodieren zusammen. Die gleiche globale Playback-Lease gilt fuer
+HTTP-EFB und Relay-App. Ein retrybarer Playback-Abbruch sperrt nur den
+fehlgeschlagenen Client fuer diesen Job, ohne einem zweiten Geraet den Versuch
+zu nehmen. Normale, nicht retrybare Releases bleiben terminal.
+
+Das autoritative Replay-Journal darf nicht die Laufzeit der Mission begrenzen:
+vor Erreichen der Ereignisgrenze bzw. bei Ueberschreitung der Bundle-Groesse
+wird der letzte vollstaendige Zustand zur neuen Replay-Basis und das neue
+Ereignis darauf angewendet. Revision, ausstehende Effekte, Manifest, Voice,
+Fortschritt und bearbeitete Ereignis-IDs bleiben Teil dieser Basis. Die
+Groessenpruefung bleibt auch fuer den neuen Checkpoint aktiv.
+
+`close_cargo_window` ist ein gemeinsamer UI-Intent ohne fachliche Aenderung an
+Manifest oder Missionsflags. Die Projektion enthaelt die letzte Close-Event-ID;
+Clients wenden neue IDs einmal an. Ein neuer Boardingbeginn setzt sie zurueck.
+
+### Audio-Datenquellen und Konfigurationsgrundlage (08.09.2026, lokal)
+
+Ziel ist ein aktives Audiogeraet pro Pilot: standardmaessig PC, alternativ eine
+persistente App-ID. Die Missionsautoritaet bleibt beim Tracker. Ein eigener
+`ga.audio-control.v1`-Datensatz speichert Target, Revision, Zeitpunkt und
+Audio-Einstellungen, ohne das Cloud-Missionsprofil zu ersetzen. Der Tracker
+haelt eine lokale Kopie pro Pilot und ist der vorgesehene schreibende Koordinator.
+Worker-KV ist dauerhafte Ablage, kein verteilter atomarer Lock fuer mehrere
+parallel laufende Tracker. Revisionskonflikte werden am aktiven Tracker
+abgewiesen. Einstellungen enthalten keine Provider-Schluessel.
+
+GitHub liefert feste Sounddateien; der neue PC-Cache schreibt vollstaendige
+Downloads atomar und erlaubt nur Audio-Pfade des Repositorys. Generierte Voices
+bleiben im bisherigen begrenzten Tracker-Voice-Cache. Remote-App-Cues nutzen
+GitHub direkt. Lokales TTS bleibt ein spaeterer Provider-Ausbaupunkt.
+
+Die Konfigurations-/Cache-Schnittstellen sind implementiert; Menues, PC-Player,
+Ausgangswahl und die Durchsetzung der zentralen Geraeteauswahl muessen noch
+angeschlossen werden. Auch der bisherige Remote-Playback-Poll und Broadcast
+sind noch durch adressierte, ereignisgesteuerte Benachrichtigungen zu ersetzen.
+
+### Missionsaudio-Player und Output-Lease (08.09.2026, lokal)
+
+`tracker-audio-player.js` ist die gemeinsame Playback-Implementierung fuer
+Desktop und Interfaces. Der Desktop kopiert denselben Quelltext beim Build
+in sein UI-Paket; Tests vergleichen die paketierte Datei. Der neue
+`/api/v1/audio/playback`-Endpunkt verwendet dieselben bounded Aktionen wie
+der Relay. PC-Aufrufe erfordern das private Desktop-Token; entfernte
+Relay-Clients koennen sich nicht als PC-Player ausgeben.
+
+Eine persistente Geraete-ID bestimmt das Ausgabeziel. Die separate Tab-ID
+bestimmt Lease-Eigentuemer und adressierten Relay-Empfaenger. Kurzlebige
+Leases plus lokal vorausgeplanter Source-Stop verhindern Ueberlappung bei
+Verbindungsverlust. Eine bestaetigte Uebergabe speichert die Clip-Stufe und
+Position; sie fuehrt keine zweite Missionstransition oder TTS-Anfrage aus.
+
+`audio.output.v1` setzt neben dem bestehenden Alpha-/APT-Gate die ausdrueckliche
+Player-Unterstuetzung des Desktop-Parents voraus. Damit bleiben alte Desktop-
+Versionen und portable Konsolenstarts kompatibel. App/EFB zeigen die neue
+Geraetewahl beim Empfang der Audio-Konfiguration; im Standalone-Lauf behalten
+sie ihre bisherigen lokalen Playback-Regeln.
+
+Dieser Schnitt umfasst Missionsvoice und Mission-Cues. Die allgemeinen
+AWM-/TAWS-/Navigationswarnungen sowie deren Warnstimmenwahl sind weiter
+App-Logik und brauchen einen eigenen Paritaetsblock. Das Projekt darf den
+jetzigen Stand nicht als vollstaendige Zentralisierung aller Audioquellen
+bezeichnen.
+
+API-Grundlagen fuer die Ausgangswahl:
+https://developer.chrome.com/blog/audiocontext-setsinkid
+https://www.electronjs.org/docs/latest/api/session
+
+### Simulator-Teststand (08.09.2026)
+
+Der separate Node-Launcher `ga-tracker-client/teststand/start.js` ersetzt nur
+im Testprozess die SimConnect-Verbindung durch einen API-kompatiblen Handle.
+Alle Tracker-Handler, Definitionen, Telemetrieaufbereitung und Missionsregeln
+laufen weiter aus dem Originalcode. Es handelt sich nicht um einen binaeren
+SimConnect-Netzwerkserver, der eine bereits laufende Release-EXE uebernimmt.
+Der normale Start laedt den Testadapter nicht.
+
+Die Steuerseite bindet an Loopback mit Host-Pruefung und pro Prozess erzeugtem
+Token fuer Schreibzugriffe. Sie steuert den Simulatorzustand, niemals Mission-
+Intents oder deren Erfolg. Testablage und EFB-Port sind getrennt vom normalen
+Tracker. Vollstaendige Simulatorereignisse werden als JSONL geschrieben.
+Details und aktueller Nachweisumfang stehen in `teststand/README.md` unter
+`ga-tracker-client` und im Entwicklungsplan.

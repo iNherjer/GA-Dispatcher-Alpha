@@ -169,7 +169,10 @@ function createTrackerMissionEffectRunner(options = {}) {
     const completed = resultStatus === 'ok' || resultStatus === 'completed';
     if (completed) {
       const followUp = await applyFollowUp(effect, request.result || request.simulatorAck);
-      if (!followUp.ok) return { ...followUp, effect };
+      if (!followUp.ok) {
+        options.log?.(`MISSION_EFFECT_FOLLOW_UP_REJECTED type=${effect.type} effect=${effect.effectId} error=${followUp.error || followUp.status}`);
+        return { ...followUp, effect };
+      }
     } else if (effect.type === 'scene.deboarding' && effect.payload.coordinateFarewell === true) {
       if (!applySystemEvent) return errorResult('mission_effect_follow_up_handler_required');
       const beforeFallback = authorityManager.getExecutionSnapshot();

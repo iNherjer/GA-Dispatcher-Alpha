@@ -3139,3 +3139,164 @@ umgestellt. Origin-App-Cache v1712. Stable-Runtime v356 und EFB-Community-
 Package bleiben unveraendert; EFB-Host-UI kommt aus dem neuen Tracker.
 378 Tests einschliesslich aktualisierter Versionspruefungen sowie die zuvor
 bestandenen UI-/App-Differentialvergleiche bilden den Release-Nachweis.
+
+### Lokale Folgekorrekturen nach dem v387-Feldtest (08.09.2026)
+
+Noch nicht veroeffentlicht. Die drei Feldlogs zeigen erfolgreiche Manifest-
+Intents und Payload-Syncs, aber weiterhin `boarding`, keinen `start_mission`-
+Intent und fehlgeschlagene EFB-Playback-Leases nach jeweils etwa 75 Sekunden.
+Ankunftsszene und Flugfortschritt sind damit in diesem Lauf nicht unabhaengig
+von der Startblockade bewertbar.
+
+- `close_cargo_window` verteilt eine revisionsgebundene, rein praesentative
+  Schliessaktion. Alle Beobachter schliessen erst nach dem Tracker-Snapshot;
+  spaeter beitretende Geraete oeffnen ein bereits geschlossenes Boardingfenster
+  nicht erneut. Standalone schliesst weiterhin lokal.
+- Der EFB setzt Schriftgroessen vor einer Neuberechnung auf die originalen
+  CSS-Werte zurueck und skaliert neuen Cargo-Inhalt synchron vor dem Zeichnen.
+  Der Schriftgroessenhinweis verursacht keine dauernde MutationObserver-Schleife.
+- Tracker-Beobachter nehmen nicht am Legacy-Authority-Late-Bind teil.
+- Das Tracker-Ereignisjournal bildet bei seinem Groessen-/Ereignislimit einen
+  vollstaendigen Zustandscheckpoint. Der Feld-Belastungstest scheitert mit dem
+  bisherigen Manager nach 37 Ereignissen an `resume_bundle_too_large`; mit der
+  Korrektur laufen 190 Ereignisse, Payload-Bestaetigung und Replay durch.
+  Ausstehende Effekte werden nicht mehr durch die 48-Effekte-Historie verdraengt.
+- `voice.relay.v1` bietet entfernten Tracker-Interfaces Next/Claim/Release und
+  begrenzte Audio-/Cue-Chunks ueber die bestehende PIN-gepruefte Relay-Verbindung.
+  Es ist kein HTTP-Proxy und erzeugt keine neuen Voice-Jobs. Der Web-Client
+  dekodiert dieselben zentral erzeugten Bytes mit Web Audio. Ein stockender
+  HTMLAudio-Player gibt seine Lease retrybar frei; derselbe fehlgeschlagene
+  Client bekommt den Job nicht erneut, ein anderes Geraet kann uebernehmen.
+  Legacy-Voice-Erzeugung und Standalone-Missionsregeln bleiben unveraendert.
+
+Validierung: 385 Node-Tests, Interface-/Handoff-/Update-Sync-/Flight-Recorder-
+Differentialpruefungen, 18 Cargo- und 15 Karten-UI-Vergleiche bestanden.
+Cargo-Vergleiche umfassen wiederholte Repaints bei 110 % Schriftgroesse und
+Scroll-Erreichbarkeit. Windows-Test-EXE erfolgreich gebaut; ein erneuter
+MSFS-Test mit hoerbarer Voice, Missionsstart, Flugfortschritt und Ankunftsszene
+bleibt fuer die tatsaechliche End-to-End-Bestaetigung erforderlich.
+
+### 08.09.2026 — Zentrale Audioausgabe: Entscheidung und erster Implementierungsblock
+
+Freigegebenes Ziel: PC/Tracker ist Standardausgabe; alternativ wird genau eine
+persistente App-Geraete-ID gewaehlt. App und EFB bedienen die gemeinsamen
+Stimmen-, Lautstaerke- und Kategorieeinstellungen. Die Geraetewahl liegt in
+einem eigenen authentifizierten Cloud-Datensatz und ist kein Missionsimport.
+Lokales TTS wird vorerst nicht umgesetzt; spaeterer Provider-Anschluss bleibt
+ein eigener Ausbaupunkt.
+
+Kein separat zu installierendes Soundpaket: GitHub bleibt Quelle der statischen
+Clips. Fuer den PC gibt es einen versionsbezogenen, atomaren Dateicache mit
+Download-Deduplizierung, Timeout, Typ-/Groessen- und Pfadpruefung. Bereits
+vorhandene gebuendelte Mission-Cues bleiben fuer die bisherige Wiedergabe nutzbar.
+Entfernte Apps beziehen bekannte statische Mission-Cues jetzt direkt von GitHub
+mit Browser-Cache; nur generiertes Audio muss durch den Tracker-Relay.
+
+Implementiert und lokal integriert: Audio-Konfigurationskern mit PC-Default,
+revisionsgebundenen Updates und lokaler Persistenz pro Pilot; eigener
+PIN-geschuetzter Worker-Endpunkt `/api/audio-settings/<pilot>`; lokale
+`/api/v1/audio/settings`- und `/api/v1/audio/assets/...`-Schnittstellen sowie
+Settings-Aktionen im bestehenden PIN-geprueften Voice-Relay. Tracker-Status
+enthaelt die Audio-Konfiguration. Cloud-Ausfaelle werden mit Backoff erneut
+versucht. Stable/Standalone initialisieren den neuen Audio-Kern nicht.
+
+Noch NICHT fertig oder als Gesamtfunktion aktiviert: Menueanschluss App/EFB
+und Desktop, persistente Browser-Geraete-ID, exklusive Durchsetzung der neuen
+Auswahl im Player, PC-Wiedergabe inklusive Hardware-Ausgangswahl, Uebernahme
+aller Warn-/Ansage-Trigger und ereignisgesteuerte/gezielt adressierte Relay-
+Benachrichtigung. Der Konfigurationskern allein veraendert die bisherigen
+Playback-Leases nicht. Deshalb darf dieser Zwischenstand nicht als fertige
+PC-Audioumstellung veroeffentlicht werden. Kein neuer Rollout erfolgt.
+
+Validierung dieses Zwischenstands: 392 Missions-/Tracker-/EFB-/Worker-Tests
+bestanden, anschliessend zusaetzlicher Test fuer zusammengefasste Cloud-Updates
+bestanden. Der Remote-Playback-Test prueft, dass statische Cues GitHub nutzen
+und keine Cue-Chunks durch den Relay schicken. Windows-Paketierung als reine
+Test-EXE geprueft; keine Aenderung an Release-/Cache-Versionsnummern.
+
+### 08.09.2026 — PC-Player und Geraeteumschaltung fuer Missionsaudio
+
+Der folgende Block schliesst PC-Player, Ausgabe-Menues und exklusive
+Geraeteumschaltung fuer die bereits zentralisierten Missionsansagen und
+Pax-/Cargo-Cues an. Er ist lokal implementiert, noch nicht ausgerollt.
+
+- Die neue Tracker-Desktop-App meldet ihren Player ueber
+  `VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER=1`. Nur Alpha plus APT-Opt-in plus neuer
+  Desktop-Player aktivieren `audio.output.v1`. Aeltere Desktop-Versionen und
+  die direkt gestartete Konsolen-Runtime behalten den bisherigen Playback-
+  Pfad. Ein Runtime-Update allein schaltet deshalb keine stumme PC-Ausgabe ein.
+- Ein gemeinsamer Web-Audio-Player laeuft im Desktop sowie in App/EFB.
+  Er nutzt die vorhandenen zentralen Jobs und erzeugt beim Geraetewechsel
+  keine neue Synthese. PC-Playback ist an das private Desktop-Token gebunden.
+- Fuenf Sekunden lange Playback-Leases werden waehrend der Wiedergabe
+  erneuert. Der Player stoppt lokal vor dem Lease-Ablauf; zusaetzlich wird
+  der Web-Audio-Source-Stop vorausgeplant, damit ein gedrosselter Browser-
+  Timer keine gleichzeitige Wiedergabe auf zwei Geraeten erlaubt.
+  Beim Wechsel meldet das alte Geraet Cue/Voice-Stufe und Sekundenposition
+  zurueck. Erst danach oder nach Lease-Ablauf darf das neue Geraet fortsetzen.
+- App/EFB besitzen eine persistente Geraete-ID; einzelne Tabs behalten
+  getrennte Session-/Lease-IDs. Die Relay-Join-ID wird bereits vor dem
+  Laden des Cockpit-Clients festgelegt. Audio-ACKs und generierte Bytes
+  gehen im Cloudflare-Relay nur an den anfragenden Client.
+- Tracker-Statusnachrichten informieren ueber neue Jobs und Einstellungen.
+  Entfernte Interfaces fragen im Leerlauf nicht fortlaufend nach Audio.
+  Kurze Renew-Nachrichten entstehen nur waehrend einer Wiedergabe.
+  Der Text einer auf dem PC laufenden Ansage bleibt auch in den Interfaces
+  sichtbar. Statische Remote-Cues verwenden weiterhin GitHub/Browser-Cache;
+  der PC nutzt fuer vorhandene Mission-Cues die bereits gebuendelten Dateien.
+- Menues bieten PC/Diese App und zeigen ein anderes gewaehltes Geraet an.
+  Master, Lautstaerke, Pax-Stimme und Effekte verwenden im Tracker-Lauf den
+  gemeinsamen Zustand. Ein im alten App-Rezept gespeichertes Audio-aus darf
+  die neue PC-Ausgabe nicht mehr unterdruecken. Die Original-Rezepte und der
+  Standalone-Ausfuehrungspfad werden dabei nicht veraendert.
+- Der Desktop speichert den physischen Audioausgang lokal, getrennt von
+  Pilot/PIN und Cloud-Ausgabewahl. Das Fenster spielt auch minimiert weiter.
+  Ausgangswahl verwendet `AudioContext.setSinkId()` fuer verfuegbare und
+  erlaubte Ausgaenge; fehlt ein gespeichertes Geraet, gilt Windows-Standard.
+  Es wird kein Mikrofonstream angefordert. Verfuegbarkeit und vollstaendige
+  Geraeteliste muessen zusaetzlich auf dem Ziel-Windows-System geprueft werden.
+
+Abgrenzung: Allgemeine AWM-/TAWS-, Luftraum- und Wegpunkt-Warnungen inklusive
+Warnstimmenwahl sind mit diesem Block noch nicht in den Tracker migriert.
+Ihre bisherigen App-Trigger und die zugehoerigen Einstellungen bleiben
+bestehen. Dieser Stand ist deshalb keine abgeschlossene Migration ALLER
+Audioquellen. Lokales TTS bleibt weiterhin nur als spaeterer Ausbau vorgemerkt.
+
+Validierung: automatisierte PC/App-Wechsel- und Verbindungsabbruchtests,
+Mehrgeraete-Menuevergleich mit Original-App-Markup, Persistenz nach Reload,
+Lautstaerke-/Pax-Synchronisation und gezielte Relay-Zustellung. Screenshot-
+Testserver liefert HTML ausdruecklich als UTF-8; Tests pruefen CharacterSet
+und die urspruenglichen Terrain-/Pilot-Symbole. Windows-Runtime-Testbuild und
+Desktop-Windows-Verzeichnisbuild sowie Inhalt des ASAR-Pakets geprueft.
+Hoerbare Wiedergabe und Ausgangswahl unter realem Windows/MSFS bleiben der
+anschliessende Feldtest; keine Release-/Kanaldatei wurde umgestellt.
+
+### 08.09.2026 — Simulator-Teststand ohne MSFS
+
+`ga-tracker-client/teststand/start.js` ist ein separater Entwicklungsstart:
+Er startet den aktuellen Tracker mit einem Ersatz fuer `node-simconnect.open()`.
+Die normale EXE und Standalone werden dadurch nicht veraendert. Der Adapter
+liefert binaere SimConnect-Daten fuer Flug und Standard-Payloadstationen,
+uebernimmt Payload-Schreibbefehle und bildet Objekt-IDs, Spawn/Remove-Events,
+Initialpositionen sowie bewegte Waypoint-Listen ab. Die Missions-ACKs kommen
+weiterhin aus den echten Tracker-Handlern, nicht aus einer zweiten Mission-
+State-Machine im Teststand.
+
+Die lokale Bedienseite bietet A/B-Koordinaten, Platzhoehen, Flugabschnitte,
+Pause und gezielt ausbleibende Simulatorantworten. App/EFB bleiben die
+Interfaces fuer Boarding, Manifest, Signaturen und Abschluss. Testdaten werden
+isoliert gespeichert; bestehende Konfigurationen werden nicht migriert.
+Der manuelle Start verwendet normale Cloud-Anmeldung mit separater Test-ID.
+`--demo` zeigt nur den Simulator, ohne Tracker-Missionslauf oder Cloud.
+
+Validiert: fuenf Simulator-/HTTP-Tests, echte Tracker-Telemetrie und Payload-
+Dekodierung, Spawn-/Clear-ACKs aus den realen Szenenhandlern sowie ein Offline-
+A–B-Cargolauf bis `lastExecution.phase=closed`, `payload.status=ok` und
+freigegebener Authority. Dabei wurden Laden, Departure-Signatur, Load-Confirm,
+Missionsstart, Airborne, Touchdown, Stillstand, Entladen, Arrival-Signatur und
+Unload-Confirm geprueft. Das synthetische Fixture enthaelt ein Boarding-Objekt,
+aber keinen vollstaendigen Pax-/Deboarding-/Voice-Feldauftrag. Es belegt keinen
+hoerbaren Audiolauf. Desktop-/Mobil-Browsertest inklusive UTF-8 bestanden.
+
+Bedienung, Grenzen und Befehle: `ga-tracker-client/teststand/README.md`.
+Keine Veroeffentlichung oder Versionsaenderung mit diesem Testwerkzeug.

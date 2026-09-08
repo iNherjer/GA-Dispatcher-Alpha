@@ -22,3 +22,16 @@ test('cargo sound queue batches waiting items once, with the standalone gain and
   assert.match(requests[1].cue.variantSeed, /load_batch_2_b-c/);
   releases.shift()({ status: 'completed' }); await Promise.all([second, third]);
 });
+
+test('PC cargo effects use shared settings even if the source App had effects muted', async () => {
+  const requests = [];
+  const play = createTrackerMissionCargoAudio({
+    authorityManager: { getActiveRun: () => ({ missionId: 'm', runId: 'r', resumeBundle: { executionEffectPlan: { cargoAudio: {
+      enabled: false, sources: [], catalog: { cargo_load: { gain: 0.62 } }
+    } } } }) }, getAudioSettings: () => ({ enabled: true, effectsEnabled: true }),
+    voiceService: { request: value => requests.push(value), wait: async () => ({ cue: { audioAvailable: true } }), waitForPlayback: async () => ({ status: 'completed' }) }
+  });
+  await play({ missionId: 'm', runId: 'r', commandId: 'cue-pc', effect: { payload: { action: 'load', item: { id: 'box', itemType: 'cargo' } } } });
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].cue.gain, 0.62);
+});

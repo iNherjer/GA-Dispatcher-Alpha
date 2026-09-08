@@ -294,6 +294,7 @@ async function synthesizeGemini({ apiKey, request, fetchRemote }) {
 }
 
 function createTrackerVoiceService(options = {}) {
+  const audioControl = options.audioControl || null;
   const provider = normalizeVoiceProvider(options.provider);
   const apiKey = String(options.apiKey || '').trim();
   const fetchRemote = typeof options.fetchRemote === 'function' ? options.fetchRemote : globalThis.fetch;
@@ -311,6 +312,7 @@ function createTrackerVoiceService(options = {}) {
     : path.resolve(String(options.audioCueDirectory || path.join(__dirname, '..', 'audio-cues')));
   const io = options.io && typeof options.io === 'object' ? options.io : fs;
   const records = new Map();
+  const playbackClients = new Map();
   const playbackGuards = new Map();
   function checkPlaybackGuard(effectId) {
     if (!records.has(effectId)) { playbackGuards.delete(effectId); return true; }
@@ -368,6 +370,7 @@ function createTrackerVoiceService(options = {}) {
       speaker: { ...record.speaker },
       cue: {
         id: record.cue?.id || 'none',
+        assetName: record.cue?.assetName || '',
         audioAvailable: Boolean(record.cue?.filePath),
         gain: Number(record.cue?.gain) || 0
       },
@@ -380,6 +383,7 @@ function createTrackerVoiceService(options = {}) {
       playback: {
         status: playback.status || 'available',
         ownerClientId: playback.ownerClientId || '',
+        position: playback.position ? { ...playback.position } : { stage: 'cue', offset: 0 },
         leaseUntil: Number(playback.leaseUntil) || null,
         completedAt: Number(playback.completedAt) || null
       }
@@ -479,7 +483,7 @@ function createTrackerVoiceService(options = {}) {
             ? { status: 'completed', ownerClientId: String(playback.ownerClientId || '').slice(0, 160), leaseUntil: 0, completedAt: Number(playback.completedAt) || timestamp }
             : (playback.status === 'deferred'
               ? { status: 'deferred', ownerClientId: '', leaseUntil: 0, completedAt: 0 }
-              : { status: 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 }),
+              : { status: playback.status === 'released' ? 'released' : 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0, position: normalizePlaybackPosition(playback.position) }),
           promise: null
         };
         records.set(effectId, record);
@@ -677,8 +681,13 @@ function createTrackerVoiceService(options = {}) {
     }
   }
 
-  function getNextPlayback() {
+  function getNextPlayback(clientId = '', deviceId = '') {
+    if (audioControl && audioControl.snapshot().target.deviceId !== deviceId) return null;
+    reconcileAudioSettings();
     const timestamp = now();
+    for (const [id, seenAt] of playbackClients) if (timestamp - seenAt > 6000) playbackClients.delete(id);
+    if (clientId) playbackClients.set(String(clientId).slice(0, 160), timestamp);
+    if (playbackClients.size > 32) playbackClients.delete(playbackClients.keys().next().value);
     for (const id of playbackGuards.keys()) checkPlaybackGuard(id);
     if ([...records.values()].some(record => record.playback?.status === 'claimed' && record.playback.leaseUntil > timestamp)) return null;
     let pruned = false;
@@ -695,7 +704,8 @@ function createTrackerVoiceService(options = {}) {
     }
     if (pruned) persist();
     const record = [...records.values()]
-      .filter((candidate) => candidate.status === 'ready' && (Buffer.isBuffer(candidate.audio) || (candidate.kind === 'cargo' && candidate.cue?.filePath)))
+      .filter((candidate) => candidate.status === 'ready' && (Buffer.isBuffer(candidate.audio) || ((audioControl || candidate.kind === 'cargo') && candidate.cue?.filePath)))
+      .filter((candidate) => !clientId || !(candidate.failedPlaybackClients || []).includes(clientId))
       .filter((candidate) => candidate.playback?.status !== 'deferred')
       .filter((candidate) => candidate.playback?.status !== 'completed' && candidate.playback?.status !== 'released')
       .filter((candidate) => candidate.playback?.status !== 'claimed' || Number(candidate.playback?.leaseUntil || 0) <= timestamp)
@@ -795,6 +805,8 @@ function createTrackerVoiceService(options = {}) {
     if (!clientId) throw voiceError('invalid_client_id', 400, 'Playback-Client-ID fehlt.');
     const record = records.get(effectId);
     if (!record) throw voiceError('voice_job_not_found', 404, 'Voice-Effekt wurde nicht gefunden.');
+    if (audioControl && !audioControl.canPlay(String(value.deviceId || ''), record.kind)) return { claimed: false, reason: 'audio_device_not_selected', job: null };
+    if ((record.failedPlaybackClients || []).includes(clientId)) return { claimed: false, reason: 'client_playback_failed', job: publicRecord(record) };
     if (record.status !== 'ready') return { claimed: false, reason: record.status, job: publicRecord(record) };
     const timestamp = now();
     if ([...records.values()].some(other => other.effectId !== effectId && other.playback?.status === 'claimed' && other.playback.leaseUntil > timestamp)) {
@@ -807,7 +819,8 @@ function createTrackerVoiceService(options = {}) {
     }
     const requestedLease = Number(value.leaseMs) || DEFAULT_PLAYBACK_LEASE_MS;
     const leaseMs = Math.max(5000, Math.min(120000, requestedLease));
-    record.playback = { status: 'claimed', ownerClientId: clientId, leaseUntil: timestamp + leaseMs, completedAt: 0 };
+    record.playback = { status: 'claimed', ownerClientId: clientId, deviceId: String(value.deviceId || ''),
+      position: record.playback.position || { stage: 'cue', offset: 0 }, leaseUntil: timestamp + leaseMs, completedAt: 0 };
     record.updatedAt = timestamp;
     const result = { claimed: true, reason: '', job: publicRecord(record) };
     settlePlaybackClaimWaiters(effectId, { status: 'claimed', claimed: true, job: result.job });
@@ -824,28 +837,65 @@ function createTrackerVoiceService(options = {}) {
     }
     const timestamp = now();
     const completed = value.completed === true;
-    playbackGuards.delete(effectId);
+    const retryable = !completed && value.retryable === true;
+    if (retryable && value.deviceSwitch !== true) record.failedPlaybackClients = [...new Set([...(record.failedPlaybackClients || []), clientId])].slice(-32);
+    if (!retryable) playbackGuards.delete(effectId);
+    const position = normalizePlaybackPosition(value.position || record.playback.position);
     record.playback = completed
       ? { status: 'completed', ownerClientId: clientId, leaseUntil: 0, completedAt: timestamp }
-      : { status: 'released', ownerClientId: '', leaseUntil: 0, completedAt: 0 };
+      : { status: retryable ? 'available' : 'released', ownerClientId: '', leaseUntil: 0, completedAt: 0, position };
     record.updatedAt = timestamp;
     const result = { released: true, completed, job: publicRecord(record) };
     persist();
-    settlePlaybackWaiters(effectId, { status: completed ? 'completed' : 'released', completed, job: result.job });
+    if (!retryable) settlePlaybackWaiters(effectId, { status: completed ? 'completed' : 'released', completed, job: result.job });
     if (completed) settlePlaybackClaimWaiters(effectId, { status: 'completed', claimed: true, job: result.job });
     return result;
   }
 
+  function normalizePlaybackPosition(value = {}) {
+    return { stage: value.stage === 'audio' ? 'audio' : 'cue', offset: Math.max(0, Math.min(180, Number(value.offset) || 0)) };
+  }
+
+  function renewPlayback(value = {}) {
+    const record = records.get(String(value.effectId || ''));
+    if (!record || !checkPlaybackGuard(record.effectId) || record.playback?.status !== 'claimed'
+        || record.playback.ownerClientId !== value.clientId || record.playback.leaseUntil <= now()) return { continued: false, reason: 'lease_lost' };
+    if (audioControl && !audioControl.canPlay(String(value.deviceId || ''), record.kind)) return { continued: false, reason: 'device_changed' };
+    record.playback.position = normalizePlaybackPosition(value.position);
+    record.playback.leaseUntil = now() + 5000;
+    return { continued: true, leaseUntil: record.playback.leaseUntil };
+  }
+
+  function reconcileAudioSettings() {
+    if (!audioControl) return;
+    const target = audioControl.snapshot().target.deviceId;
+    for (const record of records.values()) {
+      if (record.status !== 'ready' || !['available'].includes(record.playback?.status)
+          || audioControl.canPlay(target, record.kind)) continue;
+      record.playback.status = 'released';
+      settlePlaybackWaiters(record.effectId, { status: 'released', completed: false, job: publicRecord(record) });
+      settlePlaybackClaimWaiters(record.effectId, { status: 'released', claimed: false, job: publicRecord(record) });
+    }
+  }
+
   function publicState() {
+    reconcileAudioSettings();
     const jobs = [...records.values()];
+    const playing = jobs.find(record => record.playback?.status === 'claimed' && record.playback.leaseUntil > now());
     return {
+      nowPlaying: playing ? { effectId: playing.effectId, kind: playing.kind, text: playing.text, speaker: { ...playing.speaker }, provider: playing.provider, model: playing.model, voiceName: playing.voiceName } : null,
       configured,
+      playbackAvailable: jobs.some(record => record.status === 'ready' && ['available', 'claimed'].includes(record.playback?.status)),
+      notification: crypto.createHash('sha256').update(jobs.map(record => record.effectId + ':' + record.status + ':' + (record.playback?.status === 'claimed' && record.playback.leaseUntil <= now() ? 'expired' : record.playback?.status)).join('|')).digest('hex').slice(0, 20),
       provider,
       pending: jobs.filter((record) => record.status === 'pending').length,
       activeProviderJobs,
       queuedProviderJobs: providerQueue.length,
       ready: jobs.filter((record) => record.status === 'ready').length,
       failed: jobs.filter((record) => record.status === 'failed').length,
+      audioPlaybackCandidates: Math.max(
+        [...playbackClients.values()].filter(seenAt => now() - seenAt <= 6000).length,
+        jobs.filter(record => record.playback?.status === 'claimed' && record.playback.leaseUntil > now()).length),
       cachedAudioBytes: totalAudioBytes
     };
   }
@@ -860,6 +910,7 @@ function createTrackerVoiceService(options = {}) {
     getNextPlayback,
     publicState,
     releasePlayback,
+    renewPlayback,
     request,
     wait,
     waitForPlayback,

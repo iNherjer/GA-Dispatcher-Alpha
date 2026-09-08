@@ -29,7 +29,8 @@ const fixtures=cases.map(c=>{
  try {
  const source=fs.readFileSync('ga-tracker-client/tracker-efb-kartentisch-host.js','utf8');
  const part=(a,b)=>source.slice(source.indexOf(a),source.indexOf(b,source.indexOf(a)));
- const functions=part('  function cargoActionAttributes(', '  function cargoPayloadStatusMarkup(')+part('  function ensureCargoManager()', '  function openCargoManager()');
+ const functions=part('  function cargoActionAttributes(', '  function cargoPayloadStatusMarkup(')+part('  function ensureCargoManager()', '  function openCargoManager()')
+  +part('  function fontScaleElements()', '  function setEfbFontScale(value)');
  const styles=fs.readFileSync('styles.css','utf8'),hostStyles=fs.readFileSync('ga-tracker-client/tracker-efb-kartentisch-host.css','utf8');
 
  for(const size of [{width:1024,height:768},{width:800,height:480},{width:390,height:660}]) for(const f of fixtures){
@@ -43,7 +44,11 @@ const fixtures=cases.map(c=>{
     await page.evaluate(({functions,model})=>{
      window.model=model;
      (0,eval)(`var missionIntentPending=false, missionIntentQueue=null, missionIntentStatus='', missionIntentTone='', cargoSignatureAnimationEndsAt=0, cargoSignatureAnimationTimer=0, cargoSignatureAnimationScope='', cargoManagerOpen=true,cargoManagerSignature='';
-      var missionSnapshot={ui:{cargo:window.model}};
+      var missionSnapshot={ui:{cargo:window.model}},preferences={fontScale:1};
+      function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+      function nodeInsideSvg(n){return !!n.closest('svg')}
+      function isFiniteNumber(n){return typeof n==='number'&&isFinite(n)}
+      function normalizeCoherentGlyphs(){}
       function byId(id){return document.getElementById(id)}
       function drawerEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
       function cargoDateLabel(value){return new Date(Number(value)).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
@@ -65,6 +70,15 @@ const fixtures=cases.map(c=>{
   assert.equal(b.text,a.text,`${f.name} text`);
   assert.deepEqual(b.boxes,a.boxes,`${f.name} ${size.width} geometry`);
   if(f.name==='long-list')for(const page of pages){await page.locator('.mission-cargo-panel').hover();await page.mouse.wheel(0,10000);await page.waitForTimeout(120);const r=await page.locator('.mission-cargo-actions').boundingBox();assert(r.y>=0&&r.y+r.height<=size.height);}
+  await pages[1].evaluate(() => { preferences.fontScale=1.1; applyEfbFontScale(); });
+  const scaled = await measure(pages[1]);
+  for (let revision=0; revision<3; revision++) {
+    await pages[1].evaluate(() => { cargoManagerSignature=''; renderCargoManager(); });
+    assert.deepEqual((await measure(pages[1])).boxes, scaled.boxes, '110% font geometry must be stable immediately after a payload repaint');
+    await pages[1].evaluate(() => applyEfbFontScale());
+    assert.deepEqual((await measure(pages[1])).boxes, scaled.boxes, 'observer pass must not change font geometry');
+  }
+  await pages[1].evaluate(() => { preferences.fontScale=1; applyEfbFontScale(); });
   for(let i=0;i<pages.length;i++){await pages[i].screenshot({path:`/tmp/ga-cargo-${f.name}-${size.width}-${i?'efb':'standalone'}.png`});await pages[i].close();}
   console.log('PASS identical text, panel geometry and reachable actions',f.name,size.width);
  }

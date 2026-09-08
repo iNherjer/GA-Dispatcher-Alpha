@@ -206,3 +206,16 @@ test('fresh boarding uses current simulator position before mission telemetry is
   assert.equal(recipe.cue, null);
   assert.match(recipe.prompt, /EDTW/);
 });
+
+test('tracker audio settings override a muted App recipe without changing the standalone recipe', async () => {
+  const source = run({ audioEnabled: false }), requests = [];
+  const original = JSON.stringify(source);
+  const handler = createTrackerMissionBoardingVoice({ authorityManager: { getActiveRun: () => source },
+    getAudioSettings: () => ({ enabled: true, paxEnabled: true, effectsEnabled: false }), getAudioPlaybackCandidates: () => 0,
+    voiceService: { publicState: () => ({ configured: true }), request: value => requests.push(value),
+      wait: async () => ({ status: 'ready', audioAvailable: true, text: 'Hallo.' }) } });
+  await handler.dispatch(request());
+  assert.equal(requests[0].synthesizeAudio, true);
+  assert.equal(requests[0].cue, null);
+  assert.equal(JSON.stringify(source), original);
+});

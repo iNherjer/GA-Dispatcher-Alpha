@@ -36,6 +36,7 @@ function messageKind(data) {
 }
 
 function recipientAccepts(data, attachment) {
+    if (data?.audioRecipientClientId && data.audioRecipientClientId !== attachment?.clientId) return false;
     const role = String(attachment?.role || 'unknown');
     const kind = messageKind(data);
     if (kind === 'tracker-command') return role === 'tracker' || role === 'unknown';
@@ -112,6 +113,7 @@ export class RelayRoom {
             socket.serializeAttachment({
                 ...attachment,
                 joined: true,
+                clientId: String(data.clientId || '').slice(0, 160),
                 role: data.relayRole === 'tracker' ? 'tracker' : (data.relayRole === 'viewer' ? 'viewer' : 'unknown'),
                 pinHash: incomingPinHash
             });

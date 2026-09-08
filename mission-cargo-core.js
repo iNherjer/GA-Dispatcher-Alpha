@@ -5280,7 +5280,10 @@ window.openMissionGroundCargoDialog = function() {
     return true;
 };
 
-window.closeMissionCargoDialog = function() {
+window.closeMissionCargoDialog = function(options = {}) {
+    if (options.trackerProjection !== true && window.gaTrackerExecutionHandlesMission?.()) {
+        return window.gaTrackerExecutionSubmitIntent?.('close_cargo_window', {}, { silent: true });
+    }
     const overlay = document.getElementById('missionCargoOverlay');
     if (overlay) overlay.style.display = 'none';
 };

@@ -33,7 +33,7 @@ function cueRecipe(context, entry) {
   return { id, gain: entry.gain == null ? def.gain : entry.gain,
     variantSeed: `cue-variant-${id}${context.missionAudioKey}|${seed}|${id}` };
 }
-function createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates = () => 0 }) {
+function createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates = () => 0, getAudioSettings = () => null }) {
   let active = false;
   const pending = [];
   async function play(batch) {
@@ -41,7 +41,8 @@ function createTrackerMissionCargoAudio({ authorityManager, voiceService, getAud
     const run = authorityManager.getActiveRun({ includeBundle: true });
     if (!run || run.runId !== first.request.runId || run.missionId !== first.request.missionId) return;
     const context = run.resumeBundle?.executionEffectPlan?.cargoAudio;
-    if (!context?.enabled || !voiceService || !getAudioPlaybackCandidates()) return;
+    const settings = getAudioSettings();
+    if (!context || !voiceService || (settings ? !(settings.enabled && settings.effectsEnabled) : (!context.enabled || !getAudioPlaybackCandidates()))) return;
     const entry = batch.length === 1 ? first.entry : { fallback: 'boarding_cargo', gain: 0.46, item: null,
       event: `${first.entry.event || 'cargo'}_batch_${batch.length}_${batch.map(value => value.entry.item?.id || value.entry.item?.label || value.entry.event || '').filter(Boolean).join('-') || 'items'}` };
     const cue = cueRecipe(context, entry);

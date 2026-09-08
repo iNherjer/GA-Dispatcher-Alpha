@@ -116,6 +116,7 @@ class TrackerConfigStore {
     return {
       pilotId: String(desktop.pilotId || tracker.syncId || '').trim(),
       hasPin: Boolean(String(desktop.encryptedPin || '').trim()) && this.encryptionAvailable(),
+      audioOutputDeviceId: String(desktop.audioOutputDeviceId || ''),
       voiceProvider: normalizeVoiceProvider(desktop.voice?.provider),
       hasVoiceApiKey: Boolean(String(desktop.voice?.encryptedApiKey || '').trim()) && this.encryptionAvailable(),
       runtimeChannel: normalizeRuntimeChannel(preferences.runtimeChannel),
@@ -223,6 +224,11 @@ class TrackerConfigStore {
     delete sanitizedTracker.pin;
     this.write(sanitizedTracker);
     return { pilotId: normalizedPilotId };
+  }
+
+  setAudioOutputDeviceId(value) {
+    const id = String(value || '').slice(0, 256);
+    return this.writeDesktop({ ...this.readDesktop(), audioOutputDeviceId: id });
   }
 
   setUpdatePolicy(policy) {

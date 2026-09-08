@@ -408,6 +408,7 @@ function publicExecutionSnapshot(run) {
     phase: state.phase,
     subphase: state.subphase,
     flags: jsonClone(state.flags),
+    cargoWindowCloseId: state.cargoWindowCloseId || null,
     cargoObjectRevision: runtime?.cargoObjectRevision || 0,
     passengerInteraction: jsonClone(state.effects.filter(effect => effect.type === 'scene.manual_pax').slice(-1)[0] || null),
     progress: jsonClone(state.progress),
@@ -1025,9 +1026,13 @@ function createMissionAuthorityManager(options = {}) {
       const priorEvent = (Array.isArray(safeObject(active.resumeBundle).executionReplay?.events)
         ? active.resumeBundle.executionReplay.events
         : []).find(item => cleanString(item?.eventId || item?.id, 220) === eventId);
-      const duplicateEvent = executionCore.normalizeEvent(rawEvent, Number(priorEvent?.sequence) || 0);
-      if (!priorEvent || !duplicateEvent
-          || executionCore.canonicalStringify(priorEvent) !== executionCore.canonicalStringify(duplicateEvent)) {
+      const receipt = (Array.isArray(active.resumeBundle?.executionEventReceipts)
+        ? active.resumeBundle.executionEventReceipts : []).find(item => item.eventId === eventId);
+      const duplicateEvent = executionCore.normalizeEvent(rawEvent, Number(priorEvent?.sequence || receipt?.sequence) || 0);
+      const identical = duplicateEvent && (priorEvent
+        ? executionCore.canonicalStringify(priorEvent) === executionCore.canonicalStringify(duplicateEvent)
+        : receipt && receipt.eventHash === executionCore.hashValue(duplicateEvent));
+      if (!identical) {
         return { ok: false, status: 'conflict', error: 'mission_execution_event_id_conflict', activeRun: publicRun(active) };
       }
       return {
@@ -1068,15 +1073,22 @@ function createMissionAuthorityManager(options = {}) {
     if (!currentReplay) {
       return { ok: false, status: 'blocked', error: 'mission_execution_replay_required', activeRun: publicRun(active) };
     }
-    if (currentReplay.events.length >= MAX_EXECUTION_EVENTS) {
-      return { ok: false, status: 'blocked', error: 'mission_execution_event_log_full', activeRun: publicRun(active) };
-    }
-    const nextReplay = executionCore.normalizeBundle({
-      ...currentReplay,
-      events: currentReplay.events.concat(event)
-    });
+    // Bound the replay journal without bounding the length of a mission.
+    // The checkpoint retains the complete authoritative state and pending effects.
+    let nextReplay = executionCore.normalizeBundle(currentReplay.events.length >= MAX_EXECUTION_EVENTS
+      ? { ...currentReplay, initialState: currentState, events: [event] }
+      : { ...currentReplay, events: currentReplay.events.concat(event) });
     if (!nextReplay) return { ok: false, status: 'error', error: 'mission_execution_replay_invalid', activeRun: publicRun(active) };
     const nextResumeBundle = jsonClone(active.resumeBundle);
+    const saveCheckpointReceipts = () => {
+      const receipts = new Map((Array.isArray(nextResumeBundle.executionEventReceipts)
+        ? nextResumeBundle.executionEventReceipts : []).map(item => [item.eventId, item]));
+      for (const prior of currentReplay.events) receipts.set(prior.eventId, {
+        eventId: prior.eventId, sequence: prior.sequence, eventHash: executionCore.hashValue(prior)
+      });
+      nextResumeBundle.executionEventReceipts = [...receipts.values()].slice(-MAX_EXECUTION_EVENTS);
+    };
+    if (currentReplay.events.length >= MAX_EXECUTION_EVENTS) saveCheckpointReceipts();
     nextResumeBundle.executionReplay = nextReplay;
     nextResumeBundle.execution = executionCore.createReplayShadowEnvelope(nextReplay, {
       sourceRevision: active.revision + 1,
@@ -1086,7 +1098,21 @@ function createMissionAuthorityManager(options = {}) {
     try {
       persistedResumeBundle = safeResumeBundle(nextResumeBundle);
     } catch (error) {
-      return { ok: false, status: 'error', error: error.code || error.message, activeRun: publicRun(active) };
+      if (error.code !== 'resume_bundle_too_large') {
+        return { ok: false, status: 'error', error: error.code || error.message, activeRun: publicRun(active) };
+      }
+      nextReplay = executionCore.normalizeBundle({ ...currentReplay, initialState: currentState, events: [event] });
+      saveCheckpointReceipts();
+      nextResumeBundle.executionReplay = nextReplay;
+      nextResumeBundle.execution = executionCore.createReplayShadowEnvelope(nextReplay, {
+        sourceRevision: active.revision + 1, legacyComparison: 'tracker_authority'
+      });
+      try { persistedResumeBundle = safeResumeBundle(nextResumeBundle); }
+      catch (checkpointError) {
+        log(`MISSION_EXECUTION_PERSIST_REJECTED event=${event.type} error=${checkpointError.code || checkpointError.message}`);
+        return { ok: false, status: 'error', error: checkpointError.code || checkpointError.message, activeRun: publicRun(active) };
+      }
+      log(`MISSION_EXECUTION_JOURNAL_CHECKPOINT revision=${currentState.revision} events=${currentReplay.events.length}`);
     }
     const previousState = jsonClone(state);
     const previousEffectIds = new Set(currentState.effects.map(effect => effect.effectId));

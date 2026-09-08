@@ -13,6 +13,7 @@ const MISSION_INTENTS = new Set([
   'activate_cloud_mission',
   'prepare_mission',
   'start_boarding',
+  'close_cargo_window',
   'set_manifest_item',
   'sign_manifest',
   'clear_manifest_signature',

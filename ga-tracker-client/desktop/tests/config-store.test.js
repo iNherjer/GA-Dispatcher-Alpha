@@ -55,6 +55,7 @@ test('credentials are encrypted in app data while personal tracker config is pre
   assert.deepEqual(store.publicSettings(), {
     pilotId: 'Foxtrot-Mike-764',
     hasPin: true,
+    audioOutputDeviceId: '',
     voiceProvider: 'gemini',
     hasVoiceApiKey: false,
     runtimeChannel: 'alpha',
@@ -101,6 +102,7 @@ test('startup preferences default to automatic tracker start and visible window'
   assert.deepEqual(store.publicSettings(), {
     pilotId: '',
     hasPin: false,
+    audioOutputDeviceId: '',
     voiceProvider: 'gemini',
     hasVoiceApiKey: false,
     runtimeChannel: 'stable',
@@ -166,4 +168,15 @@ test('voice API key requires OS encryption and a bounded non-empty value', () =>
     secureStorage: { isEncryptionAvailable: () => false }
   });
   assert.throws(() => unavailable.saveVoiceCredentials('gemini', 'secret'), /Windows-Schutz/);
+});
+
+test('physical audio output is stored locally without changing pilot or voice credentials', () => {
+  const store = createStore();
+  store.saveCredentials('Audio-Pilot', '1234');
+  const before = store.readDesktop();
+  store.setAudioOutputDeviceId('headset-123');
+  assert.equal(store.publicSettings().audioOutputDeviceId, 'headset-123');
+  assert.equal(store.readDesktop().encryptedPin, before.encryptedPin);
+  store.setAudioOutputDeviceId('');
+  assert.equal(store.publicSettings().audioOutputDeviceId, '');
 });

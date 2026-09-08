@@ -1,3 +1,4 @@
+import { handleAudioSettings } from './audio-settings.mjs';
 const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
 const DEFAULT_OBS_CORE_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/core-tiles";
@@ -1040,6 +1041,7 @@ function isReservedSyncKvKey(keyName) {
   const name = String(keyName || "");
   return !name
     || name.startsWith("GROUP_")
+    || name.startsWith("AUDIO_SETTINGS_")
     || name.startsWith(BUG_REPORT_PREFIX)
     || name.startsWith(BUG_OPEN_PREFIX)
     || name.startsWith(HOMEBASE_PREFIX)
@@ -2624,6 +2626,10 @@ export default {
 
     if (requestUrl.pathname === "/api/admin/users") {
       return handleAdminUsers(request, requestUrl, env);
+    }
+
+    if (requestUrl.pathname.startsWith("/api/audio-settings/")) {
+      return handleAudioSettings(request, requestUrl, env, { json, authenticate: verifySyncProfileAuth, normalizePilotId: normalizePilotIdLookup });
     }
 
     if (requestUrl.pathname === "/api/auth/verify") {

@@ -80,3 +80,10 @@ assert.equal(intruder.closed?.code, 1008);
 assert.match(intruder.messages[0]?.message || '', /Falscher PIN/);
 
 console.log('cloudflare relay tests passed');
+
+viewer.attachment.clientId = 'audio-phone';
+otherViewer.attachment.clientId = 'observer';
+const beforeTargeted = otherViewer.messages.length;
+await room.webSocketMessage(tracker, JSON.stringify({ type: 'gps', commandAckOnly: true, audioRecipientClientId: 'audio-phone', trackerAck: { type: 'mission_voice_playback_ack', payload: { data: 'audio' } } }));
+assert.equal(viewer.messages.at(-1).trackerAck.payload.data, 'audio');
+assert.equal(otherViewer.messages.length, beforeTargeted, 'audio bytes go only to the requesting socket');

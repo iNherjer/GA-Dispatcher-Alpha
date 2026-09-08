@@ -1,3 +1,4 @@
+const { handleVoiceRelay } = require('./tracker-voice-relay-core.js');
 'use strict';
 
 const crypto = require('node:crypto');
@@ -262,6 +263,8 @@ function createTrackerEfbHttpServer(options = {}) {
   const getMissionSnapshot = typeof options.getMissionSnapshot === 'function' ? options.getMissionSnapshot : () => null;
   const getChecklistSnapshot = typeof options.getChecklistSnapshot === 'function' ? options.getChecklistSnapshot : () => null;
   const voiceService = options.voiceService && typeof options.voiceService === 'object' ? options.voiceService : null;
+  const audioControl = options.audioControl || null;
+  const audioAssets = options.audioAssets || null;
   const cockpitControl = options.cockpitControl && typeof options.cockpitControl === 'object' ? options.cockpitControl : null;
   const desktopControlToken = String(options.desktopControlToken || '').trim();
   const hardResetMission = typeof options.hardResetMission === 'function' ? options.hardResetMission : null;
@@ -293,6 +296,45 @@ function createTrackerEfbHttpServer(options = {}) {
     let pathname = '';
     let requestUrl = null;
     try { requestUrl = new URL(request.url || '/', `http://${host}`); pathname = requestUrl.pathname; } catch (_) {}
+    if (pathname === '/api/v1/audio/playback' && request.method === 'POST') {
+      if (!audioControl || !voiceService || !isTrustedVoiceOrigin(request)) {
+        request.resume(); jsonResponse(response, 403, { error: 'audio_unavailable' }); return;
+      }
+      try {
+        const command = await readJsonBody(request, 4096);
+        if (command.deviceId === 'pc' && !hasDesktopControlToken(request, desktopControlToken)) {
+          jsonResponse(response, 403, { error: 'desktop_token_required' }); return;
+        }
+        jsonResponse(response, 200, handleVoiceRelay(voiceService, command, audioControl));
+      } catch (error) { jsonResponse(response, 400, { error: error.code || error.message || 'invalid_audio_request' }); }
+      return;
+    }
+    if (pathname === '/api/v1/audio/settings') {
+      if (!audioControl || !isTrustedVoiceOrigin(request)) {
+        request.resume(); jsonResponse(response, audioControl ? 403 : 503, { error: 'audio_control_unavailable' }); return;
+      }
+      try {
+        if (request.method === 'GET') jsonResponse(response, 200, { audio: { ...audioControl.snapshot(), playback: voiceService?.publicState?.() || null } });
+        else if (request.method === 'POST') {
+          const result = audioControl.update(await readJsonBody(request, 4096));
+          jsonResponse(response, result.ok ? 200 : result.error === 'audio_revision_conflict' ? 409 : 500, result);
+        } else { request.resume(); jsonResponse(response, 405, { error: 'method_not_allowed' }); }
+      } catch (_) { jsonResponse(response, 400, { error: 'invalid_audio_request' }); }
+      return;
+    }
+    if (pathname.startsWith('/api/v1/audio/assets/')) {
+      if (!audioAssets || request.method !== 'GET' || !isTrustedVoiceOrigin(request)) {
+        request.resume(); jsonResponse(response, 403, { error: 'audio_asset_unavailable' }); return;
+      }
+      try {
+        const asset = await audioAssets.read(decodeURIComponent(pathname.slice('/api/v1/audio/assets/'.length)));
+        const extension = asset.path.split('.').pop();
+        response.writeHead(200, { 'Content-Type': extension === 'wav' ? 'audio/wav' : extension === 'm4a' ? 'audio/mp4' : 'audio/mpeg',
+          'Content-Length': asset.bytes.length, 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'private, max-age=3600' });
+        response.end(asset.bytes);
+      } catch (error) { jsonResponse(response, error.message === 'invalid_audio_asset' ? 400 : 502, { error: 'audio_asset_failed' }); }
+      return;
+    }
     if (request.method === 'POST' && pathname === EFB_CLIENT_LOG_PATH) {
       const now = Date.now();
       if (!clientLogWindowStartedAt || now - clientLogWindowStartedAt >= 60000) {
@@ -402,6 +444,9 @@ function createTrackerEfbHttpServer(options = {}) {
       }
       try {
         const payload = await readJsonBody(request, MAX_EFB_VOICE_REQUEST_BYTES);
+        if (audioControl && payload.deviceId === 'pc' && !hasDesktopControlToken(request, desktopControlToken)) {
+          jsonResponse(response, 403, { error: 'desktop_token_required' }); return;
+        }
         let result;
         if (pathname === EFB_VOICE_JOB_PATH) result = voiceService.request(payload);
         else if (pathname === EFB_VOICE_PLAYBACK_CLAIM_PATH) result = voiceService.claimPlayback(payload);
@@ -436,6 +481,7 @@ function createTrackerEfbHttpServer(options = {}) {
         hello,
         message: createMessage('tracker.status', {
           ...safeObject(getStatus()),
+          audio: audioControl?.snapshot() || null,
           cockpit: cockpitControl?.publicState?.() || { activeCount: 0, missionIntentsEnabled: false },
           voice: voiceService?.publicState?.() || { configured: false }
         })
@@ -447,7 +493,7 @@ function createTrackerEfbHttpServer(options = {}) {
         jsonResponse(response, 503, { error: 'voice_unavailable' });
         return;
       }
-      const job = voiceService.getNextPlayback?.() || null;
+      const job = voiceService.getNextPlayback?.(String(requestUrl?.searchParams.get('clientId') || '').slice(0, 160)) || null;
       jsonResponse(response, 200, {
         hello,
         message: createMessage('voice.playback.next', {

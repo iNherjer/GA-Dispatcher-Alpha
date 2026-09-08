@@ -17,11 +17,11 @@ const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core'
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
 test('current tracker exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v387'/);
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v388'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 387/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 388/);
   assert.match(trackerSource, /modelGroundClearanceFt: modelClearanceFt/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);
@@ -522,4 +522,57 @@ test('cockpit sessions synchronize device presence while mission intents remain 
     body: JSON.stringify({ clientId: 'bad', role: 'web' })
   });
   assert.equal(rejectedOrigin.statusCode, 403);
+});
+
+test('audio configuration is shared locally, rejects stale writes and foreign origins', async t => {
+  const { createAudioControl } = require('./tracker-audio-control-core');
+  const audioControl = createAudioControl();
+  const server = createTrackerEfbHttpServer({ port: 0,
+    hello: createTrackerEfbHttpHello({ trackerVersion: 'v387', trackerVersionCode: 387 }), audioControl });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const current = await request(address, '/api/v1/audio/settings');
+  assert.equal(JSON.parse(current.body).audio.target.mode, 'pc');
+  const options = { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://inherjer.github.io' },
+    body: JSON.stringify({ expectedRevision: 0, target: { mode: 'app', deviceId: 'phone' } }) };
+  assert.equal((await request(address, '/api/v1/audio/settings', options)).statusCode, 200);
+  assert.equal((await request(address, '/api/v1/audio/settings', options)).statusCode, 409);
+  assert.equal((await request(address, '/api/v1/audio/settings', { ...options,
+    headers: { ...options.headers, Origin: 'https://untrusted.example' } })).statusCode, 403);
+  const status = JSON.parse((await request(address, '/api/v1/status')).body);
+  assert.equal(status.message.payload.audio.target.deviceId, 'phone');
+});
+
+test('PC playback requires the Desktop token on both audio endpoints', async t => {
+  const { createAudioControl } = require('./tracker-audio-control-core');
+  const audioControl = createAudioControl();
+  const voiceService = createTrackerVoiceService({ audioControl });
+  voiceService.request({ effectId: 'cargo:pc-token', kind: 'cargo', cue: { id: 'cargo_load' } });
+  const server = createTrackerEfbHttpServer({ port: 0,
+    hello: createTrackerEfbHttpHello({ trackerVersion: 'v387', trackerVersionCode: 387 }),
+    audioControl, voiceService, desktopControlToken: 'desktop-test-secret' });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const body = JSON.stringify({ action: 'claim', clientId: 'pc-player', deviceId: 'pc', effectId: 'cargo:pc-token' });
+  const options = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
+  assert.equal((await request(address, '/api/v1/audio/playback', options)).statusCode, 403);
+  assert.equal((await request(address, '/api/v1/voice/playback/claim', options)).statusCode, 403);
+  const result = await request(address, '/api/v1/audio/playback', { ...options,
+    headers: { ...options.headers, 'X-GA-Tracker-Desktop-Control': 'desktop-test-secret' } });
+  assert.equal(result.statusCode, 200);
+  assert.equal(JSON.parse(result.body).claimed, true);
+});
+
+test('central PC audio requires Alpha opt-in and an updated Desktop parent', () => {
+  const gateSource = trackerSource.slice(trackerSource.indexOf('const TRACKER_RUNTIME_CHANNEL ='), trackerSource.indexOf('const TRACKER_PROTOCOL_HELLO ='));
+  const evaluate = new Function('process', 'missionExecutionCore', gateSource + ';return { enabled: TRACKER_AUDIO_OUTPUT_ENABLED, capabilities: TRACKER_EXECUTION_CAPABILITIES };');
+  const ready = { TRACKER_AUTHORITY_READY: true };
+  const current = { VFR_MULTITOOL_TRACKER_CHANNEL: 'alpha', VFR_MULTITOOL_APT_EXECUTION: '1', VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: 'token', VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER: '1' };
+  assert.equal(evaluate({ env: current }, ready).enabled, true);
+  assert.ok(evaluate({ env: current }, ready).capabilities.includes('audio.output.v1'));
+  for (const override of [{ VFR_MULTITOOL_TRACKER_CHANNEL: 'stable' }, { VFR_MULTITOOL_APT_EXECUTION: '0' }, { VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER: '' }, { VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: '' }]) {
+    const state = evaluate({ env: { ...current, ...override } }, ready);
+    assert.equal(state.enabled, false);
+    assert.equal(state.capabilities.includes('audio.output.v1'), false);
+  }
 });

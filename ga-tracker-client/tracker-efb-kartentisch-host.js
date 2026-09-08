@@ -434,7 +434,8 @@
 
   function syncFontScaleControls() {
     var label = document.querySelector('.ga-efb-font-size-hint');
-    if (label) label.textContent = 'Schriftgröße: ' + Math.round(preferences.fontScale * 100) + '%';
+    var text = 'Schriftgröße: ' + Math.round(preferences.fontScale * 100) + '%';
+    if (label && label.textContent !== text) label.textContent = text;
   }
 
   function applyEfbFontScale() {
@@ -456,9 +457,8 @@
       if (!element.hasAttribute('data-ga-efb-font-original')) element.setAttribute('data-ga-efb-font-original', element.style.fontSize || '');
     });
     elements.forEach(function (element) {
-      if (!element.hasAttribute('data-ga-efb-font-base')) return;
-      var stored = Number(element.getAttribute('data-ga-efb-font-base'));
-      if (isFiniteNumber(stored)) element.style.fontSize = stored + 'px';
+      element.style.fontSize = element.getAttribute('data-ga-efb-font-original') || '';
+      element.removeAttribute('data-ga-efb-font-base');
     });
     elements.forEach(function (element) {
       if (element.hasAttribute('data-ga-efb-font-base')) return;
@@ -715,7 +715,7 @@
         // Mirror the App flow for the device that started boarding.  Opening
         // the manager is a local presentation choice; all cargo mutations
         // continue to use the authoritative tracker intent path.
-        if (ok && opensCargoAfterBoarding) openCargoManager();
+        if (ok && opensCargoAfterBoarding && !(missionSnapshot && missionSnapshot.control && missionSnapshot.control.cargoWindowCloseId)) openCargoManager();
         return ok;
       };
       return fetchJson('/api/v1/mission').then(function (envelope) {
@@ -1194,6 +1194,8 @@
       .map(function (node) { return node ? { top: node.scrollTop, left: node.scrollLeft } : null; });
     cargoManagerSignature = markup;
     body.innerHTML = markup;
+    normalizeCoherentGlyphs(body);
+    applyEfbFontScale();
     var signatureName = body.querySelector('.mission-cargo-signature.is-animating .mission-cargo-signature-name');
     if (signatureName && exactModel && exactModel.signature) {
       signatureName.style.animationDelay = '-' + Math.max(0, Date.now() - Number(exactModel.signature.at)) + 'ms';
@@ -1212,7 +1214,11 @@
     report('info', 'cargo-manager', 'open', 'Eigenständiger Verlade-Manager geöffnet');
   }
 
-  function closeCargoManager() {
+  function closeCargoManager(fromTracker) {
+    var control = missionSnapshot && missionSnapshot.control;
+    if (fromTracker !== true && control && control.executionAuthority === 'tracker') {
+      return submitMissionIntent('close_cargo_window', {});
+    }
     var overlay = byId('gaEfbCargoManager');
     cargoManagerOpen = false;
     if (!overlay) return;
@@ -2271,7 +2277,7 @@
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};
     var previousControl = missionSnapshot && missionSnapshot.control;
     var nextControl = next && next.control;
-    var openBoardingDialog = nextControl && nextControl.executionAuthority === 'tracker' && nextControl.phase === 'boarding'
+    var openBoardingDialog = nextControl && !nextControl.cargoWindowCloseId && nextControl.executionAuthority === 'tracker' && nextControl.phase === 'boarding'
       && (!previousControl || previousControl.phase !== 'boarding' || previousControl.runId !== nextControl.runId);
     var signature = missionRenderSignature(next);
     var presentationSignature = JSON.stringify({
@@ -2282,6 +2288,8 @@
       cargoManagerOpen: cargoManagerOpen === true
     });
     missionSnapshot = next;
+    if (nextControl && nextControl.cargoWindowCloseId
+        && (!previousControl || previousControl.cargoWindowCloseId !== nextControl.cargoWindowCloseId)) closeCargoManager(true);
     if (openBoardingDialog) openCargoManager();
     if (presentationSignature !== missionPresentationSignature) {
       missionPresentationSignature = presentationSignature;

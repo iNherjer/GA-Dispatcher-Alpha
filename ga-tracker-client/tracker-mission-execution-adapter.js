@@ -31,6 +31,7 @@ const SYSTEM_EVENT_TYPES = new Set([
   'MISSION_CLOSED'
 ]);
 const INTENT_EVENT_TYPES = Object.freeze({
+  close_cargo_window: 'CARGO_WINDOW_CLOSED',
   prepare_mission: 'PREPARE_REQUESTED',
   start_boarding: 'BOARDING_STARTED',
   confirm_load: 'LOAD_CONFIRMATION_REQUESTED',
@@ -318,7 +319,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (!commandId) return errorResult('command_id_required');
     const validated = validateSnapshot(request);
     if (!validated.ok) return validated;
-    if (!validated.snapshot.view.allowedActions.includes(intent)) {
+    if (!(intent === 'close_cargo_window' && !validated.snapshot.state.flags.closed)
+        && !validated.snapshot.view.allowedActions.includes(intent)) {
       return errorResult('mission_intent_not_allowed_in_state', {
         activeRun: authorityManager.getActiveRun(),
         view: validated.snapshot.view

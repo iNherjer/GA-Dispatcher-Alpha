@@ -45,8 +45,34 @@
     const role = ['web', 'efb', 'toolbar'].includes(String(options.role || '').toLowerCase())
       ? String(options.role).toLowerCase()
       : 'web';
-    const clientId = String(options.clientId || storedClientId(role)).trim().slice(0, 220);
-    const fetchRemote = typeof options.fetchRemote === 'function' ? options.fetchRemote : runtime.fetch;
+    const clientId = String(options.clientId || (role === 'web' && typeof runtime.gaTrackerAudioRelayClientId === 'function' ? runtime.gaTrackerAudioRelayClientId() : storedClientId(role))).trim().slice(0, 220);
+    const fetchHttp = typeof options.fetchRemote === 'function' ? options.fetchRemote : runtime.fetch;
+    const relayAvailable = () => role === 'web' && typeof runtime.gaTrackerVoiceRelayAvailable === 'function'
+      && runtime.gaTrackerVoiceRelayAvailable() === true;
+    async function fetchRemote(url, init = {}) {
+      if (!relayAvailable() || !url.includes('/voice/')) return fetchHttp(url, init);
+      const body = init.body ? JSON.parse(init.body) : {};
+      const route = url.slice(url.indexOf('/voice/') + 7).split('?')[0];
+      const match = /^jobs\/([^/]+)\/(audio|cue)$/.exec(route);
+      const request = match
+        ? { action: match[2], effectId: decodeURIComponent(match[1]), offset: 0 }
+        : Object.assign({}, body, { action: route.replace('playback/', '') });
+      const call = payload => runtime.gaTrackerVoiceRelayRequest(Object.assign({}, payload, { clientId }));
+      let payload = await call(request);
+      if (!match) return { ok: true, status: 200, json: async () => ({ message: { payload } }) };
+      const bytes = new Uint8Array(payload.total);
+      let offset = 0;
+      while (true) {
+        if (payload.offset !== offset || payload.total !== bytes.length) throw new Error('voice_chunk_mismatch');
+        const decoded = runtime.atob(payload.data);
+        if (!decoded.length || offset + decoded.length > bytes.length) throw new Error('voice_chunk_invalid');
+        for (let i = 0; i < decoded.length; i++) bytes[offset + i] = decoded.charCodeAt(i);
+        offset += decoded.length;
+        if (offset === bytes.length) break;
+        payload = await call(Object.assign({}, request, { offset }));
+      }
+      return { ok: true, status: 200, arrayBuffer: async () => bytes.buffer };
+    }
     const getAudioPlaybackEnabled = typeof options.getAudioPlaybackEnabled === 'function'
       ? options.getAudioPlaybackEnabled
       : () => options.audioPlaybackEnabled === true;
@@ -72,6 +98,7 @@
     }
     const voiceCooldowns = new Map();
     let stopped = false;
+    let playbackUnavailableUntil = 0;
 
     function unlockAudioPlayback() {
       if (audioUnlocked) return Promise.resolve(true);
@@ -146,7 +173,7 @@
 
     async function releaseVoice(effectId, completed) {
       try {
-        await post('/voice/playback/release', { effectId, clientId, completed: completed === true });
+        await post('/voice/playback/release', { effectId, clientId, completed: completed === true, retryable: completed !== true });
       } catch (_) {}
     }
 
@@ -182,9 +209,14 @@
       };
       // A suspended/undecodable player should fail promptly, not consume the
       // entire mission watchdog. Once playing, use the clip's real duration.
-      current.watchdogTimer = setTimeout(() => { finish(false).catch(() => {}); }, 8000);
+      current.watchdogTimer = setTimeout(() => { finish(false).catch(() => {}); }, relayAvailable() ? 60000 : 8000);
       async function clip(suffix, gain) {
-        const response = await fetchRemote(`${baseUrl}/voice/jobs/${encodeURIComponent(job.effectId)}/${suffix}`, { cache: 'no-store' });
+        const assetName = String(job.cue && job.cue.assetName || '');
+        const staticCue = suffix === 'cue' && relayAvailable() && /^[a-zA-Z0-9_-]+\.mp3$/.test(assetName);
+        // Static repository clips bypass Cloudflare; only generated voice uses the relay.
+        const response = staticCue
+          ? await fetchHttp('https://inherjer.github.io/GA-Dispatcher-Alpha/audio-cues/' + encodeURIComponent(assetName), { cache: 'force-cache' })
+          : await fetchRemote(`${baseUrl}/voice/jobs/${encodeURIComponent(job.effectId)}/${suffix}`, { cache: 'no-store' });
         if (!response.ok) throw new Error('voice_audio_fetch_failed');
         const bytes = await response.arrayBuffer();
         const buffer = await new Promise((resolve, reject) => {
@@ -234,6 +266,11 @@
       const jobSource = job && typeof job === 'object' ? job : {};
       const effectId = String(jobSource.effectId || '').trim();
       if (!effectId || activeVoice || getAudioPlaybackEnabled() !== true) return false;
+      const context = getPlaybackContext();
+      if (context) {
+        try { await context.resume(); } catch (_) { return false; }
+        if (context.state !== 'running') return false;
+      }
       const claim = await post('/voice/playback/claim', { effectId, clientId, leaseMs: 120000 });
       if (!claim.response.ok || !claim.payload || claim.payload.claimed !== true) return false;
       try {
@@ -277,18 +314,31 @@
       activeVoice = { effectId, audio, cueAudio, watchdogTimer: null };
       let finished = false;
       let voiceStarted = false;
+      let progressTimer = null;
+      function watchStart(player, onStall) {
+        if (progressTimer) clearTimeout(progressTimer);
+        const initialTime = Number(player.currentTime) || 0;
+        progressTimer = setTimeout(() => {
+          if (!finished && !(Number(player.currentTime) > initialTime)) {
+            playbackUnavailableUntil = Date.now() + 60000;
+            onStall();
+          }
+        }, 5000);
+      }
       const finish = async (completed) => {
         if (finished) return;
         finished = true;
+        if (progressTimer) clearTimeout(progressTimer);
         if (activeVoice && activeVoice.watchdogTimer) clearTimeout(activeVoice.watchdogTimer);
         if (activeVoice && activeVoice.audio === audio) activeVoice = null;
         for (const item of [cueAudio, audio].filter(Boolean)) {
-          try { item.onended = null; item.onerror = null; } catch (_) {}
+          try { item.onended = null; item.onerror = null; item.pause(); } catch (_) {}
         }
         if (!completed) voiceCooldowns.set(effectId, Date.now() + 10000);
         await releaseVoice(effectId, completed);
         scheduleVoice(completed ? 250 : 1500);
       };
+      activeVoice.cancel = () => { finished = true; if (progressTimer) clearTimeout(progressTimer); };
       activeVoice.watchdogTimer = setTimeout(() => {
         finish(false).catch(() => {});
       }, voicePlaybackWatchdogMs);
@@ -299,6 +349,7 @@
         voiceStarted = true;
         if (jobSource.kind === 'cargo') { await finish(true); return true; }
         try {
+          watchStart(audio, () => finish(false).catch(() => {}));
           await audio.play();
           return true;
         } catch (_) {
@@ -311,7 +362,13 @@
         cueAudio.onerror = () => (jobSource.kind === 'cargo' ? finish(false) : startVoice()).catch(() => {});
       }
       try {
-        if (cueAudio) await cueAudio.play();
+        if (cueAudio) {
+          watchStart(cueAudio, () => {
+            try { cueAudio.pause(); } catch (_) {}
+            (jobSource.kind === 'cargo' ? finish(false) : startVoice()).catch(() => {});
+          });
+          await cueAudio.play();
+        }
         else await startVoice();
         return true;
       } catch (_) {
@@ -322,12 +379,16 @@
 
     async function pollVoice() {
       if (stopped) return;
-      if (listenForVoice() !== true || !session || !session.sessionId || getAudioPlaybackEnabled() !== true || activeVoice) {
+      if (runtime.gaTrackerAudioClient && runtime.gaTrackerAudioClient.active()) {
+        if (activeVoice) await stopVoice(false);
+        scheduleVoice(5000); return;
+      }
+      if (Date.now() < playbackUnavailableUntil || listenForVoice() !== true || (!relayAvailable() && (!session || !session.sessionId)) || getAudioPlaybackEnabled() !== true || activeVoice) {
         scheduleVoice(activeVoice ? 500 : 1200);
         return;
       }
       try {
-        const result = await fetchRemote(`${baseUrl}/voice/playback/next`, { cache: 'no-store' });
+        const result = await fetchRemote(`${baseUrl}/voice/playback/next?clientId=${encodeURIComponent(clientId)}`, { cache: 'no-store' });
         let body = null;
         try { body = await result.json(); } catch (_) {}
         const next = responsePayload(body);
@@ -340,6 +401,7 @@
 
     async function register() {
       if (stopped) return null;
+      if (relayAvailable()) { scheduleVoice(250); schedule(15000); return null; }
       try {
         const result = await post('/cockpit/sessions', {
           clientId,
@@ -451,7 +513,7 @@
         const intent = String(request.intent || request.action || '').toLowerCase();
         if (!control || control.executionAuthority !== 'tracker'
             || String(control.missionId || '') !== String(request.missionId || '')
-            || allowed.indexOf(intent) < 0) {
+            || (allowed.indexOf(intent) < 0 && intent !== 'close_cargo_window')) {
           return first;
         }
         return submit(Object.assign({}, request, {
@@ -511,6 +573,7 @@
     });
     runtime.gaCockpitSessionClient = client;
     client.start().catch(() => {});
+    client.pollVoice().catch(() => {});
     if (typeof runtime.addEventListener === 'function') {
       runtime.addEventListener('ga:audio-playback-device-changed', () => client.heartbeat().catch(() => {}));
       var unlockFromGesture = function () {

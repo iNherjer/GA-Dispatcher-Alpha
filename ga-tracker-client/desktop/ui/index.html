@@ -94,6 +94,16 @@
             <p class="eyebrow">VOICE</p>
             <h2>Zentrale Sprachausgabe</h2>
             <p class="subtle">Der Tracker erzeugt jede Ansage einmal und stellt sie EFB und Toolbar-Panel gemeinsam bereit. Der Schlüssel bleibt auf diesem Windows-Konto geschützt.</p>
+            <div class="audio-output-menu" id="audioOutputMenu">
+              <label><span>Audioausgabe</span><select id="audioTargetSelect"><option value="pc">PC</option><option value="this">Diese App (PC)</option><option value="other" disabled>Andere App</option></select></label>
+              <label><span>PC-Ausgang</span><select id="audioHardwareSelect"><option value="">Windows-Standardgerät</option></select></label>
+              <button type="button" id="audioRefreshDevices" class="secondary-button">Ausgänge aktualisieren</button>
+              <label><span>Lautstärke</span><input id="audioMasterVolume" type="range" min="0" max="100" value="100"></label>
+              <label class="toggle-row"><span><strong>Audio aktiviert</strong></span><span class="toggle-control"><input id="audioMasterEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <label class="toggle-row"><span><strong>Stimmen und Ansagen</strong></span><span class="toggle-control"><input id="audioPaxEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <label class="toggle-row"><span><strong>Audioeffekte</strong></span><span class="toggle-control"><input id="audioEffectsEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <p id="audioPlaybackStatus" class="form-message" role="status">Tracker-Audio wird verbunden.</p>
+            </div>
             <form id="voiceCredentialsForm" class="voice-credentials-form">
               <label>
                 <span>Provider</span>
@@ -377,6 +387,8 @@
     </form>
   </dialog>
 
+  <script src="./tracker-audio-player.js"></script>
+  <script src="./audio.js"></script>
   <script src="./renderer.js"></script>
 </body>
 </html>

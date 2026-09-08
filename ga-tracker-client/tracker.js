@@ -1,3 +1,6 @@
+const { createAudioControl, createAudioCloud } = require('./tracker-audio-control-core.js');
+const { createAudioAssetCache } = require('./tracker-audio-asset-cache.js');
+const { handleVoiceRelay } = require('./tracker-voice-relay-core.js');
 const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Waypoint, SimConnectConstants, EventFlag } = require('node-simconnect');
 const WebSocket = require('ws');
 const readline = require('readline');
@@ -78,8 +81,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v387';
-const TRACKER_VERSION_CODE = 387;
+const TRACKER_VERSION = 'v388';
+const TRACKER_VERSION_CODE = 388;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -94,7 +97,10 @@ const TRACKER_APT_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_REQUESTED
 const TRACKER_APT_EXECUTION_BLOCK_REASON = TRACKER_APT_EXECUTION_REQUESTED && !TRACKER_APT_EXECUTION_ENABLED
   ? `parity_pending:${(missionExecutionCore.TRACKER_AUTHORITY_PENDING || []).join(',')}`
   : '';
-const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED ? ['mission.intent.v1'] : [];
+const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
+  && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
+const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
+  ? ['mission.intent.v1', 'voice.relay.v1', ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1'] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -4816,7 +4822,17 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     log: debugLog
   });
   debugLog(`FLIGHT_LOG_READY directory=${TRACKER_FLIGHT_LOG_DIR} format=jsonl summary=compact-v1`);
+  const trackerAudioControl = TRACKER_AUDIO_OUTPUT_ENABLED ? createAudioControl({
+    storageFile: path.join(TRACKER_DATA_DIR, 'audio-settings-' + require('node:crypto').createHash('sha256').update(String(syncId)).digest('hex').slice(0, 24) + '.json'),
+    cloud: createAudioCloud({ pilotId: String(syncId), pin: String(pin) }),
+    log: debugLog
+  }) : null;
+  const trackerAudioAssets = TRACKER_AUDIO_OUTPUT_ENABLED ? createAudioAssetCache({
+    directory: path.join(TRACKER_DATA_DIR, 'audio-assets'), version: TRACKER_VERSION
+  }) : null;
+  if (trackerAudioControl) trackerAudioControl.restore().catch(error => debugLog('AUDIO_RESTORE_FAILED ' + error.message));
   const trackerVoiceService = createTrackerVoiceService({
+    audioControl: trackerAudioControl,
     provider: voiceCredentials?.provider,
     apiKey: voiceCredentials?.apiKey,
     storageFile: TRACKER_VOICE_CACHE_FILE,
@@ -4830,19 +4846,25 @@ function startTracker(syncId, pin, voiceCredentials = null) {
   const missionBoardingVoice = createTrackerMissionBoardingVoice({
     authorityManager: missionAuthorityManager,
     voiceService: trackerVoiceService,
-    getAudioPlaybackCandidates: () => trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+    getAudioSettings: () => trackerAudioControl?.snapshot().settings || null,
+    getAudioPlaybackCandidates: () => trackerAudioControl ? (trackerAudioControl.snapshot().settings.enabled && trackerAudioControl.snapshot().settings.paxEnabled ? 1 : 0) : Math.max(trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+      trackerVoiceService.publicState().audioPlaybackCandidates || 0),
     log: debugLog
   });
   const missionFarewellVoice = createTrackerMissionFarewellVoice({
     authorityManager: missionAuthorityManager,
     voiceService: trackerVoiceService,
-    getAudioPlaybackCandidates: () => trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+    getAudioSettings: () => trackerAudioControl?.snapshot().settings || null,
+    getAudioPlaybackCandidates: () => trackerAudioControl ? (trackerAudioControl.snapshot().settings.enabled && trackerAudioControl.snapshot().settings.paxEnabled ? 1 : 0) : Math.max(trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+      trackerVoiceService.publicState().audioPlaybackCandidates || 0),
     log: debugLog
   });
   const missionComplianceVoice = createTrackerMissionComplianceVoice({
     authorityManager: missionAuthorityManager,
     voiceService: trackerVoiceService,
-    getAudioPlaybackCandidates: () => trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+    getAudioSettings: () => trackerAudioControl?.snapshot().settings || null,
+    getAudioPlaybackCandidates: () => trackerAudioControl ? (trackerAudioControl.snapshot().settings.enabled && trackerAudioControl.snapshot().settings.paxEnabled ? 1 : 0) : Math.max(trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+      trackerVoiceService.publicState().audioPlaybackCandidates || 0),
     log: debugLog
   });
   let broadcastMissionAuthorityUpdate = () => false;
@@ -5296,6 +5318,8 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       getChecklistSnapshot: () => efbChecklistStore.getSnapshot(),
       cockpitControl: trackerCockpitControl,
       voiceService: trackerVoiceService,
+      audioControl: trackerAudioControl,
+      audioAssets: trackerAudioAssets,
       desktopControlToken: TRACKER_DESKTOP_CONTROL_TOKEN,
       hardResetMission: hardResetTrackerMission,
       log: debugLog
@@ -5335,6 +5359,21 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     (error, state) => debugLog(`RELAY_SEND_ERROR relay=${state?.config?.key || 'unknown'} error=${error?.message || error}`)
   );
   const getWs = () => relayFanout;
+  if (trackerAudioControl) {
+    let lastAudioNotice = '';
+    const audioNoticeTimer = setInterval(() => {
+      if (relayFanout.readyState !== WebSocket.OPEN) return;
+      const audio = { ...trackerAudioControl.snapshot(), playback: trackerVoiceService.publicState() };
+      const notice = audio.revision + ':' + audio.cloudState + ':' + audio.playback.notification;
+      if (notice === lastAudioNotice) return;
+      lastAudioNotice = notice;
+      relayFanout.send(JSON.stringify({ type: 'gps', syncId, pin, source: 'tracker', trackerStatusOnly: true,
+        status: 'connected', trackerVersion: TRACKER_VERSION, trackerVersionCode: TRACKER_VERSION_CODE,
+        trackerAudio: audio, sentAt: Date.now() }));
+    }, 250);
+    audioNoticeTimer.unref();
+  }
+
   broadcastMissionAuthorityUpdate = (reason = 'mission-update', request = {}, result = {}) => {
     if (!relayFanout || relayFanout.readyState !== WebSocket.OPEN) return false;
     try {
@@ -5352,6 +5391,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
         telemetryHibernateReason: _telemetryHibernateState.reason || null,
         telemetryModeSince: Number(_telemetryHibernateState.since) || null,
         trackerMissionAuthority: missionAuthorityManager.getPublicSnapshot(),
+        trackerAudio: trackerAudioControl ? { ...trackerAudioControl.snapshot(), playback: trackerVoiceService.publicState() } : null,
         missionUpdate: {
           reason: String(reason || 'mission-update').slice(0, 96),
           commandId: String(request?.commandId || '').slice(0, 220),
@@ -5397,6 +5437,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
         trackerVersion: TRACKER_VERSION,
         trackerVersionCode: TRACKER_VERSION_CODE,
         commandAckOnly: true,
+        ...(payload.audioRecipientClientId ? { audioRecipientClientId: payload.audioRecipientClientId } : {}),
         trackerAck: { source: 'tracker', ...payload, at: Date.now() }
       };
       if (directHangarAck) {
@@ -5629,6 +5670,17 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       if (source === 'direct-stabilizer-fallback') _directHangarAckCommandIds.set(commandId, Date.now());
       debugLog(`HOMEBASE_CONTROL_DISPATCH source=${source} type=${type} commandId=${commandId} controlId=${command?.controlId || 'door'} state=${command?.state || ''}`);
     }
+    if (type === 'mission_voice_playback') {
+      try {
+        if (!TRACKER_APT_EXECUTION_ENABLED) throw new Error('mission_execution_authority_not_enabled');
+        if (command.deviceId === 'pc') throw new Error('desktop_audio_is_local');
+        const payload = handleVoiceRelay(trackerVoiceService, command, trackerAudioControl);
+        sendHomebaseAck({ type: 'mission_voice_playback_ack', audioRecipientClientId: command.clientId, commandId: command.commandId, status: 'ok', payload });
+      } catch (error) {
+        sendHomebaseAck({ type: 'mission_voice_playback_ack', audioRecipientClientId: command.clientId, commandId: command.commandId, status: 'error', error: error.code || error.message });
+      }
+      return;
+    }
     if (handleAlwaysAvailableChecklistCommand(command)) return;
     if (handleAlwaysAvailableHomebaseCommand(command)) return;
     if (typeof _trackerCommandHandler === 'function') {
@@ -5846,6 +5898,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
           ? _lastEfbSnapshot
           : null,
         trackerMissionAuthority: missionAuthorityManager.getPublicSnapshot(),
+        trackerAudio: trackerAudioControl ? { ...trackerAudioControl.snapshot(), playback: trackerVoiceService.publicState() } : null,
         sentAt: Date.now()
       }));
     };

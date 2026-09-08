@@ -66,3 +66,5 @@ requireEfbFork(path.join('e6b', 'e6b-flight-computer.css'), 'body.e6b-coherent')
 requireEfbFork(path.join('e6b', 'e6b-flight-computer.js'), 'ga-e6b-wind-dot-set');
 
 process.stdout.write('EFB_WEB_ASSETS_SYNCED\n');
+
+fs.copyFileSync(path.join(TRACKER_ROOT, 'tracker-audio-player.js'), path.join(TRACKER_ROOT, 'desktop', 'ui', 'tracker-audio-player.js'));

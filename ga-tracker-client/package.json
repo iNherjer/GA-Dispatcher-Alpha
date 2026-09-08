@@ -46,9 +46,13 @@
       "mission-control-ui-core.js",
       "tracker-efb-kartentisch-host.css",
       "tracker-efb-kartentisch-host.js",
-      "../audio-cues/*.mp3"
+      "../audio-cues/*.mp3",
+      "tracker-audio-player.js",
+      "tracker-audio-client.js"
     ],
-    "targets": ["node20-win-x64"],
+    "targets": [
+      "node20-win-x64"
+    ],
     "outputPath": "dist"
   },
   "dependencies": {

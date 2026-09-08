@@ -44,6 +44,7 @@ function voiceOutcome(recipe, values = {}) {
 function createTrackerMissionBoardingVoice(options = {}) {
   const authorityManager = options.authorityManager;
   const voiceService = options.voiceService;
+  const getAudioSettings = typeof options.getAudioSettings === 'function' ? options.getAudioSettings : () => null;
   const getAudioPlaybackCandidates = typeof options.getAudioPlaybackCandidates === 'function'
     ? options.getAudioPlaybackCandidates
     : () => 0;
@@ -55,7 +56,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
     throw new TypeError('mission_boarding_voice_authority_manager_required');
   }
 
-  const cargoAudio = createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates });
+  const cargoAudio = createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates, getAudioSettings });
   const dispatch = async (request = {}) => {
     const effectId = cleanString(request?.effect?.effectId || request.commandId, 220);
     const run = authorityManager.getActiveRun({ includeBundle: true });
@@ -111,6 +112,8 @@ function createTrackerMissionBoardingVoice(options = {}) {
       log(`MISSION_BOARDING_VOICE_FALLBACK effect=${effectId} reason=recipe_missing`);
       return completed(request, { voiceStatus: 'recipe_missing' });
     }
+    const audioSettings = getAudioSettings();
+    if (audioSettings) recipe = { ...recipe, audioEnabled: audioSettings.enabled && audioSettings.paxEnabled, playCue: recipe.playCue && audioSettings.effectsEnabled };
     if (recipe.enabled !== true || (!recipe.prompt && !recipe.fallbackText)) {
       log(`MISSION_BOARDING_VOICE_SKIPPED effect=${effectId} reason=${recipe.skipReason || 'disabled'}`);
       return completed(request, {

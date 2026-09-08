@@ -441,3 +441,18 @@ test('different devices cannot play different jobs concurrently; late mission-en
   assert.equal(service.getNextPlayback(), null);
   assert.equal(service.get('second'), null);
 });
+
+test('a stalled EFB releases its lease for another device without replaying on the failed client', async () => {
+  const service = createTrackerVoiceService({ provider: 'openai', apiKey: 'secret',
+    fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('audio') }) });
+  service.request({ effectId: 'failover-boarding', text: 'Hallo.' });
+  await service.wait('failover-boarding');
+  assert.equal(service.claimPlayback({ effectId: 'failover-boarding', clientId: 'efb' }).claimed, true);
+  service.releasePlayback({ effectId: 'failover-boarding', clientId: 'efb', completed: false, retryable: true });
+  assert.equal(service.getNextPlayback('efb'), null);
+  assert.equal(service.claimPlayback({ effectId: 'failover-boarding', clientId: 'efb' }).claimed, false);
+  assert.equal(service.getNextPlayback('phone').effectId, 'failover-boarding');
+  assert.equal(service.claimPlayback({ effectId: 'failover-boarding', clientId: 'phone' }).claimed, true);
+  service.releasePlayback({ effectId: 'failover-boarding', clientId: 'phone', completed: true });
+  assert.equal(service.getNextPlayback('efb'), null);
+});

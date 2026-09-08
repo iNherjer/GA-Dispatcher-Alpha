@@ -59,6 +59,7 @@ class TrackerProcess extends EventEmitter {
       VFR_MULTITOOL_TRACKER_HEADLESS: '1',
       VFR_MULTITOOL_TRACKER_CHANNEL: runtimeChannel,
       VFR_MULTITOOL_APT_EXECUTION: aptMissionExecutionEnabled ? '1' : '0',
+      VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER: '1',
       VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: desktopControlToken
     };
     if (this.app.isPackaged) {
@@ -175,6 +176,38 @@ class TrackerProcess extends EventEmitter {
       this.addLog(`Tracker konnte nicht beendet werden: ${error.message}`, 'error');
       return { ok: false, message: error.message };
     }
+  }
+
+  audioRequest(kind, payload = {}) {
+    if (!this.child || !this.desktopControlToken) return Promise.reject(new Error('Tracker ist nicht gestartet.'));
+    const effectId = String(payload.effectId || '');
+    let requestPath, body = null;
+    if (kind === 'settings') requestPath = '/api/v1/audio/settings';
+    else if (kind === 'playback') {
+      requestPath = '/api/v1/audio/playback';
+      body = JSON.stringify({ ...payload, deviceId: 'pc' });
+      if (Buffer.byteLength(body) > 4096) return Promise.reject(new Error('Audio-Anfrage ist zu groß.'));
+    } else if (['audio', 'cue'].includes(kind) && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(effectId)) {
+      requestPath = '/api/v1/voice/jobs/' + encodeURIComponent(effectId) + '/' + kind;
+    } else return Promise.reject(new Error('Ungültige Audio-Anfrage.'));
+    return new Promise((resolve, reject) => {
+      const request = http.request({ host: '127.0.0.1', port: this.localControlPort || DEFAULT_EFB_HTTP_PORT,
+        path: requestPath, method: body ? 'POST' : 'GET', headers: {
+          'Content-Type': 'application/json', 'X-GA-Tracker-Desktop-Control': this.desktopControlToken
+        } }, response => {
+        const chunks = []; let length = 0;
+        response.on('error', reject);
+        response.on('data', chunk => { length += chunk.length; if (length > 20 * 1024 * 1024) request.destroy(new Error('Audio-Antwort ist zu groß.')); else chunks.push(chunk); });
+        response.on('end', () => {
+          if (response.statusCode !== 200) { reject(new Error(response.statusCode === 503 ? 'Zentrale Audioausgabe benötigt den Alpha-Tracker mit APT-Ausführung.' : 'Audio-Anfrage fehlgeschlagen (' + response.statusCode + ').')); return; }
+          const bytes = Buffer.concat(chunks);
+          if (kind === 'audio' || kind === 'cue') { resolve(new Uint8Array(bytes)); return; }
+          try { resolve(JSON.parse(bytes.toString('utf8'))); } catch (_) { reject(new Error('Ungültige Audio-Antwort.')); }
+        });
+      });
+      request.setTimeout(10000, () => request.destroy(new Error('Tracker antwortet nicht.')));
+      request.on('error', reject); request.end(body);
+    });
   }
 
   hardResetMission() {

@@ -44,6 +44,7 @@ function voiceOutcome(recipe, values = {}) {
 function createTrackerMissionFarewellVoice(options = {}) {
   const authorityManager = options.authorityManager;
   const voiceService = options.voiceService;
+  const getAudioSettings = typeof options.getAudioSettings === 'function' ? options.getAudioSettings : () => null;
   const getAudioPlaybackCandidates = typeof options.getAudioPlaybackCandidates === 'function'
     ? options.getAudioPlaybackCandidates
     : () => 0;
@@ -55,7 +56,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
     throw new TypeError('mission_farewell_voice_authority_manager_required');
   }
 
-  const resolveRecipe = (request, run) => {
+  const resolveRecipeSource = (request, run) => {
     const plan = object(run.resumeBundle?.executionEffectPlan);
     const effectPlan = object(object(plan.effects)['voice.farewell']);
     const authorityContext = farewellVoiceCore.normalizeContext(request.farewellContext)
@@ -65,6 +66,11 @@ function createTrackerMissionFarewellVoice(options = {}) {
         ? farewellVoiceCore.createRecipeFromContext(authorityContext, request.farewellDynamicContext)
         : null)
       || farewellVoiceCore.normalizeRecipe(effectPlan.recipe);
+  };
+
+  const resolveRecipe = (request, run) => {
+    const recipe = resolveRecipeSource(request, run), settings = getAudioSettings();
+    return recipe && settings ? { ...recipe, audioEnabled: settings.enabled && settings.paxEnabled, playCue: recipe.playCue && settings.effectsEnabled } : recipe;
   };
 
   const voiceRequest = (effectId, recipe, deferPlayback = false) => ({
@@ -151,7 +157,9 @@ function createTrackerMissionFarewellVoice(options = {}) {
         const prepared = voiceService.get?.(preparedEffectId);
         // The touchdown context is deliberately frozen. Manifest handoff and
         // later telemetry must not invalidate an already rendered farewell.
-        if (!prepared || !['pending', 'ready'].includes(prepared.status)) {
+        const needsAudio = prepared?.status === 'ready' && recipe.audioEnabled && !prepared.audioAvailable;
+        if (needsAudio) voiceService.cancel?.(preparedEffectId, 'audio_enabled_after_preload');
+        if (!prepared || needsAudio || !['pending', 'ready'].includes(prepared.status)) {
           voiceService.request(voiceRequest(preparedEffectId, recipe, true));
         }
         voiceEffectId = preparedEffectId;

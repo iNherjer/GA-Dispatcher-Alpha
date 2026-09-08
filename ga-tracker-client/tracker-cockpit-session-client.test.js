@@ -196,7 +196,7 @@ test('an enabled cockpit audio instance claims and completes the next shared tra
       sessionToken: 'token-audio',
       heartbeatAfterMs: 999999
     });
-    if (url.endsWith('/voice/playback/next')) return response({ available: true, job: { effectId: 'run-a:boarding' } });
+    if (url.includes('/voice/playback/next?clientId=')) return response({ available: true, job: { effectId: 'run-a:boarding' } });
     if (url.endsWith('/voice/playback/claim')) return response({ claimed: true });
     if (url.endsWith('/voice/playback/release')) return response({ released: true, completed: true });
     throw new Error(`unexpected:${url}`);
@@ -241,7 +241,7 @@ test('cockpit playback keeps the App order: boarding cue first, then the central
       sessionToken: 'token-cue',
       heartbeatAfterMs: 999999
     });
-    if (url.endsWith('/voice/playback/next')) return response({
+    if (url.includes('/voice/playback/next?clientId=')) return response({
       available: true,
       job: { effectId: 'run-cue:boarding', cue: { id: 'boarding_pax', audioAvailable: true, gain: 0.38 } }
     });
@@ -295,7 +295,7 @@ test('new cockpit with no saved volume is audible and uses decoded cue then spee
     getAudioPlaybackEnabled: () => true,
     fetchRemote: async (url, init = {}) => {
       if (url.endsWith('/cockpit/sessions')) return response({ session: { sessionId: 's', expiresAt: Date.now() + 45000 }, sessionToken: 't', heartbeatAfterMs: 999999 });
-      if (url.endsWith('/voice/playback/next')) return response({ available: true, job: { effectId: 'decoded-job', cue: { audioAvailable: true, gain: 0.38 } } });
+      if (url.includes('/voice/playback/next?clientId=')) return response({ available: true, job: { effectId: 'decoded-job', cue: { audioAvailable: true, gain: 0.38 } } });
       if (url.endsWith('/voice/playback/claim')) return response({ claimed: true });
       if (url.endsWith('/voice/playback/release')) { releases.push(JSON.parse(init.body)); return response({ released: true }); }
       if (/\/(audio|cue)$/.test(url)) return { ok: true, arrayBuffer: async () => new ArrayBuffer(2) };
@@ -332,7 +332,7 @@ test('cue-only playback decodes the cargo sound and never requests a speech trac
     getAudioPlaybackEnabled: () => true, fetchRemote: async (url, init = {}) => {
       urls.push(url);
       if (url.endsWith('/cockpit/sessions')) return response({ session: { sessionId: 's', expiresAt: Date.now() + 45000 }, sessionToken: 't', heartbeatAfterMs: 999999 });
-      if (url.endsWith('/voice/playback/next')) return response({ available: true, job: { effectId: 'cargo-job', kind: 'cargo', audioAvailable: false, cue: { audioAvailable: true, gain: 0.62 } } });
+      if (url.includes('/voice/playback/next?clientId=')) return response({ available: true, job: { effectId: 'cargo-job', kind: 'cargo', audioAvailable: false, cue: { audioAvailable: true, gain: 0.62 } } });
       if (url.endsWith('/voice/playback/claim')) return response({ claimed: true });
       if (url.endsWith('/voice/playback/release')) { releases.push(JSON.parse(init.body)); return response({ released: true }); }
       if (url.endsWith('/cue')) return { ok: true, arrayBuffer: async () => new ArrayBuffer(2) };
@@ -345,4 +345,70 @@ test('cue-only playback decodes the cargo sound and never requests a speech trac
   assert.equal(gains.length, 1);
   assert.equal(gains[0].gain.value, 0.62);
   assert.equal(releases[0].completed, true);
+});
+
+test('remote App plays tracker audio through relay without a loopback session', async t => {
+  const { handleVoiceRelay } = require('./tracker-voice-relay-core');
+  const previousAvailable = globalThis.gaTrackerVoiceRelayAvailable;
+  const previousRequest = globalThis.gaTrackerVoiceRelayRequest;
+  const bytes = Buffer.alloc(80000, 42), calls = [];
+  let completed = false, staticRequests = 0;
+  globalThis.gaTrackerVoiceRelayAvailable = () => true;
+  globalThis.gaTrackerVoiceRelayRequest = async command => {
+    calls.push(command);
+    return handleVoiceRelay({
+      getNextPlayback: () => completed ? null : { effectId: 'remote-job', cue: { audioAvailable: true, assetName: 'boarding_pax.mp3', gain: 0.38 } },
+      claimPlayback: () => ({ claimed: true }),
+      releasePlayback: value => { completed = value.completed; return { released: true }; },
+      getAudio: () => ({ body: bytes, contentType: 'audio/wav' })
+    }, command);
+  };
+  class Context {
+    constructor() { this.state = 'running'; this.destination = {}; }
+    async resume() {}
+    decodeAudioData(buffer, resolve) { assert.deepEqual(Buffer.from(buffer), bytes); resolve({ duration: 1 }); }
+    createGain() { return { gain: {}, connect() {}, disconnect() {} }; }
+    createBufferSource() { const source = { connect() {}, disconnect() {}, stop() {}, start() { queueMicrotask(() => source.onended?.()); } }; return source; }
+  }
+  const client = createClient({ role: 'web', clientId: 'phone', AudioContext: Context, listenForVoice: true,
+    getAudioPlaybackEnabled: () => true, fetchRemote: async (url, init) => {
+      assert.equal(url, 'https://inherjer.github.io/GA-Dispatcher-Alpha/audio-cues/boarding_pax.mp3');
+      assert.equal(init.cache, 'force-cache'); staticRequests++;
+      return { ok: true, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length) };
+    } });
+  t.after(async () => { await client.stop(); globalThis.gaTrackerVoiceRelayAvailable = previousAvailable; globalThis.gaTrackerVoiceRelayRequest = previousRequest; });
+  await client.start(); await client.pollVoice();
+  assert.equal(completed, true);
+  assert.equal(staticRequests, 1);
+  assert.equal(calls.filter(call => call.action === 'cue').length, 0);
+  assert.equal(calls.filter(call => call.action === 'audio').length, 4);
+});
+
+test('a non-progressing HTMLAudio player releases promptly and stops claiming later jobs', async t => {
+  const calls = [];
+  class StalledAudio { constructor() { this.currentTime = 0; } async play() {} pause() {} }
+  const client = createClient({ role: 'efb', clientId: 'stalled-efb', Audio: StalledAudio,
+    listenForVoice: true, getAudioPlaybackEnabled: () => true,
+    fetchRemote: async (url, init = {}) => {
+      const body = init.body ? JSON.parse(init.body) : {};
+      calls.push({ url, body });
+      if (url.endsWith('/cockpit/sessions')) return response({ session: { sessionId: 'stalled', expiresAt: Date.now() + 45000 }, sessionToken: 't' });
+      if (url.includes('/playback/next')) return response({ available: true, job: { effectId: 'stalled-job', kind: 'cargo', cue: { audioAvailable: true } } });
+      if (url.endsWith('/claim')) return response({ claimed: true });
+      return response({ released: true });
+    } });
+  t.after(() => client.stop());
+  await client.start(); await client.pollVoice();
+  await new Promise(resolve => setTimeout(resolve, 5100));
+  assert.ok(calls.some(call => call.url.endsWith('/release') && call.body.retryable === true));
+  const before = calls.filter(call => call.url.endsWith('/claim')).length;
+  await client.pollVoice();
+  assert.equal(calls.filter(call => call.url.endsWith('/claim')).length, before);
+});
+
+test('Web cockpit keeps the client identity used by an earlier relay join', () => {
+  const before = globalThis.gaTrackerAudioRelayClientId;
+  globalThis.gaTrackerAudioRelayClientId = () => 'web-early-join';
+  try { assert.equal(createClient({ role: 'web' }).clientId, 'web-early-join'); }
+  finally { globalThis.gaTrackerAudioRelayClientId = before; }
 });

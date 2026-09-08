@@ -197,6 +197,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     return { ok: true, status: 'pending', sideEffect: true, commandId: id };
   };
   effectRunner = createTrackerMissionEffectRunner({
+    log,
     authorityManager,
     applySystemEvent: request => adapter.applySystemEvent(request),
     handlers: {

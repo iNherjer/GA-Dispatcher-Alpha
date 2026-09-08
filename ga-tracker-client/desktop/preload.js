@@ -4,6 +4,8 @@ const EVENTS = new Set(['state:changed']);
 
 contextBridge.exposeInMainWorld('trackerDesktop', {
   getState: () => ipcRenderer.invoke('app:get-state'),
+  audioRequest: (kind, payload) => ipcRenderer.invoke('tracker:audio', kind, payload),
+  setAudioOutputDeviceId: id => ipcRenderer.invoke('settings:audio-output', id),
   startTracker: () => ipcRenderer.invoke('tracker:start'),
   stopTracker: () => ipcRenderer.invoke('tracker:stop'),
   hardResetMission: () => ipcRenderer.invoke('tracker:hard-reset-mission'),
