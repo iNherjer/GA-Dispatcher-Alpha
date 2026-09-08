@@ -3328,3 +3328,18 @@ Die portable Teststand-EXE enthaelt Node und oeffnet per Windows-Doppelklick
 die Bedienseite. Ihre Ablage ist separat unter LocalAppData/Teststand-v388.
 Binaerformat und Kopierhash sind geprueft; der tatsaechliche Windows-Start und
 hoerbare PC-Ausgabe bleiben der anschliessende Feldtest.
+
+### 08.09.2026 — App-Verladefenster bleibt nach Schliessen zu
+
+App-Hotfix nach v388: Das X blendet das Verladefenster sofort lokal aus,
+auch ohne Tracker. Der bestehende `close_cargo_window`-Intent synchronisiert
+nur noch best effort die Darstellung; er ist keine Voraussetzung fuer das
+Verlassen des Dialogs. Fachliche Missionsaktionen bleiben ACK-gebunden.
+Nachlaufende Renderer duerfen ein geschlossenes Tracker-Fenster nicht erneut
+einblenden. Das automatische Boarding-Oeffnen wird pro Run in der lokalen
+UI-Sitzung gemerkt, unabhaengig von leeren/wechselnden Tracker-Snapshots.
+Bewusstes Oeffnen bleibt moeglich. Standalone-Rendering bleibt unveraendert.
+
+Regressionen fuer Offline-Schliessen, leere/wechselnde Runs, spaete Repaints,
+explizites Oeffnen und unveraenderten Standalone-Pfad bestanden. Dies ist ein
+Web-App-Hotfix (Cache v1715); Runtime v388 und Teststand-EXE bleiben gleich.

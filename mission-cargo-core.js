@@ -4565,6 +4565,9 @@ function _missionCargoConfirmCriticalAction(action = 'cargo-end') {
 }
 
 function _missionCargoRenderDialog(mode = 'load', options = {}) {
+    // Repaints of tracker UI must not reopen a locally dismissed window.
+    if ((window.gaTrackerExecutionHandlesMission?.() === true || window.gaTrackerCargoDialogDismissed === true) && options.explicitOpen !== true
+        && document.getElementById('missionCargoOverlay')?.style.display !== 'flex') return;
     const manifest = _missionCargoEnsureManifest();
     const groundHandlingAllowed = _missionCargoGroundHandlingAllowed();
     const isPickup = mode === 'pickup';
@@ -5249,7 +5252,8 @@ window.openMissionCargoDialog = function(mode = 'load') {
             window.missionComplianceStartArrival?.('cargo-unload-open');
         } catch (_) {}
     }
-    _missionCargoRenderDialog(normalizedMode, { preserveScroll: false });
+    window.gaTrackerCargoDialogDismissed = false;
+    _missionCargoRenderDialog(normalizedMode, { preserveScroll: false, explicitOpen: true });
     _updateMissionRuntimeUi();
     return true;
 };
@@ -5281,11 +5285,19 @@ window.openMissionGroundCargoDialog = function() {
 };
 
 window.closeMissionCargoDialog = function(options = {}) {
-    if (options.trackerProjection !== true && window.gaTrackerExecutionHandlesMission?.()) {
-        return window.gaTrackerExecutionSubmitIntent?.('close_cargo_window', {}, { silent: true });
-    }
     const overlay = document.getElementById('missionCargoOverlay');
     if (overlay) overlay.style.display = 'none';
+    if (window.gaTrackerExecutionHandlesMission?.() || options.trackerProjection === true) {
+        window.gaTrackerCargoDialogDismissed = true;
+        const control = window.gaTrackerExecutionControl || window.lastTrackerMissionAuthority?.activeRun;
+        const key = control?.runId ? `${control.missionId || ''}:${control.runId}` : '';
+        const seen = window.gaTrackerCargoAutoOpenedRuns || [];
+        if (key && !seen.includes(key)) window.gaTrackerCargoAutoOpenedRuns = [...seen, key].slice(-32);
+        if (options.trackerProjection !== true && window.liveTrackerConnected === true) {
+            // Closing UI is local; shared presentation is best effort, never a mission gate.
+            try { Promise.resolve(window.gaTrackerExecutionSubmitIntent?.('close_cargo_window', {}, { silent: true })).catch(() => {}); } catch (_) {}
+        }
+    }
 };
 
 function _missionCargoActionDialogMode(options = {}, fallback = 'load') {

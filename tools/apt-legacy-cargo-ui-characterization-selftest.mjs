@@ -159,7 +159,7 @@ function renderLegacy(scenario, useCanonicalCore = false, trackerManaged = true)
         payloadPlan: null,
         error: null
     };
-    context._missionCargoRenderDialog(scenario.mode, { skipPayloadRefresh: true, preserveScroll: false });
+    context._missionCargoRenderDialog(scenario.mode, { skipPayloadRefresh: true, preserveScroll: false, explicitOpen: true });
     return cleanText(overlay?.innerHTML);
 }
 

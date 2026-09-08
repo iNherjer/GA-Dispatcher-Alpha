@@ -168,17 +168,17 @@ vm.runInContext(between(sync, 'function _missionAuthorityRuntimeNeedsLateBind()'
 assert.equal(lateBind._missionAuthorityRuntimeNeedsLateBind(), false);
 assert.equal(lateBind.missionAuthorityLateBindPending, false);
 
-// A local close is only an intent; the shared projection actually hides the window.
+// Closing presentation is immediate; the shared close is best effort.
 const cargoOverlay = { style: { display: 'flex' } }, closeIntents = [];
 const closeContext = { document: { getElementById: () => cargoOverlay }, window: {
-  gaTrackerExecutionHandlesMission: () => true,
+  gaTrackerExecutionHandlesMission: () => true, liveTrackerConnected: true,
   gaTrackerExecutionSubmitIntent: (...args) => closeIntents.push(args)
 } };
 vm.createContext(closeContext);
 vm.runInContext(between(cargo, 'window.closeMissionCargoDialog =', 'function _missionCargoActionDialogMode('), closeContext);
 closeContext.window.closeMissionCargoDialog();
 assert.equal(closeIntents[0][0], 'close_cargo_window');
-assert.equal(cargoOverlay.style.display, 'flex');
+assert.equal(cargoOverlay.style.display, 'none');
 closeContext.window.closeMissionCargoDialog({ trackerProjection: true });
 assert.equal(cargoOverlay.style.display, 'none');
 assert.equal(closeIntents.length, 1);
@@ -186,7 +186,7 @@ closeContext.window.gaTrackerExecutionHandlesMission = () => false;
 cargoOverlay.style.display = 'flex';
 closeContext.window.closeMissionCargoDialog();
 assert.equal(cargoOverlay.style.display, 'none');
-console.log('PASS observer does not reacquire and cargo close waits for shared projection; standalone stays local.');
+console.log('PASS observer does not reacquire; close hides immediately and synchronizes when connected.');
 
 // Apply a newly received close before either the unchanged-snapshot fast path
 // or the normal manifest projection can replace the previous control.
@@ -204,3 +204,30 @@ appProjection.window.gaTrackerExecutionControl = closedControl;
 appProjection._applyTrackerExecutionControl(closedControl);
 assert.equal(projectedCloses, 1);
 console.log('PASS App applies the central close on the first new snapshot, exactly once.');
+
+// Empty tracker heartbeats and alternating run projections must not reopen boarding.
+appProjection.window.gaTrackerExecutionControl = null;
+const openControl = { missionId: 'm', runId: 'new-run', phase: 'boarding', executionAuthority: 'tracker' };
+assert.equal(appProjection._applyTrackerExecutionControl(openControl), true);
+appProjection.window.gaTrackerExecutionControl = null;
+assert.equal(appProjection._applyTrackerExecutionControl(openControl), false);
+assert.equal(appProjection._applyTrackerExecutionControl({ ...openControl, runId: 'other-run' }), true);
+assert.equal(appProjection._applyTrackerExecutionControl(openControl), false);
+closeContext.window.liveTrackerConnected = false;
+closeContext.window.gaTrackerExecutionHandlesMission = () => true;
+cargoOverlay.style.display = 'flex';
+closeContext.window.closeMissionCargoDialog();
+assert.equal(cargoOverlay.style.display, 'none');
+assert.equal(closeIntents.length, 1, 'offline close does not wait for a tracker');
+const repaint = { window: { gaTrackerExecutionHandlesMission: () => true }, document: { getElementById: () => cargoOverlay } };
+vm.createContext(repaint);
+vm.runInContext(between(cargo, 'function _missionCargoRenderDialog(', '    const manifest = _missionCargoEnsureManifest();') + "return 'rendered';\n}", repaint);
+assert.equal(repaint._missionCargoRenderDialog(), undefined);
+assert.equal(repaint._missionCargoRenderDialog('load', { explicitOpen: true }), 'rendered');
+repaint.window.gaTrackerExecutionHandlesMission = () => false;
+assert.equal(repaint._missionCargoRenderDialog(), 'rendered', 'standalone rendering remains unchanged');
+console.log('PASS offline close, late repaint, repeated/alternating boarding snapshots, explicit reopen and standalone.');
+
+repaint.window.gaTrackerCargoDialogDismissed = true;
+assert.equal(repaint._missionCargoRenderDialog(), undefined, 'an empty tracker snapshot cannot undo local dismissal');
+assert.equal(repaint._missionCargoRenderDialog('load', { explicitOpen: true }), 'rendered');

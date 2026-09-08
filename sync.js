@@ -2774,8 +2774,14 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     if (control.cargoWindowCloseId && control.cargoWindowCloseId !== previousControl?.cargoWindowCloseId) {
         window.closeMissionCargoDialog?.({ trackerProjection: true });
     }
-    const openBoardingDialog = !control.cargoWindowCloseId && control.phase === 'boarding' && (previousControl?.phase !== 'boarding'
-        || previousControl?.runId !== (control.runId || activeRun?.runId));
+    const cargoRunKey = `${missionId}:${control.runId || activeRun?.runId || ''}`;
+    const cargoSeenRuns = window.gaTrackerCargoAutoOpenedRuns || [];
+    const openBoardingDialog = !control.cargoWindowCloseId && control.phase === 'boarding'
+        && !cargoSeenRuns.includes(cargoRunKey);
+    // Keep presentation history across disconnects/empty snapshots and competing trackers.
+    if (control.phase === 'boarding' && !cargoSeenRuns.includes(cargoRunKey)) {
+        window.gaTrackerCargoAutoOpenedRuns = [...cargoSeenRuns, cargoRunKey].slice(-32);
+    }
     const projectionSignature = JSON.stringify({
         missionId,
         runId: control.runId || activeRun?.runId || '',
