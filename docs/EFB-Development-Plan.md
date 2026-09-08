@@ -3300,3 +3300,31 @@ hoerbaren Audiolauf. Desktop-/Mobil-Browsertest inklusive UTF-8 bestanden.
 
 Bedienung, Grenzen und Befehle: `ga-tracker-client/teststand/README.md`.
 Keine Veroeffentlichung oder Versionsaenderung mit diesem Testwerkzeug.
+
+### 08.09.2026 — Rollout v388 und Windows-Teststand
+
+Origin-Release-Commit `1275d73d3`, Runtime-Release `v388`, EFB-Assetrevision
+38801. Alpha verwendet die heruntergeladene und gegen den Build verifizierte
+Runtime mit 50.549.794 Bytes und SHA-256
+`47c695e64588d261190ac0333eeb04b19207870e520bfaf4d286dd2551a2c875`.
+454 Regressionstests, Audio-Menue-/Geraetewechseltest und acht isolierte
+Worker-Tests bestanden. Der App-Cache wird mit dem Kanal-Push v1714.
+
+Desktop `tracker-desktop-v1.6.6` mit Installer, Blockmap und latest.yml
+veroeffentlicht. Installer-Download und ASAR-Inhalt verifiziert. Der Origin-
+Downloadlink zeigt auf diesen Installer. Der globale Desktop-Autoupdatezeiger
+bleibt bis zum Windows-Installations-/Start-/Update-Nachweis unveraendert;
+Alpha-Tester installieren 1.6.6 manuell fuer die neue PC-Audioausgabe.
+Stable-Runtime und EFB-Community-Paket bleiben unveraendert.
+
+Cloudflare `ga-proxy` Version `025e87db-eebd-47ec-9f0a-82653392036a` und
+`ga-relay` Version `dcd1e6e5-7be4-48f3-8b30-7593801516b7` sind ausgerollt.
+Der neue Settings-Endpunkt fordert Pilot/PIN; der Relay meldet ready.
+Nicht zugehoerige lokale Admin-Aenderungen wurden nicht mit ausgerollt.
+
+`GA-Mission-Teststand-v388.exe` und Desktop-Installer liegen mit Startanleitung
+und Hashliste in OneDrive/GA Dispatcher Test Tools/Mission-Teststand-v388.
+Die portable Teststand-EXE enthaelt Node und oeffnet per Windows-Doppelklick
+die Bedienseite. Ihre Ablage ist separat unter LocalAppData/Teststand-v388.
+Binaerformat und Kopierhash sind geprueft; der tatsaechliche Windows-Start und
+hoerbare PC-Ausgabe bleiben der anschliessende Feldtest.
