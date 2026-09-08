@@ -3128,3 +3128,14 @@ AKTUELL-Ortsreferenz und NEXT-LEG-Frequenz/Gradzeichen angeglichen. Bestehende
 explizite Schriftgroessen bleiben erhalten; Standard stellt CSS-Regeln wieder
 her. 378 Node-Tests und 15 Browservergleiche dieser Kartenkomponenten gruen.
 Vollstaendige MSFS-/Coherent-/Mehrgeraete-Pruefung weiterhin im Simulator.
+
+
+### 08.09.2026 — Alpha-Rollout v387
+
+Release v387 veroeffentlicht (Commit 9d7726a5a), EFB-Assetrevision 38701.
+Alpha-Kanal auf die verifizierte EXE mit 50.479.960 Bytes und SHA-256
+`f30b589087b0cc006b3405fd707741d1e1002e82398ba7b3027f4a45687926d2`
+umgestellt. Origin-App-Cache v1712. Stable-Runtime v356 und EFB-Community-
+Package bleiben unveraendert; EFB-Host-UI kommt aus dem neuen Tracker.
+378 Tests einschliesslich aktualisierter Versionspruefungen sowie die zuvor
+bestandenen UI-/App-Differentialvergleiche bilden den Release-Nachweis.
