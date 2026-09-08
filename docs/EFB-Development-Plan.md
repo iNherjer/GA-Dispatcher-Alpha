@@ -3487,3 +3487,19 @@ Desktop bleibt 1.6.7; kein Worker- oder Community-Package-Update erforderlich.
 Rollout v391: Code-Commit `011df5f7c`, EXE-Upload verifiziert, 50553927 Bytes,
 SHA-256 `34092deed8d4f2a3a19be70046bdd93d4bcb38bbe85d79c43e941fc10ac15aca`.
 Alpha-Zeiger folgt diesem Asset; finaler App-Cache v1722. Stable unveraendert.
+
+### Lokale Optimierung: Boarding-/Begruessungs-Voice vorladen
+
+Nach akzeptiertem prepare_mission startet der Tracker nun best-effort die
+Text-/TTS-Erzeugung fuer den kombinierten Boarding-/Begruessungsblock.
+Die bestehende Voice-Service-Warteschlange verwendet dafuer einen pro Run
+stabilen boarding-preload-Auftrag mit deferPlayback. Der Intent-ACK wartet
+nicht auf Textgen, TTS oder Wiedergabe. Am bisherigen voice.boarding-Effekt
+wird ein passender pending/ready-Auftrag wiederverwendet und aktiviert.
+Der vorhandene Request-Fingerprint verhindert Wiederverwendung bei geaenderten
+Stimmen, Audio-Einstellungen oder Startkontext; dann wird der normale aktuelle
+Effekt erzeugt. Ohne Preload bleibt der bisherige Pfad erhalten.
+Standalone-Ablauf, Unterschrift, Boarding- und Start-Gates bleiben unveraendert.
+38 Boarding-Voice-/Runtime-Tests bestanden, darunter Vorbereitung ohne Warten,
+Reuse einer laufenden Generierung und Verwerfen eines unpassenden Preloads.
+Rollout vorbereitet als Tracker Alpha v392; App-Cache v1723.

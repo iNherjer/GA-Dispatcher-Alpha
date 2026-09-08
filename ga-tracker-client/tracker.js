@@ -81,8 +81,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v391';
-const TRACKER_VERSION_CODE = 391;
+const TRACKER_VERSION = 'v392';
+const TRACKER_VERSION_CODE = 392;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4872,6 +4872,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     authorityManager: missionAuthorityManager,
     enabled: TRACKER_APT_EXECUTION_ENABLED,
     playBoardingVoice: missionBoardingVoice.dispatch,
+    prepareBoardingVoice: missionBoardingVoice.prepare,
     playFarewellVoice: missionFarewellVoice.dispatch,
     playComplianceVoice: missionComplianceVoice.dispatch,
     flightLog: trackerFlightLogStore,

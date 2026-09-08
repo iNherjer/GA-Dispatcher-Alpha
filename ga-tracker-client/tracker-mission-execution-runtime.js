@@ -387,6 +387,12 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     }
     const result = adapter.executeIntent(request);
     if (!result.ok) return result;
+    if (request.intent === 'prepare_mission' && typeof options.prepareBoardingVoice === 'function') {
+      // Preparation is best-effort and must never delay the intent ACK.
+      Promise.resolve().then(() => options.prepareBoardingVoice({
+        missionId: request.missionId, runId: request.runId, livePosition: getSimulatorPosition()
+      })).catch(error => log(`MISSION_BOARDING_PREWARM_ERROR error=${error?.message || error}`));
+    }
     if (String(request.intent || request.action || '').trim().toLowerCase() === 'confirm_unload') {
       autoCloseAfterUnloadRunId = String(result.activeRun?.runId || authorityManager.getActiveRun()?.runId || '');
     }

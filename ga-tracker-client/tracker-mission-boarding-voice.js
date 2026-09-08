@@ -58,7 +58,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
 
   const cargoAudio = createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates, getAudioSettings });
   const dispatch = async (request = {}) => {
-    const effectId = cleanString(request?.effect?.effectId || request.commandId, 220);
+    let effectId = cleanString(request?.effect?.effectId || request.commandId, 220);
     const run = authorityManager.getActiveRun({ includeBundle: true });
     if (!run?.missionId || !run?.runId) return completed(request, { voiceStatus: 'no_active_run' });
     if (run.executionAuthority !== 'tracker') return completed(request, { voiceStatus: 'web_authority' });
@@ -139,8 +139,13 @@ function createTrackerMissionBoardingVoice(options = {}) {
         && current.state.phase !== 'closing');
     };
     try {
-      voiceService.request({
-        deferPlayback: cancelAtMissionEnd,
+      const preparedId = `boarding-preload:${run.runId}`;
+      const prepared = request.effect?.type === 'voice.boarding' ? voiceService.get?.(preparedId) : null;
+      const usePrepared = request.prepareOnly === true || (prepared && ['pending', 'ready'].includes(prepared.status));
+      const originalEffectId = effectId;
+      if (usePrepared) effectId = preparedId;
+      const voiceRequest = {
+        deferPlayback: request.prepareOnly === true || usePrepared || cancelAtMissionEnd,
         ...(cancelAtMissionEnd ? { isPlaybackAllowed } : {}),
         effectId,
         kind: recipe.kind || 'boarding',
@@ -154,7 +159,21 @@ function createTrackerMissionBoardingVoice(options = {}) {
         ttsHedgeEnabled: recipe.ttsHedgeEnabled,
         ttsHedgeDelayMs: recipe.ttsHedgeDelayMs,
         synthesizeAudio: recipe.audioEnabled === true
-      });
+      };
+      try {
+        voiceService.request(voiceRequest);
+      } catch (error) {
+        if (!usePrepared || request.prepareOnly || error?.code !== 'effect_id_conflict') throw error;
+        // A changed speaker, setting or departure context invalidates preloading.
+        voiceService.cancel?.(preparedId, 'boarding_preload_stale');
+        effectId = originalEffectId;
+        voiceService.request({ ...voiceRequest, effectId, deferPlayback: false });
+      }
+      if (request.prepareOnly) {
+        log(`MISSION_BOARDING_VOICE_PREWARM effect=${effectId}`);
+        return completed(request, { voiceStatus: 'preparing', sideEffect: true });
+      }
+      if (usePrepared && effectId === preparedId) voiceService.activatePlayback?.(effectId);
       let generationTimer = null;
       let endMonitor = null;
       try {
@@ -249,7 +268,8 @@ function createTrackerMissionBoardingVoice(options = {}) {
     });
   };
 
-  return Object.freeze({ dispatch });
+  return Object.freeze({ dispatch, prepare: request => dispatch({ ...request, prepareOnly: true,
+    effect: { type: 'voice.boarding' } }) });
 }
 
 module.exports = { createTrackerMissionBoardingVoice };

@@ -219,3 +219,45 @@ test('tracker audio settings override a muted App recipe without changing the st
   assert.equal(requests[0].cue, null);
   assert.equal(JSON.stringify(source), original);
 });
+
+test('boarding prewarm generates silently and reuses the same run job at playback', async () => {
+  const jobs = new Map(), activated = [], waited = []; let generated = 0;
+  const service = {
+    publicState: () => ({configured:true}), get: id => jobs.get(id),
+    request: value => {
+      if (!jobs.has(value.effectId)) { generated++; jobs.set(value.effectId, {...value,status:'pending'}); }
+      return jobs.get(value.effectId);
+    },
+    activatePlayback: id => activated.push(id),
+    wait: async id => { waited.push(id); return {...jobs.get(id),status:'ready',audioAvailable:true,text:'Willkommen.'}; }
+  };
+  const handler = createTrackerMissionBoardingVoice({authorityManager:{getActiveRun:()=>run()},voiceService:service});
+  await handler.prepare(request());
+  await handler.prepare(request());
+  assert.equal(generated,1);
+  assert.deepEqual(activated,[]);
+  assert.deepEqual(waited,[],'preparation does not wait for generation or playback');
+  assert.equal(jobs.get('boarding-preload:run-a').deferPlayback,true);
+  const result = await handler.dispatch(request());
+  assert.equal(result.ok,true);
+  assert.equal(generated,1,'boarding must reuse the in-flight generation');
+  assert.deepEqual(activated,['boarding-preload:run-a']);
+  assert.deepEqual(waited,['boarding-preload:run-a']);
+});
+
+test('changed boarding recipe discards prewarm and uses the current effect', async () => {
+  const sent = [], cancelled = []; let prepared = false;
+  const service = {
+    publicState:()=>({configured:true}),get:()=>prepared ? {status:'ready'} : null,
+    request: value => { if (prepared && value.effectId.startsWith('boarding-preload:')) throw Object.assign(new Error('changed'),{code:'effect_id_conflict'}); sent.push(value);prepared=true; },
+    cancel:(id)=>cancelled.push(id),
+    wait:async id=>({effectId:id,status:'ready',audioAvailable:true,text:'Aktueller Text.'})
+  };
+  const handler=createTrackerMissionBoardingVoice({authorityManager:{getActiveRun:()=>run()},voiceService:service});
+  await handler.prepare(request());
+  const result=await handler.dispatch(request());
+  assert.equal(result.ok,true);
+  assert.deepEqual(cancelled,['boarding-preload:run-a']);
+  assert.equal(sent[1].effectId,'mfx-boarding');
+  assert.equal(sent[1].deferPlayback,false);
+});

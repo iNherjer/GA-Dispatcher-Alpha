@@ -956,3 +956,19 @@ test('cargo close is a shared run event and changes no mission flags or manifest
   assert.deepEqual(after.manifest, before.manifest);
   assert.equal(manager.getPublicSnapshot().execution.cargoWindowCloseId, after.cargoWindowCloseId);
 });
+
+test('prepare mission prewarms boarding without waiting for voice generation', async t => {
+  const manager=committedManager(t);const calls=[];
+  const runtime=createTrackerMissionExecutionRuntime({authorityManager:manager,enabled:true,
+    prepareBoardingVoice:request=>{calls.push(request);return new Promise(()=>{});} });
+  runtime.attachSimulator({getLivePosition:()=>({lat:48.3,lon:8.5,alt:500,hdg:90}),
+    dispatchCommand:()=>({ok:true,status:'completed',sideEffect:false})});
+  const run=manager.getActiveRun();
+  const result=await runtime.executeIntent({commandId:'prepare-prewarm',intent:'prepare_mission',
+    missionId:run.missionId,runId:run.runId,expectedRevision:run.revision,deferEffects:true});
+  await Promise.resolve();
+  assert.equal(result.ok,true);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].runId,run.runId);
+  assert.equal(calls[0].livePosition.lat,48.3);
+});
