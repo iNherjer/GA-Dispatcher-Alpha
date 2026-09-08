@@ -3377,3 +3377,24 @@ Validierung: deterministische Queue-/Audio-Fehler- und Uhrversatztests,
 und Voice-Wiedergabe im lokalen Chromium, mobile Menubreite und bestehende
 Standalone-/EFB-Characterization. Reales iPhone/Safari und MSFS sind hier
 nicht als bestanden behauptet. Dieser Eintrag ist kein Release-Nachweis.
+
+
+### Rollout 08.09.2026: Tracker v389 / Desktop 1.6.7
+
+Der Smartphone-Fix ist unter Commit `da9f205d6` versioniert, Runtime-Tag
+`v389`, EFB-Assetrevision `38901`. Alpha-Runtime: 50552372 Bytes,
+SHA-256 `53846b9f21b5eee6604bdff4a565594f0acbb1a892794a11a7867b6320b80fe2`.
+Desktop-Tag `tracker-desktop-v1.6.7`: Installer 100270046 Bytes,
+SHA-256 `f81795169f81052a5b7c7f044f2aa5e6dbd6342f4e956f15250f4c6f012b293c`.
+Installer, Blockmap und latest.yml bilden ein gemeinsames Release.
+
+163 Release-Tests bestanden. Desktop-Build verwendet `signExecutable=false`
+statt `signAndEditExecutable=false`: Icon und Version werden eingebettet;
+PE-Ressourcen fuer 1.6.7 und sieben Icons wurden nach dem Build gelesen.
+Der Offline-Audiotest simuliert jetzt eine vollstaendig unterbrochene
+Verbindung (auch next/claim/release), statt nur renew zu unterbrechen.
+
+Origin-Downloadbutton zeigt auf den manuellen Alpha-Installer 1.6.7;
+App-Cache v1717. Runtime-Stable und globaler Desktop-Autoupdate-Zeiger bleiben
+unveraendert. Ein echter Windows-Installations-/Start-/Update-Test sowie der
+iPhone-/MSFS-Feldtest stehen weiterhin aus. Kein Cloudflare-Deployment noetig.
