@@ -248,3 +248,17 @@ reconnect.missionSceneReconnectResyncPending = true;
 reconnect._reconcileMissionSceneOnTrackerReconnect({ trackerMissionAuthority: { activeRun: null } });
 assert.equal(reconnectClears, 1, 'standalone cleanup still runs after authority is known');
 console.log('PASS reconnect waits for authority; tracker scenes remain intact, standalone cleanup remains available.');
+
+// Missing capabilities during reconnect must not select the legacy start path.
+const startMode = {window:{simModeActive:false}, missionExecutionRequestedMissionId:null,
+  _activeMissionRuntimeId:()=> 'm', _trackerSupportsMissionIntents:()=>true};
+vm.createContext(startMode);
+vm.runInContext(between(sync, 'function _missionStartUsesTrackerExecution(', 'async function _ensureTrackerExecutionAuthority('), startMode);
+assert.equal(startMode._missionStartUsesTrackerExecution(),true);
+startMode._trackerSupportsMissionIntents=()=>false;
+assert.equal(startMode._missionStartUsesTrackerExecution(),true);
+startMode._activeMissionRuntimeId=()=> 'other';
+assert.equal(startMode._missionStartUsesTrackerExecution(),false);
+startMode.window.simModeActive=true;
+assert.equal(startMode._missionStartUsesTrackerExecution(),false);
+console.log('PASS tracker start retains execution mode across a capability gap.');

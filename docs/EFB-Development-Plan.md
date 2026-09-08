@@ -3408,3 +3408,39 @@ Origin-Downloadbutton zeigt auf den manuellen Alpha-Installer 1.6.7;
 App-Cache v1717. Runtime-Stable und globaler Desktop-Autoupdate-Zeiger bleiben
 unveraendert. Ein echter Windows-Installations-/Start-/Update-Test sowie der
 iPhone-/MSFS-Feldtest stehen weiterhin aus. Kein Cloudflare-Deployment noetig.
+
+### Lokaler Fix 08.09.2026: Preflight-Handoff und Smartphone-Audio-Lebenszyklus
+
+Der Feldtest 17:54–17:59 lief nach gescheiterter Uebergabe mit Web-Authority:
+Ein ereignisloses Planned-Journal hielt einen alten Payload-Outcome fest und
+scheiterte an `legacy:payload`. Vor dem ersten Runtime-Event wird dieser Seed
+bei geaendertem Payload aus dem aktuellen Preflight-Snapshot neu aufgebaut.
+Journale mit Runtime-Ereignissen behalten ihre Driftpruefung. Der Start merkt
+sich die angeforderte Tracker-Ausfuehrung pro Mission ueber eine temporaere
+Capability-Luecke; ein expliziter neuer Handshake ohne Opt-in hebt dies auf.
+
+Der App-Audioclient entsperrt den ausgewaehlten Ausgabeplayer synchron im
+Touch-/Click-Handler auch vor der Authority-Uebergabe. Nach pagehide/pageshow
+wird der beendete Player neu erstellt, mit genau einem Polling-Zyklus.
+Verspaetete HTTP-Antworten aus dem vorherigen Lebenszyklus werden verworfen.
+Standalone-Missionsregeln und der alte Passenger-Voice-Player bleiben unveraendert.
+
+Nachweise: 8 Journal-, 11 Authority-Handoff- und 2 Audio-Client-Tests bestanden;
+Interface-Regressionssuite und Chromium-Audio-UI-Selbsttest bestanden.
+Der neue Handoff-Test geht vom geaenderten Payload bis zum akzeptierten
+Tracker-Prepare. Ein realer Safari-/PWA-Hoertest steht aus; das beobachtete
+fehlende onended im alten App-Player ist dadurch nicht als reproduziert oder
+abschliessend behoben nachgewiesen. Diese Aenderungen sind noch kein Rollout.
+
+### Release-Kandidat 08.09.2026: v390 / Smartphone-Audio-Menue
+
+Runtime v390, EFB-Webassetrevision 39001, App-Cache v1719 enthalten den
+Preflight-Handoff-Fix und die Smartphone-Audio-Lebenszykluskorrektur.
+Der Audio-Menue-Test verwendet jetzt die echten App-Styles und prueft den
+gesamten Rahmen: der Test reproduzierte Overflow durch 100%-Labels mit
+Padding, intrinsisch breite Selects sowie eine 100%-Master-Checkbox.
+Gezielte Menu-CSS korrigiert Box-Sizing, Select-Minimalbreite, Textumbruch
+und Checkbox-Groessen, ohne horizontales Abschneiden von Inhalten.
+38 Core-/Authority-/Audio-/EFB-Tests, die Interface-Regressionssuite sowie
+der Chromium-Audio-UI-Test bestanden. Safari-Hoertest bleibt Feldtest.
+Desktop 1.6.7 und Stable bleiben unveraendert; kein Worker-Deployment.

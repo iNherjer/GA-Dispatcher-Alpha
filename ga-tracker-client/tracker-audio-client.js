@@ -10,7 +10,7 @@
       root.localStorage.setItem('ga_audio_device_id_v1', deviceId);
     }
   } catch (_) { deviceId = cockpit.clientId; }
-  var state = null, enabled = false, menu = null, saving = Promise.resolve(), closed = false, lastError = '', volumeTimer = null;
+  var state = null, enabled = false, menu = null, saving = Promise.resolve(), closed = false, lastError = '', volumeTimer = null, tickTimer = null, lifecycleEpoch = 0;
   var base = cockpit.baseUrl, captionEffect = '';
   function caption(job) {
     if (!job || captionEffect === job.effectId) return;
@@ -62,12 +62,13 @@
     return response.arrayBuffer();
   }
   function message(text) { var item = root.document.getElementById('gaAudioOutputStatus'); if (item) item.textContent = text; }
-  var player = root.GATrackerAudioPlayer.createPlayer({ deviceId: deviceId, clientId: cockpit.clientId,
+  function createPlayer() { return root.GATrackerAudioPlayer.createPlayer({ deviceId: deviceId, clientId: cockpit.clientId,
     request: request, fetchClip: fetchClip, AudioContext: root.AudioContext || root.webkitAudioContext,
     onError: function (error) { lastError = error; message(error); }, onPlayback: function (job) {
       if (job) lastError = '';
       if (job) caption(job);
-    } });
+    } }); }
+  var player = createPlayer();
   function isActive() { return !!state && (local || (typeof root.gaTrackerExecutionHandlesMission === 'function' && root.gaTrackerExecutionHandlesMission())); }
   function apply(value) {
     if (value && value.schema !== 'ga.audio-control.v1') return;
@@ -141,16 +142,38 @@
   }
   root.gaTrackerAudioClient = { active: isActive, deviceId: deviceId, apply: apply, change: change };
   root.addEventListener('ga:tracker-audio-state', function (event) { apply(event.detail); });
-  root.addEventListener('pointerdown', function () { if (isActive() && state.target.deviceId === deviceId) player.unlock().then(function () { player.pump(); }); }, true);
+  function unlockFromGesture() {
+    // Unlock on the initiating touch, before an asynchronous mission handoff.
+    if (!closed && state && state.target.deviceId === deviceId) {
+      player.unlock().then(function () { if (isActive()) player.pump(); });
+    }
+  }
+  root.addEventListener('pointerdown', unlockFromGesture, true);
+  root.addEventListener('touchend', unlockFromGesture, true);
+  root.addEventListener('click', unlockFromGesture, true);
   async function tick() {
     if (closed) return;
+    var epoch = lifecycleEpoch;
     if (local) {
-      try { var response = await root.fetch(base + '/audio/settings', { cache: 'no-store' }); if (response.ok) apply((await response.json()).audio); else apply(null); } catch (_) { apply(null); }
+      try {
+        var response = await root.fetch(base + '/audio/settings', { cache: 'no-store' });
+        var value = response.ok ? (await response.json()).audio : null;
+        if (!closed && epoch === lifecycleEpoch) apply(value);
+      } catch (_) { if (!closed && epoch === lifecycleEpoch) apply(null); }
     } else {
       enabled = isActive(); player.update(enabled ? state : null); render();
     }
-    if (!closed) setTimeout(tick, 1000);
+    if (!closed && epoch === lifecycleEpoch) tickTimer = setTimeout(tick, 1000);
   }
-  root.addEventListener('pagehide', function () { closed = true; clearTimeout(volumeTimer); player.stop(); }, { once: true });
+  root.addEventListener('pagehide', function () {
+    closed = true; lifecycleEpoch++; clearTimeout(volumeTimer); clearTimeout(tickTimer);
+    player.stop();
+  });
+  root.addEventListener('pageshow', function () {
+    if (!closed) return;
+    closed = false;
+    player = createPlayer();
+    tick();
+  });
   tick();
 })(typeof window !== 'undefined' ? window : {});

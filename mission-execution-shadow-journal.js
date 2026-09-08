@@ -119,7 +119,11 @@
         if (!journal || !desired) return null;
         var replay = core.replay(executionBundle(journal));
         if (!replay.ok) return null;
-        if (desired.phase === 'planned' && replay.state.phase !== 'planned') {
+        // Before the first runtime event, the seed follows current preflight
+        // payload readings. An old idle/error outcome must not poison handoff.
+        // Once events exist, retain the replay and its drift checks.
+        if (desired.phase === 'planned' && (replay.state.phase !== 'planned'
+            || (journal.events.length === 0 && !same(replay.state.payload, desired.payload)))) {
             journal = create(resumeBundle);
             replay = core.replay(executionBundle(journal));
             if (!journal || !replay.ok) return null;

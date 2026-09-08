@@ -627,3 +627,19 @@ test('persistence failure cannot acknowledge or retain a prepared handoff', () =
   assert.equal(manager.getActiveRun().executionHandoff, null);
   assert.equal(logs.some(line => line.includes('MISSION_AUTHORITY_PERSIST_ERROR disk-full')), true);
 });
+
+test('refreshed preflight payload seed can prepare tracker authority', t => {
+  const journalCore = require('../mission-execution-shadow-journal.js');
+  const before = aptResumeBundle();
+  before.runtime.missionCargoPayloadOutcome = { status: 'warning', error: 'old_read_failed' };
+  const journal = journalCore.create(before);
+  const current = aptResumeBundle();
+  current.runtime.missionCargoPayloadOutcome = { status: 'ok' };
+  const advanced = journalCore.advance(journal, current, { occurredAt: 1200 });
+  current.executionReplay = advanced.bundle;
+  current.execution = executionCore.createReplayShadowEnvelope(advanced.bundle, { sourceRevision: 1, legacyBundle: current });
+  const manager = createFixture(t).createManager();
+  const { acquired, replay } = acquireApt(manager, current);
+  assert.ok(acquired.activeRun.executionStateHash, 'handoff seed must include a validated execution hash');
+  assert.equal(manager.prepareExecutionAuthority(prepareRequest(acquired.activeRun, replay)).ok, true);
+});

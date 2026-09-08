@@ -24,7 +24,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (pathname === '/app') {
     res.setHeader('Content-Type','text/html; charset=utf-8');
-    res.end(`<html><body style="background:#121212;color:white;width:280px;font:14px Arial">${menu}<script>window.legacyCalls=0;window.awmSetVolume=window.paxVoiceSetEnabled=window.paxVoiceSetAudioEffectsEnabled=function(){window.legacyCalls++};window.gaCockpitSessionClient={role:'efb',clientId:crypto.randomUUID(),baseUrl:location.origin+'/api/v1'};</script><script src="/ga-tracker-client/tracker-audio-player.js"></script><script src="/ga-tracker-client/tracker-audio-client.js"></script></body></html>`); return;
+    res.end(`<html><head><link rel="stylesheet" href="/styles.css"></head><body style="background:#121212;color:white;width:280px;font:14px Arial">${menu}<script>window.legacyCalls=0;window.awmSetVolume=window.paxVoiceSetEnabled=window.paxVoiceSetAudioEffectsEnabled=function(){window.legacyCalls++};window.gaCockpitSessionClient={role:'efb',clientId:crypto.randomUUID(),baseUrl:location.origin+'/api/v1'};</script><script src="/ga-tracker-client/tracker-audio-player.js"></script><script src="/ga-tracker-client/tracker-audio-client.js"></script></body></html>`); return;
   }
   if (pathname === '/desktop') {
     let html = fs.readFileSync(path.join(root,'ga-tracker-client/desktop/ui/index.html'),'utf8');
@@ -64,6 +64,7 @@ try {
   assert.ok((await phone.locator('#mapVoiceMenu').innerText()).includes('🏔️'));
   assert.ok((await phone.locator('#mapVoiceMenu').innerText()).includes('🧑‍✈️'));
   await phone.setViewportSize({width:440,height:894});
+  assert.ok(await phone.locator('#mapVoiceMenu').evaluate(el => el.scrollWidth <= el.clientWidth), 'entire audio menu must fit, including legacy selects and labels');
   assert.ok(await phone.locator('#gaTrackerAudioOutput').evaluate(el => el.scrollWidth <= el.clientWidth), 'audio controls must fit the phone menu');
   await phone.locator('#mapVoiceMenu').screenshot({path:'/tmp/ga-audio-app-menu.png'});
   const playback = await phone.evaluate(async () => {

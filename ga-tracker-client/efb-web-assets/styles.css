@@ -20664,3 +20664,26 @@ body.theme-ops1940 .mission-reset-btn {
         flex: 1 1 96px !important;
     }
 }
+
+/* The Audio menu is moved to body when opened. Keep its full-width labels
+   and intrinsic select widths inside the menu on narrow touch screens. */
+#mapVoiceMenu,
+#mapVoiceMenu .pb-btn,
+#mapVoiceMenu select {
+    box-sizing: border-box;
+}
+#mapVoiceMenu select {
+    min-width: 0;
+    max-width: 100%;
+}
+#mapVoiceMenu .pb-btn {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+#mapVoiceMenu input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+}

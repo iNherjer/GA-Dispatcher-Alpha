@@ -236,3 +236,21 @@ test('browser and Node journal modules create byte-equivalent replay bundles', (
   assert.equal(core.canonicalStringify(browserResult.bundle), core.canonicalStringify(nodeResult.bundle));
   assert.equal(browserResult.stateHash, nodeResult.stateHash);
 });
+
+ test('preflight payload changes refresh an unused seed and preserve post-start drift protection', () => {
+  const before = bundle();
+  before.runtime.missionCargoPayloadOutcome = { status: 'warning', error: 'old_read_failed' };
+  const current = journalCore.create(before);
+  const after = bundle();
+  after.runtime.missionCargoPayloadOutcome = { status: 'ok' };
+  const result = advance(current, after, 1200);
+  assert.deepEqual(result.legacyDriftFields, []);
+  assert.equal(core.replay(result.bundle).state.payload.status, 'ok');
+  assert.equal(result.journal.events.length, 0);
+  const started = advance(result.journal, bundle({phase:'boarding'}), 1300);
+  const changed = bundle({phase:'boarding'});
+  changed.runtime.missionCargoPayloadOutcome = {status:'warning', error:'new_read_failed'};
+  const active = advance(started.journal, changed, 1400);
+  assert.ok(active.legacyDriftFields.includes('payload'));
+  assert.ok(active.journal.events.length > 0);
+});

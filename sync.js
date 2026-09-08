@@ -1923,6 +1923,7 @@ let missionAuthorityAcquirePromise = null;
 let missionAuthorityCapabilityWaitPromise = null;
 let missionAuthorityLateBindPending = false;
 let missionExecutionHandoffPromise = null;
+let missionExecutionRequestedMissionId = null;
 let missionExecutionIntentPromise = null;
 let missionExecutionIntentQueue = null;
 let missionExecutionAbortPromise = null;
@@ -3021,6 +3022,14 @@ async function _pushMissionAuthoritySnapshotForExecutionHandoff(reason = 'execut
 function _trackerExecutionUsesRelayController() {
     return window.liveTrackerConnected === true
         && typeof window.sendTrackerCommand === 'function';
+}
+
+function _missionStartUsesTrackerExecution() {
+    const missionId = _activeMissionRuntimeId('');
+    if (window.simModeActive) return false;
+    if (_trackerSupportsMissionIntents()) missionExecutionRequestedMissionId = missionId;
+    return _trackerSupportsMissionIntents()
+        || (!!missionId && missionExecutionRequestedMissionId === missionId);
 }
 
 async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
@@ -15108,7 +15117,7 @@ window.handleMissionStartBannerAction = async function() {
             return;
         }
         if (phase === 'planned') {
-            if (_trackerSupportsMissionIntents()) {
+            if (_missionStartUsesTrackerExecution()) {
                 const result = await window.gaTrackerExecutionSubmitIntent?.('prepare_mission');
                 return result?.ok === true;
             }
@@ -17334,7 +17343,12 @@ function _markTrackerHeartbeat(pkt) {
         window.liveTrackerTelemetrySince = null;
     }
     const reportedCapabilities = _trackerCapabilitiesFromPacket(pkt);
-    if (reportedCapabilities.length) window.liveTrackerCapabilities = reportedCapabilities;
+    if (reportedCapabilities.length) {
+        window.liveTrackerCapabilities = reportedCapabilities;
+        // A fresh handshake may explicitly disable the opt-in; a transport
+        // gap with no capabilities may not silently change execution mode.
+        if (!reportedCapabilities.includes(MISSION_INTENT_CAPABILITY)) missionExecutionRequestedMissionId = null;
+    }
     _reconcileMissionSceneOnTrackerReconnect(pkt);
     _rememberTrackerHibernatePosition(pkt);
     try {

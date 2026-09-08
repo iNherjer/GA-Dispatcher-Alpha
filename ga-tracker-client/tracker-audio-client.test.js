@@ -21,3 +21,24 @@ test('remote voice download preserves bytes with at most four chunks in flight',
   assert.equal(peak,4);
   assert.equal(new Set(offsets).size,Math.ceil(original.length/(24*1024)));
 });
+
+test('phone gestures unlock before handoff and cached-page restore recreates the stopped player', async () => {
+  const listeners = {}, players = [], timers = new Map(); let nextTimer = 0, authoritative = false;
+  const root = {document:{getElementById:()=>null},localStorage:{getItem:()=> 'phone'},
+    gaCockpitSessionClient:{role:'web',clientId:'session'},
+    gaTrackerExecutionHandlesMission:()=>authoritative,
+    addEventListener:(name,fn)=>{listeners[name]=fn;},
+    GATrackerAudioPlayer:{createPlayer:()=>{const player={unlocks:0,pumps:0,stopped:false,
+      update(){},unlock(){this.unlocks++;return Promise.resolve(true);},pump(){this.pumps++;},stop(){this.stopped=true;return Promise.resolve();}};
+      players.push(player);return player;}}};
+  vm.runInNewContext(source,{window:root,setTimeout:fn=>{timers.set(++nextTimer,fn);return nextTimer;},clearTimeout:id=>timers.delete(id)});
+  root.gaTrackerAudioClient.apply({schema:'ga.audio-control.v1',updatedAt:1,target:{deviceId:'phone'},settings:{enabled:true}});
+  listeners.touchend();
+  assert.equal(players[0].unlocks,1,'resume is called synchronously in the touch handler');
+  await Promise.resolve();assert.equal(players[0].pumps,0,'no playback before execution handoff');
+  listeners.pagehide();assert.equal(players[0].stopped,true);assert.equal(timers.size,0);
+  authoritative=true;listeners.pageshow();assert.equal(players.length,2);assert.equal(timers.size,1);
+  listeners.pageshow();assert.equal(players.length,2,'ordinary pageshow does not duplicate player');
+  listeners.click();await Promise.resolve();assert.equal(players[1].unlocks,1);assert.equal(players[1].pumps,1);
+  listeners.pagehide();listeners.pageshow();assert.equal(players.length,3);assert.equal(timers.size,1);
+});
