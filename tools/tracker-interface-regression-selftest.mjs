@@ -231,3 +231,20 @@ console.log('PASS offline close, late repaint, repeated/alternating boarding sna
 repaint.window.gaTrackerCargoDialogDismissed = true;
 assert.equal(repaint._missionCargoRenderDialog(), undefined, 'an empty tracker snapshot cannot undo local dismissal');
 assert.equal(repaint._missionCargoRenderDialog('load', { explicitOpen: true }), 'rendered');
+
+// Reconnect cannot clear a tracker-owned run before its authority snapshot arrives.
+let reconnectClears = 0;
+const reconnect = { missionSceneReconnectResyncPending: true, missionRuntime: { active: false },
+  _missionExecutionAuthorityIsTracker: () => false,
+  window: { liveTrackerCapabilities: ['mission.authority.v1'], clearMissionSceneObjects: () => reconnectClears++ } };
+vm.createContext(reconnect);
+vm.runInContext(between(sync, 'function _reconcileMissionSceneOnTrackerReconnect(', 'function _markTrackerHeartbeat('), reconnect);
+reconnect._reconcileMissionSceneOnTrackerReconnect({});
+assert.equal(reconnect.missionSceneReconnectResyncPending, true);
+reconnect._reconcileMissionSceneOnTrackerReconnect({ trackerMissionAuthority: { activeRun: { executionAuthority: 'tracker' } } });
+assert.equal(reconnectClears, 0);
+assert.equal(reconnect.missionSceneReconnectResyncPending, false);
+reconnect.missionSceneReconnectResyncPending = true;
+reconnect._reconcileMissionSceneOnTrackerReconnect({ trackerMissionAuthority: { activeRun: null } });
+assert.equal(reconnectClears, 1, 'standalone cleanup still runs after authority is known');
+console.log('PASS reconnect waits for authority; tracker scenes remain intact, standalone cleanup remains available.');

@@ -25,7 +25,9 @@
     if (!response.ok) throw new Error(result.error || 'Tracker nicht erreichbar.');
     return result;
   }
-  async function fetchClip(job, stage) {
+  async function fetchClip(job, stage, signal) {
+    function checkCancelled() { if (signal && signal.aborted) throw new Error('audio_download_cancelled'); }
+    checkCancelled();
     var url = base + '/voice/jobs/' + encodeURIComponent(job.effectId) + '/' + stage;
     var asset = String(job.cue && job.cue.assetName || '');
     if (!local && stage === 'cue' && /^[a-zA-Z0-9_-]+\.mp3$/.test(asset)) {
@@ -33,18 +35,29 @@
     } else if (!local) {
       var part = await request({ action: stage, effectId: job.effectId, offset: 0 });
       if (!Number.isSafeInteger(part.total) || part.total < 1 || part.total > 8 * 1024 * 1024) throw new Error('Ungültige Audiodaten.');
-      var bytes = new Uint8Array(part.total), offset = 0;
-      while (true) {
-        if (part.offset !== offset || part.total !== bytes.length) throw new Error('Unvollständige Audiodaten.');
-        var decoded = root.atob(part.data);
-        if (!decoded.length || offset + decoded.length > bytes.length) throw new Error('Ungültige Audiodaten.');
-        for (var i = 0; i < decoded.length; i++) bytes[offset + i] = decoded.charCodeAt(i);
-        offset += decoded.length;
-        if (offset === bytes.length) return bytes.buffer;
-        part = await request({ action: stage, effectId: job.effectId, offset: offset });
+      var bytes = new Uint8Array(part.total);
+      function copy(chunk, expectedOffset) {
+        checkCancelled();
+        if (chunk.offset !== expectedOffset || chunk.total !== bytes.length) throw new Error('Unvollständige Audiodaten.');
+        var decoded = root.atob(chunk.data);
+        if (decoded.length !== Math.min(24 * 1024, bytes.length - expectedOffset)) throw new Error('Ungültige Audiodaten.');
+        for (var i = 0; i < decoded.length; i++) bytes[expectedOffset + i] = decoded.charCodeAt(i);
       }
+      copy(part, 0);
+      // Bound concurrency: avoid one complete relay round trip for every 24 KiB.
+      for (var offset = 24 * 1024; offset < bytes.length; offset += 4 * 24 * 1024) {
+        checkCancelled();
+        var batch = [];
+        for (var index = 0; index < 4 && offset + index * 24 * 1024 < bytes.length; index++) {
+          (function (chunkOffset) {
+            batch.push(request({ action: stage, effectId: job.effectId, offset: chunkOffset }).then(function (chunk) { copy(chunk, chunkOffset); }));
+          })(offset + index * 24 * 1024);
+        }
+        await Promise.all(batch);
+      }
+      return bytes.buffer;
     }
-    var response = await root.fetch(url, { cache: stage === 'cue' ? 'force-cache' : 'no-store' });
+    var response = await root.fetch(url, { cache: stage === 'cue' ? 'force-cache' : 'no-store', signal: signal });
     if (!response.ok) throw new Error('Audio konnte nicht geladen werden.');
     return response.arrayBuffer();
   }
@@ -79,9 +92,9 @@
     var host = root.document.getElementById('mapVoiceMenu');
     if (!host || menu) return;
     menu = root.document.createElement('div'); menu.id = 'gaTrackerAudioOutput';
-    menu.style.cssText = 'padding:6px 2px 10px;margin-bottom:8px;border-bottom:1px solid #444;';
+    menu.style.cssText = 'box-sizing:border-box;min-width:0;max-width:100%;overflow-wrap:anywhere;padding:6px 2px 10px;margin-bottom:8px;border-bottom:1px solid #444;';
     var label = root.document.createElement('label'); label.textContent = 'Audioausgabe ';
-    var select = root.document.createElement('select'); select.id = 'gaAudioOutputSelect'; select.style.cssText = 'width:100%;padding:6px;background:#1a2a3a;color:#d0e8ff;border:1px solid #456;border-radius:5px';
+    var select = root.document.createElement('select'); select.id = 'gaAudioOutputSelect'; select.style.cssText = 'box-sizing:border-box;min-width:0;max-width:100%;width:100%;padding:6px;background:#1a2a3a;color:#d0e8ff;border:1px solid #456;border-radius:5px';
     [['pc','PC'],['this','Diese App'],['other','Andere App']].forEach(function (entry) { var option = root.document.createElement('option'); option.value = entry[0]; option.textContent = entry[1]; option.disabled = entry[0] === 'other'; select.appendChild(option); });
     select.onchange = function () {
       if (select.value === 'this') player.unlock();

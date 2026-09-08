@@ -8280,6 +8280,7 @@ window.missionSceneClear = function(reason = 'scene-debug-clear', sceneIdOverrid
 };
 
 window.clearMissionSceneObjects = function(reason = 'mission-scene-reset') {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     const markerSceneId = _boardingMarkerSceneId();
     const targetSceneId = _missionTargetSceneId();
     const aptArrivalSceneId = _missionAptArrivalSceneId();
@@ -11238,6 +11239,10 @@ function _handleTrackerAck(ack) {
         } catch (_) {}
         return;
     }
+    // A rejected legacy cleanup is not a scene-clear result. In particular it
+    // must not reset the projected passenger/boarding flags during reconnect.
+    if (ack.error === 'mission_authority_owned_by_versioned_client'
+        && /^mission_(scene|smoke)_/.test(ackType)) return;
     if (ackType === 'mission_voice_playback_ack') {
         _resolveMissionAuthorityAck(ack);
         return;
@@ -17301,6 +17306,15 @@ function _clearTrackerHeartbeat() {
     window.liveTrackerTelemetrySince = null;
 }
 
+function _reconcileMissionSceneOnTrackerReconnect(pkt) {
+    if (!missionSceneReconnectResyncPending || window.simModeActive) return;
+    const authority = pkt?.trackerMissionAuthority;
+    if ((window.liveTrackerCapabilities || []).includes('mission.authority.v1') && !authority) return;
+    missionSceneReconnectResyncPending = false;
+    if (authority?.activeRun?.executionAuthority === 'tracker' || _missionExecutionAuthorityIsTracker() || missionRuntime.active) return;
+    try { window.clearMissionSceneObjects?.('websocket-open-resync'); } catch (_) {}
+}
+
 function _markTrackerHeartbeat(pkt) {
     lastTrackerHeartbeatAt = Date.now();
     if (pkt?.trackerAudio) window.dispatchEvent(new CustomEvent('ga:tracker-audio-state', { detail: pkt.trackerAudio }));
@@ -17321,6 +17335,7 @@ function _markTrackerHeartbeat(pkt) {
     }
     const reportedCapabilities = _trackerCapabilitiesFromPacket(pkt);
     if (reportedCapabilities.length) window.liveTrackerCapabilities = reportedCapabilities;
+    _reconcileMissionSceneOnTrackerReconnect(pkt);
     _rememberTrackerHibernatePosition(pkt);
     try {
         window.dispatchEvent(new CustomEvent('gatrackercapabilitieschange', {
@@ -18743,13 +18758,9 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
             }, 180);
         }
         let missionSceneTickDelayMs = 900;
-        if (missionSceneReconnectResyncPending && !missionRuntime.active && !window.simModeActive) {
-            missionSceneReconnectResyncPending = false;
-            if (typeof window.clearMissionSceneObjects === 'function') {
-                try { window.clearMissionSceneObjects('websocket-open-resync'); } catch (_) {}
-            }
-            missionSceneTickDelayMs = 2200;
-        }
+        // Scene cleanup waits for the first tracker packet: the relay socket
+        // being open does not yet tell us who owns the restored mission.
+        if (missionSceneReconnectResyncPending) missionSceneTickDelayMs = 2200;
         if (window.missionCargoStatus?.payloadNeedsSync) {
             setTimeout(() => {
                 _missionCargoApplyPendingResetStations('websocket-reconnect-pending-reset')

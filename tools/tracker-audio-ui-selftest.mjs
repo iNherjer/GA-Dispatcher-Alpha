@@ -63,7 +63,31 @@ try {
   assert.equal(await phone.evaluate(() => document.characterSet), 'UTF-8');
   assert.ok((await phone.locator('#mapVoiceMenu').innerText()).includes('🏔️'));
   assert.ok((await phone.locator('#mapVoiceMenu').innerText()).includes('🧑‍✈️'));
+  await phone.setViewportSize({width:440,height:894});
+  assert.ok(await phone.locator('#gaTrackerAudioOutput').evaluate(el => el.scrollWidth <= el.clientWidth), 'audio controls must fit the phone menu');
   await phone.locator('#mapVoiceMenu').screenshot({path:'/tmp/ga-audio-app-menu.png'});
+  const playback = await phone.evaluate(async () => {
+    const samples = 2400, wav = new ArrayBuffer(44 + samples * 2), view = new DataView(wav);
+    const tag = (at, value) => [...value].forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)));
+    tag(0,'RIFF'); view.setUint32(4,36 + samples * 2,true); tag(8,'WAVE'); tag(12,'fmt ');
+    view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,1,true);
+    view.setUint32(24,24000,true); view.setUint32(28,48000,true); view.setUint16(32,2,true); view.setUint16(34,16,true);
+    tag(36,'data'); view.setUint32(40,samples * 2,true);
+    for (let i=0;i<samples;i++) view.setInt16(44+i*2,Math.sin(i*440*2*Math.PI/24000)*1000,true);
+    let offered=false, resolve, timeout;
+    const done = new Promise(r => {resolve=r;timeout=setTimeout(()=>r({error:'timeout'}),4000)});
+    const player = GATrackerAudioPlayer.createPlayer({deviceId:'test',clientId:'test',AudioContext,
+      request: async c => {
+        if(c.action==='next') {if(offered)return {};offered=true;return {job:{effectId:'test',kind:'boarding',cue:{audioAvailable:true},audioAvailable:true}}}
+        if(c.action==='claim')return {claimed:true};
+        if(c.action==='release')resolve(c);
+        return {continued:true};
+      },fetchClip:async()=>wav.slice(0)});
+    player.update({revision:1,target:{deviceId:'test'},settings:{enabled:true,paxEnabled:true,effectsEnabled:true,volume:0.1},playback:{notification:'ready',playbackAvailable:true}});
+    const result=await done;clearTimeout(timeout);await player.stop();return result;
+  });
+  assert.equal(playback.completed,true,'real Web Audio must complete both cue and voice');
+
   await efb.selectOption('#gaAudioOutputSelect','pc');
   await phone.waitForFunction(() => document.getElementById('gaAudioOutputSelect').value === 'pc');
   const desktop = await browser.newPage({viewport:{width:520,height:900}});

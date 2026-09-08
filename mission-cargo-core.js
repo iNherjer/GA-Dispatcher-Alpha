@@ -1437,13 +1437,13 @@ window.missionCargoSignDispatchList = function(options = {}) {
                 if (result?.ok !== true && window.missionCargoStatus) {
                     window.missionCargoStatus.error = _missionCargoTrackerIntentError(result);
                 }
-                if (result?.ok === true
-                    && options.animate !== false
-                    && Number(window.missionCargoStatus?.signatureAnimationEndsAt || 0) <= Date.now()) {
-                    _missionCargoStartSignatureAnimation({
-                        render: options.render !== false,
-                        mode: renderMode
-                    });
+                if (result?.ok === true && options.animate !== false) {
+                    // The snapshot owns this animation. A late intent ACK must
+                    // not restart an animation that already finished locally.
+                    window.missionCargoAdoptTrackerSignatureAnimation?.(
+                        _missionCargoEnsureManifest()?.dispatchSignature,
+                        { render: options.render !== false }
+                    );
                 }
                 if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
                 return result?.ok === true;
@@ -5199,7 +5199,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         window.missionCargoStatus.dialogScroll = null;
     }
     window.missionCargoStatus.lastMode = mode;
-    if (options?.skipPayloadRefresh !== true) {
+    if (!trackerExecutionManaged && options?.skipPayloadRefresh !== true) {
         _missionCargoRefreshPayloadSnapshot({ force: false, maxStations: 12, timeoutMs: 12000 })
             .then((ack) => {
                 if (ack?.status === 'ok' || ack?.status === 'cached') {

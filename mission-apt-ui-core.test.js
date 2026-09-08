@@ -371,3 +371,16 @@ test('canonical cargo model locks every control while an intent is in flight', (
   assert.equal(model.actions.primary.label, 'Unterschrift eintragen');
   assert.match(model.modeHint, /Bordbestand direkt/);
 });
+
+test('completed local signature animation stays complete despite tracker clock skew', () => {
+  const source = {
+    control: { ...control('boarding', ['confirm_load', 'clear_manifest_signature'], { groundStill: true }), cargo: { summary: { departureMissing: 0 } } },
+    manifest: { items: [], dispatchSignature: { scope: 'departure', at: 103000, by: 'Pilot' } },
+    now: 100000
+  };
+  assert.equal(core.cargoModel(source).signature.animating, true);
+  const rendered = core.cargoModel({ ...source, signatureAnimating: false });
+  assert.equal(rendered.signature.animating, false);
+  assert.equal(rendered.actions.primary.intent, 'confirm_load');
+  assert.equal(rendered.actions.primary.disabled, false);
+});

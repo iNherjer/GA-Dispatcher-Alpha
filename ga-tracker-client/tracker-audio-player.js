@@ -13,11 +13,18 @@
       return kind === 'cargo' ? state.settings.effectsEnabled : (kind === 'boarding' || kind === 'farewell') ? (state.settings.paxEnabled || state.settings.effectsEnabled) : state.settings.paxEnabled;
     }
     function getContext() { if (!context) context = new options.AudioContext(); return context; }
-    async function unlock() { try { await getContext().resume(); return context.state === 'running'; } catch (_) { return false; } }
+    async function unlock() { try { var ctx = getContext(); if (ctx.state !== 'running') await bounded(ctx.resume(), 'audio_unlock_timeout'); return ctx.state === 'running'; } catch (_) { return false; } }
+    function bounded(operation, error, abort) {
+      var timer;
+      return Promise.race([operation, new Promise(function (_, reject) {
+        timer = setTimeout(function () { if (abort) abort(); reject(new Error(error)); }, options.preparationTimeoutMs || 15000);
+      })]).finally(function () { clearTimeout(timer); });
+    }
     function position(current) {
       return { stage: current.stage, offset: Math.max(0, current.offset + (current.source ? getContext().currentTime - current.startedAt : 0)) };
     }
     function silence(current) {
+      if (current.download) current.download.abort();
       if (current.source) { try { current.source.stop(); } catch (_) {} }
       if (current.resolveClip) current.resolveClip();
       current.source = null;
@@ -29,10 +36,10 @@
       var cursor = position(current);
       silence(current);
       try { await request({ action: 'release', effectId: current.job.effectId, completed: completed,
-        retryable: !completed && (deviceSwitch || selected(current.job.kind)), deviceSwitch: !!deviceSwitch, position: cursor }); } catch (_) {}
+        retryable: !completed && !!deviceSwitch, deviceSwitch: !!deviceSwitch, position: cursor, error: current.error || '' }); } catch (_) {}
       if (active === current) active = null;
       if (typeof options.onPlayback === 'function') options.onPlayback(null);
-      if (completed && !stopped) pump();
+      if (!deviceSwitch && !stopped) pump();
     }
     function armLease(current, sentAt) {
       clearTimeout(current.leaseTimer);
@@ -57,15 +64,17 @@
       if (current.done || (stage === 'cue' && !state.settings.effectsEnabled) || (stage === 'audio' && !state.settings.paxEnabled)) return;
       if (current.stage === 'audio' && stage === 'cue') return;
       if (current.stage !== stage) { current.stage = stage; current.offset = 0; }
-      var bytes = await options.fetchClip(current.job, stage);
+      var download = typeof AbortController === 'function' ? new AbortController() : null;
+      current.download = download;
+      var bytes = await bounded(options.fetchClip(current.job, stage, download && download.signal), stage + '_download_timeout', function () { if (download) download.abort(); });
       if (current.done) return;
       var ctx = getContext();
-      var buffer = await new Promise(function (resolve, reject) {
+      var buffer = await bounded(new Promise(function (resolve, reject) {
         var result = ctx.decodeAudioData(bytes, resolve, reject);
         if (result && result.then) result.then(resolve, reject);
-      });
+      }), stage + '_decode_timeout');
       if (current.done || current.offset >= buffer.duration) return;
-      await ctx.resume();
+      if (ctx.state !== 'running') await bounded(ctx.resume(), 'audio_unlock_timeout');
       if (current.done) return;
       if (ctx.state !== 'running') throw new Error('audio_locked');
       var sinkId = options.getOutputDeviceId ? options.getOutputDeviceId() : '';
@@ -76,16 +85,18 @@
       source.buffer = buffer; source.connect(volume); volume.connect(ctx.destination);
       volume.gain.value = state.settings.volume * gain;
       current.startedAt = ctx.currentTime;
-      await new Promise(function (resolve) {
+      await new Promise(function (resolve, reject) {
         var done = false;
-        function end() {
+        var playbackTimer = setTimeout(function () { end(new Error('audio_playback_stalled')); }, Math.max(1000, (buffer.duration - current.offset + 2.5) * 1000));
+        function end(error) {
           if (done) return; done = true;
+          clearTimeout(playbackTimer);
           source.onended = null;
           try { source.disconnect(); volume.disconnect(); } catch (_) {}
-          resolve();
+          if (error) reject(error); else resolve();
         }
-        current.resolveClip = end;
-        source.onended = end;
+        current.resolveClip = function () { end(); };
+        source.onended = function () { end(); };
         source.start(0, current.offset);
         source.stop(ctx.currentTime + Math.max(0, current.leaseDeadline - Date.now()) / 1000);
       });
@@ -114,11 +125,20 @@
         // Do not hold the pump lock during the clip: completion can request the next job.
         fetching = false; ownsFetch = false;
         try {
-          if (next.job.cue && next.job.cue.audioAvailable) await playClip(current, 'cue', Number(next.job.cue.gain) || 0.38);
+          if (next.job.cue && next.job.cue.audioAvailable) {
+            try { await playClip(current, 'cue', Number(next.job.cue.gain) || 0.38); }
+            catch (error) {
+              if (!next.job.audioAvailable) throw error;
+              if (current.source) { try { current.source.stop(); } catch (_) {} current.source = null; }
+              current.offset = 0;
+              if (options.onError) options.onError(error.message);
+            }
+          }
           if (!current.done && next.job.audioAvailable) await playClip(current, 'audio', 1);
           if (!current.done) await finish(current, true, false);
         } catch (error) {
-          if (!current.done && options.onError) options.onError(error.message || 'Audio konnte nicht abgespielt werden.');
+          current.error = error.message || 'audio_playback_failed';
+          if (!current.done && options.onError) options.onError(current.error);
           await finish(current, false, false);
         }
       } catch (error) { if (options.onError) options.onError(error.message || 'Tracker nicht erreichbar.'); }

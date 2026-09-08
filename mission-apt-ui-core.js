@@ -421,8 +421,9 @@
         var signatureAt = Math.max(0, Number(signature.at) || 0);
         var currentTime = Number.isFinite(Number(source.now)) ? Number(source.now) : Date.now();
         var signatureAgeMs = signatureAt > 0 ? currentTime - signatureAt : Number.POSITIVE_INFINITY;
-        var signatureAnimating = signed && (source.signatureAnimating === true
-            || (signatureAgeMs >= -5000 && signatureAgeMs < 1600));
+        var signatureAnimating = signed && (typeof source.signatureAnimating === 'boolean'
+            ? source.signatureAnimating
+            : (signatureAgeMs >= -5000 && signatureAgeMs < 1600));
         var signatureReady = signed && !signatureAnimating;
         var groundHandlingAllowed = flags.groundStill === true;
         var requiredMissing = mode === 'unload'

@@ -18,7 +18,7 @@ function handleVoiceRelay(service, command = {}, audioControl = null) {
     }
     case 'claim': return service.claimPlayback({ effectId, clientId, deviceId: command.deviceId, leaseMs: audioControl ? 5000 : 120000 });
     case 'renew': return service.renewPlayback({ ...command, effectId, clientId });
-    case 'release': return service.releasePlayback({ effectId, clientId, completed: command.completed === true, retryable: command.retryable === true, deviceSwitch: command.deviceSwitch === true, position: command.position });
+    case 'release': return service.releasePlayback({ effectId, clientId, completed: command.completed === true, retryable: command.retryable === true, deviceSwitch: command.deviceSwitch === true, position: command.position, error: command.error });
     case 'audio':
     case 'cue': {
       if (audioControl && audioControl.snapshot().target.deviceId !== command.deviceId) throw new Error('audio_device_not_selected');

@@ -3343,3 +3343,37 @@ Bewusstes Oeffnen bleibt moeglich. Standalone-Rendering bleibt unveraendert.
 Regressionen fuer Offline-Schliessen, leere/wechselnde Runs, spaete Repaints,
 explizites Oeffnen und unveraenderten Standalone-Pfad bestanden. Dies ist ein
 Web-App-Hotfix (Cache v1715); Runtime v388 und Teststand-EXE bleiben gleich.
+
+
+### Smartphone-Feldtest 08.09.2026: Signatur, Audio und Reconnect (lokaler Fix)
+
+Analyse des Laufs `run-mtssou0v-62fff730de2596`: Boarding/Tuer um 16:59:41
+abgeschlossen, 187 lbs um 16:59:45 bestaetigt, Signatur um 17:00:17 und
+finaler Payload-Abgleich um 17:00:25 erfolgreich. Boarding-Voice war seit
+17:00:00 generiert, aber erst ihr Playback-Timeout um 17:02:56 gab den
+Uebergang nach `boarded` frei. Der Log beweist den Playback-Stillstand, nicht
+welcher iOS-Schritt (Download/Decode/AudioContext) hing.
+
+Gezielte Korrekturen, ohne neue Missions-State-Machine oder geaenderte Gates:
+- Eine explizit beendete lokale Signaturanimation hat Vorrang vor der
+  Tracker-Uhr. Spaete Intent-ACKs starten dieselbe Animation nicht erneut.
+- Tracker-Verladefenster lesen die zentrale Payload-Projektion; blosses
+  Zeichnen startet keine weiteren Legacy-Sim-Abfragen pro Endgeraet.
+- Reconnect-Cleanup wartet auf den Authority-Handshake; abgewiesene
+  Legacy-Clear-ACKs setzen keine projizierten Boarding-Flags zurueck.
+- Audio-Vorbereitung (Laden, Decode, Context-Resume) hat begrenzte Wartezeit.
+  Laufende AudioContexts werden nicht erneut resumed. Ausbleibendes onended
+  ist ebenfalls begrenzt. Ein fehlerhafter Cue unterdrueckt keine nachfolgende
+  Sprache; terminale Player-Fehler geben die Reservierung frei und werden
+  als VOICE_PLAYBACK_FAILED mit Grund protokolliert.
+- Remote-Audiodaten werden mit maximal vier parallelen 24-KiB-Anfragen
+  geladen, weiterhin mit Groessen-/Offsetpruefung und Abbruch bei Timeout.
+  Die uebertragene Nutzdatenmenge bleibt gleich.
+- Audio-Select und Status passen in den mobilen Frame (box-sizing,
+  min-width und Textumbruch).
+
+Validierung: deterministische Queue-/Audio-Fehler- und Uhrversatztests,
+702764-Byte-Remote-Download mit exaktem Bytevergleich, echte Web-Audio-Cue-
+und Voice-Wiedergabe im lokalen Chromium, mobile Menubreite und bestehende
+Standalone-/EFB-Characterization. Reales iPhone/Safari und MSFS sind hier
+nicht als bestanden behauptet. Dieser Eintrag ist kein Release-Nachweis.

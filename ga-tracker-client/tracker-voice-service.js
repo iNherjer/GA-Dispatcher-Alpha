@@ -838,6 +838,7 @@ function createTrackerVoiceService(options = {}) {
     const timestamp = now();
     const completed = value.completed === true;
     const retryable = !completed && value.retryable === true;
+    if (!completed && value.error) log(`VOICE_PLAYBACK_FAILED effectId=${effectId} reason=${String(value.error).replace(/[\r\n]/g, ' ').slice(0, 160)}`);
     if (retryable && value.deviceSwitch !== true) record.failedPlaybackClients = [...new Set([...(record.failedPlaybackClients || []), clientId])].slice(-32);
     if (!retryable) playbackGuards.delete(effectId);
     const position = normalizePlaybackPosition(value.position || record.playback.position);
