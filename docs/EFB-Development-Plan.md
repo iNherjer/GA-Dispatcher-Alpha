@@ -16,7 +16,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.5 manueller Origin-Installer mit APT-Opt-in-Schalter und lokalem Hard-Reset | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
 | Tracker-Runtime | v382 als freigegebener APT-Feldkandidat | v356 | Manifest-, Start-, Payload-, Boarding-/Farewell-Voice- und Standard-APT-UI-Core sind gegen echte App-Fallbackfunktionen abgesichert. App und EFB nutzen denselben Mission-Control-Renderer und revisionsgebundene Intents. Passenger-Pickup sowie der reale Compliance-/Mehrinstanz-Gesamtnachweis bleiben offen. Training, POI, Bush/Pickup und SAR bleiben fail-closed. |
-| EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
+| EFB-Community-Package | 0.4.12 Alpha | 0.4.11 | Alpha behebt den schwarzen Bildschirm nach Innen-/Außenansichtswechsel; Stable bleibt auf dem bisherigen SDK-1.7.2-Archiv |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-/App-Transport | EFB ueber HTTP-Loopback, entfernte Origin-App ueber das bestehende PIN-geschuetzte Tracker-Relay | - | Beide Wege enden im selben revisionsgebundenen Intent-Controller. Provider-Keys und Session-Token werden nie oeffentlich projiziert. `mission.intent.v1` erscheint nur, wenn Alpha, Opt-in und Core-Paritaetsgate gemeinsam erfuellt sind. |
 
@@ -80,6 +80,16 @@ Erst dieses Missionsgate gibt den vorbereiteten Job frei. Touchdowns ausserhalb
 des Zielradius sowie nicht migrierte Sonderprofile erzeugen keinen Preload.
 Stable bleibt unveraendert auf v356; das EFB-Community-Paket bleibt auf 0.4.11
 und der unveraenderte Host nutzt weiterhin Assetrevision 38101.
+
+### EFB 0.4.12 Alpha
+
+EFB 0.4.12 ist als unveraenderliches Alpha-Archiv `efb-app-v0.4.12`
+veroeffentlicht. Der Fix setzt nach einem Innen-/Außenansichtswechsel vor der
+erneuten Aktivierung den iframe-Startzustand zurueck, sodass ein frischer
+Tracker-Host-Kanal aufgebaut wird und der Cockpit-EFB nicht schwarz bleibt.
+Der mit MSFS-2024-SDK 1.7.2 erzeugte Kandidat wurde im Simulator mit
+Alpha-Tracker v385 abgenommen. Stable bleibt bewusst auf 0.4.11, bis die
+Alpha-Promotion freigegeben ist.
 
 ### Explizites Backlog nach dem APT-Mehrinstanznachweis
 
