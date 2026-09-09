@@ -3744,3 +3744,11 @@ Zusaetzlich bestanden alle 17 EFB-Web-Tests nach dem Versionswechsel.
 Desktop 1.6.8 und die Stable-Kanaele bleiben unveraendert. Der Alpha-Kanal
 wird erst nach verifiziertem Release-Upload umgestellt. Der naechste
 MSFS-Feldtest bleibt fuer die Telemetrie-Diagnose erforderlich.
+
+### Alpha-Rollout v395 (09.09.2026)
+
+Source-Commit `2f5d7edac` und unveraenderlicher Tag `v395` auf Origin.
+GitHub-Release und EXE-Upload sind nach Dateigroesse und GitHub-SHA-256
+verifiziert. `channel/alpha.json` zeigt auf genau dieses Artefakt;
+der abschliessende App-/Kanal-Push verwendet Cache v1729. Stable-Runtime,
+Desktop-Installer und EFB-Community-Package bleiben unveraendert.
