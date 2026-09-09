@@ -3840,3 +3840,12 @@ Kandidat: Tracker v396, App-Cache v1730. Desktop 1.6.8, EFB-Paket und
 gehostete EFB-Assetrevision 39501 benoetigen keine Aenderung. Stable bleibt
 unveraendert. Kein realer MSFS-Latenznachweis aus diesem Build: Spawnfehler
 und die gemeldete Tuer-Inversion sind damit nicht als behoben bestaetigt.
+
+### Alpha-Rollout v396 (09.09.2026)
+
+Source-Commit `8783b672f`, Tag `v396` und Tracker-EXE auf Origin veroeffentlicht.
+Der Publisher hat die Assetgroesse 50.580.714 Bytes und SHA-256
+`3a2ad94c9bdcf3954052cd73969fc569c9ea1e0cdbb9d19bfd5211d626cc8fc7`
+vor der Veroeffentlichung verifiziert. Der Alpha-Zeiger verwendet exakt dieses
+Artefakt; sein abschliessender Origin-Push erhoeht den App-Cache auf v1731.
+Stable, Desktop-Installer und EFB-Paket bleiben auf ihren bisherigen Staenden.
