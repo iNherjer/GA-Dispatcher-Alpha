@@ -3644,3 +3644,16 @@ Windows-x64-EXE v394 erfolgreich gebaut (50.567.155 Bytes), SHA-256:
 EFB-Assetrevision des Kandidaten: 39401.
 
 Noch kein Rollout: Live bleibt v393 / App SW v1726 / Desktop 1.6.8.
+
+
+### Rollout v394: Cargo-Performance und Arrival-Paritaet (09.09.2026)
+
+Freigegebener Code-Commit: `c5270b336`, unveraenderlicher Release `v394`.
+Der Publisher hat Groesse und GitHub-Digest des EXE-Assets geprueft; danach
+wurde der oeffentliche Download separat vollstaendig gehasht und bestaetigt
+(50.567.155 Bytes, SHA-256 wie beim Kandidaten oben).
+Alpha-Kanal wird auf dieses Artefakt gesetzt, App-SW auf `ga-dispatcher-v1727`.
+EFB-Hostrevision: 39401. Desktop 1.6.8 verwendet seine vorhandene getrennte
+Alpha-Runtime-Aktualisierung; kein neuer Installer und keine Aenderung des
+Stable-Kanals. Der reale Standalone-/MSFS-Latenzvergleich bleibt der naechste
+Feldtest. Kamerawechsel/Black-Screen bleibt beim separaten Arbeitsauftrag.
