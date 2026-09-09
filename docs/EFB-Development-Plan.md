@@ -4043,7 +4043,7 @@ bleibt der separat dokumentierte Ausbaupunkt; der reale Sim-/EFB-/iPhone-
 Nachweis der neuen Verbindungserholung und Warnungsabdeckung steht noch aus.
 
 
-### Alpha-Rollout vorbereitet: v398 / Desktop 1.6.9 (09.09.2026)
+### Alpha-Rollout: v398 / Desktop 1.6.9 (09.09.2026)
 
 Rollout umfasst die oben beschriebenen APT-Paritaetskorrekturen, Navigation mit
 Flugbahnpruefung und lokalem Daten-/Audiocache sowie entkoppelte EFB-Abfragen
@@ -4063,6 +4063,18 @@ Isolierte Electron-Pruefung mit echten HTML/CSS/Renderer-Dateien bestaetigt
 Panel-Zuordnung, automatisches Oeffnen von Konto, Tastaturfokus und Aufklappen
 ohne horizontalen Ueberlauf. Screenshots visuell geprueft.
 
-Windows-Tracker-EXE gebaut. Release-Upload und Desktop-Build folgen erst danach.
+Runtime v398 und manueller Desktop-Installer tracker-desktop-v1.6.9 sind als
+unveraenderliche GitHub-Releases veroeffentlicht. Uploads und oeffentliche
+Downloads von EXE, Installer, Blockmap und Metadaten sind gegen die lokalen
+Builds verifiziert. Der Installer-ASAR enthaelt die exakten geprueften UI-,
+Audio- und Prozessdateien. Alpha-Zeiger und App-Downloadlink sind aktualisiert.
+
+- Runtime: 51.427.502 Bytes, SHA-256
+  `0a8d5cfd990e29a780207080c31b4c6a551798a02e0e508a1f7161f867b9ad40`.
+- Desktop-Installer: 100.272.318 Bytes, SHA-256
+  `dab29e6bce53cd0c1dbbdcced462fb85c7d7d6407121b9bce9d6a0acc3876c45`.
+
 Runtime-Stable, globaler Desktop-Autoupdatezeiger und EFB-Community-Paket bleiben
-unveraendert. Reale Windows-Installation und MSFS-Flugtest stehen aus.
+unveraendert. Fuer die neuen Warnungen Desktop 1.6.9 einmal manuell installieren
+und den Alpha-Kanal mit APT-Tracker-Steuerung verwenden. Reale Windows-Installation
+und MSFS-Flugtest stehen aus.
