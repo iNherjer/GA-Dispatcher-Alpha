@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '39501';
+const EFB_WEB_ASSET_REVISION = '39801';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -15,6 +15,8 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/host.css': [path.join(__dirname, 'tracker-efb-kartentisch-host.css'), 'text/css; charset=utf-8'],
   '/efb/v1/assets/host.js': [path.join(__dirname, 'tracker-efb-kartentisch-host.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-control-ui-core.js': [path.join(__dirname, 'mission-control-ui-core.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/warning-voices.json': [path.join(__dirname, '..', 'audio-warnings', 'voices', 'catalog.json'), 'application/json; charset=utf-8'],
+  '/efb/v1/assets/navigation-warning-audio.js': [path.join(__dirname, '..', 'navigation-warning-audio.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/audio-player.js': [path.join(__dirname, 'tracker-audio-player.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/audio-client.js': [path.join(__dirname, 'tracker-audio-client.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/cockpit-session-client.js': [path.join(__dirname, 'tracker-cockpit-session-client.js'), 'text/javascript; charset=utf-8'],
@@ -75,6 +77,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/map-shell-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('map-shell-core.js')" onerror="__gaEfbScriptError('map-shell-core.js')"></script>
 <script src="/efb/v1/assets/map-utility-tools.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('map-utility-tools.js')" onerror="__gaEfbScriptError('map-utility-tools.js')"></script>
 <script src="/efb/v1/assets/mission-control-ui-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('mission-control-ui-core.js')" onerror="__gaEfbScriptError('mission-control-ui-core.js')"></script>
+<script src="/efb/v1/assets/navigation-warning-audio.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/audio-player.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/cockpit-session-client.js?v=${EFB_WEB_ASSET_REVISION}" data-role="auto" onload="__gaEfbScriptLoaded('cockpit-session-client.js')" onerror="__gaEfbScriptError('cockpit-session-client.js')"></script>
 <script src="/efb/v1/assets/audio-client.js?v=${EFB_WEB_ASSET_REVISION}"></script>

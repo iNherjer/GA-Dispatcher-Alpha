@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '39501');
+  assert.equal(EFB_WEB_ASSET_REVISION, '39801');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=39501/);
-  assert.match(page, /host\.css\?v=39501/);
-  assert.match(page, /map-shell-core\.js\?v=39501/);
-  assert.match(page, /map-utility-tools\.js\?v=39501/);
-  assert.match(page, /mission-control-ui-core\.js\?v=39501/);
-  assert.match(page, /cockpit-session-client\.js\?v=39501/);
-  assert.match(page, /host\.js\?v=39501/);
+  assert.match(page, /app-styles\.css\?v=39801/);
+  assert.match(page, /host\.css\?v=39801/);
+  assert.match(page, /map-shell-core\.js\?v=39801/);
+  assert.match(page, /map-utility-tools\.js\?v=39801/);
+  assert.match(page, /mission-control-ui-core\.js\?v=39801/);
+  assert.match(page, /cockpit-session-client\.js\?v=39801/);
+  assert.match(page, /host\.js\?v=39801/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,20 +35,20 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=39501"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=39501"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=39501"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=39501"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=39801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=39801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=39801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=39801"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=39501',
-    '/efb/v1/assets/map-utility-tools.js?v=39501',
-    '/efb/v1/assets/mission-control-ui-core.js?v=39501',
-    '/efb/v1/assets/cockpit-session-client.js?v=39501',
-    '/efb/v1/assets/host.js?v=39501'
+    '/efb/v1/assets/map-shell-core.js?v=39801',
+    '/efb/v1/assets/map-utility-tools.js?v=39801',
+    '/efb/v1/assets/mission-control-ui-core.js?v=39801',
+    '/efb/v1/assets/cockpit-session-client.js?v=39801',
+    '/efb/v1/assets/host.js?v=39801'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -153,6 +153,9 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
     '/efb/v1/assets/map-shell-core.js',
     '/efb/v1/assets/mission-control-ui-core.js',
     '/efb/v1/assets/cockpit-session-client.js',
+    '/efb/v1/assets/navigation-warning-audio.js',
+    '/efb/v1/assets/audio-player.js',
+    '/efb/v1/assets/audio-client.js',
     '/efb/v1/e6b/e6b-core.js',
     '/efb/v1/e6b/e6b-flight-computer.js'
   ];
@@ -548,4 +551,12 @@ test('diagnostic probe remains available separately from the Kartentisch', () =>
   assert.match(page, /ga-efb-server-probe/);
   const script = page.match(/<script>([\s\S]*?)<\/script>/i)?.[1] || '';
   assert.doesNotThrow(() => new Function(script));
+});
+
+test('EFB packages the warning decoder and voice catalog without the standalone App', () => {
+  const page = createTrackerEfbWebClientPage();
+  assert.ok(page.indexOf('/assets/navigation-warning-audio.js') < page.indexOf('/assets/audio-client.js'));
+  assert.match(getTrackerEfbWebClientAsset('/efb/v1/assets/navigation-warning-audio.js').body.toString(), /whoopWav/);
+  const voices = JSON.parse(getTrackerEfbWebClientAsset('/efb/v1/assets/warning-voices.json').body);
+  assert.ok(voices.packs.some(p => p.id === 'liam'));
 });

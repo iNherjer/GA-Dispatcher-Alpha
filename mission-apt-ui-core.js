@@ -547,7 +547,9 @@
             : 'is-warn';
         var payloadFinalizeRunning = flags.payloadSyncRequested === true || text(payload.status, 30).toLowerCase() === 'pending';
         var primary = { intent: '', action: 'close', label: 'Fenster schließen', className: 'mission-cargo-primary', disabled: false };
-        if (mode === 'load' && flags.loadConfirmed === true) {
+        if (deboardingBusy) {
+            primary = { intent: '', action: '', label: 'Deboarding läuft …', className: 'mission-cargo-primary', disabled: true };
+        } else if (mode === 'load' && flags.loadConfirmed === true) {
             primary = { intent: '', action: 'close', label: 'Fenster schließen', className: 'mission-cargo-primary', disabled: false };
         } else if ((mode === 'load' || mode === 'unload' || mode === 'pickup') && !signatureReady) {
             primary = {

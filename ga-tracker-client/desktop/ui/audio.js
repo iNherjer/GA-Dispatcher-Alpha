@@ -7,8 +7,14 @@
   const player = window.GATrackerAudioPlayer.createPlayer({ deviceId: 'pc', clientId,
     AudioContext: window.AudioContext, getOutputDeviceId: () => outputId,
     request: payload => api.audioRequest('playback', payload),
-    fetchClip: async (job, stage) => {
-      const bytes = await api.audioRequest(stage, { effectId: job.effectId });
+    fetchClip: async (job, stage, signal, pack) => {
+      let bytes;
+      if (job.clips && /^warning:/.test(stage)) {
+        const key = job.clips[Number(stage.split(':')[1])];
+        if (key === 'taws-whoop') return window.GANavigationWarningAudio.whoopWav();
+        try { bytes = await api.audioRequest('asset', { asset: window.GANavigationWarningAudio.assetPath(key, pack) }); }
+        catch (error) { if (key !== 'aw-zwo') throw error; bytes = await api.audioRequest('asset', { asset: window.GANavigationWarningAudio.assetPath('aw-d2', pack) }); }
+      } else bytes = await api.audioRequest(stage, { effectId: job.effectId });
       return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     },
     onPlayback: job => { if (job) lastError = ''; playbackText = job ? job.text || 'Audioeffekt wird abgespielt.' : ''; render(); },
@@ -21,6 +27,9 @@
     $('audioMasterEnabled').checked = audio.settings.enabled;
     $('audioPaxEnabled').checked = audio.settings.paxEnabled;
     $('audioEffectsEnabled').checked = audio.settings.effectsEnabled;
+    $('navigationAudioSettings').hidden = !audio.warnings;
+    for (const [id, key] of [['audioReadFreq','readFreq'],['audioTerrain','terrain'],['audioAirspace','airspace'],['audioWaypoint','waypoint']]) $(id).checked = audio.settings[key];
+    $('audioWarningVoice').value = audio.settings.voicePack || '';
     $('audioPlaybackStatus').textContent = lastError || playbackText || 'Ausgabe: ' + audio.target.name + (audio.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : '');
   }
   function update(patch) {
@@ -28,15 +37,20 @@
     saving = saving.catch(() => {}).then(async () => {
       if (!audio) return;
       const result = await api.audioRequest('playback', { action: 'settings_update', clientId, expectedRevision: audio.revision, ...patch });
-      if (result.audio) { audio = { ...result.audio, playback: audio.playback }; player.update(audio); render(); }
+      if (result.audio) { audio = { ...result.audio, playback: audio.playback, warnings: audio.warnings }; player.update(audio); render(); }
       if (!result.ok) throw new Error('Audioeinstellung wurde auf einem anderen Gerät geändert. Bitte erneut wählen.');
     }).catch(error => { $('audioPlaybackStatus').textContent = error.message; });
   }
   $('audioTargetSelect').onchange = () => update({ target: { mode: 'pc' } });
   $('audioMasterVolume').onchange = () => update({ settings: { volume: Number($('audioMasterVolume').value) / 100 } });
-  for (const [id, key] of [['audioMasterEnabled','enabled'],['audioPaxEnabled','paxEnabled'],['audioEffectsEnabled','effectsEnabled']]) {
+  for (const [id, key] of [['audioMasterEnabled','enabled'],['audioPaxEnabled','paxEnabled'],['audioEffectsEnabled','effectsEnabled'],['audioReadFreq','readFreq'],['audioTerrain','terrain'],['audioAirspace','airspace'],['audioWaypoint','waypoint']]) {
     $(id).onchange = () => update({ settings: { [key]: $(id).checked } });
   }
+  $('audioWarningVoice').onchange = () => update({ settings: { voicePack: $('audioWarningVoice').value } });
+  fetch('./warning-voices.json').then(response => response.json()).then(catalog => {
+    for (const pack of catalog.packs || []) if (/^[a-z0-9-]+$/.test(pack.id)) $('audioWarningVoice').add(new Option(pack.label, pack.id));
+    render();
+  }).catch(() => {});
   async function devices() {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const select = $('audioHardwareSelect');

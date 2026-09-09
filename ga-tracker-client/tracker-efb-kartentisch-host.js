@@ -33,6 +33,8 @@
   var firstFlightCenter = false;
   var pollTimer = 0;
   var missionPollTimer = 0;
+  var auxiliaryPollTimers = {};
+  var pollingClosed = false;
   var trackerOnline = false;
   var profileZoom = 0;
   var profileYAxis = 0;
@@ -3318,30 +3320,24 @@
     report('info', 'draw-action', 'erase-last', entry ? 'Letzte Zeichnung geloescht' : 'Keine Zeichnung zum Loeschen');
   }
 
-  function fetchJson(url) {
-    return fetch(url, { cache: 'no-store' }).then(function (response) {
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      return response.json();
+  function fetchJson(url, timeoutMs) {
+    return window.GATrackerCockpitSessionClient.requestJson(fetch, url, { cache: 'no-store' }, timeoutMs || 15000).then(function (result) {
+      if (!result.response.ok) throw new Error('HTTP ' + result.response.status);
+      return result.body;
     });
   }
 
   function poll() {
-    var checklistRequest = fetchJson('/api/v1/checklists').catch(function () { return null; });
-    Promise.all([
-      fetchJson('/api/v1/status'),
-      fetchJson('/api/v1/snapshot'),
-      fetchJson('/api/v1/map'),
-      checklistRequest
-    ]).then(function (responses) {
+    if (pollingClosed) return;
+    fetchJson('/api/v1/snapshot', 2500).then(function (envelope) {
+      if (pollingClosed) return;
+      if (!trackerOnline) setTrackerState('Tracker verbunden', false);
       trackerOnline = true;
-      var status = safePayload(responses[0]);
-      setTrackerState(status && status.simulatorConnected ? 'Tracker + Simulator verbunden' : 'Tracker verbunden | warte auf Simulator', false);
-      renderFlight(safePayload(responses[1]));
-      renderMapPayload(safePayload(responses[2]));
-      if (responses[3]) renderChecklistPayload(safePayload(responses[3]));
+      renderFlight(safePayload(envelope));
       notifyParentState('live');
       pollTimer = window.setTimeout(poll, 1000);
     }).catch(function () {
+      if (pollingClosed) return;
       trackerOnline = false;
       setTrackerState('Tracker nicht erreichbar', true);
       notifyParentState('error');
@@ -3350,11 +3346,23 @@
     });
   }
 
+  function pollAuxiliary(url, receive, interval) {
+    if (pollingClosed) return;
+    fetchJson(url, 5000).then(function (envelope) {
+      if (!pollingClosed) receive(safePayload(envelope));
+    }).catch(function () {}).then(function () {
+      if (!pollingClosed) auxiliaryPollTimers[url] = window.setTimeout(function () { pollAuxiliary(url, receive, interval); }, interval);
+    });
+  }
+
   function pollMission() {
-    fetchJson('/api/v1/mission').then(function (envelope) {
+    if (pollingClosed) return;
+    fetchJson('/api/v1/mission', 5000).then(function (envelope) {
+      if (pollingClosed) return;
       renderMissionPayload(safePayload(envelope));
       missionPollTimer = window.setTimeout(pollMission, missionIntentPending || cargoManagerOpen ? 300 : 550);
     }).catch(function () {
+      if (pollingClosed) return;
       missionPollTimer = window.setTimeout(pollMission, 1000);
     });
   }
@@ -3494,6 +3502,11 @@
       report('info', 'boot', 'host-ready', 'Kartentisch und Karte bereit');
       notifyParentState('ready', { stage: 'host-ready' });
       poll();
+      pollAuxiliary('/api/v1/status', function (status) {
+        if (trackerOnline) setTrackerState(status && status.simulatorConnected ? 'Tracker + Simulator verbunden' : 'Tracker verbunden | warte auf Simulator', false);
+      }, 1000);
+      pollAuxiliary('/api/v1/map', renderMapPayload, 1000);
+      pollAuxiliary('/api/v1/checklists', renderChecklistPayload, 10000);
       pollMission();
     } catch (error) {
       var message = error && error.message || String(error);
@@ -3507,6 +3520,8 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
   window.addEventListener('beforeunload', function () {
+    pollingClosed = true;
+    Object.keys(auxiliaryPollTimers).forEach(function (url) { window.clearTimeout(auxiliaryPollTimers[url]); });
     if (pollTimer) window.clearTimeout(pollTimer);
     if (missionPollTimer) window.clearTimeout(missionPollTimer);
     if (efbUiRefreshTimer) window.clearTimeout(efbUiRefreshTimer);

@@ -63,6 +63,7 @@ function bearingDeg(from, to) {
 }
 
 function contextBounds(request) {
+  if (request.bounds) return request.bounds;
   const latPad = Math.max(0.04, Math.min(0.24, request.radiusNm / 60 + 0.02));
   const cosLat = Math.max(0.25, Math.abs(Math.cos(request.lat * Math.PI / 180)));
   const lonPad = Math.min(0.48, latPad / cosLat);
@@ -571,7 +572,7 @@ function createTrackerEfbMapContextProvider(options = {}) {
     const coverage = stableAviationBounds(request);
     const exact = contextBounds(request);
     const catalog = await loadHostedCatalog();
-    const collections = ['airspaces', 'airports', 'navaids', 'reportingPoints'];
+    const collections = request.collections || ['airspaces', 'airports', 'navaids', 'reportingPoints'];
     const selected = [];
     collections.forEach(collection => {
       const packs = catalog.manifest?.collections?.[collection]?.packs;
@@ -687,7 +688,11 @@ function createTrackerEfbMapContextProvider(options = {}) {
     return pending;
   }
 
-  return { get, get cacheSize() { return cache.size; } };
+  return { get, async getAirspaces(request) {
+    const result = await loadAviation({ ...request, collections: ['airspaces'] });
+    if (!Array.isArray(result.payload?.airspaces)) throw new Error('aviation_airspaces_invalid');
+    return result.payload.airspaces;
+  }, get cacheSize() { return cache.size; } };
 }
 
 module.exports = {

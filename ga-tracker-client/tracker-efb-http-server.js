@@ -314,7 +314,7 @@ function createTrackerEfbHttpServer(options = {}) {
         request.resume(); jsonResponse(response, audioControl ? 403 : 503, { error: 'audio_control_unavailable' }); return;
       }
       try {
-        if (request.method === 'GET') jsonResponse(response, 200, { audio: { ...audioControl.snapshot(), playback: voiceService?.publicState?.() || null } });
+        if (request.method === 'GET') jsonResponse(response, 200, { audio: options.getAudioSnapshot ? options.getAudioSnapshot() : { ...audioControl.snapshot(), playback: voiceService?.publicState?.() || null } });
         else if (request.method === 'POST') {
           const result = audioControl.update(await readJsonBody(request, 4096));
           jsonResponse(response, result.ok ? 200 : result.error === 'audio_revision_conflict' ? 409 : 500, result);

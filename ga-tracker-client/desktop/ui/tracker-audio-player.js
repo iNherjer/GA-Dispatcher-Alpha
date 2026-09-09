@@ -6,25 +6,32 @@
   'use strict';
   function createPlayer(options) {
     var context = null, active = null, state = null, fetching = false, stopped = false;
-    var deviceId = options.deviceId, clientId = options.clientId, lastNotice = '';
-    var request = function (payload) { return options.request(Object.assign({}, payload, { deviceId: deviceId, clientId: clientId })); };
+    var deviceId = options.deviceId, clientId = options.clientId, lastNotice = '', retryTimer = null;
+    var request = function (payload) { return bounded(Promise.resolve().then(function () {
+      return options.request(Object.assign({}, payload, { deviceId: deviceId, clientId: clientId }));
+    }), 'audio_control_timeout', null, options.controlTimeoutMs || 2500); };
+    var warningBuffers = new Map();
+    function warningKind(kind) { return ['airspace', 'terrain', 'waypoint'].indexOf(kind) >= 0; }
     function selected(kind) {
       if (!state || !state.target || state.target.deviceId !== deviceId || !state.settings.enabled) return false;
+      if (warningKind(kind)) return state.settings[kind] !== false;
       return kind === 'cargo' ? state.settings.effectsEnabled : (kind === 'boarding' || kind === 'farewell') ? (state.settings.paxEnabled || state.settings.effectsEnabled) : state.settings.paxEnabled;
     }
     function getContext() { if (!context) context = new options.AudioContext(); return context; }
     async function unlock() { try { var ctx = getContext(); if (ctx.state !== 'running') await bounded(ctx.resume(), 'audio_unlock_timeout'); return ctx.state === 'running'; } catch (_) { return false; } }
-    function bounded(operation, error, abort) {
+    function bounded(operation, error, abort, timeoutMs) {
       var timer;
-      return Promise.race([operation, new Promise(function (_, reject) {
-        timer = setTimeout(function () { if (abort) abort(); reject(new Error(error)); }, options.preparationTimeoutMs || 15000);
-      })]).finally(function () { clearTimeout(timer); });
+      var settled = Promise.race([operation, new Promise(function (_, reject) {
+        timer = setTimeout(function () { if (abort) abort(); reject(new Error(error)); }, timeoutMs || options.preparationTimeoutMs || 15000);
+      })]);
+      return settled.then(function(value) { clearTimeout(timer); return value; }, function(error) { clearTimeout(timer); throw error; });
     }
     function position(current) {
       return { stage: current.stage, offset: Math.max(0, current.offset + (current.source ? Math.min(getContext().currentTime, current.stopAt || Infinity) - current.startedAt : 0)) };
     }
     function silence(current) {
       if (current.download) current.download.abort();
+      if (current.preloadController) current.preloadController.abort();
       if (current.source) { try { current.source.stop(); } catch (_) {} }
       if (current.resolveClip) current.resolveClip();
       current.source = null;
@@ -39,7 +46,7 @@
         retryable: !completed && !!deviceSwitch, deviceSwitch: !!deviceSwitch, position: cursor, error: current.error || '' }); } catch (_) {}
       if (active === current) active = null;
       if (typeof options.onPlayback === 'function') options.onPlayback(null);
-      if (!deviceSwitch && !stopped) pump();
+      if ((!deviceSwitch || current.preempted) && !stopped) pump();
     }
     function armLease(current, sentAt) {
       clearTimeout(current.leaseTimer);
@@ -63,19 +70,45 @@
       } catch (_) { /* The local lease timer stops playback if the tracker cannot be reached. */ }
       if (!current.done) current.renewTimer = setTimeout(function () { renew(current); }, 1000);
     }
+    function decode(bytes) {
+      return bounded(new Promise(function(resolve, reject) {
+        var result = getContext().decodeAudioData(bytes, resolve, reject);
+        if (result && result.then) result.then(resolve, reject);
+      }), 'audio_decode_timeout');
+    }
+    function warningBuffer(job, stage, signal, pack) {
+      var key = pack + ':' + job.clips[Number(stage.split(':')[1])];
+      if (warningBuffers.has(key)) return warningBuffers.get(key);
+      var pending = bounded(options.fetchClip(job, stage, signal, pack), 'warning_download_timeout').then(decode)
+        .catch(function(error) { warningBuffers.delete(key); throw error; });
+      warningBuffers.set(key, pending);
+      while (warningBuffers.size > 64) warningBuffers.delete(warningBuffers.keys().next().value);
+      return pending;
+    }
+    function prewarm(current) {
+      current.preloadController = typeof AbortController === 'function' ? new AbortController() : null;
+      var index = 0, pack = state.settings.voicePack || '';
+      async function worker() {
+        while (!current.done && index < current.job.clips.length) {
+          var stage = 'warning:' + index++;
+          try { await warningBuffer(current.job, stage, current.preloadController && current.preloadController.signal, pack); } catch (_) {}
+        }
+      }
+      for (var i = 0; i < 4; i++) worker();
+    }
     async function playClip(current, stage, gain) {
       if (current.done || (stage === 'cue' && !state.settings.effectsEnabled) || (stage === 'audio' && !state.settings.paxEnabled)) return;
       if (current.stage === 'audio' && stage === 'cue') return;
       if (current.stage !== stage) { current.stage = stage; current.offset = 0; }
       var download = typeof AbortController === 'function' ? new AbortController() : null;
       current.download = download;
-      var bytes = await bounded(options.fetchClip(current.job, stage, download && download.signal), stage + '_download_timeout', function () { if (download) download.abort(); });
-      if (current.done) return;
-      var ctx = getContext();
-      var buffer = await bounded(new Promise(function (resolve, reject) {
-        var result = ctx.decodeAudioData(bytes, resolve, reject);
-        if (result && result.then) result.then(resolve, reject);
-      }), stage + '_decode_timeout');
+      var ctx = getContext(), buffer;
+      if (current.job.clips) buffer = await warningBuffer(current.job, stage, download && download.signal, state.settings.voicePack || '');
+      else {
+        var bytes = await bounded(options.fetchClip(current.job, stage, download && download.signal), stage + '_download_timeout', function () { if (download) download.abort(); });
+        if (current.done) return;
+        buffer = await decode(bytes);
+      }
       if (current.done || current.offset >= buffer.duration) return;
       if (ctx.state !== 'running') await bounded(ctx.resume(), 'audio_unlock_timeout');
       if (current.done) return;
@@ -110,6 +143,7 @@
     }
     async function pump() {
       if (stopped || fetching || active || !state || !state.target || state.target.deviceId !== deviceId || !state.settings.enabled) return;
+      clearTimeout(retryTimer); retryTimer = null;
       fetching = true;
       var ownsFetch = true;
       try {
@@ -126,6 +160,7 @@
         armLease(current, started); current.renewTimer = setTimeout(function () { renew(current); }, 1000);
         current.watchdog = setTimeout(function () { finish(current, false, false); }, 180000);
         if (options.onPlayback) options.onPlayback(next.job);
+        if (next.job.clips) prewarm(current);
         // Do not hold the pump lock during the clip: completion can request the next job.
         fetching = false; ownsFetch = false;
         try {
@@ -139,6 +174,16 @@
             }
           }
           if (!current.done && next.job.audioAvailable) await playClip(current, 'audio', 1);
+          if (next.job.clips) {
+            var first = /^warning:/.test(current.stage) ? Number(current.stage.split(':')[1]) : 0;
+            for (var index = first; index < next.job.clips.length && !current.done; index++) {
+              await playClip(current, 'warning:' + index, 1);
+              if (!current.done && index + 1 < next.job.clips.length) {
+                current.stage = 'warning:' + (index + 1);
+                await new Promise(function (resolve) { setTimeout(resolve, 80); });
+              }
+            }
+          }
           if (!current.done) await finish(current, true, false);
         } catch (error) {
           current.error = error.message || 'audio_playback_failed';
@@ -147,11 +192,20 @@
           // Preserve the cursor just like that timer; this is not a completed voice.
           await finish(current, false, current.error === 'audio_lease_expired');
         }
-      } catch (error) { if (options.onError) options.onError(error.message || 'Tracker nicht erreichbar.'); }
+      } catch (error) {
+        if (options.onError) options.onError(error.message || 'Tracker nicht erreichbar.');
+        if (!stopped) retryTimer = setTimeout(pump, options.retryDelayMs || 1000);
+      }
       finally { if (ownsFetch) fetching = false; }
     }
     function update(value) {
       state = value;
+      if (active && active.job.clips && state && state.playback && state.playback.priorityAvailable && !active.preempted) {
+        // The same serial player owns warnings and voices. Return the current
+        // warning segment to the queue, then resume it after the voice job.
+        active.preempted = true;
+        finish(active, false, true);
+      }
       if (active && !selected(active.job.kind)) finish(active, false, true);
       else if (active && state && active.stage === 'audio' && !state.settings.paxEnabled) finish(active, true, false);
       else if (active && state && active.stage === 'cue' && !state.settings.effectsEnabled && active.source) {
@@ -165,7 +219,7 @@
         if (state && state.playback && state.playback.playbackAvailable) pump();
       }
     }
-    async function stop() { stopped = true; if (active) await finish(active, false, true); if (context) await context.close(); }
+    async function stop() { stopped = true; clearTimeout(retryTimer); if (active) await finish(active, false, true); if (context) await context.close(); }
     return { update: update, pump: pump, unlock: unlock, stop: stop,
       setOutputDevice: async function (id) { var ctx = getContext(); if (typeof ctx.setSinkId !== 'function') throw new Error('Ausgangswahl wird auf diesem Gerät nicht unterstützt.'); await ctx.setSinkId(id || ''); },
       get active() { return !!active; } };

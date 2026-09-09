@@ -1,3 +1,5 @@
+const { createNavigationData } = require('./tracker-navigation-data.js');
+const { createNavigationWarnings } = require('./tracker-navigation-warnings.js');
 const { createAudioControl, createAudioCloud } = require('./tracker-audio-control-core.js');
 const { createAudioAssetCache } = require('./tracker-audio-asset-cache.js');
 const { handleVoiceRelay } = require('./tracker-voice-relay-core.js');
@@ -81,8 +83,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v397';
-const TRACKER_VERSION_CODE = 397;
+const TRACKER_VERSION = 'v398';
+const TRACKER_VERSION_CODE = 398;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -97,10 +99,11 @@ const TRACKER_APT_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_REQUESTED
 const TRACKER_APT_EXECUTION_BLOCK_REASON = TRACKER_APT_EXECUTION_REQUESTED && !TRACKER_APT_EXECUTION_ENABLED
   ? `parity_pending:${(missionExecutionCore.TRACKER_AUTHORITY_PENDING || []).join(',')}`
   : '';
+const TRACKER_NAVIGATION_PLAYER_READY = process.env.VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER === '1';
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.intent.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1'] : [])] : [];
+  ? ['mission.intent.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -5123,9 +5126,27 @@ function startTracker(syncId, pin, voiceCredentials = null) {
   let _lastEfbMissionSnapshot = missionAuthorityManager.getActiveRun();
   let _lastPayloadSnapshot = null;
   let _efbHttpServer = null;
+  const navigationData = TRACKER_AUDIO_OUTPUT_ENABLED && TRACKER_NAVIGATION_PLAYER_READY ? createNavigationData({ directory: path.join(TRACKER_DATA_DIR, 'navigation-cache') }) : null;
+  let warningRouteAt = 0, warningRoute = null;
+  const navigationWarnings = navigationData ? createNavigationWarnings({
+    data: navigationData, voice: trackerVoiceService, getSettings: () => trackerAudioControl.snapshot().settings,
+    getRoute: () => {
+      if (Date.now() - warningRouteAt > 5000) {
+        warningRouteAt = Date.now();
+        const projected = projectTrackerMapSnapshot(missionAuthorityManager.getActiveRun({ includeBundle: true }), _lastEfbSnapshot);
+        warningRoute = projected ? { id: projected.runId, points: projected.route.waypoints } : null;
+      }
+      return warningRoute;
+    }, log: debugLog
+  }) : null;
+  const audioSnapshot = () => trackerAudioControl ? { ...trackerAudioControl.snapshot(), playback: trackerVoiceService.publicState(),
+    ...(navigationWarnings ? { warnings: navigationWarnings.snapshot() } : {}) } : null;
   const updateEfbState = (patch = {}) => {
     if (Object.hasOwn(patch, 'relayConnected')) _relayConnected = patch.relayConnected === true;
-    if (Object.hasOwn(patch, 'simulatorConnected')) _simulatorConnected = patch.simulatorConnected === true;
+    if (Object.hasOwn(patch, 'simulatorConnected')) {
+      if (_simulatorConnected && patch.simulatorConnected !== true) navigationWarnings?.reset();
+      _simulatorConnected = patch.simulatorConnected === true;
+    }
     if (Object.hasOwn(patch, 'telemetryHibernate') && patch.telemetryHibernate && typeof patch.telemetryHibernate === 'object') {
       const previousKey = `${_telemetryHibernateState?.mode || ''}:${_telemetryHibernateState?.reason || ''}`;
       _telemetryHibernateState = patch.telemetryHibernate;
@@ -5136,6 +5157,13 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       }
     }
     if (Object.hasOwn(patch, 'snapshot')) _lastEfbSnapshot = patch.snapshot && typeof patch.snapshot === 'object' ? patch.snapshot : null;
+    if (patch.snapshot && navigationWarnings) {
+      const run = missionAuthorityManager.getActiveRun();
+      navigationWarnings.setEnabled(!run || run.executionAuthority === 'tracker');
+      const point = patch.snapshot, flight = point.flight || {};
+      navigationWarnings.observe({ lat: point.lat, lon: point.lon, alt: point.alt, hdg: point.hdg,
+        gs: flight.gsKts, vs: flight.vsFpm, agl: flight.aglFt, paused: flight.simPaused || flight.simRunning === 0 });
+    }
     if (Object.hasOwn(patch, 'missionSnapshot')) _lastEfbMissionSnapshot = patch.missionSnapshot && typeof patch.missionSnapshot === 'object' ? patch.missionSnapshot : null;
     if (Object.hasOwn(patch, 'payloadSnapshot')) _lastPayloadSnapshot = patch.payloadSnapshot && typeof patch.payloadSnapshot === 'object' ? patch.payloadSnapshot : null;
   };
@@ -5322,6 +5350,8 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       voiceService: trackerVoiceService,
       audioControl: trackerAudioControl,
       audioAssets: trackerAudioAssets,
+      getAudioSnapshot: audioSnapshot,
+      mapContextProvider: navigationData?.aviation,
       desktopControlToken: TRACKER_DESKTOP_CONTROL_TOKEN,
       hardResetMission: hardResetTrackerMission,
       log: debugLog
@@ -5365,8 +5395,8 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     let lastAudioNotice = '';
     const audioNoticeTimer = setInterval(() => {
       if (relayFanout.readyState !== WebSocket.OPEN) return;
-      const audio = { ...trackerAudioControl.snapshot(), playback: trackerVoiceService.publicState() };
-      const notice = audio.revision + ':' + audio.cloudState + ':' + audio.playback.notification;
+      const audio = audioSnapshot();
+      const notice = audio.revision + ':' + audio.cloudState + ':' + audio.playback.notification + ':' + (audio.warnings?.revision || 0) + ':' + (audio.warnings?.status || '');
       if (notice === lastAudioNotice) return;
       lastAudioNotice = notice;
       relayFanout.send(JSON.stringify({ type: 'gps', syncId, pin, source: 'tracker', trackerStatusOnly: true,
@@ -5393,7 +5423,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
         telemetryHibernateReason: _telemetryHibernateState.reason || null,
         telemetryModeSince: Number(_telemetryHibernateState.since) || null,
         trackerMissionAuthority: missionAuthorityManager.getPublicSnapshot(),
-        trackerAudio: trackerAudioControl ? { ...trackerAudioControl.snapshot(), playback: trackerVoiceService.publicState() } : null,
+        trackerAudio: audioSnapshot(),
         missionUpdate: {
           reason: String(reason || 'mission-update').slice(0, 96),
           commandId: String(request?.commandId || '').slice(0, 220),
@@ -5900,7 +5930,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
           ? _lastEfbSnapshot
           : null,
         trackerMissionAuthority: missionAuthorityManager.getPublicSnapshot(),
-        trackerAudio: trackerAudioControl ? { ...trackerAudioControl.snapshot(), playback: trackerVoiceService.publicState() } : null,
+        trackerAudio: audioSnapshot(),
         sentAt: Date.now()
       }));
     };
@@ -6528,6 +6558,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                       alt: Math.round(alt),
                       hdg: Math.round(hdg),
                       flight: {
+                        vsFpm: Number.isFinite(vsFpm) ? vsFpm : null,
                         gsKts: Number.isFinite(groundSpeedKts) ? Math.round(groundSpeedKts * 10) / 10 : null,
                         iasKts: Number.isFinite(iasKts) ? Math.round(iasKts * 10) / 10 : null,
                         aglFt: Number.isFinite(agl) ? Math.round(agl) : null,

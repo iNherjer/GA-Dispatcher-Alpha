@@ -249,6 +249,93 @@ reconnect._reconcileMissionSceneOnTrackerReconnect({ trackerMissionAuthority: { 
 assert.equal(reconnectClears, 1, 'standalone cleanup still runs after authority is known');
 console.log('PASS reconnect waits for authority; tracker scenes remain intact, standalone cleanup remains available.');
 
+// Run the real reconnect callback and lifecycle sender: observers must send no
+// legacy commands, even if authority changes during the awaited handshake.
+let resumeCallback, resumeHandshakes = 0, trackerOwned = true;
+const lifecycleCommands = [];
+const resumeContext = {
+  missionRuntime: { active: true }, missionAuthorityLateBindPending: false,
+  _missionExecutionAuthorityIsTracker: () => trackerOwned,
+  _activeMissionRuntimeId: () => 'm', _normalizeMissionRuntimeId: value => value,
+  _trackerSupportsMissionAuthority: () => true,
+  _ensureMissionAuthorityForStart: async () => { resumeHandshakes++; return true; },
+  setTimeout: callback => { resumeCallback = callback; },
+  window: { liveTrackerConnected: true, sendTrackerCommand: command => { lifecycleCommands.push(command); return true; } }
+};
+vm.createContext(resumeContext);
+vm.runInContext(between(sync, 'function _sendMissionLifecycleToTracker(', 'function _restoreFlightRecorderFromRuntimeSnapshot('), resumeContext);
+const scheduleResume = between(sync, '        if (missionRuntime.active || missionRuntime.closingPending) {\n            missionAuthorityLateBindPending = true;', '        let missionSceneTickDelayMs');
+vm.runInContext(scheduleResume, resumeContext);
+await resumeCallback();
+assert.equal(resumeHandshakes, 0);
+assert.equal(lifecycleCommands.length, 0);
+assert.equal(resumeContext.missionAuthorityLateBindPending, false);
+assert.equal(resumeContext._sendMissionLifecycleToTracker('active', 'other-legacy-caller'), false);
+trackerOwned = false;
+vm.runInContext(scheduleResume, resumeContext);
+await resumeCallback();
+assert.equal(resumeHandshakes, 1);
+assert.equal(lifecycleCommands.length, 1, 'standalone still resumes via its lifecycle command');
+assert.equal(lifecycleCommands[0].reason, 'websocket-open-resume');
+resumeContext._ensureMissionAuthorityForStart = async () => { trackerOwned = true; return true; };
+vm.runInContext(scheduleResume, resumeContext);
+await resumeCallback();
+assert.equal(lifecycleCommands.length, 1, 'the final send guard catches authority acquired during the handshake');
+console.log('PASS reconnect keeps tracker observers silent and preserves standalone lifecycle.');
+
+// The original confirmation text and cancel behavior are shared by both App
+// modes; only the accepted tracker intent may continue the tracker-owned run.
+const confirmMessages = [], unloadIntents = [];
+let acceptUnload = false, unloadAck = true, unloadRenders = 0, standaloneEnds = 0;
+const unloadContext = {
+  Date, confirm: message => { confirmMessages.push(message); return acceptUnload; },
+  _missionPhaseDebugPush() {}, _missionCargoHasActiveMission: () => true,
+  _missionCargoEnsureManifest: () => ({ items: [], dispatchSignature: { scope: 'arrival' } }),
+  _missionCargoManifestGateState: () => ({ requiredUnloadBlockingItems: [] }),
+  _missionCargoSignatureMatchesMode: () => true, _missionRuntimeGroundEndReady: () => true,
+  _missionCargoSpawnUnloadedSceneObjects() {}, _missionSceneIsBushMission: () => false,
+  _missionCargoRenderDialog: () => unloadRenders++,
+  window: { gaTrackerExecutionHandlesMission: () => true, missionCargoStatus: {},
+    gaTrackerExecutionSubmitIntent: async intent => { unloadIntents.push(intent); return { ok: unloadAck }; },
+    closeMissionCargoDialog() {}, manualMissionEnd: () => { standaloneEnds++; return true; } }
+};
+vm.createContext(unloadContext);
+vm.runInContext(between(sync, 'function _missionCriticalActionConfirmMessage(', 'function _trackerMissionBannerModel('), unloadContext);
+vm.runInContext(between(cargo, 'function _missionCargoConfirmCriticalAction(', 'function _missionCargoRenderDialog('), unloadContext);
+vm.runInContext(between(cargo, 'window.finishMissionCargoUnloadAndEnd =', 'function _missionCargoGroundHandlingStatus('), unloadContext);
+assert.equal(await unloadContext.window.finishMissionCargoUnloadAndEnd(), false);
+assert.equal(unloadIntents.length, 0, 'cancel must not send an intent');
+acceptUnload = true;
+assert.equal(await unloadContext.window.finishMissionCargoUnloadAndEnd(), true);
+assert.deepEqual(unloadIntents, ['confirm_unload'], 'no client-side request_close or second completion step');
+unloadAck = false;
+assert.equal(await unloadContext.window.finishMissionCargoUnloadAndEnd(), false);
+assert.equal(unloadRenders, 1);
+assert.equal(standaloneEnds, 0, 'a failed tracker intent cannot fall back to a local close');
+const promptsBeforeSkip = confirmMessages.length;
+unloadAck = true;
+assert.equal(await unloadContext.window.finishMissionCargoUnloadAndEnd({ skipConfirm: true }), true);
+assert.equal(confirmMessages.length, promptsBeforeSkip, 'already confirmed continuations do not ask twice');
+unloadContext.window.gaTrackerExecutionHandlesMission = () => false;
+acceptUnload = false;
+assert.equal(unloadContext.window.finishMissionCargoUnloadAndEnd(), false);
+assert.equal(standaloneEnds, 0);
+acceptUnload = true;
+assert.equal(unloadContext.window.finishMissionCargoUnloadAndEnd(), true);
+assert.equal(standaloneEnds, 1);
+assert.equal(new Set(confirmMessages).size, 1, 'tracker and standalone must ask the same question');
+metadata.window.confirm = message => { assert.equal(message, confirmMessages[0]); return acceptUnload; };
+const clickUnload = () => listeners.click({ target: { closest: () => ({ getAttribute: name => ({
+  'data-efb-cargo-action': 'intent', 'data-mission-intent': 'confirm_unload'
+}[name] || '') }) }, preventDefault() {}, stopPropagation() {} });
+const efbIntentsBefore = metadataCalls.length;
+acceptUnload = false; clickUnload();
+assert.equal(metadataCalls.length, efbIntentsBefore);
+acceptUnload = true; clickUnload();
+assert.equal(metadataCalls.length, efbIntentsBefore + 1);
+assert.equal(metadataCalls.at(-1).intent, 'confirm_unload');
+console.log('PASS App/standalone/EFB unload confirmation: same text, cancel, submit, failure and no duplicate close.');
+
 // Missing capabilities during reconnect must not select the legacy start path.
 const startMode = {window:{simModeActive:false}, missionExecutionRequestedMissionId:null,
   _activeMissionRuntimeId:()=> 'm', _trackerSupportsMissionIntents:()=>true};
@@ -374,3 +461,48 @@ assert.equal(JSON.stringify(arrivalContext._buildMissionAptExecutionEffectPlan()
 assert.deepEqual([arrivalCommand.lat, arrivalCommand.lon, arrivalCommand.altFt, arrivalCommand.hdg], [48.4, 7.9, 509, 39]);
 assert.equal(arrivalCommand.items[0].objectTitle, 'Tarmac_Male');
 assert.equal(arrivalCommand.placementCandidates[0].lat, 48.401);
+
+// Execute the actual banner renderer and tracker hook: no local flight events
+// are invented and reconnect/repaint must not keep reopening the reminder.
+const reminderElements = new Map();
+const reminderHost = { appendChild(element) { reminderElements.set(element.id, element); element.parentElement = this; }, style: {} };
+reminderElements.set('awmFreqBanner', reminderHost);
+const reminderManifest = { items: [{ id: 'bordbuch', status: 'loaded', log: {} }] };
+const reminderContext = {
+  window: { missionCargoCurrentFlightId: () => 'legacy-flight-id' },
+  document: {
+    getElementById: id => reminderElements.get(id),
+    createElement: () => ({ dataset: {}, setAttribute() {}, addEventListener() {},
+      querySelector: () => ({ addEventListener() {} }) })
+  },
+  _missionCargoEnsureManifest: () => reminderManifest,
+  _missionCargoDismissBoardBookBanner() {},
+  missionCargoBoardBookBannerTimer: null, clearTimeout() {}, setTimeout: () => 1
+};
+vm.createContext(reminderContext);
+vm.runInContext(between(cargo, 'function _missionCargoShowBoardBookBanner(', 'window.missionCargoRecordFlightEvent ='), reminderContext);
+const remind = reminderContext.window.missionCargoApplyTrackerFlightReminders;
+const reminderControl = { executionAuthority: 'tracker', missionId: 'm', runId: 'r', phase: 'active',
+  allowedActions: ['set_boardbook_time'], flightEvents: { flightId: 'tracker-flight', startAt: 1000 } };
+const manifestBeforeReminder = JSON.stringify(reminderManifest);
+assert.equal(remind({ ...reminderControl, phase: 'boarded' }), false);
+assert.equal(remind(reminderControl), true);
+assert.equal(reminderElements.get('missionBoardBookReminder').dataset.field, 'start');
+assert.equal(remind({ ...reminderControl, authorityRevision: 10 }), false);
+reminderContext.window.gaTrackerExecutionControl = null; // reconnect keeps presentation history
+assert.equal(remind(reminderControl), false);
+const landedReminder = { ...reminderControl, phase: 'end_unloading',
+  flightEvents: { ...reminderControl.flightEvents, landingAt: 2000 } };
+assert.equal(remind(landedReminder), true);
+assert.equal(reminderElements.get('missionBoardBookReminder').dataset.field, 'landing');
+assert.equal(JSON.stringify(reminderManifest), manifestBeforeReminder);
+assert.equal(remind({ ...reminderControl, runId: 'next-run' }), true);
+assert.equal(remind({ ...reminderControl, runId: 'closed-run', phase: 'closed' }), false);
+assert.equal(remind({ ...reminderControl, executionAuthority: 'web' }), false);
+reminderManifest.items[0].log = { flightId: 'tracker-flight', startAt: 1000 };
+assert.equal(remind({ ...reminderControl, runId: 'already-entered' }), false);
+reminderManifest.items[0].status = 'unloaded';
+assert.equal(remind({ ...reminderControl, runId: 'no-book-aboard' }), false);
+assert.match(between(sync, 'function _applyTrackerExecutionControl(', 'function _finalizeTrackerExecutionProjection('),
+  /missionCargoApplyTrackerFlightReminders\?\.\(control\)/);
+console.log('PASS tracker flight events show the existing board-book banner once, without local manifest writes.');

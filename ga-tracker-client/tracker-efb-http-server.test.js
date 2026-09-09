@@ -571,6 +571,8 @@ test('central PC audio requires Alpha opt-in and an updated Desktop parent', () 
   const current = { VFR_MULTITOOL_TRACKER_CHANNEL: 'alpha', VFR_MULTITOOL_APT_EXECUTION: '1', VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: 'token', VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER: '1' };
   assert.equal(evaluate({ env: current }, ready).enabled, true);
   assert.ok(evaluate({ env: current }, ready).capabilities.includes('audio.output.v1'));
+  assert.equal(evaluate({ env: current }, ready).capabilities.includes('navigation.warnings.v1'), false, 'old Desktop keeps local warnings');
+  assert.ok(evaluate({ env: { ...current, VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER: '1' } }, ready).capabilities.includes('navigation.warnings.v1'));
   for (const override of [{ VFR_MULTITOOL_TRACKER_CHANNEL: 'stable' }, { VFR_MULTITOOL_APT_EXECUTION: '0' }, { VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER: '' }, { VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: '' }]) {
     const state = evaluate({ env: { ...current, ...override } }, ready);
     assert.equal(state.enabled, false);

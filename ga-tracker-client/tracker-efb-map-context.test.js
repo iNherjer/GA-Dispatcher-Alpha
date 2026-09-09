@@ -177,3 +177,8 @@ test('map-context uses the hosted GA Aviation DB before the regional proxy', asy
   assert.equal(calls.some(url => url.includes('/api/openaip/snapshot')), false);
   assert.equal(calls.some(url => url.endsWith('/latest.json')), true);
 });
+
+test('warning consumers reject missing airspace collections instead of treating them as clear sky', async () => {
+  const invalid = createTrackerEfbMapContextProvider({ loadHostedAviation: async () => ({ message: 'unavailable' }) });
+  await assert.rejects(invalid.getAirspaces({ lat: 48, lon: 8, radiusNm: 12 }), /aviation_airspaces_invalid/);
+});

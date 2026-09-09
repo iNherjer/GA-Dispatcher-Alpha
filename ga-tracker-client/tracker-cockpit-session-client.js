@@ -11,6 +11,26 @@
   const DEFAULT_BASE_URL = 'http://127.0.0.1:49880/api/v1';
   const CLIENT_ID_STORAGE_KEY = 'ga_cockpit_client_id_v1';
 
+  // Bound headers AND body consumption, including older Coherent engines that
+  // cannot abort fetch. A late response must never reach the caller's renderer.
+  function requestJson(fetchRemote, url, init, timeoutMs) {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const options = Object.assign({}, init || {});
+    if (controller) options.signal = controller.signal;
+    let timer;
+    const deadline = new Promise((resolve, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error('tracker_request_timeout'));
+        if (controller) controller.abort();
+      }, Math.max(1, Number(timeoutMs) || 5000));
+    });
+    const operation = Promise.resolve().then(() => fetchRemote(url, options))
+      .then(async response => ({ response, body: await response.json() }));
+    return Promise.race([operation, deadline]).then(value => {
+      clearTimeout(timer); return value;
+    }, error => { clearTimeout(timer); throw error; });
+  }
+
   function cleanBaseUrl(value) {
     return String(value || DEFAULT_BASE_URL).trim().replace(/\/+$/, '');
   }
@@ -136,27 +156,23 @@
 
     async function post(pathname, payload, keepalive = false) {
       if (typeof fetchRemote !== 'function') throw new Error('fetch_unavailable');
-      const response = await fetchRemote(`${baseUrl}${pathname}`, {
+      const result = await requestJson(fetchRemote, `${baseUrl}${pathname}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload || {}),
         cache: 'no-store',
         keepalive
-      });
-      let body = null;
-      try { body = await response.json(); } catch (_) {}
-      return { response, payload: responsePayload(body) };
+      }, options.requestTimeoutMs || 10000);
+      return { response: result.response, payload: responsePayload(result.body) };
     }
 
     async function get(pathname) {
       if (typeof fetchRemote !== 'function') throw new Error('fetch_unavailable');
-      const response = await fetchRemote(`${baseUrl}${pathname}`, {
+      const result = await requestJson(fetchRemote, `${baseUrl}${pathname}`, {
         method: 'GET',
         cache: 'no-store'
-      });
-      let body = null;
-      try { body = await response.json(); } catch (_) {}
-      return { response, payload: responsePayload(body) };
+      }, options.requestTimeoutMs || 5000);
+      return { response: result.response, payload: responsePayload(result.body) };
     }
 
     function schedule(ms) {
@@ -646,6 +662,7 @@
     DEFAULT_BASE_URL,
     autoStart,
     createClient,
+    requestJson,
     inferRole,
     installAudioPreferenceFallback
   });

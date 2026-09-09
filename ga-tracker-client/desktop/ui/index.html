@@ -66,65 +66,6 @@
         </summary>
         <div class="module-content">
           <section class="settings-group">
-            <div class="group-heading">
-              <div>
-                <p class="eyebrow">KONTO</p>
-                <h2>Pilot-Verbindung</h2>
-              </div>
-              <div class="inline-actions">
-                <button id="aptTestLogButton" class="text-button" type="button">APT-Testlog</button>
-                <button id="openFolderButton" class="text-button" type="button">Datenordner</button>
-              </div>
-            </div>
-            <form id="credentialsForm" class="credentials-form">
-              <label>
-                <span>Pilot-ID</span>
-                <input id="pilotIdInput" name="pilotId" maxlength="160" autocomplete="username" placeholder="Foxtrot-Mike-764">
-              </label>
-              <label>
-                <span>PIN</span>
-                <input id="pinInput" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="current-password" placeholder="4–8 Ziffern">
-              </label>
-              <button id="saveCredentialsButton" class="primary-button" type="submit">Prüfen &amp; verbinden</button>
-            </form>
-            <p id="formMessage" class="form-message" role="status"></p>
-          </section>
-
-          <section class="settings-group">
-            <p class="eyebrow">VOICE</p>
-            <h2>Zentrale Sprachausgabe</h2>
-            <p class="subtle">Der Tracker erzeugt jede Ansage einmal und stellt sie EFB und Toolbar-Panel gemeinsam bereit. Der Schlüssel bleibt auf diesem Windows-Konto geschützt.</p>
-            <div class="audio-output-menu" id="audioOutputMenu">
-              <label><span>Audioausgabe</span><select id="audioTargetSelect"><option value="pc">PC</option><option value="this">Diese App (PC)</option><option value="other" disabled>Andere App</option></select></label>
-              <label><span>PC-Ausgang</span><select id="audioHardwareSelect"><option value="">Windows-Standardgerät</option></select></label>
-              <button type="button" id="audioRefreshDevices" class="secondary-button">Ausgänge aktualisieren</button>
-              <label><span>Lautstärke</span><input id="audioMasterVolume" type="range" min="0" max="100" value="100"></label>
-              <label class="toggle-row"><span><strong>Audio aktiviert</strong></span><span class="toggle-control"><input id="audioMasterEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-              <label class="toggle-row"><span><strong>Stimmen und Ansagen</strong></span><span class="toggle-control"><input id="audioPaxEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-              <label class="toggle-row"><span><strong>Audioeffekte</strong></span><span class="toggle-control"><input id="audioEffectsEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-              <p id="audioPlaybackStatus" class="form-message" role="status">Tracker-Audio wird verbunden.</p>
-            </div>
-            <form id="voiceCredentialsForm" class="voice-credentials-form">
-              <label>
-                <span>Provider</span>
-                <select id="voiceProviderSelect" name="voiceProvider">
-                  <option value="gemini">Gemini</option>
-                  <option value="openai">OpenAI</option>
-                </select>
-              </label>
-              <label>
-                <span>API-Key</span>
-                <input id="voiceApiKeyInput" name="voiceApiKey" type="password" maxlength="1024" autocomplete="new-password" placeholder="API-Key eingeben">
-              </label>
-              <div class="voice-credentials-actions">
-                <button id="saveVoiceCredentialsButton" class="primary-button" type="submit">Sicher speichern</button>
-                <button id="clearVoiceCredentialsButton" class="secondary-button" type="button">Entfernen</button>
-              </div>
-            </form>
-            <p id="voiceFormMessage" class="form-message" role="status"></p>
-          </section>
-
-          <section class="settings-group">
             <p class="eyebrow">START</p>
             <h2>Startverhalten</h2>
             <label class="toggle-row">
@@ -147,30 +88,6 @@
                 <span class="toggle-track" aria-hidden="true"></span>
               </span>
             </label>
-          </section>
-
-          <section class="settings-group">
-            <p class="eyebrow">VERSION &amp; UPDATES</p>
-            <h2>Desktop-App</h2>
-            <p id="desktopUpdateVersion" class="path-line">Installiert: Desktop v–</p>
-            <label class="toggle-row">
-              <span>
-                <strong>App-Updates automatisch laden</strong>
-                <small>Geprüfte Updates werden vorbereitet; der Neustart bleibt unter deiner Kontrolle.</small>
-              </span>
-              <span class="toggle-control">
-                <input id="desktopAutoUpdateCheckbox" type="checkbox">
-                <span class="toggle-track" aria-hidden="true"></span>
-              </span>
-            </label>
-            <div id="desktopUpdateProgressWrap" class="progress-wrap" hidden>
-              <span id="desktopUpdateProgress" class="progress-bar"></span>
-            </div>
-            <p id="desktopUpdateMessage" class="subtle">App-Updateprüfung wird vorbereitet.</p>
-            <div class="inline-actions">
-              <button id="checkDesktopUpdateButton" class="text-button panel-action" type="button">App-Update prüfen</button>
-              <button id="installDesktopUpdateButton" class="primary-button compact-button" type="button" hidden>Installieren &amp; neu starten</button>
-            </div>
           </section>
 
           <section class="settings-group">
@@ -220,6 +137,11 @@
             <button id="checkRuntimeButton" class="text-button panel-action" type="button">Jetzt prüfen</button>
           </section>
 
+          <div class="inline-actions">
+            <button id="aptTestLogButton" class="text-button" type="button">APT-Testlog</button>
+            <button id="openFolderButton" class="text-button" type="button">Datenordner</button>
+          </div>
+
           <details class="log-panel">
             <summary>
               <span>Diagnoseprotokoll</span>
@@ -227,6 +149,135 @@
             </summary>
             <pre id="logOutput">Noch keine Tracker-Ereignisse.</pre>
           </details>
+        </div>
+      </details>
+
+      <details class="module-panel" data-module-panel>
+        <summary>
+          <span class="module-heading">
+            <span class="module-kicker">VERBINDUNG</span>
+            <strong>Konto</strong>
+            <small>Pilot-ID und PIN</small>
+          </span>
+          <span class="summary-side">
+            <span class="chevron" aria-hidden="true"></span>
+          </span>
+        </summary>
+        <div class="module-content">
+          <section class="settings-group">
+            <div class="group-heading">
+              <div>
+                <p class="eyebrow">KONTO</p>
+                <h2>Pilot-Verbindung</h2>
+              </div>
+            </div>
+            <form id="credentialsForm" class="credentials-form">
+              <label>
+                <span>Pilot-ID</span>
+                <input id="pilotIdInput" name="pilotId" maxlength="160" autocomplete="username" placeholder="Foxtrot-Mike-764">
+              </label>
+              <label>
+                <span>PIN</span>
+                <input id="pinInput" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="current-password" placeholder="4–8 Ziffern">
+              </label>
+              <button id="saveCredentialsButton" class="primary-button" type="submit">Prüfen &amp; verbinden</button>
+            </form>
+            <p id="formMessage" class="form-message" role="status"></p>
+          </section>
+        </div>
+      </details>
+
+      <details class="module-panel" data-module-panel>
+        <summary>
+          <span class="module-heading">
+            <span class="module-kicker">AUSGABE</span>
+            <strong>Audio</strong>
+            <small>Stimmen, Warnungen und Audiogerät</small>
+          </span>
+          <span class="summary-side">
+            <span class="chevron" aria-hidden="true"></span>
+          </span>
+        </summary>
+        <div class="module-content">
+          <section class="settings-group">
+            <p class="eyebrow">VOICE</p>
+            <h2>Zentrale Sprachausgabe</h2>
+            <p class="subtle">Der Tracker erzeugt jede Ansage einmal und stellt sie EFB und Toolbar-Panel gemeinsam bereit. Der Schlüssel bleibt auf diesem Windows-Konto geschützt.</p>
+            <div class="audio-output-menu" id="audioOutputMenu">
+              <label><span>Audioausgabe</span><select id="audioTargetSelect"><option value="pc">PC</option><option value="this">Diese App (PC)</option><option value="other" disabled>Andere App</option></select></label>
+              <label><span>PC-Ausgang</span><select id="audioHardwareSelect"><option value="">Windows-Standardgerät</option></select></label>
+              <button type="button" id="audioRefreshDevices" class="secondary-button">Ausgänge aktualisieren</button>
+              <label><span>Lautstärke</span><input id="audioMasterVolume" type="range" min="0" max="100" value="100"></label>
+              <label class="toggle-row"><span><strong>Audio aktiviert</strong></span><span class="toggle-control"><input id="audioMasterEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <label class="toggle-row"><span><strong>Stimmen und Ansagen</strong></span><span class="toggle-control"><input id="audioPaxEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <label class="toggle-row"><span><strong>Audioeffekte</strong></span><span class="toggle-control"><input id="audioEffectsEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <div id="navigationAudioSettings" hidden>
+                <label><span>Warnstimme</span><select id="audioWarningVoice"><option value="">Anna (DE)</option></select></label>
+                <label class="toggle-row"><span><strong>Frequenzen ansagen</strong></span><span class="toggle-control"><input id="audioReadFreq" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+                <label class="toggle-row"><span><strong>Terrainwarnungen</strong></span><span class="toggle-control"><input id="audioTerrain" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+                <label class="toggle-row"><span><strong>Luftraumwarnungen</strong></span><span class="toggle-control"><input id="audioAirspace" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+                <label class="toggle-row"><span><strong>Wegpunkte ansagen</strong></span><span class="toggle-control"><input id="audioWaypoint" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              </div>
+              <p id="audioPlaybackStatus" class="form-message" role="status">Tracker-Audio wird verbunden.</p>
+            </div>
+            <form id="voiceCredentialsForm" class="voice-credentials-form">
+              <label>
+                <span>Provider</span>
+                <select id="voiceProviderSelect" name="voiceProvider">
+                  <option value="gemini">Gemini</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </label>
+              <label>
+                <span>API-Key</span>
+                <input id="voiceApiKeyInput" name="voiceApiKey" type="password" maxlength="1024" autocomplete="new-password" placeholder="API-Key eingeben">
+              </label>
+              <div class="voice-credentials-actions">
+                <button id="saveVoiceCredentialsButton" class="primary-button" type="submit">Sicher speichern</button>
+                <button id="clearVoiceCredentialsButton" class="secondary-button" type="button">Entfernen</button>
+              </div>
+            </form>
+            <p id="voiceFormMessage" class="form-message" role="status"></p>
+          </section>
+        </div>
+      </details>
+
+      <details class="module-panel" data-module-panel>
+        <summary>
+          <span class="module-heading">
+            <span class="module-kicker">DESKTOP</span>
+            <strong>App-Update</strong>
+            <small id="desktopModuleSummary">Desktop-Version und Aktualisierung</small>
+          </span>
+          <span class="summary-side">
+            <span id="desktopUpdateBadge" class="mini-badge">Prüfung</span>
+            <span class="chevron" aria-hidden="true"></span>
+          </span>
+        </summary>
+        <div class="module-content">
+          <section class="settings-group">
+            <p class="eyebrow">VERSION &amp; UPDATES</p>
+            <h2>Desktop-App</h2>
+            <p id="desktopUpdateVersion" class="path-line">Installiert: Desktop v–</p>
+            <label class="toggle-row">
+              <span>
+                <strong>App-Updates automatisch laden</strong>
+                <small>Geprüfte Updates werden vorbereitet; der Neustart bleibt unter deiner Kontrolle.</small>
+              </span>
+              <span class="toggle-control">
+                <input id="desktopAutoUpdateCheckbox" type="checkbox">
+                <span class="toggle-track" aria-hidden="true"></span>
+              </span>
+            </label>
+            <div id="desktopUpdateProgressWrap" class="progress-wrap" hidden>
+              <span id="desktopUpdateProgress" class="progress-bar"></span>
+            </div>
+            <p id="desktopUpdateMessage" class="subtle">App-Updateprüfung wird vorbereitet.</p>
+            <div class="inline-actions">
+              <button id="checkDesktopUpdateButton" class="text-button panel-action" type="button">App-Update prüfen</button>
+              <button id="installDesktopUpdateButton" class="primary-button compact-button" type="button" hidden>Installieren &amp; neu starten</button>
+            </div>
+          </section>
         </div>
       </details>
 
@@ -387,6 +438,7 @@
     </form>
   </dialog>
 
+  <script src="./navigation-warning-audio.js"></script>
   <script src="./tracker-audio-player.js"></script>
   <script src="./audio.js"></script>
   <script src="./renderer.js"></script>

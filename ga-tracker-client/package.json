@@ -48,6 +48,9 @@
       "tracker-efb-kartentisch-host.js",
       "../audio-cues/*.mp3",
       "tracker-audio-player.js",
+      "../navigation-warning-core.js",
+      "../navigation-warning-audio.js",
+      "../audio-warnings/voices/catalog.json",
       "tracker-audio-client.js"
     ],
     "targets": [
@@ -57,6 +60,7 @@
   },
   "dependencies": {
     "node-simconnect": "^4.0.0",
+    "pngjs": "7.0.0",
     "ws": "^8.21.0"
   },
   "devDependencies": {

@@ -446,6 +446,12 @@ async function run() {
   const handle = new FakeHandle();
   const manager = createHomebaseObjectManager(handle, { sendAck: (ack) => acks.push(ack), log: (entry) => logs.push(entry), random: () => 0 });
 
+  const logCountBeforeForeignRemovals = logs.length;
+  for (let objectId = 100000; objectId < 101000; objectId++) {
+    handle.emit('eventAddRemove', { clientEventId: handle.removedEventId, data: objectId });
+  }
+  if (logs.length !== logCountBeforeForeignRemovals) throw new Error('Foreign scenery removals must not generate synchronous debug writes.');
+
   manager.handleCommand({ type: 'homebase_v1.capabilities', commandId: 'cap-1' });
   const capabilityAck = await waitForAck(acks, 'homebase_v1.capabilities_ack');
   if (capabilityAck.status !== 'ok' || capabilityAck.protocol !== 1) throw new Error('Capability contract failed.');
@@ -604,6 +610,7 @@ async function run() {
   manager.handleCommand({ type: 'homebase_v1.preview.clear', commandId: 'clear-1' });
   const clearAck = await waitForAck(acks, 'homebase_v1.preview.clear_ack');
   if (clearAck.status !== 'ok' || clearAck.removedCount !== 1 || manager.snapshot().objectCount !== 0) throw new Error('Confirmed preview clear failed.');
+  if (!logs.some(line => /^HOMEBASE_OBJECT_REMOVED .*id=.+/.test(line))) throw new Error('Owned object removal diagnostics must remain available.');
 
   manager.handleCommand({
     type: 'homebase_v1.crew.set',

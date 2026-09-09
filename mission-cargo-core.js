@@ -4027,13 +4027,13 @@ function _missionCargoDismissBoardBookBanner() {
     }
 }
 
-function _missionCargoShowBoardBookBanner(field = 'start') {
+function _missionCargoShowBoardBookBanner(field = 'start', flightId = '') {
     const manifest = _missionCargoEnsureManifest();
     const item = (manifest.items || []).find(entry => String(entry?.id || '') === 'bordbuch');
     if (!item || item.status !== 'loaded') return false;
     const normalized = field === 'landing' ? 'landing' : 'start';
     const log = item.log && typeof item.log === 'object' ? item.log : {};
-    const currentFlightId = window.missionCargoCurrentFlightId?.() || '';
+    const currentFlightId = flightId || window.missionCargoCurrentFlightId?.() || '';
     if (String(log.flightId || '') === String(currentFlightId) && Number(log[`${normalized}At`] || 0) > 0) return false;
     const host = document.getElementById('awmFreqBanner');
     let banner = document.getElementById('missionBoardBookReminder');
@@ -4069,6 +4069,21 @@ function _missionCargoShowBoardBookBanner(field = 'start') {
     missionCargoBoardBookBannerTimer = setTimeout(_missionCargoDismissBoardBookBanner, 15000);
     return true;
 }
+
+// Tracker events already own the timestamps. Only show the existing reminder;
+// never call RecordFlightEvent here, which would mutate the local manifest.
+window.missionCargoApplyTrackerFlightReminders = function(control) {
+    if (control?.executionAuthority !== 'tracker' || !control.missionId || !control.runId
+        || /^(planned|prepare|boarding|boarded|closing|closed|aborted)$/.test(control.phase || '')) return false;
+    const events = control.flightEvents || control.manifest?.flightEvents || {};
+    if (!events.flightId || !Number(events.startAt)) return false;
+    const field = Number(events.landingAt) > 0 ? 'landing' : 'start';
+    const key = `${control.missionId}:${control.runId}:${events.flightId}:${field}:${events[`${field}At`]}`;
+    const seen = window.gaTrackerBoardBookRemindersSeen || [];
+    if (seen.includes(key) || !control.allowedActions?.includes('set_boardbook_time')) return false;
+    window.gaTrackerBoardBookRemindersSeen = [...seen, key].slice(-32);
+    return _missionCargoShowBoardBookBanner(field, String(events.flightId));
+};
 
 window.missionCargoRecordFlightEvent = function(field = 'start', timestamp = Date.now(), options = {}) {
     if (!_missionCargoHasActiveMission()) return false;
@@ -6229,6 +6244,7 @@ window.finishMissionCargoUnloadAndEnd = function(options = {}) {
     const source = String(options.source || 'cargo-primary');
     _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd', source });
     if (window.gaTrackerExecutionHandlesMission?.()) {
+        if (options.skipConfirm !== true && !_missionCargoConfirmCriticalAction('cargo-end')) return false;
         return (async () => {
             const unloaded = await window.gaTrackerExecutionSubmitIntent?.('confirm_unload');
             if (unloaded?.ok !== true) {

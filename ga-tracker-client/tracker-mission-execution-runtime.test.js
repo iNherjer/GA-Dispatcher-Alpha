@@ -8,6 +8,7 @@ const test = require('node:test');
 const executionCore = require('../mission-execution-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
+const { createTrackerMissionExecutionAdapter } = require('./tracker-mission-execution-adapter.js');
 const { createTrackerMissionExecutionRuntime } = require('./tracker-mission-execution-runtime.js');
 const { EFFECT_PLAN_SCHEMA } = require('./tracker-mission-simulator-effects.js');
 
@@ -68,11 +69,11 @@ function aptBundle() {
   return bundle;
 }
 
-function committedManager(t, bundle = aptBundle()) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-execution-runtime-'));
+function committedManager(t, bundle = aptBundle(), storageFile = null) {
+  const directory = storageFile ? path.dirname(storageFile) : fs.mkdtempSync(path.join(os.tmpdir(), 'ga-execution-runtime-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const manager = createMissionAuthorityManager({
-    storageFile: path.join(directory, 'authority.json'),
+    storageFile: storageFile || path.join(directory, 'authority.json'),
     idFactory: () => 'run-runtime-apt',
     executionAuthorityEnabled: true
   });
@@ -104,7 +105,7 @@ function committedManager(t, bundle = aptBundle()) {
   return manager;
 }
 
-test('runtime acknowledges unload bookkeeping before closing the tracker run', async (t) => {
+async function exerciseUnloadCompletion(t, restart = '') {
   const bundle = aptBundle();
   bundle.runtime.cargoManifest = {
     version: 6,
@@ -122,21 +123,25 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
     sourceRevision: 1,
     legacyBundle: bundle
   });
-  const manager = committedManager(t, bundle);
+  const storageFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ga-unload-recovery-')), 'authority.json');
+  let manager = committedManager(t, bundle, storageFile);
   const farewellPrewarms = [];
-  const farewellVoice = request => ({
-    ok: true,
-    status: 'completed',
-    sideEffect: false,
-    commandId: request.commandId
-  });
+  const farewellCalls = [];
+  const farewellVoice = request => {
+    farewellCalls.push(request.commandId);
+    return {
+      ok: true,
+      status: 'completed',
+      sideEffect: false,
+      commandId: request.commandId
+    };
+  };
   farewellVoice.prepare = request => {
     farewellPrewarms.push(request);
     return { ok: true, status: 'pending', sideEffect: true };
   };
   const authorityChanges = [];
-  const runtime = createTrackerMissionExecutionRuntime({
-    authorityManager: manager,
+  const runtimeOptions = {
     enabled: true,
     onAuthorityChanged: (reason, snapshot) => authorityChanges.push({
       reason,
@@ -157,12 +162,20 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
       }
     }),
     playFarewellVoice: farewellVoice
-  });
-  runtime.attachSimulator({
+  };
+  // Simulate interruption after MISSION_CLOSED was committed but before the
+  // active run could be moved to lastRun/lastExecution.
+  const runtimeAuthority = restart === 'after-close-ack' ? {
+    ...manager,
+    finalizeExecutionRun: () => ({ ok: false, status: 'interrupted' })
+  } : manager;
+  let runtime = createTrackerMissionExecutionRuntime({ ...runtimeOptions, authorityManager: runtimeAuthority });
+  const simulator = {
     getLivePosition: () => ({ lat: 48.3, lon: 8.5, alt: 500, hdg: 90 }),
     dispatchCommand: () => ({ ok: true, status: 'completed', sideEffect: false }),
     syncPayloadManifestState: () => ({ ok: true, status: 'completed', sideEffect: false })
-  });
+  };
+  runtime.attachSimulator(simulator);
 
   let run = manager.getActiveRun();
   assert.equal((await runtime.executeIntent({
@@ -242,15 +255,41 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
     expectedRevision: run.revision
   })).ok, true);
   run = manager.getActiveRun();
-  const confirmed = await runtime.executeIntent({
+  const confirmUnload = () => ({
     commandId: 'confirm-arrival-runtime',
     intent: 'confirm_unload',
-    missionId: run.missionId,
-    runId: run.runId,
-    expectedRevision: run.revision
+    missionId: manager.getActiveRun().missionId,
+    runId: manager.getActiveRun().runId,
+    expectedRevision: manager.getActiveRun().revision
   });
-  assert.equal(confirmed.ok, true);
-  assert.equal(confirmed.effectDispatch.pendingCount, 1, 'the 180-ms cargo object queue is still pending');
+  if (restart) {
+    assert.equal(await waitUntil(() => runtime.publicState().effects.pendingEffects.length === 0), true);
+    if (restart === 'after-close-ack') {
+      assert.equal((await runtime.executeIntent(confirmUnload())).ok, true);
+      assert.equal(await waitUntil(() => manager.getExecutionSnapshot()?.state.phase === 'closed'), true);
+    }
+    runtime.detachSimulator();
+    if (restart === 'after-confirm') {
+      // Crash window: the intent is durable, but the runtime has not yet run
+      // its continuation or acknowledged the unload bookkeeping effect.
+      const confirmed = createTrackerMissionExecutionAdapter({ authorityManager: manager }).executeIntent(confirmUnload());
+      assert.equal(confirmed.ok, true);
+      assert.equal(manager.getExecutionSnapshot().state.flags.unloadConfirmed, true);
+    }
+    manager = createMissionAuthorityManager({ storageFile, executionAuthorityEnabled: true });
+    runtime = createTrackerMissionExecutionRuntime({ ...runtimeOptions, authorityManager: manager });
+    runtime.attachSimulator(simulator);
+    if (restart === 'before-confirm') {
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(manager.getExecutionSnapshot().state.flags.unloadConfirmed, false);
+      assert.equal(farewellCalls.length, 0, 'a restored signature alone cannot start Farewell');
+      assert.equal((await runtime.executeIntent(confirmUnload())).ok, true);
+    }
+  } else {
+    const confirmed = await runtime.executeIntent(confirmUnload());
+    assert.equal(confirmed.ok, true);
+    assert.equal(confirmed.effectDispatch.pendingCount, 1, 'the cargo object queue is still pending');
+  }
   assert.equal(await waitUntil(() => manager.getActiveRun() === null), true);
   const completed = manager.getPublicSnapshot().lastExecution;
   assert.equal(completed.payload.status, 'ok');
@@ -260,6 +299,26 @@ test('runtime acknowledges unload bookkeeping before closing the tracker run', a
   assert.equal(authorityChanges.some(change => change.reason === 'intent:sign_manifest'), true);
   assert.equal(authorityChanges.some(change => change.reason.startsWith('payload-ack:')), true);
   assert.equal(authorityChanges.some(change => change.reason.startsWith('finalized:')), true);
+  assert.equal(farewellCalls.length, 1);
+  const completedSnapshot = JSON.stringify(completed);
+  runtime.detachSimulator();
+  runtime.attachSimulator(simulator);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(farewellCalls.length, 1, 'reconnect cannot replay a completed Farewell');
+  assert.equal(JSON.stringify(manager.getPublicSnapshot().lastExecution), completedSnapshot);
+}
+
+test('runtime acknowledges unload bookkeeping before closing the tracker run', async t => {
+  await exerciseUnloadCompletion(t);
+});
+test('restart resumes a durable unload confirmation and closes exactly once', async t => {
+  await exerciseUnloadCompletion(t, 'after-confirm');
+});
+test('restart before unload confirmation still waits for the user', async t => {
+  await exerciseUnloadCompletion(t, 'before-confirm');
+});
+test('restart after the final close ACK finalizes without replaying Farewell', async t => {
+  await exerciseUnloadCompletion(t, 'after-close-ack');
 });
 
 async function waitUntil(predicate, attempts = 40) {
@@ -270,7 +329,7 @@ async function waitUntil(predicate, attempts = 40) {
   return false;
 }
 
-test('coordinated Farewell keeps the passenger loaded until voice, continuation and deboarding ACK finish', async (t) => {
+test('restored confirmed unload keeps the passenger loaded until voice, continuation and deboarding ACK finish', async (t) => {
   const bundle = aptBundle();
   bundle.runtime.lastLiveFlightData = { onGround: true, gsKts: 0, simPaused: false, inMenuOrMap: false };
   bundle.runtime.cargoManifest = {
@@ -349,16 +408,14 @@ test('coordinated Farewell keeps the passenger loaded until voice, continuation 
   const commands = [];
   let releaseFarewell;
   let farewellCalls = 0;
+  let farewellRequest;
   const farewellGate = new Promise(resolve => { releaseFarewell = resolve; });
   const runtime = createTrackerMissionExecutionRuntime({
     authorityManager: manager,
     enabled: true,
     playFarewellVoice: async request => {
       farewellCalls += 1;
-      assert.equal(request.farewellRecipe?.prompt, 'Dynamischer App-Farewell zur Landung.');
-      assert.equal(request.farewellContext?.schema, farewellVoiceCore.CONTEXT_SCHEMA);
-      assert.equal(request.farewellContext?.flight.depLabel, 'EDTW');
-      assert.equal(typeof request.farewellDynamicContext?.record, 'object');
+      farewellRequest = request;
       await farewellGate;
       return {
         ok: true,
@@ -387,24 +444,7 @@ test('coordinated Farewell keeps the passenger loaded until voice, continuation 
     },
     syncPayloadManifestState: () => ({ ok: true, status: 'completed', sideEffect: false })
   });
-  const run = manager.getActiveRun();
-  const close = await runtime.executeIntent({
-    commandId: 'farewell-close',
-    intent: 'request_close',
-    missionId: run.missionId,
-    runId: run.runId,
-    expectedRevision: run.revision,
-    payload: {
-      farewellVoiceRecipe: farewellVoiceCore.createRecipe({
-        missionId: run.missionId,
-        prompt: 'Dynamischer App-Farewell zur Landung.',
-        speaker: { name: 'Mara', gender: 'female' },
-        playCue: true,
-        cueId: 'deboarding_pax'
-      })
-    }
-  });
-  assert.equal(close.ok, true);
+  assert.equal(await waitUntil(() => commands.length === 1), true, 'restored confirmation starts the existing close sequence');
   assert.equal(commands[0].type, 'mission_scene_deboarding');
   assert.equal(commands[0].coordinateFarewell, true);
   assert.equal(manager.getExecutionSnapshot().state.manifest.items[0].status, 'loaded');
@@ -417,6 +457,10 @@ test('coordinated Farewell keeps the passenger loaded until voice, continuation 
     status: 'ok'
   }), true);
   assert.equal(await waitUntil(() => farewellCalls === 1), true);
+  assert.equal(farewellRequest.farewellRecipe, null, 'recovery uses tracker context without a new App prompt');
+  assert.equal(farewellRequest.farewellContext?.schema, farewellVoiceCore.CONTEXT_SCHEMA);
+  assert.equal(farewellRequest.farewellContext?.flight.depLabel, 'EDTW');
+  assert.equal(typeof farewellRequest.farewellDynamicContext?.record, 'object');
   assert.equal(commands.length, 1, 'deboarding must not continue while Farewell is playing');
   assert.equal(manager.getExecutionSnapshot().state.manifest.items[0].status, 'loaded');
 

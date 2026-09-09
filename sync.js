@@ -2798,6 +2798,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         workflows: control.workflows || null,
         authoritySanction: control.authoritySanction || null,
         flight: control.flight || null,
+        flightEvents: control.flightEvents || null,
         allowedActions: control.allowedActions || [],
         blockingReasons: control.blockingReasons || []
     });
@@ -2898,6 +2899,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         } catch (_) {}
     }
     window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
+    try { window.missionCargoApplyTrackerFlightReminders?.(control); } catch (_) {}
     if (openBoardingDialog) {
         try { window.openMissionCargoDialog?.('load'); } catch (_) {}
     }
@@ -5656,6 +5658,7 @@ function _trackerAckMatchesActiveMission(ack = {}) {
 }
 
 function _sendMissionLifecycleToTracker(state = 'active', reason = 'mission-lifecycle') {
+    if (_missionExecutionAuthorityIsTracker()) return false;
     if (window.simModeActive || !window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') return false;
     const missionId = _activeMissionRuntimeId('');
     if (!missionId) return false;
@@ -18775,6 +18778,10 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
         if (missionRuntime.active || missionRuntime.closingPending) {
             missionAuthorityLateBindPending = true;
             setTimeout(async () => {
+                if (_missionExecutionAuthorityIsTracker()) {
+                    missionAuthorityLateBindPending = false;
+                    return;
+                }
                 const missionId = _activeMissionRuntimeId('');
                 const completedExecution = window.lastTrackerMissionAuthority?.lastExecution;
                 const alreadyCompleted = !!missionId

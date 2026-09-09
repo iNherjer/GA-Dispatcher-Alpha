@@ -10,9 +10,11 @@
       root.localStorage.setItem('ga_audio_device_id_v1', deviceId);
     }
   } catch (_) { deviceId = cockpit.clientId; }
+  var retiredWarningSessions = [];
   var state = null, enabled = false, menu = null, saving = Promise.resolve(), closed = false, lastError = '', volumeTimer = null, tickTimer = null, lifecycleEpoch = 0;
   var base = cockpit.baseUrl, captionEffect = '';
   function caption(job) {
+    if (job && (job.clips || ['airspace', 'terrain', 'waypoint'].indexOf(job.kind) >= 0)) return;
     if (!job || captionEffect === job.effectId) return;
     captionEffect = job.effectId;
     root.dispatchEvent(new root.CustomEvent('ga:tracker-voice-playback', { detail: job }));
@@ -20,14 +22,27 @@
   async function request(payload) {
     payload = Object.assign({}, payload, { deviceId: deviceId, clientId: cockpit.clientId });
     if (!local) return root.gaTrackerAudioRelayRequest(payload);
-    var response = await root.fetch(base + '/audio/playback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    var result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Tracker nicht erreichbar.');
-    return result;
+    var result = await root.GATrackerCockpitSessionClient.requestJson(root.fetch.bind(root), base + '/audio/playback',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, 2500);
+    if (!result.response.ok) throw new Error(result.body.error || 'Tracker nicht erreichbar.');
+    return result.body;
   }
-  async function fetchClip(job, stage, signal) {
+  async function fetchClip(job, stage, signal, pack) {
     function checkCancelled() { if (signal && signal.aborted) throw new Error('audio_download_cancelled'); }
     checkCancelled();
+    if (job.clips && /^warning:/.test(stage)) {
+      var key = job.clips[Number(stage.split(':')[1])], core = root.GANavigationWarningAudio;
+      if (key === 'taws-whoop') return core.whoopWav();
+      async function asset(clip) {
+        var assetPath = core.assetPath(clip, pack), address = local ? base + '/audio/assets/' + encodeURIComponent(assetPath)
+          : 'https://inherjer.github.io/GA-Dispatcher-Alpha/' + assetPath;
+        var result = await root.fetch(address, { cache: 'force-cache', signal: signal });
+        if (!result.ok) throw new Error('Warnclip konnte nicht geladen werden.');
+        return result.arrayBuffer();
+      }
+      try { return await asset(key); }
+      catch (error) { if (key === 'aw-zwo') return asset('aw-d2'); throw error; }
+    }
     var url = base + '/voice/jobs/' + encodeURIComponent(job.effectId) + '/' + stage;
     var asset = String(job.cue && job.cue.assetName || '');
     if (!local && stage === 'cue' && /^[a-zA-Z0-9_-]+\.mp3$/.test(asset)) {
@@ -69,22 +84,35 @@
       if (job) caption(job);
     } }); }
   var player = createPlayer();
-  function isActive() { return !!state && (local || (typeof root.gaTrackerExecutionHandlesMission === 'function' && root.gaTrackerExecutionHandlesMission())); }
+  function isActive() { return !!state && (local || !!(state.warnings && state.warnings.active) || (typeof root.gaTrackerExecutionHandlesMission === 'function' && root.gaTrackerExecutionHandlesMission())); }
   function apply(value) {
     if (value && value.schema !== 'ga.audio-control.v1') return;
     if (value && state && value.updatedAt < state.updatedAt) return;
+    if (value && value.warnings && state && state.warnings && value.warnings.session !== state.warnings.session) {
+      if (retiredWarningSessions.indexOf(value.warnings.session) >= 0) value = Object.assign({}, value, { warnings: state.warnings });
+      else { retiredWarningSessions.push(state.warnings.session); retiredWarningSessions = retiredWarningSessions.slice(-8); }
+    }
+    if (value && value.warnings && state && state.warnings
+        && value.warnings.session === state.warnings.session && value.warnings.revision < state.warnings.revision) {
+      value = Object.assign({}, value, { warnings: state.warnings });
+    }
+    if (value && value.warnings && value.warnings.active && !(state && state.warnings && state.warnings.active)
+        && typeof root.awmStopLocalWarnings === 'function') root.awmStopLocalWarnings();
     state = value;
     enabled = isActive();
     player.update(enabled ? state : null);
     if (enabled && state.playback) caption(state.playback.nowPlaying);
+    displayWarnings(value && value.warnings);
     render();
   }
   function change(patch) {
     lastError = '';
     saving = saving.catch(function () {}).then(async function () {
       if (!state) return;
+      var epoch = lifecycleEpoch;
       var result = await request(Object.assign({}, patch, { action: 'settings_update', expectedRevision: state.revision }));
-      if (result.audio) apply(Object.assign({}, result.audio, { playback: state.playback }));
+      if (closed || epoch !== lifecycleEpoch) return;
+      if (result.audio) apply(Object.assign({}, result.audio, { playback: state && state.playback, warnings: state && state.warnings }));
       if (!result.ok) throw new Error(result.error === 'audio_revision_conflict' ? 'Audioeinstellung wurde auf einem anderen Gerät geändert. Bitte erneut wählen.' : 'Audioeinstellung konnte nicht gespeichert werden.');
     }).catch(function (error) { lastError = error.message; render(); });
     return saving;
@@ -108,9 +136,46 @@
     mute.onchange = function () { change({ settings: { enabled: mute.checked } }); };
     muteLabel.appendChild(mute); muteLabel.appendChild(root.document.createTextNode(' Audio aktiviert')); menu.appendChild(muteLabel);
     host.insertBefore(menu, host.firstChild);
+    // The EFB uses the shared markup without the App's inline voice-list builder.
+    var voices = local && root.document.getElementById('awmVoiceList');
+    if (voices) {
+      var packs = root.document.createElement('select'); packs.id = 'gaWarningVoiceSelect';
+      packs.style.cssText = select.style.cssText;
+      packs.setAttribute('aria-label', 'Warnstimme');
+      function option(id, text) { var item = root.document.createElement('option'); item.value = id; item.textContent = text; packs.appendChild(item); }
+      option('', 'Anna (DE)'); voices.replaceChildren(packs);
+      packs.onchange = function() { change({ settings: { voicePack: packs.value } }); };
+      root.fetch('/efb/v1/assets/warning-voices.json').then(function(response) { if (!response.ok) throw new Error('voice_catalog_unavailable'); return response.json(); })
+        .then(function(catalog) { (catalog.packs || []).forEach(function(p) { if (/^[a-z0-9-]+$/.test(p.id)) option(p.id, p.label); }); render(); }).catch(function() {});
+    }
   }
   var bindings = { awmSetVolume: ['volume', function (v) { return Number(v) / 100; }],
     paxVoiceSetEnabled: ['paxEnabled', Boolean], paxVoiceSetAudioEffectsEnabled: ['effectsEnabled', Boolean] };
+  Object.assign(bindings, { awmSetVoice: ['voicePack', String], awmSetReadFreq: ['readFreq', Boolean],
+    awmSetTerrainWarn: ['terrain', Boolean], awmSetAirspaceWarn: ['airspace', Boolean], awmSetWpAlert: ['waypoint', Boolean] });
+  var seenWarnings = new Set();
+  function displayWarnings(snapshot) {
+    if (!snapshot || snapshot.schema !== 'ga.navigation-warnings.v1') return;
+    if (!snapshot.active) {
+      root.document.querySelectorAll('[data-warning-id]').forEach(function(row) { row.remove(); });
+      return;
+    }
+    (snapshot.events || []).forEach(function (warning) {
+      if (seenWarnings.has(warning.id) || warning.expiresAt < Date.now()) return;
+      seenWarnings.add(warning.id);
+      if (seenWarnings.size > 128) seenWarnings.delete(seenWarnings.values().next().value);
+      if (typeof root.awmDisplayTrackerWarning === 'function') { root.awmDisplayTrackerWarning(warning); return; }
+      var banner = root.document.getElementById('awmFreqBanner'); if (!banner) return;
+      var row = root.document.createElement('div'); row.setAttribute('data-warning-id', warning.id);
+      row.style.cssText = 'padding:7px;border-bottom:1px solid #456;color:#ffe087;pointer-events:auto';
+      row.textContent = warning.text + (warning.airspace ? ' · ' + warning.airspace.frequencies.map(function(f) { return f.value; }).join(' / ') : '');
+      var close = root.document.createElement('button'); close.textContent = '×'; close.setAttribute('aria-label', 'Warnung schließen');
+      close.onclick = function(event) { event.stopPropagation(); row.remove(); if (!banner.children.length) banner.style.display = 'none'; };
+      row.appendChild(close); banner.appendChild(row); banner.style.display = 'block';
+      Array.from(banner.querySelectorAll('[data-warning-id]')).slice(0, -12).forEach(function(old) { old.remove(); });
+    });
+  }
+  root.gaTrackerWarningsActive = function() { return !root.simModeActive && !!(state && state.warnings && state.warnings.active && state.warnings.schema === 'ga.navigation-warnings.v1'); };
   var originals = {};
   Object.keys(bindings).forEach(function (name) {
     originals[name] = root[name];
@@ -135,12 +200,25 @@
     root.document.getElementById('gaAudioMasterEnabled').checked = state.settings.enabled;
     message(lastError || 'Ausgabe: ' + state.target.name + (state.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : ''));
     if (!enabled) return;
-    [['awmPaxVoiceCheck','paxEnabled'],['awmAudioEffectsCheck','effectsEnabled']].forEach(function (entry) { var el = root.document.getElementById(entry[0]); if (el) el.checked = state.settings[entry[1]]; });
+    if (state.warnings && ['partial','stale'].indexOf(state.warnings.status) >= 0) message('Ausgabe: ' + state.target.name + ' · ' + (state.warnings.health || 'Warnungsdaten veraltet'));
+    var packs = root.document.getElementById('gaWarningVoiceSelect'); if (packs) packs.value = state.settings.voicePack || '';
+    root.document.querySelectorAll('[id^="awmVoiceBtn_"]').forEach(function(btn) {
+      var selected = btn.id === 'awmVoiceBtn_' + (state.settings.voicePack || 'anna');
+      btn.style.border = '1px solid ' + (selected ? '#4da6ff' : '#444');
+      btn.style.background = selected ? '#1a3a5c' : '#1e1e1e'; btn.style.color = selected ? '#4da6ff' : '#ccc';
+    });
+    [['awmPaxVoiceCheck','paxEnabled'],['awmAudioEffectsCheck','effectsEnabled'],['awmReadFreqCheck','readFreq'],['awmTerrainWarnCheck','terrain'],['awmAirspaceWarnCheck','airspace'],['awmWpAlertCheck','waypoint']].forEach(function (entry) { var el = root.document.getElementById(entry[0]); if (el) el.checked = state.settings[entry[1]]; });
     var slider = root.document.getElementById('awmVolumeSlider'), label = root.document.getElementById('awmVolumeLabel');
     if (slider && root.document.activeElement !== slider) slider.value = Math.round(state.settings.volume * 100);
     if (label) label.textContent = Math.round(state.settings.volume * 100) + '%';
   }
   root.gaTrackerAudioClient = { active: isActive, deviceId: deviceId, apply: apply, change: change };
+  root.addEventListener('gatrackercapabilitieschange', function(event) {
+    var caps = event.detail && event.detail.capabilities;
+    if (state && state.warnings && caps && caps.length && caps.indexOf('navigation.warnings.v1') < 0) {
+      apply(Object.assign({}, state, { warnings: null }));
+    }
+  });
   root.addEventListener('ga:tracker-audio-state', function (event) { apply(event.detail); });
   function unlockFromGesture() {
     // Unlock on the initiating touch, before an asynchronous mission handoff.
@@ -156,8 +234,8 @@
     var epoch = lifecycleEpoch;
     if (local) {
       try {
-        var response = await root.fetch(base + '/audio/settings', { cache: 'no-store' });
-        var value = response.ok ? (await response.json()).audio : null;
+        var result = await root.GATrackerCockpitSessionClient.requestJson(root.fetch.bind(root), base + '/audio/settings', { cache: 'no-store' }, 2500);
+        var value = result.response.ok ? result.body.audio : null;
         if (!closed && epoch === lifecycleEpoch) apply(value);
       } catch (_) { if (!closed && epoch === lifecycleEpoch) apply(null); }
     } else {

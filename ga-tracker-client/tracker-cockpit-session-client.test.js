@@ -2,7 +2,46 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { createClient, inferRole } = require('./tracker-cockpit-session-client');
+const vm = require('node:vm');
+const { createClient, inferRole, requestJson } = require('./tracker-cockpit-session-client');
+
+test('Coherent without AbortController still releases timed-out HTTP requests', async () => {
+  const sandbox = { setTimeout, clearTimeout };
+  vm.createContext(sandbox); vm.runInContext(requestJson.toString(), sandbox);
+  await assert.rejects(sandbox.requestJson(() => new Promise(() => {}), '/test', {}, 20), /tracker_request_timeout/);
+});
+
+for (const stage of ['headers', 'body']) test(`HTTP deadline includes stalled ${stage}, aborts and ignores late results`, async () => {
+  let finish, signal, applied = false;
+  const pending = new Promise(resolve => { finish = resolve; });
+  const fetchRemote = async (_url, init) => {
+    signal = init.signal;
+    return stage === 'headers' ? pending : { ok: true, json: () => pending };
+  };
+  await assert.rejects(requestJson(fetchRemote, '/test', {}, 20).then(() => { applied = true; }), /tracker_request_timeout/);
+  assert.equal(signal.aborted, true);
+  finish(stage === 'headers' ? response({ old: true }) : { old: true });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(applied, false);
+  assert.equal((await requestJson(async () => response({ fresh: true }), '/test')).body.message.payload.fresh, true);
+});
+
+test('a timed-out mission intent is not blindly repeated and subsequent commands remain usable', async t => {
+  const sent = [];
+  const client = createClient({ role: 'efb', requestTimeoutMs: 20, fetchRemote: async (url, init) => {
+    if (url.endsWith('/cockpit/sessions')) return response({ session: { sessionId: 's' }, sessionToken: 't', heartbeatAfterMs: 999999 });
+    if (url.endsWith('/mission/intents')) {
+      sent.push(JSON.parse(init.body).commandId);
+      if (sent.length === 1) return new Promise(() => {});
+      return response({ ok: true });
+    }
+    return response({});
+  } });
+  t.after(() => client.stop());
+  await assert.rejects(client.submitIntent({ commandId: 'first' }), /tracker_request_timeout/);
+  assert.deepEqual(sent, ['first']);
+  assert.equal((await client.submitIntent({ commandId: 'second' })).ok, true);
+});
 
 function response(payload, status = 200) {
   return {

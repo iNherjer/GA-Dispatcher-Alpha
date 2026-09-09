@@ -29,6 +29,8 @@ const elements = {
   hardMissionResetMessage: document.getElementById('hardMissionResetMessage'),
   trackerAutoUpdateCheckbox: document.getElementById('trackerAutoUpdateCheckbox'),
   desktopAutoUpdateCheckbox: document.getElementById('desktopAutoUpdateCheckbox'),
+  desktopModuleSummary: document.getElementById('desktopModuleSummary'),
+  desktopUpdateBadge: document.getElementById('desktopUpdateBadge'),
   desktopUpdateVersion: document.getElementById('desktopUpdateVersion'),
   desktopUpdateMessage: document.getElementById('desktopUpdateMessage'),
   desktopUpdateProgressWrap: document.getElementById('desktopUpdateProgressWrap'),
@@ -174,15 +176,16 @@ function renderDesktopUpdate(update = {}, appVersion = '') {
   elements.installDesktopUpdateButton.hidden = phase !== 'ready';
   elements.installDesktopUpdateButton.disabled = phase !== 'ready';
 
-  if (['choice-required', 'downloading', 'ready', 'installing', 'error'].includes(phase)) {
-    elements.updateBadge.textContent = {
-      'choice-required': 'App-Update', downloading: 'App-Download', ready: 'Neustart', installing: 'Installiert', error: 'App-Fehler'
-    }[phase];
-    setClass(elements.updateBadge, 'mini-badge', phase);
-  }
+  elements.desktopModuleSummary.textContent = `Desktop v${appVersion || '–'}${update.version && update.version !== appVersion ? ` · v${update.version} verfügbar` : ''}`;
+  elements.desktopUpdateBadge.textContent = {
+    idle: 'Bereit', checking: 'Prüft', current: 'Aktuell', 'choice-required': 'Update',
+    downloading: 'Download', ready: 'Neustart', installing: 'Installiert', error: 'Fehler',
+    deferred: 'Später', unsupported: 'Manuell'
+  }[phase] || 'Update';
+  setClass(elements.desktopUpdateBadge, 'mini-badge', phase);
 }
 
-function renderUpdate(update = {}, runtimeChannel = 'stable', appVersion = '') {
+function renderUpdate(update = {}, runtimeChannel = 'stable') {
   const phase = String(update.phase || 'idle');
   elements.updateBadge.textContent = {
     development: 'Entwicklung', idle: 'Bereit', checking: 'Prüft', current: 'Aktuell',
@@ -195,7 +198,7 @@ function renderUpdate(update = {}, runtimeChannel = 'stable', appVersion = '') {
   elements.checkRuntimeButton.disabled = ['checking', 'downloading', 'choice-required', 'development'].includes(phase);
   elements.runtimeChannelSelect.disabled = channelChangePending || ['checking', 'downloading', 'choice-required'].includes(phase);
   const installedVersion = update.installedVersion || update.version || 'nicht installiert';
-  elements.trackerModuleSummary.textContent = `Desktop v${appVersion || '–'} · Engine ${installedVersion} · ${runtimeChannel === 'alpha' ? 'Alpha' : 'Stable'}`;
+  elements.trackerModuleSummary.textContent = `Engine ${installedVersion} · ${runtimeChannel === 'alpha' ? 'Alpha' : 'Stable'}`;
 }
 
 function renderHomebaseAssets(assets = {}) {
@@ -437,7 +440,7 @@ function render(state) {
   elements.stopButton.disabled = !running;
   elements.detailStatus.textContent = tracker.detail || 'Tracker ist nicht gestartet.';
   renderLogs(tracker.logs);
-  renderUpdate(state?.update, runtimeChannel, state?.appVersion);
+  renderUpdate(state?.update, runtimeChannel);
   renderDesktopUpdate(state?.desktopUpdate, state?.appVersion);
   renderHomebaseAssets(state?.homebaseAssets);
   renderEfbPackage(state?.efbPackage, runtimeChannel);

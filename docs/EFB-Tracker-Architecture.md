@@ -1237,11 +1237,10 @@ Versionen und portable Konsolenstarts kompatibel. App/EFB zeigen die neue
 Geraetewahl beim Empfang der Audio-Konfiguration; im Standalone-Lauf behalten
 sie ihre bisherigen lokalen Playback-Regeln.
 
-Dieser Schnitt umfasst Missionsvoice und Mission-Cues. Die allgemeinen
-AWM-/TAWS-/Navigationswarnungen sowie deren Warnstimmenwahl sind weiter
-App-Logik und brauchen einen eigenen Paritaetsblock. Das Projekt darf den
-jetzigen Stand nicht als vollstaendige Zentralisierung aller Audioquellen
-bezeichnen.
+Der bisher veroeffentlichte Schnitt umfasst Missionsvoice und Mission-Cues.
+Der lokale Erweiterungsstand vom 09.09.2026 zieht zusaetzlich AWM/TAWS und
+Wegpunktansagen in den Tracker (siehe Navigationswarnungen unten). Dies ist
+noch kein Simulatornachweis oder Rollout aller Warnquellen.
 
 API-Grundlagen fuer die Ausgangswahl:
 https://developer.chrome.com/blog/audiocontext-setsinkid
@@ -1262,3 +1261,74 @@ Intents oder deren Erfolg. Testablage und EFB-Port sind getrennt vom normalen
 Tracker. Vollstaendige Simulatorereignisse werden als JSONL geschrieben.
 Details und aktueller Nachweisumfang stehen in `teststand/README.md` unter
 `ga-tracker-client` und im Entwicklungsplan.
+
+
+### Navigationswarnungen und lokaler Datenbestand (09.09.2026, lokal)
+
+`navigation.warnings.v1` erweitert die zentrale Audioausgabe additiv. Die
+Capability setzt Alpha/APT und den aktualisierten Desktop-Player voraus
+(`VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER=1`). Alte Desktop-Versionen und
+Standalone-Missionsruns behalten den bisherigen App-Ausloeser. Ohne aktiven
+Run funktionieren Luftraum/TAWS ebenfalls; Wegpunktansagen verwenden die
+Route des gespeicherten Tracker-Missionspakets. Es gibt keine zweite
+Missions-State-Machine in diesem Dienst.
+
+`navigation-warning-core.js` enthaelt die aus der Standalone extrahierten
+Luftraumregeln sowie Terrain- und automatische Wegpunktdetektoren. Der Tracker
+beobachtet die ohnehin gelieferten Simdaten, prueft hoechstens einmal pro
+Sekunde und verwirft Ergebnisse, deren Datenabruf ueber drei Sekunden dauerte.
+Telemetrieversand bleibt bei 500 ms. Asynchrone Downloads laufen ausserhalb
+des Telemetriehandlers. Verbindungsverlust, Pause, alte Generationen und
+unvollstaendige Daten ergeben einen expliziten Status; sie bedeuten keine
+bestaetigte Hindernisfreiheit.
+
+`tracker-navigation-data.js` benutzt die bestehende gehostete OpenAIP-
+Datenbank, Core-Hindernistiles und Terrarium-RGB-Hoehen (Zoom 10, wie TAWS in
+der Standalone). Unter `<Tracker-Datenordner>/navigation-cache` liegen bis
+zu 4 GiB Rohdaten, atomar geschrieben und bei Bedarf nach Alter der Nutzung
+verdraengt. Hoehen/versionierte Packs gelten 180 Tage, Hindernistiles 14 Tage,
+der wechselnde Katalog eine Stunde. Valide alte Daten bleiben bei Netzausfall
+nutzbar. Es laufen maximal vier Downloads; RAM behaelt begrenzte Tile-/Pack-
+Caches. Derselbe Datenzugriff versorgt den vorhandenen EFB-Kartenkontext.
+Hindernisse werden vorausgeladen und sind abfragbar; TAWS bleibt bei seinen
+bisherigen Terrainregeln, ohne neue Hindernis-Kollisionsheuristik. Das vom
+Missionspaket gelieferte Hoehenprofil wird hierdurch nicht neu geplant.
+
+Warnereignisse tragen kleine IDs, Typ, Anzeige/Frequenz und Ablaufzeit. Die
+Interfaces zeigen sie unabhaengig vom Audioziel; nur PC oder die ausgewaehlte
+App beansprucht die bestehende Playback-Lease. Die gemeinsame Voice-Queue
+stellt Warnungen hinter Passenger-Voice und Mission-Cues. Eine bereite Voice
+unterbricht die Warnung; Segment und Position werden fuer die Fortsetzung
+bewahrt. Nach 60 Sekunden werden wartende Warnungen verworfen. Reset loescht
+Warnjobs; diese werden nicht in die persistente Missionsvoice-Datei kopiert.
+Die Standalone-Queue wird beim Handoff geleert, damit keine doppelte Ansage
+entsteht.
+
+Warnclips/Voice-Packs kommen aus dem vorhandenen statischen Repository und
+werden am PC lokal, auf dem Smartphone im Browser gecached. Der Whoop wird
+lokal als WAV erzeugt. Ueber Cloudflare gehen Warnstatus und kleine
+Claim/Renew/Release-Nachrichten, keine Warn-Audiodateien. Die bisherigen
+5-Sekunden-Leases mit Erneuerung pro Sekunde bleiben erhalten. Das ist keine
+Zusage eines vollstaendig verkehrsfreien Playback-Steuerpfads.
+
+Der schlanke `navigation-warning-audio.js`-Adapter und derselbe Player laufen
+im EFB ohne die App-Detektoren. Die Coherent-Syntaxpruefung erfasst jetzt auch
+diese drei Audio-Skripte. EFB und Desktop bieten Warnstimme sowie Schalter fuer
+Luftraum, Terrain, Frequenzen und Wegpunkte. Der App-Kartenpuls benutzt lokal
+vorhandene Geometrie; das EFB zeigt die kompakte Warn-/Frequenzmeldung.
+
+Nachpruefung desselben lokalen Blocks: `predictionBounds()` wird von
+Datenanbieter und Runtime gemeinsam benutzt. Die aktuelle HDG-/GS-/VS-
+Vorhersage muss vollstaendig im geladenen Korridor liegen; bei Kurs- oder
+Geschwindigkeitsaenderung gilt kein pauschales 30-Sekunden-Wartefenster mehr.
+Abgedeckte Daten bleiben im Cache, fehlende Abdeckung wird sofort gemeldet
+und nachgeladen. Am Boden erfolgt Cache-Vorbereitung ohne Flugwarnungen.
+
+Der EFB liest Telemetrie, Karte, Status und Checklisten unabhaengig.
+`requestJson()` im vorhandenen Cockpit-Client begrenzt Header und Body mit
+einer Deadline und optionalem AbortController. Auch ohne Abort-Unterstuetzung
+koennen spaete Antworten keine bereits abgelaufene Anfrage mehr anwenden.
+Audio-Steueranfragen sind ebenfalls begrenzt; der gemeinsame Player gibt
+seinen Request-Lock frei und versucht nach Fehlern automatisch erneut, ohne
+die PAX-Prioritaet oder exklusive Playback-Lease zu umgehen. Schreibende
+Missions-Intents erhalten durch HTTP-Timeouts keine automatische Wiederholung.

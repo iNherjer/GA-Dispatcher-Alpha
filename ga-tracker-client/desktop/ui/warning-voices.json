@@ -1,0 +1,51 @@
+{
+  "generatedAt": "2026-04-15T12:57:35.722Z",
+  "packs": [
+    {
+      "id": "matilda",
+      "label": "Matilda",
+      "emoji": "🎙️"
+    },
+    {
+      "id": "hannah",
+      "label": "Hannah",
+      "emoji": "🎙️"
+    },
+    {
+      "id": "liam",
+      "label": "Liam",
+      "emoji": "🎙️"
+    },
+    {
+      "id": "bella",
+      "label": "Bella",
+      "emoji": "🎙️"
+    },
+    {
+      "id": "adam",
+      "label": "Adam",
+      "emoji": "🎙️"
+    },
+    {
+      "id": "callum",
+      "label": "Callum",
+      "emoji": "🎙️"
+    },
+    {
+      "id": "ivy",
+      "label": "Ivy",
+      "emoji": "🎙️"
+    },
+    {
+      "id": "lily",
+      "label": "Lily",
+      "emoji": "🎙️"
+    },
+    {
+      "id": "ava-en",
+      "label": "Ava (EN)",
+      "emoji": "🇬🇧",
+      "language": "en"
+    }
+  ]
+}

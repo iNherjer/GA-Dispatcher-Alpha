@@ -33,6 +33,7 @@ const context = {
 };
 context.window = context;
 vm.createContext(context);
+vm.runInContext(fs.readFileSync('navigation-warning-core.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('taws.js', 'utf8'), context, { filename: 'taws.js' });
 
 class FakeSource {
@@ -140,4 +141,12 @@ vm.runInContext(`_awEnqueue(['b']);`, context);
 assert.equal(events.at(-1), 'start:b', 're-enabled device may play audio again');
 assert.equal(storage.get('awm_play_on_this_device'), '1');
 
+context.gaTrackerWarningsActive = () => true;
+context.awmStopLocalWarnings();
+assert.equal(events.at(-1), 'stop:b', 'tracker handoff stops the already playing standalone warning');
+assert.equal(context.awmGetAudioQueueDebugState().queueDepth, 0);
+const startsBeforeHandoff = events.length;
+context.awmAnnounceWpAdvance(90, 5);
+vm.runInContext(`_awEnqueue(['a']); _awDrainQueue();`, context);
+assert.equal(events.length, startsBeforeHandoff, 'late standalone callbacks cannot duplicate tracker warnings');
 console.log('AWM audio queue self-test passed');

@@ -32,6 +32,8 @@ zwischen `Stable` und `Alpha` gewechselt werden.
 - bei Updates vorhandener Installationen: `Nur dieses Mal`, `Kuenftig automatisch` oder `Spaeter`
 - Updateinstallation vor dem Trackerstart, nicht waehrend eines Flugs
 - kompakte Status-/Startleiste und standardmaessig geschlossene Modulbereiche
+- eigene aufklappbare Bereiche fuer Konto, Audio und App-Update; App- und
+  Engine-Updatestatus werden getrennt angezeigt
 - Homebase Asset Pack installieren, aktualisieren, reparieren und deinstallieren
 - MSFS-2024-EFB-App passend zum gewählten Tracker-Kanal installieren,
   aktualisieren, reparieren und isoliert deinstallieren

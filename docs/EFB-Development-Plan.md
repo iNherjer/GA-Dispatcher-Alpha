@@ -3892,3 +3892,177 @@ App-Cache v1732; Alpha-Zeiger folgt erst nach verifiziertem Release-Upload.
 Release v397: Source-Tag `566dbb4c8`, Windows-EXE gebaut und oeffentlicher
 Download bytegleich verifiziert (50582378 Bytes, SHA-256 `bc40ae04cea098ba078ced61d3b6cd4142509c6913ff2d02e69e5ea7fe7e9cb8`).
 Alpha-Zeiger v397 und App-Cache v1733; Stable und Desktop-Bootstrapper unveraendert.
+
+
+### v397 Feldtest: Bordbuch-Erinnerung, Deboarding-Label und Fremdobjekt-Logs (lokal)
+
+Die App projiziert Start-/Landezeit-Erinnerungen jetzt aus den bestaetigten
+Tracker-flightEvents in das bestehende Bordbuchbanner. Sie erzeugt dabei
+keine lokalen Flugereignisse und sendet keinen neuen Telemetrieverkehr.
+Pro Mission/Run/Flug/Ereignis wird die Erinnerung einmal angezeigt; bereits
+gefuellte Eintraege, fehlender Bordbestand und geschlossene Runs bleiben still.
+Der Cargo-Hauptbutton nutzt denselben deboardingBusy-Zustand wie die PAX-Zeile
+und ist waehrend der Animation als „Deboarding läuft …“ gesperrt. Der bestehende
+bestaetigte Auto-Abschluss zum Debrief bleibt unveraendert.
+
+Beim Feldtest am 09.09.2026 um 14:03:08 UTC meldete der Tracker 8069 ms
+Event-Loop-Verspaetung, 984 ms letzte Telemetrieverarbeitung und einen leeren
+Relay-Sendepuffer. Davor standen zahlreiche HOMEBASE_OBJECT_REMOVED-Zeilen
+ohne eigene Objekt-ID; deren Debuglogger schreibt synchron. Diese nutzlosen
+Fremdobjekt-Meldungen entfallen nun, waehrend eigenes Object-/ACK-Cleanup
+unveraendert bleibt. Eine Authority-Speicherung dauerte im selben Zeitraum
+738 ms. Die Loglast ist ein nachgewiesener unnoetiger Schreibpfad, aber kein
+vollstaendiger Kausalnachweis fuer alle acht Sekunden. Das 500-ms-Relayintervall
+bleibt unveraendert; weitere Verbesserung anhand des naechsten Feldlogs.
+
+Validierung: 27 UI-/Queue-Tests, Tracker-Interface-Regression mit echtem
+Bordbuchbanner und Homebase-Selftest bestanden. Fremdobjekt-Burst mit 1000
+Entfernungen erzeugt keine Debug-Schreibaufrufe; eigene Entfernungen bleiben
+protokolliert und bestaetigt. Noch nicht ausgerollt.
+
+### APT-Paritaet: Abschluss-Recovery, Rueckfrage und Reconnect (09.09.2026, lokal)
+
+Der Tracker leitet die automatische Fortsetzung nach `confirm_unload` jetzt
+aus dem gespeicherten `unloadConfirmed` und den bestehenden erlaubten Aktionen
+ab. Der fluechtige Zusatzmerker entfaellt. Ein Neustart zwischen bestaetigtem
+Intent und Effektverarbeitung setzt denselben Ablauf mit stabiler Command-ID
+fort. Ist der letzte Close-ACK bereits gespeichert, wird der geschlossene Run
+beim Wiederverbinden finalisiert. Farewell, Deboarding und Payload behalten ihre
+ACK-Gates; ein noch nicht bestaetigtes Entladen wird nicht automatisch beendet.
+
+Die Smartphone-App nutzt vor dem Tracker-Intent dieselbe vorhandene
+`cargo-end`-Rueckfrage wie Standalone und EFB. Abbrechen sendet keinen Intent;
+bereits bestaetigte interne Fortsetzungen fragen nicht erneut. Nach der
+Animation bleibt der automatische Wechsel zum Debrief bestehen.
+
+Beim Relay-Reconnect ueberspringt ein Tracker-Interface den alten
+Lifecycle-Wiederanlauf. Zusaetzlich prueft der zentrale Legacy-Sender die
+Authority unmittelbar vor dem Versand, auch bei einem Wechsel waehrend des
+asynchronen Handshakes. Standalone behaelt seinen bisherigen Lifecycle-Pfad.
+Es gibt keine neuen Timer, Datenfelder oder Aenderungen am 500-ms-Intervall.
+
+Nachweis: Persistenter Neustart vor/nach Entladebestaetigung und nach finalem
+Close-ACK, unveraenderte Farewell-/Deboarding-ACK-Reihenfolge, kein doppelter
+Abschluss, echte App-/EFB-Handler fuer Zustimmung/Abbruch und Reconnect mit
+Authority-Wechsel. Die vorher reproduzierten Wiederanlauf-Luecken sind damit
+automatisiert abgedeckt. Ein erneuter MSFS-Feldtest steht aus; nicht ausgerollt.
+
+
+### Tracker-Navigationswarnungen und Daten-Cache (09.09.2026, lokal)
+
+Beschluss: Luftraum-/TAWS-Ausloeser laufen im Tracker, damit EFB/PC ohne
+geoeffnete Web-App warnen koennen. Wegpunktansagen lesen die gespeicherte
+Missionsroute. Die bestehende Standalone bleibt Referenz; keine geaenderten
+Luftraumklassen, Sicherheitsabstaende oder Missionsregeln. Die gemeinsame
+Warnlogik ist jetzt ein reiner Core, den die Standalone ebenfalls verwendet.
+
+Der Tracker liest OpenAIP-Packs, Core-Hindernisse und Terrarium-Hoehen selbst
+und cached sie bis 4 GiB unter `navigation-cache` im Datenordner. Downloads
+sind asynchron, dedupliziert und auf vier begrenzt, RAM-Tiles ebenfalls
+begrenzt. Hindernisdaten stehen zur Verfuegung; es wurde keine zusaetzliche
+Hindernis-Kollisionsregel erfunden. Fehlende Daten erscheinen als unvollstaendig.
+
+PC/App-Auswahl und dieselbe Wiedergabequeue gelten fuer PAX, Mission-Cues und
+Warnungen. Passenger-Voice geht vor; Warnsequenzen werden nach einer
+Unterbrechung fortgesetzt, sofern nicht veraltet. Feste Warnclips laufen
+ueber lokalen HTTP-Cache/GitHub, nicht als Audio-Chunks durch den Relay.
+Warnstatus und Lease-Steuerung bleiben kleine synchronisierte Nachrichten.
+Das 500-ms-Telemetrieintervall wird nicht geaendert. Neue Warn- und
+Stimmenwahl ist auch direkt in Desktop/EFB erreichbar. Alte Desktop-Player
+werden durch eine eigene Capability geschuetzt und behalten den bisherigen
+Pfad. Die Aktualisierung braucht daher auch ein Desktop-Update.
+
+Validierung: Differentialtest gegen eingefrorenen Standalone-Luftraumcode;
+Terrain-Schwellen, Frequenzclips und Wegpunktlinie; Voice-Prioritaet,
+Fortsetzung ohne Ueberlappung, Ablauf, Geraetewahl und Relay ohne Audio-Chunks;
+Cache-Deduplizierung, Groessenbegrenzung, atomare Validierung und Offline-
+Neustart; Tracker-Ausloeser ohne App, verspaetete Daten, Reset/Legacy-Handoff,
+fehlende Daten und gespeicherte Route. App/EFB pruefen doppelte/veraltete
+Warnungen und lokale Queue-Bereinigung. Coherent-Syntaxtests decken auch
+Audio-Adapter, Player und Client ab.
+
+Realer Datenprobeabruf Lahr/Offenburg: 493 ft am Punkt 48.38/7.84,
+17 Luftraeume und 34 Hindernisse. Nach Neustart mit absichtlich gesperrtem
+Netzwerk gleiche Hoehenwerte und Datensatzanzahlen, acht Cachetreffer, null
+Downloads; lokaler Datenbestand 2.53 MB. Dies belegt die Datenanbindung,
+keine neue Hoehenvermessung oder erfolgreiche Simulatorwarnung.
+
+Abschlusspruefung: 146 Node-Tests sowie AWM-Queue-, Terrain- und Tracker-
+Interface-Selftest bestanden. Gemeinsamer Player, Clip-Adapter und Katalog
+sind in Desktop und Quelle identisch. Ein unveroeffentlichter Windows-EXE-
+Testbuild mit der neuen PNG-Abhaengigkeit wurde erfolgreich erzeugt.
+
+Noch nicht ausgerollt. Live bleiben Tracker v397, App-Cache v1733 und
+Desktop 1.6.8. Fuer den Rollout sind Tracker-EXE und Desktop neu zu bauen;
+der anschliessende iPhone-/EFB-/PC-Feldtest bleibt erforderlich.
+
+### EFB-Verbindungserholung und Flugbahn-Abdeckung (09.09.2026, lokal)
+
+Die nachfolgende Codepruefung reproduzierte drei Luecken: Ein haengender
+Checklisten-/Kartenabruf hielt auch die bereits fertige Telemetrie zurueck;
+lokale Audio-/Controller-Anfragen konnten ohne Deadline stehen bleiben;
+Luftraumdaten wurden nach einem Kurswechsel noch bis zum alten Zeit-/Distanz-
+Intervall aus dem falschen Korridor genommen und als bereit angezeigt.
+
+Der Host aktualisiert Flugzeugdaten nun unabhaengig von Status, Karte und
+Checklisten. Flugzeug-Polling bleibt bei einer Sekunde, der Tracker-Relay bei
+500 ms. Checklisten werden separat alle zehn Sekunden gelesen. Eine gemeinsame
+HTTP-Deadline umfasst Antwortheader und JSON-Body und verwirft verspaetete
+Antworten auch ohne AbortController in Coherent. Telemetrie und zentrale
+Audio-Steuerung haben 2.5 Sekunden, Missions-/Nebenabfragen 5 Sekunden,
+Controller-POSTs 10 Sekunden und Kartenkontext-Abfragen 15 Sekunden Zeit.
+Abgelaufene schreibende Intents werden nicht blind wiederholt; der Tracker-
+Snapshot bleibt die Wahrheit. Der Audio-Player gibt haengende Steueranfragen
+frei und versucht den Queue-Abruf nach einer Sekunde erneut, ohne neue
+Benutzeraktion. Playback-Lease und PAX-Prioritaet bleiben erhalten.
+
+Warnungen verwenden weiterhin die Standalone-Flugbahn: aktuelle Position und
+Richtung, GS/VS mit EMA 0.3, Vorhersagepunkte bei 1/2/3/4/5/10 Minuten und den
+TAWS-Feinpunkt bei 15 Sekunden. Geplante Wegpunkte ersetzen diese Flugbahn
+nicht. Datenanbieter und Runtime verwenden dieselben Abdeckungsgrenzen.
+Verlaesst die aktuelle Vorhersage die geladenen Grenzen, wird sofort
+nachgeladen; bei Fehlern begrenzt ein Zehn-Sekunden-Backoff Wiederholungen.
+Bis zur vollstaendigen aktuellen Abdeckung meldet der Dienst unvollstaendige
+Luftraumdaten. Antworten von vor einem deutlichen Kurswechsel erzeugen keine
+Ansage fuer die alte Richtung. Bereits am Boden werden lokale Terrain- und
+Luftraumdaten geladen; Luftraum-/Terrainwarnungen bleiben wie bisher oberhalb
+30 kt aktiv.
+
+Validierung: 169 unterschiedliche Node-Tests einschliesslich HTTP-/Desktop-
+Schnittstellen, Coherent ohne AbortController, haengender Header/Body,
+spaeter Antworten, automatischer Audio-Erholung, getrenntem EFB-Polling,
+Kurs-/Geschwindigkeitsaenderung und Vorladen am Boden bestanden. Die
+Vorhersagekoordinaten werden gegen die echte Standalone-Funktion in app.js
+verglichen, die Luftraumentscheidungen gegen den eingefrorenen
+Standalone-Detektor. AWM-Queue- und Tracker-Interface-Selftest sind gruen.
+Der abschliessende lokale Windows-Testbuild wurde erfolgreich erzeugt
+(51,427,582 Bytes); Desktop-Kopie und Player-Quelle sind identisch.
+
+Keine Veroeffentlichung in diesem Schritt. Das vollstaendige EFB-Debrief
+bleibt der separat dokumentierte Ausbaupunkt; der reale Sim-/EFB-/iPhone-
+Nachweis der neuen Verbindungserholung und Warnungsabdeckung steht noch aus.
+
+
+### Alpha-Rollout vorbereitet: v398 / Desktop 1.6.9 (09.09.2026)
+
+Rollout umfasst die oben beschriebenen APT-Paritaetskorrekturen, Navigation mit
+Flugbahnpruefung und lokalem Daten-/Audiocache sowie entkoppelte EFB-Abfragen
+mit verbindlichen Deadlines und automatischer Wiederaufnahme. Tracker v398,
+EFB-Hostassets 39801, Web-App-Cache v1734. Der Relay-Takt bleibt bei 500 ms.
+
+Auf Nutzerwunsch bekommt Desktop 1.6.9 eigene aufklappbare Bereiche fuer Konto,
+Audio und App-Update. Diagnose und Engine-Einstellungen bleiben beim Tracker.
+Der App-Updatestatus hat ein eigenes Badge und ueberschreibt nicht mehr den
+Trackerstatus. Fehlende Zugangsdaten oeffnen weiterhin direkt das passende
+Formular. Der Alpha-Downloadlink verweist auf den manuellen 1.6.9-Installer.
+
+169 gezielte Navigations-/EFB-/Audio-/Desktop-Tests wurden zuvor bestanden.
+Zur Releasevorbereitung erneut: 48 Desktop-, 45 Missions-/APT-UI- und 18
+Host-Asset-Tests sowie AWM-Queue- und Tracker-Interface-Selbsttests bestanden.
+Isolierte Electron-Pruefung mit echten HTML/CSS/Renderer-Dateien bestaetigt
+Panel-Zuordnung, automatisches Oeffnen von Konto, Tastaturfokus und Aufklappen
+ohne horizontalen Ueberlauf. Screenshots visuell geprueft.
+
+Windows-Tracker-EXE gebaut. Release-Upload und Desktop-Build folgen erst danach.
+Runtime-Stable, globaler Desktop-Autoupdatezeiger und EFB-Community-Paket bleiben
+unveraendert. Reale Windows-Installation und MSFS-Flugtest stehen aus.

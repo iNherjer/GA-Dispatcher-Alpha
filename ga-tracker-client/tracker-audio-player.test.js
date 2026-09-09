@@ -30,6 +30,33 @@ function fakeAudio() {
   return { Context, running, starts };
 }
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+test('a stalled audio control request retries without a new notice or user gesture', async t => {
+  let calls = 0, finishOld; const errors = [];
+  const player = createPlayer({ deviceId: 'pc', clientId: 'pc-session', controlTimeoutMs: 20, retryDelayMs: 5,
+    request: () => { calls++; return calls === 1 ? new Promise(resolve => { finishOld = resolve; }) : Promise.resolve({}); },
+    onError: error => errors.push(error) });
+  t.after(() => player.stop());
+  player.update({ revision: 1, target: { deviceId: 'pc' }, settings: { enabled: true }, playback: { notification: 'same', playbackAvailable: true } });
+  await wait(70);
+  assert.equal(calls, 2);
+  assert.deepEqual(errors, ['audio_control_timeout']);
+  finishOld({ job: { effectId: 'late', kind: 'boarding' } }); await wait(5);
+  assert.equal(calls, 2, 'the late next result must not be claimed');
+});
+
+test('a stalled release does not leave the player permanently occupied', async t => {
+  let offered = false, nextCalls = 0;
+  const player = createPlayer({ deviceId: 'pc', clientId: 'pc-session', AudioContext: shortAudio(), controlTimeoutMs: 20,
+    request: async command => {
+      if (command.action === 'next') { nextCalls++; if (offered) return {}; offered = true; return { job: { effectId: 'voice', kind: 'boarding', audioAvailable: true } }; }
+      if (command.action === 'claim') return { claimed: true };
+      return new Promise(() => {});
+    }, fetchClip: async () => new ArrayBuffer(1) });
+  t.after(() => player.stop());
+  player.update({ revision: 1, target: { deviceId: 'pc' }, settings: { enabled: true, paxEnabled: true, volume: 1 }, playback: { playbackAvailable: true } });
+  await wait(100);
+  assert.equal(player.active, false); assert.equal(nextCalls, 2);
+});
 test('PC to App switch stops the old output and resumes the same effect at its position', async t => {
   const audioControl = createAudioControl();
   const service = createTrackerVoiceService({ audioControl });

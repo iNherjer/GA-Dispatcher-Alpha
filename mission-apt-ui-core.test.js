@@ -226,6 +226,9 @@ test('canonical unload sheet keeps cargo, PAX and mission-end actions distinct',
   assert.equal(deboarding.items[0].action.label, 'Deboarding läuft');
   assert.equal(deboarding.items[0].action.disabled, true);
   assert.equal(deboarding.summary.deboardingBusy, true);
+  assert.equal(deboarding.actions.primary.label, 'Deboarding läuft …');
+  assert.equal(deboarding.actions.primary.disabled, true);
+  assert.equal(deboarding.actions.primary.intent, '');
 });
 
 test('canonical cargo sheet exposes App lock text instead of clickable stale actions', () => {

@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
+const warningCore = require('../navigation-warning-core.js');
 
 const VOICE_PROVIDERS = new Set(['gemini', 'openai']);
 const EFFECT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
@@ -360,6 +361,7 @@ function createTrackerVoiceService(options = {}) {
     return {
       effectId: record.effectId,
       kind: record.kind || 'direct',
+      ...(record.clips ? { clips: [...record.clips], expiresAt: record.expiresAt } : {}),
       synthesizeAudio: record.synthesizeAudio !== false,
       status: record.status,
       provider: record.provider,
@@ -413,7 +415,7 @@ function createTrackerVoiceService(options = {}) {
     let file;
     try {
       const rows = [...records.values()]
-        .filter(record => record.status === 'ready' && (Buffer.isBuffer(record.audio) || record.synthesizeAudio === false))
+        .filter(record => !record.clips && record.status === 'ready' && (Buffer.isBuffer(record.audio) || record.synthesizeAudio === false))
         .map(record => {
           if (Buffer.isBuffer(record.audio) && !encodedAudio.has(record.audio)) {
             encodedAudio.set(record.audio, record.audio.toString('base64'));
@@ -704,7 +706,7 @@ function createTrackerVoiceService(options = {}) {
     record.updatedAt = now();
     settlePlaybackWaiters(normalizedEffectId, { status: 'cancelled', completed: false, job: publicRecord(record) });
     settlePlaybackClaimWaiters(normalizedEffectId, { status: 'cancelled', claimed: false, job: publicRecord(record) });
-    persist();
+    if (!record.clips) persist();
     return { cancelled: true, reason: record.error, job: publicRecord(record) };
   }
 
@@ -728,6 +730,20 @@ function createTrackerVoiceService(options = {}) {
     }
   }
 
+  function enqueueWarning(value) {
+    const effectId = normalizeEffectId(value.effectId);
+    if (!['airspace', 'terrain', 'waypoint'].includes(value.kind) || !Array.isArray(value.clips)
+        || !value.clips.length || value.clips.length > 64) throw new Error('invalid_navigation_warning');
+    for (const key of value.clips) if (key !== 'taws-whoop') warningCore.assetPath(key);
+    if (records.has(effectId)) return publicRecord(records.get(effectId));
+    const timestamp = now();
+    const record = { effectId, kind: value.kind, clips: [...value.clips], text: String(value.text || '').slice(0, 240),
+      status: 'ready', synthesizeAudio: false, provider: 'static', speaker: {}, createdAt: timestamp, updatedAt: timestamp,
+      expiresAt: Math.min(timestamp + 120000, Number(value.expiresAt) || timestamp + 60000),
+      playback: { status: 'available', ownerClientId: '', leaseUntil: 0, position: { stage: 'warning:0', offset: 0 } } };
+    records.set(effectId, record); evict();
+    return publicRecord(record);
+  }
   function getNextPlayback(clientId = '', deviceId = '') {
     if (audioControl && audioControl.snapshot().target.deviceId !== deviceId) return null;
     reconcileAudioSettings();
@@ -741,22 +757,22 @@ function createTrackerVoiceService(options = {}) {
     for (const candidate of records.values()) {
       const playbackStatus = String(candidate.playback?.status || 'available');
       if (candidate.status !== 'ready' || playbackStatus === 'completed' || playbackStatus === 'deferred') continue;
-      if (timestamp - Number(candidate.createdAt || timestamp) <= playbackJobTtlMs) continue;
+      if (candidate.clips ? timestamp <= candidate.expiresAt : timestamp - Number(candidate.createdAt || timestamp) <= playbackJobTtlMs) continue;
       records.delete(candidate.effectId);
       totalAudioBytes = Math.max(0, totalAudioBytes - (Number(candidate.audio?.length) || 0));
       settlePlaybackWaiters(candidate.effectId, { status: 'expired', completed: false, job: publicRecord(candidate) });
       settlePlaybackClaimWaiters(candidate.effectId, { status: 'expired', claimed: false, job: publicRecord(candidate) });
       log(`VOICE_PLAYBACK_EXPIRED effectId=${candidate.effectId}`);
-      pruned = true;
+      if (!candidate.clips) pruned = true;
     }
     if (pruned) persist();
     const record = [...records.values()]
-      .filter((candidate) => candidate.status === 'ready' && (Buffer.isBuffer(candidate.audio) || ((audioControl || candidate.kind === 'cargo') && candidate.cue?.filePath)))
+      .filter((candidate) => candidate.status === 'ready' && (candidate.clips || Buffer.isBuffer(candidate.audio) || ((audioControl || candidate.kind === 'cargo') && candidate.cue?.filePath)))
       .filter((candidate) => !clientId || !(candidate.failedPlaybackClients || []).includes(clientId))
       .filter((candidate) => candidate.playback?.status !== 'deferred')
       .filter((candidate) => candidate.playback?.status !== 'completed' && candidate.playback?.status !== 'released')
       .filter((candidate) => candidate.playback?.status !== 'claimed' || Number(candidate.playback?.leaseUntil || 0) <= timestamp)
-      .sort((left, right) => left.createdAt - right.createdAt)[0];
+      .sort((left, right) => Number(!!left.clips) - Number(!!right.clips) || left.createdAt - right.createdAt)[0];
     return publicRecord(record);
   }
 
@@ -854,6 +870,7 @@ function createTrackerVoiceService(options = {}) {
     if (!record) throw voiceError('voice_job_not_found', 404, 'Voice-Effekt wurde nicht gefunden.');
     if (audioControl && !audioControl.canPlay(String(value.deviceId || ''), record.kind)) return { claimed: false, reason: 'audio_device_not_selected', job: null };
     if ((record.failedPlaybackClients || []).includes(clientId)) return { claimed: false, reason: 'client_playback_failed', job: publicRecord(record) };
+    if (record.clips && record.expiresAt < now()) return { claimed: false, reason: 'expired', job: null };
     if (record.status !== 'ready') return { claimed: false, reason: record.status, job: publicRecord(record) };
     const timestamp = now();
     if ([...records.values()].some(other => other.effectId !== effectId && other.playback?.status === 'claimed' && other.playback.leaseUntil > timestamp)) {
@@ -894,14 +911,14 @@ function createTrackerVoiceService(options = {}) {
       : { status: retryable ? 'available' : 'released', ownerClientId: '', leaseUntil: 0, completedAt: 0, position };
     record.updatedAt = timestamp;
     const result = { released: true, completed, job: publicRecord(record) };
-    persist();
+    if (!record.clips) persist();
     if (!retryable) settlePlaybackWaiters(effectId, { status: completed ? 'completed' : 'released', completed, job: result.job });
     if (completed) settlePlaybackClaimWaiters(effectId, { status: 'completed', claimed: true, job: result.job });
     return result;
   }
 
   function normalizePlaybackPosition(value = {}) {
-    return { stage: value.stage === 'audio' ? 'audio' : 'cue', offset: Math.max(0, Math.min(180, Number(value.offset) || 0)) };
+    return { stage: /^warning:(?:[0-9]|[1-5][0-9]|6[0-3])$/.test(value.stage) ? value.stage : value.stage === 'audio' ? 'audio' : 'cue', offset: Math.max(0, Math.min(180, Number(value.offset) || 0)) };
   }
 
   function renewPlayback(value = {}) {
@@ -933,6 +950,9 @@ function createTrackerVoiceService(options = {}) {
     return {
       nowPlaying: playing ? { effectId: playing.effectId, kind: playing.kind, text: playing.text, speaker: { ...playing.speaker }, provider: playing.provider, model: playing.model, voiceName: playing.voiceName } : null,
       configured,
+      priorityAvailable: jobs.some(record => !record.clips && record.status === 'ready'
+        && (Buffer.isBuffer(record.audio) || record.cue?.filePath)
+        && ['available', 'claimed'].includes(record.playback?.status)),
       playbackAvailable: jobs.some(record => record.status === 'ready' && ['available', 'claimed'].includes(record.playback?.status)),
       notification: crypto.createHash('sha256').update(jobs.map(record => record.effectId + ':' + record.status + ':' + (record.playback?.status === 'claimed' && record.playback.leaseUntil <= now() ? 'expired' : record.playback?.status)).join('|')).digest('hex').slice(0, 20),
       provider,
@@ -949,6 +969,7 @@ function createTrackerVoiceService(options = {}) {
   }
 
   return Object.freeze({
+    enqueueWarning,
     activatePlayback,
     cancel,
     claimPlayback,

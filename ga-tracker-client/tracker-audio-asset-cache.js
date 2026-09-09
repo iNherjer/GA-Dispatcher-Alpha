@@ -7,8 +7,8 @@ const crypto = require('node:crypto');
 const DEFAULT_BASE_URL = 'https://inherjer.github.io/GA-Dispatcher-Alpha/';
 function audioAssetPath(value) {
   const asset = String(value || '');
-  if (!/^(audio-cues|audio-warnings|audio-pax)\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+\.(mp3|m4a|wav)$/.test(asset)
-      || asset.includes('..')) throw new Error('invalid_audio_asset');
+  if (asset !== 'taws-alert.m4a' && (!/^(audio-cues|audio-warnings|audio-pax)\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+\.(mp3|m4a|wav)$/.test(asset)
+      || asset.includes('..'))) throw new Error('invalid_audio_asset');
   return asset;
 }
 function createAudioAssetCache({ directory, version, baseUrl = DEFAULT_BASE_URL, fetchRemote = fetch,

@@ -1203,7 +1203,9 @@ function createHomebaseObjectManager(handle, options = {}) {
       pendingRemovals.delete(objectId);
       pending.resolve({ ok: true, record: pending.record });
     }
-    log(`HOMEBASE_OBJECT_REMOVED objectId=${objectId} id=${record?.item?.id || ''}`);
+    // SimConnect reports removals for all scenery/traffic objects. Logging
+    // unrelated objects here causes synchronous disk writes during scenery churn.
+    if (record || pending) log(`HOMEBASE_OBJECT_REMOVED objectId=${objectId} id=${record?.item?.id || pending?.record?.item?.id || ''}`);
   });
 
   handle.on('simObjectData', (recv) => {

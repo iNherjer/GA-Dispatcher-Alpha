@@ -60,6 +60,7 @@ class TrackerProcess extends EventEmitter {
       VFR_MULTITOOL_TRACKER_CHANNEL: runtimeChannel,
       VFR_MULTITOOL_APT_EXECUTION: aptMissionExecutionEnabled ? '1' : '0',
       VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER: '1',
+      VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER: '1',
       VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: desktopControlToken
     };
     if (this.app.isPackaged) {
@@ -187,6 +188,8 @@ class TrackerProcess extends EventEmitter {
       requestPath = '/api/v1/audio/playback';
       body = JSON.stringify({ ...payload, deviceId: 'pc' });
       if (Buffer.byteLength(body) > 4096) return Promise.reject(new Error('Audio-Anfrage ist zu groß.'));
+    } else if (kind === 'asset' && /^(?:audio-warnings\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.(?:mp3|m4a)|taws-alert\.m4a)$/.test(payload.asset || '')) {
+      requestPath = '/api/v1/audio/assets/' + encodeURIComponent(payload.asset);
     } else if (['audio', 'cue'].includes(kind) && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(effectId)) {
       requestPath = '/api/v1/voice/jobs/' + encodeURIComponent(effectId) + '/' + kind;
     } else return Promise.reject(new Error('Ungültige Audio-Anfrage.'));
@@ -201,7 +204,7 @@ class TrackerProcess extends EventEmitter {
         response.on('end', () => {
           if (response.statusCode !== 200) { reject(new Error(response.statusCode === 503 ? 'Zentrale Audioausgabe benötigt den Alpha-Tracker mit APT-Ausführung.' : 'Audio-Anfrage fehlgeschlagen (' + response.statusCode + ').')); return; }
           const bytes = Buffer.concat(chunks);
-          if (kind === 'audio' || kind === 'cue') { resolve(new Uint8Array(bytes)); return; }
+          if (kind === 'audio' || kind === 'cue' || kind === 'asset') { resolve(new Uint8Array(bytes)); return; }
           try { resolve(JSON.parse(bytes.toString('utf8'))); } catch (_) { reject(new Error('Ungültige Audio-Antwort.')); }
         });
       });

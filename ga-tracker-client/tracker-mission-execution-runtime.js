@@ -40,7 +40,6 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   let cleanupExecutionRun = null;
   let recoveryDrain = Promise.resolve();
   let effectRunner = null;
-  let autoCloseAfterUnloadRunId = '';
   let autoClosePromise = null;
   const executionEffectPlan = () => typeof authorityManager.getExecutionEffectPlan === 'function'
     ? authorityManager.getExecutionEffectPlan()
@@ -270,16 +269,16 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   };
 
   const maybeAutoCloseConfirmedUnload = async (reason = 'arrival-effects') => {
-    if (!autoCloseAfterUnloadRunId) return { ok: true, status: 'noop' };
     if (autoClosePromise) return autoClosePromise;
     autoClosePromise = (async () => {
       const snapshot = authorityManager.getExecutionSnapshot?.();
-      if (!snapshot || snapshot.runId !== autoCloseAfterUnloadRunId) {
-        autoCloseAfterUnloadRunId = '';
+      // The accepted unload confirmation is durable. Reuse it after a restart
+      // instead of requiring a second click or a process-local continuation flag.
+      if (snapshot?.executionAuthority !== 'tracker' || snapshot.recipe !== 'apt'
+          || !snapshot.state?.flags?.unloadConfirmed) {
         return { ok: true, status: 'noop' };
       }
-      if (!snapshot.state?.flags?.unloadConfirmed
-          || !Array.isArray(snapshot.view?.allowedActions)
+      if (!Array.isArray(snapshot.view?.allowedActions)
           || !snapshot.view.allowedActions.includes('request_close')) {
         return { ok: true, status: 'pending' };
       }
@@ -292,7 +291,6 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         reason: `auto-close:${reason}`
       });
       if (!closed.ok) return closed;
-      autoCloseAfterUnloadRunId = '';
       await effectRunner.drain();
       logCheckpoint(`auto-close:${reason}`);
       finalizeIfClosed(`${snapshot.runId}:auto-close-after-unload`);
@@ -387,9 +385,6 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       Promise.resolve().then(() => options.prepareBoardingVoice({
         missionId: request.missionId, runId: request.runId, livePosition: getSimulatorPosition()
       })).catch(error => log(`MISSION_BOARDING_PREWARM_ERROR error=${error?.message || error}`));
-    }
-    if (String(request.intent || request.action || '').trim().toLowerCase() === 'confirm_unload') {
-      autoCloseAfterUnloadRunId = String(result.activeRun?.runId || authorityManager.getActiveRun()?.runId || '');
     }
     const drainEffects = () => settleEffects(`intent:${request.intent || 'unknown'}`, request.commandId || 'intent');
     if (request.deferEffects === true) {
@@ -492,11 +487,13 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     });
     simulatorEffects = bridge;
     cleanupExecutionRun = typeof simulator.cleanupMission === 'function' ? simulator.cleanupMission : null;
-    recoveryDrain = effectRunner.drain().then((result) => {
+    recoveryDrain = effectRunner.drain().then(async (result) => {
       if (!result.ok && !['mission_execution_authority_web', 'no_active_run'].includes(result.error)) {
         log(`MISSION_EFFECT_RECOVERY status=${result.status || 'error'} error=${result.error || ''}`);
       }
-      return maybeAutoCloseConfirmedUnload('effect-recovery');
+      const closed = await maybeAutoCloseConfirmedUnload('effect-recovery');
+      finalizeIfClosed('effect-recovery');
+      return closed;
     }).catch(error => log(`MISSION_EFFECT_RECOVERY_ERROR error=${error?.message || error}`));
     return bridge;
   };
