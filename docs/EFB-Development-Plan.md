@@ -3887,3 +3887,8 @@ Reihenfolgegrenzen, Prewarm ohne Zustandsmutation,
 echte fehlende/beschaedigte Ladung und korrigierte Ansage in beiden Richtungen
 (Fehler zu Erfolg und Erfolg zu Fehler). Release-Kandidat: Tracker v397,
 App-Cache v1732; Alpha-Zeiger folgt erst nach verifiziertem Release-Upload.
+
+
+Release v397: Source-Tag `566dbb4c8`, Windows-EXE gebaut und oeffentlicher
+Download bytegleich verifiziert (50582378 Bytes, SHA-256 `bc40ae04cea098ba078ced61d3b6cd4142509c6913ff2d02e69e5ea7fe7e9cb8`).
+Alpha-Zeiger v397 und App-Cache v1733; Stable und Desktop-Bootstrapper unveraendert.
