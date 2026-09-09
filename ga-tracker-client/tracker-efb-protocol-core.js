@@ -25,6 +25,7 @@
     MISSION_VIEW: 'mission.view.v1',
     MISSION_AUTHORITY: 'mission.authority.v1',
     MISSION_INTENT: 'mission.intent.v1',
+    MISSION_CARGO_BATCH: 'mission.cargo-batch.v1',
     MISSION_SCENE_GROUP: 'mission.scene.group.v1',
     COCKPIT_SESSION: 'cockpit.session.v1',
     VOICE_PLAYBACK: 'voice.playback.v1',

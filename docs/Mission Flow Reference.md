@@ -471,3 +471,15 @@ Wenn ein Missionsablauf geaendert wird, muessen im selben Patch geprueft werden:
 
 Ein neues Profil ohne neue fachliche Gates wird in eine bestehende
 Ablaufklasse eingeordnet. Es bekommt keine eigene Abschlussmaschine.
+
+### Tracker-APT: Cargo-Latenz und Arrival-Freigaben (v394-Kandidat)
+
+Die Standalone bleibt Referenz. Bei Tracker-Authority koennen mehrere
+Boden-Cargo-Intents als ein geprueftes Paket uebertragen werden; siehe
+`Mission Runtime Authority Contract.md`. Ausstehende Klicks werden sofort
+angezeigt, echte Manifest-/Sim-Ergebnisse bleiben autoritativ bestaetigt.
+Ankunft nutzt onGround plus <=2 kt oder Parkbremse ohne Extra-Wartezeit.
+Eine gewoehnliche Cargo-Payload-Synchronisierung ist keine Voraussetzung fuer
+die Ankunftsunterschrift oder Entladebestaetigung. Erst die Bestaetigung
+setzt den vorhandenen Farewell-/Deboarding-/Close-Ablauf fort; Signatur allein
+beendet die Mission nicht. Finale Payload- und PAX-Gates gelten weiterhin.

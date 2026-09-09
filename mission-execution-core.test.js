@@ -726,3 +726,16 @@ test('pending boarding effects survive more than 48 later cargo effects', () => 
     assert.ok(normalized.effects.some(effect => effect.effectId === 'effect-1'));
     assert.equal(normalized.effects.length, 50);
 });
+
+test('arrival paperwork does not wait for ordinary cargo payload sync, final close still waits for simulator work', () => {
+    let state = core.normalizeState({ missionId: 'arrival-cargo', recipe: 'apt', phase: 'end_unloading',
+        flags: { started: true, active: true, onGround: true, groundStill: true },
+        progress: { airborneSeen: true },
+        manifest: { version: 6, items: [{ id: 'box', itemType: 'cargo', required: true, status: 'unloaded', deliverAtDestination: true }] },
+        effects: [{ effectId: 'sync-box', type: 'payload.sync_manifest_state', status: 'requested' }] });
+    assert.ok(core.allowedActions(state).includes('sign_manifest'));
+    state.manifest.dispatchSignature = { scope: 'arrival', by: 'Pilot', at: 100 };
+    state = core.normalizeState(state);
+    assert.ok(core.allowedActions(state).includes('confirm_unload'));
+    assert.ok(!core.allowedActions(state).includes('request_close'));
+});

@@ -654,7 +654,8 @@
     function createEffect(state, event, type, payload) {
         var effectType = text(type, 100).toLowerCase();
         return {
-            effectId: 'mfx-' + hashValue({ missionId: state.missionId, eventId: event.eventId, type: effectType }),
+            effectId: 'mfx-' + hashValue({ missionId: state.missionId, eventId: event.eventId, type: effectType,
+                ...(event.effectDiscriminator ? { itemId: event.effectDiscriminator } : {}) }),
             type: effectType,
             status: 'requested',
             sourceEventId: event.eventId,
@@ -674,7 +675,7 @@
         state.effects = retainEffects(state.effects);
     }
 
-    function appendPayloadManifestSyncEffect(state, event, transition) {
+    function appendPayloadManifestSyncEffect(state, event, transition, collector) {
         var transitionSource = object(transition);
         var detachedSource = object(transitionSource.detachedInheritedEquipment);
         var transitionAction = text(transitionSource.action, 40).toLowerCase() || null;
@@ -683,7 +684,7 @@
         state.payload = payloadCore && typeof payloadCore.normalizeOutcome === 'function'
             ? payloadCore.normalizeOutcome({ status: 'pending' }, { updatedAt: event.occurredAt })
             : state.payload;
-        appendEffect(state, createEffect(state, event, 'payload.sync_manifest_state', {
+        var effect = createEffect(state, event, 'payload.sync_manifest_state', {
             operation: 'payload_sync_manifest_state',
             manifestStateHash: hashValue(state.manifest),
             transition: transitionAction || transitionItemId || detachedId ? {
@@ -700,7 +701,9 @@
                     persistentEquipmentInherited: true
                 } : null
             } : null
-        }));
+        });
+        if (collector) collector.push(effect);
+        else appendEffect(state, effect);
     }
 
     function appendCargoVisualTransitionEffect(state, event, transition) {
@@ -721,6 +724,7 @@
         }
         appendEffect(state, createEffect(state, event, 'scene.cargo_item_transition', {
             operation: 'cargo_item_transition',
+            ...(Array.isArray(object(event.payload).payloadTransitions) ? { coalesced: true } : {}),
             action: action,
             itemId: itemId,
             manifestKey: text(state.manifest.key || state.manifest.manifestKey, 180) || state.missionId,
@@ -1312,16 +1316,29 @@
                 }
                 state.workflows.complianceInspection = normalizeCompliance(cargoCompliance);
             }
-            var cargoPayloadTransition = object(event.payload).payloadTransition;
-            if (text(object(cargoPayloadTransition).action, 40)) {
-                appendCargoVisualTransitionEffect(state, event, cargoPayloadTransition);
-                appendPayloadManifestSyncEffect(state, event, cargoPayloadTransition);
-                var audioItem = state.manifest.items.find(function (item) { return item.id === cargoPayloadTransition.itemId; });
-                if (audioItem) appendEffect(state, createEffect(state, event, 'voice.cargo', {
-                    action: cargoPayloadTransition.action, item: canonicalValue(audioItem)
-                }));
-                if (audioItem && audioItem.required && cargoPayloadTransition.action === 'drop') appendEffect(state, createEffect(state, event, 'voice.flight', { kind: 'cargo_event', item: canonicalValue(audioItem), delayMs: 0 }));
-            }
+            var cargoPayloadTransitions = Array.isArray(object(event.payload).payloadTransitions)
+                ? event.payload.payloadTransitions : [object(event.payload).payloadTransition];
+            var cargoPayloadEffects = [];
+            var cargoVoiceEffects = [];
+            cargoPayloadTransitions.forEach(function (cargoPayloadTransition) {
+                if (text(object(cargoPayloadTransition).action, 40)) {
+                    var cargoEvent = cargoPayloadTransitions.length > 1
+                        ? { ...event, effectDiscriminator: cargoPayloadTransition.itemId } : event;
+                    appendCargoVisualTransitionEffect(state, cargoEvent, cargoPayloadTransition);
+                    appendPayloadManifestSyncEffect(state, event, cargoPayloadTransition, cargoPayloadEffects);
+                    var audioItem = state.manifest.items.find(function (item) { return item.id === cargoPayloadTransition.itemId; });
+                    if (audioItem) cargoVoiceEffects.push(createEffect(state, cargoEvent, 'voice.cargo', {
+                        action: cargoPayloadTransition.action, item: canonicalValue(audioItem)
+                    }));
+                    if (audioItem && audioItem.required && cargoPayloadTransition.action === 'drop') cargoVoiceEffects.push(createEffect(state, cargoEvent, 'voice.flight', { kind: 'cargo_event', item: canonicalValue(audioItem), delayMs: 0 }));
+                }
+            });
+            if (cargoPayloadEffects.length === 1) appendEffect(state, cargoPayloadEffects[0]);
+            else if (cargoPayloadEffects.length > 1) appendEffect(state, createEffect(state, event, 'payload.sync_manifest_state', {
+                operation: 'payload_sync_manifest_state', manifestStateHash: hashValue(state.manifest),
+                transitions: cargoPayloadEffects.map(function (effect) { return effect.payload.transition; })
+            }));
+            cargoVoiceEffects.forEach(function (effect) { appendEffect(state, effect); });
             if ((state.phase === 'prepare' || state.phase === 'boarding' || state.phase === 'boarded') && state.cargo.signatureScope !== 'departure') {
                 state.flags.loadConfirmed = false;
                 state.flags.payloadSyncRequested = false;
@@ -1631,8 +1648,7 @@
                     return effect.type === 'scene.deboarding' && effect.status === 'requested';
                 });
                 var arrivalTransitionPending = state.flags.payloadSyncRequested === true || state.effects.some(function (effect) {
-                    return effect.status === 'requested' && (effect.type === 'payload.sync_manifest_state'
-                        || effect.type === 'scene.deboarding'
+                    return effect.status === 'requested' && (effect.type === 'scene.deboarding'
                         || effect.type === 'scene.deboarding_continue'
                         || effect.type === 'voice.farewell');
                 });

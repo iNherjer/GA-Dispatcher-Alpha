@@ -404,7 +404,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       return effects;
     };
     if (request.deferEffects === true) {
-      Promise.resolve().then(drainEffects).catch(error => {
+      // Yield beyond promise continuations so the durable intent ACK is sent first.
+      new Promise(resolve => setImmediate(resolve)).then(drainEffects).catch(error => {
         log(`MISSION_EFFECT_DEFERRED_ERROR intent=${request.intent || 'unknown'} error=${error?.code || error?.message || error}`);
       });
       return {

@@ -192,3 +192,18 @@ Bush/Pickup und SAR-Heli werden bewusst als nicht migriert abgewiesen, weil
 ihre zusaetzlichen Auswertungs- und Narrativregeln noch in
 `passenger-voice.js` liegen. Auch kanonisches UI und realer In-Sim-
 Gesamtnachweis bleiben offen.
+
+# Voice-Cache ohne synchrone Audio-Neuschreibung (v394-Kandidat)
+
+Das bestehende `ga.tracker-voice-cache.v1`-Format bleibt lesbar. Der Writer
+fasst Aenderungen zusammen und schreibt atomar ueber eine temporaere Datei mit
+asynchronem I/O. Unveraenderte Audio-Buffer werden nur einmal als Base64
+kodiert; kleine Metadaten und Audiodaten werden getrennt geschrieben, ohne den
+gesamten Cache erneut zu JSON zu serialisieren. Aenderungen waehrend einer
+Schreiboperation erzeugen anschliessend einen aktuellen Snapshot.
+`flushPersistence()` wartet auf den Writer (Recovery-Tests/gezielte Flushes).
+Schreibfehler behalten die vorherige Datei und koennen beim naechsten Flush
+oder bei einer Aenderung erneut versucht werden. Audio-Cache-Speicherung ist
+best effort; ein harter Prozessabbruch kann die letzte noch ausstehende
+Cache-Aenderung verlieren. Der autoritative Missionsjournal-Commit bleibt
+vor dem Intent-ACK dauerhaft gespeichert.

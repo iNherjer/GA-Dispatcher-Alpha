@@ -704,3 +704,29 @@ bleiben fail-closed.
   Cloud-Kandidaten in einem kurzen 2,5-Sekunden-Intervall. Bei aktivem Run
   pausiert dieser schnellere Poll; Abort und Hard-Reset behalten ihren
   unmittelbaren gezielten Refresh.
+
+### Additives Cargo-Batching (v394-Kandidat, 09.09.2026)
+
+`mission.cargo-batch.v1` erlaubt bei `set_manifest_item` alternativ
+`payload.items: [{ itemId, action }]` mit 1–32 verschiedenen Boden-Cargo-Items.
+Die bestehende Run-/Revisionspruefung gilt fuer das gesamte Paket. Der Adapter
+plant alle Einzelaktionen mit dem unveraenderten Manifest-Core auf einer
+privaten Kopie; bei einem Fehler wird nichts uebernommen. Ein gueltiges Paket
+wird als ein `CARGO_STATE_CHANGED` mit `payloadTransitions` persistiert.
+Jedes geaenderte Item erhaelt einen eigenen stabilen Szenen-/Cue-Effekt, das
+Paket eine Payload-Synchronisierung. Saemtliche abgetrennten geerbten
+Bordbestand-Items bleiben im Baseline-Recovery erhalten.
+
+App und gehosteter Cockpit-View sammeln kurze Klickfolgen fuer 180 ms, zeigen
+ausstehende Items sofort und lesen die Revision erst beim Senden. Signaturen,
+PAX-Intents, Run-/Phasenwechsel und gegenlaeufige Aktionen desselben Items
+begrenzen ein Paket. Die App nutzt Pakete nur nach Capability-Nachweis; alte
+Tracker erhalten weiter einzelne Intents. Bereits gebuendelte visuelle Effekte
+warten im Tracker keinen zweiten 180-ms-Timer ab. Simulator-ACK, ObjectRevision,
+Deduplizierung und Missionsautoritaet bleiben bestehen.
+
+Ankunft: Die Bodenfreigabe entspricht der Standalone (onGround und hoechstens
+2 kt oder Parkbremse), ohne zusaetzlichen Drei-Sekunden-Nachweis. Gewoehnliche
+Cargo-Payload-Synchronisierung blockiert Ankunftsunterschrift und
+Entladebestaetigung nicht. Finale Payload-/PAX-/Farewell-Gates bleiben erhalten;
+eine Unterschrift allein startet weiterhin keinen Abschluss.

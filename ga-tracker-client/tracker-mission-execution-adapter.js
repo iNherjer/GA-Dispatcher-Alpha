@@ -8,8 +8,8 @@ const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const flightRecorderCore = require('../mission-flight-recorder-core.js');
 
 const AIRBORNE_EVIDENCE_MS = 2000;
-const GROUND_STILL_EVIDENCE_MS = 3000;
-const GROUND_STILL_MAX_GS_KTS = 3;
+const GROUND_STILL_EVIDENCE_MS = 0;
+const GROUND_STILL_MAX_GS_KTS = 2;
 // App parity: mission-cargo-core.js uses 200 m for reloading an item at the
 // place where it was unloaded.
 const RELOAD_MAX_DISTANCE_M = 200;
@@ -384,7 +384,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     };
   };
 
-  const setManifestItem = (snapshot, request, manualPassenger = false) => {
+  const setManifestItem = (snapshot, request, manualPassenger = false, planOnly = false) => {
     const payload = safeObject(request.payload);
     const itemId = cleanString(payload.itemId || payload.id, 120);
     const action = cleanString(payload.action || payload.status, 30).toLowerCase();
@@ -458,17 +458,14 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }, transitionContext);
     if (plan?.ok !== true) {
       if (plan?.error === 'manifest_item_already_loaded' || plan?.error === 'manifest_item_not_loaded') {
-        return noopResult(authorityManager, snapshot);
+        return planOnly ? { ok: true, manifest, payloadTransition: null } : noopResult(authorityManager, snapshot);
       }
       return errorResult(plan?.error || 'mission_manifest_item_state_conflict', { transition: plan || null });
     }
     if (plan.requiresEffect) return errorResult('mission_manifest_item_scene_required', { requiresEffect: plan.requiresEffect });
     const committed = manifestCore.commitItemTransition(manifest, plan);
     if (committed?.ok !== true) return errorResult(committed?.error || 'mission_manifest_item_state_conflict');
-    return submitEvent(
-      snapshot,
-      'CARGO_STATE_CHANGED',
-      {
+    const change = {
         manifest,
         payloadTransition: {
           action: committed.action === 'drop'
@@ -479,10 +476,34 @@ function createTrackerMissionExecutionAdapter(options = {}) {
           position: observations.lastPosition,
           ...(manualPassenger ? { manualPassenger: true, previousItem, requestedAt: transitionContext.now } : {})
         }
-      },
+      };
+    if (planOnly) return { ok: true, ...change };
+    return submitEvent(snapshot, 'CARGO_STATE_CHANGED', change,
       `${snapshot.runId}:intent:${cleanString(request.commandId, 120)}`,
-      `intent:set_manifest_item:${load ? 'load' : 'unload'}`
-    );
+      `intent:set_manifest_item:${load ? 'load' : 'unload'}`);
+  };
+
+  // One revision and one durable event for a short sequence of ground cargo clicks.
+  // Plan against a private manifest first: any invalid item rejects the whole batch.
+  const setManifestItems = (snapshot, request) => {
+    const items = safeObject(request.payload).items;
+    if (!Array.isArray(items) || !items.length || items.length > 32
+        || new Set(items.map(item => item?.itemId)).size !== items.length) {
+      return errorResult('mission_manifest_batch_invalid');
+    }
+    if (snapshot.state.flags.onGround === false) return errorResult('mission_manifest_batch_requires_ground');
+    let manifest = snapshot.state.manifest;
+    const payloadTransitions = [];
+    for (const payload of items) {
+      const planned = setManifestItem({ ...snapshot, state: { ...snapshot.state, manifest } },
+        { ...request, payload }, false, true);
+      if (!planned.ok) return planned;
+      manifest = planned.manifest;
+      if (planned.payloadTransition) payloadTransitions.push(planned.payloadTransition);
+    }
+    if (!payloadTransitions.length) return noopResult(authorityManager, snapshot);
+    return submitEvent(snapshot, 'CARGO_STATE_CHANGED', { manifest, payloadTransitions },
+      `${snapshot.runId}:intent:${cleanString(request.commandId, 120)}`, 'intent:set_manifest_item:batch');
   };
 
   const clearManifestSignature = (snapshot, request) => {
@@ -719,7 +740,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         view: snapshot.view
       });
     }
-    if (intent === 'set_manifest_item') return setManifestItem(snapshot, request);
+    if (intent === 'set_manifest_item') return Object.hasOwn(safeObject(request.payload), 'items')
+      ? setManifestItems(snapshot, request) : setManifestItem(snapshot, request);
     if (intent === 'sign_manifest') return signManifest(snapshot, request);
     if (intent === 'clear_manifest_signature') return clearManifestSignature(snapshot, request);
     if (intent === 'set_boardbook_time') return setBoardBookTime(snapshot, request);
@@ -1048,8 +1070,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     observations.airborneCandidateAt = null;
 
+    const groundReady = onGround === true && (sample.parkingBrake === true
+      || (Number.isFinite(gsKts) && gsKts <= GROUND_STILL_MAX_GS_KTS));
     if (onGround === true && snapshot.state.flags.onGround === false) {
-      observations.groundStillCandidateAt = gsKts <= GROUND_STILL_MAX_GS_KTS ? observedAt : null;
+      observations.groundStillCandidateAt = groundReady ? observedAt : null;
       const applied = submitEvent(
         snapshot,
         'TOUCHDOWN',
@@ -1067,10 +1091,9 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       return { ...applied, destination };
     }
 
-    if (onGround === true && !snapshot.state.flags.groundStill && gsKts <= GROUND_STILL_MAX_GS_KTS) {
+    if (groundReady && !snapshot.state.flags.groundStill) {
       if (observations.groundStillCandidateAt == null) {
         observations.groundStillCandidateAt = observedAt;
-        return { ok: true, status: 'pending', reason: 'ground_still_evidence', sideEffect: false, destination, view: snapshot.view };
       }
       if (observedAt - observations.groundStillCandidateAt >= GROUND_STILL_EVIDENCE_MS) {
         observations.groundStillCandidateAt = null;
@@ -1088,7 +1111,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       }
       return { ok: true, status: 'pending', reason: 'ground_still_evidence', sideEffect: false, destination, view: snapshot.view };
     }
-    if (onGround === true && snapshot.state.flags.groundStill && gsKts <= GROUND_STILL_MAX_GS_KTS
+    if (groundReady && snapshot.state.flags.groundStill
         && destination.atDestination === true
         && snapshot.state.progress.airborneSeen === true
         && !['end_unloading', 'end_ready', 'closing', 'closed'].includes(snapshot.state.phase)) {

@@ -297,6 +297,7 @@ test('ready audio and completed playback survive a tracker restart without anoth
   first.releasePlayback({ effectId: 'run-7:boarding', clientId: 'efb-a', completed: true });
   assert.equal(calls, 1);
 
+  assert.equal(await first.flushPersistence(), true);
   const second = createTrackerVoiceService({ provider: 'openai', apiKey: 'secret', storageFile, fetchRemote });
   const restored = second.request({ effectId: 'run-7:boarding', text: 'Hallo.', speaker: { gender: 'female' } });
   assert.equal(restored.status, 'ready');
@@ -376,6 +377,7 @@ test('muted boarding still generates and persists the canonical text without a T
   assert.equal(ready.audioAvailable, false);
   assert.equal(calls, 1);
 
+  assert.equal(await first.flushPersistence(), true);
   const second = createTrackerVoiceService({ provider: 'openai', apiKey: 'secret', storageFile, fetchRemote });
   assert.equal(second.request({
     effectId: 'run-9:boarding',
@@ -416,6 +418,7 @@ test('cargo cues need no API key or speech request and keep exclusive playback a
   assert.equal(service.getNextPlayback().effectId, ready.effectId);
   assert.equal(service.claimPlayback({ effectId: ready.effectId, clientId: 'efb' }).claimed, true);
   assert.equal(service.claimPlayback({ effectId: ready.effectId, clientId: 'phone' }).claimed, false);
+  assert.equal(await service.flushPersistence(), true);
   const restored = createTrackerVoiceService(options);
   assert.equal(restored.get(ready.effectId).kind, 'cargo');
   assert.equal(networkCalls, 0);
@@ -455,4 +458,57 @@ test('a stalled EFB releases its lease for another device without replaying on t
   assert.equal(service.claimPlayback({ effectId: 'failover-boarding', clientId: 'phone' }).claimed, true);
   service.releasePlayback({ effectId: 'failover-boarding', clientId: 'phone', completed: true });
   assert.equal(service.getNextPlayback('efb'), null);
+});
+
+test('slow cache I/O never blocks playback completion; concurrent mutations are persisted afterward', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-voice-async-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const storageFile = path.join(directory, 'voice.json');
+  let releaseWrite, enteredWrite;
+  const writing = new Promise(resolve => { enteredWrite = resolve; });
+  const blocked = new Promise(resolve => { releaseWrite = resolve; });
+  let writes = 0;
+  const io = { ...fs, writeFileSync: () => { throw new Error('synchronous voice write forbidden'); },
+    promises: { ...fs.promises, open: async (...args) => {
+      const handle = await fs.promises.open(...args);
+      return { close: () => handle.close(), writeFile: async data => {
+        if (writes++ === 0) { enteredWrite(); await blocked; }
+        return handle.writeFile(data);
+      } };
+    } } };
+  const service = createTrackerVoiceService({ provider: 'openai', apiKey: 'test', storageFile, io,
+    fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.alloc(1024 * 1024, 7) }) });
+  service.request({ effectId: 'async-audio', text: 'Hallo' });
+  await service.wait('async-audio');
+  await writing;
+  service.claimPlayback({ effectId: 'async-audio', clientId: 'phone' });
+  const finished = service.waitForPlayback('async-audio');
+  service.releasePlayback({ effectId: 'async-audio', clientId: 'phone', completed: true });
+  assert.equal((await finished).completed, true, 'playback finishes while disk write is still blocked');
+  assert.equal(writes, 1);
+  releaseWrite();
+  assert.equal(await service.flushPersistence(), true);
+  const restored = createTrackerVoiceService({ storageFile });
+  assert.equal(restored.get('async-audio').playback.status, 'completed');
+  assert.equal(restored.getAudio('async-audio').body.length, 1024 * 1024);
+});
+
+test('failed async cache replacement preserves the previous file and can retry', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-voice-retry-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const storageFile = path.join(directory, 'voice.json');
+  const original = '{"schema":"ga.tracker-voice-cache.v1","records":[]}';
+  fs.writeFileSync(storageFile, original);
+  let fail = true;
+  const io = { ...fs, promises: { ...fs.promises, rename: async (...args) => {
+    if (fail) { fail = false; throw new Error('disk temporarily unavailable'); }
+    return fs.promises.rename(...args);
+  } } };
+  const service = createTrackerVoiceService({ storageFile, io });
+  service.request({ effectId: 'retry-cue', kind: 'cargo', cue: { id: 'cargo_load' } });
+  await service.wait('retry-cue');
+  assert.equal(await service.flushPersistence(), false);
+  assert.equal(fs.readFileSync(storageFile, 'utf8'), original);
+  assert.equal(await service.flushPersistence(), true);
+  assert.equal(JSON.parse(fs.readFileSync(storageFile, 'utf8')).records[0].effectId, 'retry-cue');
 });

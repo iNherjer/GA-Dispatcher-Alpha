@@ -303,21 +303,48 @@
   // A repeated click on the same item joins its outstanding command.
   function createIntentQueue(onChange) {
     var entries = [];
-    var tail = Promise.resolve();
+    var running = false;
     function changed() { if (typeof onChange === 'function') onChange(); }
-    function enqueue(key, itemId, execute) {
+    async function pump() {
+      if (running || !entries.length) return;
+      running = true;
+      var first = entries[0];
+      // Only compatible adjacent cargo clicks share a revision. A signature,
+      // PAX action or run change is an ordering barrier.
+      if (first.batch) await new Promise(function (resolve) {
+        setTimeout(resolve, Math.max(0, first.queuedAt + 180 - Date.now()));
+      });
+      var group = [first];
+      if (first.batch) {
+        for (var i = 1; i < entries.length && group.length < 32; i++) {
+          var next = entries[i];
+          if (!next.batch || next.batch.group !== first.batch.group
+              || group.some(function (entry) { return entry.itemId === next.itemId; })) break;
+          group.push(next);
+        }
+      }
+      try {
+        var result = first.batch
+          ? await first.batch.execute(group.map(function (entry) { return entry.batch.value; }))
+          : await first.execute();
+        group.forEach(function (entry) { entry.resolve(result); });
+      } catch (error) {
+        group.forEach(function (entry) { entry.reject(error); });
+      } finally {
+        entries.splice(0, group.length);
+        running = false;
+        changed();
+        if (entries.length) Promise.resolve().then(pump);
+      }
+    }
+    function enqueue(key, itemId, execute, batch) {
       var existing = entries.find(function (entry) { return entry.key === key; });
       if (existing) return existing.promise;
-      var entry = { key: key, itemId: itemId || '', promise: null };
+      var entry = { key: key, itemId: itemId || '', execute: execute, batch: batch, queuedAt: Date.now() };
+      entry.promise = new Promise(function (resolve, reject) { entry.resolve = resolve; entry.reject = reject; });
       entries.push(entry);
-      var operation = tail.then(execute);
-      function settle() {
-        entries.splice(entries.indexOf(entry), 1);
-        changed();
-      }
-      entry.promise = operation.then(function (value) { settle(); return value; }, function (error) { settle(); throw error; });
-      tail = entry.promise.then(function () {}, function () {});
       changed();
+      Promise.resolve().then(pump);
       return entry.promise;
     }
     return {

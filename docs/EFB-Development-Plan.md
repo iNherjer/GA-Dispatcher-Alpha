@@ -3600,3 +3600,47 @@ Weitere Performance-Kandidaten (in diesem Release nicht umgebaut):
 - UI-Revisionskonflikte werden durch technische ACKs beguenstigt; im Feld 15/33
   Manifest-Versuche. Nach beseitigtem Replay zuerst neu messen, bevor ein
   weiterer Versions-/Synchronisierungsmechanismus hinzugefuegt wird.
+
+### v394-Kandidat: Cargo-Buendelung, freier Audio-I/O und Arrival-Paritaet (09.09.2026)
+
+Umgesetzt auf Grundlage des v393-Feldtests `run-mttqnej8-ffc82e6a6b839b`:
+- Ein Cargo-Klickpaket statt einzelner serieller Relay-Roundtrips, mit sofortiger
+  Pending-Anzeige und gemeinsamer Revision in App und gehostetem EFB-View.
+  Additive Capability `mission.cargo-batch.v1`; Standalone/alte Tracker bleiben
+  auf dem Einzelpfad. Simulator-Objekte bleiben unabhaengige Effekte, Payload
+  wird einmal fuer den gemeinsamen Manifeststand geschrieben.
+- Kein zweiter Cargo-Sammel-Timer fuer bereits im Client gebuendelte Pakete.
+  Der Deferred-Effect-Start gibt den Eventloop fuer das dauerhafte Intent-ACK
+  frei, bevor Sim-Effekte anlaufen.
+- Voice-Cache asynchron, atomar und zusammengefasst; vorhandenes v1-Format
+  bleibt erhalten. Keine erneute Base64-Kodierung alter Audio-Buffer bei jedem
+  Cargo-Cue, Aktivieren oder Playback-Release.
+- Arrival-Freigabe wie Standalone: am Boden, <=2 kt oder Parkbremse, ohne
+  zusaetzliche drei Sekunden. Gewoehnliche Cargo-Gewichtsaktualisierungen
+  sperren keine Ankunftsunterschrift/Entladebestaetigung mehr. Departure-Gates,
+  PAX-Sequenz, Farewell und finale Payload-Freigabe bleiben bestehen.
+- Der regulaere Asset-Build uebernimmt den bereits vorhandenen Debrief-
+  Scrollfix aus styles.css auch ins gehostete EFB-Stylesheet. Kamerawechsel/
+  schwarzer EFB bleibt im gesonderten Arbeitsauftrag.
+
+Lokaler Vergleich mit 24 MiB fertigem Audio im Cache, drei Durchlaeufe:
+Cargo-Cue bereit vorher 114,4–157,1 ms, nachher 0,3–1,0 ms; Verzoegerung eines
+Eventloop-Timers vorher 115,9–157,3 ms, nachher 5,5–9,0 ms. Das misst den
+Cachepfad auf macOS, keine reale MSFS-/Relay-End-to-End-Latenz. Verspaetete
+SimObject-Zuweisungen koennen weiterhin ausserhalb dieses Pfades entstehen.
+
+Regressionen pruefen atomare Batch-Ablehnung, Revisionskonflikte, Replay,
+alle Objekt-/Audio-Effekte, nur einen Payload-Write einschliesslich mehrerer
+geerbter Bordbestand-Items, Queue-Barrieren, alte Tracker, langsame/fehlerhafte
+Cache-I/O und Arrival-/PAX-/Abschluss-Gates. Der Cargo-Persistenz-Selbsttest
+bindet fuer seinen Bordbuch-Kontext jetzt den bereits verwendeten Manifest-
+Core ein; Produktlogik der Standalone wurde nicht geaendert.
+
+Validierung: 147 gezielte Node-Tests bestanden, dazu Interface-, Flow-,
+Ground-, Cargo-Persistenz-, Payload-Differential- und Update-Sync-Selbsttests
+sowie Manifest-/Payload-/Location-Core-Tests. Syntax und Whitespace geprueft.
+Windows-x64-EXE v394 erfolgreich gebaut (50.567.155 Bytes), SHA-256:
+`3431c0efde390f3ba4d833f5a5ee1be516bbd5699af6717e39eda66fe2d934a1`.
+EFB-Assetrevision des Kandidaten: 39401.
+
+Noch kein Rollout: Live bleibt v393 / App SW v1726 / Desktop 1.6.8.

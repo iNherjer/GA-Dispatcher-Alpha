@@ -405,7 +405,7 @@ test('airborne unload follows the App drop transition and requests the latest pa
   }).error, 'mission_manifest_load_not_allowed');
 });
 
-test('tracker telemetry requires stable evidence and drives APT landing and close flow', (t) => {
+test('tracker preserves airborne evidence and uses immediate standalone ground readiness for APT arrival', (t) => {
   const fixture = createCommittedFixture(t);
   executeCurrent(fixture, 'prepare_mission', 'prepare');
   beginBoarding(fixture, 'telemetry');
@@ -431,8 +431,6 @@ test('tracker telemetry requires stable evidence and drives APT landing and clos
   assert.equal(result.view.phase, 'enroute');
 
   result = fixture.adapter.observeTelemetry({ observedAt: 14000, lat: 48, lon: 8, onGround: true, gsKts: 0.5, atDestination: true });
-  assert.equal(result.status, 'pending');
-  result = fixture.adapter.observeTelemetry({ observedAt: 17000, lat: 48, lon: 8, onGround: true, gsKts: 0.2, atDestination: true });
   assert.equal(result.acceptedEvent.type, 'GROUND_STILL');
   assert.equal(result.destination.atDestination, false);
   assert.equal(result.view.phase, 'enroute');
@@ -444,8 +442,8 @@ test('tracker telemetry requires stable evidence and drives APT landing and clos
   result = fixture.adapter.observeTelemetry({ observedAt: 21000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 28 });
   assert.equal(result.acceptedEvent.type, 'TOUCHDOWN');
 
-  result = fixture.adapter.observeTelemetry({ observedAt: 22000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0.5 });
-  assert.equal(result.status, 'pending');
+  result = fixture.adapter.observeTelemetry({ observedAt: 22000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 2.5 });
+  assert.equal(result.status, 'noop');
   result = fixture.adapter.observeTelemetry({
     observedAt: 26000,
     lat: 48.3001,
@@ -456,8 +454,6 @@ test('tracker telemetry requires stable evidence and drives APT landing and clos
   });
   assert.equal(result.status, 'ignored');
   result = fixture.adapter.observeTelemetry({ observedAt: 27000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0.2 });
-  assert.equal(result.status, 'pending');
-  result = fixture.adapter.observeTelemetry({ observedAt: 30000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0.1 });
   assert.equal(result.acceptedEvent.type, 'GROUND_STILL');
   assert.equal(result.destination.reason, 'apt_arrival_point');
   assert.equal(result.view.phase, 'end_unloading');
@@ -998,4 +994,67 @@ test('manual PAX mutates once, invalidates signature and restores only the item 
   assert.equal(snapshot.state.manifest.dispatchSignature, null);
   assert(snapshot.state.effects.some(effect => effect.type === 'payload.sync_manifest_state' && effect.payload.transition.action === 'manual_passenger_rollback'));
   assert(snapshot.view.allowedActions.includes('request_pax_interaction'));
+});
+
+test('ground cargo batch validates atomically, emits every visual and one payload sync, and survives replay', t => {
+  const bundle = aptResumeBundle();
+  bundle.runtime.cargoManifest.items.push({ ...bundle.runtime.cargoManifest.items[0], id: 'second-box' });
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const fixture = createCommittedFixture(t, { bundle });
+  executeCurrent(fixture, 'prepare_mission', 'batch-prepare');
+  beginBoarding(fixture, 'batch');
+  const before = fixture.manager.getExecutionSnapshot();
+  const invalid = executeCurrent(fixture, 'set_manifest_item', 'invalid-batch', { items: [
+    { itemId: 'medical-box', action: 'load' }, { itemId: 'missing', action: 'load' }
+  ] });
+  assert.equal(invalid.ok, false);
+  assert.deepEqual(fixture.manager.getExecutionSnapshot().state, before.state);
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'duplicate-item-batch', { items: [
+    { itemId: 'medical-box', action: 'load' }, { itemId: 'medical-box', action: 'unload' }
+  ] }).error, 'mission_manifest_batch_invalid');
+  const payload = { items: [{ itemId: 'medical-box', action: 'load' }, { itemId: 'second-box', action: 'load' }] };
+  const currentRun = fixture.manager.getActiveRun();
+  const stale = fixture.adapter.executeIntent({ intent: 'set_manifest_item', commandId: 'stale-batch',
+    missionId: currentRun.missionId, runId: currentRun.runId,
+    expectedRevision: currentRun.revision - 1, payload });
+  assert.equal(stale.error, 'mission_revision_conflict');
+  assert.deepEqual(fixture.manager.getExecutionSnapshot().state, before.state);
+  const accepted = executeCurrent(fixture, 'set_manifest_item', 'load-batch', payload);
+  assert.equal(accepted.ok, true);
+  const after = fixture.manager.getExecutionSnapshot();
+  assert.equal(after.executionRevision, before.executionRevision + 1);
+  assert.deepEqual(after.state.manifest.items.map(item => item.status), ['loaded', 'loaded']);
+  const effects = after.state.effects.filter(effect => !before.state.effects.some(old => old.effectId === effect.effectId));
+  assert.deepEqual(effects.filter(effect => effect.type === 'scene.cargo_item_transition').map(effect => effect.payload.itemId), ['medical-box', 'second-box']);
+  assert.equal(new Set(effects.map(effect => effect.effectId)).size, 5);
+  assert.equal(effects.filter(effect => effect.type === 'payload.sync_manifest_state').length, 1);
+  assert.equal(effects.filter(effect => effect.type === 'voice.cargo').length, 2);
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'load-batch', payload).ok, true);
+  assert.equal(fixture.manager.getExecutionSnapshot().executionRevision, after.executionRevision);
+  const restarted = createMissionAuthorityManager(fixture.managerOptions);
+  assert.deepEqual(restarted.getExecutionSnapshot().state, after.state);
+});
+
+test('ground readiness accepts the parking brake without a speed sample and ignores a paused simulator', t => {
+  const fixture = createCommittedFixture(t);
+  executeCurrent(fixture, 'prepare_mission', 'brake-prepare');
+  beginBoarding(fixture, 'brake');
+  executeCurrent(fixture, 'set_manifest_item', 'brake-load', { itemId: 'medical-box', action: 'load' });
+  executeCurrent(fixture, 'sign_manifest', 'brake-sign');
+  executeCurrent(fixture, 'confirm_load', 'brake-confirm');
+  acknowledgePayloadCurrent(fixture, 'brake');
+  acknowledgeBoardingCurrent(fixture, 'brake');
+  executeCurrent(fixture, 'start_mission', 'brake-start');
+  fixture.adapter.observeTelemetry({ observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 70 });
+  fixture.adapter.observeTelemetry({ observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 70 });
+  fixture.adapter.observeTelemetry({ observedAt: 13000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 20 });
+  assert.equal(fixture.adapter.observeTelemetry({ observedAt: 13100, lat: 48.3001, lon: 8.5001,
+    onGround: true, parkingBrake: true, simPaused: true }).status, 'ignored');
+  assert.equal(fixture.adapter.observeTelemetry({ observedAt: 13200, lat: 48.3001, lon: 8.5001,
+    onGround: true }).status, 'noop', 'unknown speed without brake must not unlock unloading');
+  const result = fixture.adapter.observeTelemetry({ observedAt: 13300, lat: 48.3001, lon: 8.5001,
+    onGround: true, parkingBrake: true });
+  assert.equal(result.acceptedEvent.type, 'GROUND_STILL');
+  assert.equal(result.view.phase, 'end_unloading');
 });

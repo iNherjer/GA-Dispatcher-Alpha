@@ -252,7 +252,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
             cargoRevisions.delete(commandId);
             await acknowledgeEffect?.({ effectId: commandId, status: 'failed', simulatorAck: { status: 'error', error: error?.message } });
           }
-        }, 180);
+        }, payload.coalesced === true ? 0 : 180);
         entry.timer?.unref?.();
         cargoQueue.set(objectKey, entry);
         return { ok: true, status: 'pending', commandId };

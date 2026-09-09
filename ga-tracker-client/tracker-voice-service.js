@@ -402,45 +402,92 @@ function createTrackerVoiceService(options = {}) {
     }
   }
 
-  function persist() {
-    if (!storageFile) return true;
+  // Keep the v1 recovery format, but never rewrite megabytes synchronously
+  // from a cargo/voice callback. Immutable audio is encoded once; metadata is
+  // snapshotted per write and mutations during I/O are coalesced into the next.
+  const encodedAudio = new WeakMap();
+  let persistenceDirty = false;
+  let persistencePromise = null;
+  async function writeCache() {
+    const temporaryFile = `${storageFile}.tmp`;
+    let file;
     try {
-      const directory = path.dirname(storageFile);
-      const temporaryFile = `${storageFile}.tmp`;
-      io.mkdirSync(directory, { recursive: true });
-      const storedRecords = [...records.values()]
-        .filter((record) => record.status === 'ready' && (Buffer.isBuffer(record.audio) || record.synthesizeAudio === false))
-        .map((record) => ({
-          effectId: record.effectId,
-          fingerprint: record.fingerprint,
-          kind: record.kind || 'direct',
-          synthesizeAudio: record.synthesizeAudio !== false,
-          provider: record.provider,
-          speaker: record.speaker,
-          cue: record.cue ? {
-            id: record.cue.id,
-            variantSeed: record.cue.variantSeed,
-            gain: record.cue.gain,
-            assetName: record.cue.assetName
-          } : null,
-          status: 'ready',
-          createdAt: record.createdAt,
-          updatedAt: record.updatedAt,
-          text: record.text || '',
-          textModel: record.textModel || '',
-          contentType: record.contentType || '',
-          model: record.model || '',
-          voiceName: record.voiceName || '',
-          playback: record.playback,
-          audioBase64: Buffer.isBuffer(record.audio) ? record.audio.toString('base64') : ''
-        }));
-      io.writeFileSync(temporaryFile, JSON.stringify({ schema: 'ga.tracker-voice-cache.v1', records: storedRecords }), { mode: 0o600 });
-      io.renameSync(temporaryFile, storageFile);
+      const rows = [...records.values()]
+        .filter(record => record.status === 'ready' && (Buffer.isBuffer(record.audio) || record.synthesizeAudio === false))
+        .map(record => {
+          if (Buffer.isBuffer(record.audio) && !encodedAudio.has(record.audio)) {
+            encodedAudio.set(record.audio, record.audio.toString('base64'));
+          }
+          const metadata = {
+            effectId: record.effectId,
+            fingerprint: record.fingerprint,
+            kind: record.kind || 'direct',
+            synthesizeAudio: record.synthesizeAudio !== false,
+            provider: record.provider,
+            speaker: record.speaker,
+            cue: record.cue ? {
+              id: record.cue.id,
+              variantSeed: record.cue.variantSeed,
+              gain: record.cue.gain,
+              assetName: record.cue.assetName
+            } : null,
+            status: 'ready',
+            createdAt: record.createdAt,
+            updatedAt: record.updatedAt,
+            text: record.text || '',
+            textModel: record.textModel || '',
+            contentType: record.contentType || '',
+            model: record.model || '',
+            voiceName: record.voiceName || '',
+            playback: record.playback
+          };
+          return { metadata: JSON.stringify(metadata), audio: record.audio ? encodedAudio.get(record.audio) : '' };
+        });
+      await io.promises.mkdir(path.dirname(storageFile), { recursive: true });
+      file = await io.promises.open(temporaryFile, 'w', 0o600);
+      await file.writeFile('{"schema":"ga.tracker-voice-cache.v1","records":[');
+      for (let index = 0; index < rows.length; index++) {
+        const row = rows[index];
+        await file.writeFile((index ? ',' : '') + row.metadata.slice(0, -1) + ',"audioBase64":"');
+        // Base64 contains no JSON escapes. Separate writes avoid serializing or
+        // copying the entire audio cache just to change one playback status.
+        await file.writeFile(row.audio);
+        await file.writeFile('"}');
+      }
+      await file.writeFile(']}');
+      await file.close();
+      file = null;
+      await io.promises.rename(temporaryFile, storageFile);
       return true;
     } catch (error) {
       log(`VOICE_CACHE_WRITE_ERROR code=${error?.code || error?.message || error}`);
       return false;
+    } finally {
+      if (file) await file.close().catch(() => {});
     }
+  }
+
+  function persist() {
+    if (!storageFile) return true;
+    persistenceDirty = true;
+    if (!persistencePromise) {
+      persistencePromise = new Promise(resolve => setImmediate(resolve)).then(async () => {
+        while (persistenceDirty) {
+          persistenceDirty = false;
+          if (!await writeCache()) {
+            persistenceDirty = true; // A later mutation/flush may retry; no busy loop.
+            return false;
+          }
+        }
+        return true;
+      }).finally(() => { persistencePromise = null; });
+    }
+    return true;
+  }
+
+  async function flushPersistence() {
+    if (persistenceDirty && !persistencePromise) persist();
+    return persistencePromise ? await persistencePromise : true;
   }
 
   function loadPersisted() {
@@ -909,6 +956,7 @@ function createTrackerVoiceService(options = {}) {
     getAudio,
     getCueAudio,
     getNextPlayback,
+    flushPersistence,
     publicState,
     releasePlayback,
     renewPlayback,

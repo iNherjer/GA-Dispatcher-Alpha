@@ -182,3 +182,37 @@ test('pinboard mission restore publishes a fresh tracker seed immediately', () =
   assert.match(restoreSource, /restoreMissionState\(note\.flightData, \{ source: 'pinboard' \}\)/);
   assert.match(restoreSource, /queueActiveMissionCloudSave\('pinboard-mission-restored', \{ delayMs: 0 \}\)/);
 });
+
+test('rapid cargo clicks batch once; signature and run changes remain ordered barriers', async () => {
+  const queue = core.createIntentQueue();
+  const calls = [];
+  let revision = 1;
+  const batch = (group, id) => ({ group, value: { itemId: id, action: 'load' }, execute: async items => {
+    calls.push({ items: items.map(item => item.itemId), revision: revision++ });
+    return 'accepted';
+  } });
+  const a = queue.enqueue('a', 'a', () => { throw new Error('should batch'); }, batch('run1', 'a'));
+  assert.equal(queue.enqueue('a', 'a', () => {}), a);
+  const b = queue.enqueue('b', 'b', () => { throw new Error('should batch'); }, batch('run1', 'b'));
+  const sign = queue.enqueue('sign', '', () => { calls.push({ sign: true, revision: revision++ }); });
+  const c = queue.enqueue('c', 'c', () => { calls.push({ single: 'c', revision: revision++ }); }, batch('run1', 'c'));
+  const d = queue.enqueue('d', 'd', () => { calls.push({ single: 'd', revision: revision++ }); }, batch('run2', 'd'));
+  assert.deepEqual(queue.pendingItemIds(), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(await Promise.all([a, b]), ['accepted', 'accepted']);
+  await Promise.all([sign, c, d]);
+  assert.deepEqual(calls, [{ items: ['a', 'b'], revision: 1 }, { sign: true, revision: 2 },
+    { items: ['c'], revision: 3 }, { items: ['d'], revision: 4 }]);
+  assert.equal(queue.size(), 0);
+});
+
+test('a rejected batch releases every item and subsequent intents still execute', async () => {
+  const queue = core.createIntentQueue();
+  const batch = id => ({ group: 'r', value: id, execute: () => { throw new Error('conflict'); } });
+  const results = Promise.allSettled([
+    queue.enqueue('a', 'a', () => {}, batch('a')),
+    queue.enqueue('b', 'b', () => {}, batch('b')),
+    queue.enqueue('sign', '', () => 'next')
+  ]);
+  assert.deepEqual((await results).map(result => result.status), ['rejected', 'rejected', 'fulfilled']);
+  assert.equal(queue.size(), 0);
+});

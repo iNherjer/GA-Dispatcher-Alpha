@@ -832,6 +832,10 @@ input[type=range]::-webkit-slider-thumb {
 }
 
 .flight-debrief-overlay {
+    box-sizing: border-box;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
     --debrief-heading-font: 'Caveat', 'Segoe Print', cursive;
     --debrief-copy-font: 'Courier New', Courier, monospace;
     position: fixed;
@@ -849,8 +853,14 @@ input[type=range]::-webkit-slider-thumb {
 .flight-debrief-paper {
     position: relative;
     width: min(850px, 96vw);
-    max-height: 92vh;
-    overflow: auto;
+    box-sizing: border-box;
+    min-height: 0;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
     color: #302b24;
     font-family: var(--debrief-copy-font);
     border: 1px solid #c7b895;
@@ -1028,7 +1038,7 @@ body.theme-win95 .flight-debrief-overlay {
 
 @media (max-width: 640px) {
     .flight-debrief-overlay { padding: 8px; }
-    .flight-debrief-paper { width: 100%; max-height: 96vh; }
+    .flight-debrief-paper { width: 100%; max-height: 100%; }
     .flight-debrief-head,
     .flight-debrief-body,
     .flight-debrief-actions { padding-left: 38px; padding-right: 16px; }

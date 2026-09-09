@@ -646,3 +646,62 @@ test('failed payload restore remains retryable and does not mark the baseline re
   assert.equal(recovery.value.restored, true);
   assert.equal(recovery.value.restoreAttempts, 2);
 });
+
+test('one cargo batch detaches every inherited equipment item and syncs payload once', async () => {
+  const original = standardBaseline();
+  original.totalWeightLbs += 30;
+  original.payloadWeightLbs += 30;
+  original.stations[4].weightLbs = 30;
+  let snapshot = clone(original);
+  const recovery = createRecoveryStore();
+  const writes = [];
+  const kit = {
+    id: 'kit', itemType: 'cargo', status: 'unloaded', weightLbs: 20,
+    persistentEquipment: true, persistentEquipmentInherited: false
+  };
+  const extinguisher = {
+    id: 'extinguisher', itemType: 'cargo', status: 'unloaded', weightLbs: 10,
+    persistentEquipment: true, persistentEquipmentInherited: false
+  };
+  const firstManifest = { items: [kit, { ...extinguisher, status: 'loaded', persistentEquipmentInherited: true }] };
+  const latestManifest = { items: [kit, extinguisher] };
+  const transition = item => ({
+    action: 'unload',
+    itemId: item.id,
+    detachedInheritedEquipment: { ...item, status: 'loaded', persistentEquipmentInherited: true }
+  });
+  const handler = createTrackerMissionPayloadHandler({
+    readSnapshot: async () => clone(snapshot),
+    applyStations: async stations => {
+      writes.push(clone(stations));
+      snapshot.stations = snapshot.stations.map(row => ({
+        ...row,
+        weightLbs: stations.find(target => target.index === row.index)?.weightLbs ?? row.weightLbs
+      }));
+      return { stations };
+    },
+    applyPa24State: async () => { throw new Error('unexpected_pa24_write'); },
+    reassertPa24Seats: async () => {},
+    recordRecovery: recovery.record,
+    getRecovery: recovery.get,
+    sleep: async () => {},
+    payloadSyncDebounceMs: 10,
+    payloadSyncMaxWaitMs: 40
+  });
+
+  const effect = manifestEffectFor(latestManifest);
+  effect.payload.transitions = [transition({ ...kit, persistentEquipmentInherited: true }),
+    transition({ ...extinguisher, persistentEquipmentInherited: true })];
+  await handler.scheduleManifestSync({ missionId: 'apt-equipment', runId: 'run-equipment',
+    manifest: latestManifest, effect });
+  assert.equal(writes.length, 1);
+  assert.deepEqual(recovery.value.detachedInheritedEquipmentIds, ['kit', 'extinguisher']);
+  assert.equal(recovery.value.baseline.stations[4].weightLbs, 0);
+
+  await handler.scheduleManifestSync({
+    missionId: 'apt-equipment', runId: 'run-equipment', manifest: latestManifest,
+    effect: manifestEffectFor(latestManifest, transition({ ...kit, persistentEquipmentInherited: true }))
+  });
+  assert.equal(recovery.value.baseline.stations[4].weightLbs, 0);
+  assert.deepEqual(recovery.value.detachedInheritedEquipmentIds, ['kit', 'extinguisher']);
+});

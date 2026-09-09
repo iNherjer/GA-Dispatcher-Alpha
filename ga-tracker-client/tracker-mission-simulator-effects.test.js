@@ -460,3 +460,31 @@ test('manual passenger command preserves recipe and waits 70 seconds before roll
   assert.equal(acks[0].simulatorAck.error, 'manual_pax_timeout');
   assert.equal(bridge.handleAck({ type: 'mission_scene_manual_pax_ack', commandId: 'manual-pax', status: 'ok' }), false);
 });
+
+test('client-batched cargo dispatches without a second debounce and retains revision/supersession guards', async () => {
+  const activeRun = runWithPlan();
+  const timers = new Map(), commands = [], acks = [];
+  let seq = 0;
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => activeRun },
+    getLivePosition: () => ({ lat: 48, lon: 8 }),
+    setTimeout: (callback, delay) => { assert.equal(delay, 0); timers.set(++seq, callback); return seq; },
+    clearTimeout: id => timers.delete(id),
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending' }; },
+    acknowledgeEffect: ack => { acks.push(ack); return { ok: true }; }
+  });
+  const send = (commandId, itemId, action) => bridge.dispatch({ commandId, missionId: activeRun.missionId, runId: activeRun.runId,
+    effect: { type: 'scene.cargo_item_transition', payload: { itemId, action, coalesced: true, item: { id: itemId }, manifestKey: 'manifest' } } });
+  await send('load-a', 'a', 'load');
+  await send('unload-a', 'a', 'unload');
+  await send('load-b', 'b', 'load');
+  assert.equal(commands.length, 0);
+  assert.equal(timers.size, 2);
+  assert.equal(acks[0].effectId, 'load-a');
+  assert.equal(acks[0].simulatorAck.status, 'superseded');
+  for (const callback of [...timers.values()]) await callback();
+  assert.deepEqual(commands.map(command => command.type), ['mission_scene_object_spawn', 'mission_scene_object_remove']);
+  assert(commands[0].objectRevision < commands[1].objectRevision);
+  assert.equal(commands[0].items[0].objectRevision, commands[0].objectRevision);
+  bridge.cancelPending();
+});

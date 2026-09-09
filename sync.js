@@ -3285,13 +3285,19 @@ window.gaTrackerExecutionSubmitIntent = function(intent, payload = {}, options =
     const runId = run?.runId;
     const missionId = run?.missionId;
     const key = [missionId, runId, intent, payload.itemId || '', payload.action || ''].join('|');
-    return missionExecutionIntentQueue.enqueue(key, payload.itemId, () => {
+    const execute = data => {
         const current = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || window.gaTrackerExecutionControl;
         if (current?.runId !== runId || current?.missionId !== missionId) {
             return { ok: false, error: 'mission_run_conflict' };
         }
-        return _submitTrackerExecutionIntent(intent, payload, options);
-    });
+        return _submitTrackerExecutionIntent(intent, data, options);
+    };
+    const batch = intent === 'set_manifest_item' && payload.itemId
+        && ['prepare', 'boarding', 'boarded', 'end_unloading', 'end_ready', 'on_task'].includes(run?.phase)
+        && (window.liveTrackerCapabilities || []).includes('mission.cargo-batch.v1')
+        ? { group: [missionId, runId, run.phase].join('|'), value: payload,
+            execute: items => execute({ items }) } : null;
+    return missionExecutionIntentQueue.enqueue(key, payload.itemId, () => execute(payload), batch);
 };
 
 function _trackerExecutionAbortedRun(snapshot = null) {

@@ -674,11 +674,17 @@
     var missionId = control.missionId;
     var data = payload || {};
     var key = [missionId, runId, intent, data.itemId || '', data.action || ''].join('|');
-    return missionIntentQueue.enqueue(key, data.itemId, function () {
+    var execute = function (value) {
       var current = missionSnapshot && missionSnapshot.control;
       if (!current || current.runId !== runId || current.missionId !== missionId) return false;
-      return executeMissionIntent(intent, data);
-    });
+      return executeMissionIntent(intent, value);
+    };
+    // This host and the intent adapter ship together in the same tracker build.
+    var batch = intent === 'set_manifest_item' && data.itemId
+      && ['prepare', 'boarding', 'boarded', 'end_unloading', 'end_ready', 'on_task'].includes(control.phase)
+      ? { group: [missionId, runId, control.phase].join('|'), value: data,
+          execute: function (items) { return execute({ items: items }); } } : null;
+    return missionIntentQueue.enqueue(key, data.itemId, function () { return execute(data); }, batch);
   }
 
   function executeMissionIntent(intent, payload) {

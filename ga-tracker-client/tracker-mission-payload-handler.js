@@ -177,20 +177,23 @@ function createTrackerMissionPayloadHandler(options = {}) {
       }
       baseline = payloadCore.normalizeSnapshot(captured.recovery?.baseline) || baseline;
     }
-    const detachedInheritedEquipment = safeObject(safeObject(effectPayload.transition).detachedInheritedEquipment);
-    if (detachedInheritedEquipment.id && recordRecovery) {
-      let adjusted;
-      try {
-        adjusted = await recordRecovery(recoveryRequest(request, 'detach_inherited', {
-          item: detachedInheritedEquipment
-        }));
-      } catch (error) {
-        adjusted = { ok: false, error: error?.code || error?.message || String(error) };
+    const transitions = Array.isArray(effectPayload.transitions) ? effectPayload.transitions : [effectPayload.transition];
+    for (const transition of transitions) {
+      const detachedInheritedEquipment = safeObject(safeObject(transition).detachedInheritedEquipment);
+      if (detachedInheritedEquipment.id && recordRecovery) {
+        let adjusted;
+        try {
+          adjusted = await recordRecovery(recoveryRequest(request, 'detach_inherited', {
+            item: detachedInheritedEquipment
+          }));
+        } catch (error) {
+          adjusted = { ok: false, error: error?.code || error?.message || String(error) };
+        }
+        if (!adjusted?.ok) {
+          return warningResult(adjusted?.error || 'mission_payload_equipment_baseline_adjust_failed', { sideEffect: false });
+        }
+        baseline = payloadCore.normalizeSnapshot(adjusted.recovery?.baseline) || baseline;
       }
-      if (!adjusted?.ok) {
-        return warningResult(adjusted?.error || 'mission_payload_equipment_baseline_adjust_failed', { sideEffect: false });
-      }
-      baseline = payloadCore.normalizeSnapshot(adjusted.recovery?.baseline) || baseline;
     }
     plannerOptions.fuelWeightLbs = baseline.fuelWeightLbs;
 
@@ -347,15 +350,17 @@ function createTrackerMissionPayloadHandler(options = {}) {
         if (!captured?.ok) return { ok: false, error: captured?.error || 'mission_payload_recovery_persist_failed' };
         recovery = captured.recovery || recovery;
       }
-      const detachedInheritedEquipment = safeObject(
-        safeObject(safeObject(request.effect).payload).transition
-      ).detachedInheritedEquipment;
-      if (safeObject(detachedInheritedEquipment).id) {
-        const detached = await recordRecovery(recoveryRequest(request, 'detach_inherited', {
-          item: detachedInheritedEquipment
-        }));
-        if (!detached?.ok) {
-          return { ok: false, error: detached?.error || 'mission_payload_equipment_baseline_adjust_failed' };
+      const effectPayload = safeObject(safeObject(request.effect).payload);
+      const transitions = Array.isArray(effectPayload.transitions) ? effectPayload.transitions : [effectPayload.transition];
+      for (const transition of transitions) {
+        const detachedInheritedEquipment = safeObject(transition).detachedInheritedEquipment;
+        if (safeObject(detachedInheritedEquipment).id) {
+          const detached = await recordRecovery(recoveryRequest(request, 'detach_inherited', {
+            item: detachedInheritedEquipment
+          }));
+          if (!detached?.ok) {
+            return { ok: false, error: detached?.error || 'mission_payload_equipment_baseline_adjust_failed' };
+          }
         }
       }
       return { ok: true };

@@ -322,3 +322,30 @@ cleanupContext.window.lastTrackerMissionAuthority.activeRun = null;
 assert.equal(cleanupContext.window.completeMissionCloseCleanup({ missionId: 'standalone' }), true);
 assert.equal(cleanupCalls.some(call => call[0] === 'remote-reset'), true, 'standalone retains its existing reset path');
 console.log('PASS tracker debrief closes locally; new missions protected; standalone cleanup unchanged.');
+
+// The App negotiates batching; an older tracker still receives single-item intents.
+for (const supported of [false, true]) {
+  const sent = [];
+  const run = { missionId: 'batch-mission', runId: 'batch-run', phase: 'boarding', revision: 1 };
+  const context = {
+    Promise, Date, setTimeout,
+    missionExecutionIntentQueue: null,
+    _publishMissionControlIntentStatus() {},
+    _submitTrackerExecutionIntent: async (intent, payload) => {
+      sent.push({ intent, payload, revision: run.revision });
+      run.revision++;
+      return { ok: true };
+    },
+    window: { GAMissionControlUiCore: controlUi, lastTrackerMissionAuthority: { activeRun: run },
+      liveTrackerCapabilities: supported ? ['mission.cargo-batch.v1'] : [] }
+  };
+  vm.createContext(context);
+  vm.runInContext(between(sync, 'window.gaTrackerExecutionSubmitIntent = function(', 'function _trackerExecutionAbortedRun('), context);
+  const a = context.window.gaTrackerExecutionSubmitIntent('set_manifest_item', { itemId: 'a', action: 'load' });
+  const b = context.window.gaTrackerExecutionSubmitIntent('set_manifest_item', { itemId: 'b', action: 'unload' });
+  assert.deepEqual(context.window.gaTrackerQueuedItemIds, ['a', 'b']);
+  await Promise.all([a, b]);
+  assert.equal(sent.length, supported ? 1 : 2);
+  if (supported) assert.equal(sent[0].payload.items.length, 2);
+  else assert.deepEqual(sent.map(entry => entry.revision), [1, 2]);
+}

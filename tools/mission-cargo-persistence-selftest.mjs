@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import manifestCore from '../mission-manifest-core.js';
 
 const source = fs.readFileSync(new URL('../mission-cargo-core.js', import.meta.url), 'utf8');
 const start = source.indexOf("const MISSION_CARGO_ONBOARD_EQUIPMENT_STORAGE_KEY");
@@ -452,6 +453,7 @@ assert.equal(signedManifest.dispatchSignature, null);
 assert.equal(signatureContext.window.missionCargoStatus.loadConfirmed, false);
 
 const boardBookContext = {
+    _missionCargoManifestCore: () => manifestCore,
     window: {
         missionCargoCurrentFlightId: () => 'flight-1',
         missionComplianceBoardBookWriteAllowed: () => true
