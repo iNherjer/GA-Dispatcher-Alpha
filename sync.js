@@ -14957,6 +14957,29 @@ window.completeMissionClose = function(reason = 'mission-close', options = {}) {
 window.completeMissionCloseCleanup = function(record = null, reason = 'debrief-close-cleanup') {
     const pending = record && typeof record === 'object' ? record : (_readPendingMissionDebrief() || missionRuntime.completionRecord);
     if (!pending) return false;
+    const trackerControl = window.gaTrackerExecutionControl || window.lastTrackerMissionAuthority?.lastExecution;
+    const trackerCompleted = trackerControl?.executionAuthority === 'tracker'
+        && trackerControl.phase === 'closed' && trackerControl.flags?.closed === true
+        && trackerControl.missionId === pending.missionId
+        && trackerControl.runId === window.gaTrackerExecutionFinalizedRunId;
+    if (_missionExecutionAuthorityIsTracker() && !trackerCompleted) return false;
+    if (trackerCompleted) {
+        const activeRun = window.lastTrackerMissionAuthority?.activeRun;
+        const localMissionId = _activeMissionRuntimeId('');
+        // An old debrief must never clear a newly attached mission.
+        if (activeRun || (localMissionId && localMissionId !== pending.missionId)) return false;
+        if (typeof window.clearAppMissionState !== 'function') return false;
+        const cleared = window.clearAppMissionState({ skipRuntimeReset: true, abortDispatch: false,
+            complianceReleased: true, nextStart: _completionText(pending.dest || pending.arrLabel || '', 64), reason });
+        if (cleared === false) return false;
+        window.gaTrackerExecutionControl = null;
+        window.lastTrackerMissionStatus = null;
+        _clearMissionAuthorityState(reason);
+        _resetMissionRuntime();
+        try { localStorage.removeItem(MISSION_DEBRIEF_PENDING_KEY); } catch (_) {}
+        try { triggerCloudSave(true); } catch (_) {}
+        return true;
+    }
     const nextStart = _completionText(pending.dest || pending.arrLabel || '', 64);
     try { localStorage.removeItem(MISSION_DEBRIEF_PENDING_KEY); } catch (_) {}
     if (typeof window.missionRuntimeReset === 'function') {

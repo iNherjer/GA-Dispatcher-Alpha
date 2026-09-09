@@ -3571,3 +3571,32 @@ korrigierten Audio-Player. Realer Windows-Installations-/MSFS-Test steht aus.
 Stable-Runtime und globaler Desktop-Autoupdater bleiben unveraendert.
 Der Nutzer klaert die komplett schwarze EFB-App separat mit einem anderen
 Agenten; Community-Paket/Lifecycle werden hier nicht veraendert.
+
+Release v393 und manueller Alpha-Installer tracker-desktop-v1.6.8 sind auf
+GitHub veroeffentlicht, Publisher hat alle Asset-Groessen und SHA-256 geprueft.
+Alpha-Zeiger zeigt auf v393. Finaler App-Cache v1726.
+
+Nachgereichte iPhone-Screenshots: Debrief-Abschluss loeste den Tracker-Reset-
+Schutz aus. App-Folgefix schliesst nach eindeutig finalisiertem, passendem
+Tracker-Run nur die lokale Darstellung. Kein Szenen-/Payload-Reset oder
+erneuter Mission-Abbruch; vorhandene neue aktive Runs bleiben geschuetzt.
+Standalone-Cleanup behaelt seinen bisherigen Pfad. Ausfuehrbarer Interface-
+Regressionstest bestaetigt diese drei Faelle.
+Debrief bekommt eine dynamische Viewport-Hoehe, border-box und einen innerhalb
+der verfuegbaren Hoehe begrenzten vertikalen Scrollbereich. Browserpruefung mit
+langen Inhalten bei 440x894, 440x640, 894x440 und erneut 440x894: Abschlussbutton
+erreichbar. Ein realer iOS-Test bleibt erforderlich. Dies betrifft die Web-App;
+der separate schwarze EFB beim Kamerawechsel bleibt beim anderen Agenten.
+
+Weitere Performance-Kandidaten (in diesem Release nicht umgebaut):
+- Cargo-Szenenwechsel werden je Objekt 180 ms gesammelt; Payload hat ebenfalls
+  eine gebuendelte, serielle Schreibqueue. Das rechtfertigt keine 10-s-UI-Latenz.
+- PA-24 schreibt mehrere Sitz-/Gewichtsvariablen pro Payload-Abgleich. Delta-
+  Writes waeren gegen tatsaechliche Sim-Rueckmeldungen und Standalone zu pruefen.
+- deferEffects verwendet Promise-Microtasks: die erste Effektarbeit kann vor
+  der aufrufenden ACK-Fortsetzung anlaufen. Ein echtes Event-Loop-Yield ist ein
+  moeglicher naechster gezielter Schritt, ohne ACK oder Side-Effect-Durabilitaet
+  zu veraendern. Nicht durch Entfernen der Revision-Gates parallelisieren.
+- UI-Revisionskonflikte werden durch technische ACKs beguenstigt; im Feld 15/33
+  Manifest-Versuche. Nach beseitigtem Replay zuerst neu messen, bevor ein
+  weiterer Versions-/Synchronisierungsmechanismus hinzugefuegt wird.

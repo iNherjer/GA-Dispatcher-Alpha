@@ -287,3 +287,38 @@ snapshotContext.missionExecutionHandoffPromise=null;
 snapshotContext._queueMissionAuthoritySnapshot('normal',{immediate:true});
 assert.equal(snapshotBuilds,1,'normal standalone snapshots remain enabled outside handoff');
 console.log('PASS handoff suppresses new and previously scheduled background snapshots.');
+
+// Closing a completed tracker debrief is local UI cleanup, not a new abort/reset.
+const cleanupCalls = [];
+const debriefClosedControl = { executionAuthority: 'tracker', missionId: 'finished', runId: 'finished-run', phase: 'closed', flags: { closed: true } };
+const cleanupContext = {
+  window: { gaTrackerExecutionControl: debriefClosedControl, gaTrackerExecutionFinalizedRunId: 'finished-run',
+    lastTrackerMissionAuthority: { activeRun: null },
+    clearAppMissionState: options => { cleanupCalls.push(['clear', options]); return true; },
+    missionRuntimeReset: () => { cleanupCalls.push(['remote-reset']); return true; } },
+  _missionExecutionAuthorityIsTracker: () => !!cleanupContext.window.gaTrackerExecutionControl,
+  _activeMissionRuntimeId: () => 'finished', _completionText: value => value,
+  _clearMissionAuthorityState: () => cleanupCalls.push(['authority-local']),
+  _resetMissionRuntime: () => cleanupCalls.push(['runtime-local']),
+  localStorage: { removeItem: key => cleanupCalls.push(['storage', key]) },
+  triggerCloudSave() {}, MISSION_DEBRIEF_PENDING_KEY: 'pending'
+};
+vm.createContext(cleanupContext);
+vm.runInContext(between(sync, 'window.completeMissionCloseCleanup =', 'window.toggleManualMissionRuntime ='), cleanupContext);
+assert.equal(cleanupContext.window.completeMissionCloseCleanup({ missionId: 'finished', dest: 'EDTO' }), true);
+assert.equal(cleanupCalls.some(call => call[0] === 'remote-reset'), false);
+assert.equal(cleanupCalls.find(call => call[0] === 'clear')[1].skipRuntimeReset, true);
+assert.equal(cleanupContext.window.gaTrackerExecutionControl, null);
+cleanupCalls.length = 0;
+cleanupContext.window.gaTrackerExecutionControl = debriefClosedControl;
+cleanupContext.window.lastTrackerMissionAuthority.activeRun = { missionId: 'new', runId: 'new-run' };
+assert.equal(cleanupContext.window.completeMissionCloseCleanup({ missionId: 'finished' }), false);
+assert.equal(cleanupCalls.length, 0, 'old debrief leaves the new tracker mission untouched');
+cleanupContext.window.gaTrackerExecutionControl = { executionAuthority: 'tracker', missionId: 'new', phase: 'active' };
+assert.equal(cleanupContext.window.completeMissionCloseCleanup({ missionId: 'finished' }), false);
+assert.equal(cleanupCalls.length, 0);
+cleanupContext.window.gaTrackerExecutionControl = null;
+cleanupContext.window.lastTrackerMissionAuthority.activeRun = null;
+assert.equal(cleanupContext.window.completeMissionCloseCleanup({ missionId: 'standalone' }), true);
+assert.equal(cleanupCalls.some(call => call[0] === 'remote-reset'), true, 'standalone retains its existing reset path');
+console.log('PASS tracker debrief closes locally; new missions protected; standalone cleanup unchanged.');
