@@ -797,3 +797,18 @@ Standalone und Tracker-Template teilen den Deboarding-Command-Builder;
 Betriebsarten behalten ihre jeweiligen, bestehenden Autoritaets-/Live-Gates.
 384 Vorher-/Nachher-Vergleiche sichern die bestehenden Befehle und
 Standalone-Statusaenderungen ab.
+
+### Farewell-Vorbereitung und Cargo-Transportfenster (09.09.2026)
+
+Eine vorbereitete Ansage ist kein bestaetigtes Missionsergebnis. Eine reine
+Vorhersage der spaeteren Entladung darf das autoritative Manifest nicht
+mutieren. Vor Aktivierung der Ausgabe muss das aktuelle Rezept mit dem
+vorbereiteten Inhalt uebereinstimmen; bei Abweichung wird die alte Ansage
+verworfen. Flugfakten koennen am Touchdown eingefroren bleiben, ein spaeter
+geaendertes Cargo-Ergebnis darf dadurch nicht eingefroren werden.
+
+Die Tracker-UI darf den ersten Cargo-Intent unmittelbar senden und kompatible
+Folgeaktionen bis zu 500 ms Ruhe seit dem letzten kompatiblen Klick sammeln,
+mit maximal zwei Sekunden Sammelzeit. Die 180-ms-Grenze erkennt den Beginn
+einer Klickfolge. Signaturen und Run-/Phasenwechsel sind
+weiterhin Reihenfolgegrenzen; keine UI-Aktion umgeht die Tracker-Validierung.

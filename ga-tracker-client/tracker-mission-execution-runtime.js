@@ -155,7 +155,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     ...request,
     farewellRecipe: adapter.getFarewellVoiceRecipe?.() || null,
     farewellContext: adapter.getFarewellAuthorityContext?.() || null,
-    farewellDynamicContext: adapter.getFarewellDynamicContext?.() || null
+    farewellDynamicContext: adapter.getFarewellDynamicContext?.({ anticipateDelivery: true }) || null
   });
   const playComplianceVoice = typeof options.playComplianceVoice === 'function'
     ? options.playComplianceVoice

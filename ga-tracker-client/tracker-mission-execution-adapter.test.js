@@ -1143,3 +1143,26 @@ test('effect-plan reads omit the mission seed and public runtime projections sta
     context: { cargoObjectRevision: 10, latestTelemetry: { observedAt: 2000 } } }).ok, true);
   assert.equal(fixture.manager.getPublicSnapshot().execution.cargoObjectRevision, 10);
 });
+
+test('farewell prewarm anticipates delivery without changing cargo or hiding missing/damaged items', t => {
+  const fixture = createCommittedFixture(t);
+  executeCurrent(fixture, 'prepare_mission', 'prewarm-prepare');
+  beginBoarding(fixture, 'prewarm');
+  assert.equal(fixture.adapter.getFarewellDynamicContext({ anticipateDelivery: true }).cargoOutcome.failed, true,
+    'cargo not aboard remains missing in the prediction');
+  executeCurrent(fixture, 'set_manifest_item', 'prewarm-load', { itemId: 'medical-box', action: 'load' });
+  const before = fixture.manager.getPublicSnapshot();
+  assert.equal(fixture.adapter.getFarewellDynamicContext().cargoOutcome.failed, true,
+    'loaded cargo has not actually been handed over');
+  assert.equal(fixture.adapter.getFarewellDynamicContext({ anticipateDelivery: true }).cargoOutcome.failed, false);
+  assert.deepEqual(fixture.manager.getPublicSnapshot(), before, 'prewarm is a read-only prediction');
+  const damagedBundle = aptResumeBundle();
+  damagedBundle.runtime.cargoManifest.items[0].healthPct = 20;
+  damagedBundle.runtime.cargoManifest.items[0].status = 'loaded';
+  damagedBundle.executionReplay = executionCore.createExecutionBundle(damagedBundle);
+  damagedBundle.execution = executionCore.createReplayShadowEnvelope(damagedBundle.executionReplay, { sourceRevision: 1, legacyBundle: damagedBundle });
+  const damaged = createCommittedFixture(t, { bundle: damagedBundle });
+  const predicted = damaged.adapter.getFarewellDynamicContext({ anticipateDelivery: true }).cargoOutcome;
+  assert.equal(predicted.failed, true);
+  assert.equal(predicted.damagedRequired.length, 1);
+});

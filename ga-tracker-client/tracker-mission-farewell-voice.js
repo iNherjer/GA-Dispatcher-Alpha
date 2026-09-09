@@ -155,17 +155,19 @@ function createTrackerMissionFarewellVoice(options = {}) {
       const preparedEffectId = preloadEffectId(run.runId);
       try {
         const prepared = voiceService.get?.(preparedEffectId);
-        // The touchdown context is deliberately frozen. Manifest handoff and
-        // later telemetry must not invalidate an already rendered farewell.
+        // Re-request with the current recipe: the service deduplicates identical
+        // content, but rejects a stale preload after cargo/outcome changes.
         const needsAudio = prepared?.status === 'ready' && recipe.audioEnabled && !prepared.audioAvailable;
         if (needsAudio) voiceService.cancel?.(preparedEffectId, 'audio_enabled_after_preload');
-        if (!prepared || needsAudio || !['pending', 'ready'].includes(prepared.status)) {
-          voiceService.request(voiceRequest(preparedEffectId, recipe, true));
+        if (prepared && !['pending', 'ready'].includes(prepared.status)) {
+          throw Object.assign(new Error('farewell_preload_unavailable'), { code: 'effect_id_conflict' });
         }
+        voiceService.request(voiceRequest(preparedEffectId, recipe, true));
         voiceEffectId = preparedEffectId;
         voiceService.activatePlayback?.(voiceEffectId);
       } catch (preloadError) {
         if (preloadError?.code === 'effect_id_conflict') voiceService.cancel?.(preparedEffectId, 'farewell_preload_stale');
+        voiceEffectId = effectId;
         voiceService.request(voiceRequest(effectId, recipe, false));
       }
       let generationTimer = null;

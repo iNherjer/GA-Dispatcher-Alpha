@@ -183,7 +183,7 @@ test('pinboard mission restore publishes a fresh tracker seed immediately', () =
   assert.match(restoreSource, /queueActiveMissionCloudSave\('pinboard-mission-restored', \{ delayMs: 0 \}\)/);
 });
 
-test('rapid cargo clicks batch once; signature and run changes remain ordered barriers', async () => {
+test('first cargo click leads immediately, followers batch;  signature and run changes remain ordered barriers', async () => {
   const queue = core.createIntentQueue();
   const calls = [];
   let revision = 1;
@@ -200,8 +200,8 @@ test('rapid cargo clicks batch once; signature and run changes remain ordered ba
   assert.deepEqual(queue.pendingItemIds(), ['a', 'b', 'c', 'd']);
   assert.deepEqual(await Promise.all([a, b]), ['accepted', 'accepted']);
   await Promise.all([sign, c, d]);
-  assert.deepEqual(calls, [{ items: ['a', 'b'], revision: 1 }, { sign: true, revision: 2 },
-    { items: ['c'], revision: 3 }, { items: ['d'], revision: 4 }]);
+  assert.deepEqual(calls, [{ items: ['a'], revision: 1 }, { items: ['b'], revision: 2 }, { sign: true, revision: 3 },
+    { items: ['c'], revision: 4 }, { items: ['d'], revision: 5 }]);
   assert.equal(queue.size(), 0);
 });
 
@@ -214,5 +214,86 @@ test('a rejected batch releases every item and subsequent intents still execute'
     queue.enqueue('sign', '', () => 'next')
   ]);
   assert.deepEqual((await results).map(result => result.status), ['rejected', 'rejected', 'fulfilled']);
+  assert.equal(queue.size(), 0);
+});
+
+test('cargo burst sends the first item immediately and bundles followers in a bounded half-second window', async () => {
+  const queue = core.createIntentQueue();
+  const calls = [];
+  const started = Date.now();
+  const enqueue = id => queue.enqueue(id, id, () => {}, { group: 'run', value: id,
+    execute: async items => { calls.push({ items, at: Date.now() - started }); return 'ok'; } });
+  const first = enqueue('a');
+  await Promise.resolve();
+  assert.deepEqual(calls.map(call => call.items), [['a']], 'first dispatch must not wait for a timer');
+  const second = enqueue('b');
+  const third = enqueue('c');
+  await Promise.resolve();
+  assert.equal(calls.length, 1);
+  await Promise.all([first, second, third]);
+  assert.deepEqual(calls.map(call => call.items), [['a'], ['b', 'c']]);
+  assert.ok(calls[1].at >= 450, JSON.stringify(calls));
+  const next = enqueue('d');
+  await Promise.resolve();
+  assert.deepEqual(calls[2].items, ['d'], 'a separated click starts immediately again');
+  await next;
+});
+
+test('cargo followers renew the quiet window, with a two-second cap and ordering barriers', async () => {
+  const vm = require('node:vm');
+  let now = 10000;
+  const timers = [];
+  const context = { module: { exports: {} }, Date: { now: () => now },
+    setTimeout: (fn, delay) => timers.push({ fn, at: now + delay }) };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'mission-control-ui-core.js'), 'utf8'), context);
+  const queue = context.module.exports.createIntentQueue();
+  const calls = [];
+  const drain = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+  const advance = async ms => {
+    const target = now + ms;
+    await drain();
+    while (timers.some(timer => timer.at <= target)) {
+      timers.sort((a, b) => a.at - b.at);
+      const timer = timers.shift();
+      now = timer.at;
+      timer.fn();
+      await drain();
+    }
+    now = target;
+    await drain();
+  };
+  const enqueue = id => queue.enqueue(id, id, () => {}, { group: 'run', value: id,
+    execute: async items => { calls.push({ items: Array.from(items), at: now }); return 'ok'; } });
+  enqueue('a');
+  await advance(100);
+  enqueue('b');
+  await advance(400);
+  enqueue('c');
+  await advance(100);
+  assert.equal(calls.length, 1, 'the old deadline must not dispatch after a newer click');
+  await advance(399);
+  assert.equal(calls.length, 1);
+  await advance(1);
+  assert.deepEqual(calls, [{ items: ['a'], at: 10000 }, { items: ['b', 'c'], at: 11000 }]);
+
+  enqueue('d');
+  await advance(100);
+  enqueue('e');
+  for (const id of ['f', 'g', 'h', 'i']) {
+    await advance(400);
+    enqueue(id);
+  }
+  await advance(399);
+  assert.equal(calls.length, 3);
+  await advance(1);
+  assert.deepEqual(calls[3], { items: ['e', 'f', 'g', 'h', 'i'], at: 13100 });
+
+  enqueue('j');
+  await advance(100);
+  enqueue('k');
+  queue.enqueue('sign', '', async () => calls.push({ items: ['sign'], at: now }));
+  enqueue('l');
+  await advance(500);
+  assert.deepEqual(calls.slice(-3).map(call => call.items), [['k'], ['sign'], ['l']]);
   assert.equal(queue.size(), 0);
 });

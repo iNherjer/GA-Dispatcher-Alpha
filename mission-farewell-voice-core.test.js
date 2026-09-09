@@ -88,9 +88,9 @@ test('tracker-owned failed context uses the exact direct App fallback and no gen
     }
   });
   assert.equal(recipe.prompt, '');
-  assert.match(recipe.text, /Fotodokumentation/);
+  assert.match(recipe.text, /Leider ist ein Teil der Ladung beschaedigt/);
   assert.match(recipe.text, /Kamera/);
-  assert.match(recipe.text, /zweiten Anlauf/);
+  assert.doesNotMatch(recipe.text, /Abschlussbericht|zweiten Anlauf/);
 });
 
 test('tracker-owned cargo context retains recipient perspective and current outcome', () => {
@@ -134,4 +134,13 @@ test('unsupported special context fails closed instead of inventing a hosted-EFB
   assert.equal(recipe.enabled, false);
   assert.equal(recipe.skipReason, 'farewell_context_training_not_migrated');
   assert.equal(recipe.prompt, '');
+});
+
+
+test('undelivered cargo gets a complete failure sentence without malformed subject grammar', () => {
+  const recipe = core.createRecipeFromContext(authorityContext({ storyFocusSubject: 'den Auftrag' }), {
+    cargoOutcome: { failed: true, notDeliveredRequired: ['Versiegeltes Serum- und Laborprobenpaket'] }
+  });
+  assert.match(recipe.text, /Die Uebergabe dieser Ladung ist noch offen: Versiegeltes Serum-/);
+  assert.doesNotMatch(recipe.text, /war den Auftrag|weil Versiegeltes/);
 });

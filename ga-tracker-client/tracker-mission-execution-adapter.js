@@ -252,7 +252,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     return result;
   };
 
-  const getFarewellDynamicContext = () => {
+  const getFarewellDynamicContext = (options = {}) => {
     const snapshot = current();
     if (!snapshot) return null;
     resetObservationIfNeeded(snapshot);
@@ -280,8 +280,20 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       maxDescentFpm: Math.min(Number(record.maxDescentFpm || 0), Number(latest.vsFpm || 0)),
       touchdownVsFpm: record.touchdownVsFpm != null ? record.touchdownVsFpm : latest.touchdownFpm
     };
+    // Prewarm only predicts the routine handoff of cargo already aboard. It
+    // never changes the manifest; dispatch evaluates the actual delivery again.
+    const stressedManifest = options.anticipateDelivery === true
+      ? flightRecorderCore.applyStress(snapshot.state.manifest, stressRecord,
+        { motionProtectionEnabled: authorityContext?.motionProtectionEnabled === true })
+      : snapshot.state.manifest;
+    const manifest = options.anticipateDelivery === true ? {
+      ...stressedManifest,
+      items: stressedManifest.items.map(item => item.status === 'loaded'
+        && item.deliverAtDestination !== false && item.itemType !== 'passenger'
+        ? { ...item, status: 'unloaded' } : item)
+    } : snapshot.state.manifest;
     const cargoOutcome = flightRecorderCore.evaluateFarewellOutcome(
-      snapshot.state.manifest,
+      manifest,
       stressRecord,
       { motionProtectionEnabled: authorityContext?.motionProtectionEnabled === true }
     );

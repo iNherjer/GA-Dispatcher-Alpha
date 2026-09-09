@@ -304,6 +304,9 @@
   function createIntentQueue(onChange) {
     var entries = [];
     var running = false;
+    var lastCargoGroup = null;
+    var lastCargoAt = -Infinity;
+    var cargoBurst = null;
     function changed() { if (typeof onChange === 'function') onChange(); }
     async function pump() {
       if (running || !entries.length) return;
@@ -311,18 +314,21 @@
       var first = entries[0];
       // Only compatible adjacent cargo clicks share a revision. A signature,
       // PAX action or run change is an ordering barrier.
-      if (first.batch) await new Promise(function (resolve) {
-        setTimeout(resolve, Math.max(0, first.queuedAt + 180 - Date.now()));
+      // Followers extend the quiet period while we wait, up to the same
+      // two-second maximum used by the standalone payload queue.
+      while (first.burst && first.burst.readyAt > Date.now()) await new Promise(function (resolve) {
+        setTimeout(resolve, Math.max(0, first.burst.readyAt - Date.now()));
       });
       var group = [first];
-      if (first.batch) {
+      if (first.batch && !first.leading) {
         for (var i = 1; i < entries.length && group.length < 32; i++) {
           var next = entries[i];
-          if (!next.batch || next.batch.group !== first.batch.group
+          if (!next.batch || next.leading || next.burst !== first.burst || next.batch.group !== first.batch.group
               || group.some(function (entry) { return entry.itemId === next.itemId; })) break;
           group.push(next);
         }
       }
+      if (first.burst) first.burst.dispatched = true;
       try {
         var result = first.batch
           ? await first.batch.execute(group.map(function (entry) { return entry.batch.value; }))
@@ -340,7 +346,18 @@
     function enqueue(key, itemId, execute, batch) {
       var existing = entries.find(function (entry) { return entry.key === key; });
       if (existing) return existing.promise;
-      var entry = { key: key, itemId: itemId || '', execute: execute, batch: batch, queuedAt: Date.now() };
+      var queuedAt = Date.now();
+      var openBurst = cargoBurst && !cargoBurst.dispatched && queuedAt < cargoBurst.readyAt;
+      var rapidCargo = batch && lastCargoGroup === batch.group
+        && (queuedAt - lastCargoAt <= 180 || openBurst);
+      if (rapidCargo) {
+        if (!openBurst) cargoBurst = { startedAt: queuedAt, readyAt: queuedAt, dispatched: false };
+        cargoBurst.readyAt = Math.min(queuedAt + 500, cargoBurst.startedAt + 2000);
+      } else cargoBurst = null;
+      var entry = { key: key, itemId: itemId || '', execute: execute, batch: batch,
+        queuedAt: queuedAt, leading: !rapidCargo, burst: rapidCargo ? cargoBurst : null };
+      lastCargoGroup = batch ? batch.group : null;
+      lastCargoAt = batch ? queuedAt : -Infinity;
       entry.promise = new Promise(function (resolve, reject) { entry.resolve = resolve; entry.reject = reject; });
       entries.push(entry);
       changed();

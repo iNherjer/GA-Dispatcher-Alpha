@@ -3849,3 +3849,41 @@ Der Publisher hat die Assetgroesse 50.580.714 Bytes und SHA-256
 vor der Veroeffentlichung verifiziert. Der Alpha-Zeiger verwendet exakt dieses
 Artefakt; sein abschliessender Origin-Push erhoeht den App-Cache auf v1731.
 Stable, Desktop-Installer und EFB-Paket bleiben auf ihren bisherigen Staenden.
+
+### v396 Feldtest: erster Cargo-Klick und veralteter Farewell (09.09.2026, lokal)
+
+Run `run-mtu2q2xh-774d8709d45b74`, Mission `mission-mtu2p59v-tvwo9b`:
+Farewell-Prewarm um 12:30:17 UTC, TTS fertig 12:30:27 UTC; Entladung folgte
+spaeter. Die gespeicherte Ansage behandelte das noch geladene Serumpaket als
+nicht geliefert. Dispatch aktivierte den fertigen Prewarm ungeprueft. Der
+App-Abschluss um 14:32:25 Ortszeit meldete dagegen `failed:false` und keine
+fehlenden/nicht gelieferten Pflichtgegenstaende. Der Widerspruch lag in der
+vorbereiteten Ansage, nicht im abschliessend verbuchten Cargo-Ergebnis.
+
+Lokale Korrektur: Prewarm prognostiziert die normale Uebergabe bereits
+mitgefuehrter Zielladung auf einer privaten, zuvor stressbewerteten Kopie.
+Fehlende, verlorene und beschaedigte Items werden nicht gesundgerechnet.
+Dispatch verwendet wieder den realen Manifeststand und reicht sein aktuelles
+Rezept bei der Voice-Service-Deduplizierung ein. Ein geaenderter Inhalt
+verwirft den stillen Prewarm und nutzt die aktuelle Effekt-ID; ein identischer
+Inhalt wird wiederverwendet. Der feste negative Ersatztext in Core und
+App-Fallback nennt das konkrete Problem in kurzen vollstaendigen Saetzen;
+Rollenfloskeln, Abschlussbericht-Hinweis und pauschale Neustartaufforderung entfallen.
+Die Standalone-Missionsregeln bleiben unveraendert.
+
+Die gemeinsame Tracker-Intentqueue sendet den ersten Cargo-Klick ohne
+Sammelwartezeit. Folgeklicks innerhalb von 180 ms starten ein 500-ms-
+Ruhefenster, das jeder weitere kompatible Klick erneut verlaengert. Wie in
+der Standalone-Payloadqueue wird nach maximal zwei Sekunden abgesendet.
+Signatur, andere Aktionen sowie Missions-/Phasenwechsel bleiben Barrieren.
+Die bestehende Batch-Capability markiert auch einen einzelnen gesendeten
+Eintrag als coalesced, sodass die Sim-Effektbruecke keine weiteren 180 ms
+wartet. Der bestaetigte Zustand kommt weiterhin ausschliesslich vom Tracker.
+
+Validierung: 100 Node-Tests plus sechs App-/Flow-/Interface-Selftests bestanden.
+Abgedeckt sind sofortiger erster Klick, gebuendelte Folgeklicks, erneuter
+Einzelklick nach Ruhe, verlaengertes Ruhefenster mit Zwei-Sekunden-Grenze,
+Reihenfolgegrenzen, Prewarm ohne Zustandsmutation,
+echte fehlende/beschaedigte Ladung und korrigierte Ansage in beiden Richtungen
+(Fehler zu Erfolg und Erfolg zu Fehler). Release-Kandidat: Tracker v397,
+App-Cache v1732; Alpha-Zeiger folgt erst nach verifiziertem Release-Upload.

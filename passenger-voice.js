@@ -9280,24 +9280,21 @@ function _failedMissionFarewellFallback(record = null) {
         const subject = String(frame?.focusSubject || 'den Auftrag').trim();
         return `Danke fuers Mitnehmen. Aus Sicht als ${role} haben wir ${subject} heute sauber bestaetigt und ich gebe den Fund so an die Einsatzleitung weiter. Der Rueckflug passt, damit koennen die Bodenkraefte ihren naechsten Schritt gezielt ansetzen.`;
     }
-    const frame = _activeMissionStoryFrame();
-    const subject = String(frame?.focusSubject || 'den Auftrag').trim();
     const cargoOutcome = rec?.missionCargoOutcome || null;
     const damagedRequired = Array.isArray(cargoOutcome?.damagedRequired) ? cargoOutcome.damagedRequired : [];
     const missingRequired = Array.isArray(cargoOutcome?.missingRequired) ? cargoOutcome.missingRequired : [];
     const droppedRequired = Array.isArray(cargoOutcome?.droppedRequired) ? cargoOutcome.droppedRequired : [];
     const notDeliveredRequired = Array.isArray(cargoOutcome?.notDeliveredRequired) ? cargoOutcome.notDeliveredRequired : [];
     const primaryFailureReason = damagedRequired.length
-        ? `weil wichtige Ausruestung beschaedigt wurde (${damagedRequired.slice(0, 2).join(', ')})`
+        ? `Leider ist ein Teil der Ladung beschaedigt: ${damagedRequired.slice(0, 2).join(', ')}`
         : missingRequired.length
-            ? `weil wichtige Ausruestung fehlte (${missingRequired.slice(0, 2).join(', ')})`
+            ? `Leider hat fuer den Auftrag etwas gefehlt: ${missingRequired.slice(0, 2).join(', ')}`
             : droppedRequired.length
-                ? `weil wichtige Ausruestung verloren ging (${droppedRequired.slice(0, 2).join(', ')})`
+                ? `Leider ist unterwegs etwas verloren gegangen: ${droppedRequired.slice(0, 2).join(', ')}`
                 : notDeliveredRequired.length
-                    ? `weil ${notDeliveredRequired[0]}`
-                    : 'weil wir den Auftrag am Ziel nicht sauber abschliessen konnten';
-    const role = String(pax.role || 'Passagier').trim();
-    return `Danke fuers Mitnehmen. Aus Sicht als ${role} war ${subject} heute noch nicht sauber abgeschlossen, ${primaryFailureReason}. Wollen wir das mit einem klareren zweiten Anlauf noch einmal sauber aufsetzen?`;
+                    ? `Die Uebergabe dieser Ladung ist noch offen: ${notDeliveredRequired.slice(0, 2).join(', ')}`
+                    : 'Leider konnten wir den Auftrag am Ziel noch nicht abschliessen';
+    return `Danke fuers Mitnehmen. ${primaryFailureReason}.`;
 }
 
 window.triggerPaxCargoEvent = async function(event = {}) {

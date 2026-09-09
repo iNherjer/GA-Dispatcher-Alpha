@@ -105,6 +105,7 @@ test('touchdown prewarm generates once and stays silent until Farewell dispatch'
   const jobs = new Map();
   const voiceService = {
     publicState: () => ({ configured: true }),
+    get: effectId => jobs.get(effectId),
     request: value => {
       requests.push(value);
       const existing = jobs.get(value.effectId);
@@ -259,4 +260,41 @@ test('an explicit current App close recipe keeps precedence over tracker context
   });
   assert.equal(result.ok, true);
   assert.equal(requests[0].prompt, 'Aktueller App-Prompt.');
+});
+
+for (const reversed of [false, true]) test(`stale farewell preload cannot override the current delivery outcome (reverse=${reversed})`, async () => {
+  const jobs = new Map();
+  const cancelled = [];
+  const activated = [];
+  const service = {
+    publicState: () => ({ configured: true }),
+    get: id => jobs.get(id),
+    request: value => {
+      const signature = JSON.stringify({ ...value, effectId: null, deferPlayback: null });
+      const prior = jobs.get(value.effectId);
+      if (prior && prior.signature !== signature) throw Object.assign(new Error('changed recipe'), { code: 'effect_id_conflict' });
+      if (prior) return prior;
+      const job = { effectId: value.effectId, status: 'ready', audioAvailable: true,
+        text: value.text || 'Danke, der Auftrag ist abgeschlossen.', signature };
+      jobs.set(value.effectId, job);
+      return job;
+    },
+    cancel: (id, reason) => cancelled.push({ id, reason }),
+    activatePlayback: id => activated.push(id),
+    wait: async id => jobs.get(id),
+    waitForPlayback: async () => ({ status: 'completed', completed: true })
+  };
+  const context = authorityContext();
+  const handler = createTrackerMissionFarewellVoice({
+    authorityManager: { getActiveRun: () => activeRunWithContext(context) },
+    voiceService: service, getAudioPlaybackCandidates: () => 1
+  });
+  const failed = { cargoOutcome: { failed: true, notDeliveredRequired: ['Serumpaket'] }, missionFailed: true };
+  const success = { cargoOutcome: { failed: false }, missionFailed: false };
+  handler.prepare({ ...request(), farewellDynamicContext: reversed ? success : failed });
+  const result = await handler.dispatch({ ...request(), farewellDynamicContext: reversed ? failed : success });
+  assert.equal(cancelled[0].reason, 'farewell_preload_stale');
+  assert.equal(activated.length, 0, 'stale prepared audio must never be activated');
+  assert.equal(result.voiceOutcome.text.includes('Die Uebergabe dieser Ladung ist noch offen: Serumpaket'), reversed);
+  assert.equal(jobs.has('mfx-farewell'), true, 'fresh result is generated under the live effect ID');
 });

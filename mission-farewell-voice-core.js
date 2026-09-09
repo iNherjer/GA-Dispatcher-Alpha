@@ -253,15 +253,13 @@
         var dropped = cargoOutcome.droppedRequired;
         var notDelivered = cargoOutcome.notDeliveredRequired;
         var reason = damaged.length
-            ? 'weil wichtige Ausruestung beschaedigt wurde (' + damaged.slice(0, 2).join(', ') + ')'
+            ? 'Leider ist ein Teil der Ladung beschaedigt: ' + damaged.slice(0, 2).join(', ')
             : (missing.length
-                ? 'weil wichtige Ausruestung fehlte (' + missing.slice(0, 2).join(', ') + ')'
+                ? 'Leider hat fuer den Auftrag etwas gefehlt: ' + missing.slice(0, 2).join(', ')
                 : (dropped.length
-                    ? 'weil wichtige Ausruestung verloren ging (' + dropped.slice(0, 2).join(', ') + ')'
-                    : (notDelivered.length ? 'weil ' + notDelivered[0] : 'weil wir den Auftrag am Ziel nicht sauber abschliessen konnten')));
-        return 'Danke fuers Mitnehmen. Aus Sicht als ' + context.passenger.role + ' war '
-            + context.storyFocusSubject + ' heute noch nicht sauber abgeschlossen, ' + reason
-            + '. Wollen wir das mit einem klareren zweiten Anlauf noch einmal sauber aufsetzen?';
+                    ? 'Leider ist unterwegs etwas verloren gegangen: ' + dropped.slice(0, 2).join(', ')
+                    : (notDelivered.length ? 'Die Uebergabe dieser Ladung ist noch offen: ' + notDelivered.slice(0, 2).join(', ') : 'Leider konnten wir den Auftrag am Ziel noch nicht abschliessen')));
+        return 'Danke fuers Mitnehmen. ' + reason + '.';
     }
 
     function passengerPreparedContext(context, dynamic) {

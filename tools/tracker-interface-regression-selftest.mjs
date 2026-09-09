@@ -343,11 +343,15 @@ for (const supported of [false, true]) {
   vm.runInContext(between(sync, 'window.gaTrackerExecutionSubmitIntent = function(', 'function _trackerExecutionAbortedRun('), context);
   const a = context.window.gaTrackerExecutionSubmitIntent('set_manifest_item', { itemId: 'a', action: 'load' });
   const b = context.window.gaTrackerExecutionSubmitIntent('set_manifest_item', { itemId: 'b', action: 'unload' });
-  assert.deepEqual(context.window.gaTrackerQueuedItemIds, ['a', 'b']);
-  await Promise.all([a, b]);
-  assert.equal(sent.length, supported ? 1 : 2);
-  if (supported) assert.equal(sent[0].payload.items.length, 2);
-  else assert.deepEqual(sent.map(entry => entry.revision), [1, 2]);
+  const c = context.window.gaTrackerExecutionSubmitIntent('set_manifest_item', { itemId: 'c', action: 'unload' });
+  assert.deepEqual(context.window.gaTrackerQueuedItemIds, ['a', 'b', 'c']);
+  await Promise.all([a, b, c]);
+  assert.equal(sent.length, supported ? 2 : 3);
+  if (supported) {
+    assert.equal(sent[0].payload.items.length, 1);
+    assert.equal(sent[1].payload.items.length, 2);
+    assert.deepEqual(sent.map(entry => entry.revision), [1, 2]);
+  } else assert.deepEqual(sent.map(entry => entry.revision), [1, 2, 3]);
 }
 
 // The tracker receives the same destination command as the standalone spawn,
