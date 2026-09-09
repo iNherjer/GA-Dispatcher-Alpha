@@ -33,7 +33,7 @@ function cueRecipe(context, entry) {
   return { id, gain: entry.gain == null ? def.gain : entry.gain,
     variantSeed: `cue-variant-${id}${context.missionAudioKey}|${seed}|${id}` };
 }
-function createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates = () => 0, getAudioSettings = () => null }) {
+function createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates = () => 0, getAudioSettings = () => null, playbackClaimTimeoutMs = 15000, log = () => {} }) {
   let active = false;
   const pending = [];
   async function play(batch) {
@@ -51,6 +51,17 @@ function createTrackerMissionCargoAudio({ authorityManager, voiceService, getAud
     voiceService.request({ effectId, kind: 'cargo', cue, synthesizeAudio: false });
     const job = await voiceService.wait(effectId);
     if (!job?.cue?.audioAvailable) { voiceService.cancel?.(effectId, 'cargo_cue_missing'); return; }
+    // Like boarding/farewell, an audio-capable device is not proof of playback.
+    // An unclaimed effect must not hold subsequent cargo cues for two minutes.
+    if (typeof voiceService.waitForPlaybackClaim === 'function') {
+      const claim = await voiceService.waitForPlaybackClaim(effectId, { timeoutMs: playbackClaimTimeoutMs });
+      if (claim?.claimed !== true) {
+        voiceService.cancel?.(effectId, 'cargo_cue_no_audio_claim');
+        log(`MISSION_CARGO_AUDIO_SKIPPED effect=${effectId} reason=no_audio_claim`);
+        return;
+      }
+      if (claim.status === 'completed') return;
+    }
     const playback = await voiceService.waitForPlayback(effectId, { timeoutMs: 120000 });
     if (playback?.status === 'timeout') voiceService.cancel?.(effectId, 'cargo_cue_timeout');
   }

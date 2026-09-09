@@ -3657,3 +3657,90 @@ EFB-Hostrevision: 39401. Desktop 1.6.8 verwendet seine vorhandene getrennte
 Alpha-Runtime-Aktualisierung; kein neuer Installer und keine Aenderung des
 Stable-Kanals. Der reale Standalone-/MSFS-Latenzvergleich bleibt der naechste
 Feldtest. Kamerawechsel/Black-Screen bleibt beim separaten Arbeitsauftrag.
+
+### Feldtest v394: fehlende Arrival-Szene und verbleibende Latenzen (09.09.2026, Kandidat)
+
+Neue Logs: `mission-mttu44rg-gzjsq6`, Run `run-mttux9ii-963f461c4b6a64`,
+08:49–09:03 UTC. Noch kein Rollout dieser Korrekturen.
+
+Belegte Ursachen und gezielte Korrekturen:
+
+- `set_boardbook_time` scheiterte am Cockpit-Transport-Allowlist-Eingang
+  (`mission_intent_not_allowed`, 08:52:32.670 UTC), obwohl der Adapter und die
+  UI den Intent kennen. Bordbuch und ebenfalls implementiertes
+  `replace_equipment` sind jetzt fuer authentifizierte HTTP- und Relay-Intents
+  zugelassen; die bestehenden fachlichen Adapter-Gates gelten weiter.
+- Der APT-Effektplan enthielt ueberhaupt keine statische Ankunftsszene. Die App
+  sperrt ihren eigenen Spawn im Trackerbetrieb korrekt. Der gemeinsame
+  bisherige Command-Builder liefert jetzt auch `scene.arrival` im Effektplan;
+  `MISSION_STARTED` fordert den Effekt bei vorhandenem Plan einmal an. Die
+  Bridge behaelt Zielkoordinaten/Assets/Placement aus dem Plan statt die
+  aktuelle Flugzeugposition einzusetzen. Alte Plaene ohne dieses Feld bleiben
+  kompatibel, erhalten aber keine erfundene Zielszene. Fuer den naechsten Test
+  muss die aktualisierte App einen neuen Run samt neuem Effektplan uebergeben.
+- Revisionskonflikte nach Cargo-/Sound-/Payload-ACKs erzeugten mehrere
+  Netzwerkrunden; zweimal scheiterte auch der zweite Versuch. Der Tracker
+  merkt sich fuer maximal 128 gelesene Revisionen den semantischen
+  Bedienstand (Manifest inkl. Signatur, Phase, Flags, Fortschritt, Workflows,
+  Flugzeiten und erlaubte Aktionen). Nur bei identischem Stand darf eine
+  kleine Allowlist von Boden-/Bordbuch-Intents gegen die aktuelle Revision
+  validiert werden. Unbekannte Revisionen, geaenderte Items/Signaturen/Gates,
+  Runwechsel und Start/Abort bleiben strikt. Keine blinde Wiederholung und
+  kein Abschalten der CAS-Pruefung. Nach Neustart ist die Historie leer.
+- Der ACK des bereits unterschriebenen und bestaetigten PAX-Handoffs
+  invalidierte die Ankunftssignatur als vermeintliche neue Cargo-Aenderung.
+  Dieser spezielle Abschluss behaelt die Signatur. Manuelle Cargo- und
+  PAX-Aenderungen invalidieren sie weiterhin; die Departure-Gates bleiben.
+- Wiederholte Telemetrie-/UI-Abfragen normalisierten denselben immutable
+  Reducer-State mehrfach und berechneten einen nicht ausgegebenen
+  Flugabschlussbericht schon waehrend des Fluges. Normalisierte Projektion
+  und View werden nun nach State-Identitaet gecacht und nach aussen kopiert;
+  der Abschlussbericht entsteht nur in Abschlussphasen. Die atomare
+  Authority-Datei wird kompakt geschrieben, weiterhin vor dem Erfolgs-ACK.
+- Beim Wechsel auf Relay stoppt die App Heartbeats einer inzwischen
+  ungueltigen lokalen Cockpit-Sitzung; bei Rueckkehr wird neu registriert.
+- Cargo-Audio wartet wie Boarding/Farewell zunaechst auf eine echte Claim-
+  Bestaetigung. Ohne Claim wird der Cue verworfen/protokolliert, statt zwei
+  Minuten nachfolgende Cues und die finale Effect-Abrechnung zu blockieren.
+
+Grenzen / Diagnose:
+
+RX→Intent-ACK im selben Tracker-Log: erfolgreiche Befehle 76–847 ms.
+Ein Verbandkasten-Spawn lief 08:59:37.882–09:00:03.657 UTC durch vier
+SimConnect-Timeouts; die vorhergehende Intent-Verarbeitung dauerte 567 ms.
+Mehrere Relay-Verbindungen brachen ab. PA-24-Payload-Warnungen zeigen
+Seat3/Seat4Character und Sitzgewichte, die dem Zielzustand widersprechen.
+Diese Daten beweisen keine Hardwareursache und erklaeren nicht allein,
+weshalb SimConnect und Telemetrie zeitweise aussetzen.
+
+`TRACKER_TELEMETRY_DELAY` misst bei Auffaelligkeiten Eventloop-Verzoegerung,
+Abstand zum letzten Sim-Datenpaket, lokale Verarbeitungsdauer und
+WebSocket-Sendepuffer (hoechstens alle zehn Sekunden). Separat weist
+`MISSION_AUTHORITY_PERSIST_SLOW` langsame JSON-/Dateischreibzeiten aus.
+Keine kuenstlichen GPS-Updates und kein Ausblenden von Verbindungsfehlern.
+
+Lokaler Lesevergleich mit dem zuvor bereitgestellten Authority-Datensatz,
+200 Paare aus internem und oeffentlichem Snapshot: Median vorher 1,74 ms,
+nachher 0,52 ms; insgesamt 372→115 ms. Das ist ein enger macOS-Mikrobenchmark,
+kein Beleg fuer beseitigte Sekundenpausen im Windows/MSFS-Feldtest.
+
+Validierung: 117 gezielte Tests zu Core, Authority, Adapter, Runtime,
+Effect-Runner, Cockpit und Simulator-Bridge; weitere 14 Audio-Tests.
+Interface-Selbsttest fuehrt den echten App-Effectplan-Builder aus und
+vergleicht den Arrival-Command mit dem gemeinsamen Standalone-Builder.
+
+Zusaetzlich bestanden: Flow-Simulation, Ground-Flow, Cargo-Persistenz,
+Payload-App-Differential, Standalone-Cargo-UI-Charakterisierung und Cargo-
+Audio-App-Differential. EFB-Assets synchronisiert; Syntax/Whitespace sauber.
+Live bleibt v394 / SW v1727; kein EXE-/Channel-/Origin-Rollout in diesem Schritt.
+
+### Release-Kandidat v395 (09.09.2026)
+
+Tracker v395, gehostete EFB-Assets 39501 und App-Cache v1728 enthalten die
+oben beschriebenen Feldtest-Korrekturen. Die Windows-EXE wurde erfolgreich
+gebaut (50.574.090 Bytes, SHA-256
+`b2f1c237c44d5c2c5f5469acfaa4dc0b3674be7af625f1a89923b7bcaa3d7477`).
+Zusaetzlich bestanden alle 17 EFB-Web-Tests nach dem Versionswechsel.
+Desktop 1.6.8 und die Stable-Kanaele bleiben unveraendert. Der Alpha-Kanal
+wird erst nach verifiziertem Release-Upload umgestellt. Der naechste
+MSFS-Feldtest bleibt fuer die Telemetrie-Diagnose erforderlich.

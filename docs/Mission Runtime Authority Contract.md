@@ -730,3 +730,26 @@ Ankunft: Die Bodenfreigabe entspricht der Standalone (onGround und hoechstens
 Cargo-Payload-Synchronisierung blockiert Ankunftsunterschrift und
 Entladebestaetigung nicht. Finale Payload-/PAX-/Farewell-Gates bleiben erhalten;
 eine Unterschrift allein startet weiterhin keinen Abschluss.
+
+### Semantisch unveraenderte Bedienrevisionen und Arrival-Command (09.09.2026)
+
+Ein veralteter Transport-Intent darf nur dann an die aktuelle Revision
+gebunden werden, wenn der Tracker die angegebene Revision noch aus einem
+zuvor gelesenen Snapshot kennt und Manifest, Signatur, Phase, Flags,
+Fortschritt, Workflows, Flugzeiten und erlaubte Aktionen exakt gleich sind.
+Die begrenzte Historie ist lokal/fluechtig; unbekannte oder fachlich
+abweichende Revisionen bleiben Konflikte. Diese Ausnahme gilt ausschliesslich
+fuer `set_manifest_item`, `set_boardbook_time`, `sign_manifest`,
+`clear_manifest_signature`, `confirm_unload` und `close_cargo_window`.
+Der Adapter validiert und persistiert danach unveraendert gegen die aktuelle
+Revision. Start-/Abort- und Authority-Operationen verwenden weiter exaktes CAS.
+
+Der APT-Effektplan kann `scene.arrival` als vollstaendigen, vom vorhandenen
+App-Szenenbuilder aufgeloesten `mission_scene_spawn` enthalten. Bei
+`MISSION_STARTED` fordert der Tracker diesen Effekt an; seine Position ist
+der geplante Zielort, nicht das aktuelle Flugzeug. Der echte Sim-ACK wird
+weiter ausgewertet. Plaene ohne Arrival-Feld erzeugen keinen Ersatz-Spawn.
+
+Ein bestaetigter PAX-Handoff darf die zuvor bestaetigte Ankunftssignatur nicht
+als neue Bedieneraenderung loeschen. Manuelle Manifest-Aenderungen behalten
+hingegen die bisherige Signaturinvalidierung.

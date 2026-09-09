@@ -15,6 +15,8 @@ const MISSION_INTENTS = new Set([
   'start_boarding',
   'close_cargo_window',
   'set_manifest_item',
+  'set_boardbook_time',
+  'replace_equipment',
   'sign_manifest',
   'clear_manifest_signature',
   'confirm_load',
@@ -223,7 +225,9 @@ function createTrackerCockpitControl(options = {}) {
       result = { ok: false, status: 'conflict', error: 'no_active_run', sideEffect: false, activeRun: null };
     } else if (cleanString(request.missionId) !== activeRun.missionId || cleanString(request.runId, 220) !== activeRun.runId) {
       result = { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false, activeRun };
-    } else if (Number(request.expectedRevision) !== activeRun.revision) {
+    } else if (Number(request.expectedRevision) !== activeRun.revision
+        && !(typeof options.canRebaseIntentRevision === 'function'
+          && options.canRebaseIntentRevision({ ...request, intent }) === true)) {
       result = { ok: false, status: 'conflict', error: 'mission_revision_conflict', sideEffect: false, activeRun };
     } else if (!executeIntent) {
       result = {

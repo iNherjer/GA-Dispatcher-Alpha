@@ -488,3 +488,22 @@ test('client-batched cargo dispatches without a second debounce and retains revi
   assert.equal(commands[0].items[0].objectRevision, commands[0].objectRevision);
   bridge.cancelPending();
 });
+
+test('arrival scene uses the planned destination, not the current aircraft position', async () => {
+  const run = runWithPlan();
+  run.resumeBundle.executionEffectPlan.effects['scene.arrival'] = { command: {
+    type: 'mission_scene_spawn', sceneId: 'scene-arrival', targetSceneKind: 'apt_arrival',
+    lat: 48.3, lon: 8.5, altFt: 600, hdg: 140,
+    items: [{ kind: 'arrival_person_1', objectTitle: 'Tarmac_Male' }]
+  } };
+  const commands = [], acks = [];
+  const bridge = createTrackerMissionSimulatorEffects({ authorityManager: { getActiveRun: () => run },
+    getLivePosition: () => ({ lat: 40, lon: 5, alt: 9000, hdg: 1 }),
+    dispatchCommand: command => { commands.push(command); return { ok: true }; },
+    acknowledgeEffect: ack => { acks.push(ack); return { ok: true }; } });
+  const result = await bridge.handlers['scene.arrival']({ missionId: run.missionId, runId: run.runId, commandId: 'arrival', effect: { type: 'scene.arrival' } });
+  assert.equal(result.status, 'pending');
+  assert.deepEqual([commands[0].lat, commands[0].lon, commands[0].altFt, commands[0].hdg], [48.3, 8.5, 600, 140]);
+  await bridge.handleAck({ type: 'mission_scene_spawn_ack', commandId: 'arrival', missionId: run.missionId, runId: run.runId, status: 'ok', spawned: 1 });
+  assert.equal(acks.length, 1);
+});

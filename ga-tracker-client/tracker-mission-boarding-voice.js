@@ -56,7 +56,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
     throw new TypeError('mission_boarding_voice_authority_manager_required');
   }
 
-  const cargoAudio = createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates, getAudioSettings });
+  const cargoAudio = createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates, getAudioSettings, playbackClaimTimeoutMs, log });
   const dispatch = async (request = {}) => {
     let effectId = cleanString(request?.effect?.effectId || request.commandId, 220);
     const run = authorityManager.getActiveRun({ includeBundle: true });

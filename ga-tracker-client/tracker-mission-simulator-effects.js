@@ -2,6 +2,10 @@
 
 const EFFECT_PLAN_SCHEMA = 'ga.mission-apt-effect-plan.v1';
 const EFFECT_COMMANDS = Object.freeze({
+  'scene.arrival': Object.freeze({
+    commandType: 'mission_scene_spawn',
+    ackType: 'mission_scene_spawn_ack'
+  }),
   'scene.prepare': Object.freeze({
     commandType: 'mission_scene_spawn',
     ackType: 'mission_scene_spawn_ack'
@@ -364,7 +368,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (!template) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_apt_effect_command_invalid');
-    const position = normalizeLivePosition(getLivePosition());
+    const position = normalizeLivePosition(effectType === 'scene.arrival' ? template : getLivePosition());
     if (!position) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_simulator_live_position_missing');
@@ -487,6 +491,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     },
     handlers: Object.freeze({
       'scene.prepare': dispatch,
+      'scene.arrival': dispatch,
       'scene.boarding': dispatch,
       'scene.cargo_item_transition': dispatch,
       'scene.compliance_visit': dispatch,

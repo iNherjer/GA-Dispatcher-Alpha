@@ -348,6 +348,8 @@ test('farewell gates coordinated passenger deboarding and commits handoff only a
 
     state = core.reduce(state, { eventId: 'farewell-handoff', type: 'PAX_DEBOARDING_CONFIRMED', sequence: 4, occurredAt: 130 });
     assert.equal(state.manifest.items[0].status, 'unloaded');
+    assert.equal(state.manifest.dispatchSignature.scope, 'arrival');
+    assert.equal(state.cargo.signatureScope, 'arrival');
     assert.equal(state.flags.deboardingCompleted, false);
     assert.equal(state.phase, 'closing');
     assert.equal(state.effects.some(effect => effect.type === 'mission.close_requested'), true);

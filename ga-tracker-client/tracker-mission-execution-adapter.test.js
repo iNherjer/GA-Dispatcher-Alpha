@@ -245,7 +245,9 @@ test('authority snapshot accepts only a complete bounded APT location policy', (
 });
 
 test('APT intents and system acknowledgements create only gated semantic core events', (t) => {
-  const fixture = createCommittedFixture(t);
+  const bundle = aptResumeBundle();
+  bundle.executionEffectPlan = { effects: { 'scene.arrival': { command: { type: 'mission_scene_spawn' } } } };
+  const fixture = createCommittedFixture(t, { bundle });
 
   const prepared = executeCurrent(fixture, 'prepare_mission', 'prepare');
   assert.equal(prepared.ok, true);
@@ -287,6 +289,7 @@ test('APT intents and system acknowledgements create only gated semantic core ev
   const started = executeCurrent(fixture, 'start_mission', 'start');
   assert.equal(started.ok, true);
   assert.equal(started.view.phase, 'active');
+  assert.equal(fixture.manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'scene.arrival').length, 1);
 
   const unpublishedVoice = executeCurrent(fixture, 'request_voice_playback', 'voice');
   assert.equal(unpublishedVoice.error, 'mission_intent_not_allowed_in_state');
@@ -1057,4 +1060,41 @@ test('ground readiness accepts the parking brake without a speed sample and igno
     onGround: true, parkingBrake: true });
   assert.equal(result.acceptedEvent.type, 'GROUND_STILL');
   assert.equal(result.view.phase, 'end_unloading');
+});
+
+test('semantic revision guard tolerates effect bookkeeping but rejects another cargo edit and unknown revisions', t => {
+  const fixture = createCommittedFixture(t);
+  assert.equal(executeCurrent(fixture, 'prepare_mission', 'guard-prepare').ok, true);
+  beginBoarding(fixture, 'guard');
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'guard-load', { itemId: 'medical-box', action: 'load' }).ok, true);
+  const before = fixture.manager.getExecutionSnapshot();
+  const request = { intent: 'sign_manifest', missionId: before.missionId, runId: before.runId, expectedRevision: before.authorityRevision };
+  const effect = before.state.effects.find(effect => effect.type === 'voice.cargo');
+  assert.ok(effect);
+  assert.equal(fixture.manager.applyExecutionEvent({ ...request,
+    expectedExecutionRevision: before.executionRevision, expectedExecutionStateHash: before.executionStateHash,
+    event: { eventId: 'guard-sound-ack', type: 'EFFECT_ACKNOWLEDGED', sequence: before.executionRevision + 1,
+      payload: { effectId: effect.effectId, status: 'completed' } }
+  }).ok, true);
+  assert.equal(fixture.manager.canRebaseIntentRevision(request), true);
+  assert.equal(fixture.manager.canRebaseIntentRevision({ ...request, expectedRevision: 0 }), false);
+  assert.equal(fixture.manager.canRebaseIntentRevision({ ...request, runId: 'old-run' }), false);
+  assert.equal(fixture.manager.canRebaseIntentRevision({ ...request, intent: 'abort_mission' }), false);
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'guard-unload', { itemId: 'medical-box', action: 'unload' }).ok, true);
+  assert.equal(fixture.manager.canRebaseIntentRevision(request), false);
+  const restored = createMissionAuthorityManager(fixture.managerOptions);
+  assert.equal(restored.canRebaseIntentRevision(request), false);
+});
+
+test('cached execution reads are detached and refresh after a real mission transition', t => {
+  const fixture = createCommittedFixture(t);
+  const initial = fixture.manager.getExecutionSnapshot();
+  initial.state.phase = 'closed'; initial.state.manifest.items.length = 0; initial.view.allowedActions.length = 0;
+  const publicRead = fixture.manager.getPublicSnapshot();
+  publicRead.execution.manifest.items.length = 0;
+  assert.equal(fixture.manager.getExecutionSnapshot().state.phase, 'planned');
+  assert.equal(fixture.manager.getExecutionSnapshot().state.manifest.items.length, 1);
+  executeCurrent(fixture, 'prepare_mission', 'cache-prepare');
+  assert.equal(fixture.manager.getExecutionSnapshot().state.phase, 'prepare');
+  assert.equal(fixture.manager.getPublicSnapshot().execution.phase, 'prepare');
 });

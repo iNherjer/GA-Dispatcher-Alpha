@@ -207,3 +207,12 @@ oder bei einer Aenderung erneut versucht werden. Audio-Cache-Speicherung ist
 best effort; ein harter Prozessabbruch kann die letzte noch ausstehende
 Cache-Aenderung verlieren. Der autoritative Missionsjournal-Commit bleibt
 vor dem Intent-ACK dauerhaft gespeichert.
+
+### Tracker-Cargo-Cues: fehlende Playback-Uebernahme (09.09.2026)
+
+Cargo-Cues nutzen nun dieselbe konfigurierte Claim-Wartegrenze wie
+Boarding/Farewell (standardmaessig 15 Sekunden). Ohne reale Playback-Lease
+wird der Cue mit `cargo_cue_no_audio_claim` storniert und
+`MISSION_CARGO_AUDIO_SKIPPED` geloggt. Nachfolgende gebuendelte Cargo-Cues
+warten dadurch nicht hinter einem nie gestarteten zweiminuetigen Playback-
+Timeout. Bereits gestartete Wiedergaben behalten ihre ACK-Abwicklung.

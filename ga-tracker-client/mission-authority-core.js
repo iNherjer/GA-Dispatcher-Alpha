@@ -369,13 +369,27 @@ function publicRun(run, options = {}) {
   return result;
 }
 
+// Reducer states are replaced, never edited in place. Cache the expensive
+// normalization/view derivation by that immutable state identity. All public
+// callers still receive detached copies, including after a restart/rollback.
+const executionProjectionCache = new WeakMap();
+function cachedExecutionProjection(source) {
+  let cached = executionProjectionCache.get(source);
+  if (!cached) {
+    const state = executionCore.normalizeState(source);
+    cached = { state, view: executionCore.deriveView(state) };
+    executionProjectionCache.set(source, cached);
+  }
+  return cached;
+}
+
 function publicExecutionSnapshot(run) {
   if (!run?.missionId || !run?.runId || !run.executionState) return null;
-  const state = executionCore.normalizeState(run.executionState);
-  const view = executionCore.deriveView(state);
+  const { state, view } = cachedExecutionProjection(run.executionState);
   const runtime = normalizeExecutionRuntimeContext(run.executionRuntimeContext);
-  let missionFlightRecord = runtime?.missionFlightRecord || null;
-  const currentSegmentRecord = runtime?.flightRecorder?.active === true
+  const exposeCompletionRecord = /^(closing|closed)$/.test(state.phase);
+  let missionFlightRecord = exposeCompletionRecord ? runtime?.missionFlightRecord || null : null;
+  const currentSegmentRecord = exposeCompletionRecord && runtime?.flightRecorder?.active === true
     && Number(runtime.flightRecorder.startTs || 0) !== Number(runtime.lastFinalizedSegmentStartTs || 0)
     ? flightRecorderCore.buildRecord(runtime.flightRecorder, {
         now: runtime.latestTelemetry?.observedAt || runtime.updatedAt || Date.now(),
@@ -391,7 +405,6 @@ function publicExecutionSnapshot(run) {
     missionFlightRecord = flightRecorderCore.mergeRecords([missionFlightRecord, currentSegmentRecord].filter(Boolean));
   }
   const exposeFlight = runtime && /^(end_unloading|end_ready|closing|closed)$/.test(state.phase);
-  const exposeCompletionRecord = /^(closing|closed)$/.test(state.phase);
   return {
     schema: 'ga.mission-execution-control.v1',
     version: 1,
@@ -515,14 +528,25 @@ function createMissionAuthorityManager(options = {}) {
     state.events = state.events.slice(-MAX_EVENTS);
   };
 
+  let lastSlowPersistLogAt = 0;
   const persist = () => {
     if (!storageFile) return true;
     try {
       const directory = path.dirname(storageFile);
       const temporaryFile = `${storageFile}.tmp`;
       io.mkdirSync(directory, { recursive: true });
-      io.writeFileSync(temporaryFile, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+      const started = process.hrtime.bigint();
+      const serialized = `${JSON.stringify(state)}\n`;
+      const encoded = process.hrtime.bigint();
+      io.writeFileSync(temporaryFile, serialized, 'utf8');
       io.renameSync(temporaryFile, storageFile);
+      const finished = process.hrtime.bigint();
+      const serializeMs = Math.round(Number(encoded - started) / 1e6);
+      const writeMs = Math.round(Number(finished - encoded) / 1e6);
+      if (serializeMs + writeMs >= 100 && Date.now() - lastSlowPersistLogAt >= 10000) {
+        lastSlowPersistLogAt = Date.now();
+        log(`MISSION_AUTHORITY_PERSIST_SLOW serializeMs=${serializeMs} writeMs=${writeMs} bytes=${Buffer.byteLength(serialized)}`);
+      }
       return true;
     } catch (error) {
       log(`MISSION_AUTHORITY_PERSIST_ERROR ${error?.message || error}`);
@@ -1170,10 +1194,41 @@ function createMissionAuthorityManager(options = {}) {
     return { ok: true, status: active.resumeBundle ? 'ok' : 'noop', activeRun: publicRun(active), resumeBundle: jsonClone(active.resumeBundle) };
   };
 
+  // A transport ACK can advance the authority revision without changing what
+  // the operator is editing. Retain only guards for snapshots actually read,
+  // and accept a stale revision only when the complete control inputs match.
+  const intentRevisionGuards = new Map();
+  const rebasableIntents = new Set(['set_manifest_item', 'set_boardbook_time',
+    'sign_manifest', 'clear_manifest_signature', 'confirm_unload', 'close_cargo_window']);
+  const intentGuard = active => {
+    const { state: execution, view } = cachedExecutionProjection(active.executionState);
+    return JSON.stringify({ phase: execution.phase, flags: execution.flags,
+      manifest: execution.manifest, progress: execution.progress,
+      workflows: execution.workflows, flightEvents: view.flightEvents,
+      allowedActions: view.allowedActions });
+  };
+  const rememberIntentRevision = active => {
+    if (!active?.executionState || active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) return;
+    const key = `${active.runId}:${active.revision}`;
+    if (!intentRevisionGuards.has(key)) intentRevisionGuards.set(key, intentGuard(active));
+    while (intentRevisionGuards.size > 128) intentRevisionGuards.delete(intentRevisionGuards.keys().next().value);
+  };
+  const canRebaseIntentRevision = request => {
+    const active = state.activeRun;
+    if (!active?.executionState || active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER
+        || request.missionId !== active.missionId || request.runId !== active.runId
+        || !rebasableIntents.has(request.intent)
+        || !Number.isSafeInteger(Number(request.expectedRevision))
+        || Number(request.expectedRevision) >= active.revision) return false;
+    const guard = intentRevisionGuards.get(`${active.runId}:${request.expectedRevision}`);
+    return guard !== undefined && guard === intentGuard(active);
+  };
+
   const getExecutionSnapshot = () => {
     const active = state.activeRun;
     if (!active?.missionId || !active?.runId || !active.executionState) return null;
-    const executionState = executionCore.normalizeState(active.executionState);
+    rememberIntentRevision(active);
+    const { state: executionState, view } = cachedExecutionProjection(active.executionState);
     return {
       schema: 'ga.mission-execution-authority-snapshot.v1',
       missionId: active.missionId,
@@ -1188,7 +1243,7 @@ function createMissionAuthorityManager(options = {}) {
       updatedAt: Number(active.updatedAt || 0) || null,
       location: executionLocationProjection(active.resumeBundle),
       state: jsonClone(executionState),
-      view: executionCore.deriveView(executionState)
+      view: jsonClone(view)
     };
   };
 
@@ -1667,9 +1722,11 @@ function createMissionAuthorityManager(options = {}) {
     recordExecutionRuntimeContext,
     clearMissionRecoveryState,
     getExecutionSnapshot,
+    canRebaseIntentRevision,
     abortExecutionRun,
     finalizeExecutionRun,
     getPublicSnapshot(options = {}) {
+      rememberIntentRevision(state.activeRun);
       return {
         schema: STATE_SCHEMA,
         version: STATE_VERSION,

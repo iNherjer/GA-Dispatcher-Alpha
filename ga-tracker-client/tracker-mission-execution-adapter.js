@@ -791,7 +791,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
           manifest: snapshot.state.manifest,
           ...(payloadContext ? { payloadContext } : {})
         }
-      : (eventType === 'CLOSE_REQUESTED' ? { position: observations.lastPosition } : {});
+      : (eventType === 'CLOSE_REQUESTED' ? { position: observations.lastPosition }
+        : (eventType === 'MISSION_STARTED' ? {
+            arrivalScene: !!authorityManager.getActiveRun({ includeBundle: true })?.resumeBundle?.executionEffectPlan?.effects?.['scene.arrival']
+          } : {}));
     return submitEvent(
       snapshot,
       eventType,

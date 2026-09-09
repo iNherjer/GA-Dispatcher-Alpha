@@ -412,3 +412,24 @@ test('Web cockpit keeps the client identity used by an earlier relay join', () =
   try { assert.equal(createClient({ role: 'web' }).clientId, 'web-early-join'); }
   finally { globalThis.gaTrackerAudioRelayClientId = before; }
 });
+
+test('switching to relay stops heartbeats for the obsolete local session and can register locally again', async t => {
+  const previous = globalThis.gaTrackerVoiceRelayAvailable;
+  let relay = false;
+  globalThis.gaTrackerVoiceRelayAvailable = () => relay;
+  t.after(() => { globalThis.gaTrackerVoiceRelayAvailable = previous; });
+  const calls = [];
+  const client = createClient({ role: 'web', clientId: 'switch', listenForVoice: () => false,
+    fetchRemote: async url => { calls.push(url); return response({ session: { sessionId: 'local', expiresAt: Date.now() + 45000 }, sessionToken: 'token' }); } });
+  t.after(() => client.stop());
+  await client.register();
+  assert.ok(client.authEnvelope());
+  relay = true;
+  await client.heartbeat(); await client.heartbeat();
+  assert.equal(client.authEnvelope(), null);
+  assert.equal(calls.length, 1);
+  relay = false;
+  await client.heartbeat();
+  assert.equal(calls.length, 2);
+  assert.ok(client.authEnvelope());
+});

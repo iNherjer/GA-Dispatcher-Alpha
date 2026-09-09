@@ -401,7 +401,7 @@
 
     async function register() {
       if (stopped) return null;
-      if (relayAvailable()) { scheduleVoice(250); schedule(15000); return null; }
+      if (relayAvailable()) { session = null; sessionToken = ''; scheduleVoice(250); schedule(15000); return null; }
       try {
         const result = await post('/cockpit/sessions', {
           clientId,
@@ -431,7 +431,7 @@
 
     async function heartbeat() {
       if (stopped) return null;
-      if (!session || !session.sessionId || !sessionToken) return register();
+      if (relayAvailable() || !session || !session.sessionId || !sessionToken) return register();
       try {
         const result = await post('/cockpit/sessions/heartbeat', {
           sessionId: session.sessionId,

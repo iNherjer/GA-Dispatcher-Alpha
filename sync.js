@@ -6720,6 +6720,30 @@ function _missionAptArrivalSceneItems(plan = {}) {
     }).filter(Boolean);
 }
 
+function _missionAptArrivalBuildEffectCommand(reason, plan = _missionAptArrivalPlan(), resolvedItems = null) {
+    if (!plan) return null;
+    const sceneId = _missionAptArrivalSceneId();
+    const items = resolvedItems || _missionAptArrivalSceneItems(plan);
+    if (!items.length) return null;
+    return {
+        type: 'mission_scene_spawn',
+        sceneId,
+        reason,
+        targetSceneKind: 'apt_arrival',
+        lat: plan.lat,
+        lon: plan.lon,
+        altFt: plan.altFt,
+        hdg: plan.hdg,
+        airportIcao: plan.icao || plan.airportIcao || '',
+        airportName: plan.airportName || '',
+        snapPolicy: plan.snapPolicy || null,
+        snapStatus: plan.snapStatus || null,
+        osmPlacement: plan.osmPlacement || null,
+        placementCandidates: plan.placementCandidates || null,
+        items
+    };
+}
+
 window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage') {
     if (_missionExecutionAuthorityIsTracker()) return false;
     if (window.simModeActive || !window.liveTrackerConnected) return false;
@@ -6784,23 +6808,7 @@ window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage'
         items: _missionSceneDebugSummarizeItems(items)
     };
     _missionSceneDebugPatch({ appResolvedAptArrivalScene }, 'apt-arrival-scene-resolved');
-    const command = {
-        type: 'mission_scene_spawn',
-        sceneId,
-        reason,
-        targetSceneKind: 'apt_arrival',
-        lat: plan.lat,
-        lon: plan.lon,
-        altFt: plan.altFt,
-        hdg: plan.hdg,
-        airportIcao: plan.icao || plan.airportIcao || '',
-        airportName: plan.airportName || '',
-        snapPolicy: plan.snapPolicy || null,
-        snapStatus: plan.snapStatus || null,
-        osmPlacement: plan.osmPlacement || null,
-        placementCandidates: plan.placementCandidates || null,
-        items
-    };
+    const command = _missionAptArrivalBuildEffectCommand(reason, plan, items);
     const commandId = window.sendTrackerCommand(command);
     if (!commandId) return false;
     const commandSummary = _missionSceneDebugCommandSummary(command, commandId, null);
@@ -8100,6 +8108,7 @@ function _buildMissionAptExecutionEffectPlan() {
     const spawn = _missionSceneBuildSpawnEffectCommand('tracker-execution:scene.prepare', { lat: 0, lon: 0, alt: 0, hdg: 0 });
     const boarding = _missionSceneBuildBoardingEffectCommand('tracker-execution:scene.boarding', {}, spawn.command.sceneId);
     const deboarding = _missionSceneBuildDeboardingEffectCommand('tracker-execution:scene.deboarding', {}, spawn.command.sceneId);
+    const arrival = _missionAptArrivalBuildEffectCommand('tracker-execution:scene.arrival');
     const complianceVisit = typeof window.missionComplianceBuildGroundVisitEffectCommand === 'function'
         ? window.missionComplianceBuildGroundVisitEffectCommand('tracker-execution:scene.compliance_visit')
         : null;
@@ -8161,6 +8170,7 @@ function _buildMissionAptExecutionEffectPlan() {
         manualPassengerCommands: window.missionCargoBuildManualPassengerEffectPlan?.() || [],
         effects: {
             'scene.prepare': { command: stripLivePosition(spawn.command) },
+            ...(arrival ? { 'scene.arrival': { command: _safeCloneJson(arrival, null) } } : {}),
             'scene.boarding': { command: stripLivePosition(boarding) },
             ...(boardingVoice ? { 'voice.boarding': { recipe: _safeCloneJson(boardingVoice, null) } } : {}),
             ...(approachContext ? { 'voice.approach': { context: _safeCloneJson(approachContext, null) } } : {}),

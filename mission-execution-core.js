@@ -1198,6 +1198,9 @@
             }
             state.phase = 'active';
             state.subphase = 'departure';
+            if (object(event.payload).arrivalScene === true) {
+                appendEffect(state, createEffect(state, event, 'scene.arrival', { operation: 'arrival' }));
+            }
             state.flags.started = true;
             state.flags.active = true;
         } else if (event.type === 'AIRBORNE') {
@@ -1262,6 +1265,10 @@
                 return effect.type === 'scene.deboarding' && effect.status === 'requested';
             });
             var deboardingPosition = object(deboardingEffect && deboardingEffect.payload).position;
+            // This ACK completes the passenger handoff already covered by the
+            // confirmed arrival signature; it is not a new user cargo edit.
+            var confirmedArrivalSignature = state.flags.unloadConfirmed && state.manifest.dispatchSignature?.scope === 'arrival'
+                ? canonicalValue(state.manifest.dispatchSignature) : null;
             var deboardingPayloadChanged = false;
             state.manifest.items.forEach(function (item) {
                 if (!item || String(item.itemType || '').toLowerCase() !== 'passenger'
@@ -1275,6 +1282,10 @@
                     position: deboardingPosition
                 }) || deboardingPayloadChanged;
             });
+            if (confirmedArrivalSignature) {
+                state.manifest.dispatchSignature = confirmedArrivalSignature;
+                state.cargo = normalizeCargo(state.manifest);
+            }
             if (deboardingPayloadChanged) appendPayloadManifestSyncEffect(state, event, { action: 'passenger_unload' });
             state.flags.deboardingCompleted = true;
             state.phase = state.cargo.summary.destinationRemaining > 0 ? 'end_unloading' : 'end_ready';

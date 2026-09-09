@@ -274,3 +274,26 @@ test('one cockpit session cannot flood mission intents', async () => {
   assert.equal(limited.error, 'mission_intent_rate_limited');
   assert.equal(limited.sideEffect, false);
 });
+
+test('boardbook and equipment intents reach the executor over HTTP and trusted relay', async () => {
+  const calls = [];
+  const app = fixture({ executeIntent: async request => { calls.push(request); return { ok: true }; } });
+  const session = app.control.register({ clientId: 'book', role: 'web' });
+  const request = { commandId: 'start-time', intent: 'set_boardbook_time', missionId: 'mission-a', runId: 'run-a', expectedRevision: 7, payload: { field: 'start' } };
+  assert.equal((await app.control.submitIntent({ ...request, sessionId: session.session.sessionId, sessionToken: session.sessionToken })).ok, true);
+  assert.equal((await app.control.submitTrustedIntent({ ...request, commandId: 'landing-time', payload: { field: 'landing' } }, { clientId: 'remote', role: 'web' })).ok, true);
+  assert.equal((await app.control.submitTrustedIntent({ ...request, commandId: 'equipment', intent: 'replace_equipment' }, { clientId: 'remote', role: 'web' })).ok, true);
+  assert.deepEqual(calls.map(request => request.intent), ['set_boardbook_time', 'set_boardbook_time', 'replace_equipment']);
+});
+
+test('stale control revisions are rebased only with an explicit matching semantic guard', async () => {
+  let safe = false;
+  const calls = [];
+  const app = fixture({ canRebaseIntentRevision: () => safe, executeIntent: async request => { calls.push(request); return { ok: true }; } });
+  const request = { commandId: 'stale', intent: 'set_manifest_item', missionId: 'mission-a', runId: 'run-a', expectedRevision: 6 };
+  assert.equal((await app.control.submitTrustedIntent(request, { clientId: 'remote' })).error, 'mission_revision_conflict');
+  safe = true;
+  assert.equal((await app.control.submitTrustedIntent({ ...request, commandId: 'guarded' }, { clientId: 'remote' })).ok, true);
+  assert.equal(calls[0].expectedRevision, 7);
+  assert.equal((await app.control.submitTrustedIntent({ ...request, commandId: 'wrong-run', runId: 'other' }, { clientId: 'remote' })).error, 'mission_run_conflict');
+});

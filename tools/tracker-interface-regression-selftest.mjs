@@ -349,3 +349,24 @@ for (const supported of [false, true]) {
   if (supported) assert.equal(sent[0].payload.items.length, 2);
   else assert.deepEqual(sent.map(entry => entry.revision), [1, 2]);
 }
+
+// The tracker receives the same destination command as the standalone spawn,
+// retaining destination coordinates, placement candidates and resolved assets.
+const arrivalPlan = { lat: 48.4, lon: 7.9, altFt: 509, hdg: 39, icao: 'EDTO',
+  placementCandidates: [{ lat: 48.401, lon: 7.901 }] };
+const arrivalItems = [{ kind: 'arrival_person_1', objectTitle: 'Tarmac_Male', titleCandidates: ['Tarmac_Male', 'Tarmac Male'] }];
+const arrivalContext = { window: {}, _activeMissionRuntimeId: () => 'mission-arrival',
+  _missionAptArrivalPlan: () => arrivalPlan, _missionAptArrivalSceneId: () => 'scene-arrival',
+  _missionAptArrivalSceneItems: () => arrivalItems,
+  _missionSceneBuildSpawnEffectCommand: () => ({ command: { type: 'mission_scene_spawn', sceneId: 'scene-start', items: [{}] } }),
+  _missionSceneBuildBoardingEffectCommand: () => ({ type: 'mission_scene_boarding', sceneId: 'scene-start' }),
+  _missionSceneBuildDeboardingEffectCommand: () => null,
+  _safeCloneJson: value => JSON.parse(JSON.stringify(value)) };
+vm.createContext(arrivalContext);
+vm.runInContext(between(sync, 'function _missionAptArrivalBuildEffectCommand(', 'window.missionAptArrivalEnsureSpawned ='), arrivalContext);
+vm.runInContext(between(sync, 'function _buildMissionAptExecutionEffectPlan(', 'window.missionSceneSpawn ='), arrivalContext);
+const arrivalCommand = arrivalContext._missionAptArrivalBuildEffectCommand('tracker-execution:scene.arrival');
+assert.equal(JSON.stringify(arrivalContext._buildMissionAptExecutionEffectPlan().effects['scene.arrival'].command), JSON.stringify(arrivalCommand));
+assert.deepEqual([arrivalCommand.lat, arrivalCommand.lon, arrivalCommand.altFt, arrivalCommand.hdg], [48.4, 7.9, 509, 39]);
+assert.equal(arrivalCommand.items[0].objectTitle, 'Tarmac_Male');
+assert.equal(arrivalCommand.placementCandidates[0].lat, 48.401);

@@ -81,8 +81,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v394';
-const TRACKER_VERSION_CODE = 394;
+const TRACKER_VERSION = 'v395';
+const TRACKER_VERSION_CODE = 395;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5035,6 +5035,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     executionAuthority: missionExecutionRuntime.executionAuthority,
     getExecutionAuthority: () => missionAuthorityManager.getActiveRun()?.executionAuthority || 'web',
     getMissionRun: () => missionAuthorityManager.getActiveRun(),
+    canRebaseIntentRevision: request => missionAuthorityManager.canRebaseIntentRevision(request),
     executeIntent: async request => {
       const result = await missionExecutionRuntime.executeIntent(request);
       if (result?.ok === true && String(request?.intent || request?.action || '').toLowerCase() === 'abort_mission') {
@@ -6202,6 +6203,25 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
 
       let lastSent = 0;
       let lastFlightLog = 0;
+      const telemetryConnectedAt = Date.now();
+      let lastTelemetrySourceAt = 0;
+      let lastTelemetryProcessingMs = 0;
+      let telemetryDiagnosticAt = Date.now();
+      let telemetryDiagnosticLoggedAt = 0;
+      const telemetryDiagnosticTimer = setInterval(() => {
+        const at = Date.now();
+        const loopLagMs = Math.max(0, at - telemetryDiagnosticAt - 1000);
+        telemetryDiagnosticAt = at;
+        const sourceGapMs = Math.max(0, at - (lastTelemetrySourceAt || telemetryConnectedAt));
+        const unexpectedSourceGap = sourceGapMs >= 2500 && runtimeState.simRunning !== 0 && !runtimeState.pauseFlags;
+        if ((loopLagMs >= 500 || unexpectedSourceGap || lastTelemetryProcessingMs >= 100)
+            && at - telemetryDiagnosticLoggedAt >= 10000) {
+          telemetryDiagnosticLoggedAt = at;
+          const socket = getWs();
+          debugLog(`TRACKER_TELEMETRY_DELAY loopLagMs=${loopLagMs} sourceGapMs=${sourceGapMs} processingMs=${lastTelemetryProcessingMs} relayQueuedBytes=${Number(socket?.bufferedAmount || 0)} simRunning=${runtimeState.simRunning} pauseFlags=${runtimeState.pauseFlags || 0}`);
+        }
+      }, 1000);
+      telemetryDiagnosticTimer.unref?.();
       // Der Relay- und UI-Vertrag arbeitet mit 2 Hz. Eine dichtere Uebertragung
       // erhoeht nur Request-/Ingress-Last und liefert dem Browser keine
       // zusaetzlichen nutzbaren Frames.
@@ -6396,9 +6416,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       handle.on('simObjectData', (recv) => {
         if (recv.requestID === REQ_ID) {
           const now = Date.now();
+          lastTelemetrySourceAt = now;
           if (now - lastSent >= SEND_INTERVAL_MS) {
             lastSent = now;
-            
+            const telemetryProcessingStarted = process.hrtime.bigint();
             try {
               const readFn = typeof recv.data.readFloat64 === 'function'
                 ? () => recv.data.readFloat64()
@@ -6659,6 +6680,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 else trackerStatus("GPS wartet auf plausible Sim-Position ...");
               }
             } catch (e) { trackerError("❌ Lesefehler:", e.message); }
+            finally { lastTelemetryProcessingMs = Math.round(Number(process.hrtime.bigint() - telemetryProcessingStarted) / 1e6); }
           }
         }
       });
@@ -6754,6 +6776,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (typeof setTrackerCommandHandler === 'function') setTrackerCommandHandler(null);
         if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
         if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
+        clearInterval(telemetryDiagnosticTimer);
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
         clearInterval(payloadSnapshotInterval);

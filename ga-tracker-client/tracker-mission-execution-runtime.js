@@ -202,6 +202,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     applySystemEvent: request => adapter.applySystemEvent(request),
     handlers: {
       'scene.prepare': dispatchSimulatorEffect,
+      'scene.arrival': dispatchSimulatorEffect,
       'scene.boarding': dispatchSimulatorEffect,
       'voice.boarding': backgroundVoice(playBoardingVoice),
       'voice.cargo': backgroundVoice(request => authorityManager.getActiveRun({ includeBundle: true })?.resumeBundle?.executionEffectPlan?.cargoAudio
