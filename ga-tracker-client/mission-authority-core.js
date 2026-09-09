@@ -1090,10 +1090,14 @@ function createMissionAuthorityManager(options = {}) {
     };
     if (currentReplay.events.length >= MAX_EXECUTION_EVENTS) saveCheckpointReceipts();
     nextResumeBundle.executionReplay = nextReplay;
-    nextResumeBundle.execution = executionCore.createReplayShadowEnvelope(nextReplay, {
+    const envelopeForAppliedEvent = checkpoint => executionCore.createStateShadowEnvelope(nextState, {
       sourceRevision: active.revision + 1,
-      legacyComparison: 'tracker_authority'
+      legacyComparison: 'tracker_authority',
+      eventTrace: (checkpoint ? [] : (active.resumeBundle.execution?.eventTrace || [])).concat({
+        type: event.type, traceId: executionCore.hashValue(event.eventId), sequence: event.sequence
+      })
     });
+    nextResumeBundle.execution = envelopeForAppliedEvent(currentReplay.events.length >= MAX_EXECUTION_EVENTS);
     let persistedResumeBundle;
     try {
       persistedResumeBundle = safeResumeBundle(nextResumeBundle);
@@ -1104,9 +1108,7 @@ function createMissionAuthorityManager(options = {}) {
       nextReplay = executionCore.normalizeBundle({ ...currentReplay, initialState: currentState, events: [event] });
       saveCheckpointReceipts();
       nextResumeBundle.executionReplay = nextReplay;
-      nextResumeBundle.execution = executionCore.createReplayShadowEnvelope(nextReplay, {
-        sourceRevision: active.revision + 1, legacyComparison: 'tracker_authority'
-      });
+      nextResumeBundle.execution = envelopeForAppliedEvent(true);
       try { persistedResumeBundle = safeResumeBundle(nextResumeBundle); }
       catch (checkpointError) {
         log(`MISSION_EXECUTION_PERSIST_REJECTED event=${event.type} error=${checkpointError.code || checkpointError.message}`);

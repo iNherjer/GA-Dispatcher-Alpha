@@ -127,3 +127,32 @@ for (const failure of ['cue', 'audio']) test(`stalled ${failure} download releas
   assert.equal(player.active, false);
   assert.ok(commands.filter(command => command.action === 'next').length >= 2, 'queue continues after completion or failure');
 });
+
+for (const stage of ['audio', 'cue']) test(`audio-thread lease stop preserves a retryable ${stage} cursor`, async t => {
+  class ExpiringAudio extends shortAudio() {
+    decodeAudioData(_bytes, resolve) { resolve({ duration: 10 }); }
+  }
+  const commands = []; let offered = false;
+  const player = createPlayer({ deviceId: 'phone', clientId: 'phone-tab', AudioContext: ExpiringAudio,
+    request: async command => {
+      commands.push(command);
+      if (command.action === 'next') {
+        if (offered) return {}; offered = true;
+        return { job: { effectId: 'boarding', kind: 'boarding', audioAvailable: true, cue: stage === 'cue' ? { audioAvailable: true } : null } };
+      }
+      if (command.action === 'claim') return { claimed: true };
+      return { released: true };
+    }, fetchClip: async () => new ArrayBuffer(1)
+  });
+  t.after(() => player.stop());
+  player.update({ revision: 1, target: { deviceId: 'phone' },
+    settings: { enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 },
+    playback: { notification: 'ready', playbackAvailable: true } });
+  await wait(100);
+  const release = commands.find(command => command.action === 'release');
+  assert.equal(release.error, 'audio_lease_expired');
+  assert.equal(release.completed, false);
+  assert.equal(release.retryable, true);
+  assert.equal(release.position.stage, stage);
+  assert.ok(release.position.offset > 0);
+});

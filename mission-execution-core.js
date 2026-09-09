@@ -1919,6 +1919,19 @@
         if (!bundle) return null;
         var result = replay(bundle);
         if (!result.ok) return null;
+        return createStateShadowEnvelope(result.state, Object.assign({}, config, {
+            eventTrace: result.acceptedEvents.slice(-32).map(function (event) {
+                return { type: event.type, traceId: hashValue(event.eventId), sequence: event.sequence };
+            })
+        }));
+    }
+
+    // Trusted reducer output only. External bundles still use the full replay
+    // above; live tracker events already reduced their authoritative state.
+    function createStateShadowEnvelope(rawState, options) {
+        var config = object(options);
+        var state = normalizeState(rawState);
+        var result = { state: state, view: deriveView(state), effects: clone(state.effects, []), stateHash: stateHash(state) };
         var legacyComparison = text(config.legacyComparison, 60).toLowerCase()
             || (config.legacyBundle ? 'compared' : 'unavailable');
         var legacyState = legacyComparison === 'compared' && config.legacyBundle
@@ -1946,9 +1959,7 @@
             legacyStateHash: legacyState ? semanticHash(legacyState) : null,
             legacyDriftFields: legacyDrift,
             legacyComparison: legacyComparison,
-            eventTrace: result.acceptedEvents.slice(-32).map(function (event) {
-                return { type: event.type, traceId: hashValue(event.eventId), sequence: event.sequence };
-            })
+            eventTrace: clone(Array.isArray(config.eventTrace) ? config.eventTrace.slice(-32) : [], [])
         };
     }
 
@@ -1994,6 +2005,7 @@
         semanticDriftFields: semanticDriftFields,
         createShadowEnvelope: createShadowEnvelope,
         createReplayShadowEnvelope: createReplayShadowEnvelope,
+        createStateShadowEnvelope: createStateShadowEnvelope,
         serializeState: serializeState,
         deserializeState: deserializeState
     });

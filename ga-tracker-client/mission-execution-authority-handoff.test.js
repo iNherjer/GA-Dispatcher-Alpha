@@ -643,3 +643,34 @@ test('refreshed preflight payload seed can prepare tracker authority', t => {
   assert.ok(acquired.activeRun.executionStateHash, 'handoff seed must include a validated execution hash');
   assert.equal(manager.prepareExecutionAuthority(prepareRequest(acquired.activeRun, replay)).ok, true);
 });
+
+test('live envelopes match full replay across trace truncation, checkpoint and restart', t => {
+  const fixture = createFixture(t, { executionAuthorityEnabled: true });
+  let manager = fixture.createManager();
+  const { acquired, replay } = acquireApt(manager);
+  const prepared = manager.prepareExecutionAuthority(prepareRequest(acquired.activeRun, replay));
+  assert.equal(manager.commitExecutionAuthority({ missionId: prepared.activeRun.missionId,
+    runId: prepared.activeRun.runId, clientId: 'web-owner', expectedRevision: prepared.activeRun.revision,
+    expectedExecutionStateHash: replay.stateHash, handoffId: prepared.handoff.handoffId }).ok, true);
+  let retainedRequest;
+  for (let index = 1; index <= 165; index++) {
+    const run = manager.getActiveRun();
+    const request = { missionId: run.missionId, runId: run.runId, expectedRevision: run.revision,
+      expectedExecutionRevision: run.executionRevision, expectedExecutionStateHash: run.executionStateHash,
+      event: { eventId: `close-window-${index}`, type: 'CARGO_WINDOW_CLOSED', sequence: index, occurredAt: 2000 + index } };
+    if (index === 2) retainedRequest = request;
+    assert.equal(manager.applyExecutionEvent(request).ok, true);
+    if ([1, 32, 80, 160, 161, 165].includes(index)) {
+      const saved = manager.getActiveRun({ includeBundle: true });
+      const expected = executionCore.createReplayShadowEnvelope(saved.resumeBundle.executionReplay, {
+        sourceRevision: saved.revision, legacyComparison: 'tracker_authority'
+      });
+      assert.deepEqual(saved.resumeBundle.execution, expected, `event ${index}`);
+      assert.equal(saved.executionStateHash, expected.stateHash);
+    }
+    if (index === 161) {
+      manager = fixture.createManager();
+      assert.equal(manager.applyExecutionEvent(retainedRequest).status, 'noop', 'checkpoint retains duplicate receipts');
+    }
+  }
+});

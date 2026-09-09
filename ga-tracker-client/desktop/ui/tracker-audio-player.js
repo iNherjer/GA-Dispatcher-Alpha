@@ -21,7 +21,7 @@
       })]).finally(function () { clearTimeout(timer); });
     }
     function position(current) {
-      return { stage: current.stage, offset: Math.max(0, current.offset + (current.source ? getContext().currentTime - current.startedAt : 0)) };
+      return { stage: current.stage, offset: Math.max(0, current.offset + (current.source ? Math.min(getContext().currentTime, current.stopAt || Infinity) - current.startedAt : 0)) };
     }
     function silence(current) {
       if (current.download) current.download.abort();
@@ -46,7 +46,10 @@
       // Stop locally before the server's five-second lease can be reassigned.
       var remaining = Math.max(0, 4000 - (Date.now() - (sentAt || Date.now())));
       current.leaseDeadline = Date.now() + remaining;
-      if (current.source) { try { current.source.stop(getContext().currentTime + remaining / 1000); } catch (_) {} }
+      if (current.source) {
+        current.stopAt = getContext().currentTime + remaining / 1000;
+        try { current.source.stop(current.stopAt); } catch (_) {}
+      }
       current.leaseTimer = setTimeout(function () { finish(current, false, true); }, remaining);
     }
     async function renew(current) {
@@ -98,7 +101,8 @@
         current.resolveClip = function () { end(); };
         source.onended = function () { end(); };
         source.start(0, current.offset);
-        source.stop(ctx.currentTime + Math.max(0, current.leaseDeadline - Date.now()) / 1000);
+        current.stopAt = ctx.currentTime + Math.max(0, current.leaseDeadline - Date.now()) / 1000;
+        source.stop(current.stopAt);
       });
       if (current.skipCue && stage === 'cue') { current.source = null; current.offset = 0; return; }
       if (!current.done && position(current).offset + 0.1 < buffer.duration) throw new Error('audio_lease_expired');
@@ -128,7 +132,7 @@
           if (next.job.cue && next.job.cue.audioAvailable) {
             try { await playClip(current, 'cue', Number(next.job.cue.gain) || 0.38); }
             catch (error) {
-              if (!next.job.audioAvailable) throw error;
+              if (!next.job.audioAvailable || error.message === 'audio_lease_expired') throw error;
               if (current.source) { try { current.source.stop(); } catch (_) {} current.source = null; }
               current.offset = 0;
               if (options.onError) options.onError(error.message);
@@ -139,7 +143,9 @@
         } catch (error) {
           current.error = error.message || 'audio_playback_failed';
           if (!current.done && options.onError) options.onError(current.error);
-          await finish(current, false, false);
+          // The scheduled AudioBufferSource stop can beat the JS lease timer.
+          // Preserve the cursor just like that timer; this is not a completed voice.
+          await finish(current, false, current.error === 'audio_lease_expired');
         }
       } catch (error) { if (options.onError) options.onError(error.message || 'Tracker nicht erreichbar.'); }
       finally { if (ownsFetch) fetching = false; }

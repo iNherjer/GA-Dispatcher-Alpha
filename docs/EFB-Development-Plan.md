@@ -3507,3 +3507,67 @@ Rollout vorbereitet als Tracker Alpha v392; App-Cache v1723.
 Tracker Alpha v392 veroeffentlicht, Asset-Upload mit Groesse und SHA-256 verifiziert.
 Alpha-Kanal: 50556079 Bytes, SHA-256 `272ee4943b3186cb42dced9de555ea08ed3865b92a7a7041d45c26cf62a0738b`.
 Finaler App-Cache v1724. Desktop-Installer und Stable bleiben unveraendert.
+
+### 2026-09-09: Feldtest v392 — zunehmende Latenz und Voice-Abbruch (lokal korrigiert)
+
+Analyse des Runs run-mttnothj-629ac6356c7922 anhand Trackerlog und gespeichertem
+Authority-Zustand. Die erste Manifest-Aktion wurde nach 153 ms Trackerzeit
+bestaetigt, spaetere nach bis zu 4692 ms. 15 von 33 Manifest-Versuchen hatten
+Revisionskonflikte. Die Ankunftsunterschrift benoetigte inklusive erstem
+Konflikt rund 10,56 s ab der im Command-ID enthaltenen Clientzeit; ihr
+Wiederholungsversuch allein 4389 ms zwischen Tracker-RX und ACK.
+Client-/Tracker-Zeitdifferenzen sind damit nur eine Naeherung; RX/ACK liegen
+auf derselben Tracker-Uhr.
+
+Bei jedem autoritativen Event wurde neben dem bereits vorhandenen reduce auch
+noch der gesamte wachsende Journalverlauf synchron fuer das Shadow-Envelope
+abgespielt. Der Tracker erzeugt das Envelope jetzt direkt aus seinem gerade
+reduzierten Zustand und fuehrt den bisherigen Trace fort. Externe Bundles,
+Handoff und vollstaendiger Replay werden weiterhin geprueft. Journal,
+Checkpoint, Duplikatbelege, Persistenz und fachliche Regeln bleiben erhalten.
+Ein 165-Event-Test vergleicht die Envelopes gegen vollen Replay auch ueber
+Trace-Kuerzung, Checkpoint und Neustart hinweg. Direkter Vergleich mit dem
+vorherigen Core fuer das gelieferte Bundle: identisch in compared,
+tracker_authority und terminal_release.
+
+Lokaler CPU-Vergleich mit dem gelieferten Checkpoint-Zustand und 60
+Fenster-Schliessen-Events, In-Memory-Persistenz: vorher 4812 ms gesamt, nachher
+849 ms; letzter Schritt 140,7 gegen 14,0 ms. Dies ist kein MSFS-/Netzwerk-
+End-to-End-Messwert und keine Zusage einer festen Feldlatenz.
+
+Boarding-Prewarm war um 05:27:04 UTC fertig. Um 05:30:06 wurde Playback mit
+audio_lease_expired endgueltig released: der Audio-Thread konnte seinen
+geplanten Stop vor dem JS-Lease-Timer melden. Dieser Pfad ist nun ebenso
+retrybar wie der Timer und behaelt Cue-/Voice-Position, statt das Missionsgate
+als fertig freizugeben. Die Position wird am tatsaechlich geplanten Stop
+begrenzt. Exklusive Wiedergabe und bisherige Lease-Dauer bleiben erhalten.
+Gemeinsamer Player und Desktop-Kopie synchronisiert.
+
+Farewell war bereits um 05:35:06 UTC vorgerendert. confirm_unload traf um
+05:37:39 ein, wurde um 05:37:42 bestaetigt, Deboarding um 05:37:43 dispatcht.
+Verspaetete SimObject-Zuweisungen und Modell-Fallbacks verzögerten danach das
+Abholfahrzeug bis 05:37:50; dessen Anfahrtszeit betrug knapp 14 s. Kein Beleg
+fuer eine TTS-Generierung als Ursache dieser Abschlussverzoegerung.
+
+Offene Feldbefunde, bewusst nicht als behoben gemeldet:
+- Unsichtbares Missionsitem: VFR Multitool Homebase Hardcase Yellow Small,
+  erfolgreicher Spawn/Objekt-ID am Start. Geometrie/Bin/Materialdaten vorhanden,
+  etwa 24 cm breiter Koffer, keine transparente Materialdefinition. Reale
+  Sichtbarkeit/Platzierung am Apron damit nicht nachgewiesen.
+- Schwarzer EFB nach Kamerawechsel: keine aussagekraeftige Lifecycle-/Resume-
+  Diagnose im Fehlerzeitraum. Umfang des schwarzen Bereichs und installierte
+  Community-Version noch zu klaeren; kein spekulativer Lifecycle-Umbau.
+
+98 gezielte Core-, Authority-, Adapter-, Runtime-, Voice-Service- und
+Audio-Player-Tests bestanden. Noch nicht ausgerollt, Live weiterhin v392.
+
+### Rollout der Latenz-/Audio-Fixes: v393 / Desktop 1.6.8
+
+Freigegeben am 09.09.2026: Tracker v393, Host-Assetrevision 39301 und manueller
+Alpha-Desktop-Installer 1.6.8 (PC-Player ebenfalls korrigiert). 98 Missions-/
+Audio-Tests sowie 48 Desktop-Tests bestanden; Host-Assettests ebenfalls gruen.
+Installer-ASAR enthaelt nachweislich Version 1.6.8 und den identischen
+korrigierten Audio-Player. Realer Windows-Installations-/MSFS-Test steht aus.
+Stable-Runtime und globaler Desktop-Autoupdater bleiben unveraendert.
+Der Nutzer klaert die komplett schwarze EFB-App separat mit einem anderen
+Agenten; Community-Paket/Lifecycle werden hier nicht veraendert.
