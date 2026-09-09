@@ -8059,6 +8059,53 @@ function _missionSceneBuildBoardingEffectCommand(reason = 'boarding', position =
     return command;
 }
 
+function _missionSceneBuildDeboardingCommand(reason, pos, sceneId, deboardingPaxCount, coordinateFarewell = false, aptPickupPoint = null, pickupSceneId = '') {
+    const vehicleAsset = _missionSceneVehicleAsset();
+    const vehicleTitle = vehicleAsset?.title || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
+    const commonFields = _missionSceneCommonSceneCommandFields();
+    if (aptPickupPoint) {
+        commonFields.vehicleDeparture = false;
+        commonFields.vehicleArrival = false;
+        commonFields.vehicleReturn = false;
+    } else {
+        commonFields.vehicleDeparture = true;
+        commonFields.vehicleArrival = true;
+        commonFields.vehicleReturn = true;
+        commonFields.vehiclePoint = _missionSceneVehiclePoint();
+        commonFields.vehicleDeparturePath = _missionSceneVehicleDeparturePath();
+        commonFields.vehicleReturnPath = _missionSceneVehicleDeparturePath().slice().reverse();
+        commonFields.vehicleSpeedKts = 7;
+    }
+    const primaryGender = _missionScenePassengerGender();
+    const personTitle = _missionSceneMovingPersonTitle(primaryGender, 'deboarding');
+    const command = {
+        type: 'mission_scene_deboarding',
+        sceneId,
+        reason,
+        ...(pos ? {
+            lat: Number(pos.lat), lon: Number(pos.lon),
+            altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
+            hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0
+        } : {}),
+        ...commonFields,
+        coordinateFarewell: coordinateFarewell === true,
+        boarderCount: deboardingPaxCount,
+        passengerCount: deboardingPaxCount,
+        personTitle,
+        personTitleCandidates: _missionSceneMovingPersonCandidates(primaryGender, personTitle)
+    };
+    if (vehicleAsset) {
+        command.vehicleTitle = vehicleTitle;
+        command.vehicleTitleCandidates = _sceneAssetCandidates(vehicleTitle, vehicleAsset.candidates || []);
+    }
+    if (aptPickupPoint) {
+        command.deboardingPickupPoint = aptPickupPoint;
+        command.deboardingPickupLabel = aptPickupPoint.label;
+        command.deboardingPickupSceneId = pickupSceneId;
+    }
+    return command;
+}
+
 function _missionSceneBuildDeboardingEffectCommand(reason = 'mission-end', position = {}, sceneId = _missionSceneId()) {
     const pos = position && typeof position === 'object' ? position : {};
     const deboardingPaxCount = Math.max(
@@ -8066,40 +8113,10 @@ function _missionSceneBuildDeboardingEffectCommand(reason = 'mission-end', posit
         typeof _missionScenePaxCount === 'function' ? Number(_missionScenePaxCount() || 0) : 0
     );
     if (deboardingPaxCount <= 0) return null;
-    const commonFields = _missionSceneCommonSceneCommandFields();
-    commonFields.vehicleDeparture = true;
-    commonFields.vehicleArrival = true;
-    commonFields.vehicleReturn = true;
-    commonFields.vehiclePoint = _missionSceneVehiclePoint();
-    commonFields.vehicleDeparturePath = _missionSceneVehicleDeparturePath();
-    commonFields.vehicleReturnPath = _missionSceneVehicleDeparturePath().slice().reverse();
-    commonFields.vehicleSpeedKts = 7;
-    const primaryGender = _missionScenePassengerGender();
-    const personTitle = _missionSceneMovingPersonTitle(primaryGender, 'deboarding');
-    const vehicleAsset = _missionSceneVehicleAsset();
-    const command = {
-        type: 'mission_scene_deboarding',
-        sceneId,
-        reason,
-        ...commonFields,
-        coordinateFarewell: false,
-        boarderCount: deboardingPaxCount,
-        passengerCount: deboardingPaxCount,
-        personTitle,
-        personTitleCandidates: _missionSceneMovingPersonCandidates(primaryGender, personTitle)
-    };
-    if (vehicleAsset) {
-        const vehicleTitle = vehicleAsset.title || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
-        command.vehicleTitle = vehicleTitle;
-        command.vehicleTitleCandidates = _sceneAssetCandidates(vehicleTitle, vehicleAsset.candidates || []);
-    }
-    if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon ?? pos.lng))) {
-        command.lat = Number(pos.lat);
-        command.lon = Number(pos.lon ?? pos.lng);
-        command.altFt = Number.isFinite(Number(pos.altFt ?? pos.alt)) ? Number(pos.altFt ?? pos.alt) : 0;
-        command.hdg = Number.isFinite(Number(pos.hdg ?? pos.heading)) ? Number(pos.hdg ?? pos.heading) : 0;
-    }
-    return command;
+    const livePosition = Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon ?? pos.lng))
+        ? { lat: Number(pos.lat), lon: Number(pos.lon ?? pos.lng), alt: pos.altFt ?? pos.alt, hdg: pos.hdg ?? pos.heading }
+        : null;
+    return _missionSceneBuildDeboardingCommand(reason, livePosition, sceneId, deboardingPaxCount);
 }
 
 function _buildMissionAptExecutionEffectPlan() {
@@ -10996,49 +11013,10 @@ window.missionSceneDeboarding = function(reason = 'mission-end', options = {}) {
         : null;
     // Passenger handoff always gets a vehicle. At an APT arrival scene the already
     // staged vehicle is reused; otherwise the deboarding command brings its own.
-    const vehicleSupportEnabled = !aptPickupPoint;
-    const vehicleAsset = _missionSceneVehicleAsset();
-    const vehicleTitle = vehicleAsset?.title || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
-    const commonFields = _missionSceneCommonSceneCommandFields();
-    if (aptPickupPoint) {
-        commonFields.vehicleDeparture = false;
-        commonFields.vehicleArrival = false;
-        commonFields.vehicleReturn = false;
-    } else {
-        commonFields.vehicleDeparture = true;
-        commonFields.vehicleArrival = true;
-        commonFields.vehicleReturn = true;
-        commonFields.vehiclePoint = _missionSceneVehiclePoint();
-        commonFields.vehicleDeparturePath = _missionSceneVehicleDeparturePath();
-        commonFields.vehicleReturnPath = _missionSceneVehicleDeparturePath().slice().reverse();
-        commonFields.vehicleSpeedKts = 7;
-    }
-    const primaryGender = _missionScenePassengerGender();
-    const personTitle = _missionSceneMovingPersonTitle(primaryGender, 'deboarding');
-    const command = {
-        type: 'mission_scene_deboarding',
-        sceneId,
-        reason,
-        lat: Number(pos.lat),
-        lon: Number(pos.lon),
-        altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
-        hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
-        ...commonFields,
-        coordinateFarewell: options?.coordinateFarewell === true,
-        boarderCount: deboardingPaxCount,
-        passengerCount: deboardingPaxCount,
-        personTitle,
-        personTitleCandidates: _missionSceneMovingPersonCandidates(primaryGender, personTitle)
-    };
-    if (vehicleAsset) {
-        command.vehicleTitle = vehicleTitle;
-        command.vehicleTitleCandidates = _sceneAssetCandidates(vehicleTitle, vehicleAsset.candidates || []);
-    }
-    if (aptPickupPoint) {
-        command.deboardingPickupPoint = aptPickupPoint;
-        command.deboardingPickupLabel = aptPickupPoint.label;
-        command.deboardingPickupSceneId = _missionAptArrivalSceneId();
-    }
+    const command = _missionSceneBuildDeboardingCommand(
+        reason, pos, sceneId, deboardingPaxCount, options?.coordinateFarewell === true,
+        aptPickupPoint, aptPickupPoint ? _missionAptArrivalSceneId() : ''
+    );
     const commandId = window.sendTrackerCommand(command);
     if (!commandId) {
         _missionPhaseDebugPush('deboarding_blocked', { reason: 'command_not_sent' });

@@ -507,3 +507,36 @@ test('arrival scene uses the planned destination, not the current aircraft posit
   await bridge.handleAck({ type: 'mission_scene_spawn_ack', commandId: 'arrival', missionId: run.missionId, runId: run.runId, status: 'ok', spawned: 1 });
   assert.equal(acks.length, 1);
 });
+
+test('deboarding binds the confirmed nearby arrival scene and retains fallback away from it', async () => {
+  const run = runWithPlan();
+  run.resumeBundle.executionEffectPlan.effects['scene.arrival'] = { command: {
+    type: 'mission_scene_spawn', sceneId: 'arrival-receiver', lat: 48.3, lon: 8.5, altFt: 500,
+    items: [{ kind: 'arrival_vehicle', objectTitle: 'Car' }]
+  } };
+  let position = { lat: 48.3001, lon: 8.5001, alt: 500, hdg: 90 };
+  let status = 'requested';
+  const commands = [];
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => run,
+      getExecutionSnapshot: () => ({ state: { effects: [{ type: 'scene.arrival', status }] } }) },
+    getLivePosition: () => position,
+    dispatchCommand: command => { commands.push(command); return { ok: true }; }
+  });
+  const send = id => bridge.dispatch({ missionId: run.missionId, runId: run.runId,
+    commandId: id, effect: { type: 'scene.deboarding', payload: { coordinateFarewell: true } } });
+  await send('not-confirmed');
+  assert.equal(commands.at(-1).deboardingPickupSceneId, undefined);
+  status = 'completed';
+  await send('at-receiver');
+  assert.equal(commands.at(-1).deboardingPickupSceneId, 'arrival-receiver');
+  assert.equal(commands.at(-1).vehicleArrival, false);
+  assert.equal(commands.at(-1).vehicleReturn, false);
+  assert.equal(commands.at(-1).coordinateFarewell, true);
+  position = { ...position, lat: 48.4 };
+  await send('off-destination');
+  assert.equal(commands.at(-1).deboardingPickupSceneId, undefined);
+  position = { ...position, lat: 48.3001 }; status = 'failed';
+  await send('failed-arrival');
+  assert.equal(commands.at(-1).deboardingPickupSceneId, undefined);
+});

@@ -373,6 +373,7 @@ function publicRun(run, options = {}) {
 // normalization/view derivation by that immutable state identity. All public
 // callers still receive detached copies, including after a restart/rollback.
 const executionProjectionCache = new WeakMap();
+const runtimeProjectionCache = new WeakMap();
 function cachedExecutionProjection(source) {
   let cached = executionProjectionCache.get(source);
   if (!cached) {
@@ -386,7 +387,12 @@ function cachedExecutionProjection(source) {
 function publicExecutionSnapshot(run) {
   if (!run?.missionId || !run?.runId || !run.executionState) return null;
   const { state, view } = cachedExecutionProjection(run.executionState);
-  const runtime = normalizeExecutionRuntimeContext(run.executionRuntimeContext);
+  const runtimeSource = run.executionRuntimeContext;
+  let runtime = runtimeSource && runtimeProjectionCache.get(runtimeSource);
+  if (!runtime && runtimeSource) {
+    runtime = normalizeExecutionRuntimeContext(runtimeSource);
+    if (runtime) runtimeProjectionCache.set(runtimeSource, runtime);
+  }
   const exposeCompletionRecord = /^(closing|closed)$/.test(state.phase);
   let missionFlightRecord = exposeCompletionRecord ? runtime?.missionFlightRecord || null : null;
   const currentSegmentRecord = exposeCompletionRecord && runtime?.flightRecorder?.active === true
@@ -1202,10 +1208,16 @@ function createMissionAuthorityManager(options = {}) {
     'sign_manifest', 'clear_manifest_signature', 'confirm_unload', 'close_cargo_window']);
   const intentGuard = active => {
     const { state: execution, view } = cachedExecutionProjection(active.executionState);
-    return JSON.stringify({ phase: execution.phase, flags: execution.flags,
-      manifest: execution.manifest, progress: execution.progress,
-      workflows: execution.workflows, flightEvents: view.flightEvents,
-      allowedActions: view.allowedActions });
+    const control = { phase: execution.phase, flags: execution.flags,
+      progress: execution.progress, workflows: execution.workflows,
+      flightEvents: view.flightEvents, allowedActions: view.allowedActions };
+    return {
+      full: JSON.stringify({ ...control, manifest: execution.manifest }),
+      cargo: JSON.stringify({ ...control, allowedActions: view.allowedActions.filter(action => action === 'set_manifest_item'),
+        manifestKey: execution.manifest.key,
+        signature: execution.manifest.dispatchSignature }),
+      items: new Map(execution.manifest.items.map(item => [item.id, JSON.stringify(item)]))
+    };
   };
   const rememberIntentRevision = active => {
     if (!active?.executionState || active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) return;
@@ -1221,7 +1233,17 @@ function createMissionAuthorityManager(options = {}) {
         || !Number.isSafeInteger(Number(request.expectedRevision))
         || Number(request.expectedRevision) >= active.revision) return false;
     const guard = intentRevisionGuards.get(`${active.runId}:${request.expectedRevision}`);
-    return guard !== undefined && guard === intentGuard(active);
+    if (!guard) return false;
+    const current = intentGuard(active);
+    if (guard.full === current.full) return true;
+    if (request.intent !== 'set_manifest_item' || guard.cargo !== current.cargo) return false;
+    const payload = safeObject(request.payload);
+    const items = Array.isArray(payload.items) ? payload.items : [payload];
+    // Independent cargo edits may follow one another without a round trip for
+    // each new revision. Changed target items and signatures remain conflicts;
+    // the adapter still validates the whole batch against the current state.
+    return items.length > 0 && items.length <= 32 && items.every(item =>
+      guard.items.has(item?.itemId) && guard.items.get(item.itemId) === current.items.get(item.itemId));
   };
 
   const getExecutionSnapshot = () => {
@@ -1736,6 +1758,14 @@ function createMissionAuthorityManager(options = {}) {
         lastExecution: publicExecutionSnapshot(state.lastRun),
         updatedAt: Number(state.activeRun?.updatedAt || state.lastRun?.updatedAt || 0) || null
       };
+    },
+    getExecutionMissionEndpoints() {
+      const missionState = safeObject(state.activeRun?.resumeBundle?.missionState);
+      const mission = safeObject(missionState.currentMissionData || missionState);
+      return { start: cleanString(mission.start, 180), dest: cleanString(mission.dest, 180) };
+    },
+    getExecutionEffectPlan() {
+      return jsonClone(state.activeRun?.resumeBundle?.executionEffectPlan || null);
     },
     getActiveRun(options = {}) {
       return publicRun(state.activeRun, {

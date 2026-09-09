@@ -127,10 +127,13 @@ function createTrackerMissionExecutionAdapter(options = {}) {
   };
 
   const current = () => authorityManager.getExecutionSnapshot();
+  const executionEffectPlan = () => typeof authorityManager.getExecutionEffectPlan === 'function'
+    ? authorityManager.getExecutionEffectPlan()
+    : authorityManager.getActiveRun?.({ includeBundle: true })?.resumeBundle?.executionEffectPlan;
+
 
   const farewellAuthorityContext = () => {
-    const run = authorityManager.getActiveRun?.({ includeBundle: true }) || null;
-    const plan = safeObject(run?.resumeBundle?.executionEffectPlan);
+    const plan = safeObject(executionEffectPlan());
     const context = farewellVoiceCore.normalizeContext(
       safeObject(safeObject(plan.effects)['voice.farewell']).context
     );
@@ -142,9 +145,15 @@ function createTrackerMissionExecutionAdapter(options = {}) {
 
   const missionFlightLabels = () => {
     const flight = safeObject(farewellAuthorityContext()?.flight);
-    const run = authorityManager.getActiveRun?.({ includeBundle: true }) || null;
-    const missionState = safeObject(run?.resumeBundle?.missionState);
-    const mission = safeObject(missionState.currentMissionData || missionState);
+    let mission = {};
+    if (!flight.depLabel || !flight.arrLabel) {
+      if (typeof authorityManager.getExecutionMissionEndpoints === 'function') {
+        mission = authorityManager.getExecutionMissionEndpoints();
+      } else {
+        const missionState = safeObject(authorityManager.getActiveRun?.({ includeBundle: true })?.resumeBundle?.missionState);
+        mission = safeObject(missionState.currentMissionData || missionState);
+      }
+    }
     return {
       depLabel: cleanString(flight.depLabel || mission.start, 180) || 'START',
       arrLabel: cleanString(flight.arrLabel || mission.dest, 180) || 'LANDUNG'
@@ -793,7 +802,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         }
       : (eventType === 'CLOSE_REQUESTED' ? { position: observations.lastPosition }
         : (eventType === 'MISSION_STARTED' ? {
-            arrivalScene: !!authorityManager.getActiveRun({ includeBundle: true })?.resumeBundle?.executionEffectPlan?.effects?.['scene.arrival']
+            arrivalScene: !!executionEffectPlan()?.effects?.['scene.arrival']
           } : {}));
     return submitEvent(
       snapshot,

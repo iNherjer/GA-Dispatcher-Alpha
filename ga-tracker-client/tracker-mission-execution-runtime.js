@@ -42,6 +42,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   let effectRunner = null;
   let autoCloseAfterUnloadRunId = '';
   let autoClosePromise = null;
+  const executionEffectPlan = () => typeof authorityManager.getExecutionEffectPlan === 'function'
+    ? authorityManager.getExecutionEffectPlan()
+    : authorityManager.getActiveRun({ includeBundle: true })?.resumeBundle?.executionEffectPlan;
   let lastTelemetryDiagnosticKey = '';
   let lastTelemetryDiagnosticAt = 0;
   const dispatchSimulatorEffect = request => {
@@ -112,10 +115,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         log(`MISSION_PAYLOAD_EFFECT_ACK_ERROR effect=${request.effect?.effectId || request.commandId || ''} error=${acknowledged.error || acknowledged.status || 'unknown'}`);
         return;
       }
-      await effectRunner.drain();
-      logCheckpoint(`payload-ack:${status || 'completed'}`);
-      await maybeAutoCloseConfirmedUnload(`payload-ack:${status || 'completed'}`);
-      finalizeIfClosed(request.effect?.effectId || request.commandId || 'payload');
+      await settleEffects(`payload-ack:${status || 'completed'}`, request.effect?.effectId || request.commandId || 'payload');
     }).catch(async error => {
       const effectId = request.effect?.effectId || request.commandId;
       log(`MISSION_PAYLOAD_EFFECT_ERROR effect=${effectId || ''} error=${error?.code || error?.message || error}`);
@@ -125,10 +125,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         result: fallbackPayloadOutcome({}, error)
       });
       if (acknowledged.ok) {
-        await effectRunner.drain();
-        logCheckpoint('payload-ack:error');
-        await maybeAutoCloseConfirmedUnload('payload-ack:error');
-        finalizeIfClosed(effectId || 'payload');
+        await settleEffects('payload-ack:error', effectId || 'payload');
       }
     });
     return {
@@ -186,10 +183,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         const current = authorityManager.getExecutionSnapshot?.();
         if (current?.runId !== request.runId || current?.missionId !== request.missionId || result?.status === 'pending') return;
         await effectRunner.acknowledge({ effectId: id, status: result?.ok === true ? 'completed' : 'failed', result: result?.voiceOutcome });
-        logCheckpoint('voice-ack');
-        await effectRunner.drain();
-        await maybeAutoCloseConfirmedUnload('voice-ack');
-        finalizeIfClosed(id);
+        await settleEffects('voice-ack', id);
       }).catch(error => {
         log(`MISSION_VOICE_EFFECT_ERROR effect=${id} error=${error?.message || error}`);
       }).then(() => { voiceOperations.delete(id); });
@@ -205,7 +199,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       'scene.arrival': dispatchSimulatorEffect,
       'scene.boarding': dispatchSimulatorEffect,
       'voice.boarding': backgroundVoice(playBoardingVoice),
-      'voice.cargo': backgroundVoice(request => authorityManager.getActiveRun({ includeBundle: true })?.resumeBundle?.executionEffectPlan?.cargoAudio
+      'voice.cargo': backgroundVoice(request => executionEffectPlan()?.cargoAudio
         ? playBoardingVoice(request) : completeLocalEffect(request)),
       'voice.flight': backgroundVoice(playBoardingVoice),
       'voice.approach': backgroundVoice(playBoardingVoice),
@@ -397,13 +391,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     if (String(request.intent || request.action || '').trim().toLowerCase() === 'confirm_unload') {
       autoCloseAfterUnloadRunId = String(result.activeRun?.runId || authorityManager.getActiveRun()?.runId || '');
     }
-    const drainEffects = async () => {
-      const effects = await effectRunner.drain();
-      logCheckpoint(`intent:${request.intent || 'unknown'}`);
-      await maybeAutoCloseConfirmedUnload(`intent:${request.intent || 'unknown'}`);
-      finalizeIfClosed(request.commandId || 'intent');
-      return effects;
-    };
+    const drainEffects = () => settleEffects(`intent:${request.intent || 'unknown'}`, request.commandId || 'intent');
     if (request.deferEffects === true) {
       // Yield beyond promise continuations so the durable intent ACK is sent first.
       new Promise(resolve => setImmediate(resolve)).then(drainEffects).catch(error => {
@@ -429,6 +417,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     };
   };
 
+  // All completed asynchronous work follows the same gate/notification order.
+  const settleEffects = async (reason, effectId) => {
+    const effects = await effectRunner.drain();
+    logCheckpoint(reason);
+    await maybeAutoCloseConfirmedUnload(reason);
+    finalizeIfClosed(effectId);
+    return effects;
+  };
+
   const attachSimulator = (simulator = {}) => {
     getSimulatorPosition = typeof simulator.getLivePosition === 'function' ? simulator.getLivePosition : () => null;
     simulatorPayloadSyncBeforeStart = typeof simulator.syncPayloadBeforeStart === 'function'
@@ -448,10 +445,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       acknowledgeEffect: async request => {
         const acknowledged = await effectRunner.acknowledge(request);
         if (acknowledged.ok) {
-          await effectRunner.drain();
-          logCheckpoint(`effect-ack:${request.status || 'unknown'}`);
-          await maybeAutoCloseConfirmedUnload(`effect-ack:${request.status || 'unknown'}`);
-          finalizeIfClosed(request.effectId);
+          await settleEffects(`effect-ack:${request.status || 'unknown'}`, request.effectId);
         }
         return acknowledged;
       },
@@ -533,19 +527,34 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     detachSimulator,
     observeTelemetry: sample => {
       const result = adapter.observeTelemetry(sample);
+      let observationSnapshot;
+      const snapshotForObservation = () => observationSnapshot ??= authorityManager.getExecutionSnapshot?.();
+      let approachContext;
+      const approachContextForObservation = () => approachContext ??= executionEffectPlan()?.effects?.['voice.approach']?.context;
       if (result?.ok && result.status !== 'ignored') {
-        const snapshot = authorityManager.getExecutionSnapshot?.();
-        const run = authorityManager.getActiveRun({ includeBundle: true });
-        const context = run?.resumeBundle?.executionEffectPlan?.effects?.['voice.approach']?.context;
+        const snapshot = snapshotForObservation();
+        const context = approachContextForObservation();
         if (snapshot && context?.supported && context.mode === 'passenger') {
           const previous = { ...adapter.getFlightVoiceState() };
-          const flights = snapshot.state.effects.filter(effect => effect.type === 'voice.flight');
-          const comfort = flights.filter(effect => effect.payload.kind === 'comfort');
-          previous.count = Math.max(Number(previous.count) || 0, comfort.length);
-          previous.lastAt = Math.max(Number(previous.lastAt) || 0, ...comfort.map(effect => Number(effect.payload.triggerAt) || 0));
-          previous.offDestLastAt = Math.max(Number(previous.offDestLastAt) || 0, ...flights.filter(effect => effect.payload.kind === 'off_destination').map(effect => Number(effect.payload.triggerAt) || 0));
-          previous.landingRollTriggered = previous.landingRollTriggered || flights.some(effect => effect.payload.kind === 'landing_roll');
-          previous.wrongStartContinueDone = previous.wrongStartContinueDone || flights.some(effect => effect.payload.kind === 'wrong_start');
+          previous.lastAt = Math.max(Number(previous.lastAt) || 0, 0);
+          previous.offDestLastAt = Math.max(Number(previous.offDestLastAt) || 0, 0);
+          let comfortCount = 0;
+          let comfortPending = false;
+          let approachRequested = false;
+          for (const effect of snapshot.state.effects) {
+            if (effect.type === 'voice.approach') approachRequested = true;
+            if (effect.type !== 'voice.flight') continue;
+            const payload = effect.payload;
+            if (payload.kind === 'comfort') {
+              comfortCount += 1;
+              comfortPending ||= effect.status === 'requested';
+              previous.lastAt = Math.max(Number(previous.lastAt) || 0, Number(payload.triggerAt) || 0);
+            } else if (payload.kind === 'off_destination') {
+              previous.offDestLastAt = Math.max(Number(previous.offDestLastAt) || 0, Number(payload.triggerAt) || 0);
+            } else if (payload.kind === 'landing_roll') previous.landingRollTriggered = true;
+            else if (payload.kind === 'wrong_start') previous.wrongStartContinueDone = true;
+          }
+          previous.count = Math.max(Number(previous.count) || 0, comfortCount);
           const departure = context.departure;
           const departureDistanceNm = departure ? locationCore.haversineNm(Number(sample.lat), Number(sample.lon), Number(departure.lat), Number(departure.lng ?? departure.lon)) : null;
           const triggerAt = Number(sample.observedAt) || Date.now();
@@ -553,12 +562,12 @@ function createTrackerMissionExecutionRuntime(options = {}) {
             now: triggerAt, active: snapshot.state.flags.active,
             ending: snapshot.state.flags.closingPending || snapshot.state.flags.farewellStarted || snapshot.state.flags.farewellCompleted || snapshot.state.flags.unloadConfirmed,
             greetingDone: snapshot.state.flags.boardingConfirmed,
-            approachDone: !!snapshot.state.voice.approach || snapshot.state.effects.some(effect => effect.type === 'voice.approach')
+            approachDone: !!snapshot.state.voice.approach || approachRequested
               || (result.destination?.dMissionNm != null && Number(result.destination.dMissionNm) <= 4)
               || (result.destination?.dMissionNm != null && Number(result.destination.dMissionNm) <= 4.5 && adapter.hasNewLandingApproachCandidate()),
             wrongStartActive: snapshot.state.voice.boarding?.wrongStartActive,
             motionProtectionEnabled: context.motionProtectionEnabled,
-            comfortPending: comfort.some(effect => effect.status === 'requested'),
+            comfortPending,
             touchdown: result.acceptedEvent?.type === 'TOUCHDOWN',
             offDestinationLanding: sample.onGround === true && Number(sample.gsKts) <= 3
               && snapshot.state.flags.groundStill && result.destination?.atDestination !== true
@@ -568,6 +577,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           });
           for (const effect of detected.effects) adapter.applySystemEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
             type: 'APT_FLIGHT_VOICE_REQUESTED', eventId: `flight-voice:${effect.kind}:${triggerAt}`, payload: { ...effect, triggerAt } });
+          if (detected.effects.length) observationSnapshot = undefined;
           adapter.setFlightVoiceState(detected.state, detected.effects.length > 0);
           if (detected.effects.length) effectRunner.drain().catch(error => log(`MISSION_FLIGHT_VOICE_ERROR ${error?.message || error}`));
         }
@@ -577,15 +587,14 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           && distance != null && Number.isFinite(Number(distance))
           && (Number(distance) <= 4
             || (Number(distance) <= 4.5 && adapter.hasNewLandingApproachCandidate()))) {
-        const snapshot = authorityManager.getExecutionSnapshot?.();
+        const snapshot = snapshotForObservation();
         if (snapshot?.state?.flags?.active && snapshot.state.phase !== 'closing'
             && !snapshot.state.flags.closingPending
             && !snapshot.state.flags.farewellStarted && !snapshot.state.flags.farewellCompleted
             && !snapshot.state.flags.unloadConfirmed
             && !snapshot.state.effects.some(effect => effect.type === 'scene.deboarding') && !snapshot.state.voice?.approach
             && !snapshot.state.effects.some(effect => effect.type === 'voice.approach')) {
-          const run = authorityManager.getActiveRun({ includeBundle: true });
-          const context = run?.resumeBundle?.executionEffectPlan?.effects?.['voice.approach']?.context;
+          const context = approachContextForObservation();
           if (context?.supported && context.mode === 'passenger') {
             const flightData = {};
             for (const key of ['gForce', 'bankDeg', 'windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'precipRateMmH', 'turbulencePct']) {
@@ -622,7 +631,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           }
         }
       } else if (result?.status === 'ignored') {
-        const snapshot = authorityManager.getExecutionSnapshot?.();
+        const snapshot = snapshotForObservation();
         const reason = String(result.reason || result.error || 'ignored');
         const diagnosticKey = [
           snapshot?.runId || '',

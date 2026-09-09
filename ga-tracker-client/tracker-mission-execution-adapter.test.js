@@ -1098,3 +1098,48 @@ test('cached execution reads are detached and refresh after a real mission trans
   assert.equal(fixture.manager.getExecutionSnapshot().state.phase, 'prepare');
   assert.equal(fixture.manager.getPublicSnapshot().execution.phase, 'prepare');
 });
+
+test('independent cargo intents tolerate the preceding item edit but never a changed target item or signature', t => {
+  const bundle = aptResumeBundle();
+  bundle.runtime.cargoManifest.items.push({ ...bundle.runtime.cargoManifest.items[0], id: 'second-box', required: false });
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const fixture = createCommittedFixture(t, { bundle });
+  executeCurrent(fixture, 'prepare_mission', 'independent-prepare');
+  beginBoarding(fixture, 'independent');
+  const before = fixture.manager.getExecutionSnapshot();
+  const request = { intent: 'set_manifest_item', missionId: before.missionId, runId: before.runId,
+    expectedRevision: before.authorityRevision, payload: { itemId: 'second-box', action: 'load' } };
+  executeCurrent(fixture, 'set_manifest_item', 'independent-first', { itemId: 'medical-box', action: 'load' });
+  assert.equal(fixture.manager.canRebaseIntentRevision(request), true);
+  assert.equal(fixture.manager.canRebaseIntentRevision({ ...request, payload: { itemId: 'medical-box', action: 'unload' } }), false);
+  assert.equal(fixture.manager.canRebaseIntentRevision({ ...request, payload: { items: [request.payload, { itemId: 'medical-box', action: 'load' }] } }), false);
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'independent-second', request.payload).ok, true);
+  assert.equal(fixture.manager.canRebaseIntentRevision(request), false);
+  const beforeSign = fixture.manager.getExecutionSnapshot();
+  const unload = { ...request, expectedRevision: beforeSign.authorityRevision,
+    payload: { itemId: 'second-box', action: 'unload' } };
+  assert.equal(executeCurrent(fixture, 'sign_manifest', 'independent-sign').ok, true);
+  assert.equal(fixture.manager.canRebaseIntentRevision(unload), false);
+});
+
+test('effect-plan reads omit the mission seed and public runtime projections stay detached', t => {
+  const bundle = aptResumeBundle();
+  bundle.executionEffectPlan = { schema: 'ga.mission-apt-effect-plan.v1', effects: { 'voice.approach': { context: { marker: 'original' } } } };
+  const fixture = createCommittedFixture(t, { bundle });
+  const endpoints = fixture.manager.getExecutionMissionEndpoints();
+  assert.deepEqual(endpoints, { start: 'EDTW', dest: 'EDTL' });
+  endpoints.start = 'mutated';
+  assert.equal(fixture.manager.getExecutionMissionEndpoints().start, 'EDTW');
+  const plan = fixture.manager.getExecutionEffectPlan();
+  assert.equal(plan.missionState, undefined);
+  plan.effects['voice.approach'].context.marker = 'changed';
+  assert.equal(fixture.manager.getExecutionEffectPlan().effects['voice.approach'].context.marker, 'original');
+  const run = fixture.manager.getActiveRun();
+  assert.equal(fixture.manager.recordExecutionRuntimeContext({ missionId: run.missionId, runId: run.runId,
+    context: { cargoObjectRevision: 9, latestTelemetry: { observedAt: 1000 } } }).ok, true);
+  assert.equal(fixture.manager.getPublicSnapshot().execution.cargoObjectRevision, 9);
+  assert.equal(fixture.manager.recordExecutionRuntimeContext({ missionId: run.missionId, runId: run.runId,
+    context: { cargoObjectRevision: 10, latestTelemetry: { observedAt: 2000 } } }).ok, true);
+  assert.equal(fixture.manager.getPublicSnapshot().execution.cargoObjectRevision, 10);
+});

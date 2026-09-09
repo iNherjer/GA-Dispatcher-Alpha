@@ -85,8 +85,51 @@ function createTrackerFlightLogStore(options = {}) {
     };
   };
 
+  // Raw flight logs are diagnostic data, not the durable mission authority.
+  // Keep disk I/O off the SimConnect callback and preserve per-file ordering.
+  const pending = new Map();
+  const maxPendingBytes = 4 * 1024 * 1024;
+  let pendingBytes = 0;
+  let writeErrors = 0;
+  let writing = null;
+  const drain = async () => {
+    while (pending.size) {
+      const [filename, lines] = pending.entries().next().value;
+      pending.delete(filename);
+      const text = lines.join('');
+      try {
+        await new Promise((resolve, reject) => io.appendFile(filename, text, 'utf8', error => error ? reject(error) : resolve()));
+      } catch (error) {
+        writeErrors += 1;
+        log(`FLIGHT_LOG_WRITE_ERROR error=${error?.message || error}`);
+      } finally {
+        pendingBytes -= Buffer.byteLength(text);
+      }
+    }
+  };
+  const startDrain = () => {
+    if (!writing) writing = Promise.resolve().then(drain).finally(() => {
+      writing = null;
+      if (pending.size) startDrain();
+    });
+  };
   const append = (filename, payload) => {
-    io.appendFileSync(filename, `${JSON.stringify(payload)}\n`, 'utf8');
+    const text = `${JSON.stringify(payload)}\n`;
+    const bytes = Buffer.byteLength(text);
+    if (pendingBytes + bytes > maxPendingBytes) {
+      writeErrors += 1;
+      if (writeErrors === 1 || writeErrors % 100 === 0) log('FLIGHT_LOG_WRITE_ERROR error=queue_limit');
+      return false;
+    }
+    pendingBytes += bytes;
+    if (!pending.has(filename)) pending.set(filename, []);
+    pending.get(filename).push(text);
+    startDrain();
+    return true;
+  };
+  const flush = async () => {
+    while (writing) await writing;
+    return { ok: writeErrors === 0, writeErrors };
   };
 
   const ensure = (missionId, runId) => {
@@ -112,7 +155,7 @@ function createTrackerFlightLogStore(options = {}) {
     const runId = clean(request?.runId, 220);
     if (!missionId || !runId) return { ok: false, status: 'invalid', error: 'flight_log_run_required' };
     const files = ensure(missionId, runId);
-    append(files.log, {
+    const queued = append(files.log, {
       type: 'telemetry',
       phase: clean(request?.phase, 80),
       sample: telemetrySample(request?.sample),
@@ -124,7 +167,7 @@ function createTrackerFlightLogStore(options = {}) {
         reason: clean(request.destination.reason, 80) || null
       } : null
     });
-    return { ok: true, status: 'appended', filename: files.log };
+    return { ok: queued, status: queued ? 'queued' : 'error', filename: files.log };
   };
 
   const recordSegment = request => {
@@ -162,9 +205,10 @@ function createTrackerFlightLogStore(options = {}) {
   return Object.freeze({
     directory,
     recordSample,
+    flush,
     recordSegment,
     finalize,
-    publicState: () => ({ schema: LOG_SCHEMA, directory, activeRuns: initialized.size, finalizedRuns: finalized.size })
+    publicState: () => ({ schema: LOG_SCHEMA, directory, activeRuns: initialized.size, finalizedRuns: finalized.size, pendingBytes, writeErrors })
   });
 }
 

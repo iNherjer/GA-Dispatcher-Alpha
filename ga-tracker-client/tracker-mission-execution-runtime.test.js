@@ -690,6 +690,11 @@ test(`stalled voice does not block cargo; APT approach triggers once at 4 NM (on
   bundle.executionReplay = executionCore.createExecutionBundle(bundle);
   bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
   const manager = committedManager(t, bundle);
+  const originalGetActiveRun = manager.getActiveRun;
+  manager.getActiveRun = options => {
+    assert.notEqual(options?.includeBundle, true, 'runtime must not copy the mission seed for telemetry or effect dispatch');
+    return originalGetActiveRun(options);
+  };
   let releaseBoarding;
   const calls = [];
   const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,

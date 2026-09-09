@@ -3752,3 +3752,91 @@ GitHub-Release und EXE-Upload sind nach Dateigroesse und GitHub-SHA-256
 verifiziert. `channel/alpha.json` zeigt auf genau dieses Artefakt;
 der abschliessende App-/Kanal-Push verwendet Cache v1729. Stable-Runtime,
 Desktop-Installer und EFB-Community-Package bleiben unveraendert.
+
+### Vergleichstests vom 09.09.2026, 13:20–13:36 (v395, lokale Nacharbeit)
+
+Die Datei `standalone ga-tracker-debug.txt` enthaelt beide neuen Laeufe:
+Tracker-Authority `mission-mtu0bgrd-bnk30j` / `run-mtu0cy8j-fb014ffdeaa078`
+(11:21–11:27 UTC), danach Web-Authority `mission-mtu0nf8l-4d3czz`
+(11:30–11:35 UTC). Die als Tracker bezeichneten Dateien enden dagegen noch
+beim vorherigen Lauf um 09:03 UTC. Die Zuordnung erfolgt anhand der Intents,
+ACKs und Missions-IDs; die beiden App-Diagnosen passen zu den neuen Laeufen.
+Es sind unterschiedliche Missionen/Assets, kein identischer Modell-Benchmark.
+
+Befunde:
+
+- Neue Telemetriediagnose: Tracker-Lauf maximal 981 ms Verarbeitungsdauer und
+  4397 ms Eventloop-Verzoegerung; Standalone maximal 32 ms beziehungsweise
+  2041 ms in den protokollierten Auffaelligkeiten. Der Relay-Sendepuffer ist
+  jeweils leer. Dies beweist lokale Verzoegerung, aber keine reine PC-Ursache.
+- Erfolgreiche Intent-Verarbeitung selbst liegt in diesen Logs meist im
+  niedrigen dreistelligen Millisekundenbereich. Einzelne Befehle treffen
+  dagegen bereits mehrere Sekunden nach dem Command-ID-Zeitstempel ein
+  (Geraeteuhren/Transport und lokale Verarbeitung dabei getrennt betrachten).
+- Cargo-Spawn 11:24:31.534–11:24:47.358 UTC scheitert nach Modell-/SimConnect-
+  Fehlern. Solche Wartezeiten duerfen weder UI noch andere Items blockieren.
+- Tracker startet am Ende ein neues Fahrzeug (`pickupBound=0`); Standalone
+  bindet das bereits vorhandene Arrival-Fahrzeug (`pickupBound=1`).
+- PA-24-Tuerpfad und Werte sind in beiden Laeufen identisch: Handle open=1,
+  close=0, Latch unlock=0, lock=1, 900/3000 ms. Keine Aenderung dieser Werte
+  durch v395. Die visuell gemeldete Inversion ist damit noch nicht erklaert;
+  keine Polaritaetsaenderung ohne eindeutigen Sim-Nachweis.
+
+Lokale Korrekturen:
+
+- Rohfluglog-Append aus dem synchronen Telemetriecallback entfernt; begrenzte,
+  geordnete asynchrone Schreibqueue mit sichtbaren Fehlern.
+- Voice-Abfragen im Telemetriepfad kopieren nur den Effektplan statt den
+  gesamten Seed/Replay. Runtime-Projektionen werden nach unveraenderter
+  Kontext-Identitaet gecacht, oeffentliche Antworten bleiben abgetrennt.
+- Unabhaengige Cargo-Items koennen trotz vorhergehendem Item-Commit ohne
+  zusaetzliche Konfliktrunde angenommen werden. Geaenderte Ziel-Items,
+  Signaturen oder fachliche Gates bleiben geschuetzt.
+- Nahe, erfolgreich gespawnte Arrival-Szene wird beim Deboarding gebunden;
+  die bestehende Sim-Logik prueft das Fahrzeug und behaelt ihren Fallback.
+
+Lokaler macOS-Lesevergleich am bereitgestellten Authority-Datensatz, 300
+Durchlaeufe: bisher 694 ms / Median 2,205 ms, Kandidat 236 ms / Median 0,731 ms.
+Kopierte Daten beim Planlesen 242359→51595 Zeichen. Kein End-to-End-Sim-PASS.
+108 gezielte Core-/Authority-/Cockpit-/Runtime-/Scene-/Flightlog-Tests bestanden.
+Zusaetzlich Interface-, Flow-, Ground-, Cargo-Persistenz-, Payload-App-,
+Standalone-Cargo-UI- und Update-Sync-Selbsttests bestanden. Slow-I/O-Test haelt
+Datei-ACKs absichtlich offen und prueft nichtblockierende Annahme, Reihenfolge
+und Fehleranzeige; Szenentest prueft bestaetigt/fehlgeschlagen/zu weit entfernt.
+Noch nicht ausgerollt; live bleibt Tracker v395 / App-Cache v1729.
+
+### Bereinigung und Release-Kandidat v396 (09.09.2026)
+
+Die lokalen Vergleichsfixes oben werden mit einer gezielten Bereinigung
+veroeffentlicht: Raw-Telemetrielogs schreiben asynchron und geordnet; die
+Mission-Authority bleibt vor dem Intent-ACK atomar gespeichert. Unabhaengige
+Cargo-Items koennen auf einer bekannten Revision weiterbearbeitet werden;
+Aenderungen am betroffenen Item, an Signaturen und Phasengrenzen bleiben
+Konflikte. Deboarding bindet am bestaetigten nahen Ziel die vorhandene Szene.
+
+Runtime, Adapter und Simulator-Effektbruecke lesen fuer Effektplaene nicht
+mehr das vollstaendige Missionspaket. Flugplatzbezeichnungen haben einen
+kleinen getrennten Zugriff. Zusammengehoerige Telemetriepruefungen verwenden
+einen lokalen Snapshot und lesen ihn nach neu erzeugten Flug-Voice-Events
+frisch; die Effekt-Historie wird in einem Durchgang ausgewertet. Payload-,
+Voice- und Szenen-ACKs benutzen dieselbe Nachbearbeitung mit Drain,
+Checkpoint, Auto-Close-Pruefung und Finalisierung. Der Voice-Checkpoint wird
+nun wie bei den anderen ACKs nach dem Drain geschrieben.
+
+Standalone-Deboarding und Tracker-Template benutzen denselben Command-Builder.
+Die Standalone-Gates und die Bestimmung des vorhandenen Ziel-Fahrzeugs bleiben
+unveraendert. Der neue Differentialtest hat 384 Konfigurationen gegen den
+unveraenderten vorherigen sync.js-Stand verglichen: identische Befehle und
+Standalone-Statusaenderungen (Pax 0/1/5, Geschlecht, Fahrzeug-Asset,
+Arrival-Status, Entfernung, Spawnfehler und Farewell-Koordination).
+
+Validierung: 108 Core-/Authority-/Runtime-/Effekt-/Flightlog-Tests, 16 lokale
+EFB-HTTP-Tests, 25 Manifest-/Payload-/Location-Tests und 14 App-/Flow-/UI-
+Selftests bestanden. Ein bestehender Ground-Flow-Quelltest folgt jetzt dem
+extrahierten Builder; der HTTP-Test prueft Versionskonsistenz statt der
+ueberholten Festzahl v389. Windows-EXE mit pkg erfolgreich gebaut.
+
+Kandidat: Tracker v396, App-Cache v1730. Desktop 1.6.8, EFB-Paket und
+gehostete EFB-Assetrevision 39501 benoetigen keine Aenderung. Stable bleibt
+unveraendert. Kein realer MSFS-Latenznachweis aus diesem Build: Spawnfehler
+und die gemeldete Tuer-Inversion sind damit nicht als behoben bestaetigt.

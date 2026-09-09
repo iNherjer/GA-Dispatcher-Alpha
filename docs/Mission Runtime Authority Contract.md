@@ -753,3 +753,47 @@ weiter ausgewertet. Plaene ohne Arrival-Feld erzeugen keinen Ersatz-Spawn.
 Ein bestaetigter PAX-Handoff darf die zuvor bestaetigte Ankunftssignatur nicht
 als neue Bedieneraenderung loeschen. Manuelle Manifest-Aenderungen behalten
 hingegen die bisherige Signaturinvalidierung.
+
+### Standalone-/Tracker-Vergleich v395 (09.09.2026, lokal)
+
+Bei unmittelbar aufeinanderfolgenden Cargo-Intents duerfen verschiedene Items
+nun auch nach einer vorhergehenden Item-Aenderung gegen den aktuellen Stand
+validiert werden. Voraussetzung: zuvor ausgegebene, noch bekannte Revision,
+identischer Run, Phase, Flags, Fortschritt, Workflows, Flugzeiten, Freigabe
+fuer `set_manifest_item`, Manifest-Key und Signatur sowie unveraenderte
+angefragte Items. Eine neu verfuegbare Signaturaktion allein blockiert kein
+weiteres Cargo-Item.
+Bei Paketen gilt dies fuer jedes Item. Echte Aenderungen des Ziel-Items oder
+der Signatur bleiben Konflikte; der Adapter prueft das komplette Paket
+weiter atomar gegen den aktuellen Zustand. Signatur/Start/Close erhalten
+keine gelockerte Itempruefung. Der Tracker hat das angenommene Manifest und
+die noch ausstehenden Objekt-/Payload-Effekte bereits getrennt; kein zweites
+fachliches Manifest und keine Erfolgsmeldung fuer unbestaetigte Sim-Effekte.
+
+Rohfluglogs werden geordnet und gebuendelt asynchron geschrieben, damit ein
+langsamer Dateizugriff keine SimConnect-Telemetrie oder Intents blockiert.
+Die Queue ist auf 4 MiB begrenzt, Fehler werden als `FLIGHT_LOG_WRITE_ERROR`
+und im lokalen Store-Status sichtbar; `flush()` erlaubt das Abwarten aller
+Logs. Bei Prozessabbruch koennen noch nicht geschriebene Diagnosepunkte
+fehlen. Fachliche Authority-Commits bleiben unveraendert atomar vor dem ACK.
+
+Im Tracker-Deboarding wird eine bestaetigte `scene.arrival` innerhalb derselben
+0,12 NM wie Standalone als Pickup-Szene gebunden. Der vorhandene Sim-Handler
+verwendet die tatsaechliche Position ihres Fahrzeugs und faellt bei fehlendem
+Fahrzeug auf die bestehende Anfahrsequenz zurueck. Ausserhalb des Radius oder
+bei fehlgeschlagenem/unbestaetigtem Spawn gilt weiterhin die Anfahrsequenz.
+
+### Verhaltensgleiche Bereinigung v396 (09.09.2026)
+
+Effektplan und Start-/Ziellabels sind getrennt vom vollstaendigen Resume-Bundle
+lesbar; alle Rueckgaben bleiben vom gespeicherten Zustand getrennt. Ein
+Telemetrie-Aufruf darf einen Snapshot wiederverwenden, solange er keinen
+neuen fachlichen Event erzeugt hat. Nach einer Mutation wird frisch gelesen;
+es gibt keinen langfristigen zweiten Runtime-Zustand.
+
+Die ACK-Nachbearbeitung fuer Payload, Voice und Szenen folgt einem gemeinsamen
+Pfad. Signatur-, Phasen-, Payload- und Recovery-Gates sind unveraendert.
+Standalone und Tracker-Template teilen den Deboarding-Command-Builder;
+Betriebsarten behalten ihre jeweiligen, bestehenden Autoritaets-/Live-Gates.
+384 Vorher-/Nachher-Vergleiche sichern die bestehenden Befehle und
+Standalone-Statusaenderungen ab.

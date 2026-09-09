@@ -1,5 +1,7 @@
 'use strict';
 
+const { haversineNm } = require('../mission-location-core.js');
+
 const EFFECT_PLAN_SCHEMA = 'ga.mission-apt-effect-plan.v1';
 const EFFECT_COMMANDS = Object.freeze({
   'scene.arrival': Object.freeze({
@@ -64,9 +66,8 @@ function normalizeLivePosition(value = {}) {
   };
 }
 
-function effectPlanFromRun(run = null) {
-  const bundle = safeObject(run?.resumeBundle);
-  const plan = safeObject(bundle.executionEffectPlan);
+function effectPlanFromRun(run = null, effectPlan = run?.resumeBundle?.executionEffectPlan) {
+  const plan = safeObject(effectPlan);
   if (plan.schema !== EFFECT_PLAN_SCHEMA || cleanString(plan.recipe, 80).toLowerCase() !== 'apt') return null;
   if (cleanString(plan.missionId) && cleanString(plan.missionId) !== cleanString(run?.missionId)) return null;
   return plan;
@@ -112,6 +113,11 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     throw new TypeError('mission_simulator_effect_authority_manager_required');
   }
 
+  const hasPlanReader = typeof authorityManager.getExecutionEffectPlan === 'function';
+  const currentRun = () => authorityManager.getActiveRun({ includeBundle: !hasPlanReader });
+  const readEffectPlan = run => effectPlanFromRun(run,
+    hasPlanReader ? authorityManager.getExecutionEffectPlan() : run?.resumeBundle?.executionEffectPlan);
+
   const dispatch = async (request = {}, flushCargo = false) => {
     const effectType = cleanString(request?.effect?.type, 100).toLowerCase();
     const commandId = cleanString(request.commandId, 220);
@@ -121,7 +127,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (effectType === 'scene.compliance_departure') {
       if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
       if (!dispatchCommand) return errorResult('mission_simulator_not_connected');
-      const run = authorityManager.getActiveRun({ includeBundle: true });
+      const run = currentRun();
       if (!run?.missionId || !run?.runId) return errorResult('no_active_run');
       if (run.executionAuthority !== 'tracker') return errorResult('mission_execution_authority_web');
       if (cleanString(request.missionId) !== cleanString(run.missionId)
@@ -129,7 +135,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
         return errorResult('mission_run_conflict');
       }
       const visit = [...pending.values()].find(record => record.effectType === 'scene.compliance_visit') || null;
-      const plan = effectPlanFromRun(run);
+      const plan = readEffectPlan(run);
       const sceneId = cleanString(safeObject(safeObject(plan?.effects)['scene.compliance_visit']).command?.sceneId, 220);
       if (!visit?.effectId || !sceneId) return errorResult('mission_compliance_visit_target_missing');
       const released = safeObject(await dispatchCommand({
@@ -147,7 +153,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (effectType === 'scene.deboarding_continue') {
       if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
       if (!dispatchCommand) return errorResult('mission_simulator_not_connected');
-      const run = authorityManager.getActiveRun({ includeBundle: true });
+      const run = currentRun();
       if (!run?.missionId || !run?.runId) return errorResult('no_active_run');
       if (run.executionAuthority !== 'tracker') return errorResult('mission_execution_authority_web');
       if (cleanString(request.missionId) !== cleanString(run.missionId)
@@ -155,7 +161,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
         return errorResult('mission_run_conflict');
       }
       const targetEffectId = cleanString(request?.effect?.payload?.deboardingEffectId, 220);
-      const plan = effectPlanFromRun(run);
+      const plan = readEffectPlan(run);
       const sceneId = cleanString(safeObject(safeObject(plan?.effects)['scene.deboarding']).command?.sceneId, 220);
       if (!targetEffectId || !sceneId) return errorResult('mission_deboarding_continuation_target_missing');
       const continued = safeObject(await dispatchCommand({
@@ -172,11 +178,11 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     }
     if (effectType === 'scene.manual_pax') {
       const fail = error => ({ ...errorResult(error), terminal: true });
-      const run = authorityManager.getActiveRun({ includeBundle: true });
+      const run = currentRun();
       if (!run || run.executionAuthority !== 'tracker' || run.missionId !== request.missionId || run.runId !== request.runId) return fail('mission_run_conflict');
       if (pending.has(commandId)) return { ok: true, status: 'pending', commandId };
       const payload = safeObject(request.effect?.payload);
-      const plan = effectPlanFromRun(run);
+      const plan = readEffectPlan(run);
       const recipe = (plan?.manualPassengerCommands || []).find(entry => entry.itemId === payload.itemId && entry.operation === payload.operation);
       if (!recipe?.command || recipe.command.type !== 'mission_scene_manual_pax') return fail('mission_manual_passenger_recipe_missing');
       const remainingMs = 70000 - Math.max(0, now() - Number(payload.requestedAt || now()));
@@ -205,14 +211,14 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (effectType === 'scene.cargo_item_transition') {
       if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
       if (!dispatchCommand) return errorResult('mission_simulator_not_connected');
-      const run = authorityManager.getActiveRun({ includeBundle: true });
+      const run = currentRun();
       if (!run?.missionId || !run?.runId) return errorResult('no_active_run');
       if (run.executionAuthority !== 'tracker') return errorResult('mission_execution_authority_web');
       if (cleanString(request.missionId) !== cleanString(run.missionId)
           || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
         return errorResult('mission_run_conflict');
       }
-      const plan = effectPlanFromRun(run);
+      const plan = readEffectPlan(run);
       if (!plan) return errorResult('mission_apt_effect_plan_missing');
       const payload = safeObject(request?.effect?.payload);
       const item = safeObject(payload.item);
@@ -353,14 +359,14 @@ function createTrackerMissionSimulatorEffects(options = {}) {
         : errorResult('mission_simulator_not_connected');
     }
 
-    const run = authorityManager.getActiveRun({ includeBundle: true });
+    const run = currentRun();
     if (!run?.missionId || !run?.runId) return errorResult('no_active_run');
     if (run.executionAuthority !== 'tracker') return errorResult('mission_execution_authority_web');
     if (cleanString(request.missionId) !== cleanString(run.missionId)
         || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
       return errorResult('mission_run_conflict');
     }
-    const plan = effectPlanFromRun(run);
+    const plan = readEffectPlan(run);
     if (!plan) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_apt_effect_plan_missing');
@@ -387,6 +393,17 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     };
     if (effectType === 'scene.deboarding') {
       command.coordinateFarewell = request?.effect?.payload?.coordinateFarewell === true;
+      // Same 0.12 NM arrival gate as standalone. The existing simulator handler
+      // verifies the actual vehicle and falls back if it has disappeared.
+      const arrival = commandTemplateFor(plan, 'scene.arrival');
+      const arrivalConfirmed = authorityManager.getExecutionSnapshot?.()?.state?.effects?.some(
+        effect => effect.type === 'scene.arrival' && effect.status === 'completed');
+      if (arrival && arrivalConfirmed && haversineNm(position.lat, position.lon, arrival.lat, arrival.lon) <= 0.12) {
+        command.deboardingPickupSceneId = arrival.sceneId;
+        command.vehicleDeparture = false;
+        command.vehicleArrival = false;
+        command.vehicleReturn = false;
+      }
     }
     pending.set(commandId, {
       effectId: commandId,
