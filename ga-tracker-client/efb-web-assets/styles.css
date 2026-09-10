@@ -20692,11 +20692,19 @@ body.theme-ops1940 .mission-reset-btn {
     overflow-wrap: anywhere;
 }
 #mapVoiceMenu input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    padding: 0;
-    margin: 0;
-    flex-shrink: 0;
+    /* Override the classic theme's 48px form field, including Coherent's
+       native input painting. The clickable label stays full size. */
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    min-height: 14px !important;
+    max-height: 14px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: 0 0 14px;
+    border-radius: 2px !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }
 
 /* One responsive layer menu in App and EFB; normal Leaflet colors remain. */

@@ -4756,3 +4756,74 @@ Die Cloud-Audiospeicherung mit `audioStyle` wurde als Worker-Version
 `27c2431f-bc08-4d7c-bf2c-e31b192b75fc` veröffentlicht. Das isolierte Ausgangsbundle
 war bytegleich zum bisherigen Live-Worker; fremde Admin-Änderungen aus dem
 Worktree sind nicht Teil dieses Deployments.
+
+### EFB-Feldbefund: fehlende Glyphen und überhohe Audio-Checkboxen (10.09.2026)
+
+Das Foto nach v399 zeigt fehlende Emoji-/Symbolglyphen und vertikal verzogene
+Checkboxen. Die gemeinsame Classic-Formularregel setzt auch Checkboxen auf
+mindestens 48px. `#mapVoiceMenu` begrenzt nun ausdrücklich alle Checkboxmaße
+auf 14px und neutralisiert deren Formular-Padding/Schattierung; die volle
+Label-Fläche bleibt klickbar. Diese Korrektur gilt in App und EFB gemeinsam.
+
+Coherent besitzt keinen verlässlichen systemweiten Unicode-Fallback. Der
+EFB-Host liefert deshalb fest versionierte, unveränderte Noto-Text-/Mono-/
+Symbolfonts und OpenMoji 16.0.0 als COLRv0-TTF lokal aus der Tracker-EXE.
+Quellen und Lizenzen liegen in `ga-tracker-client/efb-fonts`. Die vorhandenen
+namentlichen App-/Instrumentenschriften bleiben zuerst im Stapel; nur der
+EFB-Adapter ergänzt fehlende Zeichen vor dem generischen Last-Resort-Font.
+Canvas-Schriftzuweisungen des gemeinsamen Höhenbands bekommen beim EFB-Build
+denselben Fallback. Ein kleiner DOM-Adapter hält ZWJ-Emojis wie den Piloten in
+einer gemeinsamen Schrift, auch bei dynamisch nachgeladenen Inhalten.
+Text, Handler und Missionslogik ändern sich dadurch nicht.
+
+23 Node-Tests bestehen, einschließlich lokaler Font-Endpunkte, COLR-Version 0,
+CSS-/HTML-Escaping und Canvas-Fallback. Der Electron-Test mit dem ausgelieferten
+EFB-HTML prüft geladene lokale Fonts, 14px-Checkboxen, Label-Klicks, dynamische
+ZWJ-Symbole sowie 784px-/440px-Menügrenzen; Screenshots wurden geprüft.
+Der bestehende Navigations-/Prediction-/RTE-/HDG-Test besteht ebenfalls.
+Windows-Test-EXE `/tmp/GA-Tracker-efb-font-check.exe` erfolgreich gebaut.
+Assetrevision 39902 ist ein lokaler Folgestand; noch kein Rollout. Der tatsächliche
+MSFS-/Coherent-Sichttest steht aus.
+
+Ergänzung auf Nutzerwunsch: Auch die bisher extern geladenen Original-App-Fonts
+DSEG7 Classic Bold 0.46.0, Caveat 600, Oleo Script 400/700 und Share Tech Mono
+werden lokal als statische TTF gebündelt. Der Kompass behält MS33558. Nur beim
+Ausliefern der EFB-Styles entfallen die Google-Fonts-Imports und die externe
+DSEG-WOFF2-Quelle; die ursprünglichen Familien und Gewichte bleiben erhalten.
+Noto Sans Math schließt zusätzlich die durch direkte cmap-Prüfung gefundenen
+Lücken für Minuszeichen und Pfeile (−, →, ↻). Die reine Electron-Sichtprüfung
+hatte diese zunächst durch Systemfont-Fallback verdeckt.
+
+25 Node-Tests prüfen jetzt auch die tatsächlichen Glyphen, statische TTFs ohne
+variable Achsen, lokale Originalfont-URLs und unveränderte App-Quellen. Der
+EFB-Render-Test lädt alle zehn lokalen Font-Dateien bei blockierten externen
+Ressourcen und besteht für 784px und 440px. Noch kein Rollout dieses Folgestands.
+
+
+### Abschließende Schrift-/Menüprüfung, Release v400 (10.09.2026)
+
+Die Abdeckung umfasst Toolbar, Audio, Anzeige/Untermenüs, Höhenband/Canvas,
+Kompass, Kartenpopups, Layer, Seitenmenü mit Checklisten/Frequenzen/Platzdetails,
+Manifest/Banner sowie E6B im eigenen iframe. Dynamische HTML-/SVG-Knoten mit
+expliziten Schriftstapeln erhalten nun ebenfalls denselben Fallback; der
+Adapter verarbeitet hinzugefügte Teilbäume, keine vollständigen DOM-Scans pro
+Telemetrietakt. SVG-Inhalte und Inline-Schriftprioritäten bleiben erhalten.
+Die bisherigen Zeichenersetzungen (FLIP/X/ASCII-Minus) im Kartentisch-Fragment
+entfallen zugunsten der Originalsymbole aus index.html.
+
+Das Audio-Menü nutzte im EFB bisher den vereinfachten Cockpit-Client-Fallback.
+Die bisherigen Inline-Funktionen aus index.html liegen jetzt in der bereits
+geteilten map-profile-controls.js. Dadurch verwenden App und EFB dieselbe
+Portalpositionierung, Buttonmarkierung und Resize-/Orientierungsbereinigung.
+Audio-/Profileinstellungen verlieren ihren Außenklick-Handler nicht mehr nach
+einem Innenklick (bisher once-Listener). Keine Änderung der Missionsaktionen.
+
+25 Node-Tests sowie sechs lokale Electron-UI-Läufe bestehen: Font/Audio/E6B,
+Anzeige, Sidebar/Layer, Kartentisch, Popups und Navigation/Prediction. Der
+Menütest vergleicht Originalquelle und kompiliertes EFB-Modul bei Toggle,
+Innen-/Außenklick und Orientationchange; E6B prüft die tatsächlichen geladenen
+SVG-Textstapel. Die übrigen Vergleichsläufe prüfen unter anderem Checklisten,
+Frequenzen, Platzdetails, AIP-Weitergabe, Toolbar-Handle und Layer-Außenklick.
+Schriften laden im Test ausschließlich lokal; MSFS/Coherent bleibt separat
+im Feld zu prüfen. Releaseziel: Tracker v400, EFB-Assetrevision 40001,
+Web-Cache v1737. Desktop 1.6.10 und das Community-Package bleiben verwendbar.

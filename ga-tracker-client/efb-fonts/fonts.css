@@ -1,0 +1,12 @@
+/* Locally packaged: no Google Fonts, CDN or system emoji dependency. */
+@font-face { font-family: 'DSEG7'; src: url('/efb/v1/assets/fonts/DSEG7Classic-Bold.ttf') format('truetype'); font-weight: 700; }
+@font-face { font-family: 'Caveat'; src: url('/efb/v1/assets/fonts/Caveat-SemiBold.ttf') format('truetype'); font-weight: 600; }
+@font-face { font-family: 'Oleo Script'; src: url('/efb/v1/assets/fonts/OleoScript-Regular.ttf') format('truetype'); font-weight: 400; }
+@font-face { font-family: 'Oleo Script'; src: url('/efb/v1/assets/fonts/OleoScript-Bold.ttf') format('truetype'); font-weight: 700; }
+@font-face { font-family: 'Share Tech Mono'; src: url('/efb/v1/assets/fonts/ShareTechMono-Regular.ttf') format('truetype'); font-weight: 400; }
+@font-face { font-family: 'GA EFB Text'; src: url('/efb/v1/assets/fonts/NotoSans-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'GA EFB Mono'; src: url('/efb/v1/assets/fonts/NotoSansMono-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'GA EFB Symbols'; src: url('/efb/v1/assets/fonts/NotoSansSymbols2-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'GA EFB Math'; src: url('/efb/v1/assets/fonts/NotoSansMath-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'GA EFB Emoji'; src: url('/efb/v1/assets/fonts/OpenMoji-color-glyf_colr_0.ttf') format('truetype'); }
+.ga-efb-emoji-sequence { font-family: 'GA EFB Emoji'; font-weight: normal; font-style: normal; }

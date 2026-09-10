@@ -2,13 +2,26 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./tracker-efb-fonts');
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '39901';
+const EFB_WEB_ASSET_REVISION = '40001';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
+  '/efb/v1/assets/emoji-text.js': [path.join(__dirname, 'tracker-efb-emoji-text.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/fonts.css': [path.join(__dirname, 'efb-fonts', 'fonts.css'), 'text/css; charset=utf-8'],
+  '/efb/v1/assets/fonts/DSEG7Classic-Bold.ttf': [path.join(__dirname, 'efb-fonts', 'DSEG7Classic-Bold.ttf'), 'font/ttf'],
+  '/efb/v1/assets/fonts/Caveat-SemiBold.ttf': [path.join(__dirname, 'efb-fonts', 'Caveat-SemiBold.ttf'), 'font/ttf'],
+  '/efb/v1/assets/fonts/OleoScript-Regular.ttf': [path.join(__dirname, 'efb-fonts', 'OleoScript-Regular.ttf'), 'font/ttf'],
+  '/efb/v1/assets/fonts/OleoScript-Bold.ttf': [path.join(__dirname, 'efb-fonts', 'OleoScript-Bold.ttf'), 'font/ttf'],
+  '/efb/v1/assets/fonts/ShareTechMono-Regular.ttf': [path.join(__dirname, 'efb-fonts', 'ShareTechMono-Regular.ttf'), 'font/ttf'],
+  '/efb/v1/assets/fonts/NotoSans-Regular.ttf': [path.join(__dirname, 'efb-fonts', 'NotoSans-Regular.ttf'), 'font/ttf'],
+  '/efb/v1/assets/fonts/NotoSansMono-Regular.ttf': [path.join(__dirname, 'efb-fonts', 'NotoSansMono-Regular.ttf'), 'font/ttf'],
+  '/efb/v1/assets/fonts/NotoSansSymbols2-Regular.ttf': [path.join(__dirname, 'efb-fonts', 'NotoSansSymbols2-Regular.ttf'), 'font/ttf'],
+  '/efb/v1/assets/fonts/NotoSansMath-Regular.ttf': [path.join(__dirname, 'efb-fonts', 'NotoSansMath-Regular.ttf'), 'font/ttf'],
+  '/efb/v1/assets/fonts/OpenMoji-color-glyf_colr_0.ttf': [path.join(__dirname, 'efb-fonts', 'OpenMoji-color-glyf_colr_0.ttf'), 'font/ttf'],
   '/efb/v1/assets/map-profile-controls.js': [path.join(__dirname, 'efb-web-assets', 'map-profile-controls.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-prediction.js': [path.join(__dirname, 'efb-web-assets', 'map-prediction.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/navigation-warning-core.js': [path.join(__dirname, 'efb-web-assets', 'navigation-warning-core.js'), 'text/javascript; charset=utf-8'],
@@ -70,7 +83,14 @@ const E6B_ASSETS = Object.freeze({
 });
 
 function readCachedFile(filename) {
-  if (!fileCache.has(filename)) fileCache.set(filename, fs.readFileSync(filename));
+  if (!fileCache.has(filename)) {
+    let body = fs.readFileSync(filename);
+    if (filename.endsWith('tracker-efb-emoji-text.js')) body = Buffer.from(clientFontSource() + body.toString('utf8'));
+    if (filename.endsWith('.css')) body = Buffer.from(fontDeclarations(body.toString('utf8')));
+    if (filename.endsWith('.html')) body = Buffer.from(htmlFontDeclarations(body.toString('utf8'))
+      .replace('</head>', '<link rel="stylesheet" href="/efb/v1/assets/fonts.css?v=' + EFB_WEB_ASSET_REVISION + '"><script defer src="/efb/v1/assets/emoji-text.js?v=' + EFB_WEB_ASSET_REVISION + '"></script></head>'));
+    fileCache.set(filename, body);
+  }
   return fileCache.get(filename);
 }
 
@@ -96,6 +116,7 @@ function createTrackerEfbWebClientPage() {
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>VFR Multitool Kartentisch</title>
   <script>${getInlineBootstrapSource()}</script>
+  <link rel="stylesheet" href="/efb/v1/assets/fonts.css?v=${EFB_WEB_ASSET_REVISION}">
   <link rel="stylesheet" href="/efb/v1/assets/leaflet.css" onload="__gaEfbReport('info','style-loaded','leaflet.css')" onerror="__gaEfbReport('error','style-error','leaflet.css')">
   <link rel="stylesheet" href="/efb/v1/assets/app-styles.css?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbReport('info','style-loaded','app-styles.css')" onerror="__gaEfbReport('error','style-error','app-styles.css')">
   <link rel="stylesheet" href="/efb/v1/assets/host.css?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbReport('info','style-loaded','host.css')" onerror="__gaEfbReport('error','style-error','host.css')">
@@ -103,6 +124,7 @@ function createTrackerEfbWebClientPage() {
 <body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="9">
 <div id="gaEfbBootStatus" class="ga-efb-boot-status">Kartentisch-Skripte werden geladen</div>
 ${extractKartentischMarkup()}
+<script src="/efb/v1/assets/emoji-text.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/leaflet.js" onload="__gaEfbScriptLoaded('leaflet.js')" onerror="__gaEfbScriptError('leaflet.js')"></script>
 <script src="/efb/v1/assets/map-shell-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('map-shell-core.js')" onerror="__gaEfbScriptError('map-shell-core.js')"></script>
 <script src="/efb/v1/assets/map-utility-tools.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('map-utility-tools.js')" onerror="__gaEfbScriptError('map-utility-tools.js')"></script>

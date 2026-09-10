@@ -81,15 +81,13 @@ function toggleVpSettingsMenu() {
         }
         _openFloatingMenuInViewport(menu, btn, true);
         _setMapFloatingMenuButtonOpen('btnVpSettings', true);
-        setTimeout(() => {
-            document.addEventListener('click', _closeVpSettingsOnOutside, { once: true, capture: true });
-        }, 0);
+
     }
 
 function _closeVpSettingsOnOutside(e) {
         const menu = document.getElementById('vpSettingsMenu');
         const btn  = document.getElementById('btnVpSettings');
-        if (menu && !menu.contains(e.target) && btn && !btn.contains(e.target)) {
+        if (menu && menu.style.display === 'block' && !menu.contains(e.target) && btn && !btn.contains(e.target)) {
             menu.style.display = 'none';
             _setMapFloatingMenuButtonOpen('btnVpSettings', false);
             const planeMenu = document.getElementById('vpPlaneIconMenu');
@@ -195,3 +193,63 @@ window.activateFastRender = function() {
         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
     }, 350);
 };
+
+// Shared Audio menu and resize cleanup, formerly inline in index.html.
+    function _closeFloatingMenus() {
+        const ids = ['vpSettingsMenu', 'mapVoiceMenu', 'mapHintsMenu'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        _setMapFloatingMenuButtonOpen('btnVpSettings', false);
+        _setMapFloatingMenuButtonOpen('mapVoiceBtn', false);
+        _setMapFloatingMenuButtonOpen('mapHintsBtn', false);
+        const planeMenu = document.getElementById('vpPlaneIconMenu');
+        if (planeMenu) planeMenu.style.display = 'none';
+        const planeBtn = document.getElementById('btnTogglePlaneIconMenu');
+        if (planeBtn) planeBtn.classList.remove('active');
+        const vfrMenu = document.getElementById('vfrIndexMenuBlock');
+        if (vfrMenu) vfrMenu.style.display = 'none';
+        const vfrBtn = document.getElementById('btnToggleVfrIndexMenu');
+        if (vfrBtn) vfrBtn.classList.remove('active');
+        const terrMenu = document.getElementById('terrainAvoidMenuBlock');
+        if (terrMenu) terrMenu.style.display = 'none';
+        const terrBtn = document.getElementById('btnToggleTerrainAvoidMenu');
+        if (terrBtn) terrBtn.classList.remove('active');
+    }
+
+
+    window.gaSetMapFloatingMenuButtonOpen = _setMapFloatingMenuButtonOpen;
+
+    // ── Zahnrad-Untermenü Höhenprofil ──────────────────────────────────────────
+
+
+    function toggleMapVoiceMenu() {
+        const menu = document.getElementById('mapVoiceMenu');
+        const btn  = document.getElementById('mapVoiceBtn');
+        if (!menu || !btn) return;
+        const open = menu.style.display === 'block';
+        if (open) {
+            menu.style.display = 'none';
+            _setMapFloatingMenuButtonOpen('mapVoiceBtn', false);
+            return;
+        }
+        _openFloatingMenuInViewport(menu, btn, false);
+        _setMapFloatingMenuButtonOpen('mapVoiceBtn', true);
+        if (typeof window.awmSyncPlaybackDeviceControls === 'function') window.awmSyncPlaybackDeviceControls();
+    }
+    function _closeMapVoiceOnOutside(e) {
+        const menu = document.getElementById('mapVoiceMenu');
+        const btn  = document.getElementById('mapVoiceBtn');
+        if (menu && menu.style.display === 'block' && !menu.contains(e.target) && btn && !btn.contains(e.target)) {
+            menu.style.display = 'none';
+            _setMapFloatingMenuButtonOpen('mapVoiceBtn', false);
+        }
+    }
+    window.addEventListener('resize', _closeFloatingMenus);
+    window.addEventListener('orientationchange', _closeFloatingMenus);
+
+
+// Keep outside dismissal after interactions inside either menu.
+document.addEventListener('click', _closeVpSettingsOnOutside, true);
+document.addEventListener('click', _closeMapVoiceOnOutside, true);
