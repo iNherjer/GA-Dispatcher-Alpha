@@ -4827,3 +4827,9 @@ Frequenzen, Platzdetails, AIP-Weitergabe, Toolbar-Handle und Layer-Außenklick.
 Schriften laden im Test ausschließlich lokal; MSFS/Coherent bleibt separat
 im Feld zu prüfen. Releaseziel: Tracker v400, EFB-Assetrevision 40001,
 Web-Cache v1737. Desktop 1.6.10 und das Community-Package bleiben verwendbar.
+
+Rollout: Quellstand 115887ded als Origin-Release v400 veröffentlicht und
+Release-Asset über Größe/SHA-256 verifiziert (58.321.367 Bytes,
+287129c312ac6d6f62731b6b763dc88d7d1a05ee932e7efb3d6f8221d896b79b).
+Alpha-Kanal zeigt auf dieses unveränderte Artefakt; Stable bleibt v356.
+Der abschließende Kanal-Push erhöht den Web-Cache auf v1738.
