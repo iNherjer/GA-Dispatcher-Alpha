@@ -4833,3 +4833,26 @@ Release-Asset über Größe/SHA-256 verifiziert (58.321.367 Bytes,
 287129c312ac6d6f62731b6b763dc88d7d1a05ee932e7efb3d6f8221d896b79b).
 Alpha-Kanal zeigt auf dieses unveränderte Artefakt; Stable bleibt v356.
 Der abschließende Kanal-Push erhöht den Web-Cache auf v1738.
+
+
+### Alpha v401: Nachbesserung nach dem Symbol-/Seitenmenü-Feldtest vom 10.09.2026
+
+- v400-Feldtest zeigt weiterhin fehlende Glyphen. Farbfont-Unterstützung neuerer
+  Coherent-Produkte darf nicht für MSFS vorausgesetzt werden. EFB-Symbole werden
+  daher aus den bereits lizenzierten Fonts als lokale SVG-Pfadgrafiken exportiert;
+  HTML-Text bleibt erhalten. Gemeinsames Profil nutzt in der EFB-Kompilierung
+  dieselben Grafiken für Canvas-Icons, auch in gemischten Labels.
+- Shared-Drawer behält die App-Breiten 86vw/max.390px bzw.94vw/max.420px. Der EFB
+  berechnet das bisherige CSS-min-Ergebnis in Pixeln (inkl. Scrollbarbreite), ohne
+  die gemeinsamen Quelldateien oder Menünavigation zu verändern. Warnungs-/Radio-
+  Zeilen erhalten die gleichen Spaltenmaße per Flex; E6B-Flip behält die App-Größe.
+- `font-ui-probe` protokolliert Assetstand, geladene Symbolgrafiken, Theme,
+  Drawerbreite und Font-API/CSS-min-Unterstützung. Keine Telemetrie-Scans.
+- Nachweis lokal: getrennte Browser-Session blockiert zusätzliche Fonts; Icons
+  und Text bleiben erhalten. Breitenvergleich gegen die unveränderte CSS-Regel
+  bei 440/590/894px, gemeinsame Menü-/Sidebar-Interaktionen und Canvas-Labels.
+  Dies ersetzt **keinen** MSFS-Test. SVG-Text/native Select-Optionen bleiben auf
+  Fontdarstellung angewiesen; kein vollständiger Glyphenersatz für diese Flächen.
+
+Tracker v401 enthält Assetrevision 40101. Das bestehende EFB-Community-Paket
+und der Desktop-Installer 1.6.10 können diesen Host unverändert laden.

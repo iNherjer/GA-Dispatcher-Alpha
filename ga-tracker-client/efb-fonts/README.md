@@ -22,20 +22,32 @@ Dateien sind unveränderte Downloads. Die EFB-Auslieferung entfernt die
 Google-Fonts-Imports des gemeinsamen Stylesheets und ersetzt ausschließlich
 die entfernte DSEG-WOFF2-Quelle durch dieselbe Version als lokale TTF.
 
-Coherent dokumentiert TTF-/OTF-Laden und Font-Fallback pro Zeichen:
-https://docs.coherent-labs.com/cpp-gameface/content_development/fonts_frontend/
-Für farbige Emojis wird COLRv0 benötigt:
-https://blog.coherent-labs.com/blog/news/emoji-support/
+Coherent GT dokumentiert TTF-/OTF-Laden:
+https://coherent-labs.com/Documentation/cpp-gt/dd/d09/font_usage.html
+Die Emoji-Dokumentation neuerer Gameface-Versionen ist **kein** Nachweis für die
+im MSFS verwendete Engine. Im Feldtest mit v400 blieben Zeichen trotz lokaler
+COLRv0-Schrift unsichtbar.
 
-`tracker-efb-fonts.js` ergänzt ausschließlich die EFB-Darstellung um diese
-Fallbacks. Vorhandene namentliche App-/Instrumentenschriften bleiben vorn.
-Generische Monospace-Stapel erhalten eine lokale Monospace-Alternative.
-Leerzeichen und normaler Text kommen aus Textfonts, nicht aus der Emoji-Schrift.
-Zusammengesetzte ZWJ-Emojis erhalten eine gemeinsame Font-Zuweisung; ihre
-Textinhalte bleiben unverändert. Für die Canvas-Labels wird derselbe Fallback
-beim Kompilieren der gemeinsamen `profile.js` ergänzt. Dynamische Inline-
-und SVG-Schriftstapel werden auf hinzugefügten DOM-Teilbäumen ergänzt, auch im
-eigenen E6B-iframe. Es gibt keinen DOM-Gesamtscan pro Telemetrieupdate.
+Deshalb enthält `symbols.json` SVG-Pfadgrafiken der bestehenden Glyphen.
+OpenMoji-Grafiken sind abgeleitete Werke unter CC BY-SA 4.0; Attribution siehe
+oben und `OpenMoji-LICENSE.txt`. Änderungen: Export der COLR-Farblagen als
+SVG-Pfade, Anpassung der ViewBox für Icon-Boxen. Noto-Symbole sind Kontur-Exporte
+aus den oben genannten OFL-Schriften. Es werden keine Schriftdateien geändert.
+Reproduzierbarer Build (nur Entwickler, Python mit FontTools 4.60.2):
+
+```sh
+python3 tools/build-efb-symbols.py
+```
+
+Der EFB-Adapter ersetzt Textsymbole in neu hinzugefügten HTML-Teilbäumen durch
+lokale Bilder und bewahrt den Originaltext im DOM. Zusammengesetzte Emojis
+werden als eine Grafik dargestellt. Der gemeinsame Profil-Renderer bleibt die
+Quelle; nur seine EFB-Kompilierung zeichnet Icons per `drawImage`, einschließlich
+gemischter Icon-/Text-Labels. Canvas-Schriftzuweisungen behalten die erste
+App-Schriftfamilie, weil dort kein Font-Fallback-Stapel vorausgesetzt werden darf.
+Nach dem Laden der Bilder wird das Profil erneut gezeichnet. Inline-/SVG-Text
+nutzt weiterhin lokale Font-Fallbacks; SVG-Text und native Select-Optionen werden
+nicht durch HTML-Bilder ersetzt.
 
 Keine Netzwerk-Abhängigkeit zur Laufzeit, keine Veränderung an Missions- oder
 Warnungslogik. Die tatsächliche MSFS-/Coherent-Darstellung bleibt Teil des

@@ -26,6 +26,7 @@
     "assets": [
       "efb-fonts/*",
       "tracker-efb-emoji-text.js",
+      "tracker-efb-symbols.js",
       "efb-web-assets/kartentisch-fragment.html",
       "efb-web-assets/styles.css",
       "efb-web-assets/profile.js",

@@ -54,12 +54,12 @@ test('CSS and inline HTML retain declarations, quotes, accents and face registra
   assert.match(html, />ÄÖÜ äöü ß − 📻<\/span>$/);
 });
 
-test('dynamic canvas fonts get fallbacks without changing text or sizes', () => {
+test('canvas uses one font family and routes icons through the image renderer', () => {
   const source = 'ctx.font = size + "px Arial"; ctx.fillText("🏔️", 1, 2);';
   const code = require('@babel/core').transformSync(source, {configFile:false,babelrc:false,plugins:[canvasFontPlugin]}).code;
   const calls = [], ctx = {fillText(...args){calls.push(args)}};
-  new Function('ctx','size',code)(ctx,15);
-  assert.match(ctx.font, /^15px Arial, "GA EFB Text"/);
+  new Function('ctx','size','gaEfbCanvasFillText',code)(ctx,15,(target,...args)=>target.fillText(...args));
+  assert.equal(ctx.font, '15px Arial');
   assert.deepEqual(calls,[['🏔️',1,2]]);
 });
 
@@ -78,7 +78,7 @@ test('fonts are locally routable, COLRv0 is packaged, and styles load before the
         const p=12+i*16;
         if(asset.body.toString('ascii',p,p+4)==='COLR') {found=true;assert.equal(asset.body.readUInt16BE(asset.body.readUInt32BE(p+8)),0);}
       }
-      assert.ok(found,'COLRv0 required by Coherent; no CBDT/COLRv1 substitution');
+      assert.ok(found,'Retain the licensed COLRv0 source used by the SVG exporter');
     }
   }
   assert.equal(getTrackerEfbWebClientAsset('/efb/v1/assets/fonts/../../tracker.js'),null);
@@ -103,4 +103,19 @@ test('bundled fallback glyphs cover reported UI symbols and German characters', 
   const fonts=['NotoSans-Regular.ttf','NotoSansSymbols2-Regular.ttf','NotoSansMath-Regular.ttf','OpenMoji-color-glyf_colr_0.ttf'].map(name=>getTrackerEfbWebClientAsset('/efb/v1/assets/fonts/'+name).body);
   const missing=Array.from('ÄÖÜäöüß−×→↻°±📻🔊🏔🛡📍🧑✈🔔⚙').filter(ch=>!fonts.some(font=>hasGlyph(font,ch.codePointAt(0))));
   assert.deepEqual(missing,[]);
+});
+
+test('symbol artwork covers controls and atomic pilot sequences without empty matches', () => {
+  const artwork=require('./efb-fonts/symbols.json');
+  assert.ok(!Object.hasOwn(artwork,''));
+  for(const symbol of ['🧑‍✈','📻','🔊','🔎','⚙','−','×','↻','°','🏔']) {
+    assert.match(artwork[symbol],/^<svg /,symbol);
+    assert.match(artwork[symbol],/<path /,symbol);
+    assert.doesNotMatch(artwork[symbol],/<text|https?:\/\/(?!www.w3.org)/,symbol);
+  }
+  const page=createTrackerEfbWebClientPage();
+  assert.ok(page.indexOf('/assets/symbols.js')<page.indexOf('/assets/emoji-text.js'));
+  const script=getTrackerEfbWebClientAsset('/efb/v1/assets/symbols.js').body.toString();
+  assert.match(script,/var gaEfbSymbolArtwork = /);
+  assert.ok(require('./package.json').pkg.assets.includes('tracker-efb-symbols.js'));
 });

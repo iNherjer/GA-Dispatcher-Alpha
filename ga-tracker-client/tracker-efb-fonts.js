@@ -43,14 +43,23 @@ function clientFontSource() {
 
 function canvasFontPlugin({ types: t, template }) {
   return { visitor: { Program(p) {
-    const helper = fontFallback.toString().replace('function fontFallback', 'function gaEfbProfileFont')
-      .replace(/\bFALLBACK\b/g, JSON.stringify(FALLBACK));
+    const helper = `function gaEfbProfileFont(value) {
+      // Coherent canvas accepts one family. Retain the App face instead of a
+      // comma-separated fallback list (symbols are drawn separately).
+      return value.replace(/(\\d+(?:\\.\\d+)?px)\\s+(.+)$/, function(_, size, family) {
+        return size + ' ' + family.split(',')[0];
+      });
+    }`;
     p.unshiftContainer('body', template.statement.ast(helper));
+  }, CallExpression(p) {
+    const c=p.node.callee;
+    if (!t.isMemberExpression(c) || c.computed || !t.isIdentifier(c.property,{name:'fillText'})) return;
+    p.replaceWith(t.callExpression(t.identifier('gaEfbCanvasFillText'), [c.object, ...p.node.arguments]));
   }, AssignmentExpression(p) {
     const left = p.node.left;
     if (p.node.operator !== '=' || !t.isMemberExpression(left) || left.computed || !t.isIdentifier(left.property, {name:'font'})) return;
     // Shared profile code uses canvas .font assignments. The browser source is
-    // unchanged; only its Coherent build gains the missing glyph families.
+    // unchanged; its Coherent build retains a single supported font family.
     p.node.right = t.callExpression(t.identifier('gaEfbProfileFont'), [p.node.right]);
   } } };
 }

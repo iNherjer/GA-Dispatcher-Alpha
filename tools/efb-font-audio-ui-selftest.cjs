@@ -46,11 +46,11 @@ app.whenReady().then(async()=>{
  await win.webContents.executeJavaScript("document.getElementById('dynamicFontTest').remove()");
  console.log('CHECK emoji sequences');
  const sequences=await win.webContents.executeJavaScript(`(function(){
-   var icon=document.querySelector('#awmPaxVoiceCheck').parentNode.querySelector('.ga-efb-emoji-sequence');
+   var icon=document.querySelector('#awmPaxVoiceCheck').parentNode.querySelector('.ga-efb-symbol');
    var sample=document.getElementById('fontSample');
-   return {text:icon.textContent,font:getComputedStyle(icon).fontFamily,sample:sample.querySelectorAll('.ga-efb-emoji-sequence').length,nested:document.querySelectorAll('.ga-efb-emoji-sequence .ga-efb-emoji-sequence').length};
+   return {text:icon.textContent,loaded:icon.querySelector('img').complete && icon.querySelector('img').naturalWidth>0,sample:sample.querySelectorAll('.ga-efb-symbol').length,nested:document.querySelectorAll('.ga-efb-symbol .ga-efb-symbol').length};
  })()`);
- assert.equal(sequences.text,'🧑‍✈️');assert.ok(sequences.font.startsWith('"GA EFB Emoji"'));assert.equal(sequences.sample,1);assert.equal(sequences.nested,0);
+ assert.equal(sequences.text,'🧑‍✈️');assert.ok(sequences.loaded);assert.ok(sequences.sample>=14);assert.equal(sequences.nested,0);
  await new Promise(r=>setTimeout(r,150));fs.writeFileSync(path.join(output,'audio-784.png'),(await win.webContents.capturePage()).toPNG());
  win.setSize(440,894);await new Promise(r=>setTimeout(r,100));
  await win.webContents.executeJavaScript('_closeFloatingMenus();toggleMapVoiceMenu()');
@@ -77,6 +77,39 @@ app.whenReady().then(async()=>{
   })()`));
  }
  assert.deepEqual(menuResults[0],menuResults[1]);
+ // Isolated browser session: icons must survive blocked font requests.
+ const noFonts=new BrowserWindow({width:590,height:900,show:false,webPreferences:{partition:'efb-no-fonts-'+Date.now(),contextIsolation:true,nodeIntegration:false}});
+ noFonts.webContents.session.webRequest.onBeforeRequest((d,cb)=>cb({cancel:d.url.includes('/fonts/')||(!d.url.startsWith(base)&&!d.url.startsWith('data:'))}));
+ await noFonts.loadURL(base);await new Promise(r=>setTimeout(r,400));
+ const symbols=await noFonts.webContents.executeJavaScript(`(async function(){
+  await document.fonts.load('16px "GA EFB Emoji"').catch(function(){});
+  gaChecklistOpen('home');
+  var original='Ärztliche Übergabe 🧑‍✈️ 📻 − →';
+  var box=document.createElement('div');box.id='noFontSymbols';box.textContent=original;document.body.appendChild(box);
+  await new Promise(r=>setTimeout(r,100));
+  var imgs=Array.from(box.querySelectorAll('img'));
+  var calls=[],ctx={font:'18px Arial',fillStyle:'#ff0000',textAlign:'center',textBaseline:'alphabetic',
+    save(){calls.push('save')},restore(){calls.push('restore')},translate(){},scale(){},measureText(t){return {width:t.length*8}},
+    drawImage(i){calls.push('image:'+i.naturalWidth)},fillText(t){calls.push('text:'+t)}};
+  gaEfbCanvasFillText(ctx,'📻 EDTO',100,100);
+  return {text:box.textContent,original,count:imgs.length,loaded:imgs.every(i=>i.complete&&i.naturalWidth>0),
+    fontLoaded:Array.from(document.fonts).some(f=>f.family.includes('GA EFB Emoji')&&f.status==='loaded'),calls};
+ })()`);
+ assert.equal(symbols.text,symbols.original);assert.equal(symbols.count,4);assert.ok(symbols.loaded);assert.equal(symbols.fontLoaded,false);
+ assert.ok(symbols.calls.some(x=>x.startsWith('image:')));assert.ok(symbols.calls.includes('text: EDTO'));assert.equal(symbols.calls.at(-1),'restore');
+ for(const size of [[590,900],[440,894],[894,440]]){
+  noFonts.setSize(...size);await new Promise(r=>setTimeout(r,100));
+  const drawer=await noFonts.webContents.executeJavaScript(`(function(){
+   gaChecklistOpen('home');var node=document.getElementById('mapSideDrawer'),panel=node.querySelector('.map-side-drawer-panel');
+   var actual=panel.getBoundingClientRect().width;
+   node.style.removeProperty('--checklist-panel-width');var standalone=panel.getBoundingClientRect().width;
+   gaEfbRefreshDrawerLayout();return {actual,standalone,scroll:document.getElementById('checklistDrawerBody').scrollWidth,width:document.getElementById('checklistDrawerBody').clientWidth};
+  })()`);
+  assert.equal(drawer.actual,drawer.standalone,JSON.stringify({size,drawer}));assert.ok(drawer.scroll<=drawer.width+1);
+ }
+ noFonts.setSize(590,900);await new Promise(r=>setTimeout(r,200));
+ fs.writeFileSync(path.join(output,'sidebar-no-fonts.png'),(await noFonts.webContents.capturePage()).toPNG());
+ noFonts.destroy();
  // The E6B owns an iframe/document; test real, asynchronously inserted disc text.
  await win.loadURL(base+'/efb/v1/e6b/e6b-flight-computer.html?embedded=1&coherent=1');
  await new Promise(r=>setTimeout(r,1200));

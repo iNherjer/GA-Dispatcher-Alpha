@@ -23,11 +23,9 @@ function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function gaEfbProfileFont(value) {
-  if (!value || value.includes('GA EFB Emoji') || /^(inherit|initial|unset|normal)$/i.test(value.trim())) return value;
-  var important = /\s*!important\s*$/.test(value) ? ' !important' : '';
-  var family = value.replace(/\s*!important\s*$/, '').trim();
-  var fallback = /\bmonospace$/.test(family) ? "\"GA EFB Text\", \"GA EFB Emoji\", \"GA EFB Symbols\", \"GA EFB Math\"".replace('GA EFB Text', 'GA EFB Mono') : "\"GA EFB Text\", \"GA EFB Emoji\", \"GA EFB Symbols\", \"GA EFB Math\"";
-  return family.replace(/(^|,\s*|\s+)(sans-serif|serif|monospace|cursive|fantasy)\s*$/, '$1' + fallback + ', $2') + (/\b(sans-serif|serif|monospace|cursive|fantasy)$/.test(family) ? '' : ', ' + fallback) + important;
+  return value.replace(/(\d+(?:\.\d+)?px)\s+(.+)$/, function (_, size, family) {
+    return size + ' ' + family.split(',')[0];
+  });
 }
 /* === VERTICAL PROFILE & CANVAS ENGINE (v220) === */
 // Both clients run this engine. The EFB supplies only local data transport;
@@ -8360,7 +8358,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
           ctx.fillStyle = '#3498db';
           ctx.font = gaEfbProfileFont('bold 8px Arial');
           ctx.textAlign = 'center';
-          ctx.fillText(_feat.name, _px3, _labelY + 8);
+          gaEfbCanvasFillText(ctx, _feat.name, _px3, _labelY + 8);
         }
       } else if (_feat.type === 'highway') {
         if (VP_PROFILE_LINEAR_ICON_STYLE === 'r2f1') {
@@ -8401,7 +8399,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
           ctx.fillStyle = '#fff';
           ctx.font = gaEfbProfileFont('bold 7px Arial');
           ctx.textAlign = 'center';
-          ctx.fillText(_feat.name, _px3, _labelY2 + 8);
+          gaEfbCanvasFillText(ctx, _feat.name, _px3, _labelY2 + 8);
         }
       } else if (_feat.type === 'powerline') {
         var lineKind = String(_feat.lineKind || '').toLowerCase();
@@ -8465,14 +8463,14 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
           ctx.fillStyle = '#fff';
           ctx.font = gaEfbProfileFont('bold 7px Arial');
           ctx.textAlign = 'center';
-          ctx.fillText(_feat.name, _px3, _labelY3 + 8);
+          gaEfbCanvasFillText(ctx, _feat.name, _px3, _labelY3 + 8);
         }
       }
       if (Number(_feat.count || 1) > 1) {
         ctx.fillStyle = 'rgba(236, 239, 244, 0.95)';
         ctx.font = gaEfbProfileFont('bold 8px Arial');
         ctx.textAlign = 'center';
-        ctx.fillText('×' + String(_feat.count), _px3, _py3 + 12);
+        gaEfbCanvasFillText(ctx, '×' + String(_feat.count), _px3, _py3 + 12);
       }
     }
   }
@@ -8647,11 +8645,11 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
       if (_px6 < viewMinX || _px6 > viewMaxX) continue;
       ctx.font = gaEfbProfileFont(_lm._render.iconFontSize + 'px Arial');
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(_lm._render.icon, _px6, py - _lm._render.iconOffsetY);
+      gaEfbCanvasFillText(ctx, _lm._render.icon, _px6, py - _lm._render.iconOffsetY);
       if (!window.vpIsFastRendering) {
         ctx.font = gaEfbProfileFont(`bold ${_lm._render.fontSize}px Arial`);
         ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
-        ctx.fillText(_lm.name, _px6, py + 10);
+        gaEfbCanvasFillText(ctx, _lm.name, _px6, py + 10);
       }
     }
   } catch (err) {
@@ -8923,7 +8921,7 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
       }
     }
     if (!collision) {
-      ctx.fillText('×' + cl.count, px, pyBase + 2);
+      gaEfbCanvasFillText(ctx, '×' + cl.count, px, pyBase + 2);
     }
   }
   ctx.restore();
@@ -9053,7 +9051,7 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
         ctx.fillStyle = isDarkTheme ? '#ccc' : '#222';
         ctx.font = gaEfbProfileFont('bold 8px Arial');
         ctx.textAlign = 'center';
-        ctx.fillText(c.type, midX, baseY + 12);
+        gaEfbCanvasFillText(ctx, c.type, midX, baseY + 12);
       });
     }
   };
@@ -9082,7 +9080,7 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
         ctx.font = gaEfbProfileFont('bold 9px Arial');
         ctx.textAlign = 'left';
         var distText = zone.stnDist !== undefined ? ` (${zone.stnDist} NM)` : '';
-        ctx.fillText('📡 ' + zone.icao + distText, bx + 4, yOf(16000));
+        gaEfbCanvasFillText(ctx, '📡 ' + zone.icao + distText, bx + 4, yOf(16000));
       }
       lastIcao = zone.icao;
     }
@@ -9223,7 +9221,7 @@ function vpDrawCloudsPro(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, e
         ctx.fillStyle = isDarkTheme ? 'rgba(205,215,230,0.82)' : 'rgba(35,42,52,0.78)';
         ctx.font = gaEfbProfileFont('bold 8px Arial');
         ctx.textAlign = 'center';
-        ctx.fillText(`${c.type} FL${baseFL}-${topFL}`, midX, Math.min(layerBottom + 12, padTop + plotH + 10));
+        gaEfbCanvasFillText(ctx, `${c.type} FL${baseFL}-${topFL}`, midX, Math.min(layerBottom + 12, padTop + plotH + 10));
       }
     }
   }
@@ -9756,7 +9754,7 @@ function vpDrawIsobars(ctx, xOf, yOf, padTop, plotH, viewMinX, viewMaxX, rightX)
         usedLabelYs.push(ly);
         ctx.fillStyle = 'rgba(180,205,235,0.82)';
         var label = !hasOpenMeteoProfiles && level === 1000 ? 'QNH' : `${level} hPa`;
-        ctx.fillText(label, rightX, ly);
+        gaEfbCanvasFillText(ctx, label, rightX, ly);
       },
       _ret;
     for (_iterator50.s(); !(_step50 = _iterator50.n()).done;) {
@@ -9829,7 +9827,7 @@ function vpDrawWindComponentsOnIsobars(ctx, xOf, yOf, elevData, viewMinX, viewMa
         ctx.strokeStyle = 'rgba(0,0,0,0.62)';
         ctx.strokeText(txt, tx, ty);
         ctx.fillStyle = isTail ? 'rgba(136,255,184,0.96)' : 'rgba(255,172,160,0.96)';
-        ctx.fillText(txt, tx, ty);
+        gaEfbCanvasFillText(ctx, txt, tx, ty);
         lastLabelX = pt.x;
       }
     };
@@ -10216,9 +10214,9 @@ function renderVerticalProfile(canvasId) {
           });
           ctx.fillStyle = vpHexToRgba(style.color, 0.7);
           ctx.textAlign = 'center';
-          ctx.fillText(displayName, (x1 + x2) / 2, labelY + 10);
+          gaEfbCanvasFillText(ctx, displayName, (x1 + x2) / 2, labelY + 10);
           ctx.font = gaEfbProfileFont('7px Arial');
-          ctx.fillText(formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 19);
+          gaEfbCanvasFillText(ctx, formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 19);
         }
       };
       for (_iterator55.s(); !(_step55 = _iterator55.n()).done;) {
@@ -10299,7 +10297,7 @@ function renderVerticalProfile(canvasId) {
     ctx.fillStyle = '#333';
     ctx.font = gaEfbProfileFont('bold 9px Arial');
     ctx.textAlign = 'center';
-    ctx.fillText('TOC', xOf(fpResult.tocDistNM), yOf(cruiseAlt) - 7);
+    gaEfbCanvasFillText(ctx, 'TOC', xOf(fpResult.tocDistNM), yOf(cruiseAlt) - 7);
 
     // TOD
     ctx.beginPath();
@@ -10307,7 +10305,7 @@ function renderVerticalProfile(canvasId) {
     ctx.fillStyle = '#d93829';
     ctx.fill();
     ctx.fillStyle = '#333';
-    ctx.fillText('TOD', xOf(fpResult.todDistNM), yOf(cruiseAlt) - 7);
+    gaEfbCanvasFillText(ctx, 'TOD', xOf(fpResult.todDistNM), yOf(cruiseAlt) - 7);
     ctx.textAlign = 'left';
   }
 
@@ -10336,7 +10334,7 @@ function renderVerticalProfile(canvasId) {
     ctx.fillStyle = '#333';
     ctx.font = gaEfbProfileFont('bold 8px Arial');
     ctx.textAlign = 'left';
-    ctx.fillText(wpLabel, 0, 0);
+    gaEfbCanvasFillText(ctx, wpLabel, 0, 0);
     ctx.restore();
     ctx.beginPath();
     ctx.arc(_x39, padTop + 3, 2.5, 0, Math.PI * 2);
@@ -10363,7 +10361,7 @@ function renderVerticalProfile(canvasId) {
     ctx.stroke();
     ctx.fillStyle = '#fff';
     ctx.font = gaEfbProfileFont('bold 10px Arial');
-    ctx.fillText(alt >= 1000 ? (alt / 1000).toFixed(alt % 1000 === 0 ? 0 : 1) + 'k' : alt + '', padLeft - 4, _y5 + 3);
+    gaEfbCanvasFillText(ctx, alt >= 1000 ? (alt / 1000).toFixed(alt % 1000 === 0 ? 0 : 1) + 'k' : alt + '', padLeft - 4, _y5 + 3);
   }
   ctx.save();
   ctx.translate(8, padTop + plotH / 2);
@@ -10371,7 +10369,7 @@ function renderVerticalProfile(canvasId) {
   ctx.fillStyle = '#888';
   ctx.font = gaEfbProfileFont('bold 8px Arial');
   ctx.textAlign = 'center';
-  ctx.fillText('ALT (ft)', 0, 0);
+  gaEfbCanvasFillText(ctx, 'ALT (ft)', 0, 0);
   ctx.restore();
 
   // X axis
@@ -10380,11 +10378,11 @@ function renderVerticalProfile(canvasId) {
   for (var d = 0; d <= totalDist; d += distStep) {
     ctx.fillStyle = '#888';
     ctx.font = gaEfbProfileFont('8px Arial');
-    ctx.fillText(d + '', xOf(d), padTop + plotH + 22);
+    gaEfbCanvasFillText(ctx, d + '', xOf(d), padTop + plotH + 22);
   }
   ctx.fillStyle = '#888';
   ctx.font = gaEfbProfileFont('bold 8px Arial');
-  ctx.fillText('NM', padLeft + plotW + 8, padTop + plotH + 22);
+  gaEfbCanvasFillText(ctx, 'NM', padLeft + plotW + 8, padTop + plotH + 22);
 
   // Border
   ctx.strokeStyle = '#bbb';
@@ -10395,7 +10393,7 @@ function renderVerticalProfile(canvasId) {
   ctx.fillStyle = 'rgba(217, 56, 41, 0.8)';
   ctx.font = gaEfbProfileFont('bold 9px Arial');
   ctx.textAlign = 'left';
-  ctx.fillText('CRZ ' + cruiseAlt + ' ft', padLeft + 4, yOf(cruiseAlt) - 4);
+  gaEfbCanvasFillText(ctx, 'CRZ ' + cruiseAlt + ' ft', padLeft + 4, yOf(cruiseAlt) - 4);
   ctx.beginPath();
   ctx.setLineDash([6, 4]);
   ctx.strokeStyle = 'rgba(217, 56, 41, 0.3)';
@@ -10410,9 +10408,9 @@ function renderVerticalProfile(canvasId) {
   ctx.fillStyle = '#333';
   ctx.font = gaEfbProfileFont('10px Arial');
   ctx.textAlign = 'center';
-  ctx.fillText('▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
+  gaEfbCanvasFillText(ctx, '▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
   ctx.font = gaEfbProfileFont('bold 8px Arial');
-  ctx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 12);
+  gaEfbCanvasFillText(ctx, peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 12);
 
   // Auto-update things that depend on the completed elevation data
   if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
@@ -10964,13 +10962,13 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
       fgCtx.fillStyle = relAltColor;
       fgCtx.font = gaEfbProfileFont('bold 8px monospace');
       fgCtx.textAlign = 'center';
-      fgCtx.fillText(relAltStr, 0, -11);
+      gaEfbCanvasFillText(fgCtx, relAltStr, 0, -11);
 
       // Callsign (wenn vorhanden)
       if (ac.callsign) {
         fgCtx.fillStyle = 'rgba(0, 200, 255, 0.75)';
         fgCtx.font = gaEfbProfileFont('7px monospace');
-        fgCtx.fillText(ac.callsign, 0, 14);
+        gaEfbCanvasFillText(fgCtx, ac.callsign, 0, 14);
       }
       fgCtx.restore();
     }
@@ -11174,10 +11172,10 @@ function renderMapProfileFrames(timeMs) {
               });
               targetCtx.fillStyle = vpHexToRgba(style.color, isHighlighted ? 0.9 : 0.6);
               targetCtx.textAlign = 'center';
-              targetCtx.fillText(displayName, (x1 + x2) / 2, labelY + 12);
+              gaEfbCanvasFillText(targetCtx, displayName, (x1 + x2) / 2, labelY + 12);
               if (zoomFactor >= 2 || isHighlighted) {
                 targetCtx.font = gaEfbProfileFont('9px Arial');
-                targetCtx.fillText(formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 23);
+                gaEfbCanvasFillText(targetCtx, formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 23);
               }
             }
           }
@@ -11283,7 +11281,7 @@ function renderMapProfileFrames(timeMs) {
       bgCtx.stroke();
       bgCtx.fillStyle = '#fff';
       bgCtx.font = gaEfbProfileFont('bold 10px Arial');
-      bgCtx.fillText(alt >= 1000 ? (alt / 1000).toFixed(0) + 'k' : alt + '', viewX + padLeft - 3, _y7 + 3);
+      gaEfbCanvasFillText(bgCtx, alt >= 1000 ? (alt / 1000).toFixed(0) + 'k' : alt + '', viewX + padLeft - 3, _y7 + 3);
     }
     if (!isHdgMode) {
       vpDrawIsobars(bgCtx, xOf, yOf, padTop, plotH, viewMinX, viewMaxX, viewX + baseWidth - 4);
@@ -11309,28 +11307,28 @@ function renderMapProfileFrames(timeMs) {
         var label = m < VP_HDG_LOOKBACK_MIN ? `-${Math.round(VP_HDG_LOOKBACK_MIN - m)}m` : m === VP_HDG_LOOKBACK_MIN ? 'NOW' : `+${Math.round(m - VP_HDG_LOOKBACK_MIN)}m`;
         bgCtx.fillStyle = m === VP_HDG_LOOKBACK_MIN ? '#64c8ff' : '#666';
         bgCtx.font = gaEfbProfileFont(m === VP_HDG_LOOKBACK_MIN ? 'bold 8px Arial' : '8px Arial');
-        bgCtx.fillText(label, _x41, containerHeight - 1);
+        gaEfbCanvasFillText(bgCtx, label, _x41, containerHeight - 1);
       }
       // Mode-Label oben links
       bgCtx.fillStyle = '#64c8ff';
       bgCtx.font = gaEfbProfileFont('bold 9px Arial');
       bgCtx.textAlign = 'left';
-      bgCtx.fillText(`HDG ${hdgHdgVal}°`, viewX + padLeft + 4, padTop + 10);
+      gaEfbCanvasFillText(bgCtx, `HDG ${hdgHdgVal}°`, viewX + padLeft + 4, padTop + 10);
     } else {
       var distStep = totalDist > 150 ? 25 : totalDist > 80 ? 10 : 5;
       for (var d = distStep; d < totalDist; d += distStep) {
         bgCtx.fillStyle = '#666';
         bgCtx.font = gaEfbProfileFont('8px Arial');
-        bgCtx.fillText(d + '', xOf(d), containerHeight - 1);
+        gaEfbCanvasFillText(bgCtx, d + '', xOf(d), containerHeight - 1);
       }
     }
     var peakPt = elevData.reduce((max, p) => p.elevFt > max.elevFt ? p : max);
     bgCtx.fillStyle = '#aaa';
     bgCtx.font = gaEfbProfileFont('11px Arial');
     bgCtx.textAlign = 'center';
-    bgCtx.fillText('▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
+    gaEfbCanvasFillText(bgCtx, '▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
     bgCtx.font = gaEfbProfileFont('bold 9px Arial');
-    bgCtx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 13);
+    gaEfbCanvasFillText(bgCtx, peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 13);
     bgCtx.strokeStyle = '#333';
     bgCtx.lineWidth = 1;
     bgCtx.strokeRect(padLeft, padTop, plotW, plotH);
@@ -11490,7 +11488,7 @@ function renderMapProfileFrames(timeMs) {
   fgCtx.fillStyle = 'rgba(255, 68, 68, 0.7)';
   fgCtx.font = gaEfbProfileFont('bold 10px Arial');
   fgCtx.textAlign = 'left';
-  fgCtx.fillText('CRZ ' + cruiseAlt + ' ft', Math.max(padLeft + 4, viewMinX + 4), yOf(cruiseAlt) - 4);
+  gaEfbCanvasFillText(fgCtx, 'CRZ ' + cruiseAlt + ' ft', Math.max(padLeft + 4, viewMinX + 4), yOf(cruiseAlt) - 4);
 
   // Im HDG-Modus: "JETZT"-Linie bei VP_HDG_LOOKBACK_MIN (Flugzeugposition)
   if (isHdgMode) {
@@ -11507,7 +11505,7 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.fillStyle = 'rgba(255,255,255,0.35)';
       fgCtx.font = gaEfbProfileFont('8px Arial');
       fgCtx.textAlign = 'center';
-      fgCtx.fillText('NOW', nowX, padTop + plotH + 12);
+      gaEfbCanvasFillText(fgCtx, 'NOW', nowX, padTop + plotH + 12);
     }
   }
 
@@ -11539,7 +11537,7 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.fillStyle = '#bbb';
       fgCtx.font = gaEfbProfileFont(zoomFactor >= 2 ? 'bold 11px Arial' : 'bold 9px Arial');
       fgCtx.textAlign = 'center';
-      fgCtx.fillText(wpLabel, _x45, padTop + plotH + 16);
+      gaEfbCanvasFillText(fgCtx, wpLabel, _x45, padTop + plotH + 16);
     }
   }
 
@@ -11679,13 +11677,13 @@ function renderMapProfileFrames(timeMs) {
           fgCtx.fillStyle = tc;
           fgCtx.font = gaEfbProfileFont('bold 9px Arial');
           fgCtx.textAlign = 'center';
-          fgCtx.fillText(_pt.min + 'm', _px8, _py5 - 8);
+          gaEfbCanvasFillText(fgCtx, _pt.min + 'm', _px8, _py5 - 8);
 
           // Höhe unten (nur wenn genug Platz)
           if (zoomFactor >= 1.5 || window.vpPredictionData.length <= 3) {
             fgCtx.fillStyle = 'rgba(255,255,255,0.6)';
             fgCtx.font = gaEfbProfileFont('8px Arial');
-            fgCtx.fillText(Math.round(_pt.altFt) + 'ft', _px8, _py5 + 14);
+            gaEfbCanvasFillText(fgCtx, Math.round(_pt.altFt) + 'ft', _px8, _py5 + 14);
           }
         }
       } catch (err) {
@@ -11726,7 +11724,7 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.fillStyle = '#ff00ff';
       fgCtx.font = gaEfbProfileFont('bold 9px Arial');
       fgCtx.textAlign = 'center';
-      fgCtx.fillText(wp.altFt + ' ft', wx, wy - 11);
+      gaEfbCanvasFillText(fgCtx, wp.altFt + ' ft', wx, wy - 11);
     }
   }
 
