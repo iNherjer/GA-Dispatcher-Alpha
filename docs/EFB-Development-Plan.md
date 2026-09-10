@@ -4743,3 +4743,16 @@ v399 bilden den Releasekandidaten. Desktop 1.6.10 enthält die gemeinsame
 Pax-Filterkette für die PC-Ausgabe; die Cloud-Audiospeicherung übernimmt das
 zusätzliche Klangfeld. Das EFB-Community-Paket bleibt unverändert. Die Prüfung
 auf dem echten Windows-/MSFS-System ist weiterhin der anschließende Feldtest.
+
+Rollout: Quellstand `d30b8df64` ist auf origin/main veröffentlicht. Die Releases
+`v399` und `tracker-desktop-v1.6.10` sind veröffentlicht; beide EXE-Downloads
+wurden vollständig heruntergeladen und gegen lokale Größe und SHA-256 geprüft.
+Der Alpha-Runtime-Zeiger wird auf v399 gesetzt; Stable bleibt unverändert.
+Der Desktop-Installer 1.6.10 steht zum manuellen Feldtest bereit. Der automatische
+Desktop-Update-Zeiger bleibt bis zum Windows-Installations-/Start-/Update-Test
+unverändert (Release-Workflow Abschnitt 3a).
+
+Die Cloud-Audiospeicherung mit `audioStyle` wurde als Worker-Version
+`27c2431f-bc08-4d7c-bf2c-e31b192b75fc` veröffentlicht. Das isolierte Ausgangsbundle
+war bytegleich zum bisherigen Live-Worker; fremde Admin-Änderungen aus dem
+Worktree sind nicht Teil dieses Deployments.
