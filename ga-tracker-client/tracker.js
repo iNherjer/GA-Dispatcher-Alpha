@@ -48,6 +48,7 @@ const {
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 const { createTrackerVoiceService } = require('./tracker-voice-service.js');
 const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core.js');
+const { createCockpitTools } = require('./tracker-cockpit-tools.js');
 const { createTrackerFlightLogStore } = require('./tracker-flight-log-store.js');
 const {
   GROUP_VEHICLE_TITLES,
@@ -83,8 +84,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v398';
-const TRACKER_VERSION_CODE = 398;
+const TRACKER_VERSION = 'v399';
+const TRACKER_VERSION_CODE = 399;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -111,7 +112,7 @@ const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   clientId: 'ga-tracker',
   id: `tracker-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: TRACKER_EXECUTION_CAPABILITIES
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, ...(TRACKER_RUNTIME_CHANNEL === 'alpha' ? ['navigation.route.v1'] : [])]
 });
 const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   trackerVersion: TRACKER_VERSION,
@@ -120,7 +121,7 @@ const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   clientId: 'ga-tracker-local',
   id: `tracker-efb-http-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: TRACKER_EXECUTION_CAPABILITIES
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, ...(TRACKER_RUNTIME_CHANNEL === 'alpha' ? ['navigation.route.v1'] : [])]
 });
 const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;
 const PA24_FUEL_TANK_LVARS = [
@@ -5034,7 +5035,33 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     debugLog(`MISSION_CLOUD_ACTIVATE mission=${candidate.missionId} run=${active.runId} status=${started.status || (started.ok ? 'ok' : 'error')} error=${started.error || 'none'}`);
     return { ...started, cloudActivated: true, sideEffect: started.sideEffect === true };
   };
+  let readCockpitPayload = null;
+  const cockpitTools = createCockpitTools({
+    filename: path.join(TRACKER_DATA_DIR, 'navigation-route-v1.json'),
+    getRun: () => missionAuthorityManager.getActiveRun({ includeBundle: true }),
+    editMissionRoute: request => missionAuthorityManager.editNavigationRoute(request),
+    getCompliance: () => missionAuthorityManager.getPublicSnapshot()?.execution?.workflows?.complianceInspection,
+    getRunSummary: () => missionAuthorityManager.getActiveRun(),
+    getFlight: () => _lastEfbSnapshot,
+    isSimulatorConnected: () => _simulatorConnected,
+    readPayload: count => readCockpitPayload ? readCockpitPayload(count) : Promise.reject(new Error('simulator_not_connected')),
+    openExternal: url => new Promise((resolve, reject) => {
+      require('node:child_process').execFile('rundll32.exe', ['url.dll,FileProtocolHandler', url], error => error ? reject(error) : resolve());
+    })
+  });
+  const getCockpitMap = () => {
+    if (missionAuthorityManager.getActiveRun()) cockpitTools.clear();
+    return cockpitTools.snapshot();
+  };
+
+  const broadcastNavigation = () => sendHomebaseAck({ type: 'navigation_route_changed', navigation: cockpitTools.navigation() });
+  const executeNavigationRelay = require('./tracker-cockpit-tools').createNavigationRelay(cockpitTools, broadcastNavigation);
   trackerCockpitControl = createTrackerCockpitControl({
+    executeTool: async request => {
+      const result = await cockpitTools.execute(request);
+      if (result.ok && request.intent !== 'navigation_get' && result.navigation) broadcastNavigation();
+      return result;
+    },
     executionAuthority: missionExecutionRuntime.executionAuthority,
     getExecutionAuthority: () => missionAuthorityManager.getActiveRun()?.executionAuthority || 'web',
     getMissionRun: () => missionAuthorityManager.getActiveRun(),
@@ -5126,15 +5153,15 @@ function startTracker(syncId, pin, voiceCredentials = null) {
   let _lastEfbMissionSnapshot = missionAuthorityManager.getActiveRun();
   let _lastPayloadSnapshot = null;
   let _efbHttpServer = null;
-  const navigationData = TRACKER_AUDIO_OUTPUT_ENABLED && TRACKER_NAVIGATION_PLAYER_READY ? createNavigationData({ directory: path.join(TRACKER_DATA_DIR, 'navigation-cache') }) : null;
+  const navigationData = createNavigationData({ directory: path.join(TRACKER_DATA_DIR, 'navigation-cache') });
   let warningRouteAt = 0, warningRoute = null;
-  const navigationWarnings = navigationData ? createNavigationWarnings({
+  const navigationWarnings = TRACKER_AUDIO_OUTPUT_ENABLED && TRACKER_NAVIGATION_PLAYER_READY ? createNavigationWarnings({
     data: navigationData, voice: trackerVoiceService, getSettings: () => trackerAudioControl.snapshot().settings,
     getRoute: () => {
       if (Date.now() - warningRouteAt > 5000) {
         warningRouteAt = Date.now();
-        const projected = projectTrackerMapSnapshot(missionAuthorityManager.getActiveRun({ includeBundle: true }), _lastEfbSnapshot);
-        warningRoute = projected ? { id: projected.runId, points: projected.route.waypoints } : null;
+        const projected = getCockpitMap();
+        warningRoute = projected ? { id: projected.routeId || projected.runId, points: projected.route.waypoints } : null;
       }
       return warningRoute;
     }, log: debugLog
@@ -5143,6 +5170,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     ...(navigationWarnings ? { warnings: navigationWarnings.snapshot() } : {}) } : null;
   const updateEfbState = (patch = {}) => {
     if (Object.hasOwn(patch, 'relayConnected')) _relayConnected = patch.relayConnected === true;
+    if (typeof patch.readPayload === 'function') readCockpitPayload = patch.readPayload;
     if (Object.hasOwn(patch, 'simulatorConnected')) {
       if (_simulatorConnected && patch.simulatorConnected !== true) navigationWarnings?.reset();
       _simulatorConnected = patch.simulatorConnected === true;
@@ -5156,13 +5184,16 @@ function startTracker(syncId, pin, voiceCredentials = null) {
         trackerStatus(`TRACKER_UI_STATE telemetry=${_telemetryHibernateState.mode === 'hibernate' ? 'hibernate' : 'link'} reason=${_telemetryHibernateState.reason || 'none'}`);
       }
     }
-    if (Object.hasOwn(patch, 'snapshot')) _lastEfbSnapshot = patch.snapshot && typeof patch.snapshot === 'object' ? patch.snapshot : null;
-    if (patch.snapshot && navigationWarnings) {
+    if (Object.hasOwn(patch, 'snapshot')) {
+      _lastEfbSnapshot = patch.snapshot && typeof patch.snapshot === 'object' ? patch.snapshot : null;
+      _efbHttpServer?.notifyFlight();
+    }
+    if (patch.snapshot && !patch.localOnly && navigationWarnings) {
       const run = missionAuthorityManager.getActiveRun();
       navigationWarnings.setEnabled(!run || run.executionAuthority === 'tracker');
       const point = patch.snapshot, flight = point.flight || {};
       navigationWarnings.observe({ lat: point.lat, lon: point.lon, alt: point.alt, hdg: point.hdg,
-        gs: flight.gsKts, vs: flight.vsFpm, agl: flight.aglFt, paused: flight.simPaused || flight.simRunning === 0 });
+        gs: flight.gsKts, vs: flight.vsFpm, agl: flight.aglFt, onGround: flight.onGround, paused: flight.simPaused || flight.simRunning === 0 });
     }
     if (Object.hasOwn(patch, 'missionSnapshot')) _lastEfbMissionSnapshot = patch.missionSnapshot && typeof patch.missionSnapshot === 'object' ? patch.missionSnapshot : null;
     if (Object.hasOwn(patch, 'payloadSnapshot')) _lastPayloadSnapshot = patch.payloadSnapshot && typeof patch.payloadSnapshot === 'object' ? patch.payloadSnapshot : null;
@@ -5296,10 +5327,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
         checklistCloudLastSuccessAt: _checklistCloudLastSuccessAt || null
       }),
       getSnapshot: () => _lastEfbSnapshot,
-      getMapSnapshot: () => projectTrackerMapSnapshot(
-        missionAuthorityManager.getActiveRun({ includeBundle: true }),
-        _lastEfbSnapshot
-      ),
+      getMapSnapshot: getCockpitMap,
       getMissionSnapshot: () => {
         const authoritySnapshot = missionAuthorityManager.getPublicSnapshot();
         const executionControl = authoritySnapshot.execution || null;
@@ -5351,7 +5379,9 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       audioControl: trackerAudioControl,
       audioAssets: trackerAudioAssets,
       getAudioSnapshot: audioSnapshot,
-      mapContextProvider: navigationData?.aviation,
+      navigationWarnings,
+      mapContextProvider: navigationData.aviation,
+      profileData: require('./tracker-profile-data').createProfileData(navigationData),
       desktopControlToken: TRACKER_DESKTOP_CONTROL_TOKEN,
       hardResetMission: hardResetTrackerMission,
       log: debugLog
@@ -5702,11 +5732,17 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       if (source === 'direct-stabilizer-fallback') _directHangarAckCommandIds.set(commandId, Date.now());
       debugLog(`HOMEBASE_CONTROL_DISPATCH source=${source} type=${type} commandId=${commandId} controlId=${command?.controlId || 'door'} state=${command?.state || ''}`);
     }
+    if (type === 'navigation_route_request' && TRACKER_RUNTIME_CHANNEL === 'alpha') {
+      executeNavigationRelay(command).then(result => sendHomebaseAck({ ...result,
+        type: 'navigation_route_ack', commandId: command.commandId, clientId: command.clientId,
+        status: result.ok ? 'ok' : (result.status || 'error') }));
+      return;
+    }
     if (type === 'mission_voice_playback') {
       try {
         if (!TRACKER_APT_EXECUTION_ENABLED) throw new Error('mission_execution_authority_not_enabled');
         if (command.deviceId === 'pc') throw new Error('desktop_audio_is_local');
-        const payload = handleVoiceRelay(trackerVoiceService, command, trackerAudioControl);
+        const payload = handleVoiceRelay(trackerVoiceService, command, trackerAudioControl, navigationWarnings);
         sendHomebaseAck({ type: 'mission_voice_playback_ack', audioRecipientClientId: command.clientId, commandId: command.commandId, status: 'ok', payload });
       } catch (error) {
         sendHomebaseAck({ type: 'mission_voice_playback_ack', audioRecipientClientId: command.clientId, commandId: command.commandId, status: 'error', error: error.code || error.message });
@@ -5931,6 +5967,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
           : null,
         trackerMissionAuthority: missionAuthorityManager.getPublicSnapshot(),
         trackerAudio: audioSnapshot(),
+        trackerNavigation: cockpitTools.version(),
         sentAt: Date.now()
       }));
     };
@@ -6029,6 +6066,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           if (typeof updateEfbState === 'function') updateEfbState({ payloadSnapshot });
         }
       );
+      if (typeof updateEfbState === 'function') updateEfbState({ readPayload: count => missionSmokeController.refreshPayloadSnapshot(count) });
       let payloadSnapshotRefreshPending = false;
       const refreshMissionPayloadSnapshot = () => {
         const execution = missionAuthorityManager?.getExecutionSnapshot?.();
@@ -6447,8 +6485,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (recv.requestID === REQ_ID) {
           const now = Date.now();
           lastTelemetrySourceAt = now;
-          if (now - lastSent >= SEND_INTERVAL_MS) {
-            lastSent = now;
+          {
             const telemetryProcessingStarted = process.hrtime.bigint();
             try {
               const readFn = typeof recv.data.readFloat64 === 'function'
@@ -6546,12 +6583,14 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               if (validPosition) {
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
                 lastGpsMsg = { lat, lon, alt: Math.round(alt), hdg: Math.round(hdg) };
-                applyHomebaseFallback(lastGpsMsg);
+
                 if (typeof updateEfbState === 'function') {
                   updateEfbState({
                     simulatorConnected: true,
                     telemetryHibernate: currentTelemetryHibernateState,
+                    localOnly: now - lastSent < SEND_INTERVAL_MS,
                     snapshot: {
+                      traffic: latestEfbTrafficSnapshot,
                       capturedAt: now,
                       lat,
                       lon,
@@ -6573,6 +6612,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     }
                   });
                 }
+                // Local EFB receives every source sample. Mission processing and
+                // Cloudflare relay retain their original 500-ms budget.
+                if (now - lastSent < SEND_INTERVAL_MS) return;
+                lastSent = now;
+                applyHomebaseFallback(lastGpsMsg);
                 if (missionExecutionRuntime?.enabled
                     && missionAuthorityManager?.getActiveRun?.()?.executionAuthority === 'tracker') {
                   const executionTelemetry = missionExecutionRuntime.observeTelemetry({
@@ -6726,6 +6770,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'GROUND VELOCITY', 'knots', SimConnectDataType.FLOAT64);
 
       let trafficBuffer = {};
+      let latestEfbTrafficSnapshot = []; // Retained for EFB polling; no additional relay traffic.
       let latestTrafficSnapshot = null; // wird beim nächsten GPS-Tick eingebettet
       let ownLat = 0, ownLon = 0; // wird aus GPS-Tick aktualisiert
 
@@ -6762,6 +6807,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (currentTelemetryHibernateState.hibernating) {
           trafficBuffer = {};
           latestTrafficSnapshot = null;
+          latestEfbTrafficSnapshot = [];
           latestGroundTrafficSnapshot = [];
           return;
         }
@@ -6791,6 +6837,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             .map(({ _d, ...ac }) => ac);
 
           latestTrafficSnapshot = nearest;
+          latestEfbTrafficSnapshot = nearest;
           if (nearest.length > 0)
             trackerLog(`[TRAFFIC] ${all.length} gesamt → ${moving.length} fliegend → ${nearest.length} gesendet`);
         }, 500);

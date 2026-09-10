@@ -5,7 +5,28 @@
   var L = window.L;
   var PREFERENCES_KEY = 'ga_efb_tracker_kartentisch_v1';
   var INFO_BOX_STORAGE_KEY = 'ga_efb_tracker_info_boxes_v1';
-  var map = null;
+  var map = null, warningProfileAirspace = null, warningProfileTimer = null;
+  window.awmDisplayTrackerWarning = function(warning) {
+    if (warning.kind !== 'airspace') return true;
+    if (!byId('awmFreqBanner')) return false;
+    var presentation = window.GANavigationWarningPresentation;
+    presentation.showFrequency(warning.airspace, presentation.style(warning.airspace).color);
+    return true;
+  };
+  window.awmHighlightTrackerAirspace = function(airspace) {
+    if (!map) return false;
+    var presentation = window.GANavigationWarningPresentation;
+    presentation.pulseOnMap(airspace, presentation.style(airspace).color, map, L);
+    warningProfileAirspace = airspace;
+    clearInterval(warningProfileTimer);
+    var endAt = Date.now() + 6000;
+    warningProfileTimer = setInterval(function() {
+      if (Date.now() >= endAt) { clearInterval(warningProfileTimer); warningProfileAirspace = null; }
+      renderProfile();
+    }, 450);
+    renderProfile();
+    return true;
+  };
   var flight = null;
   var mapSnapshot = null;
   var missionSnapshot = null;
@@ -17,45 +38,29 @@
   var routeSignature = '';
   var planeMarker = null;
   var planeHeading = null;
+  var liveTrail = null;
+  var liveTrailPoints = [];
+  var liveTrailSession = '';
+  var liveTrailSaveTimer = 0;
+  var TRAIL_STORAGE_KEY = 'ga_efb_live_trail_v1';
   var routeLayer = null;
   var geometryLayer = null;
   var previewLayer = null;
   var routeRenderer = null;
   var geometryRenderer = null;
   var previewLine = null;
-  var drawingLayer = null;
-  var drawingRenderer = null;
-  var measureLayer = null;
   var baseLayers = {};
   var overlayLayers = {};
   var layerControl = null;
   var firstRouteFit = false;
-  var firstFlightCenter = false;
   var pollTimer = 0;
   var missionPollTimer = 0;
   var auxiliaryPollTimers = {};
   var pollingClosed = false;
   var trackerOnline = false;
-  var profileZoom = 0;
-  var profileYAxis = 0;
-  var profileCruiseOverride = null;
-  var profileVerticalRate = 500;
-  var profileResizeActive = false;
   var contextPickActive = false;
-  var mapContextPopup = null;
-  var mapContextPointLayer = null;
-  var mapContextRequestSeq = 0;
-  var mapContextState = null;
   var mapContextPress = null;
   var mapContextSuppressClickUntil = 0;
-  var drawMode = '';
-  var drawPoints = [];
-  var drawLine = null;
-  var drawStrokeActive = false;
-  var drawLastContainerPoint = null;
-  var drawHistory = [];
-  var drawColor = '#ff3b30';
-  var drawWeight = 5;
   var routeProgressTarget = 'wpt';
   var previewWaypointIndex = null;
   var lastParentState = '';
@@ -63,8 +68,6 @@
   var infoBoxState = readInfoBoxState();
   var lastProfileDiagnostic = '';
   var tileHealthReported = {};
-  var drawerView = 'mission';
-  var drawerChecklistId = '';
   var trackerChecklistLibrary = { revision: 0, checklists: [] };
   var checklistLibrarySignature = '';
   var efbUiObserver = null;
@@ -76,40 +79,18 @@
   var missionIntentPending = false;
   var missionIntentStatus = '';
   var missionIntentTone = '';
-  var missionStoryExpanded = false;
   var missionBannerDismissedKey = '';
   var cargoManagerOpen = false;
   var cargoManagerSignature = '';
   var cargoSignatureAnimationEndsAt = 0;
   var cargoSignatureAnimationScope = '';
   var cargoSignatureAnimationTimer = 0;
-  var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
-  var EFB_PROFILE_HEIGHT_KEY = 'ga_efb_tracker_profile_height_v1';
   var EFB_OVERLAY_PANES = {
     aero: 'gaVfrPane',
     dfs: 'gaOfficialChartPane',
     faa: 'gaOfficialChartPane',
     dwd: 'gaWeatherPane'
   };
-  var efbChecklistProgress = readEfbChecklistProgress();
-  var EFB_BUILTIN_CHECKLISTS = [
-    { id: 'vfr-briefing', title: 'VFR Briefing', sections: [
-      { title: 'Route', items: ['Start, Ziel und Ausweichplatz geprueft', 'Kurs, Strecke und ETE plausibel', 'Reiseflughoehe und Terrain geprueft', 'Luftraeume und Frequenzen notiert'] },
-      { title: 'Wetter', items: ['METAR/TAF geprueft', 'Wind, Sicht und Wolkenuntergrenze bewertet', 'Tageslicht und Reserven beruecksichtigt'] },
-      { title: 'Aircraft', items: ['Fuel und Reserve gerechnet', 'Beladung und Schwerpunkt geprueft', 'Dokumente und Notverfahren bereit'] }
-    ] },
-    { id: 'sep-normal', title: 'SEP Normal Procedures', sections: [
-      { title: 'Before Start', items: ['Parking brake set', 'Fuel selector and quantity checked', 'Avionics off, circuit breakers checked', 'Departure brief complete'] },
-      { title: 'Run-up / Takeoff', items: ['Engine instruments in green', 'Flight controls free and correct', 'Trim and flaps set', 'Runway, heading and wind confirmed'] },
-      { title: 'Cruise', items: ['Power, mixture and trim set', 'Navigation cross-checked', 'Fuel and endurance monitored'] }
-    ] },
-    { id: 'arrival', title: 'Arrival / Landing', sections: [
-      { title: 'Arrival', items: ['Airport elevation, runway and circuit checked', 'Frequency and reporting points ready', 'Wind, QNH and visibility checked'] },
-      { title: 'Approach', items: ['Approach speed and flap plan briefed', 'Go-around path and safe altitude briefed', 'Landing distance acceptable'] },
-      { title: 'After Landing', items: ['Runway vacated', 'Flaps retracted', 'Taxi and parking plan confirmed'] }
-    ] }
-  ];
-
   function byId(id) { return document.getElementById(id); }
   function setText(id, value) { var node = byId(id); if (node) node.textContent = String(value == null ? '' : value); }
   function isFiniteNumber(value) { return typeof value === 'number' && isFinite(value); }
@@ -190,65 +171,19 @@
     return result;
   }
 
-  function readEfbChecklistProgress() {
-    try {
-      var source = JSON.parse(localStorage.getItem(EFB_CHECKLIST_PROGRESS_KEY) || '{}');
-      return source && typeof source === 'object' ? source : {};
-    } catch (_) { return {}; }
-  }
-
-  function saveEfbChecklistProgress() {
-    try { localStorage.setItem(EFB_CHECKLIST_PROGRESS_KEY, JSON.stringify(efbChecklistProgress)); } catch (_) {}
-  }
-
   function saveInfoBoxState() {
     try { localStorage.setItem(INFO_BOX_STORAGE_KEY, JSON.stringify(infoBoxState)); } catch (_) {}
   }
 
   function infoBoxVisible(id) {
-    return !infoBoxState[id] || infoBoxState[id].hidden !== true;
+    return window.isMapHintEnabled(infoBoxHintKey(id));
   }
 
-  function updateInfoRestoreButton() {
-    var button = document.querySelector('.ga-efb-host-display-menu .ga-efb-host-menu-trigger');
-    if (!button) return;
-    var hidden = Object.keys(infoBoxState).filter(function (id) { return infoBoxState[id].hidden === true; }).length;
-    button.firstChild.nodeValue = hidden ? 'Anzeige (' + hidden + ')' : 'Anzeige';
-    button.classList.toggle('active', hidden > 0);
-  }
+  function updateInfoRestoreButton() { refreshMapHintMenuUi(); }
 
   function setInfoBoxAvailability(id, available) {
     var node = byId(id);
     if (node) node.style.display = available && infoBoxVisible(id) ? 'block' : 'none';
-  }
-
-  function showAllInfoBoxes() {
-    Object.keys(infoBoxState).forEach(function (id) { infoBoxState[id].hidden = false; });
-    saveInfoBoxState();
-    setInfoBoxAvailability('liveTelemetryBox', !!flight);
-    setInfoBoxAvailability('liveCurrentBox', !!flight);
-    setInfoBoxAvailability('liveNextWpBox', !!(mapSnapshot && mapSnapshot.navigation));
-    updateInfoRestoreButton();
-    report('info', 'info-box', 'restore-all', 'Infofenster wieder eingeblendet');
-  }
-
-  function toggleInfoBox(id) {
-    if (infoBoxVisible(id)) hideInfoBox(id);
-    else {
-      infoBoxState[id].hidden = false;
-      saveInfoBoxState();
-      setInfoBoxAvailability(id, id === 'liveNextWpBox' ? !!(mapSnapshot && mapSnapshot.navigation) : !!flight);
-      updateInfoRestoreButton();
-    }
-  }
-
-  function hideInfoBox(id) {
-    if (!infoBoxState[id]) return;
-    infoBoxState[id].hidden = true;
-    saveInfoBoxState();
-    setInfoBoxAvailability(id, false);
-    updateInfoRestoreButton();
-    report('info', 'info-box', 'close-' + id, 'Infofenster ausgeblendet');
   }
 
   function resetInfoBoxPosition(node) {
@@ -363,30 +298,8 @@
   }
 
   function coherentText(value) {
-    return String(value == null ? '' : value)
-      .replace(/A\u0308/g, 'Ä')
-      .replace(/O\u0308/g, 'Ö')
-      .replace(/U\u0308/g, 'Ü')
-      .replace(/a\u0308/g, 'ä')
-      .replace(/o\u0308/g, 'ö')
-      .replace(/u\u0308/g, 'ü')
-      .replace(/\u00b7/g, ' | ')
-      .replace(/[\u2013\u2014\u2212]/g, '-')
-      .replace(/\u2026/g, '...')
-      .replace(/\u00b0/g, ' deg')
-      .replace(/\u2032/g, ' ft')
-      .replace(/\u2194/g, ' <-> ')
-      .replace(/\u2192/g, ' -> ')
-      .replace(/\u2190/g, ' <- ')
-      .replace(/[\u2022\u25cf]/g, ' - ')
-      .replace(/[\u2713\u2714]/g, 'OK')
-      .replace(/\u00d7/g, 'x')
-      .replace(/\u00f7/g, '/')
-      .replace(/[\u2191\u25b2]/g, '^')
-      .replace(/[\u2193\u25bc]/g, 'v')
-      .replace(/[\uFE0E\uFE0F\u200D]/g, '')
-      .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')
-      .replace(/[\u2190-\u21FF\u2300-\u23FF\u25A0-\u27BF]/g, '');
+    var text=String(value == null ? '' : value);
+    return text.normalize ? text.normalize('NFC') : text;
   }
 
   function drawerEscape(value) {
@@ -417,7 +330,9 @@
       if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || nodeInsideSvg(element)) return;
       for (var child = element.firstChild; child; child = child.nextSibling) {
         if (child.nodeType !== 3 || !child.nodeValue) continue;
-        var normalized = coherentText(child.nodeValue);
+        // Shared UI labels and symbols must survive intact. Dynamic tracker
+        // messages use coherentText at their explicit rendering boundary.
+        var normalized = child.nodeValue.normalize ? child.nodeValue.normalize('NFC') : child.nodeValue;
         if (normalized !== child.nodeValue) child.nodeValue = normalized;
       }
     });
@@ -511,144 +426,6 @@
     efbUiObserver.observe(document.body, { childList: true, subtree: true });
   }
 
-  function checklistItems(checklist) {
-    var items = [];
-    (checklist && checklist.sections || []).forEach(function (section, sectionIndex) {
-      var sectionId = String(section.id || 'section-' + (sectionIndex + 1));
-      (section.items || []).forEach(function (item, itemIndex) {
-        var text = item && typeof item === 'object' ? item.text : item;
-        var itemId = item && typeof item === 'object' ? item.id : 'item-' + (itemIndex + 1);
-        items.push({
-          key: checklist.id + ':' + sectionId + ':' + String(itemId || 'item-' + (itemIndex + 1)),
-          text: text,
-          section: section.title
-        });
-      });
-    });
-    return items;
-  }
-
-  function allEfbChecklists() {
-    var custom = trackerChecklistLibrary && Array.isArray(trackerChecklistLibrary.checklists)
-      ? trackerChecklistLibrary.checklists
-      : [];
-    return EFB_BUILTIN_CHECKLISTS.concat(custom);
-  }
-
-  function checklistDoneCount(checklist) {
-    return checklistItems(checklist).filter(function (item) { return efbChecklistProgress[item.key] === true; }).length;
-  }
-
-  function missionStatusMarkup() {
-    var mission = missionSnapshot && missionSnapshot.available !== false ? missionSnapshot : null;
-    if (!mission || !mission.missionId) {
-      return window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.renderEmpty === 'function'
-        ? window.GAMissionControlUiCore.renderEmpty()
-        : '<div class="ga-efb-drawer-empty"><strong>Keine aktive Mission</strong><span>Der Tracker meldet aktuell keine priorisierte Mission.</span></div>';
-    }
-    if (window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.render === 'function') {
-      return window.GAMissionControlUiCore.render(mission.view && typeof mission.view === 'object' ? mission.view : mission, {
-        storyExpanded: missionStoryExpanded,
-        control: mission.control && typeof mission.control === 'object' ? mission.control : null,
-        intentPending: missionIntentPending,
-        intentStatus: missionIntentStatus,
-        intentTone: missionIntentTone
-      });
-    }
-    var view = mission.view && typeof mission.view === 'object' ? mission.view : mission;
-    var target = view.target && typeof view.target === 'object' ? view.target : {};
-    var live = view.flight && typeof view.flight === 'object' ? view.flight : {};
-    var phase = view.phase && typeof view.phase === 'object' ? view.phase : {};
-    var stages = Array.isArray(phase.stages) ? phase.stages : [];
-    var phaseCurrent = Math.max(0, Math.min(stages.length - 1, Math.round(Number(phase.current) || 0)));
-    var targetLine = target.distanceNm != null
-      ? formatNumber(target.distanceNm, 1) + ' NM | ' + leftPad(Math.round(Number(target.bearingDeg) || 0), 3) + ' deg'
-      : (live.trackerLive ? 'Zielposition offen' : 'Tracker wartet');
-    var altitudeLine = live.mslFt != null ? Math.round(Number(live.mslFt) || 0) + ' ft MSL' : 'Keine Live-Höhe';
-    var altitudeDetail = live.aglFt != null
-      ? Math.round(Number(live.aglFt) || 0) + ' ft AGL'
-      : (live.gsKts != null ? Math.round(Number(live.gsKts) || 0) + ' kt GS' : 'Live-Daten offen');
-    var phaseHtml = stages.map(function (stage, index) {
-      var label = stage && typeof stage === 'object' ? stage.label : stage;
-      return '<div class="ga-efb-mission-phase' + (index < phaseCurrent ? ' is-done' : '') + (index === phaseCurrent ? ' is-current' : '') + '">'
-        + '<span>' + (index < phaseCurrent ? 'OK' : String(index + 1)) + '</span><b>' + drawerEscape(label || 'Phase') + '</b></div>';
-    }).join('');
-    var progressHtml = (Array.isArray(view.progress) ? view.progress : []).map(function (row) {
-      var pct = clamp(Math.round(Number(row.percent) || 0), 0, 100);
-      return '<div class="ga-efb-mission-progress"><div><span>' + drawerEscape(row.label) + '</span><b>' + drawerEscape(row.detail) + '</b></div>'
-        + '<i class="is-' + drawerEscape(row.tone || 'active') + '"><span style="width:' + pct + '%"></span></i></div>';
-    }).join('');
-    var requirementsHtml = (Array.isArray(view.requirements) ? view.requirements : []).map(function (row) {
-      return '<div class="ga-efb-mission-requirement is-' + drawerEscape(row.tone || 'neutral') + '"><span>'
-        + drawerEscape(row.label) + '</span><b>' + drawerEscape(row.detail) + '</b></div>';
-    }).join('');
-    var feedbackHtml = (Array.isArray(view.feedback) ? view.feedback : []).map(function (row) {
-      return '<div class="ga-efb-mission-feedback is-' + drawerEscape(row.tone || 'info') + '"><span>'
-        + (row.tone === 'danger' || row.tone === 'warn' ? '!' : (row.tone === 'good' ? 'OK' : 'i'))
-        + '</span><p>' + drawerEscape(row.detail) + '</p></div>';
-    }).join('');
-    var comfort = view.comfort && typeof view.comfort === 'object' ? view.comfort : {};
-    var cargo = view.cargo && typeof view.cargo === 'object' ? view.cargo : {};
-    var voice = mission.voice && typeof mission.voice === 'object' ? mission.voice : {};
-    var voiceSpeaker = voice.speaker && typeof voice.speaker === 'object' ? voice.speaker : {};
-    var voiceHtml = voice.text
-      ? '<section class="ga-efb-mission-section"><small>LETZTE ANSAGE</small><div class="ga-efb-mission-feedback-list"><div class="ga-efb-mission-feedback is-info"><span>i</span><p>'
-        + (voiceSpeaker.name ? '<b>' + drawerEscape(voiceSpeaker.name) + ':</b> ' : '')
-        + drawerEscape(voice.text) + '</p></div></div></section>'
-      : '';
-    var control = mission.control && typeof mission.control === 'object' ? mission.control : null;
-    var allowedActions = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
-    var canIntent = !!(control && control.executionAuthority === 'tracker');
-    var actionLabels = {
-      activate_cloud_mission: 'Mission aus der Cloud beginnen',
-      prepare_mission: 'Mission vorbereiten',
-      start_boarding: 'Boarding und Verladen beginnen',
-      start_mission: 'Mission starten',
-      request_close: 'Mission beenden'
-    };
-    var primaryActions = ['activate_cloud_mission', 'prepare_mission', 'start_boarding', 'start_mission', 'request_close'];
-    var actionHtml = primaryActions.filter(function (intent) {
-      return allowedActions.indexOf(intent) >= 0;
-    }).map(function (intent) {
-      return '<button type="button" data-efb-drawer-action="mission-intent" data-mission-intent="' + drawerEscape(intent) + '"'
-        + (missionIntentPending ? ' disabled' : '') + '>' + drawerEscape(actionLabels[intent] || intent) + '</button>';
-    }).join('');
-    var abortHtml = allowedActions.indexOf('abort_mission') >= 0
-      ? '<div class="ga-efb-mission-actions is-danger"><button type="button" data-efb-drawer-action="mission-intent" data-mission-intent="abort_mission"'
-        + (missionIntentPending ? ' disabled' : '') + '>Mission abbrechen</button></div>'
-      : '';
-    var conditions = '<div class="ga-efb-mission-conditions">'
-      + '<section class="is-' + drawerEscape(comfort.tone || 'muted') + '"><span>PAX-STIMMUNG</span><strong>'
-      + (comfort.score == null ? '--' : drawerEscape(comfort.score) + '%') + '</strong><b>' + drawerEscape(comfort.state || 'Keine Wertung')
-      + '</b><small>' + drawerEscape(comfort.detail || '') + '</small></section>'
-      + '<section class="is-' + drawerEscape(cargo.tone || 'muted') + '"><span>LADUNGSZUSTAND</span><strong>'
-      + (cargo.conditionPct == null ? '--' : drawerEscape(cargo.conditionPct) + '%') + '</strong><b>' + drawerEscape(cargo.state || 'Keine Ladung')
-      + '</b><small>' + drawerEscape(cargo.detail || '') + '</small></section></div>';
-    return '<div class="ga-efb-mission-control">'
-      + '<section class="ga-efb-mission-hero is-' + drawerEscape(view.taskTone || 'active') + '">'
-      + '<div><span class="ga-efb-mission-live"><i></i>' + (live.trackerLive ? 'LIVE' : 'TRACKER') + '</span><span>' + drawerEscape(view.status || mission.state || 'Mission aktiv') + '</span></div>'
-      + '<h3>' + drawerEscape(view.title || mission.title || mission.missionId) + '</h3>'
-      + (view.story ? '<p>' + drawerEscape(view.story) + '</p>' : '') + '</section>'
-      + '<section class="ga-efb-mission-order is-' + drawerEscape(view.taskTone || 'active') + '"><small>AKTUELLER AUFTRAG</small><strong>'
-      + drawerEscape(view.currentTask || 'Missionsstatus prüfen') + '</strong><span>' + drawerEscape(view.detail || '') + '</span></section>'
-      + (phaseHtml ? '<section class="ga-efb-mission-section"><small>MISSIONSVERLAUF</small><div class="ga-efb-mission-phases">' + phaseHtml + '</div></section>' : '')
-      + '<div class="ga-efb-mission-metrics"><section><span>ZIEL</span><b id="gaEfbMissionTargetLine">' + drawerEscape(targetLine) + '</b><small>' + drawerEscape(target.name || '') + '</small></section>'
-      + '<section><span>FLUGHÖHE</span><b id="gaEfbMissionAltitude">' + drawerEscape(altitudeLine) + '</b><small id="gaEfbMissionAltitudeDetail">' + drawerEscape(altitudeDetail) + '</small></section></div>'
-      + (progressHtml ? '<section class="ga-efb-mission-section"><small>LIVE-FORTSCHRITT</small>' + progressHtml + '</section>' : '')
-      + (requirementsHtml ? '<section class="ga-efb-mission-section"><small>BEDINGUNGEN</small><div class="ga-efb-mission-requirements">' + requirementsHtml + '</div></section>' : '')
-      + conditions
-      + voiceHtml
-      + (canIntent ? '<section class="ga-efb-mission-section"><small>BEDIENUNG</small>'
-        + '<div class="ga-efb-mission-actions"><button type="button" data-efb-drawer-action="open-cargo">Verlade-Manager öffnen</button></div>'
-        + (actionHtml ? '<div class="ga-efb-mission-actions">' + actionHtml + '</div>' : '')
-        + abortHtml
-        + (missionIntentStatus ? '<p class="ga-efb-mission-intent-status">' + drawerEscape(missionIntentStatus) + '</p>' : '')
-        + '</section>' : '')
-      + (feedbackHtml ? '<section class="ga-efb-mission-section"><small>LAGEBERICHT</small><div class="ga-efb-mission-feedback-list">' + feedbackHtml + '</div></section>' : '')
-      + '<div class="ga-efb-mission-footer">' + (canIntent ? 'Tracker-Controller' : 'Nur Lesen') + ' | Mission und Fortschritt kommen vom Tracker | ' + drawerEscape(mission.sceneCount || 0) + ' Szenen</div>'
-      + '</div>';
-  }
-
   function requestMissionIntent(intent, payload) {
     if (intent === 'abort_mission') {
       var confirmed = false;
@@ -694,11 +471,13 @@
     var control = missionSnapshot && missionSnapshot.control;
     if (!client || typeof client.submitIntent !== 'function' || !control) return Promise.resolve(false);
     missionIntentPending = true;
+    window.gaMissionControlIntentPending = true;
     var pendingPresentation = window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.formatIntentResult === 'function'
       ? window.GAMissionControlUiCore.formatIntentResult({ pending: true })
       : { tone: 'info', text: 'Tracker verarbeitet die Aktion ...' };
     missionIntentStatus = pendingPresentation.text;
     missionIntentTone = pendingPresentation.tone;
+    window.gaMissionControlIntentStatus = pendingPresentation;
     renderSideDrawer(true);
     renderCargoManager();
     renderMissionActionBanner(missionSnapshot);
@@ -723,7 +502,7 @@
         // Mirror the App flow for the device that started boarding.  Opening
         // the manager is a local presentation choice; all cargo mutations
         // continue to use the authoritative tracker intent path.
-        if (ok && opensCargoAfterBoarding && !(missionSnapshot && missionSnapshot.control && missionSnapshot.control.cargoWindowCloseId)) openCargoManager();
+        if (ok && opensCargoAfterBoarding && !(missionSnapshot && missionSnapshot.control && missionSnapshot.control.cargoWindowCloseId)) openCargoManager(true);
         return ok;
       };
       return fetchJson('/api/v1/mission').then(function (envelope) {
@@ -739,6 +518,8 @@
       return false;
     }).then(function (ok) {
       missionIntentPending = false;
+      window.gaMissionControlIntentPending = false;
+      window.gaMissionControlIntentStatus = {text:missionIntentStatus,tone:missionIntentTone};
       renderSideDrawer(true);
       renderCargoManager();
       renderMissionActionBanner(missionSnapshot);
@@ -936,7 +717,7 @@
         + '<td><div class="mission-cargo-sheet-status"><span>' + drawerEscape(item.statusLabel || 'offen') + '</span>'
         + (action && action.label ? '<span class="mission-cargo-sheet-status-hint">' + drawerEscape(action.label) + '</span>' : '')
         + '</div></td></tr>';
-    }).join('') || '<tr><td colspan="6">Keine Ladung fuer diese Mission.</td></tr>';
+    }).join('') || '<tr><td colspan="6">Keine Ladung für diese Mission.</td></tr>';
     var signatureDate = signature.signed ? cargoDateLabel(signature.at) : 'noch offen';
     var signatureState = localSignatureAnimation ? 'wird eingetragen'
       : (signature.signed ? 'Klick: Signatur löschen' : String(signature.stateText || ''));
@@ -981,7 +762,7 @@
       : '';
     var compliance = model.compliance && model.compliance.active === true
       ? '<div class="mission-cargo-summary mission-cargo-compliance-summary">'
-        + drawerEscape(model.compliance.message || 'Behoerdenkontrolle laeuft.') + '</div>'
+        + drawerEscape(model.compliance.message || 'Behördenkontrolle läuft.') + '</div>'
       : '';
     return (model.modeHint ? '<div class="mission-cargo-summary ' + drawerEscape(model.modeHintClassName || '') + '">' + drawerEscape(model.modeHint) + '</div>' : '')
       + intentStatus
@@ -1161,7 +942,7 @@
         }
         if (intent === 'request_pax_interaction' && !payload.action) payload.action = 'deboard';
         if (intent === 'confirm_unload' && action !== 'item') {
-          if (!window.confirm('Entladung abschliessen und Mission beenden?\n\nDanach startet der Missionsabschluss mit Farewell/Endszene.')) return;
+          if (!window.confirm('Entladung abschließen und Mission beenden?\n\nDanach startet der Missionsabschluss mit Farewell/Endszene.')) return;
         }
         var requested = requestMissionIntent(intent, payload);
         if (intent === 'clear_manifest_signature') {
@@ -1212,13 +993,17 @@
       .forEach(function (node, index) { if (node && scroll[index]) { node.scrollTop = scroll[index].top; node.scrollLeft = scroll[index].left; } });
   }
 
-  function openCargoManager() {
+  function openCargoManager(fromTracker) {
     var overlay = ensureCargoManager();
     if (!overlay) return;
     cargoManagerOpen = true;
     overlay.style.display = 'flex';
     overlay.setAttribute('aria-hidden', 'false');
     renderCargoManager();
+    if (fromTracker !== true && missionSnapshot && missionSnapshot.control && missionSnapshot.control.executionAuthority === 'tracker') {
+      var phase = missionSnapshot.control.phase;
+      submitMissionIntent('open_cargo_window', { mode: /^(end_|closing)/.test(phase) ? 'unload' : 'load' });
+    }
     report('info', 'cargo-manager', 'open', 'Eigenständiger Verlade-Manager geöffnet');
   }
 
@@ -1235,75 +1020,8 @@
     report('info', 'cargo-manager', 'close', 'Verlade-Manager geschlossen');
   }
 
-  function checklistListMarkup() {
-    return '<div class="ga-efb-checklist-list">' + allEfbChecklists().map(function (checklist) {
-      var total = checklistItems(checklist).length;
-      var done = checklistDoneCount(checklist);
-      return '<button type="button" data-efb-drawer-action="open-checklist" data-checklist-id="' + drawerEscape(checklist.id) + '">'
-        + '<strong>' + drawerEscape(checklist.title) + (checklist.source === 'custom' ? '<em>EIGEN</em>' : '') + '</strong>'
-        + '<span>' + done + ' / ' + total + ' erledigt</span>'
-        + '</button>';
-    }).join('') + '</div>';
-  }
-
-  function selectedChecklistMarkup() {
-    var checklist = null;
-    allEfbChecklists().some(function (candidate) {
-      if (candidate.id !== drawerChecklistId) return false;
-      checklist = candidate;
-      return true;
-    });
-    if (!checklist) return checklistListMarkup();
-    var html = '<button type="button" class="ga-efb-drawer-back" data-efb-drawer-action="checklist-list">&lt; Alle Checklisten</button>';
-    html += '<div class="ga-efb-checklist-detail"><h3>' + drawerEscape(checklist.title) + '</h3>';
-    checklist.sections.forEach(function (section, sectionIndex) {
-      html += '<section><h4>' + drawerEscape(section.title) + '</h4>';
-      section.items.forEach(function (item, itemIndex) {
-        var text = item && typeof item === 'object' ? item.text : item;
-        var sectionId = section.id || 'section-' + (sectionIndex + 1);
-        var itemId = item && typeof item === 'object' ? item.id : 'item-' + (itemIndex + 1);
-        var key = checklist.id + ':' + sectionId + ':' + itemId;
-        var checked = efbChecklistProgress[key] === true;
-        html += '<button type="button" class="ga-efb-check-row' + (checked ? ' is-checked' : '') + '" data-efb-check-row="' + drawerEscape(key)
-          + '" role="checkbox" aria-checked="' + (checked ? 'true' : 'false') + '"><i aria-hidden="true"></i><span>' + drawerEscape(text) + '</span></button>';
-      });
-      html += '</section>';
-    });
-    return html + '</div>';
-  }
-
-  function restoreDrawerScroll(body, scrollTop) {
-    if (!body) return;
-    var target = Math.max(0, Number(scrollTop) || 0);
-    var generation = drawerInputGeneration;
-    var apply = function () {
-      if (generation !== drawerInputGeneration) return;
-      body.scrollTop = target;
-    };
-    apply();
-    if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(apply);
-    window.setTimeout(apply, 90);
-  }
-
-  function renderSideDrawer(preserveScroll) {
-    var body = byId('checklistDrawerBody');
-    var title = byId('checklistDrawerTitle');
-    var status = byId('checklistDrawerStatus');
-    if (!body) return;
-    var scrollTop = preserveScroll ? body.scrollTop : 0;
-    if (title) title.textContent = drawerView === 'mission' ? 'Mission Control' : 'Checklisten';
-    if (status) {
-      var trackerControl = missionSnapshot && missionSnapshot.control && missionSnapshot.control.executionAuthority === 'tracker';
-      status.textContent = drawerView === 'mission'
-        ? (trackerControl ? 'Live vom Tracker | Steuerung aktiv' : 'Live vom Tracker | nur Lesen')
-        : 'Fortschritt bleibt lokal in diesem EFB';
-    }
-    var tabs = '<div class="ga-efb-drawer-tabs">'
-      + '<button type="button" data-efb-drawer-action="mission" class="' + (drawerView === 'mission' ? 'active' : '') + '">Mission</button>'
-      + '<button type="button" data-efb-drawer-action="checklists" class="' + (drawerView === 'checklists' ? 'active' : '') + '">Checklisten</button>'
-      + '</div>';
-    body.innerHTML = tabs + (drawerView === 'mission' ? missionStatusMarkup() : (drawerChecklistId ? selectedChecklistMarkup() : checklistListMarkup()));
-    if (preserveScroll) restoreDrawerScroll(body, scrollTop);
+  function renderSideDrawer() {
+    if (window.gaChecklistRefresh) window.gaChecklistRefresh();
   }
 
   function flushPendingDrawerRefresh() {
@@ -1339,94 +1057,100 @@
     renderSideDrawer(true);
   }
 
-  function openSideDrawer(view) {
-    var drawer = byId('mapSideDrawer');
-    var handle = byId('mapSideDrawerHandle');
-    if (!drawer) return;
-    if (view === 'mission' || view === 'checklists') drawerView = view;
-    drawer.classList.add('is-open');
-    if (handle) handle.setAttribute('aria-expanded', 'true');
-    renderSideDrawer();
-    report('info', 'side-drawer', 'open-' + drawerView, 'EFB-Seitenmenue geoeffnet');
+  function openSideDrawer(view) { window.gaChecklistOpen(view || 'home'); }
+
+  function submitCockpitTool(intent, payload) {
+    var client = window.gaCockpitSessionClient;
+    if (!client || !client.submitTool) return Promise.reject(new Error('Tracker nicht verbunden.'));
+    return client.submitTool({ commandId: 'tool-' + intent + '-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+      intent: intent, expectedRevision: mapSnapshot && mapSnapshot.navigationOnly ? mapSnapshot.revision : 0,
+      payload: payload || {} });
   }
 
+  window.trackerPayloadGet = function() {
+    window.aircraftPayloadStatus = window.aircraftPayloadStatus || {};
+    window.aircraftPayloadStatus.error = null;
+    return submitCockpitTool('read_payload').then(function(result) {
+      if (!result || !result.ok || !result.snapshot) throw new Error(result && result.error || 'Gewichtsabruf fehlgeschlagen.');
+      window.aircraftPayloadStatus.snapshot = result.snapshot;
+      window.aircraftPayloadStatus.lastSnapshotAt = Date.now();
+      return result;
+    }).catch(function(error) { window.aircraftPayloadStatus.error = error.message; throw error; });
+  };
+  window.applyAirportDirectTo = function(airport, options) {
+    var control = missionSnapshot && missionSnapshot.control;
+    if (control && control.runId && control.phase !== 'closed' && !missionSnapshot.cloudPending) {
+      if (control.executionAuthority !== 'tracker') {
+        window.alert('Auf dem Tracker läuft eine andere Mission. Übernimm oder beende diese Mission, bevor du eine neue Route startest.');
+        return Promise.resolve(false);
+      }
+      if (!window.confirm('Mission ' + control.missionId + ' läuft noch.\n\nMission ausdrücklich abbrechen und Direct-to starten?')) return Promise.resolve(false);
+      return submitMissionIntent('abort_mission', {}).then(function(ok) {
+        if (ok) window.alert('Die Tracker-Mission wurde abgebrochen. Du kannst Direct-to jetzt erneut starten.');
+        return false;
+      });
+    }
+    return submitCockpitTool('airport_direct_to', {airport: airport, forceGpsStart: !!(options && options.forceGpsStart)}).then(function(result) {
+      if (!result || !result.ok) {
+        var messages = { live_position_required: 'Ohne bestehenden Flugplan brauche ich eine aktive Tracker-Verbindung, damit die aktuelle GPS-Position als Start gesetzt werden kann.',
+          mission_authority_conflict: 'Auf dem Tracker läuft eine Mission. Beende diese Mission, bevor du eine neue Route startest.',
+          navigation_revision_conflict: 'Die Route wurde in einer anderen Ansicht geändert. Bitte erneut auswählen.' };
+        window.alert(messages[result && result.error] || 'Direct To nicht verfügbar.');
+        return false;
+      }
+      renderMapPayload(Object.assign({available: true}, result.map));
+      return true;
+    });
+  };
+
   function setupSideDrawer() {
-    var drawer = byId('mapSideDrawer');
-    var body = byId('checklistDrawerBody');
+    var drawer = byId('mapSideDrawer'), body = byId('checklistDrawerBody');
     if (!drawer || !body) return;
     drawer.style.display = 'block';
-    window.gaChecklistToggleDrawer = function (force) {
-      var next = typeof force === 'boolean' ? force : !drawer.classList.contains('is-open');
-      drawer.classList.toggle('is-open', next);
-      var handle = byId('mapSideDrawerHandle');
-      if (handle) handle.setAttribute('aria-expanded', next ? 'true' : 'false');
-      if (next) renderSideDrawer();
-      report('info', 'side-drawer', next ? 'open-' + drawerView : 'close', 'EFB-Seitenmenue umgeschaltet');
+    Object.assign(window.gaChecklistHost, {
+      openAip: function(airport) { return submitCockpitTool('open_airport_aip', {icao: airport.icao, country: airport.country}).then(function(result) {
+        if (!result || !result.ok) throw new Error('AIP konnte nicht geöffnet werden.');
+      }); },
+      checklists: function() { return trackerChecklistLibrary.checklists.map(function(list) {
+        return { id:list.id, title:list.title, source:'tracker', editable:false, updatedAt:list.updatedAt,
+          chapters:(list.sections || []).map(function(section) { return {id:section.id,title:section.title,items:section.items}; }) };
+      }); },
+      missionView: function() { return missionSnapshot && missionSnapshot.available !== false && (missionSnapshot.view || missionSnapshot) || null; },
+      missionSummary: function() { var view = missionSnapshot && missionSnapshot.view; return view && (view.taskText || view.title) || 'Keine aktive Mission'; },
+      cargoAction: function(action, itemId, field) {
+        if (action === 'cargo-boardbook-time') return submitMissionIntent('set_boardbook_time', {itemId:itemId,field:field});
+        return submitMissionIntent('set_manifest_item', {itemId:itemId,action:action==='cargo-load'?'load':action==='cargo-replace'?'replace':'unload'});
+      }
+    });
+    window.gaAirportPopupHost = {openAip: window.gaChecklistHost.openAip,
+      openWeather: function(data) { return submitCockpitTool('open_airport_weather', data).then(function(result) {
+        if (!result || !result.ok) throw new Error('Browser nicht erreichbar');
+        return result;
+      }); }
     };
-    body.addEventListener('click', function (event) {
-      var checkNode = event.target && event.target.closest ? event.target.closest('[data-efb-check-row]') : null;
-      if (checkNode) {
-        var checkKey = checkNode.getAttribute('data-efb-check-row') || '';
-        if (checkKey) {
-          efbChecklistProgress[checkKey] = efbChecklistProgress[checkKey] !== true;
-          saveEfbChecklistProgress();
-          renderSideDrawer(true);
-          report('info', 'checklist-action', efbChecklistProgress[checkKey] ? 'checked' : 'unchecked', 'Checklistenpunkt aktualisiert', checkKey);
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      var actionNode = event.target && event.target.closest ? event.target.closest('[data-efb-drawer-action]') : null;
-      if (!actionNode) return;
-      var action = actionNode.getAttribute('data-efb-drawer-action');
-      if (action === 'mission-intent') {
-        var intent = actionNode.getAttribute('data-mission-intent') || '';
-        var payload = {};
-        if (intent === 'set_manifest_item') {
-          payload.itemId = actionNode.getAttribute('data-mission-item-id') || '';
-          payload.action = actionNode.getAttribute('data-mission-item-action') || '';
-        }
-        if (intent === 'request_pax_interaction' && !payload.action) payload.action = 'deboard';
-        requestMissionIntent(intent, payload);
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      if (action === 'open-cargo') {
-        openCargoManager();
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      if (action === 'toggle-mission-story') {
-        missionStoryExpanded = !missionStoryExpanded;
-        renderSideDrawer(true);
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      if (action === 'mission') { drawerView = 'mission'; drawerChecklistId = ''; }
-      if (action === 'checklists' || action === 'checklist-list') { drawerView = 'checklists'; drawerChecklistId = ''; }
-      if (action === 'open-checklist') { drawerView = 'checklists'; drawerChecklistId = actionNode.getAttribute('data-checklist-id') || ''; }
-      renderSideDrawer();
-      event.preventDefault();
-      event.stopPropagation();
-    });
-    ['pointerdown', 'mousedown', 'touchstart', 'click', 'dblclick', 'wheel'].forEach(function (type) {
-      drawer.addEventListener(type, function (event) { event.stopPropagation(); }, false);
-    });
-    ['pointerdown', 'mousedown', 'touchstart', 'wheel'].forEach(function (type) {
-      body.addEventListener(type, function () {
-        beginDrawerInteraction();
-        if (type === 'wheel') scheduleDrawerInteractionEnd();
-      }, false);
-    });
-    body.addEventListener('scroll', noteDrawerScroll, false);
-    ['pointerup', 'pointercancel', 'mouseup', 'touchend', 'touchcancel'].forEach(function (type) {
-      window.addEventListener(type, scheduleDrawerInteractionEnd, false);
-    });
-    renderSideDrawer();
+    window.gaTrackerExecutionSubmitIntent = submitMissionIntent;
+    window.gaAbortTrackerMission = function() {return submitMissionIntent('abort_mission');};
+    window.openMissionCargoDialog = function() { openCargoManager(); return true; };
+    window.missionCargoGetManifestSnapshot = function() {
+      var model = projectedCargoModel(missionSnapshot);
+      return missionSnapshot && missionSnapshot.manifest || {items:[]};
+    };
+    window.missionCargoLoadItem = window.missionCargoUnloadItem = function() {return false;};
+    window.missionComplianceBoardBookWriteAllowed = function(field) {
+      var control=missionSnapshot && missionSnapshot.control;
+      var manifest=missionSnapshot && missionSnapshot.manifest || {}, item=(manifest.items || []).find(function(row){return row.id==='bordbuch';});
+      var action=window.GAMissionManifestCore.boardBookActionState(item, manifest, {missionAvailable:!!(control && control.missionId),currentFlightId:(control && control.flightEvents || {}).flightId});
+      return !!(control && control.allowedActions && control.allowedActions.indexOf('set_boardbook_time')>=0 && action.allowed && action.field===field);
+    };
+    window.missionComplianceReplacementLocked = function() {return true;};
+    window.missionComplianceCanMutateCargo = function(itemId, action) {
+      var model=projectedCargoModel(missionSnapshot),item=model && model.items && model.items.find(function(row){return row.id===itemId;});
+      return !!(item && item.action && !item.action.disabled && item.action.action===action);
+    };
+    ['pointerdown','mousedown','touchstart','click','dblclick','wheel'].forEach(function(type){drawer.addEventListener(type,function(event){event.stopPropagation();});});
+    ['pointerdown','mousedown','touchstart','wheel'].forEach(function(type){body.addEventListener(type,function(){beginDrawerInteraction();if(type==='wheel')scheduleDrawerInteractionEnd();});});
+    body.addEventListener('scroll',noteDrawerScroll);
+    ['pointerup','pointercancel','mouseup','touchend','touchcancel'].forEach(function(type){window.addEventListener(type,scheduleDrawerInteractionEnd);});
   }
 
   function notifyParent(state, detail) {
@@ -1461,8 +1185,10 @@
 
   function applyTheme() {
     ['classic', 'retro', 'navcom', 'ops1940', 'win95'].forEach(function (id) { document.body.classList.remove('theme-' + id); });
-    document.body.classList.add('theme-classic');
-    preferences.theme = 'classic';
+    var theme = mapSnapshot && mapSnapshot.context && mapSnapshot.context.theme || localStorage.getItem('ga_theme') || 'classic';
+    if (['classic', 'retro', 'navcom', 'ops1940', 'win95'].indexOf(theme) < 0) theme = 'classic';
+    document.body.classList.add('theme-' + theme);
+    if (theme === 'navcom') document.body.classList.add('theme-retro');
     savePreferences();
     if (map) window.setTimeout(function () { map.invalidateSize(false); }, 50);
   }
@@ -1487,91 +1213,7 @@
     return button;
   }
 
-  function closeHostMenus(except) {
-    Array.prototype.forEach.call(document.querySelectorAll('.ga-efb-host-menu.is-open'), function (menu) {
-      if (menu === except) return;
-      menu.classList.remove('is-open');
-      var trigger = menu.querySelector('.ga-efb-host-menu-trigger');
-      if (trigger) trigger.setAttribute('aria-expanded', 'false');
-      var panel = menu._gaHostMenuPanel || menu.querySelector('.ga-efb-host-menu-panel');
-      if (panel) {
-        panel.classList.remove('is-open');
-        panel.style.position = '';
-        panel.style.top = '';
-        panel.style.right = '';
-        panel.style.bottom = '';
-        panel.style.left = '';
-        if (panel.parentNode !== menu) menu.appendChild(panel);
-      }
-    });
-  }
-
-  function openHostMenuPanel(wrapper, trigger, panel) {
-    document.body.appendChild(panel);
-    panel.classList.add('is-open');
-    panel.style.position = 'fixed';
-    panel.style.top = '0px';
-    panel.style.right = 'auto';
-    panel.style.bottom = 'auto';
-    panel.style.left = '0px';
-    var triggerRect = trigger.getBoundingClientRect();
-    var panelWidth = panel.offsetWidth || 180;
-    var panelHeight = panel.offsetHeight || 180;
-    var margin = 8;
-    var gap = 7;
-    var left = wrapper.classList.contains('ga-efb-host-tools-menu')
-      ? triggerRect.right - panelWidth
-      : triggerRect.left;
-    left = Math.max(margin, Math.min(window.innerWidth - panelWidth - margin, left));
-    var top = triggerRect.bottom + gap;
-    if (top + panelHeight > window.innerHeight - margin) {
-      top = Math.max(margin, triggerRect.top - panelHeight - gap);
-    }
-    panel.style.left = Math.round(left) + 'px';
-    panel.style.top = Math.round(top) + 'px';
-  }
-
-  function makeHostMenu(className, label, items) {
-    var wrapper = document.createElement('div');
-    wrapper.className = 'ga-efb-host-menu ' + className;
-    var trigger = makeButton('pb-btn ga-efb-host-menu-trigger', label, function () {
-      var open = !wrapper.classList.contains('is-open');
-      closeHostMenus(wrapper);
-      wrapper.classList.toggle('is-open', open);
-      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (open) openHostMenuPanel(wrapper, trigger, panel);
-    });
-    trigger.setAttribute('aria-haspopup', 'true');
-    trigger.setAttribute('aria-expanded', 'false');
-    var panel = document.createElement('div');
-    panel.className = 'ga-efb-host-menu-panel';
-    items.forEach(function (item) {
-      if (item.hint) {
-        var hint = document.createElement('div');
-        hint.className = 'ga-efb-host-menu-hint' + (item.className ? ' ' + item.className : '');
-        hint.textContent = item.label;
-        panel.appendChild(hint);
-        return;
-      }
-      var entry = makeButton('ga-efb-host-menu-item', item.label, function () {
-        closeHostMenus();
-        item.action();
-      });
-      if (item.className) entry.classList.add(item.className);
-      panel.appendChild(entry);
-    });
-    wrapper.appendChild(trigger);
-    wrapper.appendChild(panel);
-    wrapper._gaHostMenuPanel = panel;
-    return wrapper;
-  }
-
-  function toggleLayerMenu() {
-    var control = document.querySelector('.leaflet-control-layers');
-    if (!control) return;
-    control.classList.toggle('leaflet-control-layers-expanded');
-    report('info', 'toolbar', 'layers', 'Layerauswahl umgeschaltet');
-  }
+  function closeHostMenus() { window.toggleMapHintsMenu(false); }
 
   function toggleUtilityTool(tool) {
     if (typeof window.toggleMapUtilityTool === 'function') {
@@ -1590,7 +1232,73 @@
     return false;
   }
 
+  function infoBoxHintKey(id) {
+    return { liveTelemetryBox: 'telemetry', liveCurrentBox: 'currentInfo', liveNextWpBox: 'nextLeg' }[id];
+  }
+
+  function configureDisplayControls() {
+    // Preserve existing EFB choices once; subsequent changes use the original keys.
+    Object.keys(infoBoxState).forEach(function(id) {
+      var key = infoBoxHintKey(id);
+      if (key && localStorage.getItem('ga_map_hint_' + key) === null && infoBoxState[id].hidden) {
+        localStorage.setItem('ga_map_hint_' + key, 'false');
+      }
+    });
+    window.gaMapDisplayAdapter = {
+      supports: function(key) {
+        return ['magentaLine', 'telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'terrainAvoid'].indexOf(key) >= 0;
+      },
+      apply: function(key) {
+        if (['telemetry', 'currentInfo', 'nextLeg'].indexOf(key) >= 0) {
+          Object.keys(infoBoxState).forEach(function(id) {
+            setInfoBoxAvailability(id, id === 'liveNextWpBox' ? !!(mapSnapshot && mapSnapshot.navigation) : !!flight);
+          });
+        }
+        if (key === 'compass') byId('compassRoseWrap').classList.toggle('compass-hint-off', !window.isMapHintEnabled(key));
+        if (key === 'routeProgress') {
+          byId('routeProgressBar').classList.toggle('route-progress-hidden', !window.isMapHintEnabled(key));
+          syncToolbarLayout();
+          if (map) map.invalidateSize(false);
+        }
+        if (key === 'magentaLine') renderProgress();
+        if (key === 'autoZoom') {
+          window.resetMapAutoZoomState();
+          window.refreshMapAutoZoomUi();
+        }
+        if (key === 'terrainAvoid') window.setTerrainAvoidOverlayEnabled(window.isMapHintEnabled(key), { skipPersist: true, silent: true });
+        if (key === 'lowFps') {
+          var on = window.isMapHintEnabled(key);
+          document.body.classList.toggle('low-fps-mode', on);
+          if (routeLayer) routeLayer.eachLayer(function(layer) {
+            if (layer instanceof L.Polyline) layer.setStyle({ dashArray: on ? null : '10,10' });
+          });
+          var element = planeMarker && planeMarker.getElement();
+          if (element) element.classList.toggle('low-fps-plane', on);
+          renderProfile();
+        }
+      },
+      refreshUi: function() {
+        // These original renderers still need migration. Never expose a working-
+        // looking toggle that only changes its label or invent a replacement.
+        ['hintToggleWeather',
+          'btnToggleWeatherMenu', 'hintToggleTraffic'
+        ].forEach(function(id) {
+          var control = byId(id);
+          if (!control) return;
+          control.disabled = true;
+          control.title = 'Die Standalone-Funktion ist im EFB noch nicht übernommen.';
+        });
+      }
+    };
+    loadMapHintSettings();
+    loadTerrainAvoidSettings();
+    initPlaneIconSettingsUi();
+    ['telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'terrainAvoid'].forEach(window.gaMapDisplayAdapter.apply);
+    refreshMapHintMenuUi();
+  }
+
   function configureOriginalChrome() {
+    document.body.classList.toggle('ga-efb-embedded', window.parent !== window);
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
     setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.8');
@@ -1600,77 +1308,18 @@
     var profileButton = byId('vpToggleBtn');
     if (actions && profileButton) {
       actions.classList.add('ga-efb-host-actions');
-      var displayMenu = makeHostMenu('ga-efb-host-display-menu', 'Anzeige', [
-        { label: 'Infofenster einblenden', action: showAllInfoBoxes },
-        { label: 'Telemetrie ein-/ausblenden', action: function () { toggleInfoBox('liveTelemetryBox'); } },
-        { label: 'Aktuelle Position ein-/ausblenden', action: function () { toggleInfoBox('liveCurrentBox'); } },
-        { label: 'Next Leg ein-/ausblenden', action: function () { toggleInfoBox('liveNextWpBox'); } },
-        { label: 'Kartenlayer', action: toggleLayerMenu },
-        { label: 'Schrift kleiner (-)', action: function () { setEfbFontScale(preferences.fontScale - 0.1); } },
-        { label: 'Schriftgröße: ' + Math.round(preferences.fontScale * 100) + '%', hint: true, className: 'ga-efb-font-size-hint' },
-        { label: 'Schrift größer (+)', action: function () { setEfbFontScale(preferences.fontScale + 0.1); } },
-        { label: 'Schrift Standard (100%)', action: function () { setEfbFontScale(1); } },
-        { label: 'Was ist hier: Karte kurz halten', hint: true }
-      ]);
-      profileButton.insertAdjacentElement('afterend', displayMenu);
-      var missionMenu = makeHostMenu('ga-efb-host-mission-menu', 'Mission', [
-        { label: 'Missionsstatus', action: function () { openSideDrawer('mission'); } },
-        { label: 'Verlade-Manager', action: openCargoManager },
-        { label: 'Checklisten', action: function () { openSideDrawer('checklists'); } }
-      ]);
-      displayMenu.insertAdjacentElement('afterend', missionMenu);
-      var toolsMenu = makeHostMenu('ga-efb-host-tools-menu', 'Werkzeuge', [
-        { label: 'Werkzeugleiste', action: function () { window.toggleMapToolRail(); } },
-        { label: 'Zeichnen', action: function () { setDrawMode('pen'); } },
-        { label: 'Strecke messen', action: function () { setDrawMode('measure'); } },
-        { label: 'Uhr / Timer', action: function () { toggleUtilityTool('stopwatch'); } },
-        { label: 'Rechner', action: function () { toggleUtilityTool('calculator'); } },
-        { label: 'E6B Flight Computer', action: function () { toggleUtilityTool('e6b'); } }
-      ]);
-      missionMenu.insertAdjacentElement('afterend', toolsMenu);
       actions.appendChild(makeButton('ga-efb-host-state', 'Tracker wird verbunden', function () {}));
-      if (!document.body.getAttribute('data-ga-host-menu-bound')) {
-        document.body.setAttribute('data-ga-host-menu-bound', '1');
-        document.addEventListener('click', function (event) {
-          if (event.target && event.target.closest &&
-              (event.target.closest('.ga-efb-host-menu') || event.target.closest('.ga-efb-host-menu-panel'))) return;
-          closeHostMenus();
-        });
-      }
+
     }
     setupMissionActionBanner();
 
     var reset = actions && actions.querySelector('button[onclick="resetMainRoute()"]');
-    if (reset) { reset.textContent = 'Route'; reset.disabled = true; reset.title = 'Read-only: Die Route kommt aus dem Tracker'; }
+    if (reset) { reset.disabled = true; reset.title = 'Zwischenwegpunkte zurücksetzen'; }
     var closeButtons = actions && actions.querySelectorAll('.pb-btn.close');
     if (closeButtons) Array.prototype.forEach.call(closeButtons, function (button) {
       if (button.parentNode) button.parentNode.removeChild(button);
     });
-    setText('mapToolbarToggle', '^');
-    setText('autoFollowBtn', 'FOLLOW');
-    setText('mapDrawFloatingBtn', 'TOOLS');
-    setText('mapToolPen', 'PEN');
-    setText('mapToolEraser', 'DEL');
-    setText('mapToolSettings', 'SET');
-    setText('mapToolDrawClear', 'CLR');
-    setText('mapToolMeasure', 'NM');
-    setText('mapToolStopwatch', 'TMR');
-    setText('mapToolCalculator', 'CALC');
-    setText('mapToolE6B', 'E6B');
-    setText('nextLegPrevBtn', '<');
-    setText('nextLegNextBtn', '>');
-
-    var keypad = byId('mapCalculatorDevice');
-    if (keypad) {
-      var replacements = { backspace: 'DEL', percent: '%', equals: '=', clear: 'C' };
-      Object.keys(replacements).forEach(function (key) {
-        var button = keypad.querySelector('[data-calc="' + key + '"]');
-        if (button) button.textContent = replacements[key];
-      });
-      Array.prototype.forEach.call(keypad.querySelectorAll('[data-calc="operator"]'), function (button) {
-        button.textContent = button.getAttribute('data-op') || button.textContent;
-      });
-    }
+    syncToolbarLayout();
 
     document.body.classList.toggle('toolbar-collapsed', preferences.toolbarCollapsed);
     document.body.classList.toggle('profile-hidden', !preferences.profileVisible);
@@ -1687,7 +1336,7 @@
       s: layer && typeof layer._getSubdomain === 'function' ? layer._getSubdomain(coords) : '',
       x: coords.x,
       y: coords.y,
-      z: coords.z
+      z: layer && typeof layer._getZoomForUrl === 'function' ? layer._getZoomForUrl() : coords.z
     };
     return L.Util.template(template, data);
   }
@@ -1721,6 +1370,10 @@
       createTile: function (coords, done) {
         var layer = this;
         var tile = document.createElement('img');
+        // Resolve the native zoom now: the map can zoom again before a retry.
+        var sourceUrls = sources.map(function (source, index) {
+          return index === 0 ? layer.getTileUrl(coords) : tileTemplateUrl(source.url, layer, coords);
+        });
         var sourceIndex = 0;
         var settled = false;
         var timeout = 0;
@@ -1728,6 +1381,20 @@
         tile.className = 'ga-efb-map-tile ga-efb-map-tile-' + String(definition.id || 'layer');
         tile.setAttribute('role', 'presentation');
         tile.setAttribute('decoding', 'async');
+        if (layer.options.crossOrigin || layer.options.crossOrigin === '') {
+          tile.crossOrigin = layer.options.crossOrigin === true ? '' : layer.options.crossOrigin;
+        }
+        if (typeof layer.options.referrerPolicy === 'string') tile.referrerPolicy = layer.options.referrerPolicy;
+        // Panning/zooming must cancel obsolete fallback requests, not keep a
+        // queue of invisible tiles competing with the current map and telemetry.
+        tile._gaCancelTile = function () {
+          if (settled) return;
+          settled = true;
+          clearTimer();
+          tile.onload = null;
+          tile.onerror = null;
+          tile.src = L.Util.emptyImageUrl;
+        };
 
         function clearTimer() {
           if (!timeout) return;
@@ -1746,16 +1413,18 @@
           done(error, tile);
         }
         function loadSource(index) {
+          if (settled) return;
           sourceIndex = index;
           clearTimer();
-          tile.src = tileTemplateUrl(sources[sourceIndex].url, layer, coords);
+          tile.src = sourceUrls[sourceIndex];
           timeout = window.setTimeout(function () {
             if (sourceIndex + 1 < sources.length) loadSource(sourceIndex + 1);
             else finish(new Error('map_tile_timeout'));
-          }, sourceIndex === 0 ? 5000 : 7000);
+          }, sourceIndex === 0 ? 4500 : 7000);
         }
         tile.onload = function () { finish(null); };
         tile.onerror = function () {
+          if (settled) return;
           if (sourceIndex + 1 < sources.length) loadSource(sourceIndex + 1);
           else finish(new Error('map_tile_failed'));
         };
@@ -1763,7 +1432,11 @@
         return tile;
       }
     });
-    return new ResilientLayer(sources[0].url, options);
+    var resilient = new ResilientLayer(sources[0].url, options);
+    resilient.on('tileunload', function (event) {
+      if (event.tile && event.tile._gaCancelTile) event.tile._gaCancelTile();
+    });
+    return resilient;
   }
 
   function createTileLayer(definition, paneName) {
@@ -1825,7 +1498,6 @@
     createStablePane('gaAircraftPane', 500);
     routeRenderer = L.svg ? L.svg({ pane: 'gaRoutePane' }) : null;
     geometryRenderer = L.svg ? L.svg({ pane: 'gaGeometryPane' }) : null;
-    drawingRenderer = L.svg ? L.svg({ pane: 'gaDrawingPane' }) : null;
 
     var baseControl = {};
     var overlayControl = {};
@@ -1839,15 +1511,16 @@
       overlayLayers[definition.id] = layer;
       overlayControl[definition.label] = layer;
     });
+    overlayLayers.radar = createMapRadarOverlay(map, 'gaWeatherPane');
+    overlayControl['🌧️ Wetterradar (Niederschlag)'] = overlayLayers.radar;
     (baseLayers[preferences.baseLayer] || baseLayers.topo).addTo(map);
     preferences.overlays.forEach(function (id) { if (overlayLayers[id]) overlayLayers[id].addTo(map); });
     updateBaseOpacity();
     layerControl = L.control.layers(baseControl, overlayControl, { collapsed: true, position: 'topright' }).addTo(map);
+    configureMapLayerControl(map, layerControl);
     routeLayer = L.layerGroup().addTo(map);
     geometryLayer = L.layerGroup().addTo(map);
     previewLayer = L.layerGroup().addTo(map);
-    drawingLayer = L.layerGroup().addTo(map);
-    measureLayer = L.layerGroup().addTo(map);
     map.on('baselayerchange', function (event) {
       Object.keys(baseLayers).some(function (id) {
         if (baseLayers[id] !== event.layer) return false;
@@ -1862,78 +1535,153 @@
       updateBaseOpacity();
       savePreferences();
     });
-    map.on('dragstart', function () { if (preferences.follow) setFollow(false); });
+    window.map = map;
+    bindAutoFollowMapInteractionHandlers();
+    map.on('moveend zoomend', function () { window.scheduleTerrainAvoidOverlayUpdate(true); clearTimeout(snapTimer); snapTimer = setTimeout(refreshSnapCandidates, 600); });
+    setInterval(refreshSnapCandidates, 60000);
+    refreshSnapCandidates();
     map.on('click', handleMapClick);
     map.on('contextmenu', function (event) {
       clearMapContextPress();
       mapContextSuppressClickUntil = Date.now() + 900;
       openMapContextInfo(event.latlng, 'contextmenu');
     });
-    map.on('popupclose', function (event) {
-      if (mapContextPopup && event && event.popup && event.popup !== mapContextPopup) return;
-      mapContextPopup = null;
-      mapContextState = null;
-      mapContextRequestSeq += 1;
-      if (mapContextPointLayer) {
-        try { map.removeLayer(mapContextPointLayer); } catch (_) {}
-        mapContextPointLayer = null;
-      }
-      document.body.classList.remove('ga-efb-context-open');
-    });
+    map.on('popupclose', window.gaMapContextPopupClosed);
     bindMapContextLongPress();
-    bindMapDrawingInput();
+    window.map = map;
+    window.renderMainRoute = function() { if(mapSnapshot) renderRoute(mapSnapshot); };
+    window.gaMapDrawingHost = {
+      pathOptions: {pane: 'gaDrawingPane', renderer: L.svg({pane:'gaDrawingPane'})},
+      changed: function(active) {
+        map.getPane('gaRoutePane').style.pointerEvents = active ? 'none' : '';
+        if(active && contextPickActive) toggleMapContextPick();
+      }
+    };
+    bindMapDrawEvents();
+    ensureMapDrawLayer();
+    initMapDrawFloatingButton();
     window.addEventListener('resize', function () {
+      syncToolbarLayout();
       map.invalidateSize(false);
       renderProfile();
+      positionMapHintsMenuInViewport();
+      renderRouteLegLabels();
     });
+    map.on('zoomend', function() { renderRouteLegLabels(); });
     buildCompass();
     window.setTimeout(function () { map.invalidateSize(false); }, 60);
   }
 
-  function setFollow(value) {
-    preferences.follow = !!value;
+  window.gaMapFollowChanged = function(value) {
+    preferences.follow = value;
     savePreferences();
-    var button = byId('autoFollowBtn');
-    if (button) {
-      button.classList.toggle('active', preferences.follow);
-      button.textContent = preferences.follow ? 'FOLLOW ON' : 'FOLLOW';
-    }
-    if (preferences.follow && flight && map) map.panTo([flight.lat, flight.lon], { animate: false });
+  };
+
+  function setFollow(value) {
+    toggleAutoFollow(!!value);
   }
 
-  function planeIcon(heading) {
+  function planeIcon() {
     return L.divIcon({
-      className: 'ga-efb-plane-icon',
-      html: '<img alt="" src="/efb/v1/assets/aircraft-marker.svg" style="transform:rotate(' + Math.round(heading) + 'deg)">',
-      iconSize: [40, 40],
-      iconAnchor: [20, 20]
+      className: 'live-plane-marker',
+      html: window.GAMapLivePresentation.aircraftHtml(),
+      iconSize: [0, 0],
+      iconAnchor: [0, 0]
     });
   }
 
+  function rotatePlane(heading) {
+    var element = planeMarker && planeMarker.getElement();
+    var svg = element && element.querySelector('svg');
+    if (svg) svg.style.transform = 'rotate(' + heading + 'deg)';
+  }
+
+  function saveLiveTrail() {
+    window.clearTimeout(liveTrailSaveTimer);
+    liveTrailSaveTimer = 0;
+    if (!liveTrailSession) return;
+    try { sessionStorage.setItem(TRAIL_STORAGE_KEY, JSON.stringify({sessionId: liveTrailSession, points: liveTrailPoints})); } catch (_) {}
+  }
+
+  function clearLiveTrail() {
+    liveTrailPoints = [];
+    if (liveTrail) liveTrail.setLatLngs([]);
+    window.clearTimeout(liveTrailSaveTimer);
+    liveTrailSaveTimer = 0;
+    try { sessionStorage.removeItem(TRAIL_STORAGE_KEY); } catch (_) {}
+  }
+
+  function syncLiveTrailSession(payload) {
+    var id = String(payload.viewSessionId || '');
+    if (id !== liveTrailSession) {
+      var saved = null;
+      try { saved = JSON.parse(sessionStorage.getItem(TRAIL_STORAGE_KEY)); } catch (_) {}
+      clearLiveTrail();
+      liveTrailSession = id;
+      liveTrailPoints = window.GAMapLivePresentation.restoreTrail(saved, id);
+      if (liveTrail) liveTrail.setLatLngs(liveTrailPoints);
+    }
+    if (payload.available === false) clearLiveTrail();
+  }
+
+  function recordLiveTrail(lat, lon) {
+    var next = window.GAMapLivePresentation.appendTrailPoint(liveTrailPoints, lat, lon, function(a,b) { return map.distance(a,b); });
+    var trimmed = next && next !== liveTrailPoints;
+    if (next) liveTrailPoints = next;
+    if (!liveTrail && liveTrailPoints.length) liveTrail = L.polyline(liveTrailPoints,
+      Object.assign({}, window.GAMapLivePresentation.TRAIL_STYLE, {pane:'gaRoutePane',renderer:routeRenderer || undefined})).addTo(map);
+    else if (liveTrail && next) {
+      if (trimmed) liveTrail.setLatLngs(liveTrailPoints);
+      else liveTrail.addLatLng(liveTrailPoints[liveTrailPoints.length - 1]);
+    }
+    // Snapshot/render remains immediate. Bound synchronous storage work to once
+    // per two seconds and flush on pagehide for a view reload.
+    if (next && !liveTrailSaveTimer && liveTrailSession) liveTrailSaveTimer = window.setTimeout(saveLiveTrail, 2000);
+  }
+
+  var localNavigationState = {};
+  function refreshLocalNavigation() {
+    if (!mapSnapshot) return;
+    var points = mapSnapshot.route.waypoints;
+    localNavigationState.selectedIndex = previewWaypointIndex;
+    mapSnapshot.navigation = flight ? window.GAMapNavigationGeometry.buildNavigation(flight, points,
+      window.GAMapNavigationGeometry.buildLegs(points), localNavigationState) : null;
+    if (mapSnapshot.navigation) previewWaypointIndex = localNavigationState.selectedIndex;
+  }
   function renderFlight(payload) {
+    if (!payload) { disconnectFlight(); return; }
+    syncLiveTrailSession(payload);
     var normalized = API.normalizeFlightSnapshot(payload);
-    if (!normalized) return;
+    if (!normalized || !normalized.capturedAt || Date.now() - normalized.capturedAt > 15000) {
+      disconnectFlight();
+      return;
+    }
+    if (flight && flight.capturedAt === normalized.capturedAt) return;
     var previous = flight;
     flight = normalized;
+    refreshLocalNavigation();
+    window.lastLiveFlightData = payload.flight || {};
+    window.lastLiveTerrainFt = Number.isFinite(Number(payload.flight && payload.flight.aglFt))
+      ? flight.altFt - Number(payload.flight.aglFt) : null;
+    if(Array.isArray(payload.traffic)) window.vpTrafficData = window.GAMapLivePresentation.filterTraffic(payload.traffic, payload);
+    recordLiveTrail(flight.lat, flight.lon);
     if (!planeMarker) {
-      planeMarker = L.marker([flight.lat, flight.lon], { icon: planeIcon(flight.headingDeg), pane: 'gaAircraftPane', zIndexOffset: 2000 }).addTo(map);
+      planeMarker = L.marker([flight.lat, flight.lon], { icon: planeIcon(), pane: 'gaAircraftPane', zIndexOffset: 9999, interactive: false }).addTo(map);
+      planeMarker.getElement().classList.toggle('low-fps-plane', window.isMapHintEnabled('lowFps'));
       planeHeading = flight.headingDeg;
+      rotatePlane(flight.headingDeg);
     } else {
       var moved = !previous || map.distance([previous.lat, previous.lon], [flight.lat, flight.lon]) >= 0.5;
       if (moved) planeMarker.setLatLng([flight.lat, flight.lon]);
       var headingDelta = planeHeading == null ? 360 : Math.abs(((flight.headingDeg - planeHeading + 540) % 360) - 180);
       if (headingDelta >= 1) {
-        planeMarker.setIcon(planeIcon(flight.headingDeg));
+        rotatePlane(flight.headingDeg);
         planeHeading = flight.headingDeg;
       }
     }
+    renderProfile();
     if (preferences.follow) {
-      if (!firstFlightCenter || map.getZoom() < 8) {
-        map.setView([flight.lat, flight.lon], 10, { animate: false });
-        firstFlightCenter = true;
-      } else if (map.distance(map.getCenter(), [flight.lat, flight.lon]) >= 5) {
-        map.panTo([flight.lat, flight.lon], { animate: false });
-      }
+      updateAutoFollowFromTelemetry(getAutoFollowLiveSample());
     }
     updateStandaloneTelemetry(flight);
     setText('currentPosRef', mapSnapshot && mapSnapshot.context.currentPosition || 'Position aktiv');
@@ -1943,16 +1691,74 @@
     setInfoBoxAvailability('liveCurrentBox', !!current);
     updateCompass();
     renderProgress();
-    renderProfile();
-  }
-
-  function markerIcon(index) {
-    return L.divIcon({ className: 'ga-route-waypoint', html: String(index + 1), iconSize: [18, 18], iconAnchor: [9, 9] });
   }
 
   function targetIcon() {
     return L.divIcon({ className: 'ga-mission-target', html: 'T', iconSize: [22, 22], iconAnchor: [11, 11] });
   }
+
+  var snapMode = true, snapCandidates = [], snapCoverage = null, snapLoadedAt = 0;
+  var snapRequest = 0, snapPending = false, snapDirty = false, snapTimer = null;
+  window.updateSnapButtonUI = function() {
+    ['snapBtn', 'hintToggleSnapping'].forEach(function(id) {
+      var button = byId(id); if (!button) return;
+      button.disabled = false;
+      button.innerText = snapMode ? '🧲 Snapping (An)' : '🧲 Snapping (Aus)';
+      button.style.background = snapMode ? '#4da6ff' : '#444'; button.style.color = '#fff';
+      button.title = 'Wegpunkte an Flugplätzen, Funkfeuern und Meldepunkten einrasten';
+    });
+  };
+  window.toggleSnapMode = function() {
+    snapMode = !snapMode; window.updateSnapButtonUI();
+    if (!snapMode) { snapCandidates = []; snapCoverage = null; snapRequest++; }
+    else refreshSnapCandidates();
+  };
+  function refreshSnapCandidates() {
+    if (!map || !snapMode || map.getZoom() < 6) { snapCandidates = []; snapCoverage = null; return; }
+    if (snapPending) { snapDirty = true; return; }
+    var b = map.getBounds(), now = Date.now();
+    if (snapCoverage && now - snapLoadedAt < 300000 && b.getWest() >= snapCoverage.west && b.getEast() <= snapCoverage.east &&
+        b.getSouth() >= snapCoverage.south && b.getNorth() <= snapCoverage.north) return;
+    var bounds = { west: Math.max(-180, b.getWest() - .1), east: Math.min(180, b.getEast() + .1),
+      south: Math.max(-85, b.getSouth() - .1), north: Math.min(85, b.getNorth() + .1) };
+    if (bounds.west >= bounds.east || bounds.south >= bounds.north) return;
+    var sequence = ++snapRequest; snapPending = true;
+    window.gaFetchNavpoints(bounds).then(function(entries) {
+      if (sequence !== snapRequest || !snapMode) return;
+      snapCandidates = Array.isArray(entries) ? entries : []; snapCoverage = bounds; snapLoadedAt = now;
+    }).catch(function(error) { console.warn('[EFB Snapping]', error.message); })
+      .then(function() { snapPending = false; if (snapDirty) { snapDirty = false; clearTimeout(snapTimer); snapTimer = setTimeout(refreshSnapCandidates, 600); } });
+  }
+  function snappedPoint(pos) {
+    if (!snapMode || !map || map.getZoom() < 6) return null;
+    return window.GAMapRouteEditCore.snap(pos, snapCandidates.filter(function(p) { return p.type === 'APT' || map.getZoom() >= 8; }),
+      function(p) { return map.latLngToLayerPoint([p.lat, p.lng == null ? p.lon : p.lng]); });
+  }
+  var navigationDragging = false;
+  var navigationClient = window.GAMapNavigationClient.create({
+    request: function(intent, payload, revision) {
+      return window.gaCockpitSessionClient.submitTool({ intent: intent, payload: payload, expectedRevision: revision,
+        commandId: 'nav-' + Date.now() + '-' + Math.random().toString(36).slice(2) });
+    },
+    render: function(nav, pending) {
+      if (!mapSnapshot || nav.id !== (mapSnapshot.routeEdit && mapSnapshot.routeEdit.id)) return;
+      var next = Object.assign({}, mapSnapshot, { route: Object.assign({}, mapSnapshot.route, { waypoints: nav.points }) });
+      var signature = mapRouteSignature(next);
+      if (signature !== routeSignature) { mapSnapshot = next; routeSignature = signature; renderRoute(next); refreshLocalNavigation(); renderProgress(); updateCompass(); renderProfile(); }
+    },
+    error: function() { window.alert('Die Route wurde inzwischen geändert oder die Verbindung ist unterbrochen. Bitte die aktuelle Route prüfen.'); },
+    refresh: function() { fetchJson('/api/v1/map', 5000).then(function(value) { renderMapPayload(safePayload(value)); }).catch(function() {}); }
+  });
+  function routeInsert(event) {
+    if (mapDrawState.enabled || measureMode || navigationDragging || !mapSnapshot) return;
+    var points = mapSnapshot.route.waypoints;
+    var index = window.GAMapRouteEditCore.insertionIndex(points, event.latlng, function(a, b) {
+      return map.distance([a.lat, a.lng == null ? a.lon : a.lng], [b.lat, b.lng == null ? b.lon : b.lng]);
+    });
+    navigationClient.edit({ action: 'insert', index: index, point: { lat: event.latlng.lat, lng: event.latlng.lng } });
+    if (event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
+  }
+  window.removeRouteWaypoint = function(index) { navigationClient.edit({ action: 'remove', index: index }); };
 
   function renderRoute(snapshot) {
     var previousRouteLayer = routeLayer;
@@ -1963,10 +1769,53 @@
     previewLayer = L.layerGroup();
     previewLine = null;
     var waypoints = snapshot.route.waypoints;
-    var latlngs = waypoints.map(function (point) { return [point.lat, point.lon]; });
-    L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: '10,10', pane: 'gaRoutePane', renderer: routeRenderer || undefined }).addTo(routeLayer);
+    var latlngs = waypoints.map(function (point) { return [point.lat, point.lng == null ? point.lon : point.lng]; });
+    var routeLine = L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: window.isMapHintEnabled('lowFps') ? null : '10,10', pane: 'gaRoutePane', renderer: routeRenderer || undefined }).addTo(routeLayer);
+    var routeHitbox = null;
+    if (!measureMode && !mapDrawState.enabled && snapshot.routeEdit && snapshot.routeEdit.editable) {
+      routeLine.on('click', routeInsert);
+      routeHitbox = L.polyline(latlngs, { weight: 44, opacity: 0, interactive: true, bubblingMouseEvents: false, pane: 'gaRoutePane' }).addTo(routeLayer).on('click', routeInsert);
+    }
     waypoints.forEach(function (point, index) {
-      var marker = L.marker([point.lat, point.lon], { icon: markerIcon(index), pane: 'gaRoutePane' }).addTo(routeLayer);
+      var canDrag = !measureMode && !mapDrawState.enabled && snapshot.routeEdit && snapshot.routeEdit.editable && index > 0 && index < waypoints.length - 1 && !point.isPOI && !point.isPoiChainEndpoint && !point.isPoiChainReturnHome;
+      var marker = L.marker([point.lat, point.lng == null ? point.lon : point.lng], { icon: L.divIcon(window.GAMapRouteEditCore.markerOptions(index, waypoints.length, point.isPOI)), pane: 'gaRoutePane', interactive: !measureMode && !mapDrawState.enabled, draggable: !!canDrag }).addTo(routeLayer);
+      if (canDrag) {
+
+        marker.on('dragstart', function() { navigationDragging = true; });
+        marker.on('drag', function(event) {
+          var raw = event.latlng || marker.getLatLng(), closest = snappedPoint(raw);
+          marker.setLatLng(closest ? [closest.lat, closest.lng] : raw);
+          var line = waypoints.map(function(p) { return [p.lat, p.lng == null ? p.lon : p.lng]; });
+          line[index] = marker.getLatLng(); routeLine.setLatLngs(line);
+          if (routeHitbox) routeHitbox.setLatLngs(line);
+        });
+        marker.on('dragend', function() {
+          navigationDragging = false;
+          if (!mapSnapshot) return;
+          var pos = marker.getLatLng(), closest = snappedPoint(pos);
+          var point = closest ? { lat: closest.lat, lng: closest.lng, name: closest.name, rppAirportIcao: closest.rppAirportIcao || '' } : { lat: pos.lat, lng: pos.lng };
+          if (!navigationClient.edit({ action: 'move', index: index, point: point })) renderRoute(mapSnapshot);
+        });
+      }
+      if (index === 0 || index === waypoints.length - 1) {
+        window.bindRouteAirportPopup(marker, index === 0, marker.getLatLng());
+      } else if (point.isPOI) {
+        marker.bindPopup('<div style="text-align:center; color:#b266ff;"><b>' + escapeHtml(point.name) + '</b></div>');
+      } else {
+        marker.bindPopup('');
+        marker.on('popupopen', function() {
+          var info = window.gaMapContextHost.cachedFeature(marker.getLatLng());
+          var airport = info && info.kind === 'airport' && window.getMapContextFeatureDistancePx(info, marker.getLatLng()) <= window.getAirportTapRadiusPx(18) ? info : null;
+          var infoButton = airport ? '<button data-route-airport-info style="margin-top:5px; margin-right:4px; background:#235ea7; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius:2px;">ℹ️ Info</button>' : '';
+          var content = document.createElement('div');
+          content.innerHTML = window.GAMapRouteEditCore.popup(point.name, index, infoButton);
+          // Preserve the protected waypoint gate for routes this surface cannot edit.
+          if (!canDrag) Array.from(content.querySelectorAll('[onclick]')).forEach(function(button){button.remove();});
+          var infoControl = content.querySelector('[data-route-airport-info]');
+          if(infoControl) infoControl.onclick = function(){window.openAirportInfoPopup({icao:airport.icao,name:airport.name,lat:airport.lat,lon:airport.lon,elevation:airport.elevationFt,country:airport.country});};
+          marker.getPopup().setContent(content);
+        });
+      }
       marker.bindTooltip(point.name || ('WP ' + (index + 1)), { direction: 'top', offset: [0, -8], className: 'ga-route-label' });
     });
     var target = snapshot.missionGeometry && snapshot.missionGeometry.target;
@@ -1988,26 +1837,43 @@
   }
 
   function mapRouteSignature(snapshot) {
-    var parts = [String(snapshot.missionId || '')];
+    var parts = [String(snapshot.missionId || ''), String(snapshot.routeEdit && snapshot.routeEdit.id), String(snapshot.routeEdit && snapshot.routeEdit.editable)];
     (snapshot.route && snapshot.route.waypoints || []).forEach(function (point) {
-      parts.push(['w', point.id || point.name || '', point.lat, point.lon].join(':'));
+      parts.push(['w', point.id || '', point.name || '', point.lat, point.lng == null ? point.lon : point.lng, !!point.isPOI, !!point.isPoiChainEndpoint, !!point.isPoiChainReturnHome].join(':'));
     });
     var target = snapshot.missionGeometry && snapshot.missionGeometry.target;
     if (target) parts.push(['t', target.id || target.name || '', target.lat, target.lon].join(':'));
     (snapshot.missionGeometry && snapshot.missionGeometry.poiChain || []).forEach(function (point) {
-      parts.push(['c', point.id || point.name || '', point.lat, point.lon].join(':'));
+      parts.push(['c', point.id || '', point.name || '', point.lat, point.lng == null ? point.lon : point.lng, !!point.isPOI, !!point.isPoiChainEndpoint, !!point.isPoiChainReturnHome].join(':'));
     });
     return parts.join('|');
   }
 
+  function clearMapRoute() {
+    if (!mapSnapshot) return;
+    mapSnapshot = null; mapRevision = null; routeSignature = ''; localNavigationState = {};
+    previewWaypointIndex = null; previewLine = null;
+    [routeLayer, geometryLayer, previewLayer].forEach(function(layer){if(layer)layer.clearLayers();});
+    navigationClient.receive({id:'',revision:0,editable:false,points:[],resetPoints:[]});
+    var reset = document.querySelector('button[onclick="resetMainRoute()"]');
+    if(reset)reset.disabled=true;
+    renderProgress(); updateCompass(); renderProfile();
+  }
   function renderMapPayload(payload) {
-    if (!payload || payload.available !== true) return;
+    if (payload && payload.available === false) { clearMapRoute(); return; }
+    if (!payload || payload.available !== true || navigationDragging) return;
     var normalized = API.normalizeTrackerMapSnapshot(payload);
     if (!normalized) return;
+    if (normalized.routeEdit) navigationClient.receive({ id: normalized.routeEdit.id, revision: normalized.routeEdit.revision,
+      editable: normalized.routeEdit.editable, resetPoints: normalized.routeEdit.resetPoints, points: normalized.route.waypoints, context: normalized.context,
+      missionId: normalized.missionId, runId: normalized.runId });
+    if (navigationClient.pending()) return;
+    var resetControl = document.querySelector('button[onclick="resetMainRoute()"]');
+    if (resetControl) resetControl.disabled = !(normalized.routeEdit && normalized.routeEdit.editable);
     var nextRouteSignature = mapRouteSignature(normalized);
     if (!mapSnapshot || nextRouteSignature !== routeSignature) {
-      if (mapSnapshot && normalized.missionId !== mapSnapshot.missionId) profileCruiseOverride = null;
       previewWaypointIndex = null;
+      if (!mapSnapshot || (mapSnapshot.routeEdit && mapSnapshot.routeEdit.id) !== (normalized.routeEdit && normalized.routeEdit.id)) localNavigationState = {};
       mapSnapshot = normalized;
       mapRevision = normalized.revision;
       routeSignature = nextRouteSignature;
@@ -2016,6 +1882,9 @@
       mapSnapshot = normalized;
       mapRevision = normalized.revision;
     }
+    refreshLocalNavigation();
+    var theme = normalized.context && normalized.context.theme;
+    if (theme && !document.body.classList.contains('theme-' + theme)) applyTheme();
     renderProgress();
     updateCompass();
     renderProfile();
@@ -2198,6 +2067,27 @@
     };
   }
 
+  var boardBookRemindersSeen = [], boardBookReminderTimer = null;
+  function renderBoardBookReminder(control) {
+    var reminder = window.GAMissionControlUiCore.boardBookReminder(control), host = window.GANavigationWarningPresentation.getBannerHost();
+    if (!reminder || !host || boardBookRemindersSeen.indexOf(reminder.key) >= 0) return;
+    var banner = byId('missionBoardBookReminder');
+    if (!banner) {
+      banner = document.createElement('section'); banner.id = 'missionBoardBookReminder';
+      banner.className = 'awm-freq-entry mission-boardbook-reminder'; banner.setAttribute('role', 'status'); host.appendChild(banner);
+    }
+    banner.innerHTML = window.GAMissionControlUiCore.boardBookReminderMarkup(reminder.field);
+    function dismiss() { banner.hidden = true; if (!Array.from(host.children).some(function(child) { return !child.hidden; })) host.style.display = 'none'; }
+    banner.onclick = function(event) { event.stopPropagation(); if (!event.target.closest('button')) dismiss(); };
+    banner.querySelector('button').onclick = function(event) {
+      event.stopPropagation();
+      submitMissionIntent('set_boardbook_time', { itemId: 'bordbuch', field: reminder.field, source: 'banner' }).then(function(ok) { if (ok) dismiss(); });
+    };
+    banner.hidden = false; host.style.display = 'block';
+    boardBookRemindersSeen.push(reminder.key); boardBookRemindersSeen = boardBookRemindersSeen.slice(-32);
+    clearTimeout(boardBookReminderTimer); boardBookReminderTimer = setTimeout(dismiss, 15000);
+  }
+
   function renderMissionToolbar(payload) {
     var model = missionToolbarProjection(payload);
     var primaryButton = byId('mapMissionToggleBtn');
@@ -2296,9 +2186,12 @@
       cargoManagerOpen: cargoManagerOpen === true
     });
     missionSnapshot = next;
+    window.gaTrackerExecutionControl = next && next.control || null;
     if (nextControl && nextControl.cargoWindowCloseId
         && (!previousControl || previousControl.cargoWindowCloseId !== nextControl.cargoWindowCloseId)) closeCargoManager(true);
-    if (openBoardingDialog) openCargoManager();
+    if (nextControl && nextControl.cargoWindowOpenId && (!previousControl || previousControl.cargoWindowOpenId !== nextControl.cargoWindowOpenId)) openCargoManager(true);
+    else if (openBoardingDialog) openCargoManager(true);
+    renderBoardBookReminder(nextControl);
     if (presentationSignature !== missionPresentationSignature) {
       missionPresentationSignature = presentationSignature;
       renderMissionActionBanner(next);
@@ -2306,7 +2199,7 @@
       renderCargoManager();
     }
     var drawer = byId('mapSideDrawer');
-    var drawerOpen = drawer && drawer.classList.contains('is-open') && drawerView === 'mission';
+    var drawerOpen = drawer && drawer.classList.contains('is-open') && window.gaChecklistCurrentView() === 'mission';
     if (signature === missionSignature) {
       if (drawerOpen) updateMissionLiveFields(view);
       return;
@@ -2326,13 +2219,7 @@
     trackerChecklistLibrary = next;
     if (signature === checklistLibrarySignature) return;
     checklistLibrarySignature = signature;
-    if (drawerChecklistId && !allEfbChecklists().some(function (checklist) { return checklist.id === drawerChecklistId; })) {
-      drawerChecklistId = '';
-    }
-    var drawer = byId('mapSideDrawer');
-    if (drawer && drawer.classList.contains('is-open') && drawerView === 'checklists') {
-      requestSideDrawerRefresh();
-    }
+    if (window.gaChecklistCurrentView && ['home','list','manager','viewer'].indexOf(window.gaChecklistCurrentView()) >= 0) requestSideDrawerRefresh();
     report('info', 'checklist-library', 'loaded', 'Eigene Checklisten vom Tracker geladen', 'count=' + next.checklists.length + ' revision=' + (next.revision || 0));
   }
 
@@ -2354,9 +2241,9 @@
     var position = flight ? { lat: flight.lat, lon: flight.lon } : null;
     var distance = position ? distanceNmBetween(position, waypoint) : null;
     var bearing = position ? bearingBetween(position, waypoint) : null;
-    if (selectedIndex === automaticIndex) {
-      if (distance == null) distance = navigation.distanceToNextNm;
-      if (bearing == null) bearing = navigation.bearingToNextDeg;
+    if (selectedIndex === navigation.selectedWaypointIndex) {
+      distance = navigation.distanceToNextNm;
+      bearing = navigation.bearingToNextDeg;
     }
     return {
       automaticIndex: automaticIndex,
@@ -2370,7 +2257,7 @@
 
   function renderPreviewLine(selected) {
     if (!previewLayer) return;
-    if (!selected || !selected.manual || !flight) {
+    if (!selected || !selected.waypoint || !flight || !window.isMapHintEnabled('magentaLine')) {
       if (previewLine) previewLayer.removeLayer(previewLine);
       previewLine = null;
       return;
@@ -2380,13 +2267,7 @@
       [selected.waypoint.lat, selected.waypoint.lon]
     ];
     if (!previewLine) {
-      previewLine = L.polyline(points, {
-        color: '#44d9ff',
-        opacity: 0.9,
-        weight: 3,
-        dashArray: '6,7',
-        pane: 'gaPreviewPane'
-      }).addTo(previewLayer);
+      previewLine = L.polyline(points, Object.assign({}, window.GAMapLivePresentation.DIRECT_LINE_STYLE, {pane:'gaPreviewPane'})).addTo(previewLayer);
     } else {
       previewLine.setLatLngs(points);
     }
@@ -2424,6 +2305,7 @@
     var next = byId('liveNextWpBox');
     if (!navigation || !route) {
       if (bar) bar.style.display = 'none';
+      syncToolbarLayout();
       setInfoBoxAvailability('liveNextWpBox', false);
       if (previewLine && previewLayer) previewLayer.removeLayer(previewLine);
       previewLine = null;
@@ -2431,6 +2313,7 @@
     }
     var selected = selectedWaypointNavigation();
     if (bar) bar.style.display = 'grid';
+    syncToolbarLayout();
     setInfoBoxAvailability('liveNextWpBox', !!next);
     var distance = routeProgressTarget === 'route' ? navigation.remainingDistanceNm : selected.distanceNm;
     var gs = flight ? flight.gsKts : 0;
@@ -2467,40 +2350,26 @@
     return node;
   }
 
+  var compassPresentation = window.GAMapLivePresentation.createCompass(document);
   function buildCompass() {
-    var svg = byId('compassSvg');
-    if (!svg) return;
-    svg.innerHTML = '';
-    svg.appendChild(createSvg('circle', { cx: 150, cy: 150, r: 146, fill: 'rgba(5,18,28,.94)', stroke: '#8aa3b2', 'stroke-width': 3 }));
-    for (var degree = 0; degree < 360; degree += 5) {
-      var major = degree % 30 === 0;
-      var tick = createSvg('line', { x1: 150, y1: 8, x2: 150, y2: major ? 28 : degree % 10 === 0 ? 22 : 17, stroke: major ? '#fff' : '#9eb1bd', 'stroke-width': major ? 3 : 1.5, transform: 'rotate(' + degree + ' 150 150)' });
-      svg.appendChild(tick);
-      if (major) {
-        var label = createSvg('text', { x: 150, y: 44, fill: '#fff', 'font-size': 18, 'font-weight': 700, 'text-anchor': 'middle', transform: 'rotate(' + degree + ' 150 150)' });
-        var cardinal = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[degree];
-        label.textContent = cardinal || leftPad(degree / 10, 2);
-        svg.appendChild(label);
-      }
-    }
-    var cdi = byId('compassCdiSvg');
-    if (cdi) {
-      cdi.innerHTML = '';
-      cdi.appendChild(createSvg('line', { x1: -48, y1: 6, x2: 48, y2: 6, stroke: '#c3d2da', 'stroke-width': 2 }));
-      [-36, -18, 0, 18, 36].forEach(function (x) { cdi.appendChild(createSvg('circle', { cx: x, cy: 6, r: 2.5, fill: '#8aa3b2' })); });
-      cdi.appendChild(createSvg('line', { id: 'gaCompassCdiNeedle', x1: 0, y1: -8, x2: 0, y2: 22, stroke: '#ff3d3d', 'stroke-width': 4 }));
-    }
+    compassPresentation.buildRose();
+    compassPresentation.buildFixed();
     var wrap = byId('compassRoseWrap');
     if (wrap) { wrap.style.display = 'block'; wrap.addEventListener('click', function () { wrap.classList.toggle('compass-minimized'); }); }
   }
 
   function updateCompass() {
-    var heading = flight ? flight.headingDeg : 0;
-    var disc = byId('compassDisc');
-    if (disc) disc.style.transform = 'rotate(' + (-heading) + 'deg)';
-    var needle = byId('gaCompassCdiNeedle');
-    var xte = mapSnapshot && mapSnapshot.navigation ? mapSnapshot.navigation.crossTrackNm : 0;
-    if (needle) needle.setAttribute('transform', 'translate(' + clamp(xte / 2 * 36, -42, 42) + ' 0)');
+    compassPresentation.updateHeading(flight ? flight.headingDeg : 0);
+    var navigation = mapSnapshot && mapSnapshot.navigation;
+    if (navigation) {
+      var selected = selectedWaypointNavigation();
+      compassPresentation.updateInstruments(selected.bearingDeg, navigation.inboundBearingDeg, navigation.crossTrackNm);
+    } else {
+      var bug = byId('compassBugGroup');
+      if (bug) bug.style.display = 'none';
+      var cdi = byId('compassCdiSvg');
+      if (cdi) cdi.style.display = 'none';
+    }
   }
 
   function ensureProfileEmpty(text) {
@@ -2512,269 +2381,13 @@
     node.style.display = text ? 'flex' : 'none';
   }
 
-  function prepareCanvas(canvas, width, height) {
-    var dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.max(1, Math.round(width * dpr));
-    canvas.height = Math.max(1, Math.round(height * dpr));
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
-    var context = canvas.getContext('2d');
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return context;
-  }
-
-  function profileTerrainAt(points, distanceNm) {
-    if (!points || !points.length) return 0;
-    if (distanceNm <= points[0].distanceNm) return Math.max(0, finite(points[0].terrainFt) || 0);
-    for (var index = 1; index < points.length; index += 1) {
-      var previous = points[index - 1];
-      var next = points[index];
-      if (distanceNm > next.distanceNm) continue;
-      var span = Math.max(0.001, next.distanceNm - previous.distanceNm);
-      var progress = clamp((distanceNm - previous.distanceNm) / span, 0, 1);
-      var first = Math.max(0, finite(previous.terrainFt) || 0);
-      var second = Math.max(0, finite(next.terrainFt) || 0);
-      return first + (second - first) * progress;
-    }
-    return Math.max(0, finite(points[points.length - 1].terrainFt) || 0);
-  }
-
-  function colorWithAlpha(color, alpha) {
-    var value = String(color || '').replace('#', '');
-    if (value.length === 3) value = value.charAt(0) + value.charAt(0) + value.charAt(1) + value.charAt(1) + value.charAt(2) + value.charAt(2);
-    if (!/^[0-9a-f]{6}$/i.test(value)) return 'rgba(77,166,255,' + alpha + ')';
-    return 'rgba(' + parseInt(value.slice(0, 2), 16) + ',' + parseInt(value.slice(2, 4), 16) + ',' + parseInt(value.slice(4, 6), 16) + ',' + alpha + ')';
-  }
-
   function setupProfileResize() {
-    var handle = byId('profileResizeHandle');
-    var strip = byId('mapProfileStrip');
-    if (!handle || !strip || handle.getAttribute('data-ga-resize-bound') === '1') return;
-    handle.setAttribute('data-ga-resize-bound', '1');
-    try {
-      var savedHeight = Number(localStorage.getItem(EFB_PROFILE_HEIGHT_KEY));
-      if (savedHeight >= 90) {
-        strip.style.height = savedHeight + 'px';
-        strip.style.flexBasis = savedHeight + 'px';
-      }
-    } catch (_) {}
-    var startY = 0;
-    var startHeight = 0;
-    function clientY(event) {
-      var source = event && event.touches && event.touches.length ? event.touches[0] : event;
-      return source ? Number(source.clientY) : 0;
-    }
-    function begin(event) {
-      if (event.preventDefault) event.preventDefault();
-      startY = clientY(event);
-      startHeight = strip.getBoundingClientRect().height;
-      profileResizeActive = true;
-      document.body.classList.add('ga-profile-resizing');
-      try { if (event.pointerId != null && handle.setPointerCapture) handle.setPointerCapture(event.pointerId); } catch (_) {}
-    }
-    function move(event) {
-      if (!profileResizeActive) return;
-      if (event.preventDefault) event.preventDefault();
-      var hostHeight = document.documentElement.clientHeight || window.innerHeight || 700;
-      var nextHeight = clamp(startHeight + startY - clientY(event), 90, Math.max(120, hostHeight * 0.65));
-      strip.style.height = Math.round(nextHeight) + 'px';
-      strip.style.flexBasis = Math.round(nextHeight) + 'px';
-      if (map) map.invalidateSize(false);
-      renderProfile();
-    }
-    function finish(event) {
-      if (!profileResizeActive) return;
-      profileResizeActive = false;
-      document.body.classList.remove('ga-profile-resizing');
-      try { localStorage.setItem(EFB_PROFILE_HEIGHT_KEY, String(Math.round(strip.getBoundingClientRect().height))); } catch (_) {}
-      try { if (event && event.pointerId != null && handle.releasePointerCapture) handle.releasePointerCapture(event.pointerId); } catch (_) {}
-      if (map) map.invalidateSize(false);
-      renderProfile();
-      report('info', 'map-profile', 'resize', 'Profilhoehe geaendert', String(Math.round(strip.getBoundingClientRect().height)));
-    }
-    if (window.PointerEvent) {
-      handle.addEventListener('pointerdown', begin, false);
-      handle.addEventListener('pointermove', move, false);
-      handle.addEventListener('pointerup', finish, false);
-      handle.addEventListener('pointercancel', finish, false);
-    } else {
-      handle.addEventListener('mousedown', begin, false);
-      window.addEventListener('mousemove', move, false);
-      window.addEventListener('mouseup', finish, false);
-      handle.addEventListener('touchstart', begin, false);
-      window.addEventListener('touchmove', move, false);
-      window.addEventListener('touchend', finish, false);
-    }
+    initProfileResize();
   }
 
   function renderProfile() {
-    var wrapper = byId('vpCanvasWrapper');
-    var scroll = byId('mapProfileScroll');
-    var background = byId('mapProfileCanvasBg');
-    var foreground = byId('mapProfileCanvas');
-    if (!wrapper || !background || !foreground || document.body.classList.contains('profile-hidden')) return;
-    var viewportWidth = Math.max(280, scroll ? scroll.clientWidth : wrapper.clientWidth || 0);
-    var width = Math.round(viewportWidth * (1 + profileZoom / 100));
-    wrapper.style.width = width + 'px';
-    var height = Math.max(68, wrapper.clientHeight || 0);
-    var bg = prepareCanvas(background, width, height);
-    var fg = prepareCanvas(foreground, width, height);
-    bg.clearRect(0, 0, width, height);
-    fg.clearRect(0, 0, width, height);
-    bg.fillStyle = 'rgba(4,17,27,.96)';
-    bg.fillRect(0, 0, width, height);
-    var profile = mapSnapshot && mapSnapshot.profile;
-    if (!profile || !profile.points || profile.points.length < 2) {
-      ensureProfileEmpty('Planprofil noch nicht vom Tracker empfangen');
-      return;
-    }
-    ensureProfileEmpty('');
-    var points = profile.points;
-    var airspaces = profile.airspaces || [];
-    var obstacles = profile.obstacles || [];
-    var maxDistance = Math.max(1, finite(profile.totalDistanceNm) || finite(points[points.length - 1].distanceNm) || 1);
-    var cruiseAltitude = profileCruiseOverride == null ? Math.max(0, finite(profile.cruiseAltitudeFt) || 0) : profileCruiseOverride;
-    var maxAlt = Math.max(cruiseAltitude, flight ? flight.altFt : 0, 1000);
-    points.forEach(function (point) { maxAlt = Math.max(maxAlt, point.plannedAltFt || 0, point.terrainFt || 0); });
-    airspaces.forEach(function (entry) {
-      var middle = (entry.startDistanceNm + entry.endDistanceNm) / 2;
-      var terrain = entry.upperAgl ? profileTerrainAt(points, middle) : 0;
-      maxAlt = Math.max(maxAlt, (entry.upperFt || 0) + terrain);
-    });
-    obstacles.forEach(function (entry) { maxAlt = Math.max(maxAlt, profileTerrainAt(points, entry.distanceNm) + (entry.heightFt || 0)); });
-    maxAlt = profileYAxis > 0 ? profileYAxis : Math.ceil((maxAlt + 800) / 1000) * 1000;
-    var left = 32, right = 8, top = 7, bottom = 17;
-    var plotWidth = width - left - right, plotHeight = height - top - bottom;
-    function x(distance) { return left + clamp(distance / maxDistance, 0, 1) * plotWidth; }
-    function y(altitude) { return top + plotHeight - clamp(altitude / maxAlt, 0, 1) * plotHeight; }
-    bg.strokeStyle = 'rgba(122,157,176,.22)';
-    bg.fillStyle = '#8aa1ad';
-    bg.font = '9px monospace';
-    bg.textAlign = 'right';
-    for (var row = 0; row <= 4; row += 1) {
-      var altitude = maxAlt * row / 4;
-      var rowY = y(altitude);
-      bg.beginPath(); bg.moveTo(left, rowY); bg.lineTo(width - right, rowY); bg.stroke();
-      bg.fillText(Math.round(altitude / 1000) + 'k', left - 4, rowY + 3);
-    }
-    airspaces.forEach(function (entry) {
-      var middle = (entry.startDistanceNm + entry.endDistanceNm) / 2;
-      var terrain = profileTerrainAt(points, middle);
-      var lower = Math.max(0, entry.lowerFt || 0) + (entry.lowerAgl ? terrain : 0);
-      var upper = Math.max(lower, Math.max(0, entry.upperFt || 0) + (entry.upperAgl ? terrain : 0));
-      var firstX = x(entry.startDistanceNm);
-      var lastX = x(entry.endDistanceNm);
-      bg.fillStyle = colorWithAlpha(entry.color, 0.16);
-      bg.strokeStyle = colorWithAlpha(entry.color, 0.68);
-      bg.lineWidth = 1;
-      bg.fillRect(firstX, y(upper), Math.max(1, lastX - firstX), Math.max(1, y(lower) - y(upper)));
-      bg.strokeRect(firstX, y(upper), Math.max(1, lastX - firstX), Math.max(1, y(lower) - y(upper)));
-      if (lastX - firstX > 45) {
-        bg.fillStyle = colorWithAlpha(entry.color, 0.92);
-        bg.textAlign = 'center';
-        bg.font = '8px Arial';
-        bg.fillText(String(entry.name || entry.type || 'Luftraum').slice(0, 18), (firstX + lastX) / 2, y(upper) + 10);
-      }
-    });
-    if (profile.terrainAvailable) {
-      fg.beginPath(); fg.moveTo(x(points[0].distanceNm), y(0));
-      points.forEach(function (point) { fg.lineTo(x(point.distanceNm), y(point.terrainFt || 0)); });
-      fg.lineTo(x(points[points.length - 1].distanceNm), y(0)); fg.closePath();
-      fg.fillStyle = 'rgba(62,112,54,.9)'; fg.fill();
-    }
-    fg.beginPath();
-    points.forEach(function (point, index) {
-      var planned = profileCruiseOverride == null ? point.plannedAltFt : Math.min(point.plannedAltFt || cruiseAltitude, cruiseAltitude);
-      if (index > 0 && index < points.length - 1 && profileCruiseOverride != null) planned = cruiseAltitude;
-      if (index === 0) fg.moveTo(x(point.distanceNm), y(planned)); else fg.lineTo(x(point.distanceNm), y(planned));
-    });
-    fg.strokeStyle = '#ff4a4a'; fg.lineWidth = 2.5; fg.stroke();
-    obstacles.forEach(function (entry) {
-      var obstacleX = x(entry.distanceNm);
-      var ground = profileTerrainAt(points, entry.distanceNm);
-      var topAltitude = ground + Math.max(0, entry.heightFt || 0);
-      var groundY = y(ground);
-      var trueTopY = y(topAltitude);
-      var topY = Math.min(groundY - 8, trueTopY);
-      var type = String(entry.type || 'obstacle').toLowerCase();
-      fg.save();
-      fg.strokeStyle = '#fff4cf';
-      fg.fillStyle = '#ffb52e';
-      fg.lineWidth = 1.4;
-      fg.shadowColor = 'rgba(0,0,0,.8)';
-      fg.shadowBlur = 2;
-      if (type === 'wind' || type.indexOf('wind') >= 0) {
-        var hubY = Math.min(groundY - 5, topY + 4);
-        var radius = Math.max(4, Math.min(8, (groundY - topY) * 0.42));
-        fg.beginPath(); fg.moveTo(obstacleX, groundY); fg.lineTo(obstacleX, hubY); fg.stroke();
-        for (var blade = 0; blade < 3; blade += 1) {
-          var angle = (-90 + blade * 120) * Math.PI / 180;
-          fg.beginPath(); fg.moveTo(obstacleX, hubY); fg.lineTo(obstacleX + Math.cos(angle) * radius, hubY + Math.sin(angle) * radius); fg.stroke();
-        }
-        fg.beginPath(); fg.arc(obstacleX, hubY, 1.8, 0, Math.PI * 2); fg.fill();
-      } else if (type === 'power_tower' || type.indexOf('power') >= 0) {
-        var half = Math.max(3, Math.min(6, (groundY - topY) * 0.22));
-        fg.beginPath(); fg.moveTo(obstacleX, topY); fg.lineTo(obstacleX - half, groundY); fg.moveTo(obstacleX, topY); fg.lineTo(obstacleX + half, groundY); fg.moveTo(obstacleX - half, groundY); fg.lineTo(obstacleX + half, groundY); fg.stroke();
-        [0.3, 0.58].forEach(function (fraction) {
-          var crossY = topY + (groundY - topY) * fraction;
-          fg.beginPath(); fg.moveTo(obstacleX - half - 2, crossY); fg.lineTo(obstacleX + half + 2, crossY); fg.stroke();
-        });
-      } else {
-        fg.beginPath(); fg.moveTo(obstacleX, groundY); fg.lineTo(obstacleX, topY); fg.stroke();
-        fg.beginPath(); fg.moveTo(obstacleX - 3, topY + 4); fg.lineTo(obstacleX, topY); fg.lineTo(obstacleX + 3, topY + 4); fg.stroke();
-        if ((entry.heightFt || 0) >= 250) {
-          var middleY = topY + (groundY - topY) * 0.46;
-          fg.beginPath(); fg.moveTo(obstacleX - 4, middleY); fg.lineTo(obstacleX + 4, middleY); fg.stroke();
-        }
-      }
-      if ((entry.heightFt || 0) >= 180 && width > 520) {
-        fg.shadowBlur = 0;
-        fg.fillStyle = '#ffcf54';
-        fg.font = '7px Arial';
-        fg.textAlign = 'center';
-        fg.fillText(Math.round(entry.heightFt) + 'ft', obstacleX, Math.max(8, topY - 3));
-      }
-      fg.restore();
-    });
-    fg.fillStyle = '#b8cbd5'; fg.font = '8px Arial'; fg.textAlign = 'center';
-    points.forEach(function (point) { fg.fillText(String(point.name || '').slice(0, 8), x(point.distanceNm), height - 4); });
-    var position = mapSnapshot && mapSnapshot.navigation ? mapSnapshot.navigation.routeDistanceNm : 0;
-    if (flight) {
-      fg.fillStyle = '#f2dc32';
-      fg.beginPath(); fg.moveTo(x(position), y(flight.altFt) - 5); fg.lineTo(x(position) - 6, y(flight.altFt) + 5); fg.lineTo(x(position) + 6, y(flight.altFt) + 5); fg.closePath(); fg.fill();
-    }
-    setText('altMapInput', Math.round(cruiseAltitude));
-    setText('rateMapInput', Math.round(profileVerticalRate));
-    setText('yAxisDisplay', profileYAxis > 0 ? profileYAxis : 'AUTO');
-    setText('vpZoomDisplay', profileZoom + '%');
-  }
-
-  function setDrawMode(mode) {
-    if (mode && contextPickActive) {
-      contextPickActive = false;
-      var contextButton = document.querySelector('.ga-efb-host-context');
-      if (contextButton) {
-        contextButton.classList.remove('active');
-        contextButton.textContent = 'Was ist hier';
-      }
-    }
-    drawMode = mode;
-    ['mapToolPen', 'mapToolMeasure'].forEach(function (id) { var button = byId(id); if (button) button.classList.remove('active'); });
-    if (mode === 'pen') byId('mapToolPen').classList.add('active');
-    if (mode === 'measure') byId('mapToolMeasure').classList.add('active');
-    document.body.classList.toggle('map-drawing-active', mode === 'pen' || mode === 'measure');
-    if (map) {
-      map.getContainer().style.cursor = mode ? 'crosshair' : '';
-      if (map.dragging) {
-        if (mode === 'pen') map.dragging.disable();
-        else map.dragging.enable();
-      }
-    }
-    drawPoints = [];
-    drawLine = null;
-    drawStrokeActive = false;
-    drawLastContainerPoint = null;
-    report('info', 'draw-action', mode ? 'mode-' + mode : 'mode-off', mode ? 'Zeichenmodus aktiv' : 'Zeichenmodus beendet');
+    window.liveActiveWpIndex = previewWaypointIndex;
+    if (window.gaEfbProfile) window.gaEfbProfile.update(mapSnapshot, flight, map);
   }
 
   function nearestProfilePoint(latlng) {
@@ -2792,299 +2405,9 @@
     return best;
   }
 
-  function mapContextRadiusNm(latlng) {
-    if (!map || !latlng) return 3;
-    try {
-      var anchor = map.latLngToContainerPoint(latlng);
-      var edge = map.containerPointToLatLng(L.point(anchor.x + 38, anchor.y));
-      return clamp(map.distance(latlng, edge) / 1852, 0.25, 12);
-    } catch (_) { return 3; }
-  }
-
-  function mapContextNumber(value) {
-    return value === null || typeof value === 'undefined' || value === '' ? null : finite(value);
-  }
-
-  function mapContextHeightMarkup(data, loading) {
-    var context = data || {};
-    var terrainFtValue = finite(context.terrainFt);
-    var terrainFt = Math.max(0, terrainFtValue == null ? 0 : terrainFtValue);
-    var ownAltitudeValue = finite(context.currentAltitudeFt);
-    var ownAltitudeFt = Math.max(0, ownAltitudeValue == null ? (finite(flight && flight.altFt) || 0) : ownAltitudeValue);
-    var airspaces = context.airspaces && context.airspaces.length ? context.airspaces : [];
-    var cloud = context.cloud || null;
-    var highest = Math.max(5000, terrainFt + 1500, ownAltitudeFt + 1000, finite(cloud && cloud.topFt) || 0);
-    airspaces.forEach(function (entry) { highest = Math.max(highest, (finite(entry.upperFt) || 0) + 500); });
-    var step = highest <= 15000 ? 1000 : (highest <= 25000 ? 2500 : 5000);
-    var maxFt = Math.min(60000, Math.ceil(highest * 1.08 / step) * step);
-    function top(value) { return clamp(100 - Math.max(0, Number(value) || 0) / maxFt * 100, 0, 100); }
-    var ticks = '';
-    for (var index = 0; index <= 4; index += 1) {
-      var value = maxFt * index / 4;
-      ticks += '<span style="bottom:' + (index * 25) + '%">' + (value >= 10000 ? Math.round(value / 1000) + 'k' : Math.round(value).toLocaleString('de-DE')) + '</span>';
-    }
-    var bandLabels = '';
-    var bands = airspaces.map(function (entry, index) {
-      var lower = Math.max(0, finite(entry.lowerFt) || 0);
-      var upper = Math.max(lower + 100, finite(entry.upperFt) || maxFt);
-      var bandTop = top(upper);
-      var bandHeight = Math.max(2.8, top(lower) - bandTop);
-      var label = entry.type === 4 ? 'CTR' : (entry.classLetter || entry.descriptor || 'AS');
-      var fullName = String(entry.name || 'Luftraum');
-      var nameParts = fullName.split('\u00b7');
-      var shortName = String(nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullName).trim().slice(0, 16);
-      var labelTop = clamp(bandTop + (bandHeight / 2), 2, 98);
-      bandLabels += '<span class="ga-efb-context-height-airspace-label" style="top:' + labelTop.toFixed(2) + '%;--ga-context-color:' + drawerEscape(entry.color || '#4da6ff') + '" title="' + drawerEscape(fullName) + '">' +
-        '<b><i>' + (index + 1) + '</i>' + drawerEscape(label) + '</b><small>' + drawerEscape(shortName) + '</small></span>';
-      return '<i class="ga-efb-context-height-airspace" style="top:' + bandTop.toFixed(2) + '%;height:' + bandHeight.toFixed(2) + '%;--ga-context-color:' + drawerEscape(entry.color || '#4da6ff') + '" title="' + drawerEscape(fullName) + '"></i>';
-    }).join('');
-    var cloudMarkup = '';
-    if (cloud && finite(cloud.baseFt) != null && finite(cloud.topFt) != null) {
-      var cloudTop = top(cloud.topFt);
-      var cloudHeight = Math.max(2, top(cloud.baseFt) - cloudTop);
-      cloudMarkup = '<i class="ga-efb-context-height-cloud" style="top:' + cloudTop.toFixed(2) + '%;height:' + cloudHeight.toFixed(2) + '%"><b>' + drawerEscape(cloud.type || 'CLD') + '</b></i>';
-    }
-    var weather = context.weather || {};
-    var precipitation = (finite(weather.rainMm) || 0) > 0.1 || (finite(weather.snowfallCm) || 0) > 0.05
-      ? '<i class="ga-efb-context-height-precipitation" style="top:' + (cloud && finite(cloud.baseFt) != null ? top(cloud.baseFt).toFixed(2) : '48') + '%"></i>'
-      : '';
-    var terrainHeight = Math.max(2.2, 100 - top(terrainFt));
-    var ownship = ownAltitudeFt > 0
-      ? '<i class="ga-efb-context-height-ownship" style="top:' + top(ownAltitudeFt).toFixed(2) + '%" title="Eigene Hoehe ' + Math.round(ownAltitudeFt) + ' ft"></i>'
-      : '';
-    var feature = context.feature;
-    var featureHeight = feature && finite(feature.elevationFt) != null ? feature.elevationFt : terrainFt;
-    var featureMarker = feature
-      ? '<i class="ga-efb-context-height-feature" style="top:' + top(featureHeight).toFixed(2) + '%"><b>' + (feature.kind === 'airport' ? 'APT' : (feature.kind === 'vrp' ? 'VRP' : 'NAV')) + '</b></i>'
-      : '';
-    return '<div class="ga-efb-context-height' + (loading ? ' is-loading' : '') + '">' +
-      '<div class="ga-efb-context-height-title">HOEHE<small>FT MSL</small></div>' +
-      '<div class="ga-efb-context-height-scale">' + ticks + '</div>' +
-      '<div class="ga-efb-context-height-plot">' + cloudMarkup + precipitation + bands + bandLabels + ownship + featureMarker +
-        '<i class="ga-efb-context-height-terrain" style="height:' + terrainHeight.toFixed(2) + '%"></i>' +
-        '<em style="bottom:' + Math.min(94, terrainHeight + 1).toFixed(2) + '%">' + (terrainFtValue == null ? 'GND' : Math.round(terrainFt) + ' ft') + '</em>' +
-        (loading ? '<span class="ga-efb-context-loading">LAEDT</span>' : '') +
-      '</div></div>';
-  }
-
-  function mapContextFlightCategory(data) {
-    var weather = data && data.weather || {};
-    var visibilityM = mapContextNumber(weather.visibilityM);
-    var terrainFt = mapContextNumber(data && data.terrainFt) || 0;
-    var cloudBaseFt = mapContextNumber(data && data.cloud && data.cloud.baseFt);
-    var ceilingAglFt = cloudBaseFt == null ? null : Math.max(0, cloudBaseFt - terrainFt);
-    if ((visibilityM != null && visibilityM < 1600) || (ceilingAglFt != null && ceilingAglFt < 500)) return 'LIFR';
-    if ((visibilityM != null && visibilityM < 5000) || (ceilingAglFt != null && ceilingAglFt < 1000)) return 'IFR';
-    if ((visibilityM != null && visibilityM < 8000) || (ceilingAglFt != null && ceilingAglFt < 3000)) return 'MVFR';
-    return 'VFR';
-  }
-
-  function mapContextAirportWidgetMarkup(feature, data, loading) {
-    var title = [feature.icao, feature.name].filter(Boolean).join(' | ');
-    var distance = mapContextNumber(feature.distanceNm);
-    var bearing = mapContextNumber(feature.bearingDeg);
-    var positionText = distance == null ? 'AM KARTENPUNKT' : distance.toFixed(2) + ' NM | ' + leftPad(Math.round(bearing || 0), 3) + ' deg';
-    var runways = feature.runways && feature.runways.length
-      ? feature.runways.map(function (runway) {
-        var details = [];
-        if (mapContextNumber(runway.lengthM) != null) details.push(Math.round(runway.lengthM) + ' m');
-        if (runway.surface) details.push(runway.surface);
-        return '<div class="ga-efb-airport-row"><b>RWY</b><strong>' + drawerEscape(runway.designator || 'Piste') + '</strong><span>' + drawerEscape(details.join(' | ') || 'Details nicht verfuegbar') + '</span></div>';
-      }).join('')
-      : '<div class="ga-efb-airport-row is-muted"><b>RWY</b><span>Keine Pistendetails verfuegbar</span></div>';
-    var frequencies = feature.frequencies && feature.frequencies.length
-      ? feature.frequencies.map(function (entry) {
-        return '<div class="ga-efb-airport-row"><b>COM</b><strong>' + drawerEscape(entry.label || 'FREQ') + '</strong><span>' + drawerEscape(entry.value || '-') + '</span></div>';
-      }).join('')
-      : '<div class="ga-efb-airport-row is-muted"><b>COM</b><span>Keine Frequenzdaten verfuegbar</span></div>';
-    return '<section class="ga-efb-context-airport-widget"><header><small>FLUGPLATZ | VOLLANSICHT</small><strong>' + drawerEscape(title || 'Flugplatz') + '</strong></header>' +
-      '<div class="ga-efb-airport-sheet"><div class="ga-efb-airport-identity"><b>' + drawerEscape(feature.icao || 'APT') + '</b><span>' + drawerEscape(feature.name || 'Flugplatz') + '</span></div>' +
-      '<div class="ga-efb-airport-metrics"><span><small>HOEHE</small><b>' + (mapContextNumber(feature.elevationFt) == null ? '-' : Math.round(feature.elevationFt) + ' ft MSL') + '</b></span>' +
-      '<span><small>ENTFERNUNG</small><b>' + drawerEscape(positionText) + '</b></span></div>' + runways + frequencies + '</div>' +
-      mapContextWeatherMarkup(data, loading, feature) + '</section>';
-  }
-
-  function mapContextFeatureMarkup(feature, data, loading) {
-    if (!feature) return '';
-    if (feature.kind === 'airport') return mapContextAirportWidgetMarkup(feature, data, loading);
-    var title = feature.kind === 'airport'
-      ? [feature.icao, feature.name].filter(Boolean).join(' | ')
-      : [feature.identifier, feature.name].filter(Boolean).join(' | ');
-    var details = [];
-    if (finite(feature.distanceNm) != null) details.push(feature.distanceNm.toFixed(2) + ' NM | ' + leftPad(Math.round(feature.bearingDeg || 0), 3) + ' deg');
-    if (feature.typeLabel) details.push(feature.typeLabel);
-    if (finite(feature.elevationFt) != null) details.push(Math.round(feature.elevationFt) + ' ft MSL');
-    if (feature.airportIcao) details.push('Zugehoeriger Flugplatz ' + feature.airportIcao);
-    if (feature.description) details.push(feature.description);
-    if (feature.runways && feature.runways.length) {
-      details.push('RWY ' + feature.runways.map(function (runway) {
-        var suffix = [];
-        if (finite(runway.lengthM) != null) suffix.push(Math.round(runway.lengthM) + ' m');
-        if (runway.surface) suffix.push(runway.surface);
-        return runway.designator + (suffix.length ? ' | ' + suffix.join(' | ') : '');
-      }).join('; '));
-    }
-    if (feature.frequencies && feature.frequencies.length) {
-      details.push(feature.frequencies.map(function (entry) { return entry.label + ' ' + entry.value; }).join(' | '));
-    }
-    if (feature.channel) details.push('Kanal ' + feature.channel);
-    return '<section class="ga-efb-context-feature"><small>' + drawerEscape(feature.kindLabel || 'OBJEKT AM PUNKT') + '</small>' +
-      '<strong>' + drawerEscape(title || 'Luftfahrtobjekt') + '</strong>' +
-      details.map(function (detail) { return '<span>' + drawerEscape(detail) + '</span>'; }).join('') + '</section>';
-  }
-
-  function mapContextAirspacesMarkup(data, loading) {
-    if (loading) return '<div class="ga-efb-context-muted ga-efb-context-busy">Luftraeume werden am Kartenpunkt geprueft...</div>';
-    var airspaces = data && data.airspaces || [];
-    if (!airspaces.length) {
-      var available = data && data.sources && data.sources.aviation && data.sources.aviation.available;
-      return '<div class="ga-efb-context-muted">' + (available ? 'Kein relevanter OpenAIP-Luftraum an diesem Punkt gefunden.' : 'Luftraumdaten derzeit nicht verfuegbar.') + '</div>';
-    }
-    return '<div class="ga-efb-context-airspaces">' + airspaces.map(function (entry, index) {
-      var frequencies = entry.frequencies && entry.frequencies.length
-        ? '<span class="ga-efb-context-airspace-frequencies">' + entry.frequencies.map(function (frequency) {
-          return '<i><em>' + drawerEscape(frequency.label) + '</em><b>' + drawerEscape(frequency.value) + '</b></i>';
-        }).join('') + '</span>'
-        : '<small>FUNK -</small>';
-      return '<span style="--ga-context-color:' + drawerEscape(entry.color || '#4da6ff') + '"><b><i>' + (index + 1) + '</i>' + drawerEscape(entry.name || 'Luftraum') + '</b>' +
-        '<small>' + drawerEscape((entry.category || 'Luftraum') + ' | ' + (entry.lowerLabel || '?') + '-' + (entry.upperLabel || '?')) + '</small>' +
-        frequencies + (entry.activation ? '<small>' + drawerEscape(entry.activation) + '</small>' : '') + '</span>';
-    }).join('') + '<div class="ga-efb-context-source">Zeiten ggf. in AIP/NOTAM pruefen.</div></div>';
-  }
-
-  function mapContextWeatherMarkup(data, loading, airportFeature) {
-    if (loading) return '<div class="ga-efb-context-muted ga-efb-context-busy">Punktwetter wird geladen...</div>';
-    var weather = data && data.weather;
-    if (!weather) return '<div class="ga-efb-context-muted">Punktwetter derzeit nicht verfuegbar.</div>';
-    var windDir = mapContextNumber(weather.wdir);
-    var windKt = mapContextNumber(weather.wspd);
-    var visibility = mapContextNumber(weather.visibilityM);
-    var pressure = mapContextNumber(weather.pressureMslHpa);
-    var dewPoint = mapContextNumber(weather.dewPoint2mC);
-    var category = mapContextFlightCategory(data);
-    var windText = windDir != null && windKt != null
-      ? (windKt <= 0.4 ? 'CALM | 0 kt' : leftPad(Math.round(windDir), 3) + ' deg / ' + Math.round(windKt) + ' kt')
-      : '-';
-    var runway = airportFeature && airportFeature.runways && airportFeature.runways[0];
-    var runwayMatch = runway && String(runway.designator || '').toUpperCase().match(/^(0?[1-9]|[12][0-9]|3[0-6])([LRC]?)\s*\/\s*(0?[1-9]|[12][0-9]|3[0-6])([LRC]?)$/);
-    var runwayLayer = '';
-    if (runwayMatch) {
-      var runwayHeading = parseInt(runwayMatch[1], 10) * 10;
-      var runwayEnd1 = leftPad(parseInt(runwayMatch[1], 10), 2) + runwayMatch[2];
-      var runwayEnd2 = leftPad(parseInt(runwayMatch[3], 10), 2) + runwayMatch[4];
-      runwayLayer = '<g class="ga-efb-context-runway" transform="rotate(' + runwayHeading + ' 50 50)">' +
-        '<rect x="42" y="14" width="16" height="72" rx="2"></rect>' +
-        '<line x1="50" y1="25" x2="50" y2="75"></line>' +
-        '<text x="50" y="23" transform="rotate(180 50 20)">' + drawerEscape(runwayEnd2) + '</text>' +
-        '<text x="50" y="83">' + drawerEscape(runwayEnd1) + '</text></g>';
-    }
-    var windLayer = windDir != null && windKt > 0.4
-      ? '<g class="ga-efb-context-wind-arrow" transform="rotate(' + windDir + ' 50 50)"><line x1="50" y1="8" x2="50" y2="45"></line><polygon points="44,38 50,53 56,38"></polygon></g>'
-      : '<text class="ga-efb-context-calm" x="50" y="54">CALM</text>';
-    var rose = '<div class="ga-efb-context-windrose"><svg viewBox="0 0 100 100" aria-hidden="true">' +
-      runwayLayer + windLayer +
-      '<text class="ga-efb-context-cardinal" x="50" y="10">N</text><text class="ga-efb-context-cardinal" x="91" y="53">O</text>' +
-      '<text class="ga-efb-context-cardinal" x="50" y="96">S</text><text class="ga-efb-context-cardinal" x="9" y="53">W</text></svg></div>';
-    return '<div class="ga-efb-context-weather"><header><b>' + (airportFeature ? 'PUNKTWETTER | ' + drawerEscape(airportFeature.icao || 'APT') : 'PUNKTWETTER') + '</b><span class="ga-efb-flight-category is-' + category.toLowerCase() + '">' + category + '</span></header><div class="ga-efb-context-weather-body">' +
-      '<div class="ga-efb-context-weather-values">' +
-        '<span><small>WIND</small><b class="is-wind">' + drawerEscape(windText) + '</b></span>' +
-        '<span><small>SICHT</small><b>' + (visibility == null ? '-' : (visibility / 1000 >= 10 ? Math.round(visibility / 1000) : (visibility / 1000).toFixed(1)) + ' km') + '</b></span>' +
-        '<span><small>TEMP</small><b>' + (finite(weather.temp2mC) == null ? '-' : Math.round(weather.temp2mC) + ' C') + '</b></span>' +
-        '<span><small>TAUPUNKT</small><b>' + (dewPoint == null ? '-' : Math.round(dewPoint) + ' C') + '</b></span>' +
-        '<span><small>QNH</small><b>' + (pressure == null ? '-' : Math.round(pressure) + ' hPa') + '</b></span>' +
-        '<span><small>BEDECKUNG</small><b>' + (finite(weather.cloudTotalPct) == null ? '-' : Math.round(weather.cloudTotalPct) + ' %') + '</b></span>' +
-        '<span class="is-wide"><small>WOLKEN L/M/H</small><b>' + [weather.cloudLowPct, weather.cloudMidPct, weather.cloudHighPct].map(function (value) { return finite(value) == null ? '-' : Math.round(value); }).join('/') + ' %</b></span>' +
-      '</div>' + rose + '</div><footer>OPEN-METEO | AKTUELLER STUNDENWERT AM KARTENPUNKT</footer></div>';
-  }
-
-  function bindMapContextClose() {
-    window.setTimeout(function () {
-      var close = document.querySelector('.ga-efb-context-close');
-      if (!close) return;
-      close.onclick = function (event) {
-        if (event && event.preventDefault) event.preventDefault();
-        if (event && event.stopPropagation) event.stopPropagation();
-        if (map) map.closePopup();
-      };
-    }, 0);
-  }
-
-  function renderMapContextInfo(state) {
-    if (!state || state !== mapContextState || !mapContextPopup) return;
-    var data = state.data || {};
-    var terrainFt = finite(data.terrainFt);
-    var terrainText = terrainFt == null
-      ? (state.loading ? 'wird geladen...' : 'nicht verfuegbar')
-      : Math.round(terrainFt) + ' ft MSL / ' + Math.round(terrainFt / 3.28084) + ' m';
-    var airportFeature = data.feature && data.feature.kind === 'airport';
-    var details = mapContextFeatureMarkup(data.feature, data, state.loading) +
-      '<section><h4>LUFTRAEUME</h4>' + mapContextAirspacesMarkup(data, state.loading) + '</section>' +
-      '<section><h4>PUNKT</h4><div class="ga-efb-context-summary"><span><b>Gelaende</b><strong>' + drawerEscape(terrainText) + '</strong></span>' +
-      '<span><b>Position</b><strong>' + state.latlng.lat.toFixed(5) + ', ' + state.latlng.lng.toFixed(5) + '</strong></span></div></section>' +
-      (airportFeature ? '' : '<section><h4>WETTER</h4>' + mapContextWeatherMarkup(data, state.loading, null) + '</section>');
-    if (state.error) details += '<section><div class="ga-efb-context-error">Live-Daten konnten nicht geladen werden. Der Kartenpunkt bleibt unveraendert.</div></section>';
-    var aviationSource = data.sources && data.sources.aviation && data.sources.aviation.name || 'OPENAIP';
-    var weatherSource = data.sources && data.sources.weather && data.sources.weather.name || 'OPEN-METEO';
-    var sourceDurations = data.sources ? [data.sources.aviation, data.sources.terrain, data.sources.weather]
-      .map(function (entry) { return entry && mapContextNumber(entry.durationMs); })
-      .filter(function (value) { return value != null; }) : [];
-    var sourceDuration = sourceDurations.length ? Math.max.apply(Math, sourceDurations) : null;
-    var sourceText = state.loading ? 'LIVE-DATEN WERDEN GELADEN' : drawerEscape(aviationSource + ' + ' + weatherSource + (sourceDuration == null ? '' : ' | ' + sourceDuration + ' ms'));
-    var mapHeight = map && map.getContainer ? Number(map.getContainer().clientHeight) : 0;
-    var bodyHeight = Math.max(210, Math.min(520, (mapHeight > 0 ? mapHeight : 420) - 88));
-    var html = '<div class="ga-efb-context-panel"><header><small>WAS IST HIER?</small><strong>' + state.latlng.lat.toFixed(5) + ', ' + state.latlng.lng.toFixed(5) + '</strong><button type="button" class="ga-efb-context-close" aria-label="Schliessen">X</button></header>' +
-      '<div class="ga-efb-context-body" style="height:' + bodyHeight + 'px;min-height:' + bodyHeight + 'px;max-height:' + bodyHeight + 'px">' + mapContextHeightMarkup(data, state.loading) + '<div class="ga-efb-context-details">' + details + '</div></div>' +
-      '<footer>' + (state.source === 'longpress' ? 'LANGDRUCK' : 'KARTENAUSWAHL') + ' | ' + sourceText + '</footer></div>';
-    mapContextPopup.setContent(html);
-    try { mapContextPopup.update(); } catch (_) {}
-    bindMapContextClose();
-  }
-
   function openMapContextInfo(latlng, source) {
-    if (!map || !latlng || !isFiniteNumber(latlng.lat) || !isFiniteNumber(latlng.lng)) return;
-    closeHostMenus();
-    mapContextRequestSeq += 1;
-    var requestSeq = mapContextRequestSeq;
-    var state = { requestSeq: requestSeq, source: source, latlng: L.latLng(latlng.lat, latlng.lng), loading: true, data: {}, error: '' };
-    mapContextState = state;
-    if (mapContextPopup) try { map.closePopup(mapContextPopup); } catch (_) {}
-    if (mapContextPointLayer) try { map.removeLayer(mapContextPointLayer); } catch (_) {}
-    mapContextPointLayer = L.circleMarker(state.latlng, {
-      radius: 7, color: '#ffffff', weight: 2, fillColor: '#00d9ff', fillOpacity: 0.92,
-      interactive: false, className: 'ga-efb-context-point'
-    }).addTo(map);
-    mapContextPopup = L.popup({
-      minWidth: 420,
-      maxWidth: 580,
-      maxHeight: 680,
-      offset: L.point(0, 70),
-      autoPan: true,
-      autoPanPaddingTopLeft: L.point(10, 12),
-      autoPanPaddingBottomRight: L.point(10, 12),
-      keepInView: true,
-      className: 'ga-efb-context-popup'
-    }).setLatLng(state.latlng).setContent('').openOn(map);
-    document.body.classList.add('ga-efb-context-open');
-    renderMapContextInfo(state);
-    var radiusNm = mapContextRadiusNm(state.latlng);
-    var url = '/api/v1/map-context?lat=' + encodeURIComponent(state.latlng.lat.toFixed(6)) +
-      '&lon=' + encodeURIComponent(state.latlng.lng.toFixed(6)) + '&radiusNm=' + encodeURIComponent(radiusNm.toFixed(2));
-    fetchJson(url).then(function (response) {
-      if (!mapContextState || mapContextState.requestSeq !== requestSeq) return;
-      var payload = safePayload(response);
-      state.loading = false;
-      state.data = payload && payload.available !== false ? payload : {};
-      state.error = payload && payload.available !== false ? '' : 'unavailable';
-      renderMapContextInfo(state);
-      report('info', 'map-context', 'loaded', 'Live-Kartenkontext geladen', state.latlng.lat.toFixed(5) + ',' + state.latlng.lng.toFixed(5));
-    }).catch(function (error) {
-      if (!mapContextState || mapContextState.requestSeq !== requestSeq) return;
-      state.loading = false;
-      state.error = String(error && error.message || error || 'context_error');
-      renderMapContextInfo(state);
-      report('warn', 'map-context', 'load-error', 'Live-Kartenkontext nicht verfuegbar', state.error);
-    });
-    report('info', 'map-context', 'open', 'Kartenkontext am gedrueckten Punkt angefordert', state.latlng.lat.toFixed(5) + ',' + state.latlng.lng.toFixed(5));
+    if (!map || !latlng) return;
+    window.gaOpenMapContextInfo(latlng, source);
   }
 
   function toggleMapContextPick() {
@@ -3094,7 +2417,7 @@
       button.classList.toggle('active', contextPickActive);
       button.textContent = contextPickActive ? 'Was ist hier (An)' : 'Was ist hier';
     }
-    if (contextPickActive) setDrawMode('');
+    if (contextPickActive) { toggleMapDrawMode(false); if (measureMode) toggleMeasureMode(); }
     if (map) map.getContainer().style.cursor = contextPickActive ? 'help' : '';
     report('info', 'map-context', contextPickActive ? 'enabled' : 'disabled', 'Was-ist-hier-Modus umgeschaltet');
   }
@@ -3138,7 +2461,7 @@
     function begin(event) {
       var input = mapContextEventPoint(event);
       if (!input) return;
-      if (drawMode || event.isPrimary === false) {
+      if (mapDrawState.enabled || measureMode || event.isPrimary === false) {
         clearMapContextPress();
         return;
       }
@@ -3147,7 +2470,7 @@
         return;
       }
       if (input.inputType !== 'touch' && event.button != null && event.button !== 0) return;
-      if (event.target && event.target.closest && event.target.closest('.leaflet-control, button, input, .map-draw-rail, .map-draw-menu')) return;
+      if (event.target && event.target.closest && event.target.closest('.leaflet-popup, .leaflet-control, button, input, .map-draw-rail, .map-draw-menu')) return;
       if (mapContextPress
         && Date.now() - mapContextPress.startedAt < 80
         && Math.hypot(input.x - mapContextPress.x, input.y - mapContextPress.y) < 3) return;
@@ -3175,7 +2498,7 @@
         return;
       }
       if (mapContextPress.key !== input.key) return;
-      if (Math.hypot(input.x - mapContextPress.x, input.y - mapContextPress.y) > 16) clearMapContextPress();
+      if (Math.hypot(input.x - mapContextPress.x, input.y - mapContextPress.y) > 12) clearMapContextPress();
     }
     function end(event) {
       if (!mapContextPress) return;
@@ -3196,128 +2519,22 @@
     window.addEventListener('touchcancel', end, true);
     container.addEventListener('click', function (event) {
       if (Date.now() >= mapContextSuppressClickUntil) return;
+      if (event.target && event.target.closest && event.target.closest('.ga-map-context-popup')) return;
       if (event.preventDefault) event.preventDefault();
       if (event.stopImmediatePropagation) event.stopImmediatePropagation();
     }, true);
   }
 
   function handleMapClick(event) {
-    if (Date.now() < mapContextSuppressClickUntil) return;
-    if (contextPickActive) {
-      openMapContextInfo(event.latlng, 'pick-mode');
-      return;
+    if (Date.now() < mapContextSuppressClickUntil || isMapUiClickTarget(event.originalEvent)) return;
+    if (handleMapDrawMapClick(event)) return;
+    if (measureMode) { addMeasurePoint(event.latlng); return; }
+    if (contextPickActive) { openMapContextInfo(event.latlng, 'pick-mode'); return; }
+    dismissMapContextInfo({ clearHighlight: true });
+    if (getMapSingleClickMode() !== 'off') {
+      pendingMapInfoTapSeq += 1;
+      if (!resolveMapSingleClickAt(event.latlng)) scheduleMapInfoTapResolution(event.latlng);
     }
-    if (drawMode !== 'measure') return;
-    drawPoints.push(event.latlng);
-    var group = measureLayer;
-    if (drawLine) group.removeLayer(drawLine);
-    drawLine = L.polyline(drawPoints, { color: '#f2c12e', weight: 3, dashArray: '5,5', pane: 'gaDrawingPane', renderer: drawingRenderer || undefined }).addTo(group);
-    if (drawPoints.length === 1) drawHistory.push({ layer: drawLine, group: group });
-    else if (drawHistory.length) drawHistory[drawHistory.length - 1].layer = drawLine;
-    if (drawPoints.length > 1) {
-      var metres = 0;
-      for (var index = 1; index < drawPoints.length; index += 1) metres += map.distance(drawPoints[index - 1], drawPoints[index]);
-      drawLine.bindTooltip((metres / 1852).toFixed(2) + ' NM', { permanent: true, direction: 'center', className: 'ga-route-label' }).openTooltip();
-    }
-    report('info', 'draw-action', 'measure-point', 'Messpunkt gesetzt', String(drawPoints.length));
-  }
-
-  function drawEventPoint(event) {
-    var source = event && event.touches && event.touches.length ? event.touches[0] : event;
-    if (!source || !map) return null;
-    try {
-      var containerPoint = map.mouseEventToContainerPoint(source);
-      return {
-        latlng: map.containerPointToLatLng(containerPoint),
-        container: containerPoint
-      };
-    } catch (_) { return null; }
-  }
-
-  function isMapDrawingSurface(event) {
-    var target = event && event.target;
-    if (!target || !target.closest) return true;
-    return !target.closest('.leaflet-control, .map-draw-rail, .map-draw-menu, button, input, select');
-  }
-
-  function beginPenStroke(event) {
-    if (drawMode !== 'pen' || !isMapDrawingSurface(event)) return;
-    if (event.button != null && event.button !== 0) return;
-    var point = drawEventPoint(event);
-    if (!point) return;
-    if (event.preventDefault) event.preventDefault();
-    if (event.stopPropagation) event.stopPropagation();
-    drawPoints = [point.latlng];
-    drawLastContainerPoint = point.container;
-    drawLine = L.polyline(drawPoints, { color: drawColor, weight: drawWeight, lineCap: 'round', lineJoin: 'round', smoothFactor: 0, noClip: true, pane: 'gaDrawingPane', renderer: drawingRenderer || undefined }).addTo(drawingLayer);
-    drawHistory.push({ layer: drawLine, group: drawingLayer });
-    drawStrokeActive = true;
-    try { if (event.pointerId != null && map.getContainer().setPointerCapture) map.getContainer().setPointerCapture(event.pointerId); } catch (_) {}
-    report('info', 'draw-action', 'pen-start', 'Freihandlinie begonnen');
-  }
-
-  function movePenStroke(event) {
-    if (!drawStrokeActive || drawMode !== 'pen') return;
-    var point = drawEventPoint(event);
-    if (!point) return;
-    if (drawLastContainerPoint && point.container.distanceTo && point.container.distanceTo(drawLastContainerPoint) < 2) return;
-    if (event.preventDefault) event.preventDefault();
-    if (event.stopPropagation) event.stopPropagation();
-    drawPoints.push(point.latlng);
-    drawLastContainerPoint = point.container;
-    drawLine.setLatLngs(drawPoints);
-  }
-
-  function endPenStroke(event) {
-    if (!drawStrokeActive) return;
-    if (event && event.preventDefault) event.preventDefault();
-    if (event && event.stopPropagation) event.stopPropagation();
-    try { if (event && event.pointerId != null && map.getContainer().releasePointerCapture) map.getContainer().releasePointerCapture(event.pointerId); } catch (_) {}
-    report('info', 'draw-action', 'pen-end', 'Freihandlinie abgeschlossen', String(drawPoints.length));
-    drawStrokeActive = false;
-    drawPoints = [];
-    drawLine = null;
-    drawLastContainerPoint = null;
-  }
-
-  function bindMapDrawingInput() {
-    if (!map) return;
-    var container = map.getContainer();
-    if (!container || container.getAttribute('data-ga-draw-bound') === '1') return;
-    container.setAttribute('data-ga-draw-bound', '1');
-    if (window.PointerEvent) {
-      container.addEventListener('pointerdown', beginPenStroke, false);
-      container.addEventListener('pointermove', movePenStroke, false);
-      container.addEventListener('pointerup', endPenStroke, false);
-      container.addEventListener('pointercancel', endPenStroke, false);
-    } else {
-      container.addEventListener('mousedown', beginPenStroke, false);
-      window.addEventListener('mousemove', movePenStroke, false);
-      window.addEventListener('mouseup', endPenStroke, false);
-      container.addEventListener('touchstart', beginPenStroke, false);
-      container.addEventListener('touchmove', movePenStroke, false);
-      container.addEventListener('touchend', endPenStroke, false);
-    }
-  }
-
-  function clearDrawings() {
-    drawingLayer.clearLayers();
-    measureLayer.clearLayers();
-    drawHistory = [];
-    setDrawMode('');
-    report('info', 'draw-action', 'clear-all', 'Zeichnungen und Messungen geloescht');
-  }
-
-  function eraseLastDrawing() {
-    var entry = drawHistory.pop();
-    if (entry && entry.group && entry.layer) {
-      entry.group.removeLayer(entry.layer);
-      if (entry.layer === drawLine) {
-        drawLine = null;
-        drawPoints = [];
-      }
-    }
-    report('info', 'draw-action', 'erase-last', entry ? 'Letzte Zeichnung geloescht' : 'Keine Zeichnung zum Loeschen');
   }
 
   function fetchJson(url, timeoutMs) {
@@ -3327,18 +2544,36 @@
     });
   }
 
+  var localFlightRevision = null;
+  function disconnectFlight() {
+    flight = null;
+    telemetryPrevious = null;
+    localNavigationState = {};
+    window.lastLiveTerrainFt = null;
+    window.gaEfbProfile.disconnected();
+    refreshLocalNavigation();
+    ['liveTelemetryBox','liveCurrentBox','liveNextWpBox'].forEach(function(id){setInfoBoxAvailability(id,false);});
+    if (planeMarker) { map.removeLayer(planeMarker); planeMarker = null; }
+    updateCompass();
+    renderProgress();
+  }
   function poll() {
     if (pollingClosed) return;
-    fetchJson('/api/v1/snapshot', 2500).then(function (envelope) {
+    fetchJson('/api/v1/snapshot' + (localFlightRevision == null ? '' : '?after=' + localFlightRevision), 2500).then(function (envelope) {
       if (pollingClosed) return;
       if (!trackerOnline) setTrackerState('Tracker verbunden', false);
       trackerOnline = true;
-      renderFlight(safePayload(envelope));
+      var payload = safePayload(envelope);
+      localFlightRevision = !payload || payload.localRevision == null ? null : payload.localRevision;
+      renderFlight(payload);
       notifyParentState('live');
-      pollTimer = window.setTimeout(poll, 1000);
+      // Current trackers hold the next request until a fresh source sample.
+      // Older hosts retain bounded polling instead of creating a busy loop.
+      pollTimer = window.setTimeout(poll, localFlightRevision == null ? 1000 : 0);
     }).catch(function () {
       if (pollingClosed) return;
       trackerOnline = false;
+      disconnectFlight();
       setTrackerState('Tracker nicht erreichbar', true);
       notifyParentState('error');
       report('warn', 'poll', 'tracker-unreachable', 'Snapshot-Polling fehlgeschlagen');
@@ -3369,15 +2604,33 @@
 
   function syncProfileButton() {
     var button = byId('vpToggleBtn');
-    if (button) button.textContent = preferences.profileVisible ? 'Profil (An)' : 'Profil (Aus)';
+    if (button) button.textContent = preferences.profileVisible ? '\uD83D\uDCCA Profil (An)' : '\uD83D\uDCCA Profil (Aus)';
+  }
+
+  function syncToolbarLayout() {
+    var collapsed = !!preferences.toolbarCollapsed;
+    var bar = byId('routeProgressBar');
+    var visible = !!(bar && bar.style.display !== 'none' && mapSnapshot && mapSnapshot.navigation && mapSnapshot.route);
+    document.body.classList.toggle('toolbar-collapsed', collapsed);
+    document.body.classList.toggle('route-progress-visible', visible);
+    if (visible) document.body.style.setProperty('--route-progress-height', Math.round(bar.getBoundingClientRect().height) + 'px');
+    var button = byId('mapToolbarToggle');
+    if (button) {
+      button.textContent = collapsed ? '\u25bc' : '\u25b2';
+      button.setAttribute('aria-expanded', String(!collapsed));
+      button.setAttribute('aria-label', collapsed ? 'Menüleiste einblenden' : 'Menüleiste ausblenden');
+    }
   }
 
   window.toggleMapToolbar = function () {
     preferences.toolbarCollapsed = !preferences.toolbarCollapsed;
-    document.body.classList.toggle('toolbar-collapsed', preferences.toolbarCollapsed);
-    setText('mapToolbarToggle', preferences.toolbarCollapsed ? 'v' : '^');
+    closeHostMenus();
+    syncToolbarLayout();
     savePreferences();
-    window.setTimeout(function () { if (map) map.invalidateSize(false); }, 310);
+    window.setTimeout(function () {
+      syncToolbarLayout();
+      if (map) map.invalidateSize(false);
+    }, 310);
   };
   window.toggleMapProfile = function () {
     preferences.profileVisible = !preferences.profileVisible;
@@ -3397,46 +2650,6 @@
     report('info', 'help', normalized || 'map', text);
     return false;
   };
-  window.toggleAutoFollow = function () { setFollow(!preferences.follow); };
-  window.toggleMapToolRail = function (event) {
-    if (event) { event.preventDefault(); event.stopPropagation(); }
-    var stack = byId('mapDrawToolStack');
-    if (stack) stack.classList.toggle('open');
-    var button = byId('mapDrawFloatingBtn');
-    if (button) button.classList.toggle('active', stack && stack.classList.contains('open'));
-    report('info', 'tool-action', stack && stack.classList.contains('open') ? 'rail-open' : 'rail-close', 'Kartenwerkzeugleiste umgeschaltet');
-  };
-  window.activateMapDrawTool = function (tool, event) {
-    if (event) { event.preventDefault(); event.stopPropagation(); }
-    if (tool === 'stopwatch' || tool === 'calculator' || tool === 'e6b') {
-      report('info', 'tool-action', 'toggle-' + tool, 'Kartenwerkzeug umgeschaltet');
-      toggleUtilityTool(tool);
-      return;
-    }
-    if (tool === 'drawClear') {
-      clearDrawings();
-      return;
-    }
-    if (tool === 'eraser') {
-      eraseLastDrawing();
-      return;
-    }
-    setDrawMode(drawMode === tool ? '' : tool);
-  };
-  window.toggleMapDrawSettingsMenu = function () {
-    var menu = byId('mapDrawMenu');
-    if (!menu) return;
-    menu.classList.toggle('open');
-    report('info', 'draw-action', menu.classList.contains('open') ? 'settings-open' : 'settings-close', 'Stift-Einstellungen umgeschaltet');
-  };
-  window.setMapDrawColor = function (value) {
-    drawColor = String(value || '#ff3b30');
-    report('info', 'draw-action', 'color', 'Stiftfarbe geaendert');
-  };
-  window.setMapDrawWeight = function (value) {
-    drawWeight = clamp(Number(value) || 5, 2, 18);
-    report('info', 'draw-action', 'weight', 'Stiftbreite geaendert', String(drawWeight));
-  };
   window.toggleRouteProgressTarget = function () { routeProgressTarget = routeProgressTarget === 'wpt' ? 'route' : 'wpt'; renderProgress(); };
   window.stepLiveNextLegPreview = function (delta, event) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
@@ -3445,42 +2658,20 @@
     if (!waypoints.length) return;
     var current = previewWaypointIndex == null ? automaticWaypointIndex() : previewWaypointIndex;
     previewWaypointIndex = clamp(current + Number(delta || 0), 0, waypoints.length - 1);
-    renderProgress();
+    window.liveActiveWpIndex = previewWaypointIndex;
+    // Like the App preview button, evaluate the selected waypoint immediately.
+    localNavigationState.lastAdvanceAt = 0;
+    refreshLocalNavigation();
+    renderProgress(); updateCompass(); renderProfile();
     report('info', 'waypoint-preview', 'select', 'Wegpunktvorschau umgeschaltet', String(previewWaypointIndex));
   };
-  window.vpZoom = function (delta) { profileZoom = clamp(profileZoom + Number(delta || 0), 0, 200); renderProfile(); };
-  window.vpChangeYAxis = function (delta) { profileYAxis = Math.max(1000, (profileYAxis || 6000) + Number(delta || 0)); renderProfile(); };
-  window.vpResetYAxis = function () { profileYAxis = 0; renderProfile(); };
-  window.vpChangeAlt = function (delta) {
-    var profile = mapSnapshot && mapSnapshot.profile;
-    var current = profileCruiseOverride == null ? finite(profile && profile.cruiseAltitudeFt) || 4500 : profileCruiseOverride;
-    profileCruiseOverride = clamp(Math.round(current + Number(delta || 0)), 500, 18000);
-    renderProfile();
-  };
-  window.vpChangeRate = function (delta) {
-    profileVerticalRate = clamp(Math.round(profileVerticalRate + Number(delta || 0)), 100, 2500);
-    renderProfile();
-  };
-  window.promptForAlt = function () {
-    if (typeof window.prompt !== 'function') return;
-    var profile = mapSnapshot && mapSnapshot.profile;
-    var current = profileCruiseOverride == null ? finite(profile && profile.cruiseAltitudeFt) || 4500 : profileCruiseOverride;
-    var value = finite(window.prompt('Reiseflughoehe in ft MSL', String(Math.round(current))));
-    if (value == null) return;
-    profileCruiseOverride = clamp(Math.round(value), 500, 18000);
-    renderProfile();
-  };
-  window.promptForRate = function () {
-    if (typeof window.prompt !== 'function') return;
-    var value = finite(window.prompt('Steig-/Sinkrate in ft/min', String(Math.round(profileVerticalRate))));
-    if (value == null) return;
-    profileVerticalRate = clamp(Math.round(value), 100, 2500);
-    renderProfile();
-  };
-  window.resetMainRoute = function () {};
+  window.resetMainRoute = function () { navigationClient.edit({ action: 'reset' }); };
   window.minimizeWin95OverlayWindow = function () {};
   window.closeWin95OverlayWindow = function () { return closeHost('window-close'); };
   window.toggleMapTable = function () { return closeHost('toggle-map-table'); };
+
+  window.addEventListener('pagehide', saveLiveTrail);
+  document.addEventListener('visibilitychange', function() { if (document.hidden) saveLiveTrail(); });
 
   function init() {
     boot('host-init', 'Kartentisch wird initialisiert', false);
@@ -3495,6 +2686,7 @@
       boot('host-chrome', 'Kartentisch-Oberflaeche bereit', false);
       initializeMap();
       if (!map) throw new Error('Leaflet-Karte wurde nicht initialisiert.');
+      configureDisplayControls();
       setupEfbUiCompatibility();
       setFollow(preferences.follow);
       var bootStatus = byId('gaEfbBootStatus');

@@ -45,7 +45,7 @@
         'on_task', 'return_leg', 'end_unloading', 'end_ready', 'closing', 'closed'
     ]);
     var KNOWN_EVENT_TYPES = Object.freeze([
-        'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
+        'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
         'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL',
@@ -605,6 +605,10 @@
                 ? source.flightEvents
                 : state.manifest.flightEvents
         );
+        if (source.cargoWindowOpenId) {
+            state.cargoWindowOpenId = text(source.cargoWindowOpenId, 220);
+            state.cargoWindowMode = ['load', 'unload', 'pickup', 'equipment'].includes(source.cargoWindowMode) ? source.cargoWindowMode : 'load';
+        }
         if (source.cargoWindowCloseId) state.cargoWindowCloseId = text(source.cargoWindowCloseId, 220);
         state.cargo = normalizeCargo(state.manifest);
         state.payload = payloadCore && typeof payloadCore.normalizeOutcome === 'function'
@@ -922,7 +926,7 @@
                 : state.cargo);
         var compliance = state.workflows.complianceInspection;
         if (event.type === 'MISSION_ACCEPTED' || event.type === 'AUTHORITATIVE_SNAPSHOT_IMPORTED') return true;
-        if (event.type === 'CARGO_WINDOW_CLOSED') return !state.flags.closed;
+        if (event.type === 'CARGO_WINDOW_CLOSED' || event.type === 'CARGO_WINDOW_OPENED') return !state.flags.closed;
         if (state.flags.closed && event.type !== 'MISSION_CLOSED' && event.type !== 'EFFECT_ACKNOWLEDGED') return false;
         if (event.type === 'CARGO_STATE_CHANGED') return true;
         if (event.type === 'PREPARE_REQUESTED') return phase === 'planned';
@@ -1082,8 +1086,14 @@
             imported.processedEventIds = state.processedEventIds.concat(event.eventId).slice(-MAX_EVENTS);
             return normalizeState(imported);
         }
-        if (event.type === 'CARGO_WINDOW_CLOSED') {
+        if (event.type === 'CARGO_WINDOW_OPENED') {
+            state.cargoWindowOpenId = event.eventId;
+            state.cargoWindowMode = object(event.payload).mode;
+            delete state.cargoWindowCloseId;
+        } else if (event.type === 'CARGO_WINDOW_CLOSED') {
             state.cargoWindowCloseId = event.eventId;
+            delete state.cargoWindowOpenId;
+            delete state.cargoWindowMode;
         } else if (event.type === 'MISSION_ACCEPTED') {
             state.phase = 'planned';
             state.subphase = 'accepted';

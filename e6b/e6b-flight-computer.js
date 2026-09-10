@@ -967,7 +967,7 @@
         } else if (cacheKey === 'windRotorBack' || cacheKey === 'windRotorFront') {
             prepared = svgWithRuntimeStyle(prepared, 'svg{overflow:visible;}');
         }
-        return prepared;
+        return window.gaE6BPrepareSvg(prepared);
     }
 
     function shouldRenderWorkbenchSvgAsImage(cacheKey) {

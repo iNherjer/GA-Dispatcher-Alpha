@@ -18,6 +18,23 @@ function copy(relativeSource, relativeTarget = relativeSource) {
   fs.copyFileSync(source, target);
 }
 
+
+// Compile the actual standalone sources for Coherent. Generated assets never
+// acquire a separate renderer or independent control logic.
+function compileShared(relativeSource) {
+  const source = path.join(PROJECT_ROOT, relativeSource);
+  const target = path.join(OUTPUT_ROOT, relativeSource);
+  const result = require('@babel/core').transformFileSync(source, {
+    babelrc: false, configFile: false, sourceType: 'script', comments: true, compact: false,
+    presets: [[require.resolve('@babel/preset-env'), {
+      targets: { chrome: '49' }, modules: false, useBuiltIns: false,
+      include: ['@babel/plugin-transform-spread', '@babel/plugin-transform-parameters']
+    }]]
+  });
+  ensureParent(target);
+  fs.writeFileSync(target, '// Generated from ' + relativeSource + ' by sync-efb-web-assets.js. Do not edit.\n' + result.code + '\n');
+}
+
 function requireEfbFork(relativeTarget, marker) {
   const target = path.join(OUTPUT_ROOT, relativeTarget);
   const source = fs.readFileSync(target, 'utf8');
@@ -37,8 +54,6 @@ function writeKartentischFragment() {
     .replace('src="e6b/e6b-flight-computer.html?embedded=1&amp;', 'src="/efb/v1/e6b/e6b-flight-computer.html?embedded=1&amp;coherent=1&amp;')
     .replace('id="mapE6BFlip" class="map-e6b-window-btn" type="button" title="E6B umdrehen" aria-label="E6B umdrehen">↻</button>', 'id="mapE6BFlip" class="map-e6b-window-btn" type="button" title="E6B umdrehen" aria-label="E6B umdrehen">FLIP</button>')
     .replace('id="mapE6BClose" class="map-utility-close map-e6b-close" type="button" title="Schließen" aria-label="E6B schließen">×</button>', 'id="mapE6BClose" class="map-utility-close map-e6b-close" type="button" title="Schließen" aria-label="E6B schließen">X</button>')
-    .replace('onclick="vpZoom(10)" title="Horizontal rauszoomen"', 'onclick="vpZoom(-10)" title="Horizontal rauszoomen"')
-    .replace('onclick="vpZoom(-10)" title="Horizontal reinzoomen"', 'onclick="vpZoom(10)" title="Horizontal reinzoomen"')
     .replaceAll('−', '-');
   const target = path.join(OUTPUT_ROOT, 'kartentisch-fragment.html');
   ensureParent(target);
@@ -47,12 +62,36 @@ function writeKartentischFragment() {
 
 writeKartentischFragment();
 copy('styles.css');
+compileShared('profile.js');
+compileShared('checklists.js');
+compileShared('navigation-warning-core.js');
+compileShared('map-prediction.js');
+compileShared('map-profile-controls.js');
+compileShared('map-display-controls.js');
+compileShared('airport-radio.js');
+compileShared('airport-details.js');
+compileShared('airport-aip.js');
+compileShared('airport-weather.js');
+compileShared('map-airport-popup.js');
+compileShared('map-drawing.js');
+compileShared('map-navigation-geometry.js');
+compileShared('map-navpoint-core.js');
+compileShared('map-single-click.js');
+compileShared('map-context-popup.js');
+compileShared('map-direct-to-core.js');
+compileShared('map-navigation-client.js');
+compileShared('map-route-edit-core.js');
+compileShared('map-layer-controls.js');
+compileShared('map-tool-focus.js');
+compileShared('map-autozoom.js');
+compileShared('map-terrain-avoid.js');
 copy('vendor/leaflet/leaflet.css');
 copy('vendor/leaflet/leaflet.js');
 copy('vendor/leaflet/images/layers.png');
 copy('vendor/leaflet/images/layers-2x.png');
 copy('vendor/leaflet/images/marker-icon.png');
 copy('e6b/e6b-core.js');
+copy('e6b/e6b-svg-compat.js');
 copy('e6b/e6b-workbench-front-disc.json');
 copy('e6b/e6b-workbench-wind-disc.json');
 copy('ga-tracker-client/efb-app/PackageSources/VfrMultitool/src/Assets/aircraft-marker.svg', 'aircraft-marker.svg');

@@ -499,6 +499,13 @@
       return result.payload;
     }
 
+    async function submitTool(request = {}) {
+      if (!authEnvelope()) await register();
+      if (!authEnvelope()) return { ok: false, error: 'cockpit_session_unavailable' };
+      const result = await post('/cockpit/tools', Object.assign({}, request, authEnvelope()));
+      return result.payload || { ok: false, error: 'cockpit_tool_unavailable' };
+    }
+
     async function submitIntent(request = {}) {
       let auth = authEnvelope();
       if (!auth) {
@@ -557,7 +564,8 @@
       stop,
       stopVoice,
       unlockAudioPlayback,
-      submitIntent
+      submitIntent,
+      submitTool
     });
   }
 

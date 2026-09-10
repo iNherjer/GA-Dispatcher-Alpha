@@ -9,7 +9,7 @@ function createNavigationCache({ directory, fetchRemote = fetch, maxBytes = 4 * 
   if (!directory) throw new Error('navigation_cache_directory_required');
   const index = new Map(), pending = new Map(), failures = new Map(), waiting = [];
   let running = 0, size = 0, trimming = null;
-  const stats = { hits: 0, downloads: 0, stale: 0, errors: 0 };
+  const stats = { hits: 0, downloads: 0, stale: 0, errors: 0, revalidated: 0 };
   const ready = (async () => {
     await fs.mkdir(directory, { recursive: true });
     for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
@@ -32,6 +32,7 @@ function createNavigationCache({ directory, fetchRemote = fetch, maxBytes = 4 * 
         if (size <= maxBytes) break;
         if (pending.has(name)) continue;
         await fs.unlink(path.join(directory, name)).catch(() => {});
+        await fs.rm(path.join(directory, name + '.json'), { force: true }).catch(() => {});
         if (index.get(name) === entry) { index.delete(name); size -= entry.size; }
       }
     })().finally(() => { trimming = null; });
@@ -40,15 +41,27 @@ function createNavigationCache({ directory, fetchRemote = fetch, maxBytes = 4 * 
   async function get(url, { ttlMs = 86400000, limit = 16 * 1024 ** 2, validate = () => {}, stale = true } = {}) {
     // Callers supply fixed data endpoints, never a URL from a relay client.
     const name = crypto.createHash('sha256').update(url).digest('hex') + '.bin';
-    if (pending.has(name)) return pending.get(name);
+    if (pending.has(name)) {
+      const bytes = await pending.get(name);
+      // Share the I/O, never another consumer's validation or size allowance.
+      if (bytes.length > limit) throw new Error('navigation_data_too_large');
+      await validate(bytes);
+      return bytes;
+    }
     const operation = (async () => {
       await ready;
       const filename = path.join(directory, name);
-      let cached = null, modified = 0;
+      let cached = null, modified = 0, metadata = null;
       try {
         const stat = await fs.stat(filename); modified = stat.mtimeMs;
         if (stat.size <= limit) { cached = await fs.readFile(filename); await validate(cached); }
       } catch (_) { cached = null; }
+      if (cached) {
+        try {
+          metadata = JSON.parse(await fs.readFile(filename + '.json', 'utf8'));
+          if (metadata.hash !== crypto.createHash('sha256').update(cached).digest('hex')) metadata = null;
+        } catch (_) { metadata = null; }
+      }
       if (cached && now() - modified < ttlMs) {
         stats.hits++; if (index.has(name)) index.get(name).usedAt = now();
         return cached;
@@ -56,7 +69,16 @@ function createNavigationCache({ directory, fetchRemote = fetch, maxBytes = 4 * 
       try {
         if ((failures.get(name) || 0) > now()) throw new Error('navigation_data_cooldown');
         return await limited(async () => {
-          const response = await fetchRemote(url, { signal: AbortSignal.timeout(12000), redirect: 'error' });
+          const headers = {};
+          if (metadata?.etag) headers['If-None-Match'] = metadata.etag;
+          else if (metadata?.lastModified) headers['If-Modified-Since'] = metadata.lastModified;
+          const response = await fetchRemote(url, { headers, signal: AbortSignal.timeout(12000), redirect: 'error', cache: 'no-cache' });
+          if (response.status === 304 && cached && metadata) {
+            await fs.utimes(filename, new Date(now()), new Date(now()));
+            if (index.has(name)) index.get(name).usedAt = now();
+            failures.delete(name); stats.revalidated++;
+            return cached;
+          }
           if (!response.ok) throw new Error(`navigation_data_http_${response.status}`);
           if (Number(response.headers?.get?.('content-length')) > limit) throw new Error('navigation_data_too_large');
           const chunks = []; let length = 0;
@@ -73,6 +95,15 @@ function createNavigationCache({ directory, fetchRemote = fetch, maxBytes = 4 * 
           finally { await fs.rm(temp, { force: true }).catch(() => {}); }
           size += bytes.length - (index.get(name)?.size || 0);
           index.set(name, { size: bytes.length, usedAt: now() });
+          await fs.utimes(filename, new Date(now()), new Date(now()));
+          const meta = { etag: response.headers?.get?.('etag') || '', lastModified: response.headers?.get?.('last-modified') || '',
+            hash: crypto.createHash('sha256').update(bytes).digest('hex') };
+          // A crash between data and metadata writes only costs a full download:
+          // the hash above prevents using a validator for a different body.
+          const metaTemp = filename + '.' + crypto.randomUUID() + '.tmp';
+          try { await fs.writeFile(metaTemp, JSON.stringify(meta)); await fs.rename(metaTemp, filename + '.json'); }
+          finally { await fs.rm(metaTemp, { force: true }).catch(() => {}); }
+          failures.delete(name);
           stats.downloads++;
           return bytes;
         });
@@ -91,6 +122,7 @@ function createNavigationCache({ directory, fetchRemote = fetch, maxBytes = 4 * 
     await ready;
     const name = crypto.createHash('sha256').update(url).digest('hex') + '.bin';
     await fs.rm(path.join(directory, name), { force: true });
+    await fs.rm(path.join(directory, name + '.json'), { force: true });
     size -= index.get(name)?.size || 0; index.delete(name);
   }
   return { get, ready, trim, invalidate, snapshot: () => ({ ...stats, bytes: size, files: index.size, pending: pending.size, maxBytes, directory }) };

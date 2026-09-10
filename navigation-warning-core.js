@@ -129,6 +129,203 @@ function frequencyClips(as, enabled = true) {
 function waypointClips(brng, dist) {
     return ['aw-wp-erreicht', 'aw-neuer-kurs', ...digits(String(Math.round(brng)).padStart(3, '0')), 'aw-grad', 'aw-fuer', ...digits(String(Math.round(dist))), 'aw-meilen'];
 }
+function normalizeAirspaceNameForFreq(name) {
+    return String(name || '')
+        .toUpperCase()
+        .replace(/\b(TMA|CTR|CTA|TMZ|RMZ|FIS|HX)\b/g, ' ')
+        .replace(/[^A-Z0-9]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function inferAirspaceLimitIsAgl(as, lim, boundary) {
+    if (!as || !lim) return false;
+    if (lim.referenceDatum === 0) return true;
+    if (lim.referenceDatum !== 1) return false;
+
+    const t = as.type;
+    const isTypicalLowAirspace = [0, 4, 5, 6, 7, 26, 27, 28].includes(t);
+    if (!isTypicalLowAirspace) return false;
+
+    const value = Number(lim.value);
+    if (!Number.isFinite(value)) return false;
+
+    // OpenAIP liefert "GND" vereinzelt als 0 FT MSL statt 0 FT AGL.
+    if (boundary === 'lower' && value === 0) return true;
+
+    // Obergrenze nur bei TMZ/RMZ heuristisch auf AGL drehen.
+    // Für CTR/TMA/CTA nie auto-AGL, sonst werden legitime MSL-Decken verfälscht.
+    if (boundary === 'upper' && lim.unit !== 6 && value > 0) {
+        const canAutoUpperAgl = [5, 6, 27, 28].includes(t);
+        if (!canAutoUpperAgl) return false;
+        const lower = as.lowerLimit || null;
+        const lowerLooksGnd = !!lower && Number(lower.value) === 0 && (lower.referenceDatum === 0 || lower.referenceDatum === 1);
+        const upperFt = lim.unit === 1 ? value : (lim.unit === 0 ? value * 3.28084 : value);
+        if (lowerLooksGnd && upperFt <= 4000) return true;
+    }
+
+    return false;
+}
+
+function applyAirspaceLimitHeuristics(as) {
+    if (!as) return;
+    const lowerIsAgl = inferAirspaceLimitIsAgl(as, as.lowerLimit, 'lower');
+    const upperIsAgl = inferAirspaceLimitIsAgl(as, as.upperLimit, 'upper');
+    as._lowerIsAgl = !!lowerIsAgl;
+    as._upperIsAgl = !!upperIsAgl;
+    if (as.lowerLimit && lowerIsAgl) as.lowerLimit.referenceDatum = 0;
+    if (as.upperLimit && upperIsAgl) as.upperLimit.referenceDatum = 0;
+}
+
+
+function getAirspaceStableId(airspace, fallback = '') {
+    return String(airspace?._id || airspace?.id || fallback || '').trim();
+}
+function relevantAirspace(as) {
+    return !!as && [0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33].includes(as.type)
+        && (as.type !== 0 || as.icaoClass === 2 || as.icaoClass === 3);
+}
+// Same input preparation for route warnings and the tracker flight-path query.
+// Copy mutable limits/frequencies so cached database objects remain untouched.
+function prepareAirspaces(items) {
+    const added = new Set();
+    const intersecting = items.filter(relevantAirspace).filter((as, index) => {
+        const id = getAirspaceStableId(as, `${as.name || 'airspace'}:${as.type ?? 'x'}:${index}`);
+        if (added.has(id)) return false;
+        added.add(id); return true;
+    }).map(as => ({ ...as, lowerLimit: as.lowerLimit && { ...as.lowerLimit },
+        upperLimit: as.upperLimit && { ...as.upperLimit },
+        frequencies: as.frequencies && as.frequencies.map(f => ({ ...f })) }));
+        const sortOrder = { 3: 1, 1: 2, 2: 3, 4: 4, 0: 5, 5: 8, 7: 6, 26: 7, 27: 8, 6: 9, 28: 9, 33: 10 };
+        intersecting.sort((a, b) => (sortOrder[a.type] || 99) - (sortOrder[b.type] || 99));
+
+        // Deduplicate by name: type 0 (icaoClass 3) and type 4 often represent the same CTR in OpenAIP
+        // Keep type 4, but inherit frequencies from the duplicate if type 4 has none
+        const byName = new Map();
+        for (const as of intersecting) {
+            // Deduplizierungs-Key:
+            // • Typ 0 / Typ 4 (Airspace/CTR): Name + Klasse + untere Grenze — fasst OpenAIP-Duplikate
+            //   desselben CTRs zusammen (type 0 ↔ type 4 mit gleichen Grenzen).
+            // • Alle anderen Typen (TMA, TMZ, RMZ …): stabile OpenAIP-ID verwenden — jeder Sektor bleibt erhalten,
+            //   auch wenn mehrere Sektoren denselben Namen tragen (z.B. Stuttgart TMA Außenring Nord/Süd).
+            const lowerVal = (as.lowerLimit && as.lowerLimit.value !== undefined) ? as.lowerLimit.value : 0;
+            const isCtrlDup = (as.type === 0 || as.type === 4);
+            const stableId = getAirspaceStableId(as);
+            const key = isCtrlDup
+                ? (as.name || stableId) + '_' + (as.icaoClass || as.type) + '_' + lowerVal
+                : (stableId || (as.name || 'x') + '_' + (as.icaoClass || as.type) + '_' + lowerVal);
+            if (!byName.has(key)) {
+                byName.set(key, as);
+            } else {
+                const existing = byName.get(key);
+                if (as.type === 4 && existing.type !== 4) {
+                    if ((!as.frequencies || as.frequencies.length === 0) && existing.frequencies?.length > 0)
+                        as.frequencies = existing.frequencies;
+                    byName.set(key, as);
+                } else if (existing.type === 4 && as.type !== 4) {
+                    if ((!existing.frequencies || existing.frequencies.length === 0) && as.frequencies?.length > 0)
+                        existing.frequencies = as.frequencies;
+                }
+            }
+        }
+        const activeAirspaces = [...byName.values()];
+
+        // Zusätzlicher Frequenz-Fallback:
+        // Wenn ein CTR/TMA/CTA-Eintrag ohne Frequenz durchrutscht, versuche aus
+        // gleich benannten/intersektierenden Sektoren die Frequenzen zu übernehmen.
+        const byNormNameWithFreq = new Map();
+        for (const src of intersecting) {
+            if (!src?.frequencies || src.frequencies.length === 0) continue;
+            const norm = normalizeAirspaceNameForFreq(src.name);
+            if (!norm) continue;
+            if (!byNormNameWithFreq.has(norm)) byNormNameWithFreq.set(norm, src.frequencies);
+        }
+        activeAirspaces.forEach(as => {
+            if (as?.frequencies && as.frequencies.length > 0) return;
+            const isCtaCtrFamily = [0, 4, 7, 26].includes(as?.type);
+            if (!isCtaCtrFamily) return;
+            const norm = normalizeAirspaceNameForFreq(as.name);
+            const fallbackFreqs = norm ? byNormNameWithFreq.get(norm) : null;
+            if (fallbackFreqs && fallbackFreqs.length > 0) {
+                as.frequencies = fallbackFreqs;
+            }
+        });
+
+        // AGL-/GND-Heuristik auf gematchte Airspaces anwenden.
+        activeAirspaces.forEach(as => applyAirspaceLimitHeuristics(as));
+
+
+    return activeAirspaces;
+}
+
+function getAirspaceApproxCenter(as) {
+    if (!as?.geometry) return null;
+    const pts = [];
+    if (as.geometry.type === 'Polygon' && Array.isArray(as.geometry.coordinates?.[0])) {
+        as.geometry.coordinates[0].forEach(c => Array.isArray(c) && c.length >= 2 && pts.push(c));
+    } else if (as.geometry.type === 'MultiPolygon') {
+        as.geometry.coordinates.forEach(poly => {
+            if (Array.isArray(poly?.[0])) poly[0].forEach(c => Array.isArray(c) && c.length >= 2 && pts.push(c));
+        });
+    }
+    if (!pts.length) return null;
+    let sumLon = 0, sumLat = 0;
+    pts.forEach(p => { sumLon += Number(p[0]) || 0; sumLat += Number(p[1]) || 0; });
+    return { lon: sumLon / pts.length, lat: sumLat / pts.length };
+}
+
+function approxNmBetween(lat1, lon1, lat2, lon2) {
+    if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return Infinity;
+    const meanLatRad = ((lat1 + lat2) * 0.5) * Math.PI / 180;
+    const dLatNm = (lat2 - lat1) * 60;
+    const dLonNm = (lon2 - lon1) * 60 * Math.cos(meanLatRad);
+    return Math.hypot(dLatNm, dLonNm);
+}
+
+function pickAirportForAirspaceFallback(as, globalAirports) {
+    if (!as || !globalAirports) return null;
+    const center = getAirspaceApproxCenter(as);
+    const asNorm = normalizeAirspaceNameForFreq(as.name);
+    const tokens = asNorm.split(' ').filter(t => t.length >= 4);
+    if (!tokens.length && !center) return null;
+
+    let best = null;
+    let bestScore = Infinity;
+
+    for (const key in globalAirports) {
+        const apt = globalAirports[key];
+        const icao = String(apt?.icao || key || '').trim().toUpperCase();
+        if (!icao) continue;
+
+        const aptNorm = normalizeAirspaceNameForFreq(`${apt.name || ''} ${apt.city || ''} ${icao}`);
+        const nameHit = tokens.length ? tokens.some(t => aptNorm.includes(t) || asNorm.includes(icao)) : true;
+        if (!nameHit) continue;
+
+        let distScore = 0;
+        if (center && Number.isFinite(apt.lat) && Number.isFinite(apt.lon)) {
+            const nm = approxNmBetween(center.lat, center.lon, Number(apt.lat), Number(apt.lon));
+            if (!Number.isFinite(nm) || nm > 40) continue;
+            distScore = nm;
+        }
+
+        const score = distScore;
+        if (score < bestScore) {
+            bestScore = score;
+            best = { icao, apt };
+        }
+    }
+    return best;
+}
+
+function fillAirportFrequencies(airspaces, airports) {
+    for (const as of airspaces) {
+        if ((as.frequencies && as.frequencies.length) || ![0, 4, 7, 26].includes(as.type)) continue;
+        const pick = pickAirportForAirspaceFallback(as, airports);
+        if (pick?.apt?.frequencies?.length) as.frequencies = pick.apt.frequencies.map(f => ({ ...f }));
+    }
+    return airspaces;
+}
+
 function createAirspaceDetector() {
     const _awState = new Map(), _awTypeChain = new Map(), _AW_CHAIN_GAP = 45000;
     return { reset() { _awState.clear(); _awTypeChain.clear(); },
@@ -318,5 +515,5 @@ function createWaypointDetector() {
         return [{ kind: 'waypoint', waypointIndex: index, text: `Wegpunkt ${reached.name || index} erreicht · Kurs ${course.brng}° · ${Math.round(course.dist)} NM`, clips: waypointClips(course.brng, course.dist) }];
     }, reset() { routeKey = ''; } };
 }
-return Object.assign({ createAirspaceDetector, createTerrainDetector, createWaypointDetector, terrainThreat, predictions, predictionBounds, frequencyClips, waypointClips, getAirspaceVerticalBandFt, isPointInsideAirspace, calcNav }, audio);
+return Object.assign({ getDestinationPoint, fillAirportFrequencies, getAirspaceApproxCenter, approxNmBetween, pickAirportForAirspaceFallback, prepareAirspaces, relevantAirspace, normalizeAirspaceNameForFreq, inferAirspaceLimitIsAgl, applyAirspaceLimitHeuristics, createAirspaceDetector, createTerrainDetector, createWaypointDetector, terrainThreat, predictions, predictionBounds, frequencyClips, waypointClips, getAirspaceVerticalBandFt, isPointInsideAirspace, calcNav }, audio);
 });

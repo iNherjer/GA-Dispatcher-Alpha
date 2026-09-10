@@ -124,3 +124,28 @@ test('map snapshot rejects runs without a persisted route bundle', () => {
   assert.equal(projectTrackerMapSnapshot(null), null);
   assert.equal(projectTrackerMapSnapshot({ missionId: 'm', runId: 'r', resumeBundle: {} }), null);
 });
+
+test('App theme and flight performance survive Tracker and EFB projection', () => {
+  const run = activeRun();
+  Object.assign(run.resumeBundle.mapProfile.context, { theme:'retro',tasKts:132,profileCruiseFt:4100,profileClimbFpm:600,profileDescentFpm:700 });
+  const tracker = projectTrackerMapSnapshot(run);
+  const efb = require('./efb-app/map-shell-core').normalizeTrackerMapSnapshot(tracker);
+  assert.equal(efb.context.theme,'retro');
+  assert.equal(efb.context.tasKts,132);
+  assert.equal(efb.context.profileCruiseFt,4100);
+  assert.equal(efb.context.profileClimbFpm,600);
+  assert.equal(efb.context.profileDescentFpm,700);
+});
+
+test('sidebar airport identifiers survive named route endpoints without inference', () => {
+  const run = activeRun();
+  run.resumeBundle.mapProfile.context.departureIcao = 'EDTW';
+  run.resumeBundle.mapProfile.context.destinationIcao = 'EDDS';
+  run.resumeBundle.missionState.currentMissionData.routeWaypoints[0].name = 'Winzeln-Schramberg';
+  const projected = projectTrackerMapSnapshot(run);
+  const shell = require('./efb-app/map-shell-core').normalizeTrackerMapSnapshot(projected);
+  assert.equal(shell.context.departureIcao, 'EDTW');
+  assert.equal(shell.context.destinationIcao, 'EDDS');
+  delete run.resumeBundle.mapProfile.context.departureIcao;
+  assert.equal(projectTrackerMapSnapshot(run).context.departureIcao, '');
+});

@@ -5,7 +5,9 @@ const core = require('../navigation-warning-core');
 function createNavigationWarnings({ data, voice, getSettings, getRoute = () => null, now = Date.now, log = () => {} }) {
   const airspace = core.createAirspaceDetector(), terrain = core.createTerrainDetector(), waypoint = core.createWaypointDetector();
   const session = crypto.randomUUID();
+  const geometries = new Map();
   let sequence = 0, revision = 0, lastTick = 0, busy = false, latest = null, gs = 0, vs = 0, epoch = 0;
+  let motionSample = null;
   let spaceRetryAt = 0;
   let spaces = [], spaceAt = 0, spaceBounds = null, spacePending = null, obstacleAt = 0;
   let active = true;
@@ -17,7 +19,9 @@ function createNavigationWarnings({ data, voice, getSettings, getRoute = () => n
       ...(as ? { airspace: { id: as._id || as.id || '', name: String(as.name || '').slice(0, 120), type: as.type, icaoClass: as.icaoClass,
         lowerLimit: as.lowerLimit, upperLimit: as.upperLimit,
         frequencies: (as.frequencies || []).slice(0, 4).map(f => ({ name: String(f.name || '').slice(0, 50), value: String(f.value || '').slice(0, 30), primary: !!f.primary })) }, minutes: event.minutes, level: event.level } : {}) };
+    if (as?.geometry) { item.hasGeometry = true; geometries.set(item.id, JSON.stringify(as.geometry)); }
     events = [...events.filter(e => e.expiresAt > at), item].slice(-12); revision++;
+    for (const key of geometries.keys()) if (!events.some(e => e.id === key)) geometries.delete(key);
     voice.enqueueWarning({ effectId: item.id, kind: item.kind, text: item.text, clips: event.clips, expiresAt: item.expiresAt });
     log(`NAV_WARNING kind=${item.kind} id=${item.id} text=${text}`);
   }
@@ -25,10 +29,10 @@ function createNavigationWarnings({ data, voice, getSettings, getRoute = () => n
     if (status !== value || health !== error) { status = value; health = error; revision++; }
   }
   function reset() {
-    epoch++; latest = null; gs = 0; vs = 0; lastTick = 0;
+    epoch++; latest = null; motionSample = null; gs = 0; vs = 0; lastTick = 0;
     spaces = []; spaceAt = 0; spaceBounds = null; spaceRetryAt = 0; obstacleAt = 0;
     airspace.reset(); terrain.reset(); waypoint.reset();
-    events.forEach(e => voice.cancel(e.id, 'navigation-reset')); events = []; revision++;
+    events.forEach(e => voice.cancel(e.id, 'navigation-reset')); events = []; geometries.clear(); revision++;
     setStatus('waiting');
   }
   function spacesCover(points, at) {
@@ -65,22 +69,35 @@ function createNavigationWarnings({ data, voice, getSettings, getRoute = () => n
       [missingTerrain ? 'Geländedaten unvollständig' : '', !covered ? 'Luftraumdaten für die Flugbahn unvollständig' : ''].filter(Boolean).join(' · '));
     lastGoodAt = captured;
     // Ground preparation fills the same caches, without producing flight alerts.
-    if (!moving) return;
+    if (!moving || point.onGround === true) return;
     if (settings.airspace !== false && covered) {
       // Match the standalone fallback to the terrain beneath the aircraft for missing prediction samples.
       const awmPoints = sampled.filter(p => p.min !== 0.25).map(p => ({ ...p, terrainFt: p.terrainFt ?? currentTerrain }));
       for (const event of airspace.evaluate({ airspaces: spaces, points: awmPoints, gps: point,
         lastTerrainFt: currentTerrain, now: captured, readFreq: settings.readFreq !== false })) emit(event);
     }
-    if (settings.terrain !== false) for (const event of terrain.evaluate(sampled, point.gs, captured)) emit(event);
+    if (settings.terrain !== false) for (const event of terrain.evaluate(sampled, point.gs, captured)) {
+      const near = sampled.find(p => p.min === 0.25);
+      log(`NAV_TERRAIN_EVIDENCE altFt=${Math.round(point.alt)} aglFt=${Math.round(point.agl)} gsKts=${point.gs.toFixed(1)} predictedVsFpm=${Math.round(vs)} terrainFt=${near?.terrainFt} predictedAltFt=${Math.round(near?.alt)} clearanceFt=${Math.round(near?.alt - near?.terrainFt)}`);
+      emit(event);
+    }
   }
   function observe(point) {
     if (!active || !point || ![point.lat, point.lon, point.alt, point.gs, point.vs, point.hdg].every(Number.isFinite)) return;
     if (latest && (now() - latest.at > 15000 || core.calcNav(point.lat, point.lon, latest.lat, latest.lon).dist > 10)) reset();
     latest = { ...point, at: now() };
-    if (point.paused) { setStatus('paused'); return; }
-    gs = gs === 0 ? point.gs : gs * 0.7 + point.gs * 0.3;
-    vs = vs === 0 ? point.vs : vs * 0.7 + point.vs * 0.3;
+    if (point.paused) { motionSample = null; vs = 0; setStatus('paused'); return; }
+    // Match sync.js: altitude-derived VS and one EMA sample per second,
+    // independent of the SimConnect delivery rate. Raw VS spikes must not
+    // become an almost unfiltered terrain prediction at 30+ packets/second.
+    if (!motionSample) {
+      motionSample = latest; gs = point.gs; vs = 0;
+    } else if (latest.at - motionSample.at > 1000) {
+      const measuredVs = (point.alt - motionSample.alt) * 60000 / (latest.at - motionSample.at);
+      gs = gs === 0 ? point.gs : gs * 0.7 + point.gs * 0.3;
+      vs = vs === 0 ? measuredVs : vs * 0.7 + measuredVs * 0.3;
+      motionSample = latest;
+    }
     const settings = getSettings() || {}, route = getRoute();
     if (settings.waypoint !== false && route?.points) {
       for (const event of waypoint.evaluate(point, route.points, route.id)) emit(event);
@@ -91,7 +108,12 @@ function createNavigationWarnings({ data, voice, getSettings, getRoute = () => n
     evaluate(latest, lastTick, generation).catch(error => { if (generation === epoch) setStatus('partial', error.message); })
       .finally(() => { busy = false; });
   }
-  return { observe, reset, setEnabled(enabled) {
+  return { observe, reset, geometry(id, offset = 0) {
+    const value = geometries.get(id);
+    if (!value || !events.some(e => e.id === id && e.expiresAt > now())) throw new Error('warning_geometry_unavailable');
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset >= value.length) throw new Error('warning_geometry_range_invalid');
+    return { offset, total: value.length, data: value.slice(offset, offset + 12000) };
+  }, setEnabled(enabled) {
     if (active === enabled) return;
     reset(); active = enabled; setStatus(enabled ? 'waiting' : 'standalone');
   }, snapshot() {

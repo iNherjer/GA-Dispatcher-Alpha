@@ -579,3 +579,94 @@ test('central PC audio requires Alpha opt-in and an updated Desktop parent', () 
     assert.equal(state.capabilities.includes('audio.output.v1'), false);
   }
 });
+
+test('local profile data keeps status codes, cancellation and origin checks outside telemetry', async t => {
+  let lastSignal;
+  const server = createTrackerEfbHttpServer({ host: '127.0.0.1', port: 0, hello:createTrackerEfbHttpHello({trackerVersion:'v398',trackerVersionCode:398}),
+    profileData: {
+      terrain: async (points, options) => { lastSignal=options.signal; return points.map(p=>({...p,elevFt:100})); },
+      navpoints: async () => [{lat:48,lng:7,name:'RPP Süd',rppAirportIcao:'EDTL'}],
+      resource: async () => { throw new Error('navigation_data_http_429'); }
+    }
+  });
+  const address=await server.start();t.after(()=>server.stop());
+  const send=(body,origin)=>request(address,'/api/v1/profile-data',{method:'POST',headers:{'Content-Type':'application/json',...(origin?{Origin:origin}:{})},body:JSON.stringify(body)});
+  const result=await send({kind:'terrain',points:[{lat:48,lon:7,distNM:0}]});
+  assert.equal(result.statusCode,200);assert.equal(JSON.parse(result.body)[0].elevFt,100);assert.ok(lastSignal);
+  assert.equal((await send({kind:'resource',url:'./airports.json'})).statusCode,429);
+  const nav=await send({kind:'navpoints',points:[{lat:48,lon:7,distNM:0},{lat:49,lon:8,distNM:0}]});
+  assert.equal(nav.statusCode,200);assert.equal(JSON.parse(nav.body)[0].rppAirportIcao,'EDTL');
+  assert.equal((await send({kind:'navpoints',points:[]},'https://untrusted.example')).statusCode,403);
+  assert.equal((await send({kind:'command'})).statusCode,400);
+  assert.equal((await send({kind:'terrain',points:[]},'https://untrusted.example')).statusCode,403);
+});
+
+test('local breadcrumb session remains stable across polls and changes with the server lifetime', async t => {
+  let snapshot = { lat:48,lon:7,alt:800 };
+  const options = {port:0,hello:createTrackerEfbHttpHello({trackerVersion:'v398',trackerVersionCode:398}),getSnapshot:()=>snapshot};
+  const first=createTrackerEfbHttpServer(options),second=createTrackerEfbHttpServer(options);
+  t.after(async()=>{await first.stop();await second.stop();});
+  const a=await first.start(),b=await second.start();
+  const payload=async(address)=>JSON.parse((await request(address,'/api/v1/snapshot')).body).message.payload;
+  const initial=await payload(a);assert.match(initial.viewSessionId,/^[a-f0-9]{32}$/);
+  assert.equal((await payload(a)).viewSessionId,initial.viewSessionId);
+  assert.notEqual((await payload(b)).viewSessionId,initial.viewSessionId);
+  snapshot=null;const stopped=await payload(a);
+  assert.equal(stopped.available,false);assert.equal(stopped.viewSessionId,initial.viewSessionId);
+});
+
+test('local Terrain Avoid endpoint serves images and rejects out-of-range or arbitrary resource paths', async t => {
+  const calls = [];
+  const server = createTrackerEfbHttpServer({ port:0,hello:createTrackerEfbHttpHello({trackerVersion:'v398',trackerVersionCode:398}),
+    profileData:{terrainTile:async(...coords)=>{calls.push(coords);if(coords[0]===0)throw Error('offline');return Buffer.from('fixture png');}}
+  });
+  t.after(()=>server.stop());const address=await server.start();
+  const image=await request(address,'/api/v1/terrain-tiles/13/4321/2850.png');
+  assert.equal(image.statusCode,200);assert.equal(image.headers['content-type'],'image/png');
+  assert.equal(image.body,'fixture png');assert.deepEqual(calls,[[13,4321,2850]]);
+  for(const path of ['14/0/0.png','2/4/0.png','2/0/4.png','-1/0/0.png','https://example.org']) {
+    assert.equal((await request(address,'/api/v1/terrain-tiles/'+path)).statusCode,400);
+  }
+  assert.equal(calls.length,1);
+  assert.equal((await request(address,'/api/v1/terrain-tiles/0/0/0.png')).statusCode,502);
+  assert.equal((await request(address,'/api/v1/snapshot')).statusCode,200);
+});
+
+test('cockpit tools use the authenticated local endpoint, outside mission authority', async t => {
+  const calls=[];
+  const cockpitControl=createTrackerCockpitControl({executeTool:async request=>{calls.push(request);return {ok:true,status:'ok',snapshot:{payloadWeightLbs:42}};}});
+  const server=createTrackerEfbHttpServer({host:'127.0.0.1',port:0,hello:createTrackerEfbHttpHello({trackerVersion:'v400',trackerVersionCode:400,runtimeChannel:'alpha'}),cockpitControl});t.after(()=>server.stop());
+  const address=await server.start(),headers={'Content-Type':'application/json',Origin:'https://inherjer.github.io'};
+  const post=body=>request(address,'/api/v1/cockpit/tools',{method:'POST',headers,body:JSON.stringify(body)});
+  assert.equal((await post({intent:'read_payload',commandId:'p'})).statusCode,401);
+  const registration=cockpitControl.register({role:'efb',clientId:'tools'});
+  const body={sessionId:registration.session.sessionId,sessionToken:registration.sessionToken,intent:'read_payload',commandId:'p'};
+  const result=await post(body);assert.equal(result.statusCode,200);assert.equal(JSON.parse(result.body).message.payload.snapshot.payloadWeightLbs,42);
+  await post(body);assert.equal(calls.length,1);
+  assert.equal((await request(address,'/api/v1/cockpit/tools',{method:'POST',headers:{...headers,Origin:'https://untrusted.example'},body:JSON.stringify(body)})).statusCode,403);
+  assert.equal(calls.length,1);
+});
+
+test('local flight requests wake on source samples, coalesce slow views and leave other endpoints responsive', async t => {
+  let snapshot = {lat:48,lon:8,alt:900,capturedAt:1};
+  const server=createTrackerEfbHttpServer({port:0,
+    hello:createTrackerEfbHttpHello({trackerVersion:'v398',trackerVersionCode:398}),getSnapshot:()=>snapshot});
+  t.after(()=>server.stop());const address=await server.start();
+  const initial=JSON.parse((await request(address,'/api/v1/snapshot')).body).message.payload;
+  assert.equal(initial.localRevision,0);
+  let received=false;
+  const pending=request(address,'/api/v1/snapshot?after=0').then(value=>{received=true;return value;});
+  await new Promise(resolve=>setTimeout(resolve,25));assert.equal(received,false,'unchanged source must not busy-poll');
+  assert.equal((await request(address,'/api/v1/status')).statusCode,200);
+  const before=Date.now();snapshot={...snapshot,lat:48.01,capturedAt:2};server.notifyFlight();
+  const next=JSON.parse((await pending).body).message.payload;
+  assert.equal(next.lat,48.01);assert.equal(next.localRevision,1);
+  assert.ok(Date.now()-before<500,'source update does not wait another 500ms');
+  // A view that missed frames receives just the newest one.
+  for(let i=0;i<10;i++){snapshot={...snapshot,capturedAt:3+i};server.notifyFlight();}
+  const latest=JSON.parse((await request(address,'/api/v1/snapshot?after=1')).body).message.payload;
+  assert.equal(latest.capturedAt,12);assert.equal(latest.localRevision,11);
+  const offline=request(address,'/api/v1/snapshot?after=11');
+  await new Promise(resolve=>setTimeout(resolve,10));snapshot=null;server.notifyFlight();
+  assert.equal(JSON.parse((await offline).body).message.payload.available,false);
+});

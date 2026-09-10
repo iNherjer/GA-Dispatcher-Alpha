@@ -4078,3 +4078,668 @@ Runtime-Stable, globaler Desktop-Autoupdatezeiger und EFB-Community-Paket bleibe
 unveraendert. Fuer die neuen Warnungen Desktop 1.6.9 einmal manuell installieren
 und den Alpha-Kanal mit APT-Tracker-Steuerung verwenden. Reale Windows-Installation
 und MSFS-Flugtest stehen aus.
+
+### Korrekturen aus dem v398-Flugtest (10.09.2026, noch nicht ausgerollt)
+
+Befunde aus App-/Tracker-Logs und dem Screenshot vom 10.09.: Die App zeigte
+ungeformte Warntexte, der EFB-Host hatte keinen passenden Warnrenderer. Der
+Frequenz-/Bordbuchcontainer lag ausserdem innerhalb der beschnittenen Karte
+bzw. hinter dem Vollbildoverlay. Beide Ansichten benutzen jetzt die ausgelagerte
+Standalone-Praesentation (Namen, Farben, Frequenzen/Squawks, Dismiss und dreifaches
+Polygon-Pulsieren). Der gemeinsame Bannerhost liegt ausserhalb der Karte, ueber
+deren Vollbildoverlay und unter Dialogen. Der EFB hebt passende Profilsegmente
+mit hervor. Geometrie wird pro aktiver Warnung bei Bedarf in begrenzten Chunks
+abgerufen, nicht in jedes 500-ms-Telemetriepaket aufgenommen. Ein noch nicht
+bereiter Renderer verbraucht keine Warnung; fehlgeschlagene Geometrieabrufe
+haben fuenf Sekunden Pause.
+
+Der Tracker hatte rohe Aviation-Packs direkt an den Detektor weitergegeben.
+Die Standalone schliesst zuvor FIRs und allgemeine Echo-Flaechen aus und fuehrt
+CTR-Duplikate mitsamt Frequenzen zusammen. Diese unveraenderten Regeln,
+AGL-Heuristiken und der benannte Flugplatz-Frequenzfallback sind jetzt gemeinsam
+in navigation-warning-core.js verankert. Der Tracker wendet sie auf seinen
+Flugbahnausschnitt an; die Standalone weiterhin auf ihre Routenschnittmenge.
+Die bestehende Luftraum-/Terrainentscheidung selbst bleibt gemeinsam.
+
+TAWS bekam bisher eine EMA pro eingehendem SimConnect-Paket mit roher Vertikalrate.
+Jetzt entsprechen Ein-Sekunden-Abstand und aus Hoehenaenderung berechnete Rate
+der Standalone. Bodentelemetrie waermt Daten vor, loest aber keine Terrain- oder
+Luftraumansage aus. Schwellen/Cooldowns bleiben gleich. NAV_TERRAIN_EVIDENCE
+protokolliert beim Ausloesen Hoehe, AGL, Geschwindigkeit, prognostizierte Rate,
+Terrain und verbleibenden Abstand. Die vier Meldungen im gelieferten Log lassen
+sich mangels vollstaendiger Positions-/Vorhersagewerte nicht einzeln als
+Fehlalarm beweisen; das bleibt Gegenstand des naechsten Flugtests.
+
+Bordbuch-Erinnerungen werden erst nach erkanntem Abheben angeboten, in App und
+EFB mit derselben Projektion. Ein Landezeit-Banner darf wie Standalone auch bei
+zuvor ausgelassener Startzeit schreiben. Vorher scheiterte das mit
+manifest_boardbook_field_not_current. Auf dem Tracker werden vorhandene
+Flugereignisse, Inventar und Compliance weiter geprueft. Der Banner verschwindet
+beim Eintragen erst nach Erfolg. Explizites Oeffnen des Verlademanagers wird
+jetzt ebenso wie Schliessen als Praesentationszustand synchronisiert; lokale
+Fenster oeffnen weiterhin sofort.
+
+pax-audio-style.js enthaelt die bestehende Standalone-Intercom-Kette unveraendert.
+PC- und App-Ausgabe verwenden fuer Pax-Voice clear/intercom/intercom_noise aus
+den zentralen Audioeinstellungen. Alte App-Einstellungen werden einmalig
+uebernommen; Cues und Warnclips erhalten keinen zusaetzlichen Pax-Filter.
+Die Desktop-Player-Kopie und Cloud-Audiospeicherung kennen das zusaetzliche Feld.
+
+Im Test wurde Farewell um 05:30:04 UTC vorgeladen und war um 05:30:29 bereit,
+wurde aber vor der Ausgabe erneut generiert. Autoritativer Touchdown-Kontext
+hat jetzt Vorrang vor einem spaeter eingesandten App-Rezept. Ankunftswetter
+bleibt zusammen mit Flugfakten eingefroren; Cargo-Ergebnis wird vor Ausgabe
+weiter aktuell geprueft. Unveraenderte Rezepte verwenden die Vorbereitung,
+veraenderte Erfolgskriterien verwerfen sie weiterhin.
+
+Validierung: 219 gezielte Node-Tests, Ground-Flow-, Farewell-Differential-,
+Tracker-Interface- und AWM-Queue-Selbsttests bestanden. Echte EFB-Hostassets in
+Electron bei 900 px und 440 px visuell geprueft: Frequenzbanner sichtbar,
+Polygon-Puls und schmale Darstellung korrekt (externe Kartenabrufe im Test
+gesperrt). Windows-Testbuild erfolgreich; kein neuer Release und kein
+Produktiv-Worker-Deployment. Reale MSFS-/Coherent-/iPhone-Audio- und TAWS-Pruefung
+steht aus. Telemetrie-Takt und Cargo-Buendelung bleiben unveraendert.
+
+Neue Clients erkennen die Zusatzfelder audioStyle, hasGeometry und cargoWindowOpenId
+vor automatischer Migration bzw. Zusatzabfragen; aeltere Tracker bekommen dadurch
+keine wiederholten nicht unterstuetzten Anfragen.
+
+### Offene Kartentisch-Paritaet nach Screenshotvergleich (10.09.2026)
+
+Erneute reine Code-/Screenshotpruefung: Die vorausgehenden Warnungs- und
+Missionskorrekturen bedeuten keine vollstaendige EFB-/Standalone-UI-Paritaet.
+Die folgenden Punkte sind noch offen und wurden in dieser Pruefung nicht als
+behoben abgenommen:
+
+- Toolbar: configureOriginalChrome baut eigene Menues, Bezeichnungen und
+  Aktionen; Host-CSS erzwingt nowrap und kleinere Buttons. Beim Einklappen
+  bleibt die Header-Mindesthoehe von 66 px. renderProgress setzt nicht die
+  Standalone-Klasse route-progress-visible, die den Handle unter die
+  Navigationszeile verschiebt.
+- Flugzeug: EFB verwendet aircraft-marker.svg in 40 x 40 mit Drehpunkt 50/50;
+  Standalone das live-plane-SVG mit einstellbarer Groesse/Farbe und Drehpunkt
+  50/37. Beide Renderer und Anker sind derzeit unterschiedlich.
+- Hoehenprofil: eigener EFB-Canvasrenderer fuer den empfangenen Routenplan;
+  HDG-Umschalter und Einstellungen werden im Host-CSS ausgeblendet. Die
+  Standalone-HDG/Flugbahn-Darstellung ist damit nicht durch blosses Sichtbarmachen
+  des Buttons verfuegbar. Profilrenderer, Steuerung und erforderliche lokale
+  Tracker-Profildaten muessen zusammen adaptiert werden.
+- Kompass: eigener SVG-/CDI-Aufbau statt buildCompassSvg/buildCompassFixed.
+  HDG-Ziffernanzeige und Wegpunkt-Bug fehlen. Die CDI-Ablenkung verwendet eine
+  andere Formel/Richtung; diese muss mit identischen Navigationseingaben gegen
+  Standalone geprueft werden. Das S wird im aktuellen EFB-Code erzeugt;
+  sein Fehlen im Screenshot ist daher nicht durch einen fehlenden Textwert
+  erklaert und braucht den Rendervergleich im Coherent-Host.
+- Kruemelweg: im EFB fehlt die Entsprechung zu _recordLiveTrailPoint und
+  _renderLiveTrailIfNeeded (Standalone: Aufnahme ab mehr als 20 m Abstand,
+  begrenzte Punktliste und inkrementelles Zeichnen). Bestehende Telemetrie
+  reicht fuer den Verlauf ab Oeffnen; Wiederherstellung nach Reload braucht
+  einen begrenzten Verlauf vom Tracker, nicht staendig den vollen Fluglog.
+- Der schmale Screenshot-Banner ist missionStartBanner, nicht der zuvor
+  korrigierte Frequenzbanner. Gemeinsames Markup/CSS existiert bereits;
+  width:min(...) hat keinen einfachen Breitenfallback. Container, CSS-Auswertung
+  und tatsaechliche Breite muessen im Coherent-Rendervergleich geprueft werden.
+- Kacheln: direkte OpenTopo-Quelle, backup.opentopomap.org und Trackerproxy
+  sind bereits vorhanden. EFB benutzt eine separate generische Retry-Implementierung
+  (5 s primaer, danach 7 s), Standalone createResilientOpenTopoLayer (4,5/7 s).
+  Der Screenshot allein beweist keinen fehlenden Backup. Fehler/Timeout,
+  Zoomwechsel und Entfernen noch ladender Kacheln brauchen gezielte Tests.
+
+Empfohlene Umsetzung: vorhandene Standalone-Bausteine fuer Toolbar, Marker,
+Kompass und Trail gemeinsam verwenden; Profil als eigenen zusammenhaengenden
+Paritaetsschritt inklusive HDG-Daten behandeln. Gegen identische Flugpunkte,
+Heading/Track-Abweichungen, Fensterbreiten sowie Ein-/Ausklappen vergleichen.
+Die in Arbeit befindlichen Missions-/Audiofixes und der 500-ms-Relay-Takt
+bleiben davon unberuehrt. Kein Rollout in dieser Pruefung.
+
+
+### Kartentisch-Paritaet: erstes Umsetzungspaket (10.09.2026)
+
+Der User hat eine schrittweise, sorgfaeltige Umsetzung freigegeben. Dieses
+Paket schliesst die direkt pruefbaren Karten-/Chrome-Abweichungen; das
+HDG-Profil bleibt ein eigener zusammenhaengender Folgeschritt.
+
+- Toolbar darf wie in der Standalone umbrechen. Kein erzwungenes horizontales
+  Scrollen, keine feste 66-px-Mindesthoehe. Einklappen aktualisiert Pfeil,
+  aria-expanded und die route-progress-visible-Klasse. Der Handle folgt der
+  tatsaechlich gemessenen Navigationszeile, auch nach einem Fensterwechsel.
+  Die native EFB-UTC/Statuszeile behaelt 28 px Platz ausserhalb der klappbaren
+  Toolbar, nur im eingebetteten Host. Dadurch wird sie beim Einklappen nicht
+  von Bedienelementen ueberdeckt.
+- Kompass und Flugzeug verwenden map-live-presentation.js gemeinsam mit der
+  Standalone. Originales Flugzeug-SVG, 50/37-Anker, konfigurierbare CSS-Farbe/
+  Groesse; Kurswechsel veraendern nur den SVG-Transform. Der gemeinsame Kompass
+  enthaelt Kardinalrichtungen, HDG-Anzeige, Wegpunkt-Bug und dieselbe CDI-
+  Richtung/Skalierung; 359/0-Wechsel drehen ueber den kurzen Weg.
+  MS33558.ttf wird jetzt lokal aus dem Tracker ausgeliefert und mitgepackt.
+- EFB-Kruemelweg: Aufnahme bei mehr als 20 m Abstand, inkrementelles Zeichnen,
+  identische blaue Strichelung; ueber 12000 Punkte auf 8000 kuerzen. Kein
+  zusaetzlicher Telemetrieabruf. Verlauf beginnt beim Oeffnen des Hosts;
+  Wiederherstellung nach Reload ist damit noch nicht umgesetzt.
+- Gemeinsamer Missionsbanner verwendet width:calc(...) plus max-width statt
+  CSS min(...). Das beseitigt die intrinsische Schmalspalte bei Renderern ohne
+  min()-Unterstuetzung und behaelt die bestehende Standalone-Breite bei.
+- Der bereits vorhandene Karten-Fallback bleibt direct -> backup -> proxy.
+  Primaertimeout entspricht jetzt Standalone (4500 ms). URLs inklusive
+  nativer Zoomstufe werden beim Erzeugen der Kachel fixiert. tileunload bricht
+  deren Timer und Bildabruf ab; spaete Events starten keine Ersatzabrufe mehr.
+  Keine Aussage, dass dadurch Ausfaelle externer Kartenanbieter verschwinden.
+
+Validierung: 35 gezielte Node-Tests sowie Tracker-Interface-Selbsttest PASS.
+Der reproduzierbare tools/efb-kartentisch-ui-selftest.cjs verwendet echte
+Hostassets in Electron, blockiert externe Abrufe und prueft Marker-DOM,
+Kompass/CDI, Trail, Bannerbreite, Einklappen, Portrait/Landscape-Wechsel und
+native Header-Reserve im iframe. Screenshots visuell kontrolliert. Windows-
+Testbuild mit dem neuen Baustein und der lokalen Schrift erfolgreich. Echter
+MSFS-/Coherent-Test steht aus. Kein Release/Produktiv-Rollout dieses Pakets.
+
+Noch offen: vollstaendige Menue-/Aktionsparitaet (die vorhandenen EFB-Menues
+haben weiterhin ihren bisherigen Funktionsumfang), Profilrenderer samt HDG-
+Daten/Steuerung und lokale Verlaufwiederherstellung. Die eckigen App-Buttons
+und runden EFB-Buttons im Vergleich kommen ausserdem von unterschiedlichen
+Themes: EFB erzwingt gemaess bisherigem Beschluss Modern/Classic. Die bestehende
+Theme-Entscheidung wurde nicht stillschweigend durch einen CSS-Nachbau ersetzt.
+
+### Kartentisch-Paritaet: gemeinsames Standalone-Profil (10.09.2026)
+
+Der Folgeschritt ersetzt den vereinfachten EFB-Canvas durch das originale
+`profile.js`. Keine zweite Implementierung von Flugbahn, Wetterdarstellung,
+HDG-Abtastung oder Bedienelementen. `map-profile-controls.js` enthaelt die aus
+App/HTML verschobenen Menue-, Render-Batch- und schmalen Bildschirmregeln;
+`sync.js` und EFB nutzen zudem denselben richtungssensitiven Positionsabgleich.
+
+- RTE/HDG, automatische HDG-Aktivierung ab der bestehenden GS-Schwelle,
+  81 Terrainpunkte, zwei Minuten Rueckblick und 15 Minuten Vorschau bleiben
+  Standalone-Code. Gleiches gilt fuer Zoom, ALT/V/S, Wetter-/Luftraum-/Traffic-
+  Layer und Profil-Resize. Der Profiltransport erzeugt keine Warnungen oder
+  Missionsaktionen; die zentrale Tracker-Warnlogik bleibt zustaendig.
+- `tracker-efb-profile-bridge.js` liefert Telemetrie und lokale Daten.
+  `tracker-profile-data.js` verwendet den bestehenden Tracker-Navigationscache
+  fuer Terrain, Luftraumdaten, Airports, Orte, Hindernisse und Wetter. Originale
+  METAR-/Hindernis-Fallbacks behalten ihre Antworten/Statuscodes. Gzip wird im
+  Tracker genau einmal dekodiert. Keine Profil-Massendaten ueber das Relay.
+- Zwei Terrain-Worker pro Profilbatch, einschliesslich Fehlerfall vollstaendig
+  geleert; abgebrochene wartende Requests starten keine weiteren Samples.
+  Das laesst im gemeinsamen Download-Limit Kapazitaet fuer Warnabfragen.
+  XHR mit begrenzter Laufzeit erlaubt Abbruch auch ohne natives AbortController
+  im EFB. Fehlende Hoehen werden nicht als gueltige Nullhoehe zurueckgegeben.
+- Babel uebersetzt Originaldateien beim Asset-Sync fuer die aeltere EFB-Engine.
+  Generierte Dateien unter efb-web-assets werden nicht manuell gepflegt.
+  Dadurch bleiben Quelllogik und Rendering gemeinsam. Build-Abhaengigkeiten
+  sind exakt versioniert; keine Babel-Laufzeit oder Compiler im Trackerbetrieb.
+- Der Host entfernt Original-Symbole nicht mehr pauschal aus dem DOM. Wenn der
+  App-Profilsnapshot vorliegt, werden Theme und TAS/ALT/Steig-/Sinkwerte als
+  Ausgangswerte uebernommen. Lokale Aenderungen an ALT/V/S bleiben lokal.
+  Das ersetzt fuer diesen Abgleich den frueher erzwungenen Classic-Look.
+- EFB-Traffic bleibt zwischen lokalen Snapshot-Abfragen erhalten; derselbe
+  Standalone-Filter entfernt Ownship und weit entfernten hoehenfremden Traffic.
+  Keine hoehere SimConnect-Traffic-Abfragerate und kein zusaetzlicher Relayabruf.
+
+Pruefung: Node-Tests fuer Datenvalidierung, Gzip, Cache-/Fehler-/Abbruchpfade,
+Parallelitaetsgrenze, HTTP-Origin/Statuscodes, Projektion und Coherent-Syntax.
+`tools/efb-profile-ui-selftest.cjs` prueft mit lokalen Fixtures das echte Profil,
+Wetter, HDG/RTE, Flugleistungswerte, Original-Zahnrad, Theme, Menueposition,
+Portrait/Landscape, Verbindungsausfall und Wiederverbindung. Derselbe Test
+laeuft mit GA_UI_USE_STANDALONE_PROFILE=1 direkt auf den Originalquellen.
+Beide Varianten PASS; externe Requests werden im Test blockiert. Das ersetzt
+keinen echten MSFS-/Coherent-Sichttest. Noch nicht produktiv ausgerollt.
+
+Weiterhin separat offen: vollstaendige Anzeige-/Mission-/Werkzeuge-Menues und
+Aktionsparitaet ausserhalb der Profilsteuerung, lokale Wiederherstellung des
+Kruemelwegs und der schon separat bearbeitete schwarze EFB-Bildschirm beim
+Kamerawechsel. Keine Behauptung vollstaendiger EFB-/Standalone-Gleichheit.
+
+### 2026-09-10: Original-Anzeigemenue, Leg-Beschriftung und Sitzungs-Kruemelweg
+
+Weiterer lokaler Paritaetsschritt, noch nicht ausgerollt:
+
+- `map-display-controls.js` enthaelt die Original-Defaults, gespeicherten
+  Anzeigezustaende, Menue-/Untermenuebedienung, Flugzeugsymbol-Einstellungen
+  und Leg-Beschriftung aus map.js/sync.js/index.html. Die Standalone laedt
+  dieselbe Quelldatei; der Asset-Sync uebersetzt sie fuer Coherent.
+- EFB-eigene Anzeige-/Mission-/Werkzeuge-Dropdowns wurden entfernt.
+  Missions-/Verladeaktionen bleiben an den vorhandenen direkten Buttons,
+  Mission/Checklisten im bestehenden Drawer und Werkzeuge in der Werkzeugleiste.
+  Kein zweiter Missionscontroller wird geladen.
+- Telemetrie, Aktuell, Wegpunkt-Info, Route-Leiste, Kompass, Low-FPS-Darstellung
+  und Flugzeugfarbe/-groesse verwenden Original-Schalter und Original-Keys.
+  Alte versteckte EFB-Infofenster werden einmalig in diese Keys migriert.
+- Die Direktlinie gilt nun auch fuer den automatisch aktiven Wegpunkt;
+  Farbe, Breite und Interaktivitaet stammen aus derselben Darstellungskonstante
+  wie in der Standalone. Die alte abweichende cyanfarbene Vorschau entfiel.
+- Leg-Kurs/Distanz/Dauer, Schriftgroesse und Kartenausrichtung verwenden den
+  unveraenderten Originalrenderer. Die Dauer nutzt das uebernommene TAS-Setting.
+- Live-Spur: gemeinsames Sampling >20 m und identisches Trimmen 12000 -> 8000.
+  Die Standalone behaelt ihre bisherige Fenster-Lebensdauer. Das EFB kann die
+  Spur innerhalb derselben Browsersitzung nach einem Reload wiederherstellen.
+  SessionStorage wird maximal alle zwei Sekunden und bei pagehide geschrieben.
+  Eine nur lokal uebertragene HTTP-Server-Sitzungskennung verhindert die
+  Uebernahme aus einem frueheren Trackerlauf. Explizit fehlende Telemetrie
+  loescht die Spur; ein fehlgeschlagener Netzwerkabruf allein tut das nicht.
+  Keine Missionsdatei und kein Relay-/Cloudflare-Intervall geaendert.
+
+Bewusst weiterhin offen: Snapping/Einzelklick, Karten-Wetter samt VFR-Index,
+Terrain-Avoid-Kartenlayer, Karten-Traffic und Autozoom. Ihre Originalcontrols
+sind im EFB deaktiviert, sichtbar abgeschwaecht und mit Hinweis versehen,
+solange die zugehoerigen Originalrenderer/-aktionen fehlen. Keine Ersatzlogik
+und keine nur optisch wirksamen Schalter. Profil-Wetter/-Traffic ist davon
+getrennt und bereits implementiert. Auch die Zeichnen-/Messenlogik und weitere
+Kartenaktionen benoetigen noch einen vollstaendigen Standalone-Abgleich.
+
+Validierung: `tools/efb-display-ui-selftest.cjs` vergleicht Original- und
+kompilierte Menuequellen in der echten EFB-Seite mit lokalen Fixtures:
+Sichtbarkeit auch nach neuen Snapshots/Reload, Direktlinie, Leg-Dauer,
+Flugzeugsymbol, Menue-Scrolling/Position bei Portrait/Landscape,
+Sitzungswechsel und Spurwiederherstellung. Externe Requests sind blockiert.
+Node-Tests decken Sampling/Trimmen, ungueltige gespeicherte Punkte und die
+lokale HTTP-Sitzungskennung ab. Ein echter MSFS-/Coherent-Sichttest steht aus.
+
+Zusaetzlich PASS: vollstaendiger Standalone-Seitenstart ohne JavaScript-Fehler
+(`tools/standalone-display-ui-selftest.cjs`), inklusive originaler
+applyMapHintEffects, Leg-Dauer und Flugzeugsymbol. 25 Presentation/Web-Tests,
+18 lokale HTTP-Tests, Profil-UI und Missions-Interface-Regression PASS.
+Windows-Testbuild `/tmp/GA-Tracker-display-parity-check.exe` erstellt;
+keine Veroeffentlichung und kein behaupteter MSFS-Laufzeittest.
+
+### 2026-09-10: Gemeinsamer Autozoom und Terrain-Avoid-Kartenlayer
+
+Prioritaet nach User-Abgleich: Autozoom und Terrain Avoid zuerst. Karten-Wetter
+und Karten-Traffic bleiben vorerst ausgeklammert; naechster relevanter
+Wetter-Schritt ist das Regen-Overlay, nicht ein kompletter Wetter-Nachbau.
+
+- `map-autozoom.js` enthaelt die Standalone-Implementierung aus sync.js:
+  Flugphase, AGL/GS, TAS/CRZ, Vorausschau, Ziel-/POI-Fokus, sichtbarer Ausschnitt,
+  weiche Zoomschritte, manuelle Zoom-Haltefunktion und Follow-Unterbrechung beim
+  Verschieben. Auch die Low-FPS-Pan-Gates sind gemeinsam. EFB verbindet seine
+  lokalen Flug-/Routendaten und gespeicherten Follow-Zustand mit diesem Code.
+  Zielauswahl veraendert keine Tracker-Missions- oder Navigationsautoritaet.
+- `map-terrain-avoid.js` enthaelt den originalen Terrarium-Canvas-Layer aus
+  map.js: Farb-/Clearance-Schwellen, maximal Quellzoom 13, Elternkacheln bei
+  hoeherem Zoom, RAM-/Rendercache, Hoehen- und Zeitgates sowie Pause nach der
+  Landung/Wiederaufnahme in der Luft und geplante CRZ als Fallback.
+  Eine kleine gemeinsame Fehlerkorrektur laedt bei fehlendem Speicherwert
+  die vorgesehenen 500/1000 ft statt Number(null)=0. Gespeicherte 0 bleibt 0.
+- EFB-Steuerung und Untermenues werden jetzt freigeschaltet. Follow zeigt das
+  gleiche Ziel-/Pin-Symbol und nutzt dieselbe Bedienung wie die Standalone.
+- `GET /api/v1/terrain-tiles/{z}/{x}/{y}.png` liefert nur gueltige Terrarium-
+  Koordinaten bis Zoom 13. Die Quelle ist fest, kein freier URL-Proxy. Kacheln
+  nutzen denselben bestehenden Tracker-Navigationscache (180 Tage TTL) wie
+  Hoehenabfragen. Gleichzeitige Raw-/Hoehenzugriffe teilen Downloads; die
+  Hoehendekodierung haengt nicht mehr von einem Validator-Seiteneffekt ab.
+  Das EFB greift lokal zu; kein neuer Relay-/Cloudflare-Datenpfad, keine
+  Aenderung der Telemetrie- oder Missionsintervalle.
+- Standalone und EFB laden dieselben Quellmodule; der vorhandene Asset-Sync
+  erstellt die Chrome-49-kompatiblen Fassungen. Keine separate Autozoom- oder
+  Terrain-Entscheidungslogik im EFB-Host.
+
+Pruefung: `tools/efb-autozoom-terrain-ui-selftest.cjs` vergleicht Original- und
+kompilierte Quellen auf echter Leaflet-Karte und Canvas: Boden/Abflug/Reise/
+Anflug, manuelle Zoomwahl, Follow/Drag, Wegpunktauswahl, Terrain-Pixel,
+Quell-Overzoom, paralleler Kachelabruf, Landung/Abheben, Verbindungsausfall,
+CRZ-Fallback und gespeicherte Einstellungen nach Reload. HTTP-Tests pruefen
+PNG-Antwort, Koordinatengrenzen und Fehlerpfad; Cache-Test prueft gleichzeitig
+Overlay plus Hoehenabfrage sowie Wiederverwendung nach Neustart ohne Netz.
+Externe Requests sind in Browser-Tests blockiert. Echte MSFS-/Coherent-
+Darstellung und Laufzeit muessen im naechsten Sim-Test bestaetigt werden.
+Noch nicht ausgerollt.
+
+Validierung dieses Schritts abgeschlossen: 34 Node-Tests plus 19 lokale
+HTTP-Tests PASS; Autozoom/Terrain-Browsertest (Original/kompiliert), komplette
+Standalone-Anzeigeseite, EFB-Profil und Missions-Interface-Regression PASS.
+Unveroeffentlichter Windows-Testbuild:
+`/tmp/GA-Tracker-autozoom-terrain-check.exe` (pkg node18-win-x64).
+
+### 2026-09-10: Gemeinsame Seitenmenüs, Regenradar und E6B-Schrift
+
+Lokaler Folgeschritt, noch nicht veröffentlicht. Wetter-/Traffic-Ausbau bleibt
+wie vereinbart zurückgestellt; das Niederschlagsradar ist ausdrücklich enthalten.
+
+- Das EFB lädt jetzt `checklists.js` aus derselben Quelle wie die App (für
+  Coherent kompiliert). Original-Startseite, Standardlisten, Kapitel, Häkchen,
+  Editor und Unteransichten ersetzen den reduzierten EFB-Nachbau. Die
+  Checklistenbreite kommt wieder aus `styles.css`. Tracker-Customlisten werden
+  über einen kleinen Datenadapter ergänzt; ihre Daten werden nicht durch
+  EFB-Cloud-Polling überschrieben. Lokale Häkchen nutzen den Originalspeicher.
+- Mission Control verwendet weiterhin den gemeinsamen Renderer. Cargo-Aktionen
+  gehen über die vorhandene Tracker-Intent-Queue; die UI bestätigt keinen
+  Manifestwechsel vor dem ACK. Bordbuchfelder werden mit dem gemeinsamen
+  Manifest-Core und den aktuellen allowedActions geprüft. Die Missionssemantik
+  bleibt unverändert.
+- `airport-radio.js` und `map-tool-focus.js` enthalten die unveränderte
+  Frequenzzuordnung bzw. Karten-/Profilmarkierung aus app.js. Radio, Nearest und
+  Warnungslisten beziehen öffentliche Daten über den lokalen, gecachten
+  Profiltransport. Dieser erlaubt zusätzlich nur die festen Airports-/Navaids-
+  und RainViewer-Metadaten-Endpunkte; keine beliebigen URLs.
+  Der Kartenkontext überträgt Start-/Ziel-ICAO ausdrücklich, damit ausgeschriebene
+  Flugplatznamen nicht irrtümlich als Kennung für Frequenzabfragen dienen.
+- `map-layer-controls.js` ist die gemeinsame Klick-/Schließlogik und Radarquelle.
+  Die zuletzt verfügbare RainViewer-Aufnahme nutzt dieselben URL-Parameter,
+  Deckkraft und Zoomgrenze sowie `ga_radar_active`. Das geöffnete Layer-Menü
+  wechselt in den Kartenrahmen, damit der gefilterte Kartencontainer es nicht
+  unter Kompass/Overlays einsperrt. Beim Schließen kehrt es in Leaflet zurück.
+  Gemeinsame CSS-Regeln neutralisieren Formular-Textfarben und 48px-Mindesthöhen
+  der Radio-/Checkboxen; die Liste scrollt innerhalb des verfügbaren Rahmens.
+- EFB-Textnormalisierung erhält jetzt Unicode (NFC), statt Symbole und Einheiten
+  pauschal in ASCII umzuwandeln. Weitere fest kodierte ae/oe/ue-UI-Texte wurden
+  korrigiert. Das ersetzt keine fehlenden Schriftdateien oder Engine-Glyphen.
+- `e6b/e6b-svg-compat.js` wird von beiden E6B-Oberflächen benutzt: Ohne SVG
+  `paint-order` entsteht der helle Schriftrand durch eine separate Textkopie
+  hinter der unveränderten dunklen Schrift. Moderne Browser behalten ihren
+  bisherigen Renderpfad. Der Coherent-Eingabe-/Layoutadapter bleibt erhalten.
+
+Nachweise: 31 Node-Tests für EFB-Assets/Protokollsyntax, Kartenkontext und lokalen Datentransport;
+`tools/efb-sidebar-layer-ui-selftest.cjs` vergleicht Original und Kompilat mit
+Fixture-Daten (Home, Häkchen/Persistenz, Tracker-Listen/Umlaute, Radio/Nearest,
+Cargo-ACK-Sperre, Bordbuchfelder, Kartenfokus, Radar, Rotation/Schließen und
+simuliertes fehlendes paint-order). Screenshots unter
+`/tmp/ga-sidebar-layer-check`. Standalone-Einstiegsseite wird separat gestartet.
+Windows-Testbuild: `/tmp/GA-Tracker-sidebar-radar-check.exe`; kein Upload.
+
+Weiterhin keine vollständige Funktionsparität behaupten: Direct To aus dem
+Seitenmenü und der separate manuelle Sim-Gewichtsabruf besitzen im EFB noch
+keinen passenden Command-Adapter und sind dort deaktiviert. Ergänzende
+Flugplatzdetails (Runway-/Wiki-/AIP-Datenpfad und Browsernavigation),
+Community-Veröffentlichung aus dem EFB sowie sämtliche verbleibenden
+Unterdialoge brauchen weitere Prüfung. Wetteranalyse/Traffic bleiben bewusst
+zurückgestellt. E6B-Schrift, Font-Fallbacks und Interaktion sind im realen
+MSFS-Coherent-Feldtest noch zu bestätigen.
+
+### 2026-09-10: Direct To, Sim-Gewichte und Platzdetails im gemeinsamen Seitenmenü
+
+Lokaler Folgeschritt; noch kein Release/Upload.
+
+- `map-direct-to-core.js` extrahiert Startauswahl und Zwei-Punkt-Route aus dem
+  App-Direct-To. App und Tracker verwenden diese Funktionen. Im EFB sendet
+  derselbe Nearest-/Platz-Button einen authentifizierten `airport_direct_to`-
+  Toolauftrag. Der Tracker prüft Koordinaten, frische Live-Position und
+  Navigationsrevision. Aktive Missionen werden nicht überschrieben: der
+  bestehende explizite Abort bleibt vorgeschaltet, danach wird neu gewählt.
+- Die private Route liegt als `navigation-route-v1.json` im Trackerordner.
+  Sie ist **kein** Mission-Run, erzeugt kein Manifest und keine Szeneneffekte.
+  EFB und Toolbar lesen dieselbe Kartenprojektion; Wegpunktwarnungen nutzen
+  diese Route ebenfalls. Sobald eine echte Mission projiziert wird, wird die
+  vorherige private Route entfernt, damit sie nach Missionsende nicht wieder
+  erscheint. Das repliziert noch keine private Tracker-Route in die entfernte
+  Browser-App; deren bestehender eigener Direct-To-Ablauf bleibt erhalten.
+- `read_payload` ruft den vorhandenen `refreshPayloadSnapshot(12)`-/SimConnect-
+  Leseweg auf. Gleichzeitige Abrufe teilen den laufenden Read, auch wenn eine
+  Mission aktiv ist. EFB aktualisiert `aircraftPayloadStatus` erst aus der
+  Antwort; Manifest/Payload-Set werden nicht angerührt. Nach SimConnect-
+  Reconnect wird der Leseadapter neu gebunden.
+- `airport-details.js` enthält die ursprüngliche OpenAIP-Pistenformatierung,
+  Auswahl, OSM-Fallbacks und Cachezeiten aus App/map. Der EFB-Adapter liefert
+  rohe Airports aus dem bestehenden lokal gecachten Aviation-Datenpfad.
+  `airport-aip.js` enthält die originale Länderauswahl/URL-Erzeugung. AIP-Klicks
+  öffnen über den Tracker den PC-Standardbrowser; der Server akzeptiert nur
+  ICAO/Land und baut die feste AIP-URL selbst.
+- `/api/v1/cockpit/tools` nutzt die bestehenden Cockpit-Sitzungen,
+  Origin-Prüfung, begrenzte Befehlsrate und Deduplizierung (auch für laufende
+  Requests). Diese Tools sind ausdrücklich keine Mission-Intents.
+- Die originale Seitenansicht besitzt keinen separaten Wiki-Abschnitt; hier
+  wurde keiner erfunden. Allgemeine Wetteransichten bleiben zurückgestellt.
+- Nebenbefund im gemeinsamen Code behoben: ein 80-ms-Resize-Timer der
+  Platz-Minimap wird beim Entfernen der Karte abgeräumt. Schnelle Antworten
+  und Ansichtswechsel greifen so nicht auf entfernte Leaflet-Panes zu.
+
+Verifikation: Node-Tests für Tool-Service, HTTP-Sitzungsgrenzen, Projektion,
+Datenadapter und Client; UI-Test in Original und Coherent-Kompilat für
+Direct-To-Klick/ACK/Kartenübernahme, Gewichte/Stationen, Pisten und AIP sowie
+bisherige Menüprüfungen. Standalone-Einstiegsseite und Missionsregressionen
+separat geprüft. Windows-Testbuild unter `/tmp/GA-Tracker-cockpit-tools-check.exe`.
+PC-Browseraufruf und echte SimConnect-Gewichte benötigen den Windows-/MSFS-Test.
+
+### 2026-09-10: Gemeinsame Routenbearbeitung in App, EFB und Toolbar
+
+Lokale Umsetzung, noch kein Rollout. `navigation.route.v1` kündigt den neuen
+App-/Relay-Vertrag an; ältere Tracker und Web-geführte Missionen behalten den
+bestehenden App-Pfad.
+
+- `map-route-edit-core.js` extrahiert die Standalone-Auswahl des Routensegments
+  (kleinster Umweg), die Snap-Gewichtung und die Änderung der Zwischenwegpunkte.
+  EFB/Toolbar bieten den gleichen 44-px-Klickbereich auf der Routenlinie,
+  verschiebbare Zwischenpunkte und den Löschen-Button im Popup. Start und Ziel
+  bleiben fest. Missions-POIs werden nicht als normale Wegpunkte umgedeutet.
+- `map-navigation-client.js` hält bestätigte Route und ausstehende Kartenänderungen
+  auseinander. Eigene Eingaben werden sofort dargestellt und der Reihe nach
+  bestätigt. Nach einem Konflikt werden nachfolgende, nun möglicherweise falsch
+  indizierte Änderungen verworfen; es gibt kein blindes Replay nach Timeout.
+- Lokales HTTP verwendet die vorhandenen Cockpit-Sitzungen. Die entfernte App
+  verwendet denselben Tool-Service über den vorhandenen Pilot-/PIN-Relay-Pfad
+  (`navigation_route_request`/`navigation_route_ack`). Doppelte Befehls-IDs werden
+  dedupliziert. Bestätigte Änderungen werden sofort verteilt; die normale
+  Statusmeldung enthält zur Wiederaufnahme lediglich Routen-ID und Revision.
+  Der 500-ms-Telemetrieintervall wird nicht verändert.
+- Private Direct-To-Routen und deren Zwischenpunkte werden im Tracker gespeichert.
+  Ein expliziter Bearbeitungsklick kann eine vorhandene private App-Route in einen
+  noch leeren Tracker übernehmen. Eine bestehende Tracker-Route wird beim
+  Verbinden nicht ungefragt von einem alten App-Speicherstand überschrieben.
+- Bei Tracker-geführten APT-Runs liegt die bearbeitete Navigationsroute mit eigener
+  Revision am bestehenden Run. Sie verändert weder Cargo/Signaturen noch
+  Ausführungszustand, MissionTruth, Start/Ziel oder Szenenanker. Alle Karten- und
+  Warnungsprojektionen verwenden diese Route. Route Reset stellt die ursprüngliche
+  Missionsroute wieder her. Eine laufende Behördenkontrolle blockiert Änderungen
+  mit derselben Bedingung wie die App. Andere Missionsrezepte bleiben gesperrt.
+- Ein veraltetes vorberechnetes Routenprofil wird nach einem Umweg nicht auf die
+  neue Strecke gestreckt; die Ansichten berechnen es über den vorhandenen
+  Terrain-/Profildatenweg neu.
+
+Grenzen: freies Versetzen von Missionszielen/POIs und weitere Missionsrezepte
+gehören nicht zu dieser APT-Stufe. Der vorhandene EFB-Schalter für Snapping bleibt
+bis zur Übernahme seiner vollständigen Nav-/Reporting-Point-Datenansicht gesperrt;
+freies Setzen und Verschieben ist angeschlossen. Windows-/MSFS-Coherent muss
+Touch/Drag und den echten Relay-/Sim-Betrieb noch im Feld bestätigen.
+
+Nachweise dieser Stufe: Core-/Authority-Tests für Reihenfolge, fremde Revision,
+Timeout, Endpunkt-/Missionspunkt-Schutz, Behördenkontrolle, Neustart,
+Persistenzfehler, Relay-Deduplizierung und erhaltene Meldepunkt-Metadaten;
+HTTP-Sitzungsprüfungen und Coherent-Syntaxprüfung. Der lokale Electron-Test
+`tools/navigation-parity-ui-selftest.cjs` betreibt App, EFB und Toolbar mit einem
+gemeinsamen Test-Service: EFB setzt, App verschiebt, Toolbar löscht; Änderungen
+werden an die App gepusht. Auch App-Direct-To und das Zurückspringen eines
+Markers bei Verbindungsverlust sind geprüft. Externe Karten-/Wetterabrufe sind
+in diesem Test gesperrt. Standalone-Einstiegsseite, gemeinsame Seitenmenüs
+(Original/Kompilat) und Missionsregressionen bestehen ebenfalls.
+Windows-Testbuild: `/tmp/GA-Tracker-navigation-route-check.exe`, 52.770.919 Bytes,
+PE-Dateikennung geprüft; kein Upload/Release.
+
+### 2026-09-10 — Navpunkt-Fangfunktion und Cache-Aktualisierung (lokal)
+
+EFB und Toolbar verwenden beim Ziehen von Zwischenwegpunkten jetzt den bereits
+mit der App geteilten 25-Pixel-Snap-Algorithmus aus `map-route-edit-core.js`.
+Die ursprünglichen Kandidaten-Builder (APT, NAVAID, RPP einschließlich
+Frequenzen, Meldepunkt-ICAO, Airport-Fallback und dessen Padding) wurden
+unverändert nach `map-navpoint-core.js` ausgelagert; auch `map.js` ruft diese
+Builder auf. Start/Ziel und geschützte Missionspunkte bleiben geschützt.
+Der vorhandene Snapping-Schalter ist freigeschaltet, mit den Originaltexten und
+Farben. Routenlinien-Klicks setzen wie in der App zunächst einen freien Punkt;
+das Einrasten erfolgt beim Ziehen. Flughäfen ab Zoom 6, Funkfeuer/RPP ab Zoom 8.
+
+Die Kandidaten werden über den bestehenden lokalen `/api/v1/profile-data`
+Transport vorgeladen. `tracker-navpoints.js` nutzt die vorhandene Hosted Aviation
+DB, deren Region-Fallback, sowie die eigenen Flughäfen-, Navaid- und RPP-Dateien.
+Große Kartenausschnitte verwenden statische Daten statt unbeschränkt viele Packs
+anzufordern. Die vollständigen Daten bleiben im gemeinsamen, auf 4 GiB begrenzten
+`navigation-cache` im Tracker-Datenordner. Über Loopback gehen nur Kandidaten;
+über das App-Relay weiterhin nur die bearbeitete Route, keine Datenbank.
+
+Cache-Lebenszyklus:
+- Aviation-Versionskatalog: beim ersten Zugriff und danach stündlich revalidieren;
+  neue Cycles erhalten eigene Pack-URLs/Cache-Keys, immutable Packs bleiben lange
+  lokal erhalten.
+- Veränderliche Flughäfen-/Navpunkt-/Hindernisquellen: stündliche TTL-Prüfung bei
+  Nutzung; auch RAM-Caches laufen ab. Je nach Zugriff und RAM-Zwischenspeicher kann
+  die Übernahme bis zum nächsten fälligen Abruf dauern; kein Hintergrund-Volldownload.
+- Terrarium: tägliche Revalidierung bei Nutzung; decodierte RAM-Bilder werden
+  spätestens nach einer Stunde erneut gegen den Disk-Cache gelesen.
+- ETag/Last-Modified erlauben HTTP 304 ohne erneuten Nutzdatentransfer. Validatoren
+  sind über den Body-Hash an die gespeicherte Datei gebunden. Ungültige Downloads
+  ersetzen keine gültigen Daten. Bei Netzausfall bleibt der letzte gültige Stand
+  verfügbar, mit bestehendem Retry-Cooldown. Alte Cache-Dateien ohne Metadaten
+  bleiben lesbar und werden beim nächsten fälligen Abruf aktualisiert.
+
+Geprüft: Datenstandwechsel inklusive neuen Pack-URLs, Offline-Neustart,
+Fallback bei fehlgeschlagenen Collections, 304/Änderung/ungültige Antwort,
+Einrasten und freies Ziehen in echten App-/EFB-/Toolbar-Electron-Fenstern sowie
+Routen-Synchronisierung. Lokaler Stand, kein Release; MSFS-/Coherent-Feldtest offen.
+
+### 2026-09-10 — Nachprüfung Routenbearbeitung/Navpunkt-Cache
+
+Gezielte Korrekturen nach Code- und Standalone-Vergleich:
+- Während eines offenen Routen-ACK werden ältere nachgereichte Snapshots nicht
+  mehr über neuere gelegt. Auch ein fehlerhaftes/veraltetes ACK verwirft keine
+  inzwischen empfangene bestätigte Route; unpassende Folgeänderungen entfallen.
+- Der 44-px-Klickbereich zieht im EFB/Toolbar mit dem Wegpunkt mit, wie die
+  sichtbare Linie und wie in `map.js`.
+- Änderungen an Routen-ID, Name und geschützten Punktflags lösen auch ohne
+  Koordinatenänderung den notwendigen Neuaufbau der Marker aus.
+- Ein gemeinsamer Cache-Download prüft Größe und Validator für jeden Aufrufer.
+  Die Validierung eines weniger strengen ersten Aufrufers ersetzt die eigene
+  Prüfung nicht mehr. Aviation-Kataloge, Manifeste und Packs werden bereits vor
+  dem Speichern auf Dokumentstruktur geprüft; HTTP-200-Fehlerdokumente verdrängen
+  keinen gültigen lokalen Datenstand.
+
+Regressionen für verspätete Revisionen, Konflikt-ACK, unterschiedliche
+Cache-Validatoren/Größenlimits und defekten veröffentlichten Katalog ergänzt.
+Der Drei-Fenster-Test prüft zusätzlich die während Drag mitlaufende Hitbox und
+Punktschutz ohne Positionsänderung. Darstellungs- und Seitenmenütests vergleichen
+Originalmodule mit ihrem Coherent-Kompilat einschließlich Portrait/Landscape,
+Umlauten, Schaltern, Radar-Layer und E6B-Beschriftung.
+
+Verbleibende bekannte Bedienabweichung: Start-/Zielflugplatz-Popups und der
+Flughafen-Info-Knopf an Zwischenwegpunkten sind im EFB noch nicht vollständig wie
+in `map.js` angeschlossen; Flughafen-Einzelklick bleibt deaktiviert. Der bestehende
+EFB-Kartenkontext ersetzt diesen Standalone-Ablauf nicht vollständig. Wetter und
+Traffic bleiben wie vereinbart außerhalb dieser Stufe. Kein Rollout und kein
+Nachweis vollständiger MSFS-/Coherent-Parität durch die lokalen Browserprüfungen.
+
+### Gemeinsame Flughafen- und Kartenkontext-Popups (10.09.2026, lokal)
+
+Der oben dokumentierte Popup-Nachbau ist ersetzt. `map-airport-popup.js`,
+`map-context-popup.js` und `airport-weather.js` enthalten die aus `map.js` und
+`app.js` herausgezogenen Originalimplementierungen. App, EFB und Toolbar verwenden
+sie gemeinsam; das EFB lädt das Coherent-Kompilat. Dazu gehören Start-/Zielmarker,
+Flughafen-Info an Zwischenpunkten, Direct To, Pisten, Frequenzen, METAR-Windrose,
+„Was ist hier?“, anklickbare Lufträume/Objekte, ihre Kartenmarkierungen und das
+Höhenband mit eigener Live-Höhe. Die alten EFB-Kontext-Renderer und deren eigene
+CSS-Regeln sind entfernt.
+
+Die Host-Brücke liefert rohe Aviation-Geometrien und Höhen-/Frequenzangaben aus
+`profile-data/aviation`, begrenzt auf einen lokalen Kartenausschnitt. Darstellung,
+Trefferradius und Normalisierung bleiben im gemeinsamen Code. Terrain kommt aus
+dem vorhandenen Terrarium-Cache, METAR über den vorhandenen lokalen Ressourcenweg.
+Ein fehlgeschlagener Terrainabruf wird nicht mehr als 0 ft ausgegeben. Geschlossene
+Kontextfenster verwerfen verspätete Antworten; Scrollen/Tippen im Popup löst keinen
+neuen Longpress aus.
+
+AIP-Links sind im EFB als „im PC-Browser öffnen“ gekennzeichnet und delegieren an
+den vorhandenen authentifizierten `open_airport_aip`-Cockpit-Befehl. Der Tracker
+baut den Link aus ICAO/Land und öffnet den Windows-Standardbrowser außerhalb von
+MSFS. Keine beliebigen URLs oder Shell-Kommandos werden aus dem Popup angenommen.
+Die App behält normale Browser-Links. Fehler erlauben erneuten Klick.
+
+Prüfung: Original und Kompilat mit realen Leaflet-Popups und lokalen Fixtures;
+Flughafen/Navaid/VRP, Luftraum-/Objektmarkierung, eigene Höhe, METAR, AIP-Weitergabe
+und Fehler/Wiederholung, Portrait/Landscape, spätes ACK nach Schließen und
+Routenmarker. Zusätzlich der vollständige App/EFB/Toolbar-Routentest. Wetter und
+Traffic als eigenständige Kartenfunktionen bleiben zurückgestellt; das originale
+METAR-Widget ist Teil der Flughafen-Popup-Parität. Der allgemeine Karten-Einzelklick
+(Tooltip/Panel-Schalter) ist weiterhin ein separater offener Punkt. Kein Rollout;
+MSFS/Coherent und der tatsächliche externe Windows-Browser müssen im Sim getestet
+werden.
+
+### Lokale Telemetrie und verbleibende Kartenbedienung (10.09.2026, lokal)
+
+Der lokale EFB-/Toolbar-Snapshot folgt jetzt jedem verfügbaren SimConnect-Sample
+(bestehende Abfrage alle drei Sim-Frames). Der Tracker veröffentlicht ihn vor der
+500-ms-Schranke. Missionsverarbeitung, Warnungsberechnung und Cloudflare-Telemetrie
+behalten ihren bisherigen Takt; die lokale Beschleunigung erzeugt keinen
+zusätzlichen Cloudflare-Traffic. Ein HTTP-Aufruf mit `after=localRevision` wartet
+auf eine neue Revision, höchstens 1,5 Sekunden. Pro Ansicht bleibt nur ein Abruf
+offen; langsamere Ansichten erhalten den neuesten Stand ohne Frame-Warteschlange.
+Ältere Tracker ohne Revision behalten begrenztes Polling. Verbindungsabbrüche
+entfernen Flugzeug, Live-Anzeigen und eigene Höhe im Kartenkontext.
+
+Die Struktur der Route wird weiterhin separat abgefragt. Die aktuelle Position,
+Peilung und der Fortschritt werden mit `map-navigation-geometry.js` aus frischer
+lokaler Telemetrie berechnet; Tracker und EFB verwenden dieselben Funktionen.
+Fehlende Flugplatzhöhen bleiben unbekannt und werden, soweit vorhanden, aus der
+Flugplatzdatenbank ergänzt. Direct To erhält vorhandene Höhen einschließlich
+echter 0 ft.
+
+`map-drawing.js` und `map-single-click.js` enthalten die extrahierten
+Standalone-Implementierungen: Zeichenleiste, Freihand/Linien, gezielter Radierer,
+Lineal mit verschiebbaren Endpunkten sowie Karten-Einzelklick mit Tooltip und
+Flughafen-/Funkfeuer-/Meldepunkt-Panels. Das EFB stellt lokale Daten und den
+SVG-Renderer bereit, verwendet aber keine eigene vereinfachte Bedienlogik mehr.
+Der zuvor offene Einzelklick-Punkt ist damit angeschlossen. Der METAR-Link
+„Manuell suchen“ verwendet im EFB ebenfalls den authentifizierten PC-Browser-Weg
+mit validierter ICAO und festem URL-Muster; die App behält den normalen Link.
+
+Prüfung: 53 gezielte Node-Tests erfolgreich, darunter wartender lokaler Abruf,
+parallel erreichbare Endpoints, zusammengefasste Samples und Disconnect.
+Original-/Coherent-Kompilat-Popuptest mit Zeichnen, gezieltem Löschen, Lineal,
+Einzelklick-Modi, verspäteten Antworten und Höhen-Fallback erfolgreich.
+Vollständiger App/EFB/Toolbar-Routentest erfolgreich. Windows-Test-EXE gebaut
+(53.054.991 Bytes, PE-Signatur geprüft). Noch kein Rollout; tatsächliche Bildrate,
+Touchbedienung in Coherent und Browseröffnung unter Windows bleiben Sim-Prüfungen.
+
+### Wegpunktführung und Vorhersagelinien (10.09.2026, lokal)
+
+Die vier anschließenden Review-Befunde sind behoben:
+
+- Lokale Telemetrie fordert nur den dynamischen Profilframe an. Sie markiert
+  nicht mehr bei jedem Sample den gesamten Profilhintergrund als veraltet.
+- CDI-Querabweichung und Anflugkurs stammen aus der originalen Standalone-
+  Wegpunktauswahl. Das zuvor spiegelverkehrte Querabweichungsvorzeichen entfällt.
+- `map-navigation-geometry.js` enthält jetzt die aus `sync.js` extrahierte
+  Auswahl des aktiven Legs, den bestehenden 0,5-NM-Wechsel und die manuelle
+  Wegpunktwahl. App, Tracker und EFB verwenden diese Funktionen gemeinsam.
+  Die Auswahl bleibt bestehen, wenn das Flugzeug nach dem Wechsel noch näher
+  am vorherigen Segment liegt. Schnelle lokale Samples aktualisieren die
+  Geometrie sofort; automatisches Weiterschalten behält den Standalone-Takt.
+- Ein explizit leerer Routensnapshot entfernt Route, Fortschritt und magentafarbene
+  Ziellinie. Profilzoom-/Höhendaten werden ebenfalls bereinigt. Verspätete
+  Höhenantworten dürfen eine gelöschte oder inzwischen geänderte Route nicht
+  wieder darstellen. Ein einzelner fehlgeschlagener Abruf löscht keine Route.
+
+Die Kartenvorhersage fehlte im EFB bisher, obwohl Punkte für das Höhenband
+vorhanden waren. `map-prediction.js` enthält nun die originalen 1-/2-/5-/10-Minuten-
+Punkte und ihre Leaflet-Darstellung für beide Oberflächen: gleiche GS-/V/S-
+Glättung, gestrichelte Linie, Zeitmarker und Terrain-/Luftraumfarben. Das
+Höhenband verwendet dieselben Punkte im originalen `profile.js`, sowohl in RTE
+als auch HDG. Terrainfarben bleiben während des nächsten Abrufs sichtbar;
+nach Disconnect oder unter der ursprünglichen Geschwindigkeitsgrenze werden
+Karten- und Profilvorhersage gemeinsam entfernt. Verspätete Antworten werden
+verworfen. Die Darstellung erzeugt keine neuen Warnungen oder Audioaufträge.
+
+Die magentafarbene Linie verwendet bereits den gemeinsamen Standalone-Stil.
+Ihre Zielauswahl und die dazugehörigen Kurs-/Distanzanzeigen hängen jetzt an
+derselben Wegpunktlogik und reagieren sofort auf manuelle Auswahl. Lokaler
+Telemetrietakt und der unveränderte 500-ms-Cloudflare-Takt bleiben getrennt.
+
+Prüfung: 43 gezielte Node-Tests erfolgreich. Electron-Vergleich mit Original-
+und Coherent-kompilierten Modulen prüft echte Kartenlinien, Farbpriorität bei
+fehlender Terrainhöhe, manuelle Zielwahl, Vorhersagemarker im RTE-/HDG-Canvas,
+Routenlöschung und verspätete Antworten. Bei 20 Positionssamples werden keine
+vollständigen Profil-Neuzeichnungen angefordert. Der bestehende Profil-/Layout-
+Test und der vollständige App/EFB/Toolbar-Routentest bestehen ebenfalls.
+Sichtvergleich der Original-/Kompilat-Screenshots durchgeführt; bestehende
+Anzeige-/Kartentisch-Tests ebenfalls erfolgreich. Windows-Test-EXE gebaut
+(53.081.536 Bytes, PE-Signatur geprüft). Kein Rollout; die Prüfung im
+tatsächlichen MSFS/Coherent bleibt erforderlich.
+
+### Abschlussprüfung und Releasekandidat v399 / Desktop 1.6.10 (10.09.2026)
+
+Die Abschlussprüfung korrigiert zusätzlich eine stehenbleibende magentafarbene
+Ziellinie bei Telemetrieabbruch sowie einen möglichen Drag-Abschluss nach bereits
+gelöschter Route. Der gemeinsame Autozoom wurde erneut mit Original-/Kompilat-
+Szenarien für Boden, Abflug, Reiseflug, Zielnähe, manuellen Zoom, Follow und
+Terrain-Avoid verglichen. Ergebnis: gleiche Entscheidungen und Pixelwerte.
+
+534 App-/Runtime-Regressionen, 28 EFB-Shell-Tests und 48 Desktop-Tests bestehen.
+Die lokale Navigations-/Prediction-Prüfung bestätigt auch das Ausblenden von
+Ziellinie und CDI bei Disconnect. Cache v1735, EFB-Assetrevision 39901 und Tracker
+v399 bilden den Releasekandidaten. Desktop 1.6.10 enthält die gemeinsame
+Pax-Filterkette für die PC-Ausgabe; die Cloud-Audiospeicherung übernimmt das
+zusätzliche Klangfeld. Das EFB-Community-Paket bleibt unverändert. Die Prüfung
+auf dem echten Windows-/MSFS-System ist weiterhin der anschließende Feldtest.

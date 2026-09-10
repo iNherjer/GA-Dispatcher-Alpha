@@ -1037,3 +1037,23 @@ test('deferred intent resolves its ACK before starting simulator effects', async
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls[1], 'sim');
 });
+
+test('opening cargo is a shared presentation event; close and reopen retain mission truth', async t => {
+  const manager = committedManager(t);
+  const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager });
+  const before = manager.getExecutionSnapshot().state;
+  async function intent(name, commandId, payload) {
+    const run = manager.getActiveRun();
+    return runtime.executeIntent({ intent: name, commandId, payload, missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  }
+  assert.equal((await intent('open_cargo_window', 'open-phone', { mode: 'unload' })).ok, true);
+  let control = manager.getPublicSnapshot().execution;
+  assert.match(control.cargoWindowOpenId, /open-phone/); assert.equal(control.cargoWindowMode, 'unload');
+  assert.equal((await intent('close_cargo_window', 'close-efb')).ok, true);
+  assert.equal(manager.getPublicSnapshot().execution.cargoWindowOpenId, null);
+  assert.equal((await intent('open_cargo_window', 'reopen-efb', { mode: 'load' })).ok, true);
+  control = manager.getPublicSnapshot().execution;
+  assert.equal(control.cargoWindowCloseId, null); assert.equal(control.cargoWindowMode, 'load');
+  assert.deepEqual(manager.getExecutionSnapshot().state.manifest, before.manifest);
+  assert.deepEqual(manager.getExecutionSnapshot().state.flags, before.flags);
+});

@@ -82,10 +82,10 @@ console.log('PASS tracker interface regressions: airborne banner, signature time
 // boarding started from another interface; repeated polling preserves a close.
 const host = fs.readFileSync(new URL('../ga-tracker-client/tracker-efb-kartentisch-host.js', import.meta.url), 'utf8');
 let opened = 0;
-const efb = { missionSnapshot: null, missionIntentPending: false, missionIntentStatus: '', missionIntentTone: '',
+const efb = { window: {}, missionSnapshot: null, missionIntentPending: false, missionIntentStatus: '', missionIntentTone: '',
   cargoManagerOpen: false, missionPresentationSignature: '', missionSignature: '',
   missionRenderSignature: value => JSON.stringify(value), openCargoManager: () => opened++,
-  renderMissionActionBanner() {}, renderMissionToolbar() {}, renderCargoManager() {}, byId: () => null,
+  renderBoardBookReminder() {}, renderMissionActionBanner() {}, renderMissionToolbar() {}, renderCargoManager() {}, byId: () => null,
   document: { querySelector: () => null }, report() {} };
 vm.createContext(efb);
 vm.runInContext(between(host, '  function renderMissionPayload(', '  function renderChecklistPayload('), efb);
@@ -469,7 +469,7 @@ const reminderHost = { appendChild(element) { reminderElements.set(element.id, e
 reminderElements.set('awmFreqBanner', reminderHost);
 const reminderManifest = { items: [{ id: 'bordbuch', status: 'loaded', log: {} }] };
 const reminderContext = {
-  window: { missionCargoCurrentFlightId: () => 'legacy-flight-id' },
+  window: { GAMissionControlUiCore: controlUi, missionCargoCurrentFlightId: () => 'legacy-flight-id' },
   document: {
     getElementById: id => reminderElements.get(id),
     createElement: () => ({ dataset: {}, setAttribute() {}, addEventListener() {},
@@ -482,7 +482,7 @@ const reminderContext = {
 vm.createContext(reminderContext);
 vm.runInContext(between(cargo, 'function _missionCargoShowBoardBookBanner(', 'window.missionCargoRecordFlightEvent ='), reminderContext);
 const remind = reminderContext.window.missionCargoApplyTrackerFlightReminders;
-const reminderControl = { executionAuthority: 'tracker', missionId: 'm', runId: 'r', phase: 'active',
+const reminderControl = { executionAuthority: 'tracker', missionId: 'm', runId: 'r', phase: 'active', progress: { airborneSeen: true }, manifest: reminderManifest,
   allowedActions: ['set_boardbook_time'], flightEvents: { flightId: 'tracker-flight', startAt: 1000 } };
 const manifestBeforeReminder = JSON.stringify(reminderManifest);
 assert.equal(remind({ ...reminderControl, phase: 'boarded' }), false);

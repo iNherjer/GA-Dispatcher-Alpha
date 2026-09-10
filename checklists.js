@@ -234,6 +234,7 @@
     }
 
     function sourceLabel(checklist) {
+        if (checklist?.source === 'tracker') return 'Tracker';
         if (checklist?.source === 'builtin') return 'Standard';
         if (checklist?.source === 'community') return 'Community';
         return checklist?.published ? 'Eigene Liste · Veröffentlicht' : 'Eigene Liste';
@@ -343,6 +344,7 @@
     function baseChecklists() {
         return [
             ...BUILTIN_CHECKLISTS,
+            ...(window.gaChecklistHost?.checklists?.() || []).filter(c => !customLists.some(own => own.id === c.id)),
             ...customLists.slice().sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0)),
             ...subscribedCommunityLists()
         ];
@@ -732,7 +734,8 @@
     }
 
     async function fetchJson(url, signal) {
-        const res = await fetch(url, { signal, cache: 'no-store' });
+        const request = window.gaChecklistHost?.fetch || fetch;
+        const res = await request(url, { signal, cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
     }
@@ -780,6 +783,11 @@
 
     function render() {
         if (!bodyEl) return;
+        if (window.gaChecklistHost?.supportsTool?.(state.view) === false) {
+            setTitle(state.view === 'weather' ? 'Wetter' : 'Kartenwerkzeuge');
+            bodyEl.innerHTML = toolTopline(state.view) + renderToolEmpty('Diese Funktion ist im EFB noch nicht verfügbar. Niederschlagsradar ist im Layer-Menü wählbar.');
+            return;
+        }
         destroyPlaceMiniMaps();
         if (state.view === 'home') renderHome();
         else if (state.view === 'list') renderList();
@@ -797,6 +805,13 @@
         else if (state.view === 'mission') renderMissionTool();
         else renderHome();
         renderStatus();
+        if (window.gaChecklistHost?.supportsAction) {
+            bodyEl.querySelectorAll('[data-action]').forEach(button => {
+                if (window.gaChecklistHost.supportsAction(button.dataset.action) !== false) return;
+                button.disabled = true;
+                button.title = 'Diese Aktion ist im EFB noch nicht verfügbar.';
+            });
+        }
     }
 
     function renderHome() {
@@ -1316,6 +1331,7 @@
     }
 
     function missionHomeSummary() {
+        if (window.gaChecklistHost?.missionSummary) return window.gaChecklistHost.missionSummary();
         const data = missionGlobalData();
         if (!data.exists) return 'Keine aktive Mission';
         const runtimeSnapshot = missionRuntimePhaseSnapshot();
@@ -1331,6 +1347,17 @@
     function renderMissionTool() {
         setTitle('Mission Control');
         const data = missionGlobalData();
+        if (window.gaChecklistHost?.missionView && window.GAMissionControlUiCore) {
+            const view = window.gaChecklistHost.missionView();
+            if (view) {
+                bodyEl.innerHTML = toolTopline('mission') + window.GAMissionControlUiCore.render(view, {
+                    storyExpanded: state.missionStoryExpanded, control: window.gaTrackerExecutionControl,
+                    intentPending: window.gaMissionControlIntentPending === true,
+                    intentStatus: window.gaMissionControlIntentStatus?.text || '', intentTone: window.gaMissionControlIntentStatus?.tone || ''
+                });
+                return;
+            }
+        }
         if (!data.exists) {
             bodyEl.innerHTML = `
                 ${toolTopline('mission')}
@@ -1721,7 +1748,7 @@
             const relative = Number.isFinite(daysRemaining)
                 ? (daysRemaining < 0
                     ? `seit ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'Tag' : 'Tagen'} abgelaufen`
-                    : `noch ${daysRemaining} ${daysRemaining === 1 ? 'Tag' : 'Tage'} gueltig`)
+                    : `noch ${daysRemaining} ${daysRemaining === 1 ? 'Tag' : 'Tage'} gültig`)
                 : 'Datum fehlt';
             expiry = `
                 <div class="cargo-detail-line">Ablaufdatum: <b>${escapeHtml(item.expiresAt || '--')}</b> · ${escapeHtml(relative)}</div>
@@ -1791,7 +1818,7 @@
                     <button class="cargo-tool-main" type="button" data-action="cargo-toggle-detail" data-item-id="${escapeAttr(item.id)}">
                         <span>
                             <span class="cargo-tool-name">${escapeHtml(item.storyName || item.label || item.id)}</span>
-                            <span class="cargo-tool-meta">${item.required ? 'Pflicht' : 'Optional'} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${cargoStatusLabel(item)} · ${health}%${passengerBusy ? ' · Szene laeuft' : ''}</span>
+                            <span class="cargo-tool-meta">${item.required ? 'Pflicht' : 'Optional'} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${cargoStatusLabel(item)} · ${health}%${passengerBusy ? ' · Szene läuft' : ''}</span>
                         </span>
                         <span class="checklist-tool-arrow" aria-hidden="true">${expanded ? '⌃' : '›'}</span>
                     </button>
@@ -1805,7 +1832,7 @@
         bodyEl.innerHTML = `
             ${toolTopline('cargo')}
             <div class="checklist-topline">
-                <button class="checklist-action-btn" type="button" data-action="cargo-open-modal">Verladefenster oeffnen</button>
+                <button class="checklist-action-btn" type="button" data-action="cargo-open-modal">Verladefenster öffnen</button>
                 <button class="checklist-action-btn" type="button" data-action="cargo-refresh-payload">${state.cargoPayloadLoading ? 'Sim-Gewichte ...' : 'Sim-Gewichte holen'}</button>
             </div>
             <div class="cargo-tool-summary">${escapeHtml(summary)}</div>
@@ -1828,6 +1855,7 @@
         state.placeInfoReturn = tool;
         setStatus('');
         render();
+        if (window.gaChecklistHost?.supportsTool?.(tool) === false) return;
         if (tool === 'weather') ensureWeatherTool(force);
         if (tool === 'radio') ensureRadioTool(force);
         if (tool === 'warnings') ensureWarningsTool(force);
@@ -2400,7 +2428,7 @@ ${routeLines}`;
         entry.loading = true;
         entry.key = key;
         entry.error = '';
-        entry.controller = new AbortController();
+        entry.controller = window.gaChecklistHost?.createAbortController?.() || new AbortController();
         if (state.view === 'weather') render();
         try {
             const samples = pickRouteSamplePoints(5);
@@ -2625,7 +2653,7 @@ ${routeLines}`;
         entry.loading = true;
         entry.key = key;
         entry.error = '';
-        entry.controller = new AbortController();
+        entry.controller = window.gaChecklistHost?.createAbortController?.() || new AbortController();
         if (state.view === 'radio') render();
         try {
             const route = getRoutePoints();
@@ -2933,7 +2961,8 @@ ${routeLines}`;
             fillOpacity: 1
         }).addTo(map);
         map.setView([lat, lon], options.zoom || 13);
-        setTimeout(() => map.invalidateSize(), 80);
+        const resizeTimer = setTimeout(() => { if (el.isConnected) map.invalidateSize(); }, 80);
+        map.once('unload', () => clearTimeout(resizeTimer));
         return entry;
     }
 
@@ -3044,7 +3073,7 @@ ${routeLines}`;
                     <div class="route-tool-place-block-title">Frequenzen</div>
                     ${freqs.length ? `<div class="route-tool-frequency-chips">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : renderToolEmpty('Keine Frequenzen im Cache.')}
                 </div>
-                ${aip ? `<a class="route-tool-link" href="${escapeAttr(aip)}" target="_blank" rel="noopener noreferrer">AIP öffnen ↗</a>` : ''}
+                ${aip ? `<a class="route-tool-link" data-action="airport-aip" data-airport="${escapeAttr(encoded)}" href="${escapeAttr(aip)}" target="_blank" rel="noopener noreferrer">AIP öffnen ↗</a>` : ''}
             </div>
         `;
     }
@@ -3099,7 +3128,7 @@ ${routeLines}`;
         entry.key = key;
         entry.origin = origin;
         entry.error = '';
-        entry.controller = new AbortController();
+        entry.controller = window.gaChecklistHost?.createAbortController?.() || new AbortController();
         if (state.view === 'nearest') render();
         try {
             const b = routeBounds([{ lat: origin.lat, lon: origin.lon }], NEAREST_RADIUS_NM);
@@ -3889,6 +3918,7 @@ ${routeLines}`;
     }
 
     async function maybePullKvChecklists(force = false) {
+        if (window.gaChecklistHost) return;
         const credentials = getCredentials();
         if (!credentials || kvPullInProgress) return;
         const now = Date.now();
@@ -3975,6 +4005,7 @@ ${routeLines}`;
     }
 
     async function maybePullCommunity(force = false) {
+        if (window.gaChecklistHost) return;
         if (communityPullInProgress) return;
         const now = Date.now();
         if (!force && !isCommunityUiActive()) return;
@@ -4204,6 +4235,16 @@ ${routeLines}`;
         if (!button || !bodyEl.contains(button)) return;
         if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
         const action = button.dataset.action;
+        if (window.gaChecklistHost?.cargoAction && ['cargo-load', 'cargo-unload', 'cargo-replace', 'cargo-boardbook-time'].includes(action)) {
+            const itemId = button.dataset.itemId || '';
+            button.disabled = true;
+            setStatus('Tracker verarbeitet die Aktion …');
+            Promise.resolve(window.gaChecklistHost.cargoAction(action, itemId, button.dataset.field))
+                .then(ok => setStatus(ok ? 'Aktion bestätigt.' : 'Aktion konnte nicht ausgeführt werden.', ok ? 'good' : 'warn'))
+                .catch(() => setStatus('Tracker-Aktion fehlgeschlagen.', 'warn'))
+                .finally(() => render());
+            return;
+        }
         const id = button.dataset.id || '';
         const chapterIndex = Number(button.dataset.chapterIndex);
         const itemIndex = Number(button.dataset.itemIndex);
@@ -4366,6 +4407,14 @@ ${routeLines}`;
             } else {
                 setStatus('Kartenfokus nicht verfügbar.', 'error');
             }
+        } else if (action === 'airport-aip') {
+            if (window.gaChecklistHost?.openAip) {
+                event.preventDefault();
+                const apt = decodeAirportDataset(button);
+                if (apt) Promise.resolve(window.gaChecklistHost.openAip(apt))
+                    .then(() => setStatus('AIP im Browser geöffnet.', 'good'))
+                    .catch(() => setStatus('AIP konnte nicht geöffnet werden.', 'warn'));
+            }
         } else if (action === 'airport-info') {
             const apt = decodeAirportDataset(button);
             if (!apt) return;
@@ -4422,14 +4471,14 @@ ${routeLines}`;
             if (typeof window.openMissionGroundCargoDialog === 'function') {
                 const opened = window.openMissionGroundCargoDialog();
                 setStatus(
-                    opened ? 'Verladefenster geoeffnet.' : 'Verladefenster ist nur am Boden und im Stillstand verfuegbar.',
+                    opened ? 'Verladefenster geöffnet.' : 'Verladefenster ist nur am Boden und im Stillstand verfügbar.',
                     opened ? 'good' : 'warn'
                 );
             } else if (typeof window.openMissionCargoDialog === 'function') {
                 window.openMissionCargoDialog('load');
-                setStatus('Verladefenster geoeffnet.', 'good');
+                setStatus('Verladefenster geöffnet.', 'good');
             } else {
-                setStatus('Verladefenster nicht verfuegbar.', 'error');
+                setStatus('Verladefenster nicht verfügbar.', 'error');
             }
         } else if (action === 'cargo-refresh-payload') {
             const req = cargoPayloadRequest(true);
@@ -4568,6 +4617,19 @@ ${routeLines}`;
         renderMissionTool();
         bodyEl.scrollTop = scrollTop;
     }, 1000);
+
+    window.gaChecklistRefresh = function() {
+        if (!bodyEl || !isDrawerOpen() || state.view === 'editor' || state.view === 'import') return;
+        const scroll = bodyEl.scrollTop;
+        render(); bodyEl.scrollTop = scroll;
+    };
+    window.gaChecklistCurrentView = function() { return state.view; };
+    window.gaChecklistOpen = function(view) {
+        setDrawerOpen(true);
+        if (view === 'checklists') openList();
+        else if (view === 'home' || !view) { state.view = 'home'; render(); }
+        else openTool(view);
+    };
 
     document.addEventListener('DOMContentLoaded', init);
 })();

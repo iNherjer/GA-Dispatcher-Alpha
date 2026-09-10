@@ -258,6 +258,8 @@ function createTrackerEfbHttpServer(options = {}) {
   const hello = decodeMessage(options.hello);
   if (hello.type !== 'protocol.hello' || hello.payload?.role !== 'tracker') throw new Error('Der EFB-HTTP-Server benoetigt ein gueltiges Tracker-Hello.');
   const getStatus = typeof options.getStatus === 'function' ? options.getStatus : () => ({});
+  // Local view lifetime only; never sent through a relay or stored in a mission.
+  const viewSessionId = crypto.randomBytes(16).toString('hex');
   const getSnapshot = typeof options.getSnapshot === 'function' ? options.getSnapshot : () => null;
   const getMapSnapshot = typeof options.getMapSnapshot === 'function' ? options.getMapSnapshot : () => null;
   const getMissionSnapshot = typeof options.getMissionSnapshot === 'function' ? options.getMissionSnapshot : () => null;
@@ -271,6 +273,22 @@ function createTrackerEfbHttpServer(options = {}) {
   const log = typeof options.log === 'function' ? options.log : () => {};
   let server = null;
   const loggedAssets = new Set();
+  // One outstanding local request per view. Wake on source data, not a poll
+  // interval; slow views receive the latest snapshot instead of a frame queue.
+  let flightRevision = 0;
+  const flightWaiters = new Set();
+  function waitForFlight(request, response, after) {
+    if (after !== String(flightRevision) || flightWaiters.size >= 32) return Promise.resolve();
+    return new Promise(resolve => {
+      const finish = () => {
+        clearTimeout(timer); flightWaiters.delete(finish);
+        response.off('close', finish); resolve();
+      };
+      const timer = setTimeout(finish, 1500);
+      flightWaiters.add(finish);
+      response.once('close', finish);
+    });
+  }
   let clientLogWindowStartedAt = 0;
   let clientLogCount = 0;
   let clientLogRateLimitReported = false;
@@ -305,7 +323,7 @@ function createTrackerEfbHttpServer(options = {}) {
         if (command.deviceId === 'pc' && !hasDesktopControlToken(request, desktopControlToken)) {
           jsonResponse(response, 403, { error: 'desktop_token_required' }); return;
         }
-        jsonResponse(response, 200, handleVoiceRelay(voiceService, command, audioControl));
+        jsonResponse(response, 200, handleVoiceRelay(voiceService, command, audioControl, options.navigationWarnings));
       } catch (error) { jsonResponse(response, 400, { error: error.code || error.message || 'invalid_audio_request' }); }
       return;
     }
@@ -401,7 +419,8 @@ function createTrackerEfbHttpServer(options = {}) {
       EFB_COCKPIT_SESSION_PATH,
       EFB_COCKPIT_SESSION_HEARTBEAT_PATH,
       EFB_COCKPIT_SESSION_RELEASE_PATH,
-      EFB_MISSION_INTENT_PATH
+      EFB_MISSION_INTENT_PATH,
+      '/api/v1/cockpit/tools'
     ].includes(pathname)) {
       if (!cockpitControl || !isTrustedCockpitOrigin(request)) {
         request.resume();
@@ -415,7 +434,10 @@ function createTrackerEfbHttpServer(options = {}) {
         if (pathname === EFB_COCKPIT_SESSION_PATH) result = cockpitControl.register(payload);
         else if (pathname === EFB_COCKPIT_SESSION_HEARTBEAT_PATH) result = cockpitControl.heartbeat(payload);
         else if (pathname === EFB_COCKPIT_SESSION_RELEASE_PATH) result = cockpitControl.release(payload);
-        else {
+        else if (pathname === '/api/v1/cockpit/tools') {
+          messageType = 'cockpit.tool.ack';
+          result = await cockpitControl.submitTool(payload);
+        } else {
           messageType = 'mission.intent.ack';
           result = await cockpitControl.submitIntent({ ...payload, deferEffects: true });
         }
@@ -465,6 +487,24 @@ function createTrackerEfbHttpServer(options = {}) {
         log(`EFB_VOICE_REJECT path=${sanitizeLogField(pathname, 120)} status=${statusCode} code=${sanitizeLogField(error?.code || 'invalid_request', 80)}`);
         jsonResponse(response, statusCode, { error: error?.code || 'invalid_request' });
       }
+      return;
+    }
+    if (request.method === 'POST' && pathname === '/api/v1/profile-data') {
+      if (!options.profileData || !isTrustedVoiceOrigin(request)) {
+        request.resume(); jsonResponse(response, 403, { error: 'profile_data_unavailable' }); return;
+      }
+      const controller = new AbortController();
+      const onClose = () => { if (!response.writableEnded) controller.abort(); };
+      response.once('close', onClose);
+      try {
+        const body = await readJsonBody(request, 256 * 1024);
+        if (!['terrain', 'airspaces', 'airports', 'aviation', 'navpoints', 'resource'].includes(body.kind)) throw new Error('invalid_profile_operation');
+        const value = await options.profileData[body.kind](body.kind === 'resource' ? body.url : body.points, { body: body.body, signal: controller.signal });
+        jsonResponse(response, 200, value);
+      } catch (error) {
+        const upstream = /http_(4[0-9]{2}|5[0-9]{2})/.exec(error.message);
+        if (!controller.signal.aborted) jsonResponse(response, /^invalid_profile/.test(error.message) ? 400 : upstream ? Number(upstream[1]) : 502, { error: error.message });
+      } finally { response.removeListener('close', onClose); }
       return;
     }
     if (request.method !== 'GET') {
@@ -538,12 +578,14 @@ function createTrackerEfbHttpServer(options = {}) {
       return;
     }
     if (pathname === '/api/v1/snapshot') {
+      await waitForFlight(request, response, requestUrl.searchParams.get('after'));
+      if (response.destroyed) return;
       const snapshot = getSnapshot();
       jsonResponse(response, 200, {
         hello,
         message: createMessage('flight.snapshot', snapshot && typeof snapshot === 'object'
-          ? { ...snapshot, available: true }
-          : { available: false })
+          ? { ...snapshot, available: true, viewSessionId, localRevision: flightRevision }
+          : { available: false, viewSessionId, localRevision: flightRevision })
       });
       return;
     }
@@ -592,6 +634,19 @@ function createTrackerEfbHttpServer(options = {}) {
       });
       return;
     }
+    if (pathname.startsWith('/api/v1/terrain-tiles/')) {
+      const coords = /^\/api\/v1\/terrain-tiles\/(\d{1,2})\/(\d{1,4})\/(\d{1,4})\.png$/.exec(pathname);
+      const [z, x, y] = coords ? coords.slice(1).map(Number) : [];
+      if (!coords || z > 13 || x >= 2 ** z || y >= 2 ** z) {
+        jsonResponse(response, 400, { error: 'invalid_terrain_tile_coordinates' });
+      } else if (!options.profileData?.terrainTile) {
+        jsonResponse(response, 503, { error: 'terrain_unavailable' });
+      } else {
+        try { tileResponse(response, { body: await options.profileData.terrainTile(z, x, y) }); }
+        catch (_) { jsonResponse(response, 502, { error: 'terrain_tile_unavailable' }); }
+      }
+      return;
+    }
     const tileRequest = parseTrackerEfbTilePath(pathname);
     if (tileRequest) {
       try {
@@ -629,6 +684,10 @@ function createTrackerEfbHttpServer(options = {}) {
       return address && typeof address === 'object' ? { host: address.address, port: address.port } : null;
     },
     get hello() { return hello; },
+    notifyFlight() {
+      flightRevision += 1;
+      for (const wake of Array.from(flightWaiters)) wake();
+    },
     async start() {
       if (server) return this.address;
       server = http.createServer((request, response) => {
@@ -663,6 +722,7 @@ function createTrackerEfbHttpServer(options = {}) {
       const current = server;
       server = null;
       if (!current) return;
+      for (const wake of Array.from(flightWaiters)) wake();
       await new Promise((resolve) => current.close(() => resolve()));
     }
   };

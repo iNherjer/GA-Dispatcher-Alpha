@@ -117,7 +117,7 @@ test('speed changes extend coverage, failures back off, and cold ground data loa
   assert.equal(requests.length, 2);
   await f.tick({ gs: 240, vs: -600 });
   assert.equal(requests.length, 3, 'longer prediction must not be clipped to old slow-flight coverage');
-  assert.ok(Math.abs(requests[2].at(-1).alt - Math.max(0, 1500 - 600 * 10)) < .001);
+  assert.equal(requests[2].at(-1).alt, 1500, 'unchanged altitude must not inherit a raw SimVar VS spike');
 
   let attempts = 0;
   const failing = fixture({ data: { airspaces: async () => { attempts++; throw Error('offline'); } } });
@@ -137,4 +137,30 @@ test('a delayed height response from before a turn cannot announce the abandoned
   assert.equal(f.jobs.length, 0);
   f.data.terrain = async () => 100;
   await f.tick({ hdg: 0 }); assert.equal(f.jobs.length, 0);
+});
+
+for (const interval of [20, 100, 500]) test(`prediction smoothing matches standalone at ${interval} ms telemetry cadence`, async () => {
+  const f = fixture();
+  await f.tick();
+  for (let elapsed = interval; elapsed <= 4400; elapsed += interval) await f.tick({ alt: 1500 + elapsed / 100, vs: -9000 }, interval);
+  const last = f.samples.slice(-7);
+  assert.ok(last[0].alt > 1500, 'climb is predicted from measured altitude even if raw VS is wrong');
+  assert.ok(Math.abs((last.at(-1).alt - last[0].alt) / 9.75 - 600) < .001, 'EMA does not depend on packet rate');
+  assert.equal(f.jobs.filter(j => j.kind === 'terrain').length, 0);
+});
+test('ground telemetry prewarms terrain without a takeoff-roll alert', async () => {
+  const f = fixture({ data: { terrain: async () => 1490 } });
+  await f.tick({ onGround: true });
+  assert.equal(f.engine.snapshot().status, 'ready'); assert.equal(f.jobs.length, 0);
+  await f.tick({ onGround: false }); assert.equal(f.jobs[0].kind, 'terrain');
+});
+test('airspace geometry is fetched once on demand, never added to periodic snapshots', async () => {
+  const f = fixture();
+  for (let i = 0; i < 7; i++) await f.tick();
+  const event = f.engine.snapshot().events[0];
+  const chunk = f.engine.geometry(event.id);
+  assert.deepEqual(JSON.parse(chunk.data), ctr.geometry);
+  assert.ok(!JSON.stringify(f.engine.snapshot()).includes('coordinates'));
+  assert.throws(() => f.engine.geometry(event.id, -1), /range_invalid/);
+  f.advance(61000); assert.throws(() => f.engine.geometry(event.id), /unavailable/);
 });

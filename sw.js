@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1734';
+const CACHE = 'ga-dispatcher-v1735';
 
 const STATIC = [
     './',
@@ -9,6 +9,30 @@ const STATIC = [
     './app.js',
     './navigation-warning-audio.js',
     './navigation-warning-core.js',
+    './map-prediction.js',
+    './map-navigation-geometry.js',
+    './navigation-warning-presentation.js',
+    './map-live-presentation.js',
+    './map-profile-controls.js',
+    './map-display-controls.js',
+    './airport-radio.js',
+    './airport-details.js',
+    './airport-aip.js',
+    './airport-weather.js',
+    './map-airport-popup.js',
+    './map-drawing.js',
+    './map-single-click.js',
+    './map-context-popup.js',
+
+    './map-direct-to-core.js',
+    './map-navigation-client.js',
+    './map-route-edit-core.js',
+    './map-navpoint-core.js',
+    './map-layer-controls.js',
+    './map-tool-focus.js',
+    './map-autozoom.js',
+    './map-terrain-avoid.js',
+    './pax-audio-style.js',
     './mission-definition-core.js',
     './mission-variety-core.js',
     './mission-arrival-core.js',
@@ -60,6 +84,7 @@ const STATIC = [
     './e6b/e6b-flight-computer.css',
     './e6b/e6b-flight-computer.js',
     './e6b/e6b-core.js',
+    './e6b/e6b-svg-compat.js',
     './e6b/e6b-workbench-front-disc.json',
     './e6b/e6b-workbench-wind-disc.json',
     './board.js',

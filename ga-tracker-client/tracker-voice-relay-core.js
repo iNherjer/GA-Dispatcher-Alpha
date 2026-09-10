@@ -1,11 +1,14 @@
 'use strict';
 
 // No arbitrary HTTP proxy: only playback of already generated mission audio.
-function handleVoiceRelay(service, command = {}, audioControl = null) {
+function handleVoiceRelay(service, command = {}, audioControl = null, navigationWarnings = null) {
   const clientId = String(command.clientId || '').trim().slice(0, 160);
   if (!clientId) throw new Error('invalid_client_id');
   const effectId = String(command.effectId || '').trim().slice(0, 220);
   switch (command.action) {
+    case 'warning_geometry':
+      if (!navigationWarnings) throw new Error('navigation_unavailable');
+      return navigationWarnings.geometry(effectId, command.offset || 0);
     case 'settings':
       if (!audioControl) throw new Error('audio_control_unavailable');
       return audioControl.snapshot();

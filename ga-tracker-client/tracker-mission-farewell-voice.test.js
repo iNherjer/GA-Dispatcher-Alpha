@@ -235,7 +235,7 @@ test('unsupported special farewell context fails closed and cannot fall back to 
   assert.equal(voiceRequests, 0);
 });
 
-test('an explicit current App close recipe keeps precedence over tracker context', async () => {
+test('tracker context keeps close-time App recipes from discarding the touchdown preload', async () => {
   const requests = [];
   const context = authorityContext();
   const handler = createTrackerMissionFarewellVoice({
@@ -259,7 +259,8 @@ test('an explicit current App close recipe keeps precedence over tracker context
     farewellDynamicContext: { record: { durationSec: 1800, distanceNm: 82.14, maxAltFt: 6500 } }
   });
   assert.equal(result.ok, true);
-  assert.equal(requests[0].prompt, 'Aktueller App-Prompt.');
+  assert.match(requests[0].prompt, /30 min, 82\.1 NM/);
+  assert.doesNotMatch(requests[0].prompt, /Aktueller App-Prompt/);
 });
 
 for (const reversed of [false, true]) test(`stale farewell preload cannot override the current delivery outcome (reverse=${reversed})`, async () => {

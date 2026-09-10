@@ -61,10 +61,10 @@ function createTrackerMissionFarewellVoice(options = {}) {
     const effectPlan = object(object(plan.effects)['voice.farewell']);
     const authorityContext = farewellVoiceCore.normalizeContext(request.farewellContext)
       || farewellVoiceCore.normalizeContext(effectPlan.context);
-    return farewellVoiceCore.normalizeRecipe(request.farewellRecipe)
-      || (authorityContext
+    return (authorityContext
         ? farewellVoiceCore.createRecipeFromContext(authorityContext, request.farewellDynamicContext)
         : null)
+      || farewellVoiceCore.normalizeRecipe(request.farewellRecipe)
       || farewellVoiceCore.normalizeRecipe(effectPlan.recipe);
   };
 
@@ -166,6 +166,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
         voiceEffectId = preparedEffectId;
         voiceService.activatePlayback?.(voiceEffectId);
       } catch (preloadError) {
+        log(`MISSION_FAREWELL_VOICE_PREWARM_MISS effect=${preparedEffectId} reason=${preloadError?.code || preloadError?.message}`);
         if (preloadError?.code === 'effect_id_conflict') voiceService.cancel?.(preparedEffectId, 'farewell_preload_stale');
         voiceEffectId = effectId;
         voiceService.request(voiceRequest(effectId, recipe, false));

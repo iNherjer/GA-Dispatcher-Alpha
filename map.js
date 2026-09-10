@@ -26,82 +26,9 @@ if (!document.getElementById('route-anim-style')) {
 const hitBoxHtml = (color) => `<div class="pin-hitbox"><div class="pin-dot" style="background-color: ${color};"></div></div>`;
 const hitBoxIcon = (color) => L.divIcon({ className: 'custom-pin', html: hitBoxHtml(color), iconSize: [34, 34], iconAnchor: [17, 17] });
 
-const startIcon = hitBoxIcon('#44ff44'), destIcon = hitBoxIcon('#ff4444');
-const wpIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #fdfd86;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
+const startIcon = L.divIcon(window.GAMapRouteEditCore.markerOptions(0, 2)), destIcon = L.divIcon(window.GAMapRouteEditCore.markerOptions(1, 2));
+const wpIcon = L.divIcon(window.GAMapRouteEditCore.markerOptions(1, 3));
 const poiIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #b266ff; border: 2px solid #fff;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
-const measureIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #fff; width: 12px; height: 12px; min-width: 12px; min-height: 12px;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
-const mapDrawState = {
-    enabled: false,
-    panelOpen: false,
-    menuOpen: false,
-    tool: 'freehand',
-    color: localStorage.getItem('ga_map_draw_color') || '#ff3b30',
-    weight: Math.max(2, Math.min(18, parseInt(localStorage.getItem('ga_map_draw_weight') || '5', 10) || 5)),
-    layer: null,
-    drawings: [],
-    lineStart: null,
-    lineStartMarker: null,
-    previewLine: null,
-    drawingLine: null,
-    drawingPoints: [],
-    isDrawing: false,
-    lastLayerPoint: null,
-    lastEraseAt: 0,
-    suppressButtonClickUntil: 0,
-    suppressMapClickUntil: 0,
-    justDraggedUntil: 0,
-    lastTapToggleAt: 0,
-    activeDrawPointerId: null,
-    buttonDrag: null
-};
-const MAP_DRAW_XR_POINTER_UA_RE = /OculusBrowser|Quest|Meta Quest|VR/i;
-let routeLegLabelMarkers = [];
-const ROUTE_LEG_LABEL_MODE_KEY = 'ga_route_leg_label_mode';
-const ROUTE_LEG_LABEL_MODES = ['distance', 'duration', 'both'];
-let routeLegLabelMode = ROUTE_LEG_LABEL_MODES.includes(localStorage.getItem(ROUTE_LEG_LABEL_MODE_KEY))
-    ? localStorage.getItem(ROUTE_LEG_LABEL_MODE_KEY)
-    : 'distance';
-const AIP_POPUP_ROUTES = {
-    AT: '/at/en/vfr/',
-    DE: '/de/en/vfr/',
-    FR: '/fr/aeroports/',
-    GB: '/uk/vfr/',
-    NL: '/nl/en/vfr/'
-};
-const MAP_HINT_DEFAULTS = {
-    magentaLine: true,
-    weather: true,
-    windBarbs: true,
-    cloudFields: true,
-    vfrIndex: false,
-    terrainAvoid: false,
-    traffic: true,
-    autoZoom: false,
-    telemetry: true,
-    currentInfo: true,
-    nextLeg: true,
-    routeProgress: true,
-    compass: true,
-    lowFps: false
-};
-const MAP_SINGLE_CLICK_MODE_KEY = 'ga_map_single_click_mode';
-const MAP_SINGLE_CLICK_MODES = ['off', 'tooltip', 'panels'];
-const MAP_SINGLE_CLICK_MODE_LABELS = {
-    off: 'Aus',
-    tooltip: 'Tooltip',
-    panels: 'Tafeln'
-};
-let mapSingleClickMode = 'off';
-window.mapHints = window.mapHints || { ...MAP_HINT_DEFAULTS };
-Object.keys(MAP_HINT_DEFAULTS).forEach((key) => {
-    if (!(key in window.mapHints)) window.mapHints[key] = MAP_HINT_DEFAULTS[key];
-});
-const MAP_HINT_SUBMENU_DEFAULTS = {
-    weatherMenu: false,
-    vfrIndexMenu: false,
-    terrainAvoidMenu: false
-};
-window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULTS };
 const VP_VFR_INDEX_MIN_UPDATE_MS = 30 * 60 * 1000;
 const VP_VFR_INDEX_MAX_POINTS = 72;
 const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
@@ -360,31 +287,6 @@ window.vpMissionSceneDebugOverlayEnabled = localStorage.getItem('ga_debug_missio
 const VP_OBS_TILE_USED_RECENT_MS = 5 * 60 * 1000;
 window.vpObsTileLoadingKeys = window.vpObsTileLoadingKeys || new Set();
 window.vpObsTileDeferredKeys = window.vpObsTileDeferredKeys || new Set();
-const TERRAIN_AVOID_WARN_DEFAULT_FT = 500;
-const TERRAIN_AVOID_SAFE_DEFAULT_FT = 1000;
-const TERRAIN_AVOID_WARN_MIN_FT = 0;
-const TERRAIN_AVOID_WARN_MAX_FT = 3000;
-const TERRAIN_AVOID_SAFE_MIN_FT = 0;
-const TERRAIN_AVOID_SAFE_MAX_FT = 5000;
-const TERRAIN_AVOID_MIN_UPDATE_MS = 1000;
-const TERRAIN_AVOID_STALE_GPS_MS = 30000;
-const TERRAIN_AVOID_TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
-const TERRAIN_AVOID_SOURCE_MAX_Z = 13;
-const TERRAIN_AVOID_TILE_CACHE_MAX = 180;
-const TERRAIN_AVOID_RENDER_TILE_CACHE_MAX = 280;
-const TERRAIN_AVOID_MIN_ALT_DELTA_FT = 18;
-let terrainAvoidOverlayLayer = null;
-let terrainAvoidRefreshTimer = null;
-let terrainAvoidLastRenderAt = 0;
-let terrainAvoidLastRenderAltFt = null;
-let terrainAvoidWarnFt = TERRAIN_AVOID_WARN_DEFAULT_FT;
-let terrainAvoidSafeFt = TERRAIN_AVOID_SAFE_DEFAULT_FT;
-let terrainAvoidWasAirborne = false;
-let terrainAvoidPausedReason = '';
-let terrainAvoidUiSignature = '';
-const terrainAvoidTileCache = new Map();
-const terrainAvoidTileInFlightCache = new Map();
-const terrainAvoidRenderedTileCache = new Map();
 vpVfrIndexState.sectorLineWidthPx = Math.max(2, Math.min(40, Number.isFinite(Number(vpVfrIndexState.sectorLineWidthPx)) ? Number(vpVfrIndexState.sectorLineWidthPx) : 20));
 
 function vpBuildPersistVfrCacheKey(country, model, ampelMode) {
@@ -981,65 +883,6 @@ window.addEventListener('storage', function(e) {
     if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
 });
 
-function loadMapHintSettings() {
-    Object.keys(MAP_HINT_DEFAULTS).forEach(key => {
-        const saved = localStorage.getItem(`ga_map_hint_${key}`);
-        if (saved === null) window.mapHints[key] = MAP_HINT_DEFAULTS[key];
-        else window.mapHints[key] = saved !== 'false';
-    });
-    // Wetter-/Traffic-Flags mit bestehenden Zuständen synchronisieren
-    if (typeof window.vpShowMapMetar === 'boolean') window.mapHints.weather = window.vpShowMapMetar;
-    if (typeof window.vpTrafficMapVisible === 'boolean') window.mapHints.traffic = window.vpTrafficMapVisible;
-    const storedSingleClickMode = String(localStorage.getItem(MAP_SINGLE_CLICK_MODE_KEY) || '').trim().toLowerCase();
-    if (MAP_SINGLE_CLICK_MODES.includes(storedSingleClickMode)) {
-        mapSingleClickMode = storedSingleClickMode;
-    } else {
-        // Ein bereits aktivierter alter Ein/Aus-Schalter entspricht der
-        // bisherigen Vollansicht; ansonsten bleibt Einzelklick standardmäßig aus.
-        mapSingleClickMode = localStorage.getItem('ga_map_hint_airportSingleClick') === 'true'
-            ? 'panels'
-            : 'off';
-        localStorage.setItem(MAP_SINGLE_CLICK_MODE_KEY, mapSingleClickMode);
-    }
-    window.mapSingleClickMode = mapSingleClickMode;
-}
-
-function saveMapHintSetting(key) {
-    if (!(key in MAP_HINT_DEFAULTS)) return;
-    localStorage.setItem(`ga_map_hint_${key}`, String(Boolean(window.mapHints[key])));
-}
-
-window.isMapHintEnabled = function(key) {
-    if (!(key in MAP_HINT_DEFAULTS)) return true;
-    return window.mapHints[key] !== false;
-};
-
-function getMapSingleClickMode() {
-    return MAP_SINGLE_CLICK_MODES.includes(mapSingleClickMode) ? mapSingleClickMode : 'off';
-}
-
-function setMapSingleClickMode(mode, { persist = true } = {}) {
-    const normalized = MAP_SINGLE_CLICK_MODES.includes(mode) ? mode : 'off';
-    mapSingleClickMode = normalized;
-    window.mapSingleClickMode = normalized;
-    pendingMapInfoTapSeq += 1;
-    clearMapSingleClickTooltip();
-    if (normalized !== 'panels') {
-        if (airportInfoPopupLayer?._map === map) map.closePopup(airportInfoPopupLayer);
-        if (navaidInfoPopupLayer?._map === map) map.closePopup(navaidInfoPopupLayer);
-        if (reportingPointInfoPopupLayer?._map === map) map.closePopup(reportingPointInfoPopupLayer);
-    }
-    if (persist) localStorage.setItem(MAP_SINGLE_CLICK_MODE_KEY, normalized);
-    refreshMapHintMenuUi();
-    return normalized;
-}
-
-window.getMapSingleClickMode = getMapSingleClickMode;
-window.setMapSingleClickMode = setMapSingleClickMode;
-window.cycleMapSingleClickMode = function() {
-    const currentIndex = MAP_SINGLE_CLICK_MODES.indexOf(getMapSingleClickMode());
-    return setMapSingleClickMode(MAP_SINGLE_CLICK_MODES[(currentIndex + 1) % MAP_SINGLE_CLICK_MODES.length]);
-};
 
 function refreshCompassHintVisibility() {
     const wrap = document.getElementById('compassRoseWrap');
@@ -1204,665 +1047,7 @@ function applyMapHintEffects(key) {
     }
 }
 
-function setMapHintSubmenuOpen(key, open) {
-    const ids = {
-        weatherMenu: { btn: 'btnToggleWeatherMenu', panel: 'weatherMenuBlock', label: 'Wetter' },
-        vfrIndexMenu: { btn: 'btnToggleVfrIndexMenu', panel: 'vfrIndexMenuBlock', label: 'VFR-Index' },
-        terrainAvoidMenu: { btn: 'btnToggleTerrainAvoidMenu', panel: 'terrainAvoidMenuBlock', label: 'Terrain Avoid' }
-    };
-    const meta = ids[key];
-    if (!meta) return;
-    const panel = document.getElementById(meta.panel);
-    const btn = document.getElementById(meta.btn);
-    const isOpen = !!open;
-    if (window.mapHintSubmenus) window.mapHintSubmenus[key] = isOpen;
-    if (panel) panel.style.display = isOpen ? 'block' : 'none';
-    if (btn) {
-        btn.textContent = key === 'weatherMenu' || key === 'vfrIndexMenu' || key === 'terrainAvoidMenu'
-            ? (isOpen ? '▾' : '▸')
-            : `${isOpen ? '▾' : '▸'} ${meta.label}`;
-        btn.classList.toggle('active', isOpen);
-    }
-}
-
-function closeAllMapHintSubmenus() {
-    Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => setMapHintSubmenuOpen(k, false));
-}
-
-function positionMapHintsMenuInViewport() {
-    const menu = document.getElementById('mapHintsMenu');
-    const btn = document.getElementById('mapHintsBtn');
-    if (!menu || !btn || menu.style.display !== 'block') return;
-    const openInViewport = (typeof window._openFloatingMenuInViewport === 'function')
-        ? window._openFloatingMenuInViewport
-        : (typeof _openFloatingMenuInViewport === 'function' ? _openFloatingMenuInViewport : null);
-    if (openInViewport) {
-        openInViewport(menu, btn, false);
-    }
-}
-
-window.toggleMapHintSubmenu = function(key, evt) {
-    if (evt && typeof evt.stopPropagation === 'function') evt.stopPropagation();
-    if (!(key in MAP_HINT_SUBMENU_DEFAULTS)) return;
-    const nowOpen = !!(window.mapHintSubmenus && window.mapHintSubmenus[key]);
-    Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => {
-        let nextOpen = k === key ? !nowOpen : false;
-        if (key === 'vfrIndexMenu' && k === 'weatherMenu') nextOpen = true;
-        if (key === 'weatherMenu' && nowOpen && k === 'vfrIndexMenu') nextOpen = false;
-        setMapHintSubmenuOpen(k, nextOpen);
-    });
-    positionMapHintsMenuInViewport();
-};
-
-function refreshMapHintMenuUi() {
-    const labels = {
-        magentaLine: '🟣 Direkt-Linie',
-        weather: '🌤️ Wetter',
-        windBarbs: '🪁 Windbarben',
-        cloudFields: '☁️ Wolkenfelder',
-        vfrIndex: '🧭 VFR-Index',
-        terrainAvoid: '🏔️ Terrain Avoid',
-        traffic: '✈️ Traffic',
-        autoZoom: '🔍 Autozoom',
-        telemetry: '📟 Telemetrie',
-        currentInfo: '📍 Aktuell',
-        nextLeg: '🧭 Wegpunkt-Info',
-        routeProgress: '⏱ Route-Leiste',
-        compass: '🔵 Kompassscheibe',
-        lowFps: '🐢 Low FPS Mode'
-    };
-    const ids = {
-        magentaLine: 'hintToggleMagentaLine',
-        weather: 'hintToggleWeather',
-        windBarbs: 'hintToggleWindBarbs',
-        cloudFields: 'hintToggleCloudFields',
-        vfrIndex: 'hintToggleVfrIndex',
-        terrainAvoid: 'hintToggleTerrainAvoid',
-        traffic: 'hintToggleTraffic',
-        autoZoom: 'hintToggleAutoZoom',
-        telemetry: 'hintToggleTelemetry',
-        currentInfo: 'hintToggleCurrentInfo',
-        nextLeg: 'hintToggleNextLeg',
-        routeProgress: 'hintToggleRouteProgress',
-        compass: 'hintToggleCompass',
-        lowFps: 'hintToggleLowFps'
-    };
-    Object.keys(ids).forEach(key => {
-        const btn = document.getElementById(ids[key]);
-        if (!btn) return;
-        const on = window.mapHints[key] !== false;
-        btn.textContent = `${labels[key]} (${on ? 'An' : 'Aus'})`;
-        btn.style.background = on ? '#2E8B57' : '#444';
-        btn.style.color = '#fff';
-    });
-    const singleClickButton = document.getElementById('hintToggleAirportSingleClick');
-    if (singleClickButton) {
-        const singleClickMode = getMapSingleClickMode();
-        singleClickButton.textContent = `🛩️ Einzelklick: ${MAP_SINGLE_CLICK_MODE_LABELS[singleClickMode]}`;
-        singleClickButton.style.background = singleClickMode === 'panels'
-            ? '#2E8B57'
-            : (singleClickMode === 'tooltip' ? '#8a6717' : '#444');
-        singleClickButton.style.color = '#fff';
-        singleClickButton.setAttribute(
-            'aria-label',
-            `Einzelklick für Flugplätze, VRPs und Navaids: ${MAP_SINGLE_CLICK_MODE_LABELS[singleClickMode]}`
-        );
-    }
-    updateSnapButtonUI();
-    Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => {
-        const isOpen = !!(window.mapHintSubmenus && window.mapHintSubmenus[k]);
-        setMapHintSubmenuOpen(k, isOpen);
-    });
-    vpUpdateVfrUi();
-    updateTerrainAvoidThresholdUi();
-    updateMapWeatherSourceBtn();
-    updateRouteLegLabelModeButton();
-    if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
-    positionMapHintsMenuInViewport();
-}
-
-window.toggleMapHint = function(key) {
-    if (!(key in MAP_HINT_DEFAULTS)) return;
-    window.mapHints[key] = !(window.mapHints[key] !== false);
-    saveMapHintSetting(key);
-    applyMapHintEffects(key);
-    refreshMapHintMenuUi();
-};
-
-window.toggleMapHintsMenu = function(force) {
-    const menu = document.getElementById('mapHintsMenu');
-    const btn = document.getElementById('mapHintsBtn');
-    if (!menu) return;
-    const isOpen = menu.style.display === 'block';
-    const nextOpen = typeof force === 'boolean' ? force : !isOpen;
-    if (nextOpen) {
-        refreshMapHintMenuUi();
-        if (btn) {
-            menu.style.display = 'block';
-            positionMapHintsMenuInViewport();
-        } else {
-            menu.style.display = 'block';
-        }
-        if (typeof window.gaBringMapOverlayToFront === 'function') window.gaBringMapOverlayToFront(menu);
-    } else {
-        menu.style.display = 'none';
-    }
-    if (typeof window.gaSetMapFloatingMenuButtonOpen === 'function') {
-        window.gaSetMapFloatingMenuButtonOpen('mapHintsBtn', nextOpen);
-    } else if (btn) {
-        btn.classList.toggle('map-menu-open', nextOpen);
-        btn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
-    }
-    if (!nextOpen) {
-        closeAllMapHintSubmenus();
-        const planeMenu = document.getElementById('vpPlaneIconMenu');
-        if (planeMenu) planeMenu.style.display = 'none';
-        const planeBtn = document.getElementById('btnTogglePlaneIconMenu');
-        if (planeBtn) planeBtn.classList.remove('active');
-    }
-};
-
-function clampTerrainAvoidThresholds() {
-    const warnRaw = Number(terrainAvoidWarnFt);
-    const safeRaw = Number(terrainAvoidSafeFt);
-    const warnNorm = Number.isFinite(warnRaw) ? warnRaw : TERRAIN_AVOID_WARN_DEFAULT_FT;
-    const safeNorm = Number.isFinite(safeRaw) ? safeRaw : TERRAIN_AVOID_SAFE_DEFAULT_FT;
-    terrainAvoidWarnFt = Math.round(Math.max(TERRAIN_AVOID_WARN_MIN_FT, Math.min(TERRAIN_AVOID_WARN_MAX_FT, warnNorm)));
-    terrainAvoidSafeFt = Math.round(Math.max(TERRAIN_AVOID_SAFE_MIN_FT, Math.min(TERRAIN_AVOID_SAFE_MAX_FT, safeNorm)));
-    if (terrainAvoidSafeFt < terrainAvoidWarnFt) {
-        terrainAvoidSafeFt = terrainAvoidWarnFt;
-    }
-}
-
-function loadTerrainAvoidSettings() {
-    const warnStored = Number(localStorage.getItem('ga_terrain_avoid_warn_ft'));
-    const safeStored = Number(localStorage.getItem('ga_terrain_avoid_safe_ft'));
-    terrainAvoidWarnFt = Number.isFinite(warnStored) ? warnStored : TERRAIN_AVOID_WARN_DEFAULT_FT;
-    terrainAvoidSafeFt = Number.isFinite(safeStored) ? safeStored : TERRAIN_AVOID_SAFE_DEFAULT_FT;
-    clampTerrainAvoidThresholds();
-}
-
-function saveTerrainAvoidSettings() {
-    localStorage.setItem('ga_terrain_avoid_warn_ft', String(Math.round(terrainAvoidWarnFt)));
-    localStorage.setItem('ga_terrain_avoid_safe_ft', String(Math.round(terrainAvoidSafeFt)));
-}
-
-function updateTerrainAvoidThresholdUi() {
-    const warnSlider = document.getElementById('terrainAvoidWarnSlider');
-    const safeSlider = document.getElementById('terrainAvoidSafeSlider');
-    const warnLabel = document.getElementById('terrainAvoidWarnValue');
-    const safeLabel = document.getElementById('terrainAvoidSafeValue');
-    const statusLabel = document.getElementById('terrainAvoidStatus');
-    const on = !!(window.mapHints && window.mapHints.terrainAvoid !== false);
-    const available = terrainAvoidCanRenderNow();
-    const liveSource = terrainAvoidCanActivate();
-    const planningFallback = terrainAvoidUsingPlanningFallback();
-    const signature = [
-        Math.round(terrainAvoidWarnFt),
-        Math.round(terrainAvoidSafeFt),
-        on ? 1 : 0,
-        available ? 1 : 0,
-        liveSource ? 1 : 0,
-        planningFallback ? 1 : 0,
-        terrainAvoidPausedReason
-    ].join('|');
-    if (signature === terrainAvoidUiSignature) return;
-    terrainAvoidUiSignature = signature;
-    if (warnSlider) warnSlider.value = String(Math.round(terrainAvoidWarnFt));
-    if (safeSlider) safeSlider.value = String(Math.round(terrainAvoidSafeFt));
-    if (warnLabel) warnLabel.textContent = `${Math.round(terrainAvoidWarnFt)} ft`;
-    if (safeLabel) safeLabel.textContent = `${Math.round(terrainAvoidSafeFt)} ft`;
-    if (statusLabel) {
-        if (!on) {
-            statusLabel.textContent = 'Live-Layer aus';
-            statusLabel.style.color = '#9a9a9a';
-        } else if (terrainAvoidPausedReason === 'landed') {
-            statusLabel.textContent = 'Pausiert am Boden - startet in der Luft';
-            statusLabel.style.color = '#d2ab7a';
-        } else if (terrainAvoidPausedReason === 'sim-end') {
-            statusLabel.textContent = 'Pausiert nach Sim-Ende - startet in neuer SIM oder in der Luft';
-            statusLabel.style.color = '#d2ab7a';
-        } else if (!available || terrainAvoidPausedReason === 'source') {
-            statusLabel.textContent = 'Pausiert - keine Referenzhöhe';
-            statusLabel.style.color = '#d2ab7a';
-        } else if (planningFallback) {
-            statusLabel.textContent = 'CRZ-Fallback aktiv (Live-Höhe fehlt)';
-            statusLabel.style.color = '#9fc3e3';
-        } else if (!liveSource) {
-            statusLabel.textContent = 'Planungsmodus aktiv (CRZ-Höhe)';
-            statusLabel.style.color = '#9fc3e3';
-        } else {
-            statusLabel.textContent = 'Live-Layer aktiv';
-            statusLabel.style.color = '#9fe3b3';
-        }
-    }
-}
-
-window.setTerrainAvoidThreshold = function(kind, value) {
-    if (kind === 'warn') terrainAvoidWarnFt = Number(value);
-    if (kind === 'safe') terrainAvoidSafeFt = Number(value);
-    clampTerrainAvoidThresholds();
-    saveTerrainAvoidSettings();
-    updateTerrainAvoidThresholdUi();
-    if (window.mapHints && window.mapHints.terrainAvoid !== false) {
-        window.scheduleTerrainAvoidOverlayUpdate(true);
-    }
-};
-
-window.resetTerrainAvoidThresholds = function() {
-    terrainAvoidWarnFt = TERRAIN_AVOID_WARN_DEFAULT_FT;
-    terrainAvoidSafeFt = TERRAIN_AVOID_SAFE_DEFAULT_FT;
-    clampTerrainAvoidThresholds();
-    saveTerrainAvoidSettings();
-    updateTerrainAvoidThresholdUi();
-    if (window.mapHints && window.mapHints.terrainAvoid !== false) {
-        window.scheduleTerrainAvoidOverlayUpdate(true);
-    }
-};
-
-function terrainAvoidCanActivate() {
-    return !!(window.simModeActive || window.liveTrackerConnected);
-}
-
-function getTerrainAvoidLiveAltFt() {
-    if (window.simModeActive) {
-        const altSim = Number(window.lastLiveGpsPos?.alt ?? window.lastLiveFlightData?.mslFt);
-        return Number.isFinite(altSim) ? Math.max(0, altSim) : null;
-    }
-    if (window.liveTrackerConnected) {
-        if (typeof isGpsLive === 'function' && !isGpsLive(TERRAIN_AVOID_STALE_GPS_MS)) return null;
-        const altLive = Number(window.lastLiveGpsPos?.alt ?? window.lastLiveFlightData?.mslFt);
-        return Number.isFinite(altLive) ? Math.max(0, altLive) : null;
-    }
-    return null;
-}
-
-function getTerrainAvoidPlanningAltFt() {
-    const altMap = Number(document.getElementById('altSliderMap')?.value);
-    if (Number.isFinite(altMap) && altMap > 0) return altMap;
-    const altPlan = Number(document.getElementById('altSlider')?.value);
-    if (Number.isFinite(altPlan) && altPlan > 0) return altPlan;
-    return null;
-}
-
-function terrainAvoidUsingPlanningFallback() {
-    if (!terrainAvoidCanActivate()) return false;
-    const liveAlt = getTerrainAvoidLiveAltFt();
-    if (Number.isFinite(liveAlt)) return false;
-    return Number.isFinite(getTerrainAvoidPlanningAltFt());
-}
-
-function terrainAvoidCanRenderNow() {
-    return Number.isFinite(getTerrainAvoidAircraftAltFt());
-}
-
-function terrainAvoidReadFlightState() {
-    const fd = window.lastLiveFlightData || {};
-    const hasOnGround = typeof fd.onGround === 'boolean';
-    const onGround = hasOnGround ? !!fd.onGround : false;
-    const gs = Number(window.lastLiveGpsPos?.gs ?? fd.gsKts ?? fd.gs);
-    const agl = Number(fd.aglFt);
-    const airborne = hasOnGround
-        ? (!onGround || (Number.isFinite(gs) && gs > 45))
-        : ((Number.isFinite(agl) && agl > 180) || (Number.isFinite(gs) && gs > 45));
-    const landed = hasOnGround
-        ? (onGround && (!Number.isFinite(gs) || gs <= 28))
-        : (Number.isFinite(agl) && agl <= 60 && (!Number.isFinite(gs) || gs <= 30));
-    return { hasOnGround, onGround, gs, agl, airborne, landed };
-}
-
-window.terrainAvoidHandleFlightState = function() {
-    if (!window.mapHints || window.mapHints.terrainAvoid === false) return;
-    if (!terrainAvoidCanRenderNow()) {
-        terrainAvoidWasAirborne = false;
-        terrainAvoidPausedReason = 'source';
-        if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
-            map.removeLayer(terrainAvoidOverlayLayer);
-        }
-        updateTerrainAvoidThresholdUi();
-        return;
-    }
-    const st = terrainAvoidReadFlightState();
-    if (terrainAvoidPausedReason === 'sim-end' && !terrainAvoidCanActivate()) {
-        terrainAvoidPausedReason = '';
-    }
-    if (terrainAvoidPausedReason === 'sim-end' && terrainAvoidCanActivate() && !window.simModeActive && !st.airborne) {
-        if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
-            map.removeLayer(terrainAvoidOverlayLayer);
-        }
-        updateTerrainAvoidThresholdUi();
-        return;
-    }
-    if (window.simModeActive && (terrainAvoidPausedReason === 'source' || terrainAvoidPausedReason === 'sim-end' || terrainAvoidPausedReason === 'landed')) {
-        terrainAvoidPausedReason = '';
-        if (map && terrainAvoidOverlayLayer && !map.hasLayer(terrainAvoidOverlayLayer)) {
-            map.addLayer(terrainAvoidOverlayLayer);
-            window.scheduleTerrainAvoidOverlayUpdate(true);
-        }
-        updateTerrainAvoidThresholdUi();
-        return;
-    }
-    if (st.airborne) {
-        terrainAvoidWasAirborne = true;
-        if (terrainAvoidPausedReason) terrainAvoidPausedReason = '';
-        if (map && terrainAvoidOverlayLayer && !map.hasLayer(terrainAvoidOverlayLayer)) {
-            map.addLayer(terrainAvoidOverlayLayer);
-            window.scheduleTerrainAvoidOverlayUpdate(true);
-        }
-        updateTerrainAvoidThresholdUi();
-        return;
-    }
-    if (terrainAvoidWasAirborne && st.landed) {
-        terrainAvoidWasAirborne = false;
-        terrainAvoidPausedReason = 'landed';
-        if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
-            map.removeLayer(terrainAvoidOverlayLayer);
-        }
-        updateTerrainAvoidThresholdUi();
-        return;
-    }
-    if (!terrainAvoidPausedReason && map && terrainAvoidOverlayLayer && !map.hasLayer(terrainAvoidOverlayLayer) && terrainAvoidCanRenderNow()) {
-        terrainAvoidPausedReason = '';
-        map.addLayer(terrainAvoidOverlayLayer);
-        window.scheduleTerrainAvoidOverlayUpdate(true);
-        updateTerrainAvoidThresholdUi();
-    }
-};
-
-function getTerrainAvoidAircraftAltFt() {
-    const liveAlt = terrainAvoidCanActivate() ? getTerrainAvoidLiveAltFt() : null;
-    if (Number.isFinite(liveAlt)) return liveAlt;
-    return getTerrainAvoidPlanningAltFt();
-}
-
-function terrainAvoidLerpByte(a, b, t) {
-    const clamped = Math.max(0, Math.min(1, t));
-    return Math.round(a + ((b - a) * clamped));
-}
-
-function getTerrainAvoidRgbaBytes(clearanceFt) {
-    if (!Number.isFinite(clearanceFt)) return [0, 0, 0, 0];
-    if (clearanceFt <= 0) return [255, 52, 52, 208];
-    if (clearanceFt <= terrainAvoidWarnFt) {
-        const t = clearanceFt / Math.max(1, terrainAvoidWarnFt);
-        return [255, terrainAvoidLerpByte(52, 184, t), terrainAvoidLerpByte(52, 0, t), 194];
-    }
-    if (clearanceFt >= terrainAvoidSafeFt) return [0, 0, 0, 182];
-    const t = (clearanceFt - terrainAvoidWarnFt) / Math.max(1, terrainAvoidSafeFt - terrainAvoidWarnFt);
-    return [terrainAvoidLerpByte(255, 0, t), terrainAvoidLerpByte(184, 0, t), 0, terrainAvoidLerpByte(186, 178, t)];
-}
-
-function terrainAvoidResolveSourceTile(coords) {
-    const z = Math.max(0, Number(coords && coords.z) || 0);
-    const srcZ = Math.min(TERRAIN_AVOID_SOURCE_MAX_Z, z);
-    const scale = Math.max(1, 1 << Math.max(0, z - srcZ));
-    const x = Number(coords && coords.x) || 0;
-    const y = Number(coords && coords.y) || 0;
-    const srcXRaw = Math.floor(x / scale);
-    const srcYRaw = Math.floor(y / scale);
-    const subX = ((x % scale) + scale) % scale;
-    const subY = ((y % scale) + scale) % scale;
-    const n = 1 << srcZ;
-    if (srcYRaw < 0 || srcYRaw >= n) return null;
-    const srcX = ((srcXRaw % n) + n) % n;
-    return { srcZ, srcX, srcY: srcYRaw, scale, subX, subY };
-}
-
-function terrainAvoidLoadTileImageData(z, x, y) {
-    const key = `${z}/${x}/${y}`;
-    if (terrainAvoidTileCache.has(key)) return Promise.resolve(terrainAvoidTileCache.get(key));
-    if (terrainAvoidTileInFlightCache.has(key)) return terrainAvoidTileInFlightCache.get(key);
-    const promise = new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            const c = document.createElement('canvas');
-            c.width = 256;
-            c.height = 256;
-            const ctx = c.getContext('2d', { willReadFrequently: true });
-            if (!ctx) {
-                reject(new Error('terrain-ctx-missing'));
-                return;
-            }
-            ctx.drawImage(img, 0, 0, 256, 256);
-            const imageData = ctx.getImageData(0, 0, 256, 256);
-            if (terrainAvoidTileCache.size >= TERRAIN_AVOID_TILE_CACHE_MAX) {
-                const oldest = terrainAvoidTileCache.keys().next().value;
-                if (oldest) terrainAvoidTileCache.delete(oldest);
-            }
-            terrainAvoidTileCache.set(key, imageData);
-            resolve(imageData);
-        };
-        img.onerror = () => reject(new Error(`terrain-tile-load-failed:${key}`));
-        img.src = TERRAIN_AVOID_TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
-    });
-    terrainAvoidTileInFlightCache.set(key, promise);
-    promise.then(
-        () => terrainAvoidTileInFlightCache.delete(key),
-        () => terrainAvoidTileInFlightCache.delete(key)
-    );
-    return promise;
-}
-
-function terrainAvoidStoreRenderedTile(tileKey, imageData, width, height) {
-    terrainAvoidRenderedTileCache.set(tileKey, { imageData, width, height, ts: Date.now() });
-    if (terrainAvoidRenderedTileCache.size > TERRAIN_AVOID_RENDER_TILE_CACHE_MAX) {
-        const oldest = terrainAvoidRenderedTileCache.keys().next().value;
-        if (oldest) terrainAvoidRenderedTileCache.delete(oldest);
-    }
-}
-
-function terrainAvoidPaintTileCanvas(canvas, coords, aircraftAltFt, done) {
-    const ctx = canvas && typeof canvas.getContext === 'function'
-        ? canvas.getContext('2d', { willReadFrequently: true })
-        : null;
-    const finalize = () => { if (typeof done === 'function') done(); };
-    if (!ctx || !coords || !Number.isFinite(aircraftAltFt)) {
-        finalize();
-        return;
-    }
-    const size = { x: canvas.width || 256, y: canvas.height || 256 };
-    const spec = terrainAvoidResolveSourceTile(coords);
-    if (!spec) {
-        finalize();
-        return;
-    }
-    const tileKey = `${coords.z}/${coords.x}/${coords.y}`;
-    terrainAvoidLoadTileImageData(spec.srcZ, spec.srcX, spec.srcY).then((srcImage) => {
-        const src = srcImage && srcImage.data ? srcImage.data : null;
-        if (!src) {
-            finalize();
-            return;
-        }
-        const out = ctx.createImageData(size.x, size.y);
-        const outData = out.data;
-        for (let py = 0; py < size.y; py++) {
-            const srcPy = spec.scale === 1 ? py : Math.min(255, Math.floor(((spec.subY * 256) + py) / spec.scale));
-            for (let px = 0; px < size.x; px++) {
-                const srcPx = spec.scale === 1 ? px : Math.min(255, Math.floor(((spec.subX * 256) + px) / spec.scale));
-                const srcIdx = (srcPy * 256 + srcPx) * 4;
-                const r = src[srcIdx];
-                const g = src[srcIdx + 1];
-                const b = src[srcIdx + 2];
-                const elevM = (r * 256 + g + b / 256) - 32768;
-                const terrainFt = Math.max(0, Math.round(elevM * 3.28084));
-                const rgba = getTerrainAvoidRgbaBytes(aircraftAltFt - terrainFt);
-                const outIdx = (py * size.x + px) * 4;
-                outData[outIdx] = rgba[0];
-                outData[outIdx + 1] = rgba[1];
-                outData[outIdx + 2] = rgba[2];
-                outData[outIdx + 3] = rgba[3];
-            }
-        }
-        ctx.putImageData(out, 0, 0);
-        terrainAvoidStoreRenderedTile(tileKey, out, size.x, size.y);
-        finalize();
-    }).catch(() => finalize());
-}
-
-function terrainAvoidRepaintVisibleTiles(aircraftAltFt) {
-    if (!terrainAvoidOverlayLayer || !map || !map.hasLayer(terrainAvoidOverlayLayer)) return false;
-    if (!Number.isFinite(aircraftAltFt)) return false;
-    const tiles = terrainAvoidOverlayLayer._tiles || null;
-    if (!tiles) return false;
-    let paintedAny = false;
-    Object.keys(tiles).forEach((key) => {
-        const rec = tiles[key];
-        const canvas = rec && rec.el;
-        const coords = rec && rec.coords;
-        if (!canvas || !coords) return;
-        paintedAny = true;
-        terrainAvoidPaintTileCanvas(canvas, coords, aircraftAltFt);
-    });
-    return paintedAny;
-}
-
-function ensureTerrainAvoidOverlayLayer() {
-    if (terrainAvoidOverlayLayer || typeof L === 'undefined') return;
-    const TerrainAvoidGridLayer = L.GridLayer.extend({
-        createTile: function(coords, done) {
-            const tile = L.DomUtil.create('canvas', 'leaflet-tile');
-            const size = this.getTileSize();
-            tile.width = size.x;
-            tile.height = size.y;
-            const ctx = tile.getContext('2d', { willReadFrequently: true });
-            const tileKey = `${coords.z}/${coords.x}/${coords.y}`;
-            const finalize = () => { if (typeof done === 'function') done(null, tile); };
-            if (!ctx) {
-                finalize();
-                return tile;
-            }
-            const cachedRendered = terrainAvoidRenderedTileCache.get(tileKey);
-            if (cachedRendered && cachedRendered.width === size.x && cachedRendered.height === size.y && cachedRendered.imageData) {
-                try { ctx.putImageData(cachedRendered.imageData, 0, 0); } catch (_) { }
-            }
-            if (window.mapHints && window.mapHints.terrainAvoid === false) {
-                finalize();
-                return tile;
-            }
-            if (!terrainAvoidCanRenderNow()) {
-                finalize();
-                return tile;
-            }
-            const aircraftAltFt = getTerrainAvoidAircraftAltFt();
-            if (!Number.isFinite(aircraftAltFt)) {
-                finalize();
-                return tile;
-            }
-            terrainAvoidPaintTileCanvas(tile, coords, aircraftAltFt, finalize);
-            return tile;
-        }
-    });
-    terrainAvoidOverlayLayer = new TerrainAvoidGridLayer({
-        tileSize: 256,
-        opacity: 1,
-        updateWhenIdle: true,
-        updateWhenZooming: false,
-        keepBuffer: 1,
-        zIndex: 430
-    });
-}
-
-window.setTerrainAvoidOverlayEnabled = function(next, opts = {}) {
-    let enable = !!next;
-    if (enable && !terrainAvoidCanRenderNow()) {
-        enable = true;
-        if (!opts.silent && typeof showMapToast === 'function') showMapToast('Terrain Avoid braucht eine Referenzhöhe (Live oder geplante CRZ).', 2200);
-    }
-    if (window.mapHints) window.mapHints.terrainAvoid = enable;
-    if (!opts.skipPersist) saveMapHintSetting('terrainAvoid');
-    if (typeof refreshMapHintMenuUi === 'function') refreshMapHintMenuUi();
-    updateTerrainAvoidThresholdUi();
-    if (!map) return;
-    ensureTerrainAvoidOverlayLayer();
-    if (!terrainAvoidOverlayLayer) return;
-    if (enable && terrainAvoidCanRenderNow() && !map.hasLayer(terrainAvoidOverlayLayer)) terrainAvoidOverlayLayer.addTo(map);
-    if (!enable && map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
-    if (enable) {
-        const st = terrainAvoidReadFlightState();
-        terrainAvoidWasAirborne = !!st.airborne;
-        terrainAvoidPausedReason = terrainAvoidCanRenderNow() ? '' : 'source';
-    } else {
-        terrainAvoidWasAirborne = false;
-        terrainAvoidPausedReason = '';
-    }
-    if (enable && terrainAvoidCanRenderNow()) window.scheduleTerrainAvoidOverlayUpdate(true);
-    else if (typeof terrainAvoidOverlayLayer.redraw === 'function') terrainAvoidOverlayLayer.redraw();
-    updateTerrainAvoidThresholdUi();
-};
-
-window.terrainAvoidPauseForSimEnd = function() {
-    if (!window.mapHints || window.mapHints.terrainAvoid === false) return;
-    terrainAvoidWasAirborne = false;
-    terrainAvoidPausedReason = 'sim-end';
-    if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
-        map.removeLayer(terrainAvoidOverlayLayer);
-    }
-    updateTerrainAvoidThresholdUi();
-};
-
-window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
-    if (!map) return;
-    if (!window.mapHints || window.mapHints.terrainAvoid === false) {
-        if (terrainAvoidRefreshTimer) clearTimeout(terrainAvoidRefreshTimer);
-        terrainAvoidRefreshTimer = null;
-        return;
-    }
-    updateTerrainAvoidThresholdUi();
-    ensureTerrainAvoidOverlayLayer();
-    if (!terrainAvoidOverlayLayer) return;
-    const st = terrainAvoidReadFlightState();
-    if (terrainAvoidPausedReason === 'sim-end' && !terrainAvoidCanActivate()) {
-        terrainAvoidPausedReason = '';
-    }
-    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidPausedReason === 'sim-end' && terrainAvoidCanActivate() && !window.simModeActive) {
-        if (map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
-        updateTerrainAvoidThresholdUi();
-        return;
-    }
-    if (window.mapHints && window.mapHints.terrainAvoid !== false && !terrainAvoidCanRenderNow()) {
-        terrainAvoidPausedReason = 'source';
-        if (map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
-        updateTerrainAvoidThresholdUi();
-        return;
-    }
-    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidCanRenderNow() && !map.hasLayer(terrainAvoidOverlayLayer)) {
-        if (window.simModeActive || st.airborne) {
-            terrainAvoidPausedReason = '';
-            map.addLayer(terrainAvoidOverlayLayer);
-        } else if (terrainAvoidPausedReason !== 'landed' && !(terrainAvoidPausedReason === 'sim-end' && terrainAvoidCanActivate())) {
-            terrainAvoidPausedReason = '';
-            map.addLayer(terrainAvoidOverlayLayer);
-        }
-    }
-    const curAltFt = getTerrainAvoidAircraftAltFt();
-    const now = Date.now();
-    if (!forceFetch) {
-        if ((now - terrainAvoidLastRenderAt) < TERRAIN_AVOID_MIN_UPDATE_MS) return;
-        if (Number.isFinite(curAltFt) && Number.isFinite(terrainAvoidLastRenderAltFt)) {
-            const dAlt = Math.abs(curAltFt - terrainAvoidLastRenderAltFt);
-            if (dAlt < TERRAIN_AVOID_MIN_ALT_DELTA_FT) return;
-        }
-        if (terrainAvoidRefreshTimer) return;
-    }
-    if (terrainAvoidRefreshTimer) clearTimeout(terrainAvoidRefreshTimer);
-    const delay = forceFetch ? 30 : 60;
-    terrainAvoidRefreshTimer = setTimeout(() => {
-        terrainAvoidRefreshTimer = null;
-        if (!terrainAvoidOverlayLayer || !map.hasLayer(terrainAvoidOverlayLayer)) return;
-        const renderNow = Date.now();
-        if (!forceFetch && (renderNow - terrainAvoidLastRenderAt) < TERRAIN_AVOID_MIN_UPDATE_MS) return;
-        if (!forceFetch && Number.isFinite(curAltFt) && Number.isFinite(terrainAvoidLastRenderAltFt)) {
-            const dAlt = Math.abs(curAltFt - terrainAvoidLastRenderAltFt);
-            if (dAlt < TERRAIN_AVOID_MIN_ALT_DELTA_FT) return;
-        }
-        terrainAvoidLastRenderAt = renderNow;
-        terrainAvoidLastRenderAltFt = Number.isFinite(curAltFt) ? curAltFt : terrainAvoidLastRenderAltFt;
-        if (!terrainAvoidRepaintVisibleTiles(curAltFt) && typeof terrainAvoidOverlayLayer.redraw === 'function') {
-            terrainAvoidOverlayLayer.redraw();
-        }
-    }, delay);
-};
+// Shared Terrain Avoid renderer: map-terrain-avoid.js.
 
 function vpGetVfrCountryMeta(code) {
     const key = String(code || '').toUpperCase();
@@ -5469,45 +4654,6 @@ window.gaRunVfrFreezeProbe = async function(iterations = 1) {
     return true;
 };
 
-function escapePopupText(v) {
-    return String(v ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function getAirportCountryCode(icao, fallbackCountry = '') {
-    const cc = String(fallbackCountry || globalAirports?.[icao]?.country || '').trim().toUpperCase();
-    return /^[A-Z]{2}$/.test(cc) ? cc : '';
-}
-
-function hasAipCoverageForAirport(icao, fallbackCountry = '') {
-    if (!icao || icao === 'GPS' || icao === 'POI') return false;
-    return Boolean(resolveAipCountryCode(icao, fallbackCountry));
-}
-
-function resolveAipCountryCode(icao, fallbackCountry = '') {
-    const cc = getAirportCountryCode(icao, fallbackCountry);
-    if (cc && AIP_POPUP_ROUTES[cc]) return cc;
-
-    const code = String(icao || '').trim().toUpperCase();
-    if (code.startsWith('LO')) return 'AT';
-    if (code.startsWith('LF')) return 'FR';
-    if (code.startsWith('EH')) return 'NL';
-    if (code.startsWith('EG')) return 'GB';
-    if (code.startsWith('ED') || code.startsWith('ET')) return 'DE';
-    return null;
-}
-
-function getAipPopupUrl(icao, fallbackCountry = '') {
-    const cc = resolveAipCountryCode(icao, fallbackCountry);
-    if (!cc) return null;
-    const route = AIP_POPUP_ROUTES[cc];
-    return `https://aip.aero${route}?${encodeURIComponent(String(icao).trim().toUpperCase())}=`;
-}
-
 const AIP_PROXY_BASE = 'https://ga-proxy.einherjer.workers.dev';
 const AIP_CHART_STORAGE_KEY = 'ga_aip_chart_settings_v1';
 const AIP_CHART_UI_ENABLED = false;
@@ -5535,18 +4681,6 @@ let aipChartCalibration = {
     mapPoints: [],
     mapMarkers: []
 };
-
-function escapeJsSingleQuoted(v) {
-    return String(v ?? '')
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "\\'")
-        .replace(/\r/g, '')
-        .replace(/\n/g, ' ');
-}
-
-function sanitizeAipIcaoKey(icao) {
-    return String(icao || '').trim().toUpperCase();
-}
 
 function getAipStorageData() {
     try {
@@ -6114,70 +5248,6 @@ window.startAipChartCalibration = function(icao = '') {
     setAipOverlayStatus(key, getAipCalibrationInstruction(), false);
 };
 
-function abbreviateMapFrequencyLabel(label) {
-    const replacements = [
-        [/\bFLIGHT\s+INFORMATION\s+SERVICE\b/gi, 'FIS'],
-        [/\bCLEARANCE\s+DELIVERY\b/gi, 'CLR DEL'],
-        [/\bROLLKONTROLLE\b/gi, 'GND'],
-        [/\bGROUND\b/gi, 'GND'],
-        [/\bTOWER\b/gi, 'TWR'],
-        [/\bTURM\b/gi, 'TWR'],
-        [/\bRADIO\b/gi, 'RDO'],
-        [/\bINFORMATION\b/gi, 'INFO'],
-        [/\bAPPROACH\b/gi, 'APP'],
-        [/\bANFLUG\b/gi, 'APP'],
-        [/\bDEPARTURE\b/gi, 'DEP'],
-        [/\bABFLUG\b/gi, 'DEP'],
-        [/\bAPRON\b/gi, 'APR'],
-        [/\bVORFELD\b/gi, 'APR'],
-        [/\bCLEARANCE\b/gi, 'CLR'],
-        [/\bDELIVERY\b/gi, 'DEL']
-    ];
-    let result = String(label || 'FREQ').trim();
-    replacements.forEach(([pattern, replacement]) => {
-        result = result.replace(pattern, replacement);
-    });
-    return result.replace(/\s+/g, ' ').trim().toUpperCase() || 'FREQ';
-}
-
-function buildPopupFrequencyLines(icao) {
-    if (!icao || typeof freqCache === 'undefined' || !Array.isArray(freqCache[icao])) {
-        return '<span style="color:#666;">Frequenzen laden…</span>';
-    }
-    if (freqCache[icao].length === 0) {
-        return '<span style="color:#666;">Keine Frequenzen verfügbar</span>';
-    }
-    return freqCache[icao]
-        .slice(0, 6)
-        .map((f) => `
-            <span class="ga-popup-frequency-row">
-                <span class="ga-popup-frequency-label">📻 ${escapePopupText(abbreviateMapFrequencyLabel(f.label || 'Freq'))}</span>
-                <span class="ga-popup-frequency-value">${escapePopupText(f.value || '--')}</span>
-            </span>`)
-        .join('');
-}
-
-function updatePopupFrequencyBlock(containerId, icao) {
-    if (!containerId || !icao) return;
-    const el = document.getElementById(containerId);
-    if (!el) return;
-    el.innerHTML = buildPopupFrequencyLines(icao);
-}
-
-function getAirportTapRadiusPx(basePx = 34) {
-    if (!map || !map.getZoom) return basePx;
-    const z = map.getZoom();
-    // Beim Rauszoomen deutlich kleinerer Clickspot, beim Reinzoomen komfortabel.
-    // z=7 -> ~10px, z=10 -> ~19px, z=14 -> ~34px
-    const scaled = 10 + ((z - 7) / 7) * (basePx - 10);
-    const coarsePointer = Boolean(
-        (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
-        || Number(navigator.maxTouchPoints) > 0
-    );
-    const minimum = coarsePointer ? Math.min(basePx, 28) : 8;
-    return Math.max(minimum, Math.min(basePx, Math.round(scaled)));
-}
-
 function hasGlobalAirportsForMapClicks() {
     if (typeof globalAirports !== 'object' || !globalAirports) return false;
     for (const _airportKey in globalAirports) return true;
@@ -6214,1203 +5284,31 @@ async function ensureGlobalAirportsForMapClicks() {
     return hasGlobalAirportsForMapClicks();
 }
 
-function isMapUiClickTarget(evt) {
-    const t = evt && evt.target;
-    if (!t || !t.closest) return false;
-    return Boolean(
-        t.closest('.leaflet-control') ||
-        t.closest('.map-overlay-btn') ||
-        t.closest('.map-draw-rail') ||
-        t.closest('.map-draw-floating-btn') ||
-        t.closest('.map-draw-tool-stack') ||
-        t.closest('.map-draw-menu') ||
-        t.closest('.map-utility-device') ||
-        t.closest('.pb-btn') ||
-        t.closest('#vpSettingsMenu') ||
-        t.closest('#awmFreqBanner') ||
-        t.closest('.telemetry-box') ||
-        t.closest('.leaflet-popup') ||
-        t.closest('.leaflet-tooltip')
-    );
-}
-
-window.gaMapOverlayZ = window.gaMapOverlayZ || 130500;
-
-function bringMapOverlayToFront(...items) {
-    window.gaMapOverlayZ = Math.max(130500, Number(window.gaMapOverlayZ) || 130500) + 1;
-    let drawerWasRequested = false;
-    items.forEach(item => {
-        const el = typeof item === 'string' ? document.getElementById(item) : item;
-        if (!el || !el.style) return;
-        if (el.id === 'mapSideDrawer') drawerWasRequested = true;
-        el.style.zIndex = String(window.gaMapOverlayZ);
-    });
-    const drawer = document.getElementById('mapSideDrawer');
-    if (drawer && drawer.classList.contains('is-open') && !drawerWasRequested) {
-        window.gaMapOverlayZ += 1;
-        drawer.style.zIndex = String(window.gaMapOverlayZ);
-    }
-}
-
-window.gaBringMapOverlayToFront = bringMapOverlayToFront;
-
-function ensureMapDrawLayer() {
-    if (!map || mapDrawState.layer) return;
-    mapDrawState.layer = L.layerGroup().addTo(map);
-}
-
-function getMapDrawStyle(extra = {}) {
-    return {
-        color: mapDrawState.color,
-        weight: mapDrawState.weight,
-        opacity: 0.95,
-        lineCap: 'round',
-        lineJoin: 'round',
-        interactive: false,
-        ...extra
-    };
-}
-
-function syncMapDrawUi() {
-    const rail = document.getElementById('mapDrawRail');
-    const floatingBtn = document.getElementById('mapDrawFloatingBtn');
-    const toolStack = document.getElementById('mapDrawToolStack');
-    const penBtn = document.getElementById('mapToolPen');
-    const eraserToolBtn = document.getElementById('mapToolEraser');
-    const settingsToolBtn = document.getElementById('mapToolSettings');
-    const measureToolBtn = document.getElementById('mapToolMeasure');
-    const stopwatchToolBtn = document.getElementById('mapToolStopwatch');
-    const calculatorToolBtn = document.getElementById('mapToolCalculator');
-    const e6bToolBtn = document.getElementById('mapToolE6B');
-    const menu = document.getElementById('mapDrawMenu');
-    const weightInput = document.getElementById('mapDrawWeightInput');
-    document.body.classList.toggle('map-drawing-active', mapDrawState.enabled);
-
-    if (rail) {
-        rail.style.display = 'block';
-        rail.style.visibility = 'visible';
-        rail.style.pointerEvents = 'auto';
-    }
-    if (floatingBtn) {
-        floatingBtn.classList.toggle('active', mapDrawState.panelOpen);
-    }
-    if (toolStack) toolStack.classList.toggle('open', mapDrawState.panelOpen);
-    if (penBtn) penBtn.classList.toggle('active', mapDrawState.enabled && mapDrawState.tool === 'freehand');
-    if (eraserToolBtn) eraserToolBtn.classList.toggle('active', mapDrawState.enabled && mapDrawState.tool === 'eraser');
-    if (settingsToolBtn) settingsToolBtn.classList.toggle('active', mapDrawState.menuOpen);
-    if (measureToolBtn) {
-        measureToolBtn.classList.toggle('active', !!measureMode);
-        measureToolBtn.title = `Messen (${measureMode ? 'An' : 'Aus'})`;
-    }
-    if (stopwatchToolBtn) {
-        const open = typeof window.isMapUtilityToolOpen === 'function' && window.isMapUtilityToolOpen('stopwatch');
-        stopwatchToolBtn.classList.toggle('active', !!open);
-    }
-    if (calculatorToolBtn) {
-        const open = typeof window.isMapUtilityToolOpen === 'function' && window.isMapUtilityToolOpen('calculator');
-        calculatorToolBtn.classList.toggle('active', !!open);
-    }
-    if (e6bToolBtn) {
-        const open = typeof window.isMapUtilityToolOpen === 'function' && window.isMapUtilityToolOpen('e6b');
-        e6bToolBtn.classList.toggle('active', !!open);
-    }
-    if (menu) {
-        const shouldOpen = mapDrawState.menuOpen;
-        menu.classList.toggle('open', shouldOpen);
-        menu.style.display = shouldOpen ? 'block' : 'none';
-        menu.style.visibility = shouldOpen ? 'visible' : 'hidden';
-        menu.style.pointerEvents = shouldOpen ? 'auto' : 'none';
-    }
-    if (weightInput) weightInput.value = String(mapDrawState.weight);
-
-    const mapEl = document.getElementById('map');
-    if (mapEl) mapEl.style.cursor = mapDrawState.enabled ? 'crosshair' : '';
-    clampMapDrawFloatingButtonPosition();
-}
-
-function clearMapDrawPreview() {
-    if (!map || !mapDrawState.layer) return;
-    if (mapDrawState.previewLine) {
-        mapDrawState.layer.removeLayer(mapDrawState.previewLine);
-        mapDrawState.previewLine = null;
-    }
-}
-
-function resetMapDrawGesture() {
-    if (mapDrawState.drawingLine && mapDrawState.layer) {
-        mapDrawState.layer.removeLayer(mapDrawState.drawingLine);
-    }
-    mapDrawState.drawingLine = null;
-    mapDrawState.drawingPoints = [];
-    mapDrawState.isDrawing = false;
-    mapDrawState.lastLayerPoint = null;
-    mapDrawState.lineStart = null;
-    if (mapDrawState.lineStartMarker && mapDrawState.layer) {
-        mapDrawState.layer.removeLayer(mapDrawState.lineStartMarker);
-    }
-    mapDrawState.lineStartMarker = null;
-    mapDrawState.activeDrawPointerId = null;
-    clearMapDrawPreview();
-    if (map && map.dragging && !mapDrawState.enabled) map.dragging.enable();
-}
-
-function toggleMapDrawMode(force) {
-    const next = typeof force === 'boolean' ? force : !mapDrawState.enabled;
-    if (mapDrawState.enabled === next) {
-        syncMapDrawUi();
-        return;
-    }
-    mapDrawState.enabled = next;
-    mapDrawState.menuOpen = next ? mapDrawState.menuOpen : false;
-    if (next) {
-        ensureMapDrawLayer();
-        if (measureMode) toggleMeasureMode();
-        if (typeof freeflightMode !== 'undefined' && freeflightMode) toggleFreeflightMode();
-        if (map && typeof map.closePopup === 'function') map.closePopup();
-        if (map && map.dragging) map.dragging.disable();
-    } else {
-        resetMapDrawGesture();
-        mapDrawState.menuOpen = false;
-        if (map && map.dragging) map.dragging.enable();
-    }
-    syncMapDrawUi();
-}
-
-function toggleMapDrawMenu(force) {
-    if (!mapDrawState.panelOpen) return;
-    mapDrawState.menuOpen = typeof force === 'boolean' ? force : !mapDrawState.menuOpen;
-    syncMapDrawUi();
-    if (mapDrawState.menuOpen) {
-        positionMapDrawMenuNearButton();
-        requestAnimationFrame(positionMapDrawMenuNearButton);
-    }
-}
-
-function openMapDrawMenu(evt) {
-    if (evt) {
-        evt.preventDefault();
-        evt.stopPropagation();
-    }
-    if (Date.now() < mapDrawState.justDraggedUntil || Date.now() < mapDrawState.suppressButtonClickUntil) return;
-    mapDrawState.panelOpen = true;
-    mapDrawState.menuOpen = true;
-    syncMapDrawUi();
-    requestAnimationFrame(clampMapDrawFloatingButtonPosition);
-    positionMapDrawMenuNearButton();
-    requestAnimationFrame(positionMapDrawMenuNearButton);
-}
-
-function closeMapDrawMenu(evt) {
-    if (evt) {
-        evt.preventDefault();
-        evt.stopPropagation();
-    }
-    mapDrawState.menuOpen = false;
-    // Schutz gegen direktes Wiederöffnen durch denselben Klickzyklus.
-    mapDrawState.suppressButtonClickUntil = Date.now() + 220;
-    syncMapDrawUi();
-}
-
-function toggleMapToolRail(evt) {
-    if (evt) {
-        evt.preventDefault();
-        evt.stopPropagation();
-    }
-    if (Date.now() < mapDrawState.justDraggedUntil || Date.now() < mapDrawState.suppressButtonClickUntil) return;
-    const wasPanelOpen = !!mapDrawState.panelOpen;
-    mapDrawState.panelOpen = !mapDrawState.panelOpen;
-    if (!mapDrawState.panelOpen) mapDrawState.menuOpen = false;
-    if (wasPanelOpen && !mapDrawState.panelOpen) {
-        if (mapDrawState.enabled) toggleMapDrawMode(false);
-        if (measureMode) toggleMeasureMode();
-    }
-    if (mapDrawState.panelOpen) bringMapOverlayToFront('mapDrawRail');
-    syncMapDrawUi();
-    if (mapDrawState.panelOpen) requestAnimationFrame(clampMapDrawFloatingButtonPosition);
-    if (mapDrawState.menuOpen) {
-        positionMapDrawMenuNearButton();
-        requestAnimationFrame(positionMapDrawMenuNearButton);
-    }
-}
-
-function toggleMapDrawSettingsMenu(evt) {
-    if (evt) {
-        evt.preventDefault();
-        evt.stopPropagation();
-    }
-    if (Date.now() < mapDrawState.justDraggedUntil || Date.now() < mapDrawState.suppressButtonClickUntil) return;
-    mapDrawState.panelOpen = true;
-    mapDrawState.menuOpen = !mapDrawState.menuOpen;
-    if (mapDrawState.menuOpen) bringMapOverlayToFront('mapDrawRail', 'mapDrawMenu');
-    syncMapDrawUi();
-    requestAnimationFrame(clampMapDrawFloatingButtonPosition);
-    if (mapDrawState.menuOpen) {
-        positionMapDrawMenuNearButton();
-        requestAnimationFrame(positionMapDrawMenuNearButton);
-    }
-}
-
-function activateMapDrawTool(kind, evt) {
-    if (evt) {
-        evt.preventDefault();
-        evt.stopPropagation();
-    }
-    if (kind === 'pen') {
-        if (mapDrawState.enabled && mapDrawState.tool === 'freehand') {
-            toggleMapDrawMode(false);
-        } else {
-            if (!mapDrawState.enabled) toggleMapDrawMode(true);
-            setMapDrawTool('freehand');
-        }
-    } else if (kind === 'eraser') {
-        if (mapDrawState.enabled && mapDrawState.tool === 'eraser') {
-            toggleMapDrawMode(false);
-        } else {
-            if (!mapDrawState.enabled) toggleMapDrawMode(true);
-            setMapDrawTool('eraser');
-        }
-    } else if (kind === 'line') {
-        if (mapDrawState.enabled && mapDrawState.tool === 'line') {
-            toggleMapDrawMode(false);
-        } else {
-            if (!mapDrawState.enabled) toggleMapDrawMode(true);
-            setMapDrawTool('line');
-        }
-    } else if (kind === 'drawClear') {
-        clearMapDrawings({ includeMeasure: true });
-    } else if (kind === 'measure') {
-        if (measureMode) {
-            toggleMeasureMode();
-        } else {
-            toggleMeasureMode();
-            if (mapDrawState.enabled) toggleMapDrawMode(false);
-        }
-        mapDrawState.menuOpen = false;
-    } else if (kind === 'measureClear') {
-        clearMeasure();
-    } else if (kind === 'stopwatch') {
-        if (typeof window.toggleMapUtilityTool === 'function') window.toggleMapUtilityTool('stopwatch');
-        else if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('stopwatch');
-        mapDrawState.menuOpen = false;
-    } else if (kind === 'calculator') {
-        if (typeof window.toggleMapUtilityTool === 'function') window.toggleMapUtilityTool('calculator');
-        else if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('calculator');
-        mapDrawState.menuOpen = false;
-    } else if (kind === 'e6b') {
-        if (typeof window.toggleMapUtilityTool === 'function') window.toggleMapUtilityTool('e6b');
-        else if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('e6b');
-        if (mapDrawState.enabled) toggleMapDrawMode(false);
-        mapDrawState.menuOpen = false;
-    }
-    syncMapDrawUi();
-}
-
-function setMapDrawColor(color) {
-    if (!/^#[0-9a-f]{6}$/i.test(String(color || ''))) return;
-    mapDrawState.color = color;
-    localStorage.setItem('ga_map_draw_color', color);
-    syncMapDrawUi();
-}
-
-function setMapDrawWeight(value) {
-    const weight = Math.max(2, Math.min(18, parseInt(value, 10) || 5));
-    mapDrawState.weight = weight;
-    localStorage.setItem('ga_map_draw_weight', String(weight));
-    syncMapDrawUi();
-}
-
-function setMapDrawTool(tool) {
-    if (tool !== 'freehand' && tool !== 'line' && tool !== 'eraser') return;
-    resetMapDrawGesture();
-    mapDrawState.tool = tool;
-    syncMapDrawUi();
-    if (tool === 'line') showMapToast('Linie: Startpunkt tippen, dann Endpunkt tippen', 2200);
-    if (tool === 'eraser') showMapToast('Radierer: Strich oder Lineal antippen zum Löschen', 2200);
-}
-
-function hasActiveMeasure() {
-    return !!measurePolyline || !!measureTooltip || measureMarkers.length > 0 || measurePoints.length > 0;
-}
-
-function clearMapDrawings(options = {}) {
-    const includeMeasure = !!options.includeMeasure;
-    const hadDrawings = mapDrawState.drawings.length > 0 || !!mapDrawState.drawingLine || !!mapDrawState.previewLine || !!mapDrawState.lineStartMarker;
-    const hadMeasure = hasActiveMeasure();
-    resetMapDrawGesture();
-    if (mapDrawState.layer) mapDrawState.layer.clearLayers();
-    mapDrawState.drawings = [];
-    if (includeMeasure && hadMeasure) clearMeasure();
-    if (includeMeasure) {
-        showMapToast(hadDrawings || hadMeasure ? 'Zeichnungen und Lineal gelöscht' : 'Nichts zum Löschen', 1600);
-    } else {
-        showMapToast(hadDrawings ? 'Zeichnungen gelöscht' : 'Keine Zeichnung zum Löschen', 1600);
-    }
-}
-
-function addMapDrawLineLabel(line, start, end) {
-    if (!mapDrawState.layer || !line || !start || !end) return null;
-    const nav = calcNav(start.lat, start.lng || start.lon, end.lat, end.lng || end.lon);
-    const centerLat = (start.lat + end.lat) / 2;
-    const centerLng = ((start.lng || start.lon) + (end.lng || end.lon)) / 2;
-    const labelText = `<div style="font-weight:bold; font-size:14px; color:#111; text-align:center; line-height:1.2;">${nav.brng}°<br>${formatNm(nav.dist)} NM</div>`;
-    const label = L.tooltip({ permanent: true, direction: 'center', className: 'measure-label' })
-        .setLatLng([centerLat, centerLng])
-        .setContent(labelText)
-        .addTo(mapDrawState.layer);
-    line._mapDrawLabel = label;
-    return label;
-}
-
-function addMapDrawLineEndpoint(latlng, kind = 'start') {
-    if (!mapDrawState.layer || !latlng) return null;
-    const isStart = kind === 'start';
-    return L.circleMarker(latlng, {
-        radius: 5,
-        color: '#111',
-        weight: 2,
-        fillColor: isStart ? '#44ff44' : '#ff4444',
-        fillOpacity: 1,
-        interactive: false
-    }).addTo(mapDrawState.layer);
-}
-
-function getMapDrawLayerPointDistance(latlng, layer) {
-    if (!map || !layer || typeof layer.getLatLngs !== 'function') return Infinity;
-    const target = map.latLngToLayerPoint(latlng);
-    const rawLatLngs = layer.getLatLngs();
-    const segments = Array.isArray(rawLatLngs[0]) ? rawLatLngs.flat() : rawLatLngs;
-    if (!segments || segments.length === 0) return Infinity;
-
-    let best = Infinity;
-    for (let i = 0; i < segments.length; i++) {
-        const p = map.latLngToLayerPoint(segments[i]);
-        best = Math.min(best, target.distanceTo(p));
-        if (i === 0) continue;
-        const a = map.latLngToLayerPoint(segments[i - 1]);
-        const b = p;
-        const abx = b.x - a.x;
-        const aby = b.y - a.y;
-        const lenSq = abx * abx + aby * aby;
-        if (lenSq <= 0) continue;
-        const t = Math.max(0, Math.min(1, ((target.x - a.x) * abx + (target.y - a.y) * aby) / lenSq));
-        const proj = L.point(a.x + t * abx, a.y + t * aby);
-        best = Math.min(best, target.distanceTo(proj));
-    }
-    return best;
-}
-
-function getMapLatLngPointDistance(latlng, targetLatLng) {
-    if (!map || !latlng || !targetLatLng) return Infinity;
-    const target = map.latLngToLayerPoint(latlng);
-    const point = map.latLngToLayerPoint(targetLatLng);
-    return target.distanceTo(point);
-}
-
-function getMapMeasurePointDistance(latlng) {
-    if (!hasActiveMeasure()) return Infinity;
-    let best = Infinity;
-    if (measurePolyline) best = Math.min(best, getMapDrawLayerPointDistance(latlng, measurePolyline));
-    measureMarkers.forEach(marker => {
-        if (marker && typeof marker.getLatLng === 'function') {
-            best = Math.min(best, getMapLatLngPointDistance(latlng, marker.getLatLng()));
-        }
-    });
-    return best;
-}
-
-function eraseMapDrawingAt(latlng, silent = false) {
-    const hasDrawings = !!mapDrawState.layer && mapDrawState.drawings.length > 0;
-    const hasMeasure = hasActiveMeasure();
-    if (!hasDrawings && !hasMeasure) {
-        if (!silent) showMapToast('Nichts zum Löschen', 1200);
-        return false;
-    }
-    let bestLayer = null;
-    let bestDist = Infinity;
-    if (hasDrawings) {
-        mapDrawState.drawings.forEach(layer => {
-            const dist = getMapDrawLayerPointDistance(latlng, layer);
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestLayer = layer;
-            }
-        });
-    }
-    const drawThreshold = Math.max(14, mapDrawState.weight + 10);
-    const measureDist = getMapMeasurePointDistance(latlng);
-    const measureThreshold = 22;
-    const eraseMeasure = hasMeasure && measureDist <= measureThreshold && (!bestLayer || bestDist > drawThreshold || measureDist <= bestDist);
-    if (eraseMeasure) {
-        clearMeasure();
-        if (!silent) showMapToast('Lineal gelöscht', 1000);
-        return true;
-    }
-    if (!bestLayer || bestDist > drawThreshold) {
-        if (!silent) showMapToast('Nichts getroffen', 1100);
-        return false;
-    }
-    if (bestLayer._mapDrawLabel) {
-        mapDrawState.layer.removeLayer(bestLayer._mapDrawLabel);
-        bestLayer._mapDrawLabel = null;
-    }
-    if (Array.isArray(bestLayer._mapDrawEndpointMarkers)) {
-        bestLayer._mapDrawEndpointMarkers.forEach(marker => {
-            if (marker) mapDrawState.layer.removeLayer(marker);
-        });
-        bestLayer._mapDrawEndpointMarkers = null;
-    }
-    mapDrawState.layer.removeLayer(bestLayer);
-    mapDrawState.drawings = mapDrawState.drawings.filter(layer => layer !== bestLayer);
-    if (!silent) showMapToast('Strich gelöscht', 1000);
-    return true;
-}
-
-function handleMapDrawMapClick(e) {
-    if (!mapDrawState.enabled) return false;
-    if (Date.now() < mapDrawState.suppressMapClickUntil) return true;
-    if (isMapUiClickTarget(e.originalEvent)) return true;
-    if (mapDrawState.tool === 'eraser') {
-        if (Date.now() - mapDrawState.lastEraseAt < 250) return true;
-        eraseMapDrawingAt(e.latlng);
-        return true;
-    }
-    if (mapDrawState.tool !== 'line') return true;
-    ensureMapDrawLayer();
-    if (!mapDrawState.lineStart) {
-        mapDrawState.lineStart = e.latlng;
-        if (mapDrawState.lineStartMarker) mapDrawState.layer.removeLayer(mapDrawState.lineStartMarker);
-        mapDrawState.lineStartMarker = addMapDrawLineEndpoint(e.latlng, 'start');
-        clearMapDrawPreview();
-        showMapToast('Endpunkt setzen', 1400);
-        return true;
-    }
-    const lineStart = mapDrawState.lineStart;
-    const line = L.polyline([lineStart, e.latlng], getMapDrawStyle()).addTo(mapDrawState.layer);
-    addMapDrawLineLabel(line, lineStart, e.latlng);
-    const startMarker = mapDrawState.lineStartMarker || addMapDrawLineEndpoint(lineStart, 'start');
-    const endMarker = addMapDrawLineEndpoint(e.latlng, 'end');
-    line._mapDrawEndpointMarkers = [startMarker, endMarker].filter(Boolean);
-    mapDrawState.drawings.push(line);
-    mapDrawState.lineStart = null;
-    mapDrawState.lineStartMarker = null;
-    clearMapDrawPreview();
-    return true;
-}
-
-function handleMapDrawMouseDown(e) {
-    if (!mapDrawState.enabled || (mapDrawState.tool !== 'freehand' && mapDrawState.tool !== 'eraser')) return;
-    if (isMapUiClickTarget(e.originalEvent)) return;
-    if (e.originalEvent && e.originalEvent.button && e.originalEvent.button !== 0) return;
-    if (mapDrawState.tool === 'eraser') {
-        if (eraseMapDrawingAt(e.latlng, true)) mapDrawState.lastEraseAt = Date.now();
-        if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
-        return;
-    }
-    ensureMapDrawLayer();
-    mapDrawState.isDrawing = true;
-    mapDrawState.drawingPoints = [e.latlng];
-    mapDrawState.lastLayerPoint = map.latLngToLayerPoint(e.latlng);
-    mapDrawState.drawingLine = L.polyline(mapDrawState.drawingPoints, getMapDrawStyle()).addTo(mapDrawState.layer);
-    if (map.dragging) map.dragging.disable();
-    if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
-}
-
-function handleMapDrawMouseMove(e) {
-    if (!mapDrawState.enabled) return;
-    if (mapDrawState.tool === 'eraser') {
-        const pressed = !e.originalEvent
-            || e.originalEvent.buttons === 1
-            || (e.originalEvent.touches && e.originalEvent.touches.length > 0)
-            || (e.originalEvent.pointerId != null && e.originalEvent.pointerId === mapDrawState.activeDrawPointerId);
-        if (pressed) {
-            if (eraseMapDrawingAt(e.latlng, true)) mapDrawState.lastEraseAt = Date.now();
-            if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
-        }
-        return;
-    }
-    if (mapDrawState.tool === 'line' && mapDrawState.lineStart) {
-        ensureMapDrawLayer();
-        if (!mapDrawState.previewLine) {
-            mapDrawState.previewLine = L.polyline([mapDrawState.lineStart, e.latlng], getMapDrawStyle({ opacity: 0.65, dashArray: '8,8' })).addTo(mapDrawState.layer);
-        } else {
-            mapDrawState.previewLine.setLatLngs([mapDrawState.lineStart, e.latlng]);
-        }
-        return;
-    }
-    if (!mapDrawState.isDrawing || !mapDrawState.drawingLine) return;
-    const nextPoint = map.latLngToLayerPoint(e.latlng);
-    if (mapDrawState.lastLayerPoint && nextPoint.distanceTo(mapDrawState.lastLayerPoint) < 4) return;
-    mapDrawState.drawingPoints.push(e.latlng);
-    mapDrawState.lastLayerPoint = nextPoint;
-    mapDrawState.drawingLine.setLatLngs(mapDrawState.drawingPoints);
-    if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
-}
-
-function finishMapDrawFreehand() {
-    if (!mapDrawState.isDrawing) return;
-    if (mapDrawState.drawingLine) {
-        if (mapDrawState.drawingPoints.length > 1) {
-            mapDrawState.drawings.push(mapDrawState.drawingLine);
-        } else if (mapDrawState.layer) {
-            mapDrawState.layer.removeLayer(mapDrawState.drawingLine);
-        }
-    }
-    mapDrawState.drawingLine = null;
-    mapDrawState.drawingPoints = [];
-    mapDrawState.isDrawing = false;
-    mapDrawState.lastLayerPoint = null;
-    mapDrawState.activeDrawPointerId = null;
-    if (map && map.dragging && !mapDrawState.enabled) map.dragging.enable();
-}
-
-function getMapDrawPointerLatLng(evt) {
-    if (!map || !evt || typeof map.mouseEventToLatLng !== 'function') return null;
-    return map.mouseEventToLatLng(evt);
-}
-
-function stopMapDrawPointerEvent(evt) {
-    if (!evt) return;
-    evt.preventDefault();
-    evt.stopPropagation();
-    if (typeof evt.stopImmediatePropagation === 'function') evt.stopImmediatePropagation();
-    if (typeof L !== 'undefined' && L.DomEvent) L.DomEvent.stop(evt);
-}
-
-function captureMapDrawPointer(evt) {
-    const container = map && map.getContainer && map.getContainer();
-    if (!container || !evt || evt.pointerId == null || typeof container.setPointerCapture !== 'function') return;
-    try { container.setPointerCapture(evt.pointerId); } catch (_) {}
-}
-
-function releaseMapDrawPointer(evt) {
-    const container = map && map.getContainer && map.getContainer();
-    if (!container || !evt || evt.pointerId == null || typeof container.releasePointerCapture !== 'function') return;
+window.removeRouteWaypoint = function(index) {
+    if (window.gaNavigationEdit?.({ action: 'remove', index })) return;
+    // POI-specific legacy editing remains in its existing path.
+    routeWaypoints.splice(index, 1); renderMainRoute();
+};
+window.gaGetNavigationRoute = () => routeWaypoints;
+let navigationApplying = false;
+window.gaApplyNavigationRoute = function(nav) {
+    if (navigationApplying || nav.points.length < 2) return;
+    const next = normalizeMapRouteWaypoints(nav.points);
+    if (JSON.stringify(normalizeMapRouteWaypoints(routeWaypoints)) === JSON.stringify(next)) return;
+    navigationApplying = true;
     try {
-        if (!container.hasPointerCapture || container.hasPointerCapture(evt.pointerId)) {
-            container.releasePointerCapture(evt.pointerId);
+        routeWaypoints = next;
+        if (!nav.runId) {
+            currentStartICAO = nav.context.departureIcao;
+            currentDestICAO = nav.context.destinationIcao;
+            currentSName = next[0].name || currentStartICAO;
+            currentDName = next[next.length - 1].name || currentDestICAO;
+            if (!currentMissionData) currentMissionData = { mission: 'Privater Flug', freeflightOnly: true, routeOnly: true, noMissionRuntime: true };
+            currentMissionData.start = currentStartICAO; currentMissionData.dest = currentDestICAO;
         }
-    } catch (_) {}
-}
-
-function isLikelyMapDrawXrPointer(evt) {
-    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
-    const pointerType = String((evt && evt.pointerType) || '').toLowerCase();
-    return pointerType === 'xr' || MAP_DRAW_XR_POINTER_UA_RE.test(ua);
-}
-
-function shouldUseMapDrawPointerEvent(evt) {
-    if (!evt) return false;
-    if (evt.pointerType !== 'mouse') return true;
-    return isLikelyMapDrawXrPointer(evt);
-}
-
-function handleMapDrawPointerDown(evt) {
-    if (!mapDrawState.enabled || !shouldUseMapDrawPointerEvent(evt)) return;
-    if (evt.isPrimary === false && !isLikelyMapDrawXrPointer(evt)) return;
-    if (mapDrawState.activeDrawPointerId != null && mapDrawState.activeDrawPointerId !== evt.pointerId) return;
-    if (isMapUiClickTarget(evt)) return;
-    const latlng = getMapDrawPointerLatLng(evt);
-    if (!latlng) return;
-    mapDrawState.activeDrawPointerId = evt.pointerId;
-    captureMapDrawPointer(evt);
-    if (map && map.dragging) map.dragging.disable();
-    stopMapDrawPointerEvent(evt);
-
-    const drawEvt = { latlng, originalEvent: evt };
-    if (mapDrawState.tool === 'line') {
-        handleMapDrawMapClick(drawEvt);
-        mapDrawState.suppressMapClickUntil = Date.now() + 500;
-        return;
-    }
-    mapDrawState.suppressMapClickUntil = Date.now() + 500;
-    handleMapDrawMouseDown(drawEvt);
-}
-
-function handleMapDrawPointerMove(evt) {
-    if (!mapDrawState.enabled || !shouldUseMapDrawPointerEvent(evt)) return;
-    if (mapDrawState.activeDrawPointerId !== evt.pointerId) return;
-    const latlng = getMapDrawPointerLatLng(evt);
-    if (!latlng) return;
-    mapDrawState.suppressMapClickUntil = Date.now() + 500;
-    stopMapDrawPointerEvent(evt);
-    handleMapDrawMouseMove({ latlng, originalEvent: evt });
-}
-
-function handleMapDrawPointerUp(evt) {
-    if (!shouldUseMapDrawPointerEvent(evt)) return;
-    if (mapDrawState.activeDrawPointerId !== evt.pointerId) return;
-    const latlng = evt.type === 'pointercancel' ? null : getMapDrawPointerLatLng(evt);
-    mapDrawState.suppressMapClickUntil = Date.now() + 500;
-    stopMapDrawPointerEvent(evt);
-    if (mapDrawState.tool === 'freehand' && latlng) {
-        handleMapDrawMouseMove({ latlng, originalEvent: evt });
-    }
-    releaseMapDrawPointer(evt);
-    finishMapDrawFreehand();
-    mapDrawState.activeDrawPointerId = null;
-}
-
-function handleMapDrawTouchStart(e) {
-    if (!mapDrawState.enabled || mapDrawState.tool !== 'line') {
-        handleMapDrawMouseDown(e);
-        return;
-    }
-    if (isMapUiClickTarget(e.originalEvent)) return;
-    if (!e || !e.latlng) return;
-    const handled = handleMapDrawMapClick(e);
-    if (handled) {
-        mapDrawState.suppressMapClickUntil = Date.now() + 500;
-        if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
-    }
-}
-
-function bindMapDrawEvents() {
-    if (!map || map._mapDrawEventsBound) return;
-    const container = map.getContainer && map.getContainer();
-    if (container) {
-        container.addEventListener('pointerdown', handleMapDrawPointerDown, { capture: true, passive: false });
-        container.addEventListener('pointermove', handleMapDrawPointerMove, { capture: true, passive: false });
-        container.addEventListener('pointerup', handleMapDrawPointerUp, { capture: true, passive: false });
-        container.addEventListener('pointercancel', handleMapDrawPointerUp, { capture: true, passive: false });
-    }
-    map.on('mousedown', handleMapDrawMouseDown);
-    map.on('touchstart', handleMapDrawTouchStart);
-    map.on('mousemove', handleMapDrawMouseMove);
-    map.on('touchmove', handleMapDrawMouseMove);
-    map.on('mouseup', finishMapDrawFreehand);
-    map.on('touchend', finishMapDrawFreehand);
-    document.addEventListener('mouseup', finishMapDrawFreehand);
-    document.addEventListener('touchend', finishMapDrawFreehand);
-    map._mapDrawEventsBound = true;
-}
-
-function isMapDrawElementVisible(el) {
-    if (!el) return false;
-    const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
-    if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
-    const rect = el.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
-}
-
-function clampMapDrawValue(value, min, max) {
-    if (max < min) return min;
-    return Math.max(min, Math.min(max, value));
-}
-
-function getMapDrawSafeBounds(area, railWidth = 46, railHeight = 46) {
-    const areaRect = area.getBoundingClientRect();
-    const edgeMargin = 10;
-    const blockerGap = 8;
-    let left = edgeMargin;
-    let right = areaRect.width - edgeMargin;
-    let top = edgeMargin;
-    let bottom = areaRect.height - edgeMargin;
-    const blockers = [
-        { id: 'mapToolbarInner', edge: 'top' },
-        { id: 'mapToolbarToggleRow', edge: 'top' },
-        { id: 'routeProgressBar', edge: 'top' },
-        { id: 'profileResizeHandle', edge: 'bottom' },
-        { id: 'mapProfileStrip', edge: 'bottom' },
-        { id: 'simSpeedStrip', edge: 'bottom' }
-    ];
-
-    blockers.forEach(({ id, edge }) => {
-        const el = document.getElementById(id);
-        if (!isMapDrawElementVisible(el)) return;
-        const rect = el.getBoundingClientRect();
-        const horizontalOverlap = Math.min(rect.right, areaRect.right) - Math.max(rect.left, areaRect.left);
-        if (horizontalOverlap <= 0) return;
-        if (edge === 'top') {
-            if (rect.bottom < areaRect.top - 2 || rect.top >= areaRect.bottom) return;
-            const inset = Math.max(0, rect.bottom - areaRect.top) + blockerGap;
-            if (inset < areaRect.height) top = Math.max(top, inset);
-        } else {
-            if (rect.top > areaRect.bottom + 2 || rect.bottom <= areaRect.top) return;
-            const inset = Math.max(0, areaRect.bottom - rect.top) + blockerGap;
-            if (inset < areaRect.height) bottom = Math.min(bottom, areaRect.height - inset);
-        }
-    });
-
-    if (right - left < railWidth) {
-        left = Math.max(0, (areaRect.width - railWidth) / 2);
-        right = left + railWidth;
-    }
-    if (bottom - top < railHeight) {
-        top = Math.max(0, (areaRect.height - railHeight) / 2);
-        bottom = top + railHeight;
-    }
-
-    return { areaRect, left, right, top, bottom };
-}
-
-function getMapDrawToolStackHeight(stack) {
-    const buttonCount = stack && stack.children ? stack.children.length : 0;
-    return Math.max(46, stack ? (stack.scrollHeight || stack.offsetHeight || (buttonCount ? ((buttonCount * 40) + ((buttonCount - 1) * 6)) : (5 * 46))) : 46);
-}
-
-function getMapDrawToolStackDirection(rawTop, bounds, railHeight, stackHeight) {
-    const stackGap = 8;
-    const spaceAbove = rawTop - bounds.top - stackGap;
-    const spaceBelow = bounds.bottom - (rawTop + railHeight) - stackGap;
-    const upFits = spaceAbove >= stackHeight;
-    const downFits = spaceBelow >= stackHeight;
-    return !upFits && (downFits || spaceBelow > spaceAbove);
-}
-
-function getMapDrawClampedFloatingPosition(rawLeft, rawTop, railWidth, railHeight, bounds, stack) {
-    const stackGap = 8;
-    let minTop = bounds.top;
-    let maxTop = bounds.bottom - railHeight;
-    let flipDown = false;
-
-    if (mapDrawState.panelOpen && stack) {
-        const stackHeight = getMapDrawToolStackHeight(stack);
-        flipDown = getMapDrawToolStackDirection(rawTop, bounds, railHeight, stackHeight);
-        if (flipDown) {
-            maxTop = bounds.bottom - railHeight - stackGap - stackHeight;
-        } else {
-            minTop = bounds.top + stackHeight + stackGap;
-        }
-        if (maxTop < minTop) {
-            minTop = bounds.top;
-            maxTop = bounds.bottom - railHeight;
-        }
-    }
-
-    return {
-        left: clampMapDrawValue(rawLeft, bounds.left, bounds.right - railWidth),
-        top: clampMapDrawValue(rawTop, minTop, maxTop),
-        flipDown
-    };
-}
-
-function positionMapDrawToolStack() {
-    const rail = document.getElementById('mapDrawRail');
-    const button = document.getElementById('mapDrawFloatingBtn');
-    const stack = document.getElementById('mapDrawToolStack');
-    const area = document.getElementById('mapArea');
-    if (!rail || !button || !stack || !area) return;
-    if (!mapDrawState.panelOpen) {
-        stack.classList.remove('flip-down');
-        return;
-    }
-    const areaRect = area.getBoundingClientRect();
-    const railRect = rail.getBoundingClientRect();
-    const railHeight = rail.offsetHeight || 46;
-    const stackHeight = getMapDrawToolStackHeight(stack);
-    const bounds = getMapDrawSafeBounds(area, rail.offsetWidth || 46, railHeight);
-    const rawTop = Number.isFinite(parseFloat(rail.style.top)) ? parseFloat(rail.style.top) : (railRect.top - areaRect.top);
-    stack.classList.toggle('flip-down', getMapDrawToolStackDirection(rawTop, bounds, railHeight, stackHeight));
-}
-
-function positionMapDrawMenuNearButton() {
-    const button = document.getElementById('mapDrawFloatingBtn');
-    const settingsButton = document.getElementById('mapToolSettings');
-    const anchor = settingsButton || button;
-    const menu = document.getElementById('mapDrawMenu');
-    const area = document.getElementById('mapArea');
-    if (!anchor || !menu || !area) return;
-    if (!mapDrawState.menuOpen) return;
-    const btnRect = anchor.getBoundingClientRect();
-    const bounds = getMapDrawSafeBounds(area);
-    const areaRect = bounds.areaRect;
-    const margin = 12;
-    const wasHidden = menu.style.display === 'none';
-    if (wasHidden) {
-        menu.style.display = 'block';
-        menu.style.visibility = 'hidden';
-    }
-    const gap = 6;
-    const swatchesEl = menu.querySelector('.map-draw-swatches');
-    const preferredWidth = Math.max(220, swatchesEl ? swatchesEl.offsetWidth : 220);
-    const menuWidth = Math.min(preferredWidth, areaRect.width - (margin * 2));
-    menu.style.width = `${menuWidth}px`;
-    menu.style.maxHeight = '';
-    const measuredHeight = Math.max(96, menu.offsetHeight || 160);
-    if (wasHidden) {
-        menu.style.display = 'none';
-        menu.style.visibility = 'hidden';
-    }
-    const maxLeft = Math.max(bounds.left, bounds.right - menuWidth);
-    const maxTop = Math.max(bounds.top, bounds.bottom - measuredHeight);
-    const btnLeft = btnRect.left - areaRect.left;
-    const btnRight = btnRect.right - areaRect.left;
-    const btnTop = btnRect.top - areaRect.top;
-    const rightSpace = areaRect.width - btnRight;
-    const leftSpace = btnLeft;
-    let preferredLeft = btnRight + gap;
-    if (rightSpace < (menuWidth + gap + margin) && leftSpace >= (menuWidth + gap + margin)) {
-        preferredLeft = btnLeft - menuWidth - gap;
-    } else if (rightSpace < (menuWidth + gap + margin) && leftSpace < (menuWidth + gap + margin)) {
-        preferredLeft = btnLeft + (anchor.offsetWidth / 2) - (menuWidth / 2);
-    }
-    const left = clampMapDrawValue(preferredLeft, bounds.left, maxLeft);
-    const top = clampMapDrawValue(btnTop, bounds.top, maxTop);
-    menu.style.left = `${left}px`;
-    menu.style.right = 'auto';
-    menu.style.top = `${top}px`;
-}
-
-function getMapDrawFloatingDefaultPosition(areaRect, railWidth, railHeight, bounds) {
-    const margin = 18;
-    if (bounds) {
-        return {
-            left: clampMapDrawValue(margin, bounds.left, bounds.right - railWidth),
-            top: clampMapDrawValue(bounds.bottom - railHeight, bounds.top, bounds.bottom - railHeight)
-        };
-    }
-    return {
-        left: margin,
-        top: Math.max(margin, areaRect.height - railHeight - margin)
-    };
-}
-
-function isMapDrawFloatingAreaUsable(areaRect, railWidth, railHeight, bounds) {
-    if (bounds) {
-        return bounds.right - bounds.left >= railWidth && bounds.bottom - bounds.top >= railHeight;
-    }
-    return areaRect.width >= railWidth + 16 && areaRect.height >= railHeight + 16;
-}
-
-function applyMapDrawFloatingButtonPosition(rail, left, top) {
-    rail.style.left = `${left}px`;
-    rail.style.top = `${top}px`;
-    rail.style.right = 'auto';
-    rail.style.bottom = 'auto';
-}
-
-function clampMapDrawFloatingButtonPosition(rawPosition) {
-    const rail = document.getElementById('mapDrawRail');
-    const button = document.getElementById('mapDrawFloatingBtn');
-    const stack = document.getElementById('mapDrawToolStack');
-    const area = document.getElementById('mapArea');
-    if (!rail || !button || !area) return;
-    const areaRect = area.getBoundingClientRect();
-    const railWidth = rail.offsetWidth || 46;
-    const railHeight = rail.offsetHeight || 46;
-    const bounds = getMapDrawSafeBounds(area, railWidth, railHeight);
-    if (!isMapDrawFloatingAreaUsable(areaRect, railWidth, railHeight, bounds)) return;
-    const fallback = getMapDrawFloatingDefaultPosition(areaRect, railWidth, railHeight, bounds);
-    const styleLeft = parseFloat(rail.style.left);
-    const styleTop = parseFloat(rail.style.top);
-    const rawLeft = rawPosition && Number.isFinite(rawPosition.left) ? rawPosition.left : (Number.isFinite(styleLeft) ? styleLeft : fallback.left);
-    const rawTop = rawPosition && Number.isFinite(rawPosition.top) ? rawPosition.top : (Number.isFinite(styleTop) ? styleTop : fallback.top);
-    const clamped = getMapDrawClampedFloatingPosition(rawLeft, rawTop, railWidth, railHeight, bounds, stack);
-    if (stack) stack.classList.toggle('flip-down', clamped.flipDown);
-    applyMapDrawFloatingButtonPosition(rail, clamped.left, clamped.top);
-    positionMapDrawToolStack();
-    if (mapDrawState.menuOpen) positionMapDrawMenuNearButton();
-    return clamped;
-}
-
-function resetMapDrawFloatingButtonPosition() {
-    const rail = document.getElementById('mapDrawRail');
-    const area = document.getElementById('mapArea');
-    if (!rail || !area) return;
-    const railWidth = rail.offsetWidth || 46;
-    const railHeight = rail.offsetHeight || 46;
-    const bounds = getMapDrawSafeBounds(area, railWidth, railHeight);
-    if (!isMapDrawFloatingAreaUsable(bounds.areaRect, railWidth, railHeight, bounds)) return;
-    const position = getMapDrawFloatingDefaultPosition(bounds.areaRect, railWidth, railHeight, bounds);
-    clampMapDrawFloatingButtonPosition(position);
-}
-
-function initMapDrawFloatingButton() {
-    const rail = document.getElementById('mapDrawRail');
-    const button = document.getElementById('mapDrawFloatingBtn');
-    const area = document.getElementById('mapArea');
-    if (!rail || !button || !area || button.dataset.drawBound === '1') return;
-    const dragThresholdPx = 8;
-    const saved = (() => {
-        try { return JSON.parse(localStorage.getItem('ga_map_draw_button_pos') || 'null'); } catch (e) { return null; }
-    })();
-    if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
-        applyMapDrawFloatingButtonPosition(rail, saved.left, saved.top);
-        requestAnimationFrame(() => {
-            clampMapDrawFloatingButtonPosition();
-            positionMapDrawToolStack();
-        });
-    } else {
-        requestAnimationFrame(() => {
-            const railWidth = rail.offsetWidth || 46;
-            const railHeight = rail.offsetHeight || 46;
-            const bounds = getMapDrawSafeBounds(area, railWidth, railHeight);
-            if (!isMapDrawFloatingAreaUsable(bounds.areaRect, railWidth, railHeight, bounds)) return;
-            const pos = getMapDrawFloatingDefaultPosition(bounds.areaRect, railWidth, railHeight, bounds);
-            applyMapDrawFloatingButtonPosition(rail, pos.left, pos.top);
-            clampMapDrawFloatingButtonPosition();
-            positionMapDrawToolStack();
-        });
-    }
-
-    button.addEventListener('pointerdown', (evt) => {
-        if (evt.button !== 0) return;
-        const rect = rail.getBoundingClientRect();
-        mapDrawState.buttonDrag = {
-            pointerId: evt.pointerId,
-            startX: evt.clientX,
-            startY: evt.clientY,
-            offsetX: evt.clientX - rect.left,
-            offsetY: evt.clientY - rect.top,
-            moved: false
-        };
-        mapDrawState.suppressButtonClickUntil = 0;
-        button.classList.add('is-dragging');
-        button.setPointerCapture(evt.pointerId);
-        evt.stopPropagation();
-    });
-
-    button.addEventListener('pointermove', (evt) => {
-        const drag = mapDrawState.buttonDrag;
-        if (!drag || drag.pointerId !== evt.pointerId) return;
-        const movedPx = Math.hypot(evt.clientX - drag.startX, evt.clientY - drag.startY);
-        if (movedPx < dragThresholdPx && !drag.moved) return;
-        drag.moved = true;
-        const areaRect = area.getBoundingClientRect();
-        clampMapDrawFloatingButtonPosition({
-            left: evt.clientX - areaRect.left - drag.offsetX,
-            top: evt.clientY - areaRect.top - drag.offsetY
-        });
-        evt.stopPropagation();
-        evt.preventDefault();
-    });
-
-    button.addEventListener('pointerup', (evt) => {
-        const drag = mapDrawState.buttonDrag;
-        if (!drag || drag.pointerId !== evt.pointerId) return;
-        button.classList.remove('is-dragging');
-        if (button.hasPointerCapture && button.hasPointerCapture(evt.pointerId)) button.releasePointerCapture(evt.pointerId);
-        mapDrawState.buttonDrag = null;
-        const left = parseFloat(rail.style.left);
-        const top = parseFloat(rail.style.top);
-        if (Number.isFinite(left) && Number.isFinite(top)) {
-            localStorage.setItem('ga_map_draw_button_pos', JSON.stringify({ left, top }));
-        }
-        if (drag.moved) {
-            mapDrawState.suppressButtonClickUntil = Date.now() + 350;
-            mapDrawState.justDraggedUntil = Date.now() + 350;
-        } else {
-            mapDrawState.suppressButtonClickUntil = 0;
-            mapDrawState.justDraggedUntil = 0;
-        }
-        evt.stopPropagation();
-    });
-
-    button.addEventListener('pointercancel', (evt) => {
-        const drag = mapDrawState.buttonDrag;
-        if (!drag || drag.pointerId !== evt.pointerId) return;
-        button.classList.remove('is-dragging');
-        if (button.hasPointerCapture && button.hasPointerCapture(evt.pointerId)) button.releasePointerCapture(evt.pointerId);
-        mapDrawState.buttonDrag = null;
-        mapDrawState.suppressButtonClickUntil = Date.now() + 350;
-        mapDrawState.justDraggedUntil = Date.now() + 350;
-    });
-
-    window.addEventListener('resize', () => {
-        clampMapDrawFloatingButtonPosition();
-    });
-    button.dataset.drawBound = '1';
-    syncMapDrawUi();
-}
-
-window.toggleMapDrawMode = toggleMapDrawMode;
-window.toggleMapToolRail = toggleMapToolRail;
-window.activateMapDrawTool = activateMapDrawTool;
-window.toggleMapDrawSettingsMenu = toggleMapDrawSettingsMenu;
-window.openMapDrawMenu = openMapDrawMenu;
-window.closeMapDrawMenu = closeMapDrawMenu;
-window.openMapDrawMenuFromButton = function(evt) {
-    if (evt) evt.stopPropagation();
-    if (!mapDrawState.enabled) return;
-    if (Date.now() >= mapDrawState.suppressButtonClickUntil) toggleMapDrawMenu();
+        renderMainRoute();
+    } finally { navigationApplying = false; }
 };
-window.toggleMapDrawMenu = function(force) {
-    toggleMapDrawMenu(force);
-    if (mapDrawState.menuOpen) {
-        positionMapDrawMenuNearButton();
-        requestAnimationFrame(positionMapDrawMenuNearButton);
-    }
-};
-window.setMapDrawColor = setMapDrawColor;
-window.setMapDrawWeight = setMapDrawWeight;
-window.setMapDrawTool = setMapDrawTool;
-window.clearMapDrawings = clearMapDrawings;
-
-function ensureRouteLegLabelPane() {
-    if (!map) return;
-    if (map.getPane('routeLegLabelPane')) return;
-    const pane = map.createPane('routeLegLabelPane');
-    pane.style.zIndex = '350'; // Unter der Route (Overlay-Pane ~400)
-    pane.style.pointerEvents = 'none';
-}
-
-function clearRouteLegLabels() {
-    if (!map || !routeLegLabelMarkers.length) return;
-    routeLegLabelMarkers.forEach(m => map.removeLayer(m));
-    routeLegLabelMarkers = [];
-}
-
-function getLegScreenAngle(p1, p2) {
-    const a = map.latLngToLayerPoint([p1.lat, p1.lng || p1.lon]);
-    const b = map.latLngToLayerPoint([p2.lat, p2.lng || p2.lon]);
-    let angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
-    if (angle > 90) angle -= 180;
-    if (angle < -90) angle += 180;
-    return angle;
-}
-
-function formatNm(value) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return '0.0';
-    return (Math.round(n * 10) / 10).toFixed(1);
-}
-
-function formatLegDurationMinutes(distNm) {
-    const speedKts = Math.max(1, getTasForRouteEstimate());
-    const dist = Number(distNm);
-    if (!Number.isFinite(dist) || dist <= 0) return '0 min';
-    const minutes = Math.max(1, Math.round((dist / speedKts) * 60));
-    return `${minutes} min`;
-}
-
-function getRouteLegLabelDetail(nav) {
-    const distText = `${formatNm(nav.dist)} NM`;
-    const durationText = formatLegDurationMinutes(nav.dist);
-    if (routeLegLabelMode === 'duration') return durationText;
-    if (routeLegLabelMode === 'both') return `${distText} / ${durationText}`;
-    return distText;
-}
-
-function getRouteLegLabelWidthPx(detailText, fontSize) {
-    const minWidth = routeLegLabelMode === 'both' ? 108 : 68;
-    const textWidth = Math.ceil(String(detailText || '').length * fontSize * 0.62) + 18;
-    return Math.max(minWidth, textWidth);
-}
-
-function updateRouteLegLabelModeButton() {
-    const btn = document.getElementById('routeLegLabelModeBtn');
-    if (!btn) return;
-    const labels = {
-        distance: 'Distanz',
-        duration: 'Dauer',
-        both: 'Distanz + Dauer'
-    };
-    btn.textContent = `📏 Legs: ${labels[routeLegLabelMode] || labels.distance}`;
-    btn.title = 'Leg-Anzeige wechseln: Distanz, Dauer oder beides. Dauer basiert auf dem Speed-Setting im Hauptmenü.';
-}
-
-window.cycleRouteLegLabelMode = function() {
-    const currentIdx = ROUTE_LEG_LABEL_MODES.indexOf(routeLegLabelMode);
-    routeLegLabelMode = ROUTE_LEG_LABEL_MODES[(currentIdx + 1) % ROUTE_LEG_LABEL_MODES.length] || 'distance';
-    localStorage.setItem(ROUTE_LEG_LABEL_MODE_KEY, routeLegLabelMode);
-    updateRouteLegLabelModeButton();
-    renderRouteLegLabels();
-};
-
-function renderRouteLegLabels() {
-    clearRouteLegLabels();
-    if (!map || !routeWaypoints || routeWaypoints.length < 2) return;
-    ensureRouteLegLabelPane();
-    const zoom = map.getZoom ? map.getZoom() : 10;
-    const fontSize = Math.max(9, Math.min(14, Math.round(9 + ((zoom - 6) / 7) * 5)));
-    const gap = Math.max(7, Math.round(fontSize * 0.4) + 4);
-
-    for (let i = 0; i < routeWaypoints.length - 1; i++) {
-        const p1 = routeWaypoints[i];
-        const p2 = routeWaypoints[i + 1];
-        if (!routeLegShouldRenderOnMainMap(p1, p2)) continue;
-        const nav = calcNav(p1.lat, p1.lng || p1.lon, p2.lat, p2.lng || p2.lon);
-
-        const midLat = (p1.lat + p2.lat) / 2;
-        const midLng = ((p1.lng || p1.lon) + (p2.lng || p2.lon)) / 2;
-        const angle = getLegScreenAngle(p1, p2).toFixed(1);
-        const detailText = getRouteLegLabelDetail(nav);
-        const labelWidth = getRouteLegLabelWidthPx(detailText, fontSize);
-
-        const html = `
-            <div class="route-leg-label" style="transform: translate(-50%, -50%) rotate(${angle}deg); --leg-fz:${fontSize}px; --leg-gap:${gap}px; --leg-w:${labelWidth}px;">
-                <div class="route-leg-course">${nav.brng}°</div>
-                <div class="route-leg-detail">${detailText}</div>
-            </div>
-        `;
-
-        const labelIcon = L.divIcon({
-            className: 'route-leg-label-icon',
-            html,
-            iconSize: [0, 0],
-            iconAnchor: [0, 0]
-        });
-
-        const marker = L.marker([midLat, midLng], {
-            icon: labelIcon,
-            interactive: false,
-            pane: 'routeLegLabelPane'
-        }).addTo(map);
-
-        routeLegLabelMarkers.push(marker);
-    }
-}
-
-function toggleMeasureMode() {
-    measureMode = !measureMode; const btn = document.getElementById('measureBtn');
-    if (measureMode) {
-        if (mapDrawState.enabled) toggleMapDrawMode(false);
-        if (btn) {
-            btn.innerText = '📏 Messen (An)';
-            btn.style.background = 'var(--piper-yellow)';
-            btn.style.color = '#000';
-        }
-        document.getElementById('map').style.cursor = 'crosshair';
-    } else {
-        if (btn) {
-            btn.innerText = '📏 Messen (Aus)';
-            btn.style.background = '#444';
-            btn.style.color = '#fff';
-        }
-        document.getElementById('map').style.cursor = '';
-    }
-    if (map && typeof map.closePopup === 'function') map.closePopup();
-    if (typeof renderMainRoute === 'function' && routeWaypoints && routeWaypoints.length > 0) renderMainRoute();
-    if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
-    if (typeof liveGpsMarker !== 'undefined' && liveGpsMarker) {
-        try {
-            if (typeof liveGpsMarker.closePopup === 'function') liveGpsMarker.closePopup();
-            const el = liveGpsMarker.getElement && liveGpsMarker.getElement();
-            if (el) el.style.pointerEvents = measureMode ? 'none' : 'auto';
-        } catch (e) { }
-    }
-    if (typeof syncMapDrawUi === 'function') syncMapDrawUi();
-}
-
-function addMeasurePoint(latlng) {
-    if (measureMarkers.length >= 2) { clearMeasure(); }
-    const marker = L.marker(latlng, { icon: measureIcon, draggable: true }).addTo(map);
-    marker.on('drag', updateMeasureRoute); marker.on('dragend', updateMeasureRoute);
-    measureMarkers.push(marker); updateMeasureRoute();
-}
-
-function updateMeasureRoute() {
-    if (measurePolyline) map.removeLayer(measurePolyline);
-    if (measureTooltip) { map.removeLayer(measureTooltip); measureTooltip = null; }
-    measurePoints = measureMarkers.map(m => m.getLatLng());
-
-    if (measurePoints.length === 2) {
-        measurePolyline = L.polyline(measurePoints, { color: '#f2c12e', weight: 4, dashArray: '6,6' }).addTo(map);
-        const nav = calcNav(measurePoints[0].lat, measurePoints[0].lng || measurePoints[0].lon, measurePoints[1].lat, measurePoints[1].lng || measurePoints[1].lon);
-        const centerLat = (measurePoints[0].lat + measurePoints[1].lat) / 2, centerLng = (measurePoints[0].lng + measurePoints[1].lng) / 2;
-        const labelText = `<div style="font-weight:bold; font-size:14px; color:#111; text-align:center; line-height: 1.2;">${nav.brng}°<br>${formatNm(nav.dist)} NM</div>`;
-        measureTooltip = L.tooltip({ permanent: true, direction: 'center', className: 'measure-label' }).setLatLng([centerLat, centerLng]).setContent(labelText).addTo(map);
-    }
-}
-
-function clearMeasure() {
-    if (measurePolyline) map.removeLayer(measurePolyline);
-    if (measureTooltip) { map.removeLayer(measureTooltip); measureTooltip = null; }
-    measureMarkers.forEach(m => map.removeLayer(m)); measurePoints = []; measureMarkers = [];
-    if (typeof syncMapDrawUi === 'function') syncMapDrawUi();
-}
-
-window.removeRouteWaypoint = function (index) { routeWaypoints.splice(index, 1); renderMainRoute(); };
 
 function normalizeMapRouteWaypoint(point) {
     if (!point) return null;
@@ -7452,14 +5350,11 @@ function fitMapToRouteWaypoints(padding = [40, 40]) {
 
 function handleRouteHitBoxClick(e) {
     if (measureMode) return;
-    let bestIndex = 1, minDiff = Infinity;
-    for (let i = 0; i < routeWaypoints.length - 1; i++) {
-        let p1 = L.latLng(routeWaypoints[i].lat, routeWaypoints[i].lng || routeWaypoints[i].lon);
-        let p2 = L.latLng(routeWaypoints[i + 1].lat, routeWaypoints[i + 1].lng || routeWaypoints[i + 1].lon);
-        let d1 = map.distance(p1, e.latlng), d2 = map.distance(e.latlng, p2), d = map.distance(p1, p2), diff = d1 + d2 - d;
-        if (diff < minDiff) { minDiff = diff; bestIndex = i + 1; }
-    }
-    routeWaypoints.splice(bestIndex, 0, e.latlng);
+    const bestIndex = window.GAMapRouteEditCore.insertionIndex(routeWaypoints, e.latlng, (a, b) =>
+        map.distance([a.lat, a.lng ?? a.lon], [b.lat, b.lng ?? b.lon]));
+    const edit = { action: 'insert', index: bestIndex, point: { lat: e.latlng.lat, lng: e.latlng.lng } };
+    if (window.gaNavigationEdit?.(edit)) return;
+    routeWaypoints = window.GAMapRouteEditCore.apply(routeWaypoints, edit);
     renderMainRoute();
 }
 
@@ -7525,16 +5420,6 @@ function resetMainRouteVectorLayers() {
         try { map.removeLayer(window.hitBoxPolyline); } catch (_) {}
         window.hitBoxPolyline = null;
     }
-}
-
-function routeLegShouldRenderOnMainMap(p1 = null, p2 = null) {
-    const hasPoiChain = !!(
-        typeof currentMissionData !== 'undefined'
-        && currentMissionData
-        && currentMissionData.poiChain
-    );
-    if (!hasPoiChain) return true;
-    return true;
 }
 
 function buildMainRoutePolylineLatLngs(points = routeWaypoints) {
@@ -7610,6 +5495,7 @@ window.gaScheduleRouteMapLayoutRefresh = function(reason = 'route', options = {}
 };
 
 function resetMainRoute() {
+    if (window.gaNavigationEdit?.({ action: 'reset' })) return;
     if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
     if (window._missionRouteWaypoints && window._missionRouteWaypoints.length >= 2) {
         routeWaypoints = normalizeMapRouteWaypoints(window._missionRouteWaypoints);
@@ -7795,7 +5681,7 @@ function renderMainRoute() {
     routeWaypoints.forEach((latlng, index) => {
         let isStart = (index === 0), isDest = (index === routeWaypoints.length - 1 && routeWaypoints.length > 1);
         let isPOI = routeWaypoints[index].isPOI === true;
-        
+
         let icon = isStart ? startIcon : (isDest ? destIcon : (isPOI ? poiIcon : wpIcon));
         // Wir erlauben das Draggen von POIs und Wegpunkten. Start/Dest bleiben fix.
         let draggable = (!isStart && !isDest && !measureMode);
@@ -7808,69 +5694,8 @@ function renderMainRoute() {
             zIndexOffset: isPOI ? 3500 : 3000
         }).addTo(map);
 
-        if (isStart) {
-            marker.bindPopup('');
-            marker.on('popupopen', () => {
-                const depCountry = getAirportCountryCode(currentStartICAO);
-                marker.getPopup().setContent(_buildAptPopup('DEP', currentSName, currentDepElev, currentStartICAO, {
-                    runwayContainerId: 'wxPopupDepRwy',
-                    freqContainerId: 'wxPopupDepFreq',
-                    countryCode: depCountry,
-                    showDirectTo: currentStartICAO && currentStartICAO !== 'GPS' && currentStartICAO !== currentDestICAO,
-                    directToName: currentSName,
-                    lat: latlng.lat,
-                    lon: latlng.lng || latlng.lon
-                }));
-                marker.getPopup().update();
-                const depIcao = currentStartICAO;
-                if (depIcao) setTimeout(() => refreshAipOverlayPopupUi(depIcao), 0);
-                if (depIcao && depIcao !== 'GPS' && typeof fetchRunwayDetails === 'function') {
-                    fetchRunwayDetails(latlng.lat, latlng.lng || latlng.lon, 'wxPopupDepRwy', depIcao);
-                }
-                if (depIcao && depIcao !== 'GPS' && typeof fetchAirportFreq === 'function') {
-                    updatePopupFrequencyBlock('wxPopupDepFreq', depIcao);
-                    fetchAirportFreq(depIcao, null, null).finally(() => updatePopupFrequencyBlock('wxPopupDepFreq', depIcao));
-                }
-                if (depIcao && typeof loadMetarWidget === 'function') {
-                    loadMetarWidget(depIcao, 'wxPopupDep', latlng.lat, latlng.lng || latlng.lon, true);
-                }
-            });
-        } else if (isDest) {
-            marker.bindPopup('');
-            marker.on('popupopen', () => {
-                const missionLikePoi = !!(
-                    currentMissionData
-                    && (
-                        currentMissionData.poiName
-                        || currentMissionData.poiPresentation
-                        || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData))
-                    )
-                );
-                const icao = missionLikePoi ? currentStartICAO : currentDestICAO;
-                const elev = missionLikePoi ? currentDepElev : currentDestElev;
-                const destCountry = getAirportCountryCode(icao);
-                marker.getPopup().setContent(_buildAptPopup('DEST', currentDName, elev, icao, {
-                    runwayContainerId: 'wxPopupDestRwy',
-                    freqContainerId: 'wxPopupDestFreq',
-                    countryCode: destCountry,
-                    showDirectTo: Boolean(icao && icao !== currentDestICAO),
-                    directToName: currentDName,
-                    lat: latlng.lat,
-                    lon: latlng.lng || latlng.lon
-                }));
-                marker.getPopup().update();
-                if (icao) setTimeout(() => refreshAipOverlayPopupUi(icao), 0);
-                if (icao && typeof fetchRunwayDetails === 'function') {
-                    fetchRunwayDetails(latlng.lat, latlng.lng || latlng.lon, 'wxPopupDestRwy', icao);
-                }
-                if (icao && icao !== 'GPS' && typeof fetchAirportFreq === 'function') {
-                    updatePopupFrequencyBlock('wxPopupDestFreq', icao);
-                    fetchAirportFreq(icao, null, null).finally(() => updatePopupFrequencyBlock('wxPopupDestFreq', icao));
-                }
-                if (icao && typeof loadMetarWidget === 'function') {
-                    loadMetarWidget(icao, 'wxPopupDest', latlng.lat, latlng.lng || latlng.lon, true);
-                }
-            });
+        if (isStart || isDest) {
+            bindRouteAirportPopup(marker, isStart, latlng);
         } else if (isPOI) {
             // POIs bekommen ein spezielles lila Popup ohne Löschen-Button (da es das Missionsziel ist)
             marker.bindPopup(`<div style="text-align:center; color:#b266ff;"><b>${routeWaypoints[index].name}</b></div>`);
@@ -7880,36 +5705,16 @@ function renderMainRoute() {
             const infoBtn = wpAirport
                 ? `<button onclick="openRouteWaypointAirportInfo(${index})" style="margin-top:5px; margin-right:4px; background:#235ea7; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius:2px;">ℹ️ Info</button>`
                 : '';
-            marker.bindPopup(
-                `<div style="text-align:center;">${wpName}<br>${infoBtn}<button onclick="removeRouteWaypoint(${index})" style="margin-top:5px; background:#d93829; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius:2px;">🗑️ Löschen</button></div>`
-            );
+            marker.bindPopup(window.GAMapRouteEditCore.popup(routeWaypoints[index].name, index, infoBtn));
         }
 
         if (draggable) {
+            marker.on('dragstart', () => { window.gaNavigationDragging = true; });
             marker.on('drag', function (e) {
-                if (snapMode && cachedNavData.length > 0) {
-                    let mousePoint = map.latLngToLayerPoint(e.latlng);
-                    let closest = null;
-                    let bestScore = -1;
-
-                    cachedNavData.forEach(nav => {
-                        let navPoint = map.latLngToLayerPoint([nav.lat, nav.lng]);
-                        let d = mousePoint.distanceTo(navPoint);
-                        if (d < 25) {
-                            let score = 25 - d;
-                            // PRIORITÄT: VORs und Airports gewinnen bei Überlappung
-                            if (nav.name.includes('APT ')) score += 100;
-                            else if (nav.name.includes('[')) score += 50;
-
-                            if (score > bestScore) {
-                                bestScore = score;
-                                closest = nav;
-                            }
-                        }
-                    });
-
-                    if (closest) marker.setLatLng([closest.lat, closest.lng]);
-                    else marker.setLatLng(e.latlng);
+                if (snapMode) {
+                    const closest = window.GAMapRouteEditCore.snap(e.latlng, cachedNavData,
+                        p => map.latLngToLayerPoint([p.lat, p.lng ?? p.lon]));
+                    marker.setLatLng(closest ? [closest.lat, closest.lng] : e.latlng);
                 }
             });
 
@@ -7931,6 +5736,7 @@ function renderMainRoute() {
         });
 
             marker.on('dragend', function (e) {
+                window.gaNavigationDragging = false;
                 let dropLatLng = marker.getLatLng();
                 const routeWaypoint = Array.isArray(routeWaypoints) ? routeWaypoints[index] : null;
                 if (!routeWaypoint) {
@@ -7951,17 +5757,17 @@ function renderMainRoute() {
                 // === NEU: SPEZIELLE POI LOGIK (Auto-Name & Fallback) ===
                 if (isPOI) {
                     if (confirm("Möchtest du das Ziel für den Rundflug an diese Position verschieben?")) {
-                        
+
                         const mDestName = document.getElementById("mDestName");
                         if (mDestName) mDestName.innerText = "Ermittle Ort...";
-                        
+
                         setTimeout(async () => {
                             if (!Array.isArray(routeWaypoints) || routeWaypoints[index] !== routeWaypoint) {
                                 renderMainRoute();
                                 return;
                             }
                             let newName = "Neuer Wendepunkt";
-                            
+
                             // 1. Ort via Wikipedia (Geosearch) ermitteln
                             try {
                                 const geoRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${dropLatLng.lat}|${dropLatLng.lng}&gsradius=10000&gslimit=1&format=json&origin=*`);
@@ -7975,21 +5781,21 @@ function renderMainRoute() {
                                     if (nomData && nomData.name) newName = nomData.name;
                                 }
                             } catch(e) {}
-                            
+
                             // 2. POI aktualisieren
                             routeWaypoint.lat = dropLatLng.lat;
                             routeWaypoint.lng = dropLatLng.lng;
                             routeWaypoint.name = "🎯 " + newName;
-                            
+
                             if (typeof currentMissionData !== 'undefined' && currentMissionData) {
                                 currentMissionData.poiName = newName;
                             }
-                            
+
                             // 3. Das dynamische Dreieck anpassen
                             const returnNav = calcNav(dropLatLng.lat, dropLatLng.lng, routeWaypoints[0].lat, routeWaypoints[0].lng || routeWaypoints[0].lon);
                             const offsetBearing = (returnNav.brng + 20) % 360;
                             const returnWp = getDestinationPoint(dropLatLng.lat, dropLatLng.lng, returnNav.dist * 0.45, offsetBearing);
-                            
+
                             if (routeWaypoints.length > 2) {
                                 routeWaypoints[2].lat = returnWp.lat;
                                 routeWaypoints[2].lng = returnWp.lon;
@@ -7999,7 +5805,7 @@ function renderMainRoute() {
                             if (mDestName) mDestName.innerText = newName;
                             const wikiDestNameEl = document.getElementById('wikiDestNameDisplay');
                             if (wikiDestNameEl) wikiDestNameEl.innerText = `POI – ${newName}`;
-                            
+
                             // 5. Wiki-Daten live laden
                             if (typeof fetchAreaDescription === 'function') {
                                 const descEl = document.getElementById("wikiDestDescText");
@@ -8009,11 +5815,11 @@ function renderMainRoute() {
 
                             // 6. KI-Briefing Story umschreiben (Live Dispatch)
                             renderMainRoute(); // Aktualisiert die Distanzen im Hintergrund
-                            
+
                             const paxText = document.getElementById("mPay") ? document.getElementById("mPay").innerText : "0 PAX";
                             const cargoText = document.getElementById("mWeight") ? document.getElementById("mWeight").innerText : "0 lbs";
                             const totalDist = currentMissionData.dist;
-                            
+
                             const titleEl = document.getElementById("mTitle");
                             const storyEl = document.getElementById("mStory");
 
@@ -8040,13 +5846,13 @@ function renderMainRoute() {
                                 window.debouncedSaveMissionState();
                                 return;
                             }
-                            
+
                             if (titleEl) titleEl.innerHTML = "🔄 Auftrag wird umgeschrieben...";
                             if (storyEl) storyEl.innerText = "Dispatcher passt die Story an das neue Ziel an...";
-                            
+
                             // Die Gemini-Funktion gibt intern sofort 'null' zurück, wenn API aus/offline ist
                             let m = await fetchGeminiMission(currentSName, newName, totalDist, true, paxText, cargoText);
-                            
+
                             if (m) {
                                 if (titleEl) titleEl.innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
                                 if (storyEl) storyEl.innerText = m.s;
@@ -8057,7 +5863,7 @@ function renderMainRoute() {
                                 if (typeof generateDynamicPOIMission === 'function') {
                                     const maxSeats = parseInt(document.getElementById("maxSeats")?.value || 4);
                                     fallbackM = generateDynamicPOIMission(newName, maxSeats);
-                                    
+
                                     // Aktualisiert auch die Passagiere und Fracht passend zur Offline-Story
                                     if (document.getElementById("mPay")) document.getElementById("mPay").innerText = fallbackM.payloadText || paxText;
                                     if (document.getElementById("mWeight")) document.getElementById("mWeight").innerText = fallbackM.cargoText || cargoText;
@@ -8066,12 +5872,12 @@ function renderMainRoute() {
                                 } else {
                                     fallbackM = { t: "Privater Rundflug", s: `Umgeleiteter Flugpunkt: ${newName}`, i: "📋" };
                                 }
-                                
+
                                 if (titleEl) titleEl.innerHTML = `${fallbackM.i ? fallbackM.i + ' ' : '📋 '}${fallbackM.t}`;
                                 if (storyEl) storyEl.innerText = fallbackM.s;
                                 currentMissionData.mission = fallbackM.t;
                             }
-                            
+
                             window.debouncedSaveMissionState();
                         }, 50);
 
@@ -8086,43 +5892,12 @@ function renderMainRoute() {
                 }
                 // === ENDE POI LOGIK ===
 
-                if (snapMode && cachedNavData.length > 0) {
-                    let mousePoint = map.latLngToLayerPoint(dropLatLng);
-                    let closest = null;
-                    let bestScore = -1;
-
-                    cachedNavData.forEach(nav => {
-                        let navPoint = map.latLngToLayerPoint([nav.lat, nav.lng]);
-                        let d = mousePoint.distanceTo(navPoint);
-                        if (d < 25) {
-                            let score = 25 - d;
-                            if (nav.name.includes('APT ')) score += 100;
-                            else if (nav.name.includes('[')) score += 50;
-
-                            if (score > bestScore) {
-                                bestScore = score;
-                                closest = nav;
-                            }
-                        }
-                    });
-
-                    if (closest) {
-                        routeWaypoint.lat = closest.lat;
-                        routeWaypoint.lng = closest.lng;
-                        routeWaypoint.name = closest.name;
-                        routeWaypoint.rppAirportIcao = closest.rppAirportIcao || '';
-                    } else {
-                        routeWaypoint.lat = dropLatLng.lat;
-                        routeWaypoint.lng = dropLatLng.lng;
-                        routeWaypoint.name = null;
-                        routeWaypoint.rppAirportIcao = '';
-                    }
-                } else {
-                    routeWaypoint.lat = dropLatLng.lat;
-                    routeWaypoint.lng = dropLatLng.lng;
-                    routeWaypoint.name = null;
-                    routeWaypoint.rppAirportIcao = '';
-                }
+                const closest = snapMode ? window.GAMapRouteEditCore.snap(dropLatLng, cachedNavData,
+                    p => map.latLngToLayerPoint([p.lat, p.lng ?? p.lon])) : null;
+                const point = closest ? { lat: closest.lat, lng: closest.lng, name: closest.name, rppAirportIcao: closest.rppAirportIcao || '' }
+                    : { lat: dropLatLng.lat, lng: dropLatLng.lng };
+                if (window.gaNavigationEdit?.({ action: 'move', index, point })) return;
+                routeWaypoints = window.GAMapRouteEditCore.apply(routeWaypoints, { action: 'move', index, point });
                 renderMainRoute();
             });
         }
@@ -8182,377 +5957,9 @@ function findNearestEditableWaypoint(latlng, maxPixels = 28) {
     return bestIndex >= 0 ? bestIndex : null;
 }
 
-function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
-    const rwCacheKey = icaoForRunways || (label === 'DEP' ? currentStartICAO : currentDestICAO);
-    const wxContainerId = options.wxContainerId || (label === 'DEP' ? 'wxPopupDep' : 'wxPopupDest');
-    const runwayContainerId = options.runwayContainerId || null;
-    const freqContainerId = options.freqContainerId || null;
-    const countryCode = options.countryCode || '';
-    const compactLayout = Boolean(options.compactLayout);
-    const dividerMargin = compactLayout ? '2px 0' : '5px 0';
-    const detailLineHeight = compactLayout ? '1.28' : '1.7';
-    const titleHtml = options.title || `<b style="font-size:13px;">${label}: ${name || '–'}</b>`;
-    const showDirectTo = Boolean(options.showDirectTo && icaoForRunways && Number.isFinite(options.lat) && Number.isFinite(options.lon));
-    const aipUrl = icaoForRunways ? getAipPopupUrl(icaoForRunways, countryCode) : null;
-    const showAip = Boolean(aipUrl);
-    const icaoSafe = sanitizeAipIcaoKey(icaoForRunways || '');
-    const icaoEsc = escapeJsSingleQuoted(icaoSafe);
-    const countryEsc = escapeJsSingleQuoted(String(countryCode || '').toUpperCase());
-    const opacityPct = Math.round(getAipCurrentOpacity(icaoSafe) * 100);
-    let html = `<div class="${compactLayout ? 'ga-airport-popup-compact' : ''}" style="font-family:'Courier New',monospace; min-width:${compactLayout ? '0' : '190px'}; color:#111;">`;
-    html += titleHtml;
-
-    if (elev != null) {
-        const elevRnd = Math.round(elev);
-        const tpa = elevRnd + 1000;
-        html += `<hr style="border-color:#ccc; margin:${dividerMargin};">`;
-        html += `<div style="font-size:11px; line-height:${detailLineHeight};">`;
-        html += compactLayout
-            ? `<span class="ga-airport-altitude-line">📍 <b>${elevRnd} ft<span class="ga-airport-altitude-desktop-only"> MSL</span></b> · 🔄 <span class="ga-airport-altitude-desktop-only">TPA </span><b><span class="ga-airport-altitude-desktop-only">~</span>${tpa} ft</b></span>`
-            : `📍 Platz: <b>${elevRnd} ft MSL</b><br>🔄 Platzrunde: <b>~${tpa} ft MSL</b>`;
-        html += `</div>`;
-    }
-
-    const runwayHtml = (() => {
-        if (!rwCacheKey || typeof runwayCache === 'undefined' || !runwayCache[rwCacheKey] || runwayCache[rwCacheKey] === 'Keine Daten gefunden') {
-            return runwayContainerId
-                ? `<div id="${runwayContainerId}" style="font-size:11px; line-height:${detailLineHeight}; color:#666;">Pisten laden…</div>`
-                : '';
-        }
-
-        const rwys = runwayCache[rwCacheKey]
-            .split(/\s*(?:\||\n|<br\s*\/?>)\s*/i)
-            .filter(r => r.trim());
-
-        if (rwys.length === 0) return '';
-        const lines = compactLayout
-            ? `🛫 ${rwys.join('<br>🛫 ')}`
-            : `🛫 Pisten:<br>${rwys.map(r => `&nbsp;&nbsp;${r}`).join('<br>')}`;
-        return runwayContainerId
-            ? `<div id="${runwayContainerId}" style="font-size:11px; line-height:${detailLineHeight};">${lines}</div>`
-            : `<div style="font-size:11px; line-height:${detailLineHeight};">${lines}</div>`;
-    })();
-
-    if (runwayHtml) {
-        html += `<hr style="border-color:#ccc; margin:${dividerMargin};">`;
-        html += runwayHtml;
-    }
-
-    if (icaoForRunways) {
-        html += `<hr style="border-color:#ccc; margin:${dividerMargin};">`;
-        const freqBody = buildPopupFrequencyLines(icaoForRunways);
-        html += freqContainerId
-            ? `<div id="${freqContainerId}" style="font-size:11px; line-height:${compactLayout ? '1.25' : '1.6'};">${freqBody}</div>`
-            : `<div style="font-size:11px; line-height:${compactLayout ? '1.25' : '1.6'};">${freqBody}</div>`;
-    }
-
-    if (showAip) {
-        html += `<hr style="border-color:#ccc; margin:${dividerMargin};">`;
-        html += `<a href="${aipUrl}" target="_blank" rel="noopener noreferrer" style="display:block; font-size:11px; text-decoration:none; color:#0b1f65; font-weight:bold;">📄 AIP VFR öffnen ↗</a>`;
-        if (AIP_CHART_UI_ENABLED) {
-            html += `<div style="margin-top:6px; border:1px solid #ddd; border-radius:5px; padding:6px; background:#f8f8f8;">`;
-            html += `<div class="aip-overlay-status" data-aip-icao="${icaoSafe}" style="font-size:10px; color:#444; margin-bottom:6px;">Overlay aus</div>`;
-            html += `<button onclick="window.loadAipChartOverlay('${icaoEsc}','${countryEsc}')" style="display:block; width:100%; background:#235ea7; color:#fff; border:none; padding:6px 8px; cursor:pointer; border-radius:3px; font-size:11px; margin-bottom:4px;">🗺️ Overlay laden</button>`;
-            html += `<button class="aip-calibrate-btn" data-aip-icao="${icaoSafe}" onclick="window.startAipChartCalibration('${icaoEsc}')" style="display:block; width:100%; background:#7c4d9e; color:#fff; border:none; padding:6px 8px; cursor:pointer; border-radius:3px; font-size:11px; margin-bottom:6px;">🎯 Kalibrieren (2 Punkte)</button>`;
-            html += `<div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">`;
-            html += `<span style="font-size:10px; color:#555; min-width:64px;">Transparenz</span>`;
-            html += `<input class="aip-opacity-slider" data-aip-icao="${icaoSafe}" type="range" min="15" max="100" value="${opacityPct}" oninput="window.setAipChartOpacity(this.value, '${icaoEsc}'); this.nextElementSibling.textContent=this.value+'%';" style="flex:1;">`;
-            html += `<span class="aip-opacity-value" data-aip-icao="${icaoSafe}" style="font-size:10px; color:#222; min-width:34px; text-align:right;">${opacityPct}%</span>`;
-            html += `</div>`;
-            html += `<button onclick="window.clearAipChartOverlay()" style="display:block; width:100%; background:#666; color:#fff; border:none; padding:5px 8px; cursor:pointer; border-radius:3px; font-size:10px;">Overlay aus</button>`;
-            html += `</div>`;
-        }
-    }
-
-    html += `<hr style="border-color:#ccc; margin:${dividerMargin};">`;
-    html += `<div id="${wxContainerId}" style="min-height:${compactLayout ? '24px' : '36px'};">`;
-    html += `<div style="font-size:10px; color:#aaa; text-align:center; padding:${compactLayout ? '4px' : '8px'} 0;">Wetter lädt…</div>`;
-    html += `</div>`;
-
-    if (showDirectTo) {
-        const encodedName = encodeURIComponent(options.directToName || name || icaoForRunways);
-        html += `<button onclick="window.confirmAirportDirectTo('${icaoForRunways}', ${Number(options.lat)}, ${Number(options.lon)}, '${encodedName}')" style="margin-top:${compactLayout ? '4px' : '8px'}; width:100%; background:#1f7a45; color:#fff; border:none; padding:${compactLayout ? '6px 8px' : '8px 10px'}; cursor:pointer; border-radius:4px; font-weight:bold;">✈️ Direct To</button>`;
-    }
-
-    html += `</div>`;
-    return html;
-}
-
-function getAirportDisplayName(apt) {
-    return apt?.name || apt?.n || apt?.city || apt?.icao || 'Flugplatz';
-}
-
-function normalizeAirportForMap(apt) {
-    if (!apt) return null;
-    return {
-        icao: String(apt.icao || apt.ident || '').trim().toUpperCase(),
-        name: getAirportDisplayName(apt),
-        lat: Number(apt.lat),
-        lon: Number(apt.lon ?? apt.lng),
-        elevation: apt.elevation ?? null,
-        country: apt.country || apt.iso_country || apt.cc || '',
-        sourceId: String(apt.sourceId || apt._id || apt.id || '').trim()
-    };
-}
-
-const AIRPORT_INFO_POPUP_CACHE_TTL_MS = 15 * 60 * 1000;
-const AIRPORT_INFO_POPUP_CACHE_MAX = 32;
-const airportInfoPopupCache = new Map();
-let airportInfoPopupLayer = null;
-
-function getAirportInfoPopupCacheKey(apt) {
-    if (!apt) return '';
-    if (apt.icao) return `icao:${apt.icao}`;
-    if (apt.sourceId) return `source:${apt.sourceId}`;
-    return `pos:${apt.lat.toFixed(5)},${apt.lon.toFixed(5)}`;
-}
-
-function rememberAirportInfoPopupEntry(key, entry) {
-    airportInfoPopupCache.delete(key);
-    airportInfoPopupCache.set(key, entry);
-    while (airportInfoPopupCache.size > AIRPORT_INFO_POPUP_CACHE_MAX) {
-        const oldestKey = airportInfoPopupCache.keys().next().value;
-        if (!oldestKey) break;
-        airportInfoPopupCache.delete(oldestKey);
-    }
-}
-
-function updateAirportInfoPopupFrequency(entry, icao) {
-    if (!entry || !entry.content || !icao) return;
-    const el = entry.content.querySelector(`#${entry.freqId}`);
-    if (!el) return;
-    el.innerHTML = buildPopupFrequencyLines(icao);
-}
-
-function openAirportInfoPopup(airport) {
-    if (!map) return;
-    const apt = normalizeAirportForMap(airport);
-    if (!apt || !apt.icao || !Number.isFinite(apt.lat) || !Number.isFinite(apt.lon)) return;
-
-    const cacheKey = getAirportInfoPopupCacheKey(apt);
-    const now = Date.now();
-    let entry = airportInfoPopupCache.get(cacheKey);
-    if (entry && (now - entry.createdAt) >= AIRPORT_INFO_POPUP_CACHE_TTL_MS) {
-        airportInfoPopupCache.delete(cacheKey);
-        entry = null;
-    }
-
-    const popupIdSafe = apt.icao.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const runwayId = `wxRwy_${popupIdSafe}`;
-    const freqId = `wxFreq_${popupIdSafe}`;
-    // Prefix "wxPopup" erzwingt im Widget die gleiche kompakte Start/Ziel-Darstellung
-    const wxId = `wxPopupApt_${popupIdSafe}`;
-
-    if (!entry) {
-        const elev = apt.elevation ?? (globalAirports?.[apt.icao]?.elevation ?? null);
-        const countryCode = getAirportCountryCode(apt.icao, apt.country);
-        const title = `<b style="font-size:13px;">${apt.icao}</b><div style="font-size:11px; color:#555; margin-top:2px;">${apt.name}</div>`;
-        const content = document.createElement('div');
-        content.innerHTML = _buildAptPopup('APT', apt.name, elev, apt.icao, {
-            title,
-            wxContainerId: wxId,
-            runwayContainerId: runwayId,
-            freqContainerId: freqId,
-            countryCode,
-            showDirectTo: true,
-            directToName: apt.name,
-            lat: apt.lat,
-            lon: apt.lon
-        });
-        entry = {
-            createdAt: now,
-            content,
-            runwayId,
-            freqId,
-            wxId,
-            loadingStarted: false
-        };
-    }
-    rememberAirportInfoPopupEntry(cacheKey, entry);
-
-    if (!airportInfoPopupLayer) airportInfoPopupLayer = L.popup({ maxWidth: 290 });
-    airportInfoPopupLayer
-        // Immer am kanonischen Flugplatz statt am zufälligen Klickpunkt verankern.
-        .setLatLng([apt.lat, apt.lon])
-        .setContent(entry.content)
-        .openOn(map);
-    setTimeout(() => refreshAipOverlayPopupUi(apt.icao), 0);
-    updateAirportInfoPopupFrequency(entry, apt.icao);
-
-    // Pisten dürfen nach einem temporären Quellenfehler beim nächsten Öffnen
-    // erneut versucht werden; positive und echte Leerdaten werden separat gecacht.
-    if (typeof fetchRunwayDetails === 'function') {
-        fetchRunwayDetails(apt.lat, apt.lon, entry.runwayId, apt.icao);
-    }
-
-    // Frequenzen und Wetter pro Popup-Eintrag nur einmal starten. Derselbe
-    // Flugplatz behält seinen DOM- und Ladezustand über Folgeklicks.
-    if (entry.loadingStarted) return;
-    entry.loadingStarted = true;
-    if (typeof fetchAirportFreq === 'function') {
-        const hasCachedFrequencies = (
-            typeof freqCache !== 'undefined'
-            && Object.prototype.hasOwnProperty.call(freqCache, apt.icao)
-        );
-        if (!hasCachedFrequencies) {
-            fetchAirportFreq(apt.icao, null, null)
-                .finally(() => updateAirportInfoPopupFrequency(entry, apt.icao));
-        }
-    }
-    if (typeof loadMetarWidget === 'function') {
-        loadMetarWidget(apt.icao, entry.wxId, apt.lat, apt.lon, true);
-    }
-}
-
-function getOpenAipNavaidTypeLabel(type) {
-    const labels = {
-        0: 'DME',
-        1: 'TACAN',
-        2: 'NDB',
-        3: 'VOR',
-        4: 'VOR/DME',
-        5: 'VORTAC',
-        6: 'DVOR',
-        7: 'DVOR/DME',
-        8: 'DVORTAC'
-    };
-    const key = Number(type);
-    return Object.prototype.hasOwnProperty.call(labels, key) ? labels[key] : 'Funkfeuer';
-}
-
-function normalizeOpenAipNavaidForPopup(navaid, source = '') {
-    const raw = navaid?.navaidData && typeof navaid.navaidData === 'object'
-        ? navaid.navaidData
-        : navaid;
-    if (!raw) return null;
-    const sourceId = String(raw?._id || raw?.id || navaid?.sourceId || '').trim();
-    const staticItem = sourceId && openAipStaticNavaidState.byId instanceof Map
-        ? openAipStaticNavaidState.byId.get(sourceId)
-        : null;
-    const item = staticItem ? { ...staticItem, ...raw } : raw;
-    const coords = item?.geometry?.coordinates;
-    const lat = Number(item?.lat ?? navaid?.lat ?? coords?.[1]);
-    const lon = Number(item?.lon ?? item?.lng ?? navaid?.lng ?? coords?.[0]);
-    if (![lat, lon].every(Number.isFinite)) return null;
-
-    const frequency = item?.frequency ?? (Array.isArray(item?.frequencies) ? item.frequencies[0] : null);
-    const frequencyValue = typeof frequency === 'object'
-        ? String(frequency?.value ?? '').trim()
-        : String(frequency ?? '').trim();
-    const frequencyUnitCode = Number(typeof frequency === 'object' ? frequency?.unit : NaN);
-    const frequencyUnit = frequencyUnitCode === 1
-        ? 'kHz'
-        : (frequencyUnitCode === 2 ? 'MHz' : '');
-    const rangeValue = typeof item?.range === 'object'
-        ? String(item.range?.value ?? '').trim()
-        : String(item?.range ?? '').trim();
-    const rangeUnit = Number(item?.range?.unit) === 2 ? 'NM' : '';
-    const identifier = String(
-        item?.identifier
-        || item?.designator
-        || navaid?.navaidIdentifier
-        || ''
-    ).trim().toUpperCase();
-    return {
-        id: sourceId,
-        name: String(item?.name || identifier || 'Funkfeuer').trim(),
-        identifier,
-        type: item?.type ?? navaid?.navaidType ?? null,
-        country: String(item?.country || '').trim().toUpperCase(),
-        frequencyValue,
-        frequencyUnit,
-        channel: String(item?.channel || '').trim().toUpperCase(),
-        rangeValue,
-        rangeUnit,
-        lat,
-        lon,
-        source: String(source || navaid?.navaidSource || 'live')
-    };
-}
-
-let navaidInfoPopupLayer = null;
-
-function getOpenAipPopupSourceLabel(source) {
-    const normalized = String(source || '').toLowerCase();
-    if (normalized === 'hosted') return 'GA Aviation DB (OpenAIP)';
-    if (normalized.startsWith('static')) return 'OpenAIP-Fallback';
-    if (normalized.includes('legacy')) return 'OpenAIP Legacy';
-    return 'OpenAIP V2';
-}
-
-function openNavaidInfoPopup(navaid) {
-    if (!map) return;
-    const nav = normalizeOpenAipNavaidForPopup(navaid);
-    if (!nav) return;
-    const title = nav.identifier
-        ? `${escapePopupText(nav.identifier)} · ${escapePopupText(nav.name)}`
-        : escapePopupText(nav.name);
-    const typeLabel = getOpenAipNavaidTypeLabel(nav.type);
-    const sourceLabel = getOpenAipPopupSourceLabel(nav.source);
-    const lines = [
-        `<div style="font-size:11px; line-height:1.65;"><b>Typ:</b> ${escapePopupText(typeLabel)}`,
-        nav.frequencyValue
-            ? `<b>Frequenz:</b> ${escapePopupText(nav.frequencyValue)}${nav.frequencyUnit ? ` ${escapePopupText(nav.frequencyUnit)}` : ''}`
-            : '<b>Frequenz:</b> Keine Angabe',
-        nav.channel ? `<b>Kanal:</b> ${escapePopupText(nav.channel)}` : '',
-        nav.rangeValue
-            ? `<b>Reichweite:</b> ${escapePopupText(nav.rangeValue)}${nav.rangeUnit ? ` ${escapePopupText(nav.rangeUnit)}` : ''}`
-            : '',
-        nav.country ? `<b>Land:</b> ${escapePopupText(nav.country)}` : '',
-        `<b>Position:</b> ${nav.lat.toFixed(5)}, ${nav.lon.toFixed(5)}`,
-        `<span style="color:#666;">Quelle: ${escapePopupText(sourceLabel)}</span></div>`
-    ].filter(Boolean).join('<br>');
-    const content = `
-        <div style="font-family:'Courier New',monospace; min-width:190px; color:#111;">
-            <b style="font-size:13px;">${title}</b>
-            <hr style="border-color:#ccc; margin:5px 0;">
-            ${lines}
-        </div>`;
-    if (!navaidInfoPopupLayer) navaidInfoPopupLayer = L.popup({ maxWidth: 285 });
-    navaidInfoPopupLayer
-        .setLatLng([nav.lat, nav.lon])
-        .setContent(content)
-        .openOn(map);
-}
-
-let reportingPointInfoPopupLayer = null;
-
-function openReportingPointInfoPopup(point) {
-    if (!map || !point) return;
-    const raw = point?.rppData && typeof point.rppData === 'object' ? point.rppData : point;
-    const coords = raw?.geometry?.coordinates;
-    const lat = Number(raw?.lat ?? point?.lat ?? coords?.[1]);
-    const lon = Number(raw?.lon ?? raw?.lng ?? point?.lng ?? coords?.[0]);
-    if (![lat, lon].every(Number.isFinite)) return;
-    const name = String(raw?.name || point?.name || 'VFR-Meldepunkt').replace(/^RPP\s+/i, '').trim();
-    const airportIcao = String(raw?.airportIcao || point?.rppAirportIcao || '').trim().toUpperCase();
-    const description = String(raw?.description || '').trim();
-    const sourceLabel = getOpenAipPopupSourceLabel(point?.rppSource);
-    const content = `
-        <div style="font-family:'Courier New',monospace; min-width:185px; color:#111;">
-            <b style="font-size:13px;">VRP ${escapePopupText(name)}</b>
-            <hr style="border-color:#ccc; margin:5px 0;">
-            <div style="font-size:11px; line-height:1.65;">
-                ${airportIcao ? `<b>Flugplatz:</b> ${escapePopupText(airportIcao)}<br>` : ''}
-                <b>Position:</b> ${lat.toFixed(5)}, ${lon.toFixed(5)}
-                ${description ? `<br><span style="color:#555;">${escapePopupText(description)}</span>` : ''}
-                <br><span style="color:#666;">Quelle: ${escapePopupText(sourceLabel)}</span>
-            </div>
-        </div>`;
-    if (!reportingPointInfoPopupLayer) reportingPointInfoPopupLayer = L.popup({ maxWidth: 285 });
-    reportingPointInfoPopupLayer
-        .setLatLng([lat, lon])
-        .setContent(content)
-        .openOn(map);
-}
-
 function hasActiveBriefingRoute() {
     const briefingBox = document.getElementById('briefingBox');
     return Boolean(briefingBox && briefingBox.style.display === 'block' && routeWaypoints && routeWaypoints.length > 0);
-}
-
-function getTasForRouteEstimate() {
-    return parseInt(document.getElementById('tasSlider')?.value || 160, 10) || 160;
 }
 
 function getDirectToPrivateStoryText() {
@@ -8695,22 +6102,27 @@ async function applyAirportDirectTo(airport, options = {}) {
     const destAirport = normalizeAirportForMap(airport);
     if (!destAirport || !destAirport.icao || !Number.isFinite(destAirport.lat) || !Number.isFinite(destAirport.lon)) return false;
 
+    let sharedNavigation = null;
+    if (window.gaNavigationAvailable?.()) {
+        try { sharedNavigation = await window.gaNavigationDirectTo(destAirport, options); }
+        catch (_) { alert('Tracker nicht erreichbar.'); return false; }
+        if (!sharedNavigation) return false;
+    }
     const forceGpsStart = Boolean(options.forceGpsStart);
     const hadFlightPlan = hasActiveBriefingRoute();
-    const useExistingStart = hadFlightPlan && !forceGpsStart;
+    const useExistingStart = sharedNavigation ? sharedNavigation.context.departureIcao !== 'GPS' : hadFlightPlan && !forceGpsStart;
     const gpsLive = isGpsLive();
-    let startPoint = null;
+    const selectedStart = window.GAMapDirectToCore.selectStart({ route: hadFlightPlan ? routeWaypoints : [], forceGpsStart, gpsLive, position: window.lastLiveGpsPos });
+    let startPoint = sharedNavigation ? { lat: sharedNavigation.points[0].lat, lng: sharedNavigation.points[0].lng ?? sharedNavigation.points[0].lon }
+        : selectedStart && { lat: selectedStart.lat, lng: selectedStart.lng };
+    if (sharedNavigation) currentStartICAO = sharedNavigation.context.departureIcao;
     let startData = null;
 
     if (useExistingStart) {
-        const firstWp = routeWaypoints[0];
-        startPoint = { lat: firstWp.lat, lng: firstWp.lng || firstWp.lon };
         if (currentStartICAO && currentStartICAO !== 'GPS' && typeof getAirportData === 'function') {
             startData = await getAirportData(currentStartICAO);
         }
-    } else if (gpsLive && window.lastLiveGpsPos) {
-        startPoint = { lat: window.lastLiveGpsPos.lat, lng: window.lastLiveGpsPos.lon };
-    } else {
+    } else if (!startPoint) {
         alert('Ohne bestehenden Flugplan brauche ich eine aktive Tracker-Verbindung, damit die aktuelle GPS-Position als Start gesetzt werden kann.');
         return false;
     }
@@ -8731,22 +6143,7 @@ async function applyAirportDirectTo(airport, options = {}) {
         currentSName = 'Live GPS Position';
         currentDepElev = null;
     }
-    routeWaypoints = [
-        {
-            lat: startPoint.lat,
-            lng: startPoint.lng,
-            lon: startPoint.lng,
-            name: currentSName || currentStartICAO || 'Start',
-            icao: currentStartICAO || undefined
-        },
-        {
-            lat: destAirport.lat,
-            lng: destAirport.lon,
-            lon: destAirport.lon,
-            name: destAirport.name || destAirport.icao,
-            icao: destAirport.icao
-        }
-    ];
+    routeWaypoints = window.GAMapDirectToCore.buildRoute(startPoint, destAirport, currentSName, currentStartICAO);
 
     currentMissionData = {
         start: currentStartICAO || 'GPS',
@@ -8795,6 +6192,7 @@ async function applyAirportDirectTo(airport, options = {}) {
 
     if (useExistingStart && typeof refreshGPSAfterDispatch === 'function') refreshGPSAfterDispatch();
 
+    if (sharedNavigation) window.gaNavigationReceive(sharedNavigation);
     showMapToast('Direct to ' + destAirport.icao);
     return true;
 }
@@ -8940,7 +6338,7 @@ function updateRoutePerformance() {
         let name1 = isStart
             ? (currentStartICAO || routeWaypoints[i].name || 'START')
             : (routeWaypoints[i].name || `WP ${i}`);
-        
+
         let name2;
         if (isEnd) {
             // Bei einem Rundflug (POI-Mission) ist das Endziel der Startplatz
@@ -9767,38 +7165,7 @@ window.gaGetOpenAipRouteAirspaces = async function(bounds) {
     return window.gaGetAviationCollectionForBounds('airspaces', bounds);
 };
 
-function normalizeOpenAipAirportForPopup(airport) {
-    const coords = airport?.geometry?.coordinates;
-    const hasGeometryCoordinates = Array.isArray(coords) && coords.length >= 2;
-    const lat = Number(hasGeometryCoordinates ? coords[1] : airport?.lat);
-    const lon = Number(hasGeometryCoordinates ? coords[0] : (airport?.lon ?? airport?.lng));
-    const icao = String(
-        airport?.icaoCode
-        || airport?.icao
-        || airport?.designator
-        || airport?.name
-        || ''
-    ).trim().toUpperCase();
-    if (!icao || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    const elevationIsObject = airport?.elevation && typeof airport.elevation === 'object';
-    const elevationValue = Number(elevationIsObject ? airport.elevation.value : airport?.elevation);
-    const elevation = Number.isFinite(elevationValue)
-        ? (
-            elevationIsObject && Number(airport.elevation.unit) !== 1
-                ? Math.round(elevationValue * 3.28084)
-                : elevationValue
-        )
-        : null;
-    return {
-        icao,
-        name: String(airport?.name || icao).trim(),
-        lat,
-        lon,
-        elevation,
-        country: String(airport?.country || airport?.countryCode || airport?.isoCountry || '').trim(),
-        sourceId: String(airport?._id || airport?.id || '').trim()
-    };
-}
+
 
 function seedOpenAipAirportFrequencies(airports) {
     if (typeof freqCache === 'undefined' || !Array.isArray(airports)) return;
@@ -9827,133 +7194,6 @@ function seedOpenAipAirportFrequencies(airports) {
     });
 }
 
-function getOpenAipRunwayCacheKey(airport) {
-    return String(
-        airport?.icaoCode
-        || airport?.icao
-        || airport?.designator
-        || airport?.name
-        || ''
-    ).trim().toUpperCase();
-}
-
-function getReciprocalRunwayDesignator(designator) {
-    const match = String(designator || '').trim().toUpperCase().match(/^(\d{1,2})([LRC]?)$/);
-    if (!match) return '';
-    const number = Number(match[1]);
-    if (!Number.isFinite(number) || number < 1 || number > 36) return '';
-    const reciprocalNumber = ((number + 17) % 36) + 1;
-    const side = match[2] === 'L' ? 'R' : (match[2] === 'R' ? 'L' : match[2]);
-    return `${String(reciprocalNumber).padStart(2, '0')}${side}`;
-}
-
-function getOpenAipRunwayLengthMeters(runway) {
-    const length = Number(runway?.dimension?.length?.value);
-    if (!Number.isFinite(length) || length <= 0) return null;
-    return Number(runway?.dimension?.length?.unit) === 1 ? length * 0.3048 : length;
-}
-
-function getOpenAipRunwaySurfaceLabel(runway) {
-    const explicit = String(
-        runway?.surface?.name
-        || runway?.surface?.label
-        || runway?.surface?.compositionName
-        || runway?.surface?.mainCompositeName
-        || ''
-    ).trim();
-    return explicit;
-}
-
-function formatOpenAipAirportRunways(airport) {
-    const runways = Array.isArray(airport?.runways) ? airport.runways.filter(Boolean) : [];
-    if (!runways.length) return '';
-    const byDesignator = new Map();
-    runways.forEach((runway) => {
-        const designator = String(runway?.designator || '').trim().toUpperCase();
-        if (designator && !byDesignator.has(designator)) byDesignator.set(designator, runway);
-    });
-
-    const used = new Set();
-    const lines = [];
-    runways.forEach((runway, index) => {
-        const designator = String(runway?.designator || '').trim().toUpperCase();
-        const uniqueKey = designator || `index:${index}`;
-        if (used.has(uniqueKey)) return;
-
-        const reciprocal = getReciprocalRunwayDesignator(designator);
-        const reciprocalRunway = reciprocal ? byDesignator.get(reciprocal) : null;
-        used.add(uniqueKey);
-        if (reciprocalRunway) used.add(reciprocal);
-
-        const runwayLabel = reciprocalRunway ? `${designator}/${reciprocal}` : (designator || 'Piste');
-        const lengthMeters = getOpenAipRunwayLengthMeters(runway)
-            ?? getOpenAipRunwayLengthMeters(reciprocalRunway);
-        const surface = getOpenAipRunwaySurfaceLabel(runway)
-            || getOpenAipRunwaySurfaceLabel(reciprocalRunway);
-        const details = [];
-        if (surface) details.push(surface);
-        if (Number.isFinite(lengthMeters)) details.push(`${Math.round(lengthMeters)}m`);
-        lines.push(`${runwayLabel}${details.length ? ` – ${details.join(' · ')}` : ''}`);
-    });
-    return [...new Set(lines)].slice(0, 8).join('\n');
-}
-
-function seedOpenAipAirportRunways(airports) {
-    if (typeof runwayCache === 'undefined' || !Array.isArray(airports)) return;
-    airports.forEach((airport) => {
-        const key = getOpenAipRunwayCacheKey(airport);
-        if (!key) return;
-        const formatted = formatOpenAipAirportRunways(airport);
-        if (!formatted) return;
-        const cached = String(runwayCache[key] || '');
-        if (!cached || cached === 'Keine Daten gefunden') {
-            runwayCache[key] = formatted;
-        }
-    });
-}
-
-function findOpenAipAirportInPayloads(payloads, icao, lat, lon) {
-    const targetCode = String(icao || '').trim().toUpperCase();
-    let nearest = null;
-    let nearestDistance = Infinity;
-    for (const payload of payloads) {
-        for (const airport of (Array.isArray(payload?.airports) ? payload.airports : [])) {
-            const code = getOpenAipRunwayCacheKey(airport);
-            if (targetCode && code === targetCode) return airport;
-            const coords = airport?.geometry?.coordinates;
-            if (!Array.isArray(coords) || coords.length < 2) continue;
-            const aptLon = Number(coords[0]);
-            const aptLat = Number(coords[1]);
-            if (![aptLat, aptLon, lat, lon].every(Number.isFinite)) continue;
-            const dLat = aptLat - lat;
-            const dLon = (aptLon - lon) * Math.cos((lat * Math.PI) / 180);
-            const distanceSq = (dLat * dLat) + (dLon * dLon);
-            if (distanceSq < nearestDistance) {
-                nearestDistance = distanceSq;
-                nearest = airport;
-            }
-        }
-    }
-    return nearestDistance <= (0.05 * 0.05) ? nearest : null;
-}
-
-window.gaFetchOpenAipAirportRunwayText = async function(icao, lat, lon) {
-    const latitude = Number(lat);
-    const longitude = Number(lon);
-    if (![latitude, longitude].every(Number.isFinite)) return '';
-    const lonPadding = 0.45 / Math.max(0.25, Math.abs(Math.cos((latitude * Math.PI) / 180)));
-    const bounds = {
-        west: longitude - lonPadding,
-        south: latitude - 0.45,
-        east: longitude + lonPadding,
-        north: latitude + 0.45
-    };
-    const payloads = await getOpenAipSnapshotsForBounds(bounds, 'airports');
-    payloads.forEach(payload => seedOpenAipAirportRunways(payload.airports));
-    const airport = findOpenAipAirportInPayloads(payloads, icao, latitude, longitude);
-    return airport ? formatOpenAipAirportRunways(airport) : '';
-};
-
 function getOpenAipNavaidCacheBounds(payload = null) {
     const bbox = payload?.bbox;
     if (Array.isArray(bbox) && bbox.length === 4) {
@@ -9967,46 +7207,7 @@ function getOpenAipNavaidCacheBounds(payload = null) {
 }
 
 function buildOpenAipNavaidCacheEntry(item, source = 'live') {
-    const sourceId = String(item?._id || item?.id || '').trim();
-    const staticItem = sourceId && openAipStaticNavaidState.byId instanceof Map
-        ? openAipStaticNavaidState.byId.get(sourceId)
-        : null;
-    const enrichedItem = staticItem ? { ...staticItem, ...item } : item;
-    const coords = enrichedItem?.geometry?.coordinates;
-    const lat = Number(enrichedItem?.lat ?? coords?.[1]);
-    const lon = Number(enrichedItem?.lon ?? coords?.[0]);
-    if (![lat, lon].every(Number.isFinite)) return null;
-
-    let freqVal = '';
-    if (enrichedItem?.frequency !== undefined && enrichedItem?.frequency !== null) {
-        freqVal = (typeof enrichedItem.frequency === 'object' && enrichedItem.frequency.value)
-            ? enrichedItem.frequency.value
-            : enrichedItem.frequency;
-    } else if (Array.isArray(enrichedItem?.frequencies) && enrichedItem.frequencies.length > 0) {
-        freqVal = enrichedItem.frequencies[0]?.value || enrichedItem.frequencies[0];
-    }
-    const identifier = String(enrichedItem?.identifier || enrichedItem?.designator || '').trim().toUpperCase();
-    const name = String(enrichedItem?.name || identifier || 'Navaid').trim();
-    const identText = identifier ? ` [${identifier}]` : '';
-    const freqText = freqVal ? ` (${freqVal})` : '';
-    return {
-        name: `${name}${identText}${freqText}`,
-        lat,
-        lng: lon,
-        type: 'NAVAID',
-        sourceId,
-        navaidIdentifier: identifier,
-        navaidType: enrichedItem?.type ?? null,
-        navaidSource: source,
-        navaidData: {
-            ...enrichedItem,
-            id: sourceId || enrichedItem?.id || '',
-            lat,
-            lon,
-            identifier,
-            name
-        }
-    };
+    return window.GAMapNavpointCore.navaid(item, source, openAipStaticNavaidState.byId);
 }
 
 function getStaticOpenAipNavaidEntries(bounds) {
@@ -10029,27 +7230,7 @@ function setOpenAipActiveNavaidSource(source, count) {
 }
 
 function buildOpenAipReportingPointCacheEntry(item, source = 'live') {
-    const coords = item?.geometry?.coordinates;
-    const lat = Number(item?.lat ?? coords?.[1]);
-    const lon = Number(item?.lon ?? coords?.[0]);
-    const name = String(item?.name || '').trim();
-    if (!name || ![lat, lon].every(Number.isFinite)) return null;
-    return {
-        name: `RPP ${name}`,
-        lat,
-        lng: lon,
-        type: 'RPP',
-        rppAirportIcao: String(item?.airportIcao || extractRppAirportIcao(item) || '').trim().toUpperCase(),
-        sourceId: String(item?._id || item?.id || '').trim(),
-        rppSource: source,
-        rppData: {
-            ...item,
-            id: String(item?._id || item?.id || '').trim(),
-            name,
-            lat,
-            lon
-        }
-    };
+    return window.GAMapNavpointCore.reportingPoint(item, source);
 }
 
 function getStaticOpenAipReportingPointEntries(bounds) {
@@ -10072,42 +7253,7 @@ function setOpenAipActiveReportingPointSource(source, count) {
 }
 
 function buildGlobalAirportSnapEntries(bounds) {
-    if (!bounds || typeof globalAirports !== 'object' || !globalAirports) return [];
-    const west = Number(bounds.west);
-    const south = Number(bounds.south);
-    const east = Number(bounds.east);
-    const north = Number(bounds.north);
-    if (![west, south, east, north].every(Number.isFinite) || east <= west || north <= south) return [];
-
-    const padLon = Math.min(0.25, Math.max(0.05, (east - west) * 0.15));
-    const padLat = Math.min(0.25, Math.max(0.05, (north - south) * 0.15));
-    const entries = [];
-    for (const key in globalAirports) {
-        const airport = globalAirports[key];
-        const lat = Number(airport?.lat);
-        const lon = Number(airport?.lon ?? airport?.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-        if (
-            lat < south - padLat
-            || lat > north + padLat
-            || lon < west - padLon
-            || lon > east + padLon
-        ) continue;
-        const icao = String(airport?.icao || key || '').trim().toUpperCase();
-        const airportName = String(airport?.name || airport?.n || airport?.city || icao || 'Flugplatz').trim();
-        entries.push({
-            name: `APT ${icao || airportName}`,
-            lat,
-            lng: lon,
-            type: 'APT',
-            airportIcao: icao || airportName,
-            airportName,
-            country: String(airport?.country || '').trim(),
-            elevation: airport?.elevation ?? null,
-            airportSnapSource: 'global-fallback'
-        });
-    }
-    return entries;
+    return window.GAMapNavpointCore.globalAirports(bounds, typeof globalAirports === 'object' ? globalAirports : null);
 }
 
 function mergeGlobalAirportSnapEntries(bounds = null) {
@@ -10200,19 +7346,8 @@ function replaceCachedNavDataFromOpenAip(payload) {
     );
     if (liveAirportsAvailable) {
         aptArray.forEach((i) => {
-            const apt = normalizeOpenAipAirportForPopup(i);
-            if (!apt) return;
-            const firstFrequency = Array.isArray(i.frequencies) ? i.frequencies[0]?.value : '';
-            next.push({
-                name: `APT ${apt.icao || apt.name}${firstFrequency ? ` (${firstFrequency})` : ''}`,
-                lat: apt.lat,
-                lng: apt.lon,
-                type: 'APT',
-                airportIcao: apt.icao || apt.name,
-                airportName: apt.name,
-                sourceId: apt.sourceId,
-                country: apt.country
-            });
+            const entry = window.GAMapNavpointCore.airport(i);
+            if (entry) next.push(entry);
         });
     }
     seedOpenAipAirportFrequencies(aptArray);
@@ -10583,30 +7718,6 @@ function getOpenAipAirportLabel(airport) {
     const icao = String(airport?.icaoCode || airport?.icao || '').trim().toUpperCase();
     const name = String(airport?.name || icao || 'Airport').trim();
     return icao ? `${icao} · ${name}` : name;
-}
-
-function getOpenAipAirportTooltip(airport) {
-    const normalized = normalizeOpenAipAirportForPopup(airport);
-    const icao = normalized?.icao || String(airport?.icaoCode || airport?.icao || '').trim().toUpperCase();
-    const name = normalized?.name || String(airport?.name || icao || 'Flugplatz').trim();
-    const runwayText = (
-        (typeof formatOpenAipAirportRunways === 'function' ? formatOpenAipAirportRunways(airport) : '')
-        || (icao && typeof runwayCache !== 'undefined' ? String(runwayCache?.[icao] || '') : '')
-    );
-    const runwayLabels = runwayText
-        .split(/\s*(?:\||\n|<br\s*\/?>)\s*/i)
-        .map(line => String(line || '').split(/\s+[–—-]\s+/)[0].trim())
-        .filter(label => /^(?:0[1-9]|[12]\d|3[0-6])[LRC]?\s*\/\s*(?:0[1-9]|[12]\d|3[0-6])[LRC]?$/i.test(label))
-        .slice(0, 3);
-    const frequencies = typeof getMapContextAirportFrequencies === 'function'
-        ? getMapContextAirportFrequencies(airport, icao)
-        : [];
-    return `
-        <span class="ga-airport-hover-tooltip">
-            <b>${escapePopupText(icao || 'APT')}</b> · ${escapePopupText(name)}
-            ${runwayLabels.length ? `<br><span>PISTE&nbsp; ${escapePopupText(runwayLabels.join(' · '))}</span>` : ''}
-            ${frequencies.length ? `<br><span>FREQ&nbsp;&nbsp; ${escapePopupText(frequencies[0])}</span>` : ''}
-        </span>`;
 }
 
 function getOpenAipAirportOverlayCoordinates(airport) {
@@ -11211,12 +8322,11 @@ window.getOpenTopoTileStatus = function() {
 
 function initMapBase() {
     if (map) return;
-    const radarActive = localStorage.getItem('ga_radar_active') === 'true';
     const dwdWarningsActive = localStorage.getItem('ga_dwd_warnings_active') === 'true';
     const awcSigmetActive = localStorage.getItem('ga_awc_sigmet_active') === 'true';
     const openAipOverlayActive = localStorage.getItem('ga_openaip_overlay_active') === 'true';
     const usaVfrOverlayActive = localStorage.getItem('ga_usa_vfr_overlay_active') === 'true';
-    
+
     // Base Maps
     const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
     const topoMap = createResilientOpenTopoLayer({
@@ -11226,7 +8336,7 @@ function initMapBase() {
     const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
     const darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: `${osmAttribution}, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>` });
     const lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: `${osmAttribution}, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>` });
-    
+
     // Overlays
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
         pane: GA_MAP_OVERLAY_PANES.vfr.name,
@@ -11243,7 +8353,7 @@ function initMapBase() {
         noWrap: true
     });
     const openAipVectorOverlay = ensureOpenAipOverlayLayer();
-    
+
     // NEU: Die offizielle DFS ICAO 1:500.000 Karte vom Secais Server
     const dfsIcaoOverlay = L.tileLayer('https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png', {
         pane: GA_MAP_OVERLAY_PANES.officialChart.name,
@@ -11342,7 +8452,7 @@ function initMapBase() {
     };
     map.on('dragstart zoomstart movestart', markMapInteraction);
     map.on('dragend zoomend moveend', clearMapInteractionSoon);
-    
+
     const baseMaps = {
         "⛰️ Topografie (Mit Text)": topoMap,
         "🗺️ Terrain (Ohne Text)": topoLightMap,
@@ -11350,20 +8460,9 @@ function initMapBase() {
         "🌑 Dark Mode (Clean)": darkMap,
         "📝 Blank Mode (Weiß)": lightMap
     };
-    
-    const radarOverlay = L.layerGroup();
-    fetch('https://api.rainviewer.com/public/weather-maps.json')
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.radar && data.radar.past && data.radar.past.length > 0) {
-                const latestRadar = data.radar.past[data.radar.past.length - 1].path;
-                L.tileLayer(`https://tilecache.rainviewer.com${latestRadar}/256/{z}/{x}/{y}/2/1_1.png`, {
-                    pane: GA_MAP_OVERLAY_PANES.weather.name,
-                    opacity: 0.65, transparent: true, maxNativeZoom: 7, attribution: 'Radar © RainViewer'
-                }).addTo(radarOverlay); if (radarActive) radarOverlay.addTo(map);
-            }
-        }).catch(e => console.warn('RainViewer Fetch Fehler:', e));
-        
+
+    const radarOverlay = createMapRadarOverlay(map, GA_MAP_OVERLAY_PANES.weather.name);
+
     const overlayMaps = {
         [OPENAIP_OVERLAY_LABEL]: openAipVectorOverlay,
         "🛩️ VFR Lufträume (Overlay)": aeroOverlay,
@@ -11374,104 +8473,10 @@ function initMapBase() {
         "🌩️ AWC SIGMET (Test)": awcSigmetOverlay,
         "🏔️ Terrain Avoid (Live)": terrainAvoidOverlayLayer
     };
-    
+
     const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed: true }).addTo(map);
-    if (layerControl && layerControl._container) {
-        const lc = layerControl._container;
-        const bringLayerControlToFront = () => {
-            const controlCorner = lc.closest('.leaflet-top, .leaflet-bottom') || lc.parentElement;
-            const controlRoot = lc.closest('.leaflet-control-container');
-            if (controlCorner && controlCorner.style) {
-                controlCorner.style.position = controlCorner.style.position || 'relative';
-                controlCorner.style.pointerEvents = 'auto';
-            }
-            if (controlRoot && controlRoot.style) {
-                controlRoot.style.position = controlRoot.style.position || 'relative';
-            }
-            lc.style.position = lc.style.position || 'relative';
-            if (typeof bringMapOverlayToFront === 'function') {
-                bringMapOverlayToFront(controlRoot, controlCorner, lc);
-                return;
-            }
-            window.gaMapOverlayZ = Math.max(130500, Number(window.gaMapOverlayZ) || 130500) + 1;
-            if (controlRoot && controlRoot.style) controlRoot.style.zIndex = String(window.gaMapOverlayZ);
-            if (controlCorner && controlCorner.style) controlCorner.style.zIndex = String(window.gaMapOverlayZ);
-            lc.style.zIndex = String(window.gaMapOverlayZ);
-        };
-        // Hover-Verhalten robust deaktivieren: Leaflet nutzt je nach Version
-        // mouseover/mouseout oder mouseenter/mouseleave.
-        const expandFn = (typeof layerControl.expand === 'function') ? layerControl.expand
-            : ((typeof layerControl._expand === 'function') ? layerControl._expand : null);
-        const collapseFn = (typeof layerControl.collapse === 'function') ? layerControl.collapse
-            : ((typeof layerControl._collapse === 'function') ? layerControl._collapse : null);
-        const origExpand = expandFn ? expandFn.bind(layerControl) : null;
-        const origCollapse = collapseFn ? collapseFn.bind(layerControl) : null;
+    configureMapLayerControl(map, layerControl);
 
-        // Harte Absicherung: Expand nur aus unserem Klick-Flow erlauben.
-        layerControl._allowManualExpand = false;
-        if (origExpand) {
-            layerControl.expand = function() {
-                if (!this._allowManualExpand) return this;
-                bringLayerControlToFront();
-                const out = origExpand();
-                bringLayerControlToFront();
-                return out;
-            };
-            layerControl._expand = layerControl.expand;
-        }
-        if (origCollapse) {
-            layerControl.collapse = function() {
-                return origCollapse();
-            };
-            layerControl._collapse = layerControl.collapse;
-        }
-        if (expandFn) {
-            L.DomEvent.off(lc, 'mouseover', expandFn, layerControl);
-            L.DomEvent.off(lc, 'mouseenter', expandFn, layerControl);
-            L.DomEvent.off(lc, 'pointerenter', expandFn, layerControl);
-        }
-        if (collapseFn) {
-            L.DomEvent.off(lc, 'mouseout', collapseFn, layerControl);
-            L.DomEvent.off(lc, 'mouseleave', collapseFn, layerControl);
-            L.DomEvent.off(lc, 'pointerleave', collapseFn, layerControl);
-        }
-
-        const toggle = lc.querySelector('.leaflet-control-layers-toggle');
-        if (toggle) {
-            // Falls Touch-Click expand bereits von Leaflet gebunden ist, entfernen
-            if (expandFn) {
-                L.DomEvent.off(toggle, 'click', expandFn, layerControl);
-                L.DomEvent.off(toggle, 'focus', expandFn, layerControl);
-            }
-            L.DomEvent.on(toggle, 'click', L.DomEvent.stop);
-            L.DomEvent.on(toggle, 'pointerdown', bringLayerControlToFront);
-            L.DomEvent.on(toggle, 'mousedown', bringLayerControlToFront);
-            L.DomEvent.on(toggle, 'click', () => {
-                bringLayerControlToFront();
-                const isOpen = L.DomUtil.hasClass(lc, 'leaflet-control-layers-expanded');
-                if (isOpen && typeof layerControl.collapse === 'function') {
-                    layerControl.collapse();
-                } else if (!isOpen && typeof layerControl.expand === 'function') {
-                    layerControl._allowManualExpand = true;
-                    layerControl.expand();
-                    layerControl._allowManualExpand = false;
-                }
-            });
-        }
-        L.DomEvent.on(lc, 'pointerdown', bringLayerControlToFront);
-        L.DomEvent.on(lc, 'click', bringLayerControlToFront);
-
-        if (!map._layersOutsideCloseBound) {
-            document.addEventListener('click', (e) => {
-                const isOpen = L.DomUtil.hasClass(lc, 'leaflet-control-layers-expanded');
-                if (!isOpen) return;
-                if (lc.contains(e.target)) return;
-                if (typeof layerControl.collapse === 'function') layerControl.collapse();
-            }, true);
-            map._layersOutsideCloseBound = true;
-        }
-    }
-    
     map.on('overlayadd', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
             updateAeroOverlayZoomVisibility();
@@ -11500,7 +8505,7 @@ function initMapBase() {
             if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         }
     });
-    
+
     map.on('overlayremove', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
             // Leaflet hat den Tile-Layer zu diesem Zeitpunkt bereits entfernt;
@@ -11523,7 +8528,7 @@ function initMapBase() {
             }
         }
     });
-    
+
     let snapFetchTimeout = null;
     let openAipOverlayFetchTimeout = null;
     let openAipRegionFetchTimeout = null;
@@ -11564,7 +8569,7 @@ function initMapBase() {
             vpScheduleVfrOverlayUpdate(false);
         }
     });
-    
+
     const fsControl = L.control({ position: 'topleft' });
     fsControl.onAdd = function () {
         const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control');
@@ -11794,7 +8799,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
                 ? (currentMissionData.poiName || currentMissionData.targetName || currentDName)
                 : currentDName) || 'POI'
         );
-        
+
         routeWaypoints = [
             { lat: lat1, lng: lon1 },
             { lat: lat2, lng: lon2, name: "🎯 " + poiLabel, isPOI: true },
@@ -12296,36 +9301,7 @@ let snapMode = true;
 let cachedNavData = [];
 
 function extractRppAirportIcao(rppItem) {
-    if (!rppItem || typeof rppItem !== 'object') return '';
-    const readIcao = (obj) => String(
-        obj?.icao || obj?.icaoCode || obj?.ident || obj?.designator || obj?.code || ''
-    ).trim().toUpperCase();
-
-    const directCandidates = [
-        rppItem.airport,
-        rppItem.aerodrome,
-        rppItem.relatedAirport,
-        rppItem.location,
-        rppItem.parent
-    ];
-    for (const c of directCandidates) {
-        const icao = readIcao(c);
-        if (/^[A-Z]{4}$/.test(icao)) return icao;
-    }
-
-    if (Array.isArray(rppItem.airports)) {
-        for (const a of rppItem.airports) {
-            const icao = readIcao(a);
-            if (/^[A-Z]{4}$/.test(icao)) return icao;
-        }
-    }
-
-    // Fallback: gelegentlich steckt die ICAO nur im Namen/Kommentar.
-    const textBlob = [rppItem.name, rppItem.title, rppItem.description, rppItem.note, rppItem.remarks]
-        .filter(Boolean)
-        .join(' ');
-    const m = textBlob.match(/\b[A-Z]{4}\b/);
-    return m ? m[0] : '';
+    return window.GAMapNavpointCore.extractRppAirportIcao(rppItem);
 }
 
 /* --- DIRECT TO STATE --- */
@@ -12511,13 +9487,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyMapHintEffects('lowFps');
     vpUpdateVfrUi();
 
-    document.addEventListener('click', (e) => {
-        const menu = document.getElementById('mapHintsMenu');
-        if (!menu || menu.style.display !== 'block') return;
-        const t = e.target;
-        if (t && t.closest && (t.closest('#mapHintsMenu') || t.closest('#mapHintsBtn'))) return;
-        window.toggleMapHintsMenu(false);
-    }, true);
+
 });
 
 let wxMapMarkers = [];
@@ -13003,7 +9973,7 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
 
     window.updateWeatherMarkerDodging = function() {
         if (!map || typeof wxMapMarkers === 'undefined' || wxMapMarkers.length === 0) return;
-        
+
         // FIX: Verhindere NaN, wenn die Karte versteckt ist (Leaflet liefert dann 0,0 für alles)
         const mapTable = document.getElementById('mapTableOverlay');
         if (!mapTable || !mapTable.classList.contains('active')) {
@@ -13025,15 +9995,15 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
     } else if (typeof routeWaypoints !== 'undefined' && routeWaypoints && routeWaypoints.length >= 2) {
         pts = routeWaypoints.map(wp => map.latLngToLayerPoint([wp.lat, wp.lng || wp.lon]));
     } else return;
-    
+
     wxMapMarkers.forEach(marker => {
         const wrap = marker._icon ? marker._icon.querySelector('.wx-marker-wrap') : null;
         if (!wrap) return;
-        
+
         const mPx = map.latLngToLayerPoint(marker.getLatLng());
         let minDist = Infinity;
         let pushVec = { x: 0, y: 0 };
-        
+
         // Abstand zu den Liniensegmenten
         for (let i = 0; i < pts.length - 1; i++) {
             const p1 = pts[i], p2 = pts[i+1];
@@ -13042,7 +10012,7 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
             if (l2 > 0) t = Math.max(0, Math.min(1, ((mPx.x - p1.x) * (p2.x - p1.x) + (mPx.y - p1.y) * (p2.y - p1.y)) / l2));
             const projX = p1.x + t * (p2.x - p1.x);
             const projY = p1.y + t * (p2.y - p1.y);
-            
+
             const dist = Math.sqrt(Math.pow(mPx.x - projX, 2) + Math.pow(mPx.y - projY, 2));
             if (dist < minDist) {
                 minDist = dist;
@@ -13050,7 +10020,7 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
                 else pushVec = { x: 1, y: 1 };
             }
         }
-        
+
         // Abstand zu den Wegpunkten selbst prüfen
         pts.forEach(p => {
             const dist = Math.sqrt(Math.pow(mPx.x - p.x, 2) + Math.pow(mPx.y - p.y, 2));
@@ -13060,10 +10030,10 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
                 else pushVec = { x: 1, y: 1 };
             }
         });
-        
-        const THRESHOLD = 45; 
+
+        const THRESHOLD = 45;
         if (minDist < THRESHOLD) {
-            const force = THRESHOLD - minDist + 15; 
+            const force = THRESHOLD - minDist + 15;
             wrap.style.transition = 'transform 0.1s linear';
             wrap.style.transform = `translate(${pushVec.x * force}px, ${pushVec.y * force}px)`;
         } else {
@@ -13117,7 +10087,7 @@ window.renderWeatherMarkers = function(forceFetch = false) {
         let windHtml = '';
         let wdir = zone.wdir;
         let wspd = zone.wspd || 0;
-        
+
         if (wdir && wdir !== 'VRB' && wspd > 0) {
             let rotDir = (parseInt(wdir) + 180) % 360;
             windHtml = `
@@ -13184,11 +10154,11 @@ window.renderWeatherMarkers = function(forceFetch = false) {
         const offsetPx = L.point(Math.round(Math.cos(angle) * 14), Math.round(Math.sin(angle) * 14) - 10);
         const drawPos = map.layerPointToLatLng(stnPx.add(offsetPx));
         const marker = L.marker(drawPos, { icon: icon, interactive: !measureMode }).addTo(map);
-        
+
         // Kompaktes Popup-Container
         const popupId = `wxPopup_${zone.icao}`;
         marker.bindPopup(`<div id="${popupId}" style="width: 250px; min-height: 120px; display: flex; align-items: center; justify-content: center; color: #888; font-family: Arial, sans-serif; margin: -5px;">Lade METAR...</div>`, { maxWidth: 300 });
-        
+
         // Rendert das moderne, kompakte Widget (forceModern=true) beim Klick
         marker.on('popupopen', () => {
             if (measureMode) {
@@ -13197,7 +10167,7 @@ window.renderWeatherMarkers = function(forceFetch = false) {
             }
             if (typeof loadMetarWidget === 'function') loadMetarWidget(zone.icao, popupId, zLat, zLon, true);
         });
-        
+
         wxMapMarkers.push(marker);
     });
 
@@ -13276,1900 +10246,6 @@ function clearFreeflightRoute() {
     ffMarkers.forEach(m => map.removeLayer(m));
     ffMarkers = [];
     if (ffContextPopup) { map.closePopup(ffContextPopup); ffContextPopup = null; }
-}
-
-function findNearestAirport(latlng, maxPixels) {
-    if (typeof maxPixels === 'undefined') maxPixels = 60;
-    if (!map) return null;
-    const tapPx = map.latLngToLayerPoint(latlng);
-    let best = null, bestDist = maxPixels + 1;
-
-    // 1. cachedNavData (OpenAIP airports)
-    cachedNavData.forEach(nav => {
-        if (nav.type !== 'APT' && !nav.name.startsWith('APT ')) return;
-        const navPx = map.latLngToLayerPoint([nav.lat, nav.lng]);
-        const d = tapPx.distanceTo(navPx);
-        if (d < bestDist) {
-            bestDist = d;
-            const parts = nav.name.replace('APT ', '').split(' (');
-            const icao = String(nav.airportIcao || parts[0] || '').trim().toUpperCase();
-            best = {
-                icao,
-                name: nav.airportName || parts[0].trim(),
-                lat: nav.lat,
-                lon: nav.lng,
-                sourceId: nav.sourceId || '',
-                country: nav.country || ''
-            };
-        }
-    });
-    if (best) return best;
-
-    // 2. Der Regions-Snapshot ist oft deutlich früher verfügbar als die große
-    // globale Airport-Datei. Direkt daraus suchen, damit schon der erste Tap sitzt.
-    const regionAirports = Array.isArray(openAipRegionState?.payload?.airports)
-        ? openAipRegionState.payload.airports
-        : [];
-    for (const airport of regionAirports) {
-        const apt = normalizeOpenAipAirportForPopup(airport);
-        if (!apt) continue;
-        const aptPx = map.latLngToLayerPoint([apt.lat, apt.lon]);
-        const d = tapPx.distanceTo(aptPx);
-        if (d < bestDist) {
-            bestDist = d;
-            best = apt;
-        }
-    }
-    if (best) return best;
-
-    // 3. Lokale Airport-Datenbank. Sie ist auch ohne sichtbares
-    // OpenAIP-Overlay geladen und muss deshalb vor einem nahen DME gewinnen
-    // können.
-    const airportDatabase = getAirportDatabaseForMapClicks();
-    if (airportDatabase) {
-        const latF = latlng.lat, lngF = latlng.lng;
-        for (const icao in airportDatabase) {
-            const apt = airportDatabase[icao];
-            const aptLat = Number(apt?.lat);
-            const aptLon = Number(apt?.lon ?? apt?.lng);
-            if (!Number.isFinite(aptLat) || !Number.isFinite(aptLon)) continue;
-            if (Math.abs(aptLat - latF) > 0.5 || Math.abs(aptLon - lngF) > 0.5) continue;
-            const aptPx = map.latLngToLayerPoint([aptLat, aptLon]);
-            const d = tapPx.distanceTo(aptPx);
-            if (d < bestDist) {
-                bestDist = d;
-                const aptIcao = String(apt?.icao || icao || '').trim().toUpperCase();
-                best = { icao: aptIcao, name: apt.name || apt.n || apt.city || aptIcao, lat: aptLat, lon: aptLon, elevation: apt.elevation ?? null };
-            }
-        }
-    }
-    return best;
-}
-
-function findNearestMapNavigationPoint(latlng, maxPixels) {
-    if (!map) return null;
-    const tapPx = map.latLngToLayerPoint(latlng);
-    let best = null;
-    let bestDist = Number(maxPixels) + 1;
-    const consider = (nav) => {
-        if (nav?.type !== 'NAVAID' && nav?.type !== 'RPP') return;
-        const lat = Number(nav?.lat);
-        const lon = Number(nav?.lng);
-        if (![lat, lon].every(Number.isFinite)) return;
-        const pointPx = map.latLngToLayerPoint([lat, lon]);
-        const distance = tapPx.distanceTo(pointPx);
-        if (distance < bestDist) {
-            bestDist = distance;
-            best = nav;
-        }
-    };
-    (Array.isArray(cachedNavData) ? cachedNavData : []).forEach(consider);
-
-    // Die lokalen OpenAIP-Fallbacks stehen unabhängig von Snapping und
-    // Kartenoverlay zur Verfügung. Dadurch funktionieren Tooltip/Tafel auch
-    // dann, wenn cachedNavData für die aktuelle Ansicht noch leer ist.
-    const viewBounds = getOpenAipNavaidCacheBounds();
-    getStaticOpenAipNavaidEntries(viewBounds).forEach(consider);
-    getStaticOpenAipReportingPointEntries(viewBounds).forEach(consider);
-    return best;
-}
-
-function findNearestMapInfoObject(latlng) {
-    const radius = getAirportTapRadiusPx(34);
-    const airport = findNearestAirport(latlng, radius);
-    const navigationPoint = findNearestMapNavigationPoint(latlng, radius);
-    if (!airport && !navigationPoint) return null;
-
-    // Während die lokale Airport-Datei noch lädt, darf ein bereits verfügbares
-    // DME den Tap nicht vorzeitig verbrauchen. Der asynchrone Retry löst den
-    // Treffer unmittelbar nach dem Laden noch einmal auf.
-    if (
-        !airport
-        && !getAirportDatabaseForMapClicks()
-        && storedAirportOverlayState.loadPromise
-    ) {
-        return null;
-    }
-    if (airport && navigationPoint && map) {
-        const tapPx = map.latLngToLayerPoint(latlng);
-        const airportPx = map.latLngToLayerPoint([airport.lat, airport.lon]);
-        const navaidPx = map.latLngToLayerPoint([navigationPoint.lat, navigationPoint.lng]);
-        const airportDistance = tapPx.distanceTo(airportPx);
-        const navigationDistance = tapPx.distanceTo(navaidPx);
-        // Bei praktisch identischer Position gehört der sichtbare Platz zum
-        // Airport; ansonsten entscheidet der näher angetippte Kartenpunkt.
-        if (airportDistance <= navigationDistance + 2) {
-            return { kind: 'airport', data: airport };
-        }
-    } else if (airport) {
-        return { kind: 'airport', data: airport };
-    }
-    if (!navigationPoint) return { kind: 'airport', data: airport };
-    return {
-        kind: navigationPoint.type === 'RPP' ? 'vrp' : 'navaid',
-        data: navigationPoint
-    };
-}
-
-function getMapNavigationPointTooltip(point) {
-    if (!point) return '';
-    if (point.type === 'RPP') {
-        const raw = point?.rppData && typeof point.rppData === 'object' ? point.rppData : point;
-        const name = String(raw?.name || point?.name || 'VFR-Meldepunkt').replace(/^RPP\s+/i, '').trim();
-        const airportIcao = String(raw?.airportIcao || point?.rppAirportIcao || '').trim().toUpperCase();
-        return `
-            <span class="ga-airport-hover-tooltip ga-map-point-hover-tooltip">
-                <b>VRP</b> · ${escapePopupText(name)}
-                ${airportIcao ? `<br><span>FLUGPLATZ&nbsp; ${escapePopupText(airportIcao)}</span>` : ''}
-            </span>`;
-    }
-    const nav = normalizeOpenAipNavaidForPopup(point);
-    if (!nav) return '';
-    const title = nav.identifier || 'NAVAID';
-    const frequency = nav.frequencyValue
-        ? `${nav.frequencyValue}${nav.frequencyUnit ? ` ${nav.frequencyUnit}` : ''}`
-        : '';
-    return `
-        <span class="ga-airport-hover-tooltip ga-map-point-hover-tooltip">
-            <b>${escapePopupText(title)}</b> · ${escapePopupText(nav.name)}
-            <br><span>${escapePopupText(getOpenAipNavaidTypeLabel(nav.type))}${frequency ? `&nbsp; ${escapePopupText(frequency)}` : ''}</span>
-        </span>`;
-}
-
-let mapSingleClickTooltipLayer = null;
-let mapSingleClickTooltipTimer = null;
-
-function clearMapSingleClickTooltip() {
-    if (mapSingleClickTooltipTimer) {
-        clearTimeout(mapSingleClickTooltipTimer);
-        mapSingleClickTooltipTimer = null;
-    }
-    if (map && mapSingleClickTooltipLayer && map.hasLayer(mapSingleClickTooltipLayer)) {
-        map.removeLayer(mapSingleClickTooltipLayer);
-    }
-    mapSingleClickTooltipLayer = null;
-}
-
-function openMapPointSingleClickTooltip(match) {
-    if (!map || getMapSingleClickMode() !== 'tooltip' || !match) return false;
-    const isAirport = match.kind === 'airport';
-    const normalizedAirport = isAirport
-        ? normalizeOpenAipAirportForPopup(match.data)
-        : null;
-    if (isAirport && !normalizedAirport) return false;
-    const rawCoordinates = match.data?.geometry?.coordinates
-        || match.data?.navaidData?.geometry?.coordinates
-        || match.data?.rppData?.geometry?.coordinates;
-    const anchorLat = Number(normalizedAirport?.lat ?? match.data?.lat ?? match.data?.rppData?.lat ?? rawCoordinates?.[1]);
-    const anchorLon = Number(normalizedAirport?.lon ?? match.data?.lng ?? match.data?.lon ?? match.data?.rppData?.lon ?? rawCoordinates?.[0]);
-    if (![anchorLat, anchorLon].every(Number.isFinite)) return false;
-    const anchor = L.latLng(anchorLat, anchorLon);
-    const content = isAirport
-        ? getOpenAipAirportTooltip(match.data)
-        : getMapNavigationPointTooltip(match.data);
-    if (!content) return false;
-
-    clearMapSingleClickTooltip();
-    mapSingleClickTooltipLayer = L.tooltip({
-        direction: 'top',
-        offset: [0, -8],
-        opacity: 1,
-        className: 'airspace-tooltip ga-airport-tooltip-shell ga-map-point-click-tooltip'
-    })
-        .setLatLng(anchor)
-        .setContent(content)
-        .addTo(map);
-    mapSingleClickTooltipTimer = setTimeout(clearMapSingleClickTooltip, 5200);
-    return true;
-}
-
-function openNearestMapTooltipAt(latlng) {
-    if (!map || getMapSingleClickMode() !== 'tooltip') return false;
-    return openMapPointSingleClickTooltip(findNearestMapInfoObject(latlng));
-}
-
-function openNearestMapInfoAt(latlng) {
-    if (getMapSingleClickMode() !== 'panels') return false;
-    const match = findNearestMapInfoObject(latlng);
-    if (!match) return false;
-    if (match.kind === 'airport') {
-        openAirportInfoPopup(match.data);
-        return true;
-    }
-    if (match.kind === 'navaid') {
-        openNavaidInfoPopup(match.data);
-    } else {
-        openReportingPointInfoPopup(match.data);
-    }
-    return true;
-}
-
-function resolveMapSingleClickAt(latlng) {
-    const mode = getMapSingleClickMode();
-    if (mode === 'tooltip') return openNearestMapTooltipAt(latlng);
-    if (mode === 'panels') return openNearestMapInfoAt(latlng);
-    return false;
-}
-
-const MAP_CONTEXT_LONG_PRESS_MS = 650;
-const MAP_CONTEXT_MOVE_TOLERANCE_PX = 12;
-const MAP_CONTEXT_RELEVANT_AIRSPACE_TYPES = new Set([0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
-let mapContextPressState = null;
-let mapContextSuppressClickUntil = 0;
-let mapContextLastOpen = { at: 0, lat: NaN, lon: NaN };
-let mapContextRequestSeq = 0;
-let mapContextInfoState = null;
-let mapContextPopupLayer = null;
-let mapContextPointLayer = null;
-let mapContextAirspaceHighlightLayer = null;
-let mapContextObjectHighlightLayer = null;
-
-function clearMapContextPress() {
-    if (mapContextPressState?.timer) clearTimeout(mapContextPressState.timer);
-    mapContextPressState = null;
-}
-
-function clearMapContextPointLayer() {
-    if (map && mapContextPointLayer && map.hasLayer(mapContextPointLayer)) {
-        map.removeLayer(mapContextPointLayer);
-    }
-    mapContextPointLayer = null;
-}
-
-function clearMapContextAirspaceHighlight() {
-    if (map && mapContextAirspaceHighlightLayer && map.hasLayer(mapContextAirspaceHighlightLayer)) {
-        map.removeLayer(mapContextAirspaceHighlightLayer);
-    }
-    mapContextAirspaceHighlightLayer = null;
-}
-
-function clearMapContextObjectHighlight() {
-    if (map && mapContextObjectHighlightLayer && map.hasLayer(mapContextObjectHighlightLayer)) {
-        map.removeLayer(mapContextObjectHighlightLayer);
-    }
-    mapContextObjectHighlightLayer = null;
-}
-
-function dismissMapContextInfo({ closePopup = false, clearHighlight = true } = {}) {
-    mapContextRequestSeq += 1;
-    mapContextInfoState = null;
-    clearMapContextPress();
-    clearMapContextPointLayer();
-    if (clearHighlight) {
-        clearMapContextAirspaceHighlight();
-        clearMapContextObjectHighlight();
-    }
-    if (closePopup && map && mapContextPopupLayer) {
-        map.closePopup(mapContextPopupLayer);
-    }
-}
-
-function mapContextPointInRing(lat, lon, ring) {
-    if (!Array.isArray(ring) || ring.length < 3) return false;
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const xi = Number(ring[i]?.[0]);
-        const yi = Number(ring[i]?.[1]);
-        const xj = Number(ring[j]?.[0]);
-        const yj = Number(ring[j]?.[1]);
-        if (![xi, yi, xj, yj].every(Number.isFinite)) continue;
-        const crosses = ((yi > lat) !== (yj > lat))
-            && (lon < ((xj - xi) * (lat - yi) / (yj - yi)) + xi);
-        if (crosses) inside = !inside;
-    }
-    return inside;
-}
-
-function mapContextPointInPolygon(lat, lon, rings) {
-    if (!Array.isArray(rings) || !mapContextPointInRing(lat, lon, rings[0])) return false;
-    for (let i = 1; i < rings.length; i += 1) {
-        if (mapContextPointInRing(lat, lon, rings[i])) return false;
-    }
-    return true;
-}
-
-function mapContextPointInAirspace(airspace, lat, lon) {
-    const geometry = airspace?.geometry;
-    if (!geometry) return false;
-    if (geometry.type === 'Polygon') {
-        return mapContextPointInPolygon(lat, lon, geometry.coordinates);
-    }
-    if (geometry.type === 'MultiPolygon') {
-        return geometry.coordinates.some(rings => mapContextPointInPolygon(lat, lon, rings));
-    }
-    return false;
-}
-
-function getMapContextAirspaceId(airspace, fallbackIndex = 0) {
-    return String(
-        airspace?._id
-        || airspace?.id
-        || `${airspace?.name || 'airspace'}:${airspace?.type ?? 'x'}:${fallbackIndex}`
-    );
-}
-
-function mapContextAirspaceStyle(airspace) {
-    if (typeof getAirspaceStyle === 'function') {
-        try {
-            const style = getAirspaceStyle(airspace);
-            if (style) {
-                const currentColor = String(style.mapColor || style.color || '').toLowerCase();
-                const type = Number(airspace?.type);
-                const grayPalette = new Set(['#888', '#888888', '#aaa', '#aaaaaa', '#94a3b8']);
-                if (grayPalette.has(currentColor)) {
-                    const contextualColor = type === 33
-                        ? '#22a65a'
-                        : (type === 0 || type === 4 ? '#3b82f6' : '#64748b');
-                    return { ...style, color: contextualColor, mapColor: contextualColor };
-                }
-                return style;
-            }
-        } catch (_) {}
-    }
-    const type = Number(airspace?.type);
-    if (type === 33) return { color: '#22a65a', mapColor: '#22a65a', icon: '📡', category: 'FIS' };
-    if (type === 3) return { color: '#ef4444', mapColor: '#ef4444', icon: '⛔', category: 'Prohibited' };
-    if (type === 1 || type === 2) return { color: '#f97316', mapColor: '#f97316', icon: '⛔', category: 'Restricted / Danger' };
-    if (type === 4 || type === 0) return { color: '#3b82f6', mapColor: '#3b82f6', icon: '⚠️', category: 'CTR / Airspace' };
-    if (type === 7 || type === 26) return { color: '#0ea5e9', mapColor: '#0ea5e9', icon: '⚠️', category: 'TMA / CTA' };
-    if (type === 5 || type === 27) return { color: '#a855f7', mapColor: '#a855f7', icon: '📡', category: 'TMZ' };
-    if (type === 6 || type === 28) return { color: '#22d3ee', mapColor: '#22d3ee', icon: '📡', category: 'RMZ' };
-    return { color: '#94a3b8', mapColor: '#94a3b8', icon: '◈', category: 'Luftraum' };
-}
-
-function getMapContextAirspaceDescriptor(airspace) {
-    const type = Number(airspace?.type);
-    const rawClass = airspace?.icaoClass;
-    const classIndex = rawClass === null || rawClass === undefined || rawClass === ''
-        ? NaN
-        : Number(rawClass);
-    const classWords = ['ALPHA', 'BRAVO', 'CHARLY', 'DELTA', 'ECHO', 'FOXTROT', 'GOLF'];
-    const classWord = Number.isInteger(classIndex) ? (classWords[classIndex] || '') : '';
-    const classLetter = Number.isInteger(classIndex) && classIndex >= 0 && classIndex <= 6
-        ? 'ABCDEFG'[classIndex]
-        : '';
-    if (type === 1) return 'ED-R';
-    if (type === 2) return 'ED-D';
-    if (type === 3) return 'ED-P';
-    if (type === 4) return ['CTR', classLetter].filter(Boolean).join(' ');
-    if (type === 7) return ['TMA', classWord].filter(Boolean).join(' ');
-    if (type === 26) return ['CTA', classWord].filter(Boolean).join(' ');
-    if (type === 5 || type === 27) return 'TMZ';
-    if (type === 6 || type === 28) return 'RMZ';
-    if (type === 33) return 'FIS';
-    return classWord || 'LUFTRAUM';
-}
-
-function getMapContextAirspaceDisplayTitle(airspace) {
-    const descriptor = getMapContextAirspaceDescriptor(airspace);
-    const rawName = String(airspace?.name || '').trim();
-    if (!rawName) return descriptor;
-    const typeToken = descriptor.split(/\s+/)[0];
-    const typePrefix = new RegExp(`^${typeToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s·:_-]*`, 'i');
-    const cleanedName = rawName.replace(typePrefix, '').trim();
-    return cleanedName ? `${descriptor} · ${cleanedName}` : descriptor;
-}
-
-function isMapContextGenericEchoArea(airspace) {
-    const rawName = String(airspace?.name || '').trim();
-    return Number(airspace?.type) === 0
-        && Number(airspace?.icaoClass) === 4
-        && /^(?:ECHO[\s·:_-]*)?AREA$/i.test(rawName);
-}
-
-function getMapContextAirspaceClassLetter(airspace) {
-    const rawClass = airspace?.icaoClass;
-    if (rawClass === null || rawClass === undefined || rawClass === '') return '';
-    const classIndex = Number(rawClass);
-    return Number.isInteger(classIndex) && classIndex >= 0 && classIndex <= 6
-        ? 'ABCDEFG'[classIndex]
-        : '';
-}
-
-function mapContextFormatLimit(limit) {
-    if (!limit) return '?';
-    if (typeof window.formatAsLimit === 'function') {
-        try { return window.formatAsLimit(limit); } catch (_) {}
-    }
-    const value = Number(limit.value);
-    if (limit.referenceDatum === 0 && value === 0) return 'GND';
-    if (Number(limit.unit) === 6) return `FL ${value}`;
-    const unit = Number(limit.unit) === 1 ? 'FT' : 'M';
-    const datum = limit.referenceDatum === 1 ? ' MSL' : (limit.referenceDatum === 0 ? ' AGL' : '');
-    return `${value} ${unit}${datum}`;
-}
-
-function mapContextLimitToFt(limit) {
-    if (!limit) return Infinity;
-    const value = Number(limit.value);
-    if (!Number.isFinite(value)) return Infinity;
-    if (Number(limit.unit) === 6) return value * 100;
-    if (Number(limit.unit) === 0) return value * 3.28084;
-    return value;
-}
-
-function mapContextAirspaceFrequencyText(airspace) {
-    const frequencies = Array.isArray(airspace?.frequencies) ? airspace.frequencies : [];
-    const values = frequencies
-        .filter(item => item && item.value !== undefined && item.value !== null && item.value !== '')
-        .map((item) => {
-            const name = String(item.name || item.label || 'Frequenz').trim();
-            const unitCode = Number(item.unit);
-            const unit = unitCode === 1 ? ' kHz' : (unitCode === 2 ? ' MHz' : '');
-            return {
-                label: abbreviateMapFrequencyLabel(name),
-                value: `${item.value}${unit}`
-            };
-        });
-    return values
-        .filter((item, index, items) => (
-            items.findIndex(candidate => (
-                candidate.label === item.label
-                && candidate.value === item.value
-            )) === index
-        ))
-        .slice(0, 3);
-}
-
-function mapContextAirspaceActivationText(airspace) {
-    const candidates = [
-        airspace?.hoursOfOperation,
-        airspace?.operatingHours,
-        airspace?.activation,
-        airspace?.activity
-    ];
-    const explicit = candidates.find(value => typeof value === 'string' && value.trim());
-    if (explicit) return explicit.trim();
-    if (airspace?.byNotam === true) return 'Aktivierung per NOTAM';
-    if (/\bHX\b/i.test(String(airspace?.name || ''))) return 'HX – Aktivierung in AIP/NOTAM prüfen';
-    return '';
-}
-
-function normalizeMapContextAirspaces(items, latlng) {
-    const byId = new Map();
-    (Array.isArray(items) ? items : []).forEach((airspace, index) => {
-        if (!airspace?.geometry || !MAP_CONTEXT_RELEVANT_AIRSPACE_TYPES.has(Number(airspace.type))) return;
-        if (isMapContextGenericEchoArea(airspace)) return;
-        if (!mapContextPointInAirspace(airspace, latlng.lat, latlng.lng)) return;
-        const normalized = {
-            ...airspace,
-            lowerLimit: airspace.lowerLimit ? { ...airspace.lowerLimit } : null,
-            upperLimit: airspace.upperLimit ? { ...airspace.upperLimit } : null
-        };
-        if (typeof applyAirspaceLimitHeuristics === 'function') {
-            try { applyAirspaceLimitHeuristics(normalized); } catch (_) {}
-        }
-        const id = getMapContextAirspaceId(normalized, index);
-        if (!byId.has(id)) {
-            normalized.__mapContextId = id;
-            byId.set(id, normalized);
-        }
-    });
-    return [...byId.values()].sort((a, b) => {
-        const lowerDelta = mapContextLimitToFt(a.lowerLimit) - mapContextLimitToFt(b.lowerLimit);
-        if (Number.isFinite(lowerDelta) && lowerDelta !== 0) return lowerDelta;
-        return String(a.name || '').localeCompare(String(b.name || ''), 'de');
-    });
-}
-
-function getMapContextQueryBounds(latlng, latPad = 0.025) {
-    const lonPad = latPad / Math.max(0.25, Math.cos((latlng.lat * Math.PI) / 180));
-    return {
-        west: Math.max(-180, latlng.lng - lonPad),
-        south: Math.max(-90, latlng.lat - latPad),
-        east: Math.min(180, latlng.lng + lonPad),
-        north: Math.min(90, latlng.lat + latPad)
-    };
-}
-
-async function fetchMapContextAirspaces(latlng) {
-    const bounds = getMapContextQueryBounds(latlng);
-    let items = null;
-    if (
-        openAipRegionState.payload
-        && openAipCoverageContainsBounds(openAipRegionState.coverage, bounds)
-        && isOpenAipSnapshotCollectionAvailable(openAipRegionState.payload, 'airspaces')
-    ) {
-        items = openAipRegionState.payload.airspaces;
-    } else if (typeof window.gaGetAviationCollectionForBounds === 'function') {
-        items = await window.gaGetAviationCollectionForBounds('airspaces', bounds);
-    }
-    return normalizeMapContextAirspaces(items, latlng);
-}
-
-function mapContextElevationToFt(elevation) {
-    const value = Number(elevation?.value ?? elevation);
-    if (!Number.isFinite(value)) return null;
-    return Number(elevation?.unit) === 1 ? value : value * 3.28084;
-}
-
-function getMapContextAirportFrequencies(airport, icao) {
-    const direct = Array.isArray(airport?.frequencies) ? airport.frequencies : [];
-    const cached = (
-        typeof freqCache !== 'undefined'
-        && Array.isArray(freqCache?.[icao])
-    ) ? freqCache[icao] : [];
-    return [...direct, ...cached]
-        .map((entry) => {
-            if (entry === null || entry === undefined) return '';
-            if (typeof entry !== 'object') return String(entry).trim();
-            const name = String(entry.name || entry.label || 'Freq').trim();
-            const value = String(entry.value ?? '').trim();
-            if (!value) return '';
-            const unitCode = Number(entry.unit);
-            const unit = unitCode === 1 ? ' kHz' : (unitCode === 2 ? ' MHz' : '');
-            return `${abbreviateMapFrequencyLabel(name)}: ${value}${unit}`;
-        })
-        .filter(Boolean)
-        .filter((value, index, values) => values.indexOf(value) === index)
-        .slice(0, 4);
-}
-
-function normalizeMapContextAirportFeature(airport) {
-    if (!airport) return null;
-    const raw = airport?.airportData && typeof airport.airportData === 'object'
-        ? airport.airportData
-        : airport;
-    const coords = raw?.geometry?.coordinates;
-    const lat = Number(raw?.lat ?? airport?.lat ?? coords?.[1]);
-    const lon = Number(raw?.lon ?? raw?.lng ?? airport?.lon ?? airport?.lng ?? coords?.[0]);
-    if (![lat, lon].every(Number.isFinite)) return null;
-    const icao = String(
-        raw?.icaoCode
-        || raw?.icao
-        || raw?.designator
-        || airport?.icao
-        || airport?.airportIcao
-        || ''
-    ).trim().toUpperCase();
-    const name = String(raw?.name || airport?.name || airport?.airportName || icao || 'Flugplatz').trim();
-    const sourceId = String(raw?._id || raw?.id || airport?.sourceId || '').trim();
-    const country = String(
-        raw?.country
-        || raw?.countryCode
-        || raw?.isoCountry
-        || airport?.country
-        || ''
-    ).trim().toUpperCase();
-    const elevationFt = mapContextElevationToFt(raw?.elevation ?? airport?.elevation);
-    let runways = typeof formatOpenAipAirportRunways === 'function'
-        ? formatOpenAipAirportRunways(raw)
-        : '';
-    if (!runways && icao && typeof runwayCache !== 'undefined') {
-        const cached = String(runwayCache?.[icao] || '').trim();
-        if (cached && cached !== 'Keine Daten gefunden') runways = cached;
-    }
-    return {
-        id: `airport:${sourceId || icao || `${lat.toFixed(5)},${lon.toFixed(5)}`}`,
-        kind: 'airport',
-        sourceId,
-        icao,
-        name,
-        country,
-        lat,
-        lon,
-        elevationFt: Number.isFinite(elevationFt) ? Math.round(elevationFt) : null,
-        frequencies: getMapContextAirportFrequencies(raw, icao),
-        runways: String(runways || '').split(/\s*(?:\||\n|<br\s*\/?>)\s*/i).filter(Boolean).slice(0, 3)
-    };
-}
-
-function normalizeMapContextNavaidFeature(navaid) {
-    const nav = typeof normalizeOpenAipNavaidForPopup === 'function'
-        ? normalizeOpenAipNavaidForPopup(navaid)
-        : null;
-    if (!nav) return null;
-    const raw = navaid?.navaidData && typeof navaid.navaidData === 'object'
-        ? navaid.navaidData
-        : navaid;
-    const elevationFt = mapContextElevationToFt(raw?.elevation);
-    return {
-        id: `navaid:${nav.id || `${nav.lat.toFixed(5)},${nav.lon.toFixed(5)}`}`,
-        kind: 'navaid',
-        sourceId: nav.id,
-        identifier: nav.identifier,
-        name: nav.name,
-        typeLabel: getOpenAipNavaidTypeLabel(nav.type),
-        lat: nav.lat,
-        lon: nav.lon,
-        elevationFt: Number.isFinite(elevationFt) ? Math.round(elevationFt) : null,
-        frequencies: nav.frequencyValue
-            ? [`${nav.frequencyValue}${nav.frequencyUnit ? ` ${nav.frequencyUnit}` : ''}`]
-            : [],
-        channel: nav.channel,
-        range: nav.rangeValue
-            ? `${nav.rangeValue}${nav.rangeUnit ? ` ${nav.rangeUnit}` : ''}`
-            : ''
-    };
-}
-
-function normalizeMapContextReportingPointFeature(point) {
-    if (!point) return null;
-    const raw = point?.rppData && typeof point.rppData === 'object'
-        ? point.rppData
-        : point;
-    const coords = raw?.geometry?.coordinates;
-    const lat = Number(raw?.lat ?? point?.lat ?? coords?.[1]);
-    const lon = Number(raw?.lon ?? raw?.lng ?? point?.lon ?? point?.lng ?? coords?.[0]);
-    if (![lat, lon].every(Number.isFinite)) return null;
-    const name = String(raw?.name || point?.name || 'VFR-Meldepunkt')
-        .replace(/^RPP\s+/i, '')
-        .trim();
-    const airportIcao = String(
-        raw?.airportIcao
-        || point?.rppAirportIcao
-        || (typeof extractRppAirportIcao === 'function' ? extractRppAirportIcao(raw) : '')
-        || ''
-    ).trim().toUpperCase();
-    const sourceId = String(raw?._id || raw?.id || point?.sourceId || '').trim();
-    return {
-        id: `vrp:${sourceId || `${lat.toFixed(5)},${lon.toFixed(5)}`}`,
-        kind: 'vrp',
-        sourceId,
-        name: name || 'VFR-Meldepunkt',
-        airportIcao,
-        description: String(raw?.description || '').trim(),
-        lat,
-        lon,
-        elevationFt: null
-    };
-}
-
-function getMapContextFeatureDistancePx(feature, latlng) {
-    if (!map || !feature) return Infinity;
-    const point = map.latLngToLayerPoint([feature.lat, feature.lon]);
-    return point.distanceTo(map.latLngToLayerPoint(latlng));
-}
-
-function findCachedMapContextFeature(latlng) {
-    const radius = getAirportTapRadiusPx(38);
-    const candidates = [];
-    const airport = findNearestAirport(latlng, radius);
-    const normalizedAirport = normalizeMapContextAirportFeature(airport);
-    if (normalizedAirport) candidates.push(normalizedAirport);
-    const navigationPoint = findNearestMapNavigationPoint(latlng, radius);
-    if (navigationPoint?.type === 'NAVAID') {
-        const normalizedNavaid = normalizeMapContextNavaidFeature(navigationPoint);
-        if (normalizedNavaid) candidates.push(normalizedNavaid);
-    } else if (navigationPoint?.type === 'RPP') {
-        const normalizedReportingPoint = normalizeMapContextReportingPointFeature(navigationPoint);
-        if (normalizedReportingPoint) candidates.push(normalizedReportingPoint);
-    }
-    candidates.sort((a, b) => getMapContextFeatureDistancePx(a, latlng) - getMapContextFeatureDistancePx(b, latlng));
-    return candidates[0] || null;
-}
-
-function findNearestMapContextFeature(items, latlng, fallback = null) {
-    const radius = getAirportTapRadiusPx(38);
-    const candidates = (Array.isArray(items) ? items : []).filter(Boolean);
-    if (fallback) candidates.push(fallback);
-    const unique = new Map();
-    candidates.forEach((feature) => {
-        const current = unique.get(feature.id);
-        const shouldReplace = !current
-            || (!current.frequencies?.length && feature.frequencies?.length)
-            || (!current.runways?.length && feature.runways?.length);
-        if (shouldReplace) unique.set(feature.id, feature);
-    });
-    return [...unique.values()]
-        .map(feature => ({ feature, distance: getMapContextFeatureDistancePx(feature, latlng) }))
-        .filter(entry => entry.distance <= radius)
-        .sort((a, b) => a.distance - b.distance)[0]?.feature || null;
-}
-
-async function fetchMapContextNearbyFeature(latlng) {
-    const cachedFeature = findCachedMapContextFeature(latlng);
-    const bounds = getMapContextQueryBounds(latlng, 0.04);
-    let payload = null;
-    const hasRegionAirports = (
-        openAipRegionState.payload
-        && openAipCoverageContainsBounds(openAipRegionState.coverage, bounds)
-        && isOpenAipSnapshotCollectionAvailable(openAipRegionState.payload, 'airports')
-    );
-    const hasRegionNavaids = (
-        openAipRegionState.payload
-        && openAipCoverageContainsBounds(openAipRegionState.coverage, bounds)
-        && isOpenAipSnapshotCollectionAvailable(openAipRegionState.payload, 'navaids')
-    );
-    const hasRegionReportingPoints = (
-        openAipRegionState.payload
-        && openAipCoverageContainsBounds(openAipRegionState.coverage, bounds)
-        && isOpenAipSnapshotCollectionAvailable(openAipRegionState.payload, 'reportingPoints')
-    );
-    if (hasRegionAirports && hasRegionNavaids && hasRegionReportingPoints) {
-        payload = openAipRegionState.payload;
-    } else if (typeof window.gaGetAviationSnapshotForBounds === 'function') {
-        payload = await window.gaGetAviationSnapshotForBounds(bounds, ['airports', 'navaids', 'reportingPoints']);
-    }
-    const candidates = [];
-    (Array.isArray(payload?.airports) ? payload.airports : []).forEach((item) => {
-        const feature = normalizeMapContextAirportFeature(item);
-        if (feature) candidates.push(feature);
-    });
-    (Array.isArray(payload?.navaids) ? payload.navaids : []).forEach((item) => {
-        const feature = normalizeMapContextNavaidFeature(item);
-        if (feature) candidates.push(feature);
-    });
-    (Array.isArray(payload?.reportingPoints) ? payload.reportingPoints : []).forEach((item) => {
-        const feature = normalizeMapContextReportingPointFeature(item);
-        if (feature) candidates.push(feature);
-    });
-    return findNearestMapContextFeature(candidates, latlng, cachedFeature);
-}
-
-async function fetchMapContextTerrainFt(latlng) {
-    if (typeof fetchPoiTerrainElevationFt === 'function') {
-        const terrainFt = await fetchPoiTerrainElevationFt(latlng.lat, latlng.lng);
-        return Number.isFinite(Number(terrainFt)) ? Math.round(Number(terrainFt)) : null;
-    }
-    if (typeof sampleTerrainElevation === 'function') {
-        try {
-            const terrainFt = await sampleTerrainElevation(latlng.lat, latlng.lng);
-            if (Number.isFinite(Number(terrainFt))) return Math.round(Number(terrainFt));
-        } catch (_) {}
-    }
-    const url = `https://api.open-meteo.com/v1/elevation?latitude=${encodeURIComponent(latlng.lat)}&longitude=${encodeURIComponent(latlng.lng)}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`elevation_http_${response.status}`);
-    const data = await response.json();
-    const meters = Array.isArray(data?.elevation) ? Number(data.elevation[0]) : Number(data?.elevation);
-    return Number.isFinite(meters) ? Math.round(meters * 3.28084) : null;
-}
-
-async function fetchMapContextWeather(latlng) {
-    if (typeof window.fetchOpenMeteoWeatherPoints !== 'function') return null;
-    const samples = await window.fetchOpenMeteoWeatherPoints(
-        [{ lat: latlng.lat, lon: latlng.lng }],
-        { includePressure: true, maxConcurrency: 1 }
-    );
-    return Array.isArray(samples) ? (samples[0] || null) : null;
-}
-
-function getMapContextRunwayWindroseData(feature) {
-    const runwayText = Array.isArray(feature?.runways)
-        ? feature.runways.join('\n')
-        : String(feature?.runways || '');
-    const match = runwayText.match(
-        /(?:^|\s|\n|<br\s*\/?>)(0[1-9]|[12]\d|3[0-6])([LRC]?)\s*\/\s*((?:0[1-9]|[12]\d|3[0-6])[LRC]?)/
-    );
-    if (!match) return null;
-    return {
-        headingDeg: parseInt(match[1], 10) * 10,
-        end1: `${match[1]}${match[2]}`,
-        end2: match[3]
-    };
-}
-
-function renderMapContextWeather(state, options = {}) {
-    const runway = options?.runway || null;
-    if (state.loading.weather && !runway) {
-        return '<div class="ga-map-context-loading">Punktwetter wird geladen…</div>';
-    }
-    const weather = state.weather;
-    if (!weather && !runway) {
-        return '<div class="ga-map-context-muted">Punktwetter derzeit nicht verfügbar.</div>';
-    }
-    const windDir = Number(weather?.wdir);
-    const windKt = Number(weather?.wspd);
-    const totalCloud = Number(weather?.cloudTotalPct);
-    const lowCloud = Number(weather?.cloudLowPct);
-    const midCloud = Number(weather?.cloudMidPct);
-    const highCloud = Number(weather?.cloudHighPct);
-    const tempC = Number(weather?.temp2mC);
-    const visibilityM = Number(weather?.visibilityM);
-    const windText = Number.isFinite(windDir) && Number.isFinite(windKt)
-        ? (windKt <= 0.4
-            ? 'CALM · 0 kt'
-            : `${Math.round(windDir).toString().padStart(3, '0')}° / ${Math.round(windKt)} kt`)
-        : (state.loading.weather ? 'WIRD GELADEN' : '–');
-    const visibilityKm = Number.isFinite(visibilityM) ? visibilityM / 1000 : null;
-    let roseTicks = '';
-    for (let heading = 0; heading < 360; heading += 30) {
-        const angleRad = (heading - 90) * Math.PI / 180;
-        const tx = 80 + 61 * Math.cos(angleRad);
-        const ty = 80 + 61 * Math.sin(angleRad);
-        const label = heading === 0
-            ? 'N'
-            : (heading === 90 ? 'O' : (heading === 180 ? 'S' : (heading === 270 ? 'W' : String(heading / 10))));
-        const fontSize = heading % 90 === 0 ? 15 : 10;
-        const tickLength = heading % 90 === 0 ? 9 : 6;
-        roseTicks += `
-            <line x1="80" y1="3" x2="80" y2="${3 + tickLength}" stroke="${heading % 90 === 0 ? '#111' : '#777'}"
-                  stroke-width="${heading % 90 === 0 ? 2.5 : 1.5}" transform="rotate(${heading} 80 80)"></line>
-            <text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" font-family="sans-serif" font-size="${fontSize}"
-                  fill="#222" font-weight="800" text-anchor="middle" dominant-baseline="central">${label}</text>`;
-    }
-    const windArrow = Number.isFinite(windDir) && Number.isFinite(windKt) && windKt > 0.4 ? `
-        <g transform="rotate(${windDir} 80 80)">
-            <line x1="80" y1="7" x2="80" y2="66" stroke="#1a73e8" stroke-width="4" stroke-linecap="round"></line>
-            <polygon points="72,54 80,79 88,54" fill="#1a73e8"></polygon>
-        </g>` : '';
-    const calmLabel = Number.isFinite(windKt) && windKt <= 0.4
-        ? '<text x="80" y="84" font-family="sans-serif" font-size="14" fill="#1a73e8" font-weight="900" text-anchor="middle">CALM</text>'
-        : '';
-    const runwayLayer = runway ? `
-        <g transform="translate(80,80) rotate(${Number(runway.headingDeg) || 0}) translate(-80,-80)">
-            <rect x="68" y="29" width="24" height="102" rx="3" fill="#444" stroke="#111" stroke-width="1.5"></rect>
-            <line x1="80" y1="47" x2="80" y2="113" stroke="#d4d4d4" stroke-width="2"
-                  stroke-dasharray="6 6"></line>
-            <text x="80" y="43" font-family="sans-serif" font-size="10" fill="#fff" font-weight="900"
-                  text-anchor="middle" transform="rotate(180 80 39)">${escapePopupText(runway.end2)}</text>
-            <text x="80" y="126" font-family="sans-serif" font-size="10" fill="#fff" font-weight="900"
-                  text-anchor="middle">${escapePopupText(runway.end1)}</text>
-        </g>` : '';
-    const sourceText = runway
-        ? `Piste ${runway.end1}/${runway.end2} aus internen Daten · ${weather
-            ? 'Wind am Kartenpunkt'
-            : (state.loading.weather ? 'Wind wird ergänzt…' : 'Wind derzeit nicht verfügbar')}`
-        : 'Aktueller Stundenwert am Kartenpunkt';
-    const ariaLabel = runway
-        ? `Piste ${runway.end1}/${runway.end2}; Wind ${windText}`
-        : `Windrose ${windText}`;
-    return `
-        <div class="ga-map-context-weather-card">
-            <div class="ga-map-context-weather-header">
-                <b>${runway ? 'PISTE · PUNKTWETTER' : 'PUNKTWETTER'}</b>
-                <span>OPEN‑METEO</span>
-            </div>
-            <div class="ga-map-context-weather-layout">
-                <div class="ga-map-context-weather-values">
-                    <span><small>WIND</small><b class="is-wind">${escapePopupText(windText)}</b></span>
-                    <span><small>SICHT</small><b>${Number.isFinite(visibilityKm) ? `${visibilityKm >= 10 ? Math.round(visibilityKm) : visibilityKm.toFixed(1)} km` : '–'}</b></span>
-                    <span><small>TEMP</small><b>${Number.isFinite(tempC) ? `${Math.round(tempC)} °C` : '–'}</b></span>
-                    <span><small>BEDECKUNG</small><b>${Number.isFinite(totalCloud) ? `${Math.round(totalCloud)} %` : '–'}</b></span>
-                    <span class="is-wide"><small>WOLKEN L/M/H</small><b>${[lowCloud, midCloud, highCloud].some(Number.isFinite)
-                        ? `${Number.isFinite(lowCloud) ? Math.round(lowCloud) : '–'}/${Number.isFinite(midCloud) ? Math.round(midCloud) : '–'}/${Number.isFinite(highCloud) ? Math.round(highCloud) : '–'} %`
-                        : '–'}</b></span>
-                </div>
-                <div class="ga-map-context-windrose" aria-label="${escapePopupText(ariaLabel)}">
-                    <svg viewBox="0 0 160 160" aria-hidden="true">
-                        ${roseTicks}
-                        ${runwayLayer}
-                        ${windArrow}
-                        ${calmLabel}
-                    </svg>
-                </div>
-            </div>
-            <div class="ga-map-context-weather-source">${escapePopupText(sourceText)}</div>
-        </div>`;
-}
-
-function renderMapContextAirspaces(state) {
-    if (state.loading.airspaces) {
-        return '<div class="ga-map-context-loading">Lufträume werden geprüft…</div>';
-    }
-    if (!Array.isArray(state.airspaces) || state.airspaces.length === 0) {
-        return '<div class="ga-map-context-muted">Kein relevanter OpenAIP-Luftraum an diesem Punkt gefunden.</div>';
-    }
-    const cards = state.airspaces.map((airspace) => {
-        const id = String(airspace.__mapContextId || '');
-        const style = mapContextAirspaceStyle(airspace);
-        const name = getMapContextAirspaceDisplayTitle(airspace);
-        const lower = mapContextFormatLimit(airspace.lowerLimit);
-        const upper = mapContextFormatLimit(airspace.upperLimit);
-        const frequencies = mapContextAirspaceFrequencyText(airspace);
-        const frequencyRows = frequencies.length
-            ? frequencies.map((frequency) => `
-                <span class="ga-map-context-frequency-row">
-                    <span class="ga-map-context-frequency-label">${escapePopupText(frequency.label)}</span>
-                    <span class="ga-map-context-frequency-value">${escapePopupText(frequency.value)}</span>
-                </span>`).join('')
-            : `
-                <span class="ga-map-context-frequency-row">
-                    <span class="ga-map-context-frequency-label">FUNK</span>
-                    <span class="ga-map-context-frequency-value">—</span>
-                </span>`;
-        const activation = mapContextAirspaceActivationText(airspace);
-        const selected = state.selectedAirspaceId === id;
-        return `
-            <button type="button" class="ga-map-context-airspace${selected ? ' is-selected' : ''}"
-                    data-map-context-airspace-id="${escapePopupText(id)}"
-                    aria-pressed="${selected ? 'true' : 'false'}"
-                    style="--ga-map-context-airspace-color:${escapePopupText(style.mapColor || style.color || '#4da6ff')}">
-                <span class="ga-map-context-airspace-title"><i></i><b>${escapePopupText(name)}</b></span>
-                <span class="ga-map-context-airspace-meta">${escapePopupText(style.category || 'Luftraum')}; ${escapePopupText(lower)}–${escapePopupText(upper)}</span>
-                <span class="ga-map-context-airspace-meta ga-map-context-airspace-frequency">${frequencyRows}</span>
-                ${activation ? `<span class="ga-map-context-airspace-meta">${escapePopupText(activation)}</span>` : ''}
-                ${selected ? '<span class="ga-map-context-airspace-action">Markiert · erneut antippen zum Lösen</span>' : ''}
-            </button>`;
-    }).join('');
-    return `${cards}<div class="ga-map-context-source">Zeiten ggf. in AIP/NOTAM prüfen.</div>`;
-}
-
-function mapContextLimitMslFt(airspace, limit, boundary, terrainFt) {
-    const valueFt = mapContextLimitToFt(limit);
-    if (!Number.isFinite(valueFt)) return null;
-    const isAgl = Boolean(
-        boundary === 'lower'
-            ? (airspace?._lowerIsAgl || limit?.referenceDatum === 0)
-            : (airspace?._upperIsAgl || limit?.referenceDatum === 0)
-    );
-    return valueFt + (isAgl ? Math.max(0, Number(terrainFt) || 0) : 0);
-}
-
-function getMapContextCurrentAltitudeFt() {
-    const value = Number(window.lastLiveGpsPos?.alt ?? window.lastLiveFlightData?.mslFt);
-    if (!Number.isFinite(value) || value < 0) return null;
-    const telemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
-    const liveMode = Boolean(window.simModeActive || window.liveTrackerConnected);
-    if (!liveMode && (!telemetryAt || (Date.now() - telemetryAt) > 15000)) return null;
-    return Math.round(value);
-}
-
-function getMapContextAirspaceClassPriority(airspace) {
-    if (Number(airspace?.type) === 33) return null;
-    const rawClass = airspace?.icaoClass;
-    if (rawClass === null || rawClass === undefined || rawClass === '') return null;
-    const classIndex = Number(rawClass);
-    return Number.isInteger(classIndex) && classIndex >= 0 && classIndex <= 6
-        ? classIndex
-        : null;
-}
-
-function getMapContextEffectiveHeightBands(rawBands) {
-    const minimumSegmentFt = 20;
-    return rawBands.flatMap((band) => {
-        const bandPriority = getMapContextAirspaceClassPriority(band.airspace);
-        if (!Number.isInteger(bandPriority)) return [band];
-        const blockers = rawBands
-            .filter((other) => (
-                other !== band
-                && Number.isInteger(getMapContextAirspaceClassPriority(other.airspace))
-                && getMapContextAirspaceClassPriority(other.airspace) < bandPriority
-                && other.upperFt > band.lowerFt
-                && other.lowerFt < band.upperFt
-            ))
-            .sort((a, b) => a.lowerFt - b.lowerFt);
-        let segments = [band];
-        blockers.forEach((blocker) => {
-            segments = segments.flatMap((segment) => {
-                const overlapLower = Math.max(segment.lowerFt, blocker.lowerFt);
-                const overlapUpper = Math.min(segment.upperFt, blocker.upperFt);
-                if (overlapUpper <= overlapLower) return [segment];
-                const remaining = [];
-                if ((overlapLower - segment.lowerFt) >= minimumSegmentFt) {
-                    remaining.push({
-                        ...segment,
-                        upperFt: overlapLower,
-                        upperLimit: blocker.lowerLimit,
-                        effective: true
-                    });
-                }
-                if ((segment.upperFt - overlapUpper) >= minimumSegmentFt) {
-                    remaining.push({
-                        ...segment,
-                        lowerFt: overlapUpper,
-                        lowerLimit: blocker.upperLimit,
-                        effective: true
-                    });
-                }
-                return remaining;
-            });
-        });
-        return segments;
-    });
-}
-
-function getMapContextHeightBandData(state) {
-    const terrainFt = Math.max(0, Number(state.terrainFt) || 0);
-    const stateAltitude = state?.currentAltitudeFt;
-    const currentAltitudeFt = stateAltitude !== null
-        && stateAltitude !== undefined
-        && Number.isFinite(Number(stateAltitude))
-        ? Math.max(0, Number(stateAltitude))
-        : getMapContextCurrentAltitudeFt();
-    const rawBands = (Array.isArray(state.airspaces) ? state.airspaces : []).map((airspace) => {
-        const lowerFt = mapContextLimitMslFt(airspace, airspace.lowerLimit, 'lower', terrainFt);
-        const upperFt = mapContextLimitMslFt(airspace, airspace.upperLimit, 'upper', terrainFt);
-        return {
-            airspace,
-            lowerFt,
-            upperFt,
-            lowerLimit: airspace.lowerLimit,
-            upperLimit: airspace.upperLimit
-        };
-    });
-    const finiteCeilings = rawBands
-        .flatMap(band => [band.lowerFt, band.upperFt])
-        .filter(Number.isFinite);
-    if (Number.isFinite(Number(state.feature?.elevationFt))) {
-        finiteCeilings.push(Number(state.feature.elevationFt));
-    }
-    finiteCeilings.push(terrainFt);
-    if (Number.isFinite(currentAltitudeFt)) finiteCeilings.push(currentAltitudeFt);
-    const highest = Math.max(4000, ...finiteCeilings);
-    const step = highest <= 10000 ? 1000 : (highest <= 25000 ? 2500 : 5000);
-    const maxFt = Math.min(60000, Math.max(5000, Math.ceil((highest * 1.12) / step) * step));
-    const normalizedBands = rawBands.map((band) => {
-        const lowerFt = Number.isFinite(band.lowerFt) ? Math.max(0, band.lowerFt) : terrainFt;
-        const upperFt = Number.isFinite(band.upperFt)
-            ? Math.max(lowerFt + 100, band.upperFt)
-            : maxFt;
-        return { ...band, lowerFt, upperFt: Math.min(maxFt, upperFt) };
-    });
-    const bands = getMapContextEffectiveHeightBands(normalizedBands);
-    return { terrainFt, currentAltitudeFt, maxFt, bands };
-}
-
-function formatMapContextBandTick(valueFt) {
-    const rounded = Math.round(Number(valueFt) || 0);
-    if (rounded === 0) return 'MSL';
-    if (rounded >= 10000 && rounded % 1000 === 0) return `${rounded / 1000}k`;
-    return rounded.toLocaleString('de-DE');
-}
-
-function getMapContextHeightScaleTicks(bands, maxFt) {
-    const transitions = [];
-    bands.forEach((band) => {
-        [
-            { valueFt: band.lowerFt, limit: band.lowerLimit },
-            { valueFt: band.upperFt, limit: band.upperLimit }
-        ].forEach(({ valueFt, limit }) => {
-            if (!Number.isFinite(valueFt) || valueFt <= 0 || valueFt >= maxFt) return;
-            const isFlightLevel = Number(limit?.unit) === 6 && Number.isFinite(Number(limit?.value));
-            transitions.push({
-                valueFt,
-                label: isFlightLevel ? `FL${Math.round(Number(limit.value))}` : formatMapContextBandTick(valueFt),
-                transition: true
-            });
-        });
-    });
-    const uniqueTransitions = [];
-    transitions
-        .sort((a, b) => b.valueFt - a.valueFt)
-        .forEach((entry) => {
-            if (uniqueTransitions.some(item => Math.abs(item.valueFt - entry.valueFt) < 80)) return;
-            uniqueTransitions.push(entry);
-        });
-    const mergeDistanceFt = Math.max(100, maxFt * 0.012);
-    const baseTicks = [1, 0.75, 0.5, 0.25, 0]
-        .map(ratio => ({ valueFt: maxFt * ratio, label: formatMapContextBandTick(maxFt * ratio), transition: false }))
-        .filter(base => !uniqueTransitions.some(entry => Math.abs(entry.valueFt - base.valueFt) < mergeDistanceFt));
-    return [...baseTicks, ...uniqueTransitions].sort((a, b) => b.valueFt - a.valueFt);
-}
-
-function getMapContextHeightBandLayer(airspace) {
-    const type = Number(airspace?.type);
-    if (type === 33) return 2;
-    if (type === 0) return 3;
-    if (type === 7 || type === 26) return 4;
-    if (type === 4 || type === 5 || type === 6 || type === 27 || type === 28) return 5;
-    if (type === 1 || type === 2 || type === 3) return 6;
-    return 3;
-}
-
-function getMapContextCloudVisualProfile(type, hasTS = false) {
-    const normalizedType = String(type || '').toUpperCase();
-    if (typeof vpGetCloudLayerProfile === 'function') {
-        try {
-            return vpGetCloudLayerProfile(normalizedType, hasTS);
-        } catch (_) {}
-    }
-    const profiles = {
-        FEW: { thicknessFt: 900, density: 0.32, topAlpha: 0.12, bottomAlpha: 0.2, ridgeStrength: 0.22 },
-        SCT: { thicknessFt: 1700, density: 0.46, topAlpha: 0.16, bottomAlpha: 0.28, ridgeStrength: 0.3 },
-        BKN: { thicknessFt: 3200, density: 0.72, topAlpha: 0.2, bottomAlpha: 0.42, ridgeStrength: 0.4 },
-        OVC: { thicknessFt: 5200, density: 0.9, topAlpha: 0.24, bottomAlpha: 0.5, ridgeStrength: 0.46 },
-        VV: { thicknessFt: 5200, density: 0.9, topAlpha: 0.24, bottomAlpha: 0.5, ridgeStrength: 0.46 }
-    };
-    const profile = { ...(profiles[normalizedType] || profiles.SCT) };
-    if (hasTS) {
-        profile.thicknessFt = Math.max(profile.thicknessFt, 12000);
-        profile.density = Math.min(1, profile.density + 0.12);
-        profile.topAlpha = Math.min(0.38, profile.topAlpha + 0.08);
-        profile.bottomAlpha = Math.min(0.62, profile.bottomAlpha + 0.1);
-        profile.ridgeStrength = Math.min(0.62, profile.ridgeStrength + 0.12);
-    }
-    return profile;
-}
-
-function getMapContextCloudCoverage(type) {
-    const normalizedType = String(type || '').toUpperCase();
-    if (normalizedType === 'FEW') return 22;
-    if (normalizedType === 'SCT') return 45;
-    if (normalizedType === 'BKN') return 80;
-    if (normalizedType === 'OVC' || normalizedType === 'VV') return 100;
-    return 50;
-}
-
-function getMapContextAtmosphereData(state, terrainFt) {
-    const weather = state?.weather;
-    if (!weather) {
-        return {
-            clouds: [],
-            hasRain: false,
-            hasSnow: false,
-            precipitationMm: 0,
-            lowestBaseFt: null
-        };
-    }
-
-    const pressureProfile = Array.isArray(weather.pressureProfile) ? weather.pressureProfile : [];
-    let clouds = [];
-    if (typeof vpDeriveCloudLayersFromPressureProfile === 'function') {
-        try {
-            clouds = vpDeriveCloudLayersFromPressureProfile(pressureProfile, terrainFt);
-        } catch (_) {
-            clouds = [];
-        }
-    }
-
-    const precipitationMm = Math.max(
-        0,
-        Number(weather.precipitationMm) || 0,
-        Number(weather.rainMm) || 0
-    );
-    const hasTS = [95, 96, 99].includes(Number(weather.weatherCode));
-    const hasRain = (Number(weather.rainMm) || 0) > 0.1 || precipitationMm > 0.25;
-    const hasSnow = (Number(weather.snowfallCm) || 0) > 0.05;
-    const estimatedCloud = typeof vpBuildTempDewCloudLayer === 'function'
-        ? vpBuildTempDewCloudLayer({
-            temp2mC: weather.temp2mC,
-            dewPoint2mC: weather.dewPoint2mC,
-            rh2mPct: weather.rh2mPct,
-            windKt: weather.wspd,
-            terrainFt,
-            lowCloudPct: weather.cloudLowPct,
-            coveragePct: weather.cloudTotalPct,
-            weatherCode: weather.weatherCode,
-            hasRain,
-            hasSnow,
-            source: 'map_context_openmeteo'
-        })
-        : null;
-    const pressureLowestBase = clouds.reduce((lowest, cloud) => {
-        const baseFt = Number(cloud?.baseMsl);
-        return Number.isFinite(baseFt) ? Math.min(lowest, baseFt) : lowest;
-    }, Infinity);
-    if (estimatedCloud && (!Number.isFinite(pressureLowestBase) || estimatedCloud.baseMsl < pressureLowestBase - 500)) {
-        clouds.unshift(estimatedCloud);
-    }
-
-    clouds = clouds
-        .map((cloud) => {
-            const baseMsl = Number(cloud?.baseMsl);
-            if (!Number.isFinite(baseMsl)) return null;
-            const type = String(cloud?.type || 'SCT').toUpperCase();
-            const visualProfile = getMapContextCloudVisualProfile(type, hasTS);
-            const measuredTopMsl = Number(cloud?.topMsl);
-            const topMsl = Number.isFinite(measuredTopMsl) && measuredTopMsl > baseMsl + 150
-                ? measuredTopMsl
-                : baseMsl + visualProfile.thicknessFt;
-            return {
-                type,
-                baseMsl,
-                topMsl,
-                coveragePct: getMapContextCloudCoverage(type),
-                density: visualProfile.density,
-                topAlpha: visualProfile.topAlpha,
-                bottomAlpha: visualProfile.bottomAlpha,
-                ridgeStrength: visualProfile.ridgeStrength,
-                hasTS
-            };
-        })
-        .filter(Boolean)
-        .sort((a, b) => a.baseMsl - b.baseMsl);
-
-    const lowestBaseFt = clouds.length
-        ? clouds.reduce((lowest, cloud) => Math.min(lowest, cloud.baseMsl), Infinity)
-        : null;
-    return { clouds, hasRain, hasSnow, hasTS, precipitationMm, lowestBaseFt };
-}
-
-function renderMapContextAtmosphere(atmosphere, maxFt, terrainFt) {
-    if (!atmosphere || !Number.isFinite(maxFt) || maxFt <= 0) return '';
-    const cloudLayers = (Array.isArray(atmosphere.clouds) ? atmosphere.clouds : []).map((cloud, cloudIndex) => {
-        const baseFt = Math.max(terrainFt, Number(cloud.baseMsl) || 0);
-        const topFt = Math.max(baseFt + 100, Number(cloud.topMsl) || baseFt);
-        if (baseFt >= maxFt || topFt <= 0) return '';
-        const visibleBaseFt = Math.min(maxFt, baseFt);
-        const visibleTopFt = Math.min(maxFt, topFt);
-        const topPct = Math.max(0, Math.min(100, 100 - ((visibleTopFt / maxFt) * 100)));
-        const bottomPct = Math.max(0, Math.min(100, 100 - ((visibleBaseFt / maxFt) * 100)));
-        const heightPct = Math.max(1.2, bottomPct - topPct);
-        const type = String(cloud.type || 'SCT').toLowerCase();
-        const coveragePct = Math.max(15, Math.min(100, Number(cloud.coveragePct) || 50));
-        const density = Math.max(0.2, Math.min(1, Number(cloud.density) || (coveragePct / 100)));
-        const ridgeStrength = Math.max(0.15, Math.min(0.7, Number(cloud.ridgeStrength) || 0.3));
-        const grayTop = Math.round(218 - (density * 72) - (cloud.hasTS ? 18 : 0));
-        const grayBottom = Math.round(170 - (density * 105) - (cloud.hasTS ? 24 : 0));
-        const topAlpha = Math.min(0.92, 0.46 + (Number(cloud.topAlpha) || 0.16) + density * 0.16);
-        const bottomAlpha = Math.min(0.98, 0.52 + (Number(cloud.bottomAlpha) || 0.28) + density * 0.12);
-        const highlightAlpha = Math.min(0.88, topAlpha + 0.11);
-        const massWidth = Math.round(120 + density * 70);
-        const delaySeconds = -((cloudIndex * 1.73) + (baseFt * 0.00037)) % 7;
-        return `
-            <span class="ga-map-context-height-cloud is-${escapePopupText(type)}${cloud.hasTS ? ' has-thunderstorm' : ''}"
-                  style="top:${topPct.toFixed(2)}%;height:${heightPct.toFixed(2)}%;
-                         --ga-map-context-cloud-density:${density.toFixed(2)};
-                         --ga-map-context-cloud-ridge:${ridgeStrength.toFixed(2)};
-                         --ga-map-context-cloud-mass-width:${massWidth}%;
-                         --ga-map-context-cloud-top:rgba(${grayTop},${grayTop},${grayTop},${topAlpha.toFixed(2)});
-                         --ga-map-context-cloud-bottom:rgba(${grayBottom},${grayBottom},${grayBottom},${bottomAlpha.toFixed(2)});
-                         --ga-map-context-cloud-highlight:rgba(255,255,255,${highlightAlpha.toFixed(2)});
-                         --ga-map-context-cloud-delay:${delaySeconds.toFixed(2)}s"
-                  aria-hidden="true">
-                <span class="ga-map-context-height-cloud-mass">
-                    <span class="ga-map-context-height-cloud-core"></span>
-                    <span class="ga-map-context-height-cloud-lobe is-top is-a"></span>
-                    <span class="ga-map-context-height-cloud-lobe is-top is-b"></span>
-                    <span class="ga-map-context-height-cloud-lobe is-top is-c"></span>
-                    <span class="ga-map-context-height-cloud-lobe is-bottom is-a"></span>
-                    <span class="ga-map-context-height-cloud-lobe is-bottom is-b"></span>
-                    <span class="ga-map-context-height-cloud-lobe is-bottom is-c"></span>
-                </span>
-            </span>`;
-    }).join('');
-
-    let precipitation = '';
-    let rainSplashes = '';
-    if (atmosphere.hasRain || atmosphere.hasSnow) {
-        const fallbackBaseFt = Math.max(terrainFt + 1200, maxFt * 0.55);
-        const precipBaseFt = Math.min(
-            maxFt,
-            Math.max(terrainFt + 150, Number(atmosphere.lowestBaseFt) || fallbackBaseFt)
-        );
-        const topPct = Math.max(0, Math.min(100, 100 - ((precipBaseFt / maxFt) * 100)));
-        const heightPct = Math.max(1.5, 100 - topPct);
-        const intensity = Math.max(0.42, Math.min(0.92, 0.42 + (Number(atmosphere.precipitationMm) || 0) * 0.15));
-        precipitation = `
-            <span class="ga-map-context-height-precipitation${atmosphere.hasRain ? ' is-rain' : ''}${atmosphere.hasSnow ? ' is-snow' : ''}"
-                  style="top:${topPct.toFixed(2)}%;height:${heightPct.toFixed(2)}%;--ga-map-context-precip-opacity:${intensity.toFixed(2)}"
-                  aria-hidden="true"></span>`;
-        if (atmosphere.hasRain) {
-            const terrainHeightPct = Math.max(2.2, Math.min(92, (terrainFt / maxFt) * 100));
-            const terrainTopPct = Math.max(1, Math.min(98, 100 - terrainHeightPct));
-            const terrainContour = [
-                { x: 18, y: 2, delay: 0.08, scale: 0.92 },
-                { x: 37, y: 18, delay: 0.54, scale: 0.76 },
-                { x: 58, y: 4, delay: 0.31, scale: 1.0 },
-                { x: 78, y: 15, delay: 0.73, scale: 0.82 },
-                { x: 97, y: 2, delay: 0.42, scale: 0.9 }
-            ];
-            rainSplashes = `
-                <span class="ga-map-context-height-rain-splashes"
-                      style="--ga-map-context-splash-opacity:${Math.min(1, intensity + 0.18).toFixed(2)}"
-                      aria-hidden="true">
-                    ${terrainContour.map((point) => {
-                        const groundPct = terrainTopPct + (terrainHeightPct * point.y / 100);
-                        return `
-                            <span class="ga-map-context-height-rain-splash"
-                                  style="left:${point.x}%;top:${groundPct.toFixed(2)}%;
-                                         --ga-map-context-splash-delay:-${point.delay.toFixed(2)}s;
-                                         --ga-map-context-splash-scale:${point.scale.toFixed(2)};
-                                         --ga-map-context-splash-start-scale:${(point.scale * 0.55).toFixed(2)};
-                                         --ga-map-context-splash-end-scale:${(point.scale * 1.28).toFixed(2)}">
-                                <i></i>
-                            </span>`;
-                    }).join('')}
-                </span>`;
-        }
-    }
-
-    if (!cloudLayers && !precipitation) return '';
-    return `
-        <div class="ga-map-context-height-atmosphere" aria-hidden="true">
-            ${cloudLayers}
-            ${precipitation}
-            ${rainSplashes}
-        </div>`;
-}
-
-function renderMapContextHeightBand(state) {
-    const { terrainFt, currentAltitudeFt, maxFt, bands } = getMapContextHeightBandData(state);
-    state.heightBandMaxFt = maxFt;
-    const ticks = getMapContextHeightScaleTicks(bands, maxFt).map((tick) => `
-        <span class="ga-map-context-height-tick${tick.transition ? ' is-transition' : ''}"
-              style="top:${Math.max(0, Math.min(100, 100 - ((tick.valueFt / maxFt) * 100))).toFixed(2)}%">
-            ${escapePopupText(tick.label)}
-        </span>`).join('');
-    const airspaceBands = bands.map((band) => {
-        const airspace = band.airspace;
-        const id = String(airspace.__mapContextId || '');
-        const style = mapContextAirspaceStyle(airspace);
-        const name = getMapContextAirspaceDisplayTitle(airspace);
-        const classLetter = getMapContextAirspaceClassLetter(airspace);
-        const isControlZone = Number(airspace?.type) === 4;
-        const shortLabel = isControlZone
-            ? 'CTR'
-            : (classLetter || getMapContextAirspaceDescriptor(airspace).split(/\s+/)[0]);
-        const topPct = Math.max(0, Math.min(100, 100 - ((band.upperFt / maxFt) * 100)));
-        const bottomPct = Math.max(0, Math.min(100, 100 - ((band.lowerFt / maxFt) * 100)));
-        const heightPct = Math.max(2.8, bottomPct - topPct);
-        const classSizePx = Math.max(16, Math.min(29, 13 + (heightPct * 0.58)));
-        const selected = state.selectedAirspaceId === id;
-        return `
-            <button type="button"
-                    class="ga-map-context-height-airspace${selected ? ' is-selected' : ''}"
-                    data-map-context-airspace-id="${escapePopupText(id)}"
-                    aria-label="${escapePopupText(`${name}, ${mapContextFormatLimit(airspace.lowerLimit)} bis ${mapContextFormatLimit(airspace.upperLimit)}`)}"
-                    aria-pressed="${selected ? 'true' : 'false'}"
-                    title="${escapePopupText(`${name} · ${mapContextFormatLimit(airspace.lowerLimit)}–${mapContextFormatLimit(airspace.upperLimit)}`)}"
-                    style="top:${topPct.toFixed(2)}%;height:${heightPct.toFixed(2)}%;--ga-map-context-airspace-color:${escapePopupText(style.mapColor || style.color || '#4da6ff')};--ga-map-context-class-size:${classSizePx.toFixed(1)}px;--ga-map-context-band-layer:${getMapContextHeightBandLayer(airspace)}">
-                ${classLetter || isControlZone
-                    ? `<span class="ga-map-context-height-class-letter${isControlZone ? ' is-ctr' : ''}">${escapePopupText(shortLabel)}</span>`
-                    : `<span class="ga-map-context-height-airspace-label">${escapePopupText(shortLabel)}</span>`}
-            </button>`;
-    }).join('');
-    const terrainHeightPct = Math.max(2.2, Math.min(92, (terrainFt / maxFt) * 100));
-    const terrainTopPct = Math.max(1, Math.min(98, 100 - terrainHeightPct));
-    const terrainLabel = Number.isFinite(Number(state.terrainFt))
-        ? `${Math.round(terrainFt).toLocaleString('de-DE')}′`
-        : 'GND';
-    const featureElevation = Number.isFinite(Number(state.feature?.elevationFt))
-        ? Number(state.feature.elevationFt)
-        : terrainFt;
-    const featureTopPct = Math.max(1, Math.min(98, 100 - ((featureElevation / maxFt) * 100)));
-    const featureMarkerLabel = state.feature?.kind === 'airport'
-        ? 'Flugplatz markieren'
-        : (state.feature?.kind === 'vrp' ? 'VFR-Meldepunkt markieren' : 'Navaid markieren');
-    const featureMarker = state.feature ? `
-        <button type="button"
-                class="ga-map-context-height-feature${state.selectedFeatureId === state.feature.id ? ' is-selected' : ''}"
-                data-map-context-feature-id="${escapePopupText(state.feature.id)}"
-                aria-label="${escapePopupText(featureMarkerLabel)}"
-                style="top:${featureTopPct.toFixed(2)}%">
-            <span>${state.feature.kind === 'airport' ? 'APT' : (state.feature.kind === 'vrp' ? 'VRP' : 'NAV')}</span>
-        </button>` : '';
-    const ownAltitudeTopPct = Number.isFinite(currentAltitudeFt)
-        ? Math.max(1, Math.min(99, 100 - ((currentAltitudeFt / maxFt) * 100)))
-        : null;
-    const ownAltitudeMarker = Number.isFinite(ownAltitudeTopPct) ? `
-        <span class="ga-map-context-height-ownship"
-              data-map-context-own-altitude
-              style="top:${ownAltitudeTopPct.toFixed(2)}%"
-              role="img"
-              aria-label="Eigene Flughöhe ${Math.round(currentAltitudeFt)} Fuß MSL"
-              title="Eigene Flughöhe · ${Math.round(currentAltitudeFt).toLocaleString('de-DE')} ft MSL"></span>` : '';
-    const loading = state.loading.airspaces || state.loading.terrain;
-    const atmosphere = renderMapContextAtmosphere(
-        getMapContextAtmosphereData(state, terrainFt),
-        maxFt,
-        terrainFt
-    );
-    return `
-        <div class="ga-map-context-height-band${loading ? ' is-loading' : ''}">
-            <div class="ga-map-context-height-title">HÖHE <small>FT MSL</small></div>
-            <div class="ga-map-context-height-plot">
-                <div class="ga-map-context-height-sky"></div>
-                ${atmosphere}
-                <div class="ga-map-context-height-scale">${ticks}</div>
-                ${ownAltitudeMarker}
-                <div class="ga-map-context-height-stack">
-                    ${airspaceBands}
-                    ${featureMarker}
-                    <div class="ga-map-context-height-terrain" style="height:${terrainHeightPct.toFixed(2)}%"></div>
-                    <span class="ga-map-context-height-ground-label" style="top:${terrainTopPct.toFixed(2)}%">${escapePopupText(terrainLabel)}</span>
-                </div>
-                ${loading ? '<span class="ga-map-context-height-loading">lädt…</span>' : ''}
-            </div>
-        </div>`;
-}
-
-function getMapContextAirportWidgetConfig(state) {
-    const feature = state?.feature;
-    if (!feature || feature.kind !== 'airport' || !feature.icao) return null;
-    const safeIcao = String(feature.icao).replace(/[^a-zA-Z0-9_-]/g, '_');
-    const prefix = `gaMapContextApt_${state.requestSeq}_${safeIcao}`;
-    return {
-        runwayId: `${prefix}_runways`,
-        freqId: `${prefix}_frequencies`,
-        wxId: `${prefix}_weather`
-    };
-}
-
-function buildMapContextAirportWidget(state, selected) {
-    const feature = state.feature;
-    const config = getMapContextAirportWidgetConfig(state);
-    const title = [feature.icao, feature.name].filter(Boolean).join(' · ');
-    if (!config || typeof _buildAptPopup !== 'function') {
-        const details = [];
-        if (Number.isFinite(Number(feature.elevationFt))) details.push(`${Math.round(Number(feature.elevationFt))} ft MSL`);
-        if (feature.runways?.length) details.push(`RWY ${feature.runways.join('; ')}`);
-        if (feature.frequencies?.length) details.push(feature.frequencies.join('; '));
-        return `
-            <button type="button" class="ga-map-context-feature${selected ? ' is-selected' : ''}"
-                    data-map-context-feature-id="${escapePopupText(feature.id)}"
-                    aria-pressed="${selected ? 'true' : 'false'}">
-                <span class="ga-map-context-feature-kind">FLUGPLATZ</span>
-                <b>${escapePopupText(title || 'Flugplatz')}</b>
-                ${details.map(detail => `<span>${escapePopupText(detail)}</span>`).join('')}
-                ${selected ? '<span class="ga-map-context-feature-action">Karte + Höhenband markiert</span>' : ''}
-            </button>`;
-    }
-
-    const countryCode = typeof getAirportCountryCode === 'function'
-        ? getAirportCountryCode(feature.icao, feature.country)
-        : feature.country;
-    const widgetTitle = `
-        <b style="font-size:13px;">${escapePopupText(feature.icao)}</b>
-        <div style="font-size:11px; color:#445; margin-top:2px;">${escapePopupText(feature.name)}</div>`;
-    const widgetHtml = _buildAptPopup(
-        'APT',
-        feature.name,
-        feature.elevationFt,
-        feature.icao,
-        {
-            title: widgetTitle,
-            wxContainerId: config.wxId,
-            runwayContainerId: config.runwayId,
-            freqContainerId: config.freqId,
-            countryCode,
-            showDirectTo: true,
-            directToName: feature.name,
-            lat: feature.lat,
-            lon: feature.lon,
-            compactLayout: true
-        }
-    );
-    return `
-        <div class="ga-map-context-airport-block">
-            <button type="button" class="ga-map-context-feature ga-map-context-feature-selector${selected ? ' is-selected' : ''}"
-                    data-map-context-feature-id="${escapePopupText(feature.id)}"
-                    aria-pressed="${selected ? 'true' : 'false'}">
-                <span class="ga-map-context-feature-kind">FLUGPLATZ · VOLLANSICHT</span>
-                <b>${escapePopupText(title)}</b>
-                ${selected ? '<span class="ga-map-context-feature-action">Markiert · erneut antippen zum Lösen</span>' : ''}
-            </button>
-            <div class="ga-map-context-airport-full"
-                 style="min-width:0;overflow:hidden;padding:5px;color:#10202d;background:#edf7fb;border:1px solid rgba(250,204,21,.72);border-radius:7px;">
-                ${widgetHtml}
-            </div>
-        </div>`;
-}
-
-function captureMapContextAirportWidgetState(state) {
-    const config = getMapContextAirportWidgetConfig(state);
-    if (!config) return;
-    const weatherElement = document.getElementById(config.wxId);
-    if (!weatherElement) return;
-    if (weatherElement.querySelector('[data-ga-metar-loading="true"]')) return;
-    const html = String(weatherElement.innerHTML || '').trim();
-    if (html && !/(Wetter lädt|Sucht lokales Wetter|Punktwetter wird geladen)/i.test(html)) {
-        state.airportWidgetWeatherHtml = html;
-    }
-}
-
-function renderMapContextAirportWeatherPlaceholder(state) {
-    const feature = state?.feature;
-    const runwayText = Array.isArray(feature?.runways) ? feature.runways.join('\n') : '';
-    if (typeof window.renderAirportMetarLoadingWidget === 'function') {
-        return window.renderAirportMetarLoadingWidget(
-            feature?.icao,
-            runwayText,
-            { responsiveEmbed: true }
-        );
-    }
-    return '<div class="ga-map-context-loading" data-ga-metar-loading="true">METAR wird geladen…</div>';
-}
-
-function hydrateMapContextAirportWidget(state) {
-    const feature = state?.feature;
-    const config = getMapContextAirportWidgetConfig(state);
-    if (!feature || !config || state !== mapContextInfoState) return;
-    const weatherElement = document.getElementById(config.wxId);
-    if (
-        feature.icao
-        && feature.runways?.length
-        && typeof runwayCache !== 'undefined'
-        && !runwayCache[feature.icao]
-    ) {
-        runwayCache[feature.icao] = feature.runways.join('\n');
-    }
-    if (state.airportWidgetWeatherHtml) {
-        if (weatherElement) weatherElement.innerHTML = state.airportWidgetWeatherHtml;
-    } else if (weatherElement) {
-        weatherElement.innerHTML = renderMapContextAirportWeatherPlaceholder(state);
-    }
-    if (typeof updatePopupFrequencyBlock === 'function') {
-        updatePopupFrequencyBlock(config.freqId, feature.icao);
-    }
-    if (typeof refreshAipOverlayPopupUi === 'function') {
-        refreshAipOverlayPopupUi(feature.icao);
-    }
-    if (state.airportWidgetLoadingStarted) return;
-    state.airportWidgetLoadingStarted = true;
-    if (typeof fetchRunwayDetails === 'function') {
-        fetchRunwayDetails(feature.lat, feature.lon, config.runwayId, feature.icao);
-    }
-    if (typeof fetchAirportFreq === 'function') {
-        const hasCachedFrequencies = (
-            typeof freqCache !== 'undefined'
-            && Object.prototype.hasOwnProperty.call(freqCache, feature.icao)
-        );
-        if (!hasCachedFrequencies) {
-            fetchAirportFreq(feature.icao, null, null)
-                .finally(() => {
-                    if (state === mapContextInfoState) {
-                        updatePopupFrequencyBlock(config.freqId, feature.icao);
-                    }
-                });
-        }
-    }
-    if (typeof loadMetarWidget === 'function' && !state.airportWidgetWeatherHtml) {
-        loadMetarWidget(
-            feature.icao,
-            config.wxId,
-            feature.lat,
-            feature.lon,
-            true,
-            {
-                preserveLoadingContent: true,
-                skipRunwayWait: true,
-                responsiveEmbed: true,
-                runwayIcao: feature.icao
-            }
-        );
-    }
-}
-
-function renderMapContextFeature(state) {
-    if (state.loading.feature && !state.feature) {
-        return '<div class="ga-map-context-loading">Objekte am Punkt werden geprüft…</div>';
-    }
-    const feature = state.feature;
-    if (!feature) return '';
-    const selected = state.selectedFeatureId === feature.id;
-    if (feature.kind === 'airport') {
-        return buildMapContextAirportWidget(state, selected);
-    }
-    const isReportingPoint = feature.kind === 'vrp';
-    const title = isReportingPoint
-        ? feature.name
-        : [feature.identifier, feature.name].filter(Boolean).join(' · ');
-    const details = isReportingPoint
-        ? [
-            feature.airportIcao ? `Zugehöriger Flugplatz ${feature.airportIcao}` : '',
-            feature.description
-        ].filter(Boolean)
-        : [
-            feature.typeLabel,
-            feature.frequencies?.length ? `Funk ${feature.frequencies.join('; ')}` : '',
-            feature.channel ? `Kanal ${feature.channel}` : '',
-            feature.range ? `Reichweite ${feature.range}` : ''
-        ].filter(Boolean);
-    return `
-        <button type="button" class="ga-map-context-feature${selected ? ' is-selected' : ''}"
-                data-map-context-feature-id="${escapePopupText(feature.id)}"
-                aria-pressed="${selected ? 'true' : 'false'}">
-            <span class="ga-map-context-feature-kind">${isReportingPoint ? 'VRP · VFR-MELDEPUNKT' : 'NAVAID'}</span>
-            <b>${escapePopupText(title || (isReportingPoint ? 'VFR-Meldepunkt' : 'Navaid'))}</b>
-            ${details.map(detail => `<span>${escapePopupText(detail)}</span>`).join('')}
-            ${selected ? '<span class="ga-map-context-feature-action">Markiert · erneut antippen zum Lösen</span>' : ''}
-        </button>`;
-}
-
-function positionMapContextPopupBesideAnchor(state) {
-    if (!state || state.popupPositioned || state.popupPositionScheduled) return;
-    state.popupPositionScheduled = true;
-    window.requestAnimationFrame(() => {
-        if (!state || state !== mapContextInfoState || !mapContextPopupLayer?._container) return;
-        state.popupPositionScheduled = false;
-        if (state.popupPositioned) return;
-        state.popupPositioned = true;
-        const popupElement = mapContextPopupLayer._container;
-        const wrapper = popupElement.querySelector('.leaflet-popup-content-wrapper');
-        const width = Number(mapContextPopupLayer._containerWidth) || popupElement.offsetWidth;
-        const height = wrapper?.offsetHeight || popupElement.offsetHeight;
-        mapContextPopupLayer.options.offset = L.point(
-            Math.round((width / 2) + 16),
-            Math.round(height / 2)
-        );
-        mapContextPopupLayer.update?.();
-        window.requestAnimationFrame(() => {
-            if (state !== mapContextInfoState || !mapContextPopupLayer) return;
-            const mapElement = map.getContainer?.();
-            const popupRect = mapContextPopupLayer._container?.getBoundingClientRect?.();
-            const mapRect = mapElement?.getBoundingClientRect?.();
-            if (!popupRect || !mapRect) return;
-            const padding = 4;
-            let panX = 0;
-            let panY = 0;
-            if (popupRect.right > mapRect.right - padding) {
-                panX = popupRect.right - (mapRect.right - padding);
-            } else if (popupRect.left < mapRect.left + padding) {
-                panX = popupRect.left - (mapRect.left + padding);
-            }
-            if (popupRect.bottom > mapRect.bottom - padding) {
-                panY = popupRect.bottom - (mapRect.bottom - padding);
-            } else if (popupRect.top < mapRect.top + padding) {
-                panY = popupRect.top - (mapRect.top + padding);
-            }
-            if (panX || panY) {
-                const nextCenterPoint = map.getSize()
-                    .divideBy(2)
-                    .add(L.point(Math.round(panX), Math.round(panY)));
-                map.setView(
-                    map.containerPointToLatLng(nextCenterPoint),
-                    map.getZoom(),
-                    { animate: false }
-                );
-            }
-        });
-    });
-}
-
-function renderMapContextInfoPopup(state, options = {}) {
-    if (!state || state !== mapContextInfoState || !state.content) return;
-    const preserveDetailsScroll = Boolean(options.preserveDetailsScroll);
-    const previousDetailsScrollTop = preserveDetailsScroll
-        ? Number(state.content.querySelector?.('.ga-map-context-details')?.scrollTop)
-        : null;
-    captureMapContextAirportWidgetState(state);
-    const mapHeight = Number(map?.getContainer?.()?.clientHeight);
-    if (Number.isFinite(mapHeight) && mapHeight > 0) {
-        state.content.style.setProperty('--ga-map-context-map-height', `${Math.round(mapHeight)}px`);
-    }
-    const terrain = state.loading.terrain
-        ? '<div class="ga-map-context-loading">Topografie wird geladen…</div>'
-        : (Number.isFinite(Number(state.terrainFt))
-            ? `<div class="ga-map-context-summary"><span><b>Gelände</b> ${Math.round(Number(state.terrainFt))} ft MSL / ${Math.round(Number(state.terrainFt) / 3.28084)} m</span></div>`
-            : '<div class="ga-map-context-muted">Geländehöhe nicht verfügbar.</div>');
-    state.content.innerHTML = `
-        <div class="ga-map-context-panel">
-            <div class="ga-map-context-heading">
-                <span class="ga-map-context-kicker">WAS IST HIER?</span>
-                <b>${state.latlng.lat.toFixed(5)}, ${state.latlng.lng.toFixed(5)}</b>
-            </div>
-            <div class="ga-map-context-body">
-                ${renderMapContextHeightBand(state)}
-                <div class="ga-map-context-details">
-                    ${renderMapContextFeature(state)}
-                    <section>
-                        <h4>Lufträume</h4>
-                        ${renderMapContextAirspaces(state)}
-                    </section>
-                    <section>
-                        <h4>Punkt</h4>
-                        ${terrain}
-                    </section>
-                    <section>
-                        <h4>Wetter</h4>
-                        ${renderMapContextWeather(state)}
-                    </section>
-                </div>
-            </div>
-        </div>`;
-    hydrateMapContextAirportWidget(state);
-    mapContextPopupLayer?.update?.();
-    positionMapContextPopupBesideAnchor(state);
-    if (preserveDetailsScroll && Number.isFinite(previousDetailsScrollTop)) {
-        const restoreDetailsScroll = () => {
-            if (state !== mapContextInfoState || !state.content) return;
-            const details = state.content.querySelector?.('.ga-map-context-details');
-            if (!details) return;
-            const maximum = Math.max(0, details.scrollHeight - details.clientHeight);
-            details.scrollTop = Math.min(previousDetailsScrollTop, maximum);
-        };
-        restoreDetailsScroll();
-        window.requestAnimationFrame(restoreDetailsScroll);
-    }
-}
-
-function highlightMapContextAirspace(airspaceId) {
-    const state = mapContextInfoState;
-    if (!state || !map) return;
-    const airspace = state.airspaces?.find(item => String(item.__mapContextId) === String(airspaceId));
-    if (!airspace?.geometry) return;
-    if (state.selectedAirspaceId === String(airspaceId)) {
-        clearMapContextAirspaceHighlight();
-        state.selectedAirspaceId = '';
-        renderMapContextInfoPopup(state, { preserveDetailsScroll: true });
-        return;
-    }
-    clearMapContextAirspaceHighlight();
-    clearMapContextObjectHighlight();
-    if (typeof window.gaClearRouteToolMapFocus === 'function') window.gaClearRouteToolMapFocus();
-    const style = mapContextAirspaceStyle(airspace);
-    mapContextAirspaceHighlightLayer = L.geoJSON(airspace.geometry, {
-        pane: GA_MAP_OVERLAY_PANES.localAviation.name,
-        interactive: false,
-        style: {
-            color: style.mapColor || style.color || '#4da6ff',
-            weight: 4,
-            opacity: 1,
-            fillColor: style.mapColor || style.color || '#4da6ff',
-            fillOpacity: 0.24,
-            dashArray: '8,5',
-            className: 'ga-map-context-airspace-highlight'
-        }
-    }).addTo(map);
-    mapContextAirspaceHighlightLayer.bringToFront?.();
-    mapContextPointLayer?.bringToFront?.();
-    state.selectedAirspaceId = String(airspaceId);
-    state.selectedFeatureId = '';
-    renderMapContextInfoPopup(state, { preserveDetailsScroll: true });
-}
-
-function highlightMapContextFeature(featureId) {
-    const state = mapContextInfoState;
-    const feature = state?.feature;
-    if (!state || !map || !feature || String(feature.id) !== String(featureId)) return;
-    if (state.selectedFeatureId === String(featureId)) {
-        clearMapContextObjectHighlight();
-        state.selectedFeatureId = '';
-        renderMapContextInfoPopup(state, { preserveDetailsScroll: true });
-        return;
-    }
-    clearMapContextAirspaceHighlight();
-    clearMapContextObjectHighlight();
-    if (typeof window.gaClearRouteToolMapFocus === 'function') window.gaClearRouteToolMapFocus();
-    mapContextObjectHighlightLayer = L.circleMarker([feature.lat, feature.lon], {
-        pane: GA_MAP_OVERLAY_PANES.localAviation.name,
-        radius: feature.kind === 'airport' ? 13 : 11,
-        color: '#facc15',
-        weight: 4,
-        opacity: 1,
-        fillColor: feature.kind === 'airport' ? '#f59e0b' : (feature.kind === 'vrp' ? '#facc15' : '#22d3ee'),
-        fillOpacity: 0.32,
-        interactive: false,
-        className: 'ga-map-context-object-highlight'
-    }).addTo(map);
-    mapContextObjectHighlightLayer.bringToFront?.();
-    mapContextPointLayer?.bringToFront?.();
-    state.selectedFeatureId = String(featureId);
-    state.selectedAirspaceId = '';
-    renderMapContextInfoPopup(state, { preserveDetailsScroll: true });
-}
-
-window.gaUpdateMapContextOwnAltitude = function(altitudeFt) {
-    const state = mapContextInfoState;
-    if (!state || mapContextPopupLayer?._map !== map) return;
-    const value = Number(altitudeFt);
-    const hasValue = altitudeFt !== null && altitudeFt !== undefined && altitudeFt !== '';
-    state.currentAltitudeFt = hasValue && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
-    const nextBandData = getMapContextHeightBandData(state);
-    const marker = state.content?.querySelector?.('[data-map-context-own-altitude]');
-    if (
-        Number(state.heightBandMaxFt) !== Number(nextBandData.maxFt)
-        || (Number.isFinite(nextBandData.currentAltitudeFt) && !marker)
-        || (!Number.isFinite(nextBandData.currentAltitudeFt) && marker)
-    ) {
-        renderMapContextInfoPopup(state);
-        return;
-    }
-    if (!marker || !Number.isFinite(nextBandData.currentAltitudeFt)) return;
-    const topPct = Math.max(1, Math.min(99, 100 - ((nextBandData.currentAltitudeFt / nextBandData.maxFt) * 100)));
-    marker.style.top = `${topPct.toFixed(2)}%`;
-    marker.setAttribute('aria-label', `Eigene Flughöhe ${Math.round(nextBandData.currentAltitudeFt)} Fuß MSL`);
-    marker.title = `Eigene Flughöhe · ${Math.round(nextBandData.currentAltitudeFt).toLocaleString('de-DE')} ft MSL`;
-};
-
-function openMapContextInfo(latlng, source = 'longpress') {
-    if (!map || !latlng || !Number.isFinite(latlng.lat) || !Number.isFinite(latlng.lng)) return;
-    const now = Date.now();
-    const duplicate = (now - mapContextLastOpen.at) < 900
-        && Math.abs(latlng.lat - mapContextLastOpen.lat) < 0.0001
-        && Math.abs(latlng.lng - mapContextLastOpen.lon) < 0.0001;
-    if (duplicate) return;
-    mapContextLastOpen = { at: now, lat: latlng.lat, lon: latlng.lng };
-    mapContextSuppressClickUntil = now + 900;
-    mapContextRequestSeq += 1;
-    const requestSeq = mapContextRequestSeq;
-    clearMapContextPointLayer();
-    clearMapContextAirspaceHighlight();
-    clearMapContextObjectHighlight();
-    if (typeof window.gaClearRouteToolMapFocus === 'function') window.gaClearRouteToolMapFocus();
-
-    const content = document.createElement('div');
-    const cachedFeature = findCachedMapContextFeature(latlng);
-    const state = {
-        requestSeq,
-        source,
-        latlng: L.latLng(latlng.lat, latlng.lng),
-        content,
-        loading: { airspaces: true, terrain: true, weather: true, feature: true },
-        airspaces: [],
-        terrainFt: null,
-        weather: null,
-        feature: cachedFeature,
-        currentAltitudeFt: getMapContextCurrentAltitudeFt(),
-        selectedAirspaceId: '',
-        selectedFeatureId: '',
-        popupPositioned: false,
-        popupPositionScheduled: false
-    };
-    mapContextInfoState = state;
-    content.addEventListener('click', (event) => {
-        const airspaceButton = event.target?.closest?.('[data-map-context-airspace-id]');
-        const featureButton = event.target?.closest?.('[data-map-context-feature-id]');
-        if (airspaceButton) {
-            event.preventDefault();
-            event.stopPropagation();
-            highlightMapContextAirspace(airspaceButton.dataset.mapContextAirspaceId || '');
-        } else if (featureButton) {
-            event.preventDefault();
-            event.stopPropagation();
-            highlightMapContextFeature(featureButton.dataset.mapContextFeatureId || '');
-        }
-    });
-
-    mapContextPointLayer = L.circleMarker(state.latlng, {
-        radius: 7,
-        color: '#ffffff',
-        weight: 2,
-        fillColor: '#00d9ff',
-        fillOpacity: 0.92,
-        interactive: false,
-        className: 'ga-map-context-point'
-    }).addTo(map);
-    if (!mapContextPopupLayer) {
-        mapContextPopupLayer = L.popup({
-            className: 'ga-map-context-popup',
-            minWidth: 248,
-            maxWidth: 500,
-            maxHeight: 680,
-            offset: [160, 190],
-            autoPan: false,
-            autoPanPadding: [18, 18]
-        });
-    }
-    mapContextPopupLayer
-        .setLatLng(state.latlng)
-        .setContent(content)
-        .openOn(map);
-    map.getContainer?.()?.classList.add('ga-map-context-open');
-    renderMapContextInfoPopup(state);
-    window.setTimeout(() => {
-        if (state !== mapContextInfoState || mapContextPopupLayer?._map !== map) return;
-        state.popupPositioned = false;
-        state.popupPositionScheduled = false;
-        positionMapContextPopupBesideAnchor(state);
-    }, 800);
-
-    const settle = (section, value) => {
-        if (!mapContextInfoState || mapContextInfoState.requestSeq !== requestSeq) return;
-        state.loading[section] = false;
-        if (section === 'airspaces') state.airspaces = Array.isArray(value) ? value : [];
-        if (section === 'terrain') state.terrainFt = Number.isFinite(Number(value)) ? Number(value) : null;
-        if (section === 'weather') state.weather = value || null;
-        if (section === 'feature') state.feature = value || state.feature || null;
-        renderMapContextInfoPopup(state);
-    };
-    Promise.resolve(fetchMapContextAirspaces(state.latlng))
-        .then(value => settle('airspaces', value))
-        .catch((error) => {
-            console.warn('[Map Context] Luftraumabfrage fehlgeschlagen:', error);
-            settle('airspaces', []);
-        });
-    Promise.resolve(fetchMapContextTerrainFt(state.latlng))
-        .then(value => settle('terrain', value))
-        .catch((error) => {
-            console.warn('[Map Context] Terrainabfrage fehlgeschlagen:', error);
-            settle('terrain', null);
-        });
-    Promise.resolve(fetchMapContextWeather(state.latlng))
-        .then(value => settle('weather', value))
-        .catch((error) => {
-            console.warn('[Map Context] Wetterabfrage fehlgeschlagen:', error);
-            settle('weather', null);
-        });
-    Promise.resolve(fetchMapContextNearbyFeature(state.latlng))
-        .then(value => settle('feature', value))
-        .catch((error) => {
-            console.warn('[Map Context] Objektabfrage fehlgeschlagen:', error);
-            settle('feature', cachedFeature);
-        });
 }
 
 function isMapContextGestureBlocked(event) {
@@ -15277,44 +10353,9 @@ function bindMapContextInteractions() {
         if (event?.originalEvent) L.DomEvent.preventDefault(event.originalEvent);
         openMapContextInfo(event.latlng, 'contextmenu');
     });
-    map.on('popupclose', (event) => {
-        if (event.popup !== mapContextPopupLayer) return;
-        clearMapContextPointLayer();
-        map.getContainer?.()?.classList.remove('ga-map-context-open');
-    });
+    map.on('popupclose', window.gaMapContextPopupClosed);
     window.addEventListener('blur', cancel);
     map._gaMapContextInteractionsBound = true;
-}
-
-let pendingMapInfoTapSeq = 0;
-
-function scheduleMapInfoTapResolution(latlng) {
-    if (getMapSingleClickMode() === 'off') return;
-    const seq = ++pendingMapInfoTapSeq;
-    const tap = L.latLng(latlng.lat, latlng.lng);
-    const tasks = [
-        Promise.resolve(ensureOpenAipRegionSnapshot()),
-        Promise.resolve(ensureGlobalAirportsForMapClicks()),
-        Promise.resolve(loadStoredAirportOverlayDatabase()),
-        Promise.resolve(loadOpenAipStaticNavaids()),
-        Promise.resolve(loadOpenAipStaticReportingPoints())
-    ];
-    let resolved = false;
-    const retry = () => {
-        if (resolved || seq !== pendingMapInfoTapSeq || !map) return;
-        if (resolveMapSingleClickAt(tap)) {
-            resolved = true;
-            pendingMapInfoTapSeq += 1;
-        }
-    };
-    tasks.forEach(task => task.then(retry, () => {}));
-    if (
-        !getAirportDatabaseForMapClicks()
-        || !Array.isArray(openAipStaticNavaidState.items)
-        || !Array.isArray(openAipStaticReportingPointState.items)
-    ) {
-        showMapToast('Flugplatz- und Funkfeuerdaten laden – Auswahl wird automatisch nachgeholt', 2400);
-    }
 }
 
 function handleFreeflightMapClick(e) {
@@ -15491,15 +10532,4 @@ function renderFreeflightRoute() {
             .addTo(map);
         ffMarkers.push(infoTooltip);
     }
-}
-
-function showMapToast(message, durationMs) {
-    if (!durationMs) durationMs = 3000;
-    const container = document.getElementById('mapArea') || document.body;
-    const toast = document.createElement('div');
-    toast.className = 'ff-toast';
-    toast.textContent = message;
-    toast.style.animationDuration = durationMs + 'ms';
-    container.appendChild(toast);
-    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, durationMs + 100);
 }

@@ -146,7 +146,8 @@ test('App and EFB wire the shared renderer while the legacy App path stays gated
   const appSource = fs.readFileSync(path.join(projectRoot, 'checklists.js'), 'utf8');
   const efbSource = fs.readFileSync(path.join(__dirname, 'tracker-efb-kartentisch-host.js'), 'utf8');
   assert.match(appSource, /gaTrackerExecutionControl\?\.executionAuthority === 'tracker'[\s\S]*?GAMissionControlUiCore\?\.render/);
-  assert.match(efbSource, /GAMissionControlUiCore\.render\(mission\.view/);
+  assert.match(efbSource, /missionView: function\(\) \{ return missionSnapshot/);
+  assert.match(appSource, /gaChecklistHost\?\.missionView[\s\S]*?GAMissionControlUiCore\.render\(view/);
   assert.match(appSource, /data\.exists[\s\S]*?const runtimeSnapshot = missionRuntimePhaseSnapshot\(\)/);
 });
 

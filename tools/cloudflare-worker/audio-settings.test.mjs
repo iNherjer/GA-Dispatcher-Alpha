@@ -12,11 +12,12 @@ test('audio settings authenticate independently of mission sync and retain only 
   assert.equal((await call('GET', null, 'wrong')).status, 401);
   assert.equal((await call('GET', null, '1111', 'pilotB')).status, 403);
   const record = { schema: 'ga.audio-control.v1', revision: 1, updatedAt: 100,
-    target: { mode: 'app', deviceId: 'phone', name: 'Telefon' }, settings: { volume: 0.4, enabled: true } };
+    target: { mode: 'app', deviceId: 'phone', name: 'Telefon' }, settings: { volume: 0.4, enabled: true, audioStyle: 'intercom' } };
   assert.equal((await call('POST', record)).status, 200);
   const loaded = await (await call('GET')).json();
   assert.equal(loaded.record.target.deviceId, 'phone');
   assert.equal(loaded.record.settings.volume, 0.4);
+  assert.equal(loaded.record.settings.audioStyle, 'intercom');
   assert.equal(store.get('pilotA'), profile);
   assert.equal((await call('POST', { ...record, revision: -1 })).status, 400);
 });

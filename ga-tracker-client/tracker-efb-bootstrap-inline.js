@@ -7,6 +7,12 @@
   var channel = '';
 
   function installCompatibilityPolyfills() {
+    if (window.Promise && !Promise.prototype.finally) Promise.prototype.finally = function(callback) {
+      var P = this.constructor || Promise;
+      if (typeof callback !== 'function') return this.then(callback, callback);
+      return this.then(function(value) {return P.resolve(callback()).then(function(){return value;});},
+        function(error) {return P.resolve(callback()).then(function(){throw error;});});
+    };
     if (!Number.isFinite) Number.isFinite = function (value) { return typeof value === 'number' && isFinite(value); };
     if (!Number.isInteger) Number.isInteger = function (value) { return Number.isFinite(value) && Math.floor(value) === value; };
     if (!Number.EPSILON) Number.EPSILON = Math.pow(2, -52);

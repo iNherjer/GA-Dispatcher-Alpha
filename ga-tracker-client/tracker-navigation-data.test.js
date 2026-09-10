@@ -51,3 +51,17 @@ test('missing obstacle tiles are incomplete, missing terrain never becomes zero 
   assert.equal((await data.obstacles([{ lat: 48, lon: 8 }])).complete, false);
   await assert.rejects(data.terrain({ lat: 48, lon: 8 }), /404/);
 });
+
+test('concurrent cache consumers keep their own validator and size limit', async t => {
+  let release, entered;
+  const started=new Promise(resolve=>entered=resolve);
+  const cache=createNavigationCache({directory:await folder(t),fetchRemote:async()=>{
+    entered();await new Promise(resolve=>release=resolve);return new Response('{"wrongSchema":true}');
+  }});
+  const first=cache.get('https://example.test/shared',{validate:b=>JSON.parse(b)});
+  await started;
+  const invalid=assert.rejects(cache.get('https://example.test/shared',{validate:b=>{if(!Array.isArray(JSON.parse(b).airports))throw Error('invalid_airports');}}),/invalid_airports/);
+  const large=assert.rejects(cache.get('https://example.test/shared',{limit:4}),/too_large/);
+  release();await Promise.all([first,invalid,large]);
+  assert.equal(cache.snapshot().downloads,1);
+});

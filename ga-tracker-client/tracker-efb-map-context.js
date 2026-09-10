@@ -487,7 +487,21 @@ function buildForecastUrl(request) {
   return `${OPEN_METEO_FORECAST_URL}?${params}`;
 }
 
+// Validate published aviation documents before they can replace a disk entry.
+function validateHostedAviationDocument(url, value) {
+  if (!url.startsWith(HOSTED_AVIATION_BASE_URL)) return value;
+  if (url === HOSTED_AVIATION_LATEST_URL) {
+    if (!cleanText(value?.datasetVersion, 80) || !/^cycles\/[^/]+\/manifest\.json$/.test(cleanText(value?.manifest, 180))) throw Error('aviation_hosted_latest_invalid');
+  } else if (url.endsWith('/manifest.json')) {
+    if (!cleanText(value?.datasetVersion, 80) || value?.source?.name !== 'OpenAIP' || !value?.collections || typeof value.collections !== 'object') throw Error('aviation_hosted_manifest_invalid');
+  } else if (!['airports', 'navaids', 'reportingPoints', 'airspaces'].includes(value?.collection) || !Array.isArray(value.items)) {
+    throw Error('aviation_hosted_pack_invalid');
+  }
+  return value;
+}
+
 function createTrackerEfbMapContextProvider(options = {}) {
+  const now = options.now || Date.now;
   const fetchRemote = typeof options.fetchRemote === 'function' ? options.fetchRemote : globalThis.fetch;
   if (typeof fetchRemote !== 'function') throw new Error('Der EFB-Kartenkontext benoetigt eine Fetch-Implementierung.');
   const log = typeof options.log === 'function' ? options.log : () => {};
@@ -518,14 +532,14 @@ function createTrackerEfbMapContextProvider(options = {}) {
       if (declaredLength !== null && declaredLength > MAX_UPSTREAM_BYTES) throw new Error(`${source}_payload_too_large`);
       const body = await response.text();
       if (Buffer.byteLength(body, 'utf8') > MAX_UPSTREAM_BYTES) throw new Error(`${source}_payload_too_large`);
-      return JSON.parse(body);
+      return validateHostedAviationDocument(url, JSON.parse(body));
     } finally {
       if (timer) clearTimeout(timer);
     }
   }
 
   async function loadHostedCatalog() {
-    if (hostedCatalog && Date.now() - hostedCatalogStoredAt < HOSTED_CATALOG_CACHE_MS) return hostedCatalog;
+    if (hostedCatalog && now() - hostedCatalogStoredAt < HOSTED_CATALOG_CACHE_MS) return hostedCatalog;
     const latest = await fetchJson(HOSTED_AVIATION_LATEST_URL, 'aviation_hosted_latest');
     const datasetVersion = cleanText(latest?.datasetVersion, 80);
     const manifestPath = cleanText(latest?.manifest, 180);
@@ -539,7 +553,7 @@ function createTrackerEfbMapContextProvider(options = {}) {
       throw new Error('aviation_hosted_manifest_invalid');
     }
     hostedCatalog = { datasetVersion, manifestUrl, manifest };
-    hostedCatalogStoredAt = Date.now();
+    hostedCatalogStoredAt = now();
     return hostedCatalog;
   }
 
@@ -613,13 +627,13 @@ function createTrackerEfbMapContextProvider(options = {}) {
   }
 
   async function timed(promise) {
-    const startedAt = Date.now();
+    const startedAt = now();
     const value = await promise;
-    return { value, durationMs: Date.now() - startedAt };
+    return { value, durationMs: now() - startedAt };
   }
 
   async function load(request) {
-    const startedAt = Date.now();
+    const startedAt = now();
     const results = await Promise.allSettled([
       timed(loadAviation(request)),
       timed(fetchJson(buildElevationUrl(request), 'terrain')),
@@ -666,29 +680,45 @@ function createTrackerEfbMapContextProvider(options = {}) {
         }
       },
       errors,
-      fetchedAt: Date.now()
+      fetchedAt: now()
     };
-    log(`EFB_MAP_CONTEXT lat=${request.lat.toFixed(5)} lon=${request.lon.toFixed(5)} airspaces=${airspaces.length} feature=${feature?.kind || 'none'} aviation=${payload.sources.aviation.mode} aviationMs=${payload.sources.aviation.durationMs ?? -1} terrainMs=${payload.sources.terrain.durationMs ?? -1} weatherMs=${payload.sources.weather.durationMs ?? -1} partial=${errors.length ? 1 : 0} ms=${Date.now() - startedAt}`);
+    log(`EFB_MAP_CONTEXT lat=${request.lat.toFixed(5)} lon=${request.lon.toFixed(5)} airspaces=${airspaces.length} feature=${feature?.kind || 'none'} aviation=${payload.sources.aviation.mode} aviationMs=${payload.sources.aviation.durationMs ?? -1} terrainMs=${payload.sources.terrain.durationMs ?? -1} weatherMs=${payload.sources.weather.durationMs ?? -1} partial=${errors.length ? 1 : 0} ms=${now() - startedAt}`);
     return payload;
   }
 
   async function get(request) {
     const key = `${request.lat.toFixed(5)},${request.lon.toFixed(5)},${request.radiusNm.toFixed(2)}`;
     const cached = cache.get(key);
-    if (cached && Date.now() - cached.storedAt < cacheMs) {
+    if (cached && now() - cached.storedAt < cacheMs) {
       touch(key, cached);
       return { ...cached.payload, cache: 'hit' };
     }
     if (inflight.has(key)) return inflight.get(key);
     const pending = load(request).then(payload => {
-      touch(key, { payload, storedAt: Date.now() });
+      touch(key, { payload, storedAt: now() });
       return { ...payload, cache: 'miss' };
     }).finally(() => inflight.delete(key));
     inflight.set(key, pending);
     return pending;
   }
 
-  return { get, async getAirspaces(request) {
+  return { get, async getPopupSnapshot(request) {
+    return (await loadAviation(request)).payload;
+  }, async getNavpointSnapshot(request) {
+    return (await loadAviation({ ...request, collections: ['airports', 'navaids', 'reportingPoints'] })).payload;
+  }, async getAirportSnapshots(request) {
+    const result = await loadAviation({ ...request, collections: ['airports'] });
+    if (!Array.isArray(result.payload?.airports)) throw new Error('aviation_airports_invalid');
+    return [result.payload];
+  }, async getAirspaceAirports(request) {
+    const result = await loadAviation({ ...request, collections: ['airports'] });
+    const airports = {};
+    for (const item of result.payload?.airports || []) {
+      const airport = normalizeAirport(item);
+      if (airport?.icao) airports[airport.icao] = { ...airport, city: item.city || '' };
+    }
+    return airports;
+  }, async getAirspaces(request) {
     const result = await loadAviation({ ...request, collections: ['airspaces'] });
     if (!Array.isArray(result.payload?.airspaces)) throw new Error('aviation_airspaces_invalid');
     return result.payload.airspaces;
@@ -699,6 +729,7 @@ module.exports = {
   MAP_CONTEXT_SCHEMA,
   OPENAIP_SNAPSHOT_URL,
   HOSTED_AVIATION_LATEST_URL,
+  validateHostedAviationDocument,
   OPEN_METEO_ELEVATION_URL,
   OPEN_METEO_FORECAST_URL,
   createTrackerEfbMapContextProvider,

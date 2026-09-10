@@ -1,8 +1,8 @@
 (function (root, factory) {
-  var api = factory();
+  var api = factory(typeof module === 'object' && module.exports ? require('../pax-audio-style.js') : root.GAPaxAudioStyle);
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.GATrackerAudioPlayer = api;
-})(typeof window !== 'undefined' ? window : null, function () {
+})(typeof window !== 'undefined' ? window : null, function (audioStyle) {
   'use strict';
   function createPlayer(options) {
     var context = null, active = null, state = null, fetching = false, stopped = false;
@@ -55,7 +55,8 @@
       current.leaseDeadline = Date.now() + remaining;
       if (current.source) {
         current.stopAt = getContext().currentTime + remaining / 1000;
-        try { current.source.stop(current.stopAt); } catch (_) {}
+        try { current.source.stop(current.stopAt);
+        if (current.noise) current.noise.stop(current.stopAt); } catch (_) {}
       }
       current.leaseTimer = setTimeout(function () { finish(current, false, true); }, remaining);
     }
@@ -118,7 +119,12 @@
       if (current.done) return;
       var source = ctx.createBufferSource(), volume = ctx.createGain();
       current.source = source; current.gain = volume; current.clipGain = gain;
-      source.buffer = buffer; source.connect(volume); volume.connect(ctx.destination);
+      source.buffer = buffer; volume.connect(ctx.destination);
+      var style = state.settings.audioStyle || 'intercom_noise';
+      var chain = stage === 'audio' && style !== 'clear'
+        ? audioStyle.buildIntercomChain(ctx, volume, buffer.duration - current.offset, { noise: style === 'intercom_noise' }) : null;
+      current.noise = chain && chain.noise;
+      source.connect(chain ? chain.input : volume);
       volume.gain.value = state.settings.volume * gain;
       current.startedAt = ctx.currentTime;
       await new Promise(function (resolve, reject) {
@@ -128,14 +134,19 @@
           if (done) return; done = true;
           clearTimeout(playbackTimer);
           source.onended = null;
+          try { if (current.noise) current.noise.stop(); } catch (_) {}
+          current.noise = null;
+          if (chain) chain.disconnect();
           try { source.disconnect(); volume.disconnect(); } catch (_) {}
           if (error) reject(error); else resolve();
         }
         current.resolveClip = function () { end(); };
         source.onended = function () { end(); };
         source.start(0, current.offset);
+        if (current.noise) current.noise.start();
         current.stopAt = ctx.currentTime + Math.max(0, current.leaseDeadline - Date.now()) / 1000;
         source.stop(current.stopAt);
+        if (current.noise) current.noise.stop(current.stopAt);
       });
       if (current.skipCue && stage === 'cue') { current.source = null; current.offset = 0; return; }
       if (!current.done && position(current).offset + 0.1 < buffer.duration) throw new Error('audio_lease_expired');

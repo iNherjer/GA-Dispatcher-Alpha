@@ -1,4 +1,20 @@
 /* === VERTICAL PROFILE & CANVAS ENGINE (v220) === */
+// Both clients run this engine. The EFB supplies only local data transport;
+// geometry, weather parsing, drawing and controls remain the standalone code.
+function vpCreateAbortController() {
+    return window.gaProfileDataProvider ? window.gaProfileDataProvider.createAbortController() : new AbortController();
+}
+
+function vpGetProfileTas() {
+    return window.gaProfileDataProvider ? (window.gaProfileDataProvider.tasKts || 115) : parseInt(document.getElementById('tasSlider')?.value || 115);
+}
+
+function vpFetchResource(url, options) {
+    return window.gaProfileDataProvider
+        ? window.gaProfileDataProvider.fetch(url, options)
+        : fetch(url, options);
+}
+
 if (!document.getElementById('vp-err-dot-style')) {
     const style = document.createElement('style');
     style.id = 'vp-err-dot-style';
@@ -118,7 +134,7 @@ async function loadGlobalCities() {
         }
         try {
             // Lazy-Load: city dataset erst bei tatsächlichem Bedarf laden.
-            const res = await fetch('./cities.json', { cache: 'default' });
+            const res = await vpFetchResource('./cities.json', { cache: 'default' });
             if (res.ok) {
                 const parsed = await res.json();
                 globalCities = Array.isArray(parsed) ? parsed : [];
@@ -1645,7 +1661,7 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
         let onAbort = null;
         try {
             const isLocalStaticEndpoint = endpoint.includes('./obstacles/core-tiles/') || endpoint.includes('./obstacles/tiles/');
-            ctrl = new AbortController();
+            ctrl = vpCreateAbortController();
             if (signal) {
                 onAbort = () => ctrl.abort();
                 if (signal.aborted) ctrl.abort();
@@ -1655,8 +1671,8 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
             let url = '';
             if (endpoint.includes('{latI}') || endpoint.includes('{lonI}')) {
                 url = endpoint
-                    .replaceAll('{latI}', encodeURIComponent(String(latI)))
-                    .replaceAll('{lonI}', encodeURIComponent(String(lonI)));
+                    .split('{latI}').join(encodeURIComponent(String(latI)))
+                    .split('{lonI}').join(encodeURIComponent(String(lonI)));
             } else {
                 const u = new URL(endpoint);
                 u.searchParams.set('layer', 'core');
@@ -1671,7 +1687,7 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
                 url = u.toString();
             }
             if (dbg) dbg.hostedTileRequests = Number(dbg.hostedTileRequests || 0) + 1;
-            const res = await fetch(url, { signal: ctrl.signal });
+            const res = await vpFetchResource(url, { signal: ctrl.signal });
             if (res.status === 404 || res.status === 204) {
                 if (dbg) dbg.hostedTileMisses = Number(dbg.hostedTileMisses || 0) + 1;
                 if (isLocalStaticEndpoint) continue;
@@ -1684,7 +1700,7 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
                 continue;
             }
             let payload;
-            if (url.endsWith('.gz')) {
+            if (url.endsWith('.gz') && !window.gaProfileDataProvider) {
                 const ds = new DecompressionStream('gzip');
                 payload = await new Response(res.body.pipeThrough(ds)).json();
             } else {
@@ -1789,7 +1805,7 @@ async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
             const serverUrl = VP_OVERPASS_SERVERS[(tileIndex + attempt + window.vpServerOffset) % VP_OVERPASS_SERVERS.length];
             attempt++;
             try {
-                const res = await fetch(serverUrl, {
+                const res = await vpFetchResource(serverUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `data=${encodeURIComponent(query)}`,
@@ -2312,7 +2328,7 @@ window.vpHardReloadRouteProfile = function(reason = 'route-change') {
 function triggerVerticalProfileUpdate() {
     if (vpProfileFastTimeout) clearTimeout(vpProfileFastTimeout);
     if (window.vpFetchController) window.vpFetchController.abort();
-    window.vpFetchController = new AbortController();
+    window.vpFetchController = vpCreateAbortController();
     const currentSignal = window.vpFetchController.signal;
     const forceOverpassReload = window._vpForceOverpassOnce === true;
     window._vpForceOverpassOnce = false;
@@ -2756,7 +2772,7 @@ async function fetchRouteElevation(routePts, signal) {
 
     try {
         if (window.vpWeatherDebug) window.vpWeatherDebug.elevationNetworkRequests += 1;
-        const res = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons, { signal });
+        const res = await vpFetchResource('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons, { signal });
         if (!res.ok) {
             if (res.status === 429) vpRecordElevation429();
             throw new Error('Elevation API error: ' + res.status);
@@ -2883,7 +2899,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
     const skipDirectMetarFetch = true;
 
     async function fetchWithTimeout(urlObj) {
-        const ctrl = new AbortController();
+        const ctrl = vpCreateAbortController();
         let timer = null;
         let onAbort = null;
         if (signal) {
@@ -2893,7 +2909,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
         }
         timer = setTimeout(() => ctrl.abort(), perRequestTimeoutMs);
         try {
-            return await fetch(urlObj, { signal: ctrl.signal });
+            return await vpFetchResource(urlObj, { signal: ctrl.signal });
         } finally {
             if (timer) clearTimeout(timer);
             if (signal && onAbort) signal.removeEventListener('abort', onAbort);
@@ -3435,6 +3451,7 @@ function vpDecodeTerrariumFt(imageData, px, py) {
 
 async function vpFetchElevationFromTerrarium(samplePts, signal) {
     if (!Array.isArray(samplePts) || samplePts.length < 2) return null;
+    if (window.gaProfileDataProvider) return window.gaProfileDataProvider.terrain(samplePts, signal, 'ROUTE');
     if (typeof _tawsLatLonToPixel !== 'function' || typeof _tawsLoadTile !== 'function') return null;
 
     const zoom = vpGetTerrariumZoom();
@@ -3808,7 +3825,7 @@ function vpRequestStorageEstimate() {
             };
         })
         .catch(() => {})
-        .finally(() => { vpStorageEstimateInFlight = false; });
+        .then(() => { vpStorageEstimateInFlight = false; });
 }
 
 function vpStorageCategoryForKey(key = '') {
@@ -5129,7 +5146,7 @@ window.vpToggleWeatherDebugPanel = function(forceState) {
         window.vpRefreshWeatherDebugReport && window.vpRefreshWeatherDebugReport();
     }
 };
-vpInstallGlobalDebugHooks();
+if (!window.gaProfileDataProvider) vpInstallGlobalDebugHooks();
 
 function vpCoverageToCloudType(coveragePct) {
     if (coveragePct >= 88) return 'OVC';
@@ -5414,7 +5431,7 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
 
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latQ}&longitude=${lonQ}&hourly=${encodeURIComponent(hourlyVars.join(','))}&forecast_hours=6&models=best_match&wind_speed_unit=kn&timeformat=unixtime&timezone=UTC`;
     if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoNetworkRequests += 1;
-    const res = await fetch(url, { signal });
+    const res = await vpFetchResource(url, { signal });
     if (!res.ok) {
         if (res.status === 429) {
             await window.vpRecordOpenMeteo429FromResponse?.(res, 'point forecast');
@@ -7634,7 +7651,7 @@ function renderVerticalProfile(canvasId) {
     const plotH = displayHeight - padTop - padBottom;
 
     const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || document.getElementById('altSlider')?.value || 4500);
-    const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+    const tas = vpGetProfileTas();
     const totalDist = vpElevationData[vpElevationData.length - 1].distNM;
     const maxTerrain = Math.max(...vpElevationData.map(p => p.elevFt));
     let maxCloudAlt = 0;
@@ -8122,6 +8139,9 @@ function vpZoom(delta) {
 
 async function fetchHighResElevation() {
     if (!routeWaypoints || routeWaypoints.length < 2) return;
+    const routeKey = () => routeWaypoints.map(p => `${p.lat},${p.lng ?? p.lon}`).join('|');
+    const requestedRoute = routeKey();
+    const isCurrent = () => vpZoomLevel < 100 && routeKey() === requestedRoute;
 
     const interpolated = [];
     let cumulativeDist = 0;
@@ -8161,6 +8181,7 @@ async function fetchHighResElevation() {
 
     try {
         const terrariumData = await vpFetchElevationFromTerrarium(samplePts);
+        if (!isCurrent()) return;
         if (terrariumData && terrariumData.length === samplePts.length) {
             vpHighResData = terrariumData;
             window.vpTerrainElevationSource = 'terrarium';
@@ -8169,13 +8190,14 @@ async function fetchHighResElevation() {
 
         if (vpIsElevationCoolingDown()) return;
         if (window.vpWeatherDebug) window.vpWeatherDebug.elevationNetworkRequests += 1;
-        const res = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons);
+        const res = await vpFetchResource('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons);
         if (res.status === 429) {
             vpRecordElevation429();
             return;
         }
         if (!res.ok) return;
         const data = await res.json();
+        if (!isCurrent()) return;
         if (!data.elevation || data.elevation.length !== samplePts.length) return;
 
         vpHighResData = samplePts.map((p, i) => ({
@@ -8411,7 +8433,7 @@ function renderMapProfileFrames(timeMs) {
     const plotH = containerHeight - padTop - padBottom;
 
     const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || document.getElementById('altSlider')?.value || 4500);
-    const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+    const tas = vpGetProfileTas();
     const totalDist = elevData[elevData.length - 1].distNM;
     const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
     let autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
@@ -8715,7 +8737,7 @@ function renderMapProfileFrames(timeMs) {
 
         const routeElevData = vpElevationData;
         const routeTotalDist = routeElevData[routeElevData.length - 1].distNM;
-        const tasHdg = parseInt(document.getElementById('tasSlider')?.value || 115);
+        const tasHdg = vpGetProfileTas();
         const fpRoute = computeFlightProfile(routeElevData, cruiseAlt, vpClimbRate, vpDescentRate, tasHdg);
         if (fpRoute && fpRoute.profile) {
             const liveDistNM = vpLiveGpsFraction * routeTotalDist;
@@ -9220,7 +9242,7 @@ function initAltWaypoints() {
     function vpHitTestFlightLine(mx, my, m) {
         const mouseDistNM = ((mx - m.padLeft) / m.plotW) * m.totalDist;
         if (mouseDistNM < 0 || mouseDistNM > m.totalDist) return null;
-        const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+        const tas = vpGetProfileTas();
         const profObj = typeof computeFlightProfile === 'function' ? computeFlightProfile(m.elevData, m.cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
         const altAtMouse = getExactAltAtDist(mouseDistNM, profObj, m.cruiseAlt);
         const lineY = m.padTop + m.plotH - (altAtMouse / m.maxAlt) * m.plotH;
@@ -9326,7 +9348,7 @@ function initAltWaypoints() {
         // 2. Try adding new waypoint on flight line
         const clickDistNM = vpHitTestFlightLine(mx, my, m);
         if (clickDistNM !== null) {
-            const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+            const tas = vpGetProfileTas();
             const profObj = typeof computeFlightProfile === 'function' ? computeFlightProfile(m.elevData, m.cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
             let exactAlt = getExactAltAtDist(clickDistNM, profObj, m.cruiseAlt);
             exactAlt = Math.round(exactAlt / 100) * 100;
@@ -9478,7 +9500,7 @@ function initAltWaypoints() {
             const segIdx = vpFindSegmentIdx(mouseDistNM);
             
             // FIX: Exakte, physikalische Höhe an der angeklickten Stelle berechnen
-            const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+            const tas = vpGetProfileTas();
             const profObj = typeof computeFlightProfile === 'function' ? computeFlightProfile(m.elevData, m.cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
             let exactAltAtClick = typeof getExactAltAtDist === 'function' ? getExactAltAtDist(mouseDistNM, profObj, m.cruiseAlt) : m.cruiseAlt;
             exactAltAtClick = Math.round(exactAltAtClick / 100) * 100;
@@ -9653,7 +9675,7 @@ computeFlightProfile = function (elevationData, cruiseAltFt, climbRateFpm, desce
     if (!elevationData || elevationData.length < 2) return null;
     if (vpAltWaypoints.length === 0) return _origComputeProfile(elevationData, cruiseAltFt, climbRateFpm, descentRateFpm, tasKts);
 
-    tasKts = tasKts || parseInt(document.getElementById('tasSlider')?.value || 115);
+    tasKts = tasKts || vpGetProfileTas();
     climbRateFpm = climbRateFpm || 500;
     descentRateFpm = descentRateFpm || 500;
 
@@ -10234,7 +10256,7 @@ window.exportFor2DSim = function() {
 
     // 3b. Höhenprofil berechnen und zu jedem Wegpunkt hinzufügen
     const _exportCruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || 4500);
-    const _exportTas = parseInt(document.getElementById('tasSlider')?.value || 115);
+    const _exportTas = vpGetProfileTas();
     const _exportProf = typeof computeFlightProfile === 'function'
         ? computeFlightProfile(vpElevationData, _exportCruiseAlt, vpClimbRate, vpDescentRate, _exportTas)
         : null;
@@ -10690,7 +10712,7 @@ async function vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos) {
     }
 
     if (vpHdgWeatherAbortController) vpHdgWeatherAbortController.abort();
-    vpHdgWeatherAbortController = new AbortController();
+    vpHdgWeatherAbortController = vpCreateAbortController();
     const signal = vpHdgWeatherAbortController.signal;
     vpHdgWeatherInFlight = true;
     vpHdgWeatherFetchTs = now;
@@ -10793,7 +10815,7 @@ async function updateHdgProfile(options = {}) {
 
 // ── Terrain-Sampling entlang der Flugrichtung ────────────
 async function generateHdgProfile(lat, lon, hdg, alt, gs) {
-    if (typeof sampleTerrainElevation !== 'function') return null;
+    if (!window.gaProfileDataProvider && typeof sampleTerrainElevation !== 'function') return null;
     if (vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork()) return null;
 
     const totalMin = VP_HDG_LOOKBACK_MIN + VP_HDG_LOOKAHEAD_MIN;
@@ -10813,6 +10835,8 @@ async function generateHdgProfile(lat, lon, hdg, alt, gs) {
         const timeMin = i * totalMin / VP_HDG_SAMPLES;
         points.push({ lat: pt.lat, lon: pt.lon, distNM: timeMin });
     }
+
+    if (window.gaProfileDataProvider) return window.gaProfileDataProvider.terrain(points, undefined, 'HDG');
 
     // Tiles parallel vorladen (normalerweise 1-3 Tiles)
     const tileSet = new Set();
@@ -10951,4 +10975,149 @@ function computeHdgLinearFeatures(lat, lon, hdg, gs) {
         if (timeMin < 0 || timeMin > totalMin) continue;
         vpHdgLinearFeatures.push({ ...lin, distNM: timeMin });
     }
+}
+
+// Shared live-profile projection, taken from the standalone GPS display path.
+function _headingDiffDeg(a, b) {
+    return Math.abs(((a - b + 540) % 360) - 180);
+}
+
+function _profileSegmentCourseDeg(ed, i) {
+    const i0 = Math.max(0, i - 1);
+    const i1 = Math.min(ed.length - 1, i + 1);
+    if (i0 === i1) return null;
+    const a = ed[i0], b = ed[i1];
+    const aLon = a.lon ?? a.lng;
+    const bLon = b.lon ?? b.lng;
+    if (!Number.isFinite(a?.lat) || !Number.isFinite(aLon) || !Number.isFinite(b?.lat) || !Number.isFinite(bLon)) return null;
+    const refLat = ((a.lat + b.lat) * 0.5) * Math.PI / 180;
+    const dLon = (bLon - aLon) * Math.cos(refLat);
+    const dLat = (b.lat - a.lat);
+    if (Math.abs(dLon) < 1e-9 && Math.abs(dLat) < 1e-9) return null;
+    return (Math.atan2(dLon, dLat) * 180 / Math.PI + 360) % 360;
+}
+
+function _profileIdxScore(ed, i, lat, lon, hdg) {
+    const p = ed[i];
+    const pLon = p.lon ?? p.lng;
+    const dLat = lat - p.lat;
+    const dLon = lon - pLon;
+    const distNm = Math.sqrt(dLat * dLat + dLon * dLon) * 59.9;
+    let score = distNm;
+
+    if (Number.isFinite(hdg)) {
+        const segCourse = _profileSegmentCourseDeg(ed, i);
+        if (Number.isFinite(segCourse)) {
+            const diff = _headingDiffDeg(hdg, segCourse);
+            if (diff > 20) {
+                // Gegenkurs-Segmente in Nähe bekommen eine klare, aber nicht harte Strafe.
+                score += Math.min(2.5, ((diff - 20) / 160) * 2.5);
+            }
+        }
+    }
+    return { score, distNm };
+}
+
+function _getAirspaceColorForPredPoint(pt) {
+        if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return null;
+        if (typeof getAirspaceVerticalBandFt === 'undefined' || typeof isPointInsideAirspace === 'undefined') return null;
+        for (const as of activeAirspaces) {
+            if (!as.geometry || !as.lowerLimit || !as.upperLimit) continue;
+            if (as.type === 33) continue; // FIS überspringen
+            const terrainBase = Number(pt.terrainFt ?? window.lastLiveTerrainFt) || 0;
+            const band = getAirspaceVerticalBandFt(as, terrainBase);
+            if (!band) continue;
+            if (pt.alt < band.lowerFt - 500 || pt.alt > band.upperFt + 500) continue;
+            if (isPointInsideAirspace(as, pt.lat, pt.lon))
+                return typeof getAirspaceStyle === 'function' ? getAirspaceStyle(as).color : '#f2c12e';
+        }
+        return null;
+    }
+
+function vpUpdateLiveProfilePosition(lat, lon, alt, hdg, liveMapVisualActive) {
+    // --- ICON B: HÖHENPROFIL ---
+    // Richtungssensitives Lock-on: verhindert Sprünge zwischen nahen Hin-/Rück-Segmenten.
+    if (typeof vpElevationData !== 'undefined' && vpElevationData && vpElevationData.length > 2) {
+        const ed = vpElevationData;
+        const totalDist = ed[ed.length - 1].distNM;
+        const routeSig = `${ed.length}:${Math.round(totalDist * 10)}`;
+        if (routeSig !== vpProfileLockSig) {
+            vpProfileLockSig = routeSig;
+            vpProfileLockIdx = -1;
+        }
+
+        const coarseStep = Math.max(1, Math.floor(ed.length / 8));
+        let coarseIdx = 0, coarseBest = Infinity;
+        for (let i = 0; i < ed.length; i += coarseStep) {
+            const p = ed[i];
+            const pLon = p.lon ?? p.lng;
+            const dLat = lat - p.lat;
+            const dLon = lon - pLon;
+            const d2 = dLat * dLat + dLon * dLon;
+            if (d2 < coarseBest) { coarseBest = d2; coarseIdx = i; }
+        }
+
+        const localWindow = Math.max(40, coarseStep * 4);
+        const hasLock = Number.isFinite(vpProfileLockIdx) && vpProfileLockIdx >= 0 && vpProfileLockIdx < ed.length;
+        let searchLo = Math.max(0, coarseIdx - coarseStep);
+        let searchHi = Math.min(ed.length - 1, coarseIdx + coarseStep);
+        if (hasLock) {
+            searchLo = Math.max(0, vpProfileLockIdx - localWindow);
+            searchHi = Math.min(ed.length - 1, vpProfileLockIdx + localWindow);
+        }
+
+        let bestIdx = searchLo;
+        let bestScore = Infinity;
+        let bestDistNm = Infinity;
+        for (let i = searchLo; i <= searchHi; i++) {
+            const s = _profileIdxScore(ed, i, lat, lon, hdg);
+            if (s.score < bestScore) {
+                bestScore = s.score;
+                bestDistNm = s.distNm;
+                bestIdx = i;
+            }
+        }
+
+        // Wenn Lock-Fenster zu weit weg liegt, einmal global neu einloggen.
+        if (hasLock && bestDistNm > 2.2) {
+            let globalBestIdx = 0;
+            let globalBestScore = Infinity;
+            let globalBestDistNm = Infinity;
+            for (let i = 0; i < ed.length; i += 1) {
+                const s = _profileIdxScore(ed, i, lat, lon, hdg);
+                if (s.score < globalBestScore) {
+                    globalBestScore = s.score;
+                    globalBestDistNm = s.distNm;
+                    globalBestIdx = i;
+                }
+            }
+            bestIdx = globalBestIdx;
+            bestDistNm = globalBestDistNm;
+        }
+        vpProfileLockIdx = bestIdx;
+        window.vpLiveRouteDistNM = bestDistNm;
+
+        // Terrain-Höhe weiterhin intern vorhalten (z.B. für Warnlogik),
+        // Telemetrie zeigt aber MSL-Höhe.
+        const terrainFt = bestDistNm < 10 ? (ed[bestIdx].elevFt ?? 0) : 0;
+        window.lastLiveTerrainFt = terrainFt;
+        const mslFt = Math.max(0, Math.round(alt));
+        const aglEl = liveMapVisualActive ? document.getElementById('teleAGL') : null;
+        if (aglEl) {
+            aglEl.textContent = mslFt;
+            aglEl.style.color = mslFt < 1500 ? '#ff4444' : (mslFt < 3000 ? '#ffcc44' : '#8ec5ff');
+        }
+
+        if (bestDistNm < 10) { // ~10 NM Schwelle für Icon-Anzeige
+            if (typeof vpUpdateLiveAircraft === 'function') {
+                vpUpdateLiveAircraft(ed[bestIdx].distNM / totalDist, alt, hdg);
+            }
+        } else {
+            window.vpLiveRouteDistNM = 999;
+            if (typeof vpUpdateLiveAircraft === 'function') {
+                vpUpdateLiveAircraft(-1, alt, hdg);  // -1 = ausblenden
+            }
+        }
+    }
+
 }

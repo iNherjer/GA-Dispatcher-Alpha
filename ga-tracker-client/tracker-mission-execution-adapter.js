@@ -31,6 +31,7 @@ const SYSTEM_EVENT_TYPES = new Set([
   'MISSION_CLOSED'
 ]);
 const INTENT_EVENT_TYPES = Object.freeze({
+  open_cargo_window: 'CARGO_WINDOW_OPENED',
   close_cargo_window: 'CARGO_WINDOW_CLOSED',
   prepare_mission: 'PREPARE_REQUESTED',
   start_boarding: 'BOARDING_STARTED',
@@ -113,6 +114,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     farewellVoiceRecipe: null,
     flightRecorder: flightRecorderCore.createState(),
     arrivalFlightRecord: null,
+    arrivalWeather: null,
     missionFlightRecord: null,
     lastFinalizedSegmentStartTs: null,
     segmentDepartureLabel: null,
@@ -238,6 +240,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       context: {
         flightRecorder: observations.flightRecorder,
         arrivalFlightRecord: observations.arrivalFlightRecord,
+        arrivalWeather: observations.arrivalWeather,
         missionFlightRecord: observations.missionFlightRecord,
         lastFinalizedSegmentStartTs: observations.lastFinalizedSegmentStartTs,
         segmentDepartureLabel: observations.segmentDepartureLabel,
@@ -303,7 +306,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       record,
       cargoOutcome,
       missionFailed: cargoOutcome.failed === true,
-      liveWeather: observations.latestTelemetry || null
+      liveWeather: observations.arrivalWeather || observations.latestTelemetry || null
     };
   };
 
@@ -340,7 +343,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (!commandId) return errorResult('command_id_required');
     const validated = validateSnapshot(request);
     if (!validated.ok) return validated;
-    if (!(intent === 'close_cargo_window' && !validated.snapshot.state.flags.closed)
+    if (!(['close_cargo_window', 'open_cargo_window'].includes(intent) && !validated.snapshot.state.flags.closed)
         && !validated.snapshot.view.allowedActions.includes(intent)) {
       return errorResult('mission_intent_not_allowed_in_state', {
         activeRun: authorityManager.getActiveRun(),
@@ -630,7 +633,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       manifest,
       { currentFlightId, missionAvailable: true }
     );
-    if (initial.field !== field) return errorResult('manifest_boardbook_field_not_current');
+    // Standalone landing reminders can record landing even if the pilot
+    // dismissed the start reminder. Cargo buttons still suggest the next field.
+    if (initial.field !== field && payload.source !== 'banner') return errorResult('manifest_boardbook_field_not_current');
+    if (payload.source === 'banner' && !Number(runtimeFlightEvents[`${field}At`] || manifest.flightEvents?.[`${field}At`])) {
+      return errorResult('manifest_boardbook_timestamp_required');
+    }
     const complianceAllowed = compliance.selected !== true || compliance.released === true
       || !['request_playing', 'evidence_open', 'result_playing', 'departing'].includes(String(compliance.phase || ''))
       || (compliance.phase === 'evidence_open'
@@ -641,7 +649,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const plan = manifestCore.planBoardBookEntry(manifest, {
       itemId,
       field,
-      source: 'tracker'
+      source: payload.source === 'banner' ? 'banner' : 'tracker'
     }, {
       currentFlightId,
       timestamp,
@@ -812,7 +820,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
           manifest: snapshot.state.manifest,
           ...(payloadContext ? { payloadContext } : {})
         }
-      : (eventType === 'CLOSE_REQUESTED' ? { position: observations.lastPosition }
+      : (eventType === 'CARGO_WINDOW_OPENED' ? { mode: ['load', 'unload', 'pickup', 'equipment'].includes(intentPayload.mode) ? intentPayload.mode : 'load' }
+        : eventType === 'CLOSE_REQUESTED' ? { position: observations.lastPosition }
         : (eventType === 'MISSION_STARTED' ? {
             arrivalScene: !!executionEffectPlan()?.effects?.['scene.arrival']
           } : {}));
@@ -909,6 +918,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       : null;
     observations.flightRecorder = flightRecorderCore.createState(persisted?.flightRecorder);
     observations.arrivalFlightRecord = persisted?.arrivalFlightRecord || null;
+    observations.arrivalWeather = persisted?.arrivalWeather || null;
     observations.missionFlightRecord = persisted?.missionFlightRecord || null;
     observations.lastFinalizedSegmentStartTs = Math.max(0, Number(persisted?.lastFinalizedSegmentStartTs || 0)) || null;
     observations.segmentDepartureLabel = cleanString(persisted?.segmentDepartureLabel, 180) || null;
@@ -1031,7 +1041,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const touchdownObserved = recorderBefore?.wasOnGround === false && onGround === true;
     if (touchdownObserved) {
       const arrivalRecord = buildSegmentRecord(observations.flightRecorder, observedAt, observations.latestDestination);
-      if (arrivalRecord) observations.arrivalFlightRecord = arrivalRecord;
+      if (arrivalRecord) {
+        observations.arrivalFlightRecord = arrivalRecord;
+        observations.arrivalWeather = { ...observations.latestTelemetry };
+      }
     }
     const aglFt = Math.max(0, finite(sample.aglFt, 0));
     const landingCandidate = observations.flightRecorder.hadAirbornePhase === true

@@ -581,28 +581,7 @@ function _awMinKey(min) {
 
 // Luftraum 3× auf Karte aufblinken lassen
 function _awPulseOnMap(as, color) {
-    if (!as.geometry || typeof L === 'undefined' || typeof map === 'undefined') return;
-    const polys = [];
-    if (as.geometry.type === 'Polygon')
-        polys.push(as.geometry.coordinates[0]);
-    else if (as.geometry.type === 'MultiPolygon')
-        as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
-
-    polys.forEach(poly => {
-        const latlngs = poly.map(c => [c[1], c[0]]);  // GeoJSON [lon,lat] → Leaflet [lat,lon]
-        const flash = L.polygon(latlngs, {
-            color, weight: 4, opacity: 0,
-            fillColor: color, fillOpacity: 0,
-            interactive: false
-        }).addTo(map);
-        let tick = 0;
-        const id = setInterval(() => {
-            tick++;
-            const on = (tick % 2 === 1);
-            flash.setStyle({ opacity: on ? 1 : 0, fillOpacity: on ? 0.3 : 0 });
-            if (tick >= 6) { clearInterval(id); if (map.hasLayer(flash)) map.removeLayer(flash); }
-        }, 450);
-    });
+    window.GANavigationWarningPresentation.pulseOnMap(as, color, typeof map !== 'undefined' ? map : null, typeof L !== 'undefined' ? L : null);
 }
 
 let _awProfilePulseTimer = null;
@@ -639,95 +618,7 @@ function _awPulseOnProfileBand(as) {
  * Frequenz/Squawk-Banner am oberen Kartenrand anzeigen.
  * Bleibt stehen bis der Pilot tippt/klickt — kein Auto-Dismiss.
  */
-function _awConsumeFreqBannerEvent(ev, options = {}) {
-    if (!ev) return;
-    if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
-    if (options.preventDefault !== false && ev.cancelable && typeof ev.preventDefault === 'function') ev.preventDefault();
-}
-
-function _awInstallFreqBannerBarrier(banner) {
-    if (!banner || banner.__awmFreqBarrierInstalled) return;
-    banner.__awmFreqBarrierInstalled = true;
-    const consume = (ev) => _awConsumeFreqBannerEvent(ev, {
-        preventDefault: !/^(pointerdown|mousedown|touchstart)$/i.test(String(ev?.type || ''))
-    });
-    ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend']
-        .forEach(type => banner.addEventListener(type, consume, { passive: false }));
-}
-
-function _awShowFreqBanner(as, col) {
-    if (!as.frequencies || as.frequencies.length === 0) return;
-    const banner = document.getElementById('awmFreqBanner');
-    if (!banner) return;
-    _awInstallFreqBannerBarrier(banner);
-
-    // Gleichen Luftraum nicht doppelt anzeigen
-    const asKey = `${as.type}_${as.name || as._id || 'x'}`;
-    const escaped = asKey.replace(/[^a-zA-Z0-9_-]/g, '_');
-    if (banner.querySelector(`[data-askey="${escaped}"]`)) return;
-
-    // Alle Frequenzen/Squawks aufbereiten
-    const t = as.type;
-    const freqParts = [];
-    for (const f of (as.frequencies || [])) {
-        if (!f.value) continue;
-        const nm = (f.name || '').toUpperCase();
-        const isSquawk = /XPDR|SQK|SQUAWK|TRANSP/.test(nm);
-        const icon  = isSquawk ? '🔲' : '📻';
-        const label = isSquawk ? (nm || 'XPDR')
-                    : (t === 5 || t === 27) ? (nm || 'FREQ')
-                    : (t === 6 || t === 28 || t === 33) ? (nm || 'INFO')
-                    : (nm || 'TWR');
-        freqParts.push(`${icon}\u202F${label}: <b>${f.value}</b>`);
-    }
-    if (!freqParts.length) return;
-
-    const displayName = (typeof getAirspaceDisplayName === 'function')
-        ? getAirspaceDisplayName(as) : (as.name || '?');
-
-    // Farbe für Frequenz-Label
-    let freqColor = col || '#ffffff';
-    if (t === 5 || t === 27)          freqColor = '#9966ff'; // TMZ
-    else if (t === 6 || t === 28 || t === 33) freqColor = '#66cccc'; // RMZ/FIS
-
-    const entry = document.createElement('div');
-    entry.dataset.askey = escaped;
-    entry.className = 'awm-freq-entry';
-    entry.style.borderTopColor = col || '#888';
-
-    const valsHtml = freqParts
-        .map(p => `<span class="awm-freq-val" style="color:${freqColor};">${p}</span>`)
-        .join('<span style="color:#444;margin:0 4px;">·</span>');
-
-    entry.innerHTML =
-        `<span style="flex:1;min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;">` +
-        `<span class="awm-freq-name" style="color:${col};">${displayName}</span>` +
-        `<span style="color:#555;font-size:10px;">·</span>` +
-        `<span class="awm-freq-vals">${valsHtml}</span>` +
-        `</span>` +
-        `<button class="awm-freq-dismiss" type="button">✕</button>`;
-
-    // Antippen / Klick → Eintrag entfernen, Banner verstecken wenn leer
-    const dismiss = (ev) => {
-        _awConsumeFreqBannerEvent(ev);
-        if (!entry.isConnected) return;
-        entry.remove();
-        if (!Array.from(banner.children).some(child => child.hidden !== true)) banner.style.display = 'none';
-    };
-    const consumeOnly = (ev) => _awConsumeFreqBannerEvent(ev, { preventDefault: false });
-    const dismissBtn = entry.querySelector('.awm-freq-dismiss');
-    ['pointerdown', 'mousedown', 'touchstart'].forEach(type => {
-        entry.addEventListener(type, consumeOnly, { passive: false });
-        if (dismissBtn) dismissBtn.addEventListener(type, consumeOnly, { passive: false });
-    });
-    ['pointerup', 'click', 'touchend'].forEach(type => {
-        entry.addEventListener(type, dismiss, { passive: false });
-        if (dismissBtn) dismissBtn.addEventListener(type, dismiss, { passive: false });
-    });
-
-    banner.appendChild(entry);
-    banner.style.display = 'block';
-}
+function _awShowFreqBanner(as, col) { return window.GANavigationWarningPresentation.showFrequency(as, col); }
 
 /**
  * Vorhersage-Punkte gegen aktive Lufträume prüfen und ggf. Ansage abspielen.
@@ -748,22 +639,23 @@ function checkAirspaceWarnings(predPoints) {
     }
 }
 window.awmDisplayTrackerWarning = function(warning) {
-    if (warning.kind === 'airspace') {
-        const descriptor = warning.airspace;
-        const as = (typeof activeAirspaces !== 'undefined' && activeAirspaces.find(a =>
-            (descriptor.id && (a._id || a.id) === descriptor.id) || (a.name === descriptor.name && a.type === descriptor.type))) || descriptor;
-        const col = typeof getAirspaceStyle === 'function' ? getAirspaceStyle(as).color : '#ffaa00';
-        _awPulseOnMap(as, col); _awPulseOnProfileBand(as); window.vpBgNeedsUpdate = true;
-        _awShowFreqBanner(as, col);
-    }
-    const banner = document.getElementById('awmFreqBanner'); if (!banner) return;
-    const row = document.createElement('div'); row.style.cssText = 'padding:7px;color:#ffe087;pointer-events:auto';
-    row.setAttribute('data-warning-id', warning.id);
-    row.textContent = warning.text;
-    const close = document.createElement('button'); close.textContent = '×'; close.setAttribute('aria-label', 'Warnung schließen');
-    close.onclick = event => { event.stopPropagation(); row.remove(); if (!banner.children.length) banner.style.display = 'none'; };
-    row.appendChild(close); banner.appendChild(row); banner.style.display = 'block';
-    Array.from(banner.querySelectorAll('[data-warning-id]')).slice(0, -12).forEach(old => old.remove());
+    if (warning.kind !== 'airspace') return true; // Standalone has no extra terrain/waypoint text rows.
+    if (!document.getElementById('awmFreqBanner')) return false;
+    const descriptor = warning.airspace;
+    const as = (typeof activeAirspaces !== 'undefined' && activeAirspaces.find(a =>
+        (descriptor.id && (a._id || a.id) === descriptor.id) || (a.name === descriptor.name && a.type === descriptor.type))) || descriptor;
+    const col = getAirspaceStyle(as).color;
+    _awShowFreqBanner(as, col);
+    return true;
+};
+window.awmHighlightTrackerAirspace = function(as) {
+    if (typeof map === 'undefined' || !map) return false;
+    _awPulseOnMap(as, getAirspaceStyle(as).color);
+    const match = typeof activeAirspaces !== 'undefined' && activeAirspaces.find(a =>
+        ((as.id || as._id) && (a._id || a.id) === (as.id || as._id)) || (a.name === as.name && a.type === as.type));
+    if (match) _awPulseOnProfileBand(match);
+    window.vpBgNeedsUpdate = true;
+    return true;
 };
 
 /**

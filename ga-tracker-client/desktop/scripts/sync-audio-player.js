@@ -6,3 +6,5 @@ fs.copyFileSync(path.resolve(__dirname, '../../tracker-audio-player.js'), path.r
 fs.copyFileSync(path.resolve(__dirname, '../../../navigation-warning-audio.js'), path.resolve(__dirname, '../ui/navigation-warning-audio.js'));
 
 fs.copyFileSync(path.resolve(__dirname, '../../../audio-warnings/voices/catalog.json'), path.resolve(__dirname, '../ui/warning-voices.json'));
+
+fs.copyFileSync(path.resolve(__dirname, '../../../pax-audio-style.js'), path.resolve(__dirname, '../ui/pax-audio-style.js'));

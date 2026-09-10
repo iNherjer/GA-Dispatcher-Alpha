@@ -287,6 +287,26 @@ function createTrackerCockpitControl(options = {}) {
     });
   };
 
+  const submitTool = async (request = {}) => {
+    const auth = authenticate(request);
+    if (!auth.ok) return auth;
+    const intent = cleanString(request.intent, 80);
+    if (!['airport_direct_to', 'read_payload', 'open_airport_aip', 'open_airport_weather', 'navigation_get', 'navigation_edit', 'navigation_adopt'].includes(intent) || !options.executeTool) return resultError('cockpit_tool_not_allowed');
+    const commandId = cleanString(request.commandId, 220);
+    if (!commandId) return resultError('command_id_required');
+    const key = `${auth.session.sessionId}:tool:${commandId}`;
+    const fingerprint = JSON.stringify({ intent, payload: safeObject(request.payload), expectedRevision: request.expectedRevision });
+    const previous = commandResults.get(key);
+    if (previous) return previous.fingerprint === fingerprint ? previous.result : resultError('command_id_conflict');
+    auth.session.intentTimestamps = auth.session.intentTimestamps.filter(at => now() - at < 60000);
+    if (auth.session.intentTimestamps.length >= MAX_INTENTS_PER_MINUTE) return { ok: false, status: 'rate_limited', error: 'cockpit_tool_rate_limited' };
+    auth.session.intentTimestamps.push(now());
+    const pending = Promise.resolve().then(() => options.executeTool({ intent, payload: safeObject(request.payload), expectedRevision: request.expectedRevision }))
+      .catch(error => resultError(cleanString(error?.message || error, 160)));
+    commandResults.set(key, { fingerprint, result: pending, expiresAt: now() + commandTtlMs });
+    return pending;
+  };
+
   const publicState = () => {
     cleanup();
     const activeSessions = Array.from(sessions.values()).map(publicSession);
@@ -309,6 +329,7 @@ function createTrackerCockpitControl(options = {}) {
     register,
     release,
     submitIntent,
+    submitTool,
     submitTrustedIntent
   });
 }

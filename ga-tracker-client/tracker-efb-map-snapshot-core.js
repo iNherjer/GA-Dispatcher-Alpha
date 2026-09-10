@@ -7,7 +7,7 @@ const MAX_CHAIN_POINTS = 96;
 const MAX_PROFILE_POINTS = 128;
 const MAX_PROFILE_OBSTACLES = 64;
 const MAX_PROFILE_AIRSPACES = 48;
-const EARTH_RADIUS_NM = 3440.065;
+const { distanceNm, bearingDeg, buildLegs, buildNavigation } = require('../map-navigation-geometry.js');
 
 function object(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -20,37 +20,6 @@ function finite(value) {
 
 function cleanText(value, maxLength = 100) {
   return String(value || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, maxLength);
-}
-
-function radians(value) {
-  return value * Math.PI / 180;
-}
-
-function degrees(value) {
-  return value * 180 / Math.PI;
-}
-
-function normalizeHeading(value) {
-  const number = finite(value);
-  return number === null ? null : ((number % 360) + 360) % 360;
-}
-
-function distanceNm(a, b) {
-  const lat1 = radians(Number(a.lat));
-  const lat2 = radians(Number(b.lat));
-  const dLat = lat2 - lat1;
-  const dLon = radians(Number(b.lon) - Number(a.lon));
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-  return EARTH_RADIUS_NM * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
-}
-
-function bearingDeg(a, b) {
-  const lat1 = radians(Number(a.lat));
-  const lat2 = radians(Number(b.lat));
-  const dLon = radians(Number(b.lon) - Number(a.lon));
-  const y = Math.sin(dLon) * Math.cos(lat2);
-  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-  return normalizeHeading(degrees(Math.atan2(y, x))) || 0;
 }
 
 function waypointElevationFt(value) {
@@ -70,6 +39,11 @@ function normalizeWaypoint(value, index) {
     lon,
     elevationFt: waypointElevationFt(source),
     kind: cleanText(source.kind || source.type || (source.isPOI ? 'poi' : 'waypoint'), 40).toLowerCase(),
+    ...(typeof source.icao === 'string' ? { icao: source.icao.slice(0, 12) } : {}),
+    ...(typeof source.rppAirportIcao === 'string' ? { rppAirportIcao: source.rppAirportIcao.slice(0, 12) } : {}),
+    ...(source.isPOI === true ? { isPOI: true } : {}),
+    ...(source.isPoiChainEndpoint === true ? { isPoiChainEndpoint: true } : {}),
+    ...(source.isPoiChainReturnHome === true ? { isPoiChainReturnHome: true } : {}),
     required: source.required !== false
   };
 }
@@ -79,12 +53,13 @@ function missionDataFromRun(activeRun) {
   const state = object(bundle.missionState);
   const mission = object(state.currentMissionData || state.activeMissionContract || state);
   const contract = object(mission.missionContract || state.activeMissionContract);
-  return { bundle, state, mission, contract };
+  return { bundle, state, mission, contract, navigationRoute: activeRun.navigationRoute };
 }
 
 function routeCandidates(parts) {
   const { state, mission, contract } = parts;
   return [
+    parts.navigationRoute?.points,
     mission.routeWaypoints,
     mission.missionRouteWaypoints,
     state.routeWaypoints,
@@ -107,78 +82,6 @@ function normalizeRoute(parts) {
   return result;
 }
 
-function buildLegs(waypoints) {
-  const legs = [];
-  let cumulativeNm = 0;
-  for (let index = 0; index < waypoints.length - 1; index += 1) {
-    const from = waypoints[index];
-    const to = waypoints[index + 1];
-    const legDistanceNm = distanceNm(from, to);
-    const startDistanceNm = cumulativeNm;
-    cumulativeNm += legDistanceNm;
-    legs.push({
-      index,
-      fromId: from.id,
-      toId: to.id,
-      distanceNm: Math.round(legDistanceNm * 100) / 100,
-      courseDeg: Math.round(bearingDeg(from, to)),
-      startDistanceNm: Math.round(startDistanceNm * 100) / 100,
-      endDistanceNm: Math.round(cumulativeNm * 100) / 100
-    });
-  }
-  return legs;
-}
-
-function projectPointToLegNm(position, a, b) {
-  const refLat = radians((Number(a.lat) + Number(b.lat) + Number(position.lat)) / 3);
-  const scaleX = Math.max(0.01, Math.cos(refLat)) * 60;
-  const ax = Number(a.lon) * scaleX;
-  const ay = Number(a.lat) * 60;
-  const bx = Number(b.lon) * scaleX;
-  const by = Number(b.lat) * 60;
-  const px = Number(position.lon) * scaleX;
-  const py = Number(position.lat) * 60;
-  const dx = bx - ax;
-  const dy = by - ay;
-  const lengthSquared = dx * dx + dy * dy;
-  const fraction = lengthSquared > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared)) : 0;
-  const closestX = ax + dx * fraction;
-  const closestY = ay + dy * fraction;
-  const cross = dx * (py - ay) - dy * (px - ax);
-  return {
-    fraction,
-    distanceNm: Math.hypot(px - closestX, py - closestY),
-    signedCrossTrackNm: (cross < 0 ? -1 : 1) * Math.hypot(px - closestX, py - closestY)
-  };
-}
-
-function buildNavigation(position, waypoints, legs) {
-  const lat = finite(position?.lat);
-  const lon = finite(position?.lon);
-  if (lat === null || lon === null || !legs.length) return null;
-  const aircraft = { lat, lon };
-  let best = null;
-  for (const leg of legs) {
-    const projection = projectPointToLegNm(aircraft, waypoints[leg.index], waypoints[leg.index + 1]);
-    if (!best || projection.distanceNm < best.projection.distanceNm) best = { leg, projection };
-  }
-  if (!best) return null;
-  const routeDistanceNm = best.leg.startDistanceNm + best.leg.distanceNm * best.projection.fraction;
-  const totalDistanceNm = legs[legs.length - 1].endDistanceNm;
-  const target = waypoints[best.leg.index + 1];
-  return {
-    activeLegIndex: best.leg.index,
-    nextWaypointId: target.id,
-    nextWaypointName: target.name,
-    bearingToNextDeg: Math.round(bearingDeg(aircraft, target)),
-    distanceToNextNm: Math.round(distanceNm(aircraft, target) * 100) / 100,
-    crossTrackNm: Math.round(best.projection.signedCrossTrackNm * 100) / 100,
-    routeDistanceNm: Math.round(routeDistanceNm * 100) / 100,
-    remainingDistanceNm: Math.round(Math.max(0, totalDistanceNm - routeDistanceNm) * 100) / 100,
-    progress: totalDistanceNm > 0 ? Math.round(Math.max(0, Math.min(1, routeDistanceNm / totalDistanceNm)) * 10000) / 10000 : 0
-  };
-}
-
 function plannedCruiseAltitudeFt(parts, flight) {
   const { state, mission, contract } = parts;
   const candidates = [
@@ -192,7 +95,7 @@ function plannedCruiseAltitudeFt(parts, flight) {
 }
 
 function normalizeTerrainProfile(parts, routeTotalDistanceNm) {
-  const source = object(parts.bundle.mapProfile);
+  const source = object(parts.navigationRoute ? null : parts.bundle.mapProfile);
   const rawPoints = Array.isArray(source.points) ? source.points.slice(0, MAX_PROFILE_POINTS) : [];
   const points = [];
   let cumulativeNm = 0;
@@ -222,7 +125,7 @@ function normalizeTerrainProfile(parts, routeTotalDistanceNm) {
 }
 
 function normalizeProfileObstacles(parts, routeTotalDistanceNm) {
-  const source = object(parts.bundle.mapProfile);
+  const source = object(parts.navigationRoute ? null : parts.bundle.mapProfile);
   const result = [];
   for (const value of (Array.isArray(source.obstacles) ? source.obstacles : []).slice(0, MAX_PROFILE_OBSTACLES)) {
     const item = object(value);
@@ -239,7 +142,7 @@ function normalizeProfileObstacles(parts, routeTotalDistanceNm) {
 }
 
 function normalizeProfileAirspaces(parts, routeTotalDistanceNm) {
-  const source = object(parts.bundle.mapProfile);
+  const source = object(parts.navigationRoute ? null : parts.bundle.mapProfile);
   const result = [];
   for (const value of (Array.isArray(source.airspaces) ? source.airspaces : []).slice(0, MAX_PROFILE_AIRSPACES)) {
     const item = object(value);
@@ -268,6 +171,13 @@ function normalizeProfileAirspaces(parts, routeTotalDistanceNm) {
 function normalizeMapContext(parts) {
   const source = object(object(parts.bundle.mapProfile).context);
   return {
+    theme: ['classic', 'retro', 'navcom', 'ops1940', 'win95'].includes(source.theme) ? source.theme : null,
+    departureIcao: cleanText(source.departureIcao || parts.state.currentStartICAO || parts.state.mDepICAO, 20),
+    destinationIcao: cleanText(source.destinationIcao || parts.state.currentDestICAO || parts.state.mDestICAO, 20),
+    tasKts: finite(source.tasKts),
+    profileCruiseFt: finite(source.profileCruiseFt),
+    profileClimbFpm: finite(source.profileClimbFpm),
+    profileDescentFpm: finite(source.profileDescentFpm),
     position: cleanText(source.position, 60),
     currentPosition: cleanText(source.currentPosition, 100),
     waypointLabels: (Array.isArray(source.waypointLabels) ? source.waypointLabels : []).slice(0, 128)
@@ -394,11 +304,23 @@ function normalizeTarget(parts) {
 function projectTrackerMapSnapshot(activeRun, flightSnapshot = null, options = {}) {
   if (!activeRun?.missionId || !activeRun?.runId || !activeRun?.resumeBundle) return null;
   const parts = missionDataFromRun(activeRun);
+  return projectRouteParts(parts, activeRun, flightSnapshot, options);
+}
+
+function projectTrackerNavigationSnapshot(route, flightSnapshot, options = {}) {
+  if (!route) return null;
+  const state = { routeWaypoints: route.points, currentStartICAO: route.departureIcao, currentDestICAO: route.destinationIcao };
+  const parts = { state, bundle: {}, mission: {}, contract: {} };
+  const result = projectRouteParts(parts, route, flightSnapshot, options);
+  return result && { ...result, routeId: route.id, navigationOnly: true };
+}
+
+function projectRouteParts(parts, activeRun, flightSnapshot, options = {}) {
   const waypoints = normalizeRoute(parts);
   if (waypoints.length < 2) return null;
   const legs = buildLegs(waypoints);
   const flight = object(flightSnapshot);
-  const navigation = buildNavigation(flight, waypoints, legs);
+  const navigation = buildNavigation(flight, waypoints, legs, options.navigationState);
   return {
     schema: MAP_SNAPSHOT_SCHEMA,
     version: MAP_SNAPSHOT_VERSION,
@@ -429,5 +351,6 @@ module.exports = {
   buildNavigation,
   distanceNm,
   normalizeRoute,
-  projectTrackerMapSnapshot
+  projectTrackerMapSnapshot,
+  projectTrackerNavigationSnapshot
 };

@@ -11297,7 +11297,8 @@ body.map-drawing-active #map.leaflet-dragging {
     display: flex;
     align-items: center;
     gap: 12px;
-    width: min(560px, calc(100% - 32px));
+    width: calc(100% - 32px);
+    max-width: 560px;
     min-height: 58px;
     padding: 10px 12px 10px 16px;
     border: 1px solid rgba(142, 197, 255, 0.32);
@@ -13267,7 +13268,7 @@ body.theme-win95.win95-main-minimized .mission-main-notification {
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    z-index: 100210 !important;
+    z-index: 120010 !important; /* Above the fullscreen map (120000), below dialogs. */
     pointer-events: auto !important;
     touch-action: manipulation;
     overscroll-behavior: contain;
@@ -20697,3 +20698,14 @@ body.theme-ops1940 .mission-reset-btn {
     margin: 0;
     flex-shrink: 0;
 }
+
+/* One responsive layer menu in App and EFB; normal Leaflet colors remain. */
+#mapTableOverlay .leaflet-control-layers-expanded { box-sizing: border-box; max-width: calc(100vw - 24px); }
+#mapTableOverlay .leaflet-control-layers label { margin: 0; padding: 5px 0; color: #333; font: 12px/1.5 "Helvetica Neue", Arial, Helvetica, sans-serif; text-transform: none; }
+#mapTableOverlay .leaflet-control-layers label > div,
+#mapTableOverlay .leaflet-control-layers label > span { display: flex; align-items: center; }
+#mapTableOverlay .leaflet-control-layers label span { color: inherit; font: inherit; flex: 1; min-width: 0; white-space: normal; overflow-wrap: break-word; }
+#mapTableOverlay .leaflet-control-layers input { flex: 0 0 auto; width: 13px; height: 13px; min-height: 0; margin: 0 6px 0 0; padding: 0; top: 0; }
+#mapTableOverlay .leaflet-control-layers-list { overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
+#mapTableOverlay .leaflet-control-layers.ga-layer-menu-open { position: absolute !important; top: 10px; right: 10px; margin: 0; float: none; }

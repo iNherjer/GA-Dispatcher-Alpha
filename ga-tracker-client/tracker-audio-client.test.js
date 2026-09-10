@@ -104,3 +104,52 @@ test('all views display a fresh warning once, ignore older snapshots and stop th
   listeners.gatrackercapabilitieschange({ detail: { capabilities: ['audio.output.v1'] } });
   assert.equal(root.gaTrackerWarningsActive(), false, 'compatible downgrade restores standalone triggers');
 });
+
+test('warnings wait for the renderer and fetch exact geometry once even when audio belongs to the PC', async () => {
+  const requests=[],shown=[],polygons=[];
+  const geometry=JSON.stringify({type:'Polygon',coordinates:[[[7,48],[8,48],[7,49],[7,48]]]});
+  const root={document:{getElementById:()=>null},localStorage:{getItem:()=> 'phone'},
+    gaCockpitSessionClient:{role:'web',clientId:'session'},addEventListener(){},
+    GATrackerAudioPlayer:{createPlayer:()=>({update(){},stop(){}})},
+    gaTrackerAudioRelayRequest:async payload=>{requests.push(payload);return {offset:0,total:geometry.length,data:geometry};}};
+  vm.runInNewContext(source,{window:root,setTimeout:()=>1,clearTimeout(){}});
+  const audio={schema:'ga.audio-control.v1',revision:2,updatedAt:2,target:{mode:'pc',deviceId:'pc'},settings:{audioStyle:'clear'},
+    warnings:{schema:'ga.navigation-warnings.v1',active:true,session:'a',revision:1,events:[{id:'w1',kind:'airspace',hasGeometry:true,airspace:{name:'LAHR'},expiresAt:Date.now()+60000}]}};
+  root.gaTrackerAudioClient.apply(audio); assert.equal(requests.length,0);
+  root.awmDisplayTrackerWarning=w=>{shown.push(w);return true;};
+  root.awmHighlightTrackerAirspace=a=>{polygons.push(a);return true;};
+  root.gaTrackerAudioClient.apply(audio);
+  await new Promise(r=>setImmediate(r));
+  root.gaTrackerAudioClient.apply(audio);
+  assert.equal(shown.length,1);assert.equal(requests.length,1);assert.equal(polygons.length,1);
+  assert.deepEqual(JSON.parse(JSON.stringify(polygons[0].geometry)),JSON.parse(geometry));
+  assert.equal(requests[0].action,'warning_geometry');
+});
+
+test('existing standalone voice filter migrates once without overwriting configured warning toggles', async () => {
+  const changes=[];
+  const audio={schema:'ga.audio-control.v1',revision:7,updatedAt:7,target:{mode:'pc',deviceId:'pc'},settings:{terrain:false,audioStyle:''}};
+  const root={document:{getElementById:()=>null},localStorage:{getItem:k=>k==='awm_pax_audio_style'?'intercom':'phone'},
+    gaCockpitSessionClient:{role:'web',clientId:'session'},addEventListener(){},
+    GATrackerAudioPlayer:{createPlayer:()=>({update(){},stop(){}})},
+    gaTrackerAudioRelayRequest:async payload=>{changes.push(payload);return {ok:true,audio:{...audio,revision:8,updatedAt:8,settings:{...audio.settings,...payload.settings}}};}};
+  vm.runInNewContext(source,{window:root,setTimeout:()=>1,clearTimeout(){}});
+  root.gaTrackerAudioClient.apply(audio);
+  await new Promise(r=>setImmediate(r));
+  assert.equal(changes.length,1);assert.equal(changes[0].settings.audioStyle,'intercom');
+  assert.equal(changes[0].settings.terrain,undefined);
+});
+
+test('old tracker snapshots do not trigger unsupported style migrations or geometry requests', async () => {
+  const calls=[];
+  const root={document:{getElementById:()=>null},localStorage:{getItem:()=> 'phone'},
+    gaCockpitSessionClient:{role:'web',clientId:'session'},addEventListener(){},
+    GATrackerAudioPlayer:{createPlayer:()=>({update(){},stop(){}})},
+    awmDisplayTrackerWarning:()=>true,awmHighlightTrackerAirspace:()=>true,
+    gaTrackerAudioRelayRequest:async p=>{calls.push(p);return {ok:false};}};
+  vm.runInNewContext(source,{window:root,setTimeout:()=>1,clearTimeout(){}});
+  const old={schema:'ga.audio-control.v1',revision:1,updatedAt:1,target:{deviceId:'pc'},settings:{terrain:true},
+    warnings:{schema:'ga.navigation-warnings.v1',active:true,session:'a',revision:1,events:[{id:'old',kind:'airspace',airspace:{name:'LAHR'},expiresAt:Date.now()+60000}]}};
+  for(let i=0;i<4;i++){root.gaTrackerAudioClient.apply(old);await new Promise(r=>setImmediate(r));}
+  assert.equal(calls.length,0);
+});

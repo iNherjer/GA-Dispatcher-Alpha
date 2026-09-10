@@ -10,7 +10,7 @@
       root.localStorage.setItem('ga_audio_device_id_v1', deviceId);
     }
   } catch (_) { deviceId = cockpit.clientId; }
-  var retiredWarningSessions = [];
+  var retiredWarningSessions = [], styleMigration = false;
   var state = null, enabled = false, menu = null, saving = Promise.resolve(), closed = false, lastError = '', volumeTimer = null, tickTimer = null, lifecycleEpoch = 0;
   var base = cockpit.baseUrl, captionEffect = '';
   function caption(job) {
@@ -99,6 +99,21 @@
     if (value && value.warnings && value.warnings.active && !(state && state.warnings && state.warnings.active)
         && typeof root.awmStopLocalWarnings === 'function') root.awmStopLocalWarnings();
     state = value;
+    if (state && Object.prototype.hasOwnProperty.call(state.settings, 'audioStyle') && !state.settings.audioStyle && !local && !styleMigration) {
+      styleMigration = true;
+      var savedStyle = 'intercom_noise';
+      try { savedStyle = root.localStorage.getItem('awm_pax_audio_style') || savedStyle; } catch (_) {}
+      if (['clear', 'intercom', 'intercom_noise'].indexOf(savedStyle) < 0) savedStyle = 'intercom_noise';
+      var migrated = { audioStyle: savedStyle };
+      if (state.revision === 0) {
+        [['awm_warn_terrain','terrain'],['awm_warn_airspace','airspace'],['awm_read_freq','readFreq'],['awm_warn_wp','waypoint'],['awm_pax_voice','paxEnabled'],['awm_audio_effects','effectsEnabled']].forEach(function(entry) {
+          try { var value = root.localStorage.getItem(entry[0]); if (value !== null) migrated[entry[1]] = value === '1'; } catch (_) {}
+        });
+      }
+      change({ settings: migrated }).then(function() {
+        if (!state || !state.settings.audioStyle) styleMigration = false;
+      });
+    }
     enabled = isActive();
     player.update(enabled ? state : null);
     if (enabled && state.playback) caption(state.playback.nowPlaying);
@@ -150,29 +165,38 @@
     }
   }
   var bindings = { awmSetVolume: ['volume', function (v) { return Number(v) / 100; }],
-    paxVoiceSetEnabled: ['paxEnabled', Boolean], paxVoiceSetAudioEffectsEnabled: ['effectsEnabled', Boolean] };
+    paxVoiceSetAudioStyle: ['audioStyle', String], paxVoiceSetEnabled: ['paxEnabled', Boolean], paxVoiceSetAudioEffectsEnabled: ['effectsEnabled', Boolean] };
   Object.assign(bindings, { awmSetVoice: ['voicePack', String], awmSetReadFreq: ['readFreq', Boolean],
     awmSetTerrainWarn: ['terrain', Boolean], awmSetAirspaceWarn: ['airspace', Boolean], awmSetWpAlert: ['waypoint', Boolean] });
-  var seenWarnings = new Set();
+  var seenWarnings = new Set(), warningGeometry = new Map();
+  async function highlightWarning(warning) {
+    var previous = warningGeometry.get(warning.id);
+    if (previous === true || previous > Date.now() || typeof root.awmHighlightTrackerAirspace !== 'function') return;
+    warningGeometry.set(warning.id, true);
+    try {
+      var data = '', total = null;
+      do {
+        var chunk = await request({ action: 'warning_geometry', effectId: warning.id, offset: data.length });
+        if (chunk.offset !== data.length || !Number.isSafeInteger(chunk.total) || chunk.total < 1 || chunk.total > 4 * 1024 * 1024
+            || (total !== null && total !== chunk.total) || typeof chunk.data !== 'string' || !chunk.data.length
+            || chunk.data.length > 12000 || data.length + chunk.data.length > chunk.total) throw new Error('warning_geometry_invalid');
+        total = chunk.total; data += chunk.data;
+      } while (data.length < total);
+      if (warning.expiresAt < Date.now() || !root.gaTrackerWarningsActive()) return;
+      if (root.awmHighlightTrackerAirspace(Object.assign({}, warning.airspace, { geometry: JSON.parse(data) })) === false) warningGeometry.delete(warning.id);
+    } catch (_) { warningGeometry.set(warning.id, Date.now() + 5000); }
+    while (warningGeometry.size > 32) warningGeometry.delete(warningGeometry.keys().next().value);
+  }
   function displayWarnings(snapshot) {
-    if (!snapshot || snapshot.schema !== 'ga.navigation-warnings.v1') return;
-    if (!snapshot.active) {
-      root.document.querySelectorAll('[data-warning-id]').forEach(function(row) { row.remove(); });
-      return;
-    }
-    (snapshot.events || []).forEach(function (warning) {
-      if (seenWarnings.has(warning.id) || warning.expiresAt < Date.now()) return;
-      seenWarnings.add(warning.id);
-      if (seenWarnings.size > 128) seenWarnings.delete(seenWarnings.values().next().value);
-      if (typeof root.awmDisplayTrackerWarning === 'function') { root.awmDisplayTrackerWarning(warning); return; }
-      var banner = root.document.getElementById('awmFreqBanner'); if (!banner) return;
-      var row = root.document.createElement('div'); row.setAttribute('data-warning-id', warning.id);
-      row.style.cssText = 'padding:7px;border-bottom:1px solid #456;color:#ffe087;pointer-events:auto';
-      row.textContent = warning.text + (warning.airspace ? ' · ' + warning.airspace.frequencies.map(function(f) { return f.value; }).join(' / ') : '');
-      var close = root.document.createElement('button'); close.textContent = '×'; close.setAttribute('aria-label', 'Warnung schließen');
-      close.onclick = function(event) { event.stopPropagation(); row.remove(); if (!banner.children.length) banner.style.display = 'none'; };
-      row.appendChild(close); banner.appendChild(row); banner.style.display = 'block';
-      Array.from(banner.querySelectorAll('[data-warning-id]')).slice(0, -12).forEach(function(old) { old.remove(); });
+    if (!snapshot || snapshot.schema !== 'ga.navigation-warnings.v1' || !snapshot.active) return;
+    (snapshot.events || []).forEach(function(warning) {
+      if (warning.expiresAt < Date.now()) return;
+      if (!seenWarnings.has(warning.id)) {
+        if (typeof root.awmDisplayTrackerWarning !== 'function' || root.awmDisplayTrackerWarning(warning) === false) return;
+        seenWarnings.add(warning.id);
+        if (seenWarnings.size > 128) seenWarnings.delete(seenWarnings.values().next().value);
+      }
+      if (warning.kind === 'airspace' && warning.hasGeometry) highlightWarning(warning);
     });
   }
   root.gaTrackerWarningsActive = function() { return !root.simModeActive && !!(state && state.warnings && state.warnings.active && state.warnings.schema === 'ga.navigation-warnings.v1'); };
@@ -201,6 +225,13 @@
     message(lastError || 'Ausgabe: ' + state.target.name + (state.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : ''));
     if (!enabled) return;
     if (state.warnings && ['partial','stale'].indexOf(state.warnings.status) >= 0) message('Ausgabe: ' + state.target.name + ' · ' + (state.warnings.health || 'Warnungsdaten veraltet'));
+    // Keep standalone state/diagnostics aligned with the authoritative toggles,
+    // without starting another warning detector or changing the selected output.
+    [['awmSetTerrainWarn','terrain','awm_warn_terrain'],['awmSetAirspaceWarn','airspace','awm_warn_airspace'],['awmSetReadFreq','readFreq','awm_read_freq'],['awmSetWpAlert','waypoint','awm_warn_wp']].forEach(function(entry) {
+      try { if (typeof originals[entry[0]] === 'function' && root.localStorage.getItem(entry[2]) !== (state.settings[entry[1]] ? '1' : '0')) originals[entry[0]](state.settings[entry[1]]); } catch (_) {}
+    });
+    var styleSelect = root.document.getElementById('awmPaxAudioStyleSelect');
+    if (styleSelect) styleSelect.value = state.settings.audioStyle || 'intercom_noise';
     var packs = root.document.getElementById('gaWarningVoiceSelect'); if (packs) packs.value = state.settings.voicePack || '';
     root.document.querySelectorAll('[id^="awmVoiceBtn_"]').forEach(function(btn) {
       var selected = btn.id === 'awmVoiceBtn_' + (state.settings.voicePack || 'anna');

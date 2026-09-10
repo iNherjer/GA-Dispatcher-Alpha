@@ -26,6 +26,8 @@
     "assets": [
       "efb-web-assets/kartentisch-fragment.html",
       "efb-web-assets/styles.css",
+      "efb-web-assets/profile.js",
+      "tracker-efb-profile-bridge.js",
       "efb-web-assets/map-utility-tools.js",
       "efb-web-assets/aircraft-marker.svg",
       "efb-web-assets/background-placeholder.svg",
@@ -35,6 +37,7 @@
       "efb-web-assets/vendor/leaflet/images/layers-2x.png",
       "efb-web-assets/vendor/leaflet/images/marker-icon.png",
       "efb-web-assets/e6b/e6b-core.js",
+      "efb-web-assets/e6b/e6b-svg-compat.js",
       "efb-web-assets/e6b/e6b-flight-computer.css",
       "efb-web-assets/e6b/e6b-flight-computer.html",
       "efb-web-assets/e6b/e6b-flight-computer.js",
@@ -49,9 +52,44 @@
       "../audio-cues/*.mp3",
       "tracker-audio-player.js",
       "../navigation-warning-core.js",
+      "../mission-manifest-core.js",
+      "../pax-audio-style.js",
+      "../navigation-warning-presentation.js",
+      "../map-live-presentation.js",
+      "../map-profile-controls.js",
+      "../MS33558.ttf",
       "../navigation-warning-audio.js",
       "../audio-warnings/voices/catalog.json",
-      "tracker-audio-client.js"
+      "tracker-audio-client.js",
+      "efb-web-assets/navigation-warning-core.js",
+      "efb-web-assets/map-prediction.js",
+      "efb-web-assets/map-profile-controls.js",
+      "efb-web-assets/map-display-controls.js",
+      "efb-web-assets/airport-radio.js",
+      "efb-web-assets/checklists.js",
+      "efb-web-assets/map-layer-controls.js",
+      "efb-web-assets/map-tool-focus.js",
+      "efb-web-assets/map-autozoom.js",
+      "efb-web-assets/map-terrain-avoid.js",
+      "efb-web-assets/airport-details.js",
+      "efb-web-assets/airport-aip.js",
+      "efb-web-assets/airport-weather.js",
+      "efb-web-assets/map-airport-popup.js",
+      "efb-web-assets/map-drawing.js",
+      "efb-web-assets/map-single-click.js",
+      "efb-web-assets/map-navpoint-core.js",
+      "../map-navigation-geometry.js",
+      "efb-web-assets/map-navigation-geometry.js",
+      "efb-web-assets/map-context-popup.js",
+
+      "efb-web-assets/map-direct-to-core.js",
+      "../map-direct-to-core.js",
+      "efb-web-assets/map-navigation-client.js",
+      "../map-navigation-client.js",
+      "efb-web-assets/map-route-edit-core.js",
+      "../map-route-edit-core.js",
+      "../map-navpoint-core.js",
+      "../airport-aip.js"
     ],
     "targets": [
       "node20-win-x64"
@@ -64,6 +102,8 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@babel/preset-env": "7.29.7",
     "@yao-pkg/pkg": "6.18.1"
   }
 }

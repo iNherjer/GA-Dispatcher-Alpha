@@ -36,7 +36,7 @@ test('a stalled audio control request retries without a new notice or user gestu
     request: () => { calls++; return calls === 1 ? new Promise(resolve => { finishOld = resolve; }) : Promise.resolve({}); },
     onError: error => errors.push(error) });
   t.after(() => player.stop());
-  player.update({ revision: 1, target: { deviceId: 'pc' }, settings: { enabled: true }, playback: { notification: 'same', playbackAvailable: true } });
+  player.update({ revision: 1, target: { deviceId: 'pc' }, settings: { audioStyle: 'clear', enabled: true }, playback: { notification: 'same', playbackAvailable: true } });
   await wait(70);
   assert.equal(calls, 2);
   assert.deepEqual(errors, ['audio_control_timeout']);
@@ -53,7 +53,7 @@ test('a stalled release does not leave the player permanently occupied', async t
       return new Promise(() => {});
     }, fetchClip: async () => new ArrayBuffer(1) });
   t.after(() => player.stop());
-  player.update({ revision: 1, target: { deviceId: 'pc' }, settings: { enabled: true, paxEnabled: true, volume: 1 }, playback: { playbackAvailable: true } });
+  player.update({ revision: 1, target: { deviceId: 'pc' }, settings: { audioStyle: 'clear', enabled: true, paxEnabled: true, volume: 1 }, playback: { playbackAvailable: true } });
   await wait(100);
   assert.equal(player.active, false); assert.equal(nextCalls, 2);
 });
@@ -91,7 +91,7 @@ test('an unreachable tracker stops audio before the lease can move to another ou
       return { released: true };
     }, fetchClip: async () => new ArrayBuffer(1) });
   t.after(() => pc.stop());
-  pc.update({ revision: 1, target: { deviceId: 'pc' }, settings: { enabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'ready', playbackAvailable: true } });
+  pc.update({ revision: 1, target: { deviceId: 'pc' }, settings: { audioStyle: 'clear', enabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'ready', playbackAvailable: true } });
   await wait(30); reachable = false;
   assert.equal(fake.running.size, 1);
   await wait(4100);
@@ -142,7 +142,7 @@ for (const failure of ['cue', 'audio']) test(`stalled ${failure} download releas
     }, onError: error => errors.push(error)
   });
   t.after(() => player.stop());
-  player.update({ revision: 1, target: { deviceId: 'phone' }, settings: { enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'ready', playbackAvailable: true } });
+  player.update({ revision: 1, target: { deviceId: 'phone' }, settings: { audioStyle: 'clear', enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'ready', playbackAvailable: true } });
   await wait(140);
   const release = commands.find(command => command.action === 'release');
   assert.ok(release);
@@ -173,7 +173,7 @@ for (const stage of ['audio', 'cue']) test(`audio-thread lease stop preserves a 
   });
   t.after(() => player.stop());
   player.update({ revision: 1, target: { deviceId: 'phone' },
-    settings: { enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 },
+    settings: { audioStyle: 'clear', enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 },
     playback: { notification: 'ready', playbackAvailable: true } });
   await wait(100);
   const release = commands.find(command => command.action === 'release');

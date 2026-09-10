@@ -142,15 +142,19 @@ function normalizeMapPoint(value) {
   const lat = finite(source.lat);
   const lon = finite(source.lon);
   if (lat === null || lon === null || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
-  return {
+  const result = {
     id: String(source.id || '').slice(0, 80),
     name: String(source.name || '').slice(0, 100),
     lat,
     lon,
-    elevationFt: finite(source.elevationFt),
+    elevationFt: source.elevationFt == null || source.elevationFt === '' ? null : finite(source.elevationFt),
     kind: String(source.kind || '').slice(0, 40),
     required: source.required !== false
   };
+  if (typeof source.icao === 'string') result.icao = source.icao.slice(0, 12);
+  if (typeof source.rppAirportIcao === 'string') result.rppAirportIcao = source.rppAirportIcao.slice(0, 12);
+  ['isPOI', 'isPoiChainEndpoint', 'isPoiChainReturnHome'].forEach(function(key) { if (source[key] === true) result[key] = true; });
+  return result;
 }
 
 function normalizeTrackerMapSnapshot(value) {
@@ -211,6 +215,9 @@ function normalizeTrackerMapSnapshot(value) {
   return {
     schema: MAP_SNAPSHOT_SCHEMA,
     version: MAP_SNAPSHOT_VERSION,
+    routeEdit: source.routeEdit || null,
+    navigationOnly: source.navigationOnly === true,
+    routeId: String(source.routeId || '').slice(0, 100),
     missionId: String(source.missionId || '').slice(0, 180),
     runId: String(source.runId || '').slice(0, 220),
     revision: Math.max(1, Math.round(finite(source.revision) || 1)),
@@ -239,6 +246,13 @@ function normalizeTrackerMapSnapshot(value) {
       points: profilePoints
     } : null,
     context: {
+      theme: ['classic', 'retro', 'navcom', 'ops1940', 'win95'].includes(contextSource.theme) ? contextSource.theme : null,
+      departureIcao: String(contextSource.departureIcao || '').slice(0, 20),
+      destinationIcao: String(contextSource.destinationIcao || '').slice(0, 20),
+      tasKts: finite(contextSource.tasKts),
+      profileCruiseFt: finite(contextSource.profileCruiseFt),
+      profileClimbFpm: finite(contextSource.profileClimbFpm),
+      profileDescentFpm: finite(contextSource.profileDescentFpm),
       position: String(contextSource.position || '').slice(0, 60),
       currentPosition: String(contextSource.currentPosition || '').slice(0, 100),
       waypointLabels: (Array.isArray(contextSource.waypointLabels) ? contextSource.waypointLabels : []).slice(0, 128)

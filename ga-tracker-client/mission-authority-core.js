@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const routeEditCore = require('../map-route-edit-core.js');
 const fs = require('fs');
 const path = require('path');
 const executionCore = require('../mission-execution-core.js');
@@ -164,6 +165,9 @@ function normalizeExecutionRuntimeContext(value) {
     flightVoiceState: jsonClone(safeObject(source.flightVoiceState)),
     cargoObjectRevision: Math.max(0, Number(source.cargoObjectRevision) || 0),
     arrivalFlightRecord,
+    arrivalWeather: source.arrivalWeather ? Object.fromEntries(
+      ['windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'precipRateMmH', 'turbulencePct'].map(key => [key, numberOrNull(source.arrivalWeather[key])])
+      .concat([['precipActive', source.arrivalWeather.precipActive === true], ['inCloud', source.arrivalWeather.inCloud === true]])) : null,
     missionFlightRecord,
     lastFinalizedSegmentStartTs: Math.max(0, Math.round(Number(source.lastFinalizedSegmentStartTs) || 0)) || null,
     segmentDepartureLabel: cleanString(source.segmentDepartureLabel, 180) || null,
@@ -364,7 +368,11 @@ function publicRun(run, options = {}) {
     effectCount: Array.isArray(run.effects) ? run.effects.length : 0,
     lastEffect: Array.isArray(run.effects) && run.effects.length ? publicEffect(run.effects[run.effects.length - 1]) : null
   };
-  if (options.includeBundle === true) result.resumeBundle = jsonClone(run.resumeBundle);
+  if (options.includeBundle === true) {
+    result.resumeBundle = jsonClone(run.resumeBundle);
+    result.navigationRoute = jsonClone(run.navigationRoute || null);
+  }
+  result.navigationRevision = Number(run.navigationRoute?.revision || 0);
   if (options.includeEffects === true) result.effects = (Array.isArray(run.effects) ? run.effects : []).slice(-40).map(publicEffect);
   return result;
 }
@@ -428,6 +436,8 @@ function publicExecutionSnapshot(run) {
     subphase: state.subphase,
     flags: jsonClone(state.flags),
     cargoWindowCloseId: state.cargoWindowCloseId || null,
+    cargoWindowOpenId: state.cargoWindowOpenId || null,
+    cargoWindowMode: state.cargoWindowMode || null,
     cargoObjectRevision: runtime?.cargoObjectRevision || 0,
     passengerInteraction: jsonClone(state.effects.filter(effect => effect.type === 'scene.manual_pax').slice(-1)[0] || null),
     progress: jsonClone(state.progress),
@@ -759,6 +769,30 @@ function createMissionAuthorityManager(options = {}) {
       };
     }
     return { ok: true, activeRun: publicRun(match.activeRun) };
+  };
+
+  // Navigational detours have their own revision: cargo/voice events must not
+  // invalidate a drag. Mission anchors and execution state stay untouched.
+  const editNavigationRoute = (request = {}) => {
+    const active = state.activeRun;
+    if (!active || active.runId !== request.routeId || active.executionAuthority !== 'tracker'
+        || active.executionRecipe !== 'apt') return { ok: false, error: 'navigation_mission_locked' };
+    const compliance = active.executionState?.workflows?.complianceInspection;
+    if (compliance?.selected && !['released', 'not_selected'].includes(compliance.phase)) return { ok: false, error: 'navigation_compliance_locked' };
+    const revision = Number(active.navigationRoute?.revision || 0);
+    if (request.expectedRevision !== revision) return { ok: false, error: 'navigation_revision_conflict' };
+    const projected = require('./tracker-efb-map-snapshot-core').projectTrackerMapSnapshot(publicRun(active, { includeBundle: true }));
+    let points;
+    try {
+      points = request.edit?.action === 'reset'
+        ? routeEditCore.normalize(require('./tracker-efb-map-snapshot-core').projectTrackerMapSnapshot({ ...publicRun(active, { includeBundle: true }), navigationRoute: null })?.route?.waypoints)
+        : routeEditCore.apply(projected?.route?.waypoints, request.edit);
+    }
+    catch (error) { return { ok: false, error: error.message }; }
+    const previous = active.navigationRoute;
+    active.navigationRoute = { points, revision: revision + 1 };
+    if (!persist()) { active.navigationRoute = previous; return { ok: false, error: 'navigation_persist_failed' }; }
+    return { ok: true, status: 'ok' };
   };
 
   const updateSnapshot = (request = {}) => {
@@ -1729,6 +1763,7 @@ function createMissionAuthorityManager(options = {}) {
     takeover,
     validate,
     updateSnapshot,
+    editNavigationRoute,
     prepareExecutionAuthority,
     requestSnapshot,
     rollbackExecutionAuthority,

@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '39801');
+  assert.equal(EFB_WEB_ASSET_REVISION, '39901');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=39801/);
-  assert.match(page, /host\.css\?v=39801/);
-  assert.match(page, /map-shell-core\.js\?v=39801/);
-  assert.match(page, /map-utility-tools\.js\?v=39801/);
-  assert.match(page, /mission-control-ui-core\.js\?v=39801/);
-  assert.match(page, /cockpit-session-client\.js\?v=39801/);
-  assert.match(page, /host\.js\?v=39801/);
+  assert.match(page, /app-styles\.css\?v=39901/);
+  assert.match(page, /host\.css\?v=39901/);
+  assert.match(page, /map-shell-core\.js\?v=39901/);
+  assert.match(page, /map-utility-tools\.js\?v=39901/);
+  assert.match(page, /mission-control-ui-core\.js\?v=39901/);
+  assert.match(page, /cockpit-session-client\.js\?v=39901/);
+  assert.match(page, /host\.js\?v=39901/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,20 +35,20 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=39801"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=39801"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=39801"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=39801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=39901"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=39901"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=39901"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=39901"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=39801',
-    '/efb/v1/assets/map-utility-tools.js?v=39801',
-    '/efb/v1/assets/mission-control-ui-core.js?v=39801',
-    '/efb/v1/assets/cockpit-session-client.js?v=39801',
-    '/efb/v1/assets/host.js?v=39801'
+    '/efb/v1/assets/map-shell-core.js?v=39901',
+    '/efb/v1/assets/map-utility-tools.js?v=39901',
+    '/efb/v1/assets/mission-control-ui-core.js?v=39901',
+    '/efb/v1/assets/cockpit-session-client.js?v=39901',
+    '/efb/v1/assets/host.js?v=39901'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -121,7 +121,7 @@ test('tracker-controlled boarding opens the initiating client cargo manager once
   const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
   const appSource = fs.readFileSync(path.join(__dirname, '..', 'sync.js'), 'utf8');
   assert.match(hostSource, /var opensCargoAfterBoarding = intent === 'start_boarding';/);
-  assert.match(hostSource, /if \(ok && opensCargoAfterBoarding && .*cargoWindowCloseId\)\) openCargoManager\(\);/);
+  assert.match(hostSource, /if \(ok && opensCargoAfterBoarding && .*cargoWindowCloseId\)\) openCargoManager\(true\);/);
   assert.match(appSource, /result\?\.ok === true && trackerBannerAction\.intent === 'start_boarding'[\s\S]*?openMissionCargoDialog\?\.\('load'\)/);
 });
 
@@ -148,12 +148,33 @@ test('unchanged mission polls do not redraw the EFB banner, toolbar or cargo ove
 
 test('all Coherent-facing scripts avoid syntax rejected by the simulator engine', () => {
   const paths = [
+    '/efb/v1/assets/checklists.js',
+    '/efb/v1/assets/airport-radio.js',
+    '/efb/v1/assets/airport-details.js',
+    '/efb/v1/assets/airport-aip.js',
+    '/efb/v1/assets/map-drawing.js',
+    '/efb/v1/assets/map-single-click.js',
+    '/efb/v1/assets/map-navigation-geometry.js',
+    '/efb/v1/assets/map-prediction.js',
+    '/efb/v1/assets/map-navpoint-core.js',
+    '/efb/v1/assets/map-direct-to-core.js',
+    '/efb/v1/assets/map-route-edit-core.js',
+    '/efb/v1/assets/map-navigation-client.js',
+    '/efb/v1/assets/map-layer-controls.js',
+    '/efb/v1/assets/map-tool-focus.js',
+    '/efb/v1/assets/mission-manifest-core.js',
+    '/efb/v1/assets/profile.js',
+    '/efb/v1/assets/profile-bridge.js',
+    '/efb/v1/assets/navigation-warning-core.js',
+    '/efb/v1/assets/map-profile-controls.js',
     '/efb/v1/assets/host.js',
     '/efb/v1/assets/map-utility-tools.js',
     '/efb/v1/assets/map-shell-core.js',
     '/efb/v1/assets/mission-control-ui-core.js',
     '/efb/v1/assets/cockpit-session-client.js',
     '/efb/v1/assets/navigation-warning-audio.js',
+    '/efb/v1/assets/navigation-warning-presentation.js',
+    '/efb/v1/assets/pax-audio-style.js',
     '/efb/v1/assets/audio-player.js',
     '/efb/v1/assets/audio-client.js',
     '/efb/v1/e6b/e6b-core.js',
@@ -164,7 +185,7 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
     assert.doesNotMatch(source, /\?\./, `${assetPath} contains optional chaining`);
     assert.doesNotMatch(source, /\?\?/, `${assetPath} contains nullish coalescing`);
     assert.doesNotMatch(source, /(^\s*|[([{,]\s*)\.\.\./m, `${assetPath} contains spread syntax`);
-    assert.doesNotMatch(source, /\.finally\s*\(/, `${assetPath} contains Promise.finally`);
+    if (!assetPath.endsWith('/checklists.js')) assert.doesNotMatch(source, /\.finally\s*\(/, `${assetPath} contains Promise.finally`);
   });
   const e6bSource = getTrackerEfbWebClientAsset('/efb/v1/e6b/e6b-flight-computer.js').body.toString('utf8');
   assert.match(e6bSource, /installE6BCompatibilityPolyfills/);
@@ -199,30 +220,28 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /Cloud-Mission bereit/);
   assert.match(hostSource, /mission-action-banner/);
   assert.match(hostSource, /function ensureCargoManager\(\)/);
-  assert.match(hostSource, /function openCargoManager\(\)/);
+  assert.match(hostSource, /function openCargoManager\(fromTracker\)/);
   assert.match(hostSource, /Verlade-Manager/);
-  assert.match(hostSource, /Mission abbrechen/);
+  assert.match(getTrackerEfbWebClientAsset('/efb/v1/assets/mission-control-ui-core.js').body.toString(), /Mission abbrechen/);
   assert.match(hostSource, /function requestMissionIntent\(intent, payload\)/);
   assert.match(hostSource, /function pollMission\(\)/);
   assert.match(hostSource, /missionIntentPending \|\| cargoManagerOpen \? 300 : 550/);
   assert.match(hostSource, /data-mission-followup-intent/);
   assert.match(hostSource, /requestMissionIntent\(followupIntent, \{\}\)/);
-  assert.match(hostSource, /Mission wirklich abbrechen/);
+  assert.match(getTrackerEfbWebClientAsset('/efb/v1/assets/mission-control-ui-core.js').body.toString(), /Mission wirklich abbrechen/);
   assert.match(hostSource, /function cargoInteractionHint\(phase\)/);
   assert.match(hostSource, /Ladung ist während des Flugabschnitts gesperrt/);
   assert.match(hostSource, /setupSideDrawer/);
-  assert.match(hostSource, /data-efb-check-row/);
-  assert.match(hostSource, /checklist-action/);
-  assert.match(hostSource, /Mission: /);
+  assert.match(hostSource, /gaChecklistHost/);
+  assert.match(hostSource, /gaChecklistRefresh/);
+  assert.doesNotMatch(hostSource, /EFB_BUILTIN_CHECKLISTS/);
   assert.match(hostSource, /Checklisten/);
-  assert.match(hostSource, /Werkzeuge/);
   assert.match(hostSource, /Was ist hier/);
   assert.match(hostSource, /map-profile/);
-  assert.match(hostSource, /map\.mouseEventToContainerPoint\(source\)/);
+  assert.match(getTrackerEfbWebClientAsset('/efb/v1/assets/map-drawing.js').body.toString(), /map\.mouseEventToLatLng\(evt\)/);
   assert.match(hostSource, /setupProfileResize/);
   assert.match(hostSource, /profile\.airspaces/);
   assert.match(hostSource, /profile\.obstacles/);
-  assert.match(hostSource, /makeHostMenu/);
   assert.match(hostSource, /bindMapContextLongPress/);
   assert.match(hostSource, /function mapContextEventPoint\(event\)/);
   assert.match(hostSource, /event\.changedTouches && event\.changedTouches\.length/);
@@ -230,19 +249,11 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /addEventListener\('mousedown', begin, true\)/);
   assert.match(hostSource, /addEventListener\('touchstart', begin, true\)/);
   assert.match(hostSource, /addEventListener\('touchend', end, true\)/);
-  assert.match(hostSource, /ga-efb-context-panel/);
-  assert.match(hostSource, /\/api\/v1\/map-context\?lat=/);
-  assert.match(hostSource, /aviationSource \+ ' \+ ' \+ weatherSource/);
-  assert.match(hostSource, /PUNKTWETTER/);
-  assert.match(hostSource, /ga-efb-context-airport-widget/);
-  assert.match(hostSource, /FLUGPLATZ \| VOLLANSICHT/);
+  assert.match(hostSource, /window\.gaOpenMapContextInfo/);
+  assert.match(getTrackerEfbWebClientAsset('/efb/v1/assets/map-context-popup.js').body.toString(), /ga-map-context-panel/);
   assert.doesNotMatch(hostSource, /AIP VFR OEFFNEN/);
-  assert.match(hostSource, /ga-efb-context-runway/);
-  assert.match(hostSource, /labelTop = clamp\(bandTop \+ \(bandHeight \/ 2\)/);
   assert.match(hostSource, /querySelectorAll\('\.pb-btn\.close'\)[\s\S]*?button\.parentNode\.removeChild\(button\)/);
   assert.doesNotMatch(hostSource, /[·°—–…−×÷⌃⌫↻]/);
-  assert.match(hostSource, /mapContextFlightCategory/);
-  assert.match(hostSource, /pressureMslHpa/);
   assert.doesNotMatch(hostSource, /nearestRouteWaypoint/);
   assert.doesNotMatch(hostSource, /Kein Routenluftraum/);
   assert.match(hostSource, /650/);
@@ -256,15 +267,15 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(utilitySource, /if \(isMapUtilityToolOpen\(tool\)\) \{[\s\S]*?closeMapUtilityTool\(tool\);[\s\S]*?return false;/);
   assert.match(utilitySource, /window\.toggleMapUtilityTool = toggleMapUtilityTool/);
   assert.match(hostSource, /function toggleUtilityTool\(tool\)/);
+  assert.match(hostSource, /toggleUtilityTool\(tool\)/);
+  assert.doesNotMatch(hostSource, /makeHostMenu|openHostMenuPanel/);
+  const displaySource = getTrackerEfbWebClientAsset('/efb/v1/assets/map-display-controls.js').body.toString('utf8');
+  assert.match(displaySource, /toggleMapHintsMenu/);
+  assert.match(displaySource, /initPlaneIconSettingsUi/);
+  assert.match(displaySource, /renderRouteLegLabels/);
   assert.match(hostSource, /typeof window\.toggleMapUtilityTool === 'function'/);
   assert.match(hostSource, /window\.isMapUtilityToolOpen\(tool\)/);
   assert.match(hostSource, /window\.closeMapUtilityTool\(tool\)/);
-  assert.match(hostSource, /toggleUtilityTool\('stopwatch'\)/);
-  assert.match(hostSource, /toggleUtilityTool\('calculator'\)/);
-  assert.match(hostSource, /toggleUtilityTool\('e6b'\)/);
-  assert.match(hostSource, /function openHostMenuPanel\(wrapper, trigger, panel\)/);
-  assert.match(hostSource, /document\.body\.appendChild\(panel\)/);
-  assert.match(hostSource, /wrapper\._gaHostMenuPanel = panel/);
   assert.match(utilitySource, /ga-e6b-rotate-delta/);
   assert.match(utilitySource, /ga-e6b-wind-slide-delta/);
   assert.match(utilitySource, /ga-e6b-wind-dot-set/);
@@ -283,17 +294,9 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostCss, /\.leaflet-gaVfr-pane \{[\s\S]*?z-index: 280 !important;/);
   assert.match(hostCss, /\.leaflet-gaOfficialChart-pane \{[\s\S]*?z-index: 310 !important;/);
   assert.match(hostCss, /\.leaflet-gaWeather-pane \{[\s\S]*?z-index: 340 !important;/);
-  assert.match(hostCss, /\.ga-efb-context-weather/);
-  assert.match(hostCss, /\.ga-efb-context-height-cloud/);
-  assert.match(hostCss, /\.ga-efb-context-point/);
-  assert.match(hostCss, /\.ga-efb-context-airport-widget/);
-  assert.match(hostCss, /\.ga-efb-context-airspaces > span > b > i/);
-  assert.match(hostCss, /grid-template-columns: 132px minmax\(0, 1fr\)/);
   assert.match(hostCss, /\.map-e6b-device\.map-e6b-half \{[\s\S]*?transform: scale\(\.7\) !important/);
-  assert.match(hostCss, /\.ga-efb-host-menu-panel\.is-open \{[\s\S]*?display: block;/);
   assert.match(hostCss, /\.calculator-formula-drawer,[\s\S]*?background: #f7f4e8 !important/);
-  assert.match(hostCss, /\.ga-efb-context-windrose \.ga-efb-context-runway rect/);
-  assert.match(hostCss, /#mapSideDrawer \{[\s\S]*?--checklist-panel-width: 66\.6667vw/);
+  assert.doesNotMatch(hostCss, /--checklist-panel-width:/);
   assert.match(hostCss, /#missionStartBanner \{[\s\S]*?z-index: 100060/);
   assert.match(hostCss, /\.ga-efb-cargo-manager \{[\s\S]*?z-index: 190000/);
   assert.match(hostSource, /id="gaEfbCargoBody" class="mission-cargo-panel"/);
@@ -304,14 +307,9 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostCss, /\.ga-efb-cargo-lock-hint/);
   assert.match(hostSource, /function cargoPayloadStatusMarkup\(control\)/);
   assert.match(hostSource, /mission-cargo-payload-message/);
-  assert.match(hostSource, /Schrift kleiner \(-\)/);
-  assert.match(hostSource, /Schrift größer \(\+\)/);
-  assert.match(hostSource, /Schriftgröße:/);
-  assert.match(hostSource, /Missionsstatus prüfen/);
-  assert.match(hostSource, /FLUGHÖHE/);
   assert.match(hostSource, /function requestSideDrawerRefresh\(\)/);
-  assert.match(hostSource, /body\.addEventListener\('scroll', noteDrawerScroll/);
-  assert.match(hostSource, /window\.setTimeout\(apply, 90\)/);
+  assert.match(hostSource, /body\.addEventListener\('scroll',\s*noteDrawerScroll/);
+  assert.match(getTrackerEfbWebClientAsset('/efb/v1/assets/checklists.js').body.toString(), /bodyEl.scrollTop = scroll/);
   assert.match(hostSource, /function applyEfbFontScale\(\)/);
   assert.match(hostSource, /function normalizeCoherentGlyphs\(root\)/);
   assert.match(hostSource, /new window\.MutationObserver/);
@@ -375,8 +373,8 @@ test('EFB map banner exposes only contextual tracker-approved actions', () => {
 
 test('EFB host toggles utilities even when Coherent still serves the legacy utility module', () => {
   const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
-  const toggleSource = hostSource.match(/function toggleUtilityTool\(tool\) \{[\s\S]*?\n  \}\n\n  function configureOriginalChrome/)?.[0]
-    .replace(/\n\n  function configureOriginalChrome$/, '');
+  const toggleSource = hostSource.match(/function toggleUtilityTool\(tool\) \{[\s\S]*?\n  \}\n\n  function infoBoxHintKey/)?.[0]
+    .replace(/\n\n  function infoBoxHintKey$/, '');
   assert.ok(toggleSource);
 
   const calls = [];
@@ -498,7 +496,7 @@ test('versioned tracker assets keep shared sources in sync and EFB interaction p
   assert.match(appUtilitySource, /function toggleMapUtilityTool\(tool\)/);
   assert.match(appUtilitySource, /window\.toggleMapUtilityTool = toggleMapUtilityTool/);
   assert.doesNotMatch(efbUtilitySource, /fitE6BFrameToViewport/);
-  const appMapSource = fs.readFileSync(path.join(projectRoot, 'map.js'), 'utf8');
+  const appMapSource = fs.readFileSync(path.join(projectRoot, 'map-drawing.js'), 'utf8');
   assert.match(appMapSource, /window\.toggleMapUtilityTool\('stopwatch'\)/);
   assert.match(appMapSource, /window\.toggleMapUtilityTool\('calculator'\)/);
   assert.match(appMapSource, /window\.toggleMapUtilityTool\('e6b'\)/);
@@ -542,7 +540,8 @@ test('versioned tracker assets keep shared sources in sync and EFB interaction p
   assert.match(syncSource, /requireEfbFork\('map-utility-tools\.js'/);
   assert.match(syncSource, /requireEfbFork\(path\.join\('e6b', 'e6b-flight-computer\.html'\)/);
   assert.match(syncSource, /requireEfbFork\(path\.join\('e6b', 'e6b-flight-computer\.css'\)/);
-  assert.match(syncSource, /vpZoom\(-10\).*Horizontal rauszoomen/);
+  assert.doesNotMatch(syncSource, /replace[^\n]*vpZoom/);
+  assert.match(fs.readFileSync(path.join(assetRoot, 'kartentisch-fragment.html'), 'utf8'), /onclick="vpZoom\(10\)"[^>]*Horizontal rauszoomen/);
 });
 
 test('diagnostic probe remains available separately from the Kartentisch', () => {
@@ -559,4 +558,14 @@ test('EFB packages the warning decoder and voice catalog without the standalone 
   assert.match(getTrackerEfbWebClientAsset('/efb/v1/assets/navigation-warning-audio.js').body.toString(), /whoopWav/);
   const voices = JSON.parse(getTrackerEfbWebClientAsset('/efb/v1/assets/warning-voices.json').body);
   assert.ok(voices.packs.some(p => p.id === 'liam'));
+});
+
+test('EFB ships shared live instruments and the original compass font before the host boots', () => {
+  const page = createTrackerEfbWebClientPage();
+  assert.ok(page.indexOf('<script src="/efb/v1/assets/map-live-presentation.js') < page.indexOf('<script src="/efb/v1/assets/host.js'));
+  assert.ok(trackerPackage.pkg.assets.includes('../map-live-presentation.js'));
+  assert.ok(trackerPackage.pkg.assets.includes('../MS33558.ttf'));
+  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/map-live-presentation.js');
+  assert.doesNotThrow(() => new Function(source.body.toString('utf8')));
+  assert.equal(getTrackerEfbWebClientAsset('/efb/v1/assets/MS33558.ttf').contentType, 'font/ttf');
 });

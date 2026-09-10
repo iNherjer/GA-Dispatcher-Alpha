@@ -3,13 +3,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const BOOLEAN_SETTINGS = ['enabled', 'paxEnabled', 'effectsEnabled', 'readFreq', 'terrain', 'airspace', 'waypoint'];
-const DEFAULT_SETTINGS = Object.freeze({ enabled: true, volume: 1, voicePack: '', paxEnabled: true,
+const DEFAULT_SETTINGS = Object.freeze({ enabled: true, volume: 1, voicePack: '', audioStyle: '', paxEnabled: true,
   effectsEnabled: true, readFreq: true, terrain: true, airspace: true, waypoint: true });
 function normalizeSettings(value = {}) {
   const result = { ...DEFAULT_SETTINGS };
   for (const key of BOOLEAN_SETTINGS) if (typeof value[key] === 'boolean') result[key] = value[key];
   if (Number.isFinite(value.volume)) result.volume = Math.min(1, Math.max(0, value.volume));
   result.voicePack = /^[a-z0-9-]{0,48}$/.test(value.voicePack || '') ? value.voicePack || '' : '';
+  result.audioStyle = ['clear', 'intercom', 'intercom_noise'].includes(value.audioStyle) ? value.audioStyle : '';
   return result;
 }
 function normalizeRecord(value = {}) {

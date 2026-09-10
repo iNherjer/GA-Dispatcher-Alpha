@@ -608,6 +608,7 @@ test('tracker records the App flight facts privately and restores the Farewell c
     onGround: true, gsKts: 20, bankDeg: 0, gForce: 1, vsFpm: 0, touchdownFpm: -180,
     windKts: 12, windDeg: 250, visKm: 14
   });
+  const touchdownRecipe = farewellVoiceCore.createRecipeFromContext(fixture.adapter.getFarewellAuthorityContext(), fixture.adapter.getFarewellDynamicContext({ anticipateDelivery: true }));
   fixture.adapter.observeTelemetry({
     observedAt: 41000, lat: 48.3001, lon: 8.5001, altFt: 5100, aglFt: 0,
     onGround: true, gsKts: 0.5, bankDeg: 0, gForce: 1, vsFpm: 0,
@@ -616,13 +617,15 @@ test('tracker records the App flight facts privately and restores the Farewell c
   fixture.adapter.observeTelemetry({
     observedAt: 47000, lat: 48.3001, lon: 8.5001, altFt: 5100, aglFt: 0,
     onGround: true, gsKts: 0.1, bankDeg: 0, gForce: 1, vsFpm: 0,
-    windKts: 12, windDeg: 250, visKm: 14
+    windKts: 27, windDeg: 290, visKm: 6
   });
+  const taxiRecipe = farewellVoiceCore.createRecipeFromContext(fixture.adapter.getFarewellAuthorityContext(), fixture.adapter.getFarewellDynamicContext({ anticipateDelivery: true }));
+  assert.deepEqual(taxiRecipe, touchdownRecipe, 'a completed touchdown preload survives ground weather updates');
   const publicBeforeArrivalRead = fixture.manager.getPublicSnapshot();
   const arrivalDynamic = fixture.adapter.getFarewellDynamicContext();
   assert.equal(arrivalDynamic.record.durationSec, 31, 'Farewell facts must freeze at the App touchdown snapshot');
   assert.equal(arrivalDynamic.record.touchdownVsFpm, -180);
-  assert.equal(arrivalDynamic.liveWeather.windKts, 12, 'weather remains current even when flight facts freeze at touchdown');
+  assert.equal(arrivalDynamic.liveWeather.windKts, 12, 'routine ground weather changes do not discard touchdown voice preloading');
   assert.deepEqual(fixture.manager.getPublicSnapshot(), publicBeforeArrivalRead);
   assert.doesNotMatch(JSON.stringify(publicBeforeArrivalRead), /arrivalFlightRecord|recorderLowSpeedSince/);
   const revisionBeforeRestart = fixture.manager.getActiveRun().revision;
@@ -1165,4 +1168,20 @@ test('farewell prewarm anticipates delivery without changing cargo or hiding mis
   const predicted = damaged.adapter.getFarewellDynamicContext({ anticipateDelivery: true }).cargoOutcome;
   assert.equal(predicted.failed, true);
   assert.equal(predicted.damagedRequired.length, 1);
+});
+
+test('landing banner can record landing after a dismissed start reminder, like standalone', t => {
+  const bundle = aptResumeBundle();
+  bundle.runtime.cargoManifest.items.push({ id: 'bordbuch', label: 'Bordbuch', itemType: 'cargo', status: 'loaded', persistentEquipment: true, deliverAtDestination: false });
+  bundle.runtime.cargoManifest.flightEvents = { flightId: 'test-flight', startAt: 1000, landingAt: 5000 };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const f = createCommittedFixture(t, { bundle });
+  assert.equal(executeCurrent(f, 'set_boardbook_time', 'cargo-wrong-field', { field: 'landing' }).error, 'manifest_boardbook_field_not_current');
+  const result = executeCurrent(f, 'set_boardbook_time', 'landing-banner', { field: 'landing', source: 'banner' });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  const log = f.manager.getExecutionSnapshot().state.manifest.items.find(i => i.id === 'bordbuch').log;
+  assert.equal(log.landingAt, 5000); assert.equal(log.startAt, undefined);
+  assert.equal(log.lastSource, 'banner'); assert.equal(log.backfilled, false);
+  assert.equal(executeCurrent(f, 'set_boardbook_time', 'start-later', { field: 'start' }).ok, true);
 });

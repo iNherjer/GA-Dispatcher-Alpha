@@ -812,3 +812,39 @@ Folgeaktionen bis zu 500 ms Ruhe seit dem letzten kompatiblen Klick sammeln,
 mit maximal zwei Sekunden Sammelzeit. Die 180-ms-Grenze erkennt den Beginn
 einer Klickfolge. Signaturen und Run-/Phasenwechsel sind
 weiterhin Reihenfolgegrenzen; keine UI-Aktion umgeht die Tracker-Validierung.
+
+### Praesentationsabgleich und Farewell-Rezept (10.09.2026)
+
+open_cargo_window / CARGO_WINDOW_OPENED ergaenzt das bestehende Schliessereignis.
+Die Projektion enthaelt cargoWindowOpenId und cargoWindowMode; Schliessen loescht
+beide, Oeffnen loescht cargoWindowCloseId. Das ist nur Fensterpraesentation:
+Manifest, Signatur, Cargo-Effekte und Phasen werden dabei nicht veraendert.
+Ansichten oeffnen lokal sofort und senden aus einer empfangenen Projektion
+keinen erneuten Oeffnen-Intent.
+
+Bordbuch-Banner verwenden vorhandene flightEvents nach airborneSeen. Anders als
+bei einem Verlade-Button muss ein explizites Landezeit-Banner nicht erst die
+Startzeit nachtragen. Timestamp-, Inventar- und Compliance-Pruefungen bleiben
+verbindlich. Beide Ansichten benutzen dieselbe Reminder-Projektion.
+
+Das Farewell-Rezept wird bei vorhandenem Authority-Kontext daraus aufgebaut;
+ein spaeteres Client-Rezept ersetzt keine bereits vorbereitete autoritative
+Ansage. Ankunftswetter bleibt wie der Flugrecord am Touchdown eingefroren und
+wird im Runtime-Kontext wiederhergestellt. Das aktuelle Cargo-Ergebnis bleibt
+unabhaengig davon und kann eine vorbereitete Ansage weiterhin ungueltig machen.
+
+## Navigationsroute neben dem APT-Ausführungszustand (10.09.2026)
+
+Zwischenwegpunkte einer Tracker-geführten APT-Mission werden über eine eigene,
+revisionsgeprüfte Navigationsaktion geändert. Die bestätigte `navigationRoute`
+liegt am selben persistierten Run; `navigationRevision` wird unabhängig von
+Cargo-/Voice-/Execution-Revisionen geführt. Start-/Zielkoordinaten und die
+ursprüngliche Route bleiben erhalten. Diese Änderung ist keine neue
+Missionssemantik und verändert weder Ausführungs-Hash noch Manifest oder
+Szenenanker. Bei Route Reset wird die ursprüngliche Missionroute wiederhergestellt.
+
+Die sofortige Kartenreaktion ist eine vorläufige Darstellung ausstehender
+Navigationsaktionen. Erst die Tracker-Bestätigung wird persistiert und verteilt.
+Konflikte stellen den bestätigten Routenstand wieder her; ein unbekannter
+Timeout wird nicht still erneut ausgeführt. Web-geführte Missionen und nicht
+freigegebene Rezepte werden dadurch nicht schreibend für EFB/Toolbar geöffnet.

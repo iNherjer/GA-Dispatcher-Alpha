@@ -24,6 +24,7 @@ export async function handleAudioSettings(request, requestUrl, env, helpers) {
   }
   settings.volume = Math.max(0, Math.min(1, Number(source.settings?.volume) || 0));
   settings.voicePack = /^[a-z0-9-]{0,48}$/.test(source.settings?.voicePack || '') ? source.settings?.voicePack || '' : '';
+  settings.audioStyle = ['clear', 'intercom', 'intercom_noise'].includes(source.settings?.audioStyle) ? source.settings.audioStyle : '';
   const target = source.target?.mode === 'app'
     ? { mode: 'app', deviceId: String(source.target.deviceId || '').trim().slice(0, 160), name: String(source.target.name || 'App').slice(0, 80) }
     : { mode: 'pc', deviceId: 'pc', name: 'PC' };

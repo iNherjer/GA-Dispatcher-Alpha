@@ -86,3 +86,30 @@ test('frequency and voice-pack paths stay declarative; whoop is generated withou
   assert.throws(() => core.assetPath('../../key', '')); assert.throws(() => core.assetPath('aw-d1', '../'));
   assert.equal(Buffer.from(core.whoopWav()).toString('ascii', 0, 4), 'RIFF');
 });
+
+test('standalone preparation excludes FIR/Echo and merges CTR duplicates without losing sector frequencies', () => {
+  const ctr = { ...space(), _id:'ctr', type:4, icaoClass:3, name:'LAHR', frequencies:[], lowerLimit:{value:0,unit:1,referenceDatum:1} };
+  const duplicate = { ...ctr, _id:'dup',type:0,frequencies:[{name:'TWR',value:'125.180'}] };
+  const sector = { ...ctr, _id:'s1',type:7,name:'TMA LAHR',lowerLimit:{value:1500,unit:1,referenceDatum:1} };
+  const source=[{...ctr,_id:'fir',type:10,name:'EDGG'}, {...ctr,_id:'echo',type:0,icaoClass:4},ctr,duplicate,sector,{...sector,_id:'s2'}];
+  const result=core.prepareAirspaces(source);
+  assert.deepEqual(result.map(a=>a._id),['ctr','s1','s2']);
+  assert.equal(result[0].frequencies[0].value,'125.180');
+  assert.equal(result[1].frequencies[0].value,'125.180');
+  assert.equal(result[0]._lowerIsAgl,true);
+  assert.equal(ctr.lowerLimit.referenceDatum,1,'cached input is not mutated');
+  assert.equal(ctr.frequencies.length,0);
+});
+
+test('airport frequency fallback keeps standalone name/distance limits and existing frequencies', () => {
+  const a={...space(),type:4,name:'CTR LAHR',frequencies:[]};
+  const center=core.getAirspaceApproxCenter(a);
+  const apt={icao:'EDTL',name:'Lahr',lat:center.lat,lon:center.lon,frequencies:[{name:'TWR',value:'125.180'}]};
+  core.fillAirportFrequencies([a],{EDTL:apt});
+  assert.equal(a.frequencies[0].value,'125.180');
+  core.fillAirportFrequencies([a],{EDTL:{...apt,frequencies:[{value:'123.000'}]}});
+  assert.equal(a.frequencies[0].value,'125.180');
+  const missing={...a,frequencies:[]};
+  core.fillAirportFrequencies([missing],{EDTL:{...apt,lat:center.lat+2}});
+  assert.equal(missing.frequencies.length,0);
+});

@@ -211,7 +211,8 @@
               <label class="toggle-row"><span><strong>Audio aktiviert</strong></span><span class="toggle-control"><input id="audioMasterEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
               <label class="toggle-row"><span><strong>Stimmen und Ansagen</strong></span><span class="toggle-control"><input id="audioPaxEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
               <label class="toggle-row"><span><strong>Audioeffekte</strong></span><span class="toggle-control"><input id="audioEffectsEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-              <div id="navigationAudioSettings" hidden>
+              <label>Stimmklang <select id="audioPaxStyle"><option value="clear">Klar</option><option value="intercom">Intercom ohne Rauschen</option><option value="intercom_noise">Intercom mit Rauschen</option></select></label>
+          <div id="navigationAudioSettings" hidden>
                 <label><span>Warnstimme</span><select id="audioWarningVoice"><option value="">Anna (DE)</option></select></label>
                 <label class="toggle-row"><span><strong>Frequenzen ansagen</strong></span><span class="toggle-control"><input id="audioReadFreq" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
                 <label class="toggle-row"><span><strong>Terrainwarnungen</strong></span><span class="toggle-control"><input id="audioTerrain" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
@@ -439,6 +440,7 @@
   </dialog>
 
   <script src="./navigation-warning-audio.js"></script>
+  <script src="./pax-audio-style.js"></script>
   <script src="./tracker-audio-player.js"></script>
   <script src="./audio.js"></script>
   <script src="./renderer.js"></script>

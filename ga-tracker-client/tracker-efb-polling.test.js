@@ -8,13 +8,15 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const response = value => ({ ok: true, json: async () => ({ message: { payload: value } }) });
 function fixture(fetch) {
-  const frames = [], timers = [], states = [];
+  const frames = [], timers = [], states = [], disconnected = [];
   const root = { GATrackerCockpitSessionClient: { requestJson: (fn, url, init) => requestJson(fn, url, init, 20) },
+    gaEfbProfile: { disconnected: () => disconnected.push(true) },
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; } };
   const sandbox = { window: root, fetch, pollingClosed: false, trackerOnline: false, auxiliaryPollTimers: {}, safePayload: x => x.message.payload,
+    planeMarker:null, refreshLocalNavigation(){}, setInfoBoxAvailability(){}, updateCompass(){}, renderProgress(){},
     setTrackerState: (text, error) => states.push({ text, error }), renderFlight: value => frames.push(value), notifyParentState(){}, report(){} };
   vm.createContext(sandbox); vm.runInContext(polling, sandbox);
-  return { sandbox, frames, timers, states };
+  return { sandbox, frames, timers, states, disconnected };
 }
 test('hanging map, status and checklist responses do not delay telemetry or its next poll', async () => {
   let frame = 0;
@@ -32,6 +34,7 @@ test('telemetry timeout recovers automatically and ignores a late frame and unlo
   const f = fixture(() => ++calls === 1 ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(response('fresh')));
   f.sandbox.poll(); await wait(30);
   assert.equal(f.states.at(-1).error, true);
+  assert.equal(f.disconnected.length, 1);
   f.timers.find(t => t.ms === 1800).fn(); await flush();
   assert.deepEqual(f.frames, ['fresh']);
   assert.equal(f.states.at(-1).error, false, 'telemetry clears the offline notice even if the separate status request still hangs');

@@ -371,12 +371,34 @@
     };
   }
 
+  function boardBookReminder(control) {
+    if (!control || control.executionAuthority !== 'tracker' || !control.missionId || !control.runId
+        || !control.progress || !control.progress.airborneSeen || /^(planned|prepare|boarding|boarded|closing|closed|aborted)$/.test(control.phase || '')) return null;
+    var events = control.flightEvents || (control.manifest || {}).flightEvents || {};
+    if (!events.flightId || !Number(events.startAt) || (control.allowedActions || []).indexOf('set_boardbook_time') < 0) return null;
+    var field = Number(events.landingAt) > 0 ? 'landing' : 'start';
+    var item = ((control.manifest || {}).items || []).find(function(item) { return item.id === 'bordbuch'; });
+    if (!item || item.status !== 'loaded') return null;
+    var log = item.log || {};
+    if (log.flightId === events.flightId && Number(log[field + 'At']) > 0) return null;
+    return { field: field, flightId: events.flightId,
+      key: [control.missionId, control.runId, events.flightId, field, events[field + 'At']].join(':') };
+  }
+
+  function boardBookReminderMarkup(field) {
+    var label = field === 'landing' ? 'Landezeit' : 'Startzeit';
+    return '<div class="mission-boardbook-reminder-copy"><strong>BORDBUCH</strong><span>' + label
+      + ' des aktuellen Fluges eintragen?</span></div><button type="button">' + label + ' eintragen</button>';
+  }
+
   function abortConfirmation() {
     return 'Mission wirklich abbrechen?\n\nDer Tracker beendet die Mission auf allen verbundenen Ansichten und entfernt ihre Sim-Objekte. Der Flug wird nicht als abgeschlossen gewertet.';
   }
 
   return Object.freeze({
     createIntentQueue: createIntentQueue,
+    boardBookReminder: boardBookReminder,
+    boardBookReminderMarkup: boardBookReminderMarkup,
     BUILD_ID: BUILD_ID,
     ACTION_LABELS: ACTION_LABELS,
     render: render,

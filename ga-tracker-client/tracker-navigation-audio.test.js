@@ -37,7 +37,7 @@ test('warning sequence is local, queued, interrupted by passenger voice, and the
     request: async command => { calls.push(command); return handleVoiceRelay(service, command, control); },
     fetchClip: async (job, stage) => { const bytes = new ArrayBuffer(1); bytes.label = job.effectId + ':' + stage; return bytes; } });
   t.after(async () => { await player.stop(); control.close(); });
-  const update = () => player.update({ ...control.snapshot(), playback: service.publicState() });
+  const update = () => player.update({ ...control.snapshot(), settings: { ...control.snapshot().settings, audioStyle: 'clear' }, playback: service.publicState() });
   update(); await sleep(30); assert.equal(fake.starts.length, 1);
   service.request({ effectId: 'voice-1', text: 'Hallo' }); await service.wait('voice-1');
   update(); await sleep(700);

@@ -29,6 +29,7 @@
     $('audioEffectsEnabled').checked = audio.settings.effectsEnabled;
     $('navigationAudioSettings').hidden = !audio.warnings;
     for (const [id, key] of [['audioReadFreq','readFreq'],['audioTerrain','terrain'],['audioAirspace','airspace'],['audioWaypoint','waypoint']]) $(id).checked = audio.settings[key];
+    $('audioPaxStyle').value = audio.settings.audioStyle || 'intercom_noise';
     $('audioWarningVoice').value = audio.settings.voicePack || '';
     $('audioPlaybackStatus').textContent = lastError || playbackText || 'Ausgabe: ' + audio.target.name + (audio.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : '');
   }
@@ -46,6 +47,7 @@
   for (const [id, key] of [['audioMasterEnabled','enabled'],['audioPaxEnabled','paxEnabled'],['audioEffectsEnabled','effectsEnabled'],['audioReadFreq','readFreq'],['audioTerrain','terrain'],['audioAirspace','airspace'],['audioWaypoint','waypoint']]) {
     $(id).onchange = () => update({ settings: { [key]: $(id).checked } });
   }
+  $('audioPaxStyle').onchange = () => update({ settings: { audioStyle: $('audioPaxStyle').value } });
   $('audioWarningVoice').onchange = () => update({ settings: { voicePack: $('audioWarningVoice').value } });
   fetch('./warning-voices.json').then(response => response.json()).then(catalog => {
     for (const pack of catalog.packs || []) if (/^[a-z0-9-]+$/.test(pack.id)) $('audioWarningVoice').add(new Option(pack.label, pack.id));

@@ -3,11 +3,12 @@ const { PNG } = require('pngjs');
 const { promisify } = require('node:util');
 const gunzip = promisify(require('node:zlib').gunzip);
 const { createNavigationCache } = require('./tracker-navigation-cache');
-const { createTrackerEfbMapContextProvider } = require('./tracker-efb-map-context');
-const { predictionBounds } = require('../navigation-warning-core');
+const { createTrackerEfbMapContextProvider, validateHostedAviationDocument } = require('./tracker-efb-map-context');
+const { predictionBounds, prepareAirspaces, fillAirportFrequencies } = require('../navigation-warning-core');
 const TERRAIN_BASE = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/';
 const OBSTACLE_BASE = 'https://inherjer.github.io/GA-Dispatcher-Alpha/obstacles/core-tiles/';
 const DAY = 86400000;
+const { createNavpoints } = require('./tracker-navpoints');
 function terrainPixel(lat, lon, zoom = 10) {
   const n = 2 ** zoom, radians = Math.max(-85.051128, Math.min(85.051128, lat)) * Math.PI / 180;
   const x = (((lon + 180) % 360 + 360) % 360) / 360 * n;
@@ -27,24 +28,28 @@ async function obstacleJson(bytes) {
   return core;
 }
 function createNavigationData(options) {
+  const now = options.now || Date.now;
   const cache = createNavigationCache(options), images = new Map(), obstacleTiles = new Map();
   const jsonFetch = async url => {
     const mutable = /latest\.json$|\/v1\/|\/api\//.test(url);
-    const ttlMs = url.includes('/v1/forecast') ? 300000 : url.includes('/v1/elevation') ? 180 * DAY : mutable ? 3600000 : 180 * DAY;
+    const ttlMs = url.endsWith('/latest.json') ? 0 : url.includes('/v1/forecast') ? 300000 : url.includes('/v1/elevation') ? 180 * DAY : mutable ? 3600000 : 180 * DAY;
     const bytes = await cache.get(url, { ttlMs,
-      validate: bytes => { JSON.parse(bytes.toString('utf8')); } });
+      validate: bytes => { validateHostedAviationDocument(url, JSON.parse(bytes.toString('utf8'))); } });
     return new Response(bytes, { headers: { 'Content-Type': 'application/json' } });
   };
-  const aviation = createTrackerEfbMapContextProvider({ fetchRemote: jsonFetch });
+  const aviation = createTrackerEfbMapContextProvider({ fetchRemote: jsonFetch, now });
   async function image(tile) {
     const key = `${tile.zoom}/${tile.x}/${tile.y}`;
-    if (images.has(key)) return images.get(key);
+    const old = images.get(key);
+    if (old && now() - old.at < 3600000) return old.value;
     let decoded;
     const decode = bytes => new Promise((resolve, reject) => new PNG({ checkCRC: true }).parse(bytes, (error, result) => error ? reject(error) : resolve(result.data)));
-    const pending = cache.get(TERRAIN_BASE + key + '.png', { ttlMs: 180 * DAY, limit: 1024 * 1024, validate: async bytes => { validatePng(bytes); decoded = await decode(bytes); } })
-      .then(() => decoded)
+    const pending = cache.get(TERRAIN_BASE + key + '.png', { ttlMs: DAY, limit: 1024 * 1024, validate: async bytes => { validatePng(bytes); decoded = await decode(bytes); } })
+      // A concurrent raw overlay read can own the shared download, bypassing
+      // this caller's validator. Always decode that result as well.
+      .then(bytes => decoded || decode(bytes))
       .catch(async error => { images.delete(key); await cache.invalidate(TERRAIN_BASE + key + '.png'); throw error; });
-    images.set(key, pending);
+    images.set(key, { at: now(), value: pending });
     while (images.size > 64) images.delete(images.keys().next().value);
     return pending;
   }
@@ -60,10 +65,10 @@ function createNavigationData(options) {
     }
     const results = await Promise.allSettled([...keys].slice(0, 36).map(key => {
       const old = obstacleTiles.get(key);
-      if (old && Date.now() - old.at < DAY) return old.value;
-      const value = cache.get(OBSTACLE_BASE + key + '.json.gz', { ttlMs: 14 * DAY, validate: obstacleJson })
+      if (old && now() - old.at < 3600000) return old.value;
+      const value = cache.get(OBSTACLE_BASE + key + '.json.gz', { ttlMs: 3600000, validate: obstacleJson })
         .then(obstacleJson).catch(error => { obstacleTiles.delete(key); throw error; });
-      obstacleTiles.set(key, { at: Date.now(), value });
+      obstacleTiles.set(key, { at: now(), value });
       while (obstacleTiles.size > 48) obstacleTiles.delete(obstacleTiles.keys().next().value);
       return value;
     }));
@@ -71,9 +76,16 @@ function createNavigationData(options) {
       lin: results.flatMap(r => r.status === 'fulfilled' ? r.value.lin || [] : []),
       complete: keys.size <= 36 && results.every(r => r.status === 'fulfilled'), tiles: results.length };
   }
-  return { cache, aviation, terrain, obstacles, async airspaces(points) {
+  return { cache, aviation, terrain, obstacles, navpoints: createNavpoints({ cache, aviation, now: options.now }), async airspaces(points) {
     const bounds = predictionBounds(points);
-    return aviation.getAirspaces({ lat: points[0].lat, lon: points[0].lon, radiusNm: 12, bounds });
+    const request = { lat: points[0].lat, lon: points[0].lon, radiusNm: 12, bounds };
+    const spaces = prepareAirspaces(await aviation.getAirspaces(request));
+    if (spaces.some(as => [0, 4, 7, 26].includes(as.type) && !as.frequencies?.length)) {
+      // Same named-airport fallback as standalone; unavailable frequencies must
+      // never suppress the airspace warning itself. Packs use the local cache.
+      try { fillAirportFrequencies(spaces, await aviation.getAirspaceAirports(request)); } catch (_) {}
+    }
+    return spaces;
   } };
 }
 module.exports = { createNavigationData, terrainPixel, validatePng, obstacleJson };

@@ -4035,7 +4035,7 @@ function _missionCargoShowBoardBookBanner(field = 'start', flightId = '') {
     const log = item.log && typeof item.log === 'object' ? item.log : {};
     const currentFlightId = flightId || window.missionCargoCurrentFlightId?.() || '';
     if (String(log.flightId || '') === String(currentFlightId) && Number(log[`${normalized}At`] || 0) > 0) return false;
-    const host = document.getElementById('awmFreqBanner');
+    const host = window.GANavigationWarningPresentation?.getBannerHost() || document.getElementById('awmFreqBanner');
     let banner = document.getElementById('missionBoardBookReminder');
     if (!banner) {
         banner = document.createElement('section');
@@ -4051,17 +4051,12 @@ function _missionCargoShowBoardBookBanner(field = 'start', flightId = '') {
         host.appendChild(banner);
     }
     banner.dataset.field = normalized;
-    banner.innerHTML = `
-        <div class="mission-boardbook-reminder-copy">
-            <strong>BORDBUCH</strong>
-            <span>${normalized === 'landing' ? 'Landezeit' : 'Startzeit'} des aktuellen Fluges eintragen?</span>
-        </div>
-        <button type="button">${normalized === 'landing' ? 'Landezeit' : 'Startzeit'} eintragen</button>
-    `;
+    banner.innerHTML = window.GAMissionControlUiCore.boardBookReminderMarkup(normalized);
     banner.querySelector('button')?.addEventListener('click', (event) => {
         event.stopPropagation();
         const ok = window.missionCargoSetBoardBookTime?.('bordbuch', normalized, { source: 'banner' });
-        if (ok) _missionCargoDismissBoardBookBanner();
+        if (ok && typeof ok.then === 'function') ok.then(saved => { if (saved) _missionCargoDismissBoardBookBanner(); });
+        else if (ok) _missionCargoDismissBoardBookBanner();
     });
     banner.hidden = false;
     if (host) host.style.display = 'block';
@@ -4073,16 +4068,13 @@ function _missionCargoShowBoardBookBanner(field = 'start', flightId = '') {
 // Tracker events already own the timestamps. Only show the existing reminder;
 // never call RecordFlightEvent here, which would mutate the local manifest.
 window.missionCargoApplyTrackerFlightReminders = function(control) {
-    if (control?.executionAuthority !== 'tracker' || !control.missionId || !control.runId
-        || /^(planned|prepare|boarding|boarded|closing|closed|aborted)$/.test(control.phase || '')) return false;
-    const events = control.flightEvents || control.manifest?.flightEvents || {};
-    if (!events.flightId || !Number(events.startAt)) return false;
-    const field = Number(events.landingAt) > 0 ? 'landing' : 'start';
-    const key = `${control.missionId}:${control.runId}:${events.flightId}:${field}:${events[`${field}At`]}`;
+    const reminder = window.GAMissionControlUiCore?.boardBookReminder(control);
+    if (!reminder) return false;
     const seen = window.gaTrackerBoardBookRemindersSeen || [];
-    if (seen.includes(key) || !control.allowedActions?.includes('set_boardbook_time')) return false;
-    window.gaTrackerBoardBookRemindersSeen = [...seen, key].slice(-32);
-    return _missionCargoShowBoardBookBanner(field, String(events.flightId));
+    if (seen.includes(reminder.key)) return false;
+    const shown = _missionCargoShowBoardBookBanner(reminder.field, reminder.flightId);
+    if (shown) window.gaTrackerBoardBookRemindersSeen = [...seen, reminder.key].slice(-32);
+    return shown;
 };
 
 window.missionCargoRecordFlightEvent = function(field = 'start', timestamp = Date.now(), options = {}) {
@@ -5254,7 +5246,7 @@ window.missionCargoHandleLiveFuelUpdate = function(flightData = null) {
     return true;
 };
 
-window.openMissionCargoDialog = function(mode = 'load') {
+window.openMissionCargoDialog = function(mode = 'load', options = {}) {
     _missionCargoEnsureUiSyncHook();
     const requestedMode = String(mode || 'load');
     const normalizedMode = ['unload', 'pickup', 'equipment'].includes(requestedMode) ? requestedMode : 'load';
@@ -5268,6 +5260,10 @@ window.openMissionCargoDialog = function(mode = 'load') {
         } catch (_) {}
     }
     window.gaTrackerCargoDialogDismissed = false;
+    if (options.trackerProjection !== true && window.gaTrackerExecutionHandlesMission?.() && window.liveTrackerConnected === true
+        && Object.prototype.hasOwnProperty.call(window.gaTrackerExecutionControl || {}, 'cargoWindowOpenId')) {
+        Promise.resolve(window.gaTrackerExecutionSubmitIntent?.('open_cargo_window', { mode: normalizedMode }, { silent: true })).catch(() => {});
+    }
     _missionCargoRenderDialog(normalizedMode, { preserveScroll: false, explicitOpen: true });
     _updateMissionRuntimeUi();
     return true;
@@ -5954,15 +5950,16 @@ window.missionCargoSetBoardBookTime = function(itemId, field, options = {}) {
             return false;
         }
         window.missionCargoStatus.error = null;
-        window.gaTrackerExecutionSubmitIntent?.('set_boardbook_time', {
+        const pending = window.gaTrackerExecutionSubmitIntent?.('set_boardbook_time', {
             itemId: String(itemId || 'bordbuch'),
             field: normalizedField,
             source: String(options.source || 'cargo')
         }).then(result => {
             if (result?.ok !== true) window.missionCargoStatus.error = _missionCargoTrackerIntentError(result);
             _missionCargoRenderDialog(window.missionCargoStatus?.lastMode || 'load', { skipPayloadRefresh: true });
+            return result?.ok === true;
         });
-        return true;
+        return options.source === 'banner' ? pending : true;
     }
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
