@@ -4911,7 +4911,7 @@ Doppel-Klick durch kompatible Mausereignisse), Font-/Audio-Menütest mit gesperr
 Font-Downloads und Seitenmenü-/Layer-Differentialtest bestehen. Gemeinsame
 Drag-/Skalierungsfunktionen sind in App und EFB-Fork textgleich. Die Uhr-Skala
 liegt als eigenes lokales SVG-Asset vor; Screenshot wurde visuell geprüft.
-Rollout vorbereitet: Tracker v402, EFB-Assetrevision 40201, Web-Cache v1741.
-Die Windows-EXE ist gebaut; der Alpha-Kanal wird erst nach verifiziertem Release
-umgeschaltet. Das vorhandene EFB-Community-Paket kann unverändert bleiben.
+Rollout am 11.09.2026: Tracker v402 ist als Origin-Release veröffentlicht;
+GitHub-Asset und erneuter Download sind per Größe und SHA-256 verifiziert.
+Alpha-Kanal v402, EFB-Assetrevision 40201, Web-Cache v1742. Das vorhandene EFB-Community-Paket kann unverändert bleiben.
 EXE: 59059143 Bytes, SHA-256 7902b1d34e84bb0f0c6ebabad1747057d613841002f0ef14f1a99d21eedc4684.
