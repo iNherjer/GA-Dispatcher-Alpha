@@ -4951,5 +4951,6 @@ Die genaue Rendererursache ist ohne neuen In-Sim-Test nicht bewiesen.
 Font-/Audio-UI-Test und Instrument-UI-Test bestehen: Originalzeichen verborgen,
 Text erhalten, Symbolbilder geladen; alle acht Zeilen der unteren beiden
 Erklärfelder mit expliziter dunkler Tinte ohne Strich.
-Release v403 vorbereitet, Assetrevision 40301; Windows-EXE gebaut, 27
-Font-/EFB-Tests bestanden. Alpha-Zeiger folgt nach Downloadprüfung.
+Release v403 veröffentlicht, Assetrevision 40301; Windows-EXE gebaut, 27
+Font-/EFB-Tests bestanden. Erneuter Download ist bytegleich mit dem Build;
+Alpha-Zeiger auf v403 umgestellt, Web-Cache v1746.
