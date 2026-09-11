@@ -40,14 +40,16 @@ function zipPackage(packageRoot, archivePath) {
   fs.rmSync(archivePath, { force: true });
   let result;
   if (process.platform === 'win32') {
-    const command = '& { param([string]$Source,[string]$Destination) Compress-Archive -LiteralPath $Source -DestinationPath $Destination -CompressionLevel Optimal }';
+    const escapePowerShellLiteral = (value) => String(value).replace(/'/g, "''");
+    const command = [
+      'Add-Type -AssemblyName System.IO.Compression.FileSystem',
+      `[System.IO.Compression.ZipFile]::CreateFromDirectory('${escapePowerShellLiteral(packageRoot)}', '${escapePowerShellLiteral(archivePath)}', [System.IO.Compression.CompressionLevel]::Optimal, $true)`
+    ].join('; ');
     result = spawnSync('powershell.exe', [
       '-NoProfile',
       '-NonInteractive',
       '-Command',
-      command,
-      packageRoot,
-      archivePath
+      command
     ], { encoding: 'utf8' });
   } else {
     result = spawnSync('zip', ['-q', '-r', archivePath, path.basename(packageRoot)], {

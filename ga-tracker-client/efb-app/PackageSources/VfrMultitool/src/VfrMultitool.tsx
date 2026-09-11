@@ -211,6 +211,11 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private serverClientAvailable = false;
   private serverFrameStarted = false;
   private serverFrameChannel = '';
+  private serverFrameReady = false;
+  private serverFrameLoads = 0;
+  private serverFrameRetries = 0;
+  private serverFrameReadyTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly parentInstance = `parent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   private consecutiveTrackerPollFailures = 0;
   private readonly trackerPollFailureThreshold = 3;
   private map: any | null = null;
@@ -247,13 +252,17 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     if (event?.data?.type === 'ga-e6b-close') this.closeToolPanel();
     const frameWindow = this.serverFrameRef.getOrDefault()?.contentWindow;
     const messageChannel = String(event?.data?.channel || '');
-    const trustedServerFrameMessage = event.source === frameWindow
-      || Boolean(this.serverFrameChannel && messageChannel === this.serverFrameChannel);
+    const trustedServerFrameMessage = Boolean(this.serverFrameChannel && messageChannel === this.serverFrameChannel)
+      && (event.source === frameWindow || event.origin === TRACKER_API_URL);
     if (event?.data?.type === 'ga-efb-kartentisch' && trustedServerFrameMessage) {
       const state = String(event.data.state || '');
       const stage = String(event.data.stage || '');
       const message = String(event.data.message || '');
       this.reportServerFrameEvent('parent-message', state || stage, message);
+      if (state === 'ready' || state === 'live') {
+        this.serverFrameReady = true;
+        this.clearServerFrameDeadline();
+      }
       if (state === 'close') {
         this.setText(this.serverFrameStatusRef.getOrDefault(), 'Kartentisch wird geschlossen');
         this.setScreen(this.serverClientAvailable ? 'server' : 'map');
@@ -278,22 +287,30 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     }
   };
 
-  public onOpen(): void { this.activate(); }
+  public onOpen(): void {
+    this.reportServerFrameEvent('lifecycle', 'open');
+    this.serverFrameRetries = 0;
+    this.resetServerFrame();
+    this.activate();
+  }
   public onResume(): void {
     // MSFS can discard the Coherent iframe while an EFB app is paused for an
     // interior/exterior view change.  The old boolean then claimed that the
     // frame was still alive and left the native surface black.  A resume is a
-    // lifecycle boundary, so obtain a fresh channel and reload only here.
-    this.serverFrameStarted = false;
-    this.serverFrameChannel = '';
+    // lifecycle boundary, so obtain a fresh channel as on a new open.
+    this.reportServerFrameEvent('lifecycle', 'resume');
+    this.serverFrameRetries = 0;
+    this.resetServerFrame();
     this.activate();
   }
-  public onPause(): void { this.deactivate(false); }
-  public onClose(): void { this.deactivate(true); }
+  public onPause(): void { this.reportServerFrameEvent('lifecycle', 'pause'); this.deactivate(false); }
+  public onClose(): void { this.reportServerFrameEvent('lifecycle', 'close'); this.deactivate(true); }
   public onAfterRender(node: VNode): void {
     super.onAfterRender(node);
     this.rendered = true;
+    this.reportServerFrameEvent('lifecycle', 'after-render');
     this.bindDomInteractions();
+    if (this.active && this.screen === 'server') this.startServerFrame();
     this.applyPreferencesToChrome();
     if (this.active) this.scheduleMapInitialization();
   }
@@ -339,6 +356,11 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       if (!this.serverFrameStarted) return;
       this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite geladen | warte auf Skriptmeldung');
       this.reportServerFrameEvent('iframe', 'load', serverFrame.src);
+      this.serverFrameLoads += 1;
+      // Host readiness can precede the initial load (slow images). A later
+      // load invalidates the previous document's readiness, even on the same URL.
+      if (this.serverFrameLoads > 1) this.serverFrameReady = false;
+      if (!this.serverFrameReady) this.armServerFrameDeadline();
     };
 
     const drawer = this.layerDrawerRef.getOrDefault();
@@ -353,20 +375,22 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   }
 
   private activate(): void {
-    this.preferences = this.readPreferences();
-    this.applyPreferencesToChrome();
-    this.startPolling();
-    this.setScreen(this.serverClientAvailable ? 'server' : 'map');
+    // Subscribe before assigning src so an early readiness message is retained.
     if (!this.resizeBound) {
       window.addEventListener('resize', this.onWindowResize);
       window.addEventListener('message', this.onWindowMessage);
       this.resizeBound = true;
     }
+    this.preferences = this.readPreferences();
+    this.applyPreferencesToChrome();
+    this.startPolling();
+    this.setScreen(this.serverClientAvailable ? 'server' : 'map');
     this.startClock();
     this.scheduleMapInitialization();
   }
 
   private deactivate(removeMap: boolean): void {
+    this.clearServerFrameDeadline();
     this.stopPolling();
     if (this.mapInitTimer) clearTimeout(this.mapInitTimer);
     this.mapInitTimer = null;
@@ -506,20 +530,56 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       if (frame && this.serverFrameStarted) frame.src = 'about:blank';
       this.serverFrameStarted = false;
       this.serverFrameChannel = '';
+      this.clearServerFrameDeadline();
+      this.serverFrameReady = false;
       this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Webclient nicht verfuegbar');
       if (this.screen !== 'map') this.setScreen('map');
     }
   }
 
   private startServerFrame(): void {
-    if (this.serverFrameStarted || !this.serverClientAvailable) return;
+    if (!this.active || this.serverFrameStarted || !this.serverClientAvailable) return;
     const frame = this.serverFrameRef.getOrDefault();
     if (!frame) return;
     this.serverFrameStarted = true;
+    this.serverFrameReady = false;
+    this.serverFrameLoads = 0;
     this.serverFrameChannel = `efb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite wird geladen');
     this.reportServerFrameEvent('iframe', 'start', this.serverFrameChannel);
     frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=9`;
+    this.armServerFrameDeadline();
+  }
+
+  private clearServerFrameDeadline(): void {
+    if (this.serverFrameReadyTimer !== null) clearTimeout(this.serverFrameReadyTimer);
+    this.serverFrameReadyTimer = null;
+  }
+
+  private resetServerFrame(): void {
+    this.clearServerFrameDeadline();
+    this.serverFrameStarted = false;
+    this.serverFrameChannel = '';
+    this.serverFrameReady = false;
+    this.serverFrameLoads = 0;
+  }
+
+  private armServerFrameDeadline(): void {
+    if (!this.active || this.serverFrameReady || this.serverFrameReadyTimer !== null) return;
+    const channel = this.serverFrameChannel;
+    this.serverFrameReadyTimer = setTimeout(() => {
+      this.serverFrameReadyTimer = null;
+      if (!this.active || !this.serverClientAvailable || this.serverFrameReady || channel !== this.serverFrameChannel) return;
+      this.reportServerFrameEvent('recovery', 'ready-timeout', `attempt=${this.serverFrameRetries}`, 'warn');
+      if (this.serverFrameRetries >= 2) {
+        this.reportServerFrameEvent('recovery', 'exhausted', 'EFB erneut oeffnen', 'error');
+        this.setText(this.serverFrameStatusRef.getOrDefault(), 'Kartentisch antwortet nicht | EFB schliessen und erneut oeffnen');
+        return;
+      }
+      this.serverFrameRetries += 1;
+      this.resetServerFrame();
+      this.startServerFrame();
+    }, 20000);
   }
 
   private reportServerFrameEvent(
@@ -536,8 +596,8 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
           level,
           event,
           stage,
-          message,
-          sessionId: 'efb-parent',
+          message: `package=${EFB_APP_VERSION} parent=${this.parentInstance} active=${this.active} ready=${this.serverFrameReady} loads=${this.serverFrameLoads} retries=${this.serverFrameRetries} ${message}`,
+          sessionId: this.parentInstance,
           channel: this.serverFrameChannel,
           at: Date.now()
         })

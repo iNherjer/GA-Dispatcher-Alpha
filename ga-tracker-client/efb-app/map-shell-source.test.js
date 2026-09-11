@@ -156,5 +156,5 @@ test('hosted map survives transient polls and parent rendering failures without 
 });
 
 test('native EFB resume renews a potentially discarded tracker iframe', () => {
-  assert.match(tsx, /public onResume\(\): void \{[\s\S]*?this\.serverFrameStarted = false;[\s\S]*?this\.serverFrameChannel = '';[\s\S]*?this\.activate\(\);[\s\S]*?\}/);
+  assert.match(tsx, /public onResume\(\): void \{[\s\S]*?this\.resetServerFrame\(\);[\s\S]*?this\.activate\(\);/);
 });

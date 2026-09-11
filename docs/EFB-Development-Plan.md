@@ -20,6 +20,20 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-/App-Transport | EFB ueber HTTP-Loopback, entfernte Origin-App ueber das bestehende PIN-geschuetzte Tracker-Relay | - | Beide Wege enden im selben revisionsgebundenen Intent-Controller. Provider-Keys und Session-Token werden nie oeffentlich projiziert. `mission.intent.v1` erscheint nur, wenn Alpha, Opt-in und Core-Paritaetsgate gemeinsam erfuellt sind. |
 
+### EFB 0.4.13 – getesteter SDK-Build vom 11.09.2026
+
+Der Nutzer hat den Funktionstest von EFB 0.4.13 im Simulator bestaetigt und
+den Alpha-Rollout freigegeben. Der offizielle SDK-1.7.2-Build wurde unter
+MSFS 2024 1.8.16.0 getestet. onOpen und onResume erneuern den iframe-Kanal;
+eine ausbleibende ready/live-Meldung loest nach 20 Sekunden maximal zwei
+Wiederholungen aus. Pause stoppt die Frist, alte Kanaele koennen den neuen
+Frame nicht bestaetigen. Logs enthalten Paketversion und Parent-Instanz.
+Das Handoff-Log belegt Start/host-ready/live/load, aber nicht separat fuenf
+Resume-Zyklen. Die Freigabe beruht auf dem menschlichen Funktionstest.
+0.4.12 hatte den erneut gemeldeten Black Screen nicht vollstaendig behoben.
+Das unveraenderte Testarchiv umfasst 432662 Bytes mit SHA-256
+`8f2b31e85e147c7c1c0a94950aab87e615aa68fa1324cb3ab26711580615cdc7`.
+
 ### Alpha-Feldkandidat v380
 
 Tracker v380 / Host 0.7.4 / Assetrevision 38001 ist der fuer den Alpha-Test
