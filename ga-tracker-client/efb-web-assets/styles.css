@@ -9754,6 +9754,16 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     margin-bottom: 11px;
 }
 
+#mapCalculatorScale {
+    border: 1px solid rgba(255,255,255,0.24);
+    border-radius: 7px;
+    padding: 5px 8px;
+    background: #263743;
+    color: #eaf5ff;
+    font: 700 11px/1.2 'Courier New', monospace;
+    cursor: pointer;
+}
+
 .calculator-display {
     min-height: 58px;
     border-radius: 10px;

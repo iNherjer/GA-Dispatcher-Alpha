@@ -4856,3 +4856,62 @@ Der abschließende Kanal-Push erhöht den Web-Cache auf v1738.
 
 Tracker v401 enthält Assetrevision 40101. Das bestehende EFB-Community-Paket
 und der Desktop-Installer 1.6.10 können diesen Host unverändert laden.
+
+### 11.09.2026: Feldbefund v401 – Symbole und Karteninstrumente (lokale Korrektur)
+
+Der neue Trackerlog belegt die Ursache des Symbolausfalls: `symbols.js` und
+alle 231 Basisgrafiken werden geladen (`loadedSymbols=233` einschließlich
+Farbvarianten), `emoji-text.js` scheitert dagegen mit `Unexpected identifier
+'code'` in Zeile 1. Der Server erzeugte den Browser-Fonthelfer über
+`fontFallback.toString()`. In pkg-Bytecode liefert dies `[native code]` und
+keinen auslieferbaren JavaScript-Quelltext. Der gemeinsame Helfer liegt jetzt
+als explizites Quelltext-Asset vor; Node und Browser verwenden dieselbe Datei.
+Keine zusätzliche Schrift-/Unicode-Heuristik oder periodischen DOM-Scans.
+Der Log zeigt außerdem einen Coherent-Parserfehler bei `!await unlock()`;
+die gemeinsame Audio-Player-Datei klammert das Await-Ergebnis jetzt explizit.
+
+Weitere verifizierte Korrekturen:
+- E6B: explizite Coherent-Pixelmaße werden mit der Zeichenauflösung erhöht.
+  Zuvor blieben sie fest, während die Gegenskalierung kleiner wurde; daher
+  schien Plus an den Auflösungsgrenzen zu verkleinern. Der zusätzliche EFB-
+  Faktor 0.7 entfällt. Außenring-Pan nutzt dieselben Trefferradien wie die App
+  (Front 0.36–0.58 der Referenzbreite; Wind 240–286 SVG-Einheiten).
+- Uhr/Rechner: gleiche Maus-Fallbacks neben Pointer-Events; Verschieben löst
+  keine Dial-Aktion aus, Pointer-Cancel startet keinen Timer. Die vorhandene
+  Uhr-Größenwahl wird auf 50/100/150/200 Prozent erweitert; der Rechner erhält
+  denselben Größenknopf. Beide Oberflächen übernehmen die gemeinsamen Änderungen.
+- Uhr: 60 Teilstriche werden im EFB als SVG-Geometrie mit den vorhandenen
+  Radien/Farben gezeichnet, statt conic-gradient und CSS-Masken vorauszusetzen.
+- E6B-Kontrast: vorhandene Workbench-SVGs verwenden `xlink:href` ohne xmlns:xlink.
+  HTML-Insertion toleriert das, der XML-Parser der Halo-Korrektur nicht. Die
+  fehlende Namespace-Deklaration wird ergänzt. Coherent erhält getrennte Halo-
+  und Tintenschichten in den originalen Farben statt paint-order vorauszusetzen.
+
+Recherchebasis: Coherent GT dokumentiert TTF, TTC und OTF sowie separate Dateien
+für Fett/Kursiv (keine garantierte Synthese fehlender Schnitte):
+https://coherent-labs.com/Documentation/cpp-gt/dd/d09/font_usage.html
+Das ist keine pauschale MSFS-Unicode-Whitelist. Normale Schriftzeichen hängen
+von Fontabdeckung und geladenem Schnitt ab; Emoji-/UI-Symbole werden durch die
+lokalen SVG-Pfade von diesen Font- und Farbschriftabhängigkeiten getrennt.
+SVG-Text und native Select-Optionen bleiben Schrifttext. Moderne Gameface-
+Dokumentation ist weiterhin kein Beleg für die konkrete MSFS-Engine.
+
+Nachweise: `tools/efb-packaged-font-smoke.cjs` wurde mit dem Tracker-pkg-Manifest
+als node18-macos-x64-Binary gebaut und ausgeführt: `packaged=true`,
+`helperSourceStripped=true`, `ok=true`. Dies prüft reale Bytecode-/Asset-
+Auslieferung, ersetzt aber keinen Windows-/MSFS-Test. Der Instrumententest
+`tools/efb-utility-input-ui-selftest.cjs` prüft echte Mausereignisse, Dial-Aktionen,
+Größenwahl, Pan und monotones Zoom auf beiden E6B-Seiten sowie die tatsächlichen
+Workbench-Labels (180 Halo-Zahlen, dunkle Füllung, kein überlagernder Strich).
+Der erste parallel zu Electron gestartete Audio-Test überschritt seinen festen
+700-ms-Testzeitraum; isoliert bestehen alle 38 EFB-/Audio-Tests. Der In-Sim-Sicht-/Bedienungstest bleibt offen.
+
+Abschlussprüfung: Instrumenttest (einschließlich Pointer-Cancel und unterdrücktem
+Doppel-Klick durch kompatible Mausereignisse), Font-/Audio-Menütest mit gesperrten
+Font-Downloads und Seitenmenü-/Layer-Differentialtest bestehen. Gemeinsame
+Drag-/Skalierungsfunktionen sind in App und EFB-Fork textgleich. Die Uhr-Skala
+liegt als eigenes lokales SVG-Asset vor; Screenshot wurde visuell geprüft.
+Rollout vorbereitet: Tracker v402, EFB-Assetrevision 40201, Web-Cache v1741.
+Die Windows-EXE ist gebaut; der Alpha-Kanal wird erst nach verifiziertem Release
+umgeschaltet. Das vorhandene EFB-Community-Paket kann unverändert bleiben.
+EXE: 59059143 Bytes, SHA-256 7902b1d34e84bb0f0c6ebabad1747057d613841002f0ef14f1a99d21eedc4684.

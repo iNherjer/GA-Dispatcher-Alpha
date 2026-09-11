@@ -202,7 +202,6 @@
         running: false,
         elapsedMs: 0,
         startedAt: 0,
-        compact: false,
         frame: 0,
         clockTimer: 0,
         timer: {
@@ -408,8 +407,14 @@
     }
 
     function e6bWindAction(surface, event) {
-        if (e6bChromeState.side !== 'wind') return 'rotate';
         const point = e6bSurfacePoint(surface, event);
+        if (e6bChromeState.side !== 'wind') {
+            // Same static outer-ring hit area as isFrontViewPanHit in the standalone.
+            const source = e6bEventPoint(event);
+            const radius = Math.hypot(source.clientX - point.rect.left - point.rect.width / 2, source.clientY - point.rect.top - point.rect.height / 2);
+            const reference = Math.max(1, Math.min(point.rect.width, point.rect.height));
+            return radius >= reference * 0.36 && radius <= reference * 0.58 ? 'pan' : 'rotate';
+        }
         const interaction = e6bChromeState.interaction || {};
         const cx = finiteE6BNumber(interaction.centerX, point.width / 2);
         const cy = finiteE6BNumber(interaction.centerY, point.height / 2);
@@ -418,6 +423,7 @@
         const maxX = finiteE6BNumber(interaction.sliderMaxX, 458);
         const sliderClearance = finiteE6BNumber(interaction.sliderClearance, 286);
         const dotClearance = finiteE6BNumber(interaction.dotClearance, 178);
+        if (radius >= 240 && radius <= 286) return 'pan';
         if (point.x >= minX && point.x <= maxX && radius > sliderClearance) return 'slide';
         if (radius <= dotClearance) return 'dot';
         return 'rotate';
@@ -457,6 +463,7 @@
                 pointerId: event.pointerId,
                 action,
                 angle: e6bDialAngle(surface, event),
+                lastClientX: Number(e6bEventPoint(event) && e6bEventPoint(event).clientX) || 0,
                 lastClientY: Number(e6bEventPoint(event) && e6bEventPoint(event).clientY) || 0,
                 startPoint: point,
                 moved: false
@@ -477,7 +484,12 @@
             const clientY = Number(source && source.clientY) || 0;
             const point = e6bSurfacePoint(surface, event);
             if (Math.hypot(point.x - e6bDialDrag.startPoint.x, point.y - e6bDialDrag.startPoint.y) > 3) e6bDialDrag.moved = true;
-            if (e6bDialDrag.action === 'slide') {
+            if (e6bDialDrag.action === 'pan') {
+                const clientX = Number(source && source.clientX) || 0;
+                moveE6BViewBy(clientX - e6bDialDrag.lastClientX, clientY - e6bDialDrag.lastClientY);
+                e6bDialDrag.lastClientX = clientX;
+                e6bDialDrag.lastClientY = clientY;
+            } else if (e6bDialDrag.action === 'slide') {
                 const deltaY = (clientY - e6bDialDrag.lastClientY) / Math.max(1, point.rect.height) * point.height;
                 e6bDialDrag.lastClientY = clientY;
                 if (Math.abs(deltaY) > 0.01) postE6BMessage({ type: 'ga-e6b-wind-slide-delta', delta: deltaY });
@@ -830,7 +842,9 @@
         const panel = cfg ? el(cfg.panel) : null;
         const handle = cfg ? el(cfg.handle) : null;
         if (!cfg || !panel || !handle || handle.dataset.utilityDragBound === '1') return;
-        handle.addEventListener('pointerdown', event => {
+        let lastPointerDown = -Infinity;
+        const beginDrag = event => {
+            if (dragState) return;
             if (event.button !== undefined && event.button !== 0) return;
             if (event.target && event.target.closest('button, input, select, textarea, .stopwatch-timer-picker')) return;
             const e6bPanMode = tool === 'e6b' || isMobileE6BOverlay(tool);
@@ -857,11 +871,13 @@
             };
             panel.classList.add('is-dragging');
             bringToFront(panel);
-            if (handle.setPointerCapture) handle.setPointerCapture(event.pointerId);
+            if (event.pointerId !== undefined && handle.setPointerCapture) {
+                try { handle.setPointerCapture(event.pointerId); } catch (_) {}
+            }
             event.preventDefault();
             event.stopPropagation();
-        });
-        handle.addEventListener('pointermove', event => {
+        };
+        const moveDrag = event => {
             if (!dragState || dragState.tool !== tool || dragState.pointerId !== event.pointerId) return;
             const dx = event.clientX - dragState.startX;
             const dy = event.clientY - dragState.startY;
@@ -882,13 +898,13 @@
                 clampPanel(panel);
             }
             event.preventDefault();
-        });
+        };
         const endDrag = event => {
             if (!dragState || dragState.tool !== tool || dragState.pointerId !== event.pointerId) return;
-            const tapAction = !dragState.moved ? dragState.tapAction : '';
+            const tapAction = !dragState.moved && event.type !== 'pointercancel' ? dragState.tapAction : '';
             panel.classList.remove('is-dragging');
-            if (handle.releasePointerCapture && handle.hasPointerCapture && handle.hasPointerCapture(event.pointerId)) {
-                handle.releasePointerCapture(event.pointerId);
+            if (event.pointerId !== undefined && handle.releasePointerCapture) {
+                try { handle.releasePointerCapture(event.pointerId); } catch (_) {}
             }
             if (dragState.moved && !dragState.panMode) savePanelPosition(cfg);
             dragState = null;
@@ -896,6 +912,17 @@
             else if (tapAction === 'toggleTimer') toggleTimerFromDial();
             event.stopPropagation();
         };
+        handle.addEventListener('pointerdown', event => { lastPointerDown = performance.now(); beginDrag(event); });
+        handle.addEventListener('pointermove', moveDrag);
+        handle.addEventListener('mousedown', event => {
+            // Modern browsers emit compatibility mouse events after pointer events.
+            if (performance.now() - lastPointerDown < 500) return;
+            beginDrag(event);
+        });
+        handle.addEventListener('mousemove', event => { if (dragState && dragState.pointerId === undefined) moveDrag(event); });
+        handle.addEventListener('mouseup', event => { if (dragState && dragState.pointerId === undefined) endDrag(event); });
+        window.addEventListener('mousemove', event => { if (dragState && dragState.pointerId === undefined) moveDrag(event); });
+        window.addEventListener('mouseup', event => { if (dragState && dragState.pointerId === undefined) endDrag(event); });
         handle.addEventListener('pointerup', endDrag);
         handle.addEventListener('pointercancel', endDrag);
         handle.dataset.utilityDragBound = '1';
@@ -1449,32 +1476,38 @@
         updateStopwatchDisplay();
     }
 
-    function applyStopwatchScale(compact, persist = true) {
-        const panel = el('mapStopwatchDevice');
-        const button = el('mapStopwatchScale');
-        stopwatchState.compact = !!compact;
+    const utilityScales = { stopwatch: 1, calculator: 1 };
+    function applyUtilityScale(tool, requested, persist = true) {
+        const panel = el(getToolConfig(tool).panel);
+        const button = el(tool === 'stopwatch' ? 'mapStopwatchScale' : 'mapCalculatorScale');
+        const scale = Math.max(0.5, Math.min(2, Number(requested) || 1));
+        utilityScales[tool] = scale;
         if (panel) {
-            panel.classList.toggle('is-compact', stopwatchState.compact);
-            if (panel.style.display !== 'none') {
-                requestAnimationFrame(() => {
-                    clampPanel(panel);
-                    const cfg = getToolConfig('stopwatch');
-                    if (cfg) savePanelPosition(cfg);
-                });
-            }
+            panel.classList.toggle('is-compact', scale === 0.5);
+            panel.style.transform = `scale(${scale})`;
+            panel.style.transformOrigin = 'top left';
+            if (panel.style.display !== 'none') requestAnimationFrame(() => {
+                clampPanel(panel);
+                savePanelPosition(getToolConfig(tool));
+            });
         }
         if (button) {
-            button.textContent = stopwatchState.compact ? '100%' : '50%';
-            button.title = stopwatchState.compact ? 'Uhr auf 100% vergrößern' : 'Uhr auf 50% verkleinern';
+            const next = scale >= 2 ? 0.5 : scale + 0.5;
+            button.textContent = `${Math.round(next * 100)}%`;
+            button.title = `Größe ${Math.round(scale * 100)}%; auf ${Math.round(next * 100)}% ändern`;
         }
         if (persist) {
-            try { localStorage.setItem(`${STORAGE_PREFIX}stopwatch_scale`, stopwatchState.compact ? '50' : '100'); } catch (_) {}
+            try { localStorage.setItem(`${STORAGE_PREFIX}${tool}_scale`, String(scale * 100)); } catch (_) {}
         }
+    }
+
+    function applyStopwatchScale(scale, persist = true) {
+        applyUtilityScale('stopwatch', scale, persist);
     }
 
     function toggleStopwatchScale() {
         playUtilityClickSound('soft');
-        applyStopwatchScale(!stopwatchState.compact);
+        applyStopwatchScale(utilityScales.stopwatch >= 2 ? 0.5 : utilityScales.stopwatch + 0.5);
     }
 
     function setCalcDisplay(value, stateValue) {
@@ -2399,7 +2432,15 @@
         }
         let storedScale = '';
         try { storedScale = localStorage.getItem(`${STORAGE_PREFIX}stopwatch_scale`) || ''; } catch (_) {}
-        applyStopwatchScale(storedScale === '50', false);
+        applyStopwatchScale(Number(storedScale) / 100 || 1, false);
+        let calculatorScale = 1;
+        try { calculatorScale = Number(localStorage.getItem(`${STORAGE_PREFIX}calculator_scale`)) / 100 || 1; } catch (_) {}
+        applyUtilityScale('calculator', calculatorScale, false);
+        const calculatorScaleButton = el('mapCalculatorScale');
+        if (calculatorScaleButton) calculatorScaleButton.addEventListener('click', () => {
+            playUtilityClickSound('soft');
+            applyUtilityScale('calculator', utilityScales.calculator >= 2 ? 0.5 : utilityScales.calculator + 0.5);
+        });
         applyE6BSize(readE6BSizeMode(), false);
         let storedTimerDuration = 0;
         try { storedTimerDuration = Number(localStorage.getItem(`${STORAGE_PREFIX}stopwatch_timer_duration`) || 0); } catch (_) {}

@@ -160,7 +160,7 @@
       try {
         var next = await request({ action: 'next' });
         if (!next.job || stopped || !selected(next.job.kind)) return;
-        if (!await unlock()) { if (options.onError) options.onError('Audio bitte durch Antippen aktivieren.'); return; }
+        if (!(await unlock())) { if (options.onError) options.onError('Audio bitte durch Antippen aktivieren.'); return; }
         var started = Date.now();
         var claim = await request({ action: 'claim', effectId: next.job.effectId });
         if (!claim.claimed) return;

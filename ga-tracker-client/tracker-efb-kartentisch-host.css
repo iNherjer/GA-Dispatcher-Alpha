@@ -1142,11 +1142,6 @@ body.ga-efb-tracker-host .formula-help-body {
   line-height: 1.45 !important;
 }
 
-/* Standardansicht: linear 30 Prozent kleiner; Vollbild bleibt unveraendert. */
-body.ga-efb-tracker-host .map-e6b-device.map-e6b-half {
-  transform: scale(.7) !important;
-  transform-origin: 50% 50% !important;
-}
 
 /* Match the standalone collapse contract, including the navigation strip below it. */
 body.ga-efb-tracker-host.toolbar-collapsed .pinboard-header {
@@ -1179,3 +1174,10 @@ body.ga-efb-tracker-host .route-tool-row-main { flex:1 1 0; min-width:0; }
 body.ga-efb-tracker-host .route-tool-row-actions { flex:0 0 34px; width:34px; margin-left:8px; }
 /* Width is resolved from the shared min(vw, px) rule by the host on resize. */
 body.ga-efb-tracker-host .map-side-drawer-body { flex:1 1 0; min-height:0; overflow-y:auto; }
+
+/* Same clock tick geometry without conic gradients/masks unsupported by older Coherent. */
+body.ga-efb-tracker-host .stopwatch-tick-ring {
+    top:10px;right:10px;bottom:10px;left:10px;
+    -webkit-mask:none;mask:none;
+    background: url("/efb/v1/assets/stopwatch-ticks.svg") center / 100% 100% no-repeat;
+}

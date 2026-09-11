@@ -274,9 +274,21 @@
         const target = document.documentElement;
         if (frontWidth > 0) {
             target.style.setProperty('--e6b-embedded-front-width', `${frontWidth.toFixed(2)}px`);
+            // Explicit dimensions replace aspect-ratio in Coherent; keep them at the rendering resolution.
+            const stack = qs('#e6bFrontStack');
+            if (stack) {
+                stack.style.width = `${frontWidth}px`;
+                stack.style.height = `${frontWidth * FRONT_VIEWBOX.height / FRONT_VIEWBOX.width}px`;
+            }
         }
         if (windWidth > 0) {
             target.style.setProperty('--e6b-embedded-wind-width', `${windWidth.toFixed(2)}px`);
+            // Explicit dimensions replace aspect-ratio in Coherent; keep them at the rendering resolution.
+            const stack = qs('#e6bWindStack');
+            if (stack) {
+                stack.style.width = `${windWidth}px`;
+                stack.style.height = `${windWidth * WIND_VIEWBOX.height / WIND_VIEWBOX.width}px`;
+            }
         }
         embeddedBaseSize.appliedResolutionScale = scale;
         embeddedBaseSize.appliedFrontWidth = frontWidth;
@@ -358,16 +370,6 @@
         }
         if (Number.isFinite(wind) && wind > 0) {
             embeddedBaseSize.windWidth = wind;
-        }
-        const frontStack = qs('#e6bFrontStack');
-        const windStack = qs('#e6bWindStack');
-        if (frontStack && Number.isFinite(front) && front > 0) {
-            frontStack.style.width = `${front}px`;
-            frontStack.style.height = `${front * FRONT_VIEWBOX.height / FRONT_VIEWBOX.width}px`;
-        }
-        if (windStack && Number.isFinite(wind) && wind > 0) {
-            windStack.style.width = `${wind}px`;
-            windStack.style.height = `${wind * WIND_VIEWBOX.height / WIND_VIEWBOX.width}px`;
         }
         setViewTransform(viewState.scale, viewState.x, viewState.y);
     }

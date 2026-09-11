@@ -119,3 +119,19 @@ test('symbol artwork covers controls and atomic pilot sequences without empty ma
   assert.match(script,/var gaEfbSymbolArtwork = /);
   assert.ok(require('./package.json').pkg.assets.includes('tracker-efb-symbols.js'));
 });
+
+// Reproduce packaged-function source stripping without needing MSFS or Windows.
+test('EXE font bootstrap remains executable when function source is stripped', () => {
+  const vm = require('node:vm');
+  const fallback = require('./tracker-efb-font-fallback');
+  fallback.toString = () => 'function fontFallback() { [native code] }';
+  try {
+    const source = require('./tracker-efb-fonts').clientFontSource();
+    const context = { window: {} };
+    vm.runInNewContext(source, context);
+    for (const value of ['Arial', '12px monospace', 'MS33558', 'inherit']) {
+      assert.equal(context.window.gaEfbFontFallback(value), fontFallback(value));
+    }
+    assert.ok(require('./package.json').pkg.assets.includes('tracker-efb-font-fallback.js'));
+  } finally { delete fallback.toString; }
+});

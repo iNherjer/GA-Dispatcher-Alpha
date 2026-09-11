@@ -52,3 +52,10 @@ nicht durch HTML-Bilder ersetzt.
 Keine Netzwerk-Abhängigkeit zur Laufzeit, keine Veränderung an Missions- oder
 Warnungslogik. Die tatsächliche MSFS-/Coherent-Darstellung bleibt Teil des
 Feldtests; Electron allein beweist keine Simulator-Kompatibilität.
+
+Der Feldlog vom 11.09.2026 bestätigt erfolgreich geladene SVG-Grafiken. Der
+v401-Ausfall der HTML-Symbole entstand durch einen beim EXE-Build unbrauchbaren
+`Function.toString()`-Export. `tracker-efb-font-fallback.js` muss deshalb als
+Quelltext in `pkg.assets` bleiben. Node und ausgelieferter Browser-Code lesen
+exakt diesen gemeinsamen Helfer. Der Paket-Smoke-Test in
+`tools/efb-packaged-font-smoke.cjs` prüft dies unabhängig von Systemfonts.

@@ -2,18 +2,8 @@
 
 // Coherent has no browser/OS-wide Unicode fallback. Keep the original face
 // first (including instrument fonts) and supply missing glyphs locally.
-const FALLBACK = '"GA EFB Text", "GA EFB Emoji", "GA EFB Symbols", "GA EFB Math"';
-
-function fontFallback(value) {
-  if (!value || value.includes('GA EFB Emoji') || /^(inherit|initial|unset|normal)$/i.test(value.trim())) return value;
-  var important = /\s*!important\s*$/.test(value) ? ' !important' : '';
-  var family = value.replace(/\s*!important\s*$/, '').trim();
-  var fallback = /\bmonospace$/.test(family) ? FALLBACK.replace('GA EFB Text', 'GA EFB Mono') : FALLBACK;
-  // A generic family may resolve to Coherent's last-resort tofu face. Our
-  // explicit fallbacks must precede it, while named original fonts stay first.
-  return family.replace(/(^|,\s*|\s+)(sans-serif|serif|monospace|cursive|fantasy)\s*$/, '$1' + fallback + ', $2')
-    + (/\b(sans-serif|serif|monospace|cursive|fantasy)$/.test(family) ? '' : ', ' + fallback) + important;
-}
+const fontFallback = require('./tracker-efb-font-fallback');
+const FALLBACK = fontFallback.FALLBACK;
 
 function fontDeclarations(source) {
   source = source.replace(/@import\s+url\((['"]?)https:\/\/fonts\.googleapis\.com\/[^)]*\)\s*;/g, '');
@@ -37,8 +27,9 @@ function htmlFontDeclarations(source) {
 }
 
 function clientFontSource() {
-  // Reuse the same stack rule for dynamic DOM/SVG text without a second copy.
-  return 'var gaEfbFontFallback = ' + fontFallback.toString().replace(/\bFALLBACK\b/g, JSON.stringify(FALLBACK)) + ';\n';
+  // pkg bytecode functions stringify as [native code]. Serve packaged source,
+  // never reconstruct browser scripts from runtime function objects.
+  return require('node:fs').readFileSync(require('node:path').join(__dirname, 'tracker-efb-font-fallback.js'), 'utf8') + '\n';
 }
 
 function canvasFontPlugin({ types: t, template }) {

@@ -6,10 +6,11 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '40101';
+const EFB_WEB_ASSET_REVISION = '40201';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
+  '/efb/v1/assets/stopwatch-ticks.svg': [path.join(__dirname, 'efb-fonts', 'stopwatch-ticks.svg'), 'image/svg+xml; charset=utf-8'],
   '/efb/v1/assets/symbols.js': [path.join(__dirname, 'tracker-efb-symbols.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/emoji-text.js': [path.join(__dirname, 'tracker-efb-emoji-text.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/fonts.css': [path.join(__dirname, 'efb-fonts', 'fonts.css'), 'text/css; charset=utf-8'],
