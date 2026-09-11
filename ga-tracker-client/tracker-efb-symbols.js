@@ -68,7 +68,7 @@
     if (typeof window.__gaEfbReport !== 'function') return;
     var panel = document.querySelector('.map-side-drawer-panel');
     window.__gaEfbReport('info','font-ui-probe','local-artwork','',JSON.stringify({
-      revision:'40201',
+      revision:'40301',
       namespace:document.body.namespaceURI, mutationObserver:typeof window.MutationObserver, pointerEvent:typeof window.PointerEvent,
       renderedSymbols:document.querySelectorAll('.ga-efb-symbol img').length, symbols:Object.keys(gaEfbSymbolArtwork).length,
       loadedSymbols:Object.keys(images).filter(function(k){return images[k].complete && images[k].naturalWidth > 0;}).length,

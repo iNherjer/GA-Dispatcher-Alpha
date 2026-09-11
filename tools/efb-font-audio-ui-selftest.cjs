@@ -31,6 +31,7 @@ app.whenReady().then(async()=>{
   sample.style.cssText='position:fixed;bottom:4px;left:8px;right:8px;padding:10px;background:#101820;color:#fff;z-index:999999;font:18px "GA EFB Text", "GA EFB Emoji", "GA EFB Symbols", "GA EFB Math"';document.body.appendChild(sample);
   return {rows,changed:__changed,expected:!before,loaded:Array.from(document.fonts).filter(f=>f.family.includes('GA EFB')).map(f=>({family:f.family,status:f.status}))};
  })()`);
+ assert.equal(await win.webContents.executeJavaScript("Array.from(document.querySelectorAll('.ga-efb-symbol-text')).every(n=>getComputedStyle(n).display==='none')"),true);
  assert.equal(result.changed,result.expected,'Label still toggles checkbox and calls the original handler slot');
  for(const row of result.rows){assert.equal(row.width,14,row.id);assert.equal(row.height,14,row.id);assert.match(row.font,/GA EFB Emoji/);}
  assert.equal(result.loaded.length,5);assert.ok(result.loaded.every(f=>f.status==='loaded'));assert.equal(fontRequests.size,10);
@@ -48,9 +49,9 @@ app.whenReady().then(async()=>{
  const sequences=await win.webContents.executeJavaScript(`(function(){
    var icon=document.querySelector('#awmPaxVoiceCheck').parentNode.querySelector('.ga-efb-symbol');
    var sample=document.getElementById('fontSample');
-   return {text:icon.textContent,loaded:icon.querySelector('img').complete && icon.querySelector('img').naturalWidth>0,sample:sample.querySelectorAll('.ga-efb-symbol').length,nested:document.querySelectorAll('.ga-efb-symbol .ga-efb-symbol').length};
+   return {hidden:getComputedStyle(icon.querySelector('.ga-efb-symbol-text')).display,text:icon.textContent,loaded:icon.querySelector('img').complete && icon.querySelector('img').naturalWidth>0,sample:sample.querySelectorAll('.ga-efb-symbol').length,nested:document.querySelectorAll('.ga-efb-symbol .ga-efb-symbol').length};
  })()`);
- assert.equal(sequences.text,'🧑‍✈️');assert.ok(sequences.loaded);assert.ok(sequences.sample>=14);assert.equal(sequences.nested,0);
+ assert.equal(sequences.hidden,'none');assert.equal(sequences.text,'🧑‍✈️');assert.ok(sequences.loaded);assert.ok(sequences.sample>=14);assert.equal(sequences.nested,0);
  await new Promise(r=>setTimeout(r,150));fs.writeFileSync(path.join(output,'audio-784.png'),(await win.webContents.capturePage()).toPNG());
  win.setSize(440,894);await new Promise(r=>setTimeout(r,100));
  await win.webContents.executeJavaScript('_closeFloatingMenus();toggleMapVoiceMenu()');

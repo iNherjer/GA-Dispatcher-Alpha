@@ -82,6 +82,8 @@ app.whenReady().then(async()=>{
  })()`);
  for(const side of zoom)for(const row of side.rows)assert.ok(Math.abs(row.width-300*row.scale)<1,JSON.stringify({side:side.side,...row}));
  const ink=await run(`(function(){var ink=document.querySelector('svg text.trace-number:not([aria-hidden])');return {count:document.querySelectorAll('svg text.trace-number[aria-hidden=true]').length,fill:getComputedStyle(ink).fill,stroke:getComputedStyle(ink).stroke};})()`);
+ const explanations=await run(`Array.from(document.querySelectorAll('svg text[data-trace-id="label-8wrnvx"]:not([aria-hidden]) tspan, svg text[data-trace-id="label-836j8c"]:not([aria-hidden]) tspan')).map(n=>({fill:getComputedStyle(n).fill,stroke:getComputedStyle(n).stroke,explicit:n.style.fill}))`);
+ assert.equal(explanations.length,8);for(const line of explanations){assert.equal(line.fill,'rgb(16, 20, 24)');assert.equal(line.stroke,'none');assert.ok(line.explicit);}
  assert.ok(ink.count>0);assert.equal(ink.fill,'rgb(16, 20, 24)');assert.equal(ink.stroke,'none');
  fs.writeFileSync(path.join(output,'result.json'),JSON.stringify({utility,pan,zoom,ink},null,2));
  console.log('EFB_UTILITY_INPUT_UI_OK '+output);win.destroy();server.close();app.exit(0);

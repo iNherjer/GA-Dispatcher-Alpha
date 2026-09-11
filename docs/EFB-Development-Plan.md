@@ -4932,3 +4932,24 @@ Rollout am 11.09.2026: Tracker v402 ist als Origin-Release veröffentlicht;
 GitHub-Asset und erneuter Download sind per Größe und SHA-256 verifiziert.
 Alpha-Kanal v402, EFB-Assetrevision 40201, Web-Cache v1742. Das vorhandene EFB-Community-Paket kann unverändert bleiben.
 EXE: 59059143 Bytes, SHA-256 7902b1d34e84bb0f0c6ebabad1747057d613841002f0ef14f1a99d21eedc4684.
+
+
+### 11.09.2026: Feldbefund v402 – doppelte Zeichen und E6B-Text (lokal)
+
+Der Nutzer bestätigt sichtbare Icons, meldet aber doppelte Zeichen auf
+Bedienelementen und helle Schrift in den unteren E6B-Erklärfeldern.
+Die Originalzeichen unter der SVG-Ersetzung waren nur mit font-size:0
+ausgeblendet. Sie erhalten jetzt display:none; textContent bleibt erhalten,
+die Bilddarstellung übernimmt weiterhin das vorhandene Symbol. Dies gilt
+zentral für alle ersetzten HTML-Symbole, einschließlich E6B und Menüs.
+
+Die E6B-Kompatibilität setzt dunkle Tinte und den getrennten hellen Halo
+explizit auch auf tspan/textPath. So hängen mehrzeilige Felder nicht von
+Coherents SVG-Paint-Vererbung ab. Farben und Inhalte bleiben die der Vorlage.
+Die genaue Rendererursache ist ohne neuen In-Sim-Test nicht bewiesen.
+
+Font-/Audio-UI-Test und Instrument-UI-Test bestehen: Originalzeichen verborgen,
+Text erhalten, Symbolbilder geladen; alle acht Zeilen der unteren beiden
+Erklärfelder mit expliziter dunkler Tinte ohne Strich.
+Release v403 vorbereitet, Assetrevision 40301; Windows-EXE gebaut, 27
+Font-/EFB-Tests bestanden. Alpha-Zeiger folgt nach Downloadprüfung.
