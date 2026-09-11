@@ -3,14 +3,14 @@
   "channel": "alpha",
   "available": true,
   "packageName": "vfr-multitool-efb",
-  "packageVersion": "0.4.12",
-  "releaseTag": "efb-app-v0.4.12",
-  "publishedAt": "2026-09-08T07:36:28.000Z",
+  "packageVersion": "0.4.13",
+  "releaseTag": "efb-app-v0.4.13",
+  "publishedAt": "2026-09-11T07:45:50.390Z",
   "message": "",
   "archive": {
-    "name": "vfr-multitool-efb-0.4.12.zip",
-    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/efb-app-v0.4.12/vfr-multitool-efb-0.4.12.zip",
-    "size": 432258,
-    "sha256": "aa41c7aee0e273df63ca16310649e4872bca51af4e6b736b50ba60ee6b65d0b7"
+    "name": "vfr-multitool-efb-0.4.13.zip",
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/efb-app-v0.4.13/vfr-multitool-efb-0.4.13.zip",
+    "size": 432662,
+    "sha256": "8f2b31e85e147c7c1c0a94950aab87e615aa68fa1324cb3ab26711580615cdc7"
   }
 }

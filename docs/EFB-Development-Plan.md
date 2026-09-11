@@ -16,11 +16,14 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Desktop | 1.6.5 manueller Origin-Installer mit APT-Opt-in-Schalter und lokalem Hard-Reset | Auto-Update 1.6.2 | Stable bleibt Standard; Alpha und die experimentelle APT-Tracker-Steuerung muessen getrennt eingeschaltet werden |
 | Tracker-Runtime | v382 als freigegebener APT-Feldkandidat | v356 | Manifest-, Start-, Payload-, Boarding-/Farewell-Voice- und Standard-APT-UI-Core sind gegen echte App-Fallbackfunktionen abgesichert. App und EFB nutzen denselben Mission-Control-Renderer und revisionsgebundene Intents. Passenger-Pickup sowie der reale Compliance-/Mehrinstanz-Gesamtnachweis bleiben offen. Training, POI, Bush/Pickup und SAR bleiben fail-closed. |
-| EFB-Community-Package | 0.4.12 Alpha | 0.4.11 | Alpha behebt den schwarzen Bildschirm nach Innen-/Außenansichtswechsel; Stable bleibt auf dem bisherigen SDK-1.7.2-Archiv |
+| EFB-Community-Package | 0.4.13 Alpha | 0.4.11 | Getesteter SDK-1.7.2-Build mit Open-/Resume-Recovery und begrenzten Wiederholungen; Stable bleibt auf 0.4.11 |
 | Toolbar-Panel | Ziel definiert, noch nicht implementiert | - | Eigenes Community-Package; erster Schritt ist ein read-only SDK-/In-Sim-Spike mit dem tracker-gehosteten Kartentisch |
 | EFB-/App-Transport | EFB ueber HTTP-Loopback, entfernte Origin-App ueber das bestehende PIN-geschuetzte Tracker-Relay | - | Beide Wege enden im selben revisionsgebundenen Intent-Controller. Provider-Keys und Session-Token werden nie oeffentlich projiziert. `mission.intent.v1` erscheint nur, wenn Alpha, Opt-in und Core-Paritaetsgate gemeinsam erfuellt sind. |
 
-### EFB 0.4.13 – getesteter SDK-Build vom 11.09.2026
+### EFB 0.4.13 – Alpha-Release vom 11.09.2026
+
+Alpha verweist auf `efb-app-v0.4.13`. Der oeffentliche Download wurde vor
+der Kanalumschaltung auf Dateigroesse, SHA-256 und Paketstruktur verifiziert.
 
 Der Nutzer hat den Funktionstest von EFB 0.4.13 im Simulator bestaetigt und
 den Alpha-Rollout freigegeben. Der offizielle SDK-1.7.2-Build wurde unter
