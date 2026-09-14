@@ -1,5 +1,7 @@
 # Mission Episode Writer V6
 
+Für den aktuellen konzeptionellen Überblick und die Übertragung auf weitere Missionsarten: [Mission Narrative Design Guide](Mission%20Narrative%20Design%20Guide.md). Die folgenden Abschnitte enthalten zusätzlich die Versions- und Versuchshistorie; isolierte Suchversuche sind ausdrücklich keine produktive KI-Suche.
+
 Stand: 14.09.2026. Referenzprofil: `private_outing`. Vorversion: [Story Planner V5](Mission%20Story%20Planner%20V5.md).
 
 ## Ziel und Versionsgrenze

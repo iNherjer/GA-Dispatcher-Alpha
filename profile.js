@@ -4282,7 +4282,7 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
         const pipelineMode = String(missionSnap.missionPipelineMode || (window.getMissionPipelineMode ? window.getMissionPipelineMode() : (window.isMissionPipelineV2Enabled?.() ? 'v2' : 'v3'))).toUpperCase();
         lines.push(`- Mission Pipeline: ${pipelineMode}`);
-        const writerMode = String(missionSnap.missionWriterMode || (window.getMissionWriterMode ? window.getMissionWriterMode() : '') || '').toUpperCase();
+        const writerMode = String(missionSnap.storyDebug?.writerMode || missionSnap.missionWriterMode || (window.getMissionWriterMode ? window.getMissionWriterMode() : '') || '').toUpperCase();
         if (writerMode) lines.push(`- Mission Writer: ${writerMode}`);
         const poiChainDebug = (window.gaPoiChainDebug && typeof window.gaPoiChainDebug === 'object') ? window.gaPoiChainDebug : {};
         const poiChainForce = typeof window.getPoiChainDebugForceValue === 'function' ? window.getPoiChainDebugForceValue() : '';

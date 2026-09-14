@@ -10041,7 +10041,7 @@ const MISSION_GENERATION_PROGRESS_PHASES = [
     { test: phase => phase.startsWith('poi_geo_context'), start: 42, done: 48, label: 'Analysiere Zielumgebung und Landmarken...', doneLabel: 'Zielumgebung analysiert.' },
     { test: phase => phase.startsWith('poi_mission_truth'), start: 49, done: 54, label: 'Fixiere Missionsziel und sichtbare Hinweise...', doneLabel: 'Missionsziel fixiert.' },
     { test: phase => phase === 'sar_heli_hospital_resolve', start: 55, done: 60, label: 'Suche Klinik- und Helipad-Ziel...', doneLabel: 'SAR-Heli-Ziel vorbereitet.' },
-    { test: phase => phase === 'planner_v4_direct', start: 61, done: 66, label: 'Pipeline V4 plant Auftrag und Kontext...', doneLabel: 'Pipeline V4 Planung abgeschlossen.' },
+    { test: phase => phase === 'planner_v4_direct', start: 61, done: 66, label: 'Bereite Missionsrahmen und Kontext vor...', doneLabel: 'Missionsrahmen vorbereitet.' },
     { test: phase => phase === 'planner_v4_fallback_v2', start: 62, done: 67, label: 'Pipeline V4 nutzt V2-Fallback...', doneLabel: 'Fallback-Planung abgeschlossen.' },
     { test: phase => phase === 'planner_v4_error_fallback_v2', start: 62, done: 67, label: 'Pipeline V4 Fehler: V2 plant Ersatzauftrag...', doneLabel: 'Ersatzplanung abgeschlossen.' },
     { test: phase => phase === 'planner_v3_tools', start: 61, done: 66, label: 'Pipeline V3 plant Kontext-Tools...', doneLabel: 'Pipeline V3 Planung abgeschlossen.' },
@@ -10051,6 +10051,11 @@ const MISSION_GENERATION_PROGRESS_PHASES = [
     { test: phase => phase.startsWith('planner_'), start: 61, done: 68, label: 'Plane Missionsstruktur...', doneLabel: 'Missionsstruktur geplant.' },
     { test: phase => phase === 'build_v4_contract', start: 69, done: 73, label: 'Baue Mission-Contract fuer den Writer...', doneLabel: 'Mission-Contract bereit.' },
     { test: phase => phase === 'mission_content', start: 74, done: 76, label: 'Bereite Missionsinhalt vor...', doneLabel: 'Missionsinhalt vorbereitet.' },
+    { test: phase => phase === 'private_story', start: 77, done: 84, label: 'Bereite Privatbriefing vor...', doneLabel: 'Privatbriefing geschrieben.' },
+    { test: phase => phase === 'private_idea_v6', start: 77, done: 80, label: 'Privat-Planner V6 entwickelt eure Ausflugsidee...', doneLabel: 'Ausflugsidee entwickelt.' },
+    { test: phase => phase === 'private_writer_v6', start: 81, done: 84, label: 'Episode Writer V6 schreibt euer Briefing...', doneLabel: 'Privatbriefing geschrieben.' },
+    { test: phase => phase === 'private_idea_v5', start: 77, done: 80, label: 'Privat-Planner V5 entwickelt eure Ausflugsidee...', doneLabel: 'Ausflugsidee entwickelt.' },
+    { test: phase => phase === 'private_writer_v5', start: 81, done: 84, label: 'Privat-Writer V5 schreibt euer Briefing...', doneLabel: 'Privatbriefing geschrieben.' },
     { test: phase => phase === 'writer_v4_bush' || phase === 'writer_v5_bush', start: 77, done: 84, label: 'KI schreibt Bush-Dispatcher-Briefing...', doneLabel: 'Bush-Briefing geschrieben.' },
     { test: phase => phase === 'writer_v5_main', start: 77, done: 84, label: 'Writer V5 schreibt Dispatcher-Zettel...', doneLabel: 'Dispatcher-Zettel geschrieben.' },
     { test: phase => phase === 'writer_legacy_bush', start: 77, done: 84, label: 'KI formuliert Bush-Auftrag...', doneLabel: 'Bush-Auftrag formuliert.' },
@@ -38990,9 +38995,11 @@ async function fetchPrivateOutingStory(context = {}) {
     const writerLabel = v6 ? 'Episode Writer V6 Privat' : 'Story Planner V5 Privat';
     const apiKey = getSelectedAiApiKey();
     const options = { promptVersion: v6 ? 'mission-writer-private-v6-2-1' : 'mission-writer-private-v5-7', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 16000 };
+    context.onPrivateStoryPhase?.('idea', v6 ? 'v6' : 'v5');
     const ideaResult = await fetchGeminiJsonWithFallback(coreApi.ideaPrompt(input), apiKey, options);
     const idea = coreApi.validateIdea(ideaResult?.parsed, input);
     if (!idea) throw new Error('Die private Ausflugsidee konnte nicht vollständig erstellt werden. Bitte erneut generieren.');
+    context.onPrivateStoryPhase?.('writer', v6 ? 'v6' : 'v5');
     const written = await fetchGeminiJsonWithFallback(coreApi.writerPrompt(idea, input), apiKey, options);
     const prose = coreApi.prose(written?.parsed, idea, input);
     if (v6) {
@@ -43101,7 +43108,7 @@ async function generateMission(options = {}) {
         plannerContext.animalTransportBrief = animalTransportBrief;
     };
     if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV4Enabled()) {
-        indicator.innerText = `Pipeline V4: Contract wird geplant...`;
+        indicator.innerText = `Missionsrahmen und Kontext werden vorbereitet...`;
         try {
             missionPlanV2 = await dispatchMeasure('planner_v4_direct', async () => fetchMissionPlannerV4(plannerContext));
             missionPlanV4 = missionPlanV2;
@@ -43750,7 +43757,10 @@ async function generateMission(options = {}) {
                 sarHeli: sarHeliSpec,
                 bushSpec: null
             };
-            m = await dispatchMeasure(writerMode === 'v5' ? 'writer_v5_main' : 'writer_v4_main', async () => (
+            writerContext.onPrivateStoryPhase = (phase, version) => setMissionGenerationProgress(`private_${phase}_${version}`);
+            const writerPhase = !isPOI && missionContractV4.profile?.taskDomain === 'private_outing'
+                ? 'private_story' : writerMode === 'v5' ? 'writer_v5_main' : 'writer_v4_main';
+            m = await dispatchMeasure(writerPhase, async () => (
                 writerMode === 'v5' ? fetchMissionWriterV5(writerContext) : fetchMissionWriterV4(writerContext)
             ));
             if (m?.privateOuting?.schema === 'private-outing.v1') {

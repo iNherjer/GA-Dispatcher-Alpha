@@ -1,5 +1,7 @@
 # Mission Building Instructions
 
+Zielsetzung, aktueller Spielraum, History-Grenzen und Vorgehen für weitere Missionsfamilien: [Mission Narrative Design Guide](Mission%20Narrative%20Design%20Guide.md).
+
 Aktuelle private Erzählversion: [Mission Episode Writer V6](Mission%20Episode%20Writer%20V6.md). V5 bleibt als auswählbare Referenz erhalten; V6 ergänzt KI-verfasste JSON-Erinnerungen und eine freie Erzählform auf Basis einer strukturierten Episode.
 
 Schnelle Ablaufuebersicht: `docs/Mission Flow Reference.md`.
