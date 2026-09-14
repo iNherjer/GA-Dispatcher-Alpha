@@ -1708,6 +1708,28 @@ if (document.readyState === 'loading') {
 window.addEventListener('resize', syncWin95ResponsiveWindowMode, { passive: true });
 window.addEventListener('orientationchange', syncWin95ResponsiveWindowMode, { passive: true });
 
+function _disclosureScrollContainer(trigger) {
+    let parent = trigger?.parentElement || null;
+    while (parent && parent !== document.body) {
+        const style = window.getComputedStyle(parent);
+        if (/(auto|scroll|overlay)/.test(style.overflowY) && parent.scrollHeight > parent.clientHeight) return parent;
+        parent = parent.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+}
+
+function preserveDisclosureTriggerPosition(trigger, update = null) {
+    if (!trigger) return typeof update === 'function' ? update() : undefined;
+    const scrollContainer = _disclosureScrollContainer(trigger);
+    const topBefore = trigger.getBoundingClientRect().top;
+    const result = typeof update === 'function' ? update() : undefined;
+    requestAnimationFrame(() => {
+        const offset = trigger.getBoundingClientRect().top - topBefore;
+        if (Math.abs(offset) > 0.5) scrollContainer.scrollTop += offset;
+    });
+    return result;
+}
+
 function setSettingsPanelOpen(open, persist = true) {
     const shell = document.querySelector('.settings-shell');
     const panel = document.getElementById('settingsPanel');
@@ -1733,7 +1755,10 @@ function toggleSettingsPanel() {
     }
     const shell = document.querySelector('.settings-shell');
     if (isWin95DesktopMode() && shell?.classList.contains('is-open')) return;
-    setSettingsPanelOpen(!(shell && shell.classList.contains('is-open')));
+    preserveDisclosureTriggerPosition(
+        document.getElementById('settingsToggleBtn'),
+        () => setSettingsPanelOpen(!(shell && shell.classList.contains('is-open')))
+    );
 }
 
 function closeWin95SettingsWindow(event) {
@@ -45238,10 +45263,10 @@ function renderLog() {
         container.appendChild(empty);
         return;
     }
-    log.forEach(e => {
+    const createLogEntry = (e, options = {}) => {
         const div = document.createElement('button');
         div.type = 'button';
-        div.className = 'log-entry';
+        div.className = `log-entry${options.current ? ' log-entry-current' : ''}`;
         const meta = document.createElement('span');
         meta.className = 'log-entry-meta';
         const durationMin = e.durationSec != null && Number.isFinite(Number(e.durationSec)) ? `${Math.max(1, Math.round(Number(e.durationSec) / 60))} min` : '';
@@ -45260,8 +45285,24 @@ function renderLog() {
         div.addEventListener('click', () => {
             if (typeof window.showFlightDebrief === 'function') window.showFlightDebrief(e, { awaitingCleanup: false });
         });
-        container.appendChild(div);
-    });
+        return div;
+    };
+
+    const [currentEntry, ...olderEntries] = log;
+    container.appendChild(createLogEntry(currentEntry, { current: true }));
+
+    if (olderEntries.length) {
+        const history = document.createElement('details');
+        history.className = 'logbook-history';
+        const summary = document.createElement('summary');
+        summary.textContent = `${olderEntries.length} ältere ${olderEntries.length === 1 ? 'Eintrag' : 'Einträge'} anzeigen`;
+        summary.addEventListener('click', () => preserveDisclosureTriggerPosition(summary));
+        const entries = document.createElement('div');
+        entries.className = 'logbook-history-list';
+        olderEntries.forEach(entry => entries.appendChild(createLogEntry(entry)));
+        history.append(summary, entries);
+        container.appendChild(history);
+    }
 }
 window.renderLog = renderLog;
 function clearLog() { if (confirm("Gesamtes Logbuch löschen?")) { localStorage.removeItem('ga_logbook'); localStorage.removeItem('last_icao_dest'); renderLog(); triggerCloudSave(true); } }

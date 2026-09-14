@@ -779,10 +779,37 @@ input[type=range]::-webkit-slider-thumb {
 
 .logbook {
     margin-top: 25px;
-    border-top: 2px solid #333;
-    padding-top: 15px;
+    border: 1px solid #36414c;
+    border-top: 3px solid var(--blue);
+    border-radius: 12px;
+    padding: 14px;
     width: 100%;
+    box-sizing: border-box;
     transition: all 0.3s;
+}
+
+.logbook-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 10px;
+}
+
+.logbook-clear {
+    font: inherit;
+    font-size: 10px;
+    background: none;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #9aa3ad;
+    cursor: pointer;
+    padding: 3px 6px;
+}
+
+.logbook-clear:hover {
+    border-color: #8192a2;
+    color: #e4edf5;
 }
 
 .log-entry {
@@ -804,6 +831,33 @@ input[type=range]::-webkit-slider-thumb {
 .log-entry:hover {
     transform: translateX(2px);
     filter: brightness(1.12);
+}
+
+.log-entry-current {
+    border-left-color: var(--green);
+}
+
+.logbook-history {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #36414c;
+    overflow-anchor: none;
+}
+
+.logbook-history summary {
+    color: #9aa3ad;
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.logbook-history[open] summary {
+    margin-bottom: 8px;
+    color: #c9d6e2;
+}
+
+.logbook-history-list .log-entry:last-child {
+    margin-bottom: 0;
 }
 
 .log-entry-meta,
@@ -2616,6 +2670,7 @@ body.theme-retro .retro-switch-container:active .retro-switch {
     position: relative;
     z-index: 20;
     isolation: isolate;
+    overflow-anchor: none;
 }
 
 .settings-shell.is-open {
