@@ -1,5 +1,62 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## EFB 0.4.14 Alpha: gemeinsames Paket (14.09.2026)
+
+Nutzer bestaetigt funktionierenden Toolbar-Hoehenfix und beauftragt gemeinsame
+Auslieferung ueber EFB-Alpha. EFB-SDK-Projekt buendelt EFB-App und unveraenderte
+Toolbar-Shell 0.2.1 unter `vfr-multitool-efb`. App und offizieller SDK-Build
+sind neu erzeugt, 26 Tests bestanden, Layout/Archiv/Quellhashes geprueft.
+Lokale Installation wurde migriert und beide alten Paketordner extern gesichert.
+Stable und Tracker-Runtime werden nicht umgeschaltet. Vollstaendige
+In-Sim-Testmatrix bleibt ausstehend; Nutzer-Funktionstest der Toolbar ist
+vorhanden. Releasebeschreibung: `docs/EFB-0.4.14-Release.md`.
+
+## Toolbar 0.2.1: Hoehenkorrektur nach erstem In-Sim-Bild (14.09.2026)
+
+Das Nutzerbild zeigt EFB und Toolbar gleichzeitig mit geladenem gemeinsamen
+Kartentisch. Im Panel bleibt unter dem oberen UI-Streifen der Shell-Hintergrund;
+die iframe-Prozenthoehe durch die native Flex-Kette ist die vermutete Ursache.
+0.2.1 streckt die nativen Content-Wrapper und positioniert das iframe absolut
+im verbleibenden Inhaltsbereich. SDK-Build und Paketpruefung bestehen;
+0.2.1 ist lokal installiert, EFB hashgleich, 0.2.0 gesichert.
+Realer Wiederholungstest von Hoehe, Resize und Kamerawechsel steht aus.
+
+## Toolbar 0.2.0: Kartentisch angebunden und lokal installiert (14.09.2026)
+
+Auf ausdruecklichen Nutzerwunsch verwendet der Toolbar-Kandidat jetzt den
+vollstaendigen gemeinsamen `/efb/v1/`-Host mit `host=toolbar`, eigenem Channel
+und View 9. Die read-only Diagnoseprobe 0.1.0 ist damit fuer diesen Test
+abgeloest. Bestehende Missionsgates und die zentrale Audio-Lease bleiben
+unveraendert; der Paketcode stellt nur Fenster und Lifecycle bereit.
+Sechs Shelltests bestehen. SDK 1.7.2 / MSFS 1.8.16.0 baut Version 0.2.0 ohne
+gemeldete Paketfehler; Layout, UI-Quellhashes und Test-ZIP sind geprueft.
+Installation nach Community2024/vfr-multitool-toolbar-panel bei geschlossenem
+MSFS ist erfolgt; alle sieben Dateien stimmen mit dem SDK-Build ueberein.
+Das bestehende EFB-Paket ist vor/nach der Installation hashgleich.
+Native Registrierung und In-Sim-Paritaet bleiben offen. Details und Testfolge:
+`ga-tracker-client/toolbar-panel/README.md`. Keine Online-Veroeffentlichung.
+
+## Lokaler Toolbar-TP0-Kandidat vom 14.09.2026 (nicht veroeffentlicht)
+
+Auf Basis `3679c8af9` liegt unter `ga-tracker-client/toolbar-panel/` eine
+separate Shell 0.1.0 mit Icon, nativer ingame-ui-Huelle, Offline-Anzeige und
+isolierter `/efb/v1/probe/`. Die nativen Registrierungsfelder und Lifecycle-
+Methoden wurden in MSFS 2024 1.8.16.0 gelesen; SDK 1.7.2 ist installiert.
+Vier ausfuehrbare Node-VM-Tests bestehen fuer Close/Abort, Nachrichtenpruefung,
+Minimize/Restore, Offline-Retry und begrenzte Bereitschaftsfrist.
+
+Der erste SDK-Start lieferte keine Paketausgabe. Der Wiederholungsbuild am
+14.09.2026 war erfolgreich: SPB, manifest/layout, fuenf Layoutdateien und
+Test-ZIP wurden validiert; SDK-Fehlerbericht leer. Ein doppeltes `.spb.spb`
+wurde vor dem finalen Build durch Korrektur des XML-Quelldateinamens behoben.
+In-Sim-Abnahme bleibt offen. Der Kandidat ist keine fertige Toolbar-App.
+Der gemeinsame Kartentisch ist noch nicht eingebettet: Er kann bereits
+schreiben und benoetigt fuer den isolierten TP0-Test eine wirksame Sperre.
+Die Probe umgeht keine bestehenden Missionsgates und erzeugt keine Session,
+Audio-Lease oder Missionseffekte. Vollstaendige TP0-/Funktionsparitaet bleibt
+offen. Details, Buildaufruf und Testmatrix: `ga-tracker-client/toolbar-panel/README.md`.
+Keine Installation, Veroeffentlichung oder Kanalumschaltung erfolgt.
+
 Stand: 2026-09-06
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der

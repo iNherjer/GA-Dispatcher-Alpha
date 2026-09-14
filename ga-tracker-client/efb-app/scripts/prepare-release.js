@@ -75,6 +75,20 @@ function verifyArchive(archive, expectedVersion) {
     }
     const inspection = inspectEfbPackage(path.join(staging, EFB_PACKAGE_NAME), expectedVersion);
     if (!inspection.installedComplete) throw new Error(inspection.error || 'Das EFB-Releasearchiv ist unvollstaendig.');
+    const [major, minor, patch] = String(expectedVersion).split('.').map(Number);
+    if (major > 0 || minor > 4 || (minor === 4 && patch >= 14)) {
+      const requiredToolbarFiles = [
+        'InGamePanels/InGamePanel_VfrMultitool.spb',
+        'html_ui/InGamePanels/VfrMultitool/Panel.html',
+        'html_ui/InGamePanels/VfrMultitool/Panel.js',
+        'html_ui/InGamePanels/VfrMultitool/Panel.css',
+        'html_ui/icons/toolbar/ICON_TOOLBAR_VFR_MULTITOOL.svg'
+      ];
+      for (const relative of requiredToolbarFiles) {
+        const file = path.join(staging, EFB_PACKAGE_NAME, relative);
+        if (!fs.existsSync(file) || fs.statSync(file).size === 0) throw new Error(`Toolbar-Datei fehlt: ${relative}`);
+      }
+    }
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }

@@ -1,0 +1,14 @@
+html,body { margin:0; width:100%; height:100%; overflow:hidden; }
+/* Coherent cannot resolve an iframe's percentage height through auto-sized
+   flex children reliably. Stretch the native content chain, then anchor the
+   iframe to the resulting content rectangle instead of its intrinsic 150px. */
+#VfrMultitoolPanel .ingameUiContent,
+#VfrMultitoolPanel .ingameUiWrapper { flex:1 1 0px; min-height:0; min-width:0; overflow:hidden; }
+#VfrMultitoolPanel .ingameUiWrapper { padding:0; margin:0; }
+.vfr-shell { position:relative; flex:1 1 0px; min-height:0; min-width:0; overflow:hidden; background:#091924; color:#eef7fb; font:16px Arial,sans-serif; display:flex; flex-direction:column; }
+.vfr-statusbar { display:flex; align-items:center; padding:8px; gap:8px; background:#123044; }
+#vfr-status { flex:1; }
+.vfr-statusbar button { color:#eef7fb; background:#20475d; border:1px solid #7192a5; padding:8px; cursor:pointer; }
+#vfr-offline { padding:24px; }
+#vfr-frame-container { position:relative; flex:1 1 0px; min-height:0; min-width:0; overflow:hidden; }
+#vfr-frame-container iframe { position:absolute; top:0; left:0; display:block; width:100%; height:100%; border:0; }

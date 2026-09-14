@@ -1,0 +1,5 @@
+Packages/
+PackagesMetadata/
+_PackageInt/
+build-logs/
+release/

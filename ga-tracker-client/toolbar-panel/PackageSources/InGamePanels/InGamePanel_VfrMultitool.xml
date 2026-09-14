@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SimBase.Document Type="InGamePanels" version="1.0">
+  <Filename>InGamePanel_VfrMultitool.spb</Filename>
+  <InGamePanels.InGamePanelDefinition id="PANEL_VFR_MULTITOOL" Name="VFR Multitool"
+    url="html_ui/InGamePanels/VfrMultitool/Panel.html"
+    resizeDirections="Both" minWidth="35" minHeight="30" defaultWidth="70" defaultHeight="70"
+    defaultTop="10" defaultLeft="10" icon="ICON_TOOLBAR_VFR_MULTITOOL"
+    buttonVisible="true" headerVisible="true" managedByToolbar="true"
+    PauseOnOpen="false" />
+</SimBase.Document>

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"><title>VFR Multitool</title>
+<link rel="stylesheet" href="/SCSS/common.css">
+<link rel="stylesheet" href="Panel.css">
+<script src="/JS/coherent.js"></script><script src="/JS/common.js"></script>
+<script src="/JS/dataStorage.js"></script><script src="/JS/buttons.js"></script>
+<script src="/JS/Services/ToolBarPanels.js"></script>
+<link rel="import" href="/templates/ingameUi/ingameUi.html">
+<link rel="import" href="/templates/ingameUiHeader/ingameUiHeader.html">
+</head><body>
+<ingame-ui id="VfrMultitoolPanel" panel-id="PANEL_VFR_MULTITOOL" class="ingameUiFrame panelInvisible"
+  title="VFR Multitool" content-fit="true" min-width="35" min-height="30" resize="both">
+  <div class="vfr-shell">
+    <div id="vfr-statusbar" class="vfr-statusbar"><span id="vfr-status" role="status">Kartentisch 0.2.1</span>
+      <button id="vfr-retry" type="button">Neu verbinden</button><button id="vfr-close" type="button">Schließen</button></div>
+    <div id="vfr-offline"><h1>VFR Multitool</h1><p>Bitte den Tracker starten. Die Verbindung wird automatisch geprüft.</p>
+      <p>Dieselbe Kartentisch-Ansicht wie im EFB, bereitgestellt vom lokalen Tracker.</p></div>
+    <div id="vfr-frame-container"></div>
+  </div>
+</ingame-ui>
+<script src="Panel.js"></script>
+</body></html>

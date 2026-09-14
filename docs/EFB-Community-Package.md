@@ -1,5 +1,62 @@
 # EFB- und Toolbar-Panel-Community-Packages und Rollout
 
+## Paketentscheidung 14.09.2026: ab EFB 0.4.14 zusammengelegt
+
+Der Nutzer hat den Toolbar-Hoehenfix getestet und anschliessend explizit die
+Zusammenlegung und Veroeffentlichung auf EFB-Alpha beauftragt. Damit ersetzt
+ein gemeinsamer Paketroot `vfr-multitool-efb` den urspruenglich geplanten
+separaten Toolbar-Releasekanal. Tag und Archiv folgen dem EFB-Vertrag.
+Die Toolbar-Quellen bleiben in `ga-tracker-client/toolbar-panel`, werden aber
+direkt als SPB- und Copy-Gruppen des EFB-SDK-Projekts gebaut. Der vorhandene
+Desktop-Installer kann das Paket unveraendert verarbeiten.
+Bestehende lokale Toolbar-Testinstallationen werden extern gesichert und
+entfernt, um doppelte Registrierungen zu verhindern; auf diesem PC erfolgt.
+Der separate Testordner wurde nie oeffentlich veroeffentlicht.
+Buildnachweise, Archivhash und Testgrenzen: `docs/EFB-0.4.14-Release.md`.
+Die folgenden Eintraege dokumentieren die vorherigen getrennten Testpakete.
+
+## Lokaler Toolbar-Folgefix 0.2.1 / 14.09.2026
+
+0.2.1 korrigiert die iframe-Hoehenkette nach dem ersten In-Sim-Screenshot.
+Offizieller SDK-Build, Layoutgroessen, Quellhashes und Archivinhalt geprueft;
+bei geschlossenem MSFS ueber 0.2.0 installiert und Installation verifiziert.
+EFB unveraendert. ZIP 6055 Bytes, SHA-256
+`14ad4e481e3607fd80cd7326d5cc60dbe2a1b5451d516e0aa6cb653f8db77629`.
+Der Nutzer muss die volle Kartenhoehe und Resize noch in Coherent bestaetigen.
+Keine Online-Kanalumschaltung.
+
+## Lokaler Toolbar-Kartentischtest 0.2.0 / 14.09.2026
+
+SDK-gebaute Version 0.2.0 ist auf ausdruecklichen Nutzerauftrag in
+`Community2024/vfr-multitool-toolbar-panel` installiert. Sie laedt dieselbe
+Tracker-Seite wie das EFB mit eigenem Toolbar-Channel; die fruehere isolierte
+Probe ist abgeloest. Layout und sieben Paketdateien einschliesslich SPB sind
+validiert; installierte Dateien sind hashgleich, das EFB blieb unveraendert.
+Test-ZIP: `vfr-multitool-toolbar-panel-0.2.0-test.zip`, 5847 Bytes, SHA-256
+`fd67d361dbcd1cc7215c0c44d48af2ea0546d60c44426817541293c0e1c1e6f1`.
+Native Sichtbarkeit, Bedienung und EFB-Parallelbetrieb sind noch In-Sim zu
+pruefen. Keine aktive Kanaldatei und keine Veroeffentlichung.
+
+## Lokaler Toolbar-Quellkandidat 0.1.0 / 14.09.2026
+
+`ga-tracker-client/toolbar-panel/VfrMultitoolToolbarProject.xml` beschreibt
+den getrennten TP0-Kandidaten `vfr-multitool-toolbar-panel`. Vorgesehen sind
+eine SPB-Assetgruppe fuer `InGamePanels/` sowie eine Copy-Gruppe fuer
+`html_ui/`. Registrierungsfelder und ingame-ui-Lifecycle wurden anhand der
+installierten MSFS-2024-1.8.16.0-Dateien geprueft. Der wiederholte SDK-1.7.2-Build
+am 14.09.2026 erzeugte ein validiertes Paket mit einer SPB und vier UI-Dateien,
+manifest.json und layout.json. Die SPB heisst `InGamePanel_VfrMultitool.spb`.
+Das Test-ZIP umfasst 5722 Bytes, SHA-256
+`e0ddf10d5003fe95a4a51ebe61e00b5f12b3c4c81888ce12301822e61514c3ef`.
+Layoutgroessen, UI-Quellhashes, ZIP-Root und alle Archivdateihashes stimmen.
+Diese Struktur ist SDK-geprueft; native Registrierung und Distributionsvertrag
+benoetigen weiterhin In-Sim-Abnahme. Keine aktiven Kanaele oder Community-Installation.
+
+Die Shell verwendet vorerst nur die bestehende read-only Diagnoseprobe.
+Der gemeinsame Kartentisch, Funktionsparitaet und Simulatornachweise bleiben
+offen. Buildblocker und Testmatrix stehen in
+`ga-tracker-client/toolbar-panel/README.md`. Der EFB-Paketvertrag bleibt bestehen.
+
 ## Entscheidung
 
 Die MSFS-2024-EFB-App wird wie das Homebase Asset Pack als eigenständiges,

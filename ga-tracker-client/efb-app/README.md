@@ -1,5 +1,27 @@
 # VFR Multitool EFB App
 
+## Gemeinsames EFB-/Toolbar-Paket ab 0.4.14
+
+Das SDK-Projekt liefert jetzt EFB und Toolbar unter dem einzigen Paketroot
+`vfr-multitool-efb`. Die zwei zusaetzlichen Assetgruppen lesen Registrierung
+und UI direkt aus `../toolbar-panel/PackageSources`; es gibt keine zweite
+Kopie dieser Quellen. Der bestehende EFB-Alpha-Installer installiert damit
+beide Hosts in einer Transaktion. Das gemeinsame Paket laedt in beiden Hosts
+dieselbe Tracker-Seite; die Toolbar verwendet `host=toolbar` und einen eigenen
+Channel. Capabilities, Intents und Audio-Lease bleiben beim gemeinsamen Host.
+
+Lokale Tester mit `vfr-multitool-toolbar-panel` muessen diesen alten separaten
+Paketordner vor dem Start aus Community2024 entfernen bzw. extern sichern.
+Er wurde nie ueber einen oeffentlichen Kanal ausgeliefert. Der EFB-Updater
+fasst fremde Paketordner weiterhin nicht an. Eine EFB-Deinstallation oder
+Rueckkehr zum bisherigen Stable entfernt auch die enthaltene Toolbar.
+Stable bleibt auf 0.4.11, bis ein eigener Promotionauftrag vorliegt.
+
+Build: App `npm run build`, danach offizielles `fspackagetool.exe` mit
+`VfrMultitoolEfbProject.xml -nopause`, dann
+`node scripts/prepare-release.js alpha`. Der Releasecheck verlangt ab 0.4.14
+auch die Toolbar-Dateien. Siehe `docs/EFB-0.4.14-Release.md` im Repository.
+
 Dieses Verzeichnis enthält das MSFS-2024-SDK-Projekt für die schlanke
 EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
