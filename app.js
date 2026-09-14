@@ -39019,7 +39019,7 @@ async function fetchPrivateOutingStory(context = {}) {
     const input = coreApi.frame(contract, v6 ? coreApi.recent(localStorage) : coreApi.history(localStorage));
     const writerLabel = v6 ? 'Episode Writer V6 Privat' : 'Story Planner V5 Privat';
     const apiKey = getSelectedAiApiKey();
-    const options = { promptVersion: v6 ? 'mission-writer-private-v6-2-1' : 'mission-writer-private-v5-7', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 16000 };
+    const options = { promptVersion: v6 ? 'mission-writer-private-v6-2-2' : 'mission-writer-private-v5-7', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 16000 };
     context.onPrivateStoryPhase?.('idea', v6 ? 'v6' : 'v5');
     const ideaResult = await fetchGeminiJsonWithFallback(coreApi.ideaPrompt(input), apiKey, options);
     const idea = coreApi.validateIdea(ideaResult?.parsed, input);
@@ -39069,7 +39069,7 @@ async function fetchPrivateOutingStory(context = {}) {
         _requestedProfile: 'private_outing', _appliedProfile: 'private_outing',
         _missionPlanV2: context.missionPlanV2 || null, _missionPlanV4: contract, _missionContractV4: contract,
         _source: `${written?.source || ideaResult?.source || 'KI'} + ${writerLabel}${prose ? '' : ' (Ideentext-Fallback)'}`,
-        _missionWriterV4Debug: { source: writerLabel, writerMode: v6 ? 'private-v6' : 'private-v5', promptRevision: v6 ? 'v6.2.1' : 'v5.7',
+        _missionWriterV4Debug: { source: writerLabel, writerMode: v6 ? 'private-v6' : 'private-v5', promptRevision: v6 ? 'v6.2.2' : 'v5.7',
             flightBriefingStatus: v6 ? prose?.flightBriefingStatus || 'unavailable' : 'legacy',
             flightBriefing: v6 ? prose?.flightBriefing || '' : '',
             rawFlightBriefing: v6 ? written?.parsed?.flightBriefing || '' : '',

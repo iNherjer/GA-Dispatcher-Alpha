@@ -278,3 +278,28 @@ Wertebindungen. Auch eine alte URL mit `t` funktioniert durch den lokalen Proxy.
 Das belegt den Abruf und die Datenübergabe, keine neue KI-Textbewertung und keinen
 Test des veröffentlichten Cloudflare-Workers oder der iPhone-Oberfläche.
 App-Cacheversion für die Veröffentlichung: `ga-dispatcher-v1756`.
+
+## V6.2.2 – Gemeinsames Vorhaben und eigene Wünsche
+
+Die erprobte Promptvariante beschreibt den Piloten als Person mit eigenem
+Interesse am Ausflug. Der Anstoß entsteht frei aus der Verabredung; beide dürfen
+denselben einfachen Wunsch teilen. Frühere generierte Entwürfe dienen dem
+Vergleich und belegen keine bereits geflogene gemeinsame Vergangenheit.
+`relationshipDynamic` fasst Initiative und Interessen aus dem fertigen Text zusammen.
+
+Die bislang ausgelassene Planner-Angabe `episode.sharedIntent` wird zusätzlich als
+`IDEE.sharedIntent` an den Writer weitergegeben. Zusammen mit `pilotIntent`,
+`companionIntent`, `occasion` und `personalReason` trägt sie die Geschichte vom
+geplanten gemeinsamen Vorhaben. Die ausgespielte Planner-Situation wird weiterhin
+nicht übergeben. Keine neuen Aktivitätenkataloge, Rollenquoten, Textfilter oder
+Reparaturaufrufe. Schema, V5, Wetterabsatz und dessen Wertebindungen bleiben gleich.
+
+Kennungen: `v6.2.2`, `mission-writer-private-v6-2-2`, Assetrevision `20260914-05`.
+22 Regressionstests erfolgreich, darunter die tatsächliche App-Übergabe zweier
+unterschiedlicher gemeinsamer Absichten bis zum Writer und kompakten Save.
+Die Promptvariante wurde zuvor mit fünf Modellaufrufen bewertet; die ergänzte
+`sharedIntent`-Übergabe ist durch lokale Tests geprüft, noch ohne neue KI-Serie.
+Für diese Integration wurden keine weiteren API-Aufrufe benötigt.
+Auswertung und übertragbare Prinzipien: Abschnitt 10 im
+[Mission Narrative Design Guide](Mission%20Narrative%20Design%20Guide.md).
+Release: V6.2.2 mit App-Cache `ga-dispatcher-v1759` auf `origin/main`.

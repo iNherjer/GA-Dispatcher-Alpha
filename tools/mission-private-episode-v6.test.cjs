@@ -29,6 +29,24 @@ test('V6 carries episode and AI memory through actual two-call production path, 
  assert.equal(v6.history(store)[0].name,'Ada');
  assert.match(v6.ideaPrompt(v6.frame(contract(),v6.recent(store))),/freie gemeinsame Zeit/);
 });
+test('V6.2.2 passes the current shared intent and individual wishes through the production writer handoff',async()=>{
+ for(const sharedIntent of ['Gemeinsam einen freien Nachmittag am Platz verbringen','Zusammen einen alten Bekannten besuchen']){
+  const raw={...idea(),episode:{...idea().episode,sharedIntent,situation:'PLANNER_SCENE_ONLY'}};
+  const {c,prompts}=context([raw,prose()]);
+  const m=await c.fetchPrivateOutingStory({missionContractV4:contract()});
+  const outing=JSON.parse(prompts[1].split('\nIDEE: ')[1].split('\n')[0]);
+  assert.equal(outing.sharedIntent,sharedIntent);
+  assert.equal(outing.pilotIntent,raw.pilotIntent);
+  assert.equal(outing.companionIntent,raw.companionIntent);
+  assert.equal(outing.personalReason,raw.personalReason);
+  assert.ok(!prompts[1].includes('PLANNER_SCENE_ONLY'));
+  assert.equal(outing.episode,undefined);
+  assert.equal(m.privateOuting.episode.sharedIntent,sharedIntent);
+  assert.equal(c.compactMissionObjectForQuotaStorage(m).privateOuting.episode.sharedIntent,sharedIntent);
+  assert.equal(m._missionWriterV4Debug.promptRevision,v6.PROMPT_REVISION);
+  assert.equal(m.s,prose().story);
+ }
+});
 test('missing or invalid memory preserves valid story; rejected prose cannot contribute its memory',async()=>{
  for(const raw of [{...prose(),memory:null},{...prose(),memory:{...memory(),motivation:null}}]){
   const {c,store}=context([idea(),raw]);const m=await c.fetchPrivateOutingStory({missionContractV4:contract()});
