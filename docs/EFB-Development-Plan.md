@@ -2,6 +2,11 @@
 
 ## EFB 0.4.14 Alpha: gemeinsames Paket (14.09.2026)
 
+Veroeffentlicht als `efb-app-v0.4.14`, Quellcommit `714cb5da9`. Oeffentlicher
+Download erneut geprueft: 439002 Bytes, SHA-256 und EFB-/Toolbar-Archivpruefung
+bestanden. EFB-Alpha zeigt auf dieses unveraenderliche Artefakt; Stable bleibt
+auf 0.4.11. SW fuer Quell-/Kanalpush auf v1747/v1748 erhoeht.
+
 Nutzer bestaetigt funktionierenden Toolbar-Hoehenfix und beauftragt gemeinsame
 Auslieferung ueber EFB-Alpha. EFB-SDK-Projekt buendelt EFB-App und unveraenderte
 Toolbar-Shell 0.2.1 unter `vfr-multitool-efb`. App und offizieller SDK-Build

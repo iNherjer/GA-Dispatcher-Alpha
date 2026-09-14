@@ -2,6 +2,11 @@
 
 ## Paketentscheidung 14.09.2026: ab EFB 0.4.14 zusammengelegt
 
+EFB-Alpha verwendet den veroeffentlichten Tag `efb-app-v0.4.14`. Der erneute
+oeffentliche Download wurde vor der Kanalumschaltung auf 439002 Bytes,
+SHA-256 `fd1840e3c1ac9130b9ba1cea87d7e51fb08e69a6cd193152ef5b37ba264efe73`
+und den gemeinsamen Paketinhalt geprueft. Stable bleibt bei 0.4.11.
+
 Der Nutzer hat den Toolbar-Hoehenfix getestet und anschliessend explizit die
 Zusammenlegung und Veroeffentlichung auf EFB-Alpha beauftragt. Damit ersetzt
 ein gemeinsamer Paketroot `vfr-multitool-efb` den urspruenglich geplanten
