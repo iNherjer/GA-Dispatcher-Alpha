@@ -139,6 +139,8 @@ Ausführlicher Datenfluss, History-Budget, Grenzen und Migrationsanleitung: [Mis
 
 - KI-Privatmissionen mit V4-Contract nutzen `private-outing.v1` unabhängig vom V4-/V5-Writer-Schalter.
 - `mission-private-outing-core.js` definiert den strukturierten Ideenvertrag. Ein erster KI-Schritt entscheidet gemeinsam über Anlass, persönliche Motivation, Zielbezug, ersten Schritt am Boden, Person und persönliches Gepäck. Der zweite Schritt erzählt diese Entscheidung als Briefing und Greeting.
+- Der V6-Picker plant drei vollständige Ideen in einem gemeinsamen Aufruf. Die ausgewählte `private-proposal.v1`-Idee wird mit ihren ursprünglichen Fakten-IDs direkt an den Writer übergeben; Start/Ziel werden erneut geprüft, Flug-/Wetterwerte kommen aus dem aktuellen Dispatch. Ungewählte Angebote sind keine History-Einträge. V5-/Offline-Picker bleiben im bisherigen Pfad.
+- Ein strukturierter `private-outing.v1`-Vertrag mit `taskDomain=private_outing` hat Vorrang vor der alten APT-Textklassifikation und Charter-Personalisierung. Private Prosa darf dadurch keine Charter-Rolle auslösen; die Klassifikationsregeln anderer Missionsarten bleiben unverändert.
 - Aufgabe und Ablauf bleiben code-seitig `private_outing` / `A-B`. Es gibt keine Ableitung einer Freizeitaktivität oder Beziehung aus Story-Stichwörtern. Alte Profile, Titelschablonen und Private-Outing-Sanitizer dürfen die neue Story nicht umschreiben.
 - Ortswissen für Privatmissionen wird seit v5.7 über einen eigenen räumlichen Leser der POI-Tiles und eine neutrale Wikipedia-Umgebungssuche geladen (bis 50 km, acht Anker). Der vorhandene APT-Sightseeing-Resolver bleibt für andere Profile erhalten. Nur akzeptierte Fakten werden der Ideen-KI mit IDs übergeben; der Writer erhält die ausgewählten Fakten. Die Text-API besitzt in diesem Pfad kein eigenes Suchwerkzeug. Persönliche Vorgeschichten und plausible Anlässe dürfen bewusst erfunden werden; als tatsächlich recherchierte Angebote oder Termine gelten nur mitgelieferte Belege.
 - Persönliche Verbundenheit und die Freude am gemeinsamen Flug sind vollwertige Reisegründe. Ortsfunde sind optionales Material; keine Pflichtattraktion. `groundPlan` trennt Zielflugplatz und gegebenenfalls gewählten Ausflugsort, dessen Koordinaten der Code innerhalb des Suchradius prüft.
@@ -196,3 +198,13 @@ Der `V4`-Writer muss:
 - Kontext als Orientierung, Hindernis oder Support formulieren
 - keinen neuen Auftrag aus Sekundärankern ableiten
 - benannte Nebenanker nur dosiert und nie dominierend einsetzen
+
+### `private_return`
+
+- Eigene private APT-Fortsetzung nach belegtem erfolgreichem Hinflug, regulär B -> A.
+- Begleitung, Beziehung, Unternehmung und Heimatplatz kommen aus dem Quellvertrag.
+- Der Aufenthalt wird als gemeinsames Erlebnis erzählt; der Rückflug steht bevor.
+- Briefing und Voice benutzen denselben strukturierten Erlebnisrückblick.
+- Keine neue freie Ausflugsidee, Charter-Personalisierung oder Bush-Pickup-Phasen.
+- Bestehende APT-Gates und frische Flug-/Wetterwerte bleiben maßgeblich.
+- Umsetzung und Grenzen: [Mission Private Return V1](Mission%20Private%20Return%20V1.md).

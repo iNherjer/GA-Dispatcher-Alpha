@@ -1,6 +1,6 @@
 # Persönliche Missionsbriefings: Zielsetzung und Übertragung
 
-Stand: 14.09.2026. Aktive Referenz: Privat-Planner und Episode Writer V6.2.1.
+Stand: 14.09.2026. Release: Privat-Planner und Episode Writer V6.3 mit KI-Picker, Private Return V1; App-Cache `ga-dispatcher-v1760`, Tracker Alpha v404.
 Dieser Leitfaden beschreibt den aktuellen Ansatz und die Entscheidungen für weitere
 Missionsfamilien. Implementierungsdetails und historische Versuche stehen in
 [Mission Episode Writer V6](Mission%20Episode%20Writer%20V6.md).
@@ -300,3 +300,129 @@ Der alte Probe-Runner zeigt ohne `--run` die aktuelle Revision an; bezahlte Aufr
 des abgeschlossenen Kandidatenversuchs sind nach Integration gesperrt, damit alte
 und neue Ergebnisse nicht unter derselben Kennung vermischt werden.
 Release: V6.2.2 mit App-Cache `ga-dispatcher-v1759` auf `origin/main`.
+
+
+## 11. V6.3 – Drei geplante Privatmissionen zur Auswahl
+
+Der V6-Picker erzeugt die privaten Angebote nicht mehr aus den lokalen
+Szenariolisten. Die bestehende Flugplatzsuche liefert drei konkrete Ziele innerhalb
+ihrer bisherigen Suchregeln. Für jedes Ziel wird parallel der begrenzte
+`MissionPrivateContextCore` benutzt: bis acht Ortsbelege, 50 km Radius,
+drei Sekunden Abrufbudget und vorhandener Cache. Die KI entscheidet innerhalb
+dieser drei Zielrahmen über die Unternehmungen, nicht über neue Flugplatzkoordinaten.
+Ein Ausflug kann ebenso aus einem menschlichen Wunsch wie aus Ortskontext entstehen.
+
+`proposalPrompt` verwendet dieselben Ideenregeln wie die direkte Generierung und
+übergibt die History einmal für das gesamte Angebot. Die Antwort ist ein
+JSON-Objekt mit genau drei Einträgen in `proposals`; jeder Eintrag besitzt
+`candidateId`, `title` und den vollständigen privaten Ideenvertrag. `proposals()`
+prüft eindeutige Ziel-IDs und validiert jede Idee gegen ihre eigenen Ortsfakten.
+Unvollständige oder ungültige Antworten erzeugen eine sichtbare Fehlermeldung,
+keinen heimlichen Rückfall auf die alten Auswahlkarten und keinen Reparaturaufruf.
+
+Die Karte zeigt Titel, `occasion`, Begleitung, Gepäck und Distanz. Ein flüchtiger
+`private-proposal.v1`-Snapshot hält die Idee, Zielkoordinaten, den ursprünglichen
+Startbezug, die begrenzten Ortsbelege mit ihren IDs und den Planner-History-Zähler.
+Er enthält keine History-Texte. Nach Auswahl übernimmt der V4-Rahmen diesen
+Snapshot; der Writer verwendet die erneut validierte Idee direkt. Es gibt keinen
+weiteren privaten Ideenaufruf. Ortsbelege werden wiederverwendet, damit die Auswahl
+weder durch eine andere Trefferreihenfolge noch einen erneuten Abruffehler driftet.
+Route und Wetter werden dagegen aus dem aktuellen Dispatch übernommen.
+
+Eine geänderte Start-/Zielzuordnung, ein ungültiger Ideenvertrag oder eine nicht
+mehr passende Writer-/Pipeline-Konfiguration stoppt die Auswahl. Der ungewählte
+Rest verschwindet mit dem Pending-Picker. Erst das fertige ausgewählte Briefing
+trägt seine Writer-Erinnerung zum bestehenden lokalen Gedächtnis bei. Der temporäre
+Snapshot wird danach aus dem Contract entfernt; die fertige Mission enthält wie
+bisher ihre eine `privateOuting`-Idee. Es gibt keinen neuen Cloud-History-Speicher.
+
+Kostenmodell: ein gemeinsamer Ideenaufruf für drei Ziele und nach Auswahl ein
+Writer-Aufruf. Die drei Ideen benötigen mehr Ein-/Ausgabetokens als eine einzelne
+Idee, aber keine drei vollständigen Briefings. Der bisherige technische V4-Planner,
+Geo-/Wetterabrufe und bestehende Provider-Fallbacks gehören weiterhin zum gesamten
+Dispatch; die Zwei-Aufruf-Angabe beschreibt nur den privaten Erzählpfad. Der
+Batch-Aufruf hat 40 Sekunden Timeout je bestehendem Provider-Versuch. V5 sowie
+ausgeschaltete KI verwenden weiterhin ihre bisherigen Pickerpfade.
+
+Zusätzlich beschreibt V6.3 den Piloten ausdrücklich als Spieler ohne mitgelieferten
+Namen. Seine eigenen Wünsche werden zuerst als Teil des gemeinsamen Ausflugs
+entwickelt, unabhängig von seiner Aufgabe am Steuer. Die Begleitung bleibt eine
+fiktive Person. Wiederkehrende Initiative-/Beziehungsmuster werden der History
+zugeordnet, ohne feste Quoten oder einen Aktivitätenkatalog.
+
+Der Hahnweide-Bericht zeigte außerdem einen reproduzierten Altfehler:
+`classifyAptMissionCategory` fand `kunde` in `erkundet` und löste die
+Charter-Personalisierung aus. Strukturierte `private-outing.v1`-Missionen mit
+`taskDomain=private_outing` werden nun vor dieser Textprüfung als privat erkannt;
+auch die Charter-Personalisierung respektiert diesen Vertrag. Die bisherigen
+Regex-Regeln für andere Missionen wurden bewusst nicht geändert.
+
+Diagnose: `Privat-Ideenquelle` unterscheidet `private-picker` und `private-planner`.
+Der Planner-History-Zähler beschreibt den Zeitpunkt der Ideenplanung;
+`Privat-Writer-History` beschreibt den späteren Writer-Aufruf. Die Werte können
+sich unterscheiden, wenn zwischen Angebot und Auswahl andere Entwürfe entstehen.
+
+Validierung:
+
+- 40 Tests erfolgreich: Picker/App-Übergabe, genau ein Batch plus ein Writer,
+  Original-Fakten-IDs trotz neuem Kontext, frische Flugwerte, keine History-Schreib-
+  operation für Angebote, stale Auswahl, ungültige Batches, V5, private Klassifikation,
+  Region und bestehender Wetterpfad.
+- Zwei erzwungene APT/private_outing-V4-Dryruns mit Stub-Antworten prüfen den
+  direkten Dispatch und den kompletten Picker-Ablauf. `--private-picker` rendert
+  drei Karten, wählt über `acceptMissionProposalChoice` die zweite, wartet den
+  Dispatch ab und prüft erhaltene Idee/Ziel, private Passenger-Rolle sowie genau
+  einen zusätzlichen Memory-Eintrag. Der Promptverlauf enthält `private-picker`,
+  technischen V4-Planner und `private-writer`, keinen erneuten `private-idea`-Aufruf.
+  Der vollständige Test fand einen Zugriff auf den noch nicht initialisierten
+  KI-Schalter; dessen Initialisierung liegt nun vor dem Picker. Diese Nachweise
+  betreffen den App-Ablauf, nicht die Qualität synthetischer Texte.
+- Ein einziger Live-Gemini-Aufruf erzeugte drei gültige Auswahlideen für EDTW,
+  EDTF und EDSH mit jeweils acht produktiv ausgewählten Ortsbelegen. 5.633 Eingabe-
+  plus 1.931 Ausgabetokens = 7.564, 10,9 Sekunden Modellzeit. Zwei Ideen tragen
+  gemeinsame Wünsche, eine ausdrücklich den Wunsch der Begleitung. Alle drei
+  Piloteninteressen beziehen sich auf den Ausflug selbst. Kein zusätzlicher Writer-
+  oder Reparaturaufruf für den Test.
+
+Der Live-Test verwendete leere History. Ein erster Testversuch mit lokalen früheren
+Erinnerungen wurde vor Ausführung durch die automatische Freigabeprüfung abgelehnt;
+die ausgeführte Variante sendete ausschließlich öffentliche Flugplatz-/Ortsdaten.
+Die technische History-Übergabe ist mit lokalen Fixtures geprüft, eine neue längere
+Live-Serie zur History-Wirkung steht aus.
+
+Unveränderte Auswahltexte und Einordnung:
+`analysis/private-picker-v6-3-texts.md`, Rohdaten:
+`analysis/private-picker-v6-3-live.json` (lokale Testartefakte).
+Der Live-Test beweist keine perfekte Semantik: mildes Wetter im ersten Angebot,
+bereitgestellte Mietwagen/Leihräder und optimistische Anschlusswege bleiben
+unbelegte Ausschmückungen. Das sind offene Qualitätsbefunde, keine neuen
+Verbotsregeln. Die drei Picker-Ideen wurden nicht als vollständige Briefings getestet.
+Release: V6.3 / Private Return V1, App-Cache `ga-dispatcher-v1760`, Tracker Alpha v404.
+
+
+Picker-Durchlauf ohne externe KI-Aufrufe:
+
+```sh
+node tools/mission-pipeline-dryrun.mjs --pipeline-v4 --runs=1 --profile=private_outing --base=apt --category=private --private-picker --out=private-picker-v6-3-selection-dryrun.json
+```
+
+Der zusätzliche Picker-Dryrun-Modus erlaubt absichtlich kein `--live-gemini`.
+Der separate Live-Probe begrenzt sich auf genau einen Batch und überträgt keine
+lokalen History-Inhalte. Er ist kein Last-, Geräte- oder Simulator-Test.
+
+## 12. Private Heimreise als Fortsetzung
+
+Die zuvor skizzierte Erweiterung wurde nach Freigabe als eigenes internes Profil
+`private_return`, Task-Domain und Follow-up-Typ umgesetzt. Verbindlicher
+Umsetzungsstand, Datenvertrag, Vergleich mit Bush Return und Testnachweise:
+[Mission Private Return V1](Mission%20Private%20Return%20V1.md).
+
+Der erfolgreiche Hinflug eröffnet ein optionales Rückflugangebot. Die ausgewählte
+Heimreise erzählt vom gemeinsamen Aufenthalt und bereitet den nächsten A–B-Flug
+vor. Ein einmal erzeugter strukturierter Erlebnisrückblick verbindet Briefing
+und Voice. Die Entwurfshistory wird dadurch nicht zur erfundenen Flugchronik.
+
+Die private Fortsetzung verwendet normale APT-Trigger und bestehende Runtime-Gates.
+Bush-Pickup-spezifische Abflugtrigger werden nicht auf ein normales Boarding
+übertragen. Das begrenzt die Erweiterung auf ihren eigenen fachlichen Vertrag
+und verhindert parallele Ansagen beziehungsweise einen versteckten Return-Leg.

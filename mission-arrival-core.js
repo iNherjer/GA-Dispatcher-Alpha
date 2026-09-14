@@ -141,6 +141,7 @@ function representativeBushStripArrivalAnchor(lat, lon, hdg) {
 }
 
 function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passenger = null, paxText = '', cargoText = '', profileId = '', heading = 0, missionPlanV2 = null, missionType = '', bushSpec = null } = {}) {
+    if (!isPOI && (profileId === 'private_return' || window.MissionPrivateReturnCore?.context(mission || {}))) return null;
     if (isPOI) return null;
     const lat = Number(dest?.lat);
     const lon = Number(dest?.lon);

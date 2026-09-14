@@ -56,6 +56,58 @@ Verantwortlichkeiten:
 | Verlade-Manager | Items, Signatur und Bestaetigung als Gates ausfuehren | Erfolg ohne Core-Gates freigeben |
 | Scene / Voice | sichtbaren und erzaehlerischen Ablauf darstellen | fachlichen Missionserfolg setzen |
 
+### 1.1 Private Generierung vor dem Missionsstart (V6.3)
+
+Release dieser Erweiterung: App-Cache `ga-dispatcher-v1760`, Tracker Alpha v404.
+Der private KI-Picker verwendet dieselben Ideenregeln wie der direkte private
+Dispatch. Der Ablauf vor `planned` ist:
+
+1. Die Flugplatzsuche bestimmt drei Kandidaten nach ihren bestehenden Suchregeln.
+2. Begrenzter Ortskontext wird parallel für die drei Ziele geladen.
+3. Ein gemeinsamer KI-Aufruf erzeugt drei vollständige strukturierte Ideen.
+   Die bisherige Entwurfshistory wird einmal als Varianzkontext mitgegeben.
+4. Die Karten zeigen Anlass, Begleitung, Gepäck und Strecke. Ihre Snapshots halten
+   die jeweilige Idee und die zugehörigen Ortsbelege mit stabilen IDs fest.
+5. Die Auswahl übernimmt genau diesen Ideenvertrag. Start-/Zielbezug und Vertrag
+   werden erneut geprüft; unpassende oder ungültige Auswahlen stoppen sichtbar.
+6. Der technische V4-Rahmen liefert aktuelle Flug-/Wetterdaten. Der private Writer
+   schreibt aus der gewählten Idee direkt das Briefing, ohne erneute Ideenplanung.
+7. Nur die fertig ausgearbeitete Auswahl ergänzt die lokale Entwurfshistory.
+   Die beiden anderen Angebote erzeugen keine Erinnerung. Auch der gespeicherte
+   Briefingentwurf belegt keinen begonnenen oder abgeschlossenen Flug.
+
+Der private Erzählpfad benötigt damit einen Batch-Aufruf und einen Writer-Aufruf;
+technischer Planner und bestehende Provider-Fallbacks kommen gegebenenfalls hinzu.
+V5 und ausgeschaltete KI behalten ihre bisherigen Auswahlpfade. Der Picker
+verändert keine Boarding-, Manifest- oder Abschluss-Gates.
+
+Vertrag, Kosten und Testnachweise:
+[Mission Narrative Design Guide, Abschnitt 11](Mission%20Narrative%20Design%20Guide.md#11-v63--drei-geplante-privatmissionen-zur-auswahl).
+
+### 1.2 Private Heimreise V1
+
+Implementiert ist eine optionale zweite APT-Mission `B -> A` nach erfolgreichem
+Abschluss des privaten Hinflugs `A -> B`. Das sofort verfügbare Folgeangebot
+startet keinen Flug automatisch. Seine Annahme bildet den erzählerischen Sprung
+über den Aufenthalt; eine reale Wartezeit oder eine simulierte Bodenaktivität
+ist dafür nicht erforderlich. Zeitgebundene Vorhaben und Übernachtungen müssen
+dabei ihren geplanten zeitlichen Bezug behalten.
+
+Der Hinflug bleibt bis zu seinem Abschluss eine Vorschau auf den Ausflug.
+Erst die angenommene Heimreise erhält einen gemeinsam genutzten, strukturierten
+Erlebnisrückblick für Briefing und Voice. Begleitung, Beziehung, ursprünglicher
+Anlass und Ort bleiben erhalten; die Route führt vom besuchten Platz zum
+ursprünglichen Startplatz. Strecke und Wetter werden neu ermittelt.
+
+Die Heimreise nutzt die normalen APT-Start-/Abschluss-Gates. Sie erzeugt keine
+weitere private Rückflugkette. Ein Entwurf, Abbruch, anderer Landeort oder ein
+wiederholter Abschluss-/Restore-Hook darf kein neues Erlebnis beziehungsweise
+doppeltes Folgeangebot erzeugen. Die privaten Adapter verwenden den bestehenden Follow-up-/Sync-Pfad.
+Triggervergleich und Nachweise stehen in [Private Return V1](Mission%20Private%20Return%20V1.md).
+
+Konzept und Abgrenzung:
+[Mission Narrative Design Guide, Abschnitt 12](Mission%20Narrative%20Design%20Guide.md#12-private-heimreise-als-fortsetzung).
+
 ## 2. Universeller Start
 
 Jede echte Mission verwendet dieselbe Startkette:

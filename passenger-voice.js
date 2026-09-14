@@ -1400,6 +1400,7 @@ function _normTaskDomain(value) {
         'medical_transfer',
         'news_coverage',
         'private_outing',
+        'private_return',
         'sightseeing_tour',
         'historian_guided_tour',
         'poi_learning_guide',
@@ -4526,7 +4527,8 @@ function _ttsVoiceCandidatesForSpeaker(pax) {
     const fallback = gender === 'male' ? 'Charon' : 'Kore';
     if (!basePool.includes(fallback)) basePool.push(fallback);
 
-    const seed = `${pax?.name || ''}|${pax?.role || ''}|${pax?.roleProfile || ''}|${pax?.taskDomain || ''}`;
+    const seed = (pax?.taskDomain === 'private_return' && pax.voiceIdentity) || (pax?.privateReturn?.schema === 'private-return.v1' && pax.privateReturn.voiceIdentity)
+        || `${pax?.name || ''}|${pax?.role || ''}|${pax?.roleProfile || ''}|${pax?.taskDomain || ''}`;
     const start = basePool.length ? (_hashStable(seed) % basePool.length) : 0;
     const rotated = basePool.map((_, idx) => basePool[(start + idx) % basePool.length]);
     const dedup = [];
@@ -4548,7 +4550,9 @@ function _openAiTtsVoiceCandidatesForSpeaker(pax) {
         : (gender === 'male' ? ['onyx'] : ['nova']);
     const fallback = gender === 'male' ? 'onyx' : 'nova';
     if (!basePool.includes(fallback)) basePool.push(fallback);
-    const seed = `${pax?.name || ''}|${pax?.role || ''}|${pax?.roleProfile || ''}|${pax?.taskDomain || ''}|openai`;
+    const identity = (pax?.taskDomain === 'private_return' && pax.voiceIdentity) || (pax?.privateReturn?.schema === 'private-return.v1' && pax.privateReturn.voiceIdentity)
+        || `${pax?.name || ''}|${pax?.role || ''}|${pax?.roleProfile || ''}|${pax?.taskDomain || ''}`;
+    const seed = `${identity}|openai`;
     const start = basePool.length ? (_hashStable(seed) % basePool.length) : 0;
     const rotated = basePool.map((_, idx) => basePool[(start + idx) % basePool.length]);
     const dedup = [];
@@ -5048,7 +5052,8 @@ function _speakerSnapshotForActivePax() {
         role: pax.role || '',
         gender: pax.gender || '',
         roleProfile: pax.roleProfile || '',
-        taskDomain: pax.taskDomain || ''
+        taskDomain: pax.taskDomain || '',
+        ...(pax.privateReturn?.schema === 'private-return.v1' ? { voiceIdentity: pax.privateReturn.voiceIdentity } : {})
     } : null;
 }
 
@@ -5179,6 +5184,8 @@ function _boardingFallbackVariantIndex(seed = '') {
 }
 
 function _buildBoardingTextLegacy() {
+    if (window.activePassenger?.privateReturn?.schema === 'private-return.v1' && window.activePassenger.greetingText)
+        return String(window.activePassenger.greetingText);
     const cargoCtx = _cargoOnlyVoiceContext();
     if (cargoCtx) {
         const requiredItems = _missionRequiredItemNames(4);
@@ -5224,6 +5231,8 @@ function _buildBoardingTextLegacy() {
 }
 
 function _buildBoardingText() {
+    if (window.activePassenger?.privateReturn?.schema === 'private-return.v1' && window.activePassenger.greetingText)
+        return String(window.activePassenger.greetingText);
     const shared = window.GAMissionBoardingVoiceCore;
     if (!shared || typeof shared.buildBoardingText !== 'function') return _buildBoardingTextLegacy();
     const cargoCtx = _cargoOnlyVoiceContext();
@@ -5507,6 +5516,7 @@ function _rememberAndShowPrepared(text, speaker, eventLabel) {
     _lastSpokenSpeaker = speaker;
     _capturePoiNarrativeMemory(eventLabel, text);
     _captureBushPickupNarrativeMemory(eventLabel, text);
+    _capturePrivateReturnNarrative(text);
     _captureBushCargoPickupNarrativeMemory(eventLabel, text);
     _showPaxMessage(text, eventLabel);
 }
@@ -6692,6 +6702,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
     _lastSpokenSpeaker = speakerSnapshot;
     _capturePoiNarrativeMemory(eventLabel, spokenText);
     _captureBushPickupNarrativeMemory(eventLabel, spokenText);
+    _capturePrivateReturnNarrative(spokenText);
     _captureBushCargoPickupNarrativeMemory(eventLabel, spokenText);
     _showPaxMessage(spokenText, eventLabel, options.debugDetail || '');
 
@@ -7513,6 +7524,29 @@ function _aptArrivalLocationLabel(plan = null) {
     return 'am geplanten Empfangspunkt';
 }
 
+let _privateReturnSpoken = { missionId: '', lines: [] };
+function _privateReturnVoiceContext(md = null, contract = null) {
+    return window.MissionPrivateReturnCore?.context(md || window.currentMissionData || {})
+        || window.MissionPrivateReturnCore?.context(contract || {})
+        || window.MissionPrivateReturnCore?.context({ passenger: window.activePassenger }) || null;
+}
+function _capturePrivateReturnNarrative(text) {
+    const c = _privateReturnVoiceContext();
+    if (!c || !text) return;
+    const id = window.currentMissionData?.missionId || c.sourceCompletionId;
+    if (_privateReturnSpoken.missionId !== id) _privateReturnSpoken = { missionId: id, lines: [] };
+    const line = String(text).trim().slice(0, 600);
+    if (!_privateReturnSpoken.lines.includes(line)) _privateReturnSpoken.lines = [..._privateReturnSpoken.lines, line].slice(-4);
+}
+function _privateReturnNarrativeHint(stage = 'context', md = null, contract = null) {
+    const c = _privateReturnVoiceContext(md, contract);
+    if (!c) return '';
+    const id = (md || window.currentMissionData)?.missionId || c.sourceCompletionId;
+    const used = _privateReturnSpoken.missionId === id ? _privateReturnSpoken.lines : [];
+    return window.MissionPrivateReturnCore.voice(c, stage)
+        + (used.length ? ` Bereits erzählte Gedanken (fortführen statt wiederholen): ${JSON.stringify(used)}` : '');
+}
+
 function _privateOutingStoryContext(md = null, contract = null) {
     const mission = md || window.currentMissionData || {};
     const idea = mission.privateOuting || mission.passenger?.privateOuting
@@ -7522,6 +7556,8 @@ function _privateOutingStoryContext(md = null, contract = null) {
 }
 
 function _aptArrivalContextLine(md = null, contract = null) {
+    const returnHint = _privateReturnNarrativeHint('context', md, contract);
+    if (returnHint) return returnHint;
     const idea = _privateOutingStoryContext(md, contract);
     if (idea) return `PRIVATER ANLASS: ${idea.occasion} Persönlicher Grund: ${idea.personalReason} Nach dem Parken: ${idea.firstStep} Bleibe bei diesem Vorhaben; eine dekorative Vorfeldszene begründet keine zusätzliche Verabredung oder Abholung.`;
     const plan = _activeAptArrivalPlan(md, contract);
@@ -7541,6 +7577,8 @@ function _aptArrivalContextLine(md = null, contract = null) {
 }
 
 function _aptArrivalApproachHint() {
+    const returnHint = _privateReturnNarrativeHint('arrival');
+    if (returnHint) return returnHint;
     const idea = _privateOutingStoryContext();
     if (idea) return ` Vorfreude auf denselben privaten Anlass: ${idea.occasion} Erzähle aus deiner Perspektive; nach dem Parken ist vorgesehen: ${idea.firstStep}`;
     const plan = _activeAptArrivalPlan();
@@ -7553,6 +7591,8 @@ function _aptArrivalApproachHint() {
 }
 
 function _aptArrivalAfterLandingHint() {
+    const returnHint = _privateReturnNarrativeHint('landing');
+    if (returnHint) return returnHint;
     const idea = _privateOutingStoryContext();
     if (idea) return `Gib kurzes persönliches Feedback zur Landung. Danach geht euer Vorhaben weiter: ${idea.firstStep}`;
     const plan = _activeAptArrivalPlan();
@@ -7566,6 +7606,8 @@ function _aptArrivalAfterLandingHint() {
 }
 
 function _aptArrivalFarewellHint() {
+    const returnHint = _privateReturnNarrativeHint('farewell');
+    if (returnHint) return returnHint;
     const idea = _privateOutingStoryContext();
     if (idea) return `Der gemeinsame Hinflug ist beendet. Leite natürlich zum gleichen Vorhaben über: ${idea.firstStep} Persönlicher Grund: ${idea.personalReason}`;
     const plan = _activeAptArrivalPlan();
@@ -7579,6 +7621,7 @@ function _aptArrivalFarewellHint() {
 }
 
 function _roleStyleHint(roleRaw, pax = null) {
+    if (_privateReturnVoiceContext()) return 'Vertraut, persönlich und alltagsnah: gemeinsam Erlebtes klingt nach, der Rückflug rundet eure Unternehmung ab.';
     const taskDomain = _activeTaskDomain();
     if (taskDomain === 'fire_watch') {
         return 'einsatznah, ruhig und präzise: Fokus auf Rauchentwicklung, Hotspots, Lagebild und klare Calls.';
@@ -8400,6 +8443,7 @@ Sag in 1-2 kurzen Sätzen mit leichtem Humor, dass wir offenbar woanders gelande
 }
 
 function _greetingMissionGuidance() {
+    if (_privateReturnVoiceContext()) return { reqLine: _privateReturnNarrativeHint('boarding'), driftGuard: '', timingWordBan: '' };
     const pax = window.activePassenger;
     if (!pax) return null;
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};

@@ -11373,6 +11373,10 @@ function _buildMissionCompletionRecord(options = {}) {
     const hasCruiseEvidence = cruiseCount >= 10 && cruiseDurationSec >= 20;
     return {
         schemaVersion: 2,
+        ...(window.MissionPrivateReturnCore?.source(md) ? { privateOutingEvidence:
+            window.MissionPrivateReturnCore.completionEvidence(flight,
+                typeof _missionEndReadiness === 'function' ? _missionEndReadiness() : {})
+        } : {}),
         id: completionId,
         completionId,
         missionId,
@@ -11572,6 +11576,15 @@ function _persistMissionCompletion(record) {
     localStorage.setItem(MISSION_DEBRIEF_PENDING_KEY, JSON.stringify(record));
     localStorage.setItem('last_icao_dest', String(record.dest || ''));
     _upsertMissionLogbook(record);
+    // Completion persistence is shared by local close and confirmed completion restore.
+    // The private adapter requires measured flight + canonical destination evidence.
+    try {
+        if (window.MissionPrivateReturnCore?.source(currentMissionData)) {
+            window.missionFollowupMaybeCreateFromCompletedMission?.(currentMissionData, record.cargo, {
+                source: 'private-confirmed-completion', completionRecord: record
+            });
+        }
+    } catch (err) { console.warn('[Private Return] Folgeangebot nicht gespeichert:', err?.message || err); }
     try {
         if (typeof currentMissionData === 'object' && currentMissionData) {
             currentMissionData.missionCompletionState = 'completed_awaiting_cleanup';
@@ -14621,7 +14634,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',

@@ -596,7 +596,7 @@ function _loadMetarWidget() {
             _context3.n = 9;
             break;
           }
-          directUrl = `https://aviationweather.gov/api/data/metar?ids=${icaoNorm}&format=json&t=${Date.now()}`;
+          directUrl = `https://aviationweather.gov/api/data/metar?ids=${icaoNorm}&format=json`;
           _context3.n = 7;
           return _fetchMetarArrayViaVariants(directUrl, {
             includeCodeTabs: true,
@@ -621,7 +621,7 @@ function _loadMetarWidget() {
           }
           latMin = lat - 0.6, latMax = lat + 0.6;
           lonMin = lon - 0.8, lonMax = lon + 0.8;
-          fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`;
+          fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json`;
           _context3.n = 10;
           return _fetchMetarArrayViaVariants(fbUrl, {
             includeCodeTabs: true,

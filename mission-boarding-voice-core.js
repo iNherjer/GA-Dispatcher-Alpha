@@ -47,7 +47,8 @@
             role: text(source.role, 160),
             gender: normalizeGender(source.gender),
             roleProfile: text(source.roleProfile, 120),
-            taskDomain: text(source.taskDomain, 120).toLowerCase()
+            taskDomain: text(source.taskDomain, 120).toLowerCase(),
+            ...(source.taskDomain === 'private_return' && text(source.voiceIdentity, 500) ? { voiceIdentity: text(source.voiceIdentity, 500) } : {})
         };
     }
 
@@ -109,7 +110,7 @@
     function rotateVoices(pool, speaker) {
         var source = Array.isArray(pool) ? pool.slice() : [];
         if (!source.length) return [];
-        var seed = [speaker.name, speaker.role, speaker.roleProfile, speaker.taskDomain].join('|');
+        var seed = speaker.voiceIdentity || [speaker.name, speaker.role, speaker.roleProfile, speaker.taskDomain].join('|');
         var start = stableHash(seed) % source.length;
         return source.map(function (_, index) { return source[(start + index) % source.length]; });
     }

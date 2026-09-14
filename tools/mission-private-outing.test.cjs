@@ -71,7 +71,7 @@ test('voice continues the structured idea instead of inventing a pickup or anoth
   const privateOuting = core.validateIdea(idea(),core.frame(contract()));
   const c = {window:{currentMissionData:{privateOuting}},}; vm.createContext(c);
   const src=fs.readFileSync(require.resolve('../passenger-voice.js'),'utf8');
-  for(const name of ['_privateOutingStoryContext','_aptArrivalContextLine','_aptArrivalApproachHint','_aptArrivalAfterLandingHint','_aptArrivalFarewellHint']) {
+  for(const name of ['_privateReturnVoiceContext','_privateReturnNarrativeHint','_privateOutingStoryContext','_aptArrivalContextLine','_aptArrivalApproachHint','_aptArrivalAfterLandingHint','_aptArrivalFarewellHint']) {
     const start=src.indexOf('function '+name+'(');vm.runInContext(src.slice(start,src.indexOf('\n}',start)+2),c);
   }
   assert.ok(c._aptArrivalContextLine().includes(privateOuting.personalReason));

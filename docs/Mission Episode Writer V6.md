@@ -303,3 +303,22 @@ Für diese Integration wurden keine weiteren API-Aufrufe benötigt.
 Auswertung und übertragbare Prinzipien: Abschnitt 10 im
 [Mission Narrative Design Guide](Mission%20Narrative%20Design%20Guide.md).
 Release: V6.2.2 mit App-Cache `ga-dispatcher-v1759` auf `origin/main`.
+
+
+## V6.3 – KI-Picker und Erhalt der gewählten Idee
+
+Der private V6-Picker plant drei vollständige Ideen in einem gemeinsamen
+JSON-Aufruf. Die bestehende Zielsuche liefert die Flugplätze; jeder erhält seine
+begrenzten Ortsbelege. Der gewählte `private-proposal.v1`-Snapshot wird gegen den
+aktuellen Start-/Zielrahmen erneut geprüft und direkt an den Writer übergeben.
+Es folgt kein erneuter privater Ideenaufruf. Flug-/Wetterdaten sind aktuell,
+Ortsreferenzen und gewählte Absichten bleiben erhalten. Ungewählte Vorschläge
+werden nicht ins Gedächtnis geschrieben.
+
+Kennungen: `v6.3`, `mission-private-picker-v6-3`, `mission-writer-private-v6-3`,
+Assetrevision `20260914-06`. 40 Tests, ein direkter V4-Dispatch-Dryrun, ein
+vollständiger Picker-/Auswahl-Dryrun und ein Live-Batch mit drei akzeptierten Ideen (7.564 Tokens) sind dokumentiert.
+Neue Picker-Tests: `tools/mission-private-picker.test.cjs`.
+Kostenmodell, History, Rollenfehler und offene Qualitätsbefunde stehen in Abschnitt
+11 des [Mission Narrative Design Guide](Mission%20Narrative%20Design%20Guide.md).
+Release: V6.3 / Private Return V1, App-Cache `ga-dispatcher-v1760`, Tracker Alpha v404.

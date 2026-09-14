@@ -442,6 +442,7 @@
     }
 
     function buildAcceptance(req = null, startRef = null) {
+        if (req?.followUpKind === 'private_return') return window.MissionPrivateReturnCore?.acceptance(req, startRef) || null;
         const homeRef = normalizeRef(req?.route?.homeRef);
         const targetRef = normalizeRef(req?.route?.targetRef);
         const resolvedStartRef = normalizeRef(startRef);
@@ -478,6 +479,7 @@
     }
 
     function acceptanceForRequest(req = null, context = {}) {
+        if (req?.followUpKind === 'private_return') return buildAcceptance(req, context.start || req.acceptance?.startRef);
         const existing = (req?.acceptance && typeof req.acceptance === 'object') ? req.acceptance : null;
         if (existing?.mode && existing?.startRef && existing?.targetRef && existing?.returnHomeRef) {
             const followUpKind = String(req?.followUpKind || '').toLowerCase();
@@ -501,6 +503,7 @@
     }
 
     function pickerValueForProfile(profileId = '', req = null) {
+        if (profileId === 'private_return') return 'apt:private+private_return';
         if (req && typeof window.missionInfraPickerValueForFollowup === 'function') {
             try {
                 const poiValue = window.missionInfraPickerValueForFollowup(req);
@@ -555,6 +558,15 @@
     }
 
     function promptAcceptanceStartRef(req = null) {
+        if (req?.followUpKind === 'private_return') {
+            const last = getLastLandingRef();
+            const target = normalizeRef(req.route?.targetRef);
+            if (last && !refsSameAirport(last, target)) {
+                alert('Die private Heimreise beginnt am besuchten Flugplatz. Dein zuletzt bestätigter Landeort liegt inzwischen woanders.');
+                return Promise.resolve(null);
+            }
+            return Promise.resolve(target);
+        }
         const homeRef = normalizeRef(req?.route?.homeRef);
         const targetRef = normalizeRef(req?.route?.targetRef);
         const lastRef = getLastLandingRef();
@@ -766,6 +778,7 @@
         const merged = Array.from(byId.values())
             .filter(req => {
                 if (!isTerminalStatus(getStatus(req))) return true;
+                if (req.followUpKind === 'private_return') return Number(req.updatedAt || 0) >= now - TOMBSTONE_DAYS * 86400000;
                 return Number(req.updatedAt || 0) >= keepTombstoneAfter;
             })
             .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
@@ -1363,6 +1376,7 @@
 
     function buildPipelineContext(req, context = {}) {
         if (!req || typeof req !== 'object') return null;
+        if (req?.followUpKind === 'private_return') return window.MissionPrivateReturnCore?.pipeline(req, context) || null;
         const acceptance = acceptanceForRequest(req, context);
         if (!acceptance) return null;
         const start = context.start || airportFromRef(acceptance?.startRef || req.route?.homeRef);
@@ -2004,6 +2018,16 @@
     }
 
     function maybeCreateFromCompletedMission(candidate = null, cargoOutcome = null, options = {}) {
+        const privateMd = getMissionDataFromCandidate(candidate);
+        const privateCore = window.MissionPrivateReturnCore;
+        if (privateCore?.context(privateMd || {}) || privateCore?.source(privateMd)) {
+            const req = privateCore.request(privateMd, options.completionRecord);
+            if (!req) return { created: false, reason: 'private-return-no-confirmed-completion' };
+            if (getRequests().some(row => row.id === req.id)) return { created: false, reason: 'duplicate', id: req.id };
+            writeRequests([...getRequests(), req], { cloud: true });
+            rememberLastLandingRef(req.route.targetRef, { source: 'private-outing-completed', missionId: privateMd.missionId });
+            return { created: true, id: req.id, sourceKind: req.sourceKind, followUpKind: req.followUpKind };
+        }
         const source = String(options.source || cargoOutcome?.source || 'mission-end');
         if (shouldSkipCompletionSource(source)) return { created: false, reason: 'preview-source' };
         const md = getMissionDataFromCandidate(candidate);
@@ -2670,6 +2694,7 @@
     }
 
     function buildDispatchMission(req, context = {}) {
+        if (req?.followUpKind === 'private_return') return window.MissionPrivateReturnCore?.mission(req, context) || null;
         if (!req || typeof req !== 'object') return null;
         const acceptance = acceptanceForRequest(req, context);
         if (!acceptance) return null;

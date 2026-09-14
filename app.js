@@ -4239,6 +4239,12 @@ const MISSION_ROLE_TASK_PROFILES = {
 };
 
 function getMissionTaskProfile(profileId, baseType) {
+    if (profileId === 'private_return' && baseType !== 'poi' && baseType !== 'bush') return {
+        id: 'private_return', label: 'Private Heimreise', appliesTo: ['apt'],
+        roleProfile: 'general_passenger_v1', taskDomain: 'private_return',
+        paxText: '1 PAX (private Begleitung)', cargoPool: [],
+        storyCue: 'Gemeinsame Heimreise nach dem erlebten privaten Aufenthalt; normaler A-B-Flug.'
+    };
     const id = String(profileId || 'auto').toLowerCase();
     const mode = normalizeMissionType(baseType || '', String(baseType || '').toLowerCase() === 'poi');
     if (mode === 'bush') {
@@ -4463,6 +4469,9 @@ function toggleMissionPickerMode() {
 }
 
 function classifyAptMissionCategory(ms) {
+    if (window.MissionPrivateReturnCore?.context(ms || {})) return 'private';
+    // A structured private contract is authoritative; prose such as "erkundet" is not a charter cue.
+    if (ms?.privateOuting?.schema === 'private-outing.v1' && ms.privateOuting.taskDomain === 'private_outing') return 'private';
     const t = normalizeMissionText(ms?.t || ms?.title || '');
     const s = normalizeMissionText(ms?.s || ms?.story || '');
     const all = `${t} ${s}`;
@@ -8825,7 +8834,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9441,7 +9450,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = state.currentMissionData?.privateOuting?.writerVersion === 'private-v6'
+    state.mStory = (state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -10067,6 +10076,7 @@ const MISSION_GENERATION_PROGRESS_PHASES = [
     { test: phase => phase.startsWith('poi_mission_truth'), start: 49, done: 54, label: 'Fixiere Missionsziel und sichtbare Hinweise...', doneLabel: 'Missionsziel fixiert.' },
     { test: phase => phase === 'sar_heli_hospital_resolve', start: 55, done: 60, label: 'Suche Klinik- und Helipad-Ziel...', doneLabel: 'SAR-Heli-Ziel vorbereitet.' },
     { test: phase => phase === 'planner_v4_direct', start: 61, done: 66, label: 'Bereite Missionsrahmen und Kontext vor...', doneLabel: 'Missionsrahmen vorbereitet.' },
+    { test: phase => phase === 'mission_proposals', start: 15, done: 60, label: 'Bereite drei Missionsvorschläge vor...', doneLabel: 'Drei Missionsvorschläge vorbereitet.' },
     { test: phase => phase === 'planner_v4_fallback_v2', start: 62, done: 67, label: 'Pipeline V4 nutzt V2-Fallback...', doneLabel: 'Fallback-Planung abgeschlossen.' },
     { test: phase => phase === 'planner_v4_error_fallback_v2', start: 62, done: 67, label: 'Pipeline V4 Fehler: V2 plant Ersatzauftrag...', doneLabel: 'Ersatzplanung abgeschlossen.' },
     { test: phase => phase === 'planner_v3_tools', start: 61, done: 66, label: 'Pipeline V3 plant Kontext-Tools...', doneLabel: 'Pipeline V3 Planung abgeschlossen.' },
@@ -10078,6 +10088,7 @@ const MISSION_GENERATION_PROGRESS_PHASES = [
     { test: phase => phase === 'mission_content', start: 74, done: 76, label: 'Bereite Missionsinhalt vor...', doneLabel: 'Missionsinhalt vorbereitet.' },
     { test: phase => phase === 'private_story', start: 77, done: 84, label: 'Bereite Privatbriefing vor...', doneLabel: 'Privatbriefing geschrieben.' },
     { test: phase => phase === 'private_idea_v6', start: 77, done: 80, label: 'Privat-Planner V6 entwickelt eure Ausflugsidee...', doneLabel: 'Ausflugsidee entwickelt.' },
+    { test: phase => phase === 'private_return_writer', start: 81, done: 84, label: 'Private Return Writer V1 erzählt eure Heimreise...', doneLabel: 'Heimreisebriefing geschrieben.' },
     { test: phase => phase === 'private_writer_v6', start: 81, done: 84, label: 'Episode Writer V6 schreibt euer Briefing...', doneLabel: 'Privatbriefing geschrieben.' },
     { test: phase => phase === 'private_idea_v5', start: 77, done: 80, label: 'Privat-Planner V5 entwickelt eure Ausflugsidee...', doneLabel: 'Ausflugsidee entwickelt.' },
     { test: phase => phase === 'private_writer_v5', start: 81, done: 84, label: 'Privat-Writer V5 schreibt euer Briefing...', doneLabel: 'Privatbriefing geschrieben.' },
@@ -16179,6 +16190,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         'medical_transfer',
         'news_coverage',
         'private_outing',
+        'private_return',
         'sightseeing_tour',
         'poi_learning_guide',
         'historian_guided_tour',
@@ -17237,7 +17249,9 @@ function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
 }
 
 function personalizeAptCharterMission(mission = null, context = {}, preferredPersona = null) {
+    if (window.MissionPrivateReturnCore?.context(mission || {})) return mission;
     if (!mission || typeof mission !== 'object') return mission;
+    if (mission.privateOuting?.schema === 'private-outing.v1' && mission.privateOuting.taskDomain === 'private_outing') return mission;
     const m = { ...mission };
     const passenger = buildCharterPassenger(m.passenger || null, preferredPersona);
     const storyKey = Object.prototype.hasOwnProperty.call(m, 'story') ? 'story' : 's';
@@ -21716,6 +21730,8 @@ function _pickClubUtilityPassengerForCargo(profile = null, cargoText = '', missi
 }
 
 function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText, dispatchContext = null) {
+    if (!isPOI && profileId === 'private_return' && window.MissionPrivateReturnCore?.context(mission || {}))
+        return { mission, appliedProfile: 'private_return', paxText: mission.pax, cargoText: mission.cargo };
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     if (!isPOI && m.privateOuting?.schema === 'private-outing.v1' && ['auto', 'private_outing'].includes(profileId)) {
         return { mission: m, paxText: m.pax, cargoText: m.cargo, appliedProfile: 'private_outing' };
@@ -23287,6 +23303,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 }
 
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
+    if (!isPOI && profileId === 'private_return') return !!window.MissionPrivateReturnCore?.context(missionLike || {});
     if (!isPOI && profileId === 'private_outing' && missionLike?.privateOuting?.schema === 'private-outing.v1') return true;
     const id = String(profileId || 'auto').toLowerCase();
     if (!id || id === 'auto') return true;
@@ -39012,17 +39029,60 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     };
 }
 
+async function fetchPrivateReturnStory(context = {}) {
+    const core = window.MissionPrivateReturnCore;
+    const contract = context.missionContractV4;
+    const seed = context.followupSeed;
+    const pipeline = core?.pipeline(seed, context);
+    if (!pipeline) throw new Error('Die private Heimreise hat keinen gültigen Fortsetzungsvertrag.');
+    let prose = null;
+    if (context.aiModeEnabled) {
+        context.onPrivateStoryPhase?.('writer', 'v6');
+        const response = await fetchGeminiJsonWithFallback(core.prompt(pipeline.privateReturn, contract), getSelectedAiApiKey(), {
+            promptVersion: 'mission-private-return-v1', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 20000
+        });
+        prose = core.prose(response?.parsed, pipeline.privateReturn, contract);
+        if (!prose) throw new Error('Der Erlebnisrückblick für die Heimreise konnte nicht vollständig erstellt werden. Das Rückflugangebot bleibt verfügbar.');
+    }
+    const result = core.mission(seed, context, prose);
+    if (!result) throw new Error('Die Heimreise passt nicht mehr zum Flugrahmen.');
+    const m = result.mission;
+    Object.assign(contract, { privateReturn: m.privateReturn, followUpContext: m.followUpContext,
+        passenger: m.passenger, paxText: m.pax, cargoText: m.cargo, passengerCount: 1, plannedPassengerCount: 1,
+        taskDomain: 'private_return', storyFrame: m.followUpContext.storyFrame });
+    if (contract.missionPlan?.plan) Object.assign(contract.missionPlan.plan, {
+        taskDomain: 'private_return', primaryObjective: m.t, storyFrame: contract.storyFrame,
+        privateReturn: m.privateReturn, cargoText: m.cargo, localFacts: [], weatherHooks: [],
+        narrativeHooks: prose ? [prose.continuity.experienceRecap.summary] : [], operationalDetails: [], mustMention: []
+    });
+    m._missionContractV4 = contract;
+    m._missionWriterV4Debug = { source: 'Private Return Writer V1', writerMode: 'private-return-v1',
+        promptRevision: 'v1', taskDomain: 'private_return', writerAccepted: !!prose,
+        rawAiStory: prose?.story || '', writerStory: m.s, storyChangedByFinalize: false,
+        flightBriefing: prose?.flightBriefing || '', sourceMissionId: m.privateReturn.sourceMissionId,
+        sourceCompletionId: m.privateReturn.sourceCompletionId, experienceRecap: m.privateReturn.experienceRecap };
+    return m;
+}
+
 async function fetchPrivateOutingStory(context = {}) {
     const v6 = window.MissionPrivateEpisodeV6?.mode(localStorage) === 'v6';
     const coreApi = v6 ? window.MissionPrivateEpisodeV6 : window.MissionPrivateOutingCore;
     const contract = context.missionContractV4;
-    const input = coreApi.frame(contract, v6 ? coreApi.recent(localStorage) : coreApi.history(localStorage));
+    const recent = v6 ? coreApi.recent(localStorage) : coreApi.history(localStorage);
+    const selected = contract.privateProposal;
+    if (selected && !v6) throw new Error('Diese Ausflugsauswahl benötigt Privat-Writer V6. Bitte V6 aktivieren oder neue Vorschläge erstellen.');
+    const planned = selected ? coreApi.selectedProposal(selected, contract, recent) : null;
+    if (selected && !planned) throw new Error('Die gewählte Ausflugsidee passt nicht mehr zum Flugrahmen. Bitte neue Vorschläge erstellen.');
+    const input = planned?.input || coreApi.frame(contract, recent);
     const writerLabel = v6 ? 'Episode Writer V6 Privat' : 'Story Planner V5 Privat';
     const apiKey = getSelectedAiApiKey();
-    const options = { promptVersion: v6 ? 'mission-writer-private-v6-2-2' : 'mission-writer-private-v5-7', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 16000 };
-    context.onPrivateStoryPhase?.('idea', v6 ? 'v6' : 'v5');
-    const ideaResult = await fetchGeminiJsonWithFallback(coreApi.ideaPrompt(input), apiKey, options);
-    const idea = coreApi.validateIdea(ideaResult?.parsed, input);
+    const options = { promptVersion: v6 ? 'mission-writer-private-v6-3' : 'mission-writer-private-v5-7', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 16000 };
+    let ideaResult = null;
+    if (!planned) {
+        context.onPrivateStoryPhase?.('idea', v6 ? 'v6' : 'v5');
+        ideaResult = await fetchGeminiJsonWithFallback(coreApi.ideaPrompt(input), apiKey, options);
+    }
+    const idea = planned?.idea || coreApi.validateIdea(ideaResult?.parsed, input);
     if (!idea) throw new Error('Die private Ausflugsidee konnte nicht vollständig erstellt werden. Bitte erneut generieren.');
     context.onPrivateStoryPhase?.('writer', v6 ? 'v6' : 'v5');
     const written = await fetchGeminiJsonWithFallback(coreApi.writerPrompt(idea, input), apiKey, options);
@@ -39055,6 +39115,7 @@ async function fetchPrivateOutingStory(context = {}) {
     // Replace narrative fields together; preserve the existing A-B runtime contract.
     Object.assign(contract, { privateOuting: idea, passenger, cargoText: cargo,
         paxText: pax, plannedPassengerCount: 1, passengerCount: 1, storyFrame });
+    delete contract.privateProposal; // Pending evidence is not duplicated in the saved mission.
     const plan = contract.missionPlan?.plan;
     if (plan) Object.assign(plan, { privateOuting: idea, primaryObjective: idea.occasion,
         storyFrame, cargoText: cargo, narrativeHooks: [idea.personalReason, idea.destinationConnection],
@@ -39069,7 +39130,8 @@ async function fetchPrivateOutingStory(context = {}) {
         _requestedProfile: 'private_outing', _appliedProfile: 'private_outing',
         _missionPlanV2: context.missionPlanV2 || null, _missionPlanV4: contract, _missionContractV4: contract,
         _source: `${written?.source || ideaResult?.source || 'KI'} + ${writerLabel}${prose ? '' : ' (Ideentext-Fallback)'}`,
-        _missionWriterV4Debug: { source: writerLabel, writerMode: v6 ? 'private-v6' : 'private-v5', promptRevision: v6 ? 'v6.2.2' : 'v5.7',
+        _missionWriterV4Debug: { source: writerLabel, writerMode: v6 ? 'private-v6' : 'private-v5', promptRevision: v6 ? 'v6.3' : 'v5.7',
+            ideaSource: selected ? 'private-picker' : 'private-planner', proposalRevision: selected?.revision || null,
             flightBriefingStatus: v6 ? prose?.flightBriefingStatus || 'unavailable' : 'legacy',
             flightBriefing: v6 ? prose?.flightBriefing || '' : '',
             rawFlightBriefing: v6 ? written?.parsed?.flightBriefing || '' : '',
@@ -39078,7 +39140,8 @@ async function fetchPrivateOutingStory(context = {}) {
             taskDomain: 'private_outing', writerAccepted: !!prose, rawAiStory: written?.parsed?.story || '',
             rawGreeting: written?.parsed?.greeting || null, finalGreeting: passenger.greetingText,
             writerStory: story, storyChangedByFinalize: !prose, fallbackReason: prose ? '' : 'private_prose_unavailable',
-            privateOuting: idea, historyCount: input.recent.length, destinationFactCount: input.facts.length,
+            privateOuting: idea, historyCount: selected?.historyCount ?? input.recent.length,
+            writerHistoryCount: input.recent.length, destinationFactCount: input.facts.length,
             regionDiscovery: contract.privateRegionContext?.stats || null }
     };
 }
@@ -41095,6 +41158,9 @@ function missionProposalPoiOptionLine(target = {}, profileId = '') {
 }
 
 function missionProposalFamilyIntro(choices = []) {
+    if (choices.length && choices.every(choice => choice.privateProposal?.schema === 'private-proposal.v1')) {
+        return 'Wähle euren Ausflug. Anlass, Begleitung und Gepäck bleiben erhalten; danach entsteht das vollständige Briefing mit dem aktuellen Flug- und Wetterausblick.';
+    }
     const profile = String(choices?.[0]?.profileId || '').toLowerCase();
     const mode = String(choices?.[0]?.mode || '').toLowerCase();
     if (mode === 'apt') {
@@ -41728,6 +41794,45 @@ function missionProposalAptChoiceText(config = {}, params = {}) {
     };
 }
 
+async function buildPrivateMissionProposalChoices(airports, context = {}) {
+    const core = window.MissionPrivateEpisodeV6;
+    const geography = window.MissionPrivateContextCore;
+    if (!core?.proposalPrompt || !geography) throw new Error('Privat-Planner nicht vollständig geladen. Bitte die App aktualisieren.');
+    if (airports.length !== 3) throw new Error('Für die Ausflugsauswahl wurden keine drei passenden Flugplätze gefunden. Bitte den Suchbereich erweitern.');
+    const key = getSelectedAiApiKey();
+    if (!key) throw new Error('Für die drei Ausflugsideen wird ein KI-API-Key benötigt.');
+    const recent = core.recent(localStorage);
+    const candidates = await Promise.all(airports.map(async (airport, index) => {
+        const target = missionProposalCompactTarget(airport, 'apt');
+        const region = await geography.resolveBrowser({ name: target.n, lat: target.lat, lon: target.lon });
+        const route = missionProposalFormatRoute(context.start, airport, 'apt');
+        const input = core.frame({ target: { name: target.n, lat: target.lat, lon: target.lon },
+            route: { startIcao: currentStartICAO || '', startName: String(context.start?.n || ''),
+                targetIcao: target.icao, targetName: target.n, distanceNm: Math.round(route.nav.dist * 10) / 10 },
+            knowledgeContext: geography.knowledge(region), privateRegionContext: region }, recent);
+        return { id: `private-${index + 1}`, target, input, routeLabel: route.label, stats: region.stats };
+    }));
+    context.ensureAlive?.();
+    const response = await fetchGeminiJsonWithFallback(core.proposalPrompt(candidates, recent), key,
+        { promptVersion: 'mission-private-picker-v6-3', timeoutMs: 40000 });
+    context.ensureAlive?.();
+    const proposals = core.proposals(response?.parsed, candidates);
+    if (!proposals) throw new Error('Die drei Ausflugsideen konnten nicht vollständig erstellt werden. Bitte erneut Vorschläge anfordern.');
+    return proposals.map(proposal => {
+        const candidate = candidates.find(row => row.id === proposal.candidateId);
+        const idea = proposal.idea;
+        return normalizeMissionProposalChoice({
+            id: `${proposal.candidateId}-${Date.now()}`, mode: 'apt', profileId: 'private_outing',
+            selectedCategory: 'private', requestedCategory: context.selectedAptCategory || 'private',
+            target: candidate.target, title: proposal.title, subtitle: `Mit ${idea.companion.name} nach ${idea.targetName}`,
+            description: idea.occasion, locationLabel: missionProposalAirportLocationLabel(candidate.target),
+            routeLabel: candidate.routeLabel, cargoText: `${idea.luggage.label} (${idea.luggage.weightLbs} lbs)`,
+            paxText: `1 PAX (${idea.companion.relationship})`, storySeed: idea.occasion,
+            privateProposal: core.proposalSnapshot(candidate, idea)
+        });
+    });
+}
+
 async function buildMissionProposalAptChoices(context = {}) {
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
     const config = missionProposalAptProfileConfig(profileId);
@@ -41759,6 +41864,9 @@ async function buildMissionProposalAptChoices(context = {}) {
         seen.add(key);
         return true;
     }).slice(0, 3);
+    if (profileId === 'private_outing' && context.aiModeEnabled && window.MissionPrivateEpisodeV6?.mode(localStorage) === 'v6') {
+        return buildPrivateMissionProposalChoices(airports, context);
+    }
     const cargoPool = Array.isArray(profile.cargoPool) && profile.cargoPool.length
         ? profile.cargoPool
         : [config.fallbackCargo || 'Auftragsgepäck (12 lbs)'];
@@ -42050,6 +42158,7 @@ function applyMissionProposalChoiceToMissionContractV4(contract = null, choice =
     if (!contract || typeof contract !== 'object' || !selected) return contract;
     const compact = compactMissionProposalChoice(selected);
     contract.selectedMissionProposal = compact;
+    if (selected.profileId === 'private_outing' && selected.privateProposal) contract.privateProposal = selected.privateProposal;
     const cargoText = String(selected.cargoText || '').trim();
     const targetName = String(selected.target?.n || selected.target?.name || contract.route?.targetName || contract.target?.name || 'Ziel').trim();
     if (selected.profileId) {
@@ -42384,12 +42493,12 @@ async function generateMission(options = {}) {
         ? (window.missionInfraPickerValueForFollowup(followupSeed) || (followupDispatchProfileId
             ? (followupDispatchProfileId === 'apt_charter' || followupDispatchProfileId === 'apt_charter_pickup'
                 ? 'apt:charter'
-                : `bush:all+${followupDispatchProfileId}`)
+                : followupDispatchProfileId === 'private_return' ? 'apt:private+private_return' : `bush:all+${followupDispatchProfileId}`)
             : ''))
         : (followupDispatchProfileId
         ? (followupDispatchProfileId === 'apt_charter' || followupDispatchProfileId === 'apt_charter_pickup'
             ? 'apt:charter'
-            : `bush:all+${followupDispatchProfileId}`)
+            : followupDispatchProfileId === 'private_return' ? 'apt:private+private_return' : `bush:all+${followupDispatchProfileId}`)
         : '');
     const targetType = followupPickerValue || requestedPickerValueAtStart, dirPref = document.getElementById("dirPref").value;
     const missionPicker = parseMissionPickerValue(targetType);
@@ -42522,6 +42631,7 @@ async function generateMission(options = {}) {
         searchMax = Math.min(22, Math.max(searchMin + 2, Math.round(maxNM * 0.35)));
     }
 
+    const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
     const proposalPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
     if (missionProposalIsEligible({
         missionProposalChoice,
@@ -42537,6 +42647,7 @@ async function generateMission(options = {}) {
         indicator.innerText = 'Vorschlagsmodus: passende Aufträge werden gesucht...';
         const proposalChoices = await dispatchMeasure('mission_proposals', async () => buildMissionProposalChoices({
             start,
+            aiModeEnabled,
             effectiveType,
             dispatchProfileId,
             selectedAptCategory,
@@ -42855,7 +42966,6 @@ async function generateMission(options = {}) {
         : 1;
     const poiAltitudeTerrainFt = resolvePoiAltitudeTerrainFt(poiTerrainFt, poiTerrainMaxFt);
     const missionWeather = { dep: depWeatherSnap, dest: destWeatherSnap };
-    const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
     let preMissionTargetGeoContext = null;
     let preMissionTruth = null;
     const shouldEagerPrefetchPoiContext = !!(
@@ -43054,11 +43164,22 @@ async function generateMission(options = {}) {
         indicator.innerText = 'Zielort-Infos werden geprüft...';
         try {
             if (String(dispatchProfileId || '').toLowerCase() === 'private_outing' && window.MissionPrivateContextCore) {
-                const region = await dispatchMeasure('private_region_context', () => window.MissionPrivateContextCore.resolveBrowser({
+                const selected = missionProposalChoice?.privateProposal;
+                const planned = selected ? window.MissionPrivateEpisodeV6?.selectedProposal(selected, {
+                    target: { name: dest.n, lat: Number(dest.lat), lon: Number(dest.lon) },
+                    route: { startIcao: currentStartICAO || '', startName: String(start?.n || ''), targetName: dest.n }
+                }) : null;
+                if (selected && !planned) throw new Error('Ausflugsauswahl passt nicht mehr zum Flugrahmen.');
+                const region = planned ? {
+                    schema: 'private-region.v1', ...planned.input.region,
+                    places: planned.input.facts.map(f => f.value), stats: { ...selected.stats, selectionReuse: true }
+                } : await dispatchMeasure('private_region_context', () => window.MissionPrivateContextCore.resolveBrowser({
                     name: dest.n, lat: Number(dest.lat), lon: Number(dest.lon)
                 }));
                 dest.privateRegionContext = region;
-                plannerKnowledgeContext = window.MissionPrivateContextCore.knowledge(region);
+                plannerKnowledgeContext = planned
+                    ? { status: planned.input.facts.length ? 'accept' : 'reject', facts: planned.input.facts.map(f => f.value) }
+                    : window.MissionPrivateContextCore.knowledge(region);
                 dest.knowledgeContext = plannerKnowledgeContext;
             } else {
             const aptSightseeingContext = await dispatchMeasure('apt_sightseeing_wiki_context', async () => (
@@ -43070,6 +43191,7 @@ async function generateMission(options = {}) {
             }
             }
         } catch (err) {
+            if (missionProposalChoice?.privateProposal) throw err;
             console.warn('[APT Sightseeing] Wiki context lookup failed', err);
         }
     }
@@ -43733,7 +43855,21 @@ async function generateMission(options = {}) {
             cargoText = followupDispatchMission.cargoText || cargoText;
             dataSource = followupDispatchMission.dataSource || 'Follow-up Dispatcher';
         }
-        if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
+        if (missionProposalChoice?.privateProposal && (!aiModeEnabled || !isMissionPipelineV4Enabled()
+            || missionContractV4?.status !== 'ready' || missionContractV4?.profile?.taskDomain !== 'private_outing')) {
+            throw new Error('Die gewählte Ausflugsidee benötigt den aktiven Privat-Planner mit bereitem V4-Rahmen. Bitte die Einstellungen prüfen und neue Vorschläge erstellen.');
+        }
+        if (followupDispatchProfileId === 'private_return') {
+            if (!followupDispatchMission?.mission) throw new Error('Die private Heimreise passt nicht mehr zu Start, Ziel oder Ursprungsmission.');
+            missionContractV4 = { ...(missionContractV4 || {}), status: 'ready',
+                profile: getMissionTaskProfile('private_return', 'apt'),
+                route: { startIcao: currentStartICAO, targetIcao: currentDestICAO, startName: start.n, targetName: dest.n, distanceNm: totalDist },
+                weather: _missionPipelineV3WeatherBundle(missionWeather),
+                followUpContext: plannerFollowUpContext, privateReturn: followupSeed.privateReturn };
+            setMissionGenerationProgress('private_return_writer');
+            m = await fetchPrivateReturnStory({ missionContractV4, followupSeed, start, dest, aiModeEnabled });
+            missionContractV4 = m._missionContractV4;
+        } else if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
             const writerMode = getMissionWriterMode();
             const writerProfile = getMissionTaskProfile(missionContractV4?.profile?.id || dispatchProfileId || 'auto', isPOI ? 'poi' : 'apt') || null;
             let writerCargoText = cargoText;
@@ -44484,6 +44620,7 @@ async function generateMission(options = {}) {
         story: m.s,
         missionStory: m.s,
         privateOuting: m.privateOuting || null,
+        privateReturn: m.privateReturn || null,
         dist: totalDist,
         ac: selectedAC,
         heading: nav.brng,

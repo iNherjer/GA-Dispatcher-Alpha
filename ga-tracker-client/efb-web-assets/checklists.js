@@ -2059,7 +2059,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
             }
             return _context2.a(2, []);
           case 1:
-            src = `https://aviationweather.gov/api/data/metar?bbox=${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon}&format=json&t=${Date.now()}`;
+            src = `https://aviationweather.gov/api/data/metar?bbox=${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon}&format=json`;
             _context2.n = 2;
             return fetchJson(`${ROUTE_TOOLS_PROXY}/api/metar?src=${encodeURIComponent(src)}`, signal);
           case 2:

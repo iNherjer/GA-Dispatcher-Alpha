@@ -4406,9 +4406,16 @@ window.vpBuildWeatherDebugReport = function() {
             if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
             if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
             if (storyBits.length) lines.push(`- Story-Debug: ${storyBits.join(' | ')}`);
+            if (sd.taskDomain === 'private_return') {
+                lines.push(`- Private Heimreise: ${flattenText(sd.sourceMissionId, 120)} | Abschluss=${flattenText(sd.sourceCompletionId, 160)}`);
+                lines.push(`- Privat-Erlebnis: ${flattenText(sd.experienceRecap?.summary, 500)}`);
+                lines.push(`- Privat-Reaktion: ${flattenText(sd.experienceRecap?.companionReaction, 300)}`);
+            }
             if (sd.privateOuting?.schema === 'private-outing.v1') {
                 const idea = sd.privateOuting;
                 lines.push(`- Privat-Planner: ${flattenText(sd.promptRevision, 30)} | History=${Number(sd.historyCount || 0)} | Ortsfakten=${Number(sd.destinationFactCount || 0)}`);
+                if (sd.ideaSource) lines.push(`- Privat-Ideenquelle: ${flattenText(sd.ideaSource, 50)}${sd.proposalRevision ? ` | Picker=${flattenText(sd.proposalRevision, 30)}` : ''}`);
+                if (sd.writerHistoryCount !== undefined) lines.push(`- Privat-Writer-History: ${Number(sd.writerHistoryCount || 0)}`);
                 if (sd.memoryStatus) lines.push(`- Privat-Erinnerung: ${flattenText(sd.memoryStatus, 50)} | ${flattenText(idea.writerMemory?.summary, 240)}`);
                 lines.push(`- Privat-Idee: ${flattenText(idea.occasion, 600)}`);
                 lines.push(`- Privat-Ortsanker: ${flattenText(idea.creativeBasis?.realAnchor, 400)}`);

@@ -1272,3 +1272,12 @@ Wenn wir eine neue Mission bauen, sollte die Kernfrage immer sein:
 
 Wenn wir darauf eine klare Antwort haben, bauen wir schnell und relativ sicher.
 Wenn nicht, brauchen wir zuerst einen kleinen Kern-Refactor statt noch einer Sonderbehandlung.
+
+## Private Heimreise aus einer abgeschlossenen Episode
+
+`private_return` erweitert das vorhandene APT-Arrival-Rezept um einen eigenen
+Fortsetzungsvertrag. Es ist kein neues Runtime-Rezept und kein zufällig wählbares
+Ausflugsprofil. Implementierung, Triggervergleich und Tests: [Mission Private
+Return V1](Mission%20Private%20Return%20V1.md). Neue Fortsetzungen sollen dieselbe
+Trennung von belegtem Missionsabschluss, fiktionalem Aufenthalt und gemeinsamem
+Writer-/Voice-Rückblick nutzen.

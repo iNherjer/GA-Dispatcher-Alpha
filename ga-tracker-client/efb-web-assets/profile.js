@@ -4528,7 +4528,7 @@ function _fetchRouteWeatherMetar() {
                       fromCache: true
                     });
                   case 1:
-                    url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json&t=${Date.now()}`;
+                    url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json`;
                     _context25.n = 2;
                     return safeFetchMetarJson(url, retries);
                   case 2:
@@ -4687,7 +4687,7 @@ function _fetchRouteWeatherMetar() {
                         case 4:
                           vpMetarPrefetchInFlight.add(_d3.key);
                           _context27.p = 5;
-                          url = `https://aviationweather.gov/api/data/metar?bbox=${_d3.minLat},${_d3.minLon},${_d3.maxLat},${_d3.maxLon}&format=json&t=${Date.now()}`;
+                          url = `https://aviationweather.gov/api/data/metar?bbox=${_d3.minLat},${_d3.minLon},${_d3.maxLat},${_d3.maxLon}&format=json`;
                           _context27.n = 6;
                           return safeFetchMetarJson(url, 1);
                         case 6:
@@ -6052,7 +6052,7 @@ window.vpBuildWeatherDebugReport = function () {
   if (!missionSnap) {
     lines.push('- (keine aktive Mission oder noch kein Snapshot)');
   } else {
-    var _missionSnap$contract, _missionSnap$contract2, _window$isMissionPipe, _window, _missionSnap$contract3, _missionSnap$contract4, _missionSnap$contract5, _missionSnap$contract6, _missionSnap$contract7, _missionSnap$contract8, _missionSnap$targetSc, _missionSnap$contract9;
+    var _missionSnap$contract, _missionSnap$contract2, _window$isMissionPipe, _window, _missionSnap$storyDeb, _missionSnap$contract3, _missionSnap$contract4, _missionSnap$contract5, _missionSnap$contract6, _missionSnap$contract7, _missionSnap$contract8, _missionSnap$targetSc, _missionSnap$contract9;
     var p = missionSnap.passenger || {};
     lines.push(`- Zeit: ${vpFormatDebugTs(missionSnap.ts)}`);
     lines.push(`- Modus/Kategorie: ${missionSnap.mode || '?'} / ${missionSnap.category || '?'}`);
@@ -6127,7 +6127,7 @@ window.vpBuildWeatherDebugReport = function () {
     lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
     var pipelineMode = String(missionSnap.missionPipelineMode || (window.getMissionPipelineMode ? window.getMissionPipelineMode() : (_window$isMissionPipe = (_window = window).isMissionPipelineV2Enabled) !== null && _window$isMissionPipe !== void 0 && _window$isMissionPipe.call(_window) ? 'v2' : 'v3')).toUpperCase();
     lines.push(`- Mission Pipeline: ${pipelineMode}`);
-    var writerMode = String(missionSnap.missionWriterMode || (window.getMissionWriterMode ? window.getMissionWriterMode() : '') || '').toUpperCase();
+    var writerMode = String(((_missionSnap$storyDeb = missionSnap.storyDebug) === null || _missionSnap$storyDeb === void 0 ? void 0 : _missionSnap$storyDeb.writerMode) || missionSnap.missionWriterMode || (window.getMissionWriterMode ? window.getMissionWriterMode() : '') || '').toUpperCase();
     if (writerMode) lines.push(`- Mission Writer: ${writerMode}`);
     var poiChainDebug = window.gaPoiChainDebug && typeof window.gaPoiChainDebug === 'object' ? window.gaPoiChainDebug : {};
     var poiChainForce = typeof window.getPoiChainDebugForceValue === 'function' ? window.getPoiChainDebugForceValue() : '';
@@ -6216,6 +6216,7 @@ window.vpBuildWeatherDebugReport = function () {
     lines.push(`- POI-Parameter: alt=${Number(p.targetAltFt || 0)} ft | radius=${Number(p.targetRadiusNm || 0)} NM | dwell=${Number(p.targetDwellMin || 0)} min`);
     if (missionSnap.story) lines.push(`- Story: ${String(missionSnap.story).replace(/\s+/g, ' ').trim()}`);
     if (missionSnap.storyDebug && typeof missionSnap.storyDebug === 'object') {
+      var _sd$privateOuting;
       var sd = missionSnap.storyDebug;
       var storyBits = [];
       if (sd.source) storyBits.push(`source=${String(sd.source)}`);
@@ -6236,6 +6237,26 @@ window.vpBuildWeatherDebugReport = function () {
       if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
       if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
       if (storyBits.length) lines.push(`- Story-Debug: ${storyBits.join(' | ')}`);
+      if (sd.taskDomain === 'private_return') {
+        var _sd$experienceRecap, _sd$experienceRecap2;
+        lines.push(`- Private Heimreise: ${flattenText(sd.sourceMissionId, 120)} | Abschluss=${flattenText(sd.sourceCompletionId, 160)}`);
+        lines.push(`- Privat-Erlebnis: ${flattenText((_sd$experienceRecap = sd.experienceRecap) === null || _sd$experienceRecap === void 0 ? void 0 : _sd$experienceRecap.summary, 500)}`);
+        lines.push(`- Privat-Reaktion: ${flattenText((_sd$experienceRecap2 = sd.experienceRecap) === null || _sd$experienceRecap2 === void 0 ? void 0 : _sd$experienceRecap2.companionReaction, 300)}`);
+      }
+      if (((_sd$privateOuting = sd.privateOuting) === null || _sd$privateOuting === void 0 ? void 0 : _sd$privateOuting.schema) === 'private-outing.v1') {
+        var _idea$writerMemory, _idea$creativeBasis, _idea$creativeBasis2, _idea$groundPlan$plac;
+        var idea = sd.privateOuting;
+        lines.push(`- Privat-Planner: ${flattenText(sd.promptRevision, 30)} | History=${Number(sd.historyCount || 0)} | Ortsfakten=${Number(sd.destinationFactCount || 0)}`);
+        if (sd.ideaSource) lines.push(`- Privat-Ideenquelle: ${flattenText(sd.ideaSource, 50)}${sd.proposalRevision ? ` | Picker=${flattenText(sd.proposalRevision, 30)}` : ''}`);
+        if (sd.writerHistoryCount !== undefined) lines.push(`- Privat-Writer-History: ${Number(sd.writerHistoryCount || 0)}`);
+        if (sd.memoryStatus) lines.push(`- Privat-Erinnerung: ${flattenText(sd.memoryStatus, 50)} | ${flattenText((_idea$writerMemory = idea.writerMemory) === null || _idea$writerMemory === void 0 ? void 0 : _idea$writerMemory.summary, 240)}`);
+        lines.push(`- Privat-Idee: ${flattenText(idea.occasion, 600)}`);
+        lines.push(`- Privat-Ortsanker: ${flattenText((_idea$creativeBasis = idea.creativeBasis) === null || _idea$creativeBasis === void 0 ? void 0 : _idea$creativeBasis.realAnchor, 400)}`);
+        lines.push(`- Privat-Fiktion: ${flattenText((_idea$creativeBasis2 = idea.creativeBasis) === null || _idea$creativeBasis2 === void 0 ? void 0 : _idea$creativeBasis2.fictionalPart, 400)}`);
+        if (idea.groundPlan) lines.push(`- Privat-Bodenplan: ${flattenText(((_idea$groundPlan$plac = idea.groundPlan.place) === null || _idea$groundPlan$plac === void 0 ? void 0 : _idea$groundPlan$plac.name) || 'ohne benannten Ortsanker', 160)} | ${flattenText(idea.groundPlan.intent, 400)} | ${flattenText(idea.groundPlan.transferPlan, 300)}`);
+        if (sd.regionDiscovery) lines.push(`- Privat-Umgebung: ${flattenText(JSON.stringify(sd.regionDiscovery), 500)}`);
+        if (idea.eventVisit) lines.push(`- Privat-Termin: Anflug=${idea.eventVisit.arrivalDate} | Veranstaltung=${idea.eventVisit.eventDate} | ${flattenText(idea.eventVisit.stayPlan, 400)}`);
+      }
       if (sd.effectiveSource && sd.effectiveSource !== sd.source) {
         lines.push(`- Story effektive Quelle: ${flattenText(sd.effectiveSource, 320)}`);
       }

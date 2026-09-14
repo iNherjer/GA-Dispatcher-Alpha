@@ -97,6 +97,7 @@ class StubElement {
       }
     };
   }
+  append(...children) { children.forEach(child => this.appendChild(child)); }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
   prepend(child) { this.children.unshift(child); return child; }
   remove() {}
@@ -2599,8 +2600,15 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
           throw err;
         }
       }
+      if (prompt.startsWith('Du schreibst ein persönliches Vorflugbriefing für eine private Heimreise.')) {
+        const values = JSON.parse(prompt.match(/^WERTE: (.*)$/m)[1]);
+        const refs = ['route.distance','start.gust','target.gust'].filter(k => values[k]).map(k => `[[${k}]]`);
+        const payload = {title:'Das Motiv gefunden', experienceRecap:{summary:'Gemeinsam das Familienmotiv wiedergefunden',moments:['Das alte Bild mit dem heutigen Blick verglichen'],companionReaction:'Nils freut sich über das neue Foto.'}, story:'Ihr habt das Motiv gefunden und das alte Bild mit dem heutigen Blick verglichen. Nils hat das neue Foto sicher in der Tasche, während ihr den Rückflug vorbereitet.', greeting:{speaker:'companion',addressee:'pilot',text:'Das neue Foto passt wirklich gut zu dem alten.'}, flightBriefing:`Der Flugausblick für die Heimreise: ${refs.join(', ')}.`};
+        return responseJson({candidates:[{content:{parts:[{text:JSON.stringify(payload)}]}}]});
+      }
       if ((prompt.startsWith('Entwickle eine originelle, plausible private Fluggeschichte') || prompt.startsWith('PRIVATE EPISODE V6 — Idee'))) {
-        const frame = JSON.parse(prompt.split('RAHMEN: ')[1]);
+        const pickerFrames = prompt.includes('AUSWAHLMODUS:') ? JSON.parse(prompt.match(/^RAHMEN: (.*)$/m)[1]) : null;
+        const frame = pickerFrames ? pickerFrames[0] : JSON.parse(prompt.split('RAHMEN: ')[1]);
         const payload = {
           episode: { situation: 'Ein Foto ist wieder aufgetaucht', sharedIntent: 'Gemeinsam Motiv finden', flightRole: 'Gemeinsame Reise' },
           targetName: frame.targetName, eventVisit: null, groundPlan: {factId:null,intent:'Foto nachstellen',transferPlan:'Gemeinsam das Motiv suchen'},
@@ -2614,7 +2622,8 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
           companion: { name: 'Nils Faber', relationship: 'alter Freund', personality: 'neugierig, herzlich, trocken', gender: 'male' },
           luggage: { label: 'Kameratasche mit Familienfoto', weightLbs: 9 }
         };
-        return responseJson({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] });
+        const reply = pickerFrames ? { proposals: pickerFrames.map(f => ({ candidateId: f.candidateId, title: 'Gemeinsame Motivsuche', idea: { ...payload, targetName: f.targetName } })) } : payload;
+        return responseJson({ candidates: [{ content: { parts: [{ text: JSON.stringify(reply) }] } }] });
       }
       if ((prompt.startsWith('Du erzählst dem Piloten als Vereinskollege') || prompt.startsWith('PRIVATE EPISODE V6 — Erzählung'))) {
         const payload = { memory: {schema:'episode-memory.v1',summary:'Nils und Pilot suchen ein Familienmotiv',activity:'Motivsuche',motivation:'Erinnerung',flightRole:'Anreise',relationshipDynamic:'gemeinsam suchen',opening:'Fund eines Fotos',rhythm:'drei gleich lange Sätze',ending:'offener Spaziergang',distinctivePhrase:'Für einen Spaziergang bleibt der Rest des Tages frei.'}, title: 'Ein Foto später', story: 'Nils hat das alte Familienfoto eingepackt und will mit dir das Motiv wiederfinden. Nach dem Flug sucht ihr gemeinsam die passende Perspektive. Für einen Spaziergang bleibt der Rest des Tages frei.', greeting: { speaker: 'companion', addressee: 'pilot', text: 'Das Foto habe ich dabei. Mal sehen, ob wir die Perspektive wiederfinden.' } };
@@ -2906,7 +2915,7 @@ async function wait(ms) {
 function promptRecords(prompts) {
   return prompts.map((p, index) => ({
     index: index + 1,
-    kind: (p.prompt.startsWith('Entwickle eine originelle, plausible private Fluggeschichte') || p.prompt.startsWith('PRIVATE EPISODE V6 — Idee')) ? 'private-idea'
+    kind: p.prompt.startsWith('Du schreibst ein persönliches Vorflugbriefing für eine private Heimreise.') ? 'private-return-writer' : p.prompt.includes('AUSWAHLMODUS:') ? 'private-picker' : (p.prompt.startsWith('Entwickle eine originelle, plausible private Fluggeschichte') || p.prompt.startsWith('PRIVATE EPISODE V6 — Idee')) ? 'private-idea'
       : (p.prompt.startsWith('Du erzählst dem Piloten als Vereinskollege') || p.prompt.startsWith('PRIVATE EPISODE V6 — Erzählung')) ? 'private-writer'
       : p.isScenePlannerV3
       ? (p.hasFunctionResponse ? 'scene-planner-v3-final' : 'scene-planner-v3-tool-call')
@@ -2927,7 +2936,7 @@ function promptRecords(prompts) {
   }));
 }
 
-async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY', totalSeats = 4, groupCapability = false, partyRandomValues = null, sharedLocalStorage = null, privateStoryCase = null, privateWriter = 'v6' }) {
+async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY', totalSeats = 4, groupCapability = false, partyRandomValues = null, sharedLocalStorage = null, privateStoryCase = null, privateWriter = 'v6', privatePicker = false, privateReturn = false }) {
   const { context, prompts } = setupContext(seed, { liveGemini, sharedLocalStorage });
   loadScript(context, 'datenbank.js');
   loadScript(context, 'missions.js');
@@ -2935,6 +2944,7 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
   loadScript(context, 'mission-private-context-core.js');
   loadScript(context, 'mission-private-outing-core.js');
   loadScript(context, 'mission-private-episode-v6.js');
+  loadScript(context, 'mission-private-return-core.js');
   loadScript(context, 'mission-definition-core.js');
   loadScript(context, 'mission-variety-core.js');
   loadScript(context, 'mission-arrival-core.js');
@@ -2950,6 +2960,7 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
   loadScript(context, 'aircraft-mission-profile-core.js');
   loadScript(context, 'airport-weather.js');
   loadScript(context, 'app.js');
+  if (privateReturn) loadScript(context, 'mission-followup.js');
   if (Array.isArray(partyRandomValues) && partyRandomValues.length) {
     context.__dryrunMissionPartyRandomValues = partyRandomValues.slice(0, 2);
     vm.runInContext(`
@@ -2996,6 +3007,7 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
   initUiForRun(context, targetType, { pipelineV2, pipelineV3, pipelineV4, apiKey, totalSeats });
 
   context.localStorage.setItem('ga_private_story_writer_version', privateWriter);
+  if (privatePicker) context.localStorage.setItem('ga_mission_proposal_mode_debug', '1');
 
   // Focused production story path with explicitly supplied, sourced geography.
   // Does not claim to exercise automatic destination research or the scene/runtime flow.
@@ -3010,6 +3022,51 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
   }
 
   await vm.runInContext('generateMission()', context);
+  if (privatePicker) {
+    const selection = vm.runInContext(`(() => {
+      const choices = gaMissionProposalPending?.choices || [];
+      if (choices.length !== 3 || !choices.every(c => c.privateProposal)) throw new Error('Three AI picker cards missing');
+      const historyBefore = MissionPrivateEpisodeV6.history(localStorage).length;
+      const selected = choices[1];
+      globalThis.__pickerExpected = { idea: selected.privateProposal.idea, historyBefore, choices: choices.length };
+      globalThis.__pickerCompletion = null;
+      const originalGenerate = generateMission;
+      generateMission = (...args) => (globalThis.__pickerCompletion = originalGenerate(...args));
+      return acceptMissionProposalChoice(selected.id);
+    })()`, context);
+    if (!selection) throw new Error('Picker selection failed');
+    await wait(50);
+    const completion = vm.runInContext('globalThis.__pickerCompletion', context);
+    if (!completion) throw new Error('Picker did not start dispatch');
+    await completion;
+    vm.runInContext(`(() => {
+      const expected = globalThis.__pickerExpected;
+      if (!currentMissionData?.privateOuting || currentMissionData.privateOuting.occasion !== expected.idea.occasion
+          || currentMissionData.privateOuting.targetName !== expected.idea.targetName
+          || window.activePassenger?.taskDomain !== 'private_outing'
+          || MissionPrivateEpisodeV6.history(localStorage).length !== expected.historyBefore + 1) throw new Error('Selected private mission/history changed');
+    })()`, context);
+  }
+  if (privateReturn) {
+    await vm.runInContext('acceptMissionDraft()', context);
+    await vm.runInContext(`(async () => {
+      const outbound = currentMissionData;
+      if (!outbound?.privateOuting) throw new Error('Return test needs generated private outing');
+      globalThis.__returnExpected = {name:outbound.passenger.name, role:outbound.passenger.role, home:outbound.start, visited:outbound.dest, history:MissionPrivateEpisodeV6.history(localStorage).length};
+      const record = {missionId:outbound.missionId,completionId:'fixture-completion-'+outbound.missionId,result:'completed',failed:false,endedAt:Date.now(),privateOutingEvidence:{flown:true,atTarget:true,groundStill:true}};
+      const result = missionFollowupMaybeCreateFromCompletedMission(outbound, {failed:false}, {completionRecord:record});
+      if (!result.created) throw new Error('Private follow-up not created: '+JSON.stringify(result));
+      // Exercise the real follow-up accept button path; the completed flight evidence above is a fixture.
+      const ok = await missionFollowupAcceptRequest(result.id);
+      if (!ok) throw new Error('Private return accept failed');
+      const expected = globalThis.__returnExpected;
+      if (currentMissionData.start !== expected.visited || currentMissionData.dest !== expected.home
+          || currentMissionData.passenger.name !== expected.name || currentMissionData.passenger.role !== expected.role
+          || currentMissionData.passenger.taskDomain !== 'private_return' || currentMissionData.bush
+          || !currentMissionData.privateReturn?.experienceRecap || currentMissionData.privateOuting
+          || MissionPrivateEpisodeV6.history(localStorage).length !== expected.history) throw new Error('Private return continuity drift');
+    })()`, context);
+  }
   await wait(900);
   await vm.runInContext('acceptMissionDraft()', context);
   const dispatchState = vm.runInContext(`(() => ({
@@ -3194,6 +3251,8 @@ function parseCliArgs(argv) {
       args.pipelineV3 = false;
     }
     else if (arg === '--live-gemini') args.liveGemini = true;
+    else if (arg === '--private-picker') args.privatePicker = true;
+    else if (arg === '--private-return') args.privateReturn = true;
     else if (arg.startsWith('--private-writer=')) args.privateWriter = arg.slice('--private-writer='.length);
     else if (arg.startsWith('--private-story-cases=')) args.privateStoryCases = arg.slice('--private-story-cases='.length);
     else if (arg === '--group-capability') args.groupCapability = true;
@@ -3335,7 +3394,9 @@ Options:
   --base=poi|apt|bush           Base mission type for --profile/--categories, default poi
   --variants                    Run built-in mixed variant set
   --live-gemini                 Use real Gemini API instead of dryrun stubs
+  --private-picker               Exercise three AI cards and selection with stubs only
   --private-writer=v5|v6       Private writer version (default v6)
+  --private-return             Stub-only outing -> completed fixture -> return dispatch
   --private-story-cases=FILE    Private idea/writer only; supplied contracts/facts, shared history
   --out=FILE.json               Write report under analysis/
   --help                        Show this help
@@ -3353,6 +3414,7 @@ async function main() {
     printUsage();
     return;
   }
+  if ((args.privatePicker || args.privateReturn) && args.liveGemini) throw new Error('Private picker dispatch test uses stubs only.');
   const apiKey = String(process.env.GEMINI_API_KEY || '').trim();
   if (args.liveGemini && !apiKey) {
     throw new Error('GEMINI_API_KEY fehlt. Lege ihn lokal in .env.local oder als Umgebungsvariable ab.');
@@ -3370,6 +3432,8 @@ async function main() {
     groupCapability: args.groupCapability,
     partyRandomValues: args.partyRandomValues,
     privateWriter: args.privateWriter || 'v6',
+    privatePicker: !!args.privatePicker,
+    privateReturn: !!args.privateReturn,
     apiKey: args.liveGemini ? apiKey : 'DRYRUN_KEY',
     sharedLocalStorage
   }));
