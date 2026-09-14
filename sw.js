@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1748';
+const CACHE = 'ga-dispatcher-v1756';
 
 const STATIC = [
     './',
@@ -33,6 +33,9 @@ const STATIC = [
     './map-autozoom.js',
     './map-terrain-avoid.js',
     './pax-audio-style.js',
+    './mission-private-outing-core.js',
+    './mission-private-episode-v6.js',
+    './mission-private-context-core.js',
     './mission-definition-core.js',
     './mission-variety-core.js',
     './mission-arrival-core.js',
@@ -170,7 +173,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
     e.waitUntil(
         caches.keys().then(keys =>
-            Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+            Promise.all(keys.filter(k => k !== CACHE && k !== 'private-region.v1').map(k => caches.delete(k)))
         ).then(() => self.clients.claim())
     );
 });

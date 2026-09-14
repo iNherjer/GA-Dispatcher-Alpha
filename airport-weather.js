@@ -378,7 +378,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
                     || icaoNorm
                 ).trim().toUpperCase();
             } else if (looksLikeIcao) {
-                const directUrl = `https://aviationweather.gov/api/data/metar?ids=${icaoNorm}&format=json&t=${Date.now()}`;
+                const directUrl = `https://aviationweather.gov/api/data/metar?ids=${icaoNorm}&format=json`;
                 const mainData = await _fetchMetarArrayViaVariants(directUrl, {
                     includeCodeTabs: true,
                     includeDirect: false,
@@ -393,7 +393,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
             if ((!metarDataList || metarDataList.length === 0) && hasCoordinates) {
                 const latMin = lat - 0.6, latMax = lat + 0.6;
                 const lonMin = lon - 0.8, lonMax = lon + 0.8;
-                const fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`;
+                const fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json`;
                 const fbData = await _fetchMetarArrayViaVariants(fbUrl, {
                     includeCodeTabs: true,
                     includeDirect: false,

@@ -1,5 +1,7 @@
 # Mission Semantics Rules V4
 
+Aktuelle private Erzählversion: [Mission Episode Writer V6](Mission%20Episode%20Writer%20V6.md). V5 bleibt als auswählbare Referenz erhalten; V6 ergänzt KI-verfasste JSON-Erinnerungen und eine freie Erzählform auf Basis einer strukturierten Episode.
+
 Diese Regeln gelten nur fuer die `V4`-Pipeline. `V3` bleibt unveraendert.
 
 Ziel:
@@ -130,6 +132,22 @@ Kontext darf nicht:
   weitere Gruppenmitglieder erhalten keine erfundenen Namen oder Nebenauftraege.
 - `club_utility` erzeugt keine Vereinsgruppe. Ein Vereinsausflug ist eine
   Charter-/Reise-Party und kein Utility-Einsatzzweck.
+
+### `private_outing`
+
+Ausführlicher Datenfluss, History-Budget, Grenzen und Migrationsanleitung: [Mission Story Planner V5](Mission%20Story%20Planner%20V5.md).
+
+- KI-Privatmissionen mit V4-Contract nutzen `private-outing.v1` unabhängig vom V4-/V5-Writer-Schalter.
+- `mission-private-outing-core.js` definiert den strukturierten Ideenvertrag. Ein erster KI-Schritt entscheidet gemeinsam über Anlass, persönliche Motivation, Zielbezug, ersten Schritt am Boden, Person und persönliches Gepäck. Der zweite Schritt erzählt diese Entscheidung als Briefing und Greeting.
+- Aufgabe und Ablauf bleiben code-seitig `private_outing` / `A-B`. Es gibt keine Ableitung einer Freizeitaktivität oder Beziehung aus Story-Stichwörtern. Alte Profile, Titelschablonen und Private-Outing-Sanitizer dürfen die neue Story nicht umschreiben.
+- Ortswissen für Privatmissionen wird seit v5.7 über einen eigenen räumlichen Leser der POI-Tiles und eine neutrale Wikipedia-Umgebungssuche geladen (bis 50 km, acht Anker). Der vorhandene APT-Sightseeing-Resolver bleibt für andere Profile erhalten. Nur akzeptierte Fakten werden der Ideen-KI mit IDs übergeben; der Writer erhält die ausgewählten Fakten. Die Text-API besitzt in diesem Pfad kein eigenes Suchwerkzeug. Persönliche Vorgeschichten und plausible Anlässe dürfen bewusst erfunden werden; als tatsächlich recherchierte Angebote oder Termine gelten nur mitgelieferte Belege.
+- Persönliche Verbundenheit und die Freude am gemeinsamen Flug sind vollwertige Reisegründe. Ortsfunde sind optionales Material; keine Pflichtattraktion. `groundPlan` trennt Zielflugplatz und gegebenenfalls gewählten Ausflugsort, dessen Koordinaten der Code innerhalb des Suchradius prüft.
+- `creativeBasis` trennt im Ideenkern den realen Ortsanker vom bewusst erfundenen Anlass. Plausible fiktive Aktivitäten, Wettbewerbe und Angebote sind zulässig. Belegte Veranstaltungen können ab Anflugdatum bis Sonntag derselben Woche gewählt werden; `eventVisit` hält Termin und Aufenthalt getrennt vom Anflug fest. Die App besitzt noch keinen automatischen Veranstaltungskalender.
+- `ga_private_outing_history_v1` speichert lokal die letzten zwölf erzeugten Entwürfe: Anlass, Motivation, Zielbezug, Person, Beziehung, Titel, Textanfang/-ende sowie kurze Beschreibungen von Tätigkeit, Motivation, Miteinander und Dramaturgie. Der JSON-Payload ist zusätzlich auf 64 KiB (UTF-16-Schätzung) begrenzt. Beide KI-Schritte erhalten die History als weiche Variationshilfe. Sie wird nicht aus dem Logbuch oder aus privaten Kontaktdaten aufgebaut; sie ist nicht geräteübergreifend synchronisiert.
+- Strukturprüfung kontrolliert Pflichtfelder, Ziel, Faktenreferenzen, Gepäckgewicht und Ausgabeformat. Sie beweist keine semantische Korrektheit freier Prosa. Vielfalt und Sprachqualität müssen zusätzlich mit echten KI-Serien bewertet werden; Stub-Tests liefern dafür keinen Nachweis.
+- Ist die Idee ungültig oder nicht verfügbar, wird die Generierung abgebrochen. Scheitert nur der Schreibschritt, bleiben die beiden bereits generierten Ideensätze als gekennzeichneter Fallback erhalten. Keine neue Zufallsmission als Ersatz.
+- Passenger-Voice übernimmt Anlass und nächsten Schritt aus derselben Idee. Eine dekorative Vorfeldszene begründet keine neue Abholung oder andere Unternehmung.
+- Bestehende Offline-/Legacy-Missionen ohne den versionierten Ideenvertrag behalten ihren bisherigen Pfad.
 
 ### `fire_watch`
 

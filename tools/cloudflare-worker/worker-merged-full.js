@@ -1995,6 +1995,8 @@ function buildMetarUpstreamUrl(requestUrl) {
     if (srcUrl.hostname !== "aviationweather.gov") return null;
     if (!srcUrl.pathname.startsWith("/api/data/metar")) return null;
     srcUrl.searchParams.set("format", "json");
+    // Older clients add a cache-busting timestamp that AviationWeather rejects.
+    srcUrl.searchParams.delete("t");
     return srcUrl.toString();
   }
 
@@ -2028,12 +2030,12 @@ async function handleMetarProxy(requestUrl) {
 
   const text = await upstream.text();
   const ct = upstream.headers.get("content-type") || "application/json; charset=utf-8";
-  return new Response(text, {
+  return new Response(upstream.status === 204 || upstream.status === 304 ? null : text, {
     status: upstream.status,
     headers: {
       ...corsHeaders,
       "Content-Type": ct,
-      "Cache-Control": "public, max-age=30"
+      "Cache-Control": upstream.ok ? "public, max-age=30" : "no-store"
     }
   });
 }

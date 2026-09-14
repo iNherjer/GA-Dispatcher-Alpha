@@ -3023,7 +3023,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
             const cached = vpGetMetarChunkCache(chunk.key, nowTs);
             if (Array.isArray(cached)) return { arr: cached, fromCache: true };
         }
-        const url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json&t=${Date.now()}`;
+        const url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json`;
         const arr = await safeFetchMetarJson(url, retries);
         if (arr === null) {
             const stale = vpGetMetarChunkCache(chunk.key, nowTs, true);
@@ -3088,7 +3088,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
                         if (vpMetarPrefetchInFlight.has(d.key)) continue;
                         vpMetarPrefetchInFlight.add(d.key);
                         try {
-                            const url = `https://aviationweather.gov/api/data/metar?bbox=${d.minLat},${d.minLon},${d.maxLat},${d.maxLon}&format=json&t=${Date.now()}`;
+                            const url = `https://aviationweather.gov/api/data/metar?bbox=${d.minLat},${d.minLon},${d.maxLat},${d.maxLon}&format=json`;
                             const arr = await safeFetchMetarJson(url, 1);
                             if (arr === null) continue;
                             const safeArr = Array.isArray(arr) ? arr : [];
@@ -4406,6 +4406,17 @@ window.vpBuildWeatherDebugReport = function() {
             if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
             if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
             if (storyBits.length) lines.push(`- Story-Debug: ${storyBits.join(' | ')}`);
+            if (sd.privateOuting?.schema === 'private-outing.v1') {
+                const idea = sd.privateOuting;
+                lines.push(`- Privat-Planner: ${flattenText(sd.promptRevision, 30)} | History=${Number(sd.historyCount || 0)} | Ortsfakten=${Number(sd.destinationFactCount || 0)}`);
+                if (sd.memoryStatus) lines.push(`- Privat-Erinnerung: ${flattenText(sd.memoryStatus, 50)} | ${flattenText(idea.writerMemory?.summary, 240)}`);
+                lines.push(`- Privat-Idee: ${flattenText(idea.occasion, 600)}`);
+                lines.push(`- Privat-Ortsanker: ${flattenText(idea.creativeBasis?.realAnchor, 400)}`);
+                lines.push(`- Privat-Fiktion: ${flattenText(idea.creativeBasis?.fictionalPart, 400)}`);
+                if (idea.groundPlan) lines.push(`- Privat-Bodenplan: ${flattenText(idea.groundPlan.place?.name || 'ohne benannten Ortsanker', 160)} | ${flattenText(idea.groundPlan.intent, 400)} | ${flattenText(idea.groundPlan.transferPlan, 300)}`);
+                if (sd.regionDiscovery) lines.push(`- Privat-Umgebung: ${flattenText(JSON.stringify(sd.regionDiscovery), 500)}`);
+                if (idea.eventVisit) lines.push(`- Privat-Termin: Anflug=${idea.eventVisit.arrivalDate} | Veranstaltung=${idea.eventVisit.eventDate} | ${flattenText(idea.eventVisit.stayPlan, 400)}`);
+            }
             if (sd.effectiveSource && sd.effectiveSource !== sd.source) {
                 lines.push(`- Story effektive Quelle: ${flattenText(sd.effectiveSource, 320)}`);
             }

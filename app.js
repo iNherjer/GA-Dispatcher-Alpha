@@ -8800,7 +8800,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger',
+        'cargoText', 'passenger', 'privateOuting',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9416,7 +9416,9 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = _cleanupNarrativeArtifacts(state.mStory || '');
+    state.mStory = state.currentMissionData?.privateOuting?.writerVersion === 'private-v6'
+        ? String(state.mStory || '').trim()
+        : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
     document.getElementById("mDepICAO").innerText = state.mDepICAO; document.getElementById("mDepName").innerText = state.mDepName;
     document.getElementById("mDepCoords").innerText = state.mDepCoords; document.getElementById("mDepRwy").innerText = "Sucht Pisten...";
@@ -10307,7 +10309,21 @@ function isMissionWriterV5Enabled() {
 }
 window.isMissionWriterV5Enabled = isMissionWriterV5Enabled;
 
+function updatePrivateWriterVersionUi() {
+    const btn = document.getElementById('btnPrivateWriterVersion');
+    if (btn) btn.textContent = window.MissionPrivateEpisodeV6?.mode(localStorage) === 'v5' ? 'Privat V5' : 'Privat V6';
+}
+window.togglePrivateWriterVersion = function() {
+    const api = window.MissionPrivateEpisodeV6;
+    if (!api) return;
+    const next = api.mode(localStorage) === 'v6' ? 'v5' : 'v6';
+    try { localStorage.setItem(api.MODE_KEY, next); } catch (_) {}
+    updatePrivateWriterVersionUi();
+    return api.mode(localStorage);
+};
+
 function updateMissionWriterModeButtonUi() {
+    updatePrivateWriterVersionUi();
     const btn = document.getElementById('btnMissionWriterMode');
     if (!btn) return;
     const mode = getMissionWriterMode();
@@ -10317,8 +10333,8 @@ function updateMissionWriterModeButtonUi() {
     btn.style.borderColor = v5 ? '#b58335' : '#7350a5';
     btn.style.color = v5 ? '#ffd79f' : '#e4d0ff';
     btn.title = v5
-        ? 'APT/POI nutzt Writer V5; Bush bleibt beim Bush-Dispatcher.'
-        : 'APT/POI nutzt Writer V4; Bush bleibt beim Bush-Dispatcher.';
+        ? 'APT/POI nutzt Writer V5; private Ausflüge haben eine eigene Versionswahl; Bush bleibt beim Bush-Dispatcher.'
+        : 'APT/POI nutzt Writer V4; private Ausflüge haben eine eigene Versionswahl; Bush bleibt beim Bush-Dispatcher.';
 }
 window.updateMissionWriterModeButtonUi = updateMissionWriterModeButtonUi;
 
@@ -15627,6 +15643,9 @@ function parseRunwayFromWikitext(wikitext) {
 const _poiTerrainCache = new Map();
 const _poiTerrainEnvelopeCache = new Map();
 const _missionWxCache = new Map();
+const MISSION_WX_CACHE_TTL_MS = 10 * 60 * 1000;
+const MISSION_WX_EMPTY_CACHE_TTL_MS = 30 * 1000;
+const MISSION_WX_CACHE_MAX_ENTRIES = 128;
 const _dwdWbiStationCache = { ts: 0, stations: [] };
 const _dwdWbiByStationCache = new Map();
 
@@ -15986,11 +16005,16 @@ function _looksLikeIcao(icao) {
 async function fetchMissionWeatherSnapshot(icao, lat, lon) {
     const normIcao = String(icao || '').trim().toUpperCase();
     const key = `${normIcao || 'POI'}_${Number(lat || 0).toFixed(3)}_${Number(lon || 0).toFixed(3)}`;
-    if (_missionWxCache.has(key)) return _missionWxCache.get(key);
+    const now = Date.now();
+    for (const [cacheKey, entry] of _missionWxCache) {
+        if (entry.expiresAt <= now) _missionWxCache.delete(cacheKey);
+    }
+    const cached = _missionWxCache.get(key);
+    if (cached) return cached.value;
 
     let metar = null;
     if (_looksLikeIcao(normIcao)) {
-        const arr = await _fetchMetarArrayViaVariants(`https://aviationweather.gov/api/data/metar?ids=${normIcao}&format=json&t=${Date.now()}`, {
+        const arr = await _fetchMetarArrayViaVariants(`https://aviationweather.gov/api/data/metar?ids=${normIcao}&format=json`, {
             includeCodeTabs: false,
             includeDirect: false,
             retries: 1,
@@ -16001,7 +16025,7 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
     if (!metar && Number.isFinite(lat) && Number.isFinite(lon)) {
         const latMin = lat - 0.6, latMax = lat + 0.6;
         const lonMin = lon - 0.8, lonMax = lon + 0.8;
-        const arr = await _fetchMetarArrayViaVariants(`https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`, {
+        const arr = await _fetchMetarArrayViaVariants(`https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json`, {
             includeCodeTabs: false,
             includeDirect: false,
             retries: 1,
@@ -16046,7 +16070,16 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
         };
     }
 
-    _missionWxCache.set(key, out);
+    // Briefings share short-lived snapshots, including a brief backoff for empty/error responses.
+    // A failed request must not suppress weather for the rest of the browser session.
+    _missionWxCache.delete(key);
+    _missionWxCache.set(key, {
+        value: out,
+        expiresAt: Date.now() + (out ? MISSION_WX_CACHE_TTL_MS : MISSION_WX_EMPTY_CACHE_TTL_MS)
+    });
+    while (_missionWxCache.size > MISSION_WX_CACHE_MAX_ENTRIES) {
+        _missionWxCache.delete(_missionWxCache.keys().next().value);
+    }
     return out;
 }
 
@@ -21286,6 +21319,7 @@ function _missionPrivateOutingArrivalLine(activityKind = 'outing') {
 }
 
 function _sanitizePrivateOutingNarrative(missionLike = {}, profile = null) {
+    if (missionLike.privateOuting?.schema === 'private-outing.v1') return missionLike;
     if (!missionLike || typeof missionLike !== 'object') return missionLike;
     let passenger = (missionLike.passenger && typeof missionLike.passenger === 'object') ? missionLike.passenger : null;
     const originalPassenger = passenger ? { ...passenger } : null;
@@ -21653,6 +21687,9 @@ function _pickClubUtilityPassengerForCargo(profile = null, cargoText = '', missi
 
 function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText, dispatchContext = null) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
+    if (!isPOI && m.privateOuting?.schema === 'private-outing.v1' && ['auto', 'private_outing'].includes(profileId)) {
+        return { mission: m, paxText: m.pax, cargoText: m.cargo, appliedProfile: 'private_outing' };
+    }
     const usesPoiTaskRecipe = missionUsesPoiTaskRecipe(m);
     const baseType = (isPOI || usesPoiTaskRecipe) ? 'poi' : 'apt';
     const normalizedProfileId = String(profileId || 'auto').toLowerCase();
@@ -23220,6 +23257,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 }
 
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
+    if (!isPOI && profileId === 'private_outing' && missionLike?.privateOuting?.schema === 'private-outing.v1') return true;
     const id = String(profileId || 'auto').toLowerCase();
     if (!id || id === 'auto') return true;
     const expectedProfile = getMissionTaskProfile(id, isPOI ? 'poi' : 'apt') || null;
@@ -30896,47 +30934,13 @@ function _missionPipelineV4ApplyClubUtilityPlanGuard(plan = {}, storyFrame = {},
 }
 
 function _missionPipelineV4ApplyPrivateOutingPlanGuard(plan = {}, storyFrame = {}, semantics = {}, options = {}) {
-    const targetLabel = String(plan.targetLabel || semantics?.focusLock?.primarySubjectLabel || options?.targetName || 'Zielplatz').trim() || 'Zielplatz';
-    const cleanList = (values = [], fallback = []) => {
-        const src = (Array.isArray(values) ? values : [])
-            .map(x => String(x || '').replace(/\s+/g, ' ').trim())
-            .filter(Boolean)
-            .filter(x => {
-                const n = normalizeMissionText(x);
-                return !/\b(rundflug|panorama|sightseeing|ueberflug|überflug|rueckkehr|rückkehr|zurueck\s+zum\s+heimat|zurück\s+zum\s+heimat|arbeitsauftrag|charter|fracht|medizin|training|reporter|redaktion)\b/.test(n);
-            });
-        return (src.length ? src : fallback).slice(0, 5);
-    };
-    const hooksFallback = [
-        storyFrame.subjectDetail,
-        storyFrame.incidentContext,
-        storyFrame.whyNow,
-        storyFrame.soughtOutcome
-    ].map(x => String(x || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
-    plan.primaryObjective = `Pilot und Mitflieger fliegen gemeinsam privat nach ${targetLabel}, weil dort ein kleiner Ausflug wartet, auf den beide wirklich Lust haben.`;
-    plan.localFacts = Array.from(new Set([
-        `${targetLabel} ist der Zielplatz und Zugang zum privaten Fly-out.`,
-        ...cleanList(plan.localFacts, [])
-    ].filter(Boolean))).slice(0, 4);
-    plan.operationalDetails = Array.from(new Set([
-        'Ruhiger A-B-Hinflug, gemeinsame Landung am Zielplatz und Ausstieg am GA-/Vorfeldbereich.',
-        'Der Flug ist der private Hinweg zu einem erfreulichen Zielgrund: Burger, Picknick, Eis, Kaffee, Frühstück, Abendessen, Einkauf, Markt, Wanderung, Badetag, Museum, Familie, Paartag, schöne Strecke oder Tapetenwechsel am Ziel.',
-        ...cleanList(plan.operationalDetails, [])
-    ].filter(Boolean))).slice(0, 5);
-    plan.narrativeHooks = Array.from(new Set([
-        'Pilot und Pax sind privat zusammen unterwegs, nicht als Kunde, Auftraggeber oder Sightseeing-Gruppe.',
-        'Der Text soll Vorfreude tragen: der Ausflug klingt wie etwas, worauf beide sich beim Einsteigen freuen.',
-        ...hooksFallback,
-        ...cleanList(plan.narrativeHooks, [])
-    ].filter(Boolean))).slice(0, 5);
+    const targetLabel = String(plan.targetLabel || semantics?.focusLock?.primarySubjectLabel || options?.targetName || 'Zielplatz').trim();
+    // The planner defines the flight. The private idea step owns the personal story.
+    plan.primaryObjective = `Privater A-B-Flug nach ${targetLabel} mit Abschluss am Zielflugplatz.`;
+    plan.operationalDetails = ['Gemeinsamer Hinflug, Landung und Ausstieg am Zielflugplatz.'];
+    plan.narrativeHooks = [];
     plan.mustMention = [];
-    plan.mustAvoid = Array.from(new Set([
-        ...(Array.isArray(plan.mustAvoid) ? plan.mustAvoid : []),
-        'Keine Rueckkehr zum Heimatplatz als Abschluss behaupten.',
-        'Keine reine Sightseeing-, Panorama- oder Rundflug-Story.',
-        'Keine operative, geschaeftliche oder arbeitsbezogene Umdeutung des privaten Ausflugs.'
-    ].filter(Boolean))).slice(0, 10);
-    plan.realismBrief = `Der Flug ist glaubwuerdig als privater GA-Fly-out: Man fliegt mit Freund, Partner, Familie oder aehnlicher Begleitung gemeinsam nach ${targetLabel}, weil die Aktivitaet mit dem Flug schöner, schneller oder besonderer wird und sich schon vor dem Start nach einem kleinen Highlight anfühlt.`;
+    plan.realismBrief = 'Privater Reiseflug. Der konkrete persönliche Anlass wird im strukturierten Ideenvertrag festgelegt.';
     return plan;
 }
 
@@ -31954,7 +31958,7 @@ Regeln:
 5. Bei news_coverage: Plane einen konkreten lokalen News-Kern (Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation). Bei POI-News sind sichtbare Anker Rohmaterial für den Luftblick; bei APT-News wartet die Geschichte nach der Landung am Boden und wird nicht als Überflugauftrag geplant.
 6. Bei privaten, Club-/Utility-, Bush-, SAR-, Inspektions- und Sightseeing-Profilen bleiben die jeweiligen RouteRules und Semantik-Locks bindend.
 6a. Bei APT club_utility ist CONTEXT_BUNDLE.loadout.cargoText bindendes Rohmaterial, aber nicht immer eine Lieferung. Wenn es eine konkrete Vereinsladung ist, plane genau diese Ladung, Empfaenger und naechsten Vereinsschritt. Wenn es persoenliche Sachen, Clubjacke, Bordtasche, Notizbuch oder eine Einladung zu Fly-In/Stammtisch/Clubbesuch signalisiert, plane einen Vereinsbesuch ohne kuenstliche Uebergabe. Route, Wetter, Terrain, Pax-Rolle oder Grund der Reise duerfen den Storykern mittragen.
-6b. Bei APT private_outing plane genau einen privaten Anlass als Story-Rueckgrat: Burger, Eis, Kaffee, Picknick, Stadtbummel, Familie, Wellness, Wandern, Foto, Zielort oder Strecke. Familie ist immer Wildcard, nicht nur "Familienbesuch": erfinde einen weichen konkreten Anlass wie Kuchen, Fotoalben, Familienkaffee, kleine Überraschung oder verschobene Runde am Tisch. Wenn der Anlass duenn ist, erfinde eine weiche Alltags-Wildcard; keine Checkliste und keine harten Ortsfakten.
+6b. Bei APT private_outing plane nur den technischen A-B-Rahmen mit Abschluss am Ziel. Der anschließende strukturierte Ideen-Schritt erfindet Person, persönlichen Anlass und passendes Gepäck gemeinsam; lege hier noch keine Freizeitaktivität oder persönliche Vorgeschichte fest.
 6c. Bei APT cargo mit CONTEXT_BUNDLE.cargoOnlyPolicy.enabled=true ist der Plan strukturell cargo-only: primaryObjective, storyFrame, realismBrief, mustMention und objectFamilies duerfen keine transportierten Menschen enthalten. objectFamilies duerfen nur Fracht-, Uebergabe- oder Fahrzeuggruppen beschreiben, z.B. cargo_crates, cargo_equipment, transport_vehicle oder cargo_handoff; keine pax/person/crew/civilian-Werte. Plane nur Sendung, Zweck, Empfaenger/Zielkontakt und naechsten Schritt; Fachpersonal, Werkstatt, Empfaenger, Shuttle oder Werkstransport warten nur am Ziel.
 7. Schreibe frei formulierte Texte auf Deutsch mit Umlauten. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
@@ -32031,7 +32035,7 @@ Arbeitsweise:
 9b. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
 9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
 9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial fuer eine natuerliche Besuchsabsicht. Plane nicht "wir haben Fakten ueber X", sondern "der Gast fliegt dorthin, weil er nach der Landung X und Y anschauen, Fotos machen oder durch den Ort gehen will". Waehle 1-2 passende Sehenswuerdigkeiten aus; keine Listen weiterreichen, keine Begriffe wie Wiki, GeoSearch, Zielanker, Faktenbasis oder knowledgeContext im Plantext. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
-9e. Bei APT-private_outing plane einen offenen privaten Fly-out statt einer mustMention-Checkliste: Pilot und Pax fliegen gemeinsam irgendwo hin, wie man privat mit Freund, Partner, Familie oder aehnlicher Begleitung fliegt. Waehle frei genau einen netten Anlass: eine Aktivitaet am Ziel wie Burger, Picknick, Eis, Kaffee, Frühstück, Abendessen, Einkaufen, Markt, Wandern, Schwimmen, Museum, Wellness oder Familienbesuch; oder einen Zielort-Tapetenwechsel mit erstem Weg, Kaffee, kleinem Laden oder spontaner Entdeckung; oder die Strecke als bewusst gewaehlten kleinen Reiseflug. Dieser Anlass muss das Rueckgrat der Story sein, nicht nur ein Stichwort: Warum ist der Kaffee den Flug wert, warum reizt diese Fotorunde, warum macht der Burger den Zielplatz zur Ausrede, warum lohnen Picknickdecke, Eis-Stopp, Markt oder der Weg dorthin den Flug? Bei Familie reicht "Besuch" nicht: mach daraus einen konkreten weichen Anlass wie Kuchen am Tisch, alte Fotoalben, Familienkaffee, kleine Überraschung, verschobene Runde, Abschluss- oder Wiedersehensmoment; Abholung und Route sind nur Übergang. Lege Beziehung, Ausflugsgrund, Tagesgepaeck, Wetterstimmung und Zielgefuehl in storyFrame, localFacts, narrativeHooks oder operationalDetails ab. Plane nicht nur "Aktivitaet beginnt" oder "ein kleiner Plan wartet", sondern Vorfreude auf einen persoenlichen Motiv-Haken. Solche privaten Genussgruende duerfen phantasievoll sein, solange sie nicht zu harten Geofakten, echten Sehenswuerdigkeiten oder operativen Auftraegen aufgeblasen werden. Gib dem Writer Rohmaterial fuer ein gesprochenes, persoenliches Dispatcher-Briefing: warum die beiden heute rauswollen, was den Anlass traegt, was das Gepaeck verraet und welche Route-/Wetterstimmung den Hinflug rund macht. Die Situation am Boden ist Kontext, aber kein eigener Pflichtpunkt und kein separater Schluss-Satz. Keine Beispielsaetze oder Satzmodule in den Plan schreiben; mustMention darf leer bleiben. Keine Rueckkehr zum Heimatplatz als Pflichtpunkt setzen und keine Sightseeing-/Panorama-/Rundflugstory planen.
+9e. Bei APT-private_outing plane den privaten A-B-Flug zum Zielflugplatz. Bewahre belegte Zielinformationen als Kontext. Person, Anlass, Motivation und Gepäck werden anschließend gemeinsam im privaten Ideenvertrag erzeugt; lasse narrativeHooks und mustMention leer und erfinde hier keine eigene Ausflugsgeschichte. Keine verpflichtende Rückkehr, kein Luftarbeitsauftrag.
 9f. Bei APT-club_utility plane eine kleine, originelle Vereinsgeschichte statt "irgendwas liefern". Es gibt zwei gleichwertige Muster: (1) konkrete Vereinsladung mit Empfaenger und naechstem Club-, Hangar-, Flugtag-, Werkstatt- oder Briefingtisch-Schritt; (2) eingeladener Clubbesuch ohne Lieferauftrag, z.B. Fly-In mit Grillwurst, Vereinsstammtisch, VFR-Planungstool-Gespraech, bekannte Gesichter am Clubheim oder lockere Vereinsrunde. Nutze CONTEXT_BUNDLE.loadout.cargoText als Signal: Banner, Funkakkus, Helferlisten, Schluessel, Checkkarten, Leuchtmittel, Lash-Straps oder Werkzeugtasche bleiben Ladung; Clubjacke, Bordtasche, Notizbuch, Sonnenbrille oder persoenliche Sachen sind nur Bordzeug fuer den Besuch. Wenn es Ladung ist, benenne was genau damit am Ziel passiert. Wenn es Besuch ist, benenne warum die Runde den Flug wert ist. Bleibe A-B zum Zielplatz; kein POI-Arbeitsauftrag, kein kuenstlicher Notfall.
 9g. Bei APT-cargo ist CONTEXT_BUNDLE.cargoOnlyPolicy bindend. Wenn cargoOnlyPolicy.enabled=true, plane einen reinen Frachtflug ohne Begleitperson: primaryObjective, missionTrigger, focusSubject, storyFrame, realismBrief, mustMention und objectFamilies duerfen keine transportierten Menschen enthalten. objectFamilies duerfen nur Fracht-, Uebergabe- oder Fahrzeuggruppen beschreiben, z.B. cargo_crates, cargo_equipment, transport_vehicle oder cargo_handoff; keine pax/person/crew/civilian-Werte. Keine Techniker, Servicetechniker, Experten, Frachtbegleiter, Fachpersonal oder Passagiere an Bord, keine "drei Passagiere", kein "Technikerteam reist mit", kein "Transport eines Technikers", kein objectFamily "ground_crew" oder "civilian_pax". Diese Personen duerfen nur als Zielkontakt, Werkstatt, Empfaenger oder Werkstransport am Zielflugplatz warten. Im Plan stehen Sendung, Zweck, Empfaenger, Wetter-/Routenanker und naechster Schritt nach der Landung.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
@@ -32473,7 +32477,10 @@ function buildMissionContractV4({
             terrainRadiusNm: plannerContext.poiTerrainRadiusNm !== null && plannerContext.poiTerrainRadiusNm !== undefined && Number.isFinite(Number(plannerContext.poiTerrainRadiusNm)) ? Number(plannerContext.poiTerrainRadiusNm) : null
         },
         poiChain,
-        knowledgeContext,
+        knowledgeContext: taskDomain === 'private_outing' && plannerContext.dest?.privateRegionContext
+            ? plannerContext.dest.knowledgeContext : knowledgeContext,
+        ...(taskDomain === 'private_outing' && plannerContext.dest?.privateRegionContext
+            ? { privateRegionContext: plannerContext.dest.privateRegionContext } : {}),
         weather: _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null),
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
         missionPlan: plan,
@@ -38975,11 +38982,81 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     };
 }
 
+async function fetchPrivateOutingStory(context = {}) {
+    const v6 = window.MissionPrivateEpisodeV6?.mode(localStorage) === 'v6';
+    const coreApi = v6 ? window.MissionPrivateEpisodeV6 : window.MissionPrivateOutingCore;
+    const contract = context.missionContractV4;
+    const input = coreApi.frame(contract, v6 ? coreApi.recent(localStorage) : coreApi.history(localStorage));
+    const writerLabel = v6 ? 'Episode Writer V6 Privat' : 'Story Planner V5 Privat';
+    const apiKey = getSelectedAiApiKey();
+    const options = { promptVersion: v6 ? 'mission-writer-private-v6-2-1' : 'mission-writer-private-v5-7', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 16000 };
+    const ideaResult = await fetchGeminiJsonWithFallback(coreApi.ideaPrompt(input), apiKey, options);
+    const idea = coreApi.validateIdea(ideaResult?.parsed, input);
+    if (!idea) throw new Error('Die private Ausflugsidee konnte nicht vollständig erstellt werden. Bitte erneut generieren.');
+    const written = await fetchGeminiJsonWithFallback(coreApi.writerPrompt(idea, input), apiKey, options);
+    const prose = coreApi.prose(written?.parsed, idea, input);
+    if (v6) {
+        idea.writerMemory = prose?.memory || null;
+        idea.flightBriefing = prose?.flightBriefing || '';
+        idea.flightContext = input.flightContext;
+    }
+    // If only the prose request fails, retain the chosen idea verbatim, never draw another activity.
+    const narrativeStory = prose?.story || `${idea.occasion} ${idea.personalReason}`;
+    const story = [narrativeStory, v6 ? prose?.flightBriefing : ''].filter(Boolean).join('\n\n');
+    const title = prose?.title || `Mit ${idea.companion.name.split(' ')[0]} nach ${idea.targetName}`;
+    const cargo = `${idea.luggage.label} (${idea.luggage.weightLbs} lbs)`;
+    const pax = `1 PAX (${idea.companion.relationship})`;
+    const passenger = {
+        name: idea.companion.name, role: idea.companion.relationship,
+        gender: idea.companion.gender, personality: idea.companion.personality,
+        roleProfile: 'general_passenger_v1', taskDomain: 'private_outing',
+        gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig',
+        stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig',
+        targetAltFt: 0, targetRadiusNm: 0, targetDwellMin: 0,
+        storySeed: idea.occasion, personalStoryCue: idea.personalReason, storyHint: narrativeStory,
+        greetingText: prose?.greeting || `Hi, ich freue mich auf unseren Ausflug nach ${idea.targetName}.`,
+        privateOuting: idea, knowledgeContext: contract.knowledgeContext || null
+    };
+    const storyFrame = { trigger: idea.occasion, subjectDetail: idea.personalReason,
+        whyNow: idea.personalReason, incidentContext: idea.destinationConnection,
+        soughtOutcome: idea.firstStep, completion: 'Der gemeinsame Hinflug endet am Zielflugplatz.' };
+    // Replace narrative fields together; preserve the existing A-B runtime contract.
+    Object.assign(contract, { privateOuting: idea, passenger, cargoText: cargo,
+        paxText: pax, plannedPassengerCount: 1, passengerCount: 1, storyFrame });
+    const plan = contract.missionPlan?.plan;
+    if (plan) Object.assign(plan, { privateOuting: idea, primaryObjective: idea.occasion,
+        storyFrame, cargoText: cargo, narrativeHooks: [idea.personalReason, idea.destinationConnection],
+        localFacts: input.facts.filter(f => idea.factIds.includes(f.id)).map(f => typeof f.value === 'string' ? f.value : String(f.value?.text || '')),
+        operationalDetails: [idea.firstStep], mustMention: [] });
+    const sceneIntent = { summary: 'A-B-Flug ohne Zielszene.', environment: '', visibleIdeas: [], avoid: [], densityHint: 'none', notes: '' };
+    return {
+        t: title, s: story, story, missionStory: story, pax, cargo, passenger,
+        privateOuting: idea, knowledgeContext: contract.knowledgeContext || null,
+        sceneIntent, targetScene: null, sceneCompositionStatus: 'draft',
+        i: '📋', cat: 'private', missionType: 'apt', profileId: 'private_outing',
+        _requestedProfile: 'private_outing', _appliedProfile: 'private_outing',
+        _missionPlanV2: context.missionPlanV2 || null, _missionPlanV4: contract, _missionContractV4: contract,
+        _source: `${written?.source || ideaResult?.source || 'KI'} + ${writerLabel}${prose ? '' : ' (Ideentext-Fallback)'}`,
+        _missionWriterV4Debug: { source: writerLabel, writerMode: v6 ? 'private-v6' : 'private-v5', promptRevision: v6 ? 'v6.2.1' : 'v5.7',
+            flightBriefingStatus: v6 ? prose?.flightBriefingStatus || 'unavailable' : 'legacy',
+            flightBriefing: v6 ? prose?.flightBriefing || '' : '',
+            rawFlightBriefing: v6 ? written?.parsed?.flightBriefing || '' : '',
+            rawWriterMemory: v6 ? written?.parsed?.memory || null : null,
+            memoryStatus: v6 ? (idea.writerMemory ? 'accepted' : 'unavailable') : 'legacy-derived',
+            taskDomain: 'private_outing', writerAccepted: !!prose, rawAiStory: written?.parsed?.story || '',
+            rawGreeting: written?.parsed?.greeting || null, finalGreeting: passenger.greetingText,
+            writerStory: story, storyChangedByFinalize: !prose, fallbackReason: prose ? '' : 'private_prose_unavailable',
+            privateOuting: idea, historyCount: input.recent.length, destinationFactCount: input.facts.length,
+            regionDiscovery: contract.privateRegionContext?.stats || null }
+    };
+}
+
 async function fetchMissionWriterV4(context = {}) {
     const apiKey = getSelectedAiApiKey();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const contract = context.missionContractV4 || null;
     if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
+    if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
     const result = await fetchGeminiJsonWithFallback(
         buildMissionWriterV4Prompt(contract),
         apiKey,
@@ -38998,6 +39075,7 @@ async function fetchMissionWriterV5(context = {}) {
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const contract = context.missionContractV4 || null;
     if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
+    if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
         buildMissionWriterV5Prompt(contract, context),
@@ -42938,17 +43016,26 @@ async function generateMission(options = {}) {
         }
     }
     const shouldLoadAptSightseeingKnowledge = !isPOI
-        && String(dispatchProfileId || '').toLowerCase() === 'sightseeing_tour'
+        && ['sightseeing_tour', 'private_outing'].includes(String(dispatchProfileId || '').toLowerCase())
         && String(selectedAptCategory || '').toLowerCase() !== 'trn';
     if (shouldLoadAptSightseeingKnowledge) {
-        indicator.innerText = 'Sightseeing: Zielort-Infos werden geprüft...';
+        indicator.innerText = 'Zielort-Infos werden geprüft...';
         try {
+            if (String(dispatchProfileId || '').toLowerCase() === 'private_outing' && window.MissionPrivateContextCore) {
+                const region = await dispatchMeasure('private_region_context', () => window.MissionPrivateContextCore.resolveBrowser({
+                    name: dest.n, lat: Number(dest.lat), lon: Number(dest.lon)
+                }));
+                dest.privateRegionContext = region;
+                plannerKnowledgeContext = window.MissionPrivateContextCore.knowledge(region);
+                dest.knowledgeContext = plannerKnowledgeContext;
+            } else {
             const aptSightseeingContext = await dispatchMeasure('apt_sightseeing_wiki_context', async () => (
                 await resolveAptSightseeingKnowledgeContext(dest, { budgetMs: APT_SIGHTSEEING_KNOWLEDGE_BUDGET_MS })
             ));
             plannerKnowledgeContext = compactPoiKnowledgeContextForMission(aptSightseeingContext, 10);
             if (plannerKnowledgeContext) {
                 dest.knowledgeContext = plannerKnowledgeContext;
+            }
             }
         } catch (err) {
             console.warn('[APT Sightseeing] Wiki context lookup failed', err);
@@ -43643,52 +43730,9 @@ async function generateMission(options = {}) {
                 cargoText = writerCargoText;
                 if (missionContractV4?.missionPlan) missionPlanV2 = missionContractV4.missionPlan;
             } else if (writerProfile?.id === 'private_outing') {
-                const privateWriterContext = {
-                    _missionContractV4: missionContractV4,
-                    cargoText: writerCargoText,
-                    targetName: dest?.n || missionContractV4?.route?.targetName || '',
-                    t: dest?.n || missionContractV4?.route?.targetName || '',
-                    storyFrame: missionContractV4?.storyFrame || missionContractV4?.missionPlan?.plan?.storyFrame || null
-                };
-                writerPassengerSeed = buildMissionProfilePassenger(null, writerProfile, false, '', privateWriterContext);
-                writerPassengerSeed = _missionPrivateOutingNormalizePassenger(writerPassengerSeed, writerProfile, privateWriterContext);
-                const privateCargoPool = Array.isArray(writerProfile.cargoPool) ? writerProfile.cargoPool.filter(Boolean) : [];
-                const pickedPrivateCargo = _pickPrivateOutingCargo(privateCargoPool, {
-                    ...privateWriterContext,
-                    passenger: writerPassengerSeed
-                }, writerPassengerSeed);
-                if (pickedPrivateCargo) {
-                    writerCargoText = pickedPrivateCargo;
-                    cargoText = pickedPrivateCargo;
-                    missionContractV4 = { ...missionContractV4, cargoText: pickedPrivateCargo };
-                    if (missionContractV4.missionPlan?.plan && typeof missionContractV4.missionPlan.plan === 'object') {
-                        missionContractV4.missionPlan = {
-                            ...missionContractV4.missionPlan,
-                            plan: {
-                                ...missionContractV4.missionPlan.plan,
-                                cargoText: pickedPrivateCargo
-                            }
-                        };
-                    }
-                    if (missionPlanV2?.plan && typeof missionPlanV2.plan === 'object') {
-                        missionPlanV2 = {
-                            ...missionPlanV2,
-                            plan: {
-                                ...missionPlanV2.plan,
-                                cargoText: pickedPrivateCargo
-                            }
-                        };
-                    }
-                    if (missionPlanV4?.plan && typeof missionPlanV4.plan === 'object') {
-                        missionPlanV4 = {
-                            ...missionPlanV4,
-                            plan: {
-                                ...missionPlanV4.plan,
-                                cargoText: pickedPrivateCargo
-                            }
-                        };
-                    }
-                }
+                // Person and luggage are selected together with the new structured idea.
+                writerPassengerSeed = null;
+                writerCargoText = '';
             }
             const writerContext = {
                 missionContractV4,
@@ -43709,6 +43753,12 @@ async function generateMission(options = {}) {
             m = await dispatchMeasure(writerMode === 'v5' ? 'writer_v5_main' : 'writer_v4_main', async () => (
                 writerMode === 'v5' ? fetchMissionWriterV5(writerContext) : fetchMissionWriterV4(writerContext)
             ));
+            if (m?.privateOuting?.schema === 'private-outing.v1') {
+                missionContractV4 = m._missionContractV4;
+                for (const planned of [missionPlanV2, missionPlanV4]) {
+                    if (planned?.plan && missionContractV4.missionPlan?.plan) Object.assign(planned.plan, missionContractV4.missionPlan.plan);
+                }
+            }
             if (!isPOI && m && String(missionContractV4?.profile?.taskDomain || '').toLowerCase() === 'private_outing') {
                 const outingProfile = getMissionTaskProfile('private_outing', 'apt');
                 if (outingProfile) {
@@ -44398,6 +44448,7 @@ async function generateMission(options = {}) {
         mission: m.t,
         story: m.s,
         missionStory: m.s,
+        privateOuting: m.privateOuting || null,
         dist: totalDist,
         ac: selectedAC,
         heading: nav.brng,
@@ -44507,6 +44558,12 @@ async function generateMission(options = {}) {
         }
     }
     window.currentMissionData = currentMissionData;
+    if (currentMissionData.privateOuting) {
+        const memoryApi = currentMissionData.privateOuting.writerVersion === 'private-v6'
+            ? window.MissionPrivateEpisodeV6 : window.MissionPrivateOutingCore;
+        const saved = memoryApi?.remember(localStorage, currentMissionData);
+        if (!saved) console.warn('[PRIVATE OUTING] History could not be saved; variety memory unavailable.');
+    }
     if (currentMissionData.destinationAirport?.source === 'hosted-openaip') {
         try {
             localStorage.setItem('ga_last_hosted_airport_v1', JSON.stringify(currentMissionData.destinationAirport));

@@ -7513,7 +7513,17 @@ function _aptArrivalLocationLabel(plan = null) {
     return 'am geplanten Empfangspunkt';
 }
 
+function _privateOutingStoryContext(md = null, contract = null) {
+    const mission = md || window.currentMissionData || {};
+    const idea = mission.privateOuting || mission.passenger?.privateOuting
+        || contract?.privateOuting || contract?.missionContractV4?.privateOuting
+        || window.activePassenger?.privateOuting;
+    return idea?.schema === 'private-outing.v1' ? idea : null;
+}
+
 function _aptArrivalContextLine(md = null, contract = null) {
+    const idea = _privateOutingStoryContext(md, contract);
+    if (idea) return `PRIVATER ANLASS: ${idea.occasion} Persönlicher Grund: ${idea.personalReason} Nach dem Parken: ${idea.firstStep} Bleibe bei diesem Vorhaben; eine dekorative Vorfeldszene begründet keine zusätzliche Verabredung oder Abholung.`;
     const plan = _activeAptArrivalPlan(md, contract);
     if (!plan) return '';
     const cue = _aptArrivalCue(plan);
@@ -7531,6 +7541,8 @@ function _aptArrivalContextLine(md = null, contract = null) {
 }
 
 function _aptArrivalApproachHint() {
+    const idea = _privateOutingStoryContext();
+    if (idea) return ` Vorfreude auf denselben privaten Anlass: ${idea.occasion} Erzähle aus deiner Perspektive; nach dem Parken ist vorgesehen: ${idea.firstStep}`;
     const plan = _activeAptArrivalPlan();
     const cue = _aptArrivalCue(plan);
     if (!cue) return '';
@@ -7541,6 +7553,8 @@ function _aptArrivalApproachHint() {
 }
 
 function _aptArrivalAfterLandingHint() {
+    const idea = _privateOutingStoryContext();
+    if (idea) return `Gib kurzes persönliches Feedback zur Landung. Danach geht euer Vorhaben weiter: ${idea.firstStep}`;
     const plan = _activeAptArrivalPlan();
     const cue = _aptArrivalCue(plan);
     if (!cue) return '';
@@ -7552,6 +7566,8 @@ function _aptArrivalAfterLandingHint() {
 }
 
 function _aptArrivalFarewellHint() {
+    const idea = _privateOutingStoryContext();
+    if (idea) return `Der gemeinsame Hinflug ist beendet. Leite natürlich zum gleichen Vorhaben über: ${idea.firstStep} Persönlicher Grund: ${idea.personalReason}`;
     const plan = _activeAptArrivalPlan();
     const cue = _aptArrivalCue(plan);
     if (!cue) return '';
@@ -7619,6 +7635,7 @@ function _roleStyleHint(roleRaw, pax = null) {
         return 'locker, bodenstaendig und leicht gespannt: wildnisnah, ruhig, mit persoenlichem Backcountry-Faden und klarem Bezug zum Aufenthalt nach der Landung.';
     }
     if (taskDomain === 'private_outing') {
+        if (_privateOutingStoryContext()) return 'Persönlich und alltagsnah aus der gewählten Beziehung sprechen; der konkrete gemeinsame Anlass und die eigene Persönlichkeit bestimmen Wortwahl und Reaktion.';
         return 'persoenlich, entspannt und alltagsnah: der Flug ist der angenehme Hinweg zu Burger, Kaffee, Wandern, Wellness, Familienbesuch oder einem kleinen Tagesplan am Ziel.';
     }
     if (taskDomain === 'sightseeing_tour') {

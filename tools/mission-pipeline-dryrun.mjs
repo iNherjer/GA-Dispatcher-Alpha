@@ -2599,6 +2599,27 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
           throw err;
         }
       }
+      if ((prompt.startsWith('Entwickle eine originelle, plausible private Fluggeschichte') || prompt.startsWith('PRIVATE EPISODE V6 — Idee'))) {
+        const frame = JSON.parse(prompt.split('RAHMEN: ')[1]);
+        const payload = {
+          episode: { situation: 'Ein Foto ist wieder aufgetaucht', sharedIntent: 'Gemeinsam Motiv finden', flightRole: 'Gemeinsame Reise' },
+          targetName: frame.targetName, eventVisit: null, groundPlan: {factId:null,intent:'Foto nachstellen',transferPlan:'Gemeinsam das Motiv suchen'},
+          occasion: 'Du und Nils wollt am Ziel ein altes Familienfoto nachstellen.',
+          personalReason: 'Nils hat das Foto seines Onkels wiedergefunden und die Kamera eingepackt.',
+          destinationConnection: 'Eine private Familienerinnerung verbindet ihn mit dem Ort.',
+          creativeBasis: { realAnchor: 'Keine belegten Ortsmerkmale', fictionalPart: 'Familienfoto und Vorgeschichte' },
+          firstStep: 'Ihr sucht nach der Landung gemeinsam das Motiv.', pilotIntent: 'Hilft bei der Motivsuche', companionIntent: 'Stellt das alte Foto nach', factIds: [],
+          storyIdentity: { activity: 'Motivsuche', motivation: 'Familienerinnerung', interaction: 'zusammen nachstellen' },
+          narrativePlan: { entryPoint: 'altes Foto', tone: 'neugierig', shape: 'Erinnerung und Vorhaben' }, noveltyReason: 'Synthetischer Test',
+          companion: { name: 'Nils Faber', relationship: 'alter Freund', personality: 'neugierig, herzlich, trocken', gender: 'male' },
+          luggage: { label: 'Kameratasche mit Familienfoto', weightLbs: 9 }
+        };
+        return responseJson({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] });
+      }
+      if ((prompt.startsWith('Du erzählst dem Piloten als Vereinskollege') || prompt.startsWith('PRIVATE EPISODE V6 — Erzählung'))) {
+        const payload = { memory: {schema:'episode-memory.v1',summary:'Nils und Pilot suchen ein Familienmotiv',activity:'Motivsuche',motivation:'Erinnerung',flightRole:'Anreise',relationshipDynamic:'gemeinsam suchen',opening:'Fund eines Fotos',rhythm:'drei gleich lange Sätze',ending:'offener Spaziergang',distinctivePhrase:'Für einen Spaziergang bleibt der Rest des Tages frei.'}, title: 'Ein Foto später', story: 'Nils hat das alte Familienfoto eingepackt und will mit dir das Motiv wiederfinden. Nach dem Flug sucht ihr gemeinsam die passende Perspektive. Für einen Spaziergang bleibt der Rest des Tages frei.', greeting: { speaker: 'companion', addressee: 'pilot', text: 'Das Foto habe ich dabei. Mal sehen, ob wir die Perspektive wiederfinden.' } };
+        return responseJson({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] });
+      }
       if (isTts) return responseJson({ candidates: [{ content: { parts: [{ inlineData: { data: '', mimeType: 'audio/wav' } }] } }] });
       if (isScenePlannerV3 && !functionResponses.length) {
         return responseJson({
@@ -2688,7 +2709,7 @@ function setupContext(seed, { liveGemini = false, sharedLocalStorage = null } = 
     addEventListener: () => {},
     removeEventListener: () => {},
     dispatchEvent: () => true,
-    localStorage: makeScopedStore(sharedLocalStorage, ['ga_mission_variety_history_']),
+    localStorage: makeScopedStore(sharedLocalStorage, ['ga_mission_variety_history_', 'ga_private_outing_history_', 'ga_private_episode_history_']),
     sessionStorage: makeStore(),
     window: {}
   };
@@ -2885,7 +2906,9 @@ async function wait(ms) {
 function promptRecords(prompts) {
   return prompts.map((p, index) => ({
     index: index + 1,
-    kind: p.isScenePlannerV3
+    kind: (p.prompt.startsWith('Entwickle eine originelle, plausible private Fluggeschichte') || p.prompt.startsWith('PRIVATE EPISODE V6 — Idee')) ? 'private-idea'
+      : (p.prompt.startsWith('Du erzählst dem Piloten als Vereinskollege') || p.prompt.startsWith('PRIVATE EPISODE V6 — Erzählung')) ? 'private-writer'
+      : p.isScenePlannerV3
       ? (p.hasFunctionResponse ? 'scene-planner-v3-final' : 'scene-planner-v3-tool-call')
       : (p.isPlannerV4
       ? 'mission-planner-v4'
@@ -2904,21 +2927,28 @@ function promptRecords(prompts) {
   }));
 }
 
-async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY', totalSeats = 4, groupCapability = false, partyRandomValues = null, sharedLocalStorage = null }) {
+async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY', totalSeats = 4, groupCapability = false, partyRandomValues = null, sharedLocalStorage = null, privateStoryCase = null, privateWriter = 'v6' }) {
   const { context, prompts } = setupContext(seed, { liveGemini, sharedLocalStorage });
   loadScript(context, 'datenbank.js');
   loadScript(context, 'missions.js');
   loadScript(context, 'data/mission-scene-assets.js');
+  loadScript(context, 'mission-private-context-core.js');
+  loadScript(context, 'mission-private-outing-core.js');
+  loadScript(context, 'mission-private-episode-v6.js');
   loadScript(context, 'mission-definition-core.js');
   loadScript(context, 'mission-variety-core.js');
   loadScript(context, 'mission-arrival-core.js');
   loadScript(context, 'mission-runtime-core.js');
   loadScript(context, 'mission-cargo-core.js');
   loadScript(context, 'mission-poi-chain.js');
+  loadScript(context, 'map-route-edit-core.js');
+  loadScript(context, 'map-navigation-client.js');
+  loadScript(context, 'map-live-presentation.js');
   loadScript(context, 'sync.js');
   if (groupCapability) context.liveTrackerCapabilities = ['mission.scene.group.v1'];
   loadScript(context, 'aircraft-mission-capability-core.js');
   loadScript(context, 'aircraft-mission-profile-core.js');
+  loadScript(context, 'airport-weather.js');
   loadScript(context, 'app.js');
   if (Array.isArray(partyRandomValues) && partyRandomValues.length) {
     context.__dryrunMissionPartyRandomValues = partyRandomValues.slice(0, 2);
@@ -2964,6 +2994,20 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
     vpUpdatePosition = function() {};
   `, context);
   initUiForRun(context, targetType, { pipelineV2, pipelineV3, pipelineV4, apiKey, totalSeats });
+
+  context.localStorage.setItem('ga_private_story_writer_version', privateWriter);
+
+  // Focused production story path with explicitly supplied, sourced geography.
+  // Does not claim to exercise automatic destination research or the scene/runtime flow.
+  if (privateStoryCase) {
+    context.__privateStoryContract = JSON.parse(JSON.stringify(privateStoryCase.contract));
+    const mission = await vm.runInContext('fetchPrivateOutingStory({missionContractV4: __privateStoryContract})', context);
+    const core = mission.privateOuting.writerVersion === 'private-v6' ? context.MissionPrivateEpisodeV6 : context.MissionPrivateOutingCore;
+    const memorySaved = core.remember(context.localStorage, { ...mission, missionTitle: mission.t, missionId: `private-case-${seed}` });
+    return { testScope: 'production-private-story-with-supplied-context', caseId: privateStoryCase.id,
+      mission, memorySaved, briefing: mission.s, passenger: mission.passenger,
+      prompts: promptRecords(prompts), historyAfter: core.history(context.localStorage) };
+  }
 
   await vm.runInContext('generateMission()', context);
   await wait(900);
@@ -3150,6 +3194,8 @@ function parseCliArgs(argv) {
       args.pipelineV3 = false;
     }
     else if (arg === '--live-gemini') args.liveGemini = true;
+    else if (arg.startsWith('--private-writer=')) args.privateWriter = arg.slice('--private-writer='.length);
+    else if (arg.startsWith('--private-story-cases=')) args.privateStoryCases = arg.slice('--private-story-cases='.length);
     else if (arg === '--group-capability') args.groupCapability = true;
     else if (arg.startsWith('--party-roll=')) {
       const values = arg.slice(13).split(',').map(value => Number(value)).filter(Number.isFinite).slice(0, 2);
@@ -3289,6 +3335,8 @@ Options:
   --base=poi|apt|bush           Base mission type for --profile/--categories, default poi
   --variants                    Run built-in mixed variant set
   --live-gemini                 Use real Gemini API instead of dryrun stubs
+  --private-writer=v5|v6       Private writer version (default v6)
+  --private-story-cases=FILE    Private idea/writer only; supplied contracts/facts, shared history
   --out=FILE.json               Write report under analysis/
   --help                        Show this help
 
@@ -3311,11 +3359,17 @@ async function main() {
   }
   const roll = stableRandom(args.seed)();
   const sharedLocalStorage = makeStore();
-  const runs = buildRunConfigs(args).map(cfg => ({
+  const storyCases = args.privateStoryCases ? JSON.parse(fs.readFileSync(path.resolve(root, args.privateStoryCases), 'utf8')) : null;
+  if (storyCases && (!Array.isArray(storyCases) || !storyCases.length || storyCases.some(c => c.contract?.profile?.taskDomain !== 'private_outing' || !c.contract?.target?.name))) throw new Error('Invalid private story cases');
+  const configs = storyCases ? storyCases.slice(0, args.runs).map((privateStoryCase, i) => ({
+    seed: args.seed + i, targetType: 'apt:private+private_outing', pipelineV4: true, liveGemini: !!args.liveGemini, privateStoryCase
+  })) : buildRunConfigs(args);
+  const runs = configs.map(cfg => ({
     ...cfg,
     totalSeats: args.totalSeats,
     groupCapability: args.groupCapability,
     partyRandomValues: args.partyRandomValues,
+    privateWriter: args.privateWriter || 'v6',
     apiKey: args.liveGemini ? apiKey : 'DRYRUN_KEY',
     sharedLocalStorage
   }));
@@ -3325,6 +3379,16 @@ async function main() {
   fs.mkdirSync(outDir, { recursive: true });
   const outPath = path.join(outDir, args.out);
 
+  if (storyCases) {
+    const report = { generatedAt: new Date().toISOString(), liveGemini: !!args.liveGemini,
+      testScope: 'production-private-story-with-supplied-context', cases: storyCases.slice(0, args.runs), runs: results };
+    fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
+    console.log(JSON.stringify({ report: path.relative(root, outPath), briefings: results.map(r => ({
+      caseId: r.caseId, title: r.mission.t, story: r.briefing, greeting: r.passenger.greetingText,
+      historyCount: r.mission._missionWriterV4Debug.historyCount
+    })) }, null, 2));
+    return;
+  }
   const summary = results.map((r, i) => {
     const md = r.mission || {};
     const paxLines = (r.paxLog || [])

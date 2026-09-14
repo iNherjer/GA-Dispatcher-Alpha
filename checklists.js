@@ -1944,7 +1944,7 @@
     async function fetchRouteMetarsForWeather(points, signal) {
         const bounds = routeBounds(points, WEATHER_METAR_RADIUS_NM);
         if (!bounds) return [];
-        const src = `https://aviationweather.gov/api/data/metar?bbox=${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon}&format=json&t=${Date.now()}`;
+        const src = `https://aviationweather.gov/api/data/metar?bbox=${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon}&format=json`;
         const payload = await fetchJson(`${ROUTE_TOOLS_PROXY}/api/metar?src=${encodeURIComponent(src)}`, signal);
         const metars = parseMetarPayload(payload)
             .filter(m => m && Number.isFinite(Number(m.lat)) && Number.isFinite(Number(m.lon)));

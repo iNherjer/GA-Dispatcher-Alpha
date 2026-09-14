@@ -1,6 +1,10 @@
 # Mission Building Instructions
 
+Aktuelle private Erzählversion: [Mission Episode Writer V6](Mission%20Episode%20Writer%20V6.md). V5 bleibt als auswählbare Referenz erhalten; V6 ergänzt KI-verfasste JSON-Erinnerungen und eine freie Erzählform auf Basis einer strukturierten Episode.
+
 Schnelle Ablaufuebersicht: `docs/Mission Flow Reference.md`.
+
+Für strukturierte KI-Geschichten, kompaktes Wiederholungsgedächtnis und die schrittweise Übertragung auf weitere Missionsfamilien: [Mission Story Planner V5](Mission%20Story%20Planner%20V5.md). Referenzprofil ist zunächst `private_outing`; technische Rezepte bleiben unverändert.
 
 Diese Datei bleibt das ausfuehrliche Bau- und Erweiterungshandbuch. Die Flow
 Reference dokumentiert kompakt den aktuell ausgefuehrten Start-, Pickup-,

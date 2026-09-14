@@ -34,6 +34,31 @@ cd tools/cloudflare-worker
 npm test
 ```
 
+## METAR-Abfragen und Kompatibilität (14.09.2026)
+
+`GET /api/metar` akzeptiert `ids`, `bbox` oder eine URL in `src` auf
+`https://aviationweather.gov/api/data/metar`. Der Proxy erzwingt JSON und entfernt
+aus `src` den früher von der App angehängten Cache-Buster `t`. AviationWeather
+weist diesen unbekannten Parameter mit HTTP 400 / `Unexpected query parameter
+provided` zurück. Die sieben URL-Erzeuger in `app.js`, `airport-weather.js`,
+`profile.js` und `checklists.js` senden ihn ebenfalls nicht mehr. Die Bereinigung
+im Worker unterstützt noch geladene ältere Clients, sobald der Worker deployed ist.
+
+Eine leere Stationsantwort mit HTTP 204 wird ohne Response-Body weitergegeben,
+damit der Client seine Gebietssuche fortsetzen kann. Erfolgreiche Antworten
+behalten `Cache-Control: public, max-age=30`; Upstream-Fehler erhalten `no-store`.
+Die Freigabe der Quellhosts und gültige Abfrageparameter bleiben erhalten.
+
+`metar-proxy.test.mjs` ist Teil von `npm test`. Der separate Live-Nachweis
+`node tools/mission-weather-live-probe.mjs` (vom Repository-Root) verwendet den
+lokalen Worker-Handler und echte öffentliche AviationWeather-Daten. Er prüft
+keinen bereits veröffentlichten Worker und benötigt keine Schlüssel.
+
+Der Fehler- und Ablaufzeit-Test des Missions-Caches liegt in
+`tools/mission-weather.test.cjs`. Die vollständige Reparatur benötigt sowohl das
+App-Update als auch das Worker-Deployment. Ein Worker-Update allein leert keinen
+bereits vorhandenen, alten Null-Snapshot im Browser-Arbeitsspeicher.
+
 ## OpenAIP-Regionscache und Rollback
 
 Der Snapshot-Endpunkt lädt Flugplätze einschließlich Platztyp, PPR-/Privatstatus,
