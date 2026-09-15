@@ -973,3 +973,6 @@ Feldtestgrenzen: [Releasebeschreibung](Tracker%20v408%20POI%20Alpha%20Release.md
 
 Finaler Release-Nachweis: 294 gemeinsame Tests, 53 ergänzende EFB-/Club-/Routenprüfungen
 und 19.474 Originalvergleiche bestanden. Generatoren ohne Drift.
+
+Release `v408` und öffentlicher EXE-Download sind verifiziert. Der Alpha-Zeiger
+wird mit App-Cache v1772 veröffentlicht; Quellcommit `376bb852e`.
