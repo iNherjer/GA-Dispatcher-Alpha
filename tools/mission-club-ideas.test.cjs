@@ -115,3 +115,31 @@ test('regional anchors remain grounded and survive proposal acceptance without a
  const mission=await ctx.window.MissionClubBrowser.story({start:route.start,dest:route.target,proposal:{schema:'club-proposal.v1',input:frame,idea}});
  assert.equal(lookups,0);assert.equal(mission.clubIdea.narrativeEvents[0].geo.anchorId,'region-0');
 });
+
+test('Vereinsbriefing bindet frische Dispatchwerte auch bei einer gespeicherten Auswahl',async()=>{
+ require('../mission-private-outing-core.js');
+ const flightApi=require('../mission-private-episode-v6.js');
+ const idea=core.validate(raw,input),s=storage();let prompt='';
+ let template='Ihr fliegt [[route.distance]] zum Ziel. Die Wetterstation [[start.station]] meldet [[start.wind]], mit Böen bis [[start.gust]].';
+ const ctx={window:{MissionClubIdeasCore:core,MissionPrivateEpisodeV6:flightApi},localStorage:s,getSelectedAiApiKey:()=>'',fetchGeminiJsonWithFallback:async p=>{prompt=p;return {parsed:{...prose,flightBriefing:template,greeting:{speaker:'passenger',speakerName:'Ada',location:'onboard',text:prose.greeting}}};}};
+ vm.createContext(ctx);vm.runInContext(fs.readFileSync('mission-club-browser.js','utf8'),ctx);
+ const run=contract=>ctx.window.MissionClubBrowser.story({start:route.start,dest:route.target,proposal:{schema:'club-proposal.v1',input:{...input,flightContext:{distanceNm:999}},idea},contract});
+ const contract={route:{startName:'Start',targetName:'Ziel',distanceNm:18.7},weather:{dep:{raw:{station:'EDDS',windKts:7,gustKts:15}}}};
+ const mission=await run(contract);
+ assert.match(prompt,/18,7 NM/);assert.doesNotMatch(prompt,/999/);
+ assert.equal(mission.s,prose.story+'\n\nIhr fliegt 18,7 NM zum Ziel. Die Wetterstation EDDS meldet 7 Knoten, mit Böen bis 15 Knoten.');
+ assert.equal(mission.story,mission.s);assert.equal(mission.missionStory,mission.s);
+ assert.equal(mission._missionContractV4.route.distanceNm,18.7);
+ assert.equal(mission._missionWriterV4Debug.rawAiStory,prose.story);
+ assert.equal(mission._missionWriterV4Debug.flightBriefingStatus,'accepted-bindings');
+ assert.equal(mission.passenger.greetingText,prose.greeting);
+ core.remember(s,'new',idea,{story:mission.s});assert.doesNotMatch(JSON.stringify(core.history(s)),/EDDS|18,7/);
+ for(const invalid of ['Ihr fliegt 20 NM bei bestem Wetter.','Ihr fliegt [[route.distance]].','Ihr fliegt [[route.distance]] mit [[start.gust]] und [[target.wind]].']){
+  template=invalid;const result=await run(contract);
+  assert.equal(result.s,prose.story);assert.equal(result._missionWriterV4Debug.flightBriefingStatus,'unavailable');
+ }
+ template='Ihr fliegt [[route.distance]] zum Ziel. Für das Wetter liegen dem Briefing keine Messwerte vor.';
+ const missing=await run({route:{distanceNm:18.7}});
+ assert.match(missing.s,/keine Messwerte/);assert.match(prompt,/fehlende|Fehlende/);
+ assert.equal(missing._missionWriterV4Debug.flightBriefingStatus,'accepted-bindings');
+});

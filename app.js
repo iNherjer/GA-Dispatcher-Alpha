@@ -43886,6 +43886,9 @@ async function generateMission(options = {}) {
             throw new Error('Die gewählte Ausflugsidee benötigt den aktiven Privat-Planner mit bereitem V4-Rahmen. Bitte die Einstellungen prüfen und neue Vorschläge erstellen.');
         }
         if (useClubIdeas) {
+            missionContractV4 = { ...missionContractV4,
+                route: { startIcao: currentStartICAO, targetIcao: currentDestICAO, startName: start.n, targetName: dest.n, distanceNm: totalDist },
+                weather: _missionPipelineV3WeatherBundle(missionWeather) };
             m = await window.MissionClubBrowser.story({ start: { ...start, icao: currentStartICAO }, dest: { ...dest, icao: currentDestICAO },
                 proposal: missionProposalChoice?.clubProposal || null, contract: missionContractV4 });
             missionContractV4 = m._missionContractV4;

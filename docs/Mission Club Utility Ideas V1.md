@@ -1,8 +1,18 @@
 # Vereins-/Utility-Ideen V1
 
-Stand: 15.09.2026. Lokal implementiert, Vertragskennung `club-idea.v1`, Promptrevision `club-v1.9`. Alpha-Teststand App v1764 / Tracker v405; realer Simulator-Hörtest ausstehend. Der folgende Entwurf bleibt die fachliche Referenz; die konkrete Umsetzung und verbleibenden Grenzen stehen im nächsten Abschnitt.
+Stand: 15.09.2026. Lokal implementiert, Vertragskennung `club-idea.v1`, Promptrevision `club-v1.10`. Alpha-Teststand App v1765 / Tracker v405; realer Simulator-Hörtest ausstehend. Der folgende Entwurf bleibt die fachliche Referenz; die konkrete Umsetzung und verbleibenden Grenzen stehen im nächsten Abschnitt.
 
 ## Implementierter Stand und Nachweise
+
+### Kurzer Flug- und Wetterausblick (v1.10, Alpha v1765)
+
+Der Vereins-Writer erhält beim Dispatch die aktuelle Routendistanz und den Wetter-Snapshot über denselben Wettervertrag wie private Missionen. Auch beim Annehmen einer Picker-Idee stammen diese Daten aus dem aktuellen Dispatch, nicht aus dem gespeicherten Vorschlag. Im selben Writer-Aufruf entsteht ein separates `flightBriefing` mit zwei bis drei frei formulierten Sätzen. Es werden keine Musterhandlungen oder Beispielgeschichten vorgegeben.
+
+Die bestehenden Privat-V6-Helfer `flightContext`, `flightBindings` und `resolveFlightBriefing` werden unverändert wiederverwendet: Zahlen und Einheiten werden über Referenzen eingesetzt, vorhandene Entfernung und Böen sind verpflichtend. Start und Ziel bleiben örtliche Momentaufnahmen mit Stationsbezug, keine Vorhersage oder Aussage über unbeobachtetes Streckenwetter. Fehlende Messwerte werden benannt. Ein fehlender oder ungültiger Wetterabsatz bleibt wie im Privat-Pfad aus; die gültige Vereinsgeschichte wird dadurch nicht verworfen. Der Debug-Snapshot enthält Rohabsatz, aufgelösten Absatz und Status.
+
+Der Wetterabsatz wird an die Story angehängt. Ideenvertrag, Landmarken, optionale Voice-Events und Bordbegrüßung bleiben erhalten; die History speichert weiterhin Anlass und narrativen Einstieg. Bereits gespeicherte Missionen werden nicht nachträglich umgeschrieben. Keine Tracker-Änderung nötig.
+
+Nachweis: 34 Tests in `tools/mission-club-ideas.test.cjs`, `tools/mission-weather.test.cjs` und `tools/mission-private-episode-v6.test.cjs` erfolgreich; Syntaxprüfung der drei geänderten JS-Dateien. Die neue Browserprobe prüft frische Werte bei gespeichertem Picker-Vorschlag, Distanz/Böen/Stationsbezug, ungültige Referenzen, fehlende Wetterdaten und unveränderte Begrüßung. Eine neue Live-KI-/Simulatorprobe steht aus. Veröffentlichung mit App v1765; Tracker bleibt v405.
 
 v1.8: Keine Ein-Objekt-Schablone mehr für narrativeEvents im Schemahinweis. Die KI wählt weiterhin frei 0–3 Momente nach erzählerischem Bedarf, ohne Quote oder künstliches Aufteilen. Neue History-Einträge bewahren auch die Gesprächsabsichten; alte History bleibt lesbar. Dass diese Promptänderung tatsächlich eine größere Streuung erzeugt, muss eine weitere Liveprobe zeigen.
 
