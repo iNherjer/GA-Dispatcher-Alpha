@@ -84,8 +84,9 @@ function _awInstallFreqBannerBarrier(banner) {
 
 function getBannerHost() {
     const banner = document.getElementById('awmFreqBanner');
-    // Fixed banners must not inherit clipping/stacking from the map canvas.
-    if (banner && document.body && banner.parentElement !== document.body) document.body.appendChild(banner);
+    // Keep navigation notices in the map so closing it also hides the notices.
+    const mapArea = document.getElementById('mapArea');
+    if (banner && mapArea && mapArea !== banner && banner.parentElement !== mapArea) mapArea.appendChild(banner);
     return banner;
 }
 

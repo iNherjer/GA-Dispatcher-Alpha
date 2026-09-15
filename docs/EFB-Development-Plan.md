@@ -5016,3 +5016,16 @@ Erklärfelder mit expliziter dunkler Tinte ohne Strich.
 Release v403 veröffentlicht, Assetrevision 40301; Windows-EXE gebaut, 27
 Font-/EFB-Tests bestanden. Erneuter Download ist bytegleich mit dem Build;
 Alpha-Zeiger auf v403 umgestellt, Web-Cache v1746.
+
+### 2026-09-15 – Tracker v406: Luftraum-/Frequenzbanner
+
+Die Banner sind wieder an mapArea und dessen Sichtbarkeit gebunden.
+Luftraum-/Frequenzzeilen erhalten mindestens 44 px Hoehe und mehr vertikalen
+Innenabstand; Missionszeilen behalten ihre bisherigen Groessen.
+Assetrevision 40601 liefert die Anpassung ueber den tracker-gehosteten
+Kartentisch aus. Kein neues EFB-Community-Paket erforderlich.
+
+Validierung: 29 Presentation-/EFB-Webclient-/Font-Tests bestanden. EXE mit
+`npm run build:tracker -- --no-bytecode --public --public-packages "*"`
+gebaut, da die x64-Bytecode-Hilfsruntime auf diesem Mac nicht startet.
+Windows-/In-Sim-Sichtpruefung steht aus; Stable bleibt unveraendert.

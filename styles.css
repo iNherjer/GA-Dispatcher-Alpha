@@ -13329,7 +13329,7 @@ body.theme-win95.win95-main-minimized .mission-main-notification {
 /* ── AWM Frequenz-Banner ─────────────────────────────────────────────────── */
 #awmFreqBanner {
     padding-top: max(0px, env(safe-area-inset-top));
-    position: fixed !important;
+    position: absolute !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
@@ -13347,6 +13347,14 @@ body.theme-win95.win95-main-minimized .mission-main-notification {
     letter-spacing:.4px; white-space:nowrap; }
 .awm-freq-vals  { font-size:15px; font-family:monospace; }
 .awm-freq-val   { white-space:nowrap; display:inline-block; }
+/* Airspace/frequency notices need a readable row height, independent of host fonts. */
+.awm-freq-entry[data-askey] {
+    box-sizing: border-box;
+    min-height: 44px;
+    padding-top: 11px;
+    padding-bottom: 11px;
+    line-height: 1.5;
+}
 .awm-freq-dismiss { background:none; border:none; color:#555; font-size:17px;
     cursor:pointer; padding:0 2px 0 6px; line-height:1; flex-shrink:0;
     touch-action:manipulation; }
