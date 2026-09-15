@@ -39,3 +39,7 @@ Desktop 1.6.11 bleibt kompatibel; kein neuer Desktop-Installer erforderlich.
 Stable bleibt unveraendert.
 
 Validierung: 289 Node-Tests bestanden; Payload-App-Differentialtest (5 Szenarien) bestanden. Windows-EXE mit pkg node18-win-x64 gebaut. Kein realer MSFS-Test auf diesem Host.
+
+Veroeffentlicht aus `af4a3873d`. Oeffentlicher EXE-Download verifiziert:
+57.736.065 Bytes, SHA-256 `59b8b293fa3c1a2651c25b6496782d77e09887bc47dad7557f0d0ee9d74b435d`.
+Alpha verweist auf v410; SW v1777.
