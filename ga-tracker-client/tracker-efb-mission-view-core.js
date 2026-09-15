@@ -1,4 +1,5 @@
 'use strict';
+const poiUiCore = require('../mission-poi-ui-core.js');
 
 const aptUiCore = require('../mission-apt-ui-core.js');
 const payloadCore = require('../mission-payload-core.js');
@@ -313,11 +314,11 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     : control;
   const boardingVoice = object(object(control.voice).boarding);
   const farewellVoice = object(object(control.voice).farewell);
-  const voice = [farewellVoice, object(object(control.voice).flight), object(object(control.voice).approach), boardingVoice]
+  const voice = [farewellVoice, object(object(control.voice).poi), object(object(control.voice).flight), object(object(control.voice).approach), boardingVoice]
     .filter(value => value.text).sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))[0] || {};
   const manifest = projectMissionManifest(activeRun, control, flightSnapshot);
   const ui = control.executionAuthority === 'tracker'
-    ? aptUiCore.project({
+    ? (control.recipe === 'poi' ? poiUiCore : aptUiCore).project({
         missionId: activeRun.missionId,
         revision: control.authorityRevision || activeRun.revision,
         control: uiControl,
@@ -364,6 +365,10 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       : (controlFlags.active === true ? 'Mission aktiv' : 'Mission in Vorbereitung');
     view.currentTask = taskLabels[text(control.nextStep, 80)] || view.currentTask;
     view.detail = 'Ausführungsstand und erlaubte Aktionen kommen direkt vom Tracker.';
+    if (control.recipe === 'poi' && control.poiStatus && controlFlags.active) {
+      view.detail = control.poiStatus.detail;
+      if (['active', 'enroute', 'on_task', 'return_leg'].includes(controlPhase)) view.currentTask = control.poiStatus.nextStep;
+    }
     view.phase.current = phaseCurrent;
     view.cargo = {
       available: Number(cargoSummary.total || 0) > 0,
@@ -401,6 +406,7 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     ui,
     voice: voice.text ? {
       kind: text(voice.kind, 40) || 'boarding',
+      ...(voice.kind === 'poi' && voice.label ? { label: text(voice.label, 80) } : {}),
       status: text(voice.status, 40),
       text: text(voice.text, 4000),
       speaker: {

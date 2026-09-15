@@ -1,5 +1,7 @@
 # Mission Runtime Authority Contract
 
+Für die Übertragung weiterer Missionsfamilien: [Tracker-Migrationsleitfaden](Tracker%20Mission%20Migration%20Guide.md) mit APT-/POI-Erfahrungen, Pflichtmatrix und Freigabegates.
+
 Stand: 20.08.2026
 
 Dieses Dokument ist der verbindliche Ziel- und Migrationsvertrag fuer die
@@ -850,6 +852,105 @@ Timeout wird nicht still erneut ausgeführt. Web-geführte Missionen und nicht
 freigegebene Rezepte werden dadurch nicht schreibend für EFB/Toolbar geöffnet.
 
 
+## POI-Extraktion vom 15.09.2026 (lokaler Integrationsstand)
+
+Der gewöhnliche POI-Task verwendet in der App und im neuen Tracker-Taskadapter
+denselben `mission-poi-task-core.js`. `POI_TASK_OBSERVED` ist ein internes
+Tracker-Systemereignis mit validiertem Detektorzustand, Checkpoint-Sequenz und
+Voice-Triggern. Clients dürfen daraus keinen frei setzbaren Taskfortschritt machen.
+Detektor und Effekte werden gemeinsam revisionsgebunden persistiert.
+
+Task-Erfüllung oder Task-Abbruch beendet keine Mission. Die bestehenden POI-
+Regeln für Bodenabschluss, Erfolg, Heimkehr und Farewell bleiben die Referenz
+für den noch zu vervollständigenden gesamten Ausführungsschnitt. Die interne
+POI-Integrationsoption ist standardmäßig ausgeschaltet und wird vom produktiven
+Tracker-Einstieg nicht aktiviert. Die APT-Freigabe umfasst keine POI-Freigabe.
+
+Implementierung, Paritätsnachweise und offene Integrationsschritte:
+[POI Tracker Migration Implementation](POI%20Tracker%20Migration%20Implementation.md).
+
 ### Optionale Routen-Voice (15.09.2026, lokal)
 
 Vereinsideen dürfen bis zu drei Gesprächsmomente an prozentualen Routenpositionen definieren. Der gemeinsame Fortschrittskern wird bei Tracker-Autorität ausschließlich durch die Tracker-Telemetrie ausgeführt; die bestehenden persistenten Voice-Effekte übernehmen Claim, Ausführung und Recovery. Der App-/Debug-Sim-Pfad verwendet denselben Kern und bleibt bei Tracker-Autorität gesperrt. Keine zusätzlichen Wegpunkte oder Erfolgskriterien. [Vertrag, Grenzen und Tests](Mission%20Route%20Voice%20Events.md).
+
+
+### POI-Checkpoint-Kadenz (15.09.2026, lokaler Integrationsstand)
+
+Die POI-Taskberechnung verarbeitet jedes gültige Sample. Reine Zwischenstände
+bleiben bis zum nächsten Sample ab fünf Sekunden seit dem letzten bestätigten
+Checkpoint im Tracker-RAM; semantische Übergänge und Originaleffekte werden sofort
+revisionsgebunden gespeichert. Die POI-Sequenz zählt akzeptierte Checkpoints.
+Detektor, Effekte, Hash und Replay bleiben eine gemeinsame Authority-Transaktion.
+Alle Bediengeräte sehen denselben bestätigten Stand, keinen privaten Taskpuffer.
+
+Ein fehlgeschlagener Commit hält seinen Zustand und seine Effekte bis zur
+Wiederholung fest. Vor geordnetem Ende oder Authority-Wechsel ist ein erfolgreicher
+Flush erforderlich; bei bekannter Telemetrietrennung pausiert der Treiber die Uhren.
+Bei gesundem Speicher und laufender Telemetrie kann ein harter Abbruch weniger als
+fünf Sekunden ungesicherten Taskfortschritt verlieren. Disconnect und Flush vor validierten Intents sind inzwischen in der Runtime
+angebunden; Shutdown und der vollständige Abschluss-/Authority-Wechsel bleiben
+vor der produktiven POI-Freigabe zu vervollständigen.
+Details: [POI-Implementierung, Abschnitt 7](POI%20Tracker%20Migration%20Implementation.md#7-gebündelte-lokale-checkpoints-15092026).
+
+
+### POI-Runtime-Anbindung (15.09.2026, weiterhin intern gegatet)
+
+Die Execution-Runtime routet intern freigegebene POI-Runs an ihren eigenen
+Task-Treiber. APT-Zielankunft, Anflug und Auto-Close werden dabei nicht ausgeführt.
+Task-Blocker stammen aus dem bestätigten Manifest; neue Flugbelastung und deren
+persistierte Frachtschäden sind zusammen mit dem Recorder noch anzubinden.
+
+Vor POI-Intents validiert die Runtime zuerst die unveränderte Geräte-Revision,
+flusht dann synchron ihren Puffer und bezieht nur diese bereits geprüfte Anfrage
+auf die durch den eigenen Checkpoint entstandene Revision. Schreibfehler stoppen
+den Intent; veraltete Geräteanfragen dürfen keinen Flush und kein Rebase auslösen.
+Bestätigte Checkpoints verwenden die vorhandene Authority-Benachrichtigung.
+Der Effect-Runner bleibt APT-gegatet; POI-Voice, Szenen und vollständiger Abschluss
+sind damit weiterhin keine produktiv freigegebene Ausführung.
+
+
+### POI-Voice nach APT-Muster (15.09.2026, intern gegatet)
+
+POI speichert den aus Originalfunktionen erzeugten Prompt samt Befund und
+Triggerdaten gemeinsam mit `POI_TASK_OBSERVED`. Der bestehende VoiceService
+übernimmt Synthese, persistierte Job-ID, exklusive Playback-Lease und Wiederaufnahme.
+Langsame Ansagen dürfen Telemetrie und Cargo-Intents nicht blockieren.
+
+`POI_VOICE_TEXT_READY` speichert den erzeugten Text und das Original-Erzählgedächtnis
+vor der Playback-Freigabe. Ein fehlgeschlagener Commit hält die Wiedergabe zurück;
+der spätere Playback-/Voice-ACK ist eine eigene Grenze. Doppelte ACKs dürfen kein
+neues Gedächtnis oder eine zweite Wirkung erzeugen. Entfernte/beendete Runs sperren
+verspätete POI-Ausgabe. Nur POI-Voice-Effekte sind intern zusätzlich ausführbar;
+POI-Szenen und der vollständige Abschluss bleiben gesperrt.
+
+Kontextbuilder, Originalquellen, Vergleich mit v383/v396 und Nachweise:
+[POI-Implementierung, Abschnitt 9](POI%20Tracker%20Migration%20Implementation.md#9-originale-poi-voice-und-apt-erfahrungen-15092026).
+
+POI-Nachbesserung vom 15.09.2026: Die Textbestätigung erfolgt bereits vor der
+Audiosynthese, nicht erst vor Playback. TTS-Fehler dürfen bestätigten Text und
+Erzählgedächtnis nicht verlieren. Bei Schreibfehler bleibt der Text lokal für
+einen erneuten Commit erhalten; bei Neustart wird bereits bestätigter Text vom
+Missionseffekt wiederverwendet. APT verwendet den zusätzlichen POI-Schritt nicht.
+[Implementierung und Nachweise](POI%20Tracker%20Migration%20Implementation.md#11-poi-textbestätigung-vor-tts-15092026).
+
+### Vollständiger POI-Vertrag (15.09.2026, separate Alpha-Capability)
+
+Die vorstehenden POI-Teilschritte sind durch den vollständigen Standard-POI-Anschluss
+ergänzt. Nur ein validiertes `ga.mission-poi-execution-recipe.v1` mit
+`ga.mission-poi-lifecycle.v1` und vollständigem `ga.mission-poi-effect-plan.v1`
+darf den gemeinsamen Flug-/Szenen-/Cargo-/Abschlussablauf ausführen. Task-only-Rezepte
+bleiben interne Tests. `mission.poi.v1` setzt den POI-Opt-in und das Alpha/APT-Gate
+voraus; die allgemeine Standardfreigabe bleibt geschlossen.
+
+Der POI-Lifecycle entscheidet anhand der Originalregeln über Flugnachweis,
+Abschlussort, Heimkehr und Taskfehlschlag. APT-Ankunftsgeometrie darf weder das
+Arbeitsziel noch einen erlaubten POI-Abschluss ersetzen. `POI_LIFECYCLE_OBSERVED`
+sichert diese Freigaben; Taskfortschritt und Navigation behalten eigene Verträge.
+Beim Abschließen nach Neustart muss der gespeicherte Recorder vor jedem neuen
+Checkpoint wiederhergestellt sein. Text-Ready behält seinen bestätigten Zeitpunkt
+auch beim späteren Voice-ACK.
+
+[Implementierung, vollständige Befundliste und Nachweise](POI%20Tracker%20Migration%20Implementation.md#13-vollständiger-standard-poi-anschluss).
+Die dort ausgewiesenen Unit-/Differentialtests ersetzen keine MSFS-/Mehrgeräte-
+Feldfreigabe. Für weitere Missionstypen dient der
+[Migrationsleitfaden](Tracker%20Mission%20Migration%20Guide.md) als verbindlicher Einstieg.

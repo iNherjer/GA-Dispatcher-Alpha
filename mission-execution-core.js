@@ -12,11 +12,17 @@
     var complianceCore = typeof module === 'object' && module.exports
         ? require('./mission-compliance-domain-core.js')
         : (root && root.GAMissionComplianceDomainCore);
+    var poiTaskCore = typeof module === 'object' && module.exports
+        ? require('./mission-poi-task-core.js')
+        : (root && root.GAMissionPoiTaskCore);
+    var poiVoiceCore = typeof module === 'object' && module.exports
+        ? require('./mission-poi-voice-core.js')
+        : (root && root.GAMissionPoiVoiceCore);
     var routeVoiceCore = typeof module === 'object' && module.exports ? require('./mission-route-voice-core.js') : (root && root.GAMissionRouteVoiceCore);
-    var api = factory(manifestCore, startCore, payloadCore, complianceCore, routeVoiceCore);
+    var api = factory(manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore);
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root && typeof root === 'object') root.GAMissionExecutionCore = api;
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (manifestCore, startCore, payloadCore, complianceCore, routeVoiceCore) {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore) {
     'use strict';
 
     var CORE_VERSION = 1;
@@ -49,7 +55,7 @@
         'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL',
+        'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -394,6 +400,7 @@
             kind: text(source.kind || 'boarding', 40).toLowerCase() || 'boarding',
             status: statuses.includes(rawStatus) ? rawStatus : 'idle',
             text: text(source.text, 4000),
+            ...(source.kind === 'poi' && source.label ? { label: text(source.label, 80) } : {}),
             ...(source.wrongStartActive === true ? { wrongStartActive: true } : {}),
             speaker: {
                 name: text(speaker.name, 120),
@@ -564,6 +571,15 @@
         };
     }
 
+    function validPoiObservation(poi, missionId) {
+        return poi && poi.schema === 'ga.tracker-poi-runtime.v1' && poi.missionId === missionId
+            && Number.isSafeInteger(poi.sequence) && poi.sequence > 0
+            && typeof poi.observedAt === 'number' && Number.isFinite(poi.observedAt) && poi.observedAt >= 0
+            && (poi.suspendedAt === null || (typeof poi.suspendedAt === 'number'
+                && Number.isFinite(poi.suspendedAt) && poi.suspendedAt >= 0 && poi.suspendedAt <= poi.observedAt))
+            && poiTaskCore?.isState(poi.detector) === true;
+    }
+
     function normalizeState(raw) {
         var source = object(raw);
         var state = baseState(source.missionId, source.recipe);
@@ -590,6 +606,8 @@
             dwellSec: Math.max(0, round(progress.dwellSec, 1, 0)),
             attempts: Math.max(0, integer(progress.attempts, 0))
         };
+        if (state.recipe === 'poi' && validPoiObservation(source.poiTask, state.missionId)) state.poiTask = canonicalValue(source.poiTask);
+        if (state.recipe === 'poi' && source.poiLifecycle) state.poiLifecycle = canonicalValue(source.poiLifecycle);
         var sourceCargo = object(source.cargo);
         var cargoLooksLikeManifest = Object.prototype.hasOwnProperty.call(sourceCargo, 'dispatchSignature')
             || Object.prototype.hasOwnProperty.call(sourceCargo, 'key')
@@ -624,6 +642,10 @@
         };
         if (routeVoiceCore && Array.isArray(object(source.voice).clubHistory)) state.voice.clubHistory = routeVoiceCore.speechHistory(source.voice.clubHistory);
         if (object(source.voice).flight) state.voice.flight = normalizeVoiceOutcome(source.voice.flight);
+        if (state.recipe === 'poi' && object(source.voice).poiMemory && poiVoiceCore) {
+            state.voice.poiMemory = poiVoiceCore.normalizeMemory(source.voice.poiMemory);
+        }
+        if (state.recipe === 'poi' && object(source.voice).poi) state.voice.poi = normalizeVoiceOutcome(source.voice.poi);
         if (object(source.voice).approach) state.voice.approach = normalizeVoiceOutcome({
             ...object(source.voice.approach), kind: 'approach'
         });
@@ -964,6 +986,27 @@
         }
         if (event.type === 'MISSION_STARTED') return phase === 'boarded' && state.flags.loadConfirmed && state.flags.boardingConfirmed;
         if (event.type === 'AIRBORNE') return state.flags.started || phase === 'active' || phase === 'enroute';
+        if (event.type === 'POI_LIFECYCLE_OBSERVED') return state.recipe === 'poi' && state.flags.started && !state.flags.closed
+            && ['flightEligible', 'canEndHere', 'endedAtHome', 'needsRideHome'].every(function (key) { return typeof object(eventPayload.poiLifecycle)[key] === 'boolean'; });
+        if (event.type === 'POI_ACTION_VOICE_REQUESTED') return poiActionAllowed(state)
+            && ['poi_status', 'poi_orientation'].includes(eventPayload.action)
+            && eventPayload.resolvedRecipe?.schema === 'ga.mission-poi-voice-recipe.v1'
+            && eventPayload.resolvedRecipe.missionId === state.missionId;
+        if (event.type === 'POI_VOICE_TEXT_READY') return state.recipe === 'poi' && (state.flags.active
+            || state.effects.some(function (effect) { return effect.effectId === eventPayload.effectId && !!effect.payload.action; }))
+            && !state.flags.closingPending && !state.flags.farewellStarted
+            && typeof eventPayload.text === 'string' && eventPayload.text.length > 0 && eventPayload.text.length <= 4000
+            && state.effects.some(function (effect) { return effect.effectId === eventPayload.effectId
+                && effect.type === 'voice.poi' && effect.status === 'requested' && !effect.payload.resolvedText; });
+        if (event.type === 'POI_TASK_OBSERVED') {
+            var poi = object(eventPayload.poiTask);
+            return state.recipe === 'poi' && state.flags.active && !state.flags.closingPending
+                && !state.flags.farewellStarted
+                && validPoiObservation(poi, state.missionId)
+                && poi.sequence === Number(state.poiTask?.sequence || 0) + 1
+                && (!state.poiTask || (poi.observedAt > state.poiTask.observedAt
+                    && !state.poiTask.detector.satisfied && !state.poiTask.detector.aborted));
+        }
         if (event.type === 'TARGET_ENTERED' || event.type === 'TASK_PROGRESS') return state.flags.active;
         if (event.type === 'TOUCHDOWN' || event.type === 'GROUND_STILL') return state.flags.started || state.flags.active;
         if (event.type === 'PICKUP_CONFIRMED') {
@@ -1213,6 +1256,9 @@
             if (object(event.payload).arrivalScene === true) {
                 appendEffect(state, createEffect(state, event, 'scene.arrival', { operation: 'arrival' }));
             }
+            if (state.recipe === 'poi' && object(event.payload).targetScene === true) {
+                appendEffect(state, createEffect(state, event, 'scene.target', { operation: 'target' }));
+            }
             state.flags.started = true;
             state.flags.active = true;
         } else if (event.type === 'AIRBORNE') {
@@ -1223,6 +1269,47 @@
             state.flags.onGround = false;
             state.flags.groundStill = false;
             state.progress.airborneSeen = true;
+        } else if (event.type === 'POI_LIFECYCLE_OBSERVED') {
+            state.poiLifecycle = canonicalValue(event.payload.poiLifecycle);
+        } else if (event.type === 'POI_ACTION_VOICE_REQUESTED') {
+            appendEffect(state, createEffect(state, event, 'voice.poi', canonicalValue(event.payload)));
+        } else if (event.type === 'POI_VOICE_TEXT_READY') {
+            var speakingEffect = state.effects.find(function (effect) { return effect.effectId === event.payload.effectId; });
+            speakingEffect.payload.resolvedText = event.payload.text;
+            speakingEffect.payload.resolvedTextAt = event.occurredAt;
+            state.voice.poi = normalizeVoiceOutcome({ kind: 'poi', label: speakingEffect.payload.label, status: 'pending', text: event.payload.text,
+                speaker: speakingEffect.payload.resolvedRecipe?.speaker, updatedAt: event.occurredAt, playback: 'pending' });
+            if (poiVoiceCore) state.voice.poiMemory = poiVoiceCore.captureMemory(
+                state.voice.poiMemory || {}, speakingEffect.payload.label, event.payload.text);
+        } else if (event.type === 'POI_TASK_OBSERVED') {
+            state.poiTask = canonicalValue(event.payload.poiTask);
+            var detector = state.poiTask.detector;
+            state.progress.targetSatisfied = detector.satisfied === true;
+            state.progress.taskAborted = detector.aborted === true;
+            state.progress.manualConfirmed = detector.manualConfirmed === true;
+            state.progress.atTargetDone = detector.atTargetDone === true;
+            state.progress.dwellSec = Number(detector.dwellSec) || 0;
+            state.progress.attempts = Number(detector.attempts) || 0;
+            if (state.poiTask.suspendedAt === null
+                && !['end_unloading', 'end_ready', 'closing', 'closed'].includes(state.phase)) {
+                if (detector.satisfied || detector.aborted) {
+                    state.progress.returnLeg = true;
+                    state.phase = 'return_leg';
+                    state.subphase = detector.aborted ? 'task_aborted' : 'task_satisfied';
+                } else if (detector.inRadius) {
+                    state.phase = 'on_task';
+                    state.subphase = 'task_progress';
+                } else if (state.phase === 'on_task') {
+                    state.phase = 'enroute';
+                    state.subphase = 'outbound_flight';
+                }
+            }
+            (Array.isArray(event.payload.voiceEffects) ? event.payload.voiceEffects : []).forEach(function (cue, index) {
+                if (cue.inspectionOutcome && poiVoiceCore) state.voice.poiMemory = poiVoiceCore.normalizeMemory({
+                    ...object(state.voice.poiMemory), inspectionOutcome: cue.inspectionOutcome
+                });
+                appendEffect(state, createEffect(state, { ...event, eventId: event.eventId + ':voice:' + index }, 'voice.poi', canonicalValue(cue)));
+            });
         } else if (event.type === 'TARGET_ENTERED') {
             state.phase = 'on_task';
             state.subphase = 'target_entered';
@@ -1245,7 +1332,8 @@
         } else if (event.type === 'GROUND_STILL') {
             state.flags.onGround = true;
             state.flags.groundStill = true;
-            if (object(event.payload).atDestination === true && state.progress.airborneSeen) {
+            if ((state.recipe === 'poi' && state.poiLifecycle ? state.poiLifecycle.canEndHere
+                : object(event.payload).atDestination === true && state.progress.airborneSeen)) {
                 state.flightEvents = currentFlightEvents(state);
                 if (!state.flightEvents.landingAt) state.flightEvents.landingAt = event.occurredAt || null;
                 state.phase = state.cargo.summary.destinationRemaining > 0 ? 'end_unloading' : 'end_ready';
@@ -1539,6 +1627,13 @@
                 state.voice.flight = normalizeVoiceOutcome({ ...object(object(event.payload).result),
                     kind: acknowledgedEffect.payload.kind, updatedAt: event.occurredAt });
             }
+            if (acknowledgedEffect && acknowledgedEffect.type === 'voice.poi' && poiVoiceCore) {
+                state.voice.poi = normalizeVoiceOutcome({ ...object(object(event.payload).result),
+                    kind: 'poi', label: acknowledgedEffect.payload.label, text: acknowledgedEffect.payload.resolvedText || object(object(event.payload).result).text,
+                    updatedAt: acknowledgedEffect.payload.resolvedTextAt || event.occurredAt });
+                if (state.voice.poi.text && !acknowledgedEffect.payload.resolvedText) state.voice.poiMemory = poiVoiceCore.captureMemory(
+                    state.voice.poiMemory || {}, acknowledgedEffect.payload.label, state.voice.poi.text);
+            }
             if (acknowledgedEffect && acknowledgedEffect.type === 'voice.approach') {
                 state.voice.approach = normalizeVoiceOutcome({
                     ...object(object(event.payload).result), kind: 'approach',
@@ -1634,14 +1729,24 @@
         var compliance = state.workflows.complianceInspection;
         if (compliance.selected === true && !compliance.released) result.push('compliance_inspection_active');
         if (compliance.remediationRequired) result.push('compliance_remediation_required');
-        if (state.progress.taskAborted) result.push('task_aborted');
-        if (state.cargo.summary.failed) result.push('cargo_failure');
+        // Standard POI may close as failed; success is an outcome, not a lock.
+        if (!(state.recipe === 'poi' && state.poiLifecycle)) {
+            if (state.progress.taskAborted) result.push('task_aborted');
+            if (state.cargo.summary.failed) result.push('cargo_failure');
+        }
         return Array.from(new Set(result)).sort();
+    }
+
+    function poiActionAllowed(state) {
+        return state.recipe === 'poi' && !state.flags.closed && !state.flags.closingPending
+            && !state.flags.farewellStarted && !state.flags.farewellCompleted && !state.flags.unloadConfirmed
+            && !state.effects.some(function (effect) { return effect.type === 'voice.poi' && effect.status === 'requested' && effect.payload.action; });
     }
 
     function allowedActions(rawState) {
         var state = normalizeState(rawState);
         var actions = [];
+        if (poiActionAllowed(state)) actions.push('poi_status', 'poi_orientation');
         var phase = state.phase;
         if (phase === 'planned') actions.push('prepare_mission');
         if (phase === 'prepare' && state.effects.some(function (effect) {
@@ -1664,7 +1769,7 @@
         }
         if (state.flags.active) {
             if (state.flags.onGround === false
-                && (phase === 'active' || phase === 'enroute' || phase === 'return_leg')) {
+                && (phase === 'active' || phase === 'enroute' || phase === 'return_leg' || (state.recipe === 'poi' && phase === 'on_task'))) {
                 actions.push('set_manifest_item');
             }
             if (state.flags.groundStill && state.phase === 'on_task' && state.cargo.summary.pickupTotal > 0) {
@@ -1672,7 +1777,7 @@
                 if (state.cargo.summary.pickupMissing === 0) actions.push('sign_manifest');
                 if (state.cargo.summary.pickupMissing === 0 && state.cargo.signatureScope === 'pickup') actions.push('confirm_pickup');
             }
-            if (state.flags.groundStill && state.progress.airborneSeen && state.cargo.summary.destinationTotal > 0) {
+            if (state.flags.groundStill && (state.recipe === 'poi' && state.poiLifecycle ? state.poiLifecycle.canEndHere : state.progress.airborneSeen) && state.cargo.summary.destinationTotal > 0) {
                 actions.push('set_manifest_item');
                 var deboardingPending = state.effects.some(function (effect) {
                     return effect.type === 'scene.deboarding' && effect.status === 'requested';
@@ -1804,6 +1909,8 @@
             version: state.version,
             missionId: state.missionId,
             recipe: state.recipe,
+            ...(state.poiTask ? { poiTask: canonicalValue(state.poiTask) } : {}),
+            ...(state.poiLifecycle ? { poiLifecycle: canonicalValue(state.poiLifecycle) } : {}),
             phase: state.phase,
             subphase: state.subphase,
             revision: state.revision,
@@ -1829,6 +1936,8 @@
         return {
             missionId: state.missionId,
             recipe: state.recipe,
+            ...(state.poiTask ? { poiTask: canonicalValue(state.poiTask) } : {}),
+            ...(state.poiLifecycle ? { poiLifecycle: canonicalValue(state.poiLifecycle) } : {}),
             phase: state.phase,
             subphase: state.subphase,
             flags: {

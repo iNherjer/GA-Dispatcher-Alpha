@@ -1,3 +1,4 @@
+const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
 const crypto = require('crypto');
 const routeEditCore = require('../map-route-edit-core.js');
 const fs = require('fs');
@@ -16,6 +17,8 @@ const MAX_EXECUTION_EVENTS = 160;
 const EXECUTION_AUTHORITY_WEB = 'web';
 const EXECUTION_AUTHORITY_TRACKER = 'tracker';
 const EXECUTION_HANDOFF_RECIPE = 'apt';
+const poiRuntime = require('./tracker-mission-poi-runtime.js');
+const resumeAdapters = require('../mission-resume-adapters-core.js');
 const EXECUTION_PAYLOAD_RECOVERY_SCHEMA = 'ga.mission-payload-recovery.v1';
 const EXECUTION_RUNTIME_CONTEXT_SCHEMA = 'ga.mission-runtime-context.v1';
 
@@ -418,6 +421,15 @@ function publicExecutionSnapshot(run) {
     currentSegmentRecord.segmentCount = 1;
     missionFlightRecord = flightRecorderCore.mergeRecords([missionFlightRecord, currentSegmentRecord].filter(Boolean));
   }
+  const poiRecipe = state.recipe === 'poi' ? run.resumeBundle?.executionPoiRecipe : null;
+  const poiLifecycle = poiRecipe && poiRuntime.hasLifecycle(poiRecipe)
+    ? poiLifecycleCore.evaluate(poiRecipe, state.poiTask?.detector,
+        { ...runtime?.flightRecorder, hadAirbornePhase: state.poiLifecycle?.flightEligible }, runtime?.latestTelemetry || {},
+        flightRecorderCore.evaluateFarewellOutcome(state.manifest, runtime?.arrivalFlightRecord || {},
+          { motionProtectionEnabled: poiRecipe.voiceContext?.motionProtectionEnabled === true })) : null;
+  if (missionFlightRecord && poiLifecycle) missionFlightRecord = { ...missionFlightRecord,
+    missionCargoOutcome: poiLifecycle.outcome, missionFailed: poiLifecycle.outcome?.failed === true,
+    poiNeedsRideHome: state.poiLifecycle?.needsRideHome === true, poiEndedAtHome: state.poiLifecycle?.endedAtHome === true };
   const exposeFlight = runtime && /^(end_unloading|end_ready|closing|closed)$/.test(state.phase);
   return {
     schema: 'ga.mission-execution-control.v1',
@@ -441,6 +453,9 @@ function publicExecutionSnapshot(run) {
     cargoObjectRevision: runtime?.cargoObjectRevision || 0,
     passengerInteraction: jsonClone(state.effects.filter(effect => effect.type === 'scene.manual_pax').slice(-1)[0] || null),
     progress: jsonClone(state.progress),
+    ...(state.poiTask ? { poiTask: poiRuntime.project(state.poiTask) } : {}),
+    ...(state.poiLifecycle ? { poiLifecycle: jsonClone(state.poiLifecycle) } : {}),
+    ...(poiLifecycle ? { poiStatus: poiLifecycle.status, poiOutcome: exposeCompletionRecord ? poiLifecycle.outcome : null } : {}),
     manifest: jsonClone(state.manifest),
     flightEvents: jsonClone(view.flightEvents),
     payload: jsonClone(view.payload),
@@ -529,6 +544,14 @@ function createMissionAuthorityManager(options = {}) {
   const managerSessionId = `tracker-${Date.now().toString(36)}-${crypto.randomBytes(5).toString('hex')}`;
   const log = typeof options.log === 'function' ? options.log : () => {};
   const executionAuthorityEnabled = options.executionAuthorityEnabled === true;
+  // Internal integration gate. The production entrypoint deliberately does not
+  // advertise POI until the complete scene/voice/UI contract has passed parity.
+  const supportsExecutionRecipe = (recipe, bundle) => recipe === EXECUTION_HANDOFF_RECIPE
+    || (options.poiExecutionEnabled === true && recipe === 'poi'
+      && bundle?.missionId === bundle?.executionPoiRecipe?.missionId
+      && resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'poi'
+      && !poiRuntime.validateBundle(bundle)
+      && (options.poiLifecycleRequired !== true || poiRuntime.hasLifecycle(bundle.executionPoiRecipe)));
   let state = newState();
 
   const addEvent = (kind, payload = {}) => {
@@ -776,7 +799,7 @@ function createMissionAuthorityManager(options = {}) {
   const editNavigationRoute = (request = {}) => {
     const active = state.activeRun;
     if (!active || active.runId !== request.routeId || active.executionAuthority !== 'tracker'
-        || active.executionRecipe !== 'apt') return { ok: false, error: 'navigation_mission_locked' };
+        || !supportsExecutionRecipe(active.executionRecipe, active.resumeBundle)) return { ok: false, error: 'navigation_mission_locked' };
     const compliance = active.executionState?.workflows?.complianceInspection;
     if (compliance?.selected && !['released', 'not_selected'].includes(compliance.phase)) return { ok: false, error: 'navigation_compliance_locked' };
     const revision = Number(active.navigationRoute?.revision || 0);
@@ -864,7 +887,7 @@ function createMissionAuthorityManager(options = {}) {
         activeRun: publicRun(active)
       };
     }
-    if (projected.recipe !== EXECUTION_HANDOFF_RECIPE) {
+    if (!supportsExecutionRecipe(projected.recipe, active.resumeBundle)) {
       return { ok: false, status: 'blocked', error: 'mission_execution_recipe_not_enabled', activeRun: publicRun(active) };
     }
     if (projected.phase !== 'planned' || projected.stateRevision !== 0 || projected.state.effects.length !== 0) {
@@ -956,7 +979,7 @@ function createMissionAuthorityManager(options = {}) {
       return { ok: false, status: 'conflict', error: 'mission_revision_conflict', activeRun: publicRun(active) };
     }
     const projected = executionProjection(active.resumeBundle);
-    if (!projected.ok || projected.recipe !== EXECUTION_HANDOFF_RECIPE) {
+    if (!projected.ok || !supportsExecutionRecipe(projected.recipe, active.resumeBundle)) {
       return {
         ok: false,
         status: 'blocked',
@@ -1079,7 +1102,7 @@ function createMissionAuthorityManager(options = {}) {
     if (active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
       return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', activeRun: publicRun(active) };
     }
-    if (active.executionRecipe !== EXECUTION_HANDOFF_RECIPE) {
+    if (!supportsExecutionRecipe(active.executionRecipe, active.resumeBundle)) {
       return { ok: false, status: 'blocked', error: 'mission_execution_recipe_not_enabled', activeRun: publicRun(active) };
     }
     const rawEvent = safeObject(request.event);
@@ -1779,6 +1802,8 @@ function createMissionAuthorityManager(options = {}) {
     recordExecutionRuntimeContext,
     clearMissionRecoveryState,
     getExecutionSnapshot,
+    supportsExecutionRecipe(recipe) { return supportsExecutionRecipe(recipe, state.activeRun?.resumeBundle); },
+    getExecutionPoiRecipe() { return jsonClone(state.activeRun?.resumeBundle?.executionPoiRecipe || null); },
     canRebaseIntentRevision,
     abortExecutionRun,
     finalizeExecutionRun,

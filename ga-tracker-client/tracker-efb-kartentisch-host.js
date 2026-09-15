@@ -599,7 +599,7 @@
   }
 
   function projectedCargoModel(mission) {
-    var model = mission && mission.ui && mission.ui.schema === 'ga.mission-apt-ui.v1'
+    var model = mission && mission.ui && ['ga.mission-apt-ui.v1', 'ga.mission-poi-ui.v1'].includes(mission.ui.schema)
       && mission.ui.cargo && mission.ui.cargo.presentation === 'app-cargo-dialog-v1'
       ? mission.ui.cargo
       : null;
@@ -842,7 +842,7 @@
     var items = cargoManagerItems(mission, control);
     var allowedActions = Array.isArray(control.allowedActions) ? control.allowedActions : [];
     var phase = String(control.phase || '').toLowerCase();
-    var projectedCargo = mission.ui && mission.ui.schema === 'ga.mission-apt-ui.v1'
+    var projectedCargo = mission.ui && ['ga.mission-apt-ui.v1', 'ga.mission-poi-ui.v1'].includes(mission.ui.schema)
       && mission.ui.cargo && typeof mission.ui.cargo === 'object'
       ? mission.ui.cargo
       : null;
@@ -1961,7 +1961,7 @@
     // A canonical null banner is an explicit UI decision.  Falling back in
     // that case resurrected the old airborne "Verladung öffnen" banner even
     // though the shared App UI core intentionally hides it.
-    if (payload.ui && payload.ui.schema === 'ga.mission-apt-ui.v1') {
+    if (payload.ui && ['ga.mission-apt-ui.v1', 'ga.mission-poi-ui.v1'].includes(payload.ui.schema)) {
       return payload.ui.banner && typeof payload.ui.banner === 'object'
         ? Object.assign({}, payload.ui.banner)
         : null;
@@ -2088,11 +2088,60 @@
     clearTimeout(boardBookReminderTimer); boardBookReminderTimer = setTimeout(dismiss, 15000);
   }
 
+  var poiVoicePresentationKey = '';
+  function renderPoiVoice(payload) {
+    var voice = payload && payload.voice;
+    var banner = byId('gaEfbPoiVoice');
+    var host = window.GANavigationWarningPresentation.getBannerHost();
+    if (!host) return;
+    function dismiss() {
+      if (banner) banner.hidden = true;
+      if (!Array.from(host.children).some(function(child) { return !child.hidden; })) host.style.display = 'none';
+    }
+    if (!payload || !payload.control || payload.control.recipe !== 'poi' || !voice || voice.kind !== 'poi' || !voice.text) {
+      dismiss();
+      if (!payload) poiVoicePresentationKey = '';
+      return;
+    }
+    var key = JSON.stringify([payload.control.runId, payload.missionId, voice.updatedAt, voice.label, voice.text]);
+    if (key === poiVoicePresentationKey) return;
+    poiVoicePresentationKey = key;
+    if (!banner) {
+      banner = document.createElement('section'); banner.id = 'gaEfbPoiVoice';
+      banner.className = 'awm-freq-entry mission-boardbook-reminder';
+      banner.setAttribute('role', 'status'); host.appendChild(banner);
+    }
+    banner.textContent = '';
+    var heading = document.createElement('strong');
+    heading.textContent = String(voice.label || 'POI') + (voice.speaker ? ' - ' + String(voice.speaker) : '');
+    var text = document.createElement('div'); text.textContent = String(voice.text);
+    text.style.whiteSpace = 'pre-wrap';
+    var close = document.createElement('button'); close.type = 'button'; close.textContent = 'Schließen';
+    close.onclick = function(event) { event.stopPropagation(); dismiss(); };
+    banner.appendChild(heading); banner.appendChild(text); banner.appendChild(close);
+    banner.hidden = false; host.style.display = 'block';
+  }
+
   function renderMissionToolbar(payload) {
     var model = missionToolbarProjection(payload);
     var primaryButton = byId('mapMissionToggleBtn');
     var cargoButton = byId('mapGroundCargoBtn');
     var resetButton = byId('mapMissionResetBtn');
+    var poiControl = payload && payload.control;
+    ['poi_status', 'poi_orientation'].forEach(function(intent, index) {
+      var id = 'gaEfbPoiAction' + index;
+      var button = byId(id);
+      if (!button && primaryButton && primaryButton.parentNode) {
+        button = document.createElement('button'); button.id = id; button.type = 'button';
+        button.className = primaryButton.className;
+        button.textContent = index === 0 ? 'Missionsstatus' : 'Orientierung';
+        button.onclick = function(event) { event.stopPropagation(); requestMissionIntent(intent, {}); };
+        primaryButton.parentNode.appendChild(button);
+      }
+      if (!button) return;
+      button.style.display = poiControl && poiControl.recipe === 'poi' && poiControl.phase !== 'closed' ? 'inline-flex' : 'none';
+      button.disabled = missionIntentPending || !poiControl || (poiControl.allowedActions || []).indexOf(intent) < 0;
+    });
     var primary = model && model.primary;
     if (primaryButton) {
       primaryButton.style.display = primary ? 'inline-flex' : 'none';
@@ -2192,6 +2241,7 @@
     if (nextControl && nextControl.cargoWindowOpenId && (!previousControl || previousControl.cargoWindowOpenId !== nextControl.cargoWindowOpenId)) openCargoManager(true);
     else if (openBoardingDialog) openCargoManager(true);
     renderBoardBookReminder(nextControl);
+    renderPoiVoice(next);
     if (presentationSignature !== missionPresentationSignature) {
       missionPresentationSignature = presentationSignature;
       renderMissionActionBanner(next);

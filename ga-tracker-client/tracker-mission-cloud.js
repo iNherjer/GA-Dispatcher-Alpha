@@ -1,4 +1,5 @@
 'use strict';
+const poiRuntime = require('./tracker-mission-poi-runtime.js');
 
 const executionCore = require('../mission-execution-core.js');
 const resumeAdapters = require('../mission-resume-adapters-core.js');
@@ -92,7 +93,7 @@ function plannedRuntime(missionId, state, seed) {
   };
 }
 
-function buildCloudMissionCandidate(profile = null) {
+function buildCloudMissionCandidate(profile = null, options = {}) {
   const source = object(profile);
   const state = object(source.activeMission);
   const seed = object(source.activeMissionTrackerSeed);
@@ -106,7 +107,7 @@ function buildCloudMissionCandidate(profile = null) {
   const runtime = plannedRuntime(missionId, state, seed);
   const adapter = cleanString(seed.adapter, 80).toLowerCase()
     || resumeAdapters.detectPrimaryAdapter(runtime, state);
-  if (adapter !== 'apt') {
+  if (adapter !== 'apt' && !(adapter === 'poi' && options.poiExecutionEnabled === true)) {
     return { ok: false, status: 'unsupported', code: 'cloud_mission_recipe_not_enabled', candidate: null };
   }
   const descriptor = object(seed.descriptor).missionId
@@ -122,13 +123,15 @@ function buildCloudMissionCandidate(profile = null) {
     efbMission: seed.efbMission ? clone(seed.efbMission) : null,
     missionState: clone(state),
     runtime,
-    executionEffectPlan: seed.executionEffectPlan ? clone(seed.executionEffectPlan) : null
+    executionEffectPlan: seed.executionEffectPlan ? clone(seed.executionEffectPlan) : null,
+    ...(adapter === 'poi' ? { executionPoiRecipe: clone(seed.executionPoiRecipe || null) } : {})
   };
   const validation = resumeAdapters.validateBundle(bundle);
   if (!validation.ok) {
     return { ok: false, status: 'invalid', code: validation.error || 'cloud_mission_bundle_invalid', candidate: null };
   }
-  if (object(bundle.executionEffectPlan).schema !== 'ga.mission-apt-effect-plan.v1') {
+  if (adapter === 'poi' ? (!poiRuntime.hasLifecycle(bundle.executionPoiRecipe) || !!poiRuntime.validateBundle(bundle))
+      : object(bundle.executionEffectPlan).schema !== 'ga.mission-apt-effect-plan.v1') {
     return { ok: false, status: 'invalid', code: 'cloud_mission_effect_plan_missing', candidate: null };
   }
   bundle.executionReplay = executionCore.createExecutionBundle(bundle);
@@ -152,7 +155,7 @@ function buildCloudMissionCandidate(profile = null) {
       missionId,
       runId: CLOUD_MISSION_PENDING_RUN_ID,
       executionAuthority: 'tracker',
-      recipe: 'apt',
+      recipe: adapter,
       authorityRevision: 0,
       executionRevision: 0,
       executionStateHash: replay.stateHash,
@@ -196,7 +199,7 @@ async function fetchTrackerCloudMission(syncId, pin, options = {}) {
   if (response?.status !== 200 || !response?.data || typeof response.data !== 'object') {
     return { ok: false, status: 'error', code: 'sync_profile_invalid', candidate: null };
   }
-  return buildCloudMissionCandidate(response.data);
+  return buildCloudMissionCandidate(response.data, options);
 }
 
 module.exports = {

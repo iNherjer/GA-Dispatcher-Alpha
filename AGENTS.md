@@ -13,6 +13,7 @@ Diese Datei ist der verbindliche Einstiegspunkt fuer Codex/AI-Arbeit in diesem R
 
 - Missionslogik, neue Missionstypen, Bush/POI/APT, Runtime, Manifest, Cargo, Ground Actions:
   - `docs/Mission Runtime Authority Contract.md`, wenn Missionsausfuehrung zwischen App und Tracker verschoben wird
+  - `docs/Tracker Mission Migration Guide.md`, wenn weitere Missionsfamilien in den Tracker uebertragen werden
   - `docs/Mission Flow Reference.md`
   - `docs/Mission Building Instructions.md`
   - `docs/Mission Semantics Rules V4.md`

@@ -6,6 +6,7 @@ const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
 const locationCore = require('../mission-location-core.js');
 const { createTrackerMissionCargoAudio } = require('./tracker-mission-cargo-audio.js');
 const { buildApproachPrompt } = require('./tracker-mission-approach-voice.js');
+const { recordGeneratedText } = require('./tracker-mission-poi-voice.js');
 
 function cleanString(value, maxLength = 180) {
   return String(value || '').trim().slice(0, maxLength);
@@ -71,6 +72,19 @@ function createTrackerMissionBoardingVoice(options = {}) {
     const plan = object(run.resumeBundle?.executionEffectPlan);
     let recipe = boardingVoiceCore.normalizeRecipe(object(object(plan.effects)['voice.boarding']).recipe);
     const flightContext = object(object(plan.effects)['voice.approach']).context;
+    if (request.effect?.type === 'voice.poi') {
+      const payload = object(request.effect.payload);
+      const prepared = payload.resolvedRecipe;
+      if (!authorityManager.supportsExecutionRecipe?.('poi') || run.executionRecipe !== 'poi'
+          || prepared?.schema !== 'ga.mission-poi-voice-recipe.v1' || prepared.missionId !== run.missionId)
+        return { ok: false, status: 'blocked', error: 'poi_voice_recipe_missing', terminal: false, sideEffect: false };
+      recipe = { ...prepared };
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, Math.min(2000, Number(payload.notBefore || 0) - Date.now()))));
+      const current = authorityManager.getExecutionSnapshot?.();
+      if (!current || current.runId !== run.runId || (!current.state.flags.active && !payload.action)
+          || current.state.flags.closingPending || current.state.flags.farewellStarted)
+        return completed(request, { voiceStatus: 'mission_end' });
+    }
     if (request.effect?.type === 'voice.boarding' && flightContext?.supported && flightContext.departure) {
       const telemetry = request.livePosition || authorityManager.getExecutionRuntimeContext?.({ missionId: run.missionId, runId: run.runId })?.latestTelemetry;
       if (telemetry?.lat != null && telemetry?.lon != null) {
@@ -134,11 +148,13 @@ function createTrackerMissionBoardingVoice(options = {}) {
       });
     }
     let job;
-    const cancelAtMissionEnd = request.effect?.type === 'voice.approach'
+    const cancelAtMissionEnd = request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.approach'
       || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story'].includes(request.effect?.payload?.kind));
     const isPlaybackAllowed = () => {
       const current = authorityManager.getExecutionSnapshot?.();
-      return !current || (current.runId === run.runId && current.state.flags.active
+      if (request.effect?.type === 'voice.poi' && (!current || current.missionId !== run.missionId
+          || current.recipe !== 'poi' || !authorityManager.supportsExecutionRecipe?.('poi'))) return false;
+      return !current || (current.runId === run.runId && (current.state.flags.active || (request.effect?.type === 'voice.poi' && request.effect?.payload?.action))
         && !current.state.flags.closingPending && !current.state.flags.farewellStarted
         && !current.state.flags.farewellCompleted && !current.state.flags.unloadConfirmed
         && current.state.phase !== 'closing');
@@ -152,6 +168,13 @@ function createTrackerMissionBoardingVoice(options = {}) {
       const voiceRequest = {
         deferPlayback: request.prepareOnly === true || usePrepared || cancelAtMissionEnd,
         ...(cancelAtMissionEnd ? { isPlaybackAllowed } : {}),
+        ...(request.effect?.type === 'voice.poi' ? {
+          resolvedText: authorityManager.getExecutionSnapshot()?.state.effects
+            .find(effect => effect.effectId === request.effect.effectId)?.payload.resolvedText || '',
+          confirmTextReady: text => isPlaybackAllowed()
+            ? recordGeneratedText(authorityManager, request, text)
+            : { ok: false, error: 'mission_end' }
+        } : {}),
         effectId,
         kind: recipe.kind || 'boarding',
         prompt: recipe.prompt,
@@ -213,13 +236,28 @@ function createTrackerMissionBoardingVoice(options = {}) {
         voiceService.cancel?.(effectId, 'mission_end');
         return completed(request, { voiceStatus: 'mission_end' });
       }
+      if (request.effect?.type === 'voice.poi' && job?.status === 'text_blocked') {
+        log(`MISSION_POI_TEXT_PERSIST_ERROR effect=${effectId} error=${job.error}`);
+        return { ok: false, status: 'pending', error: job.error, sideEffect: false };
+      }
+      if (request.effect?.type === 'voice.poi' && job?.status === 'ready' && job.text) {
+        const recorded = recordGeneratedText(authorityManager, request, job.text);
+        if (!recorded.ok) {
+          log(`MISSION_POI_TEXT_PERSIST_ERROR effect=${effectId} error=${recorded.error || recorded.status}`);
+          // Playback stays deferred. Keep the effect pending so the same durable
+          // VoiceService job can retry its text commit without regenerating it.
+          return { ok: false, status: 'pending', error: recorded.error, sideEffect: false };
+        }
+      }
       voiceService.activatePlayback?.(effectId);
     }
     if (!job || job.status !== 'ready' || (recipe.audioEnabled === true && job.audioAvailable !== true)) {
       log(`MISSION_BOARDING_VOICE_BEST_EFFORT effect=${effectId} reason=${job?.error || job?.status || 'voice_generation_failed'}`);
       return completed(request, {
         voiceStatus: job?.error || job?.status || 'voice_generation_failed',
-        voiceOutcome: voiceOutcome(recipe, { status: 'warning', playback: 'not_played', error: job?.error || 'voice_generation_failed' })
+        voiceOutcome: voiceOutcome(recipe, { status: 'warning', playback: 'not_played', error: job?.error || 'voice_generation_failed',
+          ...(request.effect?.type === 'voice.poi' ? { text: job?.text || authorityManager.getExecutionSnapshot()?.state.effects
+            .find(effect => effect.effectId === request.effect.effectId)?.payload.resolvedText || '' } : {}) })
       });
     }
     const candidates = recipe.audioEnabled === true

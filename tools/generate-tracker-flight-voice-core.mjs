@@ -28,7 +28,7 @@ function observeFlightVoice(context = {}, previous = {}, facts = {}) {
   const _aptArrivalAfterLandingHint = () => context.afterLandingHint || '';
   let _paxOffDestLastAt = previous.offDestLastAt || 0;
   let landingRollTriggered = previous.landingRollTriggered === true;
-  let _paxComfortMotionSamples = previous.motionSamples || [];
+  let _paxComfortMotionSamples = facts.motionSamples ? facts.motionSamples.map(sample => ({ ...sample })) : (previous.motionSamples || []);
   let _paxComfortLastMotionAnalysis = previous.motionAnalysis || null;
   let _paxComfortBreachState = previous.breachState || Object.create(null);
   let _paxComfortLastAt = previous.lastAt || 0, _paxComfortCount = previous.count || 0;

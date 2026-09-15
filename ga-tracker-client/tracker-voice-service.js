@@ -395,7 +395,7 @@ function createTrackerVoiceService(options = {}) {
   function evict() {
     if (records.size <= maxEntries && totalAudioBytes <= maxAudioBytes) return;
     const candidates = [...records.values()]
-      .filter((record) => record.status !== 'pending' && record.playback?.status !== 'claimed')
+      .filter((record) => !['pending', 'text_blocked'].includes(record.status) && record.playback?.status !== 'claimed')
       .sort((left, right) => left.updatedAt - right.updatedAt);
     for (const record of candidates) {
       if (records.size <= maxEntries && totalAudioBytes <= maxAudioBytes) break;
@@ -511,7 +511,7 @@ function createTrackerVoiceService(options = {}) {
         const record = {
           effectId,
           fingerprint: String(source.fingerprint || ''),
-          kind: ['boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story'].includes(String(source.kind || '').trim().toLowerCase())
+          kind: ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story'].includes(String(source.kind || '').trim().toLowerCase())
             ? String(source.kind || '').trim().toLowerCase()
             : 'direct',
           synthesizeAudio,
@@ -566,12 +566,29 @@ function createTrackerVoiceService(options = {}) {
 
   async function produce(record, request) {
     try {
-      const resolvedText = request.kind === 'cargo' ? { text: '', textModel: '' }
+      const resolvedText = request.kind === 'poi' && record.textReady
+        ? { text: record.text, textModel: record.textModel }
+        : request.kind === 'cargo' ? { text: '', textModel: '' }
         : await resolveRequestText({ provider, apiKey, request, fetchRemote });
       if (record.cancelled === true) return publicRecord(record);
       request = { ...request, text: resolvedText.text };
       record.text = resolvedText.text;
       record.textModel = resolvedText.textModel;
+      if (request.kind === 'poi' && typeof request.confirmTextReady === 'function') {
+        // The mission owns this durable text checkpoint, before any audio work.
+        // A failed commit retains the exact generated text for a later retry.
+        record.textReady = true;
+        let confirmation;
+        try { confirmation = request.confirmTextReady(record.text); }
+        catch (error) { confirmation = { ok: false, error: error?.message || 'poi_text_commit_failed' }; }
+        if (confirmation?.ok !== true) {
+          record.status = 'text_blocked';
+          record.error = confirmation?.error || 'poi_text_commit_failed';
+          record.updatedAt = now();
+          return publicRecord(record);
+        }
+        record.error = '';
+      }
       if (request.synthesizeAudio === false) {
         record.status = 'ready';
         record.updatedAt = now();
@@ -628,6 +645,12 @@ function createTrackerVoiceService(options = {}) {
   function request(rawRequest) {
     if (typeof rawRequest?.isPlaybackAllowed === 'function') playbackGuards.set(normalizeEffectId(rawRequest.effectId), rawRequest.isPlaybackAllowed);
     const request = normalizeVoiceRequest(rawRequest);
+    // Process-local authority hooks and already committed recovery text do not
+    // alter the immutable prompt fingerprint. Only the POI dispatcher uses them.
+    if (request.kind === 'poi' && typeof rawRequest.confirmTextReady === 'function') {
+      request.confirmTextReady = rawRequest.confirmTextReady;
+      request.resolvedText = String(rawRequest.resolvedText || '').trim().slice(0, 4000);
+    }
     const fingerprint = crypto.createHash('sha256')
       .update(JSON.stringify({
         provider,
@@ -651,6 +674,10 @@ function createTrackerVoiceService(options = {}) {
       if (existing.fingerprint !== fingerprint) {
         throw voiceError('effect_id_conflict', 409, 'Diese Voice-Effekt-ID gehoert bereits zu einem anderen Inhalt.');
       }
+      if (existing.status === 'text_blocked' && !existing.promise && request.confirmTextReady) {
+        existing.status = 'pending';
+        schedule(existing, request);
+      }
       return publicRecord(existing);
     }
     if (!configured && request.kind !== 'cargo') throw voiceError('voice_not_configured', 503, 'Zentrale Voice-Ausgabe ist im Tracker nicht konfiguriert.');
@@ -659,7 +686,7 @@ function createTrackerVoiceService(options = {}) {
     if (newJobTimestamps.length >= DEFAULT_MAX_NEW_JOBS_PER_MINUTE) {
       throw voiceError('voice_rate_limited', 429, 'Zu viele neue Voice-Auftraege in kurzer Zeit.');
     }
-    const pendingJobs = [...records.values()].filter((record) => record.status === 'pending').length;
+    const pendingJobs = [...records.values()].filter((record) => ['pending', 'text_blocked'].includes(record.status)).length;
     if (pendingJobs >= maxPendingJobs) throw voiceError('voice_queue_full', 429, 'Die Voice-Warteschlange ist voll.');
     newJobTimestamps.push(timestamp);
     const record = {
@@ -673,7 +700,8 @@ function createTrackerVoiceService(options = {}) {
       status: 'pending',
       createdAt: timestamp,
       updatedAt: timestamp,
-      text: request.text,
+      text: request.resolvedText || request.text,
+      textReady: Boolean(request.resolvedText),
       textModel: '',
       audio: null,
       contentType: '',

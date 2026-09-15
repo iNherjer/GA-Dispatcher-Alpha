@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1770';
+const CACHE = 'ga-dispatcher-v1771';
 
 const STATIC = [
     './',
@@ -66,6 +66,7 @@ const STATIC = [
     './mission-flight-recorder-core.js',
     './mission-farewell-voice-core.js',
     './mission-apt-ui-core.js',
+    './mission-poi-ui-core.js',
     './ga-tracker-client/mission-control-ui-core.js',
     './mission-payload-core.js',
     './mission-compliance-domain-core.js',
@@ -101,6 +102,8 @@ const STATIC = [
     './missions.js',
     './tracker-voice-client.js',
     './ga-tracker-client/tracker-cockpit-session-client.js',
+    './mission-poi-task-core.js',
+    './mission-poi-voice-core.js',
     './passenger-voice.js',
     './audio-cues/boarding_cargo.mp3',
     './audio-cues/boarding_pax.mp3',

@@ -518,3 +518,17 @@ test('route story keeps its job kind through request normalization',()=>{
  const normalized=normalizeVoiceRequest({effectId:'run:story-1',kind:'route_story',text:'Hallo.',speaker:{taskDomain:'club_utility'}});
  assert.equal(normalized.kind,'route_story');assert.equal(normalized.speaker.taskDomain,'club_utility');
 });
+
+test('POI text checkpoint hooks cannot change the APT voice pipeline', async () => {
+  let textCalls = 0;
+  const service = createTrackerVoiceService({ provider: 'openai', apiKey: 'test-key', fetchRemote: async () => {
+    textCalls++;
+    return { ok: true, json: async () => ({ choices: [{ message: { content: 'APT boarding text.' } }] }) };
+  } });
+  service.request({ effectId: 'apt-text-hook-isolation', kind: 'boarding', prompt: 'Boarding', synthesizeAudio: false,
+    resolvedText: 'Unrelated POI recovery text.', confirmTextReady: () => assert.fail('APT must not invoke POI hooks') });
+  const job = await service.wait('apt-text-hook-isolation');
+  assert.equal(job.status, 'ready');
+  assert.equal(job.text, 'APT boarding text.');
+  assert.equal(textCalls, 1);
+});

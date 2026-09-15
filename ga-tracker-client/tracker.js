@@ -84,8 +84,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v407';
-const TRACKER_VERSION_CODE = 407;
+const TRACKER_VERSION = 'v408';
+const TRACKER_VERSION_CODE = 408;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -101,10 +101,13 @@ const TRACKER_APT_EXECUTION_BLOCK_REASON = TRACKER_APT_EXECUTION_REQUESTED && !T
   ? `parity_pending:${(missionExecutionCore.TRACKER_AUTHORITY_PENDING || []).join(',')}`
   : '';
 const TRACKER_NAVIGATION_PLAYER_READY = process.env.VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER === '1';
+// Separate alpha opt-in until the full POI field matrix is signed off.
+const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED
+  && process.env.VFR_MULTITOOL_POI_EXECUTION === '1';
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.intent.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
+  ? ['mission.intent.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -4819,7 +4822,9 @@ function startTracker(syncId, pin, voiceCredentials = null) {
   const missionAuthorityManager = createMissionAuthorityManager({
     storageFile: MISSION_AUTHORITY_FILE,
     log: debugLog,
-    executionAuthorityEnabled: TRACKER_APT_EXECUTION_ENABLED
+    executionAuthorityEnabled: TRACKER_APT_EXECUTION_ENABLED,
+    poiExecutionEnabled: TRACKER_POI_EXECUTION_ENABLED,
+    poiLifecycleRequired: true
   });
   const trackerFlightLogStore = createTrackerFlightLogStore({
     directory: TRACKER_FLIGHT_LOG_DIR,
@@ -4892,6 +4897,14 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     log: debugLog
   });
   debugLog(`MISSION_EXECUTION_RUNTIME channel=${TRACKER_RUNTIME_CHANNEL} enabled=${missionExecutionRuntime.enabled ? 1 : 0} default=web`);
+  if (TRACKER_POI_EXECUTION_ENABLED) {
+    const flushPoi = () => {
+      const result = missionExecutionRuntime.flush();
+      if (!result?.ok) debugLog(`MISSION_POI_SHUTDOWN_FLUSH_ERROR error=${result?.error || 'unknown'}`);
+    };
+    process.once('exit', flushPoi);
+    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => process.exit(0));
+  }
   const recoveredMissionRun = missionAuthorityManager.getActiveRun({ includeBundle: true });
   if (recoveredMissionRun?.resumeBundle) {
     trackerMissionShadow.observe({
@@ -4913,7 +4926,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     _cloudMissionSyncInProgress = true;
     _cloudMissionLastAttemptAt = Date.now();
     try {
-      const result = await fetchTrackerCloudMission(syncId, pin);
+      const result = await fetchTrackerCloudMission(syncId, pin, { poiExecutionEnabled: TRACKER_POI_EXECUTION_ENABLED });
       if (!result.ok) {
         _cloudMissionLastStatus = result.status || result.code || 'error';
         debugLog(`MISSION_CLOUD_SYNC_ERROR reason=${reason} code=${result.code || 'unknown'} error=${result.message || 'unknown'}`);
@@ -6581,6 +6594,16 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 menuDetected: runtimeState.simRunning === 0
               });
               const validPosition = currentTelemetryHibernateState.validPosition;
+              if (missionExecutionRuntime?.enabled) {
+                missionExecutionRuntime.observeMotionTelemetry?.({ observedAt: now,
+                  gForce, bankDeg: bank, vsFpm, pitchDeg, simPaused, inMenuOrMap: missionTelemetryInMenu });
+              }
+              if (!validPosition && missionExecutionRuntime?.enabled && (simPaused || missionTelemetryInMenu)
+                  && now - lastSent >= SEND_INTERVAL_MS) {
+                lastSent = now;
+                missionExecutionRuntime.observeTelemetry({ observedAt: now, simPaused, inMenuOrMap: missionTelemetryInMenu });
+              }
+
               if (validPosition) {
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
                 lastGpsMsg = { lat, lon, alt: Math.round(alt), hdg: Math.round(hdg) };

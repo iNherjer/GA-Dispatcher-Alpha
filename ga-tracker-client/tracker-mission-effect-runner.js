@@ -1,10 +1,12 @@
 'use strict';
+const poiRuntime = require('./tracker-mission-poi-runtime.js');
 
 const DEFAULT_ACK_LEASE_MS = 30000;
 const DEFAULT_RETRY_DELAY_MS = 2000;
 const MAX_DRAIN_EFFECTS = 16;
 const PAYLOAD_EFFECT_TYPES = new Set(['payload.sync_before_start', 'payload.sync_manifest_state']);
 const VOICE_EFFECT_TYPES = new Set([
+  'voice.poi',
   'voice.approach',
   'voice.cargo',
   'voice.flight',
@@ -66,12 +68,17 @@ function createTrackerMissionEffectRunner(options = {}) {
     const snapshot = authorityManager.getExecutionSnapshot();
     if (!snapshot) return errorResult('no_active_run');
     if (snapshot.executionAuthority !== 'tracker') return errorResult('mission_execution_authority_web');
-    if (snapshot.recipe !== 'apt') return errorResult('mission_execution_recipe_not_enabled');
+    if (snapshot.recipe !== 'apt' && !(snapshot.recipe === 'poi' && authorityManager.supportsExecutionRecipe?.('poi')))
+      return errorResult('mission_execution_recipe_not_enabled');
     return { ok: true, snapshot };
   };
 
+  const fullPoi = () => poiRuntime.hasLifecycle(authorityManager.getExecutionPoiRecipe?.());
   const requestedEffects = snapshot => snapshot.state.effects
     .map(publicEffect)
+    // Only a validated full lifecycle unlocks the shared scene/closing effects.
+    // Internal task-only recipes remain restricted to POI task speech.
+    .filter(effect => snapshot.recipe !== 'poi' || fullPoi() || effect.type === 'voice.poi')
     .filter(effect => effect.effectId && effect.status === 'requested');
 
   const effectById = (snapshot, effectId) => snapshot.state.effects
@@ -161,6 +168,7 @@ function createTrackerMissionEffectRunner(options = {}) {
     if (!validated.ok) return validated;
     const effect = effectById(validated.snapshot, effectId);
     if (!effect) return errorResult('mission_effect_not_found');
+    if (validated.snapshot.recipe === 'poi' && !fullPoi() && effect.type !== 'voice.poi') return errorResult('mission_execution_recipe_not_enabled');
     if (effect.status !== 'requested') {
       pendingDispatches.delete(effectId);
       retryAfter.delete(effectId);
@@ -235,6 +243,10 @@ function createTrackerMissionEffectRunner(options = {}) {
     if (!effects.length) return { ok: true, status: 'noop', sideEffect: false, pendingCount: 0, view: snapshot.view };
     const timestamp = now();
     const effect = effects.find(candidate => {
+      // Preserve POI speech order through generation, playback and durable ACK.
+      // Other runtime work remains free to process intents and telemetry.
+      if (snapshot.recipe === 'poi' && candidate.type === 'voice.poi'
+          && effects.find(other => other.type === 'voice.poi') !== candidate) return false;
       const pending = pendingDispatches.get(candidate.effectId);
       if (pending && pending.expiresAt > timestamp) return false;
       return Number(retryAfter.get(candidate.effectId) || 0) <= timestamp;

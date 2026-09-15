@@ -1,0 +1,77 @@
+'use strict';
+const assert = require('node:assert/strict');
+const test = require('node:test');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync(require.resolve('./tracker-efb-kartentisch-host.js'), 'utf8');
+
+test('App loads POI dependencies in HTML order and can execute the browser action core', () => {
+  const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
+  const scripts = [...html.matchAll(/<script defer src="(mission-poi-(?:task|voice)-core\.js)[^"]*"/g)].map(match => match[1]);
+  assert.equal(scripts.length, 2);
+  const browser = vm.createContext({});
+  for (const script of scripts) vm.runInContext(fs.readFileSync(require.resolve('../' + script), 'utf8'), browser);
+  const core = browser.GAMissionPoiVoiceCore;
+  const result = core.renderAction({ schema: core.CONTEXT_SCHEMA, version: 1, missionId: 'browser',
+    taskDomain: 'media_photo', strict: true, audioEnabled: false, baseContext: 'Fotografin.',
+    passenger: { targetRadiusNm: 1.5, targetDwellMin: 2, targetAltFt: 3000 } },
+    'poi_orientation', {}, { lat: 48, lon: 8, mslFt: 3000, hdg: 90 }, { lat: 48.3, lon: 8.5 });
+  assert.match(result.fallbackText, /Steuerkurs .*Entfernung/);
+});
+
+function harness() {
+  const nodes = new Map(), calls = [];
+  function element() {
+    const node = { children: [], style: {}, hidden: false, classList: { toggle() {}, remove() {} }, setAttribute() {},
+      appendChild(child) { this.children.push(child); child.parentNode = this; if (child.id) nodes.set(child.id, child); },
+      set textContent(value) { this.text = value; this.children = []; }, get textContent() { return this.text; } };
+    return node;
+  }
+  const host = element(), toolbar = element(), primary = element();
+  primary.id = 'mapMissionToggleBtn'; toolbar.appendChild(primary);
+  const context = vm.createContext({ document: { createElement: element }, byId: id => nodes.get(id),
+    window: { GANavigationWarningPresentation: { getBannerHost: () => host } },
+    missionIntentPending: false, missionToolbarProjection: () => ({}),
+    requestMissionIntent: (intent, payload) => calls.push({ intent, payload }) });
+  vm.runInContext(source.slice(source.indexOf('  var poiVoicePresentationKey'), source.indexOf('  function renderMissionActionBanner')), context);
+  return { context, nodes, host, calls };
+}
+
+test('EFB shows confirmed POI answers as text and does not reopen a dismissed answer on ACK', () => {
+  const h = harness();
+  const payload = { missionId: 'm1', control: { recipe: 'poi', runId: 'r1' }, voice: {
+    kind: 'poi', label: 'Missionsstatus', speaker: 'Gast', text: '<b>Außerhalb des Zielgebiets</b>', updatedAt: 100 } };
+  h.context.renderPoiVoice(payload);
+  const banner = h.nodes.get('gaEfbPoiVoice');
+  assert.equal(banner.hidden, false);
+  assert.equal(banner.children[1].textContent, payload.voice.text);
+  assert.equal(banner.children[0].textContent, 'Missionsstatus - Gast');
+  banner.children[2].onclick({ stopPropagation() {} });
+  h.context.renderPoiVoice({ ...payload, revision: 99 });
+  assert.equal(banner.hidden, true);
+  h.context.renderPoiVoice({ ...payload, voice: { ...payload.voice, text: 'Neue Orientierung', updatedAt: 101 } });
+  assert.equal(banner.hidden, false);
+  h.context.renderPoiVoice(null);
+  assert.equal(banner.hidden, true);
+  assert.equal(h.host.style.display, 'none');
+  h.context.renderPoiVoice({ ...payload, control: { recipe: 'apt' } });
+  assert.equal(banner.hidden, true);
+});
+
+test('EFB POI controls send tracker intents and follow confirmed availability', () => {
+  const h = harness();
+  h.context.renderMissionToolbar({ control: { recipe: 'poi', phase: 'active', allowedActions: ['poi_status', 'poi_orientation'] } });
+  const status = h.nodes.get('gaEfbPoiAction0'), orientation = h.nodes.get('gaEfbPoiAction1');
+  assert.equal(status.disabled, false);
+  status.onclick({ stopPropagation() {} }); orientation.onclick({ stopPropagation() {} });
+  assert.deepEqual(h.calls.map(call => call.intent), ['poi_status', 'poi_orientation']);
+  h.context.renderMissionToolbar({ control: { recipe: 'poi', phase: 'active', allowedActions: [] } });
+  assert.equal(status.disabled, true);
+  h.context.missionIntentPending = true;
+  h.context.renderMissionToolbar({ control: { recipe: 'poi', phase: 'active', allowedActions: ['poi_status'] } });
+  assert.equal(status.disabled, true);
+  h.context.renderMissionToolbar({ control: { recipe: 'apt', phase: 'active', allowedActions: [] } });
+  assert.equal(status.style.display, 'none');
+  assert.equal(orientation.style.display, 'none');
+  assert.match(source, /renderBoardBookReminder\(nextControl\);\s*renderPoiVoice\(next\);/);
+});

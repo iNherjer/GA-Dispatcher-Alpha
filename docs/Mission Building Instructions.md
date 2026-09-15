@@ -1,5 +1,7 @@
 # Mission Building Instructions
 
+Für die Übertragung weiterer Missionsfamilien: [Tracker-Migrationsleitfaden](Tracker%20Mission%20Migration%20Guide.md) mit APT-/POI-Erfahrungen, Pflichtmatrix und Freigabegates.
+
 Aktueller konsolidierter Stand und Übertragung auf weitere Sets: [Missionssets-Arbeitsgrundlage](Mission%20Sets%20Handoff.md) (15.09.2026).
 
 Zielsetzung, aktueller Spielraum, History-Grenzen und Vorgehen für weitere Missionsfamilien: [Mission Narrative Design Guide](Mission%20Narrative%20Design%20Guide.md).

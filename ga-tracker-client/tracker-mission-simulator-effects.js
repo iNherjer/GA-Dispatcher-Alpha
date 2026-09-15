@@ -4,6 +4,7 @@ const { haversineNm } = require('../mission-location-core.js');
 
 const EFFECT_PLAN_SCHEMA = 'ga.mission-apt-effect-plan.v1';
 const EFFECT_COMMANDS = Object.freeze({
+  'scene.target': Object.freeze({ commandType: 'mission_scene_spawn', ackType: 'mission_scene_spawn_ack' }),
   'scene.arrival': Object.freeze({
     commandType: 'mission_scene_spawn',
     ackType: 'mission_scene_spawn_ack'
@@ -68,7 +69,8 @@ function normalizeLivePosition(value = {}) {
 
 function effectPlanFromRun(run = null, effectPlan = run?.resumeBundle?.executionEffectPlan) {
   const plan = safeObject(effectPlan);
-  if (plan.schema !== EFFECT_PLAN_SCHEMA || cleanString(plan.recipe, 80).toLowerCase() !== 'apt') return null;
+  if (!((plan.schema === EFFECT_PLAN_SCHEMA && plan.recipe === 'apt')
+      || (plan.schema === 'ga.mission-poi-effect-plan.v1' && plan.recipe === 'poi' && run?.executionRecipe === 'poi'))) return null;
   if (cleanString(plan.missionId) && cleanString(plan.missionId) !== cleanString(run?.missionId)) return null;
   return plan;
 }
@@ -370,11 +372,15 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (!plan) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_apt_effect_plan_missing');
+    if (plan.recipe === 'poi' && plan.effects?.[effectType]?.none === true
+        && ['scene.prepare', 'scene.boarding', 'scene.deboarding'].includes(effectType)) {
+      return { ok: true, status: 'completed', sideEffect: false, commandId, sceneStatus: 'explicit_empty_scene' };
+    }
     const template = commandTemplateFor(plan, effectType);
     if (!template) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_apt_effect_command_invalid');
-    const position = normalizeLivePosition(effectType === 'scene.arrival' ? template : getLivePosition());
+    const position = normalizeLivePosition(['scene.arrival', 'scene.target'].includes(effectType) ? template : getLivePosition());
     if (!position) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_simulator_live_position_missing');
@@ -527,5 +533,6 @@ module.exports = {
   EFFECT_PLAN_SCHEMA,
   createTrackerMissionSimulatorEffects,
   effectPlanFromRun,
+  commandTemplateFor,
   normalizeLivePosition
 };

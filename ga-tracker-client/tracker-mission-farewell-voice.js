@@ -2,6 +2,7 @@
 
 const routeVoiceCore = require('../mission-route-voice-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
+const poiVoiceCore = require('../mission-poi-voice-core.js');
 
 function cleanString(value, maxLength = 180) {
   return String(value || '').trim().slice(0, maxLength);
@@ -60,6 +61,15 @@ function createTrackerMissionFarewellVoice(options = {}) {
   const resolveRecipeSource = (request, run) => {
     const plan = object(run.resumeBundle?.executionEffectPlan);
     const effectPlan = object(object(plan.effects)['voice.farewell']);
+    const poiContext = effectPlan.poiContextRef === true ? run.resumeBundle?.executionPoiRecipe?.voiceContext : null;
+    if (run.executionRecipe === 'poi' && poiContext && !poiVoiceCore.validateContext(poiContext, run.missionId)) {
+      const dynamic = request.farewellDynamicContext || {};
+      const rendered = poiVoiceCore.renderFarewell(poiContext, { ...dynamic,
+        weatherMismatchHint: farewellVoiceCore.weatherMismatchHint({ ...poiContext, briefingWeather: poiContext.briefingWeather || {} }, dynamic.liveWeather) },
+        authorityManager.getExecutionSnapshot?.()?.state?.voice?.poiMemory);
+      return farewellVoiceCore.createRecipe({ ...poiContext, ...rendered, enabled: true,
+        playCue: poiContext.farewellCueId !== 'none', cueId: poiContext.farewellCueId || 'deboarding_pax' });
+    }
     const authorityContext = farewellVoiceCore.normalizeContext(request.farewellContext)
       || farewellVoiceCore.normalizeContext(effectPlan.context);
     return (authorityContext
@@ -105,6 +115,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
         || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
       return { ok: false, status: 'blocked', error: 'mission_run_conflict', sideEffect: false };
     }
+    if (request.farewellDynamicContext?.error) return { ok: true, status: 'pending', sideEffect: false, error: request.farewellDynamicContext.error };
     const recipe = resolveRecipe(request, run);
     if (!recipe || recipe.missionId && recipe.missionId !== run.missionId || recipe.enabled !== true
         || (!recipe.prompt && !recipe.text && !recipe.fallbackText)) {
@@ -133,6 +144,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
         || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
       return { ok: false, status: 'blocked', error: 'mission_run_conflict', terminal: false, sideEffect: false, commandId: effectId };
     }
+    if (request.farewellDynamicContext?.error) return { ok: true, status: 'pending', sideEffect: false, error: request.farewellDynamicContext.error };
     const recipe = resolveRecipe(request, run);
     if (!recipe || (recipe.missionId && recipe.missionId !== run.missionId)) {
       log(`MISSION_FAREWELL_VOICE_FALLBACK effect=${effectId} reason=recipe_missing`);

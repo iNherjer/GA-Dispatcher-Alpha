@@ -2,12 +2,14 @@
 const routeVoiceCore = require('../mission-route-voice-core.js');
 const routeMapCore = require('./tracker-efb-map-snapshot-core.js');
 
+const { createFlightMotionBuffer } = require('./tracker-flight-motion-buffer.js');
 const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
 const locationCore = require('../mission-location-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const { createTrackerMissionExecutionAdapter } = require('./tracker-mission-execution-adapter.js');
 const { createTrackerMissionEffectRunner } = require('./tracker-mission-effect-runner.js');
 const { createTrackerMissionSimulatorEffects } = require('./tracker-mission-simulator-effects.js');
+const poiRuntime = require('./tracker-mission-poi-runtime.js');
 
 function createTrackerMissionExecutionRuntime(options = {}) {
   const authorityManager = options.authorityManager;
@@ -26,6 +28,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       executeIntent: null,
       attachSimulator: () => null,
       detachSimulator: () => false,
+      flush: () => ({ ok: true, status: 'ignored', sideEffect: false }),
       observeTelemetry: () => ({ ok: false, status: 'blocked', error: 'mission_execution_runtime_disabled', sideEffect: false }),
       publicState: () => ({ enabled: false, executionAuthority: 'web', simulatorAttached: false })
     });
@@ -34,6 +37,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const adapter = createTrackerMissionExecutionAdapter({
     authorityManager,
     flightLog: options.flightLog
+  });
+  const poiDriver = poiRuntime.createAuthorityDriver({
+    authorityManager,
+    applySystemEvent: request => adapter.applySystemEvent(request)
   });
   let simulatorEffects = null;
   let simulatorPayloadSyncBeforeStart = null;
@@ -49,6 +56,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   let narrativeRouteCache = { key: '', points: [] };
   let lastTelemetryDiagnosticKey = '';
   let lastTelemetryDiagnosticAt = 0;
+  let lastPoiFinalizationRetryAt = 0;
+  let poiPaused = false;
+  const motionBuffer = createFlightMotionBuffer();
+  let motionInputConnected = false;
   const dispatchSimulatorEffect = request => {
     if (!simulatorEffects) {
       return { ok: false, status: 'blocked', error: 'mission_simulator_not_connected', sideEffect: false };
@@ -199,11 +210,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     handlers: {
       'scene.prepare': dispatchSimulatorEffect,
       'scene.arrival': dispatchSimulatorEffect,
+      'scene.target': dispatchSimulatorEffect,
       'scene.boarding': dispatchSimulatorEffect,
       'voice.boarding': backgroundVoice(playBoardingVoice),
       'voice.cargo': backgroundVoice(request => executionEffectPlan()?.cargoAudio
         ? playBoardingVoice(request) : completeLocalEffect(request)),
       'voice.flight': backgroundVoice(playBoardingVoice),
+      'voice.poi': request => !request.effect?.payload?.resolvedRecipe || typeof options.playBoardingVoice !== 'function'
+        ? missingEffectHandler('mission_poi_voice')(request)
+        : backgroundVoice(playBoardingVoice)(request),
       'voice.approach': backgroundVoice(playBoardingVoice),
       'voice.farewell': backgroundVoice(playFarewellVoice),
       'voice.compliance_request': backgroundVoice(playComplianceVoice),
@@ -255,6 +270,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         || snapshot.state.effects.some(effect => effect.status === 'requested')
         || typeof authorityManager.finalizeExecutionRun !== 'function') return null;
     const flightRecord = adapter.finalizeFlightLog?.({ status: 'completed' }) || null;
+    if (snapshot.recipe === 'poi' && flightRecord?.ok === false) {
+      log(`MISSION_EXECUTION_FINALIZE_ERROR error=${flightRecord.error}`);
+      return flightRecord;
+    }
     const finalized = authorityManager.finalizeExecutionRun({
       commandId: `${effectId}:finalize`,
       reason: 'tracker-execution-close-ack'
@@ -277,7 +296,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       const snapshot = authorityManager.getExecutionSnapshot?.();
       // The accepted unload confirmation is durable. Reuse it after a restart
       // instead of requiring a second click or a process-local continuation flag.
-      if (snapshot?.executionAuthority !== 'tracker' || snapshot.recipe !== 'apt'
+      if (snapshot?.executionAuthority !== 'tracker' || (snapshot.recipe !== 'apt' && !poiRuntime.hasLifecycle(authorityManager.getExecutionPoiRecipe?.()))
           || !snapshot.state?.flags?.unloadConfirmed) {
         return { ok: true, status: 'noop' };
       }
@@ -308,6 +327,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const executeIntent = async (request = {}) => {
     await recoveryDrain;
+    if (authorityManager.getActiveRun()?.executionRecipe === 'poi') {
+      // Validate the controller's original revision before the private flush.
+      // Only our own synchronous checkpoint may rebase that accepted request.
+      const validated = adapter.validateIntent(request);
+      if (!validated.ok) return validated;
+      const flushed = flushPoiCheckpoint('intent');
+      if (!flushed.ok) return flushed;
+      request = { ...request, expectedRevision: flushed.activeRun?.revision ?? validated.snapshot.authorityRevision };
+    }
     if (String(request.intent || request.action || '').trim().toLowerCase() === 'abort_mission') {
       const validated = adapter.validateIntent(request);
       if (!validated.ok) return validated;
@@ -359,7 +387,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           };
         }
       }
-      adapter.finalizeFlightLog?.({ status: 'aborted' });
+      const abortedRecord = adapter.finalizeFlightLog?.({ status: 'aborted' });
+      if (validated.snapshot.recipe === 'poi' && abortedRecord?.ok === false) return abortedRecord;
       const aborted = authorityManager.abortExecutionRun({
         missionId: validated.snapshot.missionId,
         runId: validated.snapshot.runId,
@@ -381,6 +410,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       }
       return { ...aborted, sideEffect: cleanup?.sideEffect === true, cleanup };
     }
+    if (['poi_status', 'poi_orientation'].includes(request.intent)) request = { ...request, livePosition: getSimulatorPosition() };
     const result = adapter.executeIntent(request);
     if (!result.ok) return result;
     if (request.intent === 'prepare_mission' && typeof options.prepareBoardingVoice === 'function') {
@@ -502,7 +532,13 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   };
 
   const detachSimulator = (bridge = null) => {
+    motionBuffer.clear();
+    poiPaused = false;
     if (bridge && simulatorEffects !== bridge) return false;
+    const disconnected = poiDriver.disconnect();
+    reportPoiCheckpoint(disconnected, 'disconnect');
+    const recorderFlush = adapter.flushRuntimeContext(true);
+    if (!recorderFlush.ok) log(`MISSION_POI_RECORDER_FLUSH_ERROR error=${recorderFlush.error}`);
     getSimulatorPosition = () => null;
     simulatorEffects?.cancelPending?.({ preserveManual: true });
     simulatorEffects = null;
@@ -519,14 +555,69 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     return true;
   };
 
+  const reportPoiCheckpoint = (result, reason) => {
+    if (!result.ok) log(`MISSION_POI_CHECKPOINT_ERROR reason=${reason} error=${result.error || result.status || 'unknown'}`);
+    else if (result.acceptedEvent) {
+      logCheckpoint(`poi:${reason}`);
+    }
+    if (result.ok && result.status !== 'ignored' && (result.acceptedEvent || reason === 'telemetry')
+        && typeof options.playBoardingVoice === 'function') effectRunner.drain()
+      .catch(error => log(`MISSION_POI_VOICE_ERROR error=${error?.message || error}`));
+    return result;
+  };
+  const flushPoiCheckpoint = reason => reportPoiCheckpoint(poiDriver.flush(), reason);
+
   return Object.freeze({
     enabled: true,
     executionAuthority: 'tracker',
     executeIntent,
     attachSimulator,
     detachSimulator,
+    flush: () => {
+      const task = flushPoiCheckpoint('flush');
+      const recorder = adapter.flushRuntimeContext();
+      return !task.ok ? task : !recorder.ok ? recorder : task;
+    },
+    observeMotionTelemetry: sample => {
+      motionInputConnected = true;
+      motionBuffer.observe(sample, authorityManager.getActiveRun()?.runId);
+    },
     observeTelemetry: sample => {
+      const isPoi = authorityManager.getActiveRun()?.executionRecipe === 'poi';
+      if (!sample?.simPaused && !sample?.inMenuOrMap) poiPaused = false;
+      if (isPoi && (sample?.simPaused === true || sample?.inMenuOrMap === true)) {
+        const task = reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'suspend');
+        if (!task.ok) return task;
+        const recorder = poiPaused ? { ok: true } : adapter.flushRuntimeContext(true);
+        poiPaused = recorder?.ok === true;
+        if (!recorder?.ok) return recorder;
+        return { ...task, status: 'ignored', reason: 'simulation_not_running' };
+      }
+      if (isPoi && authorityManager.getExecutionSnapshot()?.state?.phase === 'closed') {
+        // A transient recorder/authority write failure must not require a new
+        // user action. Retry the durable close, never its already-ACKed effects.
+        const at = Date.now();
+        if (at - lastPoiFinalizationRetryAt >= 5000) {
+          lastPoiFinalizationRetryAt = at;
+          if (authorityManager.getExecutionSnapshot()?.state?.effects?.some(effect => effect.status === 'requested')) {
+            settleEffects('poi-close-retry', 'poi-close-retry')
+              .catch(error => log(`MISSION_EXECUTION_FINALIZE_ERROR error=${error?.message || error}`));
+          }
+          const finalized = finalizeIfClosed('poi-close-retry');
+          if (finalized?.ok) return finalized;
+        }
+        return { ok: true, status: 'pending', reason: 'poi_close_checkpoint_pending' };
+      }
+      if (isPoi && !poiRuntime.hasLifecycle(authorityManager.getExecutionPoiRecipe?.())) {
+        // A POI target is an airborne work area. Never run APT destination,
+        // approach, landing or auto-close decisions against that target.
+        return reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
+      }
       const result = adapter.observeTelemetry(sample);
+      if (isPoi && result?.ok && result.status !== 'ignored') {
+        const taskResult = reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
+        if (!taskResult.ok) return taskResult;
+      }
       let observationSnapshot;
       const snapshotForObservation = () => observationSnapshot ??= authorityManager.getExecutionSnapshot?.();
       let approachContext;
@@ -562,15 +653,17 @@ function createTrackerMissionExecutionRuntime(options = {}) {
             now: triggerAt, active: snapshot.state.flags.active,
             ending: snapshot.state.flags.closingPending || snapshot.state.flags.farewellStarted || snapshot.state.flags.farewellCompleted || snapshot.state.flags.unloadConfirmed,
             greetingDone: snapshot.state.flags.boardingConfirmed,
-            approachDone: !!snapshot.state.voice.approach || approachRequested
-              || (result.destination?.dMissionNm != null && Number(result.destination.dMissionNm) <= 4)
-              || (result.destination?.dMissionNm != null && Number(result.destination.dMissionNm) <= 4.5 && adapter.hasNewLandingApproachCandidate()),
+            approachDone: isPoi ? snapshot.state.progress.atTargetDone === true : !!snapshot.state.voice.approach || approachRequested
+              || (!isPoi && result.destination?.dMissionNm != null && Number(result.destination.dMissionNm) <= 4)
+              || (!isPoi && result.destination?.dMissionNm != null && Number(result.destination.dMissionNm) <= 4.5 && adapter.hasNewLandingApproachCandidate()),
             wrongStartActive: snapshot.state.voice.boarding?.wrongStartActive,
             motionProtectionEnabled: context.motionProtectionEnabled,
             comfortPending,
+            ...(motionInputConnected ? { motionSamples: motionBuffer.read(triggerAt, snapshot.runId) } : {}),
             touchdown: result.acceptedEvent?.type === 'TOUCHDOWN',
             offDestinationLanding: sample.onGround === true && Number(sample.gsKts) <= 3
               && snapshot.state.flags.groundStill && result.destination?.atDestination !== true
+              && (!isPoi || snapshot.state.poiLifecycle?.canEndHere !== true)
               && adapter.hasRecordedAirbornePhase(),
             destinationDistanceNm: result.destination?.dArrivalNm ?? result.destination?.dMissionNm,
             departureDistanceNm, lat: sample.lat, lon: sample.lon, flightData: sample
@@ -626,7 +719,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         }
       }
       const distance = result?.destination?.dMissionNm;
-      if (result?.ok && result.status !== 'ignored'
+      if (!isPoi && result?.ok && result.status !== 'ignored'
           && distance != null && Number.isFinite(Number(distance))
           && (Number(distance) <= 4
             || (Number(distance) <= 4.5 && adapter.hasNewLandingApproachCandidate()))) {
@@ -657,7 +750,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         lastTelemetryDiagnosticKey = '';
         lastTelemetryDiagnosticAt = 0;
         logCheckpoint(`telemetry:${result.acceptedEvent.type || 'event'}`);
-        const nearFarewellTarget = result.destination?.atDestination === true
+        const nearFarewellTarget = isPoi || result.destination?.atDestination === true
           || (Number.isFinite(Number(result.destination?.dArrivalNm)) && Number(result.destination.dArrivalNm) <= 1.2)
           || (Number.isFinite(Number(result.destination?.dMissionNm)) && Number(result.destination.dMissionNm) <= 1.2);
         if (result.acceptedEvent.type === 'TOUCHDOWN'

@@ -5043,3 +5043,119 @@ kein neues Community-Paket.
 Validierung: 29 Tests bestanden; Presentation sowie App-/EFB-Styles
 bytegleich mit dem Stand vor v406. Windows-x64-EXE mit dem dokumentierten
 Build ohne Bytecode erstellt. Keine Windows-/In-Sim-Ausfuehrung auf dem Mac.
+
+### 15.09.2026: POI-Taskkern aus Passenger-Voice (lokal, keine Rezeptfreigabe)
+
+Der allgemeine Dwell-/Flyover-Detektor ist in `mission-poi-task-core.js`
+ausgelagert; die Standalone-App verwendet denselben Originalablauf über einen
+Kompatibilitätsadapter. Eine eigene Tracker-POI-Runtime bindet den Zustand
+über revisionsgebundene `POI_TASK_OBSERVED`-Ereignisse an die vorhandene Authority.
+Original-/App-Vergleich: 10.450 Prüfungen bestanden; Authority-Tests prüfen
+Neustart, Pause, Revisionskonflikte und Replay-Kompaktierung.
+
+Die POI-Integrationsoption bleibt standardmäßig aus; die Produktions-Gates
+bleiben APT-spezifisch. Voice, Szenen, kompletter Abschluss und App/EFB-Projektion
+sind vor einer POI-Freigabe zu vervollständigen. Aufbau, Nachweise und
+Fortsetzung: [POI Tracker Migration Implementation](POI%20Tracker%20Migration%20Implementation.md).
+
+Nachprüfung des POI-Umbaus: Radius-Austritt, Pause ohne Positionsdaten und
+verschachtelte Sonderrezepte sind jetzt durch Regressionstests abgesichert
+und korrigiert. 99 Node-Tests sowie 10.450 Original-/App-Vergleiche bestehen.
+Vor Telemetrieanbindung ist die Persistenzfrequenz zu überarbeiten: Der
+synthetische 5-Hz-Test außerhalb des Arbeitsradius erzeugte 300 Schreibvorgänge
+und 26,22 MiB pro simulierter Minute. Einzelheiten und die Aussagegrenzen
+stehen in Abschnitt 6 der POI-Migrationsdokumentation.
+
+
+### 15.09.2026: POI-Persistenz gebündelt (lokal)
+
+Der POI-Treiber berechnet weiter jedes Sample und bündelt reguläre Checkpoints
+auf fünf Sekunden. Radius-/Höhenwechsel, Pause, Erfüllung, Abbruch und Voice-Effekte
+werden sofort gespeichert. Revision, Hash und Replay bleiben gemeinsam verbindlich;
+App/EFB sehen ausschließlich bestätigten Fortschritt. Flush/Disconnect sowie
+Fehlerwiederholung sind im Treiber implementiert und getestet, vor produktiver
+Freigabe aber noch in den Scheduler und den Abschlussablauf einzubinden.
+
+Die gleiche synthetische 5-Hz-Minute benötigt jetzt 12 statt 300 lokale
+Schreibvorgänge und 0,217 statt 26,22 MiB serialisierte Daten. 109 Regressionstests,
+10.450 Original-/App-Vergleiche sowie Resume-/Phase-View-Selbsttests bestehen.
+Verlustfenster bei hartem Abbruch, Messgrenzen und Integrationsvertrag:
+[POI-Implementierung, Abschnitt 7](POI%20Tracker%20Migration%20Implementation.md#7-gebündelte-lokale-checkpoints-15092026).
+
+
+### 15.09.2026: POI-Treiber an Execution-Runtime angebunden (lokal)
+
+Intern freigegebene POI-Runs erhalten einen eigenen Telemetriepfad sowie die
+Taskprüfung gegen das bestätigte Manifest. Disconnect sichert den Puffer;
+vor Intents erfolgt erst die Gerätevalidierung, dann ein synchroner Flush.
+Bestätigte Checkpoints nutzen die bestehende Authority-Benachrichtigung.
+Eine POI-Arbeitsposition löst keine APT-Ankunft/Farewell aus.
+
+116 Regressionstests (27 POI), 168 Manifest-/App-Kombinationen im Differentialtest,
+10.450 Original-/App-Taskvergleiche und Resume-/Phase-View-Selbsttests bestehen.
+Recorder und neue Cargo-Schäden, Seed, Voice-Effektpumpe, Szenen, vollständiger
+Abschluss und Bedienprojektion bleiben vor produktiver Freigabe offen.
+Das POI-Gate bleibt geschlossen. Details und Lifecycle-Grenzen:
+[POI-Implementierung, Abschnitt 8](POI%20Tracker%20Migration%20Implementation.md#8-poi-telemetrie-in-der-execution-runtime-15092026).
+
+
+### 15.09.2026: POI-Voice mit den bestehenden APT-Delivery-Pfaden (lokal)
+
+Die sieben gewöhnlichen POI-Prompts und ihre dynamischen Hilfsfunktionen werden
+unverändert aus der Standalone-Quelle generiert. Task-Commit speichert fertigen
+Prompt und Befund; Text-Ready sichert das Erzählgedächtnis vor Playback.
+VoiceService, Job-Deduplizierung, kurze Claim-Prüfung, Playback-Lease, Best-Effort
+und gemeinsame ACK-Nachbearbeitung verwenden die vorhandenen APT-Bausteine.
+Langsame POI-Ansagen blockieren keine Cargo-Intents; verspätete Generation nach
+Missionsende bleibt gesperrt. Szeneneffekte sind für POI noch nicht ausführbar.
+
+185 erweiterte Regressionstests, 1.344 Original-Promptvergleiche, 10.450 Taskvergleiche
+sowie Boarding-/Farewell-Differentialtests und Generator-Driftprüfungen bestehen.
+Provider und Audioclients sind dabei simuliert. Kontextbuilder ist vorhanden,
+Seed-Aufruf und vollständiger MSFS-/UI-/Abschlussnachweis bleiben offen;
+kein produktives POI-Gate wurde geöffnet. Vergleich mit den APT-Feldbefunden:
+[POI-Implementierung, Abschnitt 9](POI%20Tracker%20Migration%20Implementation.md#9-originale-poi-voice-und-apt-erfahrungen-15092026).
+
+### POI-Reviewkorrektur: Text vor Audiosynthese (15.09.2026)
+
+Der POI-VoiceService bestätigt Text und Original-Erzählgedächtnis jetzt vor
+TTS im autoritativen Missionseffekt. Schreibfehler stoppen Audio und halten
+den Text für denselben Effekt bereit; bestätigter Text wird bei Wiederaufnahme
+ohne erneute Textgenerierung verwendet. TTS-Ausfall erhält Text und Gedächtnis.
+Cache-Restore bewahrt den POI-Jobtyp. Die zusätzlichen Hooks gelten nur für POI;
+APT-Playback, Lease und Best-Effort bleiben unverändert.
+
+192 gemeinsame Tests einschließlich sieben neuer Fälle bestanden; 1.344 Prompt-
+und 10.450 Taskvergleiche unverändert grün. Flug-/Bodenbeobachtung, Recorder,
+Start-/Abschlusskette, Seed und Produktionsfreigabe bleiben offen.
+[Details und Grenzen](POI%20Tracker%20Migration%20Implementation.md#11-poi-textbestätigung-vor-tts-15092026).
+
+### 15.09.2026: Vollständiger Standard-POI-Pfad lokal angeschlossen
+
+Ergänzung v406: Die Nachprüfung hat Pause-Weiterleitung, exakte App-Projektion,
+gemeinsame APT-/POI-Komfortfrequenz und manuelle POI-Sprachaktionen korrigiert.
+EFB bietet „Missionsstatus“ und „Orientierung“ als Tracker-Intents an und zeigt
+bestätigte POI-Texte schließbar an; späte ACKs öffnen sie nicht erneut.
+Code-/Originalvergleichsnachweise und ausstehende Feldtests:
+[POI-Implementierung, Abschnitt 15](POI%20Tracker%20Migration%20Implementation.md#15-korrekturen-vor-dem-ersten-feldtest-v406).
+
+Die offenen Code-Anschlüsse der bisherigen POI-Teilschritte sind umgesetzt:
+Original-Lifecycle und Cargo-Stress, gemeinsame Flugbeobachtung/Voice, vollständige
+PAX-/Cargo-/Szenen-/Abschlusskette, Recorder-Recovery nach Close-ACK, App-/Cloud-Seed,
+Navigation und eigene POI-UI. Tracker v405 hat dafür die separate Capability
+`mission.poi.v1`, nur bei aktivierter Alpha/APT-Ausführung plus
+`VFR_MULTITOOL_POI_EXECUTION=1`; Standardfreigabe bleibt aus.
+
+255 gemeinsame Tests und Original-Differentialtests bestehen. Lokaler Windows-Build
+ohne V8-Bytecode erstellt; nicht veröffentlicht und nicht im MSFS/auf zwei echten
+Geräten geprüft. Die genaue Befundauflösung, Nachweise und Release-Grenzen stehen
+in [POI-Implementierung, Abschnitt 13](POI%20Tracker%20Migration%20Implementation.md#13-vollständiger-standard-poi-anschluss).
+Für weitere Missionsfamilien gilt der neue
+[Tracker-Migrationsleitfaden](Tracker%20Mission%20Migration%20Guide.md).
+
+### 2026-09-15 – Banner-Ruecknahme v407
+
+Auf Nutzerwunsch nach Fotovergleich den Banner-Fix v406 vollstaendig
+zurueckgenommen. Urspruengliche Position und Hoehe wiederhergestellt,
+einschliesslich Bordbuchhinweis. Isolierter Release: Tracker v407,
+Assetrevision 40701. 29 Tests bestanden; Dateien exakt wie vor v406.

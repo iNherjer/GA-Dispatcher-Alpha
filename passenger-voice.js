@@ -666,6 +666,11 @@ window.paxVoiceGetPoiMissionProgress = function() {
 
 window.paxVoiceRestorePoiMissionProgress = function(progress = null, reason = 'mission-resume') {
     if (!progress || typeof progress !== 'object') return false;
+    if (reason === 'tracker-projection') {
+        _applyPoiTaskDetectorState(window.GAMissionPoiTaskCore.createState(progress));
+        _refreshPaxWidgetVisibility();
+        return true;
+    }
     const surveySatisfied = !!(progress.surveyPattern && progress.surveyPattern.satisfied);
     const trainingSatisfied = !!(progress.trainingProcedure && progress.trainingProcedure.satisfied);
     _poiSatisfied = !!(progress.satisfied || surveySatisfied || (trainingSatisfied && _isPOIMission()));
@@ -3331,6 +3336,14 @@ function _refreshMissionActionMenu() {
     };
     setVisible('paxMissionStatusBtn', isPoi && hasPax);
     setVisible('paxMissionOrientationBtn', isPoi && hasPax);
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        [['paxMissionStatusBtn', 'poi_status'], ['paxMissionOrientationBtn', 'poi_orientation']].forEach(([id, intent]) => {
+            const button = document.getElementById(id);
+            if (button) button.disabled = !window.gaTrackerExecutionControl?.allowedActions?.includes(intent) || window.gaMissionControlIntentPending === true;
+        });
+    } else {
+        ['paxMissionStatusBtn', 'paxMissionOrientationBtn'].forEach(id => { const button = document.getElementById(id); if (button) button.disabled = false; });
+    }
     setVisible('paxPoiFoundBtn', sarPoi && !_poiSatisfied && !_poiAborted && (!sarHeli || !sarHeliFoundReported));
     setVisible('paxAptWellbeingBtn', !isPoi && hasPax && !cargoFocus);
     setVisible('paxCargoConditionBtn', !isPoi && cargoFocus);
@@ -3984,7 +3997,7 @@ window.triggerPaxSarHeliPatientLoaded = function(ctx = {}) {
     );
 };
 
-window.paxMissionStatusReport = function() {
+function _poiMissionStatusAction() {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
         _paxSpeakTextDirect('Das ist keine POI-Mission. Fuer diesen Flug ist eher Wohlbefinden, Ladung oder Wetter relevant.', 'Missionsstatus');
@@ -4011,7 +4024,7 @@ Antworte als Passagier/Rollenperson dynamisch zum Kontext: Anflug, Datenaufnahme
     _missionActionSpeak(prompt, 'Missionsstatus', fallback);
 };
 
-window.paxMissionOrientationHelp = function(_cityRetry = false) {
+function _poiMissionOrientationAction(_cityRetry = false) {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
         _paxSpeakTextDirect('Orientierungshilfe ist aktuell nur fuer POI-Ziele sinnvoll.', 'Orientierung');
@@ -4045,6 +4058,18 @@ Antworte zuerst mit Steuerkurs und Entfernung in ganzen NM, danach eine kurze Zi
         : `${vector} Ziel ist ${ctx.targetName}; nutze die naechste markante Struktur im Zielgebiet als Bezug und halte weiter Ausschau.`;
     _missionActionSpeak(prompt, 'Orientierung', fallback);
 };
+
+// Tracker authority owns both the prompt decision and the resulting text.
+window.paxMissionStatusReport = function() {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('poi_status');
+    return _poiMissionStatusAction();
+};
+window.paxMissionOrientationHelp = function(_cityRetry = false) {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('poi_orientation');
+    return _poiMissionOrientationAction(_cityRetry);
+};
+
+window.addEventListener('missioncontrolchange', () => _refreshMissionActionMenu());
 
 window.paxMissionReportTargetFound = function() {
     if (!_isPOIMission() || _activeTaskDomain() !== 'search_and_rescue') {
@@ -5769,64 +5794,6 @@ function _poiChainOrientationText(ctx = null) {
     return `Nächster Kettenpunkt ist ${nextPoint.name}. Der aktuelle rote Triggerkreis ist auf der Karte markiert.`;
 }
 
-function _surveyPatternOuterRadiusNm(spec = null, fallbackRadiusNm = 1.5) {
-    if (!spec || typeof spec !== 'object') return Math.max(0.5, Number(fallbackRadiusNm || 0) || 1.5);
-    const center = spec.center || {};
-    const centerLat = Number(center.lat);
-    const centerLon = Number(center.lon);
-    if (String(spec.type || '').toLowerCase() === 'orbit') {
-        return Math.max(
-            Number(fallbackRadiusNm || 0) || 0,
-            Number(spec.orbit?.radiusNm || 0) + Number(spec.orbit?.radialToleranceNm || 0) + 0.25
-        );
-    }
-    let maxNm = 0;
-    if (Number.isFinite(centerLat) && Number.isFinite(centerLon) && Array.isArray(spec.scan?.lines)) {
-        for (const line of spec.scan.lines) {
-            for (const point of [line?.start, line?.end]) {
-                const lat = Number(point?.lat);
-                const lon = Number(point?.lon);
-                if (Number.isFinite(lat) && Number.isFinite(lon)) {
-                    maxNm = Math.max(maxNm, _haversineNm(centerLat, centerLon, lat, lon));
-                }
-            }
-        }
-    }
-    return Math.max(Number(fallbackRadiusNm || 0) || 0, maxNm + 0.25, 0.5);
-}
-
-function _poiInSightGate({ taskDomain = '', distNm = 0, etaMin = 0, radiusNm = 1.5, effectiveGs = 95, surveyTickResult = null, poiChainTickResult = null } = {}) {
-    const td = String(taskDomain || '').toLowerCase();
-    const dist = Number(distNm);
-    if (!Number.isFinite(dist)) return { ready: false, announcedEtaMin: 2, logEtaMin: etaMin };
-    if (td === 'infra_chain_recon' && poiChainTickResult?.progress?.startedAt) {
-        return { ready: false, announcedEtaMin: 2, logEtaMin: 0 };
-    }
-    if (td !== 'mapping_survey') {
-        return {
-            ready: Number(etaMin) <= 3.2 && dist <= Math.max(2.2, Number(radiusNm || 0) + 1.2),
-            announcedEtaMin: 2,
-            logEtaMin: etaMin
-        };
-    }
-    if (surveyTickResult?.progress?.startedAt) {
-        return { ready: false, announcedEtaMin: 2, logEtaMin: 0 };
-    }
-    const spec = _surveyPatternActiveSpec();
-    const surveyRadius = _surveyPatternOuterRadiusNm(spec, radiusNm);
-    const gs = Math.max(45, Number(effectiveGs || 0) || 95);
-    const etaToSurveyAreaMin = Math.max(0, ((dist - surveyRadius) / gs) * 60);
-    const stillOutsideSurvey = dist > surveyRadius + 0.25;
-    return {
-        ready: stillOutsideSurvey
-            && etaToSurveyAreaMin <= 3.6
-            && dist <= surveyRadius + 6.5,
-        announcedEtaMin: Math.max(2, Math.round(etaToSurveyAreaMin)),
-        logEtaMin: etaToSurveyAreaMin,
-        surveyRadiusNm: surveyRadius
-    };
-}
-
 function _surveyPatternAudioKey(kind = 'event') {
     return _paxMissionAudioKey(`survey-${kind}`);
 }
@@ -6995,11 +6962,11 @@ window.paxVoiceApplyTrackerOutcome = function(outcome = null) {
     if (kind === 'boarding') return _applyTrackerBoardingVoicePresentation(source);
     if (kind === 'farewell') return _applyTrackerFarewellVoicePresentation(source);
     if (kind === 'approach') return _applyTrackerApproachVoicePresentation(source);
-    if (['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(kind)) {
+    if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(kind)) {
         const key = `${kind}|${source.text}|${source.updatedAt}`;
         if (_paxTrackerVoicePresentationKey !== key) {
             _paxTrackerVoicePresentationKey = key;
-            _rememberAndShowPrepared(source.text, source.speaker, ({ comfort: 'Komfort-Hinweis', wrong_start: 'Route läuft ab hier', off_destination: 'Falscher Landeplatz', landing_roll: 'Nach der Landung', cargo_event: 'Ladung' })[kind]);
+            _rememberAndShowPrepared(source.text, source.speaker, (kind === 'poi' && source.label) || ({ poi: 'POI-Auftrag', comfort: 'Komfort-Hinweis', wrong_start: 'Route läuft ab hier', off_destination: 'Falscher Landeplatz', landing_roll: 'Nach der Landung', cargo_event: 'Ladung' })[kind]);
         }
         return true;
     }
@@ -7016,7 +6983,7 @@ window.addEventListener('ga:tracker-voice-playback', event => {
     if (kind === 'boarding') _applyTrackerBoardingVoicePresentation(detail);
     else if (kind === 'farewell') _applyTrackerFarewellVoicePresentation(detail);
     else if (kind === 'approach') _applyTrackerApproachVoicePresentation(detail);
-    else if (['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(kind)) window.paxVoiceApplyTrackerOutcome(detail);
+    else if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(kind)) window.paxVoiceApplyTrackerOutcome(detail);
 });
 
 window.paxVoicePrepareGreeting = function(lat = null, lon = null) {
@@ -8276,16 +8243,7 @@ function _poiRequiredTaskItemState() {
         return { missing: [], dropped: [], damaged: [], blockingItems: [], reason: 'missing' };
     }
     try {
-        const outcome = window.missionCargoEvaluateOutcome();
-        const normalize = (list) => [...new Set((Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean))];
-        const missing = normalize(outcome?.missingRequired);
-        const dropped = normalize(outcome?.droppedRequired);
-        const damaged = normalize(outcome?.damagedRequired);
-        const blockingItems = [...new Set([...missing, ...dropped, ...damaged])];
-        let reason = 'missing';
-        if (damaged.length) reason = 'damaged';
-        else if (dropped.length) reason = 'dropped';
-        return { missing, dropped, damaged, blockingItems, reason };
+        return window.GAMissionPoiTaskCore.taskItemState(window.missionCargoEvaluateOutcome());
     } catch (_) {
         return { missing: [], dropped: [], damaged: [], blockingItems: [], reason: 'missing' };
     }
@@ -8331,9 +8289,9 @@ Sag dem Piloten klar und ruhig, dass wir die Beobachtung jetzt abbrechen und dir
 }
 
 // Shared tone instruction appended to every prompt
-function _toneHint() {
+function _toneHint(greetingDone = _paxGreetingDone) {
     if (_UNIFIED_INSTRUCTOR_BASELINE && _paxUsesInstructorBaseline()) {
-        const greetingLine = _paxGreetingDone ? 'Keine neue Begrüßung am Satzanfang.' : 'Begrüßung höchstens sehr kurz.';
+        const greetingLine = greetingDone ? 'Keine neue Begrüßung am Satzanfang.' : 'Begrüßung höchstens sehr kurz.';
         const humorLine = _paxHumorLevel === 'subtle'
             ? 'Kein Witz.'
             : _paxHumorLevel === 'bold'
@@ -8355,7 +8313,7 @@ Nur Deutsch, kein Markdown.`;
         : _paxHumorLevel === 'bold'
             ? 'Genau eine kurze, sympathische Pointe (nur wenn nicht sicherheitskritisch).'
             : 'Humor nur, wenn er zur beschriebenen Person und zum Moment passt; keine erzwungene Pointe.';
-    const greetingLine = _paxGreetingDone
+    const greetingLine = greetingDone
         ? 'Keine neue Begrüßung am Satzanfang.'
         : (isBush ? 'Begrüßung höchstens kurz und unaufgeregt.' : 'Begrüßung höchstens kurz (z.B. "Hi").');
     const registerLine = isCharterNeutral
@@ -9888,6 +9846,53 @@ window.paxVoiceBuildCargoAudioContext = function() {
         sources: _paxMissionAudioCueSourceCandidates(), catalog: _PAX_AUDIO_CUE_CATALOG };
 };
 
+// Prepared POI voice inputs use the same App builders as standalone. The tracker
+// owns subsequent task observations, narrative memory and voice effects.
+window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
+    const core = window.GAMissionPoiVoiceCore;
+    const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
+    if (!core || !missionId || !_isPOIMission() || !md || !window.activePassenger || !_missionHasPax()
+        || !core.DOMAINS.includes(_activeTaskDomain()) || _activeAptTrainingPlan()
+        || _activeBushReconOutcome() || window.missionIsSarHeliMission?.(md)) return null;
+    if (!_paxCityDatasetAvailable() && typeof loadGlobalCities === 'function') {
+        loadGlobalCities().catch(() => {});
+        return null;
+    }
+    const modelIds = provider => _paxAiTextModels(provider)
+        .map(entry => Array.isArray(entry) ? entry[0] : entry).filter(Boolean);
+    const policy = _paxApproachLandmarkPolicy();
+    const context = {
+        schema: core.CONTEXT_SCHEMA, version: 1, missionId,
+        taskDomain: _activeTaskDomain(), strict: _paxStrictMode,
+        baseContext: _baseContext(), toneHint: _toneHint(true),
+        passenger: { ...window.activePassenger }, missionData: { poiName: md.poiName, targetName: md.targetName, dest: md.dest },
+        mapPlaceOrientationLine: _paxMapPlaceOrientationLine(),
+        inspectionMeta: _inspectionMissionMeta(), infraOutcome: _activeInfraInspectionOutcome(),
+        professionalMeta: _professionalRoleMeta(),
+        targetFacts: _targetContextFactCandidates(),
+        motionProtectionEnabled: _paxDebugMotionProtectionEnabled(),
+        followUpDeboardingHint: _followUpDeboardingHintLine(),
+        storyFocusSubject: _activeMissionStoryFrame()?.focusSubject || 'den Auftrag',
+        briefingWeather: _briefingDestWeather(), weatherMismatchAlreadyUsed: !!_paxWxMismatchDone,
+        missionAudioKey: _paxMissionAudioKey('farewell'),
+        farewellCueId: _paxAudioEffectsEnabled ? _paxMissionAudioCueId('cargo', 'passenger_unload', 'deboarding_pax') : 'none',
+        flight: { depLabel: md.start || 'START', arrLabel: md.start || 'LANDUNG' },
+        departure: typeof routeWaypoints !== 'undefined' ? routeWaypoints?.[0] : null,
+        start: md.start || '?', dest: md.start || '?', wrongStartActive: _paxWrongStartActive,
+        wikiText: document.getElementById('wikiDestDescText')?.innerText?.trim() || '',
+        landmarkPolicy: policy,
+        visualLandmarks: policy ? _paxConfirmedVisualLandmarks(policy.maxDistM) : [],
+        targetGeoContext: { anchors: _paxTargetGeoContext()?.anchors || {} },
+        speaker: _speakerSnapshotForActivePax(), audioEnabled: !!_paxVoiceEnabled,
+        textModels: { gemini: modelIds('gemini'), openai: modelIds('openai') },
+        ttsModels: _paxTtsModelPref === '3.1' ? ['gemini-3.1-flash-tts-preview']
+            : (_paxTtsModelPref === '2.5' ? ['gemini-2.5-flash-preview-tts']
+                : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']),
+        ttsHedgeEnabled: _paxTtsHedgeEnabled(), ttsHedgeDelayMs: _paxTtsHedgeDelayMs()
+    };
+    return core.validateContext(context, missionId) ? null : JSON.parse(JSON.stringify(context));
+};
+
 window.paxVoiceBuildApproachAuthorityContext = function() {
     const context = _farewellAuthorityContext();
     if (!context?.supported || context.mode !== 'passenger') return null;
@@ -10264,6 +10269,56 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
     }
 };
 
+function _poiTaskDetectorState() {
+    return {
+        inRadius: _poiInRadius,
+        enteredAt: _poiEnteredAt,
+        lastTickTime: _poiLastTickTime,
+        dwellSec: _poiDwellSec,
+        attempts: _poiAttempts,
+        lastComplaintAt: _poiLastComplaintAt,
+        altWasOk: _poiAltWasOk,
+        satisfied: _poiSatisfied,
+        aborted: _poiAborted,
+        manualConfirmed: _poiManuallyConfirmed,
+        entryDone: _poiEntryDone,
+        sightCallDone: _poiSightCallDone,
+        atTargetDone: _paxAtTargetDone
+    };
+}
+
+function _applyPoiTaskDetectorState(state) {
+    _poiInRadius = state.inRadius;
+    _poiEnteredAt = state.enteredAt;
+    _poiLastTickTime = state.lastTickTime;
+    _poiDwellSec = state.dwellSec;
+    _poiAttempts = state.attempts;
+    _poiLastComplaintAt = state.lastComplaintAt;
+    _poiAltWasOk = state.altWasOk;
+    _poiSatisfied = state.satisfied;
+    _poiAborted = state.aborted;
+    _poiManuallyConfirmed = state.manualConfirmed;
+    _poiEntryDone = state.entryDone;
+    _poiSightCallDone = state.sightCallDone;
+    _paxAtTargetDone = state.atTargetDone;
+}
+
+function _applyPoiTaskCoreEffects(result) {
+    const prompts = { _poiInSightPrompt, _poiEntryPrompt, _poiMissingCargoAbortPrompt,
+        _poiAltCorrectedPrompt, _poiSatisfiedPrompt, _poiAltComplaintPrompt, _poiAbortPrompt };
+    for (const effect of result.effects) {
+        _applyPoiTaskDetectorState(effect.state);
+        if (effect.type === 'log') _paxLog(effect.value, effect.level);
+        else if (effect.type === 'persist') window.missionPersistRuntimeSnapshot?.(effect.value, { immediate: true });
+        else if (effect.type === 'voice') {
+            const cue = effect.value;
+            const prompt = prompts[cue.prompt](...cue.args);
+            if (prompt) _paxMissionTimeout(() => _speakAndShow(prompt, cue.label), cue.delayMs);
+        }
+    }
+    _applyPoiTaskDetectorState(result.state);
+}
+
 function _tickPoiDwell(lat, lon, flightData) {
     // POI-Training nutzt ein virtuelles Uebungsgebiet ohne echtes Objekt.
     // Daher keine Objekt-/Dwell-/In-Sight-Trigger aus dem POI-Inspektionspfad.
@@ -10312,148 +10367,17 @@ function _tickPoiDwell(lat, lon, flightData) {
         }
         return;
     }
-    const tightAltitudeBand = /^(fire_watch|search_and_rescue|inspection_infra|infra_chain_recon|mapping_survey)$/.test(taskDomain);
-    const altTolerance         = strict ? 200  : (tightAltitudeBand ? 300 : 600);
-    const dwellRequired        = pax.targetDwellMin > 0 ? pax.targetDwellMin * 60 * (strict ? 1.0 : 0.5) : 0;
-    const maxAttempts          = strict ? 2 : 3;
-    const graceSec             = strict ? 15  : 25;
-    const complaintIntervalSec = strict ? 30 : 45;
     const taskItemState = _poiRequiredTaskItemState();
-    const missingTaskItems = taskItemState.blockingItems;
     const poiChainTickResult = _tickPoiChainTask(lat, lon, flightData);
     const surveyTickResult = taskDomain === 'mapping_survey'
         ? _tickSurveyPatternTask(lat, lon, flightData)
         : null;
-
-    const inSightGate = _poiInSightGate({
-        taskDomain,
-        distNm,
-        etaMin,
-        radiusNm: radius,
-        effectiveGs,
-        surveyTickResult,
-        poiChainTickResult
-    });
-
-    // Frühe POI-Meldung: technisch hilfreiche "Objekt in Sicht"-Ansage.
-    // Mapping-Survey nutzt die ETA bis zum Pattern-Rand, weil das Arbeitsgebiet groesser als der POI-Radius sein kann.
-    if (!_poiSightCallDone && !inRadius && inSightGate.ready) {
-        _poiSightCallDone = true;
-        const surveyPart = Number.isFinite(Number(inSightGate.surveyRadiusNm)) ? ` | surveyR: ${Number(inSightGate.surveyRadiusNm).toFixed(2)} NM` : '';
-        _paxLog(`POI pre-call | dist: ${distNm.toFixed(2)} NM | eta: ${etaMin.toFixed(1)} min | etaGate: ${Number(inSightGate.logEtaMin || etaMin).toFixed(1)} min | pos: ${clockPos}${surveyPart}`, 'event');
-        const p = _poiInSightPrompt(flightData, distNm, etaMin, clockPos, { announcedEtaMin: inSightGate.announcedEtaMin });
-        if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Objekt in Sicht'), 300);
-    }
-
-    if (!inRadius) {
-        if (!surveyTickResult?.progress?.startedAt && !poiChainTickResult?.progress?.startedAt) {
-            _poiInRadius     = false;
-            _poiLastTickTime = null;
-        }
-        return;
-    }
-
-    if (!_poiInRadius) {
-        _poiInRadius     = true;
-        _poiLastTickTime = now;
-        if (!_poiEnteredAt) _poiEnteredAt = now;
-        _paxLog(`POI-Radius betreten | dist: ${distNm.toFixed(2)} NM | dwell: ${dwellRequired.toFixed(0)}s | altReq: ${pax.targetAltFt || 'keins'}`, 'state');
-
-        if (missingTaskItems.length) {
-            _poiAborted = true;
-            _paxAtTargetDone = true;
-            _poiEntryDone = true;
-            if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-aborted-missing-cargo', { immediate: true });
-            _paxLog(`POI-Abbruch wichtiger Gegenstand ${taskItemState.reason === 'damaged' ? 'beschaedigt' : 'fehlt'} | items: ${missingTaskItems.join(', ')}`, 'warn');
-            const pMissing = _poiMissingCargoAbortPrompt(flightData, taskItemState);
-            if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
-            return;
-        }
-
-        // Entry comment — spontane erste Reaktion beim Einflug
-        if (!_poiEntryDone) {
-            _poiEntryDone = true;
-            const p = _poiEntryPrompt(flightData);
-            if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Zielgebiet'), 800);
-        }
-
-        // Flyover (targetDwellMin=0): Entry genügt → satisfied nach kurzem Delay
-        if (dwellRequired === 0 && taskDomain !== 'mapping_survey') {
-            _poiSatisfied    = true;
-            _paxAtTargetDone = true;
-            if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-flyover-satisfied', { immediate: true });
-            _paxLog('Flyover-Mission — Überflug genügt, satisfied', 'event');
-            return;
-        }
-    }
-
-    if (missingTaskItems.length) {
-        _poiAborted = true;
-        _paxAtTargetDone = true;
-        if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-aborted-missing-cargo', { immediate: true });
-        _paxLog(`POI-Abbruch waehrend Verweilzeit: wichtiger Gegenstand ${taskItemState.reason === 'damaged' ? 'beschaedigt' : 'fehlt'} | items: ${missingTaskItems.join(', ')}`, 'warn');
-        const pMissing = _poiMissingCargoAbortPrompt(flightData, taskItemState);
-        if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
-        return;
-    }
-
-    if (taskDomain === 'mapping_survey' && surveyTickResult?.handled) {
-        return;
-    }
-    if (poiChainTickResult?.handled) {
-        return;
-    }
-
-    const dt = Math.min((now - _poiLastTickTime) / 1000, 5);
-    _poiLastTickTime = now;
-
-    const altFt     = flightData?.mslFt || 0;
-    const targetAlt = pax.targetAltFt || 0;
-    const altOk     = targetAlt === 0 || Math.abs(altFt - targetAlt) <= altTolerance;
-    const inRadiusForSec   = (now - (_poiEnteredAt || now)) / 1000;
-    const lastComplaintSec = _poiLastComplaintAt ? (now - _poiLastComplaintAt) / 1000 : Infinity;
-
-    if (altOk) {
-        // Proximity boost: 2× at centre, 1× at edge (linear)
-        const proximityFactor = 1 + Math.max(0, 1 - distNm / radius);
-        _poiDwellSec += dt * proximityFactor;
-
-        if (_poiAltWasOk === false) {
-            _paxLog('Höhe korrigiert → Bestätigung', 'event');
-            const p = _poiAltCorrectedPrompt(flightData);
-            if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Höhe ok'), 500);
-        }
-        _poiAltWasOk = true;
-
-        if (_poiDwellSec >= dwellRequired) {
-            _paxLog(`Verweilzeit erfüllt (${_poiDwellSec.toFixed(0)}s) → zufrieden`, 'event');
-            _poiSatisfied    = true;
-            _paxAtTargetDone = true;
-            if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-dwell-satisfied', { immediate: true });
-            const p = _poiSatisfiedPrompt(flightData);
-            if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Ziel erfüllt'), 500);
-        }
-    } else {
-        _poiAltWasOk = false;
-
-        const canComplain = inRadiusForSec >= graceSec && lastComplaintSec >= complaintIntervalSec;
-        if (canComplain) {
-            if (_poiAttempts < maxAttempts) {
-                _poiAttempts++;
-                _poiLastComplaintAt = now;
-                _paxLog(`Höhen-Reklamation #${_poiAttempts} | ${altFt} ft statt ${targetAlt} ft`, 'event');
-                const p = _poiAltComplaintPrompt(flightData, altFt, targetAlt, _poiAttempts);
-                if (p) _paxMissionTimeout(() => _speakAndShow(p, `Höhe (${_poiAttempts}/${maxAttempts})`), 500);
-            } else {
-                _paxLog('Max. Versuche erreicht → Abbruch', 'event');
-                _poiAborted      = true;
-                _paxAtTargetDone = true;
-                if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-alt-aborted', { immediate: true });
-                const p = _poiAbortPrompt(flightData);
-                if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Abbruch'), 1000);
-            }
-        }
-    }
+    _applyPoiTaskCoreEffects(window.GAMissionPoiTaskCore.observe(_poiTaskDetectorState(), {
+        pax, distNm, now, flightData, taskDomain, strict, etaMin, effectiveGs, clockPos,
+        taskItemState, poiChainTickResult, surveyTickResult,
+        surveySpec: taskDomain === 'mapping_survey' && !surveyTickResult?.progress?.startedAt && Number.isFinite(distNm)
+            ? _surveyPatternActiveSpec() : null
+    }));
 }
 
 // ─── BOOT ─────────────────────────────────────────────────────────────────────

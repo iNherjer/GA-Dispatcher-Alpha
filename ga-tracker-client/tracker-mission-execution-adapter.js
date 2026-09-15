@@ -1,3 +1,4 @@
+const { prepareAction: preparePoiAction } = require('./tracker-mission-poi-voice.js');
 'use strict';
 
 const executionCore = require('../mission-execution-core.js');
@@ -6,6 +7,8 @@ const manifestCore = require('../mission-manifest-core.js');
 const complianceCore = require('../mission-compliance-domain-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const flightRecorderCore = require('../mission-flight-recorder-core.js');
+const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
+const poiRuntime = require('./tracker-mission-poi-runtime.js');
 
 const AIRBORNE_EVIDENCE_MS = 2000;
 const GROUND_STILL_EVIDENCE_MS = 0;
@@ -16,7 +19,7 @@ const RELOAD_MAX_DISTANCE_M = 200;
 const RUNTIME_CONTEXT_PERSIST_INTERVAL_MS = 5000;
 const COMPLIANCE_REQUESTED_ITEM_IDS = new Set(['bordbuch', 'fire-extinguisher', 'first-aid']);
 const SYSTEM_EVENT_TYPES = new Set([
-  'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED',
+  'POI_TASK_OBSERVED', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED',
   'BOARDING_STARTED',
   'BOARDING_SCENE_CONFIRMED',
   'BOARDING_CONFIRMED',
@@ -136,9 +139,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
 
   const farewellAuthorityContext = () => {
     const plan = safeObject(executionEffectPlan());
-    const context = farewellVoiceCore.normalizeContext(
-      safeObject(safeObject(plan.effects)['voice.farewell']).context
-    );
+    const entry = safeObject(safeObject(plan.effects)['voice.farewell']);
+    const context = current()?.recipe === 'poi' && entry.poiContextRef
+      ? authorityManager.getExecutionPoiRecipe?.()?.voiceContext
+      : farewellVoiceCore.normalizeContext(entry.context);
     if (context && current()?.state?.effects.some(effect => effect.type === 'voice.approach' && effect.payload?.weatherMismatchUsed)) {
       context.weatherMismatchAlreadyUsed = true;
     }
@@ -259,7 +263,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const snapshot = current();
     if (!snapshot) return null;
     resetObservationIfNeeded(snapshot);
-    persistRuntimeContext(snapshot, true);
+    const persisted = persistRuntimeContext(snapshot, true);
+    if (snapshot.recipe === 'poi' && persisted?.ok === false) return { error: persisted.error || 'mission_runtime_context_persist_failed' };
     const authorityContext = farewellAuthorityContext();
     const flight = missionFlightLabels();
     const currentAt = Math.max(0, Math.round(Number(observations.latestTelemetry?.observedAt || now()) || 0));
@@ -295,15 +300,26 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         && item.deliverAtDestination !== false && item.itemType !== 'passenger'
         ? { ...item, status: 'unloaded' } : item)
     } : snapshot.state.manifest;
-    const cargoOutcome = flightRecorderCore.evaluateFarewellOutcome(
+    let cargoOutcome = flightRecorderCore.evaluateFarewellOutcome(
       manifest,
       stressRecord,
       { motionProtectionEnabled: authorityContext?.motionProtectionEnabled === true }
     );
+    let poiProgress = null;
+    if (snapshot.recipe === 'poi' && poiRuntime.hasLifecycle(authorityManager.getExecutionPoiRecipe?.())) {
+      poiProgress = snapshot.state.poiTask?.detector || {};
+      const lifecycle = poiLifecycleCore.evaluate(authorityManager.getExecutionPoiRecipe(), poiProgress,
+        { ...observations.flightRecorder, hadAirbornePhase: snapshot.state.poiLifecycle?.flightEligible }, latest, cargoOutcome);
+      cargoOutcome = lifecycle.outcome;
+      record.poiEndedAtHome = snapshot.state.poiLifecycle?.endedAtHome === true;
+      record.poiNeedsRideHome = snapshot.state.poiLifecycle?.needsRideHome === true;
+      record.poiAborted = poiProgress.aborted === true;
+    }
     record.missionCargoOutcome = cargoOutcome;
     record.missionFailed = cargoOutcome.failed === true;
     return {
       record,
+      poiProgress,
       cargoOutcome,
       missionFailed: cargoOutcome.failed === true,
       liveWeather: observations.arrivalWeather || observations.latestTelemetry || null
@@ -316,7 +332,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (snapshot.executionAuthority !== 'tracker') {
       return errorResult('mission_execution_authority_web', { activeRun: authorityManager.getActiveRun() });
     }
-    if (snapshot.recipe !== 'apt') {
+    if (snapshot.recipe !== 'apt' && !authorityManager.supportsExecutionRecipe?.(snapshot.recipe)) {
       return errorResult('mission_execution_recipe_not_enabled', { activeRun: authorityManager.getActiveRun() });
     }
     const missionId = cleanString(request.missionId);
@@ -454,7 +470,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const airborneDrop = !load
       && snapshot.state.flags.active === true
       && snapshot.state.flags.onGround === false
-      && ['active', 'enroute', 'return_leg'].includes(snapshot.state.phase)
+      && (['active', 'enroute', 'return_leg'].includes(snapshot.state.phase) || (snapshot.recipe === 'poi' && snapshot.state.phase === 'on_task'))
       && item.status === 'loaded'
       && item.itemType !== 'passenger';
     const mutableHere = (departurePhase && departureItem)
@@ -769,6 +785,17 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         view: snapshot.view
       });
     }
+    if (['poi_status', 'poi_orientation'].includes(intent)) {
+      const recipe = authorityManager.getExecutionPoiRecipe?.();
+      if (snapshot.recipe !== 'poi' || !poiRuntime.hasLifecycle(recipe)) return errorResult('poi_lifecycle_required');
+      const position = safeObject(request.livePosition);
+      const sample = { ...observations.latestTelemetry, ...position };
+      if (Number.isFinite(position.altFt ?? position.alt)) sample.altFt = position.altFt ?? position.alt;
+      let cue;
+      try { cue = preparePoiAction(recipe.voiceContext, intent, snapshot.state.poiTask?.detector, sample, recipe.target, snapshot.state.voice?.poiMemory); }
+      catch (error) { return errorResult(error.message || 'poi_action_context_invalid'); }
+      return submitEvent(snapshot, 'POI_ACTION_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
+    }
     if (intent === 'set_manifest_item') return Object.hasOwn(safeObject(request.payload), 'items')
       ? setManifestItems(snapshot, request) : setManifestItem(snapshot, request);
     if (intent === 'sign_manifest') return signManifest(snapshot, request);
@@ -823,7 +850,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       : (eventType === 'CARGO_WINDOW_OPENED' ? { mode: ['load', 'unload', 'pickup', 'equipment'].includes(intentPayload.mode) ? intentPayload.mode : 'load' }
         : eventType === 'CLOSE_REQUESTED' ? { position: observations.lastPosition }
         : (eventType === 'MISSION_STARTED' ? {
-            arrivalScene: !!executionEffectPlan()?.effects?.['scene.arrival']
+            arrivalScene: !!executionEffectPlan()?.effects?.['scene.arrival'],
+            ...(snapshot.recipe === 'poi' ? { targetScene: !!executionEffectPlan()?.effects?.['scene.target']?.command } : {})
           } : {}));
     return submitEvent(
       snapshot,
@@ -886,7 +914,9 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (type === 'MISSION_CLOSED' && snapshot.state.phase !== 'closing') {
       return errorResult('mission_close_not_requested', { view: snapshot.view });
     }
-    const payload = ['BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED', 'LOAD_CONFIRMED', 'PAX_DEBOARDING_CONFIRMED'].includes(type)
+    const payload = type === 'POI_TASK_OBSERVED'
+      ? { poiTask: safeObject(request.payload?.poiTask), voiceEffects: Array.isArray(request.payload?.voiceEffects) ? request.payload.voiceEffects.slice(0, 8) : [] }
+      : ['BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED', 'LOAD_CONFIRMED', 'PAX_DEBOARDING_CONFIRMED'].includes(type)
       ? { manifest: snapshot.state.manifest }
       : (type === 'COMPLIANCE_INSPECTORS_WAITING'
         ? { sceneFallback: safeObject(request.payload).sceneFallback === true }
@@ -940,7 +970,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     observations.farewellVoiceRecipe = null;
     observations.lastGpsTick = null;
     observations.smoothedVsFpm = 0;
-    observations.runtimeContextPersistedAt = Math.max(0, Number(persisted?.updatedAt || 0));
+    observations.runtimeContextPersistedAt = Math.max(0, Number((snapshot.recipe === 'poi' ? persisted?.latestTelemetry?.observedAt : persisted?.updatedAt) || 0));
+    if (snapshot.recipe === 'poi' && persisted) {
+      observations.flightRecorder.pauseActive = true;
+      observations.flightRecorder.startCandidateSince = 0;
+      observations.recorderLowSpeedSince = null;
+    }
   };
 
   const updateAppTelemetrySmoothing = sample => {
@@ -970,8 +1005,16 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     landingApproachCandidate = false;
     const validated = validateSnapshot(sample);
     if (!validated.ok) return validated;
-    const snapshot = validated.snapshot;
+    let snapshot = validated.snapshot;
     resetObservationIfNeeded(snapshot);
+    const poiRecipe = snapshot.recipe === 'poi' ? authorityManager.getExecutionPoiRecipe?.() : null;
+    const fullPoi = poiRuntime.hasLifecycle(poiRecipe);
+    if (fullPoi && sample.simPaused !== true && sample.inMenuOrMap !== true
+        && (!['observedAt', 'lat', 'lon', 'altFt', 'gsKts'].every(key => typeof sample[key] === 'number' && Number.isFinite(sample[key]))
+            || Math.abs(sample.lat) > 90 || Math.abs(sample.lon) > 180
+            || (observations.latestTelemetry && sample.observedAt <= observations.latestTelemetry.observedAt))) {
+      return { ok: true, status: 'ignored', reason: 'poi_telemetry_invalid_or_stale', sideEffect: false };
+    }
     const smoothedVsFpm = updateAppTelemetrySmoothing(sample);
     if (!snapshot.state.flags.started || snapshot.state.flags.closed) {
       return errorResult('mission_telemetry_not_active', { view: snapshot.view });
@@ -979,7 +1022,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const observedAt = Math.max(0, Math.round(finite(sample.observedAt, now())));
     const onGround = typeof sample.onGround === 'boolean' ? sample.onGround : null;
     const gsKts = Math.max(0, finite(sample.gsKts, Number.POSITIVE_INFINITY));
-    const destination = locationCore.resolveAptDestination(snapshot.location, {
+    let destination = locationCore.resolveAptDestination(fullPoi ? { missionTarget: poiRecipe.home } : snapshot.location, {
       lat: sample.lat,
       lon: sample.lon != null ? sample.lon : sample.lng
     });
@@ -992,6 +1035,30 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       distanceToTargetNm: destination.hasAptArrival ? destination.dArrivalNm : destination.dMissionNm
     });
     observations.flightRecorder = recorded.state;
+    let poiLifecycleChanged = false;
+    if (fullPoi && sample.simPaused !== true && sample.inMenuOrMap !== true) {
+      const lifecycle = poiLifecycleCore.evaluate(poiRecipe, snapshot.state.poiTask?.detector,
+        { ...recorded.state, hadAirbornePhase: recorded.state.hadAirbornePhase || snapshot.state.poiLifecycle?.flightEligible }, sample);
+      const poiLifecycle = Object.fromEntries(['flightEligible', 'canEndHere', 'endedAtHome', 'needsRideHome'].map(key => [key, lifecycle[key]]));
+      if (JSON.stringify(snapshot.state.poiLifecycle) !== JSON.stringify(poiLifecycle)) {
+        poiLifecycleChanged = true;
+        const result = submitEvent(snapshot, 'POI_LIFECYCLE_OBSERVED', { poiLifecycle },
+          `${snapshot.runId}:poi-lifecycle:${snapshot.executionRevision + 1}`, 'telemetry:poi_lifecycle');
+        if (!result.ok) return result;
+        snapshot = current();
+      }
+      // Arrival geometry is the home anchor; permission to finish comes from the
+      // original POI policy and may also permit an intermediate/away landing.
+      destination = { ...destination, poiCanEndHere: lifecycle.canEndHere };
+      const stressed = poiLifecycleCore.applyStress(snapshot.state.manifest, recorded.state, sample, null,
+        poiRecipe.voiceContext?.motionProtectionEnabled === true);
+      if (executionCore.hashValue(stressed) !== executionCore.hashValue(snapshot.state.manifest)) {
+        const result = submitEvent(snapshot, 'CARGO_STATE_CHANGED', { manifest: stressed },
+          `${snapshot.runId}:poi-stress:${snapshot.executionRevision + 1}`, 'telemetry:poi_stress');
+        if (!result.ok) return result;
+        snapshot = current();
+      }
+    }
     observations.latestTelemetry = {
       observedAt,
       lat: finite(sample.lat),
@@ -1016,7 +1083,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       turbulencePct: finite(sample.turbulencePct),
       simPaused: sample.simPaused === true,
       inMenuOrMap: sample.inMenuOrMap === true,
-      parkingBrake: typeof sample.parkingBrake === 'boolean' ? sample.parkingBrake : null
+      parkingBrake: typeof sample.parkingBrake === 'boolean' ? sample.parkingBrake : (fullPoi && sample.parkingBrake === 1 ? true : null)
     };
     observations.latestDestination = {
       atDestination: destination.atDestination === true,
@@ -1069,7 +1136,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     } else if (simulationRunning) {
       observations.recorderLowSpeedSince = null;
     }
-    persistRuntimeContext(snapshot, recorded.status === 'started'
+    persistRuntimeContext(snapshot, poiLifecycleChanged || recorded.status === 'started'
       || recorded.status === 'reposition_reset'
       || touchdownObserved
       || (landingCandidate && observations.flightRecorder.active !== true));
@@ -1107,7 +1174,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     observations.airborneCandidateAt = null;
 
-    const groundReady = onGround === true && (sample.parkingBrake === true
+    const groundReady = onGround === true && (sample.parkingBrake === true || (fullPoi && sample.parkingBrake === 1)
       || (Number.isFinite(gsKts) && gsKts <= GROUND_STILL_MAX_GS_KTS));
     if (onGround === true && snapshot.state.flags.onGround === false) {
       observations.groundStillCandidateAt = groundReady ? observedAt : null;
@@ -1149,8 +1216,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       return { ok: true, status: 'pending', reason: 'ground_still_evidence', sideEffect: false, destination, view: snapshot.view };
     }
     if (groundReady && snapshot.state.flags.groundStill
-        && destination.atDestination === true
-        && snapshot.state.progress.airborneSeen === true
+        && (fullPoi ? destination.poiCanEndHere === true : destination.atDestination === true && snapshot.state.progress.airborneSeen === true)
         && !['end_unloading', 'end_ready', 'closing', 'closed'].includes(snapshot.state.phase)) {
       const applied = submitEvent(
         snapshot,
@@ -1169,18 +1235,37 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     applySystemEvent,
     executeIntent,
     getFarewellAuthorityContext: farewellAuthorityContext,
+    flushRuntimeContext(suspend = false) {
+      const snapshot = current();
+      if (!snapshot || snapshot.recipe !== 'poi' || !poiRuntime.hasLifecycle(authorityManager.getExecutionPoiRecipe?.())) return { ok: true, status: 'ignored' };
+      resetObservationIfNeeded(snapshot);
+      if (suspend) {
+        observations.flightRecorder.pauseActive = true;
+        observations.flightRecorder.startCandidateSince = 0;
+        observations.recorderLowSpeedSince = null;
+        observations.lastGpsTick = null;
+        observations.smoothedVsFpm = 0;
+      }
+      return persistRuntimeContext(snapshot, true);
+    },
     getFarewellDynamicContext,
     getFarewellVoiceRecipe: () => observations.farewellVoiceRecipe,
     getMissionFlightRecord: () => missionRecord(),
     finalizeFlightLog: (details = {}) => {
       const snapshot = current();
       if (!snapshot) return null;
+      // Closing can resume before the first telemetry tick. Restore the durable
+      // POI recorder before finalization writes its checkpoint back to disk.
+      if (snapshot.recipe === 'poi') resetObservationIfNeeded(snapshot);
       const at = Math.max(0, Math.round(Number(observations.latestTelemetry?.observedAt || now()) || 0));
       const pending = Number(observations.flightRecorder?.startTs || 0) !== Number(observations.lastFinalizedSegmentStartTs || 0)
         ? buildSegmentRecord(observations.flightRecorder, at, observations.latestDestination)
         : null;
       if (pending) finalizeSegment(snapshot, pending, details.status === 'aborted' ? 'mission-aborted' : 'mission-complete');
-      persistRuntimeContext(snapshot, true);
+      const persisted = persistRuntimeContext(snapshot, true);
+      if (snapshot.recipe === 'poi' && persisted?.ok === false) return {
+        ok: false, status: 'pending', error: persisted.error || 'mission_runtime_context_persist_failed'
+      };
       const record = observations.missionFlightRecord;
       try {
         flightLog?.finalize?.({
