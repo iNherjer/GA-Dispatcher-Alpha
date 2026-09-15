@@ -49,3 +49,12 @@ App und Tracker speichern ausschließlich vollständig abgespielte Vereinsansage
 Release-Kandidat: App v1764, Tracker v405 Alpha. Build und automatische Tests ersetzen keinen realen Simulator-/Audio-Mehrinstanztest. Die nutzerseitige Hörprobe bleibt offen.
 
 Release-Prüfung: 172 Tests des isolierten Alpha-Stands bestanden (Execution-Core, Route-/Club-Voice, Private-/Sim-Regressionen, Tracker-Adapter/Runtime, Boarding/Farewell/Voice-Service). Windows-x64-EXE mit `npm run build:tracker -- --no-bytecode --public --public-packages "*"` paketiert, da die lokale x64-Bytecode-Hilfsruntime auf diesem Mac nicht startet. Gleiche JS-Quellen und Windows-Node-Zielruntime; keine Windows-Ausführung hier geprüft. Stable bleibt unverändert.
+
+
+## Persistenzkorrektur 15.09.2026 (Alpha App v1766)
+
+`clubIdea` gehört zum ausführbaren Missionsvertrag und bleibt in `compactMissionObjectForQuotaStorage` sowie `_syncCompactMissionObjectCore` erhalten. Zuvor entfernten der lokale Quota-Sparmodus und die stärkste Cloud-Komprimierung diesen Vertrag samt `narrativeEvents`. Damit gingen nicht nur Gesprächsabsichten, sondern auch Trigger und Ortsanker beim Wiederherstellen verloren. Der Vertrag wird jetzt sowohl in currentMissionData als auch im separaten/rekursiven Missionsvertrag bewahrt. Keine Rekonstruktion von Triggern aus dem Briefing.
+
+Die bereits vorhandene Runtime-Persistenz transportiert `runtime.routeVoice` mit beanspruchten IDs im Resume-Bundle; Tracker-Ausführung hält ihre Claims im autoritativen Run. Eine normale Cloud-Kopie des Missionsplans ist nicht mit der Übernahme eines laufenden Runs gleichzusetzen. Doppelauslösung beim Fortsetzen wird mit dem zugehörigen Runtime-Snapshot geprüft, nicht durch Erfinden eines neuen Fortschritts aus dem Missionsplan. Daten müssen vor dem Gerätewechsel erfolgreich synchronisiert beziehungsweise übergeben sein. Bereits aus allen gespeicherten Kopien entfernte Ideen können durch den Fix nicht wiederhergestellt werden.
+
+Nachweis: `tools/mission-club-persistence.test.cjs` führt 0/1/2/3 Ereignisse (Prozent und Geo) durch lokale Quota-Komprimierung, jede Cloud-Stufe, JSON-Transport und erneute lokale Speicherung. Plan, Ortsanker und beide Vertragskopien bleiben gleich. Bereits beanspruchte Ansagen werden mit übertragenem Runtime-Zustand nicht erneut ausgelöst. Zusammen mit Route-Voice-, Club-, Tracker-Runtime- und Boarding-Voice-Tests: 79 Tests erfolgreich. Reale Gerätewechselprobe ausstehend.
