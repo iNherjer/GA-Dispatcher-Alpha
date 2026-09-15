@@ -1,5 +1,7 @@
 # Persönliche Missionsbriefings: Zielsetzung und Übertragung
 
+Aktueller konsolidierter Stand und Übertragung auf weitere Sets: [Missionssets-Arbeitsgrundlage](Mission%20Sets%20Handoff.md) (15.09.2026).
+
 Stand: 14.09.2026. Release: Privat-Planner und Episode Writer V6.3 mit KI-Picker, Private Return V1; App-Cache `ga-dispatcher-v1760`, Tracker Alpha v404.
 Dieser Leitfaden beschreibt den aktuellen Ansatz und die Entscheidungen für weitere
 Missionsfamilien. Implementierungsdetails und historische Versuche stehen in

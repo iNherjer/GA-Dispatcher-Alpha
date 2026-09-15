@@ -344,3 +344,13 @@ keine vollständigen Antworten oder Zugangsdaten. Keine Reparatur-API-Anfrage.
 
 Die Rückflugvorschau und die tolerante Prüfung optionaler Erinnerungen (V1.3)
 sind mit App-Cache v1762 auf Origin veröffentlicht. Tracker bleibt v404.
+
+## Sim-Abflugansage: Aufrufpfad korrigiert (15.09.2026, veröffentlicht mit v1763)
+
+Der Gerätetest zeigte keine Abflugansage, weil `updateFlightRecorder` im
+Debug-Sim-Modus vor dem neuen Trigger zurückkehrte. Der bisherige Test prüfte
+nur den Trigger isoliert. Der Sim-Zweig ruft ihn jetzt mit der aktuellen
+Sim-Telemetrie und Mission-Runtime auf, ohne den Live-Rekorder auszuführen.
+Pause-/Menü-Telemetrie setzt eine noch laufende Wartezeit zurück. Bedingungen
+bleiben 60 Sekunden und 500 ft AGL. Ein Regressionstest ruft die tatsächliche
+Recorder-Einstiegsfunktion im Sim-Modus auf und prüft Weitergabe und Pause.

@@ -1,5 +1,7 @@
 # Mission Flow Reference
 
+Aktueller konsolidierter Stand und Übertragung auf weitere Sets: [Missionssets-Arbeitsgrundlage](Mission%20Sets%20Handoff.md) (15.09.2026).
+
 Fuer die Verschiebung dieser Ablaeufe zwischen App und Tracker gilt zusaetzlich
 der verbindliche `Mission Runtime Authority Contract.md`. Die hier
 beschriebenen Regeln duerfen im Tracker nicht vereinfacht oder angenaehert

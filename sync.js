@@ -18493,7 +18493,19 @@ function finalizeFlightRecorder(now, endLat = null, endLon = null) {
 }
 
 function updateFlightRecorder(lat, lon, alt) {
-    if (window.simModeActive) return; // Sim-Flüge laufen über sim-route Debrief/Prompt
+    if (window.simModeActive) {
+        // Sim owns its recorder, but private return narration also needs these ticks.
+        const fd = window.lastLiveFlightData || {};
+        const paused = fd.paused === true || fd.isPaused === true || fd.inMenuOrMap === true
+            || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
+        if (paused) {
+            if (window.missionPrivateReturnDepartureVoice && !window.missionPrivateReturnDepartureVoice.done)
+                window.missionPrivateReturnDepartureVoice.airborneSince = null;
+        } else {
+            window.missionMaybeTriggerPrivateReturnDepartureVoice?.(fd, missionRuntime);
+        }
+        return; // Sim-Flüge laufen über sim-route Debrief/Prompt.
+    }
 
     const now = Date.now();
     const _lfd = window.lastLiveFlightData;

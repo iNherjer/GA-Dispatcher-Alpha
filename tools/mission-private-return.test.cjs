@@ -201,3 +201,15 @@ test('optional malformed moments do not discard a valid return briefing or inven
  reply.experienceRecap.summary='Ein gemeinsamer Ausflug.';reply.flightBriefing='31 NM';
  assert.equal(core.validateProse(reply,c,contract()).accepted,false);
 });
+
+test('sim recorder entry invokes private departure trigger without entering the live recorder',()=>{
+ const calls=[];
+ const c={window:{simModeActive:true,lastLiveFlightData:{aglFt:700,onGround:false},
+ missionMaybeTriggerPrivateReturnDepartureVoice:(fd,r)=>calls.push({fd,r})},missionRuntime:{active:true},Number};
+ vm.createContext(c);extract(c,'sync.js',['updateFlightRecorder']);
+ c.updateFlightRecorder(48,8,3000);
+ assert.equal(calls.length,1);assert.equal(calls[0].fd.aglFt,700);assert.equal(calls[0].r.active,true);
+ c.window.missionPrivateReturnDepartureVoice={airborneSince:100,done:false};
+ c.window.lastLiveFlightData.inMenuOrMap=true;c.updateFlightRecorder(48,8,3000);
+ assert.equal(calls.length,1);assert.equal(c.window.missionPrivateReturnDepartureVoice.airborneSince,null);
+});
