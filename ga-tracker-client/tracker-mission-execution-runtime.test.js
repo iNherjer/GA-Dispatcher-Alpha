@@ -1207,3 +1207,24 @@ test('tracker audio can enable narration after muted handoff', async t => {
   assert.equal(manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'voice.flight' && effect.payload.kind === 'route_story').length, 1,
     'a requested approach already blocks comfort, before any voice ACK');
 });
+
+test('Tracker preparation synchronizes initial manifest before boarding through the durable payload effect', async t => {
+  const manager = committedManager(t);
+  const payloadCalls = [];
+  const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager, syncInitialPayload: true });
+  runtime.attachSimulator({
+    getLivePosition: () => ({ lat: 48.3, lon: 8.5, alt: 500, hdg: 90 }),
+    syncPayloadManifestState: request => { payloadCalls.push(request); return { ok: true, status: 'completed', sideEffect: true }; },
+    dispatchCommand: () => ({ ok: true, status: 'completed', sideEffect: false })
+  });
+  const run = manager.getActiveRun();
+  const result = await runtime.executeIntent({ commandId: 'initial-payload', intent: 'prepare_mission',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  assert.equal(result.ok, true);
+  await runtime.flush();
+  assert.equal(payloadCalls.length, 1);
+  assert.equal(manager.getExecutionSnapshot().state.flags.started, false);
+  assert.equal(manager.getExecutionSnapshot().state.effects.find(e => e.type === 'payload.sync_manifest_state').status, 'completed');
+  await runtime.flush();
+  assert.equal(payloadCalls.length, 1, 'repeated pumping does not clear payload again');
+});

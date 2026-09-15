@@ -145,6 +145,15 @@
       change({ target: select.value === 'pc' ? { mode: 'pc' } : { mode: 'app', deviceId: deviceId, name: local ? 'EFB' : 'App (' + (root.navigator.platform || 'Browser') + ')' } });
     };
     label.appendChild(select); menu.appendChild(label);
+    if (local) {
+      // A direct touch action also works in Coherent without opening a native select.
+      var pcButton = root.document.createElement('button'); pcButton.type = 'button';
+      pcButton.id = 'gaAudioTakeOnPc'; pcButton.textContent = 'Audio auf PC ausgeben';
+      pcButton.style.cssText = select.style.cssText + ';margin-top:6px;cursor:pointer';
+      pcButton.onclick = function () { change({ target: { mode: 'pc' } }); };
+      menu.appendChild(pcButton);
+    }
+
     var status = root.document.createElement('div'); status.id = 'gaAudioOutputStatus'; status.style.cssText = 'font-size:11px;margin-top:5px;color:#a6b7c8'; status.setAttribute('role','status'); menu.appendChild(status);
     var muteLabel = root.document.createElement('label'); muteLabel.style.cssText = 'display:block;margin-top:6px';
     var mute = root.document.createElement('input'); mute.type = 'checkbox'; mute.id = 'gaAudioMasterEnabled';

@@ -378,6 +378,22 @@
         options = options && typeof options === 'object' ? options : {};
         var snapshot = normalizeSnapshot(baseline, options);
         if (!snapshot) return null;
+        // Tracker-owned missions replace non-pilot payload. Keep the captured
+        // simulator baseline immutable for recovery and the standalone policy.
+        if (options.replaceNonPilotPayload === true) {
+            var removed = 0;
+            snapshot.stations.forEach(function (row) {
+                if (row.index !== 1) { removed += row.weightLbs; row.weightLbs = 0; }
+            });
+            if (snapshot.totalWeightLbs !== null) snapshot.totalWeightLbs = Math.max(0, snapshot.totalWeightLbs - removed);
+            if (snapshot.payloadWeightLbs !== null) snapshot.payloadWeightLbs = Math.max(0, snapshot.payloadWeightLbs - removed);
+            if (snapshot.pa24) {
+                snapshot.pa24.seats = { 2: 0, 3: 0, 4: 0 };
+                snapshot.pa24.characterWeights = { 2: 0, 3: 0, 4: 0 };
+                snapshot.pa24.baggageWeightLbs = 0;
+            }
+            options = Object.assign({}, options, { includeInheritedPersistent: true });
+        }
         if (snapshot.payloadAdapter === PA24_ADAPTER) return buildPa24PlanFromManifest(manifest, snapshot, options);
         var layout = buildLayout(snapshot);
         var missionPlan = buildMissionExtraPlan(manifest, layout, options);

@@ -197,7 +197,9 @@ function createTrackerMissionPayloadHandler(options = {}) {
     }
     plannerOptions.fuelWeightLbs = baseline.fuelWeightLbs;
 
-    const plan = payloadCore.buildPlanFromManifest(manifest, baseline, plannerOptions);
+    const plan = payloadCore.buildPlanFromManifest(manifest, baseline, {
+      ...plannerOptions, replaceNonPilotPayload: options.replaceNonPilotPayload === true
+    });
     if (plan?.error) {
       log(`MISSION_PAYLOAD_WARNING mission=${cleanString(request.missionId) || 'none'} error=${plan.error} adapter=${plan.payloadAdapter || baseline.payloadAdapter}`);
       return warningResult(plan.error, { sideEffect: false, payloadPlan: plan });
@@ -226,7 +228,7 @@ function createTrackerMissionPayloadHandler(options = {}) {
     }
     try {
       applied = isPa24
-        ? await applyPa24State(plan.pa24State, baseline.pa24)
+        ? await applyPa24State(plan.pa24State, options.replaceNonPilotPayload === true ? null : baseline.pa24)
         : await applyStations(plan.stations.map(row => ({ index: row.index, weightLbs: row.weightLbs })));
       if (!isCurrent()) return supersededResult({ sideEffect: true, payloadPlan: plan, applied });
       if (isPa24 && plan.pa24State) {

@@ -617,9 +617,9 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       action: 'sign',
       mode,
       signature: {
-        by: cleanString(signature?.by, 180) || 'Tracker',
+        by: cleanString(manifest.pilotId, 180) || cleanString(signature?.by, 180) || 'Tracker',
         at: now(),
-        aircraft: cleanString(signature?.aircraft, 180),
+        aircraft: cleanString(manifest.aircraftLabel, 180) || cleanString(signature?.aircraft, 180),
         note: cleanString(signature?.note, 500)
       }
     }, { atHome: false });
@@ -848,6 +848,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
           ...(payloadContext ? { payloadContext } : {})
         }
       : (eventType === 'CARGO_WINDOW_OPENED' ? { mode: ['load', 'unload', 'pickup', 'equipment'].includes(intentPayload.mode) ? intentPayload.mode : 'load' }
+        : eventType === 'PREPARE_REQUESTED' ? { syncInitialPayload: options.syncInitialPayload === true }
         : eventType === 'CLOSE_REQUESTED' ? { position: observations.lastPosition }
         : (eventType === 'MISSION_STARTED' ? {
             arrivalScene: !!executionEffectPlan()?.effects?.['scene.arrival'],
@@ -941,6 +942,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const runKey = `${snapshot.missionId}:${snapshot.runId}`;
     if (observations.runKey === runKey) return;
     observations.runKey = runKey;
+    observations.preflightObservedAt = -1;
     observations.airborneCandidateAt = null;
     observations.groundStillCandidateAt = null;
     const persisted = typeof authorityManager.getExecutionRuntimeContext === 'function'
@@ -1007,6 +1009,28 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (!validated.ok) return validated;
     let snapshot = validated.snapshot;
     resetObservationIfNeeded(snapshot);
+    if (!snapshot.state.flags.started && !snapshot.state.flags.closed) {
+      // Cloud seeds deliberately contain no live flight data. Observe ground
+      // safety before start without feeding the flight recorder or task logic.
+      const at = typeof sample.observedAt === 'number' ? sample.observedAt : NaN;
+      if (!Number.isFinite(at) || at <= (observations.preflightObservedAt || -1)) {
+        return { ok: true, status: 'ignored', reason: 'preflight_telemetry_stale', sideEffect: false };
+      }
+      observations.preflightObservedAt = at;
+      observations.lastPosition = typeof sample.lat === 'number' && typeof sample.lon === 'number'
+        && Number.isFinite(sample.lat) && Number.isFinite(sample.lon)
+        && Math.abs(sample.lat) <= 90 && Math.abs(sample.lon) <= 180
+        ? { lat: sample.lat, lon: sample.lon, altFt: finite(sample.altFt), hdg: finite(sample.hdg) } : null;
+      const onGround = typeof sample.onGround === 'boolean' ? sample.onGround : null;
+      const groundStill = onGround === true && typeof sample.gsKts === 'number'
+        && Number.isFinite(sample.gsKts) && sample.gsKts >= 0 && sample.gsKts <= GROUND_STILL_MAX_GS_KTS
+        && sample.simPaused !== true && sample.inMenuOrMap !== true;
+      if (snapshot.state.flags.onGround === onGround && snapshot.state.flags.groundStill === groundStill) {
+        return { ok: true, status: 'noop', sideEffect: false };
+      }
+      return submitEvent(snapshot, 'PREFLIGHT_GROUND_OBSERVED', { onGround, groundStill },
+        `${snapshot.runId}:preflight-ground:${snapshot.executionRevision + 1}`, 'telemetry:preflight_ground');
+    }
     const poiRecipe = snapshot.recipe === 'poi' ? authorityManager.getExecutionPoiRecipe?.() : null;
     const fullPoi = poiRuntime.hasLifecycle(poiRecipe);
     if (fullPoi && sample.simPaused !== true && sample.inMenuOrMap !== true

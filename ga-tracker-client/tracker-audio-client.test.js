@@ -153,3 +153,19 @@ test('old tracker snapshots do not trigger unsupported style migrations or geome
   for(let i=0;i<4;i++){root.gaTrackerAudioClient.apply(old);await new Promise(r=>setImmediate(r));}
   assert.equal(calls.length,0);
 });
+
+test('EFB PC button selects the central PC output without claiming local playback', () => {
+  const elements = new Map(), changes = [];
+  function element(tag) {
+    return { tag, style: {}, children: [], appendChild(child) { this.children.push(child); if (child.id) elements.set(child.id, child); },
+      insertBefore(child) { this.appendChild(child); }, setAttribute() {} };
+  }
+  const host = element('div'); elements.set('mapVoiceMenu', host);
+  const context = { root: { document: { getElementById: id => elements.get(id), createElement: element, createTextNode: text => ({ text }) } },
+    local: true, menu: null, change: patch => changes.push(patch), player: { unlock: () => assert.fail('PC selection must not unlock EFB playback') } };
+  vm.createContext(context);
+  vm.runInContext(source.slice(source.indexOf('  function installMenu()'), source.indexOf('  var bindings =')), context);
+  context.installMenu();
+  elements.get('gaAudioTakeOnPc').onclick();
+  assert.equal(JSON.stringify(changes), JSON.stringify([{ target: { mode: 'pc' } }]));
+});

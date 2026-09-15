@@ -705,3 +705,39 @@ test('one cargo batch detaches every inherited equipment item and syncs payload 
   assert.equal(recovery.value.baseline.stations[4].weightLbs, 0);
   assert.deepEqual(recovery.value.detachedInheritedEquipmentIds, ['kit', 'extinguisher']);
 });
+
+test('replacement PA24 writes full targets on repeated load and unload while preserving recovery', async () => {
+  let snapshot = pa24Baseline();
+  snapshot.pa24.seats = { 2: 2, 3: 3, 4: 4 };
+  snapshot.stations.forEach(row => { if (row.index >= 2 && row.index <= 4) row.weightLbs = 170; });
+  const original = clone(snapshot);
+  const recovery = createRecoveryStore();
+  let writes = 0;
+  const handler = createTrackerMissionPayloadHandler({
+    replaceNonPilotPayload: true,
+    readSnapshot: async () => clone(snapshot),
+    applyStations: async () => assert.fail('PA24 uses Accu-Sim'),
+    applyPa24State: async (state, previous) => {
+      assert.equal(previous, null, 'never optimize against the original recovery baseline');
+      writes++;
+      snapshot.pa24 = { ...snapshot.pa24, ...clone(state) };
+      snapshot.stations.forEach(row => {
+        if (row.index >= 2 && row.index <= 4) row.weightLbs = state.characterWeights[state.seats[row.index]] || 0;
+        if (row.index === 5) row.weightLbs = state.baggageWeightLbs;
+      });
+      return { changed: 7 };
+    },
+    reassertPa24Seats: async () => ({ status: 'ok' }),
+    recordRecovery: recovery.record, getRecovery: recovery.get,
+    sleep: async () => {}
+  });
+  for (const loaded of [false, true, false]) {
+    const manifest = { items: [{ id: 'pax', itemType: 'passenger', status: loaded ? 'loaded' : 'pending', passengerCount: 1, weightLbs: 180 }] };
+    const result = await handler.syncBeforeStart({ missionId: 'replace-pa24', runId: 'replace-run', manifest, effect: effectFor(manifest) });
+    assert.equal(result.payloadStatus, 'ok');
+    assert.equal(snapshot.stations[1].weightLbs, loaded ? 180 : 0);
+    assert.equal(snapshot.stations[2].weightLbs, 0);
+  }
+  assert.equal(writes, 3);
+  assert.deepEqual(recovery.value.baseline.stations, original.stations);
+});

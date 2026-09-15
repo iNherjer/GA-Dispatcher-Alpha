@@ -260,3 +260,35 @@ test('PA24 restore plan carries baseline seats, character weights, and baggage',
   assert.equal(restore.stations.find(row => row.index === 3).weightLbs, 162);
   assert.equal(restore.stations.find(row => row.index === 5).weightLbs, 10);
 });
+
+
+test('Tracker replacement clears occupied simulator payload and includes inherited manifest equipment', () => {
+  for (const pa24 of [false, true]) {
+    const baseline = standardBaseline();
+    baseline.stations.forEach(row => { if (row.index > 1) row.weightLbs = row.index < 5 ? 180 : 20; });
+    baseline.totalWeightLbs = 2950;
+    baseline.payloadWeightLbs = 750;
+    if (pa24) {
+      baseline.payloadAdapter = payloadCore.PA24_ADAPTER;
+      baseline.pa24 = { seats: { 2: 2, 3: 3, 4: 4 }, characterWeights: { 2: 180, 3: 180, 4: 180 }, baggageWeightLbs: 20, grossWeightLbs: 3000 };
+    }
+    const original = JSON.stringify(baseline);
+    const manifest = { items: [
+      { id: 'pax', itemType: 'passenger', status: 'loaded', passengerCount: 1, weightLbs: 180 },
+      { id: 'kit', itemType: 'cargo', status: 'loaded', weightLbs: 15, persistentEquipment: true, persistentEquipmentInherited: true }
+    ] };
+    const opts = { replaceNonPilotPayload: true, isPassengerItem: item => item.itemType === 'passenger' };
+    const plan = payloadCore.buildPlanFromManifest(manifest, baseline, opts);
+    assert.equal(plan.error, undefined);
+    assert.equal(plan.stations.find(row => row.index === 2).weightLbs, 180);
+    assert.equal(plan.stations.find(row => row.index === 3).weightLbs, 0);
+    assert.equal(plan.stations.find(row => row.index === 4).weightLbs, 0);
+    assert.equal(plan.stations.find(row => row.index === 5).weightLbs, 15);
+    assert.equal(plan.snapshot.stations[0].weightLbs, 170);
+    assert.equal(plan.snapshot.fuelWeightLbs, baseline.fuelWeightLbs);
+    assert.equal(JSON.stringify(baseline), original, 'recovery baseline stays untouched');
+    const empty = payloadCore.buildPlanFromManifest({ items: [] }, baseline, opts);
+    assert.ok(empty.stations.filter(row => row.index > 1).every(row => row.weightLbs === 0));
+    if (pa24) assert.equal(payloadCore.buildPlanFromManifest(manifest, baseline, { isPassengerItem: opts.isPassengerItem }).error, 'pa24_no_free_seat', 'standalone policy preserved');
+  }
+});

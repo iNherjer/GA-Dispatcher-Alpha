@@ -220,6 +220,8 @@ function projectMissionManifest(activeRun, executionControl, flightSnapshot = nu
     };
   });
   return {
+    pilotId: text(rawManifest.pilotId, 180) || null,
+    aircraftLabel: text(rawManifest.aircraftLabel, 180) || null,
     aircraftSlot: text(rawManifest.aircraftSlot, 120) || null,
     createdAt: Math.max(0, Math.round(Number(rawManifest.createdAt) || 0)) || null,
     dispatchSignature: rawManifest.dispatchSignature && typeof rawManifest.dispatchSignature === 'object'

@@ -55,7 +55,7 @@
         'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL',
+        'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -952,6 +952,10 @@
         if (event.type === 'MISSION_ACCEPTED' || event.type === 'AUTHORITATIVE_SNAPSHOT_IMPORTED') return true;
         if (event.type === 'CARGO_WINDOW_CLOSED' || event.type === 'CARGO_WINDOW_OPENED') return !state.flags.closed;
         if (state.flags.closed && event.type !== 'MISSION_CLOSED' && event.type !== 'EFFECT_ACKNOWLEDGED') return false;
+        if (event.type === 'PREFLIGHT_GROUND_OBSERVED') return !state.flags.started
+            && (eventPayload.onGround === null || typeof eventPayload.onGround === 'boolean')
+            && typeof eventPayload.groundStill === 'boolean'
+            && (!eventPayload.groundStill || eventPayload.onGround === true);
         if (event.type === 'CARGO_STATE_CHANGED') return true;
         if (event.type === 'PREPARE_REQUESTED') return phase === 'planned';
         if (event.type === 'BOARDING_STARTED') {
@@ -1147,6 +1151,7 @@
             state.phase = 'prepare';
             state.subphase = 'ground_preparation';
             state.flags.prepared = true;
+            if (event.payload.syncInitialPayload === true) appendPayloadManifestSyncEffect(state, event, null);
             appendEffect(state, createEffect(state, event, 'scene.prepare', { operation: 'prepare' }));
         } else if (event.type === 'BOARDING_STARTED') {
             delete state.cargoWindowCloseId;
@@ -1321,6 +1326,9 @@
             state.progress.dwellSec = Math.max(state.progress.dwellSec, Math.max(0, round(object(event.payload).dwellSec, 1, 0)));
             state.progress.attempts = Math.max(state.progress.attempts, Math.max(0, integer(object(event.payload).attempts, 0)));
             state.subphase = state.progress.targetSatisfied ? 'task_satisfied' : 'task_progress';
+        } else if (event.type === 'PREFLIGHT_GROUND_OBSERVED') {
+            state.flags.onGround = event.payload.onGround;
+            state.flags.groundStill = event.payload.groundStill;
         } else if (event.type === 'TOUCHDOWN') {
             state.flags.onGround = true;
             state.flags.groundStill = false;

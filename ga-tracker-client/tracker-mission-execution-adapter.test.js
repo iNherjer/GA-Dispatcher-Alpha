@@ -1185,3 +1185,48 @@ test('landing banner can record landing after a dismissed start reminder, like s
   assert.equal(log.lastSource, 'banner'); assert.equal(log.backfilled, false);
   assert.equal(executeCurrent(f, 'set_boardbook_time', 'start-later', { field: 'start' }).ok, true);
 });
+
+
+test('cloud preflight ground telemetry unlocks and relocks cargo without flight side effects', t => {
+  const bundle = aptResumeBundle();
+  delete bundle.runtime.lastLiveFlightData;
+  bundle.runtime.cargoManifest.pilotId = 'Pilot-Test';
+  bundle.runtime.cargoManifest.aircraftLabel = 'Comanche';
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 0, legacyBundle: bundle });
+  const f = createCommittedFixture(t, { bundle });
+  const before = f.manager.getExecutionSnapshot().state;
+  let at = 1000;
+  for (const [patch, expected] of [
+    [{ onGround: true, gsKts: 0 }, true],
+    [{ onGround: true, gsKts: 15, parkingBrake: true }, false],
+    [{ onGround: true, gsKts: 0, simPaused: true }, false],
+    [{ onGround: true, gsKts: 0, inMenuOrMap: true }, false],
+    [{ onGround: false, gsKts: 0 }, false],
+    [{ onGround: true, gsKts: NaN }, false],
+    [{ onGround: true, gsKts: 0 }, true]
+  ]) {
+    assert.equal(f.adapter.observeTelemetry({ observedAt: at++, lat: 48, lon: 8, ...patch }).ok, true);
+    const state = f.manager.getExecutionSnapshot().state;
+    assert.equal(state.flags.groundStill, expected);
+    assert.equal(state.phase, before.phase);
+    assert.equal(state.flags.started, false);
+    assert.deepEqual(state.effects, before.effects);
+    assert.deepEqual(state.flightEvents, before.flightEvents);
+  }
+  const revision = f.manager.getExecutionSnapshot().executionRevision;
+  f.adapter.observeTelemetry({ observedAt: at++, onGround: true, gsKts: 0 });
+  assert.equal(f.manager.getExecutionSnapshot().executionRevision, revision, 'steady state produces no writes');
+  f.adapter.observeTelemetry({ observedAt: 1000, onGround: false, gsKts: 100 });
+  assert.equal(f.manager.getExecutionSnapshot().state.flags.groundStill, true, 'stale observation ignored');
+  const manifest = require('./tracker-efb-mission-view-core').projectMissionManifest(
+    f.manager.getActiveRun({ includeBundle: true }), f.manager.getPublicSnapshot().execution);
+  assert.equal(manifest.pilotId, 'Pilot-Test');
+  assert.equal(manifest.aircraftLabel, 'Comanche');
+  executeCurrent(f, 'prepare_mission', 'pilot-prepare');
+  beginBoarding(f, 'pilot');
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'pilot-load', { itemId: 'medical-box', action: 'load' }).ok, true);
+  assert.equal(executeCurrent(f, 'sign_manifest', 'pilot-sign').ok, true);
+  assert.equal(f.manager.getExecutionSnapshot().state.manifest.dispatchSignature.by, 'Pilot-Test');
+
+});

@@ -35,6 +35,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   }
 
   const adapter = createTrackerMissionExecutionAdapter({
+    syncInitialPayload: options.syncInitialPayload === true,
     authorityManager,
     flightLog: options.flightLog
   });
@@ -625,7 +626,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       if (result?.ok && result.status !== 'ignored') {
         const snapshot = snapshotForObservation();
         const context = approachContextForObservation();
-        if (snapshot && context?.supported && context.mode === 'passenger') {
+        if (snapshot?.state.flags.started && context?.supported && context.mode === 'passenger') {
           const previous = { ...adapter.getFlightVoiceState() };
           previous.lastAt = Math.max(Number(previous.lastAt) || 0, 0);
           previous.offDestLastAt = Math.max(Number(previous.offDestLastAt) || 0, 0);
