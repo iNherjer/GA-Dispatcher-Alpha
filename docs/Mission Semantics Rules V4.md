@@ -124,6 +124,8 @@ Kontext darf nicht:
 
 ### `cargo_fragile`, `medical_transfer`, `animal_transport`, `charter`, `club_utility`, `training`
 
+Für neue strukturierte `club-idea.v1`-Missionen gilt die fachliche Erweiterung aus [Vereins-/Utility-Ideen V1](Mission%20Club%20Utility%20Ideas%20V1.md): Vereinsleben, persönliche Interessen und gegenseitige Hilfe dürfen den Anlass tragen. Eine Lieferung ist optional. Die KI entscheidet die Idee vor Persona und Gepäck; anschließend bewahrt der A-B-Vertrag diese Entscheidung. Alte cargo-/wortbasierte Vereins-Heuristiken dürfen solche Verträge nicht umdeuten oder ihre Prosa ersetzen. Die bestehende Gruppenlogik wird damit nicht erweitert; genau ein mitfliegender Vereinskollege als Teammitglied, auch bei Lieferungen. Anlass und Initiative dürfen beim Piloten liegen; eine eigene Nebenhandlung des Kollegen ist nicht erforderlich. Persönliches Gepäck erzeugt keine Pflichtlieferung, explizite Lieferladung behält Pflichtentladung. Andere Profile behalten die folgenden Regeln.
+
 - Transport, Begleitung, Uebergabe oder Training bleiben Primärzweck.
 - Umfeld darf nur Plausibilisierung und Ankunftskontext liefern.
 - Kein Drift zu POI-Arbeitsauftrag.
@@ -208,3 +210,7 @@ Der `V4`-Writer muss:
 - Keine neue freie Ausflugsidee, Charter-Personalisierung oder Bush-Pickup-Phasen.
 - Bestehende APT-Gates und frische Flug-/Wetterwerte bleiben maßgeblich.
 - Umsetzung und Grenzen: [Mission Private Return V1](Mission%20Private%20Return%20V1.md).
+
+### Optionale Vereins-Sidequests (v1.7, 15.09.2026)
+
+`narrativeEvents` dürfen persönliche und fachliche Tätigkeiten als ergänzende Voices tragen. Hauptaufgabe bleibt der A-B-Flug zum Ziel mit seinen bestehenden Bedingungen. Diese Sidequests erzeugen keine überprüfbaren Aufgaben, Pflichtaktionen, Erledigt-Zustände, zusätzlichen Wegpunkte oder neuen Manifest-Pflichten. Ausgelassene Voices beeinflussen Erfolg und Abschluss nicht. Ein technischer Inhalt allein ist keine TaskDomain-Drift; erst eine zusätzliche verbindliche Flugaufgabe würde den Vertrag verändern. Reale externe Befunde bleiben faktengebunden. Siehe [Routen-Voice-Vertrag](Mission%20Route%20Voice%20Events.md).

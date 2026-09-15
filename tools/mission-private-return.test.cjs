@@ -204,7 +204,7 @@ test('optional malformed moments do not discard a valid return briefing or inven
 
 test('sim recorder entry invokes private departure trigger without entering the live recorder',()=>{
  const calls=[];
- const c={window:{simModeActive:true,lastLiveFlightData:{aglFt:700,onGround:false},
+ const c={_missionObserveRouteVoice:()=>{},window:{simModeActive:true,lastLiveFlightData:{aglFt:700,onGround:false},
  missionMaybeTriggerPrivateReturnDepartureVoice:(fd,r)=>calls.push({fd,r})},missionRuntime:{active:true},Number};
  vm.createContext(c);extract(c,'sync.js',['updateFlightRecorder']);
  c.updateFlightRecorder(48,8,3000);

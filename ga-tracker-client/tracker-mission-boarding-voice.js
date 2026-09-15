@@ -1,4 +1,5 @@
 'use strict';
+const routeVoiceCore = require('../mission-route-voice-core.js');
 
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
@@ -86,7 +87,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
       if (payload.kind === 'cargo_event' && flightContext?.supported) {
         payload = observeFlightVoice(flightContext, {}, { cargoEvent: { type: 'dropped_required', item: payload.item } }).effects[0] || {};
       }
-      if (!flightContext?.supported || !['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(payload.kind) || !payload.prompt) return completed(request);
+      if (!flightContext?.supported || !['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story'].includes(payload.kind) || !payload.prompt) return completed(request);
       await new Promise(resolve => setTimeout(resolve, Math.max(0, Number(payload.delayMs) || 0)));
       const current = authorityManager.getExecutionSnapshot?.();
       if (current && (current.runId !== run.runId || !current.state.flags.active || current.state.flags.closingPending || current.state.flags.farewellStarted)) return completed(request);
@@ -112,6 +113,10 @@ function createTrackerMissionBoardingVoice(options = {}) {
       log(`MISSION_BOARDING_VOICE_FALLBACK effect=${effectId} reason=recipe_missing`);
       return completed(request, { voiceStatus: 'recipe_missing' });
     }
+    if (recipe.taskDomain === 'club_utility' || recipe.speaker?.taskDomain === 'club_utility') {
+      recipe = { ...recipe, prompt: routeVoiceCore.conversationPrompt(recipe.prompt,
+        authorityManager.getExecutionSnapshot?.()?.state?.voice?.clubHistory) };
+    }
     const audioSettings = getAudioSettings();
     if (audioSettings) recipe = { ...recipe, audioEnabled: audioSettings.enabled && audioSettings.paxEnabled, playCue: recipe.playCue && audioSettings.effectsEnabled };
     if (recipe.enabled !== true || (!recipe.prompt && !recipe.fallbackText)) {
@@ -130,7 +135,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
     }
     let job;
     const cancelAtMissionEnd = request.effect?.type === 'voice.approach'
-      || (request.effect?.type === 'voice.flight' && request.effect?.payload?.kind === 'landing_roll');
+      || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story'].includes(request.effect?.payload?.kind));
     const isPlaybackAllowed = () => {
       const current = authorityManager.getExecutionSnapshot?.();
       return !current || (current.runId === run.runId && current.state.flags.active

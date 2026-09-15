@@ -741,3 +741,16 @@ test('arrival paperwork does not wait for ordinary cargo payload sync, final clo
     assert.ok(core.allowedActions(state).includes('confirm_unload'));
     assert.ok(!core.allowedActions(state).includes('request_close'));
 });
+
+test('club speech history commits only playback ACKs and survives serialized restore',()=>{
+ let state=core.normalizeState({missionId:'club-history',recipe:'apt',phase:'enroute'});
+ let sequence=1;
+ for(const [id,playback,domain] of [['a','completed','club_utility'],['b','no_audio_claim','club_utility'],['c','completed','private_outing'],['d','completed','club_utility']]){
+  state.effects.push({effectId:id,type:'voice.flight',status:'requested',sourceEventId:'source-'+id,payload:{kind:'route_story'}});
+  state=core.reduce(state,{eventId:'ack-'+id,type:'EFFECT_ACKNOWLEDGED',sequence:sequence++,payload:{effectId:id,status:'completed',result:{text:'Text '+id,playback,speaker:{taskDomain:domain}}}});
+ }
+ assert.deepEqual(state.voice.clubHistory.map(r=>r.text),['Text a','Text d']);
+ const restored=core.deserializeState(core.serializeState(state));
+ assert.deepEqual(restored.voice.clubHistory,state.voice.clubHistory);
+ assert.equal(restored.phase,'enroute');
+});

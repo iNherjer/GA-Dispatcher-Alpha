@@ -4471,6 +4471,7 @@ function toggleMissionPickerMode() {
 function classifyAptMissionCategory(ms) {
     if (window.MissionPrivateReturnCore?.context(ms || {})) return 'private';
     // A structured private contract is authoritative; prose such as "erkundet" is not a charter cue.
+    if (ms?.clubIdea?.schema === 'club-idea.v1') return 'club';
     if (ms?.privateOuting?.schema === 'private-outing.v1' && ms.privateOuting.taskDomain === 'private_outing') return 'private';
     const t = normalizeMissionText(ms?.t || ms?.title || '');
     const s = normalizeMissionText(ms?.s || ms?.story || '');
@@ -9450,7 +9451,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -17251,6 +17252,7 @@ function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
 function personalizeAptCharterMission(mission = null, context = {}, preferredPersona = null) {
     if (window.MissionPrivateReturnCore?.context(mission || {})) return mission;
     if (!mission || typeof mission !== 'object') return mission;
+    if (mission.clubIdea?.schema === 'club-idea.v1') return mission;
     if (mission.privateOuting?.schema === 'private-outing.v1' && mission.privateOuting.taskDomain === 'private_outing') return mission;
     const m = { ...mission };
     const passenger = buildCharterPassenger(m.passenger || null, preferredPersona);
@@ -21733,6 +21735,8 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (!isPOI && profileId === 'private_return' && window.MissionPrivateReturnCore?.context(mission || {}))
         return { mission, appliedProfile: 'private_return', paxText: mission.pax, cargoText: mission.cargo };
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
+    if (!isPOI && m.clubIdea?.schema === 'club-idea.v1' && ['auto', 'club_utility'].includes(profileId))
+        return { mission: m, paxText: m.pax, cargoText: m.cargo, appliedProfile: 'club_utility' };
     if (!isPOI && m.privateOuting?.schema === 'private-outing.v1' && ['auto', 'private_outing'].includes(profileId)) {
         return { mission: m, paxText: m.pax, cargoText: m.cargo, appliedProfile: 'private_outing' };
     }
@@ -23304,6 +23308,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (!isPOI && profileId === 'private_return') return !!window.MissionPrivateReturnCore?.context(missionLike || {});
+    if (!isPOI && profileId === 'club_utility' && missionLike?.clubIdea?.schema === 'club-idea.v1') return true;
     if (!isPOI && profileId === 'private_outing' && missionLike?.privateOuting?.schema === 'private-outing.v1') return true;
     const id = String(profileId || 'auto').toLowerCase();
     if (!id || id === 'auto') return true;
@@ -41165,6 +41170,7 @@ function missionProposalPoiOptionLine(target = {}, profileId = '') {
 }
 
 function missionProposalFamilyIntro(choices = []) {
+    if (choices.length && choices.every(c => c.clubProposal)) return 'Wähle euren Vereinsflug. Die ausgewählte Idee bleibt beim Erstellen des Briefings erhalten.';
     if (choices.length && choices.every(choice => choice.privateProposal?.schema === 'private-proposal.v1')) {
         return 'Wähle euren Ausflug. Anlass, Begleitung und Gepäck bleiben erhalten; danach entsteht das vollständige Briefing mit dem aktuellen Flug- und Wetterausblick.';
     }
@@ -41354,6 +41360,7 @@ function compactMissionProposalChoice(choice = null) {
     if (!normalized) return null;
     return {
         id: normalized.id,
+        clubProposal: normalized.clubProposal || null,
         mode: normalized.mode,
         profileId: normalized.profileId,
         selectedCategory: normalized.selectedCategory,
@@ -41852,8 +41859,11 @@ async function buildMissionProposalAptChoices(context = {}) {
         maxNM: context.searchMax,
         dirPref: context.dirPref,
         regionPref: context.regionPref,
-        limit: 18
+        limit: profileId === 'club_utility' && context.aiModeEnabled ? 100 : 18
     });
+    if (profileId === 'club_utility' && context.aiModeEnabled) {
+        return window.MissionClubBrowser.choices(airports, context);
+    }
     if (airports.length < 3) {
         airports = airports.concat(await collectMissionProposalAirportCandidates({
             start,
@@ -42165,6 +42175,10 @@ function applyMissionProposalChoiceToMissionContractV4(contract = null, choice =
     if (!contract || typeof contract !== 'object' || !selected) return contract;
     const compact = compactMissionProposalChoice(selected);
     contract.selectedMissionProposal = compact;
+    if (selected.clubProposal?.schema === 'club-proposal.v1') {
+        contract.clubProposal = selected.clubProposal;
+        return contract;
+    }
     if (selected.profileId === 'private_outing' && selected.privateProposal) contract.privateProposal = selected.privateProposal;
     const cargoText = String(selected.cargoText || '').trim();
     const targetName = String(selected.target?.n || selected.target?.name || contract.route?.targetName || contract.target?.name || 'Ziel').trim();
@@ -43261,7 +43275,11 @@ async function generateMission(options = {}) {
         plannerContext.cargoText = cargoText;
         plannerContext.animalTransportBrief = animalTransportBrief;
     };
-    if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV4Enabled()) {
+    const useClubIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && aiModeEnabled && dispatchProfileId === 'club_utility';
+    if (useClubIdeas) {
+        // The idea owns narrative/person/loadout. Do not call the legacy seeded planner.
+        missionContractV4 = { status: 'ready', profile: getMissionTaskProfile('club_utility', 'apt') };
+    } else if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV4Enabled()) {
         indicator.innerText = `Missionsrahmen und Kontext werden vorbereitet...`;
         try {
             missionPlanV2 = await dispatchMeasure('planner_v4_direct', async () => fetchMissionPlannerV4(plannerContext));
@@ -43862,11 +43880,16 @@ async function generateMission(options = {}) {
             cargoText = followupDispatchMission.cargoText || cargoText;
             dataSource = followupDispatchMission.dataSource || 'Follow-up Dispatcher';
         }
+        if (missionProposalChoice?.clubProposal && !useClubIdeas) throw new Error('Die gewählte Vereinsidee benötigt den aktiven KI-Vereinsgenerator.');
         if (missionProposalChoice?.privateProposal && (!aiModeEnabled || !isMissionPipelineV4Enabled()
             || missionContractV4?.status !== 'ready' || missionContractV4?.profile?.taskDomain !== 'private_outing')) {
             throw new Error('Die gewählte Ausflugsidee benötigt den aktiven Privat-Planner mit bereitem V4-Rahmen. Bitte die Einstellungen prüfen und neue Vorschläge erstellen.');
         }
-        if (followupDispatchProfileId === 'private_return') {
+        if (useClubIdeas) {
+            m = await window.MissionClubBrowser.story({ start: { ...start, icao: currentStartICAO }, dest: { ...dest, icao: currentDestICAO },
+                proposal: missionProposalChoice?.clubProposal || null, contract: missionContractV4 });
+            missionContractV4 = m._missionContractV4;
+        } else if (followupDispatchProfileId === 'private_return') {
             if (!followupDispatchMission?.mission) throw new Error('Die private Heimreise passt nicht mehr zu Start, Ziel oder Ursprungsmission.');
             missionContractV4 = { ...(missionContractV4 || {}), status: 'ready',
                 profile: getMissionTaskProfile('private_return', 'apt'),
@@ -44235,7 +44258,7 @@ async function generateMission(options = {}) {
                     }
                 }
             }
-            if (appliedProfileId === 'club_utility' && m && typeof m === 'object') {
+            if (appliedProfileId === 'club_utility' && m && typeof m === 'object' && !m.clubIdea) {
                 const compactProposal = compactMissionProposalChoice(missionProposalChoice) || m.selectedMissionProposal || null;
                 const clubCargoDisplay = String(m.cargo || m.cargoText || cargoText || missionContractV4?.cargoText || '').trim();
                 const clubCargoClean = _missionPipelineV4CleanCargoLabel(clubCargoDisplay);
@@ -44626,6 +44649,7 @@ async function generateMission(options = {}) {
         mission: m.t,
         story: m.s,
         missionStory: m.s,
+        clubIdea: m.clubIdea || null,
         privateOuting: m.privateOuting || null,
         privateReturn: m.privateReturn || null,
         dist: totalDist,
@@ -44737,6 +44761,9 @@ async function generateMission(options = {}) {
         }
     }
     window.currentMissionData = currentMissionData;
+    if (currentMissionData.clubIdea) {
+        window.MissionClubIdeasCore.remember(localStorage, currentMissionData.id || currentMissionData.missionId, currentMissionData.clubIdea, { story: m.s });
+    }
     if (currentMissionData.privateOuting) {
         const memoryApi = currentMissionData.privateOuting.writerVersion === 'private-v6'
             ? window.MissionPrivateEpisodeV6 : window.MissionPrivateOutingCore;

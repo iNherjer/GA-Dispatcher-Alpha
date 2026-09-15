@@ -891,7 +891,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       : (type === 'COMPLIANCE_INSPECTORS_WAITING'
         ? { sceneFallback: safeObject(request.payload).sceneFallback === true }
         : (type === 'APT_FLIGHT_VOICE_REQUESTED'
-          ? { kind: cleanString(request.payload?.kind, 40), prompt: cleanString(request.payload?.prompt, 24000),
+          ? { narrativeEventId: cleanString(request.payload?.narrativeEventId, 80), intent: cleanString(request.payload?.intent, 600), kind: cleanString(request.payload?.kind, 40), prompt: cleanString(request.payload?.prompt, 24000),
               label: cleanString(request.payload?.label, 120), debugDetail: cleanString(request.payload?.debugDetail, 1800),
               delayMs: Math.max(0, Math.min(2000, Number(request.payload?.delayMs) || 0)),
               triggerAt: Math.max(0, Number(request.payload?.triggerAt) || 0) }

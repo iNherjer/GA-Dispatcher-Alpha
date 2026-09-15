@@ -1,5 +1,6 @@
 'use strict';
 
+const routeVoiceCore = require('../mission-route-voice-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 
 function cleanString(value, maxLength = 180) {
@@ -69,7 +70,12 @@ function createTrackerMissionFarewellVoice(options = {}) {
   };
 
   const resolveRecipe = (request, run) => {
-    const recipe = resolveRecipeSource(request, run), settings = getAudioSettings();
+    let recipe = resolveRecipeSource(request, run);
+    const settings = getAudioSettings();
+    if (recipe && (recipe.taskDomain === 'club_utility' || recipe.speaker?.taskDomain === 'club_utility')) recipe = {
+      ...recipe, prompt: routeVoiceCore.conversationPrompt(recipe.prompt,
+        authorityManager.getExecutionSnapshot?.()?.state?.voice?.clubHistory)
+    };
     return recipe && settings ? { ...recipe, audioEnabled: settings.enabled && settings.paxEnabled, playCue: recipe.playCue && settings.effectsEnabled } : recipe;
   };
 

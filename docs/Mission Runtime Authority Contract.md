@@ -848,3 +848,8 @@ Navigationsaktionen. Erst die Tracker-Bestätigung wird persistiert und verteilt
 Konflikte stellen den bestätigten Routenstand wieder her; ein unbekannter
 Timeout wird nicht still erneut ausgeführt. Web-geführte Missionen und nicht
 freigegebene Rezepte werden dadurch nicht schreibend für EFB/Toolbar geöffnet.
+
+
+### Optionale Routen-Voice (15.09.2026, lokal)
+
+Vereinsideen dürfen bis zu drei Gesprächsmomente an prozentualen Routenpositionen definieren. Der gemeinsame Fortschrittskern wird bei Tracker-Autorität ausschließlich durch die Tracker-Telemetrie ausgeführt; die bestehenden persistenten Voice-Effekte übernehmen Claim, Ausführung und Recovery. Der App-/Debug-Sim-Pfad verwendet denselben Kern und bleibt bei Tracker-Autorität gesperrt. Keine zusätzlichen Wegpunkte oder Erfolgskriterien. [Vertrag, Grenzen und Tests](Mission%20Route%20Voice%20Events.md).

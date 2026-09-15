@@ -3028,6 +3028,7 @@ function _activePaxText() {
 
 function _cargoMissionFocus() {
     const md = _activeMissionData();
+    if (md?.clubIdea?.schema === 'club-idea.v1') return !!md.clubIdea.delivery;
     const task = _activeTaskDomain();
     const cargo = _activeCargoText().toLowerCase();
     const paxText = _activePaxText();
@@ -4190,6 +4191,9 @@ Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenpers
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────
 
 async function _generateSpokenText(apiKey, situationPrompt) {
+    if (window.activePassenger?.taskDomain === 'club_utility' && window.GAMissionRouteVoiceCore) {
+        situationPrompt = window.GAMissionRouteVoiceCore.conversationPrompt(situationPrompt, window.missionClubSpeechHistory?.());
+    }
     const provider = _getAiProvider();
     if (provider === 'openai') {
         for (const [model, source, usageKey] of _paxAiTextModels('openai')) {
@@ -4330,7 +4334,7 @@ function _trainingBoardingTextOrFallback(text, fallbackText) {
     return fallback || clean;
 }
 
-async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'Audio') {
+async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'Audio', onCompleted = null) {
     if (!_paxEpochCurrent(epoch)) return false;
     if (typeof window.awmShouldPlayOnThisDevice === 'function' && !window.awmShouldPlayOnThisDevice()) return false;
     const ctx = (typeof window.paxVoiceUnlockAudio === 'function')
@@ -4388,12 +4392,13 @@ async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _p
             const playback = {
                 epoch,
                 stop: () => {
+                    guardedFinish();
                     try { src.stop(0); } catch (_) {}
                     try { chain.noise?.stop?.(0); } catch (_) {}
                     guardedFinish();
                 }
             };
-            const finish = () => {
+            const finish = (completed = false) => {
                 if (done) return;
                 done = true;
                 if (watchdog) clearTimeout(watchdog);
@@ -4405,6 +4410,7 @@ async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _p
                 try { src.onended = null; } catch (_) {}
                 try { src.disconnect(); } catch (_) {}
                 try { chain.noise?.disconnect(); } catch (_) {}
+                if (completed && _paxEpochCurrent(epoch)) { try { onCompleted?.(); } catch (_) {} }
                 resolve();
             };
             src.onended = () => finish();
@@ -4416,12 +4422,12 @@ async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _p
                 _paxLog(`Playback Watchdog: onended ausgeblieben nach ${watchdogMs} ms — Queue wird freigegeben`, 'warn');
                 finish();
             }, watchdogMs);
-            const guardedFinish = () => {
+            const guardedFinish = (completed = false) => {
                 clearTimeout(watchdog);
-                finish();
+                finish(completed);
             };
-            src.onended = guardedFinish;
-            src.onerror = guardedFinish;
+            src.onended = () => guardedFinish(true);
+            src.onerror = () => guardedFinish(false);
             if (!_paxEpochCurrent(epoch)) {
                 guardedFinish();
                 return;
@@ -4447,15 +4453,15 @@ async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _p
     }
 }
 
-async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'TTS') {
+async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'TTS', onCompleted = null) {
     if (!_paxEpochCurrent(epoch)) return false;
     const binary = atob(base64Audio);
     const bytes  = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return _paxDecodeAudioBufferAndPlay(bytes.buffer, mimeType, epoch, sourceLabel);
+    return _paxDecodeAudioBufferAndPlay(bytes.buffer, mimeType, epoch, sourceLabel, onCompleted);
 }
 
-async function _paxPlayResolvedTtsAudio(audio, epoch = _paxMissionEpoch, eventLabel = 'Ansage') {
+async function _paxPlayResolvedTtsAudio(audio, epoch = _paxMissionEpoch, eventLabel = 'Ansage', spokenText = '') {
     if (!audio?.b64) return false;
     if (typeof window.awmShouldPlayOnThisDevice === 'function' && !window.awmShouldPlayOnThisDevice()) {
         _paxLog('TTS bleibt auf diesem Gerät stumm (Audio-Wiedergabeinstanz deaktiviert)', 'state');
@@ -4472,7 +4478,8 @@ async function _paxPlayResolvedTtsAudio(audio, epoch = _paxMissionEpoch, eventLa
     const trackerClient = trackerEffectId ? _getTrackerVoiceClient() : null;
     if (!trackerEffectId || !trackerClient) {
         recordVoice();
-        return _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS');
+        const played = await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS', () => window.missionRecordClubSpeech?.(spokenText));
+        return played;
     }
     const claim = await trackerClient.claimPlayback(trackerEffectId, 120000);
     if (!claim?.claimed) {
@@ -4482,7 +4489,7 @@ async function _paxPlayResolvedTtsAudio(audio, epoch = _paxMissionEpoch, eventLa
     let played = false;
     try {
         recordVoice();
-        played = await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'Tracker TTS');
+        played = await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'Tracker TTS', () => window.missionRecordClubSpeech?.(spokenText));
         return played;
     } finally {
         await trackerClient.releasePlayback(trackerEffectId, played === true);
@@ -5279,7 +5286,7 @@ async function _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidate
     let lastErr = null;
     for (const voiceName of voiceCandidates) {
         const ttsPayload = {
-            contents: [{ role: 'user', parts: [{ text }] }],
+            contents: [{ role: 'user', parts: [{ text: window.GAMissionBoardingVoiceCore?.ttsInput(text, pax) || text }] }],
             generationConfig: {
                 responseModalities: ['AUDIO'],
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
@@ -5333,6 +5340,7 @@ async function _requestOpenAiTTSAudio(apiKey, text, pax, voiceCandidates) {
                     model,
                     voice: voiceName,
                     input: text,
+                    ...(window.GAMissionBoardingVoiceCore?.conversationalTtsStyle(pax) ? { instructions: window.GAMissionBoardingVoiceCore.conversationalTtsStyle(pax) } : {}),
                     response_format: 'mp3'
                 })
             });
@@ -5561,7 +5569,7 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
             const rec = _paxPreparedAudio.get(key);
             const audio = rec?.audio || await (rec?.promise || _prepareTextAsTTS(key, text, speaker, epoch));
             if (epoch !== _paxMissionEpoch) return;
-            if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch, eventLabel);
+            if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch, eventLabel, text);
             else await _playTextAsTTS(text, speaker, epoch);
             if (typeof options.afterAudio === 'function') {
                 await options.afterAudio(epoch);
@@ -6669,7 +6677,7 @@ async function _playTextAsTTS(text, speaker = null, epoch = _paxMissionEpoch, op
         _paxLog(`${options.eventLabel || 'Ansage'} nach TTS verworfen: Farewell/Missionsende aktiv`, 'state');
         return;
     }
-    if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch, options.eventLabel || 'Ansage');
+    if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch, options.eventLabel || 'Ansage', text);
 }
 
 async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null, epoch = _paxMissionEpoch, options = {}) {
@@ -7407,6 +7415,12 @@ STIL: ${roleStyle}
 DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
+    const clubIdea = md?.clubIdea || contract?.clubIdea;
+    if (clubIdea?.schema === 'club-idea.v1') {
+        const ids = new Set((clubIdea.narrativeEvents || []).map(e => e.geo?.anchorId).filter(Boolean));
+        lines.push(`OPTIONALE ORTSFAKTEN: ${JSON.stringify((clubIdea.geoAnchors || []).filter(a => ids.has(a.id)))}. Diese Daten belegen Orte und Merkmale, keine aktuelle Sichtbarkeit oder Besichtigung.`);
+    }
+    if (clubIdea?.schema === 'club-idea.v1') lines.push(`VEREINSANLASS: ${JSON.stringify({ occasion: clubIdea.occasion, pilotIntent: clubIdea.pilotIntent, passengerIntent: clubIdea.passengerIntent, groundPlan: clubIdea.groundPlan })}. Du bist der mitfliegende Vereinskollege und gemeinsam mit dem Piloten als Team beteiligt. Begleite das gemeinsame Vorhaben im Gespräch; Initiative und Hauptinteresse dürfen beim Piloten liegen. Du brauchst keinen eigenen Auftrag oder Nebenanlass. Knüpfe an den konkreten Anlass und bereits Gesagtes an, entwickle das Gespräch weiter statt das Briefing oder allgemeinen Vereinszusammenhalt zu wiederholen. Sprich passend zur aktuellen Flugphase; geplante Erlebnisse am Ziel sind noch nicht geschehen. Kontakte am Ziel sind andere Personen. Keine erfundene Übergabe ohne Lieferauftrag.`);
     lines.push(`SPRACH-PERSONA: ${personaSpeechSignature}`);
     if (personaCue && !pickupPaxActive) lines.push(`PERSÖNLICHER FADEN: ${personaCue}`);
     lines.push('PERSONA-GRENZE: Persönlichkeit verändert nur Wortwahl, Rhythmus und persönliche Reaktion. Keine neuen Fakten, Ziele, Rollen, Gefahren oder Missionsergebnisse erfinden; Story, TaskDomain und Mission-Lage bleiben bindend.');
@@ -7899,6 +7913,7 @@ function _contextualDialectProfile(pax) {
 }
 
 function _dialectGlobalRules(profile, roleRaw) {
+    if (window.activePassenger?.taskDomain === 'club_utility') return 'Natürliche deutsche Alltagssprache unter Kollegen; kurze ungezwungene Sätze, keine überförmliche Wortwahl und keine dialektale Lautschrift.';
     const dialect = String(profile?.dialectHint || 'neutral').toLowerCase();
     const neutralRole = _rolePrefersNeutralSpeech(roleRaw);
     const dialectLine = (neutralRole || dialect === 'neutral')
@@ -9881,6 +9896,7 @@ window.paxVoiceBuildApproachAuthorityContext = function() {
         ...context,
         dest: md?.dest || 'dem Flughafen',
         start: md?.start || '?',
+        narrativeEvents: md?.clubIdea?.narrativeEvents || [],
         departure: typeof routeWaypoints !== 'undefined' ? routeWaypoints?.[0] : null,
         passenger: window.activePassenger ? { ...window.activePassenger } : null,
         wrongStartActive: _paxWrongStartActive,
@@ -10471,3 +10487,14 @@ function _tickPoiDwell(lat, lon, flightData) {
     _refreshPaxWidgetVisibility();
     _paxLog('System bereit', 'state');
 }());
+
+// Telemetry caller owns persistence and authority; voice only formats/queues the moment.
+window.paxVoiceSpeakRouteEvent = function(event, previousIntents = []) {
+    const core = window.GAMissionRouteVoiceCore;
+    if (!core || !_missionHasPax() || _paxMissionEndVoiceActive()) return;
+    return _speakAndShow(core.prompt(_baseContext(), event, previousIntents), 'Vereinsgeschichte', null, { cancelWhenMissionEnd: true });
+};
+
+window.paxVoiceRouteEventReady = function() {
+    return _paxVoiceEnabled && _missionHasPax() && _paxGreetingDone && !_paxCurrentPlayback && !_paxComfortBusy && !_paxMissionEndVoiceActive();
+};

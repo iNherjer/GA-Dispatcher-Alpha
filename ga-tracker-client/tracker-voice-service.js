@@ -55,7 +55,7 @@ function normalizeVoiceRequest(value = {}) {
     ? value.textModels
     : {};
   const requestedKind = String(value.kind || '').trim().toLowerCase();
-  const kind = ['boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(requestedKind) ? requestedKind : 'direct';
+  const kind = ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story'].includes(requestedKind) ? requestedKind : 'direct';
   const cueSource = value.cue && typeof value.cue === 'object' && !Array.isArray(value.cue) ? value.cue : {};
   const cueId = kind === 'boarding' || kind === 'farewell' || kind === 'cargo'
     ? boardingVoiceCore.normalizeCueId(cueSource.id)
@@ -195,7 +195,7 @@ async function synthesizeOpenAi({ apiKey, request, fetchRemote }) {
       const response = await fetchRemote('https://api.openai.com/v1/audio/speech', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, voice: voiceName, input: request.text, response_format: 'mp3' })
+        body: JSON.stringify({ model, voice: voiceName, input: request.text, ...(boardingVoiceCore.conversationalTtsStyle(request.speaker) ? { instructions: boardingVoiceCore.conversationalTtsStyle(request.speaker) } : {}), response_format: 'mp3' })
       });
       lastStatus = Number(response?.status) || 0;
       if (!response?.ok) continue;
@@ -214,7 +214,7 @@ async function synthesizeGeminiModel({ apiKey, request, fetchRemote, model, sign
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: request.text }] }],
+          contents: [{ role: 'user', parts: [{ text: boardingVoiceCore.ttsInput(request.text, request.speaker) }] }],
           generationConfig: {
             responseModalities: ['AUDIO'],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
@@ -511,7 +511,7 @@ function createTrackerVoiceService(options = {}) {
         const record = {
           effectId,
           fingerprint: String(source.fingerprint || ''),
-          kind: ['boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(String(source.kind || '').trim().toLowerCase())
+          kind: ['boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story'].includes(String(source.kind || '').trim().toLowerCase())
             ? String(source.kind || '').trim().toLowerCase()
             : 'direct',
           synthesizeAudio,

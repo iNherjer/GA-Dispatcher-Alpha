@@ -3358,6 +3358,7 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
                 ? _safeCloneJson(missionRuntime.completionRecord, null)
                 : null,
             arrivalFlightRecord: _compactFlightRecordForRuntime(missionRuntime.arrivalFlightRecord),
+            routeVoice: _safeCloneJson(missionRuntime.routeVoice, null),
             pendingFarewellRecord: _compactFlightRecordForRuntime(missionRuntime.pendingFarewellRecord)
         },
         poiProgress: poiProgress ? {
@@ -4931,6 +4932,7 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     }
 
     missionRuntime.phase = shouldBeClosing ? 'closing' : (phase === 'end_ready' ? 'end_ready' : (shouldBeActive ? 'active' : _missionRuntimePhaseSnapshot()));
+    missionRuntime.routeVoice = _safeCloneJson(runtime.routeVoice, null);
     missionRuntime.startedAt = Number(runtime.startedAt || snap.startedAt || snap.savedAt || Date.now()) || Date.now();
     missionRuntime.active = shouldBeActive && !shouldBeClosing;
     missionRuntime.armed = shouldBeActive && !shouldBeClosing;
@@ -18492,7 +18494,44 @@ function finalizeFlightRecorder(now, endLat = null, endLon = null) {
     }
 }
 
+window.missionClubSpeechHistory = () => missionRuntime.routeVoice?.spoken || [];
+window.missionRecordClubSpeech = function(text) {
+    if (_missionExecutionAuthorityIsTracker() || currentMissionData?.clubIdea?.schema !== 'club-idea.v1') return;
+    const core = window.GAMissionRouteVoiceCore;
+    if (!core) return;
+    const previous = missionRuntime.routeVoice || {};
+    missionRuntime.routeVoice = { ...previous, spoken: core.rememberSpeech(previous.spoken, String(Date.now()), text) };
+    _persistMissionRuntimeSnapshot('club-speech-played', { immediate: true });
+};
+
+function _missionObserveRouteVoice(lat, lon, fd) {
+    if (_missionExecutionAuthorityIsTracker()) return;
+    const core = window.GAMissionRouteVoiceCore;
+    const plan = currentMissionData?.clubIdea?.narrativeEvents;
+    if (!core || !plan?.length) return;
+    const previous = missionRuntime.routeVoice || {};
+    const observed = core.observe(plan, routeWaypoints, previous, {
+        now: Date.now(), lat, lon, onGround: fd?.onGround,
+        active: missionRuntime.active,
+        ending: missionRuntime.closingPending || missionRuntime.waitingFarewellDeboarding,
+        paused: fd?.simPaused === true || fd?.paused === true || fd?.isPaused === true || fd?.inMenuOrMap === true || fd?.simRunning === 0,
+        slew: fd?.slewActive === true || fd?.isSlewActive === true,
+        enabled: window.paxVoiceRouteEventReady?.() === true
+    });
+    missionRuntime.routeVoice = observed.state;
+    if (observed.event) {
+        // Persist the claim before voice starts, including best-effort failures.
+        if (!_persistMissionRuntimeSnapshot('route-voice', { immediate: true })) {
+            missionRuntime.routeVoice = previous;
+            return;
+        }
+        const used = core.events(plan).filter(e => (previous.done || []).includes(e.id)).map(e => e.intent);
+        window.paxVoiceSpeakRouteEvent?.(observed.event, used);
+    } else _persistMissionRuntimeSnapshot('route-voice-progress');
+}
+
 function updateFlightRecorder(lat, lon, alt) {
+    _missionObserveRouteVoice(lat, lon, window.lastLiveFlightData || {});
     if (window.simModeActive) {
         // Sim owns its recorder, but private return narration also needs these ticks.
         const fd = window.lastLiveFlightData || {};

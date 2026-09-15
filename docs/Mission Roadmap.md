@@ -164,6 +164,21 @@ Ziel:
 
 ## 4. APT-Roadmap
 
+### Vereins-/Utility-Erweiterung: menschlicher Anlass (Anforderung 15.09.2026)
+
+Vertrag, Picker und aktueller Implementierungs-/Teststand: [Vereins-/Utility-Ideen V1](Mission%20Club%20Utility%20Ideas%20V1.md). Lokal implementiert; Veröffentlichung steht aus.
+
+- Ergänzung: Regionale Fly-ins/Flugfeste vor der endgültigen Auswahl der drei Picker-Ziele suchen. Bei geeignetem belegtem Termin einen der drei Vorschläge darauf ausrichten; ohne Treffer drei normale Ideen. Größere Suchregion zulassen, bestehende Routen-/Flugzeuggrenzen erhalten.
+- Präzisierung: Der außen gelandete Segelflugpilot gelangt per Fahrzeug zum Abflugplatz. In dieser Arbeit keinen Pickup vorbereiten; der angebotene Flug beginnt mit regulärem Boarding am Flugplatz.
+
+- Zielbild: freie Ideen innerhalb des Vereinslebens und der gegenseitigen fliegerischen Hilfe. Menschen, gemeinsame Interessen und Teilnahme dürfen den Anlass tragen; bestehende Lieferaufträge bleiben gleichwertig möglich. Nutzereingebrachte Situationen sind Anforderungen an den Spielraum, kein verpflichtender Beispielkatalog im Prompt.
+- Ideen zuerst entwickeln; daraus Passenger, persönliches Gepäck, tatsächliche Lieferladung und nächsten Schritt am Boden ableiten. Gepäck-Stichwörter sollen nicht die Geschichte auswählen. Akzeptierte KI-Ideen und Texte nicht nachträglich auf feste Vereins-Textbausteine umbiegen.
+- Reale Fly-in-/Flugfest-Termine nur mit passendem Datums-, Orts- und Quellenbeleg verwenden. Private Verabredungen dürfen plausibel erfunden sein; sie sind keine recherchierten öffentlichen Veranstaltungen.
+- Personenhilfe ist auch ohne Fracht möglich: Ein bereits am Abflugplatz aufgenommener Segelflugpilot kann als A-B-Passagier zu seinem ursprünglichen Startplatz gebracht werden, wo Auto und Anhänger für die anschließende Rückholung seines Segelflugzeugs stehen. Die Autofahrt und Flugzeugrückholung sind erzählter Anschluss, keine simulierten Missionsziele. Außenlandefeld-Pickup ist damit nicht implementiert.
+- **Backlog, noch nicht definiert:** APT Vereins-/Utility-Gegenstands-Pickup. Vor Implementierung Ladeort, Hin-/Rückflug, Manifest, Abschlussbedingungen und Verhältnis zu bestehenden Pickup-Rezepten festlegen. Bis dahin keine Abholung als ausführbare Mission anbieten.
+- Für die spätere Umsetzung kompakte KI-verfasste History zu Anlass, Beziehung, Interessen und Erzählweise vorsehen; erzeugte Ideen nicht als tatsächlich geflogene Erlebnisse behandeln. Vorhandene Auswahlhistorie berücksichtigen.
+- Analysebefund: Der aktuelle `club_utility`-Pfad enthält bereits Besuche, leitet aber Seed/Persona und Storyframe aus Cargo-/Textheuristiken ab und kann Writer-Prosa durch `_missionPipelineV4ComposeClubUtilityStory` ersetzen. Gezielte Migration dieses Profils planen; gemeinsame Klassifikation, andere Missionstypen und Gruppenlogik separat beurteilen. Diese Notiz ändert noch keine Laufzeitlogik.
+
 APT-Missionen sind bereits breit angelegt. Hier geht es eher um Konsistenz und mehr gute Missionsgeschichten.
 
 Naechste sinnvolle Arbeit:
@@ -214,4 +229,3 @@ Diese Punkte muessen wir bei der Umsetzung neuer Roadmap-Ideen jeweils bewusst e
   - Passagier an Bord
   - Empfaenger am Ziel
   - Dispatcher / Instruktor / Ranger / Beobachter
-

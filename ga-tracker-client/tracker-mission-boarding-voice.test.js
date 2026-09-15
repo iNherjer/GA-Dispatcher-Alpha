@@ -261,3 +261,41 @@ test('changed boarding recipe discards prewarm and uses the current effect', asy
   assert.equal(sent[1].effectId,'mfx-boarding');
   assert.equal(sent[1].deferPlayback,false);
 });
+
+test('late generated route-event speech is cancelled when farewell starts', async () => {
+  const active = run();
+  active.resumeBundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, audioEnabled: true } };
+  const state = { runId: active.runId, state: { phase: 'active', flags: { active: true } } };
+  let finishGeneration;
+  let generatedRequest;
+  let cancelled;
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: { getActiveRun: () => active, getExecutionSnapshot: () => state },
+    voiceService: { publicState: () => ({ configured: true }),
+      request: value => { generatedRequest = value; },
+      wait: () => new Promise(resolve => { finishGeneration = resolve; }),
+      cancel: id => { cancelled = id; }, activatePlayback: () => { throw new Error('late playback'); } }
+  });
+  const pending = handler.dispatch({ ...request(), effect: { effectId: 'late-roll', type: 'voice.flight',
+    payload: { kind: 'route_story', prompt: 'Ankunft', delayMs: 0 } } });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(generatedRequest.deferPlayback, true);
+  state.state.flags.farewellStarted = true;
+  assert.equal(generatedRequest.isPlaybackAllowed(), false);
+  finishGeneration({ status: 'ready', audioAvailable: true, text: 'Ankunft' });
+  assert.equal((await pending).voiceStatus, 'mission_end');
+  assert.equal(cancelled, 'late-roll');
+});
+
+test('club voice uses the restored spoken transcript in the central generation prompt',async()=>{
+ const calls=[];
+ const active=run({taskDomain:'club_utility',speaker:{name:'Mara',gender:'female',taskDomain:'club_utility'}});
+ const handler=createTrackerMissionBoardingVoice({
+  authorityManager:{getActiveRun:()=>active,getExecutionSnapshot:()=>({state:{voice:{clubHistory:[{id:'old',text:'Den Vereinsabend habe ich schon erwähnt.'}]}}})},
+  voiceService:{publicState:()=>({configured:true}),request:v=>calls.push(v),wait:async()=>({status:'ready',audioAvailable:true,text:'Neuer Gedanke.',speaker:{taskDomain:'club_utility'}})},
+  getAudioPlaybackCandidates:()=>0
+ });
+ await handler.dispatch(request());
+ assert.match(calls[0].prompt,/Den Vereinsabend habe ich schon erwähnt/);
+ assert.match(calls[0].prompt,/BEREITS GESPROCHEN/);
+});

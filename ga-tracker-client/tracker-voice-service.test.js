@@ -512,3 +512,9 @@ test('failed async cache replacement preserves the previous file and can retry',
   assert.equal(await service.flushPersistence(), true);
   assert.equal(JSON.parse(fs.readFileSync(storageFile, 'utf8')).records[0].effectId, 'retry-cue');
 });
+
+test('route story keeps its job kind through request normalization',()=>{
+ const {normalizeVoiceRequest}=require('./tracker-voice-service');
+ const normalized=normalizeVoiceRequest({effectId:'run:story-1',kind:'route_story',text:'Hallo.',speaker:{taskDomain:'club_utility'}});
+ assert.equal(normalized.kind,'route_story');assert.equal(normalized.speaker.taskDomain,'club_utility');
+});

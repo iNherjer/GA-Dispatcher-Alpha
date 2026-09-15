@@ -977,6 +977,11 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
     if (!items.length) {
         _missionCargoPushItem(items, { id: 'bordbuch', label: 'Bordbuch / Dispatch-Mappe', weightLbs: 3, required: false, deliverAtDestination: false });
     }
+    const clubIdea = window.currentMissionData?.clubIdea;
+    if (clubIdea?.schema === 'club-idea.v1' && window.MissionClubIdeasCore) {
+        const adjusted = window.MissionClubIdeasCore.manifestItems(items, clubIdea);
+        items.splice(0, items.length, ...adjusted);
+    }
     _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
     return {
         version: 6,

@@ -12,10 +12,11 @@
     var complianceCore = typeof module === 'object' && module.exports
         ? require('./mission-compliance-domain-core.js')
         : (root && root.GAMissionComplianceDomainCore);
-    var api = factory(manifestCore, startCore, payloadCore, complianceCore);
+    var routeVoiceCore = typeof module === 'object' && module.exports ? require('./mission-route-voice-core.js') : (root && root.GAMissionRouteVoiceCore);
+    var api = factory(manifestCore, startCore, payloadCore, complianceCore, routeVoiceCore);
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root && typeof root === 'object') root.GAMissionExecutionCore = api;
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (manifestCore, startCore, payloadCore, complianceCore) {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (manifestCore, startCore, payloadCore, complianceCore, routeVoiceCore) {
     'use strict';
 
     var CORE_VERSION = 1;
@@ -621,6 +622,7 @@
                 kind: 'farewell'
             })
         };
+        if (routeVoiceCore && Array.isArray(object(source.voice).clubHistory)) state.voice.clubHistory = routeVoiceCore.speechHistory(source.voice.clubHistory);
         if (object(source.voice).flight) state.voice.flight = normalizeVoiceOutcome(source.voice.flight);
         if (object(source.voice).approach) state.voice.approach = normalizeVoiceOutcome({
             ...object(source.voice.approach), kind: 'approach'
@@ -1514,6 +1516,13 @@
                         error: acknowledgedStatus === 'failed' ? 'payload_sync_failed' : null
                     }, { updatedAt: event.occurredAt });
                 }
+            }
+            var spokenOutcome = object(object(event.payload).result);
+            if (routeVoiceCore && acknowledgedEffect && acknowledgedEffect.type.indexOf('voice.') === 0
+                && acknowledgedStatus === 'completed' && spokenOutcome.playback === 'completed'
+                && object(spokenOutcome.speaker).taskDomain === 'club_utility') {
+                state.voice.clubHistory = routeVoiceCore.rememberSpeech(state.voice.clubHistory,
+                    acknowledgedEffectId, spokenOutcome.text);
             }
             if (acknowledgedEffect && acknowledgedEffect.type === 'voice.boarding') {
                 state.voice.boarding = normalizeVoiceOutcome({

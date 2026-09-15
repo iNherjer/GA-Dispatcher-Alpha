@@ -1,5 +1,7 @@
 # Mission Flow Reference
 
+Lokal ergänzter Vereins-KI-Pfad: [Vereins-/Utility-Ideen V1](Mission%20Club%20Utility%20Ideas%20V1.md). Vor dem Picker optional regionale Eventsuche, anschließend drei strukturierte Ideen in einem Aufruf, nach Auswahl ein Writer. A-B-Runtime bleibt bestehen; persönliches Gepäck und Pflichtlieferung werden im Manifest ausdrücklich unterschieden. Kein Pickup-Ausbau.
+
 Aktueller konsolidierter Stand und Übertragung auf weitere Sets: [Missionssets-Arbeitsgrundlage](Mission%20Sets%20Handoff.md) (15.09.2026).
 
 Fuer die Verschiebung dieser Ablaeufe zwischen App und Tracker gilt zusaetzlich
@@ -553,3 +555,11 @@ markiertes Testangebot über `debugRequest`, ohne den Hinflug zu protokollieren.
 Normale Completion-Gates bleiben davon getrennt. Picker und Einzelplanner
 verwenden ab V6.3.1 dieselbe erweiterte History für Initiative/Auslöser; der Writer
 vergleicht zusätzlich frühere Originalformulierungen (lokaler Stand).
+
+### Vereins-Ideen: fester Teamkollege (15.09.2026, lokal)
+
+Neue `club-idea.v1`-Ideen benötigen genau einen mitfliegenden Vereinskollegen, sowohl im Picker als auch beim direkten Dispatch. Der gemeinsame Anlass darf vom Piloten ausgehen. Writer und vorhandener PAX-Voice-Kontext behandeln den Kollegen als Teammitglied; Zielkontakte bleiben getrennte Personen. Bestehende Solo-Missionen werden nicht migriert, alte Solo-Picker-Angebote müssen neu erzeugt werden. Details: [Vereins-/Utility-Ideen V1](Mission%20Club%20Utility%20Ideas%20V1.md).
+
+### Optionale Routen-Voice (15.09.2026, lokal)
+
+Vereinsideen dürfen bis zu drei Gesprächsmomente an prozentualen Routenpositionen definieren. Der gemeinsame Fortschrittskern wird bei Tracker-Autorität ausschließlich durch die Tracker-Telemetrie ausgeführt; die bestehenden persistenten Voice-Effekte übernehmen Claim, Ausführung und Recovery. Der App-/Debug-Sim-Pfad verwendet denselben Kern und bleibt bei Tracker-Autorität gesperrt. Keine zusätzlichen Wegpunkte oder Erfolgskriterien. [Vertrag, Grenzen und Tests](Mission%20Route%20Voice%20Events.md).

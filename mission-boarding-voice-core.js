@@ -40,6 +40,15 @@
         return /^(male|m|mann|maennlich|männlich)$/i.test(String(value || '').trim()) ? 'male' : 'female';
     }
 
+    function conversationalTtsStyle(speaker) {
+        if (object(speaker).taskDomain !== 'club_utility') return '';
+        return 'Sprich auf Deutsch wie im ungezwungenen Gespräch unter Vereinskollegen: entspannt, freundlich, mit natürlichem Rhythmus und weichen Satzübergängen. Gut verständliche Alltagssprache, keine überdeutliche Bühnenaussprache, kein Nachrichtensprecher- oder Vorleseton. Kein künstlicher Dialekt. Wortlaut beibehalten; diese Regieanweisung nicht mitsprechen.';
+    }
+    function ttsInput(spokenText, speaker) {
+        var style = conversationalTtsStyle(speaker);
+        return style ? style + '\n\nZu sprechender Text:\n' + spokenText : spokenText;
+    }
+
     function normalizeSpeaker(raw) {
         var source = object(raw);
         return {
@@ -322,6 +331,8 @@
         normalizeCueId: normalizeCueId,
         normalizeRecipe: normalizeRecipe,
         normalizeSpeaker: normalizeSpeaker,
+        conversationalTtsStyle: conversationalTtsStyle,
+        ttsInput: ttsInput,
         normalizeSpokenText: normalizeSpokenText,
         stableHash: stableHash,
         selectAudioCueAsset: selectAudioCueAsset,

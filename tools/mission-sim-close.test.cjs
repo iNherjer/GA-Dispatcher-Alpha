@@ -57,7 +57,7 @@ test('cleanup and explicit stop release held simulation without restarting it',(
 });
 
 test('playback diagnostics keep each event, provider voice and model, bounded to current epoch',async()=>{
- const c={Date,window:null,_paxLog(){},_paxDecodeAndPlay:async()=>true};c.window=c;vm.createContext(c);
+ const c={Date,window:null,_paxLog(){},_paxEpochCurrent:()=>true,_paxDecodeAndPlay:async()=>true};c.window=c;vm.createContext(c);
  load(c,'passenger-voice.js',['_paxPlayResolvedTtsAudio']);
  const a={b64:'test',speaker:{name:'Jonas'},voiceName:'Charon',model:'model-a',provider:'gemini'};
  await c._paxPlayResolvedTtsAudio(a,3,'Boarding');

@@ -1,4 +1,6 @@
 'use strict';
+const routeVoiceCore = require('../mission-route-voice-core.js');
+const routeMapCore = require('./tracker-efb-map-snapshot-core.js');
 
 const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
 const locationCore = require('../mission-location-core.js');
@@ -44,6 +46,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const executionEffectPlan = () => typeof authorityManager.getExecutionEffectPlan === 'function'
     ? authorityManager.getExecutionEffectPlan()
     : authorityManager.getActiveRun({ includeBundle: true })?.resumeBundle?.executionEffectPlan;
+  let narrativeRouteCache = { key: '', points: [] };
   let lastTelemetryDiagnosticKey = '';
   let lastTelemetryDiagnosticAt = 0;
   const dispatchSimulatorEffect = request => {
@@ -575,7 +578,50 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           for (const effect of detected.effects) adapter.applySystemEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
             type: 'APT_FLIGHT_VOICE_REQUESTED', eventId: `flight-voice:${effect.kind}:${triggerAt}`, payload: { ...effect, triggerAt } });
           if (detected.effects.length) observationSnapshot = undefined;
-          adapter.setFlightVoiceState(detected.state, detected.effects.length > 0);
+          // Route events use the confirmed tracker route and persistent effect IDs.
+          const narrativePlan = context.narrativeEvents || [];
+          let routeState = previous.routeVoice || {};
+          let routeTriggered = false;
+          if (narrativePlan.length) {
+            const routeRun = authorityManager.getActiveRun();
+            const routeKey = `${routeRun?.runId}:${routeRun?.navigationRevision || 0}`;
+            if (narrativeRouteCache.key !== routeKey) {
+              const run = authorityManager.getActiveRun({ includeBundle: true });
+              const missionState = run?.resumeBundle?.missionState || {};
+              const mission = missionState.currentMissionData || {};
+              narrativeRouteCache = { key: routeKey, points: routeMapCore.normalizeRoute({ state: missionState, mission,
+                contract: mission.missionContract || missionState.activeMissionContract || {}, navigationRoute: run?.navigationRoute }) };
+            }
+            const route = narrativeRouteCache.points;
+            const fresh = authorityManager.getExecutionSnapshot();
+            const committed = fresh.state.effects.filter(e => e.type === 'voice.flight' && e.payload.kind === 'route_story');
+            routeState = { ...routeState, done: [...new Set([...(routeState.done || []), ...committed.map(e => e.payload.narrativeEventId)])].filter(Boolean) };
+            const audioSettings = options.getAudioSettings?.();
+            const observed = routeVoiceCore.observe(narrativePlan, route, routeState, {
+              now: triggerAt, lat: sample.lat, lon: sample.lon, onGround: sample.onGround,
+              active: fresh.state.flags.active && fresh.state.flags.boardingConfirmed,
+              ending: fresh.state.flags.closingPending || fresh.state.flags.farewellStarted || fresh.state.flags.unloadConfirmed,
+              paused: sample.simPaused === true || sample.paused === true || sample.isPaused === true || sample.inMenuOrMap === true || sample.simRunning === 0,
+              slew: sample.slewActive === true || sample.isSlewActive === true,
+              enabled: audioSettings ? audioSettings.enabled === true && audioSettings.paxEnabled === true : context.enabled !== false && context.audioEnabled !== false,
+              busy: fresh.state.effects.some(e => e.type.startsWith('voice.') && e.status === 'requested')
+            });
+            if (observed.event) {
+              const event = observed.event;
+              const accepted = adapter.applySystemEvent({ missionId: fresh.missionId, runId: fresh.runId,
+                type: 'APT_FLIGHT_VOICE_REQUESTED', eventId: `route-story:${fresh.runId}:${event.id}`,
+                payload: { kind: 'route_story', narrativeEventId: event.id, intent: event.intent,
+                  label: 'Vereinsgeschichte', triggerAt,
+                  prompt: routeVoiceCore.prompt(context.baseContext, event, committed.map(e => e.payload.intent)) } });
+              if (accepted?.ok) {
+                routeState = observed.state;
+                routeTriggered = true;
+                observationSnapshot = undefined;
+                effectRunner.drain().catch(error => log(`MISSION_ROUTE_VOICE_ERROR ${error?.message || error}`));
+              }
+            } else routeState = observed.state;
+          }
+          adapter.setFlightVoiceState({ ...detected.state, routeVoice: routeState }, detected.effects.length > 0 || routeTriggered);
           if (detected.effects.length) effectRunner.drain().catch(error => log(`MISSION_FLIGHT_VOICE_ERROR ${error?.message || error}`));
         }
       }
