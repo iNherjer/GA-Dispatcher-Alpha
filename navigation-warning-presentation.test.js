@@ -3,11 +3,10 @@ const test = require('node:test'), assert = require('node:assert/strict'), vm = 
 function fixture() {
   const listeners = {}, intervals = [];
   const banner = { children: [], style: {}, addEventListener() {}, appendChild(entry) { this.children.push(entry); entry.isConnected = true; }, querySelector(selector) { return this.children.find(e => selector.includes(e.dataset.askey)); } };
-  const mapArea = { appendChild(node) { node.parentElement = this; } };
-  const document = { getElementById: id => id === 'mapArea' ? mapArea : banner, createElement: () => ({ dataset: {}, style: {}, addEventListener(type, action) { listeners[type] = action; }, querySelector: () => ({ addEventListener() {} }), remove() { banner.children.splice(banner.children.indexOf(this),1); this.isConnected = false; } }) };
+  const document = { getElementById: () => banner, createElement: () => ({ dataset: {}, style: {}, addEventListener(type, action) { listeners[type] = action; }, querySelector: () => ({ addEventListener() {} }), remove() { banner.children.splice(banner.children.indexOf(this),1); this.isConnected = false; } }) };
   const window = {};
   vm.runInNewContext(fs.readFileSync('navigation-warning-presentation.js','utf8'), { window, document, setInterval: fn => { intervals.push(fn); return 1; }, clearInterval() {} });
-  return { api: window.GANavigationWarningPresentation, banner, mapArea, listeners, intervals };
+  return { api: window.GANavigationWarningPresentation, banner, listeners, intervals };
 }
 test('standalone frequency markup, colors, squawk and dismissal are shared; external labels are escaped', () => {
   const f = fixture(), space = { type: 27, name: 'TMZ Test <img>', frequencies: [{ name: 'XPDR', value: '7000' }, { name: 'INFO', value: '123.450' }] };
@@ -15,7 +14,6 @@ test('standalone frequency markup, colors, squawk and dismissal are shared; exte
   assert.equal(f.api.displayName(space), 'Test <img> [TMZ]');
   f.api.showFrequency(space, '#9966ff'); f.api.showFrequency(space, '#9966ff');
   assert.equal(f.banner.children.length, 1);
-  assert.equal(f.banner.parentElement, f.mapArea, 'navigation notices stay inside the map visibility boundary');
   const row = f.banner.children[0];
   assert.equal(row.className, 'awm-freq-entry'); assert.match(row.innerHTML, /Test &lt;img&gt; \[TMZ\]/);
   assert.match(row.innerHTML, /🔲.*XPDR.*7000/); assert.match(row.innerHTML, /📻.*INFO.*123.450/);

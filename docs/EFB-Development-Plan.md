@@ -5029,3 +5029,17 @@ Validierung: 29 Presentation-/EFB-Webclient-/Font-Tests bestanden. EXE mit
 `npm run build:tracker -- --no-bytecode --public --public-packages "*"`
 gebaut, da die x64-Bytecode-Hilfsruntime auf diesem Mac nicht startet.
 Windows-/In-Sim-Sichtpruefung steht aus; Stable bleibt unveraendert.
+
+### 2026-09-15 – Tracker v407: Banner-Aenderung aus v406 zurueckgenommen
+
+Nach dem Fotovergleich hat der Nutzer die vollstaendige Ruecknahme der
+Banner-Aenderung freigegeben. Der gemeinsame Host liegt wieder an body mit
+fixed-Positionierung oben; urspruengliche Zeilenhoehe und Innenabstaende sind
+wiederhergestellt. Dies korrigiert auch den mitverschobenen Bordbuchhinweis.
+Presentation und Banner-CSS entsprechen exakt dem Stand vor v406.
+EFB und Toolbar verwenden dieselben Tracker-Assets, Revision 40701;
+kein neues Community-Paket.
+
+Validierung: 29 Tests bestanden; Presentation sowie App-/EFB-Styles
+bytegleich mit dem Stand vor v406. Windows-x64-EXE mit dem dokumentierten
+Build ohne Bytecode erstellt. Keine Windows-/In-Sim-Ausfuehrung auf dem Mac.
