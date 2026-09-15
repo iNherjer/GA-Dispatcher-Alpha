@@ -3267,6 +3267,13 @@ function _compactFlightRecordForRuntime(record = null) {
         durationSec: finiteOrNull(record.durationSec),
         distanceNm: finiteOrNull(record.distanceNm),
         distanceSource: String(record.distanceSource || '').slice(0, 24),
+        simulated: record.simulated === true,
+        hasAirborneEvidence: record.hasAirborneEvidence === true,
+        missionEndEvidence: record.missionEndEvidence ? {
+            missionId: String(record.missionEndEvidence.missionId || '').slice(0, 160),
+            atTarget: record.missionEndEvidence.atTarget === true,
+            groundStill: record.missionEndEvidence.groundStill === true
+        } : null,
         maxGs: finiteOrNull(record.maxGs),
         maxAltFt: finiteOrNull(record.maxAltFt),
         touchdownVsFpm: finiteOrNull(record.touchdownVsFpm),
@@ -11375,7 +11382,8 @@ function _buildMissionCompletionRecord(options = {}) {
         schemaVersion: 2,
         ...(window.MissionPrivateReturnCore?.source(md) ? { privateOutingEvidence:
             window.MissionPrivateReturnCore.completionEvidence(flight,
-                typeof _missionEndReadiness === 'function' ? _missionEndReadiness() : {})
+                flight.missionEndEvidence?.missionId === missionId ? flight.missionEndEvidence
+                    : (typeof _missionEndReadiness === 'function' ? _missionEndReadiness() : {}))
         } : {}),
         id: completionId,
         completionId,
@@ -11400,7 +11408,7 @@ function _buildMissionCompletionRecord(options = {}) {
         distanceSource: _completionText(recordedDistanceNm != null ? (flight.distanceSource || 'gps') : 'planned', 24),
         result: cargoOutcome?.failed || flight.missionFailed ? 'failed' : 'completed',
         failed: !!(cargoOutcome?.failed || flight.missionFailed),
-        simulated: !!window.simModeActive,
+        simulated: flight.simulated === true || !!window.simModeActive,
         maxGForce,
         maxBankDeg,
         touchdownVsFpm: _completionFinite(flight.touchdownVsFpm),
@@ -11907,6 +11915,9 @@ function _missionCriticalActionConfirmMessage(action = 'end', options = {}) {
         return 'Entladung wirklich abschliessen?\n\nDiese Missionsaktion bestaetigt die aktuelle Entladung.';
     }
     if (normalized === 'debug-end') {
+        if (typeof currentMissionData !== 'undefined' && window.MissionPrivateReturnCore?.source(currentMissionData)) {
+            return 'Private Heimreise zum Testen erzeugen?\n\nDas Angebot wird als Debug markiert. Der Hinflug wird nicht ins Logbuch eingetragen.';
+        }
         return 'Debug-Mission wirklich als beendet markieren?\n\nDiese Aktion veraendert den Follow-up-/Missionsstatus.';
     }
     return options?.message || 'Mission wirklich beenden?\n\nDer Missionsabschluss wird jetzt ausgefuehrt.';
@@ -12557,8 +12568,10 @@ window.reconcileMissionGroundState = function(reason = 'mission-ground-refresh')
 };
 
 function _resetMissionRuntime() {
+    window.finishSimMissionClose?.();
     _missionSceneClearDeboardingWatchdog();
     window.missionPickupDepartureVoicePending = null;
+    window.missionPrivateReturnDepartureVoice = null;
     missionRuntime = {
         phase: _hasValidMissionForStart() ? 'planned' : 'idle',
         startedAt: 0,
@@ -18514,6 +18527,8 @@ function updateFlightRecorder(lat, lon, alt) {
 
     // Pause im Sim: Recorder einfrieren und keine Trigger auslösen.
     if (simPaused || inMenuOrMap) {
+        if (window.missionPrivateReturnDepartureVoice && !window.missionPrivateReturnDepartureVoice.done)
+            window.missionPrivateReturnDepartureVoice.airborneSince = null;
         r.pauseActive = true;
         r.wasOnGround = onGroundNow;
         r.lowSpeedSince = 0;
@@ -18522,6 +18537,10 @@ function updateFlightRecorder(lat, lon, alt) {
         }
         return;
     }
+
+    window.missionMaybeTriggerPrivateReturnDepartureVoice?.({
+        aglFt: agl, onGround: hasOnGroundFlag ? onGroundNow : undefined
+    }, missionRuntime);
 
     // Nach Pause unterscheiden: echter Neustart vs. normale Fortsetzung.
     if (r.pauseActive) {

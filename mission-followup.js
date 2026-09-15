@@ -561,7 +561,7 @@
         if (req?.followUpKind === 'private_return') {
             const last = getLastLandingRef();
             const target = normalizeRef(req.route?.targetRef);
-            if (last && !refsSameAirport(last, target)) {
+            if (last && !refsSameAirport(last, target) && req.privateReturn?.debugCompletion !== true) {
                 alert('Die private Heimreise beginnt am besuchten Flugplatz. Dein zuletzt bestätigter Landeort liegt inzwischen woanders.');
                 return Promise.resolve(null);
             }
@@ -2455,6 +2455,17 @@
             alert('Keine aktuelle Mission vorhanden.');
             return false;
         }
+        if (window.MissionPrivateReturnCore?.source(md)) {
+            const req = window.MissionPrivateReturnCore.debugRequest(md);
+            if (!req) { alert('Debug: Die private Mission enthält keinen vollständigen Rückflugrahmen.'); return false; }
+            if (getRequests().some(row => row.id === req.id)) {
+                alert('Debug: Für diese Mission existiert bereits eine Test-Heimreise.'); return false;
+            }
+            writeRequests([...getRequests(), req], { cloud: true });
+            render(); updateDebugButton();
+            alert('Debug-Heimreise bereit. Hinflug, Logbuch und letzter Landeort wurden nicht als abgeschlossen geändert.');
+            return true;
+        }
         const sourceKind = getProfileId(md);
         const infraSupported = !!(sourceKind === 'inspection_infra'
             && typeof window.missionInfraBuildFollowupConfigForMission === 'function'
@@ -2935,9 +2946,23 @@
         return compactRequests(list).slice(0, max);
     }
 
+    function privateDebugAvailability() {
+        const md = getActiveMissionData();
+        const core = window.MissionPrivateReturnCore;
+        if (!md) return 'keine aktuelle Mission geladen';
+        if (!core?.debugRequest) return 'Private-Return-Debug-Code fehlt oder ist veraltet';
+        if (core.context(md)) return 'bereits eine Heimreise';
+        if (md.followUpRequestId || md.followUpContinuation) return 'bereits eine Folgemission';
+        if (md.isPOI || md.bush) return 'POI-/Bush-Mission';
+        if (!core.source(md)) return 'strukturierter Privat-Ausflugsvertrag fehlt';
+        return 'bereit';
+    }
+
     function buildDebugReport() {
         updateDebugButton();
         const lines = [];
+        lines.push('Private Debug UI: 20260914-01 | ' + privateDebugAvailability());
+        if (window.gaPrivateReturnWriterValidation) lines.push('Private Return Writer: ' + JSON.stringify(window.gaPrivateReturnWriterValidation));
         const list = getRequests();
         const now = nowMs();
         const pending = list.filter(req => getStatus(req) === 'pending');
@@ -2999,10 +3024,11 @@
                 && sourceKind === 'infra_chain_recon'
                 && typeof window.missionInfraBuildChainReconFollowupConfigForMission === 'function'
                 && window.missionInfraBuildChainReconFollowupConfigForMission(md));
-            const supported = !!(md && (SOURCE_MAP[sourceKind] || buildAllowedChainConfig(md, null) || infraSupported || infraChainSupported));
+            const privateSupported = !!window.MissionPrivateReturnCore?.debugRequest && !!window.MissionPrivateReturnCore?.source(md);
+            const supported = !!(md && (privateSupported || SOURCE_MAP[sourceKind] || buildAllowedChainConfig(md, null) || infraSupported || infraChainSupported));
             completeBtn.disabled = !supported;
-            completeBtn.textContent = supported ? 'Mission beenden' : 'Mission beenden -';
-            completeBtn.title = supported
+            completeBtn.textContent = privateSupported ? 'Heimreise testen' : (supported ? 'Mission beenden' : 'Mission beenden -');
+            completeBtn.title = privateSupported ? 'Private Test-Heimreise erzeugen, ohne einen geflogenen Hinflug einzutragen' : supported
                 ? 'Aktuelle Draft-/Testmission als erfolgreich beendet markieren und Follow-up planen'
                 : 'Aktuelle Mission kann kein Follow-up ausloesen';
         }

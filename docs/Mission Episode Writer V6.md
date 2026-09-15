@@ -322,3 +322,34 @@ Neue Picker-Tests: `tools/mission-private-picker.test.cjs`.
 Kostenmodell, History, Rollenfehler und offene Qualitätsbefunde stehen in Abschnitt
 11 des [Mission Narrative Design Guide](Mission%20Narrative%20Design%20Guide.md).
 Release: V6.3 / Private Return V1, App-Cache `ga-dispatcher-v1760`, Tracker Alpha v404.
+
+## V6.3.1 – History für Auslöser, Initiative und Schreibweise (lokal)
+
+`origin` ergänzt neue Ideen um `initiative: pilot|companion|shared` und einen
+kurzen `trigger`. Der Planner entscheidet beides passend zum gemeinsamen
+Vorhaben. Der Writer bekommt dieselbe Herkunft der Verabredung und bewahrt sie.
+Es gibt keine feste Wechselquote, Aktivitätsliste oder Namenssperre.
+
+Die begrenzte Entwurfshistory speichert neben der KI-Memory jetzt diesen
+strukturierten Ursprung, `personalReason`, `pilotIntent` und `companionIntent`
+aus dem Ideenvertrag. Der nächste Planner erhält sie zum Vergleich. Dadurch
+wird nicht erst aus dem fertigen Text rekonstruiert, wer warum loswollte.
+Die Memory beschreibt weiterhin den tatsächlich geschriebenen Text und kann
+abweichende Beziehungsdynamik sichtbar machen.
+
+Der Writer erhält nun auch `distinctivePhrase` und Beziehungsdynamik sowie die
+klare Aufgabe, Funktionen von Einstieg, Satzfolge und Schluss zu vergleichen
+und die aktuelle Geschichte eigenständig aufzubauen. Alte Originalformulierungen
+sind Vergleichsmaterial, keine Stilvorlagen. Die Idee bleibt verbindlich.
+
+Speicherschlüssel `ga_private_episode_history_v1`, Memory-Schema, lokale Haltung
+und Grenzen (12 Einträge, 32 KiB UTF-16-Schätzung) bleiben erhalten. Alte Ideen,
+ausgewählte Picker-Angebote und History ohne `origin` sind lesbar; neue Felder
+sind eine kompatible Erweiterung. Keine Update-Löschung und kein neuer Cloud-
+Abgleich. Planner und Dreiervorschläge verwenden dieselben Anweisungen.
+Der Debugbericht zeigt den strukturierten Anstoß, wenn vorhanden.
+
+Validierung: Tests für Ideenvalidierung, History-Roundtrip, Übergabe an Planner
+und Writer, alte Einträge/Auswahlen und bestehende Picker-Integration. Keine
+zusätzlichen API-Aufrufe; die tatsächliche Verbesserung der sprachlichen Vielfalt
+ist noch in neuen Nutzerläufen zu beurteilen.

@@ -128,6 +128,7 @@
         simWaitedForMissionStart = resumeFromManual;
         simMissionEndPending = false;
         simMissionEndRecord = null;
+        window.gaSimMissionClosing = false;
         simIntermediateHold = null;
         simVisitedIntermediateHolds = new Set();
         window.simModeActive = true;
@@ -149,6 +150,12 @@
     };
 
     window.stopSimMode = function (options = {}) { _stop(options); };
+    window.finishSimMissionClose = function () {
+        if (!window.gaSimMissionClosing) return false;
+        _stopAnySimMode({ preserveMissionRuntime: true, fallbackToAuto: false });
+        window.gaSimMissionClosing = false;
+        return true;
+    };
 
     window.setSimSpeed = function (x) {
         simSpeedFactor = x;
@@ -474,6 +481,7 @@
     function _stop(options = {}) {
         simActive = false;
         window.simModeActive = false;
+        window.gaSimMissionClosing = false;
         window.simHadMeaningfulAirbornePhase = false;
         window.gaSimGpsPos = null;
         window.gaSimFlightData = null;
@@ -584,11 +592,15 @@
             ? ((typeof currentStartICAO !== 'undefined' && currentStartICAO) ? currentStartICAO : 'SIM HOME')
             : ((typeof currentDestICAO !== 'undefined' && currentDestICAO && currentDestICAO !== 'POI') ? currentDestICAO : 'SIM LANDING'));
         const gs = _gs();
-        const dist = Number(simRouteCache.totalDist || 0);
+        const dist = simTrack.slice(1).reduce((sum, point, i) => sum + (_distanceBetweenPointsNm(
+            {lat: simTrack[i][0], lon: simTrack[i][1]}, {lat: point[0], lon: point[1]}) || 0), 0);
         const durSec = Math.max(1, Math.round(simElapsedSec + (SIM_HOLD_SEC * 2)));
         return {
             id: Date.now(),
             simulated: true,
+            telemetrySampleCount: simTrack.length,
+            distanceSource: 'sim-track',
+            hasAirborneEvidence: window.simHadMeaningfulAirbornePhase === true,
             createdAt: Date.now(),
             dateLabel: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
             depLabel,
@@ -607,7 +619,10 @@
 
     function _finalizeSimMissionEnd(record) {
         const rec = record || simMissionEndRecord || _buildSimRecord();
-        if (!rec) return false;
+        if (!rec || window.gaSimMissionClosing) return false;
+        // Freeze progression, not the execution context: farewell/debrief still need ground position.
+        simPhase = 'mission_end_pending';
+        window.gaSimMissionClosing = true;
         simMissionEndPending = false;
         simMissionEndRecord = rec;
         if (typeof window.gaMissionPhaseDebugRecord === 'function') {
@@ -616,8 +631,8 @@
         console.log('[SimPax] Sim-Missionsende erreicht → expliziter Abschluss mit Farewell/Close-Pfad. Record:', rec?.distanceNm, 'NM');
         if (typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
             const started = _triggerPaxFarewellAndWaitForDeboard(rec, 'sim-mission-end-farewell');
-            _stopAnySimMode({ preserveMissionRuntime: started });
             if (started) return true;
+            window.gaSimMissionClosing = false;
         }
         if (typeof window.missionCargoFinalizeMissionOutcome === 'function') {
             try {

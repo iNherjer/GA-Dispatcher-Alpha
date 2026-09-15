@@ -94,7 +94,7 @@ test('V6.1 separates idea history from prose and gives writer the outing instead
  const input=v6.frame(contract(),[row]);
  const p=v6.ideaPrompt(input);assert.ok(p.includes('freie gemeinsame Zeit'));assert.ok(!p.includes('OPENING_MARKER'));assert.ok(!p.includes('PHRASE_MARKER'));assert.ok(!p.includes('SUMMARY_MARKER'));
  const raw={...idea(),noveltyReason:'ORIGINALITY_MARKER',episode:{...idea().episode,situation:'SCENE_MARKER'}};
- const w=v6.writerPrompt(v6.validateIdea(raw,input),input);assert.ok(w.includes('OPENING_MARKER'));assert.ok(!w.includes('PHRASE_MARKER'));assert.ok(!w.includes('ORIGINALITY_MARKER'));assert.ok(!w.includes('SCENE_MARKER'));
+ const w=v6.writerPrompt(v6.validateIdea(raw,input),input);assert.ok(w.includes('OPENING_MARKER'));assert.ok(w.includes('PHRASE_MARKER'));assert.ok(!w.includes('ORIGINALITY_MARKER'));assert.ok(!w.includes('SCENE_MARKER'));
  assert.ok(w.includes(raw.personalReason));assert.ok(w.includes(raw.groundPlan.intent));
 });
 
@@ -131,4 +131,20 @@ test('flight bindings retain supplied units and values; unresolved or handwritte
  for(const broken of [template.replace('[[target.cloudAmount]]','50 %'),template.replace('[[target.gust]]','[[start.gust]]'),template.replace('[[route.distance]]','28 NM'),template.replace('[[target.gust]]','lebhaft')])assert.equal(v6.resolveFlightBriefing(broken,f),'');
  const result=v6.prose({...prose(),flightBriefing:template.replace('[[target.gust]]','[[unknown]]')},idea(),{flightContext:f});
  assert.equal(result.story,prose().story);assert.equal(result.flightBriefing,'');assert.deepEqual(result.memory,memory());
+});
+
+test('V6.3.1 keeps structured initiative in history and supplies actual phrases without clearing legacy memories',()=>{
+ const raw={...idea(),origin:{initiative:'pilot',trigger:'Der Pilot hat einen freien Tag vorgeschlagen.'}};
+ const validated=v6.validateIdea(raw,v6.frame(contract(),[]));assert.deepEqual(validated.origin,raw.origin);
+ const data=new Map(),storage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};
+ assert.ok(v6.remember(storage,{missionId:'new',privateOuting:{...validated,writerMemory:memory()}}));
+ const recent=v6.recent(storage),input=v6.frame(contract(),recent);
+ assert.equal(recent[0].origin.initiative,'pilot');assert.equal(recent[0].personalReason,validated.personalReason);
+ assert.equal(recent[0].pilotIntent,validated.pilotIntent);
+ const planner=v6.ideaPrompt(input),writer=v6.writerPrompt(validated,input);
+ assert.ok(planner.includes(raw.origin.trigger));assert.ok(writer.includes(raw.origin.trigger));
+ assert.ok(writer.includes(memory().distinctivePhrase));
+ assert.ok(v6.validateIdea(idea(),input),'existing selections without origin remain valid');
+ assert.equal(v6.validateIdea({...raw,origin:{initiative:'random',trigger:'test'}},input),null);
+ assert.equal(v6.history(storage).length,1);
 });

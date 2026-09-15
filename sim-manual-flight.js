@@ -101,6 +101,7 @@
         );
         manualActive = false;
         window.simManualModeActive = false;
+        window.gaSimMissionClosing = false;
         window.gaSimGpsPos = null;
         window.gaSimFlightData = null;
         clearInterval(manualInterval);
@@ -229,6 +230,9 @@
             id: Date.now(),
             simulated: true,
             manualSim: true,
+            telemetrySampleCount: manualTrack.length,
+            distanceSource: 'sim-track',
+            hasAirborneEvidence: window.simHadMeaningfulAirbornePhase === true,
             createdAt: Date.now(),
             dateLabel: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
             depLabel,
@@ -401,6 +405,7 @@
     }
 
     function _forcedZeroReason() {
+        if (window.gaSimMissionClosing) return 'Missionsabschluss';
         const overlay = document.getElementById('missionCargoOverlay');
         if (overlay && getComputedStyle(overlay).display !== 'none' && overlay.getClientRects().length > 0) return 'Load/Pickup';
         const st = window.missionSceneStatus || {};

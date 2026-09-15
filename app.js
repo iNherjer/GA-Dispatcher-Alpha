@@ -39039,10 +39039,15 @@ async function fetchPrivateReturnStory(context = {}) {
     if (context.aiModeEnabled) {
         context.onPrivateStoryPhase?.('writer', 'v6');
         const response = await fetchGeminiJsonWithFallback(core.prompt(pipeline.privateReturn, contract), getSelectedAiApiKey(), {
-            promptVersion: 'mission-private-return-v1', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 20000
+            promptVersion: 'mission-private-return-' + core.REVISION, timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 20000
         });
-        prose = core.prose(response?.parsed, pipeline.privateReturn, contract);
-        if (!prose) throw new Error('Der Erlebnisrückblick für die Heimreise konnte nicht vollständig erstellt werden. Das Rückflugangebot bleibt verfügbar.');
+        const validation = core.validateProse(response?.parsed, pipeline.privateReturn, contract);
+        window.gaPrivateReturnWriterValidation = {at: new Date().toISOString(),
+            accepted: validation.accepted, errors: validation.errors,
+            sourceMissionId: pipeline.privateReturn.sourceMissionId};
+        prose = validation.prose;
+        if (!prose) throw new Error('Der Erlebnisrückblick für die Heimreise konnte nicht vollständig erstellt werden ('
+            + validation.errors.join(', ') + '). Das Rückflugangebot bleibt verfügbar.');
     }
     const result = core.mission(seed, context, prose);
     if (!result) throw new Error('Die Heimreise passt nicht mehr zum Flugrahmen.');
@@ -39057,7 +39062,7 @@ async function fetchPrivateReturnStory(context = {}) {
     });
     m._missionContractV4 = contract;
     m._missionWriterV4Debug = { source: 'Private Return Writer V1', writerMode: 'private-return-v1',
-        promptRevision: 'v1', taskDomain: 'private_return', writerAccepted: !!prose,
+        promptRevision: core.REVISION, taskDomain: 'private_return', debugCompletion: m.privateReturn.debugCompletion === true, writerAccepted: !!prose,
         rawAiStory: prose?.story || '', writerStory: m.s, storyChangedByFinalize: false,
         flightBriefing: prose?.flightBriefing || '', sourceMissionId: m.privateReturn.sourceMissionId,
         sourceCompletionId: m.privateReturn.sourceCompletionId, experienceRecap: m.privateReturn.experienceRecap };
@@ -39076,7 +39081,7 @@ async function fetchPrivateOutingStory(context = {}) {
     const input = planned?.input || coreApi.frame(contract, recent);
     const writerLabel = v6 ? 'Episode Writer V6 Privat' : 'Story Planner V5 Privat';
     const apiKey = getSelectedAiApiKey();
-    const options = { promptVersion: v6 ? 'mission-writer-private-v6-3' : 'mission-writer-private-v5-7', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 16000 };
+    const options = { promptVersion: v6 ? 'mission-writer-private-v6-3-1' : 'mission-writer-private-v5-7', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 16000 };
     let ideaResult = null;
     if (!planned) {
         context.onPrivateStoryPhase?.('idea', v6 ? 'v6' : 'v5');
@@ -39130,7 +39135,7 @@ async function fetchPrivateOutingStory(context = {}) {
         _requestedProfile: 'private_outing', _appliedProfile: 'private_outing',
         _missionPlanV2: context.missionPlanV2 || null, _missionPlanV4: contract, _missionContractV4: contract,
         _source: `${written?.source || ideaResult?.source || 'KI'} + ${writerLabel}${prose ? '' : ' (Ideentext-Fallback)'}`,
-        _missionWriterV4Debug: { source: writerLabel, writerMode: v6 ? 'private-v6' : 'private-v5', promptRevision: v6 ? 'v6.3' : 'v5.7',
+        _missionWriterV4Debug: { source: writerLabel, writerMode: v6 ? 'private-v6' : 'private-v5', promptRevision: v6 ? 'v6.3.1' : 'v5.7',
             ideaSource: selected ? 'private-picker' : 'private-planner', proposalRevision: selected?.revision || null,
             flightBriefingStatus: v6 ? prose?.flightBriefingStatus || 'unavailable' : 'legacy',
             flightBriefing: v6 ? prose?.flightBriefing || '' : '',
@@ -41814,7 +41819,7 @@ async function buildPrivateMissionProposalChoices(airports, context = {}) {
     }));
     context.ensureAlive?.();
     const response = await fetchGeminiJsonWithFallback(core.proposalPrompt(candidates, recent), key,
-        { promptVersion: 'mission-private-picker-v6-3', timeoutMs: 40000 });
+        { promptVersion: 'mission-private-picker-v6-3-1', timeoutMs: 40000 });
     context.ensureAlive?.();
     const proposals = core.proposals(response?.parsed, candidates);
     if (!proposals) throw new Error('Die drei Ausflugsideen konnten nicht vollständig erstellt werden. Bitte erneut Vorschläge anfordern.');

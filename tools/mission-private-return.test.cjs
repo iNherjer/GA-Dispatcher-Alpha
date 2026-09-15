@@ -64,7 +64,7 @@ test('private return stays onsite A-B, rejects mismatched start/destination, pre
 test('one return writer call produces shared recap and bound fresh weather; invalid response preserves retryable request',async()=>{
  const {md,record}=fixture(),req=core.request(md,record);let calls=0;
  const c={window:{MissionPrivateReturnCore:core},getSelectedAiApiKey:()=> 'TEST',getSelectedAiProvider:()=> 'gemini',
- fetchGeminiJsonWithFallback:async(p,k,o)=>{calls++;assert.ok(p.includes('"gustKts":14'));assert.equal(o.promptVersion,'mission-private-return-v1');return {parsed:raw()};}};
+ fetchGeminiJsonWithFallback:async(p,k,o)=>{calls++;assert.ok(p.includes('"gustKts":14'));assert.equal(o.promptVersion,'mission-private-return-'+core.REVISION);return {parsed:raw()};}};
  vm.createContext(c);extract(c,'app.js',['fetchPrivateReturnStory']);
  const m=await c.fetchPrivateReturnStory({missionContractV4:contract(),followupSeed:req,start:target,dest:home,aiModeEnabled:true});
  assert.equal(calls,1);assert.equal(m.privateReturn.experienceRecap.summary,'Gemeinsamer Ausstellungsbesuch');
@@ -85,7 +85,7 @@ test('return voice uses recap for all A-B phases, keeps both provider voices and
  for(const fn of ['_aptArrivalContextLine','_aptArrivalApproachHint','_aptArrivalAfterLandingHint','_aptArrivalFarewellHint']){
   const hint=c[fn]();assert.ok(hint.includes('Gemeinsamer Ausstellungsbesuch'));assert.ok(!hint.includes('Vorfreude'));
  }
- c._capturePrivateReturnNarrative('Die Farben haben mich beeindruckt.');assert.ok(c._aptArrivalApproachHint().includes('Bereits erzählte Gedanken'));
+ c._capturePrivateReturnNarrative('Die Farben haben mich beeindruckt.');assert.ok(c._aptArrivalApproachHint().includes('Die Farben haben mich beeindruckt.'));
  for(const fn of ['_ttsVoiceCandidatesForSpeaker','_openAiTtsVoiceCandidatesForSpeaker']) assert.deepEqual(clone(c[fn](md.passenger)),clone(c[fn](m.passenger)));
  c.window.currentMissionData={missionId:'other'};c.window.activePassenger=null;assert.equal(c._privateReturnNarrativeHint(), '');
 });
@@ -120,4 +120,59 @@ test('APT normalizer keeps the new task domain and return has no outbound arriva
  const c={window:{MissionPrivateReturnCore:core}};vm.createContext(c);extract(c,'app.js',['enforcePoiPassengerAltitudeRule']);extract(c,'mission-arrival-core.js',['buildAptArrivalPlan']);
  const p=c.enforcePoiPassengerAltitudeRule(m.passenger,false);assert.equal(p.taskDomain,'private_return');assert.equal(p.privateReturn,m.privateReturn);
  assert.equal(c.buildAptArrivalPlan({mission:m,dest:home,profileId:'private_return'}),null);
+});
+
+test('debug button creates explicit test return without fabricating logbook, landing or normal flight proof',()=>{
+ const {md,record}=fixture(),c=followupSandbox();c.currentMissionData=clone(md);
+ const buttons={btnDebugFollowupForce:{},btnDebugFollowupComplete:{}};
+ c.document.getElementById=id=>buttons[id]||null;
+ c.localStorage.setItem('last_icao_dest','OTHER');c.localStorage.setItem('ga_logbook','[]');
+ assert.equal(c.missionFollowupDebugCompleteCurrentMission(),true);
+ assert.equal(buttons.btnDebugFollowupComplete.disabled,false);
+ assert.equal(buttons.btnDebugFollowupComplete.textContent,'Heimreise testen');
+ const list=c.missionFollowupGetForSync(),req=list[0];
+ assert.equal(list.length,1);assert.equal(req.privateReturn.debugCompletion,true);assert.ok(req.ui.title.startsWith('Debug:'));
+ assert.equal(c.localStorage.getItem('last_icao_dest'),'OTHER');assert.equal(c.localStorage.getItem('ga_logbook'),'[]');
+ assert.equal(c.currentMissionData.missionCompletionState,undefined);
+ assert.equal(c.missionFollowupDebugCompleteCurrentMission(),false);assert.equal(c.missionFollowupGetForSync().length,1);
+ assert.equal(core.request(md,{...record,privateOutingEvidence:null,debugGenerated:true}),null);
+ assert.ok(core.request(md,record));assert.notEqual(core.request(md,record).id,req.id);
+ assert.equal(core.debugRequest({...md,privateReturn:req.privateReturn}),null);
+ const restored=followupSandbox();restored.missionFollowupApplyFromSync(list);
+ assert.equal(restored.missionFollowupGetForSync()[0].privateReturn.debugCompletion,true);
+});
+
+test('return accepts the actual companion name and reports rejected fields without weakening flight bindings',()=>{
+ const {md,record}=fixture(),c=core.request(md,record).privateReturn;
+ const reply=raw();reply.greeting.speaker='Sina';
+ assert.equal(core.validateProse(reply,c,contract()).accepted,true);
+ reply.greeting.speaker='Someone else';
+ assert.ok(core.validateProse(reply,c,contract()).errors.includes('greeting.speaker:invalid'));
+ reply.greeting.speaker='companion';reply.flightBriefing='Der Flug dauert 31 NM.';
+ const invalid=core.validateProse(reply,c,contract());
+ assert.equal(invalid.prose,null);
+ assert.deepEqual(invalid.errors,['flightBriefing:invalid_bindings_or_length']);
+ reply.flightBriefing=raw().flightBriefing;reply.experienceRecap.summary='';
+ assert.deepEqual(core.validateProse(reply,c,contract()).errors,['experienceRecap.summary:missing_or_length']);
+ assert.ok(core.prompt(c,contract()).includes('Außerhalb dieser Referenzen keine Ziffern'));
+});
+
+test('private departure waits for climb, speaks once and never arms for outbound or closing',()=>{
+ const {md,record}=fixture();const ret=core.mission(core.request(md,record),{start:target,dest:home}).mission;ret.missionId='return';
+ let now=0,calls=0,enabled=true;
+ const c={window:{currentMissionData:ret,MissionPrivateReturnCore:core,triggerPaxPrivateReturnDeparture:()=>{if(!enabled)return false;calls++;return true;}},Date:{now:()=>now},Number};
+ vm.createContext(c);const src=fs.readFileSync(require.resolve('../mission-runtime-core.js'),'utf8');
+ const at=src.indexOf('window.missionMaybeTriggerPrivateReturnDepartureVoice =');
+ vm.runInContext(src.slice(at,src.indexOf('\n};',at)+3),c);
+ const tick=(agl,onGround=false,r={active:true})=>c.window.missionMaybeTriggerPrivateReturnDepartureVoice({aglFt:agl,onGround},r);
+ assert.equal(tick(0,true),false);assert.equal(tick(60),false);
+ now=59999;assert.equal(tick(500),false);now=60000;assert.equal(tick(499),false);
+ enabled=false;assert.equal(tick(500),false);enabled=true;
+ assert.equal(tick(500),true);assert.equal(tick(500),false);assert.equal(calls,1);
+ c.window.missionPrivateReturnDepartureVoice=null;
+ assert.equal(tick(500,false,{active:false,closing:true}),false);
+ c.window.currentMissionData=md;assert.equal(tick(500),false);
+ c.window.currentMissionData=ret;assert.equal(tick(500),false);
+ now+=10000;tick(0,true);now+=25000;assert.equal(tick(500),false);
+ assert.equal(calls,1);
 });

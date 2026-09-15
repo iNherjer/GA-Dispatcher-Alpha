@@ -2,7 +2,7 @@
     'use strict';
     const SCHEMA = 'private-return.v1';
     const PROFILE = 'private_return';
-    const REVISION = 'v1';
+    const REVISION = 'v1.2';
     const text = (s, max = 600) => typeof s === 'string' ? s.trim().slice(0, max) : '';
     const copy = x => JSON.parse(JSON.stringify(x));
     const episodeApi = () => root.MissionPrivateEpisodeV6;
@@ -32,7 +32,8 @@
     }
     function completionEvidence(flight = {}, readiness = {}) {
         return {flown: Number(flight.durationSec) >= 15 && Number(flight.telemetrySampleCount) >= 2
-                && Number(flight.distanceNm) > 0 && flight.distanceSource !== 'planned',
+                && Number(flight.distanceNm) > 0 && flight.distanceSource !== 'planned'
+                && (!flight.simulated || (flight.distanceSource === 'sim-track' && flight.hasAirborneEvidence === true)),
             atTarget: readiness.atTarget === true, groundStill: readiness.groundStill === true};
     }
     function request(md, record, now = Date.now()) {
@@ -40,6 +41,21 @@
             || record.result !== 'completed' || record.failed || record.cargo?.failed || md.missionFailed
             || record.privateOutingEvidence?.flown !== true || record.privateOutingEvidence?.atTarget !== true
             || record.privateOutingEvidence?.groundStill !== true) return null;
+        return buildRequest(md, record, now);
+    }
+    // Explicit debug entry; normal completion never accepts a debug flag as flight evidence.
+    function debugRequest(md, now = Date.now()) {
+        if (!source(md) || !text(md.missionId, 100)) return null;
+        const req = buildRequest(md, {completionId: `debug-${md.missionId}`, endedAt: now}, now);
+        if (!req) return null;
+        req.id = req.dedupeKey = `private-return-debug-${md.missionId}`;
+        req.debugGenerated = true;
+        req.privateReturn.debugCompletion = true;
+        req.ui.title = `Debug: ${req.ui.title}`;
+        req.ui.subtitle = 'Testfortsetzung – kein geflogener Hinflug';
+        return req;
+    }
+    function buildRequest(md, record, now) {
         const completedAt = Number(record.endedAt);
         if (!Number.isFinite(completedAt) || completedAt <= 0 || now - completedAt >= 14 * 86400000) return null;
         const idea = sourceEpisode(md);
@@ -51,7 +67,7 @@
         // Bounded original contract, not the earlier prose, weather or draft history.
         const outing = Object.fromEntries(['occasion','personalReason','destinationConnection','firstStep'].map(k => [k, text(idea[k]) ]));
         Object.assign(outing, {companion: copy(idea.companion), luggage: copy(idea.luggage),
-            episode: copy(idea.episode || {}), groundPlan: copy(idea.groundPlan || {}),
+            origin: copy(idea.origin || null), episode: copy(idea.episode || {}), groundPlan: copy(idea.groundPlan || {}),
             eventVisit: copy(idea.eventVisit || null), pilotIntent: text(idea.pilotIntent, 200), companionIntent: text(idea.companionIntent, 200)});
         const passenger = Object.fromEntries(['name','role','gender','personality','gTolerance','bankTolerance','cargoSensitivity',
             'stomachSensitivity','comfortPriority','urgencyPriority','voiceId','voiceName','geminiVoice','openaiVoice'].map(k => [k, text(original[k], 160)]));
@@ -95,27 +111,46 @@
     function prompt(c, contract) {
         const flight = episodeApi().flightContext(contract);
         return `Du schreibst ein persönliches Vorflugbriefing für eine private Heimreise. Beide haben den in AUSFLUG beschriebenen Aufenthalt gemeinsam erlebt. Der Hinflug ist abgeschlossen; der Aufenthalt ist erzählte Fiktion, der Rückflug steht noch bevor. Der Pilot ist der Spieler (du), sein Name ist nicht bekannt. Die Begleitung bleibt dieselbe Person mit derselben Beziehung.
-Entwickle zuerst experienceRecap: summary fasst das gemeinsame Erlebnis zusammen, moments enthält ein bis drei konkrete Erinnerungen, companionReaction die persönliche Reaktion der Begleitung. Schmücke den Aufenthalt plausibel aus dem ursprünglichen Anlass aus. Die gemeinsame Absicht und der gewählte Ort tragen den Rückblick. Zeitgebundene Pläne bleiben als zeitlicher Bezug erhalten; ohne belegten Abstand keine bestimmte Tageszeit oder Aufenthaltsdauer behaupten.
-Schreibe daraus story: locker und persönlich erzählt, mit eigenem Einstieg und natürlichem Satzbau. Das Erlebnis darf Raum bekommen; die Situation führt zur anstehenden Heimreise. Erzähle eine zusammenhängende Fortsetzung, kein weiteres Ausflugsvorhaben und keinen Transportauftrag. Der Text bleibt ein Briefing vor dem Start. greeting ist ein kurzer Satz der Begleitung zum Piloten aus diesem Erlebnis. Keine festgelegte Heimreiseformel.
-flightBriefing schließt in zwei bis drei flüssigen Sätzen im selben Ton an. Nutze ausschließlich FLUGDATEN. Zahlen mit Einheiten stehen nur als Referenzen aus WERTE, etwa [[route.distance]]. Vorhandene Entfernung sowie Start-/Zielböen müssen vorkommen. Bezug der Wetterbeobachtungen ist jeweils Start oder Ziel (gegebenenfalls abweichende Station), nicht die ganze Strecke oder eine Vorhersage. Ohne Messwerte benenne die fehlenden Wetterangaben kurz. Nur landscape belegt Landschaft entlang der Route. Über die frühere Flugführung sagen die fiktionalen Erlebnisse nichts aus.
+Erzählperspektive nach Feld: story und flightBriefing stammen von einem außenstehenden Erzähler, der selbst nicht mitreist. Er spricht den Spieler als du an, beide Reisenden als ihr/euch und erzählt über die Begleitung mit ihrem Namen oder er/sie. Er bleibt auch beim Rückblick außerhalb der Figuren: keine Ich-/Wir-Erzählung und kein Gespräch des Piloten mit der Begleitung. Nähe entsteht durch konkrete gemeinsame Erinnerungen und persönliche Beobachtungen. experienceRecap ist die gemeinsame Datengrundlage: summary, moments und companionReaction beschreiben die beiden in dritter Person als Pilot und Begleitung, nicht als gesprochenen Monolog. Nur greeting.text ist direkte Rede der Begleitung an den Piloten; dort sind ich und wir passend. Diese Feldrollen bleiben beim Übertragen des Rückblicks in Briefing und Begrüßung erhalten.
+Entwickle zuerst experienceRecap: summary fasst das gemeinsame Erlebnis zusammen, moments enthält zwei bis drei inhaltlich unterschiedliche kleine Begebenheiten aus dem gemeinsamen Aufenthalt: jeweils was konkret geschah oder auffiel und wie einer der beiden darauf reagierte. Eine Begebenheit soll weitererzählbar sein und nicht nur die allgemeine Stimmung bewerten. Erfinde dazu plausible persönliche Details, die zu diesen Menschen, dem Anlass und dem Ort passen. Auch ein unspektakulärer Ausflug liefert Gesprächsstoff; künstliche Dramatik ist unnötig. companionReaction beschreibt, was gerade diese Begleitung daran persönlich beschäftigt oder amüsiert hat. Die Erinnerungen bilden gemeinsam einen konsistenten Aufenthalt, nicht mehrere Umschreibungen desselben Eindrucks. Schmücke den Aufenthalt plausibel aus dem ursprünglichen Anlass aus. Die gemeinsame Absicht und der gewählte Ort tragen den Rückblick. Zeitgebundene Pläne bleiben als zeitlicher Bezug erhalten; ohne belegten Abstand keine bestimmte Tageszeit oder Aufenthaltsdauer behaupten.
+Schreibe daraus story: locker und persönlich erzählt, mit eigenem Einstieg und natürlichem Satzbau. Greife einen Teil des Erlebnisses auf und lasse Raum für weitere Erinnerungen im späteren Gespräch; das Briefing muss nicht alle moments vorwegnehmen. Die Situation führt zur anstehenden Heimreise. Erzähle eine zusammenhängende Fortsetzung, kein weiteres Ausflugsvorhaben und keinen Transportauftrag. Der Text bleibt ein Briefing vor dem Start. greeting ist ein kurzer Satz der Begleitung zum Piloten aus diesem Erlebnis. Keine festgelegte Heimreiseformel.
+flightBriefing schließt in zwei bis drei flüssigen Sätzen im selben Ton an. Nutze ausschließlich FLUGDATEN. Alle Werte aus WERTE werden mit ihrem exakten Schlüssel in doppelten eckigen Klammern eingesetzt, etwa [[route.distance]]. Die Referenz enthält die Einheit bereits. Außerhalb dieser Referenzen keine Ziffern oder eckigen Klammern verwenden; auch Stationskennungen mit Ziffern als vorhandene Stationsreferenz einsetzen. Keine unbekannten Referenzen erfinden. Vorhandene Entfernung sowie Start-/Zielböen müssen vorkommen. Bezug der Wetterbeobachtungen ist jeweils Start oder Ziel (gegebenenfalls abweichende Station), nicht die ganze Strecke oder eine Vorhersage. Fehlende Messwerte bleiben unbekannt. Benenne die Lücke kurz als noch offene Wetterprüfung vor dem Start; leite daraus weder gute Flugbedingungen noch eine Entscheidung zum Fliegen ab. Eine nicht gemeldete Böenangabe belegt keine Böenfreiheit. Wetterbewertungen gehören ausschließlich in flightBriefing; die fiktionale story beschreibt dafür keine eigenen Bedingungen. Nur landscape belegt Landschaft entlang der Route. Über die frühere Flugführung sagen die fiktionalen Erlebnisse nichts aus.
 Antworte nur als JSON: {"title":"...","experienceRecap":{"summary":"...","moments":["..."],"companionReaction":"..."},"story":"...","flightBriefing":"...","greeting":{"speaker":"companion","addressee":"pilot","text":"..."}}.
 Grenzen in Zeichen: title 160, summary 500, je moment 240, companionReaction 300, story 1800, flightBriefing 850, greeting.text 600.
 AUSFLUG: ${JSON.stringify(c)}
 WERTE: ${JSON.stringify(episodeApi().flightBindings(flight))}
 FLUGDATEN: ${JSON.stringify(flight)}`;
     }
-    function prose(raw, c, contract) {
-        const r = raw?.experienceRecap;
+    function validateProse(raw, c, contract) {
+        const errors = [];
         const validText = (v, max) => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
-        if (!validText(raw?.title,160) || !validText(raw?.story,1800) || !validText(r?.summary,500)
-            || !validText(r?.companionReaction,300) || !Array.isArray(r?.moments) || r.moments.length < 1 || r.moments.length > 3
-            || !r.moments.every(x => validText(x,240)) || raw?.greeting?.speaker !== 'companion'
-            || raw.greeting.addressee !== 'pilot' || !validText(raw.greeting.text,600)) return null;
-        const checked = episodeApi().prose(raw, {companion:c.outing.companion}, {flightContext:episodeApi().flightContext(contract)});
-        const flight = checked?.flightBriefing;
-        if (!flight) return null;
-        return {title:raw.title.trim(), story:raw.story.trim(), greeting:raw.greeting.text.trim(), flightBriefing:flight,
-            continuity:{...copy(c), experienceRecap:copy(r)}};
+        for (const [path, value, max] of [
+            ['title',raw?.title,160], ['story',raw?.story,1800],
+            ['experienceRecap.summary',raw?.experienceRecap?.summary,500],
+            ['experienceRecap.companionReaction',raw?.experienceRecap?.companionReaction,300],
+            ['greeting.text',raw?.greeting?.text,600]]) {
+            if (!validText(value,max)) errors.push(path + ':missing_or_length');
+        }
+        const r = raw?.experienceRecap;
+        if (!Array.isArray(r?.moments) || r.moments.length < 1 || r.moments.length > 3
+            || !r.moments.every(x => validText(x,240))) errors.push('experienceRecap.moments:invalid');
+        // Same identity alias as the V6 writer; never accept an unrelated speaker.
+        const speaker = raw?.greeting?.speaker;
+        const namedCompanion = typeof speaker === 'string' && speaker.trim().toLowerCase()
+            === c.outing.companion.name.trim().toLowerCase();
+        if (speaker !== 'companion' && !namedCompanion) errors.push('greeting.speaker:invalid');
+        if (raw?.greeting?.addressee !== 'pilot') errors.push('greeting.addressee:invalid');
+        if (/[{}]|```/.test(String(raw?.story || '') + String(raw?.greeting?.text || ''))) errors.push('story_or_greeting:format');
+        const flightContext = episodeApi().flightContext(contract);
+        const flight = episodeApi().resolveFlightBriefing(raw?.flightBriefing, flightContext);
+        if (!flight) errors.push('flightBriefing:invalid_bindings_or_length');
+        if (errors.length) return {accepted:false, errors, prose:null};
+        return {accepted:true, errors:[], prose:{title:raw.title.trim(), story:raw.story.trim(),
+            greeting:raw.greeting.text.trim(), flightBriefing:flight,
+            continuity:{...copy(c), experienceRecap:copy(r)}}};
+    }
+    function prose(raw, c, contract) {
+        return validateProse(raw, c, contract).prose;
     }
     function mission(req, ctx = {}, written = null) {
         const p = pipeline(req, ctx);
@@ -139,13 +174,13 @@ FLUGDATEN: ${JSON.stringify(flight)}`;
     function voice(c, stage = 'context') {
         if (!c || c.schema !== SCHEMA) return '';
         const directions = {boarding:'Vor dem Start: Greife eine persönliche Erinnerung auf; ihr seid gemeinsam zurück am Flugzeug.',
-            departure:'Der Rückflug beginnt. Führe den Gedanken vom Boarding weiter.',
-            arrival:'Der Anflug auf den Heimatplatz steht bevor. Verbinde einen verbliebenen Eindruck mit dem Ausklang der Reise.',
+            departure:'Der Rückflug beginnt. Erzähle einen bisher nicht ausgeführten Moment des Aufenthalts weiter.',
+            arrival:'Der Anflug auf den Heimatplatz steht bevor. Wenn Raum für einen Rückblick bleibt, greife ein noch nicht erzähltes konkretes Detail kurz auf.',
             landing:'Ihr seid am Heimatplatz gelandet. Kurzes Flugfeedback nur nach den Flugdaten, danach ein passender persönlicher Gedanke.',
-            farewell:'Die gemeinsame Reise endet am Heimatplatz. Runde das Erlebnis persönlich ab.'};
-        return `PRIVATE HEIMREISE: ${c.visited.name} -> ${c.home.name}. ${directions[stage] || 'Der Aufenthalt liegt hinter euch, der gemeinsame Rückflug ist das aktuelle Flugvorhaben.'} Verbindlicher Erlebnisrückblick: ${JSON.stringify(c.experienceRecap || {plannedOuting:c.outing.occasion, detailStatus:'Kein ausgearbeiteter Erlebnisrückblick vorhanden'})}. Wähle einen passenden Gedanken statt den Rückblick vollständig vorzulesen. An frühere Ansagen inhaltlich anschließen, ohne sie neu zu erzählen. Die Begleitung spricht zum vertrauten Piloten; keine neue Vorstellung und keine bevorstehende Aktivität am alten Ausflugsziel.`;
+            farewell:'Die gemeinsame Reise endet am Heimatplatz. Verabschiede dich persönlich mit einem konkreten Bezug zum gemeinsamen Aufenthalt; bereits gegebenes Flugfeedback braucht keine erneute Bewertung.'};
+        return `PRIVATE HEIMREISE: ${c.visited.name} -> ${c.home.name}. ${directions[stage] || 'Der Aufenthalt liegt hinter euch, der gemeinsame Rückflug ist das aktuelle Flugvorhaben.'} Verbindlicher Erlebnisrückblick: ${JSON.stringify(c.experienceRecap || {plannedOuting:c.outing.occasion, detailStatus:'Kein ausgearbeiteter Erlebnisrückblick vorhanden'})}. Erzähle wie unter Vertrauten aus dem gemeinsam Erlebten. Wähle für diese Ansage einen konkreten, noch nicht ausgeführten Moment und erzähle dazu eine kleine Beobachtung, Handlung oder persönliche Reaktion. Plausible fiktive Einzelheiten des Aufenthalts darfst du frei ergänzen, auch wenn ein älterer Rückblick nur Stimmung enthält. Sie müssen zu Anlass, Personen, Ort und bereits erzählten Begebenheiten passen; feststehende Ereignisse und Reaktionen bleiben erhalten. Solche persönlichen Ausschmückungen sind keine Quelle für neue historische Ortsfakten, reale Flugereignisse oder eine erfundene gemeinsame Flugvergangenheit. Vergleiche mit den bereits ausgegebenen Texten: Ein neuer Gedanke fügt etwas zum Erlebnis hinzu, statt dieselbe Stimmung anders auszudrücken. Ein Rückbezug darf kurz verbinden, der übrige Inhalt führt weiter. Persönlichkeit bestimmt die Art des Erzählens, nicht ein ständig wiederkehrendes Thema. Halte die Länge und Aufmerksamkeit der aktuellen Flugphase ein; bei notwendigem Flugfeedback hat dieses Vorrang vor der Anekdote. Die Begleitung spricht zum vertrauten Piloten; keine neue Vorstellung und keine bevorstehende Aktivität am alten Ausflugsziel.`;
     }
-    const api = {SCHEMA, PROFILE, REVISION, context, source, completionEvidence, ref, same, request, acceptance, pipeline, prompt, prose, mission, voice};
+    const api = {SCHEMA, PROFILE, REVISION, context, source, completionEvidence, ref, same, request, debugRequest, acceptance, pipeline, prompt, validateProse, prose, mission, voice};
     root.MissionPrivateReturnCore = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -4455,15 +4455,23 @@ async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch
     return _paxDecodeAudioBufferAndPlay(bytes.buffer, mimeType, epoch, sourceLabel);
 }
 
-async function _paxPlayResolvedTtsAudio(audio, epoch = _paxMissionEpoch) {
+async function _paxPlayResolvedTtsAudio(audio, epoch = _paxMissionEpoch, eventLabel = 'Ansage') {
     if (!audio?.b64) return false;
     if (typeof window.awmShouldPlayOnThisDevice === 'function' && !window.awmShouldPlayOnThisDevice()) {
         _paxLog('TTS bleibt auf diesem Gerät stumm (Audio-Wiedergabeinstanz deaktiviert)', 'state');
         return true;
     }
+    const recordVoice = () => {
+        const entry = { event: eventLabel, name: audio.speaker?.name || '',
+            voice: audio.voiceName || '', model: audio.model || '', provider: audio.provider || '', at: Date.now() };
+        window.gaPaxVoicePlaybackHistory = [...(window.gaPaxVoicePlaybackHistory || []).filter(x => x.epoch === epoch),
+            {...entry, epoch}].slice(-12);
+        _paxLog(`Wiedergabestimme | ${entry.event} | ${entry.name} | ${entry.provider}/${entry.model}/${entry.voice}`, 'audio');
+    };
     const trackerEffectId = String(audio.trackerEffectId || '').trim();
     const trackerClient = trackerEffectId ? _getTrackerVoiceClient() : null;
     if (!trackerEffectId || !trackerClient) {
+        recordVoice();
         return _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS');
     }
     const claim = await trackerClient.claimPlayback(trackerEffectId, 120000);
@@ -4473,6 +4481,7 @@ async function _paxPlayResolvedTtsAudio(audio, epoch = _paxMissionEpoch) {
     }
     let played = false;
     try {
+        recordVoice();
         played = await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'Tracker TTS');
         return played;
     } finally {
@@ -5552,7 +5561,7 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
             const rec = _paxPreparedAudio.get(key);
             const audio = rec?.audio || await (rec?.promise || _prepareTextAsTTS(key, text, speaker, epoch));
             if (epoch !== _paxMissionEpoch) return;
-            if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch);
+            if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch, eventLabel);
             else await _playTextAsTTS(text, speaker, epoch);
             if (typeof options.afterAudio === 'function') {
                 await options.afterAudio(epoch);
@@ -6660,7 +6669,7 @@ async function _playTextAsTTS(text, speaker = null, epoch = _paxMissionEpoch, op
         _paxLog(`${options.eventLabel || 'Ansage'} nach TTS verworfen: Farewell/Missionsende aktiv`, 'state');
         return;
     }
-    if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch);
+    if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch, options.eventLabel || 'Ansage');
 }
 
 async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null, epoch = _paxMissionEpoch, options = {}) {
@@ -6672,13 +6681,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
     const pax = window.activePassenger || null;
-    const speakerSnapshot = speakerOverride || (pax ? {
-        name: pax.name || '',
-        role: pax.role || '',
-        gender: pax.gender || '',
-        roleProfile: pax.roleProfile || '',
-        taskDomain: pax.taskDomain || ''
-    } : null);
+    const speakerSnapshot = speakerOverride || _speakerSnapshotForActivePax();
 
     _paxLog(`── ${eventLabel} ──`, 'event');
     _logRoleConsistencyCheck(eventLabel);
@@ -7544,7 +7547,7 @@ function _privateReturnNarrativeHint(stage = 'context', md = null, contract = nu
     const id = (md || window.currentMissionData)?.missionId || c.sourceCompletionId;
     const used = _privateReturnSpoken.missionId === id ? _privateReturnSpoken.lines : [];
     return window.MissionPrivateReturnCore.voice(c, stage)
-        + (used.length ? ` Bereits erzählte Gedanken (fortführen statt wiederholen): ${JSON.stringify(used)}` : '');
+        + (used.length ? ` Bisher ausgegebene Texte dieser Heimreise (als Kontinuität nutzen; für den nächsten Beitrag einen neuen Inhalt wählen): ${JSON.stringify(used)}` : '');
 }
 
 function _privateOutingStoryContext(md = null, contract = null) {
@@ -9535,6 +9538,19 @@ window.triggerPaxPickupBoarding = async function() {
     _paxLog('PickupBoarding → API-Call', 'event');
     await _speakAndShow(prompt, 'Pickup');
 }
+
+window.triggerPaxPrivateReturnDeparture = function() {
+    if (!_paxVoiceEnabled || !window.activePassenger || !_missionHasPax()
+        || !_privateReturnVoiceContext() || _paxAtTargetDone || _paxFarewellDone
+        || _paxSpeechCanceledByMissionEnd({})) return false;
+    const ctx = _baseContext();
+    if (!ctx) return false;
+    const prompt = `${ctx}
+${_privateReturnNarrativeHint('departure')}
+Moment: Ihr seid nach dem Start auf der privaten Heimreise in der Luft. Erzähle als Begleitung in zwei bis vier lockeren Sätzen eine kleine Begebenheit aus eurem Aufenthalt, die im bisherigen Gespräch noch nicht ausgeführt wurde. Du sprichst zum vertrauten Piloten aus deiner Ich-Perspektive. Die persönliche Erzählung setzt das Gespräch fort, ohne neue Begrüßung oder Zusammenfassung des ganzen Ausflugs.`;
+    void _speakAndShow(prompt, 'Heimreise nach dem Start');
+    return true;
+};
 
 window.triggerPaxPickupDeparture = async function() {
     _paxLog(`triggerPaxPickupDeparture | tts:${_paxVoiceEnabled} done:${_paxPickupDepartureDone} pax:${!!window.activePassenger}`, 'state');

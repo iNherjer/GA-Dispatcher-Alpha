@@ -817,6 +817,25 @@ function _missionBushRequiresReturnHome() {
     return _missionSceneIsBushMission() && _missionBushEffectiveCompletionMode() === 'return_home';
 }
 
+// Private APT return: one optional narrative after the initial climb, no pickup phase.
+window.missionMaybeTriggerPrivateReturnDepartureVoice = function(fd = {}, runtime = {}) {
+    const md = window.currentMissionData;
+    if (!runtime.active || runtime.closing || !window.MissionPrivateReturnCore?.context(md || {})) return false;
+    const id = md?.missionId;
+    if (!id) return false;
+    let state = window.missionPrivateReturnDepartureVoice;
+    if (!state || state.missionId !== id) state = window.missionPrivateReturnDepartureVoice = {missionId:id, airborneSince:null, done:false};
+    if (state.done) return false;
+    const airborne = fd.onGround !== true && Number.isFinite(fd.aglFt) && fd.aglFt > 45;
+    if (!airborne) { state.airborneSince = null; return false; }
+    const now = Date.now();
+    if (state.airborneSince === null) state.airborneSince = now;
+    if (now - state.airborneSince < 60000 || fd.aglFt < 500) return false;
+    if (window.triggerPaxPrivateReturnDeparture?.() !== true) return false;
+    state.done = true;
+    return true;
+};
+
 window.missionArmPickupDepartureVoice = function(kind = 'passenger') {
     window.missionPickupDepartureVoicePending = {
         kind: String(kind || 'passenger').toLowerCase() === 'cargo' ? 'cargo' : 'passenger',
@@ -1388,6 +1407,14 @@ function _triggerPaxFarewellAndWaitForDeboard(record, reason = 'pax-farewell') {
         });
     }
     const farewellRecord = _missionFarewellRecordWithCargoOutcome(record);
+    // Capture canonical arrival while telemetry still exists; never infer it from briefing text.
+    if (farewellRecord && typeof _missionEndReadiness === 'function') {
+        const ready = _missionEndReadiness();
+        farewellRecord.missionEndEvidence = {
+            missionId: typeof currentMissionData !== 'undefined' ? currentMissionData?.missionId : null,
+            atTarget: ready.atTarget === true, groundStill: ready.groundStill === true
+        };
+    }
     missionRuntime.waitingFarewellDeboarding = true;
     missionRuntime.deboardingAfterFarewellStarted = false;
     missionRuntime.farewellSpeechStarted = false;

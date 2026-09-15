@@ -4407,6 +4407,7 @@ window.vpBuildWeatherDebugReport = function() {
             if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
             if (storyBits.length) lines.push(`- Story-Debug: ${storyBits.join(' | ')}`);
             if (sd.taskDomain === 'private_return') {
+                if (sd.debugCompletion) lines.push('- Private Heimreise Testquelle: Debug-Abschluss, kein geflogener Hinflug.');
                 lines.push(`- Private Heimreise: ${flattenText(sd.sourceMissionId, 120)} | Abschluss=${flattenText(sd.sourceCompletionId, 160)}`);
                 lines.push(`- Privat-Erlebnis: ${flattenText(sd.experienceRecap?.summary, 500)}`);
                 lines.push(`- Privat-Reaktion: ${flattenText(sd.experienceRecap?.companionReaction, 300)}`);
@@ -4417,6 +4418,7 @@ window.vpBuildWeatherDebugReport = function() {
                 if (sd.ideaSource) lines.push(`- Privat-Ideenquelle: ${flattenText(sd.ideaSource, 50)}${sd.proposalRevision ? ` | Picker=${flattenText(sd.proposalRevision, 30)}` : ''}`);
                 if (sd.writerHistoryCount !== undefined) lines.push(`- Privat-Writer-History: ${Number(sd.writerHistoryCount || 0)}`);
                 if (sd.memoryStatus) lines.push(`- Privat-Erinnerung: ${flattenText(sd.memoryStatus, 50)} | ${flattenText(idea.writerMemory?.summary, 240)}`);
+                if (idea.origin) lines.push(`- Privat-Anstoß: ${flattenText(idea.origin.initiative, 30)} | ${flattenText(idea.origin.trigger, 240)}`);
                 lines.push(`- Privat-Idee: ${flattenText(idea.occasion, 600)}`);
                 lines.push(`- Privat-Ortsanker: ${flattenText(idea.creativeBasis?.realAnchor, 400)}`);
                 lines.push(`- Privat-Fiktion: ${flattenText(idea.creativeBasis?.fictionalPart, 400)}`);
@@ -4819,6 +4821,8 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Voice Flags: boarding=${voiceState.boardingDone ? '1' : '0'} | greeting=${voiceState.greetingDone ? '1' : '0'} | target=${voiceState.atTargetDone ? '1' : '0'} | farewell=${voiceState.farewellDone ? '1' : '0'} | endLock=${voiceState.missionEndVoiceActive ? '1' : '0'}`);
         const recentVoiceLog = Array.isArray(voiceState.recentLog) ? voiceState.recentLog.slice(0, 30).reverse() : [];
         if (recentVoiceLog.length) {
+            const playedVoices = (window.gaPaxVoicePlaybackHistory || []).filter(x => x.epoch === voiceState.missionEpoch);
+            if (playedVoices.length) lines.push('- Wiedergabestimmen: ' + playedVoices.map(x => `${x.event}: ${x.name} / ${x.voice} / ${x.model}`).join(' | '));
             lines.push('- Voice Verlauf:');
             recentVoiceLog.forEach(entry => lines.push(`  ${entry.at ? vpFormatDebugTs(entry.at) : (entry.ts || '-')} [${entry.type || 'event'}] ${flattenText(entry.msg, 520)}`));
         }

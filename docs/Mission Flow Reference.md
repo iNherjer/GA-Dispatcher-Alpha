@@ -535,3 +535,19 @@ Eine gewoehnliche Cargo-Payload-Synchronisierung ist keine Voraussetzung fuer
 die Ankunftsunterschrift oder Entladebestaetigung. Erst die Bestaetigung
 setzt den vorhandenen Farewell-/Deboarding-/Close-Ablauf fort; Signatur allein
 beendet die Mission nicht. Finale Payload- und PAX-Gates gelten weiterhin.
+
+### App-Sim-Abschluss für Debugging (Korrektur 14.09.2026, lokal)
+
+Auto-/Manual-Sim bleibt durch Farewell und Debrief im Sim-Kontext; Bewegung hält
+am erreichten Bodenpunkt. Erst Reset/Abschluss-Cleanup oder expliziter Stop gibt
+diesen Kontext frei. Die bereits geprüfte End-Readiness wird am Flugrecord mit
+Missions-ID gesichert. Sim-Records liefern Trackstrecke, Samplezahl und Flugphase;
+private Heimreiseangebote entstehen daraus erst nach persistiertem Abschluss.
+Details und Regression: [Private Return V1](Mission%20Private%20Return%20V1.md),
+`tools/mission-sim-close.test.cjs`. Reine Entwürfe/Bodenläufe sind keine Hinflüge.
+
+Für private Entwürfe erzeugt der Debug-Knopf „Heimreise testen“ ein ausdrücklich
+markiertes Testangebot über `debugRequest`, ohne den Hinflug zu protokollieren.
+Normale Completion-Gates bleiben davon getrennt. Picker und Einzelplanner
+verwenden ab V6.3.1 dieselbe erweiterte History für Initiative/Auslöser; der Writer
+vergleicht zusätzlich frühere Originalformulierungen (lokaler Stand).

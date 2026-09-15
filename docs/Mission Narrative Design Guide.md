@@ -426,3 +426,18 @@ Die private Fortsetzung verwendet normale APT-Trigger und bestehende Runtime-Gat
 Bush-Pickup-spezifische Abflugtrigger werden nicht auf ein normales Boarding
 übertragen. Das begrenzt die Erweiterung auf ihren eigenen fachlichen Vertrag
 und verhindert parallele Ansagen beziehungsweise einen versteckten Return-Leg.
+
+## 13. Auslöser und History-Nutzung in V6.3.1 (lokal)
+
+Wiederkehrende Geschichten „Begleitung entdeckt etwas, Pilot lässt sich
+anstecken“ können trotz mitgelieferter History entstehen. Ein History-Zähler
+beweist Datenübergabe, nicht deren ausreichende Berücksichtigung. V6.3.1 bewahrt
+deshalb Ursprung und Initiative als kompakte Vertragsdaten und gibt dem Writer
+einen ausdrücklichen Vergleichsauftrag für den erzählerischen Aufbau. Die
+Originalphrase früherer Texte wird zum Wiedererkennen mitgegeben, nicht zum
+Nachahmen. [Details](Mission%20Episode%20Writer%20V6.md).
+
+Beurteilungen trennen ab jetzt: gespeicherte Entwürfe, im konkreten Prompt
+verfügbare History und tatsächlich erzielte Vielfalt. Die lokale History kennt
+weiterhin keine Testserien anderer Geräte. Kein pauschales Verbot einer Person,
+Aktivität oder Formulierung; keine zusätzlichen Regenerierungsschleifen.
