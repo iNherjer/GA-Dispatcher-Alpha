@@ -4,6 +4,10 @@ Stand: 15.09.2026, lokaler Umbau. Ergänzt die [Bestandsaufnahme](POI%20Tracker%
 
 ## Status und Freigabegrenze
 
+**Ab v409 gilt der gemeinsame Alpha-Schalter für APT und Standard-POI.**
+`VFR_MULTITOOL_POI_EXECUTION` entfällt; die v408-Aktivierungshinweise unten
+dokumentieren den damaligen Release. [Aktuelle Bedienung](Tracker%20v409%20Mission%20Authority%20Switch.md).
+
 **Die vier Befunde aus Abschnitt 14 sind korrigiert. Der isolierte Origin-/Alpha-Release ist v408; Umsetzung und Nachweise stehen in Abschnitt 15 und 16.** Simulator-, Audio- und Mehrgeräte-Feldtests stehen weiterhin aus.
 
 Der vollständige Standard-POI-Pfad ist lokal an die gemeinsame Tracker-Infrastruktur

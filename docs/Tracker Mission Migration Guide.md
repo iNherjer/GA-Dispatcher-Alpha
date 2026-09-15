@@ -51,6 +51,11 @@ POI-Vorbilder: `mission-poi-task-core.js`, `mission-poi-voice-core.js`,
 ohne App-Code auszuführen. Nachfolgende `window`-Registrierungen gehören nicht
 ungeprüft in den Fachkern. Die eingefrorenen Testreferenzen werden nicht mitgeneriert.
 
+Ab Tracker v409 steuert der gemeinsame Alpha-Schalter alle ausdrücklich
+freigegebenen Rezepte. Pro neue Missionsfamilie bleibt eine eigene fachliche
+Freigabe nötig; es wird kein weiterer Benutzer-/Umgebungsschalter eingeführt.
+[Bedienung und Kompatibilitätsvertrag](Tracker%20v409%20Mission%20Authority%20Switch.md).
+
 ## 3. Vollständiges Rezept vor Authority-Übernahme
 
 Ein versioniertes Rezept bindet Mission-ID, echte TaskDomain, Originalparameter,

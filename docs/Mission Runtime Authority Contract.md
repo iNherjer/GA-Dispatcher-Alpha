@@ -954,3 +954,11 @@ auch beim späteren Voice-ACK.
 Die dort ausgewiesenen Unit-/Differentialtests ersetzen keine MSFS-/Mehrgeräte-
 Feldfreigabe. Für weitere Missionstypen dient der
 [Migrationsleitfaden](Tracker%20Mission%20Migration%20Guide.md) als verbindlicher Einstieg.
+
+### Gemeinsamer Alpha-Schalter ab Tracker v409
+
+Der bestehende Desktop-Schalter steuert alle ausdrücklich freigegebenen
+Tracker-Rezepte (derzeit APT und Standard-POI). Die separate POI-Prozessvariable
+entfällt. Bestehende Einstellungs-/IPC-Namen bleiben kompatibel; neue Familien
+benötigen weiterhin ihren vollständigen Rezept-/Capability-Nachweis. Stable
+bleibt ausgeschlossen. [Bedienung](Tracker%20v409%20Mission%20Authority%20Switch.md).

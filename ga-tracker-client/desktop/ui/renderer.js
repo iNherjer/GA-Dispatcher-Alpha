@@ -413,7 +413,7 @@ function render(state) {
   elements.aptMissionExecutionMessage.textContent = runtimeChannel !== 'alpha'
     ? 'Nur im Alpha-Kanal verfügbar. Stable verwendet immer die bisherige Missionssteuerung.'
     : (settings.aptMissionExecutionEnabled === true
-      ? 'Aktiv: Der Tracker führt unterstützte APT-Missionen autoritativ aus.'
+      ? 'Aktiv: Der Tracker führt unterstützte Missionen (APT und POI) eigenständig aus.'
       : 'Aus: Die bisherige Missionssteuerung der App bleibt aktiv.');
   const hardMissionResetAvailable = tracker.process === 'running'
     && runtimeChannel === 'alpha'
@@ -531,7 +531,7 @@ elements.runtimeChannelSelect.addEventListener('change', async () => {
 elements.aptMissionExecutionCheckbox.addEventListener('change', async () => {
   const previous = latestState?.settings?.aptMissionExecutionEnabled === true;
   const enabled = elements.aptMissionExecutionCheckbox.checked;
-  if (enabled && !window.confirm('Experimentelle APT-Tracker-Steuerung aktivieren? Ein laufender Tracker wird neu gestartet. Verwende diese Funktion vorerst nur für den Alpha-Missionstest.')) {
+  if (enabled && !window.confirm('Experimentelle Tracker-Missionssteuerung aktivieren? Ein laufender Tracker wird neu gestartet. Verwende diese Funktion vorerst nur für den Alpha-Missionstest.')) {
     elements.aptMissionExecutionCheckbox.checked = previous;
     return;
   }
@@ -545,7 +545,7 @@ elements.aptMissionExecutionCheckbox.addEventListener('change', async () => {
   render(await window.trackerDesktop.getState());
   if (!result?.ok) {
     elements.aptMissionExecutionCheckbox.checked = previous;
-    elements.aptMissionExecutionMessage.textContent = result?.message || 'APT-Tracker-Steuerung konnte nicht geändert werden.';
+    elements.aptMissionExecutionMessage.textContent = result?.message || 'Tracker-Missionssteuerung konnte nicht geändert werden.';
   } else if (result.restartFailed) {
     elements.aptMissionExecutionMessage.textContent = result.message;
   }

@@ -17,7 +17,7 @@ zwischen `Stable` und `Alpha` gewechselt werden.
 - Download, Pruefung, Update und Start/Stopp der Tracker-Engine
 - umschaltbare Tracker-Kanaele `Stable` und `Alpha`
 - expliziter, standardmaessig ausgeschalteter Alpha-Schalter fuer die
-  experimentelle autoritative APT-Missionssteuerung im Tracker
+  experimentelle Tracker-Missionssteuerung für unterstützte APT-/POI-Rezepte
 - getrennte Runtime-Verzeichnisse fuer sicheren Rueckwechsel auf Stable
 - vorherige gepruefte Engine als lokaler Rueckfall
 - Tracker-Engine startet standardmaessig automatisch nach der Updatepruefung
@@ -49,12 +49,18 @@ Stable behaelt aus Kompatibilitaetsgruenden den bisherigen Runtime-Pfad
 `Tracker`; Alpha verwendet den separaten Pfad `Tracker Alpha`. Ein Wechsel
 beendet einen laufenden Tracker kontrolliert, bereitet den Zielkanal vor und
 startet ihn danach wieder. Die jeweils andere Runtime bleibt unveraendert.
-Die experimentelle APT-Missionssteuerung kann nur im Alpha-Kanal eingeschaltet
+Die experimentelle Tracker-Missionssteuerung kann nur im Alpha-Kanal eingeschaltet
 werden. Die Desktop-App setzt `VFR_MULTITOOL_APT_EXECUTION` fuer jeden von ihr
 gestarteten Tracker-Prozess explizit auf `1` oder `0`; Stable sowie ein
 ausgeschalteter Schalter bleiben dadurch auch bei einer alten systemweiten
 Umgebungsvariable auf der bisherigen Web-Autoritaet. Eine Aenderung des
-Schalters startet eine laufende Engine kontrolliert neu.
+Schalters startet eine laufende Engine kontrolliert neu. Ab Tracker v409 steuert
+derselbe Schalter APT und Standard-POI; `VFR_MULTITOOL_POI_EXECUTION` ist nicht
+mehr erforderlich. Der interne Einstellungs-/IPC-Schlüssel bleibt aus
+Kompatibilitätsgründen `aptMissionExecutionEnabled`. Bereits gespeicherte Werte
+bleiben erhalten; auch ältere Desktop-Versionen mit der APT-Beschriftung
+aktivieren über diesen Schalter beide unterstützten Rezepte. Neue Familien
+brauchen weiterhin ihre eigene explizite Rezept-/Capability-Freigabe.
 Pilot-ID und der 4- bis 8-stellige PIN werden vor dem Speichern am Auth-Endpunkt
 geprueft. Die PIN wird mit Electrons `safeStorage`/Windows DPAPI geschuetzt in
 LocalAppData gespeichert und nur ueber eine lokale Prozess-Pipe an die Engine

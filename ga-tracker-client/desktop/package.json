@@ -1,6 +1,6 @@
 {
   "name": "vfr-multitool-tracker-desktop",
-  "version": "1.6.10",
+  "version": "1.6.11",
   "private": true,
   "description": "Desktop UI and updater for the VFR Multitool MSFS tracker",
   "author": "VFR Multitool",
@@ -83,6 +83,9 @@
         "provider": "generic",
         "url": "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/ga-tracker-client/channel/desktop/"
       }
-    ]
+    ],
+    "toolsets": {
+      "nsis": "1.2.1"
+    }
   }
 }

@@ -84,8 +84,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v408';
-const TRACKER_VERSION_CODE = 408;
+const TRACKER_VERSION = 'v409';
+const TRACKER_VERSION_CODE = 409;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -101,9 +101,9 @@ const TRACKER_APT_EXECUTION_BLOCK_REASON = TRACKER_APT_EXECUTION_REQUESTED && !T
   ? `parity_pending:${(missionExecutionCore.TRACKER_AUTHORITY_PENDING || []).join(',')}`
   : '';
 const TRACKER_NAVIGATION_PLAYER_READY = process.env.VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER === '1';
-// Separate alpha opt-in until the full POI field matrix is signed off.
-const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED
-  && process.env.VFR_MULTITOOL_POI_EXECUTION === '1';
+// The existing desktop opt-in controls every explicitly supported recipe.
+// Keep the legacy APT setting/env name compatible with installed desktops.
+const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
