@@ -195,8 +195,9 @@ GREETING: ${core.companion.name} sagt vor dem Abflug einen kurzen persönlichen 
 
 MEMORY: Lies nur die fertige story. relationshipDynamic hält knapp fest, wer den Anstoß gibt und welches eigene Interesse die beiden am gemeinsamen Vorhaben haben, soweit der Text dies erzählt. Fasse den unterscheidenden Ausflugsinhalt und den einfachen menschlichen Wunsch zusammen. Allgemeine Anreise und Transfer gehören nur dann in activity, wenn sie selbst der Anlass sind. opening nennt den konkreten ersten Gedanken, ending den konkreten letzten; rhythm beschreibt den tatsächlichen Satzbau. Beschreibe nüchtern, ohne Bewertung oder ungenutzte Details der Idee. flightBriefing und seine Wetterwerte gehören nicht in die Erinnerung. distinctivePhrase ist eine kurze Originalformulierung. Die bisherige History beschreibt andere generierte Entwürfe zum Vergleichen. Sie ist kein Beleg bereits geflogener Reisen oder einer fortlaufenden gemeinsamen Biografie.
 
+returnOfferText ist ein separater kurzer Vorschautext für ein erst später angezeigtes Heimreiseangebot: ein bis zwei persönliche Sätze, höchstens 350 Zeichen. Erzähle aus außenstehender Perspektive mit du/ihr knapp, mit wem der Pilot wo und zu welchem Zweck den geplanten Aufenthalt verbracht hat, und leite zur Heimreise über. Verwende nur das festgelegte Vorhaben, keine erfundenen Ergebnisse des Aufenthalts. Dieser Text ist eine vorbereitete Fortsetzung, kein Nachweis eines bereits geflogenen Hinflugs; story bleibt das bevorstehende Hinflugbriefing.
 Nur ein JSON-Objekt, alles auf Deutsch. title höchstens 160, story 1800, flightBriefing 850, greeting.text 600 Zeichen. memory-Limits: ${JSON.stringify(memoryLimits)}.
-Schema: {"title":"...","story":"...","flightBriefing":"...","greeting":{"speaker":"companion","addressee":"pilot","text":"..."},"memory":{"schema":"episode-memory.v1","summary":"...","activity":"...","motivation":"...","flightRole":"...","relationshipDynamic":"...","opening":"...","rhythm":"...","ending":"...","distinctivePhrase":"..."}}
+Schema: {"title":"...","story":"...","returnOfferText":"...","flightBriefing":"...","greeting":{"speaker":"companion","addressee":"pilot","text":"..."},"memory":{"schema":"episode-memory.v1","summary":"...","activity":"...","motivation":"...","flightRole":"...","relationshipDynamic":"...","opening":"...","rhythm":"...","ending":"...","distinctivePhrase":"..."}}
 IDEE: ${JSON.stringify(outing)}
 ORTSBELEGE: ${JSON.stringify(input.facts.filter(f => core.factIds.includes(f.id)))}
 WERTE: ${JSON.stringify(flightBindings(flight))}
@@ -317,7 +318,7 @@ HISTORY: ${JSON.stringify(historyForIdea(rows))}`;
         // Memory failure must not destroy valid prose. Never retain memory for rejected prose.
         const hasRoute = input?.flightContext && (input.flightContext.startName || input.flightContext.targetName);
         const flight = hasRoute ? resolveFlightBriefing(raw?.flightBriefing, input.flightContext) : '';
-        return accepted ? { ...accepted, memory: memory(raw.memory),
+        return accepted ? { ...accepted, returnOfferText: typeof raw.returnOfferText === 'string' && raw.returnOfferText.trim().length <= 350 ? raw.returnOfferText.trim() : '', memory: memory(raw.memory),
             flightBriefing: flight,
             flightBriefingStatus: flight ? 'accepted-bindings' : 'unavailable' } : null;
     }

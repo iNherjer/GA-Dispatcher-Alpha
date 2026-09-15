@@ -39044,6 +39044,7 @@ async function fetchPrivateReturnStory(context = {}) {
         const validation = core.validateProse(response?.parsed, pipeline.privateReturn, contract);
         window.gaPrivateReturnWriterValidation = {at: new Date().toISOString(),
             accepted: validation.accepted, errors: validation.errors,
+            warnings: validation.warnings, moments: validation.momentDiagnostics,
             sourceMissionId: pipeline.privateReturn.sourceMissionId};
         prose = validation.prose;
         if (!prose) throw new Error('Der Erlebnisrückblick für die Heimreise konnte nicht vollständig erstellt werden ('
@@ -39097,6 +39098,7 @@ async function fetchPrivateOutingStory(context = {}) {
         idea.flightBriefing = prose?.flightBriefing || '';
         idea.flightContext = input.flightContext;
     }
+    if (v6 && prose?.returnOfferText) idea.returnOfferText = prose.returnOfferText;
     // If only the prose request fails, retain the chosen idea verbatim, never draw another activity.
     const narrativeStory = prose?.story || `${idea.occasion} ${idea.personalReason}`;
     const story = [narrativeStory, v6 ? prose?.flightBriefing : ''].filter(Boolean).join('\n\n');

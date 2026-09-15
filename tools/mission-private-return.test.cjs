@@ -131,7 +131,7 @@ test('debug button creates explicit test return without fabricating logbook, lan
  assert.equal(buttons.btnDebugFollowupComplete.disabled,false);
  assert.equal(buttons.btnDebugFollowupComplete.textContent,'Heimreise testen');
  const list=c.missionFollowupGetForSync(),req=list[0];
- assert.equal(list.length,1);assert.equal(req.privateReturn.debugCompletion,true);assert.ok(req.ui.title.startsWith('Debug:'));
+ assert.equal(list.length,1);assert.equal(req.privateReturn.debugCompletion,true);assert.ok(req.ui.subtitle.includes('Testfortsetzung'));
  assert.equal(c.localStorage.getItem('last_icao_dest'),'OTHER');assert.equal(c.localStorage.getItem('ga_logbook'),'[]');
  assert.equal(c.currentMissionData.missionCompletionState,undefined);
  assert.equal(c.missionFollowupDebugCompleteCurrentMission(),false);assert.equal(c.missionFollowupGetForSync().length,1);
@@ -175,4 +175,29 @@ test('private departure waits for climb, speaks once and never arms for outbound
  c.window.currentMissionData=ret;assert.equal(tick(500),false);
  now+=10000;tick(0,true);now+=25000;assert.equal(tick(500),false);
  assert.equal(calls,1);
+});
+
+ test('return offer uses both airports and carries the prepared recap independently from flight proof',()=>{
+ const {md,record}=fixture();md.privateOuting.returnOfferText='Du warst mit Sina in der Ausstellung. Jetzt geht es gemeinsam nach Hause.';
+ const req=core.request(md,record);
+ assert.equal(req.ui.title,'Rückflug von Freiburg nach Winzeln');
+ assert.equal(req.ui.previewText,md.privateOuting.returnOfferText);
+ assert.equal(core.offerUi(req.privateReturn).previewText,req.ui.previewText);
+ assert.equal(core.request(md,{...record,result:'failed'}),null);
+ });
+
+test('optional malformed moments do not discard a valid return briefing or invent replacement anecdotes',()=>{
+ const {md,record}=fixture(),c=core.request(md,record).privateReturn;
+ for(const moments of [null,{},[],['x'.repeat(241)],['Erinnerung',{text:'Objekt'},'x'.repeat(241)]]){
+  const reply=raw();reply.experienceRecap.moments=moments;
+  const result=core.validateProse(reply,c,contract());
+  assert.equal(result.accepted,true);assert.equal(result.prose.story,reply.story);
+  assert.equal(result.prose.continuity.experienceRecap.summary,reply.experienceRecap.summary);
+  assert.ok(result.warnings.length);assert.ok(result.prose.continuity.experienceRecap.moments.every(x=>typeof x==='string'&&x.length<=240));
+  assert.deepEqual(reply.experienceRecap.moments,moments);
+ }
+ const reply=raw();reply.experienceRecap.moments=null;reply.experienceRecap.summary='';
+ assert.equal(core.validateProse(reply,c,contract()).accepted,false);
+ reply.experienceRecap.summary='Ein gemeinsamer Ausflug.';reply.flightBriefing='31 NM';
+ assert.equal(core.validateProse(reply,c,contract()).accepted,false);
 });

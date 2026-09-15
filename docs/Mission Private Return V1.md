@@ -314,3 +314,33 @@ Aufenthalt, mit Rückblick und bisher ausgegebenen Texten als Kontext. Dies kost
 höchstens einen zusätzlichen Text-/TTS-Vorgang je Lauf (Provider-Fallbacks wie
 bisher). Es ist keine periodische Unterhaltung. Nach vollständigem Runtime-
 Reset kann ein neuer Testlauf erneut erzählen; das Merkerfeld ist nicht persistent.
+
+## Rückflugangebot als Vorschau (15.09.2026, nach v1761 lokal)
+
+Die Überschrift nennt Besuchs- und Heimatplatz als „Rückflug von … nach …“.
+Der Hinflug-Writer liefert optional `returnOfferText` (maximal 350 Zeichen):
+einen kurzen Rückblick auf Begleitung, Ort und Zweck plus Überleitung zur
+Heimreise. Er wird im privaten Vertrag mitgeführt und erst beim Folgeangebot
+angezeigt. Er ist weder geflogene History noch ein Erlebnisnachweis. Der normale
+Abschlussnachweis bleibt notwendig; Debug bleibt separat im Untertitel markiert.
+Kein zusätzlicher KI-Aufruf. Alte Angebote ohne vorbereiteten Text verwenden
+einen kurzen allgemeinen Rückblick mit dem Namen; ihre Überschrift wird beim
+Rendern ebenfalls aus beiden Flugplätzen gebildet. Keine Prosa-Zeitformkonvertierung.
+
+## Return V1.3: Optionale Erinnerungen blockieren Dispatch nicht (lokal)
+
+Der Bericht vom 15.09., 07:59 weist ausschließlich `experienceRecap.moments:invalid`
+aus. Die genaue Unterursache ist im damaligen Bericht nicht enthalten.
+`moments` ist nun ergänzender Gesprächsstoff: maximal drei nichtleere Strings
+bis je 240 Zeichen werden unverändert übernommen; ungültige oder überzählige
+Einträge verworfen. Es gibt weder Textabschneidung noch erfundene Ersatzanekdoten.
+Die verpflichtende Zusammenfassung, Reaktion, Briefing-/Sprecherstruktur und
+Flugwertprüfung bleiben unverändert. Ohne brauchbare Einzelmomente nutzt Voice
+den vorhandenen Rückblick und die bereits erlaubte persönliche Ausschmückung.
+Der letzte Prüfstatus enthält Warnung sowie Typ, Anzahl und Längen der Einträge,
+keine vollständigen Antworten oder Zugangsdaten. Keine Reparatur-API-Anfrage.
+
+## Veröffentlichung v1762
+
+Die Rückflugvorschau und die tolerante Prüfung optionaler Erinnerungen (V1.3)
+sind mit App-Cache v1762 auf Origin veröffentlicht. Tracker bleibt v404.

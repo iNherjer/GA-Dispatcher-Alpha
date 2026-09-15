@@ -2,7 +2,7 @@
     'use strict';
     const SCHEMA = 'private-return.v1';
     const PROFILE = 'private_return';
-    const REVISION = 'v1.2';
+    const REVISION = 'v1.3';
     const text = (s, max = 600) => typeof s === 'string' ? s.trim().slice(0, max) : '';
     const copy = x => JSON.parse(JSON.stringify(x));
     const episodeApi = () => root.MissionPrivateEpisodeV6;
@@ -51,7 +51,6 @@
         req.id = req.dedupeKey = `private-return-debug-${md.missionId}`;
         req.debugGenerated = true;
         req.privateReturn.debugCompletion = true;
-        req.ui.title = `Debug: ${req.ui.title}`;
         req.ui.subtitle = 'Testfortsetzung – kein geflogener Hinflug';
         return req;
     }
@@ -65,7 +64,7 @@
         const original = md.passenger || md.missionContract?.passenger || {};
         if (original.name && original.name !== idea.companion.name) return null;
         // Bounded original contract, not the earlier prose, weather or draft history.
-        const outing = Object.fromEntries(['occasion','personalReason','destinationConnection','firstStep'].map(k => [k, text(idea[k]) ]));
+        const outing = Object.fromEntries(['occasion','personalReason','destinationConnection','firstStep','returnOfferText'].map(k => [k, text(idea[k]) ]));
         Object.assign(outing, {companion: copy(idea.companion), luggage: copy(idea.luggage),
             origin: copy(idea.origin || null), episode: copy(idea.episode || {}), groundPlan: copy(idea.groundPlan || {}),
             eventVisit: copy(idea.eventVisit || null), pilotIntent: text(idea.pilotIntent, 200), companionIntent: text(idea.companionIntent, 200)});
@@ -87,9 +86,15 @@
             pilotStartPolicy: 'onsite_to_home', route: {homeRef: home, targetRef: target},
             passenger, privateReturn: continuity,
             source: {title: text(md.mission, 180), completedAt: record.endedAt || now},
-            ui: {title: `Gemeinsam zurück nach ${home.name}`, subtitle: `Fortsetzung mit ${passenger.name}`,
-                previewText: `${text(idea.occasion, 350)} — Den Aufenthalt erzählen und die Heimreise vorbereiten.`}};
+            ui: offerUi(continuity)};
     }
+    function offerUi(c) {
+        return {title: `Rückflug von ${c.visited.name} nach ${c.home.name}`,
+            subtitle: c.debugCompletion ? 'Testfortsetzung – kein geflogener Hinflug' : `Heimreise mit ${c.outing.companion.name}`,
+            previewText: text(c.outing.returnOfferText, 350)
+                || `Dein Ausflug mit ${c.outing.companion.name} liegt hinter euch. Jetzt geht es gemeinsam wieder nach Hause.`};
+    }
+
     function acceptance(req, start) {
         const c = context(req), home = ref(req?.route?.homeRef), target = ref(req?.route?.targetRef);
         if (!c || !home || !target || !same(home, ref(c.home)) || !same(target, ref(c.visited)) || !same(ref(start), target)) return null;
@@ -132,8 +137,14 @@ FLUGDATEN: ${JSON.stringify(flight)}`;
             if (!validText(value,max)) errors.push(path + ':missing_or_length');
         }
         const r = raw?.experienceRecap;
-        if (!Array.isArray(r?.moments) || r.moments.length < 1 || r.moments.length > 3
-            || !r.moments.every(x => validText(x,240))) errors.push('experienceRecap.moments:invalid');
+        // Supplemental anecdotes may fail independently of the required recap and briefing.
+        const momentInput = Array.isArray(r?.moments) ? r.moments : [];
+        const moments = momentInput.filter(x => validText(x,240)).slice(0,3).map(x => x.trim());
+        const warnings = (!Array.isArray(r?.moments) || !moments.length || moments.length !== momentInput.length)
+            ? ['experienceRecap.moments:discarded_invalid_or_excess'] : [];
+        const momentDiagnostics = {type: Array.isArray(r?.moments) ? 'array' : typeof r?.moments,
+            count: momentInput.length, kept: moments.length,
+            entries: momentInput.slice(0,8).map(x => ({type:typeof x, length:typeof x === 'string' ? x.length : null}))};
         // Same identity alias as the V6 writer; never accept an unrelated speaker.
         const speaker = raw?.greeting?.speaker;
         const namedCompanion = typeof speaker === 'string' && speaker.trim().toLowerCase()
@@ -144,10 +155,10 @@ FLUGDATEN: ${JSON.stringify(flight)}`;
         const flightContext = episodeApi().flightContext(contract);
         const flight = episodeApi().resolveFlightBriefing(raw?.flightBriefing, flightContext);
         if (!flight) errors.push('flightBriefing:invalid_bindings_or_length');
-        if (errors.length) return {accepted:false, errors, prose:null};
-        return {accepted:true, errors:[], prose:{title:raw.title.trim(), story:raw.story.trim(),
+        if (errors.length) return {accepted:false, errors, warnings, momentDiagnostics, prose:null};
+        return {accepted:true, errors:[], warnings, momentDiagnostics, prose:{title:raw.title.trim(), story:raw.story.trim(),
             greeting:raw.greeting.text.trim(), flightBriefing:flight,
-            continuity:{...copy(c), experienceRecap:copy(r)}}};
+            continuity:{...copy(c), experienceRecap:{...copy(r), moments}}}};
     }
     function prose(raw, c, contract) {
         return validateProse(raw, c, contract).prose;
@@ -180,7 +191,7 @@ FLUGDATEN: ${JSON.stringify(flight)}`;
             farewell:'Die gemeinsame Reise endet am Heimatplatz. Verabschiede dich persönlich mit einem konkreten Bezug zum gemeinsamen Aufenthalt; bereits gegebenes Flugfeedback braucht keine erneute Bewertung.'};
         return `PRIVATE HEIMREISE: ${c.visited.name} -> ${c.home.name}. ${directions[stage] || 'Der Aufenthalt liegt hinter euch, der gemeinsame Rückflug ist das aktuelle Flugvorhaben.'} Verbindlicher Erlebnisrückblick: ${JSON.stringify(c.experienceRecap || {plannedOuting:c.outing.occasion, detailStatus:'Kein ausgearbeiteter Erlebnisrückblick vorhanden'})}. Erzähle wie unter Vertrauten aus dem gemeinsam Erlebten. Wähle für diese Ansage einen konkreten, noch nicht ausgeführten Moment und erzähle dazu eine kleine Beobachtung, Handlung oder persönliche Reaktion. Plausible fiktive Einzelheiten des Aufenthalts darfst du frei ergänzen, auch wenn ein älterer Rückblick nur Stimmung enthält. Sie müssen zu Anlass, Personen, Ort und bereits erzählten Begebenheiten passen; feststehende Ereignisse und Reaktionen bleiben erhalten. Solche persönlichen Ausschmückungen sind keine Quelle für neue historische Ortsfakten, reale Flugereignisse oder eine erfundene gemeinsame Flugvergangenheit. Vergleiche mit den bereits ausgegebenen Texten: Ein neuer Gedanke fügt etwas zum Erlebnis hinzu, statt dieselbe Stimmung anders auszudrücken. Ein Rückbezug darf kurz verbinden, der übrige Inhalt führt weiter. Persönlichkeit bestimmt die Art des Erzählens, nicht ein ständig wiederkehrendes Thema. Halte die Länge und Aufmerksamkeit der aktuellen Flugphase ein; bei notwendigem Flugfeedback hat dieses Vorrang vor der Anekdote. Die Begleitung spricht zum vertrauten Piloten; keine neue Vorstellung und keine bevorstehende Aktivität am alten Ausflugsziel.`;
     }
-    const api = {SCHEMA, PROFILE, REVISION, context, source, completionEvidence, ref, same, request, debugRequest, acceptance, pipeline, prompt, validateProse, prose, mission, voice};
+    const api = {SCHEMA, PROFILE, REVISION, context, source, completionEvidence, ref, same, request, debugRequest, acceptance, pipeline, prompt, validateProse, prose, mission, voice, offerUi};
     root.MissionPrivateReturnCore = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

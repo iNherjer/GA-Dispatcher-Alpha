@@ -2286,13 +2286,14 @@
         text.className = 'followup-request-text';
         const title = document.createElement('div');
         title.className = 'followup-request-item-title';
-        title.textContent = req.ui?.title || req.followUpLabel || 'Folgeanfrage';
+        const privateUi = req.followUpKind === 'private_return' && req.privateReturn && window.MissionPrivateReturnCore?.offerUi?.(req.privateReturn);
+        title.textContent = privateUi?.title || req.ui?.title || req.followUpLabel || 'Folgeanfrage';
         const sub = document.createElement('div');
         sub.className = 'followup-request-item-subtitle';
-        sub.textContent = `${req.ui?.subtitle || req.sourceLabel || 'Mission'} · bis ${formatLocal(req.expiresAt)}`;
+        sub.textContent = `${privateUi?.subtitle || req.ui?.subtitle || req.sourceLabel || 'Mission'} · bis ${formatLocal(req.expiresAt)}`;
         const preview = document.createElement('div');
         preview.className = 'followup-request-preview';
-        preview.textContent = req.ui?.previewText || req.narrativeMemory?.whyNowReturn || '';
+        preview.textContent = privateUi?.previewText || req.ui?.previewText || req.narrativeMemory?.whyNowReturn || '';
         text.append(title, sub, preview);
         const actions = document.createElement('div');
         actions.className = 'followup-request-actions';
