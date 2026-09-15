@@ -38,3 +38,9 @@ NSIS-Toolset 1.2.1 (NSIS 3.12), da dessen alter x64-macOS-Helfer hier nicht star
 Der Installer wird separat bereitgestellt; der globale Desktop-Autoupdater
 wird ohne Windows-Installations-/Start-/Update-Test nicht umgestellt.
 Für die Funktion genügt das Alpha-Runtime-Update auf v409 in der bestehenden App.
+
+Runtime-Release `v409`, Quellcommit `138b3f6ec`. Öffentlicher EXE-Download
+ist geprüft: 57.731.697 Bytes, SHA-256
+`5c2e47b17273e161f97c736ec5552bf3f0762b87a9b86dd23c26b1222813674e`.
+Alpha-Zeiger v409, Kanalpush mit App-Cache v1774. Desktop 1.6.11 wird als
+separater Installer angeboten; Paketquellen und Updater-Abhängigkeiten geprüft.
