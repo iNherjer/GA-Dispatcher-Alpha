@@ -1181,3 +1181,16 @@ body.ga-efb-tracker-host .stopwatch-tick-ring {
     -webkit-mask:none;mask:none;
     background: url("/efb/v1/assets/stopwatch-ticks.svg") center / 100% 100% no-repeat;
 }
+
+/* Same compact PAX reading/action surface as the standalone widget. */
+body.ga-efb-tracker-host .ga-efb-pax-widget { position:fixed; bottom:72px; right:14px; z-index:200000; display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+body.ga-efb-tracker-host .ga-efb-pax-widget[hidden], body.ga-efb-tracker-host #paxVoicePanel[hidden] { display:none; }
+body.ga-efb-tracker-host #paxVoicePanel { background:#0e1e30; color:#d0e8ff; border:1px solid #2a4a6a; border-radius:10px; padding:12px 14px; width:280px; max-width:calc(100vw - 56px); max-height:calc(100vh - 170px); overflow-y:auto; font-size:13px; line-height:1.5; box-shadow:0 4px 20px #0009; }
+body.ga-efb-tracker-host #paxVoiceName { display:block; color:#4da6ff; font-size:12px; margin:6px 0; }
+body.ga-efb-tracker-host #paxVoiceText { white-space:pre-wrap; overflow-wrap:anywhere; }
+body.ga-efb-tracker-host #paxMissionActionMenu { display:grid; gap:6px; margin-top:10px; }
+body.ga-efb-tracker-host #paxMissionActionMenu button { padding:8px; background:#235ea7; color:#fff; border:1px solid #456; border-radius:5px; }
+body.ga-efb-tracker-host #paxMissionActionMenu button:disabled { opacity:.45; }
+body.ga-efb-tracker-host #paxVoiceBtn { width:52px; height:52px; border-radius:50%; background:#1a3a5c; color:#fff; border:2px solid #31516d; font-weight:bold; cursor:pointer; }
+body.ga-efb-tracker-host #paxVoiceBtn.has-message { border-color:#4da6ff; box-shadow:0 0 8px #4da6ff; }
+body.ga-efb-tracker-host .ga-efb-pax-close { float:right; background:transparent; color:#d0e8ff; border:0; padding:4px; }

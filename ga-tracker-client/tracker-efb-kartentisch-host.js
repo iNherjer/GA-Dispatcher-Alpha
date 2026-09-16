@@ -1744,7 +1744,7 @@
       if (!mapSnapshot || nav.id !== (mapSnapshot.routeEdit && mapSnapshot.routeEdit.id)) return;
       var next = Object.assign({}, mapSnapshot, { route: Object.assign({}, mapSnapshot.route, { waypoints: nav.points }) });
       var signature = mapRouteSignature(next);
-      if (signature !== routeSignature) { mapSnapshot = next; routeSignature = signature; renderRoute(next); refreshLocalNavigation(); renderProgress(); updateCompass(); renderProfile(); }
+      if (signature !== routeSignature) { mapSnapshot = next; renderRoute(next); routeSignature = signature; refreshLocalNavigation(); renderProgress(); updateCompass(); renderProfile(); }
     },
     error: function() { window.alert('Die Route wurde inzwischen geändert oder die Verbindung ist unterbrochen. Bitte die aktuelle Route prüfen.'); },
     refresh: function() { fetchJson('/api/v1/map', 5000).then(function(value) { renderMapPayload(safePayload(value)); }).catch(function() {}); }
@@ -1764,75 +1764,86 @@
     var previousRouteLayer = routeLayer;
     var previousGeometryLayer = geometryLayer;
     var previousPreviewLayer = previewLayer;
+    var previousPreviewLine = previewLine;
     routeLayer = L.layerGroup();
     geometryLayer = L.layerGroup();
     previewLayer = L.layerGroup();
     previewLine = null;
-    var waypoints = snapshot.route.waypoints;
-    var latlngs = waypoints.map(function (point) { return [point.lat, point.lng == null ? point.lon : point.lng]; });
-    var routeLine = L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: window.isMapHintEnabled('lowFps') ? null : '10,10', pane: 'gaRoutePane', renderer: routeRenderer || undefined }).addTo(routeLayer);
-    var routeHitbox = null;
-    if (!measureMode && !mapDrawState.enabled && snapshot.routeEdit && snapshot.routeEdit.editable) {
-      routeLine.on('click', routeInsert);
-      routeHitbox = L.polyline(latlngs, { weight: 44, opacity: 0, interactive: true, bubblingMouseEvents: false, pane: 'gaRoutePane' }).addTo(routeLayer).on('click', routeInsert);
-    }
-    waypoints.forEach(function (point, index) {
-      var canDrag = !measureMode && !mapDrawState.enabled && snapshot.routeEdit && snapshot.routeEdit.editable && index > 0 && index < waypoints.length - 1 && !point.isPOI && !point.isPoiChainEndpoint && !point.isPoiChainReturnHome;
-      var marker = L.marker([point.lat, point.lng == null ? point.lon : point.lng], { icon: L.divIcon(window.GAMapRouteEditCore.markerOptions(index, waypoints.length, point.isPOI)), pane: 'gaRoutePane', interactive: !measureMode && !mapDrawState.enabled, draggable: !!canDrag }).addTo(routeLayer);
-      if (canDrag) {
+    try {
+      var waypoints = snapshot.route.waypoints;
+      var latlngs = waypoints.map(function (point) { return [point.lat, point.lng == null ? point.lon : point.lng]; });
+      var routeLine = L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: window.isMapHintEnabled('lowFps') ? null : '10,10', pane: 'gaRoutePane', renderer: routeRenderer || undefined }).addTo(routeLayer);
+      var routeHitbox = null;
+      if (!measureMode && !mapDrawState.enabled && snapshot.routeEdit && snapshot.routeEdit.editable) {
+        routeLine.on('click', routeInsert);
+        routeHitbox = L.polyline(latlngs, { weight: 44, opacity: 0, interactive: true, bubblingMouseEvents: false, pane: 'gaRoutePane' }).addTo(routeLayer).on('click', routeInsert);
+      }
+      waypoints.forEach(function (point, index) {
+        var canDrag = !measureMode && !mapDrawState.enabled && snapshot.routeEdit && snapshot.routeEdit.editable && index > 0 && index < waypoints.length - 1 && !point.isPOI && !point.isPoiChainEndpoint && !point.isPoiChainReturnHome;
+        var marker = L.marker([point.lat, point.lng == null ? point.lon : point.lng], { icon: L.divIcon(window.GAMapRouteEditCore.markerOptions(index, waypoints.length, point.isPOI)), pane: 'gaRoutePane', interactive: !measureMode && !mapDrawState.enabled, draggable: !!canDrag }).addTo(routeLayer);
+        if (canDrag) {
 
-        marker.on('dragstart', function() { navigationDragging = true; });
-        marker.on('drag', function(event) {
-          var raw = event.latlng || marker.getLatLng(), closest = snappedPoint(raw);
-          marker.setLatLng(closest ? [closest.lat, closest.lng] : raw);
-          var line = waypoints.map(function(p) { return [p.lat, p.lng == null ? p.lon : p.lng]; });
-          line[index] = marker.getLatLng(); routeLine.setLatLngs(line);
-          if (routeHitbox) routeHitbox.setLatLngs(line);
-        });
-        marker.on('dragend', function() {
-          navigationDragging = false;
-          if (!mapSnapshot) return;
-          var pos = marker.getLatLng(), closest = snappedPoint(pos);
-          var point = closest ? { lat: closest.lat, lng: closest.lng, name: closest.name, rppAirportIcao: closest.rppAirportIcao || '' } : { lat: pos.lat, lng: pos.lng };
-          if (!navigationClient.edit({ action: 'move', index: index, point: point })) renderRoute(mapSnapshot);
-        });
+          marker.on('dragstart', function() { navigationDragging = true; });
+          marker.on('drag', function(event) {
+            var raw = event.latlng || marker.getLatLng(), closest = snappedPoint(raw);
+            marker.setLatLng(closest ? [closest.lat, closest.lng] : raw);
+            var line = waypoints.map(function(p) { return [p.lat, p.lng == null ? p.lon : p.lng]; });
+            line[index] = marker.getLatLng(); routeLine.setLatLngs(line);
+            if (routeHitbox) routeHitbox.setLatLngs(line);
+          });
+          marker.on('dragend', function() {
+            navigationDragging = false;
+            if (!mapSnapshot) return;
+            var pos = marker.getLatLng(), closest = snappedPoint(pos);
+            var point = closest ? { lat: closest.lat, lng: closest.lng, name: closest.name, rppAirportIcao: closest.rppAirportIcao || '' } : { lat: pos.lat, lng: pos.lng };
+            if (!navigationClient.edit({ action: 'move', index: index, point: point })) renderRoute(mapSnapshot);
+          });
+        }
+        if (index === 0 || index === waypoints.length - 1) {
+          window.bindRouteAirportPopup(marker, index === 0, marker.getLatLng());
+        } else if (point.isPOI) {
+          var poiPopup = document.createElement('strong');
+          poiPopup.style.color = '#b266ff'; poiPopup.textContent = String(point.name || 'Missionsziel');
+          marker.bindPopup(poiPopup);
+        } else {
+          marker.bindPopup('');
+          marker.on('popupopen', function() {
+            var info = window.gaMapContextHost.cachedFeature(marker.getLatLng());
+            var airport = info && info.kind === 'airport' && window.getMapContextFeatureDistancePx(info, marker.getLatLng()) <= window.getAirportTapRadiusPx(18) ? info : null;
+            var infoButton = airport ? '<button data-route-airport-info style="margin-top:5px; margin-right:4px; background:#235ea7; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius:2px;">ℹ️ Info</button>' : '';
+            var content = document.createElement('div');
+            content.innerHTML = window.GAMapRouteEditCore.popup(point.name, index, infoButton);
+            // Preserve the protected waypoint gate for routes this surface cannot edit.
+            if (!canDrag) Array.from(content.querySelectorAll('[onclick]')).forEach(function(button){button.remove();});
+            var infoControl = content.querySelector('[data-route-airport-info]');
+            if(infoControl) infoControl.onclick = function(){window.openAirportInfoPopup({icao:airport.icao,name:airport.name,lat:airport.lat,lon:airport.lon,elevation:airport.elevationFt,country:airport.country});};
+            marker.getPopup().setContent(content);
+          });
+        }
+        marker.bindTooltip(point.name || ('WP ' + (index + 1)), { direction: 'top', offset: [0, -8], className: 'ga-route-label' });
+      });
+      var target = snapshot.missionGeometry && snapshot.missionGeometry.target;
+      if (target) L.marker([target.lat, target.lon], { icon: targetIcon(), pane: 'gaGeometryPane' }).bindTooltip(target.name || 'Missionsziel').addTo(geometryLayer);
+      var chain = snapshot.missionGeometry && snapshot.missionGeometry.poiChain || [];
+      if (chain.length > 1) L.polyline(chain.map(function (point) { return [point.lat, point.lon]; }), { color: '#f2c12e', weight: 3, dashArray: '4,6', pane: 'gaGeometryPane', renderer: geometryRenderer || undefined }).addTo(geometryLayer);
+      routeLayer.addTo(map);
+      geometryLayer.addTo(map);
+      previewLayer.addTo(map);
+      if (!firstRouteFit && latlngs.length > 1 && !flight) {
+        map.fitBounds(L.latLngBounds(latlngs), { padding: [35, 35] });
+        firstRouteFit = true;
       }
-      if (index === 0 || index === waypoints.length - 1) {
-        window.bindRouteAirportPopup(marker, index === 0, marker.getLatLng());
-      } else if (point.isPOI) {
-        marker.bindPopup('<div style="text-align:center; color:#b266ff;"><b>' + escapeHtml(point.name) + '</b></div>');
-      } else {
-        marker.bindPopup('');
-        marker.on('popupopen', function() {
-          var info = window.gaMapContextHost.cachedFeature(marker.getLatLng());
-          var airport = info && info.kind === 'airport' && window.getMapContextFeatureDistancePx(info, marker.getLatLng()) <= window.getAirportTapRadiusPx(18) ? info : null;
-          var infoButton = airport ? '<button data-route-airport-info style="margin-top:5px; margin-right:4px; background:#235ea7; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius:2px;">ℹ️ Info</button>' : '';
-          var content = document.createElement('div');
-          content.innerHTML = window.GAMapRouteEditCore.popup(point.name, index, infoButton);
-          // Preserve the protected waypoint gate for routes this surface cannot edit.
-          if (!canDrag) Array.from(content.querySelectorAll('[onclick]')).forEach(function(button){button.remove();});
-          var infoControl = content.querySelector('[data-route-airport-info]');
-          if(infoControl) infoControl.onclick = function(){window.openAirportInfoPopup({icao:airport.icao,name:airport.name,lat:airport.lat,lon:airport.lon,elevation:airport.elevationFt,country:airport.country});};
-          marker.getPopup().setContent(content);
-        });
-      }
-      marker.bindTooltip(point.name || ('WP ' + (index + 1)), { direction: 'top', offset: [0, -8], className: 'ga-route-label' });
-    });
-    var target = snapshot.missionGeometry && snapshot.missionGeometry.target;
-    if (target) L.marker([target.lat, target.lon], { icon: targetIcon(), pane: 'gaGeometryPane' }).bindTooltip(target.name || 'Missionsziel').addTo(geometryLayer);
-    var chain = snapshot.missionGeometry && snapshot.missionGeometry.poiChain || [];
-    if (chain.length > 1) L.polyline(chain.map(function (point) { return [point.lat, point.lon]; }), { color: '#f2c12e', weight: 3, dashArray: '4,6', pane: 'gaGeometryPane', renderer: geometryRenderer || undefined }).addTo(geometryLayer);
-    [previousRouteLayer, previousGeometryLayer, previousPreviewLayer].forEach(function (layer) {
-      if (!layer || !map) return;
-      try { layer.clearLayers(); } catch (_) {}
-      try { map.removeLayer(layer); } catch (_) {}
-    });
-    routeLayer.addTo(map);
-    geometryLayer.addTo(map);
-    previewLayer.addTo(map);
-    if (!firstRouteFit && latlngs.length > 1 && !flight) {
-      map.fitBounds(L.latLngBounds(latlngs), { padding: [35, 35] });
-      firstRouteFit = true;
+      [previousRouteLayer, previousGeometryLayer, previousPreviewLayer].forEach(function (layer) {
+        if (!layer || !map) return;
+        try { layer.clearLayers(); } catch (_) {}
+        try { map.removeLayer(layer); } catch (_) {}
+      });
+    } catch (error) {
+      [routeLayer, geometryLayer, previewLayer].forEach(function (layer) {
+        try { layer.clearLayers(); map.removeLayer(layer); } catch (_) {}
+      });
+      routeLayer = previousRouteLayer; geometryLayer = previousGeometryLayer; previewLayer = previousPreviewLayer; previewLine = previousPreviewLine;
+      throw error;
     }
   }
 
@@ -1876,8 +1887,8 @@
       if (!mapSnapshot || (mapSnapshot.routeEdit && mapSnapshot.routeEdit.id) !== (normalized.routeEdit && normalized.routeEdit.id)) localNavigationState = {};
       mapSnapshot = normalized;
       mapRevision = normalized.revision;
-      routeSignature = nextRouteSignature;
       renderRoute(normalized);
+      routeSignature = nextRouteSignature;
     } else {
       mapSnapshot = normalized;
       mapRevision = normalized.revision;
@@ -2088,6 +2099,49 @@
     clearTimeout(boardBookReminderTimer); boardBookReminderTimer = setTimeout(dismiss, 15000);
   }
 
+  var paxWidgetRun = '', paxWidgetTextKey = '';
+  function renderPaxWidget(payload) {
+    var widget = byId('paxVoiceWidget');
+    if (!widget) {
+      widget = document.createElement('div'); widget.id = 'paxVoiceWidget';
+      widget.className = 'ga-efb-pax-widget';
+      var panel = document.createElement('section'); panel.id = 'paxVoicePanel'; panel.hidden = true;
+      panel.setAttribute('aria-label', 'Passagier-Nachricht');
+      var close = document.createElement('button'); close.type = 'button'; close.textContent = 'Schließen';
+      close.className = 'ga-efb-pax-close'; close.onclick = function () { panel.hidden = true; };
+      var name = document.createElement('strong'); name.id = 'paxVoiceName';
+      var text = document.createElement('div'); text.id = 'paxVoiceText';
+      var actions = document.createElement('div'); actions.id = 'paxMissionActionMenu';
+      panel.appendChild(close); panel.appendChild(name); panel.appendChild(text); panel.appendChild(actions);
+      var button = document.createElement('button'); button.id = 'paxVoiceBtn'; button.type = 'button';
+      button.textContent = 'PAX'; button.title = 'Passagier-Nachrichten und Anweisungen';
+      button.onclick = function () { panel.hidden = !panel.hidden; button.classList.remove('has-message'); };
+      widget.appendChild(panel); widget.appendChild(button);
+      (byId('mapTableOverlay') || document.body).appendChild(widget);
+    }
+    var control = payload && payload.control;
+    var run = payload && payload.available !== false ? String(payload.runId || (control && control.runId) || payload.missionId || '') : '';
+    if (run !== paxWidgetRun) {
+      paxWidgetRun = run; paxWidgetTextKey = '';
+      byId('paxVoiceName').textContent = 'Passagier';
+      byId('paxVoiceText').textContent = 'Noch keine Nachricht.';
+      byId('paxVoicePanel').hidden = true;
+      byId('paxVoiceBtn').classList.remove('has-message');
+    }
+    widget.hidden = !run;
+    var voice = payload && payload.voice;
+    if (run && voice && voice.text) {
+      var key = JSON.stringify([voice.updatedAt, voice.text, voice.kind]);
+      if (key !== paxWidgetTextKey) {
+        paxWidgetTextKey = key;
+        var speaker = typeof voice.speaker === 'string' ? voice.speaker : voice.speaker && (voice.speaker.name || voice.speaker.role);
+        byId('paxVoiceName').textContent = speaker || voice.label || 'Passagier';
+        byId('paxVoiceText').textContent = String(voice.text);
+        if (byId('paxVoicePanel').hidden) byId('paxVoiceBtn').classList.add('has-message');
+      }
+    }
+  }
+
   var poiVoicePresentationKey = '';
   function renderPoiVoice(payload) {
     var voice = payload && payload.voice;
@@ -2113,7 +2167,7 @@
     }
     banner.textContent = '';
     var heading = document.createElement('strong');
-    heading.textContent = String(voice.label || 'POI') + (voice.speaker ? ' - ' + String(voice.speaker) : '');
+    heading.textContent = String(voice.label || 'POI') + (voice.speaker ? ' - ' + String(typeof voice.speaker === 'string' ? voice.speaker : voice.speaker.name || voice.speaker.role || '') : '');
     var text = document.createElement('div'); text.textContent = String(voice.text);
     text.style.whiteSpace = 'pre-wrap';
     var close = document.createElement('button'); close.type = 'button'; close.textContent = 'Schließen';
@@ -2123,6 +2177,7 @@
   }
 
   function renderMissionToolbar(payload) {
+    renderPaxWidget(payload);
     var model = missionToolbarProjection(payload);
     var primaryButton = byId('mapMissionToggleBtn');
     var cargoButton = byId('mapGroundCargoBtn');
@@ -2136,7 +2191,7 @@
         button.className = primaryButton.className;
         button.textContent = index === 0 ? 'Missionsstatus' : 'Orientierung';
         button.onclick = function(event) { event.stopPropagation(); requestMissionIntent(intent, {}); };
-        primaryButton.parentNode.appendChild(button);
+        (byId('paxMissionActionMenu') || primaryButton.parentNode).appendChild(button);
       }
       if (!button) return;
       button.style.display = poiControl && poiControl.recipe === 'poi' && poiControl.phase !== 'closed' ? 'inline-flex' : 'none';
@@ -2242,6 +2297,7 @@
     else if (openBoardingDialog) openCargoManager(true);
     renderBoardBookReminder(nextControl);
     renderPoiVoice(next);
+    renderPaxWidget(next);
     if (presentationSignature !== missionPresentationSignature) {
       missionPresentationSignature = presentationSignature;
       renderMissionActionBanner(next);
@@ -2607,27 +2663,34 @@
     updateCompass();
     renderProgress();
   }
+  var flightPollFailures = 0, lastFlightPollSuccessAt = 0;
   function poll() {
     if (pollingClosed) return;
-    fetchJson('/api/v1/snapshot' + (localFlightRevision == null ? '' : '?after=' + localFlightRevision), 2500).then(function (envelope) {
+    fetchJson('/api/v1/snapshot' + (localFlightRevision == null ? '' : '?after=' + localFlightRevision), 5000).then(function (envelope) {
       if (pollingClosed) return;
+      flightPollFailures = 0; lastFlightPollSuccessAt = Date.now();
       if (!trackerOnline) setTrackerState('Tracker verbunden', false);
       trackerOnline = true;
       var payload = safePayload(envelope);
       localFlightRevision = !payload || payload.localRevision == null ? null : payload.localRevision;
-      renderFlight(payload);
-      notifyParentState('live');
-      // Current trackers hold the next request until a fresh source sample.
-      // Older hosts retain bounded polling instead of creating a busy loop.
+      try {
+        renderFlight(payload);
+        notifyParentState('live');
+      } catch (error) {
+        // A successful HTTP response proves connectivity. A rendering exception
+        // must not reset the plane or trigger the shell's connection recovery.
+        report('error', 'render', 'flight-error', 'Fluganzeige konnte nicht aktualisiert werden', String(error && (error.stack || error.message) || error));
+      }
       pollTimer = window.setTimeout(poll, localFlightRevision == null ? 1000 : 0);
-    }).catch(function () {
+    }, function (error) {
       if (pollingClosed) return;
+      flightPollFailures++;
+      var disconnected = !lastFlightPollSuccessAt || flightPollFailures >= 2 || Date.now() - lastFlightPollSuccessAt >= 10000;
       trackerOnline = false;
-      disconnectFlight();
-      setTrackerState('Tracker nicht erreichbar', true);
-      notifyParentState('error');
-      report('warn', 'poll', 'tracker-unreachable', 'Snapshot-Polling fehlgeschlagen');
-      pollTimer = window.setTimeout(poll, 1800);
+      if (disconnected) { disconnectFlight(); notifyParentState('error'); }
+      setTrackerState(disconnected ? 'Tracker nicht erreichbar' : 'Tracker antwortet verzögert', true);
+      report('warn', 'poll', disconnected ? 'tracker-unreachable' : 'tracker-delayed', 'Snapshot-Polling fehlgeschlagen', String(error && error.message || error));
+      pollTimer = window.setTimeout(poll, 1000);
     });
   }
 
@@ -2635,7 +2698,9 @@
     if (pollingClosed) return;
     fetchJson(url, 5000).then(function (envelope) {
       if (!pollingClosed) receive(safePayload(envelope));
-    }).catch(function () {}).then(function () {
+    }).catch(function (error) {
+      if (!pollingClosed) report('warn', 'poll', 'auxiliary-error', url, String(error && (error.stack || error.message) || error));
+    }).then(function () {
       if (!pollingClosed) auxiliaryPollTimers[url] = window.setTimeout(function () { pollAuxiliary(url, receive, interval); }, interval);
     });
   }

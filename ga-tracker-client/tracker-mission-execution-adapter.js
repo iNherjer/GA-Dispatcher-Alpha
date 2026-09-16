@@ -617,7 +617,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       action: 'sign',
       mode,
       signature: {
-        by: cleanString(manifest.pilotId, 180) || cleanString(signature?.by, 180) || 'Tracker',
+        by: cleanString(options.getPilotId?.(), 180) || cleanString(manifest.pilotId, 180) || cleanString(signature?.by, 180) || 'Tracker',
         at: now(),
         aircraft: cleanString(manifest.aircraftLabel, 180) || cleanString(signature?.aircraft, 180),
         note: cleanString(signature?.note, 500)
@@ -1064,7 +1064,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       const lifecycle = poiLifecycleCore.evaluate(poiRecipe, snapshot.state.poiTask?.detector,
         { ...recorded.state, hadAirbornePhase: recorded.state.hadAirbornePhase || snapshot.state.poiLifecycle?.flightEligible }, sample);
       const poiLifecycle = Object.fromEntries(['flightEligible', 'canEndHere', 'endedAtHome', 'needsRideHome'].map(key => [key, lifecycle[key]]));
-      if (JSON.stringify(snapshot.state.poiLifecycle) !== JSON.stringify(poiLifecycle)) {
+      if (Object.keys(poiLifecycle).some(key => snapshot.state.poiLifecycle?.[key] !== poiLifecycle[key])) {
         poiLifecycleChanged = true;
         const result = submitEvent(snapshot, 'POI_LIFECYCLE_OBSERVED', { poiLifecycle },
           `${snapshot.runId}:poi-lifecycle:${snapshot.executionRevision + 1}`, 'telemetry:poi_lifecycle');

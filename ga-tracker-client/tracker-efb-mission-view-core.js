@@ -286,7 +286,7 @@ function fallbackView(activeRun, flightSnapshot) {
   }, activeRun);
 }
 
-function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapshot = null, executionControl = null, payloadSnapshot = null) {
+function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapshot = null, executionControl = null, payloadSnapshot = null, identity = {}) {
   if (!activeRun?.missionId || !activeRun?.runId) return null;
   const parts = missionParts(activeRun);
   const bundle = object(activeRun.resumeBundle);
@@ -319,6 +319,13 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
   const voice = [farewellVoice, object(object(control.voice).poi), object(object(control.voice).flight), object(object(control.voice).approach), boardingVoice]
     .filter(value => value.text).sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))[0] || {};
   const manifest = projectMissionManifest(activeRun, control, flightSnapshot);
+  const pilotId = text(identity.pilotId, 180);
+  if (pilotId) {
+    manifest.pilotId = pilotId;
+    // Older Tracker builds persisted their technical fallback as the signer.
+    // Correct only that fallback in the view; preserve genuine signed names.
+    if (manifest.dispatchSignature?.by === 'Tracker') manifest.dispatchSignature.by = pilotId;
+  }
   const ui = control.executionAuthority === 'tracker'
     ? (control.recipe === 'poi' ? poiUiCore : aptUiCore).project({
         missionId: activeRun.missionId,

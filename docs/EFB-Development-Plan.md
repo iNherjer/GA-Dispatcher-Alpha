@@ -1,5 +1,24 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Tracker v411: EFB-Feldtestkorrekturen (16.09.2026)
+
+Pilot-ID kommt aus der authentifizierten Tracker-Sync-ID, einschliesslich der
+Anzeige alter `Tracker`-Fallbacksignaturen. PAX-Fenster zeigt den letzten Text
+und die vorhandenen autoritativen POI-Anweisungen. POI-Popup verwendet DOM-Text;
+fehlgeschlagene Routen bleiben wiederholbar und loeschen keine bestehende Route.
+
+Snapshot-Poll trennt Renderfehler von HTTP-Ausfaellen und ueberbrueckt einen
+kurzen Timeout mit sichtbarem Verzoegerungshinweis. Echte Ausfaelle werden weiter
+angezeigt. Ursachen werden protokolliert. Ueberfluessige POI-Lifecycle-Commits
+im Tracker sind durch Wertvergleich beseitigt (15 statt 134 Commits in der
+Minutenprobe). Der Fehler bestand vor v410; Ursache aller Windows-Lags bleibt
+mit erneutem Feldtest zu pruefen. Keine Aenderung am Community-Package noetig;
+der lokale Host kommt mit Runtime v411, Assetrevision 41101, Desktop 1.6.11.
+
+314 Node-Tests und Browserprobe fuer Route, Fehler-Retry und PAX bestanden.
+Details und Lehren: [Tracker Migration Guide](Tracker%20Mission%20Migration%20Guide.md#feldtest-fixes-vom-16092026-tracker-v411).
+
+
 ## EFB 0.4.14 Alpha: gemeinsames Paket (14.09.2026)
 
 Veroeffentlicht als `efb-app-v0.4.14`, Quellcommit `714cb5da9`. Oeffentlicher

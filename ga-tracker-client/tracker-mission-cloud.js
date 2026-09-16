@@ -105,6 +105,7 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
     return { ok: false, status: 'invalid', code: 'cloud_mission_identity_mismatch', candidate: null };
   }
   const runtime = plannedRuntime(missionId, state, seed);
+  if (runtime.cargoManifest && cleanString(options.pilotId)) runtime.cargoManifest.pilotId = cleanString(options.pilotId);
   const adapter = cleanString(seed.adapter, 80).toLowerCase()
     || resumeAdapters.detectPrimaryAdapter(runtime, state);
   if (adapter !== 'apt' && !(adapter === 'poi' && options.poiExecutionEnabled === true)) {
@@ -199,7 +200,7 @@ async function fetchTrackerCloudMission(syncId, pin, options = {}) {
   if (response?.status !== 200 || !response?.data || typeof response.data !== 'object') {
     return { ok: false, status: 'error', code: 'sync_profile_invalid', candidate: null };
   }
-  return buildCloudMissionCandidate(response.data, options);
+  return buildCloudMissionCandidate(response.data, { ...options, pilotId });
 }
 
 module.exports = {

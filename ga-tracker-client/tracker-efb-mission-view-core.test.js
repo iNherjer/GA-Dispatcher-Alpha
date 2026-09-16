@@ -275,3 +275,15 @@ test('live tracker payload snapshot feeds the EFB App-style weight-and-balance b
   assert.equal(result.ui.cargo.payload.summary.payloadStationCount, 5);
   assert.equal(result.ui.cargo.payload.summary.stations[0].weightLbs, 180);
 });
+
+
+test('authenticated identity corrects legacy Tracker fallback in the EFB without rewriting signed state', () => {
+  const manifest = {items:[],dispatchSignature:{by:'Tracker',at:1,scope:'departure'}};
+  const run = {missionId:'m',runId:'r',resumeBundle:{runtime:{cargoManifest:manifest}}};
+  const view = projectTrackerEfbMissionView(run,null,null,null,null,{pilotId:'Actual-Pilot'});
+  assert.equal(view.manifest.pilotId,'Actual-Pilot');
+  assert.equal(view.manifest.dispatchSignature.by,'Actual-Pilot');
+  assert.equal(manifest.dispatchSignature.by,'Tracker');
+  manifest.dispatchSignature.by='Signed-Pilot';
+  assert.equal(projectTrackerEfbMissionView(run,null,null,null,null,{pilotId:'Actual-Pilot'}).manifest.dispatchSignature.by,'Signed-Pilot');
+});

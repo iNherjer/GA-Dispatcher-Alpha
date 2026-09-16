@@ -36,6 +36,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const adapter = createTrackerMissionExecutionAdapter({
     syncInitialPayload: options.syncInitialPayload === true,
+    getPilotId: options.getPilotId,
     authorityManager,
     flightLog: options.flightLog
   });

@@ -196,3 +196,44 @@ Manifestprojektion und Signatur, voller PA24/Standard-Sim, wiederholtes Laden/
 Entladen mit unveraenderter Recovery, initialer Payload-Effekt genau einmal,
 PC-Button. Payload-Standalone-Differentialtest weiterhin unveraendert bestanden.
 Realer MSFS-Feldtest der neuen Version bleibt erforderlich.
+
+## Feldtest-Fixes vom 16.09.2026 (Tracker v411)
+
+- **Pilotidentitaet am echten Einstieg testen:** Das originale App-Manifest hat
+  normalerweise keine `pilotId`; die App liest `ga_sync_id`. Ein Testmanifest mit
+  erfundener `pilotId` hatte den Fehler in v410 verdeckt. Tracker nutzt jetzt seine
+  authentifizierte Sync-ID beim Cloud-Seed, Signieren und in der EFB-Projektion.
+  Nur alte technische Signaturen `Tracker` werden in der Anzeige korrigiert;
+  echte Signaturen und gespeicherte Historie bleiben erhalten. Kein PIN im Seed.
+- **Vollstaendige Runtime statt nur Detektor testen:** Der POI-Lifecycle verglich
+  JSON-Strings, obwohl der gespeicherte Core die Schluessel anders sortiert.
+  Identische Flags erzeugten deshalb alle 500 ms eine neue Authority-Revision.
+  Jetzt werden die vier fachlichen Werte verglichen. Eine Minute mit 120 Samples
+  durch den echten Adapter erzeugt 15 statt 134 semantischer Commits; Lifecycle-
+  Events sinken von 120 auf 2. Task-Checkpoints bleiben bei 12 (5 s), kritische
+  Uebergaenge und atomare Persistenz unveraendert. Replay-Hash muss identisch sein.
+  Der Fehler bestand bereits vor v410. Dies erklaert Schreiblast, beweist aber
+  noch nicht die vollstaendige Behebung der bis zu 18 s langen Windows-Loop-Lags.
+- **Karte im Browser pruefen:** Ein nicht definiertes `escapeHtml` im POI-Popup
+  brach den Routenaufbau ab. Sicherer DOM-Text ersetzt den Aufruf. Neue Layer
+  werden erst erfolgreich aufgebaut, bevor alte verschwinden; die Signatur wird
+  erst nach erfolgreichem Zeichnen bestaetigt. Test: Fehler gezielt ausloesen,
+  alte Route behalten, identischen Snapshot erneut erfolgreich zeichnen.
+- **PAX bleibt Projektion:** Wieder aufklappbares Fenster fuer den letzten
+  bestaetigten Text und Sprecher, wie das originale App-Lesefenster. Bestehende
+  POI-Intents `poi_status`/`poi_orientation` liegen dort und behalten ihre Gates.
+  Kein zweiter Voice-Trigger, keine eigene Missionslogik. APT-Texte sind lesbar;
+  weitere App-PAX-Aktionen (z. B. Wetter/Wohlbefinden) werden dadurch nicht neu
+  freigeschaltet. Runwechsel leert die Anzeige; Polling oeffnet sie nicht erneut.
+- **Transport und Darstellung trennen:** Ein Renderfehler darf keine
+  Verbindungs-Recovery ausloesen. Snapshot-Deadline 5 s bei 1,5 s Server-Longpoll;
+  nach erfolgreicher Verbindung bleibt bei einem einzelnen Timeout das letzte
+  Bild mit Verzoegerungshinweis stehen. Zwei Fehler oder 10 s ohne Erfolg melden
+  offline, anfaenglich fehlende Verbindung sofort. Retry nach 1 s. Echte Fehler
+  und Nebenabfragen werden mit Ursache protokolliert.
+
+Nachweise: 314 Tracker-/EFB-Tests; Browser-Regressionsprobe
+`tools/efb-field-regression-ui-selftest.cjs` (mit Electron starten; nur lokaler
+HTTP-Verkehr, Screenshot unter `/tmp/efb-field-regression.png`); originale
+POI-Lifecycle-/Cargo-/Action-/Voice-Differentialtests und Payload-App-Vergleich.
+Realer Windows-/MSFS-Wiederholungstest mit v411 bleibt erforderlich.

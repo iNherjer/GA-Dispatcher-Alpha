@@ -22,18 +22,18 @@ test('App loads POI dependencies in HTML order and can execute the browser actio
 function harness() {
   const nodes = new Map(), calls = [];
   function element() {
-    const node = { children: [], style: {}, hidden: false, classList: { toggle() {}, remove() {} }, setAttribute() {},
+    const node = { children: [], style: {}, hidden: false, classList: { toggle() {}, remove() {}, add() {} }, setAttribute() {},
       appendChild(child) { this.children.push(child); child.parentNode = this; if (child.id) nodes.set(child.id, child); },
       set textContent(value) { this.text = value; this.children = []; }, get textContent() { return this.text; } };
     return node;
   }
   const host = element(), toolbar = element(), primary = element();
   primary.id = 'mapMissionToggleBtn'; toolbar.appendChild(primary);
-  const context = vm.createContext({ document: { createElement: element }, byId: id => nodes.get(id),
+  const context = vm.createContext({ document: { createElement: element, body: element() }, byId: id => nodes.get(id),
     window: { GANavigationWarningPresentation: { getBannerHost: () => host } },
     missionIntentPending: false, missionToolbarProjection: () => ({}),
     requestMissionIntent: (intent, payload) => calls.push({ intent, payload }) });
-  vm.runInContext(source.slice(source.indexOf('  var poiVoicePresentationKey'), source.indexOf('  function renderMissionActionBanner')), context);
+  vm.runInContext(source.slice(source.indexOf('  var paxWidgetRun'), source.indexOf('  function renderMissionActionBanner')), context);
   return { context, nodes, host, calls };
 }
 
@@ -74,4 +74,22 @@ test('EFB POI controls send tracker intents and follow confirmed availability', 
   assert.equal(status.style.display, 'none');
   assert.equal(orientation.style.display, 'none');
   assert.match(source, /renderBoardBookReminder\(nextControl\);\s*renderPoiVoice\(next\);/);
+});
+
+test('PAX button reopens the last confirmed APT or POI message and holds the allowed actions', () => {
+  const h = harness();
+  const payload = { available:true, missionId:'m',runId:'r',control:{runId:'r',recipe:'poi',phase:'active',allowedActions:['poi_status']},
+    voice:{kind:'boarding',speaker:{name:'Mia'},text:'<b>Hallo Pilot</b>',updatedAt:1} };
+  h.context.renderMissionToolbar(payload);
+  const panel = h.nodes.get('paxVoicePanel'), button = h.nodes.get('paxVoiceBtn');
+  assert.equal(panel.hidden,true);button.onclick();assert.equal(panel.hidden,false);
+  assert.equal(h.nodes.get('paxVoiceText').textContent,payload.voice.text);
+  assert.equal(h.nodes.get('paxVoiceName').textContent,'Mia');
+  assert.equal(h.nodes.get('gaEfbPoiAction0').parentNode.id,'paxMissionActionMenu');
+  panel.children[0].onclick();assert.equal(panel.hidden,true);
+  h.context.renderMissionToolbar(payload);assert.equal(panel.hidden,true,'polling never reopens the panel');
+  button.onclick();assert.equal(panel.hidden,false);
+  h.context.renderMissionToolbar({...payload,runId:'new',control:{runId:'new',recipe:'apt',phase:'active',allowedActions:[]},voice:null});
+  assert.equal(panel.hidden,true); assert.equal(h.nodes.get('paxVoiceText').textContent,'Noch keine Nachricht.');
+  h.context.renderPaxWidget(null);assert.equal(h.nodes.get('paxVoiceWidget').hidden,true);
 });

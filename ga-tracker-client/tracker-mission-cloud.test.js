@@ -82,6 +82,7 @@ test('tracker fetches the existing pilot profile without exposing credentials in
   assert.equal(result.ok, true);
   assert.match(requestedUrl, /Pilot%207\?pin=1234$/);
   assert.doesNotMatch(JSON.stringify(result.candidate), /1234/);
+  assert.equal(result.candidate.bundle.runtime.cargoManifest.pilotId, 'Pilot 7');
 });
 
 test('cloud candidate passes the existing two-phase tracker execution handoff unchanged', () => {

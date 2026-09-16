@@ -35,7 +35,7 @@ test('telemetry timeout recovers automatically and ignores a late frame and unlo
   f.sandbox.poll(); await wait(30);
   assert.equal(f.states.at(-1).error, true);
   assert.equal(f.disconnected.length, 1);
-  f.timers.find(t => t.ms === 1800).fn(); await flush();
+  f.timers.find(t => t.ms === 1000).fn(); await flush();
   assert.deepEqual(f.frames, ['fresh']);
   assert.equal(f.states.at(-1).error, false, 'telemetry clears the offline notice even if the separate status request still hangs');
   finish(response('old')); await flush();

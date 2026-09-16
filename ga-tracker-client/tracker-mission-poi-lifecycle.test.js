@@ -520,3 +520,16 @@ test('App manual POI buttons route through Tracker authority and retain original
   owned = false; sandbox.window.paxMissionStatusReport(); sandbox.window.paxMissionOrientationHelp();
   assert.equal(status, 1); assert.equal(orientation, 1);
 });
+
+test('full POI runtime checkpoints steady enroute telemetry without rewriting equal lifecycle flags', async t => {
+  const f = await harness(t); await f.start();
+  const baseline = f.manager.getExecutionSnapshot().executionRevision;
+  for (let i = 0; i < 120; i++) { f.sample(1789538100000 + i * 500); await tick(); }
+  const state = f.manager.getExecutionSnapshot().state;
+  const events = f.manager.getActiveRun({ includeBundle: true }).resumeBundle.executionReplay.events;
+  assert.equal(events.filter(e => e.type === 'POI_TASK_OBSERVED').length, 12);
+  assert.equal(events.filter(e => e.type === 'POI_LIFECYCLE_OBSERVED').length, 2);
+  assert.ok(state.revision - baseline <= 16, 'no per-sample lifecycle journal writes');
+  assert.equal(execution.replay(f.manager.getActiveRun({ includeBundle: true }).resumeBundle.executionReplay).stateHash,
+    f.manager.getExecutionSnapshot().executionStateHash);
+});

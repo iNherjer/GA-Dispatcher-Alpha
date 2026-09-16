@@ -113,7 +113,7 @@ function createCommittedFixture(t, options = {}) {
   return {
     manager,
     managerOptions,
-    adapter: createTrackerMissionExecutionAdapter({ authorityManager: manager, now: () => clock }),
+    adapter: createTrackerMissionExecutionAdapter({ authorityManager: manager, now: () => clock, getPilotId: options.getPilotId }),
     setClock(value) { clock = value; }
   };
 }
@@ -1229,4 +1229,15 @@ test('cloud preflight ground telemetry unlocks and relocks cargo without flight 
   assert.equal(executeCurrent(f, 'sign_manifest', 'pilot-sign').ok, true);
   assert.equal(f.manager.getExecutionSnapshot().state.manifest.dispatchSignature.by, 'Pilot-Test');
 
+});
+
+
+test('EFB signing uses authenticated Tracker pilot identity without fabricated manifest metadata', t => {
+  const f = createCommittedFixture(t, { getPilotId: () => 'Actual-Pilot' });
+  assert.equal(f.manager.getExecutionSnapshot().state.manifest.pilotId, undefined);
+  executeCurrent(f, 'prepare_mission', 'identity-prepare'); beginBoarding(f, 'identity');
+  executeCurrent(f, 'set_manifest_item', 'identity-load', { itemId:'medical-box', action:'load' });
+  const signed = executeCurrent(f, 'sign_manifest', 'identity-sign', { signature:{by:'untrusted-client'} });
+  assert.equal(signed.ok, true);
+  assert.equal(f.manager.getExecutionSnapshot().state.manifest.dispatchSignature.by,'Actual-Pilot');
 });

@@ -84,8 +84,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v410';
-const TRACKER_VERSION_CODE = 410;
+const TRACKER_VERSION = 'v411';
+const TRACKER_VERSION_CODE = 411;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4879,6 +4879,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
   });
   let broadcastMissionAuthorityUpdate = () => false;
   const missionExecutionRuntime = createTrackerMissionExecutionRuntime({
+    getPilotId: () => syncId,
     syncInitialPayload: true,
     getAudioSettings: () => trackerAudioControl?.snapshot().settings || null,
     authorityManager: missionAuthorityManager,
@@ -5352,7 +5353,8 @@ function startTracker(syncId, pin, voiceCredentials = null) {
           _lastEfbSnapshot,
           _lastEfbMissionSnapshot,
           executionControl,
-          _lastPayloadSnapshot
+          _lastPayloadSnapshot,
+          { pilotId: syncId }
         );
         if (projected) return {
           ...projected,
@@ -5372,7 +5374,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
             revision: 0,
             updatedAt: _cloudMissionCandidate.updatedAt,
             resumeBundle: _cloudMissionCandidate.bundle
-          }, _lastEfbSnapshot, null, _cloudMissionCandidate.control, _lastPayloadSnapshot);
+          }, _lastEfbSnapshot, null, _cloudMissionCandidate.control, _lastPayloadSnapshot, { pilotId: syncId });
           if (cloudProjected) return {
             ...cloudProjected,
             cloudPending: true,
