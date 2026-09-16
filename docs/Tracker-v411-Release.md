@@ -26,3 +26,7 @@ langen Aussetzer verschwinden. Auf diesem Host kein realer MSFS-Test.
 Desktop 1.6.11 bleibt kompatibel. Kein neues Community-Package erforderlich.
 Stable bleibt unveraendert. Migrationslehren sind im Tracker Mission Migration
 Guide und EFB-Development-Plan dokumentiert.
+
+Veroeffentlicht aus `210daa57e`. Oeffentlicher EXE-Download verifiziert:
+57.742.463 Bytes, SHA-256 `3c7f07701a92a94b43c45a596bb97066e2fb2c6d61e083f17905fe8b47e95852`.
+Alpha verweist auf v411; SW v1779.
