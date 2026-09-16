@@ -24,7 +24,7 @@ const preserveHelper = sourceBetween(
 const cloudApply = sourceBetween(
     syncSource,
     'async function _syncApplyActiveMissionFromCloud(activeMission = null, options = {})',
-    'function setLastSyncedPayload()'
+    'function setLastSyncedPayload('
 );
 
 const storage = new Map();

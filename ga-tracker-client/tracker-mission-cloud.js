@@ -1,4 +1,6 @@
 'use strict';
+const cloudSync = require('../cloud-sync-client.js');
+const profileClients = new Map();
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
 
 const executionCore = require('../mission-execution-core.js');
@@ -185,10 +187,21 @@ async function fetchTrackerCloudMission(syncId, pin, options = {}) {
   const baseUrl = options.baseUrl || DEFAULT_SYNC_BASE_URL;
   let response;
   try {
-    response = await request(syncUrl(baseUrl, pilotId, pilotPin), {
-      pin: pilotPin,
-      timeoutMs: options.timeoutMs,
-      maxBytes: MAX_PROFILE_RESPONSE_BYTES
+    const key = JSON.stringify([baseUrl, pilotId, pilotPin]);
+    let client = options.request ? null : profileClients.get(key);
+    if (!client) {
+      client = cloudSync.create({
+        baseUrl: baseUrl.replace(/\/api\/sync\/?$/, '/api/sync-v2/'), pilotId, pin: pilotPin,
+        request: async (url, init) => {
+          const result = await request(url, { pin: pilotPin, headers: init.headers, timeoutMs: options.timeoutMs, maxBytes: 96 * 1024 });
+          return { ok: result.status >= 200 && result.status < 300, status: result.status, json: async () => result.data };
+        }
+      });
+      if (!options.request) { if (profileClients.size >= 2) profileClients.clear(); profileClients.set(key, client); }
+    }
+    const result = await client.read(['mission', 'field:lastModified']);
+    response = result.migrated ? { status: 200, data: result.profile } : await request(syncUrl(baseUrl, pilotId, pilotPin), {
+      pin: pilotPin, timeoutMs: options.timeoutMs, maxBytes: MAX_PROFILE_RESPONSE_BYTES
     });
   } catch (error) {
     return { ok: false, status: 'error', code: 'sync_unavailable', message: error?.message || String(error), candidate: null };

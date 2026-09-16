@@ -76,6 +76,7 @@ test('tracker fetches the existing pilot profile without exposing credentials in
   const result = await fetchTrackerCloudMission('Pilot 7', '1234', {
     request: async (url) => {
       requestedUrl = url;
+      if (url.endsWith('/head')) return { status: 200, data: { revision: 0, manifest: null } };
       return { status: 200, data: profile() };
     }
   });
@@ -120,4 +121,56 @@ test('cloud candidate passes the existing two-phase tracker execution handoff un
   });
   assert.equal(committed.ok, true);
   assert.equal(committed.activeRun.executionAuthority, 'tracker');
+});
+
+test('V2 large APT and POI mission packages reach the original candidate builder intact', async () => {
+  const core = require('../cloud-sync-core.js');
+  const poi = require('./tracker-mission-poi-runtime.js');
+  for (const adapter of ['apt', 'poi']) {
+    const value = profile();
+    value.activeMission.currentMissionData.missionTruth = { content: 'Kontext 🌍 '.repeat(50000) };
+    if (adapter === 'poi') {
+      value.activeMission.currentMissionData.missionType = 'poi';
+      value.activeMissionTrackerSeed.adapter = 'poi';
+      value.activeMissionTrackerSeed.executionPoiRecipe = {
+        schema: poi.RECIPE_SCHEMA, version: 1, missionId: 'mission-cloud-apt',
+        taskDomain: 'media_photo', target: { lat: 48.39, lon: 8.43 }, home: { lat: 48.4, lon: 8.5 },
+        strict: true, trackingActive: true,
+        passenger: { targetRadiusNm: .5, targetAltFt: 4000, targetDwellMin: 5 }
+      };
+      const recipe = value.activeMissionTrackerSeed.executionPoiRecipe;
+      recipe.lifecycle = { schema: require('../mission-poi-lifecycle-core.js').SCHEMA };
+      recipe.voiceContext = {
+        schema: require('../mission-poi-voice-core.js').CONTEXT_SCHEMA, version: 1,
+        missionId: recipe.missionId, taskDomain: recipe.taskDomain, strict: recipe.strict,
+        passenger: recipe.passenger, baseContext: 'Fotograf am Ziel.', audioEnabled: false
+      };
+      value.activeMissionTrackerSeed.executionEffectPlan = {
+        schema: 'ga.mission-poi-effect-plan.v1', recipe: 'poi', missionId: recipe.missionId,
+        effects: {
+          'scene.prepare': { none: true }, 'scene.boarding': { none: true },
+          'scene.deboarding': { none: true }, 'scene.target': { none: true },
+          'voice.boarding': { recipe: require('../mission-boarding-voice-core.js').createRecipe({ missionId: recipe.missionId, prompt: 'Bereit.', audioEnabled: false }) },
+          'voice.approach': { context: { ...recipe.voiceContext, supported: true } },
+          'voice.farewell': { poiContextRef: true }
+        }
+      };
+    }
+    value.logbook = [{ content: 'not needed by tracker' }];
+    const packed = await core.pack(value);
+    const requested = [];
+    const result = await fetchTrackerCloudMission('Pilot 7', '1234', {
+      poiExecutionEnabled: true,
+      request: async (url, options) => {
+        requested.push(url); assert.equal(options.headers['X-Pilot-ID'], 'Pilot 7');
+        assert.ok(!url.includes('1234'));
+        if (url.endsWith('/head')) return { status: 200, data: { revision: 1, manifest: packed.manifest } };
+        return { status: 200, data: { data: packed.chunks[url.split('/').pop()] } };
+      }
+    });
+    assert.equal(result.status, 'ready', JSON.stringify(result));
+    assert.equal(result.candidate.bundle.adapter, adapter);
+    assert.equal(result.candidate.bundle.missionState.currentMissionData.missionTruth.content, value.activeMission.currentMissionData.missionTruth.content);
+    for (const id of packed.manifest.sections['field:logbook'].chunks) assert.ok(!requested.some(url => url.endsWith(id)));
+  }
 });

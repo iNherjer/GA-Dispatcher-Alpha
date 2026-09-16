@@ -1,3 +1,5 @@
+import { handleProfileSync, profileStub } from './profile-sync.mjs';
+export { ProfileSync } from './profile-sync.mjs';
 import { handleAudioSettings } from './audio-settings.mjs';
 const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
@@ -58,6 +60,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "*",
+  "Access-Control-Max-Age": "86400",
   "Access-Control-Expose-Headers": "X-Pilot-ID, X-GA-OpenAIP-Cache"
 };
 
@@ -696,7 +699,7 @@ async function verifyChecklistCommunityAuth(request, env) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
 
-  return { ok: true, ownerId: resolution.pilotId };
+  return { ok: true, ownerId: resolution.pilotId, legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
 }
 
 async function verifySyncProfileAuth(request, env) {
@@ -713,7 +716,7 @@ async function verifySyncProfileAuth(request, env) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
 
-  return { ok: true, ownerId: resolution.pilotId };
+  return { ok: true, ownerId: resolution.pilotId, legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
 }
 
 async function getCommunityRecord(env, id) {
@@ -2622,6 +2625,10 @@ export default {
 
     const requestUrl = new URL(request.url);
 
+    if (requestUrl.pathname.startsWith("/api/sync-v2/")) {
+      return handleProfileSync(request, env, verifySyncProfileAuth);
+    }
+
     if (requestUrl.pathname === "/api/tracker/download" && (request.method === "GET" || request.method === "HEAD")) {
       return handleTrackerDownload(requestUrl);
     }
@@ -2701,6 +2708,12 @@ export default {
           if (isGroupKey) {
             storedData = await hydrateGroupMemberActivity(storedData, env);
           }
+          if (!isGroupKey && env.GA_PROFILE_SYNC) {
+            const upgraded = await profileStub(env, storagePilotId).fetch('https://profile/profile' + (requestUrl.searchParams.get('mission') === '1' ? '?mission=1' : ''));
+            if (upgraded.ok) storedData = { ...storedData, ...await upgraded.json() };
+            else if (upgraded.status !== 404) return upgraded;
+          }
+
 
           return new Response(JSON.stringify(storedData), { headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store", "X-Pilot-ID": storagePilotId } });
         } catch {
@@ -2740,6 +2753,10 @@ export default {
             const existingData = JSON.parse(existingRaw);
             if (!isGroupKey && existingData.pin && existingData.pin !== incomingData.pin) {
               return json({ error: "Falscher PIN" }, 401);
+            }
+            if (!isGroupKey && env.GA_PROFILE_SYNC && !pilotId.startsWith('CHK')) {
+              const head = await (await profileStub(env, storagePilotId).fetch('https://profile/head')).json();
+              if (head.revision > 0) return json({ error: "Profil nutzt verlustfreien Sync. Bitte App aktualisieren." }, 409);
             }
             if (!isGroupKey) {
               const registeredAt = isoFromMs(parseDateMs(existingData.registeredAt) || parseDateMs(existingData.createdAt) || parseDateMs(existingData.firstSeenAt));

@@ -3905,14 +3905,18 @@ function vpBuildStorageDiagnosticsLines() {
     const cloudUpload = window.gaLastCloudUploadDiagnostics;
     if (cloudUpload && typeof cloudUpload === 'object') {
         const fmtChars = value => Number.isFinite(Number(value)) ? `${(Number(value) / 1024).toFixed(1)} KiB` : '-';
-        lines.push(`- Cloud-Upload: ${cloudUpload.status || '-'} | raw=${fmtChars(cloudUpload.rawChars)} | kompakt=${fmtChars(cloudUpload.uploadChars)} | Limit=${fmtChars(cloudUpload.limitChars)} | Zeitpunkt=${vpFormatDebugTs(cloudUpload.at)}`);
-        const componentText = Object.entries(cloudUpload.uploadComponents || {})
+        if (cloudUpload.transport === 'lossless-v2') {
+            lines.push(`- Cloud-Upload V2: ${cloudUpload.status || '-'} | vollständig=${fmtChars(cloudUpload.rawBytes)} | neue Paketdaten=${fmtChars(cloudUpload.transferredBytes)} | Teile neu/wiederverwendet=${cloudUpload.uploadedChunks ?? '-'}/${cloudUpload.reusedChunks ?? '-'} | Revision=${cloudUpload.revision ?? '-'} | Profilgrenze=8 MiB | Zeitpunkt=${vpFormatDebugTs(cloudUpload.at)}`);
+        } else {
+            lines.push(`- Cloud-Upload: ${cloudUpload.status || '-'} | raw=${fmtChars(cloudUpload.rawChars)} | kompakt=${fmtChars(cloudUpload.uploadChars)} | Limit=${fmtChars(cloudUpload.limitChars)} | Zeitpunkt=${vpFormatDebugTs(cloudUpload.at)}`);
+        }
+        const componentText = Object.entries(cloudUpload.rawComponents || cloudUpload.uploadComponents || {})
             .filter(([, value]) => Number(value) >= 0)
             .sort((a, b) => Number(b[1]) - Number(a[1]))
             .slice(0, 8)
             .map(([key, value]) => `${key}=${fmtChars(value)}`)
             .join(' | ');
-        if (componentText) lines.push(`- Cloud-Komponenten kompakt: ${componentText}`);
+        if (componentText) lines.push(`- Cloud-Komponenten: ${componentText}`);
     }
     const groupSummary = inventory.groups
         .slice(0, 8)

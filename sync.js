@@ -4,7 +4,7 @@
    ========================================================= */
 const SYNC_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync/';
 const AUTH_VERIFY_URL = 'https://ga-proxy.einherjer.workers.dev/api/auth/verify';
-// Muss dem Worker-Vertrag entsprechen: /api/sync/* akzeptiert bis zu 256 KiB.
+// Legacy-/Gruppenlimit; persönlicher Sync nutzt verlustfreie V2-Pakete.
 // Beide Seiten pruefen die Laenge des bereits dekodierten JSON-Strings.
 const SYNC_MAX_UPLOAD_BYTES = 256 * 1024;
 const SYNC_PENDING_UPLOAD_KEY = 'ga_sync_pending_upload_v1';
@@ -28,6 +28,7 @@ function _syncMarkPendingUpload(reason = 'local-change') {
     const pilotId = String(getSyncId() || existing?.pilotId || '').trim();
     const pending = {
         version: 1,
+        generation: Number(existing?.generation || 0) + 1,
         requestedAt: Number(existing?.requestedAt || now) || now,
         updatedAt: now,
         reason: String(reason || existing?.reason || 'local-change'),
@@ -11561,10 +11562,7 @@ function _missionLogbookForSync(source = null) {
     if (!Array.isArray(entries)) {
         try { entries = JSON.parse(localStorage.getItem('ga_logbook') || '[]'); } catch (_) { entries = []; }
     }
-    return (Array.isArray(entries) ? entries : [])
-        .map(_compactLegacyLogbookEntry)
-        .filter(entry => entry?.completionId)
-        .slice(0, 50);
+    return Array.isArray(entries) ? entries : [];
 }
 
 function _storeMissionLogbookEntries(entries = [], options = {}) {
@@ -14986,35 +14984,52 @@ function _syncApplyOnboardEquipmentFromCloud(data = null) {
     try { return window.missionCargoApplyOnboardEquipmentFromSync(data.onboardEquipment); } catch (_) { return false; }
 }
 
+// Kept as a diagnostic helper; personal sync never drops fields to fit a request.
 function _syncBuildUploadPayload(basePayload, localSyncTs, pin) {
-    const attempts = [
-        { maxPinnedFlights: 10, flightDataLevel: 1, logbookMax: 40, missionLevel: 1, maxFollowUps: 36 },
-        { maxPinnedFlights: 8, flightDataLevel: 1, logbookMax: 30, missionLevel: 1, maxFollowUps: 30 },
-        { maxPinnedFlights: 6, flightDataLevel: 2, logbookMax: 20, missionLevel: 2, maxFollowUps: 24 },
-        { maxPinnedFlights: 4, flightDataLevel: 2, logbookMax: 10, missionLevel: 2, maxNotes: 80, textMax: 3000, maxFollowUps: 18 },
-        { maxPinnedFlights: 2, flightDataLevel: 3, logbookMax: 5, missionLevel: 3, maxNotes: 50, textMax: 1000, maxFollowUps: 12, dropTrackerSeed: true },
-        { maxPinnedFlights: 1, flightDataLevel: 3, logbookMax: 2, missionLevel: 3, maxNotes: 30, textMax: 600, maxFollowUps: 6, dropTrackerSeed: true }
-    ];
+    const payload = { ...basePayload, lastModified: localSyncTs };
+    return { payload, bodyStr: JSON.stringify(payload), compacted: false, compaction: null };
+}
 
-    let last = null;
-    for (const cfg of attempts) {
-        const payload = {
-            ...basePayload,
-            pinboard: _syncCompactPinboard(basePayload.pinboard, cfg),
-            logbook: Array.isArray(basePayload.logbook) ? basePayload.logbook.slice(0, cfg.logbookMax) : [],
-            activeMission: cfg.dropActiveMission ? null : _syncCompactActiveMission(basePayload.activeMission, cfg.missionLevel),
-            activeMissionTrackerSeed: cfg.dropTrackerSeed ? null : basePayload.activeMissionTrackerSeed,
-            followUpRequests: (typeof window.missionFollowupCompactForSync === 'function')
-                ? window.missionFollowupCompactForSync(basePayload.followUpRequests, cfg)
-                : (Array.isArray(basePayload.followUpRequests) ? basePayload.followUpRequests.slice(0, cfg.maxFollowUps || 20) : []),
-            lastModified: localSyncTs,
-            pin
-        };
-        const bodyStr = JSON.stringify(payload);
-        last = { payload, bodyStr, compacted: true, compaction: { ...cfg } };
-        if (bodyStr.length <= SYNC_MAX_UPLOAD_BYTES) return last;
+let _profileSyncSession = null;
+function _syncProfileClient() {
+    const id = getSyncId(), pin = getSyncPin();
+    const identity = JSON.stringify([id, pin]);
+    if (_profileSyncSession?.identity === identity) return _profileSyncSession.client;
+    const key = 'ga_sync_revision_v2:' + id.toUpperCase();
+    const client = window.GACloudSyncClient.create({
+        baseUrl: SYNC_URL.replace('/api/sync/', '/api/sync-v2/'), pilotId: id, pin,
+        request: async (url, options) => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 30000);
+            try { return await fetch(url, { ...options, signal: controller.signal }); }
+            finally { clearTimeout(timer); }
+        },
+        getRevision: () => { const value = localStorage.getItem(key); return value === null ? null : Number(value); },
+        setRevision: value => localStorage.setItem(key, String(value))
+    });
+    _profileSyncSession = { identity, client };
+    return client;
+}
+async function _syncReadProfileResponse() {
+    const result = await _syncProfileClient().read();
+    if (result.migrated) return new Response(JSON.stringify({ ...result.profile, _syncRevision: result.revision }), { status: 200 });
+    return fetch(SYNC_URL + encodeURIComponent(getSyncId()) + '?pin=' + encodeURIComponent(getSyncPin()), {
+        headers: { 'X-Pilot-PIN': getSyncPin() }
+    });
+}
+function _syncProfileIsNewer(data) {
+    if (Number.isSafeInteger(data?._syncRevision)) {
+        const known = localStorage.getItem('ga_sync_revision_v2:' + getSyncId().toUpperCase());
+        return known === null || data._syncRevision > Number(known);
     }
-    return last || { payload: { ...basePayload, lastModified: localSyncTs, pin }, bodyStr: JSON.stringify({ ...basePayload, lastModified: localSyncTs, pin }), compacted: false };
+    return !!(data.lastModified && data.lastModified > localSyncTime);
+}
+function _syncAcknowledgeProfile(data) {
+    const outcome = window.gaLastCloudMissionPullOutcome;
+    const applied = ['cloud-mission-applied', 'cloud-mission-cleared', 'tracker-handoff-complete'].includes(outcome?.status)
+        || (outcome?.cloudMatchesTracker === true && ['tracker-observer-current', 'tracker-observer-restored'].includes(outcome?.status));
+    if (!applied) return; // A retained/rejected mission must not authorize overwriting the unseen cloud state.
+    if (Number.isSafeInteger(data?._syncRevision)) _syncProfileClient().acknowledge(data._syncRevision);
 }
 
 function _syncPayloadComponentChars(payload = null) {
@@ -15538,7 +15553,8 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
     return false;
 }
 
-function setLastSyncedPayload() {
+function setLastSyncedPayload(cloudData = null) {
+    if (cloudData) _syncAcknowledgeProfile(cloudData);
     const activeMission = _syncActiveMissionPayload();
     const payloadToCompare = {
         pinboard: JSON.parse(localStorage.getItem('ga_pinboard') || '[]'),
@@ -15620,61 +15636,34 @@ async function triggerCloudSave(immediate = false, options = {}) {
         updateSyncStatus("Cloud: Aktuell ✅");
         return { ok: true, skipped: true, reason: 'unchanged' };
     }
-    _syncMarkPendingUpload(options.reason || (immediate === 'manual' ? 'manual-upload' : 'auto-upload'));
+    const pendingForUpload = _syncMarkPendingUpload(options.reason || (immediate === 'manual' ? 'manual-upload' : 'auto-upload'));
     updateSyncStatus("Speichere in Cloud...");
     let profileSaved = false;
     let profileError = null;
     try {
-        const id = getSyncId();
-        const pin = getSyncPin();
-        const upload = _syncBuildUploadPayload(payloadToCompare, uploadSyncTime, pin);
-        const bodyStr = upload.bodyStr;
         window.gaLastCloudUploadDiagnostics = {
-            at: Date.now(),
-            status: 'prepared',
-            rawChars: currentPayloadStr.length,
-            uploadChars: bodyStr.length,
-            limitChars: SYNC_MAX_UPLOAD_BYTES,
-            compacted: !!upload.compacted,
-            compaction: upload.compaction || null,
-            rawComponents: _syncPayloadComponentChars(payloadToCompare),
-            uploadComponents: _syncPayloadComponentChars(upload.payload)
+            at: Date.now(), status: 'prepared', transport: 'lossless-v2', compacted: false,
+            rawChars: currentPayloadStr.length, rawComponents: _syncPayloadComponentChars(payloadToCompare)
         };
-        if (bodyStr.length > SYNC_MAX_UPLOAD_BYTES) {
-            updateSyncStatus(`Cloud: zu groß (${Math.round(bodyStr.length / 1024)} KB)`, true);
-            window.gaLastCloudUploadDiagnostics.status = 'too-large';
-            throw new Error(`Payload ${bodyStr.length} bytes`);
-        }
-        if (upload.compacted && bodyStr.length < currentPayloadStr.length) {
-            console.info(`[Sync] Upload kompakt: ${Math.round(currentPayloadStr.length / 1024)} KB -> ${Math.round(bodyStr.length / 1024)} KB`);
-        }
-        const fetchOptions = {
-            method: 'POST',
-            headers: { 'X-Pilot-PIN': pin, 'Content-Type': 'application/json' },
-            body: bodyStr
-        };
-        if (immediate !== 'manual' && bodyStr.length < 60000) {
-            fetchOptions.keepalive = true;
-        }
-        const res = await fetch(SYNC_URL + id + "?pin=" + pin, fetchOptions);
-        if (res.ok) {
+        const transfer = await _syncProfileClient().write({ ...payloadToCompare, lastModified: uploadSyncTime }, {
+            force: immediate === 'manual', legacyTime: localSyncTime
+        });
+        if (getSyncId() !== id) throw new Error('Pilot während Upload gewechselt; lokaler Stand bleibt unverändert.');
+        Object.assign(window.gaLastCloudUploadDiagnostics, transfer);
+        {
             profileSaved = true;
             if (window.gaLastCloudUploadDiagnostics) window.gaLastCloudUploadDiagnostics.status = 'saved';
-            localSyncTime = uploadSyncTime;
+            localSyncTime = Number(transfer.lastModified) || uploadSyncTime;
             localStorage.setItem('ga_sync_time', localSyncTime);
             lastSyncedPayloadStr = currentPayloadStr;
-            _syncClearPendingUpload();
+            if (_syncReadPendingUpload()?.generation === pendingForUpload.generation && _syncReadPendingUpload()?.pilotId === pendingForUpload.pilotId) _syncClearPendingUpload();
+            else queueActiveMissionCloudSave('changes-during-upload');
             updateSyncStatus("Cloud: Gespeichert ✅");
             flashSyncIndicator('up');
             if (immediate === 'manual') {
                 setNavComLed('navcomSaveBtn', 'success');
                 setTimeout(() => setNavComLed('navcomSaveBtn', 'off'), 3000);
             }
-        } else if (res.status === 401) {
-            updateSyncStatus("Cloud: PIN falsch! ❌", true);
-            alert("Zugriff verweigert: PIN falsch!");
-        } else {
-            throw new Error(`HTTP ${res.status}`);
         }
     } catch (e) {
         profileError = e;
@@ -15684,8 +15673,8 @@ async function triggerCloudSave(immediate = false, options = {}) {
         console.error("[Sync] Cloud save failed:", e);
         const msg = String(e?.message || '');
         updateSyncStatus(
-            msg.startsWith('HTTP ') ? `Cloud: Fehler ${msg}`
-                : (msg.startsWith('Payload ') ? "Cloud: Payload zu groß" : "Cloud: Speicher-Fehler"),
+            msg.startsWith('Cloud-Konflikt') ? msg : msg.startsWith('HTTP ') ? `Cloud: Fehler ${msg}`
+                : ((msg.startsWith('Payload ') || msg.includes('profile_too_large')) ? "Cloud: Profil überschreitet 8 MiB; nichts gekürzt" : "Cloud: Speicher-Fehler"),
             true
         );
         if (immediate === 'manual') {
@@ -15720,9 +15709,7 @@ async function forceSyncLoad() {
     updateSyncStatus("Lade Daten...");
 
     try {
-        const res = await fetch(SYNC_URL + id + "?pin=" + getSyncPin(), {
-            headers: { 'X-Pilot-PIN': getSyncPin() }
-        });
+        const res = await _syncReadProfileResponse();
         if (res.status === 401) {
             alert("Zugriff verweigert: PIN falsch!");
             updateSyncStatus("PIN falsch", true);
@@ -15763,7 +15750,7 @@ async function forceSyncLoad() {
         if (data.groupName !== undefined) {
             updateGroupUIFromSync(data.groupName, data.groupNick);
         }
-        setLastSyncedPayload();
+        setLastSyncedPayload(data);
         _syncScheduleLegacyPinboardCleanup(pinboardStore);
         updateGroupBadgeUI();
         const storageAdjusted = !!(
@@ -15815,9 +15802,7 @@ async function silentSyncLoad(options = {}) {
     }
     const homebasePullPromise = _syncHomebasePull('app-silent-pull');
     try {
-        const res = await fetch(SYNC_URL + id + "?pin=" + getSyncPin(), {
-            headers: { 'X-Pilot-PIN': getSyncPin() }
-        });
+        const res = await _syncReadProfileResponse();
         if (res.status === 401) {
             alert("Zugriff verweigert: PIN falsch!");
             updateSyncStatus("PIN falsch", true);
@@ -15825,7 +15810,7 @@ async function silentSyncLoad(options = {}) {
         }
         if (!res.ok) return;
         const data = await res.json();
-        if (data.lastModified && data.lastModified > localSyncTime) {
+        if (_syncProfileIsNewer(data)) {
             localSyncTime = data.lastModified;
             localStorage.setItem('ga_sync_time', localSyncTime);
             if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
@@ -15845,7 +15830,7 @@ async function silentSyncLoad(options = {}) {
                 updateGroupUIFromSync(data.groupName, data.groupNick);
             }
 
-            setLastSyncedPayload();
+            setLastSyncedPayload(data);
             _syncScheduleLegacyPinboardCleanup(pinboardStore);
             updateGroupBadgeUI();
             if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
@@ -15997,9 +15982,7 @@ async function checkCloudAfterIdle() {
     idleCheckInProgress = true;
     updateSyncStatus("Prüfe Cloud...");
     try {
-        const res = await fetch(SYNC_URL + id + "?pin=" + getSyncPin(), {
-            headers: { 'X-Pilot-PIN': getSyncPin() }
-        });
+        const res = await _syncReadProfileResponse();
         if (res.status === 401) {
             alert("Zugriff verweigert: PIN falsch!");
             updateSyncStatus("PIN falsch", true);
@@ -16007,7 +15990,7 @@ async function checkCloudAfterIdle() {
         }
         if (!res.ok) throw await _syncFetchError(res);
         const data = await res.json();
-        if (data.lastModified && data.lastModified > localSyncTime) {
+        if (_syncProfileIsNewer(data)) {
             const trackerObserver = _syncActiveTrackerRunForCloudPull()?.executionAuthority === 'tracker';
             if (trackerObserver) {
                 await _syncApplyActiveMissionFromCloud(data.activeMission || null, { source: 'idle-tracker-observer' });
@@ -16041,7 +16024,7 @@ async function checkCloudAfterIdle() {
                 if (!hasLocalUnsavedChanges && !cloudProfileChanged) {
                     localSyncTime = data.lastModified;
                     localStorage.setItem('ga_sync_time', localSyncTime);
-                    setLastSyncedPayload();
+                    setLastSyncedPayload(data);
                     updateSyncStatus('Tracker-Mission verbunden');
                     return;
                 }
@@ -16069,7 +16052,7 @@ async function checkCloudAfterIdle() {
                 if (data.groupName !== undefined) {
                     updateGroupUIFromSync(data.groupName, data.groupNick);
                 }
-                setLastSyncedPayload();
+                setLastSyncedPayload(data);
                 _syncScheduleLegacyPinboardCleanup(pinboardStore);
                 updateGroupBadgeUI();
                 if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();

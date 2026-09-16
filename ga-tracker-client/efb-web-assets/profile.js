@@ -5771,8 +5771,13 @@ function vpBuildStorageDiagnosticsLines() {
   var cloudUpload = window.gaLastCloudUploadDiagnostics;
   if (cloudUpload && typeof cloudUpload === 'object') {
     var fmtChars = value => Number.isFinite(Number(value)) ? `${(Number(value) / 1024).toFixed(1)} KiB` : '-';
-    lines.push(`- Cloud-Upload: ${cloudUpload.status || '-'} | raw=${fmtChars(cloudUpload.rawChars)} | kompakt=${fmtChars(cloudUpload.uploadChars)} | Limit=${fmtChars(cloudUpload.limitChars)} | Zeitpunkt=${vpFormatDebugTs(cloudUpload.at)}`);
-    var componentText = Object.entries(cloudUpload.uploadComponents || {}).filter(_ref13 => {
+    if (cloudUpload.transport === 'lossless-v2') {
+      var _cloudUpload$uploaded, _cloudUpload$reusedCh, _cloudUpload$revision;
+      lines.push(`- Cloud-Upload V2: ${cloudUpload.status || '-'} | vollständig=${fmtChars(cloudUpload.rawBytes)} | neue Paketdaten=${fmtChars(cloudUpload.transferredBytes)} | Teile neu/wiederverwendet=${(_cloudUpload$uploaded = cloudUpload.uploadedChunks) !== null && _cloudUpload$uploaded !== void 0 ? _cloudUpload$uploaded : '-'}/${(_cloudUpload$reusedCh = cloudUpload.reusedChunks) !== null && _cloudUpload$reusedCh !== void 0 ? _cloudUpload$reusedCh : '-'} | Revision=${(_cloudUpload$revision = cloudUpload.revision) !== null && _cloudUpload$revision !== void 0 ? _cloudUpload$revision : '-'} | Profilgrenze=8 MiB | Zeitpunkt=${vpFormatDebugTs(cloudUpload.at)}`);
+    } else {
+      lines.push(`- Cloud-Upload: ${cloudUpload.status || '-'} | raw=${fmtChars(cloudUpload.rawChars)} | kompakt=${fmtChars(cloudUpload.uploadChars)} | Limit=${fmtChars(cloudUpload.limitChars)} | Zeitpunkt=${vpFormatDebugTs(cloudUpload.at)}`);
+    }
+    var componentText = Object.entries(cloudUpload.rawComponents || cloudUpload.uploadComponents || {}).filter(_ref13 => {
       var _ref14 = _slicedToArray(_ref13, 2),
         value = _ref14[1];
       return Number(value) >= 0;
@@ -5782,7 +5787,7 @@ function vpBuildStorageDiagnosticsLines() {
         value = _ref16[1];
       return `${key}=${fmtChars(value)}`;
     }).join(' | ');
-    if (componentText) lines.push(`- Cloud-Komponenten kompakt: ${componentText}`);
+    if (componentText) lines.push(`- Cloud-Komponenten: ${componentText}`);
   }
   var groupSummary = inventory.groups.slice(0, 8).map(group => `${group.category} ${vpFormatBytes(group.bytes)}`).join(' | ');
   lines.push(`- Gruppen: ${groupSummary || '-'}`);

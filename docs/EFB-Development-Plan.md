@@ -5275,3 +5275,12 @@ Manifestprojektion und Signatur, voller PA24/Standard-Sim, wiederholtes Laden/
 Entladen mit unveraenderter Recovery, initialer Payload-Effekt genau einmal,
 PC-Button. Payload-Standalone-Differentialtest weiterhin unveraendert bestanden.
 Realer MSFS-Feldtest der neuen Version bleibt erforderlich.
+
+### 2026-09-16 – Cloud-Profiltransport V2 / Tracker v413
+
+Die persoenliche Cloud-Speicherung wird verlustfrei paketiert; Mission und
+Tracker-Startseed werden atomar veroeffentlicht. Siehe
+[Cloud Profile Sync V2](Cloud%20Profile%20Sync%20V2.md) fuer Grenzen, Migration,
+Konflikte, Quoten und Tests. Keine Aenderung an EFB-Verbindungsports oder APT-/POI-
+Lifecycle. Feldtest: lokal vollstaendige POI-Mission erneut hochladen, App schliessen,
+Tracker aktualisieren und Startbanner/Manifest/Voice kontrollieren.

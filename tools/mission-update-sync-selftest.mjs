@@ -227,7 +227,7 @@ vm.createContext(cloudContext);
 vm.runInContext(sourceBetween(
     syncSource,
     'async function _syncApplyActiveMissionFromCloud(activeMission = null, options = {})',
-    'function setLastSyncedPayload()'
+    'function setLastSyncedPayload('
 ), cloudContext, { filename: 'mission-cloud-draft-restore-test.js' });
 assert.equal(await vm.runInContext('_syncApplyActiveMissionFromCloud', cloudContext)(draftState), true);
 assert.equal(restoreOptions?.allowDraft, true, 'cloud drafts must restore as drafts on another device');
@@ -349,12 +349,12 @@ const uploadContext = {
         const raw = uploadStorage.api.getItem('ga_sync_pending_upload_v1');
         return raw ? JSON.parse(raw) : null;
     },
-    _syncMarkPendingUpload: reason => uploadStorage.api.setItem('ga_sync_pending_upload_v1', JSON.stringify({ reason })),
+    _syncMarkPendingUpload: reason => { const value = { reason, generation: 1 }; uploadStorage.api.setItem('ga_sync_pending_upload_v1', JSON.stringify(value)); return value; },
     _syncClearPendingUpload: () => uploadStorage.api.removeItem('ga_sync_pending_upload_v1'),
-    fetch: async () => {
+    _syncProfileClient: () => ({ write: async () => {
         if (fetchShouldFail) throw new Error('offline');
-        return { ok: true, status: 200 };
-    }
+        return { revision: 1 };
+    } })
 };
 vm.createContext(uploadContext);
 vm.runInContext(sourceBetween(
@@ -384,23 +384,26 @@ assert.match(
     /rawBody\.length > 256 \* 1024/,
     'the worker contract must continue to accept the same 256 KiB limit'
 );
-let nearLimitFetches = 0;
-uploadContext._syncBuildUploadPayload = () => ({
-    compacted: true,
-    payload: {},
-    bodyStr: 'x'.repeat(180 * 1024)
-});
-uploadContext.fetch = async () => {
-    nearLimitFetches += 1;
-    return { ok: true, status: 200 };
-};
-const nearLimitUpload = await vm.runInContext('triggerCloudSave', uploadContext)(true, {
-    force: true,
-    skipHomebase: true,
-    reason: 'near-worker-limit-test'
-});
-assert.equal(nearLimitUpload.ok, true, 'a grown mission profile accepted by the worker must not be rejected by the browser');
-assert.equal(nearLimitFetches, 1, 'the near-limit profile must reach the worker');
+let fullPayload = null;
+uploadContext._syncProfileClient = () => ({ write: async payload => { fullPayload = payload; return { revision: 2 }; } });
+const largeMission = { currentMissionData: { missionTruth: { text: 'unverändert'.repeat(40000) }, targetGeoContext: { target: 'bridge' } } };
+const seed = { schema: 'ga.tracker-cloud-mission-seed.v1', voice: 'erhalten' };
+uploadContext._syncActiveMissionPayload = () => largeMission;
+uploadContext._syncTrackerMissionSeedPayload = () => seed;
+const largeUpload = await vm.runInContext('triggerCloudSave', uploadContext)(true, { force: true, skipHomebase: true });
+assert.equal(largeUpload.ok, true);
+assert.equal(fullPayload.activeMission, largeMission, 'mission must reach lossless transport without compaction');
+assert.equal(fullPayload.activeMissionTrackerSeed, seed, 'seed must not be removed for size');
+
+let queuedAgain = false;
+uploadContext.queueActiveMissionCloudSave = () => { queuedAgain = true; };
+uploadContext._syncProfileClient = () => ({ write: async () => {
+    uploadStorage.api.setItem('ga_sync_pending_upload_v1', JSON.stringify({ generation: 2 }));
+    return { revision: 3 };
+} });
+await vm.runInContext('triggerCloudSave', uploadContext)(true, { force: true, skipHomebase: true });
+assert.ok(queuedAgain, 'edits arriving during upload must be queued again');
+assert.ok(uploadStorage.api.getItem('ga_sync_pending_upload_v1'), 'newer local edits stay pending');
 
 const updateBlock = sourceBetween(appSource, 'window.forceAppUpdate = async function()', '// === AUTO-RESIZE');
 assert.ok(
@@ -411,5 +414,22 @@ assert.ok(
     updateBlock.indexOf('flushActiveMissionCloudSaveForUpdate') < updateBlock.indexOf('navigator.serviceWorker.getRegistrations'),
     'forced update must flush the mission before unregistering the service worker'
 );
+
+// Revision acknowledgement must follow a successful mission application.
+let acknowledged = null;
+const revisionContext = {
+    window: { gaLastCloudMissionPullOutcome: { status: 'cloud-mission-rejected' } },
+    Number, localStorage: storageHarness({ 'ga_sync_revision_v2:PILOT': '2' }).api,
+    getSyncId: () => 'PILOT', localSyncTime: 999999,
+    _syncProfileClient: () => ({ acknowledge: value => { acknowledged = value; } })
+};
+vm.createContext(revisionContext);
+vm.runInContext(sourceBetween(syncSource, 'function _syncProfileIsNewer(data)', 'function _syncPayloadComponentChars'), revisionContext);
+assert.equal(vm.runInContext('_syncProfileIsNewer({ _syncRevision: 3, lastModified: 1 })', revisionContext), true, 'cloud revision wins over device clock');
+vm.runInContext('_syncAcknowledgeProfile({ _syncRevision: 3 })', revisionContext);
+assert.equal(acknowledged, null, 'rejected mission is not an applied revision');
+revisionContext.window.gaLastCloudMissionPullOutcome = { status: 'cloud-mission-applied' };
+vm.runInContext('_syncAcknowledgeProfile({ _syncRevision: 3 })', revisionContext);
+assert.equal(acknowledged, 3);
 
 console.log('[ok] mission update sync selftest');

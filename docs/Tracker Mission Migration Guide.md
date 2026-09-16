@@ -247,3 +247,11 @@ Realer Windows-/MSFS-Wiederholungstest mit v411 bleibt erforderlich.
   verschiedene Zaehler; optionale Items nicht als erfuellte Pflicht zaehlen.
 - Bei PAX genau eine Textanzeige, ungelesen-Badge und gespeicherte Position;
   neue Nachricht/ACK darf ein geschlossenes Fenster nicht automatisch oeffnen.
+
+## Verlustfreier Cloud-Start (v413)
+
+Fuer weitere Missionsfamilien gilt [Cloud Profile Sync V2](Cloud%20Profile%20Sync%20V2.md).
+Mission und Tracker-Seed bilden einen atomaren Abschnitt; keine Groessenreduktion
+von Seed, MissionTruth, Zielkontext, Cargo oder Voice. Transportfehler sind kein
+Beleg fuer eine leere Cloud-Mission. Bestehende Adapter und Authority-Gates bleiben
+zustaendig. Der Tracker liest Mission/Metadaten selektiv und cached gepruefte Teile.

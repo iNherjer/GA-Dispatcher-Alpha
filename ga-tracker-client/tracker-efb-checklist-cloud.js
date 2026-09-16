@@ -47,7 +47,8 @@ function getJson(url, options = {}) {
       method: 'GET',
       headers: {
         Accept: 'application/json',
-        'X-Pilot-PIN': pin
+        'X-Pilot-PIN': pin,
+        ...(options.headers || {})
       },
       timeout: timeoutMs
     }, (response) => {

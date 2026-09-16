@@ -164,3 +164,12 @@ id = "<DEINE_KV_NAMESPACE_ID>"
    - `startAipChartCalibration()`
    - `setAipChartOpacity(value)`
    - `clearAipChartOverlay()`
+
+## Profil-Sync V2 (2026-09-16)
+
+`worker-merged-full.js` exportiert `ProfileSync` aus `profile-sync.mjs`.
+`wrangler.toml` legt mit Migration `profile-sync-v1` einen SQLite Durable Object
+unter Binding `GA_PROFILE_SYNC` an; bestehendes `GA_SYNC_KV` bleibt erhalten.
+Details zu Endpunkten, Grenzen, Quoten und kompatiblem Rollout:
+[Cloud Profile Sync V2](../../docs/Cloud%20Profile%20Sync%20V2.md).
+`npm test` enthaelt die Verlustfrei-/Konflikt-/Abbruchtests.

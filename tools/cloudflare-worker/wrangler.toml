@@ -1,6 +1,7 @@
 name = "ga-proxy"
 main = "worker-merged-full.js"
 compatibility_date = "2026-04-16"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 OBSTACLE_TILES_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles"
@@ -14,3 +15,11 @@ BUG_REPORT_NOTIFY_SUBJECT_PREFIX = "[GA Dispatcher]"
 [[kv_namespaces]]
 binding = "GA_SYNC_KV"
 id = "359fbc81dd0548bbba7e27eba4e513c5"
+
+[[durable_objects.bindings]]
+name = "GA_PROFILE_SYNC"
+class_name = "ProfileSync"
+
+[[migrations]]
+tag = "profile-sync-v1"
+new_sqlite_classes = ["ProfileSync"]
