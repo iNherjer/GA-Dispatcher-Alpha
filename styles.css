@@ -20772,13 +20772,149 @@ body.theme-ops1940 .mission-reset-btn {
     background: transparent !important;
 }
 
-/* One responsive layer menu in App and EFB; normal Leaflet colors remain. */
-#mapTableOverlay .leaflet-control-layers-expanded { box-sizing: border-box; max-width: calc(100vw - 24px); }
-#mapTableOverlay .leaflet-control-layers label { margin: 0; padding: 5px 0; color: #333; font: 12px/1.5 "Helvetica Neue", Arial, Helvetica, sans-serif; text-transform: none; }
+/* Isolate Leaflet's layer picker from cockpit form/label themes. */
+#mapTableOverlay .leaflet-control-layers {
+    --layer-bg: #20262d;
+    --layer-text: #edf2f7;
+    --layer-muted: #a6b7c8;
+    --layer-border: #46515e;
+    --layer-hover: #303b46;
+    --layer-selected: #213e4c;
+    --layer-selected-border: #396579;
+    --layer-accent: #69c4ee;
+    --layer-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --layer-radius: 14px;
+    --layer-row-radius: 8px;
+}
+body.theme-retro #mapTableOverlay .leaflet-control-layers,
+body.theme-navcom #mapTableOverlay .leaflet-control-layers,
+body.theme-ops1940 #mapTableOverlay .leaflet-control-layers,
+body.theme-win95 #mapTableOverlay .leaflet-control-layers {
+    --layer-bg: var(--drawer-panel-bg);
+    --layer-text: var(--drawer-text);
+    --layer-muted: var(--drawer-muted);
+    --layer-border: var(--drawer-border);
+    --layer-hover: var(--drawer-surface);
+    --layer-selected: var(--drawer-surface-strong);
+    --layer-selected-border: var(--drawer-accent);
+    --layer-accent: var(--drawer-accent);
+    --layer-font: var(--drawer-font);
+    --layer-radius: 6px;
+    --layer-row-radius: 3px;
+}
+body.theme-navcom #mapTableOverlay .leaflet-control-layers {
+    --layer-accent: var(--piper-yellow);
+    --layer-selected-border: var(--piper-yellow);
+}
+body.theme-ops1940 #mapTableOverlay .leaflet-control-layers {
+    --layer-radius: 3px;
+    --layer-row-radius: 2px;
+}
+body.theme-win95 #mapTableOverlay .leaflet-control-layers {
+    --layer-radius: 0;
+    --layer-row-radius: 0;
+}
+#mapTableOverlay .leaflet-control-layers-expanded {
+    box-sizing: border-box;
+    width: 320px;
+    max-width: calc(100vw - 24px);
+    padding: 12px;
+    background: var(--layer-bg);
+    color: var(--layer-text);
+    border: 1px solid var(--layer-border);
+    border-radius: var(--layer-radius);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, .38),
+                0 20px 44px rgba(0, 0, 0, .52);
+    color-scheme: dark;
+}
+#mapTableOverlay .leaflet-control-layers label {
+    display: block !important;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 3px 0;
+    padding: 10px 8px;
+    min-height: 44px;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--layer-row-radius);
+    box-shadow: none !important;
+    color: var(--layer-text) !important;
+    font: 13px/1.45 var(--layer-font) !important;
+    text-transform: none;
+    letter-spacing: normal;
+    text-shadow: none;
+    cursor: pointer;
+}
+#mapTableOverlay .leaflet-control-layers label:hover {
+    background: var(--layer-hover) !important;
+}
+#mapTableOverlay .leaflet-control-layers label:has(input:checked) {
+    background: var(--layer-selected) !important;
+    border-color: var(--layer-selected-border) !important;
+}
+#mapTableOverlay .leaflet-control-layers label:focus-within {
+    outline: 2px solid var(--layer-accent);
+    outline-offset: -2px;
+}
 #mapTableOverlay .leaflet-control-layers label > div,
-#mapTableOverlay .leaflet-control-layers label > span { display: flex; align-items: center; }
-#mapTableOverlay .leaflet-control-layers label span { color: inherit; font: inherit; flex: 1; min-width: 0; white-space: normal; overflow-wrap: break-word; }
-#mapTableOverlay .leaflet-control-layers input { flex: 0 0 auto; width: 13px; height: 13px; min-height: 0; margin: 0 6px 0 0; padding: 0; top: 0; }
-#mapTableOverlay .leaflet-control-layers-list { overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#mapTableOverlay .leaflet-control-layers label > span {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+#mapTableOverlay .leaflet-control-layers label span {
+    color: inherit;
+    font: inherit;
+    flex: 1;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+#mapTableOverlay .leaflet-control-layers input {
+    appearance: auto !important;
+    -webkit-appearance: auto !important;
+    flex: 0 0 18px;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    top: 0;
+    box-shadow: none !important;
+    accent-color: var(--layer-accent);
+    cursor: pointer;
+}
+#mapTableOverlay .leaflet-control-layers-list {
+    margin: 0;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+#mapTableOverlay .leaflet-control-layers-base::before,
+#mapTableOverlay .leaflet-control-layers-overlays::before {
+    display: block;
+    padding: 4px 8px 7px;
+    color: var(--layer-muted);
+    font: 600 11px/1.4 var(--layer-font);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+#mapTableOverlay .leaflet-control-layers-base::before { content: "Basiskarte"; }
+#mapTableOverlay .leaflet-control-layers-overlays::before { content: "Zusatzebenen"; }
+#mapTableOverlay .leaflet-control-layers-separator {
+    margin: 10px 0;
+    border-top-color: var(--layer-border);
+}
+
+/* Raised window frame and light native controls for the Windows theme. */
+body.theme-win95 #mapTableOverlay .leaflet-control-layers-expanded {
+    color-scheme: light;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: 5px 5px 0 rgba(0, 0, 0, .35),
+                0 18px 36px rgba(0, 0, 0, .4);
+}
 
 #mapTableOverlay .leaflet-control-layers.ga-layer-menu-open { position: absolute !important; top: 10px; right: 10px; margin: 0; float: none; }
