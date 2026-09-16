@@ -133,13 +133,16 @@ lokal daran vorbeischreiben. Die App fuehrt dafuer eine atomare Kette aus:
 
 1. Benutzer bestaetigt den Verlust des laufenden Missionsfortschritts.
 2. Die App sendet den revisionsgebundenen Tracker-Intent `abort_mission`.
-3. Falls der Run die Sim-Zuladung geschrieben hat, stellt der Tracker zuerst
-   die vor dem ersten Schreibversuch privat persistierte Payload-Baseline nach
-   denselben App-Regeln wieder her. Dazu gehoeren Standardstationen,
-   persistente Ausruestung sowie bei der PA-24 Sitz-/Characterbelegung und
-   Gepaeck. Danach liest er den Sim-Zustand erneut ein.
+3. Falls der Run die Sim-Zuladung geschrieben hat, versucht der Tracker die
+   gespeicherte Payload-Baseline wiederherzustellen. Seit v423 ist dies beim
+   expliziten Benutzer-Reset best effort: Lesen/Readback erhalten jeweils
+   1200 ms Frist. Bei Fehlern werden die bekannten Standard-Payloadstationen
+   (ohne bekannte Anzahl maximal 20) einmal auf 0 gesetzt. Auch ein Fehler
+   dieses Versuchs blockiert den Reset nicht; er wird als Warnung protokolliert.
+   Ohne Simulator wird die Payload-Bereinigung uebersprungen. Ein unbestaetigter
+   Nullsetzversuch gilt nicht als erfolgreich verifizierte Wiederherstellung.
 4. Der Tracker bereinigt danach alle Simulator- und Szeneneffekte dieses Runs.
-5. Nur nach erfolgreicher Bereinigung markiert er den Run als `aborted`, gibt
+5. Nach erfolgreicher Szenenbereinigung (Payload-Warnungen sind erlaubt) markiert er den Run als `aborted`, gibt
    die Authority frei und verteilt die neue Revision.
 6. Bei `Clear` oder Missionsersetzung verwirft die App danach ihren lokalen
    Missions-, Runtime-, Cargo-, Pax- und Briefingzustand. Bei `Reset` verwirft

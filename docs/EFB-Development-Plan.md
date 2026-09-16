@@ -1,5 +1,21 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Reset-Korrektur v423 (16.09.2026)
+
+Expliziter Benutzer-Reset darf an Payload-Fehlern nicht haengen. Baseline-Restore
+mit kurzen Lese-Fristen, danach einmal Standardstationen auf 0; Fehler sind
+Warnungen. Ohne Sim-Verbindung wird Payload uebersprungen. Szenenbereinigung
+und persistente Authority-Freigabe bleiben geprueft. Abgebrochene Payload-
+Vorbereitung darf spaeter keine neue Beladung mehr schreiben. App wiederholt
+nach bestaetigtem Tracker-Abbruch keine Payload-Bereinigung; Clear-all erzeugt
+keinen zusaetzlichen Burst aus gespeicherten Szene-IDs. HTTP-Revisionskonflikte
+liefern den aktuellen Snapshot direkt fuer den einmaligen Client-Retry.
+Telemetrie-Revisionen waehrend eines bereits angenommenen Resets verhindern
+nicht dessen Abschluss; Missions-/Run-Identitaet wird weiterhin geprueft.
+Die allgemeinen EFB-Hauptschleifenverzoegerungen sind damit nicht als behoben
+nachgewiesen. Payload-Timeouts enthalten Request-ID und tatsaechliche Dauer.
+
+
 ## Tracker v416: Komfort und konkrete Live-Hinweise (16.09.2026)
 
 Komfort war bisher nur ein Seed-Wert. Originalfunktionen werden nun generiert

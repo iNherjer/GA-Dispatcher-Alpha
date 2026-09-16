@@ -683,7 +683,7 @@ test('tracker abort retains authority when simulator cleanup fails', async (t) =
   assert.equal(manager.getActiveRun().runId, run.runId);
 });
 
-test('tracker abort retains authority while a written payload still needs a connected simulator restore', async (t) => {
+test('tracker abort releases authority with a payload warning when simulator is disconnected', async (t) => {
   const manager = committedManager(t);
   const run = manager.getActiveRun();
   const recoveryCredentials = { missionId: run.missionId, runId: run.runId };
@@ -706,10 +706,9 @@ test('tracker abort retains authority while a written payload still needs a conn
     runId: run.runId,
     expectedRevision: run.revision
   });
-  assert.equal(blocked.ok, false);
-  assert.equal(blocked.status, 'blocked');
-  assert.equal(blocked.error, 'mission_payload_restore_simulator_not_connected');
-  assert.equal(manager.getActiveRun().runId, run.runId);
+  assert.equal(blocked.ok, true);
+  assert.equal(blocked.cleanup.payloadRestore.error, 'mission_payload_restore_simulator_not_connected');
+  assert.equal(manager.getActiveRun(), null);
 });
 
 test('disabled runtime remains read-only and cannot attach simulator effects', () => {
@@ -1276,4 +1275,22 @@ test('private return and manual PAX use Tracker telemetry, pause handling and du
   tick(266000,{windKts:30});
   assert.ok(manager.getPublicSnapshot().execution.allowedActions.includes('pax_weather'));
   runtime.detachSimulator();
+});
+
+test('accepted reset survives revision advance during simulator cleanup', async t => {
+  const manager = committedManager(t);
+  const run = manager.getActiveRun();
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true });
+  runtime.attachSimulator({ dispatchCommand: () => ({ ok: true }), getLivePosition: () => null,
+    cleanupMission: async () => {
+      manager.recordCommand({ missionId: run.missionId, type: 'mission_telemetry_checkpoint' });
+      assert.ok(manager.getActiveRun().revision > run.revision);
+      return { ok: true, status: 'warning', payloadRestore: { status: 'warning', restored: false, error: 'payload_read_timeout' } };
+    }
+  });
+  const result = await runtime.executeIntent({ intent: 'abort_mission', commandId: 'abort-checkpoint',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  assert.equal(result.ok, true);
+  assert.equal(result.cleanup.payloadRestore.status, 'warning');
+  assert.equal(manager.getActiveRun(), null);
 });

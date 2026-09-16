@@ -446,7 +446,7 @@ function createTrackerEfbHttpServer(options = {}) {
           // Local HTTP returns the presentation with the durable ACK. Do not
           // make clients queue a second request before releasing their intent.
           // Projection failure must never turn an accepted mutation into failure.
-          if (result?.ok === true) {
+          if (result?.ok === true || ['mission_revision_conflict', 'mission_run_conflict', 'mission_intent_not_allowed_in_state'].includes(result?.error)) {
             try {
               const snapshot = getMissionSnapshot();
               result = { ...result, missionSnapshot: snapshot && typeof snapshot === 'object'

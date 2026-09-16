@@ -608,7 +608,7 @@ test('PA24 abort restore reapplies baseline seats, characters, and baggage', asy
   assert.equal(recovery.value.restored, true);
 });
 
-test('failed payload restore remains retryable and does not mark the baseline restored', async () => {
+test('failed restore and failed zero fallback warn without blocking reset or marking restored', async () => {
   const manifest = { items: [{ id: 'box', itemType: 'cargo', status: 'loaded', weightLbs: 42 }] };
   let snapshot = standardBaseline();
   let rejectRestore = false;
@@ -636,7 +636,9 @@ test('failed payload restore remains retryable and does not mark the baseline re
   assert.equal((await handler.syncBeforeStart(request)).payloadStatus, 'ok');
   rejectRestore = true;
   const failed = await handler.restoreForAbort({ missionId: request.missionId, runId: request.runId, manifest });
-  assert.equal(failed.ok, false);
+  assert.equal(failed.ok, true);
+  assert.equal(failed.status, 'warning');
+  assert.equal(failed.fallback, 'failed');
   assert.equal(failed.error, 'sim_restore_refused');
   assert.equal(recovery.value.restored, false);
   assert.equal(recovery.value.lastError, 'sim_restore_refused');
@@ -740,4 +742,46 @@ test('replacement PA24 writes full targets on repeated load and unload while pre
   }
   assert.equal(writes, 3);
   assert.deepEqual(recovery.value.baseline.stations, original.stations);
+});
+
+
+test('reset falls back to zero stations when its short payload read times out', async () => {
+  const writes = [], reads = [];
+  const handler = createTrackerMissionPayloadHandler({
+    readSnapshot: async (count, options) => { reads.push(options); throw Error('payload_read_timeout'); },
+    applyStations: async stations => writes.push(stations),
+    applyPa24State: async () => {}, reassertPa24Seats: async () => {},
+    getRecovery: async () => ({ baseline: standardBaseline(), writeAttempted: true }),
+    recordRecovery: async () => { throw Error('must not mark restored'); }
+  });
+  const result = await handler.restoreForAbort({ missionId: 'm', runId: 'r', manifest: { items: [] } });
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 'warning');
+  assert.equal(result.restored, false);
+  assert.equal(result.fallback, 'zero_requested');
+  assert.equal(reads.length, 1);
+  assert.equal(reads[0].timeoutMs, 1200);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].length, standardBaseline().payloadStationCount);
+  assert.ok(writes[0].every(row => row.weightLbs === 0));
+});
+
+test('reset does not await stalled baseline preparation and late preparation never writes', async () => {
+  let finishRead;
+  const writes = [], records = [];
+  const handler = createTrackerMissionPayloadHandler({
+    readSnapshot: () => new Promise(resolve => { finishRead = resolve; }),
+    applyStations: async stations => writes.push(stations),
+    applyPa24State: async () => {}, reassertPa24Seats: async () => {},
+    getRecovery: async () => null, recordRecovery: async request => { records.push(request); return { ok: true }; }
+  });
+  const manifest = { items: [{ id: 'box', itemType: 'cargo', status: 'loaded', weightLbs: 42 }] };
+  const scheduled = handler.syncBeforeStart({ missionId: 'm', runId: 'r', manifest, effect: effectFor(manifest) });
+  while (!finishRead) await new Promise(resolve => setImmediate(resolve));
+  const reset = await handler.restoreForAbort({ missionId: 'm', runId: 'r', manifest });
+  assert.equal(reset.ok, true);
+  finishRead(standardBaseline());
+  assert.equal((await scheduled).status, 'cancelled');
+  assert.equal(writes.length, 0);
+  assert.equal(records.length, 0);
 });

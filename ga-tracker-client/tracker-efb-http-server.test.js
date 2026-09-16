@@ -704,3 +704,19 @@ test('intent ACK includes current presentation; projection errors cannot revoke 
   assert.ok(logs.some(line => line.includes('MISSION_INTENT_PROJECTION_ERROR')));
   assert.ok(logs.some(line => /MISSION_INTENT_HTTP.*submitMs=\d+ projectionMs=\d+/.test(line)));
 });
+
+
+test('rejected stale intent includes authoritative snapshot in its conflict response', async t => {
+  const server = createTrackerEfbHttpServer({ host: '127.0.0.1', port: 0,
+    hello: createTrackerEfbHttpHello({ trackerVersion: 'v423', trackerVersionCode: 423 }),
+    cockpitControl: { submitIntent: async () => ({ ok: false, status: 'conflict', error: 'mission_revision_conflict' }) },
+    getMissionSnapshot: () => ({ control: { authorityRevision: 42 } })
+  });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const reply = await request(address, '/api/v1/mission/intents', { method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://inherjer.github.io' },
+    body: JSON.stringify({ commandId: 'reset', intent: 'abort_mission' }) });
+  assert.equal(reply.statusCode, 409);
+  assert.equal(JSON.parse(reply.body).message.payload.missionSnapshot.control.authorityRevision, 42);
+});

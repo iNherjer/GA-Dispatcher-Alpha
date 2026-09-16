@@ -7568,7 +7568,7 @@ window.clearMissionSceneObjects = function(reason = 'mission-scene-reset') {
         aptArrivalSceneId,
         cargoUnloadSceneId
     );
-    ids.forEach(sceneId => {
+    if (!clearAllCommandId) ids.forEach(sceneId => {
         sent = !!window.sendTrackerCommand({
             type: 'mission_scene_clear',
             sceneId,
@@ -13695,7 +13695,7 @@ window.missionRuntimeReset = function(options = {}) {
     if (!window.simModeActive && !window.liveTrackerConnected) missionSceneReconnectResyncPending = true;
     if (!window.simModeActive && window.liveTrackerConnected) missionSceneReconnectResyncPending = false;
     const resetReason = options?.reason || 'mission-runtime-reset';
-    const skipAuthorityRelease = options?.skipAuthorityRelease === true;
+    const skipAuthorityRelease = options?.skipAuthorityRelease === true || options?.trackerAbortCompleted === true;
     const authorityReleaseRequested = skipAuthorityRelease
         ? false
         : _releaseMissionAuthority(options?.authorityOutcome || 'reset', resetReason);
@@ -13705,7 +13705,7 @@ window.missionRuntimeReset = function(options = {}) {
         try { window.paxVoiceResetMission(); } catch (_) {}
     }
     window.missionCargoResetPromise = null;
-    if (typeof _missionCargoResetForMissionReset === 'function') {
+    if (options?.trackerAbortCompleted !== true && typeof _missionCargoResetForMissionReset === 'function') {
         window.missionCargoResetPromise = _missionCargoResetForMissionReset('mission-runtime-reset').catch(err => {
             console.warn('[MissionCargo] Reset payload sync failed:', err?.message || err);
             return false;

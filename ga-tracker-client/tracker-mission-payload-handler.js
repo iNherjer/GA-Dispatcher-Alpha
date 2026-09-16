@@ -226,6 +226,7 @@ function createTrackerMissionPayloadHandler(options = {}) {
         });
       }
     }
+    if (!isCurrent()) return supersededResult({ sideEffect: false, payloadPlan: plan });
     try {
       applied = isPa24
         ? await applyPa24State(plan.pa24State, options.replaceNonPilotPayload === true ? null : baseline.pa24)
@@ -339,11 +340,12 @@ function createTrackerMissionPayloadHandler(options = {}) {
   let schedulingGeneration = 0;
   let recoveryPreparation = Promise.resolve();
 
-  const prepareRecoveryForScheduledRequest = async (request = {}) => {
+  const prepareRecoveryForScheduledRequest = async (request = {}, isCurrent = () => true) => {
     if (!recordRecovery) return { ok: true };
     let recovery = null;
     try {
       const baselineResolution = await resolvePayloadBaseline(request);
+      if (!isCurrent()) return { ok: true, status: 'cancelled' };
       recovery = baselineResolution.currentRecovery;
       if (!recovery?.baseline) {
         const baseline = baselineResolution.baseline;
@@ -461,7 +463,7 @@ function createTrackerMissionPayloadHandler(options = {}) {
 
   const schedulePayloadSync = (request = {}, options = {}) => {
     const generation = schedulingGeneration;
-    const prepared = recoveryPreparation.then(() => prepareRecoveryForScheduledRequest(request));
+    const prepared = recoveryPreparation.then(() => prepareRecoveryForScheduledRequest(request, () => generation === schedulingGeneration));
     recoveryPreparation = prepared.then(() => null, () => null);
     return prepared.then(result => {
       if (generation !== schedulingGeneration) {
@@ -480,7 +482,6 @@ function createTrackerMissionPayloadHandler(options = {}) {
 
   const cancelPayloadSyncQueue = async (reason = 'mission-execution-abort') => {
     schedulingGeneration += 1;
-    await recoveryPreparation;
     if (syncQueue.timer) clearTimeout(syncQueue.timer);
     syncQueue.timer = null;
     const active = syncQueue.runningPromise;
@@ -520,7 +521,7 @@ function createTrackerMissionPayloadHandler(options = {}) {
     reason: 'payload-sync-manifest-state'
   });
 
-  const restoreForAbort = async (request = {}) => {
+  const tryRestoreForAbort = async (request = {}) => {
     await cancelPayloadSyncQueue(request.reason || 'mission-execution-abort');
     if (!getRecovery || !recordRecovery) {
       return { ok: false, status: 'error', error: 'mission_payload_recovery_store_unavailable', sideEffect: false };
@@ -549,7 +550,7 @@ function createTrackerMissionPayloadHandler(options = {}) {
     plannerOptions.fuelWeightLbs = baseline.fuelWeightLbs;
     let current;
     try {
-      current = payloadCore.normalizeSnapshot(await readSnapshot(baseline.sampledStationCount || baseline.payloadStationCount || 20));
+      current = payloadCore.normalizeSnapshot(await readSnapshot(baseline.sampledStationCount || baseline.payloadStationCount || 20, { timeoutMs: 1200, reason: 'abort-restore' }));
     } catch (error) {
       return { ok: false, status: 'error', error: error?.code || error?.message || String(error), sideEffect: false };
     }
@@ -590,7 +591,7 @@ function createTrackerMissionPayloadHandler(options = {}) {
         ? await applyPa24State(restorePlan.pa24State, current?.pa24)
         : await applyStations(restorePlan.stations.map(row => ({ index: row.index, weightLbs: row.weightLbs })));
       if (isPa24) await wait(350);
-      readback = payloadCore.normalizeSnapshot(await readSnapshot(restorePlan.maxStations || baseline.sampledStationCount || 20));
+      readback = payloadCore.normalizeSnapshot(await readSnapshot(restorePlan.maxStations || baseline.sampledStationCount || 20, { timeoutMs: 1200, reason: 'abort-verify' }));
       const completed = await recordRecovery(recoveryRequest(request, 'restored'));
       if (!completed?.ok) throw Object.assign(new Error(completed?.error || 'mission_payload_recovery_persist_failed'), { code: completed?.error });
     } catch (error) {
@@ -616,6 +617,30 @@ function createTrackerMissionPayloadHandler(options = {}) {
       readback,
       verification: { stationCheck, pa24Check }
     };
+  };
+
+  // Reset is best effort for simulator payload. Never report an unverified
+  // zero-write as a restored baseline; keep recovery information for diagnosis.
+  const restoreForAbort = async (request = {}) => {
+    let result;
+    try { result = await tryRestoreForAbort(request); }
+    catch (error) { result = { ok: false, error: error?.message || String(error) }; }
+    if (result?.ok) return result;
+    const error = result?.error || 'mission_payload_restore_failed';
+    let recovery = null;
+    try { recovery = await getRecovery?.(recoveryRequest(request, 'get')); } catch (_) {}
+    const baseline = recovery?.baseline;
+    const count = Math.max(1, Math.min(20, Number(baseline?.payloadStationCount) || 20));
+    let fallbackError = null;
+    try {
+      await applyStations(Array.from({ length: count }, (_, index) => ({ index: index + 1, weightLbs: 0 })));
+      log(`MISSION_PAYLOAD_RESET_WARNING mission=${cleanString(request.missionId)} restoreError=${cleanString(error)} fallback=zero_requested stations=${count}`);
+    } catch (failure) {
+      fallbackError = failure?.message || String(failure);
+      log(`MISSION_PAYLOAD_RESET_WARNING mission=${cleanString(request.missionId)} restoreError=${cleanString(error)} fallback=failed error=${cleanString(fallbackError)}`);
+    }
+    return { ok: true, status: 'warning', restored: false, sideEffect: true,
+      error, fallback: fallbackError ? 'failed' : 'zero_requested', fallbackError };
   };
 
   return Object.freeze({

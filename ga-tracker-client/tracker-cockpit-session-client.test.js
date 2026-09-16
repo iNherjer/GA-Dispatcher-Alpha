@@ -472,3 +472,20 @@ test('switching to relay stops heartbeats for the obsolete local session and can
   assert.equal(calls.length, 2);
   assert.ok(client.authEnvelope());
 });
+
+
+test('revision conflict uses attached snapshot without another GET', async t => {
+  let attempts = 0;
+  const control = { executionAuthority: 'tracker', missionId: 'm', runId: 'r', authorityRevision: 12, allowedActions: ['abort_mission'] };
+  const client = createClient({ fetchRemote: async (url, init) => {
+    if (url.endsWith('/cockpit/sessions')) return response({ session: { sessionId: 's' }, sessionToken: 't', heartbeatAfterMs: 999999 });
+    if (url.endsWith('/release')) return response({});
+    assert.ok(url.endsWith('/mission/intents'), 'must not fetch mission');
+    if (++attempts === 1) return response({ ok: false, status: 'conflict', error: 'mission_revision_conflict', missionSnapshot: { control } }, 409);
+    assert.equal(JSON.parse(init.body).expectedRevision, 12);
+    return response({ ok: true });
+  } });
+  t.after(() => client.stop());
+  assert.equal((await client.submitIntent({ commandId: 'abort', intent: 'abort_mission', missionId: 'm', runId: 'r', expectedRevision: 11 })).ok, true);
+  assert.equal(attempts, 2);
+});

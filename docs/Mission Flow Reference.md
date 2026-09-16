@@ -1,5 +1,21 @@
 # Mission Flow Reference
 
+## Reset-Korrektur v423 (16.09.2026)
+
+Expliziter Benutzer-Reset darf an Payload-Fehlern nicht haengen. Baseline-Restore
+mit kurzen Lese-Fristen, danach einmal Standardstationen auf 0; Fehler sind
+Warnungen. Ohne Sim-Verbindung wird Payload uebersprungen. Szenenbereinigung
+und persistente Authority-Freigabe bleiben geprueft. Abgebrochene Payload-
+Vorbereitung darf spaeter keine neue Beladung mehr schreiben. App wiederholt
+nach bestaetigtem Tracker-Abbruch keine Payload-Bereinigung; Clear-all erzeugt
+keinen zusaetzlichen Burst aus gespeicherten Szene-IDs. HTTP-Revisionskonflikte
+liefern den aktuellen Snapshot direkt fuer den einmaligen Client-Retry.
+Telemetrie-Revisionen waehrend eines bereits angenommenen Resets verhindern
+nicht dessen Abschluss; Missions-/Run-Identitaet wird weiterhin geprueft.
+Die allgemeinen EFB-Hauptschleifenverzoegerungen sind damit nicht als behoben
+nachgewiesen. Payload-Timeouts enthalten Request-ID und tatsaechliche Dauer.
+
+
 Lokal ergänzter Vereins-KI-Pfad: [Vereins-/Utility-Ideen V1](Mission%20Club%20Utility%20Ideas%20V1.md). Vor dem Picker optional regionale Eventsuche, anschließend drei strukturierte Ideen in einem Aufruf, nach Auswahl ein Writer. A-B-Runtime bleibt bestehen; persönliches Gepäck und Pflichtlieferung werden im Manifest ausdrücklich unterschieden. Kein Pickup-Ausbau.
 
 Aktueller konsolidierter Stand und Übertragung auf weitere Sets: [Missionssets-Arbeitsgrundlage](Mission%20Sets%20Handoff.md) (15.09.2026).

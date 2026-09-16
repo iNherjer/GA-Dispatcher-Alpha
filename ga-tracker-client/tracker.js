@@ -86,8 +86,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v422';
-const TRACKER_VERSION_CODE = 422;
+const TRACKER_VERSION = 'v423';
+const TRACKER_VERSION_CODE = 423;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -1391,16 +1391,20 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return entry;
   };
 
-  const requestPayloadSnapshot = async (maxStations = 12) => {
+  const requestPayloadSnapshot = async (maxStations = 12, options = {}) => {
     const stationCount = clampPayloadStationCount(maxStations, 12);
     const defId = ensurePayloadReadDefinition(stationCount);
     const requestId = nextReqId++;
+    const startedAt = Date.now();
+    const timeoutMs = Math.max(100, Math.min(5500, Number(options.timeoutMs) || 5500));
+    const reason = String(options.reason || 'snapshot').replace(/\s+/g, '_');
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pendingPayloadReads.delete(requestId);
+        debugLog(`PAYLOAD_READ_TIMEOUT requestId=${requestId} defId=${defId} stations=${stationCount} reason=${reason} elapsedMs=${Date.now() - startedAt} timeoutMs=${timeoutMs}`);
         reject(new Error('payload_read_timeout'));
-      }, 5500);
-      pendingPayloadReads.set(requestId, { resolve, reject, timer, stationCount });
+      }, timeoutMs);
+      pendingPayloadReads.set(requestId, { resolve, reject, timer, stationCount, startedAt, reason, defId });
       try {
         handle.requestDataOnSimObject(
           requestId,
@@ -1557,7 +1561,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   const missionPayloadHandler = createTrackerMissionPayloadHandler({
     replaceNonPilotPayload: true,
-    readSnapshot: maxStations => requestPayloadSnapshot(maxStations),
+    readSnapshot: (maxStations, options) => requestPayloadSnapshot(maxStations, options),
     applyStations: stations => applyPayloadStations(stations),
     applyPa24State: (state, previousState) => applyPa24PayloadState(state, previousState),
     reassertPa24Seats: (state, options) => reassertPa24PayloadSeats(state, options),
@@ -3953,6 +3957,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     if (!pending) return;
     pendingPayloadReads.delete(recv.requestID);
     clearTimeout(pending.timer);
+    if (pending.reason?.startsWith('abort-')) debugLog(`PAYLOAD_READ_RECEIVED requestId=${recv.requestID} defId=${pending.defId} reason=${pending.reason} elapsedMs=${Date.now() - pending.startedAt}`);
     try {
       const readString = () => {
         if (typeof recv?.data?.readString256 === 'function') return String(recv.data.readString256() || '').trim();

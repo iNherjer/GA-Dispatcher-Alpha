@@ -530,7 +530,7 @@
         || first.error === 'mission_run_conflict');
       if (!retryable) return first;
       try {
-        const latest = await missionSnapshot();
+        const latest = first.missionSnapshot || await missionSnapshot();
         const control = latest && latest.control && typeof latest.control === 'object' ? latest.control : null;
         const allowed = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
         const intent = String(request.intent || request.action || '').toLowerCase();

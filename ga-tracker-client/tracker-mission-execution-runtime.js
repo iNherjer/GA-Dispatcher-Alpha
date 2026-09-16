@@ -372,21 +372,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         });
         if (recovery?.writeAttempted === true && recovery?.restored !== true) {
           cleanup = {
-            ok: false,
-            status: 'blocked',
-            error: 'mission_payload_restore_simulator_not_connected',
-            cleared: 0,
-            sideEffect: false,
-            payloadRestore: { status: 'pending', restored: false }
-          };
-          return {
-            ok: false,
-            status: cleanup.status,
-            error: cleanup.error,
-            sideEffect: false,
-            cleanup,
-            activeRun: authorityManager.getActiveRun(),
-            view: validated.snapshot.view
+            ok: true, status: 'warning', cleared: 0, sideEffect: false,
+            payloadRestore: { status: 'warning', restored: false,
+              error: 'mission_payload_restore_simulator_not_connected' }
           };
         }
       }
@@ -395,7 +383,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       const aborted = authorityManager.abortExecutionRun({
         missionId: validated.snapshot.missionId,
         runId: validated.snapshot.runId,
-        expectedRevision: validated.snapshot.authorityRevision,
+        // The accepted abort already owns cleanup for this run. Telemetry may
+        // advance its revision while SimConnect is awaited; run identity is
+        // still checked atomically by abortExecutionRun.
+        expectedRevision: authorityManager.getActiveRun()?.revision ?? validated.snapshot.authorityRevision,
         commandId: request.commandId,
         clientId: request.controllerSession?.clientId || 'tracker-execution-runtime',
         reason: String(request.payload?.reason || request.reason || 'mission-execution-abort')
