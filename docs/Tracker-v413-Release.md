@@ -29,3 +29,7 @@ Oeffentlicher Download verifiziert: 57,763,240 Bytes,
 SHA-256 `fc64f4432e448bf0b530e7230449d64241961e93fd26197a069d5779bae2fc94`.
 Release-Tag auf `5b55287c0`; Alpha v413 / EFB-Assetrevision 41301 / SW v1784.
 Worker V2 zuerst ausgerollt; Kontentrennung bei erneuter Registrierung nachgetestet.
+
+Web-Nachtrag SW v1785: Lokale Quoten-/Historienkuerzung nach Cloud-Pull
+sperrt automatische Rueck-Uploads, damit die vollstaendige Cloud-Kopie bleibt.
+Legacy-Logbuchnormalisierung bleibt vom verlustfreien Transport getrennt.

@@ -1,6 +1,6 @@
 # Verlustfreier Profil-Sync V2
 
-Stand: 2026-09-16, Tracker v413 / Web-SW v1784.
+Stand: 2026-09-16, Tracker v413 / Web-SW v1785.
 
 ## Anlass und Vertrag
 
@@ -152,3 +152,12 @@ keinen Startseed erzeugen. Die fruehere Einschaetzung, diese Domain sei bereits
 freigegeben, war falsch. V2 beseitigt die Transportreduktion; es erweitert nicht
 implizit das fachliche Gate. Sightseeing benoetigt einen gesonderten Vergleich
 mit Original-Ablauf, Wissenskontext und Voice vor Freigabe.
+
+### Schutz bei lokal unvollstaendiger Wiederherstellung (SW v1785)
+
+Muss der lokale Speicher nach Cloud-Download Pinnwand/Logbuch wegen Quote bzw.
+lokaler Historiengrenze kuerzen, wird die automatische Schreibbasis persistent
+ungueltig markiert. Dieser lokale Teilstand darf nicht automatisch das
+vollstaendige V2-Profil ersetzen. Ein bewusst bestaetigter manueller Upload
+bleibt moeglich. Die vorhandene Legacy-Normalisierung bleibt im lokalen
+Logbuch-Merge; der Upload selbst normalisiert/kuerzt keine Eintraege.

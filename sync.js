@@ -11628,12 +11628,18 @@ function _storeMissionLogbookEntries(entries = [], options = {}) {
 
 function _mergeMissionLogbooks(remoteEntries = [], options = {}) {
     const merged = new Map();
-    _missionLogbookForSync(remoteEntries).forEach(entry => merged.set(entry.completionId, entry));
-    _missionLogbookForSync().forEach(entry => merged.set(entry.completionId, entry));
+    // Legacy normalization belongs to the local merge, not the lossless upload.
+    const normalize = entries => _missionLogbookForSync(entries).map(_compactLegacyLogbookEntry).filter(entry => entry?.completionId);
+    normalize(remoteEntries).forEach(entry => merged.set(entry.completionId, entry));
+    normalize(null).forEach(entry => merged.set(entry.completionId, entry));
     const result = Array.from(merged.values())
         .sort((a, b) => Number(b?.createdAt || b?.endedAt || 0) - Number(a?.createdAt || a?.endedAt || 0))
         .slice(0, 50);
-    return _storeMissionLogbookEntries(result, options);
+    const stored = _storeMissionLogbookEntries(result, options);
+    if (stored.compacted || new Set(normalize(remoteEntries).map(entry => entry.completionId)).size > stored.entries.length) {
+        _syncProtectIncompleteCloudRestore();
+    }
+    return stored;
 }
 
 function _persistMissionCompletion(record) {
@@ -14897,6 +14903,7 @@ function _syncStoreCloudPinboard(pinboard) {
                 if (cfg.dropPinboard) {
                     try { console.warn('[Sync] Cloud pinboard dropped locally because storage quota stayed full after compaction.'); } catch (_) {}
                 }
+                if (!cfg.raw || cfg.dropPinboard) _syncProtectIncompleteCloudRestore();
                 return { notes, compacted: !cfg.raw, storageRescued, dropped: !!cfg.dropPinboard, legacyRemoved };
             } catch (err) {
                 lastError = err;
@@ -15007,7 +15014,7 @@ function _syncProfileClient() {
                 return { ok: response.ok, status: response.status, json: async () => JSON.parse(body) };
             } finally { clearTimeout(timer); }
         },
-        getRevision: () => { const value = localStorage.getItem(key); return value === null ? null : Number(value); },
+        getRevision: () => { if (window.gaCloudRestoreIncomplete) return -1; const value = localStorage.getItem(key); return value === null ? null : Number(value); },
         setRevision: value => localStorage.setItem(key, String(value))
     });
     _profileSyncSession = { identity, client };
@@ -15027,10 +15034,17 @@ function _syncProfileIsNewer(data) {
     }
     return !!(data.lastModified && data.lastModified > localSyncTime);
 }
+function _syncProtectIncompleteCloudRestore() {
+    window.gaCloudRestoreIncomplete = true;
+    // Persist the automatic-write block across reloads. A deliberate manual
+    // overwrite is still available through the existing confirmation dialog.
+    localStorage.setItem('ga_sync_revision_v2:' + getSyncId().toUpperCase(), '-1');
+}
 function _syncAcknowledgeProfile(data) {
     const outcome = window.gaLastCloudMissionPullOutcome;
     const applied = ['cloud-mission-applied', 'cloud-mission-cleared', 'tracker-handoff-complete'].includes(outcome?.status)
         || (outcome?.cloudMatchesTracker === true && ['tracker-observer-current', 'tracker-observer-restored'].includes(outcome?.status));
+    if (window.gaCloudRestoreIncomplete) return;
     if (!applied) return; // A retained/rejected mission must not authorize overwriting the unseen cloud state.
     if (Number.isSafeInteger(data?._syncRevision)) _syncProfileClient().acknowledge(data._syncRevision);
 }
@@ -15648,10 +15662,14 @@ async function triggerCloudSave(immediate = false, options = {}) {
             at: Date.now(), status: 'prepared', transport: 'lossless-v2', compacted: false,
             rawChars: currentPayloadStr.length, rawComponents: _syncPayloadComponentChars(payloadToCompare)
         };
+        if (immediate !== 'manual' && (window.gaCloudRestoreIncomplete || localStorage.getItem('ga_sync_revision_v2:' + id.toUpperCase()) === '-1')) {
+            throw new Error('Cloud-Schutz: Lokaler Stand wurde gekürzt. Automatischer Upload gesperrt; vollständige Cloud-Kopie bleibt erhalten.');
+        }
         const transfer = await _syncProfileClient().write({ ...payloadToCompare, lastModified: uploadSyncTime }, {
             force: immediate === 'manual', legacyTime: localSyncTime
         });
         if (getSyncId() !== id) throw new Error('Pilot während Upload gewechselt; lokaler Stand bleibt unverändert.');
+        window.gaCloudRestoreIncomplete = false;
         Object.assign(window.gaLastCloudUploadDiagnostics, transfer);
         {
             profileSaved = true;
@@ -15676,7 +15694,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         console.error("[Sync] Cloud save failed:", e);
         const msg = String(e?.message || '');
         updateSyncStatus(
-            msg.startsWith('Cloud-Konflikt') ? msg : msg.startsWith('HTTP ') ? `Cloud: Fehler ${msg}`
+            (msg.startsWith('Cloud-Konflikt') || msg.startsWith('Cloud-Schutz')) ? msg : msg.startsWith('HTTP ') ? `Cloud: Fehler ${msg}`
                 : ((msg.startsWith('Payload ') || msg.includes('profile_too_large')) ? "Cloud: Profil überschreitet 8 MiB; nichts gekürzt" : "Cloud: Speicher-Fehler"),
             true
         );
@@ -15729,6 +15747,7 @@ async function forceSyncLoad() {
         }
         if (!res.ok) throw await _syncFetchError(res);
         const data = await res.json();
+        window.gaCloudRestoreIncomplete = false;
         const homebasePullPromise = _syncHomebasePull('app-manual-pull');
 
         if (data.lastModified) {
@@ -15770,6 +15789,7 @@ async function forceSyncLoad() {
         } else if (missionPullOutcome?.status === 'tracker-handoff-incomplete') {
             pinboardStatus = 'Cloud-Daten geladen · Tracker-Mission bleibt geschützt ⚠️';
         }
+        if (window.gaCloudRestoreIncomplete) pinboardStatus = 'Cloud geladen · lokaler Speicher gekürzt, Auto-Upload gesperrt ⚠️';
         updateSyncStatus(pinboardStatus);
         flashSyncIndicator('down');
 
@@ -15814,6 +15834,7 @@ async function silentSyncLoad(options = {}) {
         if (!res.ok) return;
         const data = await res.json();
         if (_syncProfileIsNewer(data)) {
+            window.gaCloudRestoreIncomplete = false;
             localSyncTime = data.lastModified;
             localStorage.setItem('ga_sync_time', localSyncTime);
             if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
@@ -15838,7 +15859,7 @@ async function silentSyncLoad(options = {}) {
             updateGroupBadgeUI();
             if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
             renderLog();
-            updateSyncStatus(missionPullOutcome?.status === 'tracker-authority-retained'
+            updateSyncStatus(window.gaCloudRestoreIncomplete ? 'Cloud geladen · lokaler Speicher gekürzt, Auto-Upload gesperrt ⚠️' : missionPullOutcome?.status === 'tracker-authority-retained'
                 ? 'Auto-Sync: Daten aktualisiert · Tracker-Mission aktiv 🔄'
                 : "Auto-Sync: Aktualisiert 🔄");
             flashSyncIndicator('down');
@@ -16038,6 +16059,7 @@ async function checkCloudAfterIdle() {
             }
             if (confirm(msg)) {
                 // User will laden -> Daten anwenden
+                window.gaCloudRestoreIncomplete = false;
                 localSyncTime = data.lastModified;
                 localStorage.setItem('ga_sync_time', localSyncTime);
                 if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
@@ -16060,7 +16082,7 @@ async function checkCloudAfterIdle() {
                 updateGroupBadgeUI();
                 if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
                 renderLog();
-                updateSyncStatus(missionPullOutcome?.status === 'tracker-handoff-complete'
+                updateSyncStatus(window.gaCloudRestoreIncomplete ? 'Cloud geladen · lokaler Speicher gekürzt, Auto-Upload gesperrt ⚠️' : missionPullOutcome?.status === 'tracker-handoff-complete'
                     ? 'Cloud-Update · Tracker-Mission übernommen ✅'
                     : (missionPullOutcome?.status === 'tracker-handoff-incomplete'
                         ? 'Cloud-Update · Tracker-Mission bleibt geschützt ⚠️'
