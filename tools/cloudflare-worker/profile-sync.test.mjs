@@ -240,3 +240,27 @@ test('missing lookup respects the 128-key platform limit and batch reserves a co
     const tooMany = await f.request('https://test/chunks', { method: 'POST', body: JSON.stringify({ parts: ids.slice(0, 128).map(id => ({ id, data: 'MQ==' })) }) });
     assert.equal(tooMany.status, 400); assert.equal(f.records.size, 0);
 });
+
+test('Tracker followup outbox survives network/ACK failure, CAS conflict and retains unrelated profile fields',async()=>{
+ const {createFollowupCloud}=require('../../ga-tracker-client/tracker-mission-followup-cloud.js');
+ const {service}=require('../../ga-tracker-client/tracker-mission-followup.js');
+ const f=fixture();let clock=Date.now();
+ const original={...profile(),followUpRequests:[],future:{keep:'untouched'}};await f.client().write(original);
+ const api=service([],clock);
+ api.create({missionId:'charter',missionType:'apt',_appliedProfile:'apt_charter',start:'EDTW',dest:'EDTF',initialStartLat:48.27,initialStartLon:8.42,initialTargetLat:48.02,initialTargetLon:7.83,passenger:{name:'Test'}},{failed:false},{source:'tracker-confirmed-completion'});
+ const offers=api.requests();assert.equal(offers.length,1);
+ let pending=[{id:'run',pilotId:'TEST',requests:offers}],offline=true,conflict=true,ackFail=true;
+ const cloud=createFollowupCloud({pilotId:'TEST',pin:'secret',now:()=>clock,baseUrl:'https://test/api/sync-v2/',authorityManager:{getFollowupOutbox:id=>pending.filter(e=>e.pilotId===id),acknowledgeFollowupOutbox:()=>{if(ackFail)return false;pending=[];return true;}},transport:async(url,init)=>{
+  if(offline)throw Error('offline');
+  if(url.endsWith('/commit')&&conflict){conflict=false;const other=f.client();const current=await other.read();other.acknowledge(current.revision);await other.write({...current.profile,groupName:'concurrent-device'});}
+  return f.request(url,init);
+ }});
+ assert.equal((await cloud.flush()).status,'pending');assert.equal(pending.length,1);
+ offline=false;clock+=6000;
+ assert.equal((await cloud.flush()).status,'pending','successful cloud commit with failed local ACK stays pending');
+ const saved=await f.client().read();assert.equal(saved.profile.groupName,'concurrent-device');assert.deepEqual(saved.profile.future,{keep:'untouched'});assert.equal(saved.profile.followUpRequests.length,1);
+ const commits=f.calls.filter(url=>url.endsWith('/commit')).length;
+ ackFail=false;clock+=11000;assert.equal((await cloud.flush()).status,'saved');assert.equal(pending.length,0);
+ assert.equal(f.calls.filter(url=>url.endsWith('/commit')).length,commits,'ACK retry makes no duplicate write');
+ const calls=f.calls.length;await cloud.flush();assert.equal(f.calls.length,calls,'idle has no cloud requests');
+});

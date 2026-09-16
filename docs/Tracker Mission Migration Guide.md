@@ -298,3 +298,18 @@ uebertragener `followUpRequests`-Bestand noch eine erzaehlte Folgeflug-Andeutung
 autonome Angebotserzeugung. Private Return: nur bestaetigte Abschluss-/Flugevidenz,
 gleiche Begleitung/Route, deterministische ID und Tombstones; Infra: Originalbefund
 und dessen Folgeprofil. Noch nicht migrierte Folgeprofile nicht per Gate freigeben.
+
+## Folgeangebote und Sightseeing (v418)
+
+Der zuvor offene Follow-up-Schritt ist umgesetzt; Details und Grenzen siehe
+[Tracker v418](Tracker-v418-Release.md). Angebote mit dem Abschluss atomar in einen
+pilotgebundenen Postausgang schreiben. Cloud-Bestaetigung erst nach CAS-Merge;
+Retries duerfen Tombstones nicht reaktivieren. Eine uebertragene Anfrage bedeutet
+weiterhin nicht, dass ihr Folgeprofil bereits vom Tracker ausgefuehrt werden kann.
+
+UI-lastige Originalmodule koennen mit injizierbarem Host wiederverwendet werden,
+solange nur UI-/Speicheradapter getrennt und fachliche Funktionen unveraendert bleiben.
+Fuer weitere Wissensmissionen: akzeptierten Kontext im Seed bewahren, Original-
+Faktenauswahl extrahieren, Sprachgedaechtnis vor Playback persistieren und Browser-
+Replay pruefen. Sightseeing hat im Original kein „Erzaehl mal“; den Lern-Guide nicht
+anhand einer aehnlichen Erzaehloberflaeche voreilig freigeben.

@@ -11,7 +11,7 @@ const RECIPE_SCHEMA = 'ga.mission-poi-execution-recipe.v1';
 const RUNTIME_SCHEMA = 'ga.tracker-poi-runtime.v1';
 // Explicitly bounded standard POI family. A transport adapter named "poi"
 // is insufficient: specialized tasks need their own execution/voice contracts.
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour']);
 const clone = value => JSON.parse(JSON.stringify(value));
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 function point(value) {

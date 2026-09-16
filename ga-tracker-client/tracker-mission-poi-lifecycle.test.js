@@ -554,3 +554,34 @@ test('full POI runtime checkpoints steady enroute telemetry without rewriting eq
   assert.equal(execution.replay(f.manager.getActiveRun({ includeBundle: true }).resumeBundle.executionReplay).stateHash,
     f.manager.getExecutionSnapshot().executionStateHash);
 });
+
+
+test('Sightseeing uses the complete POI lifecycle, restores its knowledge recipe and closes autonomously', async t => {
+  const b = bundle();
+  b.executionPoiRecipe.taskDomain = 'sightseeing_tour';
+  const context = b.executionPoiRecipe.voiceContext;
+  context.taskDomain = 'sightseeing_tour';
+  context.knowledgeContext = { status: 'accept', title: 'Brücke', facts: [
+    { topic: 'history', text: 'Die Brücke wurde im neunzehnten Jahrhundert als regionales Bauwerk errichtet.' },
+    { topic: 'structure', text: 'An der Brücke sind mehrere markante Turmbauten aus der Umgebung deutlich erkennbar.' }
+  ] };
+  replay(b);
+  assert.equal(poi.validateBundle(b), null);
+  const invalid = JSON.parse(JSON.stringify(b));
+  delete invalid.executionPoiRecipe.voiceContext.knowledgeContext;
+  assert.ok(poi.validateBundle(invalid));
+  const h = await harness(t, { bundle: b });
+  await h.start(); h.sample(10000); h.sample(12000);
+  await h.restart();
+  assert.deepEqual(h.manager.requestSnapshot({ missionId: b.missionId }).resumeBundle.executionPoiRecipe.voiceContext.knowledgeContext, context.knowledgeContext);
+  h.sample(14000, { lat: 48.3, lon: 8.5 });
+  assert.equal(h.manager.getExecutionSnapshot().state.progress.targetSatisfied, true);
+  h.sample(16000, { lat: 49, lon: 9, onGround: true, aglFt: 0, gsKts: 20 });
+  h.sample(17000, { lat: 49, lon: 9, onGround: true, aglFt: 0, gsKts: 0 });
+  await h.intent('set_manifest_item', { itemId: 'camera', action: 'unload' });
+  await h.intent('sign_manifest'); await h.intent('confirm_unload');
+  for (let i = 0; i < 100 && h.manager.getActiveRun(); i++) await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(h.manager.getActiveRun(), null);
+  assert.equal(h.farewell.length, 1);
+  assert.equal(h.farewell[0].farewellDynamicContext.missionFailed, false);
+});

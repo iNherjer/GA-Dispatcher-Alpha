@@ -1,3 +1,4 @@
+const { createFollowupCloud } = require('./tracker-mission-followup-cloud.js');
 const { createNavigationData } = require('./tracker-navigation-data.js');
 const { createNavigationWarnings } = require('./tracker-navigation-warnings.js');
 const { createAudioControl, createAudioCloud } = require('./tracker-audio-control-core.js');
@@ -84,8 +85,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v417';
-const TRACKER_VERSION_CODE = 417;
+const TRACKER_VERSION = 'v418';
+const TRACKER_VERSION_CODE = 418;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4827,6 +4828,10 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     poiExecutionEnabled: TRACKER_POI_EXECUTION_ENABLED,
     poiLifecycleRequired: true
   });
+  const followupCloud = createFollowupCloud({ authorityManager: missionAuthorityManager, pilotId: String(syncId), pin: String(pin), log: debugLog });
+  const followupSyncTimer = setInterval(() => { void followupCloud.flush(); }, 5000);
+  followupSyncTimer.unref?.();
+  void followupCloud.flush();
   const trackerFlightLogStore = createTrackerFlightLogStore({
     directory: TRACKER_FLIGHT_LOG_DIR,
     log: debugLog

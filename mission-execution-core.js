@@ -1286,7 +1286,7 @@
             state.voice.poi = normalizeVoiceOutcome({ kind: 'poi', label: speakingEffect.payload.label, status: 'pending', text: event.payload.text,
                 speaker: speakingEffect.payload.resolvedRecipe?.speaker, updatedAt: event.occurredAt, playback: 'pending' });
             if (poiVoiceCore) state.voice.poiMemory = poiVoiceCore.captureMemory(
-                state.voice.poiMemory || {}, speakingEffect.payload.label, event.payload.text);
+                state.voice.poiMemory || {}, speakingEffect.payload.label, event.payload.text, speakingEffect.payload.resolvedRecipe?.taskDomain);
         } else if (event.type === 'POI_TASK_OBSERVED') {
             state.poiTask = canonicalValue(event.payload.poiTask);
             var detector = state.poiTask.detector;
@@ -1627,6 +1627,12 @@
                 state.voice.privateReturnHistory = routeVoiceCore.rememberSpeech(state.voice.privateReturnHistory,
                     acknowledgedEffectId, String(spokenOutcome.text || '').slice(0,600)).slice(-4);
             }
+            if (state.recipe === 'poi' && poiVoiceCore && acknowledgedEffect && acknowledgedEffect.type !== 'voice.poi'
+                && acknowledgedEffect.type.indexOf('voice.') === 0 && spokenOutcome.text
+                && object(spokenOutcome.speaker).taskDomain === 'sightseeing_tour') {
+                state.voice.poiMemory = poiVoiceCore.captureMemory(state.voice.poiMemory || {},
+                    acknowledgedEffect.type, spokenOutcome.text, 'sightseeing_tour');
+            }
             if (acknowledgedEffect && acknowledgedEffect.type === 'voice.boarding') {
                 state.voice.boarding = normalizeVoiceOutcome({
                     ...object(object(event.payload).result),
@@ -1647,7 +1653,7 @@
                     kind: 'poi', label: acknowledgedEffect.payload.label, text: acknowledgedEffect.payload.resolvedText || object(object(event.payload).result).text,
                     updatedAt: acknowledgedEffect.payload.resolvedTextAt || event.occurredAt });
                 if (state.voice.poi.text && !acknowledgedEffect.payload.resolvedText) state.voice.poiMemory = poiVoiceCore.captureMemory(
-                    state.voice.poiMemory || {}, acknowledgedEffect.payload.label, state.voice.poi.text);
+                    state.voice.poiMemory || {}, acknowledgedEffect.payload.label, state.voice.poi.text, acknowledgedEffect.payload.resolvedRecipe?.taskDomain);
             }
             if (acknowledgedEffect && acknowledgedEffect.type === 'voice.approach') {
                 state.voice.approach = normalizeVoiceOutcome({

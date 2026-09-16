@@ -8,6 +8,7 @@ export const helperNames = ['_poiMemoryCompact', '_capturePoiNarrativeMemory', '
   '_getPoiInspectionOutcome', '_inspectionEntryHint', '_inspectionResultHint', '_professionalTaskHint',
   '_domainDriftGuard', '_targetFactHint', '_paxMemoryMentionsLandmark', '_paxApproachLandmarkCueLine',
   '_paxCardinalGerman', '_weatherContext', '_professionalLandingToneHint'];
+export const knowledgeNames = ['_poiKnowledgeCleanFactText', '_poiKnowledgeContextIdentity', '_poiKnowledgeSyncContext', '_poiKnowledgeFactCandidates', '_poiKnowledgeFactKey', '_poiKnowledgeStageScore', '_poiKnowledgeStageMinIndex', '_poiKnowledgeFactHint'];
 const actionNames = ['_missionActionContext', '_missionVectorText', '_missionOrientationFactLine', '_missionStatusFacts', '_paxNearLandmarkOrientationLine', '_poiMissionStatusAction', '_poiMissionOrientationAction'];
 const farewellNames = ['_farewellPrompt', '_failedMissionFarewellFallback', '_farewellPreparedContext'];
 export function extract(name, text = source) { return extractOriginalFunction(text, name); }
@@ -20,12 +21,13 @@ const header = `// Generated from original passenger-voice.js functions by tools
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(taskCore) {
 'use strict';
 const CONTEXT_SCHEMA = 'ga.mission-poi-voice-context.v1';
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour']);
 const PROMPTS = Object.freeze(${JSON.stringify(promptNames)});
 const clone = value => JSON.parse(JSON.stringify(value));
 function normalizeMemory(value = {}) {
   return { pre: String(value?.pre || '').slice(0, 180), entry: String(value?.entry || '').slice(0, 180),
-    done: String(value?.done || '').slice(0, 180), inspectionOutcome: String(value?.inspectionOutcome || '').slice(0, 40) || null };
+    done: String(value?.done || '').slice(0, 180), inspectionOutcome: String(value?.inspectionOutcome || '').slice(0, 40) || null,
+    ...(value?.knowledgeSpoken ? { knowledgeSpoken: String(value.knowledgeSpoken).slice(-4000) } : {}) };
 }
 function validateContext(context, missionId = context?.missionId) {
   if (context?.schema !== CONTEXT_SCHEMA || context.version !== 1 || !missionId || context.missionId !== missionId)
@@ -33,6 +35,8 @@ function validateContext(context, missionId = context?.missionId) {
   if (!DOMAINS.includes(context.taskDomain) || typeof context.strict !== 'boolean'
       || !context.passenger || Array.isArray(context.passenger) || typeof context.baseContext !== 'string' || !context.baseContext.trim()
       || typeof context.audioEnabled !== 'boolean') return 'poi_voice_context_invalid';
+  if (context.taskDomain === 'sightseeing_tour' && (!Array.isArray(context.knowledgeContext?.facts) || !context.knowledgeContext.facts.length
+      || (context.knowledgeContext.status && context.knowledgeContext.status !== 'accept'))) return 'poi_sightseeing_knowledge_required';
   if (['trainingPlan', 'trainingProcedure', 'poiChain', 'surveyPattern', 'sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
   try {
     if (encodeURIComponent(JSON.stringify(context)).replace(/%[A-F0-9]{2}/g, 'x').length > 65536)
@@ -75,7 +79,7 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _activeTaskDomain = () => context.taskDomain;
   const _isPOIMission = () => true;
   const _activeAptTrainingPlan = () => null;
-  const _activePoiKnowledgeContext = () => null;
+  const _activePoiKnowledgeContext = () => context.knowledgeContext || (context.captureKnowledge ? {} : null);
   const _activeBushReconOutcome = () => null;
   const _bushReconOutcomeHintLine = () => '';
   const _sarResultHint = () => '';
@@ -89,7 +93,9 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _paxStrictMode = context.strict;
   const _poiDwellSec = Number(cue.detector?.dwellSec || 0);
   const _poiNarrativeMemory = normalizeMemory(previous);
-  const _poiKnowledgeSpokenMemory = '';
+  let _poiKnowledgeSpokenMemory = String(previous.knowledgeSpoken || '').slice(-4000);
+  let _poiKnowledgeManualFactIndices = new Set();
+  let _poiKnowledgeContextKey = _poiKnowledgeContextIdentity(_activePoiKnowledgeContext());
   let _poiInspectionOutcome = _poiNarrativeMemory.inspectionOutcome;
 `;
 const footer = `
@@ -104,7 +110,7 @@ const footer = `
     return { prompt: prepared?.prompt || '', text: prepared?.text || '', fallbackText: '' };
   }
   if (cue.capture) _capturePoiNarrativeMemory(cue.capture.label, cue.capture.text);
-  return { prompt, memory: normalizeMemory({ ..._poiNarrativeMemory, inspectionOutcome: _poiInspectionOutcome }) };
+  return { prompt, memory: normalizeMemory({ ..._poiNarrativeMemory, inspectionOutcome: _poiInspectionOutcome, knowledgeSpoken: _poiKnowledgeSpokenMemory }) };
 }
 function render(context, cue, previous = {}, randomValue = 0.5) {
   const error = validateContext(context);
@@ -116,8 +122,8 @@ function render(context, cue, previous = {}, randomValue = 0.5) {
   if (result.prompt && result.prompt.length > 24000) throw new TypeError('poi_voice_prompt_too_large');
   return result;
 }
-function captureMemory(previous, label, text) {
-  return original({ taskDomain: 'media_photo' }, previous, { capture: { label, text } }).memory;
+function captureMemory(previous, label, text, taskDomain = 'media_photo') {
+  return original({ taskDomain, captureKnowledge: taskDomain === 'sightseeing_tour' }, previous, { capture: { label, text } }).memory;
 }
 function renderFarewell(context, dynamic = {}, previous = {}) {
   const error = validateContext(context);
@@ -137,7 +143,7 @@ function renderAction(context, action, detector, sample, target, previous = {}) 
 return Object.freeze({ renderAction, renderFarewell, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
 });
 `;
-const result = header + [...helperNames, ...promptNames, ...farewellNames, ...actionNames].map(name => extract(name)).join('\n\n') + footer;
+const result = header + [...helperNames, ...knowledgeNames, ...promptNames, ...farewellNames, ...actionNames].map(name => extract(name)).join('\n\n') + footer;
 const target = new URL('../mission-poi-voice-core.js', import.meta.url);
 if (process.argv.includes('--check')) {
   if (fs.readFileSync(target, 'utf8') !== result) throw new Error('POI voice core drifted from App source');

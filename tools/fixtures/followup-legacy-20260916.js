@@ -1,12 +1,5 @@
-(function(root, factory) {
-    if (typeof module === 'object' && module.exports) module.exports = { createFollowupService: factory };
-    else factory({ window: root, localStorage: root.localStorage, document: root.document });
-})(typeof window !== 'undefined' ? window : globalThis, function(environment) {
+(function() {
     'use strict';
-    const window = environment.window || {};
-    const localStorage = environment.localStorage;
-    const document = environment.document;
-    const Date = environment.Date || globalThis.Date;
 
     const STORAGE_KEY = 'ga_followup_requests_v1';
     const LAST_LANDING_STORAGE_KEY = 'ga_followup_last_landing_ref_v1';
@@ -808,10 +801,10 @@
     function writeRequests(list, options = {}) {
         const compacted = compactRequests(list);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(compacted)); } catch (err) {
-            if (environment.headless) throw err;
             console.warn('[FollowUp] Speicher fehlgeschlagen:', err?.message || err);
         }
-        if (!environment.headless) { render(); updateDebugButton(); }
+        render();
+        updateDebugButton();
         if (options.cloud === true && typeof window.triggerCloudSave === 'function') {
             setTimeout(() => {
                 try { window.triggerCloudSave(true); } catch (_) {}
@@ -3091,10 +3084,9 @@
     window.missionFollowupAcceptRequest = acceptRequest;
     window.missionFollowupDismissRequest = dismissRequest;
 
-    if (environment.headless) return { create: maybeCreateFromCompletedMission, merge: applyFromSync, requests: getForSync };
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init, { once: true });
     } else {
         setTimeout(init, 0);
     }
-});
+})();

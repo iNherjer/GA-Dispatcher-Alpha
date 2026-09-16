@@ -1,3 +1,4 @@
+const followupCore = require('./tracker-mission-followup.js');
 const paxQueryCore = require('../mission-pax-query-core.js');
 const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
 const crypto = require('crypto');
@@ -538,6 +539,7 @@ function newState() {
     version: STATE_VERSION,
     activeRun: null,
     lastRun: null,
+    followupOutbox: [],
     events: []
   };
 }
@@ -628,6 +630,7 @@ function createMissionAuthorityManager(options = {}) {
         version: STATE_VERSION,
         activeRun: normalizeStoredRun(parsed.activeRun),
         lastRun: normalizeStoredRun(parsed.lastRun),
+        followupOutbox: Array.isArray(parsed.followupOutbox) ? parsed.followupOutbox : [],
         events: Array.isArray(parsed.events) ? parsed.events.slice(-MAX_EVENTS) : []
       };
       log(`MISSION_AUTHORITY_LOADED active=${state.activeRun?.missionId || 'none'} run=${state.activeRun?.runId || 'none'}`);
@@ -1365,6 +1368,15 @@ function createMissionAuthorityManager(options = {}) {
       return { ok: false, status: 'blocked', error: 'mission_execution_effects_pending', activeRun: publicRun(active) };
     }
     const previousState = jsonClone(state);
+    try {
+      const followup = followupCore.createForCompletedRun(active, publicExecutionSnapshot(active), now());
+      if (followup.requests.length) {
+        const pilotId = cleanString(request.pilotId || active.executionState?.manifest?.pilotId, 180);
+        if (!pilotId) return { ok: false, error: 'followup_pilot_required' };
+        if (state.followupOutbox.length >= 64) return { ok: false, error: 'followup_outbox_full' };
+        state.followupOutbox.push({ id: active.runId, pilotId, createdAt: now(), requests: followup.requests });
+      }
+    } catch (error) { state = previousState; return { ok: false, error: 'followup_prepare_failed', detail: error.message }; }
     active.active = false;
     active.state = 'completed';
     active.phase = 'closed';
@@ -1843,6 +1855,14 @@ function createMissionAuthorityManager(options = {}) {
         lastExecution: publicExecutionSnapshot(state.lastRun),
         updatedAt: Number(state.activeRun?.updatedAt || state.lastRun?.updatedAt || 0) || null
       };
+    },
+    getFollowupOutbox(pilotId) { return jsonClone(state.followupOutbox.filter(entry => entry.pilotId === pilotId)); },
+    acknowledgeFollowupOutbox(id, pilotId) {
+      const previous = state.followupOutbox;
+      state.followupOutbox = previous.filter(entry => entry.id !== id || entry.pilotId !== pilotId);
+      if (state.followupOutbox.length === previous.length) return true;
+      if (persist()) return true;
+      state.followupOutbox = previous; return false;
     },
     getExecutionComfortContext() {
       return executionComfortContext(state.activeRun);

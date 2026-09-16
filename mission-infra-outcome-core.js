@@ -1,5 +1,12 @@
-(function() {
+(function(root, factory) {
+    if (typeof module === 'object' && module.exports) module.exports = { createInfraOutcomeService: factory };
+    else factory({ window: root, localStorage: root.localStorage, document: root.document });
+})(typeof window !== 'undefined' ? window : globalThis, function(environment) {
     'use strict';
+    const window = environment.window || {};
+    const localStorage = environment.localStorage;
+    const document = environment.document;
+    const Date = environment.Date || globalThis.Date;
 
     const SCHEMA = 'ga.infraInspectionOutcome.v1';
     const OUTCOME_TYPES = new Set(['clear', 'monitor', 'minor_damage', 'major_damage', 'blocked_access']);
@@ -1078,4 +1085,4 @@
     window.missionInfraBuildPipelineContext = buildPipelineContext;
     window.missionInfraBuildDispatchMission = buildDispatchMission;
     window.missionInfraDebugSetInspectionOutcome = debugSetInspectionOutcome;
-})();
+});

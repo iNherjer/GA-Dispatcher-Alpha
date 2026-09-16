@@ -9,7 +9,7 @@ for (const detector of [{}, {inRadius:true,dwellSec:35}, {satisfied:true,dwellSe
 for (const pos of [{}, {lat:48,lon:8}, {lat:48.29,lon:8.5}, {lat:48.3,lon:8.5}])
 for (const mslFt of [undefined,2700,3100]) for (const fact of ['', 'Bestätigte Brücke am Fluss.'])
 for (const map of ['', 'GROBER KARTENBEZUG: Brücke liegt 3 NM nördlich von Stadt.']) {
- const context = { schema:voice.CONTEXT_SCHEMA,version:1,missionId:'parity',taskDomain:domain,strict:true,
+ const context = { schema:voice.CONTEXT_SCHEMA,version:1,missionId:'parity',taskDomain:domain,knowledgeContext:domain==='sightseeing_tour'?{status:'accept',title:'Testobjekt',facts:['Ein regionales Testobjekt mit vielen markanten historischen Gebäudeteilen.']}:null,strict:true,
   audioEnabled:false,baseContext:'Original-Persona.',toneHint:' Deutsch.',passenger:{targetRadiusNm:1.5,targetDwellMin:2,targetAltFt:3000},
   missionData:{poiName:'Brücke'},mapPlaceOrientationLine:map,targetFacts:fact?[fact]:[] };
  const sample = {...pos,mslFt,hdg:0,windKts:20,visKm:8};

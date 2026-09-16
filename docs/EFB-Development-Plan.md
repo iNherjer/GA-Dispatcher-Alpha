@@ -5320,3 +5320,12 @@ Tracker; originale Texte und Verfuegbarkeit bleiben erhalten. EFB-Assets 41701.
 Private Heimreise-Abflugtext und bestaetigte Gespraechskontinuitaet jetzt im Tracker.
 299 Missions-/Voice- und 105 EFB-Tests erfolgreich; In-Sim-Test offen.
 Autonome Folgeangebote und Sightseeing-Gate bleiben nachfolgende Integrationsschritte.
+
+## 2026-09-16 – Tracker v418: Folgeangebote und Sightseeing
+
+Sightseeing verwendet den vorhandenen EFB-POI-Ablauf mit Original-Wissensansagen
+und persistenter Erinnerung. Kein zusaetzlicher Lern-Guide-Button fuer Sightseeing.
+Autonome Folgeangebote entstehen nach bestaetigtem Tracker-Abschluss, werden lokal
+atomar vorgemerkt und per V2-Profil konfliktfest synchronisiert. Angebot/Annahme
+bleiben in der vorhandenen App-Oberflaeche. Noch nicht migrierte Folgeprofile bleiben
+gesperrt. Nachweise, Quotenverhalten und Legacy-Profil-Grenze: `Tracker-v418-Release.md`.

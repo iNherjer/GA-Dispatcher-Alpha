@@ -32,7 +32,7 @@ for(const ground of [{onGround:false,gsKts:90},{onGround:true,gsKts:0},{onGround
 let farewells=0;
 for(const domain of voice.DOMAINS) for(const progress of [{},{satisfied:true},{aborted:true},{manualConfirmed:true}])
 for(const failed of [false,true]) for(const needsRideHome of [false,true]) for(const protection of [false,true]) {
-  const context={schema:voice.CONTEXT_SCHEMA,version:1,missionId:'parity',taskDomain:domain,strict:true,audioEnabled:false,
+  const context={schema:voice.CONTEXT_SCHEMA,version:1,missionId:'parity',taskDomain:domain,knowledgeContext:domain==='sightseeing_tour'?{status:'accept',title:'Testobjekt',facts:['Ein regionales Testobjekt mit vielen markanten historischen Gebäudeteilen.']}:null,strict:true,audioEnabled:false,
     passenger:{role:'Fachkraft',gTolerance:'niedrig',bankTolerance:'niedrig'},baseContext:'Originale Persona.',toneHint:' Deutsch.',
     motionProtectionEnabled:protection,professionalMeta:{},followUpDeboardingHint:' Folgeauftrag.',storyFocusSubject:'das Objekt'};
   const record={durationSec:720,distanceNm:20,maxAltFt:3300,maxBankDeg:48,maxGForce:1.8,maxDescentFpm:-1600,touchdownVsFpm:-550,

@@ -9870,6 +9870,7 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
         baseContext: _baseContext(), toneHint: _toneHint(true),
         passenger: { ...window.activePassenger }, missionData: { poiName: md.poiName, targetName: md.targetName, dest: md.dest },
         mapPlaceOrientationLine: _paxMapPlaceOrientationLine(),
+        ...( _activeTaskDomain() === 'sightseeing_tour' ? { knowledgeContext: _activePoiKnowledgeContext() } : {} ),
         inspectionMeta: _inspectionMissionMeta(), infraOutcome: _activeInfraInspectionOutcome(),
         professionalMeta: _professionalRoleMeta(),
         targetFacts: _targetContextFactCandidates(),

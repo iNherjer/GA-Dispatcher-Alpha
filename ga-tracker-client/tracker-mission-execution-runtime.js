@@ -58,7 +58,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   let narrativeRouteCache = { key: '', points: [] };
   let lastTelemetryDiagnosticKey = '';
   let lastTelemetryDiagnosticAt = 0;
-  let lastPoiFinalizationRetryAt = 0;
+  let lastFinalizationRetryAt = 0;
   let poiPaused = false;
   const motionBuffer = createFlightMotionBuffer();
   let motionInputConnected = false;
@@ -278,6 +278,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     }
     const finalized = authorityManager.finalizeExecutionRun({
       commandId: `${effectId}:finalize`,
+      pilotId: options.getPilotId?.(),
       reason: 'tracker-execution-close-ack'
     });
     if (!finalized.ok) log(`MISSION_EXECUTION_FINALIZE_ERROR error=${finalized.error || finalized.status || 'unknown'}`);
@@ -600,12 +601,12 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         if (!recorder?.ok) return recorder;
         return { ...task, status: 'ignored', reason: 'simulation_not_running' };
       }
-      if (isPoi && authorityManager.getExecutionSnapshot()?.state?.phase === 'closed') {
+      if (authorityManager.getExecutionSnapshot()?.state?.phase === 'closed') {
         // A transient recorder/authority write failure must not require a new
         // user action. Retry the durable close, never its already-ACKed effects.
         const at = Date.now();
-        if (at - lastPoiFinalizationRetryAt >= 5000) {
-          lastPoiFinalizationRetryAt = at;
+        if (at - lastFinalizationRetryAt >= 5000) {
+          lastFinalizationRetryAt = at;
           if (authorityManager.getExecutionSnapshot()?.state?.effects?.some(effect => effect.status === 'requested')) {
             settleEffects('poi-close-retry', 'poi-close-retry')
               .catch(error => log(`MISSION_EXECUTION_FINALIZE_ERROR error=${error?.message || error}`));
