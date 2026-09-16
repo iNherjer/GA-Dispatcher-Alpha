@@ -1,5 +1,6 @@
 const { prepareAction: preparePoiAction } = require('./tracker-mission-poi-voice.js');
 'use strict';
+const comfortCore = require('../mission-comfort-core.js');
 
 const executionCore = require('../mission-execution-core.js');
 const locationCore = require('../mission-location-core.js');
@@ -125,6 +126,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     latestTelemetry: null,
     latestDestination: null,
     flightVoiceState: {},
+    comfort: null,
     cargoObjectRevision: 0,
     lastGpsTick: null,
     smoothedVsFpm: 0,
@@ -251,6 +253,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         recorderLowSpeedSince: observations.recorderLowSpeedSince,
         latestTelemetry: observations.latestTelemetry,
         flightVoiceState: observations.flightVoiceState,
+        comfort: observations.comfort,
         cargoObjectRevision: observations.cargoObjectRevision,
         latestDestination: observations.latestDestination
       }
@@ -956,6 +959,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     observations.segmentDepartureLabel = cleanString(persisted?.segmentDepartureLabel, 180) || null;
     observations.recorderLowSpeedSince = Math.max(0, Number(persisted?.recorderLowSpeedSince || 0)) || null;
     observations.flightVoiceState = persisted?.flightVoiceState || {};
+    observations.comfort = persisted?.comfort || null;
+    observations.comfortContext = authorityManager.getExecutionComfortContext?.() || {};
     observations.cargoObjectRevision = Number(persisted?.cargoObjectRevision) || 0;
     observations.latestTelemetry = persisted?.latestTelemetry || null;
     observations.latestDestination = persisted?.latestDestination || null;
@@ -1051,6 +1056,16 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       lon: sample.lon != null ? sample.lon : sample.lng
     });
     if (onGround == null) return errorResult('mission_telemetry_on_ground_required', { view: snapshot.view });
+    // Persist with the existing runtime checkpoint; do not create per-sample events.
+    if (sample.simPaused !== true && sample.inMenuOrMap !== true
+        && !snapshot.state.flags.closingPending && !snapshot.state.flags.farewellStarted
+        && observedAt > (observations.comfort?.observedAt || 0)) {
+      const context = observations.comfortContext;
+      const hasPassenger = context.hasPassenger || snapshot.state.manifest.items.some(item => item.itemType === 'passenger');
+      const cargoOnly = comfortCore.evaluate(null, null, context, observedAt).cargoFocus;
+      if (hasPassenger || cargoOnly) observations.comfort = { ...comfortCore.evaluate(
+        observations.comfort?.state, { ...sample, vsFpm: smoothedVsFpm }, context, observedAt), observedAt };
+    }
     const recorderBefore = observations.flightRecorder;
     const recorded = flightRecorderCore.observe(recorderBefore, {
       ...sample,

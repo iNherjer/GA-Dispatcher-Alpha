@@ -166,6 +166,7 @@ function normalizeExecutionRuntimeContext(value) {
     runId: cleanString(source.runId, 220),
     flightRecorder: flightRecorderCore.createState(source.flightRecorder),
     flightVoiceState: jsonClone(safeObject(source.flightVoiceState)),
+    comfort: source.comfort ? jsonClone(source.comfort) : null,
     cargoObjectRevision: Math.max(0, Number(source.cargoObjectRevision) || 0),
     arrivalFlightRecord,
     arrivalWeather: source.arrivalWeather ? Object.fromEntries(
@@ -453,6 +454,8 @@ function publicExecutionSnapshot(run) {
     cargoObjectRevision: runtime?.cargoObjectRevision || 0,
     passengerInteraction: jsonClone(state.effects.filter(effect => effect.type === 'scene.manual_pax').slice(-1)[0] || null),
     progress: jsonClone(state.progress),
+    comfort: runtime?.comfort?.summary ? Object.fromEntries(['comfortScore', 'mood', 'pilotEvents', 'pilotSevere', 'weatherEvents', 'weatherSevere', 'debugMotionProtection'].map(key => [key, runtime.comfort.summary[key]])) : null,
+    taskItems: poiRuntime.taskItemStateFromManifest(state.manifest),
     ...(state.poiTask ? { poiTask: poiRuntime.project(state.poiTask) } : {}),
     ...(state.poiLifecycle ? { poiLifecycle: jsonClone(state.poiLifecycle) } : {}),
     ...(poiLifecycle ? { poiStatus: poiLifecycle.status, poiOutcome: exposeCompletionRecord ? poiLifecycle.outcome : null } : {}),
@@ -1818,6 +1821,20 @@ function createMissionAuthorityManager(options = {}) {
         lastExecution: publicExecutionSnapshot(state.lastRun),
         updatedAt: Number(state.activeRun?.updatedAt || state.lastRun?.updatedAt || 0) || null
       };
+    },
+    getExecutionComfortContext() {
+      const bundle = safeObject(state.activeRun?.resumeBundle);
+      const root = safeObject(bundle.missionState);
+      const md = safeObject(root.currentMissionData || root);
+      const contract = safeObject(root.activeMissionContract || md.missionContract);
+      const effects = safeObject(bundle.executionEffectPlan?.effects);
+      const voice = bundle.executionPoiRecipe?.voiceContext || effects['voice.approach']?.context || effects['voice.farewell']?.context || {};
+      return jsonClone({ missionData: { cat: md.cat, missionContract: { category: md.missionContract?.category },
+          ...(md.clubIdea ? { clubIdea: { schema: md.clubIdea.schema, delivery: md.clubIdea.delivery } } : {}) },
+        taskDomain: voice.taskDomain || contract.taskDomain || md.taskDomain,
+        cargoText: contract.cargoText || md.cargoText, paxText: contract.paxText || md.paxText,
+        motionProtectionEnabled: voice.motionProtectionEnabled === true,
+        hasPassenger: voice.mode === 'passenger' || !!voice.passenger?.name });
     },
     getExecutionMissionEndpoints() {
       const missionState = safeObject(state.activeRun?.resumeBundle?.missionState);

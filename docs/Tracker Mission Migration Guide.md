@@ -267,3 +267,15 @@ Feedback und Zielnavigation mit einem absichtlich veralteten App-Seed pruefen.
 Arbeitszeit muessen denselben autoritativen Zustand wie Ladefenster und Detektor
 verwenden. Entladen/uebergeben darf unter „an Bord“ nicht mitgezaehlt werden.
 Snapshot-Projektion darf den Seed oder die Missionsregeln nicht mutieren.
+
+## Komfortwertung und Feedback (v416)
+
+Voice-Trigger fuer Beschwerden und die numerische Komfortwertung sind getrennte
+Funktionen: ein funktionierender Voice-Trigger beweist keine laufende Score-Anzeige.
+Originalwertung via `tools/generate-mission-comfort-core.mjs` extrahieren;
+`tools/mission-comfort-selftest.mjs` vergleicht echte Samplefolgen. Ereignisflags
+mitpersistieren, damit ein anhaltendes Ereignis nach Restore nicht neu zaehlt.
+Keinen ganzen Seed pro Telemetriesample kopieren; nur benoetigte Kontextfelder
+beim Run-Wechsel holen. Keine Extra-Schreibfrequenz fuer UI-Werte einfuehren.
+Fehlende Messung nicht als 100 % anzeigen. Cargo-Blocker von der ausfuehrenden
+Pruefung uebernehmen; an Bord, entladen und fehlend sind unterschiedliche Begriffe.

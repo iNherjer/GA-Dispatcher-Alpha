@@ -1,5 +1,16 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Tracker v416: Komfort und konkrete Live-Hinweise (16.09.2026)
+
+Komfort war bisher nur ein Seed-Wert. Originalfunktionen werden nun generiert
+und im gemeinsamen Tracker-Telemetrieadapter fuer APT/POI ausgefuehrt. Persistenz
+nutzt bestehende Checkpoints; kompakter Kontext-Getter vermeidet Kopieren des
+Missionsbundles im Telemetriepfad. UI zeigt fehlende Wertung als unbekannt.
+Cargo-Hinweise verwenden `taskItems` aus dem autoritativen Manifest; entladene
+Pflichtausruestung wird erklaert, ihre Standalone-Semantik nicht veraendert.
+Details und Tests: [v416](Tracker-v416-Release.md).
+
+
 ## Tracker v415: Live-Zeilen statt Missionsstart-Snapshot (16.09.2026)
 
 Feldtest bestaetigt widerspruechliche Pflichtladungs- und Fortschrittszeilen.

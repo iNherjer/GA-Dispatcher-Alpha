@@ -330,3 +330,22 @@ test('field regression: seed cargo and work rows follow live POI execution and u
  const apt=projectTrackerEfbMissionView(run,null,null,control);
  assert.equal(apt.view.progress.find(row=>row.label==='Pflichtmanifest').detail,'1/2 an Bord');
 });
+
+test('live comfort and cargo reasons replace stale seed feedback for APT and POI', () => {
+ for (const recipe of ['apt','poi']) {
+  const items=[{id:'kit',label:'Messgerät',itemType:'cargo',required:true,status:'unloaded',healthPct:100}];
+  const run={missionId:'m',runId:'r',resumeBundle:{efbMission:{comfort:{score:100,state:'zufrieden'},feedback:[{text:'Alles gut'}]}}};
+  const control={missionId:'m',executionAuthority:'tracker',recipe,phase:'active',flags:{active:true},
+   manifest:{items},cargo:{items,summary:{total:1,unloaded:1}},taskItems:{missing:[],dropped:[],damaged:[]}};
+  let view=projectTrackerEfbMissionView(run,null,null,control).view;
+  assert.equal(view.comfort.score,null);assert.equal(view.comfort.available,false);
+  assert.ok(!JSON.stringify(view.feedback).includes('Alles gut'));
+  if(recipe==='poi') assert.ok(view.feedback.some(row=>row.label==='Pflichtladung entladen' && row.tone==='info'));
+  control.comfort={comfortScore:0,mood:'ziemlich durchgeschuettelt',pilotEvents:10,pilotSevere:2,weatherEvents:1};
+  control.taskItems={missing:['Messgerät'],dropped:['Box'],damaged:['Kamera']};
+  view=projectTrackerEfbMissionView(run,null,null,control).view;
+  assert.equal(view.comfort.score,0);assert.equal(view.comfort.tone,'danger');
+  for(const name of ['Messgerät','Box','Kamera']) assert.ok(view.feedback.some(row=>row.detail.includes(name)));
+  assert.ok(view.feedback.some(row=>row.label==='Wettereinfluss'));
+ }
+});

@@ -519,6 +519,8 @@ test('tracker preserves airborne evidence and uses immediate standalone ground r
 
 test('tracker records the App flight facts privately and restores the Farewell context after restart', (t) => {
   const bundle = aptResumeBundle();
+  bundle.missionState.currentMissionData.paxText = '0 PAX';
+  bundle.missionState.currentMissionData.cargoText = 'Medizin';
   bundle.executionEffectPlan = {
     schema: 'ga.mission-apt-effect-plan.v1',
     recipe: 'apt',
@@ -629,6 +631,9 @@ test('tracker records the App flight facts privately and restores the Farewell c
   assert.deepEqual(fixture.manager.getPublicSnapshot(), publicBeforeArrivalRead);
   assert.doesNotMatch(JSON.stringify(publicBeforeArrivalRead), /arrivalFlightRecord|recorderLowSpeedSince/);
   const revisionBeforeRestart = fixture.manager.getActiveRun().revision;
+  const comfortBefore = fixture.manager.getPublicSnapshot().execution.comfort;
+  assert.ok(comfortBefore && comfortBefore.weatherEvents > 0);
+  assert.ok(comfortBefore.comfortScore < 100);
 
   const restartedManager = createMissionAuthorityManager(fixture.managerOptions);
   const restartedAdapter = createTrackerMissionExecutionAdapter({
@@ -643,6 +648,7 @@ test('tracker records the App flight facts privately and restores the Farewell c
   assert.equal(restored.record.touchdownVsFpm, -180);
   assert.equal(restored.liveWeather.windKts, 12);
   assert.equal(restartedManager.getActiveRun().revision, revisionBeforeRestart);
+  assert.deepEqual(restartedManager.getPublicSnapshot().execution.comfort, comfortBefore);
 });
 
 test('stable intermediate landing resets only the segment recorder and keeps the mission debrief aggregate', (t) => {

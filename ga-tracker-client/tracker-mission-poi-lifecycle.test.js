@@ -33,7 +33,7 @@ function bundle() {
     runtime: { missionId: 'full-poi', startPhase: 'planned', lastLiveFlightData: { onGround: true, gsKts: 0 },
       runtime: { missionId: 'full-poi', phase: 'planned', active: false },
       cargoManifest: { version: 6, key: 'full-poi-manifest', items: [
-        { id: 'camera', itemType: 'cargo', required: true, status: 'pending', weightLbs: 15, healthPct: 100, deliverAtDestination: true }
+        { id: 'camera', label: 'Kamera', itemType: 'cargo', required: true, status: 'pending', weightLbs: 15, healthPct: 100, deliverAtDestination: true }
       ] } },
     executionEffectPlan: { schema: 'ga.mission-poi-effect-plan.v1', recipe: 'poi', missionId: 'full-poi', sceneId: 'poi-scene',
       cargoItemAssets: [], cargoPlacement: {}, effects: {
@@ -212,10 +212,25 @@ test('POI original stress affects required task equipment before target evaluati
   assert.equal(view.view.cargo.conditionPct, 23);
   assert.equal(view.view.cargo.requiredLoaded, 1);
   assert.match(view.view.cargo.state, /^1 geladen/);
+  assert.ok(control.comfort.comfortScore < 100);
+  assert.ok(view.view.feedback.some(row => row.label === 'Pflichtladung beschädigt'));
+  assert.equal(view.view.comfort.score, control.comfort.comfortScore);
+  const comfortBeforePause = h.manager.getExecutionRuntimeContext().comfort;
+  h.sample(10000, { gForce: 4, bankDeg: 80 });
+  h.sample(16000, { gForce: 4, bankDeg: 80, simPaused: true });
+  assert.deepEqual(h.manager.getExecutionRuntimeContext().comfort, comfortBeforePause);
+  await h.restart();
+  assert.deepEqual(h.manager.getPublicSnapshot().execution.comfort, control.comfort);
+  h.sample(22000, { gForce: 4, bankDeg: 80, vsFpm: -2000 });
+  assert.equal(h.manager.getPublicSnapshot().execution.comfort.pilotEvents, control.comfort.pilotEvents,
+    'continuing the same event after restore must not count a second rising edge');
+
   const b = bundle(); b.executionPoiRecipe.voiceContext.motionProtectionEnabled = true; replay(b);
   const protectedRun = await harness(t, { bundle: b }); await protectedRun.start();
   protectedRun.sample(10000, { gForce: 4, bankDeg: 80, vsFpm: -2000 });
   assert.equal(protectedRun.manager.getExecutionSnapshot().state.manifest.items[0].healthPct, 100);
+  assert.equal(protectedRun.manager.getPublicSnapshot().execution.comfort.comfortScore, 100);
+  assert.equal(protectedRun.manager.getPublicSnapshot().execution.comfort.debugMotionProtection, true);
 });
 
 test('POI route revision leaves task anchors and execution hash intact across restart', async t => {

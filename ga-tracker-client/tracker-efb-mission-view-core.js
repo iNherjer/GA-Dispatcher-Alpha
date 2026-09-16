@@ -383,6 +383,15 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       if (['active', 'enroute', 'on_task', 'return_leg'].includes(controlPhase)) view.currentTask = control.poiStatus.nextStep;
     }
     view.phase.current = phaseCurrent;
+    const comfort = control.comfort;
+    const comfortScore = finite(comfort?.comfortScore);
+    view.comfort = comfortScore === null ? { available: false, score: null, tone: 'muted',
+      state: 'Noch keine aktuelle Wertung', detail: 'Wird im Tracker erfasst' } : {
+      available: true, score: percent(comfortScore), tone: comfortScore >= 72 ? 'good' : comfortScore >= 55 ? 'warn' : 'danger',
+      state: text(comfort.mood, 100), detail: `${Number(comfort.pilotEvents) || 0} Pilot · ${Number(comfort.weatherEvents) || 0} Wetter`
+    };
+    view.feedback = [];
+
     view.cargo = {
       available: Number(cargoSummary.total || 0) > 0,
       conditionPct,
@@ -425,9 +434,30 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
         tone: task.aborted ? 'danger' : task.satisfied ? 'good' : 'active' });
       view.taskTone = task.aborted ? 'danger' : task.satisfied ? 'good' : 'active';
       // The seed feedback describes the preflight state and is stale after handoff.
-      view.feedback = [{ label: 'Arbeitsbereich', detail: control.poiStatus?.detail ||
-        (task.aborted ? 'Auftrag abgebrochen' : task.satisfied ? 'Auftrag erfüllt' : task.inRadius ? 'Im Arbeitsbereich' : 'Arbeitsbereich anfliegen'), tone: view.taskTone }];
+      view.feedback.push({ label: 'Arbeitsbereich', detail: control.poiStatus?.detail ||
+        (task.aborted ? 'Auftrag abgebrochen' : task.satisfied ? 'Auftrag erfüllt' : task.inRadius ? 'Im Arbeitsbereich' : 'Arbeitsbereich anfliegen'), tone: view.taskTone });
+      if (task.inRadius && task.altWasOk === false && !task.aborted && !task.satisfied) view.feedback.push({
+        label: 'Arbeitshöhe', detail: 'Außerhalb der Arbeitshöhe: Arbeitszeit pausiert. Zielhöhe wieder einhalten.', tone: 'warn' });
     }
+    const taskItems = control.taskItems;
+    const cargoFeedback = [];
+    if (taskItems) {
+      for (const [key, label, wording] of [['damaged', 'Pflichtladung beschädigt', 'Beschädigt'],
+        ['dropped', 'Pflichtladung abgeworfen', 'Abgeworfen'], ['missing', 'Pflichtladung fehlt', 'Noch nicht geladen']]) {
+        if (taskItems[key]?.length) cargoFeedback.push({ label, detail: `${wording}: ${taskItems[key].map(name => text(name, 160)).join(', ')}.`,
+          tone: key === 'missing' && !view.active ? 'warn' : 'danger' });
+      }
+      const unloaded = required.filter(item => item.status === 'unloaded');
+      if (unloaded.length && control.recipe === 'poi') cargoFeedback.push({ label: 'Pflichtladung entladen', tone: 'info',
+        detail: `${unloaded.map(item => item.label).join(', ')}: nicht an Bord; entladen zählt in der bestehenden POI-Prüfung nicht als fehlend.` });
+    }
+    if (conditionPct < 75 && !taskItems?.damaged?.length) cargoFeedback.push({ label: 'Ladungszustand', tone: 'warn',
+      detail: `Ladung bei ${conditionPct} %. Ruhiger weiterfliegen.` });
+    view.feedback = cargoFeedback.concat(view.feedback);
+    if (comfort?.pilotEvents > 0) view.feedback.push({ label: 'PAX-Komfort', tone: comfort.pilotSevere > 0 ? 'danger' : 'warn',
+      detail: `${comfort.pilotEvents} auffällige Flugbewegungen, davon ${comfort.pilotSevere || 0} schwer.` });
+    if (comfort?.weatherEvents > 0) view.feedback.push({ label: 'Wettereinfluss', tone: 'info',
+      detail: `${comfort.weatherEvents} Wetterereignisse; getrennt von Pilotenereignissen gewertet.` });
     if (control.recipe === 'poi' && recipe?.target) {
       const lat = finite(flightSnapshot?.lat), lon = finite(flightSnapshot?.lon);
       view.target.distanceNm = lat !== null && lon !== null ? poiTaskCore.distanceNm(lat, lon, recipe.target.lat, recipe.target.lon) : null;
