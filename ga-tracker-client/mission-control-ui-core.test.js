@@ -218,83 +218,43 @@ test('a rejected batch releases every item and subsequent intents still execute'
   assert.equal(queue.size(), 0);
 });
 
-test('cargo burst sends the first item immediately and bundles followers in a bounded half-second window', async () => {
-  const queue = core.createIntentQueue();
-  const calls = [];
-  const started = Date.now();
-  const enqueue = id => queue.enqueue(id, id, () => {}, { group: 'run', value: id,
-    execute: async items => { calls.push({ items, at: Date.now() - started }); return 'ok'; } });
-  const first = enqueue('a');
-  await Promise.resolve();
-  assert.deepEqual(calls.map(call => call.items), [['a']], 'first dispatch must not wait for a timer');
-  const second = enqueue('b');
-  const third = enqueue('c');
-  await Promise.resolve();
-  assert.equal(calls.length, 1);
-  await Promise.all([first, second, third]);
-  assert.deepEqual(calls.map(call => call.items), [['a'], ['b', 'c']]);
-  assert.ok(calls[1].at >= 450, JSON.stringify(calls));
-  const next = enqueue('d');
-  await Promise.resolve();
-  assert.deepEqual(calls[2].items, ['d'], 'a separated click starts immediately again');
-  await next;
-});
-
-test('cargo followers renew the quiet window, with a two-second cap and ordering barriers', async () => {
+test('waiting cargo batches dispatch immediately after ACK without transport timers', async () => {
   const vm = require('node:vm');
-  let now = 10000;
-  const timers = [];
-  const context = { module: { exports: {} }, Date: { now: () => now },
-    setTimeout: (fn, delay) => timers.push({ fn, at: now + delay }) };
+  const context = { module: { exports: {} }, setTimeout: () => { throw new Error('unexpected queue delay'); } };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'mission-control-ui-core.js'), 'utf8'), context);
   const queue = context.module.exports.createIntentQueue();
   const calls = [];
-  const drain = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
-  const advance = async ms => {
-    const target = now + ms;
-    await drain();
-    while (timers.some(timer => timer.at <= target)) {
-      timers.sort((a, b) => a.at - b.at);
-      const timer = timers.shift();
-      now = timer.at;
-      timer.fn();
-      await drain();
-    }
-    now = target;
-    await drain();
-  };
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
   const enqueue = id => queue.enqueue(id, id, () => {}, { group: 'run', value: id,
-    execute: async items => { calls.push({ items: Array.from(items), at: now }); return 'ok'; } });
-  enqueue('a');
-  await advance(100);
-  enqueue('b');
-  await advance(400);
-  enqueue('c');
-  await advance(100);
-  assert.equal(calls.length, 1, 'the old deadline must not dispatch after a newer click');
-  await advance(399);
-  assert.equal(calls.length, 1);
-  await advance(1);
-  assert.deepEqual(calls, [{ items: ['a'], at: 10000 }, { items: ['b', 'c'], at: 11000 }]);
-
-  enqueue('d');
-  await advance(100);
-  enqueue('e');
-  for (const id of ['f', 'g', 'h', 'i']) {
-    await advance(400);
-    enqueue(id);
-  }
-  await advance(399);
-  assert.equal(calls.length, 3);
-  await advance(1);
-  assert.deepEqual(calls[3], { items: ['e', 'f', 'g', 'h', 'i'], at: 13100 });
-
-  enqueue('j');
-  await advance(100);
-  enqueue('k');
-  queue.enqueue('sign', '', async () => calls.push({ items: ['sign'], at: now }));
-  enqueue('l');
-  await advance(500);
-  assert.deepEqual(calls.slice(-3).map(call => call.items), [['k'], ['sign'], ['l']]);
+    execute: async items => { calls.push(Array.from(items)); if (items[0] === 'a') await gate; return 'ok'; } });
+  const a = enqueue('a');
+  await Promise.resolve();
+  const b = enqueue('b'), c = enqueue('c');
+  assert.deepEqual(calls, [['a']]);
+  release();
+  await Promise.all([a, b, c]);
+  assert.deepEqual(calls, [['a'], ['b', 'c']]);
   assert.equal(queue.size(), 0);
+});
+
+test('load unload load preserves the final correction while adjacent duplicates join', async () => {
+  const queue = core.createIntentQueue();
+  const calls = [];
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const submit = action => queue.enqueue('item:' + action, 'item', async () => {
+    calls.push(action);
+    if (calls.length === 1) await gate;
+    return action;
+  });
+  const first = submit('load');
+  assert.equal(submit('load'), first);
+  await Promise.resolve();
+  const opposite = submit('unload');
+  const correction = submit('load');
+  assert.notEqual(correction, first);
+  release();
+  assert.deepEqual(await Promise.all([first, opposite, correction]), ['load', 'unload', 'load']);
+  assert.deepEqual(calls, ['load', 'unload', 'load']);
 });

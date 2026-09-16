@@ -997,3 +997,21 @@ Manifestprojektion und Signatur, voller PA24/Standard-Sim, wiederholtes Laden/
 Entladen mit unveraenderter Recovery, initialer Payload-Effekt genau einmal,
 PC-Button. Payload-Standalone-Differentialtest weiterhin unveraendert bestanden.
 Realer MSFS-Feldtest der neuen Version bleibt erforderlich.
+
+### Cargo-Bedienlatenz: lokale ACK-Projektion und opportunistische Pakete (16.09.2026)
+
+Dieser lokale Kandidat ersetzt das vorherige 500-ms-Ruhefenster/2-s-Maximum
+für die UI-Intent-Queue: Bedienaktionen bekommen keinen künstlichen Timer.
+Pakete entstehen nur aus bereits wartenden kompatiblen Cargo-Aktionen.
+Revisionsprüfung, atomare Batch-Validierung, Signatur-/Run-/PAX-Grenzen und
+persistente Simulator-Effekte bleiben erhalten. Direkt aufeinanderfolgende
+identische Anfragen dürfen ein Ergebnis teilen, aber nicht über eine dazwischen
+liegende Gegenaktion oder Signatur hinweg.
+
+Die lokale HTTP-Antwort darf die aktuelle bestätigte Missionsprojektion als
+`missionSnapshot` beilegen. Clients dürfen dadurch den zusätzlichen GET
+überspringen; die Annahme eines Intents bestätigt weiterhin nicht automatisch
+seine ausstehenden Sim-Effekte. Fehlende Darstellung löst nur Hintergrundabgleich
+aus, keinen automatischen erneuten Mutationsversuch. Veraltete Poll-Antworten
+dürfen neuere Bestätigungen nicht überschreiben. Das Zusatzfeld betrifft den
+Loopback-Transport und vergrößert keine regelmäßigen Worker-Telemetriepakete.

@@ -439,7 +439,24 @@ function createTrackerEfbHttpServer(options = {}) {
           result = await cockpitControl.submitTool(payload);
         } else {
           messageType = 'mission.intent.ack';
+          const startedAt = performance.now();
+          log(`MISSION_INTENT_RECEIVED command=${sanitizeLogField(payload.commandId, 220)} intent=${sanitizeLogField(payload.intent, 80)}`);
           result = await cockpitControl.submitIntent({ ...payload, deferEffects: true });
+          const committedAt = performance.now();
+          // Local HTTP returns the presentation with the durable ACK. Do not
+          // make clients queue a second request before releasing their intent.
+          // Projection failure must never turn an accepted mutation into failure.
+          if (result?.ok === true) {
+            try {
+              const snapshot = getMissionSnapshot();
+              result = { ...result, missionSnapshot: snapshot && typeof snapshot === 'object'
+                ? { ...snapshot, available: snapshot.available !== false }
+                : { available: false } };
+            } catch (error) {
+              log(`MISSION_INTENT_PROJECTION_ERROR command=${sanitizeLogField(payload.commandId, 220)} error=${sanitizeLogField(error?.message, 160)}`);
+            }
+          }
+          log(`MISSION_INTENT_HTTP command=${sanitizeLogField(payload.commandId, 220)} intent=${sanitizeLogField(payload.intent, 80)} submitMs=${Math.round(committedAt - startedAt)} projectionMs=${Math.round(performance.now() - committedAt)} status=${sanitizeLogField(result?.status, 40)}`);
         }
         let statusCode = 200;
         if (result?.status === 'conflict') statusCode = 409;

@@ -447,6 +447,7 @@
   }
 
   var missionIntentQueue = null;
+  var missionResponseEpoch = 0;
   function submitMissionIntent(intent, payload) {
     if (!missionIntentQueue) missionIntentQueue = window.GAMissionControlUiCore.createIntentQueue(function () {
       missionIntentPending = missionIntentQueue.size() > 0;
@@ -458,11 +459,12 @@
     var runId = control.runId;
     var missionId = control.missionId;
     var data = payload || {};
+    var queuedAt = Date.now();
     var key = [missionId, runId, intent, data.itemId || '', data.action || ''].join('|');
     var execute = function (value) {
       var current = missionSnapshot && missionSnapshot.control;
       if (!current || current.runId !== runId || current.missionId !== missionId) return false;
-      return executeMissionIntent(intent, value);
+      return executeMissionIntent(intent, value, queuedAt);
     };
     // This host and the intent adapter ship together in the same tracker build.
     var batch = intent === 'set_manifest_item' && data.itemId
@@ -472,7 +474,7 @@
     return missionIntentQueue.enqueue(key, data.itemId, function () { return execute(data); }, batch);
   }
 
-  function executeMissionIntent(intent, payload) {
+  function executeMissionIntent(intent, payload, queuedAt) {
     var client = window.gaCockpitSessionClient;
     var control = missionSnapshot && missionSnapshot.control;
     if (!client || typeof client.submitIntent !== 'function' || !control) return Promise.resolve(false);
@@ -490,6 +492,8 @@
     renderMissionToolbar(missionSnapshot);
     var commandId = 'efb-intent-' + String(intent || 'action').replace(/[^a-z0-9_-]/gi, '-') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     var opensCargoAfterBoarding = intent === 'start_boarding';
+    var intentSentAt = Date.now();
+    report('info', 'mission-intent-send', intent, 'Missionsaktion gesendet', commandId + ' queueMs=' + (Date.now() - (queuedAt || Date.now())));
     return client.submitIntent({
       commandId: commandId,
       intent: intent,
@@ -512,10 +516,18 @@
         if (ok && opensCargoAfterBoarding && !(missionSnapshot && missionSnapshot.control && missionSnapshot.control.cargoWindowCloseId)) openCargoManager(true);
         return ok;
       };
-      return fetchJson('/api/v1/mission').then(function (envelope) {
-        renderMissionPayload(safePayload(envelope));
-        return finalize();
-      }).catch(function () { return finalize(); });
+      var responseEpoch = ++missionResponseEpoch;
+      report('info', 'mission-intent-timing', intent, 'Tracker-Antwort empfangen', commandId + ' elapsedMs=' + (Date.now() - intentSentAt));
+      if (result && result.missionSnapshot) {
+        renderMissionPayload(result.missionSnapshot);
+      } else {
+        // Compatibility with older hosts: reconcile in the background. A slow
+        // presentation GET must not hold subsequent validated commands hostage.
+        fetchJson('/api/v1/mission', 5000).then(function (envelope) {
+          if (responseEpoch === missionResponseEpoch) renderMissionPayload(safePayload(envelope));
+        }).catch(function () {});
+      }
+      return finalize();
     }).catch(function (error) {
       var presentation = window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.formatIntentResult === 'function'
         ? window.GAMissionControlUiCore.formatIntentResult({ ok: false, error: error && error.message || 'mission_intent_failed' })
@@ -2294,6 +2306,9 @@
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};
     var previousControl = missionSnapshot && missionSnapshot.control;
     var nextControl = next && next.control;
+    if (previousControl && nextControl && previousControl.runId === nextControl.runId
+        && previousControl.missionId === nextControl.missionId
+        && Number(nextControl.authorityRevision) < Number(previousControl.authorityRevision)) return;
     var openBoardingDialog = nextControl && !nextControl.cargoWindowCloseId && nextControl.executionAuthority === 'tracker' && nextControl.phase === 'boarding'
       && (!previousControl || previousControl.phase !== 'boarding' || previousControl.runId !== nextControl.runId);
     var signature = missionRenderSignature(next);
@@ -2721,9 +2736,10 @@
 
   function pollMission() {
     if (pollingClosed) return;
+    var responseEpoch = missionResponseEpoch;
     fetchJson('/api/v1/mission', 5000).then(function (envelope) {
       if (pollingClosed) return;
-      renderMissionPayload(safePayload(envelope));
+      if (responseEpoch === missionResponseEpoch) renderMissionPayload(safePayload(envelope));
       missionPollTimer = window.setTimeout(pollMission, missionIntentPending || cargoManagerOpen ? 300 : 550);
     }).catch(function () {
       if (pollingClosed) return;

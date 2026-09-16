@@ -670,3 +670,37 @@ test('local flight requests wake on source samples, coalesce slow views and leav
   await new Promise(resolve=>setTimeout(resolve,10));snapshot=null;server.notifyFlight();
   assert.equal(JSON.parse((await offline).body).message.payload.available,false);
 });
+
+test('intent ACK includes current presentation; projection errors cannot revoke a committed action', async t => {
+  let revision = 1, broken = false;
+  const logs = [];
+  const server = createTrackerEfbHttpServer({ host: '127.0.0.1', port: 0,
+    hello: createTrackerEfbHttpHello({ trackerVersion: 'v421', trackerVersionCode: 421 }),
+    log: value => logs.push(value),
+    cockpitControl: { submitIntent: async request => {
+      assert.equal(request.deferEffects, true);
+      revision++;
+      return { ok: true, status: 'ok', activeRun: { revision } };
+    } },
+    getMissionSnapshot: () => {
+      if (broken) throw new Error('projection test');
+      return { control: { authorityRevision: revision }, view: { cargo: { state: 'loaded' } } };
+    }
+  });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const send = () => request(address, '/api/v1/mission/intents', { method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://inherjer.github.io' },
+    body: JSON.stringify({ commandId: 'cargo-test', intent: 'set_manifest_item' }) });
+  const first = JSON.parse((await send()).body).message.payload;
+  assert.equal(first.ok, true);
+  assert.equal(first.missionSnapshot.available, true);
+  assert.equal(first.missionSnapshot.control.authorityRevision, 2);
+  broken = true;
+  const second = JSON.parse((await send()).body).message.payload;
+  assert.equal(second.ok, true);
+  assert.equal(second.activeRun.revision, 3);
+  assert.equal(second.missionSnapshot, undefined);
+  assert.ok(logs.some(line => line.includes('MISSION_INTENT_PROJECTION_ERROR')));
+  assert.ok(logs.some(line => /MISSION_INTENT_HTTP.*submitMs=\d+ projectionMs=\d+/.test(line)));
+});

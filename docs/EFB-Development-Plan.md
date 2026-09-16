@@ -5352,3 +5352,42 @@ Vermischung mehrerer offener Apps, Pacing/Rueckstaugrenze schuetzen Telemetrie.
 Lokale EFB-/Kartentisch-HTTP-Projektionen bleiben unveraendert; Transport ist kein
 zweiter Missionszustand. Fehlertexte nennen Update, Prueffehler oder Timeout.
 Siehe `Mission Lossless Transport Audit.md`, Ergaenzung v421.
+
+### 16.09.2026: Cargo-Antwortpfad ohne blockierenden Anzeigeabruf (lokal, Basis v421)
+
+Der Loopback-Intent-ACK enthält nach erfolgreichem Commit direkt `missionSnapshot`
+mit derselben Projektion wie GET `/api/v1/mission`. EFB/Toolbar wenden diese
+bestätigte Projektion an und geben ihre Queue ohne weiteren Pflicht-GET frei.
+Bei älteren Hosts oder fehlgeschlagener Projektion erfolgt der Abgleich im
+Hintergrund; eine Projektion darf einen bereits bestätigten Commit nicht als
+Fehler umdeuten. Laufende Polls von vor der Antwort werden verworfen, bekannte
+ältere Revisionen desselben Runs ebenfalls.
+
+Die gemeinsame App-/EFB-Intent-Queue hat keine 500/2000-ms-Sammelpause mehr.
+Nur bereits wartende benachbarte Cargo-Aktionen werden gebündelt (maximal 32,
+verschiedene Items, gleicher Run/Phase). Erste Aktion sofort; Signaturen,
+PAX-Intents und gegenläufige Itemaktionen bleiben Reihenfolgegrenzen.
+Deduplizierung gilt nur für direkt benachbarte identische Anfragen.
+Gewichts-Synchronisierung behält ihre eigene Bündelung und Recovery.
+
+Parallelitätsentscheidung: Fachliche Manifest-Commits bleiben geordnet und
+revisionsgeprüft. Voice, gewöhnlicher Payload-Abgleich und Objektwirkungen haben
+bereits unabhängige asynchrone Effekte; ein wartender Voice-Effekt blockiert Cargo
+nicht. Dasselbe SimObject und dieselben Payloadstationen benötigen weiterhin
+Reihenfolge. Keine parallelen ungeprüften Manifest-Schreibvorgänge.
+
+Diagnose: EFB protokolliert Command-ID, Queuezeit und Antwortzeit;
+`MISSION_INTENT_RECEIVED` und `MISSION_INTENT_HTTP` trennen Backend-Verarbeitung
+und Projektion. Vorhandene Simulator- und Persistenzmarker ergänzen die Kette.
+EFB-Logzustellung ist selbst asynchron: ihre Empfangszeit ist nicht die Klickzeit.
+
+Noch offen: Die Telemetrieauswertung teilt in `tracker.js` die bisherige
+500-ms-Grenze mit der Sendestrecke; Cargo-Intents laufen außerhalb dieser Grenze.
+Eine Änderung der Detektorkadenz ist kein notwendiger Bestandteil dieses Fixes
+und benötigt separate Last-/Paritätstests. Netzwerk-Bündelung soll künftig nur
+Transport steuern. Die im Feld gemessene Event-Loop-Last wird mit den neuen
+Markern weiter eingegrenzt; keine pauschale Lockerung der persistenten Commits.
+
+Validierung: 130 Tests bestanden (35 Queue/UI, 22 HTTP, 73 Runtime/Effekte/Client).
+Tests verwenden künstlich wartende ACKs/GETs/Voice und einen echten lokalen
+HTTP-Testserver. MSFS-/Windows-Feldtest und EXE-Veröffentlichung ausstehend.
