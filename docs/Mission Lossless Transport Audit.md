@@ -39,3 +39,47 @@ UTF-8-Grenztests, Preflight-Rejection, Relay-Fehler ohne Oversize-Versand,
 Banner-Fehlermeldung, Export aus IndexedDB und Import bei Quota-Druck.
 318 Missions-/Voice-Tests, 105 EFB-Tests, 3 Transport- und 2 Exporttests sowie
 MSFS-PLN-Selftest erfolgreich. In-Sim-Praxistest steht aus.
+
+
+## Ergaenzung v421: Relay-Geraetewechsel umgesetzt
+
+Die oben beschriebene verbleibende Relay-Grenze von v420 ist fuer aktuelle App
+und Tracker v421 durch `mission-transfer-core.js` aufgehoben. Das Limit von
+512 KiB pro Nachricht bleibt bestehen. Kleine Nachrichten laufen unveraendert.
+
+- Capability `mission.transfer.v1`; App-Anfragen tragen `missionTransferPeer`.
+  Diese Kennung gilt nur fuer die aktuelle Seite, getrennt von der persistenten
+  Authority-Client-ID: Auch zwei Tabs desselben Browsers quittieren sich nicht
+  gegenseitig. Alte Gegenstellen erhalten bei Uebergroesse einen expliziten Fehler.
+- Vollstaendiges UTF-8-JSON mit SHA-256, 48-KiB-Binaerteilen und base64-Verpackung
+  (ca. 64 KiB je Frame). Maximal 16 MiB inkl. Envelope, fachliches Resume-Limit
+  unveraendert 12 MiB. Keine Kuerzung von Missionsfeldern.
+- Vier unquittierte Teile je Transfer; maximal vier Datenframes pro 100-ms-Tick.
+  Socket-Rueckstau ueber 256 KiB pausiert den Versand. Kleine Einzelquittungen,
+  selektive Wiederholung nach 1,5 s, maximal 90 s pro Transfer.
+- Verlorene Abschlussquittungen werden abgefragt, ohne die Missionsaktion erneut
+  auszuliefern. Zwei parallele Transfers und zusammen 16 MiB deklarierte Nutzdaten
+  je Richtung. Empfang erst nach Groessen-, Hash-, UTF-8- und JSON-Pruefung.
+- Pilot-ID/PIN werden vor dem Empfang geprueft; rekonstruierte Nachrichten
+  durchlaufen wieder die bestehende Authority-/Envelope-Verarbeitung. Besitzer-
+  und Revisionspruefungen bleiben erhalten. Transportframes erzeugen keine
+  Missionseffekte oder Journal-Checkpoints.
+- RAM-Transferzustand ueberlebt Socket-Reconnect/Relaywechsel. App-Neuladen oder
+  Prozessneustart erfordert eine neue Anfrage. Keine persistierten Teilpakete.
+- Snapshot-/Acquire-/Release-Anfragen warten maximal 210 s auf die fachliche
+  Antwort, als Reserve fuer beide Transferrichtungen. Normale Bedien-Intents
+  behalten ihre bisherigen Fristen. Fehler geben den Snapshot-Hash frei, damit
+  spaetere Synchronisierung den fehlgeschlagenen Stand erneut senden kann.
+
+Verbrauch: grosse Relay-Pakete haben durch base64 etwa 33 % mehr Daten plus
+Header/Quittungen. Fehlende Teile werden einzeln wiederholt. Cloud-V2-Deduplizierung,
+Profilgrenze und Write-Takt bleiben unveraendert. Mehr Relay-Nachrichten, aber
+keine zusaetzlichen persistenten Writes durch diese Transportframes. Vorhandene
+Dual-Relay-Verteilung bleibt bestehen; Telemetrietakt unveraendert.
+
+Nachweise: Browser-VM gegen Node, bidirektionaler Unicode-Roundtrip und 12-MiB-
+Paket, fremdes Zielgeraet, vertauschte/doppelte/verlorene Teile, verlorene finale
+Quittung, Verbindungsunterbrechung, Timeout, beschaedigte Daten, Speichergrenzen,
+tatsaechliche App-/Tracker-Sendestellen. Echte bidirektionale Uebertragung von
+Paketen ueber 512 KiB in isolierten Cloudflare- und Render-Testraeumen erfolgreich.
+In-Sim-Geraetewechsel bleibt als Praxistest erforderlich.

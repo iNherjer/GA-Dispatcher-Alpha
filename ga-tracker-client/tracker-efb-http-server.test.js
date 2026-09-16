@@ -33,7 +33,7 @@ test('current tracker exits a duplicate instance when the fixed EFB port is alre
 });
 
 test('every SimConnect reconnect retains the trusted cockpit intent controller', () => {
-  const reconnects = trackerSource.match(/setTimeout\(\(\) => connectSimConnect\([\s\S]*?missionExecutionRuntime, trackerCockpitControl\), 5000\);/g) || [];
+  const reconnects = trackerSource.match(/setTimeout\(\(\) => connectSimConnect\([\s\S]*?missionExecutionRuntime, trackerCockpitControl, missionTransfer\), 5000\);/g) || [];
   assert.equal(reconnects.length, 2);
   assert.doesNotMatch(trackerSource, /missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime\), 5000\)/);
 });

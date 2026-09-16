@@ -1707,13 +1707,46 @@ function _resolveMissionAuthorityAck(ack = {}) {
     return true;
 }
 
+let missionRelayTransfer = null;
+let missionRelayTransferScope = '';
+let missionRelayPeer = '';
+function _missionRelayPeerId() {
+    // Authority client IDs persist across tabs; transfer recipients must not.
+    if (!missionRelayPeer) missionRelayPeer = `transfer-${window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`;
+    return missionRelayPeer;
+}
+function _missionRelayTransport() {
+    if (!window.GAMissionTransfer) return null;
+    const scope = JSON.stringify([getSyncId(), getSyncPin(), _missionAuthorityClientId()]);
+    if (!missionRelayTransfer || missionRelayTransferScope !== scope) {
+        missionRelayTransfer?.close();
+        missionRelayTransferScope = scope;
+        missionRelayTransfer = window.GAMissionTransfer.create({
+            role: 'app', peer: _missionRelayPeerId(),
+            sendFrame: frame => {
+                if (scope !== JSON.stringify([getSyncId(), getSyncPin(), _missionAuthorityClientId()])) return false;
+                const socket = liveGpsSocket;
+                if (!socket || socket.readyState !== WebSocket.OPEN || socket.bufferedAmount > 256 * 1024) return false;
+                socket.send(JSON.stringify({ type: 'gps', syncId: getSyncId(), pin: getSyncPin(), target: 'tracker', commandOnly: true, trackerCommand: frame }));
+                return true;
+            },
+            onError: (commandId, error) => {
+                missionAuthorityLastSnapshotHash = '';
+                _resolveMissionAuthorityAck({ commandId, status: 'error', error });
+                console.warn('[Tracker] Missionsuebertragung fehlgeschlagen:', error);
+            }
+        });
+    }
+    return missionRelayTransfer;
+}
+
 function _sendMissionAuthorityRequest(command = {}, timeoutMs = 10000) {
     const commandId = command.commandId || `cmd-authority-${Date.now()}-${++missionSmokeCommandSeq}`;
     return new Promise(resolve => {
         const timer = setTimeout(() => {
             missionAuthorityAckWaiters.delete(commandId);
             resolve({ type: `${command.type || 'mission_authority'}_ack`, commandId, status: 'error', error: 'authority_timeout' });
-        }, Math.max(2000, Number(timeoutMs) || 10000));
+        }, Math.max(((window.liveTrackerCapabilities || []).includes('mission.transfer.v1') && /^mission_(snapshot_|authority_(acquire|release))/.test(command.type || '')) ? 210000 : 2000, Number(timeoutMs) || 10000));
         missionAuthorityAckWaiters.set(commandId, { resolve, timer, type: command.type || '' });
         const sent = window.sendTrackerCommand({ ...command, commandId }, { authorityProtocol: true });
         if (!sent) {
@@ -4642,14 +4675,20 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
     if (missionScopedCommand || missionAuthorityProtocol) {
         _rememberMissionAuthorityLocalCommand(commandId, commandType);
     }
+    if (missionAuthorityProtocol && window.GAMissionTransfer) {
+        trackerCommand.missionTransferPeer = _missionRelayPeerId();
+    }
     const serializedCommand = JSON.stringify(payload);
     if (new TextEncoder().encode(serializedCommand).byteLength > 512 * 1024) {
+        if (missionAuthorityProtocol && (window.liveTrackerCapabilities || []).includes('mission.transfer.v1')
+            && _missionRelayTransport()?.enqueue(payload, trackerCommand.missionTransferPeer)) return commandId;
         const waiter = missionAuthorityAckWaiters.get(commandId);
         if (waiter) {
             clearTimeout(waiter.timer); missionAuthorityAckWaiters.delete(commandId);
             waiter.resolve({ commandId, status: 'error', error: 'mission_relay_payload_too_large' });
         }
-        console.warn('[Tracker] Mission zu gross fuer direkte Relay-Uebertragung; Cloud-Synchronisierung verwenden.');
+        missionAuthorityLastSnapshotHash = '';
+        console.warn('[Tracker] Missionsuebertragung nicht verfuegbar; Tracker-Version und Verbindung pruefen.');
         return false;
     }
     ws.send(serializedCommand);
@@ -17775,10 +17814,17 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
     liveGpsSocket.onmessage = async (event) => {
         if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
         try {
-            const data = typeof window.gaRelayCompression?.decode === 'function'
+            let data = typeof window.gaRelayCompression?.decode === 'function'
                 ? await window.gaRelayCompression.decode(event.data)
                 : JSON.parse(event.data);
             if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
+            if (data.trackerAck?.type === 'mission_transfer_v1') {
+                if (String(data.syncId || '') !== String(getSyncId()) || String(data.pin || '') !== String(getSyncPin())) return;
+                const received = await _missionRelayTransport()?.receive(data.trackerAck);
+                if (!received?.message) return;
+                data = received.message;
+                if (String(data.syncId || '') !== String(getSyncId()) || String(data.pin || '') !== String(getSyncPin())) return;
+            }
             if (data.type === 'relay_status') {
                 if (data.status === 'stopping' || data.status === 'unavailable') {
                     socket.gaRelayStopped = true;

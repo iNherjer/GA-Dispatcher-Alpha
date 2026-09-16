@@ -5343,3 +5343,12 @@ EFB-Startfehler direkt im Banner und als mission-intent-result protokolliert.
 Assets 42001. Kleine Intent-Requests behalten ihr Limit; Mission-HTTP-Antworten
 sind davon getrennt. Remote-Relay bleibt 512 KiB; explizite Oversize-Fehler statt
 Verbindungsabbruch. Details/Export-Audit: `Mission Lossless Transport Audit.md`.
+
+### 16.09.2026 – v421: verlustfreier App-/Tracker-Transfer
+
+Remote-Snapshots und Geraetewechsel ueber 512 KiB verwenden jetzt quittierte,
+SHA-256-gepruefte Teilpakete in beide Richtungen. Empfaengerkennung schuetzt vor
+Vermischung mehrerer offener Apps, Pacing/Rueckstaugrenze schuetzen Telemetrie.
+Lokale EFB-/Kartentisch-HTTP-Projektionen bleiben unveraendert; Transport ist kein
+zweiter Missionszustand. Fehlertexte nennen Update, Prueffehler oder Timeout.
+Siehe `Mission Lossless Transport Audit.md`, Ergaenzung v421.

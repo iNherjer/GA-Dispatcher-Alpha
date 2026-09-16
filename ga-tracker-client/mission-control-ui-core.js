@@ -284,8 +284,11 @@
       return { tone: 'good', text: 'Aktion bestätigt. Der Missionsstand wurde auf allen Ansichten aktualisiert.' };
     }
     var error = String(value.error || value.status || '').toLowerCase();
+    if (error === 'mission_transfer_timeout') return { tone: 'danger', text: 'Die Missionsuebertragung wurde nicht rechtzeitig bestaetigt. Verbindung pruefen und erneut versuchen.' };
+    if (error === 'mission_transfer_invalid') return { tone: 'danger', text: 'Das Missionspaket konnte nicht vollstaendig geprueft werden. Bitte erneut uebertragen.' };
+    if (error === 'mission_transfer_too_large') return { tone: 'danger', text: 'Das vollstaendige Missionspaket ueberschreitet die Transportgrenze. Es wurden keine Daten gekuerzt.' };
     if (error === 'resume_bundle_too_large') return { tone: 'danger', text: 'Das vollstaendige Missionspaket ueberschreitet die lokale Tracker-Grenze. Es wurden keine Daten gekuerzt.' };
-    if (error === 'mission_relay_payload_too_large') return { tone: 'danger', text: 'Das Missionspaket ist fuer das Relay zu gross. Bitte ueber die Cloud synchronisieren; ein vollstaendiger Relay-Geraetewechsel ist damit noch nicht moeglich.' };
+    if (error === 'mission_relay_payload_too_large') return { tone: 'danger', text: 'Die Paketuebertragung ist nicht verfuegbar. Bitte App und Tracker aktualisieren und erneut versuchen.' };
     if (error === 'mission_intent_pending') {
       return { tone: 'info', text: 'Der Tracker verarbeitet bereits eine Aktion. Bitte den aktualisierten Stand kurz abwarten.' };
     }

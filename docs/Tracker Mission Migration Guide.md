@@ -330,3 +330,13 @@ nach Groessenpruefung des fertigen Pakets freigeben. Keine stille Kuerzung fuer
 Handoff/Export. Kleine UI-Projektionen sind keine Resume-Daten. Quota-Fallbacks
 vor Export ueber den bestehenden Vault aufloesen. Oversize-Fehler sichtbar und
 korreliert zur Anfrage zurueckgeben. Chunked Cloud ersetzt keinen chunked Relay.
+
+### v421: Vollstaendige Pakete beim App-/Geraetewechsel
+
+Grosse Authority-Snapshots und Handoffs verwenden das gemeinsame
+`mission-transfer-core.js`-Protokoll in beiden Richtungen. Neue Missionsfamilien
+muessen diesen Weg weiterverwenden; keine eigene Kuerzung, Teilmission oder
+ungepruefte Paketuebernahme bauen. Chunk-Quittierung ist keine fachliche
+Authority-Bestaetigung. Erst die bestehende Authority-Antwort entscheidet ueber
+Besitz/Revision und die weitere UI-Aktion. Details, Grenzen und Testfaelle stehen
+im [Transport-Audit](Mission%20Lossless%20Transport%20Audit.md#ergaenzung-v421-relay-geraetewechsel-umgesetzt).

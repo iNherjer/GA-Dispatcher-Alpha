@@ -1,3 +1,4 @@
+const missionTransferCore = require('../mission-transfer-core.js');
 const { createFollowupCloud } = require('./tracker-mission-followup-cloud.js');
 const { createNavigationData } = require('./tracker-navigation-data.js');
 const { createNavigationWarnings } = require('./tracker-navigation-warnings.js');
@@ -85,8 +86,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v420';
-const TRACKER_VERSION_CODE = 420;
+const TRACKER_VERSION = 'v421';
+const TRACKER_VERSION_CODE = 421;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -108,7 +109,7 @@ const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.intent.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
+  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -422,7 +423,7 @@ function buildTitleCandidates(title, extra = []) {
   return uniqueStrings(candidates);
 }
 
-function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null, missionAuthority = null, missionShadow = null, onExecutionAck = null, onPayloadSnapshot = null) {
+function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null, missionAuthority = null, missionShadow = null, onExecutionAck = null, onPayloadSnapshot = null, missionTransfer = null) {
   const missions = new Map();
   const scenes = new Map();
   let lastAuthorityMapProjectionSignature = '';
@@ -1619,6 +1620,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       debugLog(`ACK ${ackPayload?.type || 'unknown'} mission=${ackPayload?.missionId || 'n/a'} status=${ackPayload?.status || 'n/a'} spawned=${ackPayload?.spawned ?? ''} cleared=${ackPayload?.cleared ?? ''} error=${ackPayload?.error || ''}`);
       let wire = JSON.stringify(msg);
       if (Buffer.byteLength(wire, 'utf8') > 512 * 1024) {
+        if (ackPayload.missionTransferPeer && missionTransfer?.enqueue(msg, ackPayload.missionTransferPeer)) return;
         msg.trackerAck = { source: 'tracker', type: ackPayload.type, commandId: ackPayload.commandId,
           missionId: ackPayload.missionId, runId: ackPayload.runId, status: 'error', error: 'mission_relay_payload_too_large', at: Date.now() };
         wire = JSON.stringify(msg);
@@ -4176,6 +4178,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
     sendAck({
       ...(result?.replayAck && typeof result.replayAck === 'object' ? result.replayAck : {}),
+      missionTransferPeer: command?.missionTransferPeer || undefined,
       type: authorityAckType(type),
       commandId: command?.commandId || null,
       missionId: command?.missionId || result?.activeRun?.missionId || '',
@@ -5458,6 +5461,21 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     (error, state) => debugLog(`RELAY_SEND_ERROR relay=${state?.config?.key || 'unknown'} error=${error?.message || error}`)
   );
   const getWs = () => relayFanout;
+  const missionTransfer = missionTransferCore.create({
+    role: 'tracker',
+    sendFrame: frame => {
+      if (getWs().readyState !== WebSocket.OPEN) return false;
+      // Do not queue large bursts behind a slow relay; retry after it drains.
+      if ([..._relayStates.values()].some(state => state.socket?.readyState === WebSocket.OPEN && state.socket.bufferedAmount > 256 * 1024)) return false;
+      getWs().send(JSON.stringify({ type: 'gps', syncId, pin, commandAckOnly: true, trackerAck: frame }));
+      return true;
+    },
+    onError: (commandId, error, type) => {
+      debugLog(`MISSION_TRANSFER_ERROR commandId=${commandId || ''} error=${error}`);
+      if (getWs().readyState === WebSocket.OPEN) getWs().send(JSON.stringify({ type: 'gps', syncId, pin, commandAckOnly: true,
+        trackerAck: { type, commandId, status: 'error', error } }));
+    }
+  });
   if (trackerAudioControl) {
     let lastAudioNotice = '';
     const audioNoticeTimer = setInterval(() => {
@@ -5830,7 +5848,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     _pendingTrackerCommands.push(command);
     debugLog(`COMMAND_QUEUE_BUFFERED type=${command?.type || 'unknown'} size=${_pendingTrackerCommands.length}`);
   };
-  const handleTrackerMessage = (raw) => {
+  const handleTrackerMessage = async (raw) => {
     let data = null;
     const rawText = String(raw || '');
     try {
@@ -5838,6 +5856,12 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     } catch (error) {
       debugLog(`RELAY_MESSAGE_PARSE_REJECT bytes=${Buffer.byteLength(rawText)} error=${error?.message || error}`);
       return;
+    }
+    if (data?.trackerCommand?.type === missionTransferCore.TYPE) {
+      if (String(data.syncId || '') !== String(syncId) || String(data.pin || '') !== String(pin)) return;
+      const received = await missionTransfer.receive(data.trackerCommand);
+      if (!received.message) return;
+      data = received.message;
     }
     const parseEmbeddedCommand = (candidate) => {
       if (candidate && typeof candidate === 'object') return candidate;
@@ -5928,7 +5952,8 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       missionAuthorityManager,
       trackerMissionShadow,
       missionExecutionRuntime,
-      trackerCockpitControl
+      trackerCockpitControl,
+      missionTransfer
     );
   };
 
@@ -6081,7 +6106,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
   for (const state of _relayStates.values()) connectRelay(state);
 }
 
-function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null, missionTransfer = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: true });
@@ -6101,7 +6126,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         ack => missionSimulatorEffects?.handleAck?.(ack),
         payloadSnapshot => {
           if (typeof updateEfbState === 'function') updateEfbState({ payloadSnapshot });
-        }
+        },
+        missionTransfer
       );
       if (typeof updateEfbState === 'function') updateEfbState({ readPayload: count => missionSmokeController.refreshPayloadSnapshot(count) });
       let payloadSnapshotRefreshPending = false;
@@ -6906,7 +6932,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         clearInterval(trafficInterval);
         clearInterval(payloadSnapshotInterval);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer), 5000);
       });
     })
     .catch(err => {
@@ -6919,7 +6945,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
       if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
       if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
-      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl), 5000);
+      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer), 5000);
     });
 }
 
