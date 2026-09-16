@@ -17,3 +17,7 @@ nicht abschliessend erklaert und bleibt als Feldtestpunkt offen.
 
 Desktop 1.6.11 und vorhandenes EFB-Package bleiben kompatibel. Stable unveraendert.
 Kein realer Windows-/MSFS-Test dieses Builds auf dem Entwicklungsrechner.
+
+Veroeffentlicht aus `9dc2bd93a`; oeffentlicher Download verifiziert:
+57.748.201 Bytes, SHA-256 `652add4553760fd939a816123b4c77c490b4a8a0aba2a08d4650526777ba77f8`.
+Alpha v412, SW v1782. Aktuelle Origin-Layerpicker-Styles sind im EFB mitgebuendelt.
