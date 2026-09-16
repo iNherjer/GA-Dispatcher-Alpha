@@ -1,5 +1,6 @@
 'use strict';
 const poiUiCore = require('../mission-poi-ui-core.js');
+const poiTaskCore = require('../mission-poi-task-core.js');
 
 const aptUiCore = require('../mission-apt-ui-core.js');
 const payloadCore = require('../mission-payload-core.js');
@@ -390,9 +391,48 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       detail: Number(cargoSummary.pending || 0) > 0
         ? `${Math.max(0, Number(cargoSummary.pending || 0))} Positionen noch offen`
         : 'Manifest synchron',
-      requiredLoaded: manifest.items.filter(item => item.required && ['loaded', 'unloaded', 'handed_off'].includes(item.status)).length,
+      requiredLoaded: manifest.items.filter(item => item.required && item.status === 'loaded').length,
       requiredTotal: Math.max(0, Number(cargoSummary.requiredTotal || 0))
     };
+    // Seed rows are briefing-time observations, never live execution truth.
+    const required = manifest.items.filter(item => item.required);
+    const requiredLoaded = required.filter(item => item.status === 'loaded').length;
+    const requiredHealth = required.filter(item => item.itemType !== 'passenger');
+    const requiredCondition = Math.round(Math.min(requiredHealth.length ? Math.min(...requiredHealth.map(item => item.healthPct)) : 100,
+      100 - Math.max(0, Math.min(100, finite(control.manifest?.maxStressDamagePct) ?? 0))));
+    const cargoTone = required.some(item => item.status === 'dropped' || item.healthPct <= 35)
+      ? 'danger' : requiredLoaded < required.length || requiredCondition < 75 ? 'warn' : 'good';
+    view.cargo.requiredTotal = required.length;
+    view.cargo.requiredLoaded = requiredLoaded;
+    view.progress = view.progress.filter(row => row.label !== 'Pflichtmanifest');
+    view.requirements = view.requirements.filter(row => row.label !== 'Pflichtladung');
+    if (required.length) {
+      view.progress.push({ label: 'Pflichtmanifest', percent: requiredLoaded / required.length * 100,
+        detail: `${requiredLoaded}/${required.length} an Bord`, tone: cargoTone });
+      view.requirements.push({ label: 'Pflichtladung',
+        detail: `${requiredLoaded}/${required.length} an Bord · Zustand ${requiredCondition}%`, tone: cargoTone });
+    }
+    const recipe = bundle.executionPoiRecipe;
+    if (control.recipe === 'poi' && recipe && control.poiTask) {
+      const task = control.poiTask;
+      const duration = Math.max(0, Number(recipe.passenger?.targetDwellMin) || 0) * 60 * (recipe.strict ? 1 : 0.5);
+      const completed = Math.max(0, Number(task.dwellSec) || 0);
+      const formatDuration = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+      view.progress = view.progress.filter(row => row.label === 'Pflichtmanifest');
+      view.progress.unshift({ label: 'Zeit im Arbeitsbereich',
+        percent: task.satisfied ? 100 : duration > 0 ? Math.min(100, completed / duration * 100) : 0,
+        detail: `${formatDuration(completed)} / ${formatDuration(duration)}${task.satisfied ? ' · erfüllt' : ''}`,
+        tone: task.aborted ? 'danger' : task.satisfied ? 'good' : 'active' });
+      view.taskTone = task.aborted ? 'danger' : task.satisfied ? 'good' : 'active';
+      // The seed feedback describes the preflight state and is stale after handoff.
+      view.feedback = [{ label: 'Arbeitsbereich', detail: control.poiStatus?.detail ||
+        (task.aborted ? 'Auftrag abgebrochen' : task.satisfied ? 'Auftrag erfüllt' : task.inRadius ? 'Im Arbeitsbereich' : 'Arbeitsbereich anfliegen'), tone: view.taskTone }];
+    }
+    if (control.recipe === 'poi' && recipe?.target) {
+      const lat = finite(flightSnapshot?.lat), lon = finite(flightSnapshot?.lon);
+      view.target.distanceNm = lat !== null && lon !== null ? poiTaskCore.distanceNm(lat, lon, recipe.target.lat, recipe.target.lon) : null;
+      view.target.bearingDeg = lat !== null && lon !== null ? poiTaskCore.bearingDeg(lat, lon, recipe.target.lat, recipe.target.lon) : null;
+    }
   }
   return {
     schema: 'ga.mission-snapshot.v2',

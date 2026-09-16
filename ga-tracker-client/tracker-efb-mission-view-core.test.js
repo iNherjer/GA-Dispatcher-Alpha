@@ -300,3 +300,33 @@ for (const healthPct of [0, 20, 100]) test('authoritative cargo health survives 
  assert.equal(result.view.cargo.requiredLoaded,1);
  assert.equal(run.resumeBundle.runtime.cargoManifest.items[0].healthPct,100);
 });
+
+test('field regression: seed cargo and work rows follow live POI execution and unloading', () => {
+ const items=[{id:'pax',itemType:'passenger',required:true,status:'loaded',healthPct:100},
+  {id:'box',itemType:'cargo',required:true,status:'loaded',healthPct:39}];
+ const run={missionId:'m',runId:'r',resumeBundle:{executionPoiRecipe:{target:{lat:48,lon:8},strict:false,passenger:{targetDwellMin:5}},
+  efbMission:{progress:[{label:'Zeit im Arbeitsbereich',detail:'0:00 / 2:30',percent:0},{label:'Pflichtmanifest',detail:'0/2 an Bord',percent:0}],
+   requirements:[{label:'Pflichtladung',detail:'0/2 an Bord · Zustand 100%'}],feedback:[{text:'Pflichtladung fehlt'}]}}};
+ const control={missionId:'m',runId:'r',executionAuthority:'tracker',recipe:'poi',phase:'on_task',flags:{active:true},
+  poiTask:{dwellSec:47,inRadius:true},manifest:{items},cargo:{items,summary:{total:2,loaded:2,requiredTotal:2}}};
+ const before=JSON.stringify(run);
+ const result=projectTrackerEfbMissionView(run,{lat:48,lon:8,alt:3000},null,control);
+ assert.equal(result.view.progress[0].detail,'0:47 / 2:30');
+ assert.equal(result.view.progress[0].percent,47/150*100);
+ assert.equal(result.view.progress[1].detail,'2/2 an Bord');
+ assert.equal(result.view.requirements[0].detail,'2/2 an Bord · Zustand 39%');
+ assert.equal(result.view.target.distanceNm,0);
+ assert.equal(result.view.cargo.requiredLoaded,2);
+ assert.equal(JSON.stringify(run),before);
+ assert.ok(!JSON.stringify(result.view.feedback).includes('Pflichtladung fehlt'));
+ items[1].status='unloaded';
+ const unloaded=projectTrackerEfbMissionView(run,null,null,control);
+ assert.equal(unloaded.view.cargo.requiredLoaded,1);
+ assert.equal(unloaded.view.progress[1].detail,'1/2 an Bord');
+ assert.equal(unloaded.view.target.distanceNm,null);
+ control.poiTask.satisfied=true;
+ assert.equal(projectTrackerEfbMissionView(run,null,null,control).view.progress[0].percent,100);
+ control.recipe='apt';
+ const apt=projectTrackerEfbMissionView(run,null,null,control);
+ assert.equal(apt.view.progress.find(row=>row.label==='Pflichtmanifest').detail,'1/2 an Bord');
+});

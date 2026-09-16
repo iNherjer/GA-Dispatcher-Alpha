@@ -1,5 +1,21 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Tracker v415: Live-Zeilen statt Missionsstart-Snapshot (16.09.2026)
+
+Feldtest bestaetigt widerspruechliche Pflichtladungs- und Fortschrittszeilen.
+`resumeBundle.efbMission` ist eine Briefing-Vorlage. Nicht nur der untere Cargo-
+Block, sondern auch `progress`, `requirements`, POI-Feedback und Zielnavigation
+muessen aus dem aktuellen Control projiziert werden. Pflichtladung gilt ebenso
+fuer APT. Entladen ist nicht an Bord. Tests decken vorbereiteten Seed mit 0/2
+und Live-Manifest mit 2/2, 39 % sowie 47 Sekunden Arbeitszeit ab.
+
+Tracker erkannte im Feldlog den Arbeitsbereich; kein Beleg fuer eine Gate-Sperre.
+Arbeitszeit aus dem Detektor anzeigen, nicht im EFB neu messen. Der entspannte
+Modus halbiert weiterhin die Briefing-Dauer gemaess Original-App.
+Luftraumbanner beruecksichtigt die gemessene, responsive Kopfzeile.
+Details: [v415](Tracker-v415-Release.md). In-Sim-Test bleibt offen.
+
+
 ## Tracker v412: PAX und Cargo-Anzeige (16.09.2026)
 
 Weiterer Nutzer-Feldtest: Mission abgeschlossen, Signatur korrekt, keine

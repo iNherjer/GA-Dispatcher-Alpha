@@ -1200,3 +1200,10 @@ body.ga-efb-tracker-host #paxVoicePanel { position:absolute; right:0; bottom:60p
 body.ga-efb-tracker-host #paxVoiceBtn { position:relative; touch-action:none; user-select:none; }
 body.ga-efb-tracker-host #paxUnreadBadge { position:absolute; right:-7px; top:-7px; background:#e74735; color:white; border:2px solid #fff; border-radius:10px; padding:2px 4px; font-size:9px; }
 body.ga-efb-tracker-host #paxUnreadBadge[hidden] { display:none; }
+
+/* Keep warnings below the wrapping EFB status/toolbar, including small panels. */
+body.ga-efb-tracker-host #awmFreqBanner {
+  top: var(--ga-efb-warning-top, 120px) !important;
+  padding-top: 0;
+  max-height: min(44vh, calc(100vh - var(--ga-efb-warning-top, 120px) - 12px)) !important;
+}

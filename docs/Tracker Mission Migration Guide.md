@@ -258,3 +258,12 @@ Mission und Tracker-Seed bilden einen atomaren Abschnitt; keine Groessenreduktio
 von Seed, MissionTruth, Zielkontext, Cargo oder Voice. Transportfehler sind kein
 Beleg fuer eine leere Cloud-Mission. Bestehende Adapter und Authority-Gates bleiben
 zustaendig. Der Tracker liest Mission/Metadaten selektiv und cached gepruefte Teile.
+
+## Live-Anzeigen nach dem Handoff (Feldtest v415)
+
+Nicht nur Cargo-Kachel und Phase testen: alle Zeilen in Fortschritt, Anforderungen,
+Feedback und Zielnavigation mit einem absichtlich veralteten App-Seed pruefen.
+`efbMission` im Resume-Bundle ist keine laufende Wahrheit. Pflichtmanifest und
+Arbeitszeit muessen denselben autoritativen Zustand wie Ladefenster und Detektor
+verwenden. Entladen/uebergeben darf unter „an Bord“ nicht mitgezaehlt werden.
+Snapshot-Projektion darf den Seed oder die Missionsregeln nicht mutieren.

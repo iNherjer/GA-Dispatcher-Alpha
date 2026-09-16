@@ -6,10 +6,16 @@
   var PREFERENCES_KEY = 'ga_efb_tracker_kartentisch_v1';
   var INFO_BOX_STORAGE_KEY = 'ga_efb_tracker_info_boxes_v1';
   var map = null, warningProfileAirspace = null, warningProfileTimer = null;
+  function positionAirspaceBanner() {
+    var header = document.querySelector('#mapTableOverlay .pinboard-header');
+    var bottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+    document.body.style.setProperty('--ga-efb-warning-top', Math.ceil(bottom) + 'px');
+  }
   window.awmDisplayTrackerWarning = function(warning) {
     if (warning.kind !== 'airspace') return true;
     if (!byId('awmFreqBanner')) return false;
     var presentation = window.GANavigationWarningPresentation;
+    positionAirspaceBanner();
     presentation.showFrequency(warning.airspace, presentation.style(warning.airspace).color);
     return true;
   };
@@ -1560,8 +1566,12 @@
     bindMapDrawEvents();
     ensureMapDrawLayer();
     initMapDrawFloatingButton();
+    var warningHeader = document.querySelector('#mapTableOverlay .pinboard-header');
+    if (warningHeader && window.ResizeObserver) new ResizeObserver(positionAirspaceBanner).observe(warningHeader);
+    positionAirspaceBanner();
     window.addEventListener('resize', function () {
       syncToolbarLayout();
+      positionAirspaceBanner();
       map.invalidateSize(false);
       renderProfile();
       positionMapHintsMenuInViewport();
@@ -2731,6 +2741,7 @@
     var visible = !!(bar && bar.style.display !== 'none' && mapSnapshot && mapSnapshot.navigation && mapSnapshot.route);
     document.body.classList.toggle('toolbar-collapsed', collapsed);
     document.body.classList.toggle('route-progress-visible', visible);
+    positionAirspaceBanner();
     if (visible) document.body.style.setProperty('--route-progress-height', Math.round(bar.getBoundingClientRect().height) + 'px');
     var button = byId('mapToolbarToggle');
     if (button) {
