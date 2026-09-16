@@ -699,7 +699,7 @@ async function verifyChecklistCommunityAuth(request, env) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
 
-  return { ok: true, ownerId: resolution.pilotId, legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
+  return { ok: true, ownerId: resolution.pilotId, profileSyncNamespace: String(profile.profileSyncNamespace || ''), legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
 }
 
 async function verifySyncProfileAuth(request, env) {
@@ -716,7 +716,7 @@ async function verifySyncProfileAuth(request, env) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
 
-  return { ok: true, ownerId: resolution.pilotId, legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
+  return { ok: true, ownerId: resolution.pilotId, profileSyncNamespace: String(profile.profileSyncNamespace || ''), legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
 }
 
 async function getCommunityRecord(env, id) {
@@ -2709,7 +2709,7 @@ export default {
             storedData = await hydrateGroupMemberActivity(storedData, env);
           }
           if (!isGroupKey && env.GA_PROFILE_SYNC) {
-            const upgraded = await profileStub(env, storagePilotId).fetch('https://profile/profile' + (requestUrl.searchParams.get('mission') === '1' ? '?mission=1' : ''));
+            const upgraded = await profileStub(env, storagePilotId, storedData.profileSyncNamespace).fetch('https://profile/profile' + (requestUrl.searchParams.get('mission') === '1' ? '?mission=1' : ''));
             if (upgraded.ok) storedData = { ...storedData, ...await upgraded.json() };
             else if (upgraded.status !== 404) return upgraded;
           }
@@ -2755,10 +2755,13 @@ export default {
               return json({ error: "Falscher PIN" }, 401);
             }
             if (!isGroupKey && env.GA_PROFILE_SYNC && !pilotId.startsWith('CHK')) {
-              const head = await (await profileStub(env, storagePilotId).fetch('https://profile/head')).json();
+              const head = await (await profileStub(env, storagePilotId, existingData.profileSyncNamespace).fetch('https://profile/head')).json();
               if (head.revision > 0) return json({ error: "Profil nutzt verlustfreien Sync. Bitte App aktualisieren." }, 409);
             }
             if (!isGroupKey) {
+              // Namespace is server-owned and immutable for the life of this registration.
+              if (existingData.profileSyncNamespace) incomingData.profileSyncNamespace = existingData.profileSyncNamespace;
+              else delete incomingData.profileSyncNamespace;
               const registeredAt = isoFromMs(parseDateMs(existingData.registeredAt) || parseDateMs(existingData.createdAt) || parseDateMs(existingData.firstSeenAt));
               const registeredAtMs = parseDateMs(existingData.registeredAtMs) || parseDateMs(registeredAt);
               if (registeredAt && !incomingData.registeredAt) incomingData.registeredAt = registeredAt;
@@ -2767,6 +2770,7 @@ export default {
               rawBody = JSON.stringify(incomingData);
             }
           } else if (!isGroupKey) {
+            incomingData.profileSyncNamespace = crypto.randomUUID();
             const registeredAt = nowIso();
             incomingData.registeredAt = registeredAt;
             incomingData.registeredAtMs = Date.parse(registeredAt);

@@ -1,6 +1,6 @@
 # Verlustfreier Profil-Sync V2
 
-Stand: 2026-09-16, Tracker v413 / Web-SW v1783.
+Stand: 2026-09-16, Tracker v413 / Web-SW v1784.
 
 ## Anlass und Vertrag
 
@@ -27,6 +27,10 @@ entfernte Informationen kann der Transport nicht rekonstruieren.
   hochladen, Revision veroeffentlichen, begrenzter Lese-Cache.
 - `tools/cloudflare-worker/profile-sync.mjs`: ein SQLite Durable Object pro
   authentifizierter Pilot-ID; stark konsistente Teile und atomarer Head.
+- Neu registrierte Pilot-IDs erhalten einen serverseitigen, unveraenderlichen
+  Speichernamensraum. Nach Loeschung/Ablauf und erneuter Registrierung derselben
+  ID ist der fruehere V2-Stand nicht fuer das neue Konto lesbar. Bestehende
+  Registrierungen behalten ihren bisherigen Speicher ohne Datenmigration.
 - Bestehendes `GA_SYNC_KV`: Pilot-ID/PIN, Registrierung, Aktivitaets-Heartbeat,
   Legacy- und Gruppenprofile bleiben dort.
 - `sync.js`: persoenliche Uploads verwenden ausschliesslich V2. Cloud-Pulls

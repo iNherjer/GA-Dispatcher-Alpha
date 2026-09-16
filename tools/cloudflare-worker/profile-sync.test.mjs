@@ -154,4 +154,11 @@ test('Worker authenticates V2 and legacy route cannot overwrite migrated data', 
     const oldRead = await request('https://test/api/sync/SYNCV2?pin=p'); assert.equal(oldRead.status, 200);
     assert.equal((await oldRead.json()).activeMissionTrackerSeed.missionId, 'poi');
     assert.equal(JSON.parse(kv.get('SYNCV2')).activeMission.old, true);
+    // Account expiry/deletion followed by reuse of the same pilot ID is a new tenant.
+    kv.delete('SYNCV2');
+    const register = await request('https://test/api/sync/SYNCV2', { method: 'POST', body: JSON.stringify({ pin: 'new-pin', profileSyncNamespace: 'attacker-selected' }) });
+    assert.equal(register.status, 200);
+    assert.notEqual(JSON.parse(kv.get('SYNCV2')).profileSyncNamespace, 'attacker-selected');
+    const recreated = create({ request, baseUrl: 'https://test/api/sync-v2/', pilotId: 'SYNCV2', pin: 'new-pin' });
+    assert.equal((await recreated.read()).migrated, false, 'recreated ID cannot read old profile');
 });

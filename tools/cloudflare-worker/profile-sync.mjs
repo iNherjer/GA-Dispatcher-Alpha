@@ -84,11 +84,16 @@ export class ProfileSync {
         });
     }
 }
-export function profileStub(env, ownerId) { return env.GA_PROFILE_SYNC.get(env.GA_PROFILE_SYNC.idFromName(ownerId)); }
+export function profileStub(env, ownerId, namespace = '') {
+    // Re-created pilot IDs must never inherit a deleted/expired account's profile.
+    // Existing registrations keep their original namespace without a data migration.
+    const identity = namespace ? JSON.stringify([ownerId, namespace]) : ownerId;
+    return env.GA_PROFILE_SYNC.get(env.GA_PROFILE_SYNC.idFromName(identity));
+}
 export async function handleProfileSync(request, env, authenticate) {
     if (!env.GA_PROFILE_SYNC) return reply({ error: 'sync_v2_unavailable' }, 503);
     const auth = await authenticate(request, env); if (!auth.ok) return auth.response;
-    const response = await profileStub(env, auth.ownerId).fetch(request);
+    const response = await profileStub(env, auth.ownerId, auth.profileSyncNamespace).fetch(request);
     if (request.method === 'GET' && new URL(request.url).pathname.endsWith('/head') && response.ok) {
         const head = await response.json();
         return reply({ ...head, ...(head.revision === 0 ? { legacyLastModified: auth.legacyLastModified || 0, legacyHasData: !!auth.legacyHasData } : {}) });
