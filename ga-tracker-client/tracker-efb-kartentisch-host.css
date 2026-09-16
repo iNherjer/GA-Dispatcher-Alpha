@@ -1194,3 +1194,9 @@ body.ga-efb-tracker-host #paxMissionActionMenu button:disabled { opacity:.45; }
 body.ga-efb-tracker-host #paxVoiceBtn { width:52px; height:52px; border-radius:50%; background:#1a3a5c; color:#fff; border:2px solid #31516d; font-weight:bold; cursor:pointer; }
 body.ga-efb-tracker-host #paxVoiceBtn.has-message { border-color:#4da6ff; box-shadow:0 0 8px #4da6ff; }
 body.ga-efb-tracker-host .ga-efb-pax-close { float:right; background:transparent; color:#d0e8ff; border:0; padding:4px; }
+
+body.ga-efb-tracker-host #paxVoiceWidget { width:52px; height:52px; }
+body.ga-efb-tracker-host #paxVoicePanel { position:absolute; right:0; bottom:60px; }
+body.ga-efb-tracker-host #paxVoiceBtn { position:relative; touch-action:none; user-select:none; }
+body.ga-efb-tracker-host #paxUnreadBadge { position:absolute; right:-7px; top:-7px; background:#e74735; color:white; border:2px solid #fff; border-radius:10px; padding:2px 4px; font-size:9px; }
+body.ga-efb-tracker-host #paxUnreadBadge[hidden] { display:none; }

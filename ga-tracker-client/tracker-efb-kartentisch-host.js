@@ -2099,6 +2099,42 @@
     clearTimeout(boardBookReminderTimer); boardBookReminderTimer = setTimeout(dismiss, 15000);
   }
 
+
+  function initEfbPaxDrag(widget, button, panel) {
+    var start = null, moved = false, ignoreUntil = 0, position = null;
+    function place(x, y) {
+      position = { x: Math.max(8, Math.min(window.innerWidth - 60, x)), y: Math.max(8, Math.min(window.innerHeight - 60, y)) };
+      widget.style.setProperty('left', position.x + 'px', 'important');
+      widget.style.setProperty('top', position.y + 'px', 'important');
+      widget.style.setProperty('right', 'auto', 'important'); widget.style.setProperty('bottom', 'auto', 'important');
+      panel.style.right = position.x > window.innerWidth / 2 ? '0' : 'auto';
+      panel.style.left = position.x > window.innerWidth / 2 ? 'auto' : '0';
+      panel.style.bottom = position.y > window.innerHeight / 2 ? '60px' : 'auto';
+      panel.style.top = position.y > window.innerHeight / 2 ? 'auto' : '60px';
+    }
+    try { var saved = JSON.parse(localStorage.getItem('ga_efb_pax_position')); if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) place(saved.x, saved.y); } catch (_) {}
+    button.addEventListener('pointerdown', function(e) {
+      if (e.button != null && e.button !== 0) return;
+      var rect = button.getBoundingClientRect(); start = { x:e.clientX, y:e.clientY, left:rect.left, top:rect.top, id:e.pointerId }; moved = false;
+      try { button.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); e.stopPropagation();
+    });
+    window.addEventListener('pointermove', function(e) {
+      if (!start || start.id !== e.pointerId) return;
+      var dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if (!moved && dx * dx + dy * dy < 9) return;
+      moved = true; panel.hidden = true; place(start.left + dx, start.top + dy); e.preventDefault();
+    });
+    function finish(e) {
+      if (!start || start.id !== e.pointerId) return;
+      try { if (button.hasPointerCapture(e.pointerId)) button.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (moved) { ignoreUntil = Date.now() + 300; try { localStorage.setItem('ga_efb_pax_position', JSON.stringify(position)); } catch (_) {} }
+      start = null; moved = false;
+    }
+    window.addEventListener('pointerup', finish); window.addEventListener('pointercancel', finish);
+    button.addEventListener('click', function(e) { if (Date.now() < ignoreUntil) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+    window.addEventListener('resize', function() { if (position) place(position.x, position.y); });
+  }
+
   var paxWidgetRun = '', paxWidgetTextKey = '';
   function renderPaxWidget(payload) {
     var widget = byId('paxVoiceWidget');
@@ -2115,9 +2151,11 @@
       panel.appendChild(close); panel.appendChild(name); panel.appendChild(text); panel.appendChild(actions);
       var button = document.createElement('button'); button.id = 'paxVoiceBtn'; button.type = 'button';
       button.textContent = 'PAX'; button.title = 'Passagier-Nachrichten und Anweisungen';
-      button.onclick = function () { panel.hidden = !panel.hidden; button.classList.remove('has-message'); };
+      button.onclick = function () { panel.hidden = !panel.hidden; button.classList.remove('has-message'); byId('paxUnreadBadge').hidden = true; };
+      var badge = document.createElement('span'); badge.id = 'paxUnreadBadge'; badge.textContent = 'NEU'; badge.hidden = true; button.appendChild(badge);
       widget.appendChild(panel); widget.appendChild(button);
       (byId('mapTableOverlay') || document.body).appendChild(widget);
+      initEfbPaxDrag(widget, button, panel);
     }
     var control = payload && payload.control;
     var run = payload && payload.available !== false ? String(payload.runId || (control && control.runId) || payload.missionId || '') : '';
@@ -2126,54 +2164,20 @@
       byId('paxVoiceName').textContent = 'Passagier';
       byId('paxVoiceText').textContent = 'Noch keine Nachricht.';
       byId('paxVoicePanel').hidden = true;
-      byId('paxVoiceBtn').classList.remove('has-message');
+      byId('paxVoiceBtn').classList.remove('has-message'); byId('paxUnreadBadge').hidden = true;
     }
     widget.hidden = !run;
     var voice = payload && payload.voice;
     if (run && voice && voice.text) {
-      var key = JSON.stringify([voice.updatedAt, voice.text, voice.kind]);
+      var key = JSON.stringify([voice.text, voice.kind, voice.speaker]);
       if (key !== paxWidgetTextKey) {
         paxWidgetTextKey = key;
         var speaker = typeof voice.speaker === 'string' ? voice.speaker : voice.speaker && (voice.speaker.name || voice.speaker.role);
         byId('paxVoiceName').textContent = speaker || voice.label || 'Passagier';
         byId('paxVoiceText').textContent = String(voice.text);
-        if (byId('paxVoicePanel').hidden) byId('paxVoiceBtn').classList.add('has-message');
+        if (byId('paxVoicePanel').hidden) { byId('paxVoiceBtn').classList.add('has-message'); byId('paxUnreadBadge').hidden = false; }
       }
     }
-  }
-
-  var poiVoicePresentationKey = '';
-  function renderPoiVoice(payload) {
-    var voice = payload && payload.voice;
-    var banner = byId('gaEfbPoiVoice');
-    var host = window.GANavigationWarningPresentation.getBannerHost();
-    if (!host) return;
-    function dismiss() {
-      if (banner) banner.hidden = true;
-      if (!Array.from(host.children).some(function(child) { return !child.hidden; })) host.style.display = 'none';
-    }
-    if (!payload || !payload.control || payload.control.recipe !== 'poi' || !voice || voice.kind !== 'poi' || !voice.text) {
-      dismiss();
-      if (!payload) poiVoicePresentationKey = '';
-      return;
-    }
-    var key = JSON.stringify([payload.control.runId, payload.missionId, voice.updatedAt, voice.label, voice.text]);
-    if (key === poiVoicePresentationKey) return;
-    poiVoicePresentationKey = key;
-    if (!banner) {
-      banner = document.createElement('section'); banner.id = 'gaEfbPoiVoice';
-      banner.className = 'awm-freq-entry mission-boardbook-reminder';
-      banner.setAttribute('role', 'status'); host.appendChild(banner);
-    }
-    banner.textContent = '';
-    var heading = document.createElement('strong');
-    heading.textContent = String(voice.label || 'POI') + (voice.speaker ? ' - ' + String(typeof voice.speaker === 'string' ? voice.speaker : voice.speaker.name || voice.speaker.role || '') : '');
-    var text = document.createElement('div'); text.textContent = String(voice.text);
-    text.style.whiteSpace = 'pre-wrap';
-    var close = document.createElement('button'); close.type = 'button'; close.textContent = 'Schließen';
-    close.onclick = function(event) { event.stopPropagation(); dismiss(); };
-    banner.appendChild(heading); banner.appendChild(text); banner.appendChild(close);
-    banner.hidden = false; host.style.display = 'block';
   }
 
   function renderMissionToolbar(payload) {
@@ -2296,7 +2300,6 @@
     if (nextControl && nextControl.cargoWindowOpenId && (!previousControl || previousControl.cargoWindowOpenId !== nextControl.cargoWindowOpenId)) openCargoManager(true);
     else if (openBoardingDialog) openCargoManager(true);
     renderBoardBookReminder(nextControl);
-    renderPoiVoice(next);
     renderPaxWidget(next);
     if (presentationSignature !== missionPresentationSignature) {
       missionPresentationSignature = presentationSignature;

@@ -211,7 +211,7 @@ function projectMissionManifest(activeRun, executionControl, flightSnapshot = nu
         ? Math.max(1, Math.min(6, Math.round(Number(authoritative.passengerCount || source.passengerCount) || 1)))
         : 0,
       weightLbs: Math.max(0, Math.round(Number(authoritative.weightLbs ?? source.weightLbs) || 0)),
-      healthPct: Math.max(0, Math.min(100, Math.round(Number(authoritative.healthPct ?? source.healthPct) || 100))),
+      healthPct: Math.max(0, Math.min(100, Math.round(finite(authoritative.healthPct ?? source.healthPct) ?? 100))),
       station: manifestStationLabel(source),
       reloadDistanceM: unloadDistanceM === null ? null : Math.round(unloadDistanceM),
       reloadAllowed: text(authoritative.status || source.status, 30).toLowerCase() !== 'unloaded'
@@ -341,6 +341,9 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     const controlFlags = object(control.flags);
     const controlCargo = object(control.cargo);
     const cargoSummary = object(controlCargo.summary);
+    const health = manifest.items.filter(item => item.itemType !== 'passenger' && ['loaded', 'unloaded', 'dropped', 'handed_off'].includes(item.status)).map(item => item.healthPct);
+    const conditionPct = Math.round(Math.min(health.length ? Math.min(...health) : 100,
+      100 - Math.max(0, Math.min(100, finite(control.manifest?.maxStressDamagePct) ?? 0))));
     const controlPhase = text(control.phase, 80).toLowerCase() || 'planned';
     const phaseCurrent = /^(closing|closed)$/.test(controlPhase)
       ? 3
@@ -381,13 +384,13 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     view.phase.current = phaseCurrent;
     view.cargo = {
       available: Number(cargoSummary.total || 0) > 0,
-      conditionPct: view.cargo.conditionPct,
-      tone: Number(cargoSummary.failed || 0) > 0 ? 'danger' : (Number(cargoSummary.pending || 0) > 0 ? 'warn' : 'good'),
+      conditionPct,
+      tone: Number(cargoSummary.failed || 0) > 0 || conditionPct <= 35 ? 'danger' : (Number(cargoSummary.pending || 0) > 0 ? 'warn' : 'good'),
       state: `${Math.max(0, Number(cargoSummary.loaded || 0))} geladen / ${Math.max(0, Number(cargoSummary.unloaded || 0))} entladen`,
       detail: Number(cargoSummary.pending || 0) > 0
         ? `${Math.max(0, Number(cargoSummary.pending || 0))} Positionen noch offen`
         : 'Manifest synchron',
-      requiredLoaded: Math.max(0, Number(cargoSummary.loaded || 0)),
+      requiredLoaded: manifest.items.filter(item => item.required && ['loaded', 'unloaded', 'handed_off'].includes(item.status)).length,
       requiredTotal: Math.max(0, Number(cargoSummary.requiredTotal || 0))
     };
   }

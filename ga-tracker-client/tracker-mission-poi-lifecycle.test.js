@@ -206,6 +206,12 @@ test('POI original stress affects required task equipment before target evaluati
   const manifest = h.manager.getExecutionSnapshot().state.manifest;
   assert.equal(manifest.maxStressDamagePct, 77);
   assert.equal(manifest.items[0].healthPct, 23);
+  const control = h.manager.getPublicSnapshot().execution;
+  const view = projectTrackerEfbMissionView(h.manager.getActiveRun({includeBundle:true}), null, null, control);
+  assert.equal(view.manifest.items[0].healthPct, 23);
+  assert.equal(view.view.cargo.conditionPct, 23);
+  assert.equal(view.view.cargo.requiredLoaded, 1);
+  assert.match(view.view.cargo.state, /^1 geladen/);
   const b = bundle(); b.executionPoiRecipe.voiceContext.motionProtectionEnabled = true; replay(b);
   const protectedRun = await harness(t, { bundle: b }); await protectedRun.start();
   protectedRun.sample(10000, { gForce: 4, bankDeg: 80, vsFpm: -2000 });

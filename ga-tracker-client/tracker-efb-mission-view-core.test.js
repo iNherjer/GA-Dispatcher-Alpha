@@ -287,3 +287,16 @@ test('authenticated identity corrects legacy Tracker fallback in the EFB without
   manifest.dispatchSignature.by='Signed-Pilot';
   assert.equal(projectTrackerEfbMissionView(run,null,null,null,null,{pilotId:'Actual-Pilot'}).manifest.dispatchSignature.by,'Signed-Pilot');
 });
+
+for (const healthPct of [0, 20, 100]) test('authoritative cargo health survives EFB projection: '+healthPct, () => {
+ const item={id:'box',itemType:'cargo',required:true,status:'loaded',healthPct};
+ const run={missionId:'m',runId:'r',resumeBundle:{runtime:{cargoManifest:{items:[{...item,healthPct:100}]}}}};
+ const control={missionId:'m',runId:'r',executionAuthority:'tracker',recipe:'poi',phase:'enroute',flags:{active:true},
+  manifest:{items:[item]},cargo:{items:[item],summary:{total:1,loaded:1,requiredTotal:1,pending:0,failed:healthPct<=35}}};
+ const result=projectTrackerEfbMissionView(run,null,null,control);
+ assert.equal(result.manifest.items[0].healthPct,healthPct);
+ assert.equal(result.view.cargo.conditionPct,healthPct);
+ assert.equal(result.view.cargo.state,'1 geladen / 0 entladen');
+ assert.equal(result.view.cargo.requiredLoaded,1);
+ assert.equal(run.resumeBundle.runtime.cargoManifest.items[0].healthPct,100);
+});

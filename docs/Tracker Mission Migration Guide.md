@@ -237,3 +237,13 @@ Nachweise: 314 Tracker-/EFB-Tests; Browser-Regressionsprobe
 HTTP-Verkehr, Screenshot unter `/tmp/efb-field-regression.png`); originale
 POI-Lifecycle-/Cargo-/Action-/Voice-Differentialtests und Payload-App-Vergleich.
 Realer Windows-/MSFS-Wiederholungstest mit v411 bleibt erforderlich.
+
+## Anzeige-Paritaet aus v412
+
+- Ein gueltiger Zahlenwert 0 darf nie durch `|| 100` zum gesunden Default werden.
+- Health nicht aus einem historischen App-View uebernehmen, wenn das aktuelle
+  Tracker-Manifest verfuegbar ist. Beide Anzeigen mit echtem Runtime-Stress testen.
+- Aktuell an Bord, bereits transportierte Pflicht-Items und Gesamtbedarf sind
+  verschiedene Zaehler; optionale Items nicht als erfuellte Pflicht zaehlen.
+- Bei PAX genau eine Textanzeige, ungelesen-Badge und gespeicherte Position;
+  neue Nachricht/ACK darf ein geschlossenes Fenster nicht automatisch oeffnen.

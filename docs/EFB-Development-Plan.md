@@ -1,5 +1,67 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Tracker v412: PAX und Cargo-Anzeige (16.09.2026)
+
+Weiterer Nutzer-Feldtest: Mission abgeschlossen, Signatur korrekt, keine
+vollstaendigen Abbrueche; verbleibende Stutters korrelieren mit dem Simulator.
+Transport-Isolation vorerst nicht implementiert, Befund bleibt in Beobachtung.
+Log bestaetigt `execution_finalized`, 0 Hash-Mismatches, alle 27 Effekte fertig.
+Der Legacy-Shadow-Drift beim Restore ist kein Nachweis fehlgeschlagener Ausfuehrung.
+
+PAX zeigt ein sichtbares NEU-Badge, bis die Nachricht gelesen wird. Button per
+Pointer verschiebbar, Position lokal gespeichert und bei Resize begrenzt;
+Panel oeffnet zur passenden Bildschirmseite. Pointer-Verlust blockiert Drag
+nicht. Separates POI-Textbanner entfernt; bestaetigter Text bleibt im PAX-Panel.
+
+Zwei bestaetigte Cargo-Anzeigefehler: `Number(healthPct) || 100` ersetzte echten
+Totalschaden durch 100 %. Das Missionsmenue behielt ausserdem den alten Health-
+Wert aus dem App-Seed. Beide zeigen jetzt den autoritativen Manifestzustand,
+einschliesslich Stress-Gesamtwert. Pflicht-Items werden separat von optionalen
+Items gezaehlt. Keine Aenderung an Schadensschwellen, Slew-/Debugschutz oder
+Missionsklassifikation. Die erste Vermutung einer falschen Verschachtelung der
+Cargo-Zusammenfassung wurde verworfen: der produktive Vertrag ist korrekt.
+Die Meldung „0 geladen“ waehrend angeblich geladener Ladung ist anhand der Logs
+nicht eindeutig reproduzierbar; nach Entladen waere 0 aktuell an Bord korrekt.
+Keine Behauptung, dass alle beobachteten Zaehlerabweichungen damit geklaert sind.
+
+Nachweise: 316 Node-Tests; echter Runtime-Stress senkt Pflichtladung auf 23 %,
+beide EFB-Projektionen zeigen 23 %, Pflichtladung 1 und aktuell 1 geladen.
+0/20/100-%-Regressionen, PAX-Badge und Browser-Drag mit gespeicherter Position.
+Originalvergleich: 4320 Lifecycle-, 192 Farewell- und 864 Cargo-Stress-Faelle.
+
+## Untersuchung bewegungsabhaengiger Abbrueche (16.09.2026, nach v411)
+
+Neuer v411-Feldlogabschnitt 07:34:47 bis 07:35:43 UTC: zehn fortlaufende
+Missionsrevisionen im Abstand von rund 5 s, aber Snapshot-, Status-, Karten-
+und Checklisten-Timeouts gleichzeitig. Der bisherige Lifecycle-Schreibsturm
+ist beseitigt. Die kurze Messung beweist keine allgemeine Lag-Freiheit.
+
+Konkreter Transportbefund: `tracker-efb-profile-bridge.js` leitet Terrain,
+Luftraeume, Hindernisse, Staedte und Wetter ueber `/api/v1/profile-data` auf
+dieselbe HTTP-Origin wie Telemetrie/Intents. Ab geglaetteten 20 kt wechselt das
+Profil automatisch nach HDG, ab 30 kt kommen Vorausschau und raeumliche Cache-
+Updates hinzu. Mehrere getrennt begrenzte Datenquellen teilen so denselben
+Browser-Verbindungspool. Tracker-seitige Begrenzung der Upstream-Downloads
+reserviert keine freien Browser-Verbindungen. Das ist ein Unterschied zur
+Standalone-App mit ihren verteilten Daten-Origins.
+
+Reproduktion: `tools/efb-http-contention-selftest.cjs` mit Electron starten.
+Der Test nutzt den echten Profil-XHR-Transport und `requestJson`. Sechs bewusst
+langsame Profilantworten belegen den Pool. Die Snapshot-Anfrage scheitert nach
+5002 ms mit `tracker_request_timeout`, ohne den Testserver erreicht zu haben.
+Ein separater lokaler Port antwortet gleichzeitig in 4 ms; nach Freigabe der
+Profilantworten funktioniert auch der urspruengliche Port wieder. Zeiten sind
+lokale Beispielmesswerte, keine Windows-/Coherent-Garantie.
+
+Status: reproduzierbarer Architekturfehler und starker Kandidat fuer den
+Feldbefund; noch kein direkter Nachweis der belegten Sockets in MSFS. Nicht
+als bereits behobenen Fehler deklarieren. Naechste Korrektur: langsame
+Datenabfragen von Telemetrie/Session/Intents isolieren, einschliesslich
+Terrainbildern und Kartenproxy. Reine Server-Downloadlimits oder laengere
+Snapshot-Timeouts beheben diese Blockade nicht. Request-Eingang/Antwortdauer
+und Client-Dauer fuer den Feldtest korrelieren; keine Tokens oder PIN loggen.
+
+
 ## Tracker v411: EFB-Feldtestkorrekturen (16.09.2026)
 
 Pilot-ID kommt aus der authentifizierten Tracker-Sync-ID, einschliesslich der

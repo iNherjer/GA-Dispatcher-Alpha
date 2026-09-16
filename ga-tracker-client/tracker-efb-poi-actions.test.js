@@ -31,32 +31,11 @@ function harness() {
   primary.id = 'mapMissionToggleBtn'; toolbar.appendChild(primary);
   const context = vm.createContext({ document: { createElement: element, body: element() }, byId: id => nodes.get(id),
     window: { GANavigationWarningPresentation: { getBannerHost: () => host } },
-    missionIntentPending: false, missionToolbarProjection: () => ({}),
+    initEfbPaxDrag() {}, missionIntentPending: false, missionToolbarProjection: () => ({}),
     requestMissionIntent: (intent, payload) => calls.push({ intent, payload }) });
   vm.runInContext(source.slice(source.indexOf('  var paxWidgetRun'), source.indexOf('  function renderMissionActionBanner')), context);
   return { context, nodes, host, calls };
 }
-
-test('EFB shows confirmed POI answers as text and does not reopen a dismissed answer on ACK', () => {
-  const h = harness();
-  const payload = { missionId: 'm1', control: { recipe: 'poi', runId: 'r1' }, voice: {
-    kind: 'poi', label: 'Missionsstatus', speaker: 'Gast', text: '<b>Außerhalb des Zielgebiets</b>', updatedAt: 100 } };
-  h.context.renderPoiVoice(payload);
-  const banner = h.nodes.get('gaEfbPoiVoice');
-  assert.equal(banner.hidden, false);
-  assert.equal(banner.children[1].textContent, payload.voice.text);
-  assert.equal(banner.children[0].textContent, 'Missionsstatus - Gast');
-  banner.children[2].onclick({ stopPropagation() {} });
-  h.context.renderPoiVoice({ ...payload, revision: 99 });
-  assert.equal(banner.hidden, true);
-  h.context.renderPoiVoice({ ...payload, voice: { ...payload.voice, text: 'Neue Orientierung', updatedAt: 101 } });
-  assert.equal(banner.hidden, false);
-  h.context.renderPoiVoice(null);
-  assert.equal(banner.hidden, true);
-  assert.equal(h.host.style.display, 'none');
-  h.context.renderPoiVoice({ ...payload, control: { recipe: 'apt' } });
-  assert.equal(banner.hidden, true);
-});
 
 test('EFB POI controls send tracker intents and follow confirmed availability', () => {
   const h = harness();
@@ -73,7 +52,7 @@ test('EFB POI controls send tracker intents and follow confirmed availability', 
   h.context.renderMissionToolbar({ control: { recipe: 'apt', phase: 'active', allowedActions: [] } });
   assert.equal(status.style.display, 'none');
   assert.equal(orientation.style.display, 'none');
-  assert.match(source, /renderBoardBookReminder\(nextControl\);\s*renderPoiVoice\(next\);/);
+  assert.match(source, /renderBoardBookReminder\(nextControl\);\s*renderPaxWidget\(next\);/);
 });
 
 test('PAX button reopens the last confirmed APT or POI message and holds the allowed actions', () => {
@@ -82,11 +61,18 @@ test('PAX button reopens the last confirmed APT or POI message and holds the all
     voice:{kind:'boarding',speaker:{name:'Mia'},text:'<b>Hallo Pilot</b>',updatedAt:1} };
   h.context.renderMissionToolbar(payload);
   const panel = h.nodes.get('paxVoicePanel'), button = h.nodes.get('paxVoiceBtn');
+  assert.equal(h.nodes.get('paxUnreadBadge').hidden,false);
   assert.equal(panel.hidden,true);button.onclick();assert.equal(panel.hidden,false);
+  assert.equal(h.nodes.get('paxUnreadBadge').hidden,true);
   assert.equal(h.nodes.get('paxVoiceText').textContent,payload.voice.text);
   assert.equal(h.nodes.get('paxVoiceName').textContent,'Mia');
   assert.equal(h.nodes.get('gaEfbPoiAction0').parentNode.id,'paxMissionActionMenu');
   panel.children[0].onclick();assert.equal(panel.hidden,true);
+  h.context.renderMissionToolbar({...payload,voice:{...payload.voice,updatedAt:99,playback:'completed'}});
+  assert.equal(h.nodes.get('paxUnreadBadge').hidden,true,'late ACK is not a new message');
+  h.context.renderMissionToolbar({...payload,voice:{...payload.voice,text:'Neue Meldung'}});
+  assert.equal(h.nodes.get('paxUnreadBadge').hidden,false);
+  button.onclick(); panel.children[0].onclick();
   h.context.renderMissionToolbar(payload);assert.equal(panel.hidden,true,'polling never reopens the panel');
   button.onclick();assert.equal(panel.hidden,false);
   h.context.renderMissionToolbar({...payload,runId:'new',control:{runId:'new',recipe:'apt',phase:'active',allowedActions:[]},voice:null});
