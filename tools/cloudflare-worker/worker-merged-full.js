@@ -2755,7 +2755,7 @@ export default {
               return json({ error: "Falscher PIN" }, 401);
             }
             if (!isGroupKey && env.GA_PROFILE_SYNC && !pilotId.startsWith('CHK')) {
-              const head = await (await profileStub(env, storagePilotId, existingData.profileSyncNamespace).fetch('https://profile/head')).json();
+              const head = await (await profileStub(env, storagePilotId, existingData.profileSyncNamespace).fetch('https://profile/head?inlineMetadata=1')).json();
               if (head.revision > 0) return json({ error: "Profil nutzt verlustfreien Sync. Bitte App aktualisieren." }, 409);
             }
             if (!isGroupKey) {

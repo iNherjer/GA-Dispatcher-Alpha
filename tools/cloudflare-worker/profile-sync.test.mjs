@@ -40,8 +40,9 @@ test('Tracker fetches mission and timestamp without reading logbook chunks; cach
 });
 test('interrupted upload retains old head; retry reuses confirmed chunks', async () => {
     const f = fixture(), c = f.client(); await c.write(profile());
-    const changed = { ...profile(), lastModified: 456, groupName: 'new' }; let chunks = 0;
-    f.fail(url => url.endsWith('/chunk') && ++chunks === 2);
+    const { randomBytes } = await import('node:crypto');
+    const changed = { ...profile(), activeMission: { data: randomBytes(150000).toString('base64') }, lastModified: 456, groupName: 'new' }; let chunks = 0;
+    f.fail(url => url.endsWith('/chunks') && ++chunks === 2);
     await assert.rejects(c.write(changed), /connection_lost/);
     assert.equal((await c.read()).profile.lastModified, 123);
     f.fail(null); const saved = await c.write(changed); assert.ok(saved.reusedChunks > 0);
@@ -114,7 +115,8 @@ test('browser CompressionStream package interoperates with Worker/Node decoder',
     const { webcrypto } = await import('node:crypto');
     const context = vm.createContext({ TextEncoder, TextDecoder, CompressionStream, DecompressionStream, Blob, crypto: webcrypto, btoa, atob });
     vm.runInContext(fs.readFileSync(new URL('../../cloud-sync-core.js', import.meta.url), 'utf8'), context);
-    const packed = await context.GACloudSyncCore.pack(profile());
+    const packed = await context.GACloudSyncCore.pack(profile(), { inlineMetadata: true });
+    assert.ok(packed.manifest.sections['field:lastModified'].inline);
     const result = await core.unpack(packed.manifest, async id => packed.chunks[id]);
     const expected = profile(); delete expected.pin;
     assert.deepEqual(JSON.parse(JSON.stringify(result)), expected);
@@ -128,7 +130,7 @@ test('unknown cloud fields survive clients that do not supply them, explicit nul
 test('migration refuses an unseen legacy profile unless manually authorized', async () => {
     const f = fixture();
     const c = create({ baseUrl: 'https://test/', pilotId: 'T', pin: 'p', request: async (url, init) => {
-        if (url.endsWith('/head')) return new Response(JSON.stringify({ revision: 0, manifest: null, legacyHasData: true, legacyLastModified: 123 }));
+        if (new URL(url).pathname.endsWith('/head')) return new Response(JSON.stringify({ revision: 0, manifest: null, legacyHasData: true, legacyLastModified: 123 }));
         return f.request(url, init);
     } });
     await assert.rejects(c.write(profile(), { legacyTime: 100 }), /Cloud-Konflikt/);
@@ -161,4 +163,80 @@ test('Worker authenticates V2 and legacy route cannot overwrite migrated data', 
     assert.notEqual(JSON.parse(kv.get('SYNCV2')).profileSyncNamespace, 'attacker-selected');
     const recreated = create({ request, baseUrl: 'https://test/api/sync-v2/', pilotId: 'SYNCV2', pin: 'new-pin' });
     assert.equal((await recreated.read()).migrated, false, 'recreated ID cannot read old profile');
+});
+
+test('inline timestamp avoids stored chunk; old readers get a durable compatible chunk once', async () => {
+    const f = fixture(), c = f.client(); await c.write(profile());
+    const section = f.records.get('head').manifest.sections['field:lastModified'];
+    assert.ok(section.inline); const key = 'c:' + section.chunks[0];
+    assert.equal(f.records.has(key), false);
+    assert.equal((await c.read()).profile.lastModified, 123);
+    assert.equal(f.records.has(key), false, 'modern reads have no writes');
+    const head = await (await f.request('https://test/head')).json();
+    assert.equal(f.records.has(key), true);
+    const oldManifest = structuredClone(head.manifest); delete oldManifest.sections['field:lastModified'].inline;
+    // Even a reader delayed across two later revisions retains its immutable part.
+    await c.write({ ...profile(), groupName: 'one', lastModified: 456 });
+    await c.write({ ...profile(), groupName: 'two', lastModified: 789 });
+    const old = await core.unpack(oldManifest, async id => (await (await f.request('https://test/chunk/' + id)).json()).data);
+    assert.equal(old.lastModified, 123);
+    const before = structuredClone([...f.records]);
+    await c.read(); assert.deepEqual([...f.records], before);
+});
+test('new client negotiates fallback for an old Worker without capabilities', async () => {
+    const f = fixture();
+    const client = create({ baseUrl: 'https://test/', pilotId: 'T', pin: 'p', request: async (url, init) => {
+        assert.ok(!url.endsWith('/chunks'), 'old endpoint must not be called');
+        const response = await f.request(url, init);
+        if (!new URL(url).pathname.endsWith('/head')) return response;
+        const head = await response.json(); delete head.capabilities;
+        return new Response(JSON.stringify(head));
+    } });
+    await client.write(profile());
+    assert.equal(f.records.get('head').manifest.sections['field:lastModified'].inline, undefined);
+    assert.equal((await client.read()).profile.lastModified, 123);
+});
+test('batch validates all parts before writing and duplicate retry does not change count', async () => {
+    const f = fixture(), packed = await core.pack({ activeMission: null, groupName: 'group', lastModified: 123 });
+    const parts = Object.entries(packed.chunks).map(([id,data]) => ({ id,data }));
+    const send = parts => f.request('https://test/chunks', { method: 'POST', body: JSON.stringify({ parts }) });
+    const bad = await send([...parts, { id: 'a'.repeat(64), data: 'YWJj' }]);
+    assert.equal(bad.status, 400); assert.equal(f.records.size, 0);
+    assert.equal((await send(parts)).status, 200);
+    const snapshot = structuredClone([...f.records]);
+    assert.equal((await send([...parts, parts[0]])).status, 200);
+    assert.deepEqual([...f.records], snapshot);
+    f.records.set('chunkCount', 1024);
+    const extra = await core.pack({ activeMission: { unique: 'new' } });
+    assert.equal((await send(Object.entries(extra.chunks).map(([id,data]) => ({id,data})))).status, 413);
+});
+test('invalid inline timestamp cannot publish a head', async () => {
+    const f = fixture(), c = f.client(); await c.write(profile());
+    const manifest = structuredClone(f.records.get('head').manifest);
+    manifest.sections['field:lastModified'].inline = 'OTk5';
+    const response = await f.request('https://test/commit', { method: 'POST', body: JSON.stringify({ baseRevision: 1, manifest }) });
+    assert.equal(response.status, 400); assert.equal((await c.read()).profile.lastModified, 123);
+    const wrongSection = structuredClone(f.records.get('head').manifest);
+    wrongSection.sections.mission.inline = 'e30=';
+    assert.throws(() => core.validate(wrongSection), /inline_metadata_invalid/);
+});
+test('cleanup with unchanged count performs no writes', async () => {
+    const f = fixture(); await f.client().write(profile());
+    let writes = 0; const put = f.coordinator.storage.put;
+    f.coordinator.storage.put = async (...args) => { writes++; return put(...args); };
+    await f.coordinator.alarm(); assert.equal(writes, 0);
+});
+
+test('missing lookup respects the 128-key platform limit and batch reserves a counter key', async () => {
+    const f = fixture();
+    const get = f.coordinator.storage.get;
+    f.coordinator.storage.get = async key => {
+        if (Array.isArray(key)) assert.ok(key.length <= 128);
+        return get(key);
+    };
+    const ids = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(64, '0'));
+    const response = await f.request('https://test/missing', { method: 'POST', body: JSON.stringify({ ids }) });
+    assert.equal(response.status, 200); assert.equal((await response.json()).missing.length, 256);
+    const tooMany = await f.request('https://test/chunks', { method: 'POST', body: JSON.stringify({ parts: ids.slice(0, 128).map(id => ({ id, data: 'MQ==' })) }) });
+    assert.equal(tooMany.status, 400); assert.equal(f.records.size, 0);
 });

@@ -52,7 +52,7 @@
         for (const part of parts) { out.set(part, offset); offset += part.length; }
         return out;
     }
-    async function pack(profile) {
+    async function pack(profile, { inlineMetadata = false } = {}) {
         const source = JSON.parse(JSON.stringify(profile));
         delete source.pin; delete source.syncId;
         const sections = Object.create(null), chunks = Object.create(null); let total = 0;
@@ -74,7 +74,14 @@
                 ids.push(id); chunks[id] = base64(part);
             }
             sections[name] = { encoding, bytes: raw.length, hash: await hash(raw), chunks: ids };
+            // Keep a normal descriptor for old readers; the Worker materializes
+            // its chunk only when an old client asks for a head.
+            if (inlineMetadata && name === 'field:lastModified' && encoding === 'json' && raw.length <= 128) {
+                sections[name].inline = chunks[ids[0]];
+            }
         }
+        const external = new Set(Object.values(sections).filter(section => section.inline === undefined).flatMap(section => section.chunks));
+        for (const section of Object.values(sections)) if (section.inline !== undefined && !external.has(section.chunks[0])) delete chunks[section.chunks[0]];
         const manifest = { version: 2, sections };
         validate(manifest);
         return { manifest, chunks, bytes: total };
@@ -87,6 +94,9 @@
         for (const [name, section] of entries) {
             if (!(name === 'mission' || /^field:[A-Za-z][A-Za-z0-9_]{0,79}$/.test(name)) || ['field:pin', 'field:syncId', 'field:activeMission', 'field:activeMissionTrackerSeed', 'field:__proto__'].includes(name)) throw new Error('section_invalid');
             if (!section || !['json', 'gzip'].includes(section.encoding) || !hashPattern.test(section.hash) || !Number.isSafeInteger(section.bytes) || section.bytes < 1 || !Array.isArray(section.chunks) || !section.chunks.length || section.chunks.some(id => !hashPattern.test(id))) throw new Error('section_invalid');
+            if (section.inline !== undefined && (name !== 'field:lastModified' || section.encoding !== 'json'
+                || section.bytes > 128 || section.chunks.length !== 1 || typeof section.inline !== 'string'
+                || section.inline.length > 172 || unbase64(section.inline).length !== section.bytes)) throw new Error('inline_metadata_invalid');
             total += section.bytes; count += section.chunks.length;
         }
         if (total > MAX_BYTES || count > MAX_CHUNKS) throw new Error('profile_too_large');
@@ -98,7 +108,7 @@
             if (names && !names.includes(name)) continue;
             const parts = []; let size = 0;
             for (const id of section.chunks) {
-                const part = unbase64(await getChunk(id));
+                const part = unbase64(section.inline !== undefined ? section.inline : await getChunk(id));
                 if (part.length > CHUNK_BYTES || await hash(part) !== id) throw new Error('chunk_integrity');
                 parts.push(part); size += part.length;
             }

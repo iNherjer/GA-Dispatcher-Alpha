@@ -173,3 +173,16 @@ unter Binding `GA_PROFILE_SYNC` an; bestehendes `GA_SYNC_KV` bleibt erhalten.
 Details zu Endpunkten, Grenzen, Quoten und kompatiblem Rollout:
 [Cloud Profile Sync V2](../../docs/Cloud%20Profile%20Sync%20V2.md).
 `npm test` enthaelt die Verlustfrei-/Konflikt-/Abbruchtests.
+
+## Profil-Sync V2: weniger Schreibzugriffe (Tracker v414)
+
+`GET /api/sync-v2/head?inlineMetadata=1` liefert Faehigkeiten fuer Inline-
+Zeitstempel und `POST /api/sync-v2/chunks`. Alte Head-Leser erhalten weiterhin
+normal abrufbare Hash-Pakete; ihre Metadaten werden bei Bedarf materialisiert.
+Neue Leser schreiben nichts. Batches maximal 127 Teile (plus Zaehler = 128
+Storage-Keys), Request-Body weiterhin maximal 96 KiB. Missing-Lookups werden
+in Gruppen von 128 gelesen. GC schreibt unveraenderte Zaehler nicht erneut.
+
+Worker vor Web/Tracker ausrollen. Beim Worker-Rollback Inline-Unterstuetzung
+beibehalten. Protokoll, Messwerte und Grenzen: `docs/Cloud Profile Sync V2.md`
+im Repository-Root. Messung: `node tools/cloud-sync-quota-audit.mjs`.

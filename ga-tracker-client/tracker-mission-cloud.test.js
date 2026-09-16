@@ -76,7 +76,7 @@ test('tracker fetches the existing pilot profile without exposing credentials in
   const result = await fetchTrackerCloudMission('Pilot 7', '1234', {
     request: async (url) => {
       requestedUrl = url;
-      if (url.endsWith('/head')) return { status: 200, data: { revision: 0, manifest: null } };
+      if (new URL(url).pathname.endsWith('/head')) return { status: 200, data: { revision: 0, manifest: null } };
       return { status: 200, data: profile() };
     }
   });
@@ -164,7 +164,7 @@ test('V2 large APT and POI mission packages reach the original candidate builder
       request: async (url, options) => {
         requested.push(url); assert.equal(options.headers['X-Pilot-ID'], 'Pilot 7');
         assert.ok(!url.includes('1234'));
-        if (url.endsWith('/head')) return { status: 200, data: { revision: 1, manifest: packed.manifest } };
+        if (new URL(url).pathname.endsWith('/head')) return { status: 200, data: { revision: 1, manifest: packed.manifest } };
         return { status: 200, data: { data: packed.chunks[url.split('/').pop()] } };
       }
     });

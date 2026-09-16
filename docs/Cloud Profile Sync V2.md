@@ -161,3 +161,90 @@ ungueltig markiert. Dieser lokale Teilstand darf nicht automatisch das
 vollstaendige V2-Profil ersetzen. Ein bewusst bestaetigter manueller Upload
 bleibt moeglich. Die vorhandene Legacy-Normalisierung bleibt im lokalen
 Logbuch-Merge; der Upload selbst normalisiert/kuerzt keine Eintraege.
+
+## Gemessene Kontingentbelastung (2026-09-16)
+
+Reproduzierbar ohne Cloudkonto: `node tools/cloud-sync-quota-audit.mjs`.
+Das Werkzeug verwendet echten Client, Worker und ProfileSync mit zaehlendem
+Test-Speicher. Synthetisches Profil: 346087 Rohbytes, 11 verschiedene Teile.
+
+| Vorgang | HTTP / Worker-Anfragen | KV-Reads | DO-Anfragen | KV-Profil-Writes |
+| --- | ---: | ---: | ---: | ---: |
+| Erstupload (11 neue Teile) | 14 | 14 | 14 | 0 |
+| Erstes selektives Tracker-Lesen | 3 | 3 | 3 | 0 |
+| Unveraenderter Tracker-Poll | 1 | 1 | 1 | 0 |
+| Missionsupdate (2 neue, 9 wiederverwendete Teile) | 5 | 5 | 5 | 0 |
+| Tracker liest diesen neuen Stand | 3 | 3 | 3 | 0 |
+
+Upload allgemein: N neue Teile + 3 Anfragen (Head, Missing, Commit).
+Vor V2 brauchte ein Profilupload eine Worker-Anfrage, einen Auth-KV-Read und
+einen KV-Profil-Write. V2 verschiebt Profilschreiben in den Durable Object;
+Registrierung/Heartbeat bleiben davon getrennt.
+
+Der wartende Tracker pollt alle 2500 ms: 1440 Anfragen/Stunde oder 34560/Tag
+bei durchgehendem Warten. Bei aktivem Missionslauf pausiert dieser Poll.
+Unveraendertes V2-Polling erhoeht die Worker-Anfragen nicht, fuegt aber je
+Anfrage einen DO-Aufruf hinzu. Solange ein Profil noch keinen V2-Head besitzt,
+kann der Legacy-Fallback zwei HTTP-Anfragen pro Poll verursachen.
+
+Beispielrechnung, keine gemessene Kontonutzung: Eine Stunde Warten plus 20
+Uploads (ein Erstupload, 19 Updates wie oben) und 20 nachfolgende neue Lese-
+staende ergibt 1589 statt 1460 Worker-Anfragen, also rund 8,8 Prozent mehr.
+Gleichzeitig entstehen 1589 DO-Anfragen als separates Kontingent. Die Quote
+haengt stark von Uploadhaeufigkeit, Teilanzahl und Wartezeit ab.
+
+Grenzen dieser Messung: keine HTTP/TLS-Header, OPTIONS-Preflights, Retries,
+anderen Endpunkte oder Cloudflare-internen SQL-/Indexoperationen. Gezaehlte
+Storage-Key-Zugriffe sind keine exakte Abrechnung von SQLite-Zeilen.
+Die hohe Komprimierbarkeit der synthetischen Daten ist keine Prognose fuer
+reale Nutzerprofile. Aktueller Tarif und gesamter Kontoverbrauch sind unbekannt.
+
+Offizielle Kontingente separat betrachten: Worker-Anfragen, KV-Reads/Writes,
+DO-Anfragen, DO-Laufzeit und SQLite-Speicheroperationen. Insbesondere bedeutet
+weniger uebertragene Bytes nicht automatisch weniger abrechenbare Anfragen.
+Quellen: https://developers.cloudflare.com/kv/platform/pricing/ und
+https://developers.cloudflare.com/durable-objects/platform/pricing/ .
+
+## Schreiboptimierung v414
+
+Die obige Messung beschreibt v413. Ab v414 werden Faehigkeiten im Head
+angekuendigt (`inlineMetadata`, `batchChunks`); neue Clients fallen bei aelteren
+Workern automatisch auf Einzeluploads und separate Metadaten zurueck.
+
+- Der kleine lastModified-Wert liegt mit seinem normalen Hash-Deskriptor und
+  verifiziertem Inline-JSON direkt im Manifest. Keine Felder gehen verloren.
+  Inline ist ausschliesslich fuer diese Metadaten erlaubt, maximal 128 Rohbytes.
+- Ein neuer Client liest `head?inlineMetadata=1` ohne Schreibzugriffe. Ein alter
+  Client liest weiter `head`; nur dann materialisiert der Worker bei Bedarf
+  einmalig das normale Metadatenpaket. Dadurch bleiben alte Tracker und auch
+  verzoegerte Downloads alter Heads kompatibel. Gemischter Betrieb spart daher
+  weniger als ausschliesslich neue Clients.
+- `POST chunks` validiert das gesamte Paketbuendel vor dem Speichern. Maximal
+  90 KiB je Client-Body und 127 Teile, damit einschliesslich Zaehler die
+  Plattformgrenze von 128 geschriebenen Schluesseln eingehalten wird.
+  Server-Bodygrenze weiterhin 96 KiB. Zaehler nur einmal pro Buendel; identische
+  bereits gespeicherte Teile werden bei Retries nicht erneut geschrieben.
+- Missing-Abfragen mit bis zu 256 IDs werden intern in hoechstens 128 Schluessel
+  je Speicherleseaufruf zerlegt. GC schreibt den Zaehler nur bei Aenderung.
+- Revision, atomarer Commit, vollstaendige Hash-/Groessenpruefung, aktuelle und
+  vorige Version sowie lokale Pending-Marker bleiben erhalten.
+
+Gleicher synthetischer Benchmark mit neuen Clients:
+
+| Vorgang | HTTP vorher → jetzt | geschriebene Storage-Schluessel vorher → jetzt |
+| --- | ---: | ---: |
+| Erstupload | 14 → 4 | 24 → 13 |
+| Missionsupdate | 5 → 4 | 6 → 4 |
+| Erstes / geaendertes Tracker-Lesen | 3 → 2 | 0 → 0 |
+| Unveraenderter Poll | 1 → 1 | 0 → 0 |
+| Unveraenderter Speicher-Versuch | 2 → 1 | 0 → 0 |
+
+Das entspricht im Beispiel 46 Prozent weniger gespeicherten Schluesseln beim
+Erstupload und 33 Prozent beim Missionsupdate. Alarm- und interne SQLite-
+Abrechnung sind davon getrennt. Groessere/unterschiedliche Nutzdaten fuehren
+zu anderen Paket- und Buendelzahlen; dies ist keine allgemeine Kostenprognose.
+
+Rollout: Worker zuerst, danach Web/Tracker. Alte Clients bleiben kompatibel.
+Ein Worker-Rollback muss die Inline-Leselogik beibehalten, sobald solche Heads
+existieren; blosses Zuruecksetzen auf den alten Worker wuerde Inline-Pakete
+nicht mehr rekonstruieren. Client-Rollback funktioniert ueber Materialisierung.

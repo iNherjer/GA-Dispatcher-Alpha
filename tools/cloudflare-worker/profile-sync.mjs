@@ -19,10 +19,40 @@ async function readBody(request) {
 // One strongly consistent coordinator per authenticated pilot. KV remains the auth registry.
 export class ProfileSync {
     constructor(ctx) { this.ctx = ctx; this.storage = ctx.storage; }
+    async storeParts(parts) {
+        if (!Array.isArray(parts) || !parts.length || parts.length > 127) throw new Error('parts_invalid');
+        const unique = new Map();
+        for (const part of parts) {
+            const bytes = core.unbase64(part?.data);
+            if (!bytes.length || bytes.length > core.CHUNK_BYTES || await core.hash(bytes) !== part.id) throw new Error('chunk_integrity');
+            unique.set(part.id, part.data);
+        }
+        // Validate the whole batch before writing; retry only writes missing keys.
+        const found = await this.storage.get([...unique.keys()].map(id => 'c:' + id));
+        const missing = [...unique].filter(([id]) => !found.has('c:' + id));
+        if (!missing.length) return;
+        const count = Number(await this.storage.get('chunkCount')) || 0;
+        if (count + missing.length > 1024) throw new Error('staging_quota');
+        const updates = { chunkCount: count + missing.length };
+        for (const [id, data] of missing) updates['c:' + id] = { data, at: Date.now() };
+        await this.storage.put(updates);
+        if (!await this.storage.getAlarm()) await this.storage.setAlarm(Date.now() + TTL);
+    }
     async fetch(request) {
         try {
             const url = new URL(request.url), action = url.pathname.split('/').pop();
-            if (request.method === 'GET' && action === 'head') return reply(await this.storage.get('head') || { revision: 0, manifest: null });
+            if (request.method === 'GET' && action === 'head') {
+                return await this.ctx.blockConcurrencyWhile(async () => {
+                    const head = await this.storage.get('head') || { revision: 0, manifest: null };
+                    const metadata = head.manifest?.sections?.['field:lastModified'];
+                    if (url.searchParams.get('inlineMetadata') !== '1' && metadata?.inline !== undefined) {
+                        // Old cores ignore inline data and fetch the hash URL. Persist it
+                        // before returning this head, preserving their delayed-read path.
+                        await this.storeParts([{ id: metadata.chunks[0], data: metadata.inline }]);
+                    }
+                    return reply({ ...head, capabilities: { inlineMetadata: true, batchChunks: true } });
+                });
+            }
             if (request.method === 'GET' && action === 'profile') {
                 const head = await this.storage.get('head');
                 if (!head) return reply({ error: 'not_migrated' }, 404);
@@ -37,18 +67,15 @@ export class ProfileSync {
             const body = await readBody(request);
             if (action === 'missing') {
                 if (!Array.isArray(body.ids) || body.ids.length > core.MAX_CHUNKS || body.ids.some(id => !core.hashPattern.test(id))) return reply({ error: 'ids_invalid' }, 400);
-                const found = await this.storage.get(body.ids.map(id => 'c:' + id));
+                const found = new Map();
+                for (let i = 0; i < body.ids.length; i += 128) {
+                    for (const [key, value] of await this.storage.get(body.ids.slice(i, i + 128).map(id => 'c:' + id))) found.set(key, value);
+                }
                 return reply({ missing: body.ids.filter(id => !found.has('c:' + id)) });
             }
-            if (action === 'chunk') {
-                const bytes = core.unbase64(body.data);
-                if (!bytes.length || bytes.length > core.CHUNK_BYTES || await core.hash(bytes) !== body.id) return reply({ error: 'chunk_integrity' }, 400);
+            if (action === 'chunk' || action === 'chunks') {
                 return await this.ctx.blockConcurrencyWhile(async () => {
-                    if (await this.storage.get('c:' + body.id)) return reply({ ok: true });
-                    const count = Number(await this.storage.get('chunkCount')) || 0;
-                    if (count >= 1024) return reply({ error: 'staging_quota' }, 413);
-                    await this.storage.put({ ['c:' + body.id]: { data: body.data, at: Date.now() }, chunkCount: count + 1 });
-                    if (!await this.storage.getAlarm()) await this.storage.setAlarm(Date.now() + TTL);
+                    await this.storeParts(action === 'chunk' ? [body] : body.parts);
                     return reply({ ok: true });
                 });
             }
@@ -69,7 +96,7 @@ export class ProfileSync {
             }
             return reply({ error: 'not_found' }, 404);
         } catch (error) {
-            return reply({ error: String(error?.message || error) }, 400);
+            return reply({ error: String(error?.message || error) }, error?.message === 'staging_quota' ? 413 : 400);
         }
     }
     async alarm() {
@@ -79,7 +106,8 @@ export class ProfileSync {
             const chunks = await this.storage.list({ prefix: 'c:' });
             const expired = [...chunks].filter(([key, value]) => !live.has(key.slice(2)) && value.at < Date.now() - TTL).map(([key]) => key);
             for (let i = 0; i < expired.length; i += 128) await this.storage.delete(expired.slice(i, i + 128));
-            await this.storage.put('chunkCount', chunks.size - expired.length);
+            const remaining = chunks.size - expired.length;
+            if (Number(await this.storage.get('chunkCount')) !== remaining) await this.storage.put('chunkCount', remaining);
             if ([...chunks].some(([key]) => !live.has(key.slice(2)) && !expired.includes(key))) await this.storage.setAlarm(Date.now() + TTL);
         });
     }

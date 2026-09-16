@@ -95,8 +95,11 @@ keine bereits durch APT zugesicherte Fähigkeit.
   darf keine Taskarbeit erledigen. Reload ist weder Reset noch Missionsabbruch.
 - Journal nach spätestens 160 Events checkpointen; wartende Effekte und begrenzte
   Duplikatbelege erhalten. Kein vollständiges Replay für jedes Sample/Event.
-- Grenzen: Resume-Bundle 384 KiB; gesamter Cloud-Upload 256 KiB. Seed, Manifest,
+- Grenzen: Resume-Bundle 384 KiB; persoenlicher Cloud-Sync V2 maximal 8 MiB
+  dekodiertes UTF-8-JSON, maximal 96 KiB je POST-Body. Die fruehere
+  256-KiB-Grenze gehoert zum Legacy-Transport, nicht zu V2. Seed, Manifest,
   wartende Sprachrezepte und wachsende Historie gemeinsam testen, nicht nur den Detektor.
+  Siehe `Cloud Profile Sync V2.md` und `POI Gate Coverage Audit.md`.
 
 ## 5. Gemeinsame Tracker-Bausteine tatsächlich anschließen
 

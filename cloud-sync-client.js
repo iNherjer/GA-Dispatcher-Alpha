@@ -24,7 +24,7 @@
             cache.set(id, data); cachedChars += data.length;
         }
         async function read(names = null, knownHead = null) {
-            const head = knownHead || await call('head');
+            const head = knownHead || await call('head?inlineMetadata=1');
             if (!Number.isSafeInteger(head?.revision) || head.revision < 0 || (head.revision > 0 && !head.manifest)) throw new Error('sync_head_invalid');
             if (!head.manifest) return { migrated: false, revision: 0 };
             const profile = await core.unpack(head.manifest, async id => {
@@ -41,7 +41,7 @@
             if (uploading) throw new Error('Cloud-Upload läuft bereits; Änderungen bleiben vorgemerkt.');
             uploading = true;
             try {
-                const packed = await core.pack(profile), head = await call('head');
+                const head = await call('head?inlineMetadata=1'), packed = await core.pack(profile, { inlineMetadata: head.capabilities?.inlineMetadata === true });
                 // Retain fields introduced by another client version; absence is not deletion.
                 if (head.manifest) packed.manifest.sections = { ...head.manifest.sections, ...packed.manifest.sections };
                 core.validate(packed.manifest);
@@ -62,8 +62,24 @@
                 if (!Array.isArray(missing) || missing.some(id => !Object.hasOwn(packed.chunks, id))) throw new Error('missing_response_invalid');
                 let transferred = 0;
                 // Sequential: bounded load, deterministic resumption after failure.
-                for (const id of missing) {
-                    await call('chunk', { id, data: packed.chunks[id] }); transferred += packed.chunks[id].length;
+                if (head.capabilities?.batchChunks === true) {
+                    let parts = [], size = 13;
+                    async function flush() {
+                        if (!parts.length) return;
+                        await call('chunks', { parts });
+                        transferred += parts.reduce((sum, part) => sum + part.data.length, 0);
+                        parts = []; size = 13;
+                    }
+                    for (const id of missing) {
+                        const part = { id, data: packed.chunks[id] }, bytes = JSON.stringify(part).length + 1;
+                        if (parts.length >= 127 || size + bytes > 90 * 1024) await flush();
+                        parts.push(part); size += bytes;
+                    }
+                    await flush();
+                } else {
+                    for (const id of missing) {
+                        await call('chunk', { id, data: packed.chunks[id] }); transferred += packed.chunks[id].length;
+                    }
                 }
                 const saved = await call('commit', { baseRevision, manifest: packed.manifest });
                 setRevision(saved.revision);
