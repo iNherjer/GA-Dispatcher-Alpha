@@ -503,6 +503,7 @@
         : { tone: result && result.ok === true ? 'good' : 'danger', text: result && result.ok === true ? 'Aktion bestaetigt.' : 'Aktion abgelehnt.' };
       missionIntentStatus = presentation.text;
       missionIntentTone = presentation.tone;
+      report(result && result.ok ? 'info' : 'warn', 'mission-intent-result', intent, presentation.text, result && result.error || '');
       var finalize = function () {
         var ok = result && result.ok === true;
         // Mirror the App flow for the device that started boarding.  Opening
@@ -2257,7 +2258,7 @@
     banner.setAttribute('data-mission-id', model.missionId);
     banner.setAttribute('aria-label', model.kicker + ': ' + model.text + '. ' + model.button);
     setText('missionStartBannerKicker', model.kicker);
-    setText('missionStartBannerText', model.text);
+    setText('missionStartBannerText', missionIntentTone === 'danger' && missionIntentStatus ? missionIntentStatus : model.text);
     setText('missionStartBannerBtn', model.button);
     var button = byId('missionStartBannerBtn');
     if (button) button.disabled = missionIntentPending || model.disabled === true;

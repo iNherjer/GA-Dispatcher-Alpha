@@ -9,7 +9,7 @@ const { DEFAULT_SYNC_BASE_URL, getJson, syncUrl } = require('./tracker-efb-check
 
 const CLOUD_MISSION_SEED_SCHEMA = 'ga.tracker-cloud-mission-seed.v1';
 const CLOUD_MISSION_PENDING_RUN_ID = 'cloud-pending';
-const MAX_PROFILE_RESPONSE_BYTES = 384 * 1024;
+const MAX_PROFILE_RESPONSE_BYTES = require('../cloud-sync-core.js').MAX_BYTES;
 
 function object(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -146,6 +146,8 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
   if (!bundle.execution || !replay.ok || replay.state.phase !== 'planned' || replay.state.revision !== 0) {
     return { ok: false, status: 'invalid', code: 'cloud_mission_execution_seed_invalid', candidate: null };
   }
+  const size = resumeAdapters.validateSize(bundle);
+  if (!size.ok) return { ok: false, status: 'invalid', code: size.error, bytes: size.bytes, maxBytes: size.maxBytes, candidate: null };
   const candidate = {
     missionId,
     runId: CLOUD_MISSION_PENDING_RUN_ID,

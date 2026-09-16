@@ -129,6 +129,15 @@
     };
   }
 
+  // Local persisted bundle: full 8 MiB cloud profile plus 4 MiB runtime/replay reserve.
+  // This is NOT the WebSocket message budget (512 KiB including envelope).
+  const MAX_RESUME_BYTES = 12 * 1024 * 1024;
+  function validateSize(bundle) {
+    try {
+      const bytes = new TextEncoder().encode(JSON.stringify(bundle)).byteLength;
+      return bytes <= MAX_RESUME_BYTES ? { ok: true, bytes } : { ok: false, error: 'resume_bundle_too_large', bytes, maxBytes: MAX_RESUME_BYTES };
+    } catch (_) { return { ok: false, error: 'resume_bundle_invalid' }; }
+  }
   function validateBundle(bundle = null) {
     const value = object(bundle);
     const runtime = object(value.runtime);
@@ -144,6 +153,8 @@
   }
 
   return Object.freeze({
+    MAX_RESUME_BYTES,
+    validateSize,
     PRIMARY_ADAPTERS,
     SCHEMA,
     VERSION,

@@ -5335,3 +5335,11 @@ gesperrt. Nachweise, Quotenverhalten und Legacy-Profil-Grenze: `Tracker-v418-Rel
 Fehlender Wissenskontext blockiert kein Sightseeing-Angebot mehr. Der gemeinsame
 App-/Tracker-Core behandelt ihn optional wie Standalone; die gespeicherte Mission
 muss nach dem App-Update erneut synchronisiert werden, damit ihr Seed entsteht.
+
+## 2026-09-16 – v420 grosse Cloud-Missionen
+
+Lokales Resume-Budget gemeinsam mit Cloud-Angebotspruefung auf 12 MiB gesetzt;
+EFB-Startfehler direkt im Banner und als mission-intent-result protokolliert.
+Assets 42001. Kleine Intent-Requests behalten ihr Limit; Mission-HTTP-Antworten
+sind davon getrennt. Remote-Relay bleibt 512 KiB; explizite Oversize-Fehler statt
+Verbindungsabbruch. Details/Export-Audit: `Mission Lossless Transport Audit.md`.

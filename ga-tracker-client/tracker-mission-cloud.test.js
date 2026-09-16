@@ -174,3 +174,25 @@ test('V2 large APT and POI mission packages reach the original candidate builder
     for (const id of packed.manifest.sections['field:logbook'].chunks) assert.ok(!requested.some(url => url.endsWith(id)));
   }
 });
+
+test('large lossless mission survives acquire and restart; oversized candidates fail before presentation', t => {
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+  const adapters = require('../mission-resume-adapters-core.js');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'large-mission-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const source = profile();
+  source.activeMission.currentMissionData.missionTruth = { evidence: 'Original ä '.repeat(60000) };
+  const candidate = buildCloudMissionCandidate(source).candidate;
+  const options = { storageFile: path.join(directory, 'authority.json'), executionAuthorityEnabled: true };
+  let manager = createMissionAuthorityManager(options);
+  const acquired = manager.acquire({ missionId: candidate.missionId, clientId: 'test', resumeBundle: candidate.bundle });
+  assert.equal(acquired.ok, true);
+  manager = createMissionAuthorityManager(options);
+  assert.deepEqual(manager.getActiveRun({ includeBundle: true }).resumeBundle.missionState, source.activeMission);
+  source.activeMission.currentMissionData.missionTruth.evidence = 'x'.repeat(adapters.MAX_RESUME_BYTES);
+  const rejected = buildCloudMissionCandidate(source);
+  assert.equal(rejected.code, 'resume_bundle_too_large');
+  assert.equal(rejected.candidate, null);
+  assert.equal(adapters.validateSize('x'.repeat(adapters.MAX_RESUME_BYTES - 2)).ok, true);
+  assert.equal(adapters.validateSize('x'.repeat(adapters.MAX_RESUME_BYTES - 1)).ok, false);
+});

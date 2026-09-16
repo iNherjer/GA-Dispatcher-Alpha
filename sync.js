@@ -1631,7 +1631,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
         };
     }
 
-    const compactMissionState = _missionAuthorityInjectLiveRoute(_syncCompactActiveMission(missionState, 3));
+    const compactMissionState = _missionAuthorityInjectLiveRoute(_safeCloneJson(missionState, null));
     let efbMission = null;
     try {
         efbMission = typeof window.gaGetEfbMissionViewSnapshot === 'function'
@@ -4642,7 +4642,17 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
     if (missionScopedCommand || missionAuthorityProtocol) {
         _rememberMissionAuthorityLocalCommand(commandId, commandType);
     }
-    ws.send(JSON.stringify(payload));
+    const serializedCommand = JSON.stringify(payload);
+    if (new TextEncoder().encode(serializedCommand).byteLength > 512 * 1024) {
+        const waiter = missionAuthorityAckWaiters.get(commandId);
+        if (waiter) {
+            clearTimeout(waiter.timer); missionAuthorityAckWaiters.delete(commandId);
+            waiter.resolve({ commandId, status: 'error', error: 'mission_relay_payload_too_large' });
+        }
+        console.warn('[Tracker] Mission zu gross fuer direkte Relay-Uebertragung; Cloud-Synchronisierung verwenden.');
+        return false;
+    }
+    ws.send(serializedCommand);
     _trackerPendingMarkSent(trackerCommand, commandId, options);
     if (missionScopedCommand) {
         const summary = _missionSceneDebugCommandSummary(trackerCommand, commandId, payload);

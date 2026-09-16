@@ -85,8 +85,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v419';
-const TRACKER_VERSION_CODE = 419;
+const TRACKER_VERSION = 'v420';
+const TRACKER_VERSION_CODE = 420;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -1617,7 +1617,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         msg.hdg = Number.isFinite(Number(lastGps.hdg)) ? Math.round(Number(lastGps.hdg)) : 0;
       }
       debugLog(`ACK ${ackPayload?.type || 'unknown'} mission=${ackPayload?.missionId || 'n/a'} status=${ackPayload?.status || 'n/a'} spawned=${ackPayload?.spawned ?? ''} cleared=${ackPayload?.cleared ?? ''} error=${ackPayload?.error || ''}`);
-      ws.send(JSON.stringify(msg));
+      let wire = JSON.stringify(msg);
+      if (Buffer.byteLength(wire, 'utf8') > 512 * 1024) {
+        msg.trackerAck = { source: 'tracker', type: ackPayload.type, commandId: ackPayload.commandId,
+          missionId: ackPayload.missionId, runId: ackPayload.runId, status: 'error', error: 'mission_relay_payload_too_large', at: Date.now() };
+        wire = JSON.stringify(msg);
+        debugLog('MISSION_RELAY_REJECTED error=mission_relay_payload_too_large');
+      }
+      ws.send(wire);
     } catch (_) {}
   };
 
@@ -4965,7 +4972,7 @@ function startTracker(syncId, pin, voiceCredentials = null) {
       _cloudMissionSyncInProgress = false;
     }
   };
-  const activateCloudMission = async (request = {}) => {
+  const activateCloudMissionInternal = async (request = {}) => {
     if (!TRACKER_APT_EXECUTION_ENABLED || !missionExecutionRuntime.enabled) {
       return { ok: false, status: 'blocked', error: 'mission_execution_authority_not_enabled', sideEffect: false };
     }
@@ -5056,6 +5063,13 @@ function startTracker(syncId, pin, voiceCredentials = null) {
     _cloudMissionCandidate = null;
     debugLog(`MISSION_CLOUD_ACTIVATE mission=${candidate.missionId} run=${active.runId} status=${started.status || (started.ok ? 'ok' : 'error')} error=${started.error || 'none'}`);
     return { ...started, cloudActivated: true, sideEffect: started.sideEffect === true };
+  };
+  const activateCloudMission = async request => {
+    let result;
+    try { result = await activateCloudMissionInternal(request); }
+    catch (error) { result = { ok: false, status: 'error', error: error.code || error.message, sideEffect: false }; }
+    if (!result.ok) debugLog(`MISSION_CLOUD_ACTIVATE_REJECTED mission=${request?.missionId || 'none'} error=${result.error || result.status}`);
+    return result;
   };
   let readCockpitPayload = null;
   const cockpitTools = createCockpitTools({

@@ -321,3 +321,12 @@ legitime generierte Missionen bereits vor dem Cloud-Seed. Original-Prompttests
 muessen auch fehlende, leere und abgelehnte Zusatzdaten abdecken; ein gueltiger
 Ideal-Seed allein prueft nicht die Ausgabe der realen Generierung. Vollstaendigen
 Lifecycle ebenfalls ohne Zusatzdaten testen. Siehe `Tracker-v419-Release.md`.
+
+## v420 – gleiche Nutzdaten, unterschiedliche Transportbudgets
+
+Siehe [Verlustfrei-Audit](Mission%20Lossless%20Transport%20Audit.md). Cloud-Limit,
+lokales Resume-Limit und Relay-Frame-Limit separat pruefen. Cloud-Kandidaten erst
+nach Groessenpruefung des fertigen Pakets freigeben. Keine stille Kuerzung fuer
+Handoff/Export. Kleine UI-Projektionen sind keine Resume-Daten. Quota-Fallbacks
+vor Export ueber den bestehenden Vault aufloesen. Oversize-Fehler sichtbar und
+korreliert zur Anfrage zurueckgeben. Chunked Cloud ersetzt keinen chunked Relay.

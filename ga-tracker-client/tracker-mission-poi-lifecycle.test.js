@@ -565,7 +565,10 @@ for (const withKnowledge of [true, false]) test(`Sightseeing completes and resto
     { topic: 'history', text: 'Die Brücke wurde im neunzehnten Jahrhundert als regionales Bauwerk errichtet.' },
     { topic: 'structure', text: 'An der Brücke sind mehrere markante Turmbauten aus der Umgebung deutlich erkennbar.' }
   ] };
-  if (!withKnowledge) delete context.knowledgeContext;
+  if (!withKnowledge) {
+    delete context.knowledgeContext;
+    b.missionState.currentMissionData.largeContext = 'Geo-Daten ä '.repeat(50000);
+  }
   replay(b);
   assert.equal(poi.validateBundle(b), null);
   const invalid = JSON.parse(JSON.stringify(b));

@@ -1337,14 +1337,23 @@ window.addEventListener('homebase-directory-changed', () => {
 // =========================================================
 // V80: MISSION EXPORT / IMPORT / PDF-BRIEFING
 // =========================================================
-window.exportMission = function() {
+window.exportMission = async function() {
     if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
         alert("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann exportieren.");
         return;
     }
     const data = localStorage.getItem('ga_active_mission');
     if (!data) { alert("Kein aktiver Flug zum Exportieren."); return; }
-    const code = btoa(encodeURIComponent(data));
+    let fullState;
+    try {
+        fullState = JSON.parse(data);
+        if (fullState.localStorageFallbackId) {
+            if (typeof window.resolveActiveMissionStorageState !== 'function') throw new Error('Vollstaendiger Speicher nicht verfuegbar');
+            fullState = await window.resolveActiveMissionStorageState(fullState);
+        }
+        if (!fullState || fullState.localStorageFallbackId) throw new Error('Unvollstaendiger Missionsstand');
+    } catch (_) { alert('Der vollstaendige Missionsstand konnte nicht geladen werden. Es wurde kein gekuerzter Flug-Code exportiert.'); return; }
+    const code = btoa(encodeURIComponent(JSON.stringify(fullState)));
     navigator.clipboard.writeText(code).then(() => {
         alert("🔗 Flug-Code kopiert!\n\nDu kannst ihn nun im Chat teilen oder über 'Code laden' (Pinnwand) auf einem anderen Gerät importieren.");
     }).catch(() => alert("Fehler beim Kopieren."));
@@ -1360,7 +1369,8 @@ window.importMission = async function() {
             alert("Dieser Flug-Code enthaelt nur einen Entwurf. Bitte auf dem erzeugenden Rechner erst akzeptieren und dann erneut exportieren.");
             return;
         }
-        localStorage.setItem('ga_active_mission', JSON.stringify(state));
+        if (state.localStorageFallbackId) throw new Error('Code enthaelt nur einen lokalen Speicherverweis');
+        window.storeActiveMissionStateSafely(state, { refreshActiveMissionTimestamp: false });
         const restored = await restoreMissionState(state, { source: 'import' });
         if (restored === false) {
             alert("❌ Dieser Flug konnte nicht geladen werden.");
@@ -2578,7 +2588,8 @@ window.importMSFS = function(event) {
             } catch(err) { console.warn("Backup Code fehlerhaft, parse regulär."); }
             if (backupState) {
                 try {
-                    localStorage.setItem('ga_active_mission', JSON.stringify(backupState));
+                    if (backupState.localStorageFallbackId) throw new Error('Backup enthaelt nur einen lokalen Speicherverweis');
+                    window.storeActiveMissionStateSafely(backupState, { refreshActiveMissionTimestamp: false });
                     const restored = await restoreMissionState(backupState, { source: 'msfs-import' });
                     if (restored === false) {
                         alert("❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.");
