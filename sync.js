@@ -15001,8 +15001,11 @@ function _syncProfileClient() {
         request: async (url, options) => {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 30000);
-            try { return await fetch(url, { ...options, signal: controller.signal }); }
-            finally { clearTimeout(timer); }
+            try {
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                const body = await response.text(); // Timeout includes receiving the body, not just headers.
+                return { ok: response.ok, status: response.status, json: async () => JSON.parse(body) };
+            } finally { clearTimeout(timer); }
         },
         getRevision: () => { const value = localStorage.getItem(key); return value === null ? null : Number(value); },
         setRevision: value => localStorage.setItem(key, String(value))
