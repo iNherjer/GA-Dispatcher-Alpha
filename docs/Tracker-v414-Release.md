@@ -19,3 +19,8 @@ sowie echter lokaler SQLite/workerd-Roundtrip, verzögerter Altclient-Download
 und Konflikt zwischen Clients. Windows/MSFS-Flugtest steht aus.
 
 Desktop 1.6.11, EFB-Package 0.4.14 und Stable-Kanal bleiben unveraendert.
+
+Rollout: Origin c9da94d15 / Tag v414, Worker-Version
+7d3b5879-bb6d-473a-b0b2-360515b23991, Web-SW v1787.
+Oeffentlicher EXE-Download verifiziert: 57765259 Bytes, SHA-256
+`f47b17a4b0eec9b7fd269c5213bc97e81d49d0160b77e7daff6448dce3423fa9`.
