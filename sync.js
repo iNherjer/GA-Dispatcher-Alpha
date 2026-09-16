@@ -3194,21 +3194,16 @@ function _missionRuntimePhaseCountsAsStarted(phase = '') {
 function _mutateStoredActiveMissionRuntimeMarker(mutator) {
     let state = null;
     try {
-        state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
-    } catch (_) {
-        state = null;
-    }
-    if (!state || typeof state !== 'object') return false;
-    try {
+        state = window.__gaActiveMissionStorageFallback
+            ? JSON.parse(JSON.stringify(window.__gaActiveMissionStorageFallback))
+            : JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        if (!state || typeof state !== 'object' || state.localStorageFallbackId) return false;
         mutator(state);
-        localStorage.setItem('ga_active_mission', JSON.stringify(state));
-        if (typeof window !== 'undefined' && window.__gaActiveMissionStorageFallback && typeof window.__gaActiveMissionStorageFallback === 'object') {
-            try { mutator(window.__gaActiveMissionStorageFallback); } catch (_) {}
-        }
+        if (typeof window.storeActiveMissionStateSafely === 'function') {
+            window.storeActiveMissionStateSafely(state, { refreshActiveMissionTimestamp: false });
+        } else localStorage.setItem('ga_active_mission', JSON.stringify(state));
         return true;
-    } catch (_) {
-        return false;
-    }
+    } catch (_) { return false; }
 }
 
 function _touchActiveMissionRuntimeMarker(reason = 'runtime') {
@@ -14668,7 +14663,7 @@ function _syncPruneLocalStorageForQuota(options = {}) {
     if (options.replaceActiveMission) {
         exact.push('ga_active_mission', 'ga_active_mission_contract', 'ga_active_passenger', 'ga_active_mission_runtime');
     }
-    const prefixes = ['ga_obs_combo_', 'ga_lms_'];
+    const prefixes = ['ga_obs_combo_', 'ga_lms_', 'ga_target_geo_context_v4_'];
     let removed = 0;
     exact.forEach(key => {
         try {
@@ -15263,6 +15258,19 @@ function _syncResetExpiredActiveMissionToPlanned(reason = 'sync-active-mission-r
 }
 
 function _syncActiveMissionPayload() {
+    // The full in-memory snapshot wins over a reduced local persistence copy.
+    const full = window.__gaActiveMissionStorageFallback;
+    if (full && typeof full === 'object') {
+        if (_missionIsFreeflightOnly(full)) return null;
+        if (_syncActiveMissionIsExpired(full)) {
+            if (window.missionComplianceBlockReset?.()) return full;
+            return _syncResetExpiredActiveMissionToPlanned('sync-full-fallback-expired', full, { queueCloudSave: false }) || full;
+        }
+        return full;
+    }
+    const storedRaw = localStorage.getItem('ga_active_mission');
+    let stored; try { stored = JSON.parse(storedRaw || 'null'); } catch (_) {}
+    if (stored?.localStorageFallbackId) throw new Error('Cloud-Schutz: Vollstaendigen Missionsstand zuerst aus lokalem Backup oder Cloud laden.');
     try {
         const state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
         if (_missionIsFreeflightOnly(state)) {
@@ -15364,7 +15372,7 @@ function _syncTrackerMissionSeedPayload(activeMission = null) {
 }
 
 function _syncShouldPreserveLocalMissionWithoutCloud(state = null) {
-    return _syncMissionStateIsDraft(state) || _missionIsFreeflightOnly(state);
+    return !!state?.localStorageFallbackId || _syncMissionStateIsDraft(state) || _missionIsFreeflightOnly(state);
 }
 
 function _syncHasLocalDraftMission() {
@@ -15549,6 +15557,8 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
     if (typeof window.missionRuntimeReset === 'function') {
         try { window.missionRuntimeReset({ respawnAfterClear: false }); } catch (_) {}
     }
+    window.__gaActiveMissionStorageFallback = null;
+    window.__gaActiveMissionStorageFallbackToken = null;
     localStorage.removeItem('ga_active_mission');
     localStorage.removeItem('ga_active_mission_contract');
     localStorage.removeItem('ga_active_passenger');
@@ -15629,6 +15639,14 @@ async function triggerCloudSave(immediate = false, options = {}) {
     const homebasePushPromise = options.skipHomebase === true
         ? Promise.resolve({ ok: true, skipped: true })
         : _syncHomebasePush(immediate === 'manual' ? 'app-manual-push' : 'app-close-push');
+    try {
+        const storedMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        if (storedMission?.localStorageFallbackId) await window.resolveActiveMissionStorageState(storedMission);
+    } catch (error) {
+        await homebasePushPromise;
+        updateSyncStatus('Cloud-Schutz: Vollstaendiger Missionsstand konnte nicht geladen werden.', true);
+        return { ok: false, reason: 'full-mission-unavailable', error: String(error?.message || error) };
+    }
     const uploadSyncTime = Date.now();
     const pendingBeforeSave = _syncReadPendingUpload();
     const activeMission = _syncActiveMissionPayload();

@@ -3833,6 +3833,7 @@ function vpStorageCategoryForKey(key = '') {
     if (k === 'ga_pinboard') return 'Pinnwand/Flugarchiv';
     if (k === 'ga_logbook' || k === 'last_icao_dest') return 'Logbuch';
     if (/^ga_(?:active_mission|active_passenger|pending_mission_debrief)/.test(k)) return 'Aktive Mission';
+    if (k.startsWith('ga_target_geo_context_v4_')) return 'Missions-Geo-Cache';
     if (/debug|trace|snapshot/i.test(k)) return 'Debug/Snapshots';
     if (/^ga_(?:obs_|om_|lms_|vfr_overlay_|metar_|weather_)/.test(k)) return 'Wetter/Obstacle-Caches';
     if (/^ga_/.test(k)) return 'App-Einstellungen';
@@ -3902,6 +3903,10 @@ function vpBuildStorageDiagnosticsLines() {
     if (pinboard) {
         lines.push(`- Pinnwand-Inhalt: ${pinboard.notes} Zettel | gepinnte Missionen ${pinboard.pinnedFlights} | Legacy-Flugtracks ${pinboard.recordedFlights} mit ${pinboard.trackPoints} Punkten`);
     }
+    const geoEntries = inventory.entries.filter(entry => entry.key.startsWith('ga_target_geo_context_v4_'));
+    lines.push(`- Missions-Geo-Cache: ${geoEntries.length} Eintraege | ${vpFormatBytes(geoEntries.reduce((sum, entry) => sum + entry.bytes, 0))} | Budget 512 KiB / 32 Eintraege / 12 Stunden`);
+    const missionStorage = window.gaMissionStorageDiagnostics;
+    if (missionStorage) lines.push(`- Missionsspeicherung: ${missionStorage.status} | Fehler=${missionStorage.error || '-'}`);
     const cloudUpload = window.gaLastCloudUploadDiagnostics;
     if (cloudUpload && typeof cloudUpload === 'object') {
         const fmtChars = value => Number.isFinite(Number(value)) ? `${(Number(value) / 1024).toFixed(1)} KiB` : '-';

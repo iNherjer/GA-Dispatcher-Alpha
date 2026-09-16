@@ -248,3 +248,11 @@ Rollout: Worker zuerst, danach Web/Tracker. Alte Clients bleiben kompatibel.
 Ein Worker-Rollback muss die Inline-Leselogik beibehalten, sobald solche Heads
 existieren; blosses Zuruecksetzen auf den alten Worker wuerde Inline-Pakete
 nicht mehr rekonstruieren. Client-Rollback funktioniert ueber Materialisierung.
+
+## Lokale Quelle bei Speicherknappheit (Web-SW v1788)
+
+Die App bereinigt begrenzte Geo-Caches vor einer Missionsreduktion. Wenn die
+volle lokale Speicherung trotzdem scheitert, bleiben die Originaldaten im
+RAM und in einer separaten IndexedDB-Sicherung; Cloud-Sync verwendet den
+vollen Stand. Markierte reduzierte Kopien werden ohne Sicherung nicht
+hochgeladen. Details und Grenzen: `Local Mission Storage.md`.

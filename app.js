@@ -6763,6 +6763,7 @@ function bootAppOnce() {
         navTypeSel.dataset.expandHandlersBound = '1';
     }
 
+    try { window.gaGeoCacheCleanup = window.GAMissionStorageCore.prune(localStorage); } catch (_) {}
     renderLog();
     if (typeof window.missionFollowupInit === 'function') window.missionFollowupInit();
     updateApiFuelMeter();
@@ -9084,7 +9085,7 @@ function pruneLocalStorageBeforeActiveMissionRetry(options = {}) {
         try {
             for (let i = localStorage.length - 1; i >= 0; i--) {
                 const key = localStorage.key(i);
-                if (key && (key.startsWith('ga_obs_combo_') || key.startsWith('ga_lms_'))) {
+                if (key && (key.startsWith('ga_obs_combo_') || key.startsWith('ga_lms_') || key.startsWith('ga_target_geo_context_v4_'))) {
                     localStorage.removeItem(key);
                     removed++;
                 }
@@ -9126,6 +9127,7 @@ function rememberActiveMissionStateMemoryFallback(state = null) {
     if (typeof window === 'undefined') return;
     if (!state) {
         try { delete window.__gaActiveMissionStorageFallback; } catch (_) { window.__gaActiveMissionStorageFallback = null; }
+        window.__gaActiveMissionStorageFallbackToken = null;
         return;
     }
     try {
@@ -9135,62 +9137,62 @@ function rememberActiveMissionStateMemoryFallback(state = null) {
     }
 }
 
+let activeMissionFullVault = null;
+function missionFullVault() {
+    if (!activeMissionFullVault) activeMissionFullVault = window.GAMissionStorageCore.createVault(window.indexedDB);
+    return activeMissionFullVault;
+}
+window.resolveActiveMissionStorageState = async function(state) {
+    if (!state?.localStorageFallbackId) return state;
+    const token = state.localStorageFallbackId;
+    if (window.__gaActiveMissionStorageFallbackToken === token && window.__gaActiveMissionStorageFallback)
+        return JSON.parse(JSON.stringify(window.__gaActiveMissionStorageFallback));
+    const full = await missionFullVault().load(token);
+    // Never install an obsolete read over a newer save or a reset.
+    const current = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+    if (current?.localStorageFallbackId !== token) throw new Error('Missionsstand waehrend Wiederherstellung geaendert.');
+    rememberActiveMissionStateMemoryFallback(full);
+    window.__gaActiveMissionStorageFallbackToken = token;
+    return full;
+};
+
 function storeActiveMissionStateSafely(state = {}, options = {}) {
-    const stampedState = options.refreshActiveMissionTimestamp === false
-        ? state
-        : stampActiveMissionStateForStorage(state);
-    let compactState = null;
-    if (activeMissionStoragePreferCompact || options.preferCompact === true) {
-        compactState = compactActiveMissionStateForQuotaStorage(stampedState);
+    // A reduced local copy must be resolved before it can become authoritative again.
+    if (state.localStorageFallbackId) throw new Error('Vollstaendigen Missionsstand zuerst wiederherstellen.');
+    const stampedState = options.refreshActiveMissionTimestamp === false ? state : stampActiveMissionStateForStorage(state);
+    const raw = JSON.stringify(stampedState);
+    for (let attempt = 0; attempt < 2; attempt++) {
         try {
-            localStorage.setItem('ga_active_mission', JSON.stringify(compactState));
+            if (attempt) pruneLocalStorageBeforeActiveMissionRetry({ removeContract: false });
+            localStorage.setItem('ga_active_mission', raw);
             rememberActiveMissionStateMemoryFallback(null);
+            window.__gaActiveMissionStorageFallbackToken = null;
+            activeMissionStoragePreferCompact = false;
+            window.gaActiveMissionStorageCompactMode = false;
+            window.gaMissionStorageDiagnostics = { status: 'full-local', at: Date.now() };
             return true;
-        } catch (err0) {
-            if (activeMissionStorageIsQuotaError(err0)) markActiveMissionStorageQuotaPressure();
-            try {
-                const removed = pruneLocalStorageBeforeActiveMissionRetry({ removeContract: true });
-                localStorage.removeItem('ga_active_mission');
-                localStorage.setItem('ga_active_mission', JSON.stringify(compactState));
-                rememberActiveMissionStateMemoryFallback(null);
-                try { console.debug('[MISSION SAVE] Compact active mission saved after compact-mode quota cleanup.', { removed }); } catch (_) {}
-                return true;
-            } catch (err1) {
-                rememberActiveMissionStateMemoryFallback(compactState);
-                try { console.warn('[MISSION SAVE] Compact active mission save kept in memory for Cloud-Sync after compact-mode quota error.', err1); } catch (_) {}
-                return false;
-            }
+        } catch (error) {
+            if (!activeMissionStorageIsQuotaError(error)) break;
         }
     }
+    // Preserve original data before any optional local reduction.
+    rememberActiveMissionStateMemoryFallback(stampedState);
+    markActiveMissionStorageQuotaPressure();
+    const backup = missionFullVault().save(stampedState);
+    window.__gaActiveMissionStorageFallbackToken = backup.token;
+    const diagnostic = window.gaMissionStorageDiagnostics = { status: 'full-memory-idb-pending', at: Date.now() };
+    backup.ready.then(() => { diagnostic.status = 'full-indexeddb'; }).catch(error => {
+        diagnostic.status = 'full-memory-only'; diagnostic.error = String(error?.message || error);
+        console.warn('[MISSION SAVE] Vollstaendiger Stand nur im Arbeitsspeicher; Cloud-Sicherung erforderlich.', error);
+    });
+    const compact = { ...compactActiveMissionStateForQuotaStorage(stampedState), localStorageFallbackId: backup.token };
     try {
-        localStorage.setItem('ga_active_mission', JSON.stringify(stampedState));
-        rememberActiveMissionStateMemoryFallback(null);
-        return true;
-    } catch (err) {
-        if (activeMissionStorageIsQuotaError(err)) markActiveMissionStorageQuotaPressure();
-        try { console.warn('[MISSION SAVE] Active mission state too large; switching to compact local save.', err); } catch (_) {}
-        compactState = compactState || compactActiveMissionStateForQuotaStorage(stampedState);
-        try {
-            localStorage.removeItem('ga_active_mission');
-            localStorage.setItem('ga_active_mission', JSON.stringify(compactState));
-            rememberActiveMissionStateMemoryFallback(null);
-            return true;
-        } catch (err2) {
-            try {
-                if (activeMissionStorageIsQuotaError(err2)) markActiveMissionStorageQuotaPressure();
-                const removed = pruneLocalStorageBeforeActiveMissionRetry({ removeContract: true });
-                localStorage.setItem('ga_active_mission', JSON.stringify(compactState));
-                rememberActiveMissionStateMemoryFallback(null);
-                try { console.debug('[MISSION SAVE] Compact active mission saved after quota cleanup.', { removed }); } catch (_) {}
-                return true;
-            } catch (err3) {
-                if (activeMissionStorageIsQuotaError(err3)) markActiveMissionStorageQuotaPressure();
-                rememberActiveMissionStateMemoryFallback(compactState);
-                try { console.warn('[MISSION SAVE] Compact active mission save kept in memory for Cloud-Sync after quota error.', err3); } catch (_) {}
-                return false;
-            }
-        }
+        localStorage.setItem('ga_active_mission', JSON.stringify(compact));
+    } catch (_) {
+        // Even at extreme pressure retain a small durable locator, not an old mission.
+        try { localStorage.setItem('ga_active_mission', JSON.stringify({ localStorageFallbackId: backup.token })); } catch (_) {}
     }
+    return false;
 }
 window.storeActiveMissionStateSafely = storeActiveMissionStateSafely;
 
@@ -9404,6 +9406,7 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
 }
 
 async function restoreMissionState(state, options = {}) {
+    if (state?.localStorageFallbackId) state = await window.resolveActiveMissionStorageState(state);
     const allowDraft = !!options.allowDraft;
     let resumeRuntime = options.resumeRuntime === true;
     const authorityConfirmed = options.authorityConfirmed === true;
@@ -25770,6 +25773,7 @@ async function fetchMissionTargetGeoContext(missionData = null) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     const radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M;
     const key = missionTargetGeoContextCacheKey(lat, lon, radiusM);
+    for (const store of [sessionStorage, localStorage]) { try { window.GAMissionStorageCore.prune(store); } catch (_) {} }
     const readCache = (store) => {
         try {
             const raw = store?.getItem?.(key);
@@ -25831,8 +25835,8 @@ out tags center geom 160;`;
                 await localLandmarksPromise
             );
             if (normalized) {
-                try { sessionStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
-                try { localStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
+                try { window.GAMissionStorageCore.writeGeo(sessionStorage, key, normalized); } catch (_) {}
+                try { window.GAMissionStorageCore.writeGeo(localStorage, key, normalized); } catch (_) {}
             }
             return normalized;
         } catch (err) {
@@ -25841,8 +25845,8 @@ out tags center geom 160;`;
             if (localLandmarks.length) {
                 const localOnly = mergeMissionVisualLandmarks(null, localLandmarks);
                 localOnly.center = { lat: Math.round(lat * 100000) / 100000, lon: Math.round(lon * 100000) / 100000 };
-                try { sessionStorage.setItem(key, JSON.stringify(localOnly)); } catch (_) {}
-                try { localStorage.setItem(key, JSON.stringify(localOnly)); } catch (_) {}
+                try { window.GAMissionStorageCore.writeGeo(sessionStorage, key, localOnly); } catch (_) {}
+                try { window.GAMissionStorageCore.writeGeo(localStorage, key, localOnly); } catch (_) {}
                 return localOnly;
             }
             return null;
