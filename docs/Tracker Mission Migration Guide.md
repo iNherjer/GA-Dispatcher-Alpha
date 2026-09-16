@@ -313,3 +313,11 @@ Fuer weitere Wissensmissionen: akzeptierten Kontext im Seed bewahren, Original-
 Faktenauswahl extrahieren, Sprachgedaechtnis vor Playback persistieren und Browser-
 Replay pruefen. Sightseeing hat im Original kein „Erzaehl mal“; den Lern-Guide nicht
 anhand einer aehnlichen Erzaehloberflaeche voreilig freigeben.
+
+### Korrektur v419: optionale Daten duerfen kein neues Gate werden
+
+Sightseeing benoetigt wie Standalone keinen Wissenskontext. v418 blockierte damit
+legitime generierte Missionen bereits vor dem Cloud-Seed. Original-Prompttests
+muessen auch fehlende, leere und abgelehnte Zusatzdaten abdecken; ein gueltiger
+Ideal-Seed allein prueft nicht die Ausgabe der realen Generierung. Vollstaendigen
+Lifecycle ebenfalls ohne Zusatzdaten testen. Siehe `Tracker-v419-Release.md`.

@@ -5329,3 +5329,9 @@ Autonome Folgeangebote entstehen nach bestaetigtem Tracker-Abschluss, werden lok
 atomar vorgemerkt und per V2-Profil konfliktfest synchronisiert. Angebot/Annahme
 bleiben in der vorhandenen App-Oberflaeche. Noch nicht migrierte Folgeprofile bleiben
 gesperrt. Nachweise, Quotenverhalten und Legacy-Profil-Grenze: `Tracker-v418-Release.md`.
+
+### 2026-09-16 – v419 Sightseeing-Gate korrigiert
+
+Fehlender Wissenskontext blockiert kein Sightseeing-Angebot mehr. Der gemeinsame
+App-/Tracker-Core behandelt ihn optional wie Standalone; die gespeicherte Mission
+muss nach dem App-Update erneut synchronisiert werden, damit ihr Seed entsteht.

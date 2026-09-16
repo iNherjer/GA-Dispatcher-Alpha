@@ -21,8 +21,6 @@ function validateContext(context, missionId = context?.missionId) {
   if (!DOMAINS.includes(context.taskDomain) || typeof context.strict !== 'boolean'
       || !context.passenger || Array.isArray(context.passenger) || typeof context.baseContext !== 'string' || !context.baseContext.trim()
       || typeof context.audioEnabled !== 'boolean') return 'poi_voice_context_invalid';
-  if (context.taskDomain === 'sightseeing_tour' && (!Array.isArray(context.knowledgeContext?.facts) || !context.knowledgeContext.facts.length
-      || (context.knowledgeContext.status && context.knowledgeContext.status !== 'accept'))) return 'poi_sightseeing_knowledge_required';
   if (['trainingPlan', 'trainingProcedure', 'poiChain', 'surveyPattern', 'sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
   try {
     if (encodeURIComponent(JSON.stringify(context)).replace(/%[A-F0-9]{2}/g, 'x').length > 65536)
@@ -65,7 +63,12 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _activeTaskDomain = () => context.taskDomain;
   const _isPOIMission = () => true;
   const _activeAptTrainingPlan = () => null;
-  const _activePoiKnowledgeContext = () => context.knowledgeContext || (context.captureKnowledge ? {} : null);
+  const _activePoiKnowledgeContext = () => {
+    const knowledge = context.knowledgeContext;
+    const status = String(knowledge?.status || '').toLowerCase();
+    return knowledge && Array.isArray(knowledge.facts) && knowledge.facts.length && (!status || status === 'accept')
+      ? knowledge : (context.captureKnowledge ? {} : null);
+  };
   const _activeBushReconOutcome = () => null;
   const _bushReconOutcomeHintLine = () => '';
   const _sarResultHint = () => '';

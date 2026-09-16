@@ -57,6 +57,16 @@ for (const domain of core.DOMAINS) for (const strict of [true, false]) {
       assert.equal(actual.prompt, expected.prompt, `${domain}:${name}`);
       assert.deepEqual(core.captureMemory(actual.memory, 'Objekt in Sicht', 'Äh, dort liegt die Eisenbahn. Ein zweiter Satz.', domain), expected.memory);
       count++;
+      if (domain === 'sightseeing_tour') {
+        const withoutKnowledge = { ...context, knowledgeContext: null };
+        const expectedWithout = original(withoutKnowledge, cue, memory, random);
+        assert.equal(core.render(withoutKnowledge, cue, memory, random).prompt, expectedWithout.prompt, `optional knowledge:${name}`);
+        for (const ignored of [{ facts: [] }, { status: 'reject', facts: context.knowledgeContext.facts }]) {
+          assert.equal(core.render({ ...context, knowledgeContext: ignored }, cue, memory, random).prompt,
+            expectedWithout.prompt, `ignored knowledge:${name}`);
+        }
+        count += 3;
+      }
     }
   }
 }

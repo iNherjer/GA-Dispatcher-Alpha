@@ -556,7 +556,7 @@ test('full POI runtime checkpoints steady enroute telemetry without rewriting eq
 });
 
 
-test('Sightseeing uses the complete POI lifecycle, restores its knowledge recipe and closes autonomously', async t => {
+for (const withKnowledge of [true, false]) test(`Sightseeing completes and restores with optional knowledge=${withKnowledge}`, async t => {
   const b = bundle();
   b.executionPoiRecipe.taskDomain = 'sightseeing_tour';
   const context = b.executionPoiRecipe.voiceContext;
@@ -565,11 +565,12 @@ test('Sightseeing uses the complete POI lifecycle, restores its knowledge recipe
     { topic: 'history', text: 'Die Brücke wurde im neunzehnten Jahrhundert als regionales Bauwerk errichtet.' },
     { topic: 'structure', text: 'An der Brücke sind mehrere markante Turmbauten aus der Umgebung deutlich erkennbar.' }
   ] };
+  if (!withKnowledge) delete context.knowledgeContext;
   replay(b);
   assert.equal(poi.validateBundle(b), null);
   const invalid = JSON.parse(JSON.stringify(b));
   delete invalid.executionPoiRecipe.voiceContext.knowledgeContext;
-  assert.ok(poi.validateBundle(invalid));
+  assert.equal(poi.validateBundle(invalid), null);
   const h = await harness(t, { bundle: b });
   await h.start(); h.sample(10000); h.sample(12000);
   await h.restart();

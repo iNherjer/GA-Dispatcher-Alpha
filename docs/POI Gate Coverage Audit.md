@@ -1,6 +1,6 @@
 # POI-Gate: Abdeckung und offene Migrationen
 
-Stand: 2026-09-16, aktualisiert fuer Tracker v418.
+Stand: 2026-09-16, aktualisiert fuer Tracker v419.
 
 ## Transport ist nicht Ausfuehrbarkeit
 
@@ -20,7 +20,7 @@ Originalcontrollern in passenger-voice.js:
 | --- | --- |
 | inspection_infra, media_photo, news_coverage, science_bio, science_geo | Domaene freigegeben; vollstaendiger Seed, Szenen-, Lifecycle- und Voice-Vertrag weiterhin erforderlich. |
 | science_general | Zusaetzlich im Runtime-Gate unterstuetzt; kein eigener Eintrag dieser Profilliste. |
-| sightseeing_tour | Ab v418 freigegeben mit akzeptiertem Wissenskontext und vollstaendigem POI-Seed. Originale Faktenauswahl und Wiederholungserinnerung extrahiert; Lifecycle, Restart und Browser-Replay geprueft. Kein manuelles Weitererzaehlen: das gehoert im Original zum Lern-Guide. |
+| sightseeing_tour | Ab v419 mit vollstaendigem POI-Seed freigegeben; Wissenskontext ist wie Standalone optional (v418 verlangte ihn irrtuemlich). Originale Faktenauswahl und Wiederholungserinnerung extrahiert; Lifecycle, Restart und Browser-Replay geprueft. Kein manuelles Weitererzaehlen: das gehoert im Original zum Lern-Guide. |
 | historian_guided_tour | Nicht freigegeben. Originale Historiker-Prompts, Kontext, Lifecycle und Wiederaufnahme gegen Standalone pruefen, bevor die Domaene aufgenommen wird. |
 | tour_guide_knowledge / poi_learning_guide | Nicht freigegeben. Zusaetzlich Faktenqueue und manuelles Weitererzaehlen samt geraeteuebergreifender Faktenerinnerung anschliessen. |
 | infra_chain_recon | Eigener poi_chain-Adapter. Stationen, Reihenfolge, Teilfortschritt, Voice und Wiederaufnahme aus Originalcontroller migrieren. |
