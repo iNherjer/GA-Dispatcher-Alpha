@@ -1228,3 +1228,52 @@ test('Tracker preparation synchronizes initial manifest before boarding through 
   await runtime.flush();
   assert.equal(payloadCalls.length, 1, 'repeated pumping does not clear payload again');
 });
+
+test('private return and manual PAX use Tracker telemetry, pause handling and durable one-shot effects', async t => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [{ id: 'pax', itemType: 'passenger', status: 'pending', required: true, passengerCount: 1 }];
+  bundle.missionState.routeWaypoints = [{ lat: 48.1, lng: 8.2 }, { lat: 48.3, lng: 8.5 }];
+  bundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, mode: 'passenger', passenger: {},
+    taskDomain:'private_return', privateReturn:{schema:'private-return.v1',phase:'return',visited:{name:'Besuchsplatz'},home:{name:'Heimatplatz'},outing:{occasion:'Ausstellung'}}, baseContext: 'Passenger', departure: { lat: 48.1, lng: 8.2 } } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const calls = [];
+  const options = { authorityManager: manager, enabled: true, playBoardingVoice: request => {
+    calls.push(request.effect.type);
+    return { ok: true, status: 'completed', voiceOutcome: { kind: request.effect.payload.kind || 'boarding', text: 'Komforttest', status: 'ok' } };
+  } };
+  let runtime = createTrackerMissionExecutionRuntime(options);
+  const simulator = { getLivePosition: () => ({ lat: 48.1, lon: 8.2 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }), syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' }) };
+  runtime.attachSimulator(simulator);
+  let seq = 0;
+  for (const intent of ['prepare_mission', 'start_boarding', 'sign_manifest', 'confirm_load', 'start_mission']) {
+    const run = manager.getActiveRun();
+    const result = await runtime.executeIntent({ missionId: run.missionId, runId: run.runId, expectedRevision: run.revision,
+      commandId: `flight-trigger-${++seq}`, intent });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  const epoch=Date.now();
+  const tick = (offset, extra={}) => runtime.observeTelemetry({ observedAt:epoch+offset, lat: 48.2, lon: 8.3, onGround: false,
+    gsKts:70,aglFt:700,gForce:1,bankDeg:0,vsFpm:0,windKts:0,...extra });
+  tick(100000); tick(130000,{simPaused:true}); tick(131000); tick(190999);
+  assert.equal(manager.getExecutionSnapshot().state.effects.filter(e=>e.payload.kind==='private_return_departure').length,0);
+  tick(191000); await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(manager.getExecutionSnapshot().state.effects.filter(e=>e.payload.kind==='private_return_departure').length,1);
+  runtime.detachSimulator(); runtime=createTrackerMissionExecutionRuntime(options);runtime.attachSimulator(simulator);
+  tick(260000); await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(manager.getExecutionSnapshot().state.effects.filter(e=>e.payload.kind==='private_return_departure').length,1);
+  assert.ok(manager.getPublicSnapshot().execution.allowedActions.includes('pax_wellbeing'));
+  assert.ok(!manager.getPublicSnapshot().execution.allowedActions.includes('pax_weather'));
+  let run=manager.getActiveRun();
+  assert.equal((await runtime.executeIntent({missionId:run.missionId,runId:run.runId,expectedRevision:run.revision,commandId:'wellbeing-query',intent:'pax_wellbeing'})).ok,true);
+  await new Promise(resolve=>setImmediate(resolve));
+  const query=manager.getExecutionSnapshot().state.effects.find(e=>e.payload.kind==='pax_query');
+  assert.match(query.payload.prompt,/Score 100\/100/);
+  tick(266000,{windKts:30});
+  assert.ok(manager.getPublicSnapshot().execution.allowedActions.includes('pax_weather'));
+  runtime.detachSimulator();
+});

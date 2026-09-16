@@ -72,3 +72,29 @@ test('off-destination, landing-roll and required-cargo comments keep the origina
   assert.equal(dropped.effects[0].delayMs, 0);
   assert.match(dropped.effects[0].prompt, /Kühlbox wurde im Flug abgeworfen/);
 });
+
+test('private return original departure: 60 seconds, 500 ft AGL, pause reset, once across restore', () => {
+  const privateReturn = {schema:'private-return.v1',phase:'return',visited:{name:'Besuchsplatz'},home:{name:'Heimatplatz'},outing:{occasion:'Ausstellung'},experienceRecap:{summary:'Farben'}};
+  const c = {...context,privateReturn};
+  let state = {};
+  const tick = (now,fd={},extra={}) => {
+    const r=observeFlightVoice(c,JSON.parse(JSON.stringify(state)),{active:true,greetingDone:true,missionId:'return',now,flightData:{onGround:false,aglFt:600,...fd},...extra});
+    state=r.state;return r.effects;
+  };
+  assert.equal(tick(1000).length,0);
+  assert.equal(tick(61000,{aglFt:499}).length,0);
+  assert.equal(tick(62000,{simPaused:true}).length,0);
+  assert.equal(tick(63000).length,0);
+  assert.equal(tick(122999).length,0);
+  const effects=tick(123000);
+  assert.equal(effects.length,1);assert.equal(effects[0].kind,'private_return_departure');
+  assert.match(effects[0].prompt,/PRIVATE HEIMREISE/);assert.match(effects[0].prompt,/zwei bis vier lockeren Sätzen/);
+  assert.equal(tick(190000).length,0);
+  for(const guard of [{audioEnabled:false},{approachDone:true},{ending:true},{active:false}]) {
+    state={};tick(1000,{},guard);assert.equal(tick(61000,{},guard).length,0);
+  }
+  state={};tick(1000);tick(50000,{onGround:true});tick(51000);
+  assert.equal(tick(110000).length,0);assert.equal(tick(111000).length,1);
+  state={};tick(1000,{aglFt:undefined});assert.equal(tick(70000,{aglFt:undefined}).length,0);
+  assert.equal(observeFlightVoice(context,{}, {active:true,greetingDone:true,now:1000,flightData:{onGround:false,aglFt:600}}).effects.length,0);
+});

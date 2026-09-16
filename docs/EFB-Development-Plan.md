@@ -5311,3 +5311,12 @@ Tracker-Startseed werden atomar veroeffentlicht. Siehe
 Konflikte, Quoten und Tests. Keine Aenderung an EFB-Verbindungsports oder APT-/POI-
 Lifecycle. Feldtest: lokal vollstaendige POI-Mission erneut hochladen, App schliessen,
 Tracker aktualisieren und Startbanner/Manifest/Voice kontrollieren.
+
+## 16.09.2026 – v417: gemeinsame PAX-Abfragen
+
+EFB-PAX-Menue bietet die gleichen kontextabhaengigen Wohlbefinden-/Cargo-/Wetterabfragen
+wie Standalone. Bei Tracker-Autoritaet gehen auch App-Abfragen als Intents an den
+Tracker; originale Texte und Verfuegbarkeit bleiben erhalten. EFB-Assets 41701.
+Private Heimreise-Abflugtext und bestaetigte Gespraechskontinuitaet jetzt im Tracker.
+299 Missions-/Voice- und 105 EFB-Tests erfolgreich; In-Sim-Test offen.
+Autonome Folgeangebote und Sightseeing-Gate bleiben nachfolgende Integrationsschritte.

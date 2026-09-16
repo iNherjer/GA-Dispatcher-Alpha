@@ -71,7 +71,8 @@ function createTrackerMissionBoardingVoice(options = {}) {
     if (request.effect?.type === 'voice.cargo') return cargoAudio(request);
     const plan = object(run.resumeBundle?.executionEffectPlan);
     let recipe = boardingVoiceCore.normalizeRecipe(object(object(plan.effects)['voice.boarding']).recipe);
-    const flightContext = object(object(plan.effects)['voice.approach']).context;
+    const flightContext = object(object(plan.effects)['voice.approach']).context
+      || (request.effect?.payload?.kind === 'pax_query' ? object(object(plan.effects)['voice.farewell']).context : null);
     if (request.effect?.type === 'voice.poi') {
       const payload = object(request.effect.payload);
       const prepared = payload.resolvedRecipe;
@@ -101,11 +102,11 @@ function createTrackerMissionBoardingVoice(options = {}) {
       if (payload.kind === 'cargo_event' && flightContext?.supported) {
         payload = observeFlightVoice(flightContext, {}, { cargoEvent: { type: 'dropped_required', item: payload.item } }).effects[0] || {};
       }
-      if (!flightContext?.supported || !['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story'].includes(payload.kind) || !payload.prompt) return completed(request);
+      if (!flightContext?.supported || !['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'private_return_departure', 'pax_query'].includes(payload.kind) || (!payload.prompt && !payload.fallbackText)) return completed(request);
       await new Promise(resolve => setTimeout(resolve, Math.max(0, Number(payload.delayMs) || 0)));
       const current = authorityManager.getExecutionSnapshot?.();
       if (current && (current.runId !== run.runId || !current.state.flags.active || current.state.flags.closingPending || current.state.flags.farewellStarted)) return completed(request);
-      recipe = { ...recipe, ...flightContext, enabled: true, kind: payload.kind, prompt: payload.prompt, fallbackText: '', playCue: false };
+      recipe = { ...recipe, ...flightContext, enabled: true, kind: payload.kind, prompt: payload.prompt, fallbackText: payload.fallbackText || '', playCue: false };
     }
     if (request.effect?.type === 'voice.approach') {
       const context = object(object(plan.effects)['voice.approach']).context;
@@ -131,6 +132,10 @@ function createTrackerMissionBoardingVoice(options = {}) {
       recipe = { ...recipe, prompt: routeVoiceCore.conversationPrompt(recipe.prompt,
         authorityManager.getExecutionSnapshot?.()?.state?.voice?.clubHistory) };
     }
+    if (recipe.taskDomain === 'private_return' || recipe.speaker?.taskDomain === 'private_return') {
+      recipe = { ...recipe, prompt: routeVoiceCore.conversationPrompt(recipe.prompt,
+        authorityManager.getExecutionSnapshot?.()?.state?.voice?.privateReturnHistory) };
+    }
     const audioSettings = getAudioSettings();
     if (audioSettings) recipe = { ...recipe, audioEnabled: audioSettings.enabled && audioSettings.paxEnabled, playCue: recipe.playCue && audioSettings.effectsEnabled };
     if (recipe.enabled !== true || (!recipe.prompt && !recipe.fallbackText)) {
@@ -149,7 +154,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
     }
     let job;
     const cancelAtMissionEnd = request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.approach'
-      || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story'].includes(request.effect?.payload?.kind));
+      || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story', 'private_return_departure', 'pax_query'].includes(request.effect?.payload?.kind));
     const isPlaybackAllowed = () => {
       const current = authorityManager.getExecutionSnapshot?.();
       if (request.effect?.type === 'voice.poi' && (!current || current.missionId !== run.missionId

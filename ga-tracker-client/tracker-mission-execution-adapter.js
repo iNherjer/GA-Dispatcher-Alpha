@@ -1,3 +1,4 @@
+const paxQueryCore = require('../mission-pax-query-core.js');
 const { prepareAction: preparePoiAction } = require('./tracker-mission-poi-voice.js');
 'use strict';
 const comfortCore = require('../mission-comfort-core.js');
@@ -787,6 +788,13 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         activeRun: authorityManager.getActiveRun(),
         view: snapshot.view
       });
+    }
+    if (['pax_wellbeing', 'pax_cargo', 'pax_weather'].includes(intent)) {
+      const context = authorityManager.getExecutionPaxQueryContext?.() || {};
+      const cue = paxQueryCore.render(intent, context, { flightData: observations.latestTelemetry || {},
+        comfortState: observations.comfort?.state, missingRequired: snapshot.state.manifest?.items?.filter(item => item.required && !['loaded','unloaded','dropped'].includes(item.status)).map(item => item.storyName || item.label || item.id) || [] });
+      if (!cue) return errorResult('pax_query_not_available');
+      return submitEvent(snapshot, 'APT_FLIGHT_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }
     if (['poi_status', 'poi_orientation'].includes(intent)) {
       const recipe = authorityManager.getExecutionPoiRecipe?.();

@@ -299,3 +299,25 @@ test('club voice uses the restored spoken transcript in the central generation p
  assert.match(calls[0].prompt,/Den Vereinsabend habe ich schon erwähnt/);
  assert.match(calls[0].prompt,/BEREITS GESPROCHEN/);
 });
+
+test('private return voice carries confirmed earlier speech into generation',async()=>{
+ const calls=[];
+ const active=run({taskDomain:'private_return',speaker:{name:'Mara',gender:'female',taskDomain:'private_return'}});
+ const handler=createTrackerMissionBoardingVoice({
+  authorityManager:{getActiveRun:()=>active,getExecutionSnapshot:()=>({state:{voice:{privateReturnHistory:[{id:'old',text:'Die Farben in der Ausstellung habe ich schon erwähnt.'}]}}})},
+  voiceService:{publicState:()=>({configured:true}),request:v=>calls.push(v),wait:async()=>({status:'ready',audioAvailable:true,text:'Neuer Gedanke.',speaker:{taskDomain:'private_return'}})},
+  getAudioPlaybackCandidates:()=>0
+ });
+ await handler.dispatch(request());
+ assert.match(calls[0].prompt,/Die Farben in der Ausstellung habe ich schon erwähnt/);
+});
+
+test('cargo manual query uses cargo farewell context when passenger approach context is absent',async()=>{
+ const active=run();
+ active.resumeBundle.executionEffectPlan.effects['voice.farewell']={context:{supported:true,mode:'cargo',taskDomain:'cargo_fragile',speaker:{name:'Lademeister',taskDomain:'cargo_fragile'},audioEnabled:true}};
+ const calls=[];
+ const handler=createTrackerMissionBoardingVoice({authorityManager:{getActiveRun:()=>active},
+  voiceService:{publicState:()=>({configured:true}),request:v=>calls.push(v),wait:async()=>({status:'ready',audioAvailable:true,text:'Ladung sitzt.',speaker:{taskDomain:'cargo_fragile'}})},getAudioPlaybackCandidates:()=>0});
+ await handler.dispatch({...request(),effect:{effectId:'query',type:'voice.flight',payload:{kind:'pax_query',prompt:'Ladungszustand?',fallbackText:'Ladung prüfen.'}}});
+ assert.equal(calls[0].prompt,'Ladungszustand?');
+});

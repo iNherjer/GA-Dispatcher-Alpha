@@ -279,3 +279,22 @@ Keinen ganzen Seed pro Telemetriesample kopieren; nur benoetigte Kontextfelder
 beim Run-Wechsel holen. Keine Extra-Schreibfrequenz fuer UI-Werte einfuehren.
 Fehlende Messung nicht als 100 % anzeigen. Cargo-Blocker von der ausfuehrenden
 Pruefung uebernehmen; an Bord, entladen und fehlend sind unterschiedliche Begriffe.
+
+## PAX-Fundament und private APT-Heimreise (v417)
+
+Siehe [v417](Tracker-v417-Release.md). Manuelle Abfragen werden aus den originalen
+Standalone-Funktionen generiert (`generate-mission-pax-query-core.mjs`). Verfuegbarkeit
+muss sowohl in der Projektion als auch vor Ausfuehrung aus aktuellem Tracker-Zustand
+geprueft werden. Keine manuellen App-Voice-Aufrufe neben Tracker-Autoritaet.
+
+Neue App-Trigger ausserhalb `passenger-voice.js` gehoeren ebenfalls zum Audit:
+Der private Abflugtrigger lag in `mission-runtime-core.js`/Recorder und fehlte deshalb
+im Tracker trotz vorhandener Boarding-/Arrival-Texte. Im Tracker aus beiden Originalen
+generiert; Pause vor dem fruehen Telemetrie-Return behandeln. Einmaligkeit aus
+persistierten Effekten rekonstruieren, nicht nur aus einem fluechtigen Merker.
+
+Follow-up-Angebote bleiben ein eigener noch offener Migrationsschritt. Weder
+uebertragener `followUpRequests`-Bestand noch eine erzaehlte Folgeflug-Andeutung beweisen
+autonome Angebotserzeugung. Private Return: nur bestaetigte Abschluss-/Flugevidenz,
+gleiche Begleitung/Route, deterministische ID und Tombstones; Infra: Originalbefund
+und dessen Folgeprofil. Noch nicht migrierte Folgeprofile nicht per Gate freigeben.

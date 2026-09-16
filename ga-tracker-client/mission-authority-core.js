@@ -1,3 +1,4 @@
+const paxQueryCore = require('../mission-pax-query-core.js');
 const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
 const crypto = require('crypto');
 const routeEditCore = require('../map-route-edit-core.js');
@@ -396,6 +397,27 @@ function cachedExecutionProjection(source) {
   return cached;
 }
 
+
+function executionComfortContext(run) {
+      const bundle = safeObject(run?.resumeBundle);
+      const root = safeObject(bundle.missionState);
+      const md = safeObject(root.currentMissionData || root);
+      const contract = safeObject(root.activeMissionContract || md.missionContract);
+      const effects = safeObject(bundle.executionEffectPlan?.effects);
+      const voice = bundle.executionPoiRecipe?.voiceContext || effects['voice.approach']?.context || effects['voice.farewell']?.context || {};
+      return jsonClone({ missionData: { cat: md.cat, missionContract: { category: md.missionContract?.category },
+          ...(md.clubIdea ? { clubIdea: { schema: md.clubIdea.schema, delivery: md.clubIdea.delivery } } : {}) },
+        taskDomain: voice.taskDomain || contract.taskDomain || md.taskDomain,
+        cargoText: contract.cargoText || md.cargoText, paxText: contract.paxText || md.paxText,
+        motionProtectionEnabled: voice.motionProtectionEnabled === true,
+        hasPassenger: voice.mode === 'passenger' || !!voice.passenger?.name });
+}
+function executionPaxQueryContext(run) {
+ const bundle=safeObject(run?.resumeBundle);
+ const voice=bundle.executionPoiRecipe?.voiceContext || bundle.executionEffectPlan?.effects?.["voice.approach"]?.context || bundle.executionEffectPlan?.effects?.["voice.farewell"]?.context || {};
+ return {...executionComfortContext(run), baseContext:voice.baseContext, toneHint:voice.toneHint, isPoi:run?.executionRecipe==='poi'};
+}
+
 function publicExecutionSnapshot(run) {
   if (!run?.missionId || !run?.runId || !run.executionState) return null;
   const { state, view } = cachedExecutionProjection(run.executionState);
@@ -488,7 +510,7 @@ function publicExecutionSnapshot(run) {
         healthPct: item.healthPct
       }))
     },
-    allowedActions: view.allowedActions.slice(),
+    allowedActions: view.allowedActions.filter(action => !action.startsWith('pax_') || paxQueryCore.available(executionPaxQueryContext(run), runtime?.latestTelemetry || {}).includes(action)),
     blockingReasons: view.blockingReasons.slice(),
     nextStep: view.nextStep
   };
@@ -1823,19 +1845,9 @@ function createMissionAuthorityManager(options = {}) {
       };
     },
     getExecutionComfortContext() {
-      const bundle = safeObject(state.activeRun?.resumeBundle);
-      const root = safeObject(bundle.missionState);
-      const md = safeObject(root.currentMissionData || root);
-      const contract = safeObject(root.activeMissionContract || md.missionContract);
-      const effects = safeObject(bundle.executionEffectPlan?.effects);
-      const voice = bundle.executionPoiRecipe?.voiceContext || effects['voice.approach']?.context || effects['voice.farewell']?.context || {};
-      return jsonClone({ missionData: { cat: md.cat, missionContract: { category: md.missionContract?.category },
-          ...(md.clubIdea ? { clubIdea: { schema: md.clubIdea.schema, delivery: md.clubIdea.delivery } } : {}) },
-        taskDomain: voice.taskDomain || contract.taskDomain || md.taskDomain,
-        cargoText: contract.cargoText || md.cargoText, paxText: contract.paxText || md.paxText,
-        motionProtectionEnabled: voice.motionProtectionEnabled === true,
-        hasPassenger: voice.mode === 'passenger' || !!voice.passenger?.name });
+      return executionComfortContext(state.activeRun);
     },
+    getExecutionPaxQueryContext() { return jsonClone(executionPaxQueryContext(state.activeRun)); },
     getExecutionMissionEndpoints() {
       const missionState = safeObject(state.activeRun?.resumeBundle?.missionState);
       const mission = safeObject(missionState.currentMissionData || missionState);

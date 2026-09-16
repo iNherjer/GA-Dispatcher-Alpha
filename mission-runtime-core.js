@@ -819,6 +819,7 @@ function _missionBushRequiresReturnHome() {
 
 // Private APT return: one optional narrative after the initial climb, no pickup phase.
 window.missionMaybeTriggerPrivateReturnDepartureVoice = function(fd = {}, runtime = {}) {
+    if (window.gaTrackerExecutionHandlesMission?.()) return false;
     const md = window.currentMissionData;
     if (!runtime.active || runtime.closing || !window.MissionPrivateReturnCore?.context(md || {})) return false;
     const id = md?.missionId;

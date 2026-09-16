@@ -354,3 +354,14 @@ Sim-Telemetrie und Mission-Runtime auf, ohne den Live-Rekorder auszuführen.
 Pause-/Menü-Telemetrie setzt eine noch laufende Wartezeit zurück. Bedingungen
 bleiben 60 Sekunden und 500 ft AGL. Ein Regressionstest ruft die tatsächliche
 Recorder-Einstiegsfunktion im Sim-Modus auf und prüft Weitergabe und Pause.
+
+## Tracker-Anbindung v417 (16.09.2026)
+
+Die oben beschriebene 60-Sekunden-/500-ft-Abflugansage war bislang nur im App-Recorder
+angebunden. Der Tracker uebernimmt jetzt beide Originalfunktionen per Generator,
+inklusive Pause-Reset und Abschlussblockade. Die App fuehrt bei Tracker-Autoritaet
+keinen parallelen Trigger aus. Effekte und Runtime-Merker sichern die einmalige
+Ausgabe nach Restart. Bis zu vier bestaetigte Heimreise-Texte (je 600 Zeichen) sind
+im Tracker-Lauf fuer die nachfolgenden Ansagen verfuegbar; Standalone-Puffer unveraendert.
+Die Rueckflug-Angebotserzeugung selbst benoetigt weiterhin den App-Abschlusspfad und
+ist ausdruecklich noch kein autonomer Tracker-Follow-up-Generator.

@@ -585,6 +585,11 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       motionBuffer.observe(sample, authorityManager.getActiveRun()?.runId);
     },
     observeTelemetry: sample => {
+      if (sample && (sample.simPaused === true || sample.paused === true || sample.isPaused === true || sample.inMenuOrMap === true || sample.simRunning === 0)) {
+        const previous = adapter.getFlightVoiceState();
+        if (previous?.privateReturnDeparture && !previous.privateReturnDeparture.done && previous.privateReturnDeparture.airborneSince != null)
+          adapter.setFlightVoiceState({ ...previous, privateReturnDeparture: { ...previous.privateReturnDeparture, airborneSince: null } }, true);
+      }
       const isPoi = authorityManager.getActiveRun()?.executionRecipe === 'poi';
       if (!sample?.simPaused && !sample?.inMenuOrMap) poiPaused = false;
       if (isPoi && (sample?.simPaused === true || sample?.inMenuOrMap === true)) {
@@ -646,13 +651,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
               previous.offDestLastAt = Math.max(Number(previous.offDestLastAt) || 0, Number(payload.triggerAt) || 0);
             } else if (payload.kind === 'landing_roll') previous.landingRollTriggered = true;
             else if (payload.kind === 'wrong_start') previous.wrongStartContinueDone = true;
+            else if (payload.kind === 'private_return_departure') previous.privateReturnDeparture = { ...previous.privateReturnDeparture, done: true };
           }
           previous.count = Math.max(Number(previous.count) || 0, comfortCount);
           const departure = context.departure;
           const departureDistanceNm = departure ? locationCore.haversineNm(Number(sample.lat), Number(sample.lon), Number(departure.lat), Number(departure.lng ?? departure.lon)) : null;
           const triggerAt = Number(sample.observedAt) || Date.now();
           const detected = observeFlightVoice(context, previous, {
-            now: triggerAt, active: snapshot.state.flags.active,
+            now: triggerAt, missionId: snapshot.missionId, active: snapshot.state.flags.active,
+            audioEnabled: options.getAudioSettings ? (options.getAudioSettings()?.enabled === true && options.getAudioSettings()?.paxEnabled === true) : context.audioEnabled !== false,
             ending: snapshot.state.flags.closingPending || snapshot.state.flags.farewellStarted || snapshot.state.flags.farewellCompleted || snapshot.state.flags.unloadConfirmed,
             greetingDone: snapshot.state.flags.boardingConfirmed,
             approachDone: isPoi ? snapshot.state.progress.atTargetDone === true : !!snapshot.state.voice.approach || approachRequested

@@ -3337,12 +3337,12 @@ function _refreshMissionActionMenu() {
     setVisible('paxMissionStatusBtn', isPoi && hasPax);
     setVisible('paxMissionOrientationBtn', isPoi && hasPax);
     if (window.gaTrackerExecutionHandlesMission?.()) {
-        [['paxMissionStatusBtn', 'poi_status'], ['paxMissionOrientationBtn', 'poi_orientation']].forEach(([id, intent]) => {
+        [['paxMissionStatusBtn', 'poi_status'], ['paxMissionOrientationBtn', 'poi_orientation'], ['paxAptWellbeingBtn','pax_wellbeing'], ['paxCargoConditionBtn','pax_cargo'], ['paxWeatherReactionBtn','pax_weather']].forEach(([id, intent]) => {
             const button = document.getElementById(id);
             if (button) button.disabled = !window.gaTrackerExecutionControl?.allowedActions?.includes(intent) || window.gaMissionControlIntentPending === true;
         });
     } else {
-        ['paxMissionStatusBtn', 'paxMissionOrientationBtn'].forEach(id => { const button = document.getElementById(id); if (button) button.disabled = false; });
+        ['paxMissionStatusBtn', 'paxMissionOrientationBtn','paxAptWellbeingBtn','paxCargoConditionBtn','paxWeatherReactionBtn'].forEach(id => { const button = document.getElementById(id); if (button) button.disabled = false; });
     }
     setVisible('paxPoiFoundBtn', sarPoi && !_poiSatisfied && !_poiAborted && (!sarHeli || !sarHeliFoundReported));
     setVisible('paxAptWellbeingBtn', !isPoi && hasPax && !cargoFocus);
@@ -4143,6 +4143,7 @@ window.paxMissionReportTargetFound = function() {
 };
 
 window.paxAptWellbeingReport = function() {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('pax_wellbeing');
     const ctx = _missionActionContext();
     const summary = _missionComfortSummary();
     const base = _baseContext();
@@ -4166,6 +4167,7 @@ Wichtig: Turbulenzen, Boeen und Regen nicht dem Piloten anlasten; Flugweise wie 
 };
 
 window.paxCargoConditionReport = function() {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('pax_cargo');
     const ctx = _missionActionContext();
     const summary = _missionComfortSummary();
     const cargo = _activeCargoText() || 'Ladung';
@@ -4199,6 +4201,7 @@ Wichtig: Turbulenzen/Regen nicht dem Piloten anlasten. Bewerte Frachtzustand kre
 };
 
 window.paxWeatherReactionReport = function() {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('pax_weather');
     const ctx = _missionActionContext();
     const wx = _missionWeatherReactionLine(ctx.fd);
     const base = _baseContext();
@@ -9902,6 +9905,7 @@ window.paxVoiceBuildApproachAuthorityContext = function() {
         dest: md?.dest || 'dem Flughafen',
         start: md?.start || '?',
         narrativeEvents: md?.clubIdea?.narrativeEvents || [],
+        privateReturn: _privateReturnVoiceContext(md),
         departure: typeof routeWaypoints !== 'undefined' ? routeWaypoints?.[0] : null,
         passenger: window.activePassenger ? { ...window.activePassenger } : null,
         wrongStartActive: _paxWrongStartActive,

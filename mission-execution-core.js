@@ -640,6 +640,7 @@
                 kind: 'farewell'
             })
         };
+        if (routeVoiceCore && Array.isArray(object(source.voice).privateReturnHistory)) state.voice.privateReturnHistory = routeVoiceCore.speechHistory(source.voice.privateReturnHistory).slice(-4).map(function(row) { return { ...row, text: row.text.slice(0,600) }; });
         if (routeVoiceCore && Array.isArray(object(source.voice).clubHistory)) state.voice.clubHistory = routeVoiceCore.speechHistory(source.voice.clubHistory);
         if (object(source.voice).flight) state.voice.flight = normalizeVoiceOutcome(source.voice.flight);
         if (state.recipe === 'poi' && object(source.voice).poiMemory && poiVoiceCore) {
@@ -1620,6 +1621,12 @@
                 state.voice.clubHistory = routeVoiceCore.rememberSpeech(state.voice.clubHistory,
                     acknowledgedEffectId, spokenOutcome.text);
             }
+            if (routeVoiceCore && acknowledgedEffect && acknowledgedEffect.type.indexOf('voice.') === 0
+                && acknowledgedStatus === 'completed' && spokenOutcome.playback === 'completed'
+                && object(spokenOutcome.speaker).taskDomain === 'private_return') {
+                state.voice.privateReturnHistory = routeVoiceCore.rememberSpeech(state.voice.privateReturnHistory,
+                    acknowledgedEffectId, String(spokenOutcome.text || '').slice(0,600)).slice(-4);
+            }
             if (acknowledgedEffect && acknowledgedEffect.type === 'voice.boarding') {
                 state.voice.boarding = normalizeVoiceOutcome({
                     ...object(object(event.payload).result),
@@ -1755,6 +1762,10 @@
         var state = normalizeState(rawState);
         var actions = [];
         if (poiActionAllowed(state)) actions.push('poi_status', 'poi_orientation');
+        if (state.flags.active && !state.flags.closingPending && !state.flags.farewellStarted
+            && !state.flags.farewellCompleted && !state.flags.unloadConfirmed && state.phase !== 'closing'
+            && !state.effects.some(function(effect) { return effect.type === 'voice.flight' && effect.status === 'requested' && effect.payload.kind === 'pax_query'; }))
+            actions.push('pax_wellbeing', 'pax_cargo', 'pax_weather');
         var phase = state.phase;
         if (phase === 'planned') actions.push('prepare_mission');
         if (phase === 'prepare' && state.effects.some(function (effect) {
