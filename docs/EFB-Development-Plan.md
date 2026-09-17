@@ -5511,3 +5511,12 @@ rekursive JSON-Serialisierung. Dauerhafte Commit-Speicherung bleibt erhalten.
 Debug-/Missionstestlogging erfolgt begrenzt und asynchron. Neue kumulative
 Kostenmarker trennen Projektionen, Persistenz und Log-I/O. Einzelheiten und
 Testumfang: `Tracker-v427-Release.md`. MSFS-Latenz bleibt im Feld zu verifizieren.
+
+
+### 2026-09-17 – v428: RAM-Commits und Fuenf-Sekunden-Sicherung
+
+EFB/Relay bestaetigen den aktuellen RAM-Zustand des Workers ohne Dateischreibung
+pro Klick. Periodische Gesamtsicherung und Cargo-Wiederabgleich ersetzen die
+sekundengenaue lokale Persistenz; das bewusst akzeptierte Verlustfenster gilt
+auch fuer bereits bestaetigte Aktionen. Protokoll/Client brauchen keine neue
+Datei-Anbindung. Details und Recovery-Grenzen im Authority Contract, Abschnitt v428.

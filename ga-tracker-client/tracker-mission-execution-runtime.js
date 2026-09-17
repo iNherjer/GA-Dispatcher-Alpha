@@ -51,6 +51,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   let cancelSimulatorPayloadSync = null;
   let cleanupExecutionRun = null;
   let recoveryDrain = Promise.resolve();
+  const cargoCheckpointRecovery = options.recoverCargoCheckpoint === true
+    ? require('./tracker-cargo-checkpoint-recovery.js').createCargoCheckpointRecovery(authorityManager, log) : null;
+  const reconcileCargoCheckpoint = () => cargoCheckpointRecovery?.reconcile(
+    simulatorEffects, getSimulatorPosition(), simulatorPayloadSyncManifestState);
   let effectRunner = null;
   let autoClosePromise = null;
   const executionEffectPlan = () => typeof authorityManager.getExecutionEffectPlan === 'function'
@@ -331,6 +335,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const executeIntent = async (request = {}) => {
     await recoveryDrain;
+    reconcileCargoCheckpoint();
     if (authorityManager.getActiveRun()?.executionRecipe === 'poi') {
       // Validate the controller's original revision before the private flush.
       // Only our own synchronous checkpoint may rebase that accepted request.
@@ -477,6 +482,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       getLivePosition: simulator.getLivePosition,
       dispatchCommand: simulator.dispatchCommand,
       acknowledgeEffect: async request => {
+        if (cargoCheckpointRecovery?.ownsAck(request.effectId)) {
+          log(`MISSION_CARGO_RECOVERY_ACK status=${request.status}`);
+          return { ok: true };
+        }
         const acknowledged = await effectRunner.acknowledge(request);
         if (acknowledged.ok) {
           await settleEffects(`effect-ack:${request.status || 'unknown'}`, request.effectId);
@@ -525,6 +534,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       log
     });
     simulatorEffects = bridge;
+    reconcileCargoCheckpoint();
     cleanupExecutionRun = typeof simulator.cleanupMission === 'function' ? simulator.cleanupMission : null;
     recoveryDrain = effectRunner.drain().then(async (result) => {
       if (!result.ok && !['mission_execution_authority_web', 'no_active_run'].includes(result.error)) {
@@ -589,6 +599,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       motionBuffer.observe(sample, authorityManager.getActiveRun()?.runId);
     },
     observeTelemetry: sample => {
+      reconcileCargoCheckpoint();
       if (sample && (sample.simPaused === true || sample.paused === true || sample.isPaused === true || sample.inMenuOrMap === true || sample.simRunning === 0)) {
         const previous = adapter.getFlightVoiceState();
         if (previous?.privateReturnDeparture && !previous.privateReturnDeparture.done && previous.privateReturnDeparture.airborneSince != null)

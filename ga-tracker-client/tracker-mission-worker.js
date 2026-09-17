@@ -44,7 +44,7 @@ function runMissionWorker() {
   const handlers = {
     initialize(options) {
       if (authority) throw Error('mission_process_already_initialized');
-      const manager = createMissionAuthorityManager({ ...options.authority, log });
+      const manager = createMissionAuthorityManager({ ...options.authority, periodicCheckpoint: true, log });
       authority = {};
       for (const [name, method] of Object.entries(manager)) {
         authority[name] = typeof method === 'function' ? (...args) => {
@@ -55,7 +55,7 @@ function runMissionWorker() {
       }
       flightLog = createTrackerFlightLogStore({ directory: options.flightLogDirectory, log });
       runtime = createTrackerMissionExecutionRuntime({
-        authorityManager: authority, enabled: options.enabled, syncInitialPayload: true, allowIntentRevisionRebase: true,
+        authorityManager: authority, enabled: options.enabled, syncInitialPayload: true, allowIntentRevisionRebase: true, recoverCargoCheckpoint: true,
         getPilotId: () => options.pilotId, getAudioSettings: () => audioSettings,
         flightLog,
         playBoardingVoice: request => invokeParent('playBoardingVoice', request),
@@ -115,7 +115,13 @@ function runMissionWorker() {
     async ack(ack, generation) { if (generation !== simulatorGeneration) return false; const result = await bridge?.handleAck(ack); publish(); return result; },
     detach() { simulatorGeneration++; const result = runtime.detachSimulator(bridge); bridge = null; publish(); return result; },
     diagnostics() { return { publication: { ...publishMetrics }, persistence: authority.getPersistenceMetrics() }; },
-    flush() { const result = runtime.flush(); publish(); return result; }
+    async flush() {
+      const result = await runtime.flush();
+      const saved = await authority.flushPersistence();
+      publish();
+      if (!saved) throw Error('mission_checkpoint_failed');
+      return result;
+    }
   };
   const ipc = createMissionIpc(process, handlers, { timeoutForRequest: missionRequestTimeout });
   let lastLoopAt = Date.now(), lastLoopLog = 0;
@@ -131,7 +137,11 @@ function runMissionWorker() {
     if (authority) log(`MISSION_PROCESS_COST totals=${JSON.stringify({ publication: publishMetrics, persistence: authority.getPersistenceMetrics() })}`);
   }, 10000);
   metricsTimer.unref();
-  process.once('disconnect', () => { try { runtime?.flush(); } finally { process.exit(0); } });
+  process.once('disconnect', async () => {
+    const deadline = setTimeout(() => process.exit(1), 4000);
+    try { await runtime?.flush(); await authority?.flushPersistence(); }
+    finally { clearTimeout(deadline); authority?.stopPersistence(); process.exit(0); }
+  });
 }
 module.exports = { runMissionWorker };
 if (require.main === module) runMissionWorker();

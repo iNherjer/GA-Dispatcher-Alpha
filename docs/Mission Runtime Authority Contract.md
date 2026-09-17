@@ -1,5 +1,46 @@
 # Mission Runtime Authority Contract
 
+## Periodische RAM-Sicherung, Alpha v428 (17.09.2026)
+
+Diese Regel ersetzt fuer den Missions-Kindprozess die oben beschriebenen
+synchronen Dateischreibvorgaenge vor jedem Commit. Die fachliche Authority lebt
+im RAM. Ein erfolgreiches Intent-ACK bestaetigt den RAM-Commit, nicht bereits
+seine Sicherung auf Platte. EFB/Relay erhalten weiterhin aktuelle RAM-Projektionen.
+
+Ein einzelner asynchroner Writer sichert bei Aenderungen alle fuenf Sekunden den
+aktuellen Gesamtzustand einschliesslich Manifest, Effekten, Authority und Journal.
+Weitere Klicks verschieben den Takt nicht. Waehrend einer langsamen Speicherung
+werden keine alten Sicherungen aufgereiht; der neueste Stand bleibt als dirty
+markiert. Temp-Datei und anschliessendes Rename erhalten bei Fehlern die vorige
+lesbare Sicherung. Fehler blockieren keine Cargo-Aktion; der naechste Takt
+versucht den aktuellen Stand erneut. Normaler Shutdown flusht mit der bestehenden
+begrenzten Prozesswartezeit. Ein harter Abbruch kann seit der letzten erfolgreichen
+Sicherung bestaetigte Aenderungen verlieren. Fuenf Sekunden sind das Zielintervall,
+keine Garantie bei blockiertem Loop, langsamer Platte oder Schreibfehlern.
+
+JSON-Capture erfolgt konsistent ohne await einmal je Sicherung im Missionsloop;
+die Datei-I/O danach asynchron. JSON-Aufbereitung kann daher weiterhin periodische
+CPU-Spitzen verursachen. Die reine Disk-Rollback-Gesamtkopie pro Execution-Event
+entfaellt in diesem Modus. Validierung, Replay-Grenzen und semantische Guards
+bleiben erhalten. Standalone-/Legacy-Authority ohne Worker bleibt unveraendert.
+
+Beim Neustart ersetzt Cargo-Recovery offene historische Cargo-Objektwirkungen
+durch den aktuellen gespeicherten Sollzustand. Beim ersten gueltigen Sim-Stand
+werden geladene Objekte entfernt, ausgeladene an gespeicherten Koordinaten
+wiederhergestellt (ohne Koordinaten am aktuellen Standort) und anstehende
+Start-/Pickup-Fracht in der passenden Phase aufgebaut. Payload wird anhand des
+aktuellen Manifests abgeglichen. Diese Projektion aendert das Manifest nicht und
+loest keine neuen Cargo-Sprachansagen aus. PAX und andere Missionswirkungen
+behalten ihre vorhandene Recovery. Neue Klicks verwenden dieselbe Originalqueue
+und koennen einen aelteren Recovery-Sollzustand abloesen. Simulatorfehler bleiben
+best effort und werden protokolliert; es gibt kein neues blockierendes Recovery-ACK.
+
+`MISSION_PROCESS_COST.persistence` meldet mode, intervalMs, revision,
+savedRevision, dirty, writing, lastSavedAt und Kosten/Fehler. `MISSION_CHECKPOINT_ERROR`
+zeigt Sicherungsfehler; `MISSION_CARGO_CHECKPOINT_RECOVERY` und
+`MISSION_CARGO_RECOVERY_ACK` dokumentieren den Abgleich.
+
+
 ## Prozessgrenzen korrigiert, Alpha v426 (17.09.2026)
 
 v425 startete den gepackten Kindprozess mit nur `--mission-worker`. pkg setzt

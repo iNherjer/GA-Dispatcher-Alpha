@@ -597,8 +597,14 @@ function createMissionAuthorityManager(options = {}) {
   let lastSlowPersistLogAt = 0;
   let publicationVersion = 0;
   const persistenceMetrics = { attempts: 0, bytes: 0, serializeMs: 0, writeMs: 0, directoryMs: 0, errors: 0 };
+  const checkpoint = storageFile && options.periodicCheckpoint === true
+    ? require('./tracker-mission-checkpoint.js').createMissionCheckpoint({
+      filename: storageFile, getState: () => state, log,
+      io: options.checkpointIo, intervalMs: options.checkpointIntervalMs
+    }) : null;
   const persist = () => {
     publicationVersion++;
+    if (checkpoint) return checkpoint.markDirty();
     if (!storageFile) return true;
     persistenceMetrics.attempts++;
     try {
@@ -1241,7 +1247,7 @@ function createMissionAuthorityManager(options = {}) {
       }
       log(`MISSION_EXECUTION_JOURNAL_CHECKPOINT revision=${currentState.revision} events=${currentReplay.events.length}`);
     }
-    const previousState = jsonClone(state);
+    const previousState = checkpoint ? null : jsonClone(state);
     const previousEffectIds = new Set(currentState.effects.map(effect => effect.effectId));
     active.resumeBundle = persistedResumeBundle;
     active.executionState = nextState;
@@ -1855,7 +1861,9 @@ function createMissionAuthorityManager(options = {}) {
     abortExecutionRun,
     finalizeExecutionRun,
     getPublicationVersion: () => publicationVersion,
-    getPersistenceMetrics: () => ({ ...persistenceMetrics }),
+    getPersistenceMetrics: () => checkpoint ? checkpoint.metrics() : ({ ...persistenceMetrics, mode: 'synchronous' }),
+    flushPersistence: () => checkpoint ? checkpoint.flush() : Promise.resolve(true),
+    stopPersistence: () => checkpoint?.stop(),
     getPublicSnapshot(options = {}) {
       rememberIntentRevision(state.activeRun);
       return {

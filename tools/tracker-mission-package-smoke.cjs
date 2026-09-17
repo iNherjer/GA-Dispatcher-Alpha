@@ -18,6 +18,8 @@ const { createTrackerMissionProcess } = require('../ga-tracker-client/tracker-mi
     const acquired = await host.authorityManager.acquire({ missionId: 'packaged-test', clientId: 'test' });
     assert.equal(acquired.ok, true);
     assert.equal(host.authorityManager.getActiveRun().missionId, 'packaged-test');
+    await host.runtime.flush();
+    assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'authority.json'), 'utf8')).activeRun.missionId, 'packaged-test');
     console.log('MISSION_PACKAGED_PROCESS_SMOKE_OK');
   } finally {
     await host?.close();

@@ -77,7 +77,8 @@ async function fixture(t, options = {}) {
     prepareBoardingVoice: () => ({ ok: true, status: 'completed' }),
     playFarewellVoice: () => ({ ok: true, status: 'completed' }),
     playComplianceVoice: () => ({ ok: true, status: 'completed' }),
-    ...options
+    ...options,
+    authority: { storageFile: path.join(directory, 'authority.json'), executionAuthorityEnabled: true, ...options.authority }
   });
   t.after(async () => { try { await host.close(); } catch (_) {} fs.rmSync(directory, { recursive: true, force: true }); });
   host.testDirectory = directory;
@@ -269,4 +270,55 @@ test('unchanged authority reads and rejected intents do not rebuild full publica
   const after = await host.runtime.diagnostics();
   assert.equal(after.publication.builds, before.publication.builds);
   assert.equal(after.persistence.attempts, before.persistence.attempts);
+});
+
+
+test('cargo changes stay in RAM until checkpoint; killed worker restores saved manifest and reconciles simulator', async t => {
+  const first = await fixture(t, { authority: { checkpointIntervalMs: 60000 } });
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest = { version: 6, key: 'checkpoint-cargo', items: [
+    { id: 'box', itemType: 'cargo', required: true, status: 'pending', weightLbs: 10, deliverAtDestination: true }
+  ] };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  await activate(first, bundle);
+  const simulator = { getLivePosition: () => ({ lat: 48, lon: 8, altFt: 500 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }),
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' }) };
+  first.runtime.attachSimulator(simulator);
+  await until(() => first.runtime.publicState().simulatorAttached);
+  let sequence = 0;
+  const intent = async (name, payload) => {
+    const run = first.authorityManager.getActiveRun();
+    const result = await first.runtime.executeIntent({ intent: name, commandId: `checkpoint-${++sequence}`,
+      missionId: run.missionId, runId: run.runId, expectedRevision: run.revision, payload, deferEffects: true });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    return result;
+  };
+  await intent('prepare_mission');
+  await until(() => first.authorityManager.getExecutionSnapshot().view.allowedActions.includes('start_boarding'));
+  await intent('start_boarding');
+  await until(() => first.runtime.publicState().effects.pendingEffects.length === 0);
+  await intent('set_manifest_item', { itemId: 'box', action: 'load' });
+  assert.equal((await first.runtime.diagnostics()).persistence.attempts, 0);
+  await first.runtime.flush();
+  const filename = path.join(first.testDirectory, 'authority.json');
+  assert.equal(JSON.parse(fs.readFileSync(filename)).activeRun.executionState.manifest.items[0].status, 'loaded');
+  await intent('set_manifest_item', { itemId: 'box', action: 'unload' });
+  assert.equal(first.authorityManager.getExecutionSnapshot().state.manifest.items[0].status, 'unloaded');
+  assert.equal(JSON.parse(fs.readFileSync(filename)).activeRun.executionState.manifest.items[0].status, 'loaded');
+  process.kill(first.runtime.publicState().processId, 'SIGKILL');
+  await until(() => !first.runtime.publicState().processAvailable);
+  const second = await fixture(t, { authority: { storageFile: filename, checkpointIntervalMs: 60000 } });
+  assert.equal(second.authorityManager.getExecutionSnapshot().state.manifest.items[0].status, 'loaded');
+  const commands = [], payloads = [];
+  second.runtime.attachSimulator({ ...simulator,
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'completed' }; },
+    syncPayloadManifestState: request => { payloads.push(request); return { ok: true, status: 'completed' }; }
+  });
+  await until(() => commands.some(command => command.type === 'mission_scene_object_remove' && command.itemIds.includes('box')));
+  assert.ok(payloads.some(request => request.manifest.items[0].status === 'loaded'));
+  assert.equal(commands.filter(command => command.type === 'mission_scene_object_spawn').length, 0);
+  await second.close();
 });
