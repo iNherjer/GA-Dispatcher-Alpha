@@ -994,7 +994,8 @@
         if (event.type === 'POI_LIFECYCLE_OBSERVED') return state.recipe === 'poi' && state.flags.started && !state.flags.closed
             && ['flightEligible', 'canEndHere', 'endedAtHome', 'needsRideHome'].every(function (key) { return typeof object(eventPayload.poiLifecycle)[key] === 'boolean'; });
         if (event.type === 'POI_ACTION_VOICE_REQUESTED') return poiActionAllowed(state)
-            && ['poi_status', 'poi_orientation'].includes(eventPayload.action)
+            && ['poi_status', 'poi_orientation', 'poi_tell_more'].includes(eventPayload.action)
+            && (eventPayload.action !== 'poi_tell_more' || (state.flags.active && eventPayload.resolvedRecipe?.taskDomain === 'poi_learning_guide'))
             && eventPayload.resolvedRecipe?.schema === 'ga.mission-poi-voice-recipe.v1'
             && eventPayload.resolvedRecipe.missionId === state.missionId;
         if (event.type === 'POI_VOICE_TEXT_READY') return state.recipe === 'poi' && (state.flags.active
@@ -1278,6 +1279,7 @@
         } else if (event.type === 'POI_LIFECYCLE_OBSERVED') {
             state.poiLifecycle = canonicalValue(event.payload.poiLifecycle);
         } else if (event.type === 'POI_ACTION_VOICE_REQUESTED') {
+            if (event.payload.action === 'poi_tell_more' && poiVoiceCore) state.voice.poiMemory = poiVoiceCore.normalizeMemory(event.payload.memory);
             appendEffect(state, createEffect(state, event, 'voice.poi', canonicalValue(event.payload)));
         } else if (event.type === 'POI_VOICE_TEXT_READY') {
             var speakingEffect = state.effects.find(function (effect) { return effect.effectId === event.payload.effectId; });
@@ -1629,9 +1631,9 @@
             }
             if (state.recipe === 'poi' && poiVoiceCore && acknowledgedEffect && acknowledgedEffect.type !== 'voice.poi'
                 && acknowledgedEffect.type.indexOf('voice.') === 0 && spokenOutcome.text
-                && object(spokenOutcome.speaker).taskDomain === 'sightseeing_tour') {
+                && ['sightseeing_tour', 'poi_learning_guide'].indexOf(object(spokenOutcome.speaker).taskDomain) >= 0) {
                 state.voice.poiMemory = poiVoiceCore.captureMemory(state.voice.poiMemory || {},
-                    acknowledgedEffect.type, spokenOutcome.text, 'sightseeing_tour');
+                    acknowledgedEffect.type, spokenOutcome.text, object(spokenOutcome.speaker).taskDomain);
             }
             if (acknowledgedEffect && acknowledgedEffect.type === 'voice.boarding') {
                 state.voice.boarding = normalizeVoiceOutcome({
@@ -1767,7 +1769,10 @@
     function allowedActions(rawState) {
         var state = normalizeState(rawState);
         var actions = [];
-        if (poiActionAllowed(state)) actions.push('poi_status', 'poi_orientation');
+        if (poiActionAllowed(state)) {
+            actions.push('poi_status', 'poi_orientation');
+            if (state.flags.active) actions.push('poi_tell_more');
+        }
         if (state.flags.active && !state.flags.closingPending && !state.flags.farewellStarted
             && !state.flags.farewellCompleted && !state.flags.unloadConfirmed && state.phase !== 'closing'
             && !state.effects.some(function(effect) { return effect.type === 'voice.flight' && effect.status === 'requested' && effect.payload.kind === 'pax_query'; }))

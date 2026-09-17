@@ -1,3 +1,4 @@
+const poiVoiceAvailability = require('../mission-poi-voice-core.js');
 const followupCore = require('./tracker-mission-followup.js');
 const paxQueryCore = require('../mission-pax-query-core.js');
 const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
@@ -524,7 +525,9 @@ function publicExecutionSnapshot(run) {
         healthPct: item.healthPct
       }))
     },
-    allowedActions: view.allowedActions.filter(action => !action.startsWith('pax_') || paxQueryCore.available(executionPaxQueryContext(run), runtime?.latestTelemetry || {}).includes(action)),
+    allowedActions: view.allowedActions.filter(action => action === 'poi_tell_more'
+      ? poiVoiceAvailability.knowledgeAvailable(run.resumeBundle?.executionPoiRecipe?.voiceContext, state.voice?.poiMemory, state.flags.active)
+      : !action.startsWith('pax_') || paxQueryCore.available(executionPaxQueryContext(run), runtime?.latestTelemetry || {}).includes(action)),
     blockingReasons: view.blockingReasons.slice(),
     nextStep: view.nextStep
   };

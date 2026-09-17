@@ -797,9 +797,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       if (!cue) return errorResult('pax_query_not_available');
       return submitEvent(snapshot, 'APT_FLIGHT_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }
-    if (['poi_status', 'poi_orientation'].includes(intent)) {
+    if (['poi_status', 'poi_orientation', 'poi_tell_more'].includes(intent)) {
       const recipe = authorityManager.getExecutionPoiRecipe?.();
       if (snapshot.recipe !== 'poi' || !poiRuntime.hasLifecycle(recipe)) return errorResult('poi_lifecycle_required');
+      if (intent === 'poi_tell_more' && !snapshot.state.flags.active) return errorResult('poi_knowledge_not_available');
       const position = safeObject(request.livePosition);
       const sample = { ...observations.latestTelemetry, ...position };
       if (Number.isFinite(position.altFt ?? position.alt)) sample.altFt = position.altFt ?? position.alt;

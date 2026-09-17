@@ -340,3 +340,46 @@ ungepruefte Paketuebernahme bauen. Chunk-Quittierung ist keine fachliche
 Authority-Bestaetigung. Erst die bestehende Authority-Antwort entscheidet ueber
 Besitz/Revision und die weitere UI-Aktion. Details, Grenzen und Testfaelle stehen
 im [Transport-Audit](Mission%20Lossless%20Transport%20Audit.md#ergaenzung-v421-relay-geraetewechsel-umgesetzt).
+
+## v436: POI Learning Guide und getrennte Loops
+
+- Gate erweitert um `poi_learning_guide`; Survey/Mapping, POI-Ketten, Training,
+  SAR und Bush bleiben an ihren spezialisierten Vertraegen gesperrt.
+- Originalfunktionen aus `passenger-voice.js` werden generiert wiederverwendet:
+  reichhaltige Wissensboegen, Kern-/Zusatzfakten und die manuelle Aktion
+  `poi_tell_more` (»Erzaehl mal«), einschliesslich Erschoepfungsantwort.
+  Ohne akzeptierte Faktenbasis bleibt der normale Flug moeglich; die manuelle
+  Wissensaktion ist nicht verfuegbar. Keine neue KI-Faktenproduktion.
+- Faktenbasis reist im Voice-Kontext. Manuell reservierte Fakten-IDs liegen in
+  `state.voice.poiMemory.knowledgeManual`; bereits erzaehlter Text in
+  `knowledgeSpoken`. Die Reservierung erfolgt mit dem Intent im Worker vor dem
+  Audioeffekt, damit mehrere Clients denselben Fortschritt sehen. Auch Boarding-
+  und Anflug-Voice-ACKs erfassen Lernfakten wie beim Sightseeing.
+- App und EFB senden dieselbe Aktion; Verfuegbarkeit und Auswahl entscheidet die
+  Tracker-Autoritaet. Der Browser fuehrt unter Tracker-Autoritaet keine zweite
+  manuelle Faktenauswahl aus. Standalone nutzt weiterhin die Originalfunktion.
+- Die v425+ Trennung bleibt erhalten: Telemetrie/SimConnect/HTTP/Audio im Parent,
+  Missionszustand, Auswertung und Intent-Validierung im Worker. Keine neue Arbeit
+  im Telemetrie-Callback, keine zusaetzlichen synchronen Writes pro Trigger.
+- Vom Nutzer akzeptiert: RAM-Bestaetigung mit periodischem Checkpoint (~5 s),
+  kein garantiert dauerhafter Trigger bei hartem Prozessabbruch. Ein Abschnitt
+  kann dann erneut geflogen werden muessen. Normale Wiederherstellung verwendet
+  die zuletzt gespeicherte Faktenliste und den bestehenden Effektschutz.
+
+### Flugwegsegmente fuer die naechsten Familien
+
+Der bisherige Kruemelweg verbindet gemessene Punkte grafisch; er liefert keine
+zusaetzlichen gemessenen Telemetriezustaende. Die Worker-IPC fasst Positionsupdates
+bei Rueckstau auf den neuesten Stand zusammen. Ihr Motion-Puffer dient Komfort
+und Belastung, nicht einer vollstaendigen Survey-Flugspur.
+
+Fuer Survey/Mapping und Ketten deshalb im naechsten Integrationsschritt kurze,
+zeitlich und raeumlich begrenzte Segmente zwischen gueltigen Messpunkten pruefen.
+Pause, Menue, Slew/Teleport, lange Luecken und Worker-Neustart muessen eine
+Segmentkette unterbrechen. Segmentkreuzungen koennen verpasste raeumliche Trigger
+abdecken; sie duerfen keine Verweilzeit, Hoeheneinhaltung, Landung oder g-Werte
+erfinden. In v436 ist keine solche Fortschrittsinterpolation aktiviert.
+
+Validierung: eingefrorene Originalfunktionen als Differentialreferenz, reichhaltige
+Faktenbasis und manuelle Folge bis zur Erschoepfung; kompletter Lifecycle mit/ohne
+Wissen, Replay/Restart, Browser-Replay und echter Child-Worker-Intent.

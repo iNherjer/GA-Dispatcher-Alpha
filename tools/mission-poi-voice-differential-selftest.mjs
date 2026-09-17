@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import core from '../mission-poi-voice-core.js';
 const frozen = fs.readFileSync(new URL('./fixtures/poi-voice-legacy-20260915.js', import.meta.url), 'utf8');
 const knowledge = fs.readFileSync(new URL('./fixtures/poi-sightseeing-knowledge-legacy-20260916.js',import.meta.url),'utf8');
+const learning = fs.readFileSync(new URL('./fixtures/poi-learning-legacy-20260917.js',import.meta.url),'utf8');
 const app = fs.readFileSync(new URL('../passenger-voice.js', import.meta.url), 'utf8');
 const modern = fs.readFileSync(new URL('../mission-poi-voice-core.js', import.meta.url), 'utf8');
 const json = value => JSON.parse(JSON.stringify(value));
@@ -24,7 +25,7 @@ function original(context, cue, memory, randomValue) {
     _poiKnowledgeSpokenMemory: memory.knowledgeSpoken || '', _poiKnowledgeContextKey:'', _poiKnowledgeManualFactIndices:new Set(), _paxStrictMode: context.strict, _poiDwellSec: cue.detector.dwellSec
   };
   vm.createContext(sandbox);
-  vm.runInContext(frozen + knowledge, sandbox);
+  vm.runInContext(frozen + knowledge + learning, sandbox);
   const prompt = sandbox[cue.prompt](...cue.args);
   sandbox._capturePoiNarrativeMemory('Objekt in Sicht', 'Äh, dort liegt die Eisenbahn. Ein zweiter Satz.');
   return { prompt, memory: json({ ...sandbox._poiNarrativeMemory, inspectionOutcome: sandbox._poiInspectionOutcome, ...(sandbox._poiKnowledgeSpokenMemory ? {knowledgeSpoken:sandbox._poiKnowledgeSpokenMemory}: {}) }) };
@@ -35,7 +36,7 @@ for (const domain of core.DOMAINS) for (const strict of [true, false]) {
     const context = { schema: core.CONTEXT_SCHEMA, version: 1, missionId: 'voice-parity', taskDomain: domain,
       strict, audioEnabled: false, baseContext: 'Originale Persona und Auftrag.', toneHint: ' Nur Deutsch.',
       passenger: { targetAltFt: 3000, targetRadiusNm: 1.5, targetDwellMin: 2 }, missionData: { poiName: 'Testobjekt' },
-      ...(domain==='sightseeing_tour'?{knowledgeContext:{status:'accept',title:'Testobjekt',facts:[{topic:'history',text:'Das Testobjekt wurde im neunzehnten Jahrhundert als regionales Bauwerk errichtet.'},{topic:'structure',text:'Am Testobjekt sind mehrere markante Turmbauten aus der Umgebung deutlich erkennbar.'}]}}:{}),
+      ...(['sightseeing_tour','poi_learning_guide'].includes(domain)?{knowledgeContext:{status:'accept',title:'Testobjekt',facts:[{topic:'history',text:'Das Testobjekt wurde im neunzehnten Jahrhundert als regionales Bauwerk errichtet.'},{topic:'structure',text:'Am Testobjekt sind mehrere markante Turmbauten aus der Umgebung deutlich erkennbar.'}]}}:{}),
       inspectionMeta: domain === 'inspection_infra' ? { objectName: 'Brücke' } : null,
       infraOutcome: null, professionalMeta: { entry: 'Einstieg.', result: 'Ergebnis.' },
       targetFacts: ['Die Bahntrasse verbindet mehrere historische Ortsteile.'],
@@ -57,7 +58,7 @@ for (const domain of core.DOMAINS) for (const strict of [true, false]) {
       assert.equal(actual.prompt, expected.prompt, `${domain}:${name}`);
       assert.deepEqual(core.captureMemory(actual.memory, 'Objekt in Sicht', 'Äh, dort liegt die Eisenbahn. Ein zweiter Satz.', domain), expected.memory);
       count++;
-      if (domain === 'sightseeing_tour') {
+      if (['sightseeing_tour','poi_learning_guide'].includes(domain)) {
         const withoutKnowledge = { ...context, knowledgeContext: null };
         const expectedWithout = original(withoutKnowledge, cue, memory, random);
         assert.equal(core.render(withoutKnowledge, cue, memory, random).prompt, expectedWithout.prompt, `optional knowledge:${name}`);
@@ -82,3 +83,35 @@ assert.match(tone._toneHint(), /Begrüßung höchstens kurz/);
 assert.match(tone._toneHint(true), /Keine neue Begrüßung/);
 assert.equal(tone._paxGreetingDone, false);
 console.log(`PASS: ${count} frozen-original/POI voice comparisons, narrative memory, browser export and tone isolation.`);
+
+// Rich guide prompts and manual core/extra fact sequence against frozen standalone code.
+const guideContext = { schema: core.CONTEXT_SCHEMA, version: 1, missionId: 'learning-rich',
+  taskDomain: 'poi_learning_guide', strict: true, audioEnabled: false, baseContext: 'Lernführer.', toneHint: '',
+  passenger: { targetAltFt: 3000, targetRadiusNm: 1, targetDwellMin: 2 }, missionData: { poiName: 'Brücke' },
+  targetFacts: [], visualLandmarks: [], knowledgeContext: { status: 'accept', title: 'Brücke',
+    facts: Array.from({length: 8}, (_, i) => ({topic: `topic${i}`, text: `Abschnitt ${i + 1} des historischen Bauwerks besitzt eine besondere und gut sichtbare architektonische Gestaltung.`})),
+    extraFacts: [{topic: 'extra', text: 'Das umliegende Tal ist von mehreren markanten geologischen Felsformationen umgeben.'}] } };
+for (const prompt of ['_poiEntryPrompt', '_poiSatisfiedPrompt']) {
+  const cue = { prompt, args: [{}], detector: { dwellSec: 120 } };
+  assert.equal(core.render(guideContext, cue, {}, .5).prompt, original(guideContext, cue, {}, .5).prompt);
+}
+let direct;
+const manual = vm.createContext({
+  window: { activePassenger: guideContext.passenger, missionRuntimeIsActive: () => true },
+  _isPOIMission: () => true, currentMissionData: guideContext.missionData, _activeTaskDomain: () => 'poi_learning_guide',
+  _activePoiKnowledgeContext: () => guideContext.knowledgeContext, _missionHasPax: () => true,
+  _poiNarrativeMemory: {}, _poiKnowledgeSpokenMemory: '', _poiKnowledgeContextKey: '',
+  _poiKnowledgeManualFactIndices: new Set(), _refreshPoiKnowledgeGuideMenu: () => {},
+  _paxSpeakTextDirect: (text, label) => { direct = { prompt: '', fallbackText: text, label }; }
+});
+vm.runInContext(frozen + knowledge + learning, manual);
+let guideMemory = {};
+for (let i = 0; i < 12; i++) {
+  manual.paxKnowledgeTellMore();
+  const actual = core.renderAction(guideContext, 'poi_tell_more', {}, {}, null, guideMemory);
+  assert.deepEqual({prompt: actual.prompt, fallbackText: actual.fallbackText, label: actual.label}, direct);
+  guideMemory = actual.memory;
+  assert.deepEqual(guideMemory.knowledgeManual, [...manual._poiKnowledgeManualFactIndices]);
+}
+assert.equal(core.knowledgeAvailable(guideContext, guideMemory, false), false);
+console.log('PASS: rich Learning Guide prompts and 12 original manual fact/exhaustion steps.');

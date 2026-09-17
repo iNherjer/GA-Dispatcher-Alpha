@@ -557,11 +557,11 @@ test('full POI runtime checkpoints steady enroute telemetry without rewriting eq
 });
 
 
-for (const withKnowledge of [true, false]) test(`Sightseeing completes and restores with optional knowledge=${withKnowledge}`, async t => {
+for (const domain of ['sightseeing_tour', 'poi_learning_guide']) for (const withKnowledge of [true, false]) test(`${domain} completes and restores with optional knowledge=${withKnowledge}`, async t => {
   const b = bundle();
-  b.executionPoiRecipe.taskDomain = 'sightseeing_tour';
+  b.executionPoiRecipe.taskDomain = domain;
   const context = b.executionPoiRecipe.voiceContext;
-  context.taskDomain = 'sightseeing_tour';
+  context.taskDomain = domain;
   context.knowledgeContext = { status: 'accept', title: 'Brücke', facts: [
     { topic: 'history', text: 'Die Brücke wurde im neunzehnten Jahrhundert als regionales Bauwerk errichtet.' },
     { topic: 'structure', text: 'An der Brücke sind mehrere markante Turmbauten aus der Umgebung deutlich erkennbar.' }
@@ -589,4 +589,55 @@ for (const withKnowledge of [true, false]) test(`Sightseeing completes and resto
   assert.equal(h.manager.getActiveRun(), null);
   assert.equal(h.farewell.length, 1);
   assert.equal(h.farewell[0].farewellDynamicContext.missionFailed, false);
+});
+
+for (const workerScheduling of [false, true]) test(`Learning guide reserves original manual facts across restart; worker=${workerScheduling}`, async t => {
+  const b = bundle();
+  b.executionPoiRecipe.taskDomain = b.executionPoiRecipe.voiceContext.taskDomain = 'poi_learning_guide';
+  b.executionPoiRecipe.voiceContext.knowledgeContext = { status: 'accept', title: 'Brücke', facts: [
+    { text: 'Die alte Brücke besteht aus mehreren historischen steinernen Rundbögen über dem Fluss.' },
+    { text: 'Eine Eisenbahnstrecke verbindet die benachbarten Ortschaften seit dem neunzehnten Jahrhundert.' }
+  ], extraFacts: [{ text: 'Am östlichen Ufer befindet sich ein ausgedehntes Schutzgebiet für seltene Wasservögel.' }] };
+  const h = await harness(t, { bundle: replay(b), workerScheduling });
+  assert.equal(h.manager.getPublicSnapshot().execution.allowedActions.includes('poi_tell_more'), false);
+  await h.start(); h.sample(10000);
+  assert.equal(h.manager.getPublicSnapshot().execution.allowedActions.includes('poi_tell_more'), true);
+  await h.intent('poi_tell_more');
+  assert.deepEqual(h.manager.getExecutionSnapshot().state.voice.poiMemory.knowledgeManual, ['core:0']);
+  const first = h.manager.getExecutionSnapshot().state.effects.find(e => e.payload.action === 'poi_tell_more');
+  assert.match(first.payload.resolvedRecipe.fallbackText, /Klar. Noch ein Punkt: Die alte Brücke/);
+  assert.equal(first.payload.resolvedRecipe.prompt, ''); // original direct speech, no invented AI facts
+  await h.restart(); h.sample(12000);
+  await h.intent('poi_tell_more');
+  assert.deepEqual(h.manager.getExecutionSnapshot().state.voice.poiMemory.knowledgeManual, ['core:0', 'core:1']);
+  await h.intent('poi_tell_more');
+  assert.deepEqual(h.manager.getExecutionSnapshot().state.voice.poiMemory.knowledgeManual, ['core:0', 'core:1', 'extra:0']);
+  await h.intent('poi_tell_more');
+  const last = h.manager.getExecutionSnapshot().state.effects.filter(e => e.payload.action === 'poi_tell_more').at(-1);
+  assert.match(last.payload.resolvedRecipe.fallbackText, /Mehr weiß ich dazu leider auch nicht/);
+});
+
+test('Learning guide without accepted knowledge runs but exposes no tell-more action', async t => {
+  const b = bundle(); b.executionPoiRecipe.taskDomain = b.executionPoiRecipe.voiceContext.taskDomain = 'poi_learning_guide';
+  const h = await harness(t, { bundle: replay(b) }); await h.start(); h.sample(10000);
+  assert.equal(h.manager.getPublicSnapshot().execution.allowedActions.includes('poi_tell_more'), false);
+  assert.equal((await h.rawIntent('poi_tell_more')).ok, false);
+});
+
+test('App learning menu follows authority updates without using local fact counters', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../passenger-voice.js'), 'utf8');
+  const menu = { style: {} }, button = {};
+  let update;
+  const sandbox = { document: { getElementById: id => id === 'paxKnowledgeGuideMenu' ? menu : button },
+    _refreshMissionActionMenu: () => {},
+    window: { gaTrackerExecutionHandlesMission: () => true, gaTrackerExecutionControl: { allowedActions: [] },
+      addEventListener: (_, fn) => { update = fn; } } };
+  vm.createContext(sandbox);
+  vm.runInContext(source.slice(source.indexOf('function _refreshPoiKnowledgeGuideMenu()'), source.indexOf('function _activeBushMissionSpec()')), sandbox);
+  vm.runInContext(source.match(/window\.addEventListener\('missioncontrolchange'.*\n/)[0], sandbox);
+  update(); assert.equal(menu.style.display, 'none'); assert.equal(button.disabled, true);
+  sandbox.window.gaTrackerExecutionControl.allowedActions = ['poi_tell_more'];
+  update(); assert.equal(menu.style.display, 'grid'); assert.equal(button.disabled, false);
+  sandbox.window.gaMissionControlIntentPending = true;
+  update(); assert.equal(button.disabled, true);
 });

@@ -7,12 +7,13 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(taskCore) {
 'use strict';
 const CONTEXT_SCHEMA = 'ga.mission-poi-voice-context.v1';
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide']);
 const PROMPTS = Object.freeze(["_poiEntryPrompt","_poiInSightPrompt","_poiAltComplaintPrompt","_poiAltCorrectedPrompt","_poiSatisfiedPrompt","_poiAbortPrompt","_poiMissingCargoAbortPrompt"]);
 const clone = value => JSON.parse(JSON.stringify(value));
 function normalizeMemory(value = {}) {
   return { pre: String(value?.pre || '').slice(0, 180), entry: String(value?.entry || '').slice(0, 180),
     done: String(value?.done || '').slice(0, 180), inspectionOutcome: String(value?.inspectionOutcome || '').slice(0, 40) || null,
+    ...(Array.isArray(value?.knowledgeManual) && value.knowledgeManual.length ? { knowledgeManual: value.knowledgeManual.filter(x => typeof x === 'string').slice(-512) } : {}),
     ...(value?.knowledgeSpoken ? { knowledgeSpoken: String(value.knowledgeSpoken).slice(-4000) } : {}) };
 }
 function validateContext(context, missionId = context?.missionId) {
@@ -30,7 +31,7 @@ function validateContext(context, missionId = context?.missionId) {
 }
 function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const window = { activePassenger: context.passenger, lastLiveGpsPos: cue.sample || {}, lastLiveFlightData: cue.sample || cue.dynamic?.liveWeather,
-    paxVoiceGetPoiMissionProgress: () => cue.dynamic?.poiProgress || {} };
+    paxVoiceGetPoiMissionProgress: () => cue.dynamic?.poiProgress || {}, missionRuntimeIsActive: () => cue.active !== false };
   const _paxDebugMotionProtectionEnabled = () => context.motionProtectionEnabled === true;
   const _consumeWeatherMismatchEasteregg = () => cue.dynamic?.weatherMismatchHint || '';
   const _bushPickupNarrativeHint = () => '';
@@ -83,7 +84,8 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _poiDwellSec = Number(cue.detector?.dwellSec || 0);
   const _poiNarrativeMemory = normalizeMemory(previous);
   let _poiKnowledgeSpokenMemory = String(previous.knowledgeSpoken || '').slice(-4000);
-  let _poiKnowledgeManualFactIndices = new Set();
+  let _poiKnowledgeManualFactIndices = new Set(previous.knowledgeManual || []);
+  const _refreshPoiKnowledgeGuideMenu = () => {};
   let _poiKnowledgeContextKey = _poiKnowledgeContextIdentity(_activePoiKnowledgeContext());
   let _poiInspectionOutcome = _poiNarrativeMemory.inspectionOutcome;
 function _poiMemoryCompact(text) {
@@ -578,6 +580,114 @@ function _poiKnowledgeFactHint(stage = 'generic') {
         return ` POI-KONTEXT (${label}, Quelle: akzeptierte Wiki-Basis zu ${target}): Wenn es natuerlich passt, erwaehne hoechstens einen kurzen Kontextpunkt als persoenliche Beobachtung, nicht als Fuehrung: ${clip}. Wiederhole keine bereits genannte Zahl, Nutzung oder Landmarke und erfinde keine Zusatzdaten.`;
     }
     return ` WISSENS-FAKTENQUEUE (${label}, Quelle: akzeptierte Wiki-Basis zu ${target}): Nutze genau diesen Fakt, falls er natuerlich passt, und erfinde keine Zusatzdaten: ${clip}. Wiederhole keine bereits genannte Zahl, Nutzung oder Landmarke.`;
+}
+
+function _poiKnowledgeRichFactCount(stage = 'generic') {
+    const context = _activePoiKnowledgeContext();
+    const candidates = _poiKnowledgeFactCandidates();
+    const total = Math.max(
+        candidates.length,
+        Number.isFinite(Number(context?.selectedFacts)) ? Math.round(Number(context.selectedFacts)) : 0
+    );
+    const s = String(stage || 'generic').toLowerCase();
+    if (s === 'entry') {
+        if (total >= 8) return 3;
+        if (total >= 5) return 2;
+        return 1;
+    }
+    if (s === 'result') {
+        if (total >= 7) return 2;
+        return 1;
+    }
+    return 1;
+}
+
+function _poiKnowledgeFactSequenceHint(stage = 'generic') {
+    if (_activeTaskDomain() !== 'poi_learning_guide') return '';
+    const context = _activePoiKnowledgeContext();
+    const candidates = _poiKnowledgeFactCandidates();
+    if (!context || !candidates.length) return '';
+    const stageKey = String(stage || 'generic').toLowerCase();
+    const maxFacts = Math.max(1, Math.min(3, _poiKnowledgeRichFactCount(stageKey)));
+    if (maxFacts <= 1) return _poiKnowledgeFactHint(stageKey);
+    const ordered = candidates
+        .map(fact => ({ ...fact, score: _poiKnowledgeStageScore(fact, stageKey) }))
+        .sort((a, b) => (b.score - a.score) || (a.index - b.index));
+    const stagePool = ordered.filter(fact => Number(fact.index || 0) >= _poiKnowledgeStageMinIndex(stageKey));
+    const pool = stagePool.length ? stagePool : ordered;
+    const selected = [];
+    const seenTopics = new Set();
+    for (const fact of pool) {
+        if (_poiMemoryHasSimilarFact(fact.text)) continue;
+        const topic = String(fact.topic || 'general').toLowerCase();
+        if (seenTopics.has(topic) && selected.length < Math.min(2, maxFacts)) continue;
+        selected.push(fact);
+        seenTopics.add(topic);
+        if (selected.length >= maxFacts) break;
+    }
+    for (const fact of pool) {
+        if (selected.length >= maxFacts) break;
+        if (selected.some(x => x.text === fact.text)) continue;
+        if (_poiMemoryHasSimilarFact(fact.text)) continue;
+        selected.push(fact);
+    }
+    if (!selected.length) return _poiKnowledgeFactHint(stageKey);
+    if (selected.length === 1) return _poiKnowledgeFactHint(stageKey);
+    const target = String(context.title || 'Zielgebiet').replace(/\s+/g, ' ').trim();
+    const label = stageKey === 'result' ? 'Fazit' : 'Zielgebiet';
+    const facts = selected.map((fact, index) => {
+        const cleanText = String(fact.text || '').replace(/[.!?]+$/, '').trim();
+        const clip = cleanText.length > 180 ? `${cleanText.slice(0, 177)}...` : cleanText;
+        return `${index + 1}. ${clip}`;
+    }).join(' ');
+    return ` WISSENS-FAKTENQUEUE (${label}, Quelle: akzeptierte Wiki-Basis zu ${target}): Es gibt hier genug Stoff; nutze ${selected.length} kurze, unterschiedliche Fakten als kleinen Erzaehlbogen und erfinde keine Zusatzdaten: ${facts}. Wiederhole keine bereits genannte Zahl, Nutzung oder Landmarke.`;
+}
+
+function _poiKnowledgeManualFactCandidates() {
+    return _poiKnowledgeFactCandidates({ includeExtraFacts: true });
+}
+
+function _poiKnowledgeTellMoreAvailable() {
+    if (_activeTaskDomain() !== 'poi_learning_guide') return false;
+    if (typeof window.missionRuntimeIsActive === 'function' && !window.missionRuntimeIsActive()) return false;
+    if (!window.activePassenger || !_missionHasPax()) return false;
+    return _poiKnowledgeManualFactCandidates().length > 0;
+}
+
+function _poiKnowledgeFreshFactCount() {
+    const candidates = _poiKnowledgeManualFactCandidates();
+    return candidates.filter(fact => (
+        !_poiKnowledgeManualFactIndices.has(_poiKnowledgeFactKey(fact))
+        && !_poiMemoryHasSimilarFact(fact.text)
+    )).length;
+}
+
+function _poiKnowledgeManualFactClip(text = '') {
+    const clean = _poiKnowledgeCleanFactText(text).replace(/[.!?]+$/, '').trim();
+    if (clean.length <= 340) return clean;
+    const clipped = clean.slice(0, 337).replace(/\s+\S*$/, '').trim();
+    return clipped || clean.slice(0, 337).trim();
+}
+
+function _poiKnowledgeNextManualFact() {
+    const context = _activePoiKnowledgeContext();
+    if (!context) return null;
+    _poiKnowledgeSyncContext(context);
+    const candidates = _poiKnowledgeManualFactCandidates();
+    const fresh = candidates.find(fact => (
+        !_poiKnowledgeManualFactIndices.has(_poiKnowledgeFactKey(fact))
+        && !_poiMemoryHasSimilarFact(fact.text)
+    ));
+    if (!fresh) return null;
+    _poiKnowledgeManualFactIndices.add(_poiKnowledgeFactKey(fresh));
+    return fresh;
+}
+
+function _poiKnowledgeTargetName(context = null) {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    return String(context?.title || md.poiName || md.targetName || 'dem Ziel')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function _poiEntryPrompt(flightData) {
@@ -1218,7 +1328,31 @@ Antworte zuerst mit Steuerkurs und Entfernung in ganzen NM, danach eine kurze Zi
         : `${vector} Ziel ist ${ctx.targetName}; nutze die naechste markante Struktur im Zielgebiet als Bezug und halte weiter Ausschau.`;
     _missionActionSpeak(prompt, 'Orientierung', fallback);
 }
+function paxKnowledgeTellMore() {
+    const context = _activePoiKnowledgeContext();
+    if (!_poiKnowledgeTellMoreAvailable()) {
+        _paxSpeakTextDirect('Dazu habe ich gerade keine gesicherte Faktenbasis geladen.', 'Erzähl mal');
+        return;
+    }
+    const fact = _poiKnowledgeNextManualFact();
+    const target = _poiKnowledgeTargetName(context);
+    if (!fact) {
+        _paxSpeakTextDirect(`Mehr weiß ich dazu leider auch nicht. Die gesicherten Punkte zu ${target} haben wir damit durch.`, 'Erzähl mal');
+        _refreshPoiKnowledgeGuideMenu();
+        return;
+    }
+    const clip = _poiKnowledgeManualFactClip(fact.text);
+    const intro = _poiKnowledgeManualFactIndices.size <= 1 ? 'Klar. Noch ein Punkt:' : 'Noch ein Punkt:';
+    _paxSpeakTextDirect(`${intro} ${clip}.`, 'Erzähl mal');
+    _refreshPoiKnowledgeGuideMenu();
+}
+  if (cue.availability) return _poiKnowledgeTellMoreAvailable();
   if (cue.action) {
+    if (cue.action === 'poi_tell_more') {
+      if (!_poiKnowledgeTellMoreAvailable()) throw new TypeError('poi_knowledge_not_available');
+      paxKnowledgeTellMore();
+      return { ...actionResult, memory: normalizeMemory({ ...previous, knowledgeManual: [..._poiKnowledgeManualFactIndices] }) };
+    }
     if (cue.action === 'poi_status') _poiMissionStatusAction(); else _poiMissionOrientationAction(true);
     return actionResult;
   }
@@ -1242,7 +1376,7 @@ function render(context, cue, previous = {}, randomValue = 0.5) {
   return result;
 }
 function captureMemory(previous, label, text, taskDomain = 'media_photo') {
-  return original({ taskDomain, captureKnowledge: taskDomain === 'sightseeing_tour' }, previous, { capture: { label, text } }).memory;
+  return original({ taskDomain, captureKnowledge: ['sightseeing_tour', 'poi_learning_guide'].includes(taskDomain) }, previous, { capture: { label, text } }).memory;
 }
 function renderFarewell(context, dynamic = {}, previous = {}) {
   const error = validateContext(context);
@@ -1254,10 +1388,13 @@ function renderFarewell(context, dynamic = {}, previous = {}) {
 function renderAction(context, action, detector, sample, target, previous = {}) {
   const error = validateContext(context);
   if (error) throw new TypeError(error);
-  if (!['poi_status', 'poi_orientation'].includes(action)) throw new TypeError('poi_action_invalid');
+  if (!['poi_status', 'poi_orientation', 'poi_tell_more'].includes(action)) throw new TypeError('poi_action_invalid');
   const result = original(clone(context), clone(previous), { action, detector: clone(detector || {}), sample: clone(sample || {}), target: clone(target) });
   if (result.prompt.length > 24000) throw new TypeError('poi_voice_prompt_too_large');
   return result;
 }
-return Object.freeze({ renderAction, renderFarewell, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
+function knowledgeAvailable(context, memory = {}, active = true) {
+  return original(context || {}, memory || {}, { availability: true, active });
+}
+return Object.freeze({ knowledgeAvailable, renderAction, renderFarewell, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
 });

@@ -5616,3 +5616,11 @@ CSS-/Flex-Drehungen, die in der schmalen Windrose versetzte Zahlen erzeugen
 koennen. Der Host-Hook gilt fuer Ladezustand und geladenes METAR; die Standalone
 behaelt ihre bisherige Darstellung. Die Wettertext-Umstellung aus v434 wird
 zurueckgenommen. Zoom-/Wegpunktkorrekturen und Bewegungsdiagnose bleiben enthalten.
+
+### 2026-09-17 — v436 Lernfuehrer
+
+PAX-Menue bietet fuer aktive Tracker-Lernfuehrer »Erzaehl mal«, sofern akzeptierte
+Fakten vorhanden sind. Aktion und Faktenverbrauch gehoeren dem Mission-Worker;
+App und EFB verwenden dessen `allowedActions`. Die Standalone-Funktion bleibt
+erhalten. Gate: `poi_learning_guide` offen; Survey/Ketten noch nicht freigegeben.
+Keine Aenderung an Telemetrie-Loop oder periodischer Checkpoint-Strategie.

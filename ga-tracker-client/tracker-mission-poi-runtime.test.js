@@ -965,12 +965,12 @@ test('browser and tracker replay the same POI text memory and resolved prompt ha
   assert.equal(replay.state.voice.poiMemory.pre, 'Die Eisenbahn liegt neben dem Ziel');
 });
 
-test('Sightseeing spoken knowledge survives disk restore and browser replay before audio ACK', t => {
-  const context = voiceContext({ taskDomain: 'sightseeing_tour', knowledgeContext: { status: 'accept', title: 'Brücke', facts: [
+for (const domain of ['sightseeing_tour', 'poi_learning_guide']) test(`${domain} spoken knowledge survives disk restore and browser replay before audio ACK`, t => {
+  const context = voiceContext({ taskDomain: domain, knowledgeContext: { status: 'accept', title: 'Brücke', facts: [
     { topic: 'history', text: 'Die Brücke wurde im neunzehnten Jahrhundert als regionales Bauwerk errichtet.' },
     { topic: 'structure', text: 'An der Brücke sind mehrere markante Turmbauten aus der Umgebung deutlich erkennbar.' }
   ] } });
-  const f = fixture(t, { recipe: recipe({ taskDomain: 'sightseeing_tour', voiceContext: context }) });
+  const f = fixture(t, { recipe: recipe({ taskDomain: domain, voiceContext: context }) });
   f.driver.observeTelemetry(sample(1000, { lon: .04 }));
   const effect = f.manager.getExecutionSnapshot().state.effects.find(e => e.type === 'voice.poi');
   assert.ok(effect);

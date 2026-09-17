@@ -3058,6 +3058,13 @@ function _missionActionMenuAvailable() {
 function _refreshPoiKnowledgeGuideMenu() {
     const menu = document.getElementById('paxKnowledgeGuideMenu');
     if (!menu) return;
+    if (window.gaTrackerExecutionHandlesMission?.()) {
+        const allowed = window.gaTrackerExecutionControl?.allowedActions?.includes('poi_tell_more');
+        menu.style.display = allowed ? 'grid' : 'none';
+        const button = document.getElementById('paxKnowledgeTellMoreBtn');
+        if (button) { button.disabled = !allowed || window.gaMissionControlIntentPending === true; button.title = 'Weitere gesicherte Fakten vorlesen'; }
+        return;
+    }
     const active = _poiKnowledgeTellMoreAvailable();
     menu.style.display = active ? 'grid' : 'none';
     const btn = document.getElementById('paxKnowledgeTellMoreBtn');
@@ -3845,6 +3852,7 @@ function _missionActionSpeak(prompt, eventLabel, fallbackText) {
 }
 
 window.paxKnowledgeTellMore = function() {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('poi_tell_more');
     const context = _activePoiKnowledgeContext();
     if (!_poiKnowledgeTellMoreAvailable()) {
         _paxSpeakTextDirect('Dazu habe ich gerade keine gesicherte Faktenbasis geladen.', 'Erzähl mal');
@@ -4069,7 +4077,7 @@ window.paxMissionOrientationHelp = function(_cityRetry = false) {
     return _poiMissionOrientationAction(_cityRetry);
 };
 
-window.addEventListener('missioncontrolchange', () => _refreshMissionActionMenu());
+window.addEventListener('missioncontrolchange', () => { _refreshMissionActionMenu(); _refreshPoiKnowledgeGuideMenu(); });
 
 window.paxMissionReportTargetFound = function() {
     if (!_isPOIMission() || _activeTaskDomain() !== 'search_and_rescue') {
@@ -9870,7 +9878,7 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
         baseContext: _baseContext(), toneHint: _toneHint(true),
         passenger: { ...window.activePassenger }, missionData: { poiName: md.poiName, targetName: md.targetName, dest: md.dest },
         mapPlaceOrientationLine: _paxMapPlaceOrientationLine(),
-        ...( _activeTaskDomain() === 'sightseeing_tour' ? { knowledgeContext: _activePoiKnowledgeContext() } : {} ),
+        ...( ['sightseeing_tour', 'poi_learning_guide'].includes(_activeTaskDomain()) ? { knowledgeContext: _activePoiKnowledgeContext() } : {} ),
         inspectionMeta: _inspectionMissionMeta(), infraOutcome: _activeInfraInspectionOutcome(),
         professionalMeta: _professionalRoleMeta(),
         targetFacts: _targetContextFactCandidates(),

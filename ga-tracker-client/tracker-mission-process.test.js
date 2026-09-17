@@ -322,3 +322,55 @@ test('cargo changes stay in RAM until checkpoint; killed worker restores saved m
   assert.equal(commands.filter(command => command.type === 'mission_scene_object_spawn').length, 0);
   await second.close();
 });
+
+test('Learning Guide gate and manual fact reservation cross the real worker boundary', async t => {
+  const voice = require('../mission-poi-voice-core.js');
+  const poi = require('./tracker-mission-poi-runtime.js');
+  const lifecycle = require('../mission-poi-lifecycle-core.js');
+  const host = await fixture(t, { authority: { poiExecutionEnabled: true } });
+  const b = aptBundle();
+  b.adapter = 'poi'; b.descriptor.primaryAdapter = 'poi';
+  b.missionState.currentMissionData.missionType = 'poi';
+  const passenger = { name: 'Maja', targetRadiusNm: 1, targetAltFt: 3000, targetDwellMin: 1 };
+  b.executionPoiRecipe = { schema: poi.RECIPE_SCHEMA, version: 1, missionId: b.missionId,
+    taskDomain: 'poi_learning_guide', target: { lat: 48.3, lon: 8.5 }, home: { lat: 48, lon: 8 },
+    passenger, strict: true, trackingActive: true, lifecycle: { schema: lifecycle.SCHEMA },
+    voiceContext: { schema: voice.CONTEXT_SCHEMA, version: 1, missionId: b.missionId,
+      taskDomain: 'poi_learning_guide', passenger, speaker: passenger, strict: true, audioEnabled: false, baseContext: 'Lernführer am Ziel.',
+      knowledgeContext: { status: 'accept', title: 'Brücke', facts: [
+        { topic: 'history', text: 'Die alte Brücke verbindet seit vielen Jahrhunderten die beiden historischen Ortsteile.' }
+      ] } } };
+  b.executionEffectPlan.schema = 'ga.mission-poi-effect-plan.v1';
+  b.executionEffectPlan.recipe = 'poi';
+  Object.assign(b.executionEffectPlan.effects, {
+    'scene.deboarding': { none: true }, 'scene.target': { none: true },
+    'voice.boarding': { recipe: require('../mission-boarding-voice-core.js').createRecipe({ missionId: b.missionId, prompt: 'Bereit.', audioEnabled: false }) },
+    'voice.approach': { context: { ...b.executionPoiRecipe.voiceContext, supported: true, mode: 'passenger' } },
+    'voice.farewell': { poiContextRef: true }
+  });
+  assert.equal(poi.validateBundle(b), null);
+  b.executionReplay = executionCore.createExecutionBundle(b);
+  b.execution = executionCore.createReplayShadowEnvelope(b.executionReplay, { sourceRevision: 1, legacyBundle: b });
+  await activate(host, b);
+  host.runtime.attachSimulator({
+    getLivePosition: () => ({ lat: 48, lon: 8, altFt: 500, hdg: 90 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }),
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' })
+  });
+  await until(() => host.runtime.publicState().simulatorAttached);
+  for (const intent of ['prepare_mission', 'start_boarding', 'confirm_load', 'start_mission']) {
+    const run = host.authorityManager.getActiveRun();
+    const result = await host.runtime.executeIntent({ intent, commandId: `learning-${intent}`,
+      missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    await delay(100);
+  }
+  await until(() => host.authorityManager.getExecutionSnapshot().state.flags.active);
+  const run = host.authorityManager.getActiveRun();
+  const result = await host.runtime.executeIntent({ intent: 'poi_tell_more', commandId: 'learning-fact',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  await until(() => host.authorityManager.getExecutionSnapshot().state.voice.poiMemory?.knowledgeManual?.length === 1);
+  assert.deepEqual(host.authorityManager.getExecutionSnapshot().state.voice.poiMemory.knowledgeManual, ['core:0']);
+});

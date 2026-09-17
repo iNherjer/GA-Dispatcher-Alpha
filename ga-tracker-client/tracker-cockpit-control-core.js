@@ -13,6 +13,7 @@ const MISSION_INTENTS = new Set([
   'activate_cloud_mission',
   'poi_status',
   'poi_orientation',
+  'poi_tell_more',
   'prepare_mission',
   'start_boarding',
   'close_cargo_window',

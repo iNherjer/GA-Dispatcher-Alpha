@@ -33,7 +33,7 @@ module.exports = { prepareCue, recordGeneratedText };
 function prepareAction(context, action, detector, sample, target, memory = {}) {
   const rendered = core.renderAction(context, action, detector,
     { ...sample, mslFt: sample?.altFt ?? sample?.alt ?? sample?.mslFt }, target, memory);
-  return { action, label: rendered.label, notBefore: Date.now(), resolvedRecipe: {
+  return { action, ...(rendered.memory ? { memory: rendered.memory } : {}), label: rendered.label, notBefore: Date.now(), resolvedRecipe: {
     schema: 'ga.mission-poi-voice-recipe.v1', missionId: context.missionId, kind: 'poi',
     enabled: true, audioEnabled: context.audioEnabled, taskDomain: context.taskDomain,
     prompt: rendered.prompt, fallbackText: rendered.fallbackText, playCue: false,
