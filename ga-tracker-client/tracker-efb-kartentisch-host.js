@@ -1097,6 +1097,13 @@
       return result;
     }).catch(function(error) { window.aircraftPayloadStatus.error = error.message; throw error; });
   };
+  window.confirmAirportDirectTo = function(icao, lat, lon, encodedName) {
+    var name = String(icao || '');
+    try { if (encodedName) name = decodeURIComponent(encodedName); } catch (_) {}
+    if (!window.confirm(String(icao || name) + ' als Ziel übernehmen?')) return Promise.resolve(false);
+    return window.applyAirportDirectTo({icao:icao,name:name,lat:Number(lat),lon:Number(lon)},
+      {forceGpsStart:!!(flight && Date.now() - flight.capturedAt <= 15000)});
+  };
   window.applyAirportDirectTo = function(airport, options) {
     var control = missionSnapshot && missionSnapshot.control;
     if (control && control.runId && control.phase !== 'closed' && !missionSnapshot.cloudPending) {

@@ -1225,3 +1225,19 @@ body.ga-efb-tracker-host #mapHintsMenu button {
   color: #eef5ff !important;
   opacity: 1;
 }
+
+/* Coherent does not reliably support aspect-ratio/min() in compact weather cards.
+   A normal-flow square spacer keeps absolute runway/SVG layers measurable. */
+body.ga-efb-tracker-host .ga-weather-layout-responsive .ga-weather-windrose {
+  width: calc(100% - 8px) !important;
+  max-width: 148px;
+  height: auto !important;
+  aspect-ratio: auto !important;
+  flex: none !important;
+}
+body.ga-efb-tracker-host .ga-weather-layout-responsive .ga-weather-windrose::before {
+  content: '';
+  display: block;
+  width: 100%;
+  padding-top: 100%;
+}

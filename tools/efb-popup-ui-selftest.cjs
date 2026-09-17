@@ -147,6 +147,25 @@ app.whenReady().then(async()=>{
   await js(`map.closePopup();void 0;`);
   // Normal App host retains browser anchors and does not submit a PC command.
   assert.ok(await js(`(function(){const host=gaAirportPopupHost;window.gaAirportPopupHost=null;const html=_buildAptPopup('DEP','Lahr',512,'EDTL');window.gaAirportPopupHost=host;return html.includes('AIP VFR öffnen ↗')&&html.includes('target="_blank"');})()`));
+  const fixes=await js(`(async function(){
+   const originalConfirm=window.confirm;
+   window.confirm=()=>true;
+   __test.renderFlight({available:true,viewSessionId:'direct-test',lat:48.36,lon:7.83,alt:1800,hdg:30,capturedAt:Date.now(),flight:{gsKts:0}});
+   await confirmAirportDirectTo('EDTL',48.36,7.83,encodeURIComponent('Lahr – Süd'));
+   const request=__externalCalls[__externalCalls.length-1],count=__externalCalls.length;
+   window.confirm=()=>false;await confirmAirportDirectTo('EDDS',48.6,9.2,'Stuttgart');window.confirm=originalConfirm;
+   const host=document.createElement('div');host.style.width='140px';
+   host.innerHTML=renderAirportMetarLoadingWidget('EDTL','03/21 – 3000m',{responsiveEmbed:true});document.body.appendChild(host);
+   const rose=host.querySelector('.ga-weather-windrose'),rect=rose.getBoundingClientRect();
+   const svg=rose.querySelector('svg').getBoundingClientRect();host.remove();
+   return {request,cancelled:__externalCalls.length===count,width:rect.width,height:rect.height,svgHeight:svg.height};
+  })()`);
+  assert.equal(fixes.request.intent,'airport_direct_to');
+  assert.equal(fixes.request.payload.airport.name,'Lahr – Süd');
+  assert.equal(fixes.request.payload.forceGpsStart,true);
+  assert.equal(fixes.cancelled,true);
+  assert.ok(fixes.height>100 && Math.abs(fixes.width-fixes.height)<2,'windrose remains square without aspect-ratio');
+  assert.ok(fixes.svgHeight>100,'runway/compass SVG has visible height');
   assert.deepEqual(await js('__errors'),[]);
  }
  assert.deepEqual(results[0],results[1]);assert.ok(requests.some(x=>x.kind==='aviation'));

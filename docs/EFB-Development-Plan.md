@@ -5579,3 +5579,14 @@ lokaler Proxy sowie 4500/7000-ms-Budgets bleibt erhalten.
 Globale Kartenobergrenze 18 wie Standalone; FAA-Overlay ab Zoom 8 statt 5.
 Aero native 12, DFS native 11, FAA native 8–12 und DWD unveraendert.
 Assetrevision 43201. Kein Eingriff in Missionsausfuehrung.
+
+
+## v433: Flugplatz-Windrose und Direct To
+Kompakte EFB-Wetterkarten verwenden einen quadratischen CSS-Spacer statt
+aspect-ratio/min() fuer ihre Hoehe. Piste und SVG-Windrose bleiben dadurch in
+Coherent sichtbar. Standalone-Markup bleibt unveraendert.
+confirmAirportDirectTo wird im EFB bereitgestellt und ruft nach Bestaetigung
+den vorhandenen applyAirportDirectTo-/Cockpit-Tool-Pfad auf. Frisches GPS wird
+als Start bevorzugt; bestehende Missions-/Revisionsguards bleiben erhalten.
+Assetrevision 43301. UI-Test prueft schmale Windrose, SVG-Hoehe, Direct-To-Payload
+und Abbruch ohne Befehl fuer originale und kompilierte Popup-Skripte.
