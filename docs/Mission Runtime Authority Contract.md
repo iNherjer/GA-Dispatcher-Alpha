@@ -1109,3 +1109,16 @@ seine ausstehenden Sim-Effekte. Fehlende Darstellung löst nur Hintergrundabglei
 aus, keinen automatischen erneuten Mutationsversuch. Veraltete Poll-Antworten
 dürfen neuere Bestätigungen nicht überschreiben. Das Zusatzfeld betrifft den
 Loopback-Transport und vergrößert keine regelmäßigen Worker-Telemetriepakete.
+
+
+### 2026-09-17 – v427: Revisionspruefung am Executor und weniger Publikationsarbeit
+
+Bei aktivem Missionsprozess reicht Cockpit-Control die originale Client-Revision
+weiter. Der Worker prueft sie synchron am Ausfuehrungsort mit den bestehenden
+semantischen Rebase-Guards; keine getrennte Vorab-RPC mit spaeterer Verwendung
+einer Elternprozess-Revision. Run-/Sessionpruefung bleibt am Eingang.
+Unveraenderte Authority-Projektionen werden wiederverwendet, IPC-Diffs vermeiden
+rekursive JSON-Serialisierung. Dauerhafte Commit-Speicherung bleibt erhalten.
+Debug-/Missionstestlogging erfolgt begrenzt und asynchron. Neue kumulative
+Kostenmarker trennen Projektionen, Persistenz und Log-I/O. Einzelheiten und
+Testumfang: `Tracker-v427-Release.md`. MSFS-Latenz bleibt im Feld zu verifizieren.

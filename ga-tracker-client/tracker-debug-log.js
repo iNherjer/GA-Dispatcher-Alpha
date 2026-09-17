@@ -54,6 +54,7 @@ function truncateUtf8Line(value, maxBytes) {
 }
 
 function createRotatingDebugLog(options = {}) {
+  if (options.async === true) return require('./tracker-async-debug-log.js').createAsyncDebugLog(options);
   const filename = path.resolve(String(options.filename || '').trim());
   if (!String(options.filename || '').trim()) throw new Error('Debug-Log benoetigt einen Dateinamen.');
   const maxBytes = positiveInteger(options.maxBytes, DEFAULT_MAX_BYTES);

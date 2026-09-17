@@ -595,18 +595,27 @@ function createMissionAuthorityManager(options = {}) {
   };
 
   let lastSlowPersistLogAt = 0;
+  let publicationVersion = 0;
+  const persistenceMetrics = { attempts: 0, bytes: 0, serializeMs: 0, writeMs: 0, directoryMs: 0, errors: 0 };
   const persist = () => {
+    publicationVersion++;
     if (!storageFile) return true;
+    persistenceMetrics.attempts++;
     try {
+      const directoryStarted = process.hrtime.bigint();
       const directory = path.dirname(storageFile);
       const temporaryFile = `${storageFile}.tmp`;
       io.mkdirSync(directory, { recursive: true });
       const started = process.hrtime.bigint();
+      persistenceMetrics.directoryMs += Number(started - directoryStarted) / 1e6;
       const serialized = `${JSON.stringify(state)}\n`;
       const encoded = process.hrtime.bigint();
       io.writeFileSync(temporaryFile, serialized, 'utf8');
       io.renameSync(temporaryFile, storageFile);
       const finished = process.hrtime.bigint();
+      persistenceMetrics.bytes += Buffer.byteLength(serialized);
+      persistenceMetrics.serializeMs += Number(encoded - started) / 1e6;
+      persistenceMetrics.writeMs += Number(finished - encoded) / 1e6;
       const serializeMs = Math.round(Number(encoded - started) / 1e6);
       const writeMs = Math.round(Number(finished - encoded) / 1e6);
       if (serializeMs + writeMs >= 100 && Date.now() - lastSlowPersistLogAt >= 10000) {
@@ -615,6 +624,7 @@ function createMissionAuthorityManager(options = {}) {
       }
       return true;
     } catch (error) {
+      persistenceMetrics.errors++;
       log(`MISSION_AUTHORITY_PERSIST_ERROR ${error?.message || error}`);
       return false;
     }
@@ -1844,6 +1854,8 @@ function createMissionAuthorityManager(options = {}) {
     canRebaseIntentRevision,
     abortExecutionRun,
     finalizeExecutionRun,
+    getPublicationVersion: () => publicationVersion,
+    getPersistenceMetrics: () => ({ ...persistenceMetrics }),
     getPublicSnapshot(options = {}) {
       rememberIntentRevision(state.activeRun);
       return {

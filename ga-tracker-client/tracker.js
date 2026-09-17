@@ -90,8 +90,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v426';
-const TRACKER_VERSION_CODE = 426;
+const TRACKER_VERSION = 'v427';
+const TRACKER_VERSION_CODE = 427;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -174,8 +174,9 @@ const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const TRACKER_DEBUG_FILE = path.join(TRACKER_DATA_DIR, 'ga-tracker-debug.txt');
 const APT_MISSION_TEST_FILE = path.join(TRACKER_DATA_DIR, APT_MISSION_TEST_LOG_FILENAME);
-const missionTestLog = createMissionTestLog({ filename: APT_MISSION_TEST_FILE });
+const missionTestLog = createMissionTestLog({ filename: APT_MISSION_TEST_FILE, async: true });
 const writeDebugLog = createRotatingDebugLog({
+  async: true,
   filename: TRACKER_DEBUG_FILE,
   maxBytes: 8 * 1024 * 1024,
   retainedTailBytes: 512 * 1024,
@@ -187,6 +188,10 @@ const debugLog = (line) => {
   missionTestLog.recordSystemLine(line);
   return written;
 };
+const logCostTimer = setInterval(() => {
+  writeDebugLog(`TRACKER_LOG_COST totals=${JSON.stringify({ debug: writeDebugLog.metrics(), mission: missionTestLog.metrics() })}`);
+}, 10000);
+logCostTimer.unref();
 const MISSION_AUTHORITY_FILE = path.join(TRACKER_DATA_DIR, 'mission-authority-v1.json');
 const TRACKER_VOICE_CACHE_FILE = path.join(TRACKER_DATA_DIR, 'tracker-voice-cache-v1.json');
 const EFB_CHECKLIST_LIBRARY_FILE = path.join(TRACKER_DATA_DIR, 'efb-checklists-v1.json');
@@ -4951,7 +4956,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       try { await (missionProcess ? missionProcess.close() : missionExecutionRuntime.flush()); }
       catch (error) { debugLog(`MISSION_POI_SHUTDOWN_FLUSH_ERROR error=${error.message}`); }
     };
-    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await flushPoi(); process.exit(0); });
+    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await flushPoi(); await Promise.all([writeDebugLog.flush(), missionTestLog.flush()]); process.exit(0); });
   }
   const recoveredMissionRun = missionAuthorityManager.getActiveRun({ includeBundle: true });
   if (recoveredMissionRun?.resumeBundle) {
@@ -5134,6 +5139,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     executionAuthority: missionExecutionRuntime.executionAuthority,
     getExecutionAuthority: () => missionAuthorityManager.getActiveRun()?.executionAuthority || 'web',
     getMissionRun: () => missionAuthorityManager.getActiveRun(),
+    validateIntentInExecutor: Boolean(missionProcess),
     canRebaseIntentRevision: request => missionAuthorityManager.canRebaseIntentRevision(request),
     executeIntent: async request => {
       const result = await missionExecutionRuntime.executeIntent(request);

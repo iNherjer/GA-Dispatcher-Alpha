@@ -345,7 +345,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       return errorResult('mission_run_conflict', { activeRun: authorityManager.getActiveRun() });
     }
     if (Object.hasOwn(request, 'expectedRevision')
-        && Number(request.expectedRevision) !== snapshot.authorityRevision) {
+        && Number(request.expectedRevision) !== snapshot.authorityRevision
+        && !(options.allowIntentRevisionRebase === true && authorityManager.canRebaseIntentRevision?.(request) === true)) {
       return {
         ok: false,
         status: 'conflict',

@@ -61,15 +61,21 @@ function createMissionIpc(channel, handlers = {}, options = {}) {
 
 // Arrays are atomic; object patches avoid retransmitting immutable mission
 // bundles and replay history on every telemetry observation.
+function equalJson(a, b) {
+  if (Object.is(a, b)) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object' || Array.isArray(a) !== Array.isArray(b)) return false;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every(key => Object.hasOwn(b, key) && equalJson(a[key], b[key]));
+}
 function difference(before, after, path = [], output = []) {
-  if (JSON.stringify(before) === JSON.stringify(after)) return output;
+  if (Object.is(before, after)) return output;
   if (before && after && !Array.isArray(before) && !Array.isArray(after)
       && typeof before === 'object' && typeof after === 'object') {
     for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
       if (!Object.hasOwn(after, key)) output.push({ path: [...path, key], remove: true });
       else difference(before[key], after[key], [...path, key], output);
     }
-  } else output.push({ path, value: after });
+  } else if (!equalJson(before, after)) output.push({ path, value: after });
   return output;
 }
 function applyDifference(state, changes) {

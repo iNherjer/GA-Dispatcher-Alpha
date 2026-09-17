@@ -227,7 +227,7 @@ function createTrackerCockpitControl(options = {}) {
       result = { ok: false, status: 'conflict', error: 'no_active_run', sideEffect: false, activeRun: null };
     } else if (cleanString(request.missionId) !== activeRun.missionId || cleanString(request.runId, 220) !== activeRun.runId) {
       result = { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false, activeRun };
-    } else if (Number(request.expectedRevision) !== activeRun.revision
+    } else if (options.validateIntentInExecutor !== true && Number(request.expectedRevision) !== activeRun.revision
         && !(typeof options.canRebaseIntentRevision === 'function'
           && await options.canRebaseIntentRevision({ ...request, intent }) === true)) {
       result = { ok: false, status: 'conflict', error: 'mission_revision_conflict', sideEffect: false, activeRun };
@@ -247,7 +247,7 @@ function createTrackerCockpitControl(options = {}) {
           intent,
           missionId: activeRun.missionId,
           runId: activeRun.runId,
-          expectedRevision: activeRun.revision,
+          expectedRevision: options.validateIntentInExecutor === true ? Number(request.expectedRevision) : activeRun.revision,
           payload: safeObject(request.payload),
           deferEffects: request.deferEffects === true,
           controllerSession: publicSession(auth.session)

@@ -7,21 +7,32 @@ const { createTrackerFlightLogStore } = require('./tracker-flight-log-store.js')
 
 function runMissionWorker() {
   let authority, runtime, bridge, flightLog, published = null, publishScheduled = false;
+  let cachedAuthority = null, cachedVersion = -1;
+  const publishMetrics = { calls: 0, builds: 0, buildMs: 0, diffMs: 0, sends: 0 };
   let livePosition = null, audioSettings = null, simulatorGeneration = 0;
   const log = line => ipc.event('log', line);
   const publish = () => {
     if (!authority) return;
     publishScheduled = false;
-    const active = authority.getActiveRun({ includeBundle: true, includeEffects: true });
-    const next = {
-      active, public: authority.getPublicSnapshot(), execution: authority.getExecutionSnapshot(),
-      context: active ? { latestTelemetry: authority.getExecutionRuntimeContext({ missionId: active.missionId, runId: active.runId })?.latestTelemetry } : null,
-      flightLog: flightLog?.publicState(),
-      runtime: runtime?.publicState() || null,
-      supportsPoi: authority.supportsExecutionRecipe('poi')
-    };
+    publishMetrics.calls++;
+    const version = authority.getPublicationVersion();
+    if (version !== cachedVersion) {
+      const started = process.hrtime.bigint();
+      const active = authority.getActiveRun({ includeBundle: true, includeEffects: true });
+      cachedAuthority = {
+        active, public: authority.getPublicSnapshot(), execution: authority.getExecutionSnapshot(),
+        context: active ? { latestTelemetry: authority.getExecutionRuntimeContext({ missionId: active.missionId, runId: active.runId })?.latestTelemetry } : null,
+        supportsPoi: authority.supportsExecutionRecipe('poi')
+      };
+      cachedVersion = version;
+      publishMetrics.builds++;
+      publishMetrics.buildMs += Number(process.hrtime.bigint() - started) / 1e6;
+    }
+    const next = { ...cachedAuthority, flightLog: flightLog?.publicState(), runtime: runtime?.publicState() || null };
+    const started = process.hrtime.bigint();
     const changes = difference(published, next);
-    if (changes.length) ipc.event('state', changes);
+    publishMetrics.diffMs += Number(process.hrtime.bigint() - started) / 1e6;
+    if (changes.length) { publishMetrics.sends++; ipc.event('state', changes); }
     published = next;
   };
   const schedulePublish = () => {
@@ -44,7 +55,7 @@ function runMissionWorker() {
       }
       flightLog = createTrackerFlightLogStore({ directory: options.flightLogDirectory, log });
       runtime = createTrackerMissionExecutionRuntime({
-        authorityManager: authority, enabled: options.enabled, syncInitialPayload: true,
+        authorityManager: authority, enabled: options.enabled, syncInitialPayload: true, allowIntentRevisionRebase: true,
         getPilotId: () => options.pilotId, getAudioSettings: () => audioSettings,
         flightLog,
         playBoardingVoice: request => invokeParent('playBoardingVoice', request),
@@ -103,6 +114,7 @@ function runMissionWorker() {
     },
     async ack(ack, generation) { if (generation !== simulatorGeneration) return false; const result = await bridge?.handleAck(ack); publish(); return result; },
     detach() { simulatorGeneration++; const result = runtime.detachSimulator(bridge); bridge = null; publish(); return result; },
+    diagnostics() { return { publication: { ...publishMetrics }, persistence: authority.getPersistenceMetrics() }; },
     flush() { const result = runtime.flush(); publish(); return result; }
   };
   const ipc = createMissionIpc(process, handlers, { timeoutForRequest: missionRequestTimeout });
@@ -115,6 +127,10 @@ function runMissionWorker() {
     }
   }, 1000);
   loopTimer.unref();
+  const metricsTimer = setInterval(() => {
+    if (authority) log(`MISSION_PROCESS_COST totals=${JSON.stringify({ publication: publishMetrics, persistence: authority.getPersistenceMetrics() })}`);
+  }, 10000);
+  metricsTimer.unref();
   process.once('disconnect', () => { try { runtime?.flush(); } finally { process.exit(0); } });
 }
 module.exports = { runMissionWorker };

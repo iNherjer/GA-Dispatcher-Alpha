@@ -26,3 +26,15 @@ test('voice callbacks survive the normal RPC deadline, while ordinary stalled re
   finishVoice({ ok: true, status: 'completed' });
   assert.equal((await voice).ok, true);
 });
+
+
+test('state patches preserve array changes, nested deletions and shared immutable bundles', () => {
+  const { difference, applyDifference } = require('./tracker-mission-ipc.js');
+  const bundle = { route: [{ lat: 48, lon: 8 }], description: 'immutable' };
+  const before = { active: { bundle, revision: 1, old: true }, effects: [{ id: 'a' }], status: null };
+  const after = { active: { bundle, revision: 2 }, effects: [{ id: 'b' }, { id: 'c' }], status: { ready: true } };
+  const patch = difference(before, after);
+  assert.ok(patch.every(change => !change.path.includes('bundle')));
+  assert.deepEqual(applyDifference(structuredClone(before), patch), after);
+  assert.deepEqual(difference(after, structuredClone(after)), []);
+});

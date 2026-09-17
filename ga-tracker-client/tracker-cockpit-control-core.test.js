@@ -297,3 +297,18 @@ test('stale control revisions are rebased only with an explicit matching semanti
   assert.equal(calls[0].expectedRevision, 7);
   assert.equal((await app.control.submitTrustedIntent({ ...request, commandId: 'wrong-run', runId: 'other' }, { clientId: 'remote' })).error, 'mission_run_conflict');
 });
+
+
+test('worker validation forwards the original revision without a separate rebase round trip', async () => {
+  const calls = [];
+  const app = fixture({ validateIntentInExecutor: true,
+    canRebaseIntentRevision: () => { throw new Error('must validate in executor'); },
+    executeIntent: async request => { calls.push(request); return { ok: false, error: 'mission_revision_conflict' }; }
+  });
+  const request = { commandId: 'worker-stale', intent: 'set_manifest_item', missionId: 'mission-a', runId: 'run-a', expectedRevision: 6 };
+  assert.equal((await app.control.submitTrustedIntent(request, { clientId: 'remote' })).error, 'mission_revision_conflict');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].expectedRevision, 6);
+  assert.equal((await app.control.submitTrustedIntent({ ...request, commandId: 'wrong-worker-run', runId: 'other' }, { clientId: 'remote' })).error, 'mission_run_conflict');
+  assert.equal(calls.length, 1);
+});

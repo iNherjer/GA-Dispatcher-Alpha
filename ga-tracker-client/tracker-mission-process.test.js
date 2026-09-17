@@ -230,3 +230,43 @@ test('an old simulator connection cannot detach its replacement or deliver stale
   await host.runtime.flush();
   assert.equal(cancellations, 2, 'one cancellation per disconnected simulator');
 });
+
+test('worker accepts unchanged cargo after transport revision drift and rejects a changed target', async t => {
+  const host = await fixture(t);
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest = { version: 6, key: 'race-cargo', items: [
+    { id: 'box', itemType: 'cargo', required: true, status: 'pending', weightLbs: 10, deliverAtDestination: true }
+  ] };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  await activate(host, bundle);
+  host.runtime.attachSimulator({ getLivePosition: () => ({ lat: 48, lon: 8, alt: 500 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }),
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' }) });
+  await until(() => host.runtime.publicState().simulatorAttached);
+  for (const intent of ['prepare_mission', 'start_boarding']) {
+    const run = host.authorityManager.getActiveRun();
+    const result = await host.runtime.executeIntent({ intent, commandId: intent, missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+    assert.equal(result.ok, true, JSON.stringify(result));
+  }
+  await until(() => host.runtime.publicState().effects.pendingEffects.length === 0);
+  const run = host.authorityManager.getActiveRun();
+  await host.authorityManager.recordCommand({ type: 'mission_scene_spawn', commandId: 'transport-journal', missionId: run.missionId, runId: run.runId });
+  const request = { intent: 'set_manifest_item', commandId: 'load-after-journal', missionId: run.missionId, runId: run.runId,
+    expectedRevision: run.revision, payload: { itemId: 'box', action: 'load' }, deferEffects: true };
+  const loaded = await host.runtime.executeIntent(request);
+  assert.equal(loaded.ok, true, JSON.stringify(loaded));
+  const stale = await host.runtime.executeIntent({ ...request, commandId: 'obsolete-unload', payload: { itemId: 'box', action: 'unload' } });
+  assert.equal(stale.error, 'mission_revision_conflict');
+});
+
+test('unchanged authority reads and rejected intents do not rebuild full publications', async t => {
+  const host = await fixture(t);
+  const before = await host.runtime.diagnostics();
+  for (let n = 0; n < 10; n++) await host.authorityManager.getFollowupOutbox('test');
+  await host.runtime.executeIntent({ intent: 'set_manifest_item', commandId: 'missing-run', expectedRevision: 0 });
+  const after = await host.runtime.diagnostics();
+  assert.equal(after.publication.builds, before.publication.builds);
+  assert.equal(after.persistence.attempts, before.persistence.attempts);
+});

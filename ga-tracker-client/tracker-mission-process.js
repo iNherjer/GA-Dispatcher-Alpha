@@ -91,6 +91,7 @@ async function createTrackerMissionProcess(options) {
       pendingSample = null; pendingMotion = [];
       background(ipc.request('detach')); return true;
     },
+    diagnostics: () => ipc.request('diagnostics'),
     flush: () => ipc.request('flush')
   };
   log(`MISSION_PROCESS_READY pid=${initialized.pid} parentPid=${process.pid} telemetry=latest`);

@@ -42,7 +42,7 @@ function createMissionTestLog(options = {}) {
   const write = typeof options.write === 'function'
     ? options.write
     : createRotatingDebugLog({
-      filename,
+      filename, async: options.async === true,
       maxBytes: 4 * 1024 * 1024,
       retainedTailBytes: 1024 * 1024,
       maxLineBytes: 8 * 1024,
@@ -234,6 +234,8 @@ function createMissionTestLog(options = {}) {
   }
 
   return {
+    flush: () => write.flush?.() || Promise.resolve(),
+    metrics: () => write.metrics?.() || null,
     filename,
     start,
     observe,
