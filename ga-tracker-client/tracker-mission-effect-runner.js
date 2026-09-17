@@ -235,7 +235,7 @@ function createTrackerMissionEffectRunner(options = {}) {
     return { ...acknowledged, effect, sideEffect: false };
   };
 
-  const pumpOnce = async () => {
+  const pumpOnce = async (preferredId = null) => {
     const validated = executionSnapshot();
     if (!validated.ok) return validated;
     const snapshot = validated.snapshot;
@@ -243,6 +243,7 @@ function createTrackerMissionEffectRunner(options = {}) {
     if (!effects.length) return { ok: true, status: 'noop', sideEffect: false, pendingCount: 0, view: snapshot.view };
     const timestamp = now();
     const effect = effects.find(candidate => {
+      if (preferredId && candidate.effectId !== preferredId) return false;
       // Preserve POI speech order through generation, playback and durable ACK.
       // Other runtime work remains free to process intents and telemetry.
       if (snapshot.recipe === 'poi' && candidate.type === 'voice.poi'
@@ -273,7 +274,11 @@ function createTrackerMissionEffectRunner(options = {}) {
     }
     const handler = handlerFor(effect.type);
     if (!handler) return errorResult('mission_effect_handler_missing', { effect, pendingCount: requestedEffects(snapshot).length });
-    pendingDispatches.delete(effect.effectId);
+    // Reserve before invoking an async handler. Cargo can start independently
+    // of a routine drain, but neither path may submit the same effect twice.
+    pendingDispatches.set(effect.effectId, {
+      expiresAt: timestamp + (effect.type === 'scene.compliance_visit' ? 30 * 60 * 1000 : (effect.type === 'scene.manual_pax' ? 75000 : ackLeaseMs))
+    });
     let dispatched;
     try {
       dispatched = safeObject(await handler({
@@ -284,6 +289,7 @@ function createTrackerMissionEffectRunner(options = {}) {
         effect
       }));
     } catch (error) {
+      pendingDispatches.delete(effect.effectId);
       retryAfter.set(effect.effectId, timestamp + retryDelayMs);
       return {
         ok: false,
@@ -296,9 +302,6 @@ function createTrackerMissionEffectRunner(options = {}) {
     }
     const dispatchStatus = cleanString(dispatched.status, 40).toLowerCase();
     if (dispatched.ok === true && dispatchStatus === 'pending') {
-      pendingDispatches.set(effect.effectId, {
-        expiresAt: timestamp + (effect.type === 'scene.compliance_visit' ? 30 * 60 * 1000 : (effect.type === 'scene.manual_pax' ? 75000 : ackLeaseMs))
-      });
       return { ok: true, status: 'pending', dispatchAttempted: true, sideEffect: true, effect, commandId: effect.effectId };
     }
     if (dispatched.ok === true) {
@@ -323,6 +326,7 @@ function createTrackerMissionEffectRunner(options = {}) {
       });
       return { ...acknowledged, dispatchAttempted: true, sideEffect: true };
     }
+    pendingDispatches.delete(effect.effectId);
     retryAfter.set(effect.effectId, timestamp + retryDelayMs);
     return {
       ok: false,
@@ -383,6 +387,12 @@ function createTrackerMissionEffectRunner(options = {}) {
 
   return Object.freeze({
     acknowledge,
+    // Called only with effects returned by a successfully committed intent.
+    // The normal drain remains responsible for recovery/retries after restart.
+    startCargoEffects(effects = []) {
+      return Promise.all(effects.filter(effect => effect.type === 'scene.cargo_item_transition')
+        .map(effect => pumpOnce(effect.effectId)));
+    },
     drain,
     publicState,
     pump,

@@ -405,8 +405,19 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       return { ...aborted, sideEffect: cleanup?.sideEffect === true, cleanup };
     }
     if (['poi_status', 'poi_orientation'].includes(request.intent)) request = { ...request, livePosition: getSimulatorPosition() };
+    const cargoStartedAt = Date.now();
     const result = adapter.executeIntent(request);
+    const cargoCommittedAt = Date.now();
     if (!result.ok) return result;
+    // Standalone ordering: commit the item, immediately queue its visual target,
+    // then handle voice/payload and presentation independently. No global drain
+    // or older unrelated effect may delay a new cargo target.
+    if (request.intent === 'set_manifest_item') {
+      effectRunner.startCargoEffects(result.effectsPending || result.effects || []).catch(error => {
+        log(`MISSION_CARGO_DIRECT_ERROR command=${request.commandId || ''} error=${error?.message || error}`);
+      });
+      log(`MISSION_CARGO_DIRECT command=${request.commandId || ''} commitMs=${cargoCommittedAt - cargoStartedAt} startMs=${Date.now() - cargoCommittedAt}`);
+    }
     if (request.intent === 'prepare_mission' && typeof options.prepareBoardingVoice === 'function') {
       // Preparation is best-effort and must never delay the intent ACK.
       Promise.resolve().then(() => options.prepareBoardingVoice({

@@ -540,3 +540,21 @@ test('deboarding binds the confirmed nearby arrival scene and retains fallback a
   await send('failed-arrival');
   assert.equal(commands.at(-1).deboardingPickupSceneId, undefined);
 });
+
+test('lost cargo ACK can be retried after original queue has flushed', async () => {
+  const run = runWithPlan(), commands = [];
+  let timer;
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => run },
+    getLivePosition: () => ({ lat: 48, lon: 8 }),
+    setTimeout: callback => { timer = callback; return 1; }, clearTimeout() {},
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending' }; }
+  });
+  const request = { commandId: 'retry', missionId: run.missionId, runId: run.runId,
+    effect: { type: 'scene.cargo_item_transition', payload: { itemId: 'a', action: 'load', item: { id: 'a' } } } };
+  await bridge.dispatch(request); timer(); await new Promise(resolve => setImmediate(resolve));
+  await bridge.dispatch(request); timer(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(commands.length, 2);
+  assert.equal(commands[0].objectRevision, commands[1].objectRevision, 'retry retains identity, simulator deduplicates');
+  bridge.cancelPending();
+});

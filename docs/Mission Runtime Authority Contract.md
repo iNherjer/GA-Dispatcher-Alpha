@@ -1,5 +1,31 @@
 # Mission Runtime Authority Contract
 
+## Cargo-Ausfuehrung nach Original-App-Modell (17.09.2026)
+
+Die fachliche Referenz bleibt `mission-cargo-core.js` mit dem bereits von App
+und Tracker verwendeten `mission-manifest-core.js`. Die originale sichtbare
+Objektsteuerung (Queue, Flush, ACK, Cancel) wird durch
+`tools/extract-cargo-visual-queue.cjs` browserunabhaengig extrahiert; der Build
+prueft Quellgleichheit. Eingefrorene Referenz: Tracker-Fixture
+`standalone-cargo-visual-queue-v423.txt`. Identische Klickfolgen und spaete ACKs
+werden gegen den Originalcode verglichen. Auch die Original-App hat 180 ms
+Debounce; dieser Wert ist kein alleiniger Erklaerungsgrund fuer die Regression.
+
+Nach einem gueltig persistierten Cargo-Intent startet der Tracker seine neuen
+Objektaktionen unmittelbar, ohne auf den allgemeinen Effekt-Drain zu warten.
+Die Originalqueue fasst pro Objekt den gewuenschten Zustand zusammen und wartet
+nicht auf vorherige Simulator-ACKs. Objektrevisionen verhindern, dass spaete
+Spawns neuere Loeschauftraege rueckgaengig machen. Allgemeiner Drain und direkter
+Start teilen dieselben Dispatch-Reservierungen und Wiederanlauf-Effekte.
+Payload und Voice bleiben unabhaengige Hintergrundarbeiten. Keine zweite
+fachliche Authority und keine optimistische Manifestmutation in App/EFB.
+
+Die komplette Authority-Persistenz bleibt vor Bestaetigung erhalten. Deshalb
+ist mit dieser Umstellung keine garantierte Millisekunden-Latenz behauptet.
+`MISSION_CARGO_DIRECT` trennt Commit und Start, `MISSION_CARGO_VISUAL` misst
+die reale Wartezeit der Originalqueue. Windows-/MSFS-Vergleich bleibt noetig.
+
+
 Für die Übertragung weiterer Missionsfamilien: [Tracker-Migrationsleitfaden](Tracker%20Mission%20Migration%20Guide.md) mit APT-/POI-Erfahrungen, Pflichtmatrix und Freigabegates.
 
 Stand: 20.08.2026

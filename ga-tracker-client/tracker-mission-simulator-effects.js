@@ -1,5 +1,6 @@
 'use strict';
 
+const { createCargoVisualQueue } = require('./tracker-cargo-visual-queue.generated.js');
 const { haversineNm } = require('../mission-location-core.js');
 
 const EFFECT_PLAN_SCHEMA = 'ga.mission-apt-effect-plan.v1';
@@ -104,7 +105,6 @@ function createTrackerMissionSimulatorEffects(options = {}) {
   const onStage = typeof options.onStage === 'function' ? options.onStage : null;
   let acknowledgeEffect = typeof options.acknowledgeEffect === 'function' ? options.acknowledgeEffect : null;
   const pending = new Map();
-  const cargoQueue = new Map();
   const cargoRevisions = new Map();
   let cargoRevision = 0;
   const now = typeof options.now === 'function' ? options.now : Date.now;
@@ -236,37 +236,15 @@ function createTrackerMissionSimulatorEffects(options = {}) {
         ? `aircraft-equipment:${String(payload.aircraftSlot || 'PA-24').trim().toUpperCase().replace(/[^A-Z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'PA-24'}:${normalizedKey(itemId)}`
         : `mission-cargo:${manifestKey}:${normalizedKey(itemId)}`;
       if (!flushCargo) {
-        const previous = cargoQueue.get(objectKey);
-        if (previous?.request.commandId === commandId) return { ok: true, status: 'pending', commandId };
-        if (previous) {
-          cancelTimeout(previous.timer);
-          cargoRevisions.delete(previous.request.commandId);
-          Promise.resolve(acknowledgeEffect?.({ effectId: previous.request.commandId, status: 'completed',
-            simulatorAck: { status: 'superseded' } })).catch(error => log(`MISSION_CARGO_QUEUE_ACK_ERROR ${error?.message || error}`));
-        }
+        if (cargoQueue.peek(objectKey)?.options?.request?.commandId === commandId) return { ok: true, status: 'pending', commandId };
         if (!cargoRevisions.has(commandId)) {
           cargoRevision = Math.max(cargoRevision, Number(plan.cargoObjectRevision) || 0, Number(options.getCargoRevision?.()) || 0) + 1;
           options.onCargoRevision?.(cargoRevision);
           cargoRevisions.set(commandId, cargoRevision);
         }
-        const entry = { request: clone(request), timer: null };
-        entry.timer = scheduleTimeout(async () => {
-          if (cargoQueue.get(objectKey) !== entry) return;
-          cargoQueue.delete(objectKey);
-          try {
-            const result = await dispatch(entry.request, true);
-            if (result.status !== 'pending') {
-              cargoRevisions.delete(commandId);
-              await acknowledgeEffect?.({ effectId: commandId,
-                status: result.ok ? 'completed' : 'failed', simulatorAck: { status: result.status, error: result.error || null } });
-            }
-          } catch (error) {
-            cargoRevisions.delete(commandId);
-            await acknowledgeEffect?.({ effectId: commandId, status: 'failed', simulatorAck: { status: 'error', error: error?.message } });
-          }
-        }, payload.coalesced === true ? 0 : 180);
-        entry.timer?.unref?.();
-        cargoQueue.set(objectKey, entry);
+        cargoQueue.enqueue({ ...item, objectKey }, action === 'unload', {
+          request: clone(request), queuedAt: now(), immediate: payload.coalesced === true
+        });
         return { ok: true, status: 'pending', commandId };
       }
       const objectRevision = cargoRevisions.get(commandId) || ++cargoRevision;
@@ -451,6 +429,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
   };
 
   const handleAck = (ack = {}) => {
+    cargoQueue.resolveAck(ack);
     const commandId = cleanString(ack.commandId, 220);
     const record = pending.get(commandId);
     const ackType = cleanString(ack.type, 140).toLowerCase();
@@ -499,12 +478,37 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     return true;
   };
 
+  const sendCargo = (_item, entry) => {
+    const request = entry.request;
+    const commandId = request.commandId;
+    log(`MISSION_CARGO_VISUAL command=${commandId} queuedMs=${now() - entry.queuedAt}`);
+    dispatch(request, true).then(async result => {
+      if (result.status === 'pending') return;
+      cargoQueue.resolveAck({ type: 'mission_scene_object_remove_ack', commandId, objectRevision: entry.objectRevision });
+      cargoRevisions.delete(commandId);
+      await acknowledgeEffect?.({ effectId: commandId,
+        status: result.ok ? 'completed' : 'failed', simulatorAck: { status: result.status, error: result.error || null } });
+    }).catch(error => {
+      log(`MISSION_CARGO_QUEUE_ACK_ERROR ${error?.message || error}`);
+    });
+    return commandId;
+  };
+  const cargoQueue = createCargoVisualQueue({
+    getObjectKey: item => item.objectKey, spawn: sendCargo, remove: sendCargo,
+    setTimeout: scheduleTimeout, clearTimeout: cancelTimeout, now,
+    onSuperseded: desired => {
+      const commandId = desired.options.request.commandId;
+      cargoRevisions.delete(commandId);
+      Promise.resolve(acknowledgeEffect?.({ effectId: commandId, status: 'completed',
+        simulatorAck: { status: 'superseded' } })).catch(error => log(`MISSION_CARGO_QUEUE_ACK_ERROR ${error?.message || error}`));
+    }
+  });
+
   return Object.freeze({
     dispatch,
     handleAck,
     cancelPending({ preserveManual = false } = {}) {
-      for (const entry of cargoQueue.values()) cancelTimeout(entry.timer);
-      cargoQueue.clear();
+      cargoQueue.cancel();
       cargoRevisions.clear();
       for (const [id, record] of pending) {
         if (preserveManual && record.effectType === 'scene.manual_pax') continue;

@@ -4,7 +4,7 @@
   "description": "MSFS to WebSocket GPS Tracker Bridge",
   "main": "tracker.js",
   "scripts": {
-    "prebuild:tracker": "node sync-efb-web-assets.js",
+    "prebuild:tracker": "node ../tools/extract-cargo-visual-queue.cjs --check && node sync-efb-web-assets.js",
     "start": "node tracker.js",
     "build:tracker": "pkg tracker.js --target node18-win-x64 --output VFR-Multitool-Tracker.exe",
     "build:pa24-payload-probe": "pkg pa24-payload-probe.js --target node18-win-x64 --output dist/PA24-Payload-Probe.exe",

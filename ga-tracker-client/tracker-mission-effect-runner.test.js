@@ -434,3 +434,28 @@ test('pending effects are recovered after restart with the same deterministic co
   assert.equal(snapshot.state.effects.find(effect => effect.type === 'scene.prepare').status, 'completed');
   assert.equal(snapshot.view.allowedActions.includes('start_boarding'), true);
 });
+
+test('cargo starts while unrelated dispatch hangs; concurrent drains cannot duplicate it', async () => {
+  const effects = [{ effectId: 'voice', type: 'voice.cargo', status: 'requested', payload: {} }];
+  const cargo = { effectId: 'cargo', type: 'scene.cargo_item_transition', status: 'requested', payload: {} };
+  let finishVoice, finishCargo;
+  const sent = [];
+  const snapshot = { recipe: 'apt', missionId: 'm', runId: 'r', executionAuthority: 'tracker', state: { effects } };
+  const runner = createTrackerMissionEffectRunner({
+    authorityManager: { getExecutionSnapshot: () => snapshot, getActiveRun: () => ({ missionId: 'm', runId: 'r' }), applyExecutionEvent: () => ({ ok: true }) },
+    handlers: {
+      'voice.cargo': () => new Promise(resolve => { finishVoice = resolve; }),
+      'scene.cargo_item_transition': request => { sent.push(request.commandId); return new Promise(resolve => { finishCargo = resolve; }); }
+    }
+  });
+  const background = runner.pump();
+  effects.push(cargo);
+  const first = runner.startCargoEffects([cargo]);
+  assert.deepEqual(sent, ['cargo'], 'must dispatch before unrelated promise resolves');
+  await runner.startCargoEffects([cargo]);
+  assert.deepEqual(sent, ['cargo']);
+  finishCargo({ ok: true, status: 'pending' }); await first;
+  finishVoice({ ok: true, status: 'pending' }); await background;
+  await runner.drain();
+  assert.deepEqual(sent, ['cargo']);
+});
