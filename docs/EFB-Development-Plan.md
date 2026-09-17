@@ -5607,3 +5607,12 @@ Wertanzahlen, Pause-/Menuezaehler sowie aktuellen Run und uebernommenen Schutzst
 Die Maxima gelten seit Prozessstart, nicht fuer einen einzelnen Run. Keine neuen
 Missionsereignisse, keine Aenderung an Komfort-/Schadensschwellen. Fehlende Meldungen
 im Slew-Feldtest sind damit noch nicht erklaert; neue Logs erforderlich.
+
+### v435 – Pistenkennungen im kompakten Wetterwidget
+
+Piste und beide Kennungen im EFB in einem gemeinsamen SVG-Koordinatensystem
+zeichnen. Dadurch entfallen feste Pixelabmessungen und verschachtelte
+CSS-/Flex-Drehungen, die in der schmalen Windrose versetzte Zahlen erzeugen
+koennen. Der Host-Hook gilt fuer Ladezustand und geladenes METAR; die Standalone
+behaelt ihre bisherige Darstellung. Die Wettertext-Umstellung aus v434 wird
+zurueckgenommen. Zoom-/Wegpunktkorrekturen und Bewegungsdiagnose bleiben enthalten.

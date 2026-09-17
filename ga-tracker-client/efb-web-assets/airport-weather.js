@@ -340,8 +340,10 @@ function _renderMetarCompassTicks() {
   return ticks;
 }
 function _renderMetarRunwayLayer(runway) {
+  var _window$gaAirportPopu;
   var isMini = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
   if (!runway) return '';
+  if ((_window$gaAirportPopu = window.gaAirportPopupHost) !== null && _window$gaAirportPopu !== void 0 && _window$gaAirportPopu.renderRunway) return window.gaAirportPopupHost.renderRunway(runway, isMini);
   var width = isMini ? '15px' : '26px';
   var height = isMini ? '60px' : '105px';
   var fontSize = isMini ? '8px' : '10px';
@@ -476,6 +478,7 @@ function _loadMetarWidget() {
       letter,
       rwyHtml,
       arrowHtml,
+      _window$gaAirportPopu2,
       _svgTicks,
       _i,
       isCard,
@@ -911,6 +914,11 @@ function _loadMetarWidget() {
                     <div style="width:100%; text-align:center; font-size:${rwyFSize}; line-height:1; color:#fff; font-weight:bold; font-family: sans-serif;">${rwy1}</div>
                 </div>`;
             }
+            if (rwy1 && rwy2 && (_window$gaAirportPopu2 = window.gaAirportPopupHost) !== null && _window$gaAirportPopu2 !== void 0 && _window$gaAirportPopu2.renderRunway) rwyHtmlModern = window.gaAirportPopupHost.renderRunway({
+              headingDeg: rwyHdg,
+              end1: rwy1,
+              end2: rwy2
+            }, isMini);
             cSize = isMini ? '90px' : isResponsiveEmbed ? 'min(100%, 148px)' : '160px';
             cHeight = isResponsiveEmbed ? 'auto' : cSize;
             gap = isMini ? 4 : isResponsiveEmbed ? 3 : 8;

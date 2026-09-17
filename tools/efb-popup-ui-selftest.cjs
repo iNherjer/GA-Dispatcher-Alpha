@@ -155,9 +155,13 @@ app.whenReady().then(async()=>{
    const request=__externalCalls[__externalCalls.length-1],count=__externalCalls.length;
    window.confirm=()=>false;await confirmAirportDirectTo('EDDS',48.6,9.2,'Stuttgart');window.confirm=originalConfirm;
    const host=document.createElement('div');host.style.width='140px';
-   host.innerHTML=renderAirportMetarLoadingWidget('EDTL','03/21 – 3000m',{responsiveEmbed:true});document.body.appendChild(host);
+   host.innerHTML=renderAirportMetarLoadingWidget('EDSZ','08/26 – 803m',{responsiveEmbed:true});document.body.appendChild(host);
    const rose=host.querySelector('.ga-weather-windrose'),rect=rose.getBoundingClientRect();
-   const svg=rose.querySelector('svg').getBoundingClientRect();host.remove();
+   const svg=rose.querySelector('svg').getBoundingClientRect();
+   const strip=rose.querySelector('.ga-efb-runway-svg');
+   if(!strip || strip.querySelectorAll('text').length!==2)throw Error('runway labels missing');
+   for(const label of strip.querySelectorAll('text')) {const b=label.getBBox();if(b.x < -12 || b.x+b.width>12)throw Error('runway number outside strip');}
+   host.remove();
    return {request,cancelled:__externalCalls.length===count,width:rect.width,height:rect.height,svgHeight:svg.height};
   })()`);
   assert.equal(fixes.request.intent,'airport_direct_to');
@@ -166,6 +170,10 @@ app.whenReady().then(async()=>{
   assert.equal(fixes.cancelled,true);
   assert.ok(fixes.height>100 && Math.abs(fixes.width-fixes.height)<2,'windrose remains square without aspect-ratio');
   assert.ok(fixes.svgHeight>100,'runway/compass SVG has visible height');
+  await js(`(function(){const host=document.createElement('div');host.id='runway-proof';host.style.cssText='position:fixed;left:20px;top:20px;width:140px;z-index:2147483647;background:#eefaff;padding:10px';host.innerHTML=renderAirportMetarLoadingWidget('EDSZ','08/26 – 803m',{responsiveEmbed:true});document.body.appendChild(host);})()`);
+  await wait(150);
+  fs.writeFileSync(path.join(output,raw?'runway-original.png':'runway-compiled.png'),(await win.webContents.capturePage()).toPNG());
+  await js(`document.getElementById('runway-proof').remove()`);
   assert.deepEqual(await js('__errors'),[]);
  }
  assert.deepEqual(results[0],results[1]);assert.ok(requests.some(x=>x.kind==='aviation'));

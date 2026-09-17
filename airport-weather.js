@@ -258,6 +258,7 @@ function _renderMetarCompassTicks() {
 
 function _renderMetarRunwayLayer(runway, isMini = false) {
     if (!runway) return '';
+    if (window.gaAirportPopupHost?.renderRunway) return window.gaAirportPopupHost.renderRunway(runway, isMini);
     const width = isMini ? '15px' : '26px';
     const height = isMini ? '60px' : '105px';
     const fontSize = isMini ? '8px' : '10px';
@@ -661,6 +662,8 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
                     <div style="width:100%; text-align:center; font-size:${rwyFSize}; line-height:1; color:#fff; font-weight:bold; font-family: sans-serif;">${rwy1}</div>
                 </div>`;
             }
+
+            if (rwy1 && rwy2 && window.gaAirportPopupHost?.renderRunway) rwyHtmlModern = window.gaAirportPopupHost.renderRunway({headingDeg:rwyHdg,end1:rwy1,end2:rwy2},isMini);
 
             const cSize = isMini ? '90px' : (isResponsiveEmbed ? 'min(100%, 148px)' : '160px');
             const cHeight = isResponsiveEmbed ? 'auto' : cSize;

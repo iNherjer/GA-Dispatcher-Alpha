@@ -1149,7 +1149,15 @@
         return submitMissionIntent('set_manifest_item', {itemId:itemId,action:action==='cargo-load'?'load':action==='cargo-replace'?'replace':'unload'});
       }
     });
-    window.gaAirportPopupHost = {openAip: window.gaChecklistHost.openAip,
+    window.gaAirportPopupHost = {renderRunway: function(runway) {
+      var heading = Number(runway.headingDeg) || 0;
+      // One coordinate system for strip and numbers, no nested CSS/flex rotation.
+      return '<svg class="ga-efb-runway-svg" viewBox="0 0 160 160" style="position:absolute;left:0;top:0;width:100%;height:100%;z-index:5;pointer-events:none">'
+        + '<g transform="rotate(' + heading + ' 80 80)"><rect x="68" y="29" width="24" height="102" rx="3" fill="#444" stroke="#111"/>'
+        + '<path d="M80 49 V111" stroke="#ddd" stroke-width="2" stroke-dasharray="6 6"/>'
+        + '<g transform="translate(80 40) rotate(180)"><text x="0" y="3" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="bold" fill="white">' + drawerEscape(runway.end2) + '</text></g>'
+        + '<g transform="translate(80 120)"><text x="0" y="3" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="bold" fill="white">' + drawerEscape(runway.end1) + '</text></g></g></svg>';
+    }, openAip: window.gaChecklistHost.openAip,
       openWeather: function(data) { return submitCockpitTool('open_airport_weather', data).then(function(result) {
         if (!result || !result.ok) throw new Error('Browser nicht erreichbar');
         return result;
