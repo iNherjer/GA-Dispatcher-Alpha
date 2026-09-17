@@ -74,3 +74,19 @@ test('panning away cancels stale tile work, even with a late error or timeout ca
   assert.equal(f.timers.size, 0);
   assert.equal(f.completions.length, 0);
 });
+
+
+test('zoom abort cancels a pending backup and ignores late callbacks', () => {
+ const f=fixture();f.tile.onerror();
+ assert.equal(f.requests.length,2);
+ const oldError=f.tile.onerror,oldTimer=[...f.timers.values()][0].fn;
+ // Leaflet replaces image handlers before emitting tileabort.
+ f.tile.onload=()=>{};f.tile.onerror=()=>{};
+ f.layer.events.tileabort({tile:f.tile});
+ oldError();oldTimer();
+ assert.deepEqual(f.requests,['https://primary/11/12/15','https://backup/11/12/15','data:empty']);
+ assert.equal(f.timers.size,0);assert.equal(f.completions.length,0);
+ const fresh=f.layer.createTile({x:12,y:15,z:18},()=>{});
+ fresh.onerror();fresh.onload();
+ assert.equal(f.timers.size,0,'new visible tiles still complete after an abort');
+});

@@ -1453,9 +1453,12 @@
       }
     });
     var resilient = new ResilientLayer(sources[0].url, options);
-    resilient.on('tileunload', function (event) {
+    function cancelTile(event) {
       if (event.tile && event.tile._gaCancelTile) event.tile._gaCancelTile();
-    });
+    }
+    resilient.on('tileunload', cancelTile);
+    // Leaflet aborts in-flight tiles on zoom without emitting tileunload.
+    resilient.on('tileabort', cancelTile);
     return resilient;
   }
 
@@ -1502,6 +1505,7 @@
       zoomControl: true,
       attributionControl: true,
       preferCanvas: true,
+      maxZoom: 18,
       fadeAnimation: false,
       zoomAnimation: false,
       markerZoomAnimation: false

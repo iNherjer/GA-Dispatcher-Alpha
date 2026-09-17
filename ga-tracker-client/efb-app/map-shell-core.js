@@ -81,7 +81,7 @@ const OVERLAY_LAYERS = Object.freeze([
     options: Object.freeze({
       attribution: 'FAA VFR Sectional via ArcGIS',
       opacity: 0.92,
-      minZoom: 5,
+      minZoom: 8,
       minNativeZoom: 8,
       maxNativeZoom: 12,
       maxZoom: 18,

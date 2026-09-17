@@ -5569,3 +5569,13 @@ Das Anzeigemenue nutzt im EFB deckende Farben ohne Filter/Animationen als
 Popout-Kompatibilitaetsmassnahme. Schwarze Flaeche/erst bei Hover sichtbare
 Inhalte ist in Electron nicht reproduziert; im MSFS-Popout nachpruefen.
 Assetrevision 43101 erzwingt frische Host-Dateien.
+
+
+## v432: Kachelabbruch und Zoom-Paritaet
+Resiliente Kacheln behandeln jetzt Leaflets tileabort beim Zoomwechsel genauso
+wie tileunload: Ersatzserver-Timer stoppen, Bildanfrage abbrechen und spaete
+Callbacks ignorieren. Die bestehende Folge Direktserver -> OpenTopo-Backup ->
+lokaler Proxy sowie 4500/7000-ms-Budgets bleibt erhalten.
+Globale Kartenobergrenze 18 wie Standalone; FAA-Overlay ab Zoom 8 statt 5.
+Aero native 12, DFS native 11, FAA native 8–12 und DWD unveraendert.
+Assetrevision 43201. Kein Eingriff in Missionsausfuehrung.

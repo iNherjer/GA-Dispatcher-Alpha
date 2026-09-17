@@ -171,3 +171,16 @@ test('calculator evaluates arithmetic locally without dynamic code execution', (
   assert.throws(() => core.evaluateCalculatorExpression('2/0'));
   assert.throws(() => core.evaluateCalculatorExpression('globalThis'));
 });
+
+
+test('EFB overlay zoom limits match the standalone map', () => {
+ const fs=require('node:fs');
+ const standalone=fs.readFileSync(require.resolve('../../map.js'),'utf8');
+ const host=fs.readFileSync(require.resolve('../tracker-efb-kartentisch-host.js'),'utf8');
+ const faa=core.OVERLAY_LAYERS.find(x=>x.id==='faa');
+ assert.equal(faa.options.minZoom,Number(standalone.match(/const USA_VFR_OVERLAY_MIN_ZOOM = (\d+)/)[1]));
+ assert.equal(faa.options.minNativeZoom,8);assert.equal(faa.options.maxNativeZoom,12);
+ assert.equal(core.OVERLAY_LAYERS.find(x=>x.id==='aero').options.maxNativeZoom,12);
+ assert.equal(core.OVERLAY_LAYERS.find(x=>x.id==='dfs').options.maxNativeZoom,11);
+ assert.match(host,/maxZoom: 18/);
+});
