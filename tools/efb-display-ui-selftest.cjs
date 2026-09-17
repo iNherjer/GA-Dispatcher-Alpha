@@ -33,6 +33,9 @@ app.whenReady().then(async()=>{
     click('hintToggleTelemetry');__test.flight({available:true,viewSessionId:'A',lat:48.361,lon:7.83,alt:750,hdg:208,capturedAt:Date.now()+2000,flight:{gsKts:90}});
     if(getComputedStyle(el('liveTelemetryBox')).display!=='none'||localStorage.ga_map_hint_telemetry!=='false')throw Error('Telemetry returns after snapshot');
     click('hintToggleMagentaLine');if(__test.line())throw Error('Direct line remains');click('hintToggleMagentaLine');if(!__test.line())throw Error('Direct line missing');
+    if(!(__test.line().options.renderer instanceof L.SVG))throw Error('Direct line must use synchronous SVG');
+    const lineStart=__test.line().getLatLngs()[0];
+    if(Math.abs(lineStart.lat-48.361)>0.000001 || Math.abs(lineStart.lng-7.83)>0.000001)throw Error('Direct line uses stale aircraft position');
     click('hintToggleCompass');if(getComputedStyle(el('compassRoseWrap')).display!=='none')throw Error('Compass visibility');click('hintToggleCompass');
     click('hintToggleRouteProgress');if(getComputedStyle(el('routeProgressBar')).display!=='none')throw Error('Progress visibility');click('hintToggleRouteProgress');
     click('hintToggleLowFps');if(!document.querySelector('.low-fps-plane'))throw Error('Plane performance class');click('hintToggleLowFps');

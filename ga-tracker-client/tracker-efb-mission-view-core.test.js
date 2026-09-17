@@ -349,3 +349,20 @@ test('live comfort and cargo reasons replace stale seed feedback for APT and POI
   assert.ok(view.feedback.some(row=>row.label==='Wettereinfluss'));
  }
 });
+
+
+test('POI conditions and phase do not retain briefing distance altitude or duration', () => {
+ const run={missionId:'m',runId:'r',resumeBundle:{executionPoiRecipe:{target:{lat:48,lon:8},strict:false,
+ passenger:{targetRadiusNm:1,targetAltFt:8500,targetDwellMin:5}},efbMission:{requirements:[
+ {label:'Arbeitsbereich',detail:'109.8 NM'},{label:'Arbeitshöhe',detail:'6292 ft zu niedrig'},
+ {label:'Verweilzeit',detail:'5 Min. laut Briefing'}]}}};
+ const control={missionId:'m',runId:'r',executionAuthority:'tracker',recipe:'poi',phase:'enroute',flags:{active:true},poiTask:{inRadius:true,dwellSec:66},manifest:{items:[]}};
+ const result=projectTrackerEfbMissionView(run,{lat:48,lon:8,alt:8814},null,control).view;
+ assert.equal(result.phase.stages[result.phase.current].id,'work');
+ assert.ok(result.requirements.some(r=>r.detail.includes('8814 ft MSL')));
+ assert.ok(result.requirements.some(r=>r.detail.includes('aktuell 0.0 NM')));
+ assert.ok(result.requirements.some(r=>r.detail==='2:30 erforderlich'));
+ assert.ok(!JSON.stringify(result.requirements).includes('6292'));
+ control.phase='return_leg';
+ assert.equal(projectTrackerEfbMissionView(run,null,null,control).view.phase.current,3);
+});

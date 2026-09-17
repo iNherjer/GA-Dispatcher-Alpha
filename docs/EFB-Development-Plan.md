@@ -5556,3 +5556,16 @@ V1-Caches werden gelesen und beim naechsten Speichern migriert; einzelne fehlend
 oder beschaedigte v2-Audiodateien verwerfen nur ihren Eintrag. Aeltere Tracker
 koennen den v2-Voice-Cache nicht lesen; Missionscheckpoint und Cargo-Recovery sind
 davon unabhaengig. Die Fuenf-Sekunden-Missionssicherung bleibt unveraendert.
+
+
+## v431: EFB-Feldkorrekturen
+POI-Bedingungen zeigen Live-Distanz/Live-MSL sowie die bereits geltende effektive
+Verweilzeit statt alter Briefing-Beobachtungen. POI-Phasen erhalten passende
+Anflug/Arbeitsbereich/Rueckflug/Landung/Abschluss-Stufen. Missionsregeln unveraendert.
+PAX-Dragging unterstuetzt Maus und Touch ohne Pointer-Events und unterdrueckt
+Klicks nach Ziehen. Die Magenta-Linie nutzt einen eigenen SVG-Renderer, analog
+zu den bestehenden Routen, statt asynchroner Canvas-Neuzeichnung.
+Das Anzeigemenue nutzt im EFB deckende Farben ohne Filter/Animationen als
+Popout-Kompatibilitaetsmassnahme. Schwarze Flaeche/erst bei Hover sichtbare
+Inhalte ist in Electron nicht reproduziert; im MSFS-Popout nachpruefen.
+Assetrevision 43101 erzwingt frische Host-Dateien.

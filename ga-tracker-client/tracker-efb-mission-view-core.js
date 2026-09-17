@@ -462,6 +462,24 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       const lat = finite(flightSnapshot?.lat), lon = finite(flightSnapshot?.lon);
       view.target.distanceNm = lat !== null && lon !== null ? poiTaskCore.distanceNm(lat, lon, recipe.target.lat, recipe.target.lon) : null;
       view.target.bearingDeg = lat !== null && lon !== null ? poiTaskCore.bearingDeg(lat, lon, recipe.target.lat, recipe.target.lon) : null;
+      // Replace briefing-time observations with the same live inputs as the cards.
+      view.requirements = view.requirements.filter(row => !['Arbeitsbereich', 'Arbeitshöhe', 'Verweilzeit'].includes(row.label));
+      const pax = recipe.passenger || {};
+      const radius = Number(pax.targetRadiusNm) || 1.5;
+      const distance = view.target.distanceNm;
+      view.requirements.push({label:'Arbeitsbereich', detail:`Radius ${radius.toFixed(1)} NM · aktuell ${distance === null ? 'unbekannt' : distance.toFixed(1) + ' NM'}`, tone:distance === null ? 'muted' : distance <= radius ? 'good' : 'warn'});
+      const targetAlt = Number(pax.targetAltFt) || 0;
+      const alt = view.flight.mslFt;
+      view.requirements.push({label:'Arbeitshöhe', detail:targetAlt ? `${targetAlt} ft MSL · aktuell ${alt === null ? 'unbekannt' : Math.round(alt) + ' ft MSL'}` : 'Keine Höhenvorgabe', tone:'neutral'});
+      const seconds = Math.max(0, Number(pax.targetDwellMin) || 0) * 60 * (recipe.strict ? 1 : 0.5);
+      view.requirements.push({label:'Verweilzeit', detail:`${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')} erforderlich`, tone:'neutral'});
+      const task = control.poiTask || {};
+      view.phase.stages = [{id:'preparation',label:'Vorbereitung'},{id:'enroute',label:'Anflug'},
+        {id:'work',label:'Arbeitsbereich'},{id:'return',label:'Rückflug'},{id:'arrival',label:'Landung'},{id:'complete',label:'Abschluss'}];
+      view.phase.current = /^(closing|closed)$/.test(controlPhase) ? 5 : /^(end_unloading|end_ready)$/.test(controlPhase) ? 4
+        : controlPhase === 'return_leg' ? 3 : controlPhase === 'on_task' || (controlFlags.active && task.inRadius && !task.satisfied && !task.aborted) ? 2
+        : /^(active|enroute)$/.test(controlPhase) ? 1 : 0;
+
     }
   }
   return {

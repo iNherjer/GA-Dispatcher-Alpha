@@ -1207,3 +1207,21 @@ body.ga-efb-tracker-host #awmFreqBanner {
   padding-top: 0;
   max-height: min(44vh, calc(100vh - var(--ga-efb-warning-top, 120px) - 12px)) !important;
 }
+
+/* Coherent popouts: opaque controls without filter/compositing dependencies. */
+body.ga-efb-tracker-host #mapHintsMenu {
+  background: #17212b !important;
+  color: #eef5ff !important;
+}
+body.ga-efb-tracker-host #mapHintsMenu,
+body.ga-efb-tracker-host #mapHintsMenu * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+body.ga-efb-tracker-host #mapHintsMenu button {
+  color: #eef5ff !important;
+  opacity: 1;
+}

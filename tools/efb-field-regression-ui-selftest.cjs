@@ -54,6 +54,17 @@ app.whenReady().then(async () => {
     await new Promise(r=>setTimeout(r,400));
     const position=await win.webContents.executeJavaScript(`JSON.parse(localStorage.getItem('ga_efb_pax_position'))`);
     assert.ok(position && position.x<100 && position.y<200,'drag persisted');
+    const mouseOnly=await win.webContents.executeJavaScript(`(()=>{
+      const b=document.getElementById('paxVoiceBtn'),r=b.getBoundingClientRect();
+      b.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button:0,clientX:r.x+20,clientY:r.y+20}));
+      window.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:r.x+70,clientY:r.y+60}));
+      window.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,clientX:r.x+70,clientY:r.y+60}));
+      b.click();
+      return {position:JSON.parse(localStorage.ga_efb_pax_position),closed:document.getElementById('paxVoicePanel').hidden};
+    })()`);
+    assert.ok(Math.abs(mouseOnly.position.x-position.x-50)<2,'mouse-only drag without Pointer Events');
+    assert.ok(mouseOnly.closed,'drag must not open PAX panel');
+
     await win.webContents.executeJavaScript(`document.getElementById('paxVoiceBtn').click();true`);
     await new Promise(r=>setTimeout(r,200));
     console.log(await win.webContents.executeJavaScript(`JSON.stringify({pax:document.getElementById('paxVoiceWidget').getBoundingClientRect().toJSON(),hidden:document.getElementById('paxVoiceWidget').hidden,panel:document.getElementById('paxVoicePanel').hidden,paths:Array.from(document.querySelectorAll('.leaflet-pane path[stroke="#ff4444"]')).map(x=>x.getBoundingClientRect().toJSON())})`));

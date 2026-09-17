@@ -54,6 +54,7 @@
   var previewLayer = null;
   var routeRenderer = null;
   var geometryRenderer = null;
+  var previewRenderer = null;
   var previewLine = null;
   var baseLayers = {};
   var overlayLayers = {};
@@ -1517,6 +1518,7 @@
     createStablePane('gaAircraftPane', 500);
     routeRenderer = L.svg ? L.svg({ pane: 'gaRoutePane' }) : null;
     geometryRenderer = L.svg ? L.svg({ pane: 'gaGeometryPane' }) : null;
+    previewRenderer = L.svg ? L.svg({ pane: 'gaPreviewPane' }) : null;
 
     var baseControl = {};
     var overlayControl = {};
@@ -2136,24 +2138,31 @@
       panel.style.top = position.y > window.innerHeight / 2 ? 'auto' : '60px';
     }
     try { var saved = JSON.parse(localStorage.getItem('ga_efb_pax_position')); if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) place(saved.x, saved.y); } catch (_) {}
-    button.addEventListener('pointerdown', function(e) {
-      if (e.button != null && e.button !== 0) return;
-      var rect = button.getBoundingClientRect(); start = { x:e.clientX, y:e.clientY, left:rect.left, top:rect.top, id:e.pointerId }; moved = false;
-      try { button.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); e.stopPropagation();
-    });
-    window.addEventListener('pointermove', function(e) {
-      if (!start || start.id !== e.pointerId) return;
-      var dx = e.clientX - start.x, dy = e.clientY - start.y;
+    function input(e) { return mapContextEventPoint(e); }
+    function begin(e) {
+      var point = input(e);
+      if (!point || start || (e.button != null && e.button !== 0)) return;
+      var rect = button.getBoundingClientRect();
+      start = {x:point.x,y:point.y,left:rect.left,top:rect.top,key:point.key}; moved = false;
+      e.stopPropagation();
+    }
+    function move(e) {
+      var point = input(e);
+      if (!start || !point || start.key !== point.key) return;
+      var dx = point.x - start.x, dy = point.y - start.y;
       if (!moved && dx * dx + dy * dy < 9) return;
       moved = true; panel.hidden = true; place(start.left + dx, start.top + dy); e.preventDefault();
-    });
+    }
     function finish(e) {
-      if (!start || start.id !== e.pointerId) return;
-      try { if (button.hasPointerCapture(e.pointerId)) button.releasePointerCapture(e.pointerId); } catch (_) {}
-      if (moved) { ignoreUntil = Date.now() + 300; try { localStorage.setItem('ga_efb_pax_position', JSON.stringify(position)); } catch (_) {} }
+      var point = input(e);
+      if (!start || !point || start.key !== point.key) return;
+      if (moved) { ignoreUntil = Date.now() + 500; try { localStorage.setItem('ga_efb_pax_position', JSON.stringify(position)); } catch (_) {} }
       start = null; moved = false;
     }
-    window.addEventListener('pointerup', finish); window.addEventListener('pointercancel', finish);
+    // Coherent popouts may emit mouse/touch without Pointer Events.
+    ['pointerdown','mousedown','touchstart'].forEach(function(type){button.addEventListener(type,begin);});
+    ['pointermove','mousemove','touchmove'].forEach(function(type){window.addEventListener(type,move,{passive:false});});
+    ['pointerup','pointercancel','mouseup','touchend','touchcancel'].forEach(function(type){window.addEventListener(type,finish);});
     button.addEventListener('click', function(e) { if (Date.now() < ignoreUntil) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
     window.addEventListener('resize', function() { if (position) place(position.x, position.y); });
   }
@@ -2402,7 +2411,7 @@
       [selected.waypoint.lat, selected.waypoint.lon]
     ];
     if (!previewLine) {
-      previewLine = L.polyline(points, Object.assign({}, window.GAMapLivePresentation.DIRECT_LINE_STYLE, {pane:'gaPreviewPane'})).addTo(previewLayer);
+      previewLine = L.polyline(points, Object.assign({}, window.GAMapLivePresentation.DIRECT_LINE_STYLE, {pane:'gaPreviewPane',renderer:previewRenderer || undefined})).addTo(previewLayer);
     } else {
       previewLine.setLatLngs(points);
     }
