@@ -404,10 +404,12 @@ function createTrackerVoiceService(options = {}) {
     }
   }
 
-  // Keep the v1 recovery format, but never rewrite megabytes synchronously
-  // from a cargo/voice callback. Immutable audio is encoded once; metadata is
-  // snapshotted per write and mutations during I/O are coalesced into the next.
-  const encodedAudio = new WeakMap();
+  // Immutable audio blobs are written once; small metadata is replaced atomically.
+  // Legacy v1 inline-audio files are still readable and migrate on the next save.
+  const audioDirectory = storageFile + '.audio';
+  const audioHashes = new WeakMap();
+  const writtenAudio = new Set();
+  let cacheDirectoryReady = false, prunedAudioSignature = null;
   let persistenceDirty = false;
   let persistencePromise = null;
   async function writeCache() {
@@ -417,8 +419,8 @@ function createTrackerVoiceService(options = {}) {
       const rows = [...records.values()]
         .filter(record => !record.clips && record.status === 'ready' && (Buffer.isBuffer(record.audio) || record.synthesizeAudio === false))
         .map(record => {
-          if (Buffer.isBuffer(record.audio) && !encodedAudio.has(record.audio)) {
-            encodedAudio.set(record.audio, record.audio.toString('base64'));
+          if (Buffer.isBuffer(record.audio) && !audioHashes.has(record.audio)) {
+            audioHashes.set(record.audio, crypto.createHash('sha256').update(record.audio).digest('hex'));
           }
           const metadata = {
             effectId: record.effectId,
@@ -443,25 +445,41 @@ function createTrackerVoiceService(options = {}) {
             voiceName: record.voiceName || '',
             playback: record.playback
           };
-          return { metadata: JSON.stringify(metadata), audio: record.audio ? encodedAudio.get(record.audio) : '' };
+          return { metadata: JSON.parse(JSON.stringify(metadata)), audio: record.audio, audioHash: record.audio ? audioHashes.get(record.audio) : null };
         });
-      await io.promises.mkdir(path.dirname(storageFile), { recursive: true });
-      file = await io.promises.open(temporaryFile, 'w', 0o600);
-      await file.writeFile('{"schema":"ga.tracker-voice-cache.v1","records":[');
-      for (let index = 0; index < rows.length; index++) {
-        const row = rows[index];
-        await file.writeFile((index ? ',' : '') + row.metadata.slice(0, -1) + ',"audioBase64":"');
-        // Base64 contains no JSON escapes. Separate writes avoid serializing or
-        // copying the entire audio cache just to change one playback status.
-        await file.writeFile(row.audio);
-        await file.writeFile('"}');
+      if (!cacheDirectoryReady) {
+        await io.promises.mkdir(audioDirectory, { recursive: true });
+        cacheDirectoryReady = true;
       }
-      await file.writeFile(']}');
+      for (const row of rows) {
+        if (!row.audioHash || writtenAudio.has(row.audioHash)) continue;
+        const filename = path.join(audioDirectory, row.audioHash + '.audio');
+        await io.promises.writeFile(filename + '.tmp', row.audio, { mode: 0o600 });
+        await io.promises.rename(filename + '.tmp', filename);
+        writtenAudio.add(row.audioHash);
+      }
+      file = await io.promises.open(temporaryFile, 'w', 0o600);
+      await file.writeFile(JSON.stringify({ schema: 'ga.tracker-voice-cache.v2',
+        records: rows.map(row => ({ ...row.metadata, audioHash: row.audioHash })) }));
       await file.close();
       file = null;
       await io.promises.rename(temporaryFile, storageFile);
+      // Only prune after the new index is committed. Failed index writes must
+      // preserve all blobs referenced by the previous recovery state.
+      const retained = new Set(rows.map(row => row.audioHash).filter(Boolean));
+      const audioSignature = [...retained].sort().join(',');
+      try {
+        if (audioSignature !== prunedAudioSignature) for (const name of await io.promises.readdir(audioDirectory)) {
+          if (!/^[a-f0-9]{64}\.audio$/.test(name) || retained.has(name.slice(0, -6))) continue;
+          await io.promises.unlink(path.join(audioDirectory, name));
+          writtenAudio.delete(name.slice(0, -6));
+        }
+        prunedAudioSignature = audioSignature;
+      } catch (error) { log(`VOICE_CACHE_PRUNE_ERROR code=${error?.code || error?.message || error}`); }
       return true;
     } catch (error) {
+      cacheDirectoryReady = false;
+      if (error?.code === 'ENOENT') writtenAudio.clear();
       log(`VOICE_CACHE_WRITE_ERROR code=${error?.code || error?.message || error}`);
       return false;
     } finally {
@@ -496,10 +514,19 @@ function createTrackerVoiceService(options = {}) {
     if (!storageFile || !io.existsSync(storageFile)) return;
     try {
       const parsed = JSON.parse(io.readFileSync(storageFile, 'utf8'));
-      if (parsed?.schema !== 'ga.tracker-voice-cache.v1' || !Array.isArray(parsed.records)) return;
+      if (!['ga.tracker-voice-cache.v1', 'ga.tracker-voice-cache.v2'].includes(parsed?.schema) || !Array.isArray(parsed.records)) return;
       for (const source of parsed.records.slice(-maxEntries)) {
         const effectId = normalizeEffectId(source?.effectId);
-        const audio = Buffer.from(String(source?.audioBase64 || ''), 'base64');
+        let audio;
+        if (parsed.schema === 'ga.tracker-voice-cache.v2') {
+          const hash = String(source?.audioHash || '');
+          if (hash && !/^[a-f0-9]{64}$/.test(hash)) { log('VOICE_CACHE_AUDIO_INVALID_HASH'); continue; }
+          try {
+            audio = hash ? io.readFileSync(path.join(audioDirectory, hash + '.audio')) : Buffer.alloc(0);
+            if (hash && crypto.createHash('sha256').update(audio).digest('hex') !== hash) throw Error('audio_hash_mismatch');
+            if (hash) { audioHashes.set(audio, hash); writtenAudio.add(hash); }
+          } catch (error) { log(`VOICE_CACHE_AUDIO_READ_ERROR code=${error?.code || error?.message || error}`); continue; }
+        } else audio = Buffer.from(String(source?.audioBase64 || ''), 'base64');
         const synthesizeAudio = source?.synthesizeAudio !== false;
         if ((synthesizeAudio && !audio.length) || totalAudioBytes + audio.length > maxAudioBytes) continue;
         const timestamp = Math.max(0, Number(source.updatedAt) || Number(source.createdAt) || now());

@@ -1180,3 +1180,22 @@ Die POI-Freigabe fuer gemeinsame Effekte wird einmal pro Snapshot statt fuer
 jeden historischen Effekt bestimmt; es werden nur ausstehende Effekte projiziert.
 Legacy-Ausfuehrung behaelt ihr bisheriges Scheduling. Die Fuenf-Sekunden-Sicherung
 bleibt unveraendert. Feldtest muss die Ende-zu-Ende-Latenz weiter belegen.
+
+
+## Tracker v430: kleinere Zustands- und Voice-Persistenzarbeit
+
+Der Missionsworker verwendet einen privaten Publication-Reader, der unveraenderte
+Missionspaket-/Reducer-Daten anhand ihrer Identitaet kopiert und wiederverwendet.
+Transportrevisionen bauen nur veraenderliche Header/Journale neu auf. Die Quellen
+muessen weiterhin durch neue Objekte ersetzt werden; der Reader und seine geteilten
+Rueckgaben sind ausschliesslich intern und read-only. Oeffentliche Getter bleiben
+abgetrennte Kopien. IPC-Struktur, Revisionspruefung und Missionssemantik bleiben gleich.
+
+Der Voice-Cache v2 speichert unveraenderte Audiodaten einmalig als SHA-256-adressierte
+Binaerdateien neben dem bisherigen Index (`<storageFile>.audio`). Statusaenderungen
+schreiben nur den kleinen JSON-Index, asynchron und zusammengefasst. Erst nach
+atomarem Indexwechsel werden nicht mehr referenzierte Audiodateien entfernt.
+V1-Caches werden gelesen und beim naechsten Speichern migriert; einzelne fehlende
+oder beschaedigte v2-Audiodateien verwerfen nur ihren Eintrag. Aeltere Tracker
+koennen den v2-Voice-Cache nicht lesen; Missionscheckpoint und Cargo-Recovery sind
+davon unabhaengig. Die Fuenf-Sekunden-Missionssicherung bleibt unveraendert.

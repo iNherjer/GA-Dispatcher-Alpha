@@ -1360,7 +1360,7 @@ function createMissionAuthorityManager(options = {}) {
       guard.items.has(item?.itemId) && guard.items.get(item.itemId) === current.items.get(item.itemId));
   };
 
-  const getExecutionSnapshot = () => {
+  const buildExecutionSnapshot = (copy = jsonClone) => {
     const active = state.activeRun;
     if (!active?.missionId || !active?.runId || !active.executionState) return null;
     rememberIntentRevision(active);
@@ -1378,10 +1378,12 @@ function createMissionAuthorityManager(options = {}) {
       executionStateHash: cleanString(active.executionStateHash, 180) || null,
       updatedAt: Number(active.updatedAt || 0) || null,
       location: executionLocationProjection(active.resumeBundle),
-      state: jsonClone(executionState),
-      view: jsonClone(view)
+      state: copy(executionState),
+      view: copy(view)
     };
   };
+
+  const getExecutionSnapshot = () => buildExecutionSnapshot();
 
   const finalizeExecutionRun = (request = {}) => {
     const active = state.activeRun;
@@ -1842,6 +1844,47 @@ function createMissionAuthorityManager(options = {}) {
       activeRun: null
     };
   };
+
+  // Private publication reader: only the worker receives this callback. Normal
+  // getters continue returning detached copies. Reducer/bundle/context sources
+  // are immutable; mutable run headers and transport journals are rebuilt.
+  const publicationParts = new WeakMap();
+  const publicBodies = new WeakMap();
+  const copyPublicationPart = value => {
+    if (!value || typeof value !== 'object') return value;
+    if (!publicationParts.has(value)) publicationParts.set(value, jsonClone(value));
+    return publicationParts.get(value);
+  };
+  const publicationBundle = bundle => bundle ? Object.fromEntries(
+    Object.entries(bundle).map(([key, value]) => [key, copyPublicationPart(value)])) : null;
+  const publicationControl = run => {
+    if (!run?.executionState) return null;
+    let cached = publicBodies.get(run);
+    const sources = [run.executionState, run.executionRuntimeContext, run.resumeBundle?.executionPoiRecipe,
+      run.executionAuthority, run.executionRecipe, run.missionId, run.runId];
+    if (!cached || sources.some((source, index) => source !== cached.sources[index])) {
+      cached = { sources, body: publicExecutionSnapshot(run) };
+      publicBodies.set(run, cached);
+    }
+    return { ...cached.body, authorityRevision: Math.max(1, Math.round(Number(run.revision) || 1)),
+      executionRevision: Math.max(0, Math.round(Number(run.executionRevision) || 0)),
+      executionStateHash: cleanString(run.executionStateHash, 180) || null, updatedAt: Number(run.updatedAt || 0) || null };
+  };
+  options.onPublicationReader?.(() => {
+    const run = state.activeRun;
+    rememberIntentRevision(run);
+    const summary = publicRun(run);
+    return {
+      active: run ? { ...publicRun(run, { includeEffects: true }),
+        resumeBundle: publicationBundle(run.resumeBundle), navigationRoute: copyPublicationPart(run.navigationRoute || null) } : null,
+      public: { schema: STATE_SCHEMA, version: STATE_VERSION, activeRun: summary,
+        execution: publicationControl(run), lastRun: publicRun(state.lastRun), lastExecution: publicationControl(state.lastRun),
+        updatedAt: Number(run?.updatedAt || state.lastRun?.updatedAt || 0) || null },
+      execution: buildExecutionSnapshot(copyPublicationPart),
+      context: run ? { latestTelemetry: copyPublicationPart(run.executionRuntimeContext?.latestTelemetry) } : null,
+      supportsPoi: supportsExecutionRecipe('poi', run?.resumeBundle)
+    };
+  });
 
   load();
 

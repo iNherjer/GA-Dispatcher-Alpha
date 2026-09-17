@@ -7,7 +7,7 @@ const { createTrackerFlightLogStore } = require('./tracker-flight-log-store.js')
 
 function runMissionWorker() {
   let authority, runtime, bridge, flightLog, published = null, publishScheduled = false;
-  let cachedAuthority = null, cachedVersion = -1;
+  let cachedAuthority = null, cachedVersion = -1, readPublication;
   const publishMetrics = { calls: 0, builds: 0, buildMs: 0, diffMs: 0, sends: 0 };
   let livePosition = null, audioSettings = null, simulatorGeneration = 0;
   const log = line => ipc.event('log', line);
@@ -18,12 +18,7 @@ function runMissionWorker() {
     const version = authority.getPublicationVersion();
     if (version !== cachedVersion) {
       const started = process.hrtime.bigint();
-      const active = authority.getActiveRun({ includeBundle: true, includeEffects: true });
-      cachedAuthority = {
-        active, public: authority.getPublicSnapshot(), execution: authority.getExecutionSnapshot(),
-        context: active ? { latestTelemetry: authority.getExecutionRuntimeContext({ missionId: active.missionId, runId: active.runId })?.latestTelemetry } : null,
-        supportsPoi: authority.supportsExecutionRecipe('poi')
-      };
+      cachedAuthority = readPublication();
       cachedVersion = version;
       publishMetrics.builds++;
       publishMetrics.buildMs += Number(process.hrtime.bigint() - started) / 1e6;
@@ -44,7 +39,7 @@ function runMissionWorker() {
   const handlers = {
     initialize(options) {
       if (authority) throw Error('mission_process_already_initialized');
-      const manager = createMissionAuthorityManager({ ...options.authority, periodicCheckpoint: true, log });
+      const manager = createMissionAuthorityManager({ ...options.authority, periodicCheckpoint: true, log, onPublicationReader: reader => { readPublication = reader; } });
       authority = {};
       for (const [name, method] of Object.entries(manager)) {
         authority[name] = typeof method === 'function' ? (...args) => {

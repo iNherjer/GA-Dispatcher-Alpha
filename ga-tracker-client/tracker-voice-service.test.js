@@ -550,3 +550,52 @@ for (const outcome of ['committed', 'rejected', 'cancelled']) test(`POI voice wa
   assert.equal(job.status, outcome === 'committed' ? 'ready' : outcome === 'rejected' ? 'text_blocked' : 'cancelled');
   assert.equal(audioCalls, outcome === 'committed' ? 1 : 0);
 });
+
+
+test('playback metadata changes never rewrite immutable audio blobs', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-voice-blobs-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const storageFile = path.join(directory, 'voice.json');
+  let audioWrites = 0, audioBytes = 0;
+  const io = { ...fs, promises: { ...fs.promises, writeFile: async (filename, data, options) => {
+    if (filename.endsWith('.audio.tmp')) { audioWrites++; audioBytes += data.length; }
+    return fs.promises.writeFile(filename, data, options);
+  } } };
+  const service = createTrackerVoiceService({ provider: 'openai', apiKey: 'test', storageFile, io,
+    fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.alloc(2 * 1024 * 1024, 7) }) });
+  service.request({ effectId: 'blob-audio', text: 'Hallo' }); await service.wait('blob-audio');
+  await service.flushPersistence();
+  service.claimPlayback({ effectId: 'blob-audio', clientId: 'phone' }); await service.flushPersistence();
+  service.releasePlayback({ effectId: 'blob-audio', clientId: 'phone', completed: true }); await service.flushPersistence();
+  assert.equal(audioWrites, 1);
+  assert.equal(audioBytes, 2 * 1024 * 1024);
+  assert.ok(fs.statSync(storageFile).size < 4096);
+  assert.equal(JSON.parse(fs.readFileSync(storageFile)).schema, 'ga.tracker-voice-cache.v2');
+  const restored = createTrackerVoiceService({ storageFile });
+  assert.equal(restored.get('blob-audio').playback.status, 'completed');
+  assert.equal(restored.getAudio('blob-audio').body.length, audioBytes);
+});
+
+test('legacy inline audio migrates losslessly and corrupt v2 audio does not discard other records', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-voice-migrate-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const storageFile = path.join(directory, 'voice.json');
+  fs.writeFileSync(storageFile, JSON.stringify({ schema: 'ga.tracker-voice-cache.v1', records: [
+    { effectId: 'legacy-a', audioBase64: Buffer.from('first-audio').toString('base64'), createdAt: Date.now(), playback: { status: 'available' } },
+    { effectId: 'legacy-b', audioBase64: Buffer.from('second-audio').toString('base64'), createdAt: Date.now(), playback: { status: 'completed' } }
+  ] }));
+  const service = createTrackerVoiceService({ storageFile });
+  assert.equal(service.getAudio('legacy-a').body.toString(), 'first-audio');
+  service.claimPlayback({ effectId: 'legacy-a', clientId: 'phone' });
+  service.releasePlayback({ effectId: 'legacy-a', clientId: 'phone', completed: true });
+  assert.equal(await service.flushPersistence(), true);
+  const index = JSON.parse(fs.readFileSync(storageFile));
+  assert.equal(index.schema, 'ga.tracker-voice-cache.v2');
+  const migrated = createTrackerVoiceService({ storageFile });
+  assert.equal(migrated.getAudio('legacy-b').body.toString(), 'second-audio');
+  const hash = index.records.find(record => record.effectId === 'legacy-a').audioHash;
+  fs.writeFileSync(path.join(storageFile + '.audio', hash + '.audio'), 'corrupt');
+  const recovered = createTrackerVoiceService({ storageFile });
+  assert.equal(recovered.get('legacy-a'), null);
+  assert.equal(recovered.getAudio('legacy-b').body.toString(), 'second-audio');
+});

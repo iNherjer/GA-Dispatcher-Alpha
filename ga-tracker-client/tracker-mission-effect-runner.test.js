@@ -164,7 +164,7 @@ function aptResumeBundle() {
   return bundle;
 }
 
-function createCommittedFixture(t) {
+function createCommittedFixture(t, overrides = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-tracker-effect-runner-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   let clock = 1000;
@@ -172,7 +172,8 @@ function createCommittedFixture(t) {
     storageFile: path.join(directory, 'authority.json'),
     now: () => clock,
     idFactory: () => 'run-effects-1',
-    executionAuthorityEnabled: true
+    executionAuthorityEnabled: true,
+    ...overrides
   };
   const manager = createMissionAuthorityManager(managerOptions);
   const bundle = aptResumeBundle();
@@ -496,4 +497,34 @@ test('event updates keep external mission snapshots detached from internal share
   assert.equal(untouched.missionState.currentMissionData.start, 'EDTW');
   assert.equal(untouched.missionState.currentMissionData.dest, 'EDTL');
   assert.ok(untouched.executionReplay.events.length > 0);
+});
+
+
+test('worker publications match public getters and reuse unchanged large data across transport revisions', t => {
+  let read;
+  const fixture = createCommittedFixture(t, { onPublicationReader: reader => { read = reader; } });
+  const { manager } = fixture;
+  const first = read();
+  const run = manager.getActiveRun();
+  manager.recordCommand({ type: 'mission_scene_spawn', commandId: 'publication-journal', missionId: run.missionId, runId: run.runId });
+  const second = read();
+  assert.equal(second.active.resumeBundle.missionState, first.active.resumeBundle.missionState);
+  assert.equal(second.execution.state, first.execution.state);
+  assert.equal(second.public.execution.manifest, first.public.execution.manifest);
+  assert.deepEqual(second.active, manager.getActiveRun({ includeBundle: true, includeEffects: true }));
+  assert.deepEqual(second.public, manager.getPublicSnapshot());
+  assert.deepEqual(second.execution, manager.getExecutionSnapshot());
+  manager.recordExecutionRuntimeContext({ missionId: run.missionId, runId: run.runId, context: { latestTelemetry: { lat: 48, lon: 8, observedAt: 5000 }, cargoObjectRevision: 7 } });
+  const third = read();
+  assert.equal(third.public.execution.cargoObjectRevision, 7);
+  assert.deepEqual(third.public, manager.getPublicSnapshot());
+  assert.deepEqual(third.context.latestTelemetry, manager.getExecutionRuntimeContext().latestTelemetry);
+  assert.equal(executeCurrent(fixture, 'prepare_mission', 'publication-event').ok, true);
+  const fourth = read();
+  assert.notEqual(fourth.execution.state, third.execution.state);
+  assert.deepEqual(fourth.execution, manager.getExecutionSnapshot());
+  assert.deepEqual(fourth.public, manager.getPublicSnapshot());
+  const external = manager.getActiveRun({ includeBundle: true });
+  external.resumeBundle.missionState.currentMissionData.start = 'mutated';
+  assert.equal(read().active.resumeBundle.missionState.currentMissionData.start, 'EDTW');
 });
