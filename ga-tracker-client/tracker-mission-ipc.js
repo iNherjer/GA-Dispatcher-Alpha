@@ -50,7 +50,7 @@ function createMissionIpc(channel, handlers = {}, options = {}) {
           pending.delete(id);
           // No automatic replay: the child may already have committed the intent.
           reject(Error('mission_process_response_timeout'));
-        }, options.timeoutMs || 30000);
+        }, options.timeoutForRequest?.(name, args) || options.timeoutMs || 30000);
         pending.set(id, { resolve, reject, timer });
         try { send({ protocol: 'mission-ipc-v1', kind: 'request', id, name, args }); }
         catch (error) { pending.delete(id); clearTimeout(timer); reject(error); }
@@ -86,4 +86,11 @@ function applyDifference(state, changes) {
   }
   return state;
 }
-module.exports = { createMissionIpc, difference, applyDifference };
+// Voice generation + claim + playback already have their own finite budgets
+// (up to 180s + 30s + 180s). IPC must not cut a valid workflow off at 30s.
+function missionRequestTimeout(name, args = []) {
+  if (name === 'callback' && ['playBoardingVoice', 'prepareBoardingVoice', 'playFarewellVoice', 'playComplianceVoice'].includes(args[0])) return 450000;
+  if (name === 'intent' && args[0]?.deferEffects !== true) return 600000;
+  return 30000;
+}
+module.exports = { createMissionIpc, difference, applyDifference, missionRequestTimeout };

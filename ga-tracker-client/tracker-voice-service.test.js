@@ -532,3 +532,21 @@ test('POI text checkpoint hooks cannot change the APT voice pipeline', async () 
   assert.equal(job.text, 'APT boarding text.');
   assert.equal(textCalls, 1);
 });
+
+for (const outcome of ['committed', 'rejected', 'cancelled']) test(`POI voice waits for asynchronous text checkpoint: ${outcome}`, async () => {
+  let confirm, requested = false, audioCalls = 0;
+  const service = createTrackerVoiceService({ provider: 'openai', apiKey: 'test-key', fetchRemote: async url => {
+    if (url.includes('/audio/')) { audioCalls++; return { ok: true, arrayBuffer: async () => Buffer.from('audio') }; }
+    return { ok: true, json: async () => ({ choices: [{ message: { content: 'Der Text bleibt erhalten.' } }] }) };
+  } });
+  service.request({ effectId: `poi-async-${outcome}`, kind: 'poi', prompt: 'Beschreibe das Ziel.', deferPlayback: true,
+    confirmTextReady: () => { requested = true; return new Promise(resolve => { confirm = resolve; }); } });
+  while (!requested) await new Promise(resolve => setImmediate(resolve));
+  assert.equal(audioCalls, 0, 'audio must wait for durable mission text');
+  if (outcome === 'cancelled') service.cancel(`poi-async-${outcome}`, 'mission_end');
+  confirm(outcome === 'rejected' ? { ok: false, error: 'storage_failed' } : { ok: true });
+  const job = await service.wait(`poi-async-${outcome}`);
+  if (outcome === 'cancelled') { assert.equal(job, null); assert.equal(audioCalls, 0); return; }
+  assert.equal(job.status, outcome === 'committed' ? 'ready' : outcome === 'rejected' ? 'text_blocked' : 'cancelled');
+  assert.equal(audioCalls, outcome === 'committed' ? 1 : 0);
+});

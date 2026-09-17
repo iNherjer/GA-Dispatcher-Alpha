@@ -257,3 +257,19 @@ nachlaufende Promotion-Ziele. Sie muessen nicht mehr jederzeit dem aktuellen
    - `git ls-remote stable refs/heads/main`
    - `gh run list -R iNherjer/GA-Dispatcher-beta --limit 5`
    - `gh run list -R iNherjer/VFR-Multitool --limit 5`
+
+## Gepackter Missionsprozess
+
+Bei Aenderungen am Missionsprozess-Start muss neben Node-Tests ein tatsaechlich
+gepackter Start geprueft werden. `tools/tracker-mission-package-smoke.cjs` nutzt
+den produktiven Tracker-Einstieg, prueft IPC/Authority und beendet beide Prozesse.
+Mit derselben pkg-/Node-Version wie das Windows-Release fuer eine ausfuehrbare
+Host-Architektur paketieren und das Ergebnis ausfuehren. Beispiel auf Apple ARM64:
+
+```sh
+PKG_CACHE_PATH=/tmp/ga-poi-pkg-cache ga-tracker-client/node_modules/.bin/pkg tools/tracker-mission-package-smoke.cjs --target node18-macos-arm64 --output /tmp/ga-mission-package-smoke --no-bytecode --public --public-packages '*'
+/tmp/ga-mission-package-smoke
+```
+
+Erfolg: `MISSION_PACKAGED_PROCESS_SMOKE_OK`, danach Worker-Exit 0. Dieser Test
+prueft den pkg-Bootstrap; er ersetzt keinen Windows-/SimConnect-Feldtest.

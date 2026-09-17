@@ -579,7 +579,7 @@ function createTrackerVoiceService(options = {}) {
         // A failed commit retains the exact generated text for a later retry.
         record.textReady = true;
         let confirmation;
-        try { confirmation = request.confirmTextReady(record.text); }
+        try { confirmation = await request.confirmTextReady(record.text); }
         catch (error) { confirmation = { ok: false, error: error?.message || 'poi_text_commit_failed' }; }
         if (confirmation?.ok !== true) {
           record.status = 'text_blocked';
@@ -587,6 +587,7 @@ function createTrackerVoiceService(options = {}) {
           record.updatedAt = now();
           return publicRecord(record);
         }
+        if (record.cancelled === true) return publicRecord(record);
         record.error = '';
       }
       if (request.synthesizeAudio === false) {

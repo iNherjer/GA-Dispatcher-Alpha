@@ -59,6 +59,9 @@ function createTrackerMissionBoardingVoice(options = {}) {
   }
 
   const cargoAudio = createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates, getAudioSettings, playbackClaimTimeoutMs, log });
+  const commitGeneratedText = (request, text) => typeof authorityManager.recordGeneratedText === 'function'
+    ? authorityManager.recordGeneratedText(request, text)
+    : recordGeneratedText(authorityManager, request, text);
   const dispatch = async (request = {}) => {
     let effectId = cleanString(request?.effect?.effectId || request.commandId, 220);
     const run = authorityManager.getActiveRun({ includeBundle: true });
@@ -177,7 +180,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
           resolvedText: authorityManager.getExecutionSnapshot()?.state.effects
             .find(effect => effect.effectId === request.effect.effectId)?.payload.resolvedText || '',
           confirmTextReady: text => isPlaybackAllowed()
-            ? recordGeneratedText(authorityManager, request, text)
+            ? commitGeneratedText(request, text)
             : { ok: false, error: 'mission_end' }
         } : {}),
         effectId,
@@ -246,7 +249,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
         return { ok: false, status: 'pending', error: job.error, sideEffect: false };
       }
       if (request.effect?.type === 'voice.poi' && job?.status === 'ready' && job.text) {
-        const recorded = recordGeneratedText(authorityManager, request, job.text);
+        const recorded = await commitGeneratedText(request, job.text);
         if (!recorded.ok) {
           log(`MISSION_POI_TEXT_PERSIST_ERROR effect=${effectId} error=${recorded.error || recorded.status}`);
           // Playback stays deferred. Keep the effect pending so the same durable

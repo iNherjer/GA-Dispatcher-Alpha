@@ -1,14 +1,20 @@
 'use strict';
-const { fork, spawn } = require('node:child_process');
-const { createMissionIpc, applyDifference } = require('./tracker-mission-ipc.js');
+const { fork } = require('node:child_process');
+const { createInterface } = require('node:readline');
+const { createMissionIpc, applyDifference, missionRequestTimeout } = require('./tracker-mission-ipc.js');
 
 async function createTrackerMissionProcess(options) {
-  const child = process.pkg
-    ? spawn(process.execPath, ['--mission-worker'], { stdio: ['ignore', 'inherit', 'inherit', 'ipc'], windowsHide: true })
-    : fork(require.resolve('./tracker.js'), ['--mission-worker'], { stdio: ['ignore', 'inherit', 'inherit', 'ipc'], execArgv: [] });
+  const log = options.log || (() => {});
+  // pkg sets PKG_EXECPATH for child processes and expects an explicit script
+  // entrypoint. Passing only --mission-worker makes it resolve that flag as a
+  // filename. fork supplies tracker.js in both packaged and source execution.
+  const child = fork(require.resolve('./tracker.js'), ['--mission-worker'], {
+    stdio: ['ignore', 'inherit', 'pipe', 'ipc'], execArgv: [], windowsHide: true
+  });
+  const stderr = createInterface({ input: child.stderr });
+  stderr.on('line', line => log(`MISSION_PROCESS_STDERR ${line.slice(0, 2000)}`));
   let state = {}, simulator = null, activeBridge = null, disconnected = false, simulatorGeneration = 0, closing = null;
   let pendingSample = null, pendingMotion = [], telemetrySending = false, coalesced = 0, motionOverflow = 0;
-  const log = options.log || (() => {});
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
   const context = () => ({ audioSettings: options.getAudioSettings?.() || null, livePosition: simulator?.getLivePosition?.() || null });
   const ipc = createMissionIpc(child, {
@@ -19,6 +25,7 @@ async function createTrackerMissionProcess(options) {
       return target[name](...args);
     }
   }, {
+    timeoutForRequest: missionRequestTimeout,
     onEvent(name, value) {
       if (name === 'state') state = applyDifference(state, value);
       else if (name === 'log') log(value);
@@ -32,7 +39,7 @@ async function createTrackerMissionProcess(options) {
   const initialized = await ipc.request('initialize', {
     authority: options.authority, enabled: options.enabled, pilotId: options.pilotId,
     flightLogDirectory: options.flightLogDirectory
-  }).catch(error => { child.kill(); throw error; });
+  }).catch(error => { log(`MISSION_PROCESS_START_ERROR error=${error.message}`); child.kill(); throw error; });
   const authorityManager = {};
   for (const name of initialized.methods) authorityManager[name] = (...args) => ipc.request('authority', name, args);
   Object.assign(authorityManager, {
@@ -41,6 +48,7 @@ async function createTrackerMissionProcess(options) {
       const { resumeBundle, effects, navigationRoute, ...summary } = state.active;
       return clone({ ...summary, ...(settings.includeBundle ? { resumeBundle, navigationRoute } : {}), ...(settings.includeEffects ? { effects } : {}) });
     },
+    recordGeneratedText: (request, text) => ipc.request('recordGeneratedText', request, text),
     getPublicSnapshot: () => clone(state.public),
     getExecutionSnapshot: () => clone(state.execution),
     getExecutionRuntimeContext: request => request?.runId === state.active?.runId ? clone(state.context) : null,
@@ -57,7 +65,7 @@ async function createTrackerMissionProcess(options) {
   };
   const runtime = {
     enabled: options.enabled, executionAuthority: options.enabled ? 'tracker' : 'web',
-    publicState: () => ({ ...clone(state.runtime), processId: initialized.pid, processAvailable: !disconnected, telemetry: { inFlight: Number(telemetrySending), pending: Number(Boolean(pendingSample)), motionPending: pendingMotion.length, coalesced, motionOverflow } }),
+    publicState: () => ({ ...clone(state.runtime), simulatorAttached: !disconnected && Boolean(simulator) && state.runtime?.simulatorAttached === true, processId: initialized.pid, processAvailable: !disconnected, telemetry: { inFlight: Number(telemetrySending), pending: Number(Boolean(pendingSample)), motionPending: pendingMotion.length, coalesced, motionOverflow } }),
     async executeIntent(request) {
       const started = Date.now();
       try { return await ipc.request('intent', request, context()); }

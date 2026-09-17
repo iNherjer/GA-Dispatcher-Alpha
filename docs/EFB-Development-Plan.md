@@ -1,5 +1,25 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Prozessgrenzen korrigiert, Alpha v426 (17.09.2026)
+
+v425 startete den gepackten Kindprozess mit nur `--mission-worker`. pkg setzt
+beim Kindstart `PKG_EXECPATH` und erwartet dann einen expliziten Skripteinstieg;
+das Flag wurde als Dateipfad behandelt. Jetzt startet `fork` stets `tracker.js`
+mit dem Worker-Flag. Der Fehler wurde mit pkg/Node18 als gepacktes ARM64-Programm
+reproduziert und der korrigierte Start inklusive Authority-Schreibzugriff und
+Shutdown erfolgreich ausgefuehrt. Windows-MSFS bleibt separat zu testen.
+Worker-stderr und Initialisierungsfehler werden im Tracker-Debuglog erfasst.
+
+Die POI-Textbestaetigung wartet jetzt auf die asynchrone Authority-Antwort;
+Revision lesen und Text speichern erfolgen gemeinsam im Worker. TTS startet
+erst nach erfolgreichem Commit und nicht nach zwischenzeitlichem Abbruch.
+Voice-IPC besitzt ein Budget oberhalb der bestehenden Generation-/Playback-
+Fristen; normale Anfragen behalten 30 Sekunden. Das vermeidet einen neuen,
+kuerzeren Transportabbruch mitten in einem gueltigen Sprachablauf. Bei Detach
+wird Payload im Elternprozess einmal abgebrochen; kein zweiter Rueckaufruf an
+eine bereits ungueltige Verbindung. Ein toter Worker meldet Sim-Anbindung false.
+
+
 ## Eigener Missionsprozess, Alpha v425 (17.09.2026)
 
 Bei aktivierter experimenteller Ausfuehrung laufen Authority, Runtime,

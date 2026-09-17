@@ -185,12 +185,15 @@ test('stopped mission process cannot block local EFB HTTP or parent timers; tele
 test('child death rejects in-flight operations and marks mission execution unavailable without replay',
   { skip: process.platform === 'win32' }, async t => {
     const host = await fixture(t);
+    host.runtime.attachSimulator({ getLivePosition: () => null });
+    await until(() => host.runtime.publicState().simulatorAttached);
     const pid = host.runtime.publicState().processId;
     process.kill(pid, 'SIGSTOP');
     const failed = assert.rejects(host.authorityManager.acquire({ missionId: 'never-committed', clientId: 'test' }), /mission_process_unavailable/);
     process.kill(pid, 'SIGKILL');
     await failed;
     await until(() => host.runtime.publicState().processAvailable === false);
+    assert.equal(host.runtime.publicState().simulatorAttached, false);
     assert.equal(host.authorityManager.getActiveRun(), null);
     await assert.rejects(host.runtime.executeIntent({ intent: 'prepare_mission' }), /mission_process_unavailable/);
   });
@@ -214,7 +217,8 @@ test('restarting the mission process restores authority and never repeats an unc
 
 test('an old simulator connection cannot detach its replacement or deliver stale effect ACKs', async t => {
   const host = await fixture(t);
-  const simulator = { getLivePosition: () => null, cancelPayloadSync: () => true };
+  let cancellations = 0;
+  const simulator = { getLivePosition: () => null, cancelPayloadSync: () => { cancellations++; return true; } };
   const oldBridge = host.runtime.attachSimulator(simulator);
   await until(() => host.runtime.publicState().simulatorAttached);
   host.runtime.detachSimulator(oldBridge);
@@ -223,4 +227,6 @@ test('an old simulator connection cannot detach its replacement or deliver stale
   assert.equal(await oldBridge.handleAck({ commandId: 'old-connection' }), false);
   await until(() => host.runtime.publicState().simulatorAttached);
   assert.equal(host.runtime.detachSimulator(newBridge), true);
+  await host.runtime.flush();
+  assert.equal(cancellations, 2, 'one cancellation per disconnected simulator');
 });

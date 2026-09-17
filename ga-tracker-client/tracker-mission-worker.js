@@ -1,5 +1,6 @@
 'use strict';
-const { createMissionIpc, difference } = require('./tracker-mission-ipc.js');
+const { createMissionIpc, difference, missionRequestTimeout } = require('./tracker-mission-ipc.js');
+const { recordGeneratedText } = require('./tracker-mission-poi-voice.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
 const { createTrackerMissionExecutionRuntime } = require('./tracker-mission-execution-runtime.js');
 const { createTrackerFlightLogStore } = require('./tracker-flight-log-store.js');
@@ -62,6 +63,12 @@ function runMissionWorker() {
       const result = await authority[name](...args);
       publish(); return result;
     },
+    recordGeneratedText(request, text) {
+      // Read revisions and commit on the authority's loop, never against the
+      // possibly older presentation snapshot held by the voice process.
+      const result = recordGeneratedText(authority, request, text);
+      publish(); return result;
+    },
     async intent(request, context) {
       const started = Date.now();
       audioSettings = context?.audioSettings || null;
@@ -87,7 +94,9 @@ function runMissionWorker() {
         dispatchCommand: request => simulatorCall('dispatchCommand', request),
         syncPayloadBeforeStart: request => simulatorCall('syncPayloadBeforeStart', request),
         syncPayloadManifestState: request => simulatorCall('syncPayloadManifestState', request),
-        cancelPayloadSync: reason => simulatorCall('cancelPayloadSync', reason),
+        // The parent cancels its adapter before retiring the connection. Calling
+        // back from detach would target an already invalid generation.
+        cancelPayloadSync: () => true,
         cleanupMission: request => simulatorCall('cleanupMission', request)
       });
       publish(); return true;
@@ -96,7 +105,7 @@ function runMissionWorker() {
     detach() { simulatorGeneration++; const result = runtime.detachSimulator(bridge); bridge = null; publish(); return result; },
     flush() { const result = runtime.flush(); publish(); return result; }
   };
-  const ipc = createMissionIpc(process, handlers);
+  const ipc = createMissionIpc(process, handlers, { timeoutForRequest: missionRequestTimeout });
   let lastLoopAt = Date.now(), lastLoopLog = 0;
   const loopTimer = setInterval(() => {
     const now = Date.now(), lagMs = Math.max(0, now - lastLoopAt - 1000);

@@ -321,3 +321,34 @@ test('cargo manual query uses cargo farewell context when passenger approach con
  await handler.dispatch({...request(),effect:{effectId:'query',type:'voice.flight',payload:{kind:'pax_query',prompt:'Ladungszustand?',fallbackText:'Ladung prüfen.'}}});
  assert.equal(calls[0].prompt,'Ladungszustand?');
 });
+
+test('POI boarding voice awaits the remote authority text commit before activating playback', async () => {
+  const effect = { effectId: 'poi-text', type: 'voice.poi', payload: { action: 'status', resolvedRecipe: {
+    schema: 'ga.mission-poi-voice-recipe.v1', missionId: 'mission-a', enabled: true,
+    prompt: 'Status', audioEnabled: false, kind: 'poi'
+  } } };
+  const snapshot = { missionId: 'mission-a', runId: 'run-a', recipe: 'poi', state: {
+    phase: 'active', flags: { active: true }, effects: [effect]
+  } };
+  let commitFinished = false, submitted;
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: {
+      getActiveRun: () => ({ ...run(), executionRecipe: 'poi' }),
+      getExecutionSnapshot: () => snapshot, supportsExecutionRecipe: () => true,
+      async recordGeneratedText() { await new Promise(resolve => setImmediate(resolve)); commitFinished = true; return { ok: true }; }
+    },
+    voiceService: {
+      publicState: () => ({ configured: true }),
+      request: value => { submitted = value; },
+      wait: async () => {
+        assert.equal((await submitted.confirmTextReady('Status gespeichert.')).ok, true);
+        commitFinished = false;
+        return { status: 'ready', text: 'Status gespeichert.', audioAvailable: false };
+      },
+      activatePlayback: () => assert.equal(commitFinished, true)
+    }
+  });
+  const result = await handler.dispatch({ ...request(), effect });
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 'completed');
+});
