@@ -10,6 +10,15 @@ function runMissionWorker() {
   let cachedAuthority = null, cachedVersion = -1, readPublication;
   const publishMetrics = { calls: 0, builds: 0, buildMs: 0, diffMs: 0, sends: 0 };
   let livePosition = null, audioSettings = null, simulatorGeneration = 0;
+  let motionDiagnostics = { samples:0, paused:0, menu:0, gSamples:0, bankSamples:0, maxG:null, maxBank:null, minVs:null };
+  function recordMotionDiagnostic(sample) {
+    if (!sample) return;
+    const d = motionDiagnostics; d.samples++;
+    if (sample.simPaused) d.paused++; if (sample.inMenuOrMap) d.menu++;
+    if (typeof sample.gForce === 'number' && Number.isFinite(sample.gForce)) { d.gSamples++; d.maxG = Math.max(d.maxG ?? sample.gForce, sample.gForce); }
+    if (typeof sample.bankDeg === 'number' && Number.isFinite(sample.bankDeg)) { d.bankSamples++; d.maxBank = Math.max(d.maxBank ?? 0, Math.abs(sample.bankDeg)); }
+    if (typeof sample.vsFpm === 'number' && Number.isFinite(sample.vsFpm)) d.minVs = Math.min(d.minVs ?? sample.vsFpm, sample.vsFpm);
+  }
   const log = line => ipc.event('log', line);
   const publish = () => {
     if (!authority) return;
@@ -86,7 +95,8 @@ function runMissionWorker() {
     telemetry(sample, motion, context) {
       livePosition = context?.livePosition || sample || livePosition;
       audioSettings = context?.audioSettings || null;
-      for (const point of motion || []) runtime.observeMotionTelemetry?.(point);
+      for (const point of motion || []) { recordMotionDiagnostic(point); runtime.observeMotionTelemetry?.(point); }
+      recordMotionDiagnostic(sample);
       const result = sample ? runtime.observeTelemetry(sample) : null;
       if (result?.acceptedEvent) log(`MISSION_EXECUTION_TELEMETRY event=${result.acceptedEvent.type || ''} sequence=${result.acceptedEvent.sequence || 0} phase=${result.activeRun?.phase || ''}`);
       if (sample) publish(); return result;
@@ -129,6 +139,7 @@ function runMissionWorker() {
   }, 1000);
   loopTimer.unref();
   const metricsTimer = setInterval(() => {
+    if (authority && motionDiagnostics.samples) log(`MISSION_MOTION_DIAGNOSTIC data=${JSON.stringify({ scope: 'process-total', ...motionDiagnostics, runId: authority.getActiveRun()?.runId || null, motionProtectionEnabled: authority.getExecutionComfortContext()?.motionProtectionEnabled === true })}`);
     if (authority) log(`MISSION_PROCESS_COST totals=${JSON.stringify({ publication: publishMetrics, persistence: authority.getPersistenceMetrics() })}`);
   }, 10000);
   metricsTimer.unref();

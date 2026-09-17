@@ -5590,3 +5590,20 @@ den vorhandenen applyAirportDirectTo-/Cockpit-Tool-Pfad auf. Frisches GPS wird
 als Start bevorzugt; bestehende Missions-/Revisionsguards bleiben erhalten.
 Assetrevision 43301. UI-Test prueft schmale Windrose, SVG-Hoehe, Direct-To-Payload
 und Abbruch ohne Befehl fuer originale und kompilierte Popup-Skripte.
+
+
+## v434: Zoomverhalten, Routenklicks, Wettertexte und Bewegungsdiagnose
+Aero-Zoomwerte sind bereits identisch: native 12, Karte bis 18. EFB-Sonderregeln
+updateWhenIdle=true/updateWhenZooming=false werden auf Desktop-Standalone-Timing
+umgestellt; Zoomanimationen aktiv, CSS-Unterdrueckung der Layer-Uebergaenge entfernt.
+Allgemeines Fading bleibt aus, damit geschlossene Popups sofort entfernt werden.
+Die 44px-Routenklickflaeche nutzt denselben SVG-Renderer wie Standalone. Die
+sichtbare Linie ist nicht interaktiv; Wegpunkte liegen mit voller 34px-Klickflaeche
+auf einem hoeheren eigenen Pane. Keine vergroesserte Klickbreite eingefuehrt.
+Kompakte Wetterdaten sind untereinander und mit expliziten Abstaenden angeordnet,
+unabhaengig von Coherent-flex-gap-Support. Assetrevision 43401.
+MISSION_MOTION_DIAGNOSTIC meldet alle 10s kumulative empfangene Belastungsmaxima,
+Wertanzahlen, Pause-/Menuezaehler sowie aktuellen Run und uebernommenen Schutzstatus.
+Die Maxima gelten seit Prozessstart, nicht fuer einen einzelnen Run. Keine neuen
+Missionsereignisse, keine Aenderung an Komfort-/Schadensschwellen. Fehlende Meldungen
+im Slew-Feldtest sind damit noch nicht erklaert; neue Logs erforderlich.

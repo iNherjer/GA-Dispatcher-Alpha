@@ -1473,8 +1473,8 @@
     var options = {};
     Object.keys(definition.options || {}).forEach(function (key) { options[key] = definition.options[key]; });
     options.pane = paneName;
-    options.updateWhenIdle = true;
-    options.updateWhenZooming = false;
+    options.updateWhenIdle = false;
+    options.updateWhenZooming = true;
     options.keepBuffer = 2;
     options.className = 'ga-efb-map-tile ga-efb-map-tile-' + String(definition.id || 'layer');
     if (definition.kind === 'wms' && L.tileLayer.wms) return L.tileLayer.wms(definition.url, options);
@@ -1514,8 +1514,8 @@
       preferCanvas: true,
       maxZoom: 18,
       fadeAnimation: false,
-      zoomAnimation: false,
-      markerZoomAnimation: false
+      zoomAnimation: true,
+      markerZoomAnimation: true
     });
 
     createStablePane('gaBasePane', 200);
@@ -1526,6 +1526,7 @@
     createStablePane('gaGeometryPane', 440);
     createStablePane('gaPreviewPane', 445);
     createStablePane('gaDrawingPane', 450);
+    createStablePane('gaWaypointPane', 460);
     createStablePane('gaAircraftPane', 500);
     routeRenderer = L.svg ? L.svg({ pane: 'gaRoutePane' }) : null;
     geometryRenderer = L.svg ? L.svg({ pane: 'gaGeometryPane' }) : null;
@@ -1808,15 +1809,14 @@
     try {
       var waypoints = snapshot.route.waypoints;
       var latlngs = waypoints.map(function (point) { return [point.lat, point.lng == null ? point.lon : point.lng]; });
-      var routeLine = L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: window.isMapHintEnabled('lowFps') ? null : '10,10', pane: 'gaRoutePane', renderer: routeRenderer || undefined }).addTo(routeLayer);
+      var routeLine = L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: window.isMapHintEnabled('lowFps') ? null : '10,10', pane: 'gaRoutePane', renderer: routeRenderer || undefined, interactive: false }).addTo(routeLayer);
       var routeHitbox = null;
       if (!measureMode && !mapDrawState.enabled && snapshot.routeEdit && snapshot.routeEdit.editable) {
-        routeLine.on('click', routeInsert);
-        routeHitbox = L.polyline(latlngs, { weight: 44, opacity: 0, interactive: true, bubblingMouseEvents: false, pane: 'gaRoutePane' }).addTo(routeLayer).on('click', routeInsert);
+        routeHitbox = L.polyline(latlngs, { weight: 44, opacity: 0, interactive: true, bubblingMouseEvents: false, pane: 'gaRoutePane', renderer: routeRenderer || undefined }).addTo(routeLayer).on('click', routeInsert);
       }
       waypoints.forEach(function (point, index) {
         var canDrag = !measureMode && !mapDrawState.enabled && snapshot.routeEdit && snapshot.routeEdit.editable && index > 0 && index < waypoints.length - 1 && !point.isPOI && !point.isPoiChainEndpoint && !point.isPoiChainReturnHome;
-        var marker = L.marker([point.lat, point.lng == null ? point.lon : point.lng], { icon: L.divIcon(window.GAMapRouteEditCore.markerOptions(index, waypoints.length, point.isPOI)), pane: 'gaRoutePane', interactive: !measureMode && !mapDrawState.enabled, draggable: !!canDrag }).addTo(routeLayer);
+        var marker = L.marker([point.lat, point.lng == null ? point.lon : point.lng], { icon: L.divIcon(window.GAMapRouteEditCore.markerOptions(index, waypoints.length, point.isPOI)), pane: 'gaWaypointPane', interactive: !measureMode && !mapDrawState.enabled, draggable: !!canDrag }).addTo(routeLayer);
         if (canDrag) {
 
           marker.on('dragstart', function() { navigationDragging = true; });

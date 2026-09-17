@@ -26,6 +26,11 @@ app.whenReady().then(async () => {
         route:{waypoints:[{lat:48,lon:8,name:'HOME'},{lat:48.3,lon:7,name:'Ziel',isPOI:true},{lat:48,lon:8,name:'HOME'}]},
         missionGeometry:{target:{lat:48.3,lon:7,name:'Ziel'}},context:{}};
       try { __field.route(p); } catch(e) { return {error:e.message,stack:e.stack}; }
+      const hit = document.querySelectorAll('.leaflet-gaWaypoint-pane .custom-pin')[1];
+      if (!hit) return {error:'waypoint pane missing',panes:Array.from(document.querySelectorAll('.leaflet-pane')).map(x=>x.className)};
+      const rect = hit.getBoundingClientRect();
+      const picked = document.elementFromPoint(rect.left+4,rect.top+4);
+      if (!picked || !picked.closest('.custom-pin')) return {error:'waypoint edge lost to route',rect:rect.toJSON(),picked:picked&&picked.outerHTML.slice(0,300)};
       const original = window.bindRouteAirportPopup; let once = true;
       window.bindRouteAirportPopup = function(){if(once){once=false;throw Error('injected popup failure');}return original.apply(this,arguments);};
       const changed = JSON.parse(JSON.stringify(p)); changed.route.waypoints[1].lon=7.1;

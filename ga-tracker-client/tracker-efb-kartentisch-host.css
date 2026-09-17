@@ -861,11 +861,6 @@ body.ga-efb-tracker-host #map {
   transform: none !important;
 }
 
-body.ga-efb-tracker-host #map .leaflet-tile,
-body.ga-efb-tracker-host #map .leaflet-layer,
-body.ga-efb-tracker-host #map .leaflet-map-pane {
-  transition: none !important;
-}
 
 body.ga-efb-tracker-host #map img.leaflet-tile {
   mix-blend-mode: normal !important;
@@ -1240,4 +1235,24 @@ body.ga-efb-tracker-host .ga-weather-layout-responsive .ga-weather-windrose::bef
   display: block;
   width: 100%;
   padding-top: 100%;
+}
+
+/* Preserve the whole standalone 34px marker hitbox above the route hit layer. */
+body.ga-efb-tracker-host .leaflet-gaWaypoint-pane .custom-pin,
+body.ga-efb-tracker-host .leaflet-gaWaypoint-pane .pin-hitbox { pointer-events: auto; }
+/* Coherent flex-gap support is incomplete; weather fields must also fit narrow cards. */
+body.ga-efb-tracker-host .ga-weather-layout-responsive > div:first-child > div {
+  display: block !important;
+  margin-bottom: 6px;
+}
+body.ga-efb-tracker-host .ga-weather-layout-responsive > div:first-child > div > div {
+  min-width: 0;
+  white-space: normal !important;
+}
+body.ga-efb-tracker-host .ga-weather-layout-responsive > div:first-child > div > div + div {
+  margin-top: 3px;
+}
+body.ga-efb-tracker-host .ga-weather-layout-responsive > div:first-child > div > div > div {
+  white-space: normal !important;
+  overflow-wrap: break-word;
 }
