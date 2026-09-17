@@ -17,10 +17,10 @@ function createFollowupCloud({authorityManager,pilotId,pin,baseUrl='https://ga-p
  const client=sync.create({request:transport,baseUrl,pilotId,pin,getRevision:()=>revision,setRevision:value=>{revision=value;}});
  async function flush() {
   if(busy||now()<retryAt) return {status:'deferred'};
-  const entries=authorityManager.getFollowupOutbox(pilotId);
-  if(!entries.length) return {status:'empty'};
   busy=true;
   try {
+   const entries=await authorityManager.getFollowupOutbox(pilotId);
+   if(!entries.length) return {status:'empty'};
    for(let attempt=0;attempt<3;attempt++) {
     const loaded=await client.read();
     if(!loaded.migrated) throw Error('followup_requires_profile_v2');
@@ -33,7 +33,7 @@ function createFollowupCloud({authorityManager,pilotId,pin,baseUrl='https://ga-p
      if(JSON.stringify(merged)!==JSON.stringify(loaded.profile.followUpRequests||[]))
       await client.write({...loaded.profile,followUpRequests:merged,lastModified:now()});
     } catch(error) {if(error.status===409&&attempt<2)continue;throw error;}
-    for(const entry of entries) if(!authorityManager.acknowledgeFollowupOutbox(entry.id,pilotId))throw Error('followup_ack_persist_failed');
+    for(const entry of entries) if(!await authorityManager.acknowledgeFollowupOutbox(entry.id,pilotId))throw Error('followup_ack_persist_failed');
     failures=0;retryAt=0;log(`MISSION_FOLLOWUP_SYNCED entries=${entries.length}`);return {status:'saved'};
    }
   } catch(error) {failures++;retryAt=now()+Math.min(300000,5000*2**Math.min(failures-1,6));log(`MISSION_FOLLOWUP_PENDING error=${error.message}`);return {status:'pending',error:error.message};}

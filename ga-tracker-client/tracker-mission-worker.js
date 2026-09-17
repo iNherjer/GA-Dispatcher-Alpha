@@ -1,0 +1,112 @@
+'use strict';
+const { createMissionIpc, difference } = require('./tracker-mission-ipc.js');
+const { createMissionAuthorityManager } = require('./mission-authority-core.js');
+const { createTrackerMissionExecutionRuntime } = require('./tracker-mission-execution-runtime.js');
+const { createTrackerFlightLogStore } = require('./tracker-flight-log-store.js');
+
+function runMissionWorker() {
+  let authority, runtime, bridge, flightLog, published = null, publishScheduled = false;
+  let livePosition = null, audioSettings = null, simulatorGeneration = 0;
+  const log = line => ipc.event('log', line);
+  const publish = () => {
+    if (!authority) return;
+    publishScheduled = false;
+    const active = authority.getActiveRun({ includeBundle: true, includeEffects: true });
+    const next = {
+      active, public: authority.getPublicSnapshot(), execution: authority.getExecutionSnapshot(),
+      context: active ? { latestTelemetry: authority.getExecutionRuntimeContext({ missionId: active.missionId, runId: active.runId })?.latestTelemetry } : null,
+      flightLog: flightLog?.publicState(),
+      runtime: runtime?.publicState() || null,
+      supportsPoi: authority.supportsExecutionRecipe('poi')
+    };
+    const changes = difference(published, next);
+    if (changes.length) ipc.event('state', changes);
+    published = next;
+  };
+  const schedulePublish = () => {
+    if (publishScheduled) return;
+    publishScheduled = true;
+    setImmediate(() => { if (publishScheduled) publish(); });
+  };
+  const invokeParent = (name, ...args) => { publish(); return ipc.request('callback', name, args); };
+  const handlers = {
+    initialize(options) {
+      if (authority) throw Error('mission_process_already_initialized');
+      const manager = createMissionAuthorityManager({ ...options.authority, log });
+      authority = {};
+      for (const [name, method] of Object.entries(manager)) {
+        authority[name] = typeof method === 'function' ? (...args) => {
+          const result = method(...args);
+          if (!/^(get|supports|can)/.test(name)) schedulePublish();
+          return result;
+        } : method;
+      }
+      flightLog = createTrackerFlightLogStore({ directory: options.flightLogDirectory, log });
+      runtime = createTrackerMissionExecutionRuntime({
+        authorityManager: authority, enabled: options.enabled, syncInitialPayload: true,
+        getPilotId: () => options.pilotId, getAudioSettings: () => audioSettings,
+        flightLog,
+        playBoardingVoice: request => invokeParent('playBoardingVoice', request),
+        prepareBoardingVoice: request => invokeParent('prepareBoardingVoice', request),
+        playFarewellVoice: request => invokeParent('playFarewellVoice', request),
+        playComplianceVoice: request => invokeParent('playComplianceVoice', request),
+        onAuthorityChanged(reason, snapshot) {
+          publish(); ipc.event('authorityChanged', { reason, phase: snapshot?.state?.phase });
+        }, log
+      });
+      publish();
+      return { pid: process.pid, methods: Object.keys(manager).filter(key => typeof manager[key] === 'function') };
+    },
+    async authority(name, args) {
+      if (!authority || !Object.hasOwn(authority, name) || typeof authority[name] !== 'function') throw Error('mission_authority_method_unknown');
+      const result = await authority[name](...args);
+      publish(); return result;
+    },
+    async intent(request, context) {
+      const started = Date.now();
+      audioSettings = context?.audioSettings || null;
+      const result = await runtime.executeIntent(request);
+      publish();
+      log(`MISSION_PROCESS_WORK intent=${request.intent || ''} commandId=${request.commandId || ''} durationMs=${Date.now() - started}`);
+      return result;
+    },
+    telemetry(sample, motion, context) {
+      livePosition = context?.livePosition || sample || livePosition;
+      audioSettings = context?.audioSettings || null;
+      for (const point of motion || []) runtime.observeMotionTelemetry?.(point);
+      const result = sample ? runtime.observeTelemetry(sample) : null;
+      if (result?.acceptedEvent) log(`MISSION_EXECUTION_TELEMETRY event=${result.acceptedEvent.type || ''} sequence=${result.acceptedEvent.sequence || 0} phase=${result.activeRun?.phase || ''}`);
+      if (sample) publish(); return result;
+    },
+    attach(position, generation) {
+      simulatorGeneration = generation;
+      livePosition = position;
+      const simulatorCall = (name, ...args) => { publish(); return ipc.request('callback', name, args, generation); };
+      bridge = runtime.attachSimulator({
+        getLivePosition: () => livePosition,
+        dispatchCommand: request => simulatorCall('dispatchCommand', request),
+        syncPayloadBeforeStart: request => simulatorCall('syncPayloadBeforeStart', request),
+        syncPayloadManifestState: request => simulatorCall('syncPayloadManifestState', request),
+        cancelPayloadSync: reason => simulatorCall('cancelPayloadSync', reason),
+        cleanupMission: request => simulatorCall('cleanupMission', request)
+      });
+      publish(); return true;
+    },
+    async ack(ack, generation) { if (generation !== simulatorGeneration) return false; const result = await bridge?.handleAck(ack); publish(); return result; },
+    detach() { simulatorGeneration++; const result = runtime.detachSimulator(bridge); bridge = null; publish(); return result; },
+    flush() { const result = runtime.flush(); publish(); return result; }
+  };
+  const ipc = createMissionIpc(process, handlers);
+  let lastLoopAt = Date.now(), lastLoopLog = 0;
+  const loopTimer = setInterval(() => {
+    const now = Date.now(), lagMs = Math.max(0, now - lastLoopAt - 1000);
+    lastLoopAt = now;
+    if (lagMs >= 500 && now - lastLoopLog >= 10000) {
+      lastLoopLog = now; log(`MISSION_PROCESS_LOOP lagMs=${lagMs}`);
+    }
+  }, 1000);
+  loopTimer.unref();
+  process.once('disconnect', () => { try { runtime?.flush(); } finally { process.exit(0); } });
+}
+module.exports = { runMissionWorker };
+if (require.main === module) runMissionWorker();

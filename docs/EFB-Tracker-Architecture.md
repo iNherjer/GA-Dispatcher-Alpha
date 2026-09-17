@@ -1,5 +1,50 @@
 # EFB-/Toolbar-Panel-/Tracker-Architektur
 
+## Eigener Missionsprozess, Alpha v425 (17.09.2026)
+
+Bei aktivierter experimenteller Ausfuehrung laufen Authority, Runtime,
+Effektplanung, Cargoqueue und persistente Missions-/Fluglog-Verwaltung in
+einem lokalen Kindprozess mit eigener Node-Hauptschleife. Der Tracker startet
+hierfuer dieselbe EXE mit `--mission-worker` und privatem IPC. Keine separate
+Node-Installation. Der Worker-Einstieg liegt vor Authentifizierung, Konsole,
+HTTP und SimConnect. Ohne experimentelle Ausfuehrung bleibt der bisherige Pfad.
+
+Der Hauptprozess behaelt SimConnect, Szenen-/Payload-Simulatoradapter,
+Voice-Ausgabe, EFB-HTTP und Relay. Die fachlichen Core-Module und die originale
+Cargoqueue bleiben erhalten. Nur der Missionsprozess schreibt die Authority-
+Datei. Im Hauptprozess liegt eine Lesekopie, deren Updates vor der zugehoerigen
+Antwort und vor einem Simulatorauftrag ankommen. Mutationen, Validierung und
+Dispatch-Journal laufen asynchron ueber IPC. Die UI wartet weiterhin auf die
+fachliche Annahme; keine optimistische lokale Manifestmutation.
+
+Ein Telemetrieaufruf darf unterwegs sein, ein aktueller Folgewert wird
+vorgehalten. Motionbuffer-Samples werden separat bis 512 Eintraege gepuffert;
+Ueberlaeufe sind im Status sichtbar. Objektdeltas vermeiden das wiederholte
+Senden unveraenderter Bundle-Felder; Arrays werden als Einheit ersetzt.
+IPC-Aufrufe sind begrenzt und haben ein Timeout ohne automatische Wiederholung.
+Gegenseitige Aufrufe werden nicht hinter einem wartenden Promise serialisiert:
+Ein Simulatorauftrag kann sein Journal beim Missionsprozess bestaetigen,
+waehrend dieser auf das Simulatorergebnis wartet.
+
+Verbindungsgenerationen verwerfen alte Simulatorcallbacks. Alte Bridge-Handles
+koennen keine neue Verbindung abmelden. Nach Worker-Abbruch werden offene
+Aufrufe abgelehnt; lokale EFB-Endpunkte bleiben erreichbar. Kein automatischer
+Worker-Neustart und kein blindes Wiederholen unbestaetigter Befehle. Ein
+Tracker-Neustart verwendet die bestehende persistente Recovery. Regulaeres
+Beenden flusht den Zustand mit begrenzter Wartezeit fuer den Kindprozess.
+
+Diagnose: `MISSION_PROCESS_READY` (PIDs), `MISSION_PROCESS_INTENT` (Rundlauf),
+`MISSION_PROCESS_WORK` (Bearbeitung inkl. Zustandsuebertragung),
+`MISSION_PROCESS_LOOP` (Worker-Verzoegerung), `MISSION_PROCESS_EXIT`.
+Die bisherigen Hauptprozess-/SimConnect- und Cargo-Marker bleiben erhalten.
+
+206 Tests erfolgreich, einschliesslich echtem Kindprozess ueber den Tracker-
+Einstieg, Handoff, Simulator-Rueckaufruf, Reset, Recovery, Verbindungswechsel,
+Abbruch und lokalem EFB-HTTP bei per SIGSTOP angehaltenem Worker. Der
+Windows-/MSFS-Feldvergleich bleibt erforderlich: Prozessisolation beseitigt
+keine teure Arbeit innerhalb der Missionslogik selbst.
+
+
 Der chatuebergreifende Umsetzungsstand, die priorisierte Roadmap und der Plan
 zur Migration des Missionskerns stehen in `docs/EFB-Development-Plan.md`.
 Diese Datei beschreibt die dauerhaften Architekturgrenzen.

@@ -229,7 +229,7 @@ function createTrackerCockpitControl(options = {}) {
       result = { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false, activeRun };
     } else if (Number(request.expectedRevision) !== activeRun.revision
         && !(typeof options.canRebaseIntentRevision === 'function'
-          && options.canRebaseIntentRevision({ ...request, intent }) === true)) {
+          && await options.canRebaseIntentRevision({ ...request, intent }) === true)) {
       result = { ok: false, status: 'conflict', error: 'mission_revision_conflict', sideEffect: false, activeRun };
     } else if (!executeIntent) {
       result = {

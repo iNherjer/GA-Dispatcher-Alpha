@@ -60,7 +60,7 @@ function createCockpitTools(options) {
       if (data.routeId !== current.id || request.expectedRevision !== current.revision) return fail('navigation_revision_conflict');
       if (options.getRun()) {
         if (request.intent !== 'navigation_edit') return fail('mission_authority_conflict');
-        const result = options.editMissionRoute({ routeId: current.id, expectedRevision: current.revision, edit: data.edit });
+        const result = await options.editMissionRoute({ routeId: current.id, expectedRevision: current.revision, edit: data.edit });
         return { ...result, navigation: navigation(), map: snapshot() };
       }
       try {
