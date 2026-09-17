@@ -203,7 +203,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         const current = authorityManager.getExecutionSnapshot?.();
         if (current?.runId !== request.runId || current?.missionId !== request.missionId || result?.status === 'pending') return;
         await effectRunner.acknowledge({ effectId: id, status: result?.ok === true ? 'completed' : 'failed', result: result?.voiceOutcome });
-        await settleEffects('voice-ack', id);
+        if (options.fairEffectScheduling === true) scheduleVoiceSettlement();
+        else await settleEffects('voice-ack', id);
       }).catch(error => {
         log(`MISSION_VOICE_EFFECT_ERROR effect=${id} error=${error?.message || error}`);
       }).then(() => { voiceOperations.delete(id); });
@@ -211,6 +212,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     return { ok: true, status: 'pending', sideEffect: true, commandId: id };
   };
   effectRunner = createTrackerMissionEffectRunner({
+    fairScheduling: options.fairEffectScheduling === true,
     log,
     authorityManager,
     applySystemEvent: request => adapter.applySystemEvent(request),
@@ -457,6 +459,24 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   };
 
   // All completed asynchronous work follows the same gate/notification order.
+  let voiceSettlementScheduled = false, voiceSettlementRunning = false, voiceSettlementDirty = false;
+  const scheduleVoiceSettlement = () => {
+    voiceSettlementDirty = true;
+    if (voiceSettlementScheduled || voiceSettlementRunning) return;
+    voiceSettlementScheduled = true;
+    setImmediate(async () => {
+      voiceSettlementScheduled = false;
+      voiceSettlementDirty = false;
+      voiceSettlementRunning = true;
+      try { await settleEffects('voice-acks', 'voice-acks'); }
+      catch (error) { log(`MISSION_VOICE_SETTLEMENT_ERROR error=${error?.message || error}`); }
+      finally {
+        voiceSettlementRunning = false;
+        if (voiceSettlementDirty) scheduleVoiceSettlement();
+      }
+    });
+  };
+
   const settleEffects = async (reason, effectId) => {
     const effects = await effectRunner.drain();
     logCheckpoint(reason);

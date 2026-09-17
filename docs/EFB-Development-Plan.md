@@ -5520,3 +5520,20 @@ pro Klick. Periodische Gesamtsicherung und Cargo-Wiederabgleich ersetzen die
 sekundengenaue lokale Persistenz; das bewusst akzeptierte Verlustfenster gilt
 auch fuer bereits bestaetigte Aktionen. Protokoll/Client brauchen keine neue
 Datei-Anbindung. Details und Recovery-Grenzen im Authority Contract, Abschnitt v428.
+
+
+### 2026-09-17 – v429: weniger Arbeit pro Ereignis, faire Worker-Effektverarbeitung
+
+Der interne Resume-Bundle-Updatepfad verwendet unveraenderte Missionsdaten
+weiter und ersetzt nur die neuen Replay-/Execution-Felder. Das bestehende
+Groessenlimit wird weiter per JSON-Wiregroesse geprueft; externe Eingaben und
+Rueckgaben bleiben abgetrennte Kopien. Keine Lockerung fachlicher Guards.
+
+Nur der Missionsworker gibt nach jedem abgearbeiteten Effekt per setImmediate
+Zeit fuer IPC, Timer und I/O-Rueckmeldungen frei. Die direkte Original-Cargoqueue
+behaelt ihren separaten Startpfad. Folge-Durchlaeufe nach Sprachbestaetigungen
+werden zusammengefasst; Bestaetigungen selbst bleiben einzeln und geordnet.
+Die POI-Freigabe fuer gemeinsame Effekte wird einmal pro Snapshot statt fuer
+jeden historischen Effekt bestimmt; es werden nur ausstehende Effekte projiziert.
+Legacy-Ausfuehrung behaelt ihr bisheriges Scheduling. Die Fuenf-Sekunden-Sicherung
+bleibt unveraendert. Feldtest muss die Ende-zu-Ende-Latenz weiter belegen.

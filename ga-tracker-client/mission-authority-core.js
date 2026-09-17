@@ -45,6 +45,19 @@ function jsonClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+// Internal bundles consist only of previously validated immutable data and new
+// reducer output. Check the same wire-size limit without copying static mission
+// data again. Public inputs and getters still cross a detached-copy boundary.
+function checkedInternalResumeBundle(value) {
+  const bytes = Buffer.byteLength(JSON.stringify(value), 'utf8');
+  if (bytes > MAX_RESUME_BYTES) {
+    const error = new Error(`resume_bundle_too_large:${bytes}`);
+    error.code = 'resume_bundle_too_large';
+    throw error;
+  }
+  return value;
+}
+
 function safeResumeBundle(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   let cloned;
@@ -1210,7 +1223,7 @@ function createMissionAuthorityManager(options = {}) {
       ? { ...currentReplay, initialState: currentState, events: [event] }
       : { ...currentReplay, events: currentReplay.events.concat(event) });
     if (!nextReplay) return { ok: false, status: 'error', error: 'mission_execution_replay_invalid', activeRun: publicRun(active) };
-    const nextResumeBundle = jsonClone(active.resumeBundle);
+    const nextResumeBundle = { ...active.resumeBundle };
     const saveCheckpointReceipts = () => {
       const receipts = new Map((Array.isArray(nextResumeBundle.executionEventReceipts)
         ? nextResumeBundle.executionEventReceipts : []).map(item => [item.eventId, item]));
@@ -1231,7 +1244,7 @@ function createMissionAuthorityManager(options = {}) {
     nextResumeBundle.execution = envelopeForAppliedEvent(currentReplay.events.length >= MAX_EXECUTION_EVENTS);
     let persistedResumeBundle;
     try {
-      persistedResumeBundle = safeResumeBundle(nextResumeBundle);
+      persistedResumeBundle = checkedInternalResumeBundle(nextResumeBundle);
     } catch (error) {
       if (error.code !== 'resume_bundle_too_large') {
         return { ok: false, status: 'error', error: error.code || error.message, activeRun: publicRun(active) };
@@ -1240,7 +1253,7 @@ function createMissionAuthorityManager(options = {}) {
       saveCheckpointReceipts();
       nextResumeBundle.executionReplay = nextReplay;
       nextResumeBundle.execution = envelopeForAppliedEvent(true);
-      try { persistedResumeBundle = safeResumeBundle(nextResumeBundle); }
+      try { persistedResumeBundle = checkedInternalResumeBundle(nextResumeBundle); }
       catch (checkpointError) {
         log(`MISSION_EXECUTION_PERSIST_REJECTED event=${event.type} error=${checkpointError.code || checkpointError.message}`);
         return { ok: false, status: 'error', error: checkpointError.code || checkpointError.message, activeRun: publicRun(active) };

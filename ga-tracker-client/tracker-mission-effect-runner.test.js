@@ -442,6 +442,7 @@ test('cargo starts while unrelated dispatch hangs; concurrent drains cannot dupl
   const sent = [];
   const snapshot = { recipe: 'apt', missionId: 'm', runId: 'r', executionAuthority: 'tracker', state: { effects } };
   const runner = createTrackerMissionEffectRunner({
+    fairScheduling: true,
     authorityManager: { getExecutionSnapshot: () => snapshot, getActiveRun: () => ({ missionId: 'm', runId: 'r' }), applyExecutionEvent: () => ({ ok: true }) },
     handlers: {
       'voice.cargo': () => new Promise(resolve => { finishVoice = resolve; }),
@@ -458,4 +459,41 @@ test('cargo starts while unrelated dispatch hangs; concurrent drains cannot dupl
   finishVoice({ ok: true, status: 'pending' }); await background;
   await runner.drain();
   assert.deepEqual(sent, ['cargo']);
+});
+
+
+test('effect batches yield to queued I/O callbacks before processing the next effect', async () => {
+  const order = [];
+  const snapshot = { missionId: 'm', runId: 'r', executionAuthority: 'tracker', recipe: 'apt',
+    state: { effects: [1, 2, 3].map(id => ({ effectId: String(id), type: 'test.effect', status: 'requested' })) } };
+  const runner = createTrackerMissionEffectRunner({
+    fairScheduling: true,
+    authorityManager: { getExecutionSnapshot: () => snapshot, getActiveRun: () => ({ runId: 'r' }),
+      applyExecutionEvent: request => {
+        snapshot.state.effects.find(effect => effect.effectId === request.event.payload.effectId).status = 'completed';
+        return { ok: true, status: 'ok' };
+      }
+    },
+    handlers: { 'test.effect': request => {
+      order.push(request.commandId);
+      if (request.commandId === '1') setImmediate(() => order.push('incoming-IPC'));
+      return { ok: true, status: 'completed' };
+    } }
+  });
+  assert.equal((await runner.drain()).ok, true);
+  assert.deepEqual(order, ['1', 'incoming-IPC', '2', '3']);
+});
+
+test('event updates keep external mission snapshots detached from internal shared bundle data', t => {
+  const fixture = createCommittedFixture(t);
+  const before = fixture.manager.getActiveRun({ includeBundle: true }).resumeBundle;
+  assert.equal(executeCurrent(fixture, 'prepare_mission', 'copy-boundary').ok, true);
+  const after = fixture.manager.getActiveRun({ includeBundle: true }).resumeBundle;
+  after.missionState.currentMissionData.start = 'CHANGED';
+  after.executionReplay.events.length = 0;
+  before.missionState.currentMissionData.dest = 'CHANGED';
+  const untouched = fixture.manager.getActiveRun({ includeBundle: true }).resumeBundle;
+  assert.equal(untouched.missionState.currentMissionData.start, 'EDTW');
+  assert.equal(untouched.missionState.currentMissionData.dest, 'EDTL');
+  assert.ok(untouched.executionReplay.events.length > 0);
 });

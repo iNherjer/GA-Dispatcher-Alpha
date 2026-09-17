@@ -74,16 +74,19 @@ function createTrackerMissionEffectRunner(options = {}) {
   };
 
   const fullPoi = () => poiRuntime.hasLifecycle(authorityManager.getExecutionPoiRecipe?.());
-  const requestedEffects = snapshot => snapshot.state.effects
-    .map(publicEffect)
-    // Only a validated full lifecycle unlocks the shared scene/closing effects.
-    // Internal task-only recipes remain restricted to POI task speech.
-    .filter(effect => snapshot.recipe !== 'poi' || fullPoi() || effect.type === 'voice.poi')
-    .filter(effect => effect.effectId && effect.status === 'requested');
+  const requestedEffects = snapshot => {
+    // Test the recipe once per snapshot, not once per historical effect.
+    const allowSharedEffects = snapshot.recipe !== 'poi' || fullPoi();
+    return snapshot.state.effects
+      .filter(effect => effect.effectId && effect.status === 'requested'
+        && (allowSharedEffects || effect.type === 'voice.poi'))
+      .map(publicEffect);
+  };
 
-  const effectById = (snapshot, effectId) => snapshot.state.effects
-    .map(publicEffect)
-    .find(effect => effect.effectId === effectId) || null;
+  const effectById = (snapshot, effectId) => {
+    const effect = snapshot.state.effects.find(candidate => candidate.effectId === effectId);
+    return effect ? publicEffect(effect) : null;
+  };
 
   const handlerFor = type => {
     const configured = handlers[type];
@@ -356,6 +359,9 @@ function createTrackerMissionEffectRunner(options = {}) {
       results.push(result);
       if (!result.ok || result.status === 'noop' || result.status === 'retry_wait') break;
       if (result.status === 'pending' && result.dispatchAttempted !== true) break;
+      // A promise continuation alone does not let IPC, timers or I/O callbacks
+      // run. Yield between effects; direct cargo starts retain their own path.
+      if (options.fairScheduling === true) await new Promise(resolve => setImmediate(resolve));
     }
     const snapshot = authorityManager.getExecutionSnapshot();
     return {

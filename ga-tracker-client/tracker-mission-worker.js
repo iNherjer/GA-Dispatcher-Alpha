@@ -55,7 +55,7 @@ function runMissionWorker() {
       }
       flightLog = createTrackerFlightLogStore({ directory: options.flightLogDirectory, log });
       runtime = createTrackerMissionExecutionRuntime({
-        authorityManager: authority, enabled: options.enabled, syncInitialPayload: true, allowIntentRevisionRebase: true, recoverCargoCheckpoint: true,
+        authorityManager: authority, enabled: options.enabled, syncInitialPayload: true, allowIntentRevisionRebase: true, recoverCargoCheckpoint: true, fairEffectScheduling: true,
         getPilotId: () => options.pilotId, getAudioSettings: () => audioSettings,
         flightLog,
         playBoardingVoice: request => invokeParent('playBoardingVoice', request),

@@ -76,6 +76,7 @@ async function harness(t, options = {}) {
       recordExecutionRuntimeContext: request => options.blockRecorder?.(manager.getExecutionSnapshot())
         ? { ok: false, error: 'test_recorder_disk_failure' } : manager.recordExecutionRuntimeContext(request) };
     runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: runtimeAuthority,
+      fairEffectScheduling: options.workerScheduling === true, allowIntentRevisionRebase: options.workerScheduling === true,
       payloadSyncBeforeStart: completed, playBoardingVoice: options.voice || completed,
       playFarewellVoice: request => { farewell.push(request); return fv.dispatch(request); },
       prepareFarewellVoice: fv.prepare });
@@ -112,8 +113,8 @@ async function harness(t, options = {}) {
     async restart() { runtime.detachSimulator(); options.pauseFinalization = false; manager = createMissionAuthorityManager(config); connect(); await tick(); } };
 }
 
-test('full POI runs original flight/task/away-end lifecycle with cargo and autonomous farewell/close', async t => {
-  const h = await harness(t); await h.start();
+for (const workerScheduling of [false, true]) test(`full POI flight/task/away-end with autonomous close; worker scheduling=${workerScheduling}`, async t => {
+  const h = await harness(t, { workerScheduling }); await h.start();
   h.sample(10000); h.sample(12000);
   h.sample(14000, { lat: 48.3, lon: 8.5 });
   assert.equal(h.manager.getExecutionSnapshot().state.progress.targetSatisfied, true);
