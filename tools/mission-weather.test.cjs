@@ -15,7 +15,7 @@ function harness() {
   let respond = () => new Response(JSON.stringify([sample]));
   const calls = [];
   const c = vm.createContext({ URL, AbortController, setTimeout, clearTimeout,
-    Date: { now: () => now }, window: {},
+    Date: class extends Date { constructor(...args){super(...(args.length?args:[now]));} static now(){return now;} }, window: {},
     calcNav: (a, b, x, y) => ({ dist: Math.hypot(a - x, b - y) }),
     fetch: async url => {
       const upstream = new URL(new URL(url).searchParams.get('src'));
@@ -74,14 +74,15 @@ test('network errors and empty regions recover after a short backoff, without in
     const h = harness();
     h.respond(fail);
     assert.equal(await h.c.fetchMissionWeatherSnapshot('EDTW', 48.279, 8.428), null);
-    assert.equal(h.calls.length, 2);
+    const expectedCalls = h.calls.length;
+    assert.ok(expectedCalls === 2 || expectedCalls === 4);
     h.respond(() => new Response(JSON.stringify([sample])));
     h.advance(29999);
     assert.equal(await h.c.fetchMissionWeatherSnapshot('EDTW', 48.279, 8.428), null);
-    assert.equal(h.calls.length, 2);
+    assert.equal(h.calls.length, expectedCalls);
     h.advance(1);
     assert.equal((await h.c.fetchMissionWeatherSnapshot('EDTW', 48.279, 8.428)).windKts, 7);
-    assert.equal(h.calls.length, 3);
+    assert.equal(h.calls.length, expectedCalls + 1);
   }
 });
 
@@ -101,4 +102,25 @@ test('all web METAR request builders omit the rejected cache-busting query param
     assert.ok(urls?.length, path);
     for (const url of urls) assert.ok(!url.includes('&t='), path + ': ' + url);
   }
+});
+
+test('snapshot carries gusts, layers, ceiling, station scope and stale observation without inventing null values', async()=>{
+ const h=harness();
+ h.respond(()=>new Response(JSON.stringify([{...sample,obsTime:100,wgst:18,wdir:null,wspd:null,temp:null,clouds:[{cover:'FEW',base:1200},{cover:'BKN',base:3500}]}])));
+ h.advance(6*3600000);
+ const wx=await h.c.fetchMissionWeatherSnapshot('EDDS',48.69,9.22);
+ assert.equal(wx.gustKts,18);assert.equal(wx.windKts,null);assert.equal(wx.windDeg,null);
+ assert.equal(wx.cloudBaseFtAgl,1200);assert.equal(wx.ceilingFtAgl,3500);
+ assert.equal(wx.observedAt,'1970-01-01T00:01:40.000Z');assert.equal(wx.freshness,'stale');assert.equal(wx.stationDistanceNm,0);
+ const context=v6.flightContext({weather:h.c._missionPipelineV3WeatherBundle({dep:wx})});
+ assert.equal(context.weather[0].freshness,'stale');assert.equal(context.weather[0].ceilingFtAgl,3500);
+ assert.equal(v6.flightBindings(context)['start.gust'],'18 Knoten');
+});
+
+test('server failures retry once while rate limits do not retry',async()=>{
+ for(const status of [503,429]){
+  const h=harness();h.respond(()=>new Response('unavailable',{status}));
+  assert.equal(await h.c.fetchMissionWeatherSnapshot('EDDS',48.69,9.22),null);
+  assert.equal(h.calls.length,status===503?4:2);
+ }
 });

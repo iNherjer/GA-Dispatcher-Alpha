@@ -982,6 +982,17 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         const adjusted = window.MissionClubIdeasCore.manifestItems(items, clubIdea);
         items.splice(0, items.length, ...adjusted);
     }
+    const charterIdea = window.currentMissionData?.charterIdea;
+    if (charterIdea?.schema === 'charter-idea.v1') {
+        const primary = items.find(item => item.id === 'primary-cargo');
+        if (primary && charterIdea.luggageWeightLbs > 0) Object.assign(primary, {
+            label: charterIdea.luggageLabel, storyName: charterIdea.luggageLabel,
+            weightLbs: charterIdea.luggageWeightLbs, required: false,
+            deliverAtDestination: false, deliverAtHome: false,
+            passengerOwned: true, handoffWithPassenger: true
+        });
+        else if (primary) items.splice(items.indexOf(primary),1);
+    }
     _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
     return {
         version: 6,

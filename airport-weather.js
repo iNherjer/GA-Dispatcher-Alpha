@@ -33,7 +33,8 @@ async function _fetchMetarArrayViaVariants(sourceUrl, {
     includeDirect = false,
     retries = 1,
     timeoutMs = 2500,
-    retryDelayMs = 0
+    retryDelayMs = 0,
+    retryErrorsOnly = false
 } = {}) {
     const variants = [];
     if (includeDirect) variants.push(sourceUrl);
@@ -42,15 +43,20 @@ async function _fetchMetarArrayViaVariants(sourceUrl, {
 
     const maxRetries = Math.max(1, Number(retries) || 1);
     for (let attempt = 0; attempt < maxRetries; attempt++) {
+        let retryable = false;
         for (const url of variants) {
             try {
                 const res = await _fetchWithTimeout(url, timeoutMs);
-                if (!res.ok || res.status === 204) continue;
+                if (!res.ok || res.status === 204) {
+                    if (res.status >= 500) retryable = true;
+                    continue;
+                }
                 const txt = await res.text();
                 const arr = _parseMetarPayloadToArray(txt);
                 if (Array.isArray(arr) && arr.length) return arr;
-            } catch (_) {}
+            } catch (_) { retryable = true; }
         }
+        if (retryErrorsOnly && !retryable) break;
         if (attempt < maxRetries - 1 && retryDelayMs > 0) {
             await new Promise(resolve => setTimeout(resolve, retryDelayMs));
         }

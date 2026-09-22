@@ -92,9 +92,12 @@ function _fetchMetarArrayViaVariants2() {
       timeoutMs,
       _ref$retryDelayMs,
       retryDelayMs,
+      _ref$retryErrorsOnly,
+      retryErrorsOnly,
       variants,
       maxRetries,
       attempt,
+      retryable,
       _iterator,
       _step,
       url,
@@ -107,7 +110,7 @@ function _fetchMetarArrayViaVariants2() {
     return _regenerator().w(function (_context2) {
       while (1) switch (_context2.p = _context2.n) {
         case 0:
-          _ref = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : {}, _ref$includeCodeTabs = _ref.includeCodeTabs, includeCodeTabs = _ref$includeCodeTabs === void 0 ? false : _ref$includeCodeTabs, _ref$includeDirect = _ref.includeDirect, includeDirect = _ref$includeDirect === void 0 ? false : _ref$includeDirect, _ref$retries = _ref.retries, retries = _ref$retries === void 0 ? 1 : _ref$retries, _ref$timeoutMs = _ref.timeoutMs, timeoutMs = _ref$timeoutMs === void 0 ? 2500 : _ref$timeoutMs, _ref$retryDelayMs = _ref.retryDelayMs, retryDelayMs = _ref$retryDelayMs === void 0 ? 0 : _ref$retryDelayMs;
+          _ref = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : {}, _ref$includeCodeTabs = _ref.includeCodeTabs, includeCodeTabs = _ref$includeCodeTabs === void 0 ? false : _ref$includeCodeTabs, _ref$includeDirect = _ref.includeDirect, includeDirect = _ref$includeDirect === void 0 ? false : _ref$includeDirect, _ref$retries = _ref.retries, retries = _ref$retries === void 0 ? 1 : _ref$retries, _ref$timeoutMs = _ref.timeoutMs, timeoutMs = _ref$timeoutMs === void 0 ? 2500 : _ref$timeoutMs, _ref$retryDelayMs = _ref.retryDelayMs, retryDelayMs = _ref$retryDelayMs === void 0 ? 0 : _ref$retryDelayMs, _ref$retryErrorsOnly = _ref.retryErrorsOnly, retryErrorsOnly = _ref$retryErrorsOnly === void 0 ? false : _ref$retryErrorsOnly;
           variants = [];
           if (includeDirect) variants.push(sourceUrl);
           variants.push(`https://ga-proxy.einherjer.workers.dev/api/metar?src=${encodeURIComponent(sourceUrl)}`);
@@ -116,9 +119,10 @@ function _fetchMetarArrayViaVariants2() {
           attempt = 0;
         case 1:
           if (!(attempt < maxRetries)) {
-            _context2.n = 16;
+            _context2.n = 17;
             break;
           }
+          retryable = false;
           _iterator = _createForOfIteratorHelper(variants);
           _context2.p = 2;
           _iterator.s();
@@ -137,6 +141,7 @@ function _fetchMetarArrayViaVariants2() {
             _context2.n = 6;
             break;
           }
+          if (res.status >= 500) retryable = true;
           return _context2.a(3, 10);
         case 6:
           _context2.n = 7;
@@ -155,6 +160,7 @@ function _fetchMetarArrayViaVariants2() {
         case 9:
           _context2.p = 9;
           _t = _context2.v;
+          retryable = true;
         case 10:
           _context2.n = 3;
           break;
@@ -170,17 +176,23 @@ function _fetchMetarArrayViaVariants2() {
           _iterator.f();
           return _context2.f(13);
         case 14:
-          if (!(attempt < maxRetries - 1 && retryDelayMs > 0)) {
+          if (!(retryErrorsOnly && !retryable)) {
             _context2.n = 15;
             break;
           }
-          _context2.n = 15;
-          return new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          return _context2.a(3, 17);
         case 15:
+          if (!(attempt < maxRetries - 1 && retryDelayMs > 0)) {
+            _context2.n = 16;
+            break;
+          }
+          _context2.n = 16;
+          return new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        case 16:
           attempt++;
           _context2.n = 1;
           break;
-        case 16:
+        case 17:
           return _context2.a(2, null);
       }
     }, _callee2, null, [[4, 9], [2, 12, 13, 14]]);

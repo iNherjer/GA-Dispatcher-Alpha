@@ -4223,7 +4223,7 @@ Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenpers
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────
 
 async function _generateSpokenText(apiKey, situationPrompt) {
-    if (window.activePassenger?.taskDomain === 'club_utility' && window.GAMissionRouteVoiceCore) {
+    if ((window.activePassenger?.taskDomain === 'club_utility' || window.activePassenger?.narrativeSchema === 'charter-idea.v1') && window.GAMissionRouteVoiceCore) {
         situationPrompt = window.GAMissionRouteVoiceCore.conversationPrompt(situationPrompt, window.missionClubSpeechHistory?.());
     }
     const provider = _getAiProvider();
@@ -5101,6 +5101,7 @@ function _speakerSnapshotForActivePax() {
         gender: pax.gender || '',
         roleProfile: pax.roleProfile || '',
         taskDomain: pax.taskDomain || '',
+        ...(pax.narrativeSchema === 'charter-idea.v1' ? {narrativeSchema:pax.narrativeSchema} : {}),
         ...(pax.privateReturn?.schema === 'private-return.v1' ? { voiceIdentity: pax.privateReturn.voiceIdentity } : {})
     } : null;
 }
@@ -7394,6 +7395,8 @@ DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
     const clubIdea = md?.clubIdea || contract?.clubIdea;
+    const charterIdea=md?.charterIdea || contract?.charterIdea;
+    if(charterIdea?.schema === 'charter-idea.v1') lines.push(`CHARTERAUFTRAG: ${JSON.stringify(charterIdea)}. Du bist der benannte Reisende und sprichst für die gebuchte Gruppe. Der Pilot befördert euch professionell; er ist nicht Initiator eures Reiseanlasses. Persönlich, höflich und natürlich sprechen, nicht werblich. Geplanter Aufenthalt ist noch nicht erlebt. Entwickle den Gesprächsfaden weiter statt Briefing oder Komfortlob zu wiederholen.`);
     if (clubIdea?.schema === 'club-idea.v1') {
         const ids = new Set((clubIdea.narrativeEvents || []).map(e => e.geo?.anchorId).filter(Boolean));
         lines.push(`OPTIONALE ORTSFAKTEN: ${JSON.stringify((clubIdea.geoAnchors || []).filter(a => ids.has(a.id)))}. Diese Daten belegen Orte und Merkmale, keine aktuelle Sichtbarkeit oder Besichtigung.`);
@@ -9925,7 +9928,7 @@ window.paxVoiceBuildApproachAuthorityContext = function() {
         ...context,
         dest: md?.dest || 'dem Flughafen',
         start: md?.start || '?',
-        narrativeEvents: md?.clubIdea?.narrativeEvents || [],
+        narrativeEvents: (md?.charterIdea || md?.clubIdea)?.narrativeEvents || [],
         privateReturn: _privateReturnVoiceContext(md),
         departure: typeof routeWaypoints !== 'undefined' ? routeWaypoints?.[0] : null,
         passenger: window.activePassenger ? { ...window.activePassenger } : null,
@@ -10441,7 +10444,7 @@ function _tickPoiDwell(lat, lon, flightData) {
 window.paxVoiceSpeakRouteEvent = function(event, previousIntents = []) {
     const core = window.GAMissionRouteVoiceCore;
     if (!core || !_missionHasPax() || _paxMissionEndVoiceActive()) return;
-    return _speakAndShow(core.prompt(_baseContext(), event, previousIntents), 'Vereinsgeschichte', null, { cancelWhenMissionEnd: true });
+    return _speakAndShow(core.prompt(_baseContext(), event, previousIntents, window.activePassenger?.narrativeSchema), window.activePassenger?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', null, { cancelWhenMissionEnd: true });
 };
 
 window.paxVoiceRouteEventReady = function() {

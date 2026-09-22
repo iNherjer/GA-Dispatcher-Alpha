@@ -82,7 +82,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
   const resolveRecipe = (request, run) => {
     let recipe = resolveRecipeSource(request, run);
     const settings = getAudioSettings();
-    if (recipe && (recipe.taskDomain === 'club_utility' || recipe.speaker?.taskDomain === 'club_utility')) recipe = {
+    if (recipe && (recipe.taskDomain === 'club_utility' || recipe.speaker?.taskDomain === 'club_utility' || recipe.speaker?.narrativeSchema === 'charter-idea.v1')) recipe = {
       ...recipe, prompt: routeVoiceCore.conversationPrompt(recipe.prompt,
         authorityManager.getExecutionSnapshot?.()?.state?.voice?.clubHistory)
     };

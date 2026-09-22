@@ -131,7 +131,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
       log(`MISSION_BOARDING_VOICE_FALLBACK effect=${effectId} reason=recipe_missing`);
       return completed(request, { voiceStatus: 'recipe_missing' });
     }
-    if (recipe.taskDomain === 'club_utility' || recipe.speaker?.taskDomain === 'club_utility') {
+    if (recipe.taskDomain === 'club_utility' || recipe.speaker?.taskDomain === 'club_utility' || recipe.speaker?.narrativeSchema === 'charter-idea.v1') {
       recipe = { ...recipe, prompt: routeVoiceCore.conversationPrompt(recipe.prompt,
         authorityManager.getExecutionSnapshot?.()?.state?.voice?.clubHistory) };
     }

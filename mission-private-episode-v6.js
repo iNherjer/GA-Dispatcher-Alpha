@@ -74,6 +74,11 @@
                 station: text(raw?.station, 20) || null,
                 source: text(raw?.source, 120) || (raw?.raw ? 'METAR' : null),
                 observedAt: text(raw?.observedAt, 80) || null,
+                fetchedAt: text(raw?.fetchedAt, 80) || null,
+                freshness: text(raw?.freshness, 20) || 'unknown',
+                stationDistanceNm: finite(raw?.stationDistanceNm, 0, 20000),
+                ceilingFtAgl: finite(raw?.ceilingFtAgl, 0, 65000),
+                clouds: Array.isArray(raw?.clouds) ? raw.clouds : [],
                 rawMetar: text(raw?.raw, 500) || null,
                 windDeg: finite(raw?.windDeg, 0, 360), windKts: finite(raw?.windKts, 0, 250),
                 gustKts: finite(raw?.gustKts, 0, 250), visibilityKm: finite(raw?.visKm, 0, 200),
@@ -110,6 +115,9 @@
         for (const row of flight?.weather || []) {
             const scope = row.scope === 'departure' ? 'start' : 'target';
             if (text(row.station)) values[`${scope}.station`] = text(row.station, 20);
+            if (row.observedAt) values[`${scope}.observedAt`] = row.observedAt;
+            add(`${scope}.stationDistance`, row.stationDistanceNm === null ? null : Math.round(row.stationDistanceNm*10)/10, ' NM');
+            add(`${scope}.ceiling`, row.ceilingFtAgl, ' Fuß über Grund');
             add(`${scope}.wind`, row.windKts, ' Knoten');
             add(`${scope}.direction`, row.windDeg, '°');
             add(`${scope}.gust`, row.gustKts, ' Knoten');

@@ -57,6 +57,7 @@
             gender: normalizeGender(source.gender),
             roleProfile: text(source.roleProfile, 120),
             taskDomain: text(source.taskDomain, 120).toLowerCase(),
+            ...(source.narrativeSchema === 'charter-idea.v1' ? {narrativeSchema:source.narrativeSchema} : {}),
             ...(source.taskDomain === 'private_return' && text(source.voiceIdentity, 500) ? { voiceIdentity: text(source.voiceIdentity, 500) } : {})
         };
     }

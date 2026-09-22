@@ -1619,7 +1619,7 @@
             var spokenOutcome = object(object(event.payload).result);
             if (routeVoiceCore && acknowledgedEffect && acknowledgedEffect.type.indexOf('voice.') === 0
                 && acknowledgedStatus === 'completed' && spokenOutcome.playback === 'completed'
-                && object(spokenOutcome.speaker).taskDomain === 'club_utility') {
+                && (object(spokenOutcome.speaker).taskDomain === 'club_utility' || object(spokenOutcome.speaker).narrativeSchema === 'charter-idea.v1')) {
                 state.voice.clubHistory = routeVoiceCore.rememberSpeech(state.voice.clubHistory,
                     acknowledgedEffectId, spokenOutcome.text);
             }

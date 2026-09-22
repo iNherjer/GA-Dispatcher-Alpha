@@ -4471,6 +4471,7 @@ function toggleMissionPickerMode() {
 function classifyAptMissionCategory(ms) {
     if (window.MissionPrivateReturnCore?.context(ms || {})) return 'private';
     // A structured private contract is authoritative; prose such as "erkundet" is not a charter cue.
+    if (ms?.charterIdea?.schema === 'charter-idea.v1') return 'charter';
     if (ms?.clubIdea?.schema === 'club-idea.v1') return 'club';
     if (ms?.privateOuting?.schema === 'private-outing.v1' && ms.privateOuting.taskDomain === 'private_outing') return 'private';
     const t = normalizeMissionText(ms?.t || ms?.title || '');
@@ -8836,7 +8837,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -8953,7 +8954,7 @@ function compactPassengerForQuotaStorage(value = null) {
     if (!value || typeof value !== 'object') return null;
     const keep = [
         'missionId', 'missionKey', 'start', 'dest', 'targetName', 'missionTitle', 'missionStory', 'missionType',
-        'name', 'displayName', 'role', 'gender', 'taskDomain', 'roleProfile',
+        'name', 'displayName', 'role', 'gender', 'taskDomain', 'roleProfile', 'narrativeSchema',
         'personality', 'voice', 'voiceId', 'greetingText', 'poiChainProgress',
         'gTolerance', 'bankTolerance', 'cargoSensitivity', 'stomachSensitivity',
         'comfortPriority', 'urgencyPriority', 'targetAltFt', 'targetRadiusNm', 'targetDwellMin',
@@ -9454,7 +9455,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -16055,15 +16056,22 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
         if (entry.expiresAt <= now) _missionWxCache.delete(cacheKey);
     }
     const cached = _missionWxCache.get(key);
-    if (cached) return cached.value;
+    if (cached) {
+        if (!cached.value) return null;
+        const observationMs = Date.parse(cached.value.observedAt || '');
+        return {...cached.value, cacheHit: true,
+            freshness: !Number.isFinite(observationMs) ? 'unknown' : now-observationMs > 90*60000 ? 'stale' : 'recent'};
+    }
 
     let metar = null;
     if (_looksLikeIcao(normIcao)) {
         const arr = await _fetchMetarArrayViaVariants(`https://aviationweather.gov/api/data/metar?ids=${normIcao}&format=json`, {
             includeCodeTabs: false,
             includeDirect: false,
-            retries: 1,
-            timeoutMs: 2200
+            retries: 2,
+            retryErrorsOnly: true,
+            retryDelayMs: 200,
+            timeoutMs: 4000
         });
         if (arr && arr[0]) metar = arr[0];
     }
@@ -16073,8 +16081,10 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
         const arr = await _fetchMetarArrayViaVariants(`https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json`, {
             includeCodeTabs: false,
             includeDirect: false,
-            retries: 1,
-            timeoutMs: 2200
+            retries: 2,
+            retryErrorsOnly: true,
+            retryDelayMs: 200,
+            timeoutMs: 4000
         });
         if (arr && arr[0]) {
             const cands = arr.filter(m => Number.isFinite(Number(m?.lat)) && Number.isFinite(Number(m?.lon)));
@@ -16099,17 +16109,32 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
             const vm = raw.match(/\s(\d{4})\s/);
             if (vm && vm[1] !== '0000') visKm = Math.round((parseInt(vm[1], 10) / 1000) * 10) / 10;
         }
-        let windDeg = Number.isFinite(Number(metar.wdir)) ? Number(metar.wdir) : null;
-        let windKts = Number.isFinite(Number(metar.wspd)) ? Number(metar.wspd) : null;
+        const number = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
+        let windDeg = number(metar.wdir);
+        let windKts = number(metar.wspd);
         const vrb = /VRB\d{2,3}KT/.test(raw || '');
         if (vrb) windDeg = null;
+        const layers = (Array.isArray(metar.clouds) ? metar.clouds : []).map(c => ({cover:c.cover,baseFtAgl:number(c.base)}));
+        const bases = layers.map(c=>c.baseFtAgl).filter(v=>v!==null&&v>=0);
+        const ceilings = layers.filter(c=>['BKN','OVC','VV'].includes(c.cover)).map(c=>c.baseFtAgl).filter(v=>v!==null&&v>=0);
+        const observationMs = number(metar.obsTime) !== null ? number(metar.obsTime)*1000 : Date.parse(metar.reportTime || '');
         out = {
             station: String(metar.icaoId || normIcao || '').toUpperCase() || null,
             raw: raw || null,
             windDeg,
             windKts,
+            gustKts: number(metar.wgst),
+            clouds: layers,
+            cloudBaseFtAgl: bases.length ? Math.min(...bases) : null,
+            ceilingFtAgl: ceilings.length ? Math.min(...ceilings) : null,
+            source: 'METAR',
+            observedAt: Number.isFinite(observationMs) ? new Date(observationMs).toISOString() : null,
+            fetchedAt: new Date().toISOString(),
+            ageMinutesAtFetch: Number.isFinite(observationMs) ? Math.max(0,Math.round((Date.now()-observationMs)/60000)) : null,
+            freshness: !Number.isFinite(observationMs) ? 'unknown' : Date.now()-observationMs > 90*60000 ? 'stale' : 'recent',
+            stationDistanceNm: number(metar.lat)!==null && number(metar.lon)!==null ? calcNav(lat,lon,number(metar.lat),number(metar.lon)).dist : null,
             visKm,
-            tempC: Number.isFinite(Number(metar.temp)) ? Number(metar.temp) : null,
+            tempC: number(metar.temp),
             wxCode: metar.wxString || null,
             fltCat: metar.fltCat || null
         };
@@ -17255,6 +17280,7 @@ function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
 function personalizeAptCharterMission(mission = null, context = {}, preferredPersona = null) {
     if (window.MissionPrivateReturnCore?.context(mission || {})) return mission;
     if (!mission || typeof mission !== 'object') return mission;
+    if (mission.charterIdea?.schema === 'charter-idea.v1') return mission;
     if (mission.clubIdea?.schema === 'club-idea.v1') return mission;
     if (mission.privateOuting?.schema === 'private-outing.v1' && mission.privateOuting.taskDomain === 'private_outing') return mission;
     const m = { ...mission };
@@ -21738,6 +21764,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (!isPOI && profileId === 'private_return' && window.MissionPrivateReturnCore?.context(mission || {}))
         return { mission, appliedProfile: 'private_return', paxText: mission.pax, cargoText: mission.cargo };
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
+    if (!isPOI && ['auto', 'apt_charter'].includes(profileId) && m.charterIdea?.schema === 'charter-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && m.clubIdea?.schema === 'club-idea.v1' && ['auto', 'club_utility'].includes(profileId))
         return { mission: m, paxText: m.pax, cargoText: m.cargo, appliedProfile: 'club_utility' };
     if (!isPOI && m.privateOuting?.schema === 'private-outing.v1' && ['auto', 'private_outing'].includes(profileId)) {
@@ -22845,6 +22872,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
                 : null),
         cargoText: String(cargoText || ''),
         missionTitle: title,
+        charterIdea: mission?.charterIdea?.schema === 'charter-idea.v1' ? mission.charterIdea : null,
         missionStory: story,
         sceneIntent,
         sceneAccepted: !!sceneAccepted,
@@ -23310,6 +23338,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 }
 
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
+    if (!isPOI && profileId === 'apt_charter' && missionLike?.charterIdea?.schema === 'charter-idea.v1') return true;
     if (!isPOI && profileId === 'private_return') return !!window.MissionPrivateReturnCore?.context(missionLike || {});
     if (!isPOI && profileId === 'club_utility' && missionLike?.clubIdea?.schema === 'club-idea.v1') return true;
     if (!isPOI && profileId === 'private_outing' && missionLike?.privateOuting?.schema === 'private-outing.v1') return true;
@@ -23595,6 +23624,7 @@ function buildMissionPartyNarrativeContext(party = null, passenger = null) {
 
 function synchronizeMissionPartyPresentation(mission = null, party = null) {
     if (!mission || typeof mission !== 'object') return mission;
+    if (mission.charterIdea?.schema === 'charter-idea.v1') return mission;
     const context = buildMissionPartyNarrativeContext(party, mission.passenger || null);
     if (!context || context.count <= 1) return mission;
     const passenger = mission.passenger && typeof mission.passenger === 'object'
@@ -41174,6 +41204,7 @@ function missionProposalPoiOptionLine(target = {}, profileId = '') {
 }
 
 function missionProposalFamilyIntro(choices = []) {
+    if (choices.length && choices.every(c => c.charterProposal)) return 'Wähle den Charterauftrag. Reisegrund, Gruppe und gebuchtes Gepäck bleiben für das Briefing erhalten.';
     if (choices.length && choices.every(c => c.clubProposal)) return 'Wähle euren Vereinsflug. Die ausgewählte Idee bleibt beim Erstellen des Briefings erhalten.';
     if (choices.length && choices.every(choice => choice.privateProposal?.schema === 'private-proposal.v1')) {
         return 'Wähle euren Ausflug. Anlass, Begleitung und Gepäck bleiben erhalten; danach entsteht das vollständige Briefing mit dem aktuellen Flug- und Wetterausblick.';
@@ -41365,6 +41396,7 @@ function compactMissionProposalChoice(choice = null) {
     return {
         id: normalized.id,
         clubProposal: normalized.clubProposal || null,
+        charterProposal: normalized.charterProposal || null,
         mode: normalized.mode,
         profileId: normalized.profileId,
         selectedCategory: normalized.selectedCategory,
@@ -41853,7 +41885,8 @@ async function buildPrivateMissionProposalChoices(airports, context = {}) {
 
 async function buildMissionProposalAptChoices(context = {}) {
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
-    const config = missionProposalAptProfileConfig(profileId);
+    const charter = context.aiModeEnabled && context.selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(profileId);
+    const config = missionProposalAptProfileConfig(profileId) || (charter ? {} : null);
     const start = context.start;
     if (!config || !start) return [];
     const profile = getMissionTaskProfile(profileId, 'apt') || {};
@@ -41865,6 +41898,7 @@ async function buildMissionProposalAptChoices(context = {}) {
         regionPref: context.regionPref,
         limit: profileId === 'club_utility' && context.aiModeEnabled ? 100 : 18
     });
+    if (charter) return window.MissionCharterBrowser.choices(airports,context);
     if (profileId === 'club_utility' && context.aiModeEnabled) {
         return window.MissionClubBrowser.choices(airports, context);
     }
@@ -42038,7 +42072,7 @@ function missionProposalIsEligible(context = {}) {
     if (context.followupSeed || context.targetDest || context.isBushDispatch || context.isPlanningOnlyMode) return false;
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
     if (context.effectiveType === 'apt') {
-        return !!missionProposalAptProfileConfig(profileId);
+        return !!missionProposalAptProfileConfig(profileId) || (context.aiModeEnabled && context.selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(profileId));
     }
     if (context.effectiveType === 'poi') {
         if (String(context.selectedPoiCategory || '').toLowerCase() === 'trn') return false;
@@ -42667,7 +42701,8 @@ async function generateMission(options = {}) {
         selectedPoiCategory,
         dispatchProfileId,
         isBushDispatch,
-        isPlanningOnlyMode: proposalPlanningOnlyMode
+        isPlanningOnlyMode: proposalPlanningOnlyMode,
+        aiModeEnabled
     })) {
         indicator.innerText = 'Vorschlagsmodus: passende Aufträge werden gesucht...';
         const proposalChoices = await dispatchMeasure('mission_proposals', async () => buildMissionProposalChoices({
@@ -43097,11 +43132,11 @@ async function generateMission(options = {}) {
     if (isPlanningOnlyMode) paxText = '-';
     const preWriterPassengerPlan = resolveMissionPassengerCapacityPlan({
         paxText,
-        passengerCount: generatedMissionPartyPlan?.eligible
+        passengerCount: missionProposalChoice?.charterProposal ? missionProposalChoice.charterProposal.idea.passengerCount : generatedMissionPartyPlan?.eligible
             ? generatedMissionPartyPlan.passengerCount
             : null,
         aircraftCapability: missionAircraftCapability,
-        maxPartySize: generatedMissionPartyPlan?.eligible
+        maxPartySize: missionProposalChoice?.charterProposal ? Math.min(5,missionAircraftCapability.passengerCapacity) : generatedMissionPartyPlan?.eligible
             ? generatedMissionPartyPlan.maxPartySize
             : 1,
         party: generatedMissionPartyPlan?.eligible
@@ -43279,8 +43314,11 @@ async function generateMission(options = {}) {
         plannerContext.cargoText = cargoText;
         plannerContext.animalTransportBrief = animalTransportBrief;
     };
+    const useCharterIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(dispatchProfileId);
     const useClubIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && aiModeEnabled && dispatchProfileId === 'club_utility';
-    if (useClubIdeas) {
+    if (useCharterIdeas) {
+        missionContractV4 = {status:'ready',profile:{id:dispatchProfileId,taskDomain:'charter',roleProfile:'charter_professional_neutral_v1'}};
+    } else if (useClubIdeas) {
         // The idea owns narrative/person/loadout. Do not call the legacy seeded planner.
         missionContractV4 = { status: 'ready', profile: getMissionTaskProfile('club_utility', 'apt') };
     } else if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV4Enabled()) {
@@ -43889,7 +43927,12 @@ async function generateMission(options = {}) {
             || missionContractV4?.status !== 'ready' || missionContractV4?.profile?.taskDomain !== 'private_outing')) {
             throw new Error('Die gewählte Ausflugsidee benötigt den aktiven Privat-Planner mit bereitem V4-Rahmen. Bitte die Einstellungen prüfen und neue Vorschläge erstellen.');
         }
-        if (useClubIdeas) {
+        if (missionProposalChoice?.charterProposal && !useCharterIdeas) throw Error('Die Charterauswahl benötigt den KI-Chartergenerator.');
+        if (useCharterIdeas) {
+            missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m = await window.MissionCharterBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.charterProposal,contract:missionContractV4});
+            missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
+        } else if (useClubIdeas) {
             missionContractV4 = { ...missionContractV4,
                 route: { startIcao: currentStartICAO, targetIcao: currentDestICAO, startName: start.n, targetName: dest.n, distanceNm: totalDist },
                 weather: _missionPipelineV3WeatherBundle(missionWeather) };
@@ -44366,7 +44409,7 @@ async function generateMission(options = {}) {
     }
     const finalPassengerPlan = resolveMissionPassengerCapacityPlan({
         paxText,
-        passengerCount: generatedMissionPartyPlan?.eligible
+        passengerCount: m?.charterIdea ? m.passengerCount : generatedMissionPartyPlan?.eligible
             ? preWriterPassengerPlan.passengerCount
             : (m?.passengerCount !== null
             && m?.passengerCount !== undefined
@@ -44381,15 +44424,18 @@ async function generateMission(options = {}) {
             ? Number(m.bush.pickupPassengerCount)
             : null,
         aircraftCapability: missionAircraftCapability,
-        maxPartySize: generatedMissionPartyPlan?.eligible
+        maxPartySize: m?.charterIdea ? Math.min(5,missionAircraftCapability.passengerCapacity) : generatedMissionPartyPlan?.eligible
             ? generatedMissionPartyPlan.maxPartySize
             : 1,
-        party: generatedMissionPartyPlan?.eligible
+        party: m?.charterIdea ? m.party : generatedMissionPartyPlan?.eligible
             ? preWriterPassengerPlan.party
             : null,
         roleLabel: m?.passenger?.role || '',
         preserveDash: isPlanningOnlyMode
     });
+    if (m?.charterIdea?.schema === 'charter-idea.v1' && finalPassengerPlan.passengerCount !== m.charterIdea.passengerCount) {
+        throw new Error('Die gebuchte Chartergruppe passt nicht zur aktuellen Passagierkonfiguration. Bitte neu auswählen.');
+    }
     if (finalPassengerPlan.blocked) {
         throw missionPassengerCapacityError({
             capability: missionAircraftCapability,
@@ -44657,6 +44703,7 @@ async function generateMission(options = {}) {
         story: m.s,
         missionStory: m.s,
         clubIdea: m.clubIdea || null,
+        charterIdea: m.charterIdea || null,
         privateOuting: m.privateOuting || null,
         privateReturn: m.privateReturn || null,
         dist: totalDist,
@@ -44768,6 +44815,7 @@ async function generateMission(options = {}) {
         }
     }
     window.currentMissionData = currentMissionData;
+    if (currentMissionData.charterIdea) window.MissionCharterIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.charterIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.charterIdea.writerMemory});
     if (currentMissionData.clubIdea) {
         window.MissionClubIdeasCore.remember(localStorage, currentMissionData.id || currentMissionData.missionId, currentMissionData.clubIdea, { story: m.s });
     }
