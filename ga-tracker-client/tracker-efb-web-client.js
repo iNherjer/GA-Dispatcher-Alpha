@@ -6,11 +6,12 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '43701';
+const EFB_WEB_ASSET_REVISION = '43801';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/mission-survey-pattern.js': [path.join(__dirname, 'efb-web-assets', 'mission-survey-pattern.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/mission-poi-chain-runtime.js': [path.join(__dirname, 'efb-web-assets', 'mission-poi-chain-runtime.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/stopwatch-ticks.svg': [path.join(__dirname, 'efb-fonts', 'stopwatch-ticks.svg'), 'image/svg+xml; charset=utf-8'],
   '/efb/v1/assets/symbols.js': [path.join(__dirname, 'tracker-efb-symbols.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/emoji-text.js': [path.join(__dirname, 'tracker-efb-emoji-text.js'), 'text/javascript; charset=utf-8'],
@@ -167,6 +168,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/checklists.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/profile.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/mission-survey-pattern.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/mission-poi-chain-runtime.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/host.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('host.js')" onerror="__gaEfbScriptError('host.js')"></script>
 </body>
 </html>`;

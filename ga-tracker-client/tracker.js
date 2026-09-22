@@ -90,8 +90,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v437';
-const TRACKER_VERSION_CODE = 437;
+const TRACKER_VERSION = 'v438';
+const TRACKER_VERSION_CODE = 438;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4909,7 +4909,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     authorityManager: missionAuthorityManager,
     voiceService: trackerVoiceService,
     getAudioSettings: () => trackerAudioControl?.snapshot().settings || null,
-    getAudioPlaybackCandidates: () => trackerAudioControl ? (trackerAudioControl.snapshot().settings.enabled && trackerAudioControl.snapshot().settings.paxEnabled ? 1 : 0) : Math.max(trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
+    getAudioPlaybackCandidates: (request = {}) => trackerAudioControl ? (trackerAudioControl.snapshot().settings.enabled && (trackerAudioControl.snapshot().settings.paxEnabled || (request.effects && trackerAudioControl.snapshot().settings.effectsEnabled)) ? 1 : 0) : Math.max(trackerCockpitControl?.publicState?.().audioPlaybackCandidates || 0,
       trackerVoiceService.publicState().audioPlaybackCandidates || 0),
     log: debugLog
   });

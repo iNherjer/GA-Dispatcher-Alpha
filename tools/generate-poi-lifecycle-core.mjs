@@ -13,9 +13,10 @@ const output = `// Generated from the original App lifecycle functions. Do not e
 'use strict';
 const SCHEMA = 'ga.mission-poi-lifecycle.v1';
 function evaluate(recipe, progress = {}, recorder = {}, sample = {}, outcome = null) {
-  const currentMissionData = { missionContract: { taskDomain: recipe.taskDomain } };
+  const currentMissionData = { missionContract: { taskDomain: recipe.taskDomain }, ...(recipe.poiChain ? { poiChain: recipe.poiChain, missionSubType: 'poi_chain' } : {}) };
   const flightRecorder = recorder;
   const window = { lastLiveFlightData: sample, lastLiveGpsPos: sample,
+    missionPoiChainRuntime: { getActiveSpec: () => recipe.poiChain || null },
     GAMissionLocationCore: locationCore, activePassenger: { ...recipe.passenger, taskDomain: recipe.taskDomain },
     missionPoiRecipeId: () => recipe.passenger.targetDwellMin === 0 ? 'poi_flyover' : 'poi_on_task' };
   const _missionSceneIsPoiMission = () => true;

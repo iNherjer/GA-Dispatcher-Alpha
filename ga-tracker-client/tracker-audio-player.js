@@ -12,10 +12,22 @@
     }), 'audio_control_timeout', null, options.controlTimeoutMs || 2500); };
     var warningBuffers = new Map();
     function warningKind(kind) { return ['airspace', 'terrain', 'waypoint'].indexOf(kind) >= 0; }
-    function selected(kind) {
+    function sequenceStage(stage) { return /^(before|after):[0-7]$/.test(stage); }
+    function effectStage(stage) { return stage === 'cue' || sequenceStage(stage); }
+    function setStage(current, stage) {
+      if (current.stage !== stage) { current.stage = stage; current.offset = 0; }
+    }
+    function selected(job) {
+      var kind = typeof job === 'string' ? job : job && job.kind;
       if (!state || !state.target || state.target.deviceId !== deviceId || !state.settings.enabled) return false;
       if (warningKind(kind)) return state.settings[kind] !== false;
-      return kind === 'cargo' ? state.settings.effectsEnabled : (kind === 'boarding' || kind === 'farewell') ? (state.settings.paxEnabled || state.settings.effectsEnabled) : state.settings.paxEnabled;
+      if (kind === 'cargo') return state.settings.effectsEnabled;
+      if (kind === 'boarding' || kind === 'farewell') return state.settings.paxEnabled || state.settings.effectsEnabled;
+      if (kind === 'poi' && job && job.cueSequence
+        && ((job.cueSequence.before && job.cueSequence.before.length) || (job.cueSequence.after && job.cueSequence.after.length))) {
+        return state.settings.paxEnabled || state.settings.effectsEnabled;
+      }
+      return state.settings.paxEnabled;
     }
     function getContext() { if (!context) context = new options.AudioContext(); return context; }
     async function unlock() { try { var ctx = getContext(); if (ctx.state !== 'running') await bounded(ctx.resume(), 'audio_unlock_timeout'); return ctx.state === 'running'; } catch (_) { return false; } }
@@ -35,7 +47,17 @@
       if (current.source) { try { current.source.stop(); } catch (_) {} }
       if (current.resolveClip) current.resolveClip();
       current.source = null;
+      if (current.delayTimer) clearTimeout(current.delayTimer);
+      if (current.delayResolve) current.delayResolve();
+      current.delayTimer = null; current.delayResolve = null;
       clearTimeout(current.leaseTimer); clearTimeout(current.renewTimer); clearTimeout(current.watchdog);
+    }
+    function waitEffectDelay(current, delayMs) {
+      if (!delayMs || current.offset > 0 || !state || !state.settings.effectsEnabled || current.done) return Promise.resolve();
+      return new Promise(function (resolve) {
+        current.delayResolve = function () { if (!current.delayTimer) return; clearTimeout(current.delayTimer); current.delayTimer = null; current.delayResolve = null; resolve(); };
+        current.delayTimer = setTimeout(current.delayResolve, delayMs);
+      });
     }
     async function finish(current, completed, deviceSwitch) {
       if (current.done) return;
@@ -98,9 +120,9 @@
       for (var i = 0; i < 4; i++) worker();
     }
     async function playClip(current, stage, gain) {
-      if (current.done || (stage === 'cue' && !state.settings.effectsEnabled) || (stage === 'audio' && !state.settings.paxEnabled)) return;
+      if (current.done || (effectStage(stage) && !state.settings.effectsEnabled) || (stage === 'audio' && !state.settings.paxEnabled)) return;
       if (current.stage === 'audio' && stage === 'cue') return;
-      if (current.stage !== stage) { current.stage = stage; current.offset = 0; }
+      setStage(current, stage);
       var download = typeof AbortController === 'function' ? new AbortController() : null;
       current.download = download;
       var ctx = getContext(), buffer;
@@ -148,7 +170,8 @@
         source.stop(current.stopAt);
         if (current.noise) current.noise.stop(current.stopAt);
       });
-      if (current.skipCue && stage === 'cue') { current.source = null; current.offset = 0; return; }
+      if (current.skipEffect && effectStage(stage)) { current.skipEffect = false; current.source = null; current.offset = 0; return; }
+      if (current.skipSpeech && stage === 'audio') { current.skipSpeech = false; current.source = null; current.offset = 0; return; }
       if (!current.done && position(current).offset + 0.1 < buffer.duration) throw new Error('audio_lease_expired');
       if (!current.done) { current.source = null; current.offset = 0; }
     }
@@ -159,7 +182,7 @@
       var ownsFetch = true;
       try {
         var next = await request({ action: 'next' });
-        if (!next.job || stopped || !selected(next.job.kind)) return;
+        if (!next.job || stopped || !selected(next.job)) return;
         if (!(await unlock())) { if (options.onError) options.onError('Audio bitte durch Antippen aktivieren.'); return; }
         var started = Date.now();
         var claim = await request({ action: 'claim', effectId: next.job.effectId });
@@ -167,7 +190,7 @@
         var cursor = claim.job && claim.job.playback && claim.job.playback.position || { stage: 'cue', offset: 0 };
         var current = { job: next.job, stage: cursor.stage, offset: cursor.offset, startedAt: 0, done: false };
         active = current;
-        if (stopped || !selected(next.job.kind) || Date.now() - started > 3000) { await finish(current, false, true); return; }
+        if (stopped || !selected(next.job) || Date.now() - started > 3000) { await finish(current, false, true); return; }
         armLease(current, started); current.renewTimer = setTimeout(function () { renew(current); }, 1000);
         current.watchdog = setTimeout(function () { finish(current, false, false); }, 180000);
         if (options.onPlayback) options.onPlayback(next.job);
@@ -175,7 +198,7 @@
         // Do not hold the pump lock during the clip: completion can request the next job.
         fetching = false; ownsFetch = false;
         try {
-          if (next.job.cue && next.job.cue.audioAvailable) {
+          if (next.job.cue && next.job.cue.audioAvailable && current.stage === 'cue' && state.settings.effectsEnabled) {
             try { await playClip(current, 'cue', Number(next.job.cue.gain) || 0.38); }
             catch (error) {
               if (!next.job.audioAvailable || error.message === 'audio_lease_expired') throw error;
@@ -184,7 +207,30 @@
               if (options.onError) options.onError(error.message);
             }
           }
-          if (!current.done && next.job.audioAvailable) await playClip(current, 'audio', 1);
+          var before = next.job.cueSequence && next.job.cueSequence.before || [];
+          var after = next.job.cueSequence && next.job.cueSequence.after || [];
+          if (!current.done && current.stage === 'cue') setStage(current, before.length ? 'before:0' : 'audio');
+          var beforeStart = /^before:/.test(current.stage) ? Number(current.stage.split(':')[1]) : (current.stage === 'cue' ? 0 : before.length);
+          for (var beforeIndex = beforeStart; beforeIndex < before.length && !current.done; beforeIndex++) {
+            setStage(current, 'before:' + beforeIndex);
+            await waitEffectDelay(current, before[beforeIndex].delayMs);
+            if (state.settings.effectsEnabled && before[beforeIndex].audioAvailable) await playClip(current, current.stage, Number(before[beforeIndex].gain) || 0.38);
+            if (current.done) break;
+            setStage(current, beforeIndex + 1 < before.length ? 'before:' + (beforeIndex + 1) : 'audio');
+          }
+          if (!current.done && next.job.audioAvailable && current.stage !== 'after:0' && !/^after:/.test(current.stage)) {
+            setStage(current, 'audio');
+            await playClip(current, 'audio', 1);
+            if (!current.done) setStage(current, after.length ? 'after:0' : 'after:done');
+          }
+          var afterStart = /^after:/.test(current.stage) ? Number(current.stage.split(':')[1]) : 0;
+          for (var afterIndex = afterStart; afterIndex < after.length && !current.done; afterIndex++) {
+            setStage(current, 'after:' + afterIndex);
+            await waitEffectDelay(current, after[afterIndex].delayMs);
+            if (state.settings.effectsEnabled && after[afterIndex].audioAvailable) await playClip(current, current.stage, Number(after[afterIndex].gain) || 0.38);
+            if (current.done) break;
+            setStage(current, afterIndex + 1 < after.length ? 'after:' + (afterIndex + 1) : 'after:done');
+          }
           if (next.job.clips) {
             var first = /^warning:/.test(current.stage) ? Number(current.stage.split(':')[1]) : 0;
             for (var index = first; index < next.job.clips.length && !current.done; index++) {
@@ -217,12 +263,16 @@
         active.preempted = true;
         finish(active, false, true);
       }
-      if (active && !selected(active.job.kind)) finish(active, false, true);
-      else if (active && state && active.stage === 'audio' && !state.settings.paxEnabled) finish(active, true, false);
-      else if (active && state && active.stage === 'cue' && !state.settings.effectsEnabled && active.source) {
-        active.skipCue = true; try { active.source.stop(); } catch (_) {}
+      if (active && !selected(active.job)) finish(active, false, true);
+      else if (active && state && active.stage === 'audio' && !state.settings.paxEnabled && active.source) {
+        active.skipSpeech = true; try { active.source.stop(); } catch (_) {}
         if (active.resolveClip) active.resolveClip();
       }
+      else if (active && state && effectStage(active.stage) && !state.settings.effectsEnabled && active.source) {
+        active.skipEffect = true; try { active.source.stop(); } catch (_) {}
+        if (active.resolveClip) active.resolveClip();
+      }
+      if (active && state && !state.settings.effectsEnabled && active.delayResolve) active.delayResolve();
       if (active && active.gain && state) active.gain.gain.value = state.settings.volume * active.clipGain;
       var notice = state ? state.revision + ':' + (state.playback && state.playback.notification || '') : '';
       if (notice !== lastNotice) {

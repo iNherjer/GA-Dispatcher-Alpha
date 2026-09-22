@@ -43,9 +43,11 @@
       try { return await asset(key); }
       catch (error) { if (key === 'aw-zwo') return asset('aw-d2'); throw error; }
     }
+    var sequenceMatch = /^(before|after):([0-7])$/.exec(stage || '');
+    var sequenceCue = sequenceMatch && job.cueSequence && job.cueSequence[sequenceMatch[1]] && job.cueSequence[sequenceMatch[1]][Number(sequenceMatch[2])];
     var url = base + '/voice/jobs/' + encodeURIComponent(job.effectId) + '/' + stage;
-    var asset = String(job.cue && job.cue.assetName || '');
-    if (!local && stage === 'cue' && /^[a-zA-Z0-9_-]+\.mp3$/.test(asset)) {
+    var asset = String((sequenceCue || job.cue || {}).assetName || '');
+    if (!local && (stage === 'cue' || sequenceMatch) && /^[a-zA-Z0-9_-]+\.mp3$/.test(asset)) {
       url = 'https://inherjer.github.io/GA-Dispatcher-Alpha/audio-cues/' + asset;
     } else if (!local) {
       var part = await request({ action: stage, effectId: job.effectId, offset: 0 });
@@ -72,7 +74,7 @@
       }
       return bytes.buffer;
     }
-    var response = await root.fetch(url, { cache: stage === 'cue' ? 'force-cache' : 'no-store', signal: signal });
+    var response = await root.fetch(url, { cache: (stage === 'cue' || sequenceMatch) ? 'force-cache' : 'no-store', signal: signal });
     if (!response.ok) throw new Error('Audio konnte nicht geladen werden.');
     return response.arrayBuffer();
   }

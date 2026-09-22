@@ -191,6 +191,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
         staticClipKey: recipe.staticClipKey,
         speaker: recipe.speaker,
         cue: recipe.playCue === true ? recipe.cue : null,
+        cueSequence: recipe.playCue === true ? recipe.cueSequence : null,
         textModels: recipe.textModels,
         ttsModels: recipe.ttsModels,
         ttsHedgeEnabled: recipe.ttsHedgeEnabled,
@@ -269,11 +270,13 @@ function createTrackerMissionBoardingVoice(options = {}) {
             .find(effect => effect.effectId === request.effect.effectId)?.payload.resolvedText || '' } : {}) })
       });
     }
-    const candidates = recipe.audioEnabled === true
-      ? Math.max(0, Math.round(Number(getAudioPlaybackCandidates()) || 0))
+    const sequenceAvailable = recipe.playCue === true && ['before', 'after'].some(stage => job.cueSequence?.[stage]?.some(cue => cue.audioAvailable));
+    const playbackEnabled = recipe.audioEnabled === true || sequenceAvailable;
+    const candidates = playbackEnabled
+      ? Math.max(0, Math.round(Number(getAudioPlaybackCandidates({ effects: sequenceAvailable })) || 0))
       : 0;
-    let playback = { status: recipe.audioEnabled === true ? (candidates > 0 ? 'pending' : 'no_audio_instance') : 'audio_disabled', completed: false };
-    if (recipe.audioEnabled === true && candidates > 0 && typeof voiceService.waitForPlayback === 'function') {
+    let playback = { status: playbackEnabled ? (candidates > 0 ? 'pending' : 'no_audio_instance') : 'audio_disabled', completed: false };
+    if (playbackEnabled && candidates > 0 && typeof voiceService.waitForPlayback === 'function') {
       if (typeof voiceService.waitForPlaybackClaim === 'function') {
         const claim = await voiceService.waitForPlaybackClaim(effectId, { timeoutMs: playbackClaimTimeoutMs });
         if (claim?.claimed === true) {

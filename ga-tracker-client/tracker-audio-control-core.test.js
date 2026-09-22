@@ -35,3 +35,12 @@ test('rapid settings changes coalesce cloud writes without losing the last volum
   assert.equal(saved[0].settings.volume, 0.95);
   audio.close();
 });
+
+test('only POI jobs carrying a cue sequence may use effects while PAX is muted', () => {
+  const audio = createAudioControl();
+  audio.update({ expectedRevision: 0, settings: { paxEnabled: false, effectsEnabled: true } });
+  assert.equal(audio.canPlay('pc', 'poi'), false);
+  assert.equal(audio.canPlay('pc', { kind: 'poi', cueSequence: { before: [], after: [{ audioAvailable: true }] } }), true);
+  assert.equal(audio.canPlay('pc', { kind: 'poi', cueSequence: { before: [], after: [] } }), false);
+  audio.close();
+});

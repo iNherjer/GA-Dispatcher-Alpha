@@ -237,13 +237,14 @@ function audioResponse(response, audio) {
 }
 
 function parseVoiceJobPath(pathname) {
-  const match = String(pathname || '').match(/^\/api\/v1\/voice\/jobs\/([^/]+?)(\/(?:audio|cue))?$/);
+  const match = String(pathname || '').match(/^\/api\/v1\/voice\/jobs\/([^/]+?)(\/(?:audio|cue|before:[0-7]|after:[0-7]))?$/);
   if (!match) return null;
   try {
     return {
       effectId: decodeURIComponent(match[1]),
       audio: match[2] === '/audio',
-      cue: match[2] === '/cue'
+      cue: match[2] === '/cue',
+      sequence: /^\/(before|after):([0-7])$/.exec(match[2] || '')
     };
   } catch (_) {
     return null;
@@ -578,9 +579,11 @@ function createTrackerEfbHttpServer(options = {}) {
         return;
       }
       try {
-        if (voiceJobRequest.audio || voiceJobRequest.cue) {
+        if (voiceJobRequest.audio || voiceJobRequest.cue || voiceJobRequest.sequence) {
           const audio = voiceJobRequest.cue
             ? voiceService.getCueAudio?.(voiceJobRequest.effectId)
+            : voiceJobRequest.sequence
+              ? voiceService.getCueAudio?.(voiceJobRequest.effectId, Number(voiceJobRequest.sequence[2]), voiceJobRequest.sequence[1])
             : voiceService.getAudio(voiceJobRequest.effectId);
           if (!audio) jsonResponse(response, 404, { error: 'voice_audio_not_ready' });
           else audioResponse(response, audio);

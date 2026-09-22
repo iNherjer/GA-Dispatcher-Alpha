@@ -7,6 +7,7 @@ const path = require('node:path');
 const test = require('node:test');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const { createTrackerVoiceService } = require('./tracker-voice-service');
+const { createAudioControl } = require('./tracker-audio-control-core');
 
 test('OpenAI voice jobs deduplicate by effect ID and never expose the API key', async () => {
   let calls = 0;
@@ -236,6 +237,63 @@ test('boarding job exposes the deterministic App cue as a separate prelude strea
   const cue = service.getCueAudio('run-cue:boarding');
   assert.equal(cue.contentType, 'audio/mpeg');
   assert.ok(cue.body.length > 0);
+});
+
+test('bounded cue sequences resolve packaged assets, persist their plan, and retain indexed access', async t => {
+  const cache = path.join(__dirname, '.voice-sequence-test.json');
+  t.after(() => { try { fs.rmSync(cache, { force: true }); fs.rmSync(cache + '.audio', { recursive: true, force: true }); } catch (_) {} });
+  const options = { storageFile: cache, audioCueDirectory: path.join(__dirname, '..', 'audio-cues') };
+  const service = createTrackerVoiceService(options);
+  service.request({ effectId: 'sequence:cue', kind: 'cargo', cueSequence: {
+    before: [{ id: 'boarding_pax', variantSeed: 'pre', gain: 0.2, delayMs: 17 }],
+    after: [{ id: 'cargo_load', variantSeed: 'post', gain: 0.4, delayMs: 23 }]
+  } });
+  const ready = await service.wait('sequence:cue');
+  assert.equal(ready.cueSequence.before[0].audioAvailable, true);
+  assert.equal(ready.cueSequence.before[0].delayMs, 17);
+  assert.equal(ready.cueSequence.after[0].delayMs, 23);
+  assert.ok(service.getCueAudio('sequence:cue', 0, 'before').body.length > 0);
+  assert.ok(service.getCueAudio('sequence:cue', 0, 'after').body.length > 0);
+  await service.flushPersistence();
+  const restored = createTrackerVoiceService(options).get('sequence:cue');
+  assert.equal(restored.cueSequence.before[0].delayMs, 17);
+  assert.equal(restored.cueSequence.after[0].audioAvailable, true);
+});
+
+test('cue sequence rejects excess entries and never treats a path as an audio asset', async () => {
+  const service = createTrackerVoiceService();
+  assert.throws(() => service.request({ effectId: 'sequence:many', kind: 'cargo', cueSequence: {
+    before: Array.from({ length: 6 }, () => ({ id: 'boarding_pax' }))
+  } }), error => error.code === 'invalid_cue_sequence');
+  service.request({ effectId: 'sequence:path', kind: 'cargo', cueSequence: { before: [{ id: '../../private-file.mp3' }] } });
+  const pathCue = await service.wait('sequence:path');
+  assert.equal(pathCue.cueSequence.before[0].audioAvailable, false);
+  assert.equal(service.getCueAudio('sequence:path', 0, 'before'), null);
+});
+
+test('terminal post-sequence cursor survives a playback handoff without becoming a legacy cue', async () => {
+  const service = createTrackerVoiceService({ audioCueDirectory: path.join(__dirname, '..', 'audio-cues') });
+  service.request({ effectId: 'sequence:terminal', kind: 'cargo', cue: { id: 'cargo_load' } });
+  await service.wait('sequence:terminal');
+  assert.equal(service.claimPlayback({ effectId: 'sequence:terminal', clientId: 'first', leaseMs: 5000 }).claimed, true);
+  service.releasePlayback({ effectId: 'sequence:terminal', clientId: 'first', retryable: true, deviceSwitch: true,
+    position: { stage: 'after:done', offset: 0 } });
+  const handoff = service.claimPlayback({ effectId: 'sequence:terminal', clientId: 'second', leaseMs: 5000 });
+  assert.equal(handoff.claimed, true);
+  assert.deepEqual(handoff.job.playback.position, { stage: 'after:done', offset: 0 });
+});
+
+test('server next and claim retain a POI cue sequence when only effects are enabled', async () => {
+  const audioControl = createAudioControl();
+  audioControl.update({ expectedRevision: 0, settings: { paxEnabled: false, effectsEnabled: true } });
+  const service = createTrackerVoiceService({ audioControl, provider: 'openai', apiKey: 'test', audioCueDirectory: path.join(__dirname, '..', 'audio-cues'),
+    fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('voice') }) });
+  service.request({ effectId: 'poi:effects', kind: 'poi', text: 'Befund.', cueSequence: { before: [{ id: 'boarding_pax' }], after: [{ id: 'cargo_load' }] } });
+  await service.wait('poi:effects');
+  const next = service.getNextPlayback('poi-client', 'pc');
+  assert.equal(next.effectId, 'poi:effects');
+  assert.equal(service.claimPlayback({ effectId: 'poi:effects', clientId: 'poi-client', deviceId: 'pc' }).claimed, true);
+  audioControl.close();
 });
 
 test('farewell accepts the App prompt without inventing a fallback and preserves its cue kind', async () => {

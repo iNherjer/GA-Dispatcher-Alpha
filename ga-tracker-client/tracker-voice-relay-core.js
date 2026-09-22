@@ -32,7 +32,17 @@ function handleVoiceRelay(service, command = {}, audioControl = null, navigation
       const bytes = clip.body.subarray(offset, offset + 24 * 1024);
       return { offset, total: clip.body.length, contentType: clip.contentType, data: bytes.toString('base64') };
     }
-    default: throw new Error('voice_relay_action_invalid');
+    default: {
+      const match = /^(before|after):([0-7])$/.exec(String(command.action || ''));
+      if (!match) throw new Error('voice_relay_action_invalid');
+      if (audioControl && audioControl.snapshot().target.deviceId !== command.deviceId) throw new Error('audio_device_not_selected');
+      const clip = service.getCueAudio(effectId, Number(match[2]), match[1]);
+      if (!clip) throw new Error('voice_audio_not_found');
+      const offset = Number(command.offset || 0);
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset >= clip.body.length || clip.body.length > 8 * 1024 * 1024) throw new Error('voice_audio_range_invalid');
+      const bytes = clip.body.subarray(offset, offset + 24 * 1024);
+      return { offset, total: clip.body.length, contentType: clip.contentType, data: bytes.toString('base64') };
+    }
   }
 }
 module.exports = { handleVoiceRelay };

@@ -183,3 +183,155 @@ for (const stage of ['audio', 'cue']) test(`audio-thread lease stop preserves a 
   assert.equal(release.position.stage, stage);
   assert.ok(release.position.offset > 0);
 });
+
+test('cue sequences play before, speech, and after in order, and resume skips completed stages', async t => {
+  const stages = [], releases = []; let offered = false;
+  const player = createPlayer({ deviceId: 'phone', clientId: 'phone-tab', AudioContext: shortAudio(),
+    request: async command => {
+      if (command.action === 'next') { if (offered) return {}; offered = true; return { job: {
+        effectId: 'sequence', kind: 'boarding', audioAvailable: true,
+        cueSequence: { before: [{ audioAvailable: true, gain: 0.2, delayMs: 0 }], after: [{ audioAvailable: true, gain: 0.3, delayMs: 0 }] }
+      } }; }
+      if (command.action === 'claim') return { claimed: true, job: { playback: { position: { stage: 'before:0', offset: 0 } } } };
+      if (command.action === 'release') releases.push(command);
+      return { released: true };
+    }, fetchClip: async (_job, stage) => { stages.push(stage); return new ArrayBuffer(1); }
+  });
+  t.after(() => player.stop());
+  player.update({ revision: 1, target: { deviceId: 'phone' }, settings: { audioStyle: 'clear', enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'sequence', playbackAvailable: true } });
+  await wait(190);
+  assert.deepEqual(stages, ['before:0', 'audio', 'after:0']);
+  assert.equal(releases[0].completed, true);
+  assert.equal(releases[0].position.stage, 'after:done');
+
+  let resumeOffered = false;
+  const resumed = [], resumedPlayer = createPlayer({ deviceId: 'phone', clientId: 'phone-resume', AudioContext: shortAudio(),
+    request: async command => command.action === 'next' ? (!resumeOffered ? (resumeOffered = true, { job: { effectId: 'resume', kind: 'boarding', audioAvailable: true,
+      cueSequence: { before: [{ audioAvailable: true }], after: [{ audioAvailable: true }] } } }
+      ) : {}) : command.action === 'claim' ? { claimed: true, job: { playback: { position: { stage: 'after:0', offset: 0 } } } } : { released: true },
+    fetchClip: async (_job, stage) => { resumed.push(stage); return new ArrayBuffer(1); }
+  });
+  t.after(() => resumedPlayer.stop());
+  resumedPlayer.update({ revision: 1, target: { deviceId: 'phone' }, settings: { audioStyle: 'clear', enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'resume', playbackAvailable: true } });
+  await wait(70);
+  assert.deepEqual(resumed, ['after:0']);
+});
+
+test('effects-disabled playback skips cue sequences while PAX-disabled playback skips only speech', async t => {
+  async function played(settings) {
+    const stages = []; let offered = false;
+    const player = createPlayer({ deviceId: 'phone', clientId: 'phone-' + Math.random(), AudioContext: shortAudio(),
+      request: async command => command.action === 'next' ? (!offered ? (offered = true, { job: { effectId: 'gates', kind: 'boarding', audioAvailable: true,
+        cueSequence: { before: [{ audioAvailable: true }], after: [{ audioAvailable: true }] } } }) : {}) : command.action === 'claim' ? { claimed: true } : { released: true },
+      fetchClip: async (_job, stage) => { stages.push(stage); return new ArrayBuffer(1); }
+    });
+    player.update({ revision: 1, target: { deviceId: 'phone' }, settings: Object.assign({ audioStyle: 'clear', enabled: true, volume: 1 }, settings), playback: { notification: String(Math.random()), playbackAvailable: true } });
+    await wait(150); await player.stop(); return stages;
+  }
+  assert.deepEqual(await played({ effectsEnabled: false, paxEnabled: true }), ['audio']);
+  assert.deepEqual(await played({ effectsEnabled: true, paxEnabled: false }), ['before:0', 'after:0']);
+});
+
+test('a POI cue-sequence remains owned after PAX mute and continues with post cues', async t => {
+  const stages = [], releases = []; let offered = false;
+  const player = createPlayer({ deviceId: 'phone', clientId: 'poi-sequence', AudioContext: shortAudio(),
+    request: async command => {
+      if (command.action === 'next') return !offered ? (offered = true, { job: { effectId: 'poi-sequence', kind: 'poi', audioAvailable: true,
+        cueSequence: { before: [], after: [{ audioAvailable: true }] } } }) : {};
+      if (command.action === 'claim') return { claimed: true, job: { playback: { position: { stage: 'audio', offset: 0 } } } };
+      if (command.action === 'release') releases.push(command);
+      return { released: true };
+    }, fetchClip: async (_job, stage) => { stages.push(stage); return new ArrayBuffer(1); }
+  });
+  t.after(() => player.stop());
+  const base = { revision: 1, target: { deviceId: 'phone' }, settings: { audioStyle: 'clear', enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'poi-sequence', playbackAvailable: true } };
+  player.update(base); await wait(10);
+  player.update({ ...base, revision: 2, settings: { ...base.settings, paxEnabled: false } });
+  await wait(75);
+  assert.deepEqual(stages, ['audio', 'after:0']);
+  assert.equal(releases[0].completed, true);
+});
+
+test('sequence cursors preserve fractional offsets and terminal after state across handoff', async t => {
+  const fake = fakeAudio(), commands = []; let offered = false;
+  const player = createPlayer({ deviceId: 'phone', clientId: 'fractional', AudioContext: fake.Context,
+    request: async command => {
+      commands.push(command);
+      if (command.action === 'next') return !offered ? (offered = true, { job: { effectId: 'fractional', kind: 'boarding', audioAvailable: true,
+        cueSequence: { before: [{ audioAvailable: true }], after: [] } } }) : {};
+      if (command.action === 'claim') return { claimed: true, job: { playback: { position: { stage: 'before:0', offset: 0.5 } } } };
+      return { released: true };
+    }, fetchClip: async () => new ArrayBuffer(1)
+  });
+  player.update({ revision: 1, target: { deviceId: 'phone' }, settings: { audioStyle: 'clear', enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'fractional', playbackAvailable: true } });
+  await wait(25);
+  assert.equal(fake.starts[0], 0.5);
+  await player.stop();
+
+  const terminal = [], terminalPlayer = createPlayer({ deviceId: 'phone', clientId: 'terminal', AudioContext: shortAudio(),
+    request: async command => command.action === 'next' ? (terminal.length ? {} : (terminal.push('next'), { job: { effectId: 'terminal', kind: 'boarding', audioAvailable: true,
+      cueSequence: { before: [{ audioAvailable: true }], after: [{ audioAvailable: true }] } } }))
+      : command.action === 'claim' ? { claimed: true, job: { playback: { position: { stage: 'after:done', offset: 0 } } } }
+        : (terminal.push(command), { released: true }),
+    fetchClip: async () => { throw new Error('terminal cursor must not replay audio'); }
+  });
+  t.after(() => terminalPlayer.stop());
+  terminalPlayer.update({ revision: 1, target: { deviceId: 'phone' }, settings: { audioStyle: 'clear', enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'terminal', playbackAvailable: true } });
+  await wait(35);
+  assert.equal(terminal.find(command => command.action === 'release').completed, true);
+});
+
+test('muting effects during a sequence stage advances without a cue replay or delay', async t => {
+  const stages = [], releases = []; let offered = false;
+  const player = createPlayer({ deviceId: 'phone', clientId: 'mute-stage', AudioContext: shortAudio(),
+    request: async command => {
+      if (command.action === 'next') return !offered ? (offered = true, { job: { effectId: 'mute-stage', kind: 'boarding', audioAvailable: true,
+        cueSequence: { before: [{ audioAvailable: true, delayMs: 1000 }], after: [{ audioAvailable: true, delayMs: 1000 }] } } }) : {};
+      if (command.action === 'claim') return { claimed: true, job: { playback: { position: { stage: 'before:0', offset: 0 } } } };
+      if (command.action === 'release') releases.push(command);
+      return { released: true };
+    }, fetchClip: async (_job, stage) => { stages.push(stage); return new ArrayBuffer(1); }
+  });
+  t.after(() => player.stop());
+  const base = { revision: 1, target: { deviceId: 'phone' }, settings: { audioStyle: 'clear', enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'mute-stage', playbackAvailable: true } };
+  player.update(base);
+  await wait(15);
+  player.update({ ...base, revision: 2, settings: { ...base.settings, effectsEnabled: false } });
+  await wait(80);
+  assert.deepEqual(stages, ['audio']);
+  assert.equal(releases[0].completed, true);
+});
+
+test('muting an active after cue completes without returning to speech', async t => {
+  const stages = [], releases = []; let offered = false;
+  const player = createPlayer({ deviceId: 'phone', clientId: 'mute-after', AudioContext: shortAudio(),
+    request: async command => {
+      if (command.action === 'next') return !offered ? (offered = true, { job: { effectId: 'mute-after', kind: 'boarding', audioAvailable: true,
+        cueSequence: { before: [{ audioAvailable: true }], after: [{ audioAvailable: true }] } } }) : {};
+      if (command.action === 'claim') return { claimed: true, job: { playback: { position: { stage: 'after:0', offset: 0 } } } };
+      if (command.action === 'release') releases.push(command);
+      return { released: true };
+    }, fetchClip: async (_job, stage) => { stages.push(stage); return new ArrayBuffer(1); }
+  });
+  t.after(() => player.stop());
+  const base = { revision: 1, target: { deviceId: 'phone' }, settings: { audioStyle: 'clear', enabled: true, effectsEnabled: true, paxEnabled: true, volume: 1 }, playback: { notification: 'mute-after', playbackAvailable: true } };
+  player.update(base); await wait(10);
+  player.update({ ...base, revision: 2, settings: { ...base.settings, effectsEnabled: false } });
+  await wait(55);
+  assert.deepEqual(stages, ['after:0']);
+  assert.equal(releases[0].completed, true);
+});
+
+test('warning playback keeps its stage and fractional cursor unchanged', async t => {
+  const fake = fakeAudio(), seen = []; let offered = false;
+  const player = createPlayer({ deviceId: 'phone', clientId: 'warning-resume', AudioContext: fake.Context,
+    request: async command => command.action === 'next' ? (!offered ? (offered = true, { job: { effectId: 'warning', kind: 'terrain', clips: ['aw-d2'] } }) : {})
+      : command.action === 'claim' ? { claimed: true, job: { playback: { position: { stage: 'warning:0', offset: 0.25 } } } } : { released: true },
+    fetchClip: async (_job, stage) => { seen.push(stage); return new ArrayBuffer(1); }
+  });
+  t.after(() => player.stop());
+  player.update({ revision: 1, target: { deviceId: 'phone' }, settings: { audioStyle: 'clear', enabled: true, terrain: true, volume: 1 }, playback: { notification: 'warning-resume', playbackAvailable: true } });
+  await wait(25);
+  assert.deepEqual(seen, ['warning:0']);
+  assert.equal(fake.starts[0], 0.25);
+});

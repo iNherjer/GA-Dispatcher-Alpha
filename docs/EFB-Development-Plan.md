@@ -5635,3 +5635,17 @@ Missionsauswertung aus. Missionsstatus zeigt Linien/Kreise und Abschnittsabdecku
 PAX-Status/Orientierung verwenden die originalen Survey-Antworten. Fortschritt,
 Cargo und Start/Abschluss bleiben an dieselbe Tracker-Autoritaet gebunden.
 Weitere Implementierungsregeln: Tracker Mission Migration Guide, Abschnitt v437.
+
+## POI-Ketten im Mission-Worker, Alpha v438 (22.09.2026)
+
+`infra_chain_recon` verwendet den extrahierten Standalone-Kettendetektor im
+Mission-Worker. Parent-Telemetrie und SimConnect bleiben unveraendert getrennt.
+Cloud/Gate, Verladen, Rueckflug und Abschluss verwenden die gemeinsame
+POI-/APT-Authority. EFB und App projizieren Kettenpunkte, Korridorfortschritt und
+progressiven Kartenoverlay aus demselben Checkpoint.
+
+PAX-Ereignisse uebernehmen originale Textauswahl und Reihenfolge. Fuer Fotoaufnahmen
+transportiert die bestehende Voice-Ausgabe begrenzte Vor-/Nach-Soundsequenzen mit
+separaten Playback-Cursorn innerhalb derselben Geraete-Lease. Bei Wechsel des
+Audiogeraets sollen abgeschlossene Clips nicht wiederholt werden. Tests pruefen
+Wiederaufnahme, Mute-Schalter und weiterhin die normalen APT-/Warnungs-Clips.

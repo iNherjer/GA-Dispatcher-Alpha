@@ -311,7 +311,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     );
     let poiProgress = null;
     if (snapshot.recipe === 'poi' && poiRuntime.hasLifecycle(authorityManager.getExecutionPoiRecipe?.())) {
-      poiProgress = snapshot.state.poiTask?.detector || {};
+      poiProgress = { ...snapshot.state.poiTask?.detector, ...poiRuntime.project(snapshot.state.poiTask) };
       const lifecycle = poiLifecycleCore.evaluate(authorityManager.getExecutionPoiRecipe(), poiProgress,
         { ...observations.flightRecorder, hadAirbornePhase: snapshot.state.poiLifecycle?.flightEligible }, latest, cargoOutcome);
       cargoOutcome = lifecycle.outcome;
@@ -805,7 +805,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       const sample = { ...observations.latestTelemetry, ...position };
       if (Number.isFinite(position.altFt ?? position.alt)) sample.altFt = position.altFt ?? position.alt;
       let cue;
-      try { cue = preparePoiAction(recipe.voiceContext, intent, { ...snapshot.state.poiTask?.detector, surveyProgress: poiRuntime.project(snapshot.state.poiTask)?.surveyPattern }, sample, recipe.target, snapshot.state.voice?.poiMemory); }
+      try { cue = preparePoiAction(recipe.voiceContext, intent, { ...snapshot.state.poiTask?.detector, surveyProgress: poiRuntime.project(snapshot.state.poiTask)?.surveyPattern, chainProgress: poiRuntime.project(snapshot.state.poiTask)?.poiChain }, sample, recipe.target, snapshot.state.voice?.poiMemory); }
       catch (error) { return errorResult(error.message || 'poi_action_context_invalid'); }
       return submitEvent(snapshot, 'POI_ACTION_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }
@@ -1086,7 +1086,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     observations.flightRecorder = recorded.state;
     let poiLifecycleChanged = false;
     if (fullPoi && sample.simPaused !== true && sample.inMenuOrMap !== true) {
-      const lifecycle = poiLifecycleCore.evaluate(poiRecipe, snapshot.state.poiTask?.detector,
+      const lifecycle = poiLifecycleCore.evaluate(poiRecipe, { ...snapshot.state.poiTask?.detector, ...(poiRecipe.poiChain ? { poiChain: poiRuntime.project(snapshot.state.poiTask)?.poiChain } : {}) },
         { ...recorded.state, hadAirbornePhase: recorded.state.hadAirbornePhase || snapshot.state.poiLifecycle?.flightEligible }, sample);
       const poiLifecycle = Object.fromEntries(['flightEligible', 'canEndHere', 'endedAtHome', 'needsRideHome'].map(key => [key, lifecycle[key]]));
       if (Object.keys(poiLifecycle).some(key => snapshot.state.poiLifecycle?.[key] !== poiLifecycle[key])) {

@@ -637,9 +637,7 @@ window.paxVoiceGetPoiMissionProgress = function() {
     const sarHeliLoaded = !!(sarHeli && sarHeli.patientLoaded);
     const surveyPattern = _surveyPatternSnapshot();
     const surveySatisfied = !!(surveyPattern && surveyPattern.satisfied);
-    const poiChain = (typeof window.missionPoiChainRuntime?.snapshot === 'function')
-        ? window.missionPoiChainRuntime.snapshot()
-        : null;
+    const poiChain = _poiChainSnapshot();
     const poiChainSatisfied = !!(poiChain && poiChain.satisfied);
     const trainingProcedure = (typeof window.missionTrainingProcedure?.snapshot === 'function')
         ? window.missionTrainingProcedure.snapshot()
@@ -5728,6 +5726,8 @@ function _poiChainActiveSpec() {
 }
 
 function _poiChainSnapshot() {
+    const tracker = window.gaTrackerExecutionControl;
+    if (tracker?.executionAuthority === 'tracker' && tracker.chainSpec) return tracker.poiTask?.poiChain || null;
     if (typeof window.missionPoiChainRuntime?.snapshot !== 'function') return null;
     try {
         return window.missionPoiChainRuntime.snapshot();
@@ -9878,6 +9878,11 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
         baseContext: _baseContext(), toneHint: _toneHint(true),
         passenger: { ...window.activePassenger }, missionData: { poiName: md.poiName, targetName: md.targetName, dest: md.dest },
         mapPlaceOrientationLine: _paxMapPlaceOrientationLine(),
+        ...(_activeTaskDomain() === 'infra_chain_recon' ? {
+            chainSpec: _poiChainActiveSpec(), chainSpeaker: _speakerSnapshotForMissionVoice('poi-chain'),
+            chainAudioDefinitions: Object.fromEntries(Object.entries(_PAX_AUDIO_CUE_CATALOG).map(([id, def]) => [id, { gain: def.gain || 0.78, variantScope: def.variantScope || 'mission' }])),
+            chainAudioCueIds: Object.fromEntries(Object.entries({ point_complete: 'photo', chain_corridor_entered: 'scan_start', chain_corridor_complete: 'handoff', chain_complete: 'handoff', chain_area_entered: 'none', corridor_segment_reset_offtrack: 'none', corridor_segment_reset_speed: 'none' }).map(([kind, fallback]) => [kind, _paxAudioEffectsEnabled ? _paxMissionAudioCueId('poi_chain', kind, fallback) : 'none']))
+        } : {}),
         ...(_activeTaskDomain() === 'mapping_survey' ? {
             surveySpec: _surveyPatternActiveSpec(),
             surveyAudioCueIds: Object.fromEntries(Object.entries({ survey_area_entered: 'scan_start',

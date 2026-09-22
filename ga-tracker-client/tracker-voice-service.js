@@ -17,6 +17,7 @@ const DEFAULT_MAX_PROVIDER_CONCURRENCY = 2;
 const DEFAULT_MAX_NEW_JOBS_PER_MINUTE = 60;
 const STATIC_SURVEY_CLIP_KEYS = new Set(['scan_survey_area_entered', 'orbit_survey_area_entered',
   'line_complete', 'orbit_turn_complete', 'scan_survey_complete', 'orbit_survey_complete']);
+const CUE_SEQUENCE_LIMITS = Object.freeze({ before: 5, after: 2, delayMs: 60000 });
 
 function voiceError(code, statusCode, message) {
   const error = new Error(message);
@@ -69,6 +70,30 @@ function normalizeVoiceRequest(value = {}) {
   const requestedStaticClipKey = String(value.staticClipKey || '').trim();
   const staticClipKey = kind === 'poi' && taskDomain === 'mapping_survey' && STATIC_SURVEY_CLIP_KEYS.has(requestedStaticClipKey)
     ? requestedStaticClipKey : '';
+  const normalizeCueSequence = (raw) => {
+    const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const normalizeStage = (stage) => {
+      const entries = source[stage] == null ? [] : source[stage];
+      if (!Array.isArray(entries) || entries.length > CUE_SEQUENCE_LIMITS[stage]) {
+        throw voiceError('invalid_cue_sequence', 400, 'Ungueltige Anzahl Audio-Cues.');
+      }
+      return entries.map((entry) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw voiceError('invalid_cue_sequence', 400, 'Ungueltiger Audio-Cue.');
+        const id = boardingVoiceCore.normalizeCueId(entry.id);
+        const delayMs = Number(entry.delayMs || 0);
+        if (id === 'none' || !Number.isSafeInteger(delayMs) || delayMs < 0 || delayMs > CUE_SEQUENCE_LIMITS.delayMs) {
+          throw voiceError('invalid_cue_sequence', 400, 'Ungueltiger Audio-Cue.');
+        }
+        return {
+          id,
+          variantSeed: String(entry.variantSeed || '').trim().slice(0, 500),
+          gain: Math.max(0, Math.min(1, Number(entry.gain) || 0.38)),
+          delayMs
+        };
+      });
+    };
+    return { before: normalizeStage('before'), after: normalizeStage('after') };
+  };
   return {
     effectId,
     text,
@@ -87,6 +112,7 @@ function normalizeVoiceRequest(value = {}) {
       variantSeed: cueId === 'none' ? '' : String(cueSource.variantSeed || '').trim().slice(0, 500),
       gain: cueId === 'none' ? 0 : Math.max(0, Math.min(1, Number(cueSource.gain) || 0.38))
     },
+    cueSequence: normalizeCueSequence(value.cueSequence),
     textModels: {
       gemini: normalizeModels(textModelSource.gemini, boardingVoiceCore.GEMINI_TEXT_MODELS),
       openai: normalizeModels(textModelSource.openai, boardingVoiceCore.OPENAI_TEXT_MODELS)
@@ -406,6 +432,10 @@ function createTrackerVoiceService(options = {}) {
         audioAvailable: Boolean(record.cue?.filePath),
         gain: Number(record.cue?.gain) || 0
       },
+      cueSequence: {
+        before: (record.cueSequence?.before || []).map(cue => ({ id: cue.id, assetName: cue.assetName || '', audioAvailable: Boolean(cue.filePath), gain: Number(cue.gain) || 0, delayMs: Number(cue.delayMs) || 0 })),
+        after: (record.cueSequence?.after || []).map(cue => ({ id: cue.id, assetName: cue.assetName || '', audioAvailable: Boolean(cue.filePath), gain: Number(cue.gain) || 0, delayMs: Number(cue.delayMs) || 0 }))
+      },
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       audioAvailable: record.status === 'ready' && Buffer.isBuffer(record.audio),
@@ -465,6 +495,9 @@ function createTrackerVoiceService(options = {}) {
               gain: record.cue.gain,
               assetName: record.cue.assetName
             } : null,
+            cueSequence: Object.fromEntries(['before', 'after'].map(stage => [stage, (record.cueSequence?.[stage] || []).map(cue => ({
+              id: cue.id, variantSeed: cue.variantSeed, gain: cue.gain, delayMs: cue.delayMs, assetName: cue.assetName
+            }))])),
             status: 'ready',
             createdAt: record.createdAt,
             updatedAt: record.updatedAt,
@@ -565,6 +598,10 @@ function createTrackerVoiceService(options = {}) {
         if (playback.status !== 'completed' && playback.status !== 'deferred'
             && now() - createdAt > playbackJobTtlMs) continue;
         const cue = resolveAudioCue(source.cue);
+        const cueSequence = Object.fromEntries(['before', 'after'].map(stage => [stage,
+          (Array.isArray(source.cueSequence?.[stage]) ? source.cueSequence[stage].slice(0, CUE_SEQUENCE_LIMITS[stage]) : [])
+            .map(entry => ({ ...entry, ...resolveAudioCue(entry), delayMs: Math.max(0, Math.min(CUE_SEQUENCE_LIMITS.delayMs, Number(entry?.delayMs) || 0)) }))
+        ]));
         const record = {
           effectId,
           fingerprint: String(source.fingerprint || ''),
@@ -575,6 +612,7 @@ function createTrackerVoiceService(options = {}) {
           provider: normalizeVoiceProvider(source.provider),
           speaker: boardingVoiceCore.normalizeSpeaker(source.speaker),
           cue,
+          cueSequence,
           status: 'ready',
           createdAt,
           updatedAt: timestamp,
@@ -729,6 +767,7 @@ function createTrackerVoiceService(options = {}) {
         staticClipKey: request.staticClipKey,
         speaker: request.speaker,
         cue: request.cue,
+        ...((request.cueSequence.before.length || request.cueSequence.after.length) ? { cueSequence: request.cueSequence } : {}),
         voiceName: request.voiceName,
         textModels: request.textModels,
         ttsModels: request.ttsModels,
@@ -764,6 +803,7 @@ function createTrackerVoiceService(options = {}) {
       provider,
       speaker: request.speaker,
       cue: resolveAudioCue(request.cue),
+      cueSequence: Object.fromEntries(['before', 'after'].map(stage => [stage, request.cueSequence[stage].map(entry => ({ ...entry, ...resolveAudioCue(entry), delayMs: entry.delayMs }))])),
       status: 'pending',
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -811,12 +851,16 @@ function createTrackerVoiceService(options = {}) {
     return { body: record.audio, contentType: record.contentType, effectId: record.effectId };
   }
 
-  function getCueAudio(effectId) {
+  function getCueAudio(effectId, index = null, stage = '') {
     const record = records.get(normalizeEffectId(effectId));
-    if (!record || record.status !== 'ready' || !record.cue?.filePath) return null;
+    const sequenceStage = stage === 'before' || stage === 'after' ? stage : '';
+    const cue = sequenceStage && Number.isSafeInteger(Number(index))
+      ? record?.cueSequence?.[sequenceStage]?.[Number(index)]
+      : record?.cue;
+    if (!record || record.status !== 'ready' || !cue?.filePath) return null;
     try {
       return {
-        body: io.readFileSync(record.cue.filePath),
+        body: io.readFileSync(cue.filePath),
         contentType: 'audio/mpeg',
         effectId: record.effectId
       };
@@ -862,7 +906,7 @@ function createTrackerVoiceService(options = {}) {
     }
     if (pruned) persist();
     const record = [...records.values()]
-      .filter((candidate) => candidate.status === 'ready' && (candidate.clips || Buffer.isBuffer(candidate.audio) || ((audioControl || candidate.kind === 'cargo') && candidate.cue?.filePath)))
+      .filter((candidate) => candidate.status === 'ready' && (candidate.clips || Buffer.isBuffer(candidate.audio) || ((audioControl || candidate.kind === 'cargo') && (candidate.cue?.filePath || candidate.cueSequence?.before?.some(cue => cue.filePath) || candidate.cueSequence?.after?.some(cue => cue.filePath)))))
       .filter((candidate) => !clientId || !(candidate.failedPlaybackClients || []).includes(clientId))
       .filter((candidate) => candidate.playback?.status !== 'deferred')
       .filter((candidate) => candidate.playback?.status !== 'completed' && candidate.playback?.status !== 'released')
@@ -963,7 +1007,7 @@ function createTrackerVoiceService(options = {}) {
     if (!clientId) throw voiceError('invalid_client_id', 400, 'Playback-Client-ID fehlt.');
     const record = records.get(effectId);
     if (!record) throw voiceError('voice_job_not_found', 404, 'Voice-Effekt wurde nicht gefunden.');
-    if (audioControl && !audioControl.canPlay(String(value.deviceId || ''), record.kind)) return { claimed: false, reason: 'audio_device_not_selected', job: null };
+    if (audioControl && !audioControl.canPlay(String(value.deviceId || ''), record)) return { claimed: false, reason: 'audio_device_not_selected', job: null };
     if ((record.failedPlaybackClients || []).includes(clientId)) return { claimed: false, reason: 'client_playback_failed', job: publicRecord(record) };
     if (record.clips && record.expiresAt < now()) return { claimed: false, reason: 'expired', job: null };
     if (record.status !== 'ready') return { claimed: false, reason: record.status, job: publicRecord(record) };
@@ -1013,14 +1057,18 @@ function createTrackerVoiceService(options = {}) {
   }
 
   function normalizePlaybackPosition(value = {}) {
-    return { stage: /^warning:(?:[0-9]|[1-5][0-9]|6[0-3])$/.test(value.stage) ? value.stage : value.stage === 'audio' ? 'audio' : 'cue', offset: Math.max(0, Math.min(180, Number(value.offset) || 0)) };
+    const sequence = /^(before|after):([0-7])$/.exec(String(value.stage || ''));
+    const stage = /^warning:(?:[0-9]|[1-5][0-9]|6[0-3])$/.test(value.stage) ? value.stage
+      : value.stage === 'audio' || value.stage === 'after:done' ? value.stage
+        : sequence ? `${sequence[1]}:${sequence[2]}` : 'cue';
+    return { stage, offset: Math.max(0, Math.min(180, Number(value.offset) || 0)) };
   }
 
   function renewPlayback(value = {}) {
     const record = records.get(String(value.effectId || ''));
     if (!record || !checkPlaybackGuard(record.effectId) || record.playback?.status !== 'claimed'
         || record.playback.ownerClientId !== value.clientId || record.playback.leaseUntil <= now()) return { continued: false, reason: 'lease_lost' };
-    if (audioControl && !audioControl.canPlay(String(value.deviceId || ''), record.kind)) return { continued: false, reason: 'device_changed' };
+    if (audioControl && !audioControl.canPlay(String(value.deviceId || ''), record)) return { continued: false, reason: 'device_changed' };
     record.playback.position = normalizePlaybackPosition(value.position);
     record.playback.leaseUntil = now() + 5000;
     return { continued: true, leaseUntil: record.playback.leaseUntil };
@@ -1031,7 +1079,7 @@ function createTrackerVoiceService(options = {}) {
     const target = audioControl.snapshot().target.deviceId;
     for (const record of records.values()) {
       if (record.status !== 'ready' || !['available'].includes(record.playback?.status)
-          || audioControl.canPlay(target, record.kind)) continue;
+          || audioControl.canPlay(target, record)) continue;
       record.playback.status = 'released';
       settlePlaybackWaiters(record.effectId, { status: 'released', completed: false, job: publicRecord(record) });
       settlePlaybackClaimWaiters(record.effectId, { status: 'released', claimed: false, job: publicRecord(record) });
@@ -1046,7 +1094,7 @@ function createTrackerVoiceService(options = {}) {
       nowPlaying: playing ? { effectId: playing.effectId, kind: playing.kind, text: playing.text, speaker: { ...playing.speaker }, provider: playing.provider, model: playing.model, voiceName: playing.voiceName } : null,
       configured,
       priorityAvailable: jobs.some(record => !record.clips && record.status === 'ready'
-        && (Buffer.isBuffer(record.audio) || record.cue?.filePath)
+        && (Buffer.isBuffer(record.audio) || record.cue?.filePath || record.cueSequence?.before?.some(cue => cue.filePath) || record.cueSequence?.after?.some(cue => cue.filePath))
         && ['available', 'claimed'].includes(record.playback?.status)),
       playbackAvailable: jobs.some(record => record.status === 'ready' && ['available', 'claimed'].includes(record.playback?.status)),
       notification: crypto.createHash('sha256').update(jobs.map(record => record.effectId + ':' + record.status + ':' + (record.playback?.status === 'claimed' && record.playback.leaseUntil <= now() ? 'expired' : record.playback?.status)).join('|')).digest('hex').slice(0, 20),

@@ -443,6 +443,13 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
           detail: `${done}/${total} abgeschlossen · laufender Abschnitt ${Math.round(partial * 100)}%`,
           tone: task.aborted ? 'danger' : task.satisfied ? 'good' : 'active' };
       }
+      if (recipe.taskDomain === 'infra_chain_recon') {
+        const chain = task.poiChain || {};
+        const total = recipe.poiChain.points.filter(point => point.required !== false).length;
+        const done = recipe.poiChain.points.filter(point => point.required !== false && (chain.completedPointIds || []).includes(point.id)).length;
+        view.progress[0] = { label: 'Kettenpunkte', percent: done / Math.max(1, total) * 100, detail: `${done}/${total} dokumentiert`, tone: task.satisfied ? 'good' : 'active' };
+        if (chain.corridor?.totalSegments) view.progress.splice(1, 0, { label: 'Korridor', percent: (chain.corridor.completedCount + (chain.corridor.activeCoverage || 0)) / chain.corridor.totalSegments * 100, detail: `${chain.corridor.completedCount}/${chain.corridor.totalSegments} Abschnitte · laufend ${Math.round((chain.corridor.activeCoverage || 0) * 100)}%`, tone: chain.corridor.satisfied ? 'good' : 'active' });
+      }
       view.taskTone = task.aborted ? 'danger' : task.satisfied ? 'good' : 'active';
       // The seed feedback describes the preflight state and is stale after handoff.
       view.feedback.push({ label: 'Arbeitsbereich', detail: control.poiStatus?.detail ||
@@ -492,6 +499,12 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
         view.requirements.push({ label: 'Survey-Pattern', detail: spec.type === 'orbit'
           ? `${spec.orbit.requiredTurns} Kreise bei ${spec.orbit.radiusNm} NM Radius`
           : `${spec.scan.lines.length} Scanlinien vollständig abfliegen`, tone: 'neutral' });
+      }
+      if (recipe.taskDomain === 'infra_chain_recon') {
+        view.requirements = view.requirements.filter(row => !['Arbeitsbereich', 'Verweilzeit', 'Arbeitshöhe'].includes(row.label));
+        const chain = control.poiTask?.poiChain;
+        const next = recipe.poiChain.points[chain?.currentIndex || 0];
+        view.requirements.push({ label: 'POI-Kette', detail: next ? `Nächster Punkt: ${next.name} · Radius ${next.triggerRadiusNm} NM` : 'Fotopunkte abgeschlossen', tone: 'neutral' });
       }
       const task = control.poiTask || {};
       view.phase.stages = [{id:'preparation',label:'Vorbereitung'},{id:'enroute',label:'Anflug'},

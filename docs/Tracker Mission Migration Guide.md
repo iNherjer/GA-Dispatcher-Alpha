@@ -441,3 +441,48 @@ Die Tests decken Originalparitaet, unvollstaendige Samples, Pause/Slew/Teleport,
 Restart, Cargo, manuellen PAX-Status, Leaflet-Projektion und den echten separaten
 Worker ab. Ein MSFS-Flug bleibt fuer reale SimConnect-/Coherent-/Audio-Pruefung
 notwendig.
+
+## v438: POI-Ketten / Infrastruktur-Erstbefund
+
+Das Gate akzeptiert `poi_chain` mit TaskDomain `infra_chain_recon`, validierter
+Kettenspezifikation, passendem Voice-Kontext und dem gemeinsamen POI-Lifecycle.
+Andere Spezialfamilien bleiben gesperrt. Cloud-Start und geplanter App-Handoff
+verwenden dieselbe Pruefung; der Transportadapter wird auf die gemeinsame
+Ausfuehrungsrecipe `poi` abgebildet.
+
+- `mission-poi-chain-core.js` wird aus den Originalfunktionen von
+  `mission-poi-chain-runtime.js` erzeugt. Reihenfolge, Punkt-Radien, Korridorbins,
+  Geschwindigkeits-/Kurspruefung und Reset-Fristen bleiben erhalten. Keine neue
+  Hoehenbedingung fuer Korridorsegmente.
+- `tracker-mission-poi-chain-task.js` verwaltet JSON-faehige Detektorzustaende
+  und kurze plausible Flugwegsegmente (maximal 5 Sekunden / 32 Schritte).
+  Pause, Menue, Slew, Boden, fehlende Position, Teleport und lange Luecken
+  verwerfen nur den begonnenen Korridorabschnitt. Erledigte Arbeit bleibt.
+- Die originale Korridornormalisierung kann beim Tick weitere Segment-IDs
+  erzeugen. Wiederherstellung muss gegen diese effektive Segmentmenge pruefen;
+  eine Basis-Spezifikation allein darf nicht vorzeitig `satisfied` ergeben.
+- Auswertung, Trigger und Effect-Planung laufen ausschliesslich im Mission-Worker.
+  Der Parent behaelt Telemetrie-Empfang, SimConnect und Audio. Checkpoints folgen
+  der bestehenden asynchronen RAM-/Persistenzstrategie, keine neue synchrone
+  Dateischreiboperation je Punkt und keine Cloud-Writes je Sample.
+- Die originalen Chain-Voice-Funktionen werden extrahiert, einschliesslich
+  Prioritaeten bei gleichzeitigen Events und bereits erzeugter versteckter Befunde.
+  Eine Beobachtung kann mehrere geordnete Texte erzeugen. Stille Segmentereignisse
+  bleiben still. Status-/Orientierungsfragen nutzen die originalen Funktionen.
+- Fotobursts gehoeren zum Verhalten: Anzahl, Wartezeiten, Varianten-Seed und
+  Lautstaerke werden aus den originalen Optionen abgeleitet. `cueSequence.before`
+  und `.after` transportieren sie an denselben Audio-Player und dieselbe exklusive
+  Playback-Lease wie den Text. Keine zusaetzliche Audio-Autoritaet im Worker.
+- App und EFB zeichnen den Original-Kettenoverlay ausschliesslich aus der
+  Authority-Projektion. Kettenpunkte/Korridor ersetzen die generische Verweilzeit;
+  der lokale Standalone-Detektor wird dabei weder getickt noch ueberschrieben.
+- POI-Kettenpunkte und Folgeangebote sind verschiedene Dinge. Folgeangebote
+  verwenden nach bestaetigtem Abschluss weiterhin `createFollowupService` und
+  die im Missionspaket erhaltene `poiChain.hiddenOutcome`. Ein Folgeprofil muss
+  selbst ein geoeffnetes Gate besitzen; kein automatisches Freigeben unbekannter
+  Familien und keine neue KI-Missionserzeugung waehrend der Telemetrieauswertung.
+
+Regressionen: eingefrorene Standalone-Referenzen fuer Detektor, Voice und
+Soundbursts; originaler App-Seed; Cloud-Gate; Pflichtladung; Abschluss und
+Folgeangebot; Wiederherstellung; Projektion ohne lokalen Tick; Missionsprozess.
+Ein realer MSFS-Flug bleibt die Feldpruefung nach dem Alpha-Update.

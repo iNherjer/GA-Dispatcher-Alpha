@@ -1,13 +1,21 @@
-(function(root) {
-    'use strict';
+// Generated from the pure POI-chain functions in mission-poi-chain-runtime.js by tools/generate-poi-chain-core.mjs.
+// Do not edit by hand. The standalone runtime remains the behavioral reference.
+(function(root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (root) root.GAMissionPoiChainCore = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+'use strict';
+let activeState = null;
+const NM_TO_M = 1852;
 
-    const host = root || (typeof globalThis !== 'undefined' ? globalThis : {});
-    const NM_TO_M = 1852;
-    const EARTH_RADIUS_NM = 3440.065;
-    const CORRIDOR_WIDTH_VERSION = 2;
-    const LEGACY_CORRIDOR_WIDTH_SCALE = 4;
+const EARTH_RADIUS_NM = 3440.065;
 
-    const DEFAULTS = {
+const CORRIDOR_WIDTH_VERSION = 2;
+
+const LEGACY_CORRIDOR_WIDTH_SCALE = 4;
+
+const DEFAULTS = {
         triggerRadiusNm: 0.5,
         maxPoints: 12,
         corridor: {
@@ -26,67 +34,28 @@
         }
     };
 
-    let activeState = null;
-    let activeSpecKey = '';
-    let overlayLayer = null;
-    let lastOverlayVisualKey = '';
-
-    function canRenderOverlayNow() {
-        if (typeof document === 'undefined') return true;
-        if (document.hidden) return false;
-        const board = document.getElementById('mapTableOverlay');
-        return !board || board.classList.contains('active');
-    }
-
-    function overlayVisualKey(spec = null, state = null) {
-        if (!spec) return '';
-        const completedPoints = state?.completedPointIds instanceof Set
-            ? Array.from(state.completedPointIds).map(String).sort().join(',')
-            : '';
-        const completedSegments = state?.corridor?.completedSegmentIds instanceof Set
-            ? Array.from(state.corridor.completedSegmentIds).map(String).sort().join(',')
-            : '';
-        return [
-            spec.key,
-            Math.max(0, Number(state?.currentIndex || 0)),
-            state?.areaEntered ? 1 : 0,
-            state?.satisfied ? 1 : 0,
-            completedPoints,
-            Math.max(0, Number(state?.corridor?.currentSegmentIndex || 0)),
-            state?.corridor?.satisfied ? 1 : 0,
-            completedSegments
-        ].join('|');
-    }
-
-    function activeMissionDataFromHost() {
-        try {
-            if (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') return currentMissionData;
-        } catch (_) {}
-        return host.currentMissionData && typeof host.currentMissionData === 'object' ? host.currentMissionData : null;
-    }
-
-    function roundNumber(value, digits = 6) {
+function roundNumber(value, digits = 6) {
         const n = Number(value);
         if (!Number.isFinite(n)) return null;
         const p = 10 ** digits;
         return Math.round(n * p) / p;
     }
 
-    function clamp(value, min, max) {
+function clamp(value, min, max) {
         const n = Number(value);
         if (!Number.isFinite(n)) return min;
         return Math.max(min, Math.min(max, n));
     }
 
-    function toRad(value) {
+function toRad(value) {
         return Number(value) * Math.PI / 180;
     }
 
-    function toDeg(value) {
+function toDeg(value) {
         return Number(value) * 180 / Math.PI;
     }
 
-    function haversineNm(lat1, lon1, lat2, lon2) {
+function haversineNm(lat1, lon1, lat2, lon2) {
         const dLat = toRad(lat2 - lat1);
         const dLon = toRad(lon2 - lon1);
         const p1 = toRad(lat1);
@@ -96,7 +65,7 @@
         return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * EARTH_RADIUS_NM;
     }
 
-    function bearingDeg(lat1, lon1, lat2, lon2) {
+function bearingDeg(lat1, lon1, lat2, lon2) {
         const p1 = toRad(lat1);
         const p2 = toRad(lat2);
         const dLon = toRad(lon2 - lon1);
@@ -105,11 +74,11 @@
         return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
 
-    function angleDiffAbs(a, b) {
+function angleDiffAbs(a, b) {
         return Math.abs((((Number(a) - Number(b)) % 360) + 540) % 360 - 180);
     }
 
-    function localPointNm(lat, lon, originLat, originLon) {
+function localPointNm(lat, lon, originLat, originLon) {
         const avgLat = toRad((Number(lat) + Number(originLat)) / 2);
         return {
             x: (Number(lon) - Number(originLon)) * Math.cos(avgLat) * 60,
@@ -117,7 +86,7 @@
         };
     }
 
-    function projectPointToSegmentNm(lat, lon, segment = null) {
+function projectPointToSegmentNm(lat, lon, segment = null) {
         const start = segment?.start || {};
         const end = segment?.end || {};
         const startLat = Number(start.lat);
@@ -143,12 +112,12 @@
         };
     }
 
-    function cleanText(value, maxLen = 140) {
+function cleanText(value, maxLen = 140) {
         const s = String(value || '').replace(/\s+/g, ' ').trim();
         return maxLen > 0 && s.length > maxLen ? s.slice(0, maxLen).trim() : s;
     }
 
-    function normalizePoint(raw = null, idx = 0) {
+function normalizePoint(raw = null, idx = 0) {
         if (!raw || typeof raw !== 'object') return null;
         const lat = Number(raw.lat);
         const lon = Number(raw.lon ?? raw.lng);
@@ -171,7 +140,7 @@
         };
     }
 
-    function normalizeHiddenOutcome(raw = null) {
+function normalizeHiddenOutcome(raw = null) {
         if (!raw || typeof raw !== 'object') return null;
         return {
             schema: cleanText(raw.schema || 'ga.poiChainOutcome.v1', 80),
@@ -191,14 +160,14 @@
         };
     }
 
-    function normalizeTracePoint(raw = null) {
+function normalizeTracePoint(raw = null) {
         const lat = Number(raw?.lat);
         const lon = Number(raw?.lon ?? raw?.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
         return { lat: roundNumber(lat), lon: roundNumber(lon) };
     }
 
-    function dedupeTracePoints(points = []) {
+function dedupeTracePoints(points = []) {
         return (Array.isArray(points) ? points : [])
             .map(normalizeTracePoint)
             .filter(Boolean)
@@ -208,7 +177,7 @@
             });
     }
 
-    function corridorTraceFromRaw(raw = {}, overlay = null, guide = null, points = []) {
+function corridorTraceFromRaw(raw = {}, overlay = null, guide = null, points = []) {
         const overlayTrace = dedupeTracePoints(overlay?.trace || raw?.corridor?.trace || raw?.corridorTrace || []);
         if (overlayTrace.length >= 2) return overlayTrace;
         const endpoints = dedupeTracePoints([
@@ -219,7 +188,7 @@
         return dedupeTracePoints(points);
     }
 
-    function normalizeCorridorWidthNm(overlay = null) {
+function normalizeCorridorWidthNm(overlay = null) {
         const declaredWidthNm = Math.max(0.3, Math.min(10, Number(overlay?.widthNm || 0.5)));
         const widthVersion = Number(overlay?.widthVersion || 0);
         const scale = widthVersion >= CORRIDOR_WIDTH_VERSION
@@ -228,7 +197,7 @@
         return Math.max(0.3, Math.min(10, declaredWidthNm * scale));
     }
 
-    function polylineDistanceSamples(trace = []) {
+function polylineDistanceSamples(trace = []) {
         const points = dedupeTracePoints(trace);
         if (points.length < 2) return { points, distances: [0], totalNm: 0 };
         const distances = [0];
@@ -240,7 +209,7 @@
         return { points, distances, totalNm };
     }
 
-    function interpolateTraceAtNm(traceInfo, distNm) {
+function interpolateTraceAtNm(traceInfo, distNm) {
         const points = traceInfo?.points || [];
         const distances = traceInfo?.distances || [];
         const totalNm = Number(traceInfo?.totalNm || 0);
@@ -260,7 +229,7 @@
         return points[points.length - 1] || null;
     }
 
-    function projectPointToTraceNm(point = null, traceInfo = null) {
+function projectPointToTraceNm(point = null, traceInfo = null) {
         const lat = Number(point?.lat);
         const lon = Number(point?.lon ?? point?.lng);
         const trace = Array.isArray(traceInfo?.points) ? traceInfo.points : [];
@@ -285,7 +254,7 @@
         return best;
     }
 
-    function sliceTraceInfoBetweenNm(traceInfo = null, startNm = 0, endNm = 0) {
+function sliceTraceInfoBetweenNm(traceInfo = null, startNm = 0, endNm = 0) {
         const points = Array.isArray(traceInfo?.points) ? traceInfo.points : [];
         const distances = Array.isArray(traceInfo?.distances) ? traceInfo.distances : [];
         const totalNm = Number(traceInfo?.totalNm || 0);
@@ -305,7 +274,7 @@
         return polylineDistanceSamples(dedupeTracePoints(sliced));
     }
 
-    function trimTraceInfoToChainPoints(traceInfo = null, points = [], cfg = {}) {
+function trimTraceInfoToChainPoints(traceInfo = null, points = [], cfg = {}) {
         const traceTotal = Number(traceInfo?.totalNm || 0);
         const usablePoints = (Array.isArray(points) ? points : []).filter(point => point && point.required !== false);
         if (usablePoints.length < 2 || !(traceTotal > 0.5)) return traceInfo;
@@ -326,7 +295,7 @@
         return sliceTraceInfoBetweenNm(traceInfo, startNm - paddingNm, endNm + paddingNm);
     }
 
-    function normalizeCorridor(raw = {}, overlay = null, guide = null, points = []) {
+function normalizeCorridor(raw = {}, overlay = null, guide = null, points = []) {
         const cfg = raw?.corridor && typeof raw.corridor === 'object' ? raw.corridor : {};
         if (cfg.enabled === false) return null;
         const trace = corridorTraceFromRaw(raw, overlay, guide, points);
@@ -384,7 +353,7 @@
         };
     }
 
-    function normalizeSpec(raw = null) {
+function normalizeSpec(raw = null) {
         if (!raw || typeof raw !== 'object') return null;
         if (raw.enabled === false) return null;
         const points = (Array.isArray(raw.points) ? raw.points : [])
@@ -451,34 +420,27 @@
         };
     }
 
-    function getMissionSpec(missionData = null, passenger = null) {
-        const md = missionData || activeMissionDataFromHost();
-        const contract = md?.missionContract || host.activeMissionContract || null;
-        const raw = md?.poiChain || contract?.poiChain || passenger?.poiChain || null;
-        return normalizeSpec(raw);
-    }
-
-    function setFromArray(value) {
+function setFromArray(value) {
         return new Set(Array.isArray(value) ? value.map(String).filter(Boolean) : []);
     }
 
-    function corridorRequired(spec = null) {
+function corridorRequired(spec = null) {
         return !!(spec?.corridor?.required && Array.isArray(spec.corridor.segments) && spec.corridor.segments.length);
     }
 
-    function requiredPointsDone(spec = null, state = null) {
+function requiredPointsDone(spec = null, state = null) {
         const completed = state?.completedPointIds instanceof Set ? state.completedPointIds : new Set();
         const points = Array.isArray(spec?.points) ? spec.points : [];
         return points.every(point => point?.required === false || completed.has(String(point.id || '')));
     }
 
-    function corridorDone(spec = null, state = null) {
+function corridorDone(spec = null, state = null) {
         if (!corridorRequired(spec)) return true;
         const completed = state?.corridor?.completedSegmentIds instanceof Set ? state.corridor.completedSegmentIds : new Set();
         return spec.corridor.segments.every(segment => completed.has(String(segment.id || '')));
     }
 
-    function createInitialState(spec) {
+function createInitialState(spec) {
         const totalSegments = Array.isArray(spec?.corridor?.segments) ? spec.corridor.segments.length : 0;
         return {
             schema: 'ga.poiChainProgress.v1',
@@ -502,7 +464,7 @@
         };
     }
 
-    function hydrateState(spec, progress = null) {
+function hydrateState(spec, progress = null) {
         const state = createInitialState(spec);
         if (!progress || typeof progress !== 'object') return state;
         state.completedPointIds = setFromArray(progress.completedPointIds);
@@ -533,7 +495,7 @@
         return state;
     }
 
-    function snapshotState(state = activeState) {
+function snapshotState(state = activeState) {
         if (!state) return null;
         const corridorCompleted = Array.from(state.corridor?.completedSegmentIds || []);
         const activeCorridor = state.corridor?.active || null;
@@ -564,358 +526,13 @@
         };
     }
 
-    function getMapInstance() {
-        try {
-            if (typeof map !== 'undefined' && map) return map;
-        } catch (_) {}
-        return host.map || null;
-    }
-
-    function ensureOverlayPane(mapInstance = null) {
-        const m = mapInstance || getMapInstance();
-        if (!m || typeof m.getPane !== 'function') return undefined;
-        const name = 'poiChainOverlayPane';
-        let pane = m.getPane(name);
-        if (!pane && typeof m.createPane === 'function') pane = m.createPane(name);
-        if (pane) {
-            pane.style.zIndex = '610';
-            pane.style.pointerEvents = 'none';
-        }
-        return name;
-    }
-
-    function ensureOverlayLayer() {
-        const mapInstance = getMapInstance();
-        if (!mapInstance || typeof L === 'undefined') return null;
-        const paneName = ensureOverlayPane(mapInstance);
-        if (!overlayLayer) overlayLayer = L.layerGroup([], paneName ? { pane: paneName } : undefined);
-        if (typeof mapInstance.hasLayer !== 'function' || !mapInstance.hasLayer(overlayLayer)) {
-            try { overlayLayer.addTo(mapInstance); } catch (_) { return null; }
-        }
-        return overlayLayer;
-    }
-
-    function makeOverlayLayerPassive(layer) {
-        if (!layer || typeof layer !== 'object') return layer;
-        if (layer.options && typeof layer.options === 'object') {
-            layer.options.interactive = false;
-            layer.options.bubblingMouseEvents = false;
-            layer.options.keyboard = false;
-            layer.options.className = `${layer.options.className || ''} poi-chain-passive-overlay`.trim();
-        }
-        const applyDomPassThrough = () => {
-            try {
-                const el = typeof layer.getElement === 'function' ? layer.getElement() : null;
-                if (!el) return;
-                el.style.pointerEvents = 'none';
-                el.setAttribute('aria-hidden', 'true');
-            } catch (_) {}
-        };
-        try {
-            if (typeof layer.on === 'function') layer.on('add', applyDomPassThrough);
-        } catch (_) {}
-        applyDomPassThrough();
-        return layer;
-    }
-
-    function addPassiveOverlayLayer(leafletLayer, targetLayer) {
-        makeOverlayLayerPassive(leafletLayer);
-        const added = leafletLayer.addTo(targetLayer);
-        makeOverlayLayerPassive(added || leafletLayer);
-        return added || leafletLayer;
-    }
-
-    function clearOverlay() {
-        const mapInstance = getMapInstance();
-        if (overlayLayer && mapInstance && typeof mapInstance.removeLayer === 'function') {
-            try { mapInstance.removeLayer(overlayLayer); } catch (_) {}
-        }
-        overlayLayer = null;
-        lastOverlayVisualKey = '';
-    }
-
-    function pointStyle(point, idx, state) {
-        const completed = state?.completedPointIds instanceof Set && state.completedPointIds.has(point.id);
-        const current = !completed && Number(state?.currentIndex || 0) === idx;
-        if (completed) return { color: '#24d26b', fillColor: '#24d26b', weight: 3, opacity: 0.95, fillOpacity: 0.92 };
-        if (current) return { color: '#ff4d4d', fillColor: '#ff4d4d', weight: 4, opacity: 0.98, fillOpacity: 0.88 };
-        return { color: '#5f6b82', fillColor: '#182538', weight: 2, opacity: 0.45, fillOpacity: 0.35 };
-    }
-
-    function drawMarkerLabel(layer, point, idx, spec, state) {
-        if (!layer || typeof L === 'undefined') return;
-        const paneName = ensureOverlayPane();
-        const completed = state?.completedPointIds instanceof Set && state.completedPointIds.has(point.id);
-        const current = !completed && Number(state?.currentIndex || 0) === idx;
-        if (!completed && !current) return;
-        const bg = completed ? 'rgba(20,95,52,.88)' : 'rgba(120,18,24,.9)';
-        const text = completed ? `${idx + 1} ✓` : `${idx + 1}`;
-        const marker = L.marker([point.lat, point.lon], {
-            pane: paneName,
-            icon: L.divIcon({
-                className: '',
-                html: `<div style="background:${bg};color:#fff;font-size:11px;font-weight:700;padding:3px 6px;border-radius:4px;border:1px solid rgba(255,255,255,.45);white-space:nowrap;">${text}</div>`,
-                iconAnchor: [10, 10]
-            }),
-            interactive: false,
-            keyboard: false,
-            bubblingMouseEvents: false
-        });
-        addPassiveOverlayLayer(marker, layer);
-    }
-
-    function corridorStrokeWeightPx(trace, widthNm, layer) {
-        const mapRef = layer?._map || (typeof map !== 'undefined' ? map : null);
-        const zoom = Number(mapRef?.getZoom?.());
-        const sample = Array.isArray(trace) && trace.length
-            ? trace[Math.floor(trace.length / 2)]
-            : null;
-        const lat = Number(sample?.lat);
-        if (!Number.isFinite(zoom) || !Number.isFinite(lat)) return 18;
-        const metersPerPixel = (40075016.686 * Math.cos(lat * Math.PI / 180)) / (256 * Math.pow(2, zoom));
-        if (!Number.isFinite(metersPerPixel) || metersPerPixel <= 0) return 18;
-        const px = (Number(widthNm || 0.5) * NM_TO_M) / metersPerPixel;
-        return Math.max(10, Math.min(320, Math.round(px)));
-    }
-
-    function corridorEdgeLatLngs(trace, offsetNm) {
-        const points = (Array.isArray(trace) ? trace : [])
-            .map(point => ({
-                lat: Number(point?.lat),
-                lon: Number(point?.lon ?? point?.lng)
-            }))
-            .filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lon));
-        if (points.length < 2 || !Number.isFinite(Number(offsetNm))) return [];
-        return points.map((point, idx) => {
-            const prev = points[Math.max(0, idx - 1)];
-            const next = points[Math.min(points.length - 1, idx + 1)];
-            const refLat = (prev.lat + next.lat + point.lat) / 3;
-            const eastNm = (next.lon - prev.lon) * 60 * Math.max(0.08, Math.abs(Math.cos(toRad(refLat))));
-            const northNm = (next.lat - prev.lat) * 60;
-            const len = Math.hypot(eastNm, northNm);
-            if (!Number.isFinite(len) || len <= 0.0001) return [point.lat, point.lon];
-            const normalEast = -northNm / len;
-            const normalNorth = eastNm / len;
-            const lat = point.lat + (normalNorth * offsetNm) / 60;
-            const lonScale = 60 * Math.max(0.08, Math.abs(Math.cos(toRad(point.lat))));
-            const lon = point.lon + (normalEast * offsetNm) / lonScale;
-            return [roundNumber(lat), roundNumber(lon)];
-        }).filter(pair => pair.every(Number.isFinite));
-    }
-
-    function drawCorridorEdge(layer, edgeLatLngs, paneName) {
-        if (!Array.isArray(edgeLatLngs) || edgeLatLngs.length < 2) return;
-        const common = {
-            pane: paneName,
-            lineCap: 'round',
-            lineJoin: 'round',
-            smoothFactor: 1.4,
-            interactive: false
-        };
-        addPassiveOverlayLayer(L.polyline(edgeLatLngs, {
-            ...common,
-            color: '#2f250b',
-            weight: 4,
-            opacity: 0.58
-        }), layer);
-        addPassiveOverlayLayer(L.polyline(edgeLatLngs, {
-            ...common,
-            color: '#ffe58a',
-            weight: 2,
-            opacity: 0.9
-        }), layer);
-    }
-
-    function drawCorridorHint(layer, points, spec) {
-        if (!layer || typeof L === 'undefined') return;
-        const paneName = ensureOverlayPane();
-        const trace = Array.isArray(spec?.overlay?.trace) && spec.overlay.trace.length >= 2
-            ? spec.overlay.trace
-            : points;
-        if (!Array.isArray(trace) || trace.length < 2) return;
-        const widthNm = Math.max(0.3, Math.min(10, Number(spec?.overlay?.widthNm || 0.5)));
-        const tracePoints = trace
-            .map(point => ({ lat: Number(point?.lat), lon: Number(point?.lon ?? point?.lng) }))
-            .filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lon));
-        const latLngs = tracePoints.map(point => [point.lat, point.lon]);
-        if (latLngs.length < 2) return;
-        const weight = corridorStrokeWeightPx(trace, widthNm, layer);
-        addPassiveOverlayLayer(L.polyline(latLngs, {
-            pane: paneName,
-            color: '#ffcc4d',
-            weight,
-            opacity: 0.26,
-            lineCap: 'round',
-            lineJoin: 'round',
-            smoothFactor: 1.4,
-            interactive: false
-        }), layer);
-        addPassiveOverlayLayer(L.polyline(latLngs, {
-            pane: paneName,
-            color: '#ffe58a',
-            weight: Math.max(3, Math.round(weight * 0.45)),
-            opacity: 0.16,
-            lineCap: 'round',
-            lineJoin: 'round',
-            smoothFactor: 1.4,
-            interactive: false
-        }), layer);
-        const edgeOffsetNm = widthNm / 2;
-        drawCorridorEdge(layer, corridorEdgeLatLngs(tracePoints, edgeOffsetNm), paneName);
-        drawCorridorEdge(layer, corridorEdgeLatLngs(tracePoints, -edgeOffsetNm), paneName);
-    }
-
-    function drawCorridorSegmentProgress(layer, spec = null, progressState = null) {
-        if (!layer || typeof L === 'undefined') return;
-        const segments = Array.isArray(spec?.corridor?.segments) ? spec.corridor.segments : [];
-        if (!segments.length) return;
-        const paneName = ensureOverlayPane();
-        const completed = progressState?.corridor?.completedSegmentIds instanceof Set
-            ? progressState.corridor.completedSegmentIds
-            : new Set();
-        const currentIdx = Math.max(0, Number(progressState?.corridor?.currentSegmentIndex || 0) || 0);
-        segments.forEach((segment, idx) => {
-            const done = completed.has(String(segment.id || ''));
-            const active = !done && idx === currentIdx;
-            const startLat = Number(segment.start?.lat);
-            const startLon = Number(segment.start?.lon ?? segment.start?.lng);
-            const endLat = Number(segment.end?.lat);
-            const endLon = Number(segment.end?.lon ?? segment.end?.lng);
-            if (![startLat, startLon, endLat, endLon].every(Number.isFinite)) return;
-            addPassiveOverlayLayer(L.polyline([[startLat, startLon], [endLat, endLon]], {
-                pane: paneName,
-                color: done ? '#24d26b' : (active ? '#ff4d4d' : '#d7b34a'),
-                weight: active ? 6 : 4,
-                opacity: done ? 0.88 : (active ? 0.92 : 0.28),
-                dashArray: done || active ? null : '8,8',
-                lineCap: 'round',
-                lineJoin: 'round',
-                interactive: false
-            }), layer);
-        });
-    }
-
-    function drawOverlay(specRaw = null, progressState = activeState) {
-        const spec = normalizeSpec(specRaw);
-        if (!spec) {
-            clearOverlay();
-            return false;
-        }
-        const layer = ensureOverlayLayer();
-        if (!layer || typeof L === 'undefined') return false;
-        if (typeof layer.clearLayers === 'function') layer.clearLayers();
-        const points = spec.points || [];
-        const currentIdx = Math.max(0, Math.min(points.length - 1, Number(progressState?.currentIndex || 0) || 0));
-        drawCorridorHint(layer, points, spec);
-        drawCorridorSegmentProgress(layer, spec, progressState);
-        const revealCurrentPoint = !!(progressState?.areaEntered || (progressState?.completedPointIds instanceof Set && progressState.completedPointIds.size > 0));
-        const visiblePoints = points.filter((point, idx) => {
-            const completed = progressState?.completedPointIds instanceof Set && progressState.completedPointIds.has(point.id);
-            return completed || (revealCurrentPoint && idx === currentIdx) || !spec.sequenceRequired;
-        });
-        if (points.length < 2 && spec.overlay?.start && spec.overlay?.end) {
-            const start = spec.overlay.start;
-            const end = spec.overlay.end;
-            const startLat = Number(start.lat);
-            const startLon = Number(start.lon);
-            const endLat = Number(end.lat);
-            const endLon = Number(end.lon);
-            if ([startLat, startLon, endLat, endLon].every(Number.isFinite)) {
-                const fallbackLine = L.polyline([[startLat, startLon], [endLat, endLon]], {
-                    pane: ensureOverlayPane(),
-                    color: '#f2c94c',
-                    weight: 4,
-                    opacity: 0.45,
-                    dashArray: '10,8',
-                    interactive: false
-                }).bindTooltip(spec.overlay.label || spec.label, { permanent: false, interactive: false });
-                addPassiveOverlayLayer(fallbackLine, layer);
-            }
-        }
-        for (let i = 0; i < visiblePoints.length - 1; i++) {
-            const a = visiblePoints[i];
-            const b = visiblePoints[i + 1];
-            addPassiveOverlayLayer(L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
-                pane: ensureOverlayPane(),
-                color: '#ff6b57',
-                weight: 4,
-                opacity: 0.72,
-                dashArray: null,
-                interactive: false
-            }), layer);
-        }
-        points.forEach((point, idx) => {
-            const completed = progressState?.completedPointIds instanceof Set && progressState.completedPointIds.has(point.id);
-            const current = !completed && idx === currentIdx;
-            if (!completed && (!current || !revealCurrentPoint) && spec.sequenceRequired) return;
-            const label = `${idx + 1}/${points.length} ${point.name}`;
-            const radiusCircle = L.circle([point.lat, point.lon], {
-                pane: ensureOverlayPane(),
-                radius: point.triggerRadiusNm * NM_TO_M,
-                color: completed ? '#24d26b' : (current ? '#ff4d4d' : '#5f6b82'),
-                weight: completed || current ? 3 : 2,
-                opacity: completed || current ? 0.75 : 0.35,
-                fillColor: completed ? '#24d26b' : (current ? '#ff4d4d' : '#182538'),
-                fillOpacity: completed ? 0.08 : (current ? 0.06 : 0.03),
-                dashArray: null,
-                interactive: false,
-                bubblingMouseEvents: false
-            }).bindTooltip(`${label} · ${point.triggerRadiusNm.toFixed(2)} NM`, { permanent: false, interactive: false });
-            addPassiveOverlayLayer(radiusCircle, layer);
-            const pointMarker = L.circleMarker([point.lat, point.lon], {
-                pane: ensureOverlayPane(),
-                radius: current ? 8 : 6,
-                ...pointStyle(point, idx, progressState),
-                interactive: false,
-                bubblingMouseEvents: false
-            }).bindTooltip(label, { permanent: false, interactive: false });
-            addPassiveOverlayLayer(pointMarker, layer);
-            drawMarkerLabel(layer, point, idx, spec, progressState);
-        });
-        return true;
-    }
-
-    function renderOverlayIfNeeded(spec, state, force = false) {
-        if (!canRenderOverlayNow()) return false;
-        const visualKey = overlayVisualKey(spec, state);
-        if (!force && visualKey && visualKey === lastOverlayVisualKey) return false;
-        const rendered = drawOverlay(spec, state);
-        if (rendered) lastOverlayVisualKey = visualKey;
-        return rendered;
-    }
-
-    function sampleFromInput(input = {}) {
-        const flightData = input.flightData || {};
-        const gps = host.lastLiveGpsPos || {};
-        return {
-            lat: Number(input.lat),
-            lon: Number(input.lon),
-            headingDeg: Number(
-                input.headingDeg
-                ?? flightData.hdg
-                ?? flightData.heading
-                ?? flightData.trackDeg
-                ?? flightData.trkDeg
-                ?? gps.hdg
-            ),
-            gsKts: Number(
-                input.gsKts
-                ?? flightData.gs
-                ?? flightData.gsKts
-                ?? flightData.groundSpeed
-                ?? gps.gs
-            ),
-            nowMs: Number(input.nowMs || input.now || Date.now())
-        };
-    }
-
-    function sampleSpeedOk(minGroundSpeedKts, sample) {
+function sampleSpeedOk(minGroundSpeedKts, sample) {
         const gs = Number(sample.gsKts);
         if (!Number.isFinite(gs) || gs <= 0) return true;
         return gs >= Number(minGroundSpeedKts || 0);
     }
 
-    function headingMatchesSegment(corridor = {}, projection = null, sample = null, direction = '') {
+function headingMatchesSegment(corridor = {}, projection = null, sample = null, direction = '') {
         const hdg = Number(sample?.headingDeg);
         if (!Number.isFinite(hdg)) return true;
         const b = Number(projection?.bearingDeg);
@@ -924,14 +541,14 @@
         return angleDiffAbs(hdg, expected) <= Number(corridor.headingToleranceDeg || DEFAULTS.corridor.headingToleranceDeg);
     }
 
-    function findSegmentProjection(segment = null, sample = null) {
+function findSegmentProjection(segment = null, sample = null) {
         if (!segment || !Number.isFinite(Number(sample?.lat)) || !Number.isFinite(Number(sample?.lon))) return null;
         const projection = projectPointToSegmentNm(sample.lat, sample.lon, segment);
         if (!projection) return null;
         return { segment, projection };
     }
 
-    function sampleNearCorridor(spec = null, sample = null) {
+function sampleNearCorridor(spec = null, sample = null) {
         const corridor = spec?.corridor || null;
         const segments = Array.isArray(corridor?.segments) ? corridor.segments : [];
         if (!segments.length) return false;
@@ -942,7 +559,7 @@
         });
     }
 
-    function makeCorridorResetEvent(reason = 'offtrack', segment = null) {
+function makeCorridorResetEvent(reason = 'offtrack', segment = null) {
         return {
             type: reason === 'speed' ? 'corridor_segment_reset_speed' : 'corridor_segment_reset_offtrack',
             reason,
@@ -951,7 +568,7 @@
         };
     }
 
-    function tickCorridorState(spec = null, state = null, sample = null, events = []) {
+function tickCorridorState(spec = null, state = null, sample = null, events = []) {
         if (!corridorRequired(spec) || !state?.corridor) {
             if (state?.corridor) state.corridor.satisfied = true;
             return;
@@ -1063,7 +680,7 @@
         }
     }
 
-    function tickState(specRaw, stateRaw, sampleRaw = {}) {
+function tickState(specRaw, stateRaw, sampleRaw = {}) {
         const spec = normalizeSpec(specRaw);
         if (!spec) return { handled: false, state: stateRaw || null, events: [], satisfied: false, progress: null };
         const state = stateRaw || createInitialState(spec);
@@ -1129,125 +746,54 @@
         return { handled: true, state, events, satisfied: !!state.satisfied, progress: snapshotState(state) };
     }
 
-    function tick(input = {}) {
-        const spec = getMissionSpec(input.missionData || null, input.passenger || null);
-        if (!spec) {
-            if (activeSpecKey) reset('no-active-chain');
-            return { handled: false, events: [], satisfied: false, progress: null };
-        }
-        if (!activeState || activeSpecKey !== spec.key || activeState.specKey !== spec.key) {
-            activeState = createInitialState(spec);
-            activeSpecKey = spec.key;
-        }
-        const fd = input.flightData || {};
-        const sample = {
-            lat: Number(input.lat ?? fd.lat),
-            lon: Number(input.lon ?? fd.lon ?? fd.lng),
-            headingDeg: Number(input.headingDeg ?? fd.hdg ?? fd.heading ?? fd.trackDeg ?? fd.trkDeg),
-            gsKts: Number(input.gsKts ?? fd.gs ?? fd.gsKts ?? fd.groundSpeed),
-            nowMs: Number(input.nowMs || Date.now()),
-            flightData: fd
-        };
-        const result = tickState(spec, activeState, sample);
-        activeState = result.state;
-        renderOverlayIfNeeded(spec, activeState);
-        return { ...result, spec, progress: snapshotState(activeState) };
-    }
+// The app runtime's version also reads browser globals. The core accepts only
+// the normalized input supplied by its caller.
+function sampleFromInput(input = {}) {
+  return { lat: Number(input.lat), lon: Number(input.lon ?? input.lng),
+    headingDeg: Number(input.headingDeg ?? input.hdg), gsKts: Number(input.gsKts ?? input.gs),
+    nowMs: Number(input.nowMs ?? input.now) };
+}
 
-    function restoreProgress(progress = null, missionData = null, passenger = null) {
-        const spec = getMissionSpec(missionData, passenger);
-        if (!spec || !progress) return false;
-        activeState = hydrateState(spec, progress);
-        activeSpecKey = spec.key;
-        renderOverlayIfNeeded(spec, activeState, true);
-        return true;
-    }
-
-    function reset() {
-        activeState = null;
-        activeSpecKey = '';
-        clearOverlay();
-    }
-
-    // Tracker owns progress; this path only draws its committed projection.
-    function renderAuthorityProjection(specRaw, progress) {
-        const spec = normalizeSpec(specRaw);
-        if (!spec) { clearOverlay(); return false; }
-        const state = hydrateState(spec, progress);
-        if (progress) {
-            state.satisfied = progress.satisfied === true;
-            if (progress.corridor) {
-                state.corridor.satisfied = progress.corridor.satisfied === true;
-                state.corridor.totalSegments = progress.corridor.totalSegments;
-                if (progress.corridor.activeSegmentId) state.corridor.active = { segmentId: progress.corridor.activeSegmentId };
-            }
-        }
-        return renderOverlayIfNeeded(spec, state);
-    }
-
-    function refreshOverlay(missionData = null, passenger = null) {
-        if (host.gaTrackerExecutionControl?.executionAuthority === 'tracker') return renderAuthorityProjection(host.gaTrackerExecutionControl.chainSpec, host.gaTrackerExecutionControl.poiTask?.poiChain);
-        const spec = getMissionSpec(missionData, passenger);
-        if (!spec) {
-            clearOverlay();
-            return false;
-        }
-        if (!activeState || activeSpecKey !== spec.key) {
-            activeState = createInitialState(spec);
-            activeSpecKey = spec.key;
-        }
-        return renderOverlayIfNeeded(spec, activeState, true);
-    }
-
-    function refreshActiveMissionOverlay() {
-        if (host.gaTrackerExecutionControl?.executionAuthority === 'tracker') return renderAuthorityProjection(host.gaTrackerExecutionControl.chainSpec, host.gaTrackerExecutionControl.poiTask?.poiChain);
-        const md = activeMissionDataFromHost();
-        if (!md) return false;
-        try {
-            return refreshOverlay(md, host.activePassenger || md?.passenger || null);
-        } catch (_) {
-            return false;
-        }
-    }
-
-    function scheduleInitialOverlayRefresh() {
-        if (typeof setTimeout !== 'function') return;
-        [0, 150, 750, 2000].forEach(delay => {
-            setTimeout(refreshActiveMissionOverlay, delay);
-        });
-    }
-
-    const api = {
-        defaults: DEFAULTS,
-        normalizeSpec,
-        getActiveSpec: getMissionSpec,
-        tick,
-        tickState,
-        restoreProgress,
-        reset,
-        refreshOverlay,
-        renderAuthorityProjection,
-        refreshActiveMissionOverlay,
-        snapshot: () => snapshotState(activeState),
-        _test: {
-            normalizeSpec,
-            createInitialState,
-            hydrateState,
-            snapshotState,
-            tickState,
-            haversineNm,
-            bearingDeg,
-            projectPointToSegmentNm,
-            normalizeCorridorWidthNm,
-            normalizeCorridor,
-            overlayVisualKey
-        }
+function serializeState(state) {
+  const out = snapshotState(state);
+  if (!out) return null;
+  const active = state?.corridor?.active;
+  if (active && typeof active === 'object') {
+    out.corridor.active = {
+      segmentId: String(active.segmentId || ''), direction: active.direction === 'reverse' ? 'reverse' : 'forward',
+      bins: active.bins instanceof Set ? Array.from(active.bins) : [], totalBins: Number(active.totalBins || 0),
+      startedAt: Number(active.startedAt || 0), lastGoodAt: Number(active.lastGoodAt || 0),
+      badSince: Number(active.badSince || 0), lastT: Number(active.lastT || 0), endCap: active.endCap === true
     };
+  }
+  return out;
+}
 
-    host.missionPoiChainRuntime = api;
-    if (typeof document !== 'undefined') {
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleInitialOverlayRefresh, { once: true });
-        else scheduleInitialOverlayRefresh();
-    }
-    if (typeof module !== 'undefined' && module.exports) module.exports = api;
-})(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));
+function hydrateRuntimeState(specRaw, saved) {
+  const spec = specRaw?.schema === 'ga.poiChainRuntime.v1' ? specRaw : normalizeSpec(specRaw);
+  if (!spec) return null;
+  const state = hydrateState(spec, saved);
+  const runtimeSpec = normalizeSpec(spec);
+  const active = saved?.corridor?.active;
+  const segment = runtimeSpec?.corridor?.segments?.find(item => String(item.id) === String(active?.segmentId || ''));
+  const bins = Array.isArray(active?.bins) ? active.bins : null;
+  if (segment && bins && bins.length <= runtimeSpec.corridor.bins
+      && ['startedAt', 'lastGoodAt', 'badSince', 'lastT'].every(key => Number.isFinite(Number(active[key])))) {
+    const legalBins = bins.map(Number).filter(bin => Number.isInteger(bin) && bin >= 0 && bin < runtimeSpec.corridor.bins);
+    if (legalBins.length === bins.length) state.corridor.active = {
+      segmentId: String(segment.id), direction: active.direction === 'reverse' ? 'reverse' : 'forward', bins: new Set(legalBins),
+      totalBins: runtimeSpec.corridor.bins, startedAt: Number(active.startedAt), lastGoodAt: Number(active.lastGoodAt),
+      badSince: Number(active.badSince), lastT: Number(active.lastT), endCap: active.endCap === true
+    };
+  }
+  // tickState re-normalizes the original spec before testing corridorDone.
+  // Preserve that effective completion predicate on a JSON restore as well;
+  // the initial normalized spec can have fewer segments than that tick view.
+  state.corridor.satisfied = corridorDone(runtimeSpec, state);
+  state.satisfied = requiredPointsDone(runtimeSpec, state) && state.corridor.satisfied;
+  return state;
+}
+
+return { NM_TO_M, EARTH_RADIUS_NM, DEFAULTS, normalizeSpec, createInitialState, hydrateState,
+  hydrateRuntimeState, serializeState, snapshotState, tickState, tickCorridorState, haversineNm };
+});

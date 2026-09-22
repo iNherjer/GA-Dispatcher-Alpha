@@ -89,10 +89,14 @@ function createAudioControl({ storageFile, cloud, now = Date.now, onChange = () 
     saveCloud(); publish();
     return { ok: true, audio: snapshot() };
   }
-  function canPlay(deviceId, kind) {
+  function canPlay(deviceId, kindOrJob) {
     const settings = record.settings;
+    const job = kindOrJob && typeof kindOrJob === 'object' && !Array.isArray(kindOrJob) ? kindOrJob : null;
+    const kind = job ? job.kind : kindOrJob;
+    const poiSequence = kind === 'poi' && ((job?.cueSequence?.before?.length || 0) + (job?.cueSequence?.after?.length || 0) > 0);
     return settings.enabled && record.target.deviceId === deviceId
-      && (kind === 'cargo' ? settings.effectsEnabled
+      && (poiSequence ? (settings.paxEnabled || settings.effectsEnabled)
+        : kind === 'cargo' ? settings.effectsEnabled
         : ['boarding', 'farewell'].includes(kind) ? (settings.paxEnabled || settings.effectsEnabled)
         : ['terrain', 'airspace', 'waypoint', 'readFreq'].includes(kind) ? settings[kind] : settings.paxEnabled);
   }

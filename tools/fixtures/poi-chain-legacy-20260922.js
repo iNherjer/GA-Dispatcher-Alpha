@@ -1169,24 +1169,7 @@
         clearOverlay();
     }
 
-    // Tracker owns progress; this path only draws its committed projection.
-    function renderAuthorityProjection(specRaw, progress) {
-        const spec = normalizeSpec(specRaw);
-        if (!spec) { clearOverlay(); return false; }
-        const state = hydrateState(spec, progress);
-        if (progress) {
-            state.satisfied = progress.satisfied === true;
-            if (progress.corridor) {
-                state.corridor.satisfied = progress.corridor.satisfied === true;
-                state.corridor.totalSegments = progress.corridor.totalSegments;
-                if (progress.corridor.activeSegmentId) state.corridor.active = { segmentId: progress.corridor.activeSegmentId };
-            }
-        }
-        return renderOverlayIfNeeded(spec, state);
-    }
-
     function refreshOverlay(missionData = null, passenger = null) {
-        if (host.gaTrackerExecutionControl?.executionAuthority === 'tracker') return renderAuthorityProjection(host.gaTrackerExecutionControl.chainSpec, host.gaTrackerExecutionControl.poiTask?.poiChain);
         const spec = getMissionSpec(missionData, passenger);
         if (!spec) {
             clearOverlay();
@@ -1200,7 +1183,6 @@
     }
 
     function refreshActiveMissionOverlay() {
-        if (host.gaTrackerExecutionControl?.executionAuthority === 'tracker') return renderAuthorityProjection(host.gaTrackerExecutionControl.chainSpec, host.gaTrackerExecutionControl.poiTask?.poiChain);
         const md = activeMissionDataFromHost();
         if (!md) return false;
         try {
@@ -1226,7 +1208,6 @@
         restoreProgress,
         reset,
         refreshOverlay,
-        renderAuthorityProjection,
         refreshActiveMissionOverlay,
         snapshot: () => snapshotState(activeState),
         _test: {

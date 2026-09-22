@@ -66,6 +66,7 @@ compileShared('checklists.js');
 compileShared('navigation-warning-core.js');
 compileShared('map-prediction.js');
 compileShared('mission-survey-pattern.js');
+compileShared('mission-poi-chain-runtime.js');
 compileShared('map-profile-controls.js');
 compileShared('map-display-controls.js');
 compileShared('airport-radio.js');

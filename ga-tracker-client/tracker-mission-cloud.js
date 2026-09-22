@@ -110,7 +110,7 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
   if (runtime.cargoManifest && cleanString(options.pilotId)) runtime.cargoManifest.pilotId = cleanString(options.pilotId);
   const adapter = cleanString(seed.adapter, 80).toLowerCase()
     || resumeAdapters.detectPrimaryAdapter(runtime, state);
-  if (adapter !== 'apt' && !(['poi', 'survey_pattern'].includes(adapter) && options.poiExecutionEnabled === true)) {
+  if (adapter !== 'apt' && !(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) && options.poiExecutionEnabled === true)) {
     return { ok: false, status: 'unsupported', code: 'cloud_mission_recipe_not_enabled', candidate: null };
   }
   const descriptor = object(seed.descriptor).missionId
@@ -127,13 +127,13 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
     missionState: clone(state),
     runtime,
     executionEffectPlan: seed.executionEffectPlan ? clone(seed.executionEffectPlan) : null,
-    ...(['poi', 'survey_pattern'].includes(adapter) ? { executionPoiRecipe: clone(seed.executionPoiRecipe || null) } : {})
+    ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? { executionPoiRecipe: clone(seed.executionPoiRecipe || null) } : {})
   };
   const validation = resumeAdapters.validateBundle(bundle);
   if (!validation.ok) {
     return { ok: false, status: 'invalid', code: validation.error || 'cloud_mission_bundle_invalid', candidate: null };
   }
-  if (['poi', 'survey_pattern'].includes(adapter) ? (!poiRuntime.hasLifecycle(bundle.executionPoiRecipe) || !!poiRuntime.validateBundle(bundle))
+  if (['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (!poiRuntime.hasLifecycle(bundle.executionPoiRecipe) || !!poiRuntime.validateBundle(bundle))
       : object(bundle.executionEffectPlan).schema !== 'ga.mission-apt-effect-plan.v1') {
     return { ok: false, status: 'invalid', code: 'cloud_mission_effect_plan_missing', candidate: null };
   }
@@ -161,6 +161,7 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
       runId: CLOUD_MISSION_PENDING_RUN_ID,
       executionAuthority: 'tracker',
       recipe: replay.state.recipe,
+      ...(bundle.executionPoiRecipe?.taskDomain === 'infra_chain_recon' ? { chainSpec: clone(bundle.executionPoiRecipe.poiChain) } : {}),
       ...(bundle.executionPoiRecipe?.taskDomain === 'mapping_survey' ? { surveySpec: clone(bundle.executionPoiRecipe.surveyPattern) } : {}),
       authorityRevision: 0,
       executionRevision: 0,

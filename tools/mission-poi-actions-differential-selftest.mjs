@@ -12,20 +12,25 @@ const mappingVariants = [
   { name: 'orbit-active', spec: { type: 'orbit', targetAltFt: 2800, altitudeToleranceFt: 150, orbit: { requiredTurns: 4, radiusNm: .7 } }, progress: { startedAt: 1, orbit: { completedTurns: 2, active: true, activeCoverage: .75 } } },
   { name: 'orbit-complete', spec: { type: 'orbit', targetAltFt: 2800, orbit: { requiredTurns: 2, radiusNm: .6 } }, progress: { startedAt: 1, satisfied: true, orbit: { completedTurns: 2 } } }
 ];
+const chainSource = fs.readFileSync(new URL('./fixtures/poi-chain-voice-legacy-20260922.js', import.meta.url), 'utf8');
+const chainVariants = [null, { currentIndex: 1, completedPointIds: ['p1'], corridor: { totalSegments: 2, completedCount: 1, currentSegmentIndex: 1, activeSegmentId: 'C2', activeCoverage: .6 } }, { satisfied: true, currentIndex: 2, completedPointIds: ['p1','p2'], corridor: { satisfied: true, totalSegments: 2, completedCount: 2 } }];
 let count = 0;
 for (const domain of voice.DOMAINS) for (const action of ['poi_status', 'poi_orientation'])
 for (const mapping of domain === 'mapping_survey' ? mappingVariants : [null])
+for (const chain of domain === 'infra_chain_recon' ? chainVariants : [null])
 for (const detector of [{}, {inRadius:true,dwellSec:35}, {satisfied:true,dwellSec:120}, {aborted:true}])
 for (const pos of [{}, {lat:48,lon:8}, {lat:48.29,lon:8.5}, {lat:48.3,lon:8.5}])
 for (const mslFt of [undefined,2700,3100]) for (const fact of ['', 'Bestätigte Brücke am Fluss.'])
 for (const map of ['', 'GROBER KARTENBEZUG: Brücke liegt 3 NM nördlich von Stadt.']) {
  const context = { schema:voice.CONTEXT_SCHEMA,version:1,missionId:'parity',taskDomain:domain,knowledgeContext:domain==='sightseeing_tour'?{status:'accept',title:'Testobjekt',facts:['Ein regionales Testobjekt mit vielen markanten historischen Gebäudeteilen.']}:null,strict:true,
   audioEnabled:false,baseContext:'Original-Persona.',toneHint:' Deutsch.',passenger:{targetRadiusNm:1.5,targetDwellMin:2,targetAltFt:3000,...(mapping ? {surveyPattern:true} : {})},
+  chainSpec: domain === 'infra_chain_recon' ? { key:'chain', points:[{id:'p1',name:'Brücke',lat:48.3,lon:8.5},{id:'p2',name:'Mast',lat:48.4,lon:8.6}], corridor:{segments:[{id:'C1'},{id:'C2'}]} } : null,
   missionData:{poiName:'Brücke'},mapPlaceOrientationLine:map,targetFacts:fact?[fact]:[],surveySpec:mapping?.spec };
  const sample = {...pos,mslFt,hdg:0,windKts:20,visKm:8};
  const target = {lat:48.3,lon:8.5};
  let original;
  const sandbox = { window:{activePassenger:context.passenger,lastLiveGpsPos:sample,lastLiveFlightData:sample,
+    missionPoiChainRuntime:{getActiveSpec:()=>context.chainSpec,snapshot:()=>chain},
     missionSurveyPattern:{getActiveSpec:()=>mapping?.spec||null,snapshot:()=>mapping?.progress||null}},
   currentMissionData:context.missionData,_activeMissionData:()=>context.missionData,_getDestCoords:()=>target,
   _isPOIMission:()=>true,_activeTaskDomain:()=>domain,_poiChainActiveSpec:()=>null,_poiChainProgressSummary:()=>'',
@@ -34,9 +39,9 @@ for (const map of ['', 'GROBER KARTENBEZUG: Brücke liegt 3 NM nördlich von Sta
   _poiSatisfied:detector.satisfied===true,_poiAborted:detector.aborted===true,_poiInRadius:detector.inRadius===true,_poiDwellSec:detector.dwellSec||0,
   _missionActionSpeak:(prompt,label,fallbackText)=>{original={prompt:prompt||'',label,fallbackText};},
   _paxSpeakTextDirect:(fallbackText,label)=>{original={prompt:'',label,fallbackText};} };
- vm.createContext(sandbox);vm.runInContext(frozen + frozenSurvey,sandbox);
+ vm.createContext(sandbox);vm.runInContext(frozen + frozenSurvey + chainSource,sandbox);
  if(action==='poi_status')sandbox._poiMissionStatusAction();else sandbox._poiMissionOrientationAction(true);
- assert.deepEqual(voice.renderAction(context,action,{...detector,...(mapping ? {surveyProgress:mapping.progress} : {})},sample,target),original,
+ assert.deepEqual(voice.renderAction(context,action,{...detector, chainProgress:chain,...(mapping ? {surveyProgress:mapping.progress} : {})},sample,target),original,
    `${domain}:${mapping?.name||'standard'}:${action}`);
  count++;
 }

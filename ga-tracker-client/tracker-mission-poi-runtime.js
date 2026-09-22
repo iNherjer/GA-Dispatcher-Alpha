@@ -2,6 +2,8 @@
 
 const taskCore = require('../mission-poi-task-core.js');
 const { canonicalStringify } = require('../mission-execution-core.js');
+const chainTask = require('./tracker-mission-poi-chain-task.js');
+const chainVoice = require('./tracker-mission-poi-chain-voice.js');
 const surveyTask = require('./tracker-mission-survey-task.js');
 const surveyVoice = require('./tracker-mission-survey-voice.js');
 const voiceCore = require('../mission-poi-voice-core.js');
@@ -14,7 +16,7 @@ const RECIPE_SCHEMA = 'ga.mission-poi-execution-recipe.v1';
 const RUNTIME_SCHEMA = 'ga.tracker-poi-runtime.v1';
 // Explicitly bounded standard POI family. A transport adapter named "poi"
 // is insufficient: specialized tasks need their own execution/voice contracts.
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon']);
 const clone = value => JSON.parse(JSON.stringify(value));
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 function point(value) {
@@ -47,9 +49,15 @@ function validateRecipe(recipe) {
         if (error) return error;
         if (!recipe.voiceContext?.surveySpec || canonicalStringify(recipe.voiceContext.surveySpec) !== canonicalStringify(recipe.surveyPattern)) return 'survey_voice_spec_mismatch';
     } else if (recipe.surveyPattern || pax.surveyPattern) return 'poi_recipe_specialized_task_not_migrated';
-    if ([recipe, pax].some(source => source.poiChain
-        || source.trainingProcedure || source.sarHeli || source.bush
-        || source.missionSubType === 'poi_chain')) return 'poi_recipe_specialized_task_not_migrated';
+    if (recipe.taskDomain === 'infra_chain_recon') {
+        const error = chainTask.validateSpec(recipe.poiChain);
+        if (error) return error;
+        const cues = { point_complete: 'photo', chain_corridor_entered: 'scan_start', chain_corridor_complete: 'handoff', chain_complete: 'handoff', ...recipe.voiceContext?.chainAudioCueIds };
+        if (Object.values(cues).some(id => id !== 'none' && !recipe.voiceContext?.chainAudioDefinitions?.[id])) return 'poi_chain_audio_definition_missing';
+        if (!recipe.voiceContext?.chainSpec || canonicalStringify(recipe.voiceContext.chainSpec) !== canonicalStringify(recipe.poiChain)) return 'poi_chain_voice_spec_mismatch';
+    } else if (recipe.poiChain || pax.poiChain || recipe.missionSubType === 'poi_chain') return 'poi_recipe_specialized_task_not_migrated';
+    if ([recipe, pax].some(source => source.trainingProcedure || source.sarHeli || source.bush
+        )) return 'poi_recipe_specialized_task_not_migrated';
     return null;
 }
 
@@ -94,6 +102,7 @@ function createState(recipe, previous = null) {
         observedAt: previous?.observedAt ?? null,
         suspendedAt: previous?.suspendedAt ?? null,
         detector: taskCore.createState(previous?.detector),
+        ...(recipe.taskDomain === 'infra_chain_recon' ? { chainState: chainTask.createState(recipe.poiChain, previous?.chainState) } : {}),
         ...(recipe.taskDomain === 'mapping_survey' ? { surveyState: surveyTask.createState(recipe.surveyPattern, previous?.surveyState) } : {})
     };
 }
@@ -109,17 +118,43 @@ function observe(recipe, previous, sample, facts = {}) {
     if (state.detector.satisfied || state.detector.aborted) return unchanged('poi_task_terminal');
 
     const suspended = sample.simPaused === true || sample.inMenuOrMap === true || facts.suspended === true
-        || (recipe.taskDomain === 'mapping_survey' && (sample.onGround === true || sample.slewActive === true || sample.slewMode === true || sample.isSlewActive === true));
+        || (['mapping_survey', 'infra_chain_recon'].includes(recipe.taskDomain) && (sample.onGround === true || sample.slewActive === true || sample.slewMode === true || sample.isSlewActive === true));
     // A pause/menu status is useful even when the simulator omits position.
     // Only a valid running sample may release the persisted suspension.
     if (!suspended && (!point(sample) || !finite(sample.altFt)
         || !finite(sample.gsKts))) {
+        if (state.chainState) {
+            state.chainState = chainTask.suspend(recipe.poiChain, state.chainState, 'invalid').state;
+            state.observedAt = sample.observedAt; state.sequence++; state.suspendedAt = sample.observedAt;
+            return { state, effects: [], changed: true, reason: 'poi_chain_telemetry_invalid' };
+        }
         if (recipe.taskDomain !== 'mapping_survey') return unchanged('poi_telemetry_invalid');
         state.surveyState = surveyTask.suspend(recipe.surveyPattern, state.surveyState, 'invalid').state;
         state.observedAt = sample.observedAt; state.sequence++; state.suspendedAt = sample.observedAt;
         return { state, effects: [], changed: true, reason: 'survey_telemetry_invalid' };
     }
 
+    let chainResult = null;
+    if (state.chainState) {
+        chainResult = chainTask.observe(recipe.poiChain, state.chainState, sample, facts);
+        state.chainState = chainResult.state;
+        const progress = chainResult.progress;
+        // Original _tickPoiChainTask runs before the common cargo/task checks.
+        if (progress?.updatedAt) {
+            if (progress.startedAt) state.detector.dwellSec = Math.max(state.detector.dwellSec, (progress.updatedAt - progress.startedAt) / 1000);
+            state.detector.inRadius = true; state.detector.entryDone = true;
+            if (!state.detector.enteredAt) state.detector.enteredAt = progress.startedAt || progress.updatedAt;
+            state.detector.lastTickTime = sample.observedAt;
+        }
+        if (chainResult.satisfied) {
+            Object.assign(state.detector, { satisfied: true, atTargetDone: true, inRadius: true, entryDone: true });
+            if (!chainResult.events.some(event => event.type === 'chain_complete')) {
+                const completed = [{ type: 'chain_complete' }];
+                chainResult.events.push(...completed);
+                if (chainResult.eventBatches) chainResult.eventBatches.push(completed);
+            }
+        }
+    }
     let surveyResult = null;
     if (recipe.taskDomain === 'mapping_survey') {
         surveyResult = surveyTask.observe(recipe.surveyPattern, state.surveyState, sample, facts);
@@ -158,6 +193,7 @@ function observe(recipe, previous, sample, facts = {}) {
         taskDomain: recipe.taskDomain,
         surveyTickResult: surveyResult ? { ...surveyResult, handled: true, progress: surveyResult.progress || state.surveyState.progress } : null,
         surveySpec: recipe.surveyPattern || null,
+        poiChainTickResult: chainResult ? { ...chainResult, handled: true } : null,
         strict: recipe.strict,
         now: sample.observedAt,
         distNm,
@@ -168,12 +204,14 @@ function observe(recipe, previous, sample, facts = {}) {
         taskItemState: facts.taskItemState || { blockingItems: [], reason: 'missing' }
     });
     state.detector = result.state;
+    if (chainResult?.events?.length) result.effects.unshift(...(chainResult.eventBatches || [chainResult.events]).filter(events => events.length).map(events => ({ type: 'chain', events })));
     if (surveyResult?.events?.length) result.effects.unshift({ type: 'survey', events: surveyResult.events });
     return { state, effects: result.effects, changed: true, reason: 'poi_task_observed', distNm };
 }
 
 function suspend(recipe, previous) {
     const state = createState(recipe, previous);
+    if (state.chainState) state.chainState = chainTask.suspend(recipe.poiChain, state.chainState).state;
     if (state.surveyState) state.surveyState = surveyTask.suspend(recipe.surveyPattern, state.surveyState).state;
     if (state.suspendedAt === null && state.observedAt !== null) state.suspendedAt = state.observedAt;
     return state;
@@ -184,6 +222,7 @@ function project(state) {
     const detector = state.detector;
     return clone({
         schema: taskCore.SCHEMA, missionId: state.missionId, sequence: state.sequence,
+        ...(state.chainState ? { poiChain: state.chainState.progress } : {}),
         ...(state.surveyState ? { surveyPattern: {
             ...state.surveyState.progress,
             // Original PAX status reads `active`; the detector snapshot exposes
@@ -262,7 +301,8 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
         try {
             if (!buffered.voiceEffects) {
                 let memory = snapshot.state.voice?.poiMemory || {};
-                buffered.voiceEffects = buffered.effects.filter(effect => ['voice', 'survey'].includes(effect.type)).map(effect => {
+                buffered.voiceEffects = buffered.effects.filter(effect => ['voice', 'survey', 'chain'].includes(effect.type)).flatMap(effect => {
+                    if (effect.type === 'chain') return chainVoice.prepareEvents(recipe.voiceContext, effect.events, recipe.poiChain);
                     if (effect.type === 'survey') return surveyVoice.prepareEvent(recipe.voiceContext, effect.events, recipe.surveyPattern);
                     const cue = { ...effect.value, detector: effect.state };
                     if (!recipe.voiceContext) return cue;

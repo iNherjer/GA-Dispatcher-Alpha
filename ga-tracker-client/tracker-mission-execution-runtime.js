@@ -660,7 +660,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       // common recorder rejects these, but bridging across them could fabricate
       // Survey coverage. Stale samples remain no-ops inside the task driver.
       const surveyDiscontinuity = result?.reason === 'poi_telemetry_invalid_or_stale'
-        && authorityManager.getExecutionPoiRecipe?.()?.taskDomain === 'mapping_survey';
+        && ['mapping_survey', 'infra_chain_recon'].includes(authorityManager.getExecutionPoiRecipe?.()?.taskDomain);
       if (isPoi && result?.ok && (result.status !== 'ignored' || surveyDiscontinuity)) {
         const taskResult = reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
         if (!taskResult.ok) return taskResult;

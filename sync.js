@@ -1243,7 +1243,7 @@ function _missionAuthorityAttachExecutionShadow(bundle = null) {
         const localAuthority = _readMissionAuthorityState();
         const sourceRevision = Math.max(0, Math.round(Number(localAuthority?.revision) || 0));
         let envelope = null;
-        if (['apt', 'poi', 'survey_pattern'].includes(String(bundle.adapter || '').toLowerCase())
+        if (['apt', 'poi', 'survey_pattern', 'poi_chain'].includes(String(bundle.adapter || '').toLowerCase())
             && typeof window.GAMissionExecutionShadowJournal?.advance === 'function') {
             let journal = null;
             try {
@@ -1296,7 +1296,7 @@ function _missionAuthorityRecoverExecutionShadow(bundle = null) {
 }
 
 function _missionAuthorityFinalizeExecutionShadow(bundle = null) {
-    if (!bundle || !['apt', 'poi', 'survey_pattern'].includes(String(bundle.adapter || '').toLowerCase())
+    if (!bundle || !['apt', 'poi', 'survey_pattern', 'poi_chain'].includes(String(bundle.adapter || '').toLowerCase())
         || typeof window.GAMissionExecutionShadowJournal?.finalize !== 'function') return bundle;
     try {
         let journal = null;
@@ -1559,7 +1559,7 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
         efbMission,
         missionState,
         runtime,
-        ...(['poi', 'survey_pattern'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : { executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null })
+        ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : { executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null })
     });
 }
 
@@ -1653,7 +1653,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
         efbMission,
         missionState: compactMissionState,
         runtime,
-        ...(['poi', 'survey_pattern'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : { executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null })
+        ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : { executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null })
     });
     const validation = _validateMissionAuthorityResumeBundle(bundle);
     if (!validation.ok) return { ok: false, error: validation.error || 'local_resume_invalid' };
@@ -1954,6 +1954,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     _applyTrackerPayloadControl(control.payload);
     if (control.recipe === 'poi' && control.poiTask) {
         window.paxVoiceRestorePoiMissionProgress?.({ ...control.poiTask, hasSignal: true, trackingActive: true }, 'tracker-projection');
+        window.missionPoiChainRuntime?.renderAuthorityProjection?.(control.chainSpec || null, control.poiTask.poiChain || null);
         window.missionSurveyPattern?.renderAuthorityProjection?.(control.surveySpec || null, control.poiTask.surveyPattern || null);
     }
     try {
@@ -2149,7 +2150,7 @@ async function _pushMissionAuthoritySnapshotForExecutionHandoff(reason = 'execut
         return { status: 'conflict', error: 'mission_authority_owner_mismatch' };
     }
     const bundle = _buildMissionAuthorityResumeBundle(reason);
-    if (!bundle || !['apt', 'poi', 'survey_pattern'].includes(String(bundle.adapter || '').toLowerCase())) {
+    if (!bundle || !['apt', 'poi', 'survey_pattern', 'poi_chain'].includes(String(bundle.adapter || '').toLowerCase())) {
         return { status: 'blocked', error: 'mission_execution_recipe_not_enabled' };
     }
     const stateHash = _missionAuthorityResumeBundleHash(bundle);
@@ -7386,12 +7387,14 @@ function _buildMissionPoiExecutionSeed() {
     const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
     const contract = md?.missionContract || window.activeMissionContract || {};
     if (!missionId || !md || [md, contract, window.activePassenger].some(source => source
-        && (source.bush || source.sarHeli || source.poiChain
-            || source.trainingProcedure || source.missionSubType === 'poi_chain'))) return null;
+        && (source.bush || source.sarHeli || source.trainingProcedure))) return null;
     const voiceContext = window.paxVoiceBuildPoiAuthorityContext?.(missionId);
     const target = _targetPointForMission();
     const home = _missionHomePointForRuntime();
     if (!voiceContext || !target || !home) return null;
+    const chainSpec = voiceContext.taskDomain === 'infra_chain_recon' ? window.missionPoiChainRuntime?.getActiveSpec(md, window.activePassenger) : null;
+    if (voiceContext.taskDomain === 'infra_chain_recon' && !chainSpec) return null;
+    if (voiceContext.taskDomain !== 'infra_chain_recon' && [md, contract, window.activePassenger].some(source => source?.poiChain || source?.missionSubType === 'poi_chain')) return null;
     const surveySpec = voiceContext.taskDomain === 'mapping_survey' ? window.missionSurveyPattern?.getActiveSpec(md, window.activePassenger) : null;
     if (voiceContext.taskDomain === 'mapping_survey' && !surveySpec) return null;
     if (voiceContext.taskDomain !== 'mapping_survey' && [md, contract, window.activePassenger].some(source => source?.surveyPattern)) return null;
@@ -7403,7 +7406,7 @@ function _buildMissionPoiExecutionSeed() {
         schema: 'ga.mission-poi-execution-recipe.v1', version: 1, missionId,
         taskDomain: voiceContext.taskDomain, target, home, strict: voiceContext.strict,
         trackingActive: window.paxVoiceGetPoiMissionProgress?.().trackingActive === true,
-        passenger, voiceContext, ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
+        passenger, voiceContext, ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
     };
     const plan = _buildMissionAptExecutionEffectPlan('poi');
     if (!plan) return null;
@@ -15374,12 +15377,12 @@ function _syncTrackerMissionSeedPayload(activeMission = null) {
         }
     };
     const adapter = _missionAuthorityAdapter(runtime, state);
-    if (!['apt', 'poi', 'survey_pattern'].includes(adapter)) return null;
+    if (!['apt', 'poi', 'survey_pattern', 'poi_chain'].includes(adapter)) return null;
     let executionEffectPlan = null;
     let poiSeed = null;
     try {
-        poiSeed = ['poi', 'survey_pattern'].includes(adapter) ? _buildMissionPoiExecutionSeed() : null;
-        executionEffectPlan = ['poi', 'survey_pattern'].includes(adapter) ? poiSeed?.executionEffectPlan : _buildMissionAptExecutionEffectPlan();
+        poiSeed = ['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? _buildMissionPoiExecutionSeed() : null;
+        executionEffectPlan = ['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? poiSeed?.executionEffectPlan : _buildMissionAptExecutionEffectPlan();
     } catch (_) {}
     if (!executionEffectPlan) return null;
     let efbMission = null;

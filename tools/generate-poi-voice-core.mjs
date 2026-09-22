@@ -13,6 +13,7 @@ const actionNames = ['_missionActionContext', '_missionVectorText', '_missionOri
 const surveyNames = ['_surveyPatternActiveSpec', '_surveyPatternSnapshot', '_surveyPatternProgressSummary',
   '_surveyPatternStatusText', '_surveyPatternOrientationText', '_surveyPatternStaticClipKey',
   '_surveyPatternVoiceText', '_surveyPatternEventKind'];
+const chainNames = ['_hashStable', '_paxSeededInt', '_poiChainActiveSpec', '_poiChainSnapshot', '_poiChainProgressSummary', '_poiChainStatusText', '_poiChainOrientationText', '_poiChainAudioKey', '_poiChainPickText', '_poiChainPointLabel', '_poiChainPointFindingText', '_poiChainVoiceText', '_poiChainPhotoSoundOptions', '_poiChainEventSoundOptions', '_poiChainEventKind', '_handlePoiChainEvents'];
 const farewellNames = ['_farewellPrompt', '_failedMissionFarewellFallback', '_farewellPreparedContext'];
 export function extract(name, text = source) { return extractOriginalFunction(text, name); }
 const header = `// Generated from original passenger-voice.js functions by tools/generate-poi-voice-core.mjs.
@@ -24,7 +25,7 @@ const header = `// Generated from original passenger-voice.js functions by tools
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(taskCore) {
 'use strict';
 const CONTEXT_SCHEMA = 'ga.mission-poi-voice-context.v1';
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon']);
 const PROMPTS = Object.freeze(${JSON.stringify(promptNames)});
 const clone = value => JSON.parse(JSON.stringify(value));
 function normalizeMemory(value = {}) {
@@ -39,7 +40,8 @@ function validateContext(context, missionId = context?.missionId) {
   if (!DOMAINS.includes(context.taskDomain) || typeof context.strict !== 'boolean'
       || !context.passenger || Array.isArray(context.passenger) || typeof context.baseContext !== 'string' || !context.baseContext.trim()
       || typeof context.audioEnabled !== 'boolean') return 'poi_voice_context_invalid';
-  if (['trainingPlan', 'trainingProcedure', 'poiChain', 'sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  if (['trainingPlan', 'trainingProcedure', 'sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  if (context.passenger.poiChain && context.taskDomain !== 'infra_chain_recon') return 'poi_voice_specialized_context_not_migrated';
   if (context.passenger.surveyPattern && context.taskDomain !== 'mapping_survey') return 'poi_voice_specialized_context_not_migrated';
   try {
     if (encodeURIComponent(JSON.stringify(context)).replace(/%[A-F0-9]{2}/g, 'x').length > 65536)
@@ -64,8 +66,19 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _haversineNm = (...args) => taskCore.distanceNm(...args);
   const _bearingDeg = (...args) => taskCore.bearingDeg(...args);
   const _relativeClockPos = (...args) => taskCore.relativeClockPos(...args);
-  const _poiChainActiveSpec = () => null;
-  const _poiChainProgressSummary = () => '';
+  window.missionPoiChainRuntime = { getActiveSpec: () => context.chainSpec || null, snapshot: () => cue.detector?.chainProgress || cue.dynamic?.poiProgress?.poiChain || null };
+  const chainEvents = [];
+  const _speakerSnapshotForMissionVoice = () => context.chainSpeaker || context.speaker;
+  const _paxLog = () => {};
+  const _paxMissionAudioCueId = (scope, kind, fallback) => context.chainAudioCueIds?.[kind] ?? fallback;
+  let sequencePart = [];
+  const _paxPlayAudioCue = (id, seed, options) => { sequencePart.push({ id, seed, options }); };
+  const _paxPlayPhotoBurst = (seed, options) => _paxPlayAudioCue('photo', seed, options);
+  const _speakPreparedText = (key, text, speaker, label, options) => {
+    sequencePart = []; if (options.beforeAudio) options.beforeAudio(0); const before = sequencePart;
+    sequencePart = []; if (options.afterAudio) options.afterAudio(0);
+    chainEvents.push({ key, text, speaker, label, sounds: { before, after: sequencePart } });
+  };
   const _paxCityDatasetAvailable = () => true;
   const _paxMapPlaceOrientationLine = () => context.mapPlaceOrientationLine || '';
   let actionResult = null;
@@ -110,6 +123,10 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
 `;
 const footer = `
   if (cue.availability) return _poiKnowledgeTellMoreAvailable();
+  if (cue.chainEvent) {
+    _handlePoiChainEvents(cue.chainEvent.events, cue.chainEvent.spec);
+    return { chainEvents };
+  }
   if (cue.surveyEvent) {
     const meaningful = (Array.isArray(cue.surveyEvent.events) ? cue.surveyEvent.events : []).map(_surveyPatternEventKind).filter(Boolean);
     const kind = meaningful.includes('survey_complete') ? 'survey_complete'
@@ -175,10 +192,16 @@ function surveyEvent(context, events = [], spec = context?.surveySpec || null) {
   if (context.taskDomain !== 'mapping_survey') throw new TypeError('poi_survey_domain_invalid');
   return original(clone(context), {}, { surveyEvent: { events: clone(Array.isArray(events) ? events : []), spec: clone(spec) } }).surveyEvent;
 }
-return Object.freeze({ knowledgeAvailable, renderAction, renderFarewell, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
+function chainEvents(context, events = [], spec = context?.chainSpec || null) {
+  const error = validateContext(context);
+  if (error) throw new TypeError(error);
+  if (context.taskDomain !== 'infra_chain_recon' || !spec) throw new TypeError('poi_chain_voice_context_invalid');
+  return original(clone(context), {}, { chainEvent: { events: clone(events), spec: clone(spec) } }).chainEvents;
+}
+return Object.freeze({ chainEvents, knowledgeAvailable, renderAction, renderFarewell, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
 });
 `;
-const result = header + [...helperNames, ...knowledgeNames, ...promptNames, ...farewellNames, ...actionNames, ...surveyNames].map(name => extract(name)).join('\n\n') + '\n' + extract('paxKnowledgeTellMore', source.replace('window.paxKnowledgeTellMore = function(', 'function paxKnowledgeTellMore(')).replace(/    if \(window\.gaTrackerExecutionHandlesMission.*\n/g, '') + footer;
+const result = header + [...helperNames, ...knowledgeNames, ...promptNames, ...farewellNames, ...actionNames, ...surveyNames, ...chainNames].map(name => extract(name)).join('\n\n') + '\n' + extract('paxKnowledgeTellMore', source.replace('window.paxKnowledgeTellMore = function(', 'function paxKnowledgeTellMore(')).replace(/    if \(window\.gaTrackerExecutionHandlesMission.*\n/g, '') + footer;
 const target = new URL('../mission-poi-voice-core.js', import.meta.url);
 if (process.argv.includes('--check')) {
   if (fs.readFileSync(target, 'utf8') !== result) throw new Error('POI voice core drifted from App source');
