@@ -2349,6 +2349,7 @@
     });
     missionSnapshot = next;
     window.gaTrackerExecutionControl = next && next.control || null;
+    if (window.missionSurveyPattern) window.missionSurveyPattern.renderAuthorityProjection(nextControl && nextControl.surveySpec, nextControl && nextControl.poiTask && nextControl.poiTask.surveyPattern);
     if (nextControl && nextControl.cargoWindowCloseId
         && (!previousControl || previousControl.cargoWindowCloseId !== nextControl.cargoWindowCloseId)) closeCargoManager(true);
     if (nextControl && nextControl.cargoWindowOpenId && (!previousControl || previousControl.cargoWindowOpenId !== nextControl.cargoWindowOpenId)) openCargoManager(true);

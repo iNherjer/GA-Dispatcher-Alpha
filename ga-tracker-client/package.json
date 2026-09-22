@@ -54,6 +54,8 @@
       "tracker-efb-kartentisch-host.css",
       "tracker-efb-kartentisch-host.js",
       "../audio-cues/*.mp3",
+      "../audio-pax/gemini-survey-v1/**/*",
+      "efb-web-assets/mission-survey-pattern.js",
       "tracker-audio-player.js",
       "../navigation-warning-core.js",
       "../mission-manifest-core.js",

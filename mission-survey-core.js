@@ -1,11 +1,16 @@
-(function(root) {
-    'use strict';
+// Generated from the pure survey functions in mission-survey-pattern.js by tools/generate-survey-core.mjs.
+// Do not edit by hand. The standalone source remains the behavioral reference.
+(function(root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (root) root.GAMissionSurveyCore = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+'use strict';
+const NM_TO_M = 1852;
 
-    const host = root || (typeof globalThis !== 'undefined' ? globalThis : {});
-    const NM_TO_M = 1852;
-    const EARTH_RADIUS_NM = 3440.065;
+const EARTH_RADIUS_NM = 3440.065;
 
-    const DEFAULTS = {
+const DEFAULTS = {
         altitudeToleranceFt: 300,
         scan: {
             lineCount: 4,
@@ -31,64 +36,28 @@
         }
     };
 
-    let activeState = null;
-    let activeSpecKey = '';
-    let overlayLayer = null;
-    let lastOverlayVisualKey = '';
-
-    function canRenderOverlayNow() {
-        if (typeof document === 'undefined') return true;
-        if (document.hidden) return false;
-        const board = document.getElementById('mapTableOverlay');
-        return !board || board.classList.contains('active');
-    }
-
-    function overlayVisualKey(spec = null, state = null) {
-        if (!spec) return '';
-        const completedLines = state?.scan?.completedLineIds instanceof Set
-            ? Array.from(state.scan.completedLineIds).map(String).sort().join(',')
-            : '';
-        return [
-            spec.key,
-            spec.type,
-            state?.satisfied ? 1 : 0,
-            String(state?.scan?.active?.lineId || ''),
-            completedLines,
-            Math.max(0, Number(state?.orbit?.completedTurns || 0))
-        ].join('|');
-    }
-
-    function activeMissionDataFromHost() {
-        try {
-            if (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') {
-                return currentMissionData;
-            }
-        } catch (_) {}
-        return host.currentMissionData && typeof host.currentMissionData === 'object' ? host.currentMissionData : null;
-    }
-
-    function clamp(value, min, max) {
+function clamp(value, min, max) {
         const n = Number(value);
         if (!Number.isFinite(n)) return min;
         return Math.max(min, Math.min(max, n));
     }
 
-    function roundNumber(value, digits = 6) {
+function roundNumber(value, digits = 6) {
         const n = Number(value);
         if (!Number.isFinite(n)) return null;
         const p = 10 ** digits;
         return Math.round(n * p) / p;
     }
 
-    function toRad(value) {
+function toRad(value) {
         return Number(value) * Math.PI / 180;
     }
 
-    function toDeg(value) {
+function toDeg(value) {
         return Number(value) * 180 / Math.PI;
     }
 
-    function haversineNm(lat1, lon1, lat2, lon2) {
+function haversineNm(lat1, lon1, lat2, lon2) {
         const dLat = toRad(lat2 - lat1);
         const dLon = toRad(lon2 - lon1);
         const p1 = toRad(lat1);
@@ -98,7 +67,7 @@
         return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * EARTH_RADIUS_NM;
     }
 
-    function bearingDeg(lat1, lon1, lat2, lon2) {
+function bearingDeg(lat1, lon1, lat2, lon2) {
         const p1 = toRad(lat1);
         const p2 = toRad(lat2);
         const dLon = toRad(lon2 - lon1);
@@ -107,7 +76,7 @@
         return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
 
-    function destinationPoint(lat, lon, distNm, bearing) {
+function destinationPoint(lat, lon, distNm, bearing) {
         const lat1 = toRad(lat);
         const lon1 = toRad(lon);
         const brng = toRad(bearing);
@@ -120,15 +89,15 @@
         return { lat: toDeg(lat2), lon: toDeg(lon2) };
     }
 
-    function angleDiffAbs(a, b) {
+function angleDiffAbs(a, b) {
         return Math.abs((((Number(a) - Number(b)) % 360) + 540) % 360 - 180);
     }
 
-    function signedAngleDelta(fromDeg, toDeg) {
+function signedAngleDelta(fromDeg, toDeg) {
         return (((Number(toDeg) - Number(fromDeg)) % 360) + 540) % 360 - 180;
     }
 
-    function interpolateLine(line, tRaw) {
+function interpolateLine(line, tRaw) {
         const t = clamp(tRaw, 0, 1);
         return {
             lat: Number(line.start.lat) + (Number(line.end.lat) - Number(line.start.lat)) * t,
@@ -136,7 +105,7 @@
         };
     }
 
-    function localPointNm(lat, lon, originLat, originLon) {
+function localPointNm(lat, lon, originLat, originLon) {
         const avgLat = toRad((Number(lat) + Number(originLat)) / 2);
         return {
             x: (Number(lon) - Number(originLon)) * Math.cos(avgLat) * 60,
@@ -144,7 +113,7 @@
         };
     }
 
-    function localPointToLatLonNm(point, origin) {
+function localPointToLatLonNm(point, origin) {
         const originLat = Number(origin?.lat);
         const originLon = Number(origin?.lon);
         if (!Number.isFinite(originLat) || !Number.isFinite(originLon)) return null;
@@ -154,7 +123,7 @@
         return { lat, lon };
     }
 
-    function projectPointToLineNm(lat, lon, line) {
+function projectPointToLineNm(lat, lon, line) {
         const start = line?.start || {};
         const end = line?.end || {};
         const sx = 0;
@@ -179,7 +148,7 @@
         };
     }
 
-    function buildScanLines(center, scan = {}) {
+function buildScanLines(center, scan = {}) {
         const lineCount = Math.max(1, Math.min(8, Math.round(Number(scan.lineCount || DEFAULTS.scan.lineCount))));
         const lineLengthNm = Math.max(0.4, Math.min(5, Number(scan.lineLengthNm || DEFAULTS.scan.lineLengthNm)));
         const lineSpacingNm = Math.max(0.12, Math.min(1.2, Number(scan.lineSpacingNm || DEFAULTS.scan.lineSpacingNm)));
@@ -203,13 +172,13 @@
         return lines;
     }
 
-    function normalizeType(value) {
+function normalizeType(value) {
         const s = String(value || '').toLowerCase();
         if (s === 'orbit' || s === 'circle' || s === 'turns') return 'orbit';
         return 'north_south_scan';
     }
 
-    function normalizeSpec(raw = null) {
+function normalizeSpec(raw = null) {
         if (!raw || typeof raw !== 'object') return null;
         if (raw.enabled === false) return null;
         const taskDomain = String(raw.taskDomain || raw.domain || '').toLowerCase();
@@ -283,11 +252,11 @@
         };
     }
 
-    function setFromArray(value) {
+function setFromArray(value) {
         return new Set(Array.isArray(value) ? value.map(String).filter(Boolean) : []);
     }
 
-    function createInitialState(spec) {
+function createInitialState(spec) {
         const normalized = normalizeSpec(spec);
         if (!normalized) return null;
         return {
@@ -313,7 +282,7 @@
         };
     }
 
-    function hydrateState(spec, saved = null) {
+function hydrateState(spec, saved = null) {
         const normalized = normalizeSpec(spec);
         if (!normalized) return null;
         const state = createInitialState(normalized);
@@ -334,7 +303,7 @@
         return state;
     }
 
-    function snapshotState(state = activeState) {
+function snapshotState(state = activeState) {
         if (!state || typeof state !== 'object') return null;
         const scanCompleted = Array.from(state.scan?.completedLineIds || []);
         const activeScan = state.scan?.active || null;
@@ -367,20 +336,20 @@
         };
     }
 
-    function sampleAltitudeOk(spec, sample) {
+function sampleAltitudeOk(spec, sample) {
         const target = Number(spec.targetAltFt || 0);
         const alt = Number(sample.altFt);
         if (!(target > 0) || !Number.isFinite(alt)) return true;
         return Math.abs(alt - target) <= Number(spec.altitudeToleranceFt || DEFAULTS.altitudeToleranceFt);
     }
 
-    function sampleSpeedOk(minGroundSpeedKts, sample) {
+function sampleSpeedOk(minGroundSpeedKts, sample) {
         const gs = Number(sample.gsKts);
         if (!Number.isFinite(gs) || gs <= 0) return true;
         return gs >= Number(minGroundSpeedKts || 0);
     }
 
-    function headingMatchesLine(spec, projection, sample) {
+function headingMatchesLine(spec, projection, sample) {
         const hdg = Number(sample.headingDeg);
         if (!Number.isFinite(hdg)) return true;
         const tol = Number(spec.scan.headingToleranceDeg || DEFAULTS.scan.headingToleranceDeg);
@@ -388,40 +357,7 @@
         return Math.min(angleDiffAbs(hdg, b), angleDiffAbs(hdg, (b + 180) % 360)) <= tol;
     }
 
-    function sampleFromInput(input = {}) {
-        const flightData = input.flightData || {};
-        const gps = host.lastLiveGpsPos || {};
-        return {
-            lat: Number(input.lat),
-            lon: Number(input.lon),
-            altFt: Number(
-                input.altFt
-                ?? flightData.mslFt
-                ?? flightData.altFt
-                ?? flightData.altitudeFt
-                ?? gps.mslFt
-                ?? gps.altFt
-            ),
-            headingDeg: Number(
-                input.headingDeg
-                ?? flightData.hdg
-                ?? flightData.heading
-                ?? flightData.trackDeg
-                ?? flightData.trkDeg
-                ?? gps.hdg
-            ),
-            gsKts: Number(
-                input.gsKts
-                ?? flightData.gs
-                ?? flightData.gsKts
-                ?? flightData.groundSpeed
-                ?? gps.gs
-            ),
-            nowMs: Number(input.nowMs ?? Date.now())
-        };
-    }
-
-    function findLineCandidate(spec, state, sample) {
+function findLineCandidate(spec, state, sample) {
         const completed = state.scan.completedLineIds || new Set();
         let best = null;
         for (const line of spec.scan.lines) {
@@ -439,7 +375,7 @@
         return best;
     }
 
-    function makeScanResetEvent(reason, lineId) {
+function makeScanResetEvent(reason, lineId) {
         return {
             type: reason === 'altitude' ? 'line_reset_altitude' : 'line_reset_offtrack',
             lineId: String(lineId || ''),
@@ -447,7 +383,7 @@
         };
     }
 
-    function sampleInsideScanArea(spec, sample) {
+function sampleInsideScanArea(spec, sample) {
         if (!spec?.scan || !Number.isFinite(Number(sample?.lat)) || !Number.isFinite(Number(sample?.lon))) return false;
         const p = localPointNm(sample.lat, sample.lon, spec.center.lat, spec.center.lon);
         const halfLength = (Number(spec.scan.lineLengthNm || DEFAULTS.scan.lineLengthNm) / 2) + 0.25;
@@ -455,7 +391,7 @@
         return Math.abs(p.y) <= halfLength && Math.abs(p.x) <= halfWidth;
     }
 
-    function tickScanState(spec, state, sample, events) {
+function tickScanState(spec, state, sample, events) {
         const now = Number(sample.nowMs ?? Date.now());
         if (!Number.isFinite(sample.lat) || !Number.isFinite(sample.lon)) return;
         if (!state.startedAt && sampleInsideScanArea(spec, sample)) {
@@ -548,11 +484,11 @@
         }
     }
 
-    function makeOrbitResetEvent(reason) {
+function makeOrbitResetEvent(reason) {
         return { type: reason === 'altitude' ? 'orbit_reset_altitude' : 'orbit_reset_offtrack', reason };
     }
 
-    function tickOrbitState(spec, state, sample, events) {
+function tickOrbitState(spec, state, sample, events) {
         const now = Number(sample.nowMs ?? Date.now());
         if (!Number.isFinite(sample.lat) || !Number.isFinite(sample.lon)) return;
         const altOk = sampleAltitudeOk(spec, sample);
@@ -623,12 +559,12 @@
         }
     }
 
-    function tickState(specRaw, stateRaw, sampleRaw) {
+function tickStateOriginal(specRaw, stateRaw, sampleRaw) {
         const spec = normalizeSpec(specRaw);
         if (!spec) return { handled: false, state: stateRaw || null, events: [], satisfied: false, progress: null };
         const state = stateRaw || createInitialState(spec);
         if (state.specKey !== spec.key) {
-            return tickState(spec, createInitialState(spec), sampleRaw);
+            return tickStateOriginal(spec, createInitialState(spec), sampleRaw);
         }
         if (state.satisfied) {
             return { handled: true, state, events: [], satisfied: true, progress: snapshotState(state) };
@@ -642,254 +578,83 @@
         return { handled: true, state, events, satisfied: !!state.satisfied, progress: snapshotState(state) };
     }
 
-    function getMissionSpec(missionData = null, passenger = null) {
-        const md = missionData || activeMissionDataFromHost();
-        const contract = md?.missionContract || host.activeMissionContract || null;
-        let raw = md?.surveyPattern || contract?.surveyPattern || passenger?.surveyPattern || null;
-        if (!raw && typeof host.attachMissionSurveyPattern === 'function' && md) {
-            try {
-                host.attachMissionSurveyPattern(md, contract, passenger || md?.passenger || host.activePassenger || null);
-                raw = md?.surveyPattern || contract?.surveyPattern || passenger?.surveyPattern || null;
-            } catch (_) {}
-        }
-        return normalizeSpec(raw);
-    }
+// The standalone tick accepts an App-shaped flightData object through a
+// browser-host fallback. The shared core intentionally accepts only an already
+// normalized raw sample, so it has no hidden host dependency.
+function tickState(specRaw, stateRaw, sampleRaw) {
+  if (sampleRaw && typeof sampleRaw === 'object' && sampleRaw.flightData) {
+    throw new TypeError('survey_core_requires_normalized_sample');
+  }
+  return tickStateOriginal(specRaw, stateRaw, sampleRaw);
+}
 
-    function getMapInstance() {
-        try {
-            if (typeof map !== 'undefined' && map) return map;
-        } catch (_) {}
-        return host.map || null;
-    }
-
-    function ensureOverlayLayer() {
-        const mapInstance = getMapInstance();
-        if (!mapInstance || typeof L === 'undefined') return null;
-        if (!overlayLayer) overlayLayer = L.layerGroup();
-        if (!mapInstance.hasLayer(overlayLayer)) overlayLayer.addTo(mapInstance);
-        return overlayLayer;
-    }
-
-    function clearOverlay() {
-        const mapInstance = getMapInstance();
-        if (overlayLayer && mapInstance) {
-            try { mapInstance.removeLayer(overlayLayer); } catch (_) {}
-        }
-        overlayLayer = null;
-        lastOverlayVisualKey = '';
-    }
-
-    function lineStyleFor(lineId, state) {
-        const completed = state?.scan?.completedLineIds instanceof Set && state.scan.completedLineIds.has(String(lineId));
-        const active = String(state?.scan?.active?.lineId || '') === String(lineId);
-        if (completed) return { color: '#2fd46f', weight: 7, opacity: 0.96, dashArray: null };
-        if (active) return { color: '#f2c94c', weight: 7, opacity: 0.96, dashArray: null };
-        return { color: '#ff4d4d', weight: 6, opacity: 0.9, dashArray: null };
-    }
-
-    function connectorStyleFor() {
-        return {
-            color: '#ff6b57',
-            weight: 5,
-            opacity: 0.72,
-            dashArray: null,
-            interactive: false
-        };
-    }
-
-    function scanConnectorArc(lineA, lineB, center, end = 'south') {
-        const aPt = end === 'north' ? lineA.start : lineA.end;
-        const bPt = end === 'north' ? lineB.start : lineB.end;
-        if (!aPt || !bPt) return [];
-        const a = localPointNm(aPt.lat, aPt.lon, center.lat, center.lon);
-        const b = localPointNm(bPt.lat, bPt.lon, center.lat, center.lon);
-        const cx = (a.x + b.x) / 2;
-        const cy = (a.y + b.y) / 2;
-        const rx = Math.abs(b.x - a.x) / 2;
-        if (!(rx > 0.01)) return [[aPt.lat, aPt.lon], [bPt.lat, bPt.lon]];
-        const bulgeSign = end === 'north' ? 1 : -1;
-        const leftToRight = a.x <= b.x;
-        const points = [];
-        const steps = 14;
-        for (let i = 0; i <= steps; i++) {
-            const t = i / steps;
-            const x = leftToRight
-                ? a.x + (b.x - a.x) * t
-                : a.x - (a.x - b.x) * t;
-            const yOffset = Math.sqrt(Math.max(0, rx * rx - (x - cx) * (x - cx))) * bulgeSign;
-            const ll = localPointToLatLonNm({ x, y: cy + yOffset }, center);
-            if (ll) points.push([ll.lat, ll.lon]);
-        }
-        return points;
-    }
-
-    function drawScanConnectors(layer, spec) {
-        const lines = Array.isArray(spec?.scan?.lines) ? spec.scan.lines : [];
-        if (!layer || typeof L === 'undefined' || lines.length < 2) return;
-        for (let i = 0; i < lines.length - 1; i++) {
-            const end = i % 2 === 0 ? 'south' : 'north';
-            const points = scanConnectorArc(lines[i], lines[i + 1], spec.center, end);
-            if (points.length >= 2) L.polyline(points, connectorStyleFor()).addTo(layer);
-        }
-    }
-
-    function drawOverlay(specRaw = null, progressState = activeState) {
-        const spec = normalizeSpec(specRaw);
-        if (!spec) {
-            clearOverlay();
-            return false;
-        }
-        const layer = ensureOverlayLayer();
-        if (!layer || typeof L === 'undefined') return false;
-        layer.clearLayers();
-        const label = spec.targetAltFt > 0
-            ? `${spec.label} · ${spec.targetAltFt} ft`
-            : spec.label;
-        if (spec.type === 'orbit') {
-            const done = progressState?.orbit?.completedTurns >= spec.orbit.requiredTurns;
-            L.circle([spec.center.lat, spec.center.lon], {
-                radius: spec.orbit.radiusNm * NM_TO_M,
-                color: done ? '#2fd46f' : '#ff4d4d',
-                weight: 5,
-                opacity: 0.9,
-                fillColor: '#2d8cff',
-                fillOpacity: 0.04,
-                dashArray: done ? null : '14,9'
-            }).bindTooltip(`${label} · ${spec.orbit.requiredTurns} Kreise`, { permanent: false }).addTo(layer);
-        } else {
-            drawScanConnectors(layer, spec);
-            for (const line of spec.scan.lines) {
-                const style = lineStyleFor(line.id, progressState);
-                L.polyline([[line.start.lat, line.start.lon], [line.end.lat, line.end.lon]], style)
-                    .bindTooltip(`${line.label} · ${label}`, { permanent: false })
-                    .addTo(layer);
-            }
-        }
-        if (spec.targetAltFt > 0) {
-            L.marker([spec.center.lat, spec.center.lon], {
-                icon: L.divIcon({
-                    className: '',
-                    html: `<div style="background:rgba(12,18,28,0.82);color:#fff;font-size:11px;padding:3px 7px;border-radius:4px;border:1px solid rgba(255,255,255,.35);white-space:nowrap;">Survey · ${spec.targetAltFt} ft</div>`,
-                    iconAnchor: [42, 4]
-                }),
-                interactive: false
-            }).addTo(layer);
-        }
-        return true;
-    }
-
-    function renderOverlayIfNeeded(spec, state, force = false) {
-        if (!canRenderOverlayNow()) return false;
-        const visualKey = overlayVisualKey(spec, state);
-        if (!force && visualKey && visualKey === lastOverlayVisualKey) return false;
-        const rendered = drawOverlay(spec, state);
-        if (rendered) lastOverlayVisualKey = visualKey;
-        return rendered;
-    }
-
-    function tick(input = {}) {
-        const spec = getMissionSpec(input.missionData || null, input.passenger || null);
-        if (!spec) {
-            if (activeSpecKey) reset('no-active-survey');
-            return { handled: false, events: [], satisfied: false, progress: null };
-        }
-        if (!activeState || activeSpecKey !== spec.key || activeState.specKey !== spec.key) {
-            activeState = createInitialState(spec);
-            activeSpecKey = spec.key;
-        }
-        const result = tickState(spec, activeState, sampleFromInput(input));
-        activeState = result.state;
-        renderOverlayIfNeeded(spec, activeState);
-        return { ...result, spec, progress: snapshotState(activeState) };
-    }
-
-    function restoreProgress(progress = null, missionData = null, passenger = null) {
-        const spec = getMissionSpec(missionData, passenger);
-        if (!spec || !progress) return false;
-        activeState = hydrateState(spec, progress);
-        activeSpecKey = spec.key;
-        renderOverlayIfNeeded(spec, activeState, true);
-        return true;
-    }
-
-    function reset() {
-        activeState = null;
-        activeSpecKey = '';
-        clearOverlay();
-    }
-
-    // Authority projection is presentation-only: never tick or overwrite local mission state.
-    function renderAuthorityProjection(specRaw, progress) {
-        const spec = normalizeSpec(specRaw);
-        if (!spec) { clearOverlay(); return false; }
-        const state = hydrateState(spec, progress);
-        if (progress?.scan?.activeLineId) state.scan.active = { lineId: progress.scan.activeLineId };
-        return renderOverlayIfNeeded(spec, state);
-    }
-
-    function refreshOverlay(missionData = null, passenger = null) {
-        if (host.gaTrackerExecutionControl?.executionAuthority === 'tracker') return renderAuthorityProjection(host.gaTrackerExecutionControl.surveySpec, host.gaTrackerExecutionControl.poiTask?.surveyPattern);
-        const spec = getMissionSpec(missionData, passenger);
-        if (!spec) {
-            clearOverlay();
-            return false;
-        }
-        if (!activeState || activeSpecKey !== spec.key) {
-            activeState = createInitialState(spec);
-            activeSpecKey = spec.key;
-        }
-        return renderOverlayIfNeeded(spec, activeState, true);
-    }
-
-    function refreshActiveMissionOverlay() {
-        if (host.gaTrackerExecutionControl?.executionAuthority === 'tracker') return renderAuthorityProjection(host.gaTrackerExecutionControl.surveySpec, host.gaTrackerExecutionControl.poiTask?.surveyPattern);
-        const md = activeMissionDataFromHost();
-        if (!md) return false;
-        try {
-            return refreshOverlay(md, host.activePassenger || md?.passenger || null);
-        } catch (_) {
-            return false;
-        }
-    }
-
-    function scheduleInitialOverlayRefresh() {
-        if (typeof setTimeout !== 'function') return;
-        [0, 150, 750, 2000].forEach(delay => {
-            setTimeout(refreshActiveMissionOverlay, delay);
-        });
-    }
-
-    const api = {
-        defaults: DEFAULTS,
-        getActiveSpec: getMissionSpec,
-        normalizeSpec,
-        tick,
-        restoreProgress,
-        reset,
-        refreshOverlay,
-        refreshActiveMissionOverlay,
-        renderAuthorityProjection,
-        snapshot: () => snapshotState(activeState),
-        _test: {
-            normalizeSpec,
-            createInitialState,
-            hydrateState,
-            snapshotState,
-            tickState,
-            buildScanLines,
-            destinationPoint,
-            haversineNm,
-            bearingDeg,
-            interpolateLine,
-            projectPointToLineNm,
-            overlayVisualKey
-        }
+function arrayOfSet(value) { return value instanceof Set ? Array.from(value) : []; }
+function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
+function serializeActiveScan(active) {
+  if (!active || typeof active !== 'object') return null;
+  return { lineId: String(active.lineId || ''), direction: active.direction === 'reverse' ? 'reverse' : 'forward',
+    bins: arrayOfSet(active.bins), totalBins: Math.max(1, Number(active.totalBins || 1)),
+    startedAt: Number(active.startedAt || 0), lastGoodAt: Number(active.lastGoodAt || 0),
+    badSince: Number(active.badSince || 0), lastT: Number(active.lastT || 0), endCap: !!active.endCap };
+}
+function serializeActiveOrbit(active) {
+  if (!active || typeof active !== 'object') return null;
+  return { sectors: arrayOfSet(active.sectors), totalSectors: Math.max(1, Number(active.totalSectors || 1)),
+    startedAt: Number(active.startedAt || 0), lastGoodAt: Number(active.lastGoodAt || 0),
+    badSince: Number(active.badSince || 0), lastAngle: Number(active.lastAngle || 0),
+    direction: Number(active.direction || 0) };
+}
+function serializeState(state) {
+  if (!state || typeof state !== 'object') return null;
+  return {
+    schema: 'ga.surveyPatternRuntime.v1', specKey: String(state.specKey || ''), type: String(state.type || ''),
+    startedAt: Number(state.startedAt || 0), updatedAt: Number(state.updatedAt || 0), satisfied: !!state.satisfied,
+    events: clone(Array.isArray(state.events) ? state.events : []),
+    scan: state.scan ? { completedLineIds: arrayOfSet(state.scan.completedLineIds),
+      lastResetReason: String(state.scan.lastResetReason || ''), totalLines: Number(state.scan.totalLines || 0),
+      active: serializeActiveScan(state.scan.active) } : null,
+    orbit: state.orbit ? { completedTurns: Math.max(0, Number(state.orbit.completedTurns || 0)),
+      lastResetReason: String(state.orbit.lastResetReason || ''), requiredTurns: Number(state.orbit.requiredTurns || 0),
+      active: serializeActiveOrbit(state.orbit.active) } : null
+  };
+}
+function finite(value) { return typeof value === 'number' && Number.isFinite(value); }
+function restoreSet(value, predicate = () => true) { return new Set((Array.isArray(value) ? value : []).filter(predicate)); }
+function hydrateRuntimeState(specRaw, saved = null) {
+  const spec = normalizeSpec(specRaw);
+  const state = createInitialState(spec);
+  if (!spec || !saved || typeof saved !== 'object' || saved.specKey !== spec.key) return state;
+  state.startedAt = finite(saved.startedAt) ? saved.startedAt : 0;
+  state.updatedAt = finite(saved.updatedAt) ? saved.updatedAt : 0;
+  state.satisfied = !!saved.satisfied;
+  state.events = clone(Array.isArray(saved.events) ? saved.events : []);
+  if (saved.scan && state.scan) {
+    state.scan.completedLineIds = restoreSet(saved.scan.completedLineIds, value => spec.scan.lines.some(line => String(line.id) === String(value)));
+    state.scan.lastResetReason = String(saved.scan.lastResetReason || '');
+    const active = saved.scan.active;
+    if (active && spec.scan.lines.some(line => String(line.id) === String(active.lineId))) state.scan.active = {
+      lineId: String(active.lineId), direction: active.direction === 'reverse' ? 'reverse' : 'forward',
+      bins: restoreSet(active.bins, value => Number.isInteger(value) && value >= 0 && value < spec.scan.bins),
+      totalBins: spec.scan.bins, startedAt: finite(active.startedAt) ? active.startedAt : 0,
+      lastGoodAt: finite(active.lastGoodAt) ? active.lastGoodAt : 0, badSince: finite(active.badSince) ? active.badSince : 0,
+      lastT: finite(active.lastT) ? clamp(active.lastT, 0, 1) : 0, endCap: !!active.endCap
     };
-
-    host.missionSurveyPattern = api;
-    if (typeof document !== 'undefined') {
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleInitialOverlayRefresh, { once: true });
-        else scheduleInitialOverlayRefresh();
-    }
-    if (typeof module !== 'undefined' && module.exports) module.exports = api;
-})(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));
+  }
+  if (saved.orbit && state.orbit) {
+    state.orbit.completedTurns = Math.max(0, Math.min(spec.orbit.requiredTurns, Math.round(Number(saved.orbit.completedTurns || 0))));
+    state.orbit.lastResetReason = String(saved.orbit.lastResetReason || '');
+    const active = saved.orbit.active;
+    if (active) state.orbit.active = {
+      sectors: restoreSet(active.sectors, value => Number.isInteger(value) && value >= 0 && value < spec.orbit.sectorsPerTurn),
+      totalSectors: spec.orbit.sectorsPerTurn, startedAt: finite(active.startedAt) ? active.startedAt : 0,
+      lastGoodAt: finite(active.lastGoodAt) ? active.lastGoodAt : 0, badSince: finite(active.badSince) ? active.badSince : 0,
+      lastAngle: finite(active.lastAngle) ? active.lastAngle : 0,
+      direction: active.direction === 1 || active.direction === -1 ? active.direction : 0
+    };
+  }
+  return state;
+}
+return Object.freeze({ DEFAULTS, normalizeSpec, createInitialState, hydrateState, hydrateRuntimeState,
+  snapshotState, serializeState, tickState, sampleAltitudeOk, sampleSpeedOk, interpolateLine,
+  destinationPoint, haversineNm, bearingDeg, projectPointToLineNm });
+});

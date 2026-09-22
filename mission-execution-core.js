@@ -488,7 +488,7 @@
         var runtime = object(runtimeRoot.runtime);
         var missionId = text(bundle.missionId || runtimeRoot.missionId || runtime.missionId, 180);
         if (!missionId) return null;
-        var state = baseState(missionId, bundle.adapter || 'apt');
+        var state = baseState(missionId, bundle.adapter === 'survey_pattern' && bundle.executionPoiRecipe?.taskDomain === 'mapping_survey' ? 'poi' : (bundle.adapter || 'apt'));
         var startPhase = normalizePhase(runtimeRoot.startPhase, 'planned');
         var phase = normalizePhase(runtime.phase || startPhase, startPhase);
         var active = runtime.active === true;

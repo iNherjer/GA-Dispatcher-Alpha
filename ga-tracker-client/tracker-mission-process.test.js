@@ -374,3 +374,61 @@ test('Learning Guide gate and manual fact reservation cross the real worker boun
   await until(() => host.authorityManager.getExecutionSnapshot().state.voice.poiMemory?.knowledgeManual?.length === 1);
   assert.deepEqual(host.authorityManager.getExecutionSnapshot().state.voice.poiMemory.knowledgeManual, ['core:0']);
 });
+
+test('Mapping Survey pattern, progress and manual status cross the real worker boundary', async t => {
+  const voice = require('../mission-poi-voice-core.js');
+  const poi = require('./tracker-mission-poi-runtime.js');
+  const lifecycle = require('../mission-poi-lifecycle-core.js');
+  const surveyCore = require('../mission-survey-core.js');
+  const host = await fixture(t, { authority: { poiExecutionEnabled: true } });
+  const b = aptBundle();
+  b.adapter = 'survey_pattern'; b.descriptor.primaryAdapter = 'survey_pattern'; b.missionState.currentMissionData.missionType = 'poi';
+  const passenger = { name: 'Maja', targetRadiusNm: 1, targetAltFt: 3500, targetDwellMin: 0, surveyPattern: true };
+  const surveyPattern = surveyCore.normalizeSpec({ taskDomain: 'mapping_survey', type: 'north_south_scan',
+    center: { lat: 48.3, lon: 8.5 }, targetAltFt: 3500,
+    scan: { lineCount: 1, lineLengthNm: .8, lineSpacingNm: .2, crossTrackToleranceNm: .08, minCoverage: .7, resetGraceSec: 2, bins: 24 } });
+  b.missionState.currentMissionData.surveyPattern = surveyPattern;
+  const voiceContext = { schema: voice.CONTEXT_SCHEMA, version: 1, missionId: b.missionId,
+    taskDomain: 'mapping_survey', passenger, speaker: passenger, strict: true, audioEnabled: false,
+    baseContext: 'Mapping-Auftrag.', surveySpec: surveyPattern };
+  b.executionPoiRecipe = { schema: poi.RECIPE_SCHEMA, version: 1, missionId: b.missionId, taskDomain: 'mapping_survey',
+    target: surveyPattern.center, home: { lat: 48, lon: 8 }, passenger, strict: true, trackingActive: true,
+    surveyPattern, lifecycle: { schema: lifecycle.SCHEMA }, voiceContext };
+  b.executionEffectPlan.schema = 'ga.mission-poi-effect-plan.v1'; b.executionEffectPlan.recipe = 'poi';
+  Object.assign(b.executionEffectPlan.effects, {
+    'scene.deboarding': { none: true }, 'scene.target': { none: true },
+    'voice.boarding': { recipe: require('../mission-boarding-voice-core.js').createRecipe({ missionId: b.missionId, prompt: 'Bereit.', audioEnabled: false }) },
+    'voice.approach': { context: { ...voiceContext, supported: true, mode: 'passenger' } }, 'voice.farewell': { poiContextRef: true }
+  });
+  assert.equal(poi.validateBundle(b), null);
+  b.executionReplay = executionCore.createExecutionBundle(b); b.execution = executionCore.createReplayShadowEnvelope(b.executionReplay, { sourceRevision: 1, legacyBundle: b });
+  await activate(host, b);
+  host.runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 3500, hdg: 180 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }), syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }), syncPayloadManifestState: () => ({ ok: true, status: 'completed' }) });
+  await until(() => host.runtime.publicState().simulatorAttached);
+  for (const intent of ['prepare_mission', 'start_boarding', 'confirm_load', 'start_mission']) {
+    const run = host.authorityManager.getActiveRun();
+    const result = await host.runtime.executeIntent({ intent, commandId: `survey-${intent}`, missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    await until(() => host.authorityManager.getExecutionSnapshot().state.flags.active || intent !== 'start_mission');
+  }
+  const line = surveyPattern.scan.lines[0];
+  const observedBase = Date.now();
+  // Wait for each worker checkpoint: process telemetry is latest-only, so a
+  // burst would intentionally discard intermediate scan bins.
+  for (const index of Array.from({ length: 25 }, (_, value) => value)) {
+    const point = surveyCore.interpolateLine(line, index / 24);
+    const observedAt = observedBase + index * 1000;
+    host.runtime.observeTelemetry({ ...point, altFt: 3500, alt: 3500, gsKts: 95, hdg: 180, headingDeg: 180, onGround: false, observedAt });
+    await until(() => !host.runtime.publicState().telemetry.inFlight && !host.runtime.publicState().telemetry.pending);
+    await host.runtime.flush();
+    await until(() => host.authorityManager.getExecutionSnapshot().state.poiTask?.detector?.satisfied
+      || Number(host.authorityManager.getExecutionSnapshot().state.poiTask?.observedAt || 0) >= observedAt);
+    if (host.authorityManager.getExecutionSnapshot().state.poiTask?.detector?.satisfied) break;
+  }
+  await until(() => host.authorityManager.getPublicSnapshot().execution?.poiTask?.surveyPattern?.satisfied === true);
+  const run = host.authorityManager.getActiveRun();
+  const status = await host.runtime.executeIntent({ intent: 'poi_status', commandId: 'survey-status', missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  assert.equal(status.ok, true, JSON.stringify(status));
+  await until(() => /Survey-Scan 1\/1 Linien gruen/.test(host.authorityManager.getExecutionSnapshot().state.effects.find(effect => effect.payload?.action === 'poi_status')?.payload?.resolvedRecipe?.fallbackText || ''));
+});

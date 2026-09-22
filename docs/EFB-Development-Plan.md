@@ -5624,3 +5624,14 @@ Fakten vorhanden sind. Aktion und Faktenverbrauch gehoeren dem Mission-Worker;
 App und EFB verwenden dessen `allowedActions`. Die Standalone-Funktion bleibt
 erhalten. Gate: `poi_learning_guide` offen; Survey/Ketten noch nicht freigegeben.
 Keine Aenderung an Telemetrie-Loop oder periodischer Checkpoint-Strategie.
+
+
+### 2026-09-22 — v437 Mapping / Survey
+
+Survey-Pattern wird aus dem freigegebenen Tracker-Rezept auch vor Missionsstart
+projiziert. Das originale Leaflet-Modul wird fuer Coherent kompiliert und rendert
+abgeschlossene/aktive Linien sowie Orbits. Es fuehrt im EFB keine zweite
+Missionsauswertung aus. Missionsstatus zeigt Linien/Kreise und Abschnittsabdeckung;
+PAX-Status/Orientierung verwenden die originalen Survey-Antworten. Fortschritt,
+Cargo und Start/Abschluss bleiben an dieselbe Tracker-Autoritaet gebunden.
+Weitere Implementierungsregeln: Tracker Mission Migration Guide, Abschnitt v437.

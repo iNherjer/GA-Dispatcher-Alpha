@@ -15,6 +15,8 @@ const DEFAULT_PLAYBACK_JOB_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_MAX_PENDING_JOBS = 16;
 const DEFAULT_MAX_PROVIDER_CONCURRENCY = 2;
 const DEFAULT_MAX_NEW_JOBS_PER_MINUTE = 60;
+const STATIC_SURVEY_CLIP_KEYS = new Set(['scan_survey_area_entered', 'orbit_survey_area_entered',
+  'line_complete', 'orbit_turn_complete', 'scan_survey_complete', 'orbit_survey_complete']);
 
 function voiceError(code, statusCode, message) {
   const error = new Error(message);
@@ -56,10 +58,17 @@ function normalizeVoiceRequest(value = {}) {
     : {};
   const requestedKind = String(value.kind || '').trim().toLowerCase();
   const kind = ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story'].includes(requestedKind) ? requestedKind : 'direct';
+  const taskDomain = String(value.taskDomain || normalizedSpeaker.taskDomain || '').trim().toLowerCase().slice(0, 120);
   const cueSource = value.cue && typeof value.cue === 'object' && !Array.isArray(value.cue) ? value.cue : {};
+  const requestedCueId = boardingVoiceCore.normalizeCueId(cueSource.id);
   const cueId = kind === 'boarding' || kind === 'farewell' || kind === 'cargo'
-    ? boardingVoiceCore.normalizeCueId(cueSource.id)
-    : 'none';
+    ? requestedCueId
+    // Mapping overrides are already normalized to an ID. Asset lookup remains
+    // directory-local and only succeeds for a packaged cue filename.
+    : (kind === 'poi' && taskDomain === 'mapping_survey' ? requestedCueId : 'none');
+  const requestedStaticClipKey = String(value.staticClipKey || '').trim();
+  const staticClipKey = kind === 'poi' && taskDomain === 'mapping_survey' && STATIC_SURVEY_CLIP_KEYS.has(requestedStaticClipKey)
+    ? requestedStaticClipKey : '';
   return {
     effectId,
     text,
@@ -68,7 +77,8 @@ function normalizeVoiceRequest(value = {}) {
     kind,
     deferPlayback: value.deferPlayback === true,
     synthesizeAudio: kind !== 'cargo' && value.synthesizeAudio !== false,
-    taskDomain: String(value.taskDomain || normalizedSpeaker.taskDomain || '').trim().toLowerCase().slice(0, 120),
+    taskDomain,
+    staticClipKey,
     gender: normalizedSpeaker.gender,
     voiceName,
     speaker: normalizedSpeaker,
@@ -312,6 +322,7 @@ function createTrackerVoiceService(options = {}) {
     ? ''
     : path.resolve(String(options.audioCueDirectory || path.join(__dirname, '..', 'audio-cues')));
   const io = options.io && typeof options.io === 'object' ? options.io : fs;
+  const staticSurveyCatalogPath = path.resolve(String(options.staticSurveyCatalogPath || path.join(__dirname, '..', 'audio-pax', 'gemini-survey-v1', 'catalog.json')));
   const records = new Map();
   const playbackClients = new Map();
   const playbackGuards = new Map();
@@ -329,6 +340,25 @@ function createTrackerVoiceService(options = {}) {
   let activeProviderJobs = 0;
 
   const configured = Boolean(apiKey && typeof fetchRemote === 'function');
+  const supportsStaticSurvey = request => request?.kind === 'poi' && request?.taskDomain === 'mapping_survey'
+    && STATIC_SURVEY_CLIP_KEYS.has(String(request?.staticClipKey || ''));
+
+  async function resolveStaticSurveyAudio(request) {
+    if (!supportsStaticSurvey(request) || request.synthesizeAudio === false) return null;
+    try {
+      const catalog = JSON.parse(await (io.promises?.readFile || fs.promises.readFile)(staticSurveyCatalogPath, 'utf8'));
+      const takes = Array.isArray(catalog?.clips?.[request.staticClipKey]?.takes) ? catalog.clips[request.staticClipKey].takes : [];
+      const candidates = boardingVoiceCore.voiceCandidates('gemini', request.speaker, request.voiceName);
+      const take = candidates.map(voice => takes.find(entry => String(entry?.voice || '').toLowerCase() === String(voice).toLowerCase()))
+        .find(Boolean);
+      const rel = String(take?.path || '').replace(/\\/g, '/');
+      if (!take || !/^clips\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.wav$/.test(rel)) return null;
+      const filePath = path.resolve(path.dirname(staticSurveyCatalogPath), rel);
+      if (!filePath.startsWith(path.dirname(staticSurveyCatalogPath) + path.sep)) return null;
+      const audio = Buffer.from(await (io.promises?.readFile || fs.promises.readFile)(filePath));
+      return audio.length ? { audio, contentType: String(take.mimeType || 'audio/wav'), voiceName: String(take.voice || ''), model: 'static-survey' } : null;
+    } catch (_) { return null; }
+  }
 
   function resolveAudioCue(cue) {
     const source = cue && typeof cue === 'object' && !Array.isArray(cue) ? cue : {};
@@ -624,6 +654,14 @@ function createTrackerVoiceService(options = {}) {
         persist();
         return publicRecord(record);
       }
+      const staticAudio = await resolveStaticSurveyAudio(request);
+      if (staticAudio) {
+        record.audio = staticAudio.audio; record.contentType = staticAudio.contentType;
+        record.model = staticAudio.model; record.voiceName = staticAudio.voiceName;
+        record.status = 'ready'; record.updatedAt = now(); totalAudioBytes += staticAudio.audio.length;
+        log(`VOICE_STATIC_SURVEY_READY effectId=${record.effectId} clip=${request.staticClipKey}`); evict(); persist();
+        return publicRecord(record);
+      }
       const result = provider === 'openai'
         ? await synthesizeOpenAi({ apiKey, request, fetchRemote })
         : await synthesizeGemini({ apiKey, request, fetchRemote });
@@ -688,6 +726,7 @@ function createTrackerVoiceService(options = {}) {
         kind: request.kind,
         synthesizeAudio: request.synthesizeAudio,
         taskDomain: request.taskDomain,
+        staticClipKey: request.staticClipKey,
         speaker: request.speaker,
         cue: request.cue,
         voiceName: request.voiceName,
@@ -708,7 +747,7 @@ function createTrackerVoiceService(options = {}) {
       }
       return publicRecord(existing);
     }
-    if (!configured && request.kind !== 'cargo') throw voiceError('voice_not_configured', 503, 'Zentrale Voice-Ausgabe ist im Tracker nicht konfiguriert.');
+    if (!configured && request.kind !== 'cargo' && !supportsStaticSurvey(request)) throw voiceError('voice_not_configured', 503, 'Zentrale Voice-Ausgabe ist im Tracker nicht konfiguriert.');
     const timestamp = now();
     while (newJobTimestamps.length && timestamp - newJobTimestamps[0] >= 60000) newJobTimestamps.shift();
     if (newJobTimestamps.length >= DEFAULT_MAX_NEW_JOBS_PER_MINUTE) {
@@ -1038,6 +1077,7 @@ function createTrackerVoiceService(options = {}) {
     releasePlayback,
     renewPlayback,
     request,
+    supportsStaticSurvey,
     wait,
     waitForPlayback,
     waitForPlaybackClaim

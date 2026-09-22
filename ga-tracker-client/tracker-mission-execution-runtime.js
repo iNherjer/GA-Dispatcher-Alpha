@@ -656,7 +656,12 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         return reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
       }
       const result = adapter.observeTelemetry(sample);
-      if (isPoi && result?.ok && result.status !== 'ignored') {
+      // Mapping must see missing samples to sever its geometric segment. The
+      // common recorder rejects these, but bridging across them could fabricate
+      // Survey coverage. Stale samples remain no-ops inside the task driver.
+      const surveyDiscontinuity = result?.reason === 'poi_telemetry_invalid_or_stale'
+        && authorityManager.getExecutionPoiRecipe?.()?.taskDomain === 'mapping_survey';
+      if (isPoi && result?.ok && (result.status !== 'ignored' || surveyDiscontinuity)) {
         const taskResult = reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
         if (!taskResult.ok) return taskResult;
       }

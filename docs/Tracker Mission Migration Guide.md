@@ -383,3 +383,61 @@ erfinden. In v436 ist keine solche Fortschrittsinterpolation aktiviert.
 Validierung: eingefrorene Originalfunktionen als Differentialreferenz, reichhaltige
 Faktenbasis und manuelle Folge bis zur Erschoepfung; kompletter Lifecycle mit/ohne
 Wissen, Replay/Restart, Browser-Replay und echter Child-Worker-Intent.
+
+
+## v437: Mapping / Survey im getrennten Mission-Worker
+
+Gate offen fuer `mapping_survey` mit validiertem `surveyPattern` (Nord-Sued-
+Scanlinien und Orbit). Der Resume-Adapter bleibt `survey_pattern`; die gemeinsame
+Ausfuehrungsrezept-Familie ist `poi`. Diese zwei Namen nicht gleichsetzen: Cloud,
+App-Handoff, Shadow-Replay und Authority muessen beide explizit unterstuetzen.
+POI-Ketten, Training, SAR und Bush bleiben gesperrt. Keine neue Klassifikation.
+
+### Original und Anbindung
+
+| Original | Tracker-Anbindung | Zustand / Nachweis |
+| --- | --- | --- |
+| `mission-survey-pattern.js`: normalizeSpec, tickScanState, tickOrbitState, tickState | generiertes `mission-survey-core.js`; `tracker-mission-survey-task.js` normalisiert Samples und begrenzt Segmente | `poiTask.surveyState`: abgeschlossene Linien/Kreise, aktive Bins/Sektoren, letzter Messpunkt; eingefrorene Originalreferenz und Differentialtests |
+| `_tickSurveyPatternTask` vor gemeinsamem POI-Task | `tracker-mission-poi-runtime.js` | originale Erfuellungsflags, Cargo-Pruefung, kein Ersatz durch einfache Verweilzeit |
+| `_handleSurveyPatternEvents`, Status/Orientierung und originale Survey-Texte | generierter POI-Voice-Core, `tracker-mission-survey-voice.js` | Originalprioritaet: fertig, Gebietseintritt, erstes Linien-/Orbit-/Reset-Ereignis |
+| Survey-Static-Clips und Audio-Cues | zentrale Voice-Instanz im Parent | lokale WAVs aus versioniertem Katalog, originale Gemini-Stimmenauswahl, TTS-Fallback; Textbestaetigung vor Audio, bestehende Playback-Lease |
+| Leaflet-Survey-Overlay | originale, fuer Coherent kompilierte Darstellung mit `renderAuthorityProjection` | App und EFB zeichnen dieselbe Authority-Projektion, ohne lokalen Detector zu ticken |
+| Verladen, Start, Komfort, Rueckflug, Ausladen, Abschluss/Folgeauftraege | bestehender APT-/POI-Lifecycle | keine zweite Start-/Abschlusslogik; Lifecycle-, Restart-, Cargo- und echter Worker-Test |
+
+### Telemetrie und Checkpoints
+
+Der Parent liefert weiterhin latest-only Telemetrie an den Worker. Nur im
+Survey-Adapter werden kurze Segmente rekonstruiert: maximal 5 Sekunden, 32
+Zwischenschritte und eine Distanzgrenze aus gemeldeter Geschwindigkeit plus
+GPS-Toleranz. Beide Endpunkte muessen gueltige Hoehe/Geschwindigkeit haben.
+Laengengrade werden ueber den kurzen Bogen interpoliert. Das ist eine Naeherung
+zwischen Messpunkten, kein Beleg fuer unbeobachtete Manoever oder Belastung.
+
+Pause, Menue, Slew, unplausibler Positionssprung, fehlende Telemetrie, lange Luecke
+und Wiederverbindung unterbrechen den laufenden Abschnitt. Abgeschlossene
+Linien/Kreise bleiben erhalten; eine unterbrochene Linie bzw. Runde muss erneut
+geflogen werden. Keine Interpolation von Komfort/g-Werten oder Landungsereignissen.
+
+Checkpoint-Vergleiche muessen kanonische Objektreihenfolge verwenden. Sonst kann
+Replay sortierte Event-Keys erzeugen, die faelschlich als fremde Historie gelten
+und aktive Survey-Bins bei jedem Sample loeschen. Reine Voice-/Cargo-Revisionen
+unterbrechen den laufenden Abschnitt nicht.
+
+Fortschritt und Effekte gehen ueber die bestehende Revision-/Replay-Transaktion.
+Keine synchronen Dateischreibvorgaenge pro Sample/Trigger: unveraenderte periodische
+Worker-Persistenz, mit dem bereits akzeptierten Verlustfenster bei hartem Absturz.
+Der Cloud-Seed transportiert die kleine normalisierte Pattern-Spezifikation; keine
+zusatzliche Flugspur-Synchronisierung oder Worker-Write-Schleife.
+
+### Darstellung und weitere Familien
+
+EFB zeigt abgeschlossene Linien/Kreise und laufende Abdeckung anstelle einer
+irrefuehrenden Verweilzeit. App-PAX-Status liest unter Tracker-Autoritaet dieselbe
+Projektion. Geometrie, Zielhoehe, Toleranz und Cue-Overrides gehoeren zum Seed.
+Der kompakte UI-Fortschritt ersetzt weder das vollstaendige Resume-Paket noch den
+internen Detector. Bestehende verlustfreie Cloud-/Relay-/Exportwege weiterverwenden.
+
+Die Tests decken Originalparitaet, unvollstaendige Samples, Pause/Slew/Teleport,
+Restart, Cargo, manuellen PAX-Status, Leaflet-Projektion und den echten separaten
+Worker ab. Ein MSFS-Flug bleibt fuer reale SimConnect-/Coherent-/Audio-Pruefung
+notwendig.

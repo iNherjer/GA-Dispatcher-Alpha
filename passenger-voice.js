@@ -635,9 +635,7 @@ window.paxVoiceGetPoiMissionProgress = function() {
         ? window.missionSarHeliProgressSnapshot()
         : null;
     const sarHeliLoaded = !!(sarHeli && sarHeli.patientLoaded);
-    const surveyPattern = (typeof window.missionSurveyPattern?.snapshot === 'function')
-        ? window.missionSurveyPattern.snapshot()
-        : null;
+    const surveyPattern = _surveyPatternSnapshot();
     const surveySatisfied = !!(surveyPattern && surveyPattern.satisfied);
     const poiChain = (typeof window.missionPoiChainRuntime?.snapshot === 'function')
         ? window.missionPoiChainRuntime.snapshot()
@@ -5657,6 +5655,8 @@ function _surveyPatternActiveSpec() {
 }
 
 function _surveyPatternSnapshot() {
+    const tracker = window.gaTrackerExecutionControl;
+    if (tracker?.executionAuthority === 'tracker' && tracker.surveySpec) return tracker.poiTask?.surveyPattern || null;
     if (typeof window.missionSurveyPattern?.snapshot !== 'function') return null;
     try {
         return window.missionSurveyPattern.snapshot();
@@ -9878,6 +9878,13 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
         baseContext: _baseContext(), toneHint: _toneHint(true),
         passenger: { ...window.activePassenger }, missionData: { poiName: md.poiName, targetName: md.targetName, dest: md.dest },
         mapPlaceOrientationLine: _paxMapPlaceOrientationLine(),
+        ...(_activeTaskDomain() === 'mapping_survey' ? {
+            surveySpec: _surveyPatternActiveSpec(),
+            surveyAudioCueIds: Object.fromEntries(Object.entries({ survey_area_entered: 'scan_start',
+                line_complete: 'data_lock', orbit_turn_complete: 'data_lock', survey_complete: 'handoff',
+                line_reset_offtrack: 'none', line_reset_altitude: 'none', orbit_reset_offtrack: 'none', orbit_reset_altitude: 'none'
+            }).map(([kind, fallback]) => [kind, _paxAudioEffectsEnabled ? _paxMissionAudioCueId('mapping_survey', kind, fallback) : 'none']))
+        } : {}),
         ...( ['sightseeing_tour', 'poi_learning_guide'].includes(_activeTaskDomain()) ? { knowledgeContext: _activePoiKnowledgeContext() } : {} ),
         inspectionMeta: _inspectionMissionMeta(), infraOutcome: _activeInfraInspectionOutcome(),
         professionalMeta: _professionalRoleMeta(),

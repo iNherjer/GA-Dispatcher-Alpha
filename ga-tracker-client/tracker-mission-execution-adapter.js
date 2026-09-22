@@ -805,7 +805,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       const sample = { ...observations.latestTelemetry, ...position };
       if (Number.isFinite(position.altFt ?? position.alt)) sample.altFt = position.altFt ?? position.alt;
       let cue;
-      try { cue = preparePoiAction(recipe.voiceContext, intent, snapshot.state.poiTask?.detector, sample, recipe.target, snapshot.state.voice?.poiMemory); }
+      try { cue = preparePoiAction(recipe.voiceContext, intent, { ...snapshot.state.poiTask?.detector, surveyProgress: poiRuntime.project(snapshot.state.poiTask)?.surveyPattern }, sample, recipe.target, snapshot.state.voice?.poiMemory); }
       catch (error) { return errorResult(error.message || 'poi_action_context_invalid'); }
       return submitEvent(snapshot, 'POI_ACTION_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }

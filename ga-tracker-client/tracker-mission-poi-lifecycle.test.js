@@ -641,3 +641,108 @@ test('App learning menu follows authority updates without using local fact count
   sandbox.window.gaMissionControlIntentPending = true;
   update(); assert.equal(button.disabled, true);
 });
+
+function mappingBundle(type = 'north_south_scan') {
+  const b = bundle();
+  const spec = require('../mission-survey-core.js').normalizeSpec({ taskDomain: 'mapping_survey', type,
+    center: b.executionPoiRecipe.target, targetAltFt: 3000,
+    scan: { lineCount: 2, lineLengthNm: .4, bins: 16 }, orbit: { requiredTurns: 1, minTurnSec: 45 } });
+  b.adapter = b.descriptor.primaryAdapter = 'survey_pattern';
+  b.missionState.currentMissionData.surveyPattern = spec;
+  b.executionPoiRecipe.taskDomain = 'mapping_survey';
+  b.executionPoiRecipe.surveyPattern = spec;
+  Object.assign(b.executionPoiRecipe.voiceContext, { taskDomain: 'mapping_survey', surveySpec: spec });
+  return replay(b);
+}
+
+for (const type of ['north_south_scan', 'orbit']) test(`Mapping ${type}: cloud gate, original task, status, EFB progress and normal return`, async t => {
+  const b = mappingBundle(type), spec = b.executionPoiRecipe.surveyPattern;
+  const cloud = buildCloudMissionCandidate({ activeMission: b.missionState,
+    activeMissionTrackerSeed: { schema: 'ga.tracker-cloud-mission-seed.v1', version: 1, missionId: b.missionId,
+      adapter: b.adapter, executionPoiRecipe: b.executionPoiRecipe, executionEffectPlan: b.executionEffectPlan } }, { poiExecutionEnabled: true });
+  assert.equal(cloud.status, 'ready', JSON.stringify(cloud));
+  assert.equal(cloud.candidate.bundle.executionReplay.recipe, 'poi');
+  const h = await harness(t, { bundle: b }); await h.start();
+  const core = require('../mission-survey-core.js');
+  let at = 10000;
+  h.sample(at, { lat: 48.1, lon: 8.1 }); at += 1000;
+  if (type === 'orbit') {
+    for (let degree = 0; degree <= 360; degree += 5) {
+      const point = core.destinationPoint(spec.center.lat, spec.center.lon, spec.orbit.radiusNm, degree);
+      h.sample(at, { ...point, hdg: (degree + 90) % 360 }); at += 1000;
+    }
+  } else {
+    for (const line of spec.scan.lines) {
+      for (let i = 0; i <= 24; i++) {
+        h.sample(at, { ...core.interpolateLine(line, i / 24), hdg: 180 }); at += 1000;
+        if (line.id === spec.scan.lines[0].id && i === 8) {
+          const partial = h.manager.getPublicSnapshot().execution.poiTask.surveyPattern;
+          await h.intent('poi_status');
+          const afterVoiceRevision = h.manager.getPublicSnapshot().execution.poiTask.surveyPattern;
+          assert.equal(afterVoiceRevision.scan.activeLineId, partial.scan.activeLineId);
+          assert.ok(afterVoiceRevision.scan.activeCoverage >= partial.scan.activeCoverage);
+          const spoken = h.manager.getExecutionSnapshot().state.effects.findLast(e => e.payload.action === 'poi_status');
+          assert.match(spoken.payload.resolvedRecipe.fallbackText, /aktiv bei \d+%/);
+        }
+      }
+      await h.restart();
+    }
+  }
+  assert.equal(h.manager.getExecutionSnapshot().state.poiTask.detector.satisfied, true);
+  assert.equal(h.manager.getExecutionSnapshot().state.phase, 'return_leg');
+  await h.intent('poi_status');
+  const status = h.manager.getExecutionSnapshot().state.effects.findLast(e => e.payload.action === 'poi_status');
+  assert.match(status.payload.resolvedRecipe.fallbackText, /Survey.*abgeschlossen/);
+  const control = h.manager.getPublicSnapshot().execution;
+  const view = projectTrackerEfbMissionView(h.manager.getActiveRun({ includeBundle: true }), null, null, control);
+  // The authority control is the single progress source for all viewers.
+  assert.equal(control.poiTask.surveyPattern.satisfied, true);
+  assert.equal(view.view.progress[0].label, type === 'orbit' ? 'Survey-Kreise' : 'Survey-Linien');
+  assert.equal(view.view.progress[0].percent, 100);
+  assert.match(view.view.progress[0].detail, type === 'orbit' ? /1\/1 abgeschlossen/ : /2\/2 abgeschlossen/);
+  h.sample(at + 2000, { lat: 48, lon: 8, onGround: true, gsKts: 0, aglFt: 0 });
+  h.sample(at + 3000, { lat: 48, lon: 8, onGround: true, gsKts: 0, aglFt: 0 });
+  await h.intent('set_manifest_item', { itemId: 'camera', action: 'unload' });
+  await h.intent('sign_manifest'); await h.intent('confirm_unload');
+  for (let i = 0; i < 100 && h.manager.getActiveRun(); i++) await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(h.manager.getActiveRun(), null);
+  assert.equal(h.farewell[0].farewellDynamicContext.missionFailed, false);
+});
+
+test('Mapping pause/restart drops an unfinished scan segment without inventing its remaining coverage', async t => {
+  const b = mappingBundle(), spec = b.executionPoiRecipe.surveyPattern;
+  const h = await harness(t, { bundle: b }); await h.start();
+  const core = require('../mission-survey-core.js');
+  const line = spec.scan.lines[0]; let at = 10000;
+  for (let i = 0; i <= 8; i++) { h.sample(at, { ...core.interpolateLine(line, i / 24), hdg: 180 }); at += 1000; }
+  assert.ok(h.manager.getPublicSnapshot().execution.poiTask.surveyPattern.scan.activeCoverage > 0);
+  h.sample(at, { simPaused: true }); at += 1000;
+  await h.restart();
+  for (let i = 9; i <= 24; i++) { h.sample(at, { ...core.interpolateLine(line, i / 24), hdg: 180 }); at += 1000; }
+  const survey = h.manager.getPublicSnapshot().execution.poiTask.surveyPattern;
+  assert.equal(survey.scan.completedCount, 0);
+  assert.equal(survey.satisfied, false);
+});
+
+test('Mapping required cargo damage aborts the original task before Survey success', async t => {
+  const b = mappingBundle(), spec = b.executionPoiRecipe.surveyPattern;
+  const h = await harness(t, { bundle: b }); await h.start();
+  const core = require('../mission-survey-core.js');
+  h.sample(10000, { ...core.interpolateLine(spec.scan.lines[0], 0), hdg: 180, gForce: 4, bankDeg: 80, vsFpm: -2000 });
+  const execution = h.manager.getPublicSnapshot().execution;
+  assert.equal(execution.poiTask.aborted, true);
+  assert.equal(execution.poiTask.surveyPattern.satisfied, false);
+  assert.equal(execution.progress.taskAborted, true);
+});
+
+for (const missing of ['altFt', 'lat', 'gsKts']) test(`Mapping missing ${missing} interrupts geometric coverage through the full runtime`, async t => {
+  const b = mappingBundle(), spec = b.executionPoiRecipe.surveyPattern;
+  const h = await harness(t, { bundle: b }); await h.start();
+  const core = require('../mission-survey-core.js'), line = spec.scan.lines[0];
+  for (let i = 0; i <= 8; i++) h.sample(10000 + i * 1000, { ...core.interpolateLine(line, i / 24), hdg: 180 });
+  assert.ok(h.manager.getPublicSnapshot().execution.poiTask.surveyPattern.scan.activeCoverage > 0);
+  h.sample(19000, { ...core.interpolateLine(line, 9 / 24), [missing]: null });
+  assert.equal(h.manager.getPublicSnapshot().execution.poiTask.surveyPattern.scan.activeLineId, '');
+  for (let i = 10; i <= 24; i++) h.sample(10000 + i * 1000, { ...core.interpolateLine(line, i / 24), hdg: 180 });
+  assert.equal(h.manager.getPublicSnapshot().execution.poiTask.surveyPattern.scan.completedCount, 0);
+});

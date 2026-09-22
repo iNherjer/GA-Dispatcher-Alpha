@@ -432,11 +432,22 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
         percent: task.satisfied ? 100 : duration > 0 ? Math.min(100, completed / duration * 100) : 0,
         detail: `${formatDuration(completed)} / ${formatDuration(duration)}${task.satisfied ? ' · erfüllt' : ''}`,
         tone: task.aborted ? 'danger' : task.satisfied ? 'good' : 'active' });
+      if (recipe.taskDomain === 'mapping_survey') {
+        const survey = task.surveyPattern || {};
+        const orbit = recipe.surveyPattern?.type === 'orbit';
+        const done = orbit ? Number(survey.orbit?.completedTurns || 0) : (survey.scan?.completedLineIds || []).length;
+        const total = orbit ? Number(recipe.surveyPattern.orbit.requiredTurns) : recipe.surveyPattern.scan.lines.length;
+        const partial = Number(orbit ? survey.orbit?.activeCoverage : survey.scan?.activeCoverage) || 0;
+        view.progress[0] = { label: orbit ? 'Survey-Kreise' : 'Survey-Linien',
+          percent: task.satisfied ? 100 : Math.min(100, (done + partial) / Math.max(1, total) * 100),
+          detail: `${done}/${total} abgeschlossen · laufender Abschnitt ${Math.round(partial * 100)}%`,
+          tone: task.aborted ? 'danger' : task.satisfied ? 'good' : 'active' };
+      }
       view.taskTone = task.aborted ? 'danger' : task.satisfied ? 'good' : 'active';
       // The seed feedback describes the preflight state and is stale after handoff.
       view.feedback.push({ label: 'Arbeitsbereich', detail: control.poiStatus?.detail ||
         (task.aborted ? 'Auftrag abgebrochen' : task.satisfied ? 'Auftrag erfüllt' : task.inRadius ? 'Im Arbeitsbereich' : 'Arbeitsbereich anfliegen'), tone: view.taskTone });
-      if (task.inRadius && task.altWasOk === false && !task.aborted && !task.satisfied) view.feedback.push({
+      if (recipe.taskDomain !== 'mapping_survey' && task.inRadius && task.altWasOk === false && !task.aborted && !task.satisfied) view.feedback.push({
         label: 'Arbeitshöhe', detail: 'Außerhalb der Arbeitshöhe: Arbeitszeit pausiert. Zielhöhe wieder einhalten.', tone: 'warn' });
     }
     const taskItems = control.taskItems;
@@ -473,6 +484,15 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       view.requirements.push({label:'Arbeitshöhe', detail:targetAlt ? `${targetAlt} ft MSL · aktuell ${alt === null ? 'unbekannt' : Math.round(alt) + ' ft MSL'}` : 'Keine Höhenvorgabe', tone:'neutral'});
       const seconds = Math.max(0, Number(pax.targetDwellMin) || 0) * 60 * (recipe.strict ? 1 : 0.5);
       view.requirements.push({label:'Verweilzeit', detail:`${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')} erforderlich`, tone:'neutral'});
+      if (recipe.taskDomain === 'mapping_survey') {
+        view.requirements = view.requirements.filter(row => !['Arbeitsbereich', 'Verweilzeit'].includes(row.label));
+        const spec = recipe.surveyPattern;
+        const altitudeRow = view.requirements.find(row => row.label === 'Arbeitshöhe');
+        if (altitudeRow) altitudeRow.detail = `${spec.targetAltFt} ft MSL ± ${spec.altitudeToleranceFt} ft · aktuell ${alt === null ? 'unbekannt' : Math.round(alt) + ' ft MSL'}`;
+        view.requirements.push({ label: 'Survey-Pattern', detail: spec.type === 'orbit'
+          ? `${spec.orbit.requiredTurns} Kreise bei ${spec.orbit.radiusNm} NM Radius`
+          : `${spec.scan.lines.length} Scanlinien vollständig abfliegen`, tone: 'neutral' });
+      }
       const task = control.poiTask || {};
       view.phase.stages = [{id:'preparation',label:'Vorbereitung'},{id:'enroute',label:'Anflug'},
         {id:'work',label:'Arbeitsbereich'},{id:'return',label:'Rückflug'},{id:'arrival',label:'Landung'},{id:'complete',label:'Abschluss'}];

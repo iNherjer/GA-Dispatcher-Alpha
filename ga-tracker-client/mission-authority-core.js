@@ -494,6 +494,7 @@ function publicExecutionSnapshot(run) {
     comfort: runtime?.comfort?.summary ? Object.fromEntries(['comfortScore', 'mood', 'pilotEvents', 'pilotSevere', 'weatherEvents', 'weatherSevere', 'debugMotionProtection'].map(key => [key, runtime.comfort.summary[key]])) : null,
     taskItems: poiRuntime.taskItemStateFromManifest(state.manifest),
     ...(state.poiTask ? { poiTask: poiRuntime.project(state.poiTask) } : {}),
+    ...(poiRecipe?.taskDomain === 'mapping_survey' ? { surveySpec: poiRecipe.surveyPattern } : {}),
     ...(state.poiLifecycle ? { poiLifecycle: jsonClone(state.poiLifecycle) } : {}),
     ...(poiLifecycle ? { poiStatus: poiLifecycle.status, poiOutcome: exposeCompletionRecord ? poiLifecycle.outcome : null } : {}),
     manifest: jsonClone(state.manifest),
@@ -592,7 +593,8 @@ function createMissionAuthorityManager(options = {}) {
   const supportsExecutionRecipe = (recipe, bundle) => recipe === EXECUTION_HANDOFF_RECIPE
     || (options.poiExecutionEnabled === true && recipe === 'poi'
       && bundle?.missionId === bundle?.executionPoiRecipe?.missionId
-      && resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'poi'
+      && (resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'poi'
+        || (resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'survey_pattern' && bundle.executionPoiRecipe?.taskDomain === 'mapping_survey'))
       && !poiRuntime.validateBundle(bundle)
       && (options.poiLifecycleRequired !== true || poiRuntime.hasLifecycle(bundle.executionPoiRecipe)));
   let state = newState();

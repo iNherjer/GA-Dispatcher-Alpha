@@ -10,6 +10,9 @@ export const helperNames = ['_poiMemoryCompact', '_capturePoiNarrativeMemory', '
   '_paxCardinalGerman', '_weatherContext', '_professionalLandingToneHint'];
 export const knowledgeNames = ['_poiKnowledgeCleanFactText', '_poiKnowledgeContextIdentity', '_poiKnowledgeSyncContext', '_poiKnowledgeFactCandidates', '_poiKnowledgeFactKey', '_poiKnowledgeStageScore', '_poiKnowledgeStageMinIndex', '_poiKnowledgeFactHint', '_poiKnowledgeRichFactCount', '_poiKnowledgeFactSequenceHint', '_poiKnowledgeManualFactCandidates', '_poiKnowledgeTellMoreAvailable', '_poiKnowledgeFreshFactCount', '_poiKnowledgeManualFactClip', '_poiKnowledgeNextManualFact', '_poiKnowledgeTargetName'];
 const actionNames = ['_missionActionContext', '_missionVectorText', '_missionOrientationFactLine', '_missionStatusFacts', '_paxNearLandmarkOrientationLine', '_poiMissionStatusAction', '_poiMissionOrientationAction'];
+const surveyNames = ['_surveyPatternActiveSpec', '_surveyPatternSnapshot', '_surveyPatternProgressSummary',
+  '_surveyPatternStatusText', '_surveyPatternOrientationText', '_surveyPatternStaticClipKey',
+  '_surveyPatternVoiceText', '_surveyPatternEventKind'];
 const farewellNames = ['_farewellPrompt', '_failedMissionFarewellFallback', '_farewellPreparedContext'];
 export function extract(name, text = source) { return extractOriginalFunction(text, name); }
 const header = `// Generated from original passenger-voice.js functions by tools/generate-poi-voice-core.mjs.
@@ -21,7 +24,7 @@ const header = `// Generated from original passenger-voice.js functions by tools
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(taskCore) {
 'use strict';
 const CONTEXT_SCHEMA = 'ga.mission-poi-voice-context.v1';
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey']);
 const PROMPTS = Object.freeze(${JSON.stringify(promptNames)});
 const clone = value => JSON.parse(JSON.stringify(value));
 function normalizeMemory(value = {}) {
@@ -36,7 +39,8 @@ function validateContext(context, missionId = context?.missionId) {
   if (!DOMAINS.includes(context.taskDomain) || typeof context.strict !== 'boolean'
       || !context.passenger || Array.isArray(context.passenger) || typeof context.baseContext !== 'string' || !context.baseContext.trim()
       || typeof context.audioEnabled !== 'boolean') return 'poi_voice_context_invalid';
-  if (['trainingPlan', 'trainingProcedure', 'poiChain', 'surveyPattern', 'sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  if (['trainingPlan', 'trainingProcedure', 'poiChain', 'sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  if (context.passenger.surveyPattern && context.taskDomain !== 'mapping_survey') return 'poi_voice_specialized_context_not_migrated';
   try {
     if (encodeURIComponent(JSON.stringify(context)).replace(/%[A-F0-9]{2}/g, 'x').length > 65536)
       return 'poi_voice_context_too_large';
@@ -45,7 +49,8 @@ function validateContext(context, missionId = context?.missionId) {
 }
 function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const window = { activePassenger: context.passenger, lastLiveGpsPos: cue.sample || {}, lastLiveFlightData: cue.sample || cue.dynamic?.liveWeather,
-    paxVoiceGetPoiMissionProgress: () => cue.dynamic?.poiProgress || {}, missionRuntimeIsActive: () => cue.active !== false };
+    paxVoiceGetPoiMissionProgress: () => cue.dynamic?.poiProgress || {}, missionRuntimeIsActive: () => cue.active !== false,
+    missionSurveyPattern: { getActiveSpec: () => context.surveySpec || null, snapshot: () => cue.detector?.surveyProgress || null } };
   const _paxDebugMotionProtectionEnabled = () => context.motionProtectionEnabled === true;
   const _consumeWeatherMismatchEasteregg = () => cue.dynamic?.weatherMismatchHint || '';
   const _bushPickupNarrativeHint = () => '';
@@ -105,6 +110,16 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
 `;
 const footer = `
   if (cue.availability) return _poiKnowledgeTellMoreAvailable();
+  if (cue.surveyEvent) {
+    const meaningful = (Array.isArray(cue.surveyEvent.events) ? cue.surveyEvent.events : []).map(_surveyPatternEventKind).filter(Boolean);
+    const kind = meaningful.includes('survey_complete') ? 'survey_complete'
+      : (meaningful.includes('survey_area_entered') ? 'survey_area_entered'
+        : meaningful.find(value => /complete|reset/.test(value)));
+    if (!kind) return { surveyEvent: null };
+    const spec = cue.surveyEvent.spec || context.surveySpec || null;
+    const text = _surveyPatternVoiceText(kind, spec);
+    return { surveyEvent: text ? { kind, text, staticClipKey: _surveyPatternStaticClipKey(kind, spec) } : null };
+  }
   if (cue.action) {
     if (cue.action === 'poi_tell_more') {
       if (!_poiKnowledgeTellMoreAvailable()) throw new TypeError('poi_knowledge_not_available');
@@ -154,10 +169,16 @@ function renderAction(context, action, detector, sample, target, previous = {}) 
 function knowledgeAvailable(context, memory = {}, active = true) {
   return original(context || {}, memory || {}, { availability: true, active });
 }
-return Object.freeze({ knowledgeAvailable, renderAction, renderFarewell, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
+function surveyEvent(context, events = [], spec = context?.surveySpec || null) {
+  const error = validateContext(context);
+  if (error) throw new TypeError(error);
+  if (context.taskDomain !== 'mapping_survey') throw new TypeError('poi_survey_domain_invalid');
+  return original(clone(context), {}, { surveyEvent: { events: clone(Array.isArray(events) ? events : []), spec: clone(spec) } }).surveyEvent;
+}
+return Object.freeze({ knowledgeAvailable, renderAction, renderFarewell, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
 });
 `;
-const result = header + [...helperNames, ...knowledgeNames, ...promptNames, ...farewellNames, ...actionNames].map(name => extract(name)).join('\n\n') + '\n' + extract('paxKnowledgeTellMore', source.replace('window.paxKnowledgeTellMore = function(', 'function paxKnowledgeTellMore(')).replace(/    if \(window\.gaTrackerExecutionHandlesMission.*\n/g, '') + footer;
+const result = header + [...helperNames, ...knowledgeNames, ...promptNames, ...farewellNames, ...actionNames, ...surveyNames].map(name => extract(name)).join('\n\n') + '\n' + extract('paxKnowledgeTellMore', source.replace('window.paxKnowledgeTellMore = function(', 'function paxKnowledgeTellMore(')).replace(/    if \(window\.gaTrackerExecutionHandlesMission.*\n/g, '') + footer;
 const target = new URL('../mission-poi-voice-core.js', import.meta.url);
 if (process.argv.includes('--check')) {
   if (fs.readFileSync(target, 'utf8') !== result) throw new Error('POI voice core drifted from App source');

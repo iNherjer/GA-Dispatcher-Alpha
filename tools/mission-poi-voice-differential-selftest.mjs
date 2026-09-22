@@ -82,6 +82,15 @@ vm.runInContext(app.slice(toneStart, toneEnd), tone);
 assert.match(tone._toneHint(), /Begrüßung höchstens kurz/);
 assert.match(tone._toneHint(true), /Keine neue Begrüßung/);
 assert.equal(tone._paxGreetingDone, false);
+const surveyContext = { schema: core.CONTEXT_SCHEMA, version: 1, missionId: 'survey-parity', taskDomain: 'mapping_survey',
+  strict: true, audioEnabled: true, baseContext: 'Originale Mapping-Persona.', passenger: { surveyPattern: true, targetAltFt: 3200 },
+  speaker: { name: 'Mara' }, surveySpec: { type: 'scan', scan: { lines: [{ id: 'L1' }, { id: 'L2' }] } } };
+assert.deepEqual(core.surveyEvent(surveyContext, [{ type: 'line_complete' }, { type: 'survey_area_entered' }]),
+  { kind: 'survey_area_entered', text: 'Wir sind im Surveybereich. Such dir ein Linienende und flieg die erste Bahn sauber durch.', staticClipKey: 'scan_survey_area_entered' });
+assert.equal(core.renderAction(surveyContext, 'poi_status', { surveyProgress: { startedAt: 1,
+  scan: { completedLineIds: ['L1'], active: { lineId: 'L2' }, activeCoverage: .5 } } },
+  { lat: 48, lon: 8, altFt: 3200, mslFt: 3200, hdg: 90 }, { lat: 48.1, lon: 8.1 }).fallbackText,
+  'Distanz zum Ziel 7.2 NM, Richtung 034 Grad. Survey-Scan 1/2 Linien gruen, L2 aktiv bei 50%. Status: Datenaufnahme laeuft. Hoehe im Band: 3200 ft bei Ziel 3200 ft.');
 console.log(`PASS: ${count} frozen-original/POI voice comparisons, narrative memory, browser export and tone isolation.`);
 
 // Rich guide prompts and manual core/extra fact sequence against frozen standalone code.

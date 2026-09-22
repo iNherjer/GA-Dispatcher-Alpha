@@ -148,7 +148,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
         voiceOutcome: voiceOutcome(recipe, { status: 'skipped', playback: recipe.skipReason || 'disabled' })
       });
     }
-    if (!voiceService || voiceService.publicState?.().configured !== true) {
+    if (!voiceService || (voiceService.publicState?.().configured !== true && !voiceService.supportsStaticSurvey?.(recipe))) {
       log(`MISSION_BOARDING_VOICE_BEST_EFFORT effect=${effectId} reason=voice_not_configured`);
       return completed(request, {
         voiceStatus: 'voice_not_configured',
@@ -188,6 +188,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
         prompt: recipe.prompt,
         fallbackText: recipe.fallbackText,
         taskDomain: recipe.taskDomain,
+        staticClipKey: recipe.staticClipKey,
         speaker: recipe.speaker,
         cue: recipe.playCue === true ? recipe.cue : null,
         textModels: recipe.textModels,

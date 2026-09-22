@@ -170,7 +170,7 @@ test('bounded provider queue still accepts a duplicate without starting another 
     () => service.request({ effectId: 'run-5:second', text: 'Zweiter Auftrag.' }),
     (error) => error?.code === 'voice_queue_full' && error?.statusCode === 429
   );
-  await Promise.resolve();
+  await new Promise(setImmediate);
   assert.equal(calls, 1);
   releaseProvider();
   await service.wait('run-5:first');
@@ -517,6 +517,40 @@ test('route story keeps its job kind through request normalization',()=>{
  const {normalizeVoiceRequest}=require('./tracker-voice-service');
  const normalized=normalizeVoiceRequest({effectId:'run:story-1',kind:'route_story',text:'Hallo.',speaker:{taskDomain:'club_utility'}});
  assert.equal(normalized.kind,'route_story');assert.equal(normalized.speaker.taskDomain,'club_utility');
+});
+
+test('mapping Survey uses the packaged static clip without a provider', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-static-survey-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(directory, 'clips', 'Kore'), { recursive: true });
+  fs.writeFileSync(path.join(directory, 'clips', 'Kore', 'scan_survey_area_entered-t01.wav'), 'static-wav');
+  fs.writeFileSync(path.join(directory, 'catalog.json'), JSON.stringify({ clips: { scan_survey_area_entered: { takes: [{ voice: 'Kore', path: 'clips/Kore/scan_survey_area_entered-t01.wav', mimeType: 'audio/wav' }] } } }));
+  const service = createTrackerVoiceService({ staticSurveyCatalogPath: path.join(directory, 'catalog.json') });
+  service.request({ effectId: 'survey:static', kind: 'poi', taskDomain: 'mapping_survey', staticClipKey: 'scan_survey_area_entered', fallbackText: 'Start.', speaker: { gender: 'female' } });
+  const ready = await service.wait('survey:static');
+  assert.equal(ready.status, 'ready'); assert.equal(ready.model, 'static-survey');
+  assert.equal(service.getAudio('survey:static').body.toString(), 'static-wav');
+});
+
+test('Survey static audio observes text checkpoint and audio setting', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-static-survey-block-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(directory, 'clips', 'Kore'), { recursive: true }); fs.writeFileSync(path.join(directory, 'clips', 'Kore', 'line_complete-t01.wav'), 'static-wav');
+  fs.writeFileSync(path.join(directory, 'catalog.json'), JSON.stringify({ clips: { line_complete: { takes: [{ voice: 'Kore', path: 'clips/Kore/line_complete-t01.wav' }] } } }));
+  const blocked = createTrackerVoiceService({ staticSurveyCatalogPath: path.join(directory, 'catalog.json') });
+  blocked.request({ effectId: 'survey:blocked', kind: 'poi', taskDomain: 'mapping_survey', staticClipKey: 'line_complete', fallbackText: 'Gut.', speaker: { gender: 'female' }, confirmTextReady: () => ({ ok: false, error: 'commit_failed' }) });
+  assert.equal((await blocked.wait('survey:blocked')).status, 'text_blocked'); assert.equal(blocked.getAudio('survey:blocked'), null);
+  const textOnly = createTrackerVoiceService({ staticSurveyCatalogPath: path.join(directory, 'catalog.json') });
+  textOnly.request({ effectId: 'survey:text-only', kind: 'poi', taskDomain: 'mapping_survey', staticClipKey: 'line_complete', fallbackText: 'Gut.', synthesizeAudio: false });
+  assert.equal((await textOnly.wait('survey:text-only')).audioAvailable, false);
+});
+
+test('invalid static Survey requests cannot select a local path and fall back normally', async () => {
+  const service = createTrackerVoiceService({ provider: 'openai', apiKey: 'test', staticSurveyCatalogPath: '/missing/catalog.json', fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('tts') }) });
+  service.request({ effectId: 'survey:fallback', kind: 'poi', taskDomain: 'mapping_survey', staticClipKey: 'line_complete', fallbackText: 'Gut.' });
+  assert.equal((await service.wait('survey:fallback')).model, 'gpt-4o-mini-tts');
+  assert.equal(service.supportsStaticSurvey({ kind: 'poi', taskDomain: 'media_photo', staticClipKey: 'line_complete' }), false);
+  assert.equal(service.supportsStaticSurvey({ kind: 'poi', taskDomain: 'mapping_survey', staticClipKey: '../../secret' }), false);
 });
 
 test('POI text checkpoint hooks cannot change the APT voice pipeline', async () => {

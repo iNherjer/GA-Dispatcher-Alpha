@@ -7,7 +7,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(taskCore) {
 'use strict';
 const CONTEXT_SCHEMA = 'ga.mission-poi-voice-context.v1';
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey']);
 const PROMPTS = Object.freeze(["_poiEntryPrompt","_poiInSightPrompt","_poiAltComplaintPrompt","_poiAltCorrectedPrompt","_poiSatisfiedPrompt","_poiAbortPrompt","_poiMissingCargoAbortPrompt"]);
 const clone = value => JSON.parse(JSON.stringify(value));
 function normalizeMemory(value = {}) {
@@ -22,7 +22,8 @@ function validateContext(context, missionId = context?.missionId) {
   if (!DOMAINS.includes(context.taskDomain) || typeof context.strict !== 'boolean'
       || !context.passenger || Array.isArray(context.passenger) || typeof context.baseContext !== 'string' || !context.baseContext.trim()
       || typeof context.audioEnabled !== 'boolean') return 'poi_voice_context_invalid';
-  if (['trainingPlan', 'trainingProcedure', 'poiChain', 'surveyPattern', 'sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  if (['trainingPlan', 'trainingProcedure', 'poiChain', 'sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  if (context.passenger.surveyPattern && context.taskDomain !== 'mapping_survey') return 'poi_voice_specialized_context_not_migrated';
   try {
     if (encodeURIComponent(JSON.stringify(context)).replace(/%[A-F0-9]{2}/g, 'x').length > 65536)
       return 'poi_voice_context_too_large';
@@ -31,7 +32,8 @@ function validateContext(context, missionId = context?.missionId) {
 }
 function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const window = { activePassenger: context.passenger, lastLiveGpsPos: cue.sample || {}, lastLiveFlightData: cue.sample || cue.dynamic?.liveWeather,
-    paxVoiceGetPoiMissionProgress: () => cue.dynamic?.poiProgress || {}, missionRuntimeIsActive: () => cue.active !== false };
+    paxVoiceGetPoiMissionProgress: () => cue.dynamic?.poiProgress || {}, missionRuntimeIsActive: () => cue.active !== false,
+    missionSurveyPattern: { getActiveSpec: () => context.surveySpec || null, snapshot: () => cue.detector?.surveyProgress || null } };
   const _paxDebugMotionProtectionEnabled = () => context.motionProtectionEnabled === true;
   const _consumeWeatherMismatchEasteregg = () => cue.dynamic?.weatherMismatchHint || '';
   const _bushPickupNarrativeHint = () => '';
@@ -1328,6 +1330,126 @@ Antworte zuerst mit Steuerkurs und Entfernung in ganzen NM, danach eine kurze Zi
         : `${vector} Ziel ist ${ctx.targetName}; nutze die naechste markante Struktur im Zielgebiet als Bezug und halte weiter Ausschau.`;
     _missionActionSpeak(prompt, 'Orientierung', fallback);
 }
+
+function _surveyPatternActiveSpec() {
+    if (typeof window.missionSurveyPattern?.getActiveSpec !== 'function') return null;
+    try {
+        return window.missionSurveyPattern.getActiveSpec(
+            (typeof currentMissionData !== 'undefined' ? currentMissionData : null),
+            window.activePassenger || null
+        );
+    } catch (_) {
+        return null;
+    }
+}
+
+function _surveyPatternSnapshot() {
+    const tracker = window.gaTrackerExecutionControl;
+    if (tracker?.executionAuthority === 'tracker' && tracker.surveySpec) return tracker.poiTask?.surveyPattern || null;
+    if (typeof window.missionSurveyPattern?.snapshot !== 'function') return null;
+    try {
+        return window.missionSurveyPattern.snapshot();
+    } catch (_) {
+        return null;
+    }
+}
+
+function _surveyPatternProgressSummary(ctx = null) {
+    const spec = _surveyPatternActiveSpec();
+    if (!spec) return '';
+    const snap = _surveyPatternSnapshot();
+    const parts = [];
+    if (ctx?.hasPosition) parts.push(`Distanz zum Ziel ${ctx.distNm.toFixed(1)} NM, Richtung ${String(ctx.roundedBearingDeg).padStart(3, '0')} Grad`);
+    if (spec.type === 'orbit') {
+        const done = Math.max(0, Number(snap?.orbit?.completedTurns || 0));
+        const total = Math.max(1, Number(spec.orbit?.requiredTurns || 3));
+        const activeCoverage = Math.round(Number(snap?.orbit?.activeCoverage || 0) * 100);
+        parts.push(`Survey-Orbit ${done}/${total} Kreise abgeschlossen${snap?.orbit?.active ? `, aktueller Kreis ${activeCoverage}%` : ''}`);
+    } else {
+        const done = Array.isArray(snap?.scan?.completedLineIds) ? snap.scan.completedLineIds.length : 0;
+        const total = Array.isArray(spec.scan?.lines) ? spec.scan.lines.length : Math.max(1, Number(spec.scan?.lineCount || 1));
+        const activeLine = String(snap?.scan?.active?.lineId || '');
+        const coverage = Math.round(Number(snap?.scan?.activeCoverage || 0) * 100);
+        parts.push(`Survey-Scan ${done}/${total} Linien gruen${activeLine ? `, ${activeLine} aktiv bei ${coverage}%` : ''}`);
+    }
+    if (snap?.satisfied) parts.push('Status: Survey abgeschlossen, Rueckflug freigegeben');
+    else if (snap?.startedAt) parts.push('Status: Datenaufnahme laeuft');
+    else parts.push('Status: Pattern sichtbar, Einstieg an einem Linienende oder auf dem Orbit');
+    const targetAlt = Number(spec.targetAltFt || window.activePassenger?.targetAltFt || 0);
+    if (targetAlt > 0 && ctx?.mslFt != null) {
+        const diff = Number(ctx.mslFt) - targetAlt;
+        if (Math.abs(diff) <= Number(spec.altitudeToleranceFt || 300)) parts.push(`Hoehe im Band: ${ctx.mslFt} ft bei Ziel ${Math.round(targetAlt)} ft`);
+        else parts.push(`Hoehenabweichung: ${Math.abs(Math.round(diff))} ft ${diff > 0 ? 'zu hoch' : 'zu niedrig'} gegen Ziel ${Math.round(targetAlt)} ft`);
+    }
+    return parts.join(' | ');
+}
+
+function _surveyPatternStatusText(ctx = null) {
+    const summary = _surveyPatternProgressSummary(ctx);
+    if (!summary) return 'Ich habe gerade kein aktives Survey-Pattern geladen. Bitte pruefe, ob die Mapping-Mission noch aktiv ist.';
+    return summary.replace(/\s*\|\s*/g, '. ') + '.';
+}
+
+function _surveyPatternOrientationText(ctx = null) {
+    const spec = _surveyPatternActiveSpec();
+    const vector = _missionVectorText(ctx);
+    if (!spec) return `${vector} Ich habe gerade kein aktives Survey-Pattern geladen.`;
+    if (spec.type === 'orbit') {
+        const radius = Number(spec.orbit?.radiusNm || 0.55).toFixed(2);
+        return `${vector} Das Pattern ist der markierte Orbit um das Ziel. Richte dich auf etwa ${radius} NM Radius ein, halte die geplante Hoehe und fliege die vollen Kreise ruhig durch.`;
+    }
+    const snap = _surveyPatternSnapshot();
+    const done = Array.isArray(snap?.scan?.completedLineIds) ? snap.scan.completedLineIds.length : 0;
+    const total = Array.isArray(spec.scan?.lines) ? spec.scan.lines.length : Math.max(1, Number(spec.scan?.lineCount || 1));
+    return `${vector} Das rote Scanmuster liegt schon auf der Karte. Such dir ein offenes Linienende, flieg die Nord-Sued-Bahn gerade ab und nimm danach die naechste offene Linie; erledigt sind ${done} von ${total}.`;
+}
+
+function _surveyPatternStaticClipKey(kind = 'event', spec = null) {
+    const type = String(spec?.type || '').toLowerCase() === 'orbit' ? 'orbit' : 'scan';
+    if (kind === 'survey_area_entered' || kind === 'survey_complete') return `${type}_${kind}`;
+    return String(kind || '').trim();
+}
+
+function _surveyPatternVoiceText(kind = 'line_complete', spec = null) {
+    const type = String(spec?.type || '').toLowerCase();
+    switch (kind) {
+        case 'line_complete':
+            return 'Gut, diese Bahn ist sauber. Nimm dir jetzt die nächste Linie, die Reihenfolge ist egal.';
+        case 'line_reset_altitude':
+            return 'Die Höhe passt nicht mehr, die aktuelle Bahn zählt nicht. Wir setzen die Linie noch einmal sauber an.';
+        case 'line_reset_offtrack':
+            return 'Wir sind zu weit aus der Bahn gedriftet. Diese Linie bitte noch einmal ruhig und gerade aufnehmen.';
+        case 'orbit_turn_complete':
+            return 'Sauber, dieser Kreis zählt. Bleib im gleichen Radius und nimm den nächsten Umlauf mit.';
+        case 'orbit_reset_altitude':
+            return 'Die Höhe ist aus dem Band gelaufen, der aktuelle Kreis zählt nicht. Bitte wieder stabilisieren und neu ansetzen.';
+        case 'orbit_reset_offtrack':
+            return 'Der Radius läuft weg, der aktuelle Kreis zählt nicht. Bitte zurück auf den Ring und neu ansetzen.';
+        case 'survey_complete':
+            return type === 'orbit'
+                ? 'Das waren alle Kreise, der Survey ist komplett. Auftrag erfüllt, wir gehen zurück zum Heimatplatz.'
+                : 'Alle Survey-Linien sind sauber abgedeckt. Auftrag erfüllt, wir gehen zurück zum Heimatplatz.';
+        case 'survey_area_entered':
+            return type === 'orbit'
+                ? 'Wir sind im Surveybereich. Nimm jetzt den markierten Orbit auf und halte Hoehe und Radius stabil.'
+                : 'Wir sind im Surveybereich. Such dir ein Linienende und flieg die erste Bahn sauber durch.';
+        default:
+            return '';
+    }
+}
+
+function _surveyPatternEventKind(event = null) {
+    const type = String(event?.type || '').toLowerCase();
+    if (type === 'survey_complete') return 'survey_complete';
+    if (type === 'line_complete') return 'line_complete';
+    if (type === 'line_reset_altitude') return 'line_reset_altitude';
+    if (type === 'line_reset_offtrack') return 'line_reset_offtrack';
+    if (type === 'orbit_turn_complete') return 'orbit_turn_complete';
+    if (type === 'orbit_reset_altitude') return 'orbit_reset_altitude';
+    if (type === 'orbit_reset_offtrack') return 'orbit_reset_offtrack';
+    if (type === 'survey_area_entered') return 'survey_area_entered';
+    return '';
+}
 function paxKnowledgeTellMore() {
     const context = _activePoiKnowledgeContext();
     if (!_poiKnowledgeTellMoreAvailable()) {
@@ -1347,6 +1469,16 @@ function paxKnowledgeTellMore() {
     _refreshPoiKnowledgeGuideMenu();
 }
   if (cue.availability) return _poiKnowledgeTellMoreAvailable();
+  if (cue.surveyEvent) {
+    const meaningful = (Array.isArray(cue.surveyEvent.events) ? cue.surveyEvent.events : []).map(_surveyPatternEventKind).filter(Boolean);
+    const kind = meaningful.includes('survey_complete') ? 'survey_complete'
+      : (meaningful.includes('survey_area_entered') ? 'survey_area_entered'
+        : meaningful.find(value => /complete|reset/.test(value)));
+    if (!kind) return { surveyEvent: null };
+    const spec = cue.surveyEvent.spec || context.surveySpec || null;
+    const text = _surveyPatternVoiceText(kind, spec);
+    return { surveyEvent: text ? { kind, text, staticClipKey: _surveyPatternStaticClipKey(kind, spec) } : null };
+  }
   if (cue.action) {
     if (cue.action === 'poi_tell_more') {
       if (!_poiKnowledgeTellMoreAvailable()) throw new TypeError('poi_knowledge_not_available');
@@ -1396,5 +1528,11 @@ function renderAction(context, action, detector, sample, target, previous = {}) 
 function knowledgeAvailable(context, memory = {}, active = true) {
   return original(context || {}, memory || {}, { availability: true, active });
 }
-return Object.freeze({ knowledgeAvailable, renderAction, renderFarewell, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
+function surveyEvent(context, events = [], spec = context?.surveySpec || null) {
+  const error = validateContext(context);
+  if (error) throw new TypeError(error);
+  if (context.taskDomain !== 'mapping_survey') throw new TypeError('poi_survey_domain_invalid');
+  return original(clone(context), {}, { surveyEvent: { events: clone(Array.isArray(events) ? events : []), spec: clone(spec) } }).surveyEvent;
+}
+return Object.freeze({ knowledgeAvailable, renderAction, renderFarewell, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
 });
