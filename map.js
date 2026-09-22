@@ -8764,7 +8764,15 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
     }
 
     // POI-Check: Wenn ein Zielgebiet als Arbeitswegpunkt genutzt wird, bauen wir ein Rundflug-Dreieck
-    if (missionLikePoi) {
+    if (typeof currentMissionData !== 'undefined' && currentMissionData?.charterIdea?.continuation?.pickupRequired
+        && currentMissionData?.bush?.homeRef) {
+        const home=currentMissionData.bush.homeRef;
+        routeWaypoints=[
+            {lat:lat1,lng:lon1,lon:lon1,name:currentSName,icao:currentStartICAO},
+            {lat:lat2,lng:lon2,lon:lon2,name:currentDName,icao:currentDestICAO},
+            {lat:home.lat,lng:home.lon,lon:home.lon,name:home.name,icao:home.icao}
+        ];
+    } else if (missionLikePoi) {
         const chainRoutePoints = _missionPoiChainRoutePointsForMap();
         if (chainRoutePoints.length >= 2) {
             const homeName = currentSName || currentStartICAO || 'Start';

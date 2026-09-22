@@ -284,6 +284,7 @@
         const md = getMissionDataFromCandidate(candidate);
         if (!md || typeof md !== 'object') return null;
         if (md.followUpContinuation || md.followUpRequestId) return null;
+        if (window.MissionCharterContinuationCore?.source(md)) return window.MissionCharterContinuationCore.prospect(md, nowMs());
         const sourceKind = String(options.sourceKind || getProfileId(md) || '').toLowerCase();
         if (sourceKind === 'inspection_infra' && typeof window.missionInfraBuildProspectForMission === 'function') {
             try {
@@ -785,7 +786,7 @@
         const merged = Array.from(byId.values())
             .filter(req => {
                 if (!isTerminalStatus(getStatus(req))) return true;
-                if (req.followUpKind === 'private_return') return Number(req.updatedAt || 0) >= now - TOMBSTONE_DAYS * 86400000;
+                if (req.followUpKind === 'private_return' || String(req.id).startsWith('charter-return-')) return Number(req.updatedAt || 0) >= now - TOMBSTONE_DAYS * 86400000;
                 return Number(req.updatedAt || 0) >= keepTombstoneAfter;
             })
             .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
@@ -802,7 +803,18 @@
         if (pa !== pb && (isTerminalStatus(getStatus(a)) || isTerminalStatus(getStatus(b)))) {
             return pa > pb ? a : b;
         }
-        return Number(a.updatedAt || 0) >= Number(b.updatedAt || 0) ? a : b;
+        const winner=Number(a.updatedAt || 0) >= Number(b.updatedAt || 0) ? a : b;
+        const core=window.MissionCharterContinuationCore;
+        if (getStatus(a)==='pending' && getStatus(b)==='pending' && core?.context(a) && core?.context(b)) {
+            const drafts=[a,b].filter(row=>core.validateDraft(row.charterContinuation.experience,row.charterContinuation));
+            // A later metadata update must not erase an already persisted stay.
+            // Concurrent drafts converge on the earliest saved draft, with a deterministic tie-break.
+            drafts.sort((x,y)=>Number(x.charterContinuation.experienceCreatedAt||x.updatedAt)-Number(y.charterContinuation.experienceCreatedAt||y.updatedAt)
+                || JSON.stringify(x.charterContinuation.experience).localeCompare(JSON.stringify(y.charterContinuation.experience)));
+            if(drafts.length) Object.assign(winner,{charterContinuation:{...winner.charterContinuation,
+                experience:drafts[0].charterContinuation.experience,experienceCreatedAt:drafts[0].charterContinuation.experienceCreatedAt}});
+        }
+        return winner;
     }
 
     function writeRequests(list, options = {}) {
@@ -833,7 +845,22 @@
         return writeRequests(next, options);
     }
 
+    function saveCharterExperience(id, raw) {
+        const req=getRequests().find(row=>row.id===id&&row.status==='pending');
+        const core=window.MissionCharterContinuationCore,c=core?.context(req);
+        if(!c)return null;
+        if(core.validateDraft(c.experience,c))return c;
+        const draft=core.validateDraft(raw,c);if(!draft)return null;
+        const next={...c,experience:draft,experienceCreatedAt:nowMs()};
+        const list=getRequests().map(row=>row.id===id?{...row,charterContinuation:next,updatedAt:nowMs()}:row);
+        // A writer retry must reuse the saved experience, even if the later dispatch fails.
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(compactRequests(list)));
+        writeRequests(list,{cloud:true});
+        return next;
+    }
+
     function getProfileId(md = null) {
+        if (window.MissionCharterContinuationCore?.source(md)) return 'apt_charter';
         const explicit = String(
             md?.bush?.profileId
             || md?.missionContract?.bush?.profileId
@@ -1382,6 +1409,11 @@
     }
 
     function buildPipelineContext(req, context = {}) {
+        if(window.MissionCharterContinuationCore?.context(req))return {
+            schema:'ga.followup.pipelineContext.v1',requestId:req.id,followUpKind:req.followUpKind,
+            charterContinuation:req.charterContinuation,lockedPassenger:req.passenger,
+            temporalContext:req.temporalContext,route:acceptanceForRequest(req,context)
+        };
         if (!req || typeof req !== 'object') return null;
         if (req?.followUpKind === 'private_return') return window.MissionPrivateReturnCore?.pipeline(req, context) || null;
         const acceptance = acceptanceForRequest(req, context);
@@ -2026,6 +2058,15 @@
 
     function maybeCreateFromCompletedMission(candidate = null, cargoOutcome = null, options = {}) {
         const privateMd = getMissionDataFromCandidate(candidate);
+        const charterCore=window.MissionCharterContinuationCore;
+        if (charterCore?.source(privateMd)) {
+            const req=charterCore.request(privateMd,options.completionRecord,nowMs());
+            if(!req)return {created:false,reason:'charter-no-return-or-confirmed-completion'};
+            if(getRequests().some(row=>row.id===req.id))return {created:false,reason:'duplicate',id:req.id};
+            writeRequests([...getRequests(),req],{cloud:true});
+            rememberLastLandingRef(req.route.targetRef,{source:'charter-completed',missionId:privateMd.missionId});
+            return {created:true,id:req.id,sourceKind:'apt_charter',followUpKind:'apt_charter_pickup'};
+        }
         const privateCore = window.MissionPrivateReturnCore;
         if (privateCore?.context(privateMd || {}) || privateCore?.source(privateMd)) {
             const req = privateCore.request(privateMd, options.completionRecord);
@@ -2871,6 +2912,16 @@
                 || `Techniker-Kit ${targetName}`;
         }
         if (!bushSpec && !(followUpKind === 'apt_charter_pickup' && (effectiveProfileId === 'apt_charter' || acceptanceMode === 'onsite_to_home'))) return null;
+        const charter=window.MissionCharterContinuationCore?.context(req);
+        if(charter){
+            const idea=charter.original;
+            passenger={...req.passenger,narrativeSchema:'charter-idea.v1'};
+            paxText=bushSpec?`0 PAX am Start · ${idea.passengerCount} PAX Pickup (${idea.groupLabel})`:`${idea.passengerCount} PAX (${idea.groupLabel})`;
+            cargoText=idea.luggageWeightLbs?`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`:'Kein gebuchtes Gepäck (0 lbs)';
+            if(bushSpec)bushSpec={...bushSpec,pickupPassengerCount:idea.passengerCount,pickupCargoLabel:idea.luggageLabel,pickupCargoWeightLbs:idea.luggageWeightLbs};
+            // Never expose the legacy boilerplate as a fallback for this contract.
+            story='';title=`Rückflug von ${charter.visited.name} nach ${charter.home.name}`;
+        }
         const mission = {
             i: effectiveProfileId === 'bush_supply_strip' || followUpKind === 'bush_pickup_cargo' ? '📦' : '🧭',
             t: title,
@@ -3055,6 +3106,7 @@
         });
     }
 
+    window.missionFollowupSaveCharterExperience = saveCharterExperience;
     window.missionFollowupInit = init;
     window.missionFollowupMaybeCreateFromCompletedMission = maybeCreateFromCompletedMission;
     window.missionFollowupAirportFromRef = airportFromRef;
@@ -3091,7 +3143,7 @@
     window.missionFollowupAcceptRequest = acceptRequest;
     window.missionFollowupDismissRequest = dismissRequest;
 
-    if (environment.headless) return { create: maybeCreateFromCompletedMission, merge: applyFromSync, requests: getForSync };
+    if (environment.headless) return { create: maybeCreateFromCompletedMission, merge: applyFromSync, requests: getForSync, saveCharterExperience, buildAcceptance, buildDispatchMission };
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init, { once: true });
     } else {

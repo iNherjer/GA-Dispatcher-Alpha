@@ -8743,6 +8743,11 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
     }
 
     if (mission?.bush?.requiresReturnHome) {
+        if (mission.charterIdea?.continuation && mission.bush.homeRef) {
+            const home=mission.bush.homeRef;
+            return [{lat:depPoint.lat,lng:depPoint.lng},{lat:destPoint.lat,lng:destPoint.lng,name:mission.bush.targetRef?.name},
+                {lat:home.lat,lng:home.lon,name:home.name}];
+        }
         const route = [
             { lat: depPoint.lat, lng: depPoint.lng, name: state.currentSName || startIcao || 'Start' },
             { lat: destPoint.lat, lng: destPoint.lng, name: `🗺️ ${state.mDestName || mission.targetName || destIcao || 'Recon Area'}` }
@@ -21764,7 +21769,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (!isPOI && profileId === 'private_return' && window.MissionPrivateReturnCore?.context(mission || {}))
         return { mission, appliedProfile: 'private_return', paxText: mission.pax, cargoText: mission.cargo };
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
-    if (!isPOI && ['auto', 'apt_charter'].includes(profileId) && m.charterIdea?.schema === 'charter-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
+    if (!isPOI && ['auto', 'apt_charter', 'apt_charter_pickup'].includes(profileId) && m.charterIdea?.schema === 'charter-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && m.clubIdea?.schema === 'club-idea.v1' && ['auto', 'club_utility'].includes(profileId))
         return { mission: m, paxText: m.pax, cargoText: m.cargo, appliedProfile: 'club_utility' };
     if (!isPOI && m.privateOuting?.schema === 'private-outing.v1' && ['auto', 'private_outing'].includes(profileId)) {
@@ -23338,7 +23343,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 }
 
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
-    if (!isPOI && profileId === 'apt_charter' && missionLike?.charterIdea?.schema === 'charter-idea.v1') return true;
+    if (!isPOI && ['apt_charter','apt_charter_pickup'].includes(profileId) && missionLike?.charterIdea?.schema === 'charter-idea.v1') return true;
     if (!isPOI && profileId === 'private_return') return !!window.MissionPrivateReturnCore?.context(missionLike || {});
     if (!isPOI && profileId === 'club_utility' && missionLike?.clubIdea?.schema === 'club-idea.v1') return true;
     if (!isPOI && profileId === 'private_outing' && missionLike?.privateOuting?.schema === 'private-outing.v1') return true;
@@ -43314,9 +43319,10 @@ async function generateMission(options = {}) {
         plannerContext.cargoText = cargoText;
         plannerContext.animalTransportBrief = animalTransportBrief;
     };
+    const useCharterContinuation = !!window.MissionCharterContinuationCore?.context(followupSeed);
     const useCharterIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(dispatchProfileId);
     const useClubIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && aiModeEnabled && dispatchProfileId === 'club_utility';
-    if (useCharterIdeas) {
+    if (useCharterIdeas || useCharterContinuation) {
         missionContractV4 = {status:'ready',profile:{id:dispatchProfileId,taskDomain:'charter',roleProfile:'charter_professional_neutral_v1'}};
     } else if (useClubIdeas) {
         // The idea owns narrative/person/loadout. Do not call the legacy seeded planner.
@@ -43928,7 +43934,20 @@ async function generateMission(options = {}) {
             throw new Error('Die gewählte Ausflugsidee benötigt den aktiven Privat-Planner mit bereitem V4-Rahmen. Bitte die Einstellungen prüfen und neue Vorschläge erstellen.');
         }
         if (missionProposalChoice?.charterProposal && !useCharterIdeas) throw Error('Die Charterauswahl benötigt den KI-Chartergenerator.');
-        if (useCharterIdeas) {
+        if (useCharterContinuation) {
+            if (!followupDispatchMission?.mission) throw Error('Die Charter-Fortsetzung passt nicht zur gewählten Route.');
+            missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            if (followupDispatchMission.mission.bush) {
+                const c=window.MissionCharterContinuationCore.context(followupSeed);
+                const homeWeather=await fetchMissionWeatherSnapshot(c.home.icao,c.home.lat,c.home.lon);
+                _ensureDispatchAlive();
+                missionContractV4.returnFlight={route:{startIcao:c.visited.icao,targetIcao:c.home.icao,
+                    startName:c.visited.name,targetName:c.home.name,distanceNm:calcNav(c.visited.lat,c.visited.lon,c.home.lat,c.home.lon).dist},
+                    weather:_missionPipelineV3WeatherBundle({dep:destWeatherSnap,dest:homeWeather})};
+            }
+            m=await window.MissionCharterBrowser.continuation({req:followupSeed,base:followupDispatchMission.mission,contract:missionContractV4,aiEnabled:aiModeEnabled});
+            missionContractV4=m._missionContractV4;paxText=m.pax;cargoText=m.cargo;
+        } else if (useCharterIdeas) {
             missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m = await window.MissionCharterBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.charterProposal,contract:missionContractV4});
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
@@ -44056,7 +44075,7 @@ async function generateMission(options = {}) {
             dataSource = followupDispatchMission.dataSource || 'Follow-up Dispatcher';
         }
         _ensureDispatchAlive();
-        if (m && followupDispatchMission?.mission && followupDispatchProfileId === 'apt_charter_pickup') {
+        if (!useCharterContinuation && m && followupDispatchMission?.mission && followupDispatchProfileId === 'apt_charter_pickup') {
             const locked = followupDispatchMission.mission;
             m = {
                 ...m,
@@ -44433,7 +44452,7 @@ async function generateMission(options = {}) {
         roleLabel: m?.passenger?.role || '',
         preserveDash: isPlanningOnlyMode
     });
-    if (m?.charterIdea?.schema === 'charter-idea.v1' && finalPassengerPlan.passengerCount !== m.charterIdea.passengerCount) {
+    if (m?.charterIdea?.schema === 'charter-idea.v1' && finalPassengerPlan.plannedPassengerCount !== m.charterIdea.passengerCount) {
         throw new Error('Die gebuchte Chartergruppe passt nicht zur aktuellen Passagierkonfiguration. Bitte neu auswählen.');
     }
     if (finalPassengerPlan.blocked) {
@@ -44450,7 +44469,7 @@ async function generateMission(options = {}) {
         m.paxText = paxText;
         m.passengerCount = finalPassengerPlan.passengerCount;
         m.plannedPassengerCount = finalPassengerPlan.plannedPassengerCount;
-        m.party = finalPassengerPlan.party;
+        m.party = m.charterIdea ? {count:m.charterIdea.passengerCount,kind:m.charterIdea.passengerCount>1?'group':'single',label:m.charterIdea.groupLabel} : finalPassengerPlan.party;
         m.aircraftCapability = missionAircraftCapability;
         if (finalPassengerPlan.plannedPassengerCount <= 0) m.passenger = null;
         if (finalPassengerPlan.deferredPickup && m.bush && typeof m.bush === 'object') {
@@ -44462,7 +44481,7 @@ async function generateMission(options = {}) {
         missionContractV4.paxText = paxText;
         missionContractV4.passengerCount = finalPassengerPlan.passengerCount;
         missionContractV4.plannedPassengerCount = finalPassengerPlan.plannedPassengerCount;
-        missionContractV4.party = finalPassengerPlan.party;
+        missionContractV4.party = m?.charterIdea ? m.party : finalPassengerPlan.party;
         missionContractV4.partyNarrative = buildMissionPartyNarrativeContext(finalPassengerPlan.party, m?.passenger || null);
         missionContractV4.aircraftCapability = missionAircraftCapability;
         if (m && typeof m === 'object') {
