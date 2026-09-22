@@ -15,7 +15,7 @@ for(const ground of [{onGround:false,gsKts:90},{onGround:true,gsKts:0},{onGround
   const sample={...position,...ground,aglFt:0};
   const state={hasSignal:true,trackingActive:true,...progress};
   const sandbox={window:{activePassenger:{taskDomain:domain},lastLiveFlightData:sample,lastLiveGpsPos:sample,
-    GAMissionLocationCore:location,missionPoiRecipeId:()=>dwell===0?'poi_flyover':'poi_on_task'},
+    GAMissionLocationCore:location,missionPoiRecipeId:()=>domain==='fire_watch'?'poi_fire_watch':dwell===0?'poi_flyover':'poi_on_task'},
     currentMissionData:{missionContract:{taskDomain:domain}},flightRecorder:recorder,
     _missionSceneIsPoiMission:()=>true,_missionSceneIsBushMission:()=>false,_missionSceneIsSarHeliMission:()=>false,
     _missionPoiProgressState:()=>state,_aptArrivalPointForRuntime:()=>null,_missionBushReturnHomeRuntimePoint:()=>null,

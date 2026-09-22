@@ -25,7 +25,7 @@ const header = `// Generated from original passenger-voice.js functions by tools
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(taskCore) {
 'use strict';
 const CONTEXT_SCHEMA = 'ga.mission-poi-voice-context.v1';
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch']);
 const PROMPTS = Object.freeze(${JSON.stringify(promptNames)});
 const clone = value => JSON.parse(JSON.stringify(value));
 function normalizeMemory(value = {}) {

@@ -2887,6 +2887,7 @@ function _tickFireMissionSearch(flightData, distNm = null) {
 }
 
 window.fireMissionPositionReport = function() {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('fire_position');
     const ctx = _fireMissionContext();
     if (!ctx.fs) {
         _fireSpeakText('Hier ist keine aktive Feuerwache geladen.', 'Feuerwache');
@@ -2920,6 +2921,7 @@ window.fireMissionPositionReport = function() {
 };
 
 window.fireMissionReportNoSmoke = function() {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('fire_no_smoke');
     const ctx = _fireMissionContext();
     if (!ctx.fs) {
         _fireSpeakText('Hier ist keine aktive Feuerwache geladen.', 'Feuerwache');
@@ -2949,6 +2951,8 @@ window.fireMissionReportNoSmoke = function() {
     const dwellDone = Number(ctx.inTargetAreaSec || 0) >= Number(ctx.fs.searchDwellSec || 180);
     if (dwellDone && ctx.fs.truth === 'false_alarm') {
         ctx.fs.state = 'false_alarm_rtb';
+        _poiSatisfied = true;
+        _paxAtTargetDone = true;
         _fireSpeakText(`Keine Rauchentwicklung feststellbar nach der Suchzeit. Ich melde wahrscheinliche Fehlmeldung. ${_fireReturnClearanceText(ctx.fs)}`, 'Fehlmeldung');
         _firePersistState();
         return;
@@ -2962,6 +2966,7 @@ window.fireMissionReportNoSmoke = function() {
 };
 
 window.fireMissionReportSmokeVisible = function() {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('fire_smoke_visible');
     const ctx = _fireMissionContext();
     if (!ctx.fs) {
         _fireSpeakText('Hier ist keine aktive Feuerwache geladen.', 'Feuerwache');

@@ -406,6 +406,40 @@ test('close effect completes without a simulator scene command', async () => {
   });
 });
 
+test('smoke effects retain a canonical fire payload and settle through their own ACKs', async () => {
+  const run = runWithPlan();
+  run.resumeBundle.executionEffectPlan.effects['smoke.spawn'] = { command: {
+    type: 'mission_smoke_spawn', lat: 48.2, lon: 8.2, altFt: 940, hdg: 0,
+    objectTitle: 'Chimney_Smoke_V1', fireObjectTitle: 'VO_Fire_R1_40',
+    sites: [{ siteId: 'smoke-1', lat: 48.2, lon: 8.2, altFt: 940, count: 3 }],
+    fireSites: [{ siteId: 'fire-1', lat: 48.2002, lon: 8.2002, altFt: 942 }]
+  } };
+  run.resumeBundle.executionEffectPlan.effects['smoke.clear'] = { command: { type: 'mission_smoke_clear' } };
+  const commands = [], acknowledgements = [];
+  const bridge = createTrackerMissionSimulatorEffects({ authorityManager: { getActiveRun: () => run },
+    getLivePosition: () => ({ lat: 1, lon: 2, altFt: 3, hdg: 4 }),
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending' }; },
+    acknowledgeEffect: ack => { acknowledgements.push(ack); return { ok: true }; } });
+  assert.equal((await bridge.dispatch({ commandId: 'smoke-spawn', missionId: run.missionId, runId: run.runId,
+    effect: { type: 'smoke.spawn' } })).status, 'pending');
+  assert.equal(commands[0].type, 'mission_smoke_spawn');
+  assert.deepEqual([commands[0].lat, commands[0].lon, commands[0].altFt], [48.2, 8.2, 940], 'target must not move to the live aircraft');
+  assert.deepEqual(commands[0].sites, run.resumeBundle.executionEffectPlan.effects['smoke.spawn'].command.sites);
+  bridge.handleAck({ type: 'mission_smoke_spawn_ack', commandId: 'smoke-spawn', status: 'ok' });
+  assert.equal((await bridge.dispatch({ commandId: 'smoke-clear', missionId: run.missionId, runId: run.runId,
+    effect: { type: 'smoke.clear' } })).status, 'pending');
+  bridge.handleAck({ type: 'mission_smoke_clear_ack', commandId: 'smoke-clear', status: 'noop' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(acknowledgements.map(ack => [ack.effectId, ack.status]), [['smoke-spawn', 'completed'], ['smoke-clear', 'completed']]);
+});
+
+test('smoke template fails closed when a site has no altitude', () => {
+  const plan = { effects: { 'smoke.spawn': { command: { type: 'mission_smoke_spawn', sites: [{ lat: 48.2, lon: 8.2 }] } } } };
+  assert.equal(require('./tracker-mission-simulator-effects.js').smokeTemplateFor(plan, 'smoke.spawn'), null);
+  plan.effects['smoke.spawn'].command.sites[0] = { lat: '48.2', lon: 8.2, altFt: 900 };
+  assert.equal(require('./tracker-mission-simulator-effects.js').smokeTemplateFor(plan, 'smoke.spawn'), null);
+});
+
 test('cargo coalesces desired state for 180 ms per object, without blocking another object', async () => {
   const activeRun = runWithPlan();
   const timers = new Map(), commands = [], acks = [];

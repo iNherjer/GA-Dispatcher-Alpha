@@ -5649,3 +5649,11 @@ transportiert die bestehende Voice-Ausgabe begrenzte Vor-/Nach-Soundsequenzen mi
 separaten Playback-Cursorn innerhalb derselben Geraete-Lease. Bei Wechsel des
 Audiogeraets sollen abgeschlossene Clips nicht wiederholt werden. Tests pruefen
 Wiederaufnahme, Mute-Schalter und weiterhin die normalen APT-/Warnungs-Clips.
+
+## Feuerwache, Alpha v440
+
+Das PAX-Menü erhält die autoritativen Aktionen „Kein Rauch sichtbar“ und „Rauch
+sichtbar“. Missionsstatus/Orientierung verwenden bei Feuerwache den originalen
+Positionsbericht. Fortschritt zeigt Such- bzw. Lagebildzeit; generische POI-
+Höhen-/Dwell-Blockaden gelten für diese spezialisierte Aufgabe nicht.
+Die öffentliche Fortschrittsprojektion enthält keine vorbereitete Lagewahrheit.

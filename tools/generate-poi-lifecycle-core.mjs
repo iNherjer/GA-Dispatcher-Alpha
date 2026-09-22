@@ -18,7 +18,7 @@ function evaluate(recipe, progress = {}, recorder = {}, sample = {}, outcome = n
   const window = { lastLiveFlightData: sample, lastLiveGpsPos: sample,
     missionPoiChainRuntime: { getActiveSpec: () => recipe.poiChain || null },
     GAMissionLocationCore: locationCore, activePassenger: { ...recipe.passenger, taskDomain: recipe.taskDomain },
-    missionPoiRecipeId: () => recipe.passenger.targetDwellMin === 0 ? 'poi_flyover' : 'poi_on_task' };
+    missionPoiRecipeId: () => recipe.taskDomain === 'fire_watch' ? 'poi_fire_watch' : recipe.passenger.targetDwellMin === 0 ? 'poi_flyover' : 'poi_on_task' };
   const _missionSceneIsPoiMission = () => true;
   const _missionSceneIsBushMission = () => false;
   const _missionSceneIsSarHeliMission = () => false;

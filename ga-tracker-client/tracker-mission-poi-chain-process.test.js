@@ -54,7 +54,9 @@ test('POI-chain telemetry is evaluated in the real mission child process and com
   for (const [intent, payload] of [['prepare_mission', {}], ['start_boarding', {}], ['set_manifest_item', { itemId: 'camera', action: 'load' }], ['sign_manifest', {}], ['confirm_load', {}], ['start_mission', {}]]) {
     run = host.authorityManager.getActiveRun(); const result = await host.runtime.executeIntent({ intent, payload, commandId: `process-${intent}`, missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
     assert.equal(result.ok, true, JSON.stringify(result));
-    await delay(80);
+    // Wait for actual asynchronous effect ACKs before binding the next intent
+    // to a revision; a fixed delay races the original cargo queue.
+    await until(() => !host.authorityManager.getExecutionSnapshot().state.effects.some(effect => effect.status === 'requested'));
   }
   await until(() => host.authorityManager.getExecutionSnapshot().state.flags.active);
   const base = Date.now();

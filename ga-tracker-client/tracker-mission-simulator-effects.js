@@ -25,7 +25,9 @@ const EFFECT_COMMANDS = Object.freeze({
   'scene.compliance_visit': Object.freeze({
     commandType: 'mission_scene_ground_visit',
     ackType: 'mission_scene_ground_visit_ack'
-  })
+  }),
+  'smoke.spawn': Object.freeze({ commandType: 'mission_smoke_spawn', ackType: 'mission_smoke_spawn_ack' }),
+  'smoke.clear': Object.freeze({ commandType: 'mission_smoke_clear', ackType: 'mission_smoke_clear_ack' })
 });
 
 function cleanString(value, maxLength = 180) {
@@ -68,6 +70,36 @@ function normalizeLivePosition(value = {}) {
   };
 }
 
+function smokePosition(value = {}) {
+  const source = safeObject(value);
+  const rawLon = source.lon ?? source.lng;
+  const rawAlt = source.altFt ?? source.alt;
+  if (typeof source.lat !== 'number' || !Number.isFinite(source.lat)
+      || typeof rawLon !== 'number' || !Number.isFinite(rawLon)
+      || typeof rawAlt !== 'number' || !Number.isFinite(rawAlt)
+      || Math.abs(source.lat) > 90 || Math.abs(rawLon) > 180) return null;
+  const lat = source.lat;
+  const lon = rawLon;
+  const altFt = rawAlt;
+  return { lat, lon, altFt, hdg: finite(source.hdg ?? source.heading, 0) };
+}
+
+function smokeTemplateFor(plan, effectType) {
+  const entry = safeObject(safeObject(plan?.effects)[effectType]);
+  const command = safeObject(entry.command);
+  const contract = EFFECT_COMMANDS[effectType];
+  if (!contract || !['smoke.spawn', 'smoke.clear'].includes(effectType)
+      || cleanString(command.type, 100).toLowerCase() !== contract.commandType) return null;
+  if (effectType === 'smoke.clear') return clone(command);
+  const smokeSites = Array.isArray(command.sites) ? command.sites : [];
+  const fireSites = Array.isArray(command.fireSites) ? command.fireSites : [];
+  if (smokeSites.length + fireSites.length > 40
+      || smokeSites.some(site => !smokePosition(site))
+      || fireSites.some(site => !smokePosition(site))) return null;
+  if (!smokeSites.length && !fireSites.length && !smokePosition(command)) return null;
+  return clone(command);
+}
+
 function effectPlanFromRun(run = null, effectPlan = run?.resumeBundle?.executionEffectPlan) {
   const plan = safeObject(effectPlan);
   if (!((plan.schema === EFFECT_PLAN_SCHEMA && plan.recipe === 'apt')
@@ -77,6 +109,7 @@ function effectPlanFromRun(run = null, effectPlan = run?.resumeBundle?.execution
 }
 
 function commandTemplateFor(plan, effectType) {
+  if (effectType === 'smoke.spawn' || effectType === 'smoke.clear') return smokeTemplateFor(plan, effectType);
   const effectEntry = safeObject(safeObject(plan.effects)[effectType]);
   const command = safeObject(effectEntry.command);
   const contract = EFFECT_COMMANDS[effectType];
@@ -358,8 +391,9 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (!template) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_apt_effect_command_invalid');
-    const position = normalizeLivePosition(['scene.arrival', 'scene.target'].includes(effectType) ? template : getLivePosition());
-    if (!position) return effectType === 'scene.compliance_visit'
+    const usePlannedPosition = ['scene.arrival', 'scene.target'].includes(effectType);
+    const position = effectType.startsWith('smoke.') ? null : (usePlannedPosition ? normalizeLivePosition(template) : normalizeLivePosition(getLivePosition()));
+    if (!position && effectType !== 'smoke.spawn' && effectType !== 'smoke.clear') return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_simulator_live_position_missing');
 
@@ -370,10 +404,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       missionId: run.missionId,
       runId: run.runId,
       reason: `tracker-execution:${effectType}`,
-      lat: position.lat,
-      lon: position.lon,
-      altFt: position.altFt,
-      hdg: position.hdg
+      ...(position ? { lat: position.lat, lon: position.lon, altFt: position.altFt, hdg: position.hdg } : {})
     };
     if (effectType === 'scene.deboarding') {
       command.coordinateFarewell = request?.effect?.payload?.coordinateFarewell === true;
@@ -459,7 +490,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (record.timer) cancelTimeout(record.timer);
     const ackStatus = cleanString(ack.status, 40).toLowerCase();
     const completed = ackStatus === 'ok'
-      || (['scene.cargo_item_transition', 'scene.manual_pax'].includes(record.effectType) && ackStatus === 'noop');
+      || (['scene.cargo_item_transition', 'scene.manual_pax', 'smoke.clear'].includes(record.effectType) && ackStatus === 'noop');
     if (!acknowledgeEffect) {
       log(`MISSION_EFFECT_ACK_DROPPED effect=${record.effectType} commandId=${commandId} reason=acknowledger_missing`);
       return true;
@@ -523,6 +554,8 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       'scene.cargo_item_transition': dispatch,
       'scene.compliance_visit': dispatch,
       'scene.compliance_departure': dispatch,
+      'smoke.spawn': dispatch,
+      'smoke.clear': dispatch,
       'mission.close_requested': dispatch
     }),
     pendingCount: () => pending.size,
@@ -538,5 +571,6 @@ module.exports = {
   createTrackerMissionSimulatorEffects,
   effectPlanFromRun,
   commandTemplateFor,
+  smokeTemplateFor,
   normalizeLivePosition
 };

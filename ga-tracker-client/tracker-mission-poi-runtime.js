@@ -2,6 +2,7 @@
 
 const taskCore = require('../mission-poi-task-core.js');
 const { canonicalStringify } = require('../mission-execution-core.js');
+const fireCore = require('../mission-fire-watch-core.js');
 const chainTask = require('./tracker-mission-poi-chain-task.js');
 const chainVoice = require('./tracker-mission-poi-chain-voice.js');
 const surveyTask = require('./tracker-mission-survey-task.js');
@@ -16,7 +17,7 @@ const RECIPE_SCHEMA = 'ga.mission-poi-execution-recipe.v1';
 const RUNTIME_SCHEMA = 'ga.tracker-poi-runtime.v1';
 // Explicitly bounded standard POI family. A transport adapter named "poi"
 // is insufficient: specialized tasks need their own execution/voice contracts.
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch']);
 const clone = value => JSON.parse(JSON.stringify(value));
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 function point(value) {
@@ -44,6 +45,13 @@ function validateRecipe(recipe) {
     }
     if (recipe.lifecycle && (recipe.lifecycle.schema !== lifecycleCore.SCHEMA || !recipe.voiceContext))
         return 'poi_lifecycle_context_invalid';
+    if (recipe.taskDomain === 'fire_watch') {
+        const fs = recipe.fireScenario;
+        if (!fs || !['fire', 'false_alarm'].includes(fs.truth) || !point(fs.target)
+            || ['searchDwellSec', 'assessmentDwellSec', 'targetAreaNm', 'confirmRangeNm', 'paxAwarenessRangeNm'].some(key => fs[key] != null && (!finite(fs[key]) || fs[key] <= 0 || fs[key] > 86400))) return 'fire_watch_scenario_invalid';
+        const error = fireCore.validateScenario(fs);
+        if (error) return error;
+    } else if (recipe.fireScenario) return 'poi_recipe_specialized_task_not_migrated';
     if (recipe.taskDomain === 'mapping_survey') {
         const error = surveyTask.validateSpec(recipe.surveyPattern);
         if (error) return error;
@@ -74,6 +82,12 @@ function validateBundle(bundle) {
         || !boardingCore.normalizeRecipe(plan.effects?.['voice.boarding']?.recipe)
         || plan.effects['voice.boarding'].recipe.missionId !== bundle.missionId
         || plan.effects['voice.approach'].context.missionId !== bundle.missionId) return 'poi_lifecycle_voice_plan_invalid';
+    if (bundle.executionPoiRecipe.taskDomain === 'fire_watch') {
+        const hasFire = bundle.executionPoiRecipe.fireScenario.truth === 'fire';
+        for (const type of ['smoke.spawn', 'smoke.clear']) {
+            if (hasFire ? !commandTemplateFor(plan, type) : !!plan.effects?.[type]?.command) return 'fire_watch_smoke_plan_invalid';
+        }
+    }
     for (const type of ['scene.prepare', 'scene.boarding', 'scene.deboarding', 'scene.target']) {
         if (!plan.effects?.[type]?.command && plan.effects?.[type]?.none !== true) return 'poi_lifecycle_scene_plan_missing';
         const entry = plan.effects[type];
@@ -102,6 +116,7 @@ function createState(recipe, previous = null) {
         observedAt: previous?.observedAt ?? null,
         suspendedAt: previous?.suspendedAt ?? null,
         detector: taskCore.createState(previous?.detector),
+        ...(recipe.taskDomain === 'fire_watch' ? { fireState: fireCore.createState(fireContext(recipe), previous?.fireState) } : {}),
         ...(recipe.taskDomain === 'infra_chain_recon' ? { chainState: chainTask.createState(recipe.poiChain, previous?.chainState) } : {}),
         ...(recipe.taskDomain === 'mapping_survey' ? { surveyState: surveyTask.createState(recipe.surveyPattern, previous?.surveyState) } : {})
     };
@@ -182,8 +197,12 @@ function observe(recipe, previous, sample, facts = {}) {
         for (const key of ['enteredAt', 'lastTickTime', 'lastComplaintAt']) {
             if (state.detector[key] !== null) state.detector[key] += elapsed;
         }
+        if (state.fireState) for (const key of ['targetAreaEnteredAt', 'searchStartedAt', 'smokeConfirmedAt']) {
+            if (state.fireState.scenario[key]) state.fireState.scenario[key] += elapsed;
+        }
         state.suspendedAt = null;
     }
+    if (state.fireState) return applyFireResult(recipe, state, fireCore.observe(fireContext(recipe), state.fireState, { ...sample, distNm: taskCore.distanceNm(sample.lat, sample.lon, recipe.target.lat, recipe.target.lon) }, sample.observedAt), sample);
     const distNm = taskCore.distanceNm(sample.lat, sample.lon, recipe.target.lat, recipe.target.lon);
     const effectiveGs = sample.gsKts > 25 ? sample.gsKts : 95;
     const bearing = taskCore.bearingDeg(sample.lat, sample.lon, recipe.target.lat, recipe.target.lon);
@@ -222,6 +241,7 @@ function project(state) {
     const detector = state.detector;
     return clone({
         schema: taskCore.SCHEMA, missionId: state.missionId, sequence: state.sequence,
+        ...(state.fireState ? { fireWatch: fireProjection(state) } : {}),
         ...(state.chainState ? { poiChain: state.chainState.progress } : {}),
         ...(state.surveyState ? { surveyPattern: {
             ...state.surveyState.progress,
@@ -288,7 +308,11 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
         // Ordinary cargo/voice revisions do not invalidate buffered task time.
         // A changed POI checkpoint or run does: it belongs to another history.
         if (key !== runKey || currentToken !== baseToken) {
+            // A fire pilot action commits this same worker's state. Invalidate
+            // buffered work without inventing an offline interval after every click.
+            const liveFireAction = key === runKey && recipe.taskDomain === 'fire_watch' && !recovering && !disconnected;
             clear();
+            if (liveFireAction) recovering = false;
             runKey = key;
             baseToken = currentToken;
         }
@@ -301,7 +325,8 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
         try {
             if (!buffered.voiceEffects) {
                 let memory = snapshot.state.voice?.poiMemory || {};
-                buffered.voiceEffects = buffered.effects.filter(effect => ['voice', 'survey', 'chain'].includes(effect.type)).flatMap(effect => {
+                buffered.voiceEffects = buffered.effects.filter(effect => ['voice', 'survey', 'chain', 'fire'].includes(effect.type)).flatMap(effect => {
+                    if (effect.type === 'fire') return prepareFireVoices(recipe.voiceContext, effect.voices, buffered.state.observedAt);
                     if (effect.type === 'chain') return chainVoice.prepareEvents(recipe.voiceContext, effect.events, recipe.poiChain);
                     if (effect.type === 'survey') return surveyVoice.prepareEvent(recipe.voiceContext, effect.events, recipe.surveyPattern);
                     const cue = { ...effect.value, detector: effect.state };
@@ -390,6 +415,48 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
     });
 }
 
-module.exports = { validateBundle, RECIPE_SCHEMA, RUNTIME_SCHEMA, DOMAINS, CHECKPOINT_INTERVAL_MS,
+function fireContext(recipe) {
+    return { scenario: recipe.fireScenario, target: recipe.target, passenger: recipe.passenger, runtimeActive: true };
+}
+function fireProjection(state) {
+    const fs = state.fireState.scenario;
+    const elapsed = start => start ? Math.max(0, ((state.suspendedAt ?? state.observedAt) - start) / 1000) : 0;
+    // Private truth, source locations and unrevealed findings never enter UI progress.
+    return { state: fs.state || 'enroute', awarenessDone: !!fs.awarenessDone,
+        targetAreaAnnounced: !!fs.targetAreaAnnounced, assessmentComplete: !!fs.assessmentComplete,
+        searchSec: elapsed(fs.targetAreaEnteredAt), assessmentSec: elapsed(fs.smokeConfirmedAt),
+        searchDwellSec: Number(fs.searchDwellSec || 180), assessmentDwellSec: Number(fs.assessmentDwellSec || 240),
+        targetAreaNm: Number(fs.targetAreaNm || 1.5), confirmRangeNm: Number(fs.confirmRangeNm || 2) };
+}
+function applyFireResult(recipe, state, result, sample) {
+    state.fireState = result.state;
+    const fs = state.fireState.scenario;
+    const distNm = taskCore.distanceNm(sample.lat, sample.lon, recipe.target.lat, recipe.target.lon);
+    Object.assign(state.detector, { satisfied: result.satisfied === true,
+        atTargetDone: state.fireState.atTargetDone === true, inRadius: distNm <= Number(fs.targetAreaNm || recipe.passenger.targetRadiusNm || 1.5),
+        entryDone: !!fs.targetAreaAnnounced, lastTickTime: sample.observedAt,
+        dwellSec: fs.targetAreaEnteredAt ? Math.max(0, (sample.observedAt - fs.targetAreaEnteredAt) / 1000) : 0 });
+    return { state, effects: result.voices.length ? [{ type: 'fire', voices: result.voices }] : [], changed: true, reason: 'fire_watch_observed', distNm };
+}
+function prepareFireVoices(context, voices, now, action) {
+    return voices.map(event => ({ ...(action ? { action } : {}), label: event.label, notBefore: now,
+        resolvedRecipe: { schema: 'ga.mission-poi-voice-recipe.v1', missionId: context.missionId, kind: 'poi',
+            enabled: true, audioEnabled: context.audioEnabled, taskDomain: 'fire_watch',
+            prompt: '', fallbackText: event.text, playCue: false, speaker: event.speaker || context.speaker,
+            textModels: context.textModels, ttsModels: context.ttsModels,
+            ttsHedgeEnabled: context.ttsHedgeEnabled, ttsHedgeDelayMs: context.ttsHedgeDelayMs } }));
+}
+function fireAction(recipe, previous, action, sample, now) {
+    const state = createState(recipe, previous);
+    if (!state.fireState) throw new TypeError('fire_watch_required');
+    // Commands use the same committed checkpoint, then invalidate the observation buffer by revision.
+    state.sequence++; state.observedAt = Math.max(now, (state.observedAt || 0) + 1);
+    const result = fireCore.action(fireContext(recipe), state.fireState, action, sample, state.observedAt);
+    state.fireState = result.state;
+    state.detector.satisfied = result.satisfied === true;
+    state.detector.atTargetDone = result.state.atTargetDone === true;
+    return { poiTask: state, voiceEffects: prepareFireVoices(recipe.voiceContext, result.voices, state.observedAt, action) };
+}
+module.exports = { fireAction, validateBundle, RECIPE_SCHEMA, RUNTIME_SCHEMA, DOMAINS, CHECKPOINT_INTERVAL_MS,
     hasLifecycle: recipe => recipe?.lifecycle?.schema === lifecycleCore.SCHEMA && !validateRecipe(recipe),
     validateRecipe, createState, observe, suspend, project, taskItemStateFromManifest, createAuthorityDriver };
