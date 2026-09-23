@@ -1,4 +1,7 @@
 'use strict';
+
+const aptTraining = require('./tracker-mission-apt-training.js');
+
 const routeVoiceCore = require('../mission-route-voice-core.js');
 const routeMapCore = require('./tracker-efb-map-snapshot-core.js');
 
@@ -45,6 +48,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     authorityManager,
     applySystemEvent: request => adapter.applySystemEvent(request)
   });
+  const trainingDriver = aptTraining.createDriver({authorityManager,applySystemEvent:request=>adapter.applySystemEvent(request)});
   let simulatorEffects = null;
   let simulatorPayloadSyncBeforeStart = null;
   let simulatorPayloadSyncManifestState = null;
@@ -582,6 +586,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     motionBuffer.clear();
     poiPaused = false;
     if (bridge && simulatorEffects !== bridge) return false;
+    reportPoiCheckpoint(trainingDriver.disconnect(), 'training-disconnect');
     const disconnected = poiDriver.disconnect();
     reportPoiCheckpoint(disconnected, 'disconnect');
     const recorderFlush = adapter.flushRuntimeContext(true);
@@ -612,7 +617,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       .catch(error => log(`MISSION_POI_VOICE_ERROR error=${error?.message || error}`));
     return result;
   };
-  const flushPoiCheckpoint = reason => reportPoiCheckpoint(poiDriver.flush(), reason);
+  const flushPoiCheckpoint = reason => {
+    const training=reportPoiCheckpoint(trainingDriver.flush(), reason);
+    return training.ok ? reportPoiCheckpoint(poiDriver.flush(), reason) : training;
+  };
 
   return Object.freeze({
     enabled: true,
@@ -636,6 +644,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         if (previous?.privateReturnDeparture && !previous.privateReturnDeparture.done && previous.privateReturnDeparture.airborneSince != null)
           adapter.setFlightVoiceState({ ...previous, privateReturnDeparture: { ...previous.privateReturnDeparture, airborneSince: null } }, true);
       }
+      const training=reportPoiCheckpoint(trainingDriver.observeTelemetry(sample),'telemetry');
+      if(!training.ok)return training;
       const isPoi = authorityManager.getActiveRun()?.executionRecipe === 'poi';
       if (!sample?.simPaused && !sample?.inMenuOrMap) poiPaused = false;
       if (isPoi && (sample?.simPaused === true || sample?.inMenuOrMap === true)) {
@@ -779,7 +789,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         }
       }
       const distance = result?.destination?.dMissionNm;
-      if (!isPoi && result?.ok && result.status !== 'ignored'
+      if (!isPoi && !authorityManager.getExecutionTrainingRecipe?.() && result?.ok && result.status !== 'ignored'
           && distance != null && Number.isFinite(Number(distance))
           && (Number(distance) <= 4
             || (Number(distance) <= 4.5 && adapter.hasNewLandingApproachCandidate()))) {

@@ -55,7 +55,7 @@
         'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
+        'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -607,6 +607,7 @@
             attempts: Math.max(0, integer(progress.attempts, 0))
         };
         if (state.recipe === 'poi' && validPoiObservation(source.poiTask, state.missionId)) state.poiTask = canonicalValue(source.poiTask);
+        if (state.recipe === 'apt' && source.trainingTask?.schema === 'ga.tracker-apt-training.v1' && source.trainingTask.missionId === state.missionId) state.trainingTask = canonicalValue(source.trainingTask);
         if (state.recipe === 'poi' && source.poiLifecycle) state.poiLifecycle = canonicalValue(source.poiLifecycle);
         var sourceCargo = object(source.cargo);
         var cargoLooksLikeManifest = Object.prototype.hasOwnProperty.call(sourceCargo, 'dispatchSignature')
@@ -998,7 +999,7 @@
             && (eventPayload.action !== 'poi_tell_more' || (state.flags.active && eventPayload.resolvedRecipe?.taskDomain === 'poi_learning_guide'))
             && eventPayload.resolvedRecipe?.schema === 'ga.mission-poi-voice-recipe.v1'
             && eventPayload.resolvedRecipe.missionId === state.missionId;
-        if (event.type === 'POI_VOICE_TEXT_READY') return state.recipe === 'poi' && (state.flags.active
+        if (event.type === 'POI_VOICE_TEXT_READY') return (state.recipe === 'poi' || !!state.trainingTask) && (state.flags.active
             || state.effects.some(function (effect) { return effect.effectId === eventPayload.effectId && !!effect.payload.action; }))
             && !state.flags.closingPending && !state.flags.farewellStarted
             && typeof eventPayload.text === 'string' && eventPayload.text.length > 0 && eventPayload.text.length <= 4000
@@ -1006,6 +1007,15 @@
                 && effect.type === 'voice.poi' && effect.status === 'requested' && !effect.payload.resolvedText; });
         if (event.type === 'FIRE_SCENE_RECOVERY_REQUESTED') return state.recipe === 'poi' && state.flags.active && !state.flags.closed
             && state.effects.some(effect => effect.type === 'smoke.spawn');
+        if (event.type === 'APT_TRAINING_OBSERVED' || event.type === 'APT_TRAINING_ACTION_OBSERVED') {
+            var trainingTask = eventPayload.trainingTask;
+            return state.recipe === 'apt' && state.flags.active && !state.flags.closingPending && !state.flags.farewellStarted
+                && trainingTask?.schema === 'ga.tracker-apt-training.v1' && trainingTask.missionId === state.missionId
+                && trainingTask.sequence === Number(state.trainingTask?.sequence || 0) + 1
+                && Number.isFinite(trainingTask.observedAt) && trainingTask.observedAt > Number(state.trainingTask?.observedAt || 0)
+                && !!trainingTask.state?.checkpoint?.procedureState && !!trainingTask.state?.progress
+                && (event.type !== 'APT_TRAINING_ACTION_OBSERVED' || allowedActions(state).includes(eventPayload.action));
+        }
         if (event.type === 'TRAINING_ACTION_OBSERVED') return poiActionAllowed(state) && state.flags.active
             && !!state.poiTask?.trainingState && ['training_ready','training_abort','training_extra','training_repeat_instruction','poi_status'].includes(eventPayload.action)
             && validPoiObservation(eventPayload.poiTask, state.missionId)
@@ -1306,6 +1316,11 @@
                 speaker: speakingEffect.payload.resolvedRecipe?.speaker, updatedAt: event.occurredAt, playback: 'pending' });
             if (poiVoiceCore) state.voice.poiMemory = poiVoiceCore.captureMemory(
                 state.voice.poiMemory || {}, speakingEffect.payload.label, event.payload.text, speakingEffect.payload.resolvedRecipe?.taskDomain);
+        } else if (event.type === 'APT_TRAINING_OBSERVED' || event.type === 'APT_TRAINING_ACTION_OBSERVED') {
+            state.trainingTask = canonicalValue(event.payload.trainingTask);
+            (event.payload.voiceEffects || []).forEach(function(cue,index) {
+                appendEffect(state,createEffect(state,{...event,eventId:event.eventId+':voice:'+index},'voice.poi',canonicalValue({...cue,aptTraining:true})));
+            });
         } else if (event.type === 'POI_TASK_OBSERVED' || event.type === 'FIRE_ACTION_OBSERVED' || event.type === 'TRAINING_ACTION_OBSERVED') {
             state.poiTask = canonicalValue(event.payload.poiTask);
             var detector = state.poiTask.detector;
@@ -1787,6 +1802,17 @@
     function allowedActions(rawState) {
         var state = normalizeState(rawState);
         var actions = [];
+        if (state.recipe === 'apt' && state.trainingTask && state.flags.active && !state.flags.closingPending
+            && !state.flags.farewellStarted && !state.flags.farewellCompleted
+            && !state.effects.some(e=>e.type==='voice.poi' && e.status==='requested' && e.payload.action)) {
+            actions.push('training_repeat_instruction');
+            var aptTraining=state.trainingTask.state.progress;
+            if(!state.trainingTask.suspended) {
+                if(!aptTraining.ready && aptTraining.readyPrompted && aptTraining.startAvailable && (!aptTraining.requiredComplete || aptTraining.optionalRequested)) actions.push('training_ready');
+                if(aptTraining.activeExercise?.status==='active') actions.push('training_abort');
+                if(aptTraining.requiredComplete && aptTraining.optionalAvailable && !aptTraining.optionalRequested && aptTraining.activeExercise?.status!=='active') actions.push('training_extra');
+            }
+        }
         if (poiActionAllowed(state)) {
             actions.push('poi_status', 'poi_orientation');
             if (state.flags.active) actions.push('poi_tell_more');
@@ -1966,6 +1992,7 @@
             missionId: state.missionId,
             recipe: state.recipe,
             ...(state.poiTask ? { poiTask: canonicalValue(state.poiTask) } : {}),
+            ...(state.trainingTask ? { trainingTask: canonicalValue(state.trainingTask) } : {}),
             ...(state.poiLifecycle ? { poiLifecycle: canonicalValue(state.poiLifecycle) } : {}),
             phase: state.phase,
             subphase: state.subphase,
@@ -1993,6 +2020,7 @@
             missionId: state.missionId,
             recipe: state.recipe,
             ...(state.poiTask ? { poiTask: canonicalValue(state.poiTask) } : {}),
+            ...(state.trainingTask ? { trainingTask: canonicalValue(state.trainingTask) } : {}),
             ...(state.poiLifecycle ? { poiLifecycle: canonicalValue(state.poiLifecycle) } : {}),
             phase: state.phase,
             subphase: state.subphase,

@@ -74,7 +74,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
     const trainingScopeValid = current => {
       const expected=request.effect?.payload?.trainingScope;
       if (!expected) return true;
-      const state=current?.state?.poiTask?.trainingState?.checkpoint?.procedureState?.activeState;
+      const state=(current?.state?.trainingTask?.state || current?.state?.poiTask?.trainingState)?.checkpoint?.procedureState?.activeState;
       return !!state && `${state.activeIndex}:${state.exercises[state.activeIndex]?.attempts||0}:${state.active?.phase||'preparation'}`===expected;
     };
     if (request.effect?.type === 'voice.cargo') return cargoAudio(request);
@@ -85,7 +85,8 @@ function createTrackerMissionBoardingVoice(options = {}) {
     if (request.effect?.type === 'voice.poi') {
       const payload = object(request.effect.payload);
       const prepared = payload.resolvedRecipe;
-      if (!authorityManager.supportsExecutionRecipe?.('poi') || run.executionRecipe !== 'poi'
+      if (!(run.executionRecipe === 'poi' && authorityManager.supportsExecutionRecipe?.('poi')
+          || run.executionRecipe === 'apt' && payload.aptTraining === true && authorityManager.getExecutionSnapshot?.()?.state?.trainingTask)
           || prepared?.schema !== 'ga.mission-poi-voice-recipe.v1' || prepared.missionId !== run.missionId)
         return { ok: false, status: 'blocked', error: 'poi_voice_recipe_missing', terminal: false, sideEffect: false };
       recipe = { ...prepared };
@@ -168,7 +169,8 @@ function createTrackerMissionBoardingVoice(options = {}) {
     const isPlaybackAllowed = () => {
       const current = authorityManager.getExecutionSnapshot?.();
       if (request.effect?.type === 'voice.poi' && (!current || current.missionId !== run.missionId
-          || current.recipe !== 'poi' || !authorityManager.supportsExecutionRecipe?.('poi'))) return false;
+          || !(current.recipe === 'poi' && authorityManager.supportsExecutionRecipe?.('poi')
+            || current.recipe === 'apt' && request.effect?.payload?.aptTraining === true && current.state.trainingTask))) return false;
       return trainingScopeValid(current) && (!current || (current.runId === run.runId && (current.state.flags.active || (request.effect?.type === 'voice.poi' && request.effect?.payload?.action))
         && !current.state.flags.closingPending && !current.state.flags.farewellStarted
         && !current.state.flags.farewellCompleted && !current.state.flags.unloadConfirmed

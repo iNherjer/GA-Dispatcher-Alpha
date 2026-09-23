@@ -1,3 +1,4 @@
+const aptTraining = require('./tracker-mission-apt-training.js');
 const poiVoiceAvailability = require('../mission-poi-voice-core.js');
 const followupCore = require('./tracker-mission-followup.js');
 const paxQueryCore = require('../mission-pax-query-core.js');
@@ -494,6 +495,7 @@ function publicExecutionSnapshot(run) {
     comfort: runtime?.comfort?.summary ? Object.fromEntries(['comfortScore', 'mood', 'pilotEvents', 'pilotSevere', 'weatherEvents', 'weatherSevere', 'debugMotionProtection'].map(key => [key, runtime.comfort.summary[key]])) : null,
     taskItems: poiRuntime.taskItemStateFromManifest(state.manifest),
     ...(state.poiTask ? { poiTask: poiRuntime.project(state.poiTask) } : {}),
+    ...(state.trainingTask ? {trainingTask:aptTraining.project(state.trainingTask),trainingSpec:run.resumeBundle?.executionTrainingRecipe?.trainingRecipe} : {}),
     ...(poiRecipe?.taskDomain === 'infra_chain_recon' ? { chainSpec: poiRecipe.poiChain } : {}),
     ...(poiRecipe?.trainingRecipe ? {trainingSpec:poiRecipe.trainingRecipe} : {}),
     ...(poiRecipe?.taskDomain === 'mapping_survey' ? { surveySpec: poiRecipe.surveyPattern } : {}),
@@ -593,7 +595,7 @@ function createMissionAuthorityManager(options = {}) {
   const executionAuthorityEnabled = options.executionAuthorityEnabled === true;
   // Internal integration gate. The production entrypoint deliberately does not
   // advertise POI until the complete scene/voice/UI contract has passed parity.
-  const supportsExecutionRecipe = (recipe, bundle) => recipe === EXECUTION_HANDOFF_RECIPE
+  const supportsExecutionRecipe = (recipe, bundle) => (recipe === EXECUTION_HANDOFF_RECIPE && !aptTraining.validateBundle(bundle))
     || (options.poiExecutionEnabled === true && recipe === 'poi'
       && bundle?.missionId === bundle?.executionPoiRecipe?.missionId
       && (resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'poi'
@@ -1869,7 +1871,7 @@ function createMissionAuthorityManager(options = {}) {
   const publicationControl = run => {
     if (!run?.executionState) return null;
     let cached = publicBodies.get(run);
-    const sources = [run.executionState, run.executionRuntimeContext, run.resumeBundle?.executionPoiRecipe,
+    const sources = [run.executionState, run.executionRuntimeContext, run.resumeBundle?.executionPoiRecipe, run.resumeBundle?.executionTrainingRecipe,
       run.executionAuthority, run.executionRecipe, run.missionId, run.runId];
     if (!cached || sources.some((source, index) => source !== cached.sources[index])) {
       cached = { sources, body: publicExecutionSnapshot(run) };
@@ -1921,6 +1923,7 @@ function createMissionAuthorityManager(options = {}) {
     clearMissionRecoveryState,
     getExecutionSnapshot,
     supportsExecutionRecipe(recipe) { return supportsExecutionRecipe(recipe, state.activeRun?.resumeBundle); },
+    getExecutionTrainingRecipe() { return jsonClone(state.activeRun?.resumeBundle?.executionTrainingRecipe || null); },
     getExecutionPoiRecipe() { return jsonClone(state.activeRun?.resumeBundle?.executionPoiRecipe || null); },
     canRebaseIntentRevision,
     abortExecutionRun,

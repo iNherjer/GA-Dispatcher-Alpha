@@ -4,7 +4,7 @@
 
 POI-Training ist ab Alpha v442 fuer `training`, `club_training_basic` und
 `club_training_advanced` freigegeben, wenn ein vollstaendiges Trainingsrezept und
-Flugkontext vorliegen. APT-Clubtraining ist ein eigener Anschluss und wird durch
+Flugkontext vorliegen. APT-Clubtraining war bis v444 ein eigener offener Anschluss und wurde durch
 dieses POI-Gate nicht veraendert. Bekannte Eigenheiten der Standalone-Uebungen
 bleiben bewusst erhalten; die Portierung korrigiert Transport und Autoritaet.
 
@@ -129,7 +129,7 @@ verbindlichen Bannerkriterien. Kein eigener Detektor in App, EFB oder Telemetrie
   aktuellen Plan ohne Detektormutation. Verlauf der letzten 30 Ansagen bleibt im
   privaten Checkpoint und oeffentlichen Guidance-Modell erhalten. Ohne TTS-Zugang
   bleiben Plan, Hinweise und Verlauf lesbar.
-- `control.poiTask.trainingGuidance` ist der einzige UI-Vertrag. Gemeinsamer
+- `control.poiTask.trainingGuidance` (POI) bzw. `control.trainingTask.guidance` (APT) tragen denselben UI-Vertrag. Gemeinsamer
   `mission-training-guidance-ui.js` in App bei Tracker-Autoritaet und Tracker-EFB;
   verschiebbar, einklappbar, mit erneutem Vorlesen und lesbarem Verlauf. Nach
   Abschluss verschwindet die laufende Aufgabenanzeige.
@@ -162,8 +162,7 @@ Originaldetektor ab (`maxVsFpm + 250`), nicht nur den engeren nominalen Rezeptwe
 Abgrenzung: Das ist die Abdeckung der messbaren POI-Trainingsprozedur fuer
 `training`, `club_training_basic`, `club_training_advanced`. Das Rezeptfeld
 `mode=pattern` allein definiert keine Gegen-/Quer-/Endanflug- oder Landetrigger.
-APT-Platzrunden-/Navigationsschulung braucht weiterhin ihren eigenen
-Authority-Anschluss und explizite Abschnittskriterien. Der Renderer ist dafuer
+APT nutzt ab v445 denselben Trainingsablauf. Fuer neue Platzrundenabschnitte fehlen weiterhin explizite Abschnittskriterien. Der Renderer ist dafuer
 wiederverwendbar; ohne solche Kriterien werden keine Erfolgshaken erfunden.
 Standalone und deren Rezeptnormalisierung bleiben unveraendert.
 
@@ -171,3 +170,30 @@ Tests durchlaufen echte Originaldetektor-Phasen fuer 12 Kurvenvarianten,
 Steigen/Sinken mit abweichenden Rezeptwerten und Stall inklusive Restore,
 roter Abweichungen, stabiler Zeitmessung und Abschluss. Zusaetzlich G-Abweichung
 im Banner vor Ablauf der bestehenden Detektor-Toleranzzeit.
+
+
+## APT-Anschluss v445
+
+- `executionTrainingRecipe` transportiert das vollstaendige Originalrezept mit
+  eigenem APT-Voice-Kontext; Cloud und Authority lehnen Trainingsmissionen ohne
+  diesen Vertrag ab. Gewoehnliche APT-Missionen behalten ihren bisherigen Pfad.
+- `tracker-mission-apt-training.js` betreibt denselben Training-Runtime/Core wie
+  POI ausschliesslich im Missionsprozess. `state.trainingTask` enthaelt den
+  persistierten Checkpoint; Telemetrie und Audio verbleiben in ihren bisherigen
+  getrennten Prozessen. Publikation maximal einmal pro Sekunde plus Ereignisse;
+  keine zusaetzlichen Cloud-Writes pro Messwert.
+- Starten, Abbrechen, Wiederholen der Anweisung und Zusatzuebung verwenden
+  dieselben Intents und Guards. App und EFB lesen denselben Fortschritt und
+  dasselbe chronologische Banner. Pausen/Datenluecken setzen nur den laufenden
+  Durchgang zurueck; abgeschlossene Uebungen bleiben erhalten.
+- Originale APT-Flugansagen: Aufgabenbriefing ab 50 Prozent der direkten
+  Start-Ziel-Distanz, Landebriefing bei 5 NM (`pattern`) bzw. 4 NM (andere Modi).
+  Generische APT-Anflugansage bleibt dabei unterdrueckt. Das Abschlussgespraech
+  verwendet die originale Trainingsauswertung und Prozedurzusammenfassung.
+- Ein bestandener Trainingsdurchgang beendet weder die APT-Mission noch setzt
+  er POI-Zielerfolg. Zielankunft, Landung und Abschluss bleiben APT-Aufgaben.
+- `pattern` erzeugt keine erfundenen Haken fuer Gegen-/Quer-/Endanflug: Nur die
+  vier vorhandenen messbaren Prozedurtypen bekommen Abschnittserfolge.
+- Tests: Originalvergleich der APT-Flugansagen und Farewell, verlustfreier Seed,
+  Verladen/Start/Abbruch/Revisionen, Zusatzuebung/Datenluecke/JSON-Restore und
+  Telemetrie plus Intents im echten Missions-Kindprozess.

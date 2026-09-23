@@ -51,6 +51,7 @@ async function createTrackerMissionProcess(options) {
     recordGeneratedText: (request, text) => ipc.request('recordGeneratedText', request, text),
     getPublicSnapshot: () => clone(state.public),
     getExecutionSnapshot: () => clone(state.execution),
+    getExecutionTrainingRecipe: () => clone(state.active?.resumeBundle?.executionTrainingRecipe || null),
     getExecutionRuntimeContext: request => request?.runId === state.active?.runId ? clone(state.context) : null,
     supportsExecutionRecipe: recipe => recipe === 'apt' || (recipe === 'poi' && state.supportsPoi)
   });

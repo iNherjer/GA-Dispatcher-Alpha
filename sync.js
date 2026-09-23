@@ -1547,6 +1547,7 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
         efbMission = null;
     }
     const adapter = _missionAuthorityAdapter(runtime, missionState);
+    const aptTrainingSeed = adapter === 'apt' ? _buildMissionAptTrainingExecutionSeed() : null;
     return _missionAuthorityAttachExecutionShadow({
         version: 2,
         missionId: runtime.missionId,
@@ -1559,7 +1560,10 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
         efbMission,
         missionState,
         runtime,
-        ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : { executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null })
+        ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : {
+            executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null,
+            ...(aptTrainingSeed || {})
+        })
     });
 }
 
@@ -1641,6 +1645,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
         efbMission = null;
     }
     const adapter = _missionAuthorityAdapter(runtime, compactMissionState);
+    const aptTrainingSeed = adapter === 'apt' ? _buildMissionAptTrainingExecutionSeed() : null;
     const bundle = _missionAuthorityAttachExecutionShadow({
         version: 2,
         missionId: trackerMissionId,
@@ -1653,7 +1658,10 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
         efbMission,
         missionState: compactMissionState,
         runtime,
-        ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : { executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null })
+        ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : {
+            executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null,
+            ...(aptTrainingSeed || {})
+        })
     });
     const validation = _validateMissionAuthorityResumeBundle(bundle);
     if (!validation.ok) return { ok: false, error: validation.error || 'local_resume_invalid' };
@@ -1683,6 +1691,7 @@ function _missionAuthorityResumeBundleHash(bundle = null) {
         descriptor: bundle.descriptor,
         mapProfile: bundle.mapProfile,
         executionEffectPlan: bundle.executionEffectPlan,
+        executionTrainingRecipe: bundle.executionTrainingRecipe,
         efbMission: efbMissionForHash,
         missionState: bundle.missionState,
         runtime: runtimeForHash,
@@ -1940,7 +1949,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         cargoWindowOpenId: control.cargoWindowOpenId || null,
         cargoWindowCloseId: control.cargoWindowCloseId || null,
         blockingReasons: control.blockingReasons || [],
-        trainingGuidance: control.poiTask?.trainingGuidance || null
+        trainingGuidance: control.poiTask?.trainingGuidance || control.trainingTask?.guidance || null
     });
     if (projectionSignature === missionExecutionProjectionSignature) {
         window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
@@ -2045,7 +2054,8 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     }
     window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
     try {
-        window.GATrainingGuidanceUi?.render?.(control.executionAuthority === 'tracker' ? control.poiTask?.trainingGuidance : null, {
+        window.GATrainingGuidanceUi?.render?.(control.executionAuthority === 'tracker'
+            ? (control.poiTask?.trainingGuidance || control.trainingTask?.guidance || null) : null, {
             id: 'trainingGuidanceBanner',
             onRepeat: () => window.gaTrackerExecutionSubmitIntent?.('training_repeat_instruction', {})
         });
@@ -7310,6 +7320,9 @@ function _missionSceneBuildDeboardingEffectCommand(reason = 'mission-end', posit
 function _buildMissionAptExecutionEffectPlan(recipe = 'apt') {
     const missionId = _activeMissionRuntimeId('');
     if (!missionId) return null;
+    const trainingContext = recipe === 'apt' && typeof window.paxVoiceBuildTrainingAuthorityContext === 'function'
+        ? window.paxVoiceBuildTrainingAuthorityContext(missionId)
+        : null;
     const spawn = _missionSceneBuildSpawnEffectCommand('tracker-execution:scene.prepare', { lat: 0, lon: 0, alt: 0, hdg: 0 });
     const boarding = _missionSceneBuildBoardingEffectCommand('tracker-execution:scene.boarding', {}, spawn.command.sceneId);
     const deboarding = _missionSceneBuildDeboardingEffectCommand('tracker-execution:scene.deboarding', {}, spawn.command.sceneId);
@@ -7379,14 +7392,35 @@ function _buildMissionAptExecutionEffectPlan(recipe = 'apt') {
             'scene.boarding': { command: stripLivePosition(boarding) },
             ...(boardingVoice ? { 'voice.boarding': { recipe: _safeCloneJson(boardingVoice, null) } } : {}),
             ...(approachContext ? { 'voice.approach': { context: _safeCloneJson(approachContext, null) } } : {}),
-            ...(farewellVoice || farewellContext ? {
+            ...(trainingContext ? { 'voice.farewell': { trainingContextRef: true } } : (farewellVoice || farewellContext ? {
                 'voice.farewell': {
                     ...(farewellVoice ? { recipe: _safeCloneJson(farewellVoice, null) } : {}),
                     ...(farewellContext ? { context: _safeCloneJson(farewellContext, null) } : {})
                 }
-            } : {}),
+            } : {})),
             ...(deboarding ? { 'scene.deboarding': { command: stripLivePosition(deboarding) } } : {}),
             ...(complianceVisit ? { 'scene.compliance_visit': { command: stripLivePosition(complianceVisit) } } : {})
+        }
+    };
+}
+
+function _buildMissionAptTrainingExecutionSeed() {
+    const missionId = _activeMissionRuntimeId('');
+    const voiceContext = typeof window.paxVoiceBuildTrainingAuthorityContext === 'function'
+        ? window.paxVoiceBuildTrainingAuthorityContext(missionId)
+        : null;
+    if (!missionId || !voiceContext || voiceContext.missionId !== missionId
+        || voiceContext.missionMode !== 'APT' || !voiceContext.trainingRecipe
+        || !voiceContext.trainingPlan || !Array.isArray(voiceContext.routeWaypoints)
+        || voiceContext.routeWaypoints.length < 2 || !voiceContext.passenger
+        || !voiceContext.home || !voiceContext.target) return null;
+    return {
+        executionTrainingRecipe: {
+            schema: 'ga.mission-training-execution-recipe.v1', version: 1, missionId,
+            missionMode: 'APT', taskDomain: voiceContext.taskDomain,
+            trainingRecipe: _safeCloneJson(voiceContext.trainingRecipe, null),
+            voiceContext: _safeCloneJson(voiceContext, null),
+            home: _safeCloneJson(voiceContext.home, null), target: _safeCloneJson(voiceContext.target, null)
         }
     };
 }
@@ -15407,8 +15441,10 @@ function _syncTrackerMissionSeedPayload(activeMission = null) {
     if (!['apt', 'poi', 'survey_pattern', 'poi_chain'].includes(adapter)) return null;
     let executionEffectPlan = null;
     let poiSeed = null;
+    let aptTrainingSeed = null;
     try {
         poiSeed = ['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? _buildMissionPoiExecutionSeed() : null;
+        aptTrainingSeed = adapter === 'apt' ? _buildMissionAptTrainingExecutionSeed() : null;
         executionEffectPlan = ['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? poiSeed?.executionEffectPlan : _buildMissionAptExecutionEffectPlan();
     } catch (_) {}
     if (!executionEffectPlan) return null;
@@ -15450,6 +15486,7 @@ function _syncTrackerMissionSeedPayload(activeMission = null) {
         initialCargoManifest,
         executionEffectPlan: _safeCloneJson(executionEffectPlan, null),
         ...(poiSeed ? { executionPoiRecipe: poiSeed.executionPoiRecipe } : {}),
+        ...(aptTrainingSeed ? { executionTrainingRecipe: _safeCloneJson(aptTrainingSeed.executionTrainingRecipe, null) } : {}),
         efbMission
     };
 }

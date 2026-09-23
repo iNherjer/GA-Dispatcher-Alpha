@@ -421,6 +421,17 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       view.requirements.push({ label: 'Pflichtladung',
         detail: `${requiredLoaded}/${required.length} an Bord · Zustand ${requiredCondition}%`, tone: cargoTone });
     }
+    if (control.recipe==='apt' && control.trainingTask) {
+      const task=control.trainingTask, progress=task.progress || {}, guidance=task.guidance || {};
+      const required=Number(control.trainingSpec?.requiredCount || 1);
+      view.progress.push({label:'Training',percent:Math.min(100,Number(progress.completedCount||0)/required*100),
+        detail:`${progress.completedCount||0}/${required} Übungen erfüllt · ${guidance.phaseLabel || (progress.requiredComplete?'Pflichtteil erfüllt':'Vorbereitung')}`,tone:progress.requiredComplete?'good':'active'});
+      view.requirements.push({label:'Training',detail:'Übungen im PAX-Menü einzeln starten, abbrechen und erneut ansetzen. Zusatzübungen sind freiwillig.'});
+      if (control.flags?.active && !['end_ready','end_unloading','closing','closed'].includes(control.phase)) {
+        view.currentTask=guidance.currentInstruction || guidance.instruction || view.currentTask;
+        view.detail=guidance.notice || view.currentTask;
+      }
+    }
     const recipe = bundle.executionPoiRecipe;
     if (control.recipe === 'poi' && recipe && control.poiTask) {
       const task = control.poiTask;

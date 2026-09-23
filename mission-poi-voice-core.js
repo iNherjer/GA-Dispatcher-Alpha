@@ -77,10 +77,10 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _baseContext = () => context.baseContext;
   const _toneHint = () => context.toneHint || '';
   const _activeTaskDomain = () => context.taskDomain;
-  const _isPOIMission = () => true;
+  const _isPOIMission = () => cue.missionMode !== 'APT';
   const _activeAptTrainingPlan = () => context.trainingPlan || null;
-  const _trainingEvalSummary = () => cue.dynamic?.poiProgress?.trainingSummary || null;
-  window.missionTrainingProcedure = { snapshot: () => cue.dynamic?.poiProgress?.trainingProcedure || cue.detector?.trainingProgress || null };
+  const _trainingEvalSummary = () => cue.dynamic?.trainingSummary || cue.dynamic?.poiProgress?.trainingSummary || null;
+  window.missionTrainingProcedure = { snapshot: () => cue.dynamic?.trainingProcedureSummary || cue.dynamic?.poiProgress?.trainingProcedure || cue.detector?.trainingProgress || null };
   const _activePoiKnowledgeContext = () => {
     const knowledge = context.knowledgeContext;
     const status = String(knowledge?.status || '').toLowerCase();
@@ -1890,6 +1890,21 @@ function renderFarewell(context, dynamic = {}, previous = {}) {
   if (result.prompt && result.prompt.length > 24000) throw new TypeError('poi_voice_prompt_too_large');
   return result;
 }
+function validateTrainingFarewellContext(context, missionId = context?.missionId) {
+  if (context?.schema !== 'ga.mission-training-authority-context.v1' || context?.version !== 1
+      || context?.missionMode !== 'APT' || !missionId || context.missionId !== missionId) return 'training_farewell_context_identity_invalid';
+  if (!DOMAINS.includes(context.taskDomain) || !['training', 'club_training_basic', 'club_training_advanced'].includes(context.taskDomain)
+      || !context.passenger || Array.isArray(context.passenger) || typeof context.baseContext !== 'string' || !context.baseContext.trim()
+      || typeof context.audioEnabled !== 'boolean' || !context.trainingPlan || typeof context.trainingPlan !== 'object') return 'training_farewell_context_invalid';
+  return null;
+}
+function renderTrainingFarewell(context, dynamic = {}, previous = {}) {
+  const error = validateTrainingFarewellContext(context);
+  if (error) throw new TypeError(error);
+  const result = original(clone(context), clone(previous), { farewell: true, missionMode: 'APT', dynamic: clone(dynamic) });
+  if (result.prompt && result.prompt.length > 24000) throw new TypeError('training_farewell_prompt_too_large');
+  return result;
+}
 function renderAction(context, action, detector, sample, target, previous = {}) {
   const error = validateContext(context);
   if (error) throw new TypeError(error);
@@ -1913,5 +1928,5 @@ function chainEvents(context, events = [], spec = context?.chainSpec || null) {
   if (context.taskDomain !== 'infra_chain_recon' || !spec) throw new TypeError('poi_chain_voice_context_invalid');
   return original(clone(context), {}, { chainEvent: { events: clone(events), spec: clone(spec) } }).chainEvents;
 }
-return Object.freeze({ chainEvents, knowledgeAvailable, renderAction, renderFarewell, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, normalizeMemory, render, captureMemory });
+return Object.freeze({ chainEvents, knowledgeAvailable, renderAction, renderFarewell, renderTrainingFarewell, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, validateTrainingFarewellContext, normalizeMemory, render, captureMemory });
 });

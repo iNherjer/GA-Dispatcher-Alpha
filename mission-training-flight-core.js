@@ -3,6 +3,8 @@
 function createState(saved = {}) {
     const e = saved.eval || {};
     return {
+        aptBriefDone: !!saved.aptBriefDone,
+        aptLandingBriefDone: !!saved.aptLandingBriefDone,
         preBriefDone: !!saved.preBriefDone,
         zoneStartDone: !!saved.zoneStartDone,
         landingBriefDone: !!saved.landingBriefDone,
@@ -23,6 +25,8 @@ function createState(saved = {}) {
 function execute(context = {}, saved = {}, sample = {}, progress = null, now = 0, operation = 'observe') {
     const state = createState(saved);
     const cues = [];
+    let _aptTrainingBriefDone = state.aptBriefDone;
+    let _aptTrainingLandingBriefDone = state.aptLandingBriefDone;
     let _poiTrainingPreBriefDone = state.preBriefDone;
     let _poiTrainingZoneStartDone = state.zoneStartDone;
     let _poiTrainingLandingBriefDone = state.landingBriefDone;
@@ -34,6 +38,7 @@ function execute(context = {}, saved = {}, sample = {}, progress = null, now = 0
     const Date = { now: () => Number(now) };
     const window = { activePassenger: context.passenger || null,
         missionTrainingProcedure: { snapshot: () => progress } };
+    const currentMissionData = context.missionData || {};
     const _activeAptTrainingPlan = () => context.trainingPlan || null;
     const _baseContext = () => context.baseContext || null;
     const _toneHint = () => context.toneHint || '';
@@ -149,6 +154,39 @@ Der Prüfer soll jetzt sagen, dass wir gleich im Übungsgebiet sind und der Pilo
 Keine Objektbeschreibung, kein "in Sicht", noch keine Startanweisung für ein Manöver. Max 2 Sätze.${_toneHint()}`;
 }
 
+function _aptTrainingPrompt(flightData, distNm, progressRatio) {
+    const ctx = _baseContext();
+    const plan = _activeAptTrainingPlan();
+    if (!ctx || !plan) return null;
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const wx = _weatherContext(flightData);
+    const triggerLine = `Trigger: Halbe Strecke erreicht (${Math.round((progressRatio || 0.5) * 100)}%).`;
+    // 50%-Call ist immer AIRWORK. Pattern-/Platzrundenanteile gehören in den
+    // Endanflug-Trigger (5/4 NM) am Zielflugplatz.
+    const airworkFocus = Array.isArray(plan.focus)
+        ? plan.focus.filter(item => !_isPatternFocusItem(item))
+        : [];
+    const modeLine = 'Trainingsmodus AIRWORK: Übungen in der Luft, nicht platzrundenfokussiert.';
+    const focusLine = airworkFocus.length
+        ? `Heutige Airwork-Übungen: ${airworkFocus.join(', ')}.`
+        : 'Nenne jetzt 2-3 konkrete Airwork-Übungen (z.B. Slow Flight, Steep Turns, Stall Recovery, Höhen-/Kursführung).';
+    const instructorLineRaw = String(plan.instructorLine || '').trim();
+    const lineLooksPattern = _isPatternFocusItem(instructorLineRaw);
+    // Halbzeit-Call strikt airwork: pattern-/landing-lastige Instructor-Lines hier NICHT einstreuen.
+    const lineHint = (instructorLineRaw && !lineLooksPattern)
+        ? `Wenn passend, baue diese Instruktor-Linie sinngemäß ein: "${instructorLineRaw}".`
+        : '';
+    const closeStepHint = `Schließe zwingend mit einem klaren nächsten Schritt ab, z.B.: "Danach zurück auf Kurs Richtung ${md.dest || 'Zielflugplatz'}."`;
+    const hardSeparationRule = 'In diesem Halbzeit-Call strikt verboten: Platzrunde, Fehlanflug/Missed Approach, Touch-and-Go, No-Flap-Landung, Endanflug/Landung. Diese Inhalte erst im 5-NM-Landing-Call.';
+    return `${ctx}
+
+Moment: Trainingsflug mit Instruktor. ${triggerLine}${wx ? ' ' + wx : ''}
+${modeLine}
+${focusLine}
+Gib dem Piloten jetzt eine kurze, konkrete Airwork-Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus. ${hardSeparationRule}${lineHint ? ' ' + lineHint : ''} ${closeStepHint}
+Ton: sachlich, ruhig, klar. Strikter Instruktor-Funkstil: keine Ortsgeschichte, keine Schwärmerei, kein Offtopic. Max 2 Sätze.${_toneHint()}`;
+}
+
 function _trainingLandingPrepPrompt(flightData, distNm, mode, placeLabel = 'Zielflugplatz') {
     const ctx = _baseContext();
     const plan = _activeAptTrainingPlan();
@@ -216,6 +254,11 @@ function _trainingPoiCenterFromRoute(wps) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     return { lat, lon };
 }
+
+function _isPatternFocusItem(text) {
+    const s = String(text || '').toLowerCase();
+    return /pattern|platzrunde|touch|go-around|missed|no-flap|engine-out|anflug|landung|final/.test(s);
+}
     if (operation === 'debrief') return _trainingProcedureDebriefLine();
     if (operation === 'summary') return _trainingEvalSummary();
     function tick() {
@@ -225,9 +268,10 @@ function _trainingPoiCenterFromRoute(wps) {
       const trainingPlan = _activeAptTrainingPlan();
       const wps = context.routeWaypoints || null;
       if (trainingPlan && wps && wps.length >= 2) {
+        const first = wps[0];
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
-        const isPoiMission = true;
+        const isPoiMission = String(context.missionMode || '').trim().toUpperCase() !== 'APT';
         if (isPoiMission) {
             const dest = _getDestCoords() || _trainingPoiCenterFromRoute(wps);
             if (!dest) {
@@ -277,10 +321,37 @@ function _trainingPoiCenterFromRoute(wps) {
                     if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
             }
-
+        } else {
+            // APT-Training: identisches Muster wie POI-Training.
+            // 1) Hauptbriefing bei ~50% Route
+            const totalNm = _haversineNm(first.lat, first.lng ?? first.lon, last.lat, last.lng ?? last.lon);
+            const doneNm = _haversineNm(first.lat, first.lng ?? first.lon, lat, lon);
+            const progress = totalNm > 1 ? (doneNm / totalNm) : 0;
+            if (!_aptTrainingBriefDone && progress >= 0.50) {
+                _aptTrainingBriefDone = true;
+                _paxLog(`Training-Trigger apt_half_route_50 | progress ${(progress * 100).toFixed(0)}%`, 'event');
+                const p = _aptTrainingPrompt(flightData, distNm, progress);
+                if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+            }
+            // 2) Landing-Call nach Modus: pattern 5NM, sonst 4NM
+            if (_aptTrainingBriefDone && !_aptTrainingLandingBriefDone) {
+                if (trainingPlan.mode === 'pattern' && distNm <= 5.0) {
+                    _aptTrainingLandingBriefDone = true;
+                    _paxLandingPhaseAnnounced = true;
+                    _paxLog(`Training-Trigger apt_landing_pattern_5nm | dist ${distNm.toFixed(2)} NM`, 'event');
+                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'pattern', 'Zielflugplatz');
+                    if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                } else if (trainingPlan.mode !== 'pattern' && distNm <= 4.0) {
+                    _aptTrainingLandingBriefDone = true;
+                    _paxLandingPhaseAnnounced = true;
+                    _paxLog(`Training-Trigger apt_landing_4nm | dist ${distNm.toFixed(2)} NM`, 'event');
+                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'landing', 'Zielflugplatz');
+                    if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                }
+            }
         }
-      }
-      const _aptTrainingBriefDone = false;
+    }
+
     if (trainingPlan && (_aptTrainingBriefDone || _poiTrainingZoneStartDone)) {
         _trainingEvalBegin();
         _trainingEvalTick(flightData || window.lastLiveFlightData || {});
@@ -288,6 +359,8 @@ function _trainingPoiCenterFromRoute(wps) {
 
     }
     tick();
+    state.aptBriefDone = _aptTrainingBriefDone;
+    state.aptLandingBriefDone = _aptTrainingLandingBriefDone;
     state.preBriefDone = _poiTrainingPreBriefDone;
     state.zoneStartDone = _poiTrainingZoneStartDone;
     state.landingBriefDone = _poiTrainingLandingBriefDone;

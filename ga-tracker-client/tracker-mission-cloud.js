@@ -2,6 +2,7 @@
 const cloudSync = require('../cloud-sync-client.js');
 const profileClients = new Map();
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
+const aptTraining = require('./tracker-mission-apt-training.js');
 
 const executionCore = require('../mission-execution-core.js');
 const resumeAdapters = require('../mission-resume-adapters-core.js');
@@ -127,14 +128,16 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
     missionState: clone(state),
     runtime,
     executionEffectPlan: seed.executionEffectPlan ? clone(seed.executionEffectPlan) : null,
+    ...(adapter === 'apt' ? { executionTrainingRecipe: clone(seed.executionTrainingRecipe || null) } : {}),
     ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? { executionPoiRecipe: clone(seed.executionPoiRecipe || null) } : {})
   };
   const validation = resumeAdapters.validateBundle(bundle);
   if (!validation.ok) {
     return { ok: false, status: 'invalid', code: validation.error || 'cloud_mission_bundle_invalid', candidate: null };
   }
+  const aptTrainingError = adapter === 'apt' ? aptTraining.validateBundle(bundle) : null;
   if (['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (!poiRuntime.hasLifecycle(bundle.executionPoiRecipe) || !!poiRuntime.validateBundle(bundle))
-      : object(bundle.executionEffectPlan).schema !== 'ga.mission-apt-effect-plan.v1') {
+      : (object(bundle.executionEffectPlan).schema !== 'ga.mission-apt-effect-plan.v1' || !!aptTrainingError)) {
     return { ok: false, status: 'invalid', code: 'cloud_mission_effect_plan_missing', candidate: null };
   }
   bundle.executionReplay = executionCore.createExecutionBundle(bundle);

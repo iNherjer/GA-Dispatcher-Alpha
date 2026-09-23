@@ -2004,7 +2004,7 @@
         voice: payload.control.voice || null,
         blockingReasons: payload.control.blockingReasons || [],
         allowedActions: payload.control.allowedActions || [],
-        trainingGuidance: payload.control.poiTask && payload.control.poiTask.trainingGuidance || null
+        trainingGuidance: payload.control.trainingTask && payload.control.trainingTask.guidance || payload.control.poiTask && payload.control.poiTask.trainingGuidance || null
       } : null,
       trackerLive: flightView.trackerLive === true
     });
@@ -2334,7 +2334,7 @@
   function renderTrainingGuidance(control) {
     positionAirspaceBanner();
     if (!window.GATrainingGuidanceUi || typeof window.GATrainingGuidanceUi.render !== 'function') return;
-    window.GATrainingGuidanceUi.render(control && control.executionAuthority === 'tracker' && control.poiTask ? control.poiTask.trainingGuidance : null, {
+    window.GATrainingGuidanceUi.render(control && control.executionAuthority === 'tracker' ? (control.trainingTask && control.trainingTask.guidance || control.poiTask && control.poiTask.trainingGuidance) : null, {
       id: 'trainingGuidanceBanner',
       onRepeat: function () { return submitMissionIntent('training_repeat_instruction', {}); }
     });

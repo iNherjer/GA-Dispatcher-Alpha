@@ -2,25 +2,29 @@ import fs from 'node:fs';
 import { extractOriginalFunction } from './extract-original-function.mjs';
 
 const source = fs.readFileSync(new URL('../passenger-voice.js', import.meta.url), 'utf8');
+const appSource = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const fn = name => extractOriginalFunction(source, name);
+const appFn = name => extractOriginalFunction(appSource, name);
 const start = source.indexOf('    const trainingPlan = _activeAptTrainingPlan();', source.indexOf('window.checkPaxPoiProximity ='));
 const poiStart = source.indexOf('        if (isPoiMission) {', start);
 const aptStart = source.indexOf('        } else {\n            // APT-Training:', poiStart);
 const evalStart = source.indexOf('    if (trainingPlan && (_aptTrainingBriefDone || _poiTrainingZoneStartDone)) {', aptStart);
 const evalEnd = source.indexOf('    const trainingTaskDomainActive', evalStart);
 if (start < 0 || poiStart < 0 || aptStart < 0 || evalStart < 0 || evalEnd < 0) throw new Error('Original training flight boundary missing');
-const poi = source.slice(poiStart, aptStart) + '\n        }';
+const flightTriggers = source.slice(poiStart, evalStart);
 const evalTick = source.slice(evalStart, evalEnd);
 const originals = [
   '_trainingEvalBegin', '_toBoolStall', '_trainingEvalTick', '_trainingEvalSummary',
-  '_trainingProcedureDebriefLine', '_poiTrainingPreZonePrompt', '_trainingLandingPrepPrompt',
+  '_trainingProcedureDebriefLine', '_poiTrainingPreZonePrompt', '_aptTrainingPrompt', '_trainingLandingPrepPrompt',
   '_weatherContext', '_haversineNm', '_trainingPoiCenterFromRoute'
-].map(fn).join('\n\n');
+].map(fn).concat(appFn('_isPatternFocusItem')).join('\n\n');
 const output = `// Generated from original passenger-voice.js by tools/generate-training-flight-core.mjs. Do not edit.
 'use strict';
 function createState(saved = {}) {
     const e = saved.eval || {};
     return {
+        aptBriefDone: !!saved.aptBriefDone,
+        aptLandingBriefDone: !!saved.aptLandingBriefDone,
         preBriefDone: !!saved.preBriefDone,
         zoneStartDone: !!saved.zoneStartDone,
         landingBriefDone: !!saved.landingBriefDone,
@@ -41,6 +45,8 @@ function createState(saved = {}) {
 function execute(context = {}, saved = {}, sample = {}, progress = null, now = 0, operation = 'observe') {
     const state = createState(saved);
     const cues = [];
+    let _aptTrainingBriefDone = state.aptBriefDone;
+    let _aptTrainingLandingBriefDone = state.aptLandingBriefDone;
     let _poiTrainingPreBriefDone = state.preBriefDone;
     let _poiTrainingZoneStartDone = state.zoneStartDone;
     let _poiTrainingLandingBriefDone = state.landingBriefDone;
@@ -52,6 +58,7 @@ function execute(context = {}, saved = {}, sample = {}, progress = null, now = 0
     const Date = { now: () => Number(now) };
     const window = { activePassenger: context.passenger || null,
         missionTrainingProcedure: { snapshot: () => progress } };
+    const currentMissionData = context.missionData || {};
     const _activeAptTrainingPlan = () => context.trainingPlan || null;
     const _baseContext = () => context.baseContext || null;
     const _toneHint = () => context.toneHint || '';
@@ -76,15 +83,16 @@ ${originals}
       const trainingPlan = _activeAptTrainingPlan();
       const wps = context.routeWaypoints || null;
       if (trainingPlan && wps && wps.length >= 2) {
+        const first = wps[0];
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
-        const isPoiMission = true;
-${poi}
-      }
-      const _aptTrainingBriefDone = false;
+        const isPoiMission = String(context.missionMode || '').trim().toUpperCase() !== 'APT';
+${flightTriggers}
 ${evalTick}
     }
     tick();
+    state.aptBriefDone = _aptTrainingBriefDone;
+    state.aptLandingBriefDone = _aptTrainingLandingBriefDone;
     state.preBriefDone = _poiTrainingPreBriefDone;
     state.zoneStartDone = _poiTrainingZoneStartDone;
     state.landingBriefDone = _poiTrainingLandingBriefDone;

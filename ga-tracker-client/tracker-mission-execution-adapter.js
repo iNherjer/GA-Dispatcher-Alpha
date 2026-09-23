@@ -1,6 +1,9 @@
 const paxQueryCore = require('../mission-pax-query-core.js');
 const { prepareAction: preparePoiAction } = require('./tracker-mission-poi-voice.js');
 'use strict';
+
+const aptTraining = require('./tracker-mission-apt-training.js');
+
 const comfortCore = require('../mission-comfort-core.js');
 
 const executionCore = require('../mission-execution-core.js');
@@ -22,7 +25,7 @@ const RUNTIME_CONTEXT_PERSIST_INTERVAL_MS = 5000;
 const COMPLIANCE_REQUESTED_ITEM_IDS = new Set(['bordbuch', 'fire-extinguisher', 'first-aid']);
 const SYSTEM_EVENT_TYPES = new Set([
   'FIRE_SCENE_RECOVERY_REQUESTED',
-  'POI_TASK_OBSERVED', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED',
+  'POI_TASK_OBSERVED', 'APT_TRAINING_OBSERVED', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED',
   'BOARDING_STARTED',
   'BOARDING_SCENE_CONFIRMED',
   'BOARDING_CONFIRMED',
@@ -798,6 +801,14 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       if (!cue) return errorResult('pax_query_not_available');
       return submitEvent(snapshot, 'APT_FLIGHT_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }
+    if (snapshot.recipe==='apt' && ['training_ready','training_abort','training_extra','training_repeat_instruction'].includes(intent)) {
+      const recipe=authorityManager.getExecutionTrainingRecipe?.();
+      if(!recipe || !snapshot.state.trainingTask)return errorResult('training_not_active');
+      const sample=observations.latestTelemetry;
+      if(intent!=='training_repeat_instruction' && (snapshot.state.trainingTask.suspended || !sample || now()-sample.observedAt>5000
+          || sample.simPaused || sample.inMenuOrMap || sample.onGround || sample.slewActive || sample.slewMode)) return errorResult('training_suspended');
+      return submitEvent(snapshot,'APT_TRAINING_ACTION_OBSERVED',aptTraining.action(recipe,snapshot.state.trainingTask,intent,now()),`${snapshot.runId}:intent:${commandId}`,`intent:${intent}`);
+    }
     if (['training_ready','training_abort','training_extra','training_repeat_instruction'].includes(intent) || (intent==='poi_status' && snapshot.state.poiTask?.trainingState)) {
       if (!snapshot.state.flags.active || !snapshot.state.poiTask?.trainingState) return errorResult('training_not_active');
       const sample = observations.latestTelemetry;
@@ -949,7 +960,9 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (type === 'MISSION_CLOSED' && snapshot.state.phase !== 'closing') {
       return errorResult('mission_close_not_requested', { view: snapshot.view });
     }
-    const payload = type === 'POI_TASK_OBSERVED'
+    const payload = type === 'APT_TRAINING_OBSERVED'
+      ? {trainingTask:safeObject(request.payload?.trainingTask),voiceEffects:Array.isArray(request.payload?.voiceEffects)?request.payload.voiceEffects.slice(0,8):[]}
+      : type === 'POI_TASK_OBSERVED'
       ? { poiTask: safeObject(request.payload?.poiTask), voiceEffects: Array.isArray(request.payload?.voiceEffects) ? request.payload.voiceEffects.slice(0, 8) : [] }
       : ['BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED', 'LOAD_CONFIRMED', 'PAX_DEBOARDING_CONFIRMED'].includes(type)
       ? { manifest: snapshot.state.manifest }

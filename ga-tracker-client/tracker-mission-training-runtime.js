@@ -32,7 +32,7 @@ function createState(recipe, saved) {
     const checkpoint = adapter.createState(spec(recipe), saved?.checkpoint || null);
     return { checkpoint, progress: progress(checkpoint), flight: flight.createState(saved?.flight), lastSampleAt: saved?.lastSampleAt ?? null, coaching: saved?.coaching ? JSON.parse(JSON.stringify(saved.coaching)) : null, guidance: saved?.guidance || null };
 }
-function context(recipe) { return { ...recipe.voiceContext, target: recipe.target, home: recipe.home, trainingRecipe: recipe.trainingRecipe }; }
+function context(recipe) { return { ...recipe.voiceContext, target: recipe.target, home: recipe.home, trainingRecipe: recipe.trainingRecipe, missionMode:recipe.missionMode || 'POI' }; }
 function pause(recipe, state, now, reason = 'Flugdaten unterbrochen oder Simulator pausiert. Laufenden Durchgang neu ansetzen.') {
     const c = coaching.init(state);
     if (!c.suspended) { c.notice = reason; c.pendingNotice = reason; coaching.record(state, reason, now); }

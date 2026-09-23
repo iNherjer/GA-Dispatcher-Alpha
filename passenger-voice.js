@@ -5945,7 +5945,7 @@ function _trainingProcedureActiveRecipe() {
 }
 
 function _trainingProcedureSnapshot() {
-    if (window.gaTrackerExecutionHandlesMission?.() && window.gaTrackerExecutionControl?.trainingSpec) return window.gaTrackerExecutionControl?.poiTask?.trainingProcedure || null;
+    if (window.gaTrackerExecutionHandlesMission?.() && window.gaTrackerExecutionControl?.trainingSpec) return window.gaTrackerExecutionControl?.trainingTask?.progress || window.gaTrackerExecutionControl?.poiTask?.trainingProcedure || null;
     if (typeof window.missionTrainingProcedure?.snapshot !== 'function') return null;
     try {
         return window.missionTrainingProcedure.snapshot();
@@ -9938,6 +9938,57 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
         ttsHedgeEnabled: _paxTtsHedgeEnabled(), ttsHedgeDelayMs: _paxTtsHedgeDelayMs()
     };
     return core.validateContext(context, missionId) ? null : JSON.parse(JSON.stringify(context));
+};
+
+// APT training has its own tracker contract.  It deliberately does not pass
+// through the POI context validator: an APT route is not a POI task merely
+// because both use the original training procedure.
+window.paxVoiceBuildTrainingAuthorityContext = function(missionId) {
+    const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
+    const pax = window.activePassenger || null;
+    const taskDomain = _activeTaskDomain();
+    const trainingDomains = /^(training|club_training_basic|club_training_advanced)$/;
+    const missionModes = [md?.missionType, md?.mode, md?.missionContext?.mode,
+        md?.missionPlanV4?.plan?.missionType, md?.missionPlanV2?.plan?.missionType,
+        md?.missionContract?.missionType, md?.missionContract?.mode, md?.missionContract?.route?.mode,
+        md?.missionContractV4?.missionType, md?.missionContractV4?.mode, md?.missionContractV4?.route?.mode,
+        md?._missionContractV4?.missionType, md?._missionContractV4?.mode, md?._missionContractV4?.route?.mode,
+        window.activeMissionContract?.missionType, window.activeMissionContract?.mode,
+        window.activeMissionContract?.route?.mode]
+        .map(value => String(value || '').trim().toLowerCase());
+    const isApt = missionModes.some(value => value === 'apt' || value === 'airport'
+        || value === 'a-b' || value === 'a_b' || value === 'ab' || /^apt[:_\s-]/.test(value));
+    const trainingPlan = _activeAptTrainingPlan();
+    const trainingRecipe = _trainingProcedureActiveRecipe();
+    const wps = typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)
+        ? routeWaypoints : [];
+    const point = value => {
+        const lat = Number(value?.lat);
+        const lon = Number(value?.lon ?? value?.lng);
+        return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+    };
+    const departure = point(wps[0]);
+    const target = point(wps[wps.length - 1]);
+    if (!missionId || !md || !pax || !_missionHasPax() || !isApt || !trainingDomains.test(taskDomain)
+        || !trainingPlan || !trainingRecipe || wps.length < 2 || !departure || !target) return null;
+    const modelIds = provider => _paxAiTextModels(provider)
+        .map(entry => Array.isArray(entry) ? entry[0] : entry).filter(Boolean);
+    const context = {
+        schema: 'ga.mission-training-authority-context.v1', version: 1, missionId,
+        missionMode: 'APT', taskDomain, strict: !!_paxStrictMode,
+        missionData: { missionId, start: md.start, dest: md.dest, missionType: 'apt' },
+        baseContext: _baseContext(), passenger: { ...pax },
+        trainingRecipe, trainingPlan,
+        trainingSpeaker: _speakerSnapshotForMissionVoice('training-procedure'),
+        speaker: _speakerSnapshotForActivePax(), audioEnabled: !!_paxVoiceEnabled,
+        routeWaypoints: wps, departure, target, home: departure,
+        textModels: { gemini: modelIds('gemini'), openai: modelIds('openai') },
+        ttsModels: _paxTtsModelPref === '3.1' ? ['gemini-3.1-flash-tts-preview']
+            : (_paxTtsModelPref === '2.5' ? ['gemini-2.5-flash-preview-tts']
+                : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']),
+        ttsHedgeEnabled: _paxTtsHedgeEnabled(), ttsHedgeDelayMs: _paxTtsHedgeDelayMs()
+    };
+    return JSON.parse(JSON.stringify(context));
 };
 
 window.paxVoiceBuildApproachAuthorityContext = function() {

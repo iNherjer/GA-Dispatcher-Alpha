@@ -3,6 +3,7 @@
 const routeVoiceCore = require('../mission-route-voice-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const poiVoiceCore = require('../mission-poi-voice-core.js');
+const training = require('./tracker-mission-training-runtime.js');
 
 function cleanString(value, maxLength = 180) {
   return String(value || '').trim().slice(0, maxLength);
@@ -61,7 +62,20 @@ function createTrackerMissionFarewellVoice(options = {}) {
   const resolveRecipeSource = (request, run) => {
     const plan = object(run.resumeBundle?.executionEffectPlan);
     const effectPlan = object(object(plan.effects)['voice.farewell']);
+    const trainingContext = effectPlan.trainingContextRef === true ? run.resumeBundle?.executionTrainingRecipe?.voiceContext : null;
     const poiContext = effectPlan.poiContextRef === true ? run.resumeBundle?.executionPoiRecipe?.voiceContext : null;
+    if (trainingContext) {
+      const dynamic = object(request.farewellDynamicContext);
+      const trainingState = authorityManager.getExecutionSnapshot?.()?.state?.trainingTask?.state;
+      const rendered = poiVoiceCore.renderTrainingFarewell(trainingContext, {
+        ...dynamic,
+        trainingSummary: dynamic.trainingSummary || training.summary(trainingState?.flight),
+        trainingProcedureSummary: dynamic.trainingProcedureSummary || trainingState?.progress
+      });
+      return farewellVoiceCore.createRecipe({ ...trainingContext, ...rendered, enabled: true,
+        speaker: trainingContext.trainingSpeaker || trainingContext.speaker,
+        playCue: trainingContext.farewellCueId !== 'none', cueId: trainingContext.farewellCueId || 'deboarding_pax' });
+    }
     if (run.executionRecipe === 'poi' && poiContext && !poiVoiceCore.validateContext(poiContext, run.missionId)) {
       const dynamic = request.farewellDynamicContext || {};
       const rendered = poiVoiceCore.renderFarewell(poiContext, { ...dynamic,
