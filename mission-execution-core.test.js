@@ -526,10 +526,12 @@ test('forced App compliance follows visit, farewell, evidence, result, departure
 test('browser-global and Node exports replay the same bundle to the same state hash', () => {
     const payloadSource = fs.readFileSync(path.join(__dirname, 'mission-payload-core.js'), 'utf8');
     const complianceSource = fs.readFileSync(path.join(__dirname, 'mission-compliance-domain-core.js'), 'utf8');
+    const bushPickupVoiceSource = fs.readFileSync(path.join(__dirname, 'mission-bush-pickup-voice-core.js'), 'utf8');
     const source = fs.readFileSync(path.join(__dirname, 'mission-execution-core.js'), 'utf8');
     const context = vm.createContext({ console, setTimeout, clearTimeout });
     vm.runInContext(payloadSource, context, { filename: 'mission-payload-core.js' });
     vm.runInContext(complianceSource, context, { filename: 'mission-compliance-domain-core.js' });
+    vm.runInContext(bushPickupVoiceSource, context, { filename: 'mission-bush-pickup-voice-core.js' });
     vm.runInContext(source, context, { filename: 'mission-execution-core.js' });
     const browserCore = context.GAMissionExecutionCore;
     assert.ok(browserCore);
@@ -754,4 +756,22 @@ test('club speech history commits only playback ACKs and survives serialized res
  const restored=core.deserializeState(core.serializeState(state));
  assert.deepEqual(restored.voice.clubHistory,state.voice.clubHistory);
  assert.equal(restored.phase,'enroute');
+});
+
+test('Bush pickup voice ACK keeps complete spoken history and a compact continuity memory', () => {
+    let state = core.normalizeState({ missionId: 'bush-voice-history', recipe: 'apt', phase: 'enroute',
+        flags: { active: true }, bushTask: { schema: 'ga.tracker-bush-task.v1', missionId: 'bush-voice-history', profileId: 'bush_pickup_strip', kind: 'pickup_return', progress: {} }, voice: { bushMemory: {} },
+        effects: [{ effectId: 'bush-voice-1', type: 'voice.bush', status: 'requested', sourceEventId: 'bush-request',
+            payload: { stage: 'pickup_boarding', kind: 'pickup_boarding' } }] });
+    state = core.reduce(state, { eventId: 'bush-voice-ack', type: 'EFFECT_ACKNOWLEDGED', sequence: 1, occurredAt: 1234,
+        payload: { effectId: 'bush-voice-1', status: 'completed', result: {
+            kind: 'boarding', status: 'ok', playback: 'completed', text: 'Die Funkgeräte am entlegenen Treffpunkt sind geprüft und funktionieren wieder.',
+            speaker: { name: 'Ava Reed', role: 'Rangerin' }
+        } } });
+    assert.equal(state.voice.bush.text, 'Die Funkgeräte am entlegenen Treffpunkt sind geprüft und funktionieren wieder.');
+    assert.equal(state.voice.bushHistory[0].stage, 'pickup_boarding');
+    assert.match(state.voice.bushMemory.passenger.boarding, /^Die Funkgeräte/);
+    const restored = core.deserializeState(core.serializeState(state));
+    assert.deepEqual(restored.voice.bushHistory, state.voice.bushHistory);
+    assert.equal(restored.voice.bush.text, state.voice.bush.text);
 });

@@ -598,10 +598,11 @@ function createMissionAuthorityManager(options = {}) {
   const executionAuthorityEnabled = options.executionAuthorityEnabled === true;
   // Internal integration gate. The production entrypoint deliberately does not
   // advertise POI until the complete scene/voice/UI contract has passed parity.
-  const supportsExecutionRecipe = (recipe, bundle) => (recipe === EXECUTION_HANDOFF_RECIPE && !aptTraining.validateBundle(bundle) && !bushCore.validateBundle(bundle) && (!bundle?.executionBushRecipe || options.poiExecutionEnabled === true))
+  const supportsExecutionRecipe = (recipe, bundle) => (recipe === EXECUTION_HANDOFF_RECIPE && bundle?.executionBushRecipe?.kind !== 'recon_return' && !aptTraining.validateBundle(bundle) && !bushCore.validateBundle(bundle) && (!bundle?.executionBushRecipe || options.poiExecutionEnabled === true))
     || (options.poiExecutionEnabled === true && recipe === 'poi'
       && bundle?.missionId === bundle?.executionPoiRecipe?.missionId
       && (resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'poi'
+        || (resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'bush_pickup' && bundle.executionBushRecipe?.kind==='recon_return' && !bushCore.validateBundle(bundle))
         || (resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'poi_chain' && bundle.executionPoiRecipe?.taskDomain === 'infra_chain_recon')
         || (resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'survey_pattern' && bundle.executionPoiRecipe?.taskDomain === 'mapping_survey'))
       && !poiRuntime.validateBundle(bundle)
@@ -1391,7 +1392,9 @@ function createMissionAuthorityManager(options = {}) {
       executionRevision: Math.max(0, Math.round(Number(active.executionRevision) || 0)),
       executionStateHash: cleanString(active.executionStateHash, 180) || null,
       updatedAt: Number(active.updatedAt || 0) || null,
-      location: executionLocationProjection(active.resumeBundle),
+      location: active.resumeBundle?.executionBushRecipe?.spec?.requiresReturnHome && executionState.progress.returnLeg
+        ? locationCore.normalizeAptLocation({missionTarget:active.resumeBundle.executionBushRecipe.spec.homeRef,policy:{schema:'ga.mission-location-policy.apt.v1',arrivalRadiusNm:0.16,airportFallbackRadiusNm:0.35,missionTargetRadiusNm:0.35}})
+        : executionLocationProjection(active.resumeBundle),
       bushRecipe: copy(active.resumeBundle?.executionBushRecipe || null),
       state: copy(executionState),
       view: copy(view)

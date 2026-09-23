@@ -112,6 +112,7 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
   if (runtime.cargoManifest && cleanString(options.pilotId)) runtime.cargoManifest.pilotId = cleanString(options.pilotId);
   const adapter = cleanString(seed.adapter, 80).toLowerCase()
     || resumeAdapters.detectPrimaryAdapter(runtime, state);
+  const bushRecon = adapter === 'bush_pickup' && object(seed.executionBushRecipe).kind === 'recon_return';
   if (adapter !== 'apt' && !(['poi', 'survey_pattern', 'poi_chain', 'bush_pickup'].includes(adapter) && options.poiExecutionEnabled === true)) {
     return { ok: false, status: 'unsupported', code: 'cloud_mission_recipe_not_enabled', candidate: null };
   }
@@ -131,7 +132,7 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
     ...(adapter === 'bush_pickup' ? {executionBushRecipe:clone(seed.executionBushRecipe || null)} : {}),
     executionEffectPlan: seed.executionEffectPlan ? clone(seed.executionEffectPlan) : null,
     ...(adapter === 'apt' ? { executionTrainingRecipe: clone(seed.executionTrainingRecipe || null) } : {}),
-    ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? { executionPoiRecipe: clone(seed.executionPoiRecipe || null) } : {})
+    ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) || bushRecon ? { executionPoiRecipe: clone(seed.executionPoiRecipe || null) } : {})
   };
   const validation = resumeAdapters.validateBundle(bundle);
   if (!validation.ok) {
@@ -140,7 +141,7 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
   const bushError=bushCore.validateBundle(bundle);
   if(bushError)return {ok:false,status:'unsupported',code:bushError,candidate:null};
   const aptTrainingError = adapter === 'apt' ? aptTraining.validateBundle(bundle) : null;
-  if (['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (!poiRuntime.hasLifecycle(bundle.executionPoiRecipe) || !!poiRuntime.validateBundle(bundle))
+  if (['poi', 'survey_pattern', 'poi_chain'].includes(adapter) || bushRecon ? (!poiRuntime.hasLifecycle(bundle.executionPoiRecipe) || !!poiRuntime.validateBundle(bundle))
       : (object(bundle.executionEffectPlan).schema !== 'ga.mission-apt-effect-plan.v1' || !!aptTrainingError)) {
     return { ok: false, status: 'invalid', code: 'cloud_mission_effect_plan_missing', candidate: null };
   }

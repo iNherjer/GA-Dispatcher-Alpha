@@ -5,19 +5,19 @@ const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'ut
 const runtime=read('mission-runtime-core.js'), cargo=read('mission-cargo-core.js');
 const sources=[runtime,cargo,read('sync.js')];
 const extract=name=>extractOriginalFunction(sources.find(s=>s.includes(`function ${name}(`)),name);
-const names=['_missionBushAreaRef','_missionBushAreaDistanceNm','_missionBushIsPickupMission',
+const names=['_missionCargoIsPassengerItem','_missionBushAreaRef','_missionBushAreaDistanceNm','_missionBushIsPickupMission',
   '_missionBushPickupItems','_missionBushPickupLoadState','_missionBushPickupAtTargetNow','_missionBushPickupReadyForAction',
   '_missionBushUsesPoiTaskRecipe','_missionBushUpdateProgress','_missionBushEffectiveCompletionMode','_missionBushGroundEndReady'];
 const functions=names.map(extract).join('\n\n');
 const output=`// Generated from mission-runtime-core.js by tools/generate-bush-task-core.mjs.
 // Keep app-owned state and geometry behind explicit evaluate() inputs.
 (function(root, factory) {
-  const api=factory();
+  const api=factory(typeof module==='object'&&module.exports?require('./mission-manifest-core.js'):root.GAMissionManifestCore);
   if(typeof module==='object'&&module.exports)module.exports=api;
   if(root)root.GAMissionBushTaskCore=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(){
+})(typeof globalThis!=='undefined'?globalThis:this,function(manifestCore){
 'use strict';
-const PRODUCTION_PROFILE_IDS=Object.freeze(['bush_supply_strip','bush_charter_strip','bush_scenic_hopper']);
+const PRODUCTION_PROFILE_IDS=Object.freeze(['bush_supply_strip','bush_charter_strip','bush_scenic_hopper','bush_pickup_strip','bush_pickup_cargo','bush_recon_return']);
 function haversineNm(lat1,lon1,lat2,lon2){const p=Math.PI/180,dLat=(lat2-lat1)*p,dLon=(lon2-lon1)*p,a=Math.sin(dLat/2)**2+Math.cos(lat1*p)*Math.cos(lat2*p)*Math.sin(dLon/2)**2;return 2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))*3440.065;}
 function evaluate(input={}){
   const spec=input.spec||null;let progress=input.progress&&typeof input.progress==='object'?{...input.progress}:null;
@@ -28,7 +28,7 @@ function evaluate(input={}){
   const _persistBushMissionProgress=next=>{progress=next;};const _missionEndReadiness=()=>endReady;
   const _isAtMissionHome=()=>input.atHome===true;const _missionHasReachedEndEligibleFlightPhase=()=>input.endEligibleFlightPhase===true;
   const _missionCargoEnsureManifest=()=>input.manifest||{items:[]};
-  const _missionCargoIsPassengerItem=item=>String(item?.itemType||'').toLowerCase()==='passenger';
+  const _missionCargoManifestCore=()=>manifestCore;
   const _isAtAptArrivalPoint=()=>input.atArrivalPoint===true;
   const _missionPoiTaskProgressState=()=>poiProgress;
   const _haversineNmLocal=haversineNm;

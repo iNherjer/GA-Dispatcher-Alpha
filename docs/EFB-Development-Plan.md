@@ -5695,3 +5695,15 @@ Telemetrie und Entladung am Missionsziel darf nicht auf einer alten Zielfreigabe
 beruhen. Navigation verändert den Missionsanker nicht. Pickup/Recon sind noch
 nicht freigegeben. Details und Originalfunktions-Mapping im Migration Guide,
 Abschnitt v447.
+
+
+### Bush-Rückflugprofile im Tracker
+
+Die zusätzliche Capability `mission.bush-return.v1` umfasst Passenger-Pickup,
+Cargo-Pickup und Recon mit Heimkehr. EFB verwendet weiter die bestehenden
+Manifest-, Signatur-, PAX- und Abschlussaktionen. Für Pickup ist `on_task` der
+Aufnahmeschritt, `return_leg` der bestätigte Heimflug. Die generische Cargo-
+Projektion berücksichtigt `deliverAtHome`, ohne das Originalmanifest umzuschreiben.
+Recon darf trotz POI-Arbeitsabschluss nicht an einem fremden Platz abgeschlossen
+werden. Simulator-ACKs und Missionseffekte bleiben im Missionsprozess; die
+Telemetrieschleife bekommt keine zusätzliche fachliche Arbeit.

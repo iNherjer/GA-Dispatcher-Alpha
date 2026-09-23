@@ -9530,6 +9530,78 @@ Sprich direkt zum Piloten als Ladekontakt am Zielstrip. Sag kurz, dass ${cargoLi
 Max 3 Sätze.${_toneHint()}`;
 }
 
+function _activeBushPickupVoiceSpec() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (!md) return null;
+    const contract = _activeMissionContractData();
+    const candidates = [contract?.bush, md.missionContract?.bush, md.bush, window.activeMissionContract?.bush]
+        .filter(value => value && typeof value === 'object' && !Array.isArray(value));
+    if (!candidates.length) return null;
+    const first = candidates[0];
+    const profile = String(first.profileId || '').trim().toLowerCase();
+    const kindByProfile = { bush_pickup_strip: 'passenger', bush_pickup_cargo: 'cargo' };
+    if (!Object.prototype.hasOwnProperty.call(kindByProfile, profile)
+        || String(first.targetMode || '').trim().toLowerCase() !== 'strip_then_return'
+        || String(first.completionMode || '').trim().toLowerCase() !== 'return_home'
+        || first.requiresReturnHome !== true || first.pickupKind !== kindByProfile[profile]
+        || !Array.isArray(first.allowedEndLocations) || first.allowedEndLocations.length !== 1 || first.allowedEndLocations[0] !== 'home') return null;
+    const canonical = value => Array.isArray(value) ? value.map(canonical)
+        : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+    if (candidates.some(candidate => JSON.stringify(canonical(candidate)) !== JSON.stringify(canonical(first)))) return null;
+    if ([md, md.missionContract, contract, window.activePassenger].some(value => value && (value.sarHeli || value.trainingProcedure || value.surveyPattern || value.poiChain))) return null;
+    return { spec: JSON.parse(JSON.stringify(first)), contract, kind: kindByProfile[profile] };
+}
+
+// Private tracker-only recipe. Standalone trigger order and prompt functions remain unchanged.
+window.paxVoiceBuildBushPickupAuthorityContext = function(missionId, previousMemory = {}) {
+    const core = window.GAMissionBushPickupVoiceCore;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const active = _activeBushPickupVoiceSpec();
+    if (!core || !md || !missionId || !active || String(md.missionId || md.missionKey || '') !== String(missionId)) return null;
+    const bush = active.spec;
+    const passenger = active.kind === 'passenger' ? (window.activePassenger || md.passenger || null) : null;
+    const originalActivePassenger = window.activePassenger;
+    if (active.kind === 'passenger' && !originalActivePassenger && passenger) window.activePassenger = passenger;
+    try {
+    const cargoContext = active.kind === 'cargo' ? _cargoOnlyVoiceContext() : null;
+    if (active.kind === 'passenger' && (!passenger || !_missionHasPax())) return null;
+    if (active.kind === 'cargo' && (!cargoContext || _missionHasPax())) return null;
+    const baseContext = active.kind === 'passenger' ? _baseContext() : '';
+    if (active.kind === 'passenger' && !baseContext) return null;
+    const storyData = active.kind === 'passenger' ? _bushPickupStoryData({ contract: active.contract, bush }, passenger) : null;
+    const manifest = typeof window.missionCargoGetManifestSnapshot === 'function' ? window.missionCargoGetManifestSnapshot() : null;
+    const farewellContext = _farewellAuthorityContext();
+    if (!farewellContext?.supported || farewellContext.mode !== (active.kind === 'cargo' ? 'cargo' : 'passenger')) return null;
+    const context = {
+        schema: core.SCHEMA, version: 1, missionId: String(missionId), pickupKind: active.kind,
+        targetMode: bush.targetMode, requiresReturnHome: bush.requiresReturnHome, bush,
+        audioEnabled: farewellContext.audioEnabled, textModels: farewellContext.textModels,
+        ttsModels: farewellContext.ttsModels, ttsHedgeEnabled: farewellContext.ttsHedgeEnabled,
+        ttsHedgeDelayMs: farewellContext.ttsHedgeDelayMs, weatherText: _weatherContext(window.lastLiveFlightData),
+        contract: { bush, summary: active.contract?.summary || '' },
+        missionData: { missionId: String(missionId), start: md.start || '', dest: md.dest || '', dist: md.dist || '',
+            story: md.story || md.missionStory || md.mission || '', charterIdea: md.charterIdea?.continuation ? { continuation: true } : null },
+        passenger: passenger ? { ...passenger } : null,
+        cargoContext, baseContext: baseContext || '', toneHint: _toneHint(),
+        speaker: active.kind === 'passenger' ? _speakerSnapshotForActivePax() : _cargoMissionSpeaker('boarding'),
+        storyData, storyAnchorLine: storyData ? _bushPickupStoryAnchorLine({ contract: active.contract, bush }, passenger) : '',
+        betweenFlightsLine: storyData ? _bushPickupBetweenFlightsLine({ contract: active.contract, bush }, passenger) : '',
+        cargoLabel: active.kind === 'cargo' ? _bushCargoPickupLabel({ contract: active.contract, bush }, cargoContext) : '',
+        cargoFollowUpLine: active.kind === 'cargo' ? _bushCargoPickupFollowUpLine() : '',
+        manifest: manifest ? _safeCloneJson(manifest, null) : null,
+        farewellContext: _safeCloneJson(farewellContext, null),
+        farewellRecipe: _safeCloneJson(window.paxVoiceBuildFarewellEffectRecipe?.(null) || null, null),
+        pickupMemory: core.normalizeMemory(previousMemory),
+        farewellContinuityHint: core.continuityHint({ bush, pickupKind: active.kind, storyData, passenger, cargoContext, cargoLabel: active.kind === 'cargo' ? _bushCargoPickupLabel({ contract: active.contract, bush }, cargoContext) : '' }, previousMemory, 'farewell'),
+        approachContext: active.kind === 'passenger' ? _safeCloneJson(window.paxVoiceBuildApproachAuthorityContext?.() || null, null) : null,
+        initialMemory: core.normalizeMemory(previousMemory)
+    };
+    return core.validateContext(context, missionId) ? null : JSON.parse(JSON.stringify(context));
+    } finally {
+        if (active.kind === 'passenger' && !originalActivePassenger) window.activePassenger = originalActivePassenger;
+    }
+};
+
 window.triggerPaxPickupBoarding = async function() {
     _paxLog(`triggerPaxPickupBoarding | tts:${_paxVoiceEnabled} done:${_paxPickupBoardingDone} pax:${!!window.activePassenger}`, 'state');
     if (_paxPickupBoardingDone || !window.activePassenger || !_missionHasPax()) return;
@@ -9797,9 +9869,10 @@ function _farewellAuthorityContext() {
     const isPoi = _isPOIMission();
     const isBush = typeof _isBushVoiceMission === 'function' && _isBushVoiceMission();
     const bushStripSpec = isBush ? _activeBushStripTargetVoiceSpec() : null;
+    const bushPickupSpec = isBush ? _activeBushPickupVoiceSpec() : null;
     const isSarHeli = typeof window.missionIsSarHeliMission === 'function'
         && window.missionIsSarHeliMission(md);
-    const supported = !isPoi && !trainingPlan && (!isBush || !!bushStripSpec) && !isSarHeli;
+    const supported = !isPoi && !trainingPlan && (!isBush || !!bushStripSpec || !!bushPickupSpec) && !isSarHeli;
     const unsupportedReason = isPoi
         ? 'farewell_context_poi_not_migrated'
         : (trainingPlan
@@ -9908,9 +9981,16 @@ window.paxVoiceBuildCargoAudioContext = function() {
 window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
     const core = window.GAMissionPoiVoiceCore;
     const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
+    const isBushRecon = !!(md?.missionType === 'bush'
+        && String(md?.bush?.profileId || '').toLowerCase() === 'bush_recon_return'
+        && String(md?.bush?.targetMode || '').toLowerCase() === 'area_then_return'
+        && String(md?.bush?.completionMode || '').toLowerCase() === 'return_home'
+        && md?.bush?.requiresReturnHome === true);
     if (!core || !missionId || !_isPOIMission() || !md || !window.activePassenger || !_missionHasPax()
         || !core.DOMAINS.includes(_activeTaskDomain()) || (_activeAptTrainingPlan() && !/^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain()))
-        || _activeBushReconOutcome() || window.missionIsSarHeliMission?.(md)) return null;
+        || (_activeBushReconOutcome() && !isBushRecon)
+        || (md.bush?.profileId === 'bush_recon_return' && !isBushRecon)
+        || window.missionIsSarHeliMission?.(md)) return null;
     if (!_paxCityDatasetAvailable() && typeof loadGlobalCities === 'function') {
         loadGlobalCities().catch(() => {});
         return null;
@@ -9922,7 +10002,9 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
         schema: core.CONTEXT_SCHEMA, version: 1, missionId,
         taskDomain: _activeTaskDomain(), strict: _paxStrictMode,
         baseContext: _baseContext(), toneHint: _toneHint(true),
-        passenger: { ...window.activePassenger }, missionData: { poiName: md.poiName, targetName: md.targetName, dest: md.dest },
+        passenger: { ...window.activePassenger }, missionData: { poiName: md.poiName, targetName: md.targetName, dest: md.dest,
+            ...(isBushRecon ? { bush: md.bush, bushReconOutcome: _activeBushReconOutcome() } : {}) },
+        ...(isBushRecon ? { bush: md.bush, bushReconOutcome: _activeBushReconOutcome() } : {}),
         ...(/^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain()) ? {
             trainingRecipe: _trainingProcedureActiveRecipe(), trainingPlan: _activeAptTrainingPlan(),
             trainingSpeaker: _speakerSnapshotForMissionVoice('training-procedure'),

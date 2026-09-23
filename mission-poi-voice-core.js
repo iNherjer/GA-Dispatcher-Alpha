@@ -23,7 +23,18 @@ function validateContext(context, missionId = context?.missionId) {
   if (!DOMAINS.includes(context.taskDomain) || typeof context.strict !== 'boolean'
       || !context.passenger || Array.isArray(context.passenger) || typeof context.baseContext !== 'string' || !context.baseContext.trim()
       || typeof context.audioEnabled !== 'boolean') return 'poi_voice_context_invalid';
-  if (['sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  const bush = context.bush;
+  const bushRecon = bush?.profileId === 'bush_recon_return'
+      && bush.targetMode === 'area_then_return' && bush.completionMode === 'return_home'
+      && bush.requiresReturnHome === true && context.taskDomain === 'inspection_infra';
+  if ((bush && !bushRecon) || context.passenger.sarHeli
+      || (context.passenger.bush && (!bushRecon || context.passenger.bush.profileId !== 'bush_recon_return')))
+    return 'poi_voice_specialized_context_not_migrated';
+  if (bushRecon && context.missionData?.bush && JSON.stringify(context.missionData.bush) !== JSON.stringify(bush))
+    return 'poi_voice_bush_context_mismatch';
+  if (context.bushReconOutcome && (!bushRecon || context.bushReconOutcome.schema !== 'ga.bushReconOutcome.v1'
+      || !['all_clear','monitor_only','minor_service','technician_needed'].includes(context.bushReconOutcome.outcome)
+      || context.bushReconOutcome.hiddenFromWriter !== true)) return 'poi_voice_bush_outcome_invalid';
   if (['trainingPlan','trainingProcedure','trainingRecipe'].some(key => context.passenger[key]) && !['training','club_training_basic','club_training_advanced'].includes(context.taskDomain)) return 'poi_voice_specialized_context_not_migrated';
   if (context.passenger.poiChain && context.taskDomain !== 'infra_chain_recon') return 'poi_voice_specialized_context_not_migrated';
   if (context.passenger.surveyPattern && context.taskDomain !== 'mapping_survey') return 'poi_voice_specialized_context_not_migrated';
@@ -71,7 +82,46 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _missionHasPax = () => true;
   const _speakerSnapshotForActivePax = () => context.speaker;
   const _paxMissionAudioKey = kind => kind + ':' + context.missionId;
-  const currentMissionData = context.missionData || {};
+  const currentMissionData = { ...(context.missionData || {}), ...(context.bush ? { bush: context.bush } : {}),
+    ...(context.bushReconOutcome ? { bushReconOutcome: context.bushReconOutcome } : {}) };
+function _activeBushReconOutcome() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const profileId = String(md?.bush?.profileId || md?.missionContract?.bush?.profileId || md?._appliedProfile || '').toLowerCase();
+    if (profileId !== 'bush_recon_return') return null;
+    const raw = md.bushReconOutcome || md.hiddenMissionOutcome?.bushReconOutcome || null;
+    if (!raw || typeof raw !== 'object') return null;
+    const outcome = String(raw.outcome || raw.type || '').toLowerCase();
+    if (!outcome) return null;
+    return { ...raw, outcome };
+}
+
+function _bushReconOutcomeHintLine(stage = 'farewell') {
+    const outcome = _activeBushReconOutcome();
+    if (!outcome) return '';
+    const targetName = String(
+        (typeof currentMissionData !== 'undefined' ? currentMissionData?.bush?.targetRef?.name : '')
+        || (typeof currentMissionData !== 'undefined' ? currentMissionData?.targetName : '')
+        || 'dem Zielstrip'
+    ).trim();
+    const resultText = String(outcome.resultText || '').replace(/\s+/g, ' ').trim();
+    let task = '';
+    if (outcome.outcome === 'all_clear') {
+        task = resultText || `Der Recon über ${targetName} ist unauffällig; die Basis dokumentiert den Strip als nutzbar und es entsteht keine Folgeanforderung.`;
+    } else if (outcome.outcome === 'monitor_only') {
+        task = resultText || `Der Recon über ${targetName} bleibt auf Beobachtung; es gibt noch keinen Bodenauftrag und keine sofortige Folgeanforderung.`;
+    } else if (outcome.outcome === 'technician_needed') {
+        const tech = outcome.technicianPlan?.passenger || {};
+        const name = tech.name || 'ein Techniker';
+        task = resultText || `Der Recon über ${targetName} braucht eine Bodenprüfung; die Basis plant ${name} für einen späteren Techniker-Dropoff ein.`;
+    } else {
+        const service = outcome.serviceRun || {};
+        task = resultText || service.observedIssue || `Der Recon über ${targetName} ergibt einen kleinen Servicebedarf; die Basis plant einen gezielten Materialflug.`;
+    }
+    if (stage === 'result') {
+        return ` Recon-Ergebnis: ${task} Sage das erst jetzt als fachliches Kurzfazit, nicht als Vorabwissen.`;
+    }
+    return `\nRECON-ERGEBNIS: ${task} Nutze das als jetzt bekanntes Debriefing-Ergebnis. Wenn daraus ein Folgeauftrag entsteht, erwähne ihn als natürliche nächste Teamentscheidung; wenn nicht, sage klar, dass heute keine Folgeanforderung entsteht.`;
+}
   const document = { getElementById: id => id === 'wikiDestDescText' ? { innerText: context.wikiText || '' } : null };
   const Math = Object.create(globalThis.Math);
   Math.random = () => randomValue;
@@ -88,8 +138,6 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
     return knowledge && Array.isArray(knowledge.facts) && knowledge.facts.length && (!status || status === 'accept')
       ? knowledge : (context.captureKnowledge ? {} : null);
   };
-  const _activeBushReconOutcome = () => null;
-  const _bushReconOutcomeHintLine = () => '';
   let _sarSearchOutcome = normalizeMemory(previous).sarSearchOutcome || (['found','not_found'].includes(context.sarSearchOutcome) ? context.sarSearchOutcome : null);
   const _inspectionMissionMeta = () => context.inspectionMeta || null;
   const _activeInfraInspectionOutcome = () => context.infraOutcome || null;

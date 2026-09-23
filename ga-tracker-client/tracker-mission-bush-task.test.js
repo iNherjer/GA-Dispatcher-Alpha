@@ -55,10 +55,10 @@ test('each strip-target completion profile uses original end readiness',()=>{
     assert.equal(core.isProductionSupported(input.spec),true);
   }
 });
-test('area_then_return POI task remains differentially faithful but is not production enabled',()=>{
+test('area_then_return POI task remains differentially faithful and is production enabled',()=>{
   const input={spec:{profileId:'bush_recon_return',targetMode:'area_then_return',completionMode:'return_home',requiresReturnHome:true},
     progress:{status:'on_task'},manifest:{items:[]},position:pos,endReady:{atTarget:true,groundStill:false},atHome:false,atArrivalPoint:false,
     poiProgress:{trackingActive:true,satisfied:true,dwellSec:37,trackNm:1.25},now:10000};
   compare(input);
-  assert.equal(core.isProductionSupported(input.spec),false);
+  assert.equal(core.isProductionSupported(input.spec),true);
 });

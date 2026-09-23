@@ -10,6 +10,7 @@ const chainTask = require('./tracker-mission-poi-chain-task.js');
 const chainVoice = require('./tracker-mission-poi-chain-voice.js');
 const surveyTask = require('./tracker-mission-survey-task.js');
 const surveyVoice = require('./tracker-mission-survey-voice.js');
+const bushCore = require('../mission-bush-execution-core.js');
 const voiceCore = require('../mission-poi-voice-core.js');
 const lifecycleCore = require('../mission-poi-lifecycle-core.js');
 const boardingCore = require('../mission-boarding-voice-core.js');
@@ -46,6 +47,17 @@ function validateRecipe(recipe) {
             || ['targetRadiusNm', 'targetAltFt', 'targetDwellMin'].some(key => recipe.voiceContext.passenger[key] !== pax[key]))
             return 'poi_voice_task_context_mismatch';
     }
+    const bush = recipe.bush || null;
+    const isBushRecon = !!bush;
+    if (!isBushRecon && (recipe.voiceContext?.bush || recipe.voiceContext?.bushReconOutcome)) return 'poi_recipe_bush_contract_invalid';
+    if (isBushRecon) {
+        if (bush.profileId !== 'bush_recon_return' || bushCore.validateSpec(bush)) return 'poi_recipe_bush_contract_invalid';
+        if (recipe.taskDomain !== 'inspection_infra' || !recipe.voiceContext?.bush
+            || canonicalStringify(recipe.voiceContext.bush) !== canonicalStringify(bush)) return 'poi_recipe_bush_voice_context_mismatch';
+        if (recipe.bushReconOutcome && canonicalStringify(recipe.bushReconOutcome)
+            !== canonicalStringify(recipe.voiceContext.bushReconOutcome)) return 'poi_recipe_bush_outcome_mismatch';
+        if (pax.bush && pax.bush.profileId !== 'bush_recon_return') return 'poi_recipe_bush_contract_invalid';
+    }
     if (recipe.lifecycle && (recipe.lifecycle.schema !== lifecycleCore.SCHEMA || !recipe.voiceContext))
         return 'poi_lifecycle_context_invalid';
     if (recipe.taskDomain === 'search_and_rescue') {
@@ -72,8 +84,7 @@ function validateRecipe(recipe) {
         const error = trainingTask.validate(recipe);
         if (error) return error;
     } else if (recipe.trainingRecipe || pax.trainingRecipe || pax.trainingProcedure || pax.trainingPlan) return 'poi_recipe_specialized_task_not_migrated';
-    if ([recipe, pax].some(source => source.sarHeli || source.bush
-        )) return 'poi_recipe_specialized_task_not_migrated';
+    if ([recipe, pax].some(source => source.sarHeli || (!isBushRecon && source.bush))) return 'poi_recipe_specialized_task_not_migrated';
     return null;
 }
 

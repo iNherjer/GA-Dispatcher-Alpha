@@ -20,10 +20,11 @@
         : (root && root.GAMissionPoiVoiceCore);
     var routeVoiceCore = typeof module === 'object' && module.exports ? require('./mission-route-voice-core.js') : (root && root.GAMissionRouteVoiceCore);
     var bushCore = typeof module === 'object' && module.exports ? require('./mission-bush-execution-core.js') : (root && root.GAMissionBushExecutionCore);
-    var api = factory(manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore, bushCore);
+    var bushPickupVoiceCore = typeof module === 'object' && module.exports ? require('./mission-bush-pickup-voice-core.js') : (root && root.GAMissionBushPickupVoiceCore);
+    var api = factory(manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore, bushCore, bushPickupVoiceCore);
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root && typeof root === 'object') root.GAMissionExecutionCore = api;
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore, bushCore) {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore, bushCore, bushPickupVoiceCore) {
     'use strict';
 
     var CORE_VERSION = 1;
@@ -56,7 +57,7 @@
         'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'BUSH_TASK_OBSERVED', 'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'SAR_REPORT_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
+        'BUSH_VOICE_REQUESTED', 'BUSH_PICKUP_SCENE_REQUESTED', 'BUSH_PICKUP_BOARDING_REQUESTED', 'BUSH_TASK_OBSERVED', 'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'SAR_REPORT_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -489,7 +490,7 @@
         var runtime = object(runtimeRoot.runtime);
         var missionId = text(bundle.missionId || runtimeRoot.missionId || runtime.missionId, 180);
         if (!missionId) return null;
-        var state = baseState(missionId, ((bundle.adapter === 'survey_pattern' && bundle.executionPoiRecipe?.taskDomain === 'mapping_survey') || (bundle.adapter === 'poi_chain' && bundle.executionPoiRecipe?.taskDomain === 'infra_chain_recon')) ? 'poi' : (bundle.adapter === 'bush_pickup' && bushCore && !bushCore.validateBundle(bundle) ? 'apt' : (bundle.adapter || 'apt')));
+        var state = baseState(missionId, ((bundle.adapter === 'survey_pattern' && bundle.executionPoiRecipe?.taskDomain === 'mapping_survey') || (bundle.adapter === 'poi_chain' && bundle.executionPoiRecipe?.taskDomain === 'infra_chain_recon')) ? 'poi' : (bundle.adapter === 'bush_pickup' && bushCore && !bushCore.validateBundle(bundle) ? (bundle.executionBushRecipe.kind==='recon_return'?'poi':'apt') : (bundle.adapter || 'apt')));
         var startPhase = normalizePhase(runtimeRoot.startPhase, 'planned');
         var phase = normalizePhase(runtime.phase || startPhase, startPhase);
         var active = runtime.active === true;
@@ -549,9 +550,9 @@
                 || runtime.farewellSpeechComplete === true,
             deboardingCompleted: runtime.endDeboardingCompleted === true
         };
-        if (bundle.executionBushRecipe && state.recipe === 'apt' && bushCore && !bushCore.validateBundle(bundle)) {
+        if (bundle.executionBushRecipe && ['apt','poi'].includes(state.recipe) && bushCore && !bushCore.validateBundle(bundle)) {
             state.bushTask = {schema:'ga.tracker-bush-task.v1',missionId,profileId:bundle.executionBushRecipe.spec.profileId,
-                progress:canonicalValue(runtimeRoot.bushProgress || {status:'enroute'}),canEndHere:false};
+                kind:bundle.executionBushRecipe.kind,progress:canonicalValue(runtimeRoot.bushProgress || {status:bundle.executionBushRecipe.kind==='pickup_return'?'outbound_empty':'enroute'}),canEndHere:false,pickupReady:false};
         }
         state.progress = progress;
         state.manifest = manifest;
@@ -611,7 +612,7 @@
             dwellSec: Math.max(0, round(progress.dwellSec, 1, 0)),
             attempts: Math.max(0, integer(progress.attempts, 0))
         };
-        if (state.recipe === 'apt' && source.bushTask?.schema === 'ga.tracker-bush-task.v1' && source.bushTask.missionId === state.missionId) state.bushTask = canonicalValue(source.bushTask);
+        if (['apt','poi'].includes(state.recipe) && source.bushTask?.schema === 'ga.tracker-bush-task.v1' && source.bushTask.missionId === state.missionId) state.bushTask = canonicalValue(source.bushTask);
         if (state.recipe === 'poi' && validPoiObservation(source.poiTask, state.missionId)) state.poiTask = canonicalValue(source.poiTask);
         if (state.recipe === 'apt' && source.trainingTask?.schema === 'ga.tracker-apt-training.v1' && source.trainingTask.missionId === state.missionId) state.trainingTask = canonicalValue(source.trainingTask);
         if (state.recipe === 'poi' && source.poiLifecycle) state.poiLifecycle = canonicalValue(source.poiLifecycle);
@@ -636,7 +637,7 @@
             state.cargoWindowMode = ['load', 'unload', 'pickup', 'equipment'].includes(source.cargoWindowMode) ? source.cargoWindowMode : 'load';
         }
         if (source.cargoWindowCloseId) state.cargoWindowCloseId = text(source.cargoWindowCloseId, 220);
-        state.cargo = normalizeCargo(state.manifest);
+        state.cargo = executionCargo(state.manifest,state.bushTask);
         state.payload = payloadCore && typeof payloadCore.normalizeOutcome === 'function'
             ? payloadCore.normalizeOutcome(source.payload)
             : clone(source.payload, state.payload);
@@ -647,8 +648,14 @@
                 kind: 'farewell'
             })
         };
+        if (state.bushTask?.kind === 'pickup_return' && object(source.voice).bush) state.voice.bush = normalizeVoiceOutcome(source.voice.bush);
+        if (Array.isArray(object(source.voice).bushHistory)) state.voice.bushHistory = object(source.voice).bushHistory
+            .filter(row => row && typeof row === 'object' && row.text)
+            .slice(-8).map(row => ({ effectId: text(row.effectId, 220), stage: text(row.stage, 60),
+                text: text(row.text, 4000), at: Math.max(0, integer(row.at, 0)) }));
         if (routeVoiceCore && Array.isArray(object(source.voice).privateReturnHistory)) state.voice.privateReturnHistory = routeVoiceCore.speechHistory(source.voice.privateReturnHistory).slice(-4).map(function(row) { return { ...row, text: row.text.slice(0,600) }; });
         if (routeVoiceCore && Array.isArray(object(source.voice).clubHistory)) state.voice.clubHistory = routeVoiceCore.speechHistory(source.voice.clubHistory);
+        if (state.bushTask?.kind === 'pickup_return' && object(source.voice).bushMemory) state.voice.bushMemory = bushPickupVoiceCore?.normalizeMemory?.(source.voice.bushMemory) || clone(source.voice.bushMemory, {});
         if (object(source.voice).flight) state.voice.flight = normalizeVoiceOutcome(source.voice.flight);
         if (state.recipe === 'poi' && object(source.voice).poiMemory && poiVoiceCore) {
             state.voice.poiMemory = poiVoiceCore.normalizeMemory(source.voice.poiMemory);
@@ -780,10 +787,10 @@
             if (manifestFlightEvents.flightId || manifestFlightEvents.startAt || manifestFlightEvents.landingAt) {
                 state.flightEvents = manifestFlightEvents;
             }
-            state.cargo = normalizeCargo(state.manifest);
+            state.cargo = executionCargo(state.manifest,state.bushTask);
         } else if (cargo && typeof cargo === 'object' && !Array.isArray(cargo)) {
             state.manifest = manifestFromCargo(cargo);
-            state.cargo = normalizeCargo(state.manifest);
+            state.cargo = executionCargo(state.manifest,state.bushTask);
         }
     }
 
@@ -801,8 +808,16 @@
             item.status = action === 'load' ? 'loaded' : 'unloaded';
         }
         state.manifest = manifest;
-        state.cargo = normalizeCargo(manifest);
+        state.cargo = executionCargo(manifest,state.bushTask);
         return true;
+    }
+
+    // Home delivery uses the existing arrival gates without rewriting manifest roles.
+    function executionCargo(manifest, bushTask) {
+        if(bushTask?.kind!=='pickup_return')return normalizeCargo(manifest);
+        const projected={...manifest,items:(manifest.items||[]).map(item=>item.deliverAtHome===true
+            ? {...item,deliverAtHome:false,deliverAtDestination:true,delivery:'destination'}:item)};
+        return normalizeCargo(projected);
     }
 
     function hasDeparturePassenger(state) {
@@ -952,7 +967,7 @@
         var phase = state.phase;
         var eventPayload = object(event.payload);
         var eventCargo = eventPayload.manifest && typeof eventPayload.manifest === 'object'
-            ? normalizeCargo(eventPayload.manifest)
+            ? executionCargo(eventPayload.manifest,state.bushTask)
             : (eventPayload.cargo && typeof eventPayload.cargo === 'object'
                 ? normalizeCargo(eventPayload.cargo)
                 : state.cargo);
@@ -998,6 +1013,11 @@
         }
         if (event.type === 'MISSION_STARTED') return phase === 'boarded' && state.flags.loadConfirmed && state.flags.boardingConfirmed;
         if (event.type === 'AIRBORNE') return state.flags.started || phase === 'active' || phase === 'enroute';
+        if(event.type==='BUSH_PICKUP_SCENE_REQUESTED')return state.bushTask?.kind==='pickup_return' && state.flags.active && !state.progress.returnLeg
+            && !state.effects.some(e=>e.type==='scene.arrival');
+        if(event.type==='BUSH_PICKUP_BOARDING_REQUESTED')return state.bushTask?.kind==='pickup_return' && state.flags.active && state.flags.groundStill
+            && state.phase==='on_task' && state.bushTask.pickupReady && state.manifest.items.some(i=>i.id===eventPayload.itemId && i.itemType==='passenger' && i.pickupLocation==='target' && i.status!=='loaded')
+            && !state.effects.some(e=>e.type==='scene.manual_pax'&&e.status==='requested');
         if (event.type === 'BUSH_TASK_OBSERVED') return !!state.bushTask && state.flags.active && !state.flags.closed
             && !state.flags.closingPending && eventPayload.bushTask?.schema === state.bushTask.schema
             && eventPayload.bushTask.missionId === state.missionId && eventPayload.bushTask.profileId === state.bushTask.profileId
@@ -1055,6 +1075,8 @@
         if (event.type === 'PICKUP_CONFIRMED') {
             return state.flags.active
                 && state.flags.groundStill
+                && !state.progress.returnLeg
+                && (state.bushTask?.kind !== 'pickup_return' || state.bushTask.pickupReady === true)
                 && eventCargo.summary.pickupTotal > 0
                 && eventCargo.summary.pickupMissing === 0
                 && eventCargo.signatureScope === 'pickup';
@@ -1088,6 +1110,7 @@
                     })
                 );
         }
+        if (event.type === 'BUSH_VOICE_REQUESTED') return state.bushTask?.kind === 'pickup_return' && state.flags.active && !state.flags.closingPending && !!event.payload.resolvedRecipe;
         if (event.type === 'APT_FLIGHT_VOICE_REQUESTED') return state.flags.active && !state.flags.closingPending
             && !state.flags.farewellStarted && !state.flags.farewellCompleted && phase !== 'closing';
         if (event.type === 'APT_APPROACH_VOICE_REQUESTED') {
@@ -1237,6 +1260,10 @@
                 state.flags.boardingConfirmed = true;
                 applyStartReadiness(state);
             }
+        } else if (event.type === 'BUSH_VOICE_REQUESTED') {
+            state.voice.bushMemory = bushPickupVoiceCore?.normalizeMemory?.(event.payload.bushMemory) || clone(event.payload.bushMemory, {});
+            state.voice.bush = normalizeVoiceOutcome({ kind: event.payload.stage || event.payload.kind || 'bush', status: 'pending' });
+            appendEffect(state, createEffect(state, event, 'voice.bush', canonicalValue(event.payload)));
         } else if (event.type === 'APT_FLIGHT_VOICE_REQUESTED') {
             appendEffect(state, createEffect(state, event, 'voice.flight', canonicalValue(event.payload)));
         } else if (event.type === 'APT_APPROACH_VOICE_REQUESTED') {
@@ -1320,6 +1347,15 @@
             appendEffect(state, createEffect(state, event, 'smoke.spawn', { operation: 'fire_watch_recovery' }));
         } else if (event.type === 'BUSH_TASK_OBSERVED') {
             state.bushTask = canonicalValue(event.payload.bushTask);
+            if(state.bushTask.kind==='pickup_return' && state.bushTask.pickupReady && !state.progress.returnLeg) {
+                state.phase='on_task';state.subphase=state.bushTask.progress.status;
+            }
+        } else if(event.type==='BUSH_PICKUP_SCENE_REQUESTED') {
+            appendEffect(state,createEffect(state,event,'scene.arrival',{operation:'arrival'}));
+        } else if(event.type==='BUSH_PICKUP_BOARDING_REQUESTED') {
+            appendEffect(state,createEffect(state,event,'scene.manual_pax',{operation:'load',itemId:event.payload.itemId,
+                position:event.payload.position,requestedAt:event.occurredAt,bushPickup:true,
+                previousItem:canonicalValue(state.manifest.items.find(i=>i.id===event.payload.itemId))}));
         } else if (event.type === 'POI_LIFECYCLE_OBSERVED') {
             state.poiLifecycle = canonicalValue(event.payload.poiLifecycle);
         } else if (event.type === 'POI_ACTION_VOICE_REQUESTED') {
@@ -1407,6 +1443,11 @@
             state.subphase = 'pickup_complete';
             state.progress.pickupCompleted = true;
             state.progress.returnLeg = true;
+            if(state.bushTask?.kind==='pickup_return'){
+                state.bushTask.pickupReady=false;
+                Object.assign(state.bushTask.progress,{pickupReady:false,pickupCompleted:true,pickupConfirmed:true,targetReached:true,status:'return_leg'});
+                appendEffect(state,createEffect(state,event,'scene.bush_pickup_clear',{operation:'pickup_clear'}));
+            }
             appendEffect(state, createEffect(state, event, 'cargo.pickup_confirmed', { operation: 'pickup' }));
         } else if (event.type === 'UNLOAD_CONFIRMED') {
             applyCargoFromEvent(state, event);
@@ -1434,18 +1475,19 @@
             state.manifest.items.forEach(function (item) {
                 if (!item || String(item.itemType || '').toLowerCase() !== 'passenger'
                     || String(item.status || '') !== 'loaded'
-                    || item.deliverAtDestination === false) return;
+                    || (item.deliverAtDestination === false && !(state.bushTask?.kind === 'pickup_return' && state.progress.returnLeg && item.deliverAtHome === true))) return;
                 deboardingPayloadChanged = commitManifestItemTransition(state, event, item.id, 'unload', {
                     now: event.occurredAt,
                     groundHandlingAllowed: true,
                     complianceAllowed: true,
+                    atHome: state.bushTask?.kind === 'pickup_return' && state.progress.returnLeg,
                     effectAcknowledged: 'passenger.deboard',
                     position: deboardingPosition
                 }) || deboardingPayloadChanged;
             });
             if (confirmedArrivalSignature) {
                 state.manifest.dispatchSignature = confirmedArrivalSignature;
-                state.cargo = normalizeCargo(state.manifest);
+                state.cargo = executionCargo(state.manifest,state.bushTask);
             }
             if (deboardingPayloadChanged) appendPayloadManifestSyncEffect(state, event, { action: 'passenger_unload' });
             state.flags.deboardingCompleted = true;
@@ -1645,13 +1687,17 @@
                     payload: effect.payload
                 };
             });
+            if(acknowledgedEffect?.type==='scene.manual_pax' && acknowledgedEffect.payload.bushPickup && acknowledgedStatus==='completed') {
+                const item=state.manifest.items.find(i=>i.id===acknowledgedEffect.payload.itemId);
+                if(item && commitManifestItemTransition(state,event,item.id,'load',{now:event.occurredAt,groundHandlingAllowed:true,complianceAllowed:true,missionActive:true,reloadAllowed:true,atTarget:true,effectAcknowledged:'passenger.board_at_target',skipPassengerEffect:true,position:acknowledgedEffect.payload.position}))appendPayloadManifestSyncEffect(state,event,{action:'passenger_load',itemId:item.id});
+            }
             if (acknowledgedEffect && acknowledgedEffect.type === 'scene.manual_pax' && acknowledgedStatus === 'failed') {
                 var previousPassenger = object(acknowledgedEffect.payload.previousItem);
                 var passengerIndex = state.manifest.items.findIndex(function (item) { return item.id === previousPassenger.id; });
                 if (passengerIndex >= 0) {
                     // Match standalone rollback: restore the item, not the invalidated signature.
                     state.manifest.items[passengerIndex] = canonicalValue(previousPassenger);
-                    state.cargo = normalizeCargo(state.manifest);
+                    state.cargo = executionCargo(state.manifest,state.bushTask);
                     appendPayloadManifestSyncEffect(state, event, { action: 'manual_passenger_rollback', itemId: previousPassenger.id });
                 }
             }
@@ -1667,6 +1713,28 @@
                 }
             }
             var spokenOutcome = object(object(event.payload).result);
+            if (state.bushTask?.kind === 'pickup_return' && acknowledgedStatus === 'completed'
+                && ['voice.approach', 'voice.farewell'].includes(acknowledgedEffect?.type)
+                && spokenOutcome.text && bushPickupVoiceCore?.captureMemory) {
+                state.voice.bushMemory = bushPickupVoiceCore.captureMemory({ pickupKind: state.bushTask.profileId === 'bush_pickup_cargo' ? 'cargo' : 'passenger' },
+                    state.voice.bushMemory, acknowledgedEffect.type === 'voice.approach' ? 'arrival' : 'farewell', spokenOutcome.text);
+            }
+            if (acknowledgedEffect && acknowledgedEffect.type === 'voice.bush' && acknowledgedStatus === 'completed'
+                && spokenOutcome.text && bushPickupVoiceCore?.captureMemory) {
+                var bushPickupKind = String(acknowledgedEffect.payload.stage || acknowledgedEffect.payload.kind || '').startsWith('cargo_') ? 'cargo' : 'passenger';
+                state.voice.bushMemory = bushPickupVoiceCore.captureMemory({ pickupKind: bushPickupKind },
+                    state.voice.bushMemory, acknowledgedEffect.payload.stage || acknowledgedEffect.payload.kind || '', spokenOutcome.text);
+                state.voice.bush = normalizeVoiceOutcome({ ...spokenOutcome,
+                    kind: acknowledgedEffect.payload.stage || acknowledgedEffect.payload.kind || 'bush', updatedAt: event.occurredAt });
+                state.voice.bushHistory = [...(state.voice.bushHistory || []), {
+                    effectId: acknowledgedEffectId, stage: text(acknowledgedEffect.payload.stage || acknowledgedEffect.payload.kind, 60),
+                    text: text(spokenOutcome.text, 4000), at: event.occurredAt
+                }].slice(-8);
+            } else if (acknowledgedEffect && acknowledgedEffect.type === 'voice.bush') {
+                state.voice.bush = normalizeVoiceOutcome({ ...spokenOutcome,
+                    kind: acknowledgedEffect.payload.stage || acknowledgedEffect.payload.kind || 'bush',
+                    status: spokenOutcome.status || (acknowledgedStatus === 'completed' ? 'ok' : 'failed'), updatedAt: event.occurredAt });
+            }
             if (routeVoiceCore && acknowledgedEffect && acknowledgedEffect.type.indexOf('voice.') === 0
                 && acknowledgedStatus === 'completed' && spokenOutcome.playback === 'completed'
                 && (object(spokenOutcome.speaker).taskDomain === 'club_utility' || object(spokenOutcome.speaker).narrativeSchema === 'charter-idea.v1')) {

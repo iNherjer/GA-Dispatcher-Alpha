@@ -1,3 +1,4 @@
+const bushPickupVoiceCore = require('../mission-bush-pickup-voice-core.js');
 const bushTaskCore = require('../mission-bush-task-core.js');
 const paxQueryCore = require('../mission-pax-query-core.js');
 const { prepareAction: preparePoiAction } = require('./tracker-mission-poi-voice.js');
@@ -25,7 +26,7 @@ const RELOAD_MAX_DISTANCE_M = 200;
 const RUNTIME_CONTEXT_PERSIST_INTERVAL_MS = 5000;
 const COMPLIANCE_REQUESTED_ITEM_IDS = new Set(['bordbuch', 'fire-extinguisher', 'first-aid']);
 const SYSTEM_EVENT_TYPES = new Set([
-  'BUSH_TASK_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED',
+  'BUSH_VOICE_REQUESTED', 'BUSH_PICKUP_SCENE_REQUESTED', 'BUSH_TASK_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED',
   'POI_TASK_OBSERVED', 'APT_TRAINING_OBSERVED', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED',
   'BOARDING_STARTED',
   'BOARDING_SCENE_CONFIRMED',
@@ -152,6 +153,11 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const context = current()?.recipe === 'poi' && entry.poiContextRef
       ? authorityManager.getExecutionPoiRecipe?.()?.voiceContext
       : farewellVoiceCore.normalizeContext(entry.context);
+    if (context && plan.bushPickup?.voiceContext) {
+      const hint = bushPickupVoiceCore.continuityHint(plan.bushPickup.voiceContext,current()?.state?.voice?.bushMemory,'farewell');
+      if (context.mode === 'cargo') context.cargo.narrativeHint = hint;
+      else context.professionalLandingHint = [context.professionalLandingHint,hint].filter(Boolean).join('\n');
+    }
     if (context && current()?.state?.effects.some(effect => effect.type === 'voice.approach' && effect.payload?.weatherMismatchUsed)) {
       context.weatherMismatchAlreadyUsed = true;
     }
@@ -307,11 +313,11 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const manifest = options.anticipateDelivery === true ? {
       ...stressedManifest,
       items: stressedManifest.items.map(item => item.status === 'loaded'
-        && item.deliverAtDestination !== false && item.itemType !== 'passenger'
+        && (item.deliverAtDestination !== false || snapshot.bushRecipe?.kind === 'pickup_return' && item.deliverAtHome === true) && item.itemType !== 'passenger'
         ? { ...item, status: 'unloaded' } : item)
     } : snapshot.state.manifest;
     let cargoOutcome = flightRecorderCore.evaluateFarewellOutcome(
-      manifest,
+      snapshot.bushRecipe?.kind === 'pickup_return' ? {...manifest,items:manifest.items.map(item=>item.deliverAtHome===true?{...item,deliverAtDestination:true}:item)} : manifest,
       stressRecord,
       { motionProtectionEnabled: authorityContext?.motionProtectionEnabled === true }
     );
@@ -378,14 +384,17 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       });
     }
     if (validated.snapshot.bushRecipe) resetObservationIfNeeded(validated.snapshot);
-    if (validated.snapshot.bushRecipe && ['prepare_mission','start_boarding','confirm_load','start_mission','set_manifest_item','request_pax_interaction','sign_manifest','confirm_unload','request_close'].includes(intent)) {
+    if (validated.snapshot.bushRecipe && ['prepare_mission','start_boarding','confirm_load','start_mission','set_manifest_item','set_manifest_items','request_pax_interaction','sign_manifest','confirm_pickup','confirm_unload','request_close'].includes(intent)) {
       const sample=observations.bushTelemetry;
       if (!sample || !sample.valid || sample.simPaused || sample.inMenuOrMap || sample.slewActive
           || now()-sample.observedAt<0 || now()-sample.observedAt>5000) return errorResult('bush_fresh_telemetry_required');
-      const airborneCargo=intent==='set_manifest_item' && sample.onGround===false;
+      const airborneCargo=['set_manifest_item','set_manifest_items'].includes(intent) && sample.onGround===false;
       if (!airborneCargo && !(sample.onGround===true && (sample.gsKts<=2 || sample.parkingBrake===true))) return errorResult('bush_ground_stop_required');
+      const pickupAction=validated.snapshot.bushRecipe.kind==='pickup_return' && !validated.snapshot.state.progress.returnLeg
+        && (intent==='confirm_pickup' || (validated.snapshot.state.phase==='on_task' && ['sign_manifest','set_manifest_item','set_manifest_items','request_pax_interaction'].includes(intent)));
+      if(pickupAction && !locationCore.resolveAptDestination(validated.snapshot.bushRecipe.location,sample).atDestination)return errorResult('bush_pickup_target_required');
       const unloadingAtArrival = ['end_unloading','end_ready'].includes(validated.snapshot.state.phase)
-        && ['set_manifest_item','request_pax_interaction'].includes(intent) && request.payload?.action==='unload';
+        && ['set_manifest_item','set_manifest_items','request_pax_interaction'].includes(intent) && request.payload?.action==='unload';
       if ((['confirm_unload','request_close'].includes(intent) || unloadingAtArrival)
           && !locationCore.resolveAptDestination(validated.snapshot.location,sample).atDestination) return errorResult('bush_target_required');
     }
@@ -488,7 +497,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       && snapshot.state.flags.groundStill;
     const pickupPhase = snapshot.state.phase === 'on_task' && snapshot.state.flags.groundStill;
     const departureItem = item.pickupLocation !== 'target';
-    const arrivalItem = item.deliverAtDestination !== false;
+    const arrivalItem = item.deliverAtDestination !== false || snapshot.bushRecipe?.kind === 'pickup_return' && item.deliverAtHome === true;
     const equipmentItem = item.persistentEquipment === true;
     const airborneDrop = !load
       && snapshot.state.flags.active === true
@@ -510,6 +519,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       complianceAllowed: complianceAllowsItem(snapshot, itemId),
       missionActive: snapshot.state.flags.active === true,
       airborne: airborneDrop,
+      atHome: snapshot.bushRecipe?.spec?.requiresReturnHome===true && locationCore.haversineNm(observations.lastPosition?.lat,observations.lastPosition?.lon,snapshot.bushRecipe.spec.homeRef.lat,snapshot.bushRecipe.spec.homeRef.lon)<=0.35,
       atTarget: snapshot.state.phase === 'on_task' && snapshot.state.flags.groundStill === true,
       position: observations.lastPosition,
       ...reloadFacts(item),
@@ -596,7 +606,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
   const signManifest = (snapshot, request) => {
     let scope = null;
     if (['prepare', 'boarding'].includes(snapshot.state.phase)) {
-      if (snapshot.state.cargo.summary.departureTotal === 0) {
+      if (snapshot.state.cargo.summary.departureTotal === 0 && snapshot.bushRecipe?.kind!=='pickup_return') {
         return errorResult('mission_manifest_signature_not_required');
       }
       if (!snapshot.state.cargo.summary.departureReady) {
@@ -872,6 +882,9 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (intent === 'submit_compliance_evidence') return submitComplianceEvidence(snapshot, request);
     if (intent === 'request_pax_interaction') {
       const action = cleanString(safeObject(request.payload).action, 40).toLowerCase();
+      if(action==='load' && snapshot.bushRecipe?.kind==='pickup_return' && snapshot.state.manifest.items.some(i=>i.id===request.payload?.itemId && i.pickupLocation==='target' && i.itemType==='passenger')) {
+        return submitEvent(snapshot,'BUSH_PICKUP_BOARDING_REQUESTED',{itemId:request.payload.itemId,position:observations.lastPosition},`${snapshot.runId}:intent:${commandId}`,'intent:bush_pickup_boarding');
+      }
       if (action === 'load' || action === 'unload') return setManifestItem(snapshot, request, true);
       if (action !== 'deboard') return errorResult('mission_pax_interaction_not_migrated', { view: snapshot.view });
       const deboardingPending = snapshot.state.effects.some(effect => (
@@ -909,7 +922,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         fallbackPaxCount: Math.max(0, Math.min(6, Math.round(Number(rawPayloadContext.fallbackPaxCount) || 0))),
         fallbackPaxWeightLbs: Math.max(1, Math.round(Number(rawPayloadContext.fallbackPaxWeightLbs) || 180))
       } : null;
-    const eventPayload = ['LOAD_CONFIRMATION_REQUESTED', 'UNLOAD_CONFIRMED'].includes(eventType)
+    const eventPayload = ['LOAD_CONFIRMATION_REQUESTED', 'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED'].includes(eventType)
       ? {
           manifest: snapshot.state.manifest,
           ...(payloadContext ? { payloadContext } : {})
@@ -918,7 +931,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         : eventType === 'PREPARE_REQUESTED' ? { syncInitialPayload: options.syncInitialPayload === true }
         : eventType === 'CLOSE_REQUESTED' ? { position: observations.lastPosition }
         : (eventType === 'MISSION_STARTED' ? {
-            arrivalScene: !!executionEffectPlan()?.effects?.['scene.arrival'],
+            arrivalScene: snapshot.bushRecipe?.kind!=='pickup_return' && !!executionEffectPlan()?.effects?.['scene.arrival'],
             ...(snapshot.recipe === 'poi' ? { targetScene: !!executionEffectPlan()?.effects?.['scene.target']?.command, smokeScene: !!executionEffectPlan()?.effects?.['smoke.spawn']?.command } : {})
           } : {}));
     return submitEvent(
@@ -1156,21 +1169,30 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     observations.flightRecorder = recorded.state;
     if (snapshot.bushRecipe && sample.simPaused !== true && sample.inMenuOrMap !== true) {
       const groundStill=onGround===true && (gsKts<=2 || sample.parkingBrake===true || sample.parkingBrake===1);
-      const result=bushTaskCore.evaluate({spec:snapshot.bushRecipe.spec,progress:snapshot.state.bushTask?.progress || {status:'enroute'},
+      const targetDestination=locationCore.resolveAptDestination(snapshot.bushRecipe.location,sample);
+      const atHome=locationCore.haversineNm(sample.lat,sample.lon,snapshot.bushRecipe.spec.homeRef.lat,snapshot.bushRecipe.spec.homeRef.lon)<=0.35;
+      const result=bushTaskCore.evaluate({atHome,atArrivalPoint:targetDestination.dArrivalNm!=null && targetDestination.dArrivalNm<=0.16,poiProgress:snapshot.state.poiTask?{...snapshot.state.poiTask.detector,trackingActive:true}:null,spec:snapshot.bushRecipe.spec,progress:snapshot.state.bushTask?.progress || {status:'enroute'},
         manifest:snapshot.state.manifest,position:sample,now:observedAt,
-        endReady:{atTarget:destination.atDestination,groundStill,onGround,gs:gsKts,agl:sample.aglFt,parkingBrakeSet:sample.parkingBrake===true || sample.parkingBrake===1},
+        endReady:{...targetDestination,atTarget:targetDestination.atDestination,groundStill,onGround,gs:gsKts,agl:sample.aglFt,parkingBrakeSet:sample.parkingBrake===true || sample.parkingBrake===1},
         endEligibleFlightPhase:snapshot.state.progress.airborneSeen===true || recorded.state.hadAirbornePhase===true});
       const bushTask={schema:'ga.tracker-bush-task.v1',missionId:snapshot.missionId,profileId:snapshot.bushRecipe.spec.profileId,
-        progress:result.progress,canEndHere:result.canEndHere};
+        kind:snapshot.bushRecipe.kind,progress:result.progress,canEndHere:result.canEndHere,pickupReady:result.pickupReady};
       if (executionCore.canonicalStringify(bushTask)!==executionCore.canonicalStringify(snapshot.state.bushTask)) {
         const applied=submitEvent(snapshot,'BUSH_TASK_OBSERVED',{bushTask},`${snapshot.runId}:bush:${snapshot.executionRevision+1}`,'telemetry:bush');
         if(!applied.ok)return applied;snapshot=current();
       }
     }
+    if(snapshot.bushRecipe?.kind==='pickup_return' && !snapshot.state.progress.returnLeg
+        && !sample.simPaused && !sample.inMenuOrMap && locationCore.haversineNm(sample.lat,sample.lon,snapshot.bushRecipe.spec.targetRef.lat,snapshot.bushRecipe.spec.targetRef.lon)<=5
+        && !snapshot.state.effects.some(e=>e.type==='scene.arrival')){
+      const spawned=submitEvent(snapshot,'BUSH_PICKUP_SCENE_REQUESTED',{},`${snapshot.runId}:bush-pickup-scene`,'bush:prestage');
+      if(!spawned.ok)return spawned;snapshot=current();
+    }
     let poiLifecycleChanged = false;
     if (fullPoi && sample.simPaused !== true && sample.inMenuOrMap !== true) {
       const lifecycle = poiLifecycleCore.evaluate(poiRecipe, { ...snapshot.state.poiTask?.detector, ...(poiRecipe.poiChain ? { poiChain: poiRuntime.project(snapshot.state.poiTask)?.poiChain } : {}) },
         { ...recorded.state, hadAirbornePhase: recorded.state.hadAirbornePhase || snapshot.state.poiLifecycle?.flightEligible }, sample);
+      if (snapshot.bushRecipe?.kind === 'recon_return') { lifecycle.canEndHere = snapshot.state.bushTask?.canEndHere === true; lifecycle.endedAtHome = lifecycle.canEndHere; lifecycle.needsRideHome = !lifecycle.endedAtHome; }
       const poiLifecycle = Object.fromEntries(['flightEligible', 'canEndHere', 'endedAtHome', 'needsRideHome'].map(key => [key, lifecycle[key]]));
       if (Object.keys(poiLifecycle).some(key => snapshot.state.poiLifecycle?.[key] !== poiLifecycle[key])) {
         poiLifecycleChanged = true;

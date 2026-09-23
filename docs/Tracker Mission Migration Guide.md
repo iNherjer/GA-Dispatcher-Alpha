@@ -639,3 +639,43 @@ angeboten. Alte Tracker erhalten keine Bush-Übergabe.
 Feldprüfung: alle drei Profile unter Windows/MSFS mit echten Boarding-/Ausstiegs-
 ACKs und verschiedenen Flugzeugen. Automatisierte Simulator-Doubles ersetzen
 keinen praktischen Flug.
+
+
+## Bush Pickup und Recon: Rückflug-Rezepte
+
+Erweitert werden `bush_pickup_strip`, `bush_pickup_cargo` und
+`bush_recon_return`. Der neue Handshake `mission.bush-return.v1` trennt diese
+Rezepte von Trackern, die nur die drei A→B-Profile beherrschen. Heli bleibt ausgenommen.
+
+- Pickup benutzt den gemeinsamen APT-Start mit Abflugmanifest, Signatur und
+  Bestätigung auch beim leeren Hinflug. Startszene und Start-Boarding sind explizit
+  leer; Pickup-Stimmen beginnen erst nach der Aufnahme am Ziel.
+- Die originale Ankunftsszene wird innerhalb von fünf NM vorgeladen. Passagier-
+  Aufnahme verwendet den aus `_missionBushPickupBoarding` extrahierten Command-
+  Builder, den tatsächlichen Personenpunkt und den physischen Boarding-ACK.
+  Ein Timeout darf keinen Passagier als geladen bestätigen.
+- Pflicht-Pickup-Items einschließlich Begleitfracht müssen geladen und separat
+  unterschrieben sein. Erst `PICKUP_CONFIRMED` aktiviert den Rückflug und räumt
+  die Abholszene ab. Telemetrie darf diese Szene danach nicht wieder erzeugen.
+- Das Manifest behält `deliverAtHome`; nur die generische Cargo-Anzeige projiziert
+  diese Items als am Abschlussziel abzuliefern. Missionsziel für den Rückflug ist
+  der unveränderliche Heimatanker, unabhängig von Änderungen der Navigationsroute.
+- Pickup-Boarding-/Abflugtexte und Abflugschwellen stammen aus dem Original.
+  Narrative Erinnerung bleibt begrenzt und wird mit dem Missionszustand gehalten.
+  Der Abschied übernimmt diesen Kontext. Ein Neustart darf keine neue Begrüßung
+  oder zweite Aufnahme erzeugen.
+- Recon bleibt `inspection_infra` mit originalem POI-Task-Kern und Bush-
+  `poi_on_task_return`-Fortschritt. Der Befund beendet den Arbeitsabschnitt;
+  die Bush-Endbereitschaft verhindert einen Abschluss an einem fremden Platz.
+  Der vorbereitete `bushReconOutcome` bleibt bis zum vorgesehenen Resultat verborgen
+  und erreicht anschließend den bestehenden Follow-up-/Outbox-Pfad.
+- Alle fachlichen Schritte laufen im Missionsprozess. Der Telemetrieprozess
+  liefert weiterhin begrenzte Samples; Fortschritt/Voice werden nur bei Änderung
+  gespeichert. Der bestehende asynchrone Checkpoint und Cloud-Sync bleiben bestehen.
+
+Original-Trigger und Standalone-Abläufe werden nicht ersetzt. Generatorchecks
+prüfen die ausgelagerten Originalabschnitte; Differentialtests verwenden eine
+unabhängige eingefrorene Referenz. Simulator-Doubles prüfen ACK-Reihenfolge und
+Zustandswechsel; Windows/MSFS-Flüge bleiben die praktische Abschlussprüfung.
+
+Validierung v448: 452 automatisierte Tests erfolgreich (Missionsfamilien, Authority, EFB, Pickup-/Recon-End-to-End, Wiederaufnahme und doppelte ACKs). Generierte Originalkerne per `--check` geprueft. Ein Windows-/MSFS-Feldtest bleibt erforderlich. Pickup-Sprachkontinuitaet wird begrenzt zwischen Boarding, Rueckflug, Anflug und Abschied weitergereicht.

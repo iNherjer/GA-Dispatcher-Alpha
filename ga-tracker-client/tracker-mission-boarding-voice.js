@@ -2,6 +2,7 @@
 const routeVoiceCore = require('../mission-route-voice-core.js');
 
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
+const bushPickupVoiceCore = require('../mission-bush-pickup-voice-core.js');
 const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
 const locationCore = require('../mission-location-core.js');
 const { createTrackerMissionCargoAudio } = require('./tracker-mission-cargo-audio.js');
@@ -97,6 +98,24 @@ function createTrackerMissionBoardingVoice(options = {}) {
           || current.state.flags.closingPending || current.state.flags.farewellStarted)
         return completed(request, { voiceStatus: 'mission_end' });
     }
+    if (request.effect?.type === 'voice.bush') {
+      const payload = object(request.effect.payload);
+      const bushPlan = object(plan.bushPickup);
+      const context = bushPlan.voiceContext;
+      const prepared = boardingVoiceCore.normalizeRecipe(payload.resolvedRecipe);
+      const stages = context?.pickupKind === 'cargo'
+        ? ['cargo_pickup_boarding', 'cargo_pickup_departure'] : ['pickup_boarding', 'pickup_departure'];
+      if (run.executionRecipe !== 'apt' || run.resumeBundle?.executionBushRecipe?.kind !== 'pickup_return'
+          || !context || bushPickupVoiceCore.validateContext(context, run.missionId)
+          || !stages.includes(payload.stage) || !prepared || prepared.missionId !== run.missionId)
+        return { ok: false, status: 'blocked', error: 'bush_voice_recipe_missing', terminal: false, sideEffect: false };
+      recipe = { ...prepared };
+      const current = authorityManager.getExecutionSnapshot?.();
+      if (!current || current.runId !== run.runId || current.state.bushTask?.kind !== 'pickup_return'
+          || !current.state.flags.active || current.state.flags.closingPending || current.state.flags.farewellStarted
+          || current.state.flags.farewellCompleted || current.state.flags.unloadConfirmed)
+        return completed(request, { voiceStatus: 'mission_end' });
+    }
     if (request.effect?.type === 'voice.boarding' && flightContext?.supported && flightContext.departure) {
       const telemetry = request.livePosition || authorityManager.getExecutionRuntimeContext?.({ missionId: run.missionId, runId: run.runId })?.latestTelemetry;
       if (telemetry?.lat != null && telemetry?.lon != null) {
@@ -120,7 +139,10 @@ function createTrackerMissionBoardingVoice(options = {}) {
       recipe = { ...recipe, ...flightContext, enabled: true, kind: payload.kind, prompt: payload.prompt, fallbackText: payload.fallbackText || '', playCue: false };
     }
     if (request.effect?.type === 'voice.approach') {
-      const context = object(object(plan.effects)['voice.approach']).context;
+      const context = { ...object(object(object(plan.effects)['voice.approach']).context) };
+      if (run.state?.bushTask?.kind === 'pickup_return') {
+        context.bushContinuityHint = bushPickupVoiceCore.continuityHint(object(plan.bushPickup).voiceContext, run.state.voice?.bushMemory || {}, 'arrival');
+      }
       const prompt = buildApproachPrompt(context, object(request.effect?.payload?.flightData));
       if (!prompt) return completed(request, { voiceStatus: 'approach_context_missing' });
       // Standalone cancels this delay for mission end, not for touchdown itself.
@@ -164,13 +186,15 @@ function createTrackerMissionBoardingVoice(options = {}) {
       });
     }
     let job;
-    const cancelAtMissionEnd = request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.approach'
+    const cancelAtMissionEnd = request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.bush' || request.effect?.type === 'voice.approach'
       || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story', 'private_return_departure', 'pax_query'].includes(request.effect?.payload?.kind));
     const isPlaybackAllowed = () => {
       const current = authorityManager.getExecutionSnapshot?.();
       if (request.effect?.type === 'voice.poi' && (!current || current.missionId !== run.missionId
           || !(current.recipe === 'poi' && authorityManager.supportsExecutionRecipe?.('poi')
             || current.recipe === 'apt' && request.effect?.payload?.aptTraining === true && current.state.trainingTask))) return false;
+      if (request.effect?.type === 'voice.bush' && (!current || current.missionId !== run.missionId
+          || current.recipe !== 'apt' || current.state.bushTask?.kind !== 'pickup_return')) return false;
       return trainingScopeValid(current) && (!current || (current.runId === run.runId && (current.state.flags.active || (request.effect?.type === 'voice.poi' && request.effect?.payload?.action))
         && !current.state.flags.closingPending && !current.state.flags.farewellStarted
         && !current.state.flags.farewellCompleted && !current.state.flags.unloadConfirmed
@@ -275,7 +299,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
       return completed(request, {
         voiceStatus: job?.error || job?.status || 'voice_generation_failed',
         voiceOutcome: voiceOutcome(recipe, { status: 'warning', playback: 'not_played', error: job?.error || 'voice_generation_failed',
-          ...(request.effect?.type === 'voice.poi' ? { text: job?.text || authorityManager.getExecutionSnapshot()?.state.effects
+          ...(request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.bush' ? { text: job?.text || authorityManager.getExecutionSnapshot()?.state.effects
             .find(effect => effect.effectId === request.effect.effectId)?.payload.resolvedText || '' } : {}) })
       });
     }

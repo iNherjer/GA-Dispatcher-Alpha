@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
+const bushPickupVoiceCore = require('../mission-bush-pickup-voice-core.js');
 const { createTrackerMissionBoardingVoice } = require('./tracker-mission-boarding-voice.js');
 
 function run(recipe = {}) {
@@ -38,6 +39,38 @@ function request() {
     effect: { effectId: 'mfx-boarding', type: 'voice.boarding' }
   };
 }
+
+test('Bush pickup voice dispatch validates the private Bush context and plays resolved stage recipe', async () => {
+  const bush = { profileId: 'bush_pickup_strip', targetMode: 'strip_then_return', completionMode: 'return_home',
+    requiresReturnHome: true, pickupKind: 'passenger', allowedEndLocations: ['home'] };
+  const context = { schema: bushPickupVoiceCore.SCHEMA, version: 1, missionId: 'mission-a', pickupKind: 'passenger',
+    targetMode: 'strip_then_return', requiresReturnHome: true, bush, baseContext: 'Bush pickup voice', speaker: { name: 'Mara' },
+    passenger: { name: 'Mara' } };
+  const prepared = boardingVoiceCore.createRecipe({ missionId: 'mission-a', hasPassenger: true, prompt: 'Pickup prompt.',
+    playCue: false, cue: { id: 'none' }, audioEnabled: false, speaker: { name: 'Mara' } });
+  const active = run();
+  active.executionRecipe = 'apt';
+  active.resumeBundle.executionBushRecipe = { kind: 'pickup_return' };
+  active.resumeBundle.executionEffectPlan.bushPickup = { voiceContext: context };
+  const calls = [];
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: {
+      getActiveRun: () => active,
+      getExecutionSnapshot: () => ({ missionId: 'mission-a', runId: 'run-a', recipe: 'apt', state: {
+        bushTask: { kind: 'pickup_return' }, flags: { active: true, closingPending: false, farewellStarted: false,
+          farewellCompleted: false, unloadConfirmed: false }, effects: []
+      } })
+    },
+    voiceService: { publicState: () => ({ configured: true }), request: value => calls.push(value),
+      wait: async () => ({ status: 'ready', audioAvailable: false, text: 'Pickup words.', speaker: { name: 'Mara' } }) }
+  });
+  const result = await handler.dispatch({ missionId: 'mission-a', runId: 'run-a', commandId: 'bush-effect',
+    effect: { effectId: 'bush-effect', type: 'voice.bush', payload: { stage: 'pickup_boarding', resolvedRecipe: prepared } } });
+  assert.equal(result.ok, true, result.error || result.voiceStatus || JSON.stringify(result));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].prompt, 'Pickup prompt.');
+  assert.equal(result.voiceOutcome.text, 'Pickup words.');
+});
 
 test('tracker boarding handler creates one central job and does not wait without an audio instance', async () => {
   const calls = [];

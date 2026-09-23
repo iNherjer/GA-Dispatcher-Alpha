@@ -20,6 +20,7 @@ function extractBetween(start, end) {
 }
 
 const authorityFunctions = [
+  extractBetween('function _activeBushPickupVoiceSpec()', '// Private tracker-only recipe.'),
   extractBetween('function _activeBushStripTargetVoiceSpec()', 'function _farewellAuthorityContext()'),
   extractBetween('function _farewellAuthorityContext()', '// Private tracker recipe context only; standalone triggers and prompt stay unchanged.'),
   extractBetween('window.paxVoiceBuildApproachAuthorityContext = function()', 'window.paxVoiceBuildFarewellAuthorityContext = function()')
@@ -195,7 +196,7 @@ test('scenic boarding recipe carries the original Bush adventure guidance', asyn
   assert.equal(recipe.fallbackText, 'ORIGINAL BOARDING FALLBACK');
 });
 
-test('Bush pickup, recon, changed completion, and SAR-Heli remain outside this context gate', () => {
+test('Incomplete pickup, recon, changed completion, and SAR-Heli remain outside the APT farewell context gate', () => {
   for (const bush of [
     { profileId: 'bush_pickup_strip', targetMode: 'strip_then_return', completionMode: 'return_home', requiresReturnHome: true, pickupKind: 'passenger' },
     { profileId: 'bush_recon_return', targetMode: 'area_then_return', completionMode: 'return_home', requiresReturnHome: true },

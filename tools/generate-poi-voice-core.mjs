@@ -15,6 +15,7 @@ const surveyNames = ['_surveyPatternActiveSpec', '_surveyPatternSnapshot', '_sur
   '_surveyPatternVoiceText', '_surveyPatternEventKind'];
 const chainNames = ['_hashStable', '_paxSeededInt', '_poiChainActiveSpec', '_poiChainSnapshot', '_poiChainProgressSummary', '_poiChainStatusText', '_poiChainOrientationText', '_poiChainAudioKey', '_poiChainPickText', '_poiChainPointLabel', '_poiChainPointFindingText', '_poiChainVoiceText', '_poiChainPhotoSoundOptions', '_poiChainEventSoundOptions', '_poiChainEventKind', '_handlePoiChainEvents'];
 const farewellNames = ['_trainingProcedureDebriefLine','_farewellPrompt', '_failedMissionFarewellFallback', '_farewellPreparedContext'];
+const bushReconNames = ['_activeBushReconOutcome', '_bushReconOutcomeHintLine'];
 export function extract(name, text = source) { return extractOriginalFunction(text, name); }
 const header = `// Generated from original passenger-voice.js functions by tools/generate-poi-voice-core.mjs.
 // Do not hand-edit prompt text or rules; update the App source and verify parity.
@@ -41,7 +42,18 @@ function validateContext(context, missionId = context?.missionId) {
   if (!DOMAINS.includes(context.taskDomain) || typeof context.strict !== 'boolean'
       || !context.passenger || Array.isArray(context.passenger) || typeof context.baseContext !== 'string' || !context.baseContext.trim()
       || typeof context.audioEnabled !== 'boolean') return 'poi_voice_context_invalid';
-  if (['sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  const bush = context.bush;
+  const bushRecon = bush?.profileId === 'bush_recon_return'
+      && bush.targetMode === 'area_then_return' && bush.completionMode === 'return_home'
+      && bush.requiresReturnHome === true && context.taskDomain === 'inspection_infra';
+  if ((bush && !bushRecon) || context.passenger.sarHeli
+      || (context.passenger.bush && (!bushRecon || context.passenger.bush.profileId !== 'bush_recon_return')))
+    return 'poi_voice_specialized_context_not_migrated';
+  if (bushRecon && context.missionData?.bush && JSON.stringify(context.missionData.bush) !== JSON.stringify(bush))
+    return 'poi_voice_bush_context_mismatch';
+  if (context.bushReconOutcome && (!bushRecon || context.bushReconOutcome.schema !== 'ga.bushReconOutcome.v1'
+      || !['all_clear','monitor_only','minor_service','technician_needed'].includes(context.bushReconOutcome.outcome)
+      || context.bushReconOutcome.hiddenFromWriter !== true)) return 'poi_voice_bush_outcome_invalid';
   if (['trainingPlan','trainingProcedure','trainingRecipe'].some(key => context.passenger[key]) && !['training','club_training_basic','club_training_advanced'].includes(context.taskDomain)) return 'poi_voice_specialized_context_not_migrated';
   if (context.passenger.poiChain && context.taskDomain !== 'infra_chain_recon') return 'poi_voice_specialized_context_not_migrated';
   if (context.passenger.surveyPattern && context.taskDomain !== 'mapping_survey') return 'poi_voice_specialized_context_not_migrated';
@@ -89,7 +101,9 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _missionHasPax = () => true;
   const _speakerSnapshotForActivePax = () => context.speaker;
   const _paxMissionAudioKey = kind => kind + ':' + context.missionId;
-  const currentMissionData = context.missionData || {};
+  const currentMissionData = { ...(context.missionData || {}), ...(context.bush ? { bush: context.bush } : {}),
+    ...(context.bushReconOutcome ? { bushReconOutcome: context.bushReconOutcome } : {}) };
+${bushReconNames.map(name => extract(name)).join('\n\n')}
   const document = { getElementById: id => id === 'wikiDestDescText' ? { innerText: context.wikiText || '' } : null };
   const Math = Object.create(globalThis.Math);
   Math.random = () => randomValue;
@@ -106,8 +120,6 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
     return knowledge && Array.isArray(knowledge.facts) && knowledge.facts.length && (!status || status === 'accept')
       ? knowledge : (context.captureKnowledge ? {} : null);
   };
-  const _activeBushReconOutcome = () => null;
-  const _bushReconOutcomeHintLine = () => '';
   let _sarSearchOutcome = normalizeMemory(previous).sarSearchOutcome || (['found','not_found'].includes(context.sarSearchOutcome) ? context.sarSearchOutcome : null);
   const _inspectionMissionMeta = () => context.inspectionMeta || null;
   const _activeInfraInspectionOutcome = () => context.infraOutcome || null;

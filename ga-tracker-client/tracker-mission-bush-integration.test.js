@@ -10,7 +10,7 @@ const tick=()=>new Promise(r=>setImmediate(r));
 async function settle(){for(let i=0;i<15;i++)await tick();}
 function profile(b){return {activeMission:b.missionState,activeMissionTrackerSeed:{schema:'ga.tracker-cloud-mission-seed.v1',version:1,missionId:b.missionId,adapter:b.adapter,executionBushRecipe:b.executionBushRecipe,executionEffectPlan:b.executionEffectPlan,initialCargoManifest:b.runtime.cargoManifest}};}
 test('all three Bush strip profiles pass cloud and replay gate; pickup, recon, heli and source mismatch stay closed',()=>{
- for(const name of Object.keys(bush.PROFILES)){
+ for(const name of ['bush_supply_strip','bush_charter_strip','bush_scenic_hopper']){
   const b=bundle(name),p=profile(b);assert.equal(bush.validateBundle(b),null);
   const candidate=buildCloudMissionCandidate(p,{poiExecutionEnabled:true});assert.equal(candidate.status,'ready',JSON.stringify(candidate));
   assert.equal(execution.replay(candidate.candidate.bundle.executionReplay).state.recipe,'apt');
@@ -53,7 +53,7 @@ async function arrive(h){
  for(let i=0;i<4;i++)await h.sample({lat:48.1,lon:8.2,onGround:false,gsKts:90,aglFt:1500,altFt:2000});
  await h.sample({lat:48.3,lon:8.5,gsKts:20});await h.sample({lat:48.3,lon:8.5});
 }
-for(const name of Object.keys(bush.PROFILES))test(`${name}: original A-B boarding, target stop, unload and close`,async t=>{
+for(const name of ['bush_supply_strip','bush_charter_strip','bush_scenic_hopper'])test(`${name}: original A-B boarding, target stop, unload and close`,async t=>{
  const h=await harness(t,name);await start(h);await arrive(h);
  let state=h.manager.getExecutionSnapshot().state;assert.ok(['end_unloading','end_ready'].includes(state.phase),state.phase);
  assert.equal(h.manager.getExecutionSnapshot().location.missionTarget.lat,48.3);
@@ -90,7 +90,7 @@ test('Bush ground intents require fresh live observations and the immutable dest
 test('original App seed builds all strip profiles, including cargo-only without passenger approach voice',async()=>{
  const vm=require('node:vm');const {extractOriginalFunction}=await import('../tools/extract-original-function.mjs');
  const source=fs.readFileSync(path.join(__dirname,'../sync.js'),'utf8');
- for(const name of Object.keys(bush.PROFILES)){
+ for(const name of ['bush_supply_strip','bush_charter_strip','bush_scenic_hopper']){
   const b=bundle(name),effects=b.executionEffectPlan.effects;
   const sandbox={currentMissionData:b.missionState.currentMissionData,window:{GAMissionBushExecutionCore:bush,
    paxVoiceBuildBoardingEffectRecipe:()=>effects['voice.boarding'].recipe,
@@ -137,7 +137,7 @@ test('compact Bush handoff preserves the original follow-up stay window and cont
  const source=fs.readFileSync(path.join(__dirname,'../sync.js'),'utf8');
  const context={window:{GAMissionBushExecutionCore:bush}};vm.createContext(context);
  vm.runInContext(extractOriginalFunction(source,'_syncCompactMissionObjectCore'),context);
- for(const name of Object.keys(bush.PROFILES)){
+ for(const name of ['bush_supply_strip','bush_charter_strip','bush_scenic_hopper']){
   const md=bundle(name).missionState.currentMissionData,now=Date.now();
   Object.assign(md,{missionTemporalContext:{sourceKind:name,stayDays:3,followUpEligibleAt:now+3*86400000,createdAt:now-1000},
    followUpContext:{story:'Erstauftrag'},followUpProspect:{label:'Bereits besprochener Rückflug'},followUpContinuation:{parentRequestId:'previous'}});

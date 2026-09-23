@@ -1199,3 +1199,20 @@ V1-Caches werden gelesen und beim naechsten Speichern migriert; einzelne fehlend
 oder beschaedigte v2-Audiodateien verwerfen nur ihren Eintrag. Aeltere Tracker
 koennen den v2-Voice-Cache nicht lesen; Missionscheckpoint und Cargo-Recovery sind
 davon unabhaengig. Die Fuenf-Sekunden-Missionssicherung bleibt unveraendert.
+
+
+### Bush Pickup / Recon: zusätzliche Verträge
+
+- Neue Rückflugprofile erfordern `mission.bush-return.v1`; das bestehende Strip-
+  Gate ist keine Freigabe für Aufnahme-/Rückflugabläufe.
+- Der unveränderliche Bush-Vertrag und die privaten Voice-/Scene-Rezepte müssen
+  übereinstimmen. Recon wird nur mit vollständigem validiertem POI-Rezept übernommen.
+- Aufnahme-PAX werden erst nach dem zugehörigen physischen Boarding-ACK geladen.
+  Signatur und Bestätigung der Aufnahme sind eigene Schritte. Danach gelten Heimat
+  und Heimfracht als Abschlussbedingungen; das Abholziel bleibt Szenenanker.
+- Die Abholszene wird einmal vorgeladen und nach Bestätigung terminal abgeräumt.
+  Wiederholte Samples oder ein Resume dürfen keine zweite Aufnahmeansage auslösen.
+- Bodenaktionen benötigen echte frische Telemetrie. Interpolation hilft bei
+  Flugsegmenten, autorisiert jedoch kein Boarding, keine Signatur oder Entladung.
+- Der vorhandene Missionsprozess, RAM-Zustand und asynchrone Checkpoint bleiben
+  zuständig. Es werden keine zusätzlichen Cloud-Writes pro Sample eingeführt.

@@ -2204,7 +2204,7 @@ function _missionStartUsesTrackerExecution() {
     const missionId = _activeMissionRuntimeId('');
     if (window.simModeActive) return false;
     const recipeAvailable = _missionSceneIsBushMission()
-        ? !!_buildMissionBushExecutionSeed() && window.liveTrackerCapabilities?.includes('mission.bush-strip.v1')
+        ? !!_buildMissionBushExecutionSeed() && window.liveTrackerCapabilities?.includes(_activeBushMissionSpec()?.requiresReturnHome ? 'mission.bush-return.v1' : 'mission.bush-strip.v1')
         : (!_missionSceneIsPoiMission() || window.liveTrackerCapabilities?.includes('mission.poi.v1'));
     if (_trackerSupportsMissionIntents() && recipeAvailable) missionExecutionRequestedMissionId = missionId;
     return (_trackerSupportsMissionIntents() && recipeAvailable)
@@ -2216,7 +2216,7 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
     if (missionExecutionHandoffPromise) return missionExecutionHandoffPromise;
     missionExecutionHandoffPromise = (async () => {
         if (window.simModeActive || !_trackerSupportsMissionIntents() || _missionStartPhase() !== 'planned') return false;
-        if (_missionSceneIsBushMission() && (!window.liveTrackerCapabilities?.includes('mission.bush-strip.v1') || !_buildMissionBushExecutionSeed())) return false;
+        if (_missionSceneIsBushMission() && (!window.liveTrackerCapabilities?.includes(_activeBushMissionSpec()?.requiresReturnHome ? 'mission.bush-return.v1' : 'mission.bush-strip.v1') || !_buildMissionBushExecutionSeed())) return false;
         if (typeof _missionSceneIsPoiMission === 'function' && _missionSceneIsPoiMission() && !window.liveTrackerCapabilities?.includes('mission.poi.v1')) return false;
         const authorityReady = await _ensureMissionAuthorityForStart(`${reason}:authority`);
         if (!authorityReady) return false;
@@ -7432,8 +7432,7 @@ function _buildMissionAptTrainingExecutionSeed() {
     };
 }
 
-// Bush A-B reuses the original APT effect builders and completion path. Pickup
-// and recon deliberately cannot obtain this recipe.
+// Bush recipes preserve their original strip, pickup-return or recon lifecycle.
 function _buildMissionBushExecutionSeed() {
     const core = window.GAMissionBushExecutionCore;
     const missionId = _activeMissionRuntimeId('');
@@ -7442,7 +7441,7 @@ function _buildMissionBushExecutionSeed() {
     const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
     if (!md || [md, md.missionContract, window.activePassenger].some(v => v && (v.sarHeli || v.trainingProcedure || v.surveyPattern || v.poiChain))) return null;
     const executionBushRecipe = {
-        schema: core.SCHEMA, version: 1, kind: 'strip_target', missionId,
+        schema: core.SCHEMA, version: 1, kind: spec.profileId === 'bush_recon_return' ? 'recon_return' : spec.targetMode === 'strip_then_return' ? 'pickup_return' : 'strip_target', missionId,
         spec: _safeCloneJson(spec, null),
         location: {
             missionTarget: _safeCloneJson(_targetPointForMission(), null),
@@ -7451,17 +7450,60 @@ function _buildMissionBushExecutionSeed() {
         }
     };
     if (core.validateRecipe(executionBushRecipe)) return null;
+    if (executionBushRecipe.kind === 'recon_return') {
+        const poi = _buildMissionPoiExecutionSeed(true);
+        if (!poi) return null;
+        const bundle = {missionId, adapter:'bush_pickup', missionState:{currentMissionData:md,activeMissionContract:window.activeMissionContract}, executionBushRecipe, ...poi};
+        return core.validateBundle(bundle) ? null : {executionBushRecipe, ...poi};
+    }
     const executionEffectPlan = _buildMissionAptExecutionEffectPlan();
+    if (!executionEffectPlan) return null;
+    if (executionBushRecipe.kind === 'pickup_return') {
+        const context = window.paxVoiceBuildBushPickupAuthorityContext?.(missionId);
+        if (!context) return null;
+        executionBushRecipe.home = _safeCloneJson(spec.homeRef, null);
+        executionBushRecipe.voiceContext = context;
+        const pickupBoarding = spec.pickupKind === 'passenger' ? {
+            sceneId: _missionAptArrivalSceneId(),
+            personPoint: _safeCloneJson(_missionAptArrivalPersonPoint(_missionAptArrivalPlan()), null),
+            boardingConfig: _safeCloneJson(_missionSceneBoardingConfig(), null),
+            commonFields: _safeCloneJson(_missionSceneCommonSceneCommandFields(), null)
+        } : null;
+        executionBushRecipe.pickupBoarding = pickupBoarding;
+        executionEffectPlan.bushPickup = {voiceContext: context, pickupBoarding};
+        executionEffectPlan.effects['scene.prepare'] = {none:true};
+        executionEffectPlan.effects['scene.boarding'] = {none:true};
+        executionEffectPlan.effects['voice.boarding'] = {none:true};
+        executionEffectPlan.effects['voice.farewell'] = {context:context.farewellContext,recipe:context.farewellRecipe};
+        if (context.approachContext) executionEffectPlan.effects['voice.approach'] = {context:context.approachContext};
+        else delete executionEffectPlan.effects['voice.approach'];
+        executionEffectPlan.effects['scene.bush_pickup_clear'] = {command:{type:'mission_scene_clear',sceneId:_missionAptArrivalSceneId()}};
+        if (spec.pickupKind === 'cargo') executionEffectPlan.effects['scene.deboarding'] = {none:true};
+        else {
+            const command = _missionSceneBuildDeboardingCommand('tracker-execution:scene.deboarding', null, executionEffectPlan.sceneId, 1);
+            if (!command) return null;
+            for (const key of ['lat','lon','altFt','hdg']) delete command[key];
+            executionEffectPlan.effects['scene.deboarding'] = {command};
+        }
+    }
     const bundle = {missionId, adapter:'bush_pickup', missionState:{currentMissionData:md,activeMissionContract:window.activeMissionContract}, executionBushRecipe, executionEffectPlan};
     return core.validateBundle(bundle) ? null : {executionBushRecipe, executionEffectPlan};
 }
 
-function _buildMissionPoiExecutionSeed() {
+function _buildMissionPoiExecutionSeed(allowBushRecon = false) {
     const missionId = _activeMissionRuntimeId('');
     const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
     const contract = md?.missionContract || window.activeMissionContract || {};
-    if (!missionId || !md || [md, contract, window.activePassenger].some(source => source
-        && (source.bush || source.sarHeli))) return null;
+    const sources = [md, contract, window.activePassenger].filter(Boolean);
+    const bushSpec = md?.bush || null;
+    const bushCore = window.GAMissionBushExecutionCore;
+    const bushRecon = allowBushRecon === true && md?.missionType === 'bush'
+        && bushSpec?.profileId === 'bush_recon_return'
+        && bushCore && bushCore.validateSpec(bushSpec) === null
+        && sources.every(source => !source.bush || JSON.stringify(source.bush) === JSON.stringify(bushSpec))
+        && sources.every(source => !source.sarHeli && !source.trainingProcedure && !source.surveyPattern && !source.poiChain);
+    if (!missionId || !md || sources.some(source => source.sarHeli
+        || (source.bush && !bushRecon))) return null;
     const voiceContext = window.paxVoiceBuildPoiAuthorityContext?.(missionId);
     const target = _targetPointForMission();
     const home = _missionHomePointForRuntime();
@@ -7483,11 +7525,13 @@ function _buildMissionPoiExecutionSeed() {
         .map(key => [key, voiceContext.passenger[key]]));
     if (Object.values(passenger).some(value => typeof value !== 'number' || !Number.isFinite(value))
         || passenger.targetRadiusNm <= 0 || passenger.targetAltFt < 0 || passenger.targetDwellMin < 0) return null;
+    if (bushRecon && (voiceContext.bush?.profileId !== 'bush_recon_return'
+        || JSON.stringify(voiceContext.bush) !== JSON.stringify(bushSpec))) return null;
     const executionPoiRecipe = {
         schema: 'ga.mission-poi-execution-recipe.v1', version: 1, missionId,
         taskDomain: voiceContext.taskDomain, target, home, strict: voiceContext.strict,
         trackingActive: window.paxVoiceGetPoiMissionProgress?.().trackingActive === true,
-        passenger, voiceContext, ...(voiceContext.taskDomain === 'search_and_rescue' ? {sarReport:_safeCloneJson(voiceContext.sarReport,null)} : {}), ...(trainingRecipe ? { trainingRecipe: _safeCloneJson(trainingRecipe, null) } : {}), ...(fireScenario ? { fireScenario: _safeCloneJson(fireScenario, null) } : {}), ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
+        passenger, voiceContext, ...(bushRecon ? { bush: _safeCloneJson(bushSpec, null) } : {}), ...(voiceContext.taskDomain === 'search_and_rescue' ? {sarReport:_safeCloneJson(voiceContext.sarReport,null)} : {}), ...(trainingRecipe ? { trainingRecipe: _safeCloneJson(trainingRecipe, null) } : {}), ...(fireScenario ? { fireScenario: _safeCloneJson(fireScenario, null) } : {}), ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
     };
     const plan = _buildMissionAptExecutionEffectPlan('poi');
     if (!plan) return null;

@@ -13,6 +13,8 @@ const { createTrackerMissionExecutionAdapter } = require('./tracker-mission-exec
 const { createTrackerMissionEffectRunner } = require('./tracker-mission-effect-runner.js');
 const { createTrackerMissionSimulatorEffects } = require('./tracker-mission-simulator-effects.js');
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
+const bushPickupVoice = require('../mission-bush-pickup-voice-core.js');
+const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 
 function createTrackerMissionExecutionRuntime(options = {}) {
   const authorityManager = options.authorityManager;
@@ -62,6 +64,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const reconcileCargoCheckpoint = () => cargoCheckpointRecovery?.reconcile(
     simulatorEffects, getSimulatorPosition(), simulatorPayloadSyncManifestState);
   let effectRunner = null;
+  let bushDeparturePending = null;
   let autoClosePromise = null;
   const executionEffectPlan = () => typeof authorityManager.getExecutionEffectPlan === 'function'
     ? authorityManager.getExecutionEffectPlan()
@@ -85,6 +88,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     sideEffect: false,
     commandId: request?.commandId || null
   });
+  const bushWeatherText = bushPickupVoice.weatherContext;
   const missingEffectHandler = type => request => ({
     ok: false,
     status: 'blocked',
@@ -165,6 +169,38 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const playBoardingVoice = typeof options.playBoardingVoice === 'function'
     ? request => options.playBoardingVoice({ ...request, livePosition: getSimulatorPosition() })
     : missingEffectHandler('mission_boarding_voice');
+  const requestBushVoice = (stage, triggerAt, flightData = null) => {
+    const snapshot = authorityManager.getExecutionSnapshot?.();
+    const bushPlan = executionEffectPlan()?.bushPickup;
+    const context = bushPlan?.voiceContext;
+    if (!snapshot || !context || typeof options.playBoardingVoice !== 'function') return false;
+    const cargo = context.pickupKind === 'cargo';
+    const boardingStage = cargo ? 'cargo_pickup_boarding' : 'pickup_boarding';
+    const departureStage = cargo ? 'cargo_pickup_departure' : 'pickup_departure';
+    if (![boardingStage, departureStage].includes(stage)) return false;
+    if (snapshot.state.effects.some(effect => effect.type === 'voice.bush' && effect.payload?.stage === stage)) return true;
+    const memory = bushPickupVoice.normalizeMemory(snapshot.state.voice?.bushMemory || {});
+    let rendered;
+    const latestTelemetry = flightData || authorityManager.getExecutionRuntimeContext?.({ missionId: snapshot.missionId, runId: snapshot.runId })?.latestTelemetry;
+    try { rendered = bushPickupVoice.render(context, { stage, previous: memory, weatherText: bushWeatherText(latestTelemetry) || context.weatherText }); }
+    catch (error) { log(`MISSION_BUSH_VOICE_RENDER_ERROR stage=${stage} error=${error?.message || error}`); return false; }
+    const template = executionEffectPlan()?.effects?.['voice.boarding']?.recipe || {};
+    const resolvedRecipe = boardingVoiceCore.createRecipe({
+      ...template, missionId: snapshot.missionId, hasPassenger: true, kind: 'boarding',
+      prompt: rendered.prompt, fallbackText: '', playCue: false, cue: { id: 'none' },
+      taskDomain: 'bush_pickup', speaker: rendered.speaker || context.speaker,
+      audioEnabled: context.audioEnabled !== false, textModels: context.textModels, ttsModels: context.ttsModels,
+      ttsHedgeEnabled: context.ttsHedgeEnabled, ttsHedgeDelayMs: context.ttsHedgeDelayMs
+    });
+    const result = adapter.applySystemEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
+      type: 'BUSH_VOICE_REQUESTED', eventId: `${snapshot.runId}:bush-voice:${stage}`,
+      payload: { kind: stage, stage, resolvedRecipe, bushMemory: memory, triggerAt: Number(triggerAt) || Date.now() } });
+    if (result?.ok) {
+      effectRunner.drain().catch(error => log(`MISSION_BUSH_VOICE_ERROR stage=${stage} error=${error?.message || error}`));
+      return true;
+    }
+    return false;
+  };
   const configuredFarewellVoice = typeof options.playFarewellVoice === 'function'
     ? options.playFarewellVoice
     : completeLocalEffect;
@@ -174,6 +210,17 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     farewellContext: adapter.getFarewellAuthorityContext?.() || null,
     farewellDynamicContext: adapter.getFarewellDynamicContext?.() || null
   });
+  const playBushVoice = request => playBoardingVoice({
+    ...request,
+    resolvedRecipe: request.effect?.payload?.resolvedRecipe || null,
+    recipe: request.effect?.payload?.resolvedRecipe || null,
+    bushVoice: true
+  });
+  const suppressBushOutboundVoice = type => {
+    const snapshot = authorityManager.getExecutionSnapshot?.();
+    return !!snapshot?.state?.bushTask && snapshot.state.bushTask.kind === 'pickup_return'
+      && snapshot.state.progress?.returnLeg !== true && type !== 'voice.boarding';
+  };
   const configuredPrepareFarewellVoice = typeof options.prepareFarewellVoice === 'function'
     ? options.prepareFarewellVoice
     : (typeof options.playFarewellVoice?.prepare === 'function' ? options.playFarewellVoice.prepare : null);
@@ -229,14 +276,20 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       'smoke.spawn': dispatchSimulatorEffect,
       'smoke.clear': dispatchSimulatorEffect,
       'scene.boarding': dispatchSimulatorEffect,
-      'voice.boarding': backgroundVoice(playBoardingVoice),
+      'voice.boarding': request => {
+        const snapshot = authorityManager.getExecutionSnapshot?.();
+        return snapshot?.state?.bushTask?.kind === 'pickup_return' && snapshot.state.progress?.returnLeg !== true
+          ? completeLocalEffect(request) : backgroundVoice(playBoardingVoice)(request);
+      },
       'voice.cargo': backgroundVoice(request => executionEffectPlan()?.cargoAudio
         ? playBoardingVoice(request) : completeLocalEffect(request)),
-      'voice.flight': backgroundVoice(playBoardingVoice),
+      'voice.flight': request => suppressBushOutboundVoice('voice.flight') ? completeLocalEffect(request) : backgroundVoice(playBoardingVoice)(request),
+      'voice.bush': request => !request.effect?.payload?.resolvedRecipe || typeof options.playBoardingVoice !== 'function'
+        ? missingEffectHandler('mission_bush_voice')(request) : backgroundVoice(playBushVoice)(request),
       'voice.poi': request => !request.effect?.payload?.resolvedRecipe || typeof options.playBoardingVoice !== 'function'
         ? missingEffectHandler('mission_poi_voice')(request)
         : backgroundVoice(playBoardingVoice)(request),
-      'voice.approach': backgroundVoice(playBoardingVoice),
+      'voice.approach': request => suppressBushOutboundVoice('voice.approach') ? completeLocalEffect(request) : backgroundVoice(playBoardingVoice)(request),
       'voice.farewell': backgroundVoice(playFarewellVoice),
       'voice.compliance_request': backgroundVoice(playComplianceVoice),
       'voice.compliance_result': backgroundVoice(playComplianceVoice),
@@ -244,6 +297,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       'payload.sync_manifest_state': payloadSyncManifestState,
       'scene.cargo_item_transition': dispatchSimulatorEffect,
       'scene.manual_pax': dispatchSimulatorEffect,
+      'scene.bush_pickup_clear': dispatchSimulatorEffect,
       'scene.deboarding': dispatchSimulatorEffect,
       'scene.deboarding_continue': dispatchSimulatorEffect,
       'scene.compliance_visit': dispatchSimulatorEffect,
@@ -505,6 +559,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       ? simulator.cancelPayloadSync
       : null;
     const bridge = createTrackerMissionSimulatorEffects({
+      now: options.now,
       getCargoRevision: adapter.getCargoRevision, onCargoRevision: adapter.setCargoRevision,
       authorityManager,
       getLivePosition: simulator.getLivePosition,
@@ -514,8 +569,16 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           log(`MISSION_CARGO_RECOVERY_ACK status=${request.status}`);
           return { ok: true };
         }
+        const beforeAck = authorityManager.getExecutionSnapshot?.();
+        const acknowledgedEffect = beforeAck?.state?.effects?.find(effect => effect.effectId === request.effectId);
         const acknowledged = await effectRunner.acknowledge(request);
         if (acknowledged.ok) {
+          const afterAck = authorityManager.getExecutionSnapshot?.();
+          const completedEffect = afterAck?.state?.effects?.find(effect => effect.effectId === request.effectId);
+          if (request.status === 'completed' && acknowledgedEffect?.type === 'scene.manual_pax'
+              && acknowledgedEffect.payload?.bushPickup === true && completedEffect?.status === 'completed') {
+            requestBushVoice('pickup_boarding', Date.now());
+          }
           await settleEffects(`effect-ack:${request.status || 'unknown'}`, request.effectId);
         }
         return acknowledged;
@@ -679,6 +742,39 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         return reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
       }
       const result = adapter.observeTelemetry(sample);
+      const bushEffects = authorityManager.getExecutionSnapshot?.();
+      if (bushEffects?.state.bushTask?.kind === 'pickup_return' && bushEffects.state.effects.some(effect => effect.type === 'scene.arrival' && effect.status === 'requested')) {
+        effectRunner.drain().catch(error => log(`MISSION_BUSH_SCENE_ERROR error=${error?.message || error}`));
+      }
+      if (result?.ok && result.status !== 'ignored' && sample?.simPaused !== true && sample?.paused !== true
+          && sample?.isPaused !== true && sample?.inMenuOrMap !== true && sample?.simRunning !== 0
+          && sample?.slewActive !== true && sample?.isSlewActive !== true) {
+        const snapshot = authorityManager.getExecutionSnapshot?.();
+        if (snapshot?.state?.bushTask?.kind === 'pickup_return') {
+          const context = executionEffectPlan()?.bushPickup?.voiceContext;
+          const cargo = context?.pickupKind === 'cargo';
+          if (!cargo && !snapshot.state.effects.some(effect => effect.type === 'voice.bush' && effect.payload?.stage === 'pickup_boarding')
+              && snapshot.state.effects.some(effect => effect.type === 'scene.manual_pax' && effect.status === 'completed'
+                && effect.payload?.bushPickup === true)) {
+            requestBushVoice('pickup_boarding', Number(sample?.observedAt) || Date.now(), sample);
+          }
+          if (cargo && snapshot.state.progress?.returnLeg === true
+              && !snapshot.state.effects.some(effect => effect.type === 'voice.bush' && effect.payload?.stage === 'cargo_pickup_boarding')) {
+            requestBushVoice('cargo_pickup_boarding', Number(sample?.observedAt) || Date.now());
+          }
+          const boardingStage = cargo ? 'cargo_pickup_boarding' : 'pickup_boarding';
+          const departureStage = cargo ? 'cargo_pickup_departure' : 'pickup_departure';
+          const alreadyDeparted = snapshot.state.effects.some(effect => effect.type === 'voice.bush' && effect.payload?.stage === departureStage);
+          const boardingEffect = snapshot.state.effects.find(effect => effect.type === 'voice.bush'
+            && effect.payload?.stage === boardingStage && effect.status === 'completed');
+          if (!alreadyDeparted && boardingEffect) {
+            bushDeparturePending = { kind: cargo ? 'cargo' : 'passenger', armedAt: Number(boardingEffect.payload?.triggerAt) || Date.now() };
+            const departure = bushPickupVoice.evaluateDeparture(bushDeparturePending, sample || {}, Number(sample?.observedAt) || Date.now(), cargo ? 'cargo' : 'passenger');
+            bushDeparturePending = departure.pending;
+            if (departure.triggered) requestBushVoice(departureStage, Number(sample?.observedAt) || Date.now(), sample);
+          }
+        } else bushDeparturePending = null;
+      }
       // Mapping must see missing samples to sever its geometric segment. The
       // common recorder rejects these, but bridging across them could fabricate
       // Survey coverage. Stale samples remain no-ops inside the task driver.
@@ -803,7 +899,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
             && !snapshot.state.effects.some(effect => effect.type === 'scene.deboarding') && !snapshot.state.voice?.approach
             && !snapshot.state.effects.some(effect => effect.type === 'voice.approach')) {
           const context = approachContextForObservation();
-          if (context?.supported && context.mode === 'passenger') {
+          if (context?.supported && context.mode === 'passenger' && !suppressBushOutboundVoice('voice.approach')) {
             const flightData = {};
             for (const key of ['gForce', 'bankDeg', 'windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'precipRateMmH', 'turbulencePct']) {
               if (sample[key] != null && Number.isFinite(Number(sample[key]))) flightData[key] = Number(sample[key]);

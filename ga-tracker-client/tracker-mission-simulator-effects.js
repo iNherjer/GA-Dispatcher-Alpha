@@ -2,6 +2,7 @@
 
 const { createCargoVisualQueue } = require('./tracker-cargo-visual-queue.generated.js');
 const { haversineNm } = require('../mission-location-core.js');
+const bushPickupSceneCore = require('../mission-bush-pickup-scene-core.js');
 
 const EFFECT_PLAN_SCHEMA = 'ga.mission-apt-effect-plan.v1';
 const EFFECT_COMMANDS = Object.freeze({
@@ -21,6 +22,10 @@ const EFFECT_COMMANDS = Object.freeze({
   'scene.deboarding': Object.freeze({
     commandType: 'mission_scene_deboarding',
     ackType: 'mission_scene_deboarding_ack'
+  }),
+  'scene.bush_pickup_clear': Object.freeze({
+    commandType: 'mission_scene_clear',
+    ackType: 'mission_scene_clear_ack'
   }),
   'scene.compliance_visit': Object.freeze({
     commandType: 'mission_scene_ground_visit',
@@ -215,9 +220,44 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       const fail = error => ({ ...errorResult(error), terminal: true });
       const run = currentRun();
       if (!run || run.executionAuthority !== 'tracker' || run.missionId !== request.missionId || run.runId !== request.runId) return fail('mission_run_conflict');
+      if (!commandId) return fail('mission_simulator_effect_command_id_required');
       if (pending.has(commandId)) return { ok: true, status: 'pending', commandId };
       const payload = safeObject(request.effect?.payload);
       const plan = readEffectPlan(run);
+      if (payload.bushPickup === true) {
+        const failBush = error => ({ ...errorResult(error), terminal: true });
+        const recipe = safeObject(plan?.bushPickup).pickupBoarding;
+        const remainingMs = 65000 - Math.max(0, now() - Number(payload.requestedAt || now()));
+        if (!plan?.bushPickup || !recipe || remainingMs <= 0) return failBush(remainingMs <= 0
+          ? 'bush_pickup_boarding_timeout' : 'mission_bush_pickup_boarding_recipe_missing');
+        const rawPosition = safeObject(payload.position || getLivePosition());
+        const position = normalizeLivePosition(rawPosition);
+        const rawHeading = rawPosition.hdg ?? rawPosition.heading;
+        if (!dispatchCommand || !position || rawHeading == null || !Number.isFinite(Number(rawHeading))) return failBush('mission_simulator_live_position_missing');
+        const boardingCommand = bushPickupSceneCore.buildCommand(recipe, {
+          lat: position.lat, lon: position.lon, alt: position.altFt, hdg: Number(rawHeading)
+        });
+        if (!boardingCommand) return failBush('mission_bush_pickup_boarding_geometry_invalid');
+        const record = { effectId: commandId, effectType, ackType: 'mission_scene_boarding_ack', missionId: run.missionId, runId: run.runId };
+        pending.set(commandId, record);
+        try {
+          const result = safeObject(await dispatchCommand({ ...boardingCommand,
+            commandId, missionId: run.missionId, runId: run.runId }));
+          if (result.ok !== true || result.status === 'completed') {
+            pending.delete(commandId);
+            return result.ok === true ? { ok: true, status: 'completed', commandId } : failBush(result.error || 'bush_pickup_boarding_failed');
+          }
+          if (pending.has(commandId)) {
+            record.timer = scheduleTimeout(() => handleAck({ commandId, type: record.ackType,
+              status: 'timeout', error: 'bush_pickup_boarding_timeout' }), remainingMs);
+            record.timer?.unref?.();
+          }
+          return { ok: true, status: 'pending', commandId };
+        } catch (error) {
+          pending.delete(commandId);
+          return failBush(error?.message || 'bush_pickup_boarding_failed');
+        }
+      }
       const recipe = (plan?.manualPassengerCommands || []).find(entry => entry.itemId === payload.itemId && entry.operation === payload.operation);
       if (!recipe?.command || recipe.command.type !== 'mission_scene_manual_pax') return fail('mission_manual_passenger_recipe_missing');
       const remainingMs = 70000 - Math.max(0, now() - Number(payload.requestedAt || now()));
@@ -366,6 +406,17 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     const contract = EFFECT_COMMANDS[effectType];
     if (!contract) return errorResult('mission_simulator_effect_not_supported');
     if (!commandId) return errorResult('mission_simulator_effect_command_id_required');
+    if (!dispatchCommand && ['scene.prepare', 'scene.boarding'].includes(effectType)) {
+      const run = currentRun();
+      if (!run?.missionId || !run?.runId) return errorResult('no_active_run');
+      if (run.executionAuthority !== 'tracker') return errorResult('mission_execution_authority_web');
+      if (cleanString(request.missionId) !== cleanString(run.missionId)
+          || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) return errorResult('mission_run_conflict');
+      const plan = readEffectPlan(run);
+      if (plan?.bushPickup?.voiceContext && plan.effects?.[effectType]?.none === true) {
+        return { ok: true, status: 'completed', sideEffect: false, commandId, sceneStatus: 'explicit_empty_scene' };
+      }
+    }
     if (!dispatchCommand) {
       return effectType === 'scene.compliance_visit'
         ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
@@ -387,13 +438,18 @@ function createTrackerMissionSimulatorEffects(options = {}) {
         && ['scene.prepare', 'scene.boarding', 'scene.deboarding'].includes(effectType)) {
       return { ok: true, status: 'completed', sideEffect: false, commandId, sceneStatus: 'explicit_empty_scene' };
     }
+    if (plan.bushPickup?.voiceContext && plan.effects?.[effectType]?.none === true
+        && ['scene.prepare', 'scene.boarding'].includes(effectType)) {
+      return { ok: true, status: 'completed', sideEffect: false, commandId, sceneStatus: 'explicit_empty_scene' };
+    }
     const template = commandTemplateFor(plan, effectType);
     if (!template) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_apt_effect_command_invalid');
     const usePlannedPosition = ['scene.arrival', 'scene.target'].includes(effectType);
-    const position = effectType.startsWith('smoke.') ? null : (usePlannedPosition ? normalizeLivePosition(template) : normalizeLivePosition(getLivePosition()));
-    if (!position && effectType !== 'smoke.spawn' && effectType !== 'smoke.clear') return effectType === 'scene.compliance_visit'
+    const position = effectType.startsWith('smoke.') || effectType === 'scene.bush_pickup_clear'
+      ? null : (usePlannedPosition ? normalizeLivePosition(template) : normalizeLivePosition(getLivePosition()));
+    if (!position && effectType !== 'smoke.spawn' && effectType !== 'smoke.clear' && effectType !== 'scene.bush_pickup_clear') return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_simulator_live_position_missing');
 
@@ -410,14 +466,16 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       command.coordinateFarewell = request?.effect?.payload?.coordinateFarewell === true;
       // Same 0.12 NM arrival gate as standalone. The existing simulator handler
       // verifies the actual vehicle and falls back if it has disappeared.
-      const arrival = commandTemplateFor(plan, 'scene.arrival');
-      const arrivalConfirmed = authorityManager.getExecutionSnapshot?.()?.state?.effects?.some(
-        effect => effect.type === 'scene.arrival' && effect.status === 'completed');
-      if (arrival && arrivalConfirmed && haversineNm(position.lat, position.lon, arrival.lat, arrival.lon) <= 0.12) {
-        command.deboardingPickupSceneId = arrival.sceneId;
-        command.vehicleDeparture = false;
-        command.vehicleArrival = false;
-        command.vehicleReturn = false;
+      if (!plan.bushPickup) {
+        const arrival = commandTemplateFor(plan, 'scene.arrival');
+        const arrivalConfirmed = authorityManager.getExecutionSnapshot?.()?.state?.effects?.some(
+          effect => effect.type === 'scene.arrival' && effect.status === 'completed');
+        if (arrival && arrivalConfirmed && haversineNm(position.lat, position.lon, arrival.lat, arrival.lon) <= 0.12) {
+          command.deboardingPickupSceneId = arrival.sceneId;
+          command.vehicleDeparture = false;
+          command.vehicleArrival = false;
+          command.vehicleReturn = false;
+        }
       }
     }
     pending.set(commandId, {
@@ -490,7 +548,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (record.timer) cancelTimeout(record.timer);
     const ackStatus = cleanString(ack.status, 40).toLowerCase();
     const completed = ackStatus === 'ok'
-      || (['scene.cargo_item_transition', 'scene.manual_pax', 'smoke.clear'].includes(record.effectType) && ackStatus === 'noop');
+      || (['scene.cargo_item_transition', 'scene.manual_pax', 'scene.bush_pickup_clear', 'smoke.clear'].includes(record.effectType) && ackStatus === 'noop');
     if (!acknowledgeEffect) {
       log(`MISSION_EFFECT_ACK_DROPPED effect=${record.effectType} commandId=${commandId} reason=acknowledger_missing`);
       return true;
@@ -551,6 +609,9 @@ function createTrackerMissionSimulatorEffects(options = {}) {
       'scene.prepare': dispatch,
       'scene.arrival': dispatch,
       'scene.boarding': dispatch,
+      'scene.deboarding': dispatch,
+      'scene.manual_pax': dispatch,
+      'scene.bush_pickup_clear': dispatch,
       'scene.cargo_item_transition': dispatch,
       'scene.compliance_visit': dispatch,
       'scene.compliance_departure': dispatch,
