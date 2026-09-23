@@ -352,3 +352,22 @@ test('POI boarding voice awaits the remote authority text commit before activati
   assert.equal(result.ok, true);
   assert.equal(result.status, 'completed');
 });
+
+test('POI Training bridge dispatches packaged Stall audio without a remote provider', async () => {
+  const calls=[];
+  const active={...run(),executionRecipe:'poi'};
+  const recipe={schema:'ga.mission-poi-voice-recipe.v1',missionId:'mission-a',kind:'poi',taskDomain:'training',
+    enabled:true,audioEnabled:true,prompt:'',fallbackText:'Stall erkannt.',staticClipKey:'stall_break_detected',speaker:{}};
+  const handler=createTrackerMissionBoardingVoice({
+    authorityManager:{getActiveRun:()=>active,supportsExecutionRecipe:()=>true,
+      getExecutionSnapshot:()=>({runId:'run-a',state:{flags:{active:true},effects:[]}})},
+    voiceService:{publicState:()=>({configured:false}),supportsStaticTraining:r=>r.staticClipKey==='stall_break_detected',
+      request:r=>calls.push(r),wait:async()=>({status:'ready',audioAvailable:true,text:''})},
+    getAudioPlaybackCandidates:()=>0
+  });
+  const result=await handler.dispatch({...request(),effect:{effectId:'training-stall',type:'voice.poi',payload:{resolvedRecipe:recipe}}});
+  assert.equal(result.ok,true);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].staticClipKey,'stall_break_detected');
+  assert.notEqual(result.voiceStatus,'voice_not_configured');
+});
