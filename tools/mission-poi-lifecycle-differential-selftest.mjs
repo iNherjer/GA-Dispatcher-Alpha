@@ -48,7 +48,9 @@ for(const failed of [false,true]) for(const needsRideHome of [false,true]) for(c
     _professionalRoleMeta:()=>context.professionalMeta,_activeMissionStoryFrame:()=>({focusSubject:context.storyFocusSubject})};
   vm.createContext(sandbox);vm.runInContext(frozen,sandbox);
   const prepared=sandbox._farewellPreparedContext(record);
-  assert.deepEqual(voice.renderFarewell(context,dynamic),{prompt:prepared.prompt||'',text:prepared.text||'',fallbackText:''});farewells++;
+  const {memory, ...rendered} = voice.renderFarewell(context,dynamic);
+  assert.deepEqual(memory, voice.normalizeMemory());
+  assert.deepEqual(rendered,{prompt:prepared.prompt||'',text:prepared.text||'',fallbackText:''});farewells++;
 }
 console.log(`PASS: ${count} frozen-original lifecycle comparisons and ${farewells} exact farewell prompt/fallback comparisons.`);
 let stressCases=0;

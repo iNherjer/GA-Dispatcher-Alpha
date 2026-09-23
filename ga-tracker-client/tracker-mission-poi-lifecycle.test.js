@@ -557,7 +557,7 @@ test('full POI runtime checkpoints steady enroute telemetry without rewriting eq
 });
 
 
-for (const domain of ['sightseeing_tour', 'poi_learning_guide']) for (const withKnowledge of [true, false]) test(`${domain} completes and restores with optional knowledge=${withKnowledge}`, async t => {
+for (const domain of ['sightseeing_tour', 'poi_learning_guide', 'historian_guided_tour']) for (const withKnowledge of [true, false]) test(`${domain} completes and restores with optional knowledge=${withKnowledge}`, async t => {
   const b = bundle();
   b.executionPoiRecipe.taskDomain = domain;
   const context = b.executionPoiRecipe.voiceContext;
@@ -577,6 +577,10 @@ for (const domain of ['sightseeing_tour', 'poi_learning_guide']) for (const with
   assert.equal(poi.validateBundle(invalid), null);
   const h = await harness(t, { bundle: b });
   await h.start(); h.sample(10000); h.sample(12000);
+  if (domain === 'historian_guided_tour') {
+    assert.equal(h.manager.getPublicSnapshot().execution.allowedActions.includes('poi_tell_more'), false);
+    assert.equal((await h.rawIntent('poi_tell_more')).ok, false);
+  }
   await h.restart();
   assert.deepEqual(h.manager.requestSnapshot({ missionId: b.missionId }).resumeBundle.executionPoiRecipe.voiceContext.knowledgeContext, context.knowledgeContext);
   h.sample(14000, { lat: 48.3, lon: 8.5 });

@@ -5707,3 +5707,11 @@ Projektion berücksichtigt `deliverAtHome`, ohne das Originalmanifest umzuschrei
 Recon darf trotz POI-Arbeitsabschluss nicht an einem fremden Platz abgeschlossen
 werden. Simulator-ACKs und Missionseffekte bleiben im Missionsprozess; die
 Telemetrieschleife bekommt keine zusätzliche fachliche Arbeit.
+
+## v449: Historiker-Rundflug im Tracker
+
+Historiker verwendet die vorhandenen autoritativen POI-Status-, Orientierungs-,
+PAX-Text- und Abschlussansichten. Kein Lern-Guide-Button fuer `poi_tell_more`.
+Historische Erzaehlung und kompakte Wiederholungserinnerung bleiben bei
+Neustart erhalten; keine lokale EFB-Faktenauswahl. Testgrundlage siehe
+`Tracker Mission Migration Guide.md`, Abschnitt v449.

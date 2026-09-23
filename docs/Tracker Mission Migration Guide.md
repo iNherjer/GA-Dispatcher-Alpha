@@ -679,3 +679,28 @@ unabhängige eingefrorene Referenz. Simulator-Doubles prüfen ACK-Reihenfolge un
 Zustandswechsel; Windows/MSFS-Flüge bleiben die praktische Abschlussprüfung.
 
 Validierung v448: 452 automatisierte Tests erfolgreich (Missionsfamilien, Authority, EFB, Pickup-/Recon-End-to-End, Wiederaufnahme und doppelte ACKs). Generierte Originalkerne per `--check` geprueft. Ein Windows-/MSFS-Feldtest bleibt erforderlich. Pickup-Sprachkontinuitaet wird begrenzt zwischen Boarding, Rueckflug, Anflug und Abschied weitergereicht.
+
+## v449: Historiker-Rundflug
+
+`historian_guided_tour` ist im Voice-Kontext und POI-Rezept freigegeben. Der
+App-Seed nutzt denselben Originalbuilder; keine neue Klassifikation oder zweite
+Missions-State-Machine. Die Original-Standalone-Regeln bleiben unveraendert.
+
+| Original / Eingang | Tracker-Anbindung | Nachweis |
+| --- | --- | --- |
+| `_tickPoiDwell`: Sichtkontakt, Radius, Hoehenband, Dwell, Korrektur, Abbruch | bestehender generierter POI-Task-Kern im Missionsprozess | Historiker in Original/App-Differentialmatrix, Strict/Easy, Dwell 0/2, Unterbrechungen |
+| `_poiInSightPrompt`, `_poiEntryPrompt`, `_poiSatisfiedPrompt` und Fehleransagen | generierter POI-Voice-Kern; historische Einordnung und Takeaway | eingefrorene Promptreferenz, alle Stufen/Zufall/Memory/Referenzvarianten |
+| `_targetFactHint`, Landmarkenpolitik und Wiki-Kontext | einmaliger Seed mit `targetFacts`, `wikiText`, Observer-Landmarken bis 500 m | Original-Kontextbuilder und Promptvergleich |
+| `_capturePoiNarrativeMemory` | autoritative `pre`/`entry`/`done`-Memory, Text vor TTS bestaetigt | Neustart und Browser-Replay vor Audio-ACK |
+| Boarding, Komfort/Wetter, Rueckkehr, Entladen, Farewell, Close | bestehender kompletter POI-Lifecycle | kompletter Flug mit Restore und Abschluss |
+
+Historiker hat im Original keine Lern-Guide-Faktenqueue und kein manuelles
+`poi_tell_more`. Diese Aktion bleibt gesperrt. Wissen bleibt optional; fehlender
+Wiki-Text erzeugt keine neue Facts-Pflicht. Der Historiker erhaelt keine neue
+Befund-/Folgemissionskette; bestehende allgemeine Abschlussregeln gelten weiter.
+
+Telemetrie-/Missionsprozess, RAM-Authority und asynchrone Fuenf-Sekunden-Sicherung
+bleiben unveraendert. Keine zusaetzlichen Cloud-Writes, Telemetriepakete oder
+periodischen Vollkontextuebertragungen. Windows-/MSFS-Feldtest bleibt erforderlich.
+
+Validierung v449: 457 Node-Regressionstests bestanden; 5376 Voice-Vergleiche, 11550 Task/App-Vergleiche, 11520 Lifecycle-Vergleiche, 512 Farewell-Vergleiche, 8832 manuelle Aktionsvergleiche und 864 Cargo-Stress-Vergleiche gegen eingefrorene Originalfunktionen. Der Seed-Test ruft den originalen App-Kontextbuilder auf.

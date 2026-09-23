@@ -1,38 +1,34 @@
 # POI-Gate: Abdeckung und offene Migrationen
 
-Stand: 2026-09-16, aktualisiert fuer Tracker v419.
+Stand: 23.09.2026, Tracker v449. Diese Tabelle ersetzt die historische v419-Inventur.
 
 ## Transport ist nicht Ausfuehrbarkeit
 
-Cloud-Sync V2 bewahrt den gelieferten Missionszustand verlustfrei. Er erzeugt
-keinen fehlenden Execution-Seed. Der App-Builder in passenger-voice.js prueft
-bereits die Voice-Domaene; sync.js akzeptiert fuer den POI-Seed keine
-Spezialcontroller. Der Tracker prueft nochmals Recipe, Voice und Effect-Plan.
-Ein sichtbarer App-Startbanner beweist daher keine Tracker-Ausfuehrbarkeit.
+Cloud-Sync V2 bewahrt den gelieferten Missionszustand verlustfrei. Ein gueltiger
+Execution-Seed mit Voice-, Szenen- und Lifecycle-Vertrag bleibt Voraussetzung.
+App-Builder und Tracker validieren beide; ein sichtbarer App-Startbanner allein
+beweist keine Tracker-Ausfuehrbarkeit. Geoeffnete Gates sind kein MSFS-Feldnachweis.
 
-## Inventar der POI-Profile
+## Aktuelle Abdeckung
 
-Aus `MISSION_ROLE_TASK_PROFILES` in app.js, verglichen mit dem Voice-Generator,
-`tracker-mission-poi-runtime.js`, `mission-resume-adapters-core.js` und den
-Originalcontrollern in passenger-voice.js:
-
-| Profil / Domaene | Stand und notwendiger Anschluss |
+| Profil / Domaene | Tracker-Stand |
 | --- | --- |
-| inspection_infra, media_photo, news_coverage, science_bio, science_geo | Domaene freigegeben; vollstaendiger Seed, Szenen-, Lifecycle- und Voice-Vertrag weiterhin erforderlich. |
-| science_general | Zusaetzlich im Runtime-Gate unterstuetzt; kein eigener Eintrag dieser Profilliste. |
-| sightseeing_tour | Ab v419 mit vollstaendigem POI-Seed freigegeben; Wissenskontext ist wie Standalone optional (v418 verlangte ihn irrtuemlich). Originale Faktenauswahl und Wiederholungserinnerung extrahiert; Lifecycle, Restart und Browser-Replay geprueft. Kein manuelles Weitererzaehlen: das gehoert im Original zum Lern-Guide. |
-| historian_guided_tour | Nicht freigegeben. Originale Historiker-Prompts, Kontext, Lifecycle und Wiederaufnahme gegen Standalone pruefen, bevor die Domaene aufgenommen wird. |
-| tour_guide_knowledge / poi_learning_guide | Nicht freigegeben. Zusaetzlich Faktenqueue und manuelles Weitererzaehlen samt geraeteuebergreifender Faktenerinnerung anschliessen. |
-| infra_chain_recon | Eigener poi_chain-Adapter. Stationen, Reihenfolge, Teilfortschritt, Voice und Wiederaufnahme aus Originalcontroller migrieren. |
-| mapping_survey | Eigener survey_pattern-Adapter. Fluglinien-/Abdeckungsbewertung und deren Zustand erhalten; Verweildauer allein reicht nicht. |
-| search_and_rescue | Nicht freigegeben. Originale Such-/Ergebniszustandslogik und Pax-Aktionen pruefen und uebernehmen; SAR-Ergebnishinweis im generierten Wrapper ist derzeit leer. |
-| sar_heli / search_and_rescue | Eigener sar_heli-Adapter mit separatem POI-Tick; Such-, Rettungs-/Bodenablauf und Szeneneffekte migrieren. |
-| fire_watch | Original ruft _tickFireMissionSearch vor dem allgemeinen POI-Tick auf. Suchzustand und Meldungen muessen mitgenommen werden. |
-| freeflight_planning | Planungsprofil: zuerst bestimmen, ob ueberhaupt eine ausfuehrbare Pax-Mission entsteht; nicht automatisch zum allgemeinen POI-Auftrag umdeuten. |
-| auto | Auswahlprofil; Freigabe anhand des aufgeloesten Auftrags, nicht anhand von auto. |
+| inspection_infra, media_photo, news_coverage, science_bio, science_geo, science_general | Standard-POI freigegeben. |
+| sightseeing_tour | Freigegeben; optionale Fakten und Wiederholungserinnerung, kein manuelles Weitererzaehlen. |
+| historian_guided_tour | Ab v449 freigegeben; originale Historiker-Prompts, Wiki-/Zielfakten, kompakte narrative Memory. Keine Guide-Faktenqueue. |
+| tour_guide_knowledge / poi_learning_guide | Freigegeben; originale Faktenqueue und manuelles Weitererzaehlen mit autoritativer Reservierung. |
+| infra_chain_recon | Freigegeben mit validiertem poi_chain-Vertrag, Stationen, Korridor, Teilfortschritt und Voice. |
+| mapping_survey | Freigegeben mit Survey-Vertrag fuer Linien/Orbit und Abdeckung. |
+| search_and_rescue (Flaechenflugzeug) | Freigegeben mit SAR-Such-/Meldevertrag und Originalergebnis. |
+| sar_heli | Weiterhin ausgeschlossen; eigene Rettungs-/Bodenablaeufe nicht migriert. |
+| fire_watch | Freigegeben mit Original-Suchzustand, Meldungen und Szeneneffekten. |
+| training, club_training_basic, club_training_advanced | Freigegeben mit eigenem Trainingsvertrag und manuellen Aktionen/Guidance. APT separat angebunden. |
+| Bush: supply_strip, charter_strip, scenic_hopper | Ab v447 freigegeben mit eigenem Bush-Vertrag. |
+| Bush: pickup_strip, pickup_cargo, recon_return | Ab v448 freigegeben mit Pickup-/Heimkehr-/Recon-Vertrag. Profil-IDs tragen jeweils `bush_`. |
+| freeflight_planning | Planungsprofil; keine pauschale Freigabe als ausfuehrbarer Pax-Auftrag. |
+| auto | Auswahlprofil; Freigabe anhand des aufgeloesten Auftrags. |
 
-Zusaetzliche Marker fuer Training/Bush bleiben eigenstaendige Vertraege, auch
-wenn ein Auftrag geographisch ein POI-Ziel hat.
+Details und Testgrenzen: `Tracker Mission Migration Guide.md`.
 
 ## Freigabekriterium fuer jede Familie
 
@@ -43,5 +39,4 @@ wenn ein Auftrag geographisch ein POI-Ziel hat.
    Geraet, doppelte Events, Abbruch und Abschluss.
 5. Erst danach App-Builder, Recipe-Gate und UI-Verfuegbarkeit gemeinsam erweitern.
 
-Eine reine Erweiterung der Domaenenliste erfuellt diesen Vertrag nicht. Diese
-Analyse aendert weder das Gate noch den freigegebenen Tracker-Release.
+Eine reine Erweiterung der Domaenenliste erfuellt diesen Vertrag nicht. Die Tabelle dokumentiert den Implementierungsstand; Releases und Feldtests bleiben separat.

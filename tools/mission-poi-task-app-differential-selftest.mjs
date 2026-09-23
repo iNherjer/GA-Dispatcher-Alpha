@@ -81,7 +81,7 @@ const tapes = [
     Array.from({ length: 70 }, (_, i) => ({ lon: i % 7 === 0 ? .07 : .005, alt: 3000 + (i % 5) * 200, dt: i % 4 ? 500 : 7000 }))
 ];
 let comparisons = 0;
-for (const domain of ['media_photo', 'inspection_infra', 'search_and_rescue', 'mapping_survey', 'infra_chain_recon', 'science_bio']) {
+for (const domain of ['media_photo', 'inspection_infra', 'search_and_rescue', 'mapping_survey', 'infra_chain_recon', 'science_bio', 'historian_guided_tour']) {
     for (const strict of [false, true]) for (const dwell of [0, 2]) for (const tape of tapes) {
         const config = { domain, strict, dwell };
         const old = harness(false, config), migrated = harness(true, config);

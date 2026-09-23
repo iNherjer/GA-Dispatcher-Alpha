@@ -987,3 +987,28 @@ for (const domain of ['sightseeing_tour', 'poi_learning_guide']) test(`${domain}
   const result = browser.GAMissionExecutionCore.replay(f.manager.getActiveRun({ includeBundle: true }).resumeBundle.executionReplay);
   assert.equal(result.stateHash, before.executionStateHash);
 });
+
+for (const domain of ['historian_guided_tour']) test(`${domain} narrative survives disk restore and browser replay before audio ACK`, t => {
+  const context = voiceContext({ taskDomain: domain, knowledgeContext: { status: 'accept', title: 'Brücke', facts: [
+    { topic: 'history', text: 'Die Brücke wurde im neunzehnten Jahrhundert als regionales Bauwerk errichtet.' },
+    { topic: 'structure', text: 'An der Brücke sind mehrere markante Turmbauten aus der Umgebung deutlich erkennbar.' }
+  ] } });
+  const f = fixture(t, { recipe: recipe({ taskDomain: domain, voiceContext: context }) });
+  f.driver.observeTelemetry(sample(1000, { lon: .04 }));
+  const effect = f.manager.getExecutionSnapshot().state.effects.find(e => e.type === 'voice.poi');
+  assert.ok(effect);
+  f.apply('POI_VOICE_TEXT_READY', { effectId: effect.effectId, text: context.knowledgeContext.facts[0].text });
+  const before = f.manager.getExecutionSnapshot();
+  assert.match(before.state.voice.poiMemory.pre, /neunzehnten Jahrhundert/);
+  assert.equal(before.state.voice.poiMemory.knowledgeSpoken, undefined);
+  assert.equal(before.state.voice.poiMemory.knowledgeManual, undefined);
+  f.restart();
+  assert.deepEqual(f.manager.getExecutionSnapshot().state.voice.poiMemory, before.state.voice.poiMemory);
+  const browser = vm.createContext({});
+  for (const filename of ['mission-manifest-core.js', 'mission-start-core.js', 'mission-payload-core.js',
+    'mission-compliance-domain-core.js', 'mission-poi-task-core.js', 'mission-poi-voice-core.js', 'mission-execution-core.js']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', filename), 'utf8'), browser);
+  }
+  const result = browser.GAMissionExecutionCore.replay(f.manager.getActiveRun({ includeBundle: true }).resumeBundle.executionReplay);
+  assert.equal(result.stateHash, before.executionStateHash);
+});
