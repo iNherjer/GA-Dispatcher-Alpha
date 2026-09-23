@@ -547,3 +547,43 @@ Sollwerte, Phasen, Wiederholungen und Voice bleiben im Missionsworker.
 Siehe [Tracker Training Migration](Tracker%20Training%20Migration.md#tracker-coaching-und-dauerhaftes-aufgabenbanner-v443)
 fuer die bewussten Tracker-Abweichungen, Timeouts, Audio-Scopes und Prueffaelle.
 Standalone-Prozedur unveraendert. Keine Auswertung aus dem UI-/Telemetrieloop.
+
+## SAR mit Flaechenflugzeugen (v446)
+
+Gate offen fuer `search_and_rescue` mit vollstaendigem `sarReport` und originalem
+Voice-Kontext. SAR-Helikopter und Bush bleiben explizit gesperrt. Kein neuer
+Incident-Wurf, keine Aenderung an Writer, Zielklassifikation oder Standalone.
+
+- Automatische Suche nutzt weiterhin `mission-poi-task-core.js`: Originalradius,
+  enge SAR-Hoehentoleranz, Strict/Easy-Dwell, Beschwerden, Pflichtladung und Abbruch.
+  Ziel-Szenen werden wie in der App vorbereitet und ueber den bestehenden
+  POI-Lifecycle aufgebaut/entfernt. Kein neuer Detektor im Telemetrieprozess.
+- `sarReport` uebernimmt den echten Bestaetigungsanker aus `_activePoiConfirmCoords`
+  und die Originalreichweite `clamp(radius * 0.7, 0.25, 0.8 NM)`. Der Anker kann
+  vom Navigationsziel abweichen. App/Cloud/Handoff transportieren beide separat.
+- App und EFB senden `poi_report_found`. Vor dem Intent wird der gepufferte
+  POI-Checkpoint geflusht. Der Missionsworker liest seine eigene frische Position;
+  der Client darf keine Fundkoordinaten oder Erfolgstatsachen vorgeben.
+- Zu weit entfernt: originale Rueckmeldung, kein Detektorfortschritt. Nah genug:
+  originale manuelle Erfolgsflags und volle konfigurierte Verweilzeit. Wie im
+  Original ist dies eine manuelle Sichtbestaetigung ohne zusaetzlichen Hoehen-
+  oder Cargo-Test. Der automatische Arbeitsbereich behaelt seine Cargo-Pruefung.
+- Tracker-Guards verlangen aktive Mission, laufende frische Flugtelemetrie und
+  keinen terminalen/suspendierten Zustand. Boden, Slew, Pause und veraltete
+  Positionen koennen keinen Fund bestaetigen. Revisionen, Idempotenz, Voice-Effekt
+  und Rueckflugzustand werden ueber den normalen Authority-Commit behandelt.
+- Automatischer Suchbefund bleibt die originale narrative Auswahl (38% gefunden,
+  62% nicht gefunden), getrennt von erfolgreich abgeschlossenem Suchauftrag.
+  Ergebnis wird im gleichen Commit wie die Ansage gespeichert. Wiederaufnahme
+  und Voice-Wiederholung wuerfeln nicht erneut. Ein bereits in der App erzeugter
+  Befund wird beim Handoff erhalten.
+- Bewusste Tracker-Korrektur: Eine akzeptierte manuelle Sichtung fixiert `found`;
+  spaetere Resultat-/Abschlussansagen duerfen nicht wieder `not_found` behaupten.
+  Originaltexte werden durch den bestehenden Generator extrahiert.
+- Keine neue SAR-Folgemissionskette: bestehende Follow-up-Regeln bleiben erhalten;
+  eine Leitstellenmeldung ist kein impliziter neuer Mission-Seed.
+
+Tests: originales App-Seed/Anker/Radius/Szene, Cloud-Gate inkl. Heli-Sperre,
+Suchzeit/Hoehe/Pflichtladung, positive/zu weite/doppelte/veraltete Fundmeldung,
+Voice-Originalvergleich und Ergebnis-Restore, echte Missionsprozess-Intents.
+Keine zusaetzlichen Cloud-Schreibvorgaenge pro Telemetriesample.

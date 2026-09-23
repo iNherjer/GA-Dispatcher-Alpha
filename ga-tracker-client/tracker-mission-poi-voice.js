@@ -4,6 +4,7 @@ const core = require('../mission-poi-voice-core.js');
 function prepareCue(context, cue, memory, now = Date.now(), randomValue = Math.random()) {
   const rendered = core.render(context, cue, memory, randomValue);
   return { cue: { ...cue, inspectionOutcome: rendered.memory.inspectionOutcome,
+    ...(rendered.memory.sarSearchOutcome ? {sarSearchOutcome:rendered.memory.sarSearchOutcome} : {}),
     notBefore: now + Math.max(0, Number(cue.delayMs) || 0),
     resolvedRecipe: {
       schema: 'ga.mission-poi-voice-recipe.v1', missionId: context.missionId, kind: 'poi',

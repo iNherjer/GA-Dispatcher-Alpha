@@ -5675,3 +5675,12 @@ Sollwerte, Phasen, Wiederholungen und Voice bleiben im Missionsworker.
 Siehe [Tracker Training Migration](Tracker%20Training%20Migration.md#tracker-coaching-und-dauerhaftes-aufgabenbanner-v443)
 fuer die bewussten Tracker-Abweichungen, Timeouts, Audio-Scopes und Prueffaelle.
 Standalone-Prozedur unveraendert. Keine Auswertung aus dem UI-/Telemetrieloop.
+
+## Fixed-wing SAR im Tracker (v446)
+
+PAX-Menue in App und EFB bietet `Fund melden` ueber `poi_report_found` nur aus
+kanonischen allowedActions an. Der Missionsworker entscheidet am originalen
+Missionsanker mit frischen Telemetriedaten; UI und Hauptprozess fuehren keine
+SAR-State-Machine. Automatische Sucharbeit, manuelle Bestaetigung, Voice und
+Rueckflug nutzen den gemeinsamen POI-Lifecycle. Helikopter bleibt ausgeklammert.
+Details: Tracker Mission Migration Guide, Abschnitt SAR mit Flaechenflugzeugen.

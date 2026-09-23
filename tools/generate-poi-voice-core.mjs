@@ -7,7 +7,7 @@ export const helperNames = ['_poiMemoryCompact', '_capturePoiNarrativeMemory', '
   '_poiNarrativeMemoryText', '_poiMemoryHasCue', '_factKeywords', '_poiMemoryHasSimilarFact',
   '_getPoiInspectionOutcome', '_inspectionEntryHint', '_inspectionResultHint', '_professionalTaskHint',
   '_domainDriftGuard', '_targetFactHint', '_paxMemoryMentionsLandmark', '_paxApproachLandmarkCueLine',
-  '_paxCardinalGerman', '_weatherContext', '_professionalLandingToneHint'];
+  '_paxCardinalGerman', '_weatherContext', '_professionalLandingToneHint', '_getSarSearchOutcome', '_sarResultHint', '_poiManualReportSubject', '_poiManualFoundPrompt', '_poiManualNotFoundPrompt', '_poiManualFoundFallback', '_poiManualNotFoundFallback'];
 export const knowledgeNames = ['_poiKnowledgeCleanFactText', '_poiKnowledgeContextIdentity', '_poiKnowledgeSyncContext', '_poiKnowledgeFactCandidates', '_poiKnowledgeFactKey', '_poiKnowledgeStageScore', '_poiKnowledgeStageMinIndex', '_poiKnowledgeFactHint', '_poiKnowledgeRichFactCount', '_poiKnowledgeFactSequenceHint', '_poiKnowledgeManualFactCandidates', '_poiKnowledgeTellMoreAvailable', '_poiKnowledgeFreshFactCount', '_poiKnowledgeManualFactClip', '_poiKnowledgeNextManualFact', '_poiKnowledgeTargetName'];
 const actionNames = ['_missionActionContext', '_missionVectorText', '_missionOrientationFactLine', '_missionStatusFacts', '_paxNearLandmarkOrientationLine', '_poiMissionStatusAction', '_poiMissionOrientationAction'];
 const surveyNames = ['_surveyPatternActiveSpec', '_surveyPatternSnapshot', '_surveyPatternProgressSummary',
@@ -25,12 +25,13 @@ const header = `// Generated from original passenger-voice.js functions by tools
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(taskCore) {
 'use strict';
 const CONTEXT_SCHEMA = 'ga.mission-poi-voice-context.v1';
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch', 'training', 'club_training_basic', 'club_training_advanced']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch', 'search_and_rescue', 'training', 'club_training_basic', 'club_training_advanced']);
 const PROMPTS = Object.freeze(${JSON.stringify(promptNames)});
 const clone = value => JSON.parse(JSON.stringify(value));
 function normalizeMemory(value = {}) {
   return { pre: String(value?.pre || '').slice(0, 180), entry: String(value?.entry || '').slice(0, 180),
     done: String(value?.done || '').slice(0, 180), inspectionOutcome: String(value?.inspectionOutcome || '').slice(0, 40) || null,
+    ...(['found', 'not_found'].includes(value?.sarSearchOutcome) ? {sarSearchOutcome:value.sarSearchOutcome} : {}),
     ...(Array.isArray(value?.knowledgeManual) && value.knowledgeManual.length ? { knowledgeManual: value.knowledgeManual.filter(x => typeof x === 'string').slice(-512) } : {}),
     ...(value?.knowledgeSpoken ? { knowledgeSpoken: String(value.knowledgeSpoken).slice(-4000) } : {}) };
 }
@@ -58,7 +59,7 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _consumeWeatherMismatchEasteregg = () => cue.dynamic?.weatherMismatchHint || '';
   const _bushPickupNarrativeHint = () => '';
   const _followUpDeboardingHintLine = () => context.followUpDeboardingHint || '';
-  const _activeMissionStoryFrame = () => ({ focusSubject: context.storyFocusSubject });
+  const _activeMissionStoryFrame = () => context.storyFrame || { focusSubject: context.storyFocusSubject };
   const _poiAborted = (cue.detector || cue.dynamic?.poiProgress)?.aborted === true;
   const _poiSatisfied = cue.detector?.satisfied === true;
   const _poiInRadius = cue.detector?.inRadius === true;
@@ -107,7 +108,7 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   };
   const _activeBushReconOutcome = () => null;
   const _bushReconOutcomeHintLine = () => '';
-  const _sarResultHint = () => '';
+  let _sarSearchOutcome = normalizeMemory(previous).sarSearchOutcome || (['found','not_found'].includes(context.sarSearchOutcome) ? context.sarSearchOutcome : null);
   const _inspectionMissionMeta = () => context.inspectionMeta || null;
   const _activeInfraInspectionOutcome = () => context.infraOutcome || null;
   const _professionalRoleMeta = () => context.professionalMeta || null;
@@ -125,6 +126,15 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   let _poiInspectionOutcome = _poiNarrativeMemory.inspectionOutcome;
 `;
 const footer = `
+  if (cue.sarReport) {
+    const report = cue.sarReport.context || {};
+    const accepted = report.nearEnough === true;
+    if (accepted) _sarSearchOutcome = 'found';
+    const prompt = accepted ? _poiManualFoundPrompt(report) : _poiManualNotFoundPrompt(report);
+    const fallbackText = accepted ? _poiManualFoundFallback(report) : _poiManualNotFoundFallback(report);
+    return { prompt, fallbackText, label: accepted ? 'Fund bestaetigt' : 'Weiter suchen',
+      memory: normalizeMemory({ ..._poiNarrativeMemory, sarSearchOutcome: _sarSearchOutcome }) };
+  }
   if (cue.availability) return _poiKnowledgeTellMoreAvailable();
   if (cue.chainEvent) {
     _handlePoiChainEvents(cue.chainEvent.events, cue.chainEvent.spec);
@@ -153,10 +163,11 @@ const footer = `
   if (cue.prompt) prompt = ({ ${promptNames.join(', ')} })[cue.prompt](...cue.args);
   if (cue.farewell) {
     const prepared = _farewellPreparedContext(cue.dynamic?.record);
-    return { prompt: prepared?.prompt || '', text: prepared?.text || '', fallbackText: '' };
+    return { prompt: prepared?.prompt || '', text: prepared?.text || '', fallbackText: '',
+      memory: normalizeMemory({ ..._poiNarrativeMemory, sarSearchOutcome: _sarSearchOutcome }) };
   }
   if (cue.capture) _capturePoiNarrativeMemory(cue.capture.label, cue.capture.text);
-  return { prompt, memory: normalizeMemory({ ..._poiNarrativeMemory, inspectionOutcome: _poiInspectionOutcome, knowledgeSpoken: _poiKnowledgeSpokenMemory }) };
+  return { prompt, memory: normalizeMemory({ ..._poiNarrativeMemory, inspectionOutcome: _poiInspectionOutcome, sarSearchOutcome: _sarSearchOutcome, knowledgeSpoken: _poiKnowledgeSpokenMemory }) };
 }
 function render(context, cue, previous = {}, randomValue = 0.5) {
   const error = validateContext(context);
@@ -201,6 +212,16 @@ function renderAction(context, action, detector, sample, target, previous = {}) 
   if (result.prompt.length > 24000) throw new TypeError('poi_voice_prompt_too_large');
   return result;
 }
+function renderSarReport(context, reportContext, detector = {}, memory = {}, randomValue = 0.5) {
+  const error = validateContext(context);
+  if (error) throw new TypeError(error);
+  if (context.taskDomain !== 'search_and_rescue') throw new TypeError('poi_sar_report_domain_invalid');
+  if (!reportContext || typeof reportContext.nearEnough !== 'boolean') throw new TypeError('poi_sar_report_context_invalid');
+  if (!Number.isFinite(randomValue) || randomValue < 0 || randomValue >= 1) throw new TypeError('poi_voice_random_invalid');
+  const result = original(clone(context), clone(memory), { sarReport: { context: clone(reportContext), detector: clone(detector) } }, randomValue);
+  if (result.prompt && result.prompt.length > 24000) throw new TypeError('poi_voice_prompt_too_large');
+  return result;
+}
 function knowledgeAvailable(context, memory = {}, active = true) {
   return original(context || {}, memory || {}, { availability: true, active });
 }
@@ -216,7 +237,7 @@ function chainEvents(context, events = [], spec = context?.chainSpec || null) {
   if (context.taskDomain !== 'infra_chain_recon' || !spec) throw new TypeError('poi_chain_voice_context_invalid');
   return original(clone(context), {}, { chainEvent: { events: clone(events), spec: clone(spec) } }).chainEvents;
 }
-return Object.freeze({ chainEvents, knowledgeAvailable, renderAction, renderFarewell, renderTrainingFarewell, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, validateTrainingFarewellContext, normalizeMemory, render, captureMemory });
+return Object.freeze({ chainEvents, knowledgeAvailable, renderAction, renderFarewell, renderTrainingFarewell, renderSarReport, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, validateTrainingFarewellContext, normalizeMemory, render, captureMemory });
 });
 `;
 const result = header + [...helperNames, ...knowledgeNames, ...promptNames, ...farewellNames, ...actionNames, ...surveyNames, ...chainNames].map(name => extract(name)).join('\n\n') + '\n' + extract('paxKnowledgeTellMore', source.replace('window.paxKnowledgeTellMore = function(', 'function paxKnowledgeTellMore(')).replace(/    if \(window\.gaTrackerExecutionHandlesMission.*\n/g, '') + footer;

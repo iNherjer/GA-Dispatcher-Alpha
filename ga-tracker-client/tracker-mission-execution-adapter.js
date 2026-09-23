@@ -818,6 +818,14 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       const payload = poiRuntime.trainingAction(authorityManager.getExecutionPoiRecipe(), snapshot.state.poiTask, intent, now());
       return submitEvent(snapshot, 'TRAINING_ACTION_OBSERVED', {...payload, action:intent}, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }
+    if (intent === 'poi_report_found') {
+      const recipe=authorityManager.getExecutionPoiRecipe?.();
+      if(recipe?.taskDomain !== 'search_and_rescue' || !snapshot.state.flags.active || !snapshot.state.poiTask?.sarReport) return errorResult('sar_report_not_available');
+      let payload;
+      try { payload=poiRuntime.sarAction(recipe,snapshot.state.poiTask,observations.latestTelemetry,now(),snapshot.state.voice?.poiMemory || {}); }
+      catch(error) { return errorResult(error.message || 'sar_report_invalid'); }
+      return submitEvent(snapshot,'SAR_REPORT_OBSERVED',payload,`${snapshot.runId}:intent:${commandId}`,`intent:${intent}`);
+    }
     const fireRecipe = authorityManager.getExecutionPoiRecipe?.();
     if (fireRecipe?.taskDomain === 'fire_watch' && ['fire_position', 'fire_no_smoke', 'fire_smoke_visible', 'poi_status', 'poi_orientation'].includes(intent)) {
       if (!snapshot.state.flags.active || !snapshot.state.poiTask?.fireState) return errorResult('fire_watch_not_active');
@@ -1143,6 +1151,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       }
     }
     observations.latestTelemetry = {
+      ...(poiRecipe?.taskDomain === 'search_and_rescue' ? {slewActive:sample.slewActive===true || sample.slewMode===true || sample.isSlewActive===true} : {}),
       observedAt,
       lat: finite(sample.lat),
       lon: finite(sample.lon != null ? sample.lon : sample.lng),

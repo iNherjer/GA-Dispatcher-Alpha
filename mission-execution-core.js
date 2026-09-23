@@ -55,7 +55,7 @@
         'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
+        'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'SAR_REPORT_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -1021,6 +1021,11 @@
             && validPoiObservation(eventPayload.poiTask, state.missionId)
             && eventPayload.poiTask.sequence === state.poiTask.sequence + 1
             && eventPayload.poiTask.observedAt > state.poiTask.observedAt;
+        if (event.type === 'SAR_REPORT_OBSERVED') return poiActionAllowed(state) && state.flags.active
+            && state.poiTask?.sarReport === true && !state.poiTask.detector.satisfied && !state.poiTask.detector.aborted
+            && eventPayload.action === 'poi_report_found' && validPoiObservation(eventPayload.poiTask,state.missionId)
+            && eventPayload.poiTask.sequence === state.poiTask.sequence + 1
+            && eventPayload.poiTask.observedAt > state.poiTask.observedAt;
         if (event.type === 'FIRE_ACTION_OBSERVED') return poiActionAllowed(state) && state.flags.active
             && !!state.poiTask?.fireState && ['fire_position', 'fire_no_smoke', 'fire_smoke_visible'].includes(eventPayload.action)
             && validPoiObservation(eventPayload.poiTask, state.missionId)
@@ -1321,7 +1326,7 @@
             (event.payload.voiceEffects || []).forEach(function(cue,index) {
                 appendEffect(state,createEffect(state,{...event,eventId:event.eventId+':voice:'+index},'voice.poi',canonicalValue({...cue,aptTraining:true})));
             });
-        } else if (event.type === 'POI_TASK_OBSERVED' || event.type === 'FIRE_ACTION_OBSERVED' || event.type === 'TRAINING_ACTION_OBSERVED') {
+        } else if (event.type === 'POI_TASK_OBSERVED' || event.type === 'SAR_REPORT_OBSERVED' || event.type === 'FIRE_ACTION_OBSERVED' || event.type === 'TRAINING_ACTION_OBSERVED') {
             state.poiTask = canonicalValue(event.payload.poiTask);
             var detector = state.poiTask.detector;
             state.progress.targetSatisfied = detector.satisfied === true;
@@ -1345,6 +1350,7 @@
                 }
             }
             (Array.isArray(event.payload.voiceEffects) ? event.payload.voiceEffects : []).forEach(function (cue, index) {
+                if (['found','not_found'].includes(cue.sarSearchOutcome) && poiVoiceCore) state.voice.poiMemory = poiVoiceCore.normalizeMemory({...object(state.voice.poiMemory),sarSearchOutcome:cue.sarSearchOutcome});
                 if (cue.inspectionOutcome && poiVoiceCore) state.voice.poiMemory = poiVoiceCore.normalizeMemory({
                     ...object(state.voice.poiMemory), inspectionOutcome: cue.inspectionOutcome
                 });
@@ -1823,6 +1829,7 @@
                 if (training.activeExercise?.status === 'active') actions.push('training_abort');
                 if (training.requiredComplete && training.optionalAvailable && !training.optionalRequested && training.activeExercise?.status !== 'active') actions.push('training_extra');
             }
+            if (state.flags.active && state.poiTask?.sarReport && !state.poiTask.detector.satisfied && !state.poiTask.detector.aborted) actions.push('poi_report_found');
             if (state.flags.active && state.poiTask?.fireState) actions.push('fire_position', 'fire_no_smoke', 'fire_smoke_visible');
         }
         if (state.flags.active && !state.flags.closingPending && !state.flags.farewellStarted

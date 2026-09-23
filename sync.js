@@ -7456,7 +7456,7 @@ function _buildMissionPoiExecutionSeed() {
         schema: 'ga.mission-poi-execution-recipe.v1', version: 1, missionId,
         taskDomain: voiceContext.taskDomain, target, home, strict: voiceContext.strict,
         trackingActive: window.paxVoiceGetPoiMissionProgress?.().trackingActive === true,
-        passenger, voiceContext, ...(trainingRecipe ? { trainingRecipe: _safeCloneJson(trainingRecipe, null) } : {}), ...(fireScenario ? { fireScenario: _safeCloneJson(fireScenario, null) } : {}), ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
+        passenger, voiceContext, ...(voiceContext.taskDomain === 'search_and_rescue' ? {sarReport:_safeCloneJson(voiceContext.sarReport,null)} : {}), ...(trainingRecipe ? { trainingRecipe: _safeCloneJson(trainingRecipe, null) } : {}), ...(fireScenario ? { fireScenario: _safeCloneJson(fireScenario, null) } : {}), ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
     };
     const plan = _buildMissionAptExecutionEffectPlan('poi');
     if (!plan) return null;

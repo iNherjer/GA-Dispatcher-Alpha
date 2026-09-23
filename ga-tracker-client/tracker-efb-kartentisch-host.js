@@ -2240,13 +2240,13 @@
     var cargoButton = byId('mapGroundCargoBtn');
     var resetButton = byId('mapMissionResetBtn');
     var poiControl = payload && payload.control;
-    ['poi_status', 'poi_orientation', 'pax_wellbeing', 'pax_cargo', 'pax_weather', 'poi_tell_more', 'fire_no_smoke', 'fire_smoke_visible', 'training_ready', 'training_abort', 'training_extra'].forEach(function(intent, index) {
+    ['poi_status', 'poi_orientation', 'pax_wellbeing', 'pax_cargo', 'pax_weather', 'poi_tell_more', 'fire_no_smoke', 'fire_smoke_visible', 'training_ready', 'training_abort', 'training_extra', 'poi_report_found'].forEach(function(intent, index) {
       var id = 'gaEfbPoiAction' + index;
       var button = byId(id);
       if (!button && primaryButton && primaryButton.parentNode) {
         button = document.createElement('button'); button.id = id; button.type = 'button';
         button.className = primaryButton.className;
-        button.textContent = ['Missionsstatus','Orientierung','Wohlbefinden','Ladung','Wetter','Erzähl mal','Kein Rauch sichtbar','Rauch sichtbar','Übung starten','Übung abbrechen','Zusatzübung'][index];
+        button.textContent = ['Missionsstatus','Orientierung','Wohlbefinden','Ladung','Wetter','Erzähl mal','Kein Rauch sichtbar','Rauch sichtbar','Übung starten','Übung abbrechen','Zusatzübung','Fund melden'][index];
         button.onclick = function(event) { event.stopPropagation(); requestMissionIntent(intent, {}); };
         (byId('paxMissionActionMenu') || primaryButton.parentNode).appendChild(button);
       }

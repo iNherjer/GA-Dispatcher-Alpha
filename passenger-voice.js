@@ -3353,7 +3353,8 @@ function _refreshMissionActionMenu() {
     } else {
         ['paxMissionStatusBtn', 'paxMissionOrientationBtn','paxAptWellbeingBtn','paxCargoConditionBtn','paxWeatherReactionBtn'].forEach(id => { const button = document.getElementById(id); if (button) button.disabled = false; });
     }
-    setVisible('paxPoiFoundBtn', sarPoi && !_poiSatisfied && !_poiAborted && (!sarHeli || !sarHeliFoundReported));
+    const trackerSar = window.gaTrackerExecutionHandlesMission?.();
+    setVisible('paxPoiFoundBtn', trackerSar ? !!window.gaTrackerExecutionControl?.allowedActions?.includes('poi_report_found') : sarPoi && !_poiSatisfied && !_poiAborted && (!sarHeli || !sarHeliFoundReported));
     setVisible('paxAptWellbeingBtn', !isPoi && hasPax && !cargoFocus);
     setVisible('paxCargoConditionBtn', !isPoi && cargoFocus);
     setVisible('paxWeatherReactionBtn', showWeather && (hasPax || cargoFocus));
@@ -4086,6 +4087,7 @@ window.paxMissionOrientationHelp = function(_cityRetry = false) {
 window.addEventListener('missioncontrolchange', () => { _refreshMissionActionMenu(); _refreshPoiKnowledgeGuideMenu(); });
 
 window.paxMissionReportTargetFound = function() {
+    if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('poi_report_found');
     if (!_isPOIMission() || _activeTaskDomain() !== 'search_and_rescue') {
         _paxSpeakTextDirect('Diese Schnellmeldung ist nur fuer laufende SAR-POI-Missionen gedacht.', 'Fundmeldung');
         return;
@@ -9899,6 +9901,10 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
             trainingRecipe: _trainingProcedureActiveRecipe(), trainingPlan: _activeAptTrainingPlan(),
             trainingSpeaker: _speakerSnapshotForMissionVoice('training-procedure'),
             routeWaypoints: typeof routeWaypoints !== 'undefined' ? routeWaypoints : []
+        } : {}),
+        ...(_activeTaskDomain() === 'search_and_rescue' ? {
+            sarReport: {schema:'ga.sar-report.v1',confirmCoords:_activePoiConfirmCoords(),confirmRangeNm:_poiManualConfirmRangeNm()},
+            storyFrame: _activeMissionStoryFrame(), sarSearchOutcome: _sarSearchOutcome
         } : {}),
         mapPlaceOrientationLine: _paxMapPlaceOrientationLine(),
         ...(_activeTaskDomain() === 'infra_chain_recon' ? {

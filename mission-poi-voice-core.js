@@ -7,12 +7,13 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(taskCore) {
 'use strict';
 const CONTEXT_SCHEMA = 'ga.mission-poi-voice-context.v1';
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch', 'training', 'club_training_basic', 'club_training_advanced']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch', 'search_and_rescue', 'training', 'club_training_basic', 'club_training_advanced']);
 const PROMPTS = Object.freeze(["_poiEntryPrompt","_poiInSightPrompt","_poiAltComplaintPrompt","_poiAltCorrectedPrompt","_poiSatisfiedPrompt","_poiAbortPrompt","_poiMissingCargoAbortPrompt"]);
 const clone = value => JSON.parse(JSON.stringify(value));
 function normalizeMemory(value = {}) {
   return { pre: String(value?.pre || '').slice(0, 180), entry: String(value?.entry || '').slice(0, 180),
     done: String(value?.done || '').slice(0, 180), inspectionOutcome: String(value?.inspectionOutcome || '').slice(0, 40) || null,
+    ...(['found', 'not_found'].includes(value?.sarSearchOutcome) ? {sarSearchOutcome:value.sarSearchOutcome} : {}),
     ...(Array.isArray(value?.knowledgeManual) && value.knowledgeManual.length ? { knowledgeManual: value.knowledgeManual.filter(x => typeof x === 'string').slice(-512) } : {}),
     ...(value?.knowledgeSpoken ? { knowledgeSpoken: String(value.knowledgeSpoken).slice(-4000) } : {}) };
 }
@@ -40,7 +41,7 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _consumeWeatherMismatchEasteregg = () => cue.dynamic?.weatherMismatchHint || '';
   const _bushPickupNarrativeHint = () => '';
   const _followUpDeboardingHintLine = () => context.followUpDeboardingHint || '';
-  const _activeMissionStoryFrame = () => ({ focusSubject: context.storyFocusSubject });
+  const _activeMissionStoryFrame = () => context.storyFrame || { focusSubject: context.storyFocusSubject };
   const _poiAborted = (cue.detector || cue.dynamic?.poiProgress)?.aborted === true;
   const _poiSatisfied = cue.detector?.satisfied === true;
   const _poiInRadius = cue.detector?.inRadius === true;
@@ -89,7 +90,7 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   };
   const _activeBushReconOutcome = () => null;
   const _bushReconOutcomeHintLine = () => '';
-  const _sarResultHint = () => '';
+  let _sarSearchOutcome = normalizeMemory(previous).sarSearchOutcome || (['found','not_found'].includes(context.sarSearchOutcome) ? context.sarSearchOutcome : null);
   const _inspectionMissionMeta = () => context.inspectionMeta || null;
   const _activeInfraInspectionOutcome = () => context.infraOutcome || null;
   const _professionalRoleMeta = () => context.professionalMeta || null;
@@ -480,6 +481,93 @@ function _professionalLandingToneHint() {
     const meta = _professionalRoleMeta();
     if (!meta) return '';
     return ' Ton bei Landung: sachlich, knapp und dankend. Kein Show-/Sightseeing-Ton.';
+}
+
+function _getSarSearchOutcome() {
+    if (_sarSearchOutcome) return _sarSearchOutcome;
+    // Slight bias to "not found" for realism in random missions.
+    _sarSearchOutcome = (Math.random() < 0.38) ? 'found' : 'not_found';
+    return _sarSearchOutcome;
+}
+
+function _sarResultHint() {
+    if (_activeTaskDomain() !== 'search_and_rescue') return '';
+    const frame = _activeMissionStoryFrame();
+    const subject = String(frame?.focusSubject || '').trim();
+    const outcome = _getSarSearchOutcome();
+    if (outcome === 'found') {
+        return subject
+            ? ` SAR-Fazit: Melde klar, dass du zu "${subject}" jetzt einen verwertbaren Treffer hast und die Position sofort an die Leitstelle weitergibst.`
+            : ' SAR-Fazit: Melde klar, dass du die vermisste Person entdeckt hast und die Koordinaten sofort an die Leitstelle weitergibst.';
+    }
+    return subject
+        ? ` SAR-Fazit: Melde klar, dass wir zu "${subject}" in diesem Sektor noch keinen Treffer haben und die Leitstelle fuer weitere Suchabschnitte informiert wird.`
+        : ' SAR-Fazit: Melde klar, dass wir in diesem Sektor keine Person finden konnten und die Leitstelle fuer weitere Suchabschnitte informiert wird.';
+}
+
+function _poiManualReportSubject() {
+    const frame = _activeMissionStoryFrame();
+    const detail = String(frame?.subjectDetail || frame?.focusSubject || '').trim();
+    if (detail) return detail;
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    return String(md.poiName || md.targetName || 'den Suchhinweis').trim() || 'den Suchhinweis';
+}
+
+function _poiManualFoundPrompt(ctx) {
+    const base = _baseContext();
+    if (!base) return null;
+    const frame = _activeMissionStoryFrame();
+    const subject = _poiManualReportSubject();
+    const clueLine = Array.isArray(frame?.visibleClueCandidates) && frame.visibleClueCandidates.length
+        ? frame.visibleClueCandidates.join(', ')
+        : 'keine Zusatzhinweise';
+    const distLine = Number.isFinite(Number(ctx?.confirmDistNm))
+        ? `Wir sind nah genug am Missionsanker (${ctx.confirmDistNm.toFixed(2)} NM).`
+        : 'Wir sind nah genug am Missionsanker.';
+    return `${base}
+
+Button-Frage: Der Pilot meldet eine moegliche Sichtung und bittet um sofortige Bestaetigung.
+Missionsanker: ${ctx?.confirmCoords?.name || ctx?.targetName || 'Zielgebiet'}
+${distLine}
+Zu bestaetigen: ${subject}
+Letzte Lage: ${String(frame?.lastSeenContext || frame?.incidentContext || 'n/a').trim() || 'n/a'}
+Vermutung: ${String(frame?.probableScenario || frame?.soughtOutcome || 'n/a').trim() || 'n/a'}
+Moegliche Hinweise: ${clueLine}
+Antworte als Passagier/Rollenperson mit einer klaren positiven Sichtbestaetigung. Sage, dass der Fund bzw. belastbare Sichtkontakt an die Einsatzleitung geht und der Rueckflug bzw. die naechste Phase beginnen kann. Kein Zweifel, keine neue Suche eroeffnen. Max 2 Saetze.${_toneHint()}`;
+}
+
+function _poiManualNotFoundPrompt(ctx) {
+    const base = _baseContext();
+    if (!base) return null;
+    const frame = _activeMissionStoryFrame();
+    const subject = _poiManualReportSubject();
+    const distNm = Number(ctx?.confirmDistNm);
+    const distLine = Number.isFinite(distNm)
+        ? `Aktuell sind wir noch ${distNm.toFixed(1)} NM vom Missionsanker entfernt; fuer eine belastbare Bestaetigung ist das zu frueh.`
+        : 'Aktuell fehlt noch die noetige Naehe zum Missionsanker.';
+    return `${base}
+
+Button-Frage: Der Pilot fragt, ob die vermisste Person bzw. der Suchhinweis bereits bestaetigt ist.
+${distLine}
+Zu bestaetigen waere: ${subject}
+Letzte Lage: ${String(frame?.lastSeenContext || frame?.incidentContext || 'n/a').trim() || 'n/a'}
+Antworte klar, dass du noch keinen positiven Sichtkontakt bestaetigen kannst und weiter suchen willst. Bitte um weiteres Suchmuster oder noch etwas Naeherung, aber ohne neue Story aufzumachen. Max 2 Saetze.${_toneHint()}`;
+}
+
+function _poiManualFoundFallback(ctx) {
+    const frame = _activeMissionStoryFrame();
+    const subject = _poiManualReportSubject();
+    const outcome = String(frame?.soughtOutcome || '').trim();
+    return `${subject} passt jetzt zur gemeldeten Lage, ich bestaetige den Fund. Ich gebe den Sichtkontakt an die Einsatzleitung weiter${outcome ? ` und habe damit ${outcome.charAt(0).toLowerCase()}${outcome.slice(1)}` : ''}; wir koennen den Rueckflug beginnen.`;
+}
+
+function _poiManualNotFoundFallback(ctx) {
+    const subject = _poiManualReportSubject();
+    const distNm = Number(ctx?.confirmDistNm);
+    if (Number.isFinite(distNm)) {
+        return `Negativ, ich kann ${subject} von hier noch nicht belastbar bestaetigen. Wir sind noch etwa ${distNm.toFixed(1)} NM zu weit weg vom Suchkern, lass uns weiter suchen.`;
+    }
+    return `Negativ, ich kann ${subject} noch nicht bestaetigen. Lass uns das Suchmuster weiterfliegen, bis wir naeher am Zielkern sind.`;
 }
 
 function _poiKnowledgeCleanFactText(value = '') {
@@ -1837,6 +1925,15 @@ function paxKnowledgeTellMore() {
     _paxSpeakTextDirect(`${intro} ${clip}.`, 'Erzähl mal');
     _refreshPoiKnowledgeGuideMenu();
 }
+  if (cue.sarReport) {
+    const report = cue.sarReport.context || {};
+    const accepted = report.nearEnough === true;
+    if (accepted) _sarSearchOutcome = 'found';
+    const prompt = accepted ? _poiManualFoundPrompt(report) : _poiManualNotFoundPrompt(report);
+    const fallbackText = accepted ? _poiManualFoundFallback(report) : _poiManualNotFoundFallback(report);
+    return { prompt, fallbackText, label: accepted ? 'Fund bestaetigt' : 'Weiter suchen',
+      memory: normalizeMemory({ ..._poiNarrativeMemory, sarSearchOutcome: _sarSearchOutcome }) };
+  }
   if (cue.availability) return _poiKnowledgeTellMoreAvailable();
   if (cue.chainEvent) {
     _handlePoiChainEvents(cue.chainEvent.events, cue.chainEvent.spec);
@@ -1865,10 +1962,11 @@ function paxKnowledgeTellMore() {
   if (cue.prompt) prompt = ({ _poiEntryPrompt, _poiInSightPrompt, _poiAltComplaintPrompt, _poiAltCorrectedPrompt, _poiSatisfiedPrompt, _poiAbortPrompt, _poiMissingCargoAbortPrompt })[cue.prompt](...cue.args);
   if (cue.farewell) {
     const prepared = _farewellPreparedContext(cue.dynamic?.record);
-    return { prompt: prepared?.prompt || '', text: prepared?.text || '', fallbackText: '' };
+    return { prompt: prepared?.prompt || '', text: prepared?.text || '', fallbackText: '',
+      memory: normalizeMemory({ ..._poiNarrativeMemory, sarSearchOutcome: _sarSearchOutcome }) };
   }
   if (cue.capture) _capturePoiNarrativeMemory(cue.capture.label, cue.capture.text);
-  return { prompt, memory: normalizeMemory({ ..._poiNarrativeMemory, inspectionOutcome: _poiInspectionOutcome, knowledgeSpoken: _poiKnowledgeSpokenMemory }) };
+  return { prompt, memory: normalizeMemory({ ..._poiNarrativeMemory, inspectionOutcome: _poiInspectionOutcome, sarSearchOutcome: _sarSearchOutcome, knowledgeSpoken: _poiKnowledgeSpokenMemory }) };
 }
 function render(context, cue, previous = {}, randomValue = 0.5) {
   const error = validateContext(context);
@@ -1913,6 +2011,16 @@ function renderAction(context, action, detector, sample, target, previous = {}) 
   if (result.prompt.length > 24000) throw new TypeError('poi_voice_prompt_too_large');
   return result;
 }
+function renderSarReport(context, reportContext, detector = {}, memory = {}, randomValue = 0.5) {
+  const error = validateContext(context);
+  if (error) throw new TypeError(error);
+  if (context.taskDomain !== 'search_and_rescue') throw new TypeError('poi_sar_report_domain_invalid');
+  if (!reportContext || typeof reportContext.nearEnough !== 'boolean') throw new TypeError('poi_sar_report_context_invalid');
+  if (!Number.isFinite(randomValue) || randomValue < 0 || randomValue >= 1) throw new TypeError('poi_voice_random_invalid');
+  const result = original(clone(context), clone(memory), { sarReport: { context: clone(reportContext), detector: clone(detector) } }, randomValue);
+  if (result.prompt && result.prompt.length > 24000) throw new TypeError('poi_voice_prompt_too_large');
+  return result;
+}
 function knowledgeAvailable(context, memory = {}, active = true) {
   return original(context || {}, memory || {}, { availability: true, active });
 }
@@ -1928,5 +2036,5 @@ function chainEvents(context, events = [], spec = context?.chainSpec || null) {
   if (context.taskDomain !== 'infra_chain_recon' || !spec) throw new TypeError('poi_chain_voice_context_invalid');
   return original(clone(context), {}, { chainEvent: { events: clone(events), spec: clone(spec) } }).chainEvents;
 }
-return Object.freeze({ chainEvents, knowledgeAvailable, renderAction, renderFarewell, renderTrainingFarewell, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, validateTrainingFarewellContext, normalizeMemory, render, captureMemory });
+return Object.freeze({ chainEvents, knowledgeAvailable, renderAction, renderFarewell, renderTrainingFarewell, renderSarReport, surveyEvent, CONTEXT_SCHEMA, DOMAINS, PROMPTS, validateContext, validateTrainingFarewellContext, normalizeMemory, render, captureMemory });
 });

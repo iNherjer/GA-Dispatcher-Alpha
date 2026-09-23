@@ -1,5 +1,6 @@
 'use strict';
 
+const sarTask = require('./tracker-mission-sar-task.js');
 const taskCore = require('../mission-poi-task-core.js');
 const { canonicalStringify } = require('../mission-execution-core.js');
 const trainingTask = require('./tracker-mission-training-runtime.js');
@@ -19,7 +20,7 @@ const RECIPE_SCHEMA = 'ga.mission-poi-execution-recipe.v1';
 const RUNTIME_SCHEMA = 'ga.tracker-poi-runtime.v1';
 // Explicitly bounded standard POI family. A transport adapter named "poi"
 // is insufficient: specialized tasks need their own execution/voice contracts.
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch', ...trainingTask.DOMAINS]);
+const DOMAINS = Object.freeze(['search_and_rescue', 'media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch', ...trainingTask.DOMAINS]);
 const clone = value => JSON.parse(JSON.stringify(value));
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 function point(value) {
@@ -47,6 +48,10 @@ function validateRecipe(recipe) {
     }
     if (recipe.lifecycle && (recipe.lifecycle.schema !== lifecycleCore.SCHEMA || !recipe.voiceContext))
         return 'poi_lifecycle_context_invalid';
+    if (recipe.taskDomain === 'search_and_rescue') {
+        const error = sarTask.validateRecipe(recipe);
+        if (error) return error;
+    } else if (recipe.sarReport) return 'poi_recipe_specialized_task_not_migrated';
     if (recipe.taskDomain === 'fire_watch') {
         const error = fireTask.validateRecipe(recipe);
         if (error) return error;
@@ -119,6 +124,7 @@ function createState(recipe, previous = null) {
         observedAt: previous?.observedAt ?? null,
         suspendedAt: previous?.suspendedAt ?? null,
         detector: taskCore.createState(previous?.detector),
+        ...(recipe.taskDomain === 'search_and_rescue' ? {sarReport:true} : {}),
         ...(trainingTask.DOMAINS.includes(recipe.taskDomain) ? { trainingState: trainingTask.createState(recipe, previous?.trainingState) } : {}),
         ...(recipe.taskDomain === 'fire_watch' ? { fireState: fireTask.createState(recipe, previous?.fireState) } : {}),
         ...(recipe.taskDomain === 'infra_chain_recon' ? { chainState: chainTask.createState(recipe.poiChain, previous?.chainState) } : {}),
@@ -329,7 +335,7 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
         if (key !== runKey || currentToken !== baseToken) {
             // A fire pilot action commits this same worker's state. Invalidate
             // buffered work without inventing an offline interval after every click.
-            const liveFireAction = key === runKey && (recipe.taskDomain === 'fire_watch' || trainingTask.DOMAINS.includes(recipe.taskDomain)) && !recovering && !disconnected;
+            const liveFireAction = key === runKey && (recipe.taskDomain === 'fire_watch' || recipe.taskDomain === 'search_and_rescue' || trainingTask.DOMAINS.includes(recipe.taskDomain)) && !recovering && !disconnected;
             clear();
             if (liveFireAction) recovering = false;
             runKey = key;
@@ -446,6 +452,6 @@ function trainingAction(recipe, previous, action, now) {
     state.trainingState = result.state; state.sequence++; state.observedAt = Math.max(now, (state.observedAt || 0) + 1);
     return {poiTask:state, voiceEffects:result.voices};
 }
-module.exports = { trainingAction, fireAction, validateBundle, RECIPE_SCHEMA, RUNTIME_SCHEMA, DOMAINS, CHECKPOINT_INTERVAL_MS,
+module.exports = { sarAction: sarTask.action, trainingAction, fireAction, validateBundle, RECIPE_SCHEMA, RUNTIME_SCHEMA, DOMAINS, CHECKPOINT_INTERVAL_MS,
     hasLifecycle: recipe => recipe?.lifecycle?.schema === lifecycleCore.SCHEMA && !validateRecipe(recipe),
     validateRecipe, createState, observe, suspend, project, taskItemStateFromManifest, createAuthorityDriver };
