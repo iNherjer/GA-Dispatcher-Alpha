@@ -538,3 +538,12 @@ Besonders wichtig: Pflichtabschluss und freiwillige Zusatzuebungen sind zwei
 verschiedene Zustaende; der allgemeine POI-Terminalguard darf die Prozedur nicht
 vorzeitig stilllegen. Vollstaendige POI-Trainingsrezepte sind freigegeben; APT-Training
 bleibt durch diesen Anschluss unveraendert.
+
+
+### Training: dauerhafte Tracker-Aufgabenfuehrung (v443)
+
+Gemeinsame nummerierte Banneranzeige fuer App und EFB aus `trainingGuidance`;
+Sollwerte, Phasen, Wiederholungen und Voice bleiben im Missionsworker.
+Siehe [Tracker Training Migration](Tracker%20Training%20Migration.md#tracker-coaching-und-dauerhaftes-aufgabenbanner-v443)
+fuer die bewussten Tracker-Abweichungen, Timeouts, Audio-Scopes und Prueffaelle.
+Standalone-Prozedur unveraendert. Keine Auswertung aus dem UI-/Telemetrieloop.

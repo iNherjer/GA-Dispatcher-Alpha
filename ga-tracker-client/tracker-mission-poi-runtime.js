@@ -259,7 +259,7 @@ function project(state) {
     const detector = state.detector;
     return clone({
         schema: taskCore.SCHEMA, missionId: state.missionId, sequence: state.sequence,
-        ...(state.trainingState ? {trainingProcedure:state.trainingState.progress, trainingSummary:trainingTask.summary(state.trainingState.flight)} : {}),
+        ...(state.trainingState ? {trainingProcedure:state.trainingState.progress, trainingGuidance:state.trainingState.guidance, trainingSummary:trainingTask.summary(state.trainingState.flight)} : {}),
         ...(state.fireState ? { fireWatch: fireTask.project(state) } : {}),
         ...(state.chainState ? { poiChain: state.chainState.progress } : {}),
         ...(state.surveyState ? { surveyPattern: {
@@ -423,7 +423,7 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
             const transition = !previous || previous.suspendedAt !== result.state.suspendedAt
                 || TRANSITION_FIELDS.some(key => previous.detector[key] !== result.state.detector[key]);
             const due = !snapshot.state.poiTask
-                || result.state.observedAt - snapshot.state.poiTask.observedAt >= CHECKPOINT_INTERVAL_MS;
+                || result.state.observedAt - snapshot.state.poiTask.observedAt >= (result.state.trainingState ? 1000 : CHECKPOINT_INTERVAL_MS);
             if (recoverySample || transition || result.effects.length || due) {
                 const applied = commit(ctx);
                 if (applied.ok) disconnected = false;

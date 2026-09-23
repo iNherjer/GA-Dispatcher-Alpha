@@ -371,3 +371,22 @@ test('POI Training bridge dispatches packaged Stall audio without a remote provi
   assert.equal(calls[0].staticClipKey,'stall_break_detected');
   assert.notEqual(result.voiceStatus,'voice_not_configured');
 });
+
+test('Training phase scope prevents stale instructions before synthesis and playback', async () => {
+  const effect = {effectId:'training-phase',type:'voice.poi',payload:{trainingScope:'0:1:turning',resolvedRecipe:{
+    schema:'ga.mission-poi-voice-recipe.v1',missionId:'mission-a',kind:'poi',enabled:true,audioEnabled:true,fallbackText:'Kurve fliegen.'}}};
+  const activeState={activeIndex:0,exercises:[{attempts:1}],active:{phase:'rollout'}};
+  const snapshot={missionId:'mission-a',runId:'run-a',recipe:'poi',state:{flags:{active:true},effects:[effect],
+    poiTask:{trainingState:{checkpoint:{procedureState:{activeState}}}}}};
+  let generated;
+  const handler=createTrackerMissionBoardingVoice({authorityManager:{
+    getActiveRun:()=>({...run(),executionRecipe:'poi'}),getExecutionSnapshot:()=>snapshot,supportsExecutionRecipe:()=>true,recordGeneratedText:()=>({ok:true})},
+    voiceService:{publicState:()=>({configured:true}),request:v=>{generated=v;},wait:async()=>({status:'ready',text:'Kurve fliegen.',audioAvailable:false})}});
+  assert.equal((await handler.dispatch({...request(),effect})).voiceStatus,'training_phase_superseded');
+  assert.equal(generated,undefined);
+  activeState.active.phase='turning';
+  await handler.dispatch({...request(),effect});
+  assert.equal(generated.isPlaybackAllowed(),true);
+  activeState.active.phase='rollout';
+  assert.equal(generated.isPlaybackAllowed(),false);
+});

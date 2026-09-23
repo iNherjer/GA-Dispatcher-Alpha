@@ -35,7 +35,7 @@ Instanzen verschiedener Missionen duerfen keine Modul-Singletons teilen.
    und kein generischer POI-Objekt-/Verweilzeit-Trigger.
 3. Startfreigabe nach originalem Abflugabstand und Hoehengate, dann drei Sekunden
    stabile Ausgangslage. Erst Pilot-Intent startet den Durchlauf; Referenzkurs und
-   -hoehe stammen vom naechsten Messwert.
+   -hoehe werden im Tracker bereits bei der Einweisung fixiert (siehe Coaching unten).
 4. Manuelle Aktionen: Start, aktuellen Durchlauf abbrechen, freiwillige Zusatzuebung.
    Originale Ablehnungsgruende/Ansagen und erneute Stabilisierung beibehalten.
 5. Pflichtabschluss gibt die Rueckkehr frei. **Er stoppt nicht die Prozedur:**
@@ -64,8 +64,9 @@ Instanzen verschiedener Missionen duerfen keine Modul-Singletons teilen.
   Kurs, Bank, VS und G; Slew wird als optionaler SimVar gelesen. MSL wird fuer die
   Originalauswertung explizit auf deren `mslFt`-Feld abgebildet.
 - Missionslogik bleibt im Kindprozess; SimConnect, Audio und Netzwerk bleiben
-  im Parent. Trainingsclips einschliesslich `stall_*` werden aus dem gepackten
-  Originalkatalog abgespielt. Fehlende Clips verwenden den normalen TTS-Fallback.
+  im Parent. Unveraenderte Aktionsantworten koennen Originalclips verwenden. Die
+  dynamische Trainingsfuehrung verwendet die tatsaechlichen Sollwerte als Text/TTS
+  statt statischer Clips mit fest eingebauten Zeiten oder Hoehenschritten.
 - Verladen, Boarding, Rueckkehr, Aussteigen und Abschluss verwenden den gemeinsamen
   Authority-Ablauf. Debrief erhaelt originale Flugauswertung und Uebungszusammenfassung.
   Ein Training erzeugt durch diese Portierung keinen neuen Folgemissionstyp.
@@ -90,3 +91,54 @@ Integrierte Tests pruefen Original-App-Seed, Cloud-Gate, Verladen/Signatur,
 Start/Abbruch, veraltete Revision, Pflichtabschluss plus Extra und Wiederholung
 nach Messluecke sowie echten Kindprozess. Generatorchecks sichern die Extraktion.
 Diese Nachweise ersetzen keinen Feldtest mit realem Flugzeug in MSFS.
+
+
+## Tracker-Coaching und dauerhaftes Aufgabenbanner (v443)
+
+Bewusste Tracker-Nachschaerfung; `mission-training-procedure.js` und die extrahierte
+Originalprozedur bleiben unveraendert. `tracker-mission-training-coaching.js` liegt
+vor/nach dem Originaldetektor im Missionsprozess und liefert zugleich die
+verbindlichen Bannerkriterien. Kein eigener Detektor in App, EFB oder Telemetrieloop.
+
+- Bei Einweisung Referenzhoehe auf 100 ft und Kurs auf ein Grad fixieren. Diese
+  Werte bleiben beim Klick auf Start bestehen; Vorbereitung muss Hoehe/Kurs,
+  Bank/VS und die Uebungs-Mindesthoehe drei Sekunden erfuellen. Abweichungen
+  nehmen die Startfreigabe zurueck. Stall verwendet sein eigenes AGL-Gate.
+- Nummerierte Schritte: Ausgangshoehe, Kurs, Stabilisierung, danach Manoever und
+  Ausleiten bzw. Halten/Hoehenwechsel/Halten oder Stall-Phasen. Erfuellte Schritte
+  gruen durchgestrichen, aktuelle Abweichungen rot blinkend (ohne Animation bei
+  Reduced Motion), Winkel-/Haltefortschritt als Balken. Vor Start koennen gruen
+  markierte Voraussetzungen wieder rot werden; waehrend des Manoevers zeigt
+  dessen Zeile die laufende Einhaltung. Vollkreis bedeutet 360 Grad.
+- Haltezeit nur bei kontinuierlich passenden Werten; Abweichung setzt Haltezeit
+  zurueck. Auch Ausleiten erfordert die richtige Hoehe. Gegenlaeufige Kurvenbewegung
+  nimmt Winkel zurueck. Ueberschossene Kurvenziele verlangen einen neuen Versuch.
+- 15 Sekunden fortlaufende Sollwertabweichung fuehren zum Neuansetzen. Kein
+  Fortschritt: Einleiten/Kurve/Ausleiten 45 s, Stall-Stabilisierung/Break/Recovery
+  60 s, Hoehenwechsel/Stall-Annaeherung 120 s. Absolute Abschnittsgrenze 10 min.
+  Bestehende strengere Original-Abbruchbedingungen gelten weiterhin.
+- Keine harte Missionssperre nach mehreren Fehlversuchen; stattdessen Hilfetext.
+  Manuelles Abbrechen und Neuansetzen bleiben moeglich, bestaetigte Uebungen
+  und Pflichtabschluss bleiben erhalten. Telemetrieluecke >5 s, Pause/Slew/Boden
+  unterbrechen den aktuellen Durchgang mit sichtbarem Hinweis.
+- Strukturelle Ansagen (Einweisung/Phase/Ergebnis) haben Vorrang vor allgemeinem
+  Wertefeedback. Texte enthalten echte Rezeptwerte, keine fest angenommenen
+  60 Sekunden/500 ft/zwei Uebungen. Phasengebundene Audioeffekte werden vor
+  Erzeugung und Playback gegen Index/Versuch/Phase geprueft.
+- `training_repeat_instruction` und trainingsspezifischer `poi_status` lesen den
+  aktuellen Plan ohne Detektormutation. Verlauf der letzten 30 Ansagen bleibt im
+  privaten Checkpoint und oeffentlichen Guidance-Modell erhalten. Ohne TTS-Zugang
+  bleiben Plan, Hinweise und Verlauf lesbar.
+- `control.poiTask.trainingGuidance` ist der einzige UI-Vertrag. Gemeinsamer
+  `mission-training-guidance-ui.js` in App bei Tracker-Autoritaet und Tracker-EFB;
+  verschiebbar, einklappbar, mit erneutem Vorlesen und lesbarem Verlauf. Nach
+  Abschluss verschwindet die laufende Aufgabenanzeige.
+- Lokale Worker-Projektion maximal einmal pro Sekunde statt fuenf Sekunden fuer
+  Trainingsfortschritt. Der bestehende Disk-Checkpoint-Takt bleibt erhalten;
+  es entstehen keine zusaetzlichen Cloud-Worker-Writes fuer Banner-Ticks.
+
+Regressionsfaelle: gruene Voraussetzungen wieder rot, feste Referenzen, Wiederlesen
+nach Restore, kontinuierliche Haltezeit, falsche Kurvenrichtung, festgefahrenes
+Ausleiten, Ausleiten mit falscher Hoehe, Messluecke waehrend Zusatzuebung sowie
+veraltete Audioeffekte. Original-Extraktions-/Paritaetstests bleiben verbindlich;
+die Tracker-Coaching-Abweichungen werden separat getestet.

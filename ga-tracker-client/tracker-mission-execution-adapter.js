@@ -798,12 +798,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       if (!cue) return errorResult('pax_query_not_available');
       return submitEvent(snapshot, 'APT_FLIGHT_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }
-    if (['training_ready','training_abort','training_extra'].includes(intent)) {
+    if (['training_ready','training_abort','training_extra','training_repeat_instruction'].includes(intent) || (intent==='poi_status' && snapshot.state.poiTask?.trainingState)) {
       if (!snapshot.state.flags.active || !snapshot.state.poiTask?.trainingState) return errorResult('training_not_active');
       const sample = observations.latestTelemetry;
-      if (snapshot.state.poiTask.suspendedAt !== null || !sample || !Number.isFinite(sample.observedAt)
+      if (!['training_repeat_instruction','poi_status'].includes(intent) && (snapshot.state.poiTask.suspendedAt !== null || !sample || !Number.isFinite(sample.observedAt)
           || now() - sample.observedAt > 5000 || sample.simPaused || sample.inMenuOrMap || sample.onGround
-          || sample.slewActive || sample.slewMode) return errorResult('training_suspended');
+          || sample.slewActive || sample.slewMode)) return errorResult('training_suspended');
       const payload = poiRuntime.trainingAction(authorityManager.getExecutionPoiRecipe(), snapshot.state.poiTask, intent, now());
       return submitEvent(snapshot, 'TRAINING_ACTION_OBSERVED', {...payload, action:intent}, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }

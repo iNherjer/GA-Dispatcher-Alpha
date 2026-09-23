@@ -5666,3 +5666,12 @@ Revisionsschutz. Fortschritt zeigt erledigte Pflichtuebungen und die aktuelle
 Uebung; generische POI-Hoehen-/Verweilzeitbedingungen werden fuer Training nicht
 angezeigt. Die App unter Tracker-Autoritaet verwendet denselben Snapshot und
 tickt die POI-Trainingslogik nicht parallel. Standalone und APT bleiben erhalten.
+
+
+### Training: dauerhafte Tracker-Aufgabenfuehrung (v443)
+
+Gemeinsame nummerierte Banneranzeige fuer App und EFB aus `trainingGuidance`;
+Sollwerte, Phasen, Wiederholungen und Voice bleiben im Missionsworker.
+Siehe [Tracker Training Migration](Tracker%20Training%20Migration.md#tracker-coaching-und-dauerhaftes-aufgabenbanner-v443)
+fuer die bewussten Tracker-Abweichungen, Timeouts, Audio-Scopes und Prueffaelle.
+Standalone-Prozedur unveraendert. Keine Auswertung aus dem UI-/Telemetrieloop.

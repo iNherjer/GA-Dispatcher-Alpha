@@ -82,6 +82,10 @@ test('Training uses common loading, ready intent, stale revision protection and 
   await h.sample({ observedAt: base + 3100, aglFt: 3000, bankDeg: 0, vsFpm: 0 });
   assert.ok(h.manager.getExecutionSnapshot().state.poiTask.trainingState.progress.startAvailable);
   assert.ok(h.manager.getExecutionSnapshot().view.allowedActions.includes('training_ready'));
+  const beforeRepeat = structuredClone(h.manager.getExecutionSnapshot().state.poiTask.trainingState.checkpoint);
+  assert.equal((await h.intent('training_repeat_instruction')).ok, true);
+  assert.deepEqual(h.manager.getExecutionSnapshot().state.poiTask.trainingState.checkpoint, beforeRepeat);
+  assert.ok(h.manager.getExecutionSnapshot().state.effects.some(e => e.payload.trainingScope && e.payload.action === 'training_repeat_instruction'));
   const staleRevision = h.manager.getActiveRun().revision;
   assert.equal((await h.intent('training_ready')).ok, true);
   const stale = await h.intent('training_abort', {}, 'training-stale-abort', { expectedRevision: staleRevision });

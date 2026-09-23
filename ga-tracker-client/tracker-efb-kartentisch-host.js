@@ -10,6 +10,7 @@
     var header = document.querySelector('#mapTableOverlay .pinboard-header');
     var bottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
     document.body.style.setProperty('--ga-efb-warning-top', Math.ceil(bottom) + 'px');
+    document.body.style.setProperty('--ga-training-guidance-top', Math.ceil(bottom + 8) + 'px');
   }
   window.awmDisplayTrackerWarning = function(warning) {
     if (warning.kind !== 'airspace') return true;
@@ -2002,7 +2003,8 @@
         payload: payload.control.payload || null,
         voice: payload.control.voice || null,
         blockingReasons: payload.control.blockingReasons || [],
-        allowedActions: payload.control.allowedActions || []
+        allowedActions: payload.control.allowedActions || [],
+        trainingGuidance: payload.control.poiTask && payload.control.poiTask.trainingGuidance || null
       } : null,
       trackerLive: flightView.trackerLive === true
     });
@@ -2329,6 +2331,15 @@
     setText('gaEfbMissionAltitudeDetail', altitudeDetail);
   }
 
+  function renderTrainingGuidance(control) {
+    positionAirspaceBanner();
+    if (!window.GATrainingGuidanceUi || typeof window.GATrainingGuidanceUi.render !== 'function') return;
+    window.GATrainingGuidanceUi.render(control && control.executionAuthority === 'tracker' && control.poiTask ? control.poiTask.trainingGuidance : null, {
+      id: 'trainingGuidanceBanner',
+      onRepeat: function () { return submitMissionIntent('training_repeat_instruction', {}); }
+    });
+  }
+
   function renderMissionPayload(payload) {
     var next = payload && payload.available === true ? payload : null;
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};
@@ -2360,6 +2371,7 @@
     if (presentationSignature !== missionPresentationSignature) {
       missionPresentationSignature = presentationSignature;
       renderMissionActionBanner(next);
+      renderTrainingGuidance(nextControl);
       renderMissionToolbar(next);
       renderCargoManager();
     }

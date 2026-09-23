@@ -1939,7 +1939,8 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         allowedActions: control.allowedActions || [],
         cargoWindowOpenId: control.cargoWindowOpenId || null,
         cargoWindowCloseId: control.cargoWindowCloseId || null,
-        blockingReasons: control.blockingReasons || []
+        blockingReasons: control.blockingReasons || [],
+        trainingGuidance: control.poiTask?.trainingGuidance || null
     });
     if (projectionSignature === missionExecutionProjectionSignature) {
         window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
@@ -2043,6 +2044,12 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         } catch (_) {}
     }
     window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
+    try {
+        window.GATrainingGuidanceUi?.render?.(control.executionAuthority === 'tracker' ? control.poiTask?.trainingGuidance : null, {
+            id: 'trainingGuidanceBanner',
+            onRepeat: () => window.gaTrackerExecutionSubmitIntent?.('training_repeat_instruction', {})
+        });
+    } catch (_) {}
     try { window.missionCargoApplyTrackerFlightReminders?.(control); } catch (_) {}
     if (control.cargoWindowOpenId && control.cargoWindowOpenId !== previousControl?.cargoWindowOpenId) {
         try { window.openMissionCargoDialog?.(control.cargoWindowMode, { trackerProjection: true }); } catch (_) {}
@@ -2487,6 +2494,7 @@ function _applyTrackerExecutionAbortLocally(snapshot = null, reason = 'tracker-e
     };
     window.lastTrackerMissionStatus = null;
     window.gaTrackerExecutionControl = null;
+    try { window.GATrainingGuidanceUi?.render?.(null, { id: 'trainingGuidanceBanner' }); } catch (_) {}
     _clearMissionAuthorityState(`${reason}:tracker-abort`);
     const resetOk = window.missionRuntimeReset?.({
         trackerAbortCompleted: true,
@@ -5210,6 +5218,7 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
         window.lastTrackerMissionAuthority = { ...snapshot, receivedAt: Date.now() };
         if (!completed || aborted) {
             window.gaTrackerExecutionControl = null;
+            try { window.GATrainingGuidanceUi?.render?.(null, { id: 'trainingGuidanceBanner' }); } catch (_) {}
             missionExecutionProjectionSignature = '';
         }
         window.lastTrackerMissionStatus = null;
@@ -14245,6 +14254,7 @@ window.completeMissionCloseCleanup = function(record = null, reason = 'debrief-c
             complianceReleased: true, nextStart: _completionText(pending.dest || pending.arrLabel || '', 64), reason });
         if (cleared === false) return false;
         window.gaTrackerExecutionControl = null;
+        try { window.GATrainingGuidanceUi?.render?.(null, { id: 'trainingGuidanceBanner' }); } catch (_) {}
         window.lastTrackerMissionStatus = null;
         _clearMissionAuthorityState(reason);
         _resetMissionRuntime();

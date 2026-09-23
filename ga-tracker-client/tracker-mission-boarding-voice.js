@@ -71,6 +71,12 @@ function createTrackerMissionBoardingVoice(options = {}) {
         || cleanString(request.runId, 220) !== cleanString(run.runId, 220)) {
       return { ok: false, status: 'blocked', error: 'mission_run_conflict', terminal: false, sideEffect: false, commandId: effectId };
     }
+    const trainingScopeValid = current => {
+      const expected=request.effect?.payload?.trainingScope;
+      if (!expected) return true;
+      const state=current?.state?.poiTask?.trainingState?.checkpoint?.procedureState?.activeState;
+      return !!state && `${state.activeIndex}:${state.exercises[state.activeIndex]?.attempts||0}:${state.active?.phase||'preparation'}`===expected;
+    };
     if (request.effect?.type === 'voice.cargo') return cargoAudio(request);
     const plan = object(run.resumeBundle?.executionEffectPlan);
     let recipe = boardingVoiceCore.normalizeRecipe(object(object(plan.effects)['voice.boarding']).recipe);
@@ -85,6 +91,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
       recipe = { ...prepared };
       await new Promise(resolve => setTimeout(resolve, Math.max(0, Math.min(2000, Number(payload.notBefore || 0) - Date.now()))));
       const current = authorityManager.getExecutionSnapshot?.();
+      if (!trainingScopeValid(current)) return completed(request, {voiceStatus:'training_phase_superseded'});
       if (!current || current.runId !== run.runId || (!current.state.flags.active && !payload.action)
           || current.state.flags.closingPending || current.state.flags.farewellStarted)
         return completed(request, { voiceStatus: 'mission_end' });
@@ -162,10 +169,10 @@ function createTrackerMissionBoardingVoice(options = {}) {
       const current = authorityManager.getExecutionSnapshot?.();
       if (request.effect?.type === 'voice.poi' && (!current || current.missionId !== run.missionId
           || current.recipe !== 'poi' || !authorityManager.supportsExecutionRecipe?.('poi'))) return false;
-      return !current || (current.runId === run.runId && (current.state.flags.active || (request.effect?.type === 'voice.poi' && request.effect?.payload?.action))
+      return trainingScopeValid(current) && (!current || (current.runId === run.runId && (current.state.flags.active || (request.effect?.type === 'voice.poi' && request.effect?.payload?.action))
         && !current.state.flags.closingPending && !current.state.flags.farewellStarted
         && !current.state.flags.farewellCompleted && !current.state.flags.unloadConfirmed
-        && current.state.phase !== 'closing');
+        && current.state.phase !== 'closing'));
     };
     try {
       const preparedId = `boarding-preload:${run.runId}`;

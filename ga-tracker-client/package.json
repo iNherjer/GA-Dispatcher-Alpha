@@ -30,6 +30,7 @@
       "tracker-efb-symbols.js",
       "efb-web-assets/kartentisch-fragment.html",
       "efb-web-assets/styles.css",
+      "efb-web-assets/mission-training-guidance-ui.js",
       "efb-web-assets/profile.js",
       "tracker-efb-profile-bridge.js",
       "efb-web-assets/map-utility-tools.js",

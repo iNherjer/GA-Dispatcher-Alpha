@@ -1007,7 +1007,7 @@
         if (event.type === 'FIRE_SCENE_RECOVERY_REQUESTED') return state.recipe === 'poi' && state.flags.active && !state.flags.closed
             && state.effects.some(effect => effect.type === 'smoke.spawn');
         if (event.type === 'TRAINING_ACTION_OBSERVED') return poiActionAllowed(state) && state.flags.active
-            && !!state.poiTask?.trainingState && ['training_ready','training_abort','training_extra'].includes(eventPayload.action)
+            && !!state.poiTask?.trainingState && ['training_ready','training_abort','training_extra','training_repeat_instruction','poi_status'].includes(eventPayload.action)
             && validPoiObservation(eventPayload.poiTask, state.missionId)
             && eventPayload.poiTask.sequence === state.poiTask.sequence + 1
             && eventPayload.poiTask.observedAt > state.poiTask.observedAt;
@@ -1790,6 +1790,7 @@
         if (poiActionAllowed(state)) {
             actions.push('poi_status', 'poi_orientation');
             if (state.flags.active) actions.push('poi_tell_more');
+            if (state.flags.active && state.poiTask?.trainingState) actions.push('training_repeat_instruction');
             if (state.flags.active && state.poiTask?.trainingState && state.poiTask.suspendedAt === null) {
                 var training = state.poiTask.trainingState.progress || {};
                 if (!training.ready && training.readyPrompted && training.startAvailable && (!training.requiredComplete || training.optionalRequested)) actions.push('training_ready');

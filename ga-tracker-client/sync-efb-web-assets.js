@@ -61,6 +61,7 @@ function writeKartentischFragment() {
 
 writeKartentischFragment();
 copy('styles.css');
+copy('mission-training-guidance-ui.js', 'mission-training-guidance-ui.js');
 compileShared('profile.js');
 compileShared('checklists.js');
 compileShared('navigation-warning-core.js');

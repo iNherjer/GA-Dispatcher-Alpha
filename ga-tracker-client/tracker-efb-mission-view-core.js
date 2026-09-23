@@ -453,7 +453,7 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       if (recipe.trainingRecipe) {
         const training = task.trainingProcedure || {};
         const done = Number(training.completedCount || 0), required = Number(recipe.trainingRecipe.requiredCount || 2);
-        view.progress[0] = {label:'Training', percent:Math.min(100, done / required * 100), detail:`${done}/${required} vorbereitete Übungen · ${training.activeExercise?.label || 'Rückkehr frei'}`, tone:training.requiredComplete ? 'good' : 'active'};
+        view.progress[0] = {label:'Training', percent:Math.min(100, done / required * 100), detail:`${done}/${required} erfüllte Übungen · ${training.activeExercise?.label || (training.requiredComplete ? 'Rückkehr frei' : 'Vorbereitung')}`, tone:training.requiredComplete ? 'good' : 'active'};
       }
       if (recipe.taskDomain === 'fire_watch') {
         const fire = task.fireWatch || {};
@@ -465,7 +465,11 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       }
       view.taskTone = task.aborted ? 'danger' : task.satisfied ? 'good' : 'active';
       // The seed feedback describes the preflight state and is stale after handoff.
-      view.feedback.push({ label: 'Arbeitsbereich', detail: control.poiStatus?.detail ||
+      if (recipe.trainingRecipe && task.trainingGuidance) {
+        view.currentTask = task.trainingGuidance.currentInstruction || task.trainingGuidance.instruction;
+        view.detail = task.trainingGuidance.notice || view.currentTask;
+      }
+      view.feedback.push({ label: recipe.trainingRecipe ? 'Training' : 'Arbeitsbereich', detail: (recipe.trainingRecipe ? view.detail : control.poiStatus?.detail) ||
         (task.aborted ? 'Auftrag abgebrochen' : task.satisfied ? 'Auftrag erfüllt' : task.inRadius ? 'Im Arbeitsbereich' : 'Arbeitsbereich anfliegen'), tone: view.taskTone });
       if (!recipe.trainingRecipe && !['mapping_survey', 'infra_chain_recon', 'fire_watch'].includes(recipe.taskDomain) && task.inRadius && task.altWasOk === false && !task.aborted && !task.satisfied) view.feedback.push({
         label: 'Arbeitshöhe', detail: 'Außerhalb der Arbeitshöhe: Arbeitszeit pausiert. Zielhöhe wieder einhalten.', tone: 'warn' });
