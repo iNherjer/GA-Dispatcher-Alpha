@@ -90,8 +90,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v449';
-const TRACKER_VERSION_CODE = 449;
+const TRACKER_VERSION = 'v450';
+const TRACKER_VERSION_CODE = 450;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4995,6 +4995,11 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         _cloudMissionLastStatus = result.status || result.code || 'error';
         debugLog(`MISSION_CLOUD_SYNC_ERROR reason=${reason} code=${result.code || 'unknown'} error=${result.message || 'unknown'}`);
         return _cloudMissionCandidate;
+      }
+      if (result.navigation) {
+        const adopted = cockpitTools.adoptCloud(result.navigation);
+        if (adopted.changed) broadcastNavigation();
+        if (!adopted.ok && adopted.error !== 'mission_authority_conflict') debugLog(`FREEFLIGHT_CLOUD_ERROR error=${adopted.error}`);
       }
       const completedRun = missionAuthorityManager.getPublicSnapshot().lastRun;
       if (result.candidate

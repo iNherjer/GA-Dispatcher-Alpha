@@ -5715,3 +5715,11 @@ PAX-Text- und Abschlussansichten. Kein Lern-Guide-Button fuer `poi_tell_more`.
 Historische Erzaehlung und kompakte Wiederholungserinnerung bleiben bei
 Neustart erhalten; keine lokale EFB-Faktenauswahl. Testgrundlage siehe
 `Tracker Mission Migration Guide.md`, Abschnitt v449.
+
+## v450: Freiflug-Briefing
+
+Navigation-only Cloud-Plaene werden in die bestehende Tracker-Navigation
+uebernommen. Die Karte zeigt Titel/Text scrollbar vor dem Routenfortschritt,
+ohne Missionsaktionen. Bestehender Map-Refresh reicht; keine weitere Polling-
+Schleife. Missionskarten blenden die Freiflugkarte aus. Original-App-Pläne
+bleiben ohne Missionsruntime. Details: Tracker Mission Migration Guide v450.

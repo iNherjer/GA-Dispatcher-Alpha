@@ -1,5 +1,7 @@
 'use strict';
 const fs = require('node:fs');
+const freeflight = require('../freeflight-navigation-core');
+const { createHash } = require('node:crypto');
 const { randomUUID } = require('node:crypto');
 const routeEdit = require('../map-route-edit-core');
 const { buildRoute, selectStart } = require('../map-direct-to-core');
@@ -8,7 +10,7 @@ const { projectTrackerNavigationSnapshot, projectTrackerMapSnapshot } = require(
 
 // Navigation-only state: never enters mission authority, manifest or scene execution.
 function createCockpitTools(options) {
-  let route = null, pendingPayload = null;
+  let route = null, pendingPayload = null, cloudSource = '';
   let navigationState = {}, navigationIdentity = null;
   const now = options.now || Date.now;
   const validPoint = p => p && Number.isFinite(p.lat) && Math.abs(p.lat) <= 90
@@ -16,6 +18,7 @@ function createCockpitTools(options) {
   if (options.filename) {
     try {
       const saved = JSON.parse(fs.readFileSync(options.filename, 'utf8'));
+      if (saved.schema === 'ga.navigation-route.v1') cloudSource = String(saved.cloudSource || '');
       if (saved.schema === 'ga.navigation-route.v1' && saved.points?.length >= 2 && saved.points.length <= 128 && saved.points.every(validPoint)) route = saved;
     } catch (_) {}
   }
@@ -29,7 +32,7 @@ function createCockpitTools(options) {
         points: map?.route?.waypoints || [], resetPoints: projectTrackerMapSnapshot({ ...run, navigationRoute: null })?.route?.waypoints || [], context: map?.context || {} };
     }
     return { id: route?.id || '', revision: Number(route?.revision || 0), missionId: '', runId: '', editable: true,
-      points: route?.points || [], resetPoints: route?.resetPoints || route?.points || [], context: { departureIcao: route?.departureIcao || '', destinationIcao: route?.destinationIcao || '' } };
+      briefing: route?.briefing || null, points: route?.points || [], resetPoints: route?.resetPoints || route?.points || [], context: { departureIcao: route?.departureIcao || '', destinationIcao: route?.destinationIcao || '' } };
   }
   function version() {
     const run = options.getRunSummary ? options.getRunSummary() : options.getRun();
@@ -44,11 +47,13 @@ function createCockpitTools(options) {
     return map && { ...map, routeEdit: { id: nav.id, revision: nav.revision, editable: nav.editable, resetPoints: nav.resetPoints } };
   }
   function commit(next) {
+    next = { ...next, cloudSource: next.cloudSource ?? cloudSource };
     if (options.filename) {
       fs.writeFileSync(options.filename + '.tmp', JSON.stringify(next), 'utf8');
       fs.renameSync(options.filename + '.tmp', options.filename);
     }
-    route = next;
+    cloudSource = next.cloudSource;
+    route = next.points?.length >= 2 ? next : null;
   }
   async function execute(request) {
     const data = request.payload || {};
@@ -67,6 +72,7 @@ function createCockpitTools(options) {
         const points = request.intent === 'navigation_adopt' ? routeEdit.normalize(data.points) : routeEdit.apply(current.points, data.edit, current.resetPoints);
         commit({ schema: 'ga.navigation-route.v1', id: current.id || randomUUID(), revision: current.revision + 1,
           resetPoints: request.intent === 'navigation_adopt' ? points : current.resetPoints,
+          briefing: request.intent === 'navigation_adopt' ? null : route?.briefing || null,
           updatedAt: now(), departureIcao: String(data.departureIcao || route?.departureIcao || points[0].icao || '').slice(0, 12),
           destinationIcao: String(data.destinationIcao || route?.destinationIcao || points[points.length - 1].icao || '').slice(0, 12), points });
         return { ok: true, status: 'ok', navigation: navigation(), map: snapshot() };
@@ -109,12 +115,26 @@ function createCockpitTools(options) {
     return { ok: true, status: 'ok', map: snapshot(), navigation: navigation() };
   }
 
+  function adoptCloud(value) {
+    if (!value) return { ok: true, changed: false };
+    if (options.getRun()) return { ok: false, error: 'mission_authority_conflict' };
+    try {
+      const nav = freeflight.normalize(value);
+      const key = createHash('sha256').update(JSON.stringify(nav)).digest('hex');
+      if (key === cloudSource) return { ok: true, changed: false };
+      commit({ schema: 'ga.navigation-route.v1', id: randomUUID(), revision: Number(route?.revision || 0) + 1,
+        updatedAt: now(), points: nav.points, resetPoints: nav.points, departureIcao: nav.departureIcao,
+        destinationIcao: nav.destinationIcao, briefing: nav.briefing, cloudSource: key });
+      return { ok: true, changed: true };
+    } catch (error) { return { ok: false, error: error.message }; }
+  }
   function clear() {
     if (!route) return;
-    if (options.filename) fs.rmSync(options.filename, { force: true });
-    route = null;
+    // Keep the consumed cloud identity so an old plan cannot resurrect after a mission.
+    if (cloudSource) commit({ schema: 'ga.navigation-route.v1', points: [], cloudSource });
+    else { if (options.filename) fs.rmSync(options.filename, { force: true }); route = null; }
   }
-  return { execute, snapshot, navigation, version, clear };
+  return { execute, snapshot, navigation, version, clear, adoptCloud };
 }
 function createNavigationRelay(cockpitTools, broadcastNavigation = () => {}) {
   const navigationRequests = new Map();

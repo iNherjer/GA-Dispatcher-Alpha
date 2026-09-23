@@ -1,6 +1,6 @@
 # POI-Gate: Abdeckung und offene Migrationen
 
-Stand: 23.09.2026, Tracker v449. Diese Tabelle ersetzt die historische v419-Inventur.
+Stand: 23.09.2026, Tracker v450. Diese Tabelle ersetzt die historische v419-Inventur.
 
 ## Transport ist nicht Ausfuehrbarkeit
 
@@ -25,7 +25,7 @@ beweist keine Tracker-Ausfuehrbarkeit. Geoeffnete Gates sind kein MSFS-Feldnachw
 | training, club_training_basic, club_training_advanced | Freigegeben mit eigenem Trainingsvertrag und manuellen Aktionen/Guidance. APT separat angebunden. |
 | Bush: supply_strip, charter_strip, scenic_hopper | Ab v447 freigegeben mit eigenem Bush-Vertrag. |
 | Bush: pickup_strip, pickup_cargo, recon_return | Ab v448 freigegeben mit Pickup-/Heimkehr-/Recon-Vertrag. Profil-IDs tragen jeweils `bush_`. |
-| freeflight_planning | Planungsprofil; keine pauschale Freigabe als ausfuehrbarer Pax-Auftrag. |
+| freeflight_planning | Ab v450 separater Cloud-/Tracker-Navigationsanschluss mit Briefing und Restore; bewusst kein Pax-/Missionsrezept. |
 | auto | Auswahlprofil; Freigabe anhand des aufgeloesten Auftrags. |
 
 Details und Testgrenzen: `Tracker Mission Migration Guide.md`.

@@ -797,6 +797,7 @@ window.missionIsFreeflightOnly = _missionIsFreeflightOnly;
 function _markMissionAsFreeflightOnly(md = null, options = {}) {
     const data = _missionRuntimeDataFromCandidate(md);
     if (!data || typeof data !== 'object') return data;
+    data.freeflightPlanId = data.freeflightPlanId || `freeflight-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     data.freeflightOnly = true;
     data.efbOnly = true;
     data.noMissionRuntime = true;
@@ -14884,7 +14885,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
     const fallback = (fallbackMission && typeof fallbackMission === 'object') ? fallbackMission : {};
     const keep = [
         'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
-        'freeflightOnly', 'efbOnly', 'noMissionRuntime', 'directToEfbOnly', 'routeOnly',
+        'freeflightPlanId', 'freeflightOnly', 'efbOnly', 'noMissionRuntime', 'directToEfbOnly', 'routeOnly',
         'activeMissionCreatedAt', 'activeMissionSavedAt',
         'activeMissionRuntimeStartedAt', 'activeMissionRuntimeSavedAt',
         'activeMissionRuntimePhase', 'activeMissionRuntimeMissionId',
@@ -15496,6 +15497,13 @@ function _syncActiveMissionPayload() {
     return fallback || null;
 }
 
+function _syncFreeflightNavigationPayload() {
+    let state = window.__gaActiveMissionStorageFallback;
+    if (!state) { try { state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null'); } catch (_) {} }
+    if (state?.localStorageFallbackId) throw new Error('Freiflug: vollstaendigen lokalen Stand zuerst laden.');
+    return window.GAFreeflightNavigationCore?.build(state) || null;
+}
+
 function _syncTrackerMissionSeedPayload(activeMission = null) {
     const state = activeMission && typeof activeMission === 'object' ? activeMission : null;
     if (!state || _syncMissionStateIsDraft(state) || _missionIsFreeflightOnly(state)) return null;
@@ -15671,6 +15679,21 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
         );
         return resumed;
     }
+    if (!activeMission && options.freeflightNavigation) {
+        // Tracker authority was handled above. Preserve pending local edits and
+        // ask through the existing replacement guard before replacing a flight.
+        if (_syncReadPendingUpload()) return false;
+        const state = window.GAFreeflightNavigationCore.toState(options.freeflightNavigation);
+        if (!_syncConfirmReplaceRunningLocalMission(state, localMission, { source: 'cloud-freeflight' })) return false;
+        window.__gaCloudActiveMissionApplyInProgress = true;
+        try {
+            const restored = await restoreMissionState(state, { source: 'cloud-freeflight', resumeRuntime: false });
+            if (restored === false) return false;
+            window.storeActiveMissionStateSafely(state, { refreshActiveMissionTimestamp: false });
+            _syncRecordCloudMissionPullOutcome('cloud-freeflight-applied', { source: options.source || 'cloud-pull' });
+            return true;
+        } finally { window.__gaCloudActiveMissionApplyInProgress = false; }
+    }
     if (activeMission) {
         if (_missionIsFreeflightOnly(activeMission)) return false;
         let missionToApply = activeMission;
@@ -15791,6 +15814,7 @@ function setLastSyncedPayload(cloudData = null) {
         logbook: _missionLogbookForSync(),
         activeMission,
         activeMissionTrackerSeed: _syncTrackerMissionSeedPayload(activeMission),
+        freeflightNavigation: _syncFreeflightNavigationPayload(),
         groupName: getGroupName(),
         groupNick: getGroupNick(),
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
@@ -15858,6 +15882,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         logbook: _missionLogbookForSync(),
         activeMission,
         activeMissionTrackerSeed: _syncTrackerMissionSeedPayload(activeMission),
+        freeflightNavigation: _syncFreeflightNavigationPayload(),
         groupName: getGroupName(),
         groupNick: getGroupNick(),
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
@@ -15979,7 +16004,7 @@ async function forceSyncLoad() {
             ? _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard })
             : null;
         const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-        await _syncApplyActiveMissionFromCloud(data.activeMission || null, {
+        await _syncApplyActiveMissionFromCloud(data.activeMission || null, { freeflightNavigation: data.freeflightNavigation,
             source: 'manual-cloud-pull',
             allowTrackerHandoff: true
         });
@@ -16060,7 +16085,7 @@ async function silentSyncLoad(options = {}) {
             localStorage.setItem('ga_sync_time', localSyncTime);
             if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
             const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-            await _syncApplyActiveMissionFromCloud(data.activeMission || null, {
+            await _syncApplyActiveMissionFromCloud(data.activeMission || null, { freeflightNavigation: data.freeflightNavigation,
                 source: 'silent-cloud-pull',
                 allowTrackerHandoff: false
             });
@@ -16238,7 +16263,7 @@ async function checkCloudAfterIdle() {
         if (_syncProfileIsNewer(data)) {
             const trackerObserver = _syncActiveTrackerRunForCloudPull()?.executionAuthority === 'tracker';
             if (trackerObserver) {
-                await _syncApplyActiveMissionFromCloud(data.activeMission || null, { source: 'idle-tracker-observer' });
+                await _syncApplyActiveMissionFromCloud(data.activeMission || null, { freeflightNavigation: data.freeflightNavigation, source: 'idle-tracker-observer' });
             }
             // Lokalen Status abgleichen (Habe ich hier ungespeicherte Änderungen?)
             const activeMission = _syncActiveMissionPayload();
@@ -16247,6 +16272,7 @@ async function checkCloudAfterIdle() {
                 logbook: _missionLogbookForSync(),
                 activeMission,
                 activeMissionTrackerSeed: _syncTrackerMissionSeedPayload(activeMission),
+        freeflightNavigation: _syncFreeflightNavigationPayload(),
                 groupName: getGroupName(),
                 groupNick: getGroupNick(),
                 knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
@@ -16285,7 +16311,7 @@ async function checkCloudAfterIdle() {
                 localStorage.setItem('ga_sync_time', localSyncTime);
                 if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
                 const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-                await _syncApplyActiveMissionFromCloud(data.activeMission || null, {
+                await _syncApplyActiveMissionFromCloud(data.activeMission || null, { freeflightNavigation: data.freeflightNavigation,
                     source: 'idle-cloud-pull',
                     allowTrackerHandoff: true
                 });

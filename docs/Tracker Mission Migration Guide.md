@@ -704,3 +704,37 @@ bleiben unveraendert. Keine zusaetzlichen Cloud-Writes, Telemetriepakete oder
 periodischen Vollkontextuebertragungen. Windows-/MSFS-Feldtest bleibt erforderlich.
 
 Validierung v449: 457 Node-Regressionstests bestanden; 5376 Voice-Vergleiche, 11550 Task/App-Vergleiche, 11520 Lifecycle-Vergleiche, 512 Farewell-Vergleiche, 8832 manuelle Aktionsvergleiche und 864 Cargo-Stress-Vergleiche gegen eingefrorene Originalfunktionen. Der Seed-Test ruft den originalen App-Kontextbuilder auf.
+
+## v450: Freiflug ist Navigation, kein Missionsrezept
+
+`freeflight-navigation-core.js` definiert den separaten Cloud-Vertrag
+`ga.freeflight-navigation.v1`: Plan-ID, bis 128 normalisierte Wegpunkte,
+Start/Ziel und reines Textbriefing. Maximal 64 KiB; groessere oder ungueltige
+Daten werden abgewiesen statt still gekuerzt. Kein PAX, Cargo, Boarding,
+Execution-Seed oder kuenstlicher Erfolgszustand.
+
+- App-Speichern verwendet die bestehende entprellte Cloud-Queue auch fuer
+  Freiflug. `activeMission`/Tracker-Seed bleiben leer; `freeflightNavigation`
+  ist eine eigene V2-Komponente. Unveraenderte Teile werden wiederverwendet.
+- Der vorhandene Profilabruf (bei aktivierter Tracker-Autoritaet) liest diese
+  Komponente mit. Keine neue Poll-Schleife und keine Worker-Endpoint-Aenderung.
+- Tracker uebernimmt nur ohne aktiven Run in `navigation-route-v1.json`.
+  Inhaltshash inklusive Plan-ID bleibt als Empfangsbeleg ueber lokale Edits,
+  Direct-To, Neustart und Missionswechsel erhalten. Gleicher Cloud-Stand wird
+  weder erneut geschrieben noch zurueck auf die lokale Route kopiert. Ein neu
+  erzeugter Plan besitzt eine neue ID, auch wenn seine Geometrie gleich ist.
+- Aktive Missionen haben Vorrang. Die bestehende explizite Missionsabloesung
+  bleibt erforderlich; Cloud-Freiflug bricht niemals einen Run ab.
+- Cloud-Pull in der App nutzt den vorhandenen Restore und Ablöseguard;
+  ausstehende lokale Uploads und laufende Tracker-Authority werden geschuetzt.
+- EFB zeigt das Briefing bei `navigationOnly` im bestehenden Karten-Update,
+  scrollbar, ueber `textContent`. Keine weiteren Requests, kein Missionsbanner.
+  Der Karten-/Navigationsmodus berechnet seine vorhandenen Profile wie bisher;
+  dieser Vertrag transportiert keine Terrain-/Obstacle-Caches.
+- Telemetrie und Missionsprozess unveraendert. Navigation speichert nur bei
+  einer tatsaechlichen Routen-/Plan-Aenderung, niemals pro Telemetriesample.
+
+Nachweise: Cloud-/Browser-Roundtrip, Original-App-Payload/Restore, ungueltige
+Daten, konkurrierender Run, lokales Edit, Neustart, Clear, neue Plan-ID,
+Speicherfehler/Retry und EFB-Textdarstellung. Simulator-/Mehrgeraete-Feldtest
+bleibt erforderlich.

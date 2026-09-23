@@ -8829,7 +8829,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
     if (!value || typeof value !== 'object') return value || null;
     const keep = [
         'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
-        'freeflightOnly', 'efbOnly', 'noMissionRuntime', 'directToEfbOnly', 'routeOnly',
+        'freeflightPlanId', 'freeflightOnly', 'efbOnly', 'noMissionRuntime', 'directToEfbOnly', 'routeOnly',
         'activeMissionCreatedAt', 'activeMissionSavedAt',
         'activeMissionRuntimeStartedAt', 'activeMissionRuntimeSavedAt',
         'activeMissionRuntimePhase', 'activeMissionRuntimeMissionId',
@@ -9296,7 +9296,7 @@ function saveMissionState() {
         try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
     }
     storeActiveMissionStateSafely(state);
-    if (!freeflightOnly && typeof window.queueActiveMissionCloudSave === 'function') {
+    if (typeof window.queueActiveMissionCloudSave === 'function') {
         window.queueActiveMissionCloudSave(draftPending ? 'mission-draft-saved' : 'mission-state-saved');
     }
     if (draftPending) {

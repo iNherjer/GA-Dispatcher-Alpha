@@ -36,6 +36,7 @@
   };
   var flight = null;
   var mapSnapshot = null;
+  var freeflightBriefingCard = null;
   var missionSnapshot = null;
   var missionSignature = '';
   // Semantically unchanged mission polls must not reset banner/toolbar/cargo
@@ -1913,13 +1914,50 @@
     navigationClient.receive({id:'',revision:0,editable:false,points:[],resetPoints:[]});
     var reset = document.querySelector('button[onclick="resetMainRoute()"]');
     if(reset)reset.disabled=true;
+    updateFreeflightBriefing(null);
     renderProgress(); updateCompass(); renderProfile();
+  }
+  function updateFreeflightBriefing(snapshot) {
+    var briefing = snapshot && snapshot.navigationOnly === true && snapshot.briefing && typeof snapshot.briefing === 'object'
+      ? snapshot.briefing : null;
+    var title = briefing ? String(briefing.title || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 1024) : '';
+    var story = briefing ? String(briefing.story || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 32768) : '';
+    if (!title && !story) {
+      if (freeflightBriefingCard) freeflightBriefingCard.style.display = 'none';
+      return;
+    }
+    if (!freeflightBriefingCard) {
+      freeflightBriefingCard = document.createElement('section');
+      freeflightBriefingCard.id = 'trackerFreeflightBriefing';
+      freeflightBriefingCard.setAttribute('aria-label', 'Freiflug-Briefing');
+      freeflightBriefingCard.style.cssText = 'display:none; margin:8px 12px; padding:10px 14px; border:1px solid rgba(110,190,230,.42); border-radius:8px; background:rgba(5,18,28,.9); color:#e7f5ff; font:13px/1.45 Arial,sans-serif; max-height:150px; overflow:auto;';
+      var heading = document.createElement('div');
+      heading.setAttribute('data-role', 'freeflight-briefing-title');
+      heading.style.cssText = 'font-weight:700; font-size:14px; margin-bottom:4px; color:#9edcff;';
+      var body = document.createElement('div');
+      body.setAttribute('data-role', 'freeflight-briefing-story');
+      body.style.whiteSpace = 'pre-wrap';
+      freeflightBriefingCard.appendChild(heading);
+      freeflightBriefingCard.appendChild(body);
+      var container = document.querySelector('.maptable-content');
+      var progress = byId('routeProgressBar');
+      if (container && progress && progress.parentNode === container) container.insertBefore(freeflightBriefingCard, progress);
+      else if (container) container.insertBefore(freeflightBriefingCard, container.firstChild);
+    }
+    freeflightBriefingCard.querySelector('[data-role="freeflight-briefing-title"]').textContent = title;
+    freeflightBriefingCard.querySelector('[data-role="freeflight-briefing-story"]').textContent = story;
+    freeflightBriefingCard.style.display = 'block';
   }
   function renderMapPayload(payload) {
     if (payload && payload.available === false) { clearMapRoute(); return; }
-    if (!payload || payload.available !== true || navigationDragging) return;
+    if (!payload || payload.available !== true) return;
     var normalized = API.normalizeTrackerMapSnapshot(payload);
     if (!normalized) return;
+    normalized.briefing = payload.navigationOnly === true && payload.briefing && typeof payload.briefing === 'object'
+      ? { title: String(payload.briefing.title || '').slice(0, 1024), story: String(payload.briefing.story || '').slice(0, 32768) }
+      : null;
+    updateFreeflightBriefing(normalized);
+    if (navigationDragging) return;
     if (normalized.routeEdit) navigationClient.receive({ id: normalized.routeEdit.id, revision: normalized.routeEdit.revision,
       editable: normalized.routeEdit.editable, resetPoints: normalized.routeEdit.resetPoints, points: normalized.route.waypoints, context: normalized.context,
       missionId: normalized.missionId, runId: normalized.runId });

@@ -100,6 +100,10 @@ function plannedRuntime(missionId, state, seed) {
 function buildCloudMissionCandidate(profile = null, options = {}) {
   const source = object(profile);
   const state = object(source.activeMission);
+  if (!Object.keys(state).length && source.freeflightNavigation) {
+    try { return { ok: true, status: 'navigation', candidate: null, navigation: require('../freeflight-navigation-core').normalize(source.freeflightNavigation) }; }
+    catch (error) { return { ok: false, status: 'invalid', code: error.message, candidate: null }; }
+  }
   const seed = object(source.activeMissionTrackerSeed);
   if (!Object.keys(state).length || seed.schema !== CLOUD_MISSION_SEED_SCHEMA || Number(seed.version) !== 1) {
     return { ok: true, status: 'empty', candidate: null };
@@ -211,7 +215,7 @@ async function fetchTrackerCloudMission(syncId, pin, options = {}) {
       });
       if (!options.request) { if (profileClients.size >= 2) profileClients.clear(); profileClients.set(key, client); }
     }
-    const result = await client.read(['mission', 'field:lastModified']);
+    const result = await client.read(['mission', 'field:lastModified', 'field:freeflightNavigation']);
     response = result.migrated ? { status: 200, data: result.profile } : await request(syncUrl(baseUrl, pilotId, pilotPin), {
       pin: pilotPin, timeoutMs: options.timeoutMs, maxBytes: MAX_PROFILE_RESPONSE_BYTES
     });

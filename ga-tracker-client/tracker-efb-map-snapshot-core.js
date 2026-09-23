@@ -312,7 +312,7 @@ function projectTrackerNavigationSnapshot(route, flightSnapshot, options = {}) {
   const state = { routeWaypoints: route.points, currentStartICAO: route.departureIcao, currentDestICAO: route.destinationIcao };
   const parts = { state, bundle: {}, mission: {}, contract: {} };
   const result = projectRouteParts(parts, route, flightSnapshot, options);
-  return result && { ...result, routeId: route.id, navigationOnly: true };
+  return result && { ...result, routeId: route.id, navigationOnly: true, briefing: route.briefing || null };
 }
 
 function projectRouteParts(parts, activeRun, flightSnapshot, options = {}) {
