@@ -682,6 +682,7 @@ test('remote Origin handoff uses the tracker relay without requiring a loopback 
         missionExecutionHandoffPromise: null,
         _missionExecutionAuthorityIsTracker: () => false,
         _trackerSupportsMissionIntents: () => true,
+        _missionSceneIsBushMission: () => false,
         _missionStartPhase: () => 'planned',
         _ensureMissionAuthorityForStart: async () => true,
         _pushMissionAuthoritySnapshotForExecutionHandoff: async () => ({

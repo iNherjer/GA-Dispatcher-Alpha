@@ -1,3 +1,4 @@
+const bushCore = require('../mission-bush-execution-core.js');
 'use strict';
 const cloudSync = require('../cloud-sync-client.js');
 const profileClients = new Map();
@@ -111,7 +112,7 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
   if (runtime.cargoManifest && cleanString(options.pilotId)) runtime.cargoManifest.pilotId = cleanString(options.pilotId);
   const adapter = cleanString(seed.adapter, 80).toLowerCase()
     || resumeAdapters.detectPrimaryAdapter(runtime, state);
-  if (adapter !== 'apt' && !(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) && options.poiExecutionEnabled === true)) {
+  if (adapter !== 'apt' && !(['poi', 'survey_pattern', 'poi_chain', 'bush_pickup'].includes(adapter) && options.poiExecutionEnabled === true)) {
     return { ok: false, status: 'unsupported', code: 'cloud_mission_recipe_not_enabled', candidate: null };
   }
   const descriptor = object(seed.descriptor).missionId
@@ -127,6 +128,7 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
     efbMission: seed.efbMission ? clone(seed.efbMission) : null,
     missionState: clone(state),
     runtime,
+    ...(adapter === 'bush_pickup' ? {executionBushRecipe:clone(seed.executionBushRecipe || null)} : {}),
     executionEffectPlan: seed.executionEffectPlan ? clone(seed.executionEffectPlan) : null,
     ...(adapter === 'apt' ? { executionTrainingRecipe: clone(seed.executionTrainingRecipe || null) } : {}),
     ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? { executionPoiRecipe: clone(seed.executionPoiRecipe || null) } : {})
@@ -135,6 +137,8 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
   if (!validation.ok) {
     return { ok: false, status: 'invalid', code: validation.error || 'cloud_mission_bundle_invalid', candidate: null };
   }
+  const bushError=bushCore.validateBundle(bundle);
+  if(bushError)return {ok:false,status:'unsupported',code:bushError,candidate:null};
   const aptTrainingError = adapter === 'apt' ? aptTraining.validateBundle(bundle) : null;
   if (['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (!poiRuntime.hasLifecycle(bundle.executionPoiRecipe) || !!poiRuntime.validateBundle(bundle))
       : (object(bundle.executionEffectPlan).schema !== 'ga.mission-apt-effect-plan.v1' || !!aptTrainingError)) {

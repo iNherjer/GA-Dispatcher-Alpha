@@ -19,10 +19,11 @@
         ? require('./mission-poi-voice-core.js')
         : (root && root.GAMissionPoiVoiceCore);
     var routeVoiceCore = typeof module === 'object' && module.exports ? require('./mission-route-voice-core.js') : (root && root.GAMissionRouteVoiceCore);
-    var api = factory(manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore);
+    var bushCore = typeof module === 'object' && module.exports ? require('./mission-bush-execution-core.js') : (root && root.GAMissionBushExecutionCore);
+    var api = factory(manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore, bushCore);
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root && typeof root === 'object') root.GAMissionExecutionCore = api;
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore) {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (manifestCore, startCore, payloadCore, complianceCore, poiTaskCore, poiVoiceCore, routeVoiceCore, bushCore) {
     'use strict';
 
     var CORE_VERSION = 1;
@@ -55,7 +56,7 @@
         'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'SAR_REPORT_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
+        'BUSH_TASK_OBSERVED', 'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'SAR_REPORT_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -488,7 +489,7 @@
         var runtime = object(runtimeRoot.runtime);
         var missionId = text(bundle.missionId || runtimeRoot.missionId || runtime.missionId, 180);
         if (!missionId) return null;
-        var state = baseState(missionId, ((bundle.adapter === 'survey_pattern' && bundle.executionPoiRecipe?.taskDomain === 'mapping_survey') || (bundle.adapter === 'poi_chain' && bundle.executionPoiRecipe?.taskDomain === 'infra_chain_recon')) ? 'poi' : (bundle.adapter || 'apt'));
+        var state = baseState(missionId, ((bundle.adapter === 'survey_pattern' && bundle.executionPoiRecipe?.taskDomain === 'mapping_survey') || (bundle.adapter === 'poi_chain' && bundle.executionPoiRecipe?.taskDomain === 'infra_chain_recon')) ? 'poi' : (bundle.adapter === 'bush_pickup' && bushCore && !bushCore.validateBundle(bundle) ? 'apt' : (bundle.adapter || 'apt')));
         var startPhase = normalizePhase(runtimeRoot.startPhase, 'planned');
         var phase = normalizePhase(runtime.phase || startPhase, startPhase);
         var active = runtime.active === true;
@@ -548,6 +549,10 @@
                 || runtime.farewellSpeechComplete === true,
             deboardingCompleted: runtime.endDeboardingCompleted === true
         };
+        if (bundle.executionBushRecipe && state.recipe === 'apt' && bushCore && !bushCore.validateBundle(bundle)) {
+            state.bushTask = {schema:'ga.tracker-bush-task.v1',missionId,profileId:bundle.executionBushRecipe.spec.profileId,
+                progress:canonicalValue(runtimeRoot.bushProgress || {status:'enroute'}),canEndHere:false};
+        }
         state.progress = progress;
         state.manifest = manifest;
         state.cargo = cargo;
@@ -606,6 +611,7 @@
             dwellSec: Math.max(0, round(progress.dwellSec, 1, 0)),
             attempts: Math.max(0, integer(progress.attempts, 0))
         };
+        if (state.recipe === 'apt' && source.bushTask?.schema === 'ga.tracker-bush-task.v1' && source.bushTask.missionId === state.missionId) state.bushTask = canonicalValue(source.bushTask);
         if (state.recipe === 'poi' && validPoiObservation(source.poiTask, state.missionId)) state.poiTask = canonicalValue(source.poiTask);
         if (state.recipe === 'apt' && source.trainingTask?.schema === 'ga.tracker-apt-training.v1' && source.trainingTask.missionId === state.missionId) state.trainingTask = canonicalValue(source.trainingTask);
         if (state.recipe === 'poi' && source.poiLifecycle) state.poiLifecycle = canonicalValue(source.poiLifecycle);
@@ -992,6 +998,10 @@
         }
         if (event.type === 'MISSION_STARTED') return phase === 'boarded' && state.flags.loadConfirmed && state.flags.boardingConfirmed;
         if (event.type === 'AIRBORNE') return state.flags.started || phase === 'active' || phase === 'enroute';
+        if (event.type === 'BUSH_TASK_OBSERVED') return !!state.bushTask && state.flags.active && !state.flags.closed
+            && !state.flags.closingPending && eventPayload.bushTask?.schema === state.bushTask.schema
+            && eventPayload.bushTask.missionId === state.missionId && eventPayload.bushTask.profileId === state.bushTask.profileId
+            && typeof eventPayload.bushTask.canEndHere === 'boolean' && !!eventPayload.bushTask.progress;
         if (event.type === 'POI_LIFECYCLE_OBSERVED') return state.recipe === 'poi' && state.flags.started && !state.flags.closed
             && ['flightEligible', 'canEndHere', 'endedAtHome', 'needsRideHome'].every(function (key) { return typeof object(eventPayload.poiLifecycle)[key] === 'boolean'; });
         if (event.type === 'POI_ACTION_VOICE_REQUESTED') return poiActionAllowed(state)
@@ -1308,6 +1318,8 @@
             state.progress.airborneSeen = true;
         } else if (event.type === 'FIRE_SCENE_RECOVERY_REQUESTED') {
             appendEffect(state, createEffect(state, event, 'smoke.spawn', { operation: 'fire_watch_recovery' }));
+        } else if (event.type === 'BUSH_TASK_OBSERVED') {
+            state.bushTask = canonicalValue(event.payload.bushTask);
         } else if (event.type === 'POI_LIFECYCLE_OBSERVED') {
             state.poiLifecycle = canonicalValue(event.payload.poiLifecycle);
         } else if (event.type === 'POI_ACTION_VOICE_REQUESTED') {
@@ -1381,7 +1393,7 @@
         } else if (event.type === 'GROUND_STILL') {
             state.flags.onGround = true;
             state.flags.groundStill = true;
-            if ((state.recipe === 'poi' && state.poiLifecycle ? state.poiLifecycle.canEndHere
+            if ((state.bushTask ? state.bushTask.canEndHere : state.recipe === 'poi' && state.poiLifecycle ? state.poiLifecycle.canEndHere
                 : object(event.payload).atDestination === true && state.progress.airborneSeen)) {
                 state.flightEvents = currentFlightEvents(state);
                 if (!state.flightEvents.landingAt) state.flightEvents.landingAt = event.occurredAt || null;

@@ -1,3 +1,4 @@
+const bushCore = require('../mission-bush-execution-core.js');
 const aptTraining = require('./tracker-mission-apt-training.js');
 const poiVoiceAvailability = require('../mission-poi-voice-core.js');
 const followupCore = require('./tracker-mission-followup.js');
@@ -232,6 +233,7 @@ function normalizeExecutionRuntimeContext(value) {
 
 function executionLocationProjection(resumeBundle = null) {
   const bundle = safeObject(resumeBundle);
+  if (bundle.executionBushRecipe && !bushCore.validateBundle(bundle)) return locationCore.normalizeAptLocation(bundle.executionBushRecipe.location);
   const missionState = safeObject(bundle.missionState);
   const missionData = safeObject(missionState.currentMissionData);
   const contract = safeObject(missionState.activeMissionContract);
@@ -492,6 +494,7 @@ function publicExecutionSnapshot(run) {
     cargoObjectRevision: runtime?.cargoObjectRevision || 0,
     passengerInteraction: jsonClone(state.effects.filter(effect => effect.type === 'scene.manual_pax').slice(-1)[0] || null),
     progress: jsonClone(state.progress),
+    ...(state.bushTask ? {bushProgress:jsonClone(state.bushTask.progress)} : {}),
     comfort: runtime?.comfort?.summary ? Object.fromEntries(['comfortScore', 'mood', 'pilotEvents', 'pilotSevere', 'weatherEvents', 'weatherSevere', 'debugMotionProtection'].map(key => [key, runtime.comfort.summary[key]])) : null,
     taskItems: poiRuntime.taskItemStateFromManifest(state.manifest),
     ...(state.poiTask ? { poiTask: poiRuntime.project(state.poiTask) } : {}),
@@ -595,7 +598,7 @@ function createMissionAuthorityManager(options = {}) {
   const executionAuthorityEnabled = options.executionAuthorityEnabled === true;
   // Internal integration gate. The production entrypoint deliberately does not
   // advertise POI until the complete scene/voice/UI contract has passed parity.
-  const supportsExecutionRecipe = (recipe, bundle) => (recipe === EXECUTION_HANDOFF_RECIPE && !aptTraining.validateBundle(bundle))
+  const supportsExecutionRecipe = (recipe, bundle) => (recipe === EXECUTION_HANDOFF_RECIPE && !aptTraining.validateBundle(bundle) && !bushCore.validateBundle(bundle) && (!bundle?.executionBushRecipe || options.poiExecutionEnabled === true))
     || (options.poiExecutionEnabled === true && recipe === 'poi'
       && bundle?.missionId === bundle?.executionPoiRecipe?.missionId
       && (resumeAdapters.detectPrimaryAdapter(bundle?.runtime, bundle?.missionState) === 'poi'
@@ -1389,6 +1392,7 @@ function createMissionAuthorityManager(options = {}) {
       executionStateHash: cleanString(active.executionStateHash, 180) || null,
       updatedAt: Number(active.updatedAt || 0) || null,
       location: executionLocationProjection(active.resumeBundle),
+      bushRecipe: copy(active.resumeBundle?.executionBushRecipe || null),
       state: copy(executionState),
       view: copy(view)
     };

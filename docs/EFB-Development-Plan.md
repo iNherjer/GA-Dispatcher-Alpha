@@ -5684,3 +5684,14 @@ Missionsanker mit frischen Telemetriedaten; UI und Hauptprozess fuehren keine
 SAR-State-Machine. Automatische Sucharbeit, manuelle Bestaetigung, Voice und
 Rueckflug nutzen den gemeinsamen POI-Lifecycle. Helikopter bleibt ausgeklammert.
 Details: Tracker Mission Migration Guide, Abschnitt SAR mit Flaechenflugzeugen.
+
+### Tracker v447: Bush-Zielmissionen
+
+Supply Strip, Charter Strip und Scenic Hopper verwenden den gemeinsamen
+APT-Verlade-/Abschlussablauf und veröffentlichen Bush-Fortschritt aus dem separaten
+Missionsprozess. Gate: `mission.bush-strip.v1` plus vollständiges validiertes
+Bush-Rezept. PAX-Cue/Ausstieg bleiben ACK-geführt; Bodenaktionen brauchen frische
+Telemetrie und Entladung am Missionsziel darf nicht auf einer alten Zielfreigabe
+beruhen. Navigation verändert den Missionsanker nicht. Pickup/Recon sind noch
+nicht freigegeben. Details und Originalfunktions-Mapping im Migration Guide,
+Abschnitt v447.

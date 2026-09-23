@@ -646,3 +646,13 @@ Neue `club-idea.v1`-Ideen benötigen genau einen mitfliegenden Vereinskollegen, 
 ### Optionale Routen-Voice (15.09.2026, lokal)
 
 Vereinsideen dürfen bis zu drei Gesprächsmomente an prozentualen Routenpositionen definieren. Der gemeinsame Fortschrittskern wird bei Tracker-Autorität ausschließlich durch die Tracker-Telemetrie ausgeführt; die bestehenden persistenten Voice-Effekte übernehmen Claim, Ausführung und Recovery. Der App-/Debug-Sim-Pfad verwendet denselben Kern und bleibt bei Tracker-Autorität gesperrt. Keine zusätzlichen Wegpunkte oder Erfolgskriterien. [Vertrag, Grenzen und Tests](Mission%20Route%20Voice%20Events.md).
+
+### Bush-Zielstrips im Tracker (v447)
+
+`bush_supply_strip`, `bush_charter_strip`, `bush_scenic_hopper`: Originales
+Bush-Ziel-/Stoppkriterium → gemeinsamer APT-Ankunftsablauf → ggf. Pflichtfracht
+entladen/signieren/bestätigen → koordinierter PAX-Abschied/Ausstieg → bestätigter
+Abschluss mit ursprünglichem Folgemissions-Seed. Frische Bodenposition bleibt
+Voraussetzung für Aktionen; ein Reload stellt den Fortschritt wieder her, nicht
+eine alte Telemetrie-Freigabe. Cargo-only benötigt keine Passagier-Anflugansage.
+Bush-Pickup und Bush-Recon bleiben für spätere vollständige Portierungen geschlossen.

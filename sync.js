@@ -1296,7 +1296,7 @@ function _missionAuthorityRecoverExecutionShadow(bundle = null) {
 }
 
 function _missionAuthorityFinalizeExecutionShadow(bundle = null) {
-    if (!bundle || !['apt', 'poi', 'survey_pattern', 'poi_chain'].includes(String(bundle.adapter || '').toLowerCase())
+    if (!bundle || !['apt', 'poi', 'survey_pattern', 'poi_chain', 'bush_pickup'].includes(String(bundle.adapter || '').toLowerCase())
         || typeof window.GAMissionExecutionShadowJournal?.finalize !== 'function') return bundle;
     try {
         let journal = null;
@@ -1560,7 +1560,7 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
         efbMission,
         missionState,
         runtime,
-        ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : {
+        ...(adapter === 'bush_pickup' ? (_buildMissionBushExecutionSeed() || {}) : ['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : {
             executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null,
             ...(aptTrainingSeed || {})
         })
@@ -1658,7 +1658,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
         efbMission,
         missionState: compactMissionState,
         runtime,
-        ...(['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : {
+        ...(adapter === 'bush_pickup' ? (_buildMissionBushExecutionSeed() || {}) : ['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? (_buildMissionPoiExecutionSeed() || {}) : {
             executionEffectPlan: adapter === 'apt' ? _buildMissionAptExecutionEffectPlan() : null,
             ...(aptTrainingSeed || {})
         })
@@ -1692,6 +1692,7 @@ function _missionAuthorityResumeBundleHash(bundle = null) {
         mapProfile: bundle.mapProfile,
         executionEffectPlan: bundle.executionEffectPlan,
         executionTrainingRecipe: bundle.executionTrainingRecipe,
+        executionBushRecipe: bundle.executionBushRecipe,
         efbMission: efbMissionForHash,
         missionState: bundle.missionState,
         runtime: runtimeForHash,
@@ -1962,6 +1963,9 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         missionCargoObjectActionRevision = Math.max(missionCargoObjectActionRevision, Number(control.cargoObjectRevision) || 0);
     }
     _applyTrackerPayloadControl(control.payload);
+    if (control.bushProgress && typeof currentMissionData !== 'undefined' && currentMissionData) {
+        currentMissionData.bushProgress = _safeCloneJson(control.bushProgress, null);
+    }
     if (control.recipe === 'poi' && control.poiTask) {
         window.paxVoiceRestorePoiMissionProgress?.({ ...control.poiTask, hasSignal: true, trackingActive: true }, 'tracker-projection');
         window.missionPoiChainRuntime?.renderAuthorityProjection?.(control.chainSpec || null, control.poiTask.poiChain || null);
@@ -2199,7 +2203,9 @@ function _trackerExecutionUsesRelayController() {
 function _missionStartUsesTrackerExecution() {
     const missionId = _activeMissionRuntimeId('');
     if (window.simModeActive) return false;
-    const recipeAvailable = !_missionSceneIsPoiMission() || window.liveTrackerCapabilities?.includes('mission.poi.v1');
+    const recipeAvailable = _missionSceneIsBushMission()
+        ? !!_buildMissionBushExecutionSeed() && window.liveTrackerCapabilities?.includes('mission.bush-strip.v1')
+        : (!_missionSceneIsPoiMission() || window.liveTrackerCapabilities?.includes('mission.poi.v1'));
     if (_trackerSupportsMissionIntents() && recipeAvailable) missionExecutionRequestedMissionId = missionId;
     return (_trackerSupportsMissionIntents() && recipeAvailable)
         || (!!missionId && missionExecutionRequestedMissionId === missionId);
@@ -2210,6 +2216,7 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
     if (missionExecutionHandoffPromise) return missionExecutionHandoffPromise;
     missionExecutionHandoffPromise = (async () => {
         if (window.simModeActive || !_trackerSupportsMissionIntents() || _missionStartPhase() !== 'planned') return false;
+        if (_missionSceneIsBushMission() && (!window.liveTrackerCapabilities?.includes('mission.bush-strip.v1') || !_buildMissionBushExecutionSeed())) return false;
         if (typeof _missionSceneIsPoiMission === 'function' && _missionSceneIsPoiMission() && !window.liveTrackerCapabilities?.includes('mission.poi.v1')) return false;
         const authorityReady = await _ensureMissionAuthorityForStart(`${reason}:authority`);
         if (!authorityReady) return false;
@@ -7423,6 +7430,30 @@ function _buildMissionAptTrainingExecutionSeed() {
             home: _safeCloneJson(voiceContext.home, null), target: _safeCloneJson(voiceContext.target, null)
         }
     };
+}
+
+// Bush A-B reuses the original APT effect builders and completion path. Pickup
+// and recon deliberately cannot obtain this recipe.
+function _buildMissionBushExecutionSeed() {
+    const core = window.GAMissionBushExecutionCore;
+    const missionId = _activeMissionRuntimeId('');
+    const spec = _activeBushMissionSpec();
+    if (!core || !missionId || core.validateSpec(spec)) return null;
+    const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
+    if (!md || [md, md.missionContract, window.activePassenger].some(v => v && (v.sarHeli || v.trainingProcedure || v.surveyPattern || v.poiChain))) return null;
+    const executionBushRecipe = {
+        schema: core.SCHEMA, version: 1, kind: 'strip_target', missionId,
+        spec: _safeCloneJson(spec, null),
+        location: {
+            missionTarget: _safeCloneJson(_targetPointForMission(), null),
+            arrivalPoint: _safeCloneJson(_aptArrivalPointForRuntime(), null),
+            policy: _safeCloneJson(md.executionLocationPolicy || md.missionContract?.executionLocationPolicy || null, null)
+        }
+    };
+    if (core.validateRecipe(executionBushRecipe)) return null;
+    const executionEffectPlan = _buildMissionAptExecutionEffectPlan();
+    const bundle = {missionId, adapter:'bush_pickup', missionState:{currentMissionData:md,activeMissionContract:window.activeMissionContract}, executionBushRecipe, executionEffectPlan};
+    return core.validateBundle(bundle) ? null : {executionBushRecipe, executionEffectPlan};
 }
 
 function _buildMissionPoiExecutionSeed() {
@@ -14830,6 +14861,11 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'missionPlanV2', 'missionPlanV4', 'missionContractV4', 'missionVariety',
         'aptArrivalPlan', 'executionLocationPolicy', 'surveyPattern', 'cargoManifest', 'cargoOutcome', 'fireScenario', 'complianceInspection'
     ];
+    // Bush handoff must retain the already chosen stay window and story seed.
+    // Recomputing these after compact restore would change the follow-up.
+    if (window.GAMissionBushExecutionCore?.PROFILES?.[value.bush?.profileId || value.missionContract?.bush?.profileId || fallback.bush?.profileId]) {
+        keep.push('followUpProspect', 'missionTemporalContext', 'followUpContext', 'followUpContinuation');
+    }
     const out = {};
     keep.forEach(key => {
         if (value[key] !== undefined) out[key] = value[key];
@@ -15438,14 +15474,16 @@ function _syncTrackerMissionSeedPayload(activeMission = null) {
         }
     };
     const adapter = _missionAuthorityAdapter(runtime, state);
-    if (!['apt', 'poi', 'survey_pattern', 'poi_chain'].includes(adapter)) return null;
+    if (!['apt', 'poi', 'survey_pattern', 'poi_chain', 'bush_pickup'].includes(adapter)) return null;
     let executionEffectPlan = null;
     let poiSeed = null;
+    let bushSeed = null;
     let aptTrainingSeed = null;
     try {
+        bushSeed = adapter === 'bush_pickup' ? _buildMissionBushExecutionSeed() : null;
         poiSeed = ['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? _buildMissionPoiExecutionSeed() : null;
         aptTrainingSeed = adapter === 'apt' ? _buildMissionAptTrainingExecutionSeed() : null;
-        executionEffectPlan = ['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? poiSeed?.executionEffectPlan : _buildMissionAptExecutionEffectPlan();
+        executionEffectPlan = adapter === 'bush_pickup' ? bushSeed?.executionEffectPlan : ['poi', 'survey_pattern', 'poi_chain'].includes(adapter) ? poiSeed?.executionEffectPlan : _buildMissionAptExecutionEffectPlan();
     } catch (_) {}
     if (!executionEffectPlan) return null;
     let efbMission = null;
@@ -15485,6 +15523,7 @@ function _syncTrackerMissionSeedPayload(activeMission = null) {
             : null,
         initialCargoManifest,
         executionEffectPlan: _safeCloneJson(executionEffectPlan, null),
+        ...(bushSeed ? { executionBushRecipe: bushSeed.executionBushRecipe } : {}),
         ...(poiSeed ? { executionPoiRecipe: poiSeed.executionPoiRecipe } : {}),
         ...(aptTrainingSeed ? { executionTrainingRecipe: _safeCloneJson(aptTrainingSeed.executionTrainingRecipe, null) } : {}),
         efbMission

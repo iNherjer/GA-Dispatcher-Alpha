@@ -38,6 +38,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   }
 
   const adapter = createTrackerMissionExecutionAdapter({
+    now: options.now,
+    random: options.random,
     syncInitialPayload: options.syncInitialPayload === true,
     allowIntentRevisionRebase: options.allowIntentRevisionRebase === true,
     getPilotId: options.getPilotId,

@@ -9762,6 +9762,31 @@ function _farewellPreparedContext(record = null) {
     };
 }
 
+function _activeBushStripTargetVoiceSpec() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (!md || typeof window.GAMissionBushExecutionCore?.validateSpec !== 'function') return null;
+    const contract = _activeMissionContractData();
+    const candidates = [
+        contract?.bush,
+        md.missionContract?.bush,
+        md.bush,
+        window.activeMissionContract?.bush
+    ].filter(value => value && typeof value === 'object' && !Array.isArray(value));
+    if (!candidates.length) return null;
+    const first = candidates[0];
+    const canonical = value => Array.isArray(value) ? value.map(canonical)
+        : value && typeof value === 'object'
+            ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+    // Authority contexts must use the same complete contract in every projection.
+    if (candidates.some(candidate => JSON.stringify(canonical(candidate)) !== JSON.stringify(canonical(first)))) return null;
+    try {
+        if (candidates.some(candidate => window.GAMissionBushExecutionCore.validateSpec(candidate) !== null)) return null;
+        return JSON.parse(JSON.stringify(first));
+    } catch (_) {
+        return null;
+    }
+}
+
 function _farewellAuthorityContext() {
     const shared = window.GAMissionFarewellVoiceCore;
     if (!shared || typeof shared.createContext !== 'function') return null;
@@ -9771,9 +9796,10 @@ function _farewellAuthorityContext() {
     const trainingPlan = _activeAptTrainingPlan();
     const isPoi = _isPOIMission();
     const isBush = typeof _isBushVoiceMission === 'function' && _isBushVoiceMission();
+    const bushStripSpec = isBush ? _activeBushStripTargetVoiceSpec() : null;
     const isSarHeli = typeof window.missionIsSarHeliMission === 'function'
         && window.missionIsSarHeliMission(md);
-    const supported = !isPoi && !trainingPlan && !isBush && !isSarHeli;
+    const supported = !isPoi && !trainingPlan && (!isBush || !!bushStripSpec) && !isSarHeli;
     const unsupportedReason = isPoi
         ? 'farewell_context_poi_not_migrated'
         : (trainingPlan

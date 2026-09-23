@@ -344,7 +344,7 @@ test('App POI seed uses original builders, carries target scene and fails closed
     _missionTargetSceneKind: () => 'survey_context', _missionTargetSceneItems: () => [{ kind: 'marker', objectTitle: 'Original scene asset' }],
     _missionTargetScenePoint: () => terrainReady ? { lat: 48.3, lon: 8.5, altFt: 800, hdg: 90 } : null,
     _missionTargetSceneId: () => 'original-target', _missionTargetSceneRequestTerrain: () => terrainRequests++,
-    _missionSceneIsPoiMission: () => true, _trackerSupportsMissionIntents: () => sandbox.window.liveTrackerCapabilities.includes('mission.intent.v1'),
+    _missionSceneIsBushMission: () => false, _missionSceneIsPoiMission: () => true, _trackerSupportsMissionIntents: () => sandbox.window.liveTrackerCapabilities.includes('mission.intent.v1'),
     missionExecutionRequestedMissionId: '' };
   vm.createContext(sandbox); vm.runInContext(extract('_buildMissionPoiExecutionSeed') + '\n' + extract('_missionStartUsesTrackerExecution'), sandbox);
   const seed = sandbox._buildMissionPoiExecutionSeed();

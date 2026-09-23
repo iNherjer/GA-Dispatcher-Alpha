@@ -587,3 +587,55 @@ Tests: originales App-Seed/Anker/Radius/Szene, Cloud-Gate inkl. Heli-Sperre,
 Suchzeit/Hoehe/Pflichtladung, positive/zu weite/doppelte/veraltete Fundmeldung,
 Voice-Originalvergleich und Ergebnis-Restore, echte Missionsprozess-Intents.
 Keine zusaetzlichen Cloud-Schreibvorgaenge pro Telemetriesample.
+
+## v447: Bush-Zielstrips – erster vollständiger Bush-Abschnitt
+
+Freigegeben sind `bush_supply_strip` (`unload_at_target`),
+`bush_charter_strip` (`passenger_dropoff`) und `bush_scenic_hopper`
+(`land_at_target`). Alle drei behalten ihren ursprünglichen `bush_pickup`
+Resume-Adapter; erst das validierte `executionBushRecipe` ordnet sie dem
+vorhandenen APT-Ausführungsrezept zu. Keine neue parallele Boarding-/Abschlussmaschine.
+`mission.bush-strip.v1` wird zusammen mit aktivierter Tracker-Missionsautorität
+angeboten. Alte Tracker erhalten keine Bush-Übergabe.
+
+| Original | Tracker-Anschluss | Nachweis |
+| --- | --- | --- |
+| `_missionBushUpdateProgress`, `_missionBushGroundEndReady` und ihre Bush-Helfer in `mission-runtime-core.js` | Generierter `mission-bush-task-core.js`, explizite Position/Manifest/Endbereitschaft | Generator `--check`, eingefrorene Originalfunktionen als Differenztest |
+| `_targetPointForMission`, `_aptArrivalPointForRuntime` | Unveränderlicher Rezeptanker; Navigationsroute bleibt separat | Seed- und Integrationstest |
+| `_buildMissionAptExecutionEffectPlan` | Originale Start-, Boarding-, Ankunfts- und Ausstiegskommandos | App-Seed-Test plus A-B-Integration |
+| `_farewellPreparedContext`, `_farewellPrompt`, `_cargoOnlyFarewellPrompt`, Boarding-Guidance | Bestehende Voice-Cores; ausschließlich Authority-Gate erweitert | Direkter Promptvergleich mit Originalfunktionen |
+| `mission-followup.js` | Bestehender Abschluss-/Outbox-Pfad | Alle drei Profile erzeugen beim bestätigten Abschluss ihren Original-Folgeseed |
+
+### Grenzen und wichtige Details
+
+- Pickup mit Personen/Fracht und Recon/Rückflug bleiben geschlossen. Dass der
+  extrahierte Originalkern ihre Funktionen enthält, ist keine Freigabe: Das
+  strikte Profil-/Completion-/Return-/Location-Gate entscheidet.
+- Bodentrigger werden aus echten aktuellen Samples ausgewertet, nicht aus
+  interpolierten Flugsegmenten. Pause, Slew, ungültige Position und fehlende
+  frische Telemetrie dürfen keine Bodenaktion freigeben. Frischegrenze 5 Sekunden;
+  nach Prozessneustart oder Simulatortrennung sind neue Samples erforderlich.
+- Originale Strip-Endbereitschaft bleibt erhalten: Ein qualifizierter Stopp am
+  Ziel setzt `ready_to_close`; dieser Originalpfad fordert nicht zusätzlich einen
+  separaten Flugnachweis. Pflichtladung, Signatur und Abschlussbestätigung gelten
+  trotzdem über den gemeinsamen APT-Pfad.
+- Charter-Ausstieg bleibt mit Abschied koordiniert: Cue → Voice → Continue →
+  physischer ACK. Kein vorzeitiges Freigeben der Personen/Zuladung.
+- Reine Fracht hat im Original keine Passagier-Anflugansage. Das Gate verlangt
+  deshalb dort keinen Approach-Kontext, aber weiterhin den Fracht-Abschied.
+- Im kompakten lokalen Bush-Resume bleiben `missionTemporalContext`,
+  `followUpProspect`, `followUpContext` und `followUpContinuation` erhalten.
+  Der vorher bestimmte Aufenthalt und Erzählkontext dürfen nicht neu gewürfelt
+  werden. Ein erzeugter Pickup-Folgeseed bedeutet noch keine Tracker-Freigabe
+  dieses noch nicht portierten Folgetyps.
+- Fortschritt wird nur bei Änderung als `BUSH_TASK_OBSERVED` im Missionsprozess
+  übernommen; App/EFB zeigen den gemeinsamen `bushProgress`. RAM-Autorität und
+  bestehender asynchroner Checkpoint bleiben bestehen. Keine neuen Cloud-Writes
+  oder Telemetrie-Schleifen pro Positionssample.
+- Standalone-Trigger und Standalone-Prompts bleiben unverändert. Änderungen an
+  ihrem Originalkern machen den Generatorcheck rot und müssen bewusst übernommen
+  und erneut gegen die eingefrorene Referenz geprüft werden.
+
+Feldprüfung: alle drei Profile unter Windows/MSFS mit echten Boarding-/Ausstiegs-
+ACKs und verschiedenen Flugzeugen. Automatisierte Simulator-Doubles ersetzen
+keinen praktischen Flug.
