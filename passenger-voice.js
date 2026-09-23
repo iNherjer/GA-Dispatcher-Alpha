@@ -7408,7 +7408,8 @@ ${urgencyLine}`
     ];
     const clubIdea = md?.clubIdea || contract?.clubIdea;
     const charterIdea=md?.charterIdea || contract?.charterIdea;
-    if(charterIdea?.schema === 'charter-idea.v1') lines.push(`CHARTERAUFTRAG: ${JSON.stringify(charterIdea)}. Du bist der benannte Reisende und sprichst für die gebuchte Gruppe. Der Pilot befördert euch professionell; er ist nicht Initiator eures Reiseanlasses. Persönlich, höflich und natürlich sprechen, nicht werblich. Geplanter Aufenthalt ist noch nicht erlebt. Entwickle den Gesprächsfaden weiter statt Briefing oder Komfortlob zu wiederholen.`);
+    if(charterIdea?.continuation) lines.push(`FORTSETZUNG: Der Aufenthalt ist der gespeicherte fiktive Erlebnisstand. Du bist der zurückreisende Kunde, nicht der Pilot. Bereits auf dem Hinflug gehört: ${JSON.stringify(charterIdea.continuation.heardOutbound || [])}. Erzähle aus dem Aufenthalt weiter; wiederhole nicht den ursprünglichen Hinflugauftrag.`);
+    if(charterIdea?.schema === 'charter-idea.v1') lines.push(`CHARTERAUFTRAG: ${JSON.stringify(charterIdea)}. Du bist der benannte Reisende und sprichst für die gebuchte Gruppe. Der Pilot befördert euch professionell; er ist nicht Initiator eures Reiseanlasses. Persönlich, höflich und natürlich sprechen, nicht werblich. ${charterIdea.continuation ? 'Der gespeicherte Aufenthalt liegt zurück; der Rückflug ist die aktuelle Reise.' : 'Geplanter Aufenthalt ist noch nicht erlebt.'} Entwickle den Gesprächsfaden weiter statt Briefing oder Komfortlob zu wiederholen.`);
     if (clubIdea?.schema === 'club-idea.v1') {
         const ids = new Set((clubIdea.narrativeEvents || []).map(e => e.geo?.anchorId).filter(Boolean));
         lines.push(`OPTIONALE ORTSFAKTEN: ${JSON.stringify((clubIdea.geoAnchors || []).filter(a => ids.has(a.id)))}. Diese Daten belegen Orte und Merkmale, keine aktuelle Sichtbarkeit oder Besichtigung.`);
@@ -9413,6 +9414,7 @@ function _pickupBoardingPrompt() {
     if (!ctx || !pax) return null;
     const active = _activeBushPickupPassengerContract();
     if (!active) return null;
+    if (window.currentMissionData?.charterIdea?.continuation) return `${ctx}\nDu bist gerade am Aufenthaltsplatz zugestiegen. Begrüße den Piloten natürlich und erwähne bei Bedarf ein Detail des gespeicherten Aufenthalts. Maximal drei Sätze. Du sprichst als der benannte Gast für dieselbe Reisegruppe. Keine neuen Aufgaben, Gegenstände oder Termine erfinden.${_toneHint()}`;
     const wx = _weatherContext(window.lastLiveFlightData);
     const storyAnchor = _bushPickupStoryAnchorLine(active, pax);
     const storyData = _bushPickupStoryData(active, pax);
@@ -9439,6 +9441,7 @@ function _pickupDeparturePrompt() {
     if (!ctx || !pax) return null;
     const active = _activeBushPickupPassengerContract();
     if (!active) return null;
+    if (window.currentMissionData?.charterIdea?.continuation) return `${ctx}\nDer besetzte Rückflug hat begonnen. Führe das bereits gehörte Gespräch mit einem neuen persönlichen Detail aus dem gespeicherten Aufenthalt fort, ohne erneute Begrüßung. Maximal vier Sätze. Du sprichst als der benannte Gast für dieselbe Reisegruppe. Keine neuen Aufgaben, Gegenstände oder Termine erfinden.${_toneHint()}`;
     const wx = _weatherContext(window.lastLiveFlightData);
     const continuityHint = _bushPickupNarrativeHint('departure');
     const storyAnchor = _bushPickupStoryAnchorLine(active, pax);
@@ -10461,10 +10464,14 @@ function _tickPoiDwell(lat, lon, flightData) {
 // Telemetry caller owns persistence and authority; voice only formats/queues the moment.
 window.paxVoiceSpeakRouteEvent = function(event, previousIntents = []) {
     const core = window.GAMissionRouteVoiceCore;
-    if (!core || !_missionHasPax() || _paxMissionEndVoiceActive()) return;
+    if (!core || !_missionHasPax() || _paxMissionEndVoiceActive() || !window.paxVoiceRouteEventReady()) return;
     return _speakAndShow(core.prompt(_baseContext(), event, previousIntents, window.activePassenger?.narrativeSchema), window.activePassenger?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', null, { cancelWhenMissionEnd: true });
 };
 
 window.paxVoiceRouteEventReady = function() {
+    const md=typeof currentMissionData!=='undefined'?currentMissionData:null;
+    if(md?.charterIdea?.continuation?.pickupRequired
+        && (!md.bushProgress?.pickupCompleted && !md.bushProgress?.pickupConfirmed
+            || !md.cargoManifest?.items?.some(item=>item.id==='pickup-passenger'&&item.status==='loaded')))return false;
     return _paxVoiceEnabled && _missionHasPax() && _paxGreetingDone && !_paxCurrentPlayback && !_paxComfortBusy && !_paxMissionEndVoiceActive();
 };

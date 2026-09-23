@@ -984,7 +984,7 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
     }
     const charterIdea = window.currentMissionData?.charterIdea;
     if (charterIdea?.schema === 'charter-idea.v1') {
-        const primary = items.find(item => item.id === 'primary-cargo');
+        const primary = items.find(item => item.id === (isBushPickupPassenger?'pickup-companion-cargo':'primary-cargo'));
         if (primary && charterIdea.luggageWeightLbs > 0) Object.assign(primary, {
             label: charterIdea.luggageLabel, storyName: charterIdea.luggageLabel,
             weightLbs: charterIdea.luggageWeightLbs, required: false,
@@ -1281,6 +1281,11 @@ function _missionCargoManifestMatchesMissionRecipe(manifest = null) {
     const bush = _activeBushMissionSpec();
     const isPickupPassenger = !!(bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'passenger');
     const isPickupCargo = !!(bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'cargo');
+    if (isPickupPassenger && window.currentMissionData?.charterIdea?.continuation) {
+        const idea=window.currentMissionData.charterIdea;
+        return manifest.items.some(item=>item.id==='pickup-passenger')
+            && (idea.luggageWeightLbs===0 || manifest.items.some(item=>item.id==='pickup-companion-cargo'));
+    }
     if (isPickupPassenger) {
         const targetItems = manifest.items.filter(item => item && item.pickupLocation === 'target');
         return targetItems.some(item => String(item.itemType || '').toLowerCase() === 'passenger')
@@ -1293,6 +1298,7 @@ function _missionCargoManifestMatchesMissionRecipe(manifest = null) {
 }
 
 function _missionCargoUpgradeBushPickupCompanionCargo(manifest = null) {
+    if(window.currentMissionData?.charterIdea?.continuation)return false;
     if (!manifest || !Array.isArray(manifest.items)) return false;
     const bush = _activeBushMissionSpec();
     const isPickupPassenger = !!(

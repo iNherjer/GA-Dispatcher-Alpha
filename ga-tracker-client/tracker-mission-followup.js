@@ -3,10 +3,11 @@
 const {createFollowupService}=require('../mission-followup.js');
 const {createInfraOutcomeService}=require('../mission-infra-outcome-core.js');
 const privateReturn=require('../mission-private-return-core.js');
+const charterContinuation=require('../mission-charter-continuation-core.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 function service(requests=[],now=Date.now()) {
  const storage=new Map([['ga_followup_requests_v1',JSON.stringify(requests)]]);
- const window={MissionPrivateReturnCore:{...privateReturn,request:(mission,record)=>privateReturn.request(mission,record,now)}};
+ const window={MissionCharterContinuationCore:charterContinuation,MissionPrivateReturnCore:{...privateReturn,request:(mission,record)=>privateReturn.request(mission,record,now)}};
  class Clock extends Date { constructor(...args){super(...(args.length?args:[now]));} static now(){return now;} }
  const environment={window,Date:Clock,headless:true,document:{getElementById:()=>null},localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,String(value))}};
  createInfraOutcomeService(environment);
@@ -22,6 +23,7 @@ function createForCompletedRun(run,control,now=Date.now()) {
  const record={missionId:run.missionId,completionId:`${run.missionId}-${Math.round(endedAt)}`,endedAt,
   result:failed?'failed':'completed',failed,cargo:flight.missionCargoOutcome||{failed},
   privateOutingEvidence:privateReturn.completionEvidence(flight,{atTarget:control.flight?.destination?.atDestination===true,groundStill:control.flags.groundStill===true})};
+ mission.charterHeardSpeech=control.voice?.clubHistory || [];
  const api=service([],now);
  const result=api.create(mission,record.cargo,{source:'tracker-confirmed-completion',completionRecord:record});
  return {result,requests:api.requests()};

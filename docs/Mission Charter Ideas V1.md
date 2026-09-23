@@ -96,3 +96,38 @@ Releasepaket: Charter-Ideen/Writer, Gruppen und optionale Reisegespräche einsch
 Releaseprüfung: 43 Charter/Wetter/Private/Club-Tests und 365 Missions-/Tracker-/Persistenztests bestanden, Syntax und Diff geprüft. Windows-EXE mit produktiver Build-Pipeline erstellt. Kein Windows-/MSFS-Hörtest; dieser bleibt für Alpha offen. Die Charter-Folgemissionen werden anschließend separat bearbeitet. Stable wird nicht umgeschaltet.
 
 Builddetails: Der macOS-Host kann die x64-Bytecode-Fabricator-Runtime nicht starten (spawn -86). Daher wurde `npm run build:tracker -- --no-bytecode --public --public-packages '*'` verwendet. Windows-PE-x64 erfolgreich erzeugt. Zusätzlich derselbe pkg-/Node18-Stand als macOS-arm64-Paket geprüft: MISSION_PACKAGED_PROCESS_SMOKE_OK, Worker-Exit 0.
+
+## Charter-Fortsetzungen V1 – Implementierung 22.09.2026
+
+Neue Charterideen entscheiden ausdrücklich über `returnPlan`: `offered`, `reason`, bei gebuchter Rückreise zusätzlich `stayHours` und `stayText`. Es gibt keine Quote und keine Beispielhandlung im Prompt. Ältere Ideen ohne diesen Vertrag behalten den bisherigen Follow-up-Pfad.
+
+`mission-charter-continuation-core.js` erzeugt `charter-continuation.v1` erst nach bestätigtem erfolgreichem Abschluss mit Flugnachweis, Ankunft am Ziel und Bodenstillstand. Die App und der Tracker verwenden denselben Request-Kern. Die Request-ID hängt stabil an der Hinflugmission; Rückreisen erzeugen keine weitere Rückreise. Die Wartezeit beginnt beim tatsächlichen Abschluss. Das Angebot bleibt danach 14 Tage verfügbar.
+
+Der Request bewahrt ursprünglichen Auftrag, Sprecher, Gruppengröße, Gepäck, Ausgangs- und Aufenthaltsflugplatz sowie tatsächlich gehörte Gespräche. Bei Annahme wird ein freier fiktiver Aufenthalt mit Rückreisegrund und nächstem Schritt entworfen. Er wird **vor** dem Briefingwriter gespeichert. Wiederholungen nach einem Writerfehler verwenden denselben Aufenthalt. Ein neuerer Metadatenstand ohne Erlebnis darf dieses beim Cloud-Merge nicht entfernen; konkurrierende gespeicherte Entwürfe werden deterministisch auf den zuerst gespeicherten reduziert. Akzeptierte Requests bleiben als Tombstones erhalten.
+
+Der Briefingwriter erzählt weiterhin aus Dispositions-/Erzählerperspektive vor dem neuen Abflug. Der Aufenthalt liegt zurück, der Pilot hat ihn nicht automatisch miterlebt. Nur die Bordstimme spricht als Kunde. Keine obligatorischen Termine, Mappen, Berichte oder Übergaben; neue Aufgaben sind kein Bestandteil der Fortsetzung. Die ursprüngliche Gruppe darf bei Kapazitätsproblemen nicht verkleinert werden – Annahme schlägt mit verständlicher Meldung fehl und das Angebot bleibt verfügbar.
+
+Drei Startvarianten verwenden bestehende Ausführungsrezepte:
+
+- Pilot am Aufenthaltsplatz B: besetzter APT-Rückflug B → ursprünglicher Ausgangsplatz A.
+- Pilot am Ausgangsplatz A: Leerflug A → B, Gästeaufnahme, Rückflug B → A.
+- Pilot am Drittplatz C: Leerflug C → B, Gästeaufnahme, Rückflug B → A. C ersetzt niemals das Kundenziel.
+
+Gepäck bleibt passagiergebunden und wird nicht zur verpflichtenden Frachtaufgabe. Null Gepäck erzeugt kein Standardgepäck. Bei Abholung wird es zusammen mit den Gästen erst am Zielplatz geladen. Das Manifest bewahrt die vollständige Gruppengröße.
+
+Bis zu drei optionale `narrativeEvents` gehören ausschließlich zum besetzten Rückflug. Prozenttrigger beziehen sich auf die tatsächlichen Routenpunkte ab B; Geo-Trigger verwenden nur belegte Anker. Ohne Gästeaufnahme/geladenes Passagiermanifest wird kein Ereignis beansprucht. Die vorhandene dauerhafte Claim-/Wiedergabehistorie bleibt zuständig. Briefing, Erlebnis und Ereignisse liegen im bestehenden kompaktierten und synchronisierten `charterIdea`-Vertrag.
+
+Wetter wird bei Annahme erneut über die bestehende App-Datenquelle abgefragt. Bei Abholung bekommen Leerflug und besetzter Rückflug getrennte Wetterabsätze mit eigener Start-/Zielzuordnung; Datenlücken werden benannt. Die KI recherchiert keine operativen Wetterwerte. Ein fehlgeschlagener Wetterabsatz verändert die akzeptierte Geschichte nicht.
+
+**Authority-Grenze:** Der direkte Rückflug verwendet die bestehende APT-Ausführung und deren Tracker-Voices. Die Zwischenlandung mit Pickup bleibt auf diesem Stand App-authoritativ; der Umbau schaltet keine noch nicht migrierte Tracker-Pickup-Ausführung frei. Das Tracker-Follow-up-Modul wurde erweitert und benötigt vor Veröffentlichung einen neuen Tracker-Build samt Release-Asset. Diese Implementierung ist noch nicht veröffentlicht.
+
+Gezielte Tests: `node --test tools/mission-charter-continuation.test.cjs tools/mission-charter-ideas.test.cjs tools/mission-route-voice.test.cjs ga-tracker-client/tracker-mission-followup.test.js`. Abgedeckt sind Abschlussnachweis, Startvarianten, Gruppe/Gepäck, Retry/Cloud/Neustart, Kapazitätsabweisung und Trennung der Voice-Flugabschnitte. Ein echter MSFS-/Hörtest bleibt erforderlich.
+
+
+### Abgestimmter Erzählstil für Fortsetzungen – 23.09.2026
+
+Die besprochene Hin-/Rückflug-Kombination bestätigt die gewünschte Qualität, ist aber **kein Prompt-Beispiel und kein neuer Seed**. Personen, Gegenstände und Handlung daraus werden nicht in die Generierung übernommen.
+
+Der Erlebnisentwurf entwickelt aus dem ursprünglichen Kundenanliegen einen konkreten Aufenthalt und dessen Bedeutung für die Reisenden. Ein alltäglicher Verlauf reicht; Humor, Überraschung und Meinungsänderung sind Möglichkeiten, keine Pflichtbausteine. Das Rückflugbriefing verbindet kurzen Rückblick, aktuellen Stand und nächsten Schritt mit dem bevorstehenden Beförderungsauftrag. Es bleibt in Erzählerperspektive vor Abflug. Die Bordstimme darf anschließend persönliche Facetten vertiefen und an tatsächlich gehörte Gespräche anknüpfen. Die optionalen 0–3 Ereignisse sollen unterschiedliche Gedanken beitragen, ohne eine feste dramaturgische Reihenfolge oder Wiederholung des Briefings.
+
+Diese Präzisierung gilt im Code gezielt für die neuen Charter-Fortsetzungen. Andere Missionsfamilien und ältere Follow-up-Verträge werden dadurch nicht umgestellt. Die bestehende Trennung von App-Pickup und Tracker-APT sowie der unveröffentlichte Stand bleiben bestehen.

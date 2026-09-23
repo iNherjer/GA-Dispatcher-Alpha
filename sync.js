@@ -11508,7 +11508,7 @@ function _buildMissionCompletionRecord(options = {}) {
     const hasCruiseEvidence = cruiseCount >= 10 && cruiseDurationSec >= 20;
     return {
         schemaVersion: 2,
-        ...(window.MissionPrivateReturnCore?.source(md) ? { privateOutingEvidence:
+        ...((window.MissionPrivateReturnCore?.source(md) || window.MissionCharterContinuationCore?.source(md)) ? { privateOutingEvidence:
             window.MissionPrivateReturnCore.completionEvidence(flight,
                 flight.missionEndEvidence?.missionId === missionId ? flight.missionEndEvidence
                     : (typeof _missionEndReadiness === 'function' ? _missionEndReadiness() : {}))
@@ -11718,8 +11718,8 @@ function _persistMissionCompletion(record) {
     // Completion persistence is shared by local close and confirmed completion restore.
     // The private adapter requires measured flight + canonical destination evidence.
     try {
-        if (window.MissionPrivateReturnCore?.source(currentMissionData)) {
-            window.missionFollowupMaybeCreateFromCompletedMission?.(currentMissionData, record.cargo, {
+        if (window.MissionPrivateReturnCore?.source(currentMissionData) || (!_missionExecutionAuthorityIsTracker() && window.MissionCharterContinuationCore?.source(currentMissionData))) {
+            window.missionFollowupMaybeCreateFromCompletedMission?.({...currentMissionData,charterHeardSpeech:missionRuntime.routeVoice?.spoken || []}, record.cargo, {
                 source: 'private-confirmed-completion', completionRecord: record
             });
         }
@@ -18679,7 +18679,10 @@ function _missionObserveRouteVoice(lat, lon, fd) {
     const plan = (currentMissionData?.charterIdea || currentMissionData?.clubIdea)?.narrativeEvents;
     if (!core || !plan?.length) return;
     const previous = missionRuntime.routeVoice || {};
-    const observed = core.observe(plan, routeWaypoints, previous, {
+    const leg=window.MissionCharterContinuationCore?.voiceLeg(currentMissionData?.charterIdea,routeWaypoints,
+        currentMissionData?.bushProgress || {},currentMissionData?.cargoManifest?.items?.some(item=>item.id==='pickup-passenger'&&item.status==='loaded')) || {ready:true,route:routeWaypoints};
+    if(!leg.ready)return;
+    const observed = core.observe(plan, leg.route, previous, {
         now: Date.now(), lat, lon, onGround: fd?.onGround,
         active: missionRuntime.active,
         ending: missionRuntime.closingPending || missionRuntime.waitingFarewellDeboarding,
