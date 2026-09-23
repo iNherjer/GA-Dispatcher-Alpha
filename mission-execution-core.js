@@ -55,7 +55,7 @@
         'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
+        'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -1004,6 +1004,13 @@
             && typeof eventPayload.text === 'string' && eventPayload.text.length > 0 && eventPayload.text.length <= 4000
             && state.effects.some(function (effect) { return effect.effectId === eventPayload.effectId
                 && effect.type === 'voice.poi' && effect.status === 'requested' && !effect.payload.resolvedText; });
+        if (event.type === 'FIRE_SCENE_RECOVERY_REQUESTED') return state.recipe === 'poi' && state.flags.active && !state.flags.closed
+            && state.effects.some(effect => effect.type === 'smoke.spawn');
+        if (event.type === 'FIRE_ACTION_OBSERVED') return poiActionAllowed(state) && state.flags.active
+            && !!state.poiTask?.fireState && ['fire_position', 'fire_no_smoke', 'fire_smoke_visible'].includes(eventPayload.action)
+            && validPoiObservation(eventPayload.poiTask, state.missionId)
+            && eventPayload.poiTask.sequence === state.poiTask.sequence + 1
+            && eventPayload.poiTask.observedAt > state.poiTask.observedAt;
         if (event.type === 'POI_TASK_OBSERVED') {
             var poi = object(eventPayload.poiTask);
             return state.recipe === 'poi' && state.flags.active && !state.flags.closingPending
@@ -1266,6 +1273,9 @@
             if (state.recipe === 'poi' && object(event.payload).targetScene === true) {
                 appendEffect(state, createEffect(state, event, 'scene.target', { operation: 'target' }));
             }
+            if (state.recipe === 'poi' && object(event.payload).smokeScene === true) {
+                appendEffect(state, createEffect(state, event, 'smoke.spawn', { operation: 'fire_watch' }));
+            }
             state.flags.started = true;
             state.flags.active = true;
         } else if (event.type === 'AIRBORNE') {
@@ -1276,6 +1286,8 @@
             state.flags.onGround = false;
             state.flags.groundStill = false;
             state.progress.airborneSeen = true;
+        } else if (event.type === 'FIRE_SCENE_RECOVERY_REQUESTED') {
+            appendEffect(state, createEffect(state, event, 'smoke.spawn', { operation: 'fire_watch_recovery' }));
         } else if (event.type === 'POI_LIFECYCLE_OBSERVED') {
             state.poiLifecycle = canonicalValue(event.payload.poiLifecycle);
         } else if (event.type === 'POI_ACTION_VOICE_REQUESTED') {
@@ -1289,7 +1301,7 @@
                 speaker: speakingEffect.payload.resolvedRecipe?.speaker, updatedAt: event.occurredAt, playback: 'pending' });
             if (poiVoiceCore) state.voice.poiMemory = poiVoiceCore.captureMemory(
                 state.voice.poiMemory || {}, speakingEffect.payload.label, event.payload.text, speakingEffect.payload.resolvedRecipe?.taskDomain);
-        } else if (event.type === 'POI_TASK_OBSERVED') {
+        } else if (event.type === 'POI_TASK_OBSERVED' || event.type === 'FIRE_ACTION_OBSERVED') {
             state.poiTask = canonicalValue(event.payload.poiTask);
             var detector = state.poiTask.detector;
             state.progress.targetSatisfied = detector.satisfied === true;
@@ -1721,6 +1733,7 @@
                 appendEffect(state, createEffect(state, event, 'voice.farewell', { operation: 'farewell' }));
             }
         } else if (event.type === 'MISSION_CLOSED') {
+            if (state.effects.some(effect => effect.type === 'smoke.spawn')) appendEffect(state, createEffect(state, event, 'smoke.clear', { operation: 'fire_watch_end' }));
             state.phase = 'closed';
             state.subphase = 'closed';
             state.flags.active = false;
@@ -1772,6 +1785,7 @@
         if (poiActionAllowed(state)) {
             actions.push('poi_status', 'poi_orientation');
             if (state.flags.active) actions.push('poi_tell_more');
+            if (state.flags.active && state.poiTask?.fireState) actions.push('fire_position', 'fire_no_smoke', 'fire_smoke_visible');
         }
         if (state.flags.active && !state.flags.closingPending && !state.flags.farewellStarted
             && !state.flags.farewellCompleted && !state.flags.unloadConfirmed && state.phase !== 'closing'

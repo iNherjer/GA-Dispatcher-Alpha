@@ -7392,6 +7392,9 @@ function _buildMissionPoiExecutionSeed() {
     const target = _targetPointForMission();
     const home = _missionHomePointForRuntime();
     if (!voiceContext || !target || !home) return null;
+    const fireScenario = voiceContext.taskDomain === 'fire_watch' ? _activeFireScenario() : null;
+    if (voiceContext.taskDomain === 'fire_watch' && !fireScenario) return null;
+    if (fireScenario) _ensureFireSmokeSites(fireScenario);
     const chainSpec = voiceContext.taskDomain === 'infra_chain_recon' ? window.missionPoiChainRuntime?.getActiveSpec(md, window.activePassenger) : null;
     if (voiceContext.taskDomain === 'infra_chain_recon' && !chainSpec) return null;
     if (voiceContext.taskDomain !== 'infra_chain_recon' && [md, contract, window.activePassenger].some(source => source?.poiChain || source?.missionSubType === 'poi_chain')) return null;
@@ -7406,7 +7409,7 @@ function _buildMissionPoiExecutionSeed() {
         schema: 'ga.mission-poi-execution-recipe.v1', version: 1, missionId,
         taskDomain: voiceContext.taskDomain, target, home, strict: voiceContext.strict,
         trackingActive: window.paxVoiceGetPoiMissionProgress?.().trackingActive === true,
-        passenger, voiceContext, ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
+        passenger, voiceContext, ...(fireScenario ? { fireScenario: _safeCloneJson(fireScenario, null) } : {}), ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
     };
     const plan = _buildMissionAptExecutionEffectPlan('poi');
     if (!plan) return null;
@@ -7416,7 +7419,17 @@ function _buildMissionPoiExecutionSeed() {
         supported: true, mode: 'passenger', afterLandingHint: '', hasAptArrivalRuntimePoint: false };
     plan.effects['voice.approach'] = { context: flightContext }; // common flight cues only; POI has no APT approach
     plan.effects['voice.farewell'] = { poiContextRef: true };
-    const targetKind = _missionTargetSceneKind();
+    if (fireScenario?.truth === 'fire') {
+        const fs = fireScenario;
+        plan.effects['smoke.spawn'] = { command: { type: 'mission_smoke_spawn', missionId,
+            reason: 'tracker-execution:fire-watch', extent: fs.extent || 'single_smoke', spawnMode: 'target',
+            objectTitle: fs.smoke?.objectTitle || 'Chimney_Smoke_V1', fireObjectTitle: fs.fire?.objectTitle || 'VO_Fire_R1_40',
+            sites: fs.smoke?.sites || [], fireSites: fs.fire?.enabled ? fs.fire.sites || [] : [],
+            lat: fs.smoke?.lat, lon: fs.smoke?.lon, altFt: fs.smoke?.altFt, hdg: fs.smoke?.hdg || 0,
+            count: fs.smoke?.count || 5, radiusM: fs.smoke?.radiusM || 120 } };
+        plan.effects['smoke.clear'] = { command: { type: 'mission_smoke_clear', missionId, reason: 'tracker-execution:fire-watch-end' } };
+    }
+    const targetKind = fireScenario ? null : _missionTargetSceneKind();
     const targetItems = targetKind ? _missionTargetSceneItems(targetKind) : [];
     if (targetItems.length) {
         const point = _missionTargetScenePoint();

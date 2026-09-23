@@ -220,6 +220,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       'scene.prepare': dispatchSimulatorEffect,
       'scene.arrival': dispatchSimulatorEffect,
       'scene.target': dispatchSimulatorEffect,
+      'smoke.spawn': dispatchSimulatorEffect,
+      'smoke.clear': dispatchSimulatorEffect,
       'scene.boarding': dispatchSimulatorEffect,
       'voice.boarding': backgroundVoice(playBoardingVoice),
       'voice.cargo': backgroundVoice(request => executionEffectPlan()?.cargoAudio
@@ -556,6 +558,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     simulatorEffects = bridge;
     reconcileCargoCheckpoint();
     cleanupExecutionRun = typeof simulator.cleanupMission === 'function' ? simulator.cleanupMission : null;
+    const recoveringFire = authorityManager.getExecutionSnapshot();
+    if (recoveringFire?.state.flags.active && authorityManager.getExecutionPoiRecipe?.()?.taskDomain === 'fire_watch'
+        && recoveringFire.state.effects.some(effect => effect.type === 'smoke.spawn')
+        && !recoveringFire.state.effects.some(effect => effect.type === 'smoke.spawn' && effect.status === 'requested')) {
+      // SimConnect/parent restart loses object ownership. Recreate only the fire
+      // scene, using the original replace-before-spawn path; no task/voice replay.
+      adapter.applySystemEvent({ type: 'FIRE_SCENE_RECOVERY_REQUESTED', missionId: recoveringFire.missionId,
+        runId: recoveringFire.runId, eventId: `${recoveringFire.runId}:fire-scene-recovery:${recoveringFire.executionRevision + 1}` });
+    }
     recoveryDrain = effectRunner.drain().then(async (result) => {
       if (!result.ok && !['mission_execution_authority_web', 'no_active_run'].includes(result.error)) {
         log(`MISSION_EFFECT_RECOVERY status=${result.status || 'error'} error=${result.error || ''}`);

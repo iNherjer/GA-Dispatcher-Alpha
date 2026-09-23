@@ -527,9 +527,10 @@ function publicExecutionSnapshot(run) {
         healthPct: item.healthPct
       }))
     },
-    allowedActions: view.allowedActions.filter(action => action === 'poi_tell_more'
+    allowedActions: view.allowedActions.filter(action => (action.startsWith('fire_') ? poiRecipe?.taskDomain === 'fire_watch' : true)
+      && (action === 'poi_tell_more'
       ? poiVoiceAvailability.knowledgeAvailable(run.resumeBundle?.executionPoiRecipe?.voiceContext, state.voice?.poiMemory, state.flags.active)
-      : !action.startsWith('pax_') || paxQueryCore.available(executionPaxQueryContext(run), runtime?.latestTelemetry || {}).includes(action)),
+      : !action.startsWith('pax_') || paxQueryCore.available(executionPaxQueryContext(run), runtime?.latestTelemetry || {}).includes(action))),
     blockingReasons: view.blockingReasons.slice(),
     nextStep: view.nextStep
   };

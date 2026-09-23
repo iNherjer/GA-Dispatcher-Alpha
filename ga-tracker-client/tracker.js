@@ -90,8 +90,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v439';
-const TRACKER_VERSION_CODE = 439;
+const TRACKER_VERSION = 'v440';
+const TRACKER_VERSION_CODE = 440;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -3699,12 +3699,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     });
   };
 
-  const clearMission = async (missionId, reason = 'clear') => {
+  const clearMission = async (missionId, reason = 'clear', commandId = null) => {
     const key = String(missionId || 'active');
     const rec = missions.get(key);
     if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
       debugLog(`CLEAR_NOOP mission=${key} reason=${reason}`);
-      sendAck({ type: 'mission_smoke_clear_ack', missionId: key, status: 'noop', reason });
+      sendAck({ type: 'mission_smoke_clear_ack', commandId, missionId: key, status: 'noop', reason });
       return { cleared: 0 };
     }
     let cleared = 0;
@@ -3722,7 +3722,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     missions.delete(key);
     trackerLog(`🔥 Smoke Mission ${key}: ${cleared} Objekte entfernt (${reason}).`);
     debugLog(`CLEAR_OK mission=${key} cleared=${cleared} reason=${reason}`);
-    sendAck({ type: 'mission_smoke_clear_ack', missionId: key, status: 'ok', cleared, reason });
+    sendAck({ type: 'mission_smoke_clear_ack', commandId, missionId: key, status: 'ok', cleared, reason });
     return { cleared };
   };
 
@@ -4527,6 +4527,17 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         enqueueSceneObjectOperation(command, () => spawnSceneObjectsAppend(command));
         return { ok: true, status: 'pending', sideEffect: true };
       }
+      if (type === 'mission_smoke_spawn') {
+        debugLog(`MISSION_EFFECT_DISPATCH type=${type} commandId=${commandId} mission=${missionId}`);
+        spawnMissionSmoke(command).catch(error => sendAck({ type: 'mission_smoke_spawn_ack', commandId, missionId, status: 'error', error: error?.message || String(error) }));
+        return { ok: true, status: 'pending', sideEffect: true };
+      }
+      if (type === 'mission_smoke_clear') {
+        debugLog(`MISSION_EFFECT_DISPATCH type=${type} commandId=${commandId} mission=${missionId}`);
+        clearMission(missionId, command?.reason || 'tracker-execution:smoke.clear', commandId)
+          .catch(error => sendAck({ type: 'mission_smoke_clear_ack', commandId, missionId, status: 'error', error: error?.message || String(error) }));
+        return { ok: true, status: 'pending', sideEffect: true };
+      }
       return { ok: false, status: 'blocked', error: 'mission_effect_command_not_allowed', sideEffect: false };
     },
     async handleCommand(command) {
@@ -4590,7 +4601,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
       if (type === 'mission_smoke_clear') {
         debugLog(`COMMAND mission_smoke_clear mission=${command?.missionId || 'active'}`);
-        clearMission(command?.missionId || 'active', 'command').catch(err => {
+        clearMission(command?.missionId || 'active', 'command', command?.commandId || null).catch(err => {
           sendAck({ type: 'mission_smoke_clear_ack', commandId: command?.commandId || null, missionId: command?.missionId || 'active', status: 'error', error: err?.message || String(err) });
         });
         return true;

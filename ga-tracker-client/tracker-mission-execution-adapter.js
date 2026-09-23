@@ -21,6 +21,7 @@ const RELOAD_MAX_DISTANCE_M = 200;
 const RUNTIME_CONTEXT_PERSIST_INTERVAL_MS = 5000;
 const COMPLIANCE_REQUESTED_ITEM_IDS = new Set(['bordbuch', 'fire-extinguisher', 'first-aid']);
 const SYSTEM_EVENT_TYPES = new Set([
+  'FIRE_SCENE_RECOVERY_REQUESTED',
   'POI_TASK_OBSERVED', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED',
   'BOARDING_STARTED',
   'BOARDING_SCENE_CONFIRMED',
@@ -797,6 +798,17 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       if (!cue) return errorResult('pax_query_not_available');
       return submitEvent(snapshot, 'APT_FLIGHT_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }
+    const fireRecipe = authorityManager.getExecutionPoiRecipe?.();
+    if (fireRecipe?.taskDomain === 'fire_watch' && ['fire_position', 'fire_no_smoke', 'fire_smoke_visible', 'poi_status', 'poi_orientation'].includes(intent)) {
+      if (!snapshot.state.flags.active || !snapshot.state.poiTask?.fireState) return errorResult('fire_watch_not_active');
+      const action = intent.startsWith('fire_') ? intent : 'fire_position';
+      const live = observations.latestTelemetry;
+      if (snapshot.state.poiTask.suspendedAt !== null || live?.simPaused || live?.inMenuOrMap) return errorResult('fire_watch_suspended');
+      const sample = live && Number.isFinite(live.observedAt) && now() - live.observedAt <= 10000
+        ? { ...live, ...safeObject(request.livePosition) } : {};
+      const payload = poiRuntime.fireAction(fireRecipe, snapshot.state.poiTask, action, sample, now());
+      return submitEvent(snapshot, 'FIRE_ACTION_OBSERVED', { ...payload, action }, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
+    }
     if (['poi_status', 'poi_orientation', 'poi_tell_more'].includes(intent)) {
       const recipe = authorityManager.getExecutionPoiRecipe?.();
       if (snapshot.recipe !== 'poi' || !poiRuntime.hasLifecycle(recipe)) return errorResult('poi_lifecycle_required');
@@ -865,7 +877,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         : eventType === 'CLOSE_REQUESTED' ? { position: observations.lastPosition }
         : (eventType === 'MISSION_STARTED' ? {
             arrivalScene: !!executionEffectPlan()?.effects?.['scene.arrival'],
-            ...(snapshot.recipe === 'poi' ? { targetScene: !!executionEffectPlan()?.effects?.['scene.target']?.command } : {})
+            ...(snapshot.recipe === 'poi' ? { targetScene: !!executionEffectPlan()?.effects?.['scene.target']?.command, smokeScene: !!executionEffectPlan()?.effects?.['smoke.spawn']?.command } : {})
           } : {}));
     return submitEvent(
       snapshot,

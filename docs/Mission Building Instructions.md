@@ -1,5 +1,7 @@
 # Mission Building Instructions
 
+Geplante POI-Erzählkontinuität und Schnittstelle zum separaten Writer-Umbau: [POI Follow-up Narrative Handoff](POI%20Follow-up%20Narrative%20Handoff.md). Zielbild, noch nicht implementiert.
+
 Für die Übertragung weiterer Missionsfamilien: [Tracker-Migrationsleitfaden](Tracker%20Mission%20Migration%20Guide.md) mit APT-/POI-Erfahrungen, Pflichtmatrix und Freigabegates.
 
 Aktueller konsolidierter Stand und Übertragung auf weitere Sets: [Missionssets-Arbeitsgrundlage](Mission%20Sets%20Handoff.md) (15.09.2026).

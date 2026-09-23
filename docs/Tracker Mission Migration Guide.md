@@ -486,3 +486,31 @@ Regressionen: eingefrorene Standalone-Referenzen fuer Detektor, Voice und
 Soundbursts; originaler App-Seed; Cloud-Gate; Pflichtladung; Abschluss und
 Folgeangebot; Wiederherstellung; Projektion ohne lokalen Tick; Missionsprozess.
 Ein realer MSFS-Flug bleibt die Feldpruefung nach dem Alpha-Update.
+
+## Geplanter Writer-Anschluss für Folgemissionen
+
+[POI Follow-up Narrative Handoff](POI%20Follow-up%20Narrative%20Handoff.md) beschreibt
+den abgestimmten Zielzustand: kompakte Writer-Erinnerung, verbindlicher Befund,
+bestätigter Abschluss und unveränderte Follow-up-Freigaberegeln. Die neue
+POI-Writer-Integration erfolgt separat; v438 setzt dieses Zielbild noch nicht um.
+
+## Feuerwache / fire_watch (v440)
+
+`mission-fire-watch-core.js` wird aus den Originalfunktionen in
+`passenger-voice.js` erzeugt. Uhr, GPS, Flugzustand und Szenario sind injiziert;
+keine Simulator-, Voice- oder Datei-I/O im Fachkern. `fireScenario` ist ein
+Pflichtvertrag des privaten POI-Rezepts. Normale POI-Cargo-/Höhen-/Dwell-Regeln
+ersetzen die spezialisierte Suche nicht: im Original wird vorher zurückgekehrt.
+
+Die manuellen PAX-Meldungen müssen als fachliche Intents mit demselben
+Revisionsschutz wie Cargo verarbeitet werden. Vor dem Intent wird ein offener
+POI-Checkpoint geflusht; der neue Zustand und seine Voice-Effekte werden gemeinsam
+übernommen. Statusprojektionen dürfen vorbereitete Wahrheit nicht verraten.
+Zeitanzeigen dürfen keine härteren Arbeitsbedingungen als der Originalkern
+behaupten. Bei bekannten Pausen/Disconnect werden gespeicherte Zeitanker
+verschoben, damit eine Wiederaufnahme keine Offline-Arbeitszeit gutschreibt.
+
+Originalfehler nicht durch eine neue Interpretation verdecken: Bei der manuellen
+Fehlalarm-Meldung nach erfüllter Suchzeit fehlten Abschlussflags. Beide Pfade
+wurden gezielt korrigiert; die eingefrorene Referenz und ein expliziter
+Differenztest halten fest, warum genau diese Abweichung beabsichtigt ist.

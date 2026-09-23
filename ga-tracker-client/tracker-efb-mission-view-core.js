@@ -450,11 +450,19 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
         view.progress[0] = { label: 'Kettenpunkte', percent: done / Math.max(1, total) * 100, detail: `${done}/${total} dokumentiert`, tone: task.satisfied ? 'good' : 'active' };
         if (chain.corridor?.totalSegments) view.progress.splice(1, 0, { label: 'Korridor', percent: (chain.corridor.completedCount + (chain.corridor.activeCoverage || 0)) / chain.corridor.totalSegments * 100, detail: `${chain.corridor.completedCount}/${chain.corridor.totalSegments} Abschnitte · laufend ${Math.round((chain.corridor.activeCoverage || 0) * 100)}%`, tone: chain.corridor.satisfied ? 'good' : 'active' });
       }
+      if (recipe.taskDomain === 'fire_watch') {
+        const fire = task.fireWatch || {};
+        const assessing = fire.state === 'smoke_confirmed' || fire.assessmentComplete;
+        const done = Number(assessing ? fire.assessmentSec : fire.searchSec) || 0;
+        const required = Number(assessing ? recipe.fireScenario.assessmentDwellSec || 240 : recipe.fireScenario.searchDwellSec || 180);
+        view.progress[0] = { label: assessing ? 'Lagebild' : 'Suchzeit', percent: task.satisfied ? 100 : Math.min(100, done / required * 100),
+          detail: `${formatDuration(done)} / ${formatDuration(required)}${task.satisfied ? ' · erfüllt' : ' · Sichtung im PAX-Menü melden'}`, tone: task.satisfied ? 'good' : 'active' };
+      }
       view.taskTone = task.aborted ? 'danger' : task.satisfied ? 'good' : 'active';
       // The seed feedback describes the preflight state and is stale after handoff.
       view.feedback.push({ label: 'Arbeitsbereich', detail: control.poiStatus?.detail ||
         (task.aborted ? 'Auftrag abgebrochen' : task.satisfied ? 'Auftrag erfüllt' : task.inRadius ? 'Im Arbeitsbereich' : 'Arbeitsbereich anfliegen'), tone: view.taskTone });
-      if (recipe.taskDomain !== 'mapping_survey' && task.inRadius && task.altWasOk === false && !task.aborted && !task.satisfied) view.feedback.push({
+      if (!['mapping_survey', 'infra_chain_recon', 'fire_watch'].includes(recipe.taskDomain) && task.inRadius && task.altWasOk === false && !task.aborted && !task.satisfied) view.feedback.push({
         label: 'Arbeitshöhe', detail: 'Außerhalb der Arbeitshöhe: Arbeitszeit pausiert. Zielhöhe wieder einhalten.', tone: 'warn' });
     }
     const taskItems = control.taskItems;
@@ -505,6 +513,10 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
         const chain = control.poiTask?.poiChain;
         const next = recipe.poiChain.points[chain?.currentIndex || 0];
         view.requirements.push({ label: 'POI-Kette', detail: next ? `Nächster Punkt: ${next.name} · Radius ${next.triggerRadiusNm} NM` : 'Fotopunkte abgeschlossen', tone: 'neutral' });
+      }
+      if (recipe.taskDomain === 'fire_watch') {
+        view.requirements = view.requirements.filter(row => !['Arbeitsbereich', 'Verweilzeit', 'Arbeitshöhe'].includes(row.label));
+        view.requirements.push({ label: 'Feuerwache', detail: `Suchgebiet ${Number(recipe.fireScenario.targetAreaNm || radius).toFixed(1)} NM · Sichtung über PAX melden`, tone: 'neutral' });
       }
       const task = control.poiTask || {};
       view.phase.stages = [{id:'preparation',label:'Vorbereitung'},{id:'enroute',label:'Anflug'},
