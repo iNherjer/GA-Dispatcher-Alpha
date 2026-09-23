@@ -142,3 +142,32 @@ nach Restore, kontinuierliche Haltezeit, falsche Kurvenrichtung, festgefahrenes
 Ausleiten, Ausleiten mit falscher Hoehe, Messluecke waehrend Zusatzuebung sowie
 veraltete Audioeffekte. Original-Extraktions-/Paritaetstests bleiben verbindlich;
 die Tracker-Coaching-Abweichungen werden separat getestet.
+
+## Abdeckung aller vorhandenen Prozeduraufgaben (v444)
+
+Das gemeinsame Guidance-/Banner-Modell gilt fuer alle vier normalisierten
+Uebungstypen und deren Rezeptvarianten, auch fuer freiwillige Zusatzuebungen:
+
+| Typ | Anpassung der Anzeige | Fortschritt |
+| --- | --- | --- |
+| `constant_bank_360` | Links/rechts/frei, tatsaechliche Bank (z.B. 30/45 Grad), Hoehenband, G-Grenze, Ausleitkurs/-bank | 360 Grad und stabile Ausleitzeit |
+| `turn_180` | Gleiche Kriterien mit 180-Grad-Ziel und eigenen Rezeptgrenzen | 180 Grad und stabile Ausleitzeit |
+| `altitude_step_hold` | Steigen/Sinken, freie Schrittweite/Haltedauer, IAS-Referenz und Toleranz, Kurs/Bank/VS | kontinuierliche Haltezeit, Hoehenwechsel, finale Haltezeit |
+| `stall_recovery` | Stabilisieren, Annaeherung, Break abwarten, Recovery; Hoehen-/Kurs-/Bankgrenzen, Stallwarnung, AOA soweit vorhanden, Sinkrate | stabile Setup-/Recovery-Zeit; Break bleibt bestaetigtes Ereignis ohne erfundene Prozentzahl |
+
+Live-Details zeigen gemessene Werte. Bei freier Kurvenrichtung wird nach Einleitung
+die gewaehlte Richtung angezeigt. Die VS-Grenze beim Hoehenwechsel bildet den
+Originaldetektor ab (`maxVsFpm + 250`), nicht nur den engeren nominalen Rezeptwert.
+
+Abgrenzung: Das ist die Abdeckung der messbaren POI-Trainingsprozedur fuer
+`training`, `club_training_basic`, `club_training_advanced`. Das Rezeptfeld
+`mode=pattern` allein definiert keine Gegen-/Quer-/Endanflug- oder Landetrigger.
+APT-Platzrunden-/Navigationsschulung braucht weiterhin ihren eigenen
+Authority-Anschluss und explizite Abschnittskriterien. Der Renderer ist dafuer
+wiederverwendbar; ohne solche Kriterien werden keine Erfolgshaken erfunden.
+Standalone und deren Rezeptnormalisierung bleiben unveraendert.
+
+Tests durchlaufen echte Originaldetektor-Phasen fuer 12 Kurvenvarianten,
+Steigen/Sinken mit abweichenden Rezeptwerten und Stall inklusive Restore,
+roter Abweichungen, stabiler Zeitmessung und Abschluss. Zusaetzlich G-Abweichung
+im Banner vor Ablauf der bestehenden Detektor-Toleranzzeit.

@@ -167,3 +167,63 @@ test('rollout cannot pass outside the altitude band even with correct heading', 
   assert.equal(h.row('rollout').status,'error');
   assert.equal(h.state.progress.completedCount,0);
 });
+
+for (const type of ['constant_bank_360','turn_180']) for (const direction of ['left','right','either']) for (const targetBankDeg of [30,45]) {
+  test(`guidance completes ${type}, ${direction}, bank ${targetBankDeg} with the original detector`, () => {
+    const h=harness([{id:'turn',type,direction,targetBankDeg,stableSec:1}]);
+    h.observe();h.observe({},3100);h.action('training_ready');h.observe({},100);
+    const sign=direction==='left'?-1:1,target=type==='turn_180'?180:360;
+    for(let arc=10;arc<=target;arc+=10)h.observe({hdg:(90+sign*arc+360)%360,bankDeg:sign*targetBankDeg},1000);
+    assert.equal(h.raw().active.phase,'rollout');
+    assert.equal(h.row('turn').status,'complete');
+    assert.equal(h.row('turn').progress,1);
+    assert.match(h.row('turn').label,new RegExp(`${target}° ${sign<0?'links':'rechts'}`));
+    const hdg=(90+target)%360;
+    h.observe({hdg,bankDeg:0});h.observe({hdg,bankDeg:0},1100);
+    assert.equal(h.state.progress.requiredComplete,true);
+    assert.equal(h.state.guidance.visible,false);
+  });
+}
+for(const direction of ['climb','descent']) test(`height and speed guidance covers ${direction} with custom recipe values`,()=>{
+  const h=harness([{id:'step',type:'altitude_step_hold',direction,holdSec:7,altitudeStepFt:700,speedToleranceKts:4,maxVsFpm:600}]);
+  h.observe();h.observe({},3100);h.action('training_ready');h.observe({},100);
+  assert.match(h.row('hold_initial').label,/7 s.*IAS 90 ±4 kt/);
+  assert.match(h.row('altitude_change').label,/850 ft\/min/);
+  const target=direction==='climb'?3700:2300;
+  assert.match(h.row('altitude_change').label,new RegExp(`${target} ft`));
+  h.observe({iasKts:96});
+  assert.equal(h.row('hold_initial').status,'error');
+  assert.match(h.row('hold_initial').detail,/IAS 96 kt/);
+  for(let i=0;i<9;i++)h.observe();
+  assert.equal(h.raw().active.phase,'altitude_change');
+  h.observe({altFt:target,vsFpm:900});
+  assert.equal(h.row('altitude_change').status,'error');
+  for(let i=0;i<14&&!h.state.progress.requiredComplete;i++)h.observe({altFt:target});
+  assert.equal(h.state.progress.requiredComplete,true);
+});
+test('stall banner follows stabilize, approach, break and timed recovery with matching errors',()=>{
+  const h=harness([{id:'stall',type:'stall_recovery',setupStableSec:2,recoveryStableSec:3,targetAoaDeg:14,maxRecoveryBankDeg:10}]);
+  h.observe();h.observe({},3100);h.action('training_ready');h.observe({},100);
+  assert.equal(h.raw().active.phase,'stabilize');
+  h.observe({bankDeg:10});assert.equal(h.row('stabilize').status,'error');
+  h.observe();h.observe();assert.ok(h.row('stabilize').progress>0);
+  h.restore();h.observe();assert.equal(h.raw().active.phase,'approach');
+  assert.equal(h.row('stabilize').status,'complete');
+  h.observe({bankDeg:16});assert.equal(h.row('approach').status,'error');
+  h.observe({iasKts:70,aoaDeg:14});assert.equal(h.raw().active.phase,'hold_to_break');
+  assert.equal(h.row('approach').status,'complete');
+  h.observe({iasKts:70,aoaDeg:14,vsFpm:-700,altFt:2960});
+  assert.equal(h.raw().active.phase,'recovery');
+  assert.equal(h.row('hold_to_break').status,'complete');
+  assert.match(h.row('recovery').label,/AOA ≤12°/);
+  assert.equal(h.row('recovery').status,'error');
+  h.observe({aoaDeg:11,altFt:2960});h.observe({aoaDeg:11,altFt:2960});
+  assert.ok(h.row('recovery').progress>0&&h.row('recovery').progress<1);
+  h.restore();h.observe({aoaDeg:11,altFt:2960});h.observe({aoaDeg:11,altFt:2960});
+  assert.equal(h.state.progress.requiredComplete,true);
+});
+test('turn banner marks excessive G as an error before the detector grace period expires',()=>{
+  const h=harness();h.observe();h.observe({},3100);h.action('training_ready');h.observe({},100);
+  h.observe({hdg:100,bankDeg:30});h.observe({hdg:110,bankDeg:30,gForce:3});
+  assert.equal(h.row('turn').status,'error');assert.match(h.row('turn').detail,/3.0 G/);
+});
