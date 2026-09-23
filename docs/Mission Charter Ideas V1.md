@@ -122,3 +122,12 @@ Wetter wird bei Annahme erneut über die bestehende App-Datenquelle abgefragt. B
 **Authority-Grenze:** Der direkte Rückflug verwendet die bestehende APT-Ausführung und deren Tracker-Voices. Die Zwischenlandung mit Pickup bleibt auf diesem Stand App-authoritativ; der Umbau schaltet keine noch nicht migrierte Tracker-Pickup-Ausführung frei. Das Tracker-Follow-up-Modul wurde erweitert und benötigt vor Veröffentlichung einen neuen Tracker-Build samt Release-Asset. Diese Implementierung ist noch nicht veröffentlicht.
 
 Gezielte Tests: `node --test tools/mission-charter-continuation.test.cjs tools/mission-charter-ideas.test.cjs tools/mission-route-voice.test.cjs ga-tracker-client/tracker-mission-followup.test.js`. Abgedeckt sind Abschlussnachweis, Startvarianten, Gruppe/Gepäck, Retry/Cloud/Neustart, Kapazitätsabweisung und Trennung der Voice-Flugabschnitte. Ein echter MSFS-/Hörtest bleibt erforderlich.
+
+
+### Abgestimmter Erzählstil für Fortsetzungen – 23.09.2026
+
+Die besprochene Hin-/Rückflug-Kombination bestätigt die gewünschte Qualität, ist aber **kein Prompt-Beispiel und kein neuer Seed**. Personen, Gegenstände und Handlung daraus werden nicht in die Generierung übernommen.
+
+Der Erlebnisentwurf entwickelt aus dem ursprünglichen Kundenanliegen einen konkreten Aufenthalt und dessen Bedeutung für die Reisenden. Ein alltäglicher Verlauf reicht; Humor, Überraschung und Meinungsänderung sind Möglichkeiten, keine Pflichtbausteine. Das Rückflugbriefing verbindet kurzen Rückblick, aktuellen Stand und nächsten Schritt mit dem bevorstehenden Beförderungsauftrag. Es bleibt in Erzählerperspektive vor Abflug. Die Bordstimme darf anschließend persönliche Facetten vertiefen und an tatsächlich gehörte Gespräche anknüpfen. Die optionalen 0–3 Ereignisse sollen unterschiedliche Gedanken beitragen, ohne eine feste dramaturgische Reihenfolge oder Wiederholung des Briefings.
+
+Diese Präzisierung gilt im Code gezielt für die neuen Charter-Fortsetzungen. Andere Missionsfamilien und ältere Follow-up-Verträge werden dadurch nicht umgestellt. Die bestehende Trennung von App-Pickup und Tracker-APT sowie der unveröffentlichte Stand bleiben bestehen.
