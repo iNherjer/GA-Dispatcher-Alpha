@@ -55,7 +55,7 @@
         'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
+        'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -1006,6 +1006,11 @@
                 && effect.type === 'voice.poi' && effect.status === 'requested' && !effect.payload.resolvedText; });
         if (event.type === 'FIRE_SCENE_RECOVERY_REQUESTED') return state.recipe === 'poi' && state.flags.active && !state.flags.closed
             && state.effects.some(effect => effect.type === 'smoke.spawn');
+        if (event.type === 'TRAINING_ACTION_OBSERVED') return poiActionAllowed(state) && state.flags.active
+            && !!state.poiTask?.trainingState && ['training_ready','training_abort','training_extra'].includes(eventPayload.action)
+            && validPoiObservation(eventPayload.poiTask, state.missionId)
+            && eventPayload.poiTask.sequence === state.poiTask.sequence + 1
+            && eventPayload.poiTask.observedAt > state.poiTask.observedAt;
         if (event.type === 'FIRE_ACTION_OBSERVED') return poiActionAllowed(state) && state.flags.active
             && !!state.poiTask?.fireState && ['fire_position', 'fire_no_smoke', 'fire_smoke_visible'].includes(eventPayload.action)
             && validPoiObservation(eventPayload.poiTask, state.missionId)
@@ -1018,7 +1023,7 @@
                 && validPoiObservation(poi, state.missionId)
                 && poi.sequence === Number(state.poiTask?.sequence || 0) + 1
                 && (!state.poiTask || (poi.observedAt > state.poiTask.observedAt
-                    && !state.poiTask.detector.satisfied && !state.poiTask.detector.aborted));
+                    && (!state.poiTask.detector.satisfied || !!state.poiTask.trainingState) && !state.poiTask.detector.aborted));
         }
         if (event.type === 'TARGET_ENTERED' || event.type === 'TASK_PROGRESS') return state.flags.active;
         if (event.type === 'TOUCHDOWN' || event.type === 'GROUND_STILL') return state.flags.started || state.flags.active;
@@ -1301,7 +1306,7 @@
                 speaker: speakingEffect.payload.resolvedRecipe?.speaker, updatedAt: event.occurredAt, playback: 'pending' });
             if (poiVoiceCore) state.voice.poiMemory = poiVoiceCore.captureMemory(
                 state.voice.poiMemory || {}, speakingEffect.payload.label, event.payload.text, speakingEffect.payload.resolvedRecipe?.taskDomain);
-        } else if (event.type === 'POI_TASK_OBSERVED' || event.type === 'FIRE_ACTION_OBSERVED') {
+        } else if (event.type === 'POI_TASK_OBSERVED' || event.type === 'FIRE_ACTION_OBSERVED' || event.type === 'TRAINING_ACTION_OBSERVED') {
             state.poiTask = canonicalValue(event.payload.poiTask);
             var detector = state.poiTask.detector;
             state.progress.targetSatisfied = detector.satisfied === true;
@@ -1785,6 +1790,12 @@
         if (poiActionAllowed(state)) {
             actions.push('poi_status', 'poi_orientation');
             if (state.flags.active) actions.push('poi_tell_more');
+            if (state.flags.active && state.poiTask?.trainingState && state.poiTask.suspendedAt === null) {
+                var training = state.poiTask.trainingState.progress || {};
+                if (!training.ready && training.readyPrompted && training.startAvailable && (!training.requiredComplete || training.optionalRequested)) actions.push('training_ready');
+                if (training.activeExercise?.status === 'active') actions.push('training_abort');
+                if (training.requiredComplete && training.optionalAvailable && !training.optionalRequested && training.activeExercise?.status !== 'active') actions.push('training_extra');
+            }
             if (state.flags.active && state.poiTask?.fireState) actions.push('fire_position', 'fire_no_smoke', 'fire_smoke_visible');
         }
         if (state.flags.active && !state.flags.closingPending && !state.flags.farewellStarted

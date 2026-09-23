@@ -6572,6 +6572,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       addOptionalVar('AMBIENT PRECIP RATE', 'millimeters of water', 'precipRateMmH');
       addOptionalVar('AMBIENT IN CLOUD', 'Bool', 'inCloud');
       addOptionalVar('AMBIENT TURBULENCE', 'percent', 'turbulencePct');
+      addOptionalVar('IS SLEW ACTIVE', 'Bool', 'slewActive');
       addOptionalVar('IS PAUSED', 'Bool', 'simPausedA');
       addOptionalVar('SIM IS PAUSED', 'Bool', 'simPausedB');
       addOptionalVar('BRAKE PARKING POSITION', 'Bool', 'parkingBrake');
@@ -6750,6 +6751,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     altFt: Number.isFinite(alt) ? Math.round(alt) : null,
                     aglFt: Number.isFinite(agl) ? Math.round(agl) : null,
                     hdg: Number.isFinite(hdg) ? Math.round(hdg) : null,
+                    slewActive: Number.isFinite(raw.slewActive) ? raw.slewActive > 0.5 : null,
+                    pitchDeg: Number.isFinite(pitchDeg) ? pitchDeg : null,
+                    iasKts: Number.isFinite(iasKts) ? iasKts : null,
+                    aoaDeg: Number.isFinite(aoaDeg) ? aoaDeg : null,
+                    stallState: Number.isFinite(stallState) ? stallState > 0.5 : null,
                     bankDeg: Number.isFinite(bank) ? Math.round(bank * 10) / 10 : null,
                     gForce: Number.isFinite(gForce) ? Math.round(gForce * 100) / 100 : null,
                     vsFpm: Number.isFinite(vsFpm) ? Math.round(vsFpm) : null,

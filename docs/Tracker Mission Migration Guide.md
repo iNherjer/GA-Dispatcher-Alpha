@@ -514,3 +514,27 @@ Originalfehler nicht durch eine neue Interpretation verdecken: Bei der manuellen
 Fehlalarm-Meldung nach erfüllter Suchzeit fehlten Abschlussflags. Beide Pfade
 wurden gezielt korrigiert; die eingefrorene Referenz und ein expliziter
 Differenztest halten fest, warum genau diese Abweichung beabsichtigt ist.
+
+### Tracker-Adapter der Feuerwache
+
+Die Tracker-Anpassung liegt in `tracker-mission-fire-task.js`: Szenariopruefung,
+Originalkern-Aufruf, Pausenzeitanker, manuelle Aktionen und oeffentliche
+Fortschrittsprojektion. `tracker-mission-fire-voice.js` uebersetzt die unveraenderten
+Originaltexte in bestehende Voice-Effekte. Beide Module fuehren keine I/O aus.
+
+`tracker-mission-poi-runtime.js` behaelt die gemeinsame Checkpoint-Validierung,
+Kopie des eingehenden Zustands, Sequenz-/Revisionsverwaltung und Commit-Grenzen.
+Der Fire-Adapter arbeitet ausschliesslich auf diesem eigenen Checkpoint.
+Persistenzformat, Gate, Effect-IDs und Wiederaufnahme bleiben kompatibel.
+`passenger-voice.js` und der generierte `mission-fire-watch-core.js` werden fuer
+diese Strukturverbesserung nicht geaendert. Generator-Driftpruefung und
+eingefrorene Originalvergleiche bleiben verpflichtend.
+
+## POI-Training (v442)
+
+[Tracker Training Migration](Tracker%20Training%20Migration.md) haelt die
+Originaltrigger, Modulgrenzen, Gate-Vertraege und Transportregeln fest.
+Besonders wichtig: Pflichtabschluss und freiwillige Zusatzuebungen sind zwei
+verschiedene Zustaende; der allgemeine POI-Terminalguard darf die Prozedur nicht
+vorzeitig stilllegen. Vollstaendige POI-Trainingsrezepte sind freigegeben; APT-Training
+bleibt durch diesen Anschluss unveraendert.

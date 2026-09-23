@@ -495,6 +495,7 @@ function publicExecutionSnapshot(run) {
     taskItems: poiRuntime.taskItemStateFromManifest(state.manifest),
     ...(state.poiTask ? { poiTask: poiRuntime.project(state.poiTask) } : {}),
     ...(poiRecipe?.taskDomain === 'infra_chain_recon' ? { chainSpec: poiRecipe.poiChain } : {}),
+    ...(poiRecipe?.trainingRecipe ? {trainingSpec:poiRecipe.trainingRecipe} : {}),
     ...(poiRecipe?.taskDomain === 'mapping_survey' ? { surveySpec: poiRecipe.surveyPattern } : {}),
     ...(state.poiLifecycle ? { poiLifecycle: jsonClone(state.poiLifecycle) } : {}),
     ...(poiLifecycle ? { poiStatus: poiLifecycle.status, poiOutcome: exposeCompletionRecord ? poiLifecycle.outcome : null } : {}),

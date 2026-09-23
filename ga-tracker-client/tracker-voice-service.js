@@ -17,6 +17,8 @@ const DEFAULT_MAX_PROVIDER_CONCURRENCY = 2;
 const DEFAULT_MAX_NEW_JOBS_PER_MINUTE = 60;
 const STATIC_SURVEY_CLIP_KEYS = new Set(['scan_survey_area_entered', 'orbit_survey_area_entered',
   'line_complete', 'orbit_turn_complete', 'scan_survey_complete', 'orbit_survey_complete']);
+const STATIC_TRAINING_TASK_DOMAINS = new Set(['training', 'club_training_basic', 'club_training_advanced']);
+const STATIC_TRAINING_CLIP_KEY_PATTERN = /^(?:training|stall)_[a-z0-9_]{1,80}$/;
 const CUE_SEQUENCE_LIMITS = Object.freeze({ before: 5, after: 2, delayMs: 60000 });
 
 function voiceError(code, statusCode, message) {
@@ -68,7 +70,8 @@ function normalizeVoiceRequest(value = {}) {
     // directory-local and only succeeds for a packaged cue filename.
     : (kind === 'poi' && taskDomain === 'mapping_survey' ? requestedCueId : 'none');
   const requestedStaticClipKey = String(value.staticClipKey || '').trim();
-  const staticClipKey = kind === 'poi' && taskDomain === 'mapping_survey' && STATIC_SURVEY_CLIP_KEYS.has(requestedStaticClipKey)
+  const staticClipKey = kind === 'poi' && ((taskDomain === 'mapping_survey' && STATIC_SURVEY_CLIP_KEYS.has(requestedStaticClipKey))
+    || (STATIC_TRAINING_TASK_DOMAINS.has(taskDomain) && STATIC_TRAINING_CLIP_KEY_PATTERN.test(requestedStaticClipKey)))
     ? requestedStaticClipKey : '';
   const normalizeCueSequence = (raw) => {
     const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
@@ -349,6 +352,7 @@ function createTrackerVoiceService(options = {}) {
     : path.resolve(String(options.audioCueDirectory || path.join(__dirname, '..', 'audio-cues')));
   const io = options.io && typeof options.io === 'object' ? options.io : fs;
   const staticSurveyCatalogPath = path.resolve(String(options.staticSurveyCatalogPath || path.join(__dirname, '..', 'audio-pax', 'gemini-survey-v1', 'catalog.json')));
+  const staticTrainingCatalogPath = path.resolve(String(options.staticTrainingCatalogPath || path.join(__dirname, '..', 'audio-pax', 'gemini-training-v1', 'catalog.json')));
   const records = new Map();
   const playbackClients = new Map();
   const playbackGuards = new Map();
@@ -368,23 +372,28 @@ function createTrackerVoiceService(options = {}) {
   const configured = Boolean(apiKey && typeof fetchRemote === 'function');
   const supportsStaticSurvey = request => request?.kind === 'poi' && request?.taskDomain === 'mapping_survey'
     && STATIC_SURVEY_CLIP_KEYS.has(String(request?.staticClipKey || ''));
+  const supportsStaticTraining = request => request?.kind === 'poi' && STATIC_TRAINING_TASK_DOMAINS.has(request?.taskDomain)
+    && STATIC_TRAINING_CLIP_KEY_PATTERN.test(String(request?.staticClipKey || ''));
 
-  async function resolveStaticSurveyAudio(request) {
-    if (!supportsStaticSurvey(request) || request.synthesizeAudio === false) return null;
+  async function resolveStaticCatalogAudio(request, catalogPath, modelName, supportsRequest) {
+    if (!supportsRequest(request) || request.synthesizeAudio === false) return null;
     try {
-      const catalog = JSON.parse(await (io.promises?.readFile || fs.promises.readFile)(staticSurveyCatalogPath, 'utf8'));
+      const catalog = JSON.parse(await (io.promises?.readFile || fs.promises.readFile)(catalogPath, 'utf8'));
       const takes = Array.isArray(catalog?.clips?.[request.staticClipKey]?.takes) ? catalog.clips[request.staticClipKey].takes : [];
       const candidates = boardingVoiceCore.voiceCandidates('gemini', request.speaker, request.voiceName);
       const take = candidates.map(voice => takes.find(entry => String(entry?.voice || '').toLowerCase() === String(voice).toLowerCase()))
         .find(Boolean);
       const rel = String(take?.path || '').replace(/\\/g, '/');
       if (!take || !/^clips\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.wav$/.test(rel)) return null;
-      const filePath = path.resolve(path.dirname(staticSurveyCatalogPath), rel);
-      if (!filePath.startsWith(path.dirname(staticSurveyCatalogPath) + path.sep)) return null;
+      const filePath = path.resolve(path.dirname(catalogPath), rel);
+      if (!filePath.startsWith(path.dirname(catalogPath) + path.sep)) return null;
       const audio = Buffer.from(await (io.promises?.readFile || fs.promises.readFile)(filePath));
-      return audio.length ? { audio, contentType: String(take.mimeType || 'audio/wav'), voiceName: String(take.voice || ''), model: 'static-survey' } : null;
+      return audio.length ? { audio, contentType: String(take.mimeType || 'audio/wav'), voiceName: String(take.voice || ''), model: modelName } : null;
     } catch (_) { return null; }
   }
+
+  const resolveStaticSurveyAudio = request => resolveStaticCatalogAudio(request, staticSurveyCatalogPath, 'static-survey', supportsStaticSurvey);
+  const resolveStaticTrainingAudio = request => resolveStaticCatalogAudio(request, staticTrainingCatalogPath, 'static-training', supportsStaticTraining);
 
   function resolveAudioCue(cue) {
     const source = cue && typeof cue === 'object' && !Array.isArray(cue) ? cue : {};
@@ -692,12 +701,12 @@ function createTrackerVoiceService(options = {}) {
         persist();
         return publicRecord(record);
       }
-      const staticAudio = await resolveStaticSurveyAudio(request);
+      const staticAudio = await resolveStaticSurveyAudio(request) || await resolveStaticTrainingAudio(request);
       if (staticAudio) {
         record.audio = staticAudio.audio; record.contentType = staticAudio.contentType;
         record.model = staticAudio.model; record.voiceName = staticAudio.voiceName;
         record.status = 'ready'; record.updatedAt = now(); totalAudioBytes += staticAudio.audio.length;
-        log(`VOICE_STATIC_SURVEY_READY effectId=${record.effectId} clip=${request.staticClipKey}`); evict(); persist();
+        log(`VOICE_STATIC_READY effectId=${record.effectId} model=${staticAudio.model} clip=${request.staticClipKey}`); evict(); persist();
         return publicRecord(record);
       }
       const result = provider === 'openai'
@@ -786,7 +795,7 @@ function createTrackerVoiceService(options = {}) {
       }
       return publicRecord(existing);
     }
-    if (!configured && request.kind !== 'cargo' && !supportsStaticSurvey(request)) throw voiceError('voice_not_configured', 503, 'Zentrale Voice-Ausgabe ist im Tracker nicht konfiguriert.');
+    if (!configured && request.kind !== 'cargo' && !supportsStaticSurvey(request) && !supportsStaticTraining(request)) throw voiceError('voice_not_configured', 503, 'Zentrale Voice-Ausgabe ist im Tracker nicht konfiguriert.');
     const timestamp = now();
     while (newJobTimestamps.length && timestamp - newJobTimestamps[0] >= 60000) newJobTimestamps.shift();
     if (newJobTimestamps.length >= DEFAULT_MAX_NEW_JOBS_PER_MINUTE) {
@@ -1126,6 +1135,7 @@ function createTrackerVoiceService(options = {}) {
     renewPlayback,
     request,
     supportsStaticSurvey,
+    supportsStaticTraining,
     wait,
     waitForPlayback,
     waitForPlaybackClaim

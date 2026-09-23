@@ -631,6 +631,7 @@ window.paxVoiceResetMission = function() {
 };
 
 window.paxVoiceGetPoiMissionProgress = function() {
+    if (window.gaTrackerExecutionHandlesMission?.() && window.gaTrackerExecutionControl?.trainingSpec) return {hasSignal:true, trackingActive:true, ...(window.gaTrackerExecutionControl.poiTask || {})};
     const sarHeli = (typeof window.missionSarHeliProgressSnapshot === 'function')
         ? window.missionSarHeliProgressSnapshot()
         : null;
@@ -3383,7 +3384,8 @@ function _trainingProcedureControlState() {
     const requiredComplete = !!snap?.requiredComplete;
     const ready = !!snap?.ready;
     const readyPrompted = !!snap?.readyPrompted;
-    const startAvailable = !!snap?.startAvailable;
+    const trackerActions = window.gaTrackerExecutionHandlesMission?.() && window.gaTrackerExecutionControl?.trainingSpec ? window.gaTrackerExecutionControl?.allowedActions || [] : null;
+    const startAvailable = trackerActions ? trackerActions.includes('training_ready') : !!snap?.startAvailable;
     const activeExercise = !!(snap?.activeExercise && String(snap.activeExercise.status || '') === 'active');
     const optionalAvailable = !!snap?.optionalAvailable;
     return {
@@ -3391,9 +3393,9 @@ function _trainingProcedureControlState() {
         readyVisible: !ready && readyPrompted && (!requiredComplete || !!snap?.optionalRequested),
         readyEnabled: !ready && readyPrompted && startAvailable && (!requiredComplete || !!snap?.optionalRequested),
         abortVisible: activeExercise,
-        abortEnabled: activeExercise,
+        abortEnabled: activeExercise && (!trackerActions || trackerActions.includes('training_abort')),
         extraVisible: requiredComplete && optionalAvailable && !snap?.optionalRequested,
-        extraEnabled: requiredComplete && optionalAvailable && !activeExercise && !snap?.optionalRequested,
+        extraEnabled: requiredComplete && optionalAvailable && !activeExercise && !snap?.optionalRequested && (!trackerActions || trackerActions.includes('training_extra')),
         requiredComplete,
         ready,
         readyPrompted,
@@ -3463,6 +3465,7 @@ function _trainingProcedureControlSpeak(text, label = 'Training') {
 }
 
 window.paxTrainingProcedureReady = function() {
+    if (window.gaTrackerExecutionHandlesMission?.() && window.gaTrackerExecutionControl?.trainingSpec) return window.gaTrackerExecutionSubmitIntent?.('training_ready');
     if (typeof window.missionTrainingProcedure?.signalReady !== 'function') {
         _trainingProcedureControlSpeak('Trainingslogik ist noch nicht bereit. Halte den Flug stabil, ich melde mich gleich.', 'Training');
         return;
@@ -3489,6 +3492,7 @@ window.paxTrainingProcedureReady = function() {
 };
 
 window.paxTrainingProcedureAbort = function() {
+    if (window.gaTrackerExecutionHandlesMission?.() && window.gaTrackerExecutionControl?.trainingSpec) return window.gaTrackerExecutionSubmitIntent?.('training_abort');
     if (typeof window.missionTrainingProcedure?.abortExercise !== 'function') {
         _trainingProcedureControlSpeak('Der Abbruch ist gerade nicht verfügbar.', 'Training Abbruch');
         return;
@@ -3509,6 +3513,7 @@ window.paxTrainingProcedureAbort = function() {
 };
 
 window.paxTrainingProcedureRequestExtra = function() {
+    if (window.gaTrackerExecutionHandlesMission?.() && window.gaTrackerExecutionControl?.trainingSpec) return window.gaTrackerExecutionSubmitIntent?.('training_extra');
     if (typeof window.missionTrainingProcedure?.requestOptionalExercise !== 'function') {
         _trainingProcedureControlSpeak('Zusatzuebungen sind in dieser Version noch nicht abrufbar.', 'Training');
         return;
@@ -5927,6 +5932,7 @@ function _handleSurveyPatternEvents(events = [], spec = null) {
 }
 
 function _trainingProcedureActiveRecipe() {
+    if (window.gaTrackerExecutionHandlesMission?.() && window.gaTrackerExecutionControl?.trainingSpec) return window.gaTrackerExecutionControl?.trainingSpec || null;
     if (typeof window.missionTrainingProcedure?.getActiveRecipe !== 'function') return null;
     try {
         return window.missionTrainingProcedure.getActiveRecipe(
@@ -5939,6 +5945,7 @@ function _trainingProcedureActiveRecipe() {
 }
 
 function _trainingProcedureSnapshot() {
+    if (window.gaTrackerExecutionHandlesMission?.() && window.gaTrackerExecutionControl?.trainingSpec) return window.gaTrackerExecutionControl?.poiTask?.trainingProcedure || null;
     if (typeof window.missionTrainingProcedure?.snapshot !== 'function') return null;
     try {
         return window.missionTrainingProcedure.snapshot();
@@ -9871,7 +9878,7 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
     const core = window.GAMissionPoiVoiceCore;
     const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
     if (!core || !missionId || !_isPOIMission() || !md || !window.activePassenger || !_missionHasPax()
-        || !core.DOMAINS.includes(_activeTaskDomain()) || _activeAptTrainingPlan()
+        || !core.DOMAINS.includes(_activeTaskDomain()) || (_activeAptTrainingPlan() && !/^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain()))
         || _activeBushReconOutcome() || window.missionIsSarHeliMission?.(md)) return null;
     if (!_paxCityDatasetAvailable() && typeof loadGlobalCities === 'function') {
         loadGlobalCities().catch(() => {});
@@ -9885,6 +9892,11 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
         taskDomain: _activeTaskDomain(), strict: _paxStrictMode,
         baseContext: _baseContext(), toneHint: _toneHint(true),
         passenger: { ...window.activePassenger }, missionData: { poiName: md.poiName, targetName: md.targetName, dest: md.dest },
+        ...(/^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain()) ? {
+            trainingRecipe: _trainingProcedureActiveRecipe(), trainingPlan: _activeAptTrainingPlan(),
+            trainingSpeaker: _speakerSnapshotForMissionVoice('training-procedure'),
+            routeWaypoints: typeof routeWaypoints !== 'undefined' ? routeWaypoints : []
+        } : {}),
         mapPlaceOrientationLine: _paxMapPlaceOrientationLine(),
         ...(_activeTaskDomain() === 'infra_chain_recon' ? {
             chainSpec: _poiChainActiveSpec(), chainSpeaker: _speakerSnapshotForMissionVoice('poi-chain'),
@@ -10176,6 +10188,7 @@ function _trainingPoiCenterFromRoute(wps) {
 
 // Called each GPS tick from sync.js + sim-route.js
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
+    if (_isPOIMission() && window.gaTrackerExecutionHandlesMission?.() && /^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain())) return;
     const hasPax = !!window.activePassenger && _missionHasPax();
     const cargoOnly = !hasPax && _cargoMissionFocus();
     if (!hasPax && !cargoOnly) return;

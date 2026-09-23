@@ -611,6 +611,33 @@ test('invalid static Survey requests cannot select a local path and fall back no
   assert.equal(service.supportsStaticSurvey({ kind: 'poi', taskDomain: 'mapping_survey', staticClipKey: '../../secret' }), false);
 });
 
+test('supported training domains use the packaged Gemini training clip and voice candidate order without a provider', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-static-training-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const speaker = { gender: 'female', name: 'Instructor', roleProfile: 'instructor_calm_precise_v1', taskDomain: 'club_training_basic' };
+  const candidates = boardingVoiceCore.voiceCandidates('gemini', speaker);
+  const takes = candidates.map((voice, index) => {
+    const rel = `clips/${voice}/training_complete-t01.wav`;
+    fs.mkdirSync(path.dirname(path.join(directory, rel)), { recursive: true });
+    fs.writeFileSync(path.join(directory, rel), `clip-${voice}`);
+    return { voice, path: rel, mimeType: 'audio/wav', take: index + 1 };
+  });
+  fs.writeFileSync(path.join(directory, 'catalog.json'), JSON.stringify({ clips: { training_complete: { takes }, stall_break_detected: { takes } } }));
+  const service = createTrackerVoiceService({ staticTrainingCatalogPath: path.join(directory, 'catalog.json') });
+  const request = { effectId: 'training:static', kind: 'poi', taskDomain: 'club_training_basic', staticClipKey: 'training_complete', fallbackText: 'Training abgeschlossen.', speaker };
+  assert.equal(service.supportsStaticTraining(request), true);
+  service.request(request);
+  const ready = await service.wait('training:static');
+  assert.equal(ready.status, 'ready');
+  assert.equal(ready.model, 'static-training');
+  assert.equal(ready.voiceName, candidates[0]);
+  assert.equal(service.getAudio('training:static').body.toString(), `clip-${candidates[0]}`);
+  service.request({ ...request, effectId:'training:stall', staticClipKey:'stall_break_detected' });
+  assert.equal((await service.wait('training:stall')).model, 'static-training');
+  assert.equal(service.supportsStaticTraining({ ...request, taskDomain: 'mapping_survey' }), false);
+  assert.equal(service.supportsStaticTraining({ ...request, staticClipKey: '../secret' }), false);
+});
+
 test('POI text checkpoint hooks cannot change the APT voice pipeline', async () => {
   let textCalls = 0;
   const service = createTrackerVoiceService({ provider: 'openai', apiKey: 'test-key', fetchRemote: async () => {

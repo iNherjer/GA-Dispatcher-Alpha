@@ -450,6 +450,11 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
         view.progress[0] = { label: 'Kettenpunkte', percent: done / Math.max(1, total) * 100, detail: `${done}/${total} dokumentiert`, tone: task.satisfied ? 'good' : 'active' };
         if (chain.corridor?.totalSegments) view.progress.splice(1, 0, { label: 'Korridor', percent: (chain.corridor.completedCount + (chain.corridor.activeCoverage || 0)) / chain.corridor.totalSegments * 100, detail: `${chain.corridor.completedCount}/${chain.corridor.totalSegments} Abschnitte · laufend ${Math.round((chain.corridor.activeCoverage || 0) * 100)}%`, tone: chain.corridor.satisfied ? 'good' : 'active' });
       }
+      if (recipe.trainingRecipe) {
+        const training = task.trainingProcedure || {};
+        const done = Number(training.completedCount || 0), required = Number(recipe.trainingRecipe.requiredCount || 2);
+        view.progress[0] = {label:'Training', percent:Math.min(100, done / required * 100), detail:`${done}/${required} vorbereitete Übungen · ${training.activeExercise?.label || 'Rückkehr frei'}`, tone:training.requiredComplete ? 'good' : 'active'};
+      }
       if (recipe.taskDomain === 'fire_watch') {
         const fire = task.fireWatch || {};
         const assessing = fire.state === 'smoke_confirmed' || fire.assessmentComplete;
@@ -462,7 +467,7 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       // The seed feedback describes the preflight state and is stale after handoff.
       view.feedback.push({ label: 'Arbeitsbereich', detail: control.poiStatus?.detail ||
         (task.aborted ? 'Auftrag abgebrochen' : task.satisfied ? 'Auftrag erfüllt' : task.inRadius ? 'Im Arbeitsbereich' : 'Arbeitsbereich anfliegen'), tone: view.taskTone });
-      if (!['mapping_survey', 'infra_chain_recon', 'fire_watch'].includes(recipe.taskDomain) && task.inRadius && task.altWasOk === false && !task.aborted && !task.satisfied) view.feedback.push({
+      if (!recipe.trainingRecipe && !['mapping_survey', 'infra_chain_recon', 'fire_watch'].includes(recipe.taskDomain) && task.inRadius && task.altWasOk === false && !task.aborted && !task.satisfied) view.feedback.push({
         label: 'Arbeitshöhe', detail: 'Außerhalb der Arbeitshöhe: Arbeitszeit pausiert. Zielhöhe wieder einhalten.', tone: 'warn' });
     }
     const taskItems = control.taskItems;
@@ -513,6 +518,10 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
         const chain = control.poiTask?.poiChain;
         const next = recipe.poiChain.points[chain?.currentIndex || 0];
         view.requirements.push({ label: 'POI-Kette', detail: next ? `Nächster Punkt: ${next.name} · Radius ${next.triggerRadiusNm} NM` : 'Fotopunkte abgeschlossen', tone: 'neutral' });
+      }
+      if (recipe.trainingRecipe) {
+        view.requirements = view.requirements.filter(row => !['Arbeitsbereich','Verweilzeit','Arbeitshöhe'].includes(row.label));
+        view.requirements.push({label:'Training', detail:'Übungen einzeln im PAX-Menü starten. Nach den vorbereiteten Übungen sind Zusatzübungen freiwillig.'});
       }
       if (recipe.taskDomain === 'fire_watch') {
         view.requirements = view.requirements.filter(row => !['Arbeitsbereich', 'Verweilzeit', 'Arbeitshöhe'].includes(row.label));

@@ -2,7 +2,9 @@
 
 const taskCore = require('../mission-poi-task-core.js');
 const { canonicalStringify } = require('../mission-execution-core.js');
-const fireCore = require('../mission-fire-watch-core.js');
+const trainingTask = require('./tracker-mission-training-runtime.js');
+const fireTask = require('./tracker-mission-fire-task.js');
+const { prepareFireVoices } = require('./tracker-mission-fire-voice.js');
 const chainTask = require('./tracker-mission-poi-chain-task.js');
 const chainVoice = require('./tracker-mission-poi-chain-voice.js');
 const surveyTask = require('./tracker-mission-survey-task.js');
@@ -17,7 +19,7 @@ const RECIPE_SCHEMA = 'ga.mission-poi-execution-recipe.v1';
 const RUNTIME_SCHEMA = 'ga.tracker-poi-runtime.v1';
 // Explicitly bounded standard POI family. A transport adapter named "poi"
 // is insufficient: specialized tasks need their own execution/voice contracts.
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch', ...trainingTask.DOMAINS]);
 const clone = value => JSON.parse(JSON.stringify(value));
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 function point(value) {
@@ -46,10 +48,7 @@ function validateRecipe(recipe) {
     if (recipe.lifecycle && (recipe.lifecycle.schema !== lifecycleCore.SCHEMA || !recipe.voiceContext))
         return 'poi_lifecycle_context_invalid';
     if (recipe.taskDomain === 'fire_watch') {
-        const fs = recipe.fireScenario;
-        if (!fs || !['fire', 'false_alarm'].includes(fs.truth) || !point(fs.target)
-            || ['searchDwellSec', 'assessmentDwellSec', 'targetAreaNm', 'confirmRangeNm', 'paxAwarenessRangeNm'].some(key => fs[key] != null && (!finite(fs[key]) || fs[key] <= 0 || fs[key] > 86400))) return 'fire_watch_scenario_invalid';
-        const error = fireCore.validateScenario(fs);
+        const error = fireTask.validateRecipe(recipe);
         if (error) return error;
     } else if (recipe.fireScenario) return 'poi_recipe_specialized_task_not_migrated';
     if (recipe.taskDomain === 'mapping_survey') {
@@ -64,7 +63,11 @@ function validateRecipe(recipe) {
         if (Object.values(cues).some(id => id !== 'none' && !recipe.voiceContext?.chainAudioDefinitions?.[id])) return 'poi_chain_audio_definition_missing';
         if (!recipe.voiceContext?.chainSpec || canonicalStringify(recipe.voiceContext.chainSpec) !== canonicalStringify(recipe.poiChain)) return 'poi_chain_voice_spec_mismatch';
     } else if (recipe.poiChain || pax.poiChain || recipe.missionSubType === 'poi_chain') return 'poi_recipe_specialized_task_not_migrated';
-    if ([recipe, pax].some(source => source.trainingProcedure || source.sarHeli || source.bush
+    if (trainingTask.DOMAINS.includes(recipe.taskDomain)) {
+        const error = trainingTask.validate(recipe);
+        if (error) return error;
+    } else if (recipe.trainingRecipe || pax.trainingRecipe || pax.trainingProcedure || pax.trainingPlan) return 'poi_recipe_specialized_task_not_migrated';
+    if ([recipe, pax].some(source => source.sarHeli || source.bush
         )) return 'poi_recipe_specialized_task_not_migrated';
     return null;
 }
@@ -116,7 +119,8 @@ function createState(recipe, previous = null) {
         observedAt: previous?.observedAt ?? null,
         suspendedAt: previous?.suspendedAt ?? null,
         detector: taskCore.createState(previous?.detector),
-        ...(recipe.taskDomain === 'fire_watch' ? { fireState: fireCore.createState(fireContext(recipe), previous?.fireState) } : {}),
+        ...(trainingTask.DOMAINS.includes(recipe.taskDomain) ? { trainingState: trainingTask.createState(recipe, previous?.trainingState) } : {}),
+        ...(recipe.taskDomain === 'fire_watch' ? { fireState: fireTask.createState(recipe, previous?.fireState) } : {}),
         ...(recipe.taskDomain === 'infra_chain_recon' ? { chainState: chainTask.createState(recipe.poiChain, previous?.chainState) } : {}),
         ...(recipe.taskDomain === 'mapping_survey' ? { surveyState: surveyTask.createState(recipe.surveyPattern, previous?.surveyState) } : {})
     };
@@ -130,14 +134,19 @@ function observe(recipe, previous, sample, facts = {}) {
     if (!finite(sample?.observedAt) || sample.observedAt < 0) return unchanged('poi_telemetry_invalid');
     if (state.observedAt !== null && sample.observedAt <= state.observedAt) return unchanged('poi_telemetry_stale');
     if (facts.active !== true || facts.trackingActive !== true || facts.ending === true) return unchanged('poi_task_inactive');
-    if (state.detector.satisfied || state.detector.aborted) return unchanged('poi_task_terminal');
+    if ((state.detector.satisfied && !state.trainingState) || state.detector.aborted) return unchanged('poi_task_terminal');
 
     const suspended = sample.simPaused === true || sample.inMenuOrMap === true || facts.suspended === true
-        || (['mapping_survey', 'infra_chain_recon'].includes(recipe.taskDomain) && (sample.onGround === true || sample.slewActive === true || sample.slewMode === true || sample.isSlewActive === true));
+        || (['mapping_survey', 'infra_chain_recon', ...trainingTask.DOMAINS].includes(recipe.taskDomain) && (sample.onGround === true || sample.slewActive === true || sample.slewMode === true || sample.isSlewActive === true));
     // A pause/menu status is useful even when the simulator omits position.
     // Only a valid running sample may release the persisted suspension.
     if (!suspended && (!point(sample) || !finite(sample.altFt)
         || !finite(sample.gsKts))) {
+        if (state.trainingState) {
+            trainingTask.pause(recipe, state.trainingState, sample.observedAt);
+            state.observedAt = sample.observedAt; state.sequence++; state.suspendedAt = sample.observedAt;
+            return {state, effects:[], changed:true, reason:'training_telemetry_invalid'};
+        }
         if (state.chainState) {
             state.chainState = chainTask.suspend(recipe.poiChain, state.chainState, 'invalid').state;
             state.observedAt = sample.observedAt; state.sequence++; state.suspendedAt = sample.observedAt;
@@ -187,6 +196,7 @@ function observe(recipe, previous, sample, facts = {}) {
     state.observedAt = sample.observedAt;
     state.sequence++;
     if (suspended) {
+        if (state.trainingState) trainingTask.pause(recipe, state.trainingState, sample.observedAt);
         if (state.suspendedAt === null) state.suspendedAt = sample.observedAt;
         return { state, effects: [], changed: true, reason: 'poi_task_suspended' };
     }
@@ -197,12 +207,19 @@ function observe(recipe, previous, sample, facts = {}) {
         for (const key of ['enteredAt', 'lastTickTime', 'lastComplaintAt']) {
             if (state.detector[key] !== null) state.detector[key] += elapsed;
         }
-        if (state.fireState) for (const key of ['targetAreaEnteredAt', 'searchStartedAt', 'smokeConfirmedAt']) {
-            if (state.fireState.scenario[key]) state.fireState.scenario[key] += elapsed;
-        }
+        if (state.fireState) fireTask.resume(state.fireState, elapsed);
         state.suspendedAt = null;
     }
-    if (state.fireState) return applyFireResult(recipe, state, fireCore.observe(fireContext(recipe), state.fireState, { ...sample, distNm: taskCore.distanceNm(sample.lat, sample.lon, recipe.target.lat, recipe.target.lon) }, sample.observedAt), sample);
+    if (state.trainingState) {
+        const result = trainingTask.observe(recipe, state.trainingState, sample);
+        state.trainingState = result.state;
+        const progress = result.state.progress;
+        if (progress?.startedAt) state.detector.dwellSec = Math.max(state.detector.dwellSec, (progress.updatedAt - progress.startedAt) / 1000);
+        if (result.satisfied) Object.assign(state.detector, {satisfied:true, atTargetDone:true, inRadius:true, entryDone:true});
+        state.detector.lastTickTime = sample.observedAt;
+        return {state, effects:result.voices.length ? [{type:'training', voices:result.voices}] : [], changed:true, reason:'training_observed'};
+    }
+    if (state.fireState) return fireTask.observe(recipe, state, sample);
     const distNm = taskCore.distanceNm(sample.lat, sample.lon, recipe.target.lat, recipe.target.lon);
     const effectiveGs = sample.gsKts > 25 ? sample.gsKts : 95;
     const bearing = taskCore.bearingDeg(sample.lat, sample.lon, recipe.target.lat, recipe.target.lon);
@@ -230,6 +247,7 @@ function observe(recipe, previous, sample, facts = {}) {
 
 function suspend(recipe, previous) {
     const state = createState(recipe, previous);
+    if (state.trainingState) trainingTask.pause(recipe, state.trainingState, state.observedAt || 0);
     if (state.chainState) state.chainState = chainTask.suspend(recipe.poiChain, state.chainState).state;
     if (state.surveyState) state.surveyState = surveyTask.suspend(recipe.surveyPattern, state.surveyState).state;
     if (state.suspendedAt === null && state.observedAt !== null) state.suspendedAt = state.observedAt;
@@ -241,7 +259,8 @@ function project(state) {
     const detector = state.detector;
     return clone({
         schema: taskCore.SCHEMA, missionId: state.missionId, sequence: state.sequence,
-        ...(state.fireState ? { fireWatch: fireProjection(state) } : {}),
+        ...(state.trainingState ? {trainingProcedure:state.trainingState.progress, trainingSummary:trainingTask.summary(state.trainingState.flight)} : {}),
+        ...(state.fireState ? { fireWatch: fireTask.project(state) } : {}),
         ...(state.chainState ? { poiChain: state.chainState.progress } : {}),
         ...(state.surveyState ? { surveyPattern: {
             ...state.surveyState.progress,
@@ -310,7 +329,7 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
         if (key !== runKey || currentToken !== baseToken) {
             // A fire pilot action commits this same worker's state. Invalidate
             // buffered work without inventing an offline interval after every click.
-            const liveFireAction = key === runKey && recipe.taskDomain === 'fire_watch' && !recovering && !disconnected;
+            const liveFireAction = key === runKey && (recipe.taskDomain === 'fire_watch' || trainingTask.DOMAINS.includes(recipe.taskDomain)) && !recovering && !disconnected;
             clear();
             if (liveFireAction) recovering = false;
             runKey = key;
@@ -325,7 +344,8 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
         try {
             if (!buffered.voiceEffects) {
                 let memory = snapshot.state.voice?.poiMemory || {};
-                buffered.voiceEffects = buffered.effects.filter(effect => ['voice', 'survey', 'chain', 'fire'].includes(effect.type)).flatMap(effect => {
+                buffered.voiceEffects = buffered.effects.filter(effect => ['voice', 'survey', 'chain', 'fire', 'training'].includes(effect.type)).flatMap(effect => {
+                    if (effect.type === 'training') return effect.voices;
                     if (effect.type === 'fire') return prepareFireVoices(recipe.voiceContext, effect.voices, buffered.state.observedAt);
                     if (effect.type === 'chain') return chainVoice.prepareEvents(recipe.voiceContext, effect.events, recipe.poiChain);
                     if (effect.type === 'survey') return surveyVoice.prepareEvent(recipe.voiceContext, effect.events, recipe.surveyPattern);
@@ -415,48 +435,17 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
     });
 }
 
-function fireContext(recipe) {
-    return { scenario: recipe.fireScenario, target: recipe.target, passenger: recipe.passenger, runtimeActive: true };
-}
-function fireProjection(state) {
-    const fs = state.fireState.scenario;
-    const elapsed = start => start ? Math.max(0, ((state.suspendedAt ?? state.observedAt) - start) / 1000) : 0;
-    // Private truth, source locations and unrevealed findings never enter UI progress.
-    return { state: fs.state || 'enroute', awarenessDone: !!fs.awarenessDone,
-        targetAreaAnnounced: !!fs.targetAreaAnnounced, assessmentComplete: !!fs.assessmentComplete,
-        searchSec: elapsed(fs.targetAreaEnteredAt), assessmentSec: elapsed(fs.smokeConfirmedAt),
-        searchDwellSec: Number(fs.searchDwellSec || 180), assessmentDwellSec: Number(fs.assessmentDwellSec || 240),
-        targetAreaNm: Number(fs.targetAreaNm || 1.5), confirmRangeNm: Number(fs.confirmRangeNm || 2) };
-}
-function applyFireResult(recipe, state, result, sample) {
-    state.fireState = result.state;
-    const fs = state.fireState.scenario;
-    const distNm = taskCore.distanceNm(sample.lat, sample.lon, recipe.target.lat, recipe.target.lon);
-    Object.assign(state.detector, { satisfied: result.satisfied === true,
-        atTargetDone: state.fireState.atTargetDone === true, inRadius: distNm <= Number(fs.targetAreaNm || recipe.passenger.targetRadiusNm || 1.5),
-        entryDone: !!fs.targetAreaAnnounced, lastTickTime: sample.observedAt,
-        dwellSec: fs.targetAreaEnteredAt ? Math.max(0, (sample.observedAt - fs.targetAreaEnteredAt) / 1000) : 0 });
-    return { state, effects: result.voices.length ? [{ type: 'fire', voices: result.voices }] : [], changed: true, reason: 'fire_watch_observed', distNm };
-}
-function prepareFireVoices(context, voices, now, action) {
-    return voices.map(event => ({ ...(action ? { action } : {}), label: event.label, notBefore: now,
-        resolvedRecipe: { schema: 'ga.mission-poi-voice-recipe.v1', missionId: context.missionId, kind: 'poi',
-            enabled: true, audioEnabled: context.audioEnabled, taskDomain: 'fire_watch',
-            prompt: '', fallbackText: event.text, playCue: false, speaker: event.speaker || context.speaker,
-            textModels: context.textModels, ttsModels: context.ttsModels,
-            ttsHedgeEnabled: context.ttsHedgeEnabled, ttsHedgeDelayMs: context.ttsHedgeDelayMs } }));
-}
+// Preserve the public API and shared checkpoint validation for callers.
 function fireAction(recipe, previous, action, sample, now) {
-    const state = createState(recipe, previous);
-    if (!state.fireState) throw new TypeError('fire_watch_required');
-    // Commands use the same committed checkpoint, then invalidate the observation buffer by revision.
-    state.sequence++; state.observedAt = Math.max(now, (state.observedAt || 0) + 1);
-    const result = fireCore.action(fireContext(recipe), state.fireState, action, sample, state.observedAt);
-    state.fireState = result.state;
-    state.detector.satisfied = result.satisfied === true;
-    state.detector.atTargetDone = result.state.atTargetDone === true;
-    return { poiTask: state, voiceEffects: prepareFireVoices(recipe.voiceContext, result.voices, state.observedAt, action) };
+    return fireTask.action(recipe, createState(recipe, previous), action, sample, now);
 }
-module.exports = { fireAction, validateBundle, RECIPE_SCHEMA, RUNTIME_SCHEMA, DOMAINS, CHECKPOINT_INTERVAL_MS,
+function trainingAction(recipe, previous, action, now) {
+    const state = createState(recipe, previous);
+    if (!state.trainingState) throw new TypeError('training_required');
+    const result = trainingTask.action(recipe, state.trainingState, action, now);
+    state.trainingState = result.state; state.sequence++; state.observedAt = Math.max(now, (state.observedAt || 0) + 1);
+    return {poiTask:state, voiceEffects:result.voices};
+}
+module.exports = { trainingAction, fireAction, validateBundle, RECIPE_SCHEMA, RUNTIME_SCHEMA, DOMAINS, CHECKPOINT_INTERVAL_MS,
     hasLifecycle: recipe => recipe?.lifecycle?.schema === lifecycleCore.SCHEMA && !validateRecipe(recipe),
     validateRecipe, createState, observe, suspend, project, taskItemStateFromManifest, createAuthorityDriver };

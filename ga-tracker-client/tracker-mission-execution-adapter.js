@@ -798,6 +798,15 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       if (!cue) return errorResult('pax_query_not_available');
       return submitEvent(snapshot, 'APT_FLIGHT_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }
+    if (['training_ready','training_abort','training_extra'].includes(intent)) {
+      if (!snapshot.state.flags.active || !snapshot.state.poiTask?.trainingState) return errorResult('training_not_active');
+      const sample = observations.latestTelemetry;
+      if (snapshot.state.poiTask.suspendedAt !== null || !sample || !Number.isFinite(sample.observedAt)
+          || now() - sample.observedAt > 5000 || sample.simPaused || sample.inMenuOrMap || sample.onGround
+          || sample.slewActive || sample.slewMode) return errorResult('training_suspended');
+      const payload = poiRuntime.trainingAction(authorityManager.getExecutionPoiRecipe(), snapshot.state.poiTask, intent, now());
+      return submitEvent(snapshot, 'TRAINING_ACTION_OBSERVED', {...payload, action:intent}, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
+    }
     const fireRecipe = authorityManager.getExecutionPoiRecipe?.();
     if (fireRecipe?.taskDomain === 'fire_watch' && ['fire_position', 'fire_no_smoke', 'fire_smoke_visible', 'poi_status', 'poi_orientation'].includes(intent)) {
       if (!snapshot.state.flags.active || !snapshot.state.poiTask?.fireState) return errorResult('fire_watch_not_active');
@@ -817,7 +826,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       const sample = { ...observations.latestTelemetry, ...position };
       if (Number.isFinite(position.altFt ?? position.alt)) sample.altFt = position.altFt ?? position.alt;
       let cue;
-      try { cue = preparePoiAction(recipe.voiceContext, intent, { ...snapshot.state.poiTask?.detector, surveyProgress: poiRuntime.project(snapshot.state.poiTask)?.surveyPattern, chainProgress: poiRuntime.project(snapshot.state.poiTask)?.poiChain }, sample, recipe.target, snapshot.state.voice?.poiMemory); }
+      try { cue = preparePoiAction(recipe.voiceContext, intent, { ...snapshot.state.poiTask?.detector, surveyProgress: poiRuntime.project(snapshot.state.poiTask)?.surveyPattern, chainProgress: poiRuntime.project(snapshot.state.poiTask)?.poiChain, trainingProgress:poiRuntime.project(snapshot.state.poiTask)?.trainingProcedure }, sample, recipe.target, snapshot.state.voice?.poiMemory); }
       catch (error) { return errorResult(error.message || 'poi_action_context_invalid'); }
       return submitEvent(snapshot, 'POI_ACTION_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }

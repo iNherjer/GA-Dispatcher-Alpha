@@ -7,7 +7,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(taskCore) {
 'use strict';
 const CONTEXT_SCHEMA = 'ga.mission-poi-voice-context.v1';
-const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch']);
+const DOMAINS = Object.freeze(['media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch', 'training', 'club_training_basic', 'club_training_advanced']);
 const PROMPTS = Object.freeze(["_poiEntryPrompt","_poiInSightPrompt","_poiAltComplaintPrompt","_poiAltCorrectedPrompt","_poiSatisfiedPrompt","_poiAbortPrompt","_poiMissingCargoAbortPrompt"]);
 const clone = value => JSON.parse(JSON.stringify(value));
 function normalizeMemory(value = {}) {
@@ -22,7 +22,8 @@ function validateContext(context, missionId = context?.missionId) {
   if (!DOMAINS.includes(context.taskDomain) || typeof context.strict !== 'boolean'
       || !context.passenger || Array.isArray(context.passenger) || typeof context.baseContext !== 'string' || !context.baseContext.trim()
       || typeof context.audioEnabled !== 'boolean') return 'poi_voice_context_invalid';
-  if (['trainingPlan', 'trainingProcedure', 'sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  if (['sarHeli', 'bush'].some(key => context.passenger[key])) return 'poi_voice_specialized_context_not_migrated';
+  if (['trainingPlan','trainingProcedure','trainingRecipe'].some(key => context.passenger[key]) && !['training','club_training_basic','club_training_advanced'].includes(context.taskDomain)) return 'poi_voice_specialized_context_not_migrated';
   if (context.passenger.poiChain && context.taskDomain !== 'infra_chain_recon') return 'poi_voice_specialized_context_not_migrated';
   if (context.passenger.surveyPattern && context.taskDomain !== 'mapping_survey') return 'poi_voice_specialized_context_not_migrated';
   try {
@@ -77,7 +78,9 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _toneHint = () => context.toneHint || '';
   const _activeTaskDomain = () => context.taskDomain;
   const _isPOIMission = () => true;
-  const _activeAptTrainingPlan = () => null;
+  const _activeAptTrainingPlan = () => context.trainingPlan || null;
+  const _trainingEvalSummary = () => cue.dynamic?.poiProgress?.trainingSummary || null;
+  window.missionTrainingProcedure = { snapshot: () => cue.dynamic?.poiProgress?.trainingProcedure || cue.detector?.trainingProgress || null };
   const _activePoiKnowledgeContext = () => {
     const knowledge = context.knowledgeContext;
     const status = String(knowledge?.status || '').toLowerCase();
@@ -979,6 +982,37 @@ function _poiMissingCargoAbortPrompt(flightData, taskState = null) {
 
 Moment: Wir sind am Zielgebiet, aber ${itemLine}${wx ? ' ' + wx : ''}
 Sag dem Piloten klar und ruhig, dass wir die Beobachtung jetzt abbrechen und direkt zum Start-/Heimatplatz zurückfliegen sollen. Kein Vorwurf, keine Verweilzeit, keine Arbeitsfortsetzung. Nenne den betroffenen Gegenstand beim Namen und benenne klar, ob er fehlt oder beschaedigt ist. Max 2 Sätze.${_toneHint()}`;
+}
+
+function _trainingProcedureDebriefLine() {
+    const snap = (typeof window.missionTrainingProcedure?.snapshot === 'function')
+        ? window.missionTrainingProcedure.snapshot()
+        : null;
+    if (!snap || !Array.isArray(snap.exercises) || !snap.exercises.length) return '';
+    const completed = snap.exercises.filter(ex => ex && ex.status === 'complete');
+    if (!completed.length) {
+        const active = snap.activeExercise?.label ? ` Aktive Uebung: ${snap.activeExercise.label}.` : '';
+        return `\nTrainingsprozedur: noch kein sauber abgeschlossener Durchlauf.${active}`;
+    }
+    const bits = completed.slice(0, 6).map(ex => {
+        const s = ex.summary || {};
+        const label = String(ex.label || ex.id || 'Uebung').trim();
+        if (ex.type === 'stall_recovery') {
+            return `${label}: Hoehenverlust ab Break ${Math.round(Number(s.heightLossFt || 0))} ft`;
+        }
+        if (ex.type === 'constant_bank_360' || ex.type === 'turn_180') {
+            const alt = Number.isFinite(Number(s.maxAltitudeDeviationFt)) ? `${Math.round(Number(s.maxAltitudeDeviationFt))} ft Hoehenabweichung` : 'Hoehe n/a';
+            const hdg = Number.isFinite(Number(s.rolloutHeadingErrorDeg)) ? `Rollout ${Number(s.rolloutHeadingErrorDeg).toFixed(1)} Grad` : '';
+            return `${label}: ${[alt, hdg].filter(Boolean).join(', ')}`;
+        }
+        if (ex.type === 'altitude_step_hold') {
+            const alt = Number.isFinite(Number(s.maxAltitudeDeviationFt)) ? `${Math.round(Number(s.maxAltitudeDeviationFt))} ft Hoehenabweichung` : 'Hoehe n/a';
+            const hdg = Number.isFinite(Number(s.maxHeadingDeviationDeg)) ? `Kurs max ${Number(s.maxHeadingDeviationDeg).toFixed(1)} Grad` : '';
+            return `${label}: ${[alt, hdg].filter(Boolean).join(', ')}`;
+        }
+        return `${label}: sauber`;
+    });
+    return `\nTrainingsprozedur: ${completed.length}/${snap.exercises.length} Uebungen sauber abgeschlossen. ${bits.join(' | ')}.`;
 }
 
 function _farewellPrompt(record) {

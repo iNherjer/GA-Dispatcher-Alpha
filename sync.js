@@ -7387,11 +7387,15 @@ function _buildMissionPoiExecutionSeed() {
     const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
     const contract = md?.missionContract || window.activeMissionContract || {};
     if (!missionId || !md || [md, contract, window.activePassenger].some(source => source
-        && (source.bush || source.sarHeli || source.trainingProcedure))) return null;
+        && (source.bush || source.sarHeli))) return null;
     const voiceContext = window.paxVoiceBuildPoiAuthorityContext?.(missionId);
     const target = _targetPointForMission();
     const home = _missionHomePointForRuntime();
     if (!voiceContext || !target || !home) return null;
+    if (!/^(training|club_training_basic|club_training_advanced)$/.test(voiceContext.taskDomain)
+        && [md, contract, window.activePassenger].some(source => source?.trainingProcedure)) return null;
+    const trainingRecipe = /^(training|club_training_basic|club_training_advanced)$/.test(voiceContext.taskDomain) ? window.missionTrainingProcedure?.getActiveRecipe(md, window.activePassenger) : null;
+    if (/^(training|club_training_basic|club_training_advanced)$/.test(voiceContext.taskDomain) && !trainingRecipe) return null;
     const fireScenario = voiceContext.taskDomain === 'fire_watch' ? _activeFireScenario() : null;
     if (voiceContext.taskDomain === 'fire_watch' && !fireScenario) return null;
     if (fireScenario) _ensureFireSmokeSites(fireScenario);
@@ -7409,7 +7413,7 @@ function _buildMissionPoiExecutionSeed() {
         schema: 'ga.mission-poi-execution-recipe.v1', version: 1, missionId,
         taskDomain: voiceContext.taskDomain, target, home, strict: voiceContext.strict,
         trackingActive: window.paxVoiceGetPoiMissionProgress?.().trackingActive === true,
-        passenger, voiceContext, ...(fireScenario ? { fireScenario: _safeCloneJson(fireScenario, null) } : {}), ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
+        passenger, voiceContext, ...(trainingRecipe ? { trainingRecipe: _safeCloneJson(trainingRecipe, null) } : {}), ...(fireScenario ? { fireScenario: _safeCloneJson(fireScenario, null) } : {}), ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
     };
     const plan = _buildMissionAptExecutionEffectPlan('poi');
     if (!plan) return null;
@@ -7429,7 +7433,7 @@ function _buildMissionPoiExecutionSeed() {
             count: fs.smoke?.count || 5, radiusM: fs.smoke?.radiusM || 120 } };
         plan.effects['smoke.clear'] = { command: { type: 'mission_smoke_clear', missionId, reason: 'tracker-execution:fire-watch-end' } };
     }
-    const targetKind = fireScenario ? null : _missionTargetSceneKind();
+    const targetKind = (fireScenario || trainingRecipe) ? null : _missionTargetSceneKind();
     const targetItems = targetKind ? _missionTargetSceneItems(targetKind) : [];
     if (targetItems.length) {
         const point = _missionTargetScenePoint();

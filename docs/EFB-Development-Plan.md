@@ -5657,3 +5657,12 @@ sichtbar“. Missionsstatus/Orientierung verwenden bei Feuerwache den originalen
 Positionsbericht. Fortschritt zeigt Such- bzw. Lagebildzeit; generische POI-
 Höhen-/Dwell-Blockaden gelten für diese spezialisierte Aufgabe nicht.
 Die öffentliche Fortschrittsprojektion enthält keine vorbereitete Lagewahrheit.
+
+## POI-Training, Alpha v442 (23.09.2026)
+
+PAX bietet Uebung starten, Durchgang abbrechen und Zusatzuebung nach den vom
+Missionsworker freigegebenen Aktionen. Alle Klicks verwenden den gemeinsamen
+Revisionsschutz. Fortschritt zeigt erledigte Pflichtuebungen und die aktuelle
+Uebung; generische POI-Hoehen-/Verweilzeitbedingungen werden fuer Training nicht
+angezeigt. Die App unter Tracker-Autoritaet verwendet denselben Snapshot und
+tickt die POI-Trainingslogik nicht parallel. Standalone und APT bleiben erhalten.
