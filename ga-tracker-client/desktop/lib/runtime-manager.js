@@ -9,7 +9,7 @@ const { runtimeChannelDefinition } = require('./runtime-channel');
 const TRACKER_EXE_NAME = 'VFR-Multitool-Tracker.exe';
 const DEFAULT_CHANNEL_URL = runtimeChannelDefinition('stable').channelUrl;
 const MAX_CHANNEL_BYTES = 256 * 1024;
-const MAX_RUNTIME_BYTES = 160 * 1024 * 1024;
+const MAX_RUNTIME_BYTES = 256 * 1024 * 1024;
 const MIN_RUNTIME_VERSION_CODE = 314;
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const VERSION_PATTERN = /^v([1-9][0-9]*)$/;
@@ -336,10 +336,10 @@ class TrackerRuntimeManager extends EventEmitter {
     } catch (error) {
       if (installed) {
         this.setState({
-          phase: 'deferred',
+          phase: 'error',
           version: installed.descriptor.version,
           installedVersion: installed.descriptor.version,
-          message: `Updateprüfung nicht erreichbar; Tracker ${installed.descriptor.version} wird verwendet.`
+          message: `Tracker-Updateprüfung fehlgeschlagen: ${error?.message || error} Die vorhandene Version ${installed.descriptor.version} wird weiter verwendet.`
         });
         return installed;
       }

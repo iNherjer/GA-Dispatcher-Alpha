@@ -101,3 +101,30 @@ test('invalid runtime hash is rejected without activation', async () => {
   await assert.rejects(() => manager.ensureReady(), /Dateigröße|SHA-256/);
   assert.equal(manager.currentExecutablePath(), '');
 });
+
+test('current Alpha binary size fits bounded runtime download policy', () => {
+  const alpha = require('../../channel/alpha.json');
+  assert.equal(validateChannel(alpha).version, alpha.version);
+  const oversized = structuredClone(alpha);
+  oversized.asset.size = 256 * 1024 * 1024 + 1;
+  assert.throws(() => validateChannel(oversized), /Dateigröße/);
+});
+
+test('channel validation failure preserves installed runtime and reports actual cause, not deferral', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vfr-runtime-error-'));
+  t.after(() => fs.rmSync(root,{recursive:true,force:true}));
+  const payload=Buffer.from('existing-runtime');
+  const first=new TrackerRuntimeManager({runtimeRoot:root,request:requestFor(channel(435,payload),payload)});
+  const installed=await first.ensureReady();
+  const bad=channel(445,payload);bad.asset.size=256*1024*1024+1;
+  const manager=new TrackerRuntimeManager({runtimeRoot:root,request:requestFor(bad,payload)});
+  const fallback=await manager.ensureReady({force:true});
+  assert.equal(fallback.executable,installed.executable);
+  assert.equal(manager.publicState().phase,'error');
+  assert.match(manager.publicState().message,/Dateigröße/);
+  assert.match(manager.publicState().message,/v435/);
+  assert.doesNotMatch(manager.publicState().message,/nicht erreichbar/);
+  manager.request=async()=>{throw new Error('DNS lookup failed');};
+  await manager.ensureReady({force:true});
+  assert.match(manager.publicState().message,/DNS lookup failed/);
+});
