@@ -5723,3 +5723,13 @@ uebernommen. Die Karte zeigt Titel/Text scrollbar vor dem Routenfortschritt,
 ohne Missionsaktionen. Bestehender Map-Refresh reicht; keine weitere Polling-
 Schleife. Missionskarten blenden die Freiflugkarte aus. Original-App-Pläne
 bleiben ohne Missionsruntime. Details: Tracker Mission Migration Guide v450.
+
+## Trainingsfreigabe sichtbar machen (25.09.2026)
+
+App und EFB erhalten aus demselben Tracker-Guidance-Modell schon vor der ersten
+Einweisung Abflugentfernung, aktuelle AGL und die tatsaechliche Rezept-Mindesthoehe.
+Damit bleiben eine hoehere Freigabehoehe (z.B. 2500 ft bei verpflichtendem Stall)
+oder fehlende Flugdaten nicht mehr hinter einem unsichtbaren Banner verborgen.
+Die vorhandenen Start- und Stabilitaetsgates bleiben autoritativ im Tracker.
+Offene Pflichtuebungen werden beim Trainingsabschluss nicht als Ladungsmangel
+formuliert. Details, Nachweise und Feldtestgrenzen: `Tracker Training Migration.md`.

@@ -6,6 +6,10 @@ import voice from '../mission-poi-voice-core.js';
 import location from '../mission-location-core.js';
 const frozen=fs.readFileSync(new URL('./fixtures/poi-lifecycle-legacy-20260915.js',import.meta.url),'utf8');
 const clone=value=>JSON.parse(JSON.stringify(value));
+// Training outcome/wording intentionally separates exercise failure from cargo
+// since the v450 field report. Keep frozen parity for navigation/readiness and
+// every other family; training outcomes have dedicated regression tests.
+const isTraining = domain => ['training','club_training_basic','club_training_advanced'].includes(domain);
 let count=0;
 for (const domain of voice.DOMAINS) for (const dwell of [0,2]) for(const progress of [{},{satisfied:true},{aborted:true},{manualConfirmed:true},{atTargetDone:true}])
 for(const recorder of [{},{maxAglFt:199},{maxAglFt:200},{hadAirbornePhase:true},{airborneEvidenceSec:9},{airborneEvidenceSec:10}])
@@ -27,10 +31,19 @@ for(const ground of [{onGround:false,gsKts:90},{onGround:true,gsKts:0},{onGround
   const expected={readiness,flightEligible:sandbox._missionHasReachedEndEligibleFlightPhase(),canEndHere:readiness.ready||freeEnd,
     endedAtHome,needsRideHome:freeEnd&&!endedAtHome,status:sandbox._missionPoiRuntimeStatus(readiness),
     outcome:sandbox._missionOutcomeApplyPoiProgress(null,{endedAtHome,needsRideHome:freeEnd&&!endedAtHome})};
-  assert.deepEqual(lifecycle.evaluate(recipe,progress,recorder,sample),clone(expected));count++;
+  const actual=lifecycle.evaluate(recipe,progress,recorder,sample);
+  if (isTraining(domain)) {
+    const {outcome:previousOutcome,...previousLifecycle}=clone(expected);
+    const {outcome,...currentLifecycle}=actual;
+    assert.deepEqual(currentLifecycle,previousLifecycle);
+    assert.deepEqual(outcome.notDeliveredRequired,[]);
+    assert.deepEqual(outcome.taskFailureReasons,[progress.aborted ? 'Training wurde abgebrochen.' : 'Pflichtübungen wurden nicht abgeschlossen.']);
+    assert.equal(outcome.failed,true,'no completed training procedure was supplied');
+  } else assert.deepEqual(actual,clone(expected));
+  count++;
 }
 let farewells=0;
-for(const domain of voice.DOMAINS) for(const progress of [{},{satisfied:true},{aborted:true},{manualConfirmed:true}])
+for(const domain of voice.DOMAINS.filter(domain => !isTraining(domain))) for(const progress of [{},{satisfied:true},{aborted:true},{manualConfirmed:true}])
 for(const failed of [false,true]) for(const needsRideHome of [false,true]) for(const protection of [false,true]) {
   const context={schema:voice.CONTEXT_SCHEMA,version:1,missionId:'parity',taskDomain:domain,knowledgeContext:domain==='sightseeing_tour'?{status:'accept',title:'Testobjekt',facts:['Ein regionales Testobjekt mit vielen markanten historischen Gebäudeteilen.']}:null,strict:true,audioEnabled:false,
     passenger:{role:'Fachkraft',gTolerance:'niedrig',bankTolerance:'niedrig'},baseContext:'Originale Persona.',toneHint:' Deutsch.',

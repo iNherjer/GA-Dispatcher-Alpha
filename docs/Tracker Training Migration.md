@@ -197,3 +197,32 @@ im Banner vor Ablauf der bestehenden Detektor-Toleranzzeit.
 - Tests: Originalvergleich der APT-Flugansagen und Farewell, verlustfreier Seed,
   Verladen/Start/Abbruch/Revisionen, Zusatzuebung/Datenluecke/JSON-Restore und
   Telemetrie plus Intents im echten Missions-Kindprozess.
+
+## Freigabeanzeige und Trainingsabschluss (25.09.2026)
+
+Der Feldbericht zu v450 zeigt einen Trainingslauf ohne sichtbare Freigabe sowie
+Ladungskritik nach einer Ausweichlandung. Die Logs enthalten keine Rohwerte fuer
+AGL/Abflugentfernung und keinen Trainingscheckpoint; sie beweisen daher nicht,
+welches Freigabegate im konkreten Flug blockiert hat. Der POI-Adaptername ist auch
+fuer Training korrekt und kein Nachweis einer falschen TaskDomain.
+
+Die bestehende Normalisierung kann `readyMinAglFt=2500` erzeugen, wenn eine der
+Pflichtuebungen Stall-Recovery ist. Vor der Einweisung war Guidance unsichtbar
+und ihr Text nannte stattdessen die Mindesthoehe der ersten Uebung (oft 1200).
+Die Freigabeanzeige zeigt jetzt vor der Einweisung die wirklichen Rezeptgrenzen,
+Abflugentfernung und AGL sowie fehlende/unterbrochene Messwerte. Die vorhandenen
+Hoehenregeln und drei Sekunden Stabilisierung bleiben unveraendert. Ein
+Turn-only-Rezept gibt bei 5 NM/1200 ft und stabiler Ausgangslage weiterhin frei.
+
+Offene Pflichtuebungen werden bei POI-Training separat als `taskFailureReasons`
+getragen. `notDeliveredRequired` enthaelt nur reale Frachtpositionen. Training
+kann nach Flugnachweis an einem anderen Platz beendet werden; Pflichtabschluss,
+tatsaechliche Ladungsmaengel und Rueckflugwunsch werden getrennt bewertet und
+angesprochen. Erfuellte Uebungen verdecken keine echte beschaedigte oder nicht
+entladene Pflichtausruestung. Andere POI-Familien behalten ihren Outcome-Vertrag.
+
+Die eingefrorenen Differentialtests pruefen fuer Training weiterhin unveraendert
+Navigation, Ankunft und Abschlussort. Die bewusst korrigierten Trainings-Outcomes
+und Abschiedstexte haben eigene Regressionstests; die historischen Fixtures
+bleiben unveraendert. Ein erneuter MSFS-Flug ist fuer die konkrete Ursache und die
+reale Audio-/EFB-Darstellung weiterhin erforderlich.

@@ -1190,7 +1190,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     let poiLifecycleChanged = false;
     if (fullPoi && sample.simPaused !== true && sample.inMenuOrMap !== true) {
-      const lifecycle = poiLifecycleCore.evaluate(poiRecipe, { ...snapshot.state.poiTask?.detector, ...(poiRecipe.poiChain ? { poiChain: poiRuntime.project(snapshot.state.poiTask)?.poiChain } : {}) },
+      const lifecycle = poiLifecycleCore.evaluate(poiRecipe, { ...snapshot.state.poiTask?.detector, ...(poiRecipe.trainingRecipe ? { trainingProcedure: poiRuntime.project(snapshot.state.poiTask)?.trainingProcedure } : {}), ...(poiRecipe.poiChain ? { poiChain: poiRuntime.project(snapshot.state.poiTask)?.poiChain } : {}) },
         { ...recorded.state, hadAirbornePhase: recorded.state.hadAirbornePhase || snapshot.state.poiLifecycle?.flightEligible }, sample);
       if (snapshot.bushRecipe?.kind === 'recon_return') { lifecycle.canEndHere = snapshot.state.bushTask?.canEndHere === true; lifecycle.endedAtHome = lifecycle.canEndHere; lifecycle.needsRideHome = !lifecycle.endedAtHome; }
       const poiLifecycle = Object.fromEntries(['flightEligible', 'canEndHere', 'endedAtHome', 'needsRideHome'].map(key => [key, lifecycle[key]]));

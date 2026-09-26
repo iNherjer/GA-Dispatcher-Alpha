@@ -464,7 +464,7 @@ function publicExecutionSnapshot(run) {
   }
   const poiRecipe = state.recipe === 'poi' ? run.resumeBundle?.executionPoiRecipe : null;
   const poiLifecycle = poiRecipe && poiRuntime.hasLifecycle(poiRecipe)
-    ? poiLifecycleCore.evaluate(poiRecipe, { ...state.poiTask?.detector, ...(poiRecipe.poiChain ? { poiChain: poiRuntime.project(state.poiTask)?.poiChain } : {}) },
+    ? poiLifecycleCore.evaluate(poiRecipe, { ...state.poiTask?.detector, ...(poiRecipe.trainingRecipe ? { trainingProcedure: poiRuntime.project(state.poiTask)?.trainingProcedure } : {}), ...(poiRecipe.poiChain ? { poiChain: poiRuntime.project(state.poiTask)?.poiChain } : {}) },
         { ...runtime?.flightRecorder, hadAirbornePhase: state.poiLifecycle?.flightEligible }, runtime?.latestTelemetry || {},
         flightRecorderCore.evaluateFarewellOutcome(state.manifest, runtime?.arrivalFlightRecord || {},
           { motionProtectionEnabled: poiRecipe.voiceContext?.motionProtectionEnabled === true })) : null;

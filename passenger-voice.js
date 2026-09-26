@@ -9207,6 +9207,8 @@ function _farewellPrompt(record) {
     const droppedRequired = Array.isArray(cargoOutcome?.droppedRequired) ? cargoOutcome.droppedRequired : [];
     const notDeliveredRequired = Array.isArray(cargoOutcome?.notDeliveredRequired) ? cargoOutcome.notDeliveredRequired : [];
     const damagedRequired = Array.isArray(cargoOutcome?.damagedRequired) ? cargoOutcome.damagedRequired : [];
+    const isTraining = /^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain());
+    const taskFailureReasons = isTraining && Array.isArray(cargoOutcome?.taskFailureReasons) ? cargoOutcome.taskFailureReasons : [];
     const failureReasons = [
         ...missingRequired,
         ...droppedRequired,
@@ -9217,13 +9219,13 @@ function _farewellPrompt(record) {
     const currentMissionFailed = ((typeof currentMissionData !== 'undefined' && currentMissionData)
         ? (currentMissionData.missionFailed || String(currentMissionData.missionResult || '').toLowerCase() === 'failed')
         : false);
-    const poiSuccessOverride = !!(poiProgress?.satisfied || poiProgress?.manualConfirmed);
+    const poiSuccessOverride = !isTraining && !!(poiProgress?.satisfied || poiProgress?.manualConfirmed);
     const isMissionFailed = poiSuccessOverride
         ? false
         : hasResolvedOutcome
         ? !!(cargoOutcome?.failed || rec?.missionFailed || rec?.poiAborted)
         : !!(_poiAborted || rec?.missionFailed || currentMissionFailed);
-    if (cargoOutcome?.failed) {
+    if (cargoOutcome?.failed && (!isTraining || failureReasons.length)) {
         const missing = failureReasons.slice(0, 3).join(', ');
         if (damagedRequired.length) {
             highlights += ` Wichtige Ausruestung wurde beschaedigt${missing ? `: ${missing}` : ''}.`;
@@ -9254,8 +9256,10 @@ function _farewellPrompt(record) {
                 ? `verlorene Ausruestung (${droppedRequired.slice(0, 2).join(', ')})`
                 : notDeliveredRequired.length
                     ? notDeliveredRequired[0]
-                    : 'der Auftrag konnte nicht sauber abgeschlossen werden';
-    const missionFailureTask = isMissionFailed
+                    : taskFailureReasons[0] || 'der Auftrag konnte nicht sauber abgeschlossen werden';
+    const missionFailureTask = isMissionFailed && isTraining
+        ? `\nGib ein ehrliches Trainingsfazit. Hauptgrund: ${primaryFailureReason}. Nenne offene Pflichtübungen als Trainingsaufgabe und tatsächliche Ausrüstungsmängel getrennt. Biete einen erneuten Übungsflug an.`
+        : isMissionFailed
         ? `\nDer Auftrag ist heute nicht abgeschlossen. Sag klar, dass die Aufgabe am Ziel nicht erledigt werden konnte. Hauptgrund: ${primaryFailureReason}. Formuliere am Ende eine kurze Retry-Frage (z.B. ob wir es mit kompletter Ausruestung nochmal versuchen sollen). HARTE VERBOTE: Sage NICHT "voller Erfolg", "erfolgreich", "abgeschlossen", "erledigt", "alles im Kasten", "sauber erledigt" oder aehnliche Erfolgsformeln.`
         : '';
     const poiRideHomeTask = (isPOI && poiNeedsRideHome)
@@ -9298,6 +9302,22 @@ function _failedMissionFarewellFallback(record = null) {
     const poiProgress = (typeof window.paxVoiceGetPoiMissionProgress === 'function')
         ? window.paxVoiceGetPoiMissionProgress()
         : null;
+    if (/^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain())) {
+        const outcome = rec.missionCargoOutcome || {};
+        const issues = [
+            ['damagedRequired', 'Beschädigte Ausrüstung'],
+            ['missingRequired', 'Fehlende Ausrüstung'],
+            ['droppedRequired', 'Verlorene Ausrüstung'],
+            ['notDeliveredRequired', 'Noch nicht entladene Ausrüstung']
+        ].filter(([key]) => Array.isArray(outcome[key]) && outcome[key].length)
+            .map(([key, label]) => `${label}: ${outcome[key].slice(0, 2).join(', ')}.`);
+        const trainingProgress = poiProgress?.trainingProcedure
+            || (typeof window.missionTrainingProcedure?.snapshot === 'function' ? window.missionTrainingProcedure.snapshot() : null);
+        const complete = trainingProgress?.requiredComplete === true;
+        const task = complete ? 'Die Pflichtübungen sind abgeschlossen.' : 'Die Pflichtübungen sind noch nicht abgeschlossen. Beim nächsten Übungsflug setzen wir dort wieder an.';
+        const ride = rec.poiNeedsRideHome ? ' Fliegst du mich von hier noch zum Startplatz zurück?' : '';
+        return `Danke für den Trainingsflug. ${task}${issues.length ? ' ' + issues.join(' ') : ''}${ride}`;
+    }
     if (poiProgress?.satisfied || poiProgress?.manualConfirmed) {
         const role = String(pax.role || 'Passagier').trim();
         const frame = _activeMissionStoryFrame();

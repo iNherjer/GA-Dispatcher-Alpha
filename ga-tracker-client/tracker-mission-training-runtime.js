@@ -47,7 +47,14 @@ function pause(recipe, state, now, reason = 'Flugdaten unterbrochen oder Simulat
 function observe(recipe, state, sample) {
     if (state.lastSampleAt !== null && sample.observedAt - state.lastSampleAt > 5000) pause(recipe, state, sample.observedAt);
     const c = coaching.init(state);
-    const problem = coaching.prepare(recipe,state,sample);
+    const departure = recipe.voiceContext.departure || recipe.home;
+    const hasPosition = [sample.lat, sample.lon, departure?.lat, departure?.lon ?? departure?.lng]
+        .every(value => typeof value === 'number' && Number.isFinite(value));
+    const departureDistanceNm = hasPosition
+        ? geo.distanceNm(sample.lat, sample.lon, departure.lat, departure.lon ?? departure.lng)
+        : null;
+    const observedSample = { ...sample, departureDistanceNm };
+    const problem = coaching.prepare(recipe, state, observedSample);
     if (problem) {
         pause(recipe,state,sample.observedAt,problem);
         state.guidance = coaching.project(recipe,state);
@@ -55,13 +62,11 @@ function observe(recipe, state, sample) {
         return {state,satisfied:state.progress.requiredComplete,voices};
     }
     c.suspended=false;
-    const departure = recipe.voiceContext.departure || recipe.home;
-    const departureDistanceNm = geo.distanceNm(sample.lat, sample.lon, departure.lat, departure.lon ?? departure.lng);
     const cues = flight.observe(context(recipe), state.flight, { ...sample, mslFt: sample.altFt }, state.progress, sample.observedAt);
     state.flight = cues.state;
-    const result = adapter.observe(spec(recipe), state.checkpoint, { ...sample, departureDistanceNm });
+    const result = adapter.observe(spec(recipe), state.checkpoint, observedSample);
     state.checkpoint = result.state;
-    result.events = coaching.after(recipe,state,sample,result.events);
+    result.events = coaching.after(recipe, state, observedSample, result.events);
     state.progress = progress(state.checkpoint); state.lastSampleAt = sample.observedAt;
     state.guidance = coaching.project(recipe,state);
     const messages = trainingMessages(recipe,state,result.events,sample.observedAt);

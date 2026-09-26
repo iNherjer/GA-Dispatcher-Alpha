@@ -6,12 +6,12 @@ const runtime = require('./tracker-mission-training-runtime.js');
 const { bundle } = require('./tracker-mission-training-fixture.js');
 const trainingCore = require('../mission-training-core.js').create({}, { now: () => 0 });
 
-function harness(exercises) {
+function harness(exercises, requiredCount = 1, minDepartureDistanceNm = 5) {
   const recipe = structuredClone(bundle().executionPoiRecipe);
   if (exercises) {
     recipe.trainingRecipe = trainingCore.normalizeRecipe({
-      schema: 'ga.trainingRecipe.v1', key: 'coaching-test', requiredCount: 1,
-      minDepartureDistanceNm: 5, exercises
+      schema: 'ga.trainingRecipe.v1', key: 'coaching-test', requiredCount,
+      minDepartureDistanceNm, exercises
     });
     recipe.voiceContext.trainingRecipe = recipe.trainingRecipe;
     recipe.voiceContext.passenger.trainingRecipe = recipe.trainingRecipe;
@@ -55,6 +55,72 @@ test('preflight altitude and course rows revert to red and keep the initial refe
   assert.equal(h.state.progress.startAvailable, false, 'stable start gate must restart after deviation');
   h.observe({}, 3100);
   assert.equal(h.state.progress.startAvailable, true);
+});
+
+test('pre-instruction guidance stays visible and uses the core required altitude gate', () => {
+  const h = harness([
+    { id: 'required_turn', type: 'turn_180', targetBankDeg: 30 },
+    { id: 'required_stall', type: 'stall_recovery' }
+  ], 2);
+  h.observe({ aglFt: 1200 });
+  assert.equal(h.state.guidance.visible, true);
+  assert.equal(h.row('distance').status, 'complete');
+  assert.match(h.row('altitude').label, /2500 ft AGL/,
+    'ready altitude must match the core gate when a required stall exercise is present');
+  assert.equal(h.row('altitude').status, 'error');
+  assert.equal(h.state.progress.readyPrompted, false);
+  h.observe({ aglFt: 2499 });
+  assert.equal(h.row('altitude').status, 'error');
+  h.observe({ aglFt: 2500 });
+  assert.equal(h.state.progress.readyPrompted, true);
+  assert.equal(h.state.coaching.reference.exerciseId, 'required_turn');
+  h.observe({ aglFt: 1500 });
+  assert.equal(h.state.progress.startAvailable, false,
+    'falling below the core ready gate before the ready intent must keep the start locked');
+  assert.match(h.row('ready').label, /2500 ft AGL/);
+  assert.equal(h.row('ready').status, 'error');
+  assert.match(h.state.guidance.notice, /2500 ft AGL/);
+});
+
+test('turn-only readiness opens at 1200 AGL after three stable seconds', () => {
+  const h = harness([{ id: 'turn', type: 'turn_180', targetBankDeg: 30 }]);
+  h.observe({ aglFt: 1199 });
+  assert.equal(h.state.guidance.visible, true);
+  assert.equal(h.row('altitude').status, 'error');
+  assert.match(h.row('altitude').label, /1200 ft AGL/);
+  assert.equal(h.state.progress.readyPrompted, false);
+  h.observe({ aglFt: 1200 });
+  assert.equal(h.state.progress.readyPrompted, true);
+  h.observe({ aglFt: 1200 }, 3100);
+  assert.equal(h.state.progress.startAvailable, true);
+});
+
+test('explicit zero departure distance remains a zero gate', () => {
+  const h = harness([{ id: 'turn', type: 'turn_180', targetBankDeg: 30 }], 1, 0);
+  h.observe({ lat: null, lon: null, aglFt: 1199 });
+  assert.equal(h.row('distance').status, 'complete');
+  assert.equal(h.row('distance').progress, 1);
+  assert.match(h.row('distance').label, /0\.0 NM/);
+  assert.equal(h.state.progress.departureGatePassed, true);
+  assert.equal(h.state.progress.readyPrompted, false, 'AGL gate remains independent of zero departure distance');
+});
+
+test('pre-instruction guidance reports unavailable position, AGL and suspension without completing gates', () => {
+  const h = harness();
+  h.observe({ lat: null, lon: null, aglFt: null });
+  assert.equal(h.state.guidance.visible, true);
+  assert.equal(h.row('distance').status, 'pending');
+  assert.equal(h.row('altitude').status, 'pending');
+  assert.match(h.state.guidance.notice, /Position\/Entfernung/);
+  assert.match(h.state.guidance.notice, /AGL-Höhe/);
+  assert.equal(h.state.progress.readyPrompted, false);
+  const paused = harness();
+  runtime.pause(paused.recipe, paused.state, 14000, 'Simulator pausiert.');
+  paused.state.guidance = require('./tracker-mission-training-coaching.js').project(paused.recipe, paused.state);
+  assert.equal(paused.state.guidance.visible, true);
+  assert.match(paused.state.guidance.notice, /Simulator pausiert/);
+  assert.notEqual(paused.row('distance').status, 'complete');
+  assert.notEqual(paused.row('altitude').status, 'complete');
 });
 
 test('repeat instruction reads the persisted ordered plan after restore', () => {

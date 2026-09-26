@@ -31,9 +31,9 @@ async function harness(t) {
   assert.equal(manager.commitExecutionAuthority({ missionId, runId: prepared.activeRun.runId, clientId: 'app',
     expectedRevision: prepared.activeRun.revision, expectedExecutionStateHash: prepared.activeRun.executionStateHash,
     handoffId: prepared.handoff.handoffId }).ok, true);
-  const commands = [];
+  const commands = [], farewells = [];
   const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager,
-    payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: completed });
+    payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: request => { farewells.push(request); return completed(); } });
   runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 940, hdg: 0 }),
     dispatchCommand: command => { commands.push(command); return completed(); }, syncPayloadManifestState: completed, cleanupMission: completed });
   await tick();
@@ -52,7 +52,7 @@ async function harness(t) {
     for (let i = 0; i < 5; i++) await tick();
     await runtime.flush();
   }
-  return { b, manager, runtime, commands, intent, sample, directory };
+  return { b, manager, runtime, commands, farewells, intent, sample, directory };
 }
 
 async function start(h) {
@@ -189,4 +189,50 @@ test('training telemetry and intents run in the real mission child process', asy
   assert.equal(abort.ok, true, JSON.stringify(abort));
   snapshot = host.authorityManager.getExecutionSnapshot();
   assert.equal(snapshot.state.poiTask.trainingState.progress.activeExercise.status, 'repeat');
+});
+
+
+test('unfinished training can unload and close away from home without inventing a cargo failure', async t => {
+  const h = await harness(t); await start(h);
+  const at=Date.now();
+  await h.sample({observedAt:at,bankDeg:0,vsFpm:0});
+  await h.sample({observedAt:at+3100,bankDeg:0,vsFpm:0});
+  await h.sample({observedAt:at+4100,lat:49,lon:9,onGround:true,aglFt:0,gsKts:15,bankDeg:0,vsFpm:0});
+  await h.sample({observedAt:at+5100,lat:49,lon:9,onGround:true,aglFt:0,gsKts:0,bankDeg:0,vsFpm:0});
+  assert.equal(h.manager.getExecutionSnapshot().state.phase,'end_unloading');
+  assert.equal((await h.intent('set_manifest_item',{itemId:'camera',action:'unload'})).ok,true);
+  assert.equal((await h.intent('sign_manifest')).ok,true);
+  assert.equal((await h.intent('confirm_unload')).ok,true);
+  await until(()=>h.farewells.length===1);
+  const result=h.farewells[0].farewellDynamicContext;
+  assert.equal(result.missionFailed,true);
+  assert.equal(result.record.poiNeedsRideHome,true);
+  assert.deepEqual(result.cargoOutcome.notDeliveredRequired,[]);
+  assert.deepEqual(result.cargoOutcome.taskFailureReasons,['Pflichtübungen wurden nicht abgeschlossen.']);
+  await until(()=>!h.manager.getActiveRun());
+});
+
+
+test('completed exercises survive away landing and public final outcome projection', async t => {
+  const h=await harness(t); await start(h);
+  let at=Date.now();
+  const fly=async(hdg=0,bankDeg=0)=>h.sample({observedAt:(at+=1000),hdg,bankDeg,vsFpm:0,gForce:1.1});
+  await fly(); await fly(); await fly(); await fly();
+  assert.equal((await h.intent('training_ready')).ok,true);
+  await fly();
+  for(let hdg=10;hdg<=180;hdg+=10)await fly(hdg,30);
+  await fly(180); await fly(180); await fly(180);
+  assert.equal(h.manager.getExecutionSnapshot().state.poiTask.trainingState.progress.requiredComplete,true);
+  await h.sample({observedAt:(at+=1000),lat:49,lon:9,onGround:true,aglFt:0,gsKts:15,bankDeg:0,vsFpm:0});
+  await h.sample({observedAt:(at+=1000),lat:49,lon:9,onGround:true,aglFt:0,gsKts:0,bankDeg:0,vsFpm:0});
+  assert.equal((await h.intent('set_manifest_item',{itemId:'camera',action:'unload'})).ok,true);
+  assert.equal((await h.intent('sign_manifest')).ok,true);
+  assert.equal((await h.intent('confirm_unload')).ok,true);
+  await until(()=>!h.manager.getActiveRun());
+  assert.equal(h.farewells[0].farewellDynamicContext.missionFailed,false);
+  const final=h.manager.getPublicSnapshot().lastExecution;
+  assert.equal(final.poiOutcome.failed,false);
+  assert.deepEqual(final.poiOutcome.taskFailureReasons,[]);
+  assert.equal(final.flight.missionRecord.missionFailed,false);
+  assert.equal(final.poiLifecycle.needsRideHome,true);
 });

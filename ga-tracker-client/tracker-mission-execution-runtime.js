@@ -1,6 +1,7 @@
 'use strict';
 
 const aptTraining = require('./tracker-mission-apt-training.js');
+const poiTaskCore = require('../mission-poi-task-core.js');
 
 const routeVoiceCore = require('../mission-route-voice-core.js');
 const routeMapCore = require('./tracker-efb-map-snapshot-core.js');
@@ -74,6 +75,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   let lastTelemetryDiagnosticAt = 0;
   let lastFinalizationRetryAt = 0;
   let poiPaused = false;
+  let trainingGateDiagnostic = { runId: null, signature: '', loggedAt: 0 };
   const motionBuffer = createFlightMotionBuffer();
   let motionInputConnected = false;
   const dispatchSimulatorEffect = request => {
@@ -682,6 +684,99 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       .catch(error => log(`MISSION_POI_VOICE_ERROR error=${error?.message || error}`));
     return result;
   };
+  const logTrainingGateDiagnostic = (sample, result) => {
+    if (!result?.ok || !result.acceptedEvent) return;
+    const snapshot = authorityManager.getExecutionSnapshot?.();
+    if (!snapshot || snapshot.executionAuthority !== 'tracker' || snapshot.state?.flags?.active !== true) return;
+    const aptRecipe = authorityManager.getExecutionTrainingRecipe?.();
+    const poiRecipe = authorityManager.getExecutionPoiRecipe?.();
+    const recipe = snapshot.recipe === 'apt' ? aptRecipe : snapshot.recipe === 'poi' ? poiRecipe : null;
+    const taskDomain = String(recipe?.taskDomain || '').trim();
+    if (!recipe?.trainingRecipe || !/^(training|club_training_basic|club_training_advanced)$/.test(taskDomain)) return;
+
+    const aptTask = snapshot.state.trainingTask || null;
+    const poiState = snapshot.state.poiTask?.trainingState || null;
+    const task = aptTask || poiState;
+    const procedure = task?.state?.checkpoint?.procedureState?.activeState
+      || task?.checkpoint?.procedureState?.activeState || null;
+    const progress = task?.state?.progress || poiState?.progress || null;
+    const active = progress?.activeExercise?.status === 'active' || !!procedure?.active;
+    const readyPrompted = progress?.readyPrompted === true || procedure?.readyPrompted === true;
+    const startAvailable = progress?.startAvailable === true || procedure?.startAvailable === true;
+    const ready = progress?.ready === true || procedure?.ready === true;
+    const requiredComplete = progress?.requiredComplete === true || procedure?.requiredComplete === true;
+    const suspended = aptTask?.suspended === true || task?.coaching?.suspended === true
+      || snapshot.state.poiTask?.suspendedAt != null;
+    const voice = recipe.voiceContext || {};
+    const departure = voice.departure || recipe.home || null;
+    const lat = sample?.lat, lon = sample?.lon;
+    const departureLat = departure?.lat;
+    const departureLon = departure?.lon ?? departure?.lng;
+    const departureDistanceNm = Number.isFinite(lat) && Number.isFinite(lon)
+      && typeof departureLat === 'number' && Number.isFinite(departureLat)
+      && typeof departureLon === 'number' && Number.isFinite(departureLon)
+      ? poiTaskCore.distanceNm(lat, lon, departureLat, departureLon) : null;
+    const minDepartureDistanceNm = Number(recipe.trainingRecipe.minDepartureDistanceNm ?? 5);
+    const exercises = Array.isArray(recipe.trainingRecipe.exercises) ? recipe.trainingRecipe.exercises : [];
+    const currentExercise = exercises[Number(progress?.activeIndex || procedure?.activeIndex || 0)] || null;
+    const requiredAglFt = (!ready && !requiredComplete)
+      ? Number(recipe.trainingRecipe.readyMinAglFt ?? 1200)
+      : currentExercise?.type === 'stall_recovery'
+        ? Number(recipe.trainingRecipe.stallMinAglFt ?? 2500)
+        : Number(recipe.trainingRecipe.minAglFt ?? 1200);
+    const aglFt = typeof sample?.aglFt === 'number' && Number.isFinite(sample.aglFt) ? sample.aglFt : null;
+    const missingTelemetry = ['lat', 'lon', 'altFt', 'hdg', 'bankDeg', 'vsFpm', 'aglFt']
+      .filter(key => typeof sample?.[key] !== 'number' || !Number.isFinite(sample[key]));
+    const distanceGate = progress?.departureGatePassed === true || minDepartureDistanceNm <= 0
+      ? true : departureDistanceNm === null ? null : departureDistanceNm >= minDepartureDistanceNm;
+    const altitudeGate = aglFt === null ? null : aglFt >= requiredAglFt;
+    const gateRows = (task?.state?.guidance || task?.guidance)?.rows;
+    const guidance = Array.isArray(gateRows)
+      ? gateRows.filter(row => ['distance', 'altitude', 'heading', 'ready'].includes(row?.id))
+        .map(row => ({ id: String(row.id), label: String(row.label || '').slice(0, 120),
+          status: String(row.status || 'pending'), detail: String(row.detail || '').slice(0, 160) }))
+      : [];
+    const blocked = !requiredComplete && !active && !ready && !startAvailable;
+    const gateState = {
+      domain: taskDomain,
+      distanceGate,
+      altitudeGate,
+      telemetryComplete: missingTelemetry.length === 0,
+      suspended,
+      readyPrompted,
+      startAvailable,
+      ready,
+      active,
+      requiredComplete
+    };
+    const signature = JSON.stringify(gateState);
+    const at = Number(sample?.observedAt) || Date.now();
+    const sameRun = trainingGateDiagnostic.runId === snapshot.runId;
+    const stateChanged = !sameRun || signature !== trainingGateDiagnostic.signature;
+    const periodicBlocked = sameRun && blocked && at - trainingGateDiagnostic.loggedAt >= 30000;
+    if (!stateChanged && !periodicBlocked) return;
+    const round = (value, digits = 1) => Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
+    log(`MISSION_TRAINING_GATE_DIAGNOSTIC data=${JSON.stringify({
+      missionId: snapshot.missionId,
+      runId: snapshot.runId,
+      domain: taskDomain,
+      distanceNm: round(departureDistanceNm),
+      minDistanceNm: round(minDepartureDistanceNm),
+      distanceGate,
+      aglFt: round(aglFt, 0),
+      requiredAglFt: round(requiredAglFt, 0),
+      altitudeGate,
+      missingTelemetry,
+      suspended,
+      readyPrompted,
+      startAvailable,
+      ready,
+      active,
+      requiredComplete,
+      guidance
+    })}`);
+    trainingGateDiagnostic = { runId: snapshot.runId, signature, loggedAt: at };
+  };
   const flushPoiCheckpoint = reason => {
     const training=reportPoiCheckpoint(trainingDriver.flush(), reason);
     return training.ok ? reportPoiCheckpoint(poiDriver.flush(), reason) : training;
@@ -710,11 +805,13 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           adapter.setFlightVoiceState({ ...previous, privateReturnDeparture: { ...previous.privateReturnDeparture, airborneSince: null } }, true);
       }
       const training=reportPoiCheckpoint(trainingDriver.observeTelemetry(sample),'telemetry');
+      logTrainingGateDiagnostic(sample, training);
       if(!training.ok)return training;
       const isPoi = authorityManager.getActiveRun()?.executionRecipe === 'poi';
       if (!sample?.simPaused && !sample?.inMenuOrMap) poiPaused = false;
       if (isPoi && (sample?.simPaused === true || sample?.inMenuOrMap === true)) {
         const task = reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'suspend');
+        logTrainingGateDiagnostic(sample, task);
         if (!task.ok) return task;
         const recorder = poiPaused ? { ok: true } : adapter.flushRuntimeContext(true);
         poiPaused = recorder?.ok === true;
@@ -739,7 +836,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       if (isPoi && !poiRuntime.hasLifecycle(authorityManager.getExecutionPoiRecipe?.())) {
         // A POI target is an airborne work area. Never run APT destination,
         // approach, landing or auto-close decisions against that target.
-        return reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
+        const task = reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
+        logTrainingGateDiagnostic(sample, task);
+        return task;
       }
       const result = adapter.observeTelemetry(sample);
       const bushEffects = authorityManager.getExecutionSnapshot?.();
@@ -782,6 +881,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         && ['mapping_survey', 'infra_chain_recon'].includes(authorityManager.getExecutionPoiRecipe?.()?.taskDomain);
       if (isPoi && result?.ok && (result.status !== 'ignored' || surveyDiscontinuity)) {
         const taskResult = reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
+        logTrainingGateDiagnostic(sample, taskResult);
         if (!taskResult.ok) return taskResult;
       }
       let observationSnapshot;

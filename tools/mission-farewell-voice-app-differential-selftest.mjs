@@ -214,6 +214,7 @@ const legacyFailureText = runLegacyFunction(
     ['_failedMissionFarewellFallback'],
     {
         window: { activePassenger: passenger, paxVoiceGetPoiMissionProgress: () => null },
+        _activeTaskDomain: () => 'charter',
         _activeMissionStoryFrame: () => ({ focusSubject: 'die Fotodokumentation' })
     },
     `_failedMissionFarewellFallback(${JSON.stringify(failureRecord)})`
@@ -310,6 +311,7 @@ function runActualAppAuthorityRecipe({ cargoOnly, missionId, record, weather }) 
         _isPOIMission: () => false,
         _isBushVoiceMission: () => false,
         _paxAiTextModels: provider => provider === 'openai' ? [['gpt-5.4']] : [['gemini-3-flash-preview']],
+        _activeTaskDomain: () => 'charter',
         _activeMissionStoryFrame: () => ({ focusSubject: 'die Fotodokumentation' }),
         _paxMissionAudioKey: kind => `${kind}:${missionId}`,
         _activeTaskDomain: () => cargoOnly ? 'general' : 'charter',

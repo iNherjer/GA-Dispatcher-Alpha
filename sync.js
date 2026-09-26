@@ -11472,8 +11472,22 @@ function _missionOutcomeApplyPoiProgress(outcome = null, options = {}) {
         `${taskLabel} wurde nicht abgeschlossen.`,
         `${taskLabel} wurde im Zielgebiet abgebrochen.`
     ]);
-    const poiResolved = !!(progress.satisfied || progress.manualConfirmed);
-    if (poiResolved) {
+    const training = progress.trainingProcedure;
+    const taskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || '').toLowerCase();
+    const isTraining = /^(training|club_training_basic|club_training_advanced)$/.test(taskDomain);
+    const poiResolved = isTraining
+        ? !!(training?.requiredComplete || training?.satisfied)
+        : !!(progress.satisfied || progress.manualConfirmed);
+    if (isTraining) {
+        // Exercise completion is not a cargo delivery. Keep actual manifest
+        // failures intact, but remove the legacy synthetic POI delivery entry.
+        base.notDeliveredRequired = notDelivered.filter(entry => !poiFailureMessages.has(String(entry || '').trim()));
+        base.taskFailureReasons = poiResolved ? [] : [progress.aborted
+            ? 'Training wurde abgebrochen.' : 'Pflichtübungen wurden nicht abgeschlossen.'];
+        base.failed = !!(base.missingRequired?.length || base.droppedRequired?.length
+            || base.damagedRequired?.length || base.notDeliveredRequired.length || base.taskFailureReasons.length);
+        base.status = base.failed ? 'failed' : 'completed';
+    } else if (poiResolved) {
         base.notDeliveredRequired = notDelivered.filter(entry => !poiFailureMessages.has(String(entry || '').trim()));
         if (!base.missingRequired?.length && !base.droppedRequired?.length && !base.damagedRequired?.length && !(base.notDeliveredRequired || []).length) {
             base.failed = false;
@@ -11491,7 +11505,7 @@ function _missionOutcomeApplyPoiProgress(outcome = null, options = {}) {
             notDelivered.push(incompleteMsg);
         }
     }
-    if (!poiResolved) base.notDeliveredRequired = notDelivered;
+    if (!isTraining && !poiResolved) base.notDeliveredRequired = notDelivered;
     if ((base.notDeliveredRequired || []).length > 0) {
         base.failed = true;
         base.status = 'failed';
