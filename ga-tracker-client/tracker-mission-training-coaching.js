@@ -121,7 +121,13 @@ function after(recipe,state,sample,events) {
 }
 function project(recipe,state) {
   const c=init(state),s=raw(state),ex=exercise(recipe,state),a=s.active,sample=c.sample||{};
-  if(!ex || (s.requiredComplete&&!s.optionalRequested&&!a))return {visible:false,title:'Training abgeschlossen',rows:[],history:c.history,notice:c.notice,instruction:'Pflichtteil abgeschlossen. Rückkehr frei; verfügbare Zusatzübungen können im PAX-Menü angefragt werden.'};
+  if(!ex || (s.requiredComplete&&!s.optionalRequested&&!a)) {
+    const nextStep=recipe.missionMode==='APT'
+      ? 'Weiter zum Zielflugplatz und dort gemäß Flugplan landen.'
+      : 'Rückkehr frei.';
+    return {visible:false,title:'Training abgeschlossen',rows:[],history:c.history,notice:c.notice,
+      instruction:`Pflichtteil abgeschlossen. ${nextStep} Verfügbare Zusatzübungen können im PAX-Menü angefragt werden.`};
+  }
   if(!c.reference || c.reference.exerciseId!==ex.id) {
     const distanceRequired=departureMinimum(recipe);
     const altitudeRequired=altitudeGateMinimum(recipe,state,ex);
@@ -141,7 +147,7 @@ function project(recipe,state) {
     if(!altitudeKnown)missing.push('AGL-Höhe');
     const telemetryNotice=missing.length?`Flugdaten unvollständig: ${missing.join(' und ')} nicht verfügbar.`:'';
     const notice=[c.notice,telemetryNotice,suspended&&!c.notice?'Training pausiert. Auf gültige Simulatordaten warten.':''].filter(Boolean).join(' ');
-    const instruction=`Vor der Einweisung: ${rows.map((row,index)=>`${index+1}. ${row.label}`).join('. ')}.`;
+    const instruction='Vor der Einweisung müssen Entfernung und Sicherheitshöhe passen.';
     return {visible:true,title:'Training freischalten',phaseLabel:'Freigabe',rows,history:c.history,notice,instruction,
       currentInstruction:distanceReady&&altitudeReady?'Voraussetzungen erfüllt. Ausgangslage stabilisieren.':'Voraussetzungen für die Einweisung herstellen.',canRepeat:true};
   }

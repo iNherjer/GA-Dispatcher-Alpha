@@ -163,6 +163,10 @@ test('APT completion and optional exercises preserve destination lifecycle; tele
   await fly(180);await fly(180);await fly(180);
   let state=h.manager.getExecutionSnapshot().state;
   assert.equal(state.trainingTask.state.progress.requiredComplete,true);
+  assert.match(state.trainingTask.state.guidance.instruction, /Weiter zum Zielflugplatz/);
+  assert.doesNotMatch(state.trainingTask.state.guidance.instruction, /Rückkehr frei/);
+  assert.ok(state.effects.some(effect => /Weiter zum Zielflugplatz/.test(
+    effect.payload?.resolvedRecipe?.fallbackText || '')), 'APT completion voice must keep the destination landing task');
   assert.equal(state.recipe,'apt');
   assert.equal(state.poiTask,undefined);
   assert.equal(state.flags.closingPending,false);

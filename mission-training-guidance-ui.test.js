@@ -36,6 +36,9 @@ const epochHistory = ui.buildViewModel({ history: [{ at: 1700000000000, text: 'Z
 assert.match(epochHistory, /^\d{2}\.\d{2}\.2023 \d{2}:\d{2}:\d{2}$/);
 assert.equal(ui.buildViewModel({ rows: [{ progress: -1 }] }).rows[0].progress, 0);
 assert.equal(ui.buildViewModel({ rows: [{ status: 'unknown' }] }).rows[0].status, 'pending');
+assert.equal(ui.buildViewModel({
+  instruction: 'Vor der Einweisung müssen Entfernung und Sicherheitshöhe passen.'
+}).introduction, 'Vor der Einweisung müssen Entfernung und Sicherheitshöhe passen.');
 
 process.stdout.write('MISSION_TRAINING_GUIDANCE_UI_TESTS_OK\n');
 

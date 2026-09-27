@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const runtime = require('./tracker-mission-training-runtime.js');
+const coaching = require('./tracker-mission-training-coaching.js');
 const { bundle } = require('./tracker-mission-training-fixture.js');
 const trainingCore = require('../mission-training-core.js').create({}, { now: () => 0 });
 
@@ -64,6 +65,7 @@ test('pre-instruction guidance stays visible and uses the core required altitude
   ], 2);
   h.observe({ aglFt: 1200 });
   assert.equal(h.state.guidance.visible, true);
+  assert.equal(h.state.guidance.instruction, 'Vor der Einweisung müssen Entfernung und Sicherheitshöhe passen.');
   assert.equal(h.row('distance').status, 'complete');
   assert.match(h.row('altitude').label, /2500 ft AGL/,
     'ready altitude must match the core gate when a required stall exercise is present');
@@ -80,6 +82,25 @@ test('pre-instruction guidance stays visible and uses the core required altitude
   assert.match(h.row('ready').label, /2500 ft AGL/);
   assert.equal(h.row('ready').status, 'error');
   assert.match(h.state.guidance.notice, /2500 ft AGL/);
+});
+
+test('completed guidance keeps POI return wording and sends APT training to its destination', () => {
+  const poi = harness();
+  poi.raw().requiredComplete = true;
+  poi.raw().satisfied = true;
+  poi.raw().activeIndex = 1;
+  const poiGuidance = coaching.project(poi.recipe, poi.state);
+  assert.match(poiGuidance.instruction, /Rückkehr frei/);
+
+  const apt = harness();
+  apt.recipe.missionMode = 'APT';
+  apt.raw().requiredComplete = true;
+  apt.raw().satisfied = true;
+  apt.raw().activeIndex = 1;
+  const aptGuidance = coaching.project(apt.recipe, apt.state);
+  assert.match(aptGuidance.instruction, /Weiter zum Zielflugplatz/);
+  assert.match(aptGuidance.instruction, /gemäß Flugplan landen/);
+  assert.doesNotMatch(aptGuidance.instruction, /Rückkehr frei/);
 });
 
 test('turn-only readiness opens at 1200 AGL after three stable seconds', () => {

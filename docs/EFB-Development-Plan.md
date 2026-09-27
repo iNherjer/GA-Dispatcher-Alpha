@@ -5733,3 +5733,11 @@ oder fehlende Flugdaten nicht mehr hinter einem unsichtbaren Banner verborgen.
 Die vorhandenen Start- und Stabilitaetsgates bleiben autoritativ im Tracker.
 Offene Pflichtuebungen werden beim Trainingsabschluss nicht als Ladungsmangel
 formuliert. Details, Nachweise und Feldtestgrenzen: `Tracker Training Migration.md`.
+
+## Trainingsführung nach Pflichtteil (27.09.2026)
+
+APT- und POI-Training verwenden nach dem Pflichtteil unterschiedliche nächste
+Schritte. APT führt weiter zum Zielflugplatz und zur Landung gemäß Flugplan;
+POI gibt die Rückkehr frei. Die Freigabeanzeige beschreibt Entfernung und
+Sicherheitshöhe in eigenen nummerierten Zeilen und verwendet darüber eine
+vollständige, nicht nummerierte Einleitung.

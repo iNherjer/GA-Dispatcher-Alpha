@@ -222,7 +222,11 @@ test('completed exercises survive away landing and public final outcome projecti
   await fly();
   for(let hdg=10;hdg<=180;hdg+=10)await fly(hdg,30);
   await fly(180); await fly(180); await fly(180);
-  assert.equal(h.manager.getExecutionSnapshot().state.poiTask.trainingState.progress.requiredComplete,true);
+  const completedState = h.manager.getExecutionSnapshot().state;
+  assert.equal(completedState.poiTask.trainingState.progress.requiredComplete,true);
+  assert.match(completedState.poiTask.trainingState.guidance.instruction, /Rückkehr frei/);
+  assert.ok(completedState.effects.some(effect => /Rückkehr frei/.test(
+    effect.payload?.resolvedRecipe?.fallbackText || '')), 'POI completion voice must keep the return instruction');
   await h.sample({observedAt:(at+=1000),lat:49,lon:9,onGround:true,aglFt:0,gsKts:15,bankDeg:0,vsFpm:0});
   await h.sample({observedAt:(at+=1000),lat:49,lon:9,onGround:true,aglFt:0,gsKts:0,bankDeg:0,vsFpm:0});
   assert.equal((await h.intent('set_manifest_item',{itemId:'camera',action:'unload'})).ok,true);

@@ -111,7 +111,12 @@ function trainingMessages(recipe,state,events,now) {
     const has=type=>events.some(e=>e.type===type);
     let text='';
     const pending=c.pendingNotice;c.pendingNotice='';
-    if(has('training_required_complete')||has('training_complete'))text=`Pflichtteil abgeschlossen: ${state.progress.completedCount} Übungen erfüllt. Rückkehr frei.${state.progress.optionalAvailable?' Eine Zusatzübung ist im PAX-Menü verfügbar.':''}`;
+    if(has('training_required_complete')||has('training_complete')) {
+        const nextStep=recipe.missionMode==='APT'
+            ? 'Weiter zum Zielflugplatz und dort gemäß Flugplan landen.'
+            : 'Rückkehr frei.';
+        text=`Pflichtteil abgeschlossen: ${state.progress.completedCount} Übungen erfüllt. ${nextStep}${state.progress.optionalAvailable?' Eine Zusatzübung ist im PAX-Menü verfügbar.':''}`;
+    }
     else if(has('exercise_repeat_required')){text='Durchgang nicht erfüllt. Neu stabilisieren und starten. '+g.instruction;c.notice=text;}
     else if(has('stall_break_detected'))text='Break erkannt. Jetzt Recovery: Flügel waagerecht, Stallwarnung beenden und Sinkrate stoppen.';
     else if(has('exercise_instruction'))text=g.instruction;
