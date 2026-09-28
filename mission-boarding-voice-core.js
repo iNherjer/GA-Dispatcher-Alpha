@@ -41,6 +41,7 @@
     }
 
     function conversationalTtsStyle(speaker) {
+        if (object(speaker).narrativeSchema === 'sightseeing-idea.v1') return 'Sprich auf Deutsch wie ein neugieriger Mitreisender im lockeren Gespräch: freundlich, natürlich und gut verständlich. Kein Vorlese- oder Reiseführerton, keine Bühnenaussprache und kein künstlicher Dialekt. Wortlaut beibehalten; diese Regieanweisung nicht mitsprechen.';
         if (object(speaker).taskDomain !== 'club_utility') return '';
         return 'Sprich auf Deutsch wie im ungezwungenen Gespräch unter Vereinskollegen: entspannt, freundlich, mit natürlichem Rhythmus und weichen Satzübergängen. Gut verständliche Alltagssprache, keine überdeutliche Bühnenaussprache, kein Nachrichtensprecher- oder Vorleseton. Kein künstlicher Dialekt. Wortlaut beibehalten; diese Regieanweisung nicht mitsprechen.';
     }
@@ -57,7 +58,7 @@
             gender: normalizeGender(source.gender),
             roleProfile: text(source.roleProfile, 120),
             taskDomain: text(source.taskDomain, 120).toLowerCase(),
-            ...(source.narrativeSchema === 'charter-idea.v1' ? {narrativeSchema:source.narrativeSchema} : {}),
+            ...(['charter-idea.v1','sightseeing-idea.v1'].includes(source.narrativeSchema) ? {narrativeSchema:source.narrativeSchema} : {}),
             ...(source.taskDomain === 'private_return' && text(source.voiceIdentity, 500) ? { voiceIdentity: text(source.voiceIdentity, 500) } : {})
         };
     }

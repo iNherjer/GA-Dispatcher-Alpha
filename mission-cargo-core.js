@@ -982,8 +982,8 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         const adjusted = window.MissionClubIdeasCore.manifestItems(items, clubIdea);
         items.splice(0, items.length, ...adjusted);
     }
-    const charterIdea = window.currentMissionData?.charterIdea;
-    if (charterIdea?.schema === 'charter-idea.v1') {
+    const charterIdea = window.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' ? window.currentMissionData.sightseeingIdea : window.currentMissionData?.charterIdea;
+    if (['charter-idea.v1','sightseeing-idea.v1'].includes(charterIdea?.schema)) {
         const primary = items.find(item => item.id === (isBushPickupPassenger?'pickup-companion-cargo':'primary-cargo'));
         if (primary && charterIdea.luggageWeightLbs > 0) Object.assign(primary, {
             label: charterIdea.luggageLabel, storyName: charterIdea.luggageLabel,

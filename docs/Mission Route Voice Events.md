@@ -58,3 +58,12 @@ Release-Prüfung: 172 Tests des isolierten Alpha-Stands bestanden (Execution-Cor
 Die bereits vorhandene Runtime-Persistenz transportiert `runtime.routeVoice` mit beanspruchten IDs im Resume-Bundle; Tracker-Ausführung hält ihre Claims im autoritativen Run. Eine normale Cloud-Kopie des Missionsplans ist nicht mit der Übernahme eines laufenden Runs gleichzusetzen. Doppelauslösung beim Fortsetzen wird mit dem zugehörigen Runtime-Snapshot geprüft, nicht durch Erfinden eines neuen Fortschritts aus dem Missionsplan. Daten müssen vor dem Gerätewechsel erfolgreich synchronisiert beziehungsweise übergeben sein. Bereits aus allen gespeicherten Kopien entfernte Ideen können durch den Fix nicht wiederhergestellt werden.
 
 Nachweis: `tools/mission-club-persistence.test.cjs` führt 0/1/2/3 Ereignisse (Prozent und Geo) durch lokale Quota-Komprimierung, jede Cloud-Stufe, JSON-Transport und erneute lokale Speicherung. Plan, Ortsanker und beide Vertragskopien bleiben gleich. Bereits beanspruchte Ansagen werden mit übertragenem Runtime-Zustand nicht erneut ausgelöst. Zusammen mit Route-Voice-, Club-, Tracker-Runtime- und Boarding-Voice-Tests: 79 Tests erfolgreich. Reale Gerätewechselprobe ausstehend.
+
+## APT-Sightseeing (28.09.2026, lokal)
+
+`sightseeing-idea.v1` verwendet dieselben optionalen Trigger. `sightseeingIdea.visits`
+enthält die ausgewählten belegten Besuchsorte; die Voices ergänzen Wissen und
+Vorfreude auf den Besuch **nach** der Landung. Der Sprecher ist der Gast, kein
+Vereinskollege. Das Schema wird auch durch Boarding-Rezept, Voice-Service und
+Execution-Outcome erhalten, damit die Gesprächshistory auf dem Tracker greift.
+Quellen-/Fakten-IDs, Persistenz und Tests: [Sightseeing Visits V1](Mission%20Sightseeing%20Visits%20V1.md).

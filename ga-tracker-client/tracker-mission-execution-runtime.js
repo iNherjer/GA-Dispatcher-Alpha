@@ -972,7 +972,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
               const accepted = adapter.applySystemEvent({ missionId: fresh.missionId, runId: fresh.runId,
                 type: 'APT_FLIGHT_VOICE_REQUESTED', eventId: `route-story:${fresh.runId}:${event.id}`,
                 payload: { kind: 'route_story', narrativeEventId: event.id, intent: event.intent,
-                  label: context.speaker?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', triggerAt,
+                  label: context.speaker?.narrativeSchema === 'sightseeing-idea.v1' ? 'Besuchsziele' : context.speaker?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', triggerAt,
                   prompt: routeVoiceCore.prompt(context.baseContext, event, committed.map(e => e.payload.intent), context.speaker?.narrativeSchema) } });
               if (accepted?.ok) {
                 routeState = observed.state;

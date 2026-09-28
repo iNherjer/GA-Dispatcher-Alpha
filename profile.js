@@ -4293,6 +4293,12 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Mission Pipeline: ${pipelineMode}`);
         const writerMode = String(missionSnap.storyDebug?.writerMode || missionSnap.missionWriterMode || (window.getMissionWriterMode ? window.getMissionWriterMode() : '') || '').toUpperCase();
         if (writerMode) lines.push(`- Mission Writer: ${writerMode}`);
+        const sightseeingIdea = window.currentMissionData?.sightseeingIdea || missionSnap.contract?.sightseeingIdea;
+        if (sightseeingIdea?.schema === 'sightseeing-idea.v1') {
+            lines.push(`- Sightseeing-Besuchsplan: ${sightseeingIdea.visits?.length || 0} Orte | Zusatzansagen=${sightseeingIdea.narrativeEvents?.length || 0}`);
+            for (const visit of sightseeingIdea.visits || []) lines.push(`- Besuchsziel: ${flattenText(visit.place?.name, 120)} | ${Number(visit.place?.distanceKm || 0).toFixed(1)} km | Quelle=${visit.place?.source || '-'} | Stand=${visit.place?.retrievedAt || '-'}`);
+            for (const event of sightseeingIdea.narrativeEvents || []) lines.push(`- Besuchsgespräch: ${event.id} | ${event.geo ? `Geo ${event.geo.lat},${event.geo.lon} / ${event.geo.radiusNm} NM` : `${event.atPercent}% Route`} | ${flattenText(event.intent, 220)}`);
+        }
         const poiChainDebug = (window.gaPoiChainDebug && typeof window.gaPoiChainDebug === 'object') ? window.gaPoiChainDebug : {};
         const poiChainForce = typeof window.getPoiChainDebugForceValue === 'function' ? window.getPoiChainDebugForceValue() : '';
         const poiChainSpec = missionSnap.poiChain || missionSnap.contract?.poiChain || null;

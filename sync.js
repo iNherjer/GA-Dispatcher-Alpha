@@ -14913,7 +14913,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'cargoIdea', 'fragileCargoIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
@@ -18835,7 +18835,7 @@ function finalizeFlightRecorder(now, endLat = null, endLon = null) {
 
 window.missionClubSpeechHistory = () => missionRuntime.routeVoice?.spoken || [];
 window.missionRecordClubSpeech = function(text) {
-    if (_missionExecutionAuthorityIsTracker() || !(currentMissionData?.clubIdea?.schema === 'club-idea.v1' || currentMissionData?.charterIdea?.schema === 'charter-idea.v1')) return;
+    if (_missionExecutionAuthorityIsTracker() || !(currentMissionData?.clubIdea?.schema === 'club-idea.v1' || currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1')) return;
     const core = window.GAMissionRouteVoiceCore;
     if (!core) return;
     const previous = missionRuntime.routeVoice || {};
@@ -18846,7 +18846,7 @@ window.missionRecordClubSpeech = function(text) {
 function _missionObserveRouteVoice(lat, lon, fd) {
     if (_missionExecutionAuthorityIsTracker()) return;
     const core = window.GAMissionRouteVoiceCore;
-    const plan = (currentMissionData?.charterIdea || currentMissionData?.clubIdea)?.narrativeEvents;
+    const plan = (currentMissionData?.sightseeingIdea || currentMissionData?.charterIdea || currentMissionData?.clubIdea)?.narrativeEvents;
     if (!core || !plan?.length) return;
     const previous = missionRuntime.routeVoice || {};
     const leg=window.MissionCharterContinuationCore?.voiceLeg(currentMissionData?.charterIdea,routeWaypoints,

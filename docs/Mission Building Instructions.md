@@ -1,5 +1,7 @@
 # Mission Building Instructions
 
+APT-Sightseeing mit belegten Besuchszielen und optionalen Ansagen: [Mission Sightseeing Visits V1](Mission%20Sightseeing%20Visits%20V1.md).
+
 Geplante POI-Erzählkontinuität und Schnittstelle zum separaten Writer-Umbau: [POI Follow-up Narrative Handoff](POI%20Follow-up%20Narrative%20Handoff.md). Zielbild, noch nicht implementiert.
 
 Für die Übertragung weiterer Missionsfamilien: [Tracker-Migrationsleitfaden](Tracker%20Mission%20Migration%20Guide.md) mit APT-/POI-Erfahrungen, Pflichtmatrix und Freigabegates.

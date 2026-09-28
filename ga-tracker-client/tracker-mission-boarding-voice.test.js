@@ -423,3 +423,16 @@ test('Training phase scope prevents stale instructions before synthesis and play
   activeState.active.phase='rollout';
   assert.equal(generated.isPlaybackAllowed(),false);
 });
+
+test('sightseeing voice uses the restored spoken transcript in the central generation prompt',async()=>{
+ const calls=[];
+ const active=run({taskDomain:'sightseeing_tour',narrativeSchema:'sightseeing-idea.v1',speaker:{name:'Mara',gender:'female',taskDomain:'sightseeing_tour',narrativeSchema:'sightseeing-idea.v1'}});
+ const handler=createTrackerMissionBoardingVoice({
+  authorityManager:{getActiveRun:()=>active,getExecutionSnapshot:()=>({state:{voice:{clubHistory:[{id:'old',text:'Den Ortsaspekt habe ich schon erwähnt.'}]}}})},
+  voiceService:{publicState:()=>({configured:true}),request:v=>calls.push(v),wait:async()=>({status:'ready',audioAvailable:true,text:'Neuer Gedanke.',speaker:{taskDomain:'sightseeing_tour',narrativeSchema:'sightseeing-idea.v1'}})},
+  getAudioPlaybackCandidates:()=>0
+ });
+ await handler.dispatch(request());
+ assert.match(calls[0].prompt,/Den Ortsaspekt habe ich schon erwähnt/);
+ assert.match(calls[0].prompt,/BEREITS GESPROCHEN/);
+});

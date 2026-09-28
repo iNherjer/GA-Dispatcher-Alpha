@@ -4235,7 +4235,7 @@ Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenpers
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────
 
 async function _generateSpokenText(apiKey, situationPrompt) {
-    if ((window.activePassenger?.taskDomain === 'club_utility' || window.activePassenger?.narrativeSchema === 'charter-idea.v1') && window.GAMissionRouteVoiceCore) {
+    if ((window.activePassenger?.taskDomain === 'club_utility' || ['charter-idea.v1','sightseeing-idea.v1'].includes(window.activePassenger?.narrativeSchema)) && window.GAMissionRouteVoiceCore) {
         situationPrompt = window.GAMissionRouteVoiceCore.conversationPrompt(situationPrompt, window.missionClubSpeechHistory?.());
     }
     const provider = _getAiProvider();
@@ -5113,7 +5113,7 @@ function _speakerSnapshotForActivePax() {
         gender: pax.gender || '',
         roleProfile: pax.roleProfile || '',
         taskDomain: pax.taskDomain || '',
-        ...(pax.narrativeSchema === 'charter-idea.v1' ? {narrativeSchema:pax.narrativeSchema} : {}),
+        ...(['charter-idea.v1','sightseeing-idea.v1'].includes(pax.narrativeSchema) ? {narrativeSchema:pax.narrativeSchema} : {}),
         ...(pax.privateReturn?.schema === 'private-return.v1' ? { voiceIdentity: pax.privateReturn.voiceIdentity } : {})
     } : null;
 }
@@ -7408,6 +7408,8 @@ STIL: ${roleStyle}
 DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
+    const sightseeingIdea=md?.sightseeingIdea || contract?.sightseeingIdea;
+    if(sightseeingIdea?.schema === 'sightseeing-idea.v1') lines.push(window.MissionSightseeingIdeasCore.voiceContext(sightseeingIdea));
     const clubIdea = md?.clubIdea || contract?.clubIdea;
     const charterIdea=md?.charterIdea || contract?.charterIdea;
     if(charterIdea?.continuation) lines.push(`FORTSETZUNG: Der Aufenthalt ist der gespeicherte fiktive Erlebnisstand. Du bist der zurückreisende Kunde, nicht der Pilot. Bereits auf dem Hinflug gehört: ${JSON.stringify(charterIdea.continuation.heardOutbound || [])}. Erzähle aus dem Aufenthalt weiter; wiederhole nicht den ursprünglichen Hinflugauftrag.`);
@@ -10133,7 +10135,7 @@ window.paxVoiceBuildApproachAuthorityContext = function() {
         ...context,
         dest: md?.dest || 'dem Flughafen',
         start: md?.start || '?',
-        narrativeEvents: (md?.charterIdea || md?.clubIdea)?.narrativeEvents || [],
+        narrativeEvents: (md?.sightseeingIdea || md?.charterIdea || md?.clubIdea)?.narrativeEvents || [],
         privateReturn: _privateReturnVoiceContext(md),
         departure: typeof routeWaypoints !== 'undefined' ? routeWaypoints?.[0] : null,
         passenger: window.activePassenger ? { ...window.activePassenger } : null,
@@ -10650,7 +10652,7 @@ function _tickPoiDwell(lat, lon, flightData) {
 window.paxVoiceSpeakRouteEvent = function(event, previousIntents = []) {
     const core = window.GAMissionRouteVoiceCore;
     if (!core || !_missionHasPax() || _paxMissionEndVoiceActive() || !window.paxVoiceRouteEventReady()) return;
-    return _speakAndShow(core.prompt(_baseContext(), event, previousIntents, window.activePassenger?.narrativeSchema), window.activePassenger?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', null, { cancelWhenMissionEnd: true });
+    return _speakAndShow(core.prompt(_baseContext(), event, previousIntents, window.activePassenger?.narrativeSchema), window.activePassenger?.narrativeSchema === 'sightseeing-idea.v1' ? 'Besuchsziele' : window.activePassenger?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', null, { cancelWhenMissionEnd: true });
 };
 
 window.paxVoiceRouteEventReady = function() {
