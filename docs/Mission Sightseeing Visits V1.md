@@ -100,3 +100,13 @@ mit einer gespeicherten Auswahl erfolgreich geprüft. Vorherige Fehlläufe zeigt
 fehlende Ortsabsätze bzw. einen Ansage-Bezug außerhalb der Auswahl; die begrenzte
 Formatkorrektur erhält nun konkrete Befunde statt nur eine allgemeine Aufforderung.
 Testartefakte liegen lokal unter `analysis/sightseeing-live-20260928-v*.json/.md`.
+
+## Redaktionelle Kürzung (Alpha v1872)
+
+Prompt v1.1 fordert einen allgemeinverständlichen Reiseüberblick: je Ort ein bis
+zwei belegte Besonderheiten in zwei kurzen Sätzen. Zielumfang ohne Wetter:
+80–110 Wörter für einen, 100–140 für zwei, 120–170 für drei Orte. Kurzer Titel,
+je ein Satz Einstieg und Anschluss; Fachwissen des Gastes macht den Text nicht
+akademisch. Weitere Fakten bleiben für ergänzende Gespräche erhalten. Keine
+konkreten Beispielorte im Prompt, kein nachträgliches Abschneiden der Prosa und
+keine strengeren Parsergrenzen, die zusätzliche Dispatch-Abbrüche erzeugen.
