@@ -49,3 +49,11 @@ Vor Release: Live-Textprobe nach Freigabe bewerten, Änderungen gezielt integrie
 Nutzerfeedback: Die Aufträge und die klare Empfindlichkeit passen; die wiederkehrende Straßenverkehrs-Rechtfertigung entfällt. Die Ideenfelder haben deshalb ausdrücklich eigene Aufgaben: purpose = Verwendungszweck, background = Bedarfsgeschichte/Beteiligte, arrival = Übergabe/Anschluss, connection = Beziehung des Begleiters. Fragilität, Verpackung und Handhabung bleiben in den zugehörigen Sendungsfeldern. Der Writer erhält den bereits gebuchten Lieferauftrag und übernimmt aus älteren Entwürfen dessen konkrete Daten, nicht deren Verkehrsmittelvergleich. Das gilt auch für Hinweise und Begrüßung. Keine Themenbeispiele, Textfilter oder Änderungen am Flugprofil.
 
 Die erste Live-Serie bleibt als unverändertes Vorher-Ergebnis erhalten. Diese Präzisierung wurde lokal geprüft, noch nicht erneut live generiert. Die Präzisierung ist Teil des Alpha-Releases v1868.
+
+## Picker-Korrektur V1.1 / Alpha v1869
+
+Der Nutzer zeigte drei v1868-Angebote mit erneuten Landwegvergleichen. Der Picker zeigt `background` direkt an, vor jedem Briefing-Writer. Die gemeinsame KI-Anfrage fügt keine alte Frachtanweisung hinzu. Die vorherige Prompt-Nachschärfung allein war daher nicht ausreichend. Der Ideenprompt wurde kompakter neu gefasst: bestehender Luftfrachtdienst, bereits gebuchte Lieferangebote, explizite kurze Feldaufgaben. Empfindlichkeit bleibt Transportanforderung; Angebotstext beschreibt Bestellung, Bedarf oder Beteiligte. Keine Beispielwaren, Textfilter oder globalen Heuristiken.
+
+Der Live-Probe unterstützt jetzt `--picker` und ruft den produktiven `choices`-Adapter mit echter App-Normalisierung auf. Die lokale Stichprobe `analysis/fragile-picker-20260928-v2.md` enthält drei Angebote ohne Verkehrswegvergleich (ein API-Aufruf, keine Reparatur). Der Schwerpunkt bleibt technisch/institutionell; keine Aussage über langfristige Verteilung oder garantierte Befolgung. Anders als die erste Probe wurde tatsächlich die Dreierauswahl geprüft.
+
+Promptkennung `fragile-cargo-v1.1` steht im Ideenvertrag und Writer-Debug; Schema bleibt kompatibel. Versionsparameter der beiden Skripte werden erhöht. Bereits sichtbare Angebote ändern sich nicht; nach dem Update neue Auswahl erzeugen.

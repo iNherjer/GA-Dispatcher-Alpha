@@ -36,6 +36,20 @@ async function request(prompt){
 }
 const context=vm.createContext({window:{MissionFragileCargoIdeasCore:core,MissionCharterIdeasCore:charter,MissionClubIdeasCore:club,MissionPrivateEpisodeV6:flight,MissionPrivateContextCore:{resolveBrowser:async()=>({places:[]})}},localStorage:storage,getMissionAircraftCapabilitySnapshot:()=>({name:'PA-24',maxPayloadKg:520,passengerCapacity:3}),missionTrackerSupportsGroupGeneration:()=>true,getSelectedAiApiKey:()=>'',fetchGeminiJsonWithFallback:request});
 vm.runInContext(fs.readFileSync('mission-fragile-cargo-browser.js','utf8'),context);
+if(process.argv.includes('--picker')){
+ for(const name of ['normalizeMissionProposalChoice','compactMissionProposalChoice']){
+  const a=appSource.indexOf('function '+name+'('),b=appSource.indexOf('\nfunction ',a+1);
+  vm.runInContext(appSource.slice(a,b),context);
+ }
+ context.missionProposalCompactTarget=x=>x;
+ context.missionProposalFormatRoute=()=>({label:'Teststrecke'});
+ const choices=await context.window.MissionFragileCargoBrowser.choices(['LOIJ','EDTF','EDSH'].map(norm),{start:norm('EDSV')});
+ report.scope='Live three-choice fragile cargo picker through production browser adapter; isolated test history; no live weather.';
+ report.choices=choices;report.accepted=choices.length===3;save();
+ fs.writeFileSync(output.replace('.json','.md'),'# Fragile Fracht: Dreierauswahl\n\n'+choices.map((c,i)=>`## ${i+1}. ${c.title}\n\n${c.description}\n\n${c.paxText}; ${c.cargoText}\n`).join('\n'));
+ console.log('Drei Picker-Angebote gespeichert.');process.exit(0);
+}
+
 try{
  for(const [i,id] of ['LOIJ','EDTF','EDSH','EDNY'].slice(0,Number(process.argv.find(x=>x.startsWith('--count='))?.slice(8)||4)).entries()){
   if(i<report.runs.length)continue;
