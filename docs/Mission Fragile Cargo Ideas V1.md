@@ -1,6 +1,6 @@
 # Fragile APT-Fracht: Ideen und Briefings V1
 
-Stand: 28.09.2026, Branch `codex/fragile-cargo-ideas-v1`, Basis Alpha `f7ac10917` / Cache v1867. Lokal implementiert, noch nicht veröffentlicht. Der ursprüngliche Projekt-Worktree bleibt unberührt; Arbeitsverzeichnis `/tmp/ga-cargo-ideas-20260928`.
+Stand: 28.09.2026, Branch `codex/fragile-cargo-ideas-v1`, Basis Alpha `f7ac10917` / Cache v1867. Für Alpha-Release v1868 vorbereitet. Der ursprüngliche Projekt-Worktree bleibt unberührt; Arbeitsverzeichnis `/tmp/ga-cargo-ideas-20260928`.
 
 ## Erzählvertrag
 
@@ -40,6 +40,12 @@ Wetter stammt aus dem App-Snapshot und nutzt die Private-V6-Referenzauflösung. 
 
 62 Tests bestanden: neue Fragile-Cargo-Suite plus normale Cargo-, Charter-, Charter-Folge-, Club- und Tracker-Cargo-Suites. Getestet sind Auswahl/Annahme, Kapazität, feste Identität, Legacy-Guards, Wetterreparatur, lokale/Cloud-Speicherung, originales Manifest, unabhängige Frachtpflicht und Ankunftsrolle. Dazu die bestehenden sieben Cargo-Selbsttests für Persistenz, UI, Audio, Szenen, Manifest und Objektlebenszyklus/-identität.
 
-`tools/fragile-cargo-ideas-live-probe.mjs --run --key-dir=<lokales Verzeichnis> --count=3 --out=<neuer Bericht>` ist vorbereitet. Nutzt den App-JSON-Parser und eine isolierte History aus ausschließlich diesen Testentwürfen; keine Benutzerhistory, keine Live-Wetterdaten. Der Live-Aufruf wurde durch automatische Freigabeprüfung vor Ausführung blockiert. Ausdrückliche Freigabe zur Google-Übertragung ist angefragt. Daher noch keine Aussage über tatsächlich erzielte Textvielfalt.
+`tools/fragile-cargo-ideas-live-probe.mjs --run --key-dir=<lokales Verzeichnis> --count=3 --out=<neuer Bericht>` ist vorbereitet. Nutzt den App-JSON-Parser und eine isolierte History aus ausschließlich diesen Testentwürfen; keine Benutzerhistory, keine Live-Wetterdaten. Die zunächst blockierte Live-Probe wurde nach ausdrücklichem Nutzerwunsch ausgeführt: drei gültige Missionen, sechs API-Aufrufe ohne Reparatur, History-Längen 0/1/2. Ergebnisse: `analysis/fragile-cargo-20260928.json` und `.md`. Alle drei begründen den Lufttransport erneut mit Straßenvibrationen, trotz gegenteiliger Promptgrundlage. Außerdem dominieren aufwendige Spezialobjekte und technische Erklärungen; Humor bleibt gering. Reale Einrichtungen werden mit fiktiven Aufträgen verknüpft, ohne Grounding. Die dritte Überschrift bezeichnet einen Transport irreführend als Forschungsflug. Schema-Erfolg ist daher noch keine erzählerische Qualitätsfreigabe. Die unveränderten Texte werden mit dem Nutzer bewertet.
 
 Vor Release: Live-Textprobe nach Freigabe bewerten, Änderungen gezielt integrieren, Cache-Version erhöhen und Push-Workflow anwenden. Bestehende gespeicherte Briefings werden nicht neu geschrieben.
+
+## Präzisierung nach der ersten Live-Serie
+
+Nutzerfeedback: Die Aufträge und die klare Empfindlichkeit passen; die wiederkehrende Straßenverkehrs-Rechtfertigung entfällt. Die Ideenfelder haben deshalb ausdrücklich eigene Aufgaben: purpose = Verwendungszweck, background = Bedarfsgeschichte/Beteiligte, arrival = Übergabe/Anschluss, connection = Beziehung des Begleiters. Fragilität, Verpackung und Handhabung bleiben in den zugehörigen Sendungsfeldern. Der Writer erhält den bereits gebuchten Lieferauftrag und übernimmt aus älteren Entwürfen dessen konkrete Daten, nicht deren Verkehrsmittelvergleich. Das gilt auch für Hinweise und Begrüßung. Keine Themenbeispiele, Textfilter oder Änderungen am Flugprofil.
+
+Die erste Live-Serie bleibt als unverändertes Vorher-Ergebnis erhalten. Diese Präzisierung wurde lokal geprüft, noch nicht erneut live generiert. Die Präzisierung ist Teil des Alpha-Releases v1868.
