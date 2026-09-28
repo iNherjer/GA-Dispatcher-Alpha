@@ -993,8 +993,8 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         });
         else if (primary) items.splice(items.indexOf(primary),1);
     }
-    const cargoIdea = window.currentMissionData?.cargoIdea;
-    if (cargoIdea?.schema === 'cargo-idea.v1') {
+    const cargoIdea = window.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' ? window.currentMissionData.fragileCargoIdea : window.currentMissionData?.cargoIdea;
+    if (['cargo-idea.v1','fragile-cargo-idea.v1'].includes(cargoIdea?.schema)) {
         const primary = items.find(item => item.id === 'primary-cargo');
         if (primary) Object.assign(primary, {
             label: cargoIdea.shipment.label, storyName: cargoIdea.shipment.label,

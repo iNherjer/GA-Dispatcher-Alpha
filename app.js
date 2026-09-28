@@ -4471,6 +4471,7 @@ function toggleMissionPickerMode() {
 function classifyAptMissionCategory(ms) {
     if (window.MissionPrivateReturnCore?.context(ms || {})) return 'private';
     // A structured private contract is authoritative; prose such as "erkundet" is not a charter cue.
+    if (ms?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return 'cargo';
     if (ms?.cargoIdea?.schema === 'cargo-idea.v1') return 'cargo';
     if (ms?.charterIdea?.schema === 'charter-idea.v1') return 'charter';
     if (ms?.clubIdea?.schema === 'club-idea.v1') return 'club';
@@ -8843,7 +8844,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'cargoIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'cargoIdea', 'fragileCargoIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9461,7 +9462,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -17286,6 +17287,7 @@ function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
 function personalizeAptCharterMission(mission = null, context = {}, preferredPersona = null) {
     if (window.MissionPrivateReturnCore?.context(mission || {})) return mission;
     if (!mission || typeof mission !== 'object') return mission;
+    if (mission.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return mission;
     if (mission.cargoIdea?.schema === 'cargo-idea.v1') return mission;
     if (mission.charterIdea?.schema === 'charter-idea.v1') return mission;
     if (mission.clubIdea?.schema === 'club-idea.v1') return mission;
@@ -18857,6 +18859,7 @@ function _pickCargoFragilePassengerForStory(profile = null, storyText = '', miss
 }
 
 function _syncCargoFragileStoryAnchor(missionLike = null, profile = null, cargoText = '', extraStoryText = '') {
+    if (missionLike?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return {mission:missionLike,cargoText:missionLike.cargo};
     if (!missionLike || typeof missionLike !== 'object' || !profile || profile.id !== 'cargo_fragile') {
         return { mission: missionLike, cargoText };
     }
@@ -21771,6 +21774,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (!isPOI && profileId === 'private_return' && window.MissionPrivateReturnCore?.context(mission || {}))
         return { mission, appliedProfile: 'private_return', paxText: mission.pax, cargoText: mission.cargo };
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
+    if (!isPOI && profileId === 'cargo_fragile' && m.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && ['auto', ''].includes(profileId) && m.cargoIdea?.schema === 'cargo-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'auto'};
     if (!isPOI && ['auto', 'apt_charter', 'apt_charter_pickup'].includes(profileId) && m.charterIdea?.schema === 'charter-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && m.clubIdea?.schema === 'club-idea.v1' && ['auto', 'club_utility'].includes(profileId))
@@ -22880,6 +22884,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
                 : null),
         cargoText: String(cargoText || ''),
         missionTitle: title,
+        fragileCargoIdea: mission?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' ? mission.fragileCargoIdea : null,
         cargoIdea: mission?.cargoIdea?.schema === 'cargo-idea.v1' ? mission.cargoIdea : null,
         charterIdea: mission?.charterIdea?.schema === 'charter-idea.v1' ? mission.charterIdea : null,
         missionStory: story,
@@ -23347,6 +23352,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 }
 
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
+    if (!isPOI && profileId === 'cargo_fragile' && missionLike?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return true;
     if (!isPOI && ['apt_charter','apt_charter_pickup'].includes(profileId) && missionLike?.charterIdea?.schema === 'charter-idea.v1') return true;
     if (!isPOI && profileId === 'private_return') return !!window.MissionPrivateReturnCore?.context(missionLike || {});
     if (!isPOI && profileId === 'club_utility' && missionLike?.clubIdea?.schema === 'club-idea.v1') return true;
@@ -23633,6 +23639,7 @@ function buildMissionPartyNarrativeContext(party = null, passenger = null) {
 
 function synchronizeMissionPartyPresentation(mission = null, party = null) {
     if (!mission || typeof mission !== 'object') return mission;
+    if (mission.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return mission;
     if (mission.cargoIdea?.schema === 'cargo-idea.v1') return mission;
     if (mission.charterIdea?.schema === 'charter-idea.v1') return mission;
     const context = buildMissionPartyNarrativeContext(party, mission.passenger || null);
@@ -41409,6 +41416,7 @@ function compactMissionProposalChoice(choice = null) {
         clubProposal: normalized.clubProposal || null,
         charterProposal: normalized.charterProposal || null,
         cargoProposal: normalized.cargoProposal || null,
+        fragileCargoProposal: normalized.fragileCargoProposal || null,
         mode: normalized.mode,
         profileId: normalized.profileId,
         selectedCategory: normalized.selectedCategory,
@@ -41911,6 +41919,7 @@ async function buildMissionProposalAptChoices(context = {}) {
         regionPref: context.regionPref,
         limit: profileId === 'club_utility' && context.aiModeEnabled ? 100 : 18
     });
+    if (context.aiModeEnabled && profileId === 'cargo_fragile') return window.MissionFragileCargoBrowser.choices(airports,context);
     if (cargo) return window.MissionCargoBrowser.choices(airports,context);
     if (charter) return window.MissionCharterBrowser.choices(airports,context);
     if (profileId === 'club_utility' && context.aiModeEnabled) {
@@ -43329,10 +43338,13 @@ async function generateMission(options = {}) {
         plannerContext.animalTransportBrief = animalTransportBrief;
     };
     const useCharterContinuation = !!window.MissionCharterContinuationCore?.context(followupSeed);
+    const useFragileCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'cargo_fragile';
     const useCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'cargo' && ['auto',''].includes(dispatchProfileId);
     const useCharterIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(dispatchProfileId);
     const useClubIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && aiModeEnabled && dispatchProfileId === 'club_utility';
-    if (useCargoIdeas) {
+    if (useFragileCargoIdeas) {
+        missionContractV4 = {status:'ready',profile:{id:'cargo_fragile',taskDomain:'cargo_fragile',roleProfile:'cargo_fragile_highcare_v1'}};
+    } else if (useCargoIdeas) {
         missionContractV4 = {status:'ready',profile:getMissionTaskProfile('auto','apt')};
     } else if (useCharterIdeas || useCharterContinuation) {
         missionContractV4 = {status:'ready',profile:{id:dispatchProfileId,taskDomain:'charter',roleProfile:'charter_professional_neutral_v1'}};
@@ -43945,6 +43957,7 @@ async function generateMission(options = {}) {
             || missionContractV4?.status !== 'ready' || missionContractV4?.profile?.taskDomain !== 'private_outing')) {
             throw new Error('Die gewählte Ausflugsidee benötigt den aktiven Privat-Planner mit bereitem V4-Rahmen. Bitte die Einstellungen prüfen und neue Vorschläge erstellen.');
         }
+        if (missionProposalChoice?.fragileCargoProposal && !useFragileCargoIdeas) throw Error('Die Frachtauswahl benötigt den aktiven KI-Generator für fragile Fracht.');
         if (missionProposalChoice?.cargoProposal && !useCargoIdeas) throw Error('Die Frachtauswahl benötigt den aktiven KI-Frachtgenerator.');
         if (missionProposalChoice?.charterProposal && !useCharterIdeas) throw Error('Die Charterauswahl benötigt den KI-Chartergenerator.');
         if (useCharterContinuation) {
@@ -43960,6 +43973,11 @@ async function generateMission(options = {}) {
             }
             m=await window.MissionCharterBrowser.continuation({req:followupSeed,base:followupDispatchMission.mission,contract:missionContractV4,aiEnabled:aiModeEnabled});
             missionContractV4=m._missionContractV4;paxText=m.pax;cargoText=m.cargo;
+        } else if (useFragileCargoIdeas) {
+            missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m = await window.MissionFragileCargoBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.fragileCargoProposal,contract:missionContractV4});
+            missionPlanV2=m._missionPlanV2;
+            missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
         } else if (useCargoIdeas) {
             missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m = await window.MissionCargoBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.cargoProposal,contract:missionContractV4});
@@ -44742,6 +44760,7 @@ async function generateMission(options = {}) {
         clubIdea: m.clubIdea || null,
         charterIdea: m.charterIdea || null,
         cargoIdea: m.cargoIdea || null,
+        fragileCargoIdea: m.fragileCargoIdea || null,
         privateOuting: m.privateOuting || null,
         privateReturn: m.privateReturn || null,
         dist: totalDist,
@@ -44853,6 +44872,7 @@ async function generateMission(options = {}) {
         }
     }
     window.currentMissionData = currentMissionData;
+    if (currentMissionData.fragileCargoIdea) window.MissionFragileCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.fragileCargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.fragileCargoIdea.writerMemory});
     if (currentMissionData.cargoIdea) window.MissionCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.cargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.cargoIdea.writerMemory});
     if (currentMissionData.charterIdea) window.MissionCharterIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.charterIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.charterIdea.writerMemory});
     if (currentMissionData.clubIdea) {

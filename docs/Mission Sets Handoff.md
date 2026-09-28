@@ -7,6 +7,8 @@ Missionssets. Er ersetzt nicht die fachlichen Contracts.
 
 Ergänzung vom 28.09.2026: [Normale APT-Fracht – Ideen V1](Mission%20Cargo%20Ideas%20V1.md) beschreibt den neuen Cargo-Erzählpfad auf der ursprünglichen Transportlogik (Alpha-App-Cache v1867).
 
+Lokal ergänzt am 28.09.2026: [Fragile APT-Fracht – Ideen V1](Mission%20Fragile%20Cargo%20Ideas%20V1.md), eigener Ideenvertrag mit einem Frachtbegleiter und ursprünglicher Liefer-/Schadenslogik. Noch nicht veröffentlicht; Live-Textprobe wartet auf Freigabe.
+
 ## Ziel und Promptprinzip
 
 Die KI entwickelt eine zusammenhängende Absicht und erzählt daraus ein
