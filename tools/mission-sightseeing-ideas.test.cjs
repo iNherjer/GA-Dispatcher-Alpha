@@ -78,3 +78,18 @@ test('repair identifies a missing destination paragraph without replacing source
  const idea=core.validate(raw,input),errors=core.proseErrors({...written,visitSections:written.visitSections.slice(1)},idea);assert.match(errors.join(' '),/wiki-1/);
  assert.match(core.validationErrors({...raw,narrativeEvents:[{atPercent:50,placeIds:['other'],factIds:['fact-1'],intent:'Gedanke'}]},input).join(' '),/kein gewähltes/);
 });
+
+test('invalid weather prose falls back to supplied observations without changing visit story',async()=>{
+ let calls=0;const c=browser(async()=>({parsed:++calls===1?{ideas:[{...raw,candidateId:'direct'}]}:{...written,flightBriefing:'Wind 999 Knoten'}}));
+ const m=await c.window.MissionSightseeingBrowser.story({start:route.start,dest:route.target,contract:{route:{distanceNm:60},weather:{dep:{raw:{station:'EDDS',windKts:0,gustKts:12,visKm:10,freshness:'stale',observedAt:'2026-09-28T10:00:00Z'}},dest:{raw:null}}}});
+ assert.equal(calls,3);assert.equal(m._missionWriterV4Debug.weatherBriefingStatus,'observations-fallback');
+ assert.match(m.s,/EDDS.*ältere Meldung.*Wind 0 kt, Böen 12 kt, Sicht 10 km/);
+ assert.match(m.s,/Ziel: keine verwertbare Wetterbeobachtung/);assert.doesNotMatch(m.s,/999|\[\[|Der Wetterabsatz konnte/);
+ assert.ok(m.s.startsWith(core.prose(written,core.validate(raw,input)).story));
+});
+test('weather instructions expose required route and gust bindings; fallback preserves missing data',()=>{
+ const context=flight.flightContext({route:{distanceNm:60},weather:{dep:{raw:{station:'EDDS',windKts:5,gustKts:9}}}});
+ const prompt=core.weatherPrompt({context,bindings:flight.flightBindings(context)});
+ assert.match(prompt,/VERBINDLICHE REFERENZEN: \[\[route.distance\]\], \[\[start.gust\]\]/);
+ const fallback=core.weatherFallback(context);assert.match(fallback,/Aktualität unbekannt/);assert.match(fallback,/Ohne Zahlenangabe: Sicht, Wolkenhöhe/);assert.doesNotMatch(fallback,/windstill|böenfrei/);
+});

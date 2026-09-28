@@ -45,12 +45,13 @@ async function story({start,dest,proposal,contract={}}){
  let raw=await json(prompt),written=parse(raw);
  if(!written){raw=await json(prompt+'\nPRÜFBEFUNDE: '+JSON.stringify(core().proseErrors(resolveText(raw,flight.bindings),idea))+'\nFORMATKORREKTUR: Bewahre Orte, Fakten und Perspektive. Jeder gewählte Ort genau einmal mit gültigen factIds. Prüfe Textlängen und Referenzen. Vollständiges JSON. ENTWURF: '+JSON.stringify(raw));written=parse(raw);}
  if(!written)throw Error('Das Sightseeing-Briefing enthält ungültige Texte oder Ortsverweise. Bitte erneut versuchen.');
- let brief=api.resolveFlightBriefing(raw.flightBriefing,context);
- if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null))brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
- else if(!brief){try{const repair=await json('Erstelle ausschließlich den Wetterabsatz. Nur JSON {flightBriefing}. '+root.MissionCargoIdeasCore.weatherPrompt(flight));brief=api.resolveFlightBriefing(repair.flightBriefing,context);raw.flightBriefing=repair.flightBriefing;}catch{console.warn('[Sightseeing] Wetterabsatz konnte nicht separat korrigiert werden.');}}
- if(!brief)brief='Der Wetterabsatz konnte nicht erstellt werden; die einzelnen Wetterdaten bitte separat prüfen.';
+ let brief=api.resolveFlightBriefing(raw.flightBriefing,context),weatherBriefingStatus=brief?'accepted-bindings':'pending';
+ if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null)){brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';weatherBriefingStatus='unavailable';}
+ else if(!brief){try{const repair=await json('Erstelle ausschließlich den Wetterabsatz. Nur JSON {flightBriefing}. '+core().weatherPrompt(flight));brief=api.resolveFlightBriefing(repair.flightBriefing,context);raw.flightBriefing=repair.flightBriefing;}catch{console.warn('[Sightseeing] Wetterabsatz konnte nicht separat korrigiert werden.');}}
+ if(!brief){brief=core().weatherFallback(context);weatherBriefingStatus='observations-fallback';}
+ else if(weatherBriefingStatus==='pending')weatherBriefingStatus='repaired-bindings';
  const m=core().mission(idea,written,brief,contract.route);
- Object.assign(m._missionWriterV4Debug,{weatherSnapshot:context.weather,rawFlightBriefing:raw.flightBriefing||'',historyCount:input.recent.length});
+ Object.assign(m._missionWriterV4Debug,{weatherBriefingStatus,weatherSnapshot:context.weather,rawFlightBriefing:raw.flightBriefing||'',historyCount:input.recent.length});
  Object.assign(contract,{status:'ready',profile:{id:'sightseeing_tour',taskDomain:'sightseeing_tour',roleProfile:'tour_guide_relaxed_v1'},sightseeingIdea:m.sightseeingIdea,passenger:m.passenger,passengerCount:m.passengerCount,plannedPassengerCount:m.passengerCount,party:m.party,paxText:m.pax,cargoText:m.cargo,missionStory:m.s,target:input.route.target,storyFrame:{trigger:idea.summary,soughtOutcome:idea.groundPlan,noDelivery:true}});
  m._missionContractV4=contract;return m;
 }

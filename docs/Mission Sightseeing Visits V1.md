@@ -110,3 +110,15 @@ je ein Satz Einstieg und Anschluss; Fachwissen des Gastes macht den Text nicht
 akademisch. Weitere Fakten bleiben für ergänzende Gespräche erhalten. Keine
 konkreten Beispielorte im Prompt, kein nachträgliches Abschneiden der Prosa und
 keine strengeren Parsergrenzen, die zusätzliche Dispatch-Abbrüche erzeugen.
+
+## Wetterabsatz absichern (Alpha v1873)
+
+Die Dispatch-Wetterabfragen werden bereits vor dem Writer abgewartet. Ein
+vorhandener Snapshot konnte dennoch bei zweimal ungültiger KI-Prosa nur zum
+Fehlerhinweis führen. Sightseeing benennt jetzt die vom gemeinsamen Resolver
+erwarteten Pflichtreferenzen ausdrücklich, einschließlich Streckenlänge. Nach
+einem erfolglosen Reparaturversuch zeigt es die gelieferten Stationsmesswerte
+mit Beobachtungszeit, Aktualität und Datenlücken direkt. Keine Wetterwerte werden
+erfunden oder aus fehlenden Angaben abgeleitet. Der Debug-Writer nennt den Status
+`accepted-bindings`, `repaired-bindings`, `observations-fallback` oder `unavailable`.
+Die gemeinsame Wetterverarbeitung und andere Missionsfamilien bleiben unverändert.
