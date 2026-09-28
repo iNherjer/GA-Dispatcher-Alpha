@@ -4471,6 +4471,7 @@ function toggleMissionPickerMode() {
 function classifyAptMissionCategory(ms) {
     if (window.MissionPrivateReturnCore?.context(ms || {})) return 'private';
     // A structured private contract is authoritative; prose such as "erkundet" is not a charter cue.
+    if (ms?.cargoIdea?.schema === 'cargo-idea.v1') return 'cargo';
     if (ms?.charterIdea?.schema === 'charter-idea.v1') return 'charter';
     if (ms?.clubIdea?.schema === 'club-idea.v1') return 'club';
     if (ms?.privateOuting?.schema === 'private-outing.v1' && ms.privateOuting.taskDomain === 'private_outing') return 'private';
@@ -8842,7 +8843,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'cargoIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9460,7 +9461,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -17285,6 +17286,7 @@ function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
 function personalizeAptCharterMission(mission = null, context = {}, preferredPersona = null) {
     if (window.MissionPrivateReturnCore?.context(mission || {})) return mission;
     if (!mission || typeof mission !== 'object') return mission;
+    if (mission.cargoIdea?.schema === 'cargo-idea.v1') return mission;
     if (mission.charterIdea?.schema === 'charter-idea.v1') return mission;
     if (mission.clubIdea?.schema === 'club-idea.v1') return mission;
     if (mission.privateOuting?.schema === 'private-outing.v1' && mission.privateOuting.taskDomain === 'private_outing') return mission;
@@ -21769,6 +21771,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (!isPOI && profileId === 'private_return' && window.MissionPrivateReturnCore?.context(mission || {}))
         return { mission, appliedProfile: 'private_return', paxText: mission.pax, cargoText: mission.cargo };
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
+    if (!isPOI && ['auto', ''].includes(profileId) && m.cargoIdea?.schema === 'cargo-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'auto'};
     if (!isPOI && ['auto', 'apt_charter', 'apt_charter_pickup'].includes(profileId) && m.charterIdea?.schema === 'charter-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && m.clubIdea?.schema === 'club-idea.v1' && ['auto', 'club_utility'].includes(profileId))
         return { mission: m, paxText: m.pax, cargoText: m.cargo, appliedProfile: 'club_utility' };
@@ -22877,6 +22880,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
                 : null),
         cargoText: String(cargoText || ''),
         missionTitle: title,
+        cargoIdea: mission?.cargoIdea?.schema === 'cargo-idea.v1' ? mission.cargoIdea : null,
         charterIdea: mission?.charterIdea?.schema === 'charter-idea.v1' ? mission.charterIdea : null,
         missionStory: story,
         sceneIntent,
@@ -23629,6 +23633,7 @@ function buildMissionPartyNarrativeContext(party = null, passenger = null) {
 
 function synchronizeMissionPartyPresentation(mission = null, party = null) {
     if (!mission || typeof mission !== 'object') return mission;
+    if (mission.cargoIdea?.schema === 'cargo-idea.v1') return mission;
     if (mission.charterIdea?.schema === 'charter-idea.v1') return mission;
     const context = buildMissionPartyNarrativeContext(party, mission.passenger || null);
     if (!context || context.count <= 1) return mission;
@@ -41209,6 +41214,7 @@ function missionProposalPoiOptionLine(target = {}, profileId = '') {
 }
 
 function missionProposalFamilyIntro(choices = []) {
+    if (choices.length && choices.every(c => c.cargoProposal)) return 'Wähle die Sendung. Bedarf, Empfänger und Fracht bleiben für das Briefing erhalten.';
     if (choices.length && choices.every(c => c.charterProposal)) return 'Wähle den Charterauftrag. Reisegrund, Gruppe und gebuchtes Gepäck bleiben für das Briefing erhalten.';
     if (choices.length && choices.every(c => c.clubProposal)) return 'Wähle euren Vereinsflug. Die ausgewählte Idee bleibt beim Erstellen des Briefings erhalten.';
     if (choices.length && choices.every(choice => choice.privateProposal?.schema === 'private-proposal.v1')) {
@@ -41402,6 +41408,7 @@ function compactMissionProposalChoice(choice = null) {
         id: normalized.id,
         clubProposal: normalized.clubProposal || null,
         charterProposal: normalized.charterProposal || null,
+        cargoProposal: normalized.cargoProposal || null,
         mode: normalized.mode,
         profileId: normalized.profileId,
         selectedCategory: normalized.selectedCategory,
@@ -41891,7 +41898,8 @@ async function buildPrivateMissionProposalChoices(airports, context = {}) {
 async function buildMissionProposalAptChoices(context = {}) {
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
     const charter = context.aiModeEnabled && context.selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(profileId);
-    const config = missionProposalAptProfileConfig(profileId) || (charter ? {} : null);
+    const cargo = context.aiModeEnabled && context.selectedAptCategory === 'cargo' && ['auto',''].includes(profileId);
+    const config = missionProposalAptProfileConfig(profileId) || (charter || cargo ? {} : null);
     const start = context.start;
     if (!config || !start) return [];
     const profile = getMissionTaskProfile(profileId, 'apt') || {};
@@ -41903,6 +41911,7 @@ async function buildMissionProposalAptChoices(context = {}) {
         regionPref: context.regionPref,
         limit: profileId === 'club_utility' && context.aiModeEnabled ? 100 : 18
     });
+    if (cargo) return window.MissionCargoBrowser.choices(airports,context);
     if (charter) return window.MissionCharterBrowser.choices(airports,context);
     if (profileId === 'club_utility' && context.aiModeEnabled) {
         return window.MissionClubBrowser.choices(airports, context);
@@ -42077,7 +42086,7 @@ function missionProposalIsEligible(context = {}) {
     if (context.followupSeed || context.targetDest || context.isBushDispatch || context.isPlanningOnlyMode) return false;
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
     if (context.effectiveType === 'apt') {
-        return !!missionProposalAptProfileConfig(profileId) || (context.aiModeEnabled && context.selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(profileId));
+        return !!missionProposalAptProfileConfig(profileId) || (context.aiModeEnabled && context.selectedAptCategory === 'cargo' && ['auto',''].includes(profileId)) || (context.aiModeEnabled && context.selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(profileId));
     }
     if (context.effectiveType === 'poi') {
         if (String(context.selectedPoiCategory || '').toLowerCase() === 'trn') return false;
@@ -43320,9 +43329,12 @@ async function generateMission(options = {}) {
         plannerContext.animalTransportBrief = animalTransportBrief;
     };
     const useCharterContinuation = !!window.MissionCharterContinuationCore?.context(followupSeed);
+    const useCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'cargo' && ['auto',''].includes(dispatchProfileId);
     const useCharterIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(dispatchProfileId);
     const useClubIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && aiModeEnabled && dispatchProfileId === 'club_utility';
-    if (useCharterIdeas || useCharterContinuation) {
+    if (useCargoIdeas) {
+        missionContractV4 = {status:'ready',profile:getMissionTaskProfile('auto','apt')};
+    } else if (useCharterIdeas || useCharterContinuation) {
         missionContractV4 = {status:'ready',profile:{id:dispatchProfileId,taskDomain:'charter',roleProfile:'charter_professional_neutral_v1'}};
     } else if (useClubIdeas) {
         // The idea owns narrative/person/loadout. Do not call the legacy seeded planner.
@@ -43933,6 +43945,7 @@ async function generateMission(options = {}) {
             || missionContractV4?.status !== 'ready' || missionContractV4?.profile?.taskDomain !== 'private_outing')) {
             throw new Error('Die gewählte Ausflugsidee benötigt den aktiven Privat-Planner mit bereitem V4-Rahmen. Bitte die Einstellungen prüfen und neue Vorschläge erstellen.');
         }
+        if (missionProposalChoice?.cargoProposal && !useCargoIdeas) throw Error('Die Frachtauswahl benötigt den aktiven KI-Frachtgenerator.');
         if (missionProposalChoice?.charterProposal && !useCharterIdeas) throw Error('Die Charterauswahl benötigt den KI-Chartergenerator.');
         if (useCharterContinuation) {
             if (!followupDispatchMission?.mission) throw Error('Die Charter-Fortsetzung passt nicht zur gewählten Route.');
@@ -43947,6 +43960,11 @@ async function generateMission(options = {}) {
             }
             m=await window.MissionCharterBrowser.continuation({req:followupSeed,base:followupDispatchMission.mission,contract:missionContractV4,aiEnabled:aiModeEnabled});
             missionContractV4=m._missionContractV4;paxText=m.pax;cargoText=m.cargo;
+        } else if (useCargoIdeas) {
+            missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m = await window.MissionCargoBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.cargoProposal,contract:missionContractV4});
+            missionPlanV2=m._missionPlanV2;
+            missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
         } else if (useCharterIdeas) {
             missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m = await window.MissionCharterBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.charterProposal,contract:missionContractV4});
@@ -44723,6 +44741,7 @@ async function generateMission(options = {}) {
         missionStory: m.s,
         clubIdea: m.clubIdea || null,
         charterIdea: m.charterIdea || null,
+        cargoIdea: m.cargoIdea || null,
         privateOuting: m.privateOuting || null,
         privateReturn: m.privateReturn || null,
         dist: totalDist,
@@ -44834,6 +44853,7 @@ async function generateMission(options = {}) {
         }
     }
     window.currentMissionData = currentMissionData;
+    if (currentMissionData.cargoIdea) window.MissionCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.cargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.cargoIdea.writerMemory});
     if (currentMissionData.charterIdea) window.MissionCharterIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.charterIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.charterIdea.writerMemory});
     if (currentMissionData.clubIdea) {
         window.MissionClubIdeasCore.remember(localStorage, currentMissionData.id || currentMissionData.missionId, currentMissionData.clubIdea, { story: m.s });

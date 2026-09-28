@@ -44,6 +44,8 @@ const STATIC = [
     './mission-charter-continuation-core.js',
     './mission-charter-ideas-core.js',
     './mission-charter-browser.js',
+    './mission-cargo-ideas-core.js',
+    './mission-cargo-browser.js',
     './mission-private-return-core.js',
     './mission-private-context-core.js',
     './mission-definition-core.js',

@@ -993,6 +993,14 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         });
         else if (primary) items.splice(items.indexOf(primary),1);
     }
+    const cargoIdea = window.currentMissionData?.cargoIdea;
+    if (cargoIdea?.schema === 'cargo-idea.v1') {
+        const primary = items.find(item => item.id === 'primary-cargo');
+        if (primary) Object.assign(primary, {
+            label: cargoIdea.shipment.label, storyName: cargoIdea.shipment.label,
+            weightLbs: cargoIdea.shipment.weightLbs
+        });
+    }
     _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
     return {
         version: 6,

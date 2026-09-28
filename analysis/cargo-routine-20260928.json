@@ -1,0 +1,820 @@
+{
+  "scope": "Four sequential browser writer runs with application JSON parser and Gemini default generation configuration, isolated growing history, normal zero-PAX cargo; airport coordinates from repository; no geo anchors or live weather supplied.",
+  "requests": [
+    {
+      "prompt": "Entwickle eigenständige normale A-B-Frachtaufträge. Schwerpunkt ist die alltägliche gewerbliche und institutionelle Versorgung: Sendungen gehören zu laufenden Abläufen und realistischen Bedürfnissen von Organisationen. In dieser Spielwelt gehört kleine Luftfracht zum regulären Transportangebot. Ein normaler Versandbedarf genügt als Auftrag; die Geschichte muss den Luftweg nicht erst durch einen außergewöhnlichen Vorteil gegenüber anderen Verkehrsmitteln rechtfertigen. Entwickle überwiegend aus regulären Abläufen, Versandmengen und Versorgung heraus. Spezielle technische Problemlösung ist ein möglicher Randfall, nicht der Ausgangspunkt jeder Idee. Eine schlichte Beförderung genügt als vollständiger Auftrag. Entwickle zuerst den Bedarf am Ziel und den Zusammenhang zwischen Absender und Empfänger; daraus entstehen Inhalt, Verpackung und Anlass des Flugs. Die meisten Aufträge brauchen weder einen besonderen Gegenstand noch einen individuellen privaten Sonderwunsch. Private Gefälligkeiten bleiben gelegentlich möglich. Humor, menschliche Eigenheiten und kuriose Beförderungen dürfen beiläufig entstehen, ohne Pointe oder Exzentrik erzwingen zu müssen. Ein sachlicher Routineflug ist ebenso erzählenswert. Zeitdruck, Empfindlichkeit und außergewöhnliche Transportrechtfertigungen sind keine Voraussetzung. character beschreibt frei den Charakter des Auftrags, keine neue Missionsklasse.\nEntwickle intern mehrere unterschiedliche Bedürfnisse, wähle dann eine stimmige Idee. recent enthält eigene frühere Entwürfe, keine Vorgaben und keine tatsächlich erlebte Vergangenheit. Vergleiche Versorgungszweck, Beteiligte, Transportgrund und Erzählbewegung. Ein anderer Gegenstand, Beruf oder Ortsname allein schafft keine Vielfalt. Vermeide insbesondere, denselben besonderen Einzelbedarf mit ausgetauschter Kulisse immer wieder zu erzählen. memory hält den inhaltlichen Kern fest. Keine Themenliste, Rotation oder Quote.\nFester Ablauf: ein Frachtflug vom Start zum Zielflugplatz, null Passagiere. Die gesamte Sendung wird am Start geladen und am Ziel an einen dortigen Kontakt übergeben; erst danach folgt ihr geplanter weiterer Weg. sender und recipient bleiben Bodenrollen. Keine Bordbegleiter, zusätzlichen Wegpunkte, Abholung oder Rückreise. Keine Voice-Ereignisse unterwegs. Ein zusammengehöriger Versandposten mit Gesamtgewicht inklusive Verpackung, positiv und höchstens maxShipmentLbs. Das ist die Entwurfsgrenze, keine Aussage über freie Zuladung, Volumen oder Schwerpunkt. Keine Eignungsfreigabe für das Flugzeug behaupten. Die bestehende Simulation bildet normalen Gütertransport ab, keine neu erfundenen Sonderverfahren. handling ist leer, sofern keine konkrete Besonderheit besteht; normale Ladungssicherung nicht als besondere Aufgabe ausschmücken.\nDie Beteiligten und ihr organisatorischer Anlass dürfen fiktiv sein. Reale Betriebsausfälle, Termine oder örtliche Einrichtungen nicht als recherchierte Tatsachen ausgeben; Flugplatznamen und Route stammen aus dem Rahmen. Ein Zielort ist kein Zwang zu einer lokalen Spezialität. missionDate ist der heutige Planungsstand; Jahreszeit und relative Termine müssen dazu passen. Ohne benötigten Termin keine Jahreszeit ergänzen. aircraft nennt das verfügbare Flugzeug: Entwickle handhabbare Packstücke dafür, ohne unbekannte Abmessungen oder eine Beladbarkeitsprüfung zu erfinden.\nNur JSON {ideas:[{candidateId,purpose,background,sender,recipient,arrival,character,memory,shipment:{label,weightLbs,packaging,handling}}]}. Für jeden Rahmen genau eine Idee. Texte bis 600 Zeichen, shipment.label bis 160, packaging und handling bis 300. weightLbs ist eine Zahl. arrival nennt die Übergabe am Zielflugplatz und den vorgesehenen nächsten Bodenschritt. Keine Passagier-, Greeting- oder Eventfelder.\nRAHMEN: [{\"candidateId\":\"direct\",\"route\":{\"start\":{\"name\":\"WAECHTERSBERG\",\"icao\":\"EDSV\",\"lat\":48.614861,\"lon\":8.755111},\"target\":{\"name\":\"St. Johann In Tirol Airport\",\"icao\":\"LOIJ\",\"lat\":47.5200996399,\"lon\":12.4497003555}},\"missionDate\":\"2026-09-28\",\"aircraft\":{\"name\":\"PA-24\",\"maxPayloadKg\":520},\"maxShipmentLbs\":319,\"recent\":[]}]",
+      "status": 200,
+      "raw": "{\n  \"ideas\": [\n    {\n      \"candidateId\": \"direct\",\n      \"purpose\": \"Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.\",\n      \"background\": \"Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.\",\n      \"sender\": \"Metallwaren-Zentrum Nagold-Tal, Versandabteilung\",\n      \"recipient\": \"Tischlerei & Innenausbau Moser, St. Johann in Tirol\",\n      \"arrival\": \"Die Übergabe erfolgt am GAT des Flugplatzes St. Johann. Ein Mitarbeiter der Tischlerei übernimmt die Kartons direkt in den Firmen-Kleintransporter für die kurze Fahrt in die Werkstatt.\",\n      \"character\": \"Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.\",\n      \"memory\": \"Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.\",\n      \"shipment\": {\n        \"label\": \"8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau\",\n        \"weightLbs\": 265,\n        \"packaging\": \"8 doppelwellige Schwerlast-Versandkartons, einzeln mit Kunststoffband umreift.\",\n        \"handling\": \"\"\n      }\n    }\n  ]\n}"
+    },
+    {
+      "prompt": "Schreibe ein natürliches, konkretes Briefing für den Frachtflug. Außenstehender Erzähler, Beteiligte in der dritten Person; den Piloten bei Bedarf mit du ansprechen. Erkläre den Bedarf, warum die Sendung unterwegs ist und was nach der Übergabe geschehen soll. Der Umfang richtet sich nach dem Anlass; ein einfacher Vorgang darf in wenigen Sätzen vollständig erzählt sein. Bewahre den Charakter der Idee, auch ihre Schlichtheit oder ihren beiläufigen Humor. Ergänze keinen Terminzwang, Schaden, Engpass oder besondere Empfindlichkeit, wenn die Idee diese nicht enthält. Technische Typenbezeichnungen tragen nur dann zum Text bei, wenn sie für den Auftrag wirklich etwas erklären. Erzähle die konkrete Situation; bewerte im Text nicht, zu welcher Auftragsgattung sie gehört oder wie alltäglich, bodenständig oder unaufgeregt sie ist. Der Ton soll sich aus den Vorgängen ergeben. Erwähne null Passagiere nicht als Kontrast zu den Bodenrollen; diese Information steht bereits im Payload-Abschnitt. Keine Pflichtdramaturgie, Werbesprache oder allgemeine Schlussweisheit. Erzähle aus dem Stand vor dem Abflug: Vorgeschichte ist geschehen, Laden, Flug, Entladen und Übergabe liegen noch bevor. Keine Szene oder Gedanken aus dem bevorstehenden Flug vorwegnehmen. Der Pilot befördert Fracht, null Passagiere; Menschen handeln ausschließlich am Boden. Keine direkte Rede, Begrüßung oder angekündigte Bordunterhaltung.\nDie Sendung steht zusätzlich im Payload-Abschnitt. story soll ihren Zusammenhang erklären, nicht Datenlisten wiederholen. Verpackung oder Handhabung nur erwähnen, wenn sie zum Verständnis beitragen. pilotNotes enthält ausschließlich eine konkrete besondere Handhabung aus shipment.handling, sonst leer. Keine zusätzlichen Aufgaben, Zusicherungen oder pauschalen Sicherheitshinweise. Keine erfundenen Wetter-, Pisten- oder Routenangaben in story; operative Daten stehen separat. HISTORY hilft gegen wiederkehrende Motive, Einstiege und Formulierungen, nicht zum Nachschreiben.\nNur JSON {title,story,flightBriefing,pilotNotes,memory}. title bis 110 Zeichen, story 180–1800 Zeichen, memory bis 600 Zeichen, pilotNotes bis 500. flightBriefing beschreibt ausschließlich die gelieferten Start-/Zielbeobachtungen mit Stationsbezug, Aktualität und Datenlücken. Wind, vorhandene Böen, Sicht und Wolken örtlich zuordnen. Ältere oder zeitlich unbekannte Meldungen ausdrücklich so einordnen. Wolkenbasis und Ceiling nicht gleichsetzen. Fehlende Werte sind unbekannt, nicht windstill oder böenfrei. Keine Beobachtung entlang der Strecke, Ankunftsprognose oder Flugfreigabe ableiten. Zahlen und Einheiten ausschließlich als [[Referenz]] aus WERTE. Vorhandene route.distance, start.gust und target.gust verwenden. Nur existierende Schlüssel, keine eigenen Zahlen oder Umrechnungen. In den Klammern steht der Schlüssel aus WERTE, niemals sein aufgelöster Wert. story und title brauchen keine Streckenreferenzen; die Strecke wird separat angezeigt. Bei fehlendem Wetter genügt ein kurzer Satz. Maximal 850 Zeichen. FLUGDATEN: {\"schema\":\"private-flight-context.v1\",\"startName\":\"WAECHTERSBERG\",\"targetName\":\"St. Johann In Tirol Airport\",\"distanceNm\":162.1,\"distanceBasis\":\"supplied-route-distance\",\"landscape\":[],\"weather\":[{\"scope\":\"departure\",\"airport\":\"WAECHTERSBERG\",\"airportIcao\":\"\",\"station\":null,\"source\":null,\"observedAt\":null,\"fetchedAt\":null,\"freshness\":\"unknown\",\"stationDistanceNm\":null,\"ceilingFtAgl\":null,\"clouds\":[],\"rawMetar\":null,\"windDeg\":null,\"windKts\":null,\"gustKts\":null,\"visibilityKm\":null,\"cloudAmountOktas\":null,\"cloudCoverPercent\":null,\"cloudBaseFtAgl\":null,\"weatherCode\":null},{\"scope\":\"destination\",\"airport\":\"St. Johann In Tirol Airport\",\"airportIcao\":\"\",\"station\":null,\"source\":null,\"observedAt\":null,\"fetchedAt\":null,\"freshness\":\"unknown\",\"stationDistanceNm\":null,\"ceilingFtAgl\":null,\"clouds\":[],\"rawMetar\":null,\"windDeg\":null,\"windKts\":null,\"gustKts\":null,\"visibilityKm\":null,\"cloudAmountOktas\":null,\"cloudCoverPercent\":null,\"cloudBaseFtAgl\":null,\"weatherCode\":null}],\"timing\":\"Wetterstand bei Erstellung; keine Prognose der späteren Ankunft oder ganzen Strecke.\"} WERTE: {\"route.start\":\"WAECHTERSBERG\",\"route.target\":\"St. Johann In Tirol Airport\",\"route.distance\":\"162,1 NM\"}\nIDEE: {\"schema\":\"cargo-idea.v1\",\"missionDate\":\"2026-09-28\",\"purpose\":\"Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.\",\"background\":\"Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.\",\"sender\":\"Metallwaren-Zentrum Nagold-Tal, Versandabteilung\",\"recipient\":\"Tischlerei & Innenausbau Moser, St. Johann in Tirol\",\"arrival\":\"Die Übergabe erfolgt am GAT des Flugplatzes St. Johann. Ein Mitarbeiter der Tischlerei übernimmt die Kartons direkt in den Firmen-Kleintransporter für die kurze Fahrt in die Werkstatt.\",\"character\":\"Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.\",\"memory\":\"Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.\",\"shipment\":{\"label\":\"8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau\",\"weightLbs\":265,\"packaging\":\"8 doppelwellige Schwerlast-Versandkartons, einzeln mit Kunststoffband umreift.\",\"handling\":\"\"},\"route\":{\"start\":{\"name\":\"WAECHTERSBERG\",\"icao\":\"EDSV\",\"lat\":48.614861,\"lon\":8.755111},\"target\":{\"name\":\"St. Johann In Tirol Airport\",\"icao\":\"LOIJ\",\"lat\":47.5200996399,\"lon\":12.4497003555}}} HISTORY: []",
+      "status": 200,
+      "raw": "{\n  \"title\": \"Präzision aus dem Schwarzwald: Beschläge für die Tischlerei Moser\",\n  \"story\": \"Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für die Montage hochwertiger Möbelserien im gehobenen Segment benötigt werden. Zwischen dem Spezialhersteller im Schwarzwald und dem Betrieb in Tirol hat sich dieser direkte Flugweg als stabiler Logistikkanal etabliert. So umgehen die Bauteile die großen Verteilzentren und landen ohne unnötige Umwege dort, wo sie verbaut werden. Sobald du in St. Johann gelandet bist, wird ein Mitarbeiter der Tischlerei am GAT bereitstehen. Er übernimmt die Sendung direkt in einen Kleintransporter, um die Hardware auf kurzem Weg in die Werkstatt zu bringen. Es ist eine schlichte Materialfahrt über eine Distanz von [[route.distance]], die den Fluss in der Fertigung sicherstellt.\",\n  \"flightBriefing\": \"Für den Abflugort [[route.start]] liegen keine aktuellen Wetterdaten vor. Auch für das Ziel [[route.target]] sind keine Beobachtungen bekannt; Wind, Sichtweiten und Wolkenhöhen sind für beide Stationen zum jetzigen Zeitpunkt unklar.\",\n  \"pilotNotes\": \"\",\n  \"memory\": \"Hochwertige Möbelbeschläge für den Innenausbau in St. Johann; Direkttransport zwischen Spezialbetrieben aus dem Schwarzwald und Tirol.\"\n}"
+    },
+    {
+      "prompt": "Entwickle eigenständige normale A-B-Frachtaufträge. Schwerpunkt ist die alltägliche gewerbliche und institutionelle Versorgung: Sendungen gehören zu laufenden Abläufen und realistischen Bedürfnissen von Organisationen. In dieser Spielwelt gehört kleine Luftfracht zum regulären Transportangebot. Ein normaler Versandbedarf genügt als Auftrag; die Geschichte muss den Luftweg nicht erst durch einen außergewöhnlichen Vorteil gegenüber anderen Verkehrsmitteln rechtfertigen. Entwickle überwiegend aus regulären Abläufen, Versandmengen und Versorgung heraus. Spezielle technische Problemlösung ist ein möglicher Randfall, nicht der Ausgangspunkt jeder Idee. Eine schlichte Beförderung genügt als vollständiger Auftrag. Entwickle zuerst den Bedarf am Ziel und den Zusammenhang zwischen Absender und Empfänger; daraus entstehen Inhalt, Verpackung und Anlass des Flugs. Die meisten Aufträge brauchen weder einen besonderen Gegenstand noch einen individuellen privaten Sonderwunsch. Private Gefälligkeiten bleiben gelegentlich möglich. Humor, menschliche Eigenheiten und kuriose Beförderungen dürfen beiläufig entstehen, ohne Pointe oder Exzentrik erzwingen zu müssen. Ein sachlicher Routineflug ist ebenso erzählenswert. Zeitdruck, Empfindlichkeit und außergewöhnliche Transportrechtfertigungen sind keine Voraussetzung. character beschreibt frei den Charakter des Auftrags, keine neue Missionsklasse.\nEntwickle intern mehrere unterschiedliche Bedürfnisse, wähle dann eine stimmige Idee. recent enthält eigene frühere Entwürfe, keine Vorgaben und keine tatsächlich erlebte Vergangenheit. Vergleiche Versorgungszweck, Beteiligte, Transportgrund und Erzählbewegung. Ein anderer Gegenstand, Beruf oder Ortsname allein schafft keine Vielfalt. Vermeide insbesondere, denselben besonderen Einzelbedarf mit ausgetauschter Kulisse immer wieder zu erzählen. memory hält den inhaltlichen Kern fest. Keine Themenliste, Rotation oder Quote.\nFester Ablauf: ein Frachtflug vom Start zum Zielflugplatz, null Passagiere. Die gesamte Sendung wird am Start geladen und am Ziel an einen dortigen Kontakt übergeben; erst danach folgt ihr geplanter weiterer Weg. sender und recipient bleiben Bodenrollen. Keine Bordbegleiter, zusätzlichen Wegpunkte, Abholung oder Rückreise. Keine Voice-Ereignisse unterwegs. Ein zusammengehöriger Versandposten mit Gesamtgewicht inklusive Verpackung, positiv und höchstens maxShipmentLbs. Das ist die Entwurfsgrenze, keine Aussage über freie Zuladung, Volumen oder Schwerpunkt. Keine Eignungsfreigabe für das Flugzeug behaupten. Die bestehende Simulation bildet normalen Gütertransport ab, keine neu erfundenen Sonderverfahren. handling ist leer, sofern keine konkrete Besonderheit besteht; normale Ladungssicherung nicht als besondere Aufgabe ausschmücken.\nDie Beteiligten und ihr organisatorischer Anlass dürfen fiktiv sein. Reale Betriebsausfälle, Termine oder örtliche Einrichtungen nicht als recherchierte Tatsachen ausgeben; Flugplatznamen und Route stammen aus dem Rahmen. Ein Zielort ist kein Zwang zu einer lokalen Spezialität. missionDate ist der heutige Planungsstand; Jahreszeit und relative Termine müssen dazu passen. Ohne benötigten Termin keine Jahreszeit ergänzen. aircraft nennt das verfügbare Flugzeug: Entwickle handhabbare Packstücke dafür, ohne unbekannte Abmessungen oder eine Beladbarkeitsprüfung zu erfinden.\nNur JSON {ideas:[{candidateId,purpose,background,sender,recipient,arrival,character,memory,shipment:{label,weightLbs,packaging,handling}}]}. Für jeden Rahmen genau eine Idee. Texte bis 600 Zeichen, shipment.label bis 160, packaging und handling bis 300. weightLbs ist eine Zahl. arrival nennt die Übergabe am Zielflugplatz und den vorgesehenen nächsten Bodenschritt. Keine Passagier-, Greeting- oder Eventfelder.\nRAHMEN: [{\"candidateId\":\"direct\",\"route\":{\"start\":{\"name\":\"WAECHTERSBERG\",\"icao\":\"EDSV\",\"lat\":48.614861,\"lon\":8.755111},\"target\":{\"name\":\"Freiburg i. Br. Airport\",\"icao\":\"EDTF\",\"lat\":48.0227775574,\"lon\":7.8324999809}},\"missionDate\":\"2026-09-28\",\"aircraft\":{\"name\":\"PA-24\",\"maxPayloadKg\":520},\"maxShipmentLbs\":319,\"recent\":[{\"id\":\"cargo-probe-0\",\"purpose\":\"Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.\",\"background\":\"Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.\",\"character\":\"Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.\",\"sender\":\"Metallwaren-Zentrum Nagold-Tal, Versandabteilung\",\"recipient\":\"Tischlerei & Innenausbau Moser, St. Johann in Tirol\",\"shipment\":\"8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau\",\"memory\":\"Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.\",\"opening\":\"Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für \",\"writerMemory\":\"Hochwertige Möbelbeschläge für den Innenausbau in St. Johann; Direkttransport zwischen Spezialbetrieben aus dem Schwarzwald und Tirol.\"}]}]",
+      "status": 200,
+      "raw": "{\n  \"ideas\": [\n    {\n      \"candidateId\": \"direct\",\n      \"purpose\": \"Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.\",\n      \"background\": \"Das Institut für Biologie in Freiburg bezieht regelmäßig spezialisierte Kunststoffkomponenten von einem Hersteller im Nordschwarzwald. Es handelt sich um eine geplante Aufstockung des Lagers für Pipettenspitzen und Reaktionsgefäße. Da die Produkte volumig, aber leicht sind und eine saubere, erschütterungsarme Handhabung erfordern, wird für den Transfer zwischen den Standorten oft die direkte Luftverbindung genutzt, um den mehrfachen Umschlag in großen Logistikzentren zu vermeiden.\",\n      \"sender\": \"Bio-Plast Formtechnik GmbH, Logistikzentrum Wildberg\",\n      \"recipient\": \"Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie\",\n      \"arrival\": \"Übergabe am GAT an den Werkswagen der Universität; anschließender Transport zum Zentrallager auf dem Campus Nord.\",\n      \"character\": \"Ein sachlicher Versorgungsflug im Rahmen des universitären Forschungsbetriebs.\",\n      \"memory\": \"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\",\n      \"shipment\": {\n        \"label\": \"Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)\",\n        \"weightLbs\": 245,\n        \"packaging\": \"12 stapelbare Kunststoffboxen auf einer flachen Holzunterlage, mit Stretchfolie gesichert.\",\n        \"handling\": \"\"\n      }\n    }\n  ]\n}"
+    },
+    {
+      "prompt": "Schreibe ein natürliches, konkretes Briefing für den Frachtflug. Außenstehender Erzähler, Beteiligte in der dritten Person; den Piloten bei Bedarf mit du ansprechen. Erkläre den Bedarf, warum die Sendung unterwegs ist und was nach der Übergabe geschehen soll. Der Umfang richtet sich nach dem Anlass; ein einfacher Vorgang darf in wenigen Sätzen vollständig erzählt sein. Bewahre den Charakter der Idee, auch ihre Schlichtheit oder ihren beiläufigen Humor. Ergänze keinen Terminzwang, Schaden, Engpass oder besondere Empfindlichkeit, wenn die Idee diese nicht enthält. Technische Typenbezeichnungen tragen nur dann zum Text bei, wenn sie für den Auftrag wirklich etwas erklären. Erzähle die konkrete Situation; bewerte im Text nicht, zu welcher Auftragsgattung sie gehört oder wie alltäglich, bodenständig oder unaufgeregt sie ist. Der Ton soll sich aus den Vorgängen ergeben. Erwähne null Passagiere nicht als Kontrast zu den Bodenrollen; diese Information steht bereits im Payload-Abschnitt. Keine Pflichtdramaturgie, Werbesprache oder allgemeine Schlussweisheit. Erzähle aus dem Stand vor dem Abflug: Vorgeschichte ist geschehen, Laden, Flug, Entladen und Übergabe liegen noch bevor. Keine Szene oder Gedanken aus dem bevorstehenden Flug vorwegnehmen. Der Pilot befördert Fracht, null Passagiere; Menschen handeln ausschließlich am Boden. Keine direkte Rede, Begrüßung oder angekündigte Bordunterhaltung.\nDie Sendung steht zusätzlich im Payload-Abschnitt. story soll ihren Zusammenhang erklären, nicht Datenlisten wiederholen. Verpackung oder Handhabung nur erwähnen, wenn sie zum Verständnis beitragen. pilotNotes enthält ausschließlich eine konkrete besondere Handhabung aus shipment.handling, sonst leer. Keine zusätzlichen Aufgaben, Zusicherungen oder pauschalen Sicherheitshinweise. Keine erfundenen Wetter-, Pisten- oder Routenangaben in story; operative Daten stehen separat. HISTORY hilft gegen wiederkehrende Motive, Einstiege und Formulierungen, nicht zum Nachschreiben.\nNur JSON {title,story,flightBriefing,pilotNotes,memory}. title bis 110 Zeichen, story 180–1800 Zeichen, memory bis 600 Zeichen, pilotNotes bis 500. flightBriefing beschreibt ausschließlich die gelieferten Start-/Zielbeobachtungen mit Stationsbezug, Aktualität und Datenlücken. Wind, vorhandene Böen, Sicht und Wolken örtlich zuordnen. Ältere oder zeitlich unbekannte Meldungen ausdrücklich so einordnen. Wolkenbasis und Ceiling nicht gleichsetzen. Fehlende Werte sind unbekannt, nicht windstill oder böenfrei. Keine Beobachtung entlang der Strecke, Ankunftsprognose oder Flugfreigabe ableiten. Zahlen und Einheiten ausschließlich als [[Referenz]] aus WERTE. Vorhandene route.distance, start.gust und target.gust verwenden. Nur existierende Schlüssel, keine eigenen Zahlen oder Umrechnungen. In den Klammern steht der Schlüssel aus WERTE, niemals sein aufgelöster Wert. story und title brauchen keine Streckenreferenzen; die Strecke wird separat angezeigt. Bei fehlendem Wetter genügt ein kurzer Satz. Maximal 850 Zeichen. FLUGDATEN: {\"schema\":\"private-flight-context.v1\",\"startName\":\"WAECHTERSBERG\",\"targetName\":\"Freiburg i. Br. Airport\",\"distanceNm\":51.2,\"distanceBasis\":\"supplied-route-distance\",\"landscape\":[],\"weather\":[{\"scope\":\"departure\",\"airport\":\"WAECHTERSBERG\",\"airportIcao\":\"\",\"station\":null,\"source\":null,\"observedAt\":null,\"fetchedAt\":null,\"freshness\":\"unknown\",\"stationDistanceNm\":null,\"ceilingFtAgl\":null,\"clouds\":[],\"rawMetar\":null,\"windDeg\":null,\"windKts\":null,\"gustKts\":null,\"visibilityKm\":null,\"cloudAmountOktas\":null,\"cloudCoverPercent\":null,\"cloudBaseFtAgl\":null,\"weatherCode\":null},{\"scope\":\"destination\",\"airport\":\"Freiburg i. Br. Airport\",\"airportIcao\":\"\",\"station\":null,\"source\":null,\"observedAt\":null,\"fetchedAt\":null,\"freshness\":\"unknown\",\"stationDistanceNm\":null,\"ceilingFtAgl\":null,\"clouds\":[],\"rawMetar\":null,\"windDeg\":null,\"windKts\":null,\"gustKts\":null,\"visibilityKm\":null,\"cloudAmountOktas\":null,\"cloudCoverPercent\":null,\"cloudBaseFtAgl\":null,\"weatherCode\":null}],\"timing\":\"Wetterstand bei Erstellung; keine Prognose der späteren Ankunft oder ganzen Strecke.\"} WERTE: {\"route.start\":\"WAECHTERSBERG\",\"route.target\":\"Freiburg i. Br. Airport\",\"route.distance\":\"51,2 NM\"}\nIDEE: {\"schema\":\"cargo-idea.v1\",\"missionDate\":\"2026-09-28\",\"purpose\":\"Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.\",\"background\":\"Das Institut für Biologie in Freiburg bezieht regelmäßig spezialisierte Kunststoffkomponenten von einem Hersteller im Nordschwarzwald. Es handelt sich um eine geplante Aufstockung des Lagers für Pipettenspitzen und Reaktionsgefäße. Da die Produkte volumig, aber leicht sind und eine saubere, erschütterungsarme Handhabung erfordern, wird für den Transfer zwischen den Standorten oft die direkte Luftverbindung genutzt, um den mehrfachen Umschlag in großen Logistikzentren zu vermeiden.\",\"sender\":\"Bio-Plast Formtechnik GmbH, Logistikzentrum Wildberg\",\"recipient\":\"Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie\",\"arrival\":\"Übergabe am GAT an den Werkswagen der Universität; anschließender Transport zum Zentrallager auf dem Campus Nord.\",\"character\":\"Ein sachlicher Versorgungsflug im Rahmen des universitären Forschungsbetriebs.\",\"memory\":\"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\",\"shipment\":{\"label\":\"Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)\",\"weightLbs\":245,\"packaging\":\"12 stapelbare Kunststoffboxen auf einer flachen Holzunterlage, mit Stretchfolie gesichert.\",\"handling\":\"\"},\"route\":{\"start\":{\"name\":\"WAECHTERSBERG\",\"icao\":\"EDSV\",\"lat\":48.614861,\"lon\":8.755111},\"target\":{\"name\":\"Freiburg i. Br. Airport\",\"icao\":\"EDTF\",\"lat\":48.0227775574,\"lon\":7.8324999809}}} HISTORY: [{\"id\":\"cargo-probe-0\",\"purpose\":\"Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.\",\"background\":\"Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.\",\"character\":\"Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.\",\"sender\":\"Metallwaren-Zentrum Nagold-Tal, Versandabteilung\",\"recipient\":\"Tischlerei & Innenausbau Moser, St. Johann in Tirol\",\"shipment\":\"8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau\",\"memory\":\"Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.\",\"opening\":\"Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für \",\"writerMemory\":\"Hochwertige Möbelbeschläge für den Innenausbau in St. Johann; Direkttransport zwischen Spezialbetrieben aus dem Schwarzwald und Tirol.\"}]",
+      "status": 200,
+      "raw": "{\n  \"title\": \"Sterile Labor-Verbrauchsmaterialien für das Institut für Biologie in Freiburg\",\n  \"story\": \"In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisierte Kunststoffkomponenten, die nun im Lager aufgestockt werden müssen. Du beförderst heute sterile Pipettenspitzen und Reaktionsgefäße, die sicher in zwölf Kunststoffboxen auf einer flachen Holzunterlage verpackt sind. Die Sendung ist eher leicht, nimmt aber einiges an Raum ein. Der Hersteller Bio-Plast Formtechnik und das Institut bevorzugen für diese Güter die direkte Luftverbindung, da der Umschlag in großen Logistikzentren oft zu grob für die feinen Filteraufsätze und die Integrität der sterilen Boxen ist. In Freiburg übernimmt das Personal des GAT die Koordinierung mit dem Werkswagen der Universität, der die Materialien direkt zum Campus Nord bringt.\",\n  \"flightBriefing\": \"Am Standort [[route.start]] liegen aktuell keine Wetterbeobachtungen vor; Wind, Sicht und Bewölkung sind dort unbekannt. Für den Zielflugplatz [[route.target]] sind ebenfalls keine Stationsdaten verfügbar, weshalb keine Angaben zu Sichtweiten oder einer Wolkenbasis gemacht werden können. Die Flugvorbereitung für die Strecke von [[route.distance]] stützt sich somit nicht auf lokale Messwerte der beteiligten Plätze.\",\n  \"pilotNotes\": \"\",\n  \"memory\": \"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\"\n}"
+    },
+    {
+      "prompt": "Entwickle eigenständige normale A-B-Frachtaufträge. Schwerpunkt ist die alltägliche gewerbliche und institutionelle Versorgung: Sendungen gehören zu laufenden Abläufen und realistischen Bedürfnissen von Organisationen. In dieser Spielwelt gehört kleine Luftfracht zum regulären Transportangebot. Ein normaler Versandbedarf genügt als Auftrag; die Geschichte muss den Luftweg nicht erst durch einen außergewöhnlichen Vorteil gegenüber anderen Verkehrsmitteln rechtfertigen. Entwickle überwiegend aus regulären Abläufen, Versandmengen und Versorgung heraus. Spezielle technische Problemlösung ist ein möglicher Randfall, nicht der Ausgangspunkt jeder Idee. Eine schlichte Beförderung genügt als vollständiger Auftrag. Entwickle zuerst den Bedarf am Ziel und den Zusammenhang zwischen Absender und Empfänger; daraus entstehen Inhalt, Verpackung und Anlass des Flugs. Die meisten Aufträge brauchen weder einen besonderen Gegenstand noch einen individuellen privaten Sonderwunsch. Private Gefälligkeiten bleiben gelegentlich möglich. Humor, menschliche Eigenheiten und kuriose Beförderungen dürfen beiläufig entstehen, ohne Pointe oder Exzentrik erzwingen zu müssen. Ein sachlicher Routineflug ist ebenso erzählenswert. Zeitdruck, Empfindlichkeit und außergewöhnliche Transportrechtfertigungen sind keine Voraussetzung. character beschreibt frei den Charakter des Auftrags, keine neue Missionsklasse.\nEntwickle intern mehrere unterschiedliche Bedürfnisse, wähle dann eine stimmige Idee. recent enthält eigene frühere Entwürfe, keine Vorgaben und keine tatsächlich erlebte Vergangenheit. Vergleiche Versorgungszweck, Beteiligte, Transportgrund und Erzählbewegung. Ein anderer Gegenstand, Beruf oder Ortsname allein schafft keine Vielfalt. Vermeide insbesondere, denselben besonderen Einzelbedarf mit ausgetauschter Kulisse immer wieder zu erzählen. memory hält den inhaltlichen Kern fest. Keine Themenliste, Rotation oder Quote.\nFester Ablauf: ein Frachtflug vom Start zum Zielflugplatz, null Passagiere. Die gesamte Sendung wird am Start geladen und am Ziel an einen dortigen Kontakt übergeben; erst danach folgt ihr geplanter weiterer Weg. sender und recipient bleiben Bodenrollen. Keine Bordbegleiter, zusätzlichen Wegpunkte, Abholung oder Rückreise. Keine Voice-Ereignisse unterwegs. Ein zusammengehöriger Versandposten mit Gesamtgewicht inklusive Verpackung, positiv und höchstens maxShipmentLbs. Das ist die Entwurfsgrenze, keine Aussage über freie Zuladung, Volumen oder Schwerpunkt. Keine Eignungsfreigabe für das Flugzeug behaupten. Die bestehende Simulation bildet normalen Gütertransport ab, keine neu erfundenen Sonderverfahren. handling ist leer, sofern keine konkrete Besonderheit besteht; normale Ladungssicherung nicht als besondere Aufgabe ausschmücken.\nDie Beteiligten und ihr organisatorischer Anlass dürfen fiktiv sein. Reale Betriebsausfälle, Termine oder örtliche Einrichtungen nicht als recherchierte Tatsachen ausgeben; Flugplatznamen und Route stammen aus dem Rahmen. Ein Zielort ist kein Zwang zu einer lokalen Spezialität. missionDate ist der heutige Planungsstand; Jahreszeit und relative Termine müssen dazu passen. Ohne benötigten Termin keine Jahreszeit ergänzen. aircraft nennt das verfügbare Flugzeug: Entwickle handhabbare Packstücke dafür, ohne unbekannte Abmessungen oder eine Beladbarkeitsprüfung zu erfinden.\nNur JSON {ideas:[{candidateId,purpose,background,sender,recipient,arrival,character,memory,shipment:{label,weightLbs,packaging,handling}}]}. Für jeden Rahmen genau eine Idee. Texte bis 600 Zeichen, shipment.label bis 160, packaging und handling bis 300. weightLbs ist eine Zahl. arrival nennt die Übergabe am Zielflugplatz und den vorgesehenen nächsten Bodenschritt. Keine Passagier-, Greeting- oder Eventfelder.\nRAHMEN: [{\"candidateId\":\"direct\",\"route\":{\"start\":{\"name\":\"WAECHTERSBERG\",\"icao\":\"EDSV\",\"lat\":48.614861,\"lon\":8.755111},\"target\":{\"name\":\"Backnang-Heiningen Airport\",\"icao\":\"EDSH\",\"lat\":48.9197235107,\"lon\":9.4552783966}},\"missionDate\":\"2026-09-28\",\"aircraft\":{\"name\":\"PA-24\",\"maxPayloadKg\":520},\"maxShipmentLbs\":319,\"recent\":[{\"id\":\"cargo-probe-0\",\"purpose\":\"Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.\",\"background\":\"Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.\",\"character\":\"Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.\",\"sender\":\"Metallwaren-Zentrum Nagold-Tal, Versandabteilung\",\"recipient\":\"Tischlerei & Innenausbau Moser, St. Johann in Tirol\",\"shipment\":\"8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau\",\"memory\":\"Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.\",\"opening\":\"Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für \",\"writerMemory\":\"Hochwertige Möbelbeschläge für den Innenausbau in St. Johann; Direkttransport zwischen Spezialbetrieben aus dem Schwarzwald und Tirol.\"},{\"id\":\"cargo-probe-1\",\"purpose\":\"Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.\",\"background\":\"Das Institut für Biologie in Freiburg bezieht regelmäßig spezialisierte Kunststoffkomponenten von einem Hersteller im Nordschwarzwald. Es handelt sich um eine geplante Aufstockung des Lagers für Pipettenspitzen und Reaktionsgefäße. Da die Produkte volumig, aber leicht sind und eine saubere, erschütterungsarme Handhabung erfordern, wird für den Transfer zwischen den Standorten oft die direkte Luftverbindung genutzt, um den mehrfachen Umschlag in großen Logistikzentren zu vermeiden.\",\"character\":\"Ein sachlicher Versorgungsflug im Rahmen des universitären Forschungsbetriebs.\",\"sender\":\"Bio-Plast Formtechnik GmbH, Logistikzentrum Wildberg\",\"recipient\":\"Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie\",\"shipment\":\"Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)\",\"memory\":\"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\",\"opening\":\"In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisi\",\"writerMemory\":\"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\"}]}]",
+      "status": 200,
+      "raw": "{\n  \"ideas\": [\n    {\n      \"candidateId\": \"direct\",\n      \"purpose\": \"Versorgung eines Fachbetriebs für Landtechnik mit speziellen Hydraulikdichtungen und Ventilkomponenten.\",\n      \"background\": \"Das Landtechnik-Zentrum in Backnang wartet und repariert Erntemaschinen und Traktoren für die Region Rems-Murr. Ende September ist die Werkstatt durch die laufende Nachbereitung der Ernte und die Vorbereitung der Herbstaussaat voll ausgelastet. Um die Lagerbestände an Verschleißteilen wie Hydraulikdichtungen stabil zu halten, erfolgt eine regelmäßige Lieferung direkt vom Hersteller aus dem Nordschwarzwald. Der Luftweg ermöglicht hier den direkten Austausch zwischen den mittelständischen Betrieben abseits der großen Logistikknoten.\",\n      \"sender\": \"Dichtungstechnik Nordschwarzwald, Versandlager Nagold\",\n      \"recipient\": \"Landtechnik-Zentrum Rems-Murr, Werkstatt Backnang\",\n      \"arrival\": \"Übergabe an einen Mitarbeiter des Landtechnik-Zentrums direkt am Rollfeld; Weitertransport im Werkstattwagen zur Einlagerung.\",\n      \"character\": \"Ein unspektakulärer, gewerblicher Routineflug zur Unterstützung regionaler Instandhaltungskapazitäten.\",\n      \"memory\": \"Hydraulikdichtungen für Landmaschinen-Werkstatt in Backnang von einem Schwarzwälder Spezialhersteller.\",\n      \"shipment\": {\n        \"label\": \"Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen\",\n        \"weightLbs\": 145,\n        \"packaging\": \"3 stapelbare, verstärkte Holzkisten, gesichert mit Umreifungsband.\",\n        \"handling\": \"\"\n      }\n    }\n  ]\n}"
+    },
+    {
+      "prompt": "Schreibe ein natürliches, konkretes Briefing für den Frachtflug. Außenstehender Erzähler, Beteiligte in der dritten Person; den Piloten bei Bedarf mit du ansprechen. Erkläre den Bedarf, warum die Sendung unterwegs ist und was nach der Übergabe geschehen soll. Der Umfang richtet sich nach dem Anlass; ein einfacher Vorgang darf in wenigen Sätzen vollständig erzählt sein. Bewahre den Charakter der Idee, auch ihre Schlichtheit oder ihren beiläufigen Humor. Ergänze keinen Terminzwang, Schaden, Engpass oder besondere Empfindlichkeit, wenn die Idee diese nicht enthält. Technische Typenbezeichnungen tragen nur dann zum Text bei, wenn sie für den Auftrag wirklich etwas erklären. Erzähle die konkrete Situation; bewerte im Text nicht, zu welcher Auftragsgattung sie gehört oder wie alltäglich, bodenständig oder unaufgeregt sie ist. Der Ton soll sich aus den Vorgängen ergeben. Erwähne null Passagiere nicht als Kontrast zu den Bodenrollen; diese Information steht bereits im Payload-Abschnitt. Keine Pflichtdramaturgie, Werbesprache oder allgemeine Schlussweisheit. Erzähle aus dem Stand vor dem Abflug: Vorgeschichte ist geschehen, Laden, Flug, Entladen und Übergabe liegen noch bevor. Keine Szene oder Gedanken aus dem bevorstehenden Flug vorwegnehmen. Der Pilot befördert Fracht, null Passagiere; Menschen handeln ausschließlich am Boden. Keine direkte Rede, Begrüßung oder angekündigte Bordunterhaltung.\nDie Sendung steht zusätzlich im Payload-Abschnitt. story soll ihren Zusammenhang erklären, nicht Datenlisten wiederholen. Verpackung oder Handhabung nur erwähnen, wenn sie zum Verständnis beitragen. pilotNotes enthält ausschließlich eine konkrete besondere Handhabung aus shipment.handling, sonst leer. Keine zusätzlichen Aufgaben, Zusicherungen oder pauschalen Sicherheitshinweise. Keine erfundenen Wetter-, Pisten- oder Routenangaben in story; operative Daten stehen separat. HISTORY hilft gegen wiederkehrende Motive, Einstiege und Formulierungen, nicht zum Nachschreiben.\nNur JSON {title,story,flightBriefing,pilotNotes,memory}. title bis 110 Zeichen, story 180–1800 Zeichen, memory bis 600 Zeichen, pilotNotes bis 500. flightBriefing beschreibt ausschließlich die gelieferten Start-/Zielbeobachtungen mit Stationsbezug, Aktualität und Datenlücken. Wind, vorhandene Böen, Sicht und Wolken örtlich zuordnen. Ältere oder zeitlich unbekannte Meldungen ausdrücklich so einordnen. Wolkenbasis und Ceiling nicht gleichsetzen. Fehlende Werte sind unbekannt, nicht windstill oder böenfrei. Keine Beobachtung entlang der Strecke, Ankunftsprognose oder Flugfreigabe ableiten. Zahlen und Einheiten ausschließlich als [[Referenz]] aus WERTE. Vorhandene route.distance, start.gust und target.gust verwenden. Nur existierende Schlüssel, keine eigenen Zahlen oder Umrechnungen. In den Klammern steht der Schlüssel aus WERTE, niemals sein aufgelöster Wert. story und title brauchen keine Streckenreferenzen; die Strecke wird separat angezeigt. Bei fehlendem Wetter genügt ein kurzer Satz. Maximal 850 Zeichen. FLUGDATEN: {\"schema\":\"private-flight-context.v1\",\"startName\":\"WAECHTERSBERG\",\"targetName\":\"Backnang-Heiningen Airport\",\"distanceNm\":33.2,\"distanceBasis\":\"supplied-route-distance\",\"landscape\":[],\"weather\":[{\"scope\":\"departure\",\"airport\":\"WAECHTERSBERG\",\"airportIcao\":\"\",\"station\":null,\"source\":null,\"observedAt\":null,\"fetchedAt\":null,\"freshness\":\"unknown\",\"stationDistanceNm\":null,\"ceilingFtAgl\":null,\"clouds\":[],\"rawMetar\":null,\"windDeg\":null,\"windKts\":null,\"gustKts\":null,\"visibilityKm\":null,\"cloudAmountOktas\":null,\"cloudCoverPercent\":null,\"cloudBaseFtAgl\":null,\"weatherCode\":null},{\"scope\":\"destination\",\"airport\":\"Backnang-Heiningen Airport\",\"airportIcao\":\"\",\"station\":null,\"source\":null,\"observedAt\":null,\"fetchedAt\":null,\"freshness\":\"unknown\",\"stationDistanceNm\":null,\"ceilingFtAgl\":null,\"clouds\":[],\"rawMetar\":null,\"windDeg\":null,\"windKts\":null,\"gustKts\":null,\"visibilityKm\":null,\"cloudAmountOktas\":null,\"cloudCoverPercent\":null,\"cloudBaseFtAgl\":null,\"weatherCode\":null}],\"timing\":\"Wetterstand bei Erstellung; keine Prognose der späteren Ankunft oder ganzen Strecke.\"} WERTE: {\"route.start\":\"WAECHTERSBERG\",\"route.target\":\"Backnang-Heiningen Airport\",\"route.distance\":\"33,2 NM\"}\nIDEE: {\"schema\":\"cargo-idea.v1\",\"missionDate\":\"2026-09-28\",\"purpose\":\"Versorgung eines Fachbetriebs für Landtechnik mit speziellen Hydraulikdichtungen und Ventilkomponenten.\",\"background\":\"Das Landtechnik-Zentrum in Backnang wartet und repariert Erntemaschinen und Traktoren für die Region Rems-Murr. Ende September ist die Werkstatt durch die laufende Nachbereitung der Ernte und die Vorbereitung der Herbstaussaat voll ausgelastet. Um die Lagerbestände an Verschleißteilen wie Hydraulikdichtungen stabil zu halten, erfolgt eine regelmäßige Lieferung direkt vom Hersteller aus dem Nordschwarzwald. Der Luftweg ermöglicht hier den direkten Austausch zwischen den mittelständischen Betrieben abseits der großen Logistikknoten.\",\"sender\":\"Dichtungstechnik Nordschwarzwald, Versandlager Nagold\",\"recipient\":\"Landtechnik-Zentrum Rems-Murr, Werkstatt Backnang\",\"arrival\":\"Übergabe an einen Mitarbeiter des Landtechnik-Zentrums direkt am Rollfeld; Weitertransport im Werkstattwagen zur Einlagerung.\",\"character\":\"Ein unspektakulärer, gewerblicher Routineflug zur Unterstützung regionaler Instandhaltungskapazitäten.\",\"memory\":\"Hydraulikdichtungen für Landmaschinen-Werkstatt in Backnang von einem Schwarzwälder Spezialhersteller.\",\"shipment\":{\"label\":\"Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen\",\"weightLbs\":145,\"packaging\":\"3 stapelbare, verstärkte Holzkisten, gesichert mit Umreifungsband.\",\"handling\":\"\"},\"route\":{\"start\":{\"name\":\"WAECHTERSBERG\",\"icao\":\"EDSV\",\"lat\":48.614861,\"lon\":8.755111},\"target\":{\"name\":\"Backnang-Heiningen Airport\",\"icao\":\"EDSH\",\"lat\":48.9197235107,\"lon\":9.4552783966}}} HISTORY: [{\"id\":\"cargo-probe-0\",\"purpose\":\"Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.\",\"background\":\"Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.\",\"character\":\"Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.\",\"sender\":\"Metallwaren-Zentrum Nagold-Tal, Versandabteilung\",\"recipient\":\"Tischlerei & Innenausbau Moser, St. Johann in Tirol\",\"shipment\":\"8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau\",\"memory\":\"Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.\",\"opening\":\"Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für \",\"writerMemory\":\"Hochwertige Möbelbeschläge für den Innenausbau in St. Johann; Direkttransport zwischen Spezialbetrieben aus dem Schwarzwald und Tirol.\"},{\"id\":\"cargo-probe-1\",\"purpose\":\"Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.\",\"background\":\"Das Institut für Biologie in Freiburg bezieht regelmäßig spezialisierte Kunststoffkomponenten von einem Hersteller im Nordschwarzwald. Es handelt sich um eine geplante Aufstockung des Lagers für Pipettenspitzen und Reaktionsgefäße. Da die Produkte volumig, aber leicht sind und eine saubere, erschütterungsarme Handhabung erfordern, wird für den Transfer zwischen den Standorten oft die direkte Luftverbindung genutzt, um den mehrfachen Umschlag in großen Logistikzentren zu vermeiden.\",\"character\":\"Ein sachlicher Versorgungsflug im Rahmen des universitären Forschungsbetriebs.\",\"sender\":\"Bio-Plast Formtechnik GmbH, Logistikzentrum Wildberg\",\"recipient\":\"Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie\",\"shipment\":\"Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)\",\"memory\":\"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\",\"opening\":\"In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisi\",\"writerMemory\":\"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\"}]",
+      "status": 200,
+      "raw": "{\n  \"title\": \"Hydraulikdichtungen für die Erntetechnik: Versorgungsflug nach Backnang-Heiningen\",\n  \"story\": \"Im Landtechnik-Zentrum Rems-Murr herrscht Ende September Hochbetrieb. Während die letzten Erntemaschinen noch auf den Feldern sind, bereitet die Werkstatt in Backnang bereits die Traktoren für die anstehende Herbstaussaat vor. Damit die Mechaniker bei Reparaturen an den Hydrauliksystemen nicht auf Material warten müssen, erfolgt eine regelmäßige Aufstockung der Lagerbestände direkt vom Hersteller aus dem Nordschwarzwald. In Nagold wurden drei verstärkte Holzkisten mit einem Sortiment an Dichtungssätzen, O-Ringen und Ventilmanschetten vorbereitet. Du beförderst diese Komponenten nun auf direktem Weg zum Flugplatz Backnang-Heiningen. Dort wird die Fracht nach der Landung unmittelbar von einem Mitarbeiter des Zentrums entgegengenommen. Mit dem Werkstattwagen gelangen die Ersatzteile direkt in das Lager der Werkstatt, um die Instandhaltungskapazitäten für die regionalen Landwirte sicherzustellen.\",\n  \"flightBriefing\": \"Für den Abflugort [[route.start]] sowie für das Ziel [[route.target]] liegen keine aktuellen Wetterbeobachtungen vor. Windrichtung, Windgeschwindigkeit, Sichtweiten und eine mögliche Wolkenbedeckung sind an beiden Stationen unbekannt. Die Flugstrecke umfasst [[route.distance]].\",\n  \"pilotNotes\": \"\",\n  \"memory\": \"Hydraulikdichtungen und Ventilkomponenten für das Landtechnik-Zentrum in Backnang, geliefert von einem Spezialhersteller aus dem Nordschwarzwald zur Unterstützung der herbstlichen Werkstattkapazitäten.\"\n}"
+    },
+    {
+      "prompt": "Entwickle eigenständige normale A-B-Frachtaufträge. Schwerpunkt ist die alltägliche gewerbliche und institutionelle Versorgung: Sendungen gehören zu laufenden Abläufen und realistischen Bedürfnissen von Organisationen. In dieser Spielwelt gehört kleine Luftfracht zum regulären Transportangebot. Ein normaler Versandbedarf genügt als Auftrag; die Geschichte muss den Luftweg nicht erst durch einen außergewöhnlichen Vorteil gegenüber anderen Verkehrsmitteln rechtfertigen. Entwickle überwiegend aus regulären Abläufen, Versandmengen und Versorgung heraus. Spezielle technische Problemlösung ist ein möglicher Randfall, nicht der Ausgangspunkt jeder Idee. Eine schlichte Beförderung genügt als vollständiger Auftrag. Entwickle zuerst den Bedarf am Ziel und den Zusammenhang zwischen Absender und Empfänger; daraus entstehen Inhalt, Verpackung und Anlass des Flugs. Die meisten Aufträge brauchen weder einen besonderen Gegenstand noch einen individuellen privaten Sonderwunsch. Private Gefälligkeiten bleiben gelegentlich möglich. Humor, menschliche Eigenheiten und kuriose Beförderungen dürfen beiläufig entstehen, ohne Pointe oder Exzentrik erzwingen zu müssen. Ein sachlicher Routineflug ist ebenso erzählenswert. Zeitdruck, Empfindlichkeit und außergewöhnliche Transportrechtfertigungen sind keine Voraussetzung. character beschreibt frei den Charakter des Auftrags, keine neue Missionsklasse.\nEntwickle intern mehrere unterschiedliche Bedürfnisse, wähle dann eine stimmige Idee. recent enthält eigene frühere Entwürfe, keine Vorgaben und keine tatsächlich erlebte Vergangenheit. Vergleiche Versorgungszweck, Beteiligte, Transportgrund und Erzählbewegung. Ein anderer Gegenstand, Beruf oder Ortsname allein schafft keine Vielfalt. Vermeide insbesondere, denselben besonderen Einzelbedarf mit ausgetauschter Kulisse immer wieder zu erzählen. memory hält den inhaltlichen Kern fest. Keine Themenliste, Rotation oder Quote.\nFester Ablauf: ein Frachtflug vom Start zum Zielflugplatz, null Passagiere. Die gesamte Sendung wird am Start geladen und am Ziel an einen dortigen Kontakt übergeben; erst danach folgt ihr geplanter weiterer Weg. sender und recipient bleiben Bodenrollen. Keine Bordbegleiter, zusätzlichen Wegpunkte, Abholung oder Rückreise. Keine Voice-Ereignisse unterwegs. Ein zusammengehöriger Versandposten mit Gesamtgewicht inklusive Verpackung, positiv und höchstens maxShipmentLbs. Das ist die Entwurfsgrenze, keine Aussage über freie Zuladung, Volumen oder Schwerpunkt. Keine Eignungsfreigabe für das Flugzeug behaupten. Die bestehende Simulation bildet normalen Gütertransport ab, keine neu erfundenen Sonderverfahren. handling ist leer, sofern keine konkrete Besonderheit besteht; normale Ladungssicherung nicht als besondere Aufgabe ausschmücken.\nDie Beteiligten und ihr organisatorischer Anlass dürfen fiktiv sein. Reale Betriebsausfälle, Termine oder örtliche Einrichtungen nicht als recherchierte Tatsachen ausgeben; Flugplatznamen und Route stammen aus dem Rahmen. Ein Zielort ist kein Zwang zu einer lokalen Spezialität. missionDate ist der heutige Planungsstand; Jahreszeit und relative Termine müssen dazu passen. Ohne benötigten Termin keine Jahreszeit ergänzen. aircraft nennt das verfügbare Flugzeug: Entwickle handhabbare Packstücke dafür, ohne unbekannte Abmessungen oder eine Beladbarkeitsprüfung zu erfinden.\nNur JSON {ideas:[{candidateId,purpose,background,sender,recipient,arrival,character,memory,shipment:{label,weightLbs,packaging,handling}}]}. Für jeden Rahmen genau eine Idee. Texte bis 600 Zeichen, shipment.label bis 160, packaging und handling bis 300. weightLbs ist eine Zahl. arrival nennt die Übergabe am Zielflugplatz und den vorgesehenen nächsten Bodenschritt. Keine Passagier-, Greeting- oder Eventfelder.\nRAHMEN: [{\"candidateId\":\"direct\",\"route\":{\"start\":{\"name\":\"WAECHTERSBERG\",\"icao\":\"EDSV\",\"lat\":48.614861,\"lon\":8.755111},\"target\":{\"name\":\"Friedrichshafen Airport\",\"icao\":\"EDNY\",\"lat\":47.6712989807,\"lon\":9.5114898682}},\"missionDate\":\"2026-09-28\",\"aircraft\":{\"name\":\"PA-24\",\"maxPayloadKg\":520},\"maxShipmentLbs\":319,\"recent\":[{\"id\":\"cargo-probe-0\",\"purpose\":\"Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.\",\"background\":\"Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.\",\"character\":\"Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.\",\"sender\":\"Metallwaren-Zentrum Nagold-Tal, Versandabteilung\",\"recipient\":\"Tischlerei & Innenausbau Moser, St. Johann in Tirol\",\"shipment\":\"8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau\",\"memory\":\"Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.\",\"opening\":\"Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für \",\"writerMemory\":\"Hochwertige Möbelbeschläge für den Innenausbau in St. Johann; Direkttransport zwischen Spezialbetrieben aus dem Schwarzwald und Tirol.\"},{\"id\":\"cargo-probe-1\",\"purpose\":\"Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.\",\"background\":\"Das Institut für Biologie in Freiburg bezieht regelmäßig spezialisierte Kunststoffkomponenten von einem Hersteller im Nordschwarzwald. Es handelt sich um eine geplante Aufstockung des Lagers für Pipettenspitzen und Reaktionsgefäße. Da die Produkte volumig, aber leicht sind und eine saubere, erschütterungsarme Handhabung erfordern, wird für den Transfer zwischen den Standorten oft die direkte Luftverbindung genutzt, um den mehrfachen Umschlag in großen Logistikzentren zu vermeiden.\",\"character\":\"Ein sachlicher Versorgungsflug im Rahmen des universitären Forschungsbetriebs.\",\"sender\":\"Bio-Plast Formtechnik GmbH, Logistikzentrum Wildberg\",\"recipient\":\"Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie\",\"shipment\":\"Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)\",\"memory\":\"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\",\"opening\":\"In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisi\",\"writerMemory\":\"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\"},{\"id\":\"cargo-probe-2\",\"purpose\":\"Versorgung eines Fachbetriebs für Landtechnik mit speziellen Hydraulikdichtungen und Ventilkomponenten.\",\"background\":\"Das Landtechnik-Zentrum in Backnang wartet und repariert Erntemaschinen und Traktoren für die Region Rems-Murr. Ende September ist die Werkstatt durch die laufende Nachbereitung der Ernte und die Vorbereitung der Herbstaussaat voll ausgelastet. Um die Lagerbestände an Verschleißteilen wie Hydraulikdichtungen stabil zu halten, erfolgt eine regelmäßige Lieferung direkt vom Hersteller aus dem Nordschwarzwald. Der Luftweg ermöglicht hier den direkten Austausch zwischen den mittelständischen Betrieben abseits der großen Logistikknoten.\",\"character\":\"Ein unspektakulärer, gewerblicher Routineflug zur Unterstützung regionaler Instandhaltungskapazitäten.\",\"sender\":\"Dichtungstechnik Nordschwarzwald, Versandlager Nagold\",\"recipient\":\"Landtechnik-Zentrum Rems-Murr, Werkstatt Backnang\",\"shipment\":\"Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen\",\"memory\":\"Hydraulikdichtungen für Landmaschinen-Werkstatt in Backnang von einem Schwarzwälder Spezialhersteller.\",\"opening\":\"Im Landtechnik-Zentrum Rems-Murr herrscht Ende September Hochbetrieb. Während die letzten Erntemaschinen noch auf den Feldern sind, bereitet die Werkstatt in Backnang bereits die T\",\"writerMemory\":\"Hydraulikdichtungen und Ventilkomponenten für das Landtechnik-Zentrum in Backnang, geliefert von einem Spezialhersteller aus dem Nordschwarzwald zur Unterstützung der herbstlichen Werkstattkapazitäten.\"}]}]",
+      "status": 200,
+      "raw": "{\n  \"ideas\": [\n    {\n      \"candidateId\": \"direct\",\n      \"purpose\": \"Versorgung eines Automatisierungsspezialisten mit optischen Sensoreinheiten und Kabelsätzen.\",\n      \"background\": \"Die Bodensee Automationstechnik in Friedrichshafen fertigt Steuerungssysteme für industrielle Fertigungsstraßen. Die benötigten optischen Sensorkomponenten werden regelmäßig von einem Zulieferer im Nordschwarzwald bezogen. Die aktuelle Sendung dient der Auffüllung des Zwischenlagers, um die Kontinuität der laufenden Baugruppenmontage sicherzustellen. Der direkte Luftweg zwischen den Regionen hat sich als verlässliche Verbindung für diese empfindlichen Elektronikbauteile bewährt, da er den Umschlag in großen Verteilzentren reduziert.\",\n      \"sender\": \"Opto-Logic Systems, Versandabteilung Nagold\",\n      \"recipient\": \"Bodensee Automationstechnik GmbH, Wareneingang Friedrichshafen\",\n      \"arrival\": \"Die Fracht wird am General Aviation Terminal an den Werkskurier übergeben, der die Boxen direkt zur Montagehalle im nahen Industriegebiet bringt.\",\n      \"character\": \"Ein sachlicher Versorgungsflug für die Elektronikfertigung am Bodensee im Rahmen einer laufenden Zuliefererkette.\",\n      \"memory\": \"Optische Sensoren für die Automatisierungstechnik in Friedrichshafen von einem Schwarzwälder Elektronikbetrieb.\",\n      \"shipment\": {\n        \"label\": \"4 Kartons mit optischen Sensoreinheiten und vorkonfektionierten Kabelbäumen\",\n        \"weightLbs\": 215,\n        \"packaging\": \"Gepolsterte Systemkartons, stabil mit Spannbändern auf einer kleinen Einwegpalette gesichert und foliert.\",\n        \"handling\": \"\"\n      }\n    }\n  ]\n}"
+    },
+    {
+      "prompt": "Schreibe ein natürliches, konkretes Briefing für den Frachtflug. Außenstehender Erzähler, Beteiligte in der dritten Person; den Piloten bei Bedarf mit du ansprechen. Erkläre den Bedarf, warum die Sendung unterwegs ist und was nach der Übergabe geschehen soll. Der Umfang richtet sich nach dem Anlass; ein einfacher Vorgang darf in wenigen Sätzen vollständig erzählt sein. Bewahre den Charakter der Idee, auch ihre Schlichtheit oder ihren beiläufigen Humor. Ergänze keinen Terminzwang, Schaden, Engpass oder besondere Empfindlichkeit, wenn die Idee diese nicht enthält. Technische Typenbezeichnungen tragen nur dann zum Text bei, wenn sie für den Auftrag wirklich etwas erklären. Erzähle die konkrete Situation; bewerte im Text nicht, zu welcher Auftragsgattung sie gehört oder wie alltäglich, bodenständig oder unaufgeregt sie ist. Der Ton soll sich aus den Vorgängen ergeben. Erwähne null Passagiere nicht als Kontrast zu den Bodenrollen; diese Information steht bereits im Payload-Abschnitt. Keine Pflichtdramaturgie, Werbesprache oder allgemeine Schlussweisheit. Erzähle aus dem Stand vor dem Abflug: Vorgeschichte ist geschehen, Laden, Flug, Entladen und Übergabe liegen noch bevor. Keine Szene oder Gedanken aus dem bevorstehenden Flug vorwegnehmen. Der Pilot befördert Fracht, null Passagiere; Menschen handeln ausschließlich am Boden. Keine direkte Rede, Begrüßung oder angekündigte Bordunterhaltung.\nDie Sendung steht zusätzlich im Payload-Abschnitt. story soll ihren Zusammenhang erklären, nicht Datenlisten wiederholen. Verpackung oder Handhabung nur erwähnen, wenn sie zum Verständnis beitragen. pilotNotes enthält ausschließlich eine konkrete besondere Handhabung aus shipment.handling, sonst leer. Keine zusätzlichen Aufgaben, Zusicherungen oder pauschalen Sicherheitshinweise. Keine erfundenen Wetter-, Pisten- oder Routenangaben in story; operative Daten stehen separat. HISTORY hilft gegen wiederkehrende Motive, Einstiege und Formulierungen, nicht zum Nachschreiben.\nNur JSON {title,story,flightBriefing,pilotNotes,memory}. title bis 110 Zeichen, story 180–1800 Zeichen, memory bis 600 Zeichen, pilotNotes bis 500. flightBriefing beschreibt ausschließlich die gelieferten Start-/Zielbeobachtungen mit Stationsbezug, Aktualität und Datenlücken. Wind, vorhandene Böen, Sicht und Wolken örtlich zuordnen. Ältere oder zeitlich unbekannte Meldungen ausdrücklich so einordnen. Wolkenbasis und Ceiling nicht gleichsetzen. Fehlende Werte sind unbekannt, nicht windstill oder böenfrei. Keine Beobachtung entlang der Strecke, Ankunftsprognose oder Flugfreigabe ableiten. Zahlen und Einheiten ausschließlich als [[Referenz]] aus WERTE. Vorhandene route.distance, start.gust und target.gust verwenden. Nur existierende Schlüssel, keine eigenen Zahlen oder Umrechnungen. In den Klammern steht der Schlüssel aus WERTE, niemals sein aufgelöster Wert. story und title brauchen keine Streckenreferenzen; die Strecke wird separat angezeigt. Bei fehlendem Wetter genügt ein kurzer Satz. Maximal 850 Zeichen. FLUGDATEN: {\"schema\":\"private-flight-context.v1\",\"startName\":\"WAECHTERSBERG\",\"targetName\":\"Friedrichshafen Airport\",\"distanceNm\":64.2,\"distanceBasis\":\"supplied-route-distance\",\"landscape\":[],\"weather\":[{\"scope\":\"departure\",\"airport\":\"WAECHTERSBERG\",\"airportIcao\":\"\",\"station\":null,\"source\":null,\"observedAt\":null,\"fetchedAt\":null,\"freshness\":\"unknown\",\"stationDistanceNm\":null,\"ceilingFtAgl\":null,\"clouds\":[],\"rawMetar\":null,\"windDeg\":null,\"windKts\":null,\"gustKts\":null,\"visibilityKm\":null,\"cloudAmountOktas\":null,\"cloudCoverPercent\":null,\"cloudBaseFtAgl\":null,\"weatherCode\":null},{\"scope\":\"destination\",\"airport\":\"Friedrichshafen Airport\",\"airportIcao\":\"\",\"station\":null,\"source\":null,\"observedAt\":null,\"fetchedAt\":null,\"freshness\":\"unknown\",\"stationDistanceNm\":null,\"ceilingFtAgl\":null,\"clouds\":[],\"rawMetar\":null,\"windDeg\":null,\"windKts\":null,\"gustKts\":null,\"visibilityKm\":null,\"cloudAmountOktas\":null,\"cloudCoverPercent\":null,\"cloudBaseFtAgl\":null,\"weatherCode\":null}],\"timing\":\"Wetterstand bei Erstellung; keine Prognose der späteren Ankunft oder ganzen Strecke.\"} WERTE: {\"route.start\":\"WAECHTERSBERG\",\"route.target\":\"Friedrichshafen Airport\",\"route.distance\":\"64,2 NM\"}\nIDEE: {\"schema\":\"cargo-idea.v1\",\"missionDate\":\"2026-09-28\",\"purpose\":\"Versorgung eines Automatisierungsspezialisten mit optischen Sensoreinheiten und Kabelsätzen.\",\"background\":\"Die Bodensee Automationstechnik in Friedrichshafen fertigt Steuerungssysteme für industrielle Fertigungsstraßen. Die benötigten optischen Sensorkomponenten werden regelmäßig von einem Zulieferer im Nordschwarzwald bezogen. Die aktuelle Sendung dient der Auffüllung des Zwischenlagers, um die Kontinuität der laufenden Baugruppenmontage sicherzustellen. Der direkte Luftweg zwischen den Regionen hat sich als verlässliche Verbindung für diese empfindlichen Elektronikbauteile bewährt, da er den Umschlag in großen Verteilzentren reduziert.\",\"sender\":\"Opto-Logic Systems, Versandabteilung Nagold\",\"recipient\":\"Bodensee Automationstechnik GmbH, Wareneingang Friedrichshafen\",\"arrival\":\"Die Fracht wird am General Aviation Terminal an den Werkskurier übergeben, der die Boxen direkt zur Montagehalle im nahen Industriegebiet bringt.\",\"character\":\"Ein sachlicher Versorgungsflug für die Elektronikfertigung am Bodensee im Rahmen einer laufenden Zuliefererkette.\",\"memory\":\"Optische Sensoren für die Automatisierungstechnik in Friedrichshafen von einem Schwarzwälder Elektronikbetrieb.\",\"shipment\":{\"label\":\"4 Kartons mit optischen Sensoreinheiten und vorkonfektionierten Kabelbäumen\",\"weightLbs\":215,\"packaging\":\"Gepolsterte Systemkartons, stabil mit Spannbändern auf einer kleinen Einwegpalette gesichert und foliert.\",\"handling\":\"\"},\"route\":{\"start\":{\"name\":\"WAECHTERSBERG\",\"icao\":\"EDSV\",\"lat\":48.614861,\"lon\":8.755111},\"target\":{\"name\":\"Friedrichshafen Airport\",\"icao\":\"EDNY\",\"lat\":47.6712989807,\"lon\":9.5114898682}}} HISTORY: [{\"id\":\"cargo-probe-0\",\"purpose\":\"Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.\",\"background\":\"Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.\",\"character\":\"Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.\",\"sender\":\"Metallwaren-Zentrum Nagold-Tal, Versandabteilung\",\"recipient\":\"Tischlerei & Innenausbau Moser, St. Johann in Tirol\",\"shipment\":\"8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau\",\"memory\":\"Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.\",\"opening\":\"Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für \",\"writerMemory\":\"Hochwertige Möbelbeschläge für den Innenausbau in St. Johann; Direkttransport zwischen Spezialbetrieben aus dem Schwarzwald und Tirol.\"},{\"id\":\"cargo-probe-1\",\"purpose\":\"Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.\",\"background\":\"Das Institut für Biologie in Freiburg bezieht regelmäßig spezialisierte Kunststoffkomponenten von einem Hersteller im Nordschwarzwald. Es handelt sich um eine geplante Aufstockung des Lagers für Pipettenspitzen und Reaktionsgefäße. Da die Produkte volumig, aber leicht sind und eine saubere, erschütterungsarme Handhabung erfordern, wird für den Transfer zwischen den Standorten oft die direkte Luftverbindung genutzt, um den mehrfachen Umschlag in großen Logistikzentren zu vermeiden.\",\"character\":\"Ein sachlicher Versorgungsflug im Rahmen des universitären Forschungsbetriebs.\",\"sender\":\"Bio-Plast Formtechnik GmbH, Logistikzentrum Wildberg\",\"recipient\":\"Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie\",\"shipment\":\"Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)\",\"memory\":\"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\",\"opening\":\"In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisi\",\"writerMemory\":\"Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.\"},{\"id\":\"cargo-probe-2\",\"purpose\":\"Versorgung eines Fachbetriebs für Landtechnik mit speziellen Hydraulikdichtungen und Ventilkomponenten.\",\"background\":\"Das Landtechnik-Zentrum in Backnang wartet und repariert Erntemaschinen und Traktoren für die Region Rems-Murr. Ende September ist die Werkstatt durch die laufende Nachbereitung der Ernte und die Vorbereitung der Herbstaussaat voll ausgelastet. Um die Lagerbestände an Verschleißteilen wie Hydraulikdichtungen stabil zu halten, erfolgt eine regelmäßige Lieferung direkt vom Hersteller aus dem Nordschwarzwald. Der Luftweg ermöglicht hier den direkten Austausch zwischen den mittelständischen Betrieben abseits der großen Logistikknoten.\",\"character\":\"Ein unspektakulärer, gewerblicher Routineflug zur Unterstützung regionaler Instandhaltungskapazitäten.\",\"sender\":\"Dichtungstechnik Nordschwarzwald, Versandlager Nagold\",\"recipient\":\"Landtechnik-Zentrum Rems-Murr, Werkstatt Backnang\",\"shipment\":\"Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen\",\"memory\":\"Hydraulikdichtungen für Landmaschinen-Werkstatt in Backnang von einem Schwarzwälder Spezialhersteller.\",\"opening\":\"Im Landtechnik-Zentrum Rems-Murr herrscht Ende September Hochbetrieb. Während die letzten Erntemaschinen noch auf den Feldern sind, bereitet die Werkstatt in Backnang bereits die T\",\"writerMemory\":\"Hydraulikdichtungen und Ventilkomponenten für das Landtechnik-Zentrum in Backnang, geliefert von einem Spezialhersteller aus dem Nordschwarzwald zur Unterstützung der herbstlichen Werkstattkapazitäten.\"}]",
+      "status": 200,
+      "raw": "{\n  \"title\": \"Versorgungsflug für die Elektronikfertigung am Bodensee: Optische Sensoren aus dem Nordschwarzwald\",\n  \"story\": \"Die Bodensee Automationstechnik in Friedrichshafen benötigt Nachschub für ihre industrielle Fertigung. In Nagold hat die Versandabteilung von Opto-Logic Systems dafür vier Kartons mit optischen Sensoreinheiten und den dazugehörigen Kabelsätzen vorbereitet. Die Palette ist bereits mit Folie gesichert und steht am Flugplatz bereit, um von dir zum Bodensee geflogen zu werden. Es ist ein gewöhnlicher Vorgang in der Zuliefererkette: Das Zwischenlager in Friedrichshafen soll aufgefüllt werden, damit die Montage der Steuerungssysteme ohne Unterbrechung weitergehen kann. Der direkte Luftweg zwischen den Regionen hat sich für diese Art von Elektronikbauteilen bewährt, da er den harten Umschlag in den großen Sortierzentren der Speditionen umgeht. Sobald du in Friedrichshafen gelandet bist, wird die Fracht am General Aviation Terminal von einem Werkskurier übernommen. Dieser bringt die Sendung auf direktem Weg ins nahegelegene Industriegebiet, wo die Komponenten bereits in der Montagehalle erwartet werden.\",\n  \"flightBriefing\": \"Für den Abflugort [[route.start]] liegen keine aktuellen Wetterbeobachtungen vor; Wind, Sichtweite und Bewölkung sind unbekannt. Auch für das Ziel [[route.target]] sind derzeit keine Wetterdaten verfügbar. Es liegen keine Meldungen über lokale Windverhältnisse, Böen oder die Wolkenbasis an den Stationen vor.\",\n  \"pilotNotes\": \"\",\n  \"memory\": \"Optische Sensoren und Kabelsätze für die Automatisierungstechnik in Friedrichshafen, geliefert von einem Zulieferer aus dem Nordschwarzwald zur Sicherung der laufenden Montage.\"\n}"
+    }
+  ],
+  "runs": [
+    {
+      "number": 1,
+      "historyCount": 0,
+      "mission": {
+        "t": "Präzision aus dem Schwarzwald: Beschläge für die Tischlerei Moser",
+        "s": "Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für die Montage hochwertiger Möbelserien im gehobenen Segment benötigt werden. Zwischen dem Spezialhersteller im Schwarzwald und dem Betrieb in Tirol hat sich dieser direkte Flugweg als stabiler Logistikkanal etabliert. So umgehen die Bauteile die großen Verteilzentren und landen ohne unnötige Umwege dort, wo sie verbaut werden. Sobald du in St. Johann gelandet bist, wird ein Mitarbeiter der Tischlerei am GAT bereitstehen. Er übernimmt die Sendung direkt in einen Kleintransporter, um die Hardware auf kurzem Weg in die Werkstatt zu bringen. Es ist eine schlichte Materialfahrt über eine Distanz von 162,1 NM, die den Fluss in der Fertigung sicherstellt.\n\nRoute: WAECHTERSBERG → St. Johann In Tirol Airport · 162,1 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "story": "Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für die Montage hochwertiger Möbelserien im gehobenen Segment benötigt werden. Zwischen dem Spezialhersteller im Schwarzwald und dem Betrieb in Tirol hat sich dieser direkte Flugweg als stabiler Logistikkanal etabliert. So umgehen die Bauteile die großen Verteilzentren und landen ohne unnötige Umwege dort, wo sie verbaut werden. Sobald du in St. Johann gelandet bist, wird ein Mitarbeiter der Tischlerei am GAT bereitstehen. Er übernimmt die Sendung direkt in einen Kleintransporter, um die Hardware auf kurzem Weg in die Werkstatt zu bringen. Es ist eine schlichte Materialfahrt über eine Distanz von 162,1 NM, die den Fluss in der Fertigung sicherstellt.\n\nRoute: WAECHTERSBERG → St. Johann In Tirol Airport · 162,1 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "missionStory": "Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für die Montage hochwertiger Möbelserien im gehobenen Segment benötigt werden. Zwischen dem Spezialhersteller im Schwarzwald und dem Betrieb in Tirol hat sich dieser direkte Flugweg als stabiler Logistikkanal etabliert. So umgehen die Bauteile die großen Verteilzentren und landen ohne unnötige Umwege dort, wo sie verbaut werden. Sobald du in St. Johann gelandet bist, wird ein Mitarbeiter der Tischlerei am GAT bereitstehen. Er übernimmt die Sendung direkt in einen Kleintransporter, um die Hardware auf kurzem Weg in die Werkstatt zu bringen. Es ist eine schlichte Materialfahrt über eine Distanz von 162,1 NM, die den Fluss in der Fertigung sicherstellt.\n\nRoute: WAECHTERSBERG → St. Johann In Tirol Airport · 162,1 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "cat": "cargo",
+        "missionType": "apt",
+        "pax": "0 PAX",
+        "paxText": "0 PAX",
+        "passengerCount": 0,
+        "plannedPassengerCount": 0,
+        "passenger": null,
+        "party": null,
+        "cargo": "8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau (265 lbs)",
+        "cargoText": "8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau (265 lbs)",
+        "cargoIdea": {
+          "schema": "cargo-idea.v1",
+          "missionDate": "2026-09-28",
+          "purpose": "Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.",
+          "background": "Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.",
+          "sender": "Metallwaren-Zentrum Nagold-Tal, Versandabteilung",
+          "recipient": "Tischlerei & Innenausbau Moser, St. Johann in Tirol",
+          "arrival": "Die Übergabe erfolgt am GAT des Flugplatzes St. Johann. Ein Mitarbeiter der Tischlerei übernimmt die Kartons direkt in den Firmen-Kleintransporter für die kurze Fahrt in die Werkstatt.",
+          "character": "Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.",
+          "memory": "Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.",
+          "shipment": {
+            "label": "8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau",
+            "weightLbs": 265,
+            "packaging": "8 doppelwellige Schwerlast-Versandkartons, einzeln mit Kunststoffband umreift.",
+            "handling": ""
+          },
+          "route": {
+            "start": {
+              "name": "WAECHTERSBERG",
+              "icao": "EDSV",
+              "lat": 48.614861,
+              "lon": 8.755111
+            },
+            "target": {
+              "name": "St. Johann In Tirol Airport",
+              "icao": "LOIJ",
+              "lat": 47.5200996399,
+              "lon": 12.4497003555
+            }
+          },
+          "writerMemory": "Hochwertige Möbelbeschläge für den Innenausbau in St. Johann; Direkttransport zwischen Spezialbetrieben aus dem Schwarzwald und Tirol."
+        },
+        "_source": "Fracht-Ideen V1",
+        "_missionPlanV2": {
+          "status": "ready",
+          "plan": {
+            "taskDomain": "cargo",
+            "primaryObjective": "Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.",
+            "storyFrame": {
+              "shipment": "8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau",
+              "receiver": "Tischlerei & Innenausbau Moser, St. Johann in Tirol",
+              "arrival": "Die Übergabe erfolgt am GAT des Flugplatzes St. Johann. Ein Mitarbeiter der Tischlerei übernimmt die Kartons direkt in den Firmen-Kleintransporter für die kurze Fahrt in die Werkstatt."
+            },
+            "sceneKind": "none"
+          }
+        },
+        "sceneIntent": {
+          "summary": "A-B-Frachtflug mit Übergabe am Zielflugplatz.",
+          "visibleIdeas": [],
+          "densityHint": "none"
+        },
+        "_missionWriterV4Debug": {
+          "writerMode": "cargo-v1",
+          "writerAccepted": true,
+          "rawAiStory": "Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für die Montage hochwertiger Möbelserien im gehobenen Segment benötigt werden. Zwischen dem Spezialhersteller im Schwarzwald und dem Betrieb in Tirol hat sich dieser direkte Flugweg als stabiler Logistikkanal etabliert. So umgehen die Bauteile die großen Verteilzentren und landen ohne unnötige Umwege dort, wo sie verbaut werden. Sobald du in St. Johann gelandet bist, wird ein Mitarbeiter der Tischlerei am GAT bereitstehen. Er übernimmt die Sendung direkt in einen Kleintransporter, um die Hardware auf kurzem Weg in die Werkstatt zu bringen. Es ist eine schlichte Materialfahrt über eine Distanz von 162,1 NM, die den Fluss in der Fertigung sicherstellt.",
+          "writerStory": "Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für die Montage hochwertiger Möbelserien im gehobenen Segment benötigt werden. Zwischen dem Spezialhersteller im Schwarzwald und dem Betrieb in Tirol hat sich dieser direkte Flugweg als stabiler Logistikkanal etabliert. So umgehen die Bauteile die großen Verteilzentren und landen ohne unnötige Umwege dort, wo sie verbaut werden. Sobald du in St. Johann gelandet bist, wird ein Mitarbeiter der Tischlerei am GAT bereitstehen. Er übernimmt die Sendung direkt in einen Kleintransporter, um die Hardware auf kurzem Weg in die Werkstatt zu bringen. Es ist eine schlichte Materialfahrt über eine Distanz von 162,1 NM, die den Fluss in der Fertigung sicherstellt.\n\nRoute: WAECHTERSBERG → St. Johann In Tirol Airport · 162,1 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "flightBriefing": "Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "flightBriefingStatus": "accepted-bindings",
+          "weatherSnapshot": [
+            {
+              "scope": "departure",
+              "airport": "WAECHTERSBERG",
+              "airportIcao": "",
+              "station": null,
+              "source": null,
+              "observedAt": null,
+              "fetchedAt": null,
+              "freshness": "unknown",
+              "stationDistanceNm": null,
+              "ceilingFtAgl": null,
+              "clouds": [],
+              "rawMetar": null,
+              "windDeg": null,
+              "windKts": null,
+              "gustKts": null,
+              "visibilityKm": null,
+              "cloudAmountOktas": null,
+              "cloudCoverPercent": null,
+              "cloudBaseFtAgl": null,
+              "weatherCode": null
+            },
+            {
+              "scope": "destination",
+              "airport": "St. Johann In Tirol Airport",
+              "airportIcao": "",
+              "station": null,
+              "source": null,
+              "observedAt": null,
+              "fetchedAt": null,
+              "freshness": "unknown",
+              "stationDistanceNm": null,
+              "ceilingFtAgl": null,
+              "clouds": [],
+              "rawMetar": null,
+              "windDeg": null,
+              "windKts": null,
+              "gustKts": null,
+              "visibilityKm": null,
+              "cloudAmountOktas": null,
+              "cloudCoverPercent": null,
+              "cloudBaseFtAgl": null,
+              "weatherCode": null
+            }
+          ],
+          "rawFlightBriefing": "Für den Abflugort [[route.start]] liegen keine aktuellen Wetterdaten vor. Auch für das Ziel [[route.target]] sind keine Beobachtungen bekannt; Wind, Sichtweiten und Wolkenhöhen sind für beide Stationen zum jetzigen Zeitpunkt unklar.",
+          "historyCount": 0
+        },
+        "_missionContractV4": {
+          "route": {
+            "startName": "WAECHTERSBERG",
+            "targetName": "St. Johann In Tirol Airport",
+            "distanceNm": 162.1
+          },
+          "weather": {},
+          "status": "ready",
+          "profile": {
+            "id": "auto",
+            "taskDomain": "general",
+            "roleProfile": "general_passenger_v1"
+          },
+          "cargoIdea": {
+            "schema": "cargo-idea.v1",
+            "missionDate": "2026-09-28",
+            "purpose": "Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.",
+            "background": "Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.",
+            "sender": "Metallwaren-Zentrum Nagold-Tal, Versandabteilung",
+            "recipient": "Tischlerei & Innenausbau Moser, St. Johann in Tirol",
+            "arrival": "Die Übergabe erfolgt am GAT des Flugplatzes St. Johann. Ein Mitarbeiter der Tischlerei übernimmt die Kartons direkt in den Firmen-Kleintransporter für die kurze Fahrt in die Werkstatt.",
+            "character": "Ein schlichter, gewerblicher Routineflug zur Materialversorgung ohne besonderen Zeitdruck.",
+            "memory": "Möbelbeschläge für österreichisches Handwerk aus süddeutschem Metallbetrieb.",
+            "shipment": {
+              "label": "8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau",
+              "weightLbs": 265,
+              "packaging": "8 doppelwellige Schwerlast-Versandkartons, einzeln mit Kunststoffband umreift.",
+              "handling": ""
+            },
+            "route": {
+              "start": {
+                "name": "WAECHTERSBERG",
+                "icao": "EDSV",
+                "lat": 48.614861,
+                "lon": 8.755111
+              },
+              "target": {
+                "name": "St. Johann In Tirol Airport",
+                "icao": "LOIJ",
+                "lat": 47.5200996399,
+                "lon": 12.4497003555
+              }
+            },
+            "writerMemory": "Hochwertige Möbelbeschläge für den Innenausbau in St. Johann; Direkttransport zwischen Spezialbetrieben aus dem Schwarzwald und Tirol."
+          },
+          "passenger": null,
+          "passengerCount": 0,
+          "plannedPassengerCount": 0,
+          "party": null,
+          "paxText": "0 PAX",
+          "cargoText": "8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau (265 lbs)",
+          "missionStory": "Die Tischlerei Moser in St. Johann wartet auf Nachschub für den Innenausbau. Im Nagold-Tal wurden acht schwere Kartons mit Vollauszügen und Topfscharnieren bereitgestellt, die für die Montage hochwertiger Möbelserien im gehobenen Segment benötigt werden. Zwischen dem Spezialhersteller im Schwarzwald und dem Betrieb in Tirol hat sich dieser direkte Flugweg als stabiler Logistikkanal etabliert. So umgehen die Bauteile die großen Verteilzentren und landen ohne unnötige Umwege dort, wo sie verbaut werden. Sobald du in St. Johann gelandet bist, wird ein Mitarbeiter der Tischlerei am GAT bereitstehen. Er übernimmt die Sendung direkt in einen Kleintransporter, um die Hardware auf kurzem Weg in die Werkstatt zu bringen. Es ist eine schlichte Materialfahrt über eine Distanz von 162,1 NM, die den Fluss in der Fertigung sicherstellt.\n\nRoute: WAECHTERSBERG → St. Johann In Tirol Airport · 162,1 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "target": {
+            "name": "St. Johann In Tirol Airport",
+            "icao": "LOIJ",
+            "lat": 47.5200996399,
+            "lon": 12.4497003555
+          },
+          "storyFrame": {
+            "trigger": "Versorgung einer Tischlerei mit hochwertigen Möbelbeschlägen für den Innenausbau.",
+            "whyNow": "Die Tischlerei Moser in St. Johann bezieht ihre Präzisionskomponenten regelmäßig von einem Spezialhersteller aus dem Schwarzwald. Die Sendung ist Teil einer laufenden Bestellung für mehrere Projekte im gehobenen Segment. Der Transport per Kleinflugzeug ist hier ein etablierter Logistikweg für kleinere, schwere Chargen zwischen den beiden spezialisierten Betrieben, um den Materialfluss ohne Umwege über große Logistikzentren stabil zu halten.",
+            "shipment": "8 Kartons Präzisions-Vollauszüge und Topfscharniere für den Möbelbau",
+            "receiver": "Tischlerei & Innenausbau Moser, St. Johann in Tirol",
+            "arrival": "Die Übergabe erfolgt am GAT des Flugplatzes St. Johann. Ein Mitarbeiter der Tischlerei übernimmt die Kartons direkt in den Firmen-Kleintransporter für die kurze Fahrt in die Werkstatt."
+          }
+        }
+      }
+    },
+    {
+      "number": 2,
+      "historyCount": 1,
+      "mission": {
+        "t": "Sterile Labor-Verbrauchsmaterialien für das Institut für Biologie in Freiburg",
+        "s": "In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisierte Kunststoffkomponenten, die nun im Lager aufgestockt werden müssen. Du beförderst heute sterile Pipettenspitzen und Reaktionsgefäße, die sicher in zwölf Kunststoffboxen auf einer flachen Holzunterlage verpackt sind. Die Sendung ist eher leicht, nimmt aber einiges an Raum ein. Der Hersteller Bio-Plast Formtechnik und das Institut bevorzugen für diese Güter die direkte Luftverbindung, da der Umschlag in großen Logistikzentren oft zu grob für die feinen Filteraufsätze und die Integrität der sterilen Boxen ist. In Freiburg übernimmt das Personal des GAT die Koordinierung mit dem Werkswagen der Universität, der die Materialien direkt zum Campus Nord bringt.\n\nRoute: WAECHTERSBERG → Freiburg i. Br. Airport · 51,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "story": "In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisierte Kunststoffkomponenten, die nun im Lager aufgestockt werden müssen. Du beförderst heute sterile Pipettenspitzen und Reaktionsgefäße, die sicher in zwölf Kunststoffboxen auf einer flachen Holzunterlage verpackt sind. Die Sendung ist eher leicht, nimmt aber einiges an Raum ein. Der Hersteller Bio-Plast Formtechnik und das Institut bevorzugen für diese Güter die direkte Luftverbindung, da der Umschlag in großen Logistikzentren oft zu grob für die feinen Filteraufsätze und die Integrität der sterilen Boxen ist. In Freiburg übernimmt das Personal des GAT die Koordinierung mit dem Werkswagen der Universität, der die Materialien direkt zum Campus Nord bringt.\n\nRoute: WAECHTERSBERG → Freiburg i. Br. Airport · 51,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "missionStory": "In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisierte Kunststoffkomponenten, die nun im Lager aufgestockt werden müssen. Du beförderst heute sterile Pipettenspitzen und Reaktionsgefäße, die sicher in zwölf Kunststoffboxen auf einer flachen Holzunterlage verpackt sind. Die Sendung ist eher leicht, nimmt aber einiges an Raum ein. Der Hersteller Bio-Plast Formtechnik und das Institut bevorzugen für diese Güter die direkte Luftverbindung, da der Umschlag in großen Logistikzentren oft zu grob für die feinen Filteraufsätze und die Integrität der sterilen Boxen ist. In Freiburg übernimmt das Personal des GAT die Koordinierung mit dem Werkswagen der Universität, der die Materialien direkt zum Campus Nord bringt.\n\nRoute: WAECHTERSBERG → Freiburg i. Br. Airport · 51,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "cat": "cargo",
+        "missionType": "apt",
+        "pax": "0 PAX",
+        "paxText": "0 PAX",
+        "passengerCount": 0,
+        "plannedPassengerCount": 0,
+        "passenger": null,
+        "party": null,
+        "cargo": "Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze) (245 lbs)",
+        "cargoText": "Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze) (245 lbs)",
+        "cargoIdea": {
+          "schema": "cargo-idea.v1",
+          "missionDate": "2026-09-28",
+          "purpose": "Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.",
+          "background": "Das Institut für Biologie in Freiburg bezieht regelmäßig spezialisierte Kunststoffkomponenten von einem Hersteller im Nordschwarzwald. Es handelt sich um eine geplante Aufstockung des Lagers für Pipettenspitzen und Reaktionsgefäße. Da die Produkte volumig, aber leicht sind und eine saubere, erschütterungsarme Handhabung erfordern, wird für den Transfer zwischen den Standorten oft die direkte Luftverbindung genutzt, um den mehrfachen Umschlag in großen Logistikzentren zu vermeiden.",
+          "sender": "Bio-Plast Formtechnik GmbH, Logistikzentrum Wildberg",
+          "recipient": "Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie",
+          "arrival": "Übergabe am GAT an den Werkswagen der Universität; anschließender Transport zum Zentrallager auf dem Campus Nord.",
+          "character": "Ein sachlicher Versorgungsflug im Rahmen des universitären Forschungsbetriebs.",
+          "memory": "Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.",
+          "shipment": {
+            "label": "Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)",
+            "weightLbs": 245,
+            "packaging": "12 stapelbare Kunststoffboxen auf einer flachen Holzunterlage, mit Stretchfolie gesichert.",
+            "handling": ""
+          },
+          "route": {
+            "start": {
+              "name": "WAECHTERSBERG",
+              "icao": "EDSV",
+              "lat": 48.614861,
+              "lon": 8.755111
+            },
+            "target": {
+              "name": "Freiburg i. Br. Airport",
+              "icao": "EDTF",
+              "lat": 48.0227775574,
+              "lon": 7.8324999809
+            }
+          },
+          "writerMemory": "Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb."
+        },
+        "_source": "Fracht-Ideen V1",
+        "_missionPlanV2": {
+          "status": "ready",
+          "plan": {
+            "taskDomain": "cargo",
+            "primaryObjective": "Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.",
+            "storyFrame": {
+              "shipment": "Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)",
+              "receiver": "Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie",
+              "arrival": "Übergabe am GAT an den Werkswagen der Universität; anschließender Transport zum Zentrallager auf dem Campus Nord."
+            },
+            "sceneKind": "none"
+          }
+        },
+        "sceneIntent": {
+          "summary": "A-B-Frachtflug mit Übergabe am Zielflugplatz.",
+          "visibleIdeas": [],
+          "densityHint": "none"
+        },
+        "_missionWriterV4Debug": {
+          "writerMode": "cargo-v1",
+          "writerAccepted": true,
+          "rawAiStory": "In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisierte Kunststoffkomponenten, die nun im Lager aufgestockt werden müssen. Du beförderst heute sterile Pipettenspitzen und Reaktionsgefäße, die sicher in zwölf Kunststoffboxen auf einer flachen Holzunterlage verpackt sind. Die Sendung ist eher leicht, nimmt aber einiges an Raum ein. Der Hersteller Bio-Plast Formtechnik und das Institut bevorzugen für diese Güter die direkte Luftverbindung, da der Umschlag in großen Logistikzentren oft zu grob für die feinen Filteraufsätze und die Integrität der sterilen Boxen ist. In Freiburg übernimmt das Personal des GAT die Koordinierung mit dem Werkswagen der Universität, der die Materialien direkt zum Campus Nord bringt.",
+          "writerStory": "In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisierte Kunststoffkomponenten, die nun im Lager aufgestockt werden müssen. Du beförderst heute sterile Pipettenspitzen und Reaktionsgefäße, die sicher in zwölf Kunststoffboxen auf einer flachen Holzunterlage verpackt sind. Die Sendung ist eher leicht, nimmt aber einiges an Raum ein. Der Hersteller Bio-Plast Formtechnik und das Institut bevorzugen für diese Güter die direkte Luftverbindung, da der Umschlag in großen Logistikzentren oft zu grob für die feinen Filteraufsätze und die Integrität der sterilen Boxen ist. In Freiburg übernimmt das Personal des GAT die Koordinierung mit dem Werkswagen der Universität, der die Materialien direkt zum Campus Nord bringt.\n\nRoute: WAECHTERSBERG → Freiburg i. Br. Airport · 51,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "flightBriefing": "Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "flightBriefingStatus": "accepted-bindings",
+          "weatherSnapshot": [
+            {
+              "scope": "departure",
+              "airport": "WAECHTERSBERG",
+              "airportIcao": "",
+              "station": null,
+              "source": null,
+              "observedAt": null,
+              "fetchedAt": null,
+              "freshness": "unknown",
+              "stationDistanceNm": null,
+              "ceilingFtAgl": null,
+              "clouds": [],
+              "rawMetar": null,
+              "windDeg": null,
+              "windKts": null,
+              "gustKts": null,
+              "visibilityKm": null,
+              "cloudAmountOktas": null,
+              "cloudCoverPercent": null,
+              "cloudBaseFtAgl": null,
+              "weatherCode": null
+            },
+            {
+              "scope": "destination",
+              "airport": "Freiburg i. Br. Airport",
+              "airportIcao": "",
+              "station": null,
+              "source": null,
+              "observedAt": null,
+              "fetchedAt": null,
+              "freshness": "unknown",
+              "stationDistanceNm": null,
+              "ceilingFtAgl": null,
+              "clouds": [],
+              "rawMetar": null,
+              "windDeg": null,
+              "windKts": null,
+              "gustKts": null,
+              "visibilityKm": null,
+              "cloudAmountOktas": null,
+              "cloudCoverPercent": null,
+              "cloudBaseFtAgl": null,
+              "weatherCode": null
+            }
+          ],
+          "rawFlightBriefing": "Am Standort [[route.start]] liegen aktuell keine Wetterbeobachtungen vor; Wind, Sicht und Bewölkung sind dort unbekannt. Für den Zielflugplatz [[route.target]] sind ebenfalls keine Stationsdaten verfügbar, weshalb keine Angaben zu Sichtweiten oder einer Wolkenbasis gemacht werden können. Die Flugvorbereitung für die Strecke von [[route.distance]] stützt sich somit nicht auf lokale Messwerte der beteiligten Plätze.",
+          "historyCount": 1
+        },
+        "_missionContractV4": {
+          "route": {
+            "startName": "WAECHTERSBERG",
+            "targetName": "Freiburg i. Br. Airport",
+            "distanceNm": 51.2
+          },
+          "weather": {},
+          "status": "ready",
+          "profile": {
+            "id": "auto",
+            "taskDomain": "general",
+            "roleProfile": "general_passenger_v1"
+          },
+          "cargoIdea": {
+            "schema": "cargo-idea.v1",
+            "missionDate": "2026-09-28",
+            "purpose": "Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.",
+            "background": "Das Institut für Biologie in Freiburg bezieht regelmäßig spezialisierte Kunststoffkomponenten von einem Hersteller im Nordschwarzwald. Es handelt sich um eine geplante Aufstockung des Lagers für Pipettenspitzen und Reaktionsgefäße. Da die Produkte volumig, aber leicht sind und eine saubere, erschütterungsarme Handhabung erfordern, wird für den Transfer zwischen den Standorten oft die direkte Luftverbindung genutzt, um den mehrfachen Umschlag in großen Logistikzentren zu vermeiden.",
+            "sender": "Bio-Plast Formtechnik GmbH, Logistikzentrum Wildberg",
+            "recipient": "Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie",
+            "arrival": "Übergabe am GAT an den Werkswagen der Universität; anschließender Transport zum Zentrallager auf dem Campus Nord.",
+            "character": "Ein sachlicher Versorgungsflug im Rahmen des universitären Forschungsbetriebs.",
+            "memory": "Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb.",
+            "shipment": {
+              "label": "Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)",
+              "weightLbs": 245,
+              "packaging": "12 stapelbare Kunststoffboxen auf einer flachen Holzunterlage, mit Stretchfolie gesichert.",
+              "handling": ""
+            },
+            "route": {
+              "start": {
+                "name": "WAECHTERSBERG",
+                "icao": "EDSV",
+                "lat": 48.614861,
+                "lon": 8.755111
+              },
+              "target": {
+                "name": "Freiburg i. Br. Airport",
+                "icao": "EDTF",
+                "lat": 48.0227775574,
+                "lon": 7.8324999809
+              }
+            },
+            "writerMemory": "Labor-Verbrauchsmaterialien für die Freiburger Biologie von einem Schwarzwälder Spritzgussbetrieb."
+          },
+          "passenger": null,
+          "passengerCount": 0,
+          "plannedPassengerCount": 0,
+          "party": null,
+          "paxText": "0 PAX",
+          "cargoText": "Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze) (245 lbs)",
+          "missionStory": "In Wildberg wurde die Charge bereits für den Transport vorbereitet. Das Institut für Biologie der Universität Freiburg verbraucht in seinen Versuchsreihen kontinuierlich spezialisierte Kunststoffkomponenten, die nun im Lager aufgestockt werden müssen. Du beförderst heute sterile Pipettenspitzen und Reaktionsgefäße, die sicher in zwölf Kunststoffboxen auf einer flachen Holzunterlage verpackt sind. Die Sendung ist eher leicht, nimmt aber einiges an Raum ein. Der Hersteller Bio-Plast Formtechnik und das Institut bevorzugen für diese Güter die direkte Luftverbindung, da der Umschlag in großen Logistikzentren oft zu grob für die feinen Filteraufsätze und die Integrität der sterilen Boxen ist. In Freiburg übernimmt das Personal des GAT die Koordinierung mit dem Werkswagen der Universität, der die Materialien direkt zum Campus Nord bringt.\n\nRoute: WAECHTERSBERG → Freiburg i. Br. Airport · 51,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "target": {
+            "name": "Freiburg i. Br. Airport",
+            "icao": "EDTF",
+            "lat": 48.0227775574,
+            "lon": 7.8324999809
+          },
+          "storyFrame": {
+            "trigger": "Versorgung eines Forschungsinstituts mit sterilen Labor-Verbrauchsmaterialien für laufende Versuchsreihen.",
+            "whyNow": "Das Institut für Biologie in Freiburg bezieht regelmäßig spezialisierte Kunststoffkomponenten von einem Hersteller im Nordschwarzwald. Es handelt sich um eine geplante Aufstockung des Lagers für Pipettenspitzen und Reaktionsgefäße. Da die Produkte volumig, aber leicht sind und eine saubere, erschütterungsarme Handhabung erfordern, wird für den Transfer zwischen den Standorten oft die direkte Luftverbindung genutzt, um den mehrfachen Umschlag in großen Logistikzentren zu vermeiden.",
+            "shipment": "Sterile Labor-Verbrauchsmaterialien (Pipettenspitzen, Mikrozitrifugengefäße, Filteraufsätze)",
+            "receiver": "Albert-Ludwigs-Universität Freiburg, Zentrale Logistik Biologie",
+            "arrival": "Übergabe am GAT an den Werkswagen der Universität; anschließender Transport zum Zentrallager auf dem Campus Nord."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "historyCount": 2,
+      "mission": {
+        "t": "Hydraulikdichtungen für die Erntetechnik: Versorgungsflug nach Backnang-Heiningen",
+        "s": "Im Landtechnik-Zentrum Rems-Murr herrscht Ende September Hochbetrieb. Während die letzten Erntemaschinen noch auf den Feldern sind, bereitet die Werkstatt in Backnang bereits die Traktoren für die anstehende Herbstaussaat vor. Damit die Mechaniker bei Reparaturen an den Hydrauliksystemen nicht auf Material warten müssen, erfolgt eine regelmäßige Aufstockung der Lagerbestände direkt vom Hersteller aus dem Nordschwarzwald. In Nagold wurden drei verstärkte Holzkisten mit einem Sortiment an Dichtungssätzen, O-Ringen und Ventilmanschetten vorbereitet. Du beförderst diese Komponenten nun auf direktem Weg zum Flugplatz Backnang-Heiningen. Dort wird die Fracht nach der Landung unmittelbar von einem Mitarbeiter des Zentrums entgegengenommen. Mit dem Werkstattwagen gelangen die Ersatzteile direkt in das Lager der Werkstatt, um die Instandhaltungskapazitäten für die regionalen Landwirte sicherzustellen.\n\nRoute: WAECHTERSBERG → Backnang-Heiningen Airport · 33,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "story": "Im Landtechnik-Zentrum Rems-Murr herrscht Ende September Hochbetrieb. Während die letzten Erntemaschinen noch auf den Feldern sind, bereitet die Werkstatt in Backnang bereits die Traktoren für die anstehende Herbstaussaat vor. Damit die Mechaniker bei Reparaturen an den Hydrauliksystemen nicht auf Material warten müssen, erfolgt eine regelmäßige Aufstockung der Lagerbestände direkt vom Hersteller aus dem Nordschwarzwald. In Nagold wurden drei verstärkte Holzkisten mit einem Sortiment an Dichtungssätzen, O-Ringen und Ventilmanschetten vorbereitet. Du beförderst diese Komponenten nun auf direktem Weg zum Flugplatz Backnang-Heiningen. Dort wird die Fracht nach der Landung unmittelbar von einem Mitarbeiter des Zentrums entgegengenommen. Mit dem Werkstattwagen gelangen die Ersatzteile direkt in das Lager der Werkstatt, um die Instandhaltungskapazitäten für die regionalen Landwirte sicherzustellen.\n\nRoute: WAECHTERSBERG → Backnang-Heiningen Airport · 33,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "missionStory": "Im Landtechnik-Zentrum Rems-Murr herrscht Ende September Hochbetrieb. Während die letzten Erntemaschinen noch auf den Feldern sind, bereitet die Werkstatt in Backnang bereits die Traktoren für die anstehende Herbstaussaat vor. Damit die Mechaniker bei Reparaturen an den Hydrauliksystemen nicht auf Material warten müssen, erfolgt eine regelmäßige Aufstockung der Lagerbestände direkt vom Hersteller aus dem Nordschwarzwald. In Nagold wurden drei verstärkte Holzkisten mit einem Sortiment an Dichtungssätzen, O-Ringen und Ventilmanschetten vorbereitet. Du beförderst diese Komponenten nun auf direktem Weg zum Flugplatz Backnang-Heiningen. Dort wird die Fracht nach der Landung unmittelbar von einem Mitarbeiter des Zentrums entgegengenommen. Mit dem Werkstattwagen gelangen die Ersatzteile direkt in das Lager der Werkstatt, um die Instandhaltungskapazitäten für die regionalen Landwirte sicherzustellen.\n\nRoute: WAECHTERSBERG → Backnang-Heiningen Airport · 33,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "cat": "cargo",
+        "missionType": "apt",
+        "pax": "0 PAX",
+        "paxText": "0 PAX",
+        "passengerCount": 0,
+        "plannedPassengerCount": 0,
+        "passenger": null,
+        "party": null,
+        "cargo": "Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen (145 lbs)",
+        "cargoText": "Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen (145 lbs)",
+        "cargoIdea": {
+          "schema": "cargo-idea.v1",
+          "missionDate": "2026-09-28",
+          "purpose": "Versorgung eines Fachbetriebs für Landtechnik mit speziellen Hydraulikdichtungen und Ventilkomponenten.",
+          "background": "Das Landtechnik-Zentrum in Backnang wartet und repariert Erntemaschinen und Traktoren für die Region Rems-Murr. Ende September ist die Werkstatt durch die laufende Nachbereitung der Ernte und die Vorbereitung der Herbstaussaat voll ausgelastet. Um die Lagerbestände an Verschleißteilen wie Hydraulikdichtungen stabil zu halten, erfolgt eine regelmäßige Lieferung direkt vom Hersteller aus dem Nordschwarzwald. Der Luftweg ermöglicht hier den direkten Austausch zwischen den mittelständischen Betrieben abseits der großen Logistikknoten.",
+          "sender": "Dichtungstechnik Nordschwarzwald, Versandlager Nagold",
+          "recipient": "Landtechnik-Zentrum Rems-Murr, Werkstatt Backnang",
+          "arrival": "Übergabe an einen Mitarbeiter des Landtechnik-Zentrums direkt am Rollfeld; Weitertransport im Werkstattwagen zur Einlagerung.",
+          "character": "Ein unspektakulärer, gewerblicher Routineflug zur Unterstützung regionaler Instandhaltungskapazitäten.",
+          "memory": "Hydraulikdichtungen für Landmaschinen-Werkstatt in Backnang von einem Schwarzwälder Spezialhersteller.",
+          "shipment": {
+            "label": "Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen",
+            "weightLbs": 145,
+            "packaging": "3 stapelbare, verstärkte Holzkisten, gesichert mit Umreifungsband.",
+            "handling": ""
+          },
+          "route": {
+            "start": {
+              "name": "WAECHTERSBERG",
+              "icao": "EDSV",
+              "lat": 48.614861,
+              "lon": 8.755111
+            },
+            "target": {
+              "name": "Backnang-Heiningen Airport",
+              "icao": "EDSH",
+              "lat": 48.9197235107,
+              "lon": 9.4552783966
+            }
+          },
+          "writerMemory": "Hydraulikdichtungen und Ventilkomponenten für das Landtechnik-Zentrum in Backnang, geliefert von einem Spezialhersteller aus dem Nordschwarzwald zur Unterstützung der herbstlichen Werkstattkapazitäten."
+        },
+        "_source": "Fracht-Ideen V1",
+        "_missionPlanV2": {
+          "status": "ready",
+          "plan": {
+            "taskDomain": "cargo",
+            "primaryObjective": "Versorgung eines Fachbetriebs für Landtechnik mit speziellen Hydraulikdichtungen und Ventilkomponenten.",
+            "storyFrame": {
+              "shipment": "Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen",
+              "receiver": "Landtechnik-Zentrum Rems-Murr, Werkstatt Backnang",
+              "arrival": "Übergabe an einen Mitarbeiter des Landtechnik-Zentrums direkt am Rollfeld; Weitertransport im Werkstattwagen zur Einlagerung."
+            },
+            "sceneKind": "none"
+          }
+        },
+        "sceneIntent": {
+          "summary": "A-B-Frachtflug mit Übergabe am Zielflugplatz.",
+          "visibleIdeas": [],
+          "densityHint": "none"
+        },
+        "_missionWriterV4Debug": {
+          "writerMode": "cargo-v1",
+          "writerAccepted": true,
+          "rawAiStory": "Im Landtechnik-Zentrum Rems-Murr herrscht Ende September Hochbetrieb. Während die letzten Erntemaschinen noch auf den Feldern sind, bereitet die Werkstatt in Backnang bereits die Traktoren für die anstehende Herbstaussaat vor. Damit die Mechaniker bei Reparaturen an den Hydrauliksystemen nicht auf Material warten müssen, erfolgt eine regelmäßige Aufstockung der Lagerbestände direkt vom Hersteller aus dem Nordschwarzwald. In Nagold wurden drei verstärkte Holzkisten mit einem Sortiment an Dichtungssätzen, O-Ringen und Ventilmanschetten vorbereitet. Du beförderst diese Komponenten nun auf direktem Weg zum Flugplatz Backnang-Heiningen. Dort wird die Fracht nach der Landung unmittelbar von einem Mitarbeiter des Zentrums entgegengenommen. Mit dem Werkstattwagen gelangen die Ersatzteile direkt in das Lager der Werkstatt, um die Instandhaltungskapazitäten für die regionalen Landwirte sicherzustellen.",
+          "writerStory": "Im Landtechnik-Zentrum Rems-Murr herrscht Ende September Hochbetrieb. Während die letzten Erntemaschinen noch auf den Feldern sind, bereitet die Werkstatt in Backnang bereits die Traktoren für die anstehende Herbstaussaat vor. Damit die Mechaniker bei Reparaturen an den Hydrauliksystemen nicht auf Material warten müssen, erfolgt eine regelmäßige Aufstockung der Lagerbestände direkt vom Hersteller aus dem Nordschwarzwald. In Nagold wurden drei verstärkte Holzkisten mit einem Sortiment an Dichtungssätzen, O-Ringen und Ventilmanschetten vorbereitet. Du beförderst diese Komponenten nun auf direktem Weg zum Flugplatz Backnang-Heiningen. Dort wird die Fracht nach der Landung unmittelbar von einem Mitarbeiter des Zentrums entgegengenommen. Mit dem Werkstattwagen gelangen die Ersatzteile direkt in das Lager der Werkstatt, um die Instandhaltungskapazitäten für die regionalen Landwirte sicherzustellen.\n\nRoute: WAECHTERSBERG → Backnang-Heiningen Airport · 33,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "flightBriefing": "Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "flightBriefingStatus": "accepted-bindings",
+          "weatherSnapshot": [
+            {
+              "scope": "departure",
+              "airport": "WAECHTERSBERG",
+              "airportIcao": "",
+              "station": null,
+              "source": null,
+              "observedAt": null,
+              "fetchedAt": null,
+              "freshness": "unknown",
+              "stationDistanceNm": null,
+              "ceilingFtAgl": null,
+              "clouds": [],
+              "rawMetar": null,
+              "windDeg": null,
+              "windKts": null,
+              "gustKts": null,
+              "visibilityKm": null,
+              "cloudAmountOktas": null,
+              "cloudCoverPercent": null,
+              "cloudBaseFtAgl": null,
+              "weatherCode": null
+            },
+            {
+              "scope": "destination",
+              "airport": "Backnang-Heiningen Airport",
+              "airportIcao": "",
+              "station": null,
+              "source": null,
+              "observedAt": null,
+              "fetchedAt": null,
+              "freshness": "unknown",
+              "stationDistanceNm": null,
+              "ceilingFtAgl": null,
+              "clouds": [],
+              "rawMetar": null,
+              "windDeg": null,
+              "windKts": null,
+              "gustKts": null,
+              "visibilityKm": null,
+              "cloudAmountOktas": null,
+              "cloudCoverPercent": null,
+              "cloudBaseFtAgl": null,
+              "weatherCode": null
+            }
+          ],
+          "rawFlightBriefing": "Für den Abflugort [[route.start]] sowie für das Ziel [[route.target]] liegen keine aktuellen Wetterbeobachtungen vor. Windrichtung, Windgeschwindigkeit, Sichtweiten und eine mögliche Wolkenbedeckung sind an beiden Stationen unbekannt. Die Flugstrecke umfasst [[route.distance]].",
+          "historyCount": 2
+        },
+        "_missionContractV4": {
+          "route": {
+            "startName": "WAECHTERSBERG",
+            "targetName": "Backnang-Heiningen Airport",
+            "distanceNm": 33.2
+          },
+          "weather": {},
+          "status": "ready",
+          "profile": {
+            "id": "auto",
+            "taskDomain": "general",
+            "roleProfile": "general_passenger_v1"
+          },
+          "cargoIdea": {
+            "schema": "cargo-idea.v1",
+            "missionDate": "2026-09-28",
+            "purpose": "Versorgung eines Fachbetriebs für Landtechnik mit speziellen Hydraulikdichtungen und Ventilkomponenten.",
+            "background": "Das Landtechnik-Zentrum in Backnang wartet und repariert Erntemaschinen und Traktoren für die Region Rems-Murr. Ende September ist die Werkstatt durch die laufende Nachbereitung der Ernte und die Vorbereitung der Herbstaussaat voll ausgelastet. Um die Lagerbestände an Verschleißteilen wie Hydraulikdichtungen stabil zu halten, erfolgt eine regelmäßige Lieferung direkt vom Hersteller aus dem Nordschwarzwald. Der Luftweg ermöglicht hier den direkten Austausch zwischen den mittelständischen Betrieben abseits der großen Logistikknoten.",
+            "sender": "Dichtungstechnik Nordschwarzwald, Versandlager Nagold",
+            "recipient": "Landtechnik-Zentrum Rems-Murr, Werkstatt Backnang",
+            "arrival": "Übergabe an einen Mitarbeiter des Landtechnik-Zentrums direkt am Rollfeld; Weitertransport im Werkstattwagen zur Einlagerung.",
+            "character": "Ein unspektakulärer, gewerblicher Routineflug zur Unterstützung regionaler Instandhaltungskapazitäten.",
+            "memory": "Hydraulikdichtungen für Landmaschinen-Werkstatt in Backnang von einem Schwarzwälder Spezialhersteller.",
+            "shipment": {
+              "label": "Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen",
+              "weightLbs": 145,
+              "packaging": "3 stapelbare, verstärkte Holzkisten, gesichert mit Umreifungsband.",
+              "handling": ""
+            },
+            "route": {
+              "start": {
+                "name": "WAECHTERSBERG",
+                "icao": "EDSV",
+                "lat": 48.614861,
+                "lon": 8.755111
+              },
+              "target": {
+                "name": "Backnang-Heiningen Airport",
+                "icao": "EDSH",
+                "lat": 48.9197235107,
+                "lon": 9.4552783966
+              }
+            },
+            "writerMemory": "Hydraulikdichtungen und Ventilkomponenten für das Landtechnik-Zentrum in Backnang, geliefert von einem Spezialhersteller aus dem Nordschwarzwald zur Unterstützung der herbstlichen Werkstattkapazitäten."
+          },
+          "passenger": null,
+          "passengerCount": 0,
+          "plannedPassengerCount": 0,
+          "party": null,
+          "paxText": "0 PAX",
+          "cargoText": "Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen (145 lbs)",
+          "missionStory": "Im Landtechnik-Zentrum Rems-Murr herrscht Ende September Hochbetrieb. Während die letzten Erntemaschinen noch auf den Feldern sind, bereitet die Werkstatt in Backnang bereits die Traktoren für die anstehende Herbstaussaat vor. Damit die Mechaniker bei Reparaturen an den Hydrauliksystemen nicht auf Material warten müssen, erfolgt eine regelmäßige Aufstockung der Lagerbestände direkt vom Hersteller aus dem Nordschwarzwald. In Nagold wurden drei verstärkte Holzkisten mit einem Sortiment an Dichtungssätzen, O-Ringen und Ventilmanschetten vorbereitet. Du beförderst diese Komponenten nun auf direktem Weg zum Flugplatz Backnang-Heiningen. Dort wird die Fracht nach der Landung unmittelbar von einem Mitarbeiter des Zentrums entgegengenommen. Mit dem Werkstattwagen gelangen die Ersatzteile direkt in das Lager der Werkstatt, um die Instandhaltungskapazitäten für die regionalen Landwirte sicherzustellen.\n\nRoute: WAECHTERSBERG → Backnang-Heiningen Airport · 33,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "target": {
+            "name": "Backnang-Heiningen Airport",
+            "icao": "EDSH",
+            "lat": 48.9197235107,
+            "lon": 9.4552783966
+          },
+          "storyFrame": {
+            "trigger": "Versorgung eines Fachbetriebs für Landtechnik mit speziellen Hydraulikdichtungen und Ventilkomponenten.",
+            "whyNow": "Das Landtechnik-Zentrum in Backnang wartet und repariert Erntemaschinen und Traktoren für die Region Rems-Murr. Ende September ist die Werkstatt durch die laufende Nachbereitung der Ernte und die Vorbereitung der Herbstaussaat voll ausgelastet. Um die Lagerbestände an Verschleißteilen wie Hydraulikdichtungen stabil zu halten, erfolgt eine regelmäßige Lieferung direkt vom Hersteller aus dem Nordschwarzwald. Der Luftweg ermöglicht hier den direkten Austausch zwischen den mittelständischen Betrieben abseits der großen Logistikknoten.",
+            "shipment": "Sortiment an Hydraulik-Dichtungssätzen, O-Ringen und Ventilmanschetten für Landmaschinen",
+            "receiver": "Landtechnik-Zentrum Rems-Murr, Werkstatt Backnang",
+            "arrival": "Übergabe an einen Mitarbeiter des Landtechnik-Zentrums direkt am Rollfeld; Weitertransport im Werkstattwagen zur Einlagerung."
+          }
+        }
+      }
+    },
+    {
+      "number": 4,
+      "historyCount": 3,
+      "mission": {
+        "t": "Versorgungsflug für die Elektronikfertigung am Bodensee: Optische Sensoren aus dem Nordschwarzwald",
+        "s": "Die Bodensee Automationstechnik in Friedrichshafen benötigt Nachschub für ihre industrielle Fertigung. In Nagold hat die Versandabteilung von Opto-Logic Systems dafür vier Kartons mit optischen Sensoreinheiten und den dazugehörigen Kabelsätzen vorbereitet. Die Palette ist bereits mit Folie gesichert und steht am Flugplatz bereit, um von dir zum Bodensee geflogen zu werden. Es ist ein gewöhnlicher Vorgang in der Zuliefererkette: Das Zwischenlager in Friedrichshafen soll aufgefüllt werden, damit die Montage der Steuerungssysteme ohne Unterbrechung weitergehen kann. Der direkte Luftweg zwischen den Regionen hat sich für diese Art von Elektronikbauteilen bewährt, da er den harten Umschlag in den großen Sortierzentren der Speditionen umgeht. Sobald du in Friedrichshafen gelandet bist, wird die Fracht am General Aviation Terminal von einem Werkskurier übernommen. Dieser bringt die Sendung auf direktem Weg ins nahegelegene Industriegebiet, wo die Komponenten bereits in der Montagehalle erwartet werden.\n\nRoute: WAECHTERSBERG → Friedrichshafen Airport · 64,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "story": "Die Bodensee Automationstechnik in Friedrichshafen benötigt Nachschub für ihre industrielle Fertigung. In Nagold hat die Versandabteilung von Opto-Logic Systems dafür vier Kartons mit optischen Sensoreinheiten und den dazugehörigen Kabelsätzen vorbereitet. Die Palette ist bereits mit Folie gesichert und steht am Flugplatz bereit, um von dir zum Bodensee geflogen zu werden. Es ist ein gewöhnlicher Vorgang in der Zuliefererkette: Das Zwischenlager in Friedrichshafen soll aufgefüllt werden, damit die Montage der Steuerungssysteme ohne Unterbrechung weitergehen kann. Der direkte Luftweg zwischen den Regionen hat sich für diese Art von Elektronikbauteilen bewährt, da er den harten Umschlag in den großen Sortierzentren der Speditionen umgeht. Sobald du in Friedrichshafen gelandet bist, wird die Fracht am General Aviation Terminal von einem Werkskurier übernommen. Dieser bringt die Sendung auf direktem Weg ins nahegelegene Industriegebiet, wo die Komponenten bereits in der Montagehalle erwartet werden.\n\nRoute: WAECHTERSBERG → Friedrichshafen Airport · 64,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "missionStory": "Die Bodensee Automationstechnik in Friedrichshafen benötigt Nachschub für ihre industrielle Fertigung. In Nagold hat die Versandabteilung von Opto-Logic Systems dafür vier Kartons mit optischen Sensoreinheiten und den dazugehörigen Kabelsätzen vorbereitet. Die Palette ist bereits mit Folie gesichert und steht am Flugplatz bereit, um von dir zum Bodensee geflogen zu werden. Es ist ein gewöhnlicher Vorgang in der Zuliefererkette: Das Zwischenlager in Friedrichshafen soll aufgefüllt werden, damit die Montage der Steuerungssysteme ohne Unterbrechung weitergehen kann. Der direkte Luftweg zwischen den Regionen hat sich für diese Art von Elektronikbauteilen bewährt, da er den harten Umschlag in den großen Sortierzentren der Speditionen umgeht. Sobald du in Friedrichshafen gelandet bist, wird die Fracht am General Aviation Terminal von einem Werkskurier übernommen. Dieser bringt die Sendung auf direktem Weg ins nahegelegene Industriegebiet, wo die Komponenten bereits in der Montagehalle erwartet werden.\n\nRoute: WAECHTERSBERG → Friedrichshafen Airport · 64,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "cat": "cargo",
+        "missionType": "apt",
+        "pax": "0 PAX",
+        "paxText": "0 PAX",
+        "passengerCount": 0,
+        "plannedPassengerCount": 0,
+        "passenger": null,
+        "party": null,
+        "cargo": "4 Kartons mit optischen Sensoreinheiten und vorkonfektionierten Kabelbäumen (215 lbs)",
+        "cargoText": "4 Kartons mit optischen Sensoreinheiten und vorkonfektionierten Kabelbäumen (215 lbs)",
+        "cargoIdea": {
+          "schema": "cargo-idea.v1",
+          "missionDate": "2026-09-28",
+          "purpose": "Versorgung eines Automatisierungsspezialisten mit optischen Sensoreinheiten und Kabelsätzen.",
+          "background": "Die Bodensee Automationstechnik in Friedrichshafen fertigt Steuerungssysteme für industrielle Fertigungsstraßen. Die benötigten optischen Sensorkomponenten werden regelmäßig von einem Zulieferer im Nordschwarzwald bezogen. Die aktuelle Sendung dient der Auffüllung des Zwischenlagers, um die Kontinuität der laufenden Baugruppenmontage sicherzustellen. Der direkte Luftweg zwischen den Regionen hat sich als verlässliche Verbindung für diese empfindlichen Elektronikbauteile bewährt, da er den Umschlag in großen Verteilzentren reduziert.",
+          "sender": "Opto-Logic Systems, Versandabteilung Nagold",
+          "recipient": "Bodensee Automationstechnik GmbH, Wareneingang Friedrichshafen",
+          "arrival": "Die Fracht wird am General Aviation Terminal an den Werkskurier übergeben, der die Boxen direkt zur Montagehalle im nahen Industriegebiet bringt.",
+          "character": "Ein sachlicher Versorgungsflug für die Elektronikfertigung am Bodensee im Rahmen einer laufenden Zuliefererkette.",
+          "memory": "Optische Sensoren für die Automatisierungstechnik in Friedrichshafen von einem Schwarzwälder Elektronikbetrieb.",
+          "shipment": {
+            "label": "4 Kartons mit optischen Sensoreinheiten und vorkonfektionierten Kabelbäumen",
+            "weightLbs": 215,
+            "packaging": "Gepolsterte Systemkartons, stabil mit Spannbändern auf einer kleinen Einwegpalette gesichert und foliert.",
+            "handling": ""
+          },
+          "route": {
+            "start": {
+              "name": "WAECHTERSBERG",
+              "icao": "EDSV",
+              "lat": 48.614861,
+              "lon": 8.755111
+            },
+            "target": {
+              "name": "Friedrichshafen Airport",
+              "icao": "EDNY",
+              "lat": 47.6712989807,
+              "lon": 9.5114898682
+            }
+          },
+          "writerMemory": "Optische Sensoren und Kabelsätze für die Automatisierungstechnik in Friedrichshafen, geliefert von einem Zulieferer aus dem Nordschwarzwald zur Sicherung der laufenden Montage."
+        },
+        "_source": "Fracht-Ideen V1",
+        "_missionPlanV2": {
+          "status": "ready",
+          "plan": {
+            "taskDomain": "cargo",
+            "primaryObjective": "Versorgung eines Automatisierungsspezialisten mit optischen Sensoreinheiten und Kabelsätzen.",
+            "storyFrame": {
+              "shipment": "4 Kartons mit optischen Sensoreinheiten und vorkonfektionierten Kabelbäumen",
+              "receiver": "Bodensee Automationstechnik GmbH, Wareneingang Friedrichshafen",
+              "arrival": "Die Fracht wird am General Aviation Terminal an den Werkskurier übergeben, der die Boxen direkt zur Montagehalle im nahen Industriegebiet bringt."
+            },
+            "sceneKind": "none"
+          }
+        },
+        "sceneIntent": {
+          "summary": "A-B-Frachtflug mit Übergabe am Zielflugplatz.",
+          "visibleIdeas": [],
+          "densityHint": "none"
+        },
+        "_missionWriterV4Debug": {
+          "writerMode": "cargo-v1",
+          "writerAccepted": true,
+          "rawAiStory": "Die Bodensee Automationstechnik in Friedrichshafen benötigt Nachschub für ihre industrielle Fertigung. In Nagold hat die Versandabteilung von Opto-Logic Systems dafür vier Kartons mit optischen Sensoreinheiten und den dazugehörigen Kabelsätzen vorbereitet. Die Palette ist bereits mit Folie gesichert und steht am Flugplatz bereit, um von dir zum Bodensee geflogen zu werden. Es ist ein gewöhnlicher Vorgang in der Zuliefererkette: Das Zwischenlager in Friedrichshafen soll aufgefüllt werden, damit die Montage der Steuerungssysteme ohne Unterbrechung weitergehen kann. Der direkte Luftweg zwischen den Regionen hat sich für diese Art von Elektronikbauteilen bewährt, da er den harten Umschlag in den großen Sortierzentren der Speditionen umgeht. Sobald du in Friedrichshafen gelandet bist, wird die Fracht am General Aviation Terminal von einem Werkskurier übernommen. Dieser bringt die Sendung auf direktem Weg ins nahegelegene Industriegebiet, wo die Komponenten bereits in der Montagehalle erwartet werden.",
+          "writerStory": "Die Bodensee Automationstechnik in Friedrichshafen benötigt Nachschub für ihre industrielle Fertigung. In Nagold hat die Versandabteilung von Opto-Logic Systems dafür vier Kartons mit optischen Sensoreinheiten und den dazugehörigen Kabelsätzen vorbereitet. Die Palette ist bereits mit Folie gesichert und steht am Flugplatz bereit, um von dir zum Bodensee geflogen zu werden. Es ist ein gewöhnlicher Vorgang in der Zuliefererkette: Das Zwischenlager in Friedrichshafen soll aufgefüllt werden, damit die Montage der Steuerungssysteme ohne Unterbrechung weitergehen kann. Der direkte Luftweg zwischen den Regionen hat sich für diese Art von Elektronikbauteilen bewährt, da er den harten Umschlag in den großen Sortierzentren der Speditionen umgeht. Sobald du in Friedrichshafen gelandet bist, wird die Fracht am General Aviation Terminal von einem Werkskurier übernommen. Dieser bringt die Sendung auf direktem Weg ins nahegelegene Industriegebiet, wo die Komponenten bereits in der Montagehalle erwartet werden.\n\nRoute: WAECHTERSBERG → Friedrichshafen Airport · 64,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "flightBriefing": "Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "flightBriefingStatus": "accepted-bindings",
+          "weatherSnapshot": [
+            {
+              "scope": "departure",
+              "airport": "WAECHTERSBERG",
+              "airportIcao": "",
+              "station": null,
+              "source": null,
+              "observedAt": null,
+              "fetchedAt": null,
+              "freshness": "unknown",
+              "stationDistanceNm": null,
+              "ceilingFtAgl": null,
+              "clouds": [],
+              "rawMetar": null,
+              "windDeg": null,
+              "windKts": null,
+              "gustKts": null,
+              "visibilityKm": null,
+              "cloudAmountOktas": null,
+              "cloudCoverPercent": null,
+              "cloudBaseFtAgl": null,
+              "weatherCode": null
+            },
+            {
+              "scope": "destination",
+              "airport": "Friedrichshafen Airport",
+              "airportIcao": "",
+              "station": null,
+              "source": null,
+              "observedAt": null,
+              "fetchedAt": null,
+              "freshness": "unknown",
+              "stationDistanceNm": null,
+              "ceilingFtAgl": null,
+              "clouds": [],
+              "rawMetar": null,
+              "windDeg": null,
+              "windKts": null,
+              "gustKts": null,
+              "visibilityKm": null,
+              "cloudAmountOktas": null,
+              "cloudCoverPercent": null,
+              "cloudBaseFtAgl": null,
+              "weatherCode": null
+            }
+          ],
+          "rawFlightBriefing": "Für den Abflugort [[route.start]] liegen keine aktuellen Wetterbeobachtungen vor; Wind, Sichtweite und Bewölkung sind unbekannt. Auch für das Ziel [[route.target]] sind derzeit keine Wetterdaten verfügbar. Es liegen keine Meldungen über lokale Windverhältnisse, Böen oder die Wolkenbasis an den Stationen vor.",
+          "historyCount": 3
+        },
+        "_missionContractV4": {
+          "route": {
+            "startName": "WAECHTERSBERG",
+            "targetName": "Friedrichshafen Airport",
+            "distanceNm": 64.2
+          },
+          "weather": {},
+          "status": "ready",
+          "profile": {
+            "id": "auto",
+            "taskDomain": "general",
+            "roleProfile": "general_passenger_v1"
+          },
+          "cargoIdea": {
+            "schema": "cargo-idea.v1",
+            "missionDate": "2026-09-28",
+            "purpose": "Versorgung eines Automatisierungsspezialisten mit optischen Sensoreinheiten und Kabelsätzen.",
+            "background": "Die Bodensee Automationstechnik in Friedrichshafen fertigt Steuerungssysteme für industrielle Fertigungsstraßen. Die benötigten optischen Sensorkomponenten werden regelmäßig von einem Zulieferer im Nordschwarzwald bezogen. Die aktuelle Sendung dient der Auffüllung des Zwischenlagers, um die Kontinuität der laufenden Baugruppenmontage sicherzustellen. Der direkte Luftweg zwischen den Regionen hat sich als verlässliche Verbindung für diese empfindlichen Elektronikbauteile bewährt, da er den Umschlag in großen Verteilzentren reduziert.",
+            "sender": "Opto-Logic Systems, Versandabteilung Nagold",
+            "recipient": "Bodensee Automationstechnik GmbH, Wareneingang Friedrichshafen",
+            "arrival": "Die Fracht wird am General Aviation Terminal an den Werkskurier übergeben, der die Boxen direkt zur Montagehalle im nahen Industriegebiet bringt.",
+            "character": "Ein sachlicher Versorgungsflug für die Elektronikfertigung am Bodensee im Rahmen einer laufenden Zuliefererkette.",
+            "memory": "Optische Sensoren für die Automatisierungstechnik in Friedrichshafen von einem Schwarzwälder Elektronikbetrieb.",
+            "shipment": {
+              "label": "4 Kartons mit optischen Sensoreinheiten und vorkonfektionierten Kabelbäumen",
+              "weightLbs": 215,
+              "packaging": "Gepolsterte Systemkartons, stabil mit Spannbändern auf einer kleinen Einwegpalette gesichert und foliert.",
+              "handling": ""
+            },
+            "route": {
+              "start": {
+                "name": "WAECHTERSBERG",
+                "icao": "EDSV",
+                "lat": 48.614861,
+                "lon": 8.755111
+              },
+              "target": {
+                "name": "Friedrichshafen Airport",
+                "icao": "EDNY",
+                "lat": 47.6712989807,
+                "lon": 9.5114898682
+              }
+            },
+            "writerMemory": "Optische Sensoren und Kabelsätze für die Automatisierungstechnik in Friedrichshafen, geliefert von einem Zulieferer aus dem Nordschwarzwald zur Sicherung der laufenden Montage."
+          },
+          "passenger": null,
+          "passengerCount": 0,
+          "plannedPassengerCount": 0,
+          "party": null,
+          "paxText": "0 PAX",
+          "cargoText": "4 Kartons mit optischen Sensoreinheiten und vorkonfektionierten Kabelbäumen (215 lbs)",
+          "missionStory": "Die Bodensee Automationstechnik in Friedrichshafen benötigt Nachschub für ihre industrielle Fertigung. In Nagold hat die Versandabteilung von Opto-Logic Systems dafür vier Kartons mit optischen Sensoreinheiten und den dazugehörigen Kabelsätzen vorbereitet. Die Palette ist bereits mit Folie gesichert und steht am Flugplatz bereit, um von dir zum Bodensee geflogen zu werden. Es ist ein gewöhnlicher Vorgang in der Zuliefererkette: Das Zwischenlager in Friedrichshafen soll aufgefüllt werden, damit die Montage der Steuerungssysteme ohne Unterbrechung weitergehen kann. Der direkte Luftweg zwischen den Regionen hat sich für diese Art von Elektronikbauteilen bewährt, da er den harten Umschlag in den großen Sortierzentren der Speditionen umgeht. Sobald du in Friedrichshafen gelandet bist, wird die Fracht am General Aviation Terminal von einem Werkskurier übernommen. Dieser bringt die Sendung auf direktem Weg ins nahegelegene Industriegebiet, wo die Komponenten bereits in der Montagehalle erwartet werden.\n\nRoute: WAECHTERSBERG → Friedrichshafen Airport · 64,2 NM.\n\nFür Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+          "target": {
+            "name": "Friedrichshafen Airport",
+            "icao": "EDNY",
+            "lat": 47.6712989807,
+            "lon": 9.5114898682
+          },
+          "storyFrame": {
+            "trigger": "Versorgung eines Automatisierungsspezialisten mit optischen Sensoreinheiten und Kabelsätzen.",
+            "whyNow": "Die Bodensee Automationstechnik in Friedrichshafen fertigt Steuerungssysteme für industrielle Fertigungsstraßen. Die benötigten optischen Sensorkomponenten werden regelmäßig von einem Zulieferer im Nordschwarzwald bezogen. Die aktuelle Sendung dient der Auffüllung des Zwischenlagers, um die Kontinuität der laufenden Baugruppenmontage sicherzustellen. Der direkte Luftweg zwischen den Regionen hat sich als verlässliche Verbindung für diese empfindlichen Elektronikbauteile bewährt, da er den Umschlag in großen Verteilzentren reduziert.",
+            "shipment": "4 Kartons mit optischen Sensoreinheiten und vorkonfektionierten Kabelbäumen",
+            "receiver": "Bodensee Automationstechnik GmbH, Wareneingang Friedrichshafen",
+            "arrival": "Die Fracht wird am General Aviation Terminal an den Werkskurier übergeben, der die Boxen direkt zur Montagehalle im nahen Industriegebiet bringt."
+          }
+        }
+      }
+    }
+  ],
+  "accepted": true
+}

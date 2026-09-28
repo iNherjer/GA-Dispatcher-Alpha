@@ -52,7 +52,7 @@ test('tracker completion uses same charter contract and requires measured flight
  c.flight.missionRecord.distanceSource='planned';assert.equal(createForCompletedRun(run,c,now).requests.length,0);
 });
 test('continuation and event plan survive compact local/cloud storage',()=>{
- const c=vm.createContext({});for(const [file,name] of [['app.js','compactMissionObjectForQuotaStorage'],['sync.js','_syncCompactMissionObjectCore']]){const s=fs.readFileSync(file,'utf8'),a=s.indexOf('function '+name+'('),b=s.indexOf('\nfunction ',a+1);vm.runInContext(s.slice(a,b),c);}
+ const c=vm.createContext({window:{}});for(const [file,name] of [['app.js','compactMissionObjectForQuotaStorage'],['sync.js','_syncCompactMissionObjectCore']]){const s=fs.readFileSync(file,'utf8'),a=s.indexOf('function '+name+'('),b=s.indexOf('\nfunction ',a+1);vm.runInContext(s.slice(a,b),c);}
  const req=request();req.charterContinuation.experience=draft;const ci=core.continuationIdea(req);
  const saved=c.compactMissionObjectForQuotaStorage({charterIdea:ci,missionContract:{charterIdea:ci}});
  assert.deepEqual(clone(c._syncCompactMissionObjectCore(saved)).charterIdea,ci);

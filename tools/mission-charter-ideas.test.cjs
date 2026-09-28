@@ -27,7 +27,7 @@ test('picker acceptance keeps idea and fresh weather, rejects changed capacity',
  capacity=2;await assert.rejects(()=>c.window.MissionCharterBrowser.story(args),/Kapazität/);assert.equal(calls,1);
 });
 test('charter contract survives local quota and cloud core roundtrip',()=>{
- const c=vm.createContext({});for(const [file,name] of [['app.js','compactMissionObjectForQuotaStorage'],['sync.js','_syncCompactMissionObjectCore']]){const s=fs.readFileSync(file,'utf8'),a=s.indexOf('function '+name+'('),b=s.indexOf('\nfunction ',a+1);vm.runInContext(s.slice(a,b),c);}
+ const c=vm.createContext({window:{}});for(const [file,name] of [['app.js','compactMissionObjectForQuotaStorage'],['sync.js','_syncCompactMissionObjectCore']]){const s=fs.readFileSync(file,'utf8'),a=s.indexOf('function '+name+'('),b=s.indexOf('\nfunction ',a+1);vm.runInContext(s.slice(a,b),c);}
  const idea=core.validate(raw,frame);const saved=c.compactMissionObjectForQuotaStorage({charterIdea:idea,missionContract:{charterIdea:idea}});const restored=JSON.parse(JSON.stringify(c._syncCompactMissionObjectCore(saved)));
  assert.deepEqual(restored.charterIdea,idea);assert.deepEqual(restored.missionContract.charterIdea,idea);
 });
