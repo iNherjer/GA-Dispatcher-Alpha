@@ -1,0 +1,102 @@
+(function(root){
+'use strict';
+const core=()=>root.MissionPoiBriefingCore;
+const FLAG='ga_poi_briefing_v1';
+function enabled({isPOI=true,profileId,category='',aiModeEnabled=true,followup=false,planning=false,bush=false}={}) {
+ try{return localStorage.getItem(FLAG)!=='off'&&isPOI&&profileId==='media_photo'&&aiModeEnabled&&!followup&&!planning&&!bush&&category!=='chain';}catch{return false;}
+}
+async function tile(layer,key) {
+ const source=`obstacles/${layer}-tiles/${key}.json.gz`;
+ try {
+  const response=await fetch(source,{signal:AbortSignal.timeout(5000)});
+  if(!response.ok)throw Error('unavailable');
+  const bytes=new Uint8Array(await response.arrayBuffer());
+  // Servers may already decompress .gz responses through Content-Encoding.
+  const text=bytes[0]===31&&bytes[1]===139
+   ?await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text()
+   :new TextDecoder().decode(bytes);
+  const d=JSON.parse(text), rows=layer==='core'?[...(d.core?.obs||[]),...(d.core?.lin||[])]:d[layer]?.poi||[];
+  return {source,status:d.meta?.dataStatus||'available',generatedAt:d.generatedAt||null,rows};
+ }catch{return {source,status:'unavailable',rows:[]};}
+}
+async function context(dest,terrainEnvelope=null) {
+ const target=core().point(dest),radiusM=5556;
+ let tiles=[],coverage=[];
+ try {const keys=core().tileKeys(target,radiusM);tiles=await Promise.all(keys.flatMap(key=>['poi','core','infra'].map(layer=>tile(layer,key))));}
+ catch {coverage=[{status:'outside-alpha-data-area'}];}
+ const data=core().selectFacts(target,tiles.flatMap(t=>t.rows.map(r=>({...r,source:t.source,generatedAt:t.generatedAt}))),radiusM);
+ coverage.push(...tiles.map(({rows,...meta})=>meta));
+ // Only exact local source target identity may supply a factual target description.
+ const matched=tiles.flatMap(t=>t.rows.map(r=>({...r,source:t.source}))).find(r=>r.name===target.name&&typeof r.lat==='number'&&typeof r.lon==='number'&&core().relation(target,r).distanceM<30);
+ const kind=matched?.waterway==='dam'?'Staumauer':matched?.infra_type==='bridge'||matched?.man_made==='bridge'?'Brücke':matched?.historic==='castle'?'Burg oder Schloss':null;
+ const targetFacts=kind?[{id:'target-kind',fact:`${target.name} ist in der lokalen Datenbank als ${kind} kartiert.`,source:matched.source}]:[];
+ // Reuse the APT context service; only evidence for this POI may enter its story.
+ // Nearby towns/attractions remain outside the story frame (POI focus lock).
+ let region=null;
+ try {region=await root.MissionPrivateContextCore?.resolveBrowser(target);}catch{}
+ for(const place of region?.places||[]) {
+  const name=String(place.name||'');
+  if(place.evidence!=='wikipedia-coordinate'||!place.description||!place.source
+    || !(name===target.name||name.startsWith(target.name+' ('))
+    || typeof place.lat!=='number'||typeof place.lon!=='number'||core().relation(target,place).distanceM>150)continue;
+  targetFacts.push({id:'target-place-'+targetFacts.length,fact:`${place.name}: ${place.description}`,source:place.source});
+ }
+ const knowledge=dest.knowledgeContext;
+ if(knowledge?.ok===true&&knowledge.status==='accept'&&knowledge.exactTitle===true
+   &&typeof knowledge.distanceKm==='number'&&knowledge.distanceKm<=0.15&&knowledge.sourceUrl
+   &&(knowledge.title===target.name||knowledge.title.startsWith(target.name+' ('))) {
+  for(const fact of (knowledge.facts||[]).slice(0,3))if(typeof fact.text==='string'&&fact.text.trim())
+   targetFacts.push({id:'target-known-'+targetFacts.length,fact:fact.text,source:knowledge.sourceUrl});
+ }
+ return {id:`poi:${target.lat.toFixed(6)}:${target.lon.toFixed(6)}`,target,radiusM,...data,coverage,targetFacts,supplements:[],terrain:{status:'missing'},terrainEnvelope,task:{recipe:'poi_on_task',passengers:1,return:'home'}};
+}
+async function json(prompt) {
+ const result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});
+ if(!result?.parsed)throw Error('Der POI-Fotoauftrag konnte nicht erstellt werden. Bitte erneut versuchen.');
+ return result.parsed;
+}
+function capacity() {if(!(getMissionAircraftCapabilitySnapshot().passengerCapacity>=1))throw Error('Für den Fotoauftrag ist ein freier Passagierplatz erforderlich.');}
+async function choices(candidates,dispatch) {
+ capacity();
+ const selected=candidates.slice(0,3);if(!selected.length)return [];
+ const contexts=await Promise.all(selected.map(p=>context(p)));dispatch.ensureAlive?.();
+ const recent=core().history(localStorage),raw=await json(core().ideaPrompt(contexts.map(c=>core().frame(c,recent))));dispatch.ensureAlive?.();
+ return contexts.map((c,i)=>{
+  const idea=core().readIdea(raw,c),poi=selected[i];
+  return normalizeMissionProposalChoice({id:c.id+'-'+Date.now(),mode:'poi',profileId:'media_photo',selectedCategory:poi.poiCategory||dispatch.selectedPoiCategory,requestedCategory:dispatch.requestedPoiCategory||dispatch.selectedPoiCategory,target:missionProposalCompactTarget(poi,'poi'),title:idea.intent,description:idea.situation,subtitle:idea.person.role,paxText:'1 PAX ('+idea.person.role+')',cargoText:'Foto-/Videoausrüstung (12 lbs)',routeLabel:missionProposalFormatRoute(dispatch.start,poi,'poi').label,poiProposal:{schema:'poi-photo-proposal.v1',start:core().point(dispatch.start),context:c,idea}});
+ });
+}
+async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensureAlive}) {
+ capacity();
+ let c,idea;
+ if(proposal) {
+  if(proposal.schema!=='poi-photo-proposal.v1'||!core().samePoint(proposal.start,start)||!core().samePoint(proposal.context?.target,dest))throw Error('Die Fotoidee passt nicht mehr zur gewählten Route. Bitte neu auswählen.');
+  c={...proposal.context,terrainEnvelope};idea=core().validateIdea(proposal.idea,c);
+ }else{
+  c=await context(dest,terrainEnvelope);ensureAlive?.();
+  const raw=await json(core().ideaPrompt([core().frame(c,core().history(localStorage))]));ensureAlive?.();
+  idea=core().readIdea(raw,c);
+ }
+ // Same flight values and resolver as APT private, club and charter.
+ const api=root.MissionPrivateEpisodeV6,flightContext=api.flightContext(contract);
+ const flight={context:flightContext,bindings:api.flightBindings(flightContext)},recent=core().history(localStorage);
+ const raw=await json(core().writerPrompt(c,idea,recent,flight));ensureAlive?.();
+ const resolved=root.MissionCharterIdeasCore.resolveReferences(raw,flight.bindings);
+ if(!resolved)throw Error('Das POI-Briefing enthält unbekannte Flugreferenzen.');
+ const written=core().validateWriter(resolved,idea,c);
+ written.rawFlightBriefing=typeof raw.flightBriefing==='string'?raw.flightBriefing:'';
+ written.flightBriefing=api.resolveFlightBriefing(raw.flightBriefing,flightContext)||'';
+ written.flightBriefingStatus=written.flightBriefing?'accepted-bindings':'unavailable';
+ // Same no-observation handling as APT charter. No fabricated station values
+ // and no additional model request for a paragraph with no weather evidence.
+ if(!flightContext.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null)) {
+  written.flightBriefing='Für Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
+  written.flightBriefingStatus='no-observations';
+ }
+ const m=core().mission(idea,written,c,contract);
+ m._missionWriterV4Debug.weatherSnapshot=flightContext.weather;
+ m._missionWriterV4Debug.historyCount=recent.length;
+ return m;
+}
+root.MissionPoiBriefingBrowser={enabled,choices,story,context};
+})(window);

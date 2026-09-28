@@ -1,0 +1,2489 @@
+{
+  "provenance": "Frozen v18 raw media responses with v4 source contexts; historical inspection label explicitly migrated by test only.",
+  "cases": [
+    {
+      "id": "heidelberg",
+      "environmentTest": "bebaut",
+      "target": {
+        "name": "Alte Brücke",
+        "lat": 49.41423,
+        "lon": 8.70953,
+        "osm_id": "166503032",
+        "osm_kind": "way",
+        "source": "obstacles/infra-tiles/334/452.json.gz",
+        "tags": {
+          "man_made": "bridge",
+          "waterway": "",
+          "infra_type": "bridge"
+        }
+      },
+      "radiusM": 5556,
+      "counts": {
+        "nearby": 1975,
+        "obstacleRecords": 176,
+        "landmarkRecords": 102,
+        "coverRecords": 6
+      },
+      "facts": [
+        {
+          "id": "f1",
+          "name": "Michelsberg",
+          "role": "orientation",
+          "lat": 49.41986,
+          "lon": 8.70433,
+          "relativeToTarget": {
+            "distanceM": 730,
+            "bearingDeg": 329,
+            "direction": "Nordwesten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 730,
+            "bearingDeg": 149,
+            "direction": "Südosten"
+          },
+          "tags": {
+            "natural": "peak"
+          },
+          "source": "obstacles/poi-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T06:22:25.981Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f2",
+          "name": "Heidelberg",
+          "role": "orientation",
+          "lat": 49.40936,
+          "lon": 8.69472,
+          "relativeToTarget": {
+            "distanceM": 1201,
+            "bearingDeg": 243,
+            "direction": "Südwesten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1201,
+            "bearingDeg": 63,
+            "direction": "Nordosten"
+          },
+          "tags": {
+            "place": "city"
+          },
+          "source": "obstacles/poi-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T06:22:25.981Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f3",
+          "name": "Theodor-Heuss-Brücke",
+          "role": "orientation",
+          "lat": 49.41277,
+          "lon": 8.69255,
+          "relativeToTarget": {
+            "distanceM": 1239,
+            "bearingDeg": 262,
+            "direction": "Westen"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1239,
+            "bearingDeg": 82,
+            "direction": "Osten"
+          },
+          "tags": {
+            "infra_type": "bridge"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f4",
+          "name": "Gaisberg",
+          "role": "orientation",
+          "lat": 49.40352,
+          "lon": 8.70471,
+          "relativeToTarget": {
+            "distanceM": 1241,
+            "bearingDeg": 196,
+            "direction": "Süden"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1241,
+            "bearingDeg": 16,
+            "direction": "Norden"
+          },
+          "tags": {
+            "natural": "peak"
+          },
+          "source": "obstacles/poi-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T06:22:25.981Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f5",
+          "name": "Heiligenberg",
+          "role": "orientation",
+          "lat": 49.42615,
+          "lon": 8.70626,
+          "relativeToTarget": {
+            "distanceM": 1346,
+            "bearingDeg": 350,
+            "direction": "Norden"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1346,
+            "bearingDeg": 170,
+            "direction": "Süden"
+          },
+          "tags": {
+            "natural": "peak"
+          },
+          "source": "obstacles/poi-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T06:22:25.981Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f6",
+          "name": "Heidenknörzel",
+          "role": "orientation",
+          "lat": 49.42705,
+          "lon": 8.72122,
+          "relativeToTarget": {
+            "distanceM": 1657,
+            "bearingDeg": 31,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1657,
+            "bearingDeg": 211,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "natural": "peak"
+          },
+          "source": "obstacles/poi-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T06:22:25.981Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f7",
+          "name": "Dicker Turm",
+          "role": "hazard",
+          "lat": 49.41072,
+          "lon": 8.71412,
+          "relativeToTarget": {
+            "distanceM": 512,
+            "bearingDeg": 140,
+            "direction": "Südosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 512,
+            "bearingDeg": 320,
+            "direction": "Nordwesten"
+          },
+          "tags": {
+            "man_made": "tower",
+            "historic": "yes",
+            "infra_type": "telecom"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f8",
+          "name": "Hexenturm",
+          "role": "hazard",
+          "lat": 49.40994,
+          "lon": 8.70673,
+          "relativeToTarget": {
+            "distanceM": 518,
+            "bearingDeg": 203,
+            "direction": "Südwesten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 518,
+            "bearingDeg": 23,
+            "direction": "Nordosten"
+          },
+          "tags": {
+            "man_made": "tower",
+            "historic": "tower",
+            "infra_type": "telecom"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f9",
+          "name": "Krautturm",
+          "role": "hazard",
+          "lat": 49.41029,
+          "lon": 8.71613,
+          "relativeToTarget": {
+            "distanceM": 648,
+            "bearingDeg": 133,
+            "direction": "Südosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 648,
+            "bearingDeg": 313,
+            "direction": "Nordwesten"
+          },
+          "tags": {
+            "man_made": "tower",
+            "historic": "yes",
+            "infra_type": "telecom"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f10",
+          "name": "",
+          "role": "hazard",
+          "lat": 49.4142,
+          "lon": 8.71871,
+          "relativeToTarget": {
+            "distanceM": 664,
+            "bearingDeg": 90,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 664,
+            "bearingDeg": 270,
+            "direction": "Westen"
+          },
+          "tags": {
+            "man_made": "mast"
+          },
+          "source": "obstacles/poi-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T06:22:25.981Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f11",
+          "name": "Heiligenbergturm",
+          "role": "hazard",
+          "lat": 49.4196,
+          "lon": 8.70417,
+          "relativeToTarget": {
+            "distanceM": 712,
+            "bearingDeg": 327,
+            "direction": "Nordwesten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 712,
+            "bearingDeg": 147,
+            "direction": "Südosten"
+          },
+          "tags": {
+            "man_made": "tower",
+            "historic": "building",
+            "infra_type": "telecom"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f12",
+          "name": "Bismarcksäule",
+          "role": "hazard",
+          "lat": 49.41616,
+          "lon": 8.69996,
+          "relativeToTarget": {
+            "distanceM": 725,
+            "bearingDeg": 287,
+            "direction": "Westen"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 725,
+            "bearingDeg": 107,
+            "direction": "Osten"
+          },
+          "tags": {
+            "man_made": "tower",
+            "historic": "monument",
+            "infra_type": "telecom"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f13",
+          "name": "",
+          "role": "hazard",
+          "lat": 49.41932,
+          "lon": 8.7179,
+          "relativeToTarget": {
+            "distanceM": 829,
+            "bearingDeg": 47,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 829,
+            "bearingDeg": 227,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "man_made": "mast"
+          },
+          "source": "obstacles/poi-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T06:22:25.981Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f14",
+          "name": "Gaisbergturm",
+          "role": "hazard",
+          "lat": 49.40349,
+          "lon": 8.70419,
+          "relativeToTarget": {
+            "distanceM": 1255,
+            "bearingDeg": 198,
+            "direction": "Süden"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1255,
+            "bearingDeg": 18,
+            "direction": "Norden"
+          },
+          "tags": {
+            "man_made": "tower",
+            "historic": "building",
+            "infra_type": "telecom"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f15",
+          "name": "",
+          "role": "cover-nearby-only",
+          "lat": 49.41502,
+          "lon": 8.71824,
+          "relativeToTarget": {
+            "distanceM": 636,
+            "bearingDeg": 82,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 636,
+            "bearingDeg": 262,
+            "direction": "Westen"
+          },
+          "tags": {
+            "landuse": "industrial",
+            "infra_type": "industrial"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f16",
+          "name": "SWR Sender Königstuhl",
+          "role": "cover-nearby-only",
+          "lat": 49.40365,
+          "lon": 8.72862,
+          "relativeToTarget": {
+            "distanceM": 1814,
+            "bearingDeg": 130,
+            "direction": "Südosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1814,
+            "bearingDeg": 310,
+            "direction": "Nordwesten"
+          },
+          "tags": {
+            "landuse": "industrial",
+            "infra_type": "industrial"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f17",
+          "name": "Arboretum II",
+          "role": "cover-nearby-only",
+          "lat": 49.39151,
+          "lon": 8.70718,
+          "relativeToTarget": {
+            "distanceM": 2532,
+            "bearingDeg": 184,
+            "direction": "Süden"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 2532,
+            "bearingDeg": 4,
+            "direction": "Norden"
+          },
+          "tags": {
+            "natural": "wood"
+          },
+          "source": "obstacles/poi-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T06:22:25.981Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f18",
+          "name": "Heizkraftwerk Heidelberg",
+          "role": "cover-nearby-only",
+          "lat": 49.42181,
+          "lon": 8.67207,
+          "relativeToTarget": {
+            "distanceM": 2838,
+            "bearingDeg": 287,
+            "direction": "Westen"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 2838,
+            "bearingDeg": 107,
+            "direction": "Osten"
+          },
+          "tags": {
+            "power": "plant",
+            "landuse": "industrial",
+            "infra_type": "energy_plant"
+          },
+          "source": "obstacles/infra-tiles/334/452.json.gz",
+          "generatedAt": "2026-06-19T15:39:49.643Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        }
+      ],
+      "limitations": [
+        "Repräsentative Punkte belegen keine Flächengrenzen oder Linienverläufe.",
+        "Gespeicherte Hindernishöhen ohne Herkunftsnachweis werden nicht als bestätigte Höhen verwendet.",
+        "Trefferliste ist eine begrenzte Auswahl; fehlende Treffer beweisen keine Hindernisfreiheit.",
+        "Keine Prüfung der Sichtbarkeit in der MSFS-Szenerie; keine Freigabe eines Flugwegs."
+      ],
+      "coverage": [
+        {
+          "relative": "obstacles/poi-tiles/334/452.json.gz",
+          "status": "loaded",
+          "source": "de-rp.osm.pbf+de-bw.osm.pbf",
+          "generatedAt": "2026-06-19T06:22:25.981Z"
+        },
+        {
+          "relative": "obstacles/core-tiles/334/452.json.gz",
+          "status": "loaded",
+          "source": "de-rp.osm.pbf+de-bw.osm.pbf",
+          "generatedAt": "2026-06-19T06:22:25.981Z"
+        },
+        {
+          "relative": "obstacles/infra-tiles/334/452.json.gz",
+          "status": "loaded",
+          "source": "de-rp.osm.pbf+de-he.osm.pbf",
+          "generatedAt": "2026-06-19T15:39:49.643Z"
+        },
+        {
+          "relative": "obstacles/poi-tiles/334/453.json.gz",
+          "status": "loaded",
+          "source": "de-he.osm.pbf+de-bw.osm.pbf+de-by.osm.pbf",
+          "generatedAt": "2026-06-19T06:39:16.500Z"
+        },
+        {
+          "relative": "obstacles/core-tiles/334/453.json.gz",
+          "status": "loaded",
+          "source": "de-he.osm.pbf+de-bw.osm.pbf+de-by.osm.pbf",
+          "generatedAt": "2026-06-19T06:39:16.500Z"
+        },
+        {
+          "relative": "obstacles/infra-tiles/334/453.json.gz",
+          "status": "loaded",
+          "source": "de-he.osm.pbf",
+          "generatedAt": "2026-06-19T15:39:49.803Z"
+        }
+      ],
+      "terrain": {
+        "status": "sampled",
+        "source": "Open-Meteo / Copernicus DEM 2021 GLO-90",
+        "documentation": "https://open-meteo.com/en/docs/elevation-api",
+        "resolutionM": 90,
+        "sampleCount": 25,
+        "minSampleM": 106,
+        "maxSampleM": 529,
+        "highestSample": {
+          "lat": 49.395149,
+          "lon": 8.738842,
+          "offsetM": 3000,
+          "direction": "Südosten",
+          "elevationM": 529
+        },
+        "limitations": "Nur diskrete Modellstichproben. Keine vollständige Geländehülle, keine Gebäudetrennung, keine Hangneigung, kein realer Gebietshöchstwert und keine sichere Flughöhe."
+      },
+      "supplements": [
+        {
+          "id": "place1",
+          "fact": "Die Alte Brücke ist eine Bogenbrücke aus rotem Sandstein über den Neckar im von Fluss und Bergen eingerahmten Heidelberger Stadtbild.",
+          "source": "https://ww2.heidelberg.de/Altstadt-Information/Sektor07/Sektor07_altebruecke.htm",
+          "scope": "Bauwerksidentität und Stadt-/Flusskontext, keine aktuelle Zustandsprüfung",
+          "checkedAt": "2026-09-28",
+          "status": "reviewed-public-source"
+        }
+      ],
+      "weather": {
+        "status": "missing"
+      },
+      "task": {
+        "recipe": "poi_on_task",
+        "passengers": 1,
+        "return": "home",
+        "parameters": "No operational altitude, orbit or dwell supplied in this narrative-only pilot; never invent them."
+      },
+      "baselineOrientation": "Als Orientierung aus der Luft dienen Michelsberg und Heidelberg.",
+      "baselineOffers": {
+        "media_photo": {
+          "t": "Ortsmarketing-Serie: Alte Brücke",
+          "i": "🎥",
+          "cat": "poi",
+          "s": "Für Alte Brücke entsteht eine Bildserie für Gemeinde, Tourismus oder Ortsmarketing. Gesucht sind klare Motive mit Ziel, Lage und Wiedererkennungswert.",
+          "payloadText": "1 PAX (Ortsmarketing-Foto)",
+          "cargoText": "Kamera-Gimbal (34 lbs)"
+        },
+        "inspection_infra": {
+          "t": "Zustandsprüfung: Alte Brücke",
+          "i": "🛠️",
+          "cat": "poi",
+          "s": "Bei Alte Brücke soll der aktuelle Zustand aus der Luft dokumentiert werden. Der Writer setzt einen klaren Prüfschwerpunkt statt mehrere Details aufzuzählen.",
+          "payloadText": "1 PAX (Bauwerksprüfung)",
+          "cargoText": "Inspektionskamera und Checklisten (18 lbs)"
+        }
+      },
+      "terrainSamples": [
+        {
+          "lat": 49.41423,
+          "lon": 8.70953,
+          "offsetM": 0,
+          "direction": "Zielpunkt",
+          "elevationM": 106
+        },
+        {
+          "lat": 49.423223,
+          "lon": 8.70953,
+          "offsetM": 1000,
+          "direction": "Norden",
+          "elevationM": 351
+        },
+        {
+          "lat": 49.420589,
+          "lon": 8.719306,
+          "offsetM": 1000,
+          "direction": "Nordosten",
+          "elevationM": 296
+        },
+        {
+          "lat": 49.414229,
+          "lon": 8.723353,
+          "offsetM": 1000,
+          "direction": "Osten",
+          "elevationM": 190
+        },
+        {
+          "lat": 49.40787,
+          "lon": 8.719303,
+          "offsetM": 1000,
+          "direction": "Südosten",
+          "elevationM": 294
+        },
+        {
+          "lat": 49.405237,
+          "lon": 8.70953,
+          "offsetM": 1000,
+          "direction": "Süden",
+          "elevationM": 208
+        },
+        {
+          "lat": 49.40787,
+          "lon": 8.699757,
+          "offsetM": 1000,
+          "direction": "Südwesten",
+          "elevationM": 120
+        },
+        {
+          "lat": 49.414229,
+          "lon": 8.695707,
+          "offsetM": 1000,
+          "direction": "Westen",
+          "elevationM": 136
+        },
+        {
+          "lat": 49.420589,
+          "lon": 8.699754,
+          "offsetM": 1000,
+          "direction": "Nordwesten",
+          "elevationM": 279
+        },
+        {
+          "lat": 49.44121,
+          "lon": 8.70953,
+          "offsetM": 3000,
+          "direction": "Norden",
+          "elevationM": 424
+        },
+        {
+          "lat": 49.433304,
+          "lon": 8.738865,
+          "offsetM": 3000,
+          "direction": "Nordosten",
+          "elevationM": 392
+        },
+        {
+          "lat": 49.414223,
+          "lon": 8.751,
+          "offsetM": 3000,
+          "direction": "Osten",
+          "elevationM": 127
+        },
+        {
+          "lat": 49.395149,
+          "lon": 8.738842,
+          "offsetM": 3000,
+          "direction": "Südosten",
+          "elevationM": 529
+        },
+        {
+          "lat": 49.38725,
+          "lon": 8.70953,
+          "offsetM": 3000,
+          "direction": "Süden",
+          "elevationM": 307
+        },
+        {
+          "lat": 49.395149,
+          "lon": 8.680218,
+          "offsetM": 3000,
+          "direction": "Südwesten",
+          "elevationM": 112
+        },
+        {
+          "lat": 49.414223,
+          "lon": 8.66806,
+          "offsetM": 3000,
+          "direction": "Westen",
+          "elevationM": 116
+        },
+        {
+          "lat": 49.433304,
+          "lon": 8.680195,
+          "offsetM": 3000,
+          "direction": "Nordwesten",
+          "elevationM": 113
+        },
+        {
+          "lat": 49.459196,
+          "lon": 8.70953,
+          "offsetM": 5000,
+          "direction": "Norden",
+          "elevationM": 456
+        },
+        {
+          "lat": 49.446016,
+          "lon": 8.758434,
+          "offsetM": 5000,
+          "direction": "Nordosten",
+          "elevationM": 419
+        },
+        {
+          "lat": 49.414209,
+          "lon": 8.778646,
+          "offsetM": 5000,
+          "direction": "Osten",
+          "elevationM": 227
+        },
+        {
+          "lat": 49.382424,
+          "lon": 8.758371,
+          "offsetM": 5000,
+          "direction": "Südosten",
+          "elevationM": 325
+        },
+        {
+          "lat": 49.369264,
+          "lon": 8.70953,
+          "offsetM": 5000,
+          "direction": "Süden",
+          "elevationM": 292
+        },
+        {
+          "lat": 49.382424,
+          "lon": 8.660689,
+          "offsetM": 5000,
+          "direction": "Südwesten",
+          "elevationM": 114
+        },
+        {
+          "lat": 49.414209,
+          "lon": 8.640414,
+          "offsetM": 5000,
+          "direction": "Westen",
+          "elevationM": 109
+        },
+        {
+          "lat": 49.446016,
+          "lon": 8.660626,
+          "offsetM": 5000,
+          "direction": "Nordwesten",
+          "elevationM": 108
+        }
+      ],
+      "targetFacts": [
+        {
+          "id": "place1",
+          "fact": "Die Alte Brücke ist eine Bogenbrücke aus rotem Sandstein über den Neckar im von Fluss und Bergen eingerahmten Heidelberger Stadtbild."
+        }
+      ]
+    },
+    {
+      "id": "schwarzenbach",
+      "environmentTest": "bewaldet",
+      "target": {
+        "name": "Schwarzenbachtalsperre",
+        "lat": 48.65449,
+        "lon": 8.33014,
+        "osm_id": "20472298",
+        "osm_kind": "way",
+        "source": "obstacles/infra-tiles/332/451.json.gz",
+        "tags": {
+          "man_made": "",
+          "waterway": "dam",
+          "infra_type": "hydro"
+        }
+      },
+      "radiusM": 5556,
+      "counts": {
+        "nearby": 686,
+        "obstacleRecords": 78,
+        "landmarkRecords": 64,
+        "coverRecords": 7
+      },
+      "facts": [
+        {
+          "id": "f1",
+          "name": "L 83",
+          "role": "orientation",
+          "lat": 48.65097,
+          "lon": 8.33386,
+          "relativeToTarget": {
+            "distanceM": 477,
+            "bearingDeg": 145,
+            "direction": "Südosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 477,
+            "bearingDeg": 325,
+            "direction": "Nordwesten"
+          },
+          "tags": {
+            "infra_type": "bridge"
+          },
+          "source": "obstacles/infra-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T10:41:07.582Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f2",
+          "name": "Lachsberg",
+          "role": "orientation",
+          "lat": 48.65618,
+          "lon": 8.34295,
+          "relativeToTarget": {
+            "distanceM": 960,
+            "bearingDeg": 79,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 960,
+            "bearingDeg": 259,
+            "direction": "Westen"
+          },
+          "tags": {
+            "natural": "peak"
+          },
+          "source": "obstacles/poi-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T06:03:25.324Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f3",
+          "name": "Schneidersköpfle",
+          "role": "orientation",
+          "lat": 48.64567,
+          "lon": 8.34239,
+          "relativeToTarget": {
+            "distanceM": 1331,
+            "bearingDeg": 137,
+            "direction": "Südosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1331,
+            "bearingDeg": 317,
+            "direction": "Nordwesten"
+          },
+          "tags": {
+            "natural": "peak"
+          },
+          "source": "obstacles/poi-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T06:03:25.324Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f4",
+          "name": "Hailert",
+          "role": "orientation",
+          "lat": 48.66715,
+          "lon": 8.33965,
+          "relativeToTarget": {
+            "distanceM": 1571,
+            "bearingDeg": 26,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1571,
+            "bearingDeg": 206,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "natural": "peak"
+          },
+          "source": "obstacles/poi-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T06:03:25.324Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f5",
+          "name": "Untere Fallbrücke",
+          "role": "orientation",
+          "lat": 48.6396,
+          "lon": 8.33906,
+          "relativeToTarget": {
+            "distanceM": 1781,
+            "bearingDeg": 158,
+            "direction": "Süden"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1781,
+            "bearingDeg": 338,
+            "direction": "Norden"
+          },
+          "tags": {
+            "infra_type": "bridge"
+          },
+          "source": "obstacles/infra-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T10:41:07.582Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f6",
+          "name": "Murgtalbahn",
+          "role": "orientation",
+          "lat": 48.64952,
+          "lon": 8.35466,
+          "relativeToTarget": {
+            "distanceM": 1884,
+            "bearingDeg": 107,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1884,
+            "bearingDeg": 287,
+            "direction": "Westen"
+          },
+          "tags": {
+            "infra_type": "bridge"
+          },
+          "source": "obstacles/infra-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T10:41:07.582Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f7",
+          "name": "Forbach 4",
+          "role": "hazard",
+          "lat": 48.65642,
+          "lon": 8.34321,
+          "relativeToTarget": {
+            "distanceM": 984,
+            "bearingDeg": 77,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 984,
+            "bearingDeg": 257,
+            "direction": "Westen"
+          },
+          "tags": {
+            "man_made": "tower"
+          },
+          "source": "obstacles/poi-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T06:03:25.324Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f8",
+          "name": "",
+          "role": "hazard",
+          "lat": 48.66595,
+          "lon": 8.34478,
+          "relativeToTarget": {
+            "distanceM": 1667,
+            "bearingDeg": 40,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1667,
+            "bearingDeg": 220,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "man_made": "tower"
+          },
+          "source": "obstacles/poi-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T06:03:25.324Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f9",
+          "name": "",
+          "role": "hazard",
+          "lat": 48.63837,
+          "lon": 8.33744,
+          "relativeToTarget": {
+            "distanceM": 1871,
+            "bearingDeg": 163,
+            "direction": "Süden"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1871,
+            "bearingDeg": 343,
+            "direction": "Norden"
+          },
+          "tags": {
+            "type": "powerline"
+          },
+          "source": "obstacles/core-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T06:03:25.324Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f10",
+          "name": "",
+          "role": "hazard",
+          "lat": 48.65159,
+          "lon": 8.35577,
+          "relativeToTarget": {
+            "distanceM": 1910,
+            "bearingDeg": 100,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1910,
+            "bearingDeg": 280,
+            "direction": "Westen"
+          },
+          "tags": {
+            "power": "minor_line",
+            "infra_type": "power_grid"
+          },
+          "source": "obstacles/infra-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T10:41:07.582Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f11",
+          "name": "",
+          "role": "hazard",
+          "lat": 48.63664,
+          "lon": 8.32985,
+          "relativeToTarget": {
+            "distanceM": 1985,
+            "bearingDeg": 181,
+            "direction": "Süden"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1985,
+            "bearingDeg": 1,
+            "direction": "Norden"
+          },
+          "tags": {
+            "power": "minor_line",
+            "infra_type": "power_grid"
+          },
+          "source": "obstacles/infra-tiles/332/451.json.gz",
+          "generatedAt": "2026-07-06T08:24:06Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f12",
+          "name": "",
+          "role": "hazard",
+          "lat": 48.63953,
+          "lon": 8.34838,
+          "relativeToTarget": {
+            "distanceM": 2136,
+            "bearingDeg": 141,
+            "direction": "Südosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 2136,
+            "bearingDeg": 321,
+            "direction": "Nordwesten"
+          },
+          "tags": {
+            "type": "powerline"
+          },
+          "source": "obstacles/core-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T06:03:25.324Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f13",
+          "name": "",
+          "role": "hazard",
+          "lat": 48.65676,
+          "lon": 8.36086,
+          "relativeToTarget": {
+            "distanceM": 2271,
+            "bearingDeg": 84,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 2271,
+            "bearingDeg": 264,
+            "direction": "Westen"
+          },
+          "tags": {
+            "type": "powerline"
+          },
+          "source": "obstacles/core-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T06:03:25.324Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f14",
+          "name": "Netze BW GmbH",
+          "role": "hazard",
+          "lat": 48.66931,
+          "lon": 8.35353,
+          "relativeToTarget": {
+            "distanceM": 2380,
+            "bearingDeg": 46,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 2380,
+            "bearingDeg": 226,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "type": "powerline"
+          },
+          "source": "obstacles/core-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T06:03:25.324Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f15",
+          "name": "Schwarzenbach",
+          "role": "cover-nearby-only",
+          "lat": 48.65309,
+          "lon": 8.3281,
+          "relativeToTarget": {
+            "distanceM": 216,
+            "bearingDeg": 224,
+            "direction": "Südwesten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 216,
+            "bearingDeg": 44,
+            "direction": "Nordosten"
+          },
+          "tags": {
+            "landuse": "industrial",
+            "infra_type": "industrial"
+          },
+          "source": "obstacles/infra-tiles/332/451.json.gz",
+          "generatedAt": "2026-07-06T08:24:06Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f16",
+          "name": "Rudolf-Fettweis-Werk",
+          "role": "cover-nearby-only",
+          "lat": 48.66926,
+          "lon": 8.35206,
+          "relativeToTarget": {
+            "distanceM": 2300,
+            "bearingDeg": 44,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 2300,
+            "bearingDeg": 224,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "power": "plant",
+            "landuse": "industrial",
+            "infra_type": "hydro"
+          },
+          "source": "obstacles/infra-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T10:41:07.582Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f17",
+          "name": "",
+          "role": "cover-nearby-only",
+          "lat": 48.67583,
+          "lon": 8.35921,
+          "relativeToTarget": {
+            "distanceM": 3192,
+            "bearingDeg": 42,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 3192,
+            "bearingDeg": 222,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "landuse": "industrial",
+            "infra_type": "industrial"
+          },
+          "source": "obstacles/infra-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T10:41:07.582Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f18",
+          "name": "",
+          "role": "cover-nearby-only",
+          "lat": 48.62081,
+          "lon": 8.35615,
+          "relativeToTarget": {
+            "distanceM": 4205,
+            "bearingDeg": 153,
+            "direction": "Südosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 4205,
+            "bearingDeg": 333,
+            "direction": "Nordwesten"
+          },
+          "tags": {
+            "landuse": "industrial",
+            "infra_type": "industrial"
+          },
+          "source": "obstacles/infra-tiles/332/452.json.gz",
+          "generatedAt": "2026-06-19T10:41:07.582Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        }
+      ],
+      "limitations": [
+        "Repräsentative Punkte belegen keine Flächengrenzen oder Linienverläufe.",
+        "Gespeicherte Hindernishöhen ohne Herkunftsnachweis werden nicht als bestätigte Höhen verwendet.",
+        "Trefferliste ist eine begrenzte Auswahl; fehlende Treffer beweisen keine Hindernisfreiheit.",
+        "Keine Prüfung der Sichtbarkeit in der MSFS-Szenerie; keine Freigabe eines Flugwegs."
+      ],
+      "coverage": [
+        {
+          "relative": "obstacles/poi-tiles/332/451.json.gz",
+          "status": "loaded",
+          "source": "fr-alsace.osm.pbf",
+          "generatedAt": "2026-07-06T08:24:06Z"
+        },
+        {
+          "relative": "obstacles/core-tiles/332/451.json.gz",
+          "status": "loaded",
+          "source": "fr-alsace.osm.pbf",
+          "generatedAt": "2026-07-06T08:24:06Z"
+        },
+        {
+          "relative": "obstacles/infra-tiles/332/451.json.gz",
+          "status": "loaded",
+          "source": "fr-alsace.osm.pbf",
+          "generatedAt": "2026-07-06T08:24:06Z"
+        },
+        {
+          "relative": "obstacles/poi-tiles/332/452.json.gz",
+          "status": "loaded",
+          "source": "de-bw.osm.pbf",
+          "generatedAt": "2026-06-19T06:03:25.324Z"
+        },
+        {
+          "relative": "obstacles/core-tiles/332/452.json.gz",
+          "status": "loaded",
+          "source": "de-bw.osm.pbf",
+          "generatedAt": "2026-06-19T06:03:25.324Z"
+        },
+        {
+          "relative": "obstacles/infra-tiles/332/452.json.gz",
+          "status": "loaded",
+          "source": "de-bw.osm.pbf",
+          "generatedAt": "2026-06-19T10:41:07.582Z"
+        }
+      ],
+      "terrain": {
+        "status": "sampled",
+        "source": "Open-Meteo / Copernicus DEM 2021 GLO-90",
+        "documentation": "https://open-meteo.com/en/docs/elevation-api",
+        "resolutionM": 90,
+        "sampleCount": 25,
+        "minSampleM": 300,
+        "maxSampleM": 888,
+        "highestSample": {
+          "lat": 48.65447,
+          "lon": 8.398209,
+          "offsetM": 5000,
+          "direction": "Osten",
+          "elevationM": 888
+        },
+        "limitations": "Nur diskrete Modellstichproben. Keine vollständige Geländehülle, keine Gebäudetrennung, keine Hangneigung, kein realer Gebietshöchstwert und keine sichere Flughöhe."
+      },
+      "supplements": [
+        {
+          "id": "place1",
+          "fact": "Die Schwarzenbachtalsperre dient als Oberbecken des Kraftwerks Forbach. Die Betreiberbeschreibung nennt Waldflächen und Forststraßen im regionalen Umfeld.",
+          "source": "https://www.enbw.com/unternehmen/themen/wasserkraft/pumpspeicherkraftwerk-forbach/",
+          "scope": "Anlagentyp und regionaler Waldkontext; kein aktueller Füllstand, keine Waldgrenzen oder aktuelle Bauarbeiten",
+          "checkedAt": "2026-09-28",
+          "status": "reviewed-public-source"
+        }
+      ],
+      "weather": {
+        "status": "missing"
+      },
+      "task": {
+        "recipe": "poi_on_task",
+        "passengers": 1,
+        "return": "home",
+        "parameters": "No operational altitude, orbit or dwell supplied in this narrative-only pilot; never invent them."
+      },
+      "baselineOrientation": "Als Orientierung aus der Luft dienen L 83 und Lachsberg.",
+      "baselineOffers": {
+        "media_photo": {
+          "t": "Ortsmarketing-Serie: Schwarzenbachtalsperre",
+          "i": "🎥",
+          "cat": "poi",
+          "s": "Für Schwarzenbachtalsperre entsteht eine Bildserie für Gemeinde, Tourismus oder Ortsmarketing. Gesucht sind klare Motive mit Ziel, Lage und Wiedererkennungswert.",
+          "payloadText": "1 PAX (Ortsmarketing-Foto)",
+          "cargoText": "Kamera-Gimbal (34 lbs)"
+        },
+        "inspection_infra": {
+          "t": "Zustandsprüfung: Schwarzenbachtalsperre",
+          "i": "🛠️",
+          "cat": "poi",
+          "s": "Bei Schwarzenbachtalsperre soll der aktuelle Zustand aus der Luft dokumentiert werden. Der Writer setzt einen klaren Prüfschwerpunkt statt mehrere Details aufzuzählen.",
+          "payloadText": "1 PAX (Bauwerksprüfung)",
+          "cargoText": "Inspektionskamera und Checklisten (18 lbs)"
+        }
+      },
+      "terrainSamples": [
+        {
+          "lat": 48.65449,
+          "lon": 8.33014,
+          "offsetM": 0,
+          "direction": "Zielpunkt",
+          "elevationM": 660
+        },
+        {
+          "lat": 48.663483,
+          "lon": 8.33014,
+          "offsetM": 1000,
+          "direction": "Norden",
+          "elevationM": 761
+        },
+        {
+          "lat": 48.660849,
+          "lon": 8.339768,
+          "offsetM": 1000,
+          "direction": "Nordosten",
+          "elevationM": 720
+        },
+        {
+          "lat": 48.654489,
+          "lon": 8.343754,
+          "offsetM": 1000,
+          "direction": "Osten",
+          "elevationM": 753
+        },
+        {
+          "lat": 48.64813,
+          "lon": 8.339765,
+          "offsetM": 1000,
+          "direction": "Südosten",
+          "elevationM": 650
+        },
+        {
+          "lat": 48.645497,
+          "lon": 8.33014,
+          "offsetM": 1000,
+          "direction": "Süden",
+          "elevationM": 732
+        },
+        {
+          "lat": 48.64813,
+          "lon": 8.320515,
+          "offsetM": 1000,
+          "direction": "Südwesten",
+          "elevationM": 785
+        },
+        {
+          "lat": 48.654489,
+          "lon": 8.316526,
+          "offsetM": 1000,
+          "direction": "Westen",
+          "elevationM": 761
+        },
+        {
+          "lat": 48.660849,
+          "lon": 8.320512,
+          "offsetM": 1000,
+          "direction": "Nordwesten",
+          "elevationM": 660
+        },
+        {
+          "lat": 48.68147,
+          "lon": 8.33014,
+          "offsetM": 3000,
+          "direction": "Norden",
+          "elevationM": 744
+        },
+        {
+          "lat": 48.673564,
+          "lon": 8.35903,
+          "offsetM": 3000,
+          "direction": "Nordosten",
+          "elevationM": 300
+        },
+        {
+          "lat": 48.654483,
+          "lon": 8.370981,
+          "offsetM": 3000,
+          "direction": "Osten",
+          "elevationM": 571
+        },
+        {
+          "lat": 48.635409,
+          "lon": 8.359008,
+          "offsetM": 3000,
+          "direction": "Südosten",
+          "elevationM": 470
+        },
+        {
+          "lat": 48.62751,
+          "lon": 8.33014,
+          "offsetM": 3000,
+          "direction": "Süden",
+          "elevationM": 651
+        },
+        {
+          "lat": 48.635409,
+          "lon": 8.301272,
+          "offsetM": 3000,
+          "direction": "Südwesten",
+          "elevationM": 802
+        },
+        {
+          "lat": 48.654483,
+          "lon": 8.289299,
+          "offsetM": 3000,
+          "direction": "Westen",
+          "elevationM": 734
+        },
+        {
+          "lat": 48.673564,
+          "lon": 8.30125,
+          "offsetM": 3000,
+          "direction": "Nordwesten",
+          "elevationM": 791
+        },
+        {
+          "lat": 48.699456,
+          "lon": 8.33014,
+          "offsetM": 5000,
+          "direction": "Norden",
+          "elevationM": 505
+        },
+        {
+          "lat": 48.686276,
+          "lon": 8.378302,
+          "offsetM": 5000,
+          "direction": "Nordosten",
+          "elevationM": 478
+        },
+        {
+          "lat": 48.65447,
+          "lon": 8.398209,
+          "offsetM": 5000,
+          "direction": "Osten",
+          "elevationM": 888
+        },
+        {
+          "lat": 48.622684,
+          "lon": 8.378242,
+          "offsetM": 5000,
+          "direction": "Südosten",
+          "elevationM": 819
+        },
+        {
+          "lat": 48.609524,
+          "lon": 8.33014,
+          "offsetM": 5000,
+          "direction": "Süden",
+          "elevationM": 700
+        },
+        {
+          "lat": 48.622684,
+          "lon": 8.282038,
+          "offsetM": 5000,
+          "direction": "Südwesten",
+          "elevationM": 779
+        },
+        {
+          "lat": 48.65447,
+          "lon": 8.262071,
+          "offsetM": 5000,
+          "direction": "Westen",
+          "elevationM": 795
+        },
+        {
+          "lat": 48.686276,
+          "lon": 8.281978,
+          "offsetM": 5000,
+          "direction": "Nordwesten",
+          "elevationM": 699
+        }
+      ],
+      "targetFacts": [
+        {
+          "id": "place1",
+          "fact": "Die Schwarzenbachtalsperre dient als Oberbecken des Kraftwerks Forbach"
+        }
+      ]
+    },
+    {
+      "id": "europabruecke",
+      "environmentTest": "reliefreich",
+      "target": {
+        "name": "Europabrücke",
+        "lat": 47.20293,
+        "lon": 11.40227,
+        "osm_id": "366858278",
+        "osm_kind": "way",
+        "source": "obstacles/infra-tiles/329/459.json.gz",
+        "tags": {
+          "man_made": "bridge",
+          "waterway": "",
+          "infra_type": "bridge"
+        }
+      },
+      "radiusM": 5556,
+      "counts": {
+        "nearby": 1916,
+        "obstacleRecords": 398,
+        "landmarkRecords": 123,
+        "coverRecords": 9
+      },
+      "facts": [
+        {
+          "id": "f1",
+          "name": "Brenner Autobahn",
+          "role": "orientation",
+          "lat": 47.204,
+          "lon": 11.40325,
+          "relativeToTarget": {
+            "distanceM": 140,
+            "bearingDeg": 32,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 140,
+            "bearingDeg": 212,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "infra_type": "bridge"
+          },
+          "source": "obstacles/infra-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f2",
+          "name": "Patsch",
+          "role": "orientation",
+          "lat": 47.20448,
+          "lon": 11.41577,
+          "relativeToTarget": {
+            "distanceM": 1034,
+            "bearingDeg": 80,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1034,
+            "bearingDeg": 260,
+            "direction": "Westen"
+          },
+          "tags": {
+            "place": "village"
+          },
+          "source": "obstacles/poi-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f3",
+          "name": "Unterberg",
+          "role": "orientation",
+          "lat": 47.20566,
+          "lon": 11.38891,
+          "relativeToTarget": {
+            "distanceM": 1054,
+            "bearingDeg": 287,
+            "direction": "Westen"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1054,
+            "bearingDeg": 107,
+            "direction": "Osten"
+          },
+          "tags": {
+            "infra_type": "bridge"
+          },
+          "source": "obstacles/infra-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f4",
+          "name": "Stefansbrücke",
+          "role": "orientation",
+          "lat": 47.21091,
+          "lon": 11.38911,
+          "relativeToTarget": {
+            "distanceM": 1333,
+            "bearingDeg": 312,
+            "direction": "Nordwesten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1333,
+            "bearingDeg": 132,
+            "direction": "Südosten"
+          },
+          "tags": {
+            "infra_type": "bridge"
+          },
+          "source": "obstacles/infra-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f5",
+          "name": "B182",
+          "role": "orientation",
+          "lat": 47.21182,
+          "lon": 11.38733,
+          "relativeToTarget": {
+            "distanceM": 1500,
+            "bearingDeg": 311,
+            "direction": "Nordwesten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1500,
+            "bearingDeg": 131,
+            "direction": "Südosten"
+          },
+          "tags": {
+            "infra_type": "bridge"
+          },
+          "source": "obstacles/infra-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f6",
+          "name": "Schönberg im Stubaital",
+          "role": "orientation",
+          "lat": 47.18629,
+          "lon": 11.40406,
+          "relativeToTarget": {
+            "distanceM": 1855,
+            "bearingDeg": 176,
+            "direction": "Süden"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 1855,
+            "bearingDeg": 356,
+            "direction": "Norden"
+          },
+          "tags": {
+            "place": "village"
+          },
+          "source": "obstacles/poi-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f7",
+          "name": "",
+          "role": "hazard",
+          "lat": 47.20318,
+          "lon": 11.40316,
+          "relativeToTarget": {
+            "distanceM": 73,
+            "bearingDeg": 68,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 73,
+            "bearingDeg": 248,
+            "direction": "Westen"
+          },
+          "tags": {
+            "man_made": "mast"
+          },
+          "source": "obstacles/poi-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f8",
+          "name": "Wilten - Brennerwerk",
+          "role": "hazard",
+          "lat": 47.20412,
+          "lon": 11.40549,
+          "relativeToTarget": {
+            "distanceM": 277,
+            "bearingDeg": 61,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 277,
+            "bearingDeg": 241,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "type": "powerline"
+          },
+          "source": "obstacles/core-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f9",
+          "name": "",
+          "role": "hazard",
+          "lat": 47.20619,
+          "lon": 11.40595,
+          "relativeToTarget": {
+            "distanceM": 457,
+            "bearingDeg": 37,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 457,
+            "bearingDeg": 217,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "power": "tower"
+          },
+          "source": "obstacles/poi-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f10",
+          "name": "",
+          "role": "hazard",
+          "lat": 47.20324,
+          "lon": 11.40879,
+          "relativeToTarget": {
+            "distanceM": 494,
+            "bearingDeg": 86,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 494,
+            "bearingDeg": 266,
+            "direction": "Westen"
+          },
+          "tags": {
+            "power": "tower"
+          },
+          "source": "obstacles/poi-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f11",
+          "name": "",
+          "role": "hazard",
+          "lat": 47.19838,
+          "lon": 11.39804,
+          "relativeToTarget": {
+            "distanceM": 598,
+            "bearingDeg": 212,
+            "direction": "Südwesten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 598,
+            "bearingDeg": 32,
+            "direction": "Nordosten"
+          },
+          "tags": {
+            "man_made": "tower"
+          },
+          "source": "obstacles/poi-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f12",
+          "name": "",
+          "role": "hazard",
+          "lat": 47.20826,
+          "lon": 11.40502,
+          "relativeToTarget": {
+            "distanceM": 628,
+            "bearingDeg": 19,
+            "direction": "Norden"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 628,
+            "bearingDeg": 199,
+            "direction": "Süden"
+          },
+          "tags": {
+            "power": "tower"
+          },
+          "source": "obstacles/poi-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f13",
+          "name": "",
+          "role": "hazard",
+          "lat": 47.20208,
+          "lon": 11.41055,
+          "relativeToTarget": {
+            "distanceM": 633,
+            "bearingDeg": 99,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 633,
+            "bearingDeg": 279,
+            "direction": "Westen"
+          },
+          "tags": {
+            "power": "tower"
+          },
+          "source": "obstacles/poi-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f14",
+          "name": "",
+          "role": "hazard",
+          "lat": 47.20104,
+          "lon": 11.41209,
+          "relativeToTarget": {
+            "distanceM": 771,
+            "bearingDeg": 106,
+            "direction": "Osten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 771,
+            "bearingDeg": 286,
+            "direction": "Westen"
+          },
+          "tags": {
+            "power": "tower"
+          },
+          "source": "obstacles/poi-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f15",
+          "name": "Sillwerk",
+          "role": "cover-nearby-only",
+          "lat": 47.20218,
+          "lon": 11.4011,
+          "relativeToTarget": {
+            "distanceM": 122,
+            "bearingDeg": 227,
+            "direction": "Südwesten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 122,
+            "bearingDeg": 47,
+            "direction": "Nordosten"
+          },
+          "tags": {
+            "landuse": "industrial",
+            "infra_type": "industrial"
+          },
+          "source": "obstacles/infra-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f16",
+          "name": "Schaltwerk Schönberg",
+          "role": "cover-nearby-only",
+          "lat": 47.20133,
+          "lon": 11.39157,
+          "relativeToTarget": {
+            "distanceM": 828,
+            "bearingDeg": 258,
+            "direction": "Westen"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 828,
+            "bearingDeg": 78,
+            "direction": "Osten"
+          },
+          "tags": {
+            "power": "substation",
+            "landuse": "industrial",
+            "infra_type": "power_station"
+          },
+          "source": "obstacles/infra-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f17",
+          "name": "Ruetzkraftwerk",
+          "role": "cover-nearby-only",
+          "lat": 47.1999,
+          "lon": 11.39141,
+          "relativeToTarget": {
+            "distanceM": 887,
+            "bearingDeg": 248,
+            "direction": "Westen"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 887,
+            "bearingDeg": 68,
+            "direction": "Osten"
+          },
+          "tags": {
+            "power": "plant",
+            "landuse": "industrial",
+            "infra_type": "hydro"
+          },
+          "source": "obstacles/infra-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        },
+        {
+          "id": "f18",
+          "name": "",
+          "role": "cover-nearby-only",
+          "lat": 47.21009,
+          "lon": 11.4095,
+          "relativeToTarget": {
+            "distanceM": 965,
+            "bearingDeg": 34,
+            "direction": "Nordosten"
+          },
+          "targetRelativeToFeature": {
+            "distanceM": 965,
+            "bearingDeg": 214,
+            "direction": "Südwesten"
+          },
+          "tags": {
+            "landuse": "industrial",
+            "infra_type": "industrial"
+          },
+          "source": "obstacles/infra-tiles/329/459.json.gz",
+          "generatedAt": "2026-07-10T06:52:09Z",
+          "geometry": "representative-point",
+          "heightFt": null,
+          "heightStatus": "not-verified",
+          "storedHeightFt": null
+        }
+      ],
+      "limitations": [
+        "Repräsentative Punkte belegen keine Flächengrenzen oder Linienverläufe.",
+        "Gespeicherte Hindernishöhen ohne Herkunftsnachweis werden nicht als bestätigte Höhen verwendet.",
+        "Trefferliste ist eine begrenzte Auswahl; fehlende Treffer beweisen keine Hindernisfreiheit.",
+        "Keine Prüfung der Sichtbarkeit in der MSFS-Szenerie; keine Freigabe eines Flugwegs."
+      ],
+      "coverage": [
+        {
+          "relative": "obstacles/poi-tiles/329/459.json.gz",
+          "status": "loaded",
+          "source": "it-nord-est.osm.pbf",
+          "generatedAt": "2026-07-10T06:52:09Z"
+        },
+        {
+          "relative": "obstacles/core-tiles/329/459.json.gz",
+          "status": "loaded",
+          "source": "it-nord-est.osm.pbf",
+          "generatedAt": "2026-07-10T06:52:09Z"
+        },
+        {
+          "relative": "obstacles/infra-tiles/329/459.json.gz",
+          "status": "loaded",
+          "source": "it-nord-est.osm.pbf",
+          "generatedAt": "2026-07-10T06:52:09Z"
+        }
+      ],
+      "terrain": {
+        "status": "sampled",
+        "source": "Open-Meteo / Copernicus DEM 2021 GLO-90",
+        "documentation": "https://open-meteo.com/en/docs/elevation-api",
+        "resolutionM": 90,
+        "sampleCount": 25,
+        "minSampleM": 699,
+        "maxSampleM": 1695,
+        "highestSample": {
+          "lat": 47.202911,
+          "lon": 11.468455,
+          "offsetM": 5000,
+          "direction": "Osten",
+          "elevationM": 1695
+        },
+        "limitations": "Nur diskrete Modellstichproben. Keine vollständige Geländehülle, keine Gebäudetrennung, keine Hangneigung, kein realer Gebietshöchstwert und keine sichere Flughöhe."
+      },
+      "supplements": [
+        {
+          "id": "place1",
+          "fact": "Die Europabrücke gehört zur Brennerautobahn und überspannt das tiefe Tal der Sill zwischen Innsbruck und Schönberg.",
+          "source": "https://innsbruck-erinnert.at/brennerautobahn-teil-i-innsbruck-schoenberg-und-die-europabruecke/",
+          "scope": "Bauwerksidentität und Tallage, keine Aussage über aktuelle Brückensicherheit",
+          "checkedAt": "2026-09-28",
+          "status": "reviewed-public-source"
+        }
+      ],
+      "weather": {
+        "status": "missing"
+      },
+      "task": {
+        "recipe": "poi_on_task",
+        "passengers": 1,
+        "return": "home",
+        "parameters": "No operational altitude, orbit or dwell supplied in this narrative-only pilot; never invent them."
+      },
+      "baselineOrientation": "Als Orientierung aus der Luft dienen Brenner Autobahn und Patsch.",
+      "baselineOffers": {
+        "media_photo": {
+          "t": "Ortsmarketing-Serie: Europabrücke",
+          "i": "🎥",
+          "cat": "poi",
+          "s": "Für Europabrücke entsteht eine Bildserie für Gemeinde, Tourismus oder Ortsmarketing. Gesucht sind klare Motive mit Ziel, Lage und Wiedererkennungswert.",
+          "payloadText": "1 PAX (Ortsmarketing-Foto)",
+          "cargoText": "Kamera-Gimbal (34 lbs)"
+        },
+        "inspection_infra": {
+          "t": "Zustandsprüfung: Europabrücke",
+          "i": "🛠️",
+          "cat": "poi",
+          "s": "Bei Europabrücke soll der aktuelle Zustand aus der Luft dokumentiert werden. Der Writer setzt einen klaren Prüfschwerpunkt statt mehrere Details aufzuzählen.",
+          "payloadText": "1 PAX (Bauwerksprüfung)",
+          "cargoText": "Inspektionskamera und Checklisten (18 lbs)"
+        }
+      },
+      "terrainSamples": [
+        {
+          "lat": 47.20293,
+          "lon": 11.40227,
+          "offsetM": 0,
+          "direction": "Zielpunkt",
+          "elevationM": 756
+        },
+        {
+          "lat": 47.211923,
+          "lon": 11.40227,
+          "offsetM": 1000,
+          "direction": "Norden",
+          "elevationM": 864
+        },
+        {
+          "lat": 47.209289,
+          "lon": 11.411631,
+          "offsetM": 1000,
+          "direction": "Nordosten",
+          "elevationM": 972
+        },
+        {
+          "lat": 47.202929,
+          "lon": 11.415507,
+          "offsetM": 1000,
+          "direction": "Osten",
+          "elevationM": 995
+        },
+        {
+          "lat": 47.19657,
+          "lon": 11.411629,
+          "offsetM": 1000,
+          "direction": "Südosten",
+          "elevationM": 902
+        },
+        {
+          "lat": 47.193937,
+          "lon": 11.40227,
+          "offsetM": 1000,
+          "direction": "Süden",
+          "elevationM": 840
+        },
+        {
+          "lat": 47.19657,
+          "lon": 11.392911,
+          "offsetM": 1000,
+          "direction": "Südwesten",
+          "elevationM": 745
+        },
+        {
+          "lat": 47.202929,
+          "lon": 11.389033,
+          "offsetM": 1000,
+          "direction": "Westen",
+          "elevationM": 768
+        },
+        {
+          "lat": 47.209289,
+          "lon": 11.392909,
+          "offsetM": 1000,
+          "direction": "Nordwesten",
+          "elevationM": 726
+        },
+        {
+          "lat": 47.22991,
+          "lon": 11.40227,
+          "offsetM": 3000,
+          "direction": "Norden",
+          "elevationM": 867
+        },
+        {
+          "lat": 47.222004,
+          "lon": 11.43036,
+          "offsetM": 3000,
+          "direction": "Nordosten",
+          "elevationM": 1016
+        },
+        {
+          "lat": 47.202923,
+          "lon": 11.441981,
+          "offsetM": 3000,
+          "direction": "Osten",
+          "elevationM": 1614
+        },
+        {
+          "lat": 47.183849,
+          "lon": 11.43034,
+          "offsetM": 3000,
+          "direction": "Südosten",
+          "elevationM": 1031
+        },
+        {
+          "lat": 47.17595,
+          "lon": 11.40227,
+          "offsetM": 3000,
+          "direction": "Süden",
+          "elevationM": 1312
+        },
+        {
+          "lat": 47.183849,
+          "lon": 11.3742,
+          "offsetM": 3000,
+          "direction": "Südwesten",
+          "elevationM": 1152
+        },
+        {
+          "lat": 47.202923,
+          "lon": 11.362559,
+          "offsetM": 3000,
+          "direction": "Westen",
+          "elevationM": 1390
+        },
+        {
+          "lat": 47.222004,
+          "lon": 11.37418,
+          "offsetM": 3000,
+          "direction": "Nordwesten",
+          "elevationM": 838
+        },
+        {
+          "lat": 47.247896,
+          "lon": 11.40227,
+          "offsetM": 5000,
+          "direction": "Norden",
+          "elevationM": 699
+        },
+        {
+          "lat": 47.234716,
+          "lon": 11.449098,
+          "offsetM": 5000,
+          "direction": "Nordosten",
+          "elevationM": 956
+        },
+        {
+          "lat": 47.202911,
+          "lon": 11.468455,
+          "offsetM": 5000,
+          "direction": "Osten",
+          "elevationM": 1695
+        },
+        {
+          "lat": 47.171125,
+          "lon": 11.449042,
+          "offsetM": 5000,
+          "direction": "Südosten",
+          "elevationM": 1216
+        },
+        {
+          "lat": 47.157964,
+          "lon": 11.40227,
+          "offsetM": 5000,
+          "direction": "Süden",
+          "elevationM": 1314
+        },
+        {
+          "lat": 47.171125,
+          "lon": 11.355498,
+          "offsetM": 5000,
+          "direction": "Südwesten",
+          "elevationM": 1204
+        },
+        {
+          "lat": 47.202911,
+          "lon": 11.336085,
+          "offsetM": 5000,
+          "direction": "Westen",
+          "elevationM": 1686
+        },
+        {
+          "lat": 47.234716,
+          "lon": 11.355442,
+          "offsetM": 5000,
+          "direction": "Nordwesten",
+          "elevationM": 809
+        }
+      ],
+      "targetFacts": [
+        {
+          "id": "place1",
+          "fact": "Die Europabrücke gehört zur Brennerautobahn und überspannt das tiefe Tal der Sill zwischen Innsbruck und Schönberg."
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "id": "schwarzenbach",
+      "idea": {
+        "schema": "poi-idea-pilot.v15",
+        "targetId": "schwarzenbach",
+        "targetName": "Schwarzenbachtalsperre",
+        "taskDomain": "inspection_infra",
+        "situation": "Lars bereitet eine neue Firmenbroschüre für das Kraftwerk Forbach vor. Die aktuelle Ansicht der Talsperre als Oberbecken fehlt ihm noch für die Titelseite.",
+        "intent": "Er möchte die gesamte Staumauer und die Wasserfläche aus der Luft filmen. Diese Sequenzen sollen den Imagefilm der Firma modern abrunden.",
+        "person": {
+          "name": "Lars Vogt",
+          "role": "Mitarbeiter der Öffentlichkeitsarbeit",
+          "relationshipToPilot": "langjähriger Geschäftspartner"
+        },
+        "technicalContract": {
+          "targetId": "schwarzenbach",
+          "targetName": "Schwarzenbachtalsperre",
+          "pilotRole": "Flugzeug führen",
+          "passengerRole": "Fotos oder Videos der sichtbaren Zielbereiche aufnehmen",
+          "mode": "external_overview",
+          "deliverable": "target_photos_or_video",
+          "detailResolution": "not_guaranteed",
+          "completion": "on_task_then_return_home",
+          "evaluation": "only_after_return_on_ground"
+        }
+      },
+      "writer": {
+        "title": "Ein neuer Look für die Firmenbroschüre",
+        "story": "Dein langjähriger Geschäftspartner Lars Vogt begleitet dich heute auf diesem Flug. Als Mitarbeiter der Öffentlichkeitsarbeit steckt er mitten in der Gestaltung einer neuen Broschüre für das Kraftwerk Forbach. Ihm fehlt noch eine aktuelle, dynamische Perspektive der Schwarzenbachtalsperre für das Titelblatt und den neuen Imagefilm. Die Talsperre dient dem Kraftwerk als Oberbecken, und Lars möchte die beeindruckende Staumauer sowie die weite Wasserfläche aus der Luft filmen. Sobald ihr die Aufnahmen im Kasten habt, kehrt ihr direkt zurück, damit er das Material am Boden sichten und für die Redaktion auswerten kann.",
+        "greetingSpeaker": "Lars Vogt",
+        "greeting": "Hallo! Schön, dass das heute klappt. Ich brauche unbedingt frische Aufnahmen von der Mauer für unser neues Projekt.",
+        "report": {
+          "orientationIds": [
+            "f1",
+            "f2"
+          ]
+        },
+        "usedFactIds": [
+          "place1"
+        ]
+      },
+      "baseline": {
+        "orientation": "Vom Kartenpunkt „L 83“ aus liegt das Ziel „Schwarzenbachtalsperre“ rund 477 m nordwestlich. Vom Kartenpunkt „Lachsberg“ aus liegt das Ziel „Schwarzenbachtalsperre“ rund 960 m westlich.",
+        "terrain": "Die Schwarzenbachtalsperre dient als Oberbecken des Kraftwerks Forbach. Die Betreiberbeschreibung nennt Waldflächen und Forststraßen im regionalen Umfeld. 25 abgefragte DEM-Modellpunkte haben Höhen von 300 bis 888 m. Die höchste dieser Stichproben liegt 5000 m im Osten des Zielpunkts. Das ist kein Nachweis des höchsten Geländepunkts im Gebiet; Hangneigung und durchgehender Geländeverlauf sind nicht erfasst.",
+        "obstacles": "Kartierter Turm „Forbach 4“: rund 984 m östlich des Zielpunkts. Kartierter Turm: rund 1667 m nordöstlich des Zielpunkts. Kartierter Leitungspunkt: rund 1871 m südlich des Zielpunkts. Hindernishöhen sind nicht verifiziert; kartierte Leitungspunkte belegen keinen Leitungsverlauf.",
+        "dataQuality": "Begrenzte Auswahl kartierter Punkte; weitere Hindernisse sind möglich. Sichtbarkeit in der Szenerie, genaue Bewuchs- und Bebauungsgrenzen sowie Wetter sind nicht geprüft. Die Angaben bestimmen keine sichere Flughöhe oder Kreisbahn."
+      }
+    },
+    {
+      "id": "europabruecke",
+      "idea": {
+        "schema": "poi-idea-pilot.v15",
+        "targetId": "europabruecke",
+        "targetName": "Europabrücke",
+        "taskDomain": "inspection_infra",
+        "situation": "Helena ist für ein Logistikmagazin tätig und schreibt einen Artikel über die Brennerautobahn. Ihr fehlen aussagekräftige Bilder von der Brücke über dem Silltal.",
+        "intent": "Sie will die gewaltige Dimension der Brücke im Talverlauf festhalten. Die Fotos dienen zur Illustration ihres Berichts über wichtige Verkehrsachsen.",
+        "person": {
+          "name": "Helena Weber",
+          "role": "Fachjournalistin für Verkehr",
+          "relationshipToPilot": "Auftraggeberin"
+        },
+        "technicalContract": {
+          "targetId": "europabruecke",
+          "targetName": "Europabrücke",
+          "pilotRole": "Flugzeug führen",
+          "passengerRole": "Fotos oder Videos der sichtbaren Zielbereiche aufnehmen",
+          "mode": "external_overview",
+          "deliverable": "target_photos_or_video",
+          "detailResolution": "not_guaranteed",
+          "completion": "on_task_then_return_home",
+          "evaluation": "only_after_return_on_ground"
+        }
+      },
+      "writer": {
+        "title": "Logistik im Fokus",
+        "story": "Helena Weber ist heute dein Gast an Bord. Als Fachjournalistin für Verkehr arbeitet sie gerade an einem Artikel für ein Logistikmagazin über die Brennerautobahn. Um die Bedeutung dieser zentralen Verkehrsachse zu verdeutlichen, benötigt sie hochwertige Aufnahmen der Europabrücke. Das Bauwerk überspannt das tiefe Silltal und bietet aus der Luft eine Perspektive, die die gewaltigen Dimensionen der Konstruktion im Talverlauf erst richtig greifbar macht. Helena wird während des Fluges die Kamera bedienen, um die passenden Bilder für ihre Reportage einzufangen. Sobald sie ihre Motive im Kasten hat, kehrt ihr beide wieder zum Flugplatz zurück, damit sie mit der Sichtung des Materials am Boden beginnen kann.",
+        "greetingSpeaker": "Helena Weber",
+        "greeting": "Hallo! Ich freue mich, dass das heute klappt. Für meinen Artikel über die Brennerroute ist die Europabrücke das Herzstück, und ich bin gespannt auf die Aufnahmen aus dieser Perspektive.",
+        "report": {
+          "orientationIds": [
+            "f3",
+            "f4"
+          ]
+        },
+        "usedFactIds": [
+          "place1"
+        ]
+      },
+      "baseline": {
+        "orientation": "Vom Kartenpunkt „Unterberg“ aus liegt das Ziel „Europabrücke“ rund 1054 m östlich. Vom Kartenpunkt „Stefansbrücke“ aus liegt das Ziel „Europabrücke“ rund 1333 m südöstlich.",
+        "terrain": "Die Europabrücke gehört zur Brennerautobahn und überspannt das tiefe Tal der Sill zwischen Innsbruck und Schönberg. 25 abgefragte DEM-Modellpunkte haben Höhen von 699 bis 1695 m. Die höchste dieser Stichproben liegt 5000 m im Osten des Zielpunkts. Das ist kein Nachweis des höchsten Geländepunkts im Gebiet; Hangneigung und durchgehender Geländeverlauf sind nicht erfasst.",
+        "obstacles": "Kartierter Mast: rund 73 m östlich des Zielpunkts. Kartierter Leitungspunkt „Wilten - Brennerwerk“: rund 277 m nordöstlich des Zielpunkts. Kartierter Strommast: rund 457 m nordöstlich des Zielpunkts. Hindernishöhen sind nicht verifiziert; kartierte Leitungspunkte belegen keinen Leitungsverlauf.",
+        "dataQuality": "Begrenzte Auswahl kartierter Punkte; weitere Hindernisse sind möglich. Sichtbarkeit in der Szenerie, genaue Bewuchs- und Bebauungsgrenzen sowie Wetter sind nicht geprüft. Die Angaben bestimmen keine sichere Flughöhe oder Kreisbahn."
+      }
+    },
+    {
+      "id": "heidelberg",
+      "idea": {
+        "schema": "poi-idea-pilot.v15",
+        "targetId": "heidelberg",
+        "targetName": "Alte Brücke",
+        "taskDomain": "media_photo",
+        "situation": "Julian möchte seiner Verlobten ein besonderes Geschenk zur Hochzeit machen. Er plant ein großformatiges Panoramabild von der Alten Brücke für ihr gemeinsames Wohnzimmer.",
+        "intent": "Er möchte den roten Sandstein der Brücke inmitten der Heidelberger Kulisse von oben fotografieren. Dieses Motiv soll eine bleibende Erinnerung an ihre Heimatstadt sein.",
+        "person": {
+          "name": "Julian Kranz",
+          "role": "Privatperson",
+          "relationshipToPilot": "ein alter Schulfreund"
+        },
+        "technicalContract": {
+          "targetId": "heidelberg",
+          "targetName": "Alte Brücke",
+          "pilotRole": "Flugzeug führen",
+          "passengerRole": "Fotos oder Videos der sichtbaren Zielbereiche aufnehmen",
+          "mode": "external_overview",
+          "deliverable": "target_photos_or_video",
+          "detailResolution": "not_guaranteed",
+          "completion": "on_task_then_return_home"
+        }
+      },
+      "writer": {
+        "title": "Ein Panorama für das Wohnzimmer",
+        "story": "Dein alter Schulfreund Julian Kranz begleitet dich heute auf diesem Flug über den Neckar. Der Anlass ist ein ganz persönlicher: Julian möchte seiner Verlobten ein besonderes Hochzeitsgeschenk bereiten. Er plant ein großformatiges Panoramabild der Heidelberger Kulisse für ihr neues gemeinsames Zuhause. Im Fokus steht dabei die Alte Brücke, deren markanter roter Sandstein sich so charakteristisch vom Fluss abhebt. Während du die Maschine führst, wird Julian versuchen, die Bogenbrücke und die umliegenden Berge in Ruhe aus der Luft zu fotografieren. Sobald er seine Aufnahmen im Kasten hat, kehrt ihr beide wieder zum Ausgangspunkt zurück.",
+        "greetingSpeaker": "Julian Kranz",
+        "greeting": "Hallo, altes Haus! Schön, dass das heute klappt. Ich bin schon gespannt, wie sich die Brücke von oben macht – das wird das perfekte Geschenk.",
+        "report": {
+          "orientationIds": [
+            "f1",
+            "f3"
+          ]
+        },
+        "usedFactIds": [
+          "place1"
+        ]
+      },
+      "baseline": {
+        "orientation": "Vom Kartenpunkt „Michelsberg“ aus liegt das Ziel „Alte Brücke“ rund 730 m südöstlich. Vom Kartenpunkt „Theodor-Heuss-Brücke“ aus liegt das Ziel „Alte Brücke“ rund 1239 m östlich.",
+        "terrain": "Die Alte Brücke ist eine Bogenbrücke aus rotem Sandstein über den Neckar im von Fluss und Bergen eingerahmten Heidelberger Stadtbild. 25 abgefragte DEM-Modellpunkte haben Höhen von 106 bis 529 m. Die höchste dieser Stichproben liegt 3000 m im Südosten des Zielpunkts. Das ist kein Nachweis des höchsten Geländepunkts im Gebiet; Hangneigung und durchgehender Geländeverlauf sind nicht erfasst.",
+        "obstacles": "Kartierter Turm „Dicker Turm“: rund 512 m südöstlich des Zielpunkts. Kartierter Turm „Hexenturm“: rund 518 m südwestlich des Zielpunkts. Kartierter Turm „Krautturm“: rund 648 m südöstlich des Zielpunkts. Hindernishöhen sind nicht verifiziert; kartierte Leitungspunkte belegen keinen Leitungsverlauf.",
+        "dataQuality": "Begrenzte Auswahl kartierter Punkte; weitere Hindernisse sind möglich. Sichtbarkeit in der Szenerie, genaue Bewuchs- und Bebauungsgrenzen sowie Wetter sind nicht geprüft. Die Angaben bestimmen keine sichere Flughöhe oder Kreisbahn."
+      }
+    }
+  ]
+}

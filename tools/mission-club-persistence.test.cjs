@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const voice=require('../mission-route-voice-core.js');
 function harness(){
- const c=vm.createContext({compactPoiChainForMission:x=>x});
+ const c=vm.createContext({window:{},compactPoiChainForMission:x=>x});
  for(const [file,names] of [
  ['app.js',['compactMissionObjectForQuotaStorage','slimMissionObjectForActiveState','compactRouteWaypointsForQuotaStorage','compactAltWaypointsForQuotaStorage','compactSegmentAltsForQuotaStorage','compactElevationDataForQuotaStorage','compactFreqCacheForQuotaStorage','compactTextForQuotaStorage','compactPassengerForQuotaStorage','compactActiveMissionStateForQuotaStorage']],
  ['sync.js',['_syncJsonClone','_syncCompactMissionObjectCore','_syncStripDeepMissionPlans','_syncCompactFlightDataState','_syncCompactActiveMission']]]){
