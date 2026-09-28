@@ -41221,6 +41221,9 @@ function missionProposalPoiOptionLine(target = {}, profileId = '') {
 }
 
 function missionProposalFamilyIntro(choices = []) {
+    if (new Set(choices.map(choice => choice.profileId)).size > 1) {
+        return 'Wähle deinen Auftrag aus unterschiedlichen Missionsarten. Jede Option übernimmt ihr eigenes Ziel und Missionsprofil ins Briefing.';
+    }
     if (choices.length && choices.every(c => c.cargoProposal)) return 'Wähle die Sendung. Bedarf, Empfänger und Fracht bleiben für das Briefing erhalten.';
     if (choices.length && choices.every(c => c.charterProposal)) return 'Wähle den Charterauftrag. Reisegrund, Gruppe und gebuchtes Gepäck bleiben für das Briefing erhalten.';
     if (choices.length && choices.every(c => c.clubProposal)) return 'Wähle euren Vereinsflug. Die ausgewählte Idee bleibt beim Erstellen des Briefings erhalten.';
@@ -42083,7 +42086,58 @@ async function buildMissionProposalPoiChoices(context = {}) {
     }).filter(Boolean);
 }
 
+function missionProposalMixedPool(context = {}) {
+    const core = window.aircraftMissionProfileCore;
+    const policy = context.aircraftAutoResolution;
+    const candidates = policy?.restricted ? policy.candidates : core?.getAutoMissionCandidatePool({
+        baseType: context.effectiveType,
+        aircraftTags: core.SUPPORTED_TAGS,
+        passengerCapacity: context.passengerCapacity
+    })?.candidates;
+    return (candidates || []).filter(candidate => context.effectiveType === 'apt'
+        ? !!missionProposalAptProfileConfig(candidate.profileId)
+            || (context.aiModeEnabled && candidate.category === 'charter' && candidate.profileId === 'auto')
+        : !!missionProposalPoiProfileConfig(candidate.profileId));
+}
+
+async function buildMixedMissionProposalChoices(context = {}) {
+    const remaining = missionProposalMixedPool(context).slice();
+    const choices = [], reserves = [], categories = new Set(), profiles = new Set();
+    while (remaining.length && choices.length < 3) {
+        const fresh = remaining.filter(candidate => !profiles.has(candidate.profileId));
+        if (!fresh.length) break;
+        const categoryMix = context.effectiveType === 'apt'
+            ? fresh.filter(candidate => !categories.has(candidate.category)) : fresh;
+        const pool = categoryMix.length ? categoryMix : fresh;
+        let roll = Math.random() * pool.reduce((sum, candidate) => sum + (candidate.weight || 1), 0);
+        const candidate = pool.find(candidate => (roll -= candidate.weight || 1) < 0) || pool[0];
+        remaining.splice(remaining.indexOf(candidate), 1);
+        const profileId = candidate.profileId;
+        const poiCategory = context.effectiveType === 'poi'
+            ? pickPoiCategoryForTaskProfile(profileId, candidate.category) : 'all';
+        const optionContext = {
+            ...context, mixedProfiles: false, dispatchProfileId: profileId,
+            selectedAptCategory: candidate.category, selectedPoiCategory: poiCategory,
+            requestedPoiCategory: 'all'
+        };
+        try {
+            const batch = await buildMissionProposalChoices(optionContext);
+            context.ensureAlive?.();
+            if (!batch.length) continue;
+            choices.push(batch[0]);
+            reserves.push(...batch.slice(1));
+            profiles.add(profileId);
+            categories.add(candidate.category);
+        } catch (error) {
+            context.ensureAlive?.();
+            console.warn('[Mission PICK] Profil ohne Vorschlag:', profileId, error);
+        }
+    }
+    return choices.concat(reserves.slice(0, Math.max(0, 3 - choices.length)));
+}
+
 async function buildMissionProposalChoices(context = {}) {
+    if (context.mixedProfiles) return buildMixedMissionProposalChoices(context);
     if (context.effectiveType === 'apt') return buildMissionProposalAptChoices(context);
     if (context.effectiveType === 'poi') return buildMissionProposalPoiChoices(context);
     return [];
@@ -42093,6 +42147,7 @@ function missionProposalIsEligible(context = {}) {
     if (!missionProposalModeEnabled()) return false;
     if (context.missionProposalChoice) return false;
     if (context.followupSeed || context.targetDest || context.isBushDispatch || context.isPlanningOnlyMode) return false;
+    if (context.mixedProfiles && missionProposalMixedPool(context).length) return true;
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
     if (context.effectiveType === 'apt') {
         return !!missionProposalAptProfileConfig(profileId) || (context.aiModeEnabled && context.selectedAptCategory === 'cargo' && ['auto',''].includes(profileId)) || (context.aiModeEnabled && context.selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(profileId));
@@ -42715,7 +42770,13 @@ async function generateMission(options = {}) {
 
     const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
     const proposalPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
+    const mixedProposalContext = {
+        mixedProfiles: genericAutoPicker && !isBushDispatch,
+        aircraftAutoResolution,
+        passengerCapacity: missionAircraftCapability.passengerCapacity
+    };
     if (missionProposalIsEligible({
+        ...mixedProposalContext,
         missionProposalChoice,
         followupSeed,
         targetDest,
@@ -42729,6 +42790,7 @@ async function generateMission(options = {}) {
     })) {
         indicator.innerText = 'Vorschlagsmodus: passende Aufträge werden gesucht...';
         const proposalChoices = await dispatchMeasure('mission_proposals', async () => buildMissionProposalChoices({
+            ...mixedProposalContext,
             start,
             aiModeEnabled,
             effectiveType,
@@ -42736,8 +42798,8 @@ async function generateMission(options = {}) {
             selectedAptCategory,
             selectedPoiCategory,
             requestedPoiCategory,
-            searchMin,
-            searchMax,
+            searchMin: mixedProposalContext.mixedProfiles ? (effectiveType === 'poi' ? minNM / 2 : minNM) : searchMin,
+            searchMax: mixedProposalContext.mixedProfiles ? (effectiveType === 'poi' ? maxNM / 2 : maxNM) : searchMax,
             dirPref,
             regionPref,
             rangePref,

@@ -171,6 +171,26 @@ verändert keine Boarding-, Manifest- oder Abschluss-Gates.
 Vertrag, Kosten und Testnachweise:
 [Mission Narrative Design Guide, Abschnitt 11](Mission%20Narrative%20Design%20Guide.md#11-v63--drei-geplante-privatmissionen-zur-auswahl).
 
+### Gemischte PICK-Auswahl bei APT all / POI all
+
+Bei generischer Auto-Auswahl stellt PICK bis zu drei unterschiedliche unterstützte
+Missionsprofile zusammen. APT bevorzugt dabei unterschiedliche Kategorien.
+Die bestehende Flugzeug-Profilmatrix und Passagierkapazität begrenzen den Pool.
+Jedes POI-Profil bestimmt seine eigene passende Zielkategorie. Konkrete
+Picker-Auswahlen behalten ihren bisherigen Generator mit drei Varianten.
+
+Die bestehenden Vorschlagsgeneratoren liefern unveränderte Ideen-Snapshots;
+die gewählte Karte behält Profil, Ziel und Ideenvertrag für den späteren Writer.
+Leere oder fehlgeschlagene Profilsuchen werden durch weitere Profile ersetzt.
+Reichen die erfolgreichen Profile nicht aus, werden weitere Varianten aus deren
+bereits erzeugten Vorschlägen ergänzt. Nicht PICK-fähige Profile werden nicht
+in die gemischte Auswahl aufgenommen; ohne passenden Pool gilt der bisherige
+Dispatch-Pfad. Abbruchsignale werden weitergereicht.
+
+KI-Generatoren können pro Profil weiterhin einen eigenen Dreierbatch erzeugen;
+daher kann eine gemischte Auswahl mehrere KI-Aufrufe benötigen. Prompts,
+Missionsverträge und Runtime bleiben unverändert.
+
 ### 1.2 Private Heimreise V1
 
 Implementiert ist eine optionale zweite APT-Mission `B -> A` nach erfolgreichem
