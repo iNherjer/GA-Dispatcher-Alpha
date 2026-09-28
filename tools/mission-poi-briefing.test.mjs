@@ -24,9 +24,9 @@ for(const run of runs)test(`archived v18 media replay preserves story, speaker a
  assert.equal(written.story,run.writer.story);assert.equal(m.passenger.greetingText,run.writer.greeting);
  assert.equal(m.passenger.name,idea.person.name);assert.equal(m.passenger.taskDomain,'media_photo');
  const baseline=run.baseline;
- for(const field of ['orientation','obstacles','dataQuality'])assert.equal(written.report[field],baseline[field]);
+ for(const field of ['obstacles','dataQuality'])assert.equal(written.report[field],baseline[field]);
  assert.ok(written.report.terrain.startsWith(baseline.terrain));
- assert.match(written.report.terrain,/keine Flächen-/);
+ if(c.facts.some(f=>f.role==='cover-nearby-only'&&!f.tags.man_made&&!f.tags.infra_type))assert.match(written.report.terrain,/keine Flächen-/);
  assert.ok(core.owns(m));assert.equal(m.poiBriefing.capture.evaluation,undefined);
  assert.equal(m._missionContractV4.poiBriefing,m.poiBriefing);
 });
@@ -84,7 +84,7 @@ test('DEM envelope is described as samples; null values never become zero height
  const {c,idea}=fixture();c.supplements=[];c.terrain={status:'missing'};
  c.terrainEnvelope={centerFt:null,maxFt:null};assert.match(core.validateWriter({...runs[0].writer,targetId:c.id},idea,c).report.terrain,/keine Geländehöhen/);
  c.terrainEnvelope={centerFt:500,maxFt:1200,sampleCount:25,radiusNm:1,source:'terrarium-area'};
- assert.match(core.validateWriter({...runs[0].writer,targetId:c.id},idea,c).report.terrain,/Höchste der 25 Modellstichproben/);
+ assert.match(core.validateWriter({...runs[0].writer,targetId:c.id},idea,c).report.terrain,/Höchster erfasster Modellpunkt/);
 });
 function harness(){
  const c=vm.createContext({window:{MissionPoiBriefingCore:core},compactPoiChainForMission:x=>x});
@@ -176,7 +176,7 @@ test('available weather with invalid optional paragraph is diagnosed without rep
  const {c,idea}=fixture(),start={name:'Home',lat:48,lon:8};
  const b=browser({ai:()=>({...runs[0].writer,targetId:c.id,flightBriefing:'[[invented.wind]]'})});
  const m=await b.api.story({start,dest:c.target,proposal:{schema:'poi-photo-proposal.v1',start,context:c,idea},contract:{weather:{dep:{raw:{windKts:5}}}}});
- assert.equal(m.poiBriefing.flightBriefingStatus,'unavailable');assert.equal(m._missionWriterV4Debug.rawAiStory,runs[0].writer.story);
+ assert.equal(m.poiBriefing.flightBriefingStatus,'observations-fallback');assert.match(m.poiBriefing.flightBriefing,/Wind 5 kt/);assert.equal(m._missionWriterV4Debug.rawAiStory,runs[0].writer.story);
  assert.equal(b.requests.length,1);
 });
 
@@ -184,4 +184,79 @@ test('APT ideas envelope and equivalent transport forms preserve identity, rejec
  const {c,idea}=fixture();
  for(const raw of [{ideas:[idea]},[idea],{[c.id]:idea}])assert.deepEqual(core.readIdea(raw,c),idea);
  for(const raw of [{ideas:[idea,idea]},{ideas:[{...idea,targetId:'other'}]},[]])assert.throws(()=>core.readIdea(raw,c));
+});
+
+test('reported Pfalzgrafenweiler target keeps its coordinates and yields concrete local object names',async()=>{
+ const target={name:'1898 1998 SWV Pfalzgrafenweiler e.V.',lat:48.52983,lon:8.55261};
+ const b=browser({fetch:async url=>new Response(fs.readFileSync(url))});
+ const c=await b.api.context(target,{centerFt:2163,maxFt:2202,sampleCount:17358,radiusNm:1,source:'terrarium-area'});
+ assert.deepEqual(c.target,target);assert.match(c.targetFacts[0].fact,/Denkmal/);
+ const idea=core.validateIdea({...fixture().idea,targetId:c.id,targetName:target.name},c);
+ const w=core.validateWriter({...runs[0].writer,targetId:c.id,greetingSpeaker:idea.person.name,usedFactIds:[],report:{orientationIds:[]}},idea,c);
+ assert.match(w.report.obstacles,/Wasserturm.*573 m westlich/);
+ assert.match(w.report.obstacles,/Wasserturm.*717 m östlich/);
+ assert.match(w.report.terrain,/Kläranlage.*740 m nördlich/);
+ assert.doesNotMatch(w.report.obstacles,/Bauwerksreferenzpunkt/);
+ assert.doesNotMatch(w.report.terrain,/17358|Industriefläche/);
+ assert.match(w.report.terrain,/2163 ft MSL/);assert.match(w.report.terrain,/1 NM: 2202 ft MSL/);
+});
+
+test('shared POI category uses historic tags: memorials cannot become castles through their names',()=>{
+ const src=fs.readFileSync('app.js','utf8'),h=vm.createContext({}),loaded=new Set();
+ function load(name){
+  if(loaded.has(name))return;loaded.add(name);
+  const code=extractOriginalFunction(src,name);
+  for(const candidate of new Set(code.match(/\b[_a-zA-Z]\w*(?=\()/g)))if(src.includes('function '+candidate+'('))load(candidate);
+  vm.runInContext(code,h);
+ }
+ load('_poiFeatureMatchesCategory');load('_poiInferCategoryFromFeature');
+ for(const historic of ['monument','memorial'])for(const name of ['1898 1998 SWV Pfalzgrafenweiler e.V.','Denkmal an der Burg']){
+  const f={name,tags:{historic}};assert.equal(h._poiFeatureMatchesCategory(f,'castle'),false);assert.equal(h._poiInferCategoryFromFeature(f),'generic');
+ }
+ for(const historic of ['castle','ruins','fort'])assert.equal(h._poiFeatureMatchesCategory({name:'Historischer Ort',tags:{historic}},'castle'),true);
+ assert.notEqual(h.classifyPOITitleCategory('Vereinsdenkmal Monument'),'castle');
+ for(const [tags,category] of [[{infra_type:'bridge',historic:'monument'},'bridge'],[{place:'village'},'city'],[{waterway:'dam'},'dam']])assert.equal(h._poiInferCategoryFromFeature({name:'Ort',tags}),category);
+});
+
+for(const flightBriefing of [undefined,'Wind 12 Knoten.','[[invented.wind]]','[[start.wind]]'])test(`weather fallback preserves observations when model output is ${String(flightBriefing)}`,async()=>{
+ const {c,idea}=fixture(),start={name:'Home',lat:48,lon:8};
+ const b=browser({ai:()=>({...runs[0].writer,targetId:c.id,flightBriefing})});
+ const contract={route:{startName:'Home',targetName:c.target.name,distanceNm:33,targetIcao:'EDTW'},weather:{dep:{raw:{station:'EDDS',windKts:0,gustKts:null,visKm:10,ceilingFtAgl:1800,observedAt:'2026-09-28T15:00Z',freshness:'stale',stationDistanceNm:22.24}},dest:{raw:{station:'EDSB',windKts:8,gustKts:17,cloudBaseFtAgl:1200,stationDistanceNm:14,observedAt:null}}}};
+ const m=await b.api.story({start,dest:c.target,proposal:{schema:'poi-photo-proposal.v1',start,context:c,idea},contract});
+ const text=m.poiBriefing.flightBriefing;
+ assert.equal(m.poiBriefing.flightBriefingStatus,'observations-fallback');
+ for(const pattern of [/EDDS/,/Wind 0 kt/,/ältere Meldung/,/2026-09-28T15:00Z/,/22,2 NM/,/Ceiling 1800 ft über Grund/,/Zielgebiet – EDSB/,/Böen 17 kt/,/Wolkenbasis 1200 ft über Grund/,/Beobachtungszeit unbekannt/])assert.match(text,pattern);
+ assert.doesNotMatch(text,/EDTW|böenfrei|kein gültiger Wetterabsatz|invented/);
+ assert.equal(m._missionWriterV4Debug.rawAiStory,runs[0].writer.story);assert.equal(b.requests.length,1);
+});
+
+test('gust-only and raw-only observations are retained; missing destination stays unknown',async()=>{
+ for(const raw of [{gustKts:22},{raw:'METAR EDDS 281500Z VRB02KT CAVOK'}]){
+  const {c,idea}=fixture(),start={name:'Home',lat:48,lon:8};
+  const b=browser({ai:()=>({...runs[0].writer,targetId:c.id,flightBriefing:'invalid 123'})});
+  const m=await b.api.story({start,dest:c.target,proposal:{schema:'poi-photo-proposal.v1',start,context:c,idea},contract:{weather:{dep:{raw}}}});
+  assert.equal(m.poiBriefing.flightBriefingStatus,'observations-fallback');
+  assert.match(m.poiBriefing.flightBriefing,raw.raw?/METAR EDDS/:/Böen 22 kt/);
+  assert.match(m.poiBriefing.flightBriefing,/Zielgebiet: keine verwertbare Wetterbeobachtung/);
+ }
+});
+
+
+test('POI writer flight frame identifies the target as POI, not the return airport',()=>{
+ const src=fs.readFileSync('app.js','utf8');
+ const start=src.indexOf('if (usePoiPhotoIdeas) {\n            missionContractV4');
+ assert.ok(start>0);
+ const stop=src.indexOf('} else if',start);
+ assert.match(src.slice(start,stop),/targetIcao:'POI'/);
+});
+
+
+test('orientation uses short target-first wording, rounded distances and no repeated long target name',async()=>{
+ const b=browser({fetch:async url=>new Response(fs.readFileSync(url))});
+ const c=await b.api.context({name:'1898 1998 SWV Pfalzgrafenweiler e.V.',lat:48.52983,lon:8.55261});
+ const orientationIds=['Pfalzgrafenweiler','Durrweiler'].map(name=>c.facts.find(f=>f.name===name).id);
+ const report=core.renderStructuredReport({orientationIds},c);
+ assert.equal(report.orientation,'Das Ziel liegt etwa 1 km nordwestlich von „Pfalzgrafenweiler“ und 1,1 km nördlich von „Durrweiler“.');
+ assert.doesNotMatch(report.orientation,/Kartenpunkt|1898|1087/);
+ const {m}=fixture();for(const label of ['Ziel finden','Gelände und Umgebung','Hindernisse','Datengrundlage'])assert.ok(m.s.includes(label+'\n'));
 });

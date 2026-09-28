@@ -92,3 +92,26 @@ Lokale Laufbelege: `analysis/poi-briefing-alpha-v4/` (nicht Teil der Veröffentl
 Release auf aktuellem `origin/main` in isoliertem Worktree. Der Foto-Generator ist für KI-POI-Profil `media_photo` standardmäßig aktiv. Lokaler Rückfallschalter: `ga_poi_briefing_v1=off`. Ketten, Folgeaufträge, Planung, Bush und andere POI-Profile behalten ihre bisherigen Wege. Keine neue Startfunktion, kein Runtime- oder Tracker-Umbau. Alpha-Webcache v1874.
 
 95 automatisierte Tests bestanden (POI, Wetter, Charter, Verein, gemischter Picker, Sightseeing, normale und fragile Fracht). Zusätzlich 11.550 POI-Vergleiche zur bisherigen Ausführung bestanden. Ein bereits auf unverändertem Release-Stand defekter Vereins-Testharness wurde um `window:{}` ergänzt, wie beim Sightseeing-Harness; kein Produktionscode dafür geändert. Wiederholbare POI-Tests verwenden eine eingecheckte, reduzierte Archivfixture statt nicht veröffentlichter Analyseordner. Die früheren Nichtfreigaben oben dokumentieren frühere Zwischenstände.
+
+
+## Korrektur nach Praxisbericht: Denkmal und Wetter (28.09.2026)
+
+Nutzerbestätigter Standort: `1898 1998 SWV Pfalzgrafenweiler e.V.`, 48.52983 / 8.55261. Keine Koordinatenänderung. Die gemeinsame POI-Kategorisierung hatte `historic=monument` als Burg/Schloss behandelt. Nach ausdrücklicher Freigabe sind Monumente und Gedenkstätten keine Castle-Treffer mehr, auch bei „Burg“ im Namen. Echte Infrastruktur-Tags bleiben vorrangig; sonst bleibt der historische Typ als generischer POI erhalten. Burgen, Ruinen und Forts bleiben verfügbar. Eine generelle Luftbild-Eignung aller Denkmäler wird aus dem Typ allein nicht behauptet.
+
+POI-Lagebericht: Wassertürme und Fernmeldetürme konkret benannt, Windanlagen aus Infra-Tags erkannt. Kläranlagenpunkte sind Anlagenreferenzen, keine Beschreibung der Landbedeckung. Modellhöhe und höchster erfasster Modellpunkt mit Radius bleiben sichtbar; interne Stichprobenzahlen bleiben im gespeicherten Quellkontext. Fehlende Flächengeometrie und Geländeverläufe werden nicht erfunden.
+
+Wetter: Die bereits vorhandene APT-Sightseeing-Rückfallausgabe liegt nun im gemeinsamen `MissionPrivateEpisodeV6`-Helfer; Sightseeing delegiert dorthin, POI verwendet dieselbe Funktion. Kein neuer Generator und kein zusätzlicher KI-Aufruf. Ungültige oder fehlende Wetterprosa ersetzt keine Geschichte und entfernt keine vorhandenen Beobachtungen. Unbekannte Wetterreferenzen werden getrennt von den Erzählfeldern behandelt. Rückfalltext erhält Station, Stationsabstand, Beobachtungszeit/Aktualität, Wind/Böen, Sicht und vorhandene Wolkenhöhe. Nullwerte bleiben unbekannt, echter Wind null bleibt null. Ein Rückkehrflugplatz wird nicht als Wetterstation oder POI-Ziel-ICAO ausgegeben. Fehlende Beobachtungen bleiben von ungültiger Prosa unterscheidbar (`no-observations` / `observations-fallback`).
+
+Prüfung: 115 Tests einschließlich des konkreten lokalen Denkmal-Datensatzes, benachbarter Wassertürme/Kläranlage, Denkmal/Burg-Kategorisierung sowie fehlender, numerisch ungültiger, referenziell ungültiger und unvollständiger Wettertexte. Testdaten decken alte Meldungen, Stationsdistanz, echte Nullwerte, fehlende Zeit, reine Böenmeldung, Roh-METAR und fehlendes Zielwetter ab. Zusätzlich 11.550 Vergleiche der bestehenden POI-Ausführung. Keine Rekonstruktion des damaligen Livewetters behauptet; der Nutzerbericht enthält den rohen verworfenen Wetterabsatz nicht. Kein neuer Gemini-Lauf notwendig.
+
+Änderungen lokal vorbereitet; noch kein weiterer Release. Vollständiger Stand im isolierten Release-Worktree `/private/tmp/ga-poi-release-20260928`; gezielte Änderungen an vorhandenen Dateien auch in den gemischten Arbeitsstand übernommen. Die auf dem neueren Release-Stand vorhandene Sightseeing-Datei wird dort bearbeitet.
+
+
+### Lesbarkeit der Zielorientierung
+
+Zielbezogene Kurzform statt wiederholtem vollem Zielnamen und „Vom Kartenpunkt … aus“. Höchstens zwei gewählte Orientierungspunkte in einem Satz, Entfernungen gerundet (unter einem Kilometer auf 50 m, darüber auf 0,1 km). Beispiel aus dem gemeldeten Datensatz: „Das Ziel liegt etwa 1 km nordwestlich von ‚Pfalzgrafenweiler‘ und 1,1 km nördlich von ‚Durrweiler‘.“ Keine Behauptung über Ortsmitte, Bebauungsgrenze oder Sichtbarkeit aus repräsentativen Punkten. Anlagenreferenzen stehen bei Gelände/Umgebung. Ausgabe mit eigenen Absätzen „Ziel finden“, „Gelände und Umgebung“, „Hindernisse“, „Datengrundlage“. Alle 27 POI-Tests bestanden; weiterhin unveröffentlicht.
+
+
+### Releasefreigabe
+
+Nach ausdrücklicher Nutzerfreigabe Veröffentlichung der Korrekturen auf Alpha (`origin/main`), Webcache v1875. Abschließende Prüfung: 116 Tests und 11.550 POI-Ablaufvergleiche bestanden. Keine Tracker-Dateien geändert. Neue Briefings erhalten die verbesserte Ausgabe; bereits gespeicherte Missionstexte werden nicht nachträglich umgeschrieben.

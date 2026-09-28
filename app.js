@@ -11200,9 +11200,7 @@ function classifyPOITitleCategory(title) {
         _hasWordToken(t, "ruine") ||
         _hasWordToken(t, "festung") ||
         _hasWordToken(t, "kloster") ||
-        _hasWordToken(t, "dom") ||
-        _hasWordToken(t, "monument") ||
-        _hasWordToken(t, "denkmal")
+        _hasWordToken(t, "dom")
     ) return "castle";
     if (t.includes("bruecke") || t.includes("brucke") || t.includes("bridge") || t.includes("viadukt") || t.includes("aquadukt") || t.includes("steg") || t.includes("pont") || t.includes("puente")) return "bridge";
     if (t.includes("autobahn") || t.includes("kreuz") || t.includes("dreieck") || t.includes("kreuzung") || t.includes("strasse") || t.includes("highway") || t.includes("motorway") || t.includes("interstate") || t.includes("freeway") || _hasWordToken(t, "ring") || t.includes("junction") || t.includes("interchange") || t.includes("tunnel") || t.includes("bahn") || t.includes("rail") || t.includes("railway") || t.includes("gleis") || t.includes("bahnhof")) return "road";
@@ -12346,8 +12344,8 @@ function _poiFeatureMatchesCategory(feature, category) {
             _hasWordToken(n, 'forest')
         )
     );
-    const isCastle = (
-        ['castle', 'ruins', 'fort', 'monument'].includes(t.historic) ||
+    const isCastle = !['monument', 'memorial'].includes(t.historic) && (
+        ['castle', 'ruins', 'fort'].includes(t.historic) ||
         (!isTransportCorridor && t.tourism === 'attraction' && (_hasWordToken(n, 'burg') || _hasWordToken(n, 'schloss'))) ||
         (!isTransportCorridor && (_hasWordToken(n, 'burg') || _hasWordToken(n, 'schloss')))
     );
@@ -12458,6 +12456,8 @@ function _poiInferCategoryFromFeature(feature) {
     for (const cat of order) {
         if (_poiFeatureMatchesCategory(feature, cat)) return cat;
     }
+    // Keep genuine infrastructure tags authoritative; a memorial name alone is not a castle.
+    if (['monument', 'memorial'].includes(t.historic)) return 'generic';
     return classifyPOITitleCategory(feature?.name || '');
 }
 
@@ -12733,7 +12733,7 @@ function _poiFeatureScore(feature, category) {
         if (_poiIsHumanMemorialFeature(feature)) score -= 12;
         if (['city', 'town', 'suburb', 'neighbourhood', 'quarter'].includes(String(t.place || '').toLowerCase())) score -= 6;
     } else if (cat === 'castle') {
-        if (['castle', 'ruins', 'fort', 'monument'].includes(t.historic)) score += 7;
+        if (['castle', 'ruins', 'fort'].includes(t.historic)) score += 7;
     } else if (cat === 'industry') {
         const energySourceScore = String(t.generator_source || t.plant_source || t.generator_method || t.plant_method || '').toLowerCase();
         if (['solar', 'wind', 'energy_plant', 'energy_storage', 'power_station', 'industrial', 'fuel', 'water_utility', 'water_tank', 'storage_tank', 'waste', 'quarry', 'pipeline'].includes(infraType)) score += 9;
@@ -44050,7 +44050,7 @@ async function generateMission(options = {}) {
         if (missionProposalChoice?.charterProposal && !useCharterIdeas) throw Error('Die Charterauswahl benötigt den KI-Chartergenerator.');
         if (missionProposalChoice?.poiProposal && !usePoiPhotoIdeas) throw Error('Die Fotoidee benötigt den aktiven KI-Fotogenerator.');
         if (usePoiPhotoIdeas) {
-            missionContractV4 = {...missionContractV4, route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            missionContractV4 = {...missionContractV4, route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m = await window.MissionPoiBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.poiProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
             missionContractV4 = m._missionContractV4; paxText = m.pax; cargoText = m.cargo;
         } else if (useCharterContinuation) {

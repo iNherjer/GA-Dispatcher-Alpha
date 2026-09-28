@@ -28,7 +28,7 @@ async function context(dest,terrainEnvelope=null) {
  coverage.push(...tiles.map(({rows,...meta})=>meta));
  // Only exact local source target identity may supply a factual target description.
  const matched=tiles.flatMap(t=>t.rows.map(r=>({...r,source:t.source}))).find(r=>r.name===target.name&&typeof r.lat==='number'&&typeof r.lon==='number'&&core().relation(target,r).distanceM<30);
- const kind=matched?.waterway==='dam'?'Staumauer':matched?.infra_type==='bridge'||matched?.man_made==='bridge'?'Brücke':matched?.historic==='castle'?'Burg oder Schloss':null;
+ const kind=matched?.waterway==='dam'?'Staumauer':matched?.infra_type==='bridge'||matched?.man_made==='bridge'?'Brücke':matched?.historic==='castle'?'Burg oder Schloss':['monument','memorial'].includes(matched?.historic)?'Denkmal':null;
  const targetFacts=kind?[{id:'target-kind',fact:`${target.name} ist in der lokalen Datenbank als ${kind} kartiert.`,source:matched.source}]:[];
  // Reuse the APT context service; only evidence for this POI may enter its story.
  // Nearby towns/attractions remain outside the story frame (POI focus lock).
@@ -81,17 +81,22 @@ async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensur
  const api=root.MissionPrivateEpisodeV6,flightContext=api.flightContext(contract);
  const flight={context:flightContext,bindings:api.flightBindings(flightContext)},recent=core().history(localStorage);
  const raw=await json(core().writerPrompt(c,idea,recent,flight));ensureAlive?.();
- const resolved=root.MissionCharterIdeasCore.resolveReferences(raw,flight.bindings);
+ // Weather validation must never discard a valid narrative.
+ const {flightBriefing:weatherTemplate,...narrative}=raw;
+ const resolved=root.MissionCharterIdeasCore.resolveReferences(narrative,flight.bindings);
  if(!resolved)throw Error('Das POI-Briefing enthält unbekannte Flugreferenzen.');
  const written=core().validateWriter(resolved,idea,c);
- written.rawFlightBriefing=typeof raw.flightBriefing==='string'?raw.flightBriefing:'';
- written.flightBriefing=api.resolveFlightBriefing(raw.flightBriefing,flightContext)||'';
+ written.rawFlightBriefing=typeof weatherTemplate==='string'?weatherTemplate:'';
+ written.flightBriefing=api.resolveFlightBriefing(weatherTemplate,flightContext)||'';
  written.flightBriefingStatus=written.flightBriefing?'accepted-bindings':'unavailable';
  // Same no-observation handling as APT charter. No fabricated station values
  // and no additional model request for a paragraph with no weather evidence.
- if(!flightContext.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null)) {
+ if(!flightContext.weather.some(w=>w.rawMetar||[w.windKts,w.gustKts,w.visibilityKm,w.ceilingFtAgl,w.cloudBaseFtAgl].some(v=>typeof v==='number'&&Number.isFinite(v)))) {
   written.flightBriefing='Für Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
   written.flightBriefingStatus='no-observations';
+ } else if(!written.flightBriefing) {
+  written.flightBriefing=api.weatherFallback(flightContext,{targetLabel:'Zielgebiet'});
+  written.flightBriefingStatus='observations-fallback';
  }
  const m=core().mission(idea,written,c,contract);
  m._missionWriterV4Debug.weatherSnapshot=flightContext.weather;

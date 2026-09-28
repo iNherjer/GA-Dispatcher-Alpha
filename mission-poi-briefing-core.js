@@ -90,11 +90,13 @@ function writerContext(context) {
   const hazards = context.facts.filter(f=>f.role==='hazard').slice(0,3);
   const facts = [...landmarks,...hazards];
   const map = bindings({...context,facts});
-  const kind = f => f.tags.type==='wind' ? 'kartierte Windkraftanlage'
+  const kind = f => f.tags.type==='wind'||f.tags.infra_type==='wind' ? 'kartierte Windkraftanlage'
     : f.tags.man_made==='chimney' ? 'kartierter Schornstein'
     : f.tags.type==='powerline'||['line','minor_line'].includes(f.tags.power) ? 'kartierter Leitungspunkt'
     : f.tags.power==='tower'||f.tags.power==='pole'||f.tags.type==='power_tower' ? 'kartierter Strommast'
     : f.tags.man_made==='mast'||f.tags.type==='mast' ? 'kartierter Mast'
+    : f.tags.man_made==='water_tower' ? 'kartierter Wasserturm'
+    : f.tags.man_made==='communications_tower' ? 'kartierter Fernmeldeturm'
     : f.tags.man_made==='tower' ? 'kartierter Turm'
     : f.tags.natural==='peak' ? 'Bergreferenzpunkt'
     : f.tags.place ? 'Ortsreferenzpunkt'
@@ -129,10 +131,12 @@ function renderStructuredReport(selection, context) {
     || ids.length>(Math.min(2,candidates.length)) || (candidates.length && !ids.length)
     || new Set(ids).size!==ids.length || ids.some(id=>!candidates.some(f=>f.id===id))) throw Error('Invalid orientation selection');
   const adjectives={Norden:'nördlich',Nordosten:'nordöstlich',Osten:'östlich',Südosten:'südöstlich',Süden:'südlich',Südwesten:'südwestlich',Westen:'westlich',Nordwesten:'nordwestlich'};
-  const orientation=ids.map(id=>{
+  const references=ids.map(id=>{
     const f=context.facts.find(f=>f.id===id), r=f.targetRelativeToFeature;
-    return `Vom Kartenpunkt „${f.name}“ aus liegt das Ziel „${context.target.name}“ rund ${r.distanceM} m ${adjectives[r.direction]}.`;
-  }).join(' ') || 'Keine geeigneten Orientierungsreferenzen in diesem Bericht vorhanden.';
+    const distance=r.distanceM<1000?`${Math.round(r.distanceM/50)*50} m`:`${String(Math.round(r.distanceM/100)/10).replace('.',',')} km`;
+    return `${distance} ${adjectives[r.direction]} von „${f.name}“`;
+  });
+  const orientation=references.length?`Das Ziel liegt etwa ${references.join(' und ')}.`:'Keine geeigneten Orientierungspunkte verfügbar.';
   const t=context.terrain?.status==='sampled'?context.terrain:null;
   const terrain=[...context.supplements.map(s=>s.fact), t
     ? `${t.sampleCount} abgefragte DEM-Modellpunkte haben Höhen von ${t.minSampleM} bis ${t.maxSampleM} m. Die höchste dieser Stichproben liegt ${t.highestSample.offsetM} m im ${t.highestSample.direction} des Zielpunkts. Das ist kein Nachweis des höchsten Geländepunkts im Gebiet; Hangneigung und durchgehender Geländeverlauf sind nicht erfasst.`
@@ -215,18 +219,20 @@ function validateWriter(raw,idea,c) {
  const e=c.terrainEnvelope;
  if(e&&typeof e.centerFt==='number'&&Number.isFinite(e.centerFt)) {
   report.terrain=`Geländemodell am Zielpunkt: ${Math.round(e.centerFt)} ft MSL.`;
-  if(e.source==='terrarium-area'&&typeof e.maxFt==='number'&&Number.isFinite(e.maxFt)&&e.sampleCount>1&&typeof e.radiusNm==='number'&&Number.isFinite(e.radiusNm))report.terrain+=` Höchste der ${e.sampleCount} Modellstichproben im Radius von ${e.radiusNm} NM: ${Math.round(e.maxFt)} ft MSL.`;
-  report.terrain+=' Daraus folgen keine vollständige Geländehülle, Hangneigung oder sichere Arbeitshöhe.';
+  if(e.source==='terrarium-area'&&typeof e.maxFt==='number'&&Number.isFinite(e.maxFt)&&e.sampleCount>1&&typeof e.radiusNm==='number'&&Number.isFinite(e.radiusNm))report.terrain+=` Höchster erfasster Modellpunkt im Radius von ${e.radiusNm} NM: ${Math.round(e.maxFt)} ft MSL.`;
+  report.terrain+=' Hangneigung und durchgehender Geländeverlauf sind daraus nicht ableitbar.';
  }
  const labels={forest:'Wald',wood:'Wald',residential:'Wohnbebauung',industrial:'Industriefläche',meadow:'Wiese',farmland:'Ackerfläche'};
- const cover=c.facts.filter(f=>f.role==='cover-nearby-only').slice(0,3);
+ const cover=c.facts.filter(f=>f.role==='cover-nearby-only'&&!f.tags.man_made&&!f.tags.infra_type).slice(0,2);
+ const facilities=c.facts.filter(f=>f.role==='cover-nearby-only'&&f.tags.man_made==='wastewater_plant'&&f.relativeToTarget.distanceM<=1500);
+ if(facilities.length)report.terrain+=' '+facilities.slice(0,1).map(f=>`Kartierte Kläranlage: ${bindings(c)[f.id+'.location']}.`).join(' ');
  if(cover.length)report.terrain+=' '+cover.map(f=>`Kartierter Bezugspunkt für ${labels[f.tags.landuse||f.tags.natural]||'Landbedeckung'}: ${bindings(c)[f.id+'.location']}.`).join(' ')+' Diese Punkte belegen keine Flächen- oder Bewuchsgrenzen am Ziel.';
  return {title:raw.title.trim(),story:raw.story.trim(),greeting:raw.greeting.trim(),report,reportStatus,memory:validText(raw.memory,600)?raw.memory.trim():null};
 }
 function owns(m) {const b=m?.poiBriefing;return b?.schema===VERSION&&b.idea?.schema===IDEA_VERSION&&b.idea.taskDomain==='media_photo'&&b.capture?.deliverable==='target_photos_or_video';}
 function mission(idea,written,c,contract={}) {
  const poiBriefing={schema:VERSION,promptVersion:PROMPT_VERSION,idea,capture:captureContract(c),report:written.report,sourceContext:{target:c.target,radiusM:c.radiusM,facts:c.facts,targetFacts:c.targetFacts||[],coverage:c.coverage||[],terrainEnvelope:c.terrainEnvelope||null},greeting:written.greeting,writerMemory:written.memory||null,openingExcerpt:written.story.slice(0,180),flightBriefing:written.flightBriefing||'',flightBriefingStatus:written.flightBriefingStatus||'unavailable',reportStatus:written.reportStatus};
- const story=[written.story,written.flightBriefing||'Wetterbriefing: Für diesen Entwurf liegt kein gültiger Wetterabsatz vor.','Lagebericht\n'+Object.values(written.report).join('\n\n')].join('\n\n');
+ const story=[written.story,written.flightBriefing||'Wetterbriefing: Für diesen Entwurf liegt kein gültiger Wetterabsatz vor.',['Ziel finden',written.report.orientation,'','Gelände und Umgebung',written.report.terrain,'','Hindernisse',written.report.obstacles,'','Datengrundlage',written.report.dataQuality].join('\n')].join('\n\n');
  const passenger={...idea.person,taskDomain:'media_photo',roleProfile:'media_observer_v1',narrativeSchema:VERSION,greetingText:written.greeting,personalStoryCue:idea.situation,gTolerance:'mittel',bankTolerance:'mittel',cargoSensitivity:'niedrig',stomachSensitivity:'mittel',comfortPriority:'mittel',urgencyPriority:'niedrig'};
  const m={t:written.title,s:story,story,missionStory:story,cat:'media_photo',missionType:'poi',isPOI:true,pax:'1 PAX ('+idea.person.role+')',cargo:'Foto-/Videoausrüstung (12 lbs)',passengerCount:1,plannedPassengerCount:1,passenger,poiBriefing,_appliedProfile:'media_photo',_source:'POI-Foto Alpha',sceneIntent:{summary:'Foto-/Videoflug zum POI mit Rückkehr.',visibleIdeas:[],densityHint:'none'},_missionWriterV4Debug:{writerMode:VERSION,writerAccepted:true,rawAiStory:written.story,writerStory:story,storyChangedByFinalize:false,flightBriefing:written.flightBriefing||'',flightBriefingStatus:written.flightBriefingStatus||'unavailable',rawFlightBriefing:written.rawFlightBriefing||'',reportStatus:written.reportStatus,memoryStatus:written.memory?'accepted':'unavailable'}};
  Object.assign(contract,{status:'ready',profile:{id:'media_photo',taskDomain:'media_photo',roleProfile:'media_observer_v1'},poiBriefing,passenger,passengerCount:1,plannedPassengerCount:1,paxText:m.pax,cargoText:m.cargo,missionStory:story,target:c.target,storyFrame:{trigger:idea.situation,soughtOutcome:idea.intent,noDelivery:true}});

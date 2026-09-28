@@ -1,7 +1,7 @@
 (function (root) {
     'use strict';
     // V5 remains a frozen selectable baseline. Only transport formatting/frame helpers are reused.
-    const base = root.MissionPrivateOutingCore;
+    const base = typeof module !== 'undefined' && module.exports ? require('./mission-private-outing-core.js') : root.MissionPrivateOutingCore;
     const VERSION = 'private-outing.v1'; // Stable runtime/voice contract, independent of writer version.
     const WRITER_VERSION = 'private-v6';
     const PROMPT_REVISION = 'v6.3.1';
@@ -127,6 +127,31 @@
             add(`${scope}.cloudBase`, row.cloudBaseFtAgl, ' Fuß über Grund');
         }
         return values;
+    }
+    function weatherFallback(flight, options={}){
+     const number=v=>typeof v==='number'&&Number.isFinite(v);
+     const fmt=v=>String(v).replace('.',',');
+     const rows=(flight?.weather||[]).map(w=>{
+      const label=w.scope==='departure'?'Start':options.targetLabel||'Ziel';
+      const location=w.station||'Station unbekannt';
+      const distance=number(w.stationDistanceNm)?`, ${fmt(Math.round(w.stationDistanceNm*10)/10)} NM vom Bezugspunkt`:'';
+      const parts=[];
+      if(number(w.windKts))parts.push(`Wind ${fmt(w.windKts)} kt`+(number(w.windDeg)?` aus ${fmt(w.windDeg)}°`:''));
+      if(number(w.gustKts))parts.push(`Böen ${fmt(w.gustKts)} kt`);
+      if(number(w.visibilityKm))parts.push(`Sicht ${fmt(w.visibilityKm)} km`);
+      if(number(w.ceilingFtAgl))parts.push(`Ceiling ${fmt(w.ceilingFtAgl)} ft über Grund`);
+      else if(number(w.cloudBaseFtAgl))parts.push(`Wolkenbasis ${fmt(w.cloudBaseFtAgl)} ft über Grund`);
+      if(!parts.length&&!w.rawMetar)return `${label}: keine verwertbare Wetterbeobachtung.`;
+      const age=w.freshness==='stale'?'ältere Meldung':w.freshness==='recent'?'':'Aktualität unbekannt';
+      const timing=[w.observedAt?`Beobachtung ${w.observedAt}`:'Beobachtungszeit unbekannt',age].filter(Boolean).join(', ');
+      const missing=[];
+      if(!number(w.windKts))missing.push('Wind');
+      if(!number(w.gustKts))missing.push('Böen');
+      if(!number(w.visibilityKm))missing.push('Sicht');
+      if(!number(w.ceilingFtAgl)&&!number(w.cloudBaseFtAgl))missing.push('Wolkenhöhe');
+      return `${label} – ${location}${distance} (${timing}): ${parts.length?parts.join(', '):w.rawMetar}.`+(missing.length?` Ohne Zahlenangabe: ${missing.join(', ')}.`:'');
+     });
+     return rows.join(' ')+' Stationsbeobachtungen bei Erstellung, keine Strecken- oder Ankunftsprognose.';
     }
     function resolveFlightBriefing(template, flight) {
         if (!flight || typeof template !== 'string' || !template.trim() || template.length > 850 || /[{}]|```/.test(template)) return '';
@@ -331,7 +356,7 @@ HISTORY: ${JSON.stringify(historyForIdea(rows))}`;
             flightBriefingStatus: flight ? 'accepted-bindings' : 'unavailable' } : null;
     }
     const api = { VERSION, WRITER_VERSION, PROMPT_REVISION, MODE_KEY, HISTORY_KEY, HISTORY_LIMIT, HISTORY_MAX_BYTES,
-        MEMORY_SCHEMA, mode, memory, history, recent, remember, frame, flightContext, flightBindings, resolveFlightBriefing, ideaPrompt, validateIdea, writerPrompt, prose, proposalPrompt, proposals, proposalSnapshot, selectedProposal };
+        MEMORY_SCHEMA, mode, memory, history, recent, remember, frame, flightContext, flightBindings, resolveFlightBriefing, weatherFallback, ideaPrompt, validateIdea, writerPrompt, prose, proposalPrompt, proposals, proposalSnapshot, selectedProposal };
     root.MissionPrivateEpisodeV6 = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
