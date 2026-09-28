@@ -1,6 +1,6 @@
 # Normale APT-Fracht: Ideen und Briefings V1
 
-Stand: 28.09.2026. Implementierung auf `codex/cargo-ideas-v1`, Basis `origin/main` 2d0b99e11. Noch nicht veröffentlicht.
+Stand: 28.09.2026. Implementierung auf `codex/cargo-ideas-v1`, Basis `origin/main` 2d0b99e11. Alpha-Release vorbereitet: App-Cache `ga-dispatcher-v1867`; Tracker unverändert.
 
 ## Ziel und Spielraum
 
@@ -61,4 +61,4 @@ Die abschließende Serie steht in `analysis/cargo-routine-20260928.json` und les
 
 Nach Nutzerfeedback vom 28.09.2026 ist der Lufttransport in Ideenphase und Writer ausdrücklich bereits beauftragt. Erzählt werden Bedarf, Verwendungszweck und geplanter Anschluss. Die Verkehrsmittelwahl wird nicht begründet oder mit anderen Transportwegen verglichen. Das gilt auch für ältere gespeicherte Ideen und History-Einträge, die solche Begründungen enthalten. Sendung, Beteiligte und Bedarf bleiben erhalten; es gibt keine nachträgliche Textumschreibung per Regex oder Schablone. Bestehende gespeicherte Briefings werden nicht neu geschrieben.
 
-Die oben verlinkte Live-Stichprobe stammt vor dieser Präzisierung. Die Änderung wurde mit der Cargo-Narrativsuite geprüft, aber noch nicht erneut live generiert oder veröffentlicht.
+Die oben verlinkte Live-Stichprobe stammt vor dieser Präzisierung. Die Änderung wurde mit der Cargo-Narrativsuite geprüft, aber noch nicht erneut live generiert. Sie ist im Alpha-Release v1867 enthalten.

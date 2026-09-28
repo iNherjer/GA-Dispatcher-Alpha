@@ -5,7 +5,7 @@ inklusive ergänzter Rückflugvorschau), Return-Writer V1.3; Tracker bleibt v404
 Dieser Einstieg bündelt den implementierten Stand und die Übertragung auf weitere
 Missionssets. Er ersetzt nicht die fachlichen Contracts.
 
-Ergänzung vom 28.09.2026: [Normale APT-Fracht – Ideen V1](Mission%20Cargo%20Ideas%20V1.md) beschreibt den neuen Cargo-Erzählpfad auf der ursprünglichen Transportlogik (noch nicht veröffentlicht).
+Ergänzung vom 28.09.2026: [Normale APT-Fracht – Ideen V1](Mission%20Cargo%20Ideas%20V1.md) beschreibt den neuen Cargo-Erzählpfad auf der ursprünglichen Transportlogik (Alpha-App-Cache v1867).
 
 ## Ziel und Promptprinzip
 
