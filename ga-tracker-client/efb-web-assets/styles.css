@@ -16838,6 +16838,44 @@ body.theme-navcom .navcom-dispatch-help-bar {
     min-width: 0;
 }
 
+.settings-form-row:has(.aircraft-preset-settings-field) {
+    align-items: stretch;
+}
+
+.aircraft-preset-settings-field {
+    overflow-wrap: normal;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.api-settings .aircraft-preset-settings-field > label {
+    white-space: nowrap;
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.aircraft-preset-settings-field > input,
+.aircraft-preset-settings-field > select {
+    height: 42px;
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin: 0;
+}
+
+.aircraft-preset-settings-field > small {
+    color: var(--text-muted, #aab4be);
+    font-size: 10px;
+    line-height: 1.4;
+}
+
 .settings-theme-section .settings-section-head {
     width: 100%;
     box-sizing: border-box;

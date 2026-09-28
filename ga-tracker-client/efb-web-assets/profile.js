@@ -2128,7 +2128,7 @@ function vpFetchHostedObstacleTile(_x4, _x5) {
 }
 function _vpFetchHostedObstacleTile() {
   _vpFetchHostedObstacleTile = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(tileKey, signal) {
-    var b, _String$split$map, _String$split$map2, latI, lonI, dbg, endpoints, timeoutMs, _iterator74, _step74, _loop0, _ret3, _t13;
+    var b, _String$split$map, _String$split$map2, latI, lonI, dbg, endpoints, timeoutMs, _iterator76, _step76, _loop0, _ret3, _t13;
     return _regenerator().w(function (_context15) {
       while (1) switch (_context15.p = _context15.n) {
         case 0:
@@ -2169,14 +2169,14 @@ function _vpFetchHostedObstacleTile() {
           dbg = window.vpWeatherDebug;
           endpoints = VP_OBS_HOSTED_ENDPOINTS.slice();
           timeoutMs = VP_OBS_HOSTED_TIMEOUT_MS;
-          _iterator74 = _createForOfIteratorHelper(endpoints);
+          _iterator76 = _createForOfIteratorHelper(endpoints);
           _context15.p = 4;
           _loop0 = /*#__PURE__*/_regenerator().m(function _loop0() {
             var endpoint, ctrl, timer, onAbort, isLocalStaticEndpoint, url, u, res, payload, ds, sourceKind, features, obsCount, linCount, src, host, _t12;
             return _regenerator().w(function (_context14) {
               while (1) switch (_context14.p = _context14.n) {
                 case 0:
-                  endpoint = _step74.value;
+                  endpoint = _step76.value;
                   if (!(signal && signal.aborted)) {
                     _context14.n = 1;
                     break;
@@ -2326,9 +2326,9 @@ function _vpFetchHostedObstacleTile() {
               }
             }, _loop0, null, [[2, 13, 15, 16]]);
           });
-          _iterator74.s();
+          _iterator76.s();
         case 5:
-          if ((_step74 = _iterator74.n()).done) {
+          if ((_step76 = _iterator76.n()).done) {
             _context15.n = 9;
             break;
           }
@@ -2355,10 +2355,10 @@ function _vpFetchHostedObstacleTile() {
         case 10:
           _context15.p = 10;
           _t13 = _context15.v;
-          _iterator74.e(_t13);
+          _iterator76.e(_t13);
         case 11:
           _context15.p = 11;
-          _iterator74.f();
+          _iterator76.f();
           return _context15.f(11);
         case 12:
           return _context15.a(2, {
@@ -2724,8 +2724,8 @@ function _fetchProfileObstacles() {
       hostedMissKeys,
       hostedObsBatch,
       hostedLinBatch,
-      _iterator75,
-      _step75,
+      _iterator77,
+      _step77,
       _loop1,
       hostedKeySet,
       seededHosted,
@@ -2806,14 +2806,14 @@ function _fetchProfileObstacles() {
           hostedMissKeys = [];
           hostedObsBatch = [];
           hostedLinBatch = [];
-          _iterator75 = _createForOfIteratorHelper(hostedKeys);
+          _iterator77 = _createForOfIteratorHelper(hostedKeys);
           _context22.p = 4;
           _loop1 = /*#__PURE__*/_regenerator().m(function _loop1() {
             var key, res;
             return _regenerator().w(function (_context20) {
               while (1) switch (_context20.n) {
                 case 0:
-                  key = _step75.value;
+                  key = _step77.value;
                   res = hostedResMap.get(key);
                   if (res && res.ok) {
                     vpClearTileFailed(key);
@@ -2838,9 +2838,9 @@ function _fetchProfileObstacles() {
               }
             }, _loop1);
           });
-          _iterator75.s();
+          _iterator77.s();
         case 5:
-          if ((_step75 = _iterator75.n()).done) {
+          if ((_step77 = _iterator77.n()).done) {
             _context22.n = 7;
             break;
           }
@@ -2854,10 +2854,10 @@ function _fetchProfileObstacles() {
         case 8:
           _context22.p = 8;
           _t16 = _context22.v;
-          _iterator75.e(_t16);
+          _iterator77.e(_t16);
         case 9:
           _context22.p = 9;
-          _iterator75.f();
+          _iterator77.f();
           return _context22.f(9);
         case 10:
           if (hostedObsBatch.length || hostedLinBatch.length) {
@@ -3050,7 +3050,7 @@ function fetchGpsObstacles(_x12, _x13) {
 }
 function _fetchGpsObstacles() {
   _fetchGpsObstacles = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(lat, lon) {
-    var centerKey, _centerKey$split$map, _centerKey$split$map2, latI, lonI, tileKeys, dy, dx, probe, missing, hostedBatchSize, hostedKeys, hostedResults, hostedOk, _iterator76, _step76, key, _res, _res$features5, _res$features6, restHosted, overpassKeys, i, tileKey, res, _res$features3, _res$features4, rawObs, _iterator77, _step77, item, nav, buckets, finalObs, _i32, _Object$keys, k, group, rep, _t17, _t18;
+    var centerKey, _centerKey$split$map, _centerKey$split$map2, latI, lonI, tileKeys, dy, dx, probe, missing, hostedBatchSize, hostedKeys, hostedResults, hostedOk, _iterator78, _step78, key, _res, _res$features5, _res$features6, restHosted, overpassKeys, i, tileKey, res, _res$features3, _res$features4, rawObs, _iterator79, _step79, item, nav, buckets, finalObs, _i32, _Object$keys, k, group, rep, _t17, _t18;
     return _regenerator().w(function (_context23) {
       while (1) switch (_context23.p = _context23.n) {
         case 0:
@@ -3083,10 +3083,10 @@ function _fetchGpsObstacles() {
         case 1:
           hostedResults = _context23.v;
           hostedOk = new Set();
-          _iterator76 = _createForOfIteratorHelper(hostedKeys);
+          _iterator78 = _createForOfIteratorHelper(hostedKeys);
           try {
-            for (_iterator76.s(); !(_step76 = _iterator76.n()).done;) {
-              key = _step76.value;
+            for (_iterator78.s(); !(_step78 = _iterator78.n()).done;) {
+              key = _step78.value;
               _res = hostedResults.get(key);
               if (_res && _res.ok) {
                 hostedOk.add(key);
@@ -3097,9 +3097,9 @@ function _fetchGpsObstacles() {
               }
             }
           } catch (err) {
-            _iterator76.e(err);
+            _iterator78.e(err);
           } finally {
-            _iterator76.f();
+            _iterator78.f();
           }
           restHosted = missing.filter(k => !hostedOk.has(k));
           overpassKeys = restHosted.slice(0, Math.max(1, VP_OBS_TILE_MAX_PER_PASS));
@@ -3158,15 +3158,15 @@ function _fetchGpsObstacles() {
         case 11:
           vpHydrateObsPool();
           rawObs = [];
-          _iterator77 = _createForOfIteratorHelper(vpObsPool.obs.values());
+          _iterator79 = _createForOfIteratorHelper(vpObsPool.obs.values());
           _context23.p = 12;
-          _iterator77.s();
+          _iterator79.s();
         case 13:
-          if ((_step77 = _iterator77.n()).done) {
+          if ((_step79 = _iterator79.n()).done) {
             _context23.n = 17;
             break;
           }
-          item = _step77.value;
+          item = _step79.value;
           if (!(!item || !Number.isFinite(item.lat) || !Number.isFinite(item.lon))) {
             _context23.n = 14;
             break;
@@ -3198,10 +3198,10 @@ function _fetchGpsObstacles() {
         case 18:
           _context23.p = 18;
           _t18 = _context23.v;
-          _iterator77.e(_t18);
+          _iterator79.e(_t18);
         case 19:
           _context23.p = 19;
-          _iterator77.f();
+          _iterator79.f();
           return _context23.f(19);
         case 20:
           buckets = {};
@@ -4061,8 +4061,8 @@ function _fetchRouteWeatherMetar() {
       results,
       allEmpty,
       allFromCache,
-      _iterator80,
-      _step80,
+      _iterator82,
+      _step82,
       c,
       hasAnyMetarResult,
       nowPrefetch,
@@ -4094,8 +4094,8 @@ function _fetchRouteWeatherMetar() {
                 txt,
                 arr,
                 activeProxies,
-                _iterator82,
-                _step82,
+                _iterator84,
+                _step84,
                 proxy,
                 pr,
                 ptxt,
@@ -4181,15 +4181,15 @@ function _fetchRouteWeatherMetar() {
                   case 10:
                     return _context29.a(3, 26);
                   case 11:
-                    _iterator82 = _createForOfIteratorHelper(activeProxies);
+                    _iterator84 = _createForOfIteratorHelper(activeProxies);
                     _context29.p = 12;
-                    _iterator82.s();
+                    _iterator84.s();
                   case 13:
-                    if ((_step82 = _iterator82.n()).done) {
+                    if ((_step84 = _iterator84.n()).done) {
                       _context29.n = 22;
                       break;
                     }
-                    proxy = _step82.value;
+                    proxy = _step84.value;
                     _context29.p = 14;
                     _context29.n = 15;
                     return fetchWithTimeout(proxy.mk(urlObj));
@@ -4238,10 +4238,10 @@ function _fetchRouteWeatherMetar() {
                   case 23:
                     _context29.p = 23;
                     _t25 = _context29.v;
-                    _iterator82.e(_t25);
+                    _iterator84.e(_t25);
                   case 24:
                     _context29.p = 24;
-                    _iterator82.f();
+                    _iterator84.f();
                     return _context29.f(24);
                   case 25:
                     if (!(i < retryCount - 1)) {
@@ -4340,11 +4340,11 @@ function _fetchRouteWeatherMetar() {
               maxLat = -90,
               minLon = 180,
               maxLon = -180;
-            var _iterator79 = _createForOfIteratorHelper(eData),
-              _step79;
+            var _iterator81 = _createForOfIteratorHelper(eData),
+              _step81;
             try {
-              for (_iterator79.s(); !(_step79 = _iterator79.n()).done;) {
-                var p = _step79.value;
+              for (_iterator81.s(); !(_step81 = _iterator81.n()).done;) {
+                var p = _step81.value;
                 if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue;
                 minLat = Math.min(minLat, p.lat);
                 maxLat = Math.max(maxLat, p.lat);
@@ -4352,9 +4352,9 @@ function _fetchRouteWeatherMetar() {
                 maxLon = Math.max(maxLon, p.lon);
               }
             } catch (err) {
-              _iterator79.e(err);
+              _iterator81.e(err);
             } finally {
-              _iterator79.f();
+              _iterator81.f();
             }
             if (!Number.isFinite(minLat) || minLat > maxLat) return [];
             var padDeg = Math.max(0.2, Number(radiusNm || 0) / 60);
@@ -4396,18 +4396,18 @@ function _fetchRouteWeatherMetar() {
             if (vpMetarChunkCache.size <= VP_METAR_CHUNK_CACHE_MAX) return;
             var drop = vpMetarChunkCache.size - VP_METAR_CHUNK_CACHE_MAX;
             var oldest = Array.from(vpMetarChunkCache.entries()).sort((a, b) => Number(a[1] && a[1].ts || 0) - Number(b[1] && b[1].ts || 0)).slice(0, Math.max(1, drop));
-            var _iterator78 = _createForOfIteratorHelper(oldest),
-              _step78;
+            var _iterator80 = _createForOfIteratorHelper(oldest),
+              _step80;
             try {
-              for (_iterator78.s(); !(_step78 = _iterator78.n()).done;) {
-                var _step78$value = _slicedToArray(_step78.value, 1),
-                  k = _step78$value[0];
+              for (_iterator80.s(); !(_step80 = _iterator80.n()).done;) {
+                var _step80$value = _slicedToArray(_step80.value, 1),
+                  k = _step80$value[0];
                 vpMetarChunkCache.delete(k);
               }
             } catch (err) {
-              _iterator78.e(err);
+              _iterator80.e(err);
             } finally {
-              _iterator78.f();
+              _iterator80.f();
             }
           };
           vpGetMetarChunkCache = function _vpGetMetarChunkCache(key) {
@@ -4622,16 +4622,16 @@ function _fetchRouteWeatherMetar() {
             break;
           }
           vpWeatherDebugEvent('METAR cache-only empty result -> force refresh');
-          _iterator80 = _createForOfIteratorHelper(chunkDefs);
+          _iterator82 = _createForOfIteratorHelper(chunkDefs);
           try {
-            for (_iterator80.s(); !(_step80 = _iterator80.n()).done;) {
-              c = _step80.value;
+            for (_iterator82.s(); !(_step82 = _iterator82.n()).done;) {
+              c = _step82.value;
               vpMetarChunkCache.delete(c.key);
             }
           } catch (err) {
-            _iterator80.e(err);
+            _iterator82.e(err);
           } finally {
-            _iterator80.f();
+            _iterator82.f();
           }
           _context32.n = 7;
           return Promise.all(chunkDefs.map(c => fetchChunkData(c, true)));
@@ -4660,19 +4660,19 @@ function _fetchRouteWeatherMetar() {
               if (prefetchDefs.length > 0) {
                 runPrefetch = /*#__PURE__*/function () {
                   var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
-                    var _iterator81, _step81, _d3, url, arr, safeArr, _t21, _t22;
+                    var _iterator83, _step83, _d3, url, arr, safeArr, _t21, _t22;
                     return _regenerator().w(function (_context27) {
                       while (1) switch (_context27.p = _context27.n) {
                         case 0:
-                          _iterator81 = _createForOfIteratorHelper(prefetchDefs);
+                          _iterator83 = _createForOfIteratorHelper(prefetchDefs);
                           _context27.p = 1;
-                          _iterator81.s();
+                          _iterator83.s();
                         case 2:
-                          if ((_step81 = _iterator81.n()).done) {
+                          if ((_step83 = _iterator83.n()).done) {
                             _context27.n = 12;
                             break;
                           }
-                          _d3 = _step81.value;
+                          _d3 = _step83.value;
                           if (!(signal && signal.aborted)) {
                             _context27.n = 3;
                             break;
@@ -4721,10 +4721,10 @@ function _fetchRouteWeatherMetar() {
                         case 13:
                           _context27.p = 13;
                           _t22 = _context27.v;
-                          _iterator81.e(_t22);
+                          _iterator83.e(_t22);
                         case 14:
                           _context27.p = 14;
-                          _iterator81.f();
+                          _iterator83.f();
                           return _context27.f(14);
                         case 15:
                           vpWeatherDebugEvent(`METAR prefetch near/far queued: near=${nearDefs.length} far=${prefetchDefs.length}`);
@@ -4782,16 +4782,16 @@ function _fetchRouteWeatherMetar() {
           stepNM = 15;
           zones = [];
           _loop12 = /*#__PURE__*/_regenerator().m(function _loop12() {
-            var bestPt, minDiff, _iterator83, _step83, pt, diff, closestMetar, minMetarDist, _ref45, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
+            var bestPt, minDiff, _iterator85, _step85, pt, diff, closestMetar, minMetarDist, _ref45, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
             return _regenerator().w(function (_context31) {
               while (1) switch (_context31.n) {
                 case 0:
                   bestPt = elevData[0];
                   minDiff = Infinity;
-                  _iterator83 = _createForOfIteratorHelper(elevData);
+                  _iterator85 = _createForOfIteratorHelper(elevData);
                   try {
-                    for (_iterator83.s(); !(_step83 = _iterator83.n()).done;) {
-                      pt = _step83.value;
+                    for (_iterator85.s(); !(_step85 = _iterator85.n()).done;) {
+                      pt = _step85.value;
                       diff = Math.abs(pt.distNM - targetDist);
                       if (diff < minDiff) {
                         minDiff = diff;
@@ -4799,9 +4799,9 @@ function _fetchRouteWeatherMetar() {
                       }
                     }
                   } catch (err) {
-                    _iterator83.e(err);
+                    _iterator85.e(err);
                   } finally {
-                    _iterator83.f();
+                    _iterator85.f();
                   }
                   closestMetar = null, minMetarDist = Infinity;
                   activeMetars.forEach(m => {
@@ -5149,7 +5149,7 @@ function vpFetchElevationFromTerrarium(_x19, _x20) {
 }
 function _vpFetchElevationFromTerrarium() {
   _vpFetchElevationFromTerrarium = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(samplePts, signal) {
-    var zoom, tileMap, _iterator84, _step84, p, _tawsLatLonToPixel2, tile, key, loads, result, _iterator85, _step85, _tileMap$get, _p4, _tawsLatLonToPixel3, _tile, px, py, _key6, imageData, _t26, _t27;
+    var zoom, tileMap, _iterator86, _step86, p, _tawsLatLonToPixel2, tile, key, loads, result, _iterator87, _step87, _tileMap$get, _p4, _tawsLatLonToPixel3, _tile, px, py, _key6, imageData, _t26, _t27;
     return _regenerator().w(function (_context33) {
       while (1) switch (_context33.p = _context33.n) {
         case 0:
@@ -5173,15 +5173,15 @@ function _vpFetchElevationFromTerrarium() {
         case 3:
           zoom = vpGetTerrariumZoom();
           tileMap = new Map();
-          _iterator84 = _createForOfIteratorHelper(samplePts);
+          _iterator86 = _createForOfIteratorHelper(samplePts);
           _context33.p = 4;
-          _iterator84.s();
+          _iterator86.s();
         case 5:
-          if ((_step84 = _iterator84.n()).done) {
+          if ((_step86 = _iterator86.n()).done) {
             _context33.n = 8;
             break;
           }
-          p = _step84.value;
+          p = _step86.value;
           if (!(signal && signal.aborted)) {
             _context33.n = 6;
             break;
@@ -5203,10 +5203,10 @@ function _vpFetchElevationFromTerrarium() {
         case 9:
           _context33.p = 9;
           _t26 = _context33.v;
-          _iterator84.e(_t26);
+          _iterator86.e(_t26);
         case 10:
           _context33.p = 10;
-          _iterator84.f();
+          _iterator86.f();
           return _context33.f(10);
         case 11:
           loads = [];
@@ -5231,15 +5231,15 @@ function _vpFetchElevationFromTerrarium() {
           throw new DOMException('Aborted', 'AbortError');
         case 13:
           result = [];
-          _iterator85 = _createForOfIteratorHelper(samplePts);
+          _iterator87 = _createForOfIteratorHelper(samplePts);
           _context33.p = 14;
-          _iterator85.s();
+          _iterator87.s();
         case 15:
-          if ((_step85 = _iterator85.n()).done) {
+          if ((_step87 = _iterator87.n()).done) {
             _context33.n = 18;
             break;
           }
-          _p4 = _step85.value;
+          _p4 = _step87.value;
           _tawsLatLonToPixel3 = _tawsLatLonToPixel(_p4.lat, _p4.lon, zoom), _tile = _tawsLatLonToPixel3.tile, px = _tawsLatLonToPixel3.px, py = _tawsLatLonToPixel3.py;
           _key6 = `${zoom}/${_tile.x}/${_tile.y}`;
           imageData = ((_tileMap$get = tileMap.get(_key6)) === null || _tileMap$get === void 0 ? void 0 : _tileMap$get.imageData) || null;
@@ -5264,10 +5264,10 @@ function _vpFetchElevationFromTerrarium() {
         case 19:
           _context33.p = 19;
           _t27 = _context33.v;
-          _iterator85.e(_t27);
+          _iterator87.e(_t27);
         case 20:
           _context33.p = 20;
-          _iterator85.f();
+          _iterator87.f();
           return _context33.f(20);
         case 21:
           return _context33.a(2, result);
@@ -6062,7 +6062,7 @@ window.vpBuildWeatherDebugReport = function () {
   if (!missionSnap) {
     lines.push('- (keine aktive Mission oder noch kein Snapshot)');
   } else {
-    var _missionSnap$contract, _missionSnap$contract2, _window$isMissionPipe, _window, _missionSnap$storyDeb, _missionSnap$contract3, _missionSnap$contract4, _missionSnap$contract5, _missionSnap$contract6, _missionSnap$contract7, _missionSnap$contract8, _missionSnap$targetSc, _missionSnap$contract9;
+    var _missionSnap$contract, _missionSnap$contract2, _window$isMissionPipe, _window, _missionSnap$storyDeb, _window$currentMissio, _missionSnap$contract3, _missionSnap$contract4, _missionSnap$contract5, _missionSnap$contract6, _missionSnap$contract7, _missionSnap$contract8, _missionSnap$contract9, _missionSnap$targetSc, _missionSnap$contract0;
     var p = missionSnap.passenger || {};
     lines.push(`- Zeit: ${vpFormatDebugTs(missionSnap.ts)}`);
     lines.push(`- Modus/Kategorie: ${missionSnap.mode || '?'} / ${missionSnap.category || '?'}`);
@@ -6139,9 +6139,39 @@ window.vpBuildWeatherDebugReport = function () {
     lines.push(`- Mission Pipeline: ${pipelineMode}`);
     var writerMode = String(((_missionSnap$storyDeb = missionSnap.storyDebug) === null || _missionSnap$storyDeb === void 0 ? void 0 : _missionSnap$storyDeb.writerMode) || missionSnap.missionWriterMode || (window.getMissionWriterMode ? window.getMissionWriterMode() : '') || '').toUpperCase();
     if (writerMode) lines.push(`- Mission Writer: ${writerMode}`);
+    var sightseeingIdea = ((_window$currentMissio = window.currentMissionData) === null || _window$currentMissio === void 0 ? void 0 : _window$currentMissio.sightseeingIdea) || ((_missionSnap$contract3 = missionSnap.contract) === null || _missionSnap$contract3 === void 0 ? void 0 : _missionSnap$contract3.sightseeingIdea);
+    if ((sightseeingIdea === null || sightseeingIdea === void 0 ? void 0 : sightseeingIdea.schema) === 'sightseeing-idea.v1') {
+      var _sightseeingIdea$visi, _sightseeingIdea$narr;
+      lines.push(`- Sightseeing-Besuchsplan: ${((_sightseeingIdea$visi = sightseeingIdea.visits) === null || _sightseeingIdea$visi === void 0 ? void 0 : _sightseeingIdea$visi.length) || 0} Orte | Zusatzansagen=${((_sightseeingIdea$narr = sightseeingIdea.narrativeEvents) === null || _sightseeingIdea$narr === void 0 ? void 0 : _sightseeingIdea$narr.length) || 0}`);
+      var _iterator32 = _createForOfIteratorHelper(sightseeingIdea.visits || []),
+        _step32;
+      try {
+        for (_iterator32.s(); !(_step32 = _iterator32.n()).done;) {
+          var _visit$place, _visit$place2, _visit$place3, _visit$place4;
+          var visit = _step32.value;
+          lines.push(`- Besuchsziel: ${flattenText((_visit$place = visit.place) === null || _visit$place === void 0 ? void 0 : _visit$place.name, 120)} | ${Number(((_visit$place2 = visit.place) === null || _visit$place2 === void 0 ? void 0 : _visit$place2.distanceKm) || 0).toFixed(1)} km | Quelle=${((_visit$place3 = visit.place) === null || _visit$place3 === void 0 ? void 0 : _visit$place3.source) || '-'} | Stand=${((_visit$place4 = visit.place) === null || _visit$place4 === void 0 ? void 0 : _visit$place4.retrievedAt) || '-'}`);
+        }
+      } catch (err) {
+        _iterator32.e(err);
+      } finally {
+        _iterator32.f();
+      }
+      var _iterator33 = _createForOfIteratorHelper(sightseeingIdea.narrativeEvents || []),
+        _step33;
+      try {
+        for (_iterator33.s(); !(_step33 = _iterator33.n()).done;) {
+          var event = _step33.value;
+          lines.push(`- Besuchsgespräch: ${event.id} | ${event.geo ? `Geo ${event.geo.lat},${event.geo.lon} / ${event.geo.radiusNm} NM` : `${event.atPercent}% Route`} | ${flattenText(event.intent, 220)}`);
+        }
+      } catch (err) {
+        _iterator33.e(err);
+      } finally {
+        _iterator33.f();
+      }
+    }
     var poiChainDebug = window.gaPoiChainDebug && typeof window.gaPoiChainDebug === 'object' ? window.gaPoiChainDebug : {};
     var poiChainForce = typeof window.getPoiChainDebugForceValue === 'function' ? window.getPoiChainDebugForceValue() : '';
-    var poiChainSpec = missionSnap.poiChain || ((_missionSnap$contract3 = missionSnap.contract) === null || _missionSnap$contract3 === void 0 ? void 0 : _missionSnap$contract3.poiChain) || null;
+    var poiChainSpec = missionSnap.poiChain || ((_missionSnap$contract4 = missionSnap.contract) === null || _missionSnap$contract4 === void 0 ? void 0 : _missionSnap$contract4.poiChain) || null;
     if (poiChainForce || poiChainDebug.last || poiChainSpec) {
       var _poiChainSpec$points;
       var chainBits = [`Force=${poiChainForce || 'aus'}`];
@@ -6193,7 +6223,7 @@ window.vpBuildWeatherDebugReport = function () {
         }
       }
     }
-    var planV2 = missionSnap.missionPlanV2 || ((_missionSnap$contract4 = missionSnap.contract) === null || _missionSnap$contract4 === void 0 ? void 0 : _missionSnap$contract4.missionPlanV2) || (missionSnap.restored ? null : window.gaMissionPipelineV2Last) || null;
+    var planV2 = missionSnap.missionPlanV2 || ((_missionSnap$contract5 = missionSnap.contract) === null || _missionSnap$contract5 === void 0 ? void 0 : _missionSnap$contract5.missionPlanV2) || (missionSnap.restored ? null : window.gaMissionPipelineV2Last) || null;
     if (planV2 && typeof planV2 === 'object') {
       var _planV2$debug, _planV2$debug2, _planV2$debug3, _planV2$debug4;
       var p2 = planV2.plan || {};
@@ -6217,7 +6247,7 @@ window.vpBuildWeatherDebugReport = function () {
       if (Array.isArray((_planV2$debug3 = planV2.debug) === null || _planV2$debug3 === void 0 ? void 0 : _planV2$debug3.toolCalls) && planV2.debug.toolCalls.length) lines.push(`- ${planLabel} Tools: ${planV2.debug.toolCalls.map(c => c.name || '?').slice(0, 6).join(', ')}`);
       if ((_planV2$debug4 = planV2.debug) !== null && _planV2$debug4 !== void 0 && _planV2$debug4.fallbackError) lines.push(`- ${planLabel} Fallback-Fehler: ${flattenText(planV2.debug.fallbackError, 220)}`);
     }
-    if ((_missionSnap$contract5 = missionSnap.contract) !== null && _missionSnap$contract5 !== void 0 && _missionSnap$contract5.summary) lines.push(`- Contract: ${missionSnap.contract.summary}`);
+    if ((_missionSnap$contract6 = missionSnap.contract) !== null && _missionSnap$contract6 !== void 0 && _missionSnap$contract6.summary) lines.push(`- Contract: ${missionSnap.contract.summary}`);
     lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);
     lines.push(`- Passenger: ${p.name || '?'} (${p.role || '?'}) | gender=${p.gender || 'n/a'}`);
     lines.push(`- Role/Task: ${p.roleProfile || 'general_passenger_v1'} | ${p.taskDomain || 'general'}`);
@@ -6307,11 +6337,11 @@ window.vpBuildWeatherDebugReport = function () {
         }
       });
     }
-    var textPassenger = window.activePassenger && typeof window.activePassenger === 'object' ? window.activePassenger : ((_missionSnap$contract6 = missionSnap.contract) === null || _missionSnap$contract6 === void 0 ? void 0 : _missionSnap$contract6.passenger) || ((_missionSnap$contract7 = missionSnap.contract) === null || _missionSnap$contract7 === void 0 ? void 0 : _missionSnap$contract7.missionPassenger) || {};
+    var textPassenger = window.activePassenger && typeof window.activePassenger === 'object' ? window.activePassenger : ((_missionSnap$contract7 = missionSnap.contract) === null || _missionSnap$contract7 === void 0 ? void 0 : _missionSnap$contract7.passenger) || ((_missionSnap$contract8 = missionSnap.contract) === null || _missionSnap$contract8 === void 0 ? void 0 : _missionSnap$contract8.missionPassenger) || {};
     if (textPassenger !== null && textPassenger !== void 0 && textPassenger.greetingText) lines.push(`- Greeting Text: ${flattenText(textPassenger.greetingText, 420)}`);
     if (textPassenger !== null && textPassenger !== void 0 && textPassenger.enrouteText) lines.push(`- Enroute Text: ${flattenText(textPassenger.enrouteText, 360)}`);
     if (textPassenger !== null && textPassenger !== void 0 && textPassenger.arrivalText || textPassenger !== null && textPassenger !== void 0 && textPassenger.farewellText) lines.push(`- Arrival/Farewell Text: ${flattenText(textPassenger.arrivalText || textPassenger.farewellText, 360)}`);
-    var sceneIntent = missionSnap.sceneIntent || ((_missionSnap$contract8 = missionSnap.contract) === null || _missionSnap$contract8 === void 0 ? void 0 : _missionSnap$contract8.sceneIntent) || ((_missionSnap$targetSc = missionSnap.targetSceneDebug) === null || _missionSnap$targetSc === void 0 ? void 0 : _missionSnap$targetSc.sceneIntent) || null;
+    var sceneIntent = missionSnap.sceneIntent || ((_missionSnap$contract9 = missionSnap.contract) === null || _missionSnap$contract9 === void 0 ? void 0 : _missionSnap$contract9.sceneIntent) || ((_missionSnap$targetSc = missionSnap.targetSceneDebug) === null || _missionSnap$targetSc === void 0 ? void 0 : _missionSnap$targetSc.sceneIntent) || null;
     if (sceneIntent && typeof sceneIntent === 'object') {
       if (sceneIntent.summary) lines.push(`- SceneIntent Summary: ${flattenText(sceneIntent.summary, 360)}`);
       if (sceneIntent.environment) lines.push(`- SceneIntent Umgebung: ${flattenText(sceneIntent.environment, 260)}`);
@@ -6320,7 +6350,7 @@ window.vpBuildWeatherDebugReport = function () {
     } else if (typeof sceneIntent === 'string' && sceneIntent.trim()) {
       lines.push(`- SceneIntent Text: ${flattenText(sceneIntent, 420)}`);
     }
-    var geoCtx = missionSnap.targetGeoContext || ((_missionSnap$contract9 = missionSnap.contract) === null || _missionSnap$contract9 === void 0 ? void 0 : _missionSnap$contract9.targetGeoContext) || null;
+    var geoCtx = missionSnap.targetGeoContext || ((_missionSnap$contract0 = missionSnap.contract) === null || _missionSnap$contract0 === void 0 ? void 0 : _missionSnap$contract0.targetGeoContext) || null;
     if (geoCtx && typeof geoCtx === 'object') {
       var geoBits = [];
       if (geoCtx.geometryMode) geoBits.push(`mode=${geoCtx.geometryMode}`);
@@ -7131,11 +7161,11 @@ function vpHydrateOpenMeteoCache() {
     var payload = JSON.parse(raw);
     if (!payload || !Array.isArray(payload.entries)) return;
     var now = Date.now();
-    var _iterator32 = _createForOfIteratorHelper(payload.entries),
-      _step32;
+    var _iterator34 = _createForOfIteratorHelper(payload.entries),
+      _step34;
     try {
-      for (_iterator32.s(); !(_step32 = _iterator32.n()).done;) {
-        var item = _step32.value;
+      for (_iterator34.s(); !(_step34 = _iterator34.n()).done;) {
+        var item = _step34.value;
         if (!item || typeof item.key !== 'string' || !item.data || !Number.isFinite(item.ts)) continue;
         if (now - item.ts > VP_OM_CACHE_TTL_MS) continue;
         vpOpenMeteoPointCache.set(item.key, {
@@ -7144,9 +7174,9 @@ function vpHydrateOpenMeteoCache() {
         });
       }
     } catch (err) {
-      _iterator32.e(err);
+      _iterator34.e(err);
     } finally {
-      _iterator32.f();
+      _iterator34.f();
     }
     if (window.vpWeatherDebug) {
       window.vpWeatherDebug.cacheHydratedEntries += vpOpenMeteoPointCache.size;
@@ -7159,19 +7189,19 @@ function vpHydrateOpenMeteoCache() {
 }
 function vpPruneOpenMeteoCache() {
   var now = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : Date.now();
-  var _iterator33 = _createForOfIteratorHelper(vpOpenMeteoPointCache.entries()),
-    _step33;
+  var _iterator35 = _createForOfIteratorHelper(vpOpenMeteoPointCache.entries()),
+    _step35;
   try {
-    for (_iterator33.s(); !(_step33 = _iterator33.n()).done;) {
-      var _step33$value = _slicedToArray(_step33.value, 2),
-        k = _step33$value[0],
-        v = _step33$value[1];
+    for (_iterator35.s(); !(_step35 = _iterator35.n()).done;) {
+      var _step35$value = _slicedToArray(_step35.value, 2),
+        k = _step35$value[0],
+        v = _step35$value[1];
       if (!v || !Number.isFinite(v.ts) || now - v.ts > VP_OM_CACHE_TTL_MS) vpOpenMeteoPointCache.delete(k);
     }
   } catch (err) {
-    _iterator33.e(err);
+    _iterator35.e(err);
   } finally {
-    _iterator33.f();
+    _iterator35.f();
   }
   if (vpOpenMeteoPointCache.size <= VP_OM_CACHE_MAX_ENTRIES) return;
   var entries = Array.from(vpOpenMeteoPointCache.entries()).sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
@@ -7300,7 +7330,7 @@ function _vpFetchOpenMeteoPoint() {
         case 5:
           loadPromise = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29() {
             var _vpGetHourlyAt, _vpGetHourlyAt2, _vpGetHourlyAt3, _vpGetHourlyAt4, _vpGetHourlyAt7, _vpGetHourlyAt8, _vpGetHourlyAt9, _vpGetHourlyAt0, _vpGetHourlyAt1;
-            var hourlyVars, url, res, _window$vpRecordOpenM, _window3, data, idx, lowPct, midPct, highPct, totalCloudPct, mslPressureHpa, pressureAnomalyFt, pressureProfile, _iterator86, _step86, _vpGetHourlyAt5, _vpGetHourlyAt6, level, geoM, cloudLevel, wsLevel, wdLevel, mslEstimatedFt, geopotentialFt, sample;
+            var hourlyVars, url, res, _window$vpRecordOpenM, _window3, data, idx, lowPct, midPct, highPct, totalCloudPct, mslPressureHpa, pressureAnomalyFt, pressureProfile, _iterator88, _step88, _vpGetHourlyAt5, _vpGetHourlyAt6, level, geoM, cloudLevel, wsLevel, wdLevel, mslEstimatedFt, geopotentialFt, sample;
             return _regenerator().w(function (_context35) {
               while (1) switch (_context35.n) {
                 case 0:
@@ -7353,10 +7383,10 @@ function _vpFetchOpenMeteoPoint() {
                   pressureAnomalyFt = Number.isFinite(mslPressureHpa) ? (VP_STD_MSL_PRESSURE_HPA - mslPressureHpa) * 27 : 0;
                   pressureProfile = [];
                   if (includePressure) {
-                    _iterator86 = _createForOfIteratorHelper(VP_OM_PRESSURE_LEVELS);
+                    _iterator88 = _createForOfIteratorHelper(VP_OM_PRESSURE_LEVELS);
                     try {
-                      for (_iterator86.s(); !(_step86 = _iterator86.n()).done;) {
-                        level = _step86.value;
+                      for (_iterator88.s(); !(_step88 = _iterator88.n()).done;) {
+                        level = _step88.value;
                         geoM = vpGetHourlyAt(data.hourly, `geopotential_height_${level}hPa`, idx);
                         cloudLevel = vpGetHourlyAt(data.hourly, `cloud_cover_${level}hPa`, idx);
                         wsLevel = vpGetHourlyAt(data.hourly, `wind_speed_${level}hPa`, idx);
@@ -7379,9 +7409,9 @@ function _vpFetchOpenMeteoPoint() {
                         });
                       }
                     } catch (err) {
-                      _iterator86.e(err);
+                      _iterator88.e(err);
                     } finally {
-                      _iterator86.f();
+                      _iterator88.f();
                     }
                     pressureProfile.sort((a, b) => a.geopotentialFt - b.geopotentialFt);
                   }
@@ -8123,11 +8153,11 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     return out;
   };
   var _linSrc = [];
-  var _iterator34 = _createForOfIteratorHelper(_linRaw),
-    _step34;
+  var _iterator36 = _createForOfIteratorHelper(_linRaw),
+    _step36;
   try {
-    for (_iterator34.s(); !(_step34 = _iterator34.n()).done;) {
-      var _feat3 = _step34.value;
+    for (_iterator36.s(); !(_step36 = _iterator36.n()).done;) {
+      var _feat3 = _step36.value;
       if (!isLinearTypeEnabled(_feat3)) continue;
       if (Number((_feat3 === null || _feat3 === void 0 ? void 0 : _feat3.lateralNM) || 999) > VP_LINEAR_ROUTE_CROSS_NM) continue;
       var _d2 = Number((_feat3 === null || _feat3 === void 0 ? void 0 : _feat3.distNM) || NaN);
@@ -8142,9 +8172,9 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
       _linSrc.push(_feat3);
     }
   } catch (err) {
-    _iterator34.e(err);
+    _iterator36.e(err);
   } finally {
-    _iterator34.f();
+    _iterator36.f();
   }
   _linSrc = clusterLinearFeatures(_linSrc);
   if ((vpShowRoads || vpShowRivers || vpShowPowerInfra) && _linSrc.length > 0) {
@@ -8178,11 +8208,11 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
 
     // Blocker aus höchsten Prioritäten vorbereiten: Flugplätze > Städte > Windräder/hohe Türme > Strommasten
     if (Array.isArray(vpLandmarks) && vpLandmarks.length > 0) {
-      var _iterator35 = _createForOfIteratorHelper(vpLandmarks),
-        _step35;
+      var _iterator37 = _createForOfIteratorHelper(vpLandmarks),
+        _step37;
       try {
-        for (_iterator35.s(); !(_step35 = _iterator35.n()).done;) {
-          var lm = _step35.value;
+        for (_iterator37.s(); !(_step37 = _iterator37.n()).done;) {
+          var lm = _step37.value;
           var d = Number((lm === null || lm === void 0 ? void 0 : lm.distNM) || NaN);
           if (!Number.isFinite(d)) continue;
           var px = xOf(d);
@@ -8193,17 +8223,17 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
           reserveBox(px - 12, px + 12, py - 16, py + 14, prio);
         }
       } catch (err) {
-        _iterator35.e(err);
+        _iterator37.e(err);
       } finally {
-        _iterator35.f();
+        _iterator37.f();
       }
     }
     if (Array.isArray(vpObstacles) && vpObstacles.length > 0) {
-      var _iterator36 = _createForOfIteratorHelper(deduplicateFeatures(vpObstacles)),
-        _step36;
+      var _iterator38 = _createForOfIteratorHelper(deduplicateFeatures(vpObstacles)),
+        _step38;
       try {
-        for (_iterator36.s(); !(_step36 = _iterator36.n()).done;) {
-          var obs = _step36.value;
+        for (_iterator38.s(); !(_step38 = _iterator38.n()).done;) {
+          var obs = _step38.value;
           var _d = Number((obs === null || obs === void 0 ? void 0 : obs.distNM) || NaN);
           if (!Number.isFinite(_d)) continue;
           var _px = xOf(_d);
@@ -8216,9 +8246,9 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
           reserveBox(_px - 8, _px + 8, _py - 18, _py + 10, _prio);
         }
       } catch (err) {
-        _iterator36.e(err);
+        _iterator38.e(err);
       } finally {
-        _iterator36.f();
+        _iterator38.f();
       }
     }
     var linCandidates = _linSrc.slice().sort((a, b) => {
@@ -8228,11 +8258,11 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
       return Number(a.distNM || 0) - Number(b.distNM || 0);
     });
     var _linRender = [];
-    var _iterator37 = _createForOfIteratorHelper(linCandidates),
-      _step37;
+    var _iterator39 = _createForOfIteratorHelper(linCandidates),
+      _step39;
     try {
-      for (_iterator37.s(); !(_step37 = _iterator37.n()).done;) {
-        var _feat2 = _step37.value;
+      for (_iterator39.s(); !(_step39 = _iterator39.n()).done;) {
+        var _feat2 = _step39.value;
         var type = String((_feat2 === null || _feat2 === void 0 ? void 0 : _feat2.type) || '').toLowerCase();
         var _prio2 = vpLinearPriority(_feat2);
         var _px4 = xOf(Number((_feat2 === null || _feat2 === void 0 ? void 0 : _feat2.distNM) || 0));
@@ -8253,9 +8283,9 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
 
       // PERFORMANCE FIX: Layout nur 1x pro Zoom-Stufe, maxAlt UND aktueller Route berechnen!
     } catch (err) {
-      _iterator37.e(err);
+      _iterator39.e(err);
     } finally {
-      _iterator37.f();
+      _iterator39.f();
     }
     var routeKey = window._lastVpRouteKey || 'none';
     // Im HDG-Modus: Cache-Key enthält Heading → wird bei Kursänderung invalidiert
@@ -8264,11 +8294,11 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     // Neu berechnen, wenn sich der Cache-Key ändert ODER die Features noch keine Render-Daten haben
     if (!window._vpLinearLayouts || window._vpLinearLayouts.key !== layoutKey || _linRender.length > 0 && !_linRender[0]._render) {
       var occupiedSigns = [];
-      var _iterator38 = _createForOfIteratorHelper(_linRender),
-        _step38;
+      var _iterator40 = _createForOfIteratorHelper(_linRender),
+        _step40;
       try {
-        for (_iterator38.s(); !(_step38 = _iterator38.n()).done;) {
-          var feat = _step38.value;
+        for (_iterator40.s(); !(_step40 = _iterator40.n()).done;) {
+          var feat = _step40.value;
           var _px2 = xOf(feat.distNM);
           var _py2 = getElevY(feat.distNM);
           feat._render = {
@@ -8287,20 +8317,20 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
               attempts = 0;
             while (collision && attempts < 4) {
               collision = false;
-              var _iterator39 = _createForOfIteratorHelper(occupiedSigns),
-                _step39;
+              var _iterator41 = _createForOfIteratorHelper(occupiedSigns),
+                _step41;
               try {
-                for (_iterator39.s(); !(_step39 = _iterator39.n()).done;) {
-                  var occ = _step39.value;
+                for (_iterator41.s(); !(_step41 = _iterator41.n()).done;) {
+                  var occ = _step41.value;
                   if (_px2 - tw / 2 - 3 < occ.r && _px2 + tw / 2 + 3 > occ.l && labelY < occ.b && labelY + 10 > occ.t) {
                     collision = true;
                     break;
                   }
                 }
               } catch (err) {
-                _iterator39.e(err);
+                _iterator41.e(err);
               } finally {
-                _iterator39.f();
+                _iterator41.f();
               }
               if (collision) {
                 labelY += feat.type === 'river' ? 10 : -12;
@@ -8321,9 +8351,9 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
           }
         }
       } catch (err) {
-        _iterator38.e(err);
+        _iterator40.e(err);
       } finally {
-        _iterator38.f();
+        _iterator40.f();
       }
       window._vpLinearLayouts = {
         key: layoutKey,
@@ -8551,11 +8581,11 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
     var nmPerPx = totalDist / (xOf(totalDist) - xOf(0));
     var edgePad = Math.min(2.5, totalDist * 0.05);
     ctx.font = gaEfbProfileFont(`bold ${zoomFactor >= 1.5 ? 10 : 8}px Arial`); // Setup für measureText
-    var _iterator40 = _createForOfIteratorHelper(lmOrdered),
-      _step40;
+    var _iterator42 = _createForOfIteratorHelper(lmOrdered),
+      _step42;
     try {
-      for (_iterator40.s(); !(_step40 = _iterator40.n()).done;) {
-        var lm = _step40.value;
+      for (_iterator42.s(); !(_step42 = _iterator42.n()).done;) {
+        var lm = _step42.value;
         lm._render = null;
         if (lm.distNM < edgePad || lm.distNM > totalDist - edgePad) continue;
         var px = xOf(lm.distNM);
@@ -8585,36 +8615,36 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
           finalMaxX = currentPx + reqWidth / 2;
           var boxT = currentPy - iconOffsetY - iconFontSize;
           var boxB = currentPy + 20;
-          var _iterator41 = _createForOfIteratorHelper(globalOccupiedX),
-            _step41;
+          var _iterator43 = _createForOfIteratorHelper(globalOccupiedX),
+            _step43;
           try {
-            for (_iterator41.s(); !(_step41 = _iterator41.n()).done;) {
-              var _occ = _step41.value;
+            for (_iterator43.s(); !(_step43 = _iterator43.n()).done;) {
+              var _occ = _step43.value;
               if (finalMinX < _occ.maxX && finalMaxX > _occ.minX) {
                 collision = true;
                 break;
               }
             }
           } catch (err) {
-            _iterator41.e(err);
+            _iterator43.e(err);
           } finally {
-            _iterator41.f();
+            _iterator43.f();
           }
           if (!collision && window.vpLinearOccupied) {
-            var _iterator42 = _createForOfIteratorHelper(window.vpLinearOccupied),
-              _step42;
+            var _iterator44 = _createForOfIteratorHelper(window.vpLinearOccupied),
+              _step44;
             try {
-              for (_iterator42.s(); !(_step42 = _iterator42.n()).done;) {
-                var occ = _step42.value;
+              for (_iterator44.s(); !(_step44 = _iterator44.n()).done;) {
+                var occ = _step44.value;
                 if (finalMinX < occ.r && finalMaxX > occ.l && boxT < occ.b && boxB > occ.t) {
                   collision = true;
                   break;
                 }
               }
             } catch (err) {
-              _iterator42.e(err);
+              _iterator44.e(err);
             } finally {
-              _iterator42.f();
+              _iterator44.f();
             }
           }
           if (collision) {
@@ -8643,9 +8673,9 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         }
       }
     } catch (err) {
-      _iterator40.e(err);
+      _iterator42.e(err);
     } finally {
-      _iterator40.f();
+      _iterator42.f();
     }
     window._vpLandmarkLayouts = {
       key: effectiveLayoutKey,
@@ -8667,11 +8697,11 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
       viewMaxX = sc.scrollLeft + sc.clientWidth + 100;
     }
   }
-  var _iterator43 = _createForOfIteratorHelper(lmOrdered),
-    _step43;
+  var _iterator45 = _createForOfIteratorHelper(lmOrdered),
+    _step45;
   try {
-    for (_iterator43.s(); !(_step43 = _iterator43.n()).done;) {
-      var _lm = _step43.value;
+    for (_iterator45.s(); !(_step45 = _iterator45.n()).done;) {
+      var _lm = _step45.value;
       if (!_lm._render) continue;
 
       // FIX: X und Y Pixel in Echtzeit anhand der aktuellen Skalierung berechnen
@@ -8688,9 +8718,9 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
       }
     }
   } catch (err) {
-    _iterator43.e(err);
+    _iterator45.e(err);
   } finally {
-    _iterator43.f();
+    _iterator45.f();
   }
   ctx.restore();
 }
@@ -8716,11 +8746,11 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
     var oDist = Number((obs === null || obs === void 0 ? void 0 : obs.distNM) || NaN);
     var oLat = Number((obs === null || obs === void 0 ? void 0 : obs.lateralNM) || 999);
     if (!Number.isFinite(oDist)) return false;
-    var _iterator44 = _createForOfIteratorHelper(activeLin),
-      _step44;
+    var _iterator46 = _createForOfIteratorHelper(activeLin),
+      _step46;
     try {
-      for (_iterator44.s(); !(_step44 = _iterator44.n()).done;) {
-        var feat = _step44.value;
+      for (_iterator46.s(); !(_step46 = _iterator46.n()).done;) {
+        var feat = _step46.value;
         if (String((feat === null || feat === void 0 ? void 0 : feat.type) || '').toLowerCase() !== 'powerline') continue;
         var fDist = Number((feat === null || feat === void 0 ? void 0 : feat.distNM) || NaN);
         var fLat = Number((feat === null || feat === void 0 ? void 0 : feat.lateralNM) || 999);
@@ -8730,9 +8760,9 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
         }
       }
     } catch (err) {
-      _iterator44.e(err);
+      _iterator46.e(err);
     } finally {
-      _iterator44.f();
+      _iterator46.f();
     }
     return false;
   };
@@ -8764,11 +8794,11 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
 
   // 1. Alle Masten zeichnen und Label-Positionen sammeln
   var rawLabels = [];
-  var _iterator45 = _createForOfIteratorHelper(obsToDraw),
-    _step45;
+  var _iterator47 = _createForOfIteratorHelper(obsToDraw),
+    _step47;
   try {
-    for (_iterator45.s(); !(_step45 = _iterator45.n()).done;) {
-      var obs = _step45.value;
+    for (_iterator47.s(); !(_step47 = _iterator47.n()).done;) {
+      var obs = _step47.value;
       if (obs.distNM < edgePad || obs.distNM > totalDist - edgePad) continue;
       if (!vpShowPowerInfra && String((obs === null || obs === void 0 ? void 0 : obs.type) || '').toLowerCase() === 'power_tower') continue;
       var _px7 = xOf(obs.distNM);
@@ -8883,9 +8913,9 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
       });
     }
   } catch (err) {
-    _iterator45.e(err);
+    _iterator47.e(err);
   } finally {
-    _iterator45.f();
+    _iterator47.f();
   }
   if (window.vpIsFastRendering) {
     ctx.restore();
@@ -8939,20 +8969,20 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
     var minX = px - textWidth / 2;
     var maxX = px + textWidth / 2;
     if (window.vpLandmarkOccupiedX) {
-      var _iterator46 = _createForOfIteratorHelper(window.vpLandmarkOccupiedX),
-        _step46;
+      var _iterator48 = _createForOfIteratorHelper(window.vpLandmarkOccupiedX),
+        _step48;
       try {
-        for (_iterator46.s(); !(_step46 = _iterator46.n()).done;) {
-          var occ = _step46.value;
+        for (_iterator48.s(); !(_step48 = _iterator48.n()).done;) {
+          var occ = _step48.value;
           if (minX < occ.maxX + 2 && maxX > occ.minX - 2) {
             collision = true;
             break;
           }
         }
       } catch (err) {
-        _iterator46.e(err);
+        _iterator48.e(err);
       } finally {
-        _iterator46.f();
+        _iterator48.f();
       }
     }
     if (!collision) {
@@ -9573,11 +9603,11 @@ function vpFindNearestWeatherZone(distNM) {
   if (!vpWeatherData || vpWeatherData.length === 0) return null;
   var best = null;
   var minDiff = Infinity;
-  var _iterator47 = _createForOfIteratorHelper(vpWeatherData),
-    _step47;
+  var _iterator49 = _createForOfIteratorHelper(vpWeatherData),
+    _step49;
   try {
-    for (_iterator47.s(); !(_step47 = _iterator47.n()).done;) {
-      var z = _step47.value;
+    for (_iterator49.s(); !(_step49 = _iterator49.n()).done;) {
+      var z = _step49.value;
       var d = Math.abs((z.distNM || 0) - distNM);
       if (d < minDiff) {
         minDiff = d;
@@ -9585,9 +9615,9 @@ function vpFindNearestWeatherZone(distNM) {
       }
     }
   } catch (err) {
-    _iterator47.e(err);
+    _iterator49.e(err);
   } finally {
-    _iterator47.f();
+    _iterator49.f();
   }
   return best;
 }
@@ -9661,26 +9691,26 @@ var VP_ISOBAR_RELIEF_MAX_DELTA_FT = 1800;
 function vpBuildIsobarReliefStats() {
   var stats = {};
   if (!Array.isArray(vpWeatherData) || vpWeatherData.length < 2) return stats;
-  var _iterator48 = _createForOfIteratorHelper(VP_OM_PRESSURE_LEVELS),
-    _step48;
+  var _iterator50 = _createForOfIteratorHelper(VP_OM_PRESSURE_LEVELS),
+    _step50;
   try {
     var _loop2 = function _loop2() {
-      var level = _step48.value;
+      var level = _step50.value;
       var vals = [];
-      var _iterator49 = _createForOfIteratorHelper(vpWeatherData),
-        _step49;
+      var _iterator51 = _createForOfIteratorHelper(vpWeatherData),
+        _step51;
       try {
-        for (_iterator49.s(); !(_step49 = _iterator49.n()).done;) {
-          var zone = _step49.value;
+        for (_iterator51.s(); !(_step51 = _iterator51.n()).done;) {
+          var zone = _step51.value;
           if (!Array.isArray(zone.pressureProfile)) continue;
           var p = zone.pressureProfile.find(pp => pp.hPa === level && Number.isFinite(pp.geopotentialFt));
           if (!p) continue;
           vals.push(p.geopotentialFt);
         }
       } catch (err) {
-        _iterator49.e(err);
+        _iterator51.e(err);
       } finally {
-        _iterator49.f();
+        _iterator51.f();
       }
       if (vals.length < 2) return 1; // continue
       var min = Math.min.apply(Math, vals);
@@ -9696,13 +9726,13 @@ function vpBuildIsobarReliefStats() {
         maxDelta
       };
     };
-    for (_iterator48.s(); !(_step48 = _iterator48.n()).done;) {
+    for (_iterator50.s(); !(_step50 = _iterator50.n()).done;) {
       if (_loop2()) continue;
     }
   } catch (err) {
-    _iterator48.e(err);
+    _iterator50.e(err);
   } finally {
-    _iterator48.f();
+    _iterator50.f();
   }
   return stats;
 }
@@ -9727,18 +9757,18 @@ function vpDrawIsobars(ctx, xOf, yOf, padTop, plotH, viewMinX, viewMaxX, rightX)
   ctx.font = gaEfbProfileFont('9px Arial');
   ctx.textAlign = 'right';
   var usedLabelYs = [];
-  var _iterator50 = _createForOfIteratorHelper(levels),
-    _step50;
+  var _iterator52 = _createForOfIteratorHelper(levels),
+    _step52;
   try {
     var _loop3 = function _loop3() {
-        var level = _step50.value;
+        var level = _step52.value;
         var pts = [];
         var lastLabel = null;
-        var _iterator51 = _createForOfIteratorHelper(vpWeatherData),
-          _step51;
+        var _iterator53 = _createForOfIteratorHelper(vpWeatherData),
+          _step53;
         try {
-          for (_iterator51.s(); !(_step51 = _iterator51.n()).done;) {
-            var zone = _step51.value;
+          for (_iterator53.s(); !(_step53 = _iterator53.n()).done;) {
+            var zone = _step53.value;
             if (!Array.isArray(zone.pressureProfile)) continue;
             var p = zone.pressureProfile.find(pp => pp.hPa === level && Number.isFinite(pp.geopotentialFt));
             if (!p) continue;
@@ -9757,9 +9787,9 @@ function vpDrawIsobars(ctx, xOf, yOf, padTop, plotH, viewMinX, viewMaxX, rightX)
             };
           }
         } catch (err) {
-          _iterator51.e(err);
+          _iterator53.e(err);
         } finally {
-          _iterator51.f();
+          _iterator53.f();
         }
         if (pts.length < 2) return 0; // continue
 
@@ -9792,14 +9822,14 @@ function vpDrawIsobars(ctx, xOf, yOf, padTop, plotH, viewMinX, viewMaxX, rightX)
         gaEfbCanvasFillText(ctx, label, rightX, ly);
       },
       _ret;
-    for (_iterator50.s(); !(_step50 = _iterator50.n()).done;) {
+    for (_iterator52.s(); !(_step52 = _iterator52.n()).done;) {
       _ret = _loop3();
       if (_ret === 0) continue;
     }
   } catch (err) {
-    _iterator50.e(err);
+    _iterator52.e(err);
   } finally {
-    _iterator50.f();
+    _iterator52.f();
   }
   ctx.restore();
 }
@@ -9816,11 +9846,11 @@ function vpDrawWindComponentsOnIsobars(ctx, xOf, yOf, elevData, viewMinX, viewMa
   ctx.lineCap = 'round';
   var minLabelDxPx = 82;
   var minShownComponentKt = 2;
-  var _iterator52 = _createForOfIteratorHelper(levels),
-    _step52;
+  var _iterator54 = _createForOfIteratorHelper(levels),
+    _step54;
   try {
     var _loop4 = function _loop4() {
-      var level = _step52.value;
+      var level = _step54.value;
       var points = [];
       for (var i = 0; i < vpWeatherData.length; i++) {
         var zone = vpWeatherData[i];
@@ -9866,13 +9896,13 @@ function vpDrawWindComponentsOnIsobars(ctx, xOf, yOf, elevData, viewMinX, viewMa
         lastLabelX = pt.x;
       }
     };
-    for (_iterator52.s(); !(_step52 = _iterator52.n()).done;) {
+    for (_iterator54.s(); !(_step54 = _iterator54.n()).done;) {
       if (_loop4()) continue;
     }
   } catch (err) {
-    _iterator52.e(err);
+    _iterator54.e(err);
   } finally {
-    _iterator52.f();
+    _iterator54.f();
   }
   ctx.restore();
 }
@@ -9890,11 +9920,11 @@ function computeFlightProfile(elevationData, cruiseAltFt, climbRateFpm, descentR
   var tocDistNM = Math.min(climbDistNM, totalDistNM * 0.4);
   var todDistNM = Math.max(totalDistNM - descentDistNM, totalDistNM * 0.6);
   var profile = [];
-  var _iterator53 = _createForOfIteratorHelper(elevationData),
-    _step53;
+  var _iterator55 = _createForOfIteratorHelper(elevationData),
+    _step55;
   try {
-    for (_iterator53.s(); !(_step53 = _iterator53.n()).done;) {
-      var pt = _step53.value;
+    for (_iterator55.s(); !(_step55 = _iterator55.n()).done;) {
+      var pt = _step55.value;
       var altFt = void 0;
       if (pt.distNM <= tocDistNM) {
         var f = tocDistNM > 0 ? pt.distNM / tocDistNM : 1;
@@ -9911,9 +9941,9 @@ function computeFlightProfile(elevationData, cruiseAltFt, climbRateFpm, descentR
       });
     }
   } catch (err) {
-    _iterator53.e(err);
+    _iterator55.e(err);
   } finally {
-    _iterator53.f();
+    _iterator55.f();
   }
   return {
     profile,
@@ -10033,11 +10063,11 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
 
       // 2) Fast angrenzende Intervalle zusammenführen (numerisches Flattern am Rand)
       var merged = [];
-      var _iterator54 = _createForOfIteratorHelper(filtered),
-        _step54;
+      var _iterator56 = _createForOfIteratorHelper(filtered),
+        _step56;
       try {
-        for (_iterator54.s(); !(_step54 = _iterator54.n()).done;) {
-          var iv = _step54.value;
+        for (_iterator56.s(); !(_step56 = _iterator56.n()).done;) {
+          var iv = _step56.value;
           if (merged.length === 0) {
             merged.push({
               min: iv.min,
@@ -10056,9 +10086,9 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
           }
         }
       } catch (err) {
-        _iterator54.e(err);
+        _iterator56.e(err);
       } finally {
-        _iterator54.f();
+        _iterator56.f();
       }
       var eps = elevData.length > 1 ? Math.max(0.05, (elevData[1].distNM - elevData[0].distNM) * 0.5) : 0.5;
       var _loop6 = function _loop6() {
@@ -10163,11 +10193,11 @@ function renderVerticalProfile(canvasId) {
   var occupiedASLabels = [];
   if (vpAirspaceMode !== 0 && typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
     var cachedAirspaces = getCachedAirspaceIntersections(vpElevationData, totalDist);
-    var _iterator55 = _createForOfIteratorHelper(cachedAirspaces),
-      _step55;
+    var _iterator57 = _createForOfIteratorHelper(cachedAirspaces),
+      _step57;
     try {
       var _loop7 = function _loop7() {
-        var item = _step55.value;
+        var item = _step57.value;
         var asIdx = item.asIdx,
           as = item.as,
           lowerFt = item.lowerFt,
@@ -10225,20 +10255,20 @@ function renderVerticalProfile(canvasId) {
         var tLeft = (x1 + x2) / 2 - tw / 2,
           tRight = tLeft + tw;
         var collision = false;
-        var _iterator56 = _createForOfIteratorHelper(occupiedASLabels),
-          _step56;
+        var _iterator58 = _createForOfIteratorHelper(occupiedASLabels),
+          _step58;
         try {
-          for (_iterator56.s(); !(_step56 = _iterator56.n()).done;) {
-            var occ = _step56.value;
+          for (_iterator58.s(); !(_step58 = _iterator58.n()).done;) {
+            var occ = _step58.value;
             if (tLeft < occ.r && tRight > occ.l && labelY < occ.b && labelY + 20 > occ.t) {
               collision = true;
               break;
             }
           }
         } catch (err) {
-          _iterator56.e(err);
+          _iterator58.e(err);
         } finally {
-          _iterator56.f();
+          _iterator58.f();
         }
         if (!collision) {
           occupiedASLabels.push({
@@ -10254,13 +10284,13 @@ function renderVerticalProfile(canvasId) {
           gaEfbCanvasFillText(ctx, formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 19);
         }
       };
-      for (_iterator55.s(); !(_step55 = _iterator55.n()).done;) {
+      for (_iterator57.s(); !(_step57 = _iterator57.n()).done;) {
         _loop7();
       }
     } catch (err) {
-      _iterator55.e(err);
+      _iterator57.e(err);
     } finally {
-      _iterator55.f();
+      _iterator57.f();
     }
   }
   ctx.textAlign = 'left';
@@ -10856,18 +10886,18 @@ function vpProjectTrafficOnRoute(elevData) {
   if (!((_window$vpTrafficData = window.vpTrafficData) !== null && _window$vpTrafficData !== void 0 && _window$vpTrafficData.length) || !(elevData !== null && elevData !== void 0 && elevData.length)) return [];
   var MAX_LAT_NM = 5;
   var result = [];
-  var _iterator57 = _createForOfIteratorHelper(window.vpTrafficData),
-    _step57;
+  var _iterator59 = _createForOfIteratorHelper(window.vpTrafficData),
+    _step59;
   try {
-    for (_iterator57.s(); !(_step57 = _iterator57.n()).done;) {
-      var ac = _step57.value;
+    for (_iterator59.s(); !(_step59 = _iterator59.n()).done;) {
+      var ac = _step59.value;
       var bestDist = Infinity,
         bestDistNM = 0;
-      var _iterator58 = _createForOfIteratorHelper(elevData),
-        _step58;
+      var _iterator60 = _createForOfIteratorHelper(elevData),
+        _step60;
       try {
-        for (_iterator58.s(); !(_step58 = _iterator58.n()).done;) {
-          var ep = _step58.value;
+        for (_iterator60.s(); !(_step60 = _iterator60.n()).done;) {
+          var ep = _step60.value;
           if (ep.lat == null) continue;
           var d = calcNav(ac.lat, ac.lon, ep.lat, ep.lon).dist;
           if (d < bestDist) {
@@ -10876,9 +10906,9 @@ function vpProjectTrafficOnRoute(elevData) {
           }
         }
       } catch (err) {
-        _iterator58.e(err);
+        _iterator60.e(err);
       } finally {
-        _iterator58.f();
+        _iterator60.f();
       }
       if (bestDist <= MAX_LAT_NM) {
         result.push({
@@ -10891,9 +10921,9 @@ function vpProjectTrafficOnRoute(elevData) {
       }
     }
   } catch (err) {
-    _iterator57.e(err);
+    _iterator59.e(err);
   } finally {
-    _iterator57.f();
+    _iterator59.f();
   }
   return result;
 }
@@ -10914,11 +10944,11 @@ function vpProjectTrafficOnHeading() {
   var minAlongNM = -(VP_HDG_LOOKBACK_MIN * gs / 60);
   var maxAlongNM = VP_HDG_LOOKAHEAD_MIN * gs / 60;
   var result = [];
-  var _iterator59 = _createForOfIteratorHelper(window.vpTrafficData),
-    _step59;
+  var _iterator61 = _createForOfIteratorHelper(window.vpTrafficData),
+    _step61;
   try {
-    for (_iterator59.s(); !(_step59 = _iterator59.n()).done;) {
-      var ac = _step59.value;
+    for (_iterator61.s(); !(_step61 = _iterator61.n()).done;) {
+      var ac = _step61.value;
       var dLatNM = (ac.lat - oLat) * 60;
       var dLonNM = (ac.lon - oLon) * 60 * Math.cos(oLat * Math.PI / 180);
       var along = dLonNM * hdgSin + dLatNM * hdgCos; // NM entlang Heading
@@ -10935,9 +10965,9 @@ function vpProjectTrafficOnHeading() {
       });
     }
   } catch (err) {
-    _iterator59.e(err);
+    _iterator61.e(err);
   } finally {
-    _iterator59.f();
+    _iterator61.f();
   }
   return result;
 }
@@ -10949,11 +10979,11 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
   var traffic = isHdgMode ? vpProjectTrafficOnHeading() : vpProjectTrafficOnRoute(elevData);
   if (!traffic.length) return;
   var ownAlt = (_ref33 = (_window$lastLiveGpsPo4 = (_window$lastLiveGpsPo5 = window.lastLiveGpsPos) === null || _window$lastLiveGpsPo5 === void 0 ? void 0 : _window$lastLiveGpsPo5.alt) !== null && _window$lastLiveGpsPo4 !== void 0 ? _window$lastLiveGpsPo4 : vpLiveAltFt) !== null && _ref33 !== void 0 ? _ref33 : 0;
-  var _iterator60 = _createForOfIteratorHelper(traffic),
-    _step60;
+  var _iterator62 = _createForOfIteratorHelper(traffic),
+    _step62;
   try {
-    for (_iterator60.s(); !(_step60 = _iterator60.n()).done;) {
-      var ac = _step60.value;
+    for (_iterator62.s(); !(_step62 = _iterator62.n()).done;) {
+      var ac = _step62.value;
       var tx = xOf(ac.projDistNM);
       var ty = yOf(ac.altFt);
       if (tx < viewMinX - 30 || tx > viewMaxX + 30) continue;
@@ -11008,9 +11038,9 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
       fgCtx.restore();
     }
   } catch (err) {
-    _iterator60.e(err);
+    _iterator62.e(err);
   } finally {
-    _iterator60.f();
+    _iterator62.f();
   }
 }
 window.vpToggleTrafficProfile = function () {
@@ -11116,11 +11146,11 @@ function renderMapProfileFrames(timeMs) {
     var occupiedASLabels = [];
     if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
       var cachedAirspaces = getCachedAirspaceIntersections(elevData, totalDist);
-      var _iterator61 = _createForOfIteratorHelper(cachedAirspaces),
-        _step61;
+      var _iterator63 = _createForOfIteratorHelper(cachedAirspaces),
+        _step63;
       try {
         var _loop8 = function _loop8() {
-          var item = _step61.value;
+          var item = _step63.value;
           var asIdx = item.asIdx,
             as = item.as,
             lowerFt = item.lowerFt,
@@ -11182,20 +11212,20 @@ function renderMapProfileFrames(timeMs) {
               tRight = tLeft + tw;
             var collision = false;
             if (!isHighlighted) {
-              var _iterator62 = _createForOfIteratorHelper(occupiedASLabels),
-                _step62;
+              var _iterator64 = _createForOfIteratorHelper(occupiedASLabels),
+                _step64;
               try {
-                for (_iterator62.s(); !(_step62 = _iterator62.n()).done;) {
-                  var occ = _step62.value;
+                for (_iterator64.s(); !(_step64 = _iterator64.n()).done;) {
+                  var occ = _step64.value;
                   if (tLeft < occ.r && tRight > occ.l && labelY < occ.b && labelY + 25 > occ.t) {
                     collision = true;
                     break;
                   }
                 }
               } catch (err) {
-                _iterator62.e(err);
+                _iterator64.e(err);
               } finally {
-                _iterator62.f();
+                _iterator64.f();
               }
             }
             if (!collision) {
@@ -11215,13 +11245,13 @@ function renderMapProfileFrames(timeMs) {
             }
           }
         };
-        for (_iterator61.s(); !(_step61 = _iterator61.n()).done;) {
+        for (_iterator63.s(); !(_step63 = _iterator63.n()).done;) {
           _loop8();
         }
       } catch (err) {
-        _iterator61.e(err);
+        _iterator63.e(err);
       } finally {
-        _iterator61.f();
+        _iterator63.f();
       }
     }
     targetCtx.textAlign = 'left';
@@ -11432,11 +11462,11 @@ function renderMapProfileFrames(timeMs) {
       var _drawHdgFpLine = (offsetY, style, width) => {
         fgCtx.beginPath();
         var started = false;
-        var _iterator63 = _createForOfIteratorHelper(fpRoute.profile),
-          _step63;
+        var _iterator65 = _createForOfIteratorHelper(fpRoute.profile),
+          _step65;
         try {
-          for (_iterator63.s(); !(_step63 = _iterator63.n()).done;) {
-            var pt = _step63.value;
+          for (_iterator65.s(); !(_step65 = _iterator65.n()).done;) {
+            var pt = _step65.value;
             var offsetNM = pt.distNM - liveDistNM;
             var minAxis = VP_HDG_LOOKBACK_MIN + offsetNM / gs * 60;
             if (minAxis < -0.5 || minAxis > hdgTotalMin + 0.5) {
@@ -11457,9 +11487,9 @@ function renderMapProfileFrames(timeMs) {
             }
           }
         } catch (err) {
-          _iterator63.e(err);
+          _iterator65.e(err);
         } finally {
-          _iterator63.f();
+          _iterator65.f();
         }
         fgCtx.strokeStyle = style;
         fgCtx.lineWidth = width;
@@ -11668,30 +11698,30 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.lineWidth = 1.5;
       fgCtx.beginPath();
       fgCtx.moveTo(baseX, baseY);
-      var _iterator64 = _createForOfIteratorHelper(visiblePts),
-        _step64;
+      var _iterator66 = _createForOfIteratorHelper(visiblePts),
+        _step66;
       try {
-        for (_iterator64.s(); !(_step64 = _iterator64.n()).done;) {
-          var pt = _step64.value;
+        for (_iterator66.s(); !(_step66 = _iterator66.n()).done;) {
+          var pt = _step66.value;
           var px = xOf(baseDist + ptOffset(pt));
           var py = yOf(pt.altFt);
           fgCtx.lineTo(px, py);
         }
       } catch (err) {
-        _iterator64.e(err);
+        _iterator66.e(err);
       } finally {
-        _iterator64.f();
+        _iterator66.f();
       }
       fgCtx.strokeStyle = 'rgba(255,255,255,0.55)';
       fgCtx.stroke();
       fgCtx.setLineDash([]);
 
       // Zeitmarker + Labels
-      var _iterator65 = _createForOfIteratorHelper(visiblePts),
-        _step65;
+      var _iterator67 = _createForOfIteratorHelper(visiblePts),
+        _step67;
       try {
-        for (_iterator65.s(); !(_step65 = _iterator65.n()).done;) {
-          var _pt = _step65.value;
+        for (_iterator67.s(); !(_step67 = _iterator67.n()).done;) {
+          var _pt = _step67.value;
           var _px8 = xOf(baseDist + ptOffset(_pt));
           var _py5 = yOf(_pt.altFt);
 
@@ -11722,9 +11752,9 @@ function renderMapProfileFrames(timeMs) {
           }
         }
       } catch (err) {
-        _iterator65.e(err);
+        _iterator67.e(err);
       } finally {
-        _iterator65.f();
+        _iterator67.f();
       }
       fgCtx.restore();
     }
@@ -12109,17 +12139,17 @@ function initAltWaypoints() {
   }
   function vpAddWaypoint(clickDistNM, exactAlt, cruiseAlt, totalDist) {
     if (clickDistNM < 0 || clickDistNM > totalDist) return;
-    var _iterator66 = _createForOfIteratorHelper(vpAltWaypoints),
-      _step66;
+    var _iterator68 = _createForOfIteratorHelper(vpAltWaypoints),
+      _step68;
     try {
-      for (_iterator66.s(); !(_step66 = _iterator66.n()).done;) {
-        var wp = _step66.value;
+      for (_iterator68.s(); !(_step68 = _iterator68.n()).done;) {
+        var wp = _step68.value;
         if (Math.abs(wp.distNM - clickDistNM) < totalDist * 0.03) return;
       }
     } catch (err) {
-      _iterator66.e(err);
+      _iterator68.e(err);
     } finally {
-      _iterator66.f();
+      _iterator68.f();
     }
     var insertIdx = vpAltWaypoints.length;
     for (var k = 0; k < vpAltWaypoints.length; k++) {
@@ -12528,11 +12558,11 @@ computeFlightProfile = function computeFlightProfile(elevationData, cruiseAltFt,
   var descentFt = Math.max(0, lastWpAlt - destElevFt);
   var descentDistNM = Math.max(0.5, descentFt / descentRateFpm / 60 * tasKts * 0.9);
   var todDistNM = Math.max(totalDistNM - descentDistNM, wps[wps.length - 1].distNM);
-  var _iterator67 = _createForOfIteratorHelper(elevationData),
-    _step67;
+  var _iterator69 = _createForOfIteratorHelper(elevationData),
+    _step69;
   try {
-    for (_iterator67.s(); !(_step67 = _iterator67.n()).done;) {
-      var pt = _step67.value;
+    for (_iterator69.s(); !(_step69 = _iterator69.n()).done;) {
+      var pt = _step69.value;
       var d = pt.distNM;
       var altFt = cruiseAltFt;
       if (d <= wps[0].distNM) {
@@ -12586,9 +12616,9 @@ computeFlightProfile = function computeFlightProfile(elevationData, cruiseAltFt,
       });
     }
   } catch (err) {
-    _iterator67.e(err);
+    _iterator69.e(err);
   } finally {
-    _iterator67.f();
+    _iterator69.f();
   }
   return {
     profile,
@@ -13431,11 +13461,11 @@ function vpBlendHdgWeatherZones(prevZones, nextZones, alpha) {
   return nextZones.map(nz => {
     var best = null;
     var bestD = Infinity;
-    var _iterator68 = _createForOfIteratorHelper(prevZones),
-      _step68;
+    var _iterator70 = _createForOfIteratorHelper(prevZones),
+      _step70;
     try {
-      for (_iterator68.s(); !(_step68 = _iterator68.n()).done;) {
-        var pz = _step68.value;
+      for (_iterator70.s(); !(_step70 = _iterator70.n()).done;) {
+        var pz = _step70.value;
         var d = Math.abs((pz.distNM || 0) - (nz.distNM || 0));
         if (d < bestD) {
           bestD = d;
@@ -13443,9 +13473,9 @@ function vpBlendHdgWeatherZones(prevZones, nextZones, alpha) {
         }
       }
     } catch (err) {
-      _iterator68.e(err);
+      _iterator70.e(err);
     } finally {
-      _iterator68.f();
+      _iterator70.f();
     }
     if (!best || bestD > maxMatchDeltaMin) return nz;
     var out = _objectSpread({}, nz);
@@ -13962,11 +13992,11 @@ function computeHdgLandmarks(lat, lon, hdg, gs) {
   var found = [];
 
   // Städte
-  var _iterator69 = _createForOfIteratorHelper(cities),
-    _step69;
+  var _iterator71 = _createForOfIteratorHelper(cities),
+    _step71;
   try {
-    for (_iterator69.s(); !(_step69 = _iterator69.n()).done;) {
-      var c = _step69.value;
+    for (_iterator71.s(); !(_step71 = _iterator71.n()).done;) {
+      var c = _step71.value;
       if (!c.lat || !c.lon) continue;
       if (typeof calcNav !== 'function') break;
       var nav = calcNav(lat, lon, c.lat, c.lon);
@@ -13992,15 +14022,15 @@ function computeHdgLandmarks(lat, lon, hdg, gs) {
 
     // Airports
   } catch (err) {
-    _iterator69.e(err);
+    _iterator71.e(err);
   } finally {
-    _iterator69.f();
+    _iterator71.f();
   }
-  var _iterator70 = _createForOfIteratorHelper(airports),
-    _step70;
+  var _iterator72 = _createForOfIteratorHelper(airports),
+    _step72;
   try {
-    for (_iterator70.s(); !(_step70 = _iterator70.n()).done;) {
-      var a = _step70.value;
+    for (_iterator72.s(); !(_step72 = _iterator72.n()).done;) {
+      var a = _step72.value;
       if (!a.lat || !a.lon) continue;
       if (typeof calcNav !== 'function') break;
       var _nav = calcNav(lat, lon, a.lat, a.lon);
@@ -14023,9 +14053,9 @@ function computeHdgLandmarks(lat, lon, hdg, gs) {
 
     // Sortieren nach Entfernung, max. 12 Landmarks
   } catch (err) {
-    _iterator70.e(err);
+    _iterator72.e(err);
   } finally {
-    _iterator70.f();
+    _iterator72.f();
   }
   found.sort((a, b) => b.pop - a.pop);
   vpHdgLandmarks = found.slice(0, 12);
@@ -14038,11 +14068,11 @@ function computeHdgObstacles(lat, lon, hdg, gs) {
   var totalMin = VP_HDG_LOOKBACK_MIN + VP_HDG_LOOKAHEAD_MIN;
   var totalNM = gs * (totalMin / 60);
   var backNM = gs * (VP_HDG_LOOKBACK_MIN / 60);
-  var _iterator71 = _createForOfIteratorHelper(vpObstacles),
-    _step71;
+  var _iterator73 = _createForOfIteratorHelper(vpObstacles),
+    _step73;
   try {
-    for (_iterator71.s(); !(_step71 = _iterator71.n()).done;) {
-      var obs = _step71.value;
+    for (_iterator73.s(); !(_step73 = _iterator73.n()).done;) {
+      var obs = _step73.value;
       if (!obs.lat || !obs.lon) continue;
       if (typeof calcNav !== 'function') break;
       var nav = calcNav(lat, lon, obs.lat, obs.lon);
@@ -14062,9 +14092,9 @@ function computeHdgObstacles(lat, lon, hdg, gs) {
       }));
     }
   } catch (err) {
-    _iterator71.e(err);
+    _iterator73.e(err);
   } finally {
-    _iterator71.f();
+    _iterator73.f();
   }
 }
 
@@ -14074,11 +14104,11 @@ function computeHdgLinearFeatures(lat, lon, hdg, gs) {
   if (!vpLinearFeatures || vpLinearFeatures.length === 0) return;
   var totalMin = VP_HDG_LOOKBACK_MIN + VP_HDG_LOOKAHEAD_MIN;
   var totalNM = gs * (totalMin / 60);
-  var _iterator72 = _createForOfIteratorHelper(vpLinearFeatures),
-    _step72;
+  var _iterator74 = _createForOfIteratorHelper(vpLinearFeatures),
+    _step74;
   try {
-    for (_iterator72.s(); !(_step72 = _iterator72.n()).done;) {
-      var lin = _step72.value;
+    for (_iterator74.s(); !(_step74 = _iterator74.n()).done;) {
+      var lin = _step74.value;
       if (!lin.lat || !lin.lon) continue;
       if (typeof calcNav !== 'function') break;
       var nav = calcNav(lat, lon, lin.lat, lin.lon);
@@ -14095,9 +14125,9 @@ function computeHdgLinearFeatures(lat, lon, hdg, gs) {
       }));
     }
   } catch (err) {
-    _iterator72.e(err);
+    _iterator74.e(err);
   } finally {
-    _iterator72.f();
+    _iterator74.f();
   }
 }
 
@@ -14147,12 +14177,12 @@ function _profileIdxScore(ed, i, lat, lon, hdg) {
 function _getAirspaceColorForPredPoint(pt) {
   if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return null;
   if (typeof getAirspaceVerticalBandFt === 'undefined' || typeof isPointInsideAirspace === 'undefined') return null;
-  var _iterator73 = _createForOfIteratorHelper(activeAirspaces),
-    _step73;
+  var _iterator75 = _createForOfIteratorHelper(activeAirspaces),
+    _step75;
   try {
-    for (_iterator73.s(); !(_step73 = _iterator73.n()).done;) {
+    for (_iterator75.s(); !(_step75 = _iterator75.n()).done;) {
       var _pt$terrainFt;
-      var as = _step73.value;
+      var as = _step75.value;
       if (!as.geometry || !as.lowerLimit || !as.upperLimit) continue;
       if (as.type === 33) continue; // FIS überspringen
       var terrainBase = Number((_pt$terrainFt = pt.terrainFt) !== null && _pt$terrainFt !== void 0 ? _pt$terrainFt : window.lastLiveTerrainFt) || 0;
@@ -14162,9 +14192,9 @@ function _getAirspaceColorForPredPoint(pt) {
       if (isPointInsideAirspace(as, pt.lat, pt.lon)) return typeof getAirspaceStyle === 'function' ? getAirspaceStyle(as).color : '#f2c12e';
     }
   } catch (err) {
-    _iterator73.e(err);
+    _iterator75.e(err);
   } finally {
-    _iterator73.f();
+    _iterator75.f();
   }
   return null;
 }

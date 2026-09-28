@@ -1,6 +1,6 @@
 # APT Sightseeing: Besuchsplan V1
 
-Stand: 28.09.2026, lokal implementiert; noch nicht veröffentlicht.
+Stand: 28.09.2026, Alpha-Veröffentlichung: Website v1871, Tracker v453.
 
 ## Fachlicher Vertrag
 
@@ -85,8 +85,8 @@ sowie Tracker-Runtime-Test mit Sightseeing-Schema und Neustart. Der Live-Probe
 `tools/sightseeing-ideas-live-probe.mjs --run` verwendet echte Quellen und eine
 isolierte History; Schlüssel bleiben lokal. Kein Live-Wetter im Probe.
 
-Vor Veröffentlichung: Cache-Version nach Push-Workflow erhöhen, neue drei Browser-
-Module einschließen und Tracker neu bauen/veröffentlichen. Tracker-History und
+Release: Cache-Version erhöht, die drei Browser-Module eingebunden und Tracker v453
+neu gebaut; Verteilung über den Alpha-Kanal. Tracker-History und
 Beschriftung wurden angepasst; bloßes Aktualisieren der Website aktualisiert keine
 installierte EXE. Noch kein manueller Flugtest in MSFS erfolgt.
 
