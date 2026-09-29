@@ -85,7 +85,7 @@ test('idea receives the actual scene catalogue as capabilities without concrete 
  assert.ok(capabilities.kinds.construction_site.roles.includes('construction.crane'));
  assert.ok(capabilities.features.construction_crane);
  assert.deepEqual(capabilities.features.pavilion.roles,['event.pavilion']);
- assert.ok(capabilities.features.people.roles.includes('person.ground_crew')); 
+ assert.ok(capabilities.features.people.roles.includes('person.ground_crew'));
  assert.equal(capabilities.kinds.sar_land,undefined);
  assert.doesNotMatch(JSON.stringify(capabilities),/Microsoft_Car_EUR/);
 });
