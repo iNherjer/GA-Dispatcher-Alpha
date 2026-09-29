@@ -1,0 +1,268 @@
+{
+  "date": "2026-09-29",
+  "basis": "Reconstructed from user diagnostic report, not original complete mission state. Density assumed normal; unreported idea fields reconstructed from story. OSM map API geometry, not original cached Overpass response.",
+  "target": {
+    "name": "Bittelbronn",
+    "lat": 48.38396,
+    "lon": 8.77179,
+    "poiCategory": "city"
+  },
+  "story": "Svenja Berg begleitet euch heute, um für die Horber Lokalseiten die logistischen Vorbereitungen in Bittelbronn festzuhalten. Das Dorf putzt sich für den anstehenden Hof-Flohmarkt heraus und verwandelt sich in eine Art begehbare Landkarte. Svenja möchte ihrem Publikum zeigen, wie die Bewohner ihren Ort für das Wochenende arrangieren. Achtet beim Überflug auf die weißen Faltpavillons auf den Freiflächen und die vielen Transporter in den schmalen Seitenstraßen, wo gerade Waren entladen werden. Diese Bilder sollen das enorme bürgerschaftliche Engagement verdeutlichen und Lust auf den Markt machen. Wir fangen die geschäftige Atmosphäre und die Struktur des Dorfes aus der Vogelperspektive ein, bevor wir gemeinsam den Rückflug zur Basis antreten.",
+  "baseline": {
+    "modelCalls": 5,
+    "error": "reporter_scene_invalid: Requirement 2: cluster oder line verwenden; komplexe Form mit count=1 planen; Requirement 3 (100,45): Abstand zu road way/1094691113 zu klein; Requirements 1/4: Objektabstand zu klein (mindestens 9 m); Requirements 4/5: Objektabstand zu klein (mindestens 7 m)"
+  },
+  "corrected": {
+    "modelCalls": 4,
+    "targetScene": {
+      "preset": "",
+      "kind": "event_site",
+      "features": [
+        "pavilion",
+        "people",
+        "cones"
+      ],
+      "requirements": [
+        {
+          "feature": "pavilion",
+          "count": 1,
+          "placement": "Zentraler Infostand",
+          "arrangement": "cluster",
+          "notes": "Einzelner Pavillon auf dem Hauptslot (Slot A).",
+          "forwardM": 110,
+          "rightM": 50,
+          "role": "event.pavilion",
+          "spacingM": 2,
+          "surface": "ground",
+          "siteId": "way/1094691112",
+          "hdgOffsetDeg": 0
+        },
+        {
+          "feature": "people",
+          "count": 2,
+          "placement": "Standpersonal",
+          "arrangement": "cluster",
+          "notes": "Zwei Personen mit ausreichendem Sicherheitsabstand zum Pavillon (Alternative nach Prüfung).",
+          "forwardM": 112,
+          "rightM": 38,
+          "role": "person.ground_crew",
+          "spacingM": 4,
+          "surface": "ground",
+          "siteId": "way/1094691112",
+          "hdgOffsetDeg": 180
+        },
+        {
+          "feature": "cones",
+          "count": 3,
+          "placement": "Markierung",
+          "arrangement": "line",
+          "notes": "Markierungskegel auf dem zweiten, kleineren Slot (Slot B).",
+          "forwardM": 100,
+          "rightM": 50,
+          "role": "marker.cone",
+          "spacingM": 3,
+          "surface": "ground",
+          "siteId": "way/1094691112",
+          "hdgOffsetDeg": 0
+        }
+      ],
+      "objectPolicy": "explicit-requirements",
+      "placementVersion": "poi-placement.v3",
+      "placementIntent": {
+        "use": "settlement_space",
+        "anchorId": "",
+        "requiresPaved": false,
+        "reason": "Platzierung eines zentralen Pavillons und Begleitpersonen auf den zwei verfügbaren, räumlich getrennten Slots."
+      },
+      "placementRequirement": {
+        "use": "settlement_space",
+        "requiresPaved": false
+      },
+      "roles": [
+        "event.pavilion",
+        "person.ground_crew",
+        "marker.cone"
+      ],
+      "density": "sparse",
+      "layout": "scattered",
+      "notes": "Minimale Szene zur Darstellung des Aufbaus unter Berücksichtigung der engen räumlichen Geometrie und Radien."
+    },
+    "items": [
+      {
+        "kind": "feature_pavilion_1_1",
+        "label": "Faltpavillon / Veranstaltungsstand 3 x 3 m",
+        "objectTitle": "VFR Multitool Homebase MX Pavilion",
+        "titleCandidates": [
+          "VFR Multitool Homebase MX Pavilion",
+          "VFR_Multitool_Homebase_MX_Pavilion"
+        ],
+        "forwardM": 110,
+        "rightM": 50,
+        "headingMode": "with_aircraft",
+        "hdgOffsetDeg": 0,
+        "altOffsetFt": 0,
+        "placement": "Zentraler Infostand",
+        "placementOverride": true,
+        "position": {
+          "lat": 48.384948142292494,
+          "lon": 8.772466301093623
+        }
+      },
+      {
+        "kind": "feature_people_2_1",
+        "label": "Personen am Boden",
+        "objectTitle": "Marshaller_Female_Summer_Hispanic",
+        "titleCandidates": [
+          "Marshaller_Female_Summer_Hispanic",
+          "Marshaller Female Summer Hispanic",
+          "Tarmac_Female_Summer_Asian",
+          "Tarmac Female Summer Asian",
+          "Marshaller_Female_Summer_African",
+          "Marshaller Female Summer African",
+          "Marshaller_Female_Summer_Arab",
+          "Marshaller Female Summer Arab",
+          "Marshaller_Female_Summer_Asian",
+          "Marshaller Female Summer Asian",
+          "Marshaller_Female_Summer_Caucasian",
+          "Marshaller Female Summer Caucasian",
+          "Marshaller_Female_Summer_Indian",
+          "Marshaller Female Summer Indian",
+          "Marshaller_Female_Winter_African",
+          "Marshaller Female Winter African",
+          "Marshaller_Female_Winter_Arab",
+          "Marshaller Female Winter Arab",
+          "Marshaller_Female_Winter_Asian",
+          "Marshaller Female Winter Asian",
+          "Marshaller_Female_Winter_Caucasian",
+          "Marshaller Female Winter Caucasian",
+          "Marshaller_Female_Winter_Hispanic",
+          "Marshaller Female Winter Hispanic"
+        ],
+        "forwardM": 112,
+        "rightM": 38,
+        "headingMode": "with_aircraft",
+        "hdgOffsetDeg": 180,
+        "altOffsetFt": 0,
+        "placement": "Standpersonal",
+        "placementOverride": true,
+        "position": {
+          "lat": 48.38496610851599,
+          "lon": 8.772303988831153
+        }
+      },
+      {
+        "kind": "feature_people_2_2",
+        "label": "Personen am Boden",
+        "objectTitle": "Marshaller_Female_Winter_Caucasian",
+        "titleCandidates": [
+          "Marshaller_Female_Winter_Caucasian",
+          "Marshaller Female Winter Caucasian",
+          "Tarmac_Female_Summer_Asian",
+          "Tarmac Female Summer Asian",
+          "Marshaller_Female_Summer_African",
+          "Marshaller Female Summer African",
+          "Marshaller_Female_Summer_Arab",
+          "Marshaller Female Summer Arab",
+          "Marshaller_Female_Summer_Asian",
+          "Marshaller Female Summer Asian",
+          "Marshaller_Female_Summer_Caucasian",
+          "Marshaller Female Summer Caucasian",
+          "Marshaller_Female_Summer_Hispanic",
+          "Marshaller Female Summer Hispanic",
+          "Marshaller_Female_Summer_Indian",
+          "Marshaller Female Summer Indian",
+          "Marshaller_Female_Winter_African",
+          "Marshaller Female Winter African",
+          "Marshaller_Female_Winter_Arab",
+          "Marshaller Female Winter Arab",
+          "Marshaller_Female_Winter_Asian",
+          "Marshaller Female Winter Asian",
+          "Marshaller_Female_Winter_Hispanic",
+          "Marshaller Female Winter Hispanic"
+        ],
+        "forwardM": 116,
+        "rightM": 38,
+        "headingMode": "with_aircraft",
+        "hdgOffsetDeg": 180,
+        "altOffsetFt": 0,
+        "placement": "Standpersonal",
+        "placementOverride": true,
+        "position": {
+          "lat": 48.385002040962995,
+          "lon": 8.772303988831153
+        }
+      },
+      {
+        "kind": "feature_cones_3_1",
+        "label": "Absperrkegel/Marker",
+        "objectTitle": "EDTW Smoke Marker",
+        "titleCandidates": [
+          "EDTW Smoke Marker",
+          "EDTW_Smoke_Marker",
+          "Cone_Medium",
+          "Cone Medium"
+        ],
+        "forwardM": 100,
+        "rightM": 50,
+        "headingMode": "with_aircraft",
+        "hdgOffsetDeg": 0,
+        "altOffsetFt": 0,
+        "placement": "Markierung",
+        "placementOverride": true,
+        "position": {
+          "lat": 48.384858311174995,
+          "lon": 8.772466301093623
+        }
+      },
+      {
+        "kind": "feature_cones_3_2",
+        "label": "Absperrkegel/Marker",
+        "objectTitle": "Cone_Medium",
+        "titleCandidates": [
+          "Cone_Medium",
+          "Cone Medium",
+          "EDTW Smoke Marker",
+          "EDTW_Smoke_Marker"
+        ],
+        "forwardM": 100,
+        "rightM": 53,
+        "headingMode": "with_aircraft",
+        "hdgOffsetDeg": 0,
+        "altOffsetFt": 0,
+        "placement": "Markierung",
+        "placementOverride": true,
+        "position": {
+          "lat": 48.384858311174995,
+          "lon": 8.77250687915924
+        }
+      },
+      {
+        "kind": "feature_cones_3_3",
+        "label": "Absperrkegel/Marker",
+        "objectTitle": "EDTW Smoke Marker",
+        "titleCandidates": [
+          "EDTW Smoke Marker",
+          "EDTW_Smoke_Marker",
+          "Cone_Medium",
+          "Cone Medium"
+        ],
+        "forwardM": 100,
+        "rightM": 56,
+        "headingMode": "with_aircraft",
+        "hdgOffsetDeg": 0,
+        "altOffsetFt": 0,
+        "placement": "Markierung",
+        "placementOverride": true,
+        "position": {
+          "lat": 48.384858311174995,
+          "lon": 8.772547457224858
+        }
+      }
+    ],
+    "validation": []
+  },
+  "limitations": [
+    "No simulator spawn/visual check",
+    "One successful corrected Gemini run, not a reliability estimate"
+  ]
+}

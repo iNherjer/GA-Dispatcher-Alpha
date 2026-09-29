@@ -25988,7 +25988,7 @@ function scenePlannerV3Array(value, maxItems = 8, maxLen = 120) {
         .slice(0, maxItems);
 }
 
-function scenePlannerV3AssetCatalog() {
+function scenePlannerV3AssetCatalog({ explicitPlacement = false } = {}) {
     const kinds = missionSceneTargetKindCatalog();
     const features = missionSceneTargetFeatureCatalog();
     const compactKinds = Object.fromEntries(Object.entries(kinds).map(([key, spec]) => [key, {
@@ -26006,7 +26006,7 @@ function scenePlannerV3AssetCatalog() {
     return {
         kinds: compactKinds,
         features: compactFeatures,
-        arrangements: ['cluster', 'scattered', 'line', 'roadside', 'waterline', 'perimeter', 'mixed'],
+        arrangements: explicitPlacement ? ['cluster', 'line'] : ['cluster', 'scattered', 'line', 'roadside', 'waterline', 'perimeter', 'mixed'],
         density: ['none', 'sparse', 'normal', 'busy']
     };
 }
@@ -26115,10 +26115,10 @@ function scenePlannerV3ReporterPromptContext(md, contract, geo, truth) {
         candidateMeaning: 'Jeder Slot gehört zur siteId und besitzt clearanceM als maximalen Planungsradius. usage ist die belegte Nutzung, surface die separat belegte Befestigung oder unknown. Wiese ist kein Hof; Parkplatz ist ohne surface-Tag nicht nachgewiesen asphaltiert. Belegung unbekannt.',
         note: 'Obstacle-Rechtecke sind nur eine Übersicht. Die App prüft gegen die vollständigen Polygone. Keine Gebäude, Zufahrten oder freien Hofflächen aus Namen ableiten.'
     };
-    const catalog = scenePlannerV3AssetCatalog();
+    const catalog = scenePlannerV3AssetCatalog({explicitPlacement:true});
     return {schema:'scenePlannerV3.poiContext.v3',mode:'poi',reporterScene:context,assets:{
         kinds:Object.fromEntries(Object.entries(catalog.kinds).filter(([key,k])=>k.useFor.includes(context.mission.taskDomain) || key === context.directive?.sceneKind)),
-        features:catalog.features
+        features:catalog.features, arrangements:catalog.arrangements
     }};
 }
 
@@ -26253,7 +26253,7 @@ async function scenePlannerV3ExecuteTool(call = {}, ctx = {}) {
             } : null
         };
     }
-    if (name === 'get_scene_asset_catalog') return scenePlannerV3AssetCatalog();
+    if (name === 'get_scene_asset_catalog') return scenePlannerV3AssetCatalog({explicitPlacement:!!window.MissionReporterSceneCore?.enabled(ctx.md,ctx.contract)});
     return { error: `unknown_tool_${name}` };
 }
 
@@ -26527,6 +26527,9 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
         ]
         : baseModels;
     let lastError = '';
+    let lastRaw = null;
+    const attempts = [];
+    const attemptedTools = [];
     for (const [model, source, usageKey] of (reporter ? models.slice(0,1) : models)) {
         const toolCalls = [];
         const modelContents = JSON.parse(JSON.stringify(contents));
@@ -26540,7 +26543,7 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
                     toolConfig: {
                         functionCallingConfig: turn === 0
                             ? { mode: 'ANY', allowedFunctionNames: ['get_scene_context_bundle'] }
-                            : { mode: 'AUTO' }
+                            : { mode: reporter ? 'NONE' : 'AUTO' }
                     },
                     generationConfig: {
                         temperature: reporter ? 1 : 0.18,
@@ -26581,12 +26584,14 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
                             }
                         });
                     }
+                    attemptedTools.push(...toolCalls.filter(c=>c.turn===turn));
                     modelContents.push({ role: 'user', parts: responseParts });
                     continue;
                 }
                 const text = _missionPipelineV3ExtractText(data);
                 const parsed = _missionPipelineV3ParseJsonText(text);
                 if (parsed) {
+                    lastRaw = parsed.targetScene || parsed;
                     incrementApiUsage(usageKey);
                     try {
                         if (reporter && !contextBase.placementRequirement && parsed.targetScene?.placementIntent?.use) {
@@ -26596,6 +26601,7 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
                     } catch (err) {
                         if (!reporter || !String(err.message).startsWith('reporter_scene_invalid:')) throw err;
                         lastError = err.message;
+                        attempts.push({turn:turn+1,error:lastError});
                         modelContents.push({role:'model',parts:[{text:JSON.stringify(parsed)}]});
                         modelContents.push({role:'user',parts:[{text:'Korrigiere die räumliche Planung anhand der vorhandenen Geometrie: ' + err.message + '. Reduziere Kleinteile wenn nötig, erhalte die Hauptidee. Kein erfundener Ersatzstandort. Geprüfte lokale Korrekturvorschläge: ' + JSON.stringify(window.MissionReporterSceneCore.correctionOptions({...parsed.targetScene,placementVersion:window.MissionReporterSceneCore.VERSION},contextBase.targetGeoContext?.reporterPlacement,window.MISSION_SCENE_ASSETS))}]});
                         continue;
@@ -26621,6 +26627,9 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
             source: 'local-fallback',
             promptVersion: MISSION_SCENE_PLANNER_V3_VERSION,
             error: lastError || 'scene_planner_v3_failed',
+            aiRaw:lastRaw,
+            attempts,
+            toolCalls:attemptedTools,
             fallback: fallback.targetScene || null,
             fallbackArrivalPlan: fallback.aptArrivalPlan || null
         }

@@ -123,3 +123,27 @@ Infrastruktur mit realer Erlenbach-Geometrie, synthetische Wasser-/Waldflächen
 für Biologie/SAR und eine entfernte Industriefläche mit 600 m Offset. Rollen,
 Koordinaten, `siteId`, Zweckbindung und JSON-Wiederherstellung bleiben erhalten.
 Kein Gemini-Aufruf und kein physischer Simulator-Spawn in dieser Prüfung.
+
+## Bittelbronn-Hotfix / App v1881
+
+Der nach Veröffentlichung gemeldete Dorfmarkt-Fall wurde aus dem Diagnosebericht
+rekonstruiert (kein vollständiger Originalzustand). Ein Live-Versuch reproduzierte
+den Abbruch: wiederholte Kontextabrufe verbrauchten drei von fünf Runden; der
+zusätzliche Asset-Katalog bot zudem `scattered` an, obwohl explizite Gruppen
+nur `cluster` und `line` implementieren.
+
+Explizite POI-Pläne bekommen jetzt ausschließlich diese beiden Gruppenmuster.
+Nach dem vollständigen ersten Kontextpaket sind Folge-Toolaufrufe für diese
+Pläne deaktiviert; die restlichen vier Modellrunden dienen Planung/Korrektur.
+APT/Bush behalten ihre bisherigen Tool- und Arrangementmöglichkeiten. Keine
+lockereren Geometrieprüfungen, neuen Flächentypen oder Bittelbronn-Sonderregeln.
+
+Im korrigierten Live-Versuch: vier Modellaufrufe, sechs gültige Objekte auf
+einer kartierten Fußgängerfläche (ein Pavillon, zwei Personen, drei Kegel).
+Der ursprüngliche Umfang wurde auf die vorhandene Fläche reduziert. Keine
+Simulator-Sichtprüfung und kein Nachweis einer allgemeinen Erfolgsquote.
+Beleg: `docs/examples/POI Reporter Bittelbronn Regression 20260929.json`.
+
+Fehlgeschlagene Kompositionen behalten letzte KI-Szene, Korrekturfehler und
+Toolaufrufe. Der Diagnosebericht bevorzugt den aktuellen Missionszustand vor
+dem älteren Entwurfssnapshot, damit künftige Reports die Ablehnung ausweisen.

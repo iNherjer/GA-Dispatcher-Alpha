@@ -4533,7 +4533,8 @@ window.vpBuildWeatherDebugReport = function() {
     const aiNormalized = sceneDbg.aiNormalized || missionSceneDbg.aiNormalized || null;
     const contractTargetScene = sceneDbg.contractTargetScene || missionSceneDbg.contractTargetScene || missionSnap?.targetScene || null;
     const sceneTruth = sceneDbg.missionTruth || missionSnap?.missionTruth || missionSnap?.contract?.missionTruth || null;
-    const sceneComposer = sceneDbg.sceneComposer || missionSnap?.targetSceneComposerDebug || null;
+    const activeSceneMission = (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') ? currentMissionData : null;
+    const sceneComposer = activeSceneMission?.targetSceneComposerDebug || sceneDbg.sceneComposer || missionSnap?.targetSceneComposerDebug || null;
     const targetCommandHasMapPoints = Array.isArray(sceneDbg.lastTargetSceneCommand?.mapPoints) && sceneDbg.lastTargetSceneCommand.mapPoints.length > 0;
     const targetPreview = (!targetCommandHasMapPoints && typeof window.missionTargetSceneDebugPreview === 'function')
         ? window.missionTargetSceneDebugPreview('debug-report-preview')
@@ -4556,12 +4557,13 @@ window.vpBuildWeatherDebugReport = function() {
     const lastEndCommand = sceneDbg.lastEndSceneCommand || null;
     const lastSmokeCommand = sceneDbg.lastSmokeCommand || null;
     const lastAck = sceneDbg.lastAck || window.missionAptArrivalSceneStatus?.lastAck || window.missionTargetSceneStatus?.lastAck || window.missionSceneStatus?.lastAck || null;
-    const sceneAccepted = sceneDbg.sceneAccepted ?? missionSnap?.sceneAccepted ?? null;
-    const sceneStatus = sceneDbg.sceneCompositionStatus || missionSnap?.sceneCompositionStatus || '-';
+    const sceneAccepted = activeSceneMission?.sceneAccepted ?? sceneDbg.sceneAccepted ?? missionSnap?.sceneAccepted ?? null;
+    const sceneStatus = activeSceneMission?.sceneCompositionStatus || sceneDbg.sceneCompositionStatus || missionSnap?.sceneCompositionStatus || '-';
     lines.push(`- Plan/Sim Status: accepted=${sceneAccepted === null ? '-' : (sceneAccepted ? 'ja' : 'nein')} | composition=${sceneStatus} | targetCommand=${lastTargetCommand ? 'ja' : 'nein'} | ack=${lastAck ? 'ja' : 'nein'}${!lastTargetCommand ? ' | Modus=Plan/Preview' : ''}`);
     if (sceneComposer && typeof sceneComposer === 'object') {
         const toolNames = Array.isArray(sceneComposer.toolCalls) ? sceneComposer.toolCalls.map(c => c.name || '?').slice(0, 5).join(',') : '-';
         lines.push(`- Scene Composer: ${sceneComposer.source || '-'} | prompt=${sceneComposer.promptVersion || '-'} | tools=${toolNames || '-'} | error=${sceneComposer.error || '-'}`);
+        if (Array.isArray(sceneComposer.attempts) && sceneComposer.attempts.length) lines.push(`- Scene Composer Versuche: ${sceneComposer.attempts.map(a => `${a.turn}: ${flattenText(a.error || a.result || '-', 220)}`).join(' | ')}`);
         if (Array.isArray(sceneComposer.localizationNotes) && sceneComposer.localizationNotes.length) lines.push(`- Scene Composer Lokalisierung: ${sceneComposer.localizationNotes.slice(0, 4).map(n => flattenText(n, 90)).join(' | ')}`);
         if (Array.isArray(sceneComposer.validationNotes) && sceneComposer.validationNotes.length) lines.push(`- Scene Composer Validierung: ${sceneComposer.validationNotes.slice(0, 4).map(n => flattenText(n, 90)).join(' | ')}`);
     }
