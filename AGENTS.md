@@ -16,6 +16,8 @@ Diese Datei ist der verbindliche Einstiegspunkt fuer Codex/AI-Arbeit in diesem R
   - `docs/Tracker Mission Migration Guide.md`, wenn weitere Missionsfamilien in den Tracker uebertragen werden
   - `docs/Mission Flow Reference.md`
   - `docs/Mission Building Instructions.md`
+  - `docs/POI Shared Briefing Guide.md` und `docs/POI Photo Migration Template.md` bei POI-Briefings: vorhandene Shared-Bausteine wiederverwenden, keine eigene Lage-/Wetterlogik kopieren.
+  - `docs/Infrastructure Inspection Briefing Migration.md` bei Infrastruktur-Briefings: professioneller Sichtprüfauftrag, kein Foto-only-Vertrag; Testschalter und offene Qualitätsgrenzen beachten.
   - `docs/Mission Semantics Rules V4.md`
   - `docs/Mission Roadmap.md`, wenn Prioritaeten oder neue Missionsideen betroffen sind
 - Mission-Szenen, SimObjects, MSFS-Assets, SAR-/Unfall-/Pickup-Szenen:

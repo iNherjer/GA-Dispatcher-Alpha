@@ -1,0 +1,44 @@
+{
+  "source": "Alpha v1877 before shared-module extraction; same archived inputs as poi-briefing-replay.json",
+  "cases": [
+    {
+      "id": "schwarzenbach",
+      "report": {
+        "orientation": "Zur Orientierung hilft dir die Brücke L 83: Das Ziel liegt etwa 500 m nordwestlich davon. Ein weiterer Bezugspunkt ist Lachsberg; das Ziel liegt etwa 950 m westlich davon.",
+        "terrain": "Die Schwarzenbachtalsperre dient als Oberbecken des Kraftwerks Forbach. Die Betreiberbeschreibung nennt Waldflächen und Forststraßen im regionalen Umfeld. Der höchste erfasste Geländepunkt liegt auf 888 m MSL, 5000 m im Osten des Ziels.",
+        "obstacles": "In Zielnähe sind in der Karte verzeichnet: Turm „Forbach 4“ etwa 1000 m östlich des Ziels; Turm etwa 1,7 km nordöstlich des Ziels; Leitungspunkt etwa 1,9 km südlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+        "dataQuality": "Die Karte kann unvollständig sein; weitere Hindernisse sind möglich. Ob alle Merkmale in der Szenerie sichtbar sind, ist nicht geprüft. Eine sichere Flughöhe oder Kreisbahn lässt sich daraus nicht ableiten.",
+        "environment": "",
+        "situation": "Zur Orientierung hilft dir die Brücke L 83: Das Ziel liegt etwa 500 m nordwestlich davon. Ein weiterer Bezugspunkt ist Lachsberg; das Ziel liegt etwa 950 m westlich davon."
+      },
+      "story": "Dein langjähriger Geschäftspartner Lars Vogt begleitet dich heute auf diesem Flug. Als Mitarbeiter der Öffentlichkeitsarbeit steckt er mitten in der Gestaltung einer neuen Broschüre für das Kraftwerk Forbach. Ihm fehlt noch eine aktuelle, dynamische Perspektive der Schwarzenbachtalsperre für das Titelblatt und den neuen Imagefilm. Die Talsperre dient dem Kraftwerk als Oberbecken, und Lars möchte die beeindruckende Staumauer sowie die weite Wasserfläche aus der Luft filmen. Sobald ihr die Aufnahmen im Kasten habt, kehrt ihr direkt zurück, damit er das Material am Boden sichten und für die Redaktion auswerten kann.\n\nWetterbriefing: Für diesen Entwurf liegt kein gültiger Wetterabsatz vor.\n\nLage und Orientierung\nZur Orientierung hilft dir die Brücke L 83: Das Ziel liegt etwa 500 m nordwestlich davon. Ein weiterer Bezugspunkt ist Lachsberg; das Ziel liegt etwa 950 m westlich davon.\n\nGeländehöhen\nDie Schwarzenbachtalsperre dient als Oberbecken des Kraftwerks Forbach. Die Betreiberbeschreibung nennt Waldflächen und Forststraßen im regionalen Umfeld. Der höchste erfasste Geländepunkt liegt auf 888 m MSL, 5000 m im Osten des Ziels.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Turm „Forbach 4“ etwa 1000 m östlich des Ziels; Turm etwa 1,7 km nordöstlich des Ziels; Leitungspunkt etwa 1,9 km südlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "writerPromptSha256": "2c0ce5ddefed4fe0e0925d7344754c901851d35ff50eebb42a176c1b4c5493e5"
+    },
+    {
+      "id": "europabruecke",
+      "report": {
+        "orientation": "Zur Orientierung hilft dir die Brücke Unterberg: Das Ziel liegt etwa 1,1 km östlich davon. Ein weiterer Bezugspunkt ist die Brücke Stefansbrücke; das Ziel liegt etwa 1,3 km südöstlich davon.",
+        "terrain": "Die Europabrücke gehört zur Brennerautobahn und überspannt das tiefe Tal der Sill zwischen Innsbruck und Schönberg. Der höchste erfasste Geländepunkt liegt auf 1695 m MSL, 5000 m im Osten des Ziels.",
+        "obstacles": "In Zielnähe sind in der Karte verzeichnet: Mast etwa 50 m östlich des Ziels; Leitungspunkt „Wilten - Brennerwerk“ etwa 300 m nordöstlich des Ziels; Strommast etwa 450 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+        "dataQuality": "Die Karte kann unvollständig sein; weitere Hindernisse sind möglich. Ob alle Merkmale in der Szenerie sichtbar sind, ist nicht geprüft. Eine sichere Flughöhe oder Kreisbahn lässt sich daraus nicht ableiten.",
+        "environment": "",
+        "situation": "Zur Orientierung hilft dir die Brücke Unterberg: Das Ziel liegt etwa 1,1 km östlich davon. Ein weiterer Bezugspunkt ist die Brücke Stefansbrücke; das Ziel liegt etwa 1,3 km südöstlich davon."
+      },
+      "story": "Helena Weber ist heute dein Gast an Bord. Als Fachjournalistin für Verkehr arbeitet sie gerade an einem Artikel für ein Logistikmagazin über die Brennerautobahn. Um die Bedeutung dieser zentralen Verkehrsachse zu verdeutlichen, benötigt sie hochwertige Aufnahmen der Europabrücke. Das Bauwerk überspannt das tiefe Silltal und bietet aus der Luft eine Perspektive, die die gewaltigen Dimensionen der Konstruktion im Talverlauf erst richtig greifbar macht. Helena wird während des Fluges die Kamera bedienen, um die passenden Bilder für ihre Reportage einzufangen. Sobald sie ihre Motive im Kasten hat, kehrt ihr beide wieder zum Flugplatz zurück, damit sie mit der Sichtung des Materials am Boden beginnen kann.\n\nWetterbriefing: Für diesen Entwurf liegt kein gültiger Wetterabsatz vor.\n\nLage und Orientierung\nZur Orientierung hilft dir die Brücke Unterberg: Das Ziel liegt etwa 1,1 km östlich davon. Ein weiterer Bezugspunkt ist die Brücke Stefansbrücke; das Ziel liegt etwa 1,3 km südöstlich davon.\n\nGeländehöhen\nDie Europabrücke gehört zur Brennerautobahn und überspannt das tiefe Tal der Sill zwischen Innsbruck und Schönberg. Der höchste erfasste Geländepunkt liegt auf 1695 m MSL, 5000 m im Osten des Ziels.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Mast etwa 50 m östlich des Ziels; Leitungspunkt „Wilten - Brennerwerk“ etwa 300 m nordöstlich des Ziels; Strommast etwa 450 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "writerPromptSha256": "6454e2448bbe52c41c97c0848088e27347df731f24d2ce97a3a82b984ea85495"
+    },
+    {
+      "id": "heidelberg",
+      "report": {
+        "orientation": "Zur Orientierung hilft dir Michelsberg: Das Ziel liegt etwa 750 m südöstlich davon. Ein weiterer Bezugspunkt ist die Brücke Theodor-Heuss-Brücke; das Ziel liegt etwa 1,2 km östlich davon.",
+        "terrain": "Die Alte Brücke ist eine Bogenbrücke aus rotem Sandstein über den Neckar im von Fluss und Bergen eingerahmten Heidelberger Stadtbild. Der höchste erfasste Geländepunkt liegt auf 529 m MSL, 3000 m im Südosten des Ziels.",
+        "obstacles": "In Zielnähe sind in der Karte verzeichnet: Turm „Dicker Turm“ etwa 500 m südöstlich des Ziels; Turm „Hexenturm“ etwa 500 m südwestlich des Ziels; Turm „Krautturm“ etwa 650 m südöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+        "dataQuality": "Die Karte kann unvollständig sein; weitere Hindernisse sind möglich. Ob alle Merkmale in der Szenerie sichtbar sind, ist nicht geprüft. Eine sichere Flughöhe oder Kreisbahn lässt sich daraus nicht ableiten.",
+        "environment": " In der Umgebung ist Wald kartiert: etwa 2,5 km südlich des Ziels.",
+        "situation": "Zur Orientierung hilft dir Michelsberg: Das Ziel liegt etwa 750 m südöstlich davon. Ein weiterer Bezugspunkt ist die Brücke Theodor-Heuss-Brücke; das Ziel liegt etwa 1,2 km östlich davon. In der Umgebung ist Wald kartiert: etwa 2,5 km südlich des Ziels."
+      },
+      "story": "Dein alter Schulfreund Julian Kranz begleitet dich heute auf diesem Flug über den Neckar. Der Anlass ist ein ganz persönlicher: Julian möchte seiner Verlobten ein besonderes Hochzeitsgeschenk bereiten. Er plant ein großformatiges Panoramabild der Heidelberger Kulisse für ihr neues gemeinsames Zuhause. Im Fokus steht dabei die Alte Brücke, deren markanter roter Sandstein sich so charakteristisch vom Fluss abhebt. Während du die Maschine führst, wird Julian versuchen, die Bogenbrücke und die umliegenden Berge in Ruhe aus der Luft zu fotografieren. Sobald er seine Aufnahmen im Kasten hat, kehrt ihr beide wieder zum Ausgangspunkt zurück.\n\nWetterbriefing: Für diesen Entwurf liegt kein gültiger Wetterabsatz vor.\n\nLage und Orientierung\nZur Orientierung hilft dir Michelsberg: Das Ziel liegt etwa 750 m südöstlich davon. Ein weiterer Bezugspunkt ist die Brücke Theodor-Heuss-Brücke; das Ziel liegt etwa 1,2 km östlich davon. In der Umgebung ist Wald kartiert: etwa 2,5 km südlich des Ziels.\n\nGeländehöhen\nDie Alte Brücke ist eine Bogenbrücke aus rotem Sandstein über den Neckar im von Fluss und Bergen eingerahmten Heidelberger Stadtbild. Der höchste erfasste Geländepunkt liegt auf 529 m MSL, 3000 m im Südosten des Ziels.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Turm „Dicker Turm“ etwa 500 m südöstlich des Ziels; Turm „Hexenturm“ etwa 500 m südwestlich des Ziels; Turm „Krautturm“ etwa 650 m südöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "writerPromptSha256": "0774795639b5546321b89a20dde358a82e72be29c2ae5b758336399e08ce7772"
+    }
+  ]
+}

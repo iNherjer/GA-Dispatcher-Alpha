@@ -1,4 +1,4 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),core=require('../mission-poi-briefing-core.js');
+const {test}=require('node:test'),assert=require('node:assert/strict'),core=require('../mission-poi-briefing-shared-core.js');
 const target={name:'Waldsee Bergstadt',lat:48,lon:8};
 const ring=(x=8,y=48,d=.001)=>[{lon:x-d,lat:y-d},{lon:x+d,lat:y-d},{lon:x+d,lat:y+d},{lon:x-d,lat:y+d},{lon:x-d,lat:y-d}];
 const way=(id,tags,geometry=ring())=>({id,type:'way',tags,geometry});

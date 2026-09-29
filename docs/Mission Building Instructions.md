@@ -1289,3 +1289,10 @@ Ausflugsprofil. Implementierung, Triggervergleich und Tests: [Mission Private
 Return V1](Mission%20Private%20Return%20V1.md). Neue Fortsetzungen sollen dieselbe
 Trennung von belegtem Missionsabschluss, fiktionalem Aufenthalt und gemeinsamem
 Writer-/Voice-Rückblick nutzen.
+
+
+## Wiederverwendbare POI-Briefings
+
+Für weitere POI-Umbauten verbindlich: [Shared Briefing Guide](POI%20Shared%20Briefing%20Guide.md) und [Foto-Migration als Vorlage](POI%20Photo%20Migration%20Template.md). Lage/Wetter über `MissionPoiBriefingSharedCore` und `MissionPoiBriefingSharedBrowser` anbinden. Die Foto-Mission ist der erste Verbraucher; Auftrag, Profil, History und Runtime bleiben getrennt. Keine neue Lage-/Wetterimplementierung je Profil.
+
+Professionelle Infrastruktur-Inspektion: [Migrationsstand und Testgrenzen](Infrastructure%20Inspection%20Briefing%20Migration.md).

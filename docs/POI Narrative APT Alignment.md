@@ -167,3 +167,13 @@ Landmarken und belegte Nachbarflächen stehen gemeinsam unter „Lage und Orient
 ### Alpha-Ausrollung v1877
 
 Auf ausdrücklichen Nutzerwunsch Veröffentlichung des vorbereiteten Lageberichts samt belegter Umgebungsflächen auf `origin/main`. Webcache v1877, POI-Script-Version 20260929-02. 129 Regressionstests bestanden. Kartenanbieter können weiterhin ausfallen; dann bleibt das Briefing bei vorhandenen Belegen. Die dokumentierte eingeschränkte Live-Verfügbarkeit wird nicht als gelöst behauptet. Bestehende Missionstexte werden nicht umgeschrieben. Keine Tracker-Änderungen.
+
+
+### Wiederverwendbare Logik und Migrationsvorlage
+
+Auf Nutzerwunsch sind Lage-/Wetterberechnung, Promptteile und Datenbeschaffung aus der Foto-Mission in zwei gemeinsame Bausteine extrahiert. Die Foto-Mission verwendet diese bereits; andere Profile werden nicht automatisch umgeschaltet. Der APT-Wetterhelfer bleibt unverändert die fachliche Grundlage. Vollständige Referenztexte und Reports werden gegen den v1877-Stand verglichen. API, Datenverträge, Rückfälle, Cachegrenzen und Anbindung: [Shared Briefing Guide](POI%20Shared%20Briefing%20Guide.md). Der erfolgreiche Umbau als Muster: [Photo Migration Template](POI%20Photo%20Migration%20Template.md). Beide sind über AGENTS.md und die Missions-Pflichtdoku verlinkt. Noch kein Release dieses Refactorings.
+
+
+### Klarstellung zur nächsten Migration
+
+Die Nutzervorgabe „Template“ meint Gestaltungsablauf und Promptmethodik, nicht den Foto-Inhalt. Nach Prüfung des bestehenden `inspection_infra` bleiben technische Fachrolle, Sichtprüfung, fachliches Kurzfazit und Befund-/Follow-up-Logik ausdrücklich profilspezifisch erhalten. Die vorherige Empfehlung, dieses Profil als Fotoauftrag zur späteren Bodenauswertung zu behandeln, war falsch. Keine Profil- oder Runtime-Änderung durchgeführt; die Migrationsvorlage wurde entsprechend präzisiert.

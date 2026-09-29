@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import core from '../mission-poi-briefing-core.js';
+import sharedCore from '../mission-poi-briefing-shared-core.js';
 import flightApi from '../mission-private-episode-v6.js';
 import charter from '../mission-charter-ideas-core.js';
 import {extractOriginalFunction} from './extract-original-function.mjs';
@@ -20,14 +21,15 @@ for(const n of ['_missionExtractBalancedJsonObjectText','_missionParseJsonTextDe
 const localFetch=async(url,options)=>String(url).startsWith('obstacles/')?fs.existsSync(url)?new Response(fs.readFileSync(url)):new Response('',{status:404}):fetch(url,options);
 const region={fetch:localFetch,Response,Blob,DecompressionStream,AbortController,URLSearchParams,setTimeout,clearTimeout};
 vm.runInNewContext(fs.readFileSync('mission-private-context-core.js','utf8'),region);
-const env={window:{MissionPoiBriefingCore:core,MissionPrivateEpisodeV6:flightApi,MissionCharterIdeasCore:charter,MissionPrivateContextCore:region.MissionPrivateContextCore},localStorage:{getItem:()=>null},AbortSignal,Response,Blob,DecompressionStream,TextDecoder,Uint8Array,fetch:localFetch,console,getSelectedAiApiKey:()=>'',getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:1}),fetchGeminiJsonWithFallback:async prompt=>{
+const env={window:{MissionPoiBriefingCore:core,MissionPoiBriefingSharedCore:sharedCore,MissionPrivateEpisodeV6:flightApi,MissionCharterIdeasCore:charter,MissionPrivateContextCore:region.MissionPrivateContextCore},localStorage:{getItem:()=>null},AbortSignal,Response,Blob,DecompressionStream,TextDecoder,Uint8Array,fetch:localFetch,console,getSelectedAiApiKey:()=>'',getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:1}),fetchGeminiJsonWithFallback:async prompt=>{
  if(++requests>1)throw Error('One request only');report.prompt=prompt;save();
  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{response_mime_type:'application/json'}}),signal:AbortSignal.timeout(40000)});
  report.httpStatus=response.status;save();if(!response.ok)throw Error('Gemini HTTP '+response.status);
  const body=await response.json();report.usage=body.usageMetadata;report.raw=body.candidates?.[0]?.content?.parts?.[0]?.text||'';save();
  const parsed=parser._missionParseJsonTextDetailed(report.raw);report.parseMode=parsed.mode;return {parsed:parsed.parsed};
 }};
-vm.runInNewContext(fs.readFileSync('mission-poi-briefing-browser.js','utf8'),env);
+vm.runInNewContext(fs.readFileSync('mission-poi-briefing-shared-browser.js','utf8'),env);
+ vm.runInNewContext(fs.readFileSync('mission-poi-briefing-browser.js','utf8'),env);
 const api=env.window.MissionPoiBriefingBrowser,start={name:'Winzeln-Schramberg Airport',lat:48.27917,lon:8.42833},dest={name:'Sommerbergtunnel',lat:48.28977,lon:8.17377};
 const c=await api.context(dest);report.context=c;
 const idea=core.validateIdea({schema:core.IDEA_VERSION,targetId:c.id,targetName:dest.name,taskDomain:'media_photo',situation:'Lukas bereitet eine Reportage über Verkehrswege im Schwarzwald für sein Online-Magazin vor.',intent:'Er möchte Übersichtsfotos der sichtbaren Einfahrtsbereiche für das Titelbild seiner Reportage machen.',person:{name:'Lukas Meerstein',role:'Regionaler Online-Journalist',relationshipToPilot:'Schulfreund'}},c);

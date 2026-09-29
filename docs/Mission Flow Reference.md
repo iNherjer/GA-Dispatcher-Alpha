@@ -676,3 +676,8 @@ Abschluss mit ursprünglichem Folgemissions-Seed. Frische Bodenposition bleibt
 Voraussetzung für Aktionen; ein Reload stellt den Fortschritt wieder her, nicht
 eine alte Telemetrie-Freigabe. Cargo-only benötigt keine Passagier-Anflugansage.
 Bush-Pickup und Bush-Recon bleiben für spätere vollständige Portierungen geschlossen.
+
+
+## Wiederverwendbare POI-Briefings
+
+Für weitere POI-Umbauten verbindlich: [Shared Briefing Guide](POI%20Shared%20Briefing%20Guide.md) und [Foto-Migration als Vorlage](POI%20Photo%20Migration%20Template.md). Lage/Wetter über `MissionPoiBriefingSharedCore` und `MissionPoiBriefingSharedBrowser` anbinden. Die Foto-Mission ist der erste Verbraucher; Auftrag, Profil, History und Runtime bleiben getrennt. Keine neue Lage-/Wetterimplementierung je Profil.

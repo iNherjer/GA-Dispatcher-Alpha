@@ -82,6 +82,8 @@ Kontext darf nicht:
 - Infrastruktur darf Primärfokus sein.
 - Support-Kontext bleibt sekundär.
 - Diagnose, Wartung, Schaden oder Dokumentation duerfen die Story tragen.
+- Reiner professioneller Auftragsstrang: Firmen, Behoerden, Betreiber und andere Verantwortliche; sachlich-kollegialer Stil.
+- Plausible fiktionale Bauwerksdetails und Schadensmeldungen sind erlaubt. Geografie, Umgebung und Wetter bleiben quellengebunden. Die Fachperson beurteilt sichtbare Merkmale; der bestehende Ergebnisablauf bestimmt den Missionsbefund. Siehe [Briefing-Migration](Infrastructure%20Inspection%20Briefing%20Migration.md).
 
 ### `mapping_survey`
 

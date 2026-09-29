@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import {createRequire} from 'node:module';
 import {extractOriginalFunction} from './extract-original-function.mjs';
 import core from '../mission-poi-briefing-core.js';
+import sharedCore from '../mission-poi-briefing-shared-core.js';
 const require=createRequire(import.meta.url),clone=x=>JSON.parse(JSON.stringify(x));
 require('../mission-private-outing-core.js');
 const flightApi=require('../mission-private-episode-v6.js'),charter=require('../mission-charter-ideas-core.js');
@@ -45,11 +46,12 @@ test('history survives reload, deduplicates mission id, and is bounded',()=>{
 });
 function browser(options={}) {
  const s=options.storage||storage(),requests=[];
- const globals={window:{MissionPoiBriefingCore:core,MissionPrivateEpisodeV6:flightApi,MissionCharterIdeasCore:charter,MissionPrivateContextCore:options.contextApi},localStorage:s,AbortSignal,Response,Blob,DecompressionStream,TextDecoder,Uint8Array,console,
+ const globals={window:{MissionPoiBriefingCore:core,MissionPoiBriefingSharedCore:sharedCore,MissionPrivateEpisodeV6:flightApi,MissionCharterIdeasCore:charter,MissionPrivateContextCore:options.contextApi},localStorage:s,AbortSignal,Response,Blob,DecompressionStream,TextDecoder,Uint8Array,console,
  fetch:options.fetch||(()=>Promise.reject(Error('offline'))),getSelectedAiApiKey:()=>'',
  getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:options.capacity??1}),
  normalizeMissionProposalChoice:x=>x,missionProposalCompactTarget:x=>x,missionProposalFormatRoute:()=>({label:'10 NM'}),
  fetchGeminiJsonWithFallback:async(prompt)=>{requests.push(prompt);return {parsed:await options.ai?.(prompt,requests.length)};}};
+ vm.runInNewContext(fs.readFileSync('mission-poi-briefing-shared-browser.js','utf8'),globals);
  vm.runInNewContext(fs.readFileSync('mission-poi-briefing-browser.js','utf8'),globals);
  return {api:globals.window.MissionPoiBriefingBrowser,storage:s,requests};
 }
