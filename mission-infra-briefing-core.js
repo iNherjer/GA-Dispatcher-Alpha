@@ -39,7 +39,12 @@ function mission(idea,written,c,contract={}){
  m._missionContractV4=contract;return m;
 }
 function owns(m){return m?.infraBriefing?.schema===VERSION&&m.infraBriefing.idea?.schema===IDEA_VERSION&&m.infraBriefing.idea.taskDomain==='inspection_infra';}
+function voiceContext(b) {
+ if(b?.schema!==VERSION||b.idea?.taskDomain!=='inspection_infra')return '';
+ const i=b.idea;
+ return `INSPEKTIONSAUFTRAG: ${JSON.stringify({target:i.targetName,client:i.client,person:i.person,situation:i.situation,scenarioDetails:i.scenarioDetails,inspectionFocus:i.inspectionFocus,aerialAssessment:i.aerialAssessment,decisionNeeded:i.decisionNeeded})}. Sprich als genau diese Fachperson für diesen Auftrag. Vor dem Ziel: Anlass und offene Frage. Am Ziel: sichtbare Merkmale und fachliche Einordnung passend zur Luftsicht. Ein mitgelieferter Inspektionsbefund bestimmt das Ergebnis, nicht die vorausgegangene Verdachtsmeldung. Nach Zielabschluss und auf dem Rückflug: knüpfe an den bereits genannten Befund an und erläutere den nächsten Schritt; bei Verdacht eine gezielte, bei Dringlichkeit sofortige Nachprüfung vor Ort. Mögliche betriebliche Konsequenzen dürfen den Handlungsdruck erklären. Entwickle bereits Gesagtes weiter; keine neue Schadensgeschichte, erfundene technische Freigabe oder widersprechende Ortsangabe.`;
+}
 function history(storage){try{const rows=JSON.parse(storage.getItem(HISTORY_KEY)||'[]');return Array.isArray(rows)?rows.slice(-12).filter(r=>text(r.situation)&&text(r.inspectionFocus)&&text(r.decisionNeeded)):[];}catch{return [];}}
 function remember(storage,id,b){if(!id||b?.schema!==VERSION)return;try{const rows=history(storage).filter(r=>r.id!==id),i=b.idea;rows.push({id,client:i.client,situation:i.situation,scenarioDetails:[...(i.scenarioDetails||[])],...(i.aerialAssessment?{aerialAssessment:{visibleCue:i.aerialAssessment.visibleCue,usefulConclusion:i.aerialAssessment.usefulConclusion,followup:i.aerialAssessment.followup}}:{}),inspectionFocus:i.inspectionFocus,decisionNeeded:i.decisionNeeded,memory:b.writerMemory});while(rows.length>12||JSON.stringify(rows).length>16000)rows.shift();storage.setItem(HISTORY_KEY,JSON.stringify(rows));}catch{}}
-return {VERSION,IDEA_VERSION,PROMPT_VERSION,frame,ideaPrompt,writerPrompt,validateIdea,readIdea,validateWriter,mission,owns,history,remember};
+return {VERSION,IDEA_VERSION,PROMPT_VERSION,frame,ideaPrompt,writerPrompt,validateIdea,readIdea,validateWriter,mission,owns,voiceContext,history,remember};
 });

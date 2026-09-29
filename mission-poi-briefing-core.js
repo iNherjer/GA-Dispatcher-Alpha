@@ -71,7 +71,12 @@ function mission(idea,written,c,contract={}) {
  Object.assign(contract,{status:'ready',profile:{id:'media_photo',taskDomain:'media_photo',roleProfile:'media_observer_v1'},poiBriefing,passenger,passengerCount:1,plannedPassengerCount:1,paxText:m.pax,cargoText:m.cargo,missionStory:story,target:c.target,storyFrame:{trigger:idea.situation,soughtOutcome:idea.intent,noDelivery:true}});
  m._missionContractV4=contract;return m;
 }
+function voiceContext(b) {
+ if(b?.schema!==VERSION||b.idea?.taskDomain!=='media_photo')return '';
+ const i=b.idea;
+ return `FOTOAUFTRAG: ${JSON.stringify({target:i.targetName,person:i.person,situation:i.situation,intent:i.intent,capture:b.capture})}. Trage genau diesen Anlass im Gespräch weiter. Persönlicher oder beruflicher Ton richtet sich nach der gewählten Idee; keine neue Kundenbeziehung erfinden. Vor dem Ziel: Motivation und geplantes Motiv. Am Ziel: Aufnahmeabsicht, Perspektive und laufende Fotos oder Videos. Nach bestätigtem Zielabschluss: entstandenes Material und dessen Verwendung. Keine technische Zustandsprüfung. Entwickle bereits Gesagtes weiter, statt das Briefing zu wiederholen; eine geplante Aufnahme ist noch kein Ergebnis. Orts- und Wetterbehauptungen nur aus mitgelieferten Belegen.`;
+}
 function history(storage) {try{const rows=JSON.parse(storage.getItem(HISTORY_KEY)||'[]');return Array.isArray(rows)?rows.slice(-12).filter(r=>r&&validText(r.situation,1800)&&validText(r.intent,1800)):[];}catch{return [];}}
 function remember(storage,id,briefing) {if(!id||briefing?.schema!==VERSION)return;try{const i=briefing.idea;const rows=history(storage).filter(r=>r.id!==id);rows.push({id,relationship:i.person.relationshipToPilot,situation:i.situation,intent:i.intent,writerMemory:briefing.writerMemory||null,openingExcerpt:briefing.openingExcerpt||''});while(rows.length>12||JSON.stringify(rows).length>12000)rows.shift();storage.setItem(HISTORY_KEY,JSON.stringify(rows));}catch{}}
-return {environmentQuery,environmentFacts,environmentProse,VERSION,IDEA_VERSION,PROMPT_VERSION,point,samePoint,relation,tileKeys,selectFacts,writerContext,renderStructuredReport,frame,ideaPrompt,writerPrompt,validateIdea,readIdea,validateWriter,mission,owns,history,remember};
+return {environmentQuery,environmentFacts,environmentProse,VERSION,IDEA_VERSION,PROMPT_VERSION,point,samePoint,relation,tileKeys,selectFacts,writerContext,renderStructuredReport,frame,ideaPrompt,writerPrompt,validateIdea,readIdea,validateWriter,mission,owns,voiceContext,history,remember};
 });

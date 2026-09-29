@@ -263,6 +263,7 @@ function _getPoiInspectionOutcome() {
 function _inspectionEntryHint() {
     const meta = _inspectionMissionMeta();
     if (!meta) return '';
+    if (meta.inspectionFocus) return ` Fokus des gewählten Inspektionsauftrags: ${meta.inspectionFocus}. Bleibe bei dieser Frage und ihrer aus der Luft erkennbaren Größenordnung.`;
     return ` Fokus Inspektion: Sag kurz, wonach du am Objekt "${meta.objectName}" suchst (z.B. Risse, lockere Bauteile, Schaeden, Auffaelligkeiten).`;
 }
 
@@ -345,6 +346,8 @@ function _domainDriftGuard(mode = 'generic') {
         if (m === 'progress') return ' Drift-Guard (News): Nenne nur beobachtbare Fakten/Lagepunkte. Keine technische Schadensbewertung.';
         return ' Drift-Guard (News): Nuechtern und beobachtend, faktenbasiert. Keine Sightseeing-Sprache, keine Fachinspektion, keine Rollenmischung mit SAR/Fire.';
     }
+    if (td === 'inspection_infra' && window.activePassenger?.narrativeSchema === 'infra-briefing.v1') return ' Auftragskontinuität: Nutze den INSPEKTIONSAUFTRAG und den bereits genannten Befund. Plausible Dringlichkeit ist erlaubt; aus Verdacht folgt gezielte Nachprüfung vor Ort. Keine neue Prüfaufgabe hinzufügen.';
+    if (td === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1') return ' Foto-Kontinuität: Motive, Aufnahmeabsicht und Verwendung aus FOTOAUFTRAG weitertragen. Persönlicher oder beruflicher Ton folgt diesem Anlass. Nur Fotos oder Videos aufnehmen, keine Zustandsbewertung. Ergebnis erst nach Zielabschluss, ohne neues Motiv oder neuen Kunden zu erfinden.';
     if (td === 'media_photo') {
         if (m === 'result') return ' Drift-Guard (Foto/Film): Abschluss ueber verwertbares Bildmaterial, Motive und Weitergabe an Redaktion/Gemeinde/Auftraggeber. Kein Sightseeing-Fazit, keine technische Befundsprache.';
         if (m === 'progress') return ' Drift-Guard (Foto/Film): Nur Bildserie, Motiv, Perspektive, Licht, Ortsbezug und Wiedererkennungswert. Keine Aussicht-geniessen-Sprache, keine Inspektion.';
@@ -857,7 +860,7 @@ function _poiEntryPrompt(flightData) {
     const isLearningGuide = taskDomain === 'poi_learning_guide';
     const isSightseeing = taskDomain === 'sightseeing_tour';
     const hasPoiKnowledge = !!_activePoiKnowledgeContext();
-    const isProfessionalPoiTask = /^(inspection_infra|infra_chain_recon|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain);
+    const isProfessionalPoiTask = /^(inspection_infra|infra_chain_recon|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain) && !(taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1');
     const inspHint = isHistorian ? '' : _inspectionEntryHint();
     const profHint = isHistorian ? '' : _professionalTaskHint('entry');
     const factHint = (taskDomain === 'search_and_rescue' || isLearningGuide || (isSightseeing && hasPoiKnowledge)) ? '' : _targetFactHint();
@@ -921,7 +924,9 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos, options = {}) {
     const learningInSightHint = isLearningGuide
         ? ' Lern-Guide-Rolle: Sage nicht "in Sicht", sondern orientiere den Piloten ruhig zur Position. Landmarken-Lokalisierung hat Vorrang; wenn es ohne Hektik passt, ergaenze genau einen neuen Wissensfakt.'
         : '';
-    const roleTone = (taskDomain === 'search_and_rescue')
+    const roleTone = (taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1')
+        ? 'Foto-Rolle: Sprich persönlich oder beruflich passend zum FOTOAUFTRAG, über das geplante Motiv. Keine Steuer- oder Manöveranweisungen. Max 2 Sätze.'
+        : (taskDomain === 'search_and_rescue')
         ? 'SAR-Rolle: knapp, klar, lageorientiert, kein Sightseeing-Ton. Max 2 Saetze.'
         : (isLearningGuide
             ? 'Lern-Guide: bildend und klar, ohne Anweisungsstil oder Einsatzsprache. Max 2 Saetze.'
@@ -1025,7 +1030,9 @@ function _poiSatisfiedPrompt(flightData) {
             ? ' Sightseeing-Ankunft: Schließe als privater Gast mit Ankunftsfreude auf den Zielort und den Plan nach der Landung. Kein Rueckflug-Hinweis, kein Rundflug-Fazit, nicht "fertig", "abgearbeitet" oder wie ein Auftrag klingen.'
             : ' Sightseeing-Fazit: Schließe mit einem persoenlichen Blickmoment zum Ziel und einem entspannten Rueckflug-Hinweis. Nicht "fertig", "abgearbeitet" oder wie ein Auftrag klingen.')
         : '';
-    const mediaResultHint = isMediaPhoto
+    const mediaResultHint = isMediaPhoto && window.activePassenger?.narrativeSchema === 'poi-briefing.v1'
+        ? ' Foto-Fazit: Nenne kurz das entstandene Material und seine im FOTOAUFTRAG vorgesehene Verwendung. Ton passend zum persönlichen oder beruflichen Anlass.'
+        : isMediaPhoto
         ? ' Foto/Film-Fazit: Schließe mit einem kurzen Satz, welche Art Material im Kasten ist (Aufmacherbild, Bildserie, Establishing Shots oder Ortsmotiv) und wohin es danach geht. Nicht wie Sightseeing klingen.'
         : '';
     const mappingResultHint = isMappingSurvey

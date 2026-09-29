@@ -75,3 +75,5 @@ Keine Änderung an zentralen Klassifizierungen oder fremden Profilverträgen unt
 - Datenprobe: `tools/poi-environment-probe.mjs` (reale Quellenabrufe, synthetischer Writer, kein Gemini)
 
 Die alten Exporte der Foto-Core für Geo-Helfer bleiben vorerst kompatible Weiterleitungen. Neue Verbraucher importieren direkt den Shared-Core, niemals den Foto-Core als allgemeine Bibliothek.
+
+Flug-Voice: [Erzählkontinuität nach APT-Muster](POI%20Flight%20Narrative%20Continuity.md). Veröffentlicht mit Web-Alpha v1879 und Tracker-Alpha v454; gemeinsame App-/Tracker-Verifikation.

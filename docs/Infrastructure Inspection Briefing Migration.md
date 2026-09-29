@@ -67,3 +67,5 @@ Die Serie wurde nach drei Missionen beendet. 141 Regressionstests bestanden, ink
 Nutzerfreigabe: Plausible Dringlichkeit und Konsequenzen wie mögliche Tonnagebegrenzung sind erwünscht. Die direkte fachliche Schlussfolgerung aus verdächtigen Luftbeobachtungen ist die gezielte, gegebenenfalls sofortige Nachprüfung vor Ort. Die ältere Bewertung solcher Dramatik als generellen Ausschlussgrund ist überholt. Prompt v1.8 übernimmt dies ohne nachgelagerte Verbotslisten. Reale Geografie bleibt quellengebunden.
 
 Veröffentlicht werden der gemeinsame Lage-/Wetterbaustein und der neue professionelle Writer für initiale Einzelziele. Ketten und Folgeaufträge bleiben im vorhandenen Ablauf. Die bisherigen Testserien sind historische Entwicklungsbefunde; sie sind keine Statistik zur Fehlerfreiheit von v1.8. Kein neuer Tracker erforderlich.
+
+Flug-Voice: [Erzählkontinuität nach APT-Muster](POI%20Flight%20Narrative%20Continuity.md). Veröffentlicht mit Web-Alpha v1879 und Tracker-Alpha v454; gemeinsame App-/Tracker-Verifikation.

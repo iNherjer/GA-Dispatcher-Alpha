@@ -1,0 +1,34 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import photo from '../mission-poi-briefing-core.js';
+import infra from '../mission-infra-briefing-core.js';
+import voice from '../mission-poi-voice-core.js';
+import {extractOriginalFunction} from './extract-original-function.mjs';
+const source=fs.readFileSync('passenger-voice.js','utf8');
+function fixture(domain){
+ const isPhoto=domain==='media_photo';
+ const idea={taskDomain:domain,targetName:'Staudamm',person:{name:'Ada',role:isPhoto?'Fotografin':'Prüferin',relationshipToPilot:'beauftragte Fachperson'},situation:'Die ganze Vorgeschichte bleibt erhalten. '.repeat(12),intent:'Ein Geschenkbild für die Familie.',client:{name:'Wasserverband'},inspectionFocus:'Betroffene Abschnitte der Dammkrone eingrenzen.',scenarioDetails:['Eine verschobene Abdeckung wurde gemeldet.'],aerialAssessment:{visibleCue:'Größere Verschiebung',usefulConclusion:'Betroffene Abschnitte',followup:'Sofortige Nachprüfung vor Ort'},decisionNeeded:'Dringlichkeit der Nachprüfung.'};
+ const briefing={schema:isPhoto?photo.VERSION:infra.VERSION,idea,capture:{deliverable:'target_photos_or_video'}};
+ const md={poiName:'Staudamm',mission:'Blick auf den Staudamm',missionContract:{},[isPhoto?'poiBriefing':'infraBriefing']:briefing};
+ const passenger={name:'Ada',role:idea.person.role,taskDomain:domain,narrativeSchema:briefing.schema,urgencyPriority:'niedrig',targetAltFt:3000,targetRadiusNm:2,targetDwellMin:2};
+ const env={window:{activePassenger:passenger,MissionPoiBriefingCore:photo,MissionInfraBriefingCore:infra},currentMissionData:md,localStorage:{getItem:()=>null},document:{getElementById:()=>({innerText:''})},_getMissionStory:()=>idea.situation,_sanitizePaxSoftPoiStory:x=>x,_activeTaskDomain:()=>domain,_isPOIMission:()=>true,_normUrgencyPriority:()=> 'niedrig',_missionHasPax:()=>true,_personaNarrativeSeedAllowed:()=>true};
+ for(const name of ['_activeBushPickupPassengerContract','_roleStyleHint','_personaPersonalityLabel','_personaSpeechSignature','_activeAptTrainingPlan','_aptArrivalContextLine','_poiSightseeingKnowledgeContextLine','_paxTargetProminenceLine','_paxVisualLandmarksLine','_activeMissionStoryFrame','_bushVoiceToneLine','_bushPickupPassengerPerspectiveLine'])env[name]=()=>null;
+ vm.createContext(env);for(const name of ['_baseContext','_inspectionMissionMeta','_inspectionEntryHint','_domainDriftGuard'])vm.runInContext(extractOriginalFunction(source,name),env);
+ const context={schema:voice.CONTEXT_SCHEMA,version:1,missionId:'narrative-test',taskDomain:domain,strict:false,audioEnabled:false,baseContext:env._baseContext(),toneHint:'',passenger,missionData:{poiName:'Staudamm'},inspectionMeta:env._inspectionMissionMeta(),targetFacts:[],wikiText:''};
+ return {env,context,idea};
+}
+for(const domain of ['media_photo','inspection_infra'])test(domain+' carries the selected idea through tracker prompts and restored speech memory',()=>{
+ const {context,idea}=fixture(domain);assert.ok(context.baseContext.includes(domain==='media_photo'?idea.intent:idea.inspectionFocus));
+ const restored=JSON.parse(JSON.stringify(context));let memory={};
+ for(const [prompt,args] of [['_poiInSightPrompt',[{mslFt:3000},2,2,'12 Uhr']],['_poiEntryPrompt',[{mslFt:3000}]],['_poiSatisfiedPrompt',[{mslFt:3000}]]]){
+  const result=voice.render(restored,{prompt,args,detector:{dwellSec:120}},memory);
+  assert.ok(result.prompt.includes(domain==='media_photo'?idea.intent:idea.inspectionFocus));
+  if(prompt==='_poiSatisfiedPrompt')assert.match(result.prompt,/bereits|GESAGT|Erinnerung|ZUVOR/i);
+  memory=voice.captureMemory(result.memory,'Zielgebiet','Die markierte Stelle haben wir bereits besprochen.',domain);
+  memory=JSON.parse(JSON.stringify(memory));
+ }
+});
+test('photo at a dam never acquires inspection metadata and keeps personal purpose',()=>{const {env,context}=fixture('media_photo');assert.equal(env._inspectionMissionMeta(),null);assert.equal(env._inspectionEntryHint(),'');assert.match(context.baseContext,/Geschenkbild für die Familie/);assert.doesNotMatch(env._domainDriftGuard('entry'),/Keine persoenliche Ausflugserzaehlung/);});
+test('infra preserves chosen question and does not silence narrative urgency',()=>{const {env,context}=fixture('inspection_infra');assert.match(env._inspectionEntryHint(),/Dammkrone/);assert.doesNotMatch(context.baseContext,/keine Eile-Kommunikation/);assert.match(context.baseContext,/Nachprüfung vor Ort/);const result=voice.render({...context,infraOutcome:{outcome:'monitor',resultPrompt:'VERBINDLICHER BEFUND: nur Beobachtungsbedarf'}},{prompt:'_poiSatisfiedPrompt',args:[{mslFt:3000}],detector:{dwellSec:120}});assert.match(result.prompt,/VERBINDLICHER BEFUND/);});
