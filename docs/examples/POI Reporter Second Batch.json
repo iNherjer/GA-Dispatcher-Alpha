@@ -1,0 +1,88 @@
+{
+  "status": "development-not-release-ready",
+  "scope": "Recorded local target data; no live weather or terrain. Third attempt HTTP 503, no response.",
+  "runs": [
+    {
+      "attempt": 1,
+      "promptVersion": "poi-news-apt-v1.4",
+      "httpStatus": 200,
+      "historyCount": 2,
+      "target": {
+        "name": "Hausach",
+        "lat": 48.28363,
+        "lon": 8.17497,
+        "poiCategory": "city",
+        "place": "town"
+      },
+      "idea": {
+        "schema": "news-idea.v1",
+        "targetId": "poi:48.283630:8.174970",
+        "targetName": "Hausach",
+        "taskDomain": "news_coverage",
+        "outlet": "Kinzigtal Magazin",
+        "headline": "Hausachs geheime Gärten",
+        "situation": "Die Stadtentwicklerin Mareike Vogt hat eine Wette mit dem Stadtrat laufen: Sie behauptet, dass Hausach weit mehr private Grünflächen besitzt, als die amtliche Statistik ausweist – sie verstecken sich nur auf den Dächern und in den verwinkelten Hinterhöfen der dichten Kernbebauung.",
+        "angle": "Ist Hausach in Wahrheit eine grüne Oase, deren wahre Vitalität sich erst zeigt, wenn man die Perspektive der engen Gassen verlässt?",
+        "airValue": "Aus der Luft lässt sich das Mosaik aus privaten Dachterrassen, versteckten Atrien und begrünten Garagen erfassen, das im engen Kinzigtal vom Boden aus hinter den Fassaden der Industriegeschichte völlig unsichtbar bleibt.",
+        "deliverable": "Eine Fotostrecke über die 'zweite Ebene' der Stadt, die als visueller Beleg für eine neue Initiative zur innerstädtischen Lebensqualität in einem kommenden Sonderheft dienen soll.",
+        "person": {
+          "name": "Mareike Vogt",
+          "role": "freie Journalistin für Stadtentwicklung",
+          "relationshipToPilot": "mitfliegende journalistische Fachperson"
+        }
+      },
+      "rawResponses": [
+        "{\n  \"ideas\": [\n    {\n      \"schema\": \"news-idea.v1\",\n      \"targetId\": \"poi:48.283630:8.174970\",\n      \"targetName\": \"Hausach\",\n      \"taskDomain\": \"news_coverage\",\n      \"outlet\": \"Kinzigtal Magazin\",\n      \"headline\": \"Hausachs geheime Gärten\",\n      \"situation\": \"Die Stadtentwicklerin Mareike Vogt hat eine Wette mit dem Stadtrat laufen: Sie behauptet, dass Hausach weit mehr private Grünflächen besitzt, als die amtliche Statistik ausweist – sie verstecken sich nur auf den Dächern und in den verwinkelten Hinterhöfen der dichten Kernbebauung.\",\n      \"angle\": \"Ist Hausach in Wahrheit eine grüne Oase, deren wahre Vitalität sich erst zeigt, wenn man die Perspektive der engen Gassen verlässt?\",\n      \"airValue\": \"Aus der Luft lässt sich das Mosaik aus privaten Dachterrassen, versteckten Atrien und begrünten Garagen erfassen, das im engen Kinzigtal vom Boden aus hinter den Fassaden der Industriegeschichte völlig unsichtbar bleibt.\",\n      \"deliverable\": \"Eine Fotostrecke über die 'zweite Ebene' der Stadt, die als visueller Beleg für eine neue Initiative zur innerstädtischen Lebensqualität in einem kommenden Sonderheft dienen soll.\",\n      \"person\": {\n        \"name\": \"Mareike Vogt\",\n        \"role\": \"freie Journalistin für Stadtentwicklung\"\n      }\n    }\n  ]\n}",
+        "{\n  \"targetId\": \"poi:48.283630:8.174970\",\n  \"title\": \"Hausachs geheime Gärten\",\n  \"story\": \"Mareike Vogt hat eine Wette mit dem Stadtrat laufen und wir helfen ihr heute dabei, sie zu gewinnen. Es geht um die versteckten grünen Oasen von Hausach, die in keiner amtlichen Statistik auftauchen, weil sie sich hinter den Fassaden der alten Industriebebauung verbergen. Mareike vermutet auf den Dächern und in den verwinkelten Hinterhöfen ein ganzes Mosaik aus privaten Gärten und Atrien, das die Lebensqualität der Stadt massiv aufwertet. Vom Boden aus bleibt dieser Reichtum unsichtbar, doch aus der Luft wollt ihr heute den visuellen Beweis für ihr kommendes Sonderheft im Kinzigtal Magazin liefern. Euer Flug führt euch über die dichte Kernbebauung, um genau diese zweite Ebene der Stadt zu dokumentieren. Schaut gemeinsam genau hin, ob sich zwischen den Schornsteinen der Industriegeschichte wirklich die erhoffte biologische Vitalität zeigt.\",\n  \"greetingSpeaker\": \"Mareike Vogt\",\n  \"greeting\": \"Hallo! Ich bin Mareike Vogt. Heute wird sich zeigen, ob mein Bauchgefühl stimmt: Hausach ist obenrum hoffentlich viel grüner, als es die Akten im Rathaus vermuten lassen. Drücken Sie die Daumen für gute Sicht auf die Hinterhöfe!\",\n  \"flightBriefing\": \"Für euren Flug von [[route.start]] nach [[route.target]] liegen aktuell leider keine detaillierten Wetterberichte vor. Sowohl für den Winzeln-Schramberg Airport als auch für das Zielgebiet Hausach ist der Status der Meldungen unbekannt. Da weder Winddaten noch Bewölkungshöhen oder Sichtweiten übermittelt wurden, müsst ihr euch auf eure eigene Beobachtung vor Ort verlassen. Auch eine Angabe zur Distanz fehlt in den aktuellen Daten. Achtet beim Anflug auf Hausach besonders auf die Hindernisse wie den Mast und die Türme in der unmittelbaren Umgebung des Ziels. Nach eurer Runde über den Stadtkern geht es wieder zurück zur Basis.\",\n  \"memory\": \"Die Geschichte thematisiert eine Wette der Stadtentwicklerin Mareike Vogt gegen den Stadtrat über den Anteil an Grünflächen. Im Fokus steht die 'zweite Ebene' Hausachs (Dachgärten, Innenhöfe), die nur aus der Luft dokumentiert werden kann. Die Erzählweise ist journalistisch-entdeckerisch und nutzt die topografische Dichte des Kinzigtals als Begründung für den Flugauftrag.\",\n  \"report\": {\n    \"orientationIds\": [\n      \"f2\",\n      \"f4\",\n      \"f5\"\n    ]\n  },\n  \"usedFactIds\": [\n    \"f2\",\n    \"f4\",\n    \"f5\",\n    \"f9\",\n    \"f10\",\n    \"f11\",\n    \"target-selection-category\"\n  ]\n}"
+      ],
+      "story": "Mareike Vogt hat eine Wette mit dem Stadtrat laufen und wir helfen ihr heute dabei, sie zu gewinnen. Es geht um die versteckten grünen Oasen von Hausach, die in keiner amtlichen Statistik auftauchen, weil sie sich hinter den Fassaden der alten Industriebebauung verbergen. Mareike vermutet auf den Dächern und in den verwinkelten Hinterhöfen ein ganzes Mosaik aus privaten Gärten und Atrien, das die Lebensqualität der Stadt massiv aufwertet. Vom Boden aus bleibt dieser Reichtum unsichtbar, doch aus der Luft wollt ihr heute den visuellen Beweis für ihr kommendes Sonderheft im Kinzigtal Magazin liefern. Euer Flug führt euch über die dichte Kernbebauung, um genau diese zweite Ebene der Stadt zu dokumentieren. Schaut gemeinsam genau hin, ob sich zwischen den Schornsteinen der Industriegeschichte wirklich die erhoffte biologische Vitalität zeigt.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Kinzig Nebenlauf Kanal: Das Ziel liegt etwa 100 m südlich davon. Ein weiterer Bezugspunkt ist der Fluss Kinzig; das Ziel liegt etwa 300 m südöstlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Turm etwa 450 m nordöstlich des Ziels; Mast etwa 650 m östlich des Ziels; Turm etwa 750 m nordwestlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf."
+    },
+    {
+      "attempt": 2,
+      "promptVersion": "poi-news-apt-v1.5",
+      "httpStatus": 200,
+      "historyCount": 3,
+      "target": {
+        "name": "Am Erlenbach",
+        "lat": 48.33255,
+        "lon": 8.04059,
+        "poiCategory": "industry",
+        "landuse": "industrial",
+        "infra_type": "industrial",
+        "sourceKind": "infra"
+      },
+      "idea": {
+        "schema": "news-idea.v1",
+        "targetId": "poi:48.332550:8.040590",
+        "targetName": "Am Erlenbach",
+        "taskDomain": "news_coverage",
+        "outlet": "Wirtschaftsspiegel Mittelbaden",
+        "headline": "Das Tetris am Erlenbach",
+        "situation": "Der Logistikberater Holger Kranich behauptet, dass das Industriegebiet durch eine gemeinschaftliche Nutzung der Werkshöfe seine Kapazität verdoppeln könnte, stößt aber auf den Widerstand der alteingesessenen Firmenbesitzer.",
+        "angle": "Stößt das Gewerbegebiet an seine geografischen Grenzen oder verhindern nur starre Grundstückszäune eine effiziente Logistik im engen Kinzigtal?",
+        "airValue": "Aus der Luft lässt sich die starre Parzellierung der Werksgelände im direkten Kontrast zur natürlichen Begrenzung durch den Flussverlauf und die Steilhänge erfassen, was die Enge und das Potenzial von 'Shared Spaces' zwischen den Hallen erst sichtbar macht.",
+        "deliverable": "Luftaufnahmen der ungenutzten Randflächen und Rangierzonen der verschiedenen Betriebe als Diskussionsgrundlage für einen runden Tisch zum Thema Flächeneffizienz.",
+        "person": {
+          "name": "Lena Seidel",
+          "role": "Wirtschaftsredakteurin",
+          "relationshipToPilot": "mitfliegende journalistische Fachperson"
+        }
+      },
+      "rawResponses": [
+        "{\n  \"ideas\": [\n    {\n      \"schema\": \"news-idea.v1\",\n      \"targetId\": \"poi:48.332550:8.040590\",\n      \"targetName\": \"Am Erlenbach\",\n      \"taskDomain\": \"news_coverage\",\n      \"outlet\": \"Wirtschaftsspiegel Mittelbaden\",\n      \"headline\": \"Das Tetris am Erlenbach\",\n      \"situation\": \"Der Logistikberater Holger Kranich behauptet, dass das Industriegebiet durch eine gemeinschaftliche Nutzung der Werkshöfe seine Kapazität verdoppeln könnte, stößt aber auf den Widerstand der alteingesessenen Firmenbesitzer.\",\n      \"angle\": \"Stößt das Gewerbegebiet an seine geografischen Grenzen oder verhindern nur starre Grundstückszäune eine effiziente Logistik im engen Kinzigtal?\",\n      \"airValue\": \"Aus der Luft lässt sich die starre Parzellierung der Werksgelände im direkten Kontrast zur natürlichen Begrenzung durch den Flussverlauf und die Steilhänge erfassen, was die Enge und das Potenzial von 'Shared Spaces' zwischen den Hallen erst sichtbar macht.\",\n      \"deliverable\": \"Luftaufnahmen der ungenutzten Randflächen und Rangierzonen der verschiedenen Betriebe als Diskussionsgrundlage für einen runden Tisch zum Thema Flächeneffizienz.\",\n      \"person\": {\n        \"name\": \"Lena Seidel\",\n        \"role\": \"Wirtschaftsredakteurin\"\n      }\n    }\n  ]\n}",
+        "{\n  \"targetId\": \"poi:48.332550:8.040590\",\n  \"title\": \"Das Tetris am Erlenbach\",\n  \"story\": \"Im Industriegebiet am Erlenbach schwelt ein Konflikt um knappen Raum, den Lena Seidel heute für den Wirtschaftsspiegel Mittelbaden journalistisch aufgreift. Ein Logistikberater behauptet, dass die lokalen Betriebe durch das Einreißen ihrer Zäune und eine gemeinschaftliche Hofnutzung ihre Kapazitäten massiv steigern könnten, doch die Besitzer wehren sich gegen dieses „Tetris-Modell“. Wir fliegen Lena über das Areal, damit sie die starre Parzellierung im Kontrast zur natürlichen Enge des Tals dokumentieren kann. Aus der Luft will sie prüfen, ob die Rangierzonen und Randflächen tatsächlich so ineffizient genutzt werden, wie es die Kritiker behaupten. Ihre Aufnahmen sollen als Grundlage für eine Debatte über Flächeneffizienz dienen. Erst die Vogelperspektive macht sichtbar, wo zwischen den Werkshallen noch Platz wäre, bevor das Gelände an die Hänge stößt.\",\n  \"greetingSpeaker\": \"Lena Seidel\",\n  \"greeting\": \"Guten Tag! Ich möchte heute sehen, ob die Grenzen zwischen den Firmen wirklich so unüberwindbar sind, wie es auf dem Katasterplan aussieht. Von oben erkennt man oft besser als am Boden, wo Lkw-Rangierflächen nur deshalb leer stehen, weil ein Zaun im Weg ist.\",\n  \"flightBriefing\": \"Wir bereiten uns auf den Flug von [[route.start]] zum Ziel [[route.target]] vor. Die Wetterlage am Startplatz [[route.start]] ist aktuell unbekannt, da keine Meldungen vorliegen. Auch für das Zielgebiet [[route.target]] sind momentan keine Wetterdaten oder Windbeobachtungen verfügbar. Da die Streckenentfernung und etwaige Böenwerte in den vorliegenden Daten nicht spezifiziert sind, fliegen wir ohne aktuelle meteorologische Referenzwerte. Wir orientieren uns während des Fluges an der Sicht und kehren nach der Dokumentation des Industriegebiets wieder zu unserem Ausgangspunkt zurück.\",\n  \"memory\": \"Die Geschichte fokussiert sich auf ökonomische Flächeneffizienz und die private Parzellierung im Industriegebiet am Erlenbach. Im Gegensatz zu den vorherigen Hausach-Entwürfen, die eher städtebauliche oder klimatische Folgen eines Tunnels behandelten, wird hier ein wirtschaftlicher Nachbarschaftskonflikt thematisiert. Die Luftperspektive dient als analytisches Werkzeug, um das Konzept der 'Shared Spaces' gegen starre Eigentumsgrenzen abzuwägen.\",\n  \"report\": {\n    \"orientationIds\": [\n      \"f1\",\n      \"f3\",\n      \"f4\"\n    ]\n  },\n  \"usedFactIds\": [\n    \"target-selection-category\",\n    \"f1\",\n    \"f3\",\n    \"f4\"\n  ]\n}"
+      ],
+      "story": "Im Industriegebiet am Erlenbach schwelt ein Konflikt um knappen Raum, den Lena Seidel heute für den Wirtschaftsspiegel Mittelbaden journalistisch aufgreift. Ein Logistikberater behauptet, dass die lokalen Betriebe durch das Einreißen ihrer Zäune und eine gemeinschaftliche Hofnutzung ihre Kapazitäten massiv steigern könnten, doch die Besitzer wehren sich gegen dieses „Tetris-Modell“. Wir fliegen Lena über das Areal, damit sie die starre Parzellierung im Kontrast zur natürlichen Enge des Tals dokumentieren kann. Aus der Luft will sie prüfen, ob die Rangierzonen und Randflächen tatsächlich so ineffizient genutzt werden, wie es die Kritiker behaupten. Ihre Aufnahmen sollen als Grundlage für eine Debatte über Flächeneffizienz dienen. Erst die Vogelperspektive macht sichtbar, wo zwischen den Werkshallen noch Platz wäre, bevor das Gelände an die Hänge stößt.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Unterentersbach; das Ziel liegt etwa 1 km nordwestlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf."
+    },
+    {
+      "attempt": 3,
+      "promptVersion": "poi-news-apt-v1.6",
+      "httpStatus": 503,
+      "historyCount": null,
+      "target": null,
+      "idea": null,
+      "rawResponses": null,
+      "story": null
+    }
+  ]
+}

@@ -1,0 +1,251 @@
+{
+  "results": [
+    {
+      "task": "inspection_infra",
+      "scene": {
+        "preset": "",
+        "kind": "industry_site",
+        "features": [
+          "utility_truck",
+          "people"
+        ],
+        "requirements": [
+          {
+            "feature": "utility_truck",
+            "count": 1,
+            "placement": "",
+            "arrangement": "cluster",
+            "notes": "",
+            "forwardM": -60,
+            "rightM": 0,
+            "role": "vehicle.van",
+            "surface": "ground"
+          },
+          {
+            "feature": "people",
+            "count": 1,
+            "placement": "",
+            "arrangement": "cluster",
+            "notes": "",
+            "forwardM": -20,
+            "rightM": -10,
+            "role": "person.ground_crew",
+            "surface": "ground"
+          }
+        ],
+        "objectPolicy": "explicit-requirements",
+        "placementVersion": "poi-placement.v2",
+        "roles": [
+          "vehicle.truck",
+          "vehicle.van",
+          "person.ground_crew"
+        ],
+        "density": "normal",
+        "layout": "",
+        "notes": ""
+      },
+      "point": {
+        "lat": 48.33255,
+        "lon": 8.04059,
+        "altFt": 644,
+        "terrainPending": false,
+        "hdg": 0,
+        "name": "Testziel"
+      },
+      "items": [
+        {
+          "kind": "feature_utility_truck_1_1",
+          "label": "Utility-/Servicefahrzeug",
+          "objectTitle": "Microsoft_Van_ASIA_02_Yellow",
+          "titleCandidates": [
+            "Microsoft_Van_ASIA_02_Yellow",
+            "Microsoft Van ASIA 02 Yellow",
+            "Microsoft_Van_EUR",
+            "Microsoft Van EUR",
+            "Microsoft_Van_ASIA_02",
+            "Microsoft Van ASIA 02",
+            "Microsoft_Van_ASIA_02_Brown",
+            "Microsoft Van ASIA 02 Brown",
+            "Microsoft_Van_EUR_Black",
+            "Microsoft Van EUR Black",
+            "Microsoft_Van_EUR_Blue",
+            "Microsoft Van EUR Blue",
+            "Microsoft_Van_EUR_Red",
+            "Microsoft Van EUR Red",
+            "Microsoft_Van_NA_Modern",
+            "Microsoft Van NA Modern",
+            "Microsoft_Van_NA_Modern_Green",
+            "Microsoft Van NA Modern Green",
+            "Van Europe",
+            "Van_Europe",
+            "Van NorthAm",
+            "Van_NorthAm"
+          ],
+          "forwardM": -60,
+          "rightM": 0,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placementOverride": true
+        },
+        {
+          "kind": "feature_people_2_1",
+          "label": "Personen am Boden",
+          "objectTitle": "Tarmac_Female_Summer_Asian",
+          "titleCandidates": [
+            "Tarmac_Female_Summer_Asian",
+            "Tarmac Female Summer Asian",
+            "Marshaller_Female_Summer_African",
+            "Marshaller Female Summer African",
+            "Marshaller_Female_Summer_Arab",
+            "Marshaller Female Summer Arab",
+            "Marshaller_Female_Summer_Asian",
+            "Marshaller Female Summer Asian",
+            "Marshaller_Female_Summer_Caucasian",
+            "Marshaller Female Summer Caucasian",
+            "Marshaller_Female_Summer_Hispanic",
+            "Marshaller Female Summer Hispanic",
+            "Marshaller_Female_Summer_Indian",
+            "Marshaller Female Summer Indian",
+            "Marshaller_Female_Winter_African",
+            "Marshaller Female Winter African",
+            "Marshaller_Female_Winter_Arab",
+            "Marshaller Female Winter Arab",
+            "Marshaller_Female_Winter_Asian",
+            "Marshaller Female Winter Asian",
+            "Marshaller_Female_Winter_Caucasian",
+            "Marshaller Female Winter Caucasian",
+            "Marshaller_Female_Winter_Hispanic",
+            "Marshaller Female Winter Hispanic"
+          ],
+          "forwardM": -20,
+          "rightM": -10,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placementOverride": true
+        }
+      ]
+    },
+    {
+      "task": "science_bio",
+      "scene": {
+        "preset": "",
+        "kind": "water_pollution",
+        "features": [
+          "watercraft"
+        ],
+        "requirements": [
+          {
+            "feature": "watercraft",
+            "count": 1,
+            "placement": "",
+            "arrangement": "cluster",
+            "notes": "",
+            "forwardM": 0,
+            "rightM": 0,
+            "role": "watercraft.tiny_boat",
+            "surface": "water"
+          }
+        ],
+        "objectPolicy": "explicit-requirements",
+        "placementVersion": "poi-placement.v2",
+        "roles": [
+          "watercraft.tiny_boat",
+          "watercraft.small_boat"
+        ],
+        "density": "normal",
+        "layout": "",
+        "notes": ""
+      },
+      "point": {
+        "lat": 48.33255,
+        "lon": 8.04059,
+        "altFt": 644,
+        "terrainPending": false,
+        "hdg": 0,
+        "name": "Testziel"
+      },
+      "items": [
+        {
+          "kind": "feature_watercraft_1_1",
+          "label": "kleine zivile Boote / See- und Uferaktivitaet",
+          "objectTitle": "boat01",
+          "titleCandidates": [
+            "boat01",
+            "boat02"
+          ],
+          "forwardM": 0,
+          "rightM": 0,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placementOverride": true
+        }
+      ]
+    },
+    {
+      "task": "search_and_rescue",
+      "scene": {
+        "preset": "",
+        "kind": "sar_land",
+        "features": [
+          "missing_person"
+        ],
+        "requirements": [
+          {
+            "feature": "missing_person",
+            "count": 1,
+            "placement": "",
+            "arrangement": "cluster",
+            "notes": "",
+            "forwardM": 0,
+            "rightM": 0,
+            "role": "sar.person_target",
+            "surface": "forest"
+          }
+        ],
+        "objectPolicy": "explicit-requirements",
+        "placementVersion": "poi-placement.v2",
+        "roles": [
+          "sar.person_target",
+          "person.ground_crew"
+        ],
+        "density": "normal",
+        "layout": "",
+        "notes": ""
+      },
+      "point": {
+        "lat": 48.33255,
+        "lon": 8.04059,
+        "altFt": 644,
+        "terrainPending": false,
+        "hdg": 0,
+        "name": "Testziel"
+      },
+      "items": [
+        {
+          "kind": "feature_missing_person_1_1",
+          "label": "vermisste / winkende Person als Suchziel",
+          "objectTitle": "mmh_HikerRescue",
+          "titleCandidates": [
+            "mmh_HikerRescue",
+            "mmh HikerRescue",
+            "mmh_SkierRescue",
+            "mmh SkierRescue",
+            "mmh_ArcticRescue",
+            "mmh ArcticRescue"
+          ],
+          "forwardM": 0,
+          "rightM": 0,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placementOverride": true
+        }
+      ]
+    }
+  ],
+  "modelCalls": 0,
+  "errors": []
+}

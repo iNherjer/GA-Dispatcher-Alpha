@@ -1,0 +1,1472 @@
+{
+  "promptVersion": "poi-news-apt-v1.9",
+  "scope": "One idea and one writer using local tiles; no weather, terrain or environment polygon fixture. No full browser or simulator test.",
+  "target": {
+    "name": "Am Erlenbach",
+    "lat": 48.33255,
+    "lon": 8.04059,
+    "poiCategory": "industry",
+    "landuse": "industrial",
+    "infra_type": "industrial",
+    "sourceKind": "infra"
+  },
+  "historyCount": 1,
+  "rawResponses": [
+    "{\n  \"ideas\": [\n    {\n      \"schema\": \"news-idea.v1\",\n      \"targetId\": \"poi:48.332550:8.040590\",\n      \"targetName\": \"Am Erlenbach\",\n      \"taskDomain\": \"news_coverage\",\n      \"outlet\": \"Kinzigtal-Journal\",\n      \"headline\": \"Sagenhafter Anstrich: Industriekultur am Erlenbach\",\n      \"situation\": \"Ein lokales Bündnis aus Künstlern und Unternehmern gestaltet die grauen Fassaden des Gewerbegebiets um. Aktuell wird das größte Wandbild der Region an einer der Hallen fertiggestellt, das Motive der Kinzigtaler Flößerei zeigt. Bevor das Gerüst endgültig fällt, soll ein letzter Blick auf das Gesamtkunstwerk aus der Vogelperspektive erfolgen.\",\n      \"angle\": \"Die Verbindung von moderner Arbeitswelt und regionalem Brauchtum. Das Publikum interessiert sich für die optische Aufwertung des sonst eher funktionalen Gebiets und wie sich das Motiv in die Landschaft einfügt.\",\n      \"airValue\": \"Der Flug liefert die totale Übersicht über das großflächige Kunstwerk im Kontext der Schwarzwaldhänge und zeigt den Kontrast zwischen der bunten Fassade und der sachlichen Industriearchitektur.\",\n      \"deliverable\": \"Multimedia-Reportage für das Online-Portal und ein großformatiges Aufmacherfoto für die Wochenendbeilage.\",\n      \"person\": {\n        \"name\": \"Lena Maier\",\n        \"role\": \"Kulturreporterin\"\n      },\n      \"sceneIntent\": {\n        \"summary\": \"Ein Kran und mehrere Service-Fahrzeuge stehen an einer markanten Hallenwand bereit. Kleine Personengruppen koordinieren die letzten Arbeiten am Fassadenprojekt.\",\n        \"visibleIdeas\": [\n          \"Ein mobiler Kran direkt an der hohen Hallenfassade\",\n          \"Drei weiße Service-Transporter auf dem Vorplatz geparkt\",\n          \"Absperrkegel markieren den Sicherheitsbereich um die Arbeitszone\",\n          \"Ein kleiner Generator mit Kabeln zur Hallenwand\",\n          \"Mehrere Palettenstapel mit Materialresten am Rand\",\n          \"Eine kleine Gruppe von Personen (Bodencrew) bespricht das Vorgehen\"\n        ],\n        \"densityHint\": \"normal\",\n        \"notes\": \"Die Szene stellt den Abschluss der künstlerischen Gestaltung an einer der Gewerbehallen im Gebiet Am Erlenbach dar.\"\n      }\n    }\n  ]\n}",
+    "{\n  \"targetId\": \"poi:48.332550:8.040590\",\n  \"title\": \"Sagenhafter Anstrich: Industriekultur am Erlenbach\",\n  \"story\": \"Wir brechen heute zum Gewerbegebiet Am Erlenbach auf. Lena Maier vom Kinzigtal-Journal möchte dokumentieren, wie dort gerade Industriegeschichte neu gemalt wird. Ein Bündnis aus Künstlern verpasst den grauen Hallenwänden einen farbenfrohen Anstrich mit Motiven der Kinzigtaler Flößerei. Ihr werdet dort wahrscheinlich einen mobilen Kran und einige Service-Fahrzeuge direkt an der Fassade sehen, wo die letzten Pinselstriche gesetzt werden. Für Lena ist es wichtig, die Wirkung dieses riesigen Kunstwerks im Kontrast zur sachlichen Industriearchitektur und den umliegenden Schwarzwaldhängen einzufangen. Die Aufnahmen sind das Highlight ihrer Reportage über regionales Brauchtum in der modernen Arbeitswelt. Nachdem ihr die Perspektive aus der Luft für ihr Aufmacherfoto gesichert habt, kehrt ihr wieder hierher zur Basis zurück.\",\n  \"greetingSpeaker\": \"Lena Maier\",\n  \"greeting\": \"Hallo! Ich bin Lena Maier. Ich freue mich darauf, die Flößer-Motive endlich in ihrer vollen Größe von oben zu sehen.\",\n  \"flightBriefing\": \"Für den Flug von [[route.start]] zum Ziel [[route.target]] liegen derzeit keine aktuellen Wetterdaten oder Entfernungsangaben vor. Da keine spezifischen Beobachtungen für die Stationen vorliegen, ist die Aktualität unbekannt. Achtet während des Fluges selbst auf die Sichtbedingungen und mögliche Windveränderungen im Zielgebiet.\",\n  \"memory\": \"Die Mission thematisiert die künstlerische Aufwertung eines Industriegebiets durch großformatige Wandmalerei mit Regionalbezug (Flößerei). Der Erzählton ist wertschätzend und fokussiert auf den optischen Kontrast zwischen funktionaler Architektur und kulturellem Erbe. Die Szenerie wird durch plausible Arbeitsmittel (Kran, Fahrzeuge) am POI ergänzt, um den Moment der Fertigstellung zu unterstreichen.\",\n  \"report\": {\n    \"orientationIds\": [\n      \"f1\",\n      \"f3\"\n    ],\n    \"orientationText\": \"Ihr findet das Ziel etwa 150 m östlich von dem Fluss Erlenbach. Zudem liegt der Ort Biberach (Baden) etwa 1,2 km südöstlich von eurem Zielpunkt.\"\n  },\n  \"usedFactIds\": [\n    \"f1\",\n    \"f3\",\n    \"target-selection-category\"\n  ]\n}"
+  ],
+  "idea": {
+    "schema": "news-idea.v1",
+    "targetId": "poi:48.332550:8.040590",
+    "targetName": "Am Erlenbach",
+    "taskDomain": "news_coverage",
+    "outlet": "Kinzigtal-Journal",
+    "headline": "Sagenhafter Anstrich: Industriekultur am Erlenbach",
+    "situation": "Ein lokales Bündnis aus Künstlern und Unternehmern gestaltet die grauen Fassaden des Gewerbegebiets um. Aktuell wird das größte Wandbild der Region an einer der Hallen fertiggestellt, das Motive der Kinzigtaler Flößerei zeigt. Bevor das Gerüst endgültig fällt, soll ein letzter Blick auf das Gesamtkunstwerk aus der Vogelperspektive erfolgen.",
+    "angle": "Die Verbindung von moderner Arbeitswelt und regionalem Brauchtum. Das Publikum interessiert sich für die optische Aufwertung des sonst eher funktionalen Gebiets und wie sich das Motiv in die Landschaft einfügt.",
+    "airValue": "Der Flug liefert die totale Übersicht über das großflächige Kunstwerk im Kontext der Schwarzwaldhänge und zeigt den Kontrast zwischen der bunten Fassade und der sachlichen Industriearchitektur.",
+    "deliverable": "Multimedia-Reportage für das Online-Portal und ein großformatiges Aufmacherfoto für die Wochenendbeilage.",
+    "sceneIntent": {
+      "summary": "Ein Kran und mehrere Service-Fahrzeuge stehen an einer markanten Hallenwand bereit. Kleine Personengruppen koordinieren die letzten Arbeiten am Fassadenprojekt.",
+      "visibleIdeas": [
+        "Ein mobiler Kran direkt an der hohen Hallenfassade",
+        "Drei weiße Service-Transporter auf dem Vorplatz geparkt",
+        "Absperrkegel markieren den Sicherheitsbereich um die Arbeitszone",
+        "Ein kleiner Generator mit Kabeln zur Hallenwand",
+        "Mehrere Palettenstapel mit Materialresten am Rand",
+        "Eine kleine Gruppe von Personen (Bodencrew) bespricht das Vorgehen"
+      ],
+      "densityHint": "normal",
+      "notes": "Die Szene stellt den Abschluss der künstlerischen Gestaltung an einer der Gewerbehallen im Gebiet Am Erlenbach dar."
+    },
+    "person": {
+      "name": "Lena Maier",
+      "role": "Kulturreporterin",
+      "relationshipToPilot": "mitfliegende journalistische Fachperson"
+    }
+  },
+  "mission": {
+    "t": "Sagenhafter Anstrich: Industriekultur am Erlenbach",
+    "s": "Wir brechen heute zum Gewerbegebiet Am Erlenbach auf. Lena Maier vom Kinzigtal-Journal möchte dokumentieren, wie dort gerade Industriegeschichte neu gemalt wird. Ein Bündnis aus Künstlern verpasst den grauen Hallenwänden einen farbenfrohen Anstrich mit Motiven der Kinzigtaler Flößerei. Ihr werdet dort wahrscheinlich einen mobilen Kran und einige Service-Fahrzeuge direkt an der Fassade sehen, wo die letzten Pinselstriche gesetzt werden. Für Lena ist es wichtig, die Wirkung dieses riesigen Kunstwerks im Kontrast zur sachlichen Industriearchitektur und den umliegenden Schwarzwaldhängen einzufangen. Die Aufnahmen sind das Highlight ihrer Reportage über regionales Brauchtum in der modernen Arbeitswelt. Nachdem ihr die Perspektive aus der Luft für ihr Aufmacherfoto gesichert habt, kehrt ihr wieder hierher zur Basis zurück.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Biberach (Baden); das Ziel liegt etwa 1,2 km südöstlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+    "story": "Wir brechen heute zum Gewerbegebiet Am Erlenbach auf. Lena Maier vom Kinzigtal-Journal möchte dokumentieren, wie dort gerade Industriegeschichte neu gemalt wird. Ein Bündnis aus Künstlern verpasst den grauen Hallenwänden einen farbenfrohen Anstrich mit Motiven der Kinzigtaler Flößerei. Ihr werdet dort wahrscheinlich einen mobilen Kran und einige Service-Fahrzeuge direkt an der Fassade sehen, wo die letzten Pinselstriche gesetzt werden. Für Lena ist es wichtig, die Wirkung dieses riesigen Kunstwerks im Kontrast zur sachlichen Industriearchitektur und den umliegenden Schwarzwaldhängen einzufangen. Die Aufnahmen sind das Highlight ihrer Reportage über regionales Brauchtum in der modernen Arbeitswelt. Nachdem ihr die Perspektive aus der Luft für ihr Aufmacherfoto gesichert habt, kehrt ihr wieder hierher zur Basis zurück.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Biberach (Baden); das Ziel liegt etwa 1,2 km südöstlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+    "missionStory": "Wir brechen heute zum Gewerbegebiet Am Erlenbach auf. Lena Maier vom Kinzigtal-Journal möchte dokumentieren, wie dort gerade Industriegeschichte neu gemalt wird. Ein Bündnis aus Künstlern verpasst den grauen Hallenwänden einen farbenfrohen Anstrich mit Motiven der Kinzigtaler Flößerei. Ihr werdet dort wahrscheinlich einen mobilen Kran und einige Service-Fahrzeuge direkt an der Fassade sehen, wo die letzten Pinselstriche gesetzt werden. Für Lena ist es wichtig, die Wirkung dieses riesigen Kunstwerks im Kontrast zur sachlichen Industriearchitektur und den umliegenden Schwarzwaldhängen einzufangen. Die Aufnahmen sind das Highlight ihrer Reportage über regionales Brauchtum in der modernen Arbeitswelt. Nachdem ihr die Perspektive aus der Luft für ihr Aufmacherfoto gesichert habt, kehrt ihr wieder hierher zur Basis zurück.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Biberach (Baden); das Ziel liegt etwa 1,2 km südöstlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+    "cat": "news_coverage",
+    "missionType": "poi",
+    "isPOI": true,
+    "pax": "1 PAX (Kulturreporterin)",
+    "cargo": "Kamera- und Audio-Set (32 lbs)",
+    "passengerCount": 1,
+    "plannedPassengerCount": 1,
+    "passenger": {
+      "name": "Lena Maier",
+      "role": "Kulturreporterin",
+      "relationshipToPilot": "mitfliegende journalistische Fachperson",
+      "taskDomain": "news_coverage",
+      "roleProfile": "news_reporter_professional_v1",
+      "narrativeSchema": "news-briefing.v1",
+      "greetingText": "Hallo! Ich bin Lena Maier. Ich freue mich darauf, die Flößer-Motive endlich in ihrer vollen Größe von oben zu sehen.",
+      "personalStoryCue": "Ein lokales Bündnis aus Künstlern und Unternehmern gestaltet die grauen Fassaden des Gewerbegebiets um. Aktuell wird das größte Wandbild der Region an einer der Hallen fertiggestellt, das Motive der Kinzigtaler Flößerei zeigt. Bevor das Gerüst endgültig fällt, soll ein letzter Blick auf das Gesamtkunstwerk aus der Vogelperspektive erfolgen.",
+      "gTolerance": "mittel",
+      "bankTolerance": "mittel",
+      "cargoSensitivity": "mittel",
+      "stomachSensitivity": "mittel",
+      "comfortPriority": "mittel",
+      "urgencyPriority": "niedrig"
+    },
+    "newsBriefing": {
+      "schema": "news-briefing.v1",
+      "promptVersion": "poi-news-apt-v1.9",
+      "idea": {
+        "schema": "news-idea.v1",
+        "targetId": "poi:48.332550:8.040590",
+        "targetName": "Am Erlenbach",
+        "taskDomain": "news_coverage",
+        "outlet": "Kinzigtal-Journal",
+        "headline": "Sagenhafter Anstrich: Industriekultur am Erlenbach",
+        "situation": "Ein lokales Bündnis aus Künstlern und Unternehmern gestaltet die grauen Fassaden des Gewerbegebiets um. Aktuell wird das größte Wandbild der Region an einer der Hallen fertiggestellt, das Motive der Kinzigtaler Flößerei zeigt. Bevor das Gerüst endgültig fällt, soll ein letzter Blick auf das Gesamtkunstwerk aus der Vogelperspektive erfolgen.",
+        "angle": "Die Verbindung von moderner Arbeitswelt und regionalem Brauchtum. Das Publikum interessiert sich für die optische Aufwertung des sonst eher funktionalen Gebiets und wie sich das Motiv in die Landschaft einfügt.",
+        "airValue": "Der Flug liefert die totale Übersicht über das großflächige Kunstwerk im Kontext der Schwarzwaldhänge und zeigt den Kontrast zwischen der bunten Fassade und der sachlichen Industriearchitektur.",
+        "deliverable": "Multimedia-Reportage für das Online-Portal und ein großformatiges Aufmacherfoto für die Wochenendbeilage.",
+        "sceneIntent": {
+          "summary": "Ein Kran und mehrere Service-Fahrzeuge stehen an einer markanten Hallenwand bereit. Kleine Personengruppen koordinieren die letzten Arbeiten am Fassadenprojekt.",
+          "visibleIdeas": [
+            "Ein mobiler Kran direkt an der hohen Hallenfassade",
+            "Drei weiße Service-Transporter auf dem Vorplatz geparkt",
+            "Absperrkegel markieren den Sicherheitsbereich um die Arbeitszone",
+            "Ein kleiner Generator mit Kabeln zur Hallenwand",
+            "Mehrere Palettenstapel mit Materialresten am Rand",
+            "Eine kleine Gruppe von Personen (Bodencrew) bespricht das Vorgehen"
+          ],
+          "densityHint": "normal",
+          "notes": "Die Szene stellt den Abschluss der künstlerischen Gestaltung an einer der Gewerbehallen im Gebiet Am Erlenbach dar."
+        },
+        "person": {
+          "name": "Lena Maier",
+          "role": "Kulturreporterin",
+          "relationshipToPilot": "mitfliegende journalistische Fachperson"
+        }
+      },
+      "report": {
+        "orientation": "Zur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Biberach (Baden); das Ziel liegt etwa 1,2 km südöstlich davon.",
+        "terrain": "Hier liegen keine Geländehöhen vor.",
+        "obstacles": "In Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+        "dataQuality": "Die Karte kann unvollständig sein; weitere Hindernisse sind möglich. Ob alle Merkmale in der Szenerie sichtbar sind, ist nicht geprüft. Eine sichere Flughöhe oder Kreisbahn lässt sich daraus nicht ableiten.",
+        "environment": "",
+        "situation": "Zur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Biberach (Baden); das Ziel liegt etwa 1,2 km südöstlich davon."
+      },
+      "sourceContext": {
+        "target": {
+          "name": "Am Erlenbach",
+          "lat": 48.33255,
+          "lon": 8.04059
+        },
+        "radiusM": 5556,
+        "facts": [
+          {
+            "id": "f1",
+            "name": "Erlenbach",
+            "role": "orientation",
+            "lat": 48.333,
+            "lon": 8.03867,
+            "relativeToTarget": {
+              "distanceM": 150,
+              "bearingDeg": 289,
+              "direction": "Westen"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 150,
+              "bearingDeg": 109,
+              "direction": "Osten"
+            },
+            "tags": {
+              "type": "river"
+            },
+            "source": "obstacles/core-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f2",
+            "name": "Unterentersbach",
+            "role": "orientation",
+            "lat": 48.32901,
+            "lon": 8.05307,
+            "relativeToTarget": {
+              "distanceM": 1003,
+              "bearingDeg": 113,
+              "direction": "Südosten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 1003,
+              "bearingDeg": 293,
+              "direction": "Nordwesten"
+            },
+            "tags": {
+              "place": "village"
+            },
+            "source": "obstacles/poi-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f3",
+            "name": "Biberach (Baden)",
+            "role": "orientation",
+            "lat": 48.33888,
+            "lon": 8.02814,
+            "relativeToTarget": {
+              "distanceM": 1159,
+              "bearingDeg": 307,
+              "direction": "Nordwesten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 1159,
+              "bearingDeg": 127,
+              "direction": "Südosten"
+            },
+            "tags": {
+              "place": "village"
+            },
+            "source": "obstacles/poi-tiles/332/451.json.gz",
+            "generatedAt": "2026-07-06T08:24:06Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f4",
+            "name": "Kinzig",
+            "role": "orientation",
+            "lat": 48.33292,
+            "lon": 8.02834,
+            "relativeToTarget": {
+              "distanceM": 906,
+              "bearingDeg": 273,
+              "direction": "Westen"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 906,
+              "bearingDeg": 93,
+              "direction": "Osten"
+            },
+            "tags": {
+              "type": "river"
+            },
+            "source": "obstacles/core-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f5",
+            "name": "Wassertretstelle",
+            "role": "orientation",
+            "lat": 48.3268,
+            "lon": 8.06074,
+            "relativeToTarget": {
+              "distanceM": 1621,
+              "bearingDeg": 113,
+              "direction": "Südosten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 1621,
+              "bearingDeg": 293,
+              "direction": "Nordwesten"
+            },
+            "tags": {
+              "type": "river"
+            },
+            "source": "obstacles/core-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f6",
+            "name": "Zell am Harmersbach",
+            "role": "orientation",
+            "lat": 48.34821,
+            "lon": 8.06533,
+            "relativeToTarget": {
+              "distanceM": 2525,
+              "bearingDeg": 46,
+              "direction": "Nordosten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 2525,
+              "bearingDeg": 226,
+              "direction": "Südwesten"
+            },
+            "tags": {
+              "place": "town"
+            },
+            "source": "obstacles/poi-tiles/332/451.json.gz",
+            "generatedAt": "2026-07-06T08:24:06Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f7",
+            "name": "Prinzbach",
+            "role": "orientation",
+            "lat": 48.32331,
+            "lon": 8.00517,
+            "relativeToTarget": {
+              "distanceM": 2813,
+              "bearingDeg": 249,
+              "direction": "Westen"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 2813,
+              "bearingDeg": 69,
+              "direction": "Osten"
+            },
+            "tags": {
+              "place": "village"
+            },
+            "source": "obstacles/poi-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f8",
+            "name": "B 33",
+            "role": "orientation",
+            "lat": 48.34319,
+            "lon": 8.02052,
+            "relativeToTarget": {
+              "distanceM": 1897,
+              "bearingDeg": 309,
+              "direction": "Nordwesten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 1897,
+              "bearingDeg": 129,
+              "direction": "Südosten"
+            },
+            "tags": {
+              "infra_type": "bridge",
+              "highway": "trunk",
+              "ref": "B 33",
+              "bridge": "yes"
+            },
+            "source": "obstacles/infra-tiles/332/451.json.gz",
+            "generatedAt": "2026-07-06T08:24:06Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f9",
+            "name": "3465",
+            "role": "hazard",
+            "lat": 48.32966,
+            "lon": 8.03992,
+            "relativeToTarget": {
+              "distanceM": 325,
+              "bearingDeg": 189,
+              "direction": "Süden"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 325,
+              "bearingDeg": 9,
+              "direction": "Norden"
+            },
+            "tags": {
+              "power": "line",
+              "infra_type": "power_grid",
+              "ref": "3465"
+            },
+            "source": "obstacles/infra-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f10",
+            "name": "",
+            "role": "hazard",
+            "lat": 48.3336,
+            "lon": 8.04936,
+            "relativeToTarget": {
+              "distanceM": 659,
+              "bearingDeg": 80,
+              "direction": "Osten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 659,
+              "bearingDeg": 260,
+              "direction": "Westen"
+            },
+            "tags": {
+              "power": "minor_line",
+              "infra_type": "power_grid"
+            },
+            "source": "obstacles/infra-tiles/332/451.json.gz",
+            "generatedAt": "2026-07-06T08:24:06Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f11",
+            "name": "",
+            "role": "hazard",
+            "lat": 48.33666,
+            "lon": 8.0484,
+            "relativeToTarget": {
+              "distanceM": 736,
+              "bearingDeg": 52,
+              "direction": "Nordosten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 736,
+              "bearingDeg": 232,
+              "direction": "Südwesten"
+            },
+            "tags": {
+              "power": "minor_line",
+              "infra_type": "power_grid"
+            },
+            "source": "obstacles/infra-tiles/332/451.json.gz",
+            "generatedAt": "2026-07-06T08:24:06Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f12",
+            "name": "",
+            "role": "hazard",
+            "lat": 48.3323,
+            "lon": 8.03054,
+            "relativeToTarget": {
+              "distanceM": 743,
+              "bearingDeg": 268,
+              "direction": "Westen"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 743,
+              "bearingDeg": 88,
+              "direction": "Osten"
+            },
+            "tags": {
+              "power": "minor_line",
+              "infra_type": "power_grid"
+            },
+            "source": "obstacles/infra-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f13",
+            "name": "1464",
+            "role": "hazard",
+            "lat": 48.32718,
+            "lon": 8.0322,
+            "relativeToTarget": {
+              "distanceM": 861,
+              "bearingDeg": 226,
+              "direction": "Südwesten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 861,
+              "bearingDeg": 46,
+              "direction": "Nordosten"
+            },
+            "tags": {
+              "type": "powerline"
+            },
+            "source": "obstacles/core-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f14",
+            "name": "",
+            "role": "hazard",
+            "lat": 48.32323,
+            "lon": 8.05107,
+            "relativeToTarget": {
+              "distanceM": 1294,
+              "bearingDeg": 143,
+              "direction": "Südosten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 1294,
+              "bearingDeg": 323,
+              "direction": "Nordwesten"
+            },
+            "tags": {
+              "type": "powerline"
+            },
+            "source": "obstacles/core-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f15",
+            "name": "",
+            "role": "hazard",
+            "lat": 48.33086,
+            "lon": 8.0585,
+            "relativeToTarget": {
+              "distanceM": 1337,
+              "bearingDeg": 98,
+              "direction": "Osten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 1337,
+              "bearingDeg": 278,
+              "direction": "Westen"
+            },
+            "tags": {
+              "power": "minor_line",
+              "infra_type": "power_grid"
+            },
+            "source": "obstacles/infra-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f16",
+            "name": "",
+            "role": "hazard",
+            "lat": 48.33332,
+            "lon": 8.0597,
+            "relativeToTarget": {
+              "distanceM": 1415,
+              "bearingDeg": 87,
+              "direction": "Osten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 1415,
+              "bearingDeg": 267,
+              "direction": "Westen"
+            },
+            "tags": {
+              "type": "powerline"
+            },
+            "source": "obstacles/core-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f17",
+            "name": "Am Erlenbach",
+            "role": "cover-nearby-only",
+            "lat": 48.33255,
+            "lon": 8.04059,
+            "relativeToTarget": {
+              "distanceM": 0,
+              "bearingDeg": 0,
+              "direction": "Norden"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 0,
+              "bearingDeg": 0,
+              "direction": "Norden"
+            },
+            "tags": {
+              "landuse": "industrial",
+              "infra_type": "industrial"
+            },
+            "source": "obstacles/infra-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f18",
+            "name": "Knäble Straßenbau",
+            "role": "cover-nearby-only",
+            "lat": 48.3321,
+            "lon": 8.02337,
+            "relativeToTarget": {
+              "distanceM": 1274,
+              "bearingDeg": 268,
+              "direction": "Westen"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 1274,
+              "bearingDeg": 88,
+              "direction": "Osten"
+            },
+            "tags": {
+              "landuse": "industrial",
+              "infra_type": "industrial"
+            },
+            "source": "obstacles/infra-tiles/331/451.json.gz",
+            "generatedAt": "2026-07-06T08:23:08Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f19",
+            "name": "",
+            "role": "cover-nearby-only",
+            "lat": 48.34205,
+            "lon": 8.02238,
+            "relativeToTarget": {
+              "distanceM": 1711,
+              "bearingDeg": 308,
+              "direction": "Nordwesten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 1711,
+              "bearingDeg": 128,
+              "direction": "Südosten"
+            },
+            "tags": {
+              "landuse": "industrial",
+              "infra_type": "industrial"
+            },
+            "source": "obstacles/infra-tiles/332/451.json.gz",
+            "generatedAt": "2026-07-06T08:24:06Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          },
+          {
+            "id": "f20",
+            "name": "Verbandskläranlage Biberach",
+            "role": "cover-nearby-only",
+            "lat": 48.35162,
+            "lon": 8.02225,
+            "relativeToTarget": {
+              "distanceM": 2517,
+              "bearingDeg": 327,
+              "direction": "Nordwesten"
+            },
+            "targetRelativeToFeature": {
+              "distanceM": 2517,
+              "bearingDeg": 147,
+              "direction": "Südosten"
+            },
+            "tags": {
+              "man_made": "wastewater_plant",
+              "landuse": "industrial",
+              "infra_type": "industrial"
+            },
+            "source": "obstacles/infra-tiles/332/451.json.gz",
+            "generatedAt": "2026-07-06T08:24:06Z",
+            "geometry": "representative-point",
+            "heightFt": null,
+            "heightStatus": "not-verified",
+            "storedHeightFt": null
+          }
+        ],
+        "targetFacts": [
+          {
+            "id": "target-selection-category",
+            "fact": "Ausgewählte Zielkategorie: industry",
+            "source": "existing-poi-picker"
+          }
+        ],
+        "coverage": [
+          {
+            "source": "obstacles/poi-tiles/331/451.json.gz",
+            "status": "loaded",
+            "generatedAt": "2026-07-06T08:23:08Z"
+          },
+          {
+            "source": "obstacles/core-tiles/331/451.json.gz",
+            "status": "loaded",
+            "generatedAt": "2026-07-06T08:23:08Z"
+          },
+          {
+            "source": "obstacles/infra-tiles/331/451.json.gz",
+            "status": "loaded",
+            "generatedAt": "2026-07-06T08:23:08Z"
+          },
+          {
+            "source": "obstacles/poi-tiles/332/451.json.gz",
+            "status": "loaded",
+            "generatedAt": "2026-07-06T08:24:06Z"
+          },
+          {
+            "source": "obstacles/core-tiles/332/451.json.gz",
+            "status": "loaded",
+            "generatedAt": "2026-07-06T08:24:06Z"
+          },
+          {
+            "source": "obstacles/infra-tiles/332/451.json.gz",
+            "status": "loaded",
+            "generatedAt": "2026-07-06T08:24:06Z"
+          }
+        ],
+        "terrainEnvelope": null,
+        "environmentFacts": []
+      },
+      "writerMemory": "Die Mission thematisiert die künstlerische Aufwertung eines Industriegebiets durch großformatige Wandmalerei mit Regionalbezug (Flößerei). Der Erzählton ist wertschätzend und fokussiert auf den optischen Kontrast zwischen funktionaler Architektur und kulturellem Erbe. Die Szenerie wird durch plausible Arbeitsmittel (Kran, Fahrzeuge) am POI ergänzt, um den Moment der Fertigstellung zu unterstreichen.",
+      "flightBriefing": "Für Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+      "flightBriefingStatus": "no-observations"
+    },
+    "_appliedProfile": "news_coverage",
+    "_source": "Reporter-Ideen + V4 Contract",
+    "sceneIntent": {
+      "summary": "Ein Kran und mehrere Service-Fahrzeuge stehen an einer markanten Hallenwand bereit. Kleine Personengruppen koordinieren die letzten Arbeiten am Fassadenprojekt.",
+      "visibleIdeas": [
+        "Ein mobiler Kran direkt an der hohen Hallenfassade",
+        "Drei weiße Service-Transporter auf dem Vorplatz geparkt",
+        "Absperrkegel markieren den Sicherheitsbereich um die Arbeitszone",
+        "Ein kleiner Generator mit Kabeln zur Hallenwand",
+        "Mehrere Palettenstapel mit Materialresten am Rand",
+        "Eine kleine Gruppe von Personen (Bodencrew) bespricht das Vorgehen"
+      ],
+      "densityHint": "normal",
+      "notes": "Die Szene stellt den Abschluss der künstlerischen Gestaltung an einer der Gewerbehallen im Gebiet Am Erlenbach dar."
+    },
+    "_missionWriterV4Debug": {
+      "writerMode": "news-briefing.v1",
+      "writerAccepted": true,
+      "rawAiStory": "Wir brechen heute zum Gewerbegebiet Am Erlenbach auf. Lena Maier vom Kinzigtal-Journal möchte dokumentieren, wie dort gerade Industriegeschichte neu gemalt wird. Ein Bündnis aus Künstlern verpasst den grauen Hallenwänden einen farbenfrohen Anstrich mit Motiven der Kinzigtaler Flößerei. Ihr werdet dort wahrscheinlich einen mobilen Kran und einige Service-Fahrzeuge direkt an der Fassade sehen, wo die letzten Pinselstriche gesetzt werden. Für Lena ist es wichtig, die Wirkung dieses riesigen Kunstwerks im Kontrast zur sachlichen Industriearchitektur und den umliegenden Schwarzwaldhängen einzufangen. Die Aufnahmen sind das Highlight ihrer Reportage über regionales Brauchtum in der modernen Arbeitswelt. Nachdem ihr die Perspektive aus der Luft für ihr Aufmacherfoto gesichert habt, kehrt ihr wieder hierher zur Basis zurück.",
+      "writerStory": "Wir brechen heute zum Gewerbegebiet Am Erlenbach auf. Lena Maier vom Kinzigtal-Journal möchte dokumentieren, wie dort gerade Industriegeschichte neu gemalt wird. Ein Bündnis aus Künstlern verpasst den grauen Hallenwänden einen farbenfrohen Anstrich mit Motiven der Kinzigtaler Flößerei. Ihr werdet dort wahrscheinlich einen mobilen Kran und einige Service-Fahrzeuge direkt an der Fassade sehen, wo die letzten Pinselstriche gesetzt werden. Für Lena ist es wichtig, die Wirkung dieses riesigen Kunstwerks im Kontrast zur sachlichen Industriearchitektur und den umliegenden Schwarzwaldhängen einzufangen. Die Aufnahmen sind das Highlight ihrer Reportage über regionales Brauchtum in der modernen Arbeitswelt. Nachdem ihr die Perspektive aus der Luft für ihr Aufmacherfoto gesichert habt, kehrt ihr wieder hierher zur Basis zurück.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Biberach (Baden); das Ziel liegt etwa 1,2 km südöstlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "storyChangedByFinalize": false,
+      "flightBriefing": "Für Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+      "flightBriefingStatus": "no-observations",
+      "rawFlightBriefing": "Für den Flug von [[route.start]] zum Ziel [[route.target]] liegen derzeit keine aktuellen Wetterdaten oder Entfernungsangaben vor. Da keine spezifischen Beobachtungen für die Stationen vorliegen, ist die Aktualität unbekannt. Achtet während des Fluges selbst auf die Sichtbedingungen und mögliche Windveränderungen im Zielgebiet.",
+      "reportStatus": "accepted-selection",
+      "weatherSnapshot": [
+        {
+          "scope": "departure",
+          "airport": "Winzeln-Schramberg Airport",
+          "airportIcao": "EDTW",
+          "station": null,
+          "source": null,
+          "observedAt": null,
+          "fetchedAt": null,
+          "freshness": "unknown",
+          "stationDistanceNm": null,
+          "ceilingFtAgl": null,
+          "clouds": [],
+          "rawMetar": null,
+          "windDeg": null,
+          "windKts": null,
+          "gustKts": null,
+          "visibilityKm": null,
+          "cloudAmountOktas": null,
+          "cloudCoverPercent": null,
+          "cloudBaseFtAgl": null,
+          "weatherCode": null
+        },
+        {
+          "scope": "destination",
+          "airport": "Am Erlenbach",
+          "airportIcao": "POI",
+          "station": null,
+          "source": null,
+          "observedAt": null,
+          "fetchedAt": null,
+          "freshness": "unknown",
+          "stationDistanceNm": null,
+          "ceilingFtAgl": null,
+          "clouds": [],
+          "rawMetar": null,
+          "windDeg": null,
+          "windKts": null,
+          "gustKts": null,
+          "visibilityKm": null,
+          "cloudAmountOktas": null,
+          "cloudCoverPercent": null,
+          "cloudBaseFtAgl": null,
+          "weatherCode": null
+        }
+      ],
+      "historyCount": 1
+    },
+    "_missionContractV4": {
+      "route": {
+        "startName": "Winzeln-Schramberg Airport",
+        "targetName": "Am Erlenbach",
+        "startIcao": "EDTW",
+        "targetIcao": "POI",
+        "distanceNm": null
+      },
+      "weather": {},
+      "status": "ready",
+      "profile": {
+        "id": "news_coverage",
+        "taskDomain": "news_coverage",
+        "roleProfile": "news_reporter_professional_v1"
+      },
+      "target": {
+        "name": "Am Erlenbach",
+        "lat": 48.33255,
+        "lon": 8.04059,
+        "poiCategory": "industry"
+      },
+      "newsBriefing": {
+        "schema": "news-briefing.v1",
+        "promptVersion": "poi-news-apt-v1.9",
+        "idea": {
+          "schema": "news-idea.v1",
+          "targetId": "poi:48.332550:8.040590",
+          "targetName": "Am Erlenbach",
+          "taskDomain": "news_coverage",
+          "outlet": "Kinzigtal-Journal",
+          "headline": "Sagenhafter Anstrich: Industriekultur am Erlenbach",
+          "situation": "Ein lokales Bündnis aus Künstlern und Unternehmern gestaltet die grauen Fassaden des Gewerbegebiets um. Aktuell wird das größte Wandbild der Region an einer der Hallen fertiggestellt, das Motive der Kinzigtaler Flößerei zeigt. Bevor das Gerüst endgültig fällt, soll ein letzter Blick auf das Gesamtkunstwerk aus der Vogelperspektive erfolgen.",
+          "angle": "Die Verbindung von moderner Arbeitswelt und regionalem Brauchtum. Das Publikum interessiert sich für die optische Aufwertung des sonst eher funktionalen Gebiets und wie sich das Motiv in die Landschaft einfügt.",
+          "airValue": "Der Flug liefert die totale Übersicht über das großflächige Kunstwerk im Kontext der Schwarzwaldhänge und zeigt den Kontrast zwischen der bunten Fassade und der sachlichen Industriearchitektur.",
+          "deliverable": "Multimedia-Reportage für das Online-Portal und ein großformatiges Aufmacherfoto für die Wochenendbeilage.",
+          "sceneIntent": {
+            "summary": "Ein Kran und mehrere Service-Fahrzeuge stehen an einer markanten Hallenwand bereit. Kleine Personengruppen koordinieren die letzten Arbeiten am Fassadenprojekt.",
+            "visibleIdeas": [
+              "Ein mobiler Kran direkt an der hohen Hallenfassade",
+              "Drei weiße Service-Transporter auf dem Vorplatz geparkt",
+              "Absperrkegel markieren den Sicherheitsbereich um die Arbeitszone",
+              "Ein kleiner Generator mit Kabeln zur Hallenwand",
+              "Mehrere Palettenstapel mit Materialresten am Rand",
+              "Eine kleine Gruppe von Personen (Bodencrew) bespricht das Vorgehen"
+            ],
+            "densityHint": "normal",
+            "notes": "Die Szene stellt den Abschluss der künstlerischen Gestaltung an einer der Gewerbehallen im Gebiet Am Erlenbach dar."
+          },
+          "person": {
+            "name": "Lena Maier",
+            "role": "Kulturreporterin",
+            "relationshipToPilot": "mitfliegende journalistische Fachperson"
+          }
+        },
+        "report": {
+          "orientation": "Zur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Biberach (Baden); das Ziel liegt etwa 1,2 km südöstlich davon.",
+          "terrain": "Hier liegen keine Geländehöhen vor.",
+          "obstacles": "In Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+          "dataQuality": "Die Karte kann unvollständig sein; weitere Hindernisse sind möglich. Ob alle Merkmale in der Szenerie sichtbar sind, ist nicht geprüft. Eine sichere Flughöhe oder Kreisbahn lässt sich daraus nicht ableiten.",
+          "environment": "",
+          "situation": "Zur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Biberach (Baden); das Ziel liegt etwa 1,2 km südöstlich davon."
+        },
+        "sourceContext": {
+          "target": {
+            "name": "Am Erlenbach",
+            "lat": 48.33255,
+            "lon": 8.04059
+          },
+          "radiusM": 5556,
+          "facts": [
+            {
+              "id": "f1",
+              "name": "Erlenbach",
+              "role": "orientation",
+              "lat": 48.333,
+              "lon": 8.03867,
+              "relativeToTarget": {
+                "distanceM": 150,
+                "bearingDeg": 289,
+                "direction": "Westen"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 150,
+                "bearingDeg": 109,
+                "direction": "Osten"
+              },
+              "tags": {
+                "type": "river"
+              },
+              "source": "obstacles/core-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f2",
+              "name": "Unterentersbach",
+              "role": "orientation",
+              "lat": 48.32901,
+              "lon": 8.05307,
+              "relativeToTarget": {
+                "distanceM": 1003,
+                "bearingDeg": 113,
+                "direction": "Südosten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 1003,
+                "bearingDeg": 293,
+                "direction": "Nordwesten"
+              },
+              "tags": {
+                "place": "village"
+              },
+              "source": "obstacles/poi-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f3",
+              "name": "Biberach (Baden)",
+              "role": "orientation",
+              "lat": 48.33888,
+              "lon": 8.02814,
+              "relativeToTarget": {
+                "distanceM": 1159,
+                "bearingDeg": 307,
+                "direction": "Nordwesten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 1159,
+                "bearingDeg": 127,
+                "direction": "Südosten"
+              },
+              "tags": {
+                "place": "village"
+              },
+              "source": "obstacles/poi-tiles/332/451.json.gz",
+              "generatedAt": "2026-07-06T08:24:06Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f4",
+              "name": "Kinzig",
+              "role": "orientation",
+              "lat": 48.33292,
+              "lon": 8.02834,
+              "relativeToTarget": {
+                "distanceM": 906,
+                "bearingDeg": 273,
+                "direction": "Westen"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 906,
+                "bearingDeg": 93,
+                "direction": "Osten"
+              },
+              "tags": {
+                "type": "river"
+              },
+              "source": "obstacles/core-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f5",
+              "name": "Wassertretstelle",
+              "role": "orientation",
+              "lat": 48.3268,
+              "lon": 8.06074,
+              "relativeToTarget": {
+                "distanceM": 1621,
+                "bearingDeg": 113,
+                "direction": "Südosten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 1621,
+                "bearingDeg": 293,
+                "direction": "Nordwesten"
+              },
+              "tags": {
+                "type": "river"
+              },
+              "source": "obstacles/core-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f6",
+              "name": "Zell am Harmersbach",
+              "role": "orientation",
+              "lat": 48.34821,
+              "lon": 8.06533,
+              "relativeToTarget": {
+                "distanceM": 2525,
+                "bearingDeg": 46,
+                "direction": "Nordosten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 2525,
+                "bearingDeg": 226,
+                "direction": "Südwesten"
+              },
+              "tags": {
+                "place": "town"
+              },
+              "source": "obstacles/poi-tiles/332/451.json.gz",
+              "generatedAt": "2026-07-06T08:24:06Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f7",
+              "name": "Prinzbach",
+              "role": "orientation",
+              "lat": 48.32331,
+              "lon": 8.00517,
+              "relativeToTarget": {
+                "distanceM": 2813,
+                "bearingDeg": 249,
+                "direction": "Westen"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 2813,
+                "bearingDeg": 69,
+                "direction": "Osten"
+              },
+              "tags": {
+                "place": "village"
+              },
+              "source": "obstacles/poi-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f8",
+              "name": "B 33",
+              "role": "orientation",
+              "lat": 48.34319,
+              "lon": 8.02052,
+              "relativeToTarget": {
+                "distanceM": 1897,
+                "bearingDeg": 309,
+                "direction": "Nordwesten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 1897,
+                "bearingDeg": 129,
+                "direction": "Südosten"
+              },
+              "tags": {
+                "infra_type": "bridge",
+                "highway": "trunk",
+                "ref": "B 33",
+                "bridge": "yes"
+              },
+              "source": "obstacles/infra-tiles/332/451.json.gz",
+              "generatedAt": "2026-07-06T08:24:06Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f9",
+              "name": "3465",
+              "role": "hazard",
+              "lat": 48.32966,
+              "lon": 8.03992,
+              "relativeToTarget": {
+                "distanceM": 325,
+                "bearingDeg": 189,
+                "direction": "Süden"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 325,
+                "bearingDeg": 9,
+                "direction": "Norden"
+              },
+              "tags": {
+                "power": "line",
+                "infra_type": "power_grid",
+                "ref": "3465"
+              },
+              "source": "obstacles/infra-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f10",
+              "name": "",
+              "role": "hazard",
+              "lat": 48.3336,
+              "lon": 8.04936,
+              "relativeToTarget": {
+                "distanceM": 659,
+                "bearingDeg": 80,
+                "direction": "Osten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 659,
+                "bearingDeg": 260,
+                "direction": "Westen"
+              },
+              "tags": {
+                "power": "minor_line",
+                "infra_type": "power_grid"
+              },
+              "source": "obstacles/infra-tiles/332/451.json.gz",
+              "generatedAt": "2026-07-06T08:24:06Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f11",
+              "name": "",
+              "role": "hazard",
+              "lat": 48.33666,
+              "lon": 8.0484,
+              "relativeToTarget": {
+                "distanceM": 736,
+                "bearingDeg": 52,
+                "direction": "Nordosten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 736,
+                "bearingDeg": 232,
+                "direction": "Südwesten"
+              },
+              "tags": {
+                "power": "minor_line",
+                "infra_type": "power_grid"
+              },
+              "source": "obstacles/infra-tiles/332/451.json.gz",
+              "generatedAt": "2026-07-06T08:24:06Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f12",
+              "name": "",
+              "role": "hazard",
+              "lat": 48.3323,
+              "lon": 8.03054,
+              "relativeToTarget": {
+                "distanceM": 743,
+                "bearingDeg": 268,
+                "direction": "Westen"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 743,
+                "bearingDeg": 88,
+                "direction": "Osten"
+              },
+              "tags": {
+                "power": "minor_line",
+                "infra_type": "power_grid"
+              },
+              "source": "obstacles/infra-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f13",
+              "name": "1464",
+              "role": "hazard",
+              "lat": 48.32718,
+              "lon": 8.0322,
+              "relativeToTarget": {
+                "distanceM": 861,
+                "bearingDeg": 226,
+                "direction": "Südwesten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 861,
+                "bearingDeg": 46,
+                "direction": "Nordosten"
+              },
+              "tags": {
+                "type": "powerline"
+              },
+              "source": "obstacles/core-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f14",
+              "name": "",
+              "role": "hazard",
+              "lat": 48.32323,
+              "lon": 8.05107,
+              "relativeToTarget": {
+                "distanceM": 1294,
+                "bearingDeg": 143,
+                "direction": "Südosten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 1294,
+                "bearingDeg": 323,
+                "direction": "Nordwesten"
+              },
+              "tags": {
+                "type": "powerline"
+              },
+              "source": "obstacles/core-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f15",
+              "name": "",
+              "role": "hazard",
+              "lat": 48.33086,
+              "lon": 8.0585,
+              "relativeToTarget": {
+                "distanceM": 1337,
+                "bearingDeg": 98,
+                "direction": "Osten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 1337,
+                "bearingDeg": 278,
+                "direction": "Westen"
+              },
+              "tags": {
+                "power": "minor_line",
+                "infra_type": "power_grid"
+              },
+              "source": "obstacles/infra-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f16",
+              "name": "",
+              "role": "hazard",
+              "lat": 48.33332,
+              "lon": 8.0597,
+              "relativeToTarget": {
+                "distanceM": 1415,
+                "bearingDeg": 87,
+                "direction": "Osten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 1415,
+                "bearingDeg": 267,
+                "direction": "Westen"
+              },
+              "tags": {
+                "type": "powerline"
+              },
+              "source": "obstacles/core-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f17",
+              "name": "Am Erlenbach",
+              "role": "cover-nearby-only",
+              "lat": 48.33255,
+              "lon": 8.04059,
+              "relativeToTarget": {
+                "distanceM": 0,
+                "bearingDeg": 0,
+                "direction": "Norden"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 0,
+                "bearingDeg": 0,
+                "direction": "Norden"
+              },
+              "tags": {
+                "landuse": "industrial",
+                "infra_type": "industrial"
+              },
+              "source": "obstacles/infra-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f18",
+              "name": "Knäble Straßenbau",
+              "role": "cover-nearby-only",
+              "lat": 48.3321,
+              "lon": 8.02337,
+              "relativeToTarget": {
+                "distanceM": 1274,
+                "bearingDeg": 268,
+                "direction": "Westen"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 1274,
+                "bearingDeg": 88,
+                "direction": "Osten"
+              },
+              "tags": {
+                "landuse": "industrial",
+                "infra_type": "industrial"
+              },
+              "source": "obstacles/infra-tiles/331/451.json.gz",
+              "generatedAt": "2026-07-06T08:23:08Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f19",
+              "name": "",
+              "role": "cover-nearby-only",
+              "lat": 48.34205,
+              "lon": 8.02238,
+              "relativeToTarget": {
+                "distanceM": 1711,
+                "bearingDeg": 308,
+                "direction": "Nordwesten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 1711,
+                "bearingDeg": 128,
+                "direction": "Südosten"
+              },
+              "tags": {
+                "landuse": "industrial",
+                "infra_type": "industrial"
+              },
+              "source": "obstacles/infra-tiles/332/451.json.gz",
+              "generatedAt": "2026-07-06T08:24:06Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            },
+            {
+              "id": "f20",
+              "name": "Verbandskläranlage Biberach",
+              "role": "cover-nearby-only",
+              "lat": 48.35162,
+              "lon": 8.02225,
+              "relativeToTarget": {
+                "distanceM": 2517,
+                "bearingDeg": 327,
+                "direction": "Nordwesten"
+              },
+              "targetRelativeToFeature": {
+                "distanceM": 2517,
+                "bearingDeg": 147,
+                "direction": "Südosten"
+              },
+              "tags": {
+                "man_made": "wastewater_plant",
+                "landuse": "industrial",
+                "infra_type": "industrial"
+              },
+              "source": "obstacles/infra-tiles/332/451.json.gz",
+              "generatedAt": "2026-07-06T08:24:06Z",
+              "geometry": "representative-point",
+              "heightFt": null,
+              "heightStatus": "not-verified",
+              "storedHeightFt": null
+            }
+          ],
+          "targetFacts": [
+            {
+              "id": "target-selection-category",
+              "fact": "Ausgewählte Zielkategorie: industry",
+              "source": "existing-poi-picker"
+            }
+          ],
+          "coverage": [
+            {
+              "source": "obstacles/poi-tiles/331/451.json.gz",
+              "status": "loaded",
+              "generatedAt": "2026-07-06T08:23:08Z"
+            },
+            {
+              "source": "obstacles/core-tiles/331/451.json.gz",
+              "status": "loaded",
+              "generatedAt": "2026-07-06T08:23:08Z"
+            },
+            {
+              "source": "obstacles/infra-tiles/331/451.json.gz",
+              "status": "loaded",
+              "generatedAt": "2026-07-06T08:23:08Z"
+            },
+            {
+              "source": "obstacles/poi-tiles/332/451.json.gz",
+              "status": "loaded",
+              "generatedAt": "2026-07-06T08:24:06Z"
+            },
+            {
+              "source": "obstacles/core-tiles/332/451.json.gz",
+              "status": "loaded",
+              "generatedAt": "2026-07-06T08:24:06Z"
+            },
+            {
+              "source": "obstacles/infra-tiles/332/451.json.gz",
+              "status": "loaded",
+              "generatedAt": "2026-07-06T08:24:06Z"
+            }
+          ],
+          "terrainEnvelope": null,
+          "environmentFacts": []
+        },
+        "writerMemory": "Die Mission thematisiert die künstlerische Aufwertung eines Industriegebiets durch großformatige Wandmalerei mit Regionalbezug (Flößerei). Der Erzählton ist wertschätzend und fokussiert auf den optischen Kontrast zwischen funktionaler Architektur und kulturellem Erbe. Die Szenerie wird durch plausible Arbeitsmittel (Kran, Fahrzeuge) am POI ergänzt, um den Moment der Fertigstellung zu unterstreichen.",
+        "flightBriefing": "Für Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.",
+        "flightBriefingStatus": "no-observations"
+      },
+      "sceneIntent": {
+        "summary": "Ein Kran und mehrere Service-Fahrzeuge stehen an einer markanten Hallenwand bereit. Kleine Personengruppen koordinieren die letzten Arbeiten am Fassadenprojekt.",
+        "visibleIdeas": [
+          "Ein mobiler Kran direkt an der hohen Hallenfassade",
+          "Drei weiße Service-Transporter auf dem Vorplatz geparkt",
+          "Absperrkegel markieren den Sicherheitsbereich um die Arbeitszone",
+          "Ein kleiner Generator mit Kabeln zur Hallenwand",
+          "Mehrere Palettenstapel mit Materialresten am Rand",
+          "Eine kleine Gruppe von Personen (Bodencrew) bespricht das Vorgehen"
+        ],
+        "densityHint": "normal",
+        "notes": "Die Szene stellt den Abschluss der künstlerischen Gestaltung an einer der Gewerbehallen im Gebiet Am Erlenbach dar."
+      },
+      "passenger": {
+        "name": "Lena Maier",
+        "role": "Kulturreporterin",
+        "relationshipToPilot": "mitfliegende journalistische Fachperson",
+        "taskDomain": "news_coverage",
+        "roleProfile": "news_reporter_professional_v1",
+        "narrativeSchema": "news-briefing.v1",
+        "greetingText": "Hallo! Ich bin Lena Maier. Ich freue mich darauf, die Flößer-Motive endlich in ihrer vollen Größe von oben zu sehen.",
+        "personalStoryCue": "Ein lokales Bündnis aus Künstlern und Unternehmern gestaltet die grauen Fassaden des Gewerbegebiets um. Aktuell wird das größte Wandbild der Region an einer der Hallen fertiggestellt, das Motive der Kinzigtaler Flößerei zeigt. Bevor das Gerüst endgültig fällt, soll ein letzter Blick auf das Gesamtkunstwerk aus der Vogelperspektive erfolgen.",
+        "gTolerance": "mittel",
+        "bankTolerance": "mittel",
+        "cargoSensitivity": "mittel",
+        "stomachSensitivity": "mittel",
+        "comfortPriority": "mittel",
+        "urgencyPriority": "niedrig"
+      },
+      "passengerCount": 1,
+      "plannedPassengerCount": 1,
+      "paxText": "1 PAX (Kulturreporterin)",
+      "cargoText": "Kamera- und Audio-Set (32 lbs)",
+      "missionStory": "Wir brechen heute zum Gewerbegebiet Am Erlenbach auf. Lena Maier vom Kinzigtal-Journal möchte dokumentieren, wie dort gerade Industriegeschichte neu gemalt wird. Ein Bündnis aus Künstlern verpasst den grauen Hallenwänden einen farbenfrohen Anstrich mit Motiven der Kinzigtaler Flößerei. Ihr werdet dort wahrscheinlich einen mobilen Kran und einige Service-Fahrzeuge direkt an der Fassade sehen, wo die letzten Pinselstriche gesetzt werden. Für Lena ist es wichtig, die Wirkung dieses riesigen Kunstwerks im Kontrast zur sachlichen Industriearchitektur und den umliegenden Schwarzwaldhängen einzufangen. Die Aufnahmen sind das Highlight ihrer Reportage über regionales Brauchtum in der modernen Arbeitswelt. Nachdem ihr die Perspektive aus der Luft für ihr Aufmacherfoto gesichert habt, kehrt ihr wieder hierher zur Basis zurück.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Biberach (Baden); das Ziel liegt etwa 1,2 km südöstlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "storyFrame": {
+        "trigger": "Ein lokales Bündnis aus Künstlern und Unternehmern gestaltet die grauen Fassaden des Gewerbegebiets um. Aktuell wird das größte Wandbild der Region an einer der Hallen fertiggestellt, das Motive der Kinzigtaler Flößerei zeigt. Bevor das Gerüst endgültig fällt, soll ein letzter Blick auf das Gesamtkunstwerk aus der Vogelperspektive erfolgen.",
+        "focusSubject": "Am Erlenbach",
+        "keyQuestion": "Die Verbindung von moderner Arbeitswelt und regionalem Brauchtum. Das Publikum interessiert sich für die optische Aufwertung des sonst eher funktionalen Gebiets und wie sich das Motiv in die Landschaft einfügt.",
+        "soughtOutcome": "Multimedia-Reportage für das Online-Portal und ein großformatiges Aufmacherfoto für die Wochenendbeilage."
+      }
+    }
+  }
+}

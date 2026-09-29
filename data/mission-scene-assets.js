@@ -169,7 +169,9 @@ window.MISSION_SCENE_ASSETS = {
         }
     },
     targetSceneFeatures: {
+        shipping_container: { label: 'Seecontainer (keine Paletten/Kartons)', roles: ['cargo.shipping_container'], placementRadiusM: 9 },
         construction_crane: {
+            placementRadiusM: 15,
             label: 'Kran / Kranfahrzeug',
             roles: ['construction.crane']
         },
@@ -198,6 +200,7 @@ window.MISSION_SCENE_ASSETS = {
             roles: ['utility.powerline', 'utility.generator', 'vehicle.truck', 'marker.cone']
         },
         wind_turbine: {
+            placementRadiusM: 45,
             label: 'Windrad/Windenergieanlage',
             roles: ['utility.wind_turbine']
         },
@@ -210,6 +213,7 @@ window.MISSION_SCENE_ASSETS = {
             roles: ['vehicle.truck', 'vehicle.van']
         },
         road_vehicles: {
+            placementSurfaces: ['ground', 'road'], placementRadiusM: 5,
             label: 'Zivile Fahrzeuge',
             roles: ['vehicle.car', 'vehicle.van']
         },
@@ -218,10 +222,12 @@ window.MISSION_SCENE_ASSETS = {
             roles: ['vehicle.emergency.medical', 'vehicle.emergency.fire', 'person.ground_crew', 'marker.cone']
         },
         people: {
+            placementSurfaces: ['ground', 'forest'], placementRadiusM: 1.5,
             label: 'Personen am Boden',
             roles: ['person.ground_crew']
         },
         missing_person: {
+            placementSurfaces: ['ground', 'forest'], primaryRole: 'sar.person_target',
             label: 'vermisste / winkende Person als Suchziel',
             roles: ['sar.person_target', 'person.ground_crew']
         },
@@ -234,36 +240,48 @@ window.MISSION_SCENE_ASSETS = {
             roles: ['debris.light', 'cargo.small_box', 'cargo.pallet_small']
         },
         aircraft_wreck: {
+            placementSurfaces: ['ground', 'forest'], placementRadiusM: 9, primaryRole: 'aircraft.wreck',
             label: 'Kleinflugzeug / UL-Wrack als primaerer Absturzfund',
             roles: ['aircraft.wreck', 'debris.light']
         },
         logs: {
+            placementSurfaces: ['ground', 'water', 'forest'],
             label: 'Baumstaemme/Treibholz',
             roles: ['nature.log', 'material.log']
         },
         liferaft: {
+            placementSurfaces: ['water'], placementRadiusM: 4,
             label: 'Rettungsinsel',
             roles: ['sar.liferaft']
         },
         watercraft: {
+            placementSurfaces: ['water'], placementRadiusM: 7,
             label: 'kleine zivile Boote / See- und Uferaktivitaet',
             roles: ['watercraft.tiny_boat', 'watercraft.small_boat']
         },
         service_ship: {
+            placementSurfaces: ['water'], placementRadiusM: 45,
             label: 'grosses Arbeits-/Service-Schiff nur fuer Kueste, Hafen oder grosses Gewaesser',
             roles: ['watercraft.service_ship', 'watercraft.large_ship']
         },
         waterfowl: {
+            placementSurfaces: ['water', 'ground'], placementRadiusM: 1.5,
             label: 'heimische Wasservoegel am See',
             roles: ['animal.waterfowl', 'animal.bird']
         },
         wildlife_animals: {
+            placementSurfaces: ['ground', 'forest'], placementRadiusM: 3,
             label: 'lokale Wildtiere',
             roles: ['animal.wildlife', 'animal.deer']
         },
         animal_herd: {
+            placementSurfaces: ['ground'], placementRadiusM: 3,
             label: 'kleine Tierherde / Weidetiere',
             roles: ['animal.grazing']
+        },
+        pavilion: {
+            label: 'Faltpavillon / Veranstaltungsstand 3 x 3 m',
+            roles: ['event.pavilion']
         },
         tent: {
             label: 'Zelt / kleines Camp-Element',
@@ -596,6 +614,9 @@ window.MISSION_SCENE_ASSETS = {
             'CLupusLupusFemale',
             'UArctosArctosFemale'
         ],
+        'event.pavilion': [
+            'VFR Multitool Homebase MX Pavilion'
+        ],
         'camp.tent': [
             'LFPB_AS_Tent_01',
             'LFPB_AS_Tent_Dome_Blue',
@@ -642,6 +663,7 @@ window.MISSION_SCENE_ASSETS = {
             'Tarmac_Male_Winter_Caucasian',
             'Tarmac_Male_Winter_Asian'
         ],
+        'cargo.shipping_container': ['Microsoft_Truck_Container', 'Microsoft_Truck_Container_Blue', 'Microsoft_Truck_Container_Gray', 'Microsoft_Truck_Container_Red'],
         'cargo.container': [
             'Drop_Container',
             'Microsoft_Truck_Container',

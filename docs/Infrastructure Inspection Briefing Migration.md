@@ -69,3 +69,7 @@ Nutzerfreigabe: Plausible Dringlichkeit und Konsequenzen wie mögliche Tonnagebe
 Veröffentlicht werden der gemeinsame Lage-/Wetterbaustein und der neue professionelle Writer für initiale Einzelziele. Ketten und Folgeaufträge bleiben im vorhandenen Ablauf. Die bisherigen Testserien sind historische Entwicklungsbefunde; sie sind keine Statistik zur Fehlerfreiheit von v1.8. Kein neuer Tracker erforderlich.
 
 Flug-Voice: [Erzählkontinuität nach APT-Muster](POI%20Flight%20Narrative%20Continuity.md). Veröffentlicht mit Web-Alpha v1879 und Tracker-Alpha v454; gemeinsame App-/Tracker-Verifikation.
+
+## History-Verfeinerung v1.9 (unveröffentlicht)
+
+APT-Vergleich übernommen: Intern verschiedene Auftragskerne entwickeln, gegenüber früheren Anlässen, Prüfungsfragen und Folgeentscheidungen einen eigenständigen auswählen. Andere Firmen oder Schadenswörter allein genügen nicht. Writer-Memory fasst den fachlichen Kern zusammen. Vorhandene History-Daten und beruflicher Missionsvertrag bleiben erhalten. [Gemeinsame Dokumentation](POI%20Photo%20Migration%20Template.md#history-abgleich-mit-apt-29092026).

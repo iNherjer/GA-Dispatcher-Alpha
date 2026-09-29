@@ -6,7 +6,10 @@ test('extraction preserves complete released photo texts and reports',()=>{
   const run=archive.runs.find(r=>r.id===expected.id),c=archive.cases.find(c=>c.id===run.id);
   const idea=photo.validateIdea({...run.idea,schema:photo.IDEA_VERSION,taskDomain:'media_photo'},c);
   const written=photo.validateWriter({...run.writer,targetId:c.id},idea,c);
-  assert.equal(require('node:crypto').createHash('sha256').update(photo.writerPrompt(c,idea,[])).digest('hex'),expected.writerPromptSha256);
+  // Authorized v1.5 history guidance is the only writer delta from the extraction baseline.
+  const historyGuidance='Nutze HISTORY für unterschiedliche Einstiege und Erzählverläufe, ohne die ausgewählte Idee zu verändern. memory fasst den menschlichen Kern und den Unterschied zu bisherigen Ideen knapp zusammen, nicht nur Ziel und Fotoausrüstung.\n';
+  const prompt=photo.writerPrompt(c,idea,[]);assert.ok(prompt.includes(historyGuidance));
+  assert.equal(require('node:crypto').createHash('sha256').update(prompt.replace(historyGuidance,'')).digest('hex'),expected.writerPromptSha256);
   assert.deepEqual(written.report,expected.report);assert.equal(photo.mission(idea,written,c).s,expected.story);
  }
 });

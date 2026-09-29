@@ -1,5 +1,7 @@
 # POI-Foto-Mission als Vorlage für weitere Profile
 
+POI-Reporter in Entwicklung: [Reporter-Migration](POI%20Reporter%20Briefing%20Migration.md) – eigener journalistischer Inhalt, gleiche Ideen-/Writer-/Voice-Methode.
+
 Diese Vorlage dokumentiert den fertigen Umbau des ersten POI-Profils `media_photo`. Sie ist eine Ablauf- und Zuständigkeitsvorlage, keine Sammlung von Motiven und kein universeller Fotovertrag für andere Aufgaben. Für Lage/Wetter gilt verbindlich der [Shared Briefing Guide](POI%20Shared%20Briefing%20Guide.md).
 
 ## Bedeutung der Vorlage: Methode, nicht Missionsinhalt
@@ -77,3 +79,17 @@ Keine Änderung an zentralen Klassifizierungen oder fremden Profilverträgen unt
 Die alten Exporte der Foto-Core für Geo-Helfer bleiben vorerst kompatible Weiterleitungen. Neue Verbraucher importieren direkt den Shared-Core, niemals den Foto-Core als allgemeine Bibliothek.
 
 Flug-Voice: [Erzählkontinuität nach APT-Muster](POI%20Flight%20Narrative%20Continuity.md). Veröffentlicht mit Web-Alpha v1879 und Tracker-Alpha v454; gemeinsame App-/Tracker-Verifikation.
+
+## History-Abgleich mit APT (29.09.2026)
+
+Foto v1.5, Infrastruktur v1.9 und Reporter v1.6 verwenden das gleiche APT-Prinzip mit profilspezifischen Inhalten: Die letzten zwölf erzeugten Missionen liefern der nächsten Ideenentwicklung `recent` und dem Writer `HISTORY`. Der Vergleich soll den erzählerischen Kern betreffen, nicht nur Namen und Fachbegriffe. Intern verschiedene Absichten erwägen, einen eigenständigen Kern wählen; keine Themenliste, Quote oder erzwungene Eskalation.
+
+- Foto: Wunsch, Verwendung der Aufnahmen, Beziehung und Erzählbewegung. Gespeichert bleiben Situation, Absicht, Beziehung, Writer-Memory und Einstieg.
+- Infrastruktur: beruflicher Anlass, Verantwortung, Prüfungsfrage, Nutzen der Luftsicht und Folgeentscheidung. Gespeichert bleiben Auftraggeber, Ausgangslage, Szenariodetails, Luftsicht-Vertrag, Fokus, Entscheidung und Writer-Memory. Professioneller Ton und fachliche Beurteilung bleiben unverändert.
+- Reporter: Motivation, Beziehungen, journalistische Absicht und Erzählbewegung. Gespeichert bleiben Anlass, Redaktion, Titel, Blickwinkel, Luftblick, Verwendung und Writer-Memory.
+
+Die Prompts verlangen eine kurze Memory über den jeweiligen Kern und Unterschied zur bisherigen Serie. Frühere Entwürfe sind keine von der neuen Person erlebte Vergangenheit. Die gewählte Idee bleibt im Writer verbindlich; History darf sie nicht durch einen neuen Auftrag ersetzen.
+
+Bestehende lokale Schlüssel, Limits und Schreibzeitpunkte bleiben erhalten. Missions-IDs werden dedupliziert; zwischen Profilen wird keine History vermischt. Wie beim APT-Vorbild wird beim Erzeugen einer Mission gespeichert, nicht jedes verworfene Pickerangebot. Die lokale Variationshistory ist kein geräteübergreifendes Archiv und keine technische Garantie gegen sinngleiche KI-Ausgaben.
+
+Neue Integrationstests für alle drei Profile prüfen die tatsächliche Übergabe gespeicherter Kerndaten an beide Promptstufen und ID-Deduplizierung. Die Anpassung ist noch nicht veröffentlicht.

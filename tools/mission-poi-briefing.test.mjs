@@ -356,3 +356,21 @@ test('environment provider cooldown also protects a second selected destination'
  await b.api.story({start,dest:next.target,proposal:{schema:'poi-photo-proposal.v1',start,context:next,idea}});
  assert.equal(calls.length,2);
 });
+
+test('photo history reaches the next picker and writer without becoming a new chosen idea',async()=>{
+ const previous=fixture().m,store=storage(),home={name:'Home',lat:49,lon:8},target={name:'Ziel',lat:49.1,lon:8.1};
+ previous.poiBriefing.writerMemory='Eigenständiger persönlicher Verwendungszweck der Fotos.';
+ core.remember(store,'previous',previous.poiBriefing);core.remember(store,'previous',previous.poiBriefing);
+ const b=browser({storage:store,ai:(prompt,n)=>{
+  if(n===1){const f=JSON.parse(prompt.split('RAHMEN=')[1])[0];return {ideas:[{schema:core.IDEA_VERSION,targetId:f.id,targetName:f.target,taskDomain:'media_photo',situation:'Ada plant eine kleine Ausstellung.',intent:'Sie möchte Fotos des Ziels zeigen.',person:{name:'Ada',role:'Fotografin',relationshipToPilot:'Kundin'}}]};}
+  return {targetId:'poi:49.100000:8.100000',title:'Bilder für Ada',story:'Ada möchte das Ziel für ihre Ausstellung fotografieren. Danach kehrt ihr zurück.',greetingSpeaker:'Ada',greeting:'Hallo, ich freue mich auf die Fotos.',report:{orientationIds:[]},usedFactIds:[]};
+ }});
+ const choices=await b.api.choices([target],{start:home,selectedPoiCategory:'all'});
+ const m=await b.api.story({start:home,dest:target,proposal:choices[0].poiProposal});
+ for(const rows of [JSON.parse(b.requests[0].split('RAHMEN=')[1])[0].recent,JSON.parse(b.requests[1].split('HISTORY=')[1])]){
+  assert.equal(rows.length,1);assert.equal(rows[0].intent,previous.poiBriefing.idea.intent);
+  assert.equal(rows[0].relationship,previous.poiBriefing.idea.person.relationshipToPilot);
+  assert.equal(rows[0].writerMemory,previous.poiBriefing.writerMemory);
+ }
+ assert.equal(m.poiBriefing.idea.intent,'Sie möchte Fotos des Ziels zeigen.');
+});

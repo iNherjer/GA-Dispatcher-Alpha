@@ -1,5 +1,7 @@
 # Mission Building Instructions
 
+POI-Reporter in Entwicklung: [Reporter-Migration](POI%20Reporter%20Briefing%20Migration.md) – eigener journalistischer Inhalt, gleiche Ideen-/Writer-/Voice-Methode.
+
 APT-Sightseeing mit belegten Besuchszielen und optionalen Ansagen: [Mission Sightseeing Visits V1](Mission%20Sightseeing%20Visits%20V1.md).
 
 Geplante POI-Erzählkontinuität und Schnittstelle zum separaten Writer-Umbau: [POI Follow-up Narrative Handoff](POI%20Follow-up%20Narrative%20Handoff.md). Zielbild, noch nicht implementiert.
@@ -1296,3 +1298,7 @@ Writer-/Voice-Rückblick nutzen.
 Für weitere POI-Umbauten verbindlich: [Shared Briefing Guide](POI%20Shared%20Briefing%20Guide.md) und [Foto-Migration als Vorlage](POI%20Photo%20Migration%20Template.md). Lage/Wetter über `MissionPoiBriefingSharedCore` und `MissionPoiBriefingSharedBrowser` anbinden. Die Foto-Mission ist der erste Verbraucher; Auftrag, Profil, History und Runtime bleiben getrennt. Keine neue Lage-/Wetterimplementierung je Profil.
 
 Professionelle Infrastruktur-Inspektion: [Migrationsstand und Testgrenzen](Infrastructure%20Inspection%20Briefing%20Migration.md).
+
+## Gemeinsame POI-Komposition (29.09.2026)
+
+Die Reporter-Platzierung ist nun der gemeinsame versionierte Vertrag für neue POI-Objektszenen. Die früheren Reporter-only-Angaben oben gelten nur für den Vorgängerstand. Siehe [POI Scene Composition](POI%20Scene%20Composition.md) für Aktivierung, Oberflächen, Rollen, Fehlerverhalten und Tests. Inhalte bleiben missionsspezifisch; Fire/Smoke behält seinen dedizierten Pfad.

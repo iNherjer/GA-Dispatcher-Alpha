@@ -8845,7 +8845,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9463,7 +9463,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -21788,6 +21788,8 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     }
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(m))
         return { mission:m, paxText:m.pax, cargoText:m.cargo, appliedProfile:'inspection_infra' };
+    if (isPOI && profileId === 'news_coverage' && window.MissionNewsBriefingCore?.owns(m))
+        return { mission:m, paxText:m.pax, cargoText:m.cargo, appliedProfile:'news_coverage' };
     if (isPOI && profileId === 'media_photo' && window.MissionPoiBriefingCore?.owns(m))
         return { mission: m, paxText: m.pax, cargoText: m.cargo, appliedProfile: 'media_photo' };
     const usesPoiTaskRecipe = missionUsesPoiTaskRecipe(m);
@@ -22897,6 +22899,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         cargoIdea: mission?.cargoIdea?.schema === 'cargo-idea.v1' ? mission.cargoIdea : null,
         charterIdea: mission?.charterIdea?.schema === 'charter-idea.v1' ? mission.charterIdea : null,
         infraBriefing: window.MissionInfraBriefingCore?.owns(mission) ? mission.infraBriefing : null,
+        newsBriefing: window.MissionNewsBriefingCore?.owns(mission) ? mission.newsBriefing : null,
         poiBriefing: window.MissionPoiBriefingCore?.owns(mission) ? mission.poiBriefing : null,
         missionStory: story,
         sceneIntent,
@@ -23364,6 +23367,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(missionLike)) return true;
+    if (isPOI && profileId === 'news_coverage' && window.MissionNewsBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'media_photo' && window.MissionPoiBriefingCore?.owns(missionLike)) return true;
     if (!isPOI && profileId === 'sightseeing_tour' && missionLike?.sightseeingIdea?.schema === 'sightseeing-idea.v1') return true;
     if (!isPOI && profileId === 'cargo_fragile' && missionLike?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return true;
@@ -24795,9 +24799,14 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
                 notes: String(req.notes || req.reason || req.detail || '').replace(/\s+/g, ' ').trim().slice(0, 100)
             };
             if (Number.isFinite(forwardM) && Number.isFinite(rightM)) {
-                out.forwardM = Math.max(-180, Math.min(180, Math.round(forwardM)));
-                out.rightM = Math.max(-180, Math.min(180, Math.round(rightM)));
+                const limit=src.placementVersion==='poi-placement.v3'?750:180;
+                out.forwardM = Math.max(-limit, Math.min(limit, Math.round(forwardM)));
+                out.rightM = Math.max(-limit, Math.min(limit, Math.round(rightM)));
             }
+            if ((task === 'news_coverage' || ['poi-placement.v2','poi-placement.v3'].includes(src.placementVersion)) && src.objectPolicy === 'explicit-requirements' && featureCatalog[feature]?.roles?.includes(req.role)) out.role = req.role;
+            if ((task === 'news_coverage' || ['poi-placement.v2','poi-placement.v3'].includes(src.placementVersion)) && src.objectPolicy === 'explicit-requirements' && Number.isFinite(Number(req.spacingM))) out.spacingM = Math.max(2, Math.min(30, Number(req.spacingM)));
+            if (['poi-placement.v2','poi-placement.v3'].includes(src.placementVersion) && ['ground','forest','water','road'].includes(req.surface)) out.surface = req.surface;
+            if(src.placementVersion==='poi-placement.v3'&&typeof req.siteId==='string') out.siteId=req.siteId.slice(0,80);
             if (Number.isFinite(hdgOffsetDeg)) out.hdgOffsetDeg = Math.round(((hdgOffsetDeg % 360) + 360) % 360);
             return out;
         })
@@ -24805,7 +24814,7 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
         .filter(req => missionSceneSpecialFeatureAllowed(req.feature, { powerlineAllowed, windTurbineAllowed }))
         .filter(req => planFeatureAllowed(req.feature))
         .filter(req => !suppressNatureRoadNoise || !noisyNatureFeatures.has(req.feature))
-        .slice(0, 8);
+        .slice(0, (task === 'news_coverage' || ['poi-placement.v2','poi-placement.v3'].includes(src.placementVersion)) && src.objectPolicy === 'explicit-requirements' ? 18 : 8);
     let features = [...new Set(featuresRaw
         .map(normalizeMissionTargetSceneFeature)
         .concat(requirements.map(req => req.feature))
@@ -24854,6 +24863,7 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
         kind,
         features,
         requirements,
+        ...((task === 'news_coverage' || ['poi-placement.v2','poi-placement.v3'].includes(src.placementVersion)) && src.objectPolicy === 'explicit-requirements' && requirements.length ? {objectPolicy:'explicit-requirements', ...(['poi-placement.v2','poi-placement.v3'].includes(src.placementVersion) ? {placementVersion:src.placementVersion, ...(src.placementVersion==='poi-placement.v3'?{placementIntent:src.placementIntent, placementRequirement:src.placementRequirement}: {})} : {})} : {}),
         roles: roles.length ? roles : derivedRoles,
         density,
         layout,
@@ -25528,6 +25538,12 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
             'Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen.'
         ]
     };
+    // Reporter coordinates stay bound to the picked POI; rounded orientation anchors are not placement coordinates.
+    if (window.MissionReporterSceneCore?.enabled(md, md.missionContract)) {
+        truth.mainTarget = {name: poiName, kind: 'poi', ...origin, reason: 'reporter_picked_poi', distanceFromPoiM: 0};
+        truth.sceneAnchor = {kind: 'poi', ...origin, headingDeg: 0, reason: 'reporter_picked_poi'};
+        return truth;
+    }
     const waterZone = missionTruthNearestZone(geoContext, 'water');
     const isBridgeTarget = primaryCategory === 'bridge';
     let mainKind = isBridgeTarget ? 'bridge' : 'poi';
@@ -25827,14 +25843,45 @@ async function fetchMissionLocalVisualLandmarks(lat, lon, radiusM = MISSION_TARG
         .slice(0, 8);
 }
 
+async function fetchReporterSceneMapFallback(lat, lon) {
+    const deltaLat = 800 / 111320;
+    const deltaLon = deltaLat / Math.cos(lat * Math.PI / 180);
+    const bbox = [lon-deltaLon,lat-deltaLat,lon+deltaLon,lat+deltaLat].map(n=>n.toFixed(7)).join(',');
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(),15000);
+    try {
+        const response = await fetch(`https://api.openstreetmap.org/api/0.6/map?bbox=${bbox}`,{signal:controller.signal});
+        if (!response.ok) return null;
+        const xml = new DOMParser().parseFromString(await response.text(),'application/xml');
+        if (xml.querySelector('parsererror')) return null;
+        const nodes = new Map(Array.from(xml.querySelectorAll('osm > node'),node=>[node.getAttribute('id'),{lat:Number(node.getAttribute('lat')),lon:Number(node.getAttribute('lon'))}]));
+        const elements = [];
+        for (const way of xml.querySelectorAll('osm > way')) {
+            const refs = Array.from(way.querySelectorAll('nd'),n=>n.getAttribute('ref'));
+            if (refs.some(ref=>!nodes.has(ref))) continue;
+            const tags = Object.fromEntries(Array.from(way.querySelectorAll('tag'),t=>[t.getAttribute('k'),t.getAttribute('v')]));
+            elements.push({type:'way',id:way.getAttribute('id'),tags,geometry:refs.map(ref=>nodes.get(ref))});
+        }
+        if (!elements.length) return null;
+        const raw = {elements};
+        const context = normalizeMissionTargetGeoContext(raw,lat,lon,350);
+        if (!context) return null;
+        context.source = 'osm-api';
+        context.reporterPlacement = window.MissionReporterSceneCore.geometry(raw,{lat,lon});
+        return context;
+    } catch (_) { return null; }
+    finally {clearTimeout(timer);}
+}
+
 async function fetchMissionTargetGeoContext(missionData = null) {
     const md = missionData || currentMissionData || {};
     if (!md || !md.isPOI) return null;
     const lat = Number(md.targetLat);
     const lon = Number(md.targetLon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    const radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M;
-    const key = missionTargetGeoContextCacheKey(lat, lon, radiusM);
+    const reporter = window.MissionReporterSceneCore?.enabled(md, md.missionContract);
+    const radiusM = reporter ? 800 : MISSION_TARGET_GEO_CONTEXT_RADIUS_M;
+    const key = missionTargetGeoContextCacheKey(lat, lon, radiusM) + (reporter ? '_poi_geometry_v3' : '');
     for (const store of [sessionStorage, localStorage]) { try { window.GAMissionStorageCore.prune(store); } catch (_) {} }
     const readCache = (store) => {
         try {
@@ -25848,10 +25895,10 @@ async function fetchMissionTargetGeoContext(missionData = null) {
         }
     };
     const cached = readCache(sessionStorage) || readCache(localStorage);
-    if (cached) return cached;
+    if (cached && (!reporter || cached.reporterPlacement)) return cached;
     if (missionTargetGeoContextInflight.has(key)) return missionTargetGeoContextInflight.get(key);
 
-    const query = `[out:json][timeout:7];
+    const query = `[out:json][timeout:${reporter ? 20 : 7}];
 (
   way(around:${radiusM},${lat},${lon})["highway"];
   node(around:${radiusM},${lat},${lon})["highway"];
@@ -25872,16 +25919,17 @@ async function fetchMissionTargetGeoContext(missionData = null) {
   relation(around:${radiusM},${lat},${lon})["landuse"~"forest|meadow|farmland|grass|orchard|vineyard|reservoir"];
   way(around:${radiusM},${lat},${lon})["amenity"="parking"];
   way(around:${radiusM},${lat},${lon})["building"];
+  ${reporter ? `way(around:${radiusM},${lat},${lon})["landuse"~"industrial|commercial"];` : ''}
   node(around:${radiusM},${lat},${lon})["power"];
   way(around:${radiusM},${lat},${lon})["power"];
   way(around:${radiusM},${lat},${lon})["railway"];
   way(around:${radiusM},${lat},${lon})["bridge"];
 );
-out tags center geom 160;`;
+out tags center geom ${reporter ? '' : '160'};`;
 
     const promise = (async () => {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 9000);
+        const timeoutId = setTimeout(() => controller.abort(), reporter ? 25000 : 9000);
         const localLandmarksPromise = fetchMissionLocalVisualLandmarks(lat, lon, MISSION_TARGET_GEO_CONTEXT_RADIUS_M).catch(() => []);
         try {
             const res = await fetch('https://overpass-api.de/api/interpreter', {
@@ -25896,6 +25944,7 @@ out tags center geom 160;`;
                 normalizeMissionTargetGeoContext(raw, lat, lon, radiusM),
                 await localLandmarksPromise
             );
+            if (normalized && reporter) normalized.reporterPlacement = window.MissionReporterSceneCore.geometry(raw, {lat, lon});
             if (normalized) {
                 try { window.GAMissionStorageCore.writeGeo(sessionStorage, key, normalized); } catch (_) {}
                 try { window.GAMissionStorageCore.writeGeo(localStorage, key, normalized); } catch (_) {}
@@ -25903,6 +25952,13 @@ out tags center geom 160;`;
             return normalized;
         } catch (err) {
             console.warn('[MISSION GEO] Overpass context unavailable', err);
+            if (reporter) {
+                const directMap = await fetchReporterSceneMapFallback(lat,lon);
+                if (directMap) {
+                    try { window.GAMissionStorageCore.writeGeo(sessionStorage,key,directMap); } catch (_) {}
+                    return directMap;
+                }
+            }
             const localLandmarks = await localLandmarksPromise;
             if (localLandmarks.length) {
                 const localOnly = mergeMissionVisualLandmarks(null, localLandmarks);
@@ -25942,7 +25998,10 @@ function scenePlannerV3AssetCatalog() {
     }]));
     const compactFeatures = Object.fromEntries(Object.entries(features).map(([key, spec]) => [key, {
         label: scenePlannerV3CleanText(spec?.label || key, 80),
-        roles: Array.isArray(spec?.roles) ? spec.roles.slice(0, 8) : []
+        roles: Array.isArray(spec?.roles) ? spec.roles.slice(0, 8) : [],
+        placementSurfaces: spec.placementSurfaces || ['ground'],
+        placementRadiusM: window.MissionReporterSceneCore?.radius(spec,key) || 5,
+        primaryRole: spec.primaryRole || undefined
     }]));
     return {
         kinds: compactKinds,
@@ -25997,6 +26056,72 @@ function scenePlannerV3CompactAptPlan(plan = null) {
     };
 }
 
+function scenePlannerV3ReporterContext(md = {}, contract = {}, geo = null, truth = null) {
+    if (!window.MissionReporterSceneCore?.enabled(md, contract)) return {};
+    const briefing = md.newsBriefing || contract.newsBriefing || md.infraBriefing || contract.infraBriefing || md.poiBriefing || contract.poiBriefing;
+    const taskDomain = contract.taskDomain || briefing?.taskDomain || '';
+    const plan = md.missionPlanV2 || contract.missionPlanV2;
+
+    return {
+        reporterScene: {
+            idea: briefing?.idea || null,
+            mission: {title:md.mission || contract.missionTitle, story:compactSceneComposerStory(contract.missionStory || md.story || ''), taskDomain, roleProfile:contract.roleProfile},
+            sceneIntent: md.sceneIntent || contract.sceneIntent || null,
+            missionPlan: compactMissionPlanV2ForPrompt(plan),
+            directive: missionPlanV2SceneDirective(plan),
+            spatialContext: {
+                target: geo?.center || null,
+                sceneAnchor: truth?.sceneAnchor || truth?.mainTarget || null,
+                headingDeg: truth?.sceneAnchor?.headingDeg ?? (md.heading != null && Number.isFinite(Number(md.heading)) ? Number(md.heading) : null),
+                placementGeometry: geo?.reporterPlacement || null,
+                anchors: geo?.anchors || {},
+                avoidZones: geo?.avoidZones || [],
+                note: 'Kartierte Anker sind keine garantierten freien Stellflächen. Fehlende Geometrie bleibt unbekannt.'
+            },
+            compositionRules: [
+                'Wähle zuerst placementIntent: {use: industrial_site|settlement_space|portal_access|open_field|nature|water_scene|road_scene, anchorId: nur bei portal_access, requiresPaved: boolean, reason: Bezug zur gewählten Handlung}. Die Verwendung folgt dem Auftrag, nicht der bequemsten freien Fläche. Für Portalgeschehen portal_access und ein kartiertes tunnel_end wählen. Nur parking/pedestrian/road bis 120 m um dieses Ende sind passend. Eine Wiese über der Tunnelröhre ist keine Portalfläche. Verlangte Befestigung darf nicht erfunden werden. Wenn kein geeigneter Ort belegt ist, kind=none mit konkretem Grund; keine Ersatzszene an anderem Ort erfinden.',
+                'Jedes requirement braucht siteId aus sites. Wähle zuerst die größten Objekte auf slots mit clearanceM >= placementRadiusM; Abstand zu jedem anderen Objekt mindestens Summe der Radien + 1 m. Menschen dürfen kleine Slots nutzen. Für Gruppen muss jede Einzelposition passen; lieber count=1 auf passenden Slots als übervolle Gruppen. Eine gemeinsame siteId allein garantiert keinen räumlichen Zusammenhang: eine Industriefläche kann mehrere getrennte Höfe umfassen. Objektwünsche passend verkleinern, den räumlichen Zweck bewahren.',
+                'Interpretiere die gewählte Handlung: ein erkennbarer Mittelpunkt, dazu passende Arbeits-, Besucher- oder Fahrzeuggruppen. Keine neue Geschichte.',
+                'Plane zuerst die räumliche Hauptform mit großen Einzelobjekten (count=1 je Baukörper/Fahrzeug). Danach die zur gewählten Handlung passenden Personen und Ausrüstung funktional zuordnen. Besucher, Infostände oder Einsatzkräfte nur, wenn der konkrete Auftrag sie trägt. Die Kandidaten sind Hilfspunkte, kein Raster für jedes Einzelobjekt. Auch bei reduzierter Ausstattung soll das erzählte Geschehen erkennbar bleiben; eine einzelne Person ist keine Personengruppe.',
+                'Wähle für eine gemeinsame Handlung zunächst einen workArea-Bereich mit Platz für den Mittelpunkt. Ordne Personen, Pavillon, Material und zugehörige Fahrzeuge in dessen räumlicher Nähe an. workAreas bieten zusammenliegende Kartenpunkte, keine garantierten freien Höfe. Entfernte Teilgruppen brauchen einen konkreten getrennten Arbeitszweck aus der bestehenden Geschichte; fehlender Platz allein rechtfertigt keine verstreute Szene. Reduziere dann optionale Ausstattung. Erfinde keine Zufahrt aus der Punktverbindung.',
+                'Nutze die vorhandene Geometrie: Landobjekte auf ground, Boote auf water, Waldobjekte nur mit zugelassenem forest; surface muss aus placementSurfaces des Features stammen. Straßen nur mit belegter Breite (road). Gebäude und andere Sperrflächen meiden. Keine unbelegten Hallenfassaden, Freiflächen oder Zufahrten erfinden.',
+                'targetScene.objectPolicy="explicit-requirements": Nur die ausdrücklich geplanten requirements werden aufgebaut, keine Standardausstattung nach kind.',
+                'Jede Gruppe erhält requirements mit feature, count, arrangement surface und forwardM/rightM in Metern relativ zum sceneAnchor und headingDeg. notes erläutert ihre Funktion. Für verschiedene Gruppen desselben Features separate requirements verwenden.',
+                'Liefere nur targetScene, localizationNotes und validationNotes. Keine APT-Ankunft für POI. Wenn die Hauptszene auf keiner geeigneten Fläche möglich ist, lasse die optionale Szene begründet weg. Das ist besser als eine andere Handlung auf der nächstbesten Fläche.',
+                'Maximal 18 requirements und insgesamt höchstens 18 Einzelobjekte bei busy, 14 bei normal, neun bei sparse. Pro requirement höchstens sechs Objekte. Priorisiere den Mittelpunkt, bevor du Kleinteile hinzufügst.',
+                'line verteilt weitere Objekte entlang rightM nach Osten, unabhängig vom Objekt-Heading. cluster verwendet lokale Rasterpunkte. Für andere Ausrichtungen/Formen count=1 und individuelle Offsets nutzen.',
+                'Wähle cluster für mehrere Objekte an einem Gruppenmittelpunkt; Einzelfahrzeuge lassen sich mit count=1 gezielt anordnen. Nutze spacingM (2 bis 30 Meter) für Abstände innerhalb einer Gruppe, passend zur Objektgröße. forwardM zeigt entlang headingDeg, rightM nach rechts; ohne eindeutigen Anker/Heading keine präzise Lage behaupten.',
+                'Für jedes requirement role aus den Rollen des gewählten Features angeben. Seecontainer benötigen shipping_container; cargo_material ist ein gemischter Pool. U-Formen als einzelne count=1-Objekte mit eigenen Positionen/Heading planen. Alle Koordinaten im placementGeometry-Rahmen: forwardM=y (Norden), rightM=x (Osten).',
+                'Planungsradien und zugelassene Oberflächen stehen am Feature im Katalog. Zwischen zwei Objekten mindestens Summe der Radien plus 1 m. Keine exakten Modellabmessungen. Die App prüft Abstände, Gebäude, Wasser, Straßen und Flächengrenzen. candidates sind mögliche Mittelpunkte mit 9 m Kartenabstand, keine garantierten freien Flächen. Wähle zusammenhängende Positionen in derselben Nutzungsfläche. Mehrere Gruppen nie auf (0,0) stapeln.',
+                'Zieltyp, TaskDomain und Plan bleiben verbindlich. Kein neuer Anlass, kein automatischer Festplatz oder Einsatz. Bei plan.sceneKind=none keine Zusatzobjekte erfinden. SAR-Suchziele aus objectFamilies erhalten; missing_person benötigt sar.person_target, aircraft_wreck benötigt aircraft.wreck. Support bleibt getrennt und darf das Suchziel nicht bereits gefunden haben.',
+                'Ist eine Platzierung nicht belegbar, reduziere nur optionale Ausstattung. Erforderliche Suchobjekte nicht weglassen. Benenne ein Platzierungsproblem, wenn sie nicht darstellbar sind.'
+            ]
+        }
+    };
+}
+
+function scenePlannerV3ReporterPromptContext(md, contract, geo, truth) {
+    const context = scenePlannerV3ReporterContext(md, contract, geo, truth).reporterScene;
+    if (!context) return null;
+    const geometry = geo?.reporterPlacement;
+    context.spatialContext = {
+        target: geometry?.origin || geo?.center,
+        sceneAnchor: truth?.sceneAnchor,
+        headingDeg: 0,
+        status: geometry?.status || 'unavailable',
+        coordinateRule: 'forwardM=y=Norden; rightM=x=Osten. Die gleichen Meterkoordinaten bleiben bis zum Simulator erhalten.',
+        sites: (geometry?.sites || []).map(({slots,workAreas,...site})=>({...site,...(workAreas?.length?{workAreas}:{slots:slots.slice(0,12)})})),
+        anchors: geometry?.anchors || [],
+        candidateMeaning: 'Jeder Slot gehört zur siteId und besitzt clearanceM als maximalen Planungsradius. usage ist die belegte Nutzung, surface die separat belegte Befestigung oder unknown. Wiese ist kein Hof; Parkplatz ist ohne surface-Tag nicht nachgewiesen asphaltiert. Belegung unbekannt.',
+        note: 'Obstacle-Rechtecke sind nur eine Übersicht. Die App prüft gegen die vollständigen Polygone. Keine Gebäude, Zufahrten oder freien Hofflächen aus Namen ableiten.'
+    };
+    const catalog = scenePlannerV3AssetCatalog();
+    return {schema:'scenePlannerV3.poiContext.v3',mode:'poi',reporterScene:context,assets:{
+        kinds:Object.fromEntries(Object.entries(catalog.kinds).filter(([key,k])=>k.useFor.includes(context.mission.taskDomain) || key === context.directive?.sceneKind)),
+        features:catalog.features
+    }};
+}
+
 async function scenePlannerV3ContextBundle({ md = {}, contract = {}, pax = {}, sceneIntent = null, targetGeoContext = null, missionTruth = null, missionPlanV2 = null, aptArrivalPlan = null, aptArrivalGeoContext = null } = {}) {
     const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
     const missionMode = normalizeMissionType(md.missionType || contract.missionType || pax.missionType || '', isPOI);
@@ -26008,6 +26133,7 @@ async function scenePlannerV3ContextBundle({ md = {}, contract = {}, pax = {}, s
     if (missionMode !== 'poi' && aptArrivalPlan && !aptCtx) aptCtx = await fetchAptArrivalGeoContext(aptArrivalPlan);
     return {
         schema: 'scenePlannerV3.contextBundle.v1',
+        ...scenePlannerV3ReporterContext(md, contract, geo, truth),
         mode: missionMode,
         route: {
             start: md.start || '',
@@ -26105,10 +26231,14 @@ function scenePlannerV3ToolDeclarations() {
 
 async function scenePlannerV3ExecuteTool(call = {}, ctx = {}) {
     const name = String(call?.name || '').trim();
-    if (name === 'get_scene_context_bundle') return scenePlannerV3ContextBundle(ctx);
+    if (name === 'get_scene_context_bundle') {
+        const reporter = scenePlannerV3ReporterPromptContext(ctx.md, ctx.contract, ctx.targetGeoContext, ctx.missionTruth);
+        return reporter || scenePlannerV3ContextBundle(ctx);
+    }
     if (name === 'get_target_geo_context') {
         const geo = ctx.targetGeoContext || (ctx.md?.isPOI ? await fetchMissionTargetGeoContext(ctx.md) : null);
-        return _missionPipelineV3CompactGeoContext(geo);
+        const placement=scenePlannerV3ReporterPromptContext(ctx.md,ctx.contract,geo,ctx.missionTruth);
+        return placement?.reporterScene?.spatialContext || _missionPipelineV3CompactGeoContext(geo);
     }
     if (name === 'get_apt_arrival_context') {
         const aptCtx = ctx.aptArrivalGeoContext || (ctx.aptArrivalPlan ? await fetchAptArrivalGeoContext(ctx.aptArrivalPlan) : null);
@@ -26141,7 +26271,8 @@ Arbeitsweise:
 4b. BUSH: targetScene bleibt ebenfalls none. Fuer Strip-Missionen darf aptArrivalPlan eine kleine Handoff-/Dropoff-Szene mit Quad/Utility-Fahrzeug am Striprand beschreiben. Fuer Recon-Return ohne Ziel-Landung muss aptArrivalPlan none bleiben.
 5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Bei Badesee/Teich/kleinem Binnensee nur watercraft/kleine Boote; service_ship/grosse Schiffe nur bei Hafen/Kueste/grossem Gewaesser. Keine Deko.
 6. Wenn targetScene.kind="none", muessen features=[], requirements=[], roles=[], density="none" und layout="" sein. Keine impliziten Autos/Personen als Deko fuer Historiker-, Lern- oder Sightseeing-Fluege.
-7. Gib ausschliesslich JSON aus.
+7. reporterScene ist der gemeinsame POI-Szenenkontext (historischer Feldname). Wenn er vorliegt, verwende dessen vollständige Idee, spatialContext und compositionRules für eine zusammenhängende Szene. Seine Objektplanung ersetzt die pauschale Standardausstattung.
+8. Gib ausschliesslich JSON aus.
 
 JSON-Schema:
 {
@@ -26150,9 +26281,11 @@ JSON-Schema:
   "targetScene": {
     "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context",
     "preset": "",
+    "objectPolicy": "explicit-requirements (nur reporterScene)",
+    "placementIntent": {"use":"industrial_site|settlement_space|portal_access|open_field|nature|water_scene|road_scene", "anchorId":"ID aus spatialContext.anchors bei portal_access, sonst leer", "requiresPaved":false, "reason":"räumliche Anforderung der bestehenden Handlung"},
     "features": [],
     "requirements": [
-      {"feature":"small_equipment","count":1,"placement":"am Ufer","arrangement":"cluster","forwardM":0,"rightM":8,"notes":"kurzer Grund"}
+      {"siteId":"ID aus spatialContext.sites","surface":"ground|water|forest|road","feature":"small_equipment","role":"cargo.small_box","count":1,"placement":"Gruppenfunktion","arrangement":"cluster","spacingM":10,"forwardM":0,"rightM":8,"hdgOffsetDeg":0,"notes":"kurzer Grund"}
     ],
     "roles": [],
     "density": "none|sparse|normal|busy",
@@ -26309,14 +26442,32 @@ function sanitizeScenePlannerV3Result(raw = null, fallback = {}, ctx = {}) {
     const parsed = raw && typeof raw === 'object' ? raw : {};
     const isPOI = !!ctx.isPOI;
     const taskDomain = String(ctx.pax?.taskDomain || ctx.contract?.taskDomain || '').toLowerCase();
+    const reporter = window.MissionReporterSceneCore?.enabled(ctx.md, ctx.contract);
+    let rawScene = parsed.targetScene || fallback.targetScene || null;
+    let omissionReason = '';
+    const placementRequirement = rawScene?.placementIntent ? {...rawScene.placementIntent,...ctx.placementRequirement} : ctx.placementRequirement;
+    if (reporter && taskDomain === 'news_coverage' && rawScene?.kind !== 'none'
+        && window.MissionReporterSceneCore.hasPlacementSite(placementRequirement,ctx.targetGeoContext?.reporterPlacement) === false) {
+        omissionReason = `Für den vorgesehenen Szenenort (${placementRequirement.use}) ist keine geeignete Stellfläche belegt. Die optionale Darstellung entfällt; der Auftrag bleibt unverändert.`;
+        rawScene = {kind:'none',features:[],requirements:[],roles:[],density:'none',notes:omissionReason};
+    }
     const targetScene = isPOI
-        ? sanitizeMissionTargetSceneSpec(parsed.targetScene || fallback.targetScene || null, {
+        ? sanitizeMissionTargetSceneSpec(reporter && rawScene ? {...rawScene, objectPolicy:'explicit-requirements', placementVersion:'poi-placement.v3',placementRequirement:ctx.placementRequirement} : rawScene, {
             isPOI,
             taskDomain,
             targetGeoContext: ctx.targetGeoContext || null,
             missionPlanV2: ctx.missionPlanV2 || null
         })
         : sanitizeMissionTargetSceneSpec(null, { isPOI: false, taskDomain, targetGeoContext: null, missionPlanV2: ctx.missionPlanV2 || null });
+    if (reporter) {
+        const directive = missionPlanV2SceneDirective(ctx.missionPlanV2);
+        if (directive?.sceneKind === 'none' && targetScene.kind !== 'none') throw new Error('reporter_scene_invalid: Der Missionsplan sieht keine Zielobjekte vor');
+        const required = taskDomain === 'search_and_rescue' ? (directive?.objectFamilies || fallback.targetScene?.features || []) : [];
+        const missing = required.filter(feature => !(targetScene.requirements || []).some(req=>req.feature===feature));
+        if (missing.length) throw new Error('reporter_scene_invalid: Erforderliche Suchobjekte fehlen: ' + missing.join(', '));
+        const issues = window.MissionReporterSceneCore.validate(targetScene, ctx.targetGeoContext?.reporterPlacement, window.MISSION_SCENE_ASSETS);
+        if (issues.length) throw new Error('reporter_scene_invalid: ' + issues.join('; '));
+    }
     const aptArrivalPlan = !isPOI
         ? sanitizeScenePlannerV3AptArrivalPlan(parsed.aptArrivalPlan || parsed.arrivalPlan || null, ctx.aptArrivalPlan || null)
         : null;
@@ -26330,6 +26481,7 @@ function sanitizeScenePlannerV3Result(raw = null, fallback = {}, ctx = {}) {
             aiRaw: parsed.targetScene || parsed,
             aiArrivalRaw: parsed.aptArrivalPlan || parsed.arrivalPlan || null,
             normalized: targetScene,
+            omissionReason,
             aptArrivalPlan,
             localizationNotes: scenePlannerV3Array(parsed.localizationNotes, 8, 140),
             validationNotes: scenePlannerV3Array(parsed.validationNotes, 8, 140),
@@ -26359,6 +26511,7 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
         aptArrivalPlan: md.aptArrivalPlan || contract.aptArrivalPlan || null,
         aptArrivalGeoContext: null
     };
+    const reporter = window.MissionReporterSceneCore?.enabled(md, contract);
     const contents = [{ role: 'user', parts: [{ text: scenePlannerV3Prompt({ isPOI, missionMode }) }] }];
     const tools = [{ functionDeclarations: scenePlannerV3ToolDeclarations() }];
     const baseModels = [
@@ -26374,12 +26527,12 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
         ]
         : baseModels;
     let lastError = '';
-    for (const [model, source, usageKey] of models) {
+    for (const [model, source, usageKey] of (reporter ? models.slice(0,1) : models)) {
         const toolCalls = [];
         const modelContents = JSON.parse(JSON.stringify(contents));
         for (let turn = 0; turn < 5; turn++) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), turn === 0 ? 11000 : 14000);
+            const timeoutId = setTimeout(() => controller.abort(), reporter ? 45000 : (turn === 0 ? 11000 : 14000));
             try {
                 const payload = {
                     contents: modelContents,
@@ -26390,8 +26543,9 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
                             : { mode: 'AUTO' }
                     },
                     generationConfig: {
-                        temperature: 0.18,
-                        maxOutputTokens: 3200
+                        temperature: reporter ? 1 : 0.18,
+                        maxOutputTokens: reporter ? 8000 : 3200,
+                        ...(reporter && model.startsWith('gemini-3') ? {thinkingConfig:{thinkingLevel:'low'}} : {})
                     }
                 };
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey || '')}`, {
@@ -26434,7 +26588,18 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
                 const parsed = _missionPipelineV3ParseJsonText(text);
                 if (parsed) {
                     incrementApiUsage(usageKey);
-                    return sanitizeScenePlannerV3Result(parsed, fallback, { ...contextBase, source, toolCalls });
+                    try {
+                        if (reporter && !contextBase.placementRequirement && parsed.targetScene?.placementIntent?.use) {
+                            contextBase.placementRequirement={use:parsed.targetScene.placementIntent.use,requiresPaved:parsed.targetScene.placementIntent.requiresPaved===true};
+                        }
+                        return sanitizeScenePlannerV3Result(parsed, fallback, { ...contextBase, source, toolCalls });
+                    } catch (err) {
+                        if (!reporter || !String(err.message).startsWith('reporter_scene_invalid:')) throw err;
+                        lastError = err.message;
+                        modelContents.push({role:'model',parts:[{text:JSON.stringify(parsed)}]});
+                        modelContents.push({role:'user',parts:[{text:'Korrigiere die räumliche Planung anhand der vorhandenen Geometrie: ' + err.message + '. Reduziere Kleinteile wenn nötig, erhalte die Hauptidee. Kein erfundener Ersatzstandort. Geprüfte lokale Korrekturvorschläge: ' + JSON.stringify(window.MissionReporterSceneCore.correctionOptions({...parsed.targetScene,placementVersion:window.MissionReporterSceneCore.VERSION},contextBase.targetGeoContext?.reporterPlacement,window.MISSION_SCENE_ASSETS))}]});
+                        continue;
+                    }
                 }
                 lastError = 'empty_or_invalid_scene_json';
                 modelContents.push({
@@ -26450,7 +26615,7 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
         }
     }
     return {
-        targetScene: fallback.targetScene,
+        targetScene: reporter ? {kind:'none',features:[],requirements:[],roles:[],density:'none',notes:'Keine gültige POI-Platzierung'} : fallback.targetScene,
         aptArrivalPlan: fallback.aptArrivalPlan || null,
         debug: {
             source: 'local-fallback',
@@ -26466,6 +26631,23 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
     const md = missionData || currentMissionData || {};
     const contract = missionContract || window.activeMissionContract || md.missionContract || {};
     const pax = passenger || window.activePassenger || {};
+    window.MissionReporterSceneCore?.enroll(md, contract, pax);
+    const reporter = window.MissionReporterSceneCore?.enabled(md, contract);
+    if (reporter) {
+        const directive = missionPlanV2SceneDirective(md.missionPlanV2 || contract.missionPlanV2);
+        const intent = md.sceneIntent || contract.sceneIntent;
+        if (directive?.sceneKind === 'none' || (!directive && intent?.densityHint === 'none' && !intent?.visibleIdeas?.length)) {
+            return {targetScene:{kind:'none',features:[],requirements:[],roles:[],density:'none'},aptArrivalPlan:null,debug:{source:'poi-placement',error:''}};
+        }
+        if (md.targetGeoContext?.reporterPlacement?.schema !== 'poi-placement.v3') md.targetGeoContext = await fetchMissionTargetGeoContext(md);
+        contract.targetGeoContext = md.targetGeoContext;
+        md.missionTruth = buildMissionTruth(md, md.targetGeoContext, null);
+        contract.missionTruth = md.missionTruth;
+        if (!md.targetGeoContext?.reporterPlacement || md.targetGeoContext.reporterPlacement.status !== 'mapped') {
+            return {targetScene:{kind:'none',features:[],requirements:[],roles:[],density:'none'}, aptArrivalPlan:null,
+                debug:{source:'reporter-placement',error:'reporter_geometry_unavailable'}};
+        }
+    }
     const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
     const taskDomain = String(pax.taskDomain || contract.taskDomain || '').toLowerCase();
     const sceneIntent = sanitizeMissionSceneIntentSpec(md.sceneIntent || contract.sceneIntent || null, { isPOI, taskDomain });
@@ -26490,7 +26672,7 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
     };
     if (!apiKey || getSelectedAiProvider() !== 'gemini') {
         return {
-            targetScene: fallback.targetScene,
+            targetScene: reporter ? {kind:'none',features:[],requirements:[],roles:[],density:'none'} : fallback.targetScene,
             aptArrivalPlan: fallback.aptArrivalPlan || null,
             debug: {
                 ...baseDebug,
@@ -26526,7 +26708,8 @@ function updateMissionAcceptanceUi() {
     if (!needsAccept) return;
     let composing = md.sceneCompositionStatus === 'composing';
     const composingStartedAt = Number(md.sceneCompositionStartedAt || 0);
-    if (composing && composingStartedAt && (Date.now() - composingStartedAt) > 60000) {
+    const compositionLimitMs = window.MissionReporterSceneCore?.enabled(md, md?.missionContract) ? 300000 : 60000;
+    if (composing && composingStartedAt && (Date.now() - composingStartedAt) > compositionLimitMs) {
         md.sceneCompositionStatus = 'draft';
         md.sceneCompositionStartedAt = 0;
         composing = false;
@@ -26658,6 +26841,7 @@ window.acceptMissionDraft = async function() {
         updateMissionAcceptanceUi();
         return true;
     }
+    window.MissionReporterSceneCore?.enroll(currentMissionData, currentMissionData.missionContract || {}, window.activePassenger || {});
     currentMissionData.sceneCompositionStatus = 'composing';
     currentMissionData.sceneCompositionStartedAt = Date.now();
     updateMissionAcceptanceUi();
@@ -26689,14 +26873,28 @@ window.acceptMissionDraft = async function() {
             missionContract: currentMissionData.missionContract || window.activeMissionContract || null,
             passenger: window.activePassenger || null
         });
+        if (window.MissionReporterSceneCore?.enabled(currentMissionData, currentMissionData.missionContract) && composition?.debug?.error) {
+            currentMissionData.sceneCompositionStatus = 'draft';
+            currentMissionData.targetSceneComposerDebug = composition.debug;
+            saveMissionState(); updateMissionAcceptanceUi();
+            if (indicator) indicator.innerText = 'Zielszene konnte nicht passend platziert werden. Mission bleibt Entwurf; erneut versuchen.';
+            return false;
+        }
         applyMissionTargetSceneComposition(composition, 'mission-accepted');
         if (indicator) {
-            indicator.innerText = composition?.debug?.error
-                ? 'Mission akzeptiert. Szene per Fallback vorbereitet.'
-                : 'Mission akzeptiert. Szene bereit.';
+            indicator.innerText = composition?.debug?.omissionReason
+                ? 'Mission akzeptiert. Keine zusätzliche Zielszene: passende Stellfläche nicht belegt.'
+                : composition?.debug?.error ? 'Mission akzeptiert. Szene per Fallback vorbereitet.' : 'Mission akzeptiert. Szene bereit.';
         }
         return true;
     } catch (err) {
+        if (window.MissionReporterSceneCore?.enabled(currentMissionData, currentMissionData.missionContract)) {
+            currentMissionData.sceneCompositionStatus = 'draft';
+            currentMissionData.targetSceneComposerDebug = {error:String(err?.message || err)};
+            saveMissionState(); updateMissionAcceptanceUi();
+            if (indicator) indicator.innerText = 'Szenenplanung fehlgeschlagen. Mission bleibt Entwurf; erneut versuchen.';
+            return false;
+        }
         const fallback = {
             targetScene: deriveMissionTargetSceneFromIntent(currentMissionData.sceneIntent || null, {
                 isPOI: !!(currentMissionData.poiName || currentMissionData.poiSource || currentMissionData.isPOI),
@@ -41436,6 +41634,7 @@ function compactMissionProposalChoice(choice = null) {
         clubProposal: normalized.clubProposal || null,
         charterProposal: normalized.charterProposal || null,
         infraProposal: normalized.infraProposal || null,
+        newsProposal: normalized.newsProposal || null,
         poiProposal: normalized.poiProposal || null,
         cargoProposal: normalized.cargoProposal || null,
         sightseeingProposal: normalized.sightseeingProposal || null,
@@ -42073,6 +42272,8 @@ async function buildMissionProposalPoiChoices(context = {}) {
     }
     if (window.MissionInfraBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
         return window.MissionInfraBriefingBrowser.choices(candidates,context);
+    if (window.MissionNewsBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
+        return window.MissionNewsBriefingBrowser.choices(candidates,context);
     if (window.MissionPoiBriefingBrowser?.enabled({profileId, category: context.selectedPoiCategory, aiModeEnabled: context.aiModeEnabled}))
         return window.MissionPoiBriefingBrowser.choices(candidates, context);
     const cargoPool = Array.isArray(profile.cargoPool) && profile.cargoPool.length
@@ -43430,6 +43631,7 @@ async function generateMission(options = {}) {
     const useFragileCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'cargo_fragile';
     const useCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'cargo' && ['auto',''].includes(dispatchProfileId);
     const useInfraInspectionIdeas = window.MissionInfraBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
+    const usePoiNewsIdeas = window.MissionNewsBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiPhotoIdeas = window.MissionPoiBriefingBrowser?.enabled({isPOI, profileId: dispatchProfileId, category: selectedPoiCategory, aiModeEnabled, followup: !!followupSeed, planning: isPlanningOnlyMode, bush: isBushDispatch}) && !dest?.poiChain;
     const useCharterIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(dispatchProfileId);
     const useClubIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && aiModeEnabled && dispatchProfileId === 'club_utility';
@@ -43437,6 +43639,8 @@ async function generateMission(options = {}) {
         missionContractV4 = {status:'ready', profile:getMissionTaskProfile('media_photo', 'poi')};
     } else if (useInfraInspectionIdeas) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('inspection_infra','poi')};
+    } else if (usePoiNewsIdeas) {
+        missionContractV4={status:'ready',profile:getMissionTaskProfile('news_coverage','poi')};
     } else if (useSightseeingIdeas) {
         missionContractV4 = {status:'ready',profile:{id:'sightseeing_tour',taskDomain:'sightseeing_tour',roleProfile:'tour_guide_relaxed_v1'}};
     } else if (useFragileCargoIdeas) {
@@ -44059,6 +44263,7 @@ async function generateMission(options = {}) {
         if (missionProposalChoice?.cargoProposal && !useCargoIdeas) throw Error('Die Frachtauswahl benötigt den aktiven KI-Frachtgenerator.');
         if (missionProposalChoice?.charterProposal && !useCharterIdeas) throw Error('Die Charterauswahl benötigt den KI-Chartergenerator.');
         if (missionProposalChoice?.infraProposal && !useInfraInspectionIdeas) throw Error('Die Inspektionsidee benötigt den aktiven Infrastruktur-Ideengenerator.');
+        if (missionProposalChoice?.newsProposal && !usePoiNewsIdeas) throw Error('Die Reporteridee benötigt den aktiven POI-Reporter-Ideengenerator.');
         if (missionProposalChoice?.poiProposal && !usePoiPhotoIdeas) throw Error('Die Fotoidee benötigt den aktiven KI-Fotogenerator.');
         if (usePoiPhotoIdeas) {
             missionContractV4 = {...missionContractV4, route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
@@ -44067,6 +44272,10 @@ async function generateMission(options = {}) {
         } else if (useInfraInspectionIdeas) {
             missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m=await window.MissionInfraBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.infraProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
+            missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
+        } else if (usePoiNewsIdeas) {
+            missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m=await window.MissionNewsBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.newsProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
         } else if (useCharterContinuation) {
             if (!followupDispatchMission?.mission) throw Error('Die Charter-Fortsetzung passt nicht zur gewählten Route.');
@@ -44874,6 +45083,7 @@ async function generateMission(options = {}) {
         clubIdea: m.clubIdea || null,
         charterIdea: m.charterIdea || null,
         infraBriefing: m.infraBriefing || null,
+        newsBriefing: m.newsBriefing || null,
         poiBriefing: m.poiBriefing || null,
         cargoIdea: m.cargoIdea || null,
         sightseeingIdea: m.sightseeingIdea || null,
@@ -44993,6 +45203,7 @@ async function generateMission(options = {}) {
     if (currentMissionData.fragileCargoIdea) window.MissionFragileCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.fragileCargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.fragileCargoIdea.writerMemory});
     if (currentMissionData.cargoIdea) window.MissionCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.cargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.cargoIdea.writerMemory});
     if (currentMissionData.infraBriefing) window.MissionInfraBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.infraBriefing);
+    if (currentMissionData.newsBriefing) window.MissionNewsBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.newsBriefing);
     if (currentMissionData.poiBriefing) window.MissionPoiBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.poiBriefing);
     if (currentMissionData.charterIdea) window.MissionCharterIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.charterIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.charterIdea.writerMemory});
     if (currentMissionData.clubIdea) {
@@ -45383,7 +45594,7 @@ async function generateMission(options = {}) {
         currentMissionData?.party || finalPassengerPlan.party || null
     );
 
-    if (window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
+    if (window.MissionNewsBriefingCore?.owns(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
     else document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
     const briefingTaskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || m?.passenger?.taskDomain || '').toLowerCase();

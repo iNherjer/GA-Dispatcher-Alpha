@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1879';
+const CACHE = 'ga-dispatcher-v1880';
 
 const STATIC = [
     './',
@@ -39,6 +39,8 @@ const STATIC = [
     './mission-private-episode-v6.js',
     './mission-poi-briefing-shared-core.js',
     './mission-poi-briefing-shared-browser.js',
+    './mission-news-briefing-core.js',
+    './mission-news-briefing-browser.js',
     './mission-infra-briefing-core.js',
     './mission-infra-briefing-browser.js',
     './mission-route-voice-core.js',
@@ -104,6 +106,8 @@ const STATIC = [
     './mission-poi-chain.js',
     './mission-poi-chain-runtime.js',
     './data/mission-scene-assets.js',
+    './data/mission-homebase-scene-assets.js',
+    './mission-reporter-scene-core.js',
     './checklists.js',
     './sim-route.js',
     './sim-manual-flight.js',

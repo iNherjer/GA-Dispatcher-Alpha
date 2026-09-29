@@ -68,3 +68,16 @@ test('writer accepts existing navigation evidence but rejects invented source ID
  assert.doesNotThrow(()=>core.validateWriter({...raw,usedFactIds:['landmark-known']},idea,context));
  assert.throws(()=>core.validateWriter({...raw,usedFactIds:['invented-detail']},idea,context));
 });
+
+test('inspection history reaches both stages with original purpose and deduplicated IDs',async()=>{
+ const b=browser(),m=fixture(),start={name:'Basis',lat:48.1,lon:8.1};
+ m.infraBriefing.writerMemory='Wartungsplanung durch räumliche Eingrenzung der Auffälligkeit.';
+ core.remember(b.s,'previous',m.infraBriefing);core.remember(b.s,'previous',m.infraBriefing);
+ const choices=await b.api.choices([{...c.target,poiCategory:'bridge'}],{start});
+ await b.api.story({start,dest:c.target,proposal:choices[0].infraProposal});
+ for(const rows of [JSON.parse(b.requests[0].split('RAHMEN=')[1])[0].recent,JSON.parse(b.requests[1].split('HISTORY=')[1])]){
+  assert.equal(rows.length,1);assert.equal(rows[0].inspectionFocus,ideaInput.inspectionFocus);
+  assert.equal(rows[0].decisionNeeded,ideaInput.decisionNeeded);assert.deepEqual(rows[0].aerialAssessment,ideaInput.aerialAssessment);
+  assert.equal(rows[0].memory,m.infraBriefing.writerMemory);
+ }
+});

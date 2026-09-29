@@ -1,0 +1,118 @@
+{
+  "status": "development-not-release-ready",
+  "scope": "Three missions; local tiles, no weather/terrain/environment polygon fixture. Last run controlled without history; no production-history mutation.",
+  "runs": [
+    {
+      "attempt": 1,
+      "promptVersion": "poi-news-apt-v1.6",
+      "httpStatus": 200,
+      "target": {
+        "name": "Hausach",
+        "lat": 48.28363,
+        "lon": 8.17497,
+        "poiCategory": "city",
+        "place": "town"
+      },
+      "historyCount": 4,
+      "idea": {
+        "schema": "news-idea.v1",
+        "targetId": "poi:48.283630:8.174970",
+        "targetName": "Hausach",
+        "taskDomain": "news_coverage",
+        "outlet": "Mittelbadische Rundschau",
+        "headline": "Ein Licht für alle?",
+        "situation": "Ein engagierter Heimatverein möchte die markante Burgruine Husen durch eine neue Lichtinstallation stärker ins Bewusstsein rücken. Im Stadtrat wird jedoch diskutiert, ob die moderne Bebauung und die hohen Hallen im Tal vielen Bürgern den Blick auf ihr Wahrzeichen bereits versperrt haben. Marc Hiller möchte klären, welche Viertel tatsächlich im Sichtschatten liegen.",
+        "angle": "Kann ein historisches Denkmal hoch über den Hängen die Identität einer modernen Industriestadt im Schwarzwald noch stärken, wenn die Sichtverbindung am Boden verloren geht?",
+        "airValue": "Der Flug ermöglicht es, die direkte Sichtlinie zwischen der Ruine am Steilhang und den verschiedenen Quartieren im Talgrund zu prüfen und die städtebauliche Dichte in Relation zum Wahrzeichen räumlich einzuordnen.",
+        "deliverable": "Dokumentation der Sichtachsen zwischen Burg und Wohngebieten für einen Hintergrundbericht zur Stadtgestaltung und zur Frage der emotionalen Heimatbindung.",
+        "person": {
+          "name": "Marc Hiller",
+          "role": "Redakteur für Lokales",
+          "relationshipToPilot": "mitfliegende journalistische Fachperson"
+        }
+      },
+      "rawResponses": [
+        "{\n  \"ideas\": [\n    {\n      \"schema\": \"news-idea.v1\",\n      \"targetId\": \"poi:48.283630:8.174970\",\n      \"targetName\": \"Hausach\",\n      \"taskDomain\": \"news_coverage\",\n      \"outlet\": \"Mittelbadische Rundschau\",\n      \"headline\": \"Ein Licht für alle?\",\n      \"situation\": \"Ein engagierter Heimatverein möchte die markante Burgruine Husen durch eine neue Lichtinstallation stärker ins Bewusstsein rücken. Im Stadtrat wird jedoch diskutiert, ob die moderne Bebauung und die hohen Hallen im Tal vielen Bürgern den Blick auf ihr Wahrzeichen bereits versperrt haben. Marc Hiller möchte klären, welche Viertel tatsächlich im Sichtschatten liegen.\",\n      \"angle\": \"Kann ein historisches Denkmal hoch über den Hängen die Identität einer modernen Industriestadt im Schwarzwald noch stärken, wenn die Sichtverbindung am Boden verloren geht?\",\n      \"airValue\": \"Der Flug ermöglicht es, die direkte Sichtlinie zwischen der Ruine am Steilhang und den verschiedenen Quartieren im Talgrund zu prüfen und die städtebauliche Dichte in Relation zum Wahrzeichen räumlich einzuordnen.\",\n      \"deliverable\": \"Dokumentation der Sichtachsen zwischen Burg und Wohngebieten für einen Hintergrundbericht zur Stadtgestaltung und zur Frage der emotionalen Heimatbindung.\",\n      \"person\": {\n        \"name\": \"Marc Hiller\",\n        \"role\": \"Redakteur für Lokales\"\n      }\n    }\n  ]\n}",
+        "{\n  \"targetId\": \"poi:48.283630:8.174970\",\n  \"title\": \"Sichtbeton gegen Sichtachsen\",\n  \"story\": \"Der Heimatverein plant eine aufwendige Lichtinstallation für die Burgruine Husen, doch im Stadtrat regen sich Zweifel: Haben die massiven Industriehallen im Kinzigtal das Wahrzeichen längst aus dem Blickfeld vieler Bürger verdrängt? Marc Hiller von der Mittelbadischen Rundschau möchte für seinen Hintergrundbericht dokumentieren, welche Wohnviertel tatsächlich im Sichtschatten der modernen Bebauung liegen. Nur aus der Luft lässt sich die direkte Sichtlinie zwischen dem steilen Hang und den verwinkelten Quartieren am Boden zweifelsfrei prüfen. Marc wird heute versuchen, diese räumlichen Barrieren fotografisch festzuhalten, um der Frage nachzugehen, ob ein Denkmal die Stadtidentität noch stärken kann, wenn die physische Verbindung zur Basis schwindet. Nach der Runde über dem Ziel geht es zurück zum Flugplatz.\",\n  \"greetingSpeaker\": \"Marc Hiller\",\n  \"greeting\": \"Moin, Marc Hiller hier. Ich schreibe für die Mittelbadische Rundschau über unsere Identität im Tal. Die Burgruine Husen soll bald in neuem Licht erstrahlen, aber wir müssen erst einmal klären, wer das Licht überhaupt noch sieht.\",\n  \"flightBriefing\": \"Unser Flug führt uns heute von [[route.start]] zum Ziel nach [[route.target]]. Die aktuelle Wetterlage für den Abflugort sowie das Zielgebiet ist zur Zeit unbekannt; es liegen keine aktuellen Meldungen vor. Entsprechend sind uns auch Windstärken oder mögliche Böen wie [[start.gust]] oder [[target.gust]] nicht bekannt. Die geplante Distanz für diese Strecke beträgt [[route.distance]]. Wir halten uns für die Sichtprüfung flexibel und fliegen nach der Dokumentation zurück zur Basis.\",\n  \"memory\": \"Die Geschichte fokussiert sich auf die visuelle und symbolische Verbindung zwischen der historischen Burgruine Husen und den modernen Wohn- sowie Industriegebieten in Hausach. Im Gegensatz zu den vorherigen Entwürfen (Tunnelnutzung, Mikroklima oder Flächeneffizienz) steht hier die Sichtbarkeit eines Wahrzeichens als Identitätsfaktor im Vordergrund. Der Flug wird als journalistisches Werkzeug genutzt, um Sichtachsen im dichten Talraum zu verifizieren.\",\n  \"report\": {\n    \"orientationIds\": [\n      \"f4\",\n      \"f2\"\n    ]\n  },\n  \"usedFactIds\": [\n    \"target-selection-category\",\n    \"f4\",\n    \"f2\"\n  ]\n}"
+      ],
+      "story": "Der Heimatverein plant eine aufwendige Lichtinstallation für die Burgruine Husen, doch im Stadtrat regen sich Zweifel: Haben die massiven Industriehallen im Kinzigtal das Wahrzeichen längst aus dem Blickfeld vieler Bürger verdrängt? Marc Hiller von der Mittelbadischen Rundschau möchte für seinen Hintergrundbericht dokumentieren, welche Wohnviertel tatsächlich im Sichtschatten der modernen Bebauung liegen. Nur aus der Luft lässt sich die direkte Sichtlinie zwischen dem steilen Hang und den verwinkelten Quartieren am Boden zweifelsfrei prüfen. Marc wird heute versuchen, diese räumlichen Barrieren fotografisch festzuhalten, um der Frage nachzugehen, ob ein Denkmal die Stadtidentität noch stärken kann, wenn die physische Verbindung zur Basis schwindet. Nach der Runde über dem Ziel geht es zurück zum Flugplatz.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir Burg Husen: Das Ziel liegt etwa 550 m östlich davon. Ein weiterer Bezugspunkt ist der Fluss Kinzig; das Ziel liegt etwa 300 m südöstlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Turm etwa 450 m nordöstlich des Ziels; Mast etwa 650 m östlich des Ziels; Turm etwa 750 m nordwestlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "writerMemory": "Die Geschichte fokussiert sich auf die visuelle und symbolische Verbindung zwischen der historischen Burgruine Husen und den modernen Wohn- sowie Industriegebieten in Hausach. Im Gegensatz zu den vorherigen Entwürfen (Tunnelnutzung, Mikroklima oder Flächeneffizienz) steht hier die Sichtbarkeit eines Wahrzeichens als Identitätsfaktor im Vordergrund. Der Flug wird als journalistisches Werkzeug genutzt, um Sichtachsen im dichten Talraum zu verifizieren."
+    },
+    {
+      "attempt": 2,
+      "promptVersion": "poi-news-apt-v1.7",
+      "httpStatus": 200,
+      "target": {
+        "name": "Am Erlenbach",
+        "lat": 48.33255,
+        "lon": 8.04059,
+        "poiCategory": "industry",
+        "landuse": "industrial",
+        "infra_type": "industrial",
+        "sourceKind": "infra"
+      },
+      "historyCount": 5,
+      "idea": {
+        "schema": "news-idea.v1",
+        "targetId": "poi:48.332550:8.040590",
+        "targetName": "Am Erlenbach",
+        "taskDomain": "news_coverage",
+        "outlet": "Badische Heimat",
+        "headline": "Summen über den Schloten",
+        "situation": "Der pensionierte Imker Ewald Weber hat auf mehreren Fabrikdächern im Gewerbegebiet 'Am Erlenbach' Bienenstöcke aufgestellt. Er möchte beweisen, dass die Industrieareale wertvolle ökologische Korridore zwischen den Schwarzwaldhängen bilden können, sofern die Firmen ihre Flachdächer konsequent begrünen.",
+        "angle": "Können Gewerbegebiete als ökologische Brücken fungieren oder sind die punktuellen Dachbegrünungen im dichten Industrieblock lediglich isolierte Alibi-Inseln ohne Nutzen für die Wildtier-Wanderwege?",
+        "airValue": "Aus der Luft wird das Netzwerk der begrünten Dachflächen im direkten Kontrast zu den versiegelten Lagerflächen und Parkplätzen sichtbar, was die theoretischen Flugkorridore der Insekten zum angrenzenden Waldrand räumlich darstellt.",
+        "deliverable": "Luftbild-Dokumentation der ökologischen Trittsteine für eine Reportage über die Vereinbarkeit von Industrieproduktion und Artenschutz im Kinzigtal.",
+        "person": {
+          "name": "Ewald Weber",
+          "role": "Imker und Umweltaktivist",
+          "relationshipToPilot": "mitfliegende journalistische Fachperson"
+        }
+      },
+      "rawResponses": [
+        "{\n  \"ideas\": [\n    {\n      \"schema\": \"news-idea.v1\",\n      \"targetId\": \"poi:48.332550:8.040590\",\n      \"targetName\": \"Am Erlenbach\",\n      \"taskDomain\": \"news_coverage\",\n      \"outlet\": \"Badische Heimat\",\n      \"headline\": \"Summen über den Schloten\",\n      \"situation\": \"Der pensionierte Imker Ewald Weber hat auf mehreren Fabrikdächern im Gewerbegebiet 'Am Erlenbach' Bienenstöcke aufgestellt. Er möchte beweisen, dass die Industrieareale wertvolle ökologische Korridore zwischen den Schwarzwaldhängen bilden können, sofern die Firmen ihre Flachdächer konsequent begrünen.\",\n      \"angle\": \"Können Gewerbegebiete als ökologische Brücken fungieren oder sind die punktuellen Dachbegrünungen im dichten Industrieblock lediglich isolierte Alibi-Inseln ohne Nutzen für die Wildtier-Wanderwege?\",\n      \"airValue\": \"Aus der Luft wird das Netzwerk der begrünten Dachflächen im direkten Kontrast zu den versiegelten Lagerflächen und Parkplätzen sichtbar, was die theoretischen Flugkorridore der Insekten zum angrenzenden Waldrand räumlich darstellt.\",\n      \"deliverable\": \"Luftbild-Dokumentation der ökologischen Trittsteine für eine Reportage über die Vereinbarkeit von Industrieproduktion und Artenschutz im Kinzigtal.\",\n      \"person\": {\n        \"name\": \"Ewald Weber\",\n        \"role\": \"Imker und Umweltaktivist\"\n      }\n    }\n  ]\n}",
+        "{\n  \"targetId\": \"poi:48.332550:8.040590\",\n  \"title\": \"Summen über den Schloten\",\n  \"story\": \"Ihr beide habt heute eine Mission über dem Gewerbegebiet 'Am Erlenbach' vor euch. Ewald Weber, der leidenschaftliche Imker, sitzt bereits gespannt neben dir. Er möchte für die 'Badische Heimat' zeigen, wie begrünte Fabrikdächer als ökologische Brücken für Insekten zwischen den Schwarzwaldhängen fungieren können. Aus der Luft werdet ihr dokumentieren, ob dieses Netzwerk im Kontrast zu den grauen Lagerhallen und Parkplätzen tatsächlich als Korridor erkennbar ist. Diese Aufnahmen sollen seinen Bericht über die Vereinbarkeit von Industrieproduktion und Artenschutz anschaulich machen. Er möchte seinem Publikum vor Augen führen, dass ökologische Vielfalt auch auf industrieller Kulisse möglich ist, sofern man den Raum dafür konsequent nutzt. Nach euren Beobachtungsrunden über den Schloten kehrt ihr gemeinsam zur Basis zurück.\",\n  \"greetingSpeaker\": \"Ewald Weber\",\n  \"greeting\": \"Grüß Gott! Schön, dass wir heute diese Perspektive einnehmen können. Ich bin gespannt, ob man meine 'Luftautobahnen' für die Bienen von hier oben wirklich so gut erkennt, wie ich es mir erhoffe.\",\n  \"flightBriefing\": \"Für den Abflug in [[route.start]] sowie für das Zielgebiet [[route.target]] liegen aktuell keine verwertbaren Wetterbeobachtungen vor. Da keine aktuellen Meldungen oder Böenwerte verfügbar sind, müsst ihr euch ganz auf die Sichtbedingungen während des Fluges verlassen.\",\n  \"memory\": \"Die Mission fokussiert sich auf die ökologische Vernetzung von Industriegebieten durch Dachbegrünung. Im Gegensatz zu den vorangegangenen ökonomischen oder rein städtebaulichen Themen in der Region steht hier der Artenschutz und die Rolle der Industrie als 'ökologischer Korridor' im Vordergrund. Ewald Weber fungiert als fachliche Begleitung, um die visuelle Verbindung zwischen Waldrändern und Gewerbeflächen zu dokumentieren.\",\n  \"report\": {\n    \"orientationIds\": [\n      \"f1\",\n      \"f4\"\n    ]\n  },\n  \"usedFactIds\": [\n    \"target-selection-category\",\n    \"f1\",\n    \"f4\"\n  ]\n}"
+      ],
+      "story": "Ihr beide habt heute eine Mission über dem Gewerbegebiet 'Am Erlenbach' vor euch. Ewald Weber, der leidenschaftliche Imker, sitzt bereits gespannt neben dir. Er möchte für die 'Badische Heimat' zeigen, wie begrünte Fabrikdächer als ökologische Brücken für Insekten zwischen den Schwarzwaldhängen fungieren können. Aus der Luft werdet ihr dokumentieren, ob dieses Netzwerk im Kontrast zu den grauen Lagerhallen und Parkplätzen tatsächlich als Korridor erkennbar ist. Diese Aufnahmen sollen seinen Bericht über die Vereinbarkeit von Industrieproduktion und Artenschutz anschaulich machen. Er möchte seinem Publikum vor Augen führen, dass ökologische Vielfalt auch auf industrieller Kulisse möglich ist, sofern man den Raum dafür konsequent nutzt. Nach euren Beobachtungsrunden über den Schloten kehrt ihr gemeinsam zur Basis zurück.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist der Fluss Kinzig; das Ziel liegt etwa 900 m östlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "writerMemory": "Die Mission fokussiert sich auf die ökologische Vernetzung von Industriegebieten durch Dachbegrünung. Im Gegensatz zu den vorangegangenen ökonomischen oder rein städtebaulichen Themen in der Region steht hier der Artenschutz und die Rolle der Industrie als 'ökologischer Korridor' im Vordergrund. Ewald Weber fungiert als fachliche Begleitung, um die visuelle Verbindung zwischen Waldrändern und Gewerbeflächen zu dokumentieren."
+    },
+    {
+      "attempt": 3,
+      "promptVersion": "poi-news-apt-v1.7",
+      "httpStatus": 200,
+      "target": {
+        "name": "Am Erlenbach",
+        "lat": 48.33255,
+        "lon": 8.04059,
+        "poiCategory": "industry",
+        "landuse": "industrial",
+        "infra_type": "industrial",
+        "sourceKind": "infra"
+      },
+      "historyCount": 0,
+      "idea": {
+        "schema": "news-idea.v1",
+        "targetId": "poi:48.332550:8.040590",
+        "targetName": "Am Erlenbach",
+        "taskDomain": "news_coverage",
+        "outlet": "Kinzigtaler Wochenblatt",
+        "headline": "Glänzende Aussichten am Erlenbach",
+        "situation": "Das dortige Gewerbegebiet hat Zuwachs bekommen: Ein ortsansässiges Unternehmen hat seine Erweiterungsbauten abgeschlossen und die Dächer großflächig mit modernster Solartechnik bestückt. Der Inhaber behauptet, man könne nun „den Strom glitzern sehen“.",
+        "angle": "Es geht um den Stolz eines lokalen Mittelständlers auf seine autarke Energieversorgung und den ästhetischen Wandel des Industriestandorts im Vergleich zum grünen Umland.",
+        "airValue": "Die Luftaufnahme soll das geometrische Muster der neuen Photovoltaik-Dächer einfangen, die sich farblich markant von den älteren Werkshallen im Gebiet „Am Erlenbach“ abheben.",
+        "deliverable": "Ein bebilderter Bericht für die Rubrik 'Wirtschaft in der Region' über nachhaltige Modernisierung im Bestand.",
+        "person": {
+          "name": "Tobias Hauer",
+          "role": "Lokalredakteur",
+          "relationshipToPilot": "mitfliegende journalistische Fachperson"
+        }
+      },
+      "rawResponses": [
+        "{\n  \"ideas\": [\n    {\n      \"schema\": \"news-idea.v1\",\n      \"targetId\": \"poi:48.332550:8.040590\",\n      \"targetName\": \"Am Erlenbach\",\n      \"taskDomain\": \"news_coverage\",\n      \"outlet\": \"Kinzigtaler Wochenblatt\",\n      \"headline\": \"Glänzende Aussichten am Erlenbach\",\n      \"situation\": \"Das dortige Gewerbegebiet hat Zuwachs bekommen: Ein ortsansässiges Unternehmen hat seine Erweiterungsbauten abgeschlossen und die Dächer großflächig mit modernster Solartechnik bestückt. Der Inhaber behauptet, man könne nun „den Strom glitzern sehen“.\",\n      \"angle\": \"Es geht um den Stolz eines lokalen Mittelständlers auf seine autarke Energieversorgung und den ästhetischen Wandel des Industriestandorts im Vergleich zum grünen Umland.\",\n      \"airValue\": \"Die Luftaufnahme soll das geometrische Muster der neuen Photovoltaik-Dächer einfangen, die sich farblich markant von den älteren Werkshallen im Gebiet „Am Erlenbach“ abheben.\",\n      \"deliverable\": \"Ein bebilderter Bericht für die Rubrik 'Wirtschaft in der Region' über nachhaltige Modernisierung im Bestand.\",\n      \"person\": {\n        \"name\": \"Tobias Hauer\",\n        \"role\": \"Lokalredakteur\"\n      }\n    }\n  ]\n}",
+        "{\n  \"targetId\": \"poi:48.332550:8.040590\",\n  \"title\": \"Glänzende Aussichten am Erlenbach\",\n  \"story\": \"Tobias Hauer hat heute einen ganz besonderen Termin im Gewerbegebiet „Am Erlenbach“ für das Kinzigtaler Wochenblatt. Ein ortsansässiger Mittelständler hat dort kräftig investiert und seine Werkshallen nicht nur erweitert, sondern mit modernster Solartechnik ausgestattet. Der Inhaber ist sichtlich stolz auf die autarke Energieversorgung und behauptet sogar, man könne von oben buchstäblich „den Strom glitzern sehen“. Ihr fliegt ihn heute dorthin, damit er das geometrische Muster der Photovoltaik-Anlagen für seine Leser einfangen kann. Die Aufnahmen sollen im Wirtschaftsteil zeigen, wie sich die glänzenden Flächen modern von den älteren Hallen abheben. Für Tobias ist dieser ästhetische Wandel des Industriestandorts ein Paradebeispiel für nachhaltige Modernisierung im Bestand. Nach der Zielrunde und den Fotos bringt ihr ihn sicher zurück zur Basis.\",\n  \"greetingSpeaker\": \"Tobias Hauer\",\n  \"greeting\": \"Hallo! Ich bin Tobias Hauer vom Kinzigtaler Wochenblatt. Heute schauen wir uns mal an, wie die lokale Energiewende aus der Vogelperspektive aussieht.\",\n  \"flightBriefing\": \"Für den Flug von [[route.start]] zum Zielgebiet [[route.target]] liegen aktuell keine verwertbaren Wetterbeobachtungen vor. Da die Stationen keine Daten liefern, sind Sichtweiten, Bewölkung und Windverhältnisse vor Ort unbekannt. Bitte führt den Flug unter Berücksichtigung der aktuellen Bedingungen durch und achtet auf lokale Windentwicklungen.\",\n  \"memory\": \"Die Mission konzentriert sich auf die visuelle Dokumentation einer industriellen Modernisierung (Photovoltaik) im Schwarzwald-Kontext. Der Ton ist lokalpatriotisch und zukunftsgewandt, wobei die Ästhetik der Solartechnik als Kontrast zum Umland im Vordergrund steht.\",\n  \"report\": {\n    \"orientationIds\": [\n      \"f1\",\n      \"f6\"\n    ]\n  },\n  \"usedFactIds\": [\n    \"target-selection-category\",\n    \"f1\",\n    \"f6\"\n  ]\n}"
+      ],
+      "story": "Tobias Hauer hat heute einen ganz besonderen Termin im Gewerbegebiet „Am Erlenbach“ für das Kinzigtaler Wochenblatt. Ein ortsansässiger Mittelständler hat dort kräftig investiert und seine Werkshallen nicht nur erweitert, sondern mit modernster Solartechnik ausgestattet. Der Inhaber ist sichtlich stolz auf die autarke Energieversorgung und behauptet sogar, man könne von oben buchstäblich „den Strom glitzern sehen“. Ihr fliegt ihn heute dorthin, damit er das geometrische Muster der Photovoltaik-Anlagen für seine Leser einfangen kann. Die Aufnahmen sollen im Wirtschaftsteil zeigen, wie sich die glänzenden Flächen modern von den älteren Hallen abheben. Für Tobias ist dieser ästhetische Wandel des Industriestandorts ein Paradebeispiel für nachhaltige Modernisierung im Bestand. Nach der Zielrunde und den Fotos bringt ihr ihn sicher zurück zur Basis.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Erlenbach: Das Ziel liegt etwa 150 m östlich davon. Ein weiterer Bezugspunkt ist Zell am Harmersbach; das Ziel liegt etwa 2,5 km südwestlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "writerMemory": "Die Mission konzentriert sich auf die visuelle Dokumentation einer industriellen Modernisierung (Photovoltaik) im Schwarzwald-Kontext. Der Ton ist lokalpatriotisch und zukunftsgewandt, wobei die Ästhetik der Solartechnik als Kontrast zum Umland im Vordergrund steht."
+    }
+  ]
+}

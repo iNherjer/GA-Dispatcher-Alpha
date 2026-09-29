@@ -341,6 +341,7 @@ function _domainDriftGuard(mode = 'generic') {
         if (m === 'progress') return ' Drift-Guard (Sightseeing): Nur Aussicht, Orientierung, Erinnerungsfotos und ruhige Beobachtung. Keine Arbeits-, Einsatz-, Vermessungs- oder Instruktor-Sprache.';
         return ' Drift-Guard (Sightseeing): Persoenlicher Rundflugston. Keine Arbeitsanweisung, keine feste Arbeitshoehe verlangen, keine Erfassung/Dokumentation/Lagebild/Inspektion. Zielbereich nur als Blickmoment aus der Luft erzaehlen, nicht als Bodenaktionsort.';
     }
+    if (td === 'news_coverage' && window.activePassenger?.narrativeSchema === 'news-briefing.v1') return ' Reporter-Kontinuität: Trage den REPORTAGEAUFTRAG weiter. Neugier, Ernst oder Humor passend zur Geschichte; beobachtbare Eindrücke statt technischer Diagnose. Offene Fragen bleiben offen, Material erst nach Zielabschluss als aufgenommen behandeln.';
     if (td === 'news_coverage') {
         if (m === 'result') return ' Drift-Guard (News): Abschluss als kurze sachliche Lagezusammenfassung. Kein Einsatzabschluss wie SAR, kein Touri-Ton.';
         if (m === 'progress') return ' Drift-Guard (News): Nenne nur beobachtbare Fakten/Lagepunkte. Keine technische Schadensbewertung.';
@@ -860,7 +861,7 @@ function _poiEntryPrompt(flightData) {
     const isLearningGuide = taskDomain === 'poi_learning_guide';
     const isSightseeing = taskDomain === 'sightseeing_tour';
     const hasPoiKnowledge = !!_activePoiKnowledgeContext();
-    const isProfessionalPoiTask = /^(inspection_infra|infra_chain_recon|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain) && !(taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1');
+    const isProfessionalPoiTask = /^(inspection_infra|infra_chain_recon|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain) && !((taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1') || (taskDomain === 'news_coverage' && window.activePassenger?.narrativeSchema === 'news-briefing.v1'));
     const inspHint = isHistorian ? '' : _inspectionEntryHint();
     const profHint = isHistorian ? '' : _professionalTaskHint('entry');
     const factHint = (taskDomain === 'search_and_rescue' || isLearningGuide || (isSightseeing && hasPoiKnowledge)) ? '' : _targetFactHint();
@@ -924,7 +925,9 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos, options = {}) {
     const learningInSightHint = isLearningGuide
         ? ' Lern-Guide-Rolle: Sage nicht "in Sicht", sondern orientiere den Piloten ruhig zur Position. Landmarken-Lokalisierung hat Vorrang; wenn es ohne Hektik passt, ergaenze genau einen neuen Wissensfakt.'
         : '';
-    const roleTone = (taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1')
+    const roleTone = (taskDomain === 'news_coverage' && window.activePassenger?.narrativeSchema === 'news-briefing.v1')
+        ? 'Reporter-Rolle: Neugier, Ernst oder Humor passend zum REPORTAGEAUFTRAG. Ein klarer Blick auf die Geschichte, keine Inspektions- oder Manöveranweisung. Max 2 Sätze.'
+        : (taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1')
         ? 'Foto-Rolle: Sprich persönlich oder beruflich passend zum FOTOAUFTRAG, über das geplante Motiv. Keine Steuer- oder Manöveranweisungen. Max 2 Sätze.'
         : (taskDomain === 'search_and_rescue')
         ? 'SAR-Rolle: knapp, klar, lageorientiert, kein Sightseeing-Ton. Max 2 Saetze.'

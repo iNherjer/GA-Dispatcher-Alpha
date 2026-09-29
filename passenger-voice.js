@@ -1513,7 +1513,7 @@ function _inspectionMissionMeta() {
     if (taskDomain === 'mapping_survey') return null;
     if (taskDomain === 'infra_chain_recon') return null;
     if (taskDomain === 'science_bio' || taskDomain === 'science_geo') return null;
-    if (taskDomain === 'media_photo') return null;
+    if (taskDomain === 'media_photo' || (taskDomain === 'news_coverage' && pax.narrativeSchema === 'news-briefing.v1')) return null;
     const isInspectionByDomain = taskDomain === 'inspection_infra';
     const isInspectionByFallback = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
     const isInspection = isInspectionByDomain || isInspectionByFallback;
@@ -2137,6 +2137,7 @@ function _domainDriftGuard(mode = 'generic') {
         if (m === 'progress') return ' Drift-Guard (Sightseeing): Nur Aussicht, Orientierung, Erinnerungsfotos und ruhige Beobachtung. Keine Arbeits-, Einsatz-, Vermessungs- oder Instruktor-Sprache.';
         return ' Drift-Guard (Sightseeing): Persoenlicher Rundflugston. Keine Arbeitsanweisung, keine feste Arbeitshoehe verlangen, keine Erfassung/Dokumentation/Lagebild/Inspektion. Zielbereich nur als Blickmoment aus der Luft erzaehlen, nicht als Bodenaktionsort.';
     }
+    if (td === 'news_coverage' && window.activePassenger?.narrativeSchema === 'news-briefing.v1') return ' Reporter-Kontinuität: Trage den REPORTAGEAUFTRAG weiter. Neugier, Ernst oder Humor passend zur Geschichte; beobachtbare Eindrücke statt technischer Diagnose. Offene Fragen bleiben offen, Material erst nach Zielabschluss als aufgenommen behandeln.';
     if (td === 'news_coverage') {
         if (m === 'result') return ' Drift-Guard (News): Abschluss als kurze sachliche Lagezusammenfassung. Kein Einsatzabschluss wie SAR, kein Touri-Ton.';
         if (m === 'progress') return ' Drift-Guard (News): Nenne nur beobachtbare Fakten/Lagepunkte. Keine technische Schadensbewertung.';
@@ -7415,7 +7416,7 @@ STIL: ${roleStyle}
 DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
-    const poiNarrative = window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || '';
+    const poiNarrative = window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || '';
     if (poiNarrative) lines.push(poiNarrative);
     const sightseeingIdea=md?.sightseeingIdea || contract?.sightseeingIdea;
     if(sightseeingIdea?.schema === 'sightseeing-idea.v1') lines.push(window.MissionSightseeingIdeasCore.voiceContext(sightseeingIdea));
@@ -7662,6 +7663,7 @@ function _roleStyleHint(roleRaw, pax = null) {
     if (taskDomain === 'science_geo') {
         return 'geologisch sachlich und ruhig: Relief, Erosion, Hangform, Sedimente, Uferkanten und Geländestruktur stehen im Vordergrund; keine Bio-, Sightseeing- oder Inspektionssprache.';
     }
+    if (taskDomain === 'news_coverage' && pax?.narrativeSchema === 'news-briefing.v1') return 'journalistisch, neugierig und natürlich: ernst, warm oder mit Humor passend zum konkreten Reportageanlass, ohne erzwungene Pointe.';
     if (taskDomain === 'news_coverage') {
         return 'sachlich beobachtend und professionell: kurze, nüchterne Lageeinschätzung ohne Show.';
     }
@@ -7978,7 +7980,7 @@ function _poiEntryPrompt(flightData) {
     const isLearningGuide = taskDomain === 'poi_learning_guide';
     const isSightseeing = taskDomain === 'sightseeing_tour';
     const hasPoiKnowledge = !!_activePoiKnowledgeContext();
-    const isProfessionalPoiTask = /^(inspection_infra|infra_chain_recon|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain) && !(taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1');
+    const isProfessionalPoiTask = /^(inspection_infra|infra_chain_recon|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain) && !((taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1') || (taskDomain === 'news_coverage' && window.activePassenger?.narrativeSchema === 'news-briefing.v1'));
     const inspHint = isHistorian ? '' : _inspectionEntryHint();
     const profHint = isHistorian ? '' : _professionalTaskHint('entry');
     const factHint = (taskDomain === 'search_and_rescue' || isLearningGuide || (isSightseeing && hasPoiKnowledge)) ? '' : _targetFactHint();
@@ -8058,7 +8060,9 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos, options = {}) {
     const learningInSightHint = isLearningGuide
         ? ' Lern-Guide-Rolle: Sage nicht "in Sicht", sondern orientiere den Piloten ruhig zur Position. Landmarken-Lokalisierung hat Vorrang; wenn es ohne Hektik passt, ergaenze genau einen neuen Wissensfakt.'
         : '';
-    const roleTone = (taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1')
+    const roleTone = (taskDomain === 'news_coverage' && window.activePassenger?.narrativeSchema === 'news-briefing.v1')
+        ? 'Reporter-Rolle: Neugier, Ernst oder Humor passend zum REPORTAGEAUFTRAG. Ein klarer Blick auf die Geschichte, keine Inspektions- oder Manöveranweisung. Max 2 Sätze.'
+        : (taskDomain === 'media_photo' && window.activePassenger?.narrativeSchema === 'poi-briefing.v1')
         ? 'Foto-Rolle: Sprich persönlich oder beruflich passend zum FOTOAUFTRAG, über das geplante Motiv. Keine Steuer- oder Manöveranweisungen. Max 2 Sätze.'
         : (taskDomain === 'search_and_rescue')
         ? 'SAR-Rolle: knapp, klar, lageorientiert, kein Sightseeing-Ton. Max 2 Saetze.'

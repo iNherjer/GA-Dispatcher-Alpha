@@ -1,0 +1,2491 @@
+{
+  "date": "2026-09-29",
+  "status": "local correction; not released",
+  "placementVersion": "poi-placement.v3",
+  "sameStoriesAs": "POI Reporter Release Gate 20260929.json",
+  "cases": [
+    {
+      "target": {
+        "name": "Am Erlenbach",
+        "lat": 48.33255,
+        "lon": 8.04059,
+        "poiCategory": "industry"
+      },
+      "story": "Jonas Bergmann ist heute dein Gast im Cockpit. Er begleitet uns zum Industriegebiet am Erlenbach, wo ein traditionsreiches Werk sein Jubiläum mit einem ganz besonderen Kunstprojekt feiert. Eine lokale Künstlerin hat dort aus Produktionsresten eine begehbare Skulptur errichtet – ein moderner Kontrast zwischen den nüchternen Werkhallen und dem tiefgrünen Schwarzwald. Jonas möchte für seine Bildstrecke einfangen, wie dieser „Stahl-Wald“ die industrielle Identität mit der Natur verbindet. Ihr findet das Gelände etwa einen Kilometer nordwestlich von Unterentersbach; der Fluss Kinzig fließt zudem rund 900 Meter westlich an eurem Ziel vorbei. Achtet beim Überflug auf die weißen Pavillons und die Festgesellschaft auf dem zentralen Platz. Jonas hofft auf atmosphärische Aufnahmen der Installation für sein Magazin. Nach eurer Zielrunde kehrt ihr gemeinsam zur Basis zurück.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir Unterentersbach: Das Ziel liegt etwa 1 km nordwestlich davon. Ein weiterer Bezugspunkt ist der Fluss Kinzig; das Ziel liegt etwa 900 m östlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Leitungspunkt „3465“ etwa 350 m südlich des Ziels; Leitungspunkt etwa 650 m östlich des Ziels; Leitungspunkt etwa 750 m nordöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "idea": {
+        "schema": "news-idea.v1",
+        "targetId": "poi:48.332550:8.040590",
+        "targetName": "Am Erlenbach",
+        "taskDomain": "news_coverage",
+        "outlet": "Kultur & Region Magazin",
+        "headline": "Stahl-Wald am Erlenbach",
+        "situation": "Das dortige Industrieunternehmen feiert Firmenjubiläum und lässt auf dem Werksgelände von einer lokalen Künstlerin eine begehbare Skulptur aus recycelten Produktionsresten errichten.",
+        "angle": "Wie verbindet ein traditionsreiches Werk im Schwarzwald seine industrielle Identität mit moderner Kunst und Naturverbundenheit?",
+        "airValue": "Die Luftaufnahme zeigt das bunte Kunstwerk als markanten Kontrast zwischen den grauen Werkhallen und den bewaldeten Hängen des Tals.",
+        "deliverable": "Bildstrecke und Interview-Feature für die Wochenendbeilage.",
+        "sceneIntent": {
+          "summary": "Auf dem zentralen Werksplatz ist eine auffällige Installation aus Metallrohren und Holzbalken entstanden, umgeben von Zelten und einer kleinen Besuchergruppe.",
+          "visibleIdeas": [
+            "Ein zentrales, abstraktes Kunstwerk aus farbigen Rohren und Balken in der Mitte des Platzes.",
+            "Zwei weiße Faltpavillons am Rand des Platzes für die Bewirtung der Gäste.",
+            "Ein kleiner Bagger, der ein letztes Dekoelement aus Holz in Position bringt.",
+            "Mehrere geparkte PKW und ein weißer Transporter der Presse auf dem Gelände.",
+            "Eine Gruppe von etwa zehn Personen, die sich für ein Gruppenfoto vor dem Objekt aufstellt.",
+            "Einige Werkzeugwagen und offene Holzkisten, die von der Montage zeugen.",
+            "Absperrkegel, die einen sicheren Laufweg für Besucher über den Werksplatz markieren.",
+            "Zwei mobile Stromaggregate hinter einem der Pavillons."
+          ],
+          "densityHint": "normal",
+          "notes": "Das Kunstwerk ist der visuelle Anker. Die Szene soll eine feierliche, aber geschäftige Atmosphäre auf dem Industriegelände vermitteln."
+        },
+        "person": {
+          "name": "Jonas Bergmann",
+          "role": "Kulturreporter",
+          "relationshipToPilot": "mitfliegende journalistische Fachperson"
+        }
+      },
+      "composition": {
+        "targetScene": {
+          "preset": "",
+          "kind": "media_site",
+          "features": [
+            "construction_material",
+            "pavilion",
+            "people",
+            "earthmoving",
+            "utility_truck",
+            "parked_vehicle",
+            "generator",
+            "cones"
+          ],
+          "requirements": [
+            {
+              "feature": "construction_material",
+              "count": 1,
+              "placement": "Zentrales Kunstwerk",
+              "arrangement": "cluster",
+              "notes": "Hauptskulptur (Radius 5m).",
+              "forwardM": -40,
+              "rightM": 0,
+              "role": "construction.material",
+              "spacingM": 2,
+              "surface": "ground",
+              "siteId": "way/227100221",
+              "hdgOffsetDeg": 45
+            },
+            {
+              "feature": "pavilion",
+              "count": 1,
+              "placement": "Bewirtungsbereich",
+              "arrangement": "cluster",
+              "notes": "Einzelner Faltpavillon (Radius 3m).",
+              "forwardM": -25,
+              "rightM": -10,
+              "role": "event.pavilion",
+              "spacingM": 2,
+              "surface": "ground",
+              "siteId": "way/227100221",
+              "hdgOffsetDeg": 120
+            },
+            {
+              "feature": "people",
+              "count": 4,
+              "placement": "Besuchergruppe",
+              "arrangement": "cluster",
+              "notes": "Gruppe mit 5m Spacing (Summe Radien 1.5+1.5+1m=4m), um Mindestabstand sicher zu erfüllen.",
+              "forwardM": -40,
+              "rightM": 12,
+              "role": "person.ground_crew",
+              "spacingM": 5,
+              "surface": "ground",
+              "siteId": "way/227100221",
+              "hdgOffsetDeg": 180
+            },
+            {
+              "feature": "earthmoving",
+              "count": 1,
+              "placement": "Aufbauhilfe",
+              "arrangement": "cluster",
+              "notes": "Bagger am Platzrand (Radius 5m).",
+              "forwardM": -52,
+              "rightM": 0,
+              "role": "construction.earthmoving",
+              "spacingM": 2,
+              "surface": "ground",
+              "siteId": "way/227100221",
+              "hdgOffsetDeg": 220
+            },
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "Pressefahrzeug",
+              "arrangement": "cluster",
+              "notes": "Presse-Van (Radius 5m).",
+              "forwardM": -15,
+              "rightM": 5,
+              "role": "vehicle.van",
+              "spacingM": 2,
+              "surface": "ground",
+              "siteId": "way/227100221",
+              "hdgOffsetDeg": 10
+            },
+            {
+              "feature": "parked_vehicle",
+              "count": 1,
+              "placement": "Gäste-PKW",
+              "arrangement": "cluster",
+              "notes": "Geparkter PKW (Radius 5m).",
+              "forwardM": -55,
+              "rightM": -15,
+              "role": "vehicle.car",
+              "spacingM": 2,
+              "surface": "ground",
+              "siteId": "way/227100221",
+              "hdgOffsetDeg": 0
+            },
+            {
+              "feature": "generator",
+              "count": 1,
+              "placement": "Energie",
+              "arrangement": "cluster",
+              "notes": "Aggregat (Radius 3m).",
+              "forwardM": -20,
+              "rightM": -18,
+              "role": "utility.generator",
+              "spacingM": 2,
+              "surface": "ground",
+              "siteId": "way/227100221",
+              "hdgOffsetDeg": 90
+            },
+            {
+              "feature": "cones",
+              "count": 3,
+              "placement": "Markierung",
+              "arrangement": "line",
+              "notes": "Kegelreihe zur Wegführung.",
+              "forwardM": -30,
+              "rightM": 15,
+              "role": "marker.cone",
+              "spacingM": 5,
+              "surface": "ground",
+              "siteId": "way/227100221",
+              "hdgOffsetDeg": 0
+            }
+          ],
+          "objectPolicy": "explicit-requirements",
+          "placementVersion": "poi-placement.v3",
+          "placementIntent": {
+            "use": "industrial_site",
+            "anchorId": "",
+            "requiresPaved": false,
+            "reason": "Zentraler Werksplatz eines Industrieunternehmens für eine Jubiläumsfeier."
+          },
+          "placementRequirement": {
+            "use": "industrial_site",
+            "requiresPaved": false
+          },
+          "roles": [
+            "construction.material",
+            "utility.generator",
+            "cargo.pallet_medium",
+            "cargo.pallet_small",
+            "event.pavilion",
+            "person.ground_crew",
+            "construction.earthmoving",
+            "vehicle.truck",
+            "vehicle.van",
+            "vehicle.car",
+            "marker.cone"
+          ],
+          "density": "normal",
+          "layout": "cluster",
+          "notes": "Korrigierte Szene: Spacing der Personengruppe auf 5m erhöht, um internen Objektabstand > 4m zu garantieren."
+        },
+        "aptArrivalPlan": null,
+        "debug": {
+          "source": "Gemini 3.0 Flash Scene Planner V3",
+          "promptVersion": "scene-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_scene_context_bundle",
+              "id": "call_481619",
+              "args": {
+                "reason": "Lade Missionskontext, POI-Daten und Airport-Platzierungen für die Szenenplanung."
+              },
+              "resultKeys": [
+                "schema",
+                "mode",
+                "reporterScene",
+                "assets"
+              ]
+            },
+            {
+              "turn": 2,
+              "name": "get_scene_asset_catalog",
+              "id": "call_404820",
+              "args": {
+                "reason": "Prüfe Radien für die korrekte Abstandsplanung."
+              },
+              "resultKeys": [
+                "kinds",
+                "features",
+                "arrangements",
+                "density"
+              ]
+            }
+          ],
+          "aiRaw": {
+            "kind": "media_site",
+            "preset": "",
+            "objectPolicy": "explicit-requirements",
+            "placementIntent": {
+              "use": "industrial_site",
+              "anchorId": "",
+              "requiresPaved": false,
+              "reason": "Zentraler Werksplatz eines Industrieunternehmens für eine Jubiläumsfeier."
+            },
+            "features": [
+              "media_site",
+              "industry_site",
+              "event_site"
+            ],
+            "requirements": [
+              {
+                "siteId": "way/227100221",
+                "surface": "ground",
+                "feature": "construction_material",
+                "role": "construction.material",
+                "count": 1,
+                "placement": "Zentrales Kunstwerk",
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": -40,
+                "rightM": 0,
+                "hdgOffsetDeg": 45,
+                "notes": "Hauptskulptur (Radius 5m)."
+              },
+              {
+                "siteId": "way/227100221",
+                "surface": "ground",
+                "feature": "pavilion",
+                "role": "event.pavilion",
+                "count": 1,
+                "placement": "Bewirtungsbereich",
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": -25,
+                "rightM": -10,
+                "hdgOffsetDeg": 120,
+                "notes": "Einzelner Faltpavillon (Radius 3m)."
+              },
+              {
+                "siteId": "way/227100221",
+                "surface": "ground",
+                "feature": "people",
+                "role": "person.ground_crew",
+                "count": 4,
+                "placement": "Besuchergruppe",
+                "arrangement": "cluster",
+                "spacingM": 5,
+                "forwardM": -40,
+                "rightM": 12,
+                "hdgOffsetDeg": 180,
+                "notes": "Gruppe mit 5m Spacing (Summe Radien 1.5+1.5+1m=4m), um Mindestabstand sicher zu erfüllen."
+              },
+              {
+                "siteId": "way/227100221",
+                "surface": "ground",
+                "feature": "earthmoving",
+                "role": "construction.earthmoving",
+                "count": 1,
+                "placement": "Aufbauhilfe",
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": -52,
+                "rightM": 0,
+                "hdgOffsetDeg": 220,
+                "notes": "Bagger am Platzrand (Radius 5m)."
+              },
+              {
+                "siteId": "way/227100221",
+                "surface": "ground",
+                "feature": "utility_truck",
+                "role": "vehicle.van",
+                "count": 1,
+                "placement": "Pressefahrzeug",
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": -15,
+                "rightM": 5,
+                "hdgOffsetDeg": 10,
+                "notes": "Presse-Van (Radius 5m)."
+              },
+              {
+                "siteId": "way/227100221",
+                "surface": "ground",
+                "feature": "parked_vehicle",
+                "role": "vehicle.car",
+                "count": 1,
+                "placement": "Gäste-PKW",
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": -55,
+                "rightM": -15,
+                "hdgOffsetDeg": 0,
+                "notes": "Geparkter PKW (Radius 5m)."
+              },
+              {
+                "siteId": "way/227100221",
+                "surface": "ground",
+                "feature": "generator",
+                "role": "utility.generator",
+                "count": 1,
+                "placement": "Energie",
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": -20,
+                "rightM": -18,
+                "hdgOffsetDeg": 90,
+                "notes": "Aggregat (Radius 3m)."
+              },
+              {
+                "siteId": "way/227100221",
+                "surface": "ground",
+                "feature": "cones",
+                "role": "marker.cone",
+                "count": 3,
+                "placement": "Markierung",
+                "arrangement": "line",
+                "spacingM": 5,
+                "forwardM": -30,
+                "rightM": 15,
+                "hdgOffsetDeg": 0,
+                "notes": "Kegelreihe zur Wegführung."
+              }
+            ],
+            "roles": [],
+            "density": "normal",
+            "layout": "cluster",
+            "notes": "Korrigierte Szene: Spacing der Personengruppe auf 5m erhöht, um internen Objektabstand > 4m zu garantieren."
+          },
+          "aiArrivalRaw": null,
+          "normalized": {
+            "preset": "",
+            "kind": "media_site",
+            "features": [
+              "construction_material",
+              "pavilion",
+              "people",
+              "earthmoving",
+              "utility_truck",
+              "parked_vehicle",
+              "generator",
+              "cones"
+            ],
+            "requirements": [
+              {
+                "feature": "construction_material",
+                "count": 1,
+                "placement": "Zentrales Kunstwerk",
+                "arrangement": "cluster",
+                "notes": "Hauptskulptur (Radius 5m).",
+                "forwardM": -40,
+                "rightM": 0,
+                "role": "construction.material",
+                "spacingM": 2,
+                "surface": "ground",
+                "siteId": "way/227100221",
+                "hdgOffsetDeg": 45
+              },
+              {
+                "feature": "pavilion",
+                "count": 1,
+                "placement": "Bewirtungsbereich",
+                "arrangement": "cluster",
+                "notes": "Einzelner Faltpavillon (Radius 3m).",
+                "forwardM": -25,
+                "rightM": -10,
+                "role": "event.pavilion",
+                "spacingM": 2,
+                "surface": "ground",
+                "siteId": "way/227100221",
+                "hdgOffsetDeg": 120
+              },
+              {
+                "feature": "people",
+                "count": 4,
+                "placement": "Besuchergruppe",
+                "arrangement": "cluster",
+                "notes": "Gruppe mit 5m Spacing (Summe Radien 1.5+1.5+1m=4m), um Mindestabstand sicher zu erfüllen.",
+                "forwardM": -40,
+                "rightM": 12,
+                "role": "person.ground_crew",
+                "spacingM": 5,
+                "surface": "ground",
+                "siteId": "way/227100221",
+                "hdgOffsetDeg": 180
+              },
+              {
+                "feature": "earthmoving",
+                "count": 1,
+                "placement": "Aufbauhilfe",
+                "arrangement": "cluster",
+                "notes": "Bagger am Platzrand (Radius 5m).",
+                "forwardM": -52,
+                "rightM": 0,
+                "role": "construction.earthmoving",
+                "spacingM": 2,
+                "surface": "ground",
+                "siteId": "way/227100221",
+                "hdgOffsetDeg": 220
+              },
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "Pressefahrzeug",
+                "arrangement": "cluster",
+                "notes": "Presse-Van (Radius 5m).",
+                "forwardM": -15,
+                "rightM": 5,
+                "role": "vehicle.van",
+                "spacingM": 2,
+                "surface": "ground",
+                "siteId": "way/227100221",
+                "hdgOffsetDeg": 10
+              },
+              {
+                "feature": "parked_vehicle",
+                "count": 1,
+                "placement": "Gäste-PKW",
+                "arrangement": "cluster",
+                "notes": "Geparkter PKW (Radius 5m).",
+                "forwardM": -55,
+                "rightM": -15,
+                "role": "vehicle.car",
+                "spacingM": 2,
+                "surface": "ground",
+                "siteId": "way/227100221",
+                "hdgOffsetDeg": 0
+              },
+              {
+                "feature": "generator",
+                "count": 1,
+                "placement": "Energie",
+                "arrangement": "cluster",
+                "notes": "Aggregat (Radius 3m).",
+                "forwardM": -20,
+                "rightM": -18,
+                "role": "utility.generator",
+                "spacingM": 2,
+                "surface": "ground",
+                "siteId": "way/227100221",
+                "hdgOffsetDeg": 90
+              },
+              {
+                "feature": "cones",
+                "count": 3,
+                "placement": "Markierung",
+                "arrangement": "line",
+                "notes": "Kegelreihe zur Wegführung.",
+                "forwardM": -30,
+                "rightM": 15,
+                "role": "marker.cone",
+                "spacingM": 5,
+                "surface": "ground",
+                "siteId": "way/227100221",
+                "hdgOffsetDeg": 0
+              }
+            ],
+            "objectPolicy": "explicit-requirements",
+            "placementVersion": "poi-placement.v3",
+            "placementIntent": {
+              "use": "industrial_site",
+              "anchorId": "",
+              "requiresPaved": false,
+              "reason": "Zentraler Werksplatz eines Industrieunternehmens für eine Jubiläumsfeier."
+            },
+            "placementRequirement": {
+              "use": "industrial_site",
+              "requiresPaved": false
+            },
+            "roles": [
+              "construction.material",
+              "utility.generator",
+              "cargo.pallet_medium",
+              "cargo.pallet_small",
+              "event.pavilion",
+              "person.ground_crew",
+              "construction.earthmoving",
+              "vehicle.truck",
+              "vehicle.van",
+              "vehicle.car",
+              "marker.cone"
+            ],
+            "density": "normal",
+            "layout": "cluster",
+            "notes": "Korrigierte Szene: Spacing der Personengruppe auf 5m erhöht, um internen Objektabstand > 4m zu garantieren."
+          },
+          "omissionReason": "",
+          "aptArrivalPlan": null,
+          "localizationNotes": [
+            "Die Szene ist auf way/227100221 konzentriert.",
+            "Abstände zwischen Gruppen und innerhalb der Personengruppe wurden vergrößert."
+          ],
+          "validationNotes": [
+            "Gesamtanzahl Objekte: 13.",
+            "Requirement 3 (People) nutzt nun spacingM: 5, was den Fehler 'Abstand zu klein (mindestens 4m)' behebt."
+          ],
+          "fallback": {
+            "preset": "",
+            "kind": "construction_site",
+            "features": [
+              "earthmoving",
+              "generator",
+              "road_vehicles",
+              "people",
+              "cones",
+              "debris",
+              "logs",
+              "tent"
+            ],
+            "requirements": [
+              {
+                "feature": "earthmoving",
+                "count": 1,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              },
+              {
+                "feature": "generator",
+                "count": 1,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              },
+              {
+                "feature": "road_vehicles",
+                "count": 2,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              },
+              {
+                "feature": "cones",
+                "count": 1,
+                "placement": "",
+                "arrangement": "perimeter",
+                "notes": ""
+              },
+              {
+                "feature": "debris",
+                "count": 1,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              }
+            ],
+            "roles": [
+              "construction.earthmoving",
+              "utility.generator",
+              "vehicle.car",
+              "vehicle.van",
+              "person.ground_crew",
+              "marker.cone",
+              "debris.light",
+              "cargo.small_box",
+              "cargo.pallet_small",
+              "nature.log",
+              "material.log",
+              "camp.tent"
+            ],
+            "density": "normal",
+            "layout": "",
+            "notes": "Auf dem zentralen Werksplatz ist eine auffällige Installation aus Metallrohren und Holzbalken entstanden, umgeben von Zelten und einer kleinen Besuchergruppe."
+          },
+          "fallbackArrivalPlan": null,
+          "error": ""
+        }
+      },
+      "point": {
+        "lat": 48.33255,
+        "lon": 8.04059,
+        "altFt": 0,
+        "terrainPending": true,
+        "hdg": 0,
+        "name": "Am Erlenbach"
+      },
+      "items": [
+        {
+          "kind": "feature_construction_material_1_1",
+          "label": "Baustellenmaterial / technische Aggregate",
+          "objectTitle": "Double Pallet",
+          "titleCandidates": [
+            "Double Pallet",
+            "Double_Pallet",
+            "RooftopUnits03",
+            "BuildingMaterial01",
+            "GeneracPowerSystems01",
+            "Single pallet",
+            "Single_pallet"
+          ],
+          "forwardM": -40,
+          "rightM": 0,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 45,
+          "altOffsetFt": 0,
+          "placement": "Zentrales Kunstwerk",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.33219067553,
+            "lon": 8.04059
+          }
+        },
+        {
+          "kind": "feature_pavilion_2_1",
+          "label": "Faltpavillon / Veranstaltungsstand 3 x 3 m",
+          "objectTitle": "VFR Multitool Homebase MX Pavilion",
+          "titleCandidates": [
+            "VFR Multitool Homebase MX Pavilion",
+            "VFR_Multitool_Homebase_MX_Pavilion"
+          ],
+          "forwardM": -25,
+          "rightM": -10,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 120,
+          "altOffsetFt": 0,
+          "placement": "Bewirtungsbereich",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.33232542220625,
+            "lon": 8.0404548762092
+          }
+        },
+        {
+          "kind": "feature_people_3_1",
+          "label": "Personen am Boden",
+          "objectTitle": "Marshaller_Female_Winter_Caucasian",
+          "titleCandidates": [
+            "Marshaller_Female_Winter_Caucasian",
+            "Marshaller Female Winter Caucasian",
+            "Tarmac_Female_Summer_Asian",
+            "Tarmac Female Summer Asian",
+            "Marshaller_Female_Summer_African",
+            "Marshaller Female Summer African",
+            "Marshaller_Female_Summer_Arab",
+            "Marshaller Female Summer Arab",
+            "Marshaller_Female_Summer_Asian",
+            "Marshaller Female Summer Asian",
+            "Marshaller_Female_Summer_Caucasian",
+            "Marshaller Female Summer Caucasian",
+            "Marshaller_Female_Summer_Hispanic",
+            "Marshaller Female Summer Hispanic",
+            "Marshaller_Female_Summer_Indian",
+            "Marshaller Female Summer Indian",
+            "Marshaller_Female_Winter_African",
+            "Marshaller Female Winter African",
+            "Marshaller_Female_Winter_Arab",
+            "Marshaller Female Winter Arab",
+            "Marshaller_Female_Winter_Asian",
+            "Marshaller Female Winter Asian",
+            "Marshaller_Female_Winter_Hispanic",
+            "Marshaller Female Winter Hispanic"
+          ],
+          "forwardM": -40,
+          "rightM": 12,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 180,
+          "altOffsetFt": 0,
+          "placement": "Besuchergruppe",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.33219067553,
+            "lon": 8.04075214854896
+          }
+        },
+        {
+          "kind": "feature_people_3_2",
+          "label": "Personen am Boden",
+          "objectTitle": "Marshaller_Female_Summer_Asian",
+          "titleCandidates": [
+            "Marshaller_Female_Summer_Asian",
+            "Marshaller Female Summer Asian",
+            "Tarmac_Female_Summer_Asian",
+            "Tarmac Female Summer Asian",
+            "Marshaller_Female_Summer_African",
+            "Marshaller Female Summer African",
+            "Marshaller_Female_Summer_Arab",
+            "Marshaller Female Summer Arab",
+            "Marshaller_Female_Summer_Caucasian",
+            "Marshaller Female Summer Caucasian",
+            "Marshaller_Female_Summer_Hispanic",
+            "Marshaller Female Summer Hispanic",
+            "Marshaller_Female_Summer_Indian",
+            "Marshaller Female Summer Indian",
+            "Marshaller_Female_Winter_African",
+            "Marshaller Female Winter African",
+            "Marshaller_Female_Winter_Arab",
+            "Marshaller Female Winter Arab",
+            "Marshaller_Female_Winter_Asian",
+            "Marshaller Female Winter Asian",
+            "Marshaller_Female_Winter_Caucasian",
+            "Marshaller Female Winter Caucasian",
+            "Marshaller_Female_Winter_Hispanic",
+            "Marshaller Female Winter Hispanic"
+          ],
+          "forwardM": -35,
+          "rightM": 12,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 180,
+          "altOffsetFt": 0,
+          "placement": "Besuchergruppe",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.332235591088754,
+            "lon": 8.04075214854896
+          }
+        },
+        {
+          "kind": "feature_people_3_3",
+          "label": "Personen am Boden",
+          "objectTitle": "Marshaller_Female_Winter_Arab",
+          "titleCandidates": [
+            "Marshaller_Female_Winter_Arab",
+            "Marshaller Female Winter Arab",
+            "Tarmac_Female_Summer_Asian",
+            "Tarmac Female Summer Asian",
+            "Marshaller_Female_Summer_African",
+            "Marshaller Female Summer African",
+            "Marshaller_Female_Summer_Arab",
+            "Marshaller Female Summer Arab",
+            "Marshaller_Female_Summer_Asian",
+            "Marshaller Female Summer Asian",
+            "Marshaller_Female_Summer_Caucasian",
+            "Marshaller Female Summer Caucasian",
+            "Marshaller_Female_Summer_Hispanic",
+            "Marshaller Female Summer Hispanic",
+            "Marshaller_Female_Summer_Indian",
+            "Marshaller Female Summer Indian",
+            "Marshaller_Female_Winter_African",
+            "Marshaller Female Winter African",
+            "Marshaller_Female_Winter_Asian",
+            "Marshaller Female Winter Asian",
+            "Marshaller_Female_Winter_Caucasian",
+            "Marshaller Female Winter Caucasian",
+            "Marshaller_Female_Winter_Hispanic",
+            "Marshaller Female Winter Hispanic"
+          ],
+          "forwardM": -40,
+          "rightM": 17,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 180,
+          "altOffsetFt": 0,
+          "placement": "Besuchergruppe",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.33219067553,
+            "lon": 8.04081971044436
+          }
+        },
+        {
+          "kind": "feature_people_3_4",
+          "label": "Personen am Boden",
+          "objectTitle": "Marshaller_Female_Summer_African",
+          "titleCandidates": [
+            "Marshaller_Female_Summer_African",
+            "Marshaller Female Summer African",
+            "Tarmac_Female_Summer_Asian",
+            "Tarmac Female Summer Asian",
+            "Marshaller_Female_Summer_Arab",
+            "Marshaller Female Summer Arab",
+            "Marshaller_Female_Summer_Asian",
+            "Marshaller Female Summer Asian",
+            "Marshaller_Female_Summer_Caucasian",
+            "Marshaller Female Summer Caucasian",
+            "Marshaller_Female_Summer_Hispanic",
+            "Marshaller Female Summer Hispanic",
+            "Marshaller_Female_Summer_Indian",
+            "Marshaller Female Summer Indian",
+            "Marshaller_Female_Winter_African",
+            "Marshaller Female Winter African",
+            "Marshaller_Female_Winter_Arab",
+            "Marshaller Female Winter Arab",
+            "Marshaller_Female_Winter_Asian",
+            "Marshaller Female Winter Asian",
+            "Marshaller_Female_Winter_Caucasian",
+            "Marshaller Female Winter Caucasian",
+            "Marshaller_Female_Winter_Hispanic",
+            "Marshaller Female Winter Hispanic"
+          ],
+          "forwardM": -35,
+          "rightM": 17,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 180,
+          "altOffsetFt": 0,
+          "placement": "Besuchergruppe",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.332235591088754,
+            "lon": 8.04081971044436
+          }
+        },
+        {
+          "kind": "feature_earthmoving_4_1",
+          "label": "Bagger/Bulldozer/Erdarbeiten",
+          "objectTitle": "Microsoft_Bulldozer",
+          "titleCandidates": [
+            "Microsoft_Bulldozer",
+            "Microsoft Bulldozer",
+            "Bulldozer",
+            "ASOBO_Bulldozer",
+            "ASOBO Bulldozer"
+          ],
+          "forwardM": -52,
+          "rightM": 0,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 220,
+          "altOffsetFt": 0,
+          "placement": "Aufbauhilfe",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.332082878189006,
+            "lon": 8.04059
+          }
+        },
+        {
+          "kind": "feature_utility_truck_5_1",
+          "label": "Utility-/Servicefahrzeug",
+          "objectTitle": "Van Europe",
+          "titleCandidates": [
+            "Van Europe",
+            "Van_Europe",
+            "Microsoft_Van_EUR",
+            "Microsoft Van EUR",
+            "Microsoft_Van_ASIA_02",
+            "Microsoft Van ASIA 02",
+            "Microsoft_Van_ASIA_02_Brown",
+            "Microsoft Van ASIA 02 Brown",
+            "Microsoft_Van_ASIA_02_Yellow",
+            "Microsoft Van ASIA 02 Yellow",
+            "Microsoft_Van_EUR_Black",
+            "Microsoft Van EUR Black",
+            "Microsoft_Van_EUR_Blue",
+            "Microsoft Van EUR Blue",
+            "Microsoft_Van_EUR_Red",
+            "Microsoft Van EUR Red",
+            "Microsoft_Van_NA_Modern",
+            "Microsoft Van NA Modern",
+            "Microsoft_Van_NA_Modern_Green",
+            "Microsoft Van NA Modern Green",
+            "Van NorthAm",
+            "Van_NorthAm"
+          ],
+          "forwardM": -15,
+          "rightM": 5,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 10,
+          "altOffsetFt": 0,
+          "placement": "Pressefahrzeug",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.33241525332375,
+            "lon": 8.040657561895399
+          }
+        },
+        {
+          "kind": "feature_parked_vehicle_6_1",
+          "label": "parkendes ziviles Fahrzeug",
+          "objectTitle": "Microsoft_Car_EUR_02",
+          "titleCandidates": [
+            "Microsoft_Car_EUR_02",
+            "Microsoft Car EUR 02",
+            "Microsoft_Car_EUR_01",
+            "Microsoft Car EUR 01",
+            "Microsoft_Car_EUR_03",
+            "Microsoft Car EUR 03",
+            "Microsoft_Car_EUR_04",
+            "Microsoft Car EUR 04",
+            "Microsoft_Car_EUR_01_black",
+            "Microsoft Car EUR 01 black",
+            "Microsoft_Car_EUR_02_Blue",
+            "Microsoft Car EUR 02 Blue",
+            "Microsoft_Car_EUR_02_Silver",
+            "Microsoft Car EUR 02 Silver",
+            "Microsoft_Car_EUR_03_Beige",
+            "Microsoft Car EUR 03 Beige",
+            "Microsoft_Car_EUR_03_Black",
+            "Microsoft Car EUR 03 Black",
+            "Microsoft_Car_EUR_03_Blue",
+            "Microsoft Car EUR 03 Blue",
+            "Microsoft_Car_EUR_03_Red",
+            "Microsoft Car EUR 03 Red",
+            "Microsoft_Car_EUR_04_Blue",
+            "Microsoft Car EUR 04 Blue"
+          ],
+          "forwardM": -55,
+          "rightM": -15,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placement": "Gäste-PKW",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.332055928853755,
+            "lon": 8.0403873143138
+          }
+        },
+        {
+          "kind": "feature_generator_7_1",
+          "label": "Generator/Aggregat",
+          "objectTitle": "ASOBO_Car_Ground_Power_Unit",
+          "titleCandidates": [
+            "ASOBO_Car_Ground_Power_Unit",
+            "ASOBO Car Ground Power Unit",
+            "PowerGenerator",
+            "GeneracPowerSystems01",
+            "Car Ground Power Unit",
+            "Car_Ground_Power_Unit"
+          ],
+          "forwardM": -20,
+          "rightM": -18,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 90,
+          "altOffsetFt": 0,
+          "placement": "Energie",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.332370337765,
+            "lon": 8.04034677717656
+          }
+        },
+        {
+          "kind": "feature_cones_8_1",
+          "label": "Absperrkegel/Marker",
+          "objectTitle": "Cone_Medium",
+          "titleCandidates": [
+            "Cone_Medium",
+            "Cone Medium",
+            "EDTW Smoke Marker",
+            "EDTW_Smoke_Marker"
+          ],
+          "forwardM": -30,
+          "rightM": 15,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placement": "Markierung",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.3322805066475,
+            "lon": 8.040792685686199
+          }
+        },
+        {
+          "kind": "feature_cones_8_2",
+          "label": "Absperrkegel/Marker",
+          "objectTitle": "EDTW Smoke Marker",
+          "titleCandidates": [
+            "EDTW Smoke Marker",
+            "EDTW_Smoke_Marker",
+            "Cone_Medium",
+            "Cone Medium"
+          ],
+          "forwardM": -30,
+          "rightM": 20,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placement": "Markierung",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.3322805066475,
+            "lon": 8.0408602475816
+          }
+        },
+        {
+          "kind": "feature_cones_8_3",
+          "label": "Absperrkegel/Marker",
+          "objectTitle": "Cone_Medium",
+          "titleCandidates": [
+            "Cone_Medium",
+            "Cone Medium",
+            "EDTW Smoke Marker",
+            "EDTW_Smoke_Marker"
+          ],
+          "forwardM": -30,
+          "rightM": 25,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placement": "Markierung",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.3322805066475,
+            "lon": 8.040927809477
+          }
+        }
+      ],
+      "validation": [],
+      "modelCalls": 5,
+      "errors": [],
+      "testMode": "live Gemini composer",
+      "geometrySource": "https://api.openstreetmap.org/api/0.6/map?bbox=8.029780096736024,48.32536351060007,8.051399903263976,48.339736489399925",
+      "limitations": [
+        "Satellite review is not a simulator spawn or collision test.",
+        "Mapped land use does not establish current occupancy."
+      ],
+      "geometryFixture": "tools/fixtures/poi-placement-correction-1.json.gz",
+      "geometrySummary": {
+        "schema": "poi-placement.v3",
+        "origin": {
+          "name": "Am Erlenbach",
+          "lat": 48.33255,
+          "lon": 8.04059,
+          "poiCategory": "industry"
+        },
+        "shapes": 1214,
+        "sites": 18,
+        "anchors": []
+      }
+    },
+    {
+      "target": {
+        "name": "Hausach",
+        "lat": 48.28363,
+        "lon": 8.17497,
+        "poiCategory": "city"
+      },
+      "story": "Wir starten heute Richtung Hausach. Lena Sommer von Regio-TV Ortenau begleitet euch, um ein ganz besonderes bürgerschaftliches Engagement einzufangen. Eine lokale Jugendinitiative nutzt dort eine brachliegende Gewerbefläche für ein riesiges „Willkommens-Mosaik“. Aus der Luft wollt ihr dokumentieren, wie bunte Seecontainer und hunderte Holzpaletten zu einer Botschaft der Gastfreundschaft verschmelzen. Lena braucht für ihren Social-Media-Clip und die Abendschau Aufnahmen, die den harten, industriellen Look der Container gegen das tiefe Grün der Schwarzwaldhänge setzen. Sie hofft, die geometrischen Muster und die emsige Arbeit der Freiwilligen am Boden – man erkennt dort wohl einen blauen Pavillon und einen Gabelstapler – perfekt ins Bild zu setzen. Nach eurer Zielrunde über dem Mosaik kehrt ihr gemeinsam zur Basis zurück.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir der Fluss Kinzig Nebenlauf Kanal: Das Ziel liegt etwa 100 m südlich davon. Ein weiterer Bezugspunkt ist der Fluss Kinzig; das Ziel liegt etwa 300 m südöstlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Turm etwa 450 m nordöstlich des Ziels; Mast etwa 650 m östlich des Ziels; Turm etwa 750 m nordwestlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "idea": {
+        "schema": "news-idea.v1",
+        "targetId": "poi:48.283630:8.174970",
+        "targetName": "Hausach",
+        "taskDomain": "news_coverage",
+        "outlet": "Regio-TV Ortenau",
+        "headline": "Willkommensgruß in Übergröße",
+        "situation": "Eine lokale Jugendinitiative gestaltet auf einer brachliegenden Gewerbefläche in Hausach ein riesiges „Willkommens-Mosaik“. Sie nutzen dafür bunte Seecontainer und hunderte Paletten, um ein weithin sichtbares Symbol für die Offenheit des Kinzigtals zu schaffen.",
+        "angle": "Wie nutzt die junge Generation den industriellen Charakter ihrer Heimat, um eine Botschaft der Gastfreundschaft zu senden, die man nur aus der Luft vollständig erfassen kann?",
+        "airValue": "Das farbenfrohe, geometrische Muster aus Containern und Holzstapeln bildet einen harten, aber freundlichen Kontrast zum tiefen Grün der umliegenden Schwarzwaldhänge.",
+        "deliverable": "Video-Beitrag für die Abendschau und Social-Media-Clip über bürgerschaftliches Engagement.",
+        "sceneIntent": {
+          "summary": "Auf einer Freifläche bilden bunte Seecontainer und Palettenstapel ein großflächiges geometrisches Muster. Ein kleiner Stützpunkt mit Pavillon und Fahrzeugen unterstreicht die laufenden Arbeiten der Freiwilligen.",
+          "visibleIdeas": [
+            "Zentrales Mosaik-Element aus vier blauen und zwei roten Seecontainern",
+            "Mehrere Stapel aus Holzpaletten, die als Linien zwischen den Containern angeordnet sind",
+            "Ein weißer Lieferwagen am Rand der befestigten Fläche",
+            "Ein blauer Faltpavillon als Organisationszentrum für die Jugendlichen",
+            "Eine kleine Gruppe von drei Personen, die neben den Paletten stehen",
+            "Einige orangefarbene Absperrkegel, die den Baustellenbereich markieren",
+            "Ein abgestellter Gabelstapler oder kleines Baustellenfahrzeug in der Nähe der Paletten"
+          ],
+          "densityHint": "normal",
+          "notes": "Die Szene nutzt die Logistik-Ästhetik von Hausach für ein kreatives Gemeinschaftsprojekt."
+        },
+        "person": {
+          "name": "Lena Sommer",
+          "role": "Video-Journalistin",
+          "relationshipToPilot": "mitfliegende journalistische Fachperson"
+        }
+      },
+      "composition": {
+        "targetScene": {
+          "preset": "",
+          "kind": "industry_site",
+          "features": [
+            "shipping_container",
+            "pallet_stack",
+            "utility_truck",
+            "pavilion",
+            "people",
+            "earthmoving"
+          ],
+          "requirements": [
+            {
+              "feature": "shipping_container",
+              "count": 2,
+              "placement": "Blaue Basiscontainer",
+              "arrangement": "line",
+              "notes": "Reduzierte Anzahl für Mosaik-Basis bei sparse density.",
+              "forwardM": -85,
+              "rightM": 180,
+              "role": "cargo.shipping_container",
+              "spacingM": 19,
+              "surface": "ground",
+              "siteId": "way/26337480",
+              "hdgOffsetDeg": 0
+            },
+            {
+              "feature": "shipping_container",
+              "count": 2,
+              "placement": "Rote Akzentcontainer",
+              "arrangement": "line",
+              "notes": "Rote Akzent-Container mit maximalem Abstand.",
+              "forwardM": -120,
+              "rightM": 205,
+              "role": "cargo.shipping_container",
+              "spacingM": 19,
+              "surface": "ground",
+              "siteId": "way/26337480",
+              "hdgOffsetDeg": 90
+            },
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "",
+              "arrangement": "cluster",
+              "notes": "Fahrzeug der Initiative.",
+              "forwardM": -50,
+              "rightM": 200,
+              "role": "vehicle.van",
+              "spacingM": 2,
+              "surface": "ground",
+              "siteId": "way/26337480",
+              "hdgOffsetDeg": 180
+            },
+            {
+              "feature": "pavilion",
+              "count": 1,
+              "placement": "",
+              "arrangement": "cluster",
+              "notes": "Stützpunkt.",
+              "forwardM": -60,
+              "rightM": 225,
+              "role": "event.pavilion",
+              "spacingM": 2,
+              "surface": "ground",
+              "siteId": "way/26337480",
+              "hdgOffsetDeg": 0
+            },
+            {
+              "feature": "people",
+              "count": 2,
+              "placement": "",
+              "arrangement": "cluster",
+              "notes": "Zwei Freiwillige vor Ort.",
+              "forwardM": -85,
+              "rightM": 225,
+              "role": "person.ground_crew",
+              "spacingM": 4,
+              "surface": "ground",
+              "siteId": "way/26337480",
+              "hdgOffsetDeg": 0
+            },
+            {
+              "feature": "earthmoving",
+              "count": 1,
+              "placement": "",
+              "arrangement": "cluster",
+              "notes": "Gabelstapler.",
+              "forwardM": -115,
+              "rightM": 240,
+              "role": "construction.earthmoving",
+              "spacingM": 2,
+              "surface": "ground",
+              "siteId": "way/26337480",
+              "hdgOffsetDeg": 45
+            }
+          ],
+          "objectPolicy": "explicit-requirements",
+          "placementVersion": "poi-placement.v3",
+          "placementIntent": {
+            "use": "industrial_site",
+            "anchorId": "",
+            "requiresPaved": false,
+            "reason": "Industrielle Brachfläche für das großflächige Container-Mosaik der Jugendinitiative."
+          },
+          "placementRequirement": {
+            "use": "industrial_site",
+            "requiresPaved": false
+          },
+          "roles": [
+            "cargo.shipping_container",
+            "cargo.pallet_medium",
+            "cargo.pallet_small",
+            "cargo.pallet_large",
+            "vehicle.truck",
+            "vehicle.van",
+            "event.pavilion",
+            "person.ground_crew",
+            "construction.earthmoving"
+          ],
+          "density": "sparse",
+          "layout": "mixed",
+          "notes": "Maximale Reduktion auf 9 Objekte zur Einhaltung der Budget- und Abstandsvorgaben."
+        },
+        "aptArrivalPlan": null,
+        "debug": {
+          "source": "Gemini 3.0 Flash Scene Planner V3",
+          "promptVersion": "scene-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_scene_context_bundle",
+              "id": "call_651958",
+              "args": {
+                "reason": "Initial context gathering for POI target scene planning based on mission and location data."
+              },
+              "resultKeys": [
+                "schema",
+                "mode",
+                "reporterScene",
+                "assets"
+              ]
+            }
+          ],
+          "aiRaw": {
+            "kind": "industry_site",
+            "preset": "",
+            "objectPolicy": "explicit-requirements (nur reporterScene)",
+            "placementIntent": {
+              "use": "industrial_site",
+              "anchorId": "",
+              "requiresPaved": false,
+              "reason": "Industrielle Brachfläche für das großflächige Container-Mosaik der Jugendinitiative."
+            },
+            "features": [
+              "shipping_container",
+              "pallet_stack",
+              "utility_truck",
+              "pavilion",
+              "people",
+              "earthmoving"
+            ],
+            "requirements": [
+              {
+                "siteId": "way/26337480",
+                "surface": "ground",
+                "feature": "shipping_container",
+                "role": "cargo.shipping_container",
+                "count": 2,
+                "placement": "Blaue Basiscontainer",
+                "arrangement": "line",
+                "spacingM": 19,
+                "forwardM": -85,
+                "rightM": 180,
+                "hdgOffsetDeg": 0,
+                "notes": "Reduzierte Anzahl für Mosaik-Basis bei sparse density."
+              },
+              {
+                "siteId": "way/26337480",
+                "surface": "ground",
+                "feature": "shipping_container",
+                "role": "cargo.shipping_container",
+                "count": 2,
+                "placement": "Rote Akzentcontainer",
+                "arrangement": "line",
+                "spacingM": 19,
+                "forwardM": -120,
+                "rightM": 205,
+                "hdgOffsetDeg": 90,
+                "notes": "Rote Akzent-Container mit maximalem Abstand."
+              },
+              {
+                "siteId": "way/26337480",
+                "surface": "ground",
+                "feature": "utility_truck",
+                "role": "vehicle.van",
+                "count": 1,
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": -50,
+                "rightM": 200,
+                "hdgOffsetDeg": 180,
+                "notes": "Fahrzeug der Initiative."
+              },
+              {
+                "siteId": "way/26337480",
+                "surface": "ground",
+                "feature": "pavilion",
+                "role": "event.pavilion",
+                "count": 1,
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": -60,
+                "rightM": 225,
+                "hdgOffsetDeg": 0,
+                "notes": "Stützpunkt."
+              },
+              {
+                "siteId": "way/26337480",
+                "surface": "ground",
+                "feature": "people",
+                "role": "person.ground_crew",
+                "count": 2,
+                "arrangement": "cluster",
+                "spacingM": 4,
+                "forwardM": -85,
+                "rightM": 225,
+                "hdgOffsetDeg": 0,
+                "notes": "Zwei Freiwillige vor Ort."
+              },
+              {
+                "siteId": "way/26337480",
+                "surface": "ground",
+                "feature": "earthmoving",
+                "role": "construction.earthmoving",
+                "count": 1,
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": -115,
+                "rightM": 240,
+                "hdgOffsetDeg": 45,
+                "notes": "Gabelstapler."
+              }
+            ],
+            "roles": [],
+            "density": "sparse",
+            "layout": "mixed",
+            "notes": "Maximale Reduktion auf 9 Objekte zur Einhaltung der Budget- und Abstandsvorgaben."
+          },
+          "aiArrivalRaw": null,
+          "normalized": {
+            "preset": "",
+            "kind": "industry_site",
+            "features": [
+              "shipping_container",
+              "pallet_stack",
+              "utility_truck",
+              "pavilion",
+              "people",
+              "earthmoving"
+            ],
+            "requirements": [
+              {
+                "feature": "shipping_container",
+                "count": 2,
+                "placement": "Blaue Basiscontainer",
+                "arrangement": "line",
+                "notes": "Reduzierte Anzahl für Mosaik-Basis bei sparse density.",
+                "forwardM": -85,
+                "rightM": 180,
+                "role": "cargo.shipping_container",
+                "spacingM": 19,
+                "surface": "ground",
+                "siteId": "way/26337480",
+                "hdgOffsetDeg": 0
+              },
+              {
+                "feature": "shipping_container",
+                "count": 2,
+                "placement": "Rote Akzentcontainer",
+                "arrangement": "line",
+                "notes": "Rote Akzent-Container mit maximalem Abstand.",
+                "forwardM": -120,
+                "rightM": 205,
+                "role": "cargo.shipping_container",
+                "spacingM": 19,
+                "surface": "ground",
+                "siteId": "way/26337480",
+                "hdgOffsetDeg": 90
+              },
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "",
+                "arrangement": "cluster",
+                "notes": "Fahrzeug der Initiative.",
+                "forwardM": -50,
+                "rightM": 200,
+                "role": "vehicle.van",
+                "spacingM": 2,
+                "surface": "ground",
+                "siteId": "way/26337480",
+                "hdgOffsetDeg": 180
+              },
+              {
+                "feature": "pavilion",
+                "count": 1,
+                "placement": "",
+                "arrangement": "cluster",
+                "notes": "Stützpunkt.",
+                "forwardM": -60,
+                "rightM": 225,
+                "role": "event.pavilion",
+                "spacingM": 2,
+                "surface": "ground",
+                "siteId": "way/26337480",
+                "hdgOffsetDeg": 0
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "",
+                "arrangement": "cluster",
+                "notes": "Zwei Freiwillige vor Ort.",
+                "forwardM": -85,
+                "rightM": 225,
+                "role": "person.ground_crew",
+                "spacingM": 4,
+                "surface": "ground",
+                "siteId": "way/26337480",
+                "hdgOffsetDeg": 0
+              },
+              {
+                "feature": "earthmoving",
+                "count": 1,
+                "placement": "",
+                "arrangement": "cluster",
+                "notes": "Gabelstapler.",
+                "forwardM": -115,
+                "rightM": 240,
+                "role": "construction.earthmoving",
+                "spacingM": 2,
+                "surface": "ground",
+                "siteId": "way/26337480",
+                "hdgOffsetDeg": 45
+              }
+            ],
+            "objectPolicy": "explicit-requirements",
+            "placementVersion": "poi-placement.v3",
+            "placementIntent": {
+              "use": "industrial_site",
+              "anchorId": "",
+              "requiresPaved": false,
+              "reason": "Industrielle Brachfläche für das großflächige Container-Mosaik der Jugendinitiative."
+            },
+            "placementRequirement": {
+              "use": "industrial_site",
+              "requiresPaved": false
+            },
+            "roles": [
+              "cargo.shipping_container",
+              "cargo.pallet_medium",
+              "cargo.pallet_small",
+              "cargo.pallet_large",
+              "vehicle.truck",
+              "vehicle.van",
+              "event.pavilion",
+              "person.ground_crew",
+              "construction.earthmoving"
+            ],
+            "density": "sparse",
+            "layout": "mixed",
+            "notes": "Maximale Reduktion auf 9 Objekte zur Einhaltung der Budget- und Abstandsvorgaben."
+          },
+          "omissionReason": "",
+          "aptArrivalPlan": null,
+          "localizationNotes": [
+            "Nutzung der korrigierten Positionen für Gruppe 1 (-85, 180) und Gruppe 2 (-120, 205).",
+            "Die Palettenstapel wurden entfernt, um das Budget von 9 Objekten zu halten."
+          ],
+          "validationNotes": [
+            "Gesamtanzahl Objekte: 9 (4 Container, 1 Van, 1 Pavillon, 2 Personen, 1 Stapler).",
+            "Abstände zwischen den Gruppen 1 und 2 auf >19m korrigiert."
+          ],
+          "fallback": {
+            "preset": "",
+            "kind": "construction_site",
+            "features": [
+              "construction_truck",
+              "cargo_material",
+              "road_vehicles",
+              "people",
+              "cones",
+              "logs"
+            ],
+            "requirements": [
+              {
+                "feature": "construction_truck",
+                "count": 1,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              },
+              {
+                "feature": "cargo_material",
+                "count": 1,
+                "placement": "",
+                "arrangement": "cluster",
+                "notes": ""
+              },
+              {
+                "feature": "road_vehicles",
+                "count": 2,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              },
+              {
+                "feature": "cones",
+                "count": 1,
+                "placement": "",
+                "arrangement": "perimeter",
+                "notes": ""
+              },
+              {
+                "feature": "logs",
+                "count": 1,
+                "placement": "",
+                "arrangement": "waterline",
+                "notes": ""
+              }
+            ],
+            "roles": [
+              "construction.vehicle",
+              "vehicle.truck",
+              "cargo.container",
+              "cargo.pallet_large",
+              "cargo.pallet_medium",
+              "cargo.pallet_small",
+              "cargo.small_box",
+              "construction.material",
+              "vehicle.car",
+              "vehicle.van",
+              "person.ground_crew",
+              "marker.cone"
+            ],
+            "density": "normal",
+            "layout": "waterline",
+            "notes": "Auf einer Freifläche bilden bunte Seecontainer und Palettenstapel ein großflächiges geometrisches Muster. Ein kleiner Stützpunkt mit Pavillon und Fahrzeugen unterstreicht die laufe"
+          },
+          "fallbackArrivalPlan": null,
+          "error": ""
+        }
+      },
+      "point": {
+        "lat": 48.28363,
+        "lon": 8.17497,
+        "altFt": 0,
+        "terrainPending": true,
+        "hdg": 0,
+        "name": "Hausach"
+      },
+      "items": [
+        {
+          "kind": "feature_shipping_container_1_1",
+          "label": "Seecontainer (keine Paletten/Kartons)",
+          "objectTitle": "Microsoft_Truck_Container_Blue",
+          "titleCandidates": [
+            "Microsoft_Truck_Container_Blue",
+            "Microsoft Truck Container Blue",
+            "Microsoft_Truck_Container",
+            "Microsoft Truck Container",
+            "Microsoft_Truck_Container_Gray",
+            "Microsoft Truck Container Gray",
+            "Microsoft_Truck_Container_Red",
+            "Microsoft Truck Container Red"
+          ],
+          "forwardM": -85,
+          "rightM": 180,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placement": "Blaue Basiscontainer",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.28286643550126,
+            "lon": 8.177399897881644
+          }
+        },
+        {
+          "kind": "feature_shipping_container_1_2",
+          "label": "Seecontainer (keine Paletten/Kartons)",
+          "objectTitle": "Microsoft_Truck_Container_Gray",
+          "titleCandidates": [
+            "Microsoft_Truck_Container_Gray",
+            "Microsoft Truck Container Gray",
+            "Microsoft_Truck_Container",
+            "Microsoft Truck Container",
+            "Microsoft_Truck_Container_Blue",
+            "Microsoft Truck Container Blue",
+            "Microsoft_Truck_Container_Red",
+            "Microsoft Truck Container Red"
+          ],
+          "forwardM": -85,
+          "rightM": 199,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placement": "Blaue Basiscontainer",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.28286643550126,
+            "lon": 8.177656387102484
+          }
+        },
+        {
+          "kind": "feature_shipping_container_2_1",
+          "label": "Seecontainer (keine Paletten/Kartons)",
+          "objectTitle": "Microsoft_Truck_Container_Gray",
+          "titleCandidates": [
+            "Microsoft_Truck_Container_Gray",
+            "Microsoft Truck Container Gray",
+            "Microsoft_Truck_Container",
+            "Microsoft Truck Container",
+            "Microsoft_Truck_Container_Blue",
+            "Microsoft Truck Container Blue",
+            "Microsoft_Truck_Container_Red",
+            "Microsoft Truck Container Red"
+          ],
+          "forwardM": -120,
+          "rightM": 205,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 90,
+          "altOffsetFt": 0,
+          "placement": "Rote Akzentcontainer",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.28255202659001,
+            "lon": 8.177737383698538
+          }
+        },
+        {
+          "kind": "feature_shipping_container_2_2",
+          "label": "Seecontainer (keine Paletten/Kartons)",
+          "objectTitle": "Microsoft_Truck_Container_Red",
+          "titleCandidates": [
+            "Microsoft_Truck_Container_Red",
+            "Microsoft Truck Container Red",
+            "Microsoft_Truck_Container",
+            "Microsoft Truck Container",
+            "Microsoft_Truck_Container_Blue",
+            "Microsoft Truck Container Blue",
+            "Microsoft_Truck_Container_Gray",
+            "Microsoft Truck Container Gray"
+          ],
+          "forwardM": -120,
+          "rightM": 224,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 90,
+          "altOffsetFt": 0,
+          "placement": "Rote Akzentcontainer",
+          "placementOverride": true,
+          "position": {
+            "lat": 48.28255202659001,
+            "lon": 8.177993872919378
+          }
+        },
+        {
+          "kind": "feature_utility_truck_3_1",
+          "label": "Utility-/Servicefahrzeug",
+          "objectTitle": "Microsoft_Van_EUR",
+          "titleCandidates": [
+            "Microsoft_Van_EUR",
+            "Microsoft Van EUR",
+            "Microsoft_Van_ASIA_02",
+            "Microsoft Van ASIA 02",
+            "Microsoft_Van_ASIA_02_Brown",
+            "Microsoft Van ASIA 02 Brown",
+            "Microsoft_Van_ASIA_02_Yellow",
+            "Microsoft Van ASIA 02 Yellow",
+            "Microsoft_Van_EUR_Black",
+            "Microsoft Van EUR Black",
+            "Microsoft_Van_EUR_Blue",
+            "Microsoft Van EUR Blue",
+            "Microsoft_Van_EUR_Red",
+            "Microsoft Van EUR Red",
+            "Microsoft_Van_NA_Modern",
+            "Microsoft Van NA Modern",
+            "Microsoft_Van_NA_Modern_Green",
+            "Microsoft Van NA Modern Green",
+            "Van Europe",
+            "Van_Europe",
+            "Van NorthAm",
+            "Van_NorthAm"
+          ],
+          "forwardM": -50,
+          "rightM": 200,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 180,
+          "altOffsetFt": 0,
+          "placementOverride": true,
+          "position": {
+            "lat": 48.283180844412506,
+            "lon": 8.17766988653516
+          }
+        },
+        {
+          "kind": "feature_pavilion_4_1",
+          "label": "Faltpavillon / Veranstaltungsstand 3 x 3 m",
+          "objectTitle": "VFR Multitool Homebase MX Pavilion",
+          "titleCandidates": [
+            "VFR Multitool Homebase MX Pavilion",
+            "VFR_Multitool_Homebase_MX_Pavilion"
+          ],
+          "forwardM": -60,
+          "rightM": 225,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placementOverride": true,
+          "position": {
+            "lat": 48.28309101329501,
+            "lon": 8.178007372352054
+          }
+        },
+        {
+          "kind": "feature_people_5_1",
+          "label": "Personen am Boden",
+          "objectTitle": "Marshaller_Female_Winter_Arab",
+          "titleCandidates": [
+            "Marshaller_Female_Winter_Arab",
+            "Marshaller Female Winter Arab",
+            "Tarmac_Female_Summer_Asian",
+            "Tarmac Female Summer Asian",
+            "Marshaller_Female_Summer_African",
+            "Marshaller Female Summer African",
+            "Marshaller_Female_Summer_Arab",
+            "Marshaller Female Summer Arab",
+            "Marshaller_Female_Summer_Asian",
+            "Marshaller Female Summer Asian",
+            "Marshaller_Female_Summer_Caucasian",
+            "Marshaller Female Summer Caucasian",
+            "Marshaller_Female_Summer_Hispanic",
+            "Marshaller Female Summer Hispanic",
+            "Marshaller_Female_Summer_Indian",
+            "Marshaller Female Summer Indian",
+            "Marshaller_Female_Winter_African",
+            "Marshaller Female Winter African",
+            "Marshaller_Female_Winter_Asian",
+            "Marshaller Female Winter Asian",
+            "Marshaller_Female_Winter_Caucasian",
+            "Marshaller Female Winter Caucasian",
+            "Marshaller_Female_Winter_Hispanic",
+            "Marshaller Female Winter Hispanic"
+          ],
+          "forwardM": -85,
+          "rightM": 225,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placementOverride": true,
+          "position": {
+            "lat": 48.28286643550126,
+            "lon": 8.178007372352054
+          }
+        },
+        {
+          "kind": "feature_people_5_2",
+          "label": "Personen am Boden",
+          "objectTitle": "Marshaller_Female_Summer_African",
+          "titleCandidates": [
+            "Marshaller_Female_Summer_African",
+            "Marshaller Female Summer African",
+            "Tarmac_Female_Summer_Asian",
+            "Tarmac Female Summer Asian",
+            "Marshaller_Female_Summer_Arab",
+            "Marshaller Female Summer Arab",
+            "Marshaller_Female_Summer_Asian",
+            "Marshaller Female Summer Asian",
+            "Marshaller_Female_Summer_Caucasian",
+            "Marshaller Female Summer Caucasian",
+            "Marshaller_Female_Summer_Hispanic",
+            "Marshaller Female Summer Hispanic",
+            "Marshaller_Female_Summer_Indian",
+            "Marshaller Female Summer Indian",
+            "Marshaller_Female_Winter_African",
+            "Marshaller Female Winter African",
+            "Marshaller_Female_Winter_Arab",
+            "Marshaller Female Winter Arab",
+            "Marshaller_Female_Winter_Asian",
+            "Marshaller Female Winter Asian",
+            "Marshaller_Female_Winter_Caucasian",
+            "Marshaller Female Winter Caucasian",
+            "Marshaller_Female_Winter_Hispanic",
+            "Marshaller Female Winter Hispanic"
+          ],
+          "forwardM": -81,
+          "rightM": 225,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 0,
+          "altOffsetFt": 0,
+          "placementOverride": true,
+          "position": {
+            "lat": 48.28290236794826,
+            "lon": 8.178007372352054
+          }
+        },
+        {
+          "kind": "feature_earthmoving_6_1",
+          "label": "Bagger/Bulldozer/Erdarbeiten",
+          "objectTitle": "Bulldozer",
+          "titleCandidates": [
+            "Bulldozer",
+            "Microsoft_Bulldozer",
+            "Microsoft Bulldozer",
+            "ASOBO_Bulldozer",
+            "ASOBO Bulldozer"
+          ],
+          "forwardM": -115,
+          "rightM": 240,
+          "headingMode": "with_aircraft",
+          "hdgOffsetDeg": 45,
+          "altOffsetFt": 0,
+          "placementOverride": true,
+          "position": {
+            "lat": 48.282596942148764,
+            "lon": 8.178209863842191
+          }
+        }
+      ],
+      "validation": [],
+      "modelCalls": 4,
+      "errors": [],
+      "testMode": "live Gemini composer",
+      "geometrySource": "https://api.openstreetmap.org/api/0.6/map?bbox=8.164170453859365,48.276443510600075,8.185769546140635,48.29081648939993",
+      "limitations": [
+        "Satellite review is not a simulator spawn or collision test.",
+        "Mapped land use does not establish current occupancy."
+      ],
+      "geometryFixture": "tools/fixtures/poi-placement-correction-2.json.gz",
+      "geometrySummary": {
+        "schema": "poi-placement.v3",
+        "origin": {
+          "name": "Hausach",
+          "lat": 48.28363,
+          "lon": 8.17497,
+          "poiCategory": "city"
+        },
+        "shapes": 2075,
+        "sites": 18,
+        "anchors": []
+      }
+    },
+    {
+      "target": {
+        "name": "Sommerbergtunnel",
+        "lat": 48.28977,
+        "lon": 8.17377,
+        "poiCategory": "road"
+      },
+      "story": "Wir fliegen heute zum Sommerbergtunnel, aber die gewohnte Hektik der Bundesstraßen werdet ihr dort nicht finden. Während der jährlichen Wartungswoche herrscht im Tunnel absolute Stille. Hannes Moser begleitet eine kleine Gruppe ehemaliger Mitarbeiter der Straßenmeisterei, die sich ihr altes Bauwerk heute ohne den üblichen Lärm ansehen wollen. Für seinen Beitrag im Schwarzwald-Kurier möchte er einfangen, wie die Männer ihren Arbeitsplatz erleben, wenn keine LKW-Kolonnen durch die Röhre donnern. Wir halten Ausschau nach den orangefarbenen Servicefahrzeugen und der Besuchergruppe am Portal. Hannes plant, den Kontrast zwischen der gewaltigen Ingenieurskunst und der friedlichen Schwarzwald-Idylle mit der Kamera festzuhalten. Achtet beim Überflug auf den weißen Pavillon und die Absperrungen, bevor wir für den Rückweg zur Basis eindrehen.\n\nFür Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.\n\nLage und Orientierung\nZur Orientierung hilft dir Hausach: Das Ziel liegt etwa 700 m nördlich davon. Ein weiterer Bezugspunkt ist der Fluss Kinzig; das Ziel liegt etwa 450 m nördlich davon.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nIn Zielnähe sind in der Karte verzeichnet: Turm etwa 150 m nordöstlich des Ziels; Turm etwa 650 m südwestlich des Ziels; Turm etwa 650 m südöstlich des Ziels. Die Hindernishöhen sind nicht verifiziert; bei Leitungen fehlt der vollständige Verlauf.",
+      "idea": {
+        "schema": "news-idea.v1",
+        "targetId": "poi:48.289770:8.173770",
+        "targetName": "Sommerbergtunnel",
+        "taskDomain": "news_coverage",
+        "outlet": "Schwarzwald-Kurier",
+        "headline": "Stille am Sommerberg",
+        "situation": "Während der jährlichen Wartungswoche ist der Tunnel für den Verkehr voll gesperrt. Die Straßenmeisterei nutzt die seltene Ruhe für eine Begehung mit ehemaligen Mitarbeitern, um den Zustand der Portale und die Hangsicherung zu begutachten.",
+        "angle": "Was empfinden die Menschen, die diesen Tunnel jahrzehntelang instand gehalten haben, wenn sie ohne den Lärm von tausenden Autos an ihrem alten Arbeitsplatz stehen?",
+        "airValue": "Das sonst hochfrequentierte Tunnelportal wirkt ohne fließenden Verkehr wie eine monumentale Skulptur in der Landschaft, umgeben von leuchtend orangefarbenen Servicefahrzeugen.",
+        "deliverable": "Reportage über die 'Hüter des Tunnels' mit Fokus auf den Kontrast zwischen technischer Schwerlastroute und der idyllischen Schwarzwald-Umgebung.",
+        "sceneIntent": {
+          "summary": "Am Tunnelportal sind während der Sperrung mehrere orangefarbene Servicefahrzeuge und eine kleine Besuchergruppe versammelt. Die Szenerie wirkt geordnet und ruhig, passend zur Wartungspause.",
+          "visibleIdeas": [
+            "Drei orangefarbene Baustellen-LKW parken in einer Reihe auf der gesperrten Fahrbahn vor dem Portal.",
+            "Ein weißer Faltpavillon steht als Treffpunkt direkt neben der Tunnelwand.",
+            "Eine Gruppe von zehn Personen in Warnwesten und Zivilkleidung hat sich vor dem Eingang versammelt.",
+            "Mehrere Reihen von Absperrkegeln leiten fiktiv auf die gesperrten Spuren hin zum Arbeitsbereich.",
+            "Ein mobiler Generator und einige Materialkisten stehen für die Wartungsarbeiten bereit.",
+            "Zwei Transporter der Straßenmeisterei mit gelben Warnleuchten sichern den Bereich zum Hang hin ab."
+          ],
+          "densityHint": "normal",
+          "notes": "Die Platzierung erfolgt auf der asphaltierten Vorfläche direkt an einem der Tunnelportale, um den Kontrast zur leeren Bundesstraße zu betonen."
+        },
+        "person": {
+          "name": "Hannes Moser",
+          "role": "Lokalreporter",
+          "relationshipToPilot": "mitfliegende journalistische Fachperson"
+        }
+      },
+      "composition": {
+        "targetScene": {
+          "kind": "none",
+          "roles": [],
+          "density": "none",
+          "notes": "Für den vorgesehenen Szenenort (portal_access) ist keine geeignete Stellfläche belegt. Die optionale Darstellung entfällt; der Auftrag bleibt unverändert."
+        },
+        "aptArrivalPlan": null,
+        "debug": {
+          "source": "Gemini Scene Planner V3",
+          "promptVersion": "scene-v3-tool-planner-2026-05-23",
+          "toolCalls": [],
+          "aiRaw": {
+            "kind": "industry_site",
+            "preset": "",
+            "objectPolicy": "explicit-requirements (nur reporterScene)",
+            "placementIntent": {
+              "use": "portal_access",
+              "anchorId": "way/4789182/end-0",
+              "requiresPaved": false,
+              "reason": "Die Szene findet am westlichen Tunnelportal (end-0) statt, um die Wartungsarbeiten und die Versammlung der ehemaligen Mitarbeiter darzustellen."
+            },
+            "features": [
+              "construction_truck",
+              "utility_truck",
+              "pavilion",
+              "people",
+              "cones",
+              "generator",
+              "cargo_material"
+            ],
+            "requirements": [
+              {
+                "siteId": "way/615246493",
+                "surface": "ground",
+                "feature": "construction_truck",
+                "role": "vehicle.truck",
+                "count": 3,
+                "placement": "In Reihe auf der gesperrten Fahrbahn vor dem Portal",
+                "arrangement": "line",
+                "spacingM": 8,
+                "forwardM": 20,
+                "rightM": 20,
+                "hdgOffsetDeg": 0,
+                "notes": "Orangefarbene Servicefahrzeuge der Straßenmeisterei."
+              },
+              {
+                "siteId": "way/615246493",
+                "surface": "ground",
+                "feature": "utility_truck",
+                "role": "vehicle.van",
+                "count": 2,
+                "placement": "Seitlich versetzt zur Absicherung",
+                "arrangement": "cluster",
+                "spacingM": 6,
+                "forwardM": 40,
+                "rightM": 30,
+                "hdgOffsetDeg": 45,
+                "notes": "Transporter der Straßenmeisterei mit Warnleuchten."
+              },
+              {
+                "siteId": "way/615246493",
+                "surface": "ground",
+                "feature": "pavilion",
+                "role": "event.pavilion",
+                "count": 1,
+                "placement": "Treffpunkt am Rand des Portals",
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": 25,
+                "rightM": 10,
+                "hdgOffsetDeg": 0,
+                "notes": "Weißer Faltpavillon für die Besuchergruppe."
+              },
+              {
+                "siteId": "way/615246493",
+                "surface": "ground",
+                "feature": "people",
+                "role": "person.ground_crew",
+                "count": 6,
+                "placement": "Versammelt am Pavillon",
+                "arrangement": "cluster",
+                "spacingM": 2,
+                "forwardM": 25,
+                "rightM": 12,
+                "hdgOffsetDeg": 180,
+                "notes": "Ehemalige Mitarbeiter und Reporter."
+              },
+              {
+                "siteId": "way/615246493",
+                "surface": "ground",
+                "feature": "cones",
+                "role": "marker.cone",
+                "count": 5,
+                "placement": "Absperrung der Fahrspuren",
+                "arrangement": "line",
+                "spacingM": 4,
+                "forwardM": 10,
+                "rightM": 15,
+                "hdgOffsetDeg": 0,
+                "notes": "Sicherung des Arbeitsbereichs."
+              },
+              {
+                "siteId": "way/615246493",
+                "surface": "ground",
+                "feature": "generator",
+                "role": "utility.generator",
+                "count": 1,
+                "placement": "Nahe der Servicefahrzeuge",
+                "arrangement": "cluster",
+                "spacingM": 0,
+                "forwardM": 20,
+                "rightM": 35,
+                "hdgOffsetDeg": 0,
+                "notes": "Mobiler Generator für Wartungsgeräte."
+              },
+              {
+                "siteId": "way/615246493",
+                "surface": "ground",
+                "feature": "cargo_material",
+                "role": "construction.material",
+                "count": 1,
+                "placement": "Bei den LKWs",
+                "arrangement": "cluster",
+                "spacingM": 3,
+                "forwardM": 18,
+                "rightM": 25,
+                "hdgOffsetDeg": 0,
+                "notes": "Materialkisten für die Begehung."
+              }
+            ],
+            "roles": [
+              "construction.vehicle",
+              "vehicle.van",
+              "event.pavilion",
+              "person.ground_crew",
+              "marker.cone",
+              "utility.generator"
+            ],
+            "density": "normal",
+            "layout": "mixed",
+            "notes": "Die Szene konzentriert sich auf die Vorfläche am westlichen Portal, wobei die Fahrzeuge und der Pavillon die Hauptorientierungspunkte bilden."
+          },
+          "aiArrivalRaw": null,
+          "normalized": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": "Für den vorgesehenen Szenenort (portal_access) ist keine geeignete Stellfläche belegt. Die optionale Darstellung entfällt; der Auftrag bleibt unverändert."
+          },
+          "omissionReason": "Für den vorgesehenen Szenenort (portal_access) ist keine geeignete Stellfläche belegt. Die optionale Darstellung entfällt; der Auftrag bleibt unverändert.",
+          "aptArrivalPlan": null,
+          "localizationNotes": [
+            "Nutzt Site way/615246493 (Wiese/Offenland), da diese unmittelbar an das kartierte Tunnelende way/4789182/end-0 grenzt und somit die Portalvo"
+          ],
+          "validationNotes": [
+            "Gesamtzahl der Objekte liegt bei 19 (3 LKWs, 2 Vans, 1 Pavillon, 6 Personen, 5 Kegel, 1 Generator, 1 Material), was knapp über dem 'busy' Li",
+            "Alle Objekte auf ground-Surface platziert."
+          ],
+          "fallback": null,
+          "fallbackArrivalPlan": null,
+          "error": ""
+        }
+      },
+      "point": {
+        "lat": 48.28977,
+        "lon": 8.17377,
+        "altFt": 0,
+        "terrainPending": true,
+        "hdg": 0,
+        "name": "Sommerbergtunnel"
+      },
+      "items": [],
+      "validation": [],
+      "modelCalls": 0,
+      "errors": [],
+      "testMode": "recorded Gemini response through final app sanitizer; no new API call",
+      "geometrySource": "https://api.openstreetmap.org/api/0.6/map?bbox=8.162969155447355,48.28258351060007,8.184570844552644,48.296956489399925",
+      "limitations": [
+        "Satellite review is not a simulator spawn or collision test.",
+        "Mapped land use does not establish current occupancy."
+      ],
+      "geometryFixture": "tools/fixtures/poi-placement-correction-3.json.gz",
+      "geometrySummary": {
+        "schema": "poi-placement.v3",
+        "origin": {
+          "name": "Sommerbergtunnel",
+          "lat": 48.28977,
+          "lon": 8.17377,
+          "poiCategory": "road"
+        },
+        "shapes": 1784,
+        "sites": 18,
+        "anchors": [
+          {
+            "id": "way/4789182/end-0",
+            "type": "tunnel_end",
+            "sourceId": "way/4789182",
+            "x": -425,
+            "y": -21,
+            "note": "Kartiertes Ende des unterirdischen Straßenverlaufs; Portalfläche selbst nicht vermessen."
+          },
+          {
+            "id": "way/4789182/end-1",
+            "type": "tunnel_end",
+            "sourceId": "way/4789182",
+            "x": 639,
+            "y": -28,
+            "note": "Kartiertes Ende des unterirdischen Straßenverlaufs; Portalfläche selbst nicht vermessen."
+          }
+        ]
+      }
+    }
+  ],
+  "browserIntegration": {
+    "results": [
+      {
+        "task": "inspection_infra",
+        "scene": {
+          "preset": "",
+          "kind": "industry_site",
+          "features": [
+            "utility_truck",
+            "people"
+          ],
+          "requirements": [
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "",
+              "arrangement": "cluster",
+              "notes": "",
+              "forwardM": -60,
+              "rightM": 0,
+              "role": "vehicle.van",
+              "surface": "ground",
+              "siteId": "way/227100221"
+            },
+            {
+              "feature": "people",
+              "count": 1,
+              "placement": "",
+              "arrangement": "cluster",
+              "notes": "",
+              "forwardM": -20,
+              "rightM": -10,
+              "role": "person.ground_crew",
+              "surface": "ground",
+              "siteId": "way/227100221"
+            }
+          ],
+          "objectPolicy": "explicit-requirements",
+          "placementVersion": "poi-placement.v3",
+          "placementIntent": {
+            "use": "industrial_site",
+            "requiresPaved": false
+          },
+          "placementRequirement": {
+            "use": "industrial_site",
+            "requiresPaved": false
+          },
+          "roles": [
+            "vehicle.truck",
+            "vehicle.van",
+            "person.ground_crew"
+          ],
+          "density": "normal",
+          "layout": "",
+          "notes": ""
+        },
+        "point": {
+          "lat": 48.33255,
+          "lon": 8.04059,
+          "altFt": 644,
+          "terrainPending": false,
+          "hdg": 0,
+          "name": "Testziel"
+        },
+        "items": [
+          {
+            "kind": "feature_utility_truck_1_1",
+            "label": "Utility-/Servicefahrzeug",
+            "objectTitle": "Microsoft_Van_ASIA_02_Yellow",
+            "titleCandidates": [
+              "Microsoft_Van_ASIA_02_Yellow",
+              "Microsoft Van ASIA 02 Yellow",
+              "Microsoft_Van_EUR",
+              "Microsoft Van EUR",
+              "Microsoft_Van_ASIA_02",
+              "Microsoft Van ASIA 02",
+              "Microsoft_Van_ASIA_02_Brown",
+              "Microsoft Van ASIA 02 Brown",
+              "Microsoft_Van_EUR_Black",
+              "Microsoft Van EUR Black",
+              "Microsoft_Van_EUR_Blue",
+              "Microsoft Van EUR Blue",
+              "Microsoft_Van_EUR_Red",
+              "Microsoft Van EUR Red",
+              "Microsoft_Van_NA_Modern",
+              "Microsoft Van NA Modern",
+              "Microsoft_Van_NA_Modern_Green",
+              "Microsoft Van NA Modern Green",
+              "Van Europe",
+              "Van_Europe",
+              "Van NorthAm",
+              "Van_NorthAm"
+            ],
+            "forwardM": -60,
+            "rightM": 0,
+            "headingMode": "with_aircraft",
+            "hdgOffsetDeg": 0,
+            "altOffsetFt": 0,
+            "placementOverride": true
+          },
+          {
+            "kind": "feature_people_2_1",
+            "label": "Personen am Boden",
+            "objectTitle": "Tarmac_Female_Summer_Asian",
+            "titleCandidates": [
+              "Tarmac_Female_Summer_Asian",
+              "Tarmac Female Summer Asian",
+              "Marshaller_Female_Summer_African",
+              "Marshaller Female Summer African",
+              "Marshaller_Female_Summer_Arab",
+              "Marshaller Female Summer Arab",
+              "Marshaller_Female_Summer_Asian",
+              "Marshaller Female Summer Asian",
+              "Marshaller_Female_Summer_Caucasian",
+              "Marshaller Female Summer Caucasian",
+              "Marshaller_Female_Summer_Hispanic",
+              "Marshaller Female Summer Hispanic",
+              "Marshaller_Female_Summer_Indian",
+              "Marshaller Female Summer Indian",
+              "Marshaller_Female_Winter_African",
+              "Marshaller Female Winter African",
+              "Marshaller_Female_Winter_Arab",
+              "Marshaller Female Winter Arab",
+              "Marshaller_Female_Winter_Asian",
+              "Marshaller Female Winter Asian",
+              "Marshaller_Female_Winter_Caucasian",
+              "Marshaller Female Winter Caucasian",
+              "Marshaller_Female_Winter_Hispanic",
+              "Marshaller Female Winter Hispanic"
+            ],
+            "forwardM": -20,
+            "rightM": -10,
+            "headingMode": "with_aircraft",
+            "hdgOffsetDeg": 0,
+            "altOffsetFt": 0,
+            "placementOverride": true
+          }
+        ]
+      },
+      {
+        "task": "science_bio",
+        "scene": {
+          "preset": "",
+          "kind": "water_pollution",
+          "features": [
+            "watercraft"
+          ],
+          "requirements": [
+            {
+              "feature": "watercraft",
+              "count": 1,
+              "placement": "",
+              "arrangement": "cluster",
+              "notes": "",
+              "forwardM": 0,
+              "rightM": 0,
+              "role": "watercraft.tiny_boat",
+              "surface": "water",
+              "siteId": "way/1"
+            }
+          ],
+          "objectPolicy": "explicit-requirements",
+          "placementVersion": "poi-placement.v3",
+          "placementIntent": {
+            "use": "water_scene",
+            "requiresPaved": false
+          },
+          "placementRequirement": {
+            "use": "water_scene",
+            "requiresPaved": false
+          },
+          "roles": [
+            "watercraft.tiny_boat",
+            "watercraft.small_boat"
+          ],
+          "density": "normal",
+          "layout": "",
+          "notes": ""
+        },
+        "point": {
+          "lat": 48.33255,
+          "lon": 8.04059,
+          "altFt": 644,
+          "terrainPending": false,
+          "hdg": 0,
+          "name": "Testziel"
+        },
+        "items": [
+          {
+            "kind": "feature_watercraft_1_1",
+            "label": "kleine zivile Boote / See- und Uferaktivitaet",
+            "objectTitle": "boat01",
+            "titleCandidates": [
+              "boat01",
+              "boat02"
+            ],
+            "forwardM": 0,
+            "rightM": 0,
+            "headingMode": "with_aircraft",
+            "hdgOffsetDeg": 0,
+            "altOffsetFt": 0,
+            "placementOverride": true
+          }
+        ]
+      },
+      {
+        "task": "search_and_rescue",
+        "scene": {
+          "preset": "",
+          "kind": "sar_land",
+          "features": [
+            "missing_person"
+          ],
+          "requirements": [
+            {
+              "feature": "missing_person",
+              "count": 1,
+              "placement": "",
+              "arrangement": "cluster",
+              "notes": "",
+              "forwardM": 0,
+              "rightM": 0,
+              "role": "sar.person_target",
+              "surface": "forest",
+              "siteId": "way/1"
+            }
+          ],
+          "objectPolicy": "explicit-requirements",
+          "placementVersion": "poi-placement.v3",
+          "placementIntent": {
+            "use": "nature",
+            "requiresPaved": false
+          },
+          "placementRequirement": {
+            "use": "nature",
+            "requiresPaved": false
+          },
+          "roles": [
+            "sar.person_target",
+            "person.ground_crew"
+          ],
+          "density": "normal",
+          "layout": "",
+          "notes": ""
+        },
+        "point": {
+          "lat": 48.33255,
+          "lon": 8.04059,
+          "altFt": 644,
+          "terrainPending": false,
+          "hdg": 0,
+          "name": "Testziel"
+        },
+        "items": [
+          {
+            "kind": "feature_missing_person_1_1",
+            "label": "vermisste / winkende Person als Suchziel",
+            "objectTitle": "mmh_HikerRescue",
+            "titleCandidates": [
+              "mmh_HikerRescue",
+              "mmh HikerRescue",
+              "mmh_SkierRescue",
+              "mmh SkierRescue",
+              "mmh_ArcticRescue",
+              "mmh ArcticRescue"
+            ],
+            "forwardM": 0,
+            "rightM": 0,
+            "headingMode": "with_aircraft",
+            "hdgOffsetDeg": 0,
+            "altOffsetFt": 0,
+            "placementOverride": true
+          }
+        ]
+      },
+      {
+        "task": "inspection_infra",
+        "scene": {
+          "preset": "",
+          "kind": "industry_site",
+          "features": [
+            "utility_truck"
+          ],
+          "requirements": [
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "",
+              "arrangement": "cluster",
+              "notes": "",
+              "forwardM": 0,
+              "rightM": 600,
+              "role": "vehicle.van",
+              "surface": "ground",
+              "siteId": "way/2"
+            }
+          ],
+          "objectPolicy": "explicit-requirements",
+          "placementVersion": "poi-placement.v3",
+          "placementIntent": {
+            "use": "industrial_site",
+            "requiresPaved": false
+          },
+          "placementRequirement": {
+            "use": "industrial_site",
+            "requiresPaved": false
+          },
+          "roles": [
+            "vehicle.truck",
+            "vehicle.van"
+          ],
+          "density": "normal",
+          "layout": "",
+          "notes": ""
+        },
+        "point": {
+          "lat": 48.33255,
+          "lon": 8.04059,
+          "altFt": 644,
+          "terrainPending": false,
+          "hdg": 0,
+          "name": "Testziel"
+        },
+        "items": [
+          {
+            "kind": "feature_utility_truck_1_1",
+            "label": "Utility-/Servicefahrzeug",
+            "objectTitle": "Microsoft_Van_ASIA_02_Yellow",
+            "titleCandidates": [
+              "Microsoft_Van_ASIA_02_Yellow",
+              "Microsoft Van ASIA 02 Yellow",
+              "Microsoft_Van_EUR",
+              "Microsoft Van EUR",
+              "Microsoft_Van_ASIA_02",
+              "Microsoft Van ASIA 02",
+              "Microsoft_Van_ASIA_02_Brown",
+              "Microsoft Van ASIA 02 Brown",
+              "Microsoft_Van_EUR_Black",
+              "Microsoft Van EUR Black",
+              "Microsoft_Van_EUR_Blue",
+              "Microsoft Van EUR Blue",
+              "Microsoft_Van_EUR_Red",
+              "Microsoft Van EUR Red",
+              "Microsoft_Van_NA_Modern",
+              "Microsoft Van NA Modern",
+              "Microsoft_Van_NA_Modern_Green",
+              "Microsoft Van NA Modern Green",
+              "Van Europe",
+              "Van_Europe",
+              "Van NorthAm",
+              "Van_NorthAm"
+            ],
+            "forwardM": 0,
+            "rightM": 600,
+            "headingMode": "with_aircraft",
+            "hdgOffsetDeg": 0,
+            "altOffsetFt": 0,
+            "placementOverride": true
+          }
+        ]
+      }
+    ],
+    "modelCalls": 0,
+    "errors": []
+  },
+  "regression": {
+    "passed": 80,
+    "failed": 0
+  },
+  "iterationNotes": [
+    "Initial correction exposed missing placementIntent in output schema; fixed.",
+    "A tunnel retry changed portal_access to nature; purpose is now locked.",
+    "Initial valid industrial layouts had separated support groups; local planning pockets added.",
+    "Hausach then failed building/person clearances; verified local correction suggestions added; final live run accepted."
+  ],
+  "unverified": [
+    "Real MSFS rendering, terrain conformity and collisions",
+    "PAX speech against the newly accepted scene; earlier voice samples are not that proof"
+  ],
+  "releaseGate": "Not a claim of three uninterrupted first-pass live successes."
+}

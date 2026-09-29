@@ -8163,7 +8163,7 @@ function _missionTargetScenePoint(options = {}) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     const terrainFt = Number(md.poiTerrainFt ?? md.targetAltFt ?? poiWp?.altFt ?? poiWp?.elevFt);
     if (!Number.isFinite(terrainFt) && !allowMissingTerrain) return null;
-    let hdg = Number(md.heading);
+    let hdg = Number(truth?.sceneAnchor?.reason === 'reporter_picked_poi' ? truth.sceneAnchor.headingDeg : md.heading);
     if (!Number.isFinite(hdg) && wps[0] && typeof calcNav === 'function') {
         try {
             const nav = calcNav(Number(wps[0].lat), Number(wps[0].lng ?? wps[0].lon), lat, lon);
@@ -8405,7 +8405,7 @@ function _missionTargetSceneKind() {
 
 function _missionTargetSceneItem(kind, label, title, pool, forwardM, rightM, options = {}) {
     if (!title) return null;
-    const resolved = _missionTargetGeoResolveWorldOffset(kind, label, title, forwardM, rightM);
+    const resolved = options.reporterValidated ? {forwardM, rightM, adjusted:false} : _missionTargetGeoResolveWorldOffset(kind, label, title, forwardM, rightM);
     return {
         kind,
         label,
@@ -8667,6 +8667,7 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
     const spec = _missionTargetSceneSpec() || {};
     const out = [];
     const text = _missionTargetSceneText();
+    if (spec.objectPolicy === 'explicit-requirements') return [...new Set((spec.requirements || []).map(req => _missionTargetSceneNormalizeFeature(req.feature)).filter(Boolean))];
     const add = (feature) => {
         const normalized = _missionTargetSceneNormalizeFeature(feature);
         if (normalized && !out.includes(normalized)) out.push(normalized);
@@ -8750,6 +8751,7 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
 
 function _missionTargetSceneFeatureCount(feature) {
     const spec = _missionTargetSceneSpec() || {};
+    if (spec.objectPolicy === 'explicit-requirements') return Math.min(18, (spec.requirements || []).filter(req => _missionTargetSceneNormalizeFeature(req.feature) === feature).reduce((n, req) => n + Math.max(1, Math.min(6, Number(req.count) || 1)), 0));
     let count = 1;
     if (Array.isArray(spec.requirements)) {
         spec.requirements.forEach(req => {
@@ -8812,7 +8814,7 @@ function _missionTargetSceneFeaturePlacementOverride(feature, index = 0) {
         else if (/feldrand|wiesenrand|field edge|meadow edge/.test(placementLower)) anchorNames = ['meadow', 'farmland', 'road', 'parking', 'path'];
         else if (/lichtung|wiese|freiflaeche|freifläche|clearing|meadow/.test(placementLower)) anchorNames = ['meadow', 'farmland'];
         else if (/strasse|straße|road|weg|path|parking|parkplatz/.test(placementLower)) anchorNames = ['parking', 'road', 'path'];
-        if (anchorNames) {
+        if (anchorNames && spec.objectPolicy !== 'explicit-requirements') {
             const pos = _missionTargetGeoOffset(anchorNames, cluster.f, cluster.r, {
                 minM: 10,
                 maxM: 950,
@@ -8885,6 +8887,27 @@ function _missionTargetSceneItems(kind) {
     const serviceShipPool = _sceneUniqueTitles(MISSION_SCENE_ASSET_POOLS.serviceShips, MISSION_SCENE_ASSET_POOLS.largeShips);
     const debrisPool = MISSION_SCENE_ASSET_POOLS.debrisLight.concat(MISSION_SCENE_ASSET_POOLS.natureLogs);
     const aircraftWreckPool = MISSION_SCENE_ASSET_POOLS.aircraftWreck || [];
+    const explicitSpec = _missionTargetSceneSpec();
+    if (explicitSpec?.objectPolicy === 'explicit-requirements' && explicitSpec.requirements?.every(req => req.role)) {
+        const out = [];
+        const assets = window.MISSION_SCENE_ASSETS;
+        if (window.MissionReporterSceneCore.validate(explicitSpec, _missionTargetGeoContext()?.reporterPlacement, assets).length) return [];
+        for (const [groupIndex, req] of explicitSpec.requirements.entries()) {
+            const feature = assets?.targetSceneFeatures?.[req.feature];
+            if (!feature?.roles?.includes(req.role)) continue;
+            const pool = _sceneCatalogRoleMerge([req.role]);
+            if (!pool.length) continue;
+            const positions = window.MissionReporterSceneCore.offsets(req);
+            for (const [i, p] of positions.entries()) {
+                const title = _scenePickTitle(pool, `reporter-${groupIndex}-${i}`, pool[0]);
+                const item = _missionTargetSceneItem(`feature_${req.feature}_${groupIndex+1}_${i+1}`, feature.label, title, pool, p.y, p.x, {
+                    reporterValidated: true, placementOverride: true, placement:req.placement, hdgOffsetDeg:req.hdgOffsetDeg || 0
+                });
+                if (item) out.push(item);
+            }
+        }
+        return out.slice(0,18);
+    }
     const peoplePool = MISSION_SCENE_ASSET_POOLS.people;
     const markerPool = MISSION_SCENE_ASSET_POOLS.markers.includes(BOARDING_MARKER_TITLE)
         ? [BOARDING_MARKER_TITLE]
@@ -8898,7 +8921,7 @@ function _missionTargetSceneItems(kind) {
         if (item) items.push(item);
     };
     const addFeatureSupplement = (feature, count = 1) => {
-        const maxFeatureCount = (feature === 'pallet_stack' || feature === 'cargo_material' || feature === 'construction_material') ? 8 : (feature === 'cones' ? 8 : 6);
+        const maxFeatureCount = _missionTargetSceneSpec()?.objectPolicy === 'explicit-requirements' ? 18 : (feature === 'pallet_stack' || feature === 'cargo_material' || feature === 'construction_material') ? 8 : (feature === 'cones' ? 8 : 6);
         const safeCount = Math.max(1, Math.min(maxFeatureCount, Math.round(Number(count) || 1)));
         const arrangement = _missionTargetSceneFeatureArrangement(feature);
         let featureIndex = 0;
@@ -9044,6 +9067,15 @@ function _missionTargetSceneItems(kind) {
                     add(`feature_herd_${i + 1}_${h + 1}`, 'Zusatz Tiergruppe', animal, MISSION_SCENE_ASSET_POOLS.grazingAnimals, anchorBase.f + (h * 5), anchorBase.r + ((h % 3) * 4), { hdgOffsetDeg: 90 + (h * 25) });
                 }
                 break;
+            } else if (feature === 'pavilion' || window.MISSION_SCENE_ASSETS?.targetSceneFeatures?.[feature]?.assetKey) {
+                // Explicit catalogue-backed scene-prop only; never infer eligibility from names.
+                const spec = window.MISSION_SCENE_ASSETS.targetSceneFeatures[feature];
+                const pool = _sceneCatalogRoleMerge(spec?.roles || []);
+                if (pool.length) {
+                    const title = _scenePickTitle(pool, `feature-${feature}-${i}`, pool[0]);
+                    const pos = _missionSceneClusterOffset(i, -16, 14, 7);
+                    add(`feature_${feature}_${i + 1}`, spec.label || feature, title, pool, pos.f, pos.r, { hdgOffsetDeg: 0 });
+                }
             } else if (feature === 'tent') {
                 const tent = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.campTents, `feature-camp-tent-${i}`, 'LFPB_AS_Tent_01');
                 const pos = _missionTargetGeoOffset(['forest', 'meadow', 'water', 'path'], -16 - step, 10 + step, { minM: 18, maxM: 125, lateralM: i * 7, hdgOffsetDeg: 25 });
@@ -9123,7 +9155,7 @@ function _missionTargetSceneItems(kind) {
         }
     };
     const finish = () => {
-        const baseFeatureCounts = MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS[kind] || {};
+        const baseFeatureCounts = _missionTargetSceneSpec()?.objectPolicy === 'explicit-requirements' ? {} : (MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS[kind] || {});
         const explicitSurveyFeatures = kind === 'survey_context' ? _missionTargetSceneFeatureHintsFromSpec(kind) : null;
         _missionTargetSceneRequestedFeatures(kind).forEach(feature => {
             if (explicitSurveyFeatures && explicitSurveyFeatures.length && !explicitSurveyFeatures.includes(feature)) return;
@@ -9138,6 +9170,8 @@ function _missionTargetSceneItems(kind) {
         const maxItems = density === 'busy' ? 18 : (density === 'sparse' ? 9 : 14);
         return items.slice(0, maxItems);
     };
+
+    if (_missionTargetSceneSpec()?.objectPolicy === 'explicit-requirements') return finish();
 
     if (kind === 'construction_site') {
         const crane = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.constructionCranes, 'construction-crane', 'Truck Crane Small');
@@ -14913,7 +14947,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
