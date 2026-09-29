@@ -115,7 +115,7 @@
         for (const row of flight?.weather || []) {
             const scope = row.scope === 'departure' ? 'start' : 'target';
             if (text(row.station)) values[`${scope}.station`] = text(row.station, 20);
-            if (row.observedAt) values[`${scope}.observedAt`] = row.observedAt;
+            if (row.observedAt) values[`${scope}.observedAt`] = observationTime(row.observedAt);
             add(`${scope}.stationDistance`, row.stationDistanceNm === null ? null : Math.round(row.stationDistanceNm*10)/10, ' NM');
             add(`${scope}.ceiling`, row.ceilingFtAgl, ' Fuß über Grund');
             add(`${scope}.wind`, row.windKts, ' Knoten');
@@ -128,13 +128,25 @@
         }
         return values;
     }
+    function observationTime(value) {
+        const d=new Date(value);
+        if(!value||!Number.isFinite(d.getTime()))return value||'Beobachtungszeit unbekannt';
+        return `${d.getUTCDate()}.${d.getUTCMonth()+1}.${d.getUTCFullYear()}, ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')} UTC`;
+    }
+    function sameWeatherObservation(a,b) {
+        if(!a?.station||a.station!==b?.station||!a.observedAt||a.observedAt!==b.observedAt)return false;
+        const keys=['source','freshness','rawMetar','windDeg','windKts','gustKts','visibilityKm','ceilingFtAgl','cloudBaseFtAgl','cloudAmountOktas','cloudCoverPercent','weatherCode','clouds'];
+        return keys.every(k=>JSON.stringify(a[k]??null)===JSON.stringify(b[k]??null));
+    }
     function weatherFallback(flight, options={}){
      const number=v=>typeof v==='number'&&Number.isFinite(v);
      const fmt=v=>String(v).replace('.',',');
-     const rows=(flight?.weather||[]).map(w=>{
-      const label=w.scope==='departure'?'Start':options.targetLabel||'Ziel';
+     const weather=flight?.weather||[];
+     const combined=weather.length===2&&sameWeatherObservation(weather[0],weather[1]);
+     const rows=(combined?[weather[0]]:weather).map(w=>{
+      const label=combined?'Start und '+(options.targetLabel||'Ziel'):w.scope==='departure'?'Start':options.targetLabel||'Ziel';
       const location=w.station||'Station unbekannt';
-      const distance=number(w.stationDistanceNm)?`, ${fmt(Math.round(w.stationDistanceNm*10)/10)} NM vom Bezugspunkt`:'';
+      const distance=combined?` (${number(weather[0].stationDistanceNm)?fmt(Math.round(weather[0].stationDistanceNm*10)/10)+' NM vom Start':'Abstand zum Start unbekannt'}, ${number(weather[1].stationDistanceNm)?fmt(Math.round(weather[1].stationDistanceNm*10)/10)+' NM vom Ziel':'Abstand zum Ziel unbekannt'})`:number(w.stationDistanceNm)?`, ${fmt(Math.round(w.stationDistanceNm*10)/10)} NM vom Bezugspunkt`:'';
       const parts=[];
       if(number(w.windKts))parts.push(`Wind ${fmt(w.windKts)} kt`+(number(w.windDeg)?` aus ${fmt(w.windDeg)}°`:''));
       if(number(w.gustKts))parts.push(`Böen ${fmt(w.gustKts)} kt`);
@@ -143,13 +155,13 @@
       else if(number(w.cloudBaseFtAgl))parts.push(`Wolkenbasis ${fmt(w.cloudBaseFtAgl)} ft über Grund`);
       if(!parts.length&&!w.rawMetar)return `${label}: keine verwertbare Wetterbeobachtung.`;
       const age=w.freshness==='stale'?'ältere Meldung':w.freshness==='recent'?'':'Aktualität unbekannt';
-      const timing=[w.observedAt?`Beobachtung ${w.observedAt}`:'Beobachtungszeit unbekannt',age].filter(Boolean).join(', ');
+      const timing=[w.observedAt?`Meldung vom ${observationTime(w.observedAt)}`:'Beobachtungszeit unbekannt',age].filter(Boolean).join(', ');
       const missing=[];
       if(!number(w.windKts))missing.push('Wind');
       if(!number(w.gustKts))missing.push('Böen');
       if(!number(w.visibilityKm))missing.push('Sicht');
       if(!number(w.ceilingFtAgl)&&!number(w.cloudBaseFtAgl))missing.push('Wolkenhöhe');
-      return `${label} – ${location}${distance} (${timing}): ${parts.length?parts.join(', '):w.rawMetar}.`+(missing.length?` Ohne Zahlenangabe: ${missing.join(', ')}.`:'');
+      return (combined?`Für Start und ${options.targetLabel||'Ziel'} verwenden wir dieselbe Meldung von ${location}${distance}. ${timing}: ${parts.length?parts.join(', '):w.rawMetar}.`:`${label} – ${location}${distance} (${timing}): ${parts.length?parts.join(', '):w.rawMetar}.`)+(missing.length?` Zu ${missing.join(', ')} fehlen Angaben.`:'');
      });
      return rows.join(' ')+' Stationsbeobachtungen bei Erstellung, keine Strecken- oder Ankunftsprognose.';
     }
@@ -166,6 +178,7 @@
         const outside = template.replace(/\[\[[a-zA-Z.]+\]\]/g, '');
         if (/[\d\[\]]/.test(outside)) valid = false;
         for (const id of ['route.distance', 'start.gust', 'target.gust']) {
+            if (id==='target.gust'&&used.has('start.gust')&&sameWeatherObservation(flight.weather?.[0],flight.weather?.[1]))continue;
             if (values[id] !== undefined && !used.has(id)) valid = false;
         }
         return valid && rendered.length <= 850 ? text(rendered, 850) : '';
@@ -356,7 +369,7 @@ HISTORY: ${JSON.stringify(historyForIdea(rows))}`;
             flightBriefingStatus: flight ? 'accepted-bindings' : 'unavailable' } : null;
     }
     const api = { VERSION, WRITER_VERSION, PROMPT_REVISION, MODE_KEY, HISTORY_KEY, HISTORY_LIMIT, HISTORY_MAX_BYTES,
-        MEMORY_SCHEMA, mode, memory, history, recent, remember, frame, flightContext, flightBindings, resolveFlightBriefing, weatherFallback, ideaPrompt, validateIdea, writerPrompt, prose, proposalPrompt, proposals, proposalSnapshot, selectedProposal };
+        MEMORY_SCHEMA, mode, memory, history, recent, remember, frame, flightContext, flightBindings, resolveFlightBriefing, weatherFallback, sameWeatherObservation, ideaPrompt, validateIdea, writerPrompt, prose, proposalPrompt, proposals, proposalSnapshot, selectedProposal };
     root.MissionPrivateEpisodeV6 = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

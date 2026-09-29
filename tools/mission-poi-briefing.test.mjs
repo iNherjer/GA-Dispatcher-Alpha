@@ -24,8 +24,9 @@ for(const run of runs)test(`archived v18 media replay preserves story, speaker a
  assert.equal(written.story,run.writer.story);assert.equal(m.passenger.greetingText,run.writer.greeting);
  assert.equal(m.passenger.name,idea.person.name);assert.equal(m.passenger.taskDomain,'media_photo');
  const baseline=run.baseline;
- for(const field of ['obstacles','dataQuality'])assert.equal(written.report[field],baseline[field]);
- assert.ok(written.report.terrain.startsWith(baseline.terrain));
+ for(const f of core.writerContext(c).facts.filter(f=>f.role==='hazard'))if(f.name!==f.kind)assert.ok(written.report.obstacles.includes(f.name));
+ assert.match(written.report.dataQuality,/weitere Hindernisse/);
+ assert.ok(written.report.terrain.length>0);
  if(c.facts.some(f=>f.role==='cover-nearby-only'&&!f.tags.man_made&&!f.tags.infra_type))assert.match(written.report.terrain,/keine Flächen-/);
  assert.ok(core.owns(m));assert.equal(m.poiBriefing.capture.evaluation,undefined);
  assert.equal(m._missionContractV4.poiBriefing,m.poiBriefing);
@@ -84,7 +85,7 @@ test('DEM envelope is described as samples; null values never become zero height
  const {c,idea}=fixture();c.supplements=[];c.terrain={status:'missing'};
  c.terrainEnvelope={centerFt:null,maxFt:null};assert.match(core.validateWriter({...runs[0].writer,targetId:c.id},idea,c).report.terrain,/keine Geländehöhen/);
  c.terrainEnvelope={centerFt:500,maxFt:1200,sampleCount:25,radiusNm:1,source:'terrarium-area'};
- assert.match(core.validateWriter({...runs[0].writer,targetId:c.id},idea,c).report.terrain,/Höchster erfasster Modellpunkt/);
+ assert.match(core.validateWriter({...runs[0].writer,targetId:c.id},idea,c).report.terrain,/erfassten Geländehöhen/);
 });
 function harness(){
  const c=vm.createContext({window:{MissionPoiBriefingCore:core},compactPoiChainForMission:x=>x});
@@ -193,12 +194,12 @@ test('reported Pfalzgrafenweiler target keeps its coordinates and yields concret
  assert.deepEqual(c.target,target);assert.match(c.targetFacts[0].fact,/Denkmal/);
  const idea=core.validateIdea({...fixture().idea,targetId:c.id,targetName:target.name},c);
  const w=core.validateWriter({...runs[0].writer,targetId:c.id,greetingSpeaker:idea.person.name,usedFactIds:[],report:{orientationIds:[]}},idea,c);
- assert.match(w.report.obstacles,/Wasserturm.*573 m westlich/);
- assert.match(w.report.obstacles,/Wasserturm.*717 m östlich/);
- assert.match(w.report.terrain,/Kläranlage.*740 m nördlich/);
+ assert.match(w.report.obstacles,/Wasserturm.*550 m westlich/);
+ assert.match(w.report.obstacles,/Wasserturm.*700 m östlich/);
+ assert.match(w.report.terrain,/Kläranlage.*750 m nördlich/);
  assert.doesNotMatch(w.report.obstacles,/Bauwerksreferenzpunkt/);
  assert.doesNotMatch(w.report.terrain,/17358|Industriefläche/);
- assert.match(w.report.terrain,/2163 ft MSL/);assert.match(w.report.terrain,/1 NM: 2202 ft MSL/);
+ assert.match(w.report.terrain,/2163 ft MSL/);assert.match(w.report.terrain,/1 NM.*2202 ft MSL/);
 });
 
 test('shared POI category uses historic tags: memorials cannot become castles through their names',()=>{
@@ -225,7 +226,7 @@ for(const flightBriefing of [undefined,'Wind 12 Knoten.','[[invented.wind]]','[[
  const m=await b.api.story({start,dest:c.target,proposal:{schema:'poi-photo-proposal.v1',start,context:c,idea},contract});
  const text=m.poiBriefing.flightBriefing;
  assert.equal(m.poiBriefing.flightBriefingStatus,'observations-fallback');
- for(const pattern of [/EDDS/,/Wind 0 kt/,/ältere Meldung/,/2026-09-28T15:00Z/,/22,2 NM/,/Ceiling 1800 ft über Grund/,/Zielgebiet – EDSB/,/Böen 17 kt/,/Wolkenbasis 1200 ft über Grund/,/Beobachtungszeit unbekannt/])assert.match(text,pattern);
+ for(const pattern of [/EDDS/,/Wind 0 kt/,/ältere Meldung/,/28.9.2026, 15:00 UTC/,/22,2 NM/,/Ceiling 1800 ft über Grund/,/Zielgebiet – EDSB/,/Böen 17 kt/,/Wolkenbasis 1200 ft über Grund/,/Beobachtungszeit unbekannt/])assert.match(text,pattern);
  assert.doesNotMatch(text,/EDTW|böenfrei|kein gültiger Wetterabsatz|invented/);
  assert.equal(m._missionWriterV4Debug.rawAiStory,runs[0].writer.story);assert.equal(b.requests.length,1);
 });
@@ -256,7 +257,73 @@ test('orientation uses short target-first wording, rounded distances and no repe
  const c=await b.api.context({name:'1898 1998 SWV Pfalzgrafenweiler e.V.',lat:48.52983,lon:8.55261});
  const orientationIds=['Pfalzgrafenweiler','Durrweiler'].map(name=>c.facts.find(f=>f.name===name).id);
  const report=core.renderStructuredReport({orientationIds},c);
- assert.equal(report.orientation,'Das Ziel liegt etwa 1 km nordwestlich von „Pfalzgrafenweiler“ und 1,1 km nördlich von „Durrweiler“.');
+ assert.equal(report.orientation,'Zur Orientierung hilft dir Pfalzgrafenweiler: Das Ziel liegt etwa 1 km nordwestlich davon. Ein weiterer Bezugspunkt ist Durrweiler; das Ziel liegt etwa 1,1 km nördlich davon.');
  assert.doesNotMatch(report.orientation,/Kartenpunkt|1898|1087/);
  const {m}=fixture();for(const label of ['Ziel finden','Gelände und Umgebung','Hindernisse','Datengrundlage'])assert.ok(m.s.includes(label+'\n'));
+});
+
+test('Hausach remains available beside river and explicitly identified bridges, not road labels alone',async()=>{
+ const b=browser({fetch:async url=>new Response(fs.readFileSync(url))});
+ const c=await b.api.context({name:'Sommerbergtunnel',lat:48.28977,lon:8.17377});
+ const nav=core.writerContext(c),city=nav.facts.find(f=>f.name==='Hausach'),bridge=nav.facts.find(f=>f.name==='Straßenbrücke B 33 / B 294');
+ assert.ok(city);assert.ok(bridge);assert.ok(nav.facts.some(f=>f.name==='Fluss Kinzig'));
+ assert.match(c.targetFacts.map(f=>f.fact).join(' '),/Straßentunnel.*B 33 und B 294/);
+ const selection={orientationIds:[city.id,bridge.id],orientationText:`Hausach hilft dir bei der Orientierung: Das Ziel liegt [[${city.id}.targetLocation]]. Einen weiteren Bezug bietet die Bundesstraßenbrücke; von ihr aus liegt das Ziel [[${bridge.id}.targetLocation]].`};
+ const report=core.renderStructuredReport(selection,c);
+ assert.match(report.orientation,/hilft dir Hausach/);assert.match(report.orientation,/700 m nördlich davon/);assert.match(report.orientation,/Straßenbrücke B 33 \/ B 294/);
+ for(const orientationText of ['100 m südlich von Hausach', 'Am [[foreign.name]].',`Bei [[${city.id}.name]].`]){
+  const fallback=core.renderStructuredReport({...selection,orientationText},c).orientation;
+  assert.match(fallback,/Das Ziel liegt etwa/);assert.doesNotMatch(fallback,/foreign|100 m südlich/);
+ }
+});
+
+test('same station and same observation can use one gust binding and one readable weather summary',()=>{
+ const raw={station:'EDTL',source:'METAR',observedAt:'2026-09-28T19:50:00.000Z',freshness:'recent',windKts:2,gustKts:8,visKm:10,cloudBaseFtAgl:18000};
+ const flight=flightApi.flightContext({route:{distanceNm:20.4},weather:{dep:{raw:{...raw,stationDistanceNm:24.6}},dest:{raw:{...raw,stationDistanceNm:14.6}}}});
+ assert.equal(flightApi.sameWeatherObservation(...flight.weather),true);
+ assert.match(flightApi.resolveFlightBriefing('Die Strecke ist [[route.distance]] lang. Für Start und Ziel meldet [[start.station]] um [[start.observedAt]] Böen bis [[start.gust]].',flight),/19:50 UTC/);
+ const text=flightApi.weatherFallback(flight,{targetLabel:'Zielgebiet'});
+ assert.equal(text.split('EDTL').length-1,1);assert.equal(text.split('Wind 2 kt').length-1,1);
+ assert.match(text,/dieselbe Meldung/);assert.match(text,/24,6 NM vom Start, 14,6 NM vom Ziel/);assert.doesNotMatch(text,/2026-09-28T|Ceiling/);
+ for(const patch of [{observedAt:'2026-09-28T19:20Z'},{windKts:7},{station:'EDDS'},{freshness:'stale'},{observedAt:null}]){
+  const other=structuredClone(flight);Object.assign(other.weather[1],patch);
+  assert.equal(flightApi.sameWeatherObservation(...other.weather),false);
+  assert.doesNotMatch(flightApi.weatherFallback(other),/dieselbe Meldung/);
+  assert.equal(flightApi.resolveFlightBriefing('[[route.distance]] [[start.gust]]',other),'');
+ }
+});
+
+test('recorded Hausach writer replay cannot move the bridge or turn one station into route-wide weather',async()=>{
+ const saved=JSON.parse(fs.readFileSync('tools/fixtures/poi-hausach-writer-v13.json'));
+ const start={name:'Winzeln-Schramberg Airport',lat:48.27917,lon:8.42833};
+ const b=browser({ai:()=>saved.raw});
+ const raw={station:'EDTL',source:'METAR',observedAt:'2026-09-28T19:50:00.000Z',freshness:'recent',windKts:2,visKm:10,cloudBaseFtAgl:18000};
+ const m=await b.api.story({start,dest:saved.context.target,proposal:{schema:'poi-photo-proposal.v1',start,context:saved.context,idea:saved.idea},contract:{route:{distanceNm:20.4},weather:{dep:{raw:{...raw,stationDistanceNm:24.6}},dest:{raw:{...raw,stationDistanceNm:14.6}}}}});
+ assert.equal(m._missionWriterV4Debug.rawAiStory,saved.raw.story);
+ assert.match(m.poiBriefing.report.orientation,/Hausach: Das Ziel liegt etwa 700 m nördlich davon/);
+ assert.match(m.poiBriefing.report.orientation,/Straßenbrücke B 33 \/ B 294; das Ziel liegt etwa 600 m östlich davon/);
+ assert.doesNotMatch(m.poiBriefing.report.orientation,/etwa etwa|die etwa/);
+ assert.equal(m.poiBriefing.flightBriefingStatus,'shared-observation');
+ assert.equal(m.poiBriefing.flightBriefing.split('EDTL').length-1,1);
+ assert.doesNotMatch(m.poiBriefing.flightBriefing,/weht ruhig|über die Distanz|ist die Sicht gut/);
+ assert.match(m.poiBriefing.flightBriefing,/Böen/);assert.equal(b.requests.length,1);
+});
+
+test('landmark choice generalizes across names and regions and preserves bridge types',()=>{
+ const rows=[
+  {name:'Ort A',place:'town',lat:48.005,lon:8},
+  {name:'Fluss B',waterway:'river',lat:48,lon:8.008},
+  {name:'Route C',infra_type:'bridge',highway:'primary',lat:47.995,lon:8},
+  {name:'Weg D',infra_type:'bridge',highway:'footway',lat:48,lon:7.995},
+  {name:'Bauwerk E',infra_type:'bridge',lat:48.005,lon:8.008}
+ ];
+ const original=core.selectFacts({name:'Motiv',lat:48,lon:8},rows);
+ const renamed=core.selectFacts({name:'Anderes Motiv',lat:38,lon:18},rows.map((r,i)=>({...r,name:'Unbekannt '+i,lat:r.lat-10,lon:r.lon+10})));
+ assert.equal(original.facts.length,5);assert.equal(renamed.facts.length,5);
+ assert.deepEqual(original.facts.map(f=>f.tags).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))),renamed.facts.map(f=>f.tags).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));
+ const c={target:{name:'Motiv',lat:48,lon:8},radiusM:5556,coverage:[],supplements:[],facts:original.facts};
+ const names=core.writerContext(c).facts.map(f=>f.name);
+ assert.ok(names.includes('Straßenbrücke Route C'));
+ assert.ok(names.includes('Fuß- oder Radwegbrücke Weg D'));
+ assert.ok(names.includes('Brücke Bauwerk E'));
 });

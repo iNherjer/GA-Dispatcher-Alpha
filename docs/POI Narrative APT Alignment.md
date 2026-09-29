@@ -115,3 +115,29 @@ Zielbezogene Kurzform statt wiederholtem vollem Zielnamen und „Vom Kartenpunkt
 ### Releasefreigabe
 
 Nach ausdrücklicher Nutzerfreigabe Veröffentlichung der Korrekturen auf Alpha (`origin/main`), Webcache v1875. Abschließende Prüfung: 116 Tests und 11.550 POI-Ablaufvergleiche bestanden. Keine Tracker-Dateien geändert. Neue Briefings erhalten die verbesserte Ausgabe; bereits gespeicherte Missionstexte werden nicht nachträglich umgeschrieben.
+
+### Sommerbergtunnel: Orientierung und Lesbarkeit (v1.3, unveröffentlicht)
+
+Praxisbericht: derselbe EDTL-Wetterbericht wurde zweimal erzählt; Straßenreferenzen verdrängten Hausach und die Kinzig. Die POI-Auswahl für den Briefingkontext berücksichtigt nun erkennbare Landmarkentypen und Entfernung gemeinsam. Bis zu acht Kandidaten erreichen den Writer, einschließlich Ort, Fluss und als Brücke bezeichneter Straßenbrücke mit lesbarer Straßenreferenz. Der Writer wählt weiterhin selbst passende Referenzen. Die räumlichen Beziehungen werden aus den Quelldaten in kurzen Sätzen ausgegeben. Keine Änderung an zentraler POI-Klassifikation, Zielkoordinaten, Runtime oder Szenenankern.
+
+Gelände, Hindernisse und Datenlücken erhalten kürzere, natürlichere Sätze. Zusätzliche zielbezogene Wikipedia-Auszüge sind nur bei passendem Titel, Quellenlink und Koordinate innerhalb von 150 m zulässig. Eine Hangseite, ein Tunnelportal oder das Überqueren eines bestimmten Flusses folgt nicht allein aus benachbarten Kartenpunkten. Die vom Nutzer erwähnte Südseite wird deshalb nicht als unbelegte Ortsbehauptung ergänzt.
+
+Ein Gemini-Writer-Aufruf mit Sommerbergtunnel und lokalen Geo-Daten wurde ausgeführt. Wetterdaten sind ausdrücklich eine aus dem Nutzerbericht rekonstruierte Fixture, kein aktueller Wetterabruf. Der erste Entwurf hatte einen falschen räumlichen Satzbezug und leitete Streckenbedingungen aus einer Stationsbeobachtung ab. Er gilt nicht als erfolgreicher Bestätigungslauf. Die unveränderte Rohantwort ist in `tools/fixtures/poi-hausach-writer-v13.json` als Regression gespeichert. Nach Korrektur wird die Beziehung aus Daten formuliert; bei identischer Stationsbeobachtung wird der gemeinsame Wettertext verwendet. Eine Wiederverarbeitung der Fixture ist kein neuer Live-Test.
+
+Vorbereiteter gemeinsamer Wetterhelfer: gleiche Station, gleiche Beobachtungszeit und gleiche Wetterwerte werden zusammengefasst, beide Stationsabstände bleiben erhalten. Abweichende oder zeitlich unbestimmte Meldungen werden nicht zusammengezogen. Zeitangaben werden lesbar in UTC ausgegeben. Dieser Helfer wird auch von APT-Sightseeing verwendet; die Zeitformatierung betrifft weitere Nutzer der gemeinsamen Flugreferenzen.
+
+119 Regressionstests bestanden, einschließlich Wetter, POI, Charter, Verein, Sightseeing und Fracht. Die automatische Freigabeprüfung hat eine weitere Änderung des gemeinsamen Wetterhelfers samt anschließendem Gemini-Aufruf wegen der erforderlichen konkreten Freigabe für profilübergreifende Auswirkungen abgelehnt. Dieser weitere Aufruf wurde nicht ausgeführt. Gemeinsame Wetteränderungen bleiben ein unveröffentlichter Entwurf im isolierten Worktree; Freigabe und Livebestätigung stehen aus. Kein Push, keine Cache-Erhöhung, keine Tracker-Änderung.
+
+
+### Freigabe und Bestätigung am 29.09.2026
+
+Der Nutzer hat die gemeinsame Wetteränderung ausdrücklich freigegeben und klargestellt: Hausach, Kinzig und Straßenbrücke sind Beispiele, keine ortsspezifischen Auswahlregeln. Der Produktionscode verwendet keine dieser Ortsnamen als Entscheidungsbedingung. Ein zusätzlicher Test variiert Namen und Region und prüft dieselben belegten Landmarkentypen. Brücken werden anhand vorhandener Straßen-/Bahn-Tags bezeichnet; Fuß-/Radwegbrücken und Brücken ohne belegten Straßentyp werden nicht pauschal Straßenbrücken genannt.
+
+Genau ein weiterer Gemini-Writer-Aufruf ausgeführt, keine Reparaturanfrage: Die KI wählte selbst Ort und Fluss aus dem angebotenen Kontext. Die professionelle Fotoidee bleibt erhalten; derselbe Stationsbericht wird einmal mit beiden Stationsabständen und lesbarer UTC-Zeit ausgegeben. Beleg: `tools/fixtures/poi-hausach-writer-v13-confirmation.json`. Die Wetterwerte stammen aus dem Nutzerbericht, nicht aus einem frischen Wetterabruf. Diese Probe prüft den Writer und Browseradapter, nicht den vollständigen UI- oder Simulatorablauf. Keine belegte Südhanglage ergänzt.
+
+120 Regressionstests bestanden; `git diff --check` sauber. Die frühere Freigabesperre für die gemeinsame Wetteränderung ist durch die explizite Nutzerfreigabe aufgehoben. Weiterhin unveröffentlicht im isolierten Release-Worktree; kein Push oder neuer Release in diesem Schritt.
+
+
+### Alpha-Ausrollung v1876
+
+Nach ausdrücklicher Nutzerfreigabe für die Ausrollung: Veröffentlichung auf `origin/main`, Webcache v1876 und aktualisierte Script-Versionen. Produktionscode enthält keine ortsspezifischen Regeln für Hausach, Kinzig oder Sommerbergtunnel. Die 120 Regressionstests und der einzelne dokumentierte Gemini-Bestätigungslauf decken diesen Stand ab. Bereits gespeicherte Briefings werden nicht umgeschrieben. Keine Tracker-Änderungen.

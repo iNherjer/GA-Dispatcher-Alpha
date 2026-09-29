@@ -1,0 +1,659 @@
+{
+  "provenance": "First v1.3 live writer, preserved unchanged. Replay verifies the subsequent source-bound rendering correction; not a second live success. Weather in the probe was reconstructed from the user report.",
+  "context": {
+    "id": "poi:48.289770:8.173770",
+    "target": {
+      "name": "Sommerbergtunnel",
+      "lat": 48.28977,
+      "lon": 8.17377
+    },
+    "radiusM": 5556,
+    "counts": {
+      "nearby": 846,
+      "obstacleRecords": 103,
+      "landmarkRecords": 198,
+      "coverRecords": 7
+    },
+    "facts": [
+      {
+        "id": "f1",
+        "name": "Hausach",
+        "role": "orientation",
+        "lat": 48.28363,
+        "lon": 8.17497,
+        "relativeToTarget": {
+          "distanceM": 688,
+          "bearingDeg": 173,
+          "direction": "Süden"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 688,
+          "bearingDeg": 353,
+          "direction": "Norden"
+        },
+        "tags": {
+          "place": "town"
+        },
+        "source": "obstacles/poi-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f2",
+        "name": "Kinzig",
+        "role": "orientation",
+        "lat": 48.28584,
+        "lon": 8.17293,
+        "relativeToTarget": {
+          "distanceM": 441,
+          "bearingDeg": 188,
+          "direction": "Süden"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 441,
+          "bearingDeg": 8,
+          "direction": "Norden"
+        },
+        "tags": {
+          "type": "river"
+        },
+        "source": "obstacles/core-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f3",
+        "name": "B 33;B 294",
+        "role": "orientation",
+        "lat": 48.28909,
+        "lon": 8.16607,
+        "relativeToTarget": {
+          "distanceM": 575,
+          "bearingDeg": 262,
+          "direction": "Westen"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 575,
+          "bearingDeg": 82,
+          "direction": "Osten"
+        },
+        "tags": {
+          "infra_type": "bridge",
+          "highway": "primary",
+          "ref": "B 33;B 294",
+          "bridge": "yes"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f4",
+        "name": "Kinzig Nebenlauf Kanal",
+        "role": "orientation",
+        "lat": 48.28488,
+        "lon": 8.17763,
+        "relativeToTarget": {
+          "distanceM": 614,
+          "bearingDeg": 152,
+          "direction": "Südosten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 614,
+          "bearingDeg": 332,
+          "direction": "Nordwesten"
+        },
+        "tags": {
+          "type": "river"
+        },
+        "source": "obstacles/core-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f5",
+        "name": "Kanal",
+        "role": "orientation",
+        "lat": 48.28451,
+        "lon": 8.17,
+        "relativeToTarget": {
+          "distanceM": 648,
+          "bearingDeg": 205,
+          "direction": "Südwesten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 648,
+          "bearingDeg": 25,
+          "direction": "Nordosten"
+        },
+        "tags": {
+          "type": "river"
+        },
+        "source": "obstacles/core-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f6",
+        "name": "Burg Husen",
+        "role": "orientation",
+        "lat": 48.28294,
+        "lon": 8.16782,
+        "relativeToTarget": {
+          "distanceM": 878,
+          "bearingDeg": 210,
+          "direction": "Südwesten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 878,
+          "bearingDeg": 30,
+          "direction": "Nordosten"
+        },
+        "tags": {
+          "historic": "castle",
+          "place": "locality"
+        },
+        "source": "obstacles/poi-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f7",
+        "name": "B 33",
+        "role": "orientation",
+        "lat": 48.28532,
+        "lon": 8.19081,
+        "relativeToTarget": {
+          "distanceM": 1354,
+          "bearingDeg": 111,
+          "direction": "Osten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 1354,
+          "bearingDeg": 291,
+          "direction": "Westen"
+        },
+        "tags": {
+          "infra_type": "bridge",
+          "highway": "primary",
+          "ref": "B 33",
+          "bridge": "yes"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f8",
+        "name": "Osterberg",
+        "role": "orientation",
+        "lat": 48.29937,
+        "lon": 8.18836,
+        "relativeToTarget": {
+          "distanceM": 1518,
+          "bearingDeg": 45,
+          "direction": "Nordosten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 1518,
+          "bearingDeg": 225,
+          "direction": "Südwesten"
+        },
+        "tags": {
+          "natural": "peak"
+        },
+        "source": "obstacles/poi-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f9",
+        "name": "",
+        "role": "hazard",
+        "lat": 48.29032,
+        "lon": 8.17531,
+        "relativeToTarget": {
+          "distanceM": 129,
+          "bearingDeg": 62,
+          "direction": "Nordosten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 129,
+          "bearingDeg": 242,
+          "direction": "Südwesten"
+        },
+        "tags": {
+          "man_made": "tower",
+          "infra_type": "telecom"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f10",
+        "name": "",
+        "role": "hazard",
+        "lat": 48.28677,
+        "lon": 8.16638,
+        "relativeToTarget": {
+          "distanceM": 640,
+          "bearingDeg": 239,
+          "direction": "Südwesten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 640,
+          "bearingDeg": 59,
+          "direction": "Nordosten"
+        },
+        "tags": {
+          "man_made": "tower",
+          "infra_type": "telecom"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f11",
+        "name": "",
+        "role": "hazard",
+        "lat": 48.28565,
+        "lon": 8.17992,
+        "relativeToTarget": {
+          "distanceM": 646,
+          "bearingDeg": 135,
+          "direction": "Südosten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 646,
+          "bearingDeg": 315,
+          "direction": "Nordwesten"
+        },
+        "tags": {
+          "man_made": "tower",
+          "infra_type": "telecom"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f12",
+        "name": "",
+        "role": "hazard",
+        "lat": 48.29705,
+        "lon": 8.16865,
+        "relativeToTarget": {
+          "distanceM": 894,
+          "bearingDeg": 335,
+          "direction": "Nordwesten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 894,
+          "bearingDeg": 155,
+          "direction": "Südosten"
+        },
+        "tags": {
+          "power": "minor_line",
+          "infra_type": "power_grid"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f13",
+        "name": "",
+        "role": "hazard",
+        "lat": 48.28438,
+        "lon": 8.18337,
+        "relativeToTarget": {
+          "distanceM": 929,
+          "bearingDeg": 130,
+          "direction": "Südosten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 929,
+          "bearingDeg": 310,
+          "direction": "Nordwesten"
+        },
+        "tags": {
+          "man_made": "mast"
+        },
+        "source": "obstacles/poi-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f14",
+        "name": "",
+        "role": "hazard",
+        "lat": 48.29938,
+        "lon": 8.16947,
+        "relativeToTarget": {
+          "distanceM": 1115,
+          "bearingDeg": 343,
+          "direction": "Norden"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 1115,
+          "bearingDeg": 163,
+          "direction": "Süden"
+        },
+        "tags": {
+          "type": "powerline"
+        },
+        "source": "obstacles/core-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f15",
+        "name": "",
+        "role": "hazard",
+        "lat": 48.2986,
+        "lon": 8.16544,
+        "relativeToTarget": {
+          "distanceM": 1159,
+          "bearingDeg": 328,
+          "direction": "Nordwesten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 1159,
+          "bearingDeg": 148,
+          "direction": "Südosten"
+        },
+        "tags": {
+          "type": "powerline"
+        },
+        "source": "obstacles/core-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f16",
+        "name": "",
+        "role": "hazard",
+        "lat": 48.30072,
+        "lon": 8.1762,
+        "relativeToTarget": {
+          "distanceM": 1231,
+          "bearingDeg": 8,
+          "direction": "Norden"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 1231,
+          "bearingDeg": 188,
+          "direction": "Süden"
+        },
+        "tags": {
+          "power": "minor_line",
+          "infra_type": "power_grid"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f17",
+        "name": "",
+        "role": "cover-nearby-only",
+        "lat": 48.29178,
+        "lon": 8.16654,
+        "relativeToTarget": {
+          "distanceM": 580,
+          "bearingDeg": 293,
+          "direction": "Nordwesten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 580,
+          "bearingDeg": 113,
+          "direction": "Südosten"
+        },
+        "tags": {
+          "landuse": "industrial",
+          "infra_type": "industrial"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f18",
+        "name": "Betonwerk Uhl",
+        "role": "cover-nearby-only",
+        "lat": 48.28529,
+        "lon": 8.14709,
+        "relativeToTarget": {
+          "distanceM": 2036,
+          "bearingDeg": 256,
+          "direction": "Westen"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 2036,
+          "bearingDeg": 76,
+          "direction": "Osten"
+        },
+        "tags": {
+          "landuse": "industrial",
+          "infra_type": "industrial"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f19",
+        "name": "",
+        "role": "cover-nearby-only",
+        "lat": 48.27074,
+        "lon": 8.20164,
+        "relativeToTarget": {
+          "distanceM": 2955,
+          "bearingDeg": 136,
+          "direction": "Südosten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 2955,
+          "bearingDeg": 316,
+          "direction": "Nordwesten"
+        },
+        "tags": {
+          "landuse": "industrial",
+          "infra_type": "industrial"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      },
+      {
+        "id": "f20",
+        "name": "",
+        "role": "cover-nearby-only",
+        "lat": 48.26782,
+        "lon": 8.20198,
+        "relativeToTarget": {
+          "distanceM": 3212,
+          "bearingDeg": 139,
+          "direction": "Südosten"
+        },
+        "targetRelativeToFeature": {
+          "distanceM": 3212,
+          "bearingDeg": 319,
+          "direction": "Nordwesten"
+        },
+        "tags": {
+          "landuse": "industrial",
+          "infra_type": "industrial"
+        },
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "generatedAt": "2026-07-06T08:23:08Z",
+        "geometry": "representative-point",
+        "heightFt": null,
+        "heightStatus": "not-verified",
+        "storedHeightFt": null
+      }
+    ],
+    "limitations": [
+      "Repräsentative Punkte belegen keine Flächengrenzen oder Linienverläufe.",
+      "Gespeicherte Hindernishöhen ohne Herkunftsnachweis werden nicht als bestätigte Höhen verwendet.",
+      "Trefferliste ist eine begrenzte Auswahl; fehlende Treffer beweisen keine Hindernisfreiheit.",
+      "Keine Prüfung der Sichtbarkeit in der MSFS-Szenerie; keine Freigabe eines Flugwegs."
+    ],
+    "coverage": [
+      {
+        "source": "obstacles/poi-tiles/331/451.json.gz",
+        "status": "loaded",
+        "generatedAt": "2026-07-06T08:23:08Z"
+      },
+      {
+        "source": "obstacles/core-tiles/331/451.json.gz",
+        "status": "loaded",
+        "generatedAt": "2026-07-06T08:23:08Z"
+      },
+      {
+        "source": "obstacles/infra-tiles/331/451.json.gz",
+        "status": "loaded",
+        "generatedAt": "2026-07-06T08:23:08Z"
+      },
+      {
+        "source": "obstacles/poi-tiles/332/451.json.gz",
+        "status": "loaded",
+        "generatedAt": "2026-07-06T08:24:06Z"
+      },
+      {
+        "source": "obstacles/core-tiles/332/451.json.gz",
+        "status": "loaded",
+        "generatedAt": "2026-07-06T08:24:06Z"
+      },
+      {
+        "source": "obstacles/infra-tiles/332/451.json.gz",
+        "status": "loaded",
+        "generatedAt": "2026-07-06T08:24:06Z"
+      }
+    ],
+    "targetFacts": [
+      {
+        "id": "target-kind",
+        "fact": "Sommerbergtunnel ist in der lokalen Datenbank als Straßentunnel kartiert.",
+        "source": "obstacles/infra-tiles/331/451.json.gz"
+      },
+      {
+        "id": "target-road",
+        "fact": "Durch den Tunnel verlaufen die Straßen B 33 und B 294. Der gespeicherte Zielpunkt beschreibt das Bauwerk, kein bestimmtes Portal.",
+        "source": "obstacles/infra-tiles/331/451.json.gz"
+      }
+    ],
+    "supplements": [],
+    "terrain": {
+      "status": "missing"
+    },
+    "terrainEnvelope": null,
+    "task": {
+      "recipe": "poi_on_task",
+      "passengers": 1,
+      "return": "home"
+    }
+  },
+  "idea": {
+    "schema": "poi-photo-idea.v1",
+    "targetId": "poi:48.289770:8.173770",
+    "targetName": "Sommerbergtunnel",
+    "taskDomain": "media_photo",
+    "situation": "Lukas bereitet eine Reportage über Verkehrswege im Schwarzwald für sein Online-Magazin vor.",
+    "intent": "Er möchte Übersichtsfotos der sichtbaren Einfahrtsbereiche für das Titelbild seiner Reportage machen.",
+    "person": {
+      "name": "Lukas Meerstein",
+      "role": "Regionaler Online-Journalist",
+      "relationshipToPilot": "Schulfreund"
+    },
+    "technicalContract": {
+      "targetId": "poi:48.289770:8.173770",
+      "targetName": "Sommerbergtunnel",
+      "pilotRole": "Flugzeug führen",
+      "passengerRole": "Fotos oder Videos der sichtbaren Zielbereiche aufnehmen",
+      "mode": "external_overview",
+      "deliverable": "target_photos_or_video",
+      "detailResolution": "not_guaranteed",
+      "completion": "on_task_then_return_home"
+    }
+  },
+  "raw": {
+    "targetId": "poi:48.289770:8.173770",
+    "title": "Perspektiven für das Online-Magazin",
+    "story": "Dein Schulfreund Lukas Meerstein plant einen Artikel über die regionale Infrastruktur für sein Online-Magazin. Er möchte den Sommerbergtunnel, durch den die B 33 und die B 294 führen, fotografisch dokumentieren. Sein Ziel sind ausdrucksstarke Übersichtsfotos der sichtbaren Einfahrtsbereiche, die er als Anschauungsmaterial für seine Leser benötigt. Ihr fliegt gemeinsam dorthin, damit er die Kamera in Ruhe auf das Tunnelbauwerk richten kann. Lukas hofft auf gute Lichtverhältnisse für seine Aufnahmen, bevor ihr die Heimreise antretet. Nach getaner Arbeit am Zielort führt der Flug euch beide wieder direkt zum Ausgangspunkt zurück.",
+    "greetingSpeaker": "Lukas Meerstein",
+    "greeting": "Hallo! Danke, dass du mich heute mitnimmst. Für meine Reportage über die Verkehrswege hier im Schwarzwald fehlen mir noch die richtigen Bilder vom Sommerbergtunnel – das wird ein klasse Titelmotiv.",
+    "flightBriefing": "Die Meldung der Station [[start.station]] vom [[start.observedAt]] deckt sowohl den Start als auch das Zielgebiet ab. Bei einer Sichtweite von [[start.visibility]] und einer Wolkenuntergrenze von [[start.cloudBase]] ist die Sicht gut. Der Wind weht ruhig mit [[start.wind]] über die Distanz von [[route.distance]]. Informationen über Böen liegen für diesen Zeitraum nicht vor.",
+    "memory": "Die Erzählung betont die freundschaftliche Verbindung zum Journalisten Lukas Meerstein und seinen beruflichen Hintergrund. Der Fokus liegt auf der Erstellung von Titelbildern für ein Online-Magazin, wobei die fachlichen Details zum Tunnelbauwerk und den Bundesstraßen aus den Fakten integriert wurden. Der Flug wird als ein gemeinsames Vorhaben ohne operative Anweisungen beschrieben.",
+    "report": {
+      "orientationIds": [
+        "f1",
+        "f3"
+      ],
+      "orientationText": "Der Tunnel befindet sich [[f1.targetLocation]]. Markant ist auch die [[f3.name]], die etwa [[f3.targetLocation]] liegt."
+    },
+    "usedFactIds": [
+      "target-kind",
+      "target-road"
+    ]
+  }
+}

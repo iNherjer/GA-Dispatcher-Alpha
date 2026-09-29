@@ -28,8 +28,9 @@ async function context(dest,terrainEnvelope=null) {
  coverage.push(...tiles.map(({rows,...meta})=>meta));
  // Only exact local source target identity may supply a factual target description.
  const matched=tiles.flatMap(t=>t.rows.map(r=>({...r,source:t.source}))).find(r=>r.name===target.name&&typeof r.lat==='number'&&typeof r.lon==='number'&&core().relation(target,r).distanceM<30);
- const kind=matched?.waterway==='dam'?'Staumauer':matched?.infra_type==='bridge'||matched?.man_made==='bridge'?'Brücke':matched?.historic==='castle'?'Burg oder Schloss':['monument','memorial'].includes(matched?.historic)?'Denkmal':null;
+ const kind=matched?.tunnel==='yes'?'Straßentunnel':matched?.waterway==='dam'?'Staumauer':matched?.infra_type==='bridge'||matched?.man_made==='bridge'?'Brücke':matched?.historic==='castle'?'Burg oder Schloss':['monument','memorial'].includes(matched?.historic)?'Denkmal':null;
  const targetFacts=kind?[{id:'target-kind',fact:`${target.name} ist in der lokalen Datenbank als ${kind} kartiert.`,source:matched.source}]:[];
+ if(matched?.tunnel==='yes'&&matched.ref)targetFacts.push({id:'target-road',fact:`Durch den Tunnel verlaufen die Straßen ${matched.ref.split(';').join(' und ')}. Der gespeicherte Zielpunkt beschreibt das Bauwerk, kein bestimmtes Portal.`,source:matched.source});
  // Reuse the APT context service; only evidence for this POI may enter its story.
  // Nearby towns/attractions remain outside the story frame (POI focus lock).
  let region=null;
@@ -41,7 +42,18 @@ async function context(dest,terrainEnvelope=null) {
     || typeof place.lat!=='number'||typeof place.lon!=='number'||core().relation(target,place).distanceM>150)continue;
   targetFacts.push({id:'target-place-'+targetFacts.length,fact:`${place.name}: ${place.description}`,source:place.source});
  }
- const knowledge=dest.knowledgeContext;
+ let knowledge=dest.knowledgeContext;
+ // Reuse the existing exact-title Wikipedia transport, without the unrelated
+ // educational-profile eligibility gate (which excludes road/tunnel targets).
+ if(!knowledge&&typeof _fetchWikiExtractByTitle==='function')try {
+  const wiki=await _fetchWikiExtractByTitle(target.name,{timeoutMs:5000});
+  const coordinate=wiki?.page?.coordinates?.[0];
+  const title=wiki?.title||'';
+  if(wiki?.extract&&wiki.page?.fullurl&&coordinate&&
+    (title===target.name||title.startsWith(target.name+' ('))&&
+    typeof coordinate.lat==='number'&&typeof coordinate.lon==='number'&&core().relation(target,coordinate).distanceM<=150)
+    targetFacts.push({id:'target-extract',fact:wiki.extract.slice(0,1600),source:wiki.page.fullurl});
+ }catch{}
  if(knowledge?.ok===true&&knowledge.status==='accept'&&knowledge.exactTitle===true
    &&typeof knowledge.distanceKm==='number'&&knowledge.distanceKm<=0.15&&knowledge.sourceUrl
    &&(knowledge.title===target.name||knowledge.title.startsWith(target.name+' ('))) {
@@ -79,6 +91,7 @@ async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensur
  }
  // Same flight values and resolver as APT private, club and charter.
  const api=root.MissionPrivateEpisodeV6,flightContext=api.flightContext(contract);
+ flightContext.sharedWeatherObservation=api.sameWeatherObservation(flightContext.weather[0],flightContext.weather[1]);
  const flight={context:flightContext,bindings:api.flightBindings(flightContext)},recent=core().history(localStorage);
  const raw=await json(core().writerPrompt(c,idea,recent,flight));ensureAlive?.();
  // Weather validation must never discard a valid narrative.
@@ -94,9 +107,9 @@ async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensur
  if(!flightContext.weather.some(w=>w.rawMetar||[w.windKts,w.gustKts,w.visibilityKm,w.ceilingFtAgl,w.cloudBaseFtAgl].some(v=>typeof v==='number'&&Number.isFinite(v)))) {
   written.flightBriefing='Für Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
   written.flightBriefingStatus='no-observations';
- } else if(!written.flightBriefing) {
+ } else if(flightContext.sharedWeatherObservation||!written.flightBriefing) {
   written.flightBriefing=api.weatherFallback(flightContext,{targetLabel:'Zielgebiet'});
-  written.flightBriefingStatus='observations-fallback';
+  written.flightBriefingStatus=flightContext.sharedWeatherObservation?'shared-observation':'observations-fallback';
  }
  const m=core().mission(idea,written,c,contract);
  m._missionWriterV4Debug.weatherSnapshot=flightContext.weather;

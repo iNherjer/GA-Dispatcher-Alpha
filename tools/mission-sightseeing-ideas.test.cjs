@@ -91,5 +91,5 @@ test('weather instructions expose required route and gust bindings; fallback pre
  const context=flight.flightContext({route:{distanceNm:60},weather:{dep:{raw:{station:'EDDS',windKts:5,gustKts:9}}}});
  const prompt=core.weatherPrompt({context,bindings:flight.flightBindings(context)});
  assert.match(prompt,/VERBINDLICHE REFERENZEN: \[\[route.distance\]\], \[\[start.gust\]\]/);
- const fallback=core.weatherFallback(context);assert.match(fallback,/Aktualität unbekannt/);assert.match(fallback,/Ohne Zahlenangabe: Sicht, Wolkenhöhe/);assert.doesNotMatch(fallback,/windstill|böenfrei/);
+ const fallback=core.weatherFallback(context);assert.match(fallback,/Aktualität unbekannt/);assert.match(fallback,/Zu Sicht, Wolkenhöhe fehlen Angaben/);assert.doesNotMatch(fallback,/windstill|böenfrei/);
 });
