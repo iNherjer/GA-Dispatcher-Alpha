@@ -141,3 +141,29 @@ Genau ein weiterer Gemini-Writer-Aufruf ausgeführt, keine Reparaturanfrage: Die
 ### Alpha-Ausrollung v1876
 
 Nach ausdrücklicher Nutzerfreigabe für die Ausrollung: Veröffentlichung auf `origin/main`, Webcache v1876 und aktualisierte Script-Versionen. Produktionscode enthält keine ortsspezifischen Regeln für Hausach, Kinzig oder Sommerbergtunnel. Die 120 Regressionstests und der einzelne dokumentierte Gemini-Bestätigungslauf decken diesen Stand ab. Bereits gespeicherte Briefings werden nicht umgeschrieben. Keine Tracker-Änderungen.
+
+
+### Kürzerer Geländeabschnitt (nach v1876, unveröffentlicht)
+
+Auf Nutzerwunsch enthält die Darstellung bei vorhandenem Höhenprofil nur Zielhöhe und höchsten erfassten Punkt mit tatsächlichem Radius (regulär 1 NM). Modellherkunft, Stichprobenzahlen und fehlende Hangableitung werden nicht erläutert. Der sichtbare Abschnitt „Datengrundlage“ entfällt; Quellen und Einschränkungen bleiben intern erhalten. Landbedeckungspunkte werden als kartierte Umgebung in Richtung/Entfernung beschrieben, nicht als bewiesene Bewaldung oder Flächengrenze am Ziel. Eine flächige Umgebungsanalyse ist damit nicht implementiert.
+
+
+### Belegte Umgebungsflächen – Arbeitsstand 29.09.2026
+
+Nur für den ausgewählten POI-Foto-Writer wird der vorhandene Kontext um Landbedeckungsflächen ergänzt: begrenzte Overpass-Abfrage im Radius 1 NM; bei Ausfall direkter OSM-JSON-Auszug mit 600 m Halbausdehnung. Explizite Tags und vollständige Geometrien bestimmen die Fakten. Keine Namenssemantik, keine zentrale Klassifikationsänderung, kein weiterer KI-Aufruf. Die Belege gehen sowohl in STORY_FACTS als auch in den sichtbaren Geländeabschnitt und den gespeicherten Quellenkontext. Der Writer darf sie natürlich verwenden, aber nicht auf das gesamte Bauwerk oder seine Portale ausweiten.
+
+Kompakter Cache: maximal 32 Zielpunkte, zwölf Stunden bei Erfolg; kurze Fehlerzwischenspeicherung und anbieterbezogene Abrufpausen. Geometrien selbst werden nicht in Missionen gespeichert. Geschlossene Außen-/Innenringe werden verarbeitet; fragmentierte Multipolygone bleiben unberücksichtigt. Fehlende Treffer bedeuten keine Abwesenheit von Wald, Wasser oder Bebauung.
+
+Konkrete Belege, Beispiele und ehrliche Trennung von erfolgreichen Einzelabrufen und begrenztem Netztest: [POI Environment Evidence](examples/POI%20Environment%20Evidence.md). Keine automatische allgemeine Webrecherche neu eingeführt; die vorhandene zielgebundene Wiki-Versorgung bleibt bestehen. Noch kein Release.
+
+
+### Zusammenhängender Lageabsatz (v1.4, unveröffentlicht)
+
+Landmarken und belegte Nachbarflächen stehen gemeinsam unter „Lage und Orientierung“. Nachbarflächen gleicher Richtung werden sprachlich zusammengefasst; eine am Zielpunkt belegte Oberflächenfläche folgt als eigener Satz. Keine Ableitung von „zwischen“, Hang-/Berglage oder Portalumgebung aus bloßen Nachbarschaften. Danach folgen „Geländehöhen“ und „Hindernisse“. Die Höhe am Ziel und der höchste erfasste Punkt bleiben separat; „Datengrundlage“ bleibt ausgeblendet. Die räumlichen Sätze werden aus strukturierten Belegen formuliert; die KI wählt weiterhin die Orientierungspunkte und erzählt die Fotoidee.
+
+129 Regressionstests bestanden, einschließlich Namensunabhängigkeit, Flächenaussparungen und Gruppierung gleicher Richtungen. Vorschau: [POI Situation Preview](examples/POI%20Situation%20Preview.md). Kein zusätzlicher Gemini- oder Netzabruf; die dokumentierte Verfügbarkeitsgrenze der Kartenanbieter bleibt bestehen. Noch nicht veröffentlicht.
+
+
+### Alpha-Ausrollung v1877
+
+Auf ausdrücklichen Nutzerwunsch Veröffentlichung des vorbereiteten Lageberichts samt belegter Umgebungsflächen auf `origin/main`. Webcache v1877, POI-Script-Version 20260929-02. 129 Regressionstests bestanden. Kartenanbieter können weiterhin ausfallen; dann bleibt das Briefing bei vorhandenen Belegen. Die dokumentierte eingeschränkte Live-Verfügbarkeit wird nicht als gelöst behauptet. Bestehende Missionstexte werden nicht umgeschrieben. Keine Tracker-Änderungen.

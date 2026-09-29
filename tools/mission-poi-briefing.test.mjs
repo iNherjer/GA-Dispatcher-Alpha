@@ -27,7 +27,7 @@ for(const run of runs)test(`archived v18 media replay preserves story, speaker a
  for(const f of core.writerContext(c).facts.filter(f=>f.role==='hazard'))if(f.name!==f.kind)assert.ok(written.report.obstacles.includes(f.name));
  assert.match(written.report.dataQuality,/weitere Hindernisse/);
  assert.ok(written.report.terrain.length>0);
- if(c.facts.some(f=>f.role==='cover-nearby-only'&&!f.tags.man_made&&!f.tags.infra_type))assert.match(written.report.terrain,/keine Flächen-/);
+ if(c.facts.some(f=>f.role==='cover-nearby-only'&&!f.tags.man_made&&!f.tags.infra_type))assert.match(written.report.situation,/In der Umgebung ist/);
  assert.ok(core.owns(m));assert.equal(m.poiBriefing.capture.evaluation,undefined);
  assert.equal(m._missionContractV4.poiBriefing,m.poiBriefing);
 });
@@ -77,7 +77,7 @@ test('picker to writer uses the chosen idea once; rejects changed route, no sile
  const choices=await b.api.choices([target],{start:home,selectedPoiCategory:'all'});
  const m=await b.api.story({start:home,dest:target,proposal:choices[0].poiProposal});
  assert.equal(b.requests.length,2);assert.equal(m.poiBriefing.idea.situation,choices[0].poiProposal.idea.situation);
- assert.match(m.s,/keine Geländehöhen/);assert.match(m.s,/weitere Hindernisse/);
+ assert.match(m.s,/keine Geländehöhen/);assert.match(m.s,/nicht, dass die Umgebung hindernisfrei/);
  await assert.rejects(()=>b.api.story({start:home,dest:{...target,lat:49.2},proposal:choices[0].poiProposal}));
  assert.equal(b.requests.length,2);
 });
@@ -85,7 +85,7 @@ test('DEM envelope is described as samples; null values never become zero height
  const {c,idea}=fixture();c.supplements=[];c.terrain={status:'missing'};
  c.terrainEnvelope={centerFt:null,maxFt:null};assert.match(core.validateWriter({...runs[0].writer,targetId:c.id},idea,c).report.terrain,/keine Geländehöhen/);
  c.terrainEnvelope={centerFt:500,maxFt:1200,sampleCount:25,radiusNm:1,source:'terrarium-area'};
- assert.match(core.validateWriter({...runs[0].writer,targetId:c.id},idea,c).report.terrain,/erfassten Geländehöhen/);
+ assert.match(core.validateWriter({...runs[0].writer,targetId:c.id},idea,c).report.terrain,/höchste erfasste Punkt/);
 });
 function harness(){
  const c=vm.createContext({window:{MissionPoiBriefingCore:core},compactPoiChainForMission:x=>x});
@@ -196,10 +196,10 @@ test('reported Pfalzgrafenweiler target keeps its coordinates and yields concret
  const w=core.validateWriter({...runs[0].writer,targetId:c.id,greetingSpeaker:idea.person.name,usedFactIds:[],report:{orientationIds:[]}},idea,c);
  assert.match(w.report.obstacles,/Wasserturm.*550 m westlich/);
  assert.match(w.report.obstacles,/Wasserturm.*700 m östlich/);
- assert.match(w.report.terrain,/Kläranlage.*750 m nördlich/);
+ assert.match(w.report.situation,/Kläranlage.*750 m nördlich/);
  assert.doesNotMatch(w.report.obstacles,/Bauwerksreferenzpunkt/);
  assert.doesNotMatch(w.report.terrain,/17358|Industriefläche/);
- assert.match(w.report.terrain,/2163 ft MSL/);assert.match(w.report.terrain,/1 NM.*2202 ft MSL/);
+ assert.doesNotMatch(w.report.terrain,/Höhenmodell|Hangneigung|Hänge|Stichproben/);assert.match(w.report.terrain,/2163 ft MSL/);assert.match(w.report.terrain,/1 NM.*2202 ft MSL/);
 });
 
 test('shared POI category uses historic tags: memorials cannot become castles through their names',()=>{
@@ -259,7 +259,7 @@ test('orientation uses short target-first wording, rounded distances and no repe
  const report=core.renderStructuredReport({orientationIds},c);
  assert.equal(report.orientation,'Zur Orientierung hilft dir Pfalzgrafenweiler: Das Ziel liegt etwa 1 km nordwestlich davon. Ein weiterer Bezugspunkt ist Durrweiler; das Ziel liegt etwa 1,1 km nördlich davon.');
  assert.doesNotMatch(report.orientation,/Kartenpunkt|1898|1087/);
- const {m}=fixture();for(const label of ['Ziel finden','Gelände und Umgebung','Hindernisse','Datengrundlage'])assert.ok(m.s.includes(label+'\n'));
+ const {m}=fixture();for(const label of ['Lage und Orientierung','Geländehöhen','Hindernisse'])assert.ok(m.s.includes(label+'\n'));assert.doesNotMatch(m.s,/Datengrundlage/);
 });
 
 test('Hausach remains available beside river and explicitly identified bridges, not road labels alone',async()=>{
@@ -326,4 +326,31 @@ test('landmark choice generalizes across names and regions and preserves bridge 
  assert.ok(names.includes('Straßenbrücke Route C'));
  assert.ok(names.includes('Fuß- oder Radwegbrücke Weg D'));
  assert.ok(names.includes('Brücke Bauwerk E'));
+});
+
+test('selected writer receives sourced environment facts, with bounded fallback and cache reuse',async()=>{
+ const record=JSON.parse(fs.readFileSync('tools/fixtures/poi-environment-map-evidence.json')).cases[0];
+ const calls=[];const {c:base,idea:oldIdea}=fixture();
+ const c={...base,target:record.target,id:'poi:environment-test'};
+ const idea=core.validateIdea({...oldIdea,targetId:c.id,targetName:c.target.name},c),start={name:'Start',lat:48.2,lon:8.2};
+ const b=browser({fetch:async url=>{calls.push(url);return String(url).includes('overpass')?new Response('',{status:406}):new Response(JSON.stringify(record.payload));},ai:prompt=>{
+  const facts=JSON.parse(prompt.split('STORY_FACTS=')[1].split('\nNAVIGATION=')[0]);
+  assert.ok(facts.some(f=>f.evidence==='osm-tags-and-polygon'&&f.source.startsWith('https://www.openstreetmap.org/')));
+  return {...runs[0].writer,targetId:c.id,greetingSpeaker:idea.person.name,usedFactIds:[],report:{orientationIds:[]}};
+ }});
+ const args={start,dest:c.target,proposal:{schema:'poi-photo-proposal.v1',start,context:c,idea}};
+ const m=await b.api.story(args);await b.api.story(args);
+ assert.equal(calls.length,2);assert.equal(b.requests.length,2);
+ assert.equal(m.poiBriefing.sourceContext.environmentFacts.length,4);
+ assert.match(m.poiBriefing.report.situation,/Wiesenfläche/);
+ assert.doesNotMatch(m.s,/Datengrundlage/);
+});
+
+test('environment provider cooldown also protects a second selected destination',async()=>{
+ const {c,idea}=fixture(),start={name:'Start',lat:48.2,lon:8.2};const calls=[];
+ const b=browser({fetch:async url=>{calls.push(url);return new Response('',{status:429});},ai:()=>({...runs[0].writer,targetId:c.id,greetingSpeaker:idea.person.name,usedFactIds:[],report:{orientationIds:[]}})});
+ await b.api.story({start,dest:c.target,proposal:{schema:'poi-photo-proposal.v1',start,context:c,idea}});
+ const next={...c,target:{...c.target,lat:c.target.lat+.01}};
+ await b.api.story({start,dest:next.target,proposal:{schema:'poi-photo-proposal.v1',start,context:next,idea}});
+ assert.equal(calls.length,2);
 });

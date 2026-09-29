@@ -19,6 +19,46 @@ async function tile(layer,key) {
   return {source,status:d.meta?.dataStatus||'available',generatedAt:d.generatedAt||null,rows};
  }catch{return {source,status:'unavailable',rows:[]};}
 }
+const environmentCache=new Map(),environmentInflight=new Map(),environmentCooldown=new Map();
+const ENVIRONMENT_CACHE_KEY='ga_poi_environment_v1';
+async function environment(target) {
+ const key=target.lat.toFixed(6)+','+target.lon.toFixed(6),now=Date.now();
+ if(!environmentCache.size)try {
+  const stored=JSON.parse(localStorage.getItem(ENVIRONMENT_CACHE_KEY)||'[]');
+  if(Array.isArray(stored))for(const [k,v] of stored.slice(-32))if(v?.expires>now&&Array.isArray(v.facts))environmentCache.set(k,v);
+ }catch{}
+ const cached=environmentCache.get(key);
+ if(cached&&cached.expires>now)return cached.facts;
+ if(environmentInflight.has(key))return environmentInflight.get(key);
+ const request=(async()=>{
+  let facts=[],ok=false;
+  try {
+   if((environmentCooldown.get('overpass')||0)>Date.now())throw Error('cooldown');
+   const response=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:core().environmentQuery(target),signal:AbortSignal.timeout(10000)});
+   if([406,429,503,504].includes(response.status))environmentCooldown.set('overpass',Date.now()+60000);
+   if(response.ok){const payload=await response.json();if(!payload.remark&&Array.isArray(payload.elements)){facts=core().environmentFacts(target,payload);ok=true;}}
+  }catch{}
+  // A small direct OSM extract supplies local geometry if Overpass is unavailable.
+  // Its smaller extent is never treated as complete coverage of the 1 NM area.
+  if(!ok)try {
+   if((environmentCooldown.get('osm')||0)>Date.now())throw Error('cooldown');
+   const dy=600/111320,dx=dy/Math.cos(target.lat*Math.PI/180);
+   const bbox=[target.lon-dx,target.lat-dy,target.lon+dx,target.lat+dy].join(',');
+   const response=await fetch('https://api.openstreetmap.org/api/0.6/map.json?bbox='+bbox,{signal:AbortSignal.timeout(8000)});
+   if([429,503,504].includes(response.status))environmentCooldown.set('osm',Date.now()+60000);
+   if(response.ok&&Number(response.headers.get('content-length')||0)<6000000){
+    const text=await response.text();
+    if(text.length<6000000){const payload=JSON.parse(text);if(Array.isArray(payload.elements)){facts=core().environmentFacts(target,payload);ok=true;}}
+   }
+  }catch{}
+  if(environmentCache.size>=32)environmentCache.delete(environmentCache.keys().next().value);
+  environmentCache.set(key,{facts,expires:Date.now()+(ok?12*3600000:60000)});
+  if(ok)try{const stored=JSON.stringify([...environmentCache]);if(stored.length<131072)localStorage.setItem(ENVIRONMENT_CACHE_KEY,stored);}catch{}
+  return facts;
+ })();
+ environmentInflight.set(key,request);
+ try{return await request;}finally{environmentInflight.delete(key);}
+}
 async function context(dest,terrainEnvelope=null) {
  const target=core().point(dest),radiusM=5556;
  let tiles=[],coverage=[];
@@ -89,6 +129,9 @@ async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensur
   const raw=await json(core().ideaPrompt([core().frame(c,core().history(localStorage))]));ensureAlive?.();
   idea=core().readIdea(raw,c);
  }
+ // Enrich only the selected mission, not all three picker candidates.
+ const surroundings=await environment(c.target);ensureAlive?.();
+ c={...c,environmentFacts:surroundings,targetFacts:[...(c.targetFacts||[]).filter(f=>f.scope!=='target-environment'),...surroundings]};
  // Same flight values and resolver as APT private, club and charter.
  const api=root.MissionPrivateEpisodeV6,flightContext=api.flightContext(contract);
  flightContext.sharedWeatherObservation=api.sameWeatherObservation(flightContext.weather[0],flightContext.weather[1]);
