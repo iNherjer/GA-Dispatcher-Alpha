@@ -2062,7 +2062,10 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         window.GATrainingGuidanceUi?.render?.(control.executionAuthority === 'tracker'
             ? (control.poiTask?.trainingGuidance || control.trainingTask?.guidance || null) : null, {
             id: 'trainingGuidanceBanner',
-            onRepeat: () => window.gaTrackerExecutionSubmitIntent?.('training_repeat_instruction', {})
+            onRepeat: () => window.gaTrackerExecutionSubmitIntent?.('training_repeat_instruction', {}),
+            onStart: () => window.gaTrackerExecutionSubmitIntent?.('training_ready', {}),
+            onRestart: () => window.gaTrackerExecutionSubmitIntent?.('training_abort', {}),
+            onAbort: () => window.gaTrackerExecutionSubmitIntent?.('training_abort', {})
         });
     } catch (_) {}
     try { window.missionCargoApplyTrackerFlightReminders?.(control); } catch (_) {}

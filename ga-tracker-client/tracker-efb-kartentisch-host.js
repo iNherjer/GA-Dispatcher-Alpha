@@ -2374,7 +2374,10 @@
     if (!window.GATrainingGuidanceUi || typeof window.GATrainingGuidanceUi.render !== 'function') return;
     window.GATrainingGuidanceUi.render(control && control.executionAuthority === 'tracker' ? (control.trainingTask && control.trainingTask.guidance || control.poiTask && control.poiTask.trainingGuidance) : null, {
       id: 'trainingGuidanceBanner',
-      onRepeat: function () { return submitMissionIntent('training_repeat_instruction', {}); }
+      onRepeat: function () { return submitMissionIntent('training_repeat_instruction', {}); },
+      onStart: function () { return submitMissionIntent('training_ready', {}); },
+      onRestart: function () { return submitMissionIntent('training_abort', {}); },
+      onAbort: function () { return submitMissionIntent('training_abort', {}); }
     });
   }
 

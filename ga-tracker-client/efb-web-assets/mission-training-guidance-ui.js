@@ -42,6 +42,9 @@
       })(),
       attempt: source.attempt == null ? '' : String(source.attempt),
       canRepeat: source.canRepeat === true,
+      canStart: source.canStart === true,
+      preparing: source.preparing === true,
+      canAbort: source.canAbort === true,
       rows: rows.map(function (row, index) {
         row = row && typeof row === 'object' ? row : {};
         var status = ['pending', 'active', 'complete', 'error'].indexOf(row.status) >= 0 ? row.status : 'pending';
@@ -81,6 +84,28 @@
     return node;
   }
 
+  function resizeHeight(node, requested) {
+    var head = node.querySelector('.training-guidance-head');
+    var actions = node.querySelector('.training-guidance-actions');
+    var grip = node.querySelector('.training-guidance-resize');
+    var body = node.querySelector('.training-guidance-body');
+    var row = node.querySelector('.training-guidance-row');
+    var intro = node.querySelector('.training-guidance-instruction');
+    var notice = node.querySelector('.training-guidance-notice');
+    var height = function (element) { return element ? element.getBoundingClientRect().height : 0; };
+    var minimum = height(head) + height(actions) + height(grip) + height(row) + height(intro) + height(notice) + 38;
+    var maximum = Math.max(100, root.innerHeight - node.getBoundingClientRect().top - 8);
+    var chosen = Math.min(maximum, Math.max(minimum, requested));
+    node.style.height = chosen + 'px';
+    node.style.maxHeight = maximum + 'px';
+    if (grip) {
+      grip.setAttribute('aria-valuemin', String(Math.round(Math.min(minimum, maximum))));
+      grip.setAttribute('aria-valuemax', String(Math.round(maximum)));
+      grip.setAttribute('aria-valuenow', String(Math.round(chosen)));
+    }
+    return chosen;
+  }
+
   function bindControls(node) {
     node.addEventListener('click', function (event) {
       var action = event.target && event.target.getAttribute && event.target.getAttribute('data-training-action');
@@ -91,6 +116,17 @@
           button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
           button.textContent = collapsed ? 'Aufklappen' : 'Einklappen';
         }
+      } else if (action === 'start' || action === 'restart' || action === 'abort') {
+        if (node._trainingBusy || event.target.disabled) return;
+        if (action !== 'start' && !root.confirm(action === 'restart'
+          ? 'Aktuellen Durchgang neu ansetzen? Bestandene Übungen bleiben erhalten.'
+          : 'Aktuellen Durchgang abbrechen? Bestandene Übungen bleiben erhalten.')) return;
+        var callback = node._trainingActions[action];
+        if (typeof callback !== 'function') return;
+        node._trainingBusy = true;
+        Promise.resolve().then(callback).catch(function (error) {
+          if (root.console) root.console.warn('Training action failed', error);
+        }).finally(function () { node._trainingBusy = false; });
       } else if (action === 'repeat') {
         if (typeof node._trainingRepeat === 'function') {
           var button = event.target;
@@ -115,7 +151,15 @@
     var handle = node;
     var start = null;
     handle.addEventListener('pointerdown', function (event) {
-      if (!event.target || !event.target.closest || !event.target.closest('.training-guidance-head')) return;
+      if (!event.target || !event.target.closest) return;
+      if (event.target.closest('.training-guidance-resize')) {
+        if (event.button != null && event.button !== 0) return;
+        event.preventDefault();
+        start = { resize:true, y:event.clientY, height:node.getBoundingClientRect().height, id:event.pointerId };
+        if (node.setPointerCapture && event.pointerId != null) node.setPointerCapture(event.pointerId);
+        return;
+      }
+      if (!event.target.closest('.training-guidance-head')) return;
       if (event.target && event.target.closest && event.target.closest('button')) return;
       if (event.button != null && event.button !== 0) return;
       var rect = node.getBoundingClientRect();
@@ -124,8 +168,14 @@
     });
     handle.addEventListener('pointermove', function (event) {
       if (!start || (start.id != null && event.pointerId !== start.id)) return;
+      if (start.resize) {
+        node._trainingHeight = resizeHeight(node, start.height + event.clientY - start.y);
+        return;
+      }
       var left = Math.max(8, Math.min(root.innerWidth - node.offsetWidth - 8, start.left + event.clientX - start.x));
       var top = Math.max(8, Math.min(root.innerHeight - 40, start.top + event.clientY - start.y));
+      node.style.transform = 'none';
+      node._trainingHasSavedPosition = true;
       node.style.left = left + 'px';
       node.style.top = top + 'px';
       node.style.right = 'auto';
@@ -133,13 +183,26 @@
     });
     function finish() {
       if (!start) return;
+      var wasResize = start.resize;
       start = null;
-      try { root.localStorage.setItem('ga_training_guidance_position', JSON.stringify({ left: node.style.left, top: node.style.top })); } catch (_) {}
+      if (wasResize) {
+        try { root.localStorage.setItem('ga_training_guidance_height', String(node._trainingHeight)); } catch (_) {}
+        return;
+      }
+      try { root.localStorage.setItem('ga_training_guidance_position_v2', JSON.stringify({ left: node.style.left, top: node.style.top })); } catch (_) {}
     }
     handle.addEventListener('pointerup', finish);
     handle.addEventListener('pointercancel', finish);
+    node.addEventListener('keydown', function (event) {
+      if (!event.target.closest || !event.target.closest('.training-guidance-resize')) return;
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      node._trainingHeight = resizeHeight(node, node.getBoundingClientRect().height + (event.key === 'ArrowUp' ? -24 : 24));
+      try { root.localStorage.setItem('ga_training_guidance_height', String(node._trainingHeight)); } catch (_) {}
+    });
     root.addEventListener('resize', function () {
-      if (!node.hidden && node.isConnected) {
+      if (node._trainingHeight && !node.hidden && !node.classList.contains('is-collapsed')) resizeHeight(node, node._trainingHeight);
+      if (!node.hidden && node.isConnected && node._trainingHasSavedPosition) {
         var rect = node.getBoundingClientRect();
         node.style.left = Math.max(8, Math.min(root.innerWidth - rect.width - 8, rect.left)) + 'px';
         node.style.top = Math.max(8, Math.min(root.innerHeight - 40, rect.top)) + 'px';
@@ -151,8 +214,13 @@
     if (node._trainingPositionRestored) return;
     node._trainingPositionRestored = true;
     try {
-      var saved = JSON.parse(root.localStorage.getItem('ga_training_guidance_position') || 'null');
+      var savedHeight = Number(root.localStorage.getItem('ga_training_guidance_height'));
+      if (isFinite(savedHeight) && savedHeight > 0) node._trainingHeight = savedHeight;
+    } catch (_) {}
+    try {
+      var saved = JSON.parse(root.localStorage.getItem('ga_training_guidance_position_v2') || 'null');
       if (saved && typeof saved.left === 'string' && typeof saved.top === 'string') {
+        node.style.transform = 'none';
         node.style.left = saved.left;
         node.style.top = saved.top;
         node.style.right = 'auto';
@@ -170,7 +238,7 @@
       number.setAttribute('aria-hidden', 'true');
       var copy = el(doc, 'div', 'training-guidance-row-copy');
       var label = el(doc, 'span', 'training-guidance-row-label', row.label);
-      if (row.status === 'complete') label.classList.add('is-struck');
+      if (row.status === 'complete' && ['altitude', 'heading'].indexOf(row.id) < 0) label.classList.add('is-struck');
       var detail = el(doc, 'span', 'training-guidance-row-detail', row.detail);
       var track = el(doc, 'div', 'training-guidance-progress', null);
       track.setAttribute('role', 'progressbar');
@@ -207,6 +275,7 @@
     var id = options && options.id || 'trainingGuidanceBanner';
     var node = getRoot(root.document, id);
     node._trainingRepeat = options && options.onRepeat;
+    node._trainingActions = { start: options && options.onStart, restart: options && options.onRestart, abort: options && options.onAbort };
     node.hidden = !view.visible;
     if (!view.visible) return node;
     var signature = JSON.stringify(view);
@@ -243,6 +312,18 @@
     }
     body.appendChild(renderRows(root.document, view.rows));
     var actions = el(root.document, 'div', 'training-guidance-actions', null);
+    if (view.preparing || view.canAbort) {
+      function actionButton(action, label, disabled) {
+        var button = el(root.document, 'button', 'training-guidance-' + action, label);
+        button.type = 'button'; button.disabled = disabled || node._trainingBusy === true;
+        button.setAttribute('data-training-action', action); actions.appendChild(button);
+      }
+      if (view.preparing) actionButton('start', 'Übung starten', !view.canStart);
+      if (view.canAbort) {
+        actionButton('restart', 'Übung neu starten', false);
+        actionButton('abort', 'Übung abbrechen', false);
+      }
+    }
     if (view.canRepeat) {
       var repeat = el(root.document, 'button', 'training-guidance-repeat', 'Anweisung wiederholen');
       repeat.type = 'button'; repeat.setAttribute('data-training-action', 'repeat'); actions.appendChild(repeat);
@@ -252,7 +333,7 @@
       historyButton.type = 'button'; historyButton.setAttribute('data-training-action', 'history'); historyButton.setAttribute('aria-expanded', historyWasOpen ? 'true' : 'false');
       actions.appendChild(historyButton);
     }
-    if (actions.childNodes.length) body.appendChild(actions);
+    // Controls stay outside the scrolling detail area.
     if (view.history.length) {
       var history = el(root.document, 'div', 'training-guidance-history', null);
       history.hidden = !historyWasOpen;
@@ -260,13 +341,21 @@
       body.appendChild(history);
     }
     node.appendChild(body);
+    if (actions.childNodes.length) node.appendChild(actions);
+    var grip = el(root.document, 'div', 'training-guidance-resize', null);
+    grip.tabIndex = 0; grip.setAttribute('role', 'slider');
+    grip.setAttribute('aria-label', 'Bannerhöhe anpassen');
+    grip.setAttribute('aria-orientation', 'vertical');
+    grip.title = 'Zum Verändern der Höhe nach oben oder unten ziehen';
+    node.appendChild(grip);
+    if (!node.classList.contains('is-collapsed')) resizeHeight(node, node._trainingHeight || node.getBoundingClientRect().height);
     body.scrollTop = previousScrollTop;
     if (node._trainingHasSavedPosition) {
       var rect = node.getBoundingClientRect();
       node.style.left = Math.max(8, Math.min(root.innerWidth - rect.width - 8, rect.left)) + 'px';
       node.style.top = Math.max(8, Math.min(root.innerHeight - rect.height - 8, rect.top)) + 'px';
       node.style.right = 'auto';
-      try { root.localStorage.setItem('ga_training_guidance_position', JSON.stringify({ left: node.style.left, top: node.style.top })); } catch (_) {}
+      try { root.localStorage.setItem('ga_training_guidance_position_v2', JSON.stringify({ left: node.style.left, top: node.style.top })); } catch (_) {}
     }
     return node;
   }

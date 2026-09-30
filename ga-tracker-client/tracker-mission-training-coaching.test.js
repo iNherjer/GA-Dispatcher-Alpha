@@ -38,24 +38,23 @@ function harness(exercises, requiredCount = 1, minDepartureDistanceNm = 5) {
   return { recipe, observe, action, restore, raw, row, spoken, get state() { return state; } };
 }
 
-test('preflight altitude and course rows revert to red and keep the initial reference', () => {
-  const h = harness();
+test('altitude change previews live references and freezes them at manual start', () => {
+  const h = harness([{id:'hold',type:'altitude_step_hold',altitudeStepFt:500}]);
   h.observe();
-  assert.equal(h.row('altitude').status, 'complete');
-  assert.equal(h.row('heading').status, 'complete');
-  const reference = structuredClone(h.state.coaching.reference);
   h.observe({ altFt: 3120, hdg: 99 }, 1000);
-  assert.equal(h.row('altitude').status, 'error');
-  assert.equal(h.row('heading').status, 'error');
-  assert.equal(h.state.progress.startAvailable, false);
+  assert.equal(h.state.coaching.reference.altFt,3120);
+  assert.equal(h.state.coaching.reference.headingDeg,99);
+  h.observe({altFt:3120,hdg:99},3100);
+  assert.equal(h.state.guidance.canStart,true);
+  h.action('training_ready');
+  h.observe({altFt:3120,hdg:99},100);
+  assert.equal(h.state.coaching.reference.altFt,3120);
+  assert.equal(h.state.checkpoint.procedureState.activeState.active.targetAltFt,3620);
+  assert.equal(h.state.guidance.canAbort,true);
   h.restore();
-  h.observe({ altFt: 3000, hdg: 90 }, 1000);
-  assert.deepEqual(h.state.coaching.reference, reference);
-  assert.equal(h.row('altitude').status, 'complete');
-  assert.equal(h.row('heading').status, 'complete');
-  assert.equal(h.state.progress.startAvailable, false, 'stable start gate must restart after deviation');
-  h.observe({}, 3100);
-  assert.equal(h.state.progress.startAvailable, true);
+  h.observe({altFt:3140,hdg:101},100);
+  assert.equal(h.state.coaching.reference.altFt,3120);
+  assert.equal(h.state.coaching.reference.headingDeg,99);
 });
 
 test('pre-instruction guidance stays visible and uses the core required altitude gate', () => {
@@ -147,14 +146,14 @@ test('pre-instruction guidance reports unavailable position, AGL and suspension 
 test('repeat instruction reads the persisted ordered plan after restore', () => {
   const h = harness();
   const first = h.observe();
-  assert.match(h.spoken(first), /1\. Höhe/);
+  assert.match(h.spoken(first), /1\. Starthöhen-Vorschau/);
   assert.doesNotMatch(h.spoken(first), /Korrektur:|Werte passen/,
     'the initial exercise instruction must win over generic value feedback');
   const planned = h.state.guidance.instruction;
-  assert.match(planned, /1\. Höhe .*2\. Kurs .*3\. Flügel .*4\. 180° .*5\. Ausleiten/);
+  assert.match(planned, /1\. Starthöhen-Vorschau .*2\. Startkurs .*3\. Flügel .*4\. 180° .*5\. Zielkurs-Vorschau/);
   h.restore();
   const repeated = h.action('training_repeat_instruction');
-  assert.match(h.spoken(repeated), /1\. Höhe .*2\. Kurs .*3\. Flügel .*4\. 180° .*5\. Ausleiten/);
+  assert.match(h.spoken(repeated), /1\. Starthöhen-Vorschau .*2\. Startkurs .*3\. Flügel .*4\. 180° .*5\. Zielkurs-Vorschau/);
   assert.equal(h.state.guidance.instruction, planned);
 });
 
@@ -316,3 +315,7 @@ test('turn banner marks excessive G as an error before the detector grace period
 });
 
 test('inflight maneuver tip is spoken during instruction and remains available after restore',()=>{const tip='Beim Ausleiten die Leistung wieder anpassen, damit die Geschwindigkeit stabil bleibt.';const h=harness([{id:'turn-tip',type:'constant_bank_360',targetBankDeg:45,inflightTip:tip}]);const first=h.observe();assert.match(h.spoken(first),/Beim Ausleiten die Leistung/);h.restore();assert.match(h.spoken(h.action('training_repeat_instruction')),/Beim Ausleiten die Leistung/);assert.equal(h.raw().requiredComplete,false);});
+
+test('180 turn previews the chosen heading until manual start, then freezes through restore',()=>{const h=harness([{id:'turn',type:'turn_180',targetBankDeg:30}]);h.observe({hdg:90});h.observe({hdg:120,bankDeg:20});assert.equal(h.state.coaching.reference.headingDeg,120);assert.equal(h.state.progress.startAvailable,false);h.observe({hdg:140});h.observe({hdg:140},3100);assert.equal(h.state.progress.startAvailable,true);assert.match(h.row('heading').label,/bei „Übung starten“/);assert.match(h.row('rollout').label,/320°/);h.action('training_ready');h.observe({hdg:141});assert.equal(h.raw().active.startHeadingDeg,140);assert.equal(h.raw().active.targetHeadingDeg,320);h.restore();h.observe({hdg:150,bankDeg:30});assert.equal(h.state.coaching.reference.headingDeg,140);assert.match(h.row('rollout').label,/Ausleiten auf 320°/);});
+
+for(const bank of [30,45])test(`full circle ${bank} degrees fixes the chosen start course only at manual release`,()=>{const h=harness([{id:'circle',type:'constant_bank_360',targetBankDeg:bank}]);h.observe({hdg:90});h.observe({hdg:200,bankDeg:20});assert.equal(h.state.progress.startAvailable,false);h.observe({hdg:210});h.observe({hdg:210},3100);assert.equal(h.state.progress.startAvailable,true);assert.match(h.row('rollout').label,/Vorschau 210°/);h.action('training_ready');h.observe({hdg:211});assert.equal(h.raw().active.startHeadingDeg,210);assert.equal(h.raw().active.targetHeadingDeg,210);h.restore();h.observe({hdg:220,bankDeg:bank});assert.equal(h.state.coaching.reference.headingDeg,210);assert.match(h.row('rollout').label,/Ausleiten auf 210°/);});

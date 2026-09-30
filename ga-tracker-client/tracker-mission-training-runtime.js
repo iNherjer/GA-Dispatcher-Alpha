@@ -122,7 +122,7 @@ function trainingMessages(recipe,state,events,now) {
     else if(has('exercise_instruction'))text=g.instruction;
     else if(has('phase_started'))text=g.currentInstruction;
     else if(has('exercise_pass_clean'))text='Übung erfüllt. Der Durchgang bleibt gespeichert. Auf die nächste Einweisung warten.';
-    else if(has('training_start_available'))text='Höhe, Kurs und Ausgangslage passen. Jetzt im PAX-Menü Übung starten.';
+    else if(has('training_start_available'))text='Höhe, Kurs und Ausgangslage passen. Jetzt im Banner Übung starten.';
     else if(has('training_wait_altitude'))text=g.notice||'Sicherheitshöhe herstellen.';
     else if(has('training_values_deviation')||has('training_values_correct')||has('training_caution')) {
         const key=g.rows?.filter(r=>r.status==='error').map(r=>r.id).join(',')||'good';

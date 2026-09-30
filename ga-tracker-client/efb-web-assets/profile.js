@@ -1,5 +1,5 @@
 // Generated from profile.js by sync-efb-web-assets.js. Do not edit.
-var _ref34, _localStorage$getItem, _ref35, _localStorage$getItem2, _ref36, _localStorage$getItem3;
+var _ref35, _localStorage$getItem, _ref36, _localStorage$getItem2, _ref37, _localStorage$getItem3;
 function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(typeof e + " is not iterable"); }
 function _regeneratorKeys(e) { var n = Object(e), r = []; for (var t in n) r.unshift(t); return function e() { for (; r.length;) if ((t = r.pop()) in n) return e.value = t, e.done = !1, e; return e.done = !0, e; }; }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
@@ -2441,7 +2441,7 @@ function _vpFetchHostedTilesParallel() {
           results = new Map();
           cursor = 0;
           worker = /*#__PURE__*/function () {
-            var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
+            var _ref42 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
               var idx, tileKey, res, _t14;
               return _regenerator().w(function (_context17) {
                 while (1) switch (_context17.p = _context17.n) {
@@ -2505,7 +2505,7 @@ function _vpFetchHostedTilesParallel() {
               }, _callee15, null, [[3, 5, 7, 8]]);
             }));
             return function worker() {
-              return _ref41.apply(this, arguments);
+              return _ref42.apply(this, arguments);
             };
           }();
           workers = [];
@@ -4501,7 +4501,7 @@ function _fetchRouteWeatherMetar() {
         case 5:
           nowTs = Date.now();
           fetchChunkData = /*#__PURE__*/function () {
-            var _ref42 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(chunk) {
+            var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(chunk) {
               var bypassCache,
                 cached,
                 url,
@@ -4584,11 +4584,11 @@ function _fetchRouteWeatherMetar() {
               }, _callee21);
             }));
             return function fetchChunkData(_x59) {
-              return _ref42.apply(this, arguments);
+              return _ref43.apply(this, arguments);
             };
           }();
           promises = chunkDefs.map(/*#__PURE__*/function () {
-            var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(chunk) {
+            var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(chunk) {
               var cached;
               return _regenerator().w(function (_context26) {
                 while (1) switch (_context26.n) {
@@ -4608,7 +4608,7 @@ function _fetchRouteWeatherMetar() {
               }, _callee22);
             }));
             return function (_x60) {
-              return _ref43.apply(this, arguments);
+              return _ref44.apply(this, arguments);
             };
           }());
           _context32.n = 6;
@@ -4659,7 +4659,7 @@ function _fetchRouteWeatherMetar() {
               prefetchDefs = farDefs.filter(d => !primaryKeys.has(d.key)).filter(d => !Array.isArray(vpGetMetarChunkCache(d.key, nowPrefetch))).filter(d => !vpMetarPrefetchInFlight.has(d.key)).slice(0, VP_METAR_PREFETCH_MAX_CHUNKS);
               if (prefetchDefs.length > 0) {
                 runPrefetch = /*#__PURE__*/function () {
-                  var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
+                  var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
                     var _iterator83, _step83, _d3, url, arr, safeArr, _t21, _t22;
                     return _regenerator().w(function (_context27) {
                       while (1) switch (_context27.p = _context27.n) {
@@ -4734,7 +4734,7 @@ function _fetchRouteWeatherMetar() {
                     }, _callee23, null, [[5, 8, 9, 10], [1, 13, 14, 15]]);
                   }));
                   return function runPrefetch() {
-                    return _ref44.apply(this, arguments);
+                    return _ref45.apply(this, arguments);
                   };
                 }();
                 setTimeout(() => {
@@ -4782,7 +4782,7 @@ function _fetchRouteWeatherMetar() {
           stepNM = 15;
           zones = [];
           _loop12 = /*#__PURE__*/_regenerator().m(function _loop12() {
-            var bestPt, minDiff, _iterator85, _step85, pt, diff, closestMetar, minMetarDist, _ref45, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
+            var bestPt, minDiff, _iterator85, _step85, pt, diff, closestMetar, minMetarDist, _ref46, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
             return _regenerator().w(function (_context31) {
               while (1) switch (_context31.n) {
                 case 0:
@@ -4848,7 +4848,7 @@ function _fetchRouteWeatherMetar() {
                         lowestBase = estimatedCloud.baseMsl;
                       }
                     }
-                    mslPressureRaw = Number((_ref45 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref45 !== void 0 ? _ref45 : closestMetar.altim);
+                    mslPressureRaw = Number((_ref46 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref46 !== void 0 ? _ref46 : closestMetar.altim);
                     mslPressureHpa = Number.isFinite(mslPressureRaw) && mslPressureRaw >= 850 && mslPressureRaw <= 1100 ? mslPressureRaw : null;
                     pressureProfile = [];
                     if (Number.isFinite(mslPressureHpa)) {
@@ -5895,7 +5895,7 @@ window.vpBuildDisplayDiagnosticsReport = function () {
   return vpBuildDisplayDiagnosticsLines().join('\n');
 };
 window.vpBuildWeatherDebugReport = function () {
-  var _missionSnap, _missionSnap2, _missionSnap3, _missionSnap4, _missionSnap5, _sceneDbg$lastTargetS, _window$missionAptArr, _window$missionTarget, _window$missionSceneS, _ref25, _sceneDbg$sceneAccept, _missionSnap6, _missionSnap7, _cargoManifest, _runtimeSnapshot$runt, _runtimeSnapshot$runt2, _runtimeSnapshot$runt3, _window$GAMissionCont, _window$missionSceneS2, _window$missionSceneS3, _window$missionSceneS4, _window$missionSceneS5, _window$missionSceneS6, _window$missionSceneS7, _window$missionSceneS8, _window$missionSceneS9, _window$missionSceneS0, _window$missionSceneS1, _window$missionSceneS10, _window$missionSceneS11, _window$missionSceneS12, _window$missionSceneS13, _window$missionSceneS14, _window$missionSceneS15, _window$missionSceneS16;
+  var _missionSnap, _missionSnap2, _missionSnap3, _missionSnap4, _missionSnap5, _sceneDbg$lastTargetS, _window$missionAptArr, _window$missionTarget, _window$missionSceneS, _ref25, _ref26, _activeSceneMission$s, _missionSnap6, _missionSnap7, _cargoManifest, _runtimeSnapshot$runt, _runtimeSnapshot$runt2, _runtimeSnapshot$runt3, _window$GAMissionCont, _window$missionSceneS2, _window$missionSceneS3, _window$missionSceneS4, _window$missionSceneS5, _window$missionSceneS6, _window$missionSceneS7, _window$missionSceneS8, _window$missionSceneS9, _window$missionSceneS0, _window$missionSceneS1, _window$missionSceneS10, _window$missionSceneS11, _window$missionSceneS12, _window$missionSceneS13, _window$missionSceneS14, _window$missionSceneS15, _window$missionSceneS16;
   vpHydrateObsTileCoverage();
   vpHydrateObsTileFailed();
   var dbg = window.vpWeatherDebug || {};
@@ -6386,7 +6386,8 @@ window.vpBuildWeatherDebugReport = function () {
   var aiNormalized = sceneDbg.aiNormalized || missionSceneDbg.aiNormalized || null;
   var contractTargetScene = sceneDbg.contractTargetScene || missionSceneDbg.contractTargetScene || ((_missionSnap2 = missionSnap) === null || _missionSnap2 === void 0 ? void 0 : _missionSnap2.targetScene) || null;
   var sceneTruth = sceneDbg.missionTruth || ((_missionSnap3 = missionSnap) === null || _missionSnap3 === void 0 ? void 0 : _missionSnap3.missionTruth) || ((_missionSnap4 = missionSnap) === null || _missionSnap4 === void 0 || (_missionSnap4 = _missionSnap4.contract) === null || _missionSnap4 === void 0 ? void 0 : _missionSnap4.missionTruth) || null;
-  var sceneComposer = sceneDbg.sceneComposer || ((_missionSnap5 = missionSnap) === null || _missionSnap5 === void 0 ? void 0 : _missionSnap5.targetSceneComposerDebug) || null;
+  var activeSceneMission = typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object' ? currentMissionData : null;
+  var sceneComposer = (activeSceneMission === null || activeSceneMission === void 0 ? void 0 : activeSceneMission.targetSceneComposerDebug) || sceneDbg.sceneComposer || ((_missionSnap5 = missionSnap) === null || _missionSnap5 === void 0 ? void 0 : _missionSnap5.targetSceneComposerDebug) || null;
   var targetCommandHasMapPoints = Array.isArray((_sceneDbg$lastTargetS = sceneDbg.lastTargetSceneCommand) === null || _sceneDbg$lastTargetS === void 0 ? void 0 : _sceneDbg$lastTargetS.mapPoints) && sceneDbg.lastTargetSceneCommand.mapPoints.length > 0;
   var targetPreview = !targetCommandHasMapPoints && typeof window.missionTargetSceneDebugPreview === 'function' ? window.missionTargetSceneDebugPreview('debug-report-preview') : null;
   var startEndPreview = typeof window.missionStartEndSceneDebugPreview === 'function' ? window.missionStartEndSceneDebugPreview('debug-report-preview') : null;
@@ -6403,12 +6404,13 @@ window.vpBuildWeatherDebugReport = function () {
   var lastEndCommand = sceneDbg.lastEndSceneCommand || null;
   var lastSmokeCommand = sceneDbg.lastSmokeCommand || null;
   var lastAck = sceneDbg.lastAck || ((_window$missionAptArr = window.missionAptArrivalSceneStatus) === null || _window$missionAptArr === void 0 ? void 0 : _window$missionAptArr.lastAck) || ((_window$missionTarget = window.missionTargetSceneStatus) === null || _window$missionTarget === void 0 ? void 0 : _window$missionTarget.lastAck) || ((_window$missionSceneS = window.missionSceneStatus) === null || _window$missionSceneS === void 0 ? void 0 : _window$missionSceneS.lastAck) || null;
-  var sceneAccepted = (_ref25 = (_sceneDbg$sceneAccept = sceneDbg.sceneAccepted) !== null && _sceneDbg$sceneAccept !== void 0 ? _sceneDbg$sceneAccept : (_missionSnap6 = missionSnap) === null || _missionSnap6 === void 0 ? void 0 : _missionSnap6.sceneAccepted) !== null && _ref25 !== void 0 ? _ref25 : null;
-  var sceneStatus = sceneDbg.sceneCompositionStatus || ((_missionSnap7 = missionSnap) === null || _missionSnap7 === void 0 ? void 0 : _missionSnap7.sceneCompositionStatus) || '-';
+  var sceneAccepted = (_ref25 = (_ref26 = (_activeSceneMission$s = activeSceneMission === null || activeSceneMission === void 0 ? void 0 : activeSceneMission.sceneAccepted) !== null && _activeSceneMission$s !== void 0 ? _activeSceneMission$s : sceneDbg.sceneAccepted) !== null && _ref26 !== void 0 ? _ref26 : (_missionSnap6 = missionSnap) === null || _missionSnap6 === void 0 ? void 0 : _missionSnap6.sceneAccepted) !== null && _ref25 !== void 0 ? _ref25 : null;
+  var sceneStatus = (activeSceneMission === null || activeSceneMission === void 0 ? void 0 : activeSceneMission.sceneCompositionStatus) || sceneDbg.sceneCompositionStatus || ((_missionSnap7 = missionSnap) === null || _missionSnap7 === void 0 ? void 0 : _missionSnap7.sceneCompositionStatus) || '-';
   lines.push(`- Plan/Sim Status: accepted=${sceneAccepted === null ? '-' : sceneAccepted ? 'ja' : 'nein'} | composition=${sceneStatus} | targetCommand=${lastTargetCommand ? 'ja' : 'nein'} | ack=${lastAck ? 'ja' : 'nein'}${!lastTargetCommand ? ' | Modus=Plan/Preview' : ''}`);
   if (sceneComposer && typeof sceneComposer === 'object') {
     var toolNames = Array.isArray(sceneComposer.toolCalls) ? sceneComposer.toolCalls.map(c => c.name || '?').slice(0, 5).join(',') : '-';
     lines.push(`- Scene Composer: ${sceneComposer.source || '-'} | prompt=${sceneComposer.promptVersion || '-'} | tools=${toolNames || '-'} | error=${sceneComposer.error || '-'}`);
+    if (Array.isArray(sceneComposer.attempts) && sceneComposer.attempts.length) lines.push(`- Scene Composer Versuche: ${sceneComposer.attempts.map(a => `${a.turn}: ${flattenText(a.error || a.result || '-', 220)}`).join(' | ')}`);
     if (Array.isArray(sceneComposer.localizationNotes) && sceneComposer.localizationNotes.length) lines.push(`- Scene Composer Lokalisierung: ${sceneComposer.localizationNotes.slice(0, 4).map(n => flattenText(n, 90)).join(' | ')}`);
     if (Array.isArray(sceneComposer.validationNotes) && sceneComposer.validationNotes.length) lines.push(`- Scene Composer Validierung: ${sceneComposer.validationNotes.slice(0, 4).map(n => flattenText(n, 90)).join(' | ')}`);
   }
@@ -7214,10 +7216,10 @@ function vpSchedulePersistOpenMeteoCache() {
     vpOmCachePersistTimer = null;
     try {
       vpPruneOpenMeteoCache();
-      var entries = Array.from(vpOpenMeteoPointCache.entries()).slice(-VP_OM_CACHE_MAX_ENTRIES).map(_ref28 => {
-        var _ref29 = _slicedToArray(_ref28, 2),
-          key = _ref29[0],
-          v = _ref29[1];
+      var entries = Array.from(vpOpenMeteoPointCache.entries()).slice(-VP_OM_CACHE_MAX_ENTRIES).map(_ref29 => {
+        var _ref30 = _slicedToArray(_ref29, 2),
+          key = _ref30[0],
+          v = _ref30[1];
         return {
           key,
           ts: v.ts,
@@ -7264,9 +7266,9 @@ function vpFetchOpenMeteoPoint(_x25, _x26) {
 }
 function _vpFetchOpenMeteoPoint() {
   _vpFetchOpenMeteoPoint = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(lat, lon) {
-    var _ref46,
+    var _ref47,
       signal,
-      _ref46$includePressur,
+      _ref47$includePressur,
       includePressure,
       cacheKey,
       keyParts,
@@ -7280,7 +7282,7 @@ function _vpFetchOpenMeteoPoint() {
     return _regenerator().w(function (_context36) {
       while (1) switch (_context36.p = _context36.n) {
         case 0:
-          _ref46 = _args36.length > 2 && _args36[2] !== undefined ? _args36[2] : {}, signal = _ref46.signal, _ref46$includePressur = _ref46.includePressure, includePressure = _ref46$includePressur === void 0 ? false : _ref46$includePressur;
+          _ref47 = _args36.length > 2 && _args36[2] !== undefined ? _args36[2] : {}, signal = _ref47.signal, _ref47$includePressur = _ref47.includePressure, includePressure = _ref47$includePressur === void 0 ? false : _ref47$includePressur;
           if (!(!Number.isFinite(lat) || !Number.isFinite(lon))) {
             _context36.n = 1;
             break;
@@ -7464,12 +7466,12 @@ function _vpFetchOpenMeteoPoint() {
   return _vpFetchOpenMeteoPoint.apply(this, arguments);
 }
 window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
-  var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(points) {
-    var _ref31,
+  var _ref31 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(points) {
+    var _ref32,
       signal,
-      _ref31$includePressur,
+      _ref32$includePressur,
       includePressure,
-      _ref31$maxConcurrency,
+      _ref32$maxConcurrency,
       maxConcurrency,
       out,
       cursor,
@@ -7480,7 +7482,7 @@ window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
     return _regenerator().w(function (_context9) {
       while (1) switch (_context9.n) {
         case 0:
-          _ref31 = _args9.length > 1 && _args9[1] !== undefined ? _args9[1] : {}, signal = _ref31.signal, _ref31$includePressur = _ref31.includePressure, includePressure = _ref31$includePressur === void 0 ? false : _ref31$includePressur, _ref31$maxConcurrency = _ref31.maxConcurrency, maxConcurrency = _ref31$maxConcurrency === void 0 ? 6 : _ref31$maxConcurrency;
+          _ref32 = _args9.length > 1 && _args9[1] !== undefined ? _args9[1] : {}, signal = _ref32.signal, _ref32$includePressur = _ref32.includePressure, includePressure = _ref32$includePressur === void 0 ? false : _ref32$includePressur, _ref32$maxConcurrency = _ref32.maxConcurrency, maxConcurrency = _ref32$maxConcurrency === void 0 ? 6 : _ref32$maxConcurrency;
           if (!(!Array.isArray(points) || points.length === 0)) {
             _context9.n = 1;
             break;
@@ -7557,7 +7559,7 @@ window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
     }, _callee9);
   }));
   return function (_x27) {
-    return _ref30.apply(this, arguments);
+    return _ref31.apply(this, arguments);
   };
 }();
 function vpDeriveCloudLayersFromPressureProfile(pressureProfile) {
@@ -10974,11 +10976,11 @@ function vpProjectTrafficOnHeading() {
 
 // ─── TRAFFIC IM VERTIKALPROFIL ZEICHNEN ──────────────────────────────────────
 function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, viewMaxX) {
-  var _ref33, _window$lastLiveGpsPo4, _window$lastLiveGpsPo5;
+  var _ref34, _window$lastLiveGpsPo4, _window$lastLiveGpsPo5;
   if (!window.vpTrafficProfileVisible) return;
   var traffic = isHdgMode ? vpProjectTrafficOnHeading() : vpProjectTrafficOnRoute(elevData);
   if (!traffic.length) return;
-  var ownAlt = (_ref33 = (_window$lastLiveGpsPo4 = (_window$lastLiveGpsPo5 = window.lastLiveGpsPos) === null || _window$lastLiveGpsPo5 === void 0 ? void 0 : _window$lastLiveGpsPo5.alt) !== null && _window$lastLiveGpsPo4 !== void 0 ? _window$lastLiveGpsPo4 : vpLiveAltFt) !== null && _ref33 !== void 0 ? _ref33 : 0;
+  var ownAlt = (_ref34 = (_window$lastLiveGpsPo4 = (_window$lastLiveGpsPo5 = window.lastLiveGpsPos) === null || _window$lastLiveGpsPo5 === void 0 ? void 0 : _window$lastLiveGpsPo5.alt) !== null && _window$lastLiveGpsPo4 !== void 0 ? _window$lastLiveGpsPo4 : vpLiveAltFt) !== null && _ref34 !== void 0 ? _ref34 : 0;
   var _iterator62 = _createForOfIteratorHelper(traffic),
     _step62;
   try {
@@ -12644,9 +12646,9 @@ var vpWeatherLastAutoRefreshAt = 0;
 var vpShowLandmarks = localStorage.getItem('ga_show_landmarks') !== 'false';
 var vpShowObstacles = localStorage.getItem('ga_show_obstacles') !== 'false';
 var _legacyShowLinear = localStorage.getItem('ga_show_linear');
-var vpShowRoads = ((_ref34 = (_localStorage$getItem = localStorage.getItem('ga_show_roads')) !== null && _localStorage$getItem !== void 0 ? _localStorage$getItem : _legacyShowLinear) !== null && _ref34 !== void 0 ? _ref34 : 'true') !== 'false';
-var vpShowRivers = ((_ref35 = (_localStorage$getItem2 = localStorage.getItem('ga_show_rivers')) !== null && _localStorage$getItem2 !== void 0 ? _localStorage$getItem2 : _legacyShowLinear) !== null && _ref35 !== void 0 ? _ref35 : 'true') !== 'false';
-var vpShowPowerInfra = ((_ref36 = (_localStorage$getItem3 = localStorage.getItem('ga_show_power')) !== null && _localStorage$getItem3 !== void 0 ? _localStorage$getItem3 : _legacyShowLinear) !== null && _ref36 !== void 0 ? _ref36 : 'true') !== 'false';
+var vpShowRoads = ((_ref35 = (_localStorage$getItem = localStorage.getItem('ga_show_roads')) !== null && _localStorage$getItem !== void 0 ? _localStorage$getItem : _legacyShowLinear) !== null && _ref35 !== void 0 ? _ref35 : 'true') !== 'false';
+var vpShowRivers = ((_ref36 = (_localStorage$getItem2 = localStorage.getItem('ga_show_rivers')) !== null && _localStorage$getItem2 !== void 0 ? _localStorage$getItem2 : _legacyShowLinear) !== null && _ref36 !== void 0 ? _ref36 : 'true') !== 'false';
+var vpShowPowerInfra = ((_ref37 = (_localStorage$getItem3 = localStorage.getItem('ga_show_power')) !== null && _localStorage$getItem3 !== void 0 ? _localStorage$getItem3 : _legacyShowLinear) !== null && _ref37 !== void 0 ? _ref37 : 'true') !== 'false';
 var vpShowLinear = vpShowRoads || vpShowRivers || vpShowPowerInfra;
 var vpAirspaceMode = parseInt(localStorage.getItem('ga_show_airspaces') || '1'); // 0=Off, 1=Bg, 2=Fg
 
@@ -13552,9 +13554,9 @@ function vpSetHdgWeatherChunkCache(key, zones) {
   });
   if (vpHdgWeatherChunkCache.size <= VP_HDG_WEATHER_CHUNK_CACHE_MAX) return;
   var stale = Array.from(vpHdgWeatherChunkCache.entries()).sort((a, b) => Number(a[1] && a[1].ts || 0) - Number(b[1] && b[1].ts || 0)).slice(0, Math.max(1, vpHdgWeatherChunkCache.size - VP_HDG_WEATHER_CHUNK_CACHE_MAX));
-  stale.forEach(_ref38 => {
-    var _ref39 = _slicedToArray(_ref38, 1),
-      k = _ref39[0];
+  stale.forEach(_ref39 => {
+    var _ref40 = _slicedToArray(_ref39, 1),
+      k = _ref40[0];
     return vpHdgWeatherChunkCache.delete(k);
   });
 }

@@ -44,6 +44,12 @@ function prepare(recipe,state,sample) {
   if(!ex)return null;
   c.sample=Object.fromEntries(['altFt','hdg','aglFt','bankDeg','vsFpm','iasKts','aoaDeg','stallState','pitchDeg','gForce','observedAt','departureDistanceNm'].map(k=>[k,sample[k]??null]));
   if (!c.reference && s.active) c.reference={exerciseId:ex.id,altFt:s.active.startAltFt,headingDeg:s.active.startHeadingDeg};
+  // A turn starts from the pilot-selected heading at manual release.
+  // While preparing, the displayed heading is a live preview, not a target to return to.
+  if(!s.active && !s.ready && c.reference?.exerciseId===ex.id) {
+    if(finite(sample.hdg)) c.reference.headingDeg=sample.hdg;
+    if(finite(sample.altFt)) c.reference.altFt=Math.round(sample.altFt);
+  }
   const x=checks(recipe,state,sample), a=s.active, now=sample.observedAt;
   if(!finite(sample.hdg)||!finite(sample.bankDeg)||!finite(sample.vsFpm)||!finite(sample.aglFt)) return 'Flugdaten unvollständig. Durchgang unterbrochen; auf gültige Messwerte warten.';
   if(a && !x?.altitudeGate) return `Sicherheitshöhe unterschritten. Durchgang unterbrochen; mindestens ${minimum(recipe,ex)} ft AGL herstellen.`;
@@ -100,7 +106,7 @@ function record(state,text,now) {
 function after(recipe,state,sample,events) {
   const c=init(state),s=raw(state),ex=exercise(recipe,state);
   if(events.some(e=>e.type==='exercise_instruction')&&ex) {
-    c.reference={exerciseId:ex.id,altFt:Math.round(sample.altFt/100)*100,headingDeg:Math.round(sample.hdg)%360};
+    c.reference={exerciseId:ex.id,altFt:Math.round(sample.altFt),headingDeg:Math.round(sample.hdg)%360};
     c.notice='';c.phaseKey='';c.turnDirectionGood=true;
   }
   if(events.some(e=>e.type==='exercise_started')&&s.active&&c.reference) {
@@ -128,6 +134,7 @@ function project(recipe,state) {
     return {visible:false,title:'Training abgeschlossen',rows:[],history:c.history,notice:c.notice,
       instruction:`Pflichtteil abgeschlossen. ${nextStep} Verfügbare Zusatzübungen können im PAX-Menü angefragt werden.`};
   }
+  if(!s.active && !s.readyPrompted && s.completedCount>0) return {visible:false,title:'Übung abgeschlossen',rows:[],history:c.history};
   if(!c.reference || c.reference.exerciseId!==ex.id) {
     const distanceRequired=departureMinimum(recipe);
     const altitudeRequired=altitudeGateMinimum(recipe,state,ex);
@@ -155,8 +162,9 @@ function project(recipe,state) {
   const rows=[];const row=(id,label,status,progress=0,detail='')=>rows.push({id,label,status,progress:Math.max(0,Math.min(1,progress)),detail});
   const completedOr=(yes)=>yes?'complete':'error';
   const preparing=!a;
-  row('altitude',`Höhe ${c.reference.altFt} ft MSL · ±${x.altTolerance} ft`,preparing?completedOr(x.height):'complete',preparing&&x.height?1:0,`Aktuell ${Math.round(sample.altFt||0)} ft`);
-  row('heading',`Kurs ${hdg(c.reference.headingDeg)} · ±${x.headingTolerance}°`,preparing?completedOr(x.heading):'complete',preparing&&x.heading?1:0,`Aktuell ${hdg(sample.hdg||0)}`);
+  row('altitude',`${preparing&&!s.ready?'Starthöhen-Vorschau':'Höhe'} ${c.reference.altFt} ft MSL · ±${x.altTolerance} ft`,preparing?completedOr(x.height):'complete',preparing&&x.height?1:0,`Aktuell ${Math.round(sample.altFt||0)} ft`);
+  const headingPreview=preparing&&!s.ready;
+  row('heading',headingPreview?`Startkurs bei „Übung starten“ festlegen · aktuell ${hdg(c.reference.headingDeg)}`:`Kurs ${hdg(c.reference.headingDeg)} · ±${x.headingTolerance}°`,preparing?completedOr(x.heading):'complete',preparing&&x.heading?1:0,`Aktuell ${hdg(sample.hdg||0)}`);
   const currentMinAgl=altitudeGateMinimum(recipe,state,ex);
   row('ready',`Flügel waagerecht, Vertikalgeschwindigkeit ≤350 ft/min · mindestens ${currentMinAgl} ft AGL`,a?'complete':s.startAvailable?'complete':x.bank&&x.stable&&x.altitudeGate?'active':'error',s.startAvailable||a?1:0,
     `${a?'Gestartet':s.startAvailable?'Bereit – Übung starten':'Drei Sekunden stabilisieren'} · Bank ${Math.round(sample.bankDeg||0)}° (max. ${ex.maxBankDeg||8}°), VS ${Math.round(sample.vsFpm||0)} ft/min, AGL ${Math.round(sample.aglFt||0)} ft`);
@@ -168,7 +176,7 @@ function project(recipe,state) {
     const direction=a?.direction===-1?'links':a?.direction===1?'rechts':ex.direction==='left'?'links':ex.direction==='right'?'rechts':'links oder rechts';
     const bankGood=finite(sample.bankDeg)&&Math.abs(Math.abs(sample.bankDeg)-Number(ex.targetBankDeg||30))<=Number(ex.bankToleranceDeg||6);
     row('turn',`${target}° ${direction} · Bank ${ex.targetBankDeg}° ±${ex.bankToleranceDeg||6}° · Höhe ±${x.altTolerance} ft · maximal ${ex.maxG} G`,status(['entry','turning'].includes(phase),phase==='rollout',x.height&&bankGood&&c.turnDirectionGood!==false&&Number(sample.gForce||1)<=ex.maxG),phase==='rollout'?1:(a?.progressDeg||0)/target,`${Math.round(a?.progressDeg||0)}° / ${target}° · Bank ${Math.round(sample.bankDeg||0)}°, Höhe ${Math.round(sample.altFt||0)} ft, ${Number(sample.gForce||1).toFixed(1)} G`);
-    row('rollout',`Ausleiten auf ${hdg((c.reference.headingDeg+target)%360)} · ±${ex.rolloutHeadingToleranceDeg||6}°, Bank ≤${ex.rolloutBankDeg}°, Höhe ±${x.altTolerance} ft; ${ex.stableSec||4} s stabil`,status(phase==='rollout',done,x.height&&angle(sample.hdg||0,(c.reference.headingDeg+target)%360)<=Number(ex.rolloutHeadingToleranceDeg||6)&&Math.abs(sample.bankDeg||0)<=Number(ex.rolloutBankDeg||12)),a?.stableSince?((c.lastAt||0)-a.stableSince)/((ex.stableSec||4)*1000):0);
+    row('rollout',`${headingPreview?'Zielkurs-Vorschau':'Ausleiten auf'} ${hdg((c.reference.headingDeg+target)%360)} · ±${ex.rolloutHeadingToleranceDeg||6}°, Bank ≤${ex.rolloutBankDeg}°, Höhe ±${x.altTolerance} ft; ${ex.stableSec||4} s stabil`,status(phase==='rollout',done,x.height&&angle(sample.hdg||0,(c.reference.headingDeg+target)%360)<=Number(ex.rolloutHeadingToleranceDeg||6)&&Math.abs(sample.bankDeg||0)<=Number(ex.rolloutBankDeg||12)),a?.stableSince?((c.lastAt||0)-a.stableSince)/((ex.stableSec||4)*1000):0);
     phaseLabel={entry:'Kurve einleiten',turning:'Kurve fliegen',rollout:'Ausleiten'}[phase]||phaseLabel;
   } else if(ex.type==='altitude_step_hold') {
     const target=c.reference.altFt+(ex.direction==='descent'?-1:1)*Number(ex.altitudeStepFt||500);
@@ -202,9 +210,9 @@ function project(recipe,state) {
   if(c.notice&&!a) for(const r of rows)if(!['altitude','heading','ready'].includes(r.id))r.status='error';
   if(c.suspended) for(const r of rows)if(r.status!=='pending')r.status='error';
   const activeRow=rows.find(r=>r.status==='active'||r.status==='error');
-  const instruction=`${ex.label}. ${rows.map((r,i)=>`${i+1}. ${r.label}`).join(' ')} ${preparing?'Erst stabilisieren, dann Übung starten.':''} ${String(ex.inflightTip || '').trim().slice(0,600)}`;
+  const instruction=`${ex.label}. ${rows.map((r,i)=>`${i+1}. ${r.label}`).join(' ')} ${preparing?'Stabilisiere die Ausgangslage. Kurs und Höhe laufen im Banner als Vorschau mit. Mit Übung starten legst du sie fest; dann beginnt die Fortschrittsanzeige.':''} ${String(ex.inflightTip || '').trim().slice(0,600)}`;
   return {visible:true,title:ex.label,phaseLabel,attempt:(s.exercises[s.activeIndex]?.attempts||0)+(a?0:1),rows,
     notice:c.notice||((s.exercises[s.activeIndex]?.attempts||0)>=Number(ex.maxAttempts||4)?'Mehrere Versuche: Anweisung erneut lesen. Bei Bedarf Durchgang abbrechen und in Ruhe neu ansetzen.':'')||(!x.altitudeGate?`Mindestens ${currentMinAgl} ft AGL erforderlich.`:''),instruction,
-    currentInstruction:`${phaseLabel}. ${activeRow?.label||'Abschnitt abgeschlossen.'}`,history:c.history,canRepeat:true};
+    currentInstruction:`${phaseLabel}. ${activeRow?.label||'Abschnitt abgeschlossen.'}`,history:c.history,canRepeat:true,preparing:preparing&&!s.ready,canStart:s.startAvailable===true&&!s.ready&&!c.suspended,canAbort:!!a};
 }
 module.exports={init,prepare,after,project,record,minimum,readyMinimum,departureMinimum,checks};

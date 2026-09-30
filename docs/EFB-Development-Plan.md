@@ -1,5 +1,10 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Trainingsbanner, lokaler Folgestand 30.09.2026
+
+Gemeinsames Banner in EFB und App bei Tracker-Authority: dynamische Kurs-/Höhenvorschau, Start über `training_ready`, Neustart und Abbruch über bestätigtes `training_abort`. Die Authority schreibt Ausgangswerte bei manueller Freigabe verbindlich fest. Bestandene Übungen bleiben erhalten; nach Erfolg verschwindet das Banner bis zur nächsten Einweisung. Kein neuer Intent und keine fachliche Zustandsmaschine im UI. Standalone-App-Parität und MSFS-Feldtest sind noch offen.
+
+
 ## Prozessgrenzen korrigiert, Alpha v426 (17.09.2026)
 
 v425 startete den gepackten Kindprozess mit nur `--mission-worker`. pkg setzt
@@ -5741,3 +5746,9 @@ Schritte. APT führt weiter zum Zielflugplatz und zur Landung gemäß Flugplan;
 POI gibt die Rückkehr frei. Die Freigabeanzeige beschreibt Entfernung und
 Sicherheitshöhe in eigenen nummerierten Zeilen und verwendet darüber eine
 vollständige, nicht nummerierte Einleitung.
+
+Banner-Darstellung: oben zentriert, Desktop bis 640 px, mobil Viewportbreite minus 16 px. Kopf und Bedienleiste bleiben außerhalb des scrollbaren Inhalts sichtbar. Ausgangskurs und Ausgangshöhe werden nicht durchgestrichen. Kurzes Einblenden von oben respektiert reduzierte Bewegung. Alte seitliche gespeicherte Positionen werden nicht übernommen; neue manuelle Positionen verwenden v2.
+
+Höhenanpassung: unterer Ziehgriff für Maus/Touch sowie Pfeiltasten. Oberkante bleibt stehen; Mindesthöhe umfasst Kopf, feste Bedienleiste, Griff und ein vollständiges Aufgabenfeld. Die Höhe bleibt bei Projektion, Einklappen/Aufklappen und lokalem Neuladen erhalten; Viewport begrenzt die Maximalhöhe. Einklappen zeigt weiterhin nur die Kopfzeile.
+
+Alpha-Release 30.09.2026: App v1886 / Tracker v457 mit variabler Bannerhöhe und manueller Kurs-/Höhenreferenz. 42 Runtime-/Integrationstests sowie UI-Bedienungs- und Höhenlimitprüfungen bestanden.

@@ -51,3 +51,48 @@ const initialSignature = signature(payload);
 payload.control.poiTask.trainingGuidance.rows[0].progress=0.3;
 assert.notEqual(signature(payload), initialSignature, 'angle-only updates must reach the banner');
 assert.equal(signature(null), 'none');
+
+// Exercise controls must not submit destructive actions without confirmation.
+(async function () {
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname,'mission-training-guidance-ui.js'),'utf8');
+  const code = source.slice(source.indexOf('  function bindControls('), source.indexOf('  function restorePosition('));
+  let confirmed=false, submitted=0;
+  const listeners={};
+  const root={confirm:()=>confirmed,addEventListener:()=>{},console};
+  const node={addEventListener:(name,fn)=>{listeners[name]=fn;},_trainingActions:{start:()=>{submitted++;},restart:()=>{submitted++;},abort:()=>{submitted++;}}};
+  new Function('root',code+';return bindControls;')(root)(node);
+  const click=(action,disabled=false)=>listeners.click({target:{disabled,getAttribute:()=>action}});
+  click('abort'); click('restart');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(submitted,0);
+  confirmed=true;
+  click('restart'); click('restart');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(submitted,1,'double clicks submit only one intent');
+  click('start',true);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(submitted,1,'unavailable start cannot submit');
+  click('start');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(submitted,2);
+  const preparing=ui.buildViewModel({preparing:true,canStart:false,canAbort:false});
+  assert.equal(preparing.preparing,true);
+  assert.equal(preparing.canStart,false);
+  assert.equal(preparing.canAbort,false);
+  process.stdout.write('TRAINING_BANNER_CONTROLS_TESTS_OK\n');
+})().catch(error=>{console.error(error);process.exitCode=1;});
+
+// Minimum height includes one complete row and the fixed controls; viewport limits growth.
+{
+  const source=require('node:fs').readFileSync(require('node:path').join(__dirname,'mission-training-guidance-ui.js'),'utf8');
+  const code=source.slice(source.indexOf('  function resizeHeight('),source.indexOf('  function bindControls('));
+  const elements={};
+  for(const [name,height] of Object.entries({head:54,actions:100,resize:25,row:60,instruction:18,notice:0})) {
+    elements['.training-guidance-'+name]={getBoundingClientRect:()=>({height}),setAttribute:()=>{}};
+  }
+  const node={style:{},querySelector:key=>elements[key]||null,getBoundingClientRect:()=>({top:12})};
+  const resize=new Function('root',code+';return resizeHeight;')({innerHeight:894});
+  assert.equal(resize(node,100),295);
+  assert.equal(resize(node,2000),874);
+  assert.equal(resize(node,500),500);
+}
