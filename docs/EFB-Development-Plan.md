@@ -5752,3 +5752,17 @@ Banner-Darstellung: oben zentriert, Desktop bis 640 px, mobil Viewportbreite min
 Höhenanpassung: unterer Ziehgriff für Maus/Touch sowie Pfeiltasten. Oberkante bleibt stehen; Mindesthöhe umfasst Kopf, feste Bedienleiste, Griff und ein vollständiges Aufgabenfeld. Die Höhe bleibt bei Projektion, Einklappen/Aufklappen und lokalem Neuladen erhalten; Viewport begrenzt die Maximalhöhe. Einklappen zeigt weiterhin nur die Kopfzeile.
 
 Alpha-Release 30.09.2026: App v1886 / Tracker v457 mit variabler Bannerhöhe und manueller Kurs-/Höhenreferenz. 42 Runtime-/Integrationstests sowie UI-Bedienungs- und Höhenlimitprüfungen bestanden.
+
+
+## Kartenattribution, Alpha v458 (30.09.2026)
+
+Der tracker-gehostete Kartentisch zeigt Leaflet als Text und verhindert
+Klicknavigation innerhalb der Quellenleiste, damit Coherent die EFB-Karte
+nicht auf eine externe Seite umleitet. Quellenangaben bleiben sichtbar.
+Host-Assetrevision 45801; das Community-Paket bleibt unveraendert.
+Der Release wurde vom Nutzer beauftragt; der In-Sim-Nachweis steht aus.
+
+Validierung: 20 EFB-Host-Tests erfolgreich, einschliesslich abbrechbarer
+Klicknavigation und Coherent-Syntax-Gate. Windows-x64-EXE auf Apple Silicon
+mit `--no-bytecode --public-packages '*' --public` gebaut; keine native
+Windows-/MSFS-Ausfuehrung auf diesem Rechner.

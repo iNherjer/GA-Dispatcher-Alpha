@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '45001');
+  assert.equal(EFB_WEB_ASSET_REVISION, '45801');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=45001/);
-  assert.match(page, /host\.css\?v=45001/);
-  assert.match(page, /map-shell-core\.js\?v=45001/);
-  assert.match(page, /map-utility-tools\.js\?v=45001/);
-  assert.match(page, /mission-control-ui-core\.js\?v=45001/);
-  assert.match(page, /cockpit-session-client\.js\?v=45001/);
-  assert.match(page, /host\.js\?v=45001/);
+  assert.match(page, /app-styles\.css\?v=45801/);
+  assert.match(page, /host\.css\?v=45801/);
+  assert.match(page, /map-shell-core\.js\?v=45801/);
+  assert.match(page, /map-utility-tools\.js\?v=45801/);
+  assert.match(page, /mission-control-ui-core\.js\?v=45801/);
+  assert.match(page, /cockpit-session-client\.js\?v=45801/);
+  assert.match(page, /host\.js\?v=45801/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,20 +35,20 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=45001"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=45001"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=45001"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=45001"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=45801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=45801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=45801"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=45801"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=45001',
-    '/efb/v1/assets/map-utility-tools.js?v=45001',
-    '/efb/v1/assets/mission-control-ui-core.js?v=45001',
-    '/efb/v1/assets/cockpit-session-client.js?v=45001',
-    '/efb/v1/assets/host.js?v=45001'
+    '/efb/v1/assets/map-shell-core.js?v=45801',
+    '/efb/v1/assets/map-utility-tools.js?v=45801',
+    '/efb/v1/assets/mission-control-ui-core.js?v=45801',
+    '/efb/v1/assets/cockpit-session-client.js?v=45801',
+    '/efb/v1/assets/host.js?v=45801'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -572,4 +572,27 @@ test('EFB ships shared live instruments and the original compass font before the
   const source = getTrackerEfbWebClientAsset('/efb/v1/assets/map-live-presentation.js');
   assert.doesNotThrow(() => new Function(source.body.toString('utf8')));
   assert.equal(getTrackerEfbWebClientAsset('/efb/v1/assets/MS33558.ttf').contentType, 'font/ttf');
+});
+
+test('EFB map credits preserve attribution and cancel external link navigation', () => {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(path.join(__dirname, 'tracker-efb-kartentisch-host.js'), 'utf8');
+  const start = source.indexOf('    // Coherent has no browser back button:');
+  assert.ok(start >= 0);
+  const end = source.indexOf("    createStablePane('gaBasePane'", start);
+  const container = new EventTarget();
+  let prefix;
+  const map = { attributionControl: {
+    setPrefix(value) { prefix = value; },
+    getContainer() { return container; }
+  } };
+  vm.runInNewContext(source.slice(start, end), { map });
+  assert.equal(prefix, 'Leaflet');
+  assert.ok(!prefix.includes('<a'));
+  // Clicks dispatched by mouse, touch and keyboard activation use this path.
+  for (let i = 0; i < 3; i++) {
+    const event = new Event('click', { bubbles: true, cancelable: true });
+    assert.equal(container.dispatchEvent(event), false);
+    assert.equal(event.defaultPrevented, true);
+  }
 });

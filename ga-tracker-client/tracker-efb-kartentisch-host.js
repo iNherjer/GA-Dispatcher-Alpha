@@ -1528,6 +1528,18 @@
       markerZoomAnimation: true
     });
 
+    // Coherent has no browser back button: credits must never navigate the EFB.
+    if (map.attributionControl) {
+      map.attributionControl.setPrefix('Leaflet');
+      var attributionContainer = map.attributionControl.getContainer();
+      if (attributionContainer) {
+        attributionContainer.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+      }
+    }
+
     createStablePane('gaBasePane', 200);
     createStablePane('gaVfrPane', 280);
     createStablePane('gaOfficialChartPane', 310);
