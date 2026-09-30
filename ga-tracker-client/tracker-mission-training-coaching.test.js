@@ -314,3 +314,5 @@ test('turn banner marks excessive G as an error before the detector grace period
   h.observe({hdg:100,bankDeg:30});h.observe({hdg:110,bankDeg:30,gForce:3});
   assert.equal(h.row('turn').status,'error');assert.match(h.row('turn').detail,/3.0 G/);
 });
+
+test('inflight maneuver tip is spoken during instruction and remains available after restore',()=>{const tip='Beim Ausleiten die Leistung wieder anpassen, damit die Geschwindigkeit stabil bleibt.';const h=harness([{id:'turn-tip',type:'constant_bank_360',targetBankDeg:45,inflightTip:tip}]);const first=h.observe();assert.match(h.spoken(first),/Beim Ausleiten die Leistung/);h.restore();assert.match(h.spoken(h.action('training_repeat_instruction')),/Beim Ausleiten die Leistung/);assert.equal(h.raw().requiredComplete,false);});

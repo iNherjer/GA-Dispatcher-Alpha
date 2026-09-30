@@ -270,14 +270,18 @@ function _handleTrainingProcedureEvents(events = [], recipe = null) {
     if (typeof window.missionPersistRuntimeSnapshot === 'function') {
         window.missionPersistRuntimeSnapshot(`training-procedure-${kind}`, { immediate: kind === 'training_complete' || kind === 'training_required_complete' });
     }
-    const text = _trainingProcedureVoiceText(kind, event, recipe);
+    const inflightTip = event?.type === 'exercise_instruction' ? String(event.inflightTip || '').trim().slice(0,600) : '';
+    const instruction = inflightTip && event?.exerciseType === 'stall_recovery'
+        ? 'Wir üben im Simulator einen vollständig entwickelten Stall mit anschließender Recovery nach Flughandbuch. Stelle eine sichere, stabile Ausgangslage her. Bei Unsicherheit brechen wir ab. Starte die Übung erst, wenn du bereit bist.'
+        : _trainingProcedureVoiceText(kind, event, recipe);
+    const text = [instruction, inflightTip].filter(Boolean).join(' ');
     if (!text) return;
     const speaker = _speakerSnapshotForMissionVoice('training-procedure');
     const label = kind === 'training_complete'
         ? 'Training abgeschlossen'
         : (kind.includes('repeat') ? 'Training Wiederholung' : (kind.includes('stall') ? 'Stall Training' : 'Training'));
     _speakPreparedText(_trainingProcedureAudioKey(kind, event), text, speaker, label, {
-        tryStaticAudio: (playEpoch) => _paxTryPlayStaticTrainingVoice(kind, speaker, playEpoch)
+        tryStaticAudio: inflightTip ? undefined : (playEpoch) => _paxTryPlayStaticTrainingVoice(kind, speaker, playEpoch)
     });
     _refreshTrainingProcedureMenu();
 }

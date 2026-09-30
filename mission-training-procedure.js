@@ -1007,6 +1007,7 @@
                     type: 'exercise_instruction',
                     exerciseId: nextEx.id,
                     exerciseType: nextEx.type,
+                    inflightTip: String(nextEx.inflightTip || '').trim().slice(0,600),
                     label: nextEx.label,
                     targetBankDeg: Number.isFinite(Number(nextEx.targetBankDeg)) ? Number(nextEx.targetBankDeg) : null,
                     altitudeStepFt: Number.isFinite(Number(nextEx.altitudeStepFt)) ? Number(nextEx.altitudeStepFt) : null,

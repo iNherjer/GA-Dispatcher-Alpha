@@ -202,7 +202,7 @@ function project(recipe,state) {
   if(c.notice&&!a) for(const r of rows)if(!['altitude','heading','ready'].includes(r.id))r.status='error';
   if(c.suspended) for(const r of rows)if(r.status!=='pending')r.status='error';
   const activeRow=rows.find(r=>r.status==='active'||r.status==='error');
-  const instruction=`${ex.label}. ${rows.map((r,i)=>`${i+1}. ${r.label}`).join(' ')} ${preparing?'Erst stabilisieren, dann Übung starten.':''}`;
+  const instruction=`${ex.label}. ${rows.map((r,i)=>`${i+1}. ${r.label}`).join(' ')} ${preparing?'Erst stabilisieren, dann Übung starten.':''} ${String(ex.inflightTip || '').trim().slice(0,600)}`;
   return {visible:true,title:ex.label,phaseLabel,attempt:(s.exercises[s.activeIndex]?.attempts||0)+(a?0:1),rows,
     notice:c.notice||((s.exercises[s.activeIndex]?.attempts||0)>=Number(ex.maxAttempts||4)?'Mehrere Versuche: Anweisung erneut lesen. Bei Bedarf Durchgang abbrechen und in Ruhe neu ansetzen.':'')||(!x.altitudeGate?`Mindestens ${currentMinAgl} ft AGL erforderlich.`:''),instruction,
     currentInstruction:`${phaseLabel}. ${activeRow?.label||'Abschnitt abgeschlossen.'}`,history:c.history,canRepeat:true};

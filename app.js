@@ -39494,6 +39494,7 @@ function trainingNarrativeHistory(storage) {
         return (Array.isArray(rows) ? rows : []).filter(row=>row && typeof row.title==='string' && typeof row.story==='string')
             .slice(-8).map(row=>({mode:row.mode==='POI'?'POI':'APT', title:row.title.slice(0,110),
                 story:row.story.slice(0,700), greeting:String(row.greeting||'').slice(0,300),
+                practiceFactIds:Array.isArray(row.practiceFactIds)?row.practiceFactIds.filter(x=>typeof x==='string').slice(0,2):[],
                 exercises:Array.isArray(row.exercises)?row.exercises.map(x=>String(x).slice(0,100)).slice(0,8):[]}));
     } catch (_) { return []; }
 }
@@ -39502,9 +39503,78 @@ function rememberTrainingNarrative(storage, mission, isPOI) {
     try {
         const rows=trainingNarrativeHistory(storage);
         rows.push({mode:isPOI?'POI':'APT',title:mission.t,story:mission._missionWriterV4Debug.rawAiStory,
-            greeting:mission.passenger.greetingText,exercises:mission.passenger.trainingRecipe.exercises.map(ex=>ex.label)});
+            greeting:mission.passenger.greetingText,practiceFactIds:mission._trainingNarrative?.practiceFactIds || [],exercises:mission.passenger.trainingRecipe.exercises.map(ex=>ex.label)});
         storage?.setItem('ga_training_narrative_history_v1',JSON.stringify(rows.slice(-8)));
     } catch (_) { /* History is optional; an unavailable storage must not discard a valid mission. */ }
+}
+
+function trainingBriefingKnowledge(recipe) {
+    const sera = 'https://www.easa.europa.eu/en/document-library/easy-access-rules/online-publications/easy-access-rules-standardised-european?erules-id=ERULES-1963177438-9807';
+    const aircrew = 'https://www.easa.europa.eu/en/document-library/easy-access-rules/online-publications/easy-access-rules-aircrew-regulation-eu-no?kw=ppl&page=5';
+    const procedures = {
+        constant_bank_360_30:'Der Kurs ändert sich während des Kreises. Das Ausrollen vorausschauend beginnen, sodass die Flügel beim Erreichen des Ausgangskurses wieder waagerecht sind. Ausgangskurs merken, koordiniert einkurven, vorgegebene Querneigung und Höhe halten, auf Ausgangskurs ausleiten. Außenblick und Instrumentenkontrolle verbinden.',
+        constant_bank_360_45:'Steilkurve: koordiniert einleiten, 45 Grad und Höhe kontrollieren. Das Ausrollen vorausschauend beginnen, sodass auf dem Ausgangskurs wieder Horizontalflug erreicht ist. Zum Halten der Höhe die vertikale Auftriebskomponente durch angepassten Anstellwinkel erhalten; die Höhensteuerung wirkt auf die Fluglage. Der dadurch höhere Gesamtauftrieb erhöht den induzierten Widerstand; dessen Ausgleich erfolgt über die Leistung, nicht durch Ziehen allein. Leistung nach Bedarf erhöhen, um die Geschwindigkeit zu halten; beim Ausleiten wieder anpassen. Umfang und Verfahren richten sich nach Flughandbuch und Ausgangslage, keine pauschale Drehzahl vorgeben. Außenblick, Balance und Geschwindigkeit beobachten.',
+        turn_180:'Ausgangskurs und Gegenkurs bestimmen, koordiniert mit vorgegebener Querneigung drehen, Höhe kontrollieren. Abschluss ist das Ausleiten und Stabilisieren im Horizontalflug auf dem Gegenkurs bei gehaltener Höhe; die Wende enthält keine Landung.',
+        altitude_step_hold:'Aus stabiler Ausgangslage den vorgesehenen Höhenwechsel einleiten, Geschwindigkeit und Kurs überwachen. Das Abfangen passend zu Steigrate, Flugzeug und Reaktion vorbereiten, anschließend neue Höhe stabil halten. Es ist kein allgemeiner fester Höhenvorlauf vorgegeben.',
+        stall_recovery:'Sicherheitschecks und ausreichende Höhenreserve voranstellen. Bei abnehmender Fahrt kann die Steuerwirkung nachlassen und sich die Steuerung weicher anfühlen; nötige Ausschläge und Steuerkräfte hängen von Flugzeug, Trimmung und Konfiguration ab. Ein mögliches Merkmal, kein universelles oder allein zuverlässiges Stallzeichen. Warnzeichen erkennen. Dieses Simulatorrezept umfasst den vollständig entwickelten Stall bis zum erkannten Break, anschließend Recovery; eine Recovery beim ersten Warnzeichen wäre ein anderes Übungsziel. Bei tatsächlicher Unsicherheit abbrechen. Bei der Recovery den Anstellwinkel reduzieren, weitere Maßnahmen nach Flughandbuch und Instruktoreinweisung, anschließend stabilisieren. Keine pauschalen Geschwindigkeiten, Konfigurationen oder Leistungswerte erfinden.'
+    };
+    return {schema:'training-briefing-knowledge.v1',reviewedAt:'2026-09-30',scope:'Allgemeiner Ausbildungsbezug Deutschland/EASA, kein Nachweis der aktuellen Luftraumklasse oder einer Freigabe. Außerhalb dieses Geltungsbereichs nur ausdrücklich als EASA-Lernstoff erklären.',
+        exerciseGuidance:(recipe?.exercises || []).map(e=>({exerciseId:e.id,type:e.type, guidance:procedures[e.type === 'constant_bank_360' ? (Number(e.targetBankDeg) === 45 ? 'constant_bank_360_45' : 'constant_bank_360_30') : e.type] || '',source:aircrew,section:'AMC1 FCL.210 PPL(A), Übungen 7, 9, 10b und 15; didaktische Zusammenfassung, kein Flughandbuch',additionalSource:e.type==='stall_recovery'?'https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/airplane_handbook/06_afh_ch5.pdf':e.type==='constant_bank_360'?'https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/airplane_handbook/11_afh_ch10.pdf':null,additionalSourceScope:'FAA-Manöverlehre nur für Aerodynamik und Flugtechnik, keine US-Rechtsregeln übernehmen'})),
+        practiceFacts:[
+            {id:'lookout',text:'Kollisionsvermeidung verlangt fortlaufende Aufmerksamkeit, unabhängig von Flugart oder Luftraumklasse. Außenbeobachtung dient dem Erkennen und Vermeiden von Verkehrskonflikten; sie gewährleistet keine ATC-Staffelung.',source:sera,section:'GM1 SERA.3201'},
+            {id:'minimum_height',essentialPoints:['Geltung: VFR; ausgenommen erforderlicher Start/Landung oder behördliche Erlaubnis','Dicht besiedelte Gebiete/Menschenansammlungen: 1000 ft über höchstem Hindernis im Radius 600 m','Sonst: 500 ft über Boden/Wasser oder höchstem Hindernis im Radius 150 m','Zusätzliche Übungshöhenreserve separat prüfen'],text:'VFR: außer erforderlichem Start/Landung oder behördlicher Erlaubnis über dicht besiedelten Gebieten/Menschenansammlungen 1000 ft über höchstem Hindernis im 600-m-Radius; sonst 500 ft über Boden/Wasser oder höchstem Hindernis im 150-m-Radius. Übungshöhenreserve ist zusätzlich zu prüfen.',source:sera,section:'SERA.5005(f), SERA.3105'},
+            {id:'cloud_distance',essentialPoints:['Normal-VFR Klasse D/E: Wolkenabstand horizontal 1500 m, vertikal 1000 ft','Klasse G: Höhenband bis 3000 ft AMSL oder 1000 ft AGL, höherer Wert maßgeblich','In diesem G-Band: frei von Wolken und Erdsicht','Keine Aussage zu anderen Höhenbändern, Flugsichten oder Sonder-VFR'],text:'Normal-VFR in Klasse D/E: 1500 m horizontal und 1000 ft vertikal von Wolken. In Klasse G im Höhenband bis 3000 ft AMSL oder 1000 ft AGL (höherer Wert maßgeblich): frei von Wolken, Erdsicht. Diese Angaben beschreiben die VMC-Anforderungen, keine Zusicherung einer Staffelung durch die Flugsicherung. Andere Höhenbänder/Flugsichten und Sonder-VFR nicht daraus ableiten.',source:sera,section:'SERA.5001, Tabelle S5-1'},
+            {id:'radio_readback',text:'Gegenüber ATC unter anderem Höhenanweisungen, QNH, SSR-Code und neu zugewiesene Funkkanäle zurücklesen. Flugplatzinformation ist nicht automatisch eine ATC-Freigabe.',source:'https://www.easa.europa.eu/en/document-library/easy-access-rules/online-publications/easy-access-rules-standardised-european?erules-id=ERULES-1963177438-9888',section:'SERA.8015(e)'}
+        ]};
+}
+
+function trainingNarrativeIssues(raw, frame) {
+    const issues=[];
+    const exercises=[...frame.requiredExercises,...frame.optionalExercises];
+    const ids=exercises.map(e=>e.id);
+    if (!Array.isArray(raw?.maneuverTips)) issues.push('maneuverTips fehlt');
+    else {
+        const supplied=raw.maneuverTips.map(t=>t?.exerciseId);
+        for(const id of ids) if(supplied.filter(x=>x===id).length!==1) issues.push('Genau ein Hinweis erforderlich für '+id);
+        if(supplied.some(id=>!ids.includes(id))) issues.push('Unbekannte Übungs-ID');
+        for(const t of raw.maneuverTips) {
+            if(typeof t?.text!=='string' || t.text.trim().length<20 || t.text.length>600) issues.push('Hinweislänge ungültig: '+t?.exerciseId);
+
+        }
+    }
+    if (!Array.isArray(raw?.practiceTips) || !Array.isArray(raw?.practiceFactIds)
+        || raw.practiceTips.length!==raw.practiceFactIds.length
+        || raw.practiceFactIds.some(id=>raw.practiceTips.filter(t=>t?.factId===id && typeof t.text==='string' && t.text.trim().length>=30 && t.text.length<=1000).length!==1)) issues.push('Jeder gewählte allgemeine Fakt braucht genau einen ausformulierten practiceTips-Text');
+    return issues;
+}
+
+async function fetchTrainingCoaching(frame, story, recent = []) {
+    const exercises=[...frame.requiredExercises,...frame.optionalExercises];
+    const context={instructor:frame.instructor,knowledge:frame.knowledge,
+        requiredExerciseIds:frame.requiredExercises.map(e=>e.id),allExerciseIds:exercises.map(e=>e.id),
+        narrative:story,previousPracticeTopics:recent.map(row=>row.practiceFactIds || [])};
+    const prompt=`Formuliere ausschließlich fachliche Hinweise für ein Simulatortraining aus Sicht des Fluglehrers (du/ich/wir). Die Geschichte ist bereits fertig und wird nicht neu geschrieben. WISSEN ist die einzige fachliche Grundlage, keine Ergänzungen aus Gedächtnis oder Recherche. Die Fakten sind Lernstoff, keine Beispielgeschichten. Manöverhinweise erklären Zusammenhang oder Beobachtungspunkt statt neuer Aufgaben oder Sollwerte. Jeder Hinweis nutzt ausschließlich den knowledge.exerciseGuidance-Eintrag seiner eigenen exerciseId. Ein Hinweis zu einer anderen Übung ist keine zusätzliche Fachquelle. Die mitgelieferten Auszüge und didaktischen Zusammenfassungen der benannten Dokumente sind die fachliche Autorität; ein Quellenlink allein liefert keinen weiteren Inhalt. Erkläre ausschließlich die darin belegten Empfehlungen. Jede konkrete Handlung, Reihenfolge oder aerodynamische Erklärung muss dort ausdrücklich enthalten sein. Wenn die Grundlage einen Zusammenhang nicht erklärt, wähle einen anderen belegten Schwerpunkt oder bleibe kürzer, statt die Lücke aus eigenem Wissen zu füllen. Bedingte Beobachtungen mit ihrer Bedingtheit erklären, nicht als garantierte Reaktion jedes Flugzeugs.
+Ausgabe ausschließlich ein JSON-Objekt mit vier Feldern:
+briefingTip: Objekt mit exerciseId (eine Pflichtübungs-ID) und text (20–750 Zeichen), genau ein fliegerischer Hinweis fürs Briefing. In der Regel drei bis vier verständliche Sätze: den fachlichen Zusammenhang erklären und daraus eine konkrete Durchführungshilfe ableiten.
+maneuverTips: Array von Objekten mit exerciseId und text (je 20–600 Zeichen), genau ein Hinweis für JEDE ID in allExerciseIds, einschließlich freiwilliger Übungen. Diese werden erst bei der Einweisung in der Luft gesprochen. In der Regel zwei bis drei zusammenhängende Sätze: worauf der Pilot achten soll, warum und wie er darauf reagiert. Für die im briefingTip behandelte Übung einen anderen fachlichen Aspekt vertiefen; dessen Erklärung nicht wiederholen.
+practiceFactIds: Array mit genau einer ID aus knowledge.practiceFacts. Ein passendes allgemeines Lernthema vertiefen, weniger kürzlich verwendete Themen bevorzugen; kein starrer Wechsel.
+practiceTips: Array von Objekten mit factId und text (30–1000 Zeichen), genau ein ausformulierter Hinweis je practiceFactIds-ID. Den Lernstoff zugänglich erläutern, statt nur einen Merksatz zu liefern. Jeden essentialPoints-Eintrag der gewählten Regel inhaltlich abdecken, einschließlich Geltung, Bedingungen und Ausnahmen; diese gehören zum Fachinhalt, nicht zu optionalen Ausschmückungen. In ungefähr drei bis fünf Sätzen einen zusammenhängenden Tipp erklären; keine unbekannte Luftraumklasse oder Freigabe als aktuelle Fluglage darstellen. Die allgemeinen Praxistipps stehen nur hier, nicht in briefingTip oder maneuverTips.
+Die Satzanzahl ist ein Richtwert, keine Pflicht zum Auffüllen: ein fachlicher Schwerpunkt pro Hinweis, keine neuen Themen oder unbelegten Details für mehr Länge. Alle Texte in natürlicher, präziser Cockpitsprache; kein formales Quellenzitat nötig. Zahlen im Manöverhinweis nur aus vorgegebener Querneigung/Höhenwechsel, kein erfundener Abfangvorlauf. Auf dieser Grundlage erklären, nicht fachlich verallgemeinern. Simulator-Stall umfasst den erkannten Break und danach Recovery; Warnzeichenerkennung ändert das Übungsziel nicht. CONTEXT: ${JSON.stringify(context)}`;
+    const issues = raw => {
+        const errors=trainingNarrativeIssues(raw,frame);
+        if(!raw?.briefingTip || !frame.requiredExercises.some(e=>e.id===raw.briefingTip.exerciseId)
+            || typeof raw.briefingTip.text!=='string' || raw.briefingTip.text.trim().length<20 || raw.briefingTip.text.length>750) errors.push('briefingTip braucht eine Pflichtübungs-ID und 20–750 Zeichen Text');
+        if(!Array.isArray(raw?.practiceFactIds) || raw.practiceFactIds.length<1 || raw.practiceFactIds.length!==1
+            || new Set(raw.practiceFactIds).size!==raw.practiceFactIds.length
+            || raw.practiceFactIds.some(id=>!frame.knowledge.practiceFacts.some(f=>f.id===id))) errors.push('practiceFactIds: genau eine bekannte Fakten-ID');
+        const texts=[raw?.briefingTip?.text,...(Array.isArray(raw?.maneuverTips)?raw.maneuverTips.map(t=>t?.text):[]),...(Array.isArray(raw?.practiceTips)?raw.practiceTips.map(t=>t?.text):[])];
+        if(texts.some(t=>typeof t==='string' && /\[\[|\]\]/.test(t))) errors.push('Fachhinweise dürfen keine Referenzplatzhalter enthalten');
+        return errors;
+    };
+    let result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'training-coaching-v4',timeoutMs:26000});
+    if(issues(result?.parsed).length) result=await fetchGeminiJsonWithFallback(prompt+' KORREKTURBEDARF: '+JSON.stringify(issues(result?.parsed))+' ENTWURF: '+JSON.stringify(result?.parsed||{}),getSelectedAiApiKey(),{promptVersion:'training-coaching-v4',timeoutMs:26000});
+    if(issues(result?.parsed).length) throw Error('Die fachlichen Trainingshinweise konnten nicht vollständig erstellt werden. Bitte erneut versuchen.');
+    return result.parsed;
 }
 
 async function fetchTrainingNarrative(context = {}) {
@@ -39522,24 +39592,32 @@ async function fetchTrainingNarrative(context = {}) {
         optionalExercises:prepared.passenger.trainingRecipe.exercises.slice(prepared.passenger.trainingRecipe.requiredCount),
         readiness:{minAglFt:prepared.passenger.trainingRecipe.readyMinAglFt, manualStart:true, stabilizeFirst:true},
         baggage:prepared.cargoText,
+        knowledge:trainingBriefingKnowledge(prepared.passenger.trainingRecipe),
         completion:context.isPOI?'Übungen im Übungsgebiet, anschließend Rückkehr zum Startplatz':'Übungen unterwegs, anschließend Landung am Zielflugplatz'};
-    const prompt = `Schreibe ein kurzes, lebendiges Vorflugbriefing für einen Schulungsflug. Außenstehender Erzähler; Pilot mit du, Instruktor in dritter Person. Der tatsächliche Trainingsplan und die benannte Person in RAHMEN sind verbindlich. Erkläre verständlich, was heute geübt werden soll und wie die Zusammenarbeit gedacht ist. Ein persönlicher Ton ist willkommen; erfinde keine zusätzlichen Manöver, Prüfungen oder Flugaufträge. Die Übungen sind geplant, noch nicht geflogen. Die Pflichtübungen und ihre Reihenfolge folgen requiredExercises; optionalExercises sind freiwillig. Auch freiwillige Übungen werden, sofern benannt, in der Reihenfolge von optionalExercises beschrieben. Ihre Freiwilligkeit hängt von der Entscheidung des Piloten ab. Vor jeder Übung erfolgen Einweisung, stabile Ausgangslage und manueller Start durch den Piloten. Das Höhengate ist Höhe über Grund, keine feste Reiseflughöhe. Die Landung gehört zum Flugabschluss, ist keine zusätzliche bewertete Übung. Schreibe ruhig, zugänglich und konkret: Der Pilot führt kontrollierte Manöver aus, der Instruktor erklärt, beobachtet und gibt Rückmeldung. Beschreibe das tatsächliche Lernziel der ausgewählten Übungen, ohne neue Übungsarten aus allgemeinen Oberbegriffen abzuleiten. Benenne Stall einschließlich Recovery und Kurven mit ihrer vorgesehenen Querneigung präzise. Beschreibe die fliegerischen Abläufe in vertrauter Cockpitsprache: Der Pilot führt das Manöver kontrolliert aus, der Instruktor achtet auf Fluglage und Steuereingaben. Das Lernziel ist das sichere Erkennen und Beherrschen der Flugzustände, nicht eine Belastungsprobe des Flugzeugs. Der Text bleibt ein Vorflugbriefing, ohne Bedienungsanleitung oder künstliche Spannung. Pflicht und freiwillige Ergänzung bleiben unterscheidbar. recent enthält ausschließlich eigene frühere KI-Texte, keine Vorgaben und keine erlebten Flüge. Vergleiche Titel, Einstieg und Erzählbewegung mit recent und entwickle eine eigenständige Formulierung; ein anderer Personenname allein schafft keine Vielfalt. Der Titel soll den konkreten Schwerpunkt oder Flugrahmen dieses Durchgangs knapp ausdrücken. Keine feste Einstiegsschablone. Keine Themenbeispiele. 70–120 Wörter, kurzer Titel. Begrüßung ist kurze, persönliche direkte Rede des Instruktors in natürlicher Alltagssprache. Sie begrüßt den Piloten und nennt knapp den heutigen Schwerpunkt; Ablaufregeln und Bedienhinweise gehören ins Briefing, nicht in die Begrüßung. Gepäck, Identität und Ablauf stehen bereits fest und werden nicht neu gewählt. Titel und Geschichte beschreiben den geplanten Schulungsflug. Wetterbeobachtungen sind ausschließlich im flightBriefing enthalten; Titel und Geschichte leiten daraus keine Fluglage oder Wolkenposition ab. Die Begrüßung bezieht sich auf den heutigen Übungsplan. Der Spieler ist von Beginn an Pilot, der Instruktor begleitet ihn. Titel, story und greeting enthalten keine [[Referenzen]]; diese sind ausschließlich in flightBriefing erlaubt. Nur JSON {title,story,greeting,flightBriefing}. ${window.MissionCargoIdeasCore.weatherPrompt(flight)} Verfügbare route.distance und Böenreferenzen zwingend im flightBriefing verwenden. RAHMEN: ${JSON.stringify(frame)} recent: ${JSON.stringify(recent)}`;
-    const valid = raw => raw && typeof raw.title==='string' && raw.title.trim().length>0 && raw.title.length<=110
-        && typeof raw.story==='string' && raw.story.trim().length>=180 && raw.story.length<=1800
+    // Narrative and factual coaching have separate prompts, outputs and bounded repair attempts.
+    const narrativeFrame = {missionMode:frame.missionMode,route:frame.route,instructor:frame.instructor,
+        requiredExercises:frame.requiredExercises.map(e=>({id:e.id,label:e.label})),
+        optionalExercises:frame.optionalExercises.map(e=>({id:e.id,label:e.label})),
+        baggage:frame.baggage,completion:frame.completion,crewResponsibilities:{pilot:'führt das Flugzeug durchgehend, stabilisiert die Fluglage und startet das Manöver manuell',instructor:'erklärt, beobachtet und gibt Rückmeldung; eine Übernahme ist nicht Teil dieses Trainingsrezepts'}};
+    const prompt = `Schreibe den erzählerischen Rahmen eines professionellen Vorflugbriefings aus Sicht des benannten Fluglehrers in Ich-/Wir-Form, Pilot mit du. 100–150 Wörter in kurzen Absätzen. Lernziel, Pflichtübungen in Reihenfolge, Zusammenarbeit und Flugabschluss aus RAHMEN. Die freiwilligen Übungen nur auf Wunsch und in Rezeptreihenfolge kurz nennen. Die Rollen aus crewResponsibilities sind verbindlich: Der Pilot führt und stabilisiert das Flugzeug durchgehend. Der Lehrer erklärt, beobachtet und gibt Rückmeldung. Nach der Einweisung startet der Pilot das Manöver manuell aus der von ihm stabilisierten Fluglage. Für den Schulungsflug braucht es ausreichende Übungshöhe und Sicherheitsreserve. Beschreibe den geplanten Ablauf, keine schon erlebten Flugszenen. Fachliche Manöverhinweise und allgemeine Praxistipps werden separat geschrieben: story enthält ausschließlich den Trainingsrahmen, keine Steueranweisungen, Aerodynamikerklärungen oder Rechtszahlen. Wetter ausschließlich im flightBriefing aus gelieferten Daten. greeting begrüßt freundlich und professionell. Vergleiche mit recent für eigenständige Titel und Einstiege; recent sind eigene Entwürfe, keine geflogenen Erlebnisse oder Vorlagen. Kurzer Titel. title/story/greeting ohne [[Referenzen]], diese nur in flightBriefing. Ausgabe ausschließlich JSON mit vier Feldern: title (Text), story (Text), greeting (Text), flightBriefing (Text). ${window.MissionCargoIdeasCore.weatherPrompt(flight)} RAHMEN: ${JSON.stringify(narrativeFrame)} recent: ${JSON.stringify(recent)}`;
+    const validNarrative = raw => raw && typeof raw.title==='string' && raw.title.trim().length>0 && raw.title.length<=110
+        && typeof raw.story==='string' && raw.story.trim().length>=180 && raw.story.length<=2000
         && typeof raw.greeting==='string' && raw.greeting.trim().length>=20 && raw.greeting.length<=400
         && !/\[\[|\]\]/.test(raw.title+raw.story+raw.greeting);
-    let result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'training-narrative-v3',timeoutMs:26000});
-    if(!valid(result?.parsed)) result=await fetchGeminiJsonWithFallback(prompt+' FORMATKORREKTUR: Vollständiges JSON mit gültigen Textlängen. title, story und greeting dürfen keine [[Referenzen]] enthalten; entferne diese dort. Nur flightBriefing verwendet Referenzen. ENTWURF: '+JSON.stringify(result?.parsed||{}),getSelectedAiApiKey(),{promptVersion:'training-narrative-v3',timeoutMs:26000});
-    if(!valid(result?.parsed)) throw Error('Das Trainingsbriefing konnte nicht vollständig erstellt werden. Bitte erneut versuchen.');
+    let result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
+    if(!validNarrative(result?.parsed)) result=await fetchGeminiJsonWithFallback(prompt+' FORMATKORREKTUR: Nur die vier Textfelder in gültigem JSON und den angegebenen Längen. ENTWURF: '+JSON.stringify(result?.parsed||{}),getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
+    if(!validNarrative(result?.parsed)) throw Error('Der Trainingsrahmen konnte nicht vollständig erstellt werden. Bitte erneut versuchen.');
     const raw=result.parsed;
+    const hints = await fetchTrainingCoaching(frame, raw.story, recent);
+    prepared.passenger.trainingRecipe.exercises.forEach(ex=>{ex.inflightTip=hints.maneuverTips.find(t=>t.exerciseId===ex.id).text.trim();});
     const brief=api.resolveFlightBriefing(raw.flightBriefing,flightContext)||api.weatherFallback(flightContext);
-    prepared.t=raw.title.trim();prepared.s=[raw.story.trim(),brief].join('\n\n');
+    prepared.t=raw.title.trim();prepared.s=[raw.story.trim(),hints.briefingTip.text.trim(),hints.practiceTips.map(t=>t.text.trim()).join(' '),brief].join('\n\n');
     prepared.story=prepared.s;prepared.missionStory=prepared.s;
     prepared.passenger.greetingText=raw.greeting.trim();
-    prepared._trainingNarrative={schema:'training-narrative.v1'};
+    prepared._trainingNarrative={schema:'training-narrative.v1',promptVersion:'training-narrative-v9',coachingVersion:'training-coaching-v4',knowledge:frame.knowledge,practiceFactIds:hints.practiceFactIds.slice(),briefingTip:hints.briefingTip,practiceTips:hints.practiceTips};
     prepared._source=(result.source||'Gemini')+' + Training Writer V1';
     prepared._missionWriterV4Debug={source:'Training Writer V1',writerMode:'TRAINING-V1',writerAccepted:true,
-        rawAiStory:raw.story,writerStory:prepared.s,storyChangedByFinalize:false,weatherSnapshot:flightContext.weather};
+        rawAiStory:[raw.story,hints.briefingTip.text,...hints.practiceTips.map(t=>t.text.trim())].join('\n\n'),writerStory:prepared.s,storyChangedByFinalize:false,weatherSnapshot:flightContext.weather};
     contract.passenger=prepared.passenger;contract.cargoText=prepared.cargoText;contract.paxText=prepared.pax;
     contract.trainingPlan=prepared.passenger.trainingPlan;contract.trainingRecipe=prepared.passenger.trainingRecipe;prepared._missionContractV4=contract;
     rememberTrainingNarrative(typeof localStorage === 'undefined' ? null : localStorage, prepared, !!context.isPOI);

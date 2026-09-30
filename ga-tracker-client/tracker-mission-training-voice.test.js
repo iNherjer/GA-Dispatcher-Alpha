@@ -48,3 +48,9 @@ test('Training voice adapter creates ordered effects without mutating context or
     assert.equal(effects[0].resolvedRecipe.prompt,''); assert.equal(effects[0].resolvedRecipe.playCue,false);
     assert.equal(JSON.stringify({context,input}),before);
 });
+
+test('custom instruction tip uses dynamic text instead of a static clip that omits it',()=>{const tip='Beim Ausleiten die Leistung wieder anpassen.';const voices=core.render({missionId:'tip-test'},{events:[{type:'exercise_instruction',exerciseType:'constant_bank_360',targetBankDeg:45,exerciseId:'tip',inflightTip:tip}]});assert.equal(voices.length,1);assert.match(voices[0].text,/Beim Ausleiten die Leistung/);assert.equal(voices[0].staticClipKey,null);});
+
+test('new stall tip has a coherent full-stall briefing without contradictory early recovery command',()=>{const v=core.render(context,{events:[{type:'exercise_instruction',exerciseType:'stall_recovery',exerciseId:'stall',inflightTip:'Nach dem erkannten Break den Anstellwinkel reduzieren und die Recovery nach Flughandbuch durchführen.'}]})[0];assert.match(v.text,/vollständig entwickelten Stall/);assert.match(v.text,/Bei Unsicherheit/);assert.doesNotMatch(v.text,/nicht vorzeitig nachdruecken/);assert.equal(v.staticClipKey,null);});
+
+test('detailed inflight explanation retains its ending beyond the former limit',()=>{const tip='Außenblick und Instrumentenkontrolle ergänzen sich bei der Beobachtung der Fluglage. '.repeat(5)+'Den Hinweis vollständig erhalten.';assert.ok(tip.length>350 && tip.length<=600);const v=core.render(context,{events:[{type:'exercise_instruction',exerciseType:'constant_bank_360',targetBankDeg:30,exerciseId:'turn',inflightTip:tip}]})[0];assert.ok(v.text.endsWith(tip));assert.equal(v.staticClipKey,null);});
