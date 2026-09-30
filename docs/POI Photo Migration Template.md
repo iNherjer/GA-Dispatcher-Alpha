@@ -97,3 +97,7 @@ Neue Integrationstests für alle drei Profile prüfen die tatsächliche Übergab
 ### Weiteres Beispiel: Biologie
 
 Der erste Testpfad für `science_bio` verwendet dieselbe Methode mit einer eigenen Studienfrage und fachlicher Beobachtung statt Foto-/Inspektionsinhalt. Siehe [Biology Briefing Migration.md](Biology%20Briefing%20Migration.md) für Vertrag, Aktivierung, Historie, PAX-Kontinuität und Grenzen der Tier-Szenen.
+
+### Geologie / Relief
+
+`science_geo` verwendet ab Alpha v1889 eine eigene offene Forschungsfrage und qualitative Gelände-Einordnung. Kein Foto-/Biologie-Vertrag. Methode, gemeinsame Lage-/Wetterdaten und bestehende Authority-Schnittstelle werden übernommen; [Geology Briefing Migration](Geology%20Briefing%20Migration.md) dokumentiert Umfang, Tests und Grenzen.

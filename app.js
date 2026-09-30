@@ -8845,7 +8845,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'geoBriefing', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9463,7 +9463,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -21830,6 +21830,8 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     }
     if (isPOI && profileId === 'science_bio' && window.MissionBioBriefingCore?.owns(m))
         return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'science_bio'};
+    if (isPOI && profileId === 'science_geo' && window.MissionGeoBriefingCore?.owns(m))
+        return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'science_geo'};
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(m))
         return { mission:m, paxText:m.pax, cargoText:m.cargo, appliedProfile:'inspection_infra' };
     if (isPOI && profileId === 'news_coverage' && window.MissionNewsBriefingCore?.owns(m))
@@ -22944,6 +22946,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         charterIdea: mission?.charterIdea?.schema === 'charter-idea.v1' ? mission.charterIdea : null,
         infraBriefing: window.MissionInfraBriefingCore?.owns(mission) ? mission.infraBriefing : null,
         bioBriefing: window.MissionBioBriefingCore?.owns(mission) ? mission.bioBriefing : null,
+        geoBriefing: window.MissionGeoBriefingCore?.owns(mission) ? mission.geoBriefing : null,
         newsBriefing: window.MissionNewsBriefingCore?.owns(mission) ? mission.newsBriefing : null,
         poiBriefing: window.MissionPoiBriefingCore?.owns(mission) ? mission.poiBriefing : null,
         missionStory: story,
@@ -23413,6 +23416,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'science_bio' && window.MissionBioBriefingCore?.owns(missionLike)) return true;
+    if (isPOI && profileId === 'science_geo' && window.MissionGeoBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'news_coverage' && window.MissionNewsBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'media_photo' && window.MissionPoiBriefingCore?.owns(missionLike)) return true;
     if (!isPOI && profileId === 'sightseeing_tour' && missionLike?.sightseeingIdea?.schema === 'sightseeing-idea.v1') return true;
@@ -26113,7 +26117,7 @@ function scenePlannerV3CompactAptPlan(plan = null) {
 
 function scenePlannerV3ReporterContext(md = {}, contract = {}, geo = null, truth = null) {
     if (!window.MissionReporterSceneCore?.enabled(md, contract)) return {};
-    const briefing = md.bioBriefing || contract.bioBriefing || md.newsBriefing || contract.newsBriefing || md.infraBriefing || contract.infraBriefing || md.poiBriefing || contract.poiBriefing;
+    const briefing = md.geoBriefing || contract.geoBriefing || md.bioBriefing || contract.bioBriefing || md.newsBriefing || contract.newsBriefing || md.infraBriefing || contract.infraBriefing || md.poiBriefing || contract.poiBriefing;
     const taskDomain = contract.taskDomain || briefing?.taskDomain || '';
     const plan = md.missionPlanV2 || contract.missionPlanV2;
 
@@ -41837,6 +41841,7 @@ function compactMissionProposalChoice(choice = null) {
         charterProposal: normalized.charterProposal || null,
         infraProposal: normalized.infraProposal || null,
         bioProposal: normalized.bioProposal || null,
+        geoProposal: normalized.geoProposal || null,
         newsProposal: normalized.newsProposal || null,
         poiProposal: normalized.poiProposal || null,
         cargoProposal: normalized.cargoProposal || null,
@@ -42477,6 +42482,8 @@ async function buildMissionProposalPoiChoices(context = {}) {
         return window.MissionInfraBriefingBrowser.choices(candidates,context);
     if (window.MissionBioBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
         return window.MissionBioBriefingBrowser.choices(candidates,context);
+    if (window.MissionGeoBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
+        return window.MissionGeoBriefingBrowser.choices(candidates,context);
     if (window.MissionNewsBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
         return window.MissionNewsBriefingBrowser.choices(candidates,context);
     if (window.MissionPoiBriefingBrowser?.enabled({profileId, category: context.selectedPoiCategory, aiModeEnabled: context.aiModeEnabled}))
@@ -43837,6 +43844,7 @@ async function generateMission(options = {}) {
     const useCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'cargo' && ['auto',''].includes(dispatchProfileId);
     const useInfraInspectionIdeas = window.MissionInfraBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const useBioStudyIdeas = window.MissionBioBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
+    const useGeoStudyIdeas = window.MissionGeoBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiNewsIdeas = window.MissionNewsBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiPhotoIdeas = window.MissionPoiBriefingBrowser?.enabled({isPOI, profileId: dispatchProfileId, category: selectedPoiCategory, aiModeEnabled, followup: !!followupSeed, planning: isPlanningOnlyMode, bush: isBushDispatch}) && !dest?.poiChain;
     const useCharterIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(dispatchProfileId);
@@ -43847,6 +43855,8 @@ async function generateMission(options = {}) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('inspection_infra','poi')};
     } else if (useBioStudyIdeas) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('science_bio','poi')};
+    } else if (useGeoStudyIdeas) {
+        missionContractV4={status:'ready',profile:getMissionTaskProfile('science_geo','poi')};
     } else if (usePoiNewsIdeas) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('news_coverage','poi')};
     } else if (useSightseeingIdeas) {
@@ -44472,6 +44482,7 @@ async function generateMission(options = {}) {
         if (missionProposalChoice?.charterProposal && !useCharterIdeas) throw Error('Die Charterauswahl benötigt den KI-Chartergenerator.');
         if (missionProposalChoice?.infraProposal && !useInfraInspectionIdeas) throw Error('Die Inspektionsidee benötigt den aktiven Infrastruktur-Ideengenerator.');
         if (missionProposalChoice?.bioProposal && !useBioStudyIdeas) throw Error('Die Studienidee benötigt den aktiven Biologie-Ideengenerator.');
+        if (missionProposalChoice?.geoProposal && !useGeoStudyIdeas) throw Error('Die Studienidee benötigt den aktiven Geologie-Ideengenerator.');
         if (missionProposalChoice?.newsProposal && !usePoiNewsIdeas) throw Error('Die Reporteridee benötigt den aktiven POI-Reporter-Ideengenerator.');
         if (missionProposalChoice?.poiProposal && !usePoiPhotoIdeas) throw Error('Die Fotoidee benötigt den aktiven KI-Fotogenerator.');
         if (usePoiPhotoIdeas) {
@@ -44485,6 +44496,10 @@ async function generateMission(options = {}) {
         } else if (useBioStudyIdeas) {
             missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m=await window.MissionBioBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.bioProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
+            missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
+        } else if (useGeoStudyIdeas) {
+            missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m=await window.MissionGeoBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.geoProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
         } else if (usePoiNewsIdeas) {
             missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
@@ -45297,6 +45312,7 @@ async function generateMission(options = {}) {
         charterIdea: m.charterIdea || null,
         infraBriefing: m.infraBriefing || null,
         bioBriefing: m.bioBriefing || null,
+        geoBriefing: m.geoBriefing || null,
         newsBriefing: m.newsBriefing || null,
         poiBriefing: m.poiBriefing || null,
         cargoIdea: m.cargoIdea || null,
@@ -45418,6 +45434,7 @@ async function generateMission(options = {}) {
     if (currentMissionData.cargoIdea) window.MissionCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.cargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.cargoIdea.writerMemory});
     if (currentMissionData.infraBriefing) window.MissionInfraBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.infraBriefing);
     if (currentMissionData.bioBriefing) window.MissionBioBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.bioBriefing);
+    if (currentMissionData.geoBriefing) window.MissionGeoBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.geoBriefing);
     if (currentMissionData.newsBriefing) window.MissionNewsBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.newsBriefing);
     if (currentMissionData.poiBriefing) window.MissionPoiBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.poiBriefing);
     if (currentMissionData.charterIdea) window.MissionCharterIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.charterIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.charterIdea.writerMemory});
@@ -45809,7 +45826,7 @@ async function generateMission(options = {}) {
         currentMissionData?.party || finalPassengerPlan.party || null
     );
 
-    if (window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
+    if (window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionGeoBriefingCore?.owns(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
     else document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
     const briefingTaskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || m?.passenger?.taskDomain || '').toLowerCase();
