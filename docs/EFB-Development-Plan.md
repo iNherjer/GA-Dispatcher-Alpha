@@ -5766,3 +5766,7 @@ Validierung: 20 EFB-Host-Tests erfolgreich, einschliesslich abbrechbarer
 Klicknavigation und Coherent-Syntax-Gate. Windows-x64-EXE auf Apple Silicon
 mit `--no-bytecode --public-packages '*' --public` gebaut; keine native
 Windows-/MSFS-Ausfuehrung auf diesem Rechner.
+
+Alpha-Release `v458` veroeffentlicht und erneut heruntergeladen: 173068379
+Bytes, SHA-256 `f361718afc4ff011c601a6fb2b4d9c9111436e7125ce434d20effb43a1466e30`. Alpha-Kanal auf dieses Artefakt gesetzt;
+Stable unveraendert.
