@@ -673,8 +673,7 @@ window.MISSION_SCENE_ASSETS = {
             'CargoContainer01'
         ],
         'cargo.small_box': [
-            'Cardboard',
-            'CoffeeCup'
+            'Cardboard'
         ],
         'cargo.luggage.backpack': [
             'VFR Multitool Homebase Backpack',
@@ -753,8 +752,7 @@ window.MISSION_SCENE_ASSETS = {
             'Pallet01_03'
         ],
         'marker.cone': [
-            'Cone_Medium',
-            'EDTW Smoke Marker'
+            'Cone_Medium'
         ],
         'material.log': [
             'Log_01',

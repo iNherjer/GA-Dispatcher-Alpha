@@ -147,3 +147,98 @@ Beleg: `docs/examples/POI Reporter Bittelbronn Regression 20260929.json`.
 Fehlgeschlagene Kompositionen behalten letzte KI-Szene, Korrekturfehler und
 Toolaufrufe. Der Diagnosebericht bevorzugt den aktuellen Missionszustand vor
 dem älteren Entwurfssnapshot, damit künftige Reports die Ablehnung ausweisen.
+
+## Konzeptentwurf: Szenenplanung vor dem Writer — nicht zur Umsetzung freigegeben
+
+**Entscheidung vom 30.09.2026:** Nur als Diskussionsentwurf dokumentieren.
+Den bestehenden Ablauf beibehalten; weder Composer vorziehen noch einen
+nachträglichen Briefing-/PAX-Abgleich implementieren. Keine Änderung an Code,
+Prompts, Missionsannahme oder Tracker aus diesem Entwurf ableiten. Eine spätere
+Umsetzung benötigt eine neue ausdrückliche Entscheidung.
+
+### Anlass und Einordnung
+
+Beim rekonstruierten Bittelbronn-Auftrag enthielt das Briefing Transporter,
+während die akzeptierte Szene aus Platzgründen nur einen Pavillon, zwei Personen
+und drei Kegel enthielt. Der technische Planner-Hotfix ist bereits umgesetzt;
+die hier diskutierte Umstellung des Erstellungsablaufs ist davon getrennt.
+
+Der Nutzer bewertet das Platzproblem vorläufig als möglichen Edge Case und
+möchte wegen unklarer Nebenwirkungen keine grundsätzliche Umstellung. Die
+bisherigen Beispiele belegen weder, dass solche Fälle häufig sind, noch eine
+verlässliche Häufigkeit. Begrenzte Inkonsistenz zwischen fiktiver Geschichte
+und darstellbarer Szene wird vorerst zugunsten von Vielfalt und bestehendem
+Ablauf akzeptiert. Daraus folgt keine Lockerung der geometrischen Prüfungen.
+
+### Diskutierter Ablauf
+
+Heute: Ideen zur Auswahl → gewählte Idee → Writer/Briefing → beim Akzeptieren
+Szene planen und prüfen.
+
+Entwurf: Ideen zur Auswahl → gewählte Idee → Szene planen und prüfen → Writer
+mit kurzer Zusammenfassung der geplanten Szene → beim Akzeptieren gespeicherte
+Szene verwenden. Composer und Writer blieben getrennte Aufgaben; keine
+Zusammenlegung in einen einzigen Modellaufruf. Nur die gewählte Idee würde
+komponiert, nicht alle Vorschläge. Ein zweiter Writer zur nachträglichen
+Textreparatur wäre damit nicht notwendig.
+
+Ziel wäre, konkrete Sichtversprechen an die geprüfte Planung zu binden. Die
+freie Geschichte dürfte weiterhin über die dargestellten Objekte hinausgehen.
+Beim Flohmarkt könnte der dorfweite Anlass erhalten bleiben, während nur der
+Infopavillon als konkret aufgebautes Motiv angekündigt wird. Nicht darstellbare,
+plausible Details wie ein Wandmotiv müssten weiterhin erlaubt bleiben.
+Auch eine gültige Planung wäre kein Beweis tatsächlicher Sichtbarkeit im Sim.
+
+### Erwarteter Nutzen und mögliche Nachteile
+
+- Nutzen: Briefing und späterer PAX-Kontext könnten die geplante Ausstattung
+  kennen; weniger ausdrücklich angekündigte, anschließend entfallende Objekte.
+- Nachteil: Die Wartezeit der Szenenplanung läge vor dem fertigen Briefing.
+  Auch anschließend verworfene Entwürfe hätten diese API-Aufrufe verbraucht.
+- Nachteil: Knappes Kartenmaterial oder kleine Stellflächen könnten den Writer
+  zu kleineren, ähnlicheren Geschichten verleiten. Eine Absichtserklärung,
+  Geschichte und Darstellung zu trennen, garantiert noch keine erhaltene Vielfalt.
+- Nachteil: Szenenfehler könnten schon die Briefingerstellung verzögern;
+  Zustandsverwaltung und Wiederverwendung müssten zusätzlich geprüft werden.
+
+### Verbrauch und Zeit: Annahmen, keine Zusage
+
+Für die betrachtete Reporter-Kette ohne weitere Wiederholungen: ein Ideenaufruf
+für bis zu drei Vorschläge, ein Writer-Aufruf und zwei bis fünf Composer-Aufrufe,
+also vier bis sieben Aufrufe. Eine reine Umordnung müsste diese Anzahl pro
+akzeptierter Mission nicht erhöhen. Eine kurze Szenenzusammenfassung vergrößerte
+den Writer-Kontext etwas; ein vollständiger Geometrie-/Asset-Kontext wäre dort
+nicht vorgesehen. Zusätzliche Fehlversuche oder weitere Datenrecherche sind
+in dieser Rechnung nicht enthalten.
+
+Der korrigierte Bittelbronn-Composer benötigte vier Aufrufe und zusammen rund
+47.300 Eingabetokens, einschließlich wiederholt übermitteltem Kontext. Das ist
+eine Einzelmessung, kein Durchschnitt und keine Preisberechnung. Insbesondere
+würde vorgezogene Planung bei verworfenen Briefings zusätzlichen Verbrauch
+gegenüber dem heutigen Ablauf verursachen.
+
+Im ursprünglichen Fehlerbericht dauerten die fünf Gemini-Aufrufe je Versuch
+zusammen etwa 24–27 Sekunden, zuzüglich Kartenabruf. Die diskutierten 20–40
+Sekunden zusätzlicher Wartezeit bis zum fertigen Briefing sind deshalb nur eine
+Schätzung, keine gemessene Laufzeit des vorgeschlagenen Ablaufs. Bei akzeptierten
+Missionen würde die Wartezeit überwiegend vom Akzeptieren zur Erstellung wandern.
+
+### Voraussetzung für eine spätere Neubewertung
+
+Erst wenn weitere reale Fälle wiederholt störende Abweichungen zeigen, erneut
+abwägen: Häufigkeit, Umfang der ausgelassenen Objekte, verworfene Briefings,
+API-Verbrauch, Erstellungszeit und erzählerische Vielfalt. Dieser Abschnitt
+beauftragt weder neue Live-Tests noch automatische Überwachung oder Umsetzung.
+
+
+## Tiergruppen: Freigabe vom 30.09.2026
+
+Die Standardtiere des Simulators gelten auf ausdrückliche Nutzerfreigabe als verfügbar. Das ist eine Arbeitsannahme, kein erfolgreicher Spawn-Test. Die bisherigen Recherche-/Prüfstatus bleiben als Herkunftsnachweis erhalten; ein späterer Test im laufenden Simulator prüft die tatsächliche Verfügbarkeit.
+
+`data/mission-animal-scene-assets.js` registriert 116 getrennte Modellfamilien mit insgesamt 808 eindeutigen SDK-Titeln. Generierung: `node tools/generate-animal-scene-assets.mjs` aus `data/msfs-animal-research-catalog.json`. Jede Familie hat ein eigenes Feature und eine eigene Rolle; keine zufällige Vermischung verschiedener Arten. SDK-Namensauffälligkeiten stehen in `sourceNotes`. Der Katalog wird nach dem Basis-Assetkatalog geladen.
+
+Writer und Composer dürfen passende Tiere und größere Herden einsetzen. Biologie-Ideen übergeben die gewünschte Art, Anzahl und den Beobachtungszweck in `sceneIntent.animalGroups`. Fiktive Bestände gehören zur Spielhandlung; Habitat und regionale Plausibilität müssen zur Mission passen. Eine Mission ohne Tiere bleibt möglich. Die Szene entsteht weiterhin nach dem Writer über den bestehenden Composer.
+
+Tiergruppen erlauben bis 20 Tiere pro Gruppe und bis 40 Objekte insgesamt. Nichttiergruppen behalten höchstens sechs Objekte pro Gruppe und das bisherige Dichtebudget. Größere Tiergruppen erhalten eine zentrierte Gruppenanordnung; Flächen-, Gebäude-, Abstands- und Kollisionsprüfungen bleiben wirksam. Alle katalogisierten Tiere werden zunächst als bodengebundene Objekte behandelt; Flug-, Schwimm- oder Herdenverhalten wird dadurch nicht zugesichert.
+
+Prüfung: `node --test tools/mission-animal-scene-assets.test.mjs` prüft Katalogübernahme, eine Herde mit 20 Schafen bis zur tatsächlichen Objektliste, Artentrennung, räumliche Ablehnung und Erhalt der Gruppenangaben im App-Sanitizer. Biologie bleibt bis zur gesonderten Freigabe im dokumentierten Testpfad (`ga_bio_briefing_v1`). Keine neuen Tracker- oder Voice-Auslöser.

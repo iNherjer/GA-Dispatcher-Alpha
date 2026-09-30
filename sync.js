@@ -8906,7 +8906,7 @@ function _missionTargetSceneItems(kind) {
                 if (item) out.push(item);
             }
         }
-        return out.slice(0,18);
+        return out.slice(0,window.MissionReporterSceneCore.objectBudget(explicitSpec,assets));
     }
     const peoplePool = MISSION_SCENE_ASSET_POOLS.people;
     const markerPool = MISSION_SCENE_ASSET_POOLS.markers.includes(BOARDING_MARKER_TITLE)
@@ -14947,7 +14947,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',

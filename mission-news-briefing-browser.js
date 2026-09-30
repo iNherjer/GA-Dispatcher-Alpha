@@ -4,7 +4,7 @@ const core=()=>root.MissionNewsBriefingCore;
 const FLAG='ga_news_briefing_v1';
 function sceneCapabilities(){
  const catalog=root.MISSION_SCENE_ASSETS;if(!catalog)return null;
- const compact=rows=>Object.fromEntries(Object.entries(rows||{}).map(([id,spec])=>[id,{label:spec.label,roles:Array.isArray(spec.roles)?[...spec.roles]:[],...(Array.isArray(spec.missionTags)?{tags:[...spec.missionTags]}:{})}]));
+ const compact=rows=>Object.fromEntries(Object.entries(rows||{}).map(([id,spec])=>[id,{label:spec.label,...(spec.animal?{animal:true,maxGroupCount:20,speciesName:spec.speciesName,sourceNotes:spec.sourceNotes}:{}),roles:Array.isArray(spec.roles)?[...spec.roles]:[],...(Array.isArray(spec.missionTags)?{tags:[...spec.missionTags]}:{})}]));
  return {version:catalog.version,kinds:compact(Object.fromEntries(Object.entries(catalog.targetSceneKinds||{}).filter(([,v])=>v.useFor?.includes('news_coverage')))),features:compact(catalog.targetSceneFeatures)};
 }
 function enabled({isPOI=true,profileId,category='',aiModeEnabled=true,followup=false,planning=false,bush=false}={}) {

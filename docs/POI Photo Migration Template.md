@@ -93,3 +93,7 @@ Die Prompts verlangen eine kurze Memory über den jeweiligen Kern und Unterschie
 Bestehende lokale Schlüssel, Limits und Schreibzeitpunkte bleiben erhalten. Missions-IDs werden dedupliziert; zwischen Profilen wird keine History vermischt. Wie beim APT-Vorbild wird beim Erzeugen einer Mission gespeichert, nicht jedes verworfene Pickerangebot. Die lokale Variationshistory ist kein geräteübergreifendes Archiv und keine technische Garantie gegen sinngleiche KI-Ausgaben.
 
 Neue Integrationstests für alle drei Profile prüfen die tatsächliche Übergabe gespeicherter Kerndaten an beide Promptstufen und ID-Deduplizierung. Die Anpassung ist noch nicht veröffentlicht.
+
+### Weiteres Beispiel: Biologie
+
+Der erste Testpfad für `science_bio` verwendet dieselbe Methode mit einer eigenen Studienfrage und fachlicher Beobachtung statt Foto-/Inspektionsinhalt. Siehe [Biology Briefing Migration.md](Biology%20Briefing%20Migration.md) für Vertrag, Aktivierung, Historie, PAX-Kontinuität und Grenzen der Tier-Szenen.

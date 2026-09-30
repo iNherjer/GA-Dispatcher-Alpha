@@ -8845,7 +8845,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9463,7 +9463,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -21786,6 +21786,8 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (!isPOI && m.privateOuting?.schema === 'private-outing.v1' && ['auto', 'private_outing'].includes(profileId)) {
         return { mission: m, paxText: m.pax, cargoText: m.cargo, appliedProfile: 'private_outing' };
     }
+    if (isPOI && profileId === 'science_bio' && window.MissionBioBriefingCore?.owns(m))
+        return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'science_bio'};
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(m))
         return { mission:m, paxText:m.pax, cargoText:m.cargo, appliedProfile:'inspection_infra' };
     if (isPOI && profileId === 'news_coverage' && window.MissionNewsBriefingCore?.owns(m))
@@ -22899,6 +22901,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         cargoIdea: mission?.cargoIdea?.schema === 'cargo-idea.v1' ? mission.cargoIdea : null,
         charterIdea: mission?.charterIdea?.schema === 'charter-idea.v1' ? mission.charterIdea : null,
         infraBriefing: window.MissionInfraBriefingCore?.owns(mission) ? mission.infraBriefing : null,
+        bioBriefing: window.MissionBioBriefingCore?.owns(mission) ? mission.bioBriefing : null,
         newsBriefing: window.MissionNewsBriefingCore?.owns(mission) ? mission.newsBriefing : null,
         poiBriefing: window.MissionPoiBriefingCore?.owns(mission) ? mission.poiBriefing : null,
         missionStory: story,
@@ -23367,6 +23370,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(missionLike)) return true;
+    if (isPOI && profileId === 'science_bio' && window.MissionBioBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'news_coverage' && window.MissionNewsBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'media_photo' && window.MissionPoiBriefingCore?.owns(missionLike)) return true;
     if (!isPOI && profileId === 'sightseeing_tour' && missionLike?.sightseeingIdea?.schema === 'sightseeing-idea.v1') return true;
@@ -24516,6 +24520,7 @@ function missionSceneSpecialRoleAllowed(role, { powerlineAllowed = false, windTu
 function missionSceneRequirementCountLimit(feature, kind = '') {
     const f = String(feature || '').toLowerCase();
     const k = String(kind || '').toLowerCase();
+    if (window.MISSION_SCENE_ASSETS?.targetSceneFeatures?.[f]?.animal === true) return 20;
     if (f === 'pallet_stack') return k === 'construction_site' ? 8 : 6;
     if (f === 'cargo_material') return k === 'construction_site' ? 8 : 6;
     if (f === 'construction_material') return k === 'construction_site' ? 8 : 6;
@@ -24677,7 +24682,7 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
     if ((task === 'sightseeing_tour' || task === 'training' || missionPlanV2?.semantics?.forceSceneNone) && planDirective?.sceneKind === 'none') {
         return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || (task === 'training' ? 'Trainingsflug ohne künstliche POI-Zielszene.' : 'Ruhiger POI-Rundflug ohne kuenstliche Zielszene.') };
     }
-    if ((task === 'science_bio' || task === 'science_geo') && planDirective?.sceneKind === 'none') {
+    if ((task === 'science_bio' || task === 'science_geo') && planDirective?.sceneKind === 'none' && !(src.placementVersion === 'poi-placement.v3' && src.objectPolicy === 'explicit-requirements' && src.requirements?.some(r=>window.MISSION_SCENE_ASSETS?.targetSceneFeatures?.[r.feature]?.animal===true))) {
         return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || 'Science POI: Beobachtung ohne künstliche Zielszene.' };
     }
     if (planDirective?.sceneKind === 'none' && !rawHasConcreteScene) {
@@ -24911,7 +24916,14 @@ function sanitizeMissionSceneIntentSpec(raw, { isPOI = false, taskDomain = '' } 
         visibleIdeas: cleanList(src.visibleIdeas || src.visible || src.objects || src.groundContext || src.sceneElements || [], 10, 100),
         avoid: cleanList(src.avoid || src.doNotAdd || src.exclude || [], 8, 90),
         densityHint,
-        notes: cleanText(src.notes || src.reason || src.rationale || '', 220)
+        notes: cleanText(src.notes || src.reason || src.rationale || '', 220),
+        ...(task === 'science_bio' && Array.isArray(src.animalGroups) ? {
+            animalGroups: src.animalGroups.slice(0, 4).map(group => ({
+                feature: cleanText(group.feature, 120),
+                count: Number(group.count),
+                purpose: cleanText(group.purpose, 200)
+            }))
+        } : {})
     };
 }
 
@@ -26001,7 +26013,8 @@ function scenePlannerV3AssetCatalog({ explicitPlacement = false } = {}) {
         roles: Array.isArray(spec?.roles) ? spec.roles.slice(0, 8) : [],
         placementSurfaces: spec.placementSurfaces || ['ground'],
         placementRadiusM: window.MissionReporterSceneCore?.radius(spec,key) || 5,
-        primaryRole: spec.primaryRole || undefined
+        primaryRole: spec.primaryRole || undefined,
+        ...(spec.animal ? {animal:true,maxGroupCount:20,speciesName:spec.speciesName,sourceNotes:spec.sourceNotes} : {})
     }]));
     return {
         kinds: compactKinds,
@@ -26058,7 +26071,7 @@ function scenePlannerV3CompactAptPlan(plan = null) {
 
 function scenePlannerV3ReporterContext(md = {}, contract = {}, geo = null, truth = null) {
     if (!window.MissionReporterSceneCore?.enabled(md, contract)) return {};
-    const briefing = md.newsBriefing || contract.newsBriefing || md.infraBriefing || contract.infraBriefing || md.poiBriefing || contract.poiBriefing;
+    const briefing = md.bioBriefing || contract.bioBriefing || md.newsBriefing || contract.newsBriefing || md.infraBriefing || contract.infraBriefing || md.poiBriefing || contract.poiBriefing;
     const taskDomain = contract.taskDomain || briefing?.taskDomain || '';
     const plan = md.missionPlanV2 || contract.missionPlanV2;
 
@@ -26088,7 +26101,7 @@ function scenePlannerV3ReporterContext(md = {}, contract = {}, geo = null, truth
                 'targetScene.objectPolicy="explicit-requirements": Nur die ausdrücklich geplanten requirements werden aufgebaut, keine Standardausstattung nach kind.',
                 'Jede Gruppe erhält requirements mit feature, count, arrangement surface und forwardM/rightM in Metern relativ zum sceneAnchor und headingDeg. notes erläutert ihre Funktion. Für verschiedene Gruppen desselben Features separate requirements verwenden.',
                 'Liefere nur targetScene, localizationNotes und validationNotes. Keine APT-Ankunft für POI. Wenn die Hauptszene auf keiner geeigneten Fläche möglich ist, lasse die optionale Szene begründet weg. Das ist besser als eine andere Handlung auf der nächstbesten Fläche.',
-                'Maximal 18 requirements und insgesamt höchstens 18 Einzelobjekte bei busy, 14 bei normal, neun bei sparse. Pro requirement höchstens sechs Objekte. Priorisiere den Mittelpunkt, bevor du Kleinteile hinzufügst.',
+                'Maximal 18 requirements. Tier-Features mit animal=true erlauben bis 20 Tiere pro Gruppe und insgesamt bis 40 Objekte in einer Tierszene. Andere Features behalten höchstens sechs Objekte pro Gruppe und das Ausstattungsbudget 18 bei busy, 14 bei normal, neun bei sparse. Tierart aus der gewählten Geschichte exakt bewahren: species-spezifische Features verwenden, keine gemischten generischen Wild-/Weidetierrollen. Standardtiere gelten als verfügbar; Gruppen großzügig nutzen, wenn die biologische Frage es trägt. Jedes Tier muss auf die belegte Oberfläche passen und genügend Abstand haben. Größere cluster bilden ein zentriertes Raster mit ceil(sqrt(count)) Spalten; spacingM mindestens zwei Planungsradien plus 1 m. Keine Gruppe über mehrere unzusammenhängende Flächen verteilen.',
                 'line verteilt weitere Objekte entlang rightM nach Osten, unabhängig vom Objekt-Heading. cluster verwendet lokale Rasterpunkte. Für andere Ausrichtungen/Formen count=1 und individuelle Offsets nutzen.',
                 'Wähle cluster für mehrere Objekte an einem Gruppenmittelpunkt; Einzelfahrzeuge lassen sich mit count=1 gezielt anordnen. Nutze spacingM (2 bis 30 Meter) für Abstände innerhalb einer Gruppe, passend zur Objektgröße. forwardM zeigt entlang headingDeg, rightM nach rechts; ohne eindeutigen Anker/Heading keine präzise Lage behaupten.',
                 'Für jedes requirement role aus den Rollen des gewählten Features angeben. Seecontainer benötigen shipping_container; cargo_material ist ein gemischter Pool. U-Formen als einzelne count=1-Objekte mit eigenen Positionen/Heading planen. Alle Koordinaten im placementGeometry-Rahmen: forwardM=y (Norden), rightM=x (Osten).',
@@ -41643,6 +41656,7 @@ function compactMissionProposalChoice(choice = null) {
         clubProposal: normalized.clubProposal || null,
         charterProposal: normalized.charterProposal || null,
         infraProposal: normalized.infraProposal || null,
+        bioProposal: normalized.bioProposal || null,
         newsProposal: normalized.newsProposal || null,
         poiProposal: normalized.poiProposal || null,
         cargoProposal: normalized.cargoProposal || null,
@@ -42281,6 +42295,8 @@ async function buildMissionProposalPoiChoices(context = {}) {
     }
     if (window.MissionInfraBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
         return window.MissionInfraBriefingBrowser.choices(candidates,context);
+    if (window.MissionBioBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
+        return window.MissionBioBriefingBrowser.choices(candidates,context);
     if (window.MissionNewsBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
         return window.MissionNewsBriefingBrowser.choices(candidates,context);
     if (window.MissionPoiBriefingBrowser?.enabled({profileId, category: context.selectedPoiCategory, aiModeEnabled: context.aiModeEnabled}))
@@ -43640,6 +43656,7 @@ async function generateMission(options = {}) {
     const useFragileCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'cargo_fragile';
     const useCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'cargo' && ['auto',''].includes(dispatchProfileId);
     const useInfraInspectionIdeas = window.MissionInfraBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
+    const useBioStudyIdeas = window.MissionBioBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiNewsIdeas = window.MissionNewsBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiPhotoIdeas = window.MissionPoiBriefingBrowser?.enabled({isPOI, profileId: dispatchProfileId, category: selectedPoiCategory, aiModeEnabled, followup: !!followupSeed, planning: isPlanningOnlyMode, bush: isBushDispatch}) && !dest?.poiChain;
     const useCharterIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(dispatchProfileId);
@@ -43648,6 +43665,8 @@ async function generateMission(options = {}) {
         missionContractV4 = {status:'ready', profile:getMissionTaskProfile('media_photo', 'poi')};
     } else if (useInfraInspectionIdeas) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('inspection_infra','poi')};
+    } else if (useBioStudyIdeas) {
+        missionContractV4={status:'ready',profile:getMissionTaskProfile('science_bio','poi')};
     } else if (usePoiNewsIdeas) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('news_coverage','poi')};
     } else if (useSightseeingIdeas) {
@@ -44272,6 +44291,7 @@ async function generateMission(options = {}) {
         if (missionProposalChoice?.cargoProposal && !useCargoIdeas) throw Error('Die Frachtauswahl benötigt den aktiven KI-Frachtgenerator.');
         if (missionProposalChoice?.charterProposal && !useCharterIdeas) throw Error('Die Charterauswahl benötigt den KI-Chartergenerator.');
         if (missionProposalChoice?.infraProposal && !useInfraInspectionIdeas) throw Error('Die Inspektionsidee benötigt den aktiven Infrastruktur-Ideengenerator.');
+        if (missionProposalChoice?.bioProposal && !useBioStudyIdeas) throw Error('Die Studienidee benötigt den aktiven Biologie-Ideengenerator.');
         if (missionProposalChoice?.newsProposal && !usePoiNewsIdeas) throw Error('Die Reporteridee benötigt den aktiven POI-Reporter-Ideengenerator.');
         if (missionProposalChoice?.poiProposal && !usePoiPhotoIdeas) throw Error('Die Fotoidee benötigt den aktiven KI-Fotogenerator.');
         if (usePoiPhotoIdeas) {
@@ -44281,6 +44301,10 @@ async function generateMission(options = {}) {
         } else if (useInfraInspectionIdeas) {
             missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m=await window.MissionInfraBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.infraProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
+            missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
+        } else if (useBioStudyIdeas) {
+            missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m=await window.MissionBioBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.bioProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
         } else if (usePoiNewsIdeas) {
             missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
@@ -45092,6 +45116,7 @@ async function generateMission(options = {}) {
         clubIdea: m.clubIdea || null,
         charterIdea: m.charterIdea || null,
         infraBriefing: m.infraBriefing || null,
+        bioBriefing: m.bioBriefing || null,
         newsBriefing: m.newsBriefing || null,
         poiBriefing: m.poiBriefing || null,
         cargoIdea: m.cargoIdea || null,
@@ -45212,6 +45237,7 @@ async function generateMission(options = {}) {
     if (currentMissionData.fragileCargoIdea) window.MissionFragileCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.fragileCargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.fragileCargoIdea.writerMemory});
     if (currentMissionData.cargoIdea) window.MissionCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.cargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.cargoIdea.writerMemory});
     if (currentMissionData.infraBriefing) window.MissionInfraBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.infraBriefing);
+    if (currentMissionData.bioBriefing) window.MissionBioBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.bioBriefing);
     if (currentMissionData.newsBriefing) window.MissionNewsBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.newsBriefing);
     if (currentMissionData.poiBriefing) window.MissionPoiBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.poiBriefing);
     if (currentMissionData.charterIdea) window.MissionCharterIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.charterIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.charterIdea.writerMemory});
@@ -45603,7 +45629,7 @@ async function generateMission(options = {}) {
         currentMissionData?.party || finalPassengerPlan.party || null
     );
 
-    if (window.MissionNewsBriefingCore?.owns(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
+    if (window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
     else document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
     const briefingTaskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || m?.passenger?.taskDomain || '').toLowerCase();

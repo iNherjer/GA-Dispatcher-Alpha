@@ -50,3 +50,12 @@ test('reporter composer receives the chosen idea and real geometry; other profil
  assert.equal(result.reporterScene.idea,idea);assert.equal(result.reporterScene.spatialContext.avoidZones,geo.avoidZones);assert.equal(result.reporterScene.spatialContext.anchors,geo.anchors);
  assert.equal(JSON.stringify(env.scenePlannerV3ReporterContext({infraBriefing:{schema:'infra-briefing.v1'}},{},geo,{})),'{}');
 });
+
+// Exercise the merged runtime catalog, including Homebase additions.
+test('generic scene marker and box pools retain their visible object function',()=>{
+ const assets=catalog();
+ assert.ok(assets.roles['marker.cone'].includes('Cone_Medium'));
+ assert.ok(!assets.roles['marker.cone'].includes('EDTW Smoke Marker'));
+ assert.ok(assets.roles['cargo.small_box'].includes('Cardboard'));
+ assert.ok(!assets.roles['cargo.small_box'].includes('CoffeeCup'));
+});

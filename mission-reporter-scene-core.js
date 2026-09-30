@@ -143,15 +143,17 @@ function hasPlacementSite(intent,geo){
  if(!intent?.use||!geo?.sites)return null;
  return geo.sites.some(site=>site.slots.some(p=>p.clearanceM>1.5&&!siteError({placementIntent:intent},{siteId:site.id},p,geo)&&!placementError(p,1.5,geo,site.medium,site.id)));
 }
-function offsets(req){const f=Number(req.forwardM),r=Number(req.rightM),spacing=Number(req.spacingM)||10;const pattern=[[0,0],[1,0],[0,1],[1,1],[-1,0],[0,-1]];return Array.from({length:req.count},(_,i)=>({x:r+(req.arrangement==='line'?i*spacing:(pattern[i]?.[1]||0)*spacing),y:f+(req.arrangement==='line'?0:(pattern[i]?.[0]||0)*spacing)}));}
+function countLimit(req,catalog){return catalog.targetSceneFeatures?.[req.feature]?.animal===true?20:6;}
+function objectBudget(scene,catalog){return scene.requirements?.some(r=>catalog.targetSceneFeatures?.[r.feature]?.animal===true)?40:scene.density==='busy'?18:scene.density==='sparse'?9:14;}
+function offsets(req){const f=Number(req.forwardM),r=Number(req.rightM),spacing=Number(req.spacingM)||10;if(req.count>6&&req.arrangement==='cluster'){const cols=Math.ceil(Math.sqrt(req.count)),rows=Math.ceil(req.count/cols);return Array.from({length:req.count},(_,i)=>({x:r+(i%cols-(cols-1)/2)*spacing,y:f+(Math.floor(i/cols)-(rows-1)/2)*spacing}));}const pattern=[[0,0],[1,0],[0,1],[1,1],[-1,0],[0,-1]];return Array.from({length:req.count},(_,i)=>({x:r+(req.arrangement==='line'?i*spacing:(pattern[i]?.[1]||0)*spacing),y:f+(req.arrangement==='line'?0:(pattern[i]?.[0]||0)*spacing)}));}
 // Give the composer verified local alternatives; never move saved or generated items silently.
 function correctionOptions(scene,geo,catalog){
  if(!geo||geo.status!=='mapped')return [];
  const reqs=scene?.requirements||[],result=[];
  for(const [index,req] of reqs.entries()){
-  const spec=catalog.targetSceneFeatures?.[req.feature];if(!spec||!Number.isFinite(req.forwardM)||!Number.isFinite(req.rightM)||!Number.isInteger(req.count)||req.count<1||req.count>6)continue;
+  const spec=catalog.targetSceneFeatures?.[req.feature];if(!spec||!Number.isFinite(req.forwardM)||!Number.isFinite(req.rightM)||!Number.isInteger(req.count)||req.count<1||req.count>countLimit(req,catalog))continue;
   const r=radius(spec,req.feature),surface=surfaces(spec,req)[0];if(!surface)continue;
-  const others=reqs.flatMap((q,i)=>i===index||!Number.isInteger(q.count)||q.count<1||q.count>6?[]:offsets(q).map(p=>({...p,r:radius(catalog.targetSceneFeatures?.[q.feature]||{},q.feature)})));
+  const others=reqs.flatMap((q,i)=>i===index||!Number.isInteger(q.count)||q.count<1||q.count>countLimit(q,catalog)?[]:offsets(q).map(p=>({...p,r:radius(catalog.targetSceneFeatures?.[q.feature]||{},q.feature)})));
   const fits=q=>{const points=offsets(q);return points.every((p,i)=>!siteError(scene,q,p,geo)&&!placementError(p,r,geo,surface,q.siteId)&&others.every(o=>Math.hypot(p.x-o.x,p.y-o.y)>=r+o.r+1)&&points.every((o,j)=>i===j||Math.hypot(p.x-o.x,p.y-o.y)>=2*r+1));};
   if(fits(req))continue;
   const spacingM=Math.max(Number(req.spacingM)||10,2*r+1),candidates=[];
@@ -168,15 +170,15 @@ function validate(scene,geo,catalog){
  for(const [i,r] of reqs.entries()){
  const spec=catalog.targetSceneFeatures?.[r.feature];
  if(!spec||!spec.roles?.includes(r.role)||!catalog.roles?.[r.role]?.length){errors.push(`Requirement ${i+1}: gültige feature/role-Kombination wählen`);continue;}
- if(!Number.isInteger(r.count)||r.count<1||r.count>6||!Number.isFinite(r.forwardM)||!Number.isFinite(r.rightM)||Math.abs(r.forwardM)>(scene.placementVersion===VERSION?750:180)||Math.abs(r.rightM)>(scene.placementVersion===VERSION?750:180)){errors.push(`Requirement ${i+1}: Anzahl/Offsets ungültig`);continue;}
+ if(!Number.isInteger(r.count)||r.count<1||r.count>countLimit(r,catalog)||!Number.isFinite(r.forwardM)||!Number.isFinite(r.rightM)||Math.abs(r.forwardM)>(scene.placementVersion===VERSION?750:180)||Math.abs(r.rightM)>(scene.placementVersion===VERSION?750:180)){errors.push(`Requirement ${i+1}: Anzahl/Offsets ungültig`);continue;}
  if(r.count>1&&!['cluster','line'].includes(r.arrangement)){errors.push(`Requirement ${i+1}: cluster oder line verwenden; komplexe Form mit count=1 planen`);continue;}
  const size=radius(spec,r.feature),allowed=surfaces(spec,r);
  if(!allowed.length){errors.push(`Requirement ${i+1}: unzulässige Oberfläche`);continue;}
  if(spec.primaryRole&&r.role!==spec.primaryRole){errors.push(`Requirement ${i+1}: Suchziel benötigt ${spec.primaryRole}`);continue;}
  for(const p of offsets(r)){const issue=(scene.placementVersion===VERSION?siteError(scene,r,p,geo):'')||placementError(p,size,geo,allowed[0],scene.placementVersion===VERSION?r.siteId:null);if(issue)errors.push(`Requirement ${i+1} (${p.y},${p.x}): ${issue}`);for(const prev of points)if(Math.hypot(p.x-prev.x,p.y-prev.y)<size+prev.radius+1)errors.push(`Requirements ${prev.req+1}/${i+1}: Objektabstand zu klein (mindestens ${size+prev.radius+1} m)`);points.push({...p,radius:size,req:i});}
  }
- const budget=scene.density==='busy'?18:scene.density==='sparse'?9:14;if(points.length>budget)errors.push(`Objektbudget ${budget} überschritten (${points.length})`);
+ const baseBudget=scene.density==='busy'?18:scene.density==='sparse'?9:14;const nonAnimals=points.filter(p=>catalog.targetSceneFeatures?.[reqs[p.req].feature]?.animal!==true).length;if(nonAnimals>baseBudget)errors.push(`Ausstattungsbudget ${baseBudget} überschritten (${nonAnimals})`);const budget=objectBudget(scene,catalog);if(points.length>budget)errors.push(`Objektbudget ${budget} überschritten (${points.length})`);
  return [...new Set(errors)].slice(0,12);
 }
-const api={VERSION,correctionOptions,workAreas,hasPlacementSite,siteOptions,siteError,enroll,surfaces,radius,enabled,local,inside,edgeDistance,geometry,placementError,offsets,validate};root.MissionPoiScenePlacementCore=api;root.MissionReporterSceneCore=api;if(typeof module==='object')module.exports=api;
+const api={VERSION,countLimit,objectBudget,correctionOptions,workAreas,hasPlacementSite,siteOptions,siteError,enroll,surfaces,radius,enabled,local,inside,edgeDistance,geometry,placementError,offsets,validate};root.MissionPoiScenePlacementCore=api;root.MissionReporterSceneCore=api;if(typeof module==='object')module.exports=api;
 })(typeof window==='object'?window:globalThis);

@@ -136,3 +136,20 @@ The Reporter geometry core checks ground-object center clearances against actual
 ## Gemeinsame POI-Komposition (29.09.2026)
 
 Die Reporter-Platzierung ist nun der gemeinsame versionierte Vertrag für neue POI-Objektszenen. Die früheren Reporter-only-Angaben oben gelten nur für den Vorgängerstand. Siehe [POI Scene Composition](../docs/POI%20Scene%20Composition.md) für Aktivierung, Oberflächen, Rollen, Fehlerverhalten und Tests. Inhalte bleiben missionsspezifisch; Fire/Smoke behält seinen dedizierten Pfad.
+
+## Animal research catalogue (30.09.2026)
+
+Use [MSFS Animal Catalog](../docs/MSFS%20Animal%20Catalog.md) and `data/msfs-animal-research-catalog.json` before selecting new animal models. The research inventory contains 808 exact SDK-listed titles with per-entry source and validation status. It is not loaded by the runtime. SDK locations are not verified ecological ranges; existing generic animal pools are not species-safe regional selectors. Record installed enumeration and per-title spawn/visual tests separately before enabling a new species pool.
+
+
+## Tiergruppen: Freigabe vom 30.09.2026
+
+Die Standardtiere des Simulators gelten auf ausdrückliche Nutzerfreigabe als verfügbar. Das ist eine Arbeitsannahme, kein erfolgreicher Spawn-Test. Die bisherigen Recherche-/Prüfstatus bleiben als Herkunftsnachweis erhalten; ein späterer Test im laufenden Simulator prüft die tatsächliche Verfügbarkeit.
+
+`data/mission-animal-scene-assets.js` registriert 116 getrennte Modellfamilien mit insgesamt 808 eindeutigen SDK-Titeln. Generierung: `node tools/generate-animal-scene-assets.mjs` aus `data/msfs-animal-research-catalog.json`. Jede Familie hat ein eigenes Feature und eine eigene Rolle; keine zufällige Vermischung verschiedener Arten. SDK-Namensauffälligkeiten stehen in `sourceNotes`. Der Katalog wird nach dem Basis-Assetkatalog geladen.
+
+Writer und Composer dürfen passende Tiere und größere Herden einsetzen. Biologie-Ideen übergeben die gewünschte Art, Anzahl und den Beobachtungszweck in `sceneIntent.animalGroups`. Fiktive Bestände gehören zur Spielhandlung; Habitat und regionale Plausibilität müssen zur Mission passen. Eine Mission ohne Tiere bleibt möglich. Die Szene entsteht weiterhin nach dem Writer über den bestehenden Composer.
+
+Tiergruppen erlauben bis 20 Tiere pro Gruppe und bis 40 Objekte insgesamt. Nichttiergruppen behalten höchstens sechs Objekte pro Gruppe und das bisherige Dichtebudget. Größere Tiergruppen erhalten eine zentrierte Gruppenanordnung; Flächen-, Gebäude-, Abstands- und Kollisionsprüfungen bleiben wirksam. Alle katalogisierten Tiere werden zunächst als bodengebundene Objekte behandelt; Flug-, Schwimm- oder Herdenverhalten wird dadurch nicht zugesichert.
+
+Prüfung: `node --test tools/mission-animal-scene-assets.test.mjs` prüft Katalogübernahme, eine Herde mit 20 Schafen bis zur tatsächlichen Objektliste, Artentrennung, räumliche Ablehnung und Erhalt der Gruppenangaben im App-Sanitizer. Biologie bleibt bis zur gesonderten Freigabe im dokumentierten Testpfad (`ga_bio_briefing_v1`). Keine neuen Tracker- oder Voice-Auslöser.

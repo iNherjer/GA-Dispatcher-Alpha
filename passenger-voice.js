@@ -7416,7 +7416,7 @@ STIL: ${roleStyle}
 DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
-    const poiNarrative = window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || '';
+    const poiNarrative = window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || window.MissionBioBriefingCore?.voiceContext(md?.bioBriefing || contract?.bioBriefing) || '';
     if (poiNarrative) lines.push(poiNarrative);
     const sightseeingIdea=md?.sightseeingIdea || contract?.sightseeingIdea;
     if(sightseeingIdea?.schema === 'sightseeing-idea.v1') lines.push(window.MissionSightseeingIdeasCore.voiceContext(sightseeingIdea));

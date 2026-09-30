@@ -1,0 +1,2720 @@
+{
+  "schema": "ga.msfs-animal-research.v1",
+  "researchedAt": "2026-09-30",
+  "runtimeEnabled": false,
+  "scope": "MSFS 2024 official animal container title inventory. Research only; not an installed-content enumeration or successful spawn report.",
+  "sources": [
+    {
+      "id": "sdk-travelbook-list",
+      "url": "https://docs.flightsimulator.com/msfs2024/retail/content-configuration/mission-xml-files/travelbooks/travelbook-lists/",
+      "section": "Animal GUIDs And Container Titles"
+    },
+    {
+      "id": "sdk-enumeration",
+      "url": "https://docs.flightsimulator.com/msfs2024/retail/programming-apis/simconnect/api-reference/events-and-data/simconnect_enumeratesimobjectsandliveries/"
+    },
+    {
+      "id": "sdk-legacy-containers",
+      "url": "https://docs.flightsimulator.com/msfs2024/retail/content-configuration/modular-simobjects/simobjects/non/"
+    },
+    {
+      "id": "sdk-living-things",
+      "url": "https://docs.flightsimulator.com/msfs2024/retail/content-configuration/modular-simobjects/simobjects/living-things/"
+    }
+  ],
+  "animals": [
+    {
+      "name": "Aardvark",
+      "titles": [
+        "OAferFemale",
+        "OAferFemaleVariation1",
+        "OAferFemaleVariation2",
+        "OAferJuvenile",
+        "OAferJuvenileVariation1",
+        "OAferJuvenileVariation2",
+        "OAferMale",
+        "OAferMaleVariation1",
+        "OAferMaleVariation2"
+      ],
+      "internalName": "Aardvark_OrycteropusAfer",
+      "guid": "F900C2ED-2DCE-4534-9079-56378AACC84C",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Giant Anteater",
+      "titles": [
+        "MTridactylaFemale",
+        "MTridactylaFemaleVariation1",
+        "MTridactylaFemaleVariation2",
+        "MTridactylaJuvenile",
+        "MTridactylaJuvenileVariation1",
+        "MTridactylaJuvenileVariation2",
+        "MTridactylaMale",
+        "MTridactylaMaleVariation1",
+        "MTridactylaMaleVariation2"
+      ],
+      "internalName": "Anteater_MyrmecophagaTridactyla",
+      "guid": "C8102811-40ED-46B9-B13D-7F856BF55D0A",
+      "sdkWorldLocations": [
+        "South America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Giant Sable (Sable Antelope)",
+      "titles": [
+        "HNigerFemale",
+        "HNigerFemaleVariation1",
+        "HNigerFemaleVariation2",
+        "HNigerJuvenile",
+        "HNigerJuvenileVariation1",
+        "HNigerJuvenileVariation2",
+        "HNigerMale",
+        "HNigerMaleVariation1",
+        "HNigerMaleVariation2"
+      ],
+      "internalName": "Antelope_Bongo_TragelpahusEurycerus",
+      "guid": "23E16BA2-11B6-4219-8FA1-00D739376091",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [
+        "SDK internal name identifies Bongo, while display name and HNiger titles identify sable antelope. Do not resolve species automatically."
+      ],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Grizzly (Brown) Bear",
+      "titles": [
+        "UArctosHorribilisFemale",
+        "UArctosHorribilisFemaleVariation1",
+        "UArctosHorribilisFemaleVariation2",
+        "UArctosHorribilisJuvenile",
+        "UArctosHorribilisJuvenileVariation1",
+        "UArctosHorribilisJuvenileVariation2",
+        "UArctosHorribilisMale",
+        "UArctosHorribilisMaleVariation1",
+        "UArctosHorribilisMaleVariation2"
+      ],
+      "internalName": "Bear_UrsusArctosHorribilis",
+      "guid": "1BAE3666-3012-40D4-B130-B14DC9FDDFE9",
+      "sdkWorldLocations": [
+        "North America",
+        "Europe",
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [
+        "SDK lists Europe and Asia as well as North America. World Location is simulator metadata, not a verified native range."
+      ],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Himalayan Brown Bear",
+      "titles": [
+        "UArctosIsabellinusFemale",
+        "UArctosIsabellinusFemaleVariation1",
+        "UArctosIsabellinusFemaleVariation2",
+        "UArctosIsabellinusJuvenile",
+        "UArctosIsabellinusJuvenileVariation1",
+        "UArctosIsabellinusJuvenileVariation2",
+        "UArctosIsabellinusMale",
+        "UArctosIsabellinusMaleVariation1",
+        "UArctosIsabellinusMaleVariation2"
+      ],
+      "internalName": "Bear_UrsusArctosIsabellinus",
+      "guid": "2C088F1C-5E26-4A74-B38C-8ED96FF40799",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Asian Black Bear",
+      "titles": [
+        "UThibetanusFemale",
+        "UThibetanusFemaleVariation1",
+        "UThibetanusFemaleVariation2",
+        "UThibetanusJuvenile",
+        "UThibetanusJuvenileVariation1",
+        "UThibetanusJuvenileVariation2",
+        "UThibetanusMale",
+        "UThibetanusMaleVariation1",
+        "UThibetanusMaleVariation2"
+      ],
+      "internalName": "Bear_UrsusThibetanus",
+      "guid": "86A89DD2-6482-4C21-9925-31BD51792AC2",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Sun Bear",
+      "titles": [
+        "HMalayanusFemale",
+        "HMalayanusFemaleVariation1",
+        "HMalayanusFemaleVariation2",
+        "HMalayanusJuvenile",
+        "HMalayanusJuvenileVariation1",
+        "HMalayanusJuvenileVariation2",
+        "HMalayanusMale",
+        "HMalayanusMaleVariation1",
+        "HMalayanusMaleVariation2"
+      ],
+      "internalName": "Bear_HelarctosMalayanus",
+      "guid": "9C047D1E-D6B2-432C-A5B2-6539B2184BE2",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "American Black Bear",
+      "titles": [
+        "UAmericanusFemale",
+        "UAmericanusFemaleVariation1",
+        "UAmericanusFemaleVariation2",
+        "UAmericanusJuvenile",
+        "UAmericanusJuvenileVariation1",
+        "UAmericanusJuvenileVariation2",
+        "UAmericanusMale",
+        "UAmericanusMaleVariation1",
+        "UAmericanusMaleVariation2"
+      ],
+      "internalName": "Bear_UrsusAmericanus",
+      "guid": "A881366E-99F4-449F-BA1C-63D603BD9231",
+      "sdkWorldLocations": [
+        "North America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Polar Bear",
+      "titles": [
+        "UMaritimusFemale",
+        "UMaritimusFemaleVariation1",
+        "UMaritimusFemaleVariation2",
+        "UMaritimusJuvenile",
+        "UMaritimusJuvenileVariation1",
+        "UMaritimusJuvenileVariation2",
+        "UMaritimusMale",
+        "UMaritimusMaleVariation1",
+        "UMaritimusMaleVariation2"
+      ],
+      "internalName": "Bear_UrsusMaritimus",
+      "guid": "C94C574F-0603-458A-BE91-B2686A0111EC",
+      "sdkWorldLocations": [
+        "North America",
+        "Europe",
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Western European Brown Bear",
+      "titles": [
+        "UArctosArctosFemale",
+        "UArctosArctosFemaleVariation1",
+        "UArctosArctosFemaleVariation2",
+        "UArctosArctosJuvenile",
+        "UArctosArctosJuvenileVariation1",
+        "UArctosArctosJuvenileVariation2",
+        "UArctosArctosMale",
+        "UArctosArctosMaleVariation1"
+      ],
+      "internalName": "Bear_UrsusArctosArctos",
+      "guid": "E2AE5D94-425F-4298-870B-EF79865D777A",
+      "sdkWorldLocations": [
+        "Europe"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Japanese Black Bear",
+      "titles": [
+        "UArctosLasiotusFemale",
+        "UArctosLasiotusFemaleVariation1",
+        "UArctosLasiotusFemaleVariation2",
+        "UArctosLasiotusJuvenile",
+        "UArctosLasiotusJuvenileVariation1",
+        "UArctosLasiotusJuvenileVariation2",
+        "UArctosLasiotusMale",
+        "UArctosLasiotusMaleVariation1",
+        "UArctosLasiotusMaleVariation2"
+      ],
+      "internalName": "Bear_UrsusArctosLasiotus",
+      "guid": "FAEB9568-9B0F-468D-96CE-EF8BF9DF2DE5",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "American Bison",
+      "titles": [
+        "BBisonFemale",
+        "BBisonFemaleVariation1",
+        "BBisonFemaleVariation2",
+        "BBisonJuvenile",
+        "BBisonJuvenileVariation1",
+        "BBisonJuvenileVariation2",
+        "BBisonMale",
+        "BBisonMaleVariation1",
+        "BBisonMaleVariation2"
+      ],
+      "internalName": "Bison_BisonBison",
+      "guid": "1015CDB6-7051-4FBE-AADB-241C784302B5",
+      "sdkWorldLocations": [
+        "North America",
+        "South America",
+        "Europe"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "European Bison",
+      "titles": [
+        "BBonasusFemale",
+        "BBonasusFemaleVariation1",
+        "BBonasusFemaleVariation2",
+        "BBonasusJuvenile",
+        "BBonasusJuvenileVariation1",
+        "BBonasusJuvenileVariation2",
+        "BBonasusMale",
+        "BBonasusMaleVariation1",
+        "BBonasusMaleVariation2"
+      ],
+      "internalName": "Bison_BisonBonasus",
+      "guid": "E2D501FA-6CC4-4029-8DE7-2D780D2A8F54",
+      "sdkWorldLocations": [
+        "Europe"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Forest Buffalo",
+      "titles": [
+        "SCafferNanusFemale",
+        "SCafferNanusFemaleVariation1",
+        "SCafferNanusFemaleVariation2",
+        "SCafferNanusJuvenile",
+        "SCafferNanusJuvenileVariation1",
+        "SCafferNanusJuvenileVariation2",
+        "SCafferNanusMale",
+        "SCafferNanusMaleVariation1",
+        "SCafferNanusMaleVariation2"
+      ],
+      "internalName": "Buffalo_SyncerusCafferNanus",
+      "guid": "27A6CBBF-88EA-42E5-A310-F1BAC547D81C",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Water Buffalo",
+      "titles": [
+        "BBBubalisFemale",
+        "BBBubalisFemaleVariation1",
+        "BBBubalisFemaleVariation2",
+        "BBBubalisJuvenile",
+        "BBBubalisJuvenileVariation1",
+        "BBBubalisJuvenileVariation2",
+        "BBBubalisMale",
+        "BBBubalisMaleVariation1",
+        "BBBubalisMaleVariation2"
+      ],
+      "internalName": "Buffalo_BubalusBubalisBubalis",
+      "guid": "3934EE74-7021-4184-8F39-B38C887263D3",
+      "sdkWorldLocations": [
+        "South America",
+        "Europe",
+        "Asia",
+        "Oceania",
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Asian Wild Buffalo",
+      "titles": [
+        "BBubalisFemale",
+        "BBubalisFemaleVariation1",
+        "BBubalisFemaleVariation2",
+        "BBubalisJuvenile",
+        "BBubalisJuvenileVariation1",
+        "BBubalisJuvenileVariation2",
+        "BBubalisMale",
+        "BBubalisMaleVariation1",
+        "BBubalisMaleVariation2"
+      ],
+      "internalName": "Buffalo_BubalusBubalisArnee",
+      "guid": "3D3F64AB-8CB1-4678-87FD-227DBEFEE804",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Cape Buffalo",
+      "titles": [
+        "SCafferFemale",
+        "SCafferFemaleVariation1",
+        "SCafferFemaleVariation2",
+        "SCafferJuvenile",
+        "SCafferJuvenileVariation1",
+        "SCafferJuvenileVariation2",
+        "SCafferMale",
+        "SCafferMaleVariation1",
+        "SCafferMaleVariation2"
+      ],
+      "internalName": "Buffalo_SyncerysCafferCaffer",
+      "guid": "829FB6F0-DCA4-4221-832E-5C0ABC1F94BB",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Arabian Camel",
+      "titles": [
+        "CBactrianusFemale",
+        "CBactrianusFemaleVariation1",
+        "CBactrianusFemaleVariation2",
+        "CBactrianusJuvenile",
+        "CBactrianusJuvenileVariation1",
+        "CBactrianusJuvenileVariation2",
+        "CBactrianusMale",
+        "CBactrianusMaleVariation1",
+        "CBactrianusMaleVariation2"
+      ],
+      "internalName": "Camel_CamelusBactrianus",
+      "guid": "22F17FAE-8A3A-49F6-8FCE-288D3E9F82B0",
+      "sdkWorldLocations": [
+        "Asia",
+        "Oceania",
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [
+        "Display label conflicts with Bactrianus titles/internal name. Taxonomic identification needs review."
+      ],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Asiatic Camel",
+      "titles": [
+        "CDromedariusFemale",
+        "CDromedariusFemaleVariation1",
+        "CDromedariusFemaleVariation2",
+        "CDromedariusJuvenile",
+        "CDromedariusJuvenileVariation1",
+        "CDromedariusJuvenileVariation2",
+        "CDromedariusMale",
+        "CDromedariusMaleVariation1",
+        "CDromedariusMaleVariation2"
+      ],
+      "internalName": "Camels_CamelusDromedarius",
+      "guid": "6883874F-D625-4697-8D6C-3A0B4CB8510C",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [
+        "Display label conflicts with Dromedarius titles/internal name. Taxonomic identification needs review."
+      ],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Capybara",
+      "titles": [
+        "HHydrochaerisFemale",
+        "HHydrochaerisFemaleVariation1",
+        "HHydrochaerisFemaleVariation2",
+        "HHydrochaerisJuvenile",
+        "HHydrochaerisJuvenileVariation1",
+        "HHydrochaerisJuvenileVariation2",
+        "HHydrochaerisMale",
+        "HHydrochaerisMaleVariation1",
+        "HHydrochaerisMaleVariation2"
+      ],
+      "internalName": "Capybara_HydrochoerusHydrochaeris",
+      "guid": "CB8034E7-DA2D-401D-B0B5-01A2FD6EB422",
+      "sdkWorldLocations": [
+        "North America",
+        "South America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Sahara Cheetah",
+      "titles": [
+        "AJubatusSoemmeringiiFemale",
+        "AJubatusSoemmeringiiFemaleVariation1",
+        "AJubatusSoemmeringiiFemaleVariation2",
+        "AJubatusSoemmeringiiJuvenile",
+        "AJubatusSoemmeringiiJuvenileVariation1",
+        "AJubatusSoemmeringiiJuvenileVariation2",
+        "AJubatusSoemmeringiiMale",
+        "AJubatusSoemmeringiiMaleVariation1",
+        "AJubatusSoemmeringiiMaleVariation2"
+      ],
+      "internalName": "Cheetah_AcinonyxJubatusSoemmeringii",
+      "guid": "00F07183-F4F2-4877-8140-F75E92A54866",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Cheetah",
+      "titles": [
+        "AJubatusJubatusFemale",
+        "AJubatusJubatusFemaleVariation1",
+        "AJubatusJubatusFemaleVariation2",
+        "AJubatusJubatusJuvenile",
+        "AJubatusJubatusJuvenileVariation1",
+        "AJubatusJubatusJuvenileVariation2",
+        "AJubatusJubatusMale",
+        "AJubatusJubatusMaleVariation1",
+        "AJubatusJubatusMaleVariation2"
+      ],
+      "internalName": "Cheetah_AcinonyxJubatusJubatus",
+      "guid": "44240FBD-EAEC-4D44-BED4-C26AD64C2824",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "North West African Cheetah",
+      "titles": [
+        "AJubatusHeckiFemale",
+        "AJubatusHeckiFemaleVariation1",
+        "AJubatusHeckiFemaleVariation2",
+        "AJubatusHeckiJuvenile",
+        "AJubatusHeckiJuvenileVariation1",
+        "AJubatusHeckiJuvenileVariation2",
+        "AJubatusHeckiMale",
+        "AJubatusHeckiMaleVariation1",
+        "AJubatusHeckiMaleVariation2"
+      ],
+      "internalName": "Cheetah_AcinonyxJubatusHecki",
+      "guid": "B67787FB-BF8A-4C26-879A-5B8827D95A6D",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Western Chimpanzee",
+      "titles": [
+        "PTroglodytesVerusFemale",
+        "PTroglodytesVerusFemaleVariation1",
+        "PTroglodytesVerusFemaleVariation2",
+        "PTroglodytesVerusJuvenile",
+        "PTroglodytesVerusJuvenileVariation1",
+        "PTroglodytesVerusJuvenileVariation2",
+        "PTroglodytesVerusMale",
+        "PTroglodytesVerusMaleVariation1",
+        "PTroglodytesVerusMaleVariation2"
+      ],
+      "internalName": "Chimp_PanTroglodytesVerus",
+      "guid": "3275CDC7-2A23-49CB-A670-6C18C995DBDA",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Bonobo",
+      "titles": [
+        "PPaniscusFemale",
+        "PPaniscusFemaleVariation1",
+        "PPaniscusFemaleVariation2",
+        "PPaniscusJuvenile",
+        "PPaniscusJuvenileVariation1",
+        "PPaniscusJuvenileVariation2",
+        "PPaniscusMale",
+        "PPaniscusMaleVariation1",
+        "PPaniscusMaleVariation2"
+      ],
+      "internalName": "Chimp_PanPaniscus",
+      "guid": "FA8A440E-83BC-4849-8172-A27F0A3F1969",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Guernsey Cow",
+      "titles": [
+        "GuernseyFemale_Cow",
+        "GuernseyFemaleVariation1_Cow",
+        "GuernseyFemaleVariation2_Cow"
+      ],
+      "internalName": "Cow_BosTaurusPrimigenius",
+      "guid": "5698B780-96A6-42E9-A863-C4B3D5C043C8",
+      "sdkWorldLocations": [
+        "North America",
+        "South America",
+        "Europe",
+        "Asia",
+        "Oceania",
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Jersey Cow",
+      "titles": [
+        "BTaurusPrimigeniusFemale",
+        "BTaurusPrimigeniusFemaleVariation1",
+        "BTaurusPrimigeniusFemaleVariation2",
+        "BTaurusPrimigeniusFemaleVariation3",
+        "BTaurusPrimigeniusFemaleVariation4",
+        "BTaurusPrimigeniusJuvenile",
+        "BTaurusPrimigeniusJuvenileVariation1"
+      ],
+      "internalName": "Cow_BosTaurusPrimigenius",
+      "guid": "2AB8C642-008B-4F8A-A97D-73AA52075D96",
+      "sdkWorldLocations": [
+        "North America",
+        "South America",
+        "Europe",
+        "Asia",
+        "Oceania",
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Gaur",
+      "titles": [
+        "BFrontalisFemale",
+        "BFrontalisFemaleVariation1",
+        "BFrontalisFemaleVariation2",
+        "BFrontalisJuvenile",
+        "BFrontalisJuvenileVariation1",
+        "BFrontalisJuvenileVariation2",
+        "BFrontalisMale",
+        "BFrontalisMaleVariation1",
+        "BFrontalisMaleVariation2"
+      ],
+      "internalName": "Cow_BosFrontalis",
+      "guid": "6294AD71-0582-4404-B42D-657F58690290",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Brahma Cow",
+      "titles": [
+        "BTaurusIndicusFemale",
+        "BTaurusIndicusFemaleVariation1",
+        "BTaurusIndicusFemaleVariation2",
+        "BTaurusIndicusJuvenile",
+        "BTaurusIndicusJuvenileVariation1",
+        "BTaurusIndicusJuvenileVariation2"
+      ],
+      "internalName": "Cow_BosTaurusIndicus",
+      "guid": "8B646D69-2B3A-4D1E-935C-6A5C28BBCA3F",
+      "sdkWorldLocations": [
+        "North America",
+        "South America",
+        "Asia",
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Yak",
+      "titles": [
+        "BGrunniensFemale",
+        "BGrunniensFemaleVariation1",
+        "BGrunniensFemaleVariation2",
+        "BGrunniensJuvenile",
+        "BGrunniensJuvenileVariation1",
+        "BGrunniensJuvenileVariation2"
+      ],
+      "internalName": "Cow_BosGrunniens",
+      "guid": "AD15E2E8-793A-4AE4-9FBD-AB1C3734FD51",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Bali Cattle",
+      "titles": [
+        "BJavanicusFemale",
+        "BJavanicusFemaleVariation1",
+        "BJavanicusFemaleVariation2",
+        "BJavanicusJuvenile",
+        "BJavanicusJuvenileVariation1",
+        "BJavanicusJuvenileVariation2"
+      ],
+      "internalName": "Cow_BosJavanicus",
+      "guid": "C2247673-2B5D-4619-8FC6-79A370505ACA",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Saltwater Crocodile",
+      "titles": [
+        "CPorosusFemale",
+        "CPorosusFemaleVariation1",
+        "CPorosusFemaleVariation2",
+        "CPorosusJuvenile",
+        "CPorosusJuvenileVariation1",
+        "CPorosusJuvenileVariation2",
+        "CPorosusMale",
+        "CPorosusMaleVariation1",
+        "CPorosusMaleVariation2"
+      ],
+      "internalName": "Crocodile_CrocodylidaeCrocodylusPorosus",
+      "guid": "318054E0-F586-4460-94EC-7AB2537F3C19",
+      "sdkWorldLocations": [
+        "Asia",
+        "Oceania"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Mugger crocodile",
+      "titles": [
+        "CPalustrisFemale",
+        "CPalustrisFemaleVariation1",
+        "CPalustrisFemaleVariation2",
+        "CPalustrisJuvenile",
+        "CPalustrisJuvenileVariation1",
+        "CPalustrisJuvenileVariation2",
+        "CPalustrisMale",
+        "CPalustrisMaleVariation1",
+        "CPalustrisMaleVariation2"
+      ],
+      "internalName": "Crocodile_CrocodylidaeCrocodylusPalustris",
+      "guid": "57B9E712-7AD9-4AF5-8A4C-357E0D6B7FDA",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "West African crocodile",
+      "titles": [
+        "CSuchusFemale",
+        "CSuchusFemaleVariation1",
+        "CSuchusFemaleVariation2",
+        "CSuchusJuvenile",
+        "CSuchusJuvenileVariation1",
+        "CSuchusJuvenileVariation2",
+        "CSuchusMale",
+        "CSuchusMaleVariation1",
+        "CSuchusMaleVariation2"
+      ],
+      "internalName": "Crocodile_CrocodylidaeCrocodylusSuchus",
+      "guid": "E8DDA66F-F5F0-4417-9037-E8F12BA2D463",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Caribou (Reindeer)",
+      "titles": [
+        "RTarandusGroenlandicusFemale",
+        "RTarandusGroenlandicusFemaleVariation1",
+        "RTarandusGroenlandicusFemaleVariation2",
+        "RTarandusGroenlandicusJuvenile",
+        "RTarandusGroenlandicusJuvenileVariation1",
+        "RTarandusGroenlandicusJuvenileVariation2",
+        "RTarandusGroenlandicusMale",
+        "RTarandusGroenlandicusMaleVariation1",
+        "RTarandusGroenlandicusMaleVariation2"
+      ],
+      "internalName": "Reindeer_RangiferTarandusGroenlandicus",
+      "guid": "6A808B28-9944-47C2-A1F0-C3E1E439EB59",
+      "sdkWorldLocations": [
+        "North America",
+        "Europe",
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Black-Tailed Deer (mule deer)",
+      "titles": [
+        "OHemionusFemale",
+        "OHemionusFemaleVariation1",
+        "OHemionusFemaleVariation2",
+        "OHemionusJuvenile",
+        "OHemionusJuvenileVariation1",
+        "OHemionusJuvenileVariation2",
+        "OHemionusMale",
+        "OHemionusMaleVariation1",
+        "OHemionusMaleVariation2"
+      ],
+      "internalName": "Deer_OdocoileusHemionus",
+      "guid": "908A35FA-004D-43C4-B31C-2F9E0C9B3676",
+      "sdkWorldLocations": [
+        "North America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "African Bush Elephant",
+      "titles": [
+        "LAfricanaFemale",
+        "LAfricanaFemaleVariation1",
+        "LAfricanaFemaleVariation2",
+        "LAfricanaJuvenile",
+        "LAfricanaJuvenileVariation1",
+        "LAfricanaJuvenileVariation2",
+        "LAfricanaMale",
+        "LAfricanaMaleVariation1",
+        "LAfricanaMaleVariation2"
+      ],
+      "internalName": "Elephant_Bush_LoxodontaAfricana",
+      "guid": "79872595-64B8-425C-A6F6-34A862B7D96E",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "African Forest Elephant",
+      "titles": [
+        "LCyclotisFemale",
+        "LCyclotisFemaleVariation1",
+        "LCyclotisFemaleVariation2",
+        "LCyclotisJuvenile",
+        "LCyclotisJuvenileVariation1",
+        "LCyclotisJuvenileVariation2",
+        "LCyclotisMale",
+        "LCyclotisMaleVariation1",
+        "LCyclotisMaleVariation2"
+      ],
+      "internalName": "Elephant_Forest_LoxodontaCyclotis",
+      "guid": "A150C1C4-DF37-4040-9AC7-887A1C04F7CB",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Asian Elephant",
+      "titles": [
+        "EMaximusFemale",
+        "EMaximusFemaleVariation1",
+        "EMaximusFemaleVariation2",
+        "EMaximusJuvenile",
+        "EMaximusJuvenileVariation1",
+        "EMaximusJuvenileVariation2",
+        "EMaximusMale",
+        "EMaximusMaleVariation1",
+        "EMaximusMaleVariation2"
+      ],
+      "internalName": "Elephant_Asian_ElephasMaximus",
+      "guid": "C0DCB481-3B98-4914-B566-F4B33CB5DE4C",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Roosevelt Elk",
+      "titles": [
+        "CElaphusCanadensisFemale",
+        "CElaphusCanadensisFemaleVariation1",
+        "CElaphusCanadensisFemaleVariation2",
+        "CElaphusCanadensisJuvenile",
+        "CElaphusCanadensisJuvenileVariation1",
+        "CElaphusCanadensisJuvenileVariation2",
+        "CElaphusCanadensisMale",
+        "CElaphusCanadensisMaleVariation1",
+        "CElaphusCanadensisMaleVariation2"
+      ],
+      "internalName": "Elk_CervusElaphusCanadensis",
+      "guid": "1BE358F2-5EFD-460D-B82A-2CE36F21D6CA",
+      "sdkWorldLocations": [
+        "North America",
+        "Europe",
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [
+        "SDK location metadata includes Europe/Asia; do not treat this as native European red deer."
+      ],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Pribilof Island Fox",
+      "titles": [
+        "VLagopusPribilofensisFemale",
+        "VLagopusPribilofensisFemaleVariation1",
+        "VLagopusPribilofensisFemaleVariation2",
+        "VLagopusPribilofensisJuvenile",
+        "VLagopusPribilofensisJuvenileVariation1",
+        "VLagopusPribilofensisJuvenileVariation2",
+        "VLagopusPribilofensisMale",
+        "VLagopusPribilofensisMaleVariation1",
+        "VLagopusPribilofensisMaleVariation2"
+      ],
+      "internalName": "Fox_VulpesLagopusPribilofensis",
+      "guid": "9AC887AF-2C44-4DCA-9A36-F4C355BC625C",
+      "sdkWorldLocations": [
+        "North America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Iceland Arctic Fox",
+      "titles": [
+        "VLagopusFuliginosusFemale",
+        "VLagopusFuliginosusFemaleVariation1",
+        "VLagopusFuliginosusFemaleVariation2",
+        "VLagopusFuliginosusJuvenile",
+        "VLagopusFuliginosusJuvenileVariation1",
+        "VLagopusFuliginosusJuvenileVariation2",
+        "VLagopusFuliginosusMale",
+        "VLagopusFuliginosusMaleVariation1",
+        "VLagopusFuliginosusMaleVariation2"
+      ],
+      "internalName": "Fox_VulpesLagopusFulginosus",
+      "guid": "E607C4CB-3E07-440B-BB45-8D0EC0F6F4EC",
+      "sdkWorldLocations": [
+        "Europe"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Arctic Fox",
+      "titles": [
+        "VLagopusJuvenile",
+        "VLagopusJuvenileVariation1",
+        "VLagopusJuvenileVariation2",
+        "VLagopusMale",
+        "VLagopusMaleVariation1",
+        "VLagopusMaleVariation2"
+      ],
+      "internalName": "Fox_VulpesLagopus",
+      "guid": "FE8C8B45-F5A3-4F12-9CE8-467C618BB129",
+      "sdkWorldLocations": [
+        "North America",
+        "Europe",
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Thomsons Gazelle",
+      "titles": [
+        "EThomsoniiFemale",
+        "EThomsoniiFemaleVariation1",
+        "EThomsoniiFemaleVariation2",
+        "EThomsoniiJuvenile",
+        "EThomsoniiJuvenileVariation1",
+        "EThomsoniiJuvenileVariation2",
+        "EThomsoniiMale",
+        "EThomsoniiMaleVariation1",
+        "EThomsoniiMaleVariation2"
+      ],
+      "internalName": "Gazelle_EudorcasThomsonii",
+      "guid": "3EA57838-4E0B-4602-8BE0-BE38FB5BBE4E",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Angolan Giraffe",
+      "titles": [
+        "GAngolanFemale",
+        "GAngolanFemaleVariation1",
+        "GAngolanFemaleVariation2",
+        "GAngolanJuvenile",
+        "GAngolanJuvenileVariation1",
+        "GAngolanJuvenileVariation2",
+        "GAngolanMale",
+        "GAngolanMaleVariation1",
+        "GAngolanMaleVariation2"
+      ],
+      "internalName": "Giraffe_GiraffaAngolan",
+      "guid": "9A8B3FDB-EBB2-4BE6-9E64-2BACA7930BF7",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Kordofan Giraffe",
+      "titles": [
+        "GAntiquorumFemale",
+        "GAntiquorumFemaleVariation1",
+        "GAntiquorumFemaleVariation2",
+        "GAntiquorumJuvenile",
+        "GAntiquorumJuvenileVariation1",
+        "GAntiquorumJuvenileVariation2",
+        "GAntiquorumMale",
+        "GAntiquorumMaleVariation1",
+        "GAntiquorumMaleVariation2"
+      ],
+      "internalName": "Giraffe_GiraffaAntiquorum",
+      "guid": "8AC13D33-37CA-430C-8702-32C666C28E32",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Nubian Giraffe",
+      "titles": [
+        "GCamelopardalisFemale",
+        "GCamelopardalisFemaleVariation1",
+        "GCamelopardalisFemaleVariation2",
+        "GCamelopardalisJuvenile",
+        "GCamelopardalisJuvenileVariation1",
+        "GCamelopardalisJuvenileVariation2",
+        "GCamelopardalisMale",
+        "GCamelopardalisMaleVariation1",
+        "GCamelopardalisMaleVariation2"
+      ],
+      "internalName": "Giraffe_GiraffaCamelopardalis",
+      "guid": "0058EA1A-BC53-4146-8942-CE6B4F3A064A",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "South African Giraffe",
+      "titles": [
+        "GGiraffaFemale",
+        "GGiraffaFemaleVariation1",
+        "GGiraffaFemaleVariation2",
+        "GGiraffaJuvenile",
+        "GGiraffaJuvenileVariation1",
+        "GGiraffaJuvenileVariation2",
+        "GGiraffaMale",
+        "GGiraffaMaleVariation1",
+        "GGiraffaMaleVariation2"
+      ],
+      "internalName": "Giraffe_GiraffaGiraffa",
+      "guid": "254BE170-1C79-433C-8237-69E7D2E87516",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "West African Giraffe",
+      "titles": [
+        "GPeraltaFemale",
+        "GPeraltaFemaleVariation1",
+        "GPeraltaFemaleVariation2",
+        "GPeraltaJuvenile",
+        "GPeraltaJuvenileVariation1",
+        "GPeraltaJuvenileVariation2",
+        "GPeraltaMale",
+        "GPeraltaMaleVariation1",
+        "GPeraltaMaleVariation2"
+      ],
+      "internalName": "Giraffe_GiraffaPeralta",
+      "guid": "4DC05931-CB22-4610-9A81-2E2778A21FF6",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Reticulated Giraffe",
+      "titles": [
+        "GReticulataFemale",
+        "GReticulataFemaleVariation1",
+        "GReticulataFemaleVariation2",
+        "GReticulataJuvenile",
+        "GReticulataJuvenileVariation1",
+        "GReticulataJuvenileVariation2",
+        "GReticulataMale",
+        "GReticulataMaleVariation1",
+        "GReticulataMaleVariation2"
+      ],
+      "internalName": "Giraffe_GiraffaReticulata",
+      "guid": "2FEA1AE1-1B3A-483E-B4B9-E9043AFF3BDA",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Masai Giraffe",
+      "titles": [
+        "GTippelskirchiFemale",
+        "GTippelskirchiFemaleVariation1",
+        "GTippelskirchiFemaleVariation2",
+        "GTippelskirchiJuvenile",
+        "GTippelskirchiJuvenileVariation1",
+        "GTippelskirchiJuvenileVariation2",
+        "GTippelskirchiMale",
+        "GTippelskirchiMaleVariation1",
+        "GTippelskirchiMaleVariation2"
+      ],
+      "internalName": "Giraffe_GiraffaTippelskirchi",
+      "guid": "8825D350-39D4-49DB-BFD9-4D14F7C319E5",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Mountain Goats",
+      "titles": [
+        "OAmericanusFemale",
+        "OAmericanusFemaleVariation1",
+        "OAmericanusFemaleVariation2",
+        "OAmericanusJuvenile",
+        "OAmericanusJuvenileVariation1",
+        "OAmericanusJuvenileVariation2",
+        "OAmericanusMale",
+        "OAmericanusMaleVariation1",
+        "OAmericanusMaleVariation2"
+      ],
+      "internalName": "Goats_OreamnosAmericanus",
+      "guid": "75178C99-DF84-48D1-A51B-2ACFEADA170C",
+      "sdkWorldLocations": [
+        "North America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Domestic Goats",
+      "titles": [
+        "CHircusHircusFemale",
+        "CHircusHircusFemaleVariation1",
+        "CHircusHircusFemaleVariation2",
+        "CHircusHircusJuvenile",
+        "CHircusHircusJuvenileVariation1",
+        "CHircusHircusJuvenileVariation2",
+        "CHircusHircusMale",
+        "CHircusHircusMaleVariation1",
+        "CHircusHircusMaleVariation2"
+      ],
+      "internalName": "Goats_CapraHircusHircus",
+      "guid": "FE50F2E7-612A-4E5E-840C-64746EADAC26",
+      "sdkWorldLocations": [
+        "North America",
+        "South America",
+        "Europe",
+        "Asia",
+        "Africa",
+        "Australia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Hippopotamus",
+      "titles": [
+        "HAmphibiusFemale",
+        "HAmphibiusFemaleVariation1Variation1",
+        "HAmphibiusFemaleVariation2",
+        "HAmphibiusJuvenile",
+        "HAmphibiusJuvenileVariation1",
+        "HAmphibiusJuvenileVariation2",
+        "HAmphibiusMale",
+        "HAmphibiusMaleVariation1",
+        "HAmphibiusMaleVariation2"
+      ],
+      "internalName": "Hippo_HippopotamusAmphibius",
+      "guid": "D6B5D6D7-B986-40FC-8E59-D9E425F5BD7B",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [
+        "HAmphibiusFemaleVariation1Variation1 may be a source typo; retain exact spelling, do not invent an alias."
+      ],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Przewalski’s Horse",
+      "titles": [
+        "EPrzewalskiiFemale",
+        "EPrzewalskiiFemaleVariation1",
+        "EPrzewalskiiFemaleVariation2",
+        "EPrzewalskiiJuvenile",
+        "EPrzewalskiiJuvenileVariation1",
+        "EPrzewalskiiJuvenileVariation2",
+        "EPrzewalskiiMale",
+        "EPrzewalskiiMaleVariation1",
+        "EPrzewalskiiMaleVariation2"
+      ],
+      "internalName": "Horse_EquusPrzewalskiiProject",
+      "guid": "4405FC2E-00D9-4141-BE11-338824B79C13",
+      "sdkWorldLocations": [
+        "Europe",
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Mustang",
+      "titles": [
+        "ECaballusFemale",
+        "ECaballusFemaleVariation1",
+        "ECaballusFemaleVariation2",
+        "ECaballusFemaleVariation3",
+        "ECaballusFemaleVariation4",
+        "ECaballusJuvenile",
+        "ECaballusJuvenileVariation1",
+        "ECaballusJuvenileVariation2",
+        "ECaballusJuvenileVariation3",
+        "ECaballusJuvenileVariation4",
+        "ECaballusMale",
+        "ECaballusMaleVariation1",
+        "ECaballusMaleVariation2",
+        "ECaballusMaleVariation3",
+        "ECaballusMaleVariation4"
+      ],
+      "internalName": "Horse_EquusCaballus",
+      "guid": "C270D3A3-CBD3-4C3E-B785-4C71ED229DBB",
+      "sdkWorldLocations": [
+        "North America",
+        "South America",
+        "Europe",
+        "Asia",
+        "Oceania"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Spotted hyena",
+      "titles": [
+        "CCrocutaFemale",
+        "CCrocutaFemaleVariation1",
+        "CCrocutaFemaleVariation2",
+        "CCrocutaJuvenile",
+        "CCrocutaJuvenileVariation1",
+        "CCrocutaJuvenileVariation2",
+        "CCrocutaMale",
+        "CCrocutaMaleVariation1",
+        "CCrocutaMaleVariation2"
+      ],
+      "internalName": "Hyena_CrocutaCrocuta",
+      "guid": "05C39BED-5778-4872-BF7C-79366FC38263",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Alpine Ibex",
+      "titles": [
+        "CIbexFemale",
+        "CIbexFemaleVariation1",
+        "CIbexFemaleVariation2",
+        "CIbexJuvenile",
+        "CIbexJuvenileVariation1",
+        "CIbexJuvenileVariation2",
+        "CIbexMale",
+        "CIbexMaleVariation1",
+        "CIbexMaleVariation2"
+      ],
+      "internalName": "Ibex_CapraIbex",
+      "guid": "43D27163-08F3-4A5B-A4B4-C5A60CB7A1C8",
+      "sdkWorldLocations": [
+        "Europe"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Red Kangaroo",
+      "titles": [
+        "MRufusFemale",
+        "MRufusFemaleVariation1",
+        "MRufusFemaleVariation2",
+        "MRufusJuvenile",
+        "MRufusJuvenileVariation1",
+        "MRufusJuvenileVariation2",
+        "MRufusMale",
+        "MRufusMaleVariation1",
+        "MRufusMaleVariation2"
+      ],
+      "internalName": "Kangaroo_MacropusRufus",
+      "guid": "DFF1F48A-023B-472E-8BE0-773287951599",
+      "sdkWorldLocations": [
+        "Oceania"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Snow leopard",
+      "titles": [
+        "PUnciaFemale",
+        "PUnciaFemaleVariation1",
+        "PUnciaFemaleVariation2",
+        "PUnciaJuvenile",
+        "PUnciaJuvenileVariation1",
+        "PUnciaJuvenileVariation2",
+        "PUnciaMale",
+        "PUnciaMaleVariation1",
+        "PUnciaMaleVariation2"
+      ],
+      "internalName": "Leopard_PantheraUncia",
+      "guid": "A9712052-9F39-4CE5-BD13-894CE3331198",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "South African Lion",
+      "titles": [
+        "PLeoMelanochaitaFemale",
+        "PLeoMelanochaitaFemaleVariation1",
+        "PLeoMelanochaitaFemaleVariation2",
+        "PLeoMelanochaitaJuvenile",
+        "PLeoMelanochaitaJuvenileVariation1",
+        "PLeoMelanochaitaJuvenileVariation2",
+        "PLeoMelanochaitaMale",
+        "PLeoMelanochaitaMaleVariation1",
+        "PLeoMelanochaitaMaleVariation2"
+      ],
+      "internalName": "Lion_PantheraLeoMelanochaita",
+      "guid": "A8354C16-EECD-4D00-98B3-E5E61BBADC88",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Atlas Lion",
+      "titles": [
+        "PLeoLeoFemale",
+        "PLeoLeoFemaleVariation1",
+        "PLeoLeoFemaleVariation2",
+        "PLeoLeoJuvenile",
+        "PLeoLeoJuvenileVariation1",
+        "PLeoLeoJuvenileVariation2",
+        "PLeoLeoMale",
+        "PLeoLeoMaleVariation1",
+        "PLeoLeoMaleVariation2"
+      ],
+      "internalName": "Lion_PantheraLeoLeo",
+      "guid": "B1494D5A-2D06-4350-9806-16BE4200FCB2",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Argentine Vicuna",
+      "titles": [
+        "VicunaFemale_Llama",
+        "VicunaFemaleVariation1_Llama",
+        "VicunaFemaleVariation2_Llama",
+        "VicunaJuvenile_Llama",
+        "VicunaJuvenileVariation1_Llama",
+        "VicunaJuvenileVariation2_Llama",
+        "VicunaMale_Llama",
+        "VicunaMaleVariation1_Llama",
+        "VicunaMaleVariation2_Llama"
+      ],
+      "internalName": "LLama_VicugnaVicugna",
+      "guid": "12F45AC2-DD3B-4FD0-BE4C-1E1171CDC17C",
+      "sdkWorldLocations": [
+        "South America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Guanico Llama",
+      "titles": [
+        "LGlamaFemale",
+        "LGlamaFemaleVariation1",
+        "LGlamaFemaleVariation2",
+        "LGlamaJuvenile",
+        "LGlamaJuvenileVariation1",
+        "LGlamaJuvenileVariation2",
+        "LGlamaMale",
+        "LGlamaMaleVariation1",
+        "LGlamaMaleVariation2"
+      ],
+      "internalName": "Llamas_LamaGlama",
+      "guid": "444113E2-EF5A-4C13-BA3B-2E119F7FAC15",
+      "sdkWorldLocations": [
+        "South America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Proboscis Monkey",
+      "titles": [
+        "NLarvatusFemale",
+        "NLarvatusFemaleVariation1",
+        "NLarvatusFemaleVariation2",
+        "NLarvatusJuvenile",
+        "NLarvatusJuvenileVariation1",
+        "NLarvatusJuvenileVariation2",
+        "NLarvatusMale",
+        "NLarvatusMaleVariation1",
+        "NLarvatusMaleVariation2"
+      ],
+      "internalName": "Monkey_NasalisLarvatus",
+      "guid": "EEF43D0A-D97D-4328-AE68-6B23EECA5EFF",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Alaskan Moose",
+      "titles": [
+        "AAlcesFemale",
+        "AAlcesFemaleVariation1",
+        "AAlcesFemaleVariation2",
+        "AAlcesJuvenile",
+        "AAlcesJuvenileVariation1",
+        "AAlcesJuvenileVariation2",
+        "AAlcesMale",
+        "AAlcesMaleVariation1",
+        "AAlcesMaleVariation2"
+      ],
+      "internalName": "Moose_AlcesAlces",
+      "guid": "E3DC7064-D309-441B-91E2-A7011DE21A4B",
+      "sdkWorldLocations": [
+        "North America",
+        "Europe"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [
+        "SDK label and broad location metadata do not prove the model represents a European subspecies."
+      ],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "American Moose",
+      "titles": [
+        "AAmericanusFemale",
+        "AAmericanusFemaleVariation1",
+        "AAmericanusFemaleVariation2",
+        "AAmericanusJuvenile",
+        "AAmericanusJuvenileVariation1",
+        "AAmericanusJuvenileVariation2",
+        "AAmericanusMale",
+        "AAmericanusMaleVariation1",
+        "AAmericanusMaleVariation2"
+      ],
+      "internalName": "Moose_AlcesAmericanus",
+      "guid": "F3BB6DD6-DFF0-4153-A6AB-4C02778B73F4",
+      "sdkWorldLocations": [
+        "North America",
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Ostrich",
+      "titles": [
+        "SCamelusFemale",
+        "SCamelusFemaleVariation1",
+        "SCamelusFemaleVariation2",
+        "SCamelusJuvenile",
+        "SCamelusJuvenileVariation1",
+        "SCamelusJuvenileVariation2",
+        "SCamelusMale",
+        "SCamelusMaleVariation1",
+        "SCamelusMaleVariation2"
+      ],
+      "internalName": "Ostrich_StruthiaCamelusCamelus",
+      "guid": "2A723C50-7E93-4160-A100-596E24A4A484",
+      "sdkWorldLocations": [
+        "North America",
+        "South America",
+        "Europe",
+        "Asia",
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Giant Panda",
+      "titles": [
+        "AMelanoleucaFemale",
+        "AMelanoleucaFemaleVariation1",
+        "AMelanoleucaFemaleVariation2",
+        "AMelanoleucaJuvenile",
+        "AMelanoleucaJuvenileVariation1",
+        "AMelanoleucaJuvenileVariation2",
+        "AMelanoleucaMale",
+        "AMelanoleucaMaleVariation1",
+        "AMelanoleucaMaleVariation2"
+      ],
+      "internalName": "Panda_AiluropodaMelanoleuca",
+      "guid": "1510697B-BA33-4B5E-8ECF-FDD9F38DB6CB",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Southern White Rhinoceros",
+      "titles": [
+        "CSimumFemale",
+        "CSimumFemaleVariation1",
+        "CSimumFemaleVariation2",
+        "CSimumJuvenile",
+        "CSimumJuvenileVariation1",
+        "CSimumJuvenileVariation2",
+        "CSimumMale",
+        "CSimumMaleVariation1",
+        "CSimumMaleVariation2"
+      ],
+      "internalName": "Rhino_CeratotheriumSimum",
+      "guid": "25795C0E-C181-4A95-A32C-3AC8584695EF",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Bighorn Sheep",
+      "titles": [
+        "OCanadensisNelsoniFemale",
+        "OCanadensisNelsoniFemaleVariation1",
+        "OCanadensisNelsoniFemaleVariation2",
+        "OCanadensisNelsoniJuvenile",
+        "OCanadensisNelsoniJuvenileVariation1",
+        "OCanadensisNelsoniJuvenileVariation2",
+        "OCanadensisNelsoniMale",
+        "OCanadensisNelsoniMaleVariation1",
+        "OCanadensisNelsoniMaleVariation2"
+      ],
+      "internalName": "Sheep_OvisCanadensisNelsoni",
+      "guid": "3BD92B0A-4A20-4A48-9334-DB04ECB5E90E",
+      "sdkWorldLocations": [
+        "North America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Dall Sheep",
+      "titles": [
+        "ODalliDalliFemale",
+        "ODalliDalliFemaleVariation1",
+        "ODalliDalliFemaleVariation2",
+        "ODalliDalliJuvenile",
+        "ODalliDalliJuvenileVariation1",
+        "ODalliDalliJuvenileVariation2",
+        "ODalliDalliMale",
+        "ODalliDalliMaleVariation1",
+        "ODalliDalliMaleVariation2"
+      ],
+      "internalName": "Sheep_OvisDalliDalli",
+      "guid": "54F3E113-8D20-4D8C-A897-D975A56CA6C2",
+      "sdkWorldLocations": [
+        "North America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Domestic Sheep (Columbian)",
+      "titles": [
+        "OAriesAriesFemale",
+        "OAriesAriesFemaleVariation1",
+        "OAriesAriesFemaleVariation2",
+        "OAriesAriesFemaleVariation3",
+        "OAriesAriesJuvenile",
+        "OAriesAriesJuvenileVariation1",
+        "OAriesAriesJuvenileVariation2",
+        "OAriesAriesJuvenileVariation3",
+        "OAriesAriesMale",
+        "OAriesAriesMaleVariation1",
+        "OAriesAriesMaleVariation2",
+        "OAriesAriesMaleVariation3"
+      ],
+      "internalName": "Sheep_OvisAriesAries",
+      "guid": "8791914B-63C9-4E5D-8CE2-10948B0217A0",
+      "sdkWorldLocations": [
+        "North America",
+        "Europe",
+        "Asia",
+        "Indonesia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Barbay Sheep",
+      "titles": [
+        "ALerviaFemale",
+        "ALerviaFemaleVariation1",
+        "ALerviaFemaleVariation2",
+        "ALerviaJuvenile",
+        "ALerviaJuvenileVariation1",
+        "ALerviaJuvenileVariation2",
+        "ALerviaMale",
+        "ALerviaMaleVariation1",
+        "ALerviaMaleVariation2"
+      ],
+      "internalName": "Sheep_AmmotragusLervia",
+      "guid": "BB69A6D3-E674-49EA-9AB7-9CFDEDDD2BE5",
+      "sdkWorldLocations": [
+        "North America",
+        "Europe",
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "European Mouflon",
+      "titles": [
+        "OAriesMusimonFemale",
+        "OAriesMusimonFemaleVariation1",
+        "OAriesMusimonFemaleVariation2",
+        "OAriesMusimonJuvenile",
+        "OAriesMusimonJuvenileVariation1",
+        "OAriesMusimonJuvenileVariation2",
+        "OAriesMusimonMale",
+        "OAriesMusimonMaleVariation1",
+        "OAriesMusimonMaleVariation2"
+      ],
+      "internalName": "Sheep_OvisAriesMusimon",
+      "guid": "C5C8D865-09F6-45C9-9642-2BCDDCFD0CFB",
+      "sdkWorldLocations": [
+        "North America",
+        "Europe"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Bengal Tiger",
+      "titles": [
+        "PTigrisTigrisFemale",
+        "PTigrisTigrisFemaleVariation1",
+        "PTigrisTigrisFemaleVariation2",
+        "PTigrisTigrisJuvenile",
+        "PTigrisTigrisJuvenileVariation1",
+        "PTigrisTigrisJuvenileVariation2",
+        "PTigrisTigrisMale",
+        "PTigrisTigrisMaleVariation1",
+        "PTigrisTigrisMaleVariation2"
+      ],
+      "internalName": "Tiger_PantheraTigrisTigris",
+      "guid": "80E0CA78-C1A7-44B3-ABD4-0222B959CE71",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Siberian tiger",
+      "titles": [
+        "PTigrisAltaicaFemale",
+        "PTigrisAltaicaFemaleVariation1",
+        "PTigrisAltaicaFemaleVariation2",
+        "PTigrisAltaicaJuvenile",
+        "PTigrisAltaicaJuvenileVariation1",
+        "PTigrisAltaicaJuvenileVariation2",
+        "PTigrisAltaicaMale",
+        "PTigrisAltaicaMaleVariation1",
+        "PTigrisAltaicaMaleVariation2"
+      ],
+      "internalName": "Tiger_PantheraTigrisAltaica",
+      "guid": "B5AD3CE3-CA72-42B3-BDBC-9FBDA421C8F1",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Javan Tiger",
+      "titles": [
+        "PTigrisSondaicaFemale",
+        "PTigrisSondaicaFemaleVariation1",
+        "PTigrisSondaicaFemaleVariation2",
+        "PTigrisSondaicaJuvenile",
+        "PTigrisSondaicaJuvenileVariation1",
+        "PTigrisSondaicaJuvenileVariation2",
+        "PTigrisSondaicaMale",
+        "PTigrisSondaicaMaleVariation1",
+        "PTigrisSondaicaMaleVariation2"
+      ],
+      "internalName": "Tiger_PantheraTigrisSondaica",
+      "guid": "D765275E-17BA-47BA-8763-E7ED37C0F4BA",
+      "sdkWorldLocations": [
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Desert Warthog",
+      "titles": [
+        "PAethiopicusFemale",
+        "PAethiopicusFemaleVariation1",
+        "PAethiopicusFemaleVariation2",
+        "PAethiopicusJuvenile",
+        "PAethiopicusJuvenileVariation1",
+        "PAethiopicusJuvenileVariation2",
+        "PAethiopicusMale",
+        "PAethiopicusMaleVariation1",
+        "PAethiopicusMaleVariation2"
+      ],
+      "internalName": "Warthog_PhacohoerusAethiopicus",
+      "guid": "80D077EA-EE34-4CFB-8DEF-2A4656BACF0E",
+      "sdkWorldLocations": [
+        "North America",
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "African Warthog",
+      "titles": [
+        "PAfricanusFemale",
+        "PAfricanusFemaleVariation1",
+        "PAfricanusFemaleVariation2",
+        "PAfricanusJuvenile",
+        "PAfricanusJuvenileVariation1",
+        "PAfricanusJuvenileVariation2",
+        "PAfricanusMale",
+        "PAfricanusMaleVariation1",
+        "PAfricanusMaleVariation2"
+      ],
+      "internalName": "Warthog_PhacohoerusAfricanus",
+      "guid": "9E363574-A875-4D44-9C30-E379DE63FAAC",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Gnu Blue",
+      "titles": [
+        "CTaurinusMearnsiFemale",
+        "CTaurinusMearnsiFemaleVariation1",
+        "CTaurinusMearnsiFemaleVariation2",
+        "CTaurinusMearnsiJuvenile",
+        "CTaurinusMearnsiJuvenileVariation1",
+        "CTaurinusMearnsiJuvenileVariation2",
+        "CTaurinusMearnsiMale",
+        "CTaurinusMearnsiMaleVariation1",
+        "CTaurinusMearnsiMaleVariation2"
+      ],
+      "internalName": "Wildebeast_ConnochaetesTaurinusMearnsi",
+      "guid": "15A57D35-A643-4866-B670-3BA394C910E0",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Black Wildebeest",
+      "titles": [
+        "CTaurinusGnouFemale",
+        "CTaurinusGnouFemaleVariation1",
+        "CTaurinusGnouFemaleVariation2",
+        "CTaurinusGnouJuvenile",
+        "CTaurinusGnouJuvenileVariation1",
+        "CTaurinusGnouJuvenileVariation2",
+        "CTaurinusGnouMale",
+        "CTaurinusGnouMaleVariation1",
+        "CTaurinusGnouMaleVariation2"
+      ],
+      "internalName": "Wildebeast_ConnochaetesTaurinusGnou",
+      "guid": "D9BFE2A4-A0E6-47D8-93E8-B643DF63BE5C",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Eastern White Bearded Wildebeest",
+      "titles": [
+        "CTaurinusAlbojubatusFemale",
+        "CTaurinusAlbojubatusFemaleVariation1",
+        "CTaurinusAlbojubatusFemaleVariation2",
+        "CTaurinusAlbojubatusJuvenile",
+        "CTaurinusAlbojubatusJuvenileVariation1",
+        "CTaurinusAlbojubatusJuvenileVariation2",
+        "CTaurinusAlbojubatusMale",
+        "CTaurinusAlbojubatusMaleVariation1",
+        "CTaurinusAlbojubatusMaleVariation2"
+      ],
+      "internalName": "Wildebeast_ConnochaetesTaurinusAlbojubatus",
+      "guid": "E9A17D5B-6D4E-4382-A7BD-BAE64F3DC6C2",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Arctic Wolf",
+      "titles": [
+        "CLupusArctosFemale",
+        "CLupusArctosFemaleVariation1",
+        "CLupusArctosFemaleVariation2",
+        "CLupusArctosJuvenile",
+        "CLupusArctosJuvenileVariation1",
+        "CLupusArctosJuvenileVariation2",
+        "CLupusArctosMale",
+        "CLupusArctosMaleVariation1",
+        "CLupusArctosMaleVariation2"
+      ],
+      "internalName": "Wolf_CanisLupusArctos",
+      "guid": "3C985F4D-9777-4E76-8C74-1CA7B77224A5",
+      "sdkWorldLocations": [
+        "North America"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Gray Wolf",
+      "titles": [
+        "CLupusLupusFemale",
+        "CLupusLupusFemaleVariation1",
+        "CLupusLupusFemaleVariation2",
+        "CLupusLupusJuvenile",
+        "CLupusLupusJuvenileVariation1",
+        "CLupusLupusJuvenileVariation2",
+        "CLupusLupusMale",
+        "CLupusLupusMaleVariation1",
+        "CLupusLupusMaleVariation2"
+      ],
+      "internalName": "Wolf_CanisLupusLupus",
+      "guid": "88BA2C72-B6B2-4120-B9EF-58956782E996",
+      "sdkWorldLocations": [
+        "Europe",
+        "Asia"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Grevy’s Zebra",
+      "titles": [
+        "EGrevyiFemale",
+        "EGrevyiFemaleVariation1",
+        "EGrevyiFemaleVariation2",
+        "EGrevyiJuvenile",
+        "EGrevyiJuvenileVariation1",
+        "EGrevyiJuvenileVariation2",
+        "EGrevyiMale",
+        "EGrevyiMaleVariation1",
+        "EGrevyiMaleVariation2"
+      ],
+      "internalName": "Zebra_EquusGrevyi",
+      "guid": "02DAAF75-38F2-40CC-84FA-C23B9DA290AC",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Plains Zebra",
+      "titles": [
+        "EQuaggaFemale",
+        "EQuaggaFemaleVariation1",
+        "EQuaggaFemaleVariation2",
+        "EQuaggaJuvenile",
+        "EQuaggaJuvenileVariation1",
+        "EQuaggaJuvenileVariation2",
+        "EQuaggaMale",
+        "EQuaggaMaleVariation1",
+        "EQuaggaMaleVariation2"
+      ],
+      "internalName": "Zebra_EquusQuagga",
+      "guid": "3668974C-FFA0-4806-BA59-56BA3D088123",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    },
+    {
+      "name": "Hartman’s Mountain Zebra",
+      "titles": [
+        "EHartmannaeFemale",
+        "EHartmannaeFemaleVariation1",
+        "EHartmannaeFemaleVariation2",
+        "EHartmannaeJuvenile",
+        "EHartmannaeJuvenileVariation1",
+        "EHartmannaeJuvenileVariation2",
+        "EHartmannaeMale",
+        "EHartmannaeMaleVariation1",
+        "EHartmannaeMaleVariation2"
+      ],
+      "internalName": "Zebra_EquusHartmannae",
+      "guid": "C8D7868E-AD13-46A1-9E2E-5C2460443CFF",
+      "sdkWorldLocations": [
+        "Africa"
+      ],
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "sourceId": "sdk-travelbook-list",
+      "notes": [],
+      "ecologicalRangeVerified": false
+    }
+  ],
+  "supplementaryContainerGroups": [
+    {
+      "name": "Legacy bears",
+      "titles": [
+        "BlackBear",
+        "GrizzlyBear",
+        "PolarBear",
+        "SyrianBear"
+      ],
+      "sourceId": "sdk-legacy-containers",
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "ecologicalRangeVerified": false,
+      "notes": [
+        "General container-title documentation; legacy naming retained as a separate family, not an alias of the modern titles."
+      ]
+    },
+    {
+      "name": "Legacy elephants",
+      "titles": [
+        "AfricanElephant",
+        "AfricanElephant_Child",
+        "AsianElephant",
+        "AsianElephant_Child",
+        "BorneoElephant",
+        "BorneoElephant_Child",
+        "SriLankanElephant",
+        "SriLankanElephant_Child",
+        "SriLankanElephant_Child_Albino",
+        "SumatranElephant",
+        "SumatranElephant_Child",
+        "SumatranElephant_Child_Albino"
+      ],
+      "sourceId": "sdk-legacy-containers",
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "ecologicalRangeVerified": false,
+      "notes": [
+        "General container-title documentation; legacy naming retained as a separate family, not an alias of the modern titles."
+      ]
+    },
+    {
+      "name": "Legacy flamingo",
+      "titles": [
+        "Flamingo"
+      ],
+      "sourceId": "sdk-legacy-containers",
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "ecologicalRangeVerified": false,
+      "notes": [
+        "General container-title documentation; legacy naming retained as a separate family, not an alias of the modern titles."
+      ]
+    },
+    {
+      "name": "Legacy giraffes",
+      "titles": [
+        "AfricanGiraffe",
+        "AngolanGiraffe",
+        "MasaiGiraffe",
+        "ReticulatedGiraffe"
+      ],
+      "sourceId": "sdk-legacy-containers",
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "ecologicalRangeVerified": false,
+      "notes": [
+        "General container-title documentation; legacy naming retained as a separate family, not an alias of the modern titles."
+      ]
+    },
+    {
+      "name": "Goose",
+      "titles": [
+        "Goose"
+      ],
+      "sourceId": "sdk-legacy-containers",
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "ecologicalRangeVerified": false,
+      "notes": [
+        "General container-title documentation; legacy naming retained as a separate family, not an alias of the modern titles."
+      ]
+    },
+    {
+      "name": "Legacy hippo",
+      "titles": [
+        "Hippo"
+      ],
+      "sourceId": "sdk-legacy-containers",
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "ecologicalRangeVerified": false,
+      "notes": [
+        "General container-title documentation; legacy naming retained as a separate family, not an alias of the modern titles."
+      ]
+    },
+    {
+      "name": "Legacy rhinos",
+      "titles": [
+        "RhinoBlack",
+        "RhinoBlackWestern",
+        "RhinoWhite",
+        "RhinoWhiteNorthern"
+      ],
+      "sourceId": "sdk-legacy-containers",
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "ecologicalRangeVerified": false,
+      "notes": [
+        "General container-title documentation; legacy naming retained as a separate family, not an alias of the modern titles."
+      ]
+    },
+    {
+      "name": "Seagull",
+      "titles": [
+        "Seagull"
+      ],
+      "sourceId": "sdk-legacy-containers",
+      "evidence": "sdk-listed",
+      "installationAvailability": "not-enumerated",
+      "spawnTest": "not-tested",
+      "ecologicalRangeVerified": false,
+      "notes": [
+        "General container-title documentation; legacy naming retained as a separate family, not an alias of the modern titles."
+      ]
+    }
+  ],
+  "existingRoleAudit": [
+    {
+      "title": "AAlcesFemale",
+      "currentRoles": [
+        "animal.deer",
+        "animal.wildlife"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Alaskan Moose",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "AAlcesJuvenile",
+      "currentRoles": [
+        "animal.deer",
+        "animal.wildlife"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Alaskan Moose",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "AAlcesMale",
+      "currentRoles": [
+        "animal.deer"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Alaskan Moose",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "ALerviaFemale",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Barbay Sheep",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "ALerviaJuvenile",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Barbay Sheep",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "ALerviaMale",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Barbay Sheep",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "BFrontalisMale",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Gaur",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "BTaurusPrimigeniusFemale",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Jersey Cow",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "BTaurusPrimigeniusJuvenile",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Jersey Cow",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "CElaphusCanadensisFemale",
+      "currentRoles": [
+        "animal.deer",
+        "animal.wildlife"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Roosevelt Elk",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "CElaphusCanadensisJuvenile",
+      "currentRoles": [
+        "animal.deer"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Roosevelt Elk",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "CElaphusCanadensisMale",
+      "currentRoles": [
+        "animal.deer"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Roosevelt Elk",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "CHircusHircusFemale",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Domestic Goats",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "CHircusHircusJuvenile",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Domestic Goats",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "CLupusLupusFemale",
+      "currentRoles": [
+        "animal.wildlife"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Gray Wolf",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "ECaballusFemale",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Mustang",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "ECaballusMale",
+      "currentRoles": [
+        "animal.grazing"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Mustang",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "Goose",
+      "currentRoles": [
+        "animal.waterfowl",
+        "animal.bird"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Goose",
+      "sourceId": "sdk-legacy-containers",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "OHemionusFemale",
+      "currentRoles": [
+        "animal.deer",
+        "animal.wildlife"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Black-Tailed Deer (mule deer)",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "OHemionusFemaleVariation1",
+      "currentRoles": [
+        "animal.deer"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Black-Tailed Deer (mule deer)",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "OHemionusJuvenile",
+      "currentRoles": [
+        "animal.deer",
+        "animal.wildlife"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Black-Tailed Deer (mule deer)",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "OHemionusMale",
+      "currentRoles": [
+        "animal.deer"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Black-Tailed Deer (mule deer)",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "RTarandusGroenlandicusFemale",
+      "currentRoles": [
+        "animal.wildlife"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Caribou (Reindeer)",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "Seagull",
+      "currentRoles": [
+        "animal.waterfowl",
+        "animal.bird"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Seagull",
+      "sourceId": "sdk-legacy-containers",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    },
+    {
+      "title": "UArctosArctosFemale",
+      "currentRoles": [
+        "animal.wildlife"
+      ],
+      "officialCatalogueMatch": true,
+      "officialAnimalName": "Western European Brown Bear",
+      "sourceId": "sdk-travelbook-list",
+      "includedInSavedSpawnValidation": false,
+      "status": "sdk-listed-not-spawn-verified"
+    }
+  ],
+  "savedValidationEvidence": {
+    "path": "ga-tracker-client/Neuer Ordner/msfs2024-spawn-validation.json",
+    "createdAt": "2026-05-20T16:27:51.447Z",
+    "animalTitlesIncluded": 0,
+    "note": "Existing source header mentions a visual/manual pass, but no per-animal successful spawn record was located. Do not convert that header into a verified status."
+  },
+  "stats": {
+    "modernAnimalEntries": 88,
+    "modernExactTitles": 780,
+    "supplementaryGroups": 8,
+    "supplementaryExactTitles": 28,
+    "uniqueExactTitles": 808,
+    "existingUniqueTitles": 25,
+    "existingOfficialMatches": 25,
+    "spawnVerifiedTitles": 0
+  }
+}
