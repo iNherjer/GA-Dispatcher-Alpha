@@ -16661,18 +16661,51 @@ function buildInstructorPassenger(trainingPlan = null) {
     };
 }
 
+function prepareExecutableTraining(passenger, target) {
+    const api = window.missionTrainingProcedure;
+    if (!api?.normalizeRecipe) throw new Error('Trainingskern ist noch nicht bereit. Bitte erneut versuchen.');
+    // New missions select only procedures the shared App/Tracker evaluator implements.
+    // Explicit existing recipes remain authoritative, without interpreting prose again.
+    const supported = [
+        {id:'constant_bank_360_30', type:'constant_bank_360', label:'Vollkreis mit 30 Grad Querneigung', targetBankDeg:30, direction:'either'},
+        {id:'constant_bank_360_45', type:'constant_bank_360', label:'Vollkreis mit 45 Grad Querneigung', targetBankDeg:45, direction:'either', maxG:2.4},
+        {id:'turn_180', type:'turn_180', label:'180-Grad-Wende mit Höhe halten', targetBankDeg:30, direction:'either'},
+        {id:'altitude_step_hold', type:'altitude_step_hold', label:'Geradeausflug mit 500-ft-Steigflug und Höhe halten', altitudeStepFt:500, direction:'climb'},
+        {id:'stall_recovery', type:'stall_recovery', label:'Stall bis zum Break und Recovery'}
+    ];
+    for (let i=supported.length-1;i>0;i--) {
+        const j=Math.floor(Math.random()*(i+1)); [supported[i],supported[j]]=[supported[j],supported[i]];
+    }
+    const recipe = api.normalizeRecipe(passenger.trainingRecipe || {
+        mode:'airwork', targetLabel:target, requiredCount:2, exercises:supported.slice(0,4)
+    });
+    const allowed = new Set(['constant_bank_360','turn_180','altitude_step_hold','stall_recovery']);
+    if (!recipe?.exercises?.length || recipe.exercises.some(ex=>!allowed.has(ex.type))) {
+        throw new Error('Trainingsrezept enthält keine unterstützten Übungen.');
+    }
+    passenger.trainingRecipe = recipe;
+    passenger.trainingPlan = {
+        mode:recipe.mode, trigger:'half_route', requiredCount:recipe.requiredCount,
+        focus:recipe.exercises.map(ex=>ex.label), readyMinAglFt:recipe.readyMinAglFt,
+        instructorLine:'Die vorbereiteten Übungen werden einzeln eingewiesen und vom Piloten manuell gestartet. Weitere Übungen sind freiwillig.'
+    };
+    return passenger;
+}
+
 function enforceAptTrainingMission(mission = null, destName = '', options = {}) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     const isPoiTraining = !!options.isPOI;
     const startName = String(options.startName || currentStartICAO || 'Startplatz').trim() || 'Startplatz';
     const target = String(destName || m.targetName || m.destName || (isPoiTraining ? 'Übungsgebiet' : 'Zielflugplatz')).trim() || (isPoiTraining ? 'Übungsgebiet' : 'Zielflugplatz');
-    const plan = sanitizeTrainingPlan(m.passenger?.trainingPlan || null, true);
-    const passenger = buildInstructorPassenger(plan);
+    const retained = m._trainingNarrative?.schema === 'training-narrative.v1';
+    const passenger = retained ? m.passenger : buildInstructorPassenger(m.passenger?.trainingPlan || null);
+    if (!retained) prepareExecutableTraining(passenger, target);
+    const plan = passenger.trainingPlan;
     const focusItems = Array.isArray(plan?.focus) && plan.focus.length
         ? plan.focus.map(x => String(x || '').trim()).filter(Boolean).slice(0, 4)
         : [];
     const requiredCount = Math.max(1, Math.min(focusItems.length || 2, Math.round(Number(plan?.requiredCount || 2) || 2)));
-    const requiredItems = focusItems.slice(0, Math.max(1, Math.min(requiredCount, 2)));
+    const requiredItems = focusItems.slice(0, requiredCount);
     const optionalItems = focusItems.slice(requiredCount);
     const preparedExerciseText = requiredItems.length
         ? requiredItems.join(' und ')
@@ -16680,9 +16713,7 @@ function enforceAptTrainingMission(mission = null, destName = '', options = {}) 
     const extraExerciseText = optionalItems.length
         ? `Wenn das sauber sitzt, kannst du später im Pax-Fenster noch eine zusätzliche Übung anfragen.`
         : 'Wenn das sauber sitzt, bleibt es bei dem ruhigen Debriefing und der Rückkehrfreigabe.';
-    const modeLabel = String(plan?.mode || '').toLowerCase() === 'pattern'
-        ? 'Platzrunden- und Anflugtraining'
-        : 'Airwork- und Verfahrenstraining';
+    const modeLabel = 'Airwork-Training';
     const instructorName = String(passenger?.name || 'Der Instruktor').trim();
     const instructorRole = String(passenger?.role || 'Instruktor').trim();
     const instructorCue = String(passenger?.storySeed || '')
@@ -16690,18 +16721,19 @@ function enforceAptTrainingMission(mission = null, destName = '', options = {}) 
         .replace(/\{targetName\}/g, target)
         .trim();
     const cargoOptions = Array.isArray(TRAINING_CARGO_ITEMS) && TRAINING_CARGO_ITEMS.length ? TRAINING_CARGO_ITEMS : ['Trainingsunterlagen (10 lbs)'];
-    const cargoText = cargoOptions[Math.floor(Math.random() * cargoOptions.length)] || 'Trainingsunterlagen (10 lbs)';
+    const cargoText = retained ? m.cargoText : cargoOptions[Math.floor(Math.random() * cargoOptions.length)] || 'Trainingsunterlagen (10 lbs)';
     m.i = m.i || '🧑‍✈️';
-    m.t = isPoiTraining ? 'Trainingsflug im Übungsgebiet' : `Trainingsflug nach ${target}`;
+    if (m._trainingNarrative?.schema !== 'training-narrative.v1') m.t = isPoiTraining ? 'Trainingsflug im Übungsgebiet' : `Trainingsflug nach ${target}`;
     const baseStory = isPoiTraining
-        ? `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} im platznahen Übungsgebiet bei ${startName}. Er hat zwei Übungen vorbereitet: ${preparedExerciseText}. ${extraExerciseText} Wenn die beiden Übungen sauber abgeschlossen sind, gibt er dich für die Rückkehr nach ${startName} frei.`
-        : `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. Er hat zwei Übungen vorbereitet: ${preparedExerciseText}. ${extraExerciseText} ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`;
-    m.s = _missionPipelineV4PolishGermanVisibleText(baseStory);
+        ? `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} im platznahen Übungsgebiet bei ${startName}. ${passenger.gender === 'female' ? 'Sie' : 'Er'} hat ${requiredCount} Übungen vorbereitet: ${preparedExerciseText}. ${extraExerciseText} Wenn die vorbereiteten Übungen sauber abgeschlossen sind, gibt ${passenger.gender === 'female' ? 'sie' : 'er'} dich für die Rückkehr nach ${startName} frei.`
+        : `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. ${passenger.gender === 'female' ? 'Sie' : 'Er'} hat ${requiredCount} Übungen vorbereitet: ${preparedExerciseText}. ${extraExerciseText} ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`;
+    if (m._trainingNarrative?.schema !== 'training-narrative.v1') m.s = _missionPipelineV4PolishGermanVisibleText(baseStory);
     m.cat = 'trn';
     m.passenger = passenger;
     m.pax = '1 PAX (Instruktor)';
-    m.cargo = cargoText;
-    m.cargoText = cargoText;
+    const selectedCargo = m._trainingNarrative?.schema === 'training-narrative.v1' ? m.cargoText : cargoText;
+    m.cargo = selectedCargo;
+    m.cargoText = selectedCargo;
     if (isPoiTraining) {
         m.sceneIntent = {
             summary: 'Das Übungsgebiet ist nur Trainingsraum; es wird keine normale POI-Zielszene oder Bestandsaufnahme aufgebaut.',
@@ -16724,7 +16756,7 @@ function enforceAptTrainingMission(mission = null, destName = '', options = {}) 
     return {
         mission: m,
         paxText: '1 PAX (Instruktor)',
-        cargoText
+        cargoText: m.cargoText
     };
 }
 
@@ -16755,22 +16787,28 @@ function enforceTrainingContractFields(contract = null, { isPOI = false } = {}) 
                 sceneDensity: 'none',
                 objectFamilies: [],
                 primaryObjective: isPOI
-                    ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei vorbereitete Übungen, danach Rückkehr frei.'
-                    : 'Trainingsflug mit Fluglehrer; zwei vorbereitete Übungen, danach Rückkehr oder Landung laut Flugplan.'
+                    ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; vorbereitete Übungen, danach Rückkehr frei.'
+                    : 'Trainingsflug mit Fluglehrer; vorbereitete Übungen, danach Rückkehr oder Landung laut Flugplan.'
             }
         };
     }
     next.storyFrame = {
-        ...(next.storyFrame || {}),
         trigger: isPOI
             ? 'Der Instruktor nutzt das platznahe Übungsgebiet fuer Airwork und Verfahrenstraining.'
             : 'Der Instruktor nutzt den Flug fuer Airwork, Verfahren und saubere Flugpraezision.',
-        focusSubject: 'zwei vorbereitete Übungen und freiwillige Zusatzübungen',
+        focusSubject: 'vorbereitete Übungen und freiwillige Zusatzübungen',
         keyQuestion: 'Wie sauber der Pilot Höhe, Kurs, Bank und Verfahren in den angesagten Aufgaben hält.',
-        completionSignal: 'Nach den zwei vorbereiteten Übungen gibt der Instruktor die Rückkehr frei; weitere Übungen nur auf freiwillige Anfrage.',
+        completionSignal: 'Nach den vorbereiteten Übungen gibt der Instruktor die Rückkehr frei; weitere Übungen nur auf freiwillige Anfrage.',
         subjectDetail: 'Instruktorflug mit vorab genanntem Stundenplan',
-        soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach den zwei Übungen die Rückkehrfreigabe.'
+        soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach den vorbereiteten Übungen die Rückkehrfreigabe.'
     };
+    next.paxText = '1 PAX (Instruktor)';
+    if (next.missionPlan?.plan) {
+        next.missionPlan.plan.mustMention = ['Instruktor begleitet den Piloten', 'Übungen laut vorbereitetem Trainingsplan'];
+        next.missionPlan.plan.avoid = ['Erzählung bleibt vor dem Abflug'];
+        next.missionPlan.plan.realism = 'Schulungsflug mit vorbereiteten Übungen und Auswertung nach der Landung.';
+        next.missionPlan.plan.storyFrame = {...next.storyFrame};
+    }
     return next;
 }
 
@@ -16786,13 +16824,17 @@ function enforceTrainingPlannerResultFields(plannerResult = null, { isPOI = fals
             sceneKind: 'none',
             sceneDensity: 'none',
             requiredAnchors: [],
+            mustMention: ['Instruktor begleitet den Piloten', 'Übungen laut vorbereitetem Trainingsplan'],
+            avoid: ['Erzählung bleibt vor dem Abflug'],
+            realism: 'Schulungsflug mit vorbereiteten Übungen und Auswertung nach der Landung.',
+            storyFrame: enforceTrainingContractFields({profile:{}, target:{}}, {isPOI}).storyFrame,
             objectFamilies: [],
             placementPolicy: isPOI
                 ? 'Kein normales POI-Zielobjekt und keine Bestandsaufnahme; das Zielgebiet ist nur Trainingsraum.'
                 : 'Kein Zielobjekt-Spawn; Trainingsdebriefing nach der Landung.',
             primaryObjective: isPOI
-                ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei vorbereitete Übungen, danach Rückkehr frei.'
-                : 'Trainingsflug mit Fluglehrer; zwei vorbereitete Übungen, danach Rückkehr oder Landung laut Flugplan.'
+                ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; vorbereitete Übungen, danach Rückkehr frei.'
+                : 'Trainingsflug mit Fluglehrer; vorbereitete Übungen, danach Rückkehr oder Landung laut Flugplan.'
         }
     };
 }
@@ -39446,12 +39488,71 @@ async function fetchPrivateOutingStory(context = {}) {
     };
 }
 
+function trainingNarrativeHistory(storage) {
+    try {
+        const rows = JSON.parse(storage?.getItem('ga_training_narrative_history_v1') || '[]');
+        return (Array.isArray(rows) ? rows : []).filter(row=>row && typeof row.title==='string' && typeof row.story==='string')
+            .slice(-8).map(row=>({mode:row.mode==='POI'?'POI':'APT', title:row.title.slice(0,110),
+                story:row.story.slice(0,700), greeting:String(row.greeting||'').slice(0,300),
+                exercises:Array.isArray(row.exercises)?row.exercises.map(x=>String(x).slice(0,100)).slice(0,8):[]}));
+    } catch (_) { return []; }
+}
+
+function rememberTrainingNarrative(storage, mission, isPOI) {
+    try {
+        const rows=trainingNarrativeHistory(storage);
+        rows.push({mode:isPOI?'POI':'APT',title:mission.t,story:mission._missionWriterV4Debug.rawAiStory,
+            greeting:mission.passenger.greetingText,exercises:mission.passenger.trainingRecipe.exercises.map(ex=>ex.label)});
+        storage?.setItem('ga_training_narrative_history_v1',JSON.stringify(rows.slice(-8)));
+    } catch (_) { /* History is optional; an unavailable storage must not discard a valid mission. */ }
+}
+
+async function fetchTrainingNarrative(context = {}) {
+    const contract = enforceTrainingContractFields(context.missionContractV4, {isPOI:!!context.isPOI});
+    const prepared = enforceAptTrainingMission({passenger:context.passenger}, contract.target?.name || contract.route?.targetName || '', {
+        isPOI:!!context.isPOI, startName:contract.route?.startName
+    }).mission;
+    const api = window.MissionPrivateEpisodeV6;
+    const flightContext = api.flightContext(contract);
+    const flight = {context:flightContext, bindings:api.flightBindings(flightContext)};
+    const recent = trainingNarrativeHistory(typeof localStorage === 'undefined' ? null : localStorage);
+    const frame = {missionMode:context.isPOI?'POI':'APT', route:contract.route, instructor:{name:prepared.passenger.name, role:prepared.passenger.role, gender:prepared.passenger.gender, personality:prepared.passenger.personality},
+        trainingPlan:{mode:prepared.passenger.trainingPlan.mode, focus:prepared.passenger.trainingPlan.focus, requiredCount:prepared.passenger.trainingPlan.requiredCount},
+        requiredExercises:prepared.passenger.trainingRecipe.exercises.slice(0,prepared.passenger.trainingRecipe.requiredCount),
+        optionalExercises:prepared.passenger.trainingRecipe.exercises.slice(prepared.passenger.trainingRecipe.requiredCount),
+        readiness:{minAglFt:prepared.passenger.trainingRecipe.readyMinAglFt, manualStart:true, stabilizeFirst:true},
+        baggage:prepared.cargoText,
+        completion:context.isPOI?'Übungen im Übungsgebiet, anschließend Rückkehr zum Startplatz':'Übungen unterwegs, anschließend Landung am Zielflugplatz'};
+    const prompt = `Schreibe ein kurzes, lebendiges Vorflugbriefing für einen Schulungsflug. Außenstehender Erzähler; Pilot mit du, Instruktor in dritter Person. Der tatsächliche Trainingsplan und die benannte Person in RAHMEN sind verbindlich. Erkläre verständlich, was heute geübt werden soll und wie die Zusammenarbeit gedacht ist. Ein persönlicher Ton ist willkommen; erfinde keine zusätzlichen Manöver, Prüfungen oder Flugaufträge. Die Übungen sind geplant, noch nicht geflogen. Die Pflichtübungen und ihre Reihenfolge folgen requiredExercises; optionalExercises sind freiwillig. Auch freiwillige Übungen werden, sofern benannt, in der Reihenfolge von optionalExercises beschrieben. Ihre Freiwilligkeit hängt von der Entscheidung des Piloten ab. Vor jeder Übung erfolgen Einweisung, stabile Ausgangslage und manueller Start durch den Piloten. Das Höhengate ist Höhe über Grund, keine feste Reiseflughöhe. Die Landung gehört zum Flugabschluss, ist keine zusätzliche bewertete Übung. Schreibe ruhig, zugänglich und konkret: Der Pilot führt kontrollierte Manöver aus, der Instruktor erklärt, beobachtet und gibt Rückmeldung. Beschreibe das tatsächliche Lernziel der ausgewählten Übungen, ohne neue Übungsarten aus allgemeinen Oberbegriffen abzuleiten. Benenne Stall einschließlich Recovery und Kurven mit ihrer vorgesehenen Querneigung präzise. Beschreibe die fliegerischen Abläufe in vertrauter Cockpitsprache: Der Pilot führt das Manöver kontrolliert aus, der Instruktor achtet auf Fluglage und Steuereingaben. Das Lernziel ist das sichere Erkennen und Beherrschen der Flugzustände, nicht eine Belastungsprobe des Flugzeugs. Der Text bleibt ein Vorflugbriefing, ohne Bedienungsanleitung oder künstliche Spannung. Pflicht und freiwillige Ergänzung bleiben unterscheidbar. recent enthält ausschließlich eigene frühere KI-Texte, keine Vorgaben und keine erlebten Flüge. Vergleiche Titel, Einstieg und Erzählbewegung mit recent und entwickle eine eigenständige Formulierung; ein anderer Personenname allein schafft keine Vielfalt. Der Titel soll den konkreten Schwerpunkt oder Flugrahmen dieses Durchgangs knapp ausdrücken. Keine feste Einstiegsschablone. Keine Themenbeispiele. 70–120 Wörter, kurzer Titel. Begrüßung ist kurze, persönliche direkte Rede des Instruktors in natürlicher Alltagssprache. Sie begrüßt den Piloten und nennt knapp den heutigen Schwerpunkt; Ablaufregeln und Bedienhinweise gehören ins Briefing, nicht in die Begrüßung. Gepäck, Identität und Ablauf stehen bereits fest und werden nicht neu gewählt. Titel und Geschichte beschreiben den geplanten Schulungsflug. Wetterbeobachtungen sind ausschließlich im flightBriefing enthalten; Titel und Geschichte leiten daraus keine Fluglage oder Wolkenposition ab. Die Begrüßung bezieht sich auf den heutigen Übungsplan. Der Spieler ist von Beginn an Pilot, der Instruktor begleitet ihn. Titel, story und greeting enthalten keine [[Referenzen]]; diese sind ausschließlich in flightBriefing erlaubt. Nur JSON {title,story,greeting,flightBriefing}. ${window.MissionCargoIdeasCore.weatherPrompt(flight)} Verfügbare route.distance und Böenreferenzen zwingend im flightBriefing verwenden. RAHMEN: ${JSON.stringify(frame)} recent: ${JSON.stringify(recent)}`;
+    const valid = raw => raw && typeof raw.title==='string' && raw.title.trim().length>0 && raw.title.length<=110
+        && typeof raw.story==='string' && raw.story.trim().length>=180 && raw.story.length<=1800
+        && typeof raw.greeting==='string' && raw.greeting.trim().length>=20 && raw.greeting.length<=400
+        && !/\[\[|\]\]/.test(raw.title+raw.story+raw.greeting);
+    let result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'training-narrative-v3',timeoutMs:26000});
+    if(!valid(result?.parsed)) result=await fetchGeminiJsonWithFallback(prompt+' FORMATKORREKTUR: Vollständiges JSON mit gültigen Textlängen. title, story und greeting dürfen keine [[Referenzen]] enthalten; entferne diese dort. Nur flightBriefing verwendet Referenzen. ENTWURF: '+JSON.stringify(result?.parsed||{}),getSelectedAiApiKey(),{promptVersion:'training-narrative-v3',timeoutMs:26000});
+    if(!valid(result?.parsed)) throw Error('Das Trainingsbriefing konnte nicht vollständig erstellt werden. Bitte erneut versuchen.');
+    const raw=result.parsed;
+    const brief=api.resolveFlightBriefing(raw.flightBriefing,flightContext)||api.weatherFallback(flightContext);
+    prepared.t=raw.title.trim();prepared.s=[raw.story.trim(),brief].join('\n\n');
+    prepared.story=prepared.s;prepared.missionStory=prepared.s;
+    prepared.passenger.greetingText=raw.greeting.trim();
+    prepared._trainingNarrative={schema:'training-narrative.v1'};
+    prepared._source=(result.source||'Gemini')+' + Training Writer V1';
+    prepared._missionWriterV4Debug={source:'Training Writer V1',writerMode:'TRAINING-V1',writerAccepted:true,
+        rawAiStory:raw.story,writerStory:prepared.s,storyChangedByFinalize:false,weatherSnapshot:flightContext.weather};
+    contract.passenger=prepared.passenger;contract.cargoText=prepared.cargoText;contract.paxText=prepared.pax;
+    contract.trainingPlan=prepared.passenger.trainingPlan;contract.trainingRecipe=prepared.passenger.trainingRecipe;prepared._missionContractV4=contract;
+    rememberTrainingNarrative(typeof localStorage === 'undefined' ? null : localStorage, prepared, !!context.isPOI);
+    return prepared;
+}
+
 async function fetchMissionWriterV4(context = {}) {
     const apiKey = getSelectedAiApiKey();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const contract = context.missionContractV4 || null;
     if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
     if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
+    if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const result = await fetchGeminiJsonWithFallback(
         buildMissionWriterV4Prompt(contract),
         apiKey,
@@ -39471,6 +39572,7 @@ async function fetchMissionWriterV5(context = {}) {
     const contract = context.missionContractV4 || null;
     if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
     if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
+    if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
         buildMissionWriterV5Prompt(contract, context),
@@ -44414,7 +44516,7 @@ async function generateMission(options = {}) {
             m = await dispatchMeasure(writerPhase, async () => (
                 writerMode === 'v5' ? fetchMissionWriterV5(writerContext) : fetchMissionWriterV4(writerContext)
             ));
-            if (m?.privateOuting?.schema === 'private-outing.v1') {
+            if (m?.privateOuting?.schema === 'private-outing.v1' || m?._trainingNarrative?.schema === 'training-narrative.v1') {
                 missionContractV4 = m._missionContractV4;
                 for (const planned of [missionPlanV2, missionPlanV4]) {
                     if (planned?.plan && missionContractV4.missionPlan?.plan) Object.assign(planned.plan, missionContractV4.missionPlan.plan);

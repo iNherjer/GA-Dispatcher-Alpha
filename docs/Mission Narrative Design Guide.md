@@ -443,3 +443,31 @@ Beurteilungen trennen ab jetzt: gespeicherte Entwürfe, im konkreten Prompt
 verfügbare History und tatsächlich erzielte Vielfalt. Die lokale History kennt
 weiterhin keine Testserien anderer Geräte. Kein pauschales Verbot einer Person,
 Aktivität oder Formulierung; keine zusätzlichen Regenerierungsschleifen.
+
+### Training: verbindlicher Plan vor freier Erzählung
+
+Der Training Writer V1 erhält vor der Textgenerierung den tatsächlich gewählten Instruktor, dessen Geschlecht, den strukturierten Trainingsplan einschließlich Pflichtanzahl und optionaler Übungen sowie das Trainingsgepäck. Diese Daten bilden die Grundlage der freien Vorfluggeschichte; es werden keine thematischen Beispielgeschichten vorgegeben. APT endet am Zielflugplatz, POI-Training kehrt nach den Übungen zum Start zurück. Eine übernommene Charter-Motivation, fremde Payload-Pflichten oder Termindruck gehören nicht in den Trainingsrahmen.
+
+Die akzeptierte Geschichte, Begrüßung, Person und der Plan bleiben bei der abschließenden Aufbereitung erhalten (`training-narrative.v1`). Die Aufbereitung darf keine zweite Person wählen oder durch erneute zufällige Plansanitisierung zusätzliche Übungen hinzufügen. Der lokale Text bleibt ausschließlich für den Pfad ohne KI bestehen und berücksichtigt das Instruktor-Geschlecht. Wetter wird über den vorhandenen strukturierten Wetterkontext und dessen Referenzen geschrieben; bei fehlendem gültigen Wetterabsatz greift die gemeinsame datenbasierte Darstellung. Ungültige KI-Ausgaben werden einmal zur Formatkorrektur zurückgegeben, anschließend wird der Fehler sichtbar statt durch einen Standardtext verdeckt.
+
+Übungsauslösung, Auswertung, freiwillige Zusatzübungen und Tracker Authority bleiben in ihren vorhandenen Runtime-Bausteinen. Die Geschichte übernimmt keine Ablaufsteuerung. Regression: `tools/mission-training-narrative.test.cjs` sowie `ga-tracker-client/tracker-mission-apt-training-integration.test.js`.
+
+#### Korrektur der Übungsgrundlage (30.09.2026)
+
+Neue APT- und POI-Trainingsmissionen erhalten vor dem Writer ein explizites `ga.trainingRecipe.v1` am Passagier und im Vertrag. Die Auswahl umfasst ausschließlich die implementierten Verfahren: Vollkreis mit 30/45 Grad, 180-Grad-Wende, 500-ft-Steigflug mit anschließendem Halten und Stall-Recovery. Zwei Übungen sind Pflicht, zwei weitere freiwillig; die Reihenfolge des Rezepts ist verbindlich. Ein vorhandenes explizites Rezept bleibt erhalten. Der lesbare `trainingPlan` wird aus den Rezeptlabels abgeleitet, nicht anschließend wieder per Stichwortsuche in andere Übungen übersetzt.
+
+Der Writer erhält Pflichtübungen und freiwillige Übungen getrennt, außerdem das Höhengate über Grund und den manuellen Start nach Einweisung/Stabilisierung. Platzrunden-, Notverfahren- und Konfigurationsaufgaben aus dem bisherigen breiteren Textpool werden bei neuen Missionen nicht mehr als bewertete Übungen versprochen. Anflug und Landung bleiben Teil des Flugabschlusses. Bereits gespeicherte Legacy-Missionen werden nicht nachträglich umgeschrieben; deren alte Freitextübersetzung bleibt kompatibel.
+
+POI-Training ist seit Alpha v442 unter Tracker Authority migriert, APT besitzt ebenfalls einen eigenen Anschluss. Beide Seeds übernehmen das explizite Rezept aus der vorhandenen Prozedur. Für diese Korrektur ist keine neue Tracker-Auswertelogik notwendig. Automatischer Nachweis: Narrative-/Rezepttests, App-Seed-Test sowie APT- und POI-Authority-Integration mit echtem Kindprozess. Realer MSFS-Flug und echte KI-Probetexte bleiben separate Prüfungen.
+
+#### Training Writer V2: Ton und eigene Texthistory
+
+Der Trainingswriter beschreibt kontrollierte Manöver, Einweisung und Rückmeldung statt künstlicher Spannung. Benannte Übungsarten bleiben an das ausführbare Rezept gebunden; insbesondere umfasst Stall die Recovery. Der konkrete Lernschwerpunkt trägt den Titel. Instruktor-Kontext enthält Person, Rolle, Geschlecht und Persönlichkeit, keine alten Begrüßungs- oder Storybausteine.
+
+`ga_training_narrative_history_v1` speichert höchstens acht akzeptierte KI-Texte mit Titel, gekürzter Geschichte, Begrüßung und Übungslabels. Der Writer vergleicht damit seine eigenen früheren Titel, Einstiege und Erzählbewegungen. Diese Entwürfe sind keine erlebten Flüge und keine neuen fachlichen Vorgaben. Es gibt keine Themenbeispiele oder feste Textrotation. Defekter oder voller lokaler Speicher darf eine gültige Mission nicht verwerfen. Diese lokale Stilhistory ist unabhängig vom verlustfrei übertragenen Missions-/Trainingsrezept; Cloud-Synchronisation der Stilhistory ist hier nicht hinzugefügt.
+
+#### Training Writer V3: präzise Alltagssprache und Reihenfolge
+
+Der Writer erhält im lesbaren Trainingsplan nur Modus, Fokus und Pflichtanzahl; der statische `instructorLine` wird nicht mehr als Erzählkontext geliefert. Er hatte in der Liveprobe die Begrüßung auf einen mechanischen Ablauftext festgelegt. Die Begrüßung soll stattdessen kurz die Person und den heutigen Lernschwerpunkt vermitteln. Der technische Ablauf bleibt im Briefing und im unveränderten Rezept.
+
+Pflichtübungen und benannte freiwillige Übungen folgen jeweils ihrer Rezeptreihenfolge. Beschrieben werden kontrollierte Manöver, Fluglage und Steuereingaben in vertrauter Cockpitsprache; der Lernzweck ist das sichere Erkennen und Beherrschen der Flugzustände. Es werden keine nachträglichen Textbausteine oder Wortersetzungen über die KI-Prosa gelegt. V3 ist lokal getestet; die vorausgegangenen vier Gemini-Proben in `analysis/training-narrative-live-20260930-v4-two.json` stammen noch aus Writer V2 und sind kein Live-Nachweis für V3.
