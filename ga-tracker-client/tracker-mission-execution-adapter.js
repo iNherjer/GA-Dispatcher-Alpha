@@ -1131,8 +1131,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     const poiRecipe = snapshot.recipe === 'poi' ? authorityManager.getExecutionPoiRecipe?.() : null;
     const fullPoi = poiRuntime.hasLifecycle(poiRecipe);
+    // Ground speed is optional for airborne training; it remains required for
+    // ground actions and every other POI family. Never substitute IAS for GS.
+    const requiredPoiFields = poiRuntime.isTrainingRecipe(poiRecipe) && sample.onGround === false
+      ? ['observedAt', 'lat', 'lon', 'altFt'] : ['observedAt', 'lat', 'lon', 'altFt', 'gsKts'];
     if (fullPoi && sample.simPaused !== true && sample.inMenuOrMap !== true
-        && (!['observedAt', 'lat', 'lon', 'altFt', 'gsKts'].every(key => typeof sample[key] === 'number' && Number.isFinite(sample[key]))
+        && (!requiredPoiFields.every(key => typeof sample[key] === 'number' && Number.isFinite(sample[key]))
             || Math.abs(sample.lat) > 90 || Math.abs(sample.lon) > 180
             || (observations.latestTelemetry && sample.observedAt <= observations.latestTelemetry.observedAt))) {
       return { ok: true, status: 'ignored', reason: 'poi_telemetry_invalid_or_stale', sideEffect: false };

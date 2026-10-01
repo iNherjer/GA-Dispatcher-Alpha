@@ -876,10 +876,12 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       }
       // Mapping must see missing samples to sever its geometric segment. The
       // common recorder rejects these, but bridging across them could fabricate
-      // Survey coverage. Stale samples remain no-ops inside the task driver.
-      const surveyDiscontinuity = result?.reason === 'poi_telemetry_invalid_or_stale'
-        && ['mapping_survey', 'infra_chain_recon'].includes(authorityManager.getExecutionPoiRecipe?.()?.taskDomain);
-      if (isPoi && result?.ok && (result.status !== 'ignored' || surveyDiscontinuity)) {
+      // Survey coverage. Training must likewise suspend on missing position/height.
+      // Stale samples remain no-ops inside the task driver.
+      const taskDiscontinuity = result?.reason === 'poi_telemetry_invalid_or_stale'
+        && (['mapping_survey', 'infra_chain_recon'].includes(authorityManager.getExecutionPoiRecipe?.()?.taskDomain)
+          || poiRuntime.isTrainingRecipe(authorityManager.getExecutionPoiRecipe?.()));
+      if (isPoi && result?.ok && (result.status !== 'ignored' || taskDiscontinuity)) {
         const taskResult = reportPoiCheckpoint(poiDriver.observeTelemetry(sample), 'telemetry');
         logTrainingGateDiagnostic(sample, taskResult);
         if (!taskResult.ok) return taskResult;

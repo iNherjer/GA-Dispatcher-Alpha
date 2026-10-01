@@ -96,3 +96,10 @@ assert.equal(signature(null), 'none');
   assert.equal(resize(node,2000),874);
   assert.equal(resize(node,500),500);
 }
+
+// The status must remain above the fullscreen Kartentisch, below modal dialogs.
+const stylesheet = require('node:fs').readFileSync(require('node:path').join(__dirname, 'styles.css'), 'utf8');
+const trainingLayer = Number(stylesheet.match(/\.training-guidance\s*\{[^}]*z-index:\s*(\d+)/)[1]);
+const mapLayer = Number(stylesheet.match(/body\.map-is-fullscreen #mapTableOverlay\s*\{[^}]*z-index:\s*(\d+)/)[1]);
+assert.ok(trainingLayer > mapLayer, 'training guidance must be above the fullscreen map');
+assert.ok(trainingLayer < 130500, 'modal dialogs remain above training guidance');

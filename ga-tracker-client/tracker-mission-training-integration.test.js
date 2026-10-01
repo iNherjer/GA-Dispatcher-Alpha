@@ -240,3 +240,41 @@ test('completed exercises survive away landing and public final outcome projecti
   assert.equal(final.flight.missionRecord.missionFailed,false);
   assert.equal(final.poiLifecycle.needsRideHome,true);
 });
+
+test('training resumes from ground suspension with fresh airborne telemetry', async t => {
+  const h = await harness(t); await start(h);
+  const base = Date.now();
+  await h.sample({ observedAt: base, onGround: true, gsKts: 0, aglFt: 0, bankDeg: 0, vsFpm: 0 });
+  await h.sample({ observedAt: base + 1000, bankDeg: 0, vsFpm: 0 });
+  await h.sample({ observedAt: base + 4100, bankDeg: 0, vsFpm: 0 });
+  const task = h.manager.getExecutionSnapshot().state.poiTask.trainingState;
+  assert.equal(task.coaching.suspended, false);
+  assert.equal(task.guidance.canStart, true);
+});
+
+test('training accepts airborne samples without optional ground speed', async t => {
+  const h = await harness(t); await start(h);
+  const base = Date.now();
+  await h.sample({ observedAt: base, onGround: true, gsKts: 0, aglFt: 0, bankDeg: 0, vsFpm: 0 });
+  await h.sample({ observedAt: base + 1000, gsKts: null, bankDeg: 0, vsFpm: 0 });
+  await h.sample({ observedAt: base + 4100, gsKts: null, bankDeg: 0, vsFpm: 0 });
+  const task = h.manager.getExecutionSnapshot().state.poiTask.trainingState;
+  assert.equal(task.coaching.suspended, false);
+  assert.equal(task.guidance.canStart, true);
+  assert.equal(task.coaching.sample.aglFt, 3000);
+  assert.ok(task.coaching.sample.departureDistanceNm >= 5);
+});
+
+test('training still suspends for missing position, altitude or maneuver safety values', async t => {
+  const h = await harness(t); await start(h);
+  let at = Date.now();
+  for (const field of ['lat', 'lon', 'altFt', 'aglFt', 'hdg', 'bankDeg', 'vsFpm']) {
+    await h.sample({ observedAt: (at += 1000), gsKts: null, bankDeg: 0, vsFpm: 0 });
+    await h.sample({ observedAt: (at += 3100), gsKts: null, bankDeg: 0, vsFpm: 0 });
+    assert.equal(h.manager.getExecutionSnapshot().state.poiTask.trainingState.guidance.canStart, true, field);
+    await h.sample({ observedAt: (at += 1000), gsKts: null, bankDeg: 0, vsFpm: 0, [field]: null });
+    const task = h.manager.getExecutionSnapshot().state.poiTask.trainingState;
+    assert.equal(task.coaching.suspended, true, field);
+    assert.equal(task.guidance.canStart, false, field);
+  }
+});

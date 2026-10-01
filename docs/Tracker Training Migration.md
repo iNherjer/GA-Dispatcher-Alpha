@@ -226,3 +226,28 @@ Navigation, Ankunft und Abschlussort. Die bewusst korrigierten Trainings-Outcome
 und Abschiedstexte haben eigene Regressionstests; die historischen Fixtures
 bleiben unveraendert. Ein erneuter MSFS-Flug ist fuer die konkrete Ursache und die
 reale Audio-/EFB-Darstellung weiterhin erforderlich.
+
+### Kartentisch-Banner (2026-10-01)
+
+Das gemeinsame Trainingsbanner liegt ueber dem Vollbild-Kartentisch
+(z-index 120010 gegen 120000), weiterhin unter modalen Dialogen. App und
+gebuendelte EFB-Styles nutzen dieselbe Ebene. Ein UI-Regressionstest sichert
+diese Reihenfolge ab. Der Integrationslauf prueft Boden-Unterbrechung und
+Freigabe nach frischen, vollstaendigen Flugwerten.
+
+Bei der Untersuchung wurde reproduziert: Fehlt der optionale GS-Wert,
+verwirft die gemeinsame POI-Validierung den Flugdatensatz, bevor das Training
+Position und AGL uebernehmen kann. Das kann die Meldung ueber fehlende
+Position/AGL verursachen. Die Zuordnung zum gemeldeten MSFS-Flug ist ohne
+Tracker-Gate-Log noch nicht bestaetigt. Nach User-Freigabe wurde die Validierung
+gezielt fuer Training mit explizitem `onGround=false` korrigiert: GS ist dort
+optional. Am Boden und fuer andere POI-Familien bleibt GS erforderlich.
+Position und Hoehe bleiben Pflichtwerte, die Trainingspruefung verlangt
+weiterhin AGL, Kurs, Bank und Vertikalgeschwindigkeit. Ungueltige bzw.
+unterbrochene Datensaetze erreichen nun auch bei Training den Task-Driver,
+damit die Unterbrechung wirksam wird; veraltete Samples bleiben No-ops.
+Integrationstests sichern Freigabe ohne GS und Sperre bei jedem fehlenden
+Sicherheitswert ab. Karte/Missionsmenue und Training beziehen ihre Werte
+aus derselben SimConnect-Quelle, durchlaufen aber unterschiedliche
+Validierungs- und Projektionswege. Es wird kein GS-Wert erfunden oder
+durch IAS ersetzt.

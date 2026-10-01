@@ -22,6 +22,7 @@ const RUNTIME_SCHEMA = 'ga.tracker-poi-runtime.v1';
 // Explicitly bounded standard POI family. A transport adapter named "poi"
 // is insufficient: specialized tasks need their own execution/voice contracts.
 const DOMAINS = Object.freeze(['search_and_rescue', 'media_photo', 'inspection_infra', 'news_coverage', 'science_bio', 'science_geo', 'science_general', 'sightseeing_tour', 'historian_guided_tour', 'poi_learning_guide', 'mapping_survey', 'infra_chain_recon', 'fire_watch', ...trainingTask.DOMAINS]);
+const isTrainingRecipe = recipe => trainingTask.DOMAINS.includes(recipe?.taskDomain);
 const clone = value => JSON.parse(JSON.stringify(value));
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 function point(value) {
@@ -158,7 +159,7 @@ function observe(recipe, previous, sample, facts = {}) {
     // A pause/menu status is useful even when the simulator omits position.
     // Only a valid running sample may release the persisted suspension.
     if (!suspended && (!point(sample) || !finite(sample.altFt)
-        || !finite(sample.gsKts))) {
+        || (!finite(sample.gsKts) && !(isTrainingRecipe(recipe) && sample.onGround === false)))) {
         if (state.trainingState) {
             trainingTask.pause(recipe, state.trainingState, sample.observedAt);
             state.observedAt = sample.observedAt; state.sequence++; state.suspendedAt = sample.observedAt;
@@ -463,6 +464,6 @@ function trainingAction(recipe, previous, action, now) {
     state.trainingState = result.state; state.sequence++; state.observedAt = Math.max(now, (state.observedAt || 0) + 1);
     return {poiTask:state, voiceEffects:result.voices};
 }
-module.exports = { sarAction: sarTask.action, trainingAction, fireAction, validateBundle, RECIPE_SCHEMA, RUNTIME_SCHEMA, DOMAINS, CHECKPOINT_INTERVAL_MS,
+module.exports = { isTrainingRecipe, sarAction: sarTask.action, trainingAction, fireAction, validateBundle, RECIPE_SCHEMA, RUNTIME_SCHEMA, DOMAINS, CHECKPOINT_INTERVAL_MS,
     hasLifecycle: recipe => recipe?.lifecycle?.schema === lifecycleCore.SCHEMA && !validateRecipe(recipe),
     validateRecipe, createState, observe, suspend, project, taskItemStateFromManifest, createAuthorityDriver };
