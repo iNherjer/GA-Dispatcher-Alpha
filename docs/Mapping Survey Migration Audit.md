@@ -1,7 +1,7 @@
 # Mapping/Survey: Umbau und Authority-Prüfung
 
 Stand: 30.09.2026. Analyse auf Basis von Commit `5d0b41f3a`;
-der neue Mapping-Writer und die additive Erzählübergabe sind lokal implementiert, noch nicht veröffentlicht.
+der neue Mapping-Writer und die additive Erzählübergabe wurden am 01.10.2026 auf Alpha mit Tracker v459 veröffentlicht.
 
 ## Verbindlicher Rahmen
 
@@ -110,9 +110,10 @@ Texte und Ergebnisse: [Live-Probe](../analysis/mapping-live-20260930.md).
 
 Die vorhandene Survey-Ausführung ist bereits Tracker Authority. Die neue
 Erzählübergabe verändert gemeinsam verpackte Tracker-Abhängigkeiten und benötigt
-vor Veröffentlichung einen neuen Tracker-Build samt Release-Asset. Der bisher
-veröffentlichte Tracker enthält diese neue Übergabe noch nicht. App und Tracker
-müssen als zusammengehöriger Stand veröffentlicht werden; noch kein Push erfolgt.
+vor Veröffentlichung einen neuen Tracker-Build samt Release-Asset. Tracker v459 enthält diese neue Übergabe. Das Release-Asset wurde auf GitHub
+nach Dateigröße und SHA-256 verifiziert; der Alpha-Kanal zeigt auf v459.
+Stable wurde nicht verändert. Build ohne Bytecode wegen nicht ausführbarem
+Intel-Fabricator auf dem Build-Mac; ein Windows-/MSFS-Feldtest bleibt ausstehend.
 
 ## Sprachliche Nachschärfung
 
