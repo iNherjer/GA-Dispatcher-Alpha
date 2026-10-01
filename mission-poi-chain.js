@@ -1009,6 +1009,25 @@
         return 0;
     }
 
+    // Use the final displayed polyline, including its smoothing and sampling.
+    function distanceToCorridorTraceNm(point, trace = []) {
+        let distance = Infinity;
+        for (let i = 1; i < trace.length; i++) {
+            const projection = projectPointToSegmentClampedNm(point.lat, point.lon, trace[i - 1], trace[i]);
+            if (projection) distance = Math.min(distance, projection.crossTrackNm);
+        }
+        return distance;
+    }
+
+    function candidatesInsideCorridor(candidates = [], trace = [], widthNm = 0) {
+        const halfWidth = Number(widthNm) / 2;
+        return candidates.flatMap(candidate => {
+            const distance = distanceToCorridorTraceNm(candidate, trace);
+            if (!Number.isFinite(distance) || !(halfWidth > 0) || distance > halfWidth) return [];
+            return [{ ...candidate, _projection: { ...candidate._projection, crossTrackNm: distance } }];
+        });
+    }
+
     function findCandidates(features, cfg, segment, guidePoints) {
         const raw = collectCandidatePool(features, cfg);
         const candidates = [];
@@ -1306,7 +1325,7 @@
 
     function validateChainQuality(points = [], cfg = {}) {
         const theme = String(cfg.theme || '').toLowerCase();
-        if (theme === 'road_bridge_inspection') {
+        {
             const allowedCrossTrack = Math.max(0.08, Number(cfg.overlayWidthNm || 0.5) / 2);
             const outliers = (Array.isArray(points) ? points : [])
                 .map(point => Number(point?.distCorridorNm || 0))
@@ -1321,12 +1340,11 @@
             if (outliers.length) {
                 return {
                     ok: false,
-                    status: 'weak_road_bridge_chain',
-                    reason: `road bridge chain has points outside the visible corridor (max ${metrics.maxPointCrossTrackNm}NM)`,
+                    status: 'weak_corridor_chain',
+                    reason: `chain has points outside the visible corridor (max ${metrics.maxPointCrossTrackNm}NM)`,
                     metrics
                 };
             }
-            return { ok: true, metrics };
         }
         if (theme === 'rail_chain_inspection') {
             const gaps = (Array.isArray(points) ? points : [])
@@ -1435,7 +1453,10 @@
         if (!rawCandidates.length) {
             return statusResult('insufficient_candidates', 'no matching candidates near guide corridor', cfg, diagnostics);
         }
-        const clustered = clusterCandidates(rawCandidates, cfg.clusterRadiusNm);
+        const trace = buildGuideTrace(guidePoints, 48, cfg);
+        const insideCandidates = candidatesInsideCorridor(rawCandidates, trace, cfg.overlayWidthNm);
+        diagnostics.outsideVisibleCorridor = rawCandidates.length - insideCandidates.length;
+        const clustered = clusterCandidates(insideCandidates, cfg.clusterRadiusNm);
         diagnostics.clusteredCandidates = clustered.length;
         const selected = selectSpacedCandidates(clustered, cfg);
         diagnostics.selectedPoints = selected.length;
@@ -1454,7 +1475,6 @@
         }
         const hiddenOutcome = buildSilentChainOutcome(points, cfg);
         const runtimePoints = applySilentChainOutcome(points, hiddenOutcome);
-        const trace = buildGuideTrace(guidePoints, 48, cfg);
         const chain = {
             schema: 'ga.poiChain.v1',
             kind: 'poi_chain',
@@ -2079,6 +2099,8 @@
             clusterCandidates,
             selectSpacedCandidates,
             candidateMatchesMode,
+            distanceToCorridorTraceNm,
+            candidatesInsideCorridor,
             isBridge,
             isRoadBridge,
             isRoadJunction,

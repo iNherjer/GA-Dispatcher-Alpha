@@ -8845,7 +8845,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'geoBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9469,7 +9469,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -21843,6 +21843,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'science_bio'};
     if (isPOI && ((profileId === 'mapping_survey' && window.MissionMappingBriefingCore?.owns(m)) || (window.MissionPoiFollowupNarrativeCore?.ownsContinuation(m) && m.passenger.taskDomain === profileId)))
         return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
+    if (isPOI && profileId === 'infra_chain_recon' && window.MissionChainBriefingCore?.owns(m)) return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (isPOI && window.MissionKnowledgeBriefingCore?.owns(m) && m.knowledgeBriefing.idea.profileId === profileId) return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (isPOI && profileId === 'science_geo' && window.MissionGeoBriefingCore?.owns(m))
         return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'science_geo'};
@@ -22960,6 +22961,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         charterIdea: mission?.charterIdea?.schema === 'charter-idea.v1' ? mission.charterIdea : null,
         infraBriefing: window.MissionInfraBriefingCore?.owns(mission) ? mission.infraBriefing : null,
         bioBriefing: window.MissionBioBriefingCore?.owns(mission) ? mission.bioBriefing : null,
+        chainBriefing: window.MissionChainBriefingCore?.owns(mission) ? mission.chainBriefing : null,
         knowledgeBriefing: window.MissionKnowledgeBriefingCore?.owns(mission) ? mission.knowledgeBriefing : null,
         geoBriefing: window.MissionGeoBriefingCore?.owns(mission) ? mission.geoBriefing : null,
         mappingBriefing: window.MissionMappingBriefingCore?.owns(mission) ? mission.mappingBriefing : null,
@@ -23434,6 +23436,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'science_bio' && window.MissionBioBriefingCore?.owns(missionLike)) return true;
+    if (isPOI && profileId === 'infra_chain_recon' && window.MissionChainBriefingCore?.owns(missionLike)) return true;
     if (isPOI && window.MissionKnowledgeBriefingCore?.owns(missionLike) && missionLike.knowledgeBriefing.idea.profileId === profileId) return true;
     if (isPOI && profileId === 'science_geo' && window.MissionGeoBriefingCore?.owns(missionLike)) return true;
     if (isPOI && ((profileId === 'mapping_survey' && window.MissionMappingBriefingCore?.owns(missionLike)) || (window.MissionPoiFollowupNarrativeCore?.ownsContinuation(missionLike) && missionLike.passenger.taskDomain === profileId))) return true;
@@ -26137,7 +26140,7 @@ function scenePlannerV3CompactAptPlan(plan = null) {
 
 function scenePlannerV3ReporterContext(md = {}, contract = {}, geo = null, truth = null) {
     if (!window.MissionReporterSceneCore?.enabled(md, contract)) return {};
-    const briefing = md.knowledgeBriefing || contract.knowledgeBriefing || md.mappingBriefing || contract.mappingBriefing || md.poiContinuationBriefing || contract.poiContinuationBriefing || md.geoBriefing || contract.geoBriefing || md.bioBriefing || contract.bioBriefing || md.newsBriefing || contract.newsBriefing || md.infraBriefing || contract.infraBriefing || md.poiBriefing || contract.poiBriefing;
+    const briefing = md.chainBriefing || contract.chainBriefing || md.knowledgeBriefing || contract.knowledgeBriefing || md.mappingBriefing || contract.mappingBriefing || md.poiContinuationBriefing || contract.poiContinuationBriefing || md.geoBriefing || contract.geoBriefing || md.bioBriefing || contract.bioBriefing || md.newsBriefing || contract.newsBriefing || md.infraBriefing || contract.infraBriefing || md.poiBriefing || contract.poiBriefing;
     const taskDomain = contract.taskDomain || briefing?.taskDomain || '';
     const plan = md.missionPlanV2 || contract.missionPlanV2;
 
@@ -43873,13 +43876,16 @@ async function generateMission(options = {}) {
     const useBioStudyIdeas = window.MissionBioBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const useMappingIdeas = window.MissionMappingBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiContinuation = !!(aiModeEnabled && isPOI && !isPlanningOnlyMode && !isBushDispatch && followupSeed && ['media_photo','inspection_infra'].includes(followupDispatchProfileId) && window.MissionPoiFollowupNarrativeCore?.context(followupSeed));
+    const useChainIdeas = !!dest?.poiChain && window.MissionChainBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch});
     const useKnowledgeIdeas = window.MissionKnowledgeBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const useGeoStudyIdeas = window.MissionGeoBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiNewsIdeas = window.MissionNewsBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiPhotoIdeas = window.MissionPoiBriefingBrowser?.enabled({isPOI, profileId: dispatchProfileId, category: selectedPoiCategory, aiModeEnabled, followup: !!followupSeed, planning: isPlanningOnlyMode, bush: isBushDispatch}) && !dest?.poiChain;
     const useCharterIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(dispatchProfileId);
     const useClubIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && aiModeEnabled && dispatchProfileId === 'club_utility';
-    if (useKnowledgeIdeas) {
+    if (useChainIdeas) {
+        missionContractV4={status:'ready',profile:getMissionTaskProfile('infra_chain_recon','poi')};
+    } else if (useKnowledgeIdeas) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile(dispatchProfileId,'poi')};
     } else if (useMappingIdeas || usePoiContinuation) {
         missionContractV4 = {status:'ready', profile:getMissionTaskProfile(useMappingIdeas ? 'mapping_survey' : followupDispatchProfileId, 'poi')};
@@ -44521,7 +44527,11 @@ async function generateMission(options = {}) {
         if (missionProposalChoice?.newsProposal && !usePoiNewsIdeas) throw Error('Die Reporteridee benötigt den aktiven POI-Reporter-Ideengenerator.');
         if (missionProposalChoice?.poiProposal && !usePoiPhotoIdeas) throw Error('Die Fotoidee benötigt den aktiven KI-Fotogenerator.');
         if (missionProposalChoice?.knowledgeProposal && !useKnowledgeIdeas) throw Error('Die Wissensauswahl benötigt den aktiven Wissensgenerator.');
-        if (useKnowledgeIdeas) {
+        if (useChainIdeas) {
+            missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m=await window.MissionChainBriefingBrowser.story({start,dest,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
+            missionContractV4=m._missionContractV4;paxText=m.pax;cargoText=m.cargo;
+        } else if (useKnowledgeIdeas) {
             missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m=await window.MissionKnowledgeBriefingBrowser.story({start,dest,profileId:dispatchProfileId,proposal:missionProposalChoice?.knowledgeProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
@@ -45018,7 +45028,7 @@ async function generateMission(options = {}) {
             m._appliedProfile = appliedProfileId;
             m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
         }
-        if (isPOI && dest?.poiChain && m && typeof m === 'object') {
+        if (isPOI && dest?.poiChain && !window.MissionChainBriefingCore?.owns(m) && m && typeof m === 'object') {
             m.missionSubType = 'poi_chain';
             m.poiChain = compactPoiChainForMission(dest.poiChain, 8);
             const chainLabel = String(m.poiChain?.label || dest.n || 'Infrastruktur-Kette').trim();
@@ -45363,6 +45373,7 @@ async function generateMission(options = {}) {
         charterIdea: m.charterIdea || null,
         infraBriefing: m.infraBriefing || null,
         bioBriefing: m.bioBriefing || null,
+        chainBriefing: m.chainBriefing || null,
         knowledgeBriefing: m.knowledgeBriefing || null,
         geoBriefing: m.geoBriefing || null,
         mappingBriefing: m.mappingBriefing || null,
@@ -45490,6 +45501,7 @@ async function generateMission(options = {}) {
     if (currentMissionData.infraBriefing) window.MissionInfraBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.infraBriefing);
     if (currentMissionData.bioBriefing) window.MissionBioBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.bioBriefing);
     if (currentMissionData.mappingBriefing) window.MissionMappingBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.mappingBriefing);
+    if (currentMissionData.chainBriefing) window.MissionChainBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.chainBriefing);
     if (currentMissionData.knowledgeBriefing) window.MissionKnowledgeBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.knowledgeBriefing);
     if (currentMissionData.geoBriefing) window.MissionGeoBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.geoBriefing);
     if (currentMissionData.newsBriefing) window.MissionNewsBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.newsBriefing);
@@ -45883,7 +45895,7 @@ async function generateMission(options = {}) {
         currentMissionData?.party || finalPassengerPlan.party || null
     );
 
-    if (window.MissionKnowledgeBriefingCore?.owns(m) || window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionGeoBriefingCore?.owns(m) || window.MissionMappingBriefingCore?.owns(m) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
+    if (window.MissionChainBriefingCore?.owns(m) || window.MissionKnowledgeBriefingCore?.owns(m) || window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionGeoBriefingCore?.owns(m) || window.MissionMappingBriefingCore?.owns(m) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
     else document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
     const briefingTaskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || m?.passenger?.taskDomain || '').toLowerCase();

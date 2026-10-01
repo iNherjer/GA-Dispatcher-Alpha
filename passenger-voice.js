@@ -6312,6 +6312,18 @@ function _poiChainPointFindingText(event = null, spec = null) {
     ], `${spec?.key || spec?.label || ''}|${point?.id || pointName}|finding|${marker}`);
 }
 
+function _poiChainNarrativeText(kind, spec, event) {
+    const b = typeof currentMissionData !== 'undefined' ? currentMissionData?.chainBriefing : null;
+    if (b?.schema !== 'chain-briefing.v1' || !b.voices || !Array.isArray(b.plan?.points) || !Array.isArray(spec?.points)) return '';
+    const ids = spec.points.map(p => p.id);
+    if (b.plan.points.length !== ids.length || b.plan.points.some((p,i) => p.id !== ids[i])) return '';
+    let line = '';
+    if (kind === 'chain_corridor_entered' || (kind === 'chain_area_entered' && !spec.corridor)) line = b.voices.entry;
+    if (kind === 'point_complete') line = b.voices.points?.find(p => p.pointId === event?.point?.id)?.text;
+    if (kind === 'chain_complete') line = b.voices.complete;
+    return typeof line === 'string' && line.length <= 500 ? line.trim() : '';
+}
+
 function _poiChainVoiceText(kind = 'point_complete', spec = null, event = null) {
     const point = event?.point || null;
     const nextPoint = event?.nextPoint || null;
@@ -6486,13 +6498,14 @@ function _handlePoiChainEvents(events = [], spec = null) {
         if (typeof window.missionPersistRuntimeSnapshot === 'function') {
             window.missionPersistRuntimeSnapshot(`poi-chain-${kind}`, { immediate: kind === 'chain_complete' });
         }
-        const text = _poiChainVoiceText(kind, spec, event);
+        const baseText = _poiChainVoiceText(kind, spec, event);
+        const text = baseText ? [baseText, _poiChainNarrativeText(kind, spec, event)].filter(Boolean).join(' ') : '';
         if (!text) continue;
         const label = kind === 'chain_complete'
             ? 'Kette erfüllt'
             : (kind.includes('reset') ? 'Korridor-Korrektur' : 'Ketten-Fortschritt');
-        const eventOptions = _poiChainPhotoSoundOptions(kind, spec, event, text)
-            || _poiChainEventSoundOptions(kind, spec, event, text)
+        const eventOptions = _poiChainPhotoSoundOptions(kind, spec, event, baseText)
+            || _poiChainEventSoundOptions(kind, spec, event, baseText)
             || {};
         _speakPreparedText(_poiChainAudioKey(kind, text), text, speaker, label, eventOptions);
     }
@@ -7420,7 +7433,7 @@ STIL: ${roleStyle}
 DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
-    const poiNarrative = window.MissionKnowledgeBriefingCore?.voiceContext(md?.knowledgeBriefing || contract?.knowledgeBriefing) || window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || window.MissionBioBriefingCore?.voiceContext(md?.bioBriefing || contract?.bioBriefing) || window.MissionGeoBriefingCore?.voiceContext(md?.geoBriefing || contract?.geoBriefing) || window.MissionMappingBriefingCore?.voiceContext(md?.mappingBriefing || contract?.mappingBriefing) || window.MissionPoiFollowupNarrativeCore?.voiceContext(md?.poiContinuationBriefing || contract?.poiContinuationBriefing) || '';
+    const poiNarrative = window.MissionChainBriefingCore?.voiceContext(md.chainBriefing) || window.MissionKnowledgeBriefingCore?.voiceContext(md?.knowledgeBriefing || contract?.knowledgeBriefing) || window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || window.MissionBioBriefingCore?.voiceContext(md?.bioBriefing || contract?.bioBriefing) || window.MissionGeoBriefingCore?.voiceContext(md?.geoBriefing || contract?.geoBriefing) || window.MissionMappingBriefingCore?.voiceContext(md?.mappingBriefing || contract?.mappingBriefing) || window.MissionPoiFollowupNarrativeCore?.voiceContext(md?.poiContinuationBriefing || contract?.poiContinuationBriefing) || '';
     if (poiNarrative) lines.push(poiNarrative);
     const sightseeingIdea=md?.sightseeingIdea || contract?.sightseeingIdea;
     if(sightseeingIdea?.schema === 'sightseeing-idea.v1') lines.push(window.MissionSightseeingIdeasCore.voiceContext(sightseeingIdea));
@@ -10060,7 +10073,7 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
         } : {}),
         mapPlaceOrientationLine: _paxMapPlaceOrientationLine(),
         ...(_activeTaskDomain() === 'infra_chain_recon' ? {
-            chainSpec: _poiChainActiveSpec(), chainSpeaker: _speakerSnapshotForMissionVoice('poi-chain'),
+            chainBriefing: md.chainBriefing || null, chainSpec: _poiChainActiveSpec(), chainSpeaker: _speakerSnapshotForMissionVoice('poi-chain'),
             chainAudioDefinitions: Object.fromEntries(Object.entries(_PAX_AUDIO_CUE_CATALOG).map(([id, def]) => [id, { gain: def.gain || 0.78, variantScope: def.variantScope || 'mission' }])),
             chainAudioCueIds: Object.fromEntries(Object.entries({ point_complete: 'photo', chain_corridor_entered: 'scan_start', chain_corridor_complete: 'handoff', chain_complete: 'handoff', chain_area_entered: 'none', corridor_segment_reset_offtrack: 'none', corridor_segment_reset_speed: 'none' }).map(([kind, fallback]) => [kind, _paxAudioEffectsEnabled ? _paxMissionAudioCueId('poi_chain', kind, fallback) : 'none']))
         } : {}),

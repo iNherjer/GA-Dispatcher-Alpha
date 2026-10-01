@@ -19,12 +19,13 @@ const chain = { schema: 'ga.poiChain.v1', key: 'process-chain', label: 'Prozessk
   points: [{ id: 'p1', lat: 48.3, lon: 8.5, triggerRadiusNm: .12 }, { id: 'p2', lat: 48.315, lon: 8.5, triggerRadiusNm: .12 }, { id: 'p3', lat: 48.33, lon: 8.5, triggerRadiusNm: .12 }] };
 
 function bundle() {
+  const chainBriefing = {schema:'chain-briefing.v1',plan:{points:chain.points.map(p=>({id:p.id}))},voices:{entry:'Gemeinsame Prüfung.',points:chain.points.map(p=>({pointId:p.id,text:'Zusammenhang für '+p.id})),complete:'Übergabe an den Betreiber.'}};
   const passenger = { name: 'Mia', targetRadiusNm: 1, targetAltFt: 3000, targetDwellMin: 0, poiChain: chain };
   const context = { schema: voice.CONTEXT_SCHEMA, version: 1, missionId: 'process-chain', taskDomain: 'infra_chain_recon', strict: true,
-    audioEnabled: false, baseContext: 'Kettenprüfung.', passenger, speaker: passenger, chainSpec: chain,
+    audioEnabled: false, baseContext: 'Kettenprüfung.', chainBriefing, passenger, speaker: passenger, chainSpec: chain,
     chainAudioDefinitions: { photo: { gain: 1 }, scan_start: { gain: 1 }, handoff: { gain: 1 } } };
   const b = { version: 2, missionId: 'process-chain', adapter: 'poi_chain', descriptor: { primaryAdapter: 'poi_chain' },
-    missionState: { currentMissionData: { missionId: 'process-chain', missionType: 'poi', missionSubType: 'poi_chain', taskDomain: 'infra_chain_recon', poiChain: chain, passenger } },
+    missionState: { currentMissionData: { missionId: 'process-chain', missionType: 'poi', missionSubType: 'poi_chain', taskDomain: 'infra_chain_recon', poiChain: chain, chainBriefing, passenger } },
     runtime: { missionId: 'process-chain', startPhase: 'planned', lastLiveFlightData: { onGround: true, gsKts: 0 }, runtime: { missionId: 'process-chain', phase: 'planned', active: false },
       cargoManifest: { version: 6, key: 'process-chain-manifest', items: [{ id: 'camera', label: 'Kamera', itemType: 'cargo', required: true, status: 'pending', weightLbs: 15, healthPct: 100 }] } },
     executionPoiRecipe: { schema: poi.RECIPE_SCHEMA, version: 1, missionId: 'process-chain', taskDomain: 'infra_chain_recon', missionSubType: 'poi_chain',
@@ -46,6 +47,7 @@ test('POI-chain telemetry is evaluated in the real mission child process and com
   t.after(async () => { await host.close(); fs.rmSync(dir, { recursive: true, force: true }); });
   assert.notEqual(host.runtime.publicState().processId, process.pid);
   const b = bundle(); const acquired = await host.authorityManager.acquire({ missionId: b.missionId, clientId: 'owner', stateHash: 'web', resumeBundle: b });
+  assert.equal(host.authorityManager.getActiveRun({includeBundle:true}).resumeBundle.executionPoiRecipe.voiceContext.chainBriefing.voices.points[0].text, 'Zusammenhang für p1');
   let run = acquired.activeRun;
   const prepared = await host.authorityManager.prepareExecutionAuthority({ missionId: b.missionId, runId: run.runId, clientId: 'owner', expectedRevision: run.revision, expectedStateHash: run.stateHash, expectedExecutionStateHash: execution.replay(b.executionReplay).stateHash });
   assert.equal(prepared.ok, true); assert.equal((await host.authorityManager.commitExecutionAuthority({ missionId: b.missionId, runId: run.runId, clientId: 'owner', expectedRevision: prepared.activeRun.revision, expectedExecutionStateHash: prepared.activeRun.executionStateHash, handoffId: prepared.handoff.handoffId })).ok, true);

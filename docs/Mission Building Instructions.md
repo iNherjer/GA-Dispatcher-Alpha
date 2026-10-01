@@ -1,5 +1,7 @@
 Geologie-/Relief-Briefing Alpha v1889: [Geology Briefing Migration](Geology%20Briefing%20Migration.md) – freie Studienfrage, Quellenbindung und bestehender POI-/Tracker-Ablauf.
 
+Ketten-Erstbefund mit zusammenhängender Auftragsgeschichte: [Infrastructure Chain Briefing Migration](Infrastructure%20Chain%20Briefing%20Migration.md).
+
 # Mission Building Instructions
 
 POI-Reporter in Entwicklung: [Reporter-Migration](POI%20Reporter%20Briefing%20Migration.md) – eigener journalistischer Inhalt, gleiche Ideen-/Writer-/Voice-Methode.

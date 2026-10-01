@@ -82,7 +82,7 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _missionHasPax = () => true;
   const _speakerSnapshotForActivePax = () => context.speaker;
   const _paxMissionAudioKey = kind => kind + ':' + context.missionId;
-  const currentMissionData = { ...(context.missionData || {}), ...(context.bush ? { bush: context.bush } : {}),
+  const currentMissionData = { ...(context.missionData || {}), ...(context.chainBriefing ? {chainBriefing:context.chainBriefing} : {}), ...(context.bush ? { bush: context.bush } : {}),
     ...(context.bushReconOutcome ? { bushReconOutcome: context.bushReconOutcome } : {}) };
 function _activeBushReconOutcome() {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
@@ -1815,6 +1815,18 @@ function _poiChainPointFindingText(event = null, spec = null) {
     ], `${spec?.key || spec?.label || ''}|${point?.id || pointName}|finding|${marker}`);
 }
 
+function _poiChainNarrativeText(kind, spec, event) {
+    const b = typeof currentMissionData !== 'undefined' ? currentMissionData?.chainBriefing : null;
+    if (b?.schema !== 'chain-briefing.v1' || !b.voices || !Array.isArray(b.plan?.points) || !Array.isArray(spec?.points)) return '';
+    const ids = spec.points.map(p => p.id);
+    if (b.plan.points.length !== ids.length || b.plan.points.some((p,i) => p.id !== ids[i])) return '';
+    let line = '';
+    if (kind === 'chain_corridor_entered' || (kind === 'chain_area_entered' && !spec.corridor)) line = b.voices.entry;
+    if (kind === 'point_complete') line = b.voices.points?.find(p => p.pointId === event?.point?.id)?.text;
+    if (kind === 'chain_complete') line = b.voices.complete;
+    return typeof line === 'string' && line.length <= 500 ? line.trim() : '';
+}
+
 function _poiChainVoiceText(kind = 'point_complete', spec = null, event = null) {
     const point = event?.point || null;
     const nextPoint = event?.nextPoint || null;
@@ -1974,13 +1986,14 @@ function _handlePoiChainEvents(events = [], spec = null) {
         if (typeof window.missionPersistRuntimeSnapshot === 'function') {
             window.missionPersistRuntimeSnapshot(`poi-chain-${kind}`, { immediate: kind === 'chain_complete' });
         }
-        const text = _poiChainVoiceText(kind, spec, event);
+        const baseText = _poiChainVoiceText(kind, spec, event);
+        const text = baseText ? [baseText, _poiChainNarrativeText(kind, spec, event)].filter(Boolean).join(' ') : '';
         if (!text) continue;
         const label = kind === 'chain_complete'
             ? 'Kette erfüllt'
             : (kind.includes('reset') ? 'Korridor-Korrektur' : 'Ketten-Fortschritt');
-        const eventOptions = _poiChainPhotoSoundOptions(kind, spec, event, text)
-            || _poiChainEventSoundOptions(kind, spec, event, text)
+        const eventOptions = _poiChainPhotoSoundOptions(kind, spec, event, baseText)
+            || _poiChainEventSoundOptions(kind, spec, event, baseText)
             || {};
         _speakPreparedText(_poiChainAudioKey(kind, text), text, speaker, label, eventOptions);
     }

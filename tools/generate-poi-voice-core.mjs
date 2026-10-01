@@ -13,7 +13,7 @@ const actionNames = ['_missionActionContext', '_missionVectorText', '_missionOri
 const surveyNames = ['_surveyPatternActiveSpec', '_surveyPatternSnapshot', '_surveyPatternProgressSummary',
   '_surveyPatternStatusText', '_surveyPatternOrientationText', '_surveyPatternStaticClipKey',
   '_surveyPatternVoiceText', '_surveyPatternEventKind'];
-const chainNames = ['_hashStable', '_paxSeededInt', '_poiChainActiveSpec', '_poiChainSnapshot', '_poiChainProgressSummary', '_poiChainStatusText', '_poiChainOrientationText', '_poiChainAudioKey', '_poiChainPickText', '_poiChainPointLabel', '_poiChainPointFindingText', '_poiChainVoiceText', '_poiChainPhotoSoundOptions', '_poiChainEventSoundOptions', '_poiChainEventKind', '_handlePoiChainEvents'];
+const chainNames = ['_hashStable', '_paxSeededInt', '_poiChainActiveSpec', '_poiChainSnapshot', '_poiChainProgressSummary', '_poiChainStatusText', '_poiChainOrientationText', '_poiChainAudioKey', '_poiChainPickText', '_poiChainPointLabel', '_poiChainPointFindingText', '_poiChainNarrativeText', '_poiChainVoiceText', '_poiChainPhotoSoundOptions', '_poiChainEventSoundOptions', '_poiChainEventKind', '_handlePoiChainEvents'];
 const farewellNames = ['_trainingProcedureDebriefLine','_farewellPrompt', '_failedMissionFarewellFallback', '_farewellPreparedContext'];
 const bushReconNames = ['_activeBushReconOutcome', '_bushReconOutcomeHintLine'];
 export function extract(name, text = source) { return extractOriginalFunction(text, name); }
@@ -101,7 +101,7 @@ function original(context = {}, previous = {}, cue = {}, randomValue = 0.5) {
   const _missionHasPax = () => true;
   const _speakerSnapshotForActivePax = () => context.speaker;
   const _paxMissionAudioKey = kind => kind + ':' + context.missionId;
-  const currentMissionData = { ...(context.missionData || {}), ...(context.bush ? { bush: context.bush } : {}),
+  const currentMissionData = { ...(context.missionData || {}), ...(context.chainBriefing ? {chainBriefing:context.chainBriefing} : {}), ...(context.bush ? { bush: context.bush } : {}),
     ...(context.bushReconOutcome ? { bushReconOutcome: context.bushReconOutcome } : {}) };
 ${bushReconNames.map(name => extract(name)).join('\n\n')}
   const document = { getElementById: id => id === 'wikiDestDescText' ? { innerText: context.wikiText || '' } : null };
