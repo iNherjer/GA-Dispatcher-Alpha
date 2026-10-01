@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import knowledge from '../mission-knowledge-briefing-core.js';
 import photo from '../mission-poi-briefing-core.js';
 import geo from '../mission-geo-briefing-core.js';
 import mapping from '../mission-mapping-briefing-core.js';
@@ -45,3 +46,10 @@ test('bio research question reaches existing tracker prompts after restoration w
 test('geo study and open questions survive serialized tracker voice context',()=>{const {env,context,idea}=fixture('science_geo');assert.equal(env._inspectionMissionMeta(),null);assert.match(context.baseContext,/GEOLOGISCHE STUDIE/);for(const prompt of ['_poiInSightPrompt','_poiEntryPrompt','_poiSatisfiedPrompt']){const args=prompt==='_poiInSightPrompt'?[{mslFt:3000},2,2,'12 Uhr']:[{mslFt:3000}];const result=voice.render(JSON.parse(JSON.stringify(context)),{prompt,args,detector:{dwellSec:120}});assert.ok(result.prompt.includes(idea.studyFocus));assert.ok(result.prompt.includes(idea.outputUse));assert.match(result.prompt,/keine.*Sicherheitsfreigabe/i);}});
 
 test('mapping commissioning story reaches restored tracker voice context without a new task machine',()=>{const {context,idea}=fixture('mapping_survey');assert.match(context.baseContext,/MAPPING-AUFTRAG/);for(const prompt of ['_poiInSightPrompt','_poiEntryPrompt','_poiSatisfiedPrompt']){const args=prompt==='_poiInSightPrompt'?[{mslFt:3000},2,2,'12 Uhr']:[{mslFt:3000}];const result=voice.render(JSON.parse(JSON.stringify(context)),{prompt,args,detector:{dwellSec:120}});assert.ok(result.prompt.includes(idea.purpose));assert.match(result.prompt,/keine Messgenauigkeit/);}});
+
+for(const [profileId,domain] of [['historian_guided_tour','historian_guided_tour'],['tour_guide_knowledge','poi_learning_guide']])test(profileId+' source-backed viewpoint reaches real base context and tracker prompts',()=>{
+ const {env,context}=fixture('science_geo');const briefing={schema:knowledge.VERSION,idea:{profileId,focus:'Belegter Blickwinkel',person:{name:'Ada',role:'Freund'}},knowledgeFacts:[{id:'knowledge-0',fact:'Ein verifizierter Fakt',source:'https://example.org/target'}]};
+ env._poiKnowledgeQueueContextLine=()=>'';env.window.MissionKnowledgeBriefingCore=knowledge;env.currentMissionData={poiName:'Staudamm',knowledgeBriefing:briefing};env._activeTaskDomain=()=>domain;env.window.activePassenger.taskDomain=domain;
+ context.taskDomain=domain;context.passenger.taskDomain=domain;context.baseContext=env._baseContext();assert.match(context.baseContext,/Belegter Blickwinkel/);
+ const restored=JSON.parse(JSON.stringify(context));for(const prompt of ['_poiInSightPrompt','_poiEntryPrompt','_poiSatisfiedPrompt']){const result=voice.render(restored,{prompt,args:prompt==='_poiInSightPrompt'?[{mslFt:3000},2,2,'12 Uhr']:[{mslFt:3000}],detector:{dwellSec:120}});assert.match(result.prompt,/Ein verifizierter Fakt/);assert.match(result.prompt,/Belegter Blickwinkel/);}
+ });

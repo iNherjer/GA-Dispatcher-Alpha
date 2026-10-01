@@ -2524,7 +2524,7 @@ function missionTaskPoiCategoryPolicy(profileId = 'auto') {
         science_geo: ['mountain', 'dam', 'water'],
         media_photo: ['city', 'castle', 'industry', 'road'],
         news_coverage: ['road', 'city', 'industry'],
-        tour_guide_knowledge: ['city', 'water', 'dam', 'bridge', 'telecom', 'industry', 'castle', 'mountain'],
+        tour_guide_knowledge: ['city', 'water', 'dam', 'bridge', 'telecom', 'industry', 'rail', 'castle', 'mountain'],
         historian_guided_tour: ['castle', 'city'],
         sightseeing_tour: ['castle', 'mountain', 'water', 'city', 'bridge', 'dam', 'rail']
     };
@@ -8845,7 +8845,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'geoBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'geoBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9469,7 +9469,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -13068,6 +13068,7 @@ function _shouldIncludeCoreForPoiSearch(forcedCategory = null, dispatchProfileId
     if (profile === 'mapping_survey') return true;
     if (profile === 'fire_watch') return true;
     if (profile === 'tour_guide_knowledge') return true;
+    if (profile === 'historian_guided_tour') return true;
     return false;
 }
 
@@ -13078,6 +13079,7 @@ function _shouldIncludeInfraForPoiSearch(forcedCategory = null, dispatchProfileI
     if (profile === 'infra_chain_recon') return true;
     if (profile === 'mapping_survey') return true;
     if (profile === 'science_geo') return true;
+    if (profile === 'tour_guide_knowledge') return true;
     if (['infrastructure', 'industry', 'bridge', 'road', 'rail', 'telecom', 'dam'].includes(cat)) return true;
     return false;
 }
@@ -13809,11 +13811,12 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         if (!Number.isFinite(navAnchor?.dist) || navAnchor.dist > Number(anchor.localRadiusNm || 20)) continue;
 
         const inferredCat = _poiInferCategoryFromFeature(f);
-        const wantedCat = (!forceCat || forceCat === 'all') ? inferredCat : forceCat;
+        const historicalMatch = profileId === 'historian_guided_tour' && window.MissionKnowledgeBriefingCore?.historicalTarget(f);
+        const wantedCat = (!forceCat || forceCat === 'all') ? (historicalMatch ? 'castle' : inferredCat) : forceCat;
         const sightseeingAttractionMatch = isSightseeingProfile
             && forceCat === 'city'
             && _poiFeatureLooksSightseeingAttraction(f);
-        if (forceCat && forceCat !== 'all' && !_poiFeatureMatchesCategory(f, forceCat) && !sightseeingAttractionMatch) continue;
+        if (forceCat && forceCat !== 'all' && !_poiFeatureMatchesCategory(f, forceCat) && !sightseeingAttractionMatch && !(historicalMatch && forceCat === 'castle')) continue;
         if (sarCorridorMode && !_poiFeatureMatchesCategory(f, 'sar_corridor')) continue;
 
         const rawName = String(f?.name || '').trim();
@@ -13997,7 +14000,8 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         : (_pickPoiCandidateWithHistory(top, (top[0]?.category || forceCat || 'generic'), 12, anchor) || top[0] || pool[0]);
     if (isKnowledgeGuideProfile) {
         knowledgeGateShortlist = _poiKnowledgeBalancedShortlist(pool, {
-            maxCandidates: POI_KNOWLEDGE_AUTO_MAX_CANDIDATES
+            maxCandidates: POI_KNOWLEDGE_AUTO_MAX_CANDIDATES,
+            bucketForCandidate: window.MissionKnowledgeBriefingCore?.bucket
         });
         knowledgeGateResult = await _poiKnowledgePickAcceptedCandidate(knowledgeGateShortlist.shortlist, {
             budgetMs: POI_KNOWLEDGE_AUTO_BUDGET_MS
@@ -14951,7 +14955,8 @@ function _poiKnowledgeBadNameReason(candidate = {}) {
 function _poiKnowledgeBalancedShortlist(candidates = [], options = {}) {
     const maxCandidates = Math.max(1, Math.min(8, Number(options.maxCandidates || POI_KNOWLEDGE_AUTO_MAX_CANDIDATES)));
     const prepared = (Array.isArray(candidates) ? candidates : []).map((candidate, index) => {
-        const bucket = _poiKnowledgeCandidateBucket(candidate);
+        const originalBucket = _poiKnowledgeCandidateBucket(candidate);
+        const bucket = options.bucketForCandidate ? options.bucketForCandidate(candidate,originalBucket) : originalBucket;
         const badNameReason = _poiKnowledgeBadNameReason(candidate);
         const supported = POI_KNOWLEDGE_GATE_BUCKET_PRIORITY.includes(bucket);
         return {
@@ -21838,6 +21843,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'science_bio'};
     if (isPOI && ((profileId === 'mapping_survey' && window.MissionMappingBriefingCore?.owns(m)) || (window.MissionPoiFollowupNarrativeCore?.ownsContinuation(m) && m.passenger.taskDomain === profileId)))
         return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
+    if (isPOI && window.MissionKnowledgeBriefingCore?.owns(m) && m.knowledgeBriefing.idea.profileId === profileId) return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (isPOI && profileId === 'science_geo' && window.MissionGeoBriefingCore?.owns(m))
         return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'science_geo'};
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(m))
@@ -22954,6 +22960,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         charterIdea: mission?.charterIdea?.schema === 'charter-idea.v1' ? mission.charterIdea : null,
         infraBriefing: window.MissionInfraBriefingCore?.owns(mission) ? mission.infraBriefing : null,
         bioBriefing: window.MissionBioBriefingCore?.owns(mission) ? mission.bioBriefing : null,
+        knowledgeBriefing: window.MissionKnowledgeBriefingCore?.owns(mission) ? mission.knowledgeBriefing : null,
         geoBriefing: window.MissionGeoBriefingCore?.owns(mission) ? mission.geoBriefing : null,
         mappingBriefing: window.MissionMappingBriefingCore?.owns(mission) ? mission.mappingBriefing : null,
         poiContinuationBriefing: mission?.poiContinuationBriefing || null,
@@ -23427,6 +23434,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'science_bio' && window.MissionBioBriefingCore?.owns(missionLike)) return true;
+    if (isPOI && window.MissionKnowledgeBriefingCore?.owns(missionLike) && missionLike.knowledgeBriefing.idea.profileId === profileId) return true;
     if (isPOI && profileId === 'science_geo' && window.MissionGeoBriefingCore?.owns(missionLike)) return true;
     if (isPOI && ((profileId === 'mapping_survey' && window.MissionMappingBriefingCore?.owns(missionLike)) || (window.MissionPoiFollowupNarrativeCore?.ownsContinuation(missionLike) && missionLike.passenger.taskDomain === profileId))) return true;
     if (isPOI && profileId === 'news_coverage' && window.MissionNewsBriefingCore?.owns(missionLike)) return true;
@@ -26129,7 +26137,7 @@ function scenePlannerV3CompactAptPlan(plan = null) {
 
 function scenePlannerV3ReporterContext(md = {}, contract = {}, geo = null, truth = null) {
     if (!window.MissionReporterSceneCore?.enabled(md, contract)) return {};
-    const briefing = md.mappingBriefing || contract.mappingBriefing || md.poiContinuationBriefing || contract.poiContinuationBriefing || md.geoBriefing || contract.geoBriefing || md.bioBriefing || contract.bioBriefing || md.newsBriefing || contract.newsBriefing || md.infraBriefing || contract.infraBriefing || md.poiBriefing || contract.poiBriefing;
+    const briefing = md.knowledgeBriefing || contract.knowledgeBriefing || md.mappingBriefing || contract.mappingBriefing || md.poiContinuationBriefing || contract.poiContinuationBriefing || md.geoBriefing || contract.geoBriefing || md.bioBriefing || contract.bioBriefing || md.newsBriefing || contract.newsBriefing || md.infraBriefing || contract.infraBriefing || md.poiBriefing || contract.poiBriefing;
     const taskDomain = contract.taskDomain || briefing?.taskDomain || '';
     const plan = md.missionPlanV2 || contract.missionPlanV2;
 
@@ -41853,6 +41861,7 @@ function compactMissionProposalChoice(choice = null) {
         charterProposal: normalized.charterProposal || null,
         infraProposal: normalized.infraProposal || null,
         bioProposal: normalized.bioProposal || null,
+        knowledgeProposal: normalized.knowledgeProposal || null,
         geoProposal: normalized.geoProposal || null,
         mappingProposal: normalized.mappingProposal || null,
         newsProposal: normalized.newsProposal || null,
@@ -42497,6 +42506,7 @@ async function buildMissionProposalPoiChoices(context = {}) {
         return window.MissionBioBriefingBrowser.choices(candidates,context);
     if (window.MissionMappingBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
         return window.MissionMappingBriefingBrowser.choices(candidates,context);
+    if (window.MissionKnowledgeBriefingBrowser?.enabled({profileId,category:context.selectedPoiCategory,aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain)) return window.MissionKnowledgeBriefingBrowser.choices(candidates,{...context,profileId});
     if (window.MissionGeoBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
         return window.MissionGeoBriefingBrowser.choices(candidates,context);
     if (window.MissionNewsBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
@@ -43471,7 +43481,8 @@ async function generateMission(options = {}) {
         _ensureDispatchAlive();
     }
     if (dest && effectiveType === 'poi' && dispatchProfileId === 'tour_guide_knowledge' && selectedPoiCategory !== 'trn') {
-        const knowledgeCategory = String(dest?.knowledgeContext?.category || dest?.poiCategory || selectedPoiCategory || 'generic').toLowerCase();
+        const baseKnowledgeCategory = String(dest?.knowledgeContext?.category || dest?.poiCategory || selectedPoiCategory || 'generic').toLowerCase();
+        const knowledgeCategory = window.MissionKnowledgeBriefingCore?.bucket({category:baseKnowledgeCategory},baseKnowledgeCategory) || baseKnowledgeCategory;
         const contextOk = (dest?.knowledgeContext?.ok && dest?.knowledgeContext?.status === 'accept')
             ? dest.knowledgeContext
             : await _resolveEducationalPoiContext(dest.n, dest.lat, dest.lon, knowledgeCategory);
@@ -43739,7 +43750,8 @@ async function generateMission(options = {}) {
     if (shouldLoadPoiSightseeingKnowledge) {
         indicator.innerText = 'Sightseeing: Ziel-Infos werden geprüft...';
         try {
-            const knowledgeCategory = String(dest?.knowledgeContext?.category || dest?.poiCategory || selectedPoiCategory || 'generic').toLowerCase();
+            const baseKnowledgeCategory = String(dest?.knowledgeContext?.category || dest?.poiCategory || selectedPoiCategory || 'generic').toLowerCase();
+        const knowledgeCategory = window.MissionKnowledgeBriefingCore?.bucket({category:baseKnowledgeCategory},baseKnowledgeCategory) || baseKnowledgeCategory;
             const poiSightseeingContext = await dispatchMeasure('poi_sightseeing_wiki_context', async () => (
                 await _resolveEducationalPoiContext(dest.n, dest.lat, dest.lon, knowledgeCategory, {
                     timeoutMs: POI_SIGHTSEEING_KNOWLEDGE_BUDGET_MS
@@ -43861,12 +43873,15 @@ async function generateMission(options = {}) {
     const useBioStudyIdeas = window.MissionBioBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const useMappingIdeas = window.MissionMappingBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiContinuation = !!(aiModeEnabled && isPOI && !isPlanningOnlyMode && !isBushDispatch && followupSeed && ['media_photo','inspection_infra'].includes(followupDispatchProfileId) && window.MissionPoiFollowupNarrativeCore?.context(followupSeed));
+    const useKnowledgeIdeas = window.MissionKnowledgeBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const useGeoStudyIdeas = window.MissionGeoBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiNewsIdeas = window.MissionNewsBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiPhotoIdeas = window.MissionPoiBriefingBrowser?.enabled({isPOI, profileId: dispatchProfileId, category: selectedPoiCategory, aiModeEnabled, followup: !!followupSeed, planning: isPlanningOnlyMode, bush: isBushDispatch}) && !dest?.poiChain;
     const useCharterIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'charter' && ['auto','apt_charter',''].includes(dispatchProfileId);
     const useClubIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && aiModeEnabled && dispatchProfileId === 'club_utility';
-    if (useMappingIdeas || usePoiContinuation) {
+    if (useKnowledgeIdeas) {
+        missionContractV4={status:'ready',profile:getMissionTaskProfile(dispatchProfileId,'poi')};
+    } else if (useMappingIdeas || usePoiContinuation) {
         missionContractV4 = {status:'ready', profile:getMissionTaskProfile(useMappingIdeas ? 'mapping_survey' : followupDispatchProfileId, 'poi')};
     } else if (usePoiPhotoIdeas) {
         missionContractV4 = {status:'ready', profile:getMissionTaskProfile('media_photo', 'poi')};
@@ -44505,7 +44520,13 @@ async function generateMission(options = {}) {
         if (missionProposalChoice?.geoProposal && !useGeoStudyIdeas) throw Error('Die Studienidee benötigt den aktiven Geologie-Ideengenerator.');
         if (missionProposalChoice?.newsProposal && !usePoiNewsIdeas) throw Error('Die Reporteridee benötigt den aktiven POI-Reporter-Ideengenerator.');
         if (missionProposalChoice?.poiProposal && !usePoiPhotoIdeas) throw Error('Die Fotoidee benötigt den aktiven KI-Fotogenerator.');
-        if (useMappingIdeas) {
+        if (missionProposalChoice?.knowledgeProposal && !useKnowledgeIdeas) throw Error('Die Wissensauswahl benötigt den aktiven Wissensgenerator.');
+        if (useKnowledgeIdeas) {
+            missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m=await window.MissionKnowledgeBriefingBrowser.story({start,dest,profileId:dispatchProfileId,proposal:missionProposalChoice?.knowledgeProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
+            missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
+            dest.knowledgeContext=m.knowledgeContext;
+        } else if (useMappingIdeas) {
             missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m=await window.MissionMappingBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.mappingProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,poiTerrainFt,poiTerrainMaxFt,missionTruth:preMissionTruth,followup:followupSeed,ensureAlive:_ensureDispatchAlive});
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
@@ -45342,6 +45363,7 @@ async function generateMission(options = {}) {
         charterIdea: m.charterIdea || null,
         infraBriefing: m.infraBriefing || null,
         bioBriefing: m.bioBriefing || null,
+        knowledgeBriefing: m.knowledgeBriefing || null,
         geoBriefing: m.geoBriefing || null,
         mappingBriefing: m.mappingBriefing || null,
         poiContinuationBriefing: m.poiContinuationBriefing || null,
@@ -45468,6 +45490,7 @@ async function generateMission(options = {}) {
     if (currentMissionData.infraBriefing) window.MissionInfraBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.infraBriefing);
     if (currentMissionData.bioBriefing) window.MissionBioBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.bioBriefing);
     if (currentMissionData.mappingBriefing) window.MissionMappingBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.mappingBriefing);
+    if (currentMissionData.knowledgeBriefing) window.MissionKnowledgeBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.knowledgeBriefing);
     if (currentMissionData.geoBriefing) window.MissionGeoBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.geoBriefing);
     if (currentMissionData.newsBriefing) window.MissionNewsBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.newsBriefing);
     if (currentMissionData.poiBriefing) window.MissionPoiBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.poiBriefing);
@@ -45860,7 +45883,7 @@ async function generateMission(options = {}) {
         currentMissionData?.party || finalPassengerPlan.party || null
     );
 
-    if (window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionGeoBriefingCore?.owns(m) || window.MissionMappingBriefingCore?.owns(m) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
+    if (window.MissionKnowledgeBriefingCore?.owns(m) || window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionGeoBriefingCore?.owns(m) || window.MissionMappingBriefingCore?.owns(m) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
     else document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
     const briefingTaskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || m?.passenger?.taskDomain || '').toLowerCase();
