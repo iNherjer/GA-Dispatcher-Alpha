@@ -11888,7 +11888,7 @@ function _persistMissionCompletion(record) {
     // Completion persistence is shared by local close and confirmed completion restore.
     // The private adapter requires measured flight + canonical destination evidence.
     try {
-        if (window.MissionPrivateReturnCore?.source(currentMissionData) || (!_missionExecutionAuthorityIsTracker() && window.MissionCharterContinuationCore?.source(currentMissionData))) {
+        if (window.MissionPrivateReturnCore?.source(currentMissionData) || (!_missionExecutionAuthorityIsTracker() && (window.MissionCharterContinuationCore?.source(currentMissionData) || ['inspection_infra','infra_chain_recon','mapping_survey','media_photo'].includes(currentMissionData?.passenger?.taskDomain)))) {
             window.missionFollowupMaybeCreateFromCompletedMission?.({...currentMissionData,charterHeardSpeech:missionRuntime.routeVoice?.spoken || []}, record.cargo, {
                 source: 'private-confirmed-completion', completionRecord: record
             });
@@ -14950,7 +14950,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'geoBriefing', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'geoBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
@@ -14961,6 +14961,12 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
     // Recomputing these after compact restore would change the follow-up.
     if (window.GAMissionBushExecutionCore?.PROFILES?.[value.bush?.profileId || value.missionContract?.bush?.profileId || fallback.bush?.profileId]) {
         keep.push('followUpProspect', 'missionTemporalContext', 'followUpContext', 'followUpContinuation');
+    }
+    // POI follow-up identity and outcome must survive compact saves on every device.
+    if (value.missionType === 'poi' || value.isPOI || value.poiPresentation || ['mapping_survey','inspection_infra','infra_chain_recon','media_photo'].includes(value.taskDomain || value.passenger?.taskDomain)) {
+        keep.push('isPOI', 'poiPresentation', 'poiCategory', 'requestedCategory', '_appliedProfile', '_requestedProfile',
+            'initialTargetName', 'initialTargetLat', 'initialTargetLon', 'followUpRequestId', 'followUpProspect',
+            'missionTemporalContext', 'followUpContext', 'followUpContinuation', 'infraInspectionOutcome');
     }
     const out = {};
     keep.forEach(key => {

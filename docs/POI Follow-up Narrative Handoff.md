@@ -1,6 +1,9 @@
 # POI-Folgemissionen: Erzählkontinuität und Übergabevertrag
 
-Stand: 22.09.2026. **Abgestimmtes Zielbild, noch nicht implementiert.**
+Stand: 30.09.2026. **Teilweise implementiert, lokal noch nicht veröffentlicht.**
+Mapping, Reparaturfoto und Infrastruktur-Nachprüfung verwenden jetzt den additiven
+Vertrag `ga.followup-narrative.v1`; siehe [Mapping Survey Migration Audit](Mapping%20Survey%20Migration%20Audit.md).
+Die übrigen Abschnitte beschreiben weiterhin das weitergehende Zielbild.
 Der eigentliche POI-Writer-Umbau erfolgt separat durch den dafür zuständigen Agenten.
 Diese Dokumentation beschreibt dessen technische Anschlussstellen und Abnahmekriterien;
 sie öffnet keine Gates und ändert keine Missionsregeln.

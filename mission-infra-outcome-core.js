@@ -9,6 +9,7 @@
     const Date = environment.Date || globalThis.Date;
 
     const SCHEMA = 'ga.infraInspectionOutcome.v1';
+    const narrativeCore = typeof module === 'object' && module.exports ? require('./mission-poi-followup-narrative-core.js') : window.MissionPoiFollowupNarrativeCore;
     const OUTCOME_TYPES = new Set(['clear', 'monitor', 'minor_damage', 'major_damage', 'blocked_access']);
 
     function nowMs() { return Date.now(); }
@@ -865,6 +866,7 @@
             : `Schadenskartierung bei ${targetName}`);
         return {
             schema: 'ga.followup.pipelineContext.v1',
+            followUpNarrative: narrativeCore?.context(req) || null,
             requestId: req.id || null,
             sourceKind: req.sourceKind || 'inspection_infra',
             followUpKind,

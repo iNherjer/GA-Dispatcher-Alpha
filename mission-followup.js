@@ -11,6 +11,7 @@
     const STORAGE_KEY = 'ga_followup_requests_v1';
     const LAST_LANDING_STORAGE_KEY = 'ga_followup_last_landing_ref_v1';
     const SCHEMA = 'ga.followup.request.v1';
+    const narrativeCore = typeof module === 'object' && module.exports ? require('./mission-poi-followup-narrative-core.js') : window.MissionPoiFollowupNarrativeCore;
     const EXPIRE_DAYS = 14;
     const TOMBSTONE_DAYS = 14;
     const MAX_PENDING = 20;
@@ -2189,7 +2190,16 @@
         const dedupeKey = `${sourceMissionId || sourceMissionKey}|${cfg.followUpKind}${chainKey ? `|${chainKey}|${cfg.chain?.step || ''}` : ''}`;
         const id = `fup_${stableHash(dedupeKey)}`;
         const existing = getRequests().find(req => req.id === id || req.dedupeKey === dedupeKey);
-        if (existing) return { created: false, reason: 'duplicate', id, sourceKind };
+        if (existing) {
+            if (existing.poiFollowUp && options.completionRecord?.result === 'completed') {
+                const handoff = narrativeCore?.complete(md, cfg, options.completionRecord, {homeRef, targetRef});
+                if (handoff && !existing.narrativeMemory?.followUpNarrative?.completion) {
+                    writeRequests(getRequests().map(row => row.id === existing.id
+                        ? {...row, narrativeMemory:{...row.narrativeMemory,followUpNarrative:handoff}} : row), {cloud:true});
+                }
+            }
+            return { created: false, reason: 'duplicate', id, sourceKind };
+        }
 
         const passenger = cfg.passenger || (PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md, sourceKind) : null);
         const prospect = infraCfg
@@ -2205,6 +2215,8 @@
             ? Number(temporalContext?.followUpEligibleAt || prospect?.eligibleAt)
             : nextLocalMorningAt(8);
         const memory = cfg.narrativeMemory || buildNarrativeMemory(sourceKind, { ...md, missionTemporalContext: temporalContext }, passenger, homeRef, targetRef);
+        const followUpNarrative = (cfg.poiFollowUp || targetRef.kind === 'poi')
+            ? narrativeCore?.complete(md, cfg, options.completionRecord, {homeRef, targetRef}) : null;
         const serviceRun = cfg.serviceRun
             || (cfg.followUpKind === 'bush_supply_strip' && sourceKind === 'bush_recon_return'
                 ? buildServiceRunCargo(memory, targetRef)
@@ -2253,6 +2265,7 @@
             technicianPlan,
             narrativeMemory: {
                 ...memory,
+                ...(followUpNarrative ? {followUpNarrative} : {}),
                 serviceRun: serviceRun || memory.serviceRun || null,
                 technicianPlan: technicianPlan || memory.technicianPlan || null,
                 reconOutcome: reconOutcome || memory.reconOutcome || null,

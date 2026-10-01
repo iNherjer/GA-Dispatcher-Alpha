@@ -388,6 +388,8 @@ test('Mapping Survey pattern, progress and manual status cross the real worker b
     center: { lat: 48.3, lon: 8.5 }, targetAltFt: 3500,
     scan: { lineCount: 1, lineLengthNm: .8, lineSpacingNm: .2, crossTrackToleranceNm: .08, minCoverage: .7, resetGraceSec: 2, bins: 24 } });
   b.missionState.currentMissionData.surveyPattern = surveyPattern;
+  const narrative = require('../mission-poi-followup-narrative-core.js');
+  b.missionState.currentMissionData.followUpNarrative = narrative.draft({summary:'Vollständige Aufnahme für den Projektvergleich.',participants:[{name:'Maja',role:'Operatorin'}],client:{name:'Projektverband',kind:'organization'},openQuestions:['Welche Abschnitte benötigen später Detailaufnahmen?'],possibleContinuations:[]});
   const voiceContext = { schema: voice.CONTEXT_SCHEMA, version: 1, missionId: b.missionId,
     taskDomain: 'mapping_survey', passenger, speaker: passenger, strict: true, audioEnabled: false,
     baseContext: 'Mapping-Auftrag.', surveySpec: surveyPattern };
@@ -412,6 +414,7 @@ test('Mapping Survey pattern, progress and manual status cross the real worker b
     assert.equal(result.ok, true, JSON.stringify(result));
     await until(() => host.authorityManager.getExecutionSnapshot().state.flags.active || intent !== 'start_mission');
   }
+  assert.equal(host.authorityManager.getActiveRun({includeBundle:true}).resumeBundle.missionState.currentMissionData.followUpNarrative.memory.client.name, 'Projektverband');
   const line = surveyPattern.scan.lines[0];
   const observedBase = Date.now();
   // Wait for each worker checkpoint: process telemetry is latest-only, so a
