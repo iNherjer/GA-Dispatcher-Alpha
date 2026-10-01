@@ -32,7 +32,7 @@ function fixture({ authority = 'tracker', cleanupOk = true, active = true, seedC
         return {ok:true,status:'ok',sideEffect:true};
       }
     },
-    missionSmokeController:{cleanupExecutionRun:async request=>{calls.push('legacy-cleanup');assert.equal(request.allowLegacyCloudReplacement,true);return {ok:cleanupOk,error:cleanupOk?'':'cleanup_failed'};}},
+    cleanupLegacyCloudRun:async request=>{calls.push('legacy-cleanup');assert.equal(request.allowLegacyCloudReplacement,true);return {ok:cleanupOk,error:cleanupOk?'':'cleanup_failed'};},
     trackerMissionShadow:{clear:()=>calls.push('shadow-clear'),observe:()=>calls.push('observe')},
     debugLog:()=>{}
   };
@@ -64,4 +64,69 @@ test('idle cloud loading requires no browser owner and serializes duplicate acti
   const f=fixture({active:false});const first=f.context.activate(f.request);const second=await f.context.activate(f.request);
   assert.equal(second.error,'cloud_mission_activation_pending');assert.equal((await first).ok,true);
   assert.equal(f.calls.filter(value=>value==='acquire').length,1);
+});
+
+test('SimConnect relay ACK receives its snapshot reader explicitly and preserves cloud offers', () => {
+  const start = source.indexOf('      const sendMissionIntentAck =');
+  const end = source.indexOf('      const homebaseManager =', start);
+  const packets = [];
+  const snapshot = { activeRun: { missionId: 'active', runId: 'old-run' }, pendingCloudMission: { missionId: 'training-cloud' } };
+  const context = { getWs: () => ({ readyState: 1, send: value => packets.push(JSON.parse(value)) }),
+    WebSocket: { OPEN: 1 }, syncId: 'test', pin: 'test', TRACKER_VERSION: 'v462', TRACKER_VERSION_CODE: 462,
+    getCloudAuthoritySnapshot: () => snapshot, debugLog: () => {} };
+  vm.runInNewContext(source.slice(start, end) + '\nthis.ack = sendMissionIntentAck;', context);
+  assert.equal(context.ack({ commandId: 'activation', intent: 'activate_cloud_mission' }, { ok: false, error: 'cleanup_failed' }), true);
+  assert.equal(packets[0].trackerAck.commandId, 'activation');
+  assert.equal(packets[0].trackerAck.error, 'cleanup_failed');
+  assert.deepEqual(packets[0].trackerMissionAuthority, snapshot);
+  context.getCloudAuthoritySnapshot = null;
+  context.missionAuthorityManager = { getPublicSnapshot: () => snapshot };
+  assert.equal(context.ack({ commandId: 'legacy-client' }, { ok: true }), true);
+});
+
+const syncSource = fs.readFileSync(path.join(repo, 'sync.js'), 'utf8');
+test('App failed cloud load never reopens confirmation on telemetry or a newer timestamp for the same mission', async () => {
+  const start = syncSource.indexOf("let trackerCloudMissionOfferKey = '';");
+  const end = syncSource.indexOf('function _handleTrackerMissionAuthoritySnapshot', start);
+  const scheduled = [];
+  let prompts = 0, submissions = 0;
+  const context = { setTimeout: callback => scheduled.push(callback), confirm: () => { prompts++; return true; },
+    _submitTrackerExecutionIntent: async () => { submissions++; return { ok: false, error: 'authority_timeout' }; } };
+  vm.runInNewContext(syncSource.slice(start, end) + '\nthis.offer = _offerTrackerCloudMission;', context);
+  const snapshot = { activeRun: { missionId: 'active', runId: 'legacy', revision: 4 },
+    pendingCloudMission: { missionId: 'training', updatedAt: 200, control: { runId: 'cloud-pending' } } };
+  context.offer(snapshot); await scheduled.shift()();
+  context.offer(snapshot); context.offer({ ...snapshot, pendingCloudMission: { ...snapshot.pendingCloudMission, updatedAt: 300 } });
+  assert.equal(prompts, 1); assert.equal(submissions, 1); assert.equal(scheduled.length, 0);
+  vm.runInNewContext("trackerCloudMissionOfferKey = '';", context);
+  context.offer(snapshot); await scheduled.shift()();
+  assert.equal(prompts, 2, 'explicit banner retry remains available');
+});
+
+const hostSource = fs.readFileSync(path.join(repo, 'ga-tracker-client/tracker-efb-kartentisch-host.js'), 'utf8');
+test('EFB keeps a cloud load banner even when the legacy run has no presentable mission', () => {
+  const start = hostSource.indexOf('  function missionActionBannerModel(');
+  const end = hostSource.indexOf('  function setupMissionActionBanner(', start);
+  const context = {};
+  vm.runInNewContext(hostSource.slice(start, end) + '\nthis.model = missionActionBannerModel;', context);
+  const model = context.model({ available: false, authoritySnapshot: { pendingCloudMission: { missionId: 'training', title: 'POI Training' } } });
+  assert.equal(model.kind, 'cloud-replacement');
+  assert.equal(model.button, 'Neue Mission laden');
+  assert.match(model.text, /POI Training/);
+});
+
+test('EFB failure keeps acknowledgement and permits only an explicit retry', async () => {
+  const start = hostSource.indexOf("  var cloudMissionOfferKey = '';");
+  const end = hostSource.indexOf('  function renderMissionPayload(', start);
+  const scheduled = []; let prompts = 0;
+  const context = { window: { setTimeout: callback => scheduled.push(callback), confirm: () => { prompts++; return true; },
+    alert: () => {}, gaCockpitSessionClient: { submitIntent: async () => ({ ok: false }) } }, renderMissionActionBanner: () => {}, missionSnapshot: null };
+  vm.runInNewContext(hostSource.slice(start, end) + '\nthis.offer = offerCloudMissionReplacement;', context);
+  const snapshot = { authoritySnapshot: { activeRun: { runId: 'legacy', revision: 4 },
+    pendingCloudMission: { missionId: 'training', updatedAt: 200, control: { runId: 'cloud-pending' } } } };
+  context.offer(snapshot); scheduled.shift()();
+  await new Promise(resolve => setImmediate(resolve));
+  context.offer(snapshot); assert.equal(scheduled.length, 0); assert.equal(prompts, 1);
+  context.offer(snapshot, true); scheduled.shift()(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(prompts, 2);
 });

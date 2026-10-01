@@ -5239,7 +5239,7 @@ function _offerTrackerCloudMission(snapshot) {
     const candidate = snapshot?.pendingCloudMission;
     const run = snapshot?.activeRun;
     if (!candidate?.control || !run || trackerCloudMissionOfferPending) return;
-    const key = `${candidate.missionId}:${candidate.updatedAt}:${run.runId}`;
+    const key = `${candidate.missionId}:${run.runId}`;
     if (key === trackerCloudMissionOfferKey) return;
     trackerCloudMissionOfferKey = key;
     trackerCloudMissionOfferPending = true;
@@ -5250,8 +5250,8 @@ function _offerTrackerCloudMission(snapshot) {
                 cloudUpdatedAt: candidate.updatedAt,
                 replaceRun: { confirmed: true, missionId: run.missionId, runId: run.runId, revision: run.revision }
             }, { cloudControl: candidate.control });
-            if (!result?.ok) trackerCloudMissionOfferKey = '';
-        } catch (_) { trackerCloudMissionOfferKey = ''; } finally { trackerCloudMissionOfferPending = false; }
+            // Preserve the offer key after failure. Retry is an explicit banner action.
+        } catch (_) { /* Keep the offer acknowledged; do not reopen on telemetry. */ } finally { trackerCloudMissionOfferPending = false; }
     }, 0);
 }
 
@@ -5312,6 +5312,7 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
     }
     window.lastTrackerMissionStatus = { ...active, receivedAt: Date.now() };
     _handleTrackerMissionStatus(window.lastTrackerMissionStatus, reason);
+    if (snapshot.pendingCloudMission) _updateMissionRuntimeUi();
     if (active.executionAuthority !== 'tracker' && sameOwner && !local?.runId && !missionAuthorityAdoptPromise && trackerMissionId === _activeMissionRuntimeId('')) {
         missionAuthorityAdoptPromise = _ensureMissionAuthorityForStart('tracker-authority-rebind')
             .catch(() => false)

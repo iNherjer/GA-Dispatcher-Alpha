@@ -92,8 +92,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v461';
-const TRACKER_VERSION_CODE = 461;
+const TRACKER_VERSION = 'v462';
+const TRACKER_VERSION_CODE = 462;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5046,6 +5046,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       _cloudMissionSyncInProgress = false;
     }
   };
+  let cleanupLegacyCloudRun = null;
   let _cloudMissionReplacementCleanupInProgress = false;
   const abortCloudReplacementRun = async (request, previousRun) => {
     if (_cloudMissionReplacementCleanupInProgress) return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };
@@ -5059,7 +5060,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
           payload: { reason: request.payload?.reason || 'cloud-mission-replacement' }
         });
       } else {
-        const cleanup = await missionSmokeController.cleanupExecutionRun({
+        if (!cleanupLegacyCloudRun) return { ok: false, status: 'blocked', error: 'mission_simulator_not_connected', sideEffect: false };
+        const cleanup = await cleanupLegacyCloudRun({
           missionId: previousRun.missionId, runId: previousRun.runId,
           reason: request.payload?.reason || 'cloud-mission-replacement', allowLegacyCloudReplacement: true
         });
@@ -5325,9 +5327,11 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   const updateEfbState = (patch = {}) => {
     if (Object.hasOwn(patch, 'relayConnected')) _relayConnected = patch.relayConnected === true;
     if (typeof patch.readPayload === 'function') readCockpitPayload = patch.readPayload;
+    if (typeof patch.cleanupLegacyCloudRun === 'function') cleanupLegacyCloudRun = patch.cleanupLegacyCloudRun;
     if (Object.hasOwn(patch, 'simulatorConnected')) {
       if (_simulatorConnected && patch.simulatorConnected !== true) navigationWarnings?.reset();
       _simulatorConnected = patch.simulatorConnected === true;
+      if (!_simulatorConnected) cleanupLegacyCloudRun = null;
     }
     if (Object.hasOwn(patch, 'telemetryHibernate') && patch.telemetryHibernate && typeof patch.telemetryHibernate === 'object') {
       const previousKey = `${_telemetryHibernateState?.mode || ''}:${_telemetryHibernateState?.reason || ''}`;
@@ -6069,7 +6073,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       trackerMissionShadow,
       missionExecutionRuntime,
       trackerCockpitControl,
-      missionTransfer
+      missionTransfer,
+      cloudAuthoritySnapshot
     );
   };
 
@@ -6222,7 +6227,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   for (const state of _relayStates.values()) connectRelay(state);
 }
 
-function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null, missionTransfer = null) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null, missionTransfer = null, getCloudAuthoritySnapshot = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: true });
@@ -6245,7 +6250,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         },
         missionTransfer
       );
-      if (typeof updateEfbState === 'function') updateEfbState({ readPayload: count => missionSmokeController.refreshPayloadSnapshot(count) });
+      if (typeof updateEfbState === 'function') updateEfbState({ readPayload: count => missionSmokeController.refreshPayloadSnapshot(count),
+        cleanupLegacyCloudRun: request => missionSmokeController.cleanupExecutionRun(request) });
       let payloadSnapshotRefreshPending = false;
       const refreshMissionPayloadSnapshot = () => {
         const execution = missionAuthorityManager?.getExecutionSnapshot?.();
@@ -6303,8 +6309,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const sendMissionIntentAck = (command = {}, result = {}) => {
         const ws = getWs();
         if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-        const authoritySnapshot = cloudAuthoritySnapshot();
         try {
+          const authoritySnapshot = typeof getCloudAuthoritySnapshot === 'function'
+            ? getCloudAuthoritySnapshot() : (missionAuthorityManager?.getPublicSnapshot?.() || null);
           const msg = {
             type: 'gps',
             syncId,
@@ -6930,7 +6937,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   };
                 }
                 const trackerMissionStatus = missionSmokeController.getTrackerMissionStatus();
-                const trackerMissionAuthority = missionSmokeController.getMissionAuthoritySnapshot();
+                const trackerMissionAuthority = typeof getCloudAuthoritySnapshot === 'function'
+                  ? getCloudAuthoritySnapshot() : missionSmokeController.getMissionAuthoritySnapshot();
                 if (typeof updateEfbState === 'function') {
                   updateEfbState({ missionSnapshot: trackerMissionStatus });
                 }
@@ -7056,7 +7064,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         clearInterval(trafficInterval);
         clearInterval(payloadSnapshotInterval);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer, getCloudAuthoritySnapshot), 5000);
       });
     })
     .catch(err => {
@@ -7069,7 +7077,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
       if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
       if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
-      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer), 5000);
+      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer, getCloudAuthoritySnapshot), 5000);
     });
 }
 

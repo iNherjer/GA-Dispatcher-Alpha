@@ -5789,3 +5789,18 @@ Tracker v461 wird als Alpha-Fix veroeffentlicht. 63 relevante Core-/Cloud-/EFB-T
 bestehen; zwei bereits vorher fehlschlagende Legacy-Selbsttests bleiben offen.
 Der Windows-Build verwendet pkg ohne Bytecode-Vorkompilierung. Die reale
 In-Sim-Abnahme steht noch aus.
+
+
+### v462: Cloud-Recovery und EFB-Banner (01.10.2026)
+
+Feldtest v461: Neuer Cloud-Auftrag wird erkannt, der alte Legacy-Run bleibt
+jedoch stehen; Relay-Intents enden mit authority_timeout. Ursache: Der
+SimConnect-Szenencontroller und der Cloud-Snapshot-Leser wurden aus einem
+fremden Scope aufgerufen. Cleanup wird jetzt bei Simulatoranbindung explizit
+registriert, der Snapshot-Leser wird an SimConnect inklusive Reconnect
+weitergereicht und von ACK sowie Telemetrie gemeinsam verwendet.
+
+App und EFB merken eine beantwortete Rueckfrage pro Mission und Run auch bei
+Fehlern; ein neuer Seed-Zeitpunkt derselben Mission oeffnet keinen neuen Dialog.
+Erneutes Laden erfolgt explizit ueber den Banner. Der EFB-Ladebanner bleibt
+auch bei einem Legacy-Run ohne darstellbares Briefing sichtbar.

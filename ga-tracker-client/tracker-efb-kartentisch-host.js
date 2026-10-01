@@ -2061,6 +2061,10 @@
   }
 
   function missionActionBannerModel(payload) {
+    var pending = payload && payload.authoritySnapshot && payload.authoritySnapshot.pendingCloudMission;
+    if (pending) return { key: 'cloud-replacement:' + pending.missionId, missionId: pending.missionId,
+      kicker: 'Neue Cloud-Mission erkannt', text: '„' + (pending.title || pending.missionId) + '“ ist zum Laden bereit.',
+      button: 'Neue Mission laden', kind: 'cloud-replacement', closeHidden: true, begin: true };
     if (!payload || payload.available === false || !payload.missionId) return null;
     var view = payload.view && typeof payload.view === 'object' ? payload.view : {};
     var control = payload.control && typeof payload.control === 'object' ? payload.control : null;
@@ -2137,7 +2141,8 @@
     window.handleMissionStartBannerAction = function () {
       var model = banner._gaMissionActionModel;
       if (!model || missionIntentPending) return false;
-      if (model.kind === 'cargo') openCargoManager();
+      if (model.kind === 'cloud-replacement') offerCloudMissionReplacement(missionSnapshot, true);
+      else if (model.kind === 'cargo') openCargoManager();
       else if (model.intent) requestMissionIntent(model.intent, {});
       else return false;
       report('info', 'mission-action-banner', model.kind, 'Missionsaktion über Kartenbanner ausgelöst', model.intent || 'cargo');
@@ -2394,35 +2399,37 @@
   }
 
   var cloudMissionOfferKey = '';
-  function offerCloudMissionReplacement(payload) {
+  var cloudMissionOfferPending = false;
+  function offerCloudMissionReplacement(payload, force) {
     var authority = payload && payload.authoritySnapshot;
     var candidate = authority && authority.pendingCloudMission;
     var run = authority && authority.activeRun;
     if (!candidate || !run) return;
-    var key = candidate.missionId + ':' + candidate.updatedAt + ':' + run.runId;
-    if (key === cloudMissionOfferKey) return;
+    var key = candidate.missionId + ':' + run.runId;
+    if (cloudMissionOfferPending || (!force && key === cloudMissionOfferKey)) return;
     cloudMissionOfferKey = key;
+    cloudMissionOfferPending = true;
     window.setTimeout(function () {
       if (!window.confirm('Neue Cloud-Mission „' + (candidate.title || candidate.missionId)
-          + '“ erkannt.\n\nDie laufende Mission abbrechen und die neue Mission laden? Der bisherige Fortschritt geht verloren.')) return;
+          + '“ erkannt.\n\nDie laufende Mission abbrechen und die neue Mission laden? Der bisherige Fortschritt geht verloren.')) { cloudMissionOfferPending = false; return; }
       var client = window.gaCockpitSessionClient;
-      if (!client) return;
+      if (!client) { cloudMissionOfferPending = false; return; }
       client.submitIntent({ commandId: 'efb-cloud-load-' + Date.now(), intent: 'activate_cloud_mission',
         missionId: candidate.missionId, runId: candidate.control.runId, expectedRevision: 0,
         payload: { cloudUpdatedAt: candidate.updatedAt,
           replaceRun: { confirmed: true, missionId: run.missionId, runId: run.runId, revision: run.revision } }
       }).then(function (result) {
         if (!result || !result.ok) {
-          cloudMissionOfferKey = '';
-          window.alert('Die neue Mission konnte nicht geladen werden. Bitte erneut versuchen.');
+          window.alert('Die neue Mission konnte nicht geladen werden. Du kannst über den Ladebanner erneut versuchen.');
         }
-      }).catch(function () { cloudMissionOfferKey = ''; });
+      }).catch(function () { window.alert('Tracker-Verbindung prüfen und über den Ladebanner erneut versuchen.'); })
+        .then(function () { cloudMissionOfferPending = false; renderMissionActionBanner(missionSnapshot); });
     }, 0);
   }
 
   function renderMissionPayload(payload) {
     offerCloudMissionReplacement(payload);
-    var next = payload && payload.available === true ? payload : null;
+    var next = payload && (payload.available === true || (payload.authoritySnapshot && payload.authoritySnapshot.pendingCloudMission)) ? payload : null;
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};
     var previousControl = missionSnapshot && missionSnapshot.control;
     var nextControl = next && next.control;
@@ -2434,6 +2441,7 @@
     var signature = missionRenderSignature(next);
     var presentationSignature = JSON.stringify({
       mission: signature,
+      cloudPending: next && next.authoritySnapshot && next.authoritySnapshot.pendingCloudMission || null,
       intentPending: missionIntentPending === true,
       intentStatus: missionIntentStatus || '',
       intentTone: missionIntentTone || '',
