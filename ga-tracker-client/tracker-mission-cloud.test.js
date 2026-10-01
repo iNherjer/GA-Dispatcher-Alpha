@@ -196,3 +196,24 @@ test('large lossless mission survives acquire and restart; oversized candidates 
   assert.equal(adapters.validateSize('x'.repeat(adapters.MAX_RESUME_BYTES - 2)).ok, true);
   assert.equal(adapters.validateSize('x'.repeat(adapters.MAX_RESUME_BYTES - 1)).ok, false);
 });
+
+
+test('new cloud mission requires confirmation bound to run revision and seed', () => {
+  const { pendingCloudMission, validateCloudMissionActivation } = require('./tracker-mission-cloud.js');
+  const candidate = buildCloudMissionCandidate(profile()).candidate;
+  const run = { missionId: 'active', runId: 'legacy-run', revision: 4, acquiredAt: 1000 };
+  const request = { missionId: candidate.missionId, runId: 'cloud-pending', expectedRevision: 0,
+    payload: { cloudUpdatedAt: candidate.updatedAt } };
+  assert.equal(pendingCloudMission(candidate, run).missionId, candidate.missionId);
+  assert.equal(validateCloudMissionActivation(candidate, request, run), 'cloud_mission_replacement_confirmation_required');
+  request.payload.replaceRun = { confirmed: true, missionId: 'active', runId: 'legacy-run', revision: 4 };
+  assert.equal(validateCloudMissionActivation(candidate, request, run), null);
+  assert.equal(validateCloudMissionActivation(candidate, request, { ...run, revision: 5 }), 'mission_revision_conflict');
+  assert.equal(validateCloudMissionActivation(candidate, request, null), 'mission_run_conflict');
+  assert.equal(validateCloudMissionActivation(null, request, run), 'cloud_mission_not_available');
+  assert.equal(validateCloudMissionActivation({ ...candidate, updatedAt: 1300 }, request, run), 'cloud_mission_revision_conflict');
+  assert.equal(pendingCloudMission(candidate, { ...run, missionId: candidate.missionId }), null);
+  assert.equal(pendingCloudMission(candidate, { ...run, acquiredAt: 1300 }), null);
+  delete request.payload.replaceRun;
+  assert.equal(validateCloudMissionActivation(candidate, request, null), null);
+});

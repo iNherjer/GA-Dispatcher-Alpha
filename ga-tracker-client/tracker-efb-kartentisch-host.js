@@ -503,7 +503,7 @@
       missionId: control.missionId,
       runId: control.runId,
       expectedRevision: Number(control.authorityRevision || 0),
-      payload: payload || {}
+      payload: intent === 'activate_cloud_mission' ? Object.assign({}, payload || {}, { cloudUpdatedAt: missionSnapshot.updatedAt || control.updatedAt }) : (payload || {})
     }).then(function (result) {
       var presentation = window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.formatIntentResult === 'function'
         ? window.GAMissionControlUiCore.formatIntentResult(result)
@@ -2393,7 +2393,35 @@
     });
   }
 
+  var cloudMissionOfferKey = '';
+  function offerCloudMissionReplacement(payload) {
+    var authority = payload && payload.authoritySnapshot;
+    var candidate = authority && authority.pendingCloudMission;
+    var run = authority && authority.activeRun;
+    if (!candidate || !run) return;
+    var key = candidate.missionId + ':' + candidate.updatedAt + ':' + run.runId;
+    if (key === cloudMissionOfferKey) return;
+    cloudMissionOfferKey = key;
+    window.setTimeout(function () {
+      if (!window.confirm('Neue Cloud-Mission „' + (candidate.title || candidate.missionId)
+          + '“ erkannt.\n\nDie laufende Mission abbrechen und die neue Mission laden? Der bisherige Fortschritt geht verloren.')) return;
+      var client = window.gaCockpitSessionClient;
+      if (!client) return;
+      client.submitIntent({ commandId: 'efb-cloud-load-' + Date.now(), intent: 'activate_cloud_mission',
+        missionId: candidate.missionId, runId: candidate.control.runId, expectedRevision: 0,
+        payload: { cloudUpdatedAt: candidate.updatedAt,
+          replaceRun: { confirmed: true, missionId: run.missionId, runId: run.runId, revision: run.revision } }
+      }).then(function (result) {
+        if (!result || !result.ok) {
+          cloudMissionOfferKey = '';
+          window.alert('Die neue Mission konnte nicht geladen werden. Bitte erneut versuchen.');
+        }
+      }).catch(function () { cloudMissionOfferKey = ''; });
+    }, 0);
+  }
+
   function renderMissionPayload(payload) {
+    offerCloudMissionReplacement(payload);
     var next = payload && payload.available === true ? payload : null;
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};
     var previousControl = missionSnapshot && missionSnapshot.control;

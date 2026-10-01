@@ -5770,3 +5770,22 @@ Windows-/MSFS-Ausfuehrung auf diesem Rechner.
 Alpha-Release `v458` veroeffentlicht und erneut heruntergeladen: 173068379
 Bytes, SHA-256 `f361718afc4ff011c601a6fb2b4d9c9111436e7125ce434d20effb43a1466e30`. Alpha-Kanal auf dieses Artefakt gesetzt;
 Stable unveraendert.
+
+
+### Cloud-Laden bei Tracker Authority (01.10.2026, Implementierung)
+
+`mission.cloud-load.v1` wird nur mit freigegebener Tracker-Ausfuehrung beworben.
+Der Tracker pollt den Seed auch bei aktivem Run. Ohne Run wird ein gueltiger
+Cloud-Seed bei verbundenem Simulator automatisch geladen und vorbereitet.
+Eine andere, neuere Mission erscheint als `pendingCloudMission` in allen
+Authority-Snapshots; App und EFB fragen einmal pro Seed und Run nach Ersetzung.
+Die Bestaetigung bindet Seed-Zeitpunkt, Run-ID und Revision. Erst nach
+erfolgreichem Abbruch inklusive Payload-Restore und Szenenbereinigung wird
+die neue Mission aktiviert. Alte Web-Runs werden dabei explizit bereinigt
+und freigegeben, ohne einen Browser-Owner zu uebernehmen. Cloud-Pulls verwenden
+bei dieser Capability keine Legacy-Geraeteuebergabe mehr. Ablehnung belaesst
+den laufenden Run. Stable und Tracker ohne Opt-in behalten ihren bisherigen Pfad.
+Tracker v461 wird als Alpha-Fix veroeffentlicht. 63 relevante Core-/Cloud-/EFB-Tests
+bestehen; zwei bereits vorher fehlschlagende Legacy-Selbsttests bleiben offen.
+Der Windows-Build verwendet pkg ohne Bytecode-Vorkompilierung. Die reale
+In-Sim-Abnahme steht noch aus.

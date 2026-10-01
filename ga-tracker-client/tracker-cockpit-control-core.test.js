@@ -312,3 +312,23 @@ test('worker validation forwards the original revision without a separate rebase
   assert.equal((await app.control.submitTrustedIntent({ ...request, commandId: 'wrong-worker-run', runId: 'other' }, { clientId: 'remote' })).error, 'mission_run_conflict');
   assert.equal(calls.length, 1);
 });
+
+
+test('cloud activation delegates active-run replacement preconditions to the cloud loader', async () => {
+  const run = { missionId: 'active', runId: 'legacy-run', revision: 4, authority: 'tracker' };
+  let received;
+  const control = createTrackerCockpitControl({ getMissionRun: () => run,
+    activateMission: async request => {
+      received = request;
+      return { ok: false, status: 'conflict', error: 'mission_revision_conflict', sideEffect: false };
+    }
+  });
+  const registered = control.register({ clientId: 'efb-replacement', role: 'efb' });
+  const payload = { cloudUpdatedAt: 1200, replaceRun: { confirmed: true, missionId: 'active', runId: 'legacy-run', revision: 4 } };
+  const result = await control.submitIntent({ sessionId: registered.session.sessionId,
+    sessionToken: registered.sessionToken, commandId: 'replace-1', intent: 'activate_cloud_mission',
+    missionId: 'new-mission', runId: 'cloud-pending', expectedRevision: 0, payload });
+  assert.equal(result.error, 'mission_revision_conflict');
+  assert.deepEqual(received.payload, payload);
+  assert.equal(received.controllerSession.role, 'efb');
+});

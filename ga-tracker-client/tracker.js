@@ -49,7 +49,9 @@ const { createTrackerEfbChecklistStore } = require('./tracker-efb-checklist-libr
 const { fetchTrackerEfbChecklistLibrary } = require('./tracker-efb-checklist-cloud.js');
 const {
   CLOUD_MISSION_PENDING_RUN_ID,
-  fetchTrackerCloudMission
+  fetchTrackerCloudMission,
+  pendingCloudMission,
+  validateCloudMissionActivation
 } = require('./tracker-mission-cloud.js');
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 const { createTrackerVoiceService } = require('./tracker-voice-service.js');
@@ -90,8 +92,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v460';
-const TRACKER_VERSION_CODE = 460;
+const TRACKER_VERSION = 'v461';
+const TRACKER_VERSION_CODE = 461;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -113,7 +115,7 @@ const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.bush-strip.v1', 'mission.bush-return.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
+  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cloud-load.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.bush-strip.v1', 'mission.bush-return.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -4406,7 +4408,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (!activeRun?.missionId || !activeRun?.runId) {
         return { ok: false, status: 'conflict', error: 'no_active_run', cleared: 0, sideEffect: false };
       }
-      if (activeRun.executionAuthority !== 'tracker') {
+      if (activeRun.executionAuthority !== 'tracker' && request.allowLegacyCloudReplacement !== true) {
         return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', cleared: 0, sideEffect: false };
       }
       if (missionId !== activeRun.missionId || runId !== activeRun.runId) {
@@ -4980,6 +4982,11 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     });
   }
   let _cloudMissionCandidate = null;
+  let _cloudMissionActivationInProgress = false;
+  const cloudAuthoritySnapshot = () => ({
+    ...missionAuthorityManager.getPublicSnapshot(),
+    pendingCloudMission: pendingCloudMission(_cloudMissionCandidate, missionAuthorityManager.getActiveRun())
+  });
   let _cloudMissionSyncInProgress = false;
   let _cloudMissionLastAttemptAt = 0;
   let _cloudMissionLastSuccessAt = 0;
@@ -5003,7 +5010,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       }
       const completedRun = missionAuthorityManager.getPublicSnapshot().lastRun;
       if (result.candidate
-          && completedRun?.state === 'completed'
+          && ['completed', 'aborted', 'ended'].includes(completedRun?.state)
           && completedRun.missionId === result.candidate.missionId
           && Number(completedRun.acquiredAt || completedRun.updatedAt || 0) >= Number(result.candidate.updatedAt || 0)) {
         result.candidate = null;
@@ -5012,10 +5019,23 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       _cloudMissionLastStatus = result.status || 'empty';
       const previousKey = `${_cloudMissionCandidate?.missionId || ''}:${_cloudMissionCandidate?.updatedAt || 0}`;
       _cloudMissionCandidate = result.candidate || null;
+      if (_cloudMissionCandidate?.missionId === missionAuthorityManager.getActiveRun()?.missionId) {
+        _cloudMissionCandidate = null;
+      }
       _cloudMissionLastSuccessAt = Date.now();
       const nextKey = `${_cloudMissionCandidate?.missionId || ''}:${_cloudMissionCandidate?.updatedAt || 0}`;
       if (previousKey !== nextKey || reason !== 'interval') {
         debugLog(`MISSION_CLOUD_SYNC reason=${reason} status=${_cloudMissionLastStatus} mission=${_cloudMissionCandidate?.missionId || 'none'} updatedAt=${_cloudMissionCandidate?.updatedAt || 0}`);
+      }
+      if (previousKey !== nextKey) broadcastMissionAuthorityUpdate('cloud-mission-detected');
+      if (_cloudMissionCandidate && !missionAuthorityManager.getActiveRun()
+          && !_cloudMissionActivationInProgress && missionExecutionRuntime.publicState().simulatorAttached) {
+        const candidate = _cloudMissionCandidate;
+        await activateCloudMission({ commandId: `cloud-load-${candidate.missionId}-${candidate.updatedAt}`,
+          missionId: candidate.missionId, runId: CLOUD_MISSION_PENDING_RUN_ID, expectedRevision: 0,
+          payload: { cloudUpdatedAt: candidate.updatedAt },
+          controllerSession: { clientId: 'tracker-cloud-loader', role: 'tracker' } });
+        broadcastMissionAuthorityUpdate('cloud-mission-loaded');
       }
       return _cloudMissionCandidate;
     } catch (error) {
@@ -5026,6 +5046,35 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       _cloudMissionSyncInProgress = false;
     }
   };
+  let _cloudMissionReplacementCleanupInProgress = false;
+  const abortCloudReplacementRun = async (request, previousRun) => {
+    if (_cloudMissionReplacementCleanupInProgress) return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };
+    _cloudMissionReplacementCleanupInProgress = true;
+    try {
+    let aborted;
+      if (previousRun.executionAuthority === 'tracker') {
+        aborted = await missionExecutionRuntime.executeIntent({
+          ...request, commandId: request.commandId, intent: 'abort_mission',
+          missionId: previousRun.missionId, runId: previousRun.runId, expectedRevision: previousRun.revision,
+          payload: { reason: request.payload?.reason || 'cloud-mission-replacement' }
+        });
+      } else {
+        const cleanup = await missionSmokeController.cleanupExecutionRun({
+          missionId: previousRun.missionId, runId: previousRun.runId,
+          reason: request.payload?.reason || 'cloud-mission-replacement', allowLegacyCloudReplacement: true
+        });
+        if (!cleanup.ok) return cleanup;
+        const current = missionAuthorityManager.getActiveRun();
+        if (!current || current.runId !== previousRun.runId || current.revision !== previousRun.revision) {
+          return { ok: false, status: 'conflict', error: 'mission_revision_conflict', sideEffect: cleanup.sideEffect === true };
+        }
+        aborted = await missionAuthorityManager.release({ missionId: previousRun.missionId, runId: previousRun.runId,
+          clientId: previousRun.ownerClientId, commandId: `${request.commandId}:replace-release`,
+          reason: request.payload?.reason || 'cloud-mission-replacement' });
+      }
+    return aborted;
+    } finally { _cloudMissionReplacementCleanupInProgress = false; }
+  };
   const activateCloudMissionInternal = async (request = {}) => {
     if (!TRACKER_APT_EXECUTION_ENABLED || !missionExecutionRuntime.enabled) {
       return { ok: false, status: 'blocked', error: 'mission_execution_authority_not_enabled', sideEffect: false };
@@ -5033,15 +5082,20 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     if (!missionExecutionRuntime.publicState().simulatorAttached) {
       return { ok: false, status: 'blocked', error: 'mission_simulator_not_connected', sideEffect: false };
     }
-    if (missionAuthorityManager.getActiveRun()) {
-      return { ok: false, status: 'conflict', error: 'mission_authority_conflict', sideEffect: false, activeRun: missionAuthorityManager.getActiveRun() };
+    // Re-read the cloud before releasing anything. A stale UI must never load
+    // a candidate that has since been replaced or removed from the cloud.
+    await refreshCloudMissionCandidate('activation');
+    if (_cloudMissionLastSuccessAt < _cloudMissionLastAttemptAt || _cloudMissionLastStatus !== 'ready') {
+      return { ok: false, status: 'blocked', error: 'sync_unavailable', sideEffect: false };
     }
-    const candidate = _cloudMissionCandidate || await refreshCloudMissionCandidate('activation');
-    if (!candidate) return { ok: false, status: 'blocked', error: 'cloud_mission_not_available', sideEffect: false };
-    if (String(request.missionId || '') !== candidate.missionId
-        || String(request.runId || '') !== CLOUD_MISSION_PENDING_RUN_ID
-        || Number(request.expectedRevision) !== 0) {
-      return { ok: false, status: 'conflict', error: 'cloud_mission_revision_conflict', sideEffect: false };
+    const candidate = _cloudMissionCandidate;
+    const previousRun = missionAuthorityManager.getActiveRun();
+    const validationError = validateCloudMissionActivation(candidate, request, previousRun);
+    if (validationError) return { ok: false, status: 'conflict', error: validationError, sideEffect: false };
+    if (previousRun) {
+      const aborted = await abortCloudReplacementRun({ ...request, commandId: `${request.commandId}:replace-abort` }, previousRun);
+      if (!aborted?.ok) return aborted;
+      trackerMissionShadow.clear();
     }
     const ownerClientId = `tracker-cloud:${String(request.controllerSession?.clientId || 'efb').slice(0, 180)}`;
     const acquired = await missionAuthorityManager.acquire({
@@ -5119,9 +5173,12 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     return { ...started, cloudActivated: true, sideEffect: started.sideEffect === true };
   };
   const activateCloudMission = async request => {
+    if (_cloudMissionActivationInProgress) return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };
+    _cloudMissionActivationInProgress = true;
     let result;
     try { result = await activateCloudMissionInternal(request); }
     catch (error) { result = { ok: false, status: 'error', error: error.code || error.message, sideEffect: false }; }
+    finally { _cloudMissionActivationInProgress = false; }
     if (!result.ok) debugLog(`MISSION_CLOUD_ACTIVATE_REJECTED mission=${request?.missionId || 'none'} error=${result.error || result.status}`);
     return result;
   };
@@ -5158,7 +5215,13 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     validateIntentInExecutor: Boolean(missionProcess),
     canRebaseIntentRevision: request => missionAuthorityManager.canRebaseIntentRevision(request),
     executeIntent: async request => {
-      const result = await missionExecutionRuntime.executeIntent(request);
+      const run = missionAuthorityManager.getActiveRun();
+      const legacyCloudAbort = TRACKER_APT_EXECUTION_ENABLED && run && run.executionAuthority !== 'tracker'
+        && request.intent === 'abort_mission' && request.payload?.reason === 'new-mission-replacement';
+      if (legacyCloudAbort && (request.missionId !== run.missionId || request.runId !== run.runId || Number(request.expectedRevision) !== run.revision)) {
+        return { ok: false, status: 'conflict', error: 'mission_revision_conflict', sideEffect: false };
+      }
+      const result = legacyCloudAbort ? await abortCloudReplacementRun(request, run) : await missionExecutionRuntime.executeIntent(request);
       if (result?.ok === true && String(request?.intent || request?.action || '').toLowerCase() === 'abort_mission') {
         // Reset/abort removes the active authority immediately.  Refreshing
         // here avoids making EFB clients wait for the ten-second cloud poll
@@ -5420,7 +5483,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       getSnapshot: () => _lastEfbSnapshot,
       getMapSnapshot: getCockpitMap,
       getMissionSnapshot: () => {
-        const authoritySnapshot = missionAuthorityManager.getPublicSnapshot();
+        const authoritySnapshot = cloudAuthoritySnapshot();
         const executionControl = authoritySnapshot.execution || null;
         const projected = projectTrackerEfbMissionView(
           missionAuthorityManager.getActiveRun({ includeBundle: true }),
@@ -5457,6 +5520,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
             executionShadow: trackerMissionShadow.publicState()
           };
         }
+        if (authoritySnapshot.activeRun) return { available: false, authoritySnapshot };
         return authoritySnapshot.lastExecution?.phase === 'closed' ? {
           available: false,
           authoritySnapshot,
@@ -5559,7 +5623,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         telemetryMode: _telemetryHibernateState.mode,
         telemetryHibernateReason: _telemetryHibernateState.reason || null,
         telemetryModeSince: Number(_telemetryHibernateState.since) || null,
-        trackerMissionAuthority: missionAuthorityManager.getPublicSnapshot(),
+        trackerMissionAuthority: cloudAuthoritySnapshot(),
         trackerAudio: audioSnapshot(),
         missionUpdate: {
           reason: String(reason || 'mission-update').slice(0, 96),
@@ -6079,7 +6143,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         telemetryLastPosition: _telemetryHibernateState.mode === 'hibernate' && _lastEfbSnapshot
           ? _lastEfbSnapshot
           : null,
-        trackerMissionAuthority: missionAuthorityManager.getPublicSnapshot(),
+        trackerMissionAuthority: cloudAuthoritySnapshot(),
         trackerAudio: audioSnapshot(),
         trackerNavigation: cockpitTools.version(),
         sentAt: Date.now()
@@ -6147,7 +6211,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     : null;
   const missionCloudInterval = TRACKER_APT_EXECUTION_ENABLED
     ? setInterval(() => {
-        if (!missionAuthorityManager.getActiveRun()) refreshCloudMissionCandidate('interval');
+        refreshCloudMissionCandidate('interval');
       }, 2500)
     : null;
   if (typeof checklistCloudStartTimer.unref === 'function') checklistCloudStartTimer.unref();
@@ -6239,7 +6303,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const sendMissionIntentAck = (command = {}, result = {}) => {
         const ws = getWs();
         if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-        const authoritySnapshot = missionAuthorityManager?.getPublicSnapshot?.() || null;
+        const authoritySnapshot = cloudAuthoritySnapshot();
         try {
           const msg = {
             type: 'gps',

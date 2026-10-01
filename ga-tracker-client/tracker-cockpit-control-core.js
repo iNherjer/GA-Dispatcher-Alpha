@@ -206,8 +206,6 @@ function createTrackerCockpitControl(options = {}) {
     if (intent === 'activate_cloud_mission') {
       if (!activateMission) {
         result = { ok: false, status: 'blocked', error: 'cloud_mission_activation_unavailable', sideEffect: false, activeRun };
-      } else if (activeRun) {
-        result = { ok: false, status: 'conflict', error: 'mission_authority_conflict', sideEffect: false, activeRun };
       } else {
         try {
           const activated = safeObject(await activateMission({

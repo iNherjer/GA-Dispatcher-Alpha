@@ -2306,17 +2306,19 @@ async function _submitTrackerExecutionIntent(intent, payload = {}, options = {})
     }
     const execute = async () => {
         const cloudControl = intent === 'activate_cloud_mission'
-            && window.gaTrackerExecutionControl?.cloudPending === true
-            ? window.gaTrackerExecutionControl
+            ? (options.cloudControl || (window.gaTrackerExecutionControl?.cloudPending === true ? window.gaTrackerExecutionControl : null))
             : null;
-        const ready = !!cloudControl || _missionExecutionAuthorityIsTracker()
+        const legacyCloudAbort = intent === 'abort_mission' && payload?.reason === 'new-mission-replacement'
+            && (window.liveTrackerCapabilities || []).includes('mission.cloud-load.v1');
+        const ready = !!cloudControl || legacyCloudAbort || _missionExecutionAuthorityIsTracker()
             || (intent === 'prepare_mission' && await _ensureTrackerExecutionAuthority(`intent:${intent}`));
         if (!ready) return { ok: false, status: 'blocked', error: 'mission_execution_authority_web' };
-        const activeRun = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || cloudControl || null;
+        const activeRun = cloudControl || window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
         if (!activeRun?.missionId || !activeRun?.runId) {
             return { ok: false, status: 'blocked', error: 'cockpit_session_unavailable' };
         }
         const intentPayload = payload && typeof payload === 'object' ? { ...payload } : {};
+        if (cloudControl && intentPayload.cloudUpdatedAt === undefined) intentPayload.cloudUpdatedAt = cloudControl.updatedAt;
         if (intent === 'request_close'
             && !intentPayload.farewellVoiceRecipe
             && typeof window.paxVoiceBuildFarewellEffectRecipe === 'function') {
@@ -2488,7 +2490,9 @@ window.gaTrackerExecutionSubmitIntent = function(intent, payload = {}, options =
 function _trackerExecutionAbortedRun(snapshot = null) {
     const lastRun = snapshot?.lastRun && typeof snapshot.lastRun === 'object' ? snapshot.lastRun : null;
     if (!lastRun?.missionId || !lastRun?.runId) return null;
-    return lastRun.state === 'aborted' && lastRun.lastCommandType === 'mission_execution_abort'
+    const legacyCloudReplacement = lastRun.state === 'ended' && lastRun.lastCommandType === 'mission_authority_release'
+        && ['new-mission-replacement', 'cloud-mission-replacement'].includes(lastRun.lastReason);
+    return legacyCloudReplacement || (lastRun.state === 'aborted' && lastRun.lastCommandType === 'mission_execution_abort')
         ? lastRun
         : null;
 }
@@ -2580,7 +2584,9 @@ window.gaAbortTrackerMission = async function(options = {}) {
         return pendingResult;
     }
     missionExecutionAbortPromise = (async () => {
-        if (!_missionExecutionAuthorityIsTracker()) {
+        const legacyCloudAbort = options.reason === 'new-mission-replacement'
+            && (window.liveTrackerCapabilities || []).includes('mission.cloud-load.v1');
+        if (!_missionExecutionAuthorityIsTracker() && !legacyCloudAbort) {
             return { ok: false, status: 'blocked', error: 'mission_execution_authority_web' };
         }
         if (options.skipConfirm !== true && !_confirmMissionCriticalAction(options.confirmAction || 'abort', options)) {
@@ -5227,10 +5233,33 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
     return true;
 }
 
+let trackerCloudMissionOfferKey = '';
+let trackerCloudMissionOfferPending = false;
+function _offerTrackerCloudMission(snapshot) {
+    const candidate = snapshot?.pendingCloudMission;
+    const run = snapshot?.activeRun;
+    if (!candidate?.control || !run || trackerCloudMissionOfferPending) return;
+    const key = `${candidate.missionId}:${candidate.updatedAt}:${run.runId}`;
+    if (key === trackerCloudMissionOfferKey) return;
+    trackerCloudMissionOfferKey = key;
+    trackerCloudMissionOfferPending = true;
+    setTimeout(async () => {
+        try {
+            if (!confirm(`Neue Cloud-Mission „${candidate.title || candidate.missionId}“ erkannt.\n\nDie laufende Mission abbrechen und die neue Mission laden? Der bisherige Fortschritt geht verloren.`)) return;
+            const result = await _submitTrackerExecutionIntent('activate_cloud_mission', {
+                cloudUpdatedAt: candidate.updatedAt,
+                replaceRun: { confirmed: true, missionId: run.missionId, runId: run.runId, revision: run.revision }
+            }, { cloudControl: candidate.control });
+            if (!result?.ok) trackerCloudMissionOfferKey = '';
+        } catch (_) { trackerCloudMissionOfferKey = ''; } finally { trackerCloudMissionOfferPending = false; }
+    }, 0);
+}
+
 function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'tracker-authority') {
     if (!snapshot || typeof snapshot !== 'object') return false;
     const active = snapshot.activeRun && typeof snapshot.activeRun === 'object' ? snapshot.activeRun : null;
     let local = _readMissionAuthorityState();
+    _offerTrackerCloudMission(snapshot);
     if (!active?.missionId || !active?.runId) {
         const aborted = _applyTrackerExecutionAbortLocally(snapshot, `${reason}:aborted`);
         const completed = snapshot.lastExecution?.phase === 'closed'
@@ -12414,6 +12443,14 @@ function _updateMissionStartBanner() {
     banner.classList.toggle('is-begin-action', showStart && phase === 'planned');
     banner.classList.toggle('is-final-action', showFinalEndAction);
     if (showAuthorityConflict) {
+        if ((window.liveTrackerCapabilities || []).includes('mission.cloud-load.v1')) {
+            const pending = window.lastTrackerMissionAuthority?.pendingCloudMission;
+            if (kickerEl) kickerEl.textContent = pending ? 'Neue Cloud-Mission bereit' : 'Mission läuft auf dem Tracker';
+            if (textEl) textEl.textContent = pending ? `„${pending.title || pending.missionId}“ kann nach Bestätigung geladen werden.` : 'Der Tracker führt den aktuellen Lauf. Neue Cloud-Missionen werden automatisch erkannt.';
+            if (closeBtn) closeBtn.style.display = 'none';
+            if (btn) { btn.textContent = 'Neue Mission laden'; btn.disabled = !pending; }
+            return;
+        }
         if (kickerEl) kickerEl.textContent = 'Mission läuft auf dem Tracker';
         if (closeBtn) closeBtn.style.display = 'none';
         if (textEl) {
@@ -14502,6 +14539,11 @@ window.handleMissionStartBannerAction = async function() {
     missionStartActionPromise = (async () => {
         window.requestTrackerTelemetryWake?.('mission-start');
         if (window.missionRuntimeResumeConflict?.trackerActive === true) {
+            if ((window.liveTrackerCapabilities || []).includes('mission.cloud-load.v1')) {
+                trackerCloudMissionOfferKey = '';
+                _offerTrackerCloudMission(window.lastTrackerMissionAuthority);
+                return false;
+            }
             return window.resumeTrackerMissionOnThisDevice?.();
         }
         const trackerBannerAction = document.getElementById('missionStartBanner')?._gaTrackerAction || null;
@@ -15690,6 +15732,14 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
         localMission = null;
     }
     const trackerRun = _syncActiveTrackerRunForCloudPull();
+    if (trackerRun && (window.liveTrackerCapabilities || []).includes('mission.cloud-load.v1')) {
+        _offerTrackerCloudMission(window.lastTrackerMissionAuthority);
+        _syncRecordCloudMissionPullOutcome('tracker-authority-retained', {
+            source: String(options.source || 'cloud-pull'), trackerMissionId: trackerRun.missionId,
+            cloudMissionId: _syncMissionIdentityValues(activeMission)[0] || null
+        });
+        return false;
+    }
     if (trackerRun) {
         const trackerMissionId = String(trackerRun.missionId || '').trim().toLowerCase();
         const cloudMissionIds = _syncMissionIdentityValues(activeMission);

@@ -232,7 +232,36 @@ async function fetchTrackerCloudMission(syncId, pin, options = {}) {
   return buildCloudMissionCandidate(response.data, { ...options, pilotId });
 }
 
+// A replacement binds the confirmation to the exact run and seed that the
+// interface saw. A changed run/revision requires a fresh confirmation.
+function pendingCloudMission(candidate, activeRun) {
+  if (!candidate || !activeRun || candidate.missionId === activeRun.missionId) return null;
+  if (Number(candidate.updatedAt) <= Number(activeRun.acquiredAt || 0)) return null;
+  return { missionId: candidate.missionId, title: candidate.title,
+    updatedAt: candidate.updatedAt, control: candidate.control };
+}
+
+function validateCloudMissionActivation(candidate, request, activeRun) {
+  if (!candidate) return 'cloud_mission_not_available';
+  if (request.missionId !== candidate.missionId || request.runId !== CLOUD_MISSION_PENDING_RUN_ID
+      || Number(request.expectedRevision) !== 0
+      || ((activeRun || request.payload?.cloudUpdatedAt !== undefined)
+        && Number(request.payload?.cloudUpdatedAt) !== Number(candidate.updatedAt))) {
+    return 'cloud_mission_revision_conflict';
+  }
+  if (!activeRun) return request.payload?.replaceRun ? 'mission_run_conflict' : null;
+  const replacement = request.payload?.replaceRun;
+  if (!replacement || replacement.confirmed !== true) return 'cloud_mission_replacement_confirmation_required';
+  if (!pendingCloudMission(candidate, activeRun) || replacement.missionId !== activeRun.missionId
+      || replacement.runId !== activeRun.runId || Number(replacement.revision) !== Number(activeRun.revision)) {
+    return 'mission_revision_conflict';
+  }
+  return null;
+}
+
 module.exports = {
+  pendingCloudMission,
+  validateCloudMissionActivation,
   CLOUD_MISSION_PENDING_RUN_ID,
   CLOUD_MISSION_SEED_SCHEMA,
   MAX_PROFILE_RESPONSE_BYTES,
