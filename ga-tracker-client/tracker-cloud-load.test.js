@@ -46,7 +46,9 @@ for(const authority of ['tracker','web']) {
     const f=fixture({authority});const result=await f.context.activate(f.request);
     assert.equal(result.ok,true);assert.equal(f.run().missionId,'new-mission');
     assert.ok(f.calls.indexOf(authority==='tracker'?'abort_mission':'legacy-cleanup')<f.calls.indexOf('acquire'));
-    assert.equal(f.calls.at(-1),'prepare_mission');
+    assert.equal(f.calls.at(-1),'observe');
+    assert.ok(!f.calls.includes('prepare_mission'));
+    assert.equal(result.sideEffect,false);
   });
   test(`${authority} cleanup failure preserves the old run`,async()=>{
     const f=fixture({authority,cleanupOk:false});const result=await f.context.activate(f.request);
@@ -64,6 +66,7 @@ test('idle cloud loading requires no browser owner and serializes duplicate acti
   const f=fixture({active:false});const first=f.context.activate(f.request);const second=await f.context.activate(f.request);
   assert.equal(second.error,'cloud_mission_activation_pending');assert.equal((await first).ok,true);
   assert.equal(f.calls.filter(value=>value==='acquire').length,1);
+  assert.ok(!f.calls.includes('prepare_mission'));
 });
 
 test('SimConnect relay ACK receives its snapshot reader explicitly and preserves cloud offers', () => {
@@ -129,4 +132,21 @@ test('EFB failure keeps acknowledgement and permits only an explicit retry', asy
   context.offer(snapshot); assert.equal(scheduled.length, 0); assert.equal(prompts, 1);
   context.offer(snapshot, true); scheduled.shift()(); await new Promise(resolve => setImmediate(resolve));
   assert.equal(prompts, 2);
+});
+
+test('idle cloud polling offers the mission without activating it', async () => {
+  const start = source.indexOf('  let _cloudMissionSyncInProgress = false;');
+  const end = source.indexOf('  let _cloudMissionReplacementCleanupInProgress', start);
+  let activations = 0;
+  const context = { TRACKER_APT_EXECUTION_ENABLED: true, TRACKER_POI_EXECUTION_ENABLED: true,
+    syncId: 'test', pin: 'test', _cloudMissionCandidate: null, _cloudMissionActivationInProgress: false,
+    fetchTrackerCloudMission: async () => ({ok:true,status:'ready',candidate:{missionId:'new',updatedAt:200}}),
+    missionAuthorityManager: { getPublicSnapshot:()=>({}), getActiveRun:()=>null },
+    missionExecutionRuntime: { publicState:()=>({simulatorAttached:true}) },
+    activateCloudMission: async()=>{activations++;},
+    broadcastMissionAuthorityUpdate:()=>{}, debugLog:()=>{} };
+  vm.runInNewContext(source.slice(start,end)+'\nthis.refresh = refreshCloudMissionCandidate;',context);
+  const offered = await context.refresh('interval');
+  assert.equal(offered.missionId,'new');
+  assert.equal(activations,0);
 });

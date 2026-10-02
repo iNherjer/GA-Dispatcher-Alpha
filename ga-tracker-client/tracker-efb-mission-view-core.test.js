@@ -192,7 +192,7 @@ test('cloud-pending tracker mission projects the activation task and original ma
       summary: { total: 1, requiredTotal: 1, loaded: 0, unloaded: 0, pending: 1 }
     }
   });
-  assert.equal(result.view.currentTask, 'Mission aus der Cloud übernehmen und vorbereiten');
+  assert.equal(result.view.currentTask, 'Mission aus der Cloud laden');
   assert.equal(result.manifest.items[0].label, 'Ersatzteil');
   assert.equal(result.manifest.items[0].status, 'pending');
 });

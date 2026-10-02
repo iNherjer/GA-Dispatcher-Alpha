@@ -18,8 +18,8 @@ function control(phase, allowedActions, flags = {}) {
 test('tracker APT banner preserves the characterized App wording', () => {
   assert.deepEqual(core.bannerModel(control('planned', ['prepare_mission'])), {
     intent: 'prepare_mission', kind: 'intent', kicker: 'Mission bereit',
-    text: 'Mission ist geplant. Mit "Mission starten" wird erst dann Szene, Boarding und Verladen freigegeben.',
-    button: 'Mission starten', className: 'is-begin-action', disabled: false,
+    text: 'Mission ist geplant. Mit "Mission beginnen" wird erst dann die Szenenvorbereitung freigegeben.',
+    button: 'Mission beginnen', className: 'is-begin-action', disabled: false,
     begin: true, endReady: false, final: false, closeHidden: false,
     missionId: 'apt-ui', revision: 4, key: 'apt-ui:4:planned:intent:prepare_mission'
   });
@@ -403,4 +403,13 @@ test('queued loading and unloading immediately show feedback while other items s
   assert.equal(model.items.find(i=>i.id==='other').action.disabled,false);
   assert.equal(model.items.find(i=>i.id==='equipment').action.label,'Entladen vorgemerkt …');
   assert.equal(model.items.find(i=>i.id==='box').status,'pending');
+});
+
+ test('cloud loading has its own action before the planned mission beginning', () => {
+  const load = core.bannerModel(control('planned', ['activate_cloud_mission']));
+  assert.equal(load.intent, 'activate_cloud_mission');
+  assert.equal(load.button, 'Neue Mission laden');
+  const begin = core.bannerModel(control('planned', ['abort_mission', 'prepare_mission']));
+  assert.equal(begin.intent, 'prepare_mission');
+  assert.equal(begin.button, 'Mission beginnen');
 });

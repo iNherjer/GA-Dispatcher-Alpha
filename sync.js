@@ -12276,7 +12276,7 @@ function _trackerMissionBannerModel(control = null) {
     const actions = Array.isArray(control.allowedActions) ? control.allowedActions : [];
     const phase = String(control.phase || '').toLowerCase();
     const labels = {
-        activate_cloud_mission: 'Mission aus der Cloud übernehmen und vorbereiten.',
+        activate_cloud_mission: 'Mission aus der Cloud laden.',
         prepare_mission: 'Mission liegt bereit und kann jetzt vorbereitet werden.',
         start_boarding: 'Missionstart freigegeben. Mit dem nächsten Klick beginnt Boarding und Verladen.',
         start_mission: 'Boarding und Verladung sind abgeschlossen. Die Mission ist startbereit.',
@@ -12284,7 +12284,7 @@ function _trackerMissionBannerModel(control = null) {
     };
     let model = null;
     if (actions.includes('activate_cloud_mission')) {
-        model = { intent: 'activate_cloud_mission', kind: 'intent', kicker: 'Cloud-Mission bereit', text: labels.activate_cloud_mission, button: 'Mission beginnen', className: 'is-begin-action' };
+        model = { intent: 'activate_cloud_mission', kind: 'intent', kicker: 'Cloud-Mission bereit', text: labels.activate_cloud_mission, button: 'Neue Mission laden', className: 'is-begin-action' };
     } else if (actions.includes('request_close')) {
         model = { intent: 'request_close', kind: 'intent', kicker: 'Mission abschließen', text: labels.request_close, button: 'Mission beenden', className: 'is-final-action' };
     } else if (actions.includes('prepare_mission')) {

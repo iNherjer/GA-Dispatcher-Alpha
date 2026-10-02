@@ -1250,3 +1250,13 @@ App und EFB merken eine beantwortete Rueckfrage pro Mission und Run auch bei
 Fehlern; ein neuer Seed-Zeitpunkt derselben Mission oeffnet keinen neuen Dialog.
 Erneutes Laden erfolgt explizit ueber den Banner. Der EFB-Ladebanner bleibt
 auch bei einem Legacy-Run ohne darstellbares Briefing sichtbar.
+
+
+### v464: Cloud-Laden und Missionsbeginn getrennt (02.10.2026)
+
+Cloud-Erkennung bietet einen manuellen Lade-Schritt auch ohne aktiven Run.
+Bestaetigtes Laden bereinigt gegebenenfalls den alten Run und uebernimmt den
+neuen Auftrag in Phase planned. Es sendet kein prepare_mission und erzeugt
+keine neuen Szenen-, Boarding- oder Voice-Effekte. Erst der separate Banner
+Mission beginnen sendet prepare_mission. Die bisherigen Aussagen zur
+automatischen Vorbereitung bei Cloud-Laden sind damit ersetzt.

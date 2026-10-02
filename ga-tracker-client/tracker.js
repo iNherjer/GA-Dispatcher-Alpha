@@ -92,8 +92,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v463';
-const TRACKER_VERSION_CODE = 463;
+const TRACKER_VERSION = 'v464';
+const TRACKER_VERSION_CODE = 464;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5028,15 +5028,6 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         debugLog(`MISSION_CLOUD_SYNC reason=${reason} status=${_cloudMissionLastStatus} mission=${_cloudMissionCandidate?.missionId || 'none'} updatedAt=${_cloudMissionCandidate?.updatedAt || 0}`);
       }
       if (previousKey !== nextKey) broadcastMissionAuthorityUpdate('cloud-mission-detected');
-      if (_cloudMissionCandidate && !missionAuthorityManager.getActiveRun()
-          && !_cloudMissionActivationInProgress && missionExecutionRuntime.publicState().simulatorAttached) {
-        const candidate = _cloudMissionCandidate;
-        await activateCloudMission({ commandId: `cloud-load-${candidate.missionId}-${candidate.updatedAt}`,
-          missionId: candidate.missionId, runId: CLOUD_MISSION_PENDING_RUN_ID, expectedRevision: 0,
-          payload: { cloudUpdatedAt: candidate.updatedAt },
-          controllerSession: { clientId: 'tracker-cloud-loader', role: 'tracker' } });
-        broadcastMissionAuthorityUpdate('cloud-mission-loaded');
-      }
       return _cloudMissionCandidate;
     } catch (error) {
       _cloudMissionLastStatus = 'exception';
@@ -5161,18 +5152,11 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       resumeBundle: active.resumeBundle,
       source: 'tracker-cloud-activation'
     });
-    const started = await missionExecutionRuntime.executeIntent({
-      commandId: `${request.commandId}:prepare-mission`,
-      intent: 'prepare_mission',
-      missionId: active.missionId,
-      runId: active.runId,
-      expectedRevision: active.revision,
-      payload: {},
-      controllerSession: request.controllerSession
-    });
+    // Loading only commits the planned run. Scene, voice and boarding effects
+    // require the separate user-authored prepare_mission intent.
     _cloudMissionCandidate = null;
-    debugLog(`MISSION_CLOUD_ACTIVATE mission=${candidate.missionId} run=${active.runId} status=${started.status || (started.ok ? 'ok' : 'error')} error=${started.error || 'none'}`);
-    return { ...started, cloudActivated: true, sideEffect: started.sideEffect === true };
+    debugLog(`MISSION_CLOUD_ACTIVATE mission=${candidate.missionId} run=${active.runId} status=loaded phase=planned`);
+    return { ok: true, status: 'ok', cloudActivated: true, sideEffect: false };
   };
   const activateCloudMission = async request => {
     if (_cloudMissionActivationInProgress) return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };

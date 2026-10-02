@@ -112,14 +112,14 @@
         } else if (includes(allowed, 'activate_cloud_mission')) {
             model = {
                 intent: 'activate_cloud_mission', kind: 'intent', kicker: 'Cloud-Mission bereit',
-                text: 'Mission aus der Cloud übernehmen und vorbereiten.', button: 'Mission beginnen',
+                text: 'Mission aus der Cloud laden.', button: 'Neue Mission laden',
                 className: 'is-begin-action', disabled: false
             };
         } else if (phase === 'planned' && includes(allowed, 'prepare_mission')) {
             model = {
                 intent: 'prepare_mission', kind: 'intent', kicker: 'Mission bereit',
-                text: 'Mission ist geplant. Mit "Mission starten" wird erst dann Szene, Boarding und Verladen freigegeben.',
-                button: 'Mission starten', className: 'is-begin-action', disabled: false
+                text: 'Mission ist geplant. Mit "Mission beginnen" wird erst dann die Szenenvorbereitung freigegeben.',
+                button: 'Mission beginnen', className: 'is-begin-action', disabled: false
             };
         } else if (phase === 'prepare' && includes(allowed, 'start_boarding')) {
             model = {

@@ -2082,7 +2082,7 @@
     var task = String(view.currentTask || view.status || 'Mission fortsetzen');
     var model = null;
     if (allowedActions.indexOf('activate_cloud_mission') >= 0) {
-      model = { kicker: 'Cloud-Mission bereit', text: task, button: 'Mission beginnen', kind: 'intent', intent: 'activate_cloud_mission', className: 'is-begin-action' };
+      model = { kicker: 'Cloud-Mission bereit', text: task, button: 'Neue Mission laden', kind: 'intent', intent: 'activate_cloud_mission', className: 'is-begin-action' };
     } else if (allowedActions.indexOf('request_close') >= 0) {
       model = { kicker: 'Mission abschließen', text: task, button: 'Mission beenden', kind: 'intent', intent: 'request_close', className: 'is-final-action' };
     } else if (allowedActions.indexOf('prepare_mission') >= 0) {

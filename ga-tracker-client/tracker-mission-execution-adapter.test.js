@@ -249,6 +249,9 @@ test('APT intents and system acknowledgements create only gated semantic core ev
   bundle.executionEffectPlan = { effects: { 'scene.arrival': { command: { type: 'mission_scene_spawn' } } } };
   const fixture = createCommittedFixture(t, { bundle });
 
+  assert.equal(fixture.manager.getExecutionSnapshot().state.phase, 'planned');
+  assert.deepEqual(fixture.manager.getExecutionSnapshot().state.effects, []);
+
   const prepared = executeCurrent(fixture, 'prepare_mission', 'prepare');
   assert.equal(prepared.ok, true);
   assert.equal(prepared.view.phase, 'prepare');
