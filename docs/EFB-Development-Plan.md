@@ -5847,3 +5847,8 @@ Windows-PE-x64-Build mit pkg 6.18.1/Node18 erfolgreich. Wie bei den bisherigen
 Apple-ARM-Releases wurde ohne Bytecode (`--no-bytecode --public
 --public-packages '*'`) gebaut, da die x64-Bytecode-Hilfsruntime auf diesem
 Mac nicht startet. Weitere fuenf Publisher-Tests bestehen.
+
+Alpha-Release `v465` veroeffentlicht und dessen oeffentlicher Download erneut
+geprueft: 173436284 Bytes, SHA-256
+`a39b46a7c3d4d1d47e31a1a7147e58f6aa67e0588d688d74d2c9daf7b0272d63`.
+Der Alpha-Updater verwendet exakt dieses unveraenderliche Artefakt.
