@@ -4613,6 +4613,9 @@ ${routeLines}`;
     });
     setInterval(() => {
         if (document.visibilityState !== 'visible' || !isDrawerOpen() || state.view !== 'mission' || !bodyEl) return;
+        // The EFB host refreshes semantic changes and live fields from tracker
+        // snapshots. Replacing its entire menu here causes a one-second blink.
+        if (window.gaChecklistHost?.missionView) return;
         const scrollTop = bodyEl.scrollTop;
         renderMissionTool();
         bodyEl.scrollTop = scrollTop;

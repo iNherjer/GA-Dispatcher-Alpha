@@ -5814,3 +5814,36 @@ neuen Auftrag in Phase planned. Es sendet kein prepare_mission und erzeugt
 keine neuen Szenen-, Boarding- oder Voice-Effekte. Erst der separate Banner
 Mission beginnen sendet prepare_mission. Die bisherigen Aussagen zur
 automatischen Vorbereitung bei Cloud-Laden sind damit ersetzt.
+
+
+### v465: Stabile Schrift im EFB-Seitenmenue (03.10.2026)
+
+Gezielter Alpha-Folgefix auf der veroeffentlichten v464-Basis, ohne weitere
+Aenderungen des lokalen Missions-Worktrees. Bei vorhandenem Tracker-Host mit
+`missionView` entfaellt der redundante Sekunden-Neuaufbau von Mission Control.
+Snapshot-Aenderungen aktualisieren weiterhin die Darstellung; Live-Hoehe und
+Zielwerte werden in bestehenden Feldern aktualisiert. Standalone behaelt den
+Sekunden-Timer.
+
+Der Font-Observer verarbeitet neue Inhalte unmittelbar vor dem naechsten
+Paint statt nach 40 ms. Reine Textupdates setzen keine vorhandenen
+Schriftgroessen mehr zurueck. Neue Knoten werden gegen unskalierte Vorfahren
+vermessen und im selben Durchlauf skaliert; deren Vorfahren werden sofort
+restauriert. Damit bleiben vererbte/em-basierte Groessen frei von doppelter
+Skalierung. Ein Wechsel der Schriftpraeferenz berechnet die Basis neu;
+100 Prozent restauriert CSS-Vererbung. Identische Live-Texte erzeugen keine
+DOM-Mutation mehr. EFB-Assetrevision `46501`, Web-Cache `v1901`.
+
+Validierung: 30 Node-Tests fuer Web-Client, Fonts, Coherent-Syntax, Asset-Sync
+und Polling bestanden. Der Chromium-Test
+`tools/efb-font-stability-ui-selftest.mjs` prueft 90/110/130 Prozent, korrekte
+vererbte/em/px-Schrift bereits im ersten Frame, keine Font-Style-Mutationen
+bei reinen Textupdates, CSS-Rueckstellung, stabilen Missions-DOM ueber mehrere
+Sekunden, weiterhin aktuelle Live-Hoehe, semantische Snapshot-Wechsel und den
+erhaltenen Standalone-Timer. Der reale MSFS-/Coherent-Test steht noch aus.
+Das vorhandene EFB-Community-Package 0.4.14 und Stable v356 bleiben erhalten.
+
+Windows-PE-x64-Build mit pkg 6.18.1/Node18 erfolgreich. Wie bei den bisherigen
+Apple-ARM-Releases wurde ohne Bytecode (`--no-bytecode --public
+--public-packages '*'`) gebaut, da die x64-Bytecode-Hilfsruntime auf diesem
+Mac nicht startet. Weitere fuenf Publisher-Tests bestehen.

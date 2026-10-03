@@ -889,12 +889,12 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
   }
   function _fetchJson() {
     _fetchJson = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(url, signal) {
-      var _window$gaChecklistHo10;
+      var _window$gaChecklistHo11;
       var request, res;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.n) {
           case 0:
-            request = ((_window$gaChecklistHo10 = window.gaChecklistHost) === null || _window$gaChecklistHo10 === void 0 ? void 0 : _window$gaChecklistHo10.fetch) || fetch;
+            request = ((_window$gaChecklistHo11 = window.gaChecklistHost) === null || _window$gaChecklistHo11 === void 0 ? void 0 : _window$gaChecklistHo11.fetch) || fetch;
             _context.n = 1;
             return request(url, {
               signal,
@@ -2691,7 +2691,7 @@ ${routeLines}`;
   }
   function _ensureWeatherTool() {
     _ensureWeatherTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-      var _window$gaChecklistHo11, _window$gaChecklistHo12;
+      var _window$gaChecklistHo12, _window$gaChecklistHo13;
       var force,
         key,
         entry,
@@ -2734,7 +2734,7 @@ ${routeLines}`;
             entry.loading = true;
             entry.key = key;
             entry.error = '';
-            entry.controller = ((_window$gaChecklistHo11 = window.gaChecklistHost) === null || _window$gaChecklistHo11 === void 0 || (_window$gaChecklistHo12 = _window$gaChecklistHo11.createAbortController) === null || _window$gaChecklistHo12 === void 0 ? void 0 : _window$gaChecklistHo12.call(_window$gaChecklistHo11)) || new AbortController();
+            entry.controller = ((_window$gaChecklistHo12 = window.gaChecklistHost) === null || _window$gaChecklistHo12 === void 0 || (_window$gaChecklistHo13 = _window$gaChecklistHo12.createAbortController) === null || _window$gaChecklistHo13 === void 0 ? void 0 : _window$gaChecklistHo13.call(_window$gaChecklistHo12)) || new AbortController();
             if (state.view === 'weather') render();
             _context5.p = 4;
             samples = pickRouteSamplePoints(5);
@@ -3065,7 +3065,7 @@ ${routeLines}`;
   }
   function _ensureRadioTool() {
     _ensureRadioTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
-      var _window$gaChecklistHo13, _window$gaChecklistHo14;
+      var _window$gaChecklistHo14, _window$gaChecklistHo15;
       var force,
         key,
         entry,
@@ -3105,7 +3105,7 @@ ${routeLines}`;
             entry.loading = true;
             entry.key = key;
             entry.error = '';
-            entry.controller = ((_window$gaChecklistHo13 = window.gaChecklistHost) === null || _window$gaChecklistHo13 === void 0 || (_window$gaChecklistHo14 = _window$gaChecklistHo13.createAbortController) === null || _window$gaChecklistHo14 === void 0 ? void 0 : _window$gaChecklistHo14.call(_window$gaChecklistHo13)) || new AbortController();
+            entry.controller = ((_window$gaChecklistHo14 = window.gaChecklistHost) === null || _window$gaChecklistHo14 === void 0 || (_window$gaChecklistHo15 = _window$gaChecklistHo14.createAbortController) === null || _window$gaChecklistHo15 === void 0 ? void 0 : _window$gaChecklistHo15.call(_window$gaChecklistHo14)) || new AbortController();
             if (state.view === 'radio') render();
             _context8.p = 3;
             route = getRoutePoints();
@@ -3634,7 +3634,7 @@ ${routeLines}`;
   }
   function _ensureNearestTool() {
     _ensureNearestTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-      var _window$gaChecklistHo15, _window$gaChecklistHo16;
+      var _window$gaChecklistHo16, _window$gaChecklistHo17;
       var force,
         origin,
         entry,
@@ -3683,7 +3683,7 @@ ${routeLines}`;
             entry.key = key;
             entry.origin = origin;
             entry.error = '';
-            entry.controller = ((_window$gaChecklistHo15 = window.gaChecklistHost) === null || _window$gaChecklistHo15 === void 0 || (_window$gaChecklistHo16 = _window$gaChecklistHo15.createAbortController) === null || _window$gaChecklistHo16 === void 0 ? void 0 : _window$gaChecklistHo16.call(_window$gaChecklistHo15)) || new AbortController();
+            entry.controller = ((_window$gaChecklistHo16 = window.gaChecklistHost) === null || _window$gaChecklistHo16 === void 0 || (_window$gaChecklistHo17 = _window$gaChecklistHo16.createAbortController) === null || _window$gaChecklistHo17 === void 0 ? void 0 : _window$gaChecklistHo17.call(_window$gaChecklistHo16)) || new AbortController();
             if (state.view === 'nearest') render();
             _context9.p = 4;
             b = routeBounds([{
@@ -5941,7 +5941,11 @@ ${routeLines}`;
     scheduleCustomChecklistsForTracker(120);
   });
   setInterval(() => {
+    var _window$gaChecklistHo10;
     if (document.visibilityState !== 'visible' || !isDrawerOpen() || state.view !== 'mission' || !bodyEl) return;
+    // The EFB host refreshes semantic changes and live fields from tracker
+    // snapshots. Replacing its entire menu here causes a one-second blink.
+    if ((_window$gaChecklistHo10 = window.gaChecklistHost) !== null && _window$gaChecklistHo10 !== void 0 && _window$gaChecklistHo10.missionView) return;
     var scrollTop = bodyEl.scrollTop;
     renderMissionTool();
     bodyEl.scrollTop = scrollTop;

@@ -80,7 +80,6 @@
   var trackerChecklistLibrary = { revision: 0, checklists: [] };
   var checklistLibrarySignature = '';
   var efbUiObserver = null;
-  var efbUiRefreshTimer = 0;
   var drawerInteractionActive = false;
   var drawerInteractionTimer = 0;
   var drawerInputGeneration = 0;
@@ -101,7 +100,11 @@
     dwd: 'gaWeatherPane'
   };
   function byId(id) { return document.getElementById(id); }
-  function setText(id, value) { var node = byId(id); if (node) node.textContent = String(value == null ? '' : value); }
+  function setText(id, value) {
+    var node = byId(id);
+    var text = String(value == null ? '' : value);
+    if (node && node.textContent !== text) node.textContent = text;
+  }
   function isFiniteNumber(value) { return typeof value === 'number' && isFinite(value); }
   function finite(value) { var number = Number(value); return isFiniteNumber(number) ? number : null; }
   function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
@@ -379,20 +382,41 @@
       syncFontScaleControls();
       return;
     }
-    elements.forEach(function (element) {
+    // Live text updates must not reset already scaled text. Only an explicit
+    // preference change rebases the whole document; inserted nodes are measured
+    // against unscaled ancestors and styled within this same pre-paint turn.
+    var rebase = document.body.getAttribute('data-ga-efb-font-scale') !== String(Math.round(nextScale * 100));
+    var pending = elements.filter(function (element) {
+      return rebase || !element.hasAttribute('data-ga-efb-font-original');
+    });
+    if (!pending.length) return;
+    var ancestors = [];
+    if (!rebase) pending.forEach(function (element) {
+      for (var parent = element.parentElement; parent; parent = parent.parentElement) {
+        if (parent.hasAttribute('data-ga-efb-font-original') && ancestors.indexOf(parent) < 0) ancestors.push(parent);
+      }
+    });
+    var ancestorStyles = ancestors.map(function (element) {
+      return { element: element, fontSize: element.style.fontSize };
+    });
+    ancestors.forEach(function (element) {
+      element.style.fontSize = element.getAttribute('data-ga-efb-font-original') || '';
+    });
+    pending.forEach(function (element) {
       if (!element.hasAttribute('data-ga-efb-font-original')) element.setAttribute('data-ga-efb-font-original', element.style.fontSize || '');
     });
-    elements.forEach(function (element) {
+    pending.forEach(function (element) {
       element.style.fontSize = element.getAttribute('data-ga-efb-font-original') || '';
       element.removeAttribute('data-ga-efb-font-base');
     });
-    elements.forEach(function (element) {
+    pending.forEach(function (element) {
       if (element.hasAttribute('data-ga-efb-font-base')) return;
       var computed = parseFloat(window.getComputedStyle(element).fontSize);
       if (!isFiniteNumber(computed) || computed <= 0) return;
       element.setAttribute('data-ga-efb-font-base', String(Math.round(computed * 100) / 100));
     });
-    elements.forEach(function (element) {
+    ancestorStyles.forEach(function (entry) { entry.element.style.fontSize = entry.fontSize; });
+    pending.forEach(function (element) {
       if (!element.hasAttribute('data-ga-efb-font-base')) return;
       var base = Number(element.getAttribute('data-ga-efb-font-base'));
       if (isFiniteNumber(base)) element.style.fontSize = Math.round(base * nextScale * 10) / 10 + 'px';
@@ -408,15 +432,6 @@
     report('info', 'font-scale', String(Math.round(preferences.fontScale * 100)), 'EFB-Schriftgroesse aktualisiert');
   }
 
-  function scheduleEfbUiRefresh() {
-    if (efbUiRefreshTimer) return;
-    efbUiRefreshTimer = window.setTimeout(function () {
-      efbUiRefreshTimer = 0;
-      normalizeCoherentGlyphs(document.body);
-      applyEfbFontScale();
-    }, 40);
-  }
-
   function setupEfbUiCompatibility() {
     normalizeCoherentGlyphs(document.body);
     applyEfbFontScale();
@@ -430,7 +445,21 @@
         }
         return false;
       });
-      if (hasTextContent) scheduleEfbUiRefresh();
+      // MutationObserver runs before paint. A timer here exposed new content
+      // at CSS size for a frame before applying the user's EFB font scale.
+      if (hasTextContent) {
+        mutations.forEach(function (mutation) {
+          for (var index = 0; index < mutation.addedNodes.length; index += 1) {
+            var node = mutation.addedNodes[index];
+            if (node.nodeType === 1) normalizeCoherentGlyphs(node);
+            else if (node.nodeType === 3 && node.nodeValue && node.nodeValue.normalize && !nodeInsideSvg(node)) {
+              var normalized = node.nodeValue.normalize('NFC');
+              if (node.nodeValue !== normalized) node.nodeValue = normalized;
+            }
+          }
+        });
+        applyEfbFontScale();
+      }
     });
     efbUiObserver.observe(document.body, { childList: true, subtree: true });
   }
