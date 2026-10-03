@@ -13079,6 +13079,7 @@ function _shouldIncludeInfraForPoiSearch(forcedCategory = null, dispatchProfileI
     if (profile === 'infra_chain_recon') return true;
     if (profile === 'mapping_survey') return true;
     if (profile === 'science_geo') return true;
+    if (profile === 'sightseeing_tour') return true;
     if (profile === 'tour_guide_knowledge') return true;
     if (['infrastructure', 'industry', 'bridge', 'road', 'rail', 'telecom', 'dam'].includes(cat)) return true;
     return false;
@@ -13821,6 +13822,8 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
 
         const rawName = String(f?.name || '').trim();
         const tf = f?.tags || {};
+        if (isSightseeingProfile && forceCat === 'city' && !['city', 'town', 'village', 'suburb'].includes(tf.place)) continue;
+        if (isSightseeingProfile && forceCat === 'water' && (!['lake', 'reservoir'].includes(tf.water) || tf.landuse === 'basin')) continue;
         const railTag = String(tf.railway || '').toLowerCase();
         const isSarLikeProfile = (profileId === 'search_and_rescue' || isSarHeliProfile);
         const isInfraOpsProfile = (profileId === 'inspection_infra' || profileId === 'infra_chain_recon' || profileId === 'mapping_survey');
@@ -13893,6 +13896,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             if (_poiIsCodeLikeName(name) || _poiIsNumericLikeName(name) || _poiLooksJunctionLabel(name)) continue;
         }
 
+        if (isSightseeingProfile && (!hasName || _poiIsGenericFallbackName(name) || (window.MissionKnowledgeBriefingCore && !window.MissionKnowledgeBriefingCore.sightseeingTarget(f)))) continue;
         const baseScore = _poiFeatureScore(f, wantedCat);
         const sightseeingInterest = isSightseeingProfile
             ? _poiSightseeingInterestScore({ n: name, name, tags: tf, category: wantedCat }, wantedCat)
@@ -14008,6 +14012,32 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         });
         if (!knowledgeGateResult?.pick) return null;
         pick = knowledgeGateResult.pick;
+    }
+    // Sightseeing uses settlements as personal places; isolated sights need a real source.
+    if (isSightseeingProfile && pick && window.MissionKnowledgeBriefingCore) {
+        const sightseeingHistoryKey = 'ga_poi_sightseeing_selected_targets_v1';
+        const sightseeingSignature = c => `${Number(c.lat).toFixed(4)}|${Number(c.lon).toFixed(4)}`;
+        let sightseeingHistory = [];
+        try { const saved = JSON.parse(localStorage.getItem(sightseeingHistoryKey) || '[]'); if (Array.isArray(saved)) sightseeingHistory = saved.slice(-12); } catch (_) {}
+        const freshSightseeing = c => !sightseeingHistory.includes(sightseeingSignature(c));
+        const orderedSightseeing = [pick, ...top.filter(c => c !== pick)];
+        const freshShortlist = orderedSightseeing.filter(freshSightseeing);
+        const shortlist = (freshShortlist.length ? freshShortlist : orderedSightseeing).slice(0, 4);
+        let sourcedPick = null;
+        for (const candidate of shortlist) {
+            if (['city', 'town', 'village', 'suburb'].includes(candidate.tags?.place)) { sourcedPick = candidate; break; }
+            const ctx = await _resolveEducationalPoiContext(candidate.n, candidate.lat, candidate.lon, candidate.category, { timeoutMs: 2500 });
+            const evidence = window.MissionKnowledgeBriefingCore.evidence(ctx, { name: candidate.n });
+            if (evidence) { sourcedPick = { ...candidate, knowledgeContext: evidence }; break; }
+            if (ctx?.rateLimited) break;
+        }
+        if (!sourcedPick && (!forceCat || forceCat === 'all')) {
+            sourcedPick = _pickPoiCandidateWithHistory(scoredCandidates.filter(c => freshSightseeing(c) && ['city', 'town', 'village', 'suburb'].includes(c.tags?.place)), 'city', 12, anchor);
+        }
+        if (!sourcedPick) return null;
+        pick = sourcedPick;
+        sightseeingHistory.push(sightseeingSignature(pick));
+        try { localStorage.setItem(sightseeingHistoryKey, JSON.stringify(sightseeingHistory.slice(-12))); } catch (_) {}
     }
     const usedCat = String((pick && pick.category) || forceCat || 'generic').toLowerCase();
     const dbgBeforeFinalMark = { ..._poiDebugState() };

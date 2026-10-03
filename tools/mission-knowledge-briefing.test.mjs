@@ -23,3 +23,35 @@ test('selected browser proposal elaborates once, retaining target, sources and p
 test('picker retains a sourced candidate when another candidate has no matching source',async()=>{const good={...c.target,knowledgeContext:source},bad={name:'Ohne Quelle',lat:49,lon:8};const env={window:{MissionKnowledgeBriefingCore:core,MissionPoiBriefingSharedCore:shared,MissionPoiBriefingSharedBrowser:{context:async dest=>({...c,target:dest}),enrichSelected:async x=>x}},localStorage:storage(),getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:1}),getSelectedAiApiKey:()=>'',fetchGeminiJsonWithFallback:async()=>({parsed:{ideas:[idea]}}),normalizeMissionProposalChoice:x=>x,missionProposalCompactTarget:x=>x,missionProposalFormatRoute:()=>({label:'Route'})};vm.runInNewContext(fs.readFileSync('mission-knowledge-briefing-browser.js','utf8'),env);const rows=await env.window.MissionKnowledgeBriefingBrowser.choices([bad,good],{profileId:c.profileId,start:{name:'Start',lat:47,lon:8}});assert.equal(rows.length,1);assert.equal(rows[0].target.name,good.name);assert.equal(rows[0].knowledgeProposal.context.knowledgeFacts.length,14);});
 
 test('prompts state fact cap and preflight perspective before generation',()=>{assert.match(core.ideaPrompt([core.frame(c)]),/höchstens acht/);const prompt=core.writerPrompt(c,idea,[],shared.prepareFlight({}));assert.match(prompt,/vor dem Start gelesen/);assert.match(prompt,/beim Boarding vor dem Start/);assert.match(prompt,/neugierigen Laien/);});
+
+test('sightseeing personal story survives restore and serialized voice without invented sources',()=>{const ctx={...c,profileId:'sightseeing_tour',knowledgeContext:null,knowledgeFacts:[]};const i={...idea,profileId:ctx.profileId,storyLine:'personal',factIds:[]};const r={...raw,usedFactIds:[]};const m=core.mission(core.validateIdea(i,ctx),core.validateWriter(r,i,ctx),ctx,{});assert.equal(m.passenger.taskDomain,'sightseeing_tour');assert.equal(m.passenger.targetRadiusNm,3);assert.equal(core.owns(JSON.parse(JSON.stringify(m))),true);assert.match(core.voiceContext(m.knowledgeBriefing),/persönliche Erinnerungen/);assert.throws(()=>core.validateIdea({...i,storyLine:'public'},ctx));assert.throws(()=>core.validateWriter({...r,usedFactIds:['invented']},i,ctx));});
+test('air sightseeing eligibility admits settlements and structures but not isolated trees or ground viewpoints',()=>{for(const tags of [{place:'village'},{place:'city'},{historic:'ruins'},{man_made:'tower',tourism:'viewpoint'},{natural:'peak'}])assert.equal(core.sightseeingTarget({name:"Benanntes Ziel",tags}),true);for(const tags of [{natural:'tree',leisure:'nature_reserve'},{tourism:'viewpoint'}])assert.equal(core.sightseeingTarget({tags}),false);});
+test('sightseeing browser permits personal fallback while knowledge guide still requires facts',async()=>{const env={window:{MissionKnowledgeBriefingCore:core,MissionPoiBriefingSharedCore:shared,MissionPoiBriefingSharedBrowser:{context:async()=>({...c,knowledgeFacts:[],knowledgeContext:null}),enrichSelected:async x=>x}}};vm.runInNewContext(fs.readFileSync('mission-knowledge-briefing-browser.js','utf8'),env);const result=await env.window.MissionKnowledgeBriefingBrowser.context(c.target,'sightseeing_tour');assert.equal(result.knowledgeFacts.length,0);assert.equal(result.knowledgeContext,null);await assert.rejects(env.window.MissionKnowledgeBriefingBrowser.context(c.target,'tour_guide_knowledge'));});
+
+test('sightseeing rejects normalized electrical towers, plain roads and unsourced bridge tags',()=>{for(const tags of [{man_made:'tower',power:'tower'},{man_made:'tower'},{highway:'primary'},{bridge:'yes',highway:'primary'},{natural:'tree'},{natural:'water',water:'pond'}])assert.equal(core.sightseeingTarget({name:'Benannt',tags}),false);for(const tags of [{natural:'water',water:'lake'},{waterway:'dam'},{man_made:'bridge',tourism:'attraction'},{man_made:'tower',tourism:'viewpoint'}])assert.equal(core.sightseeingTarget({name:'Benannt',tags}),true);});
+
+
+test('sightseeing settlement researches sourced places only inside its work area',async()=>{
+ const wiki=(title,lat)=>({title,extract:'Belegte Geschichte.',page:{fullurl:'https://example.org/'+title,coordinates:[{lat,lon:8}]}});
+ const env={window:{MissionKnowledgeBriefingCore:core,MissionPoiBriefingSharedCore:shared,MissionPoiBriefingSharedBrowser:{context:async()=>({...c,target:{name:'Stadt',lat:48,lon:8},knowledgeFacts:[],knowledgeContext:null}),enrichSelected:async x=>x}},_missionSightseeingFetchNearbyWikiLandmarks:async()=>[{title:'Burg'},{title:'Fernziel'},{title:'Museum'}],_fetchWikiExtractByTitle:async title=>title==='Stadt'?null:wiki(title,title==='Fernziel'?49:48.01),_poiKnowledgePickFacts:()=>({selected:[{text:'Belegte Geschichte.',topic:'history'}]})};
+ vm.runInNewContext(fs.readFileSync('mission-knowledge-briefing-browser.js','utf8'),env);
+ const result=await env.window.MissionKnowledgeBriefingBrowser.context({name:'Stadt',lat:48,lon:8,tags:{place:'city'}},'sightseeing_tour');
+ assert.deepEqual(Array.from(result.observationPlaces,p=>p.name),['Burg','Museum']);
+ assert.equal(result.knowledgeContext,null); // Nearby proof must not pretend to establish the city article.
+ assert.equal(result.knowledgeFacts.length,2);assert.ok(result.knowledgeFacts.every(f=>f.source.startsWith('https://example.org/')));
+ const persisted=JSON.parse(JSON.stringify(core.mission({...idea,profileId:'sightseeing_tour'}, {...raw,report:{}}, result,{})));
+ assert.equal(persisted.knowledgeBriefing.observationPlaces.length,2);assert.match(core.voiceContext(persisted.knowledgeBriefing),/Museum/);
+});
+test('named islands qualify for sightseeing while electrical towers still do not',()=>{
+ assert.equal(core.sightseeingTarget({name:'Seeinsel',tags:{place:'island'}}),true);
+ assert.equal(core.sightseeingTarget({name:'Mast',tags:{place:'island',power:'tower'}}),false);
+});
+
+test('source-free sightseeing frame makes one personal idea with no fact IDs explicit',()=>{
+ const frame=core.frame({...c,profileId:'sightseeing_tour',knowledgeFacts:[],knowledgeContext:null});
+ assert.deepEqual(frame.sourcePolicy,{availableFactIds:[],allowedStoryLines:['personal']});
+ const prompt=core.ideaPrompt([frame]);
+ assert.match(prompt,/genau eine Idee für jeden Rahmen/);
+ assert.match(prompt,/bei leerer Quellenliste müssen es null sein/);
+ assert.match(core.voiceContext(fixture().knowledgeBriefing),/verbinde unabhängige Fakten nicht/);
+});

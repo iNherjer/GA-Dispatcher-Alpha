@@ -1791,7 +1791,9 @@ function _activePoiKnowledgeContext() {
         md.knowledgeContext,
         contract?.knowledgeContext,
         pax?.knowledgeContext,
-        md?.missionContract?.knowledgeContext
+        md?.missionContract?.knowledgeContext,
+        ...(md.knowledgeBriefing?.idea?.profileId === 'sightseeing_tour' ? [md.knowledgeBriefing.knowledgeContext] : []),
+        ...(contract?.knowledgeBriefing?.idea?.profileId === 'sightseeing_tour' ? [contract.knowledgeBriefing.knowledgeContext] : [])
     ];
     const context = sources.find(ctx => ctx && typeof ctx === 'object' && Array.isArray(ctx.facts) && ctx.facts.length);
     if (!context) return null;

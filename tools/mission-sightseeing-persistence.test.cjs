@@ -32,3 +32,21 @@ for(const count of [0,1,2,3])test(`local quota and all cloud levels preserve ${c
   assert.equal(next.event,null,'claimed event must not replay after transfer');
  }
 });
+
+test('POI sightseeing local group and personal narrative survive all cloud compact levels',()=>{
+ const c=harness();
+ const knowledgeBriefing={schema:'knowledge-briefing.v1',idea:{profileId:'sightseeing_tour',storyLine:'mixed',focus:'Lokale Baugeschichte'},knowledgeFacts:[{id:'landmark-0-0',fact:'Belegter Ortsfakt',source:'https://example.org/Ort'}],observationPlaces:[{name:'Ort',lat:48.51,lon:8.01,source:'https://example.org/Ort',facts:[{text:'Belegter Ortsfakt'}]}]};
+ const knowledgeContext={status:'accept',facts:[{text:'Belegter Ortsfakt'}],extraFacts:[{text:'Weiteres Detail',source:'https://example.org/Ort'}]};
+ knowledgeBriefing.knowledgeContext=knowledgeContext;
+ const state={currentMissionData:{id:'poi',knowledgeBriefing,knowledgeContext,missionStory:'Bevorstehender Flug'},activeMissionContract:{id:'poi',knowledgeBriefing,knowledgeContext},routeWaypoints:[{lat:48,lon:8},{lat:48.5,lon:8}]};
+ for(const level of [1,2,3]){
+  const restored=clone(c.compactActiveMissionStateForQuotaStorage(clone(c._syncCompactActiveMission(c.compactActiveMissionStateForQuotaStorage(state),level))));
+  assert.deepEqual(restored.currentMissionData.knowledgeBriefing,knowledgeBriefing);
+  assert.deepEqual(restored.activeMissionContract.knowledgeBriefing,knowledgeBriefing);
+  assert.deepEqual(restored.currentMissionData.knowledgeBriefing.knowledgeContext,knowledgeContext);
+  const paxEnv=vm.createContext({window:{},currentMissionData:restored.currentMissionData});
+  const code=fs.readFileSync('passenger-voice.js','utf8'),start=code.indexOf('function _activePoiKnowledgeContext('),end=code.indexOf('\nfunction ',start+1);
+  vm.runInContext(code.slice(start,end),paxEnv);
+  assert.deepEqual(clone(paxEnv._activePoiKnowledgeContext()),knowledgeContext);
+ }
+});
