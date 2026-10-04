@@ -24,3 +24,7 @@ test('acceptance persists the private scene in the contract while keeping ordina
  assert.equal(env.applyMissionTargetSceneComposition({sarScenario:scenario,targetScene:scene}),true);
  assert.equal(md.targetScene.kind,'none');assert.equal(md.missionContract.targetScene.kind,'none');assert.equal(md.missionContract.sarScenario,md.sarScenario);assert.equal(md.sarScenario.scenePlan,scene);assert.equal(w.activeMissionContract.sarScenario.pending,false);
 });
+
+test('writer receives separate identities for unnamed pilot, named observer and missing person',()=>{
+ for(const gender of ['male','female']){const person={name:gender==='male'?'Lukas Weber':'Lea Weber',gender,role:'Einsatzbeobachter'};const prompt=core.writerPrompt({...c,facts:[],coverage:[],supplements:[],limitations:[]},{...idea,person},{context:{},bindings:{}},[]);const roles=JSON.parse(prompt.split('PERSONENROLLEN=')[1].split('\n')[0]);assert.equal(roles.pilot.name,null);assert.equal(roles.observer.name,person.name);assert.equal(roles.observer.gender,gender);assert.notEqual(roles.missingPerson.identity,roles.observer.name);assert.match(prompt,/story ist ein sachliches Einsatzbriefing ohne Begrüßungsformel/);}
+});
