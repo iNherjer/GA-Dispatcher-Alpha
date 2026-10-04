@@ -93,3 +93,18 @@ test('fire-only multipolygon assembly handles reversed edges and excludes holes'
 });
 
 test('fire scene accepts a single transport envelope but never ambiguous multiple scenes',()=>{const f=fire();assert.ok(scene.placement(f,[{targetScene:placement}]));assert.equal(scene.placement(f,[{targetScene:placement},{targetScene:placement}]),null);});
+
+ test('Fire browser resolves supplied navigation and terrain references without relaxing unknown-reference rejection',async()=>{
+ const {api,env}=browser(),start={name:'Basis',lat:48.1,lon:8.1};
+ const context={...c,facts:[{id:'orientation-village',role:'orientation',name:'Testdorf',tags:{place:'village'},relativeToTarget:{distanceM:500,direction:'Westen'},targetRelativeToFeature:{distanceM:500,direction:'Osten'}}],terrain:{status:'sampled',minSampleM:300,maxSampleM:450,sampleCount:5,highestSample:{offsetM:500,direction:'Nordosten'},limitations:[]}};
+ env.window.MissionPoiBriefingSharedBrowser.context=async()=>context;
+ const navigation=shared.writerContext(context);
+ const written={...w,story:w.story+' Das Suchgebiet liegt [[orientation-village.targetLocation]]. Die Höhenstichproben reichen von [[terrain.range]].',usedFactIds:['orientation-village']};
+ env.fetchGeminiJsonWithFallback=async prompt=>({parsed:prompt.includes('RAHMEN=')?{ideas:[i]}:written});
+ const m=await api.story({start,dest:c.target});
+ assert.ok(m.story.includes(navigation.bindings['orientation-village.targetLocation']));
+ assert.ok(m.story.includes(navigation.bindings['terrain.range']));
+ assert.doesNotMatch(m.story,/\[\[/);
+ written.story=w.story+' [[invented.location]]';
+ await assert.rejects(()=>api.story({start,dest:c.target}),/unbekannte Referenzen: invented.location/);
+ });

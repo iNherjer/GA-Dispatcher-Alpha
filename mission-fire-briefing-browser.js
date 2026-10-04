@@ -45,8 +45,13 @@ async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensur
  const raw=await json(core().writerPrompt(c,idea,recent,flight));ensureAlive?.();
  // Weather validation must never discard a valid narrative.
  const {flightBriefing:weatherTemplate,...narrative}=raw;
- const resolved=root.MissionCharterIdeasCore.resolveReferences(narrative,flight.bindings);
- if(!resolved)throw Error('Das POI-Briefing enthält unbekannte Flugreferenzen.');
+ // The writer sees both navigation evidence and flight values; resolve exactly that union.
+ const narrativeBindings={...shared.writerContext(c).bindings,...flight.bindings};
+ const resolved=root.MissionCharterIdeasCore.resolveReferences(narrative,narrativeBindings);
+ if(!resolved){
+  const unknown=[...new Set(Object.values(narrative).filter(v=>typeof v==='string').flatMap(v=>[...v.matchAll(/\[\[([^\[\]]+)\]\]/g)].map(m=>m[1])).filter(id=>!Object.prototype.hasOwnProperty.call(narrativeBindings,id)))];
+  throw Error('Das Einsatzbriefing enthält unbekannte Referenzen'+(unknown.length?': '+unknown.join(', '):'.'));
+ }
  const written=core().validateWriter(resolved,idea,c);
  Object.assign(written,shared.resolveWeather(weatherTemplate,flightContext));
  const m=core().mission(idea,written,c,contract);
