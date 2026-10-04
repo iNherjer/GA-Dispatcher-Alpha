@@ -12,6 +12,14 @@ function validateRecipe(recipe) {
     const fs = recipe.fireScenario;
     if (!fs || !['fire', 'false_alarm'].includes(fs.truth) || !point(fs.target)
         || ['searchDwellSec', 'assessmentDwellSec', 'targetAreaNm', 'confirmRangeNm', 'paxAwarenessRangeNm'].some(key => fs[key] != null && (!finite(fs[key]) || fs[key] <= 0 || fs[key] > 86400))) return 'fire_watch_scenario_invalid';
+    if (fs.search?.schema === 'fire-search.v2') {
+        if (fs.search.sceneMode != null && !['smoke','thermal_only'].includes(fs.search.sceneMode)) return 'fire_watch_search_mode_invalid';
+        if (fs.truth === 'fire' && (!fs.smoke?.sites?.length || !fs.smoke.sites.every(point))) return 'fire_watch_source_missing';
+        for (const flame of fs.fire?.sites || []) {
+            const source = fs.smoke?.sites?.find(p => p.siteId === flame.smokeSiteId);
+            if (!source || ['lat','lon','altFt'].some(k => flame[k] !== source[k])) return 'fire_watch_source_location_mismatch';
+        }
+    }
     const error = fireCore.validateScenario(fs);
     if (error) return error;
     return null;
@@ -23,6 +31,7 @@ function resume(state, elapsed) {
     for (const key of ['targetAreaEnteredAt', 'searchStartedAt', 'smokeConfirmedAt']) {
         if (state.scenario[key]) state.scenario[key] += elapsed;
     }
+    if (state.scenario.search?.lastTickAt != null) state.scenario.search.lastTickAt += elapsed;
 }
 function observe(recipe, state, sample) {
     return applyFireResult(recipe, state, fireCore.observe(fireContext(recipe), state.fireState,
@@ -35,11 +44,11 @@ function fireProjection(state) {
     const fs = state.fireState.scenario;
     const elapsed = start => start ? Math.max(0, ((state.suspendedAt ?? state.observedAt) - start) / 1000) : 0;
     // Private truth, source locations and unrevealed findings never enter UI progress.
-    return { state: fs.state || 'enroute', awarenessDone: !!fs.awarenessDone,
+    return { searchArea: { center: { lat: fs.target.lat, lon: fs.target.lon }, radiusM: Number(fs.targetAreaNm || 1.5)*1852, findings: (fs.search?.findings||[]).map(p=>({id:p.id,lat:p.lat,lon:p.lon,kind:p.kind})) }, state: fs.state || 'enroute', awarenessDone: !!fs.awarenessDone,
         targetAreaAnnounced: !!fs.targetAreaAnnounced, assessmentComplete: !!fs.assessmentComplete,
-        searchSec: elapsed(fs.targetAreaEnteredAt), assessmentSec: elapsed(fs.smokeConfirmedAt),
+        searchSec: fs.search?.schema==='fire-search.v2'?Number(fs.search.observedSec||0):elapsed(fs.targetAreaEnteredAt), assessmentSec: fs.search?.schema==='fire-search.v2'?Number(fs.search.assessmentSec||0):elapsed(fs.smokeConfirmedAt),
         searchDwellSec: Number(fs.searchDwellSec || 180), assessmentDwellSec: Number(fs.assessmentDwellSec || 240),
-        targetAreaNm: Number(fs.targetAreaNm || 1.5), confirmRangeNm: Number(fs.confirmRangeNm || 2) };
+        targetAreaNm: Number(fs.targetAreaNm || 1.5), confirmRangeNm: fs.search?.schema==='fire-search.v2'?0.6:Number(fs.confirmRangeNm || 2), thermalChecked:!!fs.search?.thermalChecked, searchHintGiven:!!fs.search?.hintDone };
 }
 function applyFireResult(recipe, state, result, sample) {
     state.fireState = result.state;
@@ -48,7 +57,7 @@ function applyFireResult(recipe, state, result, sample) {
     Object.assign(state.detector, { satisfied: result.satisfied === true,
         atTargetDone: state.fireState.atTargetDone === true, inRadius: distNm <= Number(fs.targetAreaNm || recipe.passenger.targetRadiusNm || 1.5),
         entryDone: !!fs.targetAreaAnnounced, lastTickTime: sample.observedAt,
-        dwellSec: fs.targetAreaEnteredAt ? Math.max(0, (sample.observedAt - fs.targetAreaEnteredAt) / 1000) : 0 });
+        dwellSec: fs.search?.schema==='fire-search.v2' ? Number(fs.search.observedSec||0) : fs.targetAreaEnteredAt ? Math.max(0, (sample.observedAt - fs.targetAreaEnteredAt) / 1000) : 0 });
     return { state, effects: result.voices.length ? [{ type: 'fire', voices: result.voices }] : [], changed: true, reason: 'fire_watch_observed', distNm };
 }
 function fireAction(recipe, previous, action, sample, now) {

@@ -16,6 +16,7 @@ const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const flightRecorderCore = require('../mission-flight-recorder-core.js');
 const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
+const fireWatchCore = require('../mission-fire-watch-core.js');
 
 const AIRBORNE_EVIDENCE_MS = 2000;
 const GROUND_STILL_EVIDENCE_MS = 0;
@@ -220,6 +221,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       observations.missionFlightRecord,
       record
     ].filter(Boolean));
+    if (observations.latestTelemetry?.onGround===true && observations.latestDestination?.atDestination===true && snapshot.state.poiTask?.fireState) {
+      record.fireWatchSummary=fireWatchCore.completionSummary(snapshot.state.poiTask.fireState.scenario);
+      observations.missionFlightRecord.fireWatchSummary=record.fireWatchSummary;
+    }
     observations.lastFinalizedSegmentStartTs = Number(record.startTs);
     observations.segmentDepartureLabel = cleanString(record.arrLabel, 180) || observations.segmentDepartureLabel;
     try {
@@ -331,6 +336,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       record.poiNeedsRideHome = snapshot.state.poiLifecycle?.needsRideHome === true;
       record.poiAborted = poiProgress.aborted === true;
     }
+    if (latest.onGround===true && options.anticipateDelivery!==true && snapshot.state.poiTask?.fireState) record.fireWatchSummary=fireWatchCore.completionSummary(snapshot.state.poiTask.fireState.scenario);
     record.missionCargoOutcome = cargoOutcome;
     record.missionFailed = cargoOutcome.failed === true;
     return {

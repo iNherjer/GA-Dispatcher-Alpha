@@ -1964,6 +1964,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         missionCargoObjectActionRevision = Math.max(missionCargoObjectActionRevision, Number(control.cargoObjectRevision) || 0);
     }
     _applyTrackerPayloadControl(control.payload);
+    if (typeof map !== 'undefined') window.MissionFireSearchMap?.render(map, window.L, window.MissionFireSearchMap.fromControl(control));
     if (control.bushProgress && typeof currentMissionData !== 'undefined' && currentMissionData) {
         currentMissionData.bushProgress = _safeCloneJson(control.bushProgress, null);
     }
@@ -4777,7 +4778,7 @@ window.requestTrackerTelemetryWake = function(reason = 'app-interaction', option
 window.missionSmokeEnsureSpawned = function(reason = 'mission-active') {
     if (_missionExecutionAuthorityIsTracker()) return false;
     const fs = _activeFireScenario();
-    if (!fs || fs.truth !== 'fire' || !fs.smoke || fs.smoke.spawned) return false;
+    if (!fs || fs.truth !== 'fire' || !fs.smoke || fs.smoke.spawned || (fs.search?.schema === 'fire-search.v2' && fs.search.sceneMode === 'thermal_only')) return false;
     _ensureFireSmokeSites(fs);
     if (fs.smoke.spawnSuppressed && !String(reason || '').startsWith('debug-force')) return false;
     if (fs.smoke.spawnRequestedAt && (Date.now() - fs.smoke.spawnRequestedAt) < 15000) return false;
@@ -7575,7 +7576,7 @@ function _buildMissionPoiExecutionSeed(allowBushRecon = false) {
         supported: true, mode: 'passenger', afterLandingHint: '', hasAptArrivalRuntimePoint: false };
     plan.effects['voice.approach'] = { context: flightContext }; // common flight cues only; POI has no APT approach
     plan.effects['voice.farewell'] = { poiContextRef: true };
-    if (fireScenario?.truth === 'fire') {
+    if (fireScenario?.truth === 'fire' && !(fireScenario.search?.schema === 'fire-search.v2' && fireScenario.search.sceneMode === 'thermal_only')) {
         const fs = fireScenario;
         plan.effects['smoke.spawn'] = { command: { type: 'mission_smoke_spawn', missionId,
             reason: 'tracker-execution:fire-watch', extent: fs.extent || 'single_smoke', spawnMode: 'target',
@@ -12585,6 +12586,7 @@ function _updateMissionStartBanner() {
 }
 
 function _updateMissionRuntimeUi() {
+    if (['closing','closed'].includes(missionRuntime.phase) && typeof map !== 'undefined') window.MissionFireSearchMap?.render(map, window.L, null);
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const draftBlocked = !!md && !_missionSceneAcceptedForRuntime();
     const validMission = _hasValidMissionForStart();
@@ -14993,7 +14995,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',

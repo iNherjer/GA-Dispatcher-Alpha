@@ -195,6 +195,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
             || current.recipe === 'apt' && request.effect?.payload?.aptTraining === true && current.state.trainingTask))) return false;
       if (request.effect?.type === 'voice.bush' && (!current || current.missionId !== run.missionId
           || current.recipe !== 'apt' || current.state.bushTask?.kind !== 'pickup_return')) return false;
+      if (request.effect?.payload?.fireSearchHint && (Date.now()>Number(request.effect.payload.expiresAt||0) || ['smoke_confirmed','assessment_complete','false_alarm_rtb'].includes(current?.state?.poiTask?.fireState?.scenario?.state))) return false;
       return trainingScopeValid(current) && (!current || (current.runId === run.runId && (current.state.flags.active || (request.effect?.type === 'voice.poi' && request.effect?.payload?.action))
         && !current.state.flags.closingPending && !current.state.flags.farewellStarted
         && !current.state.flags.farewellCompleted && !current.state.flags.unloadConfirmed

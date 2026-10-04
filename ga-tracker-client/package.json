@@ -58,6 +58,7 @@
       "../audio-pax/gemini-survey-v1/**/*",
       "../audio-pax/gemini-training-v1/**/*",
       "efb-web-assets/mission-survey-pattern.js",
+      "efb-web-assets/mission-fire-search-map.js",
       "efb-web-assets/mission-poi-chain-runtime.js",
       "tracker-audio-player.js",
       "../navigation-warning-core.js",

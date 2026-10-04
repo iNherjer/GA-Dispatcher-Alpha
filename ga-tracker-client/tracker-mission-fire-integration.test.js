@@ -59,10 +59,11 @@ function bundle(truth = 'fire') {
   return value;
 }
 
-async function harness(t, truth = 'fire') {
+async function harness(t, truth = 'fire', configure = null) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fire-watch-integration-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const b = bundle(truth);
+  if (configure) { configure(b); b.executionReplay=execution.createExecutionBundle(b); b.execution=execution.createReplayShadowEnvelope(b.executionReplay,{sourceRevision:0,legacyBundle:b}); }
   const manager = createMissionAuthorityManager({ storageFile: path.join(directory, 'authority.json'), executionAuthorityEnabled: true,
     poiExecutionEnabled: true, poiLifecycleRequired: true, idFactory: () => 'fire-run' });
   const acquired = manager.acquire({ missionId, clientId: 'app', stateHash: 'app', resumeBundle: b });
@@ -73,9 +74,9 @@ async function harness(t, truth = 'fire') {
   assert.equal(manager.commitExecutionAuthority({ missionId, runId: prepared.activeRun.runId, clientId: 'app',
     expectedRevision: prepared.activeRun.revision, expectedExecutionStateHash: prepared.activeRun.executionStateHash,
     handoffId: prepared.handoff.handoffId }).ok, true);
-  const commands = [];
+  const commands = [], farewells=[];
   const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager,
-    payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: completed });
+    payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: request => { farewells.push(request); return completed(); } });
   runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 940, hdg: 0 }),
     dispatchCommand: command => { commands.push(command); return completed(); }, syncPayloadManifestState: completed, cleanupMission: completed });
   await tick();
@@ -94,7 +95,7 @@ async function harness(t, truth = 'fire') {
     for (let i = 0; i < 5; i++) await tick();
     await runtime.flush();
   }
-  return { b, manager, runtime, commands, intent, sample, directory };
+  return { b, manager, runtime, commands, intent, sample, directory, farewells };
 }
 
 async function start(h) {
@@ -192,4 +193,48 @@ test('reconnecting the simulator rebuilds fire objects without resetting task or
   assert.equal(h.commands.filter(command=>command.type==='mission_smoke_spawn').length,2);
   assert.deepEqual(after.poiTask,before.poiTask);
   assert.deepEqual(after.effects.filter(effect=>effect.type==='voice.poi'),before.effects.filter(effect=>effect.type==='voice.poi'));
+});
+
+
+test('V2 accepts matching composer sources and rejects different spawn or flame coordinates',()=>{
+ const b=bundle(),fs=b.executionPoiRecipe.fireScenario;
+ fs.search={schema:'fire-search.v2',sceneMode:'smoke',thermalCamera:true};
+ Object.assign(fs.fire.sites[0],{smokeSiteId:fs.smoke.sites[0].siteId,lat:fs.smoke.sites[0].lat,lon:fs.smoke.sites[0].lon,altFt:fs.smoke.sites[0].altFt});
+ assert.equal(poi.validateBundle(b),null);
+ const bad=JSON.parse(JSON.stringify(b));bad.executionEffectPlan.effects['smoke.spawn'].command.sites[0].lat+=.01;
+ assert.equal(poi.validateBundle(bad),'fire_watch_source_location_mismatch');
+ fs.fire.sites[0].lon+=.01;assert.equal(poi.validateBundle(b),'fire_watch_source_location_mismatch');
+});
+test('thermal-only recipe carries private locations but never spawns smoke or flame objects',()=>{
+ const b=bundle(),fs=b.executionPoiRecipe.fireScenario;
+ fs.search={schema:'fire-search.v2',sceneMode:'thermal_only',thermalCamera:true};fs.fire={enabled:false,sites:[]};
+ delete b.executionEffectPlan.effects['smoke.spawn'];delete b.executionEffectPlan.effects['smoke.clear'];
+ assert.equal(poi.validateBundle(b),null);
+ b.executionEffectPlan.effects['smoke.spawn']={command:{type:'mission_smoke_spawn',sites:fs.smoke.sites}};
+ assert.equal(poi.validateBundle(b),'fire_watch_smoke_plan_invalid');
+});
+
+test('V2 partial search reaches home closure through authority and reveals missing sources only in landing context',async t=>{
+ const h=await harness(t,'fire',b=>{
+  const f=b.executionPoiRecipe.fireScenario;f.search={schema:'fire-search.v2',sceneMode:'smoke',maxSearchSec:.04};
+  f.smoke.sites.push({siteId:'smoke-2',lat:48.315,lon:8.505,altFt:940,count:1,radiusM:50});
+  Object.assign(f.fire.sites[0],{smokeSiteId:'smoke-1',lat:48.3,lon:8.5,altFt:940});
+ });
+ await start(h);await h.sample();
+ assert.equal((await h.intent('fire_smoke_visible')).ok,true);
+ assert.equal(h.manager.getExecutionSnapshot().state.poiTask.detector.satisfied,false);
+ await new Promise(resolve=>setTimeout(resolve,55));await h.sample();
+ assert.equal(h.manager.getExecutionSnapshot().state.poiTask.detector.satisfied,true);
+ const publicState=h.manager.getPublicSnapshot().execution;
+ assert.equal(JSON.stringify(publicState).includes('groundAdditional'),false);
+ assert.equal(JSON.stringify(publicState).includes('48.315'),false);
+ await h.sample({lat:48,lon:8,onGround:true,aglFt:0,gsKts:20});
+ await h.sample({lat:48,lon:8,onGround:true,aglFt:0,gsKts:0});
+ assert.equal((await h.intent('set_manifest_item',{itemId:'camera',action:'unload'})).ok,true);
+ assert.equal((await h.intent('sign_manifest')).ok,true);assert.equal((await h.intent('confirm_unload')).ok,true);
+ for(let n=0;n<20;n++) await tick();
+ assert.equal(h.manager.getExecutionSnapshot().state.phase,'closed');
+ assert.equal(h.farewells.length,1);
+ const summary=h.farewells[0].farewellDynamicContext.record.fireWatchSummary;
+ assert.equal(summary.outcome,'partial');assert.equal(summary.groundAdditional,1);assert.equal(summary.found,1);
 });

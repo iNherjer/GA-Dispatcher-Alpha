@@ -8845,7 +8845,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9369,7 +9369,7 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
             : null
     );
     const rawTargetScene = md.targetScene || contract?.targetScene || sceneDebug.contractTargetScene || sceneDebug.aiNormalized || null;
-    const targetScene = sanitizeMissionTargetSceneSpec(rawTargetScene, {
+    const targetScene = window.MissionFireBriefingCore?.owns(md) ? window.MissionFireSceneCore.publicScene() : sanitizeMissionTargetSceneSpec(rawTargetScene, {
         isPOI,
         taskDomain,
         targetGeoContext,
@@ -9469,7 +9469,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionFireBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -9813,6 +9813,7 @@ function clearAppMissionState(options = {}) {
         });
         if (resetOk === false) return false;
     }
+    if (typeof map !== 'undefined') window.MissionFireSearchMap?.render(map, window.L, null);
     localStorage.removeItem('ga_active_mission');
     localStorage.removeItem('ga_active_mission_contract');
     localStorage.removeItem('ga_active_passenger');
@@ -21875,6 +21876,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (isPOI && profileId === 'infra_chain_recon' && window.MissionChainBriefingCore?.owns(m)) return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (isPOI && window.MissionKnowledgeBriefingCore?.owns(m) && m.knowledgeBriefing.idea.profileId === profileId) return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
+    if (isPOI && profileId === 'fire_watch' && window.MissionFireBriefingCore?.owns(m)) return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (isPOI && profileId === 'science_geo' && window.MissionGeoBriefingCore?.owns(m))
         return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'science_geo'};
     if (isPOI && profileId === 'inspection_infra' && window.MissionInfraBriefingCore?.owns(m))
@@ -22938,7 +22940,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
     const title = String(mission?.t || mission?.title || '').trim();
     const story = String(mission?.s || mission?.story || '').trim();
     const rawTargetScene = targetSceneOverride !== undefined ? targetSceneOverride : (mission?.targetScene || passenger?.targetScene || null);
-    const targetScene = sanitizeMissionTargetSceneSpec(rawTargetScene, { isPOI, taskDomain, targetGeoContext, missionPlanV2 });
+    const targetScene = window.MissionFireBriefingCore?.owns(mission) ? window.MissionFireSceneCore.publicScene() : sanitizeMissionTargetSceneSpec(rawTargetScene, { isPOI, taskDomain, targetGeoContext, missionPlanV2 });
     const sceneIntent = sanitizeMissionSceneIntentSpec(
         sceneIntentOverride !== undefined ? sceneIntentOverride : (mission?.sceneIntent || passenger?.sceneIntent || null),
         { isPOI, taskDomain }
@@ -22993,6 +22995,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         bioBriefing: window.MissionBioBriefingCore?.owns(mission) ? mission.bioBriefing : null,
         chainBriefing: window.MissionChainBriefingCore?.owns(mission) ? mission.chainBriefing : null,
         knowledgeBriefing: window.MissionKnowledgeBriefingCore?.owns(mission) ? mission.knowledgeBriefing : null,
+        fireBriefing: window.MissionFireBriefingCore?.owns(mission) ? mission.fireBriefing : null,
         geoBriefing: window.MissionGeoBriefingCore?.owns(mission) ? mission.geoBriefing : null,
         mappingBriefing: window.MissionMappingBriefingCore?.owns(mission) ? mission.mappingBriefing : null,
         poiContinuationBriefing: mission?.poiContinuationBriefing || null,
@@ -23468,6 +23471,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (isPOI && profileId === 'science_bio' && window.MissionBioBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'infra_chain_recon' && window.MissionChainBriefingCore?.owns(missionLike)) return true;
     if (isPOI && window.MissionKnowledgeBriefingCore?.owns(missionLike) && missionLike.knowledgeBriefing.idea.profileId === profileId) return true;
+    if (isPOI && profileId === 'fire_watch' && window.MissionFireBriefingCore?.owns(missionLike)) return true;
     if (isPOI && profileId === 'science_geo' && window.MissionGeoBriefingCore?.owns(missionLike)) return true;
     if (isPOI && ((profileId === 'mapping_survey' && window.MissionMappingBriefingCore?.owns(missionLike)) || (window.MissionPoiFollowupNarrativeCore?.ownsContinuation(missionLike) && missionLike.passenger.taskDomain === profileId))) return true;
     if (isPOI && profileId === 'news_coverage' && window.MissionNewsBriefingCore?.owns(missionLike)) return true;
@@ -26245,6 +26249,7 @@ async function scenePlannerV3ContextBundle({ md = {}, contract = {}, pax = {}, s
     if (missionMode !== 'poi' && aptArrivalPlan && !aptCtx) aptCtx = await fetchAptArrivalGeoContext(aptArrivalPlan);
     return {
         schema: 'scenePlannerV3.contextBundle.v1',
+        ...(md.fireSearchScene ? {fireSearchScene:md.fireSearchScene} : {}),
         ...scenePlannerV3ReporterContext(md, contract, geo, truth),
         mode: missionMode,
         route: {
@@ -26752,6 +26757,10 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
     const md = missionData || currentMissionData || {};
     const contract = missionContract || window.activeMissionContract || md.missionContract || {};
     const pax = passenger || window.activePassenger || {};
+    if (window.MissionFireBriefingCore?.owns(md) && md.fireScenario) {
+        return window.MissionFireBriefingBrowser.composeScene({missionData:md,missionContract:contract,passenger:pax,
+            compose:composeMissionScenePlanV3WithGemini,terrain:fetchPoiTerrainElevationFt,apiKey:getSelectedAiProvider()==='gemini'?getSelectedAiApiKey():''});
+    }
     window.MissionReporterSceneCore?.enroll(md, contract, pax);
     const reporter = window.MissionReporterSceneCore?.enabled(md, contract);
     if (reporter) {
@@ -26857,7 +26866,10 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
     if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(currentMissionData)) return false;
     const taskDomain = currentMissionData.missionContract?.taskDomain || window.activePassenger?.taskDomain || '';
     const isPOI = !!(currentMissionData.poiName || currentMissionData.poiSource || currentMissionData.isPOI);
-    const targetScene = sanitizeMissionTargetSceneSpec(composition.targetScene || null, {
+    if (window.MissionFireBriefingCore?.owns(currentMissionData) && composition.fireScenario) {
+        currentMissionData.fireScenario = composition.fireScenario;
+    }
+    const targetScene = window.MissionFireBriefingCore?.owns(currentMissionData) ? window.MissionFireSceneCore.publicScene() : sanitizeMissionTargetSceneSpec(composition.targetScene || null, {
         isPOI,
         taskDomain,
         targetGeoContext: currentMissionData.targetGeoContext || currentMissionData.missionContract?.targetGeoContext || null,
@@ -27009,7 +27021,7 @@ window.acceptMissionDraft = async function() {
         }
         return true;
     } catch (err) {
-        if (window.MissionReporterSceneCore?.enabled(currentMissionData, currentMissionData.missionContract)) {
+        if (window.MissionFireBriefingCore?.owns(currentMissionData) || window.MissionReporterSceneCore?.enabled(currentMissionData, currentMissionData.missionContract)) {
             currentMissionData.sceneCompositionStatus = 'draft';
             currentMissionData.targetSceneComposerDebug = {error:String(err?.message || err)};
             saveMissionState(); updateMissionAcceptanceUi();
@@ -41604,7 +41616,7 @@ function missionProposalPoiProfileConfig(profileId = '') {
             storySeed: targetTitle => `Für ${targetTitle} soll eine ruhige Luftbildserie mit klarem Verwendungszweck entstehen.`
         },
         fire_watch: {
-            intro: 'Wähle ein Beobachtungsgebiet. Alle Optionen sind ruhige Feuerwacht-Flüge mit Rückkehr zum Start; gesucht werden Rauchfahnen, Hotspots oder auffällige Trockenbereiche.',
+            intro: 'Wähle eine unbestätigte Feuermeldung. Der Einsatz klärt das Zielgebiet aus der Luft; Befund und weitere Maßnahmen bleiben bis zur Beobachtung offen.',
             fallbackSubtitle: 'Brandwache fliegen',
             fallbackCargo: 'IR-Kamera und Tablet (21 lbs)',
             fallbackPax: '1 PAX (Brandbeobachtung)',
@@ -41895,6 +41907,7 @@ function compactMissionProposalChoice(choice = null) {
         infraProposal: normalized.infraProposal || null,
         bioProposal: normalized.bioProposal || null,
         knowledgeProposal: normalized.knowledgeProposal || null,
+        fireProposal: normalized.fireProposal || null,
         geoProposal: normalized.geoProposal || null,
         mappingProposal: normalized.mappingProposal || null,
         newsProposal: normalized.newsProposal || null,
@@ -42540,6 +42553,7 @@ async function buildMissionProposalPoiChoices(context = {}) {
     if (window.MissionMappingBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
         return window.MissionMappingBriefingBrowser.choices(candidates,context);
     if (window.MissionKnowledgeBriefingBrowser?.enabled({profileId,category:context.selectedPoiCategory,aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain)) return window.MissionKnowledgeBriefingBrowser.choices(candidates,{...context,profileId});
+    if (window.MissionFireBriefingBrowser?.enabled({profileId,category:context.selectedPoiCategory,aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain)) return window.MissionFireBriefingBrowser.choices(candidates,context);
     if (window.MissionGeoBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
         return window.MissionGeoBriefingBrowser.choices(candidates,context);
     if (window.MissionNewsBriefingBrowser?.enabled({profileId, category:context.selectedPoiCategory, aiModeEnabled:context.aiModeEnabled}) && !candidates.some(p=>p.poiChain))
@@ -43908,6 +43922,7 @@ async function generateMission(options = {}) {
     const usePoiContinuation = !!(aiModeEnabled && isPOI && !isPlanningOnlyMode && !isBushDispatch && followupSeed && ['media_photo','inspection_infra'].includes(followupDispatchProfileId) && window.MissionPoiFollowupNarrativeCore?.context(followupSeed));
     const useChainIdeas = !!dest?.poiChain && window.MissionChainBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch});
     const useKnowledgeIdeas = window.MissionKnowledgeBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
+    const useFireWatchIdeas = window.MissionFireBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const useGeoStudyIdeas = window.MissionGeoBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiNewsIdeas = window.MissionNewsBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
     const usePoiPhotoIdeas = window.MissionPoiBriefingBrowser?.enabled({isPOI, profileId: dispatchProfileId, category: selectedPoiCategory, aiModeEnabled, followup: !!followupSeed, planning: isPlanningOnlyMode, bush: isBushDispatch}) && !dest?.poiChain;
@@ -43925,6 +43940,8 @@ async function generateMission(options = {}) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('inspection_infra','poi')};
     } else if (useBioStudyIdeas) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('science_bio','poi')};
+    } else if (useFireWatchIdeas) {
+        missionContractV4={status:'ready',profile:getMissionTaskProfile('fire_watch','poi')};
     } else if (useGeoStudyIdeas) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('science_geo','poi')};
     } else if (usePoiNewsIdeas) {
@@ -44553,6 +44570,7 @@ async function generateMission(options = {}) {
         if (missionProposalChoice?.infraProposal && !useInfraInspectionIdeas) throw Error('Die Inspektionsidee benötigt den aktiven Infrastruktur-Ideengenerator.');
         if (missionProposalChoice?.bioProposal && !useBioStudyIdeas) throw Error('Die Studienidee benötigt den aktiven Biologie-Ideengenerator.');
         if (missionProposalChoice?.mappingProposal && !useMappingIdeas) throw Error('Die Mapping-Auswahl benötigt den aktiven Mapping-Ideengenerator.');
+        if (missionProposalChoice?.fireProposal && !useFireWatchIdeas) throw Error('Die Einsatzidee benötigt den aktiven Feuerwacht-Ideengenerator.');
         if (missionProposalChoice?.geoProposal && !useGeoStudyIdeas) throw Error('Die Studienidee benötigt den aktiven Geologie-Ideengenerator.');
         if (missionProposalChoice?.newsProposal && !usePoiNewsIdeas) throw Error('Die Reporteridee benötigt den aktiven POI-Reporter-Ideengenerator.');
         if (missionProposalChoice?.poiProposal && !usePoiPhotoIdeas) throw Error('Die Fotoidee benötigt den aktiven KI-Fotogenerator.');
@@ -44587,6 +44605,10 @@ async function generateMission(options = {}) {
             missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m=await window.MissionBioBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.bioProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
+        } else if (useFireWatchIdeas) {
+            missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m=await window.MissionFireBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.fireProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
+            missionContractV4=m._missionContractV4;paxText=m.pax;cargoText=m.cargo;
         } else if (useGeoStudyIdeas) {
             missionContractV4={...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:'POI',startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m=await window.MissionGeoBriefingBrowser.story({start,dest,proposal:missionProposalChoice?.geoProposal,contract:missionContractV4,terrainEnvelope:poiTerrainEnvelope,ensureAlive:_ensureDispatchAlive});
@@ -45216,7 +45238,7 @@ async function generateMission(options = {}) {
     const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} Min.`;
 
     const missionTaskDomain = String(m?.passenger?.taskDomain || '').toLowerCase();
-    let missionSceneIntent = sanitizeMissionSceneIntentSpec(
+    let missionSceneIntent = window.MissionFireBriefingCore?.owns(m) ? m.sceneIntent : sanitizeMissionSceneIntentSpec(
         m?.sceneIntent || m?.targetSceneDebug?.sceneIntent || m?.targetScene || m?.s || '',
         { isPOI, taskDomain: missionTaskDomain }
     );
@@ -45224,7 +45246,7 @@ async function generateMission(options = {}) {
         missionSceneIntent = sanitizeMissionSceneIntentSpec(m?.s || '', { isPOI, taskDomain: missionTaskDomain });
     }
     const missionBaseNeedsAccept = !isPlanningOnlyMode;
-    let initialTargetScene = sanitizeMissionTargetSceneSpec(
+    let initialTargetScene = window.MissionFireBriefingCore?.owns(m) ? window.MissionFireSceneCore.publicScene() : sanitizeMissionTargetSceneSpec(
         missionBaseNeedsAccept ? null : (m?.targetScene || null),
         { isPOI, taskDomain: missionTaskDomain, targetGeoContext: preMissionTargetGeoContext || null, missionPlanV2 }
     );
@@ -45405,6 +45427,7 @@ async function generateMission(options = {}) {
         bioBriefing: m.bioBriefing || null,
         chainBriefing: m.chainBriefing || null,
         knowledgeBriefing: m.knowledgeBriefing || null,
+        fireBriefing: m.fireBriefing || null,
         geoBriefing: m.geoBriefing || null,
         mappingBriefing: m.mappingBriefing || null,
         poiContinuationBriefing: m.poiContinuationBriefing || null,
@@ -45533,6 +45556,7 @@ async function generateMission(options = {}) {
     if (currentMissionData.mappingBriefing) window.MissionMappingBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.mappingBriefing);
     if (currentMissionData.chainBriefing) window.MissionChainBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.chainBriefing);
     if (currentMissionData.knowledgeBriefing) window.MissionKnowledgeBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.knowledgeBriefing);
+    if (currentMissionData.fireBriefing) window.MissionFireBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.fireBriefing);
     if (currentMissionData.geoBriefing) window.MissionGeoBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.geoBriefing);
     if (currentMissionData.newsBriefing) window.MissionNewsBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.newsBriefing);
     if (currentMissionData.poiBriefing) window.MissionPoiBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.poiBriefing);
@@ -45727,7 +45751,10 @@ async function generateMission(options = {}) {
         heading: nav.brng,
         fireHazard: missionFireHazard
     });
-    if (fireScenario) currentMissionData.fireScenario = fireScenario;
+    if (fireScenario) {
+        if (window.MissionFireBriefingCore?.owns(m)) fireScenario.search={schema:"fire-search.v2",sceneMode:fireScenario.truth === "fire" && fireScenario.extent === "single_smoke" && Math.random()<0.3 ? "thermal_only" : "smoke",thermalCamera:true,reference:"search-area-centre",hintAfterSec:75,thermalAfterSec:45};
+        currentMissionData.fireScenario = fireScenario;
+    }
     else delete currentMissionData.fireScenario;
     currentMissionData.missionContract = activeMissionContract;
     currentMissionData.targetScene = activeMissionContract.targetScene;
@@ -45925,7 +45952,7 @@ async function generateMission(options = {}) {
         currentMissionData?.party || finalPassengerPlan.party || null
     );
 
-    if (window.MissionChainBriefingCore?.owns(m) || window.MissionKnowledgeBriefingCore?.owns(m) || window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionGeoBriefingCore?.owns(m) || window.MissionMappingBriefingCore?.owns(m) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
+    if (window.MissionChainBriefingCore?.owns(m) || window.MissionKnowledgeBriefingCore?.owns(m) || window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionFireBriefingCore?.owns(m) || window.MissionGeoBriefingCore?.owns(m) || window.MissionMappingBriefingCore?.owns(m) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
     else document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
     const briefingTaskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || m?.passenger?.taskDomain || '').toLowerCase();

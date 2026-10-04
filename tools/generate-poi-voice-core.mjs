@@ -14,7 +14,7 @@ const surveyNames = ['_surveyPatternActiveSpec', '_surveyPatternSnapshot', '_sur
   '_surveyPatternStatusText', '_surveyPatternOrientationText', '_surveyPatternStaticClipKey',
   '_surveyPatternVoiceText', '_surveyPatternEventKind'];
 const chainNames = ['_hashStable', '_paxSeededInt', '_poiChainActiveSpec', '_poiChainSnapshot', '_poiChainProgressSummary', '_poiChainStatusText', '_poiChainOrientationText', '_poiChainAudioKey', '_poiChainPickText', '_poiChainPointLabel', '_poiChainPointFindingText', '_poiChainNarrativeText', '_poiChainVoiceText', '_poiChainPhotoSoundOptions', '_poiChainEventSoundOptions', '_poiChainEventKind', '_handlePoiChainEvents'];
-const farewellNames = ['_trainingProcedureDebriefLine','_farewellPrompt', '_failedMissionFarewellFallback', '_farewellPreparedContext'];
+const farewellNames = ['_fireCompletionSummary','_trainingProcedureDebriefLine','_farewellPrompt', '_failedMissionFarewellFallback', '_farewellPreparedContext'];
 const bushReconNames = ['_activeBushReconOutcome', '_bushReconOutcomeHintLine'];
 export function extract(name, text = source) { return extractOriginalFunction(text, name); }
 const header = `// Generated from original passenger-voice.js functions by tools/generate-poi-voice-core.mjs.

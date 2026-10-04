@@ -256,7 +256,7 @@ function _paxDrawZones() {
 
     if (_isPOIMission()) {
         const dest = _getDestCoords();
-        if (dest && pax) {
+        if (dest && pax && !_fireScenario()) {
             const r = (pax.targetRadiusNm || 1.5) * NM;
             const label = `POI-Radius: ${pax.targetRadiusNm || 1.5} NM`
                 + (pax.targetAltFt  ? ` · ${pax.targetAltFt} ft`  : '')
@@ -2361,7 +2361,7 @@ function _injectPaxUI() {
         grid-template-columns:1fr; gap:6px;
     `;
     fireMenu.innerHTML = `
-        <button type="button" class="pax-fire-btn" onclick="window.fireMissionReportSmokeVisible && fireMissionReportSmokeVisible()">Rauch in Sicht</button>
+        <button type="button" class="pax-fire-btn" onclick="window.fireMissionReportSmokeVisible && fireMissionReportSmokeVisible()">Sichtung / Wärmehinweis prüfen</button>
         <button type="button" class="pax-fire-btn" onclick="window.fireMissionReportNoSmoke && fireMissionReportNoSmoke()">Kein Rauch sichtbar</button>
         <button type="button" class="pax-fire-btn" onclick="window.fireMissionPositionReport && fireMissionPositionReport()">Missionsstatus</button>
         <div id="paxFireMissionDebug" class="pax-fire-debug" style="display:none;">
@@ -2642,6 +2642,85 @@ function _fireRound(value, digits = 1) {
     return Math.round(n * f) / f;
 }
 
+// Fire-search V2 uses mapped source positions privately; legacy missions are unchanged.
+function _fireSearchSource(fs,lat,lon) {
+    if (fs?.search?.schema !== 'fire-search.v2' || fs.truth !== 'fire') return null;
+    const sites=(fs.smoke?.sites||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+    return sites.map(p=>({...p,distanceNm:_haversineNm(lat,lon,p.lat,p.lon)})).sort((a,b)=>a.distanceNm-b.distanceNm)[0] || null;
+}
+function _fireMarkFinding(fs,source,kind) {
+    if (!source) return;
+    const findings=fs.search.findings ||= [];
+    const id=source.siteId || `${source.lat},${source.lon}`;
+    const previous=findings.find(p=>p.id===id);
+    const finding={id,lat:source.lat,lon:source.lon,kind,detectedAt:Date.now()};
+    if (previous) Object.assign(previous,{kind}); else findings.push(finding);
+}
+// Each private source has independent, persistent smoke/heat evidence clocks.
+function _fireDetectionCandidates(ctx,kind) {
+    const fs=ctx.fs, search=fs.search;
+    if (!ctx.inTargetArea || fs.truth!=='fire') return [];
+    const range=kind==='smoke'?0.6:1.2, threshold=kind==='smoke'?20:30;
+    const timers=search.sourceTimers ||= {};
+    const known=new Set((search.findings||[]).filter(p=>kind==='smoke'?p.kind==='smoke':true).map(p=>p.id));
+    return (fs.smoke?.sites||[]).map(p=>({...p,id:p.siteId||`${p.lat},${p.lon}`,distanceNm:_haversineNm(ctx.lat,ctx.lon,p.lat,p.lon)}))
+        .filter(p=>!known.has(p.id)).sort((a,b)=>a.distanceNm-b.distanceNm).filter(source=>{
+            const timer=timers[source.id] ||= {};
+            const key=kind+'Sec', distanceKey=kind+'Distance';
+            const prior=timer[distanceKey];
+            // Both telemetry endpoints must be in range; arrival never credits earlier distant flight.
+            if (source.distanceNm<=range && Number.isFinite(prior) && prior<=range) {
+                const distance=Math.max(prior,source.distanceNm);
+                const rate=1+5*Math.pow(Math.max(0,1-distance/range),2);
+                timer[key]=Number(timer[key]||0)+Number(ctx.observationDeltaSec||0)*rate;
+            }
+            timer[distanceKey]=source.distanceNm;
+            return source.distanceNm<=range && Number(timer[key]||0)>=threshold;
+        });
+}
+function _fireVisualDetectionTick(ctx) {
+    const fs=ctx.fs, search=fs.search;
+    if (search?.schema!=='fire-search.v2' || !ctx.inTargetArea || search.sceneMode==='thermal_only' || fs.truth!=='fire' || fs.assessmentComplete) return;
+    const source=_fireDetectionCandidates(ctx,'smoke')[0];
+    if (!source) return;
+    _fireMarkFinding(fs,source,'smoke');
+    search.confirmationKind='smoke';
+    fs.state='smoke_confirmed';
+    if (!fs.smokeConfirmedAt) fs.smokeConfirmedAt=Date.now();
+    const count=(search.findings||[]).filter(p=>p.kind==='smoke').length;
+    _fireSpeakText(`Rauchquelle ${count} erkannt und mit einem Kreuz in der Karte markiert. Das ist ein Einzelbefund, noch kein Suchabschluss. Wir setzen die Suche im übrigen Gebiet fort.`, 'Rauchquelle erkannt');
+    _fireRecordObservation('observer_smoke_detected',ctx,'Rauchquelle lokalisiert');
+    _firePersistState();
+}
+function _fireSearchHintsTick(ctx,manual=false) {
+    const fs=ctx?.fs, search=fs?.search;
+    if (search?.schema !== 'fire-search.v2' || !ctx.hasPosition || !ctx.inTargetArea || ['assessment_complete','false_alarm_rtb'].includes(fs.state) || (fs.state==='smoke_confirmed' && search.sceneMode!=='thermal_only')) return;
+    if (!search.thermalChecked && (manual || ctx.inTargetAreaSec>=Number(search.thermalAfterSec||45))) {
+        search.thermalChecked=true;
+        _fireDetectionCandidates({...ctx,observationDeltaSec:0},'heat');
+        _fireSpeakText('Noch kein eindeutiger Rauch. Ich prüfe zusätzlich das Wärmebild auf zugängliche Wärmesignaturen. Unter geschlossenem Blätterdach bleibt der Blick eingeschränkt.', 'Wärmebild-Suche');
+        _firePersistState();
+        return;
+    }
+    if (!search.thermalChecked) return;
+    const source=_fireDetectionCandidates(ctx,'heat')[0];
+    if (!source) return;
+    const origin=_fireTarget(fs),bearing=_bearingDeg(origin.lat,origin.lon,source.lat,source.lon);
+    const dirs=['nördlich','nordöstlich','östlich','südöstlich','südlich','südwestlich','westlich','nordwestlich'];
+    const direction=dirs[Math.round(bearing/45)%8],distance=_haversineNm(origin.lat,origin.lon,source.lat,source.lon);
+    search.hintDone=true;
+    search.hintSourceId=source.siteId;
+    _fireMarkFinding(fs,source,'heat_suspicion');
+    if (search.sceneMode==='thermal_only') {
+        search.confirmationKind='thermal';fs.state='smoke_confirmed';
+        if (!fs.smokeConfirmedAt) fs.smokeConfirmedAt=Date.now();
+    }
+    const count=(search.findings||[]).filter(p=>p.kind==='heat_suspicion').length;
+    _fireSpeakText(`Wärmestelle ${count} in der Karte markiert. Die Suche geht weiter. Ich erkenne eine auffällige Wärmesignatur, noch keinen gesicherten Brand. Verdacht ${direction} des Suchgebietsmittelpunkts, etwa ${distance.toFixed(1).replace('.',',')} nautische Meilen von der Gebietsmarkierung. Prüfen wir diese Stelle aus einem weiteren Blickwinkel.`, 'Wärmestelle erkannt');
+    _fireRecordObservation('thermal_suspicion',ctx,'Wärmesignal als Verdacht, Bezug Suchgebietsmittelpunkt');
+    _firePersistState();
+}
+
 function _fireMissionContext(flightData = null) {
     const fs = _fireScenario();
     const target = _fireTarget(fs);
@@ -2657,6 +2736,7 @@ function _fireMissionContext(flightData = null) {
     const hdg = Number(fd.hdg || fd.heading || fd.trackDeg || fd.trkDeg || pos.hdg || bearingDeg);
     const mslFt = Number(fd.mslFt ?? pos.alt ?? fd.alt);
     const aglFt = Number(fd.aglFt);
+    const incident = _fireSearchSource(fs,lat,lon);
     const now = Date.now();
     const areaNm = Number(fs.targetAreaNm || window.activePassenger?.targetRadiusNm || 1.5) || 1.5;
     if (distNm <= areaNm) {
@@ -2664,7 +2744,21 @@ function _fireMissionContext(flightData = null) {
     } else if (fs.targetAreaEnteredAt && !fs.searchStartedAt) {
         fs.searchStartedAt = fs.targetAreaEnteredAt;
     }
-    const inTargetAreaSec = fs.targetAreaEnteredAt ? Math.max(0, (now - fs.targetAreaEnteredAt) / 1000) : 0;
+    let observationDeltaSec=0;
+    let inTargetAreaSec = fs.targetAreaEnteredAt ? Math.max(0, (now - fs.targetAreaEnteredAt) / 1000) : 0;
+    if (fs.search?.schema==='fire-search.v2') {
+        const search=fs.search, observing=distNm<=areaNm && fd.onGround!==true;
+        const delta=search.lastTickAt!=null ? Math.max(0,(now-search.lastTickAt)/1000) : 0;
+        if (observing && search.wasObserving) {
+            observationDeltaSec=delta;
+            search.observedSec=Number(search.observedSec||0)+delta;
+            if (fs.state==='smoke_confirmed' && search.wasAssessing) search.assessmentSec=Number(search.assessmentSec||0)+delta;
+        }
+        search.lastTickAt=now; search.wasObserving=observing;
+        search.wasAssessing=observing && fs.state==='smoke_confirmed';
+        if (!observing) for (const timer of Object.values(search.sourceTimers||{})) { delete timer.smokeDistance; delete timer.heatDistance; }
+        inTargetAreaSec=Number(search.observedSec||0);
+    }
     return {
         fs,
         target,
@@ -2679,10 +2773,12 @@ function _fireMissionContext(flightData = null) {
         mslFt: Number.isFinite(mslFt) ? Math.round(mslFt) : null,
         aglFt: Number.isFinite(aglFt) ? Math.round(aglFt) : null,
         areaNm,
-        inTargetArea: distNm <= areaNm,
-        inConfirmRange: distNm <= (Number(fs.confirmRangeNm || 2) || 2),
+        inTargetArea: distNm <= areaNm && fd.onGround!==true,
+        incident,
+        inConfirmRange: fs.search?.schema === 'fire-search.v2' ? !!incident && incident.distanceNm <= 0.6 : distNm <= (Number(fs.confirmRangeNm || 2) || 2),
         inAwarenessRange: distNm <= (Number(fs.paxAwarenessRangeNm || 4) || 4),
-        inTargetAreaSec
+        inTargetAreaSec,
+        observationDeltaSec
     };
 }
 
@@ -2723,6 +2819,7 @@ function _fireBearingSpeak(bearingDeg) {
 }
 
 function _fireSmokeSourceCount(fs) {
+    if (fs?.search?.schema==='fire-search.v2') return (fs.search.findings||[]).filter(p=>p.kind==='smoke').length;
     const raw = Number(fs?.smokeSiteCount || fs?.smoke?.sites?.length || 0);
     if (Number.isFinite(raw) && raw > 0) return Math.max(1, Math.round(raw));
     if (fs?.extent === 'major_fire') return 3;
@@ -2735,8 +2832,11 @@ function _fireAssessmentText(fs) {
     if (!fs || fs.truth !== 'fire') {
         return 'Ich kann keine belastbare Rauchentwicklung bestaetigen. Das fuehre ich als wahrscheinliche Fehlmeldung und gebe es so weiter.';
     }
+    if (fs.search?.schema==='fire-search.v2' && !(fs.search.findings||[]).length) return 'Aus der Luft blieb der Befund offen. Die Alarmierung muss am Boden weiter geprüft werden.';
+    if (fs.search?.schema === 'fire-search.v2' && fs.search.confirmationKind === 'thermal') return `${(fs.search.findings||[]).filter(p=>p.kind==='heat_suspicion').length} auffällige Wärmeverdachtsstellen sind lokalisiert. Ich dokumentiere Position und Wärmeverdacht für die Leitstelle; Ursache und ein möglicher Schwelbrand müssen am Boden geprüft werden.`;
     const count = _fireSmokeSourceCount(fs);
     const sourceText = count === 1 ? 'eine Rauchentwicklung' : `${count} getrennte Rauchentwicklungen`;
+    if (fs.search?.schema==='fire-search.v2') return `Bisher habe ich ${sourceText} lokalisiert und in der Karte markiert. Ich dokumentiere die beobachteten Positionen und Ausdehnungen für die Leitstelle; weitere verdeckte Quellen und die Brandursache bleiben offen.`;
     if (fs.extent === 'major_fire') {
         return `Ich zaehle ${sourceText}; Lagebild: mehrere aktive Punkte in einem kleinen Bereich, Rauch driftet vom Ursprung weg. Ich melde Position, Ausdehnung und moegliche Brandherde an die Leitstelle.`;
     }
@@ -2754,8 +2854,10 @@ function _fireReturnClearanceText(fs) {
 }
 
 function _fireRemainingSearchText(ctx) {
-    const req = Number(ctx?.fs?.searchDwellSec || 180);
-    const leftSec = Math.max(0, req - Number(ctx?.inTargetAreaSec || 0));
+    const assessing=ctx?.fs?.search?.schema==='fire-search.v2' && ctx.fs.state==='smoke_confirmed';
+    const req = Number(assessing ? ctx.fs.assessmentDwellSec||240 : ctx?.fs?.searchDwellSec||180);
+    const elapsed=assessing ? (ctx.fs.search?.schema==='fire-search.v2' ? Number(ctx.fs.search.assessmentSec||0) : Math.max(0,(Date.now()-ctx.fs.smokeConfirmedAt)/1000)) : Number(ctx?.inTargetAreaSec||0);
+    const leftSec = Math.max(0, req - elapsed);
     const min = Math.max(1, Math.ceil(leftSec / 60));
     return `noch etwa ${min} Minute${min === 1 ? '' : 'n'} Suchzeit`;
 }
@@ -2843,7 +2945,7 @@ function _fireMissionAwarenessTick(flightData, distNm = null) {
     fs.awarenessDone = true;
     fs.state = fs.state || 'search';
     _fireRecordObservation('awareness_range', ctx, 'pax awareness range reached');
-    const text = fs.truth === 'fire'
+    const text = fs.search?.schema === 'fire-search.v2' ? `${_fireVectorLine(ctx)} Die Markierung bezeichnet nur das Suchgebiet. Die genaue Quelle ist offen; ich suche visuell und mit Wärmebild.` : fs.truth === 'fire'
         ? `${_fireVectorLine(ctx)} Ich glaube, da vorn ist etwas zu sehen. Ich beobachte weiter und gleiche es mit der gemeldeten Position ab.`
         : `${_fireVectorLine(ctx)} Wir sind im gemeldeten Bereich. Ich sehe noch nichts Eindeutiges; wir suchen weiter und pruefen das Zielgebiet aus mehreren Blickwinkeln.`;
     _fireSpeakText(text, 'Feuermeldung');
@@ -2853,6 +2955,40 @@ function _fireHasObservation(fs, kind) {
     return Array.isArray(fs?.observations) && fs.observations.some(o => o?.kind === kind);
 }
 
+function _fireCompletionSummary(fs) {
+    if (fs?.search?.schema!=='fire-search.v2') return null;
+    const ids=new Set((fs.search.findings||[]).map(p=>p.id));
+    const sources=fs.truth==='fire'?(fs.smoke?.sites||[]):[];
+    const found=sources.filter(p=>ids.has(p.siteId||`${p.lat},${p.lon}`)).length;
+    return {schema:'fire-outcome.v1',searchComplete:!!fs.assessmentComplete||fs.state==='false_alarm_rtb',
+        findingKind:fs.search.sceneMode==='thermal_only'?'heat':'smoke',smokeFound:(fs.search.findings||[]).filter(p=>p.kind==='smoke').length,heatFound:(fs.search.findings||[]).filter(p=>p.kind==='heat_suspicion').length,found,groundAdditional:Math.max(0,sources.length-found),
+        outcome:fs.truth==='false_alarm'?'no_finding':found===sources.length?'complete':found?'partial':'unconfirmed',
+        searchSec:Number(fs.search.observedSec||0)};
+}
+function _fireSearchCompletionTick(ctx) {
+    const fs=ctx.fs, search=fs.search;
+    if (search?.schema!=='fire-search.v2') return false;
+    if (fs.assessmentComplete || fs.state==='false_alarm_rtb' || !ctx.inTargetArea) return true;
+    const summary=_fireCompletionSummary(fs), minimum=Number(fs.searchDwellSec||180);
+    const budget=Math.max(minimum,Number(search.maxSearchSec||600));
+    const allFound=summary.outcome==='complete';
+    const assessed=Number(search.assessmentSec||0)>=Number(fs.assessmentDwellSec||240);
+    const finished=fs.truth==='false_alarm'
+        ?ctx.inTargetAreaSec>=minimum && (fs.observations||[]).some(o=>o.kind==='pilot_no_smoke' && Number.isFinite(o.distNm) && o.distNm<=ctx.areaNm && o.at>=Number(fs.targetAreaEnteredAt||0))
+        :(allFound && assessed && ctx.inTargetAreaSec>=minimum)||ctx.inTargetAreaSec>=budget;
+    if (!finished) return true;
+    fs.assessmentComplete=true;
+    fs.state=fs.truth==='false_alarm'?'false_alarm_rtb':'assessment_complete';
+    search.completionReason=allFound?'observed_and_assessed':fs.truth==='false_alarm'?'no_finding_reported':'search_budget_elapsed';
+    _poiSatisfied=true;_paxAtTargetDone=true;
+    _fireRecordObservation('search_complete',ctx,search.completionReason);
+    const report=fs.truth==='false_alarm'?'Kein belastbarer Befund; ich melde eine wahrscheinliche Fehlmeldung.':summary.found
+        ?`${summary.found} erkannte Stelle${summary.found===1?'':'n'} sind dokumentiert. Weitere verdeckte Quellen können wir aus der Luft nicht ausschließen.`
+        :'Kein belastbarer Befund aus der Luft. Die Alarmierung bleibt ungeklärt; ich bitte um weitere Prüfung am Boden.';
+    _fireSpeakText(`Suchauftrag beendet. ${report} Die Leitstelle übernimmt die weitere Klärung. Du bist jetzt für den Rückflug freigegeben.`, 'Suche abgeschlossen');
+    _firePersistState();
+    return true;
+}
 function _tickFireMissionSearch(flightData, distNm = null) {
     const fs = _fireScenario();
     if (!fs) return false;
@@ -2869,8 +3005,12 @@ function _tickFireMissionSearch(flightData, distNm = null) {
         _firePersistState();
     }
 
+    _fireVisualDetectionTick(ctx);
+    _fireSearchHintsTick(ctx);
+    if (_fireSearchCompletionTick(ctx)) return true;
+
     if (fs.state === 'smoke_confirmed' && fs.smokeConfirmedAt && !fs.assessmentComplete) {
-        const elapsed = (Date.now() - fs.smokeConfirmedAt) / 1000;
+        const elapsed = fs.search?.schema==='fire-search.v2' ? Number(fs.search.assessmentSec||0) : (Date.now() - fs.smokeConfirmedAt) / 1000;
         if (elapsed >= Number(fs.assessmentDwellSec || 240)) {
             fs.assessmentComplete = true;
             fs.state = 'assessment_complete';
@@ -2916,7 +3056,7 @@ window.fireMissionPositionReport = function() {
         return;
     }
     if (ctx.fs.state === 'smoke_confirmed') {
-        _fireSpeakText(`Rauch bestaetigt. ${_fireAssessmentText(ctx.fs)} Halte den Orbit noch stabil; ${_fireRemainingSearchText(ctx)} fuer das Lagebild.`, 'Missionsstatus');
+        _fireSpeakText(`${ctx.fs.search?.confirmationKind==='thermal'?'Wärmeverdacht lokalisiert.':'Rauch bestaetigt.'} ${_fireAssessmentText(ctx.fs)} Halte den Orbit noch stabil; ${_fireRemainingSearchText(ctx)} fuer das Lagebild.`, 'Missionsstatus');
         return;
     }
     if (ctx.fs.state === 'reported_smoke_unconfirmed') {
@@ -2941,6 +3081,10 @@ window.fireMissionReportNoSmoke = function() {
         _fireSpeakText('Verstanden, noch kein Rauch sichtbar. Mir fehlen gerade die Live-Daten fuer eine Suchrichtung; pruefe bitte Tracker-Verbindung und halte den letzten Zielpunkt.', 'Kein Rauch');
         return;
     }
+    if (ctx.fs.search?.schema==='fire-search.v2' && ctx.fs.assessmentComplete) {
+        _fireSpeakText(`Der Suchauftrag ist beendet. ${_fireAssessmentText(ctx.fs)} ${_fireReturnClearanceText(ctx.fs)}`, 'Missionsstatus');
+        return;
+    }
     if (ctx.fs.state === 'smoke_confirmed' || ctx.fs.state === 'assessment_complete') {
         _fireSpeakText(`Verstanden, aus deiner Perspektive ist das gerade nicht klar sichtbar. Ich halte die bestaetigte Lage weiter fest: ${_fireAssessmentText(ctx.fs)} Halte den Orbit, ich beobachte weiter.`, 'Kein Rauch');
         _firePersistState();
@@ -2958,6 +3102,7 @@ window.fireMissionReportNoSmoke = function() {
         return;
     }
     const dwellDone = Number(ctx.inTargetAreaSec || 0) >= Number(ctx.fs.searchDwellSec || 180);
+    if (ctx.fs.search?.schema==='fire-search.v2' && dwellDone && ctx.fs.truth==='false_alarm') { _fireSearchCompletionTick(ctx); return; }
     if (dwellDone && ctx.fs.truth === 'false_alarm') {
         ctx.fs.state = 'false_alarm_rtb';
         _poiSatisfied = true;
@@ -2979,6 +3124,27 @@ window.fireMissionReportSmokeVisible = function() {
     const ctx = _fireMissionContext();
     if (!ctx.fs) {
         _fireSpeakText('Hier ist keine aktive Feuerwache geladen.', 'Feuerwache');
+        return;
+    }
+    if (ctx.fs.search?.schema==='fire-search.v2' && (ctx.fs.assessmentComplete || ctx.fs.state==='false_alarm_rtb')) {
+        _fireSpeakText(`Der Suchauftrag ist bereits beendet. ${_fireAssessmentText(ctx.fs)} ${_fireReturnClearanceText(ctx.fs)}`, 'Missionsstatus');
+        return;
+    }
+    // A camera suspicion is a finding to investigate, never proof of visible smoke.
+    if (ctx.fs.search?.schema === 'fire-search.v2' && ctx.fs.search.sceneMode === 'thermal_only' && ctx.fs.search.hintDone && (!ctx.fs.search.hintSourceId || ctx.fs.search.hintSourceId === ctx.incident?.siteId) && ctx.fs.truth === 'fire' && ctx.inConfirmRange && !['assessment_complete','false_alarm_rtb'].includes(ctx.fs.state)) {
+        ctx.fs.search.confirmationKind = 'thermal';
+        _fireMarkFinding(ctx.fs,ctx.incident,'heat_suspicion');
+        ctx.fs.search.wasAssessing=ctx.inTargetArea;
+        ctx.fs.state = 'smoke_confirmed'; // Existing observation/return contract; modality is stored separately.
+        if (!ctx.fs.smokeConfirmedAt) ctx.fs.smokeConfirmedAt = Date.now();
+        _fireRecordObservation('pilot_thermal_check', ctx, 'Wärmeverdacht lokalisiert, kein gesicherter Brand');
+        _fireSpeakText(`${_fireAssessmentText(ctx.fs)} Halte das Suchmuster ruhig; ich gleiche das Wärmebild aus einem weiteren Blickwinkel ab und melde den Abschluss.`, 'Wärmefund prüfen');
+        _firePersistState();
+        return;
+    }
+    if (ctx.fs.search?.schema === 'fire-search.v2' && ctx.fs.search.sceneMode === 'thermal_only') {
+        _fireSpeakText('Noch keine belastbare Wärmestelle lokalisiert. Ich prüfe mit der Kamera weiter; eine Rauch-Sichtung kann ich derzeit nicht bestätigen.', 'Wärmefund prüfen');
+        _firePersistState();
         return;
     }
     _fireRecordObservation('pilot_smoke_visible', ctx);
@@ -3003,6 +3169,11 @@ window.fireMissionReportSmokeVisible = function() {
         return;
     }
     if (ctx.fs.truth === 'fire') {
+        if (ctx.fs.search?.schema==='fire-search.v2') {
+            ctx.fs.search.confirmationKind='smoke';
+            ctx.fs.search.wasAssessing=ctx.inTargetArea;
+            _fireMarkFinding(ctx.fs,ctx.incident,'smoke');
+        }
         ctx.fs.state = 'smoke_confirmed';
         if (!ctx.fs.smokeConfirmedAt) ctx.fs.smokeConfirmedAt = Date.now();
         _fireSpeakText(`Bestaetigt, das passt zur gemeldeten Rauchentwicklung. ${_fireAssessmentText(ctx.fs)} Halte den Orbit stabil; ich sammle das Lagebild und gebe Bescheid, wenn die Aufgabe abgeschlossen ist.`, 'Rauch bestaetigt');
@@ -7435,7 +7606,7 @@ STIL: ${roleStyle}
 DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
-    const poiNarrative = window.MissionChainBriefingCore?.voiceContext(md.chainBriefing) || window.MissionKnowledgeBriefingCore?.voiceContext(md?.knowledgeBriefing || contract?.knowledgeBriefing) || window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || window.MissionBioBriefingCore?.voiceContext(md?.bioBriefing || contract?.bioBriefing) || window.MissionGeoBriefingCore?.voiceContext(md?.geoBriefing || contract?.geoBriefing) || window.MissionMappingBriefingCore?.voiceContext(md?.mappingBriefing || contract?.mappingBriefing) || window.MissionPoiFollowupNarrativeCore?.voiceContext(md?.poiContinuationBriefing || contract?.poiContinuationBriefing) || '';
+    const poiNarrative = window.MissionFireBriefingCore?.voiceContext(md?.fireBriefing || contract?.fireBriefing) || window.MissionChainBriefingCore?.voiceContext(md.chainBriefing) || window.MissionKnowledgeBriefingCore?.voiceContext(md?.knowledgeBriefing || contract?.knowledgeBriefing) || window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || window.MissionBioBriefingCore?.voiceContext(md?.bioBriefing || contract?.bioBriefing) || window.MissionGeoBriefingCore?.voiceContext(md?.geoBriefing || contract?.geoBriefing) || window.MissionMappingBriefingCore?.voiceContext(md?.mappingBriefing || contract?.mappingBriefing) || window.MissionPoiFollowupNarrativeCore?.voiceContext(md?.poiContinuationBriefing || contract?.poiContinuationBriefing) || '';
     if (poiNarrative) lines.push(poiNarrative);
     const sightseeingIdea=md?.sightseeingIdea || contract?.sightseeingIdea;
     if(sightseeingIdea?.schema === 'sightseeing-idea.v1') lines.push(window.MissionSightseeingIdeasCore.voiceContext(sightseeingIdea));
@@ -9846,6 +10017,7 @@ function _notifyFarewellSpeechCompleteIfCurrent(epoch, reason = 'pax-farewell-co
 
 function _farewellPreparedContext(record = null) {
     let rec = (record && typeof record === 'object') ? { ...record } : {};
+    if (!rec.fireWatchSummary && window.lastLiveFlightData?.onGround===true && typeof currentMissionData!=='undefined') rec.fireWatchSummary=_fireCompletionSummary(currentMissionData?.fireScenario);
     if (!rec.missionCargoOutcome && typeof _missionCargoEvaluateFarewellOutcome === 'function') {
         try {
             const outcome = _missionCargoEvaluateFarewellOutcome();
@@ -9876,11 +10048,23 @@ function _farewellPreparedContext(record = null) {
     if (forceFailureFallback) {
         return {
             key: _paxMissionAudioKey('farewell-failed'),
-            text: _failedMissionFarewellFallback(rec),
+            text: _failedMissionFarewellFallback(rec)+(rec.fireWatchSummary?.groundAdditional>0 ? ` Die Bodenkräfte haben bei der Nachkontrolle noch ${rec.fireWatchSummary.groundAdditional} weitere Verdachtsstelle${rec.fireWatchSummary.groundAdditional===1?'':'n'} gefunden.` : ''),
             speaker,
             eventLabel: 'Verabschiedung',
             logLabel: 'Farewell'
         };
+    }
+    const fs=(typeof currentMissionData!=='undefined'?currentMissionData?.fireScenario:null);
+    const fireSummary=rec.fireWatchSummary || (window.lastLiveFlightData?.onGround===true?_fireCompletionSummary(fs):null);
+    if (fireSummary && _activeTaskDomain()==='fire_watch') {
+        const found=fireSummary.found;
+        const parts=[];
+        if (fireSummary.smokeFound) parts.push(`${fireSummary.smokeFound} Rauchquelle${fireSummary.smokeFound===1?'':'n'}`);
+        if (fireSummary.heatFound) parts.push(`${fireSummary.heatFound} Wärmeverdachtsstelle${fireSummary.heatFound===1?'':'n'}`);
+        const findings=found ? `${parts.join(' und ')} aus der Luft dokumentiert.` : 'Aus der Luft blieb der Befund offen.';
+        const additional=fireSummary.groundAdditional;
+        const ground=additional ? `Die Bodenkräfte haben bei ihrer Nachkontrolle noch ${additional} weitere ${fireSummary.findingKind==='heat'?'Wärmestelle'+(additional===1?'':'n'):'Rauchquelle'+(additional===1?'':'n')} entdeckt.` : fireSummary.outcome==='no_finding'?'Auch unser Luftbericht enthält keinen belastbaren Befund; eine Fehlmeldung bleibt wahrscheinlich.':'Die beobachteten Stellen sind zur weiteren Prüfung übergeben.';
+        return {key:_paxMissionAudioKey('farewell'),text:`Danke für den Suchflug. ${findings} ${ground}`,speaker,eventLabel:'Verabschiedung',logLabel:'Farewell'};
     }
     const prompt = _farewellPrompt(rec);
     if (!prompt) return null;

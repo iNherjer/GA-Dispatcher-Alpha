@@ -103,9 +103,16 @@ function validateBundle(bundle) {
         || plan.effects['voice.boarding'].recipe.missionId !== bundle.missionId
         || plan.effects['voice.approach'].context.missionId !== bundle.missionId) return 'poi_lifecycle_voice_plan_invalid';
     if (bundle.executionPoiRecipe.taskDomain === 'fire_watch') {
-        const hasFire = bundle.executionPoiRecipe.fireScenario.truth === 'fire';
+        const scenario = bundle.executionPoiRecipe.fireScenario;
+        const searchV2 = scenario.search?.schema === 'fire-search.v2';
+        const hasFire = scenario.truth === 'fire' && !(searchV2 && scenario.search.sceneMode === 'thermal_only');
         for (const type of ['smoke.spawn', 'smoke.clear']) {
             if (hasFire ? !commandTemplateFor(plan, type) : !!plan.effects?.[type]?.command) return 'fire_watch_smoke_plan_invalid';
+        }
+        if (searchV2 && hasFire) {
+            const command = plan.effects['smoke.spawn'].command;
+            const sameSites = (a,b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((p,i) => ['siteId','smokeSiteId','lat','lon','altFt','count','radiusM'].every(k => p[k] === b[i][k]));
+            if (!sameSites(command.sites,scenario.smoke?.sites) || !sameSites(command.fireSites,scenario.fire?.enabled ? scenario.fire.sites : [])) return 'fire_watch_source_location_mismatch';
         }
     }
     for (const type of ['scene.prepare', 'scene.boarding', 'scene.deboarding', 'scene.target']) {

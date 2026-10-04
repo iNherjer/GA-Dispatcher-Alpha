@@ -10,6 +10,7 @@ const EFB_WEB_ASSET_REVISION = '46501';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
+  '/efb/v1/assets/mission-fire-search-map.js': [path.join(__dirname, 'efb-web-assets', 'mission-fire-search-map.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-survey-pattern.js': [path.join(__dirname, 'efb-web-assets', 'mission-survey-pattern.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-poi-chain-runtime.js': [path.join(__dirname, 'efb-web-assets', 'mission-poi-chain-runtime.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/stopwatch-ticks.svg': [path.join(__dirname, 'efb-fonts', 'stopwatch-ticks.svg'), 'image/svg+xml; charset=utf-8'],
@@ -168,6 +169,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/profile-bridge.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/checklists.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/profile.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/mission-fire-search-map.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/mission-survey-pattern.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/mission-poi-chain-runtime.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/mission-training-guidance-ui.js?v=${EFB_WEB_ASSET_REVISION}"></script>

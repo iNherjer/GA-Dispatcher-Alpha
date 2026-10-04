@@ -436,3 +436,11 @@ test('sightseeing voice uses the restored spoken transcript in the central gener
  assert.match(calls[0].prompt,/Den Ortsaspekt habe ich schon erwähnt/);
  assert.match(calls[0].prompt,/BEREITS GESPROCHEN/);
 });
+
+test('expired Fire search hints cannot activate late TTS playback', async()=>{
+ const effect={effectId:'fire-hint',type:'voice.poi',payload:{fireSearchHint:true,expiresAt:Date.now()-1,resolvedRecipe:{schema:'ga.mission-poi-voice-recipe.v1',missionId:'mission-a',kind:'poi',enabled:true,audioEnabled:true,prompt:'',fallbackText:'Verdacht nordwestlich der Gebietsmarkierung.'}}};
+ const snapshot={missionId:'mission-a',runId:'run-a',recipe:'poi',state:{phase:'active',flags:{active:true},effects:[effect],poiTask:{fireState:{scenario:{state:'searching'}}}}};
+ let submitted,played=false;
+ const handler=createTrackerMissionBoardingVoice({authorityManager:{getActiveRun:()=>({...run(),executionRecipe:'poi'}),getExecutionSnapshot:()=>snapshot,supportsExecutionRecipe:()=>true},voiceService:{publicState:()=>({configured:true}),request:v=>{submitted=v;},wait:async()=>({status:'ready',audioAvailable:true,text:'Verdacht nordwestlich der Gebietsmarkierung.'}),activatePlayback:()=>{played=true;},cancel:()=>{}}});
+ const result=await handler.dispatch({...request(),effect});assert.equal(submitted.isPlaybackAllowed(),false);assert.equal(played,false);assert.equal(result.status,'completed');
+});

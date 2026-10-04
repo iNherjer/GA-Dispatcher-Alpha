@@ -1130,6 +1130,17 @@ Moment: Wir sind am Zielgebiet, aber ${itemLine}${wx ? ' ' + wx : ''}
 Sag dem Piloten klar und ruhig, dass wir die Beobachtung jetzt abbrechen und direkt zum Start-/Heimatplatz zurückfliegen sollen. Kein Vorwurf, keine Verweilzeit, keine Arbeitsfortsetzung. Nenne den betroffenen Gegenstand beim Namen und benenne klar, ob er fehlt oder beschaedigt ist. Max 2 Sätze.${_toneHint()}`;
 }
 
+function _fireCompletionSummary(fs) {
+    if (fs?.search?.schema!=='fire-search.v2') return null;
+    const ids=new Set((fs.search.findings||[]).map(p=>p.id));
+    const sources=fs.truth==='fire'?(fs.smoke?.sites||[]):[];
+    const found=sources.filter(p=>ids.has(p.siteId||`${p.lat},${p.lon}`)).length;
+    return {schema:'fire-outcome.v1',searchComplete:!!fs.assessmentComplete||fs.state==='false_alarm_rtb',
+        findingKind:fs.search.sceneMode==='thermal_only'?'heat':'smoke',smokeFound:(fs.search.findings||[]).filter(p=>p.kind==='smoke').length,heatFound:(fs.search.findings||[]).filter(p=>p.kind==='heat_suspicion').length,found,groundAdditional:Math.max(0,sources.length-found),
+        outcome:fs.truth==='false_alarm'?'no_finding':found===sources.length?'complete':found?'partial':'unconfirmed',
+        searchSec:Number(fs.search.observedSec||0)};
+}
+
 function _trainingProcedureDebriefLine() {
     const snap = (typeof window.missionTrainingProcedure?.snapshot === 'function')
         ? window.missionTrainingProcedure.snapshot()
@@ -1333,6 +1344,7 @@ function _failedMissionFarewellFallback(record = null) {
 
 function _farewellPreparedContext(record = null) {
     let rec = (record && typeof record === 'object') ? { ...record } : {};
+    if (!rec.fireWatchSummary && window.lastLiveFlightData?.onGround===true && typeof currentMissionData!=='undefined') rec.fireWatchSummary=_fireCompletionSummary(currentMissionData?.fireScenario);
     if (!rec.missionCargoOutcome && typeof _missionCargoEvaluateFarewellOutcome === 'function') {
         try {
             const outcome = _missionCargoEvaluateFarewellOutcome();
@@ -1363,11 +1375,23 @@ function _farewellPreparedContext(record = null) {
     if (forceFailureFallback) {
         return {
             key: _paxMissionAudioKey('farewell-failed'),
-            text: _failedMissionFarewellFallback(rec),
+            text: _failedMissionFarewellFallback(rec)+(rec.fireWatchSummary?.groundAdditional>0 ? ` Die Bodenkräfte haben bei der Nachkontrolle noch ${rec.fireWatchSummary.groundAdditional} weitere Verdachtsstelle${rec.fireWatchSummary.groundAdditional===1?'':'n'} gefunden.` : ''),
             speaker,
             eventLabel: 'Verabschiedung',
             logLabel: 'Farewell'
         };
+    }
+    const fs=(typeof currentMissionData!=='undefined'?currentMissionData?.fireScenario:null);
+    const fireSummary=rec.fireWatchSummary || (window.lastLiveFlightData?.onGround===true?_fireCompletionSummary(fs):null);
+    if (fireSummary && _activeTaskDomain()==='fire_watch') {
+        const found=fireSummary.found;
+        const parts=[];
+        if (fireSummary.smokeFound) parts.push(`${fireSummary.smokeFound} Rauchquelle${fireSummary.smokeFound===1?'':'n'}`);
+        if (fireSummary.heatFound) parts.push(`${fireSummary.heatFound} Wärmeverdachtsstelle${fireSummary.heatFound===1?'':'n'}`);
+        const findings=found ? `${parts.join(' und ')} aus der Luft dokumentiert.` : 'Aus der Luft blieb der Befund offen.';
+        const additional=fireSummary.groundAdditional;
+        const ground=additional ? `Die Bodenkräfte haben bei ihrer Nachkontrolle noch ${additional} weitere ${fireSummary.findingKind==='heat'?'Wärmestelle'+(additional===1?'':'n'):'Rauchquelle'+(additional===1?'':'n')} entdeckt.` : fireSummary.outcome==='no_finding'?'Auch unser Luftbericht enthält keinen belastbaren Befund; eine Fehlmeldung bleibt wahrscheinlich.':'Die beobachteten Stellen sind zur weiteren Prüfung übergeben.';
+        return {key:_paxMissionAudioKey('farewell'),text:`Danke für den Suchflug. ${findings} ${ground}`,speaker,eventLabel:'Verabschiedung',logLabel:'Farewell'};
     }
     const prompt = _farewellPrompt(rec);
     if (!prompt) return null;

@@ -77,3 +77,18 @@ test('App seed carries original fire sources and makes no generic target scene o
  if(smoke) assert.deepEqual(JSON.parse(JSON.stringify(smoke.sites)),r.fireScenario.smoke.sites);
  }
 });
+
+test('V2 source clocks run in tracker runtime, freeze during suspension and project only revealed findings',()=>{
+ const r=recipe();r.fireScenario.search={schema:'fire-search.v2',sceneMode:'smoke'};
+ r.fireScenario.smoke={sites:[{siteId:'near',lat:48.002,lon:8},{siteId:'far',lat:48.009,lon:8}]};
+ let state=poi.observe(r,null,sample(1000),facts).state;
+ state=poi.observe(r,state,sample(3000),facts).state;
+ const progress=state.fireState.scenario.search.sourceTimers.near.smokeSec;
+ assert.ok(progress>2);assert.equal(poi.project(state).fireWatch.searchArea.findings.length,0);
+ state=poi.suspend(r,state);
+ state=poi.observe(r,JSON.parse(JSON.stringify(state)),sample(603000),facts).state;
+ assert.equal(state.fireState.scenario.search.sourceTimers.near.smokeSec,progress);
+ state=poi.observe(r,state,sample(606000),facts).state;
+ assert.deepEqual(poi.project(state).fireWatch.searchArea.findings.map(p=>p.id),['near']);
+ assert.equal(JSON.stringify(poi.project(state)).includes('48.009'),false);
+});

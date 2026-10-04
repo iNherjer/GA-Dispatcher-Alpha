@@ -596,3 +596,9 @@ test('EFB map credits preserve attribution and cancel external link navigation',
     assert.equal(event.defaultPrevented, true);
   }
 });
+
+test('Fire search overlay is served as a shared compiled module in the tracker-only map',()=>{
+ const page=createTrackerEfbWebClientPage();assert.match(page,/mission-fire-search-map\.js\?v=/);
+ const asset=getTrackerEfbWebClientAsset('/efb/v1/assets/mission-fire-search-map.js');assert.ok(asset);assert.match(asset.body.toString('utf8'),/Verdachts-Suchgebiet/);
+ const host=getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');assert.match(host,/MissionFireSearchMap\.render\(map/);
+});

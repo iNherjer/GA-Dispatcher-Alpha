@@ -7,10 +7,10 @@ const source = fs.readFileSync(sourcePath, 'utf8');
 const helperNames = [
   '_normalizeSpokenTextLegacy', '_normalizeSpokenText', '_bearingDeg', '_relativeClockPos', '_haversineNm',
   '_fireScenario', '_fireMissionRuntimeActive', '_fireTarget', '_fireRound',
-  '_fireMissionContext', '_fireVectorLine', '_fireShortVector', '_fireDistanceSpeak',
+  '_fireSearchSource', '_fireMarkFinding', '_fireDetectionCandidates', '_fireVisualDetectionTick', '_fireSearchHintsTick', '_fireMissionContext', '_fireVectorLine', '_fireShortVector', '_fireDistanceSpeak',
   '_fireBearingSpeak', '_fireSmokeSourceCount', '_fireAssessmentText', '_fireReturnClearanceText',
   '_fireRemainingSearchText', '_fireRecordObservation', '_fireMissionAwarenessTick',
-  '_fireHasObservation', '_tickFireMissionSearch'
+  '_fireHasObservation', '_fireCompletionSummary', '_fireSearchCompletionTick', '_tickFireMissionSearch'
 ];
 const actionNames = ['fireMissionPositionReport', 'fireMissionReportNoSmoke', 'fireMissionReportSmokeVisible'];
 const extract = name => extractOriginalFunction(source, name);
@@ -43,6 +43,7 @@ function createState(context = {}, previous = null) {
   if (error) throw new TypeError(error);
   return { scenario, satisfied: previous?.satisfied === true, atTargetDone: previous?.atTargetDone === true };
 }
+${extract('_fireCompletionSummary')}
 function run(context = {}, inputState = {}, sample = {}, now = Date.now(), operation = 'observe') {
   const voices = [];
   const initial = createState(context, inputState);
@@ -75,7 +76,7 @@ ${original}
 }
 function observe(context, state, sample, now) { return run(context, state, sample, now, 'observe'); }
 function action(context, state, actionName, sample, now) { return run(context, state, sample, now, String(actionName || '')); }
-return Object.freeze({ observe, action, createState, validateScenario });
+return Object.freeze({ observe, action, createState, validateScenario, completionSummary: _fireCompletionSummary });
 });
 `;
 if (process.argv.includes('--check')) {

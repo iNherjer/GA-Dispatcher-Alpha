@@ -1,5 +1,9 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Fire-Suchgebiet, lokaler Stand 04.10.2026
+
+Gemeinsamer Kartenrenderer `mission-fire-search-map.js` zeigt einen roten, leicht unregelmäßigen Wachsstift-Suchkreis mit überlappendem Anfang/Ende und dessen Bezugspunkt in App und Tracker-Kartentisch. Der Tracker liefert ausschließlich öffentlichen Mittelpunkt und Vertragsradius; private Fundstellen bleiben verborgen. Overlay dient nur der Darstellung, ohne Missionsdetektor im UI. Bei Missionswechsel/Reset/Schließen wird es entfernt. Tracker-Build und MSFS-Feldtest stehen noch aus.
+
 ## Trainingsbanner, lokaler Folgestand 30.09.2026
 
 Gemeinsames Banner in EFB und App bei Tracker-Authority: dynamische Kurs-/Höhenvorschau, Start über `training_ready`, Neustart und Abbruch über bestätigtes `training_abort`. Die Authority schreibt Ausgangswerte bei manueller Freigabe verbindlich fest. Bestandene Übungen bleiben erhalten; nach Erfolg verschwindet das Banner bis zur nächsten Einweisung. Kein neuer Intent und keine fachliche Zustandsmaschine im UI. Standalone-App-Parität und MSFS-Feldtest sind noch offen.
@@ -5852,3 +5856,5 @@ Alpha-Release `v465` veroeffentlicht und dessen oeffentlicher Download erneut
 geprueft: 173436284 Bytes, SHA-256
 `a39b46a7c3d4d1d47e31a1a7147e58f6aa67e0588d688d74d2c9daf7b0272d63`.
 Der Alpha-Updater verwendet exakt dieses unveraenderliche Artefakt.
+
+Fire Watch, lokale Erweiterung 04.10.2026: Authority-Fundmeldungen sind pro Stelle nummeriert; EFB zeigt nur freigegebene Kreuze. Der erste Fund schließt die Suche nicht. Vollständige Lage verlangt Mindest-Suche plus Lagebeobachtung; ein begrenztes Suchbudget erlaubt unvollständige Luftbefunde. `groundAdditional` bleibt während des Fluges privat und gelangt erst bei Bodentelemetrie in den Abschlusskontext. Ein Teilbefund wurde im Integrationstest durch Rückkehr, Cargo-Entladung, Farewell und Closed geführt. Gemeinsame App-/POI-Voice- und Fire-Cores sowie EFB-Assets wurden lokal regeneriert. Reale Simulator-/Providerprüfung und Tracker-Veröffentlichung stehen noch aus.

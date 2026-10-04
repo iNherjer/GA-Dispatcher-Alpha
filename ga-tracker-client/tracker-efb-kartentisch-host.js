@@ -2330,7 +2330,7 @@
       if (!button && primaryButton && primaryButton.parentNode) {
         button = document.createElement('button'); button.id = id; button.type = 'button';
         button.className = primaryButton.className;
-        button.textContent = ['Missionsstatus','Orientierung','Wohlbefinden','Ladung','Wetter','Erzähl mal','Kein Rauch sichtbar','Rauch sichtbar','Übung starten','Übung abbrechen','Zusatzübung','Fund melden'][index];
+        button.textContent = ['Missionsstatus','Orientierung','Wohlbefinden','Ladung','Wetter','Erzähl mal','Kein Rauch sichtbar','Sichtung / Wärmehinweis prüfen','Übung starten','Übung abbrechen','Zusatzübung','Fund melden'][index];
         button.onclick = function(event) { event.stopPropagation(); requestMissionIntent(intent, {}); };
         (byId('paxMissionActionMenu') || primaryButton.parentNode).appendChild(button);
       }
@@ -2478,6 +2478,7 @@
     });
     missionSnapshot = next;
     window.gaTrackerExecutionControl = next && next.control || null;
+    if (window.MissionFireSearchMap) window.MissionFireSearchMap.render(map, window.L, window.MissionFireSearchMap.fromControl(nextControl));
     if (window.missionPoiChainRuntime) window.missionPoiChainRuntime.renderAuthorityProjection(nextControl && nextControl.chainSpec, nextControl && nextControl.poiTask && nextControl.poiTask.poiChain);
     if (window.missionSurveyPattern) window.missionSurveyPattern.renderAuthorityProjection(nextControl && nextControl.surveySpec, nextControl && nextControl.poiTask && nextControl.poiTask.surveyPattern);
     if (nextControl && nextControl.cargoWindowCloseId
