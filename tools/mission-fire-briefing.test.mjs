@@ -25,7 +25,7 @@ test('original finalizer and quota/cloud compact preserve the briefing and obser
  const m=mission();assert.equal(env.applyMissionTaskProfileToMission(m,true,'fire_watch',m.pax,m.cargo).mission.s,m.s);assert.equal(env.missionMatchesTaskProfile(m,'fire_watch',true),true);
  const restored=JSON.parse(JSON.stringify(env._syncCompactMissionObjectCore(env.compactMissionObjectForQuotaStorage(m))));assert.deepEqual(restored.fireBriefing,JSON.parse(JSON.stringify(m.fireBriefing)));assert.equal(restored.passenger.roleProfile,'fire_observer_ops_v1');assert.equal(restored.passenger.targetRadiusNm,1.5);
 });
-function browser(compose=async()=>({targetScene:placement})){const calls=[],storage=store();const env={window:{MissionFireBriefingCore:core,MissionFireSceneCore:scene,MissionPoiBriefingSharedCore:shared,MissionCharterIdeasCore:charter,MissionPoiBriefingSharedBrowser:{context:async()=>({...c,fireScenario:fire()}),enrichSelected:async x=>x}},localStorage:storage,getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:1}),getSelectedAiApiKey:()=>'',normalizeMissionProposalChoice:x=>x,missionProposalCompactTarget:x=>x,missionProposalFormatRoute:()=>({label:'20 NM'}),fetchGeminiJsonWithFallback:async prompt=>{calls.push(prompt);return {parsed:prompt.includes('RAHMEN=')?{ideas:[i]}:w};}};vm.runInNewContext(fs.readFileSync('mission-fire-briefing-browser.js','utf8'),env);return {api:env.window.MissionFireBriefingBrowser,calls,env,compose};}
+function browser(compose=async()=>({targetScene:placement})){const calls=[],storage=store();const env={window:{MissionFireBriefingCore:core,MissionFireSceneCore:scene,MissionPoiBriefingSharedCore:shared,MissionCharterIdeasCore:charter,MissionPoiBriefingSharedBrowser:{context:async()=>({...c,fireScenario:fire()}),enrichSelected:async x=>x}},localStorage:storage,getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:1}),getSelectedAiApiKey:()=>'fixture-key',normalizeMissionProposalChoice:x=>x,missionProposalCompactTarget:x=>x,missionProposalFormatRoute:()=>({label:'20 NM'}),fetchGeminiJsonWithFallback:async prompt=>{calls.push(prompt);return {parsed:prompt.includes('RAHMEN=')?{ideas:[i]}:w};}};vm.runInNewContext(fs.readFileSync('mission-fire-briefing-browser.js','utf8'),env);return {api:env.window.MissionFireBriefingBrowser,calls,env,compose};}
 test('picker selects and binds one alarm; writer gets no future finding',async()=>{
  const {api,calls}=browser(),start={name:'Basis',lat:48.1,lon:8.1};assert.equal(api.enabled({profileId:'fire_watch'}),true);assert.equal(api.enabled({profileId:'science_geo'}),false);
  const [choice]=await api.choices([c.target],{start});const m=await api.story({start,dest:c.target,proposal:choice.fireProposal});assert.equal(calls.length,2);assert.equal(m.passenger.name,'Kim');assert.doesNotMatch(calls.join('\n'),/Chimney|major_fire|fireScenario/);
@@ -108,3 +108,10 @@ test('fire scene accepts a single transport envelope but never ambiguous multipl
  written.story=w.story+' [[invented.location]]';
  await assert.rejects(()=>api.story({start,dest:c.target}),/unbekannte Referenzen: invented.location/);
  });
+
+
+test('missing provider key selects the existing local dispatch; direct AI calls explain the missing key',async()=>{
+ const {api,env,calls}=browser();env.getSelectedAiApiKey=()=>'';assert.equal(api.enabled({profileId:'fire_watch',aiModeEnabled:true}),false);assert.equal(calls.length,0);
+ await assert.rejects(()=>api.story({start:{lat:48,lon:8},dest:c.target}),/API-Key des gewählten Providers/);assert.equal(calls.length,0);
+ env.getSelectedAiApiKey=()=> '  fixture-key  ';assert.equal(api.enabled({profileId:'fire_watch',aiModeEnabled:true}),true);assert.equal(api.enabled({profileId:'fire_watch',aiModeEnabled:false}),false);
+});

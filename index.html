@@ -3181,5 +3181,28 @@
     </div>
 </div>
 
+<dialog id="dispatchApiKeyDialog" class="dispatch-api-key-dialog" aria-labelledby="dispatchApiKeyTitle" aria-describedby="dispatchApiKeyDescription">
+    <form id="dispatchApiKeyForm" method="post" autocomplete="on">
+        <button id="dispatchApiKeyClose" type="button" aria-label="API-Key-Hinweis schließen" class="dispatch-api-key-close">×</button>
+        <h2 id="dispatchApiKeyTitle">API-Key fehlt</h2>
+        <p id="dispatchApiKeyDescription">Für die KI-Generierung mit <strong id="dispatchApiKeyProvider">Gemini</strong> wird ein API-Key benötigt. Du kannst ihn hier eingeben oder die App ohne KI nutzen.</p>
+        <label for="dispatchApiKeyUsername">Eintrag im Passwortmanager</label>
+        <input id="dispatchApiKeyUsername" name="username" type="text" autocomplete="username" readonly>
+        <label for="dispatchApiKeyPassword">API-Key</label>
+        <input id="dispatchApiKeyPassword" name="password" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required>
+        <label class="dispatch-api-key-option"><input id="dispatchApiKeyShow" type="checkbox"> Key anzeigen</label>
+        <label class="dispatch-api-key-option"><input id="dispatchApiKeyRemember" type="checkbox" checked> Auf diesem Gerät für weitere Besuche merken</label>
+        <p class="dispatch-api-key-note">Dies speichert den Key im lokalen Website-Speicher, nicht verschlüsselt. Ohne diese Option gilt er nur für die aktuelle Sitzung.</p>
+        <label class="dispatch-api-key-option"><input id="dispatchApiKeyManager" type="checkbox"> Speichern im Passwortmanager anbieten</label>
+        <p class="dispatch-api-key-note">Je nach Browser wird das Speichern angeboten. Alternativ diesen Eintrag im Passwortmanager manuell sichern; Website-Daten und gespeicherte Passwörter werden getrennt verwaltet.</p>
+        <label id="dispatchApiKeyDismissOption" class="dispatch-api-key-option" hidden><input id="dispatchApiKeyDismiss" type="checkbox"> Diese Meldung beim App-Start nicht mehr anzeigen</label>
+        <p id="dispatchApiKeyError" role="alert"></p>
+        <div class="dispatch-api-key-actions">
+            <button id="dispatchApiKeySubmit" type="submit" class="btn-main">Mit KI fortfahren</button>
+            <button id="dispatchApiKeyLocal" type="button" class="btn-preset">Ohne KI fortfahren</button>
+            <button id="dispatchApiKeyCancel" type="button" class="btn-preset">Abbrechen</button>
+        </div>
+    </form>
+</dialog>
 </body>
 </html>

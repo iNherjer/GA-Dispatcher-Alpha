@@ -2,7 +2,7 @@
 'use strict';
 const core=()=>root.MissionFireBriefingCore;
 const FLAG='ga_fire_briefing_v1';
-function enabled({isPOI=true,profileId,category='',aiModeEnabled=true,followup=false,planning=false,bush=false}={}){try{return localStorage.getItem(FLAG)!=='off'&&isPOI&&profileId==='fire_watch'&&aiModeEnabled&&!followup&&!planning&&!bush&&category!=='chain';}catch{return false;}}
+function enabled({isPOI=true,profileId,category='',aiModeEnabled=true,followup=false,planning=false,bush=false}={}){try{return localStorage.getItem(FLAG)!=='off'&&isPOI&&profileId==='fire_watch'&&aiModeEnabled&&String(getSelectedAiApiKey()||'').trim().length>0&&!followup&&!planning&&!bush&&category!=='chain';}catch{return false;}}
 async function context(dest,terrainEnvelope=null){
  const initial=await root.MissionPoiBriefingSharedBrowser.context(dest,terrainEnvelope);
  const c=await root.MissionPoiBriefingSharedBrowser.enrichSelected(initial);
@@ -10,7 +10,9 @@ async function context(dest,terrainEnvelope=null){
  return {id:c.id,target:c.target,targetFacts:c.targetFacts||[],environmentFacts:c.environmentFacts||[],facts:c.facts||[],coverage:c.coverage||[],supplements:c.supplements||[],terrain:c.terrain,terrainEnvelope};
 }
 async function json(prompt) {
- const result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});
+ const key=String(getSelectedAiApiKey()||'').trim();
+ if(!key)throw Error('Für KI-Feuerwacht-Aufträge fehlt der API-Key des gewählten Providers. Bitte in den Einstellungen eintragen oder ohne KI neu dispatchen.');
+ const result=await fetchGeminiJsonWithFallback(prompt,key,{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});
  if(!result?.parsed)throw Error('Der POI-Einsatzauftrag konnte nicht erstellt werden. Bitte erneut versuchen.');
  return result.parsed;
 }

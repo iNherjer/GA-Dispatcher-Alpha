@@ -7105,6 +7105,116 @@ function getSelectedAiApiKey(provider = getSelectedAiProvider()) {
 }
 window.getSelectedAiApiKey = getSelectedAiApiKey;
 
+let _dispatchApiKeyPrompt = null;
+function requestDispatchApiKey({ startup = false, invalid = false } = {}) {
+    if (_dispatchApiKeyPrompt) return _dispatchApiKeyPrompt;
+    const provider = getSelectedAiProvider();
+    const dialog = document.getElementById('dispatchApiKeyDialog');
+    const form = document.getElementById('dispatchApiKeyForm');
+    const keyInput = document.getElementById('dispatchApiKeyPassword');
+    if (!dialog || !form || !keyInput) return Promise.resolve('cancel');
+    document.getElementById('dispatchApiKeyTitle').textContent = invalid ? 'API-Key nicht gültig' : 'API-Key fehlt';
+    document.getElementById('dispatchApiKeyProvider').textContent = AI_PROVIDER_LABELS[provider];
+    document.getElementById('dispatchApiKeyDismissOption').hidden = !startup;
+    document.getElementById('dispatchApiKeyDismiss').checked = false;
+    document.getElementById('dispatchApiKeySubmit').textContent = startup ? 'Key übernehmen' : 'Mit KI fortfahren';
+    document.getElementById('dispatchApiKeyCancel').textContent = startup ? 'Schließen' : 'Abbrechen';
+    document.getElementById('dispatchApiKeyUsername').value = `GA Dispatcher ${AI_PROVIDER_LABELS[provider]} API-Key`;
+    keyInput.value = '';
+    keyInput.type = 'password';
+    document.getElementById('dispatchApiKeyShow').checked = false;
+    document.getElementById('dispatchApiKeyRemember').checked = true;
+    document.getElementById('dispatchApiKeyManager').checked = false;
+    const error = document.getElementById('dispatchApiKeyError');
+    error.textContent = '';
+    const previousFocus = document.activeElement;
+    _dispatchApiKeyPrompt = new Promise(resolve => {
+        const finish = choice => {
+            if (startup && document.getElementById('dispatchApiKeyDismiss').checked) {
+                try { localStorage.setItem('ga_ai_key_startup_dismissed', 'true'); } catch (_) {}
+            }
+            dialog.close();
+            form.onsubmit = null;
+            dialog.oncancel = null;
+            document.getElementById('dispatchApiKeyLocal').onclick = null;
+            document.getElementById('dispatchApiKeyCancel').onclick = null;
+            document.getElementById('dispatchApiKeyClose').onclick = null;
+            keyInput.value = '';
+            _dispatchApiKeyPrompt = null;
+            previousFocus?.focus?.();
+            resolve(choice);
+        };
+        form.onsubmit = event => {
+            // Never submit the key as a form request or include it in a URL.
+            event.preventDefault();
+            const key = keyInput.value.trim();
+            if (!key) { error.textContent = 'Bitte einen API-Key eingeben.'; keyInput.focus(); return; }
+            const settingsInput = document.getElementById(provider === 'openai' ? 'openAiApiKeyInput' : 'apiKeyInput');
+            if (!settingsInput) { error.textContent = 'Die API-Key-Einstellungen sind nicht verfügbar.'; return; }
+            if (document.getElementById('dispatchApiKeyRemember').checked) {
+                try {
+                    localStorage.setItem(provider === 'openai' ? OPENAI_API_KEY_STORAGE_KEY : 'ga_gemini_key', key);
+                } catch (_) {
+                    error.textContent = 'Lokales Speichern ist nicht möglich. Deaktiviere die Speicheroption, um für diese Sitzung fortzufahren.';
+                    return;
+                }
+            }
+            settingsInput.value = key;
+            _clearApiKeyValidationCache(provider);
+            updateAiCostEstimate();
+            if (document.getElementById('dispatchApiKeyManager').checked
+                && typeof window.PasswordCredential === 'function' && navigator.credentials?.store) {
+                try {
+                    const credential = new window.PasswordCredential({
+                        id: document.getElementById('dispatchApiKeyUsername').value,
+                        password: key,
+                        name: `${AI_PROVIDER_LABELS[provider]} API-Key`
+                    });
+                    // A dismissed/unsupported password-manager offer must not block dispatch.
+                    Promise.resolve(navigator.credentials.store(credential)).catch(() => {});
+                } catch (_) {}
+            }
+            finish('ai');
+        };
+        document.getElementById('dispatchApiKeyShow').onchange = event => {
+            keyInput.type = event.target.checked ? 'text' : 'password';
+        };
+        document.getElementById('dispatchApiKeyLocal').onclick = () => finish('local');
+        document.getElementById('dispatchApiKeyCancel').onclick = () => finish('cancel');
+        document.getElementById('dispatchApiKeyClose').onclick = () => finish('cancel');
+        dialog.oncancel = event => { event.preventDefault(); finish('cancel'); };
+        dialog.showModal();
+        keyInput.focus();
+    });
+    return _dispatchApiKeyPrompt;
+}
+
+
+async function promptForStartupApiKey(validation) {
+    try {
+        if (localStorage.getItem('ga_ai_key_startup_dismissed') === 'true') return;
+        const provider = getSelectedAiProvider();
+        const keyBefore = getSelectedAiApiKey(provider);
+        const result = await validation;
+        // Do not reopen after another prompt or a settings edit while validation was running.
+        if (_dispatchApiKeyPrompt || getSelectedAiProvider() !== provider
+            || getSelectedAiApiKey(provider) !== keyBefore
+            || localStorage.getItem('ga_ai_key_startup_dismissed') === 'true') return;
+        const invalid = result?.ok === false && [400, 401, 403].includes(result.status);
+        if (keyBefore && !invalid) return; // Network errors/quota are not evidence of an invalid key.
+        const choice = await requestDispatchApiKey({ startup: true, invalid });
+        if (choice === 'local') {
+            document.getElementById('aiToggle').checked = false;
+            saveAiToggle();
+        } else if (choice === 'ai') {
+            document.getElementById('aiToggle').checked = true;
+            saveAiToggle();
+            queueApiKeyValidation(getSelectedAiApiKey(provider), provider);
+        }
+    } catch (_) { /* Optional startup hint must not interrupt app initialization. */ }
+}
+
+
 function getAiCostEstimateText(provider = getSelectedAiProvider(), profile = getSelectedAiModelProfile()) {
     const normalizedProvider = normalizeAiProvider(provider);
     const normalizedProfile = normalizeAiModelProfile(profile);
@@ -7205,8 +7315,9 @@ function _restoreApiKeyValidationStatus(provider, key) {
         } else {
             setApiKeyValidationStatus(`Letzte Pruefung vor ${minutesAgo} min fehlgeschlagen.`, 'error', normalized);
         }
+        return { ok: cache.ok, status: cache.status };
     } else {
-        queueApiKeyValidation(key, normalized);
+        return queueApiKeyValidation(key, normalized);
     }
 }
 
@@ -7337,8 +7448,11 @@ function initAiProviderSettings() {
     if (geminiInput) geminiInput.value = geminiKey;
     if (openAiInput) openAiInput.value = openAiKey;
 
-    _restoreApiKeyValidationStatus('gemini', geminiKey);
-    _restoreApiKeyValidationStatus('openai', openAiKey);
+    const validation = {
+        gemini: _restoreApiKeyValidationStatus('gemini', geminiKey),
+        openai: _restoreApiKeyValidationStatus('openai', openAiKey)
+    };
+    setTimeout(() => promptForStartupApiKey(validation[provider]), 0);
     _bindAiKeyInput('gemini', 'apiKeyInput');
     _bindAiKeyInput('openai', 'openAiApiKeyInput');
     updateAiCostEstimate();
@@ -42964,6 +43078,19 @@ async function generateMission(options = {}) {
             return false;
         }
     }
+    if (document.getElementById('aiToggle')?.checked && !getSelectedAiApiKey()) {
+        const keyChoice = await requestDispatchApiKey();
+        if (keyChoice === 'cancel') {
+            const indicator = document.getElementById('searchIndicator');
+            if (indicator) indicator.innerText = 'Dispatch abgebrochen. API-Key wurde nicht übernommen.';
+            setMissionGenerationProgress({ visible: false, force: true });
+            return false;
+        }
+        if (keyChoice === 'local') {
+            document.getElementById('aiToggle').checked = false;
+            saveAiToggle();
+        }
+    }
     const dispatchRunId = _startDispatchRun();
     setMissionGenerationProgress({ phase: 'start', progress: 2, force: true });
     let _dispatchDeferredFinalize = false;
@@ -44587,7 +44714,7 @@ async function generateMission(options = {}) {
         if (missionProposalChoice?.infraProposal && !useInfraInspectionIdeas) throw Error('Die Inspektionsidee benötigt den aktiven Infrastruktur-Ideengenerator.');
         if (missionProposalChoice?.bioProposal && !useBioStudyIdeas) throw Error('Die Studienidee benötigt den aktiven Biologie-Ideengenerator.');
         if (missionProposalChoice?.mappingProposal && !useMappingIdeas) throw Error('Die Mapping-Auswahl benötigt den aktiven Mapping-Ideengenerator.');
-        if (missionProposalChoice?.fireProposal && !useFireWatchIdeas) throw Error('Die Einsatzidee benötigt den aktiven Feuerwacht-Ideengenerator.');
+        if (missionProposalChoice?.fireProposal && !useFireWatchIdeas) throw Error(getSelectedAiApiKey() ? 'Die Einsatzidee benötigt den aktiven Feuerwacht-Ideengenerator.' : 'Für diese KI-Feuerwacht-Idee fehlt der API-Key des gewählten Providers. Bitte eintragen oder ohne KI neue Vorschläge erstellen.');
         if (missionProposalChoice?.geoProposal && !useGeoStudyIdeas) throw Error('Die Studienidee benötigt den aktiven Geologie-Ideengenerator.');
         if (missionProposalChoice?.newsProposal && !usePoiNewsIdeas) throw Error('Die Reporteridee benötigt den aktiven POI-Reporter-Ideengenerator.');
         if (missionProposalChoice?.poiProposal && !usePoiPhotoIdeas) throw Error('Die Fotoidee benötigt den aktiven KI-Fotogenerator.');
