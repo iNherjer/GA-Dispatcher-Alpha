@@ -71,6 +71,9 @@ assert.equal(statusContext.window.missionRuntimeResumeConflict, null);
 assert.equal(projected, 1);
 assert.equal(statusContext._handleTrackerMissionStatus({ ...status, executionAuthority: 'web' }), false);
 assert.equal(statusContext.window.missionRuntimeResumeConflict.trackerActive, true);
+statusContext._missionExecutionControlSnapshot = () => null;
+assert.equal(statusContext._handleTrackerMissionStatus(status), true);
+assert.equal(restores, 1, 'same mission reload recovers a missing Tracker projection');
 statusContext._activeMissionRuntimeId = () => 'different-cloud-copy';
 assert.equal(statusContext._handleTrackerMissionStatus(status), true);
 assert.equal(statusContext._handleTrackerMissionStatus(status), true);
@@ -85,6 +88,7 @@ let opened = 0;
 const efb = { window: {}, missionSnapshot: null, missionIntentPending: false, missionIntentStatus: '', missionIntentTone: '',
   cargoManagerOpen: false, missionPresentationSignature: '', missionSignature: '',
   missionRenderSignature: value => JSON.stringify(value), openCargoManager: () => opened++,
+  offerCloudMissionReplacement() {}, renderPaxWidget() {}, renderTrainingGuidance() {},
   renderBoardBookReminder() {}, renderMissionActionBanner() {}, renderMissionToolbar() {}, renderCargoManager() {}, byId: () => null,
   document: { querySelector: () => null }, report() {} };
 vm.createContext(efb);
@@ -338,7 +342,8 @@ console.log('PASS App/standalone/EFB unload confirmation: same text, cancel, sub
 
 // Missing capabilities during reconnect must not select the legacy start path.
 const startMode = {window:{simModeActive:false}, missionExecutionRequestedMissionId:null,
-  _activeMissionRuntimeId:()=> 'm', _trackerSupportsMissionIntents:()=>true};
+  _activeMissionRuntimeId:()=> 'm', _trackerSupportsMissionIntents:()=>true,
+  _missionRequiresSarSearchAuthority:()=>false, _missionSceneIsBushMission:()=>false, _missionSceneIsPoiMission:()=>false};
 vm.createContext(startMode);
 vm.runInContext(between(sync, 'function _missionStartUsesTrackerExecution(', 'async function _ensureTrackerExecutionAuthority('), startMode);
 assert.equal(startMode._missionStartUsesTrackerExecution(),true);
@@ -354,7 +359,7 @@ console.log('PASS tracker start retains execution mode across a capability gap.'
 let snapshotTimer, snapshotBuilds = 0;
 const snapshotContext = {
   window:{liveTrackerConnected:true,lastTrackerMissionAuthority:{activeRun:{runId:'r'}}},
-  missionExecutionHandoffPromise:null, missionAuthoritySnapshotPushTimer:null,
+  missionExecutionHandoffPromise:null, missionAuthoritySnapshotPushTimer:null, missionAuthorityResumeReadPending:false,
   missionAuthorityLastSnapshotPushAt:0, Date, Math,
   _missionExecutionAuthorityIsTracker:()=>false,
   _trackerSupportsMissionAuthority:()=>true,
@@ -371,6 +376,9 @@ snapshotContext.missionExecutionHandoffPromise=Promise.resolve();
 snapshotTimer();assert.equal(snapshotBuilds,0);
 assert.equal(snapshotContext._queueMissionAuthoritySnapshot('immediate',{immediate:true}),false);
 snapshotContext.missionExecutionHandoffPromise=null;
+snapshotContext.missionAuthorityResumeReadPending=true;
+assert.equal(snapshotContext._queueMissionAuthoritySnapshot('resume',{immediate:true}),false);
+snapshotContext.missionAuthorityResumeReadPending=false;
 snapshotContext._queueMissionAuthoritySnapshot('normal',{immediate:true});
 assert.equal(snapshotBuilds,1,'normal standalone snapshots remain enabled outside handoff');
 console.log('PASS handoff suppresses new and previously scheduled background snapshots.');

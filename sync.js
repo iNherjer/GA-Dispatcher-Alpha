@@ -931,6 +931,8 @@ let missionAuthorityAcquirePromise = null;
 let missionAuthorityCapabilityWaitPromise = null;
 let missionAuthorityLateBindPending = false;
 let missionExecutionHandoffPromise = null;
+let missionExecutionHandoffFailure = null;
+let missionAuthorityResumeReadPending = false;
 let missionExecutionRequestedMissionId = null;
 let missionExecutionIntentPromise = null;
 let missionExecutionIntentQueue = null;
@@ -2222,21 +2224,37 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
     if (_missionExecutionAuthorityIsTracker()) return true;
     if (missionExecutionHandoffPromise) return missionExecutionHandoffPromise;
     missionExecutionHandoffPromise = (async () => {
-        if (_missionRequiresSarSearchAuthority() && !window.liveTrackerCapabilities?.includes('mission.sar-search.v2')) return false;
-        if (window.simModeActive || !_trackerSupportsMissionIntents() || _missionStartPhase() !== 'planned') return false;
-        if (_missionSceneIsBushMission() && (!window.liveTrackerCapabilities?.includes(_activeBushMissionSpec()?.requiresReturnHome ? 'mission.bush-return.v1' : 'mission.bush-strip.v1') || !_buildMissionBushExecutionSeed())) return false;
-        if (typeof _missionSceneIsPoiMission === 'function' && _missionSceneIsPoiMission() && !window.liveTrackerCapabilities?.includes('mission.poi.v1')) return false;
+        missionExecutionHandoffFailure = null;
+        const fail = (stage, result = {}) => {
+            missionExecutionHandoffFailure = { ok: false, status: 'blocked',
+                error: result.error || 'mission_execution_handoff_failed', stage,
+                driftFields: result.driftFields || [] };
+            _missionPhaseDebugPush('tracker_execution_handoff_failed', { reason, ...missionExecutionHandoffFailure });
+            return false;
+        };
+        if (_missionRequiresSarSearchAuthority() && !window.liveTrackerCapabilities?.includes('mission.sar-search.v2')) return fail('recipe', { error: 'mission_execution_recipe_not_enabled' });
+        if (_missionSceneIsBushMission() && (!window.liveTrackerCapabilities?.includes(_activeBushMissionSpec()?.requiresReturnHome ? 'mission.bush-return.v1' : 'mission.bush-strip.v1') || !_buildMissionBushExecutionSeed())) return fail('recipe', { error: 'mission_execution_recipe_not_enabled' });
+        if (window.simModeActive || !_trackerSupportsMissionIntents() || _missionStartPhase() !== 'planned') {
+            return fail('eligibility', { error: 'mission_execution_handoff_phase_not_safe' });
+        }
+        if (_missionSceneIsPoiMission() && !window.liveTrackerCapabilities?.includes('mission.poi.v1')) {
+            return fail('recipe', { error: 'mission_execution_recipe_not_enabled' });
+        }
         const authorityReady = await _ensureMissionAuthorityForStart(`${reason}:authority`);
-        if (!authorityReady) return false;
+        if (!authorityReady) return fail('acquire', { error: 'mission_authority_resume_unavailable' });
+        // Acquire may reconnect an existing run. Never replace its execution
+        // with a new planned seed or hand a started Web run to the Tracker.
+        if (_missionExecutionAuthorityIsTracker()) return true;
+        if (_missionStartPhase() !== 'planned') return fail('resume', { error: 'mission_execution_handoff_phase_not_safe' });
         if (!_trackerExecutionUsesRelayController()) {
             const client = window.gaCockpitSessionClient;
-            if (!client || typeof client.start !== 'function' || typeof client.submitIntent !== 'function') return false;
+            if (!client || typeof client.start !== 'function' || typeof client.submitIntent !== 'function') return fail('session', { error: 'cockpit_session_unavailable' });
             const session = await client.start();
-            if (!session) return false;
+            if (!session) return fail('session', { error: 'cockpit_session_unavailable' });
         }
         const seeded = await _pushMissionAuthoritySnapshotForExecutionHandoff(`${reason}:snapshot`);
         const seededRun = seeded.authoritativeRun;
-        if (seeded.status !== 'ok' || !seededRun?.executionStateHash || !seededRun?.stateHash) return false;
+        if (seeded.status !== 'ok' || !seededRun?.stateHash) return fail('snapshot', seeded);
         const prepared = await _sendMissionAuthorityRequest({
             type: 'mission_execution_authority_prepare',
             missionId: seededRun.missionId,
@@ -2244,10 +2262,13 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
             clientId: _missionAuthorityClientId(),
             expectedRevision: Number(seededRun.revision),
             expectedStateHash: seededRun.stateHash,
-            expectedExecutionStateHash: seededRun.executionStateHash,
+            // An invalid projection has no execution hash. Prepare validates
+            // the projection first and returns its precise blocker; it cannot
+            // commit without a matching hash.
+            expectedExecutionStateHash: seededRun.executionStateHash || '',
             reason: `${reason}:prepare`
         }, 12000);
-        if (prepared.status !== 'ok' || !prepared.handoff?.handoffId) return false;
+        if (prepared.status !== 'ok' || !prepared.handoff?.handoffId) return fail('prepare', prepared);
         const preparedRun = prepared.authoritativeRun;
         const committed = await _sendMissionAuthorityRequest({
             type: 'mission_execution_authority_commit',
@@ -2259,9 +2280,9 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
             handoffId: prepared.handoff.handoffId,
             reason: `${reason}:commit`
         }, 12000);
-        if (committed.status !== 'ok' && committed.status !== 'noop') return false;
+        if (committed.status !== 'ok' && committed.status !== 'noop') return fail('commit', committed);
         const committedRun = committed.authoritativeRun;
-        if (committedRun?.executionAuthority !== 'tracker') return false;
+        if (committedRun?.executionAuthority !== 'tracker') return fail('commit-authority');
         window.lastTrackerMissionAuthority = {
             ...(window.lastTrackerMissionAuthority || {}),
             activeRun: committedRun,
@@ -2270,7 +2291,13 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
         window.lastTrackerMissionStatus = { ...committedRun, receivedAt: Date.now() };
         await _refreshTrackerExecutionControl(`${reason}:committed`);
         return true;
-    })();
+    })().catch(error => {
+        missionExecutionHandoffFailure = { ok: false, status: 'error', error: 'mission_execution_handoff_failed', stage: 'exception' };
+        _missionPhaseDebugPush('tracker_execution_handoff_failed', {
+            reason, ...missionExecutionHandoffFailure, detail: String(error?.message || error).slice(0, 180)
+        });
+        return false;
+    });
     try {
         return await missionExecutionHandoffPromise;
     } finally {
@@ -2316,7 +2343,8 @@ async function _submitTrackerExecutionIntent(intent, payload = {}, options = {})
             && (window.liveTrackerCapabilities || []).includes('mission.cloud-load.v1');
         const ready = !!cloudControl || legacyCloudAbort || _missionExecutionAuthorityIsTracker()
             || (intent === 'prepare_mission' && await _ensureTrackerExecutionAuthority(`intent:${intent}`));
-        if (!ready) return { ok: false, status: 'blocked', error: 'mission_execution_authority_web' };
+        if (!ready) return (intent === 'prepare_mission' && missionExecutionHandoffFailure)
+            || { ok: false, status: 'blocked', error: 'mission_execution_authority_web' };
         const activeRun = cloudControl || window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
         if (!activeRun?.missionId || !activeRun?.runId) {
             return { ok: false, status: 'blocked', error: 'cockpit_session_unavailable' };
@@ -2448,6 +2476,10 @@ async function _submitTrackerExecutionIntent(intent, payload = {}, options = {})
         try {
             const result = await execute();
             _publishMissionControlIntentStatus(result, false);
+            if (result?.ok !== true && result?.stage && options.silent !== true) {
+                const presentation = window.GAMissionControlUiCore?.formatIntentResult?.(result);
+                try { alert(presentation?.text || 'Die Missionsübergabe konnte nicht bestätigt werden. Der gespeicherte Lauf bleibt erhalten.'); } catch (_) {}
+            }
             return result;
         } catch (error) {
             _publishMissionControlIntentStatus({ ok: false, status: 'error', error: error?.message || 'mission_intent_failed' }, false);
@@ -2654,6 +2686,51 @@ window.openMissionToolbarCargo = function() {
     return window.openMissionGroundCargoDialog?.() || false;
 };
 
+async function _restoreResumedMissionAuthority(run, reason = 'mission-start-resume', options = {}) {
+    const ack = await _sendMissionAuthorityRequest({
+        type: 'mission_snapshot_request', missionId: run.missionId, runId: run.runId,
+        clientId: _missionAuthorityClientId(), reason
+    }, 12000);
+    const authoritativeRun = ack.authoritativeRun;
+    if (!['ok', 'noop'].includes(ack.status) || authoritativeRun?.missionId !== run.missionId
+        || authoritativeRun?.runId !== run.runId) {
+        _missionPhaseDebugPush('authority_resume_failed', { reason, error: ack.error || 'mission_resume_snapshot_unavailable' });
+        try { alert('Der gespeicherte Missionslauf konnte nicht gelesen werden. Bitte die Tracker-Verbindung prüfen und erneut versuchen.'); } catch (_) {}
+        return false;
+    }
+    window.lastTrackerMissionAuthority = { ...(window.lastTrackerMissionAuthority || {}), activeRun: authoritativeRun, receivedAt: Date.now() };
+    window.lastTrackerMissionStatus = { ...authoritativeRun, receivedAt: Date.now() };
+    if (authoritativeRun.executionAuthority === 'tracker') {
+        // Observer recovery obtains the Tracker projection; no Web seed is sent.
+        return (await window.resumeTrackerMissionOnThisDevice?.({ source: reason })) === true;
+    }
+    if (authoritativeRun.ownerClientId !== _missionAuthorityClientId()) return false;
+    if (typeof missionRuntime !== 'undefined' && (missionRuntime.active || missionRuntime.closingPending || _missionStartPhase() !== 'planned')) {
+        return true;
+    }
+    const bundle = ack.resumeBundle;
+    const isStarted = snapshot => snapshot && _snapshotMatchesActiveMission(snapshot)
+        && (snapshot.runtime?.active === true || snapshot.runtime?.closingPending === true
+            || _missionRuntimePhaseCountsAsStarted(snapshot.startPhase || snapshot.runtime?.phase));
+    const localSnapshot = options.localSnapshot || _readMissionRuntimeSnapshot();
+    const localIsNewer = isStarted(localSnapshot) && (!isStarted(bundle?.runtime)
+        || Number(localSnapshot.savedAt || 0) > Number(bundle.runtime.savedAt || 0));
+    const snapshot = localIsNewer ? localSnapshot : bundle?.runtime;
+    const started = isStarted(snapshot);
+    if (started) {
+        if (snapshot === bundle?.runtime) _missionAuthorityRecoverExecutionShadow(bundle);
+        if (!_restoreMissionRuntimeFromSnapshot(snapshot, {
+            reason, trackerConfirmed: true, trackerActive: true, authorityConfirmed: true
+        })) return false;
+        _missionPhaseDebugPush('authority_resumed_runtime_restored', { reason, missionId: run.missionId, runId: run.runId });
+    } else if (authoritativeRun.phase && authoritativeRun.phase !== 'planned') {
+        _missionPhaseDebugPush('authority_resume_failed', { reason, error: 'mission_resume_runtime_missing', phase: authoritativeRun.phase });
+        try { alert('Für den begonnenen Tracker-Lauf fehlt ein gültiger Wiederaufnahmestand. Der Lauf wurde nicht zurückgesetzt.'); } catch (_) {}
+        return false;
+    }
+    return true;
+}
+
 async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
     if (missionAuthorityAcquirePromise) return missionAuthorityAcquirePromise;
     const acquire = async () => {
@@ -2696,6 +2773,9 @@ async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
             }
         }
         const local = _readMissionAuthorityState();
+        // Incoming Acquire/status projections may persist a planned browser
+        // runtime. Preserve the pre-request recovery candidate first.
+        const localSnapshot = _readMissionRuntimeSnapshot();
         const command = {
             type: 'mission_authority_acquire',
             missionId,
@@ -2708,6 +2788,7 @@ async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
         if (local?.missionId === missionId && local.runId) {
             command.runId = local.runId;
         }
+        missionAuthorityResumeReadPending = true;
         const ack = await _sendMissionAuthorityRequest(command, 12000);
         if (ack.status === 'ok' && ack.authoritativeRun?.missionId === missionId) {
             _writeMissionAuthorityState({
@@ -2722,6 +2803,13 @@ async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
                 resumed: ack.resumed === true,
                 reason
             });
+            if (ack.resumed === true) {
+                if (!await _restoreResumedMissionAuthority(ack.authoritativeRun, `${reason}:resume`, { localSnapshot })) return false;
+            }
+            missionAuthorityResumeReadPending = false;
+            if (ack.resumed === true && (missionRuntime.active || missionRuntime.closingPending || _missionStartPhase() !== 'planned')) {
+                _persistMissionRuntimeSnapshot('tracker-authority-resumed', { immediate: true });
+            }
             _queueMissionAuthoritySnapshot('tracker-authority-acquired-seed', { immediate: true });
             _scheduleMissionAuthorityProfileRefresh('tracker-authority-acquired');
             return true;
@@ -2746,6 +2834,7 @@ async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
         return await missionAuthorityAcquirePromise;
     } finally {
         missionAuthorityAcquirePromise = null;
+        missionAuthorityResumeReadPending = false;
     }
 }
 
@@ -2765,14 +2854,14 @@ window.addEventListener('gatrackercapabilitieschange', () => {
 function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
     // Handoff sends its own seed. Background snapshots would invalidate
     // the exact revision/hash between prepare and commit.
-    if (missionExecutionHandoffPromise || _missionExecutionAuthorityIsTracker()) return false;
+    if (missionAuthorityResumeReadPending || missionExecutionHandoffPromise || _missionExecutionAuthorityIsTracker()) return false;
     if (!_trackerSupportsMissionAuthority() || !window.liveTrackerConnected) return false;
     const local = _readMissionAuthorityState();
     const missionId = _activeMissionRuntimeId('');
     if (!local?.runId || !missionId || local.missionId !== missionId) return false;
     const push = () => {
         missionAuthoritySnapshotPushTimer = null;
-        if (missionExecutionHandoffPromise || _missionExecutionAuthorityIsTracker()) return;
+        if (missionAuthorityResumeReadPending || missionExecutionHandoffPromise || _missionExecutionAuthorityIsTracker()) return;
         const currentLocal = _readMissionAuthorityState();
         if (!currentLocal?.runId
             || currentLocal.missionId !== missionId
@@ -3528,7 +3617,7 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
 }
 
 function _persistMissionRuntimeSnapshot(reason = 'runtime', options = {}) {
-    if (_missionExecutionAuthorityIsTracker()) return false;
+    if (missionAuthorityResumeReadPending || _missionExecutionAuthorityIsTracker()) return false;
     const immediate = options.immediate === true;
     const minIntervalMs = Math.max(250, Number(options.minIntervalMs) || 2500);
     missionRuntimePendingSnapshotReason = String(reason || 'runtime');
@@ -3537,6 +3626,7 @@ function _persistMissionRuntimeSnapshot(reason = 'runtime', options = {}) {
             clearTimeout(missionRuntimeSnapshotTimer);
             missionRuntimeSnapshotTimer = null;
         }
+        if (missionAuthorityResumeReadPending || _missionExecutionAuthorityIsTracker()) return false;
         const latestReason = missionRuntimePendingSnapshotReason || String(reason || 'runtime');
         missionRuntimePendingSnapshotReason = '';
         const snapshot = _buildMissionRuntimeSnapshot(latestReason);
@@ -5126,9 +5216,9 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
         if (status.active === false || /^(ended|closed|reset|cleared|completed|aborted)$/.test(String(status.state || ''))) return true;
         window.missionRuntimeResumeConflict = null;
         missionRuntimeResumeConflictLastSig = '';
-        if (trackerMissionId === activeMissionId) {
-            const control = _missionExecutionControlSnapshot();
-            if (control?.runId === trackerRunId) _applyTrackerExecutionControl(control, status, reason);
+        const control = _missionExecutionControlSnapshot();
+        if (trackerMissionId === activeMissionId && control?.runId === trackerRunId) {
+            _applyTrackerExecutionControl(control, status, reason);
         } else if (!missionTrackerObserverPromise && Date.now() >= missionTrackerObserverRetryAt) {
             missionTrackerObserverRetryAt = Date.now() + 10000;
             missionTrackerObserverPromise = window.resumeTrackerMissionOnThisDevice({ source: 'tracker-auto-observer' })
@@ -14656,6 +14746,10 @@ window.handleMissionStartBannerAction = async function() {
                 try { alert(`Der Tracker führt bereits ${runningId}. Die laufende Mission kann hier übernommen oder zuerst beendet werden.`); } catch (_) {}
                 _updateMissionRuntimeUi();
                 return false;
+            }
+            if (_missionExecutionAuthorityIsTracker() || missionRuntime.active || missionRuntime.closingPending || _missionStartPhase() !== 'planned') {
+                _updateMissionRuntimeUi();
+                return true;
             }
             _prepareFreshMissionRuntimeStart('mission-start-prepare');
             _setMissionStartPhase('prepare');

@@ -5871,3 +5871,32 @@ Die gepackten EFB-Assets werden aus denselben Quellen erstellt. Lokale Karten-
 und Tracker-Tests bestehen; der Electron-UI-Selbsttest konnte in diesem Worktree
 wegen fehlender Electron-Abhängigkeit nicht gestartet werden. MSFS-Sichtprüfung
 steht weiterhin aus. Der Tracker-Build v467 ist erstellt; Veröffentlichung erfolgt über den Alpha-Kanal.
+
+
+### Missions-Recovery v1908 (04.10.2026)
+
+Web-Fix auf dem veroeffentlichten Alpha-Stand a446aa0e8b1ec43b50fbcba30ab4fc544739e3f4,
+Tracker v467 bleibt unveraendert. Der aeltere gemischte lokale Checkout wurde
+nicht veroeffentlicht. Die bereits freigegebenen Fire-/SAR-/Bush-/POI-Rezepte
+und der vorhandene POI-Seed-Builder bleiben erhalten.
+
+Ein bestaetigtes Acquire mit resumed=true liest vor dem neuen Upload den privaten
+Run-Snapshot. Vorhandener Web-Fortschritt wird wiederhergestellt; ein neuerer
+lokaler Fortschrittsstand ersetzt einen aelteren geplanten Tracker-Snapshot.
+Aktive App-Runtime wird nicht zurueckgespult. Acquire/Recovery sperrt sowohl
+Hintergrund-Uploads als auch schon geplante lokale Snapshot-Timer. Eine fehlende
+Tracker-Ausfuehrungsprojektion wird auch bei gleicher lokaler Missions-ID ueber
+den Beobachterpfad erneut geladen. Kein Reset oder Midflight-Handoff.
+
+Fehlende executionStateHash-Werte erreichen die unveraenderte Prepare-Validierung,
+damit deren konkreter Projektions-/Driftblocker sichtbar wird. Commit benoetigt
+weiterhin gueltige Hashes, Revision und Handoff-ID. Fehlerstufe und Driftfelder
+werden protokolliert; die App zeigt einen lesbaren Fehler und gibt die
+Aktionssperre fuer erneute Versuche frei.
+
+Regressionen: mission-start-resume-selftest, Tracker-Interface-, Authority-Handoff-,
+Resume-Adapter- und Update-Sync-Selftests; Authority/UI/APT/POI- und Fire-Integration-
+Tests. Alte VM-Fixtures wurden um bereits vorhandene optionale Helfer ergaenzt.
+Realer MSFS-/Mehrgeraete-Neustarttest nach diesem Web-Rollout steht noch aus.
+Bereits verworfener Flugfortschritt kann nicht aus dem Briefing rekonstruiert
+werden; der bestehende Auftrag kann ohne Neugenerierung neu begonnen werden.

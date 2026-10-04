@@ -70,7 +70,7 @@ const runtimeRestoreContext = {
   _readPendingMissionDebrief: () => null,
   _restoreCargoManifestFromRuntimeSnapshot: () => false,
   _restoreFlightRecorderFromRuntimeSnapshot: () => false,
-  _safeCloneJson: value => JSON.parse(JSON.stringify(value)),
+  _safeCloneJson: (value, fallback = null) => value == null ? fallback : JSON.parse(JSON.stringify(value)),
   _missionCargoLoadedPassengerItems: () => [{ id: 'mission-passenger' }],
   _missionScenePaxCount: () => 1,
   _missionSceneId: () => 'scene-mission-a',
@@ -242,6 +242,7 @@ const persistedRecoveryRuntime = {
 };
 const recoveryContext = {
   Date,
+  _safeCloneJson: (value, fallback = null) => value == null ? fallback : JSON.parse(JSON.stringify(value)),
   _normalizeMissionRuntimeId: value => String(value || '').trim().toLowerCase(),
   _missionAuthorityClientId: () => 'device-a',
   _syncActiveMissionPayload: () => recoveryMission,
@@ -258,6 +259,7 @@ const recoveryContext = {
   _syncCompactActiveMission: state => JSON.parse(JSON.stringify(state)),
   _missionAuthorityInjectLiveRoute: state => state,
   _missionAuthorityAdapter: () => 'apt',
+  _buildMissionAptTrainingExecutionSeed: () => null,
   _missionAuthorityAttachExecutionShadow: bundle => bundle,
   _buildMissionAptExecutionEffectPlan: () => ({
     schema: 'ga.mission-execution-effect-plan.v1',

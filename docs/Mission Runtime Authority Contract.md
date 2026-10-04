@@ -1260,3 +1260,23 @@ neuen Auftrag in Phase planned. Es sendet kein prepare_mission und erzeugt
 keine neuen Szenen-, Boarding- oder Voice-Effekte. Erst der separate Banner
 Mission beginnen sendet prepare_mission. Die bisherigen Aussagen zur
 automatischen Vorbereitung bei Cloud-Laden sind damit ersetzt.
+
+
+### Wiederaufnahme vor einem neuen Startseed (04.10.2026)
+
+Acquire mit resumed=true darf keinen vorhandenen Run mit dem anfangs geplanten
+Browser-Zustand ueberschreiben. Zuerst den privaten Run lesen, dann vorhandenen
+Web-Fortschritt wiederherstellen oder den Tracker-Beobachterpfad verwenden.
+Ein neuerer gueltiger lokaler Runtime-Snapshot bleibt gegen einen aelteren
+geplanten Tracker-Stand geschuetzt. Aktive App-Runtime wird nicht rueckwaerts
+restauriert. Hintergrund-Uploads und lokale Snapshot-Timer sind waehrend
+Acquire/Recovery gesperrt. Unbestaetigte oder nicht zum Run passende Recovery
+bleibt ein Blocker; kein automatischer Reset und kein Midflight-Handoff.
+
+Ein Snapshot-ACK ohne Ausfuehrungshash ist kein erfolgreicher Handoff. Die
+unveraenderte Prepare-Validierung meldet den konkreten Projektions-/Driftfehler;
+Commit bleibt an gueltige Hashes, Revision und Handoff-ID gebunden. Der Fehler
+ist sichtbar und die fehlgeschlagene Stufe steht im Phasenlog. Auch eine fehlende
+Tracker-Projektion bei gleicher Missions-ID loest Beobachter-Recovery aus.
+Nachweise: tools/mission-start-resume-selftest.mjs und
+tools/tracker-interface-regression-selftest.mjs.

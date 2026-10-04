@@ -334,6 +334,7 @@ const uploadContext = {
     _missionLogbookForSync: () => [],
     _syncActiveMissionPayload: () => draftState,
     _syncTrackerMissionSeedPayload: () => null,
+    _syncFreeflightNavigationPayload: () => null,
     getGroupName: () => '',
     getGroupNick: () => '',
     getAircraftPresetsForSync: () => ({}),

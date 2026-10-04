@@ -295,6 +295,18 @@
     if (error === 'mission_revision_conflict') {
       return { tone: 'warn', text: 'Eine andere Ansicht war schneller. Der aktuelle Missionsstand wurde übernommen.' };
     }
+    if (error === 'mission_authority_resume_unavailable') {
+      return { tone: 'warn', text: 'Der gespeicherte Missionslauf konnte nicht wiederhergestellt werden. Bitte die Tracker-Verbindung prüfen. Der Lauf bleibt erhalten.' };
+    }
+    if (error === 'mission_execution_handoff_phase_not_safe') {
+      return { tone: 'warn', text: 'Ein bereits begonnener Missionslauf kann nicht neu übergeben werden. Bitte den wiederhergestellten Missionsstand verwenden.' };
+    }
+    if (/mission_execution_(shadow|replay|legacy|state_hash|projection|handoff)|expected_execution_state_hash/.test(error)) {
+      return { tone: 'warn', text: 'App und Tracker konnten den Missionsstand nicht abgleichen. Die Mission wurde nicht neu gestartet. Bitte den aktuellen Tracker-Stand erneut laden.' };
+    }
+    if (error === 'mission_execution_recipe_not_enabled') {
+      return { tone: 'warn', text: 'Dieser Missionsablauf ist nicht für die Tracker-Ausführung freigegeben.' };
+    }
     if (error === 'cockpit_session_unavailable' || error === 'mission_execution_authority_web') {
       return { tone: 'danger', text: 'Der Tracker ist für diese Aktion noch nicht erreichbar.' };
     }
