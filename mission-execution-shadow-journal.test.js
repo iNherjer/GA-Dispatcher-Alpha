@@ -71,6 +71,65 @@ function advance(current, snapshot, at) {
   return result;
 }
 
+test('preflight telemetry arriving after cargo edits refreshes the seed without losing events', () => {
+  const initial = bundle();
+  delete initial.runtime.lastLiveFlightData;
+  let current = journalCore.create(initial);
+  const cargo = bundle({ cargoStatus: 'loaded' });
+  delete cargo.runtime.lastLiveFlightData;
+  current = advance(current, cargo, 1001).journal;
+  const events = JSON.stringify(current.events);
+  const ready = bundle({ cargoStatus: 'loaded' });
+  ready.runtime.missionCargoPayloadOutcome = { status: 'ok' };
+  const result = advance(current, ready, 1002);
+  assert.deepEqual(result.legacyDriftFields, []);
+  assert.equal(JSON.stringify(result.journal.events), events);
+  assert.equal(result.state.flags.onGround, true);
+  assert.equal(result.state.flags.groundStill, true);
+  assert.equal(result.state.manifest.items[0].status, 'loaded');
+  const paused = bundle({ cargoStatus: 'loaded' });
+  paused.runtime.lastLiveFlightData.simPaused = true;
+  assert.equal(advance(result.journal, paused, 1003).state.flags.groundStill, false);
+});
+
+test('boarding telemetry drift cannot be repaired by a preflight seed refresh', () => {
+  const boarding = advance(journalCore.create(bundle()), bundle({ phase: 'boarding' }), 1100);
+  const changed = bundle({ phase: 'boarding', onGround: false });
+  const result = advance(boarding.journal, changed, 1101);
+  assert.deepEqual(result.journal.initialState, boarding.journal.initialState);
+  assert.ok(result.legacyDriftFields.includes('flags'));
+  assert.equal(journalCore.checkpointForHandoff(result.journal, changed), null);
+  assert.equal(journalCore.checkpointForHandoff(boarding.journal, bundle({ phase: 'boarding' })), null);
+});
+
+test('the Web handoff uploads a revision-zero checkpoint with the current preflight cargo', async () => {
+  const initial = bundle();
+  delete initial.runtime.lastLiveFlightData;
+  const latest = bundle({ cargoStatus: 'loaded' });
+  const advanced = journalCore.advance(journalCore.create(initial), latest);
+  latest.executionReplay = advanced.bundle;
+  latest.execution = core.createReplayShadowEnvelope(advanced.bundle, { legacyBundle: latest });
+  const source = fs.readFileSync(path.join(__dirname, 'sync.js'), 'utf8');
+  const start = source.indexOf('async function _pushMissionAuthoritySnapshotForExecutionHandoff(');
+  const end = source.indexOf('\nfunction _trackerExecutionUsesRelayController(', start);
+  let uploaded, stored;
+  const ctx = { window: { GAMissionExecutionShadowJournal: journalCore, GAMissionExecutionCore: core }, Date,
+    missionAuthoritySnapshotSequence: 0, missionAuthorityLastSnapshotHash: '', missionAuthorityLastSnapshotPushAt: 0,
+    MISSION_EXECUTION_SHADOW_JOURNAL_KEY: 'journal', localStorage: { setItem: (_, value) => { stored = JSON.parse(value); } },
+    _readMissionAuthorityState: () => ({ runId: 'run', missionId: latest.missionId, clientId: 'app', revision: 1 }),
+    _activeMissionRuntimeId: () => latest.missionId, _missionAuthorityClientId: () => 'app',
+    _buildMissionAuthorityResumeBundle: () => latest, _missionAuthorityResumeBundleHash: core.hashValue,
+    _missionPhaseDebugPush: () => {}, _sendMissionAuthorityRequest: async request => { uploaded = request; return { status: 'ok' }; }
+  };
+  vm.createContext(ctx); vm.runInContext(source.slice(start, end), ctx);
+  assert.equal((await ctx._pushMissionAuthoritySnapshotForExecutionHandoff()).status, 'ok');
+  const replay = core.replay(uploaded.resumeBundle.executionReplay);
+  assert.equal(replay.state.revision, 0);
+  assert.equal(replay.state.manifest.items[0].status, 'loaded');
+  assert.deepEqual(uploaded.resumeBundle.execution.legacyDriftFields, []);
+  assert.equal(stored.events.length, 0);
+});
+
 test('normal APT lifecycle becomes a deterministic event replay without legacy drift', () => {
   let current = journalCore.create(bundle());
   let result = advance(current, bundle({ phase: 'boarded', startPhase: 'boarded', cargoStatus: 'loaded', signatureScope: 'departure' }), 1100);

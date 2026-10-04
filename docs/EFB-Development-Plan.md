@@ -5900,3 +5900,24 @@ Tests. Alte VM-Fixtures wurden um bereits vorhandene optionale Helfer ergaenzt.
 Realer MSFS-/Mehrgeraete-Neustarttest nach diesem Web-Rollout steht noch aus.
 Bereits verworfener Flugfortschritt kann nicht aus dem Briefing rekonstruiert
 werden; der bestehende Auftrag kann ohne Neugenerierung neu begonnen werden.
+
+### Vorstart-Recovery v1909 / Tracker v468 (04.10.2026)
+
+Feldlog v467: Cargo-only-Journal vor Simulatoranbindung behaelt unbekannte
+onGround-/groundStill-Flags; Prepare blockiert mit legacy:flags. Der Journal-Seed
+folgt jetzt Telemetrie und Payload nur in planned, ohne Start-/Airborne-Evidenz
+und ausschliesslich mit Cargo-Ereignissen. Vor der Uebergabe wird ein driftfreier,
+effektfreier Vorstartstand als Revision-0-Checkpoint mit aktuellem Manifest
+uebertragen. Boarding-/Flug-/Effektverlaeufe werden nicht so uebernommen.
+Expliziter Missionsreset entfernt das alte Journal; Reconnect tut das nicht.
+
+Fire Watch nutzt die fireScenario.missionId als Runtime-ID. Die Cloud-Pruefung
+akzeptiert diese bestehende Identitaet nur bei aktivem fire_watch-Szenario und
+passendem POI-/Fire-Watch-Seed. Fremde oder deaktivierte Szenen bleiben blockiert.
+Der Auftrag kann nach dem bereits erfolgten Reset ohne neue Generierung beginnen;
+verlorener Flugfortschritt wird nicht erfunden. Neuer Windows-Tracker v468 ist
+erforderlich fuer die Cloud-Pruefung. Stable-Kanal bleibt unveraendert.
+
+Regressionen pruefen sieben Cargo-Ereignisse mit spaeter Telemetrie bis Prepare/
+Commit, den echten Web-Upload-Checkpoint, Boarding-Schutz und Fire-Cloud-IDs.
+Realer MSFS-Test folgt beim Tester.

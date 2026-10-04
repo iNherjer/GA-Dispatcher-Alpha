@@ -2181,6 +2181,17 @@ async function _pushMissionAuthoritySnapshotForExecutionHandoff(reason = 'execut
     if (!bundle || !['apt', 'poi', 'survey_pattern', 'poi_chain'].includes(String(bundle.adapter || '').toLowerCase())) {
         return { status: 'blocked', error: 'mission_execution_recipe_not_enabled' };
     }
+    const checkpoint = window.GAMissionExecutionShadowJournal?.checkpointForHandoff?.(
+        window.GAMissionExecutionShadowJournal?.recover?.(bundle.executionReplay, bundle), bundle
+    );
+    if (checkpoint) {
+        try { localStorage.setItem(MISSION_EXECUTION_SHADOW_JOURNAL_KEY, JSON.stringify(checkpoint)); } catch (_) {}
+        bundle.executionReplay = window.GAMissionExecutionShadowJournal.executionBundle(checkpoint);
+        bundle.execution = window.GAMissionExecutionCore.createReplayShadowEnvelope(bundle.executionReplay, {
+            sourceRevision: Math.max(0, Number(local.revision) || 0), legacyBundle: bundle
+        });
+        _missionPhaseDebugPush('preflight_execution_checkpoint', { missionId, reason });
+    }
     const stateHash = _missionAuthorityResumeBundleHash(bundle);
     missionAuthoritySnapshotSequence = Math.max(missionAuthoritySnapshotSequence + 1, Date.now());
     const ack = await _sendMissionAuthorityRequest({
@@ -14117,6 +14128,9 @@ window.missionRuntimeReset = function(options = {}) {
     window.missionCargoStatus.loadConfirmed = false;
     resetFlightRecorder();
     _clearMissionRuntimeSnapshot('mission-runtime-reset');
+    // An explicit reset ends this execution history even when the dispatch
+    // mission id is reused. Resume/reconnect paths must retain their journal.
+    try { localStorage.removeItem(MISSION_EXECUTION_SHADOW_JOURNAL_KEY); } catch (_) {}
     missionSceneBoardingCuePlayback = null;
     missionSceneDeboardingCuePlayback = null;
     if (respawnAfterClear) {

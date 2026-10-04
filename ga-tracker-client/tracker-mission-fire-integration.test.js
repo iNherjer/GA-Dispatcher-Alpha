@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const execution = require('../mission-execution-core.js');
+const shadowJournal = require('../mission-execution-shadow-journal.js');
 const lifecycle = require('../mission-poi-lifecycle-core.js');
 const voice = require('../mission-poi-voice-core.js');
 const boarding = require('../mission-boarding-voice-core.js');
@@ -120,6 +121,65 @@ test('fire-watch crosses the cloud and authority gates without exposing truth in
   assert.equal(control.poiTask.satisfied, false);
   assert.equal(JSON.stringify(control).includes('"truth"'), false);
   assert.equal(JSON.stringify(control).includes('smoke-1'), false);
+});
+
+test('cloud Fire Watch accepts its runtime scenario id but rejects unrelated or disabled scenarios', () => {
+  const b = bundle();
+  b.missionState.currentMissionData.missionId = 'mission-dispatch-original';
+  b.missionState.currentMissionData.fireScenario.missionId = missionId;
+  const profile = { activeMission: b.missionState, activeMissionTrackerSeed: {
+    schema: 'ga.tracker-cloud-mission-seed.v1', version: 1, missionId, adapter: 'poi',
+    executionPoiRecipe: b.executionPoiRecipe, executionEffectPlan: b.executionEffectPlan
+  } };
+  const candidate = buildCloudMissionCandidate(profile, { poiExecutionEnabled: true });
+  assert.equal(candidate.status, 'ready', JSON.stringify(candidate));
+  assert.equal(candidate.candidate.missionId, missionId);
+  const manager = createMissionAuthorityManager({ executionAuthorityEnabled: true, poiExecutionEnabled: true,
+    poiLifecycleRequired: true, idFactory: () => 'cloud-fire-recovery' });
+  const acquired = manager.acquire({ missionId, clientId: 'app', stateHash: 'cloud', resumeBundle: candidate.candidate.bundle });
+  const prepared = manager.prepareExecutionAuthority({ missionId, runId: acquired.activeRun.runId,
+    clientId: 'app', expectedRevision: acquired.activeRun.revision, expectedStateHash: acquired.activeRun.stateHash,
+    expectedExecutionStateHash: execution.replay(candidate.candidate.bundle.executionReplay).stateHash });
+  assert.equal(prepared.ok, true, JSON.stringify(prepared));
+  b.missionState.currentMissionData.fireScenario.missionId = 'fire-unrelated';
+  assert.equal(buildCloudMissionCandidate(profile, { poiExecutionEnabled: true }).code, 'cloud_mission_identity_mismatch');
+  b.missionState.currentMissionData.fireScenario.missionId = missionId;
+  b.missionState.currentMissionData.fireScenario.enabled = false;
+  assert.equal(buildCloudMissionCandidate(profile, { poiExecutionEnabled: true }).code, 'cloud_mission_identity_mismatch');
+});
+
+test('seven preflight cargo edits and late telemetry still permit Fire Watch authority handoff', () => {
+  const b = bundle();
+  delete b.runtime.lastLiveFlightData;
+  let journal = shadowJournal.create(b);
+  for (let index = 0; index < 7; index++) {
+    b.runtime.cargoManifest.items[0].status = index % 2 ? 'pending' : 'loaded';
+    journal = shadowJournal.advance(journal, b, { occurredAt: index + 1 }).journal;
+  }
+  assert.equal(journal.events.length, 7);
+  b.runtime.lastLiveFlightData = { onGround: true, gsKts: 0 };
+  const refreshed = shadowJournal.advance(journal, b);
+  assert.deepEqual(refreshed.legacyDriftFields, []);
+  assert.equal(refreshed.journal.events.length, 7);
+  const checkpoint = shadowJournal.checkpointForHandoff(refreshed.journal, b);
+  assert.ok(checkpoint);
+  b.executionReplay = shadowJournal.executionBundle(checkpoint);
+  const checkpointReplay = execution.replay(b.executionReplay);
+  assert.equal(checkpointReplay.state.revision, 0);
+  assert.equal(checkpointReplay.state.manifest.items[0].status, 'loaded');
+  b.execution = execution.createReplayShadowEnvelope(b.executionReplay, { legacyBundle: b });
+  const manager = createMissionAuthorityManager({ executionAuthorityEnabled: true, poiExecutionEnabled: true,
+    poiLifecycleRequired: true, idFactory: () => 'late-telemetry-run' });
+  const acquired = manager.acquire({ missionId, clientId: 'app', stateHash: 'app', resumeBundle: b });
+  const prepared = manager.prepareExecutionAuthority({ missionId, runId: acquired.activeRun.runId,
+    clientId: 'app', expectedRevision: acquired.activeRun.revision, expectedStateHash: acquired.activeRun.stateHash,
+    expectedExecutionStateHash: checkpointReplay.stateHash });
+  assert.equal(prepared.ok, true, JSON.stringify(prepared));
+  const committed = manager.commitExecutionAuthority({ missionId, runId: prepared.activeRun.runId, clientId: 'app',
+    expectedRevision: prepared.activeRun.revision, expectedExecutionStateHash: prepared.activeRun.executionStateHash,
+    handoffId: prepared.handoff.handoffId });
+  assert.equal(committed.ok, true, JSON.stringify(committed));
+  assert.equal(committed.activeRun.executionAuthority, 'tracker');
 });
 
 test('confirmed fire reports use fresh in-range telemetry, serialize across reload and sequence smoke spawn', async t => {

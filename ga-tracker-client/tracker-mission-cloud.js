@@ -109,7 +109,12 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
     return { ok: true, status: 'empty', candidate: null };
   }
   const missionId = cleanString(seed.missionId);
-  if (!missionId || !missionIdentityValues(state).includes(missionId.toLowerCase())) {
+  const fireScenario = object(missionDataFromState(state).fireScenario);
+  const fireIdentityMatches = seed.adapter === 'poi'
+    && object(seed.executionPoiRecipe).taskDomain === 'fire_watch'
+    && fireScenario.enabled === true && fireScenario.type === 'fire_watch'
+    && cleanString(fireScenario.missionId).toLowerCase() === missionId.toLowerCase();
+  if (!missionId || (!missionIdentityValues(state).includes(missionId.toLowerCase()) && !fireIdentityMatches)) {
     return { ok: false, status: 'invalid', code: 'cloud_mission_identity_mismatch', candidate: null };
   }
   const runtime = plannedRuntime(missionId, state, seed);

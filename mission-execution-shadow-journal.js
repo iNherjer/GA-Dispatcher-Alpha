@@ -128,6 +128,21 @@
             replay = core.replay(executionBundle(journal));
             if (!journal || !replay.ok) return null;
         }
+        // Cargo edits are preflight events, not evidence that execution has
+        // started. Refresh simulator readings that were unavailable when the
+        // seed was saved, retaining every cargo event and its resulting state.
+        // Never rebase boarding, flight or effect history this way.
+        if (desired.phase === 'planned' && replay.state.phase === 'planned'
+            && !desired.flags.started && !replay.state.flags.started
+            && !desired.progress.airborneSeen && !replay.state.progress.airborneSeen
+            && journal.initialState.phase === 'planned'
+            && journal.events.every(function (event) { return event.type === 'CARGO_STATE_CHANGED'; })) {
+            journal.initialState.flags.onGround = desired.flags.onGround;
+            journal.initialState.flags.groundStill = desired.flags.groundStill;
+            journal.initialState.payload = clone(desired.payload, {});
+            replay = core.replay(executionBundle(journal));
+            if (!replay.ok) return null;
+        }
         var state = replay.state;
         var previous = journal.lastProjection;
         var occurredAt = Math.max(0, Math.round(Number(config.occurredAt) || 0));
@@ -261,6 +276,18 @@
         } : null;
     }
 
+    function checkpointForHandoff(rawJournal, resumeBundle) {
+        var advanced = advance(rawJournal, resumeBundle);
+        if (!advanced || advanced.legacyDriftFields.length
+            || advanced.state.phase !== 'planned' || advanced.state.flags.started
+            || advanced.state.progress.airborneSeen || advanced.state.effects.length
+            || advanced.journal.initialState.phase !== 'planned'
+            || advanced.journal.events.some(function (event) { return event.type !== 'CARGO_STATE_CHANGED'; })) return null;
+        // Handoff starts at revision zero. Preflight cargo edits become the
+        // current manifest in the seed; no execution or effect is replayed.
+        return create(resumeBundle);
+    }
+
     function finalize(rawJournal, resumeBundle, options) {
         var advanced = advance(rawJournal, resumeBundle, options);
         if (!advanced) return null;
@@ -303,6 +330,7 @@
         create: create,
         recover: recover,
         advance: advance,
+        checkpointForHandoff: checkpointForHandoff,
         finalize: finalize,
         executionBundle: executionBundle
     });

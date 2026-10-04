@@ -1280,3 +1280,18 @@ ist sichtbar und die fehlgeschlagene Stufe steht im Phasenlog. Auch eine fehlend
 Tracker-Projektion bei gleicher Missions-ID loest Beobachter-Recovery aus.
 Nachweise: tools/mission-start-resume-selftest.mjs und
 tools/tracker-interface-regression-selftest.mjs.
+
+### Vorstart-Checkpoint und Fire-Cloud-Identitaet (04.10.2026)
+
+Ein geplantes Journal mit ausschliesslich CARGO_STATE_CHANGED darf aktuelle
+Vorstart-Telemetrie und Payload im Seed nachziehen. Der Handoff uebertraegt einen
+Revision-0-Checkpoint nur bei driftfreiem planned-Zustand ohne Started-/Airborne-
+Evidenz und ohne Effekte. Das aktuelle Manifest bleibt im Seed erhalten; Cargo-
+Vorstartaenderungen werden nicht als neue Laufzeitaktionen abgespielt. Der Tracker
+prueft weiterhin planned, Revision 0, keine Effekte und den Zwei-Phasen-Vertrag.
+Expliziter Reset trennt das Journal der alten Ausfuehrung auch bei gleicher
+Dispatch-Missions-ID; Wiederaufnahme und Reconnect behalten ihren Verlauf.
+
+Fire-Watch-Cloud-Seeds koennen die aktive fireScenario.missionId als bestehende
+Runtime-Identitaet verwenden. Das gilt ausschliesslich fuer poi/fire_watch mit
+enabled=true und type=fire_watch; allgemeine Identitaetspruefungen bleiben aktiv.
