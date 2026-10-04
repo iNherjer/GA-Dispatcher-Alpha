@@ -853,3 +853,13 @@ Die feste Ansage wird bei Vorbereitung als separater, stummer Tracker-TTS-Job
 vorgeladen und bei Auslösung wiederverwendet. Fund, Suchabschluss, Missionsende
 oder Ablauf des Wiedergabefensters sperren eine überholte Ansage. Ausfall des
 Vorladevorgangs lässt die normale Voice-Ausgabe weiterarbeiten.
+
+Release 4.10.2026: Web v1905 und Tracker Alpha v467. 151 gezielte Tests,
+5.376 bestehende POI-Voice-Vergleiche und eine weitere fiktive Gemini-/Composer-
+Probe bestanden. Die Probe nutzt gespeicherte öffentliche OSM-Geometrie und
+historische Wetter-Testdaten; Suchgebiet → Leitstellenhinweis → Sichtkontakt →
+Lageaufnahme/Suchabschluss wurde mit simulierten Flugdaten geprüft. Vollständiger
+No-Contact-Rückflug samt Entladen/Abschluss ist ebenfalls getestet. Das EXE-Asset
+wurde veröffentlicht und unabhängig heruntergeladen (173490994 Bytes,
+SHA-256 bb3f1eb5a2ca49fe6cfa9f563c0a84bdf5977f649dd26596a5623f01a65f5a87).
+Stable unverändert; kein realer MSFS-Sichtflugnachweis.
