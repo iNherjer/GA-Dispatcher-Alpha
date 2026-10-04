@@ -1311,3 +1311,15 @@ Die Reporter-Platzierung ist nun der gemeinsame versionierte Vertrag für neue P
 #### Rezept: Fire-Watch-Alarmbriefing V1
 
 Neue `fire_watch`-POI-Aufträge verwenden einen öffentlichen Alarmvertrag (`fire-alarm-idea.v1`) und ein gesondertes privates `fireScenario`. Zuerst Ziel/Quellen und offene Meldung binden, dann das professionelle Einsatzbriefing mit vorhandenen Flug-/Wetterdaten schreiben. Private Brand- oder Fehlalarmlage erst separat aufbauen. Befunde niemals aus dem Writer-Text ableiten oder ihm zur Vorhersage geben. Der Scene Composer darf ausschließlich die Platzierung innerhalb des bestehenden Rauchvertrags übernehmen, keine neue Wahrheit oder Runtime. Details und Prüfkommandos: [Tracker Mission Migration Guide](Tracker%20Mission%20Migration%20Guide.md), Abschnitt „Fire Watch: offenes Einsatzbriefing“.
+
+#### SAR V2: offene Alarmierung, private Suchlage
+
+Neue KI-SAR-POI-Aufträge trennen Einsatzbriefing und simulierten Suchbefund.
+Der Beobachter sitzt im Flugzeug; die gesuchte Person ist eine andere Rolle.
+Der Suchgebietsmittelpunkt ist keine vorab bekannte Unfallposition. Der Scene
+Composer platziert den privaten Kontakt auf vorgeprüften geografischen Flächen;
+Szene und Timer verwenden denselben Fundort. Story darf weder Befund noch
+Rettungserfolg vorwegnehmen. Straßenbezug, sichtbare Landflächen, Wasser und
+Inseln sind Einsatzvoraussetzungen, keine nachträglichen Textverbote. Details:
+[Tracker Mission Migration Guide](Tracker%20Mission%20Migration%20Guide.md),
+„SAR-Suchauftrag V2“.

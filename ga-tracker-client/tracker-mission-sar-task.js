@@ -12,6 +12,7 @@ function validateRecipe(recipe) {
     if (!recipe || recipe.taskDomain !== 'search_and_rescue') return 'sar_recipe_domain_invalid';
     if (recipe.sarHeli || recipe.bush || recipe.passenger?.sarHeli || recipe.passenger?.bush)
         return 'sar_recipe_specialized_task_invalid';
+    if(recipe.sarScenario){const error=require('../mission-sar-search-core.js').validate(recipe.sarScenario);if(error)return error;if(recipe.sarScenario.pending)return 'sar_scene_pending';}
     const report = recipe.sarReport;
     if (!report || report.schema !== 'ga.sar-report.v1' || !point(report.confirmCoords)
         || (report.confirmCoords.name != null && typeof report.confirmCoords.name !== 'string')
@@ -51,6 +52,7 @@ function action(recipe, previous, sample, now, memory = {}) {
         || sample.slewActive === true || sample.slewMode === true || sample.isSlewActive === true)
         throw new TypeError('sar_report_position_unavailable');
 
+    if(recipe.sarScenario?.schema==='sar-search.v2') return require('./tracker-mission-sar-search-task.js').action(recipe,previous,sample,now);
     const state = clone(previous);
     const detector = state.detector;
     const distNm = require('../mission-poi-task-core.js').distanceNm(

@@ -186,8 +186,9 @@ function createTrackerMissionBoardingVoice(options = {}) {
       });
     }
     let job;
-    const cancelAtMissionEnd = request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.bush' || request.effect?.type === 'voice.approach'
-      || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story', 'private_return_departure', 'pax_query'].includes(request.effect?.payload?.kind));
+    const cancelAtMissionEnd = !(request.prepareOnly && request.effect?.payload?.sarSearchHint)
+      && (request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.bush' || request.effect?.type === 'voice.approach'
+      || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story', 'private_return_departure', 'pax_query'].includes(request.effect?.payload?.kind)));
     const isPlaybackAllowed = () => {
       const current = authorityManager.getExecutionSnapshot?.();
       if (request.effect?.type === 'voice.poi' && (!current || current.missionId !== run.missionId
@@ -196,21 +197,24 @@ function createTrackerMissionBoardingVoice(options = {}) {
       if (request.effect?.type === 'voice.bush' && (!current || current.missionId !== run.missionId
           || current.recipe !== 'apt' || current.state.bushTask?.kind !== 'pickup_return')) return false;
       if (request.effect?.payload?.fireSearchHint && (Date.now()>Number(request.effect.payload.expiresAt||0) || ['smoke_confirmed','assessment_complete','false_alarm_rtb'].includes(current?.state?.poiTask?.fireState?.scenario?.state))) return false;
+      if (request.effect?.payload?.sarSearchHint && (Date.now() > Number(request.effect.payload.expiresAt || 0)
+          || current?.state?.poiTask?.sarSearchState?.found || current?.state?.poiTask?.sarSearchState?.complete)) return false;
       return trainingScopeValid(current) && (!current || (current.runId === run.runId && (current.state.flags.active || (request.effect?.type === 'voice.poi' && request.effect?.payload?.action))
         && !current.state.flags.closingPending && !current.state.flags.farewellStarted
         && !current.state.flags.farewellCompleted && !current.state.flags.unloadConfirmed
         && current.state.phase !== 'closing'));
     };
     try {
-      const preparedId = `boarding-preload:${run.runId}`;
-      const prepared = request.effect?.type === 'voice.boarding' ? voiceService.get?.(preparedId) : null;
+      const sarHint = request.effect?.payload?.sarSearchHint === true;
+      const preparedId = sarHint ? `sar-hint-preload:${run.runId}` : `boarding-preload:${run.runId}`;
+      const prepared = request.effect?.type === 'voice.boarding' || sarHint ? voiceService.get?.(preparedId) : null;
       const usePrepared = request.prepareOnly === true || (prepared && ['pending', 'ready'].includes(prepared.status));
       const originalEffectId = effectId;
       if (usePrepared) effectId = preparedId;
       const voiceRequest = {
         deferPlayback: request.prepareOnly === true || usePrepared || cancelAtMissionEnd,
         ...(cancelAtMissionEnd ? { isPlaybackAllowed } : {}),
-        ...(request.effect?.type === 'voice.poi' ? {
+        ...(request.effect?.type === 'voice.poi' && !request.prepareOnly ? {
           resolvedText: authorityManager.getExecutionSnapshot()?.state.effects
             .find(effect => effect.effectId === request.effect.effectId)?.payload.resolvedText || '',
           confirmTextReady: text => isPlaybackAllowed()
@@ -244,6 +248,10 @@ function createTrackerMissionBoardingVoice(options = {}) {
       if (request.prepareOnly) {
         log(`MISSION_BOARDING_VOICE_PREWARM effect=${effectId}`);
         return completed(request, { voiceStatus: 'preparing', sideEffect: true });
+      }
+      if (sarHint && !isPlaybackAllowed()) {
+        voiceService.cancel?.(effectId, 'sar_hint_stale');
+        return completed(request, { voiceStatus: 'sar_hint_stale' });
       }
       if (usePrepared && effectId === preparedId) voiceService.activatePlayback?.(effectId);
       let generationTimer = null;
@@ -357,8 +365,17 @@ function createTrackerMissionBoardingVoice(options = {}) {
     });
   };
 
-  return Object.freeze({ dispatch, prepare: request => dispatch({ ...request, prepareOnly: true,
-    effect: { type: 'voice.boarding' } }) });
+  return Object.freeze({ dispatch, prepare: async request => {
+    const result = await dispatch({ ...request, prepareOnly: true, effect: { type: 'voice.boarding' } });
+    const run = authorityManager.getActiveRun({ includeBundle: true });
+    const poi = run?.resumeBundle?.executionPoiRecipe;
+    if (poi?.sarScenario?.schema === 'sar-search.v2' && poi.sarScenario.truth === 'incident') {
+      const hint = require('../mission-sar-search-core.js').hint(poi.sarScenario);
+      const cue = require('./tracker-mission-sar-search-task.js').voices(poi.voiceContext, [hint], Date.now())[0];
+      await dispatch({ ...request, prepareOnly: true, effect: { type: 'voice.poi', payload: cue } });
+    }
+    return result;
+  } });
 }
 
 module.exports = { createTrackerMissionBoardingVoice };

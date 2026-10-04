@@ -1,5 +1,7 @@
 'use strict';
 
+const sarSearchCore=require('../mission-sar-search-core.js');
+const sarSearchTask=require('./tracker-mission-sar-search-task.js');
 const sarTask = require('./tracker-mission-sar-task.js');
 const taskCore = require('../mission-poi-task-core.js');
 const { canonicalStringify } = require('../mission-execution-core.js');
@@ -31,7 +33,8 @@ function point(value) {
 }
 
 function validateRecipe(recipe) {
-    if (!recipe || recipe.schema !== RECIPE_SCHEMA || recipe.version !== 1) return 'poi_recipe_schema_invalid';
+    if (!recipe || recipe.schema !== RECIPE_SCHEMA || (recipe.version !== 1 && !(recipe.version === 2 && recipe.taskDomain === 'search_and_rescue' && recipe.sarScenario?.schema === 'sar-search.v2'))) return 'poi_recipe_schema_invalid';
+    if (recipe.sarScenario && recipe.version !== 2) return 'sar_search_version_required';
     if (!recipe.missionId || typeof recipe.missionId !== 'string') return 'poi_recipe_mission_required';
     if (!DOMAINS.includes(recipe.taskDomain)) return 'poi_recipe_domain_not_migrated';
     if (!point(recipe.target) || !point(recipe.home)) return 'poi_recipe_location_invalid';
@@ -64,7 +67,7 @@ function validateRecipe(recipe) {
     if (recipe.taskDomain === 'search_and_rescue') {
         const error = sarTask.validateRecipe(recipe);
         if (error) return error;
-    } else if (recipe.sarReport) return 'poi_recipe_specialized_task_not_migrated';
+    } else if (recipe.sarReport || recipe.sarScenario) return 'poi_recipe_specialized_task_not_migrated';
     if (recipe.taskDomain === 'fire_watch') {
         const error = fireTask.validateRecipe(recipe);
         if (error) return error;
@@ -89,6 +92,7 @@ function validateRecipe(recipe) {
     return null;
 }
 
+function coreSarSceneDistance(command,item,source){if(!command||![command.lat,command.lon,item.forwardM,item.rightM].every(Number.isFinite))return Infinity;const p={lat:command.lat+item.forwardM/111320,lon:command.lon+item.rightM/(111320*Math.cos(command.lat*Math.PI/180))};return sarSearchCore.distance(p,source)*1852;}
 function validateBundle(bundle) {
     const error = validateRecipe(bundle?.executionPoiRecipe);
     if (error) return error;
@@ -102,6 +106,11 @@ function validateBundle(bundle) {
         || !boardingCore.normalizeRecipe(plan.effects?.['voice.boarding']?.recipe)
         || plan.effects['voice.boarding'].recipe.missionId !== bundle.missionId
         || plan.effects['voice.approach'].context.missionId !== bundle.missionId) return 'poi_lifecycle_voice_plan_invalid';
+    if(bundle.executionPoiRecipe.sarScenario?.schema==='sar-search.v2'){
+        const scenario=bundle.executionPoiRecipe.sarScenario,command=plan.effects?.['scene.target']?.command;
+        if(scenario.truth==='no_contact'){if(command)return 'sar_unexpected_target_scene';}
+        else {const item=command?.items?.find(i=>i.kind==='sar_'+scenario.scenePrimaryFeature+'_0');if(!item||command.hdg!==0||!point(command)||sarSearchCore.distance(command,scenario.center)*1852>3||command.altFt!==scenario.source.altFt||command.items.length!==scenario.scenePlan?.requirements?.length||coreSarSceneDistance(command,item,scenario.source)>3)return 'sar_scene_source_mismatch';}
+    }
     if (bundle.executionPoiRecipe.taskDomain === 'fire_watch') {
         const scenario = bundle.executionPoiRecipe.fireScenario;
         const searchV2 = scenario.search?.schema === 'fire-search.v2';
@@ -145,6 +154,7 @@ function createState(recipe, previous = null) {
         detector: taskCore.createState(previous?.detector),
         ...(recipe.taskDomain === 'search_and_rescue' ? {sarReport:true} : {}),
         ...(trainingTask.DOMAINS.includes(recipe.taskDomain) ? { trainingState: trainingTask.createState(recipe, previous?.trainingState) } : {}),
+        ...(recipe.sarScenario?.schema==='sar-search.v2'?{sarSearchState:(()=>{const state=sarSearchCore.create(recipe.sarScenario,previous?.sarSearchState);state.publicArea=sarSearchCore.project(recipe.sarScenario,state).searchArea;return state;})()}:{}),
         ...(recipe.taskDomain === 'fire_watch' ? { fireState: fireTask.createState(recipe, previous?.fireState) } : {}),
         ...(recipe.taskDomain === 'infra_chain_recon' ? { chainState: chainTask.createState(recipe.poiChain, previous?.chainState) } : {}),
         ...(recipe.taskDomain === 'mapping_survey' ? { surveyState: surveyTask.createState(recipe.surveyPattern, previous?.surveyState) } : {})
@@ -232,6 +242,7 @@ function observe(recipe, previous, sample, facts = {}) {
         for (const key of ['enteredAt', 'lastTickTime', 'lastComplaintAt']) {
             if (state.detector[key] !== null) state.detector[key] += elapsed;
         }
+        if(state.sarSearchState) sarSearchCore.pause(state.sarSearchState);
         if (state.fireState) fireTask.resume(state.fireState, elapsed);
         state.suspendedAt = null;
     }
@@ -244,6 +255,7 @@ function observe(recipe, previous, sample, facts = {}) {
         state.detector.lastTickTime = sample.observedAt;
         return {state, effects:result.voices.length ? [{type:'training', voices:result.voices}] : [], changed:true, reason:'training_observed'};
     }
+    if(state.sarSearchState) return sarSearchTask.observe(recipe,state,sample,facts);
     if (state.fireState) return fireTask.observe(recipe, state, sample);
     const distNm = taskCore.distanceNm(sample.lat, sample.lon, recipe.target.lat, recipe.target.lon);
     const effectiveGs = sample.gsKts > 25 ? sample.gsKts : 95;
@@ -272,6 +284,7 @@ function observe(recipe, previous, sample, facts = {}) {
 
 function suspend(recipe, previous) {
     const state = createState(recipe, previous);
+    if(state.sarSearchState) sarSearchCore.pause(state.sarSearchState);
     if (state.trainingState) trainingTask.pause(recipe, state.trainingState, state.observedAt || 0);
     if (state.chainState) state.chainState = chainTask.suspend(recipe.poiChain, state.chainState).state;
     if (state.surveyState) state.surveyState = surveyTask.suspend(recipe.surveyPattern, state.surveyState).state;
@@ -285,6 +298,7 @@ function project(state) {
     return clone({
         schema: taskCore.SCHEMA, missionId: state.missionId, sequence: state.sequence,
         ...(state.trainingState ? {trainingProcedure:state.trainingState.progress, trainingGuidance:state.trainingState.guidance, trainingSummary:trainingTask.summary(state.trainingState.flight)} : {}),
+        ...(state.sarSearchState?{sarSearch:{state:state.sarSearchState.complete?'complete':state.sarSearchState.found?'contact':'searching',searchSec:state.sarSearchState.observedSec,searchArea:state.sarSearchState.publicArea||null}}:{}),
         ...(state.fireState ? { fireWatch: fireTask.project(state) } : {}),
         ...(state.chainState ? { poiChain: state.chainState.progress } : {}),
         ...(state.surveyState ? { surveyPattern: {
@@ -369,7 +383,8 @@ function createAuthorityDriver({ authorityManager, applySystemEvent,
         try {
             if (!buffered.voiceEffects) {
                 let memory = snapshot.state.voice?.poiMemory || {};
-                buffered.voiceEffects = buffered.effects.filter(effect => ['voice', 'survey', 'chain', 'fire', 'training'].includes(effect.type)).flatMap(effect => {
+                buffered.voiceEffects = buffered.effects.filter(effect => ['voice', 'survey', 'chain', 'fire', 'training','sar_search'].includes(effect.type)).flatMap(effect => {
+                    if(effect.type==='sar_search') return sarSearchTask.voices(recipe.voiceContext,effect.voices,buffered.state.observedAt);
                     if (effect.type === 'training') return effect.voices;
                     if (effect.type === 'fire') return prepareFireVoices(recipe.voiceContext, effect.voices, buffered.state.observedAt);
                     if (effect.type === 'chain') return chainVoice.prepareEvents(recipe.voiceContext, effect.events, recipe.poiChain);

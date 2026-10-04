@@ -17,10 +17,10 @@ const {missionId,bundle} = require('./tracker-mission-sar-fixture.js');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const completed = () => ({ ok: true, status: 'completed', sideEffect: false });
 
-async function harness(t) {
+async function harness(t, value = bundle()) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'training-integration-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const b = bundle();
+  const b = value;
   const manager = createMissionAuthorityManager({ storageFile: path.join(directory, 'authority.json'), executionAuthorityEnabled: true,
     poiExecutionEnabled: true, poiLifecycleRequired: true, idFactory: () => 'training-run' });
   const acquired = manager.acquire({ missionId, clientId: 'app', stateHash: 'app', resumeBundle: b });
@@ -31,9 +31,9 @@ async function harness(t) {
   assert.equal(manager.commitExecutionAuthority({ missionId, runId: prepared.activeRun.runId, clientId: 'app',
     expectedRevision: prepared.activeRun.revision, expectedExecutionStateHash: prepared.activeRun.executionStateHash,
     handoffId: prepared.handoff.handoffId }).ok, true);
-  const commands = [];
+  const commands = [], farewells = [];
   const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager,
-    payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: completed });
+    payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: request => {farewells.push(request);return completed();} });
   runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 940, hdg: 0 }),
     dispatchCommand: command => { commands.push(command); return completed(); }, syncPayloadManifestState: completed, cleanupMission: completed });
   await tick();
@@ -52,7 +52,7 @@ async function harness(t) {
     for (let i = 0; i < 5; i++) await tick();
     await runtime.flush();
   }
-  return { b, manager, runtime, commands, intent, sample, directory };
+  return { b, manager, runtime, commands, farewells, intent, sample, directory };
 }
 
 async function start(h) {
@@ -193,4 +193,37 @@ test('App seed preserves original SAR confirm anchor/range and target scene with
  assert.equal(seed.executionEffectPlan.effects['scene.target'].command.targetSceneKind,'sar_land');
  assert.equal(seed.executionEffectPlan.effects['scene.target'].command.lat,48.301);
  sandbox.currentMissionData.sarHeli={};assert.equal(sandbox._buildMissionPoiExecutionSeed(),null);
+});
+
+
+test('SAR V2 tracker authority alone finds, reports, returns and closes with truthful debriefing',async t=>{
+ const b=require('./tracker-mission-sar-search-fixture.js').bundle();
+ const h=await harness(t,b);await start(h);
+ const scenario=b.executionPoiRecipe.sarScenario,base=Date.now();
+ for(let second=0;second<=190;second+=5)await h.sample({lat:scenario.source.lat,lon:scenario.source.lon,observedAt:base+second*1000});
+ let snapshot=h.manager.getExecutionSnapshot();
+ assert.equal(snapshot.state.poiTask.sarSearchState.complete,true);
+ assert.equal(snapshot.state.phase,'return_leg');
+ assert.equal(snapshot.state.poiTask.sarSearchState.found.id,scenario.source.id);
+ assert.equal(snapshot.state.voice.poiMemory?.sarSearchOutcome,undefined,'legacy random search outcome is not used');
+ assert.equal(h.commands.filter(c=>c.sceneId==='sar-target').length,1);
+ const replay=execution.replay(h.manager.getActiveRun({includeBundle:true}).resumeBundle.executionReplay);assert.equal(replay.ok,true);
+ await h.sample({lat:48,lon:8,onGround:true,aglFt:0,gsKts:20,observedAt:base+195000});
+ await h.sample({lat:48,lon:8,onGround:true,aglFt:0,gsKts:0,observedAt:base+200000});
+ assert.equal(h.manager.getExecutionSnapshot().state.phase,'end_unloading');
+ for(const [name,payload]of [['set_manifest_item',{itemId:'camera',action:'unload'}],['sign_manifest',{}],['confirm_unload',{}]])assert.equal((await h.intent(name,payload)).ok,true);
+ for(let i=0;i<20;i++)await tick();
+ snapshot=h.manager.getExecutionSnapshot();assert.equal(snapshot.state.phase,'closed');
+ assert.equal(h.farewells.at(-1).farewellDynamicContext.record.sarSearchSummary.outcome,'contact_reported');
+ assert.match(h.farewells.at(-1).farewellDynamicContext.record.sarSearchSummary.text,/Identität, Zustand/);
+});
+
+test('SAR V2 no contact waits through search time, returns and closes without invented rescue',async t=>{
+ const b=require('./tracker-mission-sar-search-fixture.js').bundle();const sc=b.executionPoiRecipe.sarScenario;sc.truth='no_contact';delete sc.source;delete sc.scenePlan;delete sc.scenePrimaryFeature;b.executionEffectPlan.effects['scene.target']={none:true};
+ const h=await harness(t,b);await start(h);const base=Date.now();
+ for(let second=0;second<=610;second+=5)await h.sample({lat:sc.center.lat,lon:sc.center.lon,observedAt:base+second*1000});
+ let snapshot=h.manager.getExecutionSnapshot();assert.equal(snapshot.state.poiTask.sarSearchState.complete,true);assert.equal(snapshot.state.poiTask.sarSearchState.found,null);assert.equal(snapshot.state.phase,'return_leg');
+ await h.sample({lat:48,lon:8,onGround:true,aglFt:0,gsKts:20,observedAt:base+615000});await h.sample({lat:48,lon:8,onGround:true,aglFt:0,gsKts:0,observedAt:base+620000});
+ for(const [name,payload]of [['set_manifest_item',{itemId:'camera',action:'unload'}],['sign_manifest',{}],['confirm_unload',{}]])assert.equal((await h.intent(name,payload)).ok,true);
+ for(let i=0;i<20;i++)await tick();assert.equal(h.manager.getExecutionSnapshot().state.phase,'closed');assert.equal(h.farewells.at(-1).farewellDynamicContext.record.sarSearchSummary.outcome,'no_contact');assert.match(h.farewells.at(-1).farewellDynamicContext.record.sarSearchSummary.text,/keinen belastbaren Sichtkontakt/);
 });

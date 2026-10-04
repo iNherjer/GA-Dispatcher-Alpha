@@ -5858,3 +5858,16 @@ geprueft: 173436284 Bytes, SHA-256
 Der Alpha-Updater verwendet exakt dieses unveraenderliche Artefakt.
 
 Fire Watch, lokale Erweiterung 04.10.2026: Authority-Fundmeldungen sind pro Stelle nummeriert; EFB zeigt nur freigegebene Kreuze. Der erste Fund schließt die Suche nicht. Vollständige Lage verlangt Mindest-Suche plus Lagebeobachtung; ein begrenztes Suchbudget erlaubt unvollständige Luftbefunde. `groundAdditional` bleibt während des Fluges privat und gelangt erst bei Bodentelemetrie in den Abschlusskontext. Ein Teilbefund wurde im Integrationstest durch Rückkehr, Cargo-Entladung, Farewell und Closed geführt. Gemeinsame App-/POI-Voice- und Fire-Cores sowie EFB-Assets wurden lokal regeneriert. Reale Simulator-/Providerprüfung und Tracker-Veröffentlichung stehen noch aus.
+
+### SAR-Suchauftrag V2 — Alpha v467 / Web v1905, 2026-10-04
+
+Der Kartentisch verwendet die gemeinsame Wachsstift-Suchgebietsanzeige auch für
+`control.poiTask.sarSearch.searchArea`. Vorab nur Kreis/Referenzzentrum; ein Kreuz
+entsteht erst nach bestätigter Beobachtung. „Sichtmeldung prüfen“ ersetzt bei
+neuen SAR-Aufgaben die missverständliche Beschriftung „Fund melden“.
+Suchzeit, Sichtung, Lageaufnahme, Status-/Orientierungsantworten und Abschluss
+liegen vollständig beim Tracker. App/EFB sind Steuerung und Anzeige.
+Die gepackten EFB-Assets werden aus denselben Quellen erstellt. Lokale Karten-
+und Tracker-Tests bestehen; der Electron-UI-Selbsttest konnte in diesem Worktree
+wegen fehlender Electron-Abhängigkeit nicht gestartet werden. MSFS-Sichtprüfung
+steht weiterhin aus. Der Tracker-Build v467 ist erstellt; Veröffentlichung erfolgt über den Alpha-Kanal.

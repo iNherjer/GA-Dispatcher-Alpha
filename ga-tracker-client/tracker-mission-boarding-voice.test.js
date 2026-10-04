@@ -444,3 +444,16 @@ test('expired Fire search hints cannot activate late TTS playback', async()=>{
  const handler=createTrackerMissionBoardingVoice({authorityManager:{getActiveRun:()=>({...run(),executionRecipe:'poi'}),getExecutionSnapshot:()=>snapshot,supportsExecutionRecipe:()=>true},voiceService:{publicState:()=>({configured:true}),request:v=>{submitted=v;},wait:async()=>({status:'ready',audioAvailable:true,text:'Verdacht nordwestlich der Gebietsmarkierung.'}),activatePlayback:()=>{played=true;},cancel:()=>{}}});
  const result=await handler.dispatch({...request(),effect});assert.equal(submitted.isPlaybackAllowed(),false);assert.equal(played,false);assert.equal(result.status,'completed');
 });
+
+test('SAR hint prewarms silently, reuses audio and cannot play after a contact',async()=>{
+ const active=run({audioEnabled:true});active.executionRecipe='poi';
+ const scenario={schema:'sar-search.v2',truth:'incident',center:{lat:48,lon:8},source:{lat:48,lon:7.98}};
+ const context={missionId:'mission-a',audioEnabled:true,speaker:{name:'Mara'}};
+ active.resumeBundle.executionPoiRecipe={sarScenario:scenario,voiceContext:context};
+ const jobs=new Map(),activated=[],cancelled=[];let found=null;
+ const handler=createTrackerMissionBoardingVoice({authorityManager:{getActiveRun:()=>active,supportsExecutionRecipe:()=>true,getExecutionSnapshot:()=>({missionId:'mission-a',runId:'run-a',recipe:'poi',state:{flags:{active:true},phase:'in_flight',effects:[],poiTask:{sarSearchState:{found}}}})},voiceService:{publicState:()=>({configured:true}),get:id=>jobs.get(id),request:value=>{jobs.set(value.effectId,{...value,status:'ready'});},activatePlayback:id=>activated.push(id),cancel:(id,reason)=>cancelled.push({id,reason}),wait:async id=>({...jobs.get(id),audioAvailable:false,text:jobs.get(id).fallbackText})}});
+ await handler.prepare(request());assert.equal(jobs.size,2);const prepared=jobs.get('sar-hint-preload:run-a');assert.equal(prepared.deferPlayback,true);assert.equal(prepared.synthesizeAudio,true);assert.equal(prepared.isPlaybackAllowed,undefined);assert.deepEqual(activated,[]);
+ const cue=require('./tracker-mission-sar-search-task.js').voices(context,[require('../mission-sar-search-core.js').hint(scenario)],Date.now())[0];
+ const effect={effectId:'sar-hint-live',type:'voice.poi',payload:cue};await handler.dispatch({...request(),effect});assert.deepEqual(activated,['sar-hint-preload:run-a']);assert.equal(jobs.has('sar-hint-live'),false);
+ found={id:'contact'};const result=await handler.dispatch({...request(),effect});assert.equal(result.voiceStatus,'sar_hint_stale');assert.equal(activated.length,1);assert.ok(cancelled.some(c=>c.reason==='sar_hint_stale'));
+});

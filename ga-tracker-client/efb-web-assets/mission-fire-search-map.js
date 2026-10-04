@@ -27,14 +27,17 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
   }
   function fromScenario(fs, phase) {
     var _fs$search;
+    if ((fs === null || fs === void 0 ? void 0 : fs.schema) === 'sar-search.v2') return ['closing', 'closed'].includes(phase) ? null : _objectSpread(_objectSpread({}, area(fs.center, fs.radiusNm)), {}, {
+      findings: []
+    });
     var spec = !['closing', 'closed'].includes(phase) && fs !== null && fs !== void 0 && fs.enabled && fs.type === 'fire_watch' ? area(fs.target, Number(fs.targetAreaNm || 1.5)) : null;
     return spec ? _objectSpread(_objectSpread({}, spec), {}, {
       findings: ((_fs$search = fs.search) === null || _fs$search === void 0 ? void 0 : _fs$search.findings) || []
     }) : null;
   }
   function fromControl(c) {
-    var _c$flags, _c$poiTask;
-    return (c === null || c === void 0 ? void 0 : c.recipe) === 'poi' && c.phase !== 'closed' && ((_c$flags = c.flags) === null || _c$flags === void 0 ? void 0 : _c$flags.closed) !== true ? ((_c$poiTask = c.poiTask) === null || _c$poiTask === void 0 || (_c$poiTask = _c$poiTask.fireWatch) === null || _c$poiTask === void 0 ? void 0 : _c$poiTask.searchArea) || null : null;
+    var _c$flags, _c$poiTask, _c$poiTask2;
+    return (c === null || c === void 0 ? void 0 : c.recipe) === 'poi' && c.phase !== 'closed' && ((_c$flags = c.flags) === null || _c$flags === void 0 ? void 0 : _c$flags.closed) !== true ? ((_c$poiTask = c.poiTask) === null || _c$poiTask === void 0 || (_c$poiTask = _c$poiTask.sarSearch) === null || _c$poiTask === void 0 ? void 0 : _c$poiTask.searchArea) || ((_c$poiTask2 = c.poiTask) === null || _c$poiTask2 === void 0 || (_c$poiTask2 = _c$poiTask2.fireWatch) === null || _c$poiTask2 === void 0 ? void 0 : _c$poiTask2.searchArea) || null : null;
   }
   // Stable, smooth hand-drawn variation; no jitter on polling or session restore.
   function waxPath(spec) {
@@ -59,7 +62,7 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
   function render(map, L, spec) {
     if (!map || !L) return;
     var valid = spec && area(spec.center, spec.radiusM / 1852),
-      findings = ((spec === null || spec === void 0 ? void 0 : spec.findings) || []).filter(p => area(p, 1) && ['smoke', 'heat_suspicion'].includes(p.kind)).map(p => ({
+      findings = ((spec === null || spec === void 0 ? void 0 : spec.findings) || []).filter(p => area(p, 1) && ['smoke', 'heat_suspicion', 'sar_contact'].includes(p.kind)).map(p => ({
         id: p.id,
         lat: p.lat,
         lon: p.lon,
@@ -148,7 +151,7 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
             color: '#e53935',
             weight: 3.8,
             opacity: 0.9
-          })).bindTooltip(finding.kind === 'smoke' ? 'Rauchquelle erkannt' : 'Wärmeverdacht · Brand nicht bestätigt', {
+          })).bindTooltip(finding.kind === 'sar_contact' ? 'SAR-Sichtkontakt gemeldet' : finding.kind === 'smoke' ? 'Rauchquelle erkannt' : 'Wärmeverdacht · Brand nicht bestätigt', {
             permanent: false
           }).addTo(layer);
           L.polyline(path, _objectSpread(_objectSpread({}, options), {}, {

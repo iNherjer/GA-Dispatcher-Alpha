@@ -797,3 +797,59 @@ Bei simulierter Fehlmeldung gelten Mindest-Suchzeit und eine Pilot-Meldung „ke
 `completionSummary` berechnet aus derselben privaten Szenen-/Befundliste `found`, getrennte Rauch-/Wärmeanzahlen, `groundAdditional` und `complete/partial/unconfirmed/no_finding`. Tracker-Abschlusskontext erhält diese Zusammenfassung erst bei Bodentelemetrie, nicht bei Farewell-Prewarm (`anticipateDelivery`). Der deterministische Abschlusstext nennt zusätzliche Stellen als Nachkontrolle durch die Bodenkräfte. Bei tatsächlichem Fehlschlag bleibt der Fehlertext erhalten und wird um den Boden-Nachbefund ergänzt. An der stabilen Ziellandung wird die Zusammenfassung außerdem in Segment- und Missionsflugrecord aufgenommen. Die öffentliche Flugprojektion enthält niemals `groundAdditional` oder unentdeckte Standorte. EFB zeigt den Authority-Suchstatus und die freigegebenen Befunde; es berechnet keinen zweiten Abschluss.
 
 Prüfmatrix: Rauch/Wärme × eine/mehrere Stellen × alle/teilweise/keine erkannt; Fehlmeldung vor/nach Suchzeit; kein Rauch beim Anflug; Austritt/Wiedereintritt; Suspend/Restore; mehrfacher Pilotenklick; Fund-Voice nach Restore; Rückkehr/Cargo/Farewell/Closed; Nachbefund ausschließlich im Landekontext. Ein voller Authority-Integrationstest führt einen Teilbefund über Rückkehr und Entladung bis `closed` und prüft den erhaltenen Farewell-Nachbefund. Die Tests ersetzen weiterhin keinen echten Simulatorflug oder einen realen TTS-Providerlauf.
+
+### SAR-Suchauftrag V2 (lokal, 2026-10-04)
+
+Neue KI-POI-Aufträge des Profils `search_and_rescue` verwenden `sar-briefing.v2`
+und eine getrennte private `sar-search.v2`-Suchlage. Der Writer erhält Alarm,
+letzten Kontakt, Informationslücke und geografische Belege, niemals die
+simulierte Wahrheit oder den späteren Fundort. `person` ist der mitfliegende
+Beobachter. Die Suche bleibt ein Flächenflugzeugauftrag; kein Pickup/Transport.
+
+Der bestehende Scene Planner V3 bekommt den SAR-Vertrag und vorgeprüfte
+Kandidaten. Vollständige OSM-Polygone bleiben lokal. Fahrzeuglagen beziehen sich
+auf die im Auftrag belegten Straßen; Wasser, Gebäude, Verkehrsflächen und
+Überlappungen werden ausgeschlossen. Personen liegen auf offenen Flächen,
+an Waldrändern oder nahe kartierten Wegen; Wracks auf offenen Landflächen;
+kleine Boote auf Wasserflächen mit Uferabstand und Ausschluss von Inselringen.
+Fehlende Geometrie oder abgelehnte Platzierung lässt den Auftrag im Entwurf.
+Die Scene wird nicht nachträglich durch allgemeine POI-Ankerheuristiken verschoben.
+
+Die Primärobjektposition ist gleichzeitig der Detektionsort. Ein Bundle wird
+abgelehnt, wenn Koordinaten, Norden-Ausrichtung, Geländehöhe oder Objektzahl
+abweichen. Die Asset-Rolle des Composers muss im Katalog zur Objektfamilie passen.
+Beim simulierten Ausgang ohne Kontakt gibt es kein Zielobjekt.
+
+Der Tracker speichert Suchzeit, Evidenz, Hinweise und Fundstatus. Nähe beschleunigt
+Evidenz; Pause, Menü, Slew, Unterbrechung oder fehlende erforderliche Ausrüstung
+sammeln keine Suchzeit. Im strikten Modus gilt zusätzlich das Höhenfenster.
+Ein Fund verlangt anschließend 30 Sekunden Lageaufnahme nahe der Stelle und
+insgesamt mindestens drei Minuten Suchzeit. Ohne Fund endet der Luftsuchauftrag
+nach zehn Minuten; dies ist keine Entwarnung. Ein manueller Klick bestätigt keinen
+Fund. Suchstatus, Orientierung, Sichtung und Abschluss verwenden den echten
+Zustand, nicht den bisherigen zufälligen SAR-Voice-Ausgang. Identität, Zustand und
+Rettungserfolg bleiben offen. Der Bodenabschluss berichtet den Luftbefund.
+
+App/EFB zeichnen denselben Wachsstiftkreis und ausschließlich bestätigte
+Fundkreuze. Abschluss/Reset entfernen die Overlays. Neue Aufgaben verlangen
+`mission.sar-search.v2` und Recipe-Version 2; ältere Tracker und der App-Legacy-
+Start können diese Aufgaben nicht ausführen. Bestehende SAR-V1-Missionen und
+Heli/Bush-Verträge bleiben unverändert. Beim Rollout muss der Tracker neu gebaut
+und veröffentlicht werden; Release-Ziel ist Web v1905 / Tracker Alpha v467.
+
+Prüfungen: `node --test ga-tracker-client/tracker-mission-sar*.test.js
+ tools/mission-sar-briefing.test.cjs tools/mission-fire-search-map.test.mjs`.
+`tools/sar-briefing-live.mjs` prüft begrenzt Gemini-Writer und Composer mit klar
+gekennzeichneter Wetterprobe und optional gespeicherter öffentlicher OSM-Geometrie.
+Die zwei Live-Fälle waren Fahrzeug/Person im Schönbuch. Kein MSFS-Sichtflugtest;
+OSM beschreibt Flächen, garantiert aber keine identische Simulatorvegetation.
+
+SAR-V2 Suchhinweis (4.10.2026): Nach 180 Sekunden aktiver Suche ohne
+Sichtkontakt gibt die Leitstelle einmal einen unbestätigten Hinweis für einen
+Teil des Gebiets: nördlich/südlich/östlich/westlich des festen Referenzpunktes.
+Keine Distanz, kein Gradkurs und keine Nähebedingung zum Flugzeug. Bei einem
+Auftrag ohne vorbereiteten Kontakt wird kein erfundener Richtungsbefund erzeugt.
+Die feste Ansage wird bei Vorbereitung als separater, stummer Tracker-TTS-Job
+vorgeladen und bei Auslösung wiederverwendet. Fund, Suchabschluss, Missionsende
+oder Ablauf des Wiedergabefensters sperren eine überholte Ansage. Ausfall des
+Vorladevorgangs lässt die normale Voice-Ausgabe weiterarbeiten.

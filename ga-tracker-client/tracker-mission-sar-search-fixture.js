@@ -1,0 +1,7 @@
+'use strict';
+const fixture=require('./tracker-mission-sar-fixture.js'),execution=require('../mission-execution-core.js');
+const center={lat:48.3,lon:8.5};
+function scenario(truth='incident'){return {schema:'sar-search.v2',center,radiusNm:1.5,minSearchSec:180,maxSearchSec:600,truth,pending:false,...(truth==='incident'?{source:{id:'one',lat:center.lat+.006,lon:center.lon,label:'ein Fahrzeug abseits der Straße',altFt:940},scenePrimaryFeature:'road_vehicles',scenePlan:{kind:'road_incident',requirements:[{feature:'road_vehicles',count:1,forwardM:.006*111320,rightM:0}]}}:{})};}
+function bundle(truth){const b=fixture.bundle(),r=b.executionPoiRecipe;r.version=2;r.sarScenario=scenario(truth);r.target=center;r.passenger.targetRadiusNm=1.5;r.voiceContext.passenger.targetRadiusNm=1.5;const source=r.sarScenario.source||center;r.sarReport.confirmCoords={lat:source.lat,lon:source.lon};r.voiceContext.sarReport=structuredClone(r.sarReport);if(truth!=='no_contact')b.executionEffectPlan.effects['scene.target']={command:{type:'mission_scene_spawn',sceneId:'sar-target',...center,altFt:940,hdg:0,items:[{kind:'sar_road_vehicles_0',forwardM:.006*111320,rightM:0}]}};else b.executionEffectPlan.effects['scene.target']={none:true};b.executionEffectPlan.effects['voice.approach'].context={...r.voiceContext,supported:true};b.executionReplay=execution.createExecutionBundle(b);b.execution=execution.createReplayShadowEnvelope(b.executionReplay,{sourceRevision:0,legacyBundle:b});return b;}
+
+module.exports={scenario,bundle};

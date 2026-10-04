@@ -2335,6 +2335,7 @@
         (byId('paxMissionActionMenu') || primaryButton.parentNode).appendChild(button);
       }
       if (!button) return;
+      if (intent === 'poi_report_found') button.textContent = poiControl && poiControl.poiTask && poiControl.poiTask.sarSearch ? 'Sichtmeldung prüfen' : 'Fund melden';
       button.style.display = poiControl && (index < 2 ? poiControl.recipe === 'poi' && poiControl.phase !== 'closed' : (poiControl.allowedActions || []).indexOf(intent) >= 0) ? 'inline-flex' : 'none';
       button.disabled = missionIntentPending || !poiControl || (poiControl.allowedActions || []).indexOf(intent) < 0;
     });

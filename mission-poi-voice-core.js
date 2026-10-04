@@ -1382,6 +1382,7 @@ function _farewellPreparedContext(record = null) {
         };
     }
     const fs=(typeof currentMissionData!=='undefined'?currentMissionData?.fireScenario:null);
+    if(rec.sarSearchSummary && _activeTaskDomain()==='search_and_rescue') return {key:_paxMissionAudioKey('farewell'),text:'Danke für den ruhigen Suchflug. '+rec.sarSearchSummary.text,speaker,eventLabel:'Verabschiedung',logLabel:'Farewell'};
     const fireSummary=rec.fireWatchSummary || (window.lastLiveFlightData?.onGround===true?_fireCompletionSummary(fs):null);
     if (fireSummary && _activeTaskDomain()==='fire_watch') {
         const found=fireSummary.found;

@@ -48,3 +48,13 @@ test('completion and reset remove circle and all crosses instead of resurrecting
  api.render(map,L,api.fromScenario(fs));api.render(map,L,api.fromControl(null));assert.equal(removed.length,2);
  assert.equal(api.fromControl({recipe:'poi',phase:'active',flags:{closed:true},poiTask:{fireWatch:projection}}),null);
 });
+
+test('SAR circle hides private scene before start and only verified contact gets a cross; reset removes both',()=>{
+ const scenario={schema:'sar-search.v2',center:{lat:48,lon:8},radiusNm:1.5,truth:'incident',source:{lat:48.01,lon:8.02}};
+ assert.deepEqual(api.fromScenario(scenario,'planned'),{center:{lat:48,lon:8},radiusM:2778,findings:[]});
+ assert.equal(JSON.stringify(api.fromScenario(scenario)).includes('48.01'),false);
+ const drawn=[],removed=[],map={removeLayer:l=>removed.push(l)},shape=(p,o)=>({addTo(){drawn.push({p,o});return this;},bindTooltip(text){this.text=text;return this;}}),L={layerGroup:()=>({addTo(){}}),polygon:shape,polyline:shape,circleMarker:shape};
+ const projection={searchArea:{...api.fromScenario(scenario),findings:[{id:'seen',lat:48.01,lon:8.02,kind:'sar_contact'}]}};
+ api.render(map,L,api.fromControl({recipe:'poi',phase:'active',poiTask:{sarSearch:projection}}));assert.equal(drawn.length,12);
+ api.render(map,L,api.fromControl({recipe:'poi',phase:'closed',flags:{closed:true},poiTask:{sarSearch:projection}}));assert.equal(removed.length,1);
+});

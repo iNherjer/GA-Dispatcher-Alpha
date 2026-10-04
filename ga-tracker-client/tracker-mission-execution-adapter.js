@@ -16,6 +16,7 @@ const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const flightRecorderCore = require('../mission-flight-recorder-core.js');
 const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
+const sarSearchCore=require('../mission-sar-search-core.js');
 const fireWatchCore = require('../mission-fire-watch-core.js');
 
 const AIRBORNE_EVIDENCE_MS = 2000;
@@ -225,6 +226,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       record.fireWatchSummary=fireWatchCore.completionSummary(snapshot.state.poiTask.fireState.scenario);
       observations.missionFlightRecord.fireWatchSummary=record.fireWatchSummary;
     }
+    if(observations.latestTelemetry?.onGround===true&&observations.latestDestination?.atDestination===true&&snapshot.state.poiTask?.sarSearchState){record.sarSearchSummary=sarSearchCore.summary(snapshot.state.poiTask.sarSearchState);observations.missionFlightRecord.sarSearchSummary=record.sarSearchSummary;}
     observations.lastFinalizedSegmentStartTs = Number(record.startTs);
     observations.segmentDepartureLabel = cleanString(record.arrLabel, 180) || observations.segmentDepartureLabel;
     try {
@@ -336,6 +338,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       record.poiNeedsRideHome = snapshot.state.poiLifecycle?.needsRideHome === true;
       record.poiAborted = poiProgress.aborted === true;
     }
+    if(latest.onGround===true&&options.anticipateDelivery!==true&&snapshot.state.poiTask?.sarSearchState) record.sarSearchSummary=sarSearchCore.summary(snapshot.state.poiTask.sarSearchState);
     if (latest.onGround===true && options.anticipateDelivery!==true && snapshot.state.poiTask?.fireState) record.fireWatchSummary=fireWatchCore.completionSummary(snapshot.state.poiTask.fireState.scenario);
     record.missionCargoOutcome = cargoOutcome;
     record.missionFailed = cargoOutcome.failed === true;
@@ -866,6 +869,11 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         ? { ...live, ...safeObject(request.livePosition) } : {};
       const payload = poiRuntime.fireAction(fireRecipe, snapshot.state.poiTask, action, sample, now());
       return submitEvent(snapshot, 'FIRE_ACTION_OBSERVED', { ...payload, action }, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
+    }
+    if (authorityManager.getExecutionPoiRecipe?.()?.sarScenario?.schema==='sar-search.v2' && ['poi_status','poi_orientation'].includes(intent)) {
+      const recipe=authorityManager.getExecutionPoiRecipe();
+      const cue=require('./tracker-mission-sar-search-task.js').statusCue(recipe,snapshot.state.poiTask,intent,now());
+      return submitEvent(snapshot,'POI_ACTION_VOICE_REQUESTED',cue,`${snapshot.runId}:intent:${commandId}`,`intent:${intent}`);
     }
     if (['poi_status', 'poi_orientation', 'poi_tell_more'].includes(intent)) {
       const recipe = authorityManager.getExecutionPoiRecipe?.();

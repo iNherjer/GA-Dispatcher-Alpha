@@ -92,8 +92,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v466';
-const TRACKER_VERSION_CODE = 466;
+const TRACKER_VERSION = 'v467';
+const TRACKER_VERSION_CODE = 467;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -115,7 +115,7 @@ const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cloud-load.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.bush-strip.v1', 'mission.bush-return.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
+  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cloud-load.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,

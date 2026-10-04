@@ -2205,7 +2205,9 @@ function _trackerExecutionUsesRelayController() {
         && typeof window.sendTrackerCommand === 'function';
 }
 
+function _missionRequiresSarSearchAuthority() {return typeof currentMissionData !== 'undefined' && currentMissionData?.sarScenario?.schema === 'sar-search.v2';}
 function _missionStartUsesTrackerExecution() {
+    if (_missionRequiresSarSearchAuthority()) return true;
     const missionId = _activeMissionRuntimeId('');
     if (window.simModeActive) return false;
     const recipeAvailable = _missionSceneIsBushMission()
@@ -2220,6 +2222,7 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
     if (_missionExecutionAuthorityIsTracker()) return true;
     if (missionExecutionHandoffPromise) return missionExecutionHandoffPromise;
     missionExecutionHandoffPromise = (async () => {
+        if (_missionRequiresSarSearchAuthority() && !window.liveTrackerCapabilities?.includes('mission.sar-search.v2')) return false;
         if (window.simModeActive || !_trackerSupportsMissionIntents() || _missionStartPhase() !== 'planned') return false;
         if (_missionSceneIsBushMission() && (!window.liveTrackerCapabilities?.includes(_activeBushMissionSpec()?.requiresReturnHome ? 'mission.bush-return.v1' : 'mission.bush-strip.v1') || !_buildMissionBushExecutionSeed())) return false;
         if (typeof _missionSceneIsPoiMission === 'function' && _missionSceneIsPoiMission() && !window.liveTrackerCapabilities?.includes('mission.poi.v1')) return false;
@@ -7547,6 +7550,8 @@ function _buildMissionPoiExecutionSeed(allowBushRecon = false) {
         && [md, contract, window.activePassenger].some(source => source?.trainingProcedure)) return null;
     const trainingRecipe = /^(training|club_training_basic|club_training_advanced)$/.test(voiceContext.taskDomain) ? window.missionTrainingProcedure?.getActiveRecipe(md, window.activePassenger) : null;
     if (/^(training|club_training_basic|club_training_advanced)$/.test(voiceContext.taskDomain) && !trainingRecipe) return null;
+    const sarScenario=voiceContext.taskDomain==='search_and_rescue' ? md.sarScenario : null;
+    if(sarScenario?.pending) return null;
     const fireScenario = voiceContext.taskDomain === 'fire_watch' ? _activeFireScenario() : null;
     if (voiceContext.taskDomain === 'fire_watch' && !fireScenario) return null;
     if (fireScenario) _ensureFireSmokeSites(fireScenario);
@@ -7563,10 +7568,10 @@ function _buildMissionPoiExecutionSeed(allowBushRecon = false) {
     if (bushRecon && (voiceContext.bush?.profileId !== 'bush_recon_return'
         || JSON.stringify(voiceContext.bush) !== JSON.stringify(bushSpec))) return null;
     const executionPoiRecipe = {
-        schema: 'ga.mission-poi-execution-recipe.v1', version: 1, missionId,
+        schema: 'ga.mission-poi-execution-recipe.v1', version: sarScenario ? 2 : 1, missionId,
         taskDomain: voiceContext.taskDomain, target, home, strict: voiceContext.strict,
         trackingActive: window.paxVoiceGetPoiMissionProgress?.().trackingActive === true,
-        passenger, voiceContext, ...(bushRecon ? { bush: _safeCloneJson(bushSpec, null) } : {}), ...(voiceContext.taskDomain === 'search_and_rescue' ? {sarReport:_safeCloneJson(voiceContext.sarReport,null)} : {}), ...(trainingRecipe ? { trainingRecipe: _safeCloneJson(trainingRecipe, null) } : {}), ...(fireScenario ? { fireScenario: _safeCloneJson(fireScenario, null) } : {}), ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
+        passenger, voiceContext, ...(sarScenario?{sarScenario:_safeCloneJson(sarScenario,null)}:{}), ...(bushRecon ? { bush: _safeCloneJson(bushSpec, null) } : {}), ...(voiceContext.taskDomain === 'search_and_rescue' ? {sarReport:_safeCloneJson(voiceContext.sarReport,null)} : {}), ...(trainingRecipe ? { trainingRecipe: _safeCloneJson(trainingRecipe, null) } : {}), ...(fireScenario ? { fireScenario: _safeCloneJson(fireScenario, null) } : {}), ...(chainSpec ? { poiChain: chainSpec } : {}), ...(surveySpec ? { surveyPattern: surveySpec } : {}), lifecycle: { schema: 'ga.mission-poi-lifecycle.v1' }
     };
     const plan = _buildMissionAptExecutionEffectPlan('poi');
     if (!plan) return null;
@@ -8169,6 +8174,7 @@ function _missionSarLooksLikePersonSearch() {
 function _missionTargetScenePoint(options = {}) {
     const allowMissingTerrain = !!options.allowMissingTerrain;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if(md?.sarScenario?.schema==='sar-search.v2' && !md.sarScenario.pending) return {lat:md.sarScenario.center.lat,lon:md.sarScenario.center.lon,altFt:Number.isFinite(md.sarScenario.source?.altFt)?md.sarScenario.source.altFt:md.poiTerrainFt||0,hdg:0,name:md.poiName};
     if (!md || !md.poiName || _activeFireScenario()) return null;
     const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
     const poiWp = wps.find(wp => wp && wp.isPOI) || (wps.length >= 2 ? wps[1] : null);
@@ -8359,6 +8365,8 @@ function _missionTargetSceneKindFromFeatureHints(text = '') {
 }
 
 function _missionTargetSceneKind() {
+    const sar = typeof currentMissionData !== 'undefined' ? currentMissionData?.sarScenario : null;
+    if (sar?.schema === 'sar-search.v2' && !sar.pending) return sar.truth === 'no_contact' ? null : sar.scenePlan?.kind || null;
     const point = _missionTargetScenePoint({ allowMissingTerrain: true });
     if (!point) return null;
     const spec = _missionTargetSceneSpec();
@@ -8904,6 +8912,11 @@ function _missionTargetSceneFeatureAllowedForKind(kind = '', feature = '') {
 }
 
 function _missionTargetSceneItems(kind) {
+    const sar=(typeof currentMissionData!=='undefined'?currentMissionData?.sarScenario:null);
+    if(sar?.schema==='sar-search.v2' && !sar.pending){
+        if(sar.truth==='no_contact') return [];
+        return (sar.scenePlan?.requirements||[]).map((req,i)=>{const feature=window.MISSION_SCENE_ASSETS?.targetSceneFeatures?.[req.feature],role=req.role||feature?.primaryRole||feature?.roles?.[0],pool=_sceneCatalogRoleMerge([role]);if(!pool.length)return null;return _missionTargetSceneItem('sar_'+req.feature+'_'+i,feature.label,_scenePickTitle(pool,'sar-'+i,pool[0]),pool,req.forwardM,req.rightM,{reporterValidated:true,placementOverride:true,hdgOffsetDeg:req.hdgOffsetDeg||0});}).filter(Boolean);
+    }
     const civilCars = _missionSceneFilteredVehiclePool(MISSION_SCENE_ASSET_POOLS.cars);
     const civilVans = _missionSceneFilteredVehiclePool(MISSION_SCENE_ASSET_POOLS.vans);
     const civilTrucks = _missionSceneFilteredVehiclePool(MISSION_SCENE_ASSET_POOLS.trucks);
@@ -14198,6 +14211,7 @@ window.startMissionBoarding = async function() {
 };
 
 window.manualMissionStart = function() {
+    if (_missionRequiresSarSearchAuthority() && !_missionExecutionAuthorityIsTracker()) return false;
     if (_missionExecutionAuthorityIsTracker()) {
         return window.gaTrackerExecutionSubmitIntent?.('start_mission') || false;
     }
@@ -14631,6 +14645,7 @@ window.handleMissionStartBannerAction = async function() {
             return;
         }
         if (phase === 'planned') {
+            if (_missionRequiresSarSearchAuthority() && (!window.liveTrackerCapabilities?.includes('mission.sar-search.v2') || window.simModeActive)) {try {alert('Diese SAR-Mission benötigt einen verbundenen Tracker mit neuer SAR-Suchlogik. Bitte den aktuellen Alpha-Tracker verwenden.');} catch (_) {} return false;}
             if (_missionStartUsesTrackerExecution()) {
                 const result = await window.gaTrackerExecutionSubmitIntent?.('prepare_mission');
                 return result?.ok === true;
@@ -14995,7 +15010,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',

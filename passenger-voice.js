@@ -256,7 +256,7 @@ function _paxDrawZones() {
 
     if (_isPOIMission()) {
         const dest = _getDestCoords();
-        if (dest && pax && !_fireScenario()) {
+        if (dest && pax && !_fireScenario() && !(typeof currentMissionData !== 'undefined' && currentMissionData?.sarScenario?.schema === 'sar-search.v2')) {
             const r = (pax.targetRadiusNm || 1.5) * NM;
             const label = `POI-Radius: ${pax.targetRadiusNm || 1.5} NM`
                 + (pax.targetAltFt  ? ` · ${pax.targetAltFt} ft`  : '')
@@ -3533,6 +3533,7 @@ function _refreshMissionActionMenu() {
         ['paxMissionStatusBtn', 'paxMissionOrientationBtn','paxAptWellbeingBtn','paxCargoConditionBtn','paxWeatherReactionBtn'].forEach(id => { const button = document.getElementById(id); if (button) button.disabled = false; });
     }
     const trackerSar = window.gaTrackerExecutionHandlesMission?.();
+    const sarButton=document.getElementById('paxPoiFoundBtn');if(sarButton)sarButton.textContent=typeof currentMissionData!=='undefined'&&currentMissionData?.sarScenario?.schema==='sar-search.v2'?'Sichtmeldung prüfen':'Fund melden';
     setVisible('paxPoiFoundBtn', trackerSar ? !!window.gaTrackerExecutionControl?.allowedActions?.includes('poi_report_found') : sarPoi && !_poiSatisfied && !_poiAborted && (!sarHeli || !sarHeliFoundReported));
     setVisible('paxAptWellbeingBtn', !isPoi && hasPax && !cargoFocus);
     setVisible('paxCargoConditionBtn', !isPoi && cargoFocus);
@@ -7606,7 +7607,7 @@ STIL: ${roleStyle}
 DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
-    const poiNarrative = window.MissionFireBriefingCore?.voiceContext(md?.fireBriefing || contract?.fireBriefing) || window.MissionChainBriefingCore?.voiceContext(md.chainBriefing) || window.MissionKnowledgeBriefingCore?.voiceContext(md?.knowledgeBriefing || contract?.knowledgeBriefing) || window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || window.MissionBioBriefingCore?.voiceContext(md?.bioBriefing || contract?.bioBriefing) || window.MissionGeoBriefingCore?.voiceContext(md?.geoBriefing || contract?.geoBriefing) || window.MissionMappingBriefingCore?.voiceContext(md?.mappingBriefing || contract?.mappingBriefing) || window.MissionPoiFollowupNarrativeCore?.voiceContext(md?.poiContinuationBriefing || contract?.poiContinuationBriefing) || '';
+    const poiNarrative = window.MissionSarBriefingCore?.voiceContext(md?.sarBriefing || contract?.sarBriefing) || window.MissionFireBriefingCore?.voiceContext(md?.fireBriefing || contract?.fireBriefing) || window.MissionChainBriefingCore?.voiceContext(md.chainBriefing) || window.MissionKnowledgeBriefingCore?.voiceContext(md?.knowledgeBriefing || contract?.knowledgeBriefing) || window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || window.MissionBioBriefingCore?.voiceContext(md?.bioBriefing || contract?.bioBriefing) || window.MissionGeoBriefingCore?.voiceContext(md?.geoBriefing || contract?.geoBriefing) || window.MissionMappingBriefingCore?.voiceContext(md?.mappingBriefing || contract?.mappingBriefing) || window.MissionPoiFollowupNarrativeCore?.voiceContext(md?.poiContinuationBriefing || contract?.poiContinuationBriefing) || '';
     if (poiNarrative) lines.push(poiNarrative);
     const sightseeingIdea=md?.sightseeingIdea || contract?.sightseeingIdea;
     if(sightseeingIdea?.schema === 'sightseeing-idea.v1') lines.push(window.MissionSightseeingIdeasCore.voiceContext(sightseeingIdea));
@@ -10055,6 +10056,7 @@ function _farewellPreparedContext(record = null) {
         };
     }
     const fs=(typeof currentMissionData!=='undefined'?currentMissionData?.fireScenario:null);
+    if(rec.sarSearchSummary && _activeTaskDomain()==='search_and_rescue') return {key:_paxMissionAudioKey('farewell'),text:'Danke für den ruhigen Suchflug. '+rec.sarSearchSummary.text,speaker,eventLabel:'Verabschiedung',logLabel:'Farewell'};
     const fireSummary=rec.fireWatchSummary || (window.lastLiveFlightData?.onGround===true?_fireCompletionSummary(fs):null);
     if (fireSummary && _activeTaskDomain()==='fire_watch') {
         const found=fireSummary.found;
@@ -10254,7 +10256,7 @@ window.paxVoiceBuildPoiAuthorityContext = function(missionId) {
             routeWaypoints: typeof routeWaypoints !== 'undefined' ? routeWaypoints : []
         } : {}),
         ...(_activeTaskDomain() === 'search_and_rescue' ? {
-            sarReport: {schema:'ga.sar-report.v1',confirmCoords:_activePoiConfirmCoords(),confirmRangeNm:_poiManualConfirmRangeNm()},
+            sarReport: {schema:'ga.sar-report.v1',confirmCoords:md.sarScenario?.source || _activePoiConfirmCoords(),confirmRangeNm:_poiManualConfirmRangeNm()},
             storyFrame: _activeMissionStoryFrame(), sarSearchOutcome: _sarSearchOutcome
         } : {}),
         mapPlaceOrientationLine: _paxMapPlaceOrientationLine(),

@@ -8702,7 +8702,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
     if (!map) initMapBase();
     if (window.MissionFireSearchMap) {
         const control = window.gaTrackerExecutionControl;
-        const area = control?.executionAuthority === 'tracker' ? window.MissionFireSearchMap.fromControl(control) : window.MissionFireSearchMap.fromScenario(typeof currentMissionData !== 'undefined' ? currentMissionData?.fireScenario : null, typeof missionRuntime !== 'undefined' ? missionRuntime.phase : null);
+        const area = control?.executionAuthority === 'tracker' ? window.MissionFireSearchMap.fromControl(control) : window.MissionFireSearchMap.fromScenario(typeof currentMissionData !== 'undefined' ? currentMissionData?.sarScenario || currentMissionData?.fireScenario : null, typeof missionRuntime !== 'undefined' ? missionRuntime.phase : null);
         window.MissionFireSearchMap.render(map, window.L, area);
     }
     currentSName = s || "Start"; currentDName = d || "Ziel";

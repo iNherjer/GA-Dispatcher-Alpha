@@ -6,8 +6,8 @@ function area(target,radiusNm){
  if(!target||!Number.isFinite(target.lat)||!Number.isFinite(target.lon)||Math.abs(target.lat)>90||Math.abs(target.lon)>180||!Number.isFinite(radiusNm)||radiusNm<=0||radiusNm>50)return null;
  return {center:{lat:target.lat,lon:target.lon},radiusM:radiusNm*1852};
 }
-function fromScenario(fs,phase){const spec=!['closing','closed'].includes(phase)&&fs?.enabled&&fs.type==='fire_watch'?area(fs.target,Number(fs.targetAreaNm||1.5)):null;return spec?{...spec,findings:fs.search?.findings||[]}:null;}
-function fromControl(c){return c?.recipe==='poi'&&c.phase!=='closed'&&c.flags?.closed!==true?c.poiTask?.fireWatch?.searchArea||null:null;}
+function fromScenario(fs,phase){if(fs?.schema==='sar-search.v2')return ['closing','closed'].includes(phase)?null:{...area(fs.center,fs.radiusNm),findings:[]};const spec=!['closing','closed'].includes(phase)&&fs?.enabled&&fs.type==='fire_watch'?area(fs.target,Number(fs.targetAreaNm||1.5)):null;return spec?{...spec,findings:fs.search?.findings||[]}:null;}
+function fromControl(c){return c?.recipe==='poi'&&c.phase!=='closed'&&c.flags?.closed!==true?c.poiTask?.sarSearch?.searchArea||c.poiTask?.fireWatch?.searchArea||null:null;}
 // Stable, smooth hand-drawn variation; no jitter on polling or session restore.
 function waxPath(spec,offset=0,closed=false){
  const phase=(spec.center.lat*17+spec.center.lon*23)%6.283185307;
@@ -26,7 +26,7 @@ function waxPath(spec,offset=0,closed=false){
 }
 function render(map,L,spec){
  if(!map||!L)return;
- const valid=spec&&area(spec.center,spec.radiusM/1852),findings=(spec?.findings||[]).filter(p=>area(p,1)&&['smoke','heat_suspicion'].includes(p.kind)).map(p=>({id:p.id,lat:p.lat,lon:p.lon,kind:p.kind})),signature=JSON.stringify({valid,findings}),previous=layers.get(map);
+ const valid=spec&&area(spec.center,spec.radiusM/1852),findings=(spec?.findings||[]).filter(p=>area(p,1)&&['smoke','heat_suspicion','sar_contact'].includes(p.kind)).map(p=>({id:p.id,lat:p.lat,lon:p.lon,kind:p.kind})),signature=JSON.stringify({valid,findings}),previous=layers.get(map);
  if(previous?.signature===signature)return;
  if(previous)map.removeLayer(previous.layer);
  layers.delete(map);
@@ -44,7 +44,7 @@ function render(map,L,spec){
   for(const direction of [-1,1]){
    const path=Array.from({length:13},(_,i)=>{const t=(i/12-0.5)*2;return [finding.lat+(t*size+Math.sin(i*0.7)*size*0.025)/latScale,finding.lon+(direction*t*size+Math.sin(i*0.9)*size*0.02)/lonScale];});
    L.polyline(path,{...options,color:'#d83430',weight:8,opacity:0.17}).addTo(layer);
-   L.polyline(path,{...options,color:'#e53935',weight:3.8,opacity:0.9}).bindTooltip(finding.kind==='smoke'?'Rauchquelle erkannt':'Wärmeverdacht · Brand nicht bestätigt',{permanent:false}).addTo(layer);
+   L.polyline(path,{...options,color:'#e53935',weight:3.8,opacity:0.9}).bindTooltip(finding.kind==='sar_contact'?'SAR-Sichtkontakt gemeldet':finding.kind==='smoke'?'Rauchquelle erkannt':'Wärmeverdacht · Brand nicht bestätigt',{permanent:false}).addTo(layer);
    L.polyline(path,{...options,color:'#ffd4bc',weight:0.9,opacity:0.55,dashArray:'1,9,2,13'}).addTo(layer);
   }
  }
