@@ -40,7 +40,7 @@ async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensur
  }
  // Refresh the selected evidence through the shared cache; ideas already saw the mapped environment.
  c=await root.MissionPoiBriefingSharedBrowser.enrichSelected(c,ensureAlive);
- 
+
  const shared=root.MissionPoiBriefingSharedCore,flight=shared.prepareFlight(contract),flightContext=flight.context,recent=core().history(localStorage);
  const raw=await json(core().writerPrompt(c,idea,recent,flight));ensureAlive?.();
  // Weather validation must never discard a valid narrative.
