@@ -1176,12 +1176,12 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             return {
                 role: 'medical_handoff',
                 roleLabel: 'medizinische Uebergabe',
-                expectedBy: 'medizinisches Empfangsteam',
-                visibleCue: 'Rettungswagen oder medizinisches Empfangsteam',
-                vehicleRole: 'vehicle.emergency.medical',
+                expectedBy: mission?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' ? mission.medicalTransferIdea.recipient : 'medizinisches Empfangsteam',
+                visibleCue: mission?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' ? (mission.medicalTransferIdea.transportKind === 'patient_transfer' ? 'Krankenwagen zur Patientenübernahme' : 'Abholfahrzeug des medizinischen Empfangskontakts') : 'Rettungswagen oder medizinisches Empfangsteam',
+                vehicleRole: mission?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' && mission.medicalTransferIdea.transportKind !== 'patient_transfer' ? 'vehicle.van' : 'vehicle.emergency.medical',
                 personRole: 'person.ground_crew',
                 equipmentRole: 'cargo.medical_kit',
-                narrativeHint: 'Am Ziel ist eine ruhige medizinische Uebergabe am Vorfeld geplant.'
+                narrativeHint: mission?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' ? mission.medicalTransferIdea.arrival : 'Am Ziel ist eine ruhige medizinische Uebergabe am Vorfeld geplant.'
             };
         }
         if (/cargo|logistic|fragile/.test(planTask)) {

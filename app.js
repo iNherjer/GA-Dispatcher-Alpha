@@ -4472,6 +4472,7 @@ function classifyAptMissionCategory(ms) {
     if (window.MissionPrivateReturnCore?.context(ms || {})) return 'private';
     // A structured private contract is authoritative; prose such as "erkundet" is not a charter cue.
     if (ms?.sightseeingIdea?.schema === 'sightseeing-idea.v1') return 'std';
+    if (ms?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return 'cargo';
     if (ms?.animalTransportIdea?.schema === 'animal-transport-idea.v1') return 'cargo';
     if (ms?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return 'cargo';
     if (ms?.cargoIdea?.schema === 'cargo-idea.v1') return 'cargo';
@@ -8960,7 +8961,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'medicalTransferIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9584,7 +9585,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionSarBriefingCore?.owns(state.currentMissionData) || window.MissionFireBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.animalTransportIdea?.schema === 'animal-transport-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionSarBriefingCore?.owns(state.currentMissionData) || window.MissionFireBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.animalTransportIdea?.schema === 'animal-transport-idea.v1' || state.currentMissionData?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -17489,6 +17490,7 @@ function personalizeAptCharterMission(mission = null, context = {}, preferredPer
     if (!mission || typeof mission !== 'object') return mission;
     if (mission.sightseeingIdea?.schema === 'sightseeing-idea.v1') return mission;
     if (mission.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return mission;
+    if (mission.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return mission;
     if (mission.animalTransportIdea?.schema === 'animal-transport-idea.v1') return mission;
     if (mission.cargoIdea?.schema === 'cargo-idea.v1') return mission;
     if (mission.charterIdea?.schema === 'charter-idea.v1') return mission;
@@ -21979,6 +21981,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     if (!isPOI && profileId === 'sightseeing_tour' && m.sightseeingIdea?.schema === 'sightseeing-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && profileId === 'cargo_fragile' && m.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
+    if (!isPOI && profileId === 'medical_transfer' && m.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && profileId === 'animal_transport' && m.animalTransportIdea?.schema === 'animal-transport-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && ['auto', ''].includes(profileId) && m.cargoIdea?.schema === 'cargo-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'auto'};
     if (!isPOI && ['auto', 'apt_charter', 'apt_charter_pickup'].includes(profileId) && m.charterIdea?.schema === 'charter-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
@@ -23106,6 +23109,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         cargoText: String(cargoText || ''),
         missionTitle: title,
         sightseeingIdea: mission?.sightseeingIdea?.schema === 'sightseeing-idea.v1' ? mission.sightseeingIdea : null,
+        medicalTransferIdea: mission?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' ? mission.medicalTransferIdea : null,
         animalTransportIdea: mission?.animalTransportIdea?.schema === 'animal-transport-idea.v1' ? mission.animalTransportIdea : null,
         fragileCargoIdea: mission?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' ? mission.fragileCargoIdea : null,
         cargoIdea: mission?.cargoIdea?.schema === 'cargo-idea.v1' ? mission.cargoIdea : null,
@@ -23600,6 +23604,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (isPOI && profileId === 'media_photo' && window.MissionPoiBriefingCore?.owns(missionLike)) return true;
     if (!isPOI && profileId === 'sightseeing_tour' && missionLike?.sightseeingIdea?.schema === 'sightseeing-idea.v1') return true;
     if (!isPOI && profileId === 'cargo_fragile' && missionLike?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return true;
+    if (!isPOI && profileId === 'medical_transfer' && missionLike?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return true;
     if (!isPOI && profileId === 'animal_transport' && missionLike?.animalTransportIdea?.schema === 'animal-transport-idea.v1') return true;
     if (!isPOI && ['apt_charter','apt_charter_pickup'].includes(profileId) && missionLike?.charterIdea?.schema === 'charter-idea.v1') return true;
     if (!isPOI && profileId === 'private_return') return !!window.MissionPrivateReturnCore?.context(missionLike || {});
@@ -23889,6 +23894,7 @@ function synchronizeMissionPartyPresentation(mission = null, party = null) {
     if (!mission || typeof mission !== 'object') return mission;
     if (mission.sightseeingIdea?.schema === 'sightseeing-idea.v1') return mission;
     if (mission.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return mission;
+    if (mission.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return mission;
     if (mission.animalTransportIdea?.schema === 'animal-transport-idea.v1') return mission;
     if (mission.cargoIdea?.schema === 'cargo-idea.v1') return mission;
     if (mission.charterIdea?.schema === 'charter-idea.v1') return mission;
@@ -42048,6 +42054,7 @@ function compactMissionProposalChoice(choice = null) {
         cargoProposal: normalized.cargoProposal || null,
         sightseeingProposal: normalized.sightseeingProposal || null,
         fragileCargoProposal: normalized.fragileCargoProposal || null,
+        medicalTransferProposal: normalized.medicalTransferProposal || null,
         animalTransportProposal: normalized.animalTransportProposal || null,
         mode: normalized.mode,
         profileId: normalized.profileId,
@@ -42552,6 +42559,7 @@ async function buildMissionProposalAptChoices(context = {}) {
         limit: profileId === 'club_utility' && context.aiModeEnabled ? 100 : 18
     });
     if (context.aiModeEnabled && profileId === 'sightseeing_tour') return window.MissionSightseeingBrowser.choices(airports,context);
+    if (context.aiModeEnabled && profileId === 'medical_transfer') return window.MissionMedicalTransferBrowser.choices(airports,context);
     if (context.aiModeEnabled && profileId === 'animal_transport') return window.MissionAnimalTransportBrowser.choices(airports,context);
     if (context.aiModeEnabled && profileId === 'cargo_fragile') return window.MissionFragileCargoBrowser.choices(airports,context);
     if (cargo) return window.MissionCargoBrowser.choices(airports,context);
@@ -44064,6 +44072,7 @@ async function generateMission(options = {}) {
     const useCharterContinuation = !!window.MissionCharterContinuationCore?.context(followupSeed);
     const useSightseeingIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'sightseeing_tour';
     const useFragileCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'cargo_fragile';
+    const useMedicalTransferIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'medical_transfer';
     const useAnimalTransportIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'animal_transport';
     const useCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'cargo' && ['auto',''].includes(dispatchProfileId);
     const useInfraInspectionIdeas = window.MissionInfraBriefingBrowser?.enabled({isPOI,profileId:dispatchProfileId,category:selectedPoiCategory,aiModeEnabled,followup:!!followupSeed,planning:isPlanningOnlyMode,bush:isBushDispatch}) && !dest?.poiChain;
@@ -44101,6 +44110,8 @@ async function generateMission(options = {}) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('news_coverage','poi')};
     } else if (useSightseeingIdeas) {
         missionContractV4 = {status:'ready',profile:{id:'sightseeing_tour',taskDomain:'sightseeing_tour',roleProfile:'tour_guide_relaxed_v1'}};
+    } else if (useMedicalTransferIdeas) {
+        missionContractV4 = {status:'ready',profile:getMissionTaskProfile('medical_transfer','apt')};
     } else if (useAnimalTransportIdeas) {
         missionContractV4 = {status:'ready',profile:getMissionTaskProfile('animal_transport','apt')};
     } else if (useFragileCargoIdeas) {
@@ -44719,6 +44730,7 @@ async function generateMission(options = {}) {
             throw new Error('Die gewählte Ausflugsidee benötigt den aktiven Privat-Planner mit bereitem V4-Rahmen. Bitte die Einstellungen prüfen und neue Vorschläge erstellen.');
         }
         if (missionProposalChoice?.sightseeingProposal && !useSightseeingIdeas) throw Error('Die Besuchsauswahl benötigt den aktiven KI-Sightseeing-Generator.');
+        if (missionProposalChoice?.medicalTransferProposal && !useMedicalTransferIdeas) throw Error('Die Medizin-Transferauswahl benötigt den aktiven KI-Generator.');
         if (missionProposalChoice?.animalTransportProposal && !useAnimalTransportIdeas) throw Error('Die Tiertransportauswahl benötigt den aktiven KI-Generator.');
         if (missionProposalChoice?.fragileCargoProposal && !useFragileCargoIdeas) throw Error('Die Frachtauswahl benötigt den aktiven KI-Generator für fragile Fracht.');
         if (missionProposalChoice?.cargoProposal && !useCargoIdeas) throw Error('Die Frachtauswahl benötigt den aktiven KI-Frachtgenerator.');
@@ -44793,6 +44805,11 @@ async function generateMission(options = {}) {
         } else if (useSightseeingIdeas) {
             missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m = await window.MissionSightseeingBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.sightseeingProposal,contract:missionContractV4});
+            missionPlanV2=m._missionPlanV2;
+            missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
+        } else if (useMedicalTransferIdeas) {
+            missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m = await window.MissionMedicalTransferBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.medicalTransferProposal,contract:missionContractV4});
             missionPlanV2=m._missionPlanV2;
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
         } else if (useAnimalTransportIdeas) {
@@ -45291,7 +45308,7 @@ async function generateMission(options = {}) {
     }
     const finalPassengerPlan = resolveMissionPassengerCapacityPlan({
         paxText,
-        passengerCount: (m?.charterIdea || m?.sightseeingIdea) ? m.passengerCount : generatedMissionPartyPlan?.eligible
+        passengerCount: (m?.charterIdea || m?.sightseeingIdea || m?.medicalTransferIdea) ? m.passengerCount : generatedMissionPartyPlan?.eligible
             ? preWriterPassengerPlan.passengerCount
             : (m?.passengerCount !== null
             && m?.passengerCount !== undefined
@@ -45306,15 +45323,16 @@ async function generateMission(options = {}) {
             ? Number(m.bush.pickupPassengerCount)
             : null,
         aircraftCapability: missionAircraftCapability,
-        maxPartySize: (m?.charterIdea || m?.sightseeingIdea) ? Math.min(5,missionAircraftCapability.passengerCapacity) : generatedMissionPartyPlan?.eligible
+        maxPartySize: (m?.charterIdea || m?.sightseeingIdea || m?.medicalTransferIdea) ? Math.min(5,missionAircraftCapability.passengerCapacity) : generatedMissionPartyPlan?.eligible
             ? generatedMissionPartyPlan.maxPartySize
             : 1,
-        party: (m?.charterIdea || m?.sightseeingIdea) ? m.party : generatedMissionPartyPlan?.eligible
+        party: (m?.charterIdea || m?.sightseeingIdea || m?.medicalTransferIdea) ? m.party : generatedMissionPartyPlan?.eligible
             ? preWriterPassengerPlan.party
             : null,
         roleLabel: m?.passenger?.role || '',
         preserveDash: isPlanningOnlyMode
     });
+    if (m?.medicalTransferIdea?.transportKind === 'patient_transfer' && (finalPassengerPlan.plannedPassengerCount !== 2 || !window.liveTrackerCapabilities?.includes('mission.scene.medical-group.v1'))) throw Error('Die Patientenverlegung benötigt zwei Passagierplätze und einen kompatiblen Tracker.');
     if (m?.sightseeingIdea?.schema === 'sightseeing-idea.v1' && finalPassengerPlan.plannedPassengerCount !== m.sightseeingIdea.passengerCount) throw Error('Die gewählte Reisegruppe passt nicht zur aktuellen Passagierkonfiguration.');
     if (m?.charterIdea?.schema === 'charter-idea.v1' && finalPassengerPlan.plannedPassengerCount !== m.charterIdea.passengerCount) {
         throw new Error('Die gebuchte Chartergruppe passt nicht zur aktuellen Passagierkonfiguration. Bitte neu auswählen.');
@@ -45333,7 +45351,7 @@ async function generateMission(options = {}) {
         m.paxText = paxText;
         m.passengerCount = finalPassengerPlan.passengerCount;
         m.plannedPassengerCount = finalPassengerPlan.plannedPassengerCount;
-        m.party = m.sightseeingIdea ? {count:m.sightseeingIdea.passengerCount,kind:m.sightseeingIdea.passengerCount>1?'group':'single',label:m.sightseeingIdea.groupLabel} : m.charterIdea ? {count:m.charterIdea.passengerCount,kind:m.charterIdea.passengerCount>1?'group':'single',label:m.charterIdea.groupLabel} : finalPassengerPlan.party;
+        m.party = m.medicalTransferIdea ? m.party : m.sightseeingIdea ? {count:m.sightseeingIdea.passengerCount,kind:m.sightseeingIdea.passengerCount>1?'group':'single',label:m.sightseeingIdea.groupLabel} : m.charterIdea ? {count:m.charterIdea.passengerCount,kind:m.charterIdea.passengerCount>1?'group':'single',label:m.charterIdea.groupLabel} : finalPassengerPlan.party;
         m.aircraftCapability = missionAircraftCapability;
         if (finalPassengerPlan.plannedPassengerCount <= 0) m.passenger = null;
         if (finalPassengerPlan.deferredPickup && m.bush && typeof m.bush === 'object') {
@@ -45345,7 +45363,7 @@ async function generateMission(options = {}) {
         missionContractV4.paxText = paxText;
         missionContractV4.passengerCount = finalPassengerPlan.passengerCount;
         missionContractV4.plannedPassengerCount = finalPassengerPlan.plannedPassengerCount;
-        missionContractV4.party = (m?.charterIdea || m?.sightseeingIdea) ? m.party : finalPassengerPlan.party;
+        missionContractV4.party = (m?.charterIdea || m?.sightseeingIdea || m?.medicalTransferIdea) ? m.party : finalPassengerPlan.party;
         missionContractV4.partyNarrative = buildMissionPartyNarrativeContext(finalPassengerPlan.party, m?.passenger || null);
         missionContractV4.aircraftCapability = missionAircraftCapability;
         if (m && typeof m === 'object') {
@@ -45603,6 +45621,7 @@ async function generateMission(options = {}) {
         cargoIdea: m.cargoIdea || null,
         sightseeingIdea: m.sightseeingIdea || null,
         fragileCargoIdea: m.fragileCargoIdea || null,
+        medicalTransferIdea: m.medicalTransferIdea || null,
         animalTransportIdea: m.animalTransportIdea || null,
         privateOuting: m.privateOuting || null,
         privateReturn: m.privateReturn || null,
@@ -45717,6 +45736,7 @@ async function generateMission(options = {}) {
     window.currentMissionData = currentMissionData;
     if (currentMissionData.sightseeingIdea) window.MissionSightseeingIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.sightseeingIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.sightseeingIdea.writerMemory});
     if (currentMissionData.fragileCargoIdea) window.MissionFragileCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.fragileCargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.fragileCargoIdea.writerMemory});
+    if (currentMissionData.medicalTransferIdea) window.MissionMedicalTransferIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.medicalTransferIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.medicalTransferIdea.writerMemory});
     if (currentMissionData.animalTransportIdea) window.MissionAnimalTransportIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.animalTransportIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.animalTransportIdea.writerMemory});
     if (currentMissionData.cargoIdea) window.MissionCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.cargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.cargoIdea.writerMemory});
     if (currentMissionData.infraBriefing) window.MissionInfraBriefingCore.remember(localStorage,currentMissionData.missionId,currentMissionData.infraBriefing);

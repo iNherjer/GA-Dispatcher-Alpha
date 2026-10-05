@@ -6252,6 +6252,12 @@ function _missionScenePaxCount() {
     return window.activePassenger ? 1 : 0;
 }
 
+function _missionSceneIsPatientTransfer() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : window.currentMissionData;
+    const idea = md?.medicalTransferIdea || md?.missionContract?.medicalTransferIdea;
+    return idea?.schema === 'medical-transfer-idea.v1' && idea.transportKind === 'patient_transfer' && idea.patientCount === 1;
+}
+
 function _missionSceneRequestedGroupPlan() {
     if (typeof window.GAMissionSceneGroup?.normalizeGroupSequenceCommand !== 'function') return null;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
@@ -6263,7 +6269,8 @@ function _missionSceneRequestedGroupPlan() {
         groupSequence: true,
         expectedPassengerCount: partyCount,
         groupSpacingM: 1,
-        boardingStaggerMs: 2000
+        boardingStaggerMs: 2000,
+        groupVehicleKind: _missionSceneIsPatientTransfer() ? 'medical' : undefined
     });
     return plan?.valid === true ? plan : null;
 }
@@ -6274,7 +6281,7 @@ function _missionSceneGroupPlan() {
 }
 
 function _missionSceneGroupCapabilityMissing() {
-    return !!_missionSceneRequestedGroupPlan() && !_trackerSupportsMissionSceneGroup();
+    return !!_missionSceneRequestedGroupPlan() && (!_trackerSupportsMissionSceneGroup() || (_missionSceneIsPatientTransfer() && !window.liveTrackerCapabilities?.includes('mission.scene.medical-group.v1')));
 }
 
 function _missionSceneGroupCommandFields() {
@@ -6997,10 +7004,10 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
 function _missionSceneVehicleAsset() {
     const groupPlan = _missionSceneGroupPlan();
     if (groupPlan) {
-        const pool = groupPlan.groupVehicleKind === 'bus'
+        const pool = groupPlan.groupVehicleKind === 'medical' ? MISSION_SCENE_ASSET_POOLS.medicalVehicles : groupPlan.groupVehicleKind === 'bus'
             ? MISSION_SCENE_ASSET_POOLS.buses
             : MISSION_SCENE_ASSET_POOLS.vans;
-        const fallback = groupPlan.groupVehicleKind === 'bus'
+        const fallback = groupPlan.groupVehicleKind === 'medical' ? 'Car Bush Medic' : groupPlan.groupVehicleKind === 'bus'
             ? 'Microsoft_MiniBus_ASIA_01'
             : 'Microsoft_Van_EUR';
         const preferred = _sceneObjectTitleOverride(
@@ -7327,11 +7334,12 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
         ? window.GAMissionSceneGroup.buildGroupMemberPlans(boarderCount, groupPlan)
         : [];
     const personItems = groupPlan ? groupMembers.map((member, index) => {
-        const gender = index % 2 === 0 ? primaryGender : secondaryGender;
+        const patientIdea = _missionSceneIsPatientTransfer() ? ((typeof currentMissionData !== 'undefined' && currentMissionData) || window.currentMissionData)?.medicalTransferIdea : null;
+        const gender = patientIdea && index === 1 ? patientIdea.patient.gender : index % 2 === 0 ? primaryGender : secondaryGender;
         const title = _missionSceneMovingPersonTitle(gender, `boarding-group-${index + 1}`);
         return {
             kind: member.kind,
-            label: `Boarding Pax ${index + 1}`,
+            label: patientIdea ? (index === 0 ? `Medizinische Begleitung: ${patientIdea.passenger.name}` : `Patient: ${patientIdea.patient.name}`) : `Boarding Pax ${index + 1}`,
             objectTitle: title,
             titleCandidates: _missionSceneMovingPersonCandidates(gender, title),
             forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
@@ -7344,7 +7352,7 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
     if (vehicleSupportEnabled && vehicleAsset && vehiclePoint) {
         const taskDomain = _missionSceneTaskDomain();
         const vehicleLabel = groupPlan
-            ? (groupPlan.groupVehicleKind === 'bus' ? 'Gruppenbus' : 'Gruppenvan')
+            ? (groupPlan.groupVehicleKind === 'medical' ? 'Krankenwagen' : groupPlan.groupVehicleKind === 'bus' ? 'Gruppenbus' : 'Gruppenvan')
             : (taskDomain === 'fire_watch'
             ? 'Feuerwehrfahrzeug'
             : (taskDomain === 'medical_transfer'
@@ -15133,7 +15141,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'medicalTransferIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',

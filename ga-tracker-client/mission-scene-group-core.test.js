@@ -103,3 +103,10 @@ test('tracker and web app gate the additive sequence on the explicit capability'
   assert.match(syncSource, /GAMissionSceneGroup\?\.isGroupSceneDebugCommand\?\.\(command\)/);
   assert.match(syncSource, /missionSceneGroupDebugWaiters\.has\(ackCommandId\)[\s\S]*?_trackerPendingClear\(ackCommandId\)[\s\S]*?_missionSceneGroupDebugHandleAck\(ack\)/);
 });
+
+test('medical pair retains ambulance for boarding and deboarding without changing normal groups',()=>{
+ const plan=groupCore.normalizeGroupSequenceCommand({groupSequence:true,expectedPassengerCount:2,groupVehicleKind:'medical'});
+ assert.equal(plan.groupVehicleKind,'medical');assert.equal(groupCore.resolveGroupVehicleSelection(plan,{vehicleTitle:'Car Bush Medic'}).title,'Car Bush Medic');
+ assert.equal(groupCore.resolveGroupVehicleSelection(plan,{vehicleTitle:'Microsoft_Van_EUR'}).candidates.includes('Microsoft_Van_EUR'),false);
+ assert.equal(groupCore.normalizeGroupSequenceCommand({groupSequence:true,expectedPassengerCount:3,groupVehicleKind:'medical'}).groupVehicleKind,'van');
+});

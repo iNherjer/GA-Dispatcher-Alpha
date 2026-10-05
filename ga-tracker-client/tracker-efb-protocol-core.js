@@ -27,6 +27,7 @@
     MISSION_INTENT: 'mission.intent.v1',
     MISSION_CARGO_BATCH: 'mission.cargo-batch.v1',
     MISSION_SCENE_GROUP: 'mission.scene.group.v1',
+    MISSION_SCENE_MEDICAL_GROUP: 'mission.scene.medical-group.v1',
     COCKPIT_SESSION: 'cockpit.session.v1',
     VOICE_PLAYBACK: 'voice.playback.v1',
     CHECKLIST_LIBRARY: 'checklist.library.v1',

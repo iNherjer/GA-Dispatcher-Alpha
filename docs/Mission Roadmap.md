@@ -6,7 +6,7 @@ Aktuelle APT-/POI-Restliste (04.10.2026): [Bestandsaufnahme der Modernisierung](
 ## Aktuelle Arbeitsreihenfolge – 04.10.2026
 
 1. **APT Tiertransport:** eigener Ideen-/Briefing-/History-Pfad, konsistente Tierbegleitung, Sendung und Übergabe; Release Alpha v1910.
-2. APT Medizin-Transfer.
+2. **APT Medizin-Transfer:** eigener Personal-/Material-/Patientenverlegungs-Ideenpfad lokal implementiert (05.10.2026), noch nicht veröffentlicht. Drei finale Gemini-Proben und Arrival-Projektion bestanden; MSFS-/Voice-Feldabnahme offen.
 3. APT Reporter: Transfer zum journalistischen Bodenauftrag.
 4. Abschlussprüfung einschließlich Fortsetzungen, Rückflügen, Tracker/EFB und Voice.
 5. SAR Heli bleibt deaktiviert; vollständiges Rewrite zuletzt.

@@ -1,5 +1,9 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Geplante APT-Patientenverlegung, lokal 05.10.2026
+
+Standard-APT-Rezept bleibt Tracker-authoritativ. Zwei PAX (sitzender Patient und medizinische Begleitung) werden als bestehendes Gruppenmanifest projiziert; keine neue EFB-Zustandsmaschine. Medizinische Begleitung ist Voice-Persona. Neues additives Capability `mission.scene.medical-group.v1` und explizites `groupVehicleKind:medical` erhalten Krankenwagen bei Boarding/Deboarding. Gewöhnliche Gruppen bleiben unverändert. Web-Sitzplatzprüfung und Auswahlannahme dürfen die Verlegung nicht auf einen PAX reduzieren. Neuer Tracker-Build, reales Audio und Windows/MSFS-Feldtest noch offen; nicht veröffentlicht.
+
 ## Fire-Suchgebiet, lokaler Stand 04.10.2026
 
 Gemeinsamer Kartenrenderer `mission-fire-search-map.js` zeigt einen roten, leicht unregelmäßigen Wachsstift-Suchkreis mit überlappendem Anfang/Ende und dessen Bezugspunkt in App und Tracker-Kartentisch. Der Tracker liefert ausschließlich öffentlichen Mittelpunkt und Vertragsradius; private Fundstellen bleiben verborgen. Overlay dient nur der Darstellung, ohne Missionsdetektor im UI. Bei Missionswechsel/Reset/Schließen wird es entfernt. Tracker-Build und MSFS-Feldtest stehen noch aus.

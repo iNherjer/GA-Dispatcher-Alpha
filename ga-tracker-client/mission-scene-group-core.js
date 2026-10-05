@@ -18,6 +18,7 @@
         'mission_scene_clear'
     ]);
     const GROUP_VEHICLE_TITLES = Object.freeze({
+        medical: Object.freeze(['Car Bush Medic','Truck Utility Europe Medic Box','Truck Utility NorthAm Medic','Van Asia High Roof Medic','Van Asia High Roof Medic Japan','Van Asia Low Roof Medic']),
         van: Object.freeze([
             'Microsoft_Van_EUR',
             'Microsoft_Van_ASIA_02',
@@ -70,7 +71,7 @@
         }
         const groupSpacingM = Math.round(clampNumber(command?.groupSpacingM, DEFAULT_SPACING_M, 0.8, 1.5) * 100) / 100;
         const boardingStaggerMs = Math.round(clampNumber(command?.boardingStaggerMs, DEFAULT_STAGGER_MS, 500, 2500));
-        const groupVehicleKind = expectedPassengerCount <= 3 ? 'van' : 'bus';
+        const groupVehicleKind = command?.groupVehicleKind === 'medical' && expectedPassengerCount === 2 ? 'medical' : (expectedPassengerCount <= 3 ? 'van' : 'bus');
         return Object.freeze({
             enabled: true,
             valid: true,
