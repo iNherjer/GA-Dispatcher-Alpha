@@ -284,3 +284,9 @@ Manoever. Zusaetzlich geprueft: Pause im echten Mission-Child-Prozess
 und Simulator-Disconnect/Reconnect waehrend einer Uebung. Alle Tests
 bestanden. Der dauerhaft gesperrte reale Oct5-Lauf bleibt damit nicht
 reproduziert; es fehlen seine konkreten Pause-/Slew-/Boden-Sperrwerte.
+
+Alpha v477 oeffentlich heruntergeladen und auf 173155226 Bytes sowie
+SHA-256 d8076bdcac424d17a49441805be2b6ebd6e8fe3537a46cf92510ad915f5f3150
+verifiziert. Kanalaktivierung mit App-Cache v1925; Stable bleibt unveraendert.
+Windows-EXE auf Apple ARM ohne Bytecode gebaut; ein echter MSFS-Feldtest
+ist weiterhin ausstehend.
