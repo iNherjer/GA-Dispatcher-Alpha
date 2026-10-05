@@ -1,6 +1,6 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
-## Geplante APT-Patientenverlegung, Alpha Web v1915 / Tracker v471, 05.10.2026
+## Geplante APT-Patientenverlegung, Alpha Web v1916 / Tracker v471, 05.10.2026
 
 Standard-APT-Rezept bleibt Tracker-authoritativ. Zwei PAX (sitzender Patient und medizinische Begleitung) werden als bestehendes Gruppenmanifest projiziert; keine neue EFB-Zustandsmaschine. Medizinische Begleitung ist Voice-Persona. Neues additives Capability `mission.scene.medical-group.v1` und explizites `groupVehicleKind:medical` erhalten Krankenwagen bei Boarding/Deboarding. Gewöhnliche Gruppen bleiben unverändert. Web-Sitzplatzprüfung und Auswahlannahme dürfen die Verlegung nicht auf einen PAX reduzieren. Tracker v471 enthält Group-Core und Relay-Capability. Reales Audio und Windows/MSFS-Feldtest bleiben offen. Bestehendes EFB-Package unverändert; die generische Gruppenprojektion wird weiterverwendet.
 
