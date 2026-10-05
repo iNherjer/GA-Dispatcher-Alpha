@@ -16,12 +16,12 @@ html,body { margin:0; width:100%; height:100%; overflow:hidden; }
    They live outside the content wrapper so native collapse cannot hide them. */
 #vfr-window-controls { position:fixed; top:4px; right:8px; display:flex; z-index:10000; }
 #vfr-window-controls[hidden] { display:none; }
-#vfr-window-controls button { position:relative; width:36px; height:32px; padding:0; margin-left:4px; background:#243947; color:#eef7fb; border:1px solid #98acb9; border-radius:3px; cursor:pointer; }
+#vfr-window-controls button { box-sizing:border-box; position:relative; width:36px; height:32px; padding:0; margin-left:4px; background:#243947; color:#eef7fb; border:1px solid #98acb9; border-radius:3px; cursor:pointer; }
 #vfr-window-controls button:hover, #vfr-window-controls button:focus { background:#42647a; outline:2px solid #d0eaff; }
 #vfr-window-close:hover { background:#923838 !important; }
-.vfr-minimize-icon { position:absolute; left:28%; right:28%; bottom:28%; border-bottom:2px solid #eef7fb; }
-#vfr-minimize[aria-expanded="false"] .vfr-minimize-icon { top:28%; bottom:28%; border:2px solid #eef7fb; }
-.vfr-close-icon::before, .vfr-close-icon::after { content:""; position:absolute; left:50%; top:22%; width:2px; height:56%; background:#eef7fb; transform:rotate(45deg); }
+.vfr-minimize-icon { position:absolute; left:28%; right:28%; bottom:28%; border-bottom:var(--vfr-icon-stroke, 2px) solid #eef7fb; }
+#vfr-minimize[aria-expanded="false"] .vfr-minimize-icon { top:28%; bottom:28%; border:var(--vfr-icon-stroke, 2px) solid #eef7fb; }
+.vfr-close-icon::before, .vfr-close-icon::after { content:""; position:absolute; left:50%; top:22%; width:var(--vfr-icon-stroke, 2px); height:56%; background:#eef7fb; transform:rotate(45deg); }
 .vfr-close-icon::after { transform:rotate(-45deg); }
 
 #VfrMultitoolPanel ingame-ui-header .wrap { box-sizing:border-box; }

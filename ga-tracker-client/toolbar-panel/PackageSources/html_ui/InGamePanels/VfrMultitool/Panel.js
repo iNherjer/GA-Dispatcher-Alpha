@@ -104,13 +104,29 @@
     var header = panel.querySelector('ingame-ui-header');
     var headerRect = header ? header.getBoundingClientRect() : null;
     var height = headerRect && headerRect.height > 0 ? headerRect.height : 40;
-    var buttonHeight = Math.max(1, Math.min(32, height - 8));
-    var buttonWidth = buttonHeight * 36 / 32;
+    // Screen rectangles already include Coherent's native UI transform. Convert
+    // their dimensions back to the overlay's CSS coordinates before sizing.
+    var buttonRect = minimizeButton.getBoundingClientRect ? minimizeButton.getBoundingClientRect() : null;
+    var scaleY = buttonRect && minimizeButton.offsetHeight > 0 ? buttonRect.height / minimizeButton.offsetHeight : 1;
+    var scaleX = buttonRect && minimizeButton.offsetWidth > 0 ? buttonRect.width / minimizeButton.offsetWidth : 1;
+    if (!(scaleY > 0)) scaleY = 1;
+    if (!(scaleX > 0)) scaleX = 1;
+    // Icon strokes need the same compensation as their hit targets.
+    if (typeof controls.style.setProperty === 'function') {
+      controls.style.setProperty('--vfr-icon-stroke', (2 / Math.min(scaleX, scaleY)) + 'px');
+    }
+    var screenHeight = Math.max(28, Math.min(64, height * 0.8));
+    var buttonHeight = screenHeight / scaleY;
+    var buttonWidth = screenHeight * 1.125 / scaleX;
     var actions = header ? header.querySelector('.action-list') : null;
     var actionsRect = actions ? actions.getBoundingClientRect() : null;
     var edge = actionsRect && actionsRect.width > 0 ? actionsRect.left - 4 : rect.right - 8;
-    var top = Math.max(0, (headerRect ? headerRect.top : rect.top) + (height - buttonHeight) / 2) + 'px';
-    var right = Math.max(0, window.innerWidth - edge) + 'px';
+    var targetTop = Math.max(0, (headerRect ? headerRect.top : rect.top) + (height - screenHeight) / 2);
+    var targetRight = Math.max(0, window.innerWidth - edge);
+    var overlayRect = controls.getBoundingClientRect ? controls.getBoundingClientRect() : null;
+    var top = overlayRect ? (parseFloat(controls.style.top) || 0) + (targetTop - overlayRect.top) / scaleY : targetTop;
+    var right = overlayRect ? (parseFloat(controls.style.right) || 0) + (overlayRect.right - (window.innerWidth - targetRight)) / scaleX : targetRight;
+    top += 'px'; right += 'px';
     if (controls.style.top !== top) controls.style.top = top;
     if (controls.style.right !== right) controls.style.right = right;
     var buttons = [minimizeButton, document.getElementById('vfr-window-close')];
@@ -120,8 +136,11 @@
     }
     // Reserve room in the native title without covering its action buttons.
     var titleWrap = header ? header.querySelector('.wrap') : null;
-    if (titleWrap && titleWrap.style.paddingRight !== (buttonWidth * 2 + 12) + 'px') {
-      titleWrap.style.paddingRight = (buttonWidth * 2 + 12) + 'px';
+    var headerScaleX = headerRect && header.offsetWidth > 0 ? headerRect.width / header.offsetWidth : scaleX;
+    if (!(headerScaleX > 0)) headerScaleX = scaleX;
+    var titlePadding = (screenHeight * 1.125 * 2 + 12) / headerScaleX;
+    if (titleWrap && titleWrap.style.paddingRight !== titlePadding + 'px') {
+      titleWrap.style.paddingRight = titlePadding + 'px';
     }
     controlsFrame = window.requestAnimationFrame(positionControls);
   }

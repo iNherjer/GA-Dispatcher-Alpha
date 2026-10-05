@@ -121,16 +121,16 @@ test('scaled header reserves title space and keeps custom controls clear of nati
   const actions = { getBoundingClientRect() { return { left: 800, width: 100 }; } };
   f.panel.header = { getBoundingClientRect() { return { top: 20, height: 28 }; }, querySelector(selector) { return selector === '.wrap' ? title : actions; } };
   f.open();
-  assert.equal(f.elements['vfr-window-controls'].style.top, '24px');
+  assert.equal(f.elements['vfr-window-controls'].style.top, '20px');
   assert.equal(f.elements['vfr-window-controls'].style.right, '204px');
-  assert.equal(f.elements['vfr-minimize'].style.height, '20px');
-  assert.equal(f.elements['vfr-window-close'].style.width, '22.5px');
-  assert.equal(title.style.paddingRight, '57px');
+  assert.equal(f.elements['vfr-minimize'].style.height, '28px');
+  assert.equal(f.elements['vfr-window-close'].style.width, '31.5px');
+  assert.equal(title.style.paddingRight, '75px');
   f.panel.header.getBoundingClientRect = () => ({ top: 80, height: 84 });
   f.animationFrame();
-  assert.equal(f.elements['vfr-window-controls'].style.top, '106px');
-  assert.equal(f.elements['vfr-minimize'].style.height, '32px');
-  assert.equal(title.style.paddingRight, '84px');
+  assert.equal(f.elements['vfr-window-controls'].style.top, '90px');
+  assert.equal(f.elements['vfr-minimize'].style.height, '64px');
+  assert.equal(title.style.paddingRight, '156px');
 });
 
 test('toolbar forwards initial VR and live changes with the current channel, pauses and restores watcher', () => {
@@ -148,3 +148,13 @@ test('toolbar forwards initial VR and live changes with the current channel, pau
   f.minimize(false); f.reply();
   assert.equal(new URL(f.container.children[0].src).searchParams.get('vr'), '1');
 });
+ test('native transform does not shrink the visible window hit targets twice', () => {
+  const f = fixture();
+  f.elements['vfr-minimize'].offsetHeight = 32;
+  f.elements['vfr-minimize'].offsetWidth = 36;
+  f.elements['vfr-minimize'].getBoundingClientRect = () => ({ height: 8, width: 9 });
+  f.panel.header = { offsetWidth: 400, getBoundingClientRect() { return { top: 20, height: 60, width: 100 }; }, querySelector() { return null; } };
+  f.open();
+  assert.equal(Number.parseFloat(f.elements['vfr-minimize'].style.height) * 0.25, 48);
+  assert.equal(Number.parseFloat(f.elements['vfr-window-close'].style.width) * 0.25, 54);
+ });
