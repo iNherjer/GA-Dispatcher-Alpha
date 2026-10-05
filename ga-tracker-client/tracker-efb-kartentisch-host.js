@@ -446,6 +446,10 @@
   }
 
   function syncFontScaleControls() {
+    document.body.style.setProperty('--ga-efb-ui-scale', String(preferences.fontScale));
+    var profileScaleChanged = window.gaEfbProfileFontScale !== preferences.fontScale;
+    window.gaEfbProfileFontScale = preferences.fontScale;
+    if (profileScaleChanged && typeof window.renderMapProfile === 'function') window.renderMapProfile();
     var displayMenu = byId('mapHintsMenu');
     if (displayMenu) displayMenu.style.width = Math.round(210 * Math.max(1, preferences.fontScale)) + 'px';
     var label = document.querySelector('.ga-efb-font-size-hint');
@@ -465,16 +469,15 @@
       elements.forEach(function (element) {
         if (element.hasAttribute('data-ga-efb-font-original')) {
           element.style.fontSize = element.getAttribute('data-ga-efb-font-original');
-          element.removeAttribute('data-ga-efb-font-original');
-          element.removeAttribute('data-ga-efb-font-base');
         }
       });
       document.body.setAttribute('data-ga-efb-font-scale', '100');
       syncFontScaleControls();
       return;
     }
-    // Live text updates must not reset already scaled text. Only an explicit
-    // preference change rebases the whole document; inserted nodes are measured
+    // Live text updates must not reset already scaled text. Existing base sizes stay immutable, including across resets, because
+    // Coherent can report a previous scaled computed size after a style write.
+    // A preference change reapplies those stored base sizes; inserted nodes are measured
     // against unscaled ancestors and styled within this same pre-paint turn.
     var rebase = document.body.getAttribute('data-ga-efb-font-scale') !== String(Math.round(nextScale * 100));
     var pending = elements.filter(function (element) {
@@ -498,7 +501,6 @@
     });
     pending.forEach(function (element) {
       element.style.fontSize = element.getAttribute('data-ga-efb-font-original') || '';
-      element.removeAttribute('data-ga-efb-font-base');
     });
     pending.forEach(function (element) {
       if (element.hasAttribute('data-ga-efb-font-base')) return;

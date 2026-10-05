@@ -5998,3 +5998,9 @@ Tracker-gehostete Schriftwahl und persistente 2D-/VR-Konfiguration erlauben nun 
 ### Alpha v475: Sichtbare Reset-Bestaetigung und Portmeldung
 
 EFB-Reset verwendet einen HTML-Dialog statt window.confirm mit Abbrechen als Default und Escape/Tab-Bedienung. Erst explizite Zustimmung sendet abort_mission; ein zwischenzeitlich geaenderter Missionslauf wird nicht zurueckgesetzt. Bestehende Webapp-/Desktop-Rueckfragen bleiben erhalten. EADDRINUSE/EACCES erzeugen auf Windows eine nicht blockierende Meldung in einem separaten PowerShell-MessageBox-Prozess; Logs bleiben erhalten. Keine automatische Port- oder Windows-Konfigurationsaenderung. Enthaelt die Schriftwahl bis 300 Prozent aus v474. v474 wurde veroeffentlicht, aber nicht als Alpha aktiviert.
+
+### 2026-10-05: UI-Nachpruefung nach v475 (noch nicht ausgerollt)
+
+Tester meldet weiter anwachsende Zahnrad-/RTE-Schrift, unskalierte Kartenknopf-Hitboxen und Canvas-Beschriftungen. Browser-Reproduktion zeigt Font-Transition-Zwischenwerte; Basisgroessen bleiben nun ueber Schriftwechsel und Reset hinweg erhalten, Font-Transitions fuer Buttons sind ausgeschlossen. Kartentasten/Profil-Mindesthoehe folgen einer lokalen UI-Skala. Profile-Canvas skaliert Beschriftung und Achsenabstand mit derselben Skala wie die Hit-Test-Geometrie; Standalone bleibt unveraendert. Native Fensterknopf-Platzierung und Klickverhalten muessen im Windows-SDK/Coherent reproduziert und korrigiert werden; bisherige Browser-Freigabe war dafuer unzureichend. Kein neues Release bestaetigt.
+
+Alpha-Rollout v476: vorbereitete Font-/Kartenknopf-/Canvas-Korrektur mit Assetrevision 47601. Native SDK-Fenstersteuerung bleibt unveraendert 0.4.17 und im gesonderten Windows-Handoff offen. Node-/Browserpruefungen bestanden; echter Coherent-/VR-Feldtest weiterhin erforderlich.

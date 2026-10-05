@@ -1,6 +1,20 @@
 /* === VERTICAL PROFILE & CANVAS ENGINE (v220) === */
 // Both clients run this engine. The EFB supplies only local data transport;
 // geometry, weather parsing, drawing and controls remain the standalone code.
+
+// Only the hosted EFB profile opts into UI font scaling. Keep coordinates,
+// terrain and standalone rendering unchanged.
+function vpMapProfilePadding() {
+    const scale = Math.max(0.9, Math.min(3, Number(window.gaEfbProfileFontScale) || 1));
+    return { padLeft: 33 * scale, padRight: 16 * scale, padTop: 12 * scale, padBottom: 22 * scale };
+}
+function vpCanvasFont(ctx, font) {
+    const id = ctx && ctx.canvas && ctx.canvas.id;
+    if (id !== 'mapProfileCanvas' && id !== 'mapProfileCanvasBg') return font;
+    const scale = Math.max(0.9, Math.min(3, Number(window.gaEfbProfileFontScale) || 1));
+    return String(font).replace(/([0-9]+(?:\.[0-9]+)?)px/g, (_, size) => (Number(size) * scale) + 'px');
+}
+
 function vpCreateAbortController() {
     return window.gaProfileDataProvider ? window.gaProfileDataProvider.createAbortController() : new AbortController();
 }
@@ -6066,7 +6080,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                 feat._render = { px, py, drawName: false, labelY: 0, tw: 0 };
                 
                 if (feat.name && zoomFactor >= 1.2 && feat.type !== 'powerline') {
-                    ctx.font = feat.type === 'river' ? 'bold 8px Arial' : 'bold 7px Arial';
+                    ctx.font = vpCanvasFont(ctx, feat.type === 'river' ? 'bold 8px Arial' : 'bold 7px Arial');
                     const tw = ctx.measureText(feat.name).width;
                     feat._render.tw = tw;
                     let labelY = feat.type === 'river' ? py + 15 : (feat.type === 'powerline' ? py - 20 : py - 14);
@@ -6150,7 +6164,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                 if (feat._render.drawName) {
                     const labelY = py + feat._render.labelYOffset;
                     ctx.fillStyle = '#3498db';
-                    ctx.font = 'bold 8px Arial';
+                    ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
                     ctx.textAlign = 'center';
                     ctx.fillText(feat.name, px, labelY + 8);
                 }
@@ -6190,7 +6204,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                     ctx.fillStyle = '#1a73e8';
                     ctx.fillRect(px - feat._render.tw/2 - 2, labelY, feat._render.tw + 4, 10);
                     ctx.fillStyle = '#fff';
-                    ctx.font = 'bold 7px Arial';
+                    ctx.font = vpCanvasFont(ctx, 'bold 7px Arial');
                     ctx.textAlign = 'center';
                     ctx.fillText(feat.name, px, labelY + 8);
                 }
@@ -6257,14 +6271,14 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                     ctx.fillStyle = '#7d2632';
                     ctx.fillRect(px - feat._render.tw/2 - 2, labelY, feat._render.tw + 4, 10);
                     ctx.fillStyle = '#fff';
-                    ctx.font = 'bold 7px Arial';
+                    ctx.font = vpCanvasFont(ctx, 'bold 7px Arial');
                     ctx.textAlign = 'center';
                     ctx.fillText(feat.name, px, labelY + 8);
                 }
             }
             if (Number(feat.count || 1) > 1) {
                 ctx.fillStyle = 'rgba(236, 239, 244, 0.95)';
-                ctx.font = 'bold 8px Arial';
+                ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
                 ctx.textAlign = 'center';
                 ctx.fillText('×' + String(feat.count), px, py + 12);
             }
@@ -6313,7 +6327,7 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         let globalOccupiedX = [];
         const nmPerPx = totalDist / (xOf(totalDist) - xOf(0));
         const edgePad = Math.min(2.5, totalDist * 0.05);
-        ctx.font = `bold ${(zoomFactor >= 1.5 ? 10 : 8)}px Arial`; // Setup für measureText
+        ctx.font = vpCanvasFont(ctx, `bold ${(zoomFactor >= 1.5 ? 10 : 8)}px Arial`); // Setup für measureText
 
         for (const lm of lmOrdered) {
             lm._render = null;
@@ -6394,12 +6408,12 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         
         if (px < viewMinX || px > viewMaxX) continue;
         
-        ctx.font = lm._render.iconFontSize + 'px Arial';
+        ctx.font = vpCanvasFont(ctx, lm._render.iconFontSize + 'px Arial');
         ctx.fillStyle = '#ffffff'; 
         ctx.fillText(lm._render.icon, px, py - lm._render.iconOffsetY);
         
         if (!window.vpIsFastRendering) {
-            ctx.font = `bold ${lm._render.fontSize}px Arial`;
+            ctx.font = vpCanvasFont(ctx, `bold ${lm._render.fontSize}px Arial`);
             ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
             ctx.fillText(lm.name, px, py + 10); 
         }
@@ -6584,7 +6598,7 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
 
     // 3. Cluster-Labels zeichnen (ohne Schatten, reine Schrift)
     ctx.fillStyle = '#d93829';
-    ctx.font = 'bold 8px Arial';
+    ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 
@@ -6716,7 +6730,7 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
                 ctx.restore();
 
                 ctx.fillStyle = isDarkTheme ? '#ccc' : '#222';
-                ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center';
+                ctx.font = vpCanvasFont(ctx, 'bold 8px Arial'); ctx.textAlign = 'center';
                 ctx.fillText(c.type, midX, baseY + 12);
             });
         }
@@ -6741,7 +6755,7 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
                 ctx.setLineDash([]);
                 
                 ctx.fillStyle = 'rgba(255,255,255,0.7)';
-                ctx.font = 'bold 9px Arial';
+                ctx.font = vpCanvasFont(ctx, 'bold 9px Arial');
                 ctx.textAlign = 'left';
                 const distText = zone.stnDist !== undefined ? ` (${zone.stnDist} NM)` : '';
                 ctx.fillText('📡 ' + zone.icao + distText, bx + 4, yOf(16000));
@@ -6901,7 +6915,7 @@ function vpDrawCloudsPro(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, e
                 const topFL = Math.round(topFt / 100);
                 const baseFL = Math.round(c.baseMsl / 100);
                 ctx.fillStyle = isDarkTheme ? 'rgba(205,215,230,0.82)' : 'rgba(35,42,52,0.78)';
-                ctx.font = 'bold 8px Arial';
+                ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
                 ctx.textAlign = 'center';
                 ctx.fillText(`${c.type} FL${baseFL}-${topFL}`, midX, Math.min(layerBottom + 12, padTop + plotH + 10));
             }
@@ -7355,7 +7369,7 @@ function vpDrawIsobars(ctx, xOf, yOf, padTop, plotH, viewMinX, viewMaxX, rightX)
     ctx.save();
     ctx.setLineDash([3, 3]);
     ctx.lineWidth = 1;
-    ctx.font = '9px Arial';
+    ctx.font = vpCanvasFont(ctx, '9px Arial');
     ctx.textAlign = 'right';
     let usedLabelYs = [];
 
@@ -7413,7 +7427,7 @@ function vpDrawWindComponentsOnIsobars(ctx, xOf, yOf, elevData, viewMinX, viewMa
     const levels = hasOpenMeteoProfiles ? VP_OM_PRESSURE_LEVELS : [1000];
     const reliefStats = vpBuildIsobarReliefStats();
     ctx.save();
-    ctx.font = 'bold 8px Arial';
+    ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
@@ -7778,7 +7792,7 @@ function renderVerticalProfile(canvasId) {
             let labelY = yOf(Math.min(avgUpper, maxAlt));
             labelY = Math.max(padTop + 15, labelY);
             const displayName = getAirspaceDisplayName(as);
-            ctx.font = 'bold 8px Arial';
+            ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
             const tw = ctx.measureText(displayName).width;
             const tLeft = ((x1 + x2) / 2) - tw/2, tRight = tLeft + tw;
 
@@ -7791,7 +7805,7 @@ function renderVerticalProfile(canvasId) {
                 ctx.fillStyle = vpHexToRgba(style.color, 0.7);
                 ctx.textAlign = 'center';
                 ctx.fillText(displayName, (x1 + x2) / 2, labelY + 10);
-                ctx.font = '7px Arial';
+                ctx.font = vpCanvasFont(ctx, '7px Arial');
                 ctx.fillText(formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 19);
             }
         }
@@ -7863,7 +7877,7 @@ function renderVerticalProfile(canvasId) {
         ctx.fillStyle = '#d93829';
         ctx.fill();
         ctx.fillStyle = '#333';
-        ctx.font = 'bold 9px Arial';
+        ctx.font = vpCanvasFont(ctx, 'bold 9px Arial');
         ctx.textAlign = 'center';
         ctx.fillText('TOC', xOf(fpResult.tocDistNM), yOf(cruiseAlt) - 7);
 
@@ -7904,7 +7918,7 @@ function renderVerticalProfile(canvasId) {
         ctx.translate(x, padTop + plotH + 4);
         ctx.rotate(-Math.PI / 4);
         ctx.fillStyle = '#333';
-        ctx.font = 'bold 8px Arial';
+        ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
         ctx.textAlign = 'left';
         ctx.fillText(wpLabel, 0, 0);
         ctx.restore();
@@ -7920,7 +7934,7 @@ function renderVerticalProfile(canvasId) {
 
     // Y axis
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 10px Arial';
+    ctx.font = vpCanvasFont(ctx, 'bold 10px Arial');
     ctx.textAlign = 'right';
     const altStep = maxAlt > 6000 ? 2000 : (maxAlt > 3000 ? 1000 : 500);
     for (let alt = 0; alt <= maxAlt; alt += altStep) {
@@ -7933,7 +7947,7 @@ function renderVerticalProfile(canvasId) {
         ctx.lineTo(padLeft + plotW, y);
         ctx.stroke();
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 10px Arial';
+        ctx.font = vpCanvasFont(ctx, 'bold 10px Arial');
         ctx.fillText(alt >= 1000 ? (alt / 1000).toFixed(alt % 1000 === 0 ? 0 : 1) + 'k' : alt + '', padLeft - 4, y + 3);
     }
 
@@ -7941,7 +7955,7 @@ function renderVerticalProfile(canvasId) {
     ctx.translate(8, padTop + plotH / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillStyle = '#888';
-    ctx.font = 'bold 8px Arial';
+    ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
     ctx.textAlign = 'center';
     ctx.fillText('ALT (ft)', 0, 0);
     ctx.restore();
@@ -7951,11 +7965,11 @@ function renderVerticalProfile(canvasId) {
     const distStep = totalDist > 100 ? 20 : (totalDist > 50 ? 10 : 5);
     for (let d = 0; d <= totalDist; d += distStep) {
         ctx.fillStyle = '#888';
-        ctx.font = '8px Arial';
+        ctx.font = vpCanvasFont(ctx, '8px Arial');
         ctx.fillText(d + '', xOf(d), padTop + plotH + 22);
     }
     ctx.fillStyle = '#888';
-    ctx.font = 'bold 8px Arial';
+    ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
     ctx.fillText('NM', padLeft + plotW + 8, padTop + plotH + 22);
 
     // Border
@@ -7965,7 +7979,7 @@ function renderVerticalProfile(canvasId) {
 
     // Cruise altitude label & line
     ctx.fillStyle = 'rgba(217, 56, 41, 0.8)';
-    ctx.font = 'bold 9px Arial';
+    ctx.font = vpCanvasFont(ctx, 'bold 9px Arial');
     ctx.textAlign = 'left';
     ctx.fillText('CRZ ' + cruiseAlt + ' ft', padLeft + 4, yOf(cruiseAlt) - 4);
     ctx.beginPath();
@@ -7980,10 +7994,10 @@ function renderVerticalProfile(canvasId) {
     // Peak elevation marker
     const peakPt = vpElevationData.reduce((max, p) => p.elevFt > max.elevFt ? p : max);
     ctx.fillStyle = '#333';
-    ctx.font = '10px Arial';
+    ctx.font = vpCanvasFont(ctx, '10px Arial');
     ctx.textAlign = 'center';
     ctx.fillText('▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
-    ctx.font = 'bold 8px Arial';
+    ctx.font = vpCanvasFont(ctx, 'bold 8px Arial');
     ctx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 12);
 
     // Auto-update things that depend on the completed elevation data
@@ -8397,14 +8411,14 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
 
         // Relative Höhe
         fgCtx.fillStyle = relAltColor;
-        fgCtx.font = 'bold 8px monospace';
+        fgCtx.font = vpCanvasFont(fgCtx, 'bold 8px monospace');
         fgCtx.textAlign = 'center';
         fgCtx.fillText(relAltStr, 0, -11);
 
         // Callsign (wenn vorhanden)
         if (ac.callsign) {
             fgCtx.fillStyle = 'rgba(0, 200, 255, 0.75)';
-            fgCtx.font = '7px monospace';
+            fgCtx.font = vpCanvasFont(fgCtx, '7px monospace');
             fgCtx.fillText(ac.callsign, 0, 14);
         }
 
@@ -8467,7 +8481,7 @@ function renderMapProfileFrames(timeMs) {
     const targetW = baseWidth * dpr;
     const targetH = containerHeight * dpr;
 
-    const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
+    const { padLeft, padRight, padTop, padBottom } = vpMapProfilePadding();
     const plotW = virtualWidth - padLeft - padRight;
     const plotH = containerHeight - padTop - padBottom;
 
@@ -8668,7 +8682,7 @@ function renderMapProfileFrames(timeMs) {
             if (y < padTop - 3 || y > padTop + plotH + 3) continue;
             bgCtx.beginPath(); bgCtx.strokeStyle = 'rgba(255,255,255,0.05)'; bgCtx.lineWidth = 0.5;
             bgCtx.moveTo(viewX + padLeft, y); bgCtx.lineTo(viewX + baseWidth, y); bgCtx.stroke();
-            bgCtx.fillStyle = '#fff'; bgCtx.font = 'bold 10px Arial';
+            bgCtx.fillStyle = '#fff'; bgCtx.font = vpCanvasFont(bgCtx, 'bold 10px Arial');
             bgCtx.fillText(alt >= 1000 ? (alt / 1000).toFixed(0) + 'k' : alt + '', viewX + padLeft - 3, y + 3);
         }
 
@@ -8693,23 +8707,23 @@ function renderMapProfileFrames(timeMs) {
                     : m === VP_HDG_LOOKBACK_MIN ? 'NOW'
                     : `+${Math.round(m - VP_HDG_LOOKBACK_MIN)}m`;
                 bgCtx.fillStyle = m === VP_HDG_LOOKBACK_MIN ? '#64c8ff' : '#666';
-                bgCtx.font = m === VP_HDG_LOOKBACK_MIN ? 'bold 8px Arial' : '8px Arial';
+                bgCtx.font = vpCanvasFont(bgCtx, m === VP_HDG_LOOKBACK_MIN ? 'bold 8px Arial' : '8px Arial');
                 bgCtx.fillText(label, x, containerHeight - 1);
             }
             // Mode-Label oben links
-            bgCtx.fillStyle = '#64c8ff'; bgCtx.font = 'bold 9px Arial'; bgCtx.textAlign = 'left';
+            bgCtx.fillStyle = '#64c8ff'; bgCtx.font = vpCanvasFont(bgCtx, 'bold 9px Arial'); bgCtx.textAlign = 'left';
             bgCtx.fillText(`HDG ${hdgHdgVal}°`, viewX + padLeft + 4, padTop + 10);
         } else {
             const distStep = totalDist > 150 ? 25 : (totalDist > 80 ? 10 : 5);
             for (let d = distStep; d < totalDist; d += distStep) {
-                bgCtx.fillStyle = '#666'; bgCtx.font = '8px Arial'; bgCtx.fillText(d + '', xOf(d), containerHeight - 1);
+                bgCtx.fillStyle = '#666'; bgCtx.font = vpCanvasFont(bgCtx, '8px Arial'); bgCtx.fillText(d + '', xOf(d), containerHeight - 1);
             }
         }
 
         const peakPt = elevData.reduce((max, p) => p.elevFt > max.elevFt ? p : max);
-        bgCtx.fillStyle = '#aaa'; bgCtx.font = '11px Arial'; bgCtx.textAlign = 'center';
+        bgCtx.fillStyle = '#aaa'; bgCtx.font = vpCanvasFont(bgCtx, '11px Arial'); bgCtx.textAlign = 'center';
         bgCtx.fillText('▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
-        bgCtx.font = 'bold 9px Arial'; bgCtx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 13);
+        bgCtx.font = vpCanvasFont(bgCtx, 'bold 9px Arial'); bgCtx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 13);
 
         bgCtx.strokeStyle = '#333'; bgCtx.lineWidth = 1; 
         bgCtx.strokeRect(padLeft, padTop, plotW, plotH);
@@ -8835,7 +8849,7 @@ function renderMapProfileFrames(timeMs) {
     fgCtx.moveTo(Math.max(padLeft, viewMinX), yOf(cruiseAlt));
     fgCtx.lineTo(Math.min(padLeft + plotW, viewMaxX), yOf(cruiseAlt));
     fgCtx.stroke(); fgCtx.setLineDash([]);
-    fgCtx.fillStyle = 'rgba(255, 68, 68, 0.7)'; fgCtx.font = 'bold 10px Arial'; fgCtx.textAlign = 'left';
+    fgCtx.fillStyle = 'rgba(255, 68, 68, 0.7)'; fgCtx.font = vpCanvasFont(fgCtx, 'bold 10px Arial'); fgCtx.textAlign = 'left';
     fgCtx.fillText('CRZ ' + cruiseAlt + ' ft', Math.max(padLeft + 4, viewMinX + 4), yOf(cruiseAlt) - 4);
 
     // Im HDG-Modus: "JETZT"-Linie bei VP_HDG_LOOKBACK_MIN (Flugzeugposition)
@@ -8851,7 +8865,7 @@ function renderMapProfileFrames(timeMs) {
             fgCtx.stroke();
             fgCtx.setLineDash([]);
             fgCtx.fillStyle = 'rgba(255,255,255,0.35)';
-            fgCtx.font = '8px Arial'; fgCtx.textAlign = 'center';
+            fgCtx.font = vpCanvasFont(fgCtx, '8px Arial'); fgCtx.textAlign = 'center';
             fgCtx.fillText('NOW', nowX, padTop + plotH + 12);
         }
     }
@@ -8871,7 +8885,7 @@ function renderMapProfileFrames(timeMs) {
                 : (i === 0 ? (currentStartICAO || 'DEP') : (routeWaypoints[i].name || 'WP' + i));
             if (!zoomFactor || zoomFactor < 2) { if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…'; } else { if (wpLabel.length > 12) wpLabel = wpLabel.substring(0, 11) + '…'; }
             fgCtx.beginPath(); fgCtx.arc(x, padTop + plotH + 3, 3, 0, Math.PI * 2); fgCtx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00'); fgCtx.fill();
-            fgCtx.fillStyle = '#bbb'; fgCtx.font = (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wpLabel, x, padTop + plotH + 16);
+            fgCtx.fillStyle = '#bbb'; fgCtx.font = vpCanvasFont(fgCtx, (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial'); fgCtx.textAlign = 'center'; fgCtx.fillText(wpLabel, x, padTop + plotH + 16);
         }
     }
 
@@ -8993,14 +9007,14 @@ function renderMapProfileFrames(timeMs) {
 
                 // Zeitlabel oben
                 fgCtx.fillStyle = tc;
-                fgCtx.font = 'bold 9px Arial';
+                fgCtx.font = vpCanvasFont(fgCtx, 'bold 9px Arial');
                 fgCtx.textAlign = 'center';
                 fgCtx.fillText(pt.min + 'm', px, py - 8);
 
                 // Höhe unten (nur wenn genug Platz)
                 if (zoomFactor >= 1.5 || window.vpPredictionData.length <= 3) {
                     fgCtx.fillStyle = 'rgba(255,255,255,0.6)';
-                    fgCtx.font = '8px Arial';
+                    fgCtx.font = vpCanvasFont(fgCtx, '8px Arial');
                     fgCtx.fillText(Math.round(pt.altFt) + 'ft', px, py + 14);
                 }
             }
@@ -9018,7 +9032,7 @@ function renderMapProfileFrames(timeMs) {
             fgCtx.moveTo(wx, wy); fgCtx.lineTo(wx, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
             fgCtx.beginPath(); fgCtx.moveTo(wx, wy - 7); fgCtx.lineTo(wx + 6, wy); fgCtx.lineTo(wx, wy + 7); fgCtx.lineTo(wx - 6, wy); fgCtx.closePath();
             fgCtx.fillStyle = '#ff00ff'; fgCtx.fill(); fgCtx.strokeStyle = '#fff'; fgCtx.lineWidth = 1; fgCtx.stroke();
-            fgCtx.fillStyle = '#ff00ff'; fgCtx.font = 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wp.altFt + ' ft', wx, wy - 11);
+            fgCtx.fillStyle = '#ff00ff'; fgCtx.font = vpCanvasFont(fgCtx, 'bold 9px Arial'); fgCtx.textAlign = 'center'; fgCtx.fillText(wp.altFt + ' ft', wx, wy - 11);
         }
     }
 
@@ -9254,7 +9268,7 @@ function initAltWaypoints() {
         const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
         let autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
         const maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
-        const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
+        const { padLeft, padRight, padTop, padBottom } = vpMapProfilePadding();
         const plotW = virtualWidth - padLeft - padRight;
         const plotH = containerHeight - padTop - padBottom;
         

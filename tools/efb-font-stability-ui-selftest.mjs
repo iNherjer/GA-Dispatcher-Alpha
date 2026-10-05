@@ -86,6 +86,36 @@ try {
   assert.equal(await page.locator('#gaEfbFontReset').textContent(), '100 %');
   await page.locator('#gaEfbFontControls').screenshot({ path: path.join(process.env.GA_EFB_SCREENSHOT_DIR || os.tmpdir(), 'ga-efb-font-controls.png') });
   await page.locator('#mapHintsBtn').click();
+  const fixedControls = await page.evaluate(() => {
+    const realStyle = window.getComputedStyle;
+    const gear = document.getElementById('btnVpSettings');
+    const rte = document.getElementById('btnToggleVpMode');
+    const bases = [gear, rte].map(el => Number(el.getAttribute('data-ga-efb-font-base')));
+    // Emulate stale Coherent computed sizes on a scale change.
+    window.getComputedStyle = function(el) {
+      if (el === gear || el === rte) return { fontSize: '999px' };
+      return realStyle.apply(window, arguments);
+    };
+    const samples = [];
+    for (const scale of [1.5, 0.9, 2, 1, 3, 1.5]) {
+      __fontTest.scale(scale);
+      samples.push({scale, actual:[gear,rte].map(el => parseFloat(realStyle.call(window,el).fontSize)), expected:bases.map(value=>Math.round(value*scale*10)/10)});
+    }
+    window.getComputedStyle = realStyle;
+    return samples;
+  });
+  for (const sample of fixedControls) assert.deepEqual(sample.actual, sample.expected);
+  console.log('PASS fixed gear/RTE base sizes across grow, shrink and reset', fixedControls);
+  const canvasFonts = await page.evaluate(() => ({
+    scaled: vpCanvasFont({canvas:{id:'mapProfileCanvas'}}, 'bold 10px Arial'),
+    standalone: vpCanvasFont({canvas:{id:'profileCanvas'}}, 'bold 10px Arial'),
+    zoomSize: document.querySelector('#map .leaflet-control-zoom-in')?.getBoundingClientRect().height,
+    profileMin: parseFloat(getComputedStyle(document.getElementById('mapProfileStrip')).minHeight)
+  }));
+  assert.equal(canvasFonts.scaled, 'bold 15px Arial');
+  assert.equal(canvasFonts.standalone, 'bold 10px Arial');
+  assert.equal(canvasFonts.profileMin, 150);
+  if (canvasFonts.zoomSize !== undefined) assert.ok(canvasFonts.zoomSize >= 48);
   const result = await page.evaluate(async () => {
     const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
     const size = el => parseFloat(getComputedStyle(el).fontSize);

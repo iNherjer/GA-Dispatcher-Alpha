@@ -1312,3 +1312,16 @@ body.ga-efb-tracker-host .ga-efb-font-size-hint { overflow-wrap: break-word; }
 .ga-efb-reset-confirm-card > div { display:flex; flex-wrap:wrap; gap:12px; }
 .ga-efb-reset-confirm-card button { max-width:100%; white-space:normal; overflow-wrap:anywhere; min-height:44px; padding:10px 16px; border:1px solid #8cbed9; border-radius:6px; background:#244c63; color:#fff; font:inherit; }
 #gaEfbResetAccept { background:#863e35; }
+
+/* Keep fixed map hit targets in step with EFB text preferences. */
+body.ga-efb-tracker-host #map .leaflet-bar a { width:calc(32px * var(--ga-efb-ui-scale, 1)); height:calc(32px * var(--ga-efb-ui-scale, 1)); line-height:calc(32px * var(--ga-efb-ui-scale, 1)); }
+body.ga-efb-tracker-host #map .leaflet-control-layers-toggle { width:calc(36px * var(--ga-efb-ui-scale, 1)); height:calc(36px * var(--ga-efb-ui-scale, 1)); background-size:calc(26px * var(--ga-efb-ui-scale, 1)); }
+body.ga-efb-tracker-host .map-profile-controls button,
+body.ga-efb-tracker-host #mapTableOverlay .pb-btn { min-height:calc(24px * var(--ga-efb-ui-scale, 1)); padding:calc(3px * var(--ga-efb-ui-scale, 1)) calc(6px * var(--ga-efb-ui-scale, 1)); }
+body.ga-efb-tracker-host #mapProfileStrip { min-height:calc(100px * var(--ga-efb-ui-scale, 1)); }
+/* Font transitions expose intermediate sizes to Coherent's measurements. */
+body.ga-efb-tracker-host button { transition-property:background-color, border-color, color, opacity, filter; }
+body.ga-efb-tracker-host .route-progress-label { min-height:calc(24px * var(--ga-efb-ui-scale, 1)); }
+body.ga-efb-tracker-host .map-draw-floating-btn,
+body.ga-efb-tracker-host .map-draw-tool-btn,
+body.ga-efb-tracker-host #map .leaflet-control button { min-width:calc(30px * var(--ga-efb-ui-scale, 1)); min-height:calc(30px * var(--ga-efb-ui-scale, 1)); }

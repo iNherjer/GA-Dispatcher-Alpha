@@ -30,6 +30,24 @@ function gaEfbProfileFont(value) {
 /* === VERTICAL PROFILE & CANVAS ENGINE (v220) === */
 // Both clients run this engine. The EFB supplies only local data transport;
 // geometry, weather parsing, drawing and controls remain the standalone code.
+
+// Only the hosted EFB profile opts into UI font scaling. Keep coordinates,
+// terrain and standalone rendering unchanged.
+function vpMapProfilePadding() {
+  var scale = Math.max(0.9, Math.min(3, Number(window.gaEfbProfileFontScale) || 1));
+  return {
+    padLeft: 33 * scale,
+    padRight: 16 * scale,
+    padTop: 12 * scale,
+    padBottom: 22 * scale
+  };
+}
+function vpCanvasFont(ctx, font) {
+  var id = ctx && ctx.canvas && ctx.canvas.id;
+  if (id !== 'mapProfileCanvas' && id !== 'mapProfileCanvasBg') return font;
+  var scale = Math.max(0.9, Math.min(3, Number(window.gaEfbProfileFontScale) || 1));
+  return String(font).replace(/([0-9]+(?:\.[0-9]+)?)px/g, (_, size) => Number(size) * scale + 'px');
+}
 function vpCreateAbortController() {
   return window.gaProfileDataProvider ? window.gaProfileDataProvider.createAbortController() : new AbortController();
 }
@@ -8311,7 +8329,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             tw: 0
           };
           if (feat.name && zoomFactor >= 1.2 && feat.type !== 'powerline') {
-            ctx.font = gaEfbProfileFont(feat.type === 'river' ? 'bold 8px Arial' : 'bold 7px Arial');
+            ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, feat.type === 'river' ? 'bold 8px Arial' : 'bold 7px Arial'));
             var tw = ctx.measureText(feat.name).width;
             feat._render.tw = tw;
             var labelY = feat.type === 'river' ? _py2 + 15 : feat.type === 'powerline' ? _py2 - 20 : _py2 - 14;
@@ -8423,7 +8441,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
         if (_feat._render.drawName) {
           var _labelY = _py3 + _feat._render.labelYOffset;
           ctx.fillStyle = '#3498db';
-          ctx.font = gaEfbProfileFont('bold 8px Arial');
+          ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
           ctx.textAlign = 'center';
           gaEfbCanvasFillText(ctx, _feat.name, _px3, _labelY + 8);
         }
@@ -8464,7 +8482,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
           ctx.fillStyle = '#1a73e8';
           ctx.fillRect(_px3 - _feat._render.tw / 2 - 2, _labelY2, _feat._render.tw + 4, 10);
           ctx.fillStyle = '#fff';
-          ctx.font = gaEfbProfileFont('bold 7px Arial');
+          ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 7px Arial'));
           ctx.textAlign = 'center';
           gaEfbCanvasFillText(ctx, _feat.name, _px3, _labelY2 + 8);
         }
@@ -8528,14 +8546,14 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
           ctx.fillStyle = '#7d2632';
           ctx.fillRect(_px3 - _feat._render.tw / 2 - 2, _labelY3, _feat._render.tw + 4, 10);
           ctx.fillStyle = '#fff';
-          ctx.font = gaEfbProfileFont('bold 7px Arial');
+          ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 7px Arial'));
           ctx.textAlign = 'center';
           gaEfbCanvasFillText(ctx, _feat.name, _px3, _labelY3 + 8);
         }
       }
       if (Number(_feat.count || 1) > 1) {
         ctx.fillStyle = 'rgba(236, 239, 244, 0.95)';
-        ctx.font = gaEfbProfileFont('bold 8px Arial');
+        ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
         ctx.textAlign = 'center';
         gaEfbCanvasFillText(ctx, '×' + String(_feat.count), _px3, _py3 + 12);
       }
@@ -8582,7 +8600,7 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
     var globalOccupiedX = [];
     var nmPerPx = totalDist / (xOf(totalDist) - xOf(0));
     var edgePad = Math.min(2.5, totalDist * 0.05);
-    ctx.font = gaEfbProfileFont(`bold ${zoomFactor >= 1.5 ? 10 : 8}px Arial`); // Setup für measureText
+    ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, `bold ${zoomFactor >= 1.5 ? 10 : 8}px Arial`)); // Setup für measureText
     var _iterator42 = _createForOfIteratorHelper(lmOrdered),
       _step42;
     try {
@@ -8710,11 +8728,11 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
       var _px6 = xOf(_lm._render.distNM);
       var py = getElevY(_lm._render.distNM);
       if (_px6 < viewMinX || _px6 > viewMaxX) continue;
-      ctx.font = gaEfbProfileFont(_lm._render.iconFontSize + 'px Arial');
+      ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, _lm._render.iconFontSize + 'px Arial'));
       ctx.fillStyle = '#ffffff';
       gaEfbCanvasFillText(ctx, _lm._render.icon, _px6, py - _lm._render.iconOffsetY);
       if (!window.vpIsFastRendering) {
-        ctx.font = gaEfbProfileFont(`bold ${_lm._render.fontSize}px Arial`);
+        ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, `bold ${_lm._render.fontSize}px Arial`));
         ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
         gaEfbCanvasFillText(ctx, _lm.name, _px6, py + 10);
       }
@@ -8958,7 +8976,7 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
 
   // 3. Cluster-Labels zeichnen (ohne Schatten, reine Schrift)
   ctx.fillStyle = '#d93829';
-  ctx.font = gaEfbProfileFont('bold 8px Arial');
+  ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   for (var _i8 = 0, _clusters = clusters; _i8 < _clusters.length; _i8++) {
@@ -9116,7 +9134,7 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
         }
         ctx.restore();
         ctx.fillStyle = isDarkTheme ? '#ccc' : '#222';
-        ctx.font = gaEfbProfileFont('bold 8px Arial');
+        ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
         ctx.textAlign = 'center';
         gaEfbCanvasFillText(ctx, c.type, midX, baseY + 12);
       });
@@ -9144,7 +9162,7 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.font = gaEfbProfileFont('bold 9px Arial');
+        ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 9px Arial'));
         ctx.textAlign = 'left';
         var distText = zone.stnDist !== undefined ? ` (${zone.stnDist} NM)` : '';
         gaEfbCanvasFillText(ctx, '📡 ' + zone.icao + distText, bx + 4, yOf(16000));
@@ -9286,7 +9304,7 @@ function vpDrawCloudsPro(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, e
         var topFL = Math.round(topFt / 100);
         var baseFL = Math.round(c.baseMsl / 100);
         ctx.fillStyle = isDarkTheme ? 'rgba(205,215,230,0.82)' : 'rgba(35,42,52,0.78)';
-        ctx.font = gaEfbProfileFont('bold 8px Arial');
+        ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
         ctx.textAlign = 'center';
         gaEfbCanvasFillText(ctx, `${c.type} FL${baseFL}-${topFL}`, midX, Math.min(layerBottom + 12, padTop + plotH + 10));
       }
@@ -9756,7 +9774,7 @@ function vpDrawIsobars(ctx, xOf, yOf, padTop, plotH, viewMinX, viewMaxX, rightX)
   ctx.save();
   ctx.setLineDash([3, 3]);
   ctx.lineWidth = 1;
-  ctx.font = gaEfbProfileFont('9px Arial');
+  ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, '9px Arial'));
   ctx.textAlign = 'right';
   var usedLabelYs = [];
   var _iterator52 = _createForOfIteratorHelper(levels),
@@ -9841,7 +9859,7 @@ function vpDrawWindComponentsOnIsobars(ctx, xOf, yOf, elevData, viewMinX, viewMa
   var levels = hasOpenMeteoProfiles ? VP_OM_PRESSURE_LEVELS : [1000];
   var reliefStats = vpBuildIsobarReliefStats();
   ctx.save();
-  ctx.font = gaEfbProfileFont('bold 8px Arial');
+  ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
@@ -10252,7 +10270,7 @@ function renderVerticalProfile(canvasId) {
         var labelY = yOf(Math.min(avgUpper, maxAlt));
         labelY = Math.max(padTop + 15, labelY);
         var displayName = getAirspaceDisplayName(as);
-        ctx.font = gaEfbProfileFont('bold 8px Arial');
+        ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
         var tw = ctx.measureText(displayName).width;
         var tLeft = (x1 + x2) / 2 - tw / 2,
           tRight = tLeft + tw;
@@ -10282,7 +10300,7 @@ function renderVerticalProfile(canvasId) {
           ctx.fillStyle = vpHexToRgba(style.color, 0.7);
           ctx.textAlign = 'center';
           gaEfbCanvasFillText(ctx, displayName, (x1 + x2) / 2, labelY + 10);
-          ctx.font = gaEfbProfileFont('7px Arial');
+          ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, '7px Arial'));
           gaEfbCanvasFillText(ctx, formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 19);
         }
       };
@@ -10362,7 +10380,7 @@ function renderVerticalProfile(canvasId) {
     ctx.fillStyle = '#d93829';
     ctx.fill();
     ctx.fillStyle = '#333';
-    ctx.font = gaEfbProfileFont('bold 9px Arial');
+    ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 9px Arial'));
     ctx.textAlign = 'center';
     gaEfbCanvasFillText(ctx, 'TOC', xOf(fpResult.tocDistNM), yOf(cruiseAlt) - 7);
 
@@ -10399,7 +10417,7 @@ function renderVerticalProfile(canvasId) {
     ctx.translate(_x39, padTop + plotH + 4);
     ctx.rotate(-Math.PI / 4);
     ctx.fillStyle = '#333';
-    ctx.font = gaEfbProfileFont('bold 8px Arial');
+    ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
     ctx.textAlign = 'left';
     gaEfbCanvasFillText(ctx, wpLabel, 0, 0);
     ctx.restore();
@@ -10414,7 +10432,7 @@ function renderVerticalProfile(canvasId) {
 
   // Y axis
   ctx.fillStyle = '#fff';
-  ctx.font = gaEfbProfileFont('bold 10px Arial');
+  ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 10px Arial'));
   ctx.textAlign = 'right';
   var altStep = maxAlt > 6000 ? 2000 : maxAlt > 3000 ? 1000 : 500;
   for (var alt = 0; alt <= maxAlt; alt += altStep) {
@@ -10427,14 +10445,14 @@ function renderVerticalProfile(canvasId) {
     ctx.lineTo(padLeft + plotW, _y5);
     ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.font = gaEfbProfileFont('bold 10px Arial');
+    ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 10px Arial'));
     gaEfbCanvasFillText(ctx, alt >= 1000 ? (alt / 1000).toFixed(alt % 1000 === 0 ? 0 : 1) + 'k' : alt + '', padLeft - 4, _y5 + 3);
   }
   ctx.save();
   ctx.translate(8, padTop + plotH / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.fillStyle = '#888';
-  ctx.font = gaEfbProfileFont('bold 8px Arial');
+  ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
   ctx.textAlign = 'center';
   gaEfbCanvasFillText(ctx, 'ALT (ft)', 0, 0);
   ctx.restore();
@@ -10444,11 +10462,11 @@ function renderVerticalProfile(canvasId) {
   var distStep = totalDist > 100 ? 20 : totalDist > 50 ? 10 : 5;
   for (var d = 0; d <= totalDist; d += distStep) {
     ctx.fillStyle = '#888';
-    ctx.font = gaEfbProfileFont('8px Arial');
+    ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, '8px Arial'));
     gaEfbCanvasFillText(ctx, d + '', xOf(d), padTop + plotH + 22);
   }
   ctx.fillStyle = '#888';
-  ctx.font = gaEfbProfileFont('bold 8px Arial');
+  ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
   gaEfbCanvasFillText(ctx, 'NM', padLeft + plotW + 8, padTop + plotH + 22);
 
   // Border
@@ -10458,7 +10476,7 @@ function renderVerticalProfile(canvasId) {
 
   // Cruise altitude label & line
   ctx.fillStyle = 'rgba(217, 56, 41, 0.8)';
-  ctx.font = gaEfbProfileFont('bold 9px Arial');
+  ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 9px Arial'));
   ctx.textAlign = 'left';
   gaEfbCanvasFillText(ctx, 'CRZ ' + cruiseAlt + ' ft', padLeft + 4, yOf(cruiseAlt) - 4);
   ctx.beginPath();
@@ -10473,10 +10491,10 @@ function renderVerticalProfile(canvasId) {
   // Peak elevation marker
   var peakPt = vpElevationData.reduce((max, p) => p.elevFt > max.elevFt ? p : max);
   ctx.fillStyle = '#333';
-  ctx.font = gaEfbProfileFont('10px Arial');
+  ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, '10px Arial'));
   ctx.textAlign = 'center';
   gaEfbCanvasFillText(ctx, '▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
-  ctx.font = gaEfbProfileFont('bold 8px Arial');
+  ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
   gaEfbCanvasFillText(ctx, peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 12);
 
   // Auto-update things that depend on the completed elevation data
@@ -11027,14 +11045,14 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
 
       // Relative Höhe
       fgCtx.fillStyle = relAltColor;
-      fgCtx.font = gaEfbProfileFont('bold 8px monospace');
+      fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, 'bold 8px monospace'));
       fgCtx.textAlign = 'center';
       gaEfbCanvasFillText(fgCtx, relAltStr, 0, -11);
 
       // Callsign (wenn vorhanden)
       if (ac.callsign) {
         fgCtx.fillStyle = 'rgba(0, 200, 255, 0.75)';
-        fgCtx.font = gaEfbProfileFont('7px monospace');
+        fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, '7px monospace'));
         gaEfbCanvasFillText(fgCtx, ac.callsign, 0, 14);
       }
       fgCtx.restore();
@@ -11098,10 +11116,11 @@ function renderMapProfileFrames(timeMs) {
   var dpr = window.devicePixelRatio || 1;
   var targetW = baseWidth * dpr;
   var targetH = containerHeight * dpr;
-  var padLeft = 33,
-    padRight = 16,
-    padTop = 12,
-    padBottom = 22;
+  var _vpMapProfilePadding = vpMapProfilePadding(),
+    padLeft = _vpMapProfilePadding.padLeft,
+    padRight = _vpMapProfilePadding.padRight,
+    padTop = _vpMapProfilePadding.padTop,
+    padBottom = _vpMapProfilePadding.padBottom;
   var plotW = virtualWidth - padLeft - padRight;
   var plotH = containerHeight - padTop - padBottom;
   var cruiseAlt = parseInt(((_document$getElementB7 = document.getElementById('altMapInput')) === null || _document$getElementB7 === void 0 ? void 0 : _document$getElementB7.textContent) || ((_document$getElementB8 = document.getElementById('altSlider')) === null || _document$getElementB8 === void 0 ? void 0 : _document$getElementB8.value) || 4500);
@@ -11347,7 +11366,7 @@ function renderMapProfileFrames(timeMs) {
       bgCtx.lineTo(viewX + baseWidth, _y7);
       bgCtx.stroke();
       bgCtx.fillStyle = '#fff';
-      bgCtx.font = gaEfbProfileFont('bold 10px Arial');
+      bgCtx.font = gaEfbProfileFont(vpCanvasFont(bgCtx, 'bold 10px Arial'));
       gaEfbCanvasFillText(bgCtx, alt >= 1000 ? (alt / 1000).toFixed(0) + 'k' : alt + '', viewX + padLeft - 3, _y7 + 3);
     }
     if (!isHdgMode) {
@@ -11373,28 +11392,28 @@ function renderMapProfileFrames(timeMs) {
         var _x41 = xOf(m);
         var label = m < VP_HDG_LOOKBACK_MIN ? `-${Math.round(VP_HDG_LOOKBACK_MIN - m)}m` : m === VP_HDG_LOOKBACK_MIN ? 'NOW' : `+${Math.round(m - VP_HDG_LOOKBACK_MIN)}m`;
         bgCtx.fillStyle = m === VP_HDG_LOOKBACK_MIN ? '#64c8ff' : '#666';
-        bgCtx.font = gaEfbProfileFont(m === VP_HDG_LOOKBACK_MIN ? 'bold 8px Arial' : '8px Arial');
+        bgCtx.font = gaEfbProfileFont(vpCanvasFont(bgCtx, m === VP_HDG_LOOKBACK_MIN ? 'bold 8px Arial' : '8px Arial'));
         gaEfbCanvasFillText(bgCtx, label, _x41, containerHeight - 1);
       }
       // Mode-Label oben links
       bgCtx.fillStyle = '#64c8ff';
-      bgCtx.font = gaEfbProfileFont('bold 9px Arial');
+      bgCtx.font = gaEfbProfileFont(vpCanvasFont(bgCtx, 'bold 9px Arial'));
       bgCtx.textAlign = 'left';
       gaEfbCanvasFillText(bgCtx, `HDG ${hdgHdgVal}°`, viewX + padLeft + 4, padTop + 10);
     } else {
       var distStep = totalDist > 150 ? 25 : totalDist > 80 ? 10 : 5;
       for (var d = distStep; d < totalDist; d += distStep) {
         bgCtx.fillStyle = '#666';
-        bgCtx.font = gaEfbProfileFont('8px Arial');
+        bgCtx.font = gaEfbProfileFont(vpCanvasFont(bgCtx, '8px Arial'));
         gaEfbCanvasFillText(bgCtx, d + '', xOf(d), containerHeight - 1);
       }
     }
     var peakPt = elevData.reduce((max, p) => p.elevFt > max.elevFt ? p : max);
     bgCtx.fillStyle = '#aaa';
-    bgCtx.font = gaEfbProfileFont('11px Arial');
+    bgCtx.font = gaEfbProfileFont(vpCanvasFont(bgCtx, '11px Arial'));
     bgCtx.textAlign = 'center';
     gaEfbCanvasFillText(bgCtx, '▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
-    bgCtx.font = gaEfbProfileFont('bold 9px Arial');
+    bgCtx.font = gaEfbProfileFont(vpCanvasFont(bgCtx, 'bold 9px Arial'));
     gaEfbCanvasFillText(bgCtx, peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 13);
     bgCtx.strokeStyle = '#333';
     bgCtx.lineWidth = 1;
@@ -11553,7 +11572,7 @@ function renderMapProfileFrames(timeMs) {
   fgCtx.stroke();
   fgCtx.setLineDash([]);
   fgCtx.fillStyle = 'rgba(255, 68, 68, 0.7)';
-  fgCtx.font = gaEfbProfileFont('bold 10px Arial');
+  fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, 'bold 10px Arial'));
   fgCtx.textAlign = 'left';
   gaEfbCanvasFillText(fgCtx, 'CRZ ' + cruiseAlt + ' ft', Math.max(padLeft + 4, viewMinX + 4), yOf(cruiseAlt) - 4);
 
@@ -11570,7 +11589,7 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.stroke();
       fgCtx.setLineDash([]);
       fgCtx.fillStyle = 'rgba(255,255,255,0.35)';
-      fgCtx.font = gaEfbProfileFont('8px Arial');
+      fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, '8px Arial'));
       fgCtx.textAlign = 'center';
       gaEfbCanvasFillText(fgCtx, 'NOW', nowX, padTop + plotH + 12);
     }
@@ -11602,7 +11621,7 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.fillStyle = _i24 === 0 ? '#44ff44' : _i24 === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00';
       fgCtx.fill();
       fgCtx.fillStyle = '#bbb';
-      fgCtx.font = gaEfbProfileFont(zoomFactor >= 2 ? 'bold 11px Arial' : 'bold 9px Arial');
+      fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, zoomFactor >= 2 ? 'bold 11px Arial' : 'bold 9px Arial'));
       fgCtx.textAlign = 'center';
       gaEfbCanvasFillText(fgCtx, wpLabel, _x45, padTop + plotH + 16);
     }
@@ -11742,14 +11761,14 @@ function renderMapProfileFrames(timeMs) {
 
           // Zeitlabel oben
           fgCtx.fillStyle = tc;
-          fgCtx.font = gaEfbProfileFont('bold 9px Arial');
+          fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, 'bold 9px Arial'));
           fgCtx.textAlign = 'center';
           gaEfbCanvasFillText(fgCtx, _pt.min + 'm', _px8, _py5 - 8);
 
           // Höhe unten (nur wenn genug Platz)
           if (zoomFactor >= 1.5 || window.vpPredictionData.length <= 3) {
             fgCtx.fillStyle = 'rgba(255,255,255,0.6)';
-            fgCtx.font = gaEfbProfileFont('8px Arial');
+            fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, '8px Arial'));
             gaEfbCanvasFillText(fgCtx, Math.round(_pt.altFt) + 'ft', _px8, _py5 + 14);
           }
         }
@@ -11789,7 +11808,7 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.lineWidth = 1;
       fgCtx.stroke();
       fgCtx.fillStyle = '#ff00ff';
-      fgCtx.font = gaEfbProfileFont('bold 9px Arial');
+      fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, 'bold 9px Arial'));
       fgCtx.textAlign = 'center';
       gaEfbCanvasFillText(fgCtx, wp.altFt + ' ft', wx, wy - 11);
     }
@@ -12024,10 +12043,11 @@ function initAltWaypoints() {
     var maxTerrain = Math.max.apply(Math, _toConsumableArray(elevData.map(p => p.elevFt)));
     var autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
     var maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
-    var padLeft = 33,
-      padRight = 16,
-      padTop = 12,
-      padBottom = 22;
+    var _vpMapProfilePadding2 = vpMapProfilePadding(),
+      padLeft = _vpMapProfilePadding2.padLeft,
+      padRight = _vpMapProfilePadding2.padRight,
+      padTop = _vpMapProfilePadding2.padTop,
+      padBottom = _vpMapProfilePadding2.padBottom;
     var plotW = virtualWidth - padLeft - padRight;
     var plotH = containerHeight - padTop - padBottom;
     return {
