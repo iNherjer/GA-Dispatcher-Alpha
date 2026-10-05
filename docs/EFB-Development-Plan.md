@@ -5994,3 +5994,7 @@ Reale MSFS-/Coherent-/VR-Abnahme offen. Keine Community-Installation oder Kanala
 ### 2026-10-05: Alpha v474, Schriftwahl 90-300 Prozent
 
 Tracker-gehostete Schriftwahl und persistente 2D-/VR-Konfiguration erlauben nun 300 Prozent. Der mittlere Reset-Knopf zeigt den aktuellen Prozentwert; Klick setzt weiterhin auf 100 Prozent zurueck und Tooltip/ARIA benennen die Aktion. Assetrevision 47401; SDK-Paket bleibt 0.4.17. Keine Aenderung an Ports, Missionen oder nativer VR-Erkennung. Regressionen pruefen 300-Prozent-Persistenz, Profile, schmale Menues und stabilen DOM/Fonts; realer VR-Test bleibt offen.
+
+### Alpha v475: Sichtbare Reset-Bestaetigung und Portmeldung
+
+EFB-Reset verwendet einen HTML-Dialog statt window.confirm mit Abbrechen als Default und Escape/Tab-Bedienung. Erst explizite Zustimmung sendet abort_mission; ein zwischenzeitlich geaenderter Missionslauf wird nicht zurueckgesetzt. Bestehende Webapp-/Desktop-Rueckfragen bleiben erhalten. EADDRINUSE/EACCES erzeugen auf Windows eine nicht blockierende Meldung in einem separaten PowerShell-MessageBox-Prozess; Logs bleiben erhalten. Keine automatische Port- oder Windows-Konfigurationsaenderung. Enthaelt die Schriftwahl bis 300 Prozent aus v474. v474 wurde veroeffentlicht, aber nicht als Alpha aktiviert.

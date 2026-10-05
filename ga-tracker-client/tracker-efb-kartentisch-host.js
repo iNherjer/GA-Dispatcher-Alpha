@@ -2270,12 +2270,40 @@
     window.requestMissionRuntimeReset = function (options) {
       if (missionIntentPending) return Promise.resolve(false);
       var settings = options && typeof options === 'object' ? options : {};
-      var confirmed = false;
-      try {
-        confirmed = window.confirm('Mission wirklich zurücksetzen? Fortschritt und missionsspezifische Ladung werden zurückgesetzt; der Auftrag bleibt zum Neustart erhalten.');
-      } catch (_) {}
-      if (!confirmed) return Promise.resolve(false);
-      return submitMissionIntent('abort_mission', { reason: String(settings.reason || 'efb-toolbar-reset') });
+      if (byId('gaEfbResetConfirm')) return Promise.resolve(false);
+      var target = missionSnapshot && missionSnapshot.control;
+      if (!target) return Promise.resolve(false);
+      var missionId = target.missionId, runId = target.runId;
+      return new Promise(function (resolve) {
+        var overlay = document.createElement('div');
+        overlay.id = 'gaEfbResetConfirm';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'gaEfbResetConfirmTitle');
+        overlay.innerHTML = '<div class="ga-efb-reset-confirm-card"><strong id="gaEfbResetConfirmTitle">Mission wirklich zurücksetzen?</strong><p>Fortschritt und missionsspezifische Ladung werden zurückgesetzt. Der Auftrag bleibt zum Neustart erhalten.</p><div><button type="button" id="gaEfbResetCancel">Abbrechen</button><button type="button" id="gaEfbResetAccept">Mission zurücksetzen</button></div></div>';
+        var previousFocus = document.activeElement;
+        function finish(accepted) {
+          document.removeEventListener('keydown', keydown);
+          overlay.remove();
+          if (previousFocus && previousFocus.focus) previousFocus.focus();
+          var current = missionSnapshot && missionSnapshot.control;
+          if (!accepted || !current || current.missionId !== missionId || current.runId !== runId) { resolve(false); return; }
+          resolve(submitMissionIntent('abort_mission', { reason: String(settings.reason || 'efb-toolbar-reset') }));
+        }
+        function keydown(event) {
+          if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+          if (event.key === 'Tab') {
+            event.preventDefault();
+            var cancel = byId('gaEfbResetCancel'), accept = byId('gaEfbResetAccept');
+            (document.activeElement === cancel ? accept : cancel).focus();
+          }
+        }
+        document.body.appendChild(overlay);
+        byId('gaEfbResetCancel').onclick = function () { finish(false); };
+        byId('gaEfbResetAccept').onclick = function () { finish(true); };
+        document.addEventListener('keydown', keydown);
+        byId('gaEfbResetCancel').focus();
+      });
     };
     window.handleMissionStartBannerAction = function () {
       var model = banner._gaMissionActionModel;

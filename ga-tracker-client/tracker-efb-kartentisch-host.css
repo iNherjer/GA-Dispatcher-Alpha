@@ -1306,3 +1306,9 @@ body.ga-efb-tracker-host #mapHintsMenu button {
   height: auto;
 }
 body.ga-efb-tracker-host .ga-efb-font-size-hint { overflow-wrap: break-word; }
+/* HTML confirmation works inside Coherent without native browser dialogs. */
+#gaEfbResetConfirm { position:fixed; inset:0; z-index:2147483000; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(0,0,0,.78); }
+.ga-efb-reset-confirm-card { box-sizing:border-box; width:100%; max-width:680px; max-height:90vh; overflow:auto; padding:20px; border:2px solid #8cbed9; border-radius:10px; background:#102837; color:#eef7fb; }
+.ga-efb-reset-confirm-card > div { display:flex; flex-wrap:wrap; gap:12px; }
+.ga-efb-reset-confirm-card button { max-width:100%; white-space:normal; overflow-wrap:anywhere; min-height:44px; padding:10px 16px; border:1px solid #8cbed9; border-radius:6px; background:#244c63; color:#fff; font:inherit; }
+#gaEfbResetAccept { background:#863e35; }

@@ -92,8 +92,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v474';
-const TRACKER_VERSION_CODE = 474;
+const TRACKER_VERSION = 'v475';
+const TRACKER_VERSION_CODE = 475;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5538,6 +5538,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       trackerLog(`📟 EFB-Schnittstelle bereit: http://127.0.0.1:${address.port}`);
     }).catch((error) => {
       _efbHttpServer = null;
+      require('./tracker-efb-port-error').notifyEfbPortError(error, configuredPort, { log: debugLog });
       if (error?.code === 'EADDRINUSE') {
         trackerError(`❌ Lokaler EFB-Port ${configuredPort} ist bereits belegt. Wahrscheinlich laeuft noch eine andere Tracker-Instanz.`);
         trackerWarn('⚠️  Diese zweite Tracker-Instanz wird beendet, damit EFB- und Simulatorzustand nicht auseinanderlaufen.');

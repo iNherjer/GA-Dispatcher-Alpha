@@ -26,6 +26,27 @@ try {
   });
   await page.goto('http://127.0.0.1/');
   await page.waitForFunction(() => window.__fontTest && window.gaChecklistHost?.missionView);
+  // Coherent may not present window.confirm: reset must wait for our UI.
+  await page.evaluate(() => {
+    window.__resetCalls = 0;
+    window.gaCockpitSessionClient = { submitIntent: () => { window.__resetCalls++; return Promise.resolve({ ok: true }); } };
+    window.__resetFixture = run => ({ available: true, missionId: 'reset-test', control: { missionId: 'reset-test', runId: run, phase: 'planned', executionAuthority: 'tracker', allowedActions: ['abort_mission'] }, view: {} });
+    __fontTest.mission(__resetFixture('run-one'));
+    window.__resetResult = window.requestMissionRuntimeReset();
+  });
+  await page.locator('#gaEfbResetConfirm').waitFor();
+  assert.equal(await page.evaluate(() => __resetCalls), 0);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'gaEfbResetCancel');
+  await page.locator('#gaEfbResetCancel').click();
+  assert.equal(await page.evaluate(() => __resetResult), false);
+  await page.evaluate(() => { window.__resetResult = window.requestMissionRuntimeReset(); });
+  await page.locator('#gaEfbResetAccept').click();
+  await page.evaluate(() => __resetResult);
+  assert.equal(await page.evaluate(() => __resetCalls), 1);
+  await page.evaluate(() => { __fontTest.mission(__resetFixture('run-one')); window.__resetResult = window.requestMissionRuntimeReset(); __fontTest.mission(__resetFixture('run-two')); });
+  await page.locator('#gaEfbResetAccept').click();
+  assert.equal(await page.evaluate(() => __resetResult), false);
+  assert.equal(await page.evaluate(() => __resetCalls), 1);
   await page.locator('#mapHintsBtn').click();
   await page.locator('#gaEfbFontLarger').click();
   assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /110%/);
