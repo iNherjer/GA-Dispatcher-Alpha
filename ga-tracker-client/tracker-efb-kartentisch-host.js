@@ -365,6 +365,8 @@
     var label = document.querySelector('.ga-efb-font-size-hint');
     var text = 'Schriftgröße: ' + Math.round(preferences.fontScale * 100) + '%';
     if (label && label.textContent !== text) label.textContent = text;
+    if (byId('gaEfbFontSmaller')) byId('gaEfbFontSmaller').disabled = preferences.fontScale <= 0.9;
+    if (byId('gaEfbFontLarger')) byId('gaEfbFontLarger').disabled = preferences.fontScale >= 1.3;
   }
 
   function applyEfbFontScale() {
@@ -1303,6 +1305,22 @@
   }
 
   function configureDisplayControls() {
+    var displayMenu = byId('mapHintsMenu');
+    if (displayMenu && !byId('gaEfbFontControls')) {
+      var fontControls = document.createElement('section');
+      fontControls.id = 'gaEfbFontControls';
+      fontControls.setAttribute('aria-label', 'Schriftgröße');
+      fontControls.innerHTML = '<div class="ga-efb-font-size-hint" role="status"></div>'
+        + '<div class="ga-efb-font-buttons">'
+        + '<button type="button" id="gaEfbFontSmaller" aria-label="Schrift verkleinern">A-</button>'
+        + '<button type="button" id="gaEfbFontReset" aria-label="Schrift auf 100 Prozent zurücksetzen">100 %</button>'
+        + '<button type="button" id="gaEfbFontLarger" aria-label="Schrift vergrößern">A+</button></div>';
+      displayMenu.insertBefore(fontControls, displayMenu.firstChild);
+      byId('gaEfbFontSmaller').onclick = function () { setEfbFontScale(preferences.fontScale - 0.1); };
+      byId('gaEfbFontReset').onclick = function () { setEfbFontScale(1); };
+      byId('gaEfbFontLarger').onclick = function () { setEfbFontScale(preferences.fontScale + 0.1); };
+      syncFontScaleControls();
+    }
     // Preserve existing EFB choices once; subsequent changes use the original keys.
     Object.keys(infoBoxState).forEach(function(id) {
       var key = infoBoxHintKey(id);

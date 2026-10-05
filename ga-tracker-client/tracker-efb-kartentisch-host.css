@@ -55,6 +55,59 @@ body.ga-efb-tracker-host #mapVoiceMenu {
   overflow-y: auto;
 }
 
+body.ga-efb-tracker-host #gaEfbFontControls { padding: 4px 0 10px; margin-bottom: 8px; border-bottom: 1px solid #526578; color: #eef5ff; }
+body.ga-efb-tracker-host .ga-efb-font-size-hint { font: 12px/1.5 "GA EFB Text", Arial, sans-serif; margin-bottom: 6px; }
+body.ga-efb-tracker-host .ga-efb-font-buttons { display: flex; }
+body.ga-efb-tracker-host .ga-efb-font-buttons button { flex: 1 1 0; min-width: 0; min-height: 36px; padding: 6px 2px; margin-right: 4px; background: #20475d; color: #eef5ff; border: 1px solid #8db4ce; border-radius: 4px; cursor: pointer; }
+body.ga-efb-tracker-host .ga-efb-font-buttons button:last-child { margin-right: 0; }
+body.ga-efb-tracker-host .ga-efb-font-buttons button:disabled { opacity: .4; cursor: default; }
+body.ga-efb-tracker-host .ga-efb-font-buttons button:focus { outline: 2px solid #89d4ff; outline-offset: 1px; }
+
+/* Coherent's native checkmark/accent-color can be black on a dark box.
+   Retain the real input/checked state; draw a high-contrast mark with borders. */
+body.ga-efb-tracker-host #mapTableOverlay input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+  padding: 0;
+  border: 1px solid #a9c5df;
+  border-radius: 2px;
+  background: #172735;
+  vertical-align: middle;
+  cursor: pointer;
+}
+body.ga-efb-tracker-host #mapTableOverlay input[type="checkbox"]:checked { background: #235ea7; border-color: #bde3ff; }
+body.ga-efb-tracker-host #mapTableOverlay input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+body.ga-efb-tracker-host #mapTableOverlay input[type="checkbox"]:focus { outline: 2px solid #89d4ff; outline-offset: 2px; }
+body.ga-efb-tracker-host #mapTableOverlay input[type="checkbox"]:disabled { opacity: .55; cursor: default; }
+
+/* Dynamic PAX and menu controls must use the packaged German text face
+   before Coherent's system face, rather than relying on per-glyph fallback. */
+body.ga-efb-tracker-host #paxVoicePanel,
+body.ga-efb-tracker-host #paxVoicePanel button,
+body.ga-efb-tracker-host #mapVoiceMenu,
+body.ga-efb-tracker-host #mapVoiceMenu button,
+body.ga-efb-tracker-host #mapVoiceMenu select,
+body.ga-efb-tracker-host #mapHintsMenu button,
+body.ga-efb-tracker-host #vpSettingsMenu button,
+body.ga-efb-tracker-host #vpPlaneIconMenu button {
+  font-family: "GA EFB Text", Arial, sans-serif !important;
+}
+
 body.ga-efb-tracker-host .ga-efb-cargo-manager .mission-cargo-sheet-table td strong {
   display: block;
 }

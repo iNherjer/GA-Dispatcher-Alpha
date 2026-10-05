@@ -7,6 +7,9 @@
   var status = document.getElementById('vfr-status');
   var offline = document.getElementById('vfr-offline');
   var bar = document.getElementById('vfr-statusbar');
+  var controls = document.getElementById('vfr-window-controls');
+  var minimizeButton = document.getElementById('vfr-minimize');
+  var controlsFrame = null;
   var active = false, generation = 0, timer = null, request = null, frame = null;
   var channel = '', ready = false, deadline = 0;
   function log(message) { console.log('[VFR_TOOLBAR 0.2.1] ' + message); }
@@ -73,12 +76,53 @@
   function visible() {
     return !document.hidden && panel.active === true && panel.visible !== false && !panel.minimized;
   }
-  function sync() { if (visible()) start(); else if (active) stop('native-hidden'); }
+  function sync() {
+    controls.hidden = document.hidden || panel.active !== true || panel.visible === false;
+    if (!controls.hidden && controlsFrame === null) positionControls();
+    if (controls.hidden && controlsFrame !== null) {
+      window.cancelAnimationFrame(controlsFrame); controlsFrame = null;
+    }
+    minimizeButton.setAttribute('aria-expanded', panel.minimized ? 'false' : 'true');
+    minimizeButton.setAttribute('aria-label', panel.minimized ? 'Wiederherstellen' : 'Minimieren');
+    minimizeButton.title = panel.minimized ? 'Wiederherstellen' : 'Minimieren';
+    if (visible()) start(); else if (active) stop('native-hidden');
+  }
+  function positionControls() {
+    var rect = panel.getBoundingClientRect();
+    var header = panel.querySelector('ingame-ui-header');
+    var headerRect = header ? header.getBoundingClientRect() : null;
+    var height = headerRect && headerRect.height > 0 ? headerRect.height : 40;
+    var buttonHeight = Math.max(1, Math.min(32, height - 8));
+    var buttonWidth = buttonHeight * 36 / 32;
+    var actions = header ? header.querySelector('.action-list') : null;
+    var actionsRect = actions ? actions.getBoundingClientRect() : null;
+    var edge = actionsRect && actionsRect.width > 0 ? actionsRect.left - 4 : rect.right - 8;
+    var top = Math.max(0, (headerRect ? headerRect.top : rect.top) + (height - buttonHeight) / 2) + 'px';
+    var right = Math.max(0, window.innerWidth - edge) + 'px';
+    if (controls.style.top !== top) controls.style.top = top;
+    if (controls.style.right !== right) controls.style.right = right;
+    var buttons = [minimizeButton, document.getElementById('vfr-window-close')];
+    for (var i = 0; i < buttons.length; i++) {
+      if (buttons[i].style.height !== buttonHeight + 'px') buttons[i].style.height = buttonHeight + 'px';
+      if (buttons[i].style.width !== buttonWidth + 'px') buttons[i].style.width = buttonWidth + 'px';
+    }
+    // Reserve room in the native title without covering its action buttons.
+    var titleWrap = header ? header.querySelector('.wrap') : null;
+    if (titleWrap && titleWrap.style.paddingRight !== (buttonWidth * 2 + 12) + 'px') {
+      titleWrap.style.paddingRight = (buttonWidth * 2 + 12) + 'px';
+    }
+    controlsFrame = window.requestAnimationFrame(positionControls);
+  }
   document.getElementById('vfr-retry').onclick = function () { stop('retry'); if (visible()) start(); };
   function close() {
     stop('close'); if (typeof panel.closePanel === 'function') panel.closePanel();
   }
   document.getElementById('vfr-close').onclick = close;
+  document.getElementById('vfr-window-close').onclick = close;
+  minimizeButton.onclick = function () {
+    if (typeof panel.ToggleMinimized === 'function') panel.ToggleMinimized();
+    sync();
+  };
   window.addEventListener('message', function (event) {
     if (!active || !frame) return;
     var data = event.data;
@@ -103,7 +147,11 @@
   document.addEventListener('visibilitychange', sync);
   // Native visibility/minimize changes do not all dispatch panelInactive.
   new MutationObserver(sync).observe(panel, { attributes: true, attributeFilter: ['class'] });
-  window.addEventListener('pagehide', function () { stop('pagehide'); });
+  window.addEventListener('pagehide', function () {
+    controls.hidden = true;
+    if (controlsFrame !== null) window.cancelAnimationFrame(controlsFrame);
+    controlsFrame = null; stop('pagehide');
+  });
   window.addEventListener('pageshow', sync);
   sync();
 }());

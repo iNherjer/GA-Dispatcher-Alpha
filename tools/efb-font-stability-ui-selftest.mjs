@@ -24,6 +24,23 @@ try {
   });
   await page.goto('http://127.0.0.1/');
   await page.waitForFunction(() => window.__fontTest && window.gaChecklistHost?.missionView);
+  await page.locator('#mapHintsBtn').click();
+  await page.locator('#gaEfbFontLarger').click();
+  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /110%/);
+  await page.locator('#gaEfbFontLarger').click();
+  await page.locator('#gaEfbFontLarger').click();
+  assert.equal(await page.locator('#gaEfbFontLarger').isDisabled(), true);
+  await page.reload();
+  await page.waitForFunction(() => window.__fontTest && window.gaChecklistHost?.missionView);
+  await page.locator('#mapHintsBtn').click();
+  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /130%/);
+  await page.locator('#gaEfbFontReset').click();
+  await page.locator('#gaEfbFontSmaller').click();
+  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /90%/);
+  assert.equal(await page.locator('#gaEfbFontSmaller').isDisabled(), true);
+  await page.locator('#gaEfbFontReset').click();
+  await page.locator('#gaEfbFontControls').screenshot({ path: '/tmp/ga-efb-font-controls.png' });
+  await page.locator('#mapHintsBtn').click();
   const result = await page.evaluate(async () => {
     const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
     const size = el => parseFloat(getComputedStyle(el).fontSize);
@@ -86,7 +103,7 @@ try {
     return samples;
   });
   assert.equal(result.length, 3);
-  console.log('PASS first-frame font scaling, inherited/em/px sizes, stable live text, CSS reset and snapshot-driven mission menu.', result);
+  console.log('PASS visible font controls, bounds, persisted choice, reset, first-frame scaling and snapshot-driven mission menu.', result);
 } finally {
   await browser.close();
 }

@@ -5941,3 +5941,25 @@ diese genehmigte manuelle Klarstellung ergänzt. Technische Regressionstests
 bestehen; aktualisierte Tracker-EXE wird als Alpha v469 ausgeliefert.
 Der reale MSFS-Test steht aus. Die neuere autoritative Pax-Query-Route fuer
 Wetter, Wohlbefinden und Ladung setzt dieselbe manuelle Modellkennzeichnung.
+
+
+### Alpha UI Integration v470 und EFB 0.4.15 (05.10.2026)
+
+Windows-Rueckgabe gezielt auf Alpha 19abb1103 (v469) integriert. Der isolierte
+Windows-v469-Testbuild auf v465-Basis wird nicht ausgeliefert. Der neue
+Tracker v470 erhaelt alle spaeteren Alpha-Aenderungen, Assetrevision 47001,
+Webcache v1913. Anzeige bietet A-/100 %/A+ fuer 90-130 Prozent mit Persistenz.
+Checkboxen zeichnen weisse Haken, PAX-/Menuekontrollen priorisieren den lokalen
+Textfont. Der bestehende Font-Stabilitaetsfix bleibt erhalten.
+
+Toolbar nutzt ToggleMinimized(), da die native minimized-Eigenschaft keinen
+Setter hat. Knopfleiste folgt Header/action-list und reserviert Titelplatz.
+Das Windows-SDK-Paket 0.4.15 wird unveraendert uebernommen: 440229 Bytes,
+SHA256 605ab6d0d188fa9dafb8f95dea2afb86f6b67a04c3312c988123c99eaad3b75e.
+Toolbarquellen bytegleich, alle Layoutgroessen und Archiv geprueft.
+
+67 Node-Tests und beide Chromium-Pruefungen bestehen, einschliesslich realer
+Schriftknopf-Klicks, Grenzen, Reload/Persistenz, Reset und stabiler Missions-DOM.
+Tracker-EXE auf Apple ARM mit pkg 6.18.1/node18-win-x64 ohne Bytecode gebaut.
+Die reale Simulator-/Coherent-/VR-Abnahme bleibt offen; der Nutzer hat den
+Alpha-Rollout am 05.10. beauftragt. Stable/Beta bleiben unveraendert.
