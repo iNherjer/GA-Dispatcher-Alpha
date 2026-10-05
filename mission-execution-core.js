@@ -410,7 +410,7 @@
                 gender: text(speaker.gender, 20).toLowerCase() === 'male' ? 'male' : 'female',
                 roleProfile: text(speaker.roleProfile, 120),
                 taskDomain: text(speaker.taskDomain, 120).toLowerCase(),
-                ...(speaker.narrativeSchema === 'sightseeing-idea.v1' ? {narrativeSchema:speaker.narrativeSchema} : {})
+                ...(['sightseeing-idea.v1','apt-news-idea.v1'].includes(speaker.narrativeSchema) ? {narrativeSchema:speaker.narrativeSchema} : {})
             },
             provider: text(source.provider, 40).toLowerCase(),
             textModel: text(source.textModel, 100),
@@ -1738,7 +1738,7 @@
             }
             if (routeVoiceCore && acknowledgedEffect && acknowledgedEffect.type.indexOf('voice.') === 0
                 && acknowledgedStatus === 'completed' && spokenOutcome.playback === 'completed'
-                && (object(spokenOutcome.speaker).taskDomain === 'club_utility' || ['charter-idea.v1','sightseeing-idea.v1'].includes(object(spokenOutcome.speaker).narrativeSchema))) {
+                && (object(spokenOutcome.speaker).taskDomain === 'club_utility' || ['charter-idea.v1','sightseeing-idea.v1','apt-news-idea.v1'].includes(object(spokenOutcome.speaker).narrativeSchema))) {
                 state.voice.clubHistory = routeVoiceCore.rememberSpeech(state.voice.clubHistory,
                     acknowledgedEffectId, spokenOutcome.text);
             }

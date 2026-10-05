@@ -993,6 +993,12 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         });
         else if (primary) items.splice(items.indexOf(primary),1);
     }
+    const newsIdea=window.currentMissionData?.aptNewsIdea;
+    if(isBushPickupPassenger && newsIdea?.schema==='apt-news-idea.v1' && newsIdea.continuation){
+        const equipment=items.find(item=>item.id==='pickup-companion-cargo');
+        if(equipment)Object.assign(equipment,{label:newsIdea.shipment.label,storyName:newsIdea.shipment.label,
+            weightLbs:newsIdea.shipment.weightLbs,passengerOwned:true,handoffWithPassenger:true});
+    }
     const cargoIdea = window.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' ? window.currentMissionData.fragileCargoIdea : window.currentMissionData?.cargoIdea;
     if (['cargo-idea.v1','fragile-cargo-idea.v1'].includes(cargoIdea?.schema)) {
         const primary = items.find(item => item.id === 'primary-cargo');
@@ -1306,7 +1312,7 @@ function _missionCargoManifestMatchesMissionRecipe(manifest = null) {
 }
 
 function _missionCargoUpgradeBushPickupCompanionCargo(manifest = null) {
-    if(window.currentMissionData?.charterIdea?.continuation)return false;
+    if((window.currentMissionData?.aptNewsIdea || window.currentMissionData?.charterIdea)?.continuation)return false;
     if (!manifest || !Array.isArray(manifest.items)) return false;
     const bush = _activeBushMissionSpec();
     const isPickupPassenger = !!(

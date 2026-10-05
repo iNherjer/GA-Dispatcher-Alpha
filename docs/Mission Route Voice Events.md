@@ -67,3 +67,8 @@ Vorfreude auf den Besuch **nach** der Landung. Der Sprecher ist der Gast, kein
 Vereinskollege. Das Schema wird auch durch Boarding-Rezept, Voice-Service und
 Execution-Outcome erhalten, damit die Gesprächshistory auf dem Tracker greift.
 Quellen-/Fakten-IDs, Persistenz und Tests: [Sightseeing Visits V1](Mission%20Sightseeing%20Visits%20V1.md).
+
+
+## APT Reporter, lokaler Stand 05.10.2026
+
+`apt-news-idea.v1` nutzt dieselben optionalen Route-Events (maximal drei, 45 Sekunden Abstand), ohne Flugaufgaben oder Abschlussbedingungen. Prozenttrigger beziehen sich auf den besetzten Flug; bei späterer Abholung startet der Gesprächsplan erst nach bestätigtem Pickup. Reportertexte umfassen drei bis fünf natürliche Sätze. Auf dem Hinflug bleiben Hinweise unbestätigt und Recherche geplant; auf dem Rückflug werden Details aus dem einmal gespeicherten fiktiven Aufenthalt erzählt. Nur vollständig abgespielte Voices fließen in die Kontinuität ein. Keine Änderung der Limits anderer Profile.

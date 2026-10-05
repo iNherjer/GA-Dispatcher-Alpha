@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1916';
+const CACHE = 'ga-dispatcher-v1917';
 
 const STATIC = [
     './',
@@ -77,6 +77,8 @@ const STATIC = [
     './mission-cargo-browser.js',
     './mission-fragile-cargo-ideas-core.js',
     './mission-fragile-cargo-browser.js',
+    './mission-apt-news-ideas-core.js',
+    './mission-apt-news-browser.js',
     './mission-medical-transfer-ideas-core.js',
     './mission-animal-transport-ideas-core.js',
     './mission-medical-transfer-browser.js',

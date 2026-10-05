@@ -3,6 +3,7 @@
 const aptTraining = require('./tracker-mission-apt-training.js');
 const poiTaskCore = require('../mission-poi-task-core.js');
 
+const continuationCore = require('../mission-charter-continuation-core.js');
 const routeVoiceCore = require('../mission-route-voice-core.js');
 const routeMapCore = require('./tracker-efb-map-snapshot-core.js');
 
@@ -952,11 +953,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
               const run = authorityManager.getActiveRun({ includeBundle: true });
               const missionState = run?.resumeBundle?.missionState || {};
               const mission = missionState.currentMissionData || {};
-              narrativeRouteCache = { key: routeKey, points: routeMapCore.normalizeRoute({ state: missionState, mission,
+              narrativeRouteCache = { key: routeKey, newsIdea: mission.aptNewsIdea, points: routeMapCore.normalizeRoute({ state: missionState, mission,
                 contract: mission.missionContract || missionState.activeMissionContract || {}, navigationRoute: run?.navigationRoute }) };
             }
-            const route = narrativeRouteCache.points;
+            let route = narrativeRouteCache.points;
             const fresh = authorityManager.getExecutionSnapshot();
+            if(narrativeRouteCache.newsIdea?.continuation?.pickupRequired){
+              const leg=continuationCore.voiceLeg(narrativeRouteCache.newsIdea,route,fresh.state.bushTask?.progress || {},fresh.state.bushTask?.progress?.pickupConfirmed===true);
+              route=leg.ready?leg.route:[];
+            }
             const committed = fresh.state.effects.filter(e => e.type === 'voice.flight' && e.payload.kind === 'route_story');
             routeState = { ...routeState, done: [...new Set([...(routeState.done || []), ...committed.map(e => e.payload.narrativeEventId)])].filter(Boolean) };
             const audioSettings = options.getAudioSettings?.();
@@ -974,7 +979,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
               const accepted = adapter.applySystemEvent({ missionId: fresh.missionId, runId: fresh.runId,
                 type: 'APT_FLIGHT_VOICE_REQUESTED', eventId: `route-story:${fresh.runId}:${event.id}`,
                 payload: { kind: 'route_story', narrativeEventId: event.id, intent: event.intent,
-                  label: context.speaker?.narrativeSchema === 'sightseeing-idea.v1' ? 'Besuchsziele' : context.speaker?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', triggerAt,
+                  label: context.speaker?.narrativeSchema === 'apt-news-idea.v1' ? 'Reportagegespräch' : context.speaker?.narrativeSchema === 'sightseeing-idea.v1' ? 'Besuchsziele' : context.speaker?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', triggerAt,
                   prompt: routeVoiceCore.prompt(context.baseContext, event, committed.map(e => e.payload.intent), context.speaker?.narrativeSchema) } });
               if (accepted?.ok) {
                 routeState = observed.state;

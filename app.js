@@ -4472,6 +4472,7 @@ function classifyAptMissionCategory(ms) {
     if (window.MissionPrivateReturnCore?.context(ms || {})) return 'private';
     // A structured private contract is authoritative; prose such as "erkundet" is not a charter cue.
     if (ms?.sightseeingIdea?.schema === 'sightseeing-idea.v1') return 'std';
+    if (ms?.aptNewsIdea?.schema === 'apt-news-idea.v1') return 'std';
     if (ms?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return 'cargo';
     if (ms?.animalTransportIdea?.schema === 'animal-transport-idea.v1') return 'cargo';
     if (ms?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return 'cargo';
@@ -8862,7 +8863,7 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
     }
 
     if (mission?.bush?.requiresReturnHome) {
-        if (mission.charterIdea?.continuation && mission.bush.homeRef) {
+        if ((mission.aptNewsIdea || mission.charterIdea)?.continuation && mission.bush.homeRef) {
             const home=mission.bush.homeRef;
             return [{lat:depPoint.lat,lng:depPoint.lng},{lat:destPoint.lat,lng:destPoint.lng,name:mission.bush.targetRef?.name},
                 {lat:home.lat,lng:home.lon,name:home.name}];
@@ -8961,7 +8962,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'medicalTransferIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -9585,7 +9586,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionSarBriefingCore?.owns(state.currentMissionData) || window.MissionFireBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.animalTransportIdea?.schema === 'animal-transport-idea.v1' || state.currentMissionData?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionSarBriefingCore?.owns(state.currentMissionData) || window.MissionFireBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.animalTransportIdea?.schema === 'animal-transport-idea.v1' || state.currentMissionData?.aptNewsIdea?.schema === 'apt-news-idea.v1' || state.currentMissionData?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -17490,6 +17491,7 @@ function personalizeAptCharterMission(mission = null, context = {}, preferredPer
     if (!mission || typeof mission !== 'object') return mission;
     if (mission.sightseeingIdea?.schema === 'sightseeing-idea.v1') return mission;
     if (mission.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return mission;
+    if (mission.aptNewsIdea?.schema === 'apt-news-idea.v1') return mission;
     if (mission.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return mission;
     if (mission.animalTransportIdea?.schema === 'animal-transport-idea.v1') return mission;
     if (mission.cargoIdea?.schema === 'cargo-idea.v1') return mission;
@@ -21981,6 +21983,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     if (!isPOI && profileId === 'sightseeing_tour' && m.sightseeingIdea?.schema === 'sightseeing-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && profileId === 'cargo_fragile' && m.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
+    if (!isPOI && ['news_coverage','apt_charter','apt_charter_pickup','bush_charter_strip'].includes(profileId) && m.aptNewsIdea?.schema === 'apt-news-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && profileId === 'medical_transfer' && m.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && profileId === 'animal_transport' && m.animalTransportIdea?.schema === 'animal-transport-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:profileId};
     if (!isPOI && ['auto', ''].includes(profileId) && m.cargoIdea?.schema === 'cargo-idea.v1') return {mission:m,paxText:m.pax,cargoText:m.cargo,appliedProfile:'auto'};
@@ -23109,6 +23112,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         cargoText: String(cargoText || ''),
         missionTitle: title,
         sightseeingIdea: mission?.sightseeingIdea?.schema === 'sightseeing-idea.v1' ? mission.sightseeingIdea : null,
+        aptNewsIdea: mission?.aptNewsIdea?.schema === 'apt-news-idea.v1' ? mission.aptNewsIdea : null,
         medicalTransferIdea: mission?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' ? mission.medicalTransferIdea : null,
         animalTransportIdea: mission?.animalTransportIdea?.schema === 'animal-transport-idea.v1' ? mission.animalTransportIdea : null,
         fragileCargoIdea: mission?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' ? mission.fragileCargoIdea : null,
@@ -23604,6 +23608,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (isPOI && profileId === 'media_photo' && window.MissionPoiBriefingCore?.owns(missionLike)) return true;
     if (!isPOI && profileId === 'sightseeing_tour' && missionLike?.sightseeingIdea?.schema === 'sightseeing-idea.v1') return true;
     if (!isPOI && profileId === 'cargo_fragile' && missionLike?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return true;
+    if (!isPOI && ['news_coverage','apt_charter','apt_charter_pickup','bush_charter_strip'].includes(profileId) && missionLike?.aptNewsIdea?.schema === 'apt-news-idea.v1') return true;
     if (!isPOI && profileId === 'medical_transfer' && missionLike?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return true;
     if (!isPOI && profileId === 'animal_transport' && missionLike?.animalTransportIdea?.schema === 'animal-transport-idea.v1') return true;
     if (!isPOI && ['apt_charter','apt_charter_pickup'].includes(profileId) && missionLike?.charterIdea?.schema === 'charter-idea.v1') return true;
@@ -23894,6 +23899,7 @@ function synchronizeMissionPartyPresentation(mission = null, party = null) {
     if (!mission || typeof mission !== 'object') return mission;
     if (mission.sightseeingIdea?.schema === 'sightseeing-idea.v1') return mission;
     if (mission.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1') return mission;
+    if (mission.aptNewsIdea?.schema === 'apt-news-idea.v1') return mission;
     if (mission.medicalTransferIdea?.schema === 'medical-transfer-idea.v1') return mission;
     if (mission.animalTransportIdea?.schema === 'animal-transport-idea.v1') return mission;
     if (mission.cargoIdea?.schema === 'cargo-idea.v1') return mission;
@@ -42054,6 +42060,7 @@ function compactMissionProposalChoice(choice = null) {
         cargoProposal: normalized.cargoProposal || null,
         sightseeingProposal: normalized.sightseeingProposal || null,
         fragileCargoProposal: normalized.fragileCargoProposal || null,
+        aptNewsProposal: normalized.aptNewsProposal || null,
         medicalTransferProposal: normalized.medicalTransferProposal || null,
         animalTransportProposal: normalized.animalTransportProposal || null,
         mode: normalized.mode,
@@ -42559,6 +42566,7 @@ async function buildMissionProposalAptChoices(context = {}) {
         limit: profileId === 'club_utility' && context.aiModeEnabled ? 100 : 18
     });
     if (context.aiModeEnabled && profileId === 'sightseeing_tour') return window.MissionSightseeingBrowser.choices(airports,context);
+    if (context.aiModeEnabled && profileId === 'news_coverage') return window.MissionAptNewsBrowser.choices(airports,context);
     if (context.aiModeEnabled && profileId === 'medical_transfer') return window.MissionMedicalTransferBrowser.choices(airports,context);
     if (context.aiModeEnabled && profileId === 'animal_transport') return window.MissionAnimalTransportBrowser.choices(airports,context);
     if (context.aiModeEnabled && profileId === 'cargo_fragile') return window.MissionFragileCargoBrowser.choices(airports,context);
@@ -44072,6 +44080,7 @@ async function generateMission(options = {}) {
     const useCharterContinuation = !!window.MissionCharterContinuationCore?.context(followupSeed);
     const useSightseeingIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'sightseeing_tour';
     const useFragileCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'cargo_fragile';
+    const useAptNewsIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'news_coverage';
     const useMedicalTransferIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'medical_transfer';
     const useAnimalTransportIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && dispatchProfileId === 'animal_transport';
     const useCargoIdeas = !isPOI && !isBushDispatch && !isPlanningOnlyMode && !followupSeed && aiModeEnabled && selectedAptCategory === 'cargo' && ['auto',''].includes(dispatchProfileId);
@@ -44110,6 +44119,8 @@ async function generateMission(options = {}) {
         missionContractV4={status:'ready',profile:getMissionTaskProfile('news_coverage','poi')};
     } else if (useSightseeingIdeas) {
         missionContractV4 = {status:'ready',profile:{id:'sightseeing_tour',taskDomain:'sightseeing_tour',roleProfile:'tour_guide_relaxed_v1'}};
+    } else if (useAptNewsIdeas) {
+        missionContractV4 = {status:'ready',profile:getMissionTaskProfile('news_coverage','apt')};
     } else if (useMedicalTransferIdeas) {
         missionContractV4 = {status:'ready',profile:getMissionTaskProfile('medical_transfer','apt')};
     } else if (useAnimalTransportIdeas) {
@@ -44730,6 +44741,7 @@ async function generateMission(options = {}) {
             throw new Error('Die gewählte Ausflugsidee benötigt den aktiven Privat-Planner mit bereitem V4-Rahmen. Bitte die Einstellungen prüfen und neue Vorschläge erstellen.');
         }
         if (missionProposalChoice?.sightseeingProposal && !useSightseeingIdeas) throw Error('Die Besuchsauswahl benötigt den aktiven KI-Sightseeing-Generator.');
+        if (missionProposalChoice?.aptNewsProposal && !useAptNewsIdeas) throw Error('Die Reporterauswahl benötigt den aktiven KI-APT-Reporter-Generator.');
         if (missionProposalChoice?.medicalTransferProposal && !useMedicalTransferIdeas) throw Error('Die Medizin-Transferauswahl benötigt den aktiven KI-Generator.');
         if (missionProposalChoice?.animalTransportProposal && !useAnimalTransportIdeas) throw Error('Die Tiertransportauswahl benötigt den aktiven KI-Generator.');
         if (missionProposalChoice?.fragileCargoProposal && !useFragileCargoIdeas) throw Error('Die Frachtauswahl benötigt den aktiven KI-Generator für fragile Fracht.');
@@ -44800,11 +44812,16 @@ async function generateMission(options = {}) {
                     startName:c.visited.name,targetName:c.home.name,distanceNm:calcNav(c.visited.lat,c.visited.lon,c.home.lat,c.home.lon).dist},
                     weather:_missionPipelineV3WeatherBundle({dep:destWeatherSnap,dest:homeWeather})};
             }
-            m=await window.MissionCharterBrowser.continuation({req:followupSeed,base:followupDispatchMission.mission,contract:missionContractV4,aiEnabled:aiModeEnabled});
+            m=await (followupSeed.charterContinuation?.original?.schema==='apt-news-idea.v1'?window.MissionAptNewsBrowser:window.MissionCharterBrowser).continuation({req:followupSeed,base:followupDispatchMission.mission,contract:missionContractV4,aiEnabled:aiModeEnabled});
             missionContractV4=m._missionContractV4;paxText=m.pax;cargoText=m.cargo;
         } else if (useSightseeingIdeas) {
             missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
             m = await window.MissionSightseeingBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.sightseeingProposal,contract:missionContractV4});
+            missionPlanV2=m._missionPlanV2;
+            missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
+        } else if (useAptNewsIdeas) {
+            missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
+            m = await window.MissionAptNewsBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.aptNewsProposal,contract:missionContractV4});
             missionPlanV2=m._missionPlanV2;
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
         } else if (useMedicalTransferIdeas) {
@@ -45621,6 +45638,7 @@ async function generateMission(options = {}) {
         cargoIdea: m.cargoIdea || null,
         sightseeingIdea: m.sightseeingIdea || null,
         fragileCargoIdea: m.fragileCargoIdea || null,
+        aptNewsIdea: m.aptNewsIdea || null,
         medicalTransferIdea: m.medicalTransferIdea || null,
         animalTransportIdea: m.animalTransportIdea || null,
         privateOuting: m.privateOuting || null,
@@ -45736,6 +45754,7 @@ async function generateMission(options = {}) {
     window.currentMissionData = currentMissionData;
     if (currentMissionData.sightseeingIdea) window.MissionSightseeingIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.sightseeingIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.sightseeingIdea.writerMemory});
     if (currentMissionData.fragileCargoIdea) window.MissionFragileCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.fragileCargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.fragileCargoIdea.writerMemory});
+    if (currentMissionData.aptNewsIdea) window.MissionAptNewsIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.aptNewsIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.aptNewsIdea.writerMemory});
     if (currentMissionData.medicalTransferIdea) window.MissionMedicalTransferIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.medicalTransferIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.medicalTransferIdea.writerMemory});
     if (currentMissionData.animalTransportIdea) window.MissionAnimalTransportIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.animalTransportIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.animalTransportIdea.writerMemory});
     if (currentMissionData.cargoIdea) window.MissionCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.cargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.cargoIdea.writerMemory});

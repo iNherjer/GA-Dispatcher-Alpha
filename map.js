@@ -8769,7 +8769,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
     }
 
     // POI-Check: Wenn ein Zielgebiet als Arbeitswegpunkt genutzt wird, bauen wir ein Rundflug-Dreieck
-    if (typeof currentMissionData !== 'undefined' && currentMissionData?.charterIdea?.continuation?.pickupRequired
+    if (typeof currentMissionData !== 'undefined' && (currentMissionData?.aptNewsIdea || currentMissionData?.charterIdea)?.continuation?.pickupRequired
         && currentMissionData?.bush?.homeRef) {
         const home=currentMissionData.bush.homeRef;
         routeWaypoints=[

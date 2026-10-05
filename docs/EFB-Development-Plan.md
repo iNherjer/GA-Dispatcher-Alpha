@@ -1,5 +1,10 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## APT Reporter, Alpha Web v1917 / Tracker v472, 05.10.2026
+
+Reportertransfer nutzt bestehendes APT-Rezept und Tracker-Authority. Eigene Ausrüstung bleibt beim einzelnen Reporter; optionale Abholung und Rückflug verwenden den vorhandenen Charter-Folgeauftrag. Reporter-Routenansagen samt History und besetztem Rückflugabschnitt werden über die bestehenden Voice-Effekte projiziert; keine neue EFB-Zustandsmaschine. Tracker-Neubau enthält die narrativen Module. EFB-Community-Package unverändert. Gemini-Textproben und automatisierte Integrationsprüfungen ersetzen keinen Windows/MSFS- oder Audio-Feldtest.
+
+
 ## Geplante APT-Patientenverlegung, Alpha Web v1916 / Tracker v471, 05.10.2026
 
 Standard-APT-Rezept bleibt Tracker-authoritativ. Zwei PAX (sitzender Patient und medizinische Begleitung) werden als bestehendes Gruppenmanifest projiziert; keine neue EFB-Zustandsmaschine. Medizinische Begleitung ist Voice-Persona. Neues additives Capability `mission.scene.medical-group.v1` und explizites `groupVehicleKind:medical` erhalten Krankenwagen bei Boarding/Deboarding. Gewöhnliche Gruppen bleiben unverändert. Web-Sitzplatzprüfung und Auswahlannahme dürfen die Verlegung nicht auf einen PAX reduzieren. Tracker v471 enthält Group-Core und Relay-Capability. Reales Audio und Windows/MSFS-Feldtest bleiben offen. Bestehendes EFB-Package unverändert; die generische Gruppenprojektion wird weiterverwendet.

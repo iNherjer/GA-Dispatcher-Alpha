@@ -1346,3 +1346,55 @@ test('sightseeing visit voice triggers on tracker telemetry and survives runtime
   assert.equal(manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'voice.flight' && effect.payload.kind === 'route_story').length, 1,
     'a requested approach already blocks comfort, before any voice ACK');
 });
+
+test('reporter route voice triggers on tracker telemetry and survives runtime recreation without DOM', async t => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [{ id: 'pax', itemType: 'passenger', status: 'pending', required: true, passengerCount: 1 }];
+  bundle.missionState.routeWaypoints = [{ lat: 48.1, lng: 8.2 }, { lat: 48.3, lng: 8.5 }];
+  bundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, mode: 'passenger', passenger: {},
+    speaker:{name:'Ada',taskDomain:'news_coverage',narrativeSchema:'apt-news-idea.v1'}, narrativeEvents: [{atPercent: 20, intent: 'Vorfreude auf den belegten Ort'}], baseContext: 'BESUCHSPLAN: Ein belegter Ort wird nach der Landung besucht.', departure: { lat: 48.1, lng: 8.2 } } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const calls = [];
+  const options = { authorityManager: manager, enabled: true, playBoardingVoice: request => {
+    calls.push(request.effect.type);
+    if(request.effect.payload.kind === 'route_story'){assert.equal(request.effect.payload.label,'Reportagegespräch');assert.match(request.effect.payload.prompt,/Ich-Perspektive/);assert.match(request.effect.payload.prompt,/Hinflug/);}
+    return { ok: true, status: 'completed', voiceOutcome: { schema:'ga.mission-voice-outcome.v1', kind: request.effect.payload.kind || 'boarding', text: 'Ein neuer Aspekt zum Besuchsziel', status: 'ok', playback:'completed', speaker:{taskDomain:'news_coverage',narrativeSchema:'apt-news-idea.v1'} } };
+  } };
+  let runtime = createTrackerMissionExecutionRuntime(options);
+  const simulator = { getLivePosition: () => ({ lat: 48.1, lon: 8.2 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }), syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' }) };
+  runtime.attachSimulator(simulator);
+  let seq = 0;
+  for (const intent of ['prepare_mission', 'start_boarding', 'sign_manifest', 'confirm_load', 'start_mission']) {
+    const run = manager.getActiveRun();
+    const result = await runtime.executeIntent({ missionId: run.missionId, runId: run.runId, expectedRevision: run.revision,
+      commandId: `flight-trigger-${++seq}`, intent });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  const tick = observedAt => runtime.observeTelemetry({ observedAt, lat: 48.2, lon: 8.3, onGround: false,
+    gsKts: 70, aglFt: 2000, gForce: 1, bankDeg: 0, vsFpm: 0, windKts: 0 });
+  for (let now = 100000; now <= 101500; now += 250) { tick(now); await new Promise(resolve => setImmediate(resolve)); }
+  assert.equal(calls.filter(type => type === 'voice.flight').length, 1);
+  assert.equal(manager.getExecutionSnapshot().state.voice.flight.kind, 'route_story');
+  const run = manager.getActiveRun();
+  assert.equal(manager.getExecutionRuntimeContext({ missionId: run.missionId, runId: run.runId }).flightVoiceState.routeVoice.done.length, 1);
+  runtime.detachSimulator();
+  runtime = createTrackerMissionExecutionRuntime(options); runtime.attachSimulator(simulator);
+  for (let now = 102000; now < 106000; now += 250) { tick(now); await new Promise(resolve => setImmediate(resolve)); }
+  assert.equal(calls.filter(type => type === 'voice.flight').length, 1);
+  const snapshot = manager.getExecutionSnapshot();
+  assert.ok(snapshot.state.voice.clubHistory?.some(r=>r.text==='Ein neuer Aspekt zum Besuchsziel'),JSON.stringify(snapshot.state.voice));
+  assert.equal(manager.applyExecutionEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
+    expectedRevision: snapshot.authorityRevision, expectedExecutionRevision: snapshot.executionRevision,
+    expectedExecutionStateHash: snapshot.executionStateHash, commandId: 'pending-approach',
+    event: { eventId: 'pending-approach', type: 'APT_APPROACH_VOICE_REQUESTED',
+      sequence: snapshot.executionRevision + 1, occurredAt: 190000, payload: {} }
+  }).ok, true);
+  for (let now = 200000; now < 204000; now += 250) tick(now);
+  assert.equal(manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'voice.flight' && effect.payload.kind === 'route_story').length, 1,
+    'a requested approach already blocks comfort, before any voice ACK');
+});

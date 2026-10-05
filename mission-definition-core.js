@@ -1247,12 +1247,12 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             return {
                 role: 'media_pickup',
                 roleLabel: 'Medien-Abholung',
-                expectedBy: 'Redaktions- und Kamerateam',
+                expectedBy: mission?.aptNewsIdea?.schema === 'apt-news-idea.v1' ? mission.aptNewsIdea.recipient : 'Redaktions- und Kamerateam',
                 visibleCue: 'kleiner Medien-Van mit Kamerateam',
                 vehicleRole: 'vehicle.van',
                 personRole: 'person.ground_crew',
                 equipmentRole: 'cargo.small_box',
-                narrativeHint: 'Am Ziel wartet ein kleines Redaktions- und Kamerateam mit Medien-Van am Vorfeld.'
+                narrativeHint: mission?.aptNewsIdea?.schema === 'apt-news-idea.v1' ? mission.aptNewsIdea.arrival : 'Am Ziel wartet ein kleines Redaktions- und Kamerateam mit Medien-Van am Vorfeld.'
             };
         }
         if (/sightseeing|tour|learning|historian/.test(planTask)) {

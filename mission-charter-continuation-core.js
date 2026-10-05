@@ -9,9 +9,9 @@
     const SCHEMA = 'charter-continuation.v1';
     const copy = value => JSON.parse(JSON.stringify(value));
     const text = (value, max = 600) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
-    function ideaOf(md) { return md?.charterIdea || md?.missionContract?.charterIdea; }
+    function ideaOf(md) { return md?.charterIdea || md?.missionContract?.charterIdea || md?.aptNewsIdea || md?.missionContract?.aptNewsIdea; }
     function source(md) {
-        return ideaOf(md)?.schema === 'charter-idea.v1' && !!returnPlan(ideaOf(md)?.returnPlan) && !md?.bush && !md?.isPOI
+        return ['charter-idea.v1','apt-news-idea.v1'].includes(ideaOf(md)?.schema) && !!returnPlan(ideaOf(md)?.returnPlan) && !md?.bush && !md?.isPOI
             && !md?.followUpRequestId && !md?.followUpContinuation && !ideaOf(md)?.continuation;
     }
     function context(req) { return req?.charterContinuation?.schema === SCHEMA ? req.charterContinuation : null; }
@@ -31,7 +31,7 @@
         const plan = returnPlan(ideaOf(md)?.returnPlan);
         if (!source(md) || !plan?.offered) return null;
         return {schema:'ga.followup.prospect.v1',sourceKind:'apt_charter',followUpKind:'apt_charter_pickup',
-            sourceLabel:'Charter',followUpLabel:'Charter-Rückreise',passenger:copy(md.passenger || ideaOf(md).passenger),
+            sourceLabel:ideaOf(md)?.schema==='apt-news-idea.v1'?'Reporter':'Charter',followUpLabel:ideaOf(md)?.schema==='apt-news-idea.v1'?'Reporter-Rückreise':'Charter-Rückreise',passenger:copy(md.passenger || ideaOf(md).passenger),
             temporalContext:{schema:'ga.missionTemporalContext.v1',kind:'followup_stay',sourceKind:'apt_charter',
                 stayText:plan.stayText,followUpEligibleAt:now+plan.stayHours*3600000,
                 deboardingHint:plan.reason,createdAt:now}};
@@ -53,7 +53,7 @@
         // No outbound event plan or variation history: neither is an experienced conversation.
         const original=copy(idea);delete original.narrativeEvents;delete original.writerMemory;delete original.continuation;
         const passenger={...copy(idea.passenger),narrativeSchema:idea.schema,
-            roleProfile:'charter_professional_neutral_v1',taskDomain:'charter'};
+            roleProfile:idea.schema==='apt-news-idea.v1'?'news_reporter_professional_v1':'charter_professional_neutral_v1',taskDomain:idea.schema==='apt-news-idea.v1'?'news_coverage':'charter'};
         for(const key of ['gTolerance','bankTolerance','cargoSensitivity','stomachSensitivity','comfortPriority','urgencyPriority']) {
             if(typeof md.passenger?.[key]==='string')passenger[key]=md.passenger[key];
         }
@@ -63,22 +63,23 @@
         if(JSON.stringify(c).length>18000) return null;
         const id=`charter-return-${md.missionId}`;
         return {schema:'ga.followup.request.v1',id,dedupeKey:id,status:'pending',sourceMissionId:md.missionId,
-            sourceKind:'apt_charter',followUpKind:'apt_charter_pickup',sourceLabel:'Charter',followUpLabel:'Charter-Rückreise',
+            sourceKind:'apt_charter',followUpKind:'apt_charter_pickup',sourceLabel:ideaOf(md)?.schema==='apt-news-idea.v1'?'Reporter':'Charter',followUpLabel:ideaOf(md)?.schema==='apt-news-idea.v1'?'Reporter-Rückreise':'Charter-Rückreise',
             createdAt:now,updatedAt:now,eligibleAt,expiresAt:eligibleAt+14*86400000,
             route:{homeRef:home,targetRef:visited},passenger,charterContinuation:c,
             temporalContext:{...prospect(md,completedAt).temporalContext},
             source:{title:text(md.mission || md.t,180),completedAt,outcomeSource:'confirmed-completion'},
             ui:{title:`Rückflug von ${visited.name} nach ${home.name}`,subtitle:`Fortsetzung mit ${idea.passenger.name}`,
-                previewText:`${idea.reason} ${plan.reason}`}};
+                previewText:`${idea.purpose || idea.reason} ${plan.reason}`}};
     }
     function draftPrompt(c) {
+        if(c.original.schema==='apt-news-idea.v1')return `Entwickle einen gespeicherten fiktiven Aufenthalt für die Rückreise desselben Reporters. Identität, Redaktion, Ausrüstung, Ort und ursprüngliche journalistische Frage bleiben erhalten. Berichte konkret von Gesprächen, menschlichen Szenen, unterschiedlichen Sichtweisen und aufgenommenem Material am Boden. Keine reale Nachricht oder Behauptung über reale Betreiber erfinden. Die Vorgeschichte ist fiktiv; eine überraschende Enthüllung ist nicht Pflicht. Trage den Ton aus original.character und original.memory weiter. Auch bei einem professionellen Auftrag darf während des Aufenthalts etwas wirklich Lustiges passiert sein: konkrete menschliche Pannen, Missverständnisse oder überraschende Improvisation dürfen eine kleine glaubwürdige Geschichte tragen. Der Reporter kann selbst mitten in der komischen Situation gelandet sein und darüber warm, selbstironisch oder trocken berichten. Entwickle den Witz aus dem ursprünglichen Anlass und den bekannten Personen; keine fremde Episode, reine Witzsammlung oder vorgeschriebene Pointe. Ein ernster Anlass muss nicht künstlich zur Komödie werden, darf aber eine passende heitere Nebenbegebenheit haben. Gerade die Rückflugmomente dürfen mehr erzählen als Konflikte und endgültige Urteile. Halte alle erzählenswerten Einzelheiten im experience oder memory fest, damit der spätere Sprecher nicht erst neue biografische Erlebnisse erfinden muss. Aufenthaltsort und geplante Übernachtung bleiben aus original.returnPlan erhalten. Die Geschichte des Aufenthalts umfasst nur Bodenereignisse, keine Aussagen über aktuelles Flugwetter. Offene oder widersprüchliche Aussagen nicht als überprüfte Tatsachen ausgeben. Der Pilot hat die Recherche nicht automatisch miterlebt. experience beschreibt nur diesen bereits vergangenen Aufenthalt; reason die Rückreise, nextStep die anschließende Redaktionsarbeit. Veröffentlichung noch geplant. Nutze tatsächlich gehörte Hinflug-Aussagen für Kontinuität. Plane gern zwei bis drei unterschiedliche, ausführlich erzählbare Routenmomente aus dem Aufenthalt, ohne den ganzen Rückblick schon im Briefing abzuspulen. Keine weitere Flugaufgabe. Antworte als ein einzelnes JSON-Objekt, keine Liste: {experience,reason,nextStep,memory,narrativeEvents}; experience 200–1200 Zeichen (Ziel 400–800), reason/nextStep/memory je 40–600 Zeichen. Erzähle den fiktiven Auftrag, keine erfundene reale Airport-Infrastruktur oder rechtlich/technisch bestätigte Erkenntnis. Wähle bei widersprüchlichen Aussagen eine offene Einordnung, kein eindeutiges Rechercheurteil. narrativeEvents sind ergänzender Gesprächsstoff, keine bereits erzählte Handlung im bevorstehenden Flug; keine Geräteaktionen oder Wiedergabe von Tonaufnahmen vorwegnehmen. narrativeEvents 0–3 mit intent bis 600 und atPercent größer 0 kleiner 100 auf dem besetzten Rückflug. DATEN: ${JSON.stringify(c)}`;
         return `Entwickle die Fortsetzung dieses abgeschlossenen Charter-Hinflugs. Der ursprüngliche Kundenauftrag, alle Reisenden, ihr Gepäck und die Orte stehen fest. Der Pilot bleibt beauftragter Beförderer und hat den Aufenthalt nicht automatisch miterlebt. Entwirf einen plausiblen fiktiven Aufenthalt, persönliche Details und den jetzigen Rückreisegrund aus dem ursprünglichen Anlass. Entwickle daraus eine eigenständige kleine Fortsetzung: Was haben die Reisenden während des Aufenthalts erlebt, und was bedeutet das jetzt für ihr ursprüngliches Anliegen? Persönliche Einzelheiten sollen zusammenpassen und den Rückblick konkret machen. Eine unspektakuläre Entwicklung genügt; weder Konflikt noch Wendung oder Pointe sind Pflicht. Humor darf sich natürlich aus den Personen und ihrer Situation ergeben. Der nächste Schritt nach der Rückkehr soll verständlich sein, ohne daraus eine neue Flugaufgabe zu machen. Keine Beispielhandlung, Berufs- oder Motivliste nachbauen; heitere, schlichte und ernste Entwicklungen sind gleichwertig. Die Rückreise bleibt Beförderung, ohne zusätzliche Aufgaben oder Zwischenziele. Keine obligatorischen Berichte, Dokumente oder Übergaben erfinden. Persönliche Fiktion ist erlaubt; Betriebszustände, Wetter, reale Veranstaltungen, Messungen und Flugergebnisse brauchen Belege. Geplante Aufenthaltsdauer beachten, keine zusätzlichen erfundenen Kalendertermine. Bereits gehörte Gespräche sind Kontinuität, keine neuen Vorlagen.\nexperience beschreibt nur den Aufenthalt vor diesem Rückflug, nie den bevorstehenden Flug. reason erklärt die jetzige Rückreise, nextStep das Vorhaben nach Ankunft. Optional 0–3 verschiedene narrativeEvents; kein Standardwert, keine Quote. Verteile Gesprächsstoff nur, wenn er die Geschichte ergänzt: Jeder gewählte Moment soll einen neuen Gedanken oder eine persönliche Facette beitragen. Wiederhole nicht denselben Rückblick mit anderen Worten. Anknüpfungen an tatsächlich gehörte Gespräche sind möglich, ohne deren Aussagen noch einmal abzuspulen. Keine festgelegte Dramaturgie oder Ereignisanzahl aus einer Beispielgeschichte übernehmen. Prozentwerte gelten ausschließlich für den besetzten Rückflug vom Aufenthaltsplatz zum ursprünglichen Ausgangsplatz. Je Ereignis intent (maximal 600 Zeichen) und entweder atPercent (größer 0, kleiner 100) oder geo:{anchorId,lat,lon,radiusNm}. Geo nur aus den belegten original.geoAnchors; keine Routenänderung.\nNur JSON {experience,reason,nextStep,memory,narrativeEvents}. Vier Textfelder jeweils 40–600 Zeichen.\nURSPRUNG UND GEHÖRTE GESPRÄCHE (Daten): ${JSON.stringify(c)}`;
     }
     function validateDraft(raw,c) {
         if(!raw) return null;
         const result={};
         for(const key of ['experience','reason','nextStep','memory']) {
-            const value=text(raw[key]);if(value.length<40)return null;result[key]=value;
+            const value=text(raw[key],c.original.schema==='apt-news-idea.v1'&&key==='experience'?1200:600);if(value.length<40)return null;result[key]=value;
         }
         result.narrativeEvents=voice.events(raw.narrativeEvents);
         if(!result.narrativeEvents)return null;
@@ -89,6 +90,7 @@
     function continuationIdea(req) {
         const c=context(req),draft=c&&validateDraft(c.experience,c);
         if(!draft)return null;
+        if(c.original.schema==='apt-news-idea.v1')return {...copy(c.original),purpose:draft.reason,background:draft.experience,groundPlan:draft.nextStep,publication:draft.nextStep,memory:draft.memory,narrativeEvents:draft.narrativeEvents,arrival:'Geplanter Empfang am vereinbarten Abstellbereich am Ausgangsplatz.',returnPlan:{offered:false,reason:'Der Reporter kehrt nach der Recherche zurück.'},route:{start:c.visited,target:c.home},continuation:copy(c)};
         return {...copy(c.original),schema:'charter-idea.v1',reason:draft.reason,background:draft.experience,
             arrival:draft.nextStep,memory:draft.memory,narrativeEvents:draft.narrativeEvents,
             returnPlan:{offered:false,reason:'Diese gebuchte Rückreise schließt den Charterauftrag ab.'},
@@ -97,7 +99,7 @@
     function applyMission(req,base,writtenMission) {
         const idea=continuationIdea(req);
         if(!idea||!base)return null;
-        idea.writerMemory=writtenMission.charterIdea?.writerMemory || null;
+        idea.writerMemory=(writtenMission.aptNewsIdea || writtenMission.charterIdea)?.writerMemory || null;
         const pickup=!!base.bush;
         const count=idea.passengerCount;
         const party={count,kind:count===1?'single':'group',label:idea.groupLabel};
@@ -105,11 +107,11 @@
         const pickupStory={personName:passenger.name,role:passenger.role,exactWhere:`am vereinbarten Flugplatz ${context(req).visited.name}`,
             whyThere:idea.background,returnReason:idea.reason,boardingCue:passenger.greetingText,departureCue:idea.reason};
         return {...base,...writtenMission,passenger:{...passenger,pickupStory},
-            bush:pickup?{...base.bush,pickupPassengerCount:count,pickupLabel:idea.groupLabel,
+            bush:pickup?{...base.bush,pickupPassengerCount:count,pickupLabel:idea.groupLabel,pickupCargoLabel:idea.shipment?.label || base.bush.pickupCargoLabel,pickupCargoWeightLbs:idea.shipment?.weightLbs ?? base.bush.pickupCargoWeightLbs,
                 pickupGreetingText:passenger.greetingText,pickupStory}:null,
-            _source:'Charter-Fortsetzung V1',
-            _missionWriterV4Debug:{...writtenMission._missionWriterV4Debug,writerMode:'charter-continuation-v1'},
-            charterIdea:idea,party,passengerCount:pickup?0:count,plannedPassengerCount:count,
+            _source:idea.schema==='apt-news-idea.v1'?'Reporter-Fortsetzung V1':'Charter-Fortsetzung V1',
+            _missionWriterV4Debug:{...writtenMission._missionWriterV4Debug,writerMode:idea.schema==='apt-news-idea.v1'?'apt-news-continuation-v1':'charter-continuation-v1'},
+            ...(idea.schema==='apt-news-idea.v1'?{aptNewsIdea:idea,charterIdea:null,cat:'std'}:{charterIdea:idea}),party,passengerCount:pickup?0:count,plannedPassengerCount:count,
             pax:pickup?`0 PAX am Start · ${count} PAX Pickup (${idea.groupLabel})`:`${count} PAX (${idea.groupLabel})`,
             followUpRequestId:req.id,followUpContinuation:base.followUpContinuation,
             _requestedProfile:base._requestedProfile,_appliedProfile:base._appliedProfile};

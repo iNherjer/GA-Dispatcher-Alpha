@@ -2928,10 +2928,10 @@
         const charter=window.MissionCharterContinuationCore?.context(req);
         if(charter){
             const idea=charter.original;
-            passenger={...req.passenger,narrativeSchema:'charter-idea.v1'};
+            passenger={...req.passenger,narrativeSchema:idea.schema};
             paxText=bushSpec?`0 PAX am Start · ${idea.passengerCount} PAX Pickup (${idea.groupLabel})`:`${idea.passengerCount} PAX (${idea.groupLabel})`;
-            cargoText=idea.luggageWeightLbs?`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`:'Kein gebuchtes Gepäck (0 lbs)';
-            if(bushSpec)bushSpec={...bushSpec,pickupPassengerCount:idea.passengerCount,pickupCargoLabel:idea.luggageLabel,pickupCargoWeightLbs:idea.luggageWeightLbs};
+            cargoText=idea.schema==='apt-news-idea.v1'?`${idea.shipment.label} (${idea.shipment.weightLbs} lbs)`:idea.luggageWeightLbs?`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`:'Kein gebuchtes Gepäck (0 lbs)';
+            if(bushSpec)bushSpec={...bushSpec,pickupPassengerCount:idea.passengerCount,pickupCargoLabel:idea.shipment?.label || idea.luggageLabel,pickupCargoWeightLbs:idea.shipment?.weightLbs ?? idea.luggageWeightLbs};
             // Never expose the legacy boilerplate as a fallback for this contract.
             story='';title=`Rückflug von ${charter.visited.name} nach ${charter.home.name}`;
         }

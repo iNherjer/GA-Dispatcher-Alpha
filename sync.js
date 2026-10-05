@@ -15141,7 +15141,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'medicalTransferIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
@@ -19077,7 +19077,7 @@ function finalizeFlightRecorder(now, endLat = null, endLon = null) {
 
 window.missionClubSpeechHistory = () => missionRuntime.routeVoice?.spoken || [];
 window.missionRecordClubSpeech = function(text) {
-    if (_missionExecutionAuthorityIsTracker() || !(currentMissionData?.clubIdea?.schema === 'club-idea.v1' || currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1')) return;
+    if (_missionExecutionAuthorityIsTracker() || !(currentMissionData?.aptNewsIdea?.schema === 'apt-news-idea.v1' || currentMissionData?.clubIdea?.schema === 'club-idea.v1' || currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1')) return;
     const core = window.GAMissionRouteVoiceCore;
     if (!core) return;
     const previous = missionRuntime.routeVoice || {};
@@ -19088,10 +19088,10 @@ window.missionRecordClubSpeech = function(text) {
 function _missionObserveRouteVoice(lat, lon, fd) {
     if (_missionExecutionAuthorityIsTracker()) return;
     const core = window.GAMissionRouteVoiceCore;
-    const plan = (currentMissionData?.sightseeingIdea || currentMissionData?.charterIdea || currentMissionData?.clubIdea)?.narrativeEvents;
+    const plan = (currentMissionData?.aptNewsIdea || currentMissionData?.sightseeingIdea || currentMissionData?.charterIdea || currentMissionData?.clubIdea)?.narrativeEvents;
     if (!core || !plan?.length) return;
     const previous = missionRuntime.routeVoice || {};
-    const leg=window.MissionCharterContinuationCore?.voiceLeg(currentMissionData?.charterIdea,routeWaypoints,
+    const leg=window.MissionCharterContinuationCore?.voiceLeg(currentMissionData?.aptNewsIdea || currentMissionData?.charterIdea,routeWaypoints,
         currentMissionData?.bushProgress || {},currentMissionData?.cargoManifest?.items?.some(item=>item.id==='pickup-passenger'&&item.status==='loaded')) || {ready:true,route:routeWaypoints};
     if(!leg.ready)return;
     const observed = core.observe(plan, leg.route, previous, {

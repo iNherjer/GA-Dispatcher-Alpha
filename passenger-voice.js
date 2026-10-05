@@ -2139,6 +2139,7 @@ function _domainDriftGuard(mode = 'generic') {
         if (m === 'progress') return ' Drift-Guard (Sightseeing): Nur Aussicht, Orientierung, Erinnerungsfotos und ruhige Beobachtung. Keine Arbeits-, Einsatz-, Vermessungs- oder Instruktor-Sprache.';
         return ' Drift-Guard (Sightseeing): Persoenlicher Rundflugston. Keine Arbeitsanweisung, keine feste Arbeitshoehe verlangen, keine Erfassung/Dokumentation/Lagebild/Inspektion. Zielbereich nur als Blickmoment aus der Luft erzaehlen, nicht als Bodenaktionsort.';
     }
+    if (td === 'news_coverage' && window.activePassenger?.narrativeSchema === 'apt-news-idea.v1') return ' APT-Reporter-Kontinuität: Folge dem zeitlichen Standpunkt im APT-REPORTAGEAUFTRAG. Hinflug: Hinweise und Erwartungen, Bodenrecherche noch bevorstehend. Rückflug: nur den gespeicherten fiktiven Aufenthalt erzählen; offene Fragen bleiben offen. Keine Luftarbeitsaufgabe.';
     if (td === 'news_coverage' && window.activePassenger?.narrativeSchema === 'news-briefing.v1') return ' Reporter-Kontinuität: Trage den REPORTAGEAUFTRAG weiter. Neugier, Ernst oder Humor passend zur Geschichte; beobachtbare Eindrücke statt technischer Diagnose. Offene Fragen bleiben offen, Material erst nach Zielabschluss als aufgenommen behandeln.';
     if (td === 'news_coverage') {
         if (m === 'result') return ' Drift-Guard (News): Abschluss als kurze sachliche Lagezusammenfassung. Kein Einsatzabschluss wie SAR, kein Touri-Ton.';
@@ -4418,7 +4419,7 @@ Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenpers
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────
 
 async function _generateSpokenText(apiKey, situationPrompt, options = {}) {
-    if ((window.activePassenger?.taskDomain === 'club_utility' || ['charter-idea.v1','sightseeing-idea.v1'].includes(window.activePassenger?.narrativeSchema)) && window.GAMissionRouteVoiceCore) {
+    if ((window.activePassenger?.taskDomain === 'club_utility' || ['charter-idea.v1','sightseeing-idea.v1','apt-news-idea.v1'].includes(window.activePassenger?.narrativeSchema)) && window.GAMissionRouteVoiceCore) {
         situationPrompt = window.GAMissionRouteVoiceCore.conversationPrompt(situationPrompt, window.missionClubSpeechHistory?.());
     }
     const provider = _getAiProvider();
@@ -5300,7 +5301,7 @@ function _speakerSnapshotForActivePax() {
         gender: pax.gender || '',
         roleProfile: pax.roleProfile || '',
         taskDomain: pax.taskDomain || '',
-        ...(['charter-idea.v1','sightseeing-idea.v1'].includes(pax.narrativeSchema) ? {narrativeSchema:pax.narrativeSchema} : {}),
+        ...(['charter-idea.v1','sightseeing-idea.v1','apt-news-idea.v1'].includes(pax.narrativeSchema) ? {narrativeSchema:pax.narrativeSchema} : {}),
         ...(pax.privateReturn?.schema === 'private-return.v1' ? { voiceIdentity: pax.privateReturn.voiceIdentity } : {})
     } : null;
 }
@@ -7618,6 +7619,8 @@ ${urgencyLine}`
     ];
     const poiNarrative = window.MissionSarBriefingCore?.voiceContext(md?.sarBriefing || contract?.sarBriefing) || window.MissionFireBriefingCore?.voiceContext(md?.fireBriefing || contract?.fireBriefing) || window.MissionChainBriefingCore?.voiceContext(md.chainBriefing) || window.MissionKnowledgeBriefingCore?.voiceContext(md?.knowledgeBriefing || contract?.knowledgeBriefing) || window.MissionPoiBriefingCore?.voiceContext(md?.poiBriefing || contract?.poiBriefing) || window.MissionInfraBriefingCore?.voiceContext(md?.infraBriefing || contract?.infraBriefing) || window.MissionNewsBriefingCore?.voiceContext(md?.newsBriefing || contract?.newsBriefing) || window.MissionBioBriefingCore?.voiceContext(md?.bioBriefing || contract?.bioBriefing) || window.MissionGeoBriefingCore?.voiceContext(md?.geoBriefing || contract?.geoBriefing) || window.MissionMappingBriefingCore?.voiceContext(md?.mappingBriefing || contract?.mappingBriefing) || window.MissionPoiFollowupNarrativeCore?.voiceContext(md?.poiContinuationBriefing || contract?.poiContinuationBriefing) || '';
     if (poiNarrative) lines.push(poiNarrative);
+    const aptNewsIdea=md?.aptNewsIdea || contract?.aptNewsIdea;
+    if(aptNewsIdea?.schema === 'apt-news-idea.v1') lines.push(window.MissionAptNewsIdeasCore.voiceContext(aptNewsIdea));
     const sightseeingIdea=md?.sightseeingIdea || contract?.sightseeingIdea;
     if(sightseeingIdea?.schema === 'sightseeing-idea.v1') lines.push(window.MissionSightseeingIdeasCore.voiceContext(sightseeingIdea));
     const clubIdea = md?.clubIdea || contract?.clubIdea;
@@ -7863,6 +7866,7 @@ function _roleStyleHint(roleRaw, pax = null) {
     if (taskDomain === 'science_geo') {
         return 'geologisch sachlich und ruhig: Relief, Erosion, Hangform, Sedimente, Uferkanten und Geländestruktur stehen im Vordergrund; keine Bio-, Sightseeing- oder Inspektionssprache.';
     }
+    if (taskDomain === 'news_coverage' && pax?.narrativeSchema === 'apt-news-idea.v1') return 'journalistisch, neugierig und kollegial; je nach Auftragscharakter auch heiter, trocken-witzig oder selbstironisch. Humorvolle Lokalgeschichten sind vollwertig. Hinweise und Vorfreude auf dem Hinflug; konkrete gespeicherte Erlebnisse auf dem Rückflug. Durchgehend du zum Piloten, keine erzwungene Pointe.';
     if (taskDomain === 'news_coverage' && pax?.narrativeSchema === 'news-briefing.v1') return 'journalistisch, neugierig und natürlich: ernst, warm oder mit Humor passend zum konkreten Reportageanlass, ohne erzwungene Pointe.';
     if (taskDomain === 'news_coverage') {
         return 'sachlich beobachtend und professionell: kurze, nüchterne Lageeinschätzung ohne Show.';
@@ -10367,7 +10371,7 @@ window.paxVoiceBuildApproachAuthorityContext = function() {
         ...context,
         dest: md?.dest || 'dem Flughafen',
         start: md?.start || '?',
-        narrativeEvents: (md?.sightseeingIdea || md?.charterIdea || md?.clubIdea)?.narrativeEvents || [],
+        narrativeEvents: (md?.aptNewsIdea || md?.sightseeingIdea || md?.charterIdea || md?.clubIdea)?.narrativeEvents || [],
         privateReturn: _privateReturnVoiceContext(md),
         departure: typeof routeWaypoints !== 'undefined' ? routeWaypoints?.[0] : null,
         passenger: window.activePassenger ? { ...window.activePassenger } : null,
@@ -10884,7 +10888,7 @@ function _tickPoiDwell(lat, lon, flightData) {
 window.paxVoiceSpeakRouteEvent = function(event, previousIntents = []) {
     const core = window.GAMissionRouteVoiceCore;
     if (!core || !_missionHasPax() || _paxMissionEndVoiceActive() || !window.paxVoiceRouteEventReady()) return;
-    return _speakAndShow(core.prompt(_baseContext(), event, previousIntents, window.activePassenger?.narrativeSchema), window.activePassenger?.narrativeSchema === 'sightseeing-idea.v1' ? 'Besuchsziele' : window.activePassenger?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', null, { cancelWhenMissionEnd: true });
+    return _speakAndShow(core.prompt(_baseContext(), event, previousIntents, window.activePassenger?.narrativeSchema), window.activePassenger?.narrativeSchema === 'apt-news-idea.v1' ? 'Reportagegespräch' : window.activePassenger?.narrativeSchema === 'sightseeing-idea.v1' ? 'Besuchsziele' : window.activePassenger?.narrativeSchema === 'charter-idea.v1' ? 'Reisegespräch' : 'Vereinsgeschichte', null, { cancelWhenMissionEnd: true });
 };
 
 window.paxVoiceRouteEventReady = function() {
