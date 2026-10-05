@@ -5963,3 +5963,8 @@ Schriftknopf-Klicks, Grenzen, Reload/Persistenz, Reset und stabiler Missions-DOM
 Tracker-EXE auf Apple ARM mit pkg 6.18.1/node18-win-x64 ohne Bytecode gebaut.
 Die reale Simulator-/Coherent-/VR-Abnahme bleibt offen; der Nutzer hat den
 Alpha-Rollout am 05.10. beauftragt. Stable/Beta bleiben unveraendert.
+
+Alpha-Releases v470 und efb-app-v0.4.15 veroeffentlicht. Beide oeffentlichen
+Downloads erneut nach Groesse und SHA256 geprueft. Tracker: 173494172 Bytes,
+SHA256 9bcbc5c6779aa4e84b46f170f35e6832566e0cc0725a603a3ada91c1b1c2b991.
+Nur Alpha-Zeiger aktiviert; reale MSFS-/VR-Abnahme bleibt offen.
