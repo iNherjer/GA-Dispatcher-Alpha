@@ -136,7 +136,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
       await new Promise(resolve => setTimeout(resolve, Math.max(0, Number(payload.delayMs) || 0)));
       const current = authorityManager.getExecutionSnapshot?.();
       if (current && (current.runId !== run.runId || !current.state.flags.active || current.state.flags.closingPending || current.state.flags.farewellStarted)) return completed(request);
-      recipe = { ...recipe, ...flightContext, enabled: true, kind: payload.kind, prompt: payload.prompt, fallbackText: payload.fallbackText || '', playCue: false };
+      recipe = { ...recipe, ...flightContext, enabled: true, kind: payload.kind, ...(payload.kind === 'pax_query' ? { paxMenuRequest: true } : {}), prompt: payload.prompt, fallbackText: payload.fallbackText || '', playCue: false };
     }
     if (request.effect?.type === 'voice.approach') {
       const context = { ...object(object(object(plan.effects)['voice.approach']).context) };
@@ -223,6 +223,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
         } : {}),
         effectId,
         kind: recipe.kind || 'boarding',
+        ...(recipe.paxMenuRequest === true ? { paxMenuRequest: true } : {}),
         prompt: recipe.prompt,
         fallbackText: recipe.fallbackText,
         taskDomain: recipe.taskDomain,

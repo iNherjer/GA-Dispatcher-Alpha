@@ -36,7 +36,7 @@ function prepareAction(context, action, detector, sample, target, memory = {}) {
     { ...sample, mslFt: sample?.altFt ?? sample?.alt ?? sample?.mslFt }, target, memory);
   return { action, ...(rendered.memory ? { memory: rendered.memory } : {}), label: rendered.label, notBefore: Date.now(), resolvedRecipe: {
     schema: 'ga.mission-poi-voice-recipe.v1', missionId: context.missionId, kind: 'poi',
-    enabled: true, audioEnabled: context.audioEnabled, taskDomain: context.taskDomain,
+    enabled: true, audioEnabled: context.audioEnabled, taskDomain: context.taskDomain, paxMenuRequest: true,
     prompt: rendered.prompt, fallbackText: rendered.fallbackText, playCue: false,
     speaker: context.speaker, textModels: context.textModels, ttsModels: context.ttsModels,
     ttsHedgeEnabled: context.ttsHedgeEnabled, ttsHedgeDelayMs: context.ttsHedgeDelayMs

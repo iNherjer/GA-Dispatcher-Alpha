@@ -4013,7 +4013,7 @@ function _missionWeatherReactionLine(flightData = null) {
     return parts.join(', ');
 }
 
-function _paxSpeakTextDirect(text, eventLabel = 'Mission') {
+function _paxSpeakTextDirect(text, eventLabel = 'Mission', options = {}) {
     const epoch = _paxMissionEpoch;
     const clean = _normalizeSpokenText(text);
     if (!clean) return;
@@ -4025,7 +4025,7 @@ function _paxSpeakTextDirect(text, eventLabel = 'Mission') {
     if (!_paxVoiceEnabled) return;
     const run = async () => {
         if (epoch !== _paxMissionEpoch) return;
-        try { await _playTextAsTTS(clean, speaker, epoch); }
+        try { await _playTextAsTTS(clean, speaker, epoch, { ...options, eventLabel }); }
         catch (e) { _paxLog(`Mission-Action TTS Fehler: ${e.message || e}`, 'warn'); }
     };
     _paxSpeechQueue = _paxSpeechQueue.then(run, run);
@@ -4033,8 +4033,8 @@ function _paxSpeakTextDirect(text, eventLabel = 'Mission') {
 
 function _missionActionSpeak(prompt, eventLabel, fallbackText) {
     _refreshMissionActionMenu();
-    if (prompt && _getApiKey()) return _speakAndShow(prompt, eventLabel);
-    _paxSpeakTextDirect(fallbackText || 'Ich habe gerade nicht genug Kontext fuer eine belastbare Rueckmeldung.', eventLabel);
+    if (prompt && _getApiKey()) return _speakAndShow(prompt, eventLabel, null, { paxMenuRequest: true });
+    _paxSpeakTextDirect(fallbackText || 'Ich habe gerade nicht genug Kontext fuer eine belastbare Rueckmeldung.', eventLabel, { paxMenuRequest: true });
     return Promise.resolve();
 }
 
@@ -4042,19 +4042,19 @@ window.paxKnowledgeTellMore = function() {
     if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('poi_tell_more');
     const context = _activePoiKnowledgeContext();
     if (!_poiKnowledgeTellMoreAvailable()) {
-        _paxSpeakTextDirect('Dazu habe ich gerade keine gesicherte Faktenbasis geladen.', 'Erzähl mal');
+        _paxSpeakTextDirect('Dazu habe ich gerade keine gesicherte Faktenbasis geladen.', 'Erzähl mal', { paxMenuRequest: true });
         return;
     }
     const fact = _poiKnowledgeNextManualFact();
     const target = _poiKnowledgeTargetName(context);
     if (!fact) {
-        _paxSpeakTextDirect(`Mehr weiß ich dazu leider auch nicht. Die gesicherten Punkte zu ${target} haben wir damit durch.`, 'Erzähl mal');
+        _paxSpeakTextDirect(`Mehr weiß ich dazu leider auch nicht. Die gesicherten Punkte zu ${target} haben wir damit durch.`, 'Erzähl mal', { paxMenuRequest: true });
         _refreshPoiKnowledgeGuideMenu();
         return;
     }
     const clip = _poiKnowledgeManualFactClip(fact.text);
     const intro = _poiKnowledgeManualFactIndices.size <= 1 ? 'Klar. Noch ein Punkt:' : 'Noch ein Punkt:';
-    _paxSpeakTextDirect(`${intro} ${clip}.`, 'Erzähl mal');
+    _paxSpeakTextDirect(`${intro} ${clip}.`, 'Erzähl mal', { paxMenuRequest: true });
     _refreshPoiKnowledgeGuideMenu();
 };
 
@@ -4195,15 +4195,15 @@ window.triggerPaxSarHeliPatientLoaded = function(ctx = {}) {
 function _poiMissionStatusAction() {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
-        _paxSpeakTextDirect('Das ist keine POI-Mission. Fuer diesen Flug ist eher Wohlbefinden, Ladung oder Wetter relevant.', 'Missionsstatus');
+        _paxSpeakTextDirect('Das ist keine POI-Mission. Fuer diesen Flug ist eher Wohlbefinden, Ladung oder Wetter relevant.', 'Missionsstatus', { paxMenuRequest: true });
         return;
     }
     if (_activeTaskDomain() === 'mapping_survey') {
-        _paxSpeakTextDirect(_surveyPatternStatusText(ctx), 'Missionsstatus');
+        _paxSpeakTextDirect(_surveyPatternStatusText(ctx), 'Missionsstatus', { paxMenuRequest: true });
         return;
     }
     if (_poiChainActiveSpec()) {
-        _paxSpeakTextDirect(_poiChainStatusText(ctx), 'Missionsstatus');
+        _paxSpeakTextDirect(_poiChainStatusText(ctx), 'Missionsstatus', { paxMenuRequest: true });
         return;
     }
     const facts = _missionStatusFacts(ctx);
@@ -4222,15 +4222,15 @@ Antworte als Passagier/Rollenperson dynamisch zum Kontext: Anflug, Datenaufnahme
 function _poiMissionOrientationAction(_cityRetry = false) {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
-        _paxSpeakTextDirect('Orientierungshilfe ist aktuell nur fuer POI-Ziele sinnvoll.', 'Orientierung');
+        _paxSpeakTextDirect('Orientierungshilfe ist aktuell nur fuer POI-Ziele sinnvoll.', 'Orientierung', { paxMenuRequest: true });
         return;
     }
     if (_activeTaskDomain() === 'mapping_survey') {
-        _paxSpeakTextDirect(_surveyPatternOrientationText(ctx), 'Orientierung');
+        _paxSpeakTextDirect(_surveyPatternOrientationText(ctx), 'Orientierung', { paxMenuRequest: true });
         return;
     }
     if (_poiChainActiveSpec()) {
-        _paxSpeakTextDirect(_poiChainOrientationText(ctx), 'Orientierung');
+        _paxSpeakTextDirect(_poiChainOrientationText(ctx), 'Orientierung', { paxMenuRequest: true });
         return;
     }
     if (!_cityRetry && !_paxCityDatasetAvailable() && typeof loadGlobalCities === 'function') {
@@ -4247,6 +4247,7 @@ Pflichtdaten: ${vector}
 Ziel: ${ctx.targetName}
 ${factLine || 'Keine bestaetigte Landmarke verfuegbar; beschreibe das Ziel anhand Auftrag, Zielname und Umgebung nur vorsichtig.'}
 Orientierungsregel: Wenn die Entfernung groesser als 6 NM ist, nenne nach Steuerkurs/Entfernung zuerst den groben Kartenbezug zu Ort/Region. Danach darf genau ein lokaler Nahbereichs-Hinweis kommen, wenn er bestaetigt ist. Lokale Felsen, Bachnamen, Wege oder Aussichtspunkte nicht als primaere Orientierung verwenden, ausser wir sind im Nahbereich oder sie sind das Ziel selbst.
+Faktenregel: Der Kartenbezug beschreibt die Zielposition, nicht automatisch unsere eigene Position. Bestaetigte Landmarken sind Suchhinweise; ohne Live-Sichtbestaetigung weder Sichtung noch Nicht-Sichtung behaupten. Auch keine Prognose, ob oder wann die Landmarke sichtbar wird.
 Antworte zuerst mit Steuerkurs und Entfernung in ganzen NM, danach eine kurze Zielbeschreibung oder Landmarkenhilfe. Keine langen Stories, keine erfundenen Landmarken. Max 2 Saetze.${_toneHint()}` : null;
     const fallback = factLine && /^GROBER KARTENBEZUG:/i.test(factLine)
         ? `${vector} ${factLine.split('\n')[0].replace(/^GROBER KARTENBEZUG:\s*/i, '').replace(/\s*Nutze diesen Ort.*$/i, '')}`
@@ -4269,20 +4270,20 @@ window.addEventListener('missioncontrolchange', () => { _refreshMissionActionMen
 window.paxMissionReportTargetFound = function() {
     if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('poi_report_found');
     if (!_isPOIMission() || _activeTaskDomain() !== 'search_and_rescue') {
-        _paxSpeakTextDirect('Diese Schnellmeldung ist nur fuer laufende SAR-POI-Missionen gedacht.', 'Fundmeldung');
+        _paxSpeakTextDirect('Diese Schnellmeldung ist nur fuer laufende SAR-POI-Missionen gedacht.', 'Fundmeldung', { paxMenuRequest: true });
         return;
     }
     if (_poiSatisfied) {
-        _paxSpeakTextDirect('Ich habe den Fund bereits bestaetigt. Wir koennen den Rueckflug oder die naechste Phase fortsetzen.', 'Fundmeldung');
+        _paxSpeakTextDirect('Ich habe den Fund bereits bestaetigt. Wir koennen den Rueckflug oder die naechste Phase fortsetzen.', 'Fundmeldung', { paxMenuRequest: true });
         return;
     }
     if (_poiAborted) {
-        _paxSpeakTextDirect('Der Auftrag ist bereits abgebrochen. Fuer diese Lage lohnt keine weitere Sichtmeldung mehr.', 'Fundmeldung');
+        _paxSpeakTextDirect('Der Auftrag ist bereits abgebrochen. Fuer diese Lage lohnt keine weitere Sichtmeldung mehr.', 'Fundmeldung', { paxMenuRequest: true });
         return;
     }
     const ctx = _poiManualReportContext();
     if (!ctx?.hasPosition || !ctx?.confirmCoords) {
-        _paxSpeakTextDirect('Mir fehlt gerade die noetige Live-Position fuer eine sichere Bestaetigung. Lass uns kurz weiter im Suchraum bleiben.', 'Fundmeldung');
+        _paxSpeakTextDirect('Mir fehlt gerade die noetige Live-Position fuer eine sichere Bestaetigung. Lass uns kurz weiter im Suchraum bleiben.', 'Fundmeldung', { paxMenuRequest: true });
         return;
     }
     if (!ctx.nearEnough) {
@@ -4309,7 +4310,7 @@ window.paxMissionReportTargetFound = function() {
         _refreshPaxWidgetVisibility();
         if (!confirmed) {
             if (typeof window.triggerPaxSarHeliFoundConfirmed === 'function') window.triggerPaxSarHeliFoundConfirmed(ctx);
-            else _paxSpeakTextDirect('Fund bestaetigt. Bitte landen oder stabil hovern, damit wir die Person aufnehmen koennen.', 'Fund bestaetigt');
+            else _paxSpeakTextDirect('Fund bestaetigt. Bitte landen oder stabil hovern, damit wir die Person aufnehmen koennen.', 'Fund bestaetigt', { paxMenuRequest: true });
         }
         return;
     }
@@ -4400,21 +4401,23 @@ window.paxWeatherReactionReport = function() {
     if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('pax_weather');
     const ctx = _missionActionContext();
     const wx = _missionWeatherReactionLine(ctx.fd);
+    const liveWeather = wx || _weatherContext(ctx.fd);
     const base = _baseContext();
     const prompt = base ? `${base}
 
 Button-Frage: Der Pilot fragt nach einer Reaktion auf markantes Wetter.
-Live-Wetter: ${wx || _weatherContext(ctx.fd) || 'keine markanten Live-Wetterdaten'}
+Live-Wetter: ${liveWeather || 'keine aktuellen Live-Wetterdaten verfuegbar; Wetterbedingungen unbekannt'}
+Datenregel: Nutze nur die uebergebenen Wetterwerte; fehlende Einzelwerte bleiben unbekannt. Erfinde dazu keine Wetterwahrnehmungen. Fehlen aktuelle Live-Wetterdaten insgesamt, benenne die Datenluecke, behaupte kein ruhiges oder gutes Wetter und empfehle keine andere Flughoehe. Nicht markant bedeutet nicht, dass alle Wetterwerte bekannt sind.
 Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenperspektive. Wichtig: Bei Turbulenz oder Regen keine Schuldzuweisung an den Piloten, nur Lagegefuehl und ggf. pragmatischer Wunsch nach ruhiger Fluglage. Max 2 Saetze.${_toneHint()}` : null;
     const fallback = wx
         ? `Das Wetter ist spuerbar: ${wx}. Das laste ich dir nicht an, aber ruhig und sauber geflogen bleibt jetzt Gold wert.`
-        : 'Wetterseitig ist gerade nichts Markantes dabei. Von mir aus koennen wir den Flug normal fortsetzen.';
+        : (liveWeather ? `Die verfuegbaren Wetterwerte sind: ${liveWeather}.` : 'Mir fehlen gerade aktuelle Wetterdaten fuer eine belastbare Rueckmeldung.');
     _missionActionSpeak(prompt, 'Wetter', fallback);
 };
 
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────
 
-async function _generateSpokenText(apiKey, situationPrompt) {
+async function _generateSpokenText(apiKey, situationPrompt, options = {}) {
     if ((window.activePassenger?.taskDomain === 'club_utility' || ['charter-idea.v1','sightseeing-idea.v1'].includes(window.activePassenger?.narrativeSchema)) && window.GAMissionRouteVoiceCore) {
         situationPrompt = window.GAMissionRouteVoiceCore.conversationPrompt(situationPrompt, window.missionClubSpeechHistory?.());
     }
@@ -4456,6 +4459,8 @@ async function _generateSpokenText(apiKey, situationPrompt) {
         }
         return null;
     }
+    let models = _paxAiTextModels('gemini');
+    if (options.paxMenuRequest === true) models = [['gemini-3.8-flash', 'Gemini 3.8 Flash (Pax-Menü)', 'flash'], ...models.filter(entry => entry[0] !== 'gemini-3.8-flash')];
     const payload = {
         contents: [{ parts: [{ text: situationPrompt }] }],
         generationConfig: {
@@ -4464,11 +4469,13 @@ async function _generateSpokenText(apiKey, situationPrompt) {
             topP: 0.9
         }
     };
-    const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
+    let opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
 
-    for (const [model, source, usageKey] of _paxAiTextModels('gemini')) {
+    for (const [model, source, usageKey] of models) {
+        payload.generationConfig = window.GAMissionBoardingVoiceCore?.geminiTextGenerationConfig(model, options.paxMenuRequest) || { response_mime_type: 'text/plain', temperature: 0.95, topP: 0.9, ...(options.paxMenuRequest === true && model === 'gemini-3.8-flash' ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) };
+        opts = { ...opts, body: JSON.stringify(payload) };
         try {
-            _paxLog(`Textgen → ${model}`, 'send');
+            _paxLog(`Textgen → ${model}${options.paxMenuRequest === true && model === 'gemini-3.8-flash' ? ' · Pax-Menü · Thinking low' : ''}`, 'send');
             const res = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
                 opts
@@ -5511,7 +5518,7 @@ async function _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidate
     let lastErr = null;
     for (const voiceName of voiceCandidates) {
         const ttsPayload = {
-            contents: [{ role: 'user', parts: [{ text: window.GAMissionBoardingVoiceCore?.ttsInput(text, pax) || text }] }],
+            contents: [{ role: 'user', parts: [window.GAMissionBoardingVoiceCore?.geminiTtsPart(model, text, pax) || { text }] }],
             generationConfig: {
                 responseModalities: ['AUDIO'],
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
@@ -5668,8 +5675,9 @@ async function _requestTTSAudio(text, speaker = null, options = {}) {
     const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
     const trackerClient = _getTrackerVoiceClient();
     if (trackerClient) {
-        const trackerEffectId = _paxTrackerVoiceEffectId(options.effectKey || options.eventLabel, text, pax);
-        const sharedAudio = await trackerClient.requestAudio({ effectId: trackerEffectId, text, speaker: pax || {} });
+        const trackerEffectKey = options.effectKey || options.eventLabel;
+        const trackerEffectId = _paxTrackerVoiceEffectId(options.paxMenuRequest === true ? `pax-menu-3.8:${trackerEffectKey || 'voice'}` : trackerEffectKey, text, pax);
+        const sharedAudio = await trackerClient.requestAudio({ effectId: trackerEffectId, text, speaker: pax || {}, paxMenuRequest: options.paxMenuRequest === true });
         if (sharedAudio?.b64) {
             _paxLog(`Tracker TTS bereit: ${trackerEffectId} | ${sharedAudio.provider || 'provider'} / ${sharedAudio.voiceName || 'voice'}`, 'recv');
             return { ...sharedAudio, text, speaker: pax };
@@ -5690,14 +5698,15 @@ async function _requestTTSAudio(text, speaker = null, options = {}) {
     }
     const voiceCandidates = _ttsVoiceCandidatesForSpeaker(pax);
     _paxLog(`TTS Stimmen: ${voiceCandidates.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'} | Gender: ${resolvedGender} (raw: ${String(pax?.gender || 'n/a')})`, 'state');
-    const ttsModels = _paxTtsModelPref === '3.1'
+    let ttsModels = _paxTtsModelPref === '3.1'
         ? ['gemini-3.1-flash-tts-preview']
         : (_paxTtsModelPref === '2.5'
             ? ['gemini-2.5-flash-preview-tts']
             : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']);
+    if (options.paxMenuRequest === true) ttsModels = window.GAMissionBoardingVoiceCore.paxMenuModels(ttsModels, 'tts');
     _paxLog(`TTS-Modelle: ${ttsModels.join(' -> ')} | Modus: ${_paxTtsModelPref}`, 'state');
 
-    if (_paxTtsModelPref === 'auto' && _paxTtsHedgeEnabled() && ttsModels.length >= 2) {
+    if (options.paxMenuRequest !== true && _paxTtsModelPref === 'auto' && _paxTtsHedgeEnabled() && ttsModels.length >= 2) {
         return _requestTTSAudioHedged(apiKey, text, pax, voiceCandidates, ttsModels[0], ttsModels[1]);
     }
 
@@ -6861,7 +6870,7 @@ async function _playTextAsTTS(text, speaker = null, epoch = _paxMissionEpoch, op
         _paxLog(`${options.eventLabel || 'Ansage'} verworfen: Farewell/Missionsende aktiv`, 'state');
         return;
     }
-    const audio = await _requestTTSAudio(text, speaker, { effectKey: options.effectKey || options.eventLabel, eventLabel: options.eventLabel });
+    const audio = await _requestTTSAudio(text, speaker, { effectKey: options.effectKey || options.eventLabel, eventLabel: options.eventLabel, paxMenuRequest: options.paxMenuRequest === true });
     if (!_paxEpochCurrent(epoch)) return;
     if (_paxSpeechCanceledByMissionEnd(options)) {
         _paxLog(`${options.eventLabel || 'Ansage'} nach TTS verworfen: Farewell/Missionsende aktiv`, 'state');
@@ -6884,7 +6893,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
     _paxLog(`── ${eventLabel} ──`, 'event');
     _logRoleConsistencyCheck(eventLabel);
     _paxLog(`PROMPT (voll): ${situationPrompt.replace(/\n+/g, ' ')}`, 'send');
-    const spokenTextRaw = await _generateSpokenText(apiKey, situationPrompt);
+    const spokenTextRaw = await _generateSpokenText(apiKey, situationPrompt, options);
     if (!_paxEpochCurrent(epoch)) return;
     if (_paxSpeechCanceledByMissionEnd(options)) {
         _paxLog(`${eventLabel} nach Textgen verworfen: Farewell/Missionsende aktiv`, 'state');

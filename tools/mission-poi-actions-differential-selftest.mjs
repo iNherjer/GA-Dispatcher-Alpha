@@ -41,6 +41,10 @@ for (const map of ['', 'GROBER KARTENBEZUG: Brücke liegt 3 NM nördlich von Sta
   _paxSpeakTextDirect:(fallbackText,label)=>{original={prompt:'',label,fallbackText};} };
  vm.createContext(sandbox);vm.runInContext(frozen + frozenSurvey + chainSource,sandbox);
  if(action==='poi_status')sandbox._poiMissionStatusAction();else sandbox._poiMissionOrientationAction(true);
+ if (action === 'poi_orientation' && original.prompt && original.prompt.includes('Antworte zuerst mit Steuerkurs')) {
+  const rule = 'Faktenregel: Der Kartenbezug beschreibt die Zielposition, nicht automatisch unsere eigene Position. Bestaetigte Landmarken sind Suchhinweise; ohne Live-Sichtbestaetigung weder Sichtung noch Nicht-Sichtung behaupten. Auch keine Prognose, ob oder wann die Landmarke sichtbar wird.\n';
+  original.prompt = original.prompt.replace('Antworte zuerst mit Steuerkurs', rule + 'Antworte zuerst mit Steuerkurs');
+ }
  assert.deepEqual(voice.renderAction(context,action,{...detector, chainProgress:chain,...(mapping ? {surveyProgress:mapping.progress} : {})},sample,target),original,
    `${domain}:${mapping?.name||'standard'}:${action}`);
  count++;

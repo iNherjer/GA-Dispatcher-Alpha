@@ -216,3 +216,31 @@ wird der Cue mit `cargo_cue_no_audio_claim` storniert und
 `MISSION_CARGO_AUDIO_SKIPPED` geloggt. Nachfolgende gebuendelte Cargo-Cues
 warten dadurch nicht hinter einem nie gestarteten zweiminuetigen Playback-
 Timeout. Bereits gestartete Wiedergaben behalten ihre ACK-Abwicklung.
+
+## Schnelle Gemini-Antworten im Pax-Menü (05.10.2026, Alpha v469)
+
+Manuelle Status-, Orientierungs-, Wohlbefindens-, Ladungs-, Wetter- und
+Fundanfragen verwenden bei Gemini zuerst `gemini-3.8-flash` mit
+`thinkingLevel: low` und danach `gemini-3.8-flash-tts`. Vorgegebene Texte
+(z. B. „Erzähl mal“) benötigen nur die neue TTS-Stufe. Die Kennzeichnung
+`paxMenuRequest: true` gilt pro Anfrage; automatische Meldungen, Boarding,
+Farewell und Briefing behalten ihre bisherigen Modelle. OpenAI bleibt
+unverändert. Missionsaktionen und ihre Freigabegates bleiben unverändert.
+
+App und Tracker teilen Textparameter und TTS-Part-Builder im bestehenden
+`mission-boarding-voice-core.js`. Bei 3.8 liegen Sprechstil-Anweisungen in
+`speech_metadata.style`; der Text bleibt der gesprochene Wortlaut. WAV
+wird unverändert decodiert, ältere PCM-Antworten werden weiter gewrappt.
+Die vorhandenen Modelle bleiben sequenzielle Fehler-Fallbacks. Für diese
+Menüanfragen startet kein paralleler TTS-Hedge.
+
+Im Pax-Debuglog steht bei Textgenerierung „Pax-Menü · Thinking low“;
+der aktive TTS-Modellname ist ebenfalls sichtbar. Für einen In-Sim-Test
+Wetter, Orientierung und Wohlbefinden abrufen, danach einen automatischen
+Kommentar bzw. Boarding/Farewell auf unveränderte Modelle prüfen.
+Die Tracker-Wege benötigen eine Runtime mit den aktualisierten Quellen;
+eine bereits installierte EXE erhält die Änderung nicht durch App-Reload.
+Alpha v469 enthält die neue Runtime. Der reale MSFS-Nachweis steht aus.
+
+Nachweise: `node --test tools/pax-menu-speed.test.mjs`, bestehende
+VoiceService-/Client-/Boarding-/POI-Tests und der manuelle POI-Promptvergleich.

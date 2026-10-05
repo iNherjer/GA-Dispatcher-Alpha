@@ -1509,15 +1509,15 @@ function _paxNearLandmarkOrientationLine() {
 function _poiMissionStatusAction() {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
-        _paxSpeakTextDirect('Das ist keine POI-Mission. Fuer diesen Flug ist eher Wohlbefinden, Ladung oder Wetter relevant.', 'Missionsstatus');
+        _paxSpeakTextDirect('Das ist keine POI-Mission. Fuer diesen Flug ist eher Wohlbefinden, Ladung oder Wetter relevant.', 'Missionsstatus', { paxMenuRequest: true });
         return;
     }
     if (_activeTaskDomain() === 'mapping_survey') {
-        _paxSpeakTextDirect(_surveyPatternStatusText(ctx), 'Missionsstatus');
+        _paxSpeakTextDirect(_surveyPatternStatusText(ctx), 'Missionsstatus', { paxMenuRequest: true });
         return;
     }
     if (_poiChainActiveSpec()) {
-        _paxSpeakTextDirect(_poiChainStatusText(ctx), 'Missionsstatus');
+        _paxSpeakTextDirect(_poiChainStatusText(ctx), 'Missionsstatus', { paxMenuRequest: true });
         return;
     }
     const facts = _missionStatusFacts(ctx);
@@ -1536,15 +1536,15 @@ Antworte als Passagier/Rollenperson dynamisch zum Kontext: Anflug, Datenaufnahme
 function _poiMissionOrientationAction(_cityRetry = false) {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
-        _paxSpeakTextDirect('Orientierungshilfe ist aktuell nur fuer POI-Ziele sinnvoll.', 'Orientierung');
+        _paxSpeakTextDirect('Orientierungshilfe ist aktuell nur fuer POI-Ziele sinnvoll.', 'Orientierung', { paxMenuRequest: true });
         return;
     }
     if (_activeTaskDomain() === 'mapping_survey') {
-        _paxSpeakTextDirect(_surveyPatternOrientationText(ctx), 'Orientierung');
+        _paxSpeakTextDirect(_surveyPatternOrientationText(ctx), 'Orientierung', { paxMenuRequest: true });
         return;
     }
     if (_poiChainActiveSpec()) {
-        _paxSpeakTextDirect(_poiChainOrientationText(ctx), 'Orientierung');
+        _paxSpeakTextDirect(_poiChainOrientationText(ctx), 'Orientierung', { paxMenuRequest: true });
         return;
     }
     if (!_cityRetry && !_paxCityDatasetAvailable() && typeof loadGlobalCities === 'function') {
@@ -1561,6 +1561,7 @@ Pflichtdaten: ${vector}
 Ziel: ${ctx.targetName}
 ${factLine || 'Keine bestaetigte Landmarke verfuegbar; beschreibe das Ziel anhand Auftrag, Zielname und Umgebung nur vorsichtig.'}
 Orientierungsregel: Wenn die Entfernung groesser als 6 NM ist, nenne nach Steuerkurs/Entfernung zuerst den groben Kartenbezug zu Ort/Region. Danach darf genau ein lokaler Nahbereichs-Hinweis kommen, wenn er bestaetigt ist. Lokale Felsen, Bachnamen, Wege oder Aussichtspunkte nicht als primaere Orientierung verwenden, ausser wir sind im Nahbereich oder sie sind das Ziel selbst.
+Faktenregel: Der Kartenbezug beschreibt die Zielposition, nicht automatisch unsere eigene Position. Bestaetigte Landmarken sind Suchhinweise; ohne Live-Sichtbestaetigung weder Sichtung noch Nicht-Sichtung behaupten. Auch keine Prognose, ob oder wann die Landmarke sichtbar wird.
 Antworte zuerst mit Steuerkurs und Entfernung in ganzen NM, danach eine kurze Zielbeschreibung oder Landmarkenhilfe. Keine langen Stories, keine erfundenen Landmarken. Max 2 Saetze.${_toneHint()}` : null;
     const fallback = factLine && /^GROBER KARTENBEZUG:/i.test(factLine)
         ? `${vector} ${factLine.split('\n')[0].replace(/^GROBER KARTENBEZUG:\s*/i, '').replace(/\s*Nutze diesen Ort.*$/i, '')}`
@@ -2026,19 +2027,19 @@ function _handlePoiChainEvents(events = [], spec = null) {
 function paxKnowledgeTellMore() {
     const context = _activePoiKnowledgeContext();
     if (!_poiKnowledgeTellMoreAvailable()) {
-        _paxSpeakTextDirect('Dazu habe ich gerade keine gesicherte Faktenbasis geladen.', 'Erzähl mal');
+        _paxSpeakTextDirect('Dazu habe ich gerade keine gesicherte Faktenbasis geladen.', 'Erzähl mal', { paxMenuRequest: true });
         return;
     }
     const fact = _poiKnowledgeNextManualFact();
     const target = _poiKnowledgeTargetName(context);
     if (!fact) {
-        _paxSpeakTextDirect(`Mehr weiß ich dazu leider auch nicht. Die gesicherten Punkte zu ${target} haben wir damit durch.`, 'Erzähl mal');
+        _paxSpeakTextDirect(`Mehr weiß ich dazu leider auch nicht. Die gesicherten Punkte zu ${target} haben wir damit durch.`, 'Erzähl mal', { paxMenuRequest: true });
         _refreshPoiKnowledgeGuideMenu();
         return;
     }
     const clip = _poiKnowledgeManualFactClip(fact.text);
     const intro = _poiKnowledgeManualFactIndices.size <= 1 ? 'Klar. Noch ein Punkt:' : 'Noch ein Punkt:';
-    _paxSpeakTextDirect(`${intro} ${clip}.`, 'Erzähl mal');
+    _paxSpeakTextDirect(`${intro} ${clip}.`, 'Erzähl mal', { paxMenuRequest: true });
     _refreshPoiKnowledgeGuideMenu();
 }
   if (cue.sarReport) {

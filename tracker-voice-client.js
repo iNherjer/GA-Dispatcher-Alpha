@@ -61,7 +61,7 @@
         const created = await jsonRequest('/voice/jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ effectId, text, speaker: value.speaker || {}, voiceName: value.voiceName || '' })
+          body: JSON.stringify({ effectId, text, speaker: value.speaker || {}, voiceName: value.voiceName || '', ...(value.paxMenuRequest === true ? { paxMenuRequest: true } : {}) })
         });
         if (created.response.status === 503 || created.response.status === 403) {
           unavailableUntil = Date.now() + 30000;

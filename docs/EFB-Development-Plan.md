@@ -5921,3 +5921,23 @@ erforderlich fuer die Cloud-Pruefung. Stable-Kanal bleibt unveraendert.
 Regressionen pruefen sieben Cargo-Ereignisse mit spaeter Telemetrie bis Prepare/
 Commit, den echten Web-Upload-Checkpoint, Boarding-Schutz und Fire-Cloud-IDs.
 Realer MSFS-Test folgt beim Tester.
+
+
+### 05.10.2026: Schnelle Modelle für manuelle Pax-Anfragen (Alpha v469)
+
+Nur ausdrücklich gekennzeichnete Pax-Menüanfragen verwenden bei Gemini
+3.8 Flash mit Thinking low und 3.8 Flash TTS. Der App-Audioclient trägt
+die Kennzeichnung zum Tracker; autoritative POI-Status-/Orientierungsrezepte
+setzen sie am manuellen Effekt. Die vorhandene zentrale Voice-Pipeline,
+Textbestätigung, Playback-Lease und End-Lock bleiben bestehen. Automatische
+POI-/Flugmeldungen, Boarding, Farewell und Briefings behalten ihre Modelle.
+Die vorhandenen Modelle dienen weiterhin als sequenzielle Fehler-Fallbacks.
+
+Wetter-Button benennt fehlende Daten auch im festen Fallback; der
+Orientierungs-Button unterscheidet Zielposition von eigener Position und
+Landmarkenwissen von bestätigter Sichtbarkeit. Keine Änderung an Parsern,
+Klassifikation, Missionsbedingungen oder Authority. Prompt-Parität ist um
+diese genehmigte manuelle Klarstellung ergänzt. Technische Regressionstests
+bestehen; aktualisierte Tracker-EXE wird als Alpha v469 ausgeliefert.
+Der reale MSFS-Test steht aus. Die neuere autoritative Pax-Query-Route fuer
+Wetter, Wohlbefinden und Ladung setzt dieselbe manuelle Modellkennzeichnung.

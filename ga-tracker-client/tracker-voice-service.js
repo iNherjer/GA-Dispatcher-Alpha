@@ -59,6 +59,7 @@ function normalizeVoiceRequest(value = {}) {
   const textModelSource = value.textModels && typeof value.textModels === 'object' && !Array.isArray(value.textModels)
     ? value.textModels
     : {};
+  const paxMenuRequest = value.paxMenuRequest === true;
   const requestedKind = String(value.kind || '').trim().toLowerCase();
   const kind = ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story'].includes(requestedKind) ? requestedKind : 'direct';
   const taskDomain = String(value.taskDomain || normalizedSpeaker.taskDomain || '').trim().toLowerCase().slice(0, 120);
@@ -103,6 +104,7 @@ function normalizeVoiceRequest(value = {}) {
     prompt,
     fallbackText,
     kind,
+    paxMenuRequest,
     deferPlayback: value.deferPlayback === true,
     synthesizeAudio: kind !== 'cargo' && value.synthesizeAudio !== false,
     taskDomain,
@@ -117,11 +119,15 @@ function normalizeVoiceRequest(value = {}) {
     },
     cueSequence: normalizeCueSequence(value.cueSequence),
     textModels: {
-      gemini: normalizeModels(textModelSource.gemini, boardingVoiceCore.GEMINI_TEXT_MODELS),
+      gemini: paxMenuRequest
+        ? boardingVoiceCore.paxMenuModels(normalizeModels(textModelSource.gemini, boardingVoiceCore.GEMINI_TEXT_MODELS), 'text')
+        : normalizeModels(textModelSource.gemini, boardingVoiceCore.GEMINI_TEXT_MODELS),
       openai: normalizeModels(textModelSource.openai, boardingVoiceCore.OPENAI_TEXT_MODELS)
     },
-    ttsModels: normalizeModels(value.ttsModels, boardingVoiceCore.GEMINI_TTS_MODELS, 4),
-    ttsHedgeEnabled: value.ttsHedgeEnabled !== false,
+    ttsModels: paxMenuRequest
+      ? boardingVoiceCore.paxMenuModels(normalizeModels(value.ttsModels, boardingVoiceCore.GEMINI_TTS_MODELS, 4), 'tts')
+      : normalizeModels(value.ttsModels, boardingVoiceCore.GEMINI_TTS_MODELS, 4),
+    ttsHedgeEnabled: !paxMenuRequest && value.ttsHedgeEnabled !== false,
     ttsHedgeDelayMs: Math.max(1000, Math.min(10000, Math.round(Number(value.ttsHedgeDelayMs) || 3000)))
   };
 }
@@ -193,7 +199,7 @@ async function generateGeminiText({ apiKey, request, fetchRemote }) {
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: request.prompt }] }],
-          generationConfig: { response_mime_type: 'text/plain', temperature: 0.95, topP: 0.9 }
+          generationConfig: boardingVoiceCore.geminiTextGenerationConfig(model, request.paxMenuRequest)
         })
       });
       if (!response?.ok) continue;
@@ -253,7 +259,7 @@ async function synthesizeGeminiModel({ apiKey, request, fetchRemote, model, sign
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: boardingVoiceCore.ttsInput(request.text, request.speaker) }] }],
+          contents: [{ role: 'user', parts: [boardingVoiceCore.geminiTtsPart(model, request.text, request.speaker)] }],
           generationConfig: {
             responseModalities: ['AUDIO'],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
@@ -771,6 +777,7 @@ function createTrackerVoiceService(options = {}) {
         prompt: request.prompt,
         fallbackText: request.fallbackText,
         kind: request.kind,
+        ...(request.paxMenuRequest ? { paxMenuRequest: true } : {}),
         synthesizeAudio: request.synthesizeAudio,
         taskDomain: request.taskDomain,
         staticClipKey: request.staticClipKey,

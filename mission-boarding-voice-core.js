@@ -50,6 +50,28 @@
         return style ? style + '\n\nZu sprechender Text:\n' + spokenText : spokenText;
     }
 
+    // Explicit per-request policy: automatic cues and briefing recipes keep their defaults.
+    function paxMenuModels(models, type) {
+        var primary = type === 'tts' ? 'gemini-3.8-flash-tts' : 'gemini-3.8-flash';
+        return [primary].concat(models || []).filter(function (model, index, all) {
+            return all.indexOf(model) === index;
+        });
+    }
+
+    function geminiTextGenerationConfig(model, paxMenuRequest) {
+        var config = { response_mime_type: 'text/plain', temperature: 0.95, topP: 0.9 };
+        if (paxMenuRequest === true && model === 'gemini-3.8-flash') {
+            config.thinkingConfig = { thinkingLevel: 'low' };
+        }
+        return config;
+    }
+
+    function geminiTtsPart(model, spokenText, speaker) {
+        if (model !== 'gemini-3.8-flash-tts') return { text: ttsInput(spokenText, speaker) };
+        var style = conversationalTtsStyle(speaker);
+        return style ? { text: spokenText, speech_metadata: { style: style } } : { text: spokenText };
+    }
+
     function normalizeSpeaker(raw) {
         var source = object(raw);
         return {
@@ -335,6 +357,9 @@
         normalizeSpeaker: normalizeSpeaker,
         conversationalTtsStyle: conversationalTtsStyle,
         ttsInput: ttsInput,
+        paxMenuModels: paxMenuModels,
+        geminiTextGenerationConfig: geminiTextGenerationConfig,
+        geminiTtsPart: geminiTtsPart,
         normalizeSpokenText: normalizeSpokenText,
         stableHash: stableHash,
         selectAudioCueAsset: selectAudioCueAsset,

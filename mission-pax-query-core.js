@@ -93,15 +93,17 @@ Wichtig: Turbulenzen/Regen nicht dem Piloten anlasten. Bewerte Frachtzustand kre
 function paxWeatherReactionReport() {
     const ctx = _missionActionContext();
     const wx = _missionWeatherReactionLine(ctx.fd);
+    const liveWeather = wx || _weatherContext(ctx.fd);
     const base = _baseContext();
     const prompt = base ? `${base}
 
 Button-Frage: Der Pilot fragt nach einer Reaktion auf markantes Wetter.
-Live-Wetter: ${wx || _weatherContext(ctx.fd) || 'keine markanten Live-Wetterdaten'}
+Live-Wetter: ${liveWeather || 'keine aktuellen Live-Wetterdaten verfuegbar; Wetterbedingungen unbekannt'}
+Datenregel: Nutze nur die uebergebenen Wetterwerte; fehlende Einzelwerte bleiben unbekannt. Erfinde dazu keine Wetterwahrnehmungen. Fehlen aktuelle Live-Wetterdaten insgesamt, benenne die Datenluecke, behaupte kein ruhiges oder gutes Wetter und empfehle keine andere Flughoehe. Nicht markant bedeutet nicht, dass alle Wetterwerte bekannt sind.
 Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenperspektive. Wichtig: Bei Turbulenz oder Regen keine Schuldzuweisung an den Piloten, nur Lagegefuehl und ggf. pragmatischer Wunsch nach ruhiger Fluglage. Max 2 Saetze.${_toneHint()}` : null;
     const fallback = wx
         ? `Das Wetter ist spuerbar: ${wx}. Das laste ich dir nicht an, aber ruhig und sauber geflogen bleibt jetzt Gold wert.`
-        : 'Wetterseitig ist gerade nichts Markantes dabei. Von mir aus koennen wir den Flug normal fortsetzen.';
+        : (liveWeather ? `Die verfuegbaren Wetterwerte sind: ${liveWeather}.` : 'Mir fehlen gerade aktuelle Wetterdaten fuer eine belastbare Rueckmeldung.');
     _missionActionSpeak(prompt, 'Wetter', fallback);
 }
  ({pax_wellbeing:paxAptWellbeingReport,pax_cargo:paxCargoConditionReport,pax_weather:paxWeatherReactionReport})[action]();
