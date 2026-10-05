@@ -244,3 +244,24 @@ Alpha v469 enthält die neue Runtime. Der reale MSFS-Nachweis steht aus.
 
 Nachweise: `node --test tools/pax-menu-speed.test.mjs`, bestehende
 VoiceService-/Client-/Boarding-/POI-Tests und der manuelle POI-Promptvergleich.
+
+
+## App-Start: Warnclips nachladen (05.10.2026, lokal)
+
+Die AudioContext-Freigabe bleibt synchron im iOS-User-Gesture. Das feste
+AWM-Clipset wird erst 1,5 Sekunden nach dem `load`-Event vorbereitet, mit
+maximal vier parallelen Abrufen/Decodes. Eine vorher angeforderte Ansage
+startet das Laden sofort und bleibt bis zur Bereitschaft in der Queue.
+Stimmwechsel laden weiterhin direkt. Instanzen ohne lokale Audioausgabe
+oder mit aktiven Tracker-Warnungen brauchen keinen Hintergrund-Warmup.
+
+Der Service Worker bedient vorab installierte HTML-/JS-/CSS-Dateien aus
+seinem Versionscache, auch auf GitHub Pages und bei Query-Suffixen der
+Script-Tags. Releases muessen daher wie vorgeschrieben die Cache-Version
+in `sw.js` erhoehen. API-/Wetteraufrufe, externe Datenpakete und Kartenkacheln
+behalten ihren Netzwerkpfad; fehlende Dateien werden weiterhin nachgeladen.
+Audioassets werden nach dem ersten Abruf innerhalb der SW-Version gecacht.
+
+Nachweise: `node --test tools/app-startup-loading.test.mjs` und
+`node tools/awm-audio-queue-selftest.mjs`. Eine Zeitmessung auf einem realen
+iPhone/PWA steht noch aus.

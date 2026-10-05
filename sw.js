@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1913';
+const CACHE = 'ga-dispatcher-v1914';
 
 const STATIC = [
     './',
@@ -7,6 +7,9 @@ const STATIC = [
     './legal.html',
     './styles.css',
     './app.js',
+    './taws.js',
+    './ga-tracker-client/tracker-audio-player.js',
+    './ga-tracker-client/tracker-audio-client.js',
     './navigation-warning-audio.js',
     './navigation-warning-core.js',
     './map-prediction.js',
@@ -219,6 +222,12 @@ function isNetworkFirstRequest(url) {
     return APP_SHELL_NETWORK_FIRST_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
 }
 
+// Only precached app files use the version cache. Query suffixes on script
+// tags share the installed file; releases must bump CACHE when these change.
+const APP_SHELL_URLS = new Set(STATIC.filter(path =>
+    path.endsWith('/') || /\.(html|js|css)$/.test(path)
+).map(path => new URL(path, self.location.href).href));
+
 // ── Install: statische Dateien vorab cachen ──────────────────────────────────
 self.addEventListener('install', e => {
     e.waitUntil(
@@ -240,7 +249,9 @@ self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
 
     // Network-Only für API-Calls
-    if (NETWORK_ONLY.some(d => url.hostname.includes(d))) return;
+    const isLocalAppRequest = url.origin === self.location.origin
+        && url.pathname.startsWith(new URL('./', self.location.href).pathname);
+    if (!isLocalAppRequest && NETWORK_ONLY.some(d => url.hostname.includes(d))) return;
 
     // Leaflet-Kacheln immer live holen
     if (
@@ -248,6 +259,21 @@ self.addEventListener('fetch', e => {
         || url.pathname.includes('/tiles/')
         || url.pathname.includes('/MapServer/tile/')
     ) return;
+
+    const assetUrl = new URL(url.href);
+    assetUrl.search = '';
+    if (e.request.method === 'GET' && APP_SHELL_URLS.has(assetUrl.href)) {
+        e.respondWith(caches.open(CACHE).then(async cache => {
+            const cached = await cache.match(assetUrl.href);
+            if (cached) return cached;
+            const response = await fetch(e.request);
+            if (response && response.status === 200) {
+                await cache.put(assetUrl.href, response.clone());
+            }
+            return response;
+        }));
+        return;
+    }
 
     // App-Shell und Daten bevorzugt frisch vom Netz holen (mit Cache-Fallback)
     if (isNetworkFirstRequest(url)) {

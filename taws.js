@@ -101,8 +101,8 @@ function _tawsInitAudio() {
         window._tawsAudioCtx = _tawsAudioCtx;
         window._awmMasterGain = _awmMasterGain;
     }
-    // Alle Clips laden sobald AudioContext bereit — inkl. taws-alert (kein HTMLAudioElement mehr)
-    if (!_awLoaded && !_awLoading) _awLoadClips();
+    // Unlock stays synchronous for iOS; clip downloads wait until after startup.
+    if (!_awLoaded && !_awLoading) _awScheduleClipWarmup();
 }
 
 // Intern: AudioContext aufwecken und danach callback ausführen
@@ -302,6 +302,18 @@ function _awGetFreqClips(as) {
 const _awBuffers   = {};           // key → AudioBuffer
 let   _awLoaded    = false;
 let   _awLoading   = false;
+let _awWarmupScheduled = false;
+
+function _awScheduleClipWarmup() {
+    if (_awWarmupScheduled || _awLoaded || _awLoading || !_awmPlayOnThisDevice) return;
+    _awWarmupScheduled = true;
+    const schedule = () => setTimeout(() => {
+        _awWarmupScheduled = false;
+        if (_awmPlayOnThisDevice && !_awLoaded && !_awLoading && !window.gaTrackerWarningsActive?.()) _awLoadClips();
+    }, 1500);
+    if (document.readyState === 'complete') schedule();
+    else window.addEventListener('load', schedule, { once: true });
+}
 
 // Voice-Pack: '' = Anna (Standard), weitere Packs via audio-warnings/voices/catalog.json
 let _awmVoicePack = localStorage.getItem('awm_voice_pack') || '';
@@ -390,7 +402,7 @@ function _awEnqueue(keys) {
     _awQueueStats.lastEnqueuedAt = Date.now();
     _awQueueStats.lastEnqueuedKey = String(keys[0] || '');
     if (!_tawsAudioCtx) _tawsInitAudio();
-    else if (!_awLoaded && !_awLoading) _awLoadClips();
+    if (!_awLoaded && !_awLoading) _awLoadClips();
     if (!_awQueueBusy && !_awPriorityAudioActive()) _awDrainQueue();
 }
 
@@ -408,6 +420,7 @@ function _awDrainQueue() {
     if (!_tawsAudioCtx) {
         _awQueueBusy = false;
         _tawsInitAudio();
+        if (!_awLoading) _awLoadClips();
         return;
     }
     if (!_awLoaded) {
@@ -494,7 +507,8 @@ async function _awLoadClips() {
     _awLoading = true;
     const pack = _awmVoicePack;
     const optionalClips = new Set(['aw-zwo']);
-    await Promise.all(_AWM_CLIPS.map(async key => {
+    const pendingClips = [..._AWM_CLIPS];
+    const loadClip = async key => {
         let url;
         if (key === 'taws-alert') {
             url = './taws-alert.m4a';
@@ -511,6 +525,9 @@ async function _awLoadClips() {
         } catch(e) {
             if (!optionalClips.has(key)) console.warn('[AWM] Clip laden fehlgeschlagen:', key, e);
         }
+    };
+    await Promise.all(Array.from({ length: 4 }, async () => {
+        while (pendingClips.length) await loadClip(pendingClips.shift());
     }));
     // Wenn kein eigenes "zwo"-Snippet vorhanden ist, auf bestehendes "2"-Snippet zurückfallen.
     if (!_awBuffers['aw-zwo'] && _awBuffers['aw-d2']) _awBuffers['aw-zwo'] = _awBuffers['aw-d2'];
