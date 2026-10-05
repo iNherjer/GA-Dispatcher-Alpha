@@ -1,5 +1,102 @@
 # Missionssets: Arbeitsgrundlage und aktueller Ablauf
 
+## Bestandsaufnahme der APT-/POI-Modernisierung, 04.10.2026
+
+Geprüfter veröffentlichter Alpha-Stand: Web v1907, Commit `a446aa0e8`,
+Tracker Alpha v467. Die folgenden älteren Abschnitte dokumentieren ihre damaligen
+Entwicklungsstände. „Modernisiert“ bedeutet einen im aktiven Dispatch tatsächlich
+angeschlossenen profilspezifischen Ideen-/Writer- oder Trainingspfad; es bedeutet
+keine abgeschlossene Windows-/MSFS-Feldabnahme und keine Stable-Promotion.
+
+### APT: alle auswählbaren Auftragsfamilien
+
+| Auswahl / Profil | Inhaltlicher Pfad auf Alpha | Teststand / nächste Arbeit |
+| --- | --- | --- |
+| Privat / `private_outing` | Modernisiert: strukturierte Idee, V6-Episode, History | Heutige Vertragsregressionen bestanden; Private-Return-Testumgebung siehe unten |
+| Verein / `club_utility` | Modernisiert: eigener Ideen-/Writerpfad, optionale narrative Ereignisse | Heutige Vertragsregressionen bestanden |
+| Charter / Kategorie `charter` | Modernisiert: eigener Ideen-/Writerpfad, Gruppen und Charter-Fortsetzungen | Heutige Ideen-/Fortsetzungsregressionen bestanden |
+| Cargo ohne PAX / Kategorie `cargo` | Modernisiert: eigener Frachtideen-/Writerpfad | Heutige Vertragsregressionen bestanden |
+| Fragile Fracht / `cargo_fragile` | Modernisiert: eigener Ideen-/Writerpfad mit Begleitung | Heutige Vertragsregressionen bestanden |
+| Sightseeing / `sightseeing_tour` | Modernisiert: APT-Besuchsauftrag mit Ortsbelegen und Zielplatz | Heutige Vertragsregressionen bestanden; nicht mit POI-Beobachtung verwechseln |
+| Training / Kategorie `trn` | Modernisiert: gemeinsames Trainingsbriefing und separates quellengebundenes Coaching, `training-narrative-v9` / `training-coaching-v4` | Narrative- und Tracker-APT-Integrationstests bestanden; Referenzen werden beim manuellen Übungsstart fixiert |
+| Medizin-Transfer / `medical_transfer` | **Noch alter allgemeiner Planner-/Writerpfad**, eigene Rollen und Materialregeln vorhanden | Eigene Ideen-/Writer-/History-Migration fehlt; Material plus Begleitung, keine Patienten |
+| Tiertransport / `animal_transport` | **Eigener Ideen-/Writer-/History-Pfad, Alpha v1910** | Strukturierte Sendung und Tierbegleitung; Verlade-/Arrival-Assets, Manifest und Restore geprüft. Voice-Audio/Simulator-Feldabnahme noch offen |
+| Reporter / `news_coverage` | **Noch alter allgemeiner Planner-/Writerpfad**, profilspezifische Briefing-Synchronisierung vorhanden | Eigene APT-Migration fehlt; der neue POI-Reporter-Adapter aktiviert sich ausschließlich bei `isPOI` |
+
+### POI: alle auswählbaren Auftragsfamilien
+
+| Auswahl / Profil | Aktiver modernisierter Pfad auf Alpha | Teststand / Grenzen |
+| --- | --- | --- |
+| Foto/Film / `media_photo` | `MissionPoiBriefingBrowser` | Heutige Vertragsregressionen bestanden; ausgewählte Idee trägt den professionellen Fotoauftrag |
+| Inspektion / `inspection_infra` | `MissionInfraBriefingBrowser` | Heutige Vertragsregressionen bestanden; initiale Einzelziele, Fortsetzungen separat |
+| Ketten-Erstbefund / `infra_chain_recon` | `MissionChainBriefingBrowser` | Heutige Vertragsregressionen bestanden; Korridor-/Kettenziele und Voice-Handoff bereits veröffentlicht |
+| Mapping/Survey / `mapping_survey` | `MissionMappingBriefingBrowser`, einschließlich eigenem Fortsetzungspfad | Heutige Vertragsregressionen bestanden; Pattern-/Abschluss-/Handoff-Authority bleibt technische Grundlage |
+| Reporter / `news_coverage` | `MissionNewsBriefingBrowser`, geografischer Reporter-Szenenkontext | Heutige Vertragsregressionen bestanden; fachlicher Unterschied zum APT-Transfer |
+| Sightseeing / `sightseeing_tour` | `MissionKnowledgeBriefingBrowser` | Heutige Knowledge-Regressionsprüfungen bestanden; lokale Beobachtungsgruppe, belegte öffentliche Fakten oder ausdrücklich fiktive persönliche Geschichte |
+| Lern-Guide / `tour_guide_knowledge` | `MissionKnowledgeBriefingBrowser` | Heutige Knowledge-Regressionsprüfungen bestanden; Freund zeigt historische oder heutige Orte |
+| Historiker / `historian_guided_tour` | `MissionKnowledgeBriefingBrowser` | Heutige Knowledge-Regressionsprüfungen bestanden; historische Zielauswahl und Quellenfakten |
+| Bio/Umwelt / `science_bio` | `MissionBioBriefingBrowser` | Heutige Vertragsregressionen bestanden; Luftbeobachtung und fachliche Quellen-/Hypothesengrenzen |
+| Geo/Relief / `science_geo` | `MissionGeoBriefingBrowser` | Heutige Vertragsregressionen bestanden; initiale Einzelziele, qualitative Forschungsfrage |
+| Training / Kategorie `trn` | Gemeinsames `fetchTrainingNarrative` und separates Coaching | Narrative- und Tracker-POI-Integrationstests bestanden; Gebiet ist Trainingsraum |
+| SAR/Rescue / `search_and_rescue` | `MissionSarBriefingBrowser`, `sar-search.v2`, geografische Szene | Heutige Briefing-/Tracker-Integrationstests bestanden; verdeckter Befund, Suche, Sichtkontakt oder kein Kontakt, Freigabe und Rückkehr |
+| Fire Watch / `fire_watch` | `MissionFireBriefingBrowser`, Fire-Suche und geografische Szene | Heutige Briefing-/Tracker-Integrationstests bestanden; mehrere Spots, thermischer/visueller Befund, Abschluss und Debriefing |
+| SAR Heli / `sar_heli` | **Deaktiviert** (`SAR_HELI_PICKER_ACTIVE = false`) | Nutzerentscheidung: vollständiges Rewrite erst zum Schluss; nicht als aktive fehlende POI-Migration zählen |
+
+### Auswahlmodi und Umfang
+
+APT/POI „alle Kategorien“ bzw. Auto sind Auswahlmechanismen, keine zusätzlichen
+Missionsprofile. Freiflug/Planung ist absichtlich kein Missionsauftrag und braucht
+keinen Einsatz-Writer. Die Einträge „Ziel: Brücke/See/Stadt/...“ wählen Zieltypen,
+keine neuen Auftragspfade. Training ist eine Kategorie mit verschiedenen
+TaskDomains und daher trotz fehlendem normalen Rollenprofil ausdrücklich erfasst.
+Private Heimreise und Charter-Fortsetzungen sind bereits eigene veröffentlichte
+Anschlusspfade; Mapping hat ebenfalls einen eigenen Fortsetzungsadapter. Andere
+Folge-, Ketten-, Offline- und lokale Fallbackpfade sind nicht automatisch durch die
+Modernisierung eines initialen KI-Auftrags mit abgenommen.
+
+### Nachweise und offene Prüfungen
+
+Die Inventur vergleicht `MISSION_PICKER_OPTIONS`, `MISSION_ROLE_TASK_PROFILES`,
+`generateMission`, die Adapter-`enabled()`-Bedingungen und den Git-Verlauf im
+veröffentlichten Stand. Insbesondere wurden die APT/POI-Verzweigungen getrennt
+geprüft. Frühere Doku-Sätze wie „unveröffentlicht“ sind teilweise historische
+Zwischenstände: etwa Infrastruktur-Prompt v1.9 ist bereits im veröffentlichten
+Commit `688b094cf` enthalten. Solche Sätze allein sind kein Release-Nachweis.
+
+Am 04.10.2026 wurden 20 fokussierte Briefing-/Ideen-/Fortsetzungs-Testdateien
+mit 260 Prüfungen ausgeführt: 259 bestanden, eine scheiterte. Zusätzlich bestanden
+60 Tracker-Integration-/Coachingprüfungen für APT/POI-Training, SAR und Fire Watch.
+Keine neuen kostenpflichtigen KI-Aufrufe, TTS- oder Simulatorflüge in dieser Inventur.
+Bestehende Live-Textproben sind in den jeweiligen Migrationsdokumenten dokumentiert;
+sie ersetzen keinen vollständigen Flug-/Hörtest.
+
+Der eine Fehler ist ein nachgewiesener **Test-Fixture-Defekt**:
+`tools/mission-private-return.test.cjs`, Test „deep cloud compaction retains private
+episode, recap and voice identity“, erzeugt für die originale Browserfunktion aus
+`sync.js` einen leeren VM-Kontext ohne `window`. Mit ausschließlich `window: {}`
+in einer temporären In-Memory-Gegenprobe bestehen alle 16 Private-Return-Prüfungen.
+Produktcode und Testdatei wurden in dieser Inventur nicht verändert. Die dauerhafte
+Fixture-Korrektur ist als kleine Testpflege offen, keine fehlende Profilmigration.
+
+Im aktuellen Release-Worktree liegt kein zusätzlich fertiges, unveröffentlichtes
+APT-/POI-Modernisierungspaket. Der ältere gemeinsame Desktop-Checkout enthält
+umfangreiche fremde/ältere WIP-Dateien; dessen bloßer Git-Status eignet sich nicht
+zur Bestimmung „lokal fertig, noch nicht online“. Er wurde nur gelesen und nicht
+verändert. Die Tabelle gilt für den nachweislich veröffentlichten Alpha-Stand.
+
+### Verbindliche Restreihenfolge
+
+1. APT Tiertransport: veröffentlicht mit Alpha v1910; Voice-Audio/Simulator-Feldabnahme offen.
+2. APT Medizin-Transfer.
+3. APT Reporter (Transfer zu einem journalistischen Bodenauftrag).
+4. Gemeinsame Abschlussprüfung der modernisierten Familien: Simulator/EFB,
+   Voice, Speicher/Restore und Follow-ups; offene Feldabnahme gezielt erfassen.
+5. SAR Heli erst zum Schluss als getrenntes vollständiges Rewrite.
+
+Diese Inventur ändert keine Klassifikation, Verträge oder Runtime. Bush-Profile
+bleiben außerhalb dieser APT-/POI-Bestandsaufnahme; ihre Roadmap bleibt separat.
+
+
 Stand 15.09.2026, Alpha-App v1763. Privat-Writer V6 (Promptkennung V6.3.1,
 inklusive ergänzter Rückflugvorschau), Return-Writer V1.3; Tracker bleibt v404.
 Dieser Einstieg bündelt den implementierten Stand und die Übertragung auf weitere

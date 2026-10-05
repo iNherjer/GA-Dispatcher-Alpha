@@ -6767,6 +6767,12 @@ function _missionSceneSemanticCargoAsset(cargoText = '', cargoWeightLbs = null) 
 
 function _missionSceneCargoAsset() {
     const taskDomain = _missionSceneTaskDomain();
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : window.currentMissionData;
+    const animalIdea = md?.animalTransportIdea || md?.missionContract?.animalTransportIdea;
+    if (taskDomain === 'animal_transport' && animalIdea?.schema === 'animal-transport-idea.v1') {
+        const asset = _missionSceneAnimalTransportSpec();
+        return {title:asset.cargoTitle,sizePrimary:asset.cargoTitle,candidates:asset.cargoCandidates,taskDomain,cargoText:animalIdea.shipment.label,cargoWeightLbs:animalIdea.shipment.weightLbs,smallLoosePayload:false,semanticAsset:true};
+    }
     const cargoText = _missionSceneCargoText().toLowerCase();
     const cargoWeightLbs = _missionSceneCargoWeightLbs();
     const semanticAsset = _missionSceneSemanticCargoAsset(cargoText, cargoWeightLbs);
@@ -6853,6 +6859,15 @@ const MISSION_SCENE_ANIMAL_TRANSPORT_OPTIONS = [
 ];
 
 function _missionSceneAnimalTransportSpec(salt = 'animal-transport') {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : window.currentMissionData;
+    const idea = md?.animalTransportIdea || md?.missionContract?.animalTransportIdea;
+    if (idea?.schema === 'animal-transport-idea.v1') {
+        // Packed transport load, never a randomly substituted or loose animal.
+        const live = idea.shipment.kind === 'live_animal';
+        const cargoTitle = live ? (MISSION_SCENE_ASSET_POOLS.animalTransportBoxes[0] || 'Cardboard') : 'Cardboard';
+        const pool = live ? MISSION_SCENE_ASSET_POOLS.animalTransportBoxes : MISSION_SCENE_ASSET_POOLS.smallCargo;
+        return {visible:false,label:idea.shipment.label,cargoLabel:idea.shipment.label,cargoTitle,cargoCandidates:_sceneAssetCandidates(cargoTitle,pool)};
+    }
     const available = new Set(MISSION_SCENE_ASSET_POOLS.animalTransportAnimals || []);
     const options = MISSION_SCENE_ANIMAL_TRANSPORT_OPTIONS.filter(opt => opt.visible === false || available.has(opt.title));
     const visibleOptions = options.filter(opt => opt.visible !== false && available.has(opt.title));
@@ -15118,7 +15133,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'sightseeingIdea',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',

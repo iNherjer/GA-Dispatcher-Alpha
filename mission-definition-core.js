@@ -1197,29 +1197,35 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             };
         }
         if (/animal/.test(planTask)) {
+            const animalIdea = mission?.animalTransportIdea?.schema === 'animal-transport-idea.v1' ? mission.animalTransportIdea : null;
             const animalCargoText = [
                 mission?._missionContractV4?.animalTransportBrief?.cargoText,
                 mission?.missionContractV4?.animalTransportBrief?.cargoText,
                 mission?.animalTransportBrief?.cargoText,
                 cargoText
             ].filter(Boolean).join(' ');
-            const animalSpec = pickAnimalTransportSceneSpec([
+            let animalSpec = pickAnimalTransportSceneSpec(animalIdea
+                ? (animalIdea.shipment.kind === 'live_animal' ? animalIdea.shipment.species + ' ' + animalIdea.shipment.label : 'Tierarztmaterial')
+                : [
                 animalCargoText,
                 mission?.s,
                 mission?.t,
                 paxText
             ].filter(Boolean).join(' '));
+            if (animalIdea) {
+                animalSpec = {...animalSpec, visible:false,cargoLabel:animalIdea.shipment.label,cargoTitle:animalIdea.shipment.kind === 'live_animal' ? 'VFR Multitool Mission Pet Carrier Cargo' : 'Cardboard'};
+            }
             const handoffLabel = animalTransportBoxLabel(animalSpec);
             return {
                 role: 'animal_handoff',
                 roleLabel: 'Tiertransport-Uebergabe',
-                expectedBy: 'Tierpflege- oder Vereinskontakt',
+                expectedBy: animalIdea?.recipient || 'Tierpflege- oder Vereinskontakt',
                 visibleCue: `${handoffLabel} am Tierpflege-Van`,
                 vehicleRole: 'vehicle.van',
                 personRole: 'person.ground_crew',
                 equipmentRole: 'cargo.animal_transport_box',
                 animalSpec,
-                narrativeHint: `Am Ziel ist eine stressarme Uebergabe fuer ${handoffLabel} am Vorfeld vorgesehen.`
+                narrativeHint: animalIdea?.arrival || `Am Ziel ist eine stressarme Uebergabe fuer ${handoffLabel} am Vorfeld vorgesehen.`
             };
         }
         if (/private_outing|outing|ausflug|burger|flugplatzcaf|kaffee|kuchen|wellness|wander|familienbesuch|tagesausflug|staedtetrip|städtetrip|stadtetrip|spaziergang|wochenend/.test(planTask)) {

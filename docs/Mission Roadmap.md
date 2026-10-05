@@ -1,5 +1,29 @@
 # Mission Roadmap
 
+Aktuelle APT-/POI-Restliste (04.10.2026): [Bestandsaufnahme der Modernisierung](Mission%20Sets%20Handoff.md#bestandsaufnahme-der-apt-poi-modernisierung-04102026). Tiertransport wird mit Alpha v1910 veröffentlicht; als Nächstes folgen Medizin-Transfer und Reporter; SAR Heli bleibt deaktiviert und kommt auf Nutzerwunsch zuletzt. Ältere Prioritätslisten unten gelten nicht als aktueller Release-Status.
+
+
+## Aktuelle Arbeitsreihenfolge – 04.10.2026
+
+1. **APT Tiertransport:** eigener Ideen-/Briefing-/History-Pfad, konsistente Tierbegleitung, Sendung und Übergabe; Release Alpha v1910.
+2. APT Medizin-Transfer.
+3. APT Reporter: Transfer zum journalistischen Bodenauftrag.
+4. Abschlussprüfung einschließlich Fortsetzungen, Rückflügen, Tracker/EFB und Voice.
+5. SAR Heli bleibt deaktiviert; vollständiges Rewrite zuletzt.
+
+### Verbindliche Qualität für Folgeaufträge und Rückflüge
+
+Diese Prüfung gehört zu jeder Familienmigration, nicht erst zur Abschlussrunde:
+
+- Dieselben Personen, Tiere, Sendungen und vereinbarten Rollen weiterführen. Am Ziel ausgeladene Tiere/Fracht nicht automatisch wieder an Bord nehmen.
+- Nur bestätigte Runtime-Ergebnisse als geschehen erzählen. Entwürfe und History sind keine geflogenen Ereignisse. Teilbefund, Abbruch und fehlgeschlagene Übergabe bleiben ausdrücklich unterscheidbar.
+- Die neue Aufgabe muss aus dem vorherigen Anlass oder Ergebnis entstehen. Rückfluggrund, mitreisende Personen und tatsächliche Rückladung explizit definieren; keine neu ausgeloste Erstmission als Fortsetzung.
+- Gleiche Briefingqualität wie beim Hinflug: klare Perspektive, belegte Flug-/Wetterdaten, natürliche Begrüßung, passende Voice und konsistente Arrival-Rollen. Geplante Betreuung am Boden nicht als abgeschlossen behaupten.
+- Handoff, Speicher/Restore und Cloud-Kompaktierung müssen Identitäten und Kontinuitätsdaten erhalten. Wiederherstellung darf keinen zweiten Folgeauftrag erzeugen.
+- Pro Profil Erstauftrag und vorhandene Folge-/Rückflugpfade prüfen, einschließlich Erfolg, Teilerfolg und Abbruch. Nicht implementierte Anschlusslogik bleibt als offen dokumentiert.
+
+Tiertransport-Erstauftrag lokal umgesetzt: strukturierte Idee, eigener Writer, begrenzte History, Angebotsauswahl, persistente Identitäten und geplanter Empfangskontakt. 26 gezielte Tests plus Cargo-Szenentest grün (Idee/Annahme/Restore/Wetter/Arrival plus fragile Fracht und Tier-Assets). Live-Gemini-Proben am 04./05.10. durchgeführt; Prompt V1.7 trennt Anlass, Handhabung und noch bevorstehende Verladung; der Writer formuliert kurze aktive Sätze und bindet die Begrüßung ausdrücklich an die Sprechrolle des Begleiters. Die Sprachprobe vom 05.10. wurde mit derselben fiktiven Sendung wiederholt. greeting erklingt nach dem Einsteigen und darf deshalb nicht zum Verladen auffordern oder einen ungeprüften Sicherungsstatus behaupten. Die letzte Probe hält Identitäten und Verpackung konsistent. Szene/Manifest lokal geprüft; echte Voice-Audio- und Simulatorabnahme stehen noch aus. Eigene Tiertransport-Fortsetzungen werden dadurch noch nicht als fertig gewertet.
+
 Diese Datei ist die praktische Ausbau- und Backlog-Liste fuer neue Missionsfamilien.
 
 Sie ergaenzt das Kochbuch in `Mission Building Instructions.md`:
