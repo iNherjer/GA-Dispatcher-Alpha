@@ -25,7 +25,10 @@
       + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
   }
 
-  function buildViewModel(guidance) {
+  function buildViewModel(guidance, allowedActions) {
+    function allowed(intent) {
+      return !Array.isArray(allowedActions) || allowedActions.indexOf(intent) >= 0;
+    }
     var source = guidance && typeof guidance === 'object' ? guidance : {};
     var rows = Array.isArray(source.rows) ? source.rows : [];
     var history = Array.isArray(source.history) ? source.history : [];
@@ -41,10 +44,10 @@
         return instruction.length > 150 ? instruction.slice(0, 147).trim() + '…' : instruction;
       })(),
       attempt: source.attempt == null ? '' : String(source.attempt),
-      canRepeat: source.canRepeat === true,
-      canStart: source.canStart === true,
+      canRepeat: source.canRepeat === true && allowed('training_repeat_instruction'),
+      canStart: source.canStart === true && allowed('training_ready'),
       preparing: source.preparing === true,
-      canAbort: source.canAbort === true,
+      canAbort: source.canAbort === true && allowed('training_abort'),
       rows: rows.map(function (row, index) {
         row = row && typeof row === 'object' ? row : {};
         var status = ['pending', 'active', 'complete', 'error'].indexOf(row.status) >= 0 ? row.status : 'pending';
@@ -271,7 +274,7 @@
 
   function render(guidance, options) {
     if (!root.document) return null;
-    var view = buildViewModel(guidance);
+    var view = buildViewModel(guidance, options && options.allowedActions);
     var id = options && options.id || 'trainingGuidanceBanner';
     var node = getRoot(root.document, id);
     node._trainingRepeat = options && options.onRepeat;

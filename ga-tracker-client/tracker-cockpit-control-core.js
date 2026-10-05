@@ -27,6 +27,10 @@ const MISSION_INTENTS = new Set([
   'confirm_pickup',
   'confirm_unload',
   'request_pax_interaction',
+  'training_ready',
+  'training_abort',
+  'training_extra',
+  'training_repeat_instruction',
   'submit_compliance_evidence',
   'request_close',
   'abort_mission'

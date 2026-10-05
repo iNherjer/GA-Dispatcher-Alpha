@@ -164,13 +164,15 @@ test('training telemetry and intents run in the real mission child process', asy
     await until(() => host.runtime.publicState().effects.pendingEffects.length === 0);
   }
   await until(() => host.authorityManager.getExecutionSnapshot().state.flags.active);
-  const telemetry = async observedAt => {
+  const telemetry = async (observedAt, patch = {}) => {
     host.runtime.observeTelemetry({ observedAt, lat: 48.3, lon: 8.5, altFt: 3000, aglFt: 3000, gsKts: 85, hdg: 0, bankDeg: 0,
-      vsFpm: 0, onGround: false });
+      vsFpm: 0, onGround: false, ...patch });
     await until(() => !host.runtime.publicState().telemetry.inFlight && !host.runtime.publicState().telemetry.pending);
     await host.runtime.flush();
   };
   const base = Date.now();
+  await telemetry(base - 1000, { simPaused: true });
+  assert.equal(host.authorityManager.getExecutionSnapshot().state.poiTask.trainingState.coaching.suspended, true);
   await telemetry(base);
   await telemetry(base + 3100);
   let snapshot = host.authorityManager.getExecutionSnapshot();
@@ -277,4 +279,81 @@ test('training still suspends for missing position, altitude or maneuver safety 
     assert.equal(task.coaching.suspended, true, field);
     assert.equal(task.guidance.canStart, false, field);
   }
+});
+
+
+test('suspended training publishes received gate values without unlocking the exercise', async t => {
+  const h = await harness(t); await start(h);
+  const base = Date.now();
+  await h.sample({ observedAt: base, simPaused: true, aglFt: 1300 });
+  let task = h.manager.getExecutionSnapshot().state.poiTask.trainingState;
+  assert.equal(task.coaching.suspended, true);
+  assert.equal(task.coaching.sample.aglFt, 1300);
+  assert.ok(task.coaching.sample.departureDistanceNm >= 5);
+  assert.match(task.guidance.rows.find(row => row.id === 'altitude').detail, /1300/);
+  assert.doesNotMatch(task.guidance.notice, /Position\/Entfernung.*nicht verfügbar/);
+  assert.notEqual(task.guidance.canStart, true);
+  await h.sample({ observedAt: base + 1100, simPaused: true, aglFt: 2400 });
+  task = h.manager.getExecutionSnapshot().state.poiTask.trainingState;
+  assert.equal(task.coaching.sample.aglFt, 2400);
+  assert.match(task.guidance.rows.find(row => row.id === 'altitude').detail, /2400/);
+  assert.equal(task.progress.startAvailable, false);
+});
+
+
+test('training releases each telemetry suspension after fresh airborne values and stable preparation', async t => {
+  const interruptions = {
+    ground: { onGround: true, aglFt: 3, gsKts: 0 },
+    pause: { simPaused: true },
+    menu: { inMenuOrMap: true },
+    slew: { slewActive: true },
+    missingPosition: { lat: null },
+    missingAgl: { aglFt: null }
+  };
+  for (const [label, interruption] of Object.entries(interruptions)) {
+    await t.test(label, async t => {
+      const h = await harness(t); await start(h);
+      const base = Date.now();
+      await h.sample({ observedAt: base, bankDeg: 0, vsFpm: 0, ...interruption });
+      assert.equal(h.manager.getExecutionSnapshot().state.poiTask.trainingState.coaching.suspended, true);
+      const resumed = { lat: 48.1, lon: 8, altFt: 5736, aglFt: 3791,
+        hdg: 249, bankDeg: 0, vsFpm: 0, onGround: false, gsKts: 85,
+        simPaused: false, inMenuOrMap: false, slewActive: false };
+      await h.sample({ observedAt: base + 1100, ...resumed });
+      await h.sample({ observedAt: base + 4300, ...resumed });
+      const snapshot = h.manager.getExecutionSnapshot();
+      const task = snapshot.state.poiTask.trainingState;
+      assert.equal(task.coaching.suspended, false);
+      assert.equal(task.guidance.canStart, true);
+      assert.equal(task.coaching.sample.aglFt, 3791);
+      assert.ok(execution.allowedActions(snapshot.state).includes('training_ready'));
+      assert.doesNotMatch(task.guidance.notice || '', /unterbrochen|pausiert|unvollständig/);
+      assert.equal((await h.intent('training_ready')).ok, true);
+      await h.sample({ observedAt: base + 4400, ...resumed });
+      assert.equal(h.manager.getExecutionSnapshot().state.poiTask.trainingState.progress.activeExercise.status, 'active');
+    });
+  }
+});
+
+
+test('training can prepare and manually start after simulator disconnect and reconnect', async t => {
+  const h = await harness(t); await start(h);
+  const base = Date.now();
+  await h.sample({ observedAt: base, bankDeg: 0, vsFpm: 0 });
+  await h.sample({ observedAt: base + 3100, bankDeg: 0, vsFpm: 0 });
+  assert.equal((await h.intent('training_ready')).ok, true);
+  await h.sample({ observedAt: base + 3200, bankDeg: 0, vsFpm: 0 });
+  h.runtime.detachSimulator();
+  h.runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 3000, hdg: 249 }),
+    dispatchCommand: completed, syncPayloadManifestState: completed, cleanupMission: completed });
+  await tick();
+  await h.sample({ observedAt: base + 9200, hdg: 249, bankDeg: 0, vsFpm: 0 });
+  await h.sample({ observedAt: base + 12400, hdg: 249, bankDeg: 0, vsFpm: 0 });
+  const snapshot = h.manager.getExecutionSnapshot();
+  assert.equal(snapshot.state.poiTask.trainingState.coaching.suspended, false);
+  assert.equal(snapshot.state.poiTask.trainingState.guidance.canStart, true);
+  assert.ok(snapshot.view.allowedActions.includes('training_ready'));
+  assert.equal((await h.intent('training_ready')).ok, true);
+  await h.sample({ observedAt: base + 12500, hdg: 249, bankDeg: 0, vsFpm: 0 });
+  assert.equal(h.manager.getExecutionSnapshot().state.poiTask.trainingState.progress.activeExercise.status, 'active');
 });

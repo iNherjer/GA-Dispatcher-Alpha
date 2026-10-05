@@ -2065,6 +2065,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         window.GATrainingGuidanceUi?.render?.(control.executionAuthority === 'tracker'
             ? (control.poiTask?.trainingGuidance || control.trainingTask?.guidance || null) : null, {
             id: 'trainingGuidanceBanner',
+            allowedActions: control && Array.isArray(control.allowedActions) ? control.allowedActions : [],
             onRepeat: () => window.gaTrackerExecutionSubmitIntent?.('training_repeat_instruction', {}),
             onStart: () => window.gaTrackerExecutionSubmitIntent?.('training_ready', {}),
             onRestart: () => window.gaTrackerExecutionSubmitIntent?.('training_abort', {}),

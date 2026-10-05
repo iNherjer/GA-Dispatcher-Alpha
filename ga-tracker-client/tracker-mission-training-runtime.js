@@ -33,7 +33,20 @@ function createState(recipe, saved) {
     return { checkpoint, progress: progress(checkpoint), flight: flight.createState(saved?.flight), lastSampleAt: saved?.lastSampleAt ?? null, coaching: saved?.coaching ? JSON.parse(JSON.stringify(saved.coaching)) : null, guidance: saved?.guidance || null };
 }
 function context(recipe) { return { ...recipe.voiceContext, target: recipe.target, home: recipe.home, trainingRecipe: recipe.trainingRecipe, missionMode:recipe.missionMode || 'POI' }; }
-function pause(recipe, state, now, reason = 'Flugdaten unterbrochen oder Simulator pausiert. Laufenden Durchgang neu ansetzen.') {
+function captureSample(recipe, state, sample) {
+    const departure = recipe.voiceContext.departure || recipe.home;
+    const hasPosition = [sample.lat, sample.lon, departure?.lat, departure?.lon ?? departure?.lng]
+        .every(value => typeof value === 'number' && Number.isFinite(value));
+    const departureDistanceNm = hasPosition
+        ? geo.distanceNm(sample.lat, sample.lon, departure.lat, departure.lon ?? departure.lng)
+        : null;
+    const observedSample = { ...sample, departureDistanceNm };
+    coaching.init(state).sample = Object.fromEntries(['altFt','hdg','aglFt','bankDeg','vsFpm','iasKts','aoaDeg','stallState','pitchDeg','gForce','observedAt','departureDistanceNm']
+        .map(key => [key, observedSample[key] ?? null]));
+    return observedSample;
+}
+function pause(recipe, state, now, reason = 'Flugdaten unterbrochen oder Simulator pausiert. Laufenden Durchgang neu ansetzen.', sample = null) {
+    if (sample) captureSample(recipe, state, sample);
     const c = coaching.init(state);
     if (!c.suspended) { c.notice = reason; c.pendingNotice = reason; coaching.record(state, reason, now); }
     c.suspended = true;
@@ -47,13 +60,7 @@ function pause(recipe, state, now, reason = 'Flugdaten unterbrochen oder Simulat
 function observe(recipe, state, sample) {
     if (state.lastSampleAt !== null && sample.observedAt - state.lastSampleAt > 5000) pause(recipe, state, sample.observedAt);
     const c = coaching.init(state);
-    const departure = recipe.voiceContext.departure || recipe.home;
-    const hasPosition = [sample.lat, sample.lon, departure?.lat, departure?.lon ?? departure?.lng]
-        .every(value => typeof value === 'number' && Number.isFinite(value));
-    const departureDistanceNm = hasPosition
-        ? geo.distanceNm(sample.lat, sample.lon, departure.lat, departure.lon ?? departure.lng)
-        : null;
-    const observedSample = { ...sample, departureDistanceNm };
+    const observedSample = captureSample(recipe, state, sample);
     const problem = coaching.prepare(recipe, state, observedSample);
     if (problem) {
         pause(recipe,state,sample.observedAt,problem);

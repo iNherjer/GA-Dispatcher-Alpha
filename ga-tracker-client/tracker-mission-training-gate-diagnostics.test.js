@@ -98,6 +98,11 @@ test('runtime logs training gate inputs on changes and at most every 30s while b
   assert.equal(entries[2].altitudeGate, true);
   assert.equal(entries[2].readyPrompted, true);
   assert.equal(entries[3].startAvailable, true);
+  assert.equal(entries[0].onGround, false);
+  assert.equal(entries[0].simPaused, false);
+  assert.equal(entries[0].inMenuOrMap, false);
+  assert.equal(entries[0].gsKts, 85);
+  assert.equal(entries[0].slewActive, false);
 });
 
 test('runtime emits no training gate diagnostics for a non-training mission', async t => {

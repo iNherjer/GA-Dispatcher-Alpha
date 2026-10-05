@@ -66,7 +66,7 @@ function createDriver({authorityManager,applySystemEvent}) {
       ||!Number.isFinite(normalized.lat)||!Number.isFinite(normalized.lon)||!Number.isFinite(normalized.altFt);
     const previousSuspended=task.suspended;
     if(recovered){training.pause(ctx.recipe,task.state,at,'Tracker wieder verbunden. Aktuellen Durchgang neu stabilisieren und starten.');recovered=false;}
-    if(suspended){training.pause(ctx.recipe,task.state,at);task.suspended=true;}
+    if(suspended){training.pause(ctx.recipe,task.state,at,undefined,normalized);task.suspended=true;}
     else {const result=training.observe(ctx.recipe,task.state,normalized);task.state=result.state;task.suspended=false;voices.push(...result.voices.map(c=>({...c,aptTraining:true})));}
     task.observedAt=at;dirty=true;
     return voices.length||previousSuspended!==task.suspended||!ctx.snapshot.state.trainingTask||at-ctx.snapshot.state.trainingTask.observedAt>=1000

@@ -332,3 +332,22 @@ test('cloud activation delegates active-run replacement preconditions to the clo
   assert.deepEqual(received.payload, payload);
   assert.equal(received.controllerSession.role, 'efb');
 });
+
+
+test('training actions reach the tracker executor from web and EFB sessions', async () => {
+  for (const role of ['web', 'efb']) {
+    const executed = [];
+    const app = fixture({ executionAuthority: 'tracker', executeIntent: async request => {
+      executed.push(request.intent);
+      return { ok: true, status: 'ok' };
+    } });
+    const registered = app.control.register({ clientId: role + '-training', role });
+    for (const intent of ['training_ready', 'training_abort', 'training_extra', 'training_repeat_instruction']) {
+      const result = await app.control.submitIntent({ sessionId: registered.session.sessionId,
+        sessionToken: registered.sessionToken, commandId: role + '-' + intent,
+        intent, missionId: 'mission-a', runId: 'run-a', expectedRevision: 7 });
+      assert.equal(result.ok, true, role + ':' + intent);
+    }
+    assert.deepEqual(executed, ['training_ready', 'training_abort', 'training_extra', 'training_repeat_instruction']);
+  }
+});

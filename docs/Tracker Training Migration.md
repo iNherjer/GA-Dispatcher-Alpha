@@ -251,3 +251,36 @@ Sicherheitswert ab. Karte/Missionsmenue und Training beziehen ihre Werte
 aus derselben SimConnect-Quelle, durchlaufen aber unterschiedliche
 Validierungs- und Projektionswege. Es wird kein GS-Wert erfunden oder
 durch IAS ersetzt.
+
+### Trainingsbanner-Aktionsfreigaben, 2026-10-05 (Tracker v477 / App v1924)
+
+Das Banner in Webapp und EFB schneidet seine Start-/Abbruch-/Wiederholen-
+Angebote mit `control.allowedActions` des Trackers. Ein gespeicherter
+Guidance-Status allein darf keine aktuell gesperrte Aktion anbieten. Die
+Missions-State-Machine und Voice-Sperren bleiben unveraendert. Der UI-Test
+prueft leere Freigaben, ausschliesslich Wiederholen und Legacy-Aufrufer.
+
+Der Oct5-Log belegt vollstaendige Telemetrie und erfuellte Distanz-/AGL-Gates,
+aber eine dauerhaft gesetzte Suspension. Die damalige Diagnostik enthaelt
+nicht die einzelnen Sperrgruende. Sie protokolliert nun Beobachtungsgrund,
+Pause, Menu, Boden, Slew, GS und Pause-Flags. Keine Sicherheitspruefung
+wurde auf Verdacht entfernt.
+
+Die Cockpit-Transport-Allowlist enthielt keine Trainingsaktionen und wies
+sie bereits vor dem Executor mit mission_intent_not_allowed ab. Die vier
+bestehenden Trainingsaktionen sind nun zugelassen; fachliche State-/Revision-
+Pruefungen bleiben beim Executor. Ein Test prueft Web- und EFB-Sessions.
+Alpha-Rollout v477 enthaelt diese Korrekturen; die Ursache der Suspension im realen Oct5-Lauf bleibt offen.
+
+Empfangene Trainingswerte werden nun auch auf dem Suspend-/Invalid-Pfad
+in den Guidance-Snapshot uebernommen (POI und APT). Das aendert keine
+Freigabe oder Uebungsergebnisse. Ein Integrationstest prueft fortlaufende
+AGL-/Distanz-Anzeige bei pausiertem Training ohne Startfreigabe.
+
+Freigabe-Stichprobe: sechs Suspend-Ursachen (Boden, Pause, Menu, Slew,
+fehlende Position, fehlendes AGL) werden nach frischer Telemetrie und
+drei Sekunden stabiler Vorbereitung geloest; training_ready startet das
+Manoever. Zusaetzlich geprueft: Pause im echten Mission-Child-Prozess
+und Simulator-Disconnect/Reconnect waehrend einer Uebung. Alle Tests
+bestanden. Der dauerhaft gesperrte reale Oct5-Lauf bleibt damit nicht
+reproduziert; es fehlen seine konkreten Pause-/Slew-/Boden-Sperrwerte.

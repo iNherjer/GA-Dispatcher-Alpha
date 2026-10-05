@@ -103,3 +103,15 @@ const trainingLayer = Number(stylesheet.match(/\.training-guidance\s*\{[^}]*z-in
 const mapLayer = Number(stylesheet.match(/body\.map-is-fullscreen #mapTableOverlay\s*\{[^}]*z-index:\s*(\d+)/)[1]);
 assert.ok(trainingLayer > mapLayer, 'training guidance must be above the fullscreen map');
 assert.ok(trainingLayer < 130500, 'modal dialogs remain above training guidance');
+
+// A persisted guidance projection must never offer actions the authority denies.
+const offered = { visible: true, canRepeat: true, canStart: true, canAbort: true };
+const blockedActions = ui.buildViewModel(offered, []);
+assert.equal(blockedActions.canRepeat, false);
+assert.equal(blockedActions.canStart, false);
+assert.equal(blockedActions.canAbort, false);
+const repeatOnly = ui.buildViewModel(offered, ['training_repeat_instruction']);
+assert.equal(repeatOnly.canRepeat, true);
+assert.equal(repeatOnly.canStart, false);
+assert.equal(repeatOnly.canAbort, false);
+assert.equal(ui.buildViewModel(offered).canRepeat, true, 'legacy callers retain guidance flags');

@@ -6004,3 +6004,28 @@ EFB-Reset verwendet einen HTML-Dialog statt window.confirm mit Abbrechen als Def
 Tester meldet weiter anwachsende Zahnrad-/RTE-Schrift, unskalierte Kartenknopf-Hitboxen und Canvas-Beschriftungen. Browser-Reproduktion zeigt Font-Transition-Zwischenwerte; Basisgroessen bleiben nun ueber Schriftwechsel und Reset hinweg erhalten, Font-Transitions fuer Buttons sind ausgeschlossen. Kartentasten/Profil-Mindesthoehe folgen einer lokalen UI-Skala. Profile-Canvas skaliert Beschriftung und Achsenabstand mit derselben Skala wie die Hit-Test-Geometrie; Standalone bleibt unveraendert. Native Fensterknopf-Platzierung und Klickverhalten muessen im Windows-SDK/Coherent reproduziert und korrigiert werden; bisherige Browser-Freigabe war dafuer unzureichend. Kein neues Release bestaetigt.
 
 Alpha-Rollout v476: vorbereitete Font-/Kartenknopf-/Canvas-Korrektur mit Assetrevision 47601. Native SDK-Fenstersteuerung bleibt unveraendert 0.4.17 und im gesonderten Windows-Handoff offen. Node-/Browserpruefungen bestanden; echter Coherent-/VR-Feldtest weiterhin erforderlich.
+
+### Trainingsbanner-Aktionsfreigaben, 2026-10-05 (Tracker v477 / App v1924)
+
+Das Banner in Webapp und EFB schneidet seine Start-/Abbruch-/Wiederholen-
+Angebote mit `control.allowedActions` des Trackers. Ein gespeicherter
+Guidance-Status allein darf keine aktuell gesperrte Aktion anbieten. Die
+Missions-State-Machine und Voice-Sperren bleiben unveraendert. Der UI-Test
+prueft leere Freigaben, ausschliesslich Wiederholen und Legacy-Aufrufer.
+
+Der Oct5-Log belegt vollstaendige Telemetrie und erfuellte Distanz-/AGL-Gates,
+aber eine dauerhaft gesetzte Suspension. Die damalige Diagnostik enthaelt
+nicht die einzelnen Sperrgruende. Sie protokolliert nun Beobachtungsgrund,
+Pause, Menu, Boden, Slew, GS und Pause-Flags. Keine Sicherheitspruefung
+wurde auf Verdacht entfernt.
+
+Die Cockpit-Transport-Allowlist enthielt keine Trainingsaktionen und wies
+sie bereits vor dem Executor mit mission_intent_not_allowed ab. Die vier
+bestehenden Trainingsaktionen sind nun zugelassen; fachliche State-/Revision-
+Pruefungen bleiben beim Executor. Ein Test prueft Web- und EFB-Sessions.
+Alpha-Rollout v477 enthaelt diese Korrekturen; die Ursache der Suspension im realen Oct5-Lauf bleibt offen.
+
+Empfangene Trainingswerte werden nun auch auf dem Suspend-/Invalid-Pfad
+in den Guidance-Snapshot uebernommen (POI und APT). Das aendert keine
+Freigabe oder Uebungsergebnisse. Ein Integrationstest prueft fortlaufende
+AGL-/Distanz-Anzeige bei pausiertem Training ohne Startfreigabe.

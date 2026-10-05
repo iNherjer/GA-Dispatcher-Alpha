@@ -178,7 +178,7 @@ function observe(recipe, previous, sample, facts = {}) {
     if (!suspended && (!point(sample) || !finite(sample.altFt)
         || (!finite(sample.gsKts) && !(isTrainingRecipe(recipe) && sample.onGround === false)))) {
         if (state.trainingState) {
-            trainingTask.pause(recipe, state.trainingState, sample.observedAt);
+            trainingTask.pause(recipe, state.trainingState, sample.observedAt, undefined, sample);
             state.observedAt = sample.observedAt; state.sequence++; state.suspendedAt = sample.observedAt;
             return {state, effects:[], changed:true, reason:'training_telemetry_invalid'};
         }
@@ -231,7 +231,7 @@ function observe(recipe, previous, sample, facts = {}) {
     state.observedAt = sample.observedAt;
     state.sequence++;
     if (suspended) {
-        if (state.trainingState) trainingTask.pause(recipe, state.trainingState, sample.observedAt);
+        if (state.trainingState) trainingTask.pause(recipe, state.trainingState, sample.observedAt, undefined, sample);
         if (state.suspendedAt === null) state.suspendedAt = sample.observedAt;
         return { state, effects: [], changed: true, reason: 'poi_task_suspended' };
     }
