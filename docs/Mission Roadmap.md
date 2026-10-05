@@ -7,7 +7,7 @@ Aktuelle APT-/POI-Restliste (04.10.2026): [Bestandsaufnahme der Modernisierung](
 
 1. **APT Tiertransport:** eigener Ideen-/Briefing-/History-Pfad, konsistente Tierbegleitung, Sendung und Übergabe; Release Alpha v1910.
 2. **APT Medizin-Transfer:** eigener Personal-/Material-/Patientenverlegungs-Ideenpfad im Alpha-Release Web v1916 / Tracker v471 (05.10.2026). Drei finale Gemini-Proben und Arrival-Projektion bestanden; MSFS-/Voice-Feldabnahme offen.
-3. **APT Reporter:** Alpha Web v1917 / Tracker v472 (05.10.2026), `apt-news-v1.6`. Eigene Ideen-, Writer- und History-Pipeline für seriöse und kuriose journalistische Bodenaufträge. Ein Reporter mit persönlicher Ausrüstung, geplanter Abholung und optionalem Rückauftrag nach bestätigter Ankunft. Zwei finale Gemini-Hin-/Rückflugproben inklusive acht Routenansagen bestanden; 139 Regressionstests sowie gepackter Tracker-Missionsprozess geprüft. MSFS-/Audio-Feldabnahme offen.
+3. **APT Reporter:** Alpha Web v1918 / Tracker v472 (05.10.2026), `apt-news-v1.6`. Eigene Ideen-, Writer- und History-Pipeline für seriöse und kuriose journalistische Bodenaufträge. Ein Reporter mit persönlicher Ausrüstung, geplanter Abholung und optionalem Rückauftrag nach bestätigter Ankunft. Zwei finale Gemini-Hin-/Rückflugproben inklusive acht Routenansagen bestanden; 139 Regressionstests sowie gepackter Tracker-Missionsprozess geprüft. MSFS-/Audio-Feldabnahme offen.
 4. Abschlussprüfung einschließlich Fortsetzungen, Rückflügen, Tracker/EFB und Voice.
 5. SAR Heli bleibt deaktiviert; vollständiges Rewrite zuletzt.
 

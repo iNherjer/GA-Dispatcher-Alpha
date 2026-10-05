@@ -1,6 +1,6 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
-## APT Reporter, Alpha Web v1917 / Tracker v472, 05.10.2026
+## APT Reporter, Alpha Web v1918 / Tracker v472, 05.10.2026
 
 Reportertransfer nutzt bestehendes APT-Rezept und Tracker-Authority. Eigene Ausrüstung bleibt beim einzelnen Reporter; optionale Abholung und Rückflug verwenden den vorhandenen Charter-Folgeauftrag. Reporter-Routenansagen samt History und besetztem Rückflugabschnitt werden über die bestehenden Voice-Effekte projiziert; keine neue EFB-Zustandsmaschine. Tracker-Neubau enthält die narrativen Module. EFB-Community-Package unverändert. Gemini-Textproben und automatisierte Integrationsprüfungen ersetzen keinen Windows/MSFS- oder Audio-Feldtest.
 
