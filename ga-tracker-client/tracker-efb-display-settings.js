@@ -1,7 +1,7 @@
 'use strict';
 
 function validScale(value) {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0.9 && value <= 2;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0.9 && value <= 3;
 }
 
 function normalizeDisplaySettings(value) {

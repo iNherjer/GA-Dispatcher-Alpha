@@ -29,13 +29,16 @@ try {
   await page.locator('#mapHintsBtn').click();
   await page.locator('#gaEfbFontLarger').click();
   assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /110%/);
-  for (let i = 0; i < 9; i++) await page.locator('#gaEfbFontLarger').click();
-  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /200%/);
+  assert.equal(await page.locator('#gaEfbFontReset').textContent(), '110 %');
+  for (let i = 0; i < 19; i++) await page.locator('#gaEfbFontLarger').click();
+  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /300%/);
+  assert.equal(await page.locator('#gaEfbFontReset').textContent(), '300 %');
   assert.equal(await page.locator('#gaEfbFontLarger').isDisabled(), true);
   await page.reload();
   await page.waitForFunction(() => window.__fontTest && window.gaChecklistHost?.missionView);
   await page.locator('#mapHintsBtn').click();
-  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /200%/);
+  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /300%/);
+  assert.equal(await page.locator('#gaEfbFontReset').textContent(), '300 %');
   await page.setViewportSize({ width: 516, height: 716 });
   await page.waitForTimeout(150);
   await page.locator('#mapHintsBtn').click();
@@ -48,16 +51,18 @@ try {
   });
   assert.ok(controlsLayout.menuScrollWidth <= controlsLayout.menuWidth + 1, JSON.stringify(controlsLayout));
   for (const button of controlsLayout.buttons) assert.ok(button.scrollWidth <= button.width + 1, JSON.stringify(button));
-  await page.locator('#mapHintsMenu').screenshot({ path: path.join(process.env.GA_EFB_SCREENSHOT_DIR || os.tmpdir(), 'ga-efb-font-200-menu.png') });
+  await page.locator('#mapHintsMenu').screenshot({ path: path.join(process.env.GA_EFB_SCREENSHOT_DIR || os.tmpdir(), 'ga-efb-font-300-menu.png') });
   await page.setViewportSize({ width: 1640, height: 900 });
   await page.waitForTimeout(150);
   await page.locator('#mapHintsBtn').click();
   await page.locator('#gaEfbFontControls').waitFor({ state: 'visible' });
   await page.locator('#gaEfbFontReset').click();
+  assert.equal(await page.locator('#gaEfbFontReset').textContent(), '100 %');
   await page.locator('#gaEfbFontSmaller').click();
   assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /90%/);
   assert.equal(await page.locator('#gaEfbFontSmaller').isDisabled(), true);
   await page.locator('#gaEfbFontReset').click();
+  assert.equal(await page.locator('#gaEfbFontReset').textContent(), '100 %');
   await page.locator('#gaEfbFontControls').screenshot({ path: path.join(process.env.GA_EFB_SCREENSHOT_DIR || os.tmpdir(), 'ga-efb-font-controls.png') });
   await page.locator('#mapHintsBtn').click();
   const result = await page.evaluate(async () => {
@@ -71,7 +76,7 @@ try {
     const stable = document.getElementById('stableFont');
     const target = document.getElementById('newFonts');
     const samples = [];
-    for (const scale of [1.1, 1.3, 2, 0.9]) {
+    for (const scale of [1.1, 1.3, 2, 3, 0.9]) {
       __fontTest.scale(scale);
       let styleWrites = 0;
       const watcher = new MutationObserver(records => { styleWrites += records.length; });
@@ -121,7 +126,7 @@ try {
     gaChecklistHost.missionView = missionView;
     return samples;
   });
-  assert.equal(result.length, 4);
+  assert.equal(result.length, 5);
   console.log('PASS visible font controls, bounds, persisted choice, reset, first-frame scaling and snapshot-driven mission menu.', result);
 } finally {
   await browser.close();

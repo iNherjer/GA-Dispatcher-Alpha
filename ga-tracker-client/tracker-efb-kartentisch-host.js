@@ -160,9 +160,9 @@
     catch (_) { source = {}; }
     normalized = API.normalizePreferences(source);
     normalized.theme = 'classic';
-    var legacyScale = clamp(Number(source.fontScale) || 1, 0.9, 2);
-    normalized.fontScale2d = clamp(Number(source.fontScale2d) || legacyScale, 0.9, 2);
-    normalized.fontScaleVr = clamp(Number(source.fontScaleVr) || legacyScale, 0.9, 2);
+    var legacyScale = clamp(Number(source.fontScale) || 1, 0.9, 3);
+    normalized.fontScale2d = clamp(Number(source.fontScale2d) || legacyScale, 0.9, 3);
+    normalized.fontScaleVr = clamp(Number(source.fontScaleVr) || legacyScale, 0.9, 3);
     normalized.fontScale = normalized[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'];
     return normalized;
   }
@@ -203,7 +203,7 @@
     }).then(function (display) {
       ['2d', 'vr'].forEach(function (mode) {
         var key = mode === 'vr' ? 'fontScaleVr' : 'fontScale2d';
-        if (!Object.prototype.hasOwnProperty.call(displaySettingsPending, mode)) preferences[key] = clamp(Number(display[key]) || 1, 0.9, 2);
+        if (!Object.prototype.hasOwnProperty.call(displaySettingsPending, mode)) preferences[key] = clamp(Number(display[key]) || 1, 0.9, 3);
       });
       displaySettingsReady = true;
       preferences.fontScale = preferences[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'];
@@ -451,12 +451,15 @@
     var label = document.querySelector('.ga-efb-font-size-hint');
     var text = 'Schriftgröße (' + (displayMode === 'vr' ? 'VR' : '2D') + '): ' + Math.round(preferences.fontScale * 100) + '%';
     if (label && label.textContent !== text) label.textContent = text;
+    var reset = byId('gaEfbFontReset');
+    var percent = Math.round(preferences.fontScale * 100) + ' %';
+    if (reset && reset.textContent !== percent) reset.textContent = percent;
     if (byId('gaEfbFontSmaller')) byId('gaEfbFontSmaller').disabled = preferences.fontScale <= 0.9;
-    if (byId('gaEfbFontLarger')) byId('gaEfbFontLarger').disabled = preferences.fontScale >= 2;
+    if (byId('gaEfbFontLarger')) byId('gaEfbFontLarger').disabled = preferences.fontScale >= 3;
   }
 
   function applyEfbFontScale() {
-    var nextScale = clamp(Number(preferences.fontScale) || 1, 0.9, 2);
+    var nextScale = clamp(Number(preferences.fontScale) || 1, 0.9, 3);
     var elements = fontScaleElements();
     if (nextScale === 1) {
       elements.forEach(function (element) {
@@ -514,7 +517,7 @@
   }
 
   function setEfbFontScale(value) {
-    preferences.fontScale = clamp(Math.round((Number(value) || 1) * 10) / 10, 0.9, 2);
+    preferences.fontScale = clamp(Math.round((Number(value) || 1) * 10) / 10, 0.9, 3);
     preferences[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'] = preferences.fontScale;
     displaySettingsPending[displayMode] = preferences.fontScale;
     savePreferences();
@@ -1402,7 +1405,7 @@
       fontControls.innerHTML = '<div class="ga-efb-font-size-hint" role="status"></div>'
         + '<div class="ga-efb-font-buttons">'
         + '<button type="button" id="gaEfbFontSmaller" aria-label="Schrift verkleinern">A-</button>'
-        + '<button type="button" id="gaEfbFontReset" aria-label="Schrift auf 100 Prozent zurücksetzen">100 %</button>'
+        + '<button type="button" id="gaEfbFontReset" title="Auf 100 % zurücksetzen" aria-label="Schrift auf 100 Prozent zurücksetzen">100 %</button>'
         + '<button type="button" id="gaEfbFontLarger" aria-label="Schrift vergrößern">A+</button></div>';
       displayMenu.insertBefore(fontControls, displayMenu.firstChild);
       byId('gaEfbFontSmaller').onclick = function () { setEfbFontScale(preferences.fontScale - 0.1); };

@@ -52,8 +52,8 @@ try {
   assert.equal(await view.evaluate(() => __vrFontTest.mode()), '2d');
   await changeMode(true);
   await view.waitForFunction(() => __vrFontTest.mode() === 'vr');
-  await view.evaluate(() => __vrFontTest.scale(2));
-  await page.waitForFunction(async () => (await (await fetch('/api/v1/display/settings')).json()).display.fontScaleVr === 2);
+  await view.evaluate(() => __vrFontTest.scale(3));
+  await page.waitForFunction(async () => (await (await fetch('/api/v1/display/settings')).json()).display.fontScaleVr === 3);
   await changeMode(false);
   await view.waitForFunction(() => document.body.getAttribute('data-ga-efb-font-scale') === '120');
   // Reject a message from the child itself, even with the current channel.
@@ -62,8 +62,8 @@ try {
   assert.equal(await view.evaluate(() => __vrFontTest.mode()), '2d');
   await page.goto(`${base}/parent?vr=1`);
   view = await frame();
-  await view.waitForFunction(() => document.body.getAttribute('data-ga-efb-font-scale') === '200');
-  assert.match(await view.locator('.ga-efb-font-size-hint').textContent(), /VR.*200%/);
+  await view.waitForFunction(() => document.body.getAttribute('data-ga-efb-font-scale') === '300');
+  assert.match(await view.locator('.ga-efb-font-size-hint').textContent(), /VR.*300%/);
   await view.evaluate(() => __vrFontTest.scale(1));
   await page.waitForFunction(async () => (await (await fetch('/api/v1/display/settings')).json()).display.fontScaleVr === 1);
   await changeMode(false);
