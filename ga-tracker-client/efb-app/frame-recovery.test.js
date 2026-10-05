@@ -6,6 +6,8 @@ const ts = require('./PackageSources/VfrMultitool/node_modules/typescript');
 
 function harness() {
   const timers = new Map();
+  const intervals = new Map(), modeMessages = [];
+  let mode = 0, vrEvent = null;
   let timerId = 0;
   const api = { AppView: class {}, App: class {}, AppBootMode: {}, AppSuspendMode: {}, Efb: { use() {} } };
   const sdk = { FSComponent: { createRef: () => ({ getOrDefault: () => null }) } };
@@ -14,23 +16,29 @@ function harness() {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017, jsx: ts.JsxEmit.React }
   }).outputText;
   const context = {
-    exports: {}, require: (name) => name === '@efb/efb-api' ? api : name === '@microsoft/msfs-sdk' ? sdk : name.includes('map-shell-core') ? { default: require('./map-shell-core') } : {},
+    exports: {}, require: (name) => name === '@efb/efb-api' ? api : name === '@microsoft/msfs-sdk' ? sdk : name.includes('map-shell-core') ? { default: require('./map-shell-core') } : name.includes('VrMode') ? { default: require('../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode') } : {},
     EFB_APP_VERSION: '0.4.13', TRACKER_API_URL: 'http://127.0.0.1:49880',
     setTimeout: (fn) => { timers.set(++timerId, fn); return timerId; },
-    clearTimeout: (id) => timers.delete(id), window: {}, console
+    clearTimeout: (id) => timers.delete(id), window: {
+      SimVar: { GetSimVarValue: () => mode },
+      Coherent: { on(name, fn) { vrEvent = fn; return { clear() { vrEvent = null; } }; } },
+      setInterval(fn) { intervals.set(++timerId, fn); return timerId; }, clearInterval(id) { intervals.delete(id); },
+      addEventListener() {}, removeEventListener() {}
+    }, console
   };
   vm.runInNewContext(code, context);
   const view = new context.exports.VfrMultitoolView();
   const writes = [], events = [];
   let src = '';
-  const frame = { contentWindow: {}, get src() { return src; }, set src(value) { src = value; writes.push(value); } };
+  const frame = { contentWindow: { postMessage(data, origin) { modeMessages.push({ data, origin }); } }, get src() { return src; }, set src(value) { src = value; writes.push(value); } };
   view.serverFrameRef = { getOrDefault: () => frame };
   view.reportServerFrameEvent = (...args) => events.push(args);
   view.active = true;
   view.serverClientAvailable = true;
   view.bindDomInteractions();
   return {
-    view, frame, writes, events, timers,
+    view, frame, writes, events, timers, intervals, modeMessages,
+    setVr(value) { mode = value ? 1 : 0; if (vrEvent) vrEvent(value); },
     expire() { const pending = [...timers.values()]; timers.clear(); pending.forEach((fn) => fn()); },
     ready(channel = view.serverFrameChannel) { view.onWindowMessage({ source: frame.contentWindow, data: { type: 'ga-efb-kartentisch', state: 'ready', channel } }); }
   };
@@ -72,4 +80,22 @@ test('pause cancels recovery and inactive iframe load cannot restart it', () => 
   h.view.stopClock = () => {}; h.view.closeToolPanel = () => {};
   h.view.onPause(); h.frame.onload(); h.expire();
   assert.equal(h.timers.size, 0); assert.equal(h.writes.length, 1);
+});
+
+test('EFB host forwards native VR changes and stops detection while paused', () => {
+  const h = harness();
+  h.view.readPreferences = () => ({}); h.view.applyPreferencesToChrome = () => {};
+  h.view.setScreen = () => {}; h.view.startClock = () => {}; h.view.stopClock = () => {};
+  h.view.scheduleMapInitialization = () => {}; h.view.closeToolPanel = () => {};
+  h.view.startPolling = () => { h.view.active = true; };
+  h.setVr(true); h.view.activate(); h.view.startServerFrame(); h.ready();
+  assert.equal(new URL(h.frame.src).searchParams.get('vr'), '1');
+  assert.equal(h.modeMessages.at(-1).data.vr, true);
+  assert.equal(h.modeMessages.at(-1).data.channel, h.view.serverFrameChannel);
+  h.setVr(false); assert.equal(h.modeMessages.at(-1).data.vr, false);
+  h.view.onPause(); assert.equal(h.intervals.size, 0);
+  const messages = h.modeMessages.length; h.setVr(true);
+  assert.equal(h.modeMessages.length, messages);
+  h.view.onResume(); h.view.startServerFrame(); h.ready();
+  assert.equal(h.modeMessages.at(-1).data.vr, true);
 });

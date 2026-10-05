@@ -1293,3 +1293,16 @@ body.ga-efb-tracker-host .ga-weather-layout-responsive .ga-weather-windrose::bef
 /* Preserve the whole standalone 34px marker hitbox above the route hit layer. */
 body.ga-efb-tracker-host .leaflet-gaWaypoint-pane .custom-pin,
 body.ga-efb-tracker-host .leaflet-gaWaypoint-pane .pin-hitbox { pointer-events: auto; }
+
+/* Keep enlarged display controls usable on small EFB/VR viewports. */
+body.ga-efb-tracker-host #mapHintsMenu {
+  max-height: calc(100vh - 58px);
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+body.ga-efb-tracker-host #mapHintsMenu button {
+  white-space: normal;
+  overflow-wrap: break-word;
+  height: auto;
+}
+body.ga-efb-tracker-host .ga-efb-font-size-hint { overflow-wrap: break-word; }

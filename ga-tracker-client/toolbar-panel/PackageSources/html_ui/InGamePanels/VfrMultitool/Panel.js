@@ -12,6 +12,13 @@
   var controlsFrame = null;
   var active = false, generation = 0, timer = null, request = null, frame = null;
   var channel = '', ready = false, deadline = 0;
+  var vrWatcher = null;
+  function sendDisplayMode() {
+    if (!active || !frame || !window.GAVrMode) return;
+    var mode = vrWatcher ? vrWatcher.read() : window.GAVrMode.read(window);
+    if (mode === null) return;
+    frame.contentWindow.postMessage({ type: 'ga-efb-display-mode', channel: channel, vr: mode }, base);
+  }
   function log(message) { console.log('[VFR_TOOLBAR 0.2.1] ' + message); }
   function clearFrame() {
     ready = false;
@@ -22,6 +29,7 @@
   function stop(reason) {
     active = false; generation++;
     clearTimeout(timer); timer = null;
+    if (vrWatcher) { vrWatcher.stop(); vrWatcher = null; }
     if (request) { request.abort(); request = null; }
     clearFrame(); log('suspend ' + reason);
   }
@@ -51,7 +59,8 @@
         frame = document.createElement('iframe');
         frame.title = 'VFR Multitool Kartentisch';
         channel = 'toolbar-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
-        frame.src = base + '/efb/v1/?host=toolbar&channel=' + encodeURIComponent(channel) + '&view=9';
+        var vr = window.GAVrMode && window.GAVrMode.read(window) === true;
+        frame.src = base + '/efb/v1/?host=toolbar&channel=' + encodeURIComponent(channel) + '&view=10&vr=' + (vr ? '1' : '0');
         deadline = Date.now() + 20000;
         var loadCount = 0;
         frame.onload = function () {
@@ -59,6 +68,7 @@
           loadCount++;
           if (loadCount > 1) { ready = false; deadline = Date.now() + 20000; schedule(4000); }
           log('frame-load ' + channel);
+          sendDisplayMode();
         };
         container.appendChild(frame);
         status.textContent = 'Tracker verbunden – Kartentisch startet'; log('start ' + channel);
@@ -71,7 +81,9 @@
   }
   function start() {
     if (active) return;
-    active = true; generation++; log('resume'); check();
+    active = true; generation++;
+    if (window.GAVrMode) vrWatcher = window.GAVrMode.watch(window, sendDisplayMode);
+    log('resume'); check();
   }
   function visible() {
     return !document.hidden && panel.active === true && panel.visible !== false && !panel.minimized;
@@ -136,6 +148,7 @@
       ready = true; offline.style.display = 'none'; bar.style.display = 'none';
       status.textContent = 'Kartentisch mit Tracker verbunden';
       log(data.state + ' ' + channel);
+      sendDisplayMode();
     } else if (data.state === 'error') {
       bar.style.display = '';
       status.textContent = 'Kartentisch: Verbindung oder Laden gestört – Neu verbinden bei Bedarf';

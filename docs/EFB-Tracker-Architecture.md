@@ -1397,3 +1397,7 @@ Audio-Steueranfragen sind ebenfalls begrenzt; der gemeinsame Player gibt
 seinen Request-Lock frei und versucht nach Fehlern automatisch erneut, ohne
 die PAX-Prioritaet oder exklusive Playback-Lease zu umgehen. Schreibende
 Missions-Intents erhalten durch HTTP-Timeouts keine automatische Wiederholung.
+
+## VR-Schriftprofile (2026-10-05, Tracker v473 / SDK 0.4.16)
+
+EFB-App und Toolbar melden den nativen VR-Modus an den lokalen Host. tracker-efb-display-settings.js verwaltet efbDisplay.fontScale2d und fontScaleVr (0.9-2.0) in der bestehenden Tracker-Konfiguration. Der Loopback-Endpunkt /api/v1/display/settings bietet begrenztes GET/POST; andere Konfigurationsfelder bleiben erhalten. Moduswechsel waehlen das zugehoerige Profil, HTTP-Fehler nutzen lokale Fallbacks. VrMode.js nutzt E:IS IN VR plus Coherent-Ereignis und lifecycle-gebundenes Polling.

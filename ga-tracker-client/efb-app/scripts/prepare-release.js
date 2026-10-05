@@ -84,6 +84,9 @@ function verifyArchive(archive, expectedVersion) {
         'html_ui/InGamePanels/VfrMultitool/Panel.css',
         'html_ui/icons/toolbar/ICON_TOOLBAR_VFR_MULTITOOL.svg'
       ];
+      if (major > 0 || minor > 4 || (minor === 4 && patch >= 16)) {
+        requiredToolbarFiles.push('html_ui/InGamePanels/VfrMultitool/VrMode.js');
+      }
       for (const relative of requiredToolbarFiles) {
         const file = path.join(staging, EFB_PACKAGE_NAME, relative);
         if (!fs.existsSync(file) || fs.statSync(file).size === 0) throw new Error(`Toolbar-Datei fehlt: ${relative}`);

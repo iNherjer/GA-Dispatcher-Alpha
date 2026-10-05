@@ -73,6 +73,9 @@
   var routeProgressTarget = 'wpt';
   var previewWaypointIndex = null;
   var lastParentState = '';
+  var displayMode = new URLSearchParams(window.location.search).get('vr') === '1' ? 'vr' : '2d';
+  var displaySettingsReady = false, displaySettingsLoading = false, displaySettingsSaving = false;
+  var displaySettingsPending = {}, displaySettingsRetry = null;
   var preferences = readPreferences();
   var infoBoxState = readInfoBoxState();
   var lastProfileDiagnostic = '';
@@ -157,13 +160,94 @@
     catch (_) { source = {}; }
     normalized = API.normalizePreferences(source);
     normalized.theme = 'classic';
-    normalized.fontScale = clamp(Number(source.fontScale) || 1, 0.9, 1.3);
+    var legacyScale = clamp(Number(source.fontScale) || 1, 0.9, 2);
+    normalized.fontScale2d = clamp(Number(source.fontScale2d) || legacyScale, 0.9, 2);
+    normalized.fontScaleVr = clamp(Number(source.fontScaleVr) || legacyScale, 0.9, 2);
+    normalized.fontScale = normalized[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'];
     return normalized;
   }
 
   function savePreferences() {
     try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences)); } catch (_) {}
   }
+
+  function displaySettingsRequest(command) {
+    var init = { cache: 'no-store' };
+    if (command) {
+      init.method = 'POST'; init.headers = { 'Content-Type': 'application/json' };
+      init.body = JSON.stringify(command);
+    }
+    return window.GATrackerCockpitSessionClient.requestJson(fetch, '/api/v1/display/settings', init, 5000).then(function (result) {
+      if (!result.response.ok || !result.body || !result.body.display) throw new Error('display_settings_unavailable');
+      return result.body.display;
+    });
+  }
+
+  function retryDisplaySettings() {
+    if (displaySettingsRetry !== null || pollingClosed) return;
+    displaySettingsRetry = window.setTimeout(function () {
+      displaySettingsRetry = null;
+      if (pollingClosed) return;
+      if (displaySettingsReady) flushDisplaySettings(); else loadDisplaySettings();
+    }, 4000);
+  }
+
+  function loadDisplaySettings() {
+    if (displaySettingsLoading || displaySettingsReady) return;
+    displaySettingsLoading = true;
+    displaySettingsRequest().then(function (display) {
+      if (display.configured === false) return displaySettingsRequest({ initialize: {
+        fontScale2d: preferences.fontScale2d, fontScaleVr: preferences.fontScaleVr
+      } });
+      return display;
+    }).then(function (display) {
+      ['2d', 'vr'].forEach(function (mode) {
+        var key = mode === 'vr' ? 'fontScaleVr' : 'fontScale2d';
+        if (!Object.prototype.hasOwnProperty.call(displaySettingsPending, mode)) preferences[key] = clamp(Number(display[key]) || 1, 0.9, 2);
+      });
+      displaySettingsReady = true;
+      preferences.fontScale = preferences[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'];
+      savePreferences(); applyEfbFontScale(); flushDisplaySettings();
+    }).catch(function () {
+      report('warn', 'display-settings', 'load', 'Schriftwahl lokal zwischengespeichert; Tracker-Konfiguration noch nicht erreichbar');
+      retryDisplaySettings();
+    }).then(function () { displaySettingsLoading = false; });
+  }
+
+  function flushDisplaySettings() {
+    if (!displaySettingsReady || displaySettingsSaving) return;
+    var modes = Object.keys(displaySettingsPending);
+    if (!modes.length) return;
+    var mode = modes[0], value = displaySettingsPending[mode];
+    delete displaySettingsPending[mode];
+    displaySettingsSaving = true;
+    displaySettingsRequest({ mode: mode, fontScale: value }).then(function () {
+      displaySettingsSaving = false; flushDisplaySettings();
+    }).catch(function () {
+      if (!Object.prototype.hasOwnProperty.call(displaySettingsPending, mode)) displaySettingsPending[mode] = value;
+      displaySettingsSaving = false;
+      report('warn', 'display-settings', 'save', 'Schriftwahl lokal zwischengespeichert; Speichern im Tracker wird wiederholt');
+      retryDisplaySettings();
+    });
+  }
+
+  function setDisplayMode(vr) {
+    var mode = vr ? 'vr' : '2d';
+    if (mode === displayMode) return;
+    displayMode = mode;
+    preferences.fontScale = preferences[mode === 'vr' ? 'fontScaleVr' : 'fontScale2d'];
+    savePreferences(); applyEfbFontScale();
+    report('info', 'display-mode', mode, 'Gespeicherte Schriftgroesse automatisch angewendet');
+  }
+
+  window.addEventListener('message', function (event) {
+    var data = event.data;
+    if (!data || data.type !== 'ga-efb-display-mode' || typeof data.vr !== 'boolean') return;
+    if (!window.__gaEfbChannel || data.channel !== window.__gaEfbChannel || window.parent === window) return;
+    if (event.source != null && event.source !== window.parent) return;
+    if (event.source == null && event.origin !== 'null' && !/^coui:\/\//.test(event.origin || '')) return;
+    setDisplayMode(data.vr);
+  });
 
   function readInfoBoxState() {
     var result = {};
@@ -362,15 +446,17 @@
   }
 
   function syncFontScaleControls() {
+    var displayMenu = byId('mapHintsMenu');
+    if (displayMenu) displayMenu.style.width = Math.round(210 * Math.max(1, preferences.fontScale)) + 'px';
     var label = document.querySelector('.ga-efb-font-size-hint');
-    var text = 'Schriftgröße: ' + Math.round(preferences.fontScale * 100) + '%';
+    var text = 'Schriftgröße (' + (displayMode === 'vr' ? 'VR' : '2D') + '): ' + Math.round(preferences.fontScale * 100) + '%';
     if (label && label.textContent !== text) label.textContent = text;
     if (byId('gaEfbFontSmaller')) byId('gaEfbFontSmaller').disabled = preferences.fontScale <= 0.9;
-    if (byId('gaEfbFontLarger')) byId('gaEfbFontLarger').disabled = preferences.fontScale >= 1.3;
+    if (byId('gaEfbFontLarger')) byId('gaEfbFontLarger').disabled = preferences.fontScale >= 2;
   }
 
   function applyEfbFontScale() {
-    var nextScale = clamp(Number(preferences.fontScale) || 1, 0.9, 1.3);
+    var nextScale = clamp(Number(preferences.fontScale) || 1, 0.9, 2);
     var elements = fontScaleElements();
     if (nextScale === 1) {
       elements.forEach(function (element) {
@@ -428,9 +514,12 @@
   }
 
   function setEfbFontScale(value) {
-    preferences.fontScale = clamp(Math.round((Number(value) || 1) * 10) / 10, 0.9, 1.3);
+    preferences.fontScale = clamp(Math.round((Number(value) || 1) * 10) / 10, 0.9, 2);
+    preferences[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'] = preferences.fontScale;
+    displaySettingsPending[displayMode] = preferences.fontScale;
     savePreferences();
     applyEfbFontScale();
+    if (displaySettingsReady) flushDisplaySettings(); else loadDisplaySettings();
     report('info', 'font-scale', String(Math.round(preferences.fontScale * 100)), 'EFB-Schriftgroesse aktualisiert');
   }
 
@@ -3013,6 +3102,7 @@
       initializeMap();
       if (!map) throw new Error('Leaflet-Karte wurde nicht initialisiert.');
       configureDisplayControls();
+      loadDisplaySettings();
       setupEfbUiCompatibility();
       setFollow(preferences.follow);
       var bootStatus = byId('gaEfbBootStatus');

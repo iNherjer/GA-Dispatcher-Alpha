@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.GA_PLAYWRIGHT_MODULE || 'playwright');
@@ -27,19 +29,36 @@ try {
   await page.locator('#mapHintsBtn').click();
   await page.locator('#gaEfbFontLarger').click();
   assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /110%/);
-  await page.locator('#gaEfbFontLarger').click();
-  await page.locator('#gaEfbFontLarger').click();
+  for (let i = 0; i < 9; i++) await page.locator('#gaEfbFontLarger').click();
+  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /200%/);
   assert.equal(await page.locator('#gaEfbFontLarger').isDisabled(), true);
   await page.reload();
   await page.waitForFunction(() => window.__fontTest && window.gaChecklistHost?.missionView);
   await page.locator('#mapHintsBtn').click();
-  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /130%/);
+  assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /200%/);
+  await page.setViewportSize({ width: 516, height: 716 });
+  await page.waitForTimeout(150);
+  await page.locator('#mapHintsBtn').click();
+  await page.locator('#gaEfbFontControls').waitFor({ state: 'visible' });
+  const controlsLayout = await page.locator('#gaEfbFontControls').evaluate(el => {
+    const menu = document.getElementById('mapHintsMenu');
+    return { menuWidth: menu.clientWidth, menuScrollWidth: menu.scrollWidth,
+      buttons: [...el.querySelectorAll('button')].map(button => ({
+        text: button.textContent, width: button.clientWidth, scrollWidth: button.scrollWidth })) };
+  });
+  assert.ok(controlsLayout.menuScrollWidth <= controlsLayout.menuWidth + 1, JSON.stringify(controlsLayout));
+  for (const button of controlsLayout.buttons) assert.ok(button.scrollWidth <= button.width + 1, JSON.stringify(button));
+  await page.locator('#mapHintsMenu').screenshot({ path: path.join(process.env.GA_EFB_SCREENSHOT_DIR || os.tmpdir(), 'ga-efb-font-200-menu.png') });
+  await page.setViewportSize({ width: 1640, height: 900 });
+  await page.waitForTimeout(150);
+  await page.locator('#mapHintsBtn').click();
+  await page.locator('#gaEfbFontControls').waitFor({ state: 'visible' });
   await page.locator('#gaEfbFontReset').click();
   await page.locator('#gaEfbFontSmaller').click();
   assert.match(await page.locator('.ga-efb-font-size-hint').textContent(), /90%/);
   assert.equal(await page.locator('#gaEfbFontSmaller').isDisabled(), true);
   await page.locator('#gaEfbFontReset').click();
-  await page.locator('#gaEfbFontControls').screenshot({ path: '/tmp/ga-efb-font-controls.png' });
+  await page.locator('#gaEfbFontControls').screenshot({ path: path.join(process.env.GA_EFB_SCREENSHOT_DIR || os.tmpdir(), 'ga-efb-font-controls.png') });
   await page.locator('#mapHintsBtn').click();
   const result = await page.evaluate(async () => {
     const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
@@ -52,7 +71,7 @@ try {
     const stable = document.getElementById('stableFont');
     const target = document.getElementById('newFonts');
     const samples = [];
-    for (const scale of [1.1, 1.3, 0.9]) {
+    for (const scale of [1.1, 1.3, 2, 0.9]) {
       __fontTest.scale(scale);
       let styleWrites = 0;
       const watcher = new MutationObserver(records => { styleWrites += records.length; });
@@ -75,7 +94,7 @@ try {
     __fontTest.scale(1);
     if (size(stable) !== 20 || stable.style.fontSize !== '') throw Error('Default did not restore CSS inheritance');
     fixture.remove();
-    __fontTest.scale(1.3);
+    __fontTest.scale(2);
     const payload = { available: true, missionId: 'font-test', state: 'active', phase: 'flight',
       view: { title: 'Testmission', story: 'Ein gleichbleibendes Briefing.', active: true,
         currentTask: 'Zum Ziel fliegen', progress: [], requirements: [], feedback: [], flight: {} } };
@@ -84,11 +103,11 @@ try {
     await frame();
     const body = document.getElementById('checklistDrawerBody');
     const original = body.firstElementChild;
-    const originalHeight = body.scrollHeight;
     for (let i = 0; i < 5; i++) { __fontTest.mission(payload); await frame(); }
     __fontTest.mission({ ...payload, view: { ...payload.view, flight: { mslFt: 2345, aglFt: 1234 } } });
     await frame();
     if (document.getElementById('gaEfbMissionAltitude').textContent !== '2.345 ft MSL') throw Error('Live altitude update missing');
+    const originalHeight = body.scrollHeight; // Baseline after the intentional live-value layout update.
     await new Promise(resolve => setTimeout(resolve, 2200));
     if (body.firstElementChild !== original || body.scrollHeight !== originalHeight) throw Error('Periodic mission menu rebuild');
     __fontTest.mission({ ...payload, view: { ...payload.view, title: 'Geänderte Testmission' } });
@@ -102,7 +121,7 @@ try {
     gaChecklistHost.missionView = missionView;
     return samples;
   });
-  assert.equal(result.length, 3);
+  assert.equal(result.length, 4);
   console.log('PASS visible font controls, bounds, persisted choice, reset, first-frame scaling and snapshot-driven mission menu.', result);
 } finally {
   await browser.close();

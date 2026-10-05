@@ -267,6 +267,7 @@ function createTrackerEfbHttpServer(options = {}) {
   const getChecklistSnapshot = typeof options.getChecklistSnapshot === 'function' ? options.getChecklistSnapshot : () => null;
   const voiceService = options.voiceService && typeof options.voiceService === 'object' ? options.voiceService : null;
   const audioControl = options.audioControl || null;
+  const displayControl = options.displayControl || null;
   const audioAssets = options.audioAssets || null;
   const cockpitControl = options.cockpitControl && typeof options.cockpitControl === 'object' ? options.cockpitControl : null;
   const desktopControlToken = String(options.desktopControlToken || '').trim();
@@ -315,6 +316,22 @@ function createTrackerEfbHttpServer(options = {}) {
     let pathname = '';
     let requestUrl = null;
     try { requestUrl = new URL(request.url || '/', `http://${host}`); pathname = requestUrl.pathname; } catch (_) {}
+    if (pathname === '/api/v1/display/settings') {
+      // This endpoint is for the loopback-hosted view, never a remote website.
+      const origin = String(request.headers.origin || '').trim();
+      const trusted = !origin || /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/.test(origin);
+      if (!displayControl || !trusted) {
+        request.resume(); jsonResponse(response, trusted ? 503 : 403, { error: 'display_settings_unavailable' }); return;
+      }
+      try {
+        if (request.method === 'GET') jsonResponse(response, 200, { display: displayControl.snapshot() });
+        else if (request.method === 'POST') {
+          const result = displayControl.update(await readJsonBody(request, 1024));
+          jsonResponse(response, result.ok ? 200 : result.error === 'display_settings_write_failed' ? 500 : 400, result);
+        } else { request.resume(); jsonResponse(response, 405, { error: 'method_not_allowed' }); }
+      } catch (_) { jsonResponse(response, 400, { error: 'invalid_display_settings' }); }
+      return;
+    }
     if (pathname === '/api/v1/audio/playback' && request.method === 'POST') {
       if (!audioControl || !voiceService || !isTrustedVoiceOrigin(request)) {
         request.resume(); jsonResponse(response, 403, { error: 'audio_unavailable' }); return;

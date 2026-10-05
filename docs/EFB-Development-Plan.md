@@ -5977,3 +5977,9 @@ Alpha-Releases v470 und efb-app-v0.4.15 veroeffentlicht. Beide oeffentlichen
 Downloads erneut nach Groesse und SHA256 geprueft. Tracker: 173494172 Bytes,
 SHA256 9bcbc5c6779aa4e84b46f170f35e6832566e0cc0725a603a3ada91c1b1c2b991.
 Nur Alpha-Zeiger aktiviert; reale MSFS-/VR-Abnahme bleibt offen.
+
+## 2026-10-05: VR-Schriftprofile in Alpha v473 / EFB 0.4.16
+
+Windows-Handoff gezielt auf Alpha v472 (195e27529) integriert. Die SDK-gebaute Community-ZIP 0.4.16 wird unveraendert verwendet; native TSX-Quelle und Toolbar-Payload stimmen mit dem Handoff/Archiv ueberein. Tracker v473 enthaelt die aktuelle Missionsbasis und die neue Display-Konfiguration. Schriftwahl 90-200 Prozent mit getrennt persistenten 2D-/VR-Profilen in tracker-config.json. Native VR-Erkennung ueber E:IS IN VR und SwitchVRModeState; kein automatisch erzwungener 200-Prozent-Default. Bestehende Schriftwahl wird bei der Migration uebernommen.
+
+139 Node-Tests bestanden. Browser prueft Profilwechsel, Persistenz und stabile Menues bis 200 Prozent. Der Stabilitaetstest erfasst seine Hoehen-Baseline nach dem Live-Flugdaten-Update: Platzhalter zu echten Texten darf die Hoehe aendern, danach muss sie stabil bleiben. Ein Test mit echtem VR-Headset/MSFS bleibt erforderlich.

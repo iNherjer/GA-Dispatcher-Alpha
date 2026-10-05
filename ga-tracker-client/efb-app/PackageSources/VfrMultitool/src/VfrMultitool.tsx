@@ -18,6 +18,8 @@ import LeafletImport from '../../../../../vendor/leaflet/leaflet.js';
 import '../../../../../vendor/leaflet/leaflet.css';
 // @ts-ignore
 import MapShellCoreImport from '../../../map-shell-core.js';
+// @ts-ignore shared native VR reader also used by the toolbar host.
+import VrModeImport from '../../../../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode.js';
 
 import './VfrMultitool.scss';
 
@@ -27,6 +29,7 @@ declare const TRACKER_API_URL: string;
 
 const L: any = LeafletImport;
 const MapShellCore: any = MapShellCoreImport;
+const VrMode: any = VrModeImport;
 const MAP_PREFERENCES_KEY = 'ga_efb_map_preferences_v1';
 
 type TrackerStatusPayload = {
@@ -224,6 +227,14 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private missionGeometryLayer: any | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private resizeBound = false;
+  private vrWatcher: any = null;
+  private readonly sendDisplayMode = (): void => {
+    const frame = this.serverFrameRef.getOrDefault();
+    if (!this.active || !this.serverFrameStarted || !frame?.contentWindow || !this.serverFrameChannel) return;
+    const vr = this.vrWatcher ? this.vrWatcher.read() : VrMode.read(window);
+    if (vr === null) return;
+    frame.contentWindow.postMessage({ type: 'ga-efb-display-mode', channel: this.serverFrameChannel, vr }, TRACKER_API_URL);
+  };
   private hasCenteredOnAircraft = false;
   private currentBaseLayerId = '';
   private baseLayers = new Map<string, any>();
@@ -262,6 +273,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       if (state === 'ready' || state === 'live') {
         this.serverFrameReady = true;
         this.clearServerFrameDeadline();
+        this.sendDisplayMode();
       }
       if (state === 'close') {
         this.setText(this.serverFrameStatusRef.getOrDefault(), 'Kartentisch wird geschlossen');
@@ -356,6 +368,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       if (!this.serverFrameStarted) return;
       this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite geladen | warte auf Skriptmeldung');
       this.reportServerFrameEvent('iframe', 'load', serverFrame.src);
+      this.sendDisplayMode();
       this.serverFrameLoads += 1;
       // Host readiness can precede the initial load (slow images). A later
       // load invalidates the previous document's readiness, even on the same URL.
@@ -375,6 +388,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   }
 
   private activate(): void {
+    if (!this.vrWatcher) this.vrWatcher = VrMode.watch(window, this.sendDisplayMode);
     // Subscribe before assigning src so an early readiness message is retained.
     if (!this.resizeBound) {
       window.addEventListener('resize', this.onWindowResize);
@@ -390,6 +404,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   }
 
   private deactivate(removeMap: boolean): void {
+    if (this.vrWatcher) { this.vrWatcher.stop(); this.vrWatcher = null; }
     this.clearServerFrameDeadline();
     this.stopPolling();
     if (this.mapInitTimer) clearTimeout(this.mapInitTimer);
@@ -547,7 +562,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.serverFrameChannel = `efb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite wird geladen');
     this.reportServerFrameEvent('iframe', 'start', this.serverFrameChannel);
-    frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=9`;
+    frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=10&vr=${VrMode.read(window) === true ? '1' : '0'}`;
     this.armServerFrameDeadline();
   }
 

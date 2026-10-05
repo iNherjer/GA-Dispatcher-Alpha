@@ -6,18 +6,21 @@ const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, 'PackageSources/html_ui/InGamePanels/VfrMultitool/Panel.js'), 'utf8');
 function fixture() {
   const events = {}, timers = new Map(), requests = [], minimizeCalls = [];
+  const intervals = new Map(), modeMessages = [];
+  let vr = 0;
   let clock = 1000, next = 0, observer;
   const panel = { active: false, visible: true, _minimized: false, get minimized() { return this._minimized; }, ToggleMinimized(value) { minimizeCalls.push(value); this._minimized = value != null ? value : !this.minimized; observer(); }, rect: { top: 20, right: 900 }, header: null, querySelector() { return this.header; }, getBoundingClientRect() { return this.rect; }, addEventListener(n, fn) { events[n] = fn; }, closePanel() { this.active = false; events.panelInactive(); } };
   const container = { children: [], appendChild(f) { this.children.push(f); }, removeChild(f) { this.children.splice(this.children.indexOf(f), 1); } };
   const elements = { VfrMultitoolPanel: panel, 'vfr-frame-container': container, 'vfr-status': {}, 'vfr-statusbar': { style: {} }, 'vfr-offline': { style: {} }, 'vfr-retry': {}, 'vfr-close': {}, 'vfr-window-controls': { style: {} }, 'vfr-window-close': { style: {} }, 'vfr-minimize': { style: {}, attributes: {}, setAttribute(name, value) { this.attributes[name] = value; } } };
-  const document = { hidden: false, getElementById: id => elements[id], createElement: () => ({ contentWindow: {} }), addEventListener(n, fn) { events[n] = fn; } };
+  const document = { hidden: false, getElementById: id => elements[id], createElement: () => ({ contentWindow: { postMessage(data, origin) { modeMessages.push({ data, origin }); } } }), addEventListener(n, fn) { events[n] = fn; } };
   const animationFrames = new Map();
-  vm.runInNewContext(source, { document, window: { innerWidth: 1000, requestAnimationFrame(fn) { const id = ++next; animationFrames.set(id, fn); return id; }, cancelAnimationFrame(id) { animationFrames.delete(id); }, addEventListener(n, fn) { events[n] = fn; } }, console: { log() {} }, Date: { now: () => clock }, Math,
+  vm.runInNewContext(source, { document, window: { GAVrMode: require('./PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode'), SimVar: { GetSimVarValue() { return vr; } }, Coherent: { on(name, callback) { events.vr = callback; return { clear() { delete events.vr; } }; } }, setInterval(fn) { const id = ++next; intervals.set(id, fn); return id; }, clearInterval(id) { intervals.delete(id); }, innerWidth: 1000, requestAnimationFrame(fn) { const id = ++next; animationFrames.set(id, fn); return id; }, cancelAnimationFrame(id) { animationFrames.delete(id); }, addEventListener(n, fn) { events[n] = fn; } }, console: { log() {} }, Date: { now: () => clock }, Math,
     MutationObserver: function (fn) { observer = fn; this.observe = () => {}; },
     setTimeout(fn) { const id = ++next; timers.set(id, fn); return id; }, clearTimeout(id) { timers.delete(id); },
     XMLHttpRequest: function () { this.open = (method, url) => { this.method = method; this.url = url; }; this.send = () => requests.push(this); this.abort = () => { this.aborted = true; }; }
   });
-  return { panel, container, elements, events, requests, timers, document, animationFrames, minimizeCalls,
+  return { panel, container, elements, events, requests, timers, document, animationFrames, minimizeCalls, modeMessages, intervals,
+    setVr(value) { vr = value ? 1 : 0; if (events.vr) events.vr(!!value); },
     animationFrame() { const pending = [...animationFrames.values()]; animationFrames.clear(); pending.forEach(fn => fn()); },
     open() { panel.active = true; events.panelActive(); },
     tick(ms = 4000) { clock += ms; const pending = [...timers.values()]; timers.clear(); pending.forEach(fn => fn()); },
@@ -128,4 +131,20 @@ test('scaled header reserves title space and keeps custom controls clear of nati
   assert.equal(f.elements['vfr-window-controls'].style.top, '106px');
   assert.equal(f.elements['vfr-minimize'].style.height, '32px');
   assert.equal(title.style.paddingRight, '84px');
+});
+
+test('toolbar forwards initial VR and live changes with the current channel, pauses and restores watcher', () => {
+  const f = fixture(); f.setVr(true); f.open(); f.reply();
+  const frame = f.container.children[0];
+  assert.equal(new URL(frame.src).searchParams.get('vr'), '1');
+  f.message({ type: 'ga-efb-kartentisch', state: 'ready' });
+  assert.equal(f.modeMessages.at(-1).data.vr, true);
+  assert.equal(f.modeMessages.at(-1).data.channel, new URL(frame.src).searchParams.get('channel'));
+  assert.equal(f.modeMessages.at(-1).origin, 'http://127.0.0.1:49880');
+  f.setVr(false); assert.equal(f.modeMessages.at(-1).data.vr, false);
+  f.minimize(true); assert.equal(f.intervals.size, 0);
+  const messages = f.modeMessages.length; f.setVr(true);
+  assert.equal(f.modeMessages.length, messages);
+  f.minimize(false); f.reply();
+  assert.equal(new URL(f.container.children[0].src).searchParams.get('vr'), '1');
 });
