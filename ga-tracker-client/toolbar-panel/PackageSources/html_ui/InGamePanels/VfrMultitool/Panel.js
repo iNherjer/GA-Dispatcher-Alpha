@@ -100,12 +100,8 @@
     var header = panel.querySelector('ingame-ui-header');
     if (header) {
       var actions = header.querySelector('.action-list');
-      var anchor = header.querySelector('.anchor');
-      var icons = header.querySelector('.icons');
-      var closeButton = header.querySelector('.Close');
-      if (anchor && icons && closeButton && icons.parentElement !== anchor) {
-        anchor.insertBefore(icons, closeButton);
-      }
+      // Preserve the SDK template hierarchy: moving custom-element descendants
+      // disconnects/reconnects their native input and navigation lifecycle.
       header.classList.add('vfr-native-actions');
       // setVisible updates native navigation state too; CSS alone would leave
       // cockpit-attached actions invisible to the simulator input system.
@@ -113,7 +109,8 @@
       for (var i = 0; i < nativeButtons.length; i++) {
         var button = header.querySelector(nativeButtons[i][0]);
         var show = nativeButtons[i][1];
-        if (button && typeof button.setVisible === 'function' && button.classList.contains('hide') === show) {
+        var visible = button && typeof button.isVisible === 'function' ? button.isVisible() : button && !button.classList.contains('hide');
+        if (button && typeof button.setVisible === 'function' && visible !== show) {
           button.setVisible(show);
         }
       }
@@ -141,6 +138,13 @@
     }
     controlsFrame = window.requestAnimationFrame(positionControls);
   }
+  function describeGeometry(element) {
+    var rect = element.getBoundingClientRect(), style = window.getComputedStyle(element);
+    return { tag:element.tagName, id:element.id, classes:String(element.className),
+      nativeVisible:typeof element.isVisible === 'function' ? element.isVisible() : null,
+      display:style.display, visibility:style.visibility, opacity:style.opacity, overflow:style.overflow,
+      rect:{left:rect.left,top:rect.top,right:rect.right,bottom:rect.bottom,width:rect.width,height:rect.height} };
+  }
   function diagnostics(event) {
     var header = panel.querySelector('ingame-ui-header');
     var hit = event && typeof event.clientX === 'number' ? document.elementFromPoint(event.clientX, event.clientY) : null;
@@ -155,7 +159,10 @@
         if (!button) return { selector: selector, present: false };
         var r = button.getBoundingClientRect();
         return { selector: selector, nativeVisible: typeof button.isVisible === 'function' ? button.isVisible() : null,
-          left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+          left: r.left, top: r.top, right: r.right, bottom: r.bottom,
+          ancestors:(function(){var chain=[];for(var node=button;node;node=node.parentElement){chain.push(describeGeometry(node));if(node===panel)break;}return chain;}()),
+          parentHidden:typeof button.hasParentHidden === 'function' ? button.hasParentHidden() : null,
+          markup:button.innerHTML.slice(0,1200) };
       }) : [],
       hit: describe(hit), header: header ? (function () { var r = header.getBoundingClientRect(); return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height }; }()) : null
     };

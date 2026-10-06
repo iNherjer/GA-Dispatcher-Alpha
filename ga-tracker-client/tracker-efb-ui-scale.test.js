@@ -35,15 +35,15 @@ test('root layout and input conversions across surfaces, VR, reset and resize pr
   vm.runInNewContext(fs.readFileSync(require.resolve('./tracker-efb-ui-scale'), 'utf8'), { window });
   const api = window.GAEfbUiScale;
   for (const host of ['physical', 'popout', 'toolbar', 'unknown']) for (const vr of [false, true]) for (const user of [0.9, 1, 2, 3]) {
-    const expected = user * (vr && ['popout', 'toolbar'].includes(host) ? 2 : 1);
+    const expected = user * (vr && ['popout', 'toolbar'].includes(host) ? 1.5 : 1);
     assert.equal(api.apply(user, host, vr), expected);
-    assert.equal(api.delta(30 * expected), 30);
+    assert.ok(Math.abs(api.delta(30 * expected) - 30) < 1e-9);
     assert.equal(parseFloat(styles.width), 1200 / expected);
     assert.equal(parseFloat(styles.height), 900 / expected);
     assert.equal(attributes['data-ga-efb-surface'], host);
   }
   api.apply(1, 'popout', true); window.innerWidth = 600; resize();
-  assert.equal(styles.width, '300px'); assert.equal(api.state().effective, 2);
+  assert.equal(styles.width, '400px'); assert.equal(api.state().effective, 1.5);
   api.apply(1, 'physical', true); assert.equal(api.state().effective, 1);
   assert.ok(invalidations > 0);
 });

@@ -53,6 +53,7 @@ function method(source, name) {
    panel.animations={animateOpen:()=>({play(){},addTimelineEventListener(){}}),animateMinimize:()=>({play(){},addTimelineEventListener(){}})};
    window.XMLHttpRequest=class{open(){}send(){}abort(){}};
   });
+  await page.addScriptTag({content:`Object.assign(TemplateElement.prototype, {${['setVisible','isVisible','hasParentHidden'].map(n=>method(read(path.join(sim,'JS/common.js')),n)).join(',')}}); window.XBOX=()=>false;window.PS5=()=>false;window.UINavigation={current:null};TemplateElement.prototype.onVisibilityChange=function(){};`});
   await page.addScriptTag({content:read(path.join(sim,'Templates/ingameUiHeader/ingameUiHeader.js'))});
   await page.addScriptTag({content:`Object.assign(document.querySelector('ingame-ui'), {${['closePanel','ToggleMinimized','setMinimizedClassState'].map(n=>method(nativePanel,n)).join(',')}});`});
   await page.evaluate(() => {
@@ -68,6 +69,7 @@ function method(source, name) {
     const target=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
     return{headerRight:hr.right,right:r.right,top:r.top,width:r.width,height:r.height,hit:target===b||b.contains(target),hitTarget:target&&target.outerHTML.slice(0,150),inHeader:h.contains(b),nativeVisible:b.m_visible,overlay:!!document.querySelector('#vfr-window-controls')};
    });
+   assert(await page.evaluate(()=>document.querySelector('.icons').parentElement===document.querySelector('.action-list')),'SDK hierarchy must stay intact');
    assert(Math.abs(row.headerRight-row.right)<1,JSON.stringify(row));assert(Math.abs(row.height-48)<1,JSON.stringify(row));assert(Math.abs(row.width-54)<1,JSON.stringify(row));assert(row.hit&&row.inHeader&&row.nativeVisible&&!row.overlay,JSON.stringify(row));
    await page.waitForTimeout(500);
    await page.locator('icon-button.Reduce').click();await page.waitForTimeout(70);
@@ -77,6 +79,10 @@ function method(source, name) {
    assert(!(await page.evaluate(()=>document.querySelector('ingame-ui').minimized)));
    matrix.push({scale,...row});
   }
+  await page.evaluate(()=>{const node=document.querySelector('.anchor');node.classList.add('hide');node.style.display='none';});
+  const hidden=await page.evaluate(()=>VfrToolbarDiagnostics().actions.find(a=>a.selector==='.Close'));
+  assert.equal(hidden.parentHidden,true);assert(hidden.ancestors.some(a=>a.classes.includes('hide')&&a.display==='none'));
+  await page.evaluate(()=>{const node=document.querySelector('.anchor');node.classList.remove('hide');node.style.display='';});
   if(process.env.GA_EFB_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.GA_EFB_SCREENSHOT_DIR,'native-header-browser.png')});
   await page.locator('icon-button.Close').click();
   const calls=await page.evaluate(()=>window.calls);

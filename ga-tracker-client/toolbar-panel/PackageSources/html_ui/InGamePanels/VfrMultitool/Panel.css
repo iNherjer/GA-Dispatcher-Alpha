@@ -14,7 +14,7 @@ html,body { margin:0; width:100%; height:100%; overflow:hidden; }
 #vfr-frame-container iframe { position:absolute; top:0; left:0; display:block; width:100%; height:100%; border:0; }
 /* Native SDK header actions stay inside the simulator hit-test rectangle.
    Preserve Extern/Detach and place Reduce/Maximize immediately before Close. */
-#VfrMultitoolPanel ingame-ui-header .wrap { box-sizing:border-box; flex:1 1 0px; }
+#VfrMultitoolPanel ingame-ui-header .wrap { box-sizing:border-box; flex:1 1 0px; width:auto; min-width:0; }
 #VfrMultitoolPanel ingame-ui-header .action-list { flex:0 0 auto; margin-left:auto; padding-right:0; }
 #VfrMultitoolPanel ingame-ui-header .anchor { align-items:center; }
 #VfrMultitoolPanel ingame-ui-header .icons { display:flex; align-items:center; }

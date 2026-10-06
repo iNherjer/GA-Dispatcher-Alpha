@@ -323,3 +323,16 @@ Panel-Aktionen werden erst spaeter mit eigener Capability, kurzlebiger Sitzung,
 erwarteter Mission-Revision, idempotenter `commandId` und expliziter
 Eingabevalidierung ergaenzt. CommBus bleibt als native MSFS-Transportoption
 vorgesehen, ist aber keine Voraussetzung fuer den ersten PC-Alpha-Test.
+
+
+## 2026-10-06: Windows-Verfeinerung nach v478-Feldtest, Basis v479 / SDK-Kandidat 0.4.19
+
+Eingang VFR-Multitool-UI-Refinement-Handoff-2026-10-06 geprüft und auf Alpha-v479-Basis 08c09fff15f7a962e857d46a2a15cbdda7466653 übernommen. VR-Grundfaktor für bestätigte Popout-/Toolbar-Hosts jetzt 1.5; vorhandene Benutzerprofile unverändert. Telemetriebar wächst mit ihren zwei Textzeilen, Banneroberkante berücksichtigt deren Unterkante und Resize.
+
+Profilfehler konkret: gleicher Pixelpuffer bei anderem logischem Layout ließ CSS-Leinwandgröße veraltet. CSS-Größe wird unabhängig aktualisiert, Hintergrund auch bei geändertem Layout neu gezeichnet und Transform absolut aus Puffer/Layout gesetzt. Der tatsächliche Renderer besteht die Browserfolge 1/1.5/3/4.5/1 bei konstantem 900x180-Puffer, mit richtigen CSS-Größen und Zeichentransformationen.
+
+Kompass: Host blendete ohne Navigationsziel das ganze CDI-SVG einschließlich Gradzahl aus. CDI liegt nun in eigener Gruppe; gültiges Heading bleibt unabhängig von Navigation sichtbar. Keine Font-Ersetzung. Fehlendes/abgeschnittenes SVG in realem Coherent weiterhin per Diagnose prüfen.
+
+Native Fensteraktionen: SDK-Hierarchie bleibt unverändert statt Custom-Element-Nachfahren umzuhängen; Sichtbarkeit nutzt native isVisible und Titelbreite auto. VfrToolbarDiagnostics liefert auch alle Vorfahren mit berechneten Styles, Rechtecken und hasParentHidden. Browser prüft originale SDK-Sichtbarkeitsmethoden und absichtlich versteckten Vorfahren. Ursache des realen Knopfverschwindens und Coherent-Klicknachweis bleiben offen; Browser-PASS ist keine Simulatorfreigabe.
+
+70 Node-Tests, Typecheck/App-Bundle und Browserprüfungen erfolgreich. Offizielles SDK 1.7.2 erzeugt 0.4.19: 0 Fehler, 20 Layout-Einträge, 19 Nutzdatei-Quellhashes, 22 Archivdateien geprüft. ZIP SHA-256 029397df5b06882a4c042cc0f523a765896331d44175e1698e595b4eed4632fa. Ergebnis in OneDrive/VFR-Multitool-UI-Refinement-Result-2026-10-06. Keine Veröffentlichung/Installation, keine neue Tracker-EXE. Hauptagent integriert auf aktuelle Alpha, baut frische EXE und testet gemeinsam mit SDK-ZIP; echtes MSFS/VR bleibt erforderlich.
