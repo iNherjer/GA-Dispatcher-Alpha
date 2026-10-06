@@ -413,6 +413,12 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     if (this.vrWatcher) { this.vrWatcher.stop(); this.vrWatcher = null; }
     this.clearServerFrameDeadline();
     this.stopPolling();
+    // The child has its own polling and rendering loops. SDK SLEEP retains
+    // its document; stopping shell timers alone does not stop those loops.
+    // Resume already creates a fresh channel and fetches the current snapshots.
+    const serverFrame = this.serverFrameRef.getOrDefault();
+    if (serverFrame && this.serverFrameStarted) serverFrame.src = 'about:blank';
+    this.resetServerFrame();
     if (this.mapInitTimer) clearTimeout(this.mapInitTimer);
     this.mapInitTimer = null;
     if (this.resizeBound) {

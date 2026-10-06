@@ -81,7 +81,33 @@ test('pause cancels recovery and inactive iframe load cannot restart it', () => 
   h.view.stopPolling = () => { h.view.active = false; };
   h.view.stopClock = () => {}; h.view.closeToolPanel = () => {};
   h.view.onPause(); h.frame.onload(); h.expire();
-  assert.equal(h.timers.size, 0); assert.equal(h.writes.length, 1);
+  assert.equal(h.timers.size, 0); assert.equal(h.writes.length, 2);
+  assert.equal(h.frame.src, 'about:blank', 'pause unloads child polling/rendering');
+  assert.equal(h.view.serverFrameStarted, false);
+  assert.equal(h.view.serverFrameChannel, '');
+});
+
+test('paused child is unloaded and resume uses a new channel with current display mode', () => {
+  const h = harness();
+  h.view.activate = () => { h.view.active = true; h.view.startServerFrame(); };
+  h.view.stopPolling = () => { h.view.active = false; };
+  h.view.stopClock = () => {}; h.view.closeToolPanel = () => {};
+  h.view.onOpen(); h.ready();
+  const oldChannel = h.view.serverFrameChannel;
+  h.view.onPause();
+  assert.equal(h.frame.src, 'about:blank');
+  h.setSurface(true); h.setVr(true);
+  h.view.onResume();
+  assert.notEqual(h.view.serverFrameChannel, oldChannel);
+  const url = new URL(h.frame.src);
+  assert.equal(url.searchParams.get('surface'), 'popout');
+  assert.equal(url.searchParams.get('vr'), '1');
+  h.ready(oldChannel);
+  assert.equal(h.view.serverFrameReady, false);
+  h.ready();
+  assert.equal(h.view.serverFrameReady, true);
+  h.view.onClose();
+  assert.equal(h.frame.src, 'about:blank');
 });
 
 test('EFB host forwards native VR changes and stops detection while paused', () => {

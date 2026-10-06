@@ -497,7 +497,8 @@
             }
           }
         });
-        applyEfbFontScale();
+        // Text inherits the existing root scale. Telemetry must not reapply
+        // the complete layout every time a label changes.
       }
     });
     efbUiObserver.observe(document.body, { childList: true, subtree: true });

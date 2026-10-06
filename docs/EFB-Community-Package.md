@@ -1,4 +1,10 @@
 # EFB- und Toolbar-Panel-Community-Packages und Rollout
+## Performance-Lifecycle-Kandidat 0.4.21, offizieller Windows-SDK-Bau (06.10.2026)
+
+Auf Nutzerauftrag baut SDK 1.7.2 mit fspackagetool -forcesteam -rebuild -nopause den gemeinsamen EFB-/Toolbar-Kandidaten 0.4.21. SDK onPause/onClose entladen den gestarteten Tracker-Child-iframe; der bereits vorhandene Reload auf onResume/onOpen liest den aktuellen Trackerzustand. Tracker-Runtime und Missionsdetektoren werden nicht pausiert. Aktive Ansichten behalten ihren Aktualisierungstakt.
+
+App-Bundle/Typecheck bestanden, offizieller Build ohne Fehler. 20 Layout-Eintraege, 19 Copy-Quellhashes und alle 22 Archivdateien geprueft. ZIP 443178 Bytes, SHA-256 c00d3d8d413f895f7c6cee54528627b2ffd84b1b616c4498706056918ab90d82. OneDrive/VFR-Multitool-VR-Performance-Result-2026-10-06/candidate-performance-fix/sdk-package enthaelt Archiv und inaktive Kanalvorlage. Keine Installation oder Veroeffentlichung. Separater Tracker-Patch dedupliziert UI-Skalierung; fuer die gemeinsame Vergleichsreihe braucht es die neu integrierte Tracker-Test-EXE. Native Pause/Resume, Audio-Lease und aktive Hintergrundmission sowie echte Headsets bleiben Abnahmepunkte.
+
 ## Vollstaendige EFB-UI-Skalierung, Windows-Kandidat auf Alpha v477 (05.10.2026)
 
 Gemeinsamer Root-Transform skaliert Texte, Controls, Hitboxen, Menues und Profilcanvas zusammen. Benutzerwert 90–300 %, Reset 100 %. Physisches Tablet und unbekannte Hosts haben Basis 1; bestaetigte Popout-/Toolbar-Hosts in VR erhalten fuer den Feldtest Basis 2. Keine DPR-/Headset-Heuristik. SDK PanelInfo.is2D (get/sub) meldet physisch/popout ueber denselben geprueften iframe-Channel wie VR; Lebenszyklus bereinigt Subscription und Polling. Hostwechsel laden das iframe nicht neu.

@@ -52,3 +52,28 @@ test('root layout and input conversions across surfaces, VR, reset and resize pr
   api.apply(1, 'physical', true); assert.equal(api.state().effective, 1);
   assert.ok(invalidations > 0);
 });
+
+test('unchanged telemetry scale causes no layout writes; resize and host changes still refresh', () => {
+  let writes = 0, drawerRefreshes = 0, resize;
+  const window = { innerWidth: 558, innerHeight: 791, devicePixelRatio: 1,
+    document: { body: { style: { setProperty() { writes++; } }, setAttribute() { writes++; } } },
+    addEventListener(name, fn) { resize = fn; }, gaEfbRefreshDrawerLayout() { drawerRefreshes++; } };
+  vm.runInNewContext(fs.readFileSync(require.resolve('./tracker-efb-ui-scale'), 'utf8'), { window });
+  const api = window.GAEfbUiScale;
+  api.apply(1, 'physical', true);
+  const initialWrites = writes;
+  for (let i = 0; i < 100; i++) api.apply(1, 'physical', true);
+  resize();
+  assert.equal(writes, initialWrites);
+  assert.equal(drawerRefreshes, 1);
+  // Physical/popout in 2D have the same scale, but distinct layout rules.
+  api.apply(1, 'popout', false);
+  assert.equal(drawerRefreshes, 2);
+  window.innerWidth = 700; resize();
+  assert.equal(drawerRefreshes, 3);
+  window.devicePixelRatio = 2; resize();
+  assert.equal(drawerRefreshes, 4);
+  api.apply(2, 'popout', true);
+  assert.equal(api.state().effective, 3);
+  assert.equal(drawerRefreshes, 5);
+});

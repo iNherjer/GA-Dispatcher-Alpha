@@ -1,6 +1,7 @@
 (function (root) {
   'use strict';
   var factor = 1, user = 1, surface = 'unknown', vr = false;
+  var lastLayout = null, lastBody = null;
   function normalizeSurface(value) {
     return ['physical', 'popout', 'toolbar', 'unknown'].indexOf(value) >= 0 ? value : 'unknown';
   }
@@ -11,6 +12,9 @@
   function layout() {
     var body = root.document.body;
     if (!body) return;
+    var signature = [root.innerWidth, root.innerHeight, root.devicePixelRatio || 1, factor, surface].join('|');
+    if (body === lastBody && signature === lastLayout) return;
+    lastBody = body; lastLayout = signature;
     var size = viewport(), floating = surface === 'popout' || surface === 'toolbar';
     body.style.setProperty('width', size.width + 'px', 'important');
     body.style.setProperty('height', size.height + 'px', 'important');
