@@ -188,6 +188,14 @@ function observe(recipe, previous, sample, facts = {}) {
             state.observedAt = sample.observedAt; state.sequence++; state.suspendedAt = sample.observedAt;
             return { state, effects: [], changed: true, reason: 'poi_chain_telemetry_invalid' };
         }
+        if (state.sarSearchState) {
+            // Keep earned search/contact progress, but never bridge an interval
+            // whose position, altitude or speed could not be observed.
+            sarSearchCore.pause(state.sarSearchState);
+            state.observedAt = sample.observedAt; state.sequence++;
+            if (state.suspendedAt === null) state.suspendedAt = sample.observedAt;
+            return { state, effects: [], changed: true, reason: 'sar_telemetry_invalid' };
+        }
         if (recipe.taskDomain !== 'mapping_survey') return unchanged('poi_telemetry_invalid');
         state.surveyState = surveyTask.suspend(recipe.surveyPattern, state.surveyState, 'invalid').state;
         state.observedAt = sample.observedAt; state.sequence++; state.suspendedAt = sample.observedAt;

@@ -1147,3 +1147,59 @@ Auf Nutzerwunsch blockieren die Slew-Flags keine SAR-Suchbeobachtung oder Fundme
 Suchgebiet, reale Suchzeit, Naehe fuer Sichtkontakt, Mindestbeobachtung und Lageaufnahme bleiben verbindlich. Ein Meldungsbutton erfindet keinen Fund. Echte Pause/Menue, Bodenstatus, aktuelle gueltige Position, fehlende Pflichtausruestung und terminaler Aufgabenstatus behalten ihre Wirkung. Checkpoints koennen mit gesetzten Slew-Flags wiederhergestellt und fortgesetzt werden; Pausenzeiten zaehlen nicht zur Suche. Telemetrie-Diagnose, manueller Komfort-/Frachtschutz und die Positionssprungpruefungen anderer Missionsarten bleiben erhalten.
 
 Nachweis: neue Regressionsfaelle reproduzierten vor der Aenderung die Slew-Blockade; danach 159 SAR-/POI-/Adapter-/Runtime-/Voice-Tests erfolgreich. Der neue Integrationstest prueft die Fundmeldung durch die Tracker-Authority mit allen Slew-Aliasflags. Bestehende Such-/Return-/Close- und Child-Prozess-Tests wurden ebenfalls ausgefuehrt. Die zusaetzlichen 47 vorgeschriebenen Flow-/Cargo-/Payload-/Update-Checks sind ebenfalls erfolgreich. Tracker v482 als Alpha-Release veroeffentlicht; Windows-EXE und oeffentlicher Download stimmen in Groesse und SHA-256 ueberein. Kein neuer realer MSFS-Flugtest. Die bereits fremd geaenderte SAR-Integrationstest-Datei blieb unveraendert.
+
+
+### Sinkflugreserve und SAR-Datenlücken korrigiert (06.10.2026, lokal)
+
+Nach Nutzerfreigabe sind zwei weitere reproduzierte Fehler korrigiert:
+
+- POI-/APT-Training erlaubte einen 500-ft-Sinkflug bei 1400 ft AGL; während
+  der korrekten Durchführung wurde dann die normale 1200-ft-Grenze verletzt.
+  Die Original-Prozedur definiert nun gemeinsam genutzte Mindesthöhenhelfer.
+  Vor dem Start eines Sinkflug-Höhenwechsels wird zur Übungsgrenze der geplante
+  Höhenverlust plus Höhentoleranz addiert. Das normalisierte Rezept liefert
+  diese Reserve auch an das Vorflugbriefing. Coaching, Banner, Einweisung
+  und Gate-Diagnose verwenden denselben Wert. Im aktiven Durchgang fällt die
+  Zusatzreserve weg; die normale Übungsgrenze bleibt bestehen. Alte Rezepte
+  mit niedrigerem readyMinAglFt werden beim Berechnen der Freigabe berücksichtigt,
+  ohne neue Missionsidentitäten oder einen Reset abgeschlossener Übungen.
+  Eine optionale Sinkübung bekommt ihre eigene Startreserve. Steigflug,
+  Wenden und Stall behalten ihre bisherigen Mindesthöhen. Der isolierte
+  Trainingscore wurde aus der Original-Prozedur neu generiert.
+- SAR V2 übersprang ungültige Position/Höhe/Geschwindigkeit ohne die Suchuhr
+  zu unterbrechen. Beim ersten gültigen Folgemesswert wurden bis zu fünf
+  Sekunden nachgetragen; das konnte sofort einen Sichtkontakt auslösen.
+  Die POI-Runtime persistiert jetzt für SAR V2 die Unterbrechung und setzt
+  nur die Intervallanker zurück. Suchzeit, Hinweise, Kontakt und bereits
+  erworbene Lageaufnahmezeit bleiben erhalten. Der erste gültige Messwert
+  nach einer Lücke verdient keine Zeit; erst gültige Folgeintervalle zählen.
+  Die Änderung ist auf SAR V2 begrenzt; Legacy-SAR und andere POI-Familien
+  behalten ihren bisherigen Pfad. Slew ist weiterhin kein Gate.
+
+Validierung: 20 neue Regressionen für POI/APT (Pflicht-/Zusatz-Sinkflug,
+Höhentoleranz, Reserveverlust vor Klick, alte Speicherstände, Restore und
+Slew) sowie SAR incident/no_contact (fehlende Position/Höhe/Geschwindigkeit,
+Kontakt-/Lageaufnahme-Erhalt und fehlgeschlagener Checkpoint mit Wiederaufnahme).
+Zusammen mit den betroffenen Missions-/Authority-/Runtime- und Briefingtests
+**348 unterschiedliche Tests bestanden, 0 fehlgeschlagen oder übersprungen**.
+Original-Prozedur-Selbsttest, Generatorvergleich, Syntax und diff-Prüfung
+bestanden. Eine bereits vorhandene fremde Änderung am SAR-Integrationstest
+wurde nicht angefasst. Kein Build, Push oder Rollout; reale MSFS-Feldprüfung
+steht aus.
+
+
+### Alpha-Release v483 vorbereitet (06.10.2026)
+
+Tracker v483 bündelt die oben dokumentierten Sinkflugreserve- und
+SAR-Telemetrieunterbrechungsfixes. App-Cache: `ga-dispatcher-v1938`.
+Die 348 gezielten Missions-/Briefingtests und die vorgeschriebenen
+Flow-/Ground-/Cargo-Persistenz-/Payload-/Sync-/Location-/Syntaxprüfungen
+sind grün. Die Windows-EXE wurde mit pkg 6.18.1 / Node18 und synchronisierten
+EFB-Web-Assets neu gebaut. Ein frischer macOS-ARM64-Paketstart bestätigt
+`MISSION_PACKAGED_PROCESS_SMOKE_OK`, danach Worker-Exit 0.
+
+EXE: 173567453 Bytes, SHA-256
+`ba1ea812d56d297f2390649b56765eee7160db79c6fb4b93b2cde86bd5a53a79`.
+Der Alpha-Kanal wird erst nach Veröffentlichung und öffentlicher
+Download-/Hash-Kontrolle umgeschaltet. Stable und Desktop-Bootstrapper
+bleiben unverändert. Der Paketstart ersetzt keine MSFS-Feldprüfung.

@@ -234,6 +234,25 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
         return normalized;
     }
 
+    // Descent needs enough room for the full step and the permitted low edge.
+    // Once started, the unchanged base minimum protects the whole maneuver.
+    function minimumAglFt(recipe, ex, starting = false) {
+        const base = ex?.type === 'stall_recovery'
+            ? Number(recipe.stallMinAglFt || DEFAULTS.stallMinAglFt)
+            : Number(recipe.minAglFt || DEFAULTS.minAglFt);
+        const reserve = starting && ex?.type === 'altitude_step_hold' && ex.direction === 'descent'
+            ? Number(ex.altitudeStepFt || DEFAULTS.exercises.altitude_step_hold.altitudeStepFt)
+                + Number(ex.maxAltitudeDeltaFt || DEFAULTS.altitudeToleranceFt)
+            : 0;
+        return base + reserve;
+    }
+
+    function readyMinimumAglFt(recipe) {
+        const required = (recipe.exercises || []).slice(0, recipe.requiredCount || DEFAULTS.requiredExerciseCount)
+            .reduce((max, ex) => Math.max(max, minimumAglFt(recipe, ex, true)), 0);
+        return Math.max(Number(recipe.readyMinAglFt || DEFAULTS.minAglFt), required);
+    }
+
     function normalizeRecipe(raw = null, missionData = null, passenger = null) {
         const md = missionData || activeMissionDataFromHost();
         const pax = passenger || md?.passenger || host.activePassenger || null;
@@ -251,12 +270,10 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
             exercises.length,
             Math.round(finiteNumber(source?.requiredCount ?? plan?.requiredCount, DEFAULTS.requiredExerciseCount))
         ));
-        const requiredMinAglFt = exercises.slice(0, requiredCount).reduce((max, ex) => {
-            const exMin = ex.type === 'stall_recovery'
-                ? Number(source?.stallMinAglFt || DEFAULTS.stallMinAglFt)
-                : Number(source?.minAglFt || DEFAULTS.minAglFt);
-            return Math.max(max, exMin);
-        }, 0);
+        const minAglFt = clamp(source?.minAglFt ?? DEFAULTS.minAglFt, 500, 8000);
+        const stallMinAglFt = clamp(source?.stallMinAglFt ?? DEFAULTS.stallMinAglFt, 1000, 10000);
+        const readyMinAglFt = readyMinimumAglFt({ minAglFt, stallMinAglFt, exercises, requiredCount,
+            readyMinAglFt: clamp(source?.readyMinAglFt ?? plan?.readyMinAglFt ?? minAglFt, 500, 10000) });
         const key = String(source?.key || [
             'training',
             mode,
@@ -270,10 +287,10 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
             family: String(source?.family || 'airwork_basic'),
             mode,
             targetLabel,
-            minAglFt: clamp(source?.minAglFt ?? DEFAULTS.minAglFt, 500, 8000),
-            stallMinAglFt: clamp(source?.stallMinAglFt ?? DEFAULTS.stallMinAglFt, 1000, 10000),
+            minAglFt,
+            stallMinAglFt,
             requiredCount,
-            readyMinAglFt: clamp(source?.readyMinAglFt ?? plan?.readyMinAglFt ?? requiredMinAglFt, 500, 10000),
+            readyMinAglFt,
             minDepartureDistanceNm: clamp(source?.minDepartureDistanceNm ?? DEFAULTS.minDepartureDistanceNm, 0, 50),
             exercises
         };
@@ -990,10 +1007,14 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
             return { handled: true, state, events, satisfied: true, progress: snapshotState(state), recipe };
         }
         const agl = Number(sample.aglFt);
-        const minAgl = !state.ready && !state.requiredComplete
-            ? Number(recipe.readyMinAglFt || DEFAULTS.minAglFt)
-            : (nextEx.type === 'stall_recovery' ? Number(recipe.stallMinAglFt || DEFAULTS.stallMinAglFt) : Number(recipe.minAglFt || DEFAULTS.minAglFt));
+        const minAgl = Math.max(minimumAglFt(recipe, nextEx, !state.active),
+            !state.ready && !state.requiredComplete ? readyMinimumAglFt(recipe) : 0);
         if (Number.isFinite(agl) && agl < minAgl) {
+            if (!state.active) {
+                state.ready = false;
+                state.startAvailable = false;
+                state.preStartStableSince = 0;
+            }
             pushGateEvent(state, events, 'training_wait_altitude', sample, {
                 exerciseId: nextEx.id,
                 exerciseType: nextEx.type,
@@ -1173,6 +1194,8 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
         defaults: DEFAULTS,
         getActiveRecipe: getMissionRecipe,
         normalizeRecipe,
+        minimumAglFt,
+        readyMinimumAglFt,
         normalizeExercise,
         defaultExercisesForPlan,
         createInitialState,

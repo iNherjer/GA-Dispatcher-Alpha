@@ -1,6 +1,7 @@
 'use strict';
 
 const aptTraining = require('./tracker-mission-apt-training.js');
+const trainingCoaching = require('./tracker-mission-training-coaching.js');
 const poiTaskCore = require('../mission-poi-task-core.js');
 
 const continuationCore = require('../mission-charter-continuation-core.js');
@@ -724,11 +725,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     const minDepartureDistanceNm = Number(recipe.trainingRecipe.minDepartureDistanceNm ?? 5);
     const exercises = Array.isArray(recipe.trainingRecipe.exercises) ? recipe.trainingRecipe.exercises : [];
     const currentExercise = exercises[Number(progress?.activeIndex || procedure?.activeIndex || 0)] || null;
-    const requiredAglFt = (!ready && !requiredComplete)
-      ? Number(recipe.trainingRecipe.readyMinAglFt ?? 1200)
-      : currentExercise?.type === 'stall_recovery'
-        ? Number(recipe.trainingRecipe.stallMinAglFt ?? 2500)
-        : Number(recipe.trainingRecipe.minAglFt ?? 1200);
+    const requiredAglFt = Math.max(trainingCoaching.minimum(recipe, currentExercise, !active),
+      !ready && !requiredComplete ? trainingCoaching.readyMinimum(recipe) : 0);
     const aglFt = typeof sample?.aglFt === 'number' && Number.isFinite(sample.aglFt) ? sample.aglFt : null;
     const missingTelemetry = ['lat', 'lon', 'altFt', 'hdg', 'bankDeg', 'vsFpm', 'aglFt']
       .filter(key => typeof sample?.[key] !== 'number' || !Number.isFinite(sample[key]));

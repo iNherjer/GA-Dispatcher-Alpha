@@ -3,6 +3,7 @@
 // Tracker-only pilot guidance. The extracted original detector still owns phases,
 // exercise results and optional exercises. This layer fixes continuity, waiting
 // limits and hold clocks and publishes the same criteria used by the banner.
+const procedure = require('../mission-training-core.js').create({}, { now: () => 0 });
 const angle = (a,b) => Math.abs(((a-b+540)%360)-180);
 const delta = (a,b) => ((b-a+540)%360)-180;
 const hdg = value => String(Math.round((value+360)%360)%360).padStart(3,'0')+'°';
@@ -13,18 +14,15 @@ function init(state) {
   return state.coaching ||= {reference:null,history:[],notice:'',lastAt:null,holdMs:0,holdGood:false,driftSince:null,
     phaseKey:'',lastProgressAt:null,bestProgress:null,lastFeedbackAt:0,lastFeedbackKey:'',pendingNotice:''};
 }
-function minimum(recipe,ex) { return ex?.type==='stall_recovery' ? Number(recipe.trainingRecipe.stallMinAglFt||2500) : Number(recipe.trainingRecipe.minAglFt||1200); }
-function readyMinimum(recipe) {
-  const value=Number(recipe.trainingRecipe.readyMinAglFt);
-  return Number.isFinite(value)?value:1200;
-}
+function minimum(recipe,ex,starting=false) { return procedure.minimumAglFt(recipe.trainingRecipe,ex,starting); }
+function readyMinimum(recipe) { return procedure.readyMinimumAglFt(recipe.trainingRecipe); }
 function departureMinimum(recipe) {
   const value=Number(recipe.trainingRecipe.minDepartureDistanceNm);
   return Number.isFinite(value)?value:5;
 }
 function altitudeGateMinimum(recipe,state,ex) {
   const s=raw(state);
-  return (!s.ready&&!s.requiredComplete)?readyMinimum(recipe):minimum(recipe,ex);
+  return Math.max(minimum(recipe,ex,!s.active),(!s.ready&&!s.requiredComplete)?readyMinimum(recipe):0);
 }
 function checks(recipe,state,sample) {
   const c=init(state), s=raw(state), ex=exercise(recipe,state), a=s.active;

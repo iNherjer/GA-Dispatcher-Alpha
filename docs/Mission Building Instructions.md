@@ -859,6 +859,12 @@ Zusatzregeln:
 - Bei POI- und APT-Training ist Slew kein Freigabe- oder Auswertungsgate. Gültige
   aktuelle Flugwerte, Pause/Boden, Startstabilisierung und Manöverkriterien werden
   weiter geprüft; ein fehlender Slew-Status allein blockiert keine Übung.
+- Vor einem Sinkflug-Höhenwechsel muss die Starthöhe mindestens die normale
+  Übungsgrenze plus geplante Sinkflugstrecke plus veröffentlichte Höhentoleranz
+  abdecken. Bei 1200 ft AGL, 500 ft Sinkflug und ±50 ft sind das 1750 ft AGL.
+  Während der Durchführung gilt weiterhin die normale Übungsgrenze. Freigabe,
+  Banner und Einweisung verwenden dieselbe Berechnung; freiwillige Sinkübungen
+  erhalten ihre eigene Startreserve, ohne den vorherigen Pflichtteil anzuheben.
 
 Wichtige Abgrenzung:
 
