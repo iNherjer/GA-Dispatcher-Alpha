@@ -18,7 +18,7 @@ try {
       let body = asset.body;
       if (pathname.endsWith('/host.js')) body = body.toString().replace(/\}\)\(\);\s*$/, `
         pollingClosed=true;
-        window.__fontTest={scale:setEfbFontScale,mission:renderMissionPayload, mode:setDisplayMode,pax:renderPaxWidget};
+        window.__fontTest={scale:setEfbFontScale,mission:renderMissionPayload, mode:setDisplayMode,pax:renderPaxWidget,compass:function(heading){flight={headingDeg:heading};mapSnapshot={navigation:null};updateCompass();}};
       })();`);
       return route.fulfill({ contentType: asset.contentType, body });
     }
@@ -90,7 +90,7 @@ try {
     for (const vr of [false,true]) {
       await page.evaluate(({host,vr}) => { __fontTest.mode(vr,host); __fontTest.scale(1); }, {host,vr});
       const actual = await page.evaluate(() => GAEfbUiScale.state());
-      assert.equal(actual.effective, vr && ['popout','toolbar'].includes(host) ? 2 : 1);
+      assert.equal(actual.effective, vr && ['popout','toolbar'].includes(host) ? 1.5 : 1);
     }
   }
   await page.setViewportSize({width:1640,height:900});
@@ -100,8 +100,8 @@ try {
     button.onclick=()=>window.__scaleProbeClicks=(window.__scaleProbeClicks||0)+1;
     document.body.appendChild(button);
   });
-  for (const effective of [0.9,1,2,3,6]) {
-    await page.evaluate(effective => { __fontTest.mode(effective===6,'toolbar'); __fontTest.scale(effective===6?3:effective); },effective);
+  for (const effective of [0.9,1,2,3,4.5]) {
+    await page.evaluate(effective => { __fontTest.mode(effective===4.5,'toolbar'); __fontTest.scale(effective===4.5?3:effective); },effective);
     const rect=await page.locator('#scaleHitProbe').boundingBox();
     assert.ok(Math.abs(rect.width-60*effective)<0.1);
     assert.ok(Math.abs(rect.height-30*effective)<0.1);
@@ -117,9 +117,9 @@ try {
   }
   assert.equal(await page.evaluate(()=>__scaleProbeClicks),5);
   await page.locator('#scaleHitProbe').evaluate(el=>el.remove());
-  for (const effective of [1,2,3,6]) {
+  for (const effective of [1,2,3,4.5]) {
     await page.evaluate(effective=>{
-      __fontTest.mode(effective===6,'toolbar'); __fontTest.scale(effective===6?3:effective);
+      __fontTest.mode(effective===4.5,'toolbar'); __fontTest.scale(effective===4.5?3:effective);
       __fontTest.pax({available:true,runId:'scale-drag-test',control:{}});
       const widget=document.getElementById('paxVoiceWidget');
       for(const [name,value] of Object.entries({left:'20px',top:'60px',right:'auto',bottom:'auto','z-index':'999999'}))widget.style.setProperty(name,value,'important');
@@ -204,6 +204,66 @@ try {
     return samples;
   });
   assert.equal(result.length, 5);
+  // Exercise the actual narrow telemetry CSS: text must fit vertically,
+  // horizontal overflow remains scrollable rather than silently truncated.
+  for (const width of [516, 300]) {
+    await page.setViewportSize({ width, height: 716 });
+    await page.evaluate(() => {
+      __fontTest.mode(false, 'physical'); __fontTest.scale(1.3);
+      const bar = document.getElementById('routeProgressBar');
+      bar.style.display = 'grid';
+      bar.querySelectorAll('.route-progress-value').forEach(el => el.textContent = '1234.5 NM');
+    });
+    const geometry = await page.locator('#routeProgressBar').evaluate(bar => {
+      const b = bar.getBoundingClientRect();
+      return [...bar.querySelectorAll('.route-progress-label,.route-progress-value')].map(el => {
+        const r = el.getBoundingClientRect();
+        return { top:r.top, bottom:r.bottom, barTop:b.top, barBottom:b.bottom, clipped:el.scrollHeight > el.clientHeight + 1 };
+      });
+    });
+    for (const r of geometry) assert.ok(r.top >= r.barTop - 1 && r.bottom <= r.barBottom + 1 && !r.clipped, JSON.stringify(r));
+  }
+  await page.setViewportSize({width:1200,height:900});
+  const profileMatrix=await page.evaluate(()=>{
+    vpCanRunVisibleMapProfileWork=()=>true;
+    vpScheduleMapProfileFrame=()=>{};
+    vpGetMapProfileElevationData=()=>[{distNM:0,elevFt:500,lat:48,lon:7},{distNM:10,elevFt:1200,lat:48.1,lon:7.1}];
+    const strip=document.getElementById('mapProfileStrip');strip.style.display='';
+    const scroll=document.getElementById('mapProfileScroll');
+    // Constant visible pixel dimensions across root factors exercise the old bug.
+    const result=[];let frameStep=0;
+    for(const id of ['mapProfileCanvas','mapProfileCanvasBg']){const ctx=document.getElementById(id).getContext('2d'),original=ctx.setTransform;ctx._scaleCalls=[];ctx.setTransform=function(...args){this._scaleCalls.push(args);return original.apply(this,args);};}
+    for(const effective of [1,1.5,3,4.5,1]){
+      GAEfbUiScale.apply(effective>3?3:effective,effective>3?'popout':'physical',effective>3);
+      scroll.style.setProperty('width',(900/effective)+'px','important');scroll.style.setProperty('height',(180/effective)+'px','important');scroll.style.setProperty('min-height','0','important');scroll.style.setProperty('flex','0 0 auto','important');
+      window.vpBgNeedsUpdate=frameStep===0;
+      renderMapProfileFrames(performance.now()+1000*(++frameStep));
+      const row={effective,canvases:[]};
+      for(const id of ['mapProfileCanvas','mapProfileCanvasBg']){
+        const canvas=document.getElementById(id),rect=canvas.getBoundingClientRect(),m=canvas.getContext('2d').getTransform();
+        row.canvases.push({id,width:canvas.width,height:canvas.height,cssWidth:canvas.clientWidth,cssHeight:canvas.clientHeight,rectWidth:rect.width,rectHeight:rect.height,transform:[m.a,m.d],drawTransform:canvas.getContext('2d')._scaleCalls.at(-1)});
+      }
+      result.push(row);
+    }
+    return result;
+  });
+  for(const row of profileMatrix)for(const c of row.canvases){
+    assert.ok(Math.abs(c.rectWidth-900)<5,JSON.stringify({row,c}));
+    assert.ok(Math.abs(c.rectHeight-180)<5,JSON.stringify({row,c}));
+    assert.ok(Math.abs(c.cssWidth-900/row.effective)<2,JSON.stringify({row,c}));
+    assert.ok(Math.abs(c.drawTransform[0]-row.effective)<0.01,JSON.stringify({row,c}));
+    assert.ok(Math.abs(c.drawTransform[3]-row.effective)<0.01,JSON.stringify({row,c}));
+  }
+  await page.evaluate(()=>{
+    __fontTest.compass(293);
+  });
+  for(const host of ['physical','popout','toolbar'])for(const scale of [0.9,1,1.5,3]){
+    await page.evaluate(({host,scale})=>{__fontTest.mode(true,host);__fontTest.scale(scale);},{host,scale});
+    assert.equal(await page.locator('#compassHdgReadout').textContent(),'293°');
+    assert.equal(await page.locator('#compassHdgReadout').isVisible(),true);
+    assert.equal(await page.locator('#compassCdiGroup').isVisible(),false);
+  }
+  console.log('PASS actual profile renderer (constant backing pixels, changing CSS dimensions) and heading without route navigation',JSON.stringify(profileMatrix));
   console.log('PASS visible font controls, bounds, persisted choice, reset, first-frame scaling and snapshot-driven mission menu.', result);
 } finally {
   await browser.close();

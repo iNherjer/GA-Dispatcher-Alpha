@@ -7674,8 +7674,8 @@ function renderVerticalProfile(canvasId) {
     const displayHeight = Math.round(displayWidth * 0.4);
 
     const dpr = (window.devicePixelRatio || 1) * (window.GAEfbUiScale ? window.GAEfbUiScale.state().effective : 1);
-    const targetW = displayWidth * dpr;
-    const targetH = displayHeight * dpr;
+    const targetW = Math.max(1, Math.round(displayWidth * dpr));
+    const targetH = Math.max(1, Math.round(displayHeight * dpr));
 
     const ctx = canvas.getContext('2d');
     
@@ -7683,13 +7683,12 @@ function renderVerticalProfile(canvasId) {
     if (canvas.width !== targetW || canvas.height !== targetH) {
         canvas.width = targetW;
         canvas.height = targetH;
-        canvas.style.width = '100%';
-        canvas.style.maxWidth = displayWidth + 'px';
-        canvas.style.height = 'auto';
-        ctx.scale(dpr, dpr);
-    } else {
-        ctx.clearRect(0, 0, displayWidth, displayHeight);
     }
+    canvas.style.width = '100%';
+    canvas.style.maxWidth = displayWidth + 'px';
+    canvas.style.height = 'auto';
+    ctx.setTransform(targetW / displayWidth, 0, 0, targetH / displayHeight, 0, 0);
+    ctx.clearRect(0, 0, displayWidth, displayHeight);
 
     const padLeft = 45, padRight = 15, padTop = 20, padBottom = 30;
     const plotW = displayWidth - padLeft - padRight;
@@ -8470,8 +8469,8 @@ function renderMapProfileFrames(timeMs) {
 
     // Canvas bleibt immer exakt so groß wie der sichtbare Bildschirm! (Kein iOS Absturz mehr)
     const dpr = (window.devicePixelRatio || 1) * (window.GAEfbUiScale ? window.GAEfbUiScale.state().effective : 1);
-    const targetW = baseWidth * dpr;
-    const targetH = containerHeight * dpr;
+    const targetW = Math.max(1, Math.round(baseWidth * dpr));
+    const targetH = Math.max(1, Math.round(containerHeight * dpr));
 
     const { padLeft, padRight, padTop, padBottom } = vpMapProfilePadding();
     const plotW = virtualWidth - padLeft - padRight;
@@ -8600,7 +8599,12 @@ function renderMapProfileFrames(timeMs) {
     // =======================================================
     // LAYER 1: STATISCHER HINTERGRUND
     // =======================================================
-    const needsBgRender = window.vpBgNeedsUpdate
+    // A UI-scale change can keep the backing pixel size identical while
+    // changing logical dimensions. CSS size must update independently.
+    const bgLayoutChanged = bgCanvas.style.width !== baseWidth + 'px' || bgCanvas.style.height !== containerHeight + 'px';
+    bgCanvas.style.width = baseWidth + 'px';
+    bgCanvas.style.height = containerHeight + 'px';
+    const needsBgRender = bgLayoutChanged || window.vpBgNeedsUpdate
         || bgCanvas.width !== targetW
         || bgCanvas.height !== targetH;
     if (needsBgRender) {
@@ -8608,12 +8612,10 @@ function renderMapProfileFrames(timeMs) {
         if (bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
             bgCanvas.width = targetW; 
             bgCanvas.height = targetH;
-            bgCanvas.style.width = baseWidth + 'px'; 
-            bgCanvas.style.height = containerHeight + 'px';
         }
         const bgCtx = bgCanvas.getContext('2d');
         bgCtx.save();
-        bgCtx.scale(dpr, dpr);
+        bgCtx.setTransform(targetW / baseWidth, 0, 0, targetH / containerHeight, 0, 0);
         bgCtx.translate(-viewX, 0); // Vektor-Koordinatensystem anpassen
 
         bgCtx.clearRect(viewX, 0, baseWidth, containerHeight);
@@ -8737,12 +8739,12 @@ function renderMapProfileFrames(timeMs) {
     if (fgCanvas.width !== targetW || fgCanvas.height !== targetH) {
         fgCanvas.width = targetW; 
         fgCanvas.height = targetH;
-        fgCanvas.style.width = baseWidth + 'px'; 
-        fgCanvas.style.height = containerHeight + 'px';
     }
+    fgCanvas.style.width = baseWidth + 'px';
+    fgCanvas.style.height = containerHeight + 'px';
     const fgCtx = fgCanvas.getContext('2d');
     fgCtx.save();
-    fgCtx.scale(dpr, dpr);
+    fgCtx.setTransform(targetW / baseWidth, 0, 0, targetH / containerHeight, 0, 0);
     fgCtx.translate(-viewX, 0); 
 
     fgCtx.clearRect(viewX, 0, baseWidth, containerHeight);

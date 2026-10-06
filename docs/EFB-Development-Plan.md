@@ -6041,3 +6041,28 @@ AGL-/Distanz-Anzeige bei pausiertem Training ohne Startfreigabe.
 ### 2026-10-06: Alpha v478 / SDK 0.4.18
 
 Gepruefte Windows-Rueckgabe auf unveraenderter v477-Basis integriert; Trainingskorrekturen erhalten. SDK-ZIP unveraendert, SHA-256 9470832f45b77c717ed4780be128da5100b7b956d0cf584f0b60e8dce9f9de66. Tracker frisch gebaut, UI-Assetrevision 47801. Einheitliche UI-Skala 90-300 Prozent, Grundfaktor 2 nur fuer bestaetigte schwebende VR-Hosts. Native Headeraktionen ersetzen Zusatzoverlay. Node-/Browserpruefungen und Archivvalidierung bestanden; echte MSFS-/Quest-3-/Pimax-Abnahme offen. Nur Alpha-Rollout autorisiert.
+
+### 2026-10-06: Feldnachpruefung v478, Verfeinerung vorbereitet
+
+Nutzer meldet zu grossen VR-Faktor, abgeschnittene physische Telemetrie, verzerrtes Popout-Profil und fehlende native Fensterknopfe. Kandidat: VR-Grundfaktor 1.5 statt 2, Telemetriehoehe passt zwei Textzeilen und Banner startet unter Telemetrie. Canvas-CSS-Groesse wird auch bei unveraendertem Pixelpuffer aktualisiert; ganzzahlige Puffer und absolute ctx-Transformation vermeiden Rundungs-/Transformdrift. Native Sichtbarkeitskorrektur nutzt isVisible statt ausschliesslich CSS-hide-Klasse. Diese SDK-Quellaenderung ist noch nicht offiziell neu gebaut oder im Simulator bestaetigt. Windows-Handoff VFR-Multitool-UI-Refinement-Handoff-2026-10-06, kein Rollout erfolgt.
+
+
+## 2026-10-06: Windows-Verfeinerung nach v478-Feldtest, Basis v479 / SDK-Kandidat 0.4.19
+
+Eingang VFR-Multitool-UI-Refinement-Handoff-2026-10-06 geprüft und auf Alpha-v479-Basis 08c09fff15f7a962e857d46a2a15cbdda7466653 übernommen. VR-Grundfaktor für bestätigte Popout-/Toolbar-Hosts jetzt 1.5; vorhandene Benutzerprofile unverändert. Telemetriebar wächst mit ihren zwei Textzeilen, Banneroberkante berücksichtigt deren Unterkante und Resize.
+
+Profilfehler konkret: gleicher Pixelpuffer bei anderem logischem Layout ließ CSS-Leinwandgröße veraltet. CSS-Größe wird unabhängig aktualisiert, Hintergrund auch bei geändertem Layout neu gezeichnet und Transform absolut aus Puffer/Layout gesetzt. Der tatsächliche Renderer besteht die Browserfolge 1/1.5/3/4.5/1 bei konstantem 900x180-Puffer, mit richtigen CSS-Größen und Zeichentransformationen.
+
+Kompass: Host blendete ohne Navigationsziel das ganze CDI-SVG einschließlich Gradzahl aus. CDI liegt nun in eigener Gruppe; gültiges Heading bleibt unabhängig von Navigation sichtbar. Keine Font-Ersetzung. Fehlendes/abgeschnittenes SVG in realem Coherent weiterhin per Diagnose prüfen.
+
+Native Fensteraktionen: SDK-Hierarchie bleibt unverändert statt Custom-Element-Nachfahren umzuhängen; Sichtbarkeit nutzt native isVisible und Titelbreite auto. VfrToolbarDiagnostics liefert auch alle Vorfahren mit berechneten Styles, Rechtecken und hasParentHidden. Browser prüft originale SDK-Sichtbarkeitsmethoden und absichtlich versteckten Vorfahren. Ursache des realen Knopfverschwindens und Coherent-Klicknachweis bleiben offen; Browser-PASS ist keine Simulatorfreigabe.
+
+70 Node-Tests, Typecheck/App-Bundle und Browserprüfungen erfolgreich. Offizielles SDK 1.7.2 erzeugt 0.4.19: 0 Fehler, 20 Layout-Einträge, 19 Nutzdatei-Quellhashes, 22 Archivdateien geprüft. ZIP SHA-256 029397df5b06882a4c042cc0f523a765896331d44175e1698e595b4eed4632fa. Ergebnis in OneDrive/VFR-Multitool-UI-Refinement-Result-2026-10-06. Keine Veröffentlichung/Installation, keine neue Tracker-EXE. Hauptagent integriert auf aktuelle Alpha, baut frische EXE und testet gemeinsam mit SDK-ZIP; echtes MSFS/VR bleibt erforderlich.
+
+### 2026-10-06: Alpha v480 / SDK 0.4.19
+
+SDK-Rueckgabe auf unveraenderter aktueller v479-Basis integriert; Trainings-/Slew-/Portkorrekturen erhalten. Frischer EXE-Build, Assetrevision48001. VR-Grundfaktor1.5, flexible Telemetrie und Banner darunter, Profil-CSS/Layout unabhaengig von Pixelpuffer sowie Hintergrund-Neuzeichnung bei Layoutwechsel. Kompassheading bleibt ohne Navigationsziel sichtbar; CDI getrennt. SDK-ZIP0.4.19 unveraendert, SHA-256029397df5b06882a4c042cc0f523a765896331d44175e1698e595b4eed4632fa. Node- und Vollrenderer-Browserpruefungen bestanden. Native Fensterkorrekturen bleiben im echten Simulator unbestaetigt; Alpha-Feldtestfreigabe durch Nutzer, keine Stable-Promotion.
+
+### 2026-10-06: SDK 0.4.20 – nativer Toolbar-Button-Import
+
+Alpha-Freigabe durch Nutzer. Reales Coherent zeigte in 0.4.19 ein nicht registriertes icon-button mit leerem Markup. Panel.html importiert NewPushButton vor ingameUi/ingameUiHeader; native Reduce/Extern/Detach/Close behalten SDK-Handler und einheitliche Groessen. Live-Import erzeugte SVG und Klickhandler; programmatisches Minimieren/Wiederherstellen/Schliessen bestaetigt. Physische Mausbedienung, dauerhafte Paketinstallation und VR-Nachtest bleiben offen. Offizielles SDK 1.7.2: 0 Fehler, 20 Layout-Dateien, 22 ZIP-Dateien. 61 Handoff-Dateihashes, Desktop-Entpacker/Paketvalidierung und 8 Toolbar-Tests geprueft. Unveraendertes SDK-ZIP SHA-256 3eb56e90db7002915cf42244996b9323c3e372e2cc29e3a948fb6a6e796e230d. SDK-only-Update auf v480; keine Tracker-EXE-Aenderung, keine Stable-Promotion. Kanalaktivierung erst nach oeffentlicher Downloadpruefung.

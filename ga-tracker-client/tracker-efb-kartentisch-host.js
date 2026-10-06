@@ -9,6 +9,10 @@
   function positionAirspaceBanner() {
     var header = document.querySelector('#mapTableOverlay .pinboard-header');
     var bottom = header ? Math.max(0, window.GAEfbUiScale.delta(header.getBoundingClientRect().bottom)) : 0;
+    var progress = byId('routeProgressBar');
+    if (progress && progress.getBoundingClientRect().height > 0) {
+      bottom = Math.max(bottom, window.GAEfbUiScale.delta(progress.getBoundingClientRect().bottom));
+    }
     document.body.style.setProperty('--ga-efb-warning-top', Math.ceil(bottom) + 'px');
     document.body.style.setProperty('--ga-training-guidance-top', Math.ceil(bottom + 8) + 'px');
   }
@@ -1697,6 +1701,7 @@
     initMapDrawFloatingButton();
     var warningHeader = document.querySelector('#mapTableOverlay .pinboard-header');
     if (warningHeader && window.ResizeObserver) new ResizeObserver(positionAirspaceBanner).observe(warningHeader);
+    if (byId('routeProgressBar') && window.ResizeObserver) new ResizeObserver(positionAirspaceBanner).observe(byId('routeProgressBar'));
     positionAirspaceBanner();
     window.addEventListener('resize', function () {
       syncToolbarLayout();
@@ -2744,7 +2749,7 @@
     } else {
       var bug = byId('compassBugGroup');
       if (bug) bug.style.display = 'none';
-      var cdi = byId('compassCdiSvg');
+      var cdi = byId('compassCdiGroup');
       if (cdi) cdi.style.display = 'none';
     }
   }

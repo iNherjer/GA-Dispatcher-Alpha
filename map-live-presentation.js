@@ -116,6 +116,8 @@ function updateInstruments(bearingToWp, courseDeg, xteNm) {
         cdiBar.setAttribute('x2', offset.toFixed(1));
         const cdiSvg = document.getElementById('compassCdiSvg');
         if (cdiSvg) cdiSvg.style.display = '';
+        const cdiGroup = document.getElementById('compassCdiGroup');
+        if (cdiGroup) cdiGroup.style.display = '';
     }
 };
 
@@ -129,19 +131,22 @@ function buildCompassFixed() {
         if (text != null) el.textContent = text;
         return el;
     }
+    const cdiGroup = e('g', { id: 'compassCdiGroup' });
+    cdiGroup.style.display = 'none';
+    svg.appendChild(cdiGroup);
     // Background pill
-    svg.appendChild(e('rect', { x: -52, y: -12, width: 104, height: 24, rx: 5,
+    cdiGroup.appendChild(e('rect', { x: -52, y: -12, width: 104, height: 24, rx: 5,
         fill: 'rgba(2,5,10,0.82)', stroke: 'rgba(255,255,255,0.18)', 'stroke-width': 1 }));
     // Centre track line (thin, white)
-    svg.appendChild(e('line', { x1: 0, y1: -8, x2: 0, y2: 8,
+    cdiGroup.appendChild(e('line', { x1: 0, y1: -8, x2: 0, y2: 8,
         stroke: 'rgba(255,255,255,0.35)', 'stroke-width': 1.2, 'stroke-dasharray': '3 2' }));
     // Scale dots at ±22 and ±44 px
     for (const dx of [-44, -22, 22, 44]) {
-        svg.appendChild(e('circle', { cx: dx, cy: 0, r: 2.5,
+        cdiGroup.appendChild(e('circle', { cx: dx, cy: 0, r: 2.5,
             fill: 'none', stroke: 'rgba(255,255,255,0.45)', 'stroke-width': 1.5 }));
     }
     // CDI bar (vertical, moves horizontally)
-    svg.appendChild(e('line', { id: 'compassCdiBarFixed', x1: 0, y1: -10, x2: 0, y2: 10,
+    cdiGroup.appendChild(e('line', { id: 'compassCdiBarFixed', x1: 0, y1: -10, x2: 0, y2: 10,
         stroke: '#ccd8ea', 'stroke-width': 3.5, 'stroke-linecap': 'round' }));
     // Heading readout below CDI strip — DSEG7 7-segment LED font
     svg.appendChild(e('text', { id: 'compassHdgReadout', x: 0, y: 25,
@@ -159,6 +164,8 @@ function buildCompassFixed() {
         rotation += ((-Number(heading) - rotation) % 360 + 540) % 360 - 180;
         disc.style.transform = `rotate(${rotation}deg)`;
         const text = document.getElementById('compassHdgReadout');
+        const headingSvg = document.getElementById('compassCdiSvg');
+        if (headingSvg) headingSvg.style.display = '';
         if (text) text.textContent = ('00' + ((Math.round(heading) % 360 + 360) % 360)).slice(-3) + '°';
     }
     return { buildRose: buildCompassSvg, buildFixed: buildCompassFixed,

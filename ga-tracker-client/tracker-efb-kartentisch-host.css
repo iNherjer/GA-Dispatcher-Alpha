@@ -1325,3 +1325,30 @@ body.ga-efb-tracker-host .route-progress-label { min-height:24px; }
 body.ga-efb-tracker-host .map-draw-floating-btn,
 body.ga-efb-tracker-host .map-draw-tool-btn,
 body.ga-efb-tracker-host #map .leaflet-control button { min-width:30px; min-height:30px; }
+
+/* Keep both telemetry rows inside the bar, including narrow logical VR layouts. */
+body.ga-efb-tracker-host #routeProgressBar {
+  height: auto;
+  min-height: 44px;
+  padding: 4px;
+  align-items: stretch;
+  overflow-x: auto;
+}
+body.ga-efb-tracker-host #routeProgressBar .route-progress-item {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 46px;
+  overflow: visible;
+}
+body.ga-efb-tracker-host #routeProgressBar .route-progress-label {
+  min-height: 12px;
+  line-height: 1.25;
+}
+body.ga-efb-tracker-host #routeProgressBar .route-progress-value {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}

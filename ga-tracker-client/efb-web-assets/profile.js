@@ -10152,21 +10152,20 @@ function renderVerticalProfile(canvasId) {
   var displayWidth = container.clientWidth || 400;
   var displayHeight = Math.round(displayWidth * 0.4);
   var dpr = (window.devicePixelRatio || 1) * (window.GAEfbUiScale ? window.GAEfbUiScale.state().effective : 1);
-  var targetW = displayWidth * dpr;
-  var targetH = displayHeight * dpr;
+  var targetW = Math.max(1, Math.round(displayWidth * dpr));
+  var targetH = Math.max(1, Math.round(displayHeight * dpr));
   var ctx = canvas.getContext('2d');
 
   // Performance Fix für das kleine Diagramm
   if (canvas.width !== targetW || canvas.height !== targetH) {
     canvas.width = targetW;
     canvas.height = targetH;
-    canvas.style.width = '100%';
-    canvas.style.maxWidth = displayWidth + 'px';
-    canvas.style.height = 'auto';
-    ctx.scale(dpr, dpr);
-  } else {
-    ctx.clearRect(0, 0, displayWidth, displayHeight);
   }
+  canvas.style.width = '100%';
+  canvas.style.maxWidth = displayWidth + 'px';
+  canvas.style.height = 'auto';
+  ctx.setTransform(targetW / displayWidth, 0, 0, targetH / displayHeight, 0, 0);
+  ctx.clearRect(0, 0, displayWidth, displayHeight);
   var padLeft = 45,
     padRight = 15,
     padTop = 20,
@@ -11112,8 +11111,8 @@ function renderMapProfileFrames(timeMs) {
 
   // Canvas bleibt immer exakt so groß wie der sichtbare Bildschirm! (Kein iOS Absturz mehr)
   var dpr = (window.devicePixelRatio || 1) * (window.GAEfbUiScale ? window.GAEfbUiScale.state().effective : 1);
-  var targetW = baseWidth * dpr;
-  var targetH = containerHeight * dpr;
+  var targetW = Math.max(1, Math.round(baseWidth * dpr));
+  var targetH = Math.max(1, Math.round(containerHeight * dpr));
   var _vpMapProfilePadding = vpMapProfilePadding(),
     padLeft = _vpMapProfilePadding.padLeft,
     padRight = _vpMapProfilePadding.padRight,
@@ -11279,18 +11278,21 @@ function renderMapProfileFrames(timeMs) {
   // =======================================================
   // LAYER 1: STATISCHER HINTERGRUND
   // =======================================================
-  var needsBgRender = window.vpBgNeedsUpdate || bgCanvas.width !== targetW || bgCanvas.height !== targetH;
+  // A UI-scale change can keep the backing pixel size identical while
+  // changing logical dimensions. CSS size must update independently.
+  var bgLayoutChanged = bgCanvas.style.width !== baseWidth + 'px' || bgCanvas.style.height !== containerHeight + 'px';
+  bgCanvas.style.width = baseWidth + 'px';
+  bgCanvas.style.height = containerHeight + 'px';
+  var needsBgRender = bgLayoutChanged || window.vpBgNeedsUpdate || bgCanvas.width !== targetW || bgCanvas.height !== targetH;
   if (needsBgRender) {
     var bgT0 = performance && performance.now ? performance.now() : Date.now();
     if (bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
       bgCanvas.width = targetW;
       bgCanvas.height = targetH;
-      bgCanvas.style.width = baseWidth + 'px';
-      bgCanvas.style.height = containerHeight + 'px';
     }
     var bgCtx = bgCanvas.getContext('2d');
     bgCtx.save();
-    bgCtx.scale(dpr, dpr);
+    bgCtx.setTransform(targetW / baseWidth, 0, 0, targetH / containerHeight, 0, 0);
     bgCtx.translate(-viewX, 0); // Vektor-Koordinatensystem anpassen
 
     bgCtx.clearRect(viewX, 0, baseWidth, containerHeight);
@@ -11434,12 +11436,12 @@ function renderMapProfileFrames(timeMs) {
   if (fgCanvas.width !== targetW || fgCanvas.height !== targetH) {
     fgCanvas.width = targetW;
     fgCanvas.height = targetH;
-    fgCanvas.style.width = baseWidth + 'px';
-    fgCanvas.style.height = containerHeight + 'px';
   }
+  fgCanvas.style.width = baseWidth + 'px';
+  fgCanvas.style.height = containerHeight + 'px';
   var fgCtx = fgCanvas.getContext('2d');
   fgCtx.save();
-  fgCtx.scale(dpr, dpr);
+  fgCtx.setTransform(targetW / baseWidth, 0, 0, targetH / containerHeight, 0, 0);
   fgCtx.translate(-viewX, 0);
   fgCtx.clearRect(viewX, 0, baseWidth, containerHeight);
 

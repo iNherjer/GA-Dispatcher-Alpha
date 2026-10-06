@@ -4,6 +4,12 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, 'PackageSources/html_ui/InGamePanels/VfrMultitool/Panel.js'), 'utf8');
+test('toolbar loads SDK icon-button templates before constructing its native header', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'PackageSources/html_ui/InGamePanels/VfrMultitool/Panel.html'), 'utf8');
+  const buttons = html.indexOf('href="/templates/NewPushButton/NewPushButton.html"');
+  const header = html.indexOf('href="/templates/ingameUiHeader/ingameUiHeader.html"');
+  assert.ok(buttons >= 0 && buttons < header, 'Missing SDK template leaves icon-button unregistered, empty and without click processing');
+});
 function fixture() {
   const events = {}, timers = new Map(), requests = [], minimizeCalls = [];
   const intervals = new Map(), modeMessages = [];

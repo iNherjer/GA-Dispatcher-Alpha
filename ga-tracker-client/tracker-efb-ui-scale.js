@@ -5,7 +5,7 @@
     return ['physical', 'popout', 'toolbar', 'unknown'].indexOf(value) >= 0 ? value : 'unknown';
   }
   function base(value, isVr) {
-    return isVr && (value === 'popout' || value === 'toolbar') ? 2 : 1;
+    return isVr && (value === 'popout' || value === 'toolbar') ? 1.5 : 1;
   }
   function viewport() { return { width: root.innerWidth / factor, height: root.innerHeight / factor }; }
   function layout() {
