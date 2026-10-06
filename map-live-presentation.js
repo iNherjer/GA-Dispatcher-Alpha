@@ -4,6 +4,43 @@
     else root.GAMapLivePresentation = factory();
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
 'use strict';
+// Compare output at the live element, so replacement nodes and external edits
+// cannot inherit a stale presentation cache. These reads do not measure layout.
+const styleOutputs = new WeakMap();
+function setText(node, value) {
+    const text = String(value == null ? '' : value);
+    if (node && node.textContent !== text) node.textContent = text;
+}
+function setAttribute(node, name, value) {
+    const text = String(value);
+    if (node && node.getAttribute(name) !== text) node.setAttribute(name, text);
+}
+function setStyle(node, name, value, priority = '') {
+    if (!node) return;
+    const style = node.style, text = String(value);
+    const current = style.getPropertyValue(name);
+    const outputs = styleOutputs.get(style);
+    const last = outputs && outputs[name];
+    if (style.getPropertyPriority(name) === priority && (current === text
+        || (last && last.input === text && last.output === current))) return;
+    style.setProperty(name, text, priority);
+    const next = outputs || Object.create(null);
+    next[name] = { input: text, output: style.getPropertyValue(name) };
+    styleOutputs.set(style, next);
+}
+// Leaflet 1.9.4 still projects/clips every layer normally. Only its final SVG
+// attribute write is deduplicated, per EFB renderer, including newly added paths.
+function createEfbSvgRenderer(L, options) {
+    const renderer = L.svg ? L.svg(options) : null;
+    if (renderer && typeof renderer._setPath === 'function') {
+        const write = renderer._setPath;
+        renderer._setPath = function (layer, path) {
+            if (layer._path && layer._path.getAttribute('d') === path) return;
+            return write.call(this, layer, path);
+        };
+    }
+    return renderer;
+}
 function aircraftHtml() { return `
         <div class="live-plane-inner" style="width: var(--plane-size); height: var(--plane-size); filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)); position: relative; transform: translate(-50%, -37%);">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 447.74 339.91" style="transform-origin: 50% 37%; width: 100%; height: 100%; will-change: transform;">
@@ -103,8 +140,8 @@ function buildCompassSvg() {
 function updateInstruments(bearingToWp, courseDeg, xteNm) {
     const bugG = document.getElementById('compassBugGroup');
     if (bugG) {
-        bugG.setAttribute('transform', `rotate(${bearingToWp},150,150)`);
-        bugG.style.display = '';
+        setAttribute(bugG, 'transform', `rotate(${bearingToWp},150,150)`);
+        setStyle(bugG, 'display', '');
     }
 
     const cdiBar = document.getElementById('compassCdiBarFixed');
@@ -112,12 +149,12 @@ function updateInstruments(bearingToWp, courseDeg, xteNm) {
         const MAX_PX = 44, FULL_NM = 2.0;
         // positive xte (right of track) → CDI deflects left (negative x)
         const offset = Math.max(-MAX_PX, Math.min(MAX_PX, -(xteNm / FULL_NM) * MAX_PX));
-        cdiBar.setAttribute('x1', offset.toFixed(1));
-        cdiBar.setAttribute('x2', offset.toFixed(1));
+        setAttribute(cdiBar, 'x1', offset.toFixed(1));
+        setAttribute(cdiBar, 'x2', offset.toFixed(1));
         const cdiSvg = document.getElementById('compassCdiSvg');
-        if (cdiSvg) cdiSvg.style.display = '';
+        setStyle(cdiSvg, 'display', '');
         const cdiGroup = document.getElementById('compassCdiGroup');
-        if (cdiGroup) cdiGroup.style.display = '';
+        setStyle(cdiGroup, 'display', '');
     }
 };
 
@@ -162,11 +199,11 @@ function buildCompassFixed() {
         const disc = document.getElementById('compassDisc');
         if (!disc) return;
         rotation += ((-Number(heading) - rotation) % 360 + 540) % 360 - 180;
-        disc.style.transform = `rotate(${rotation}deg)`;
+        setStyle(disc, 'transform', `rotate(${rotation}deg)`);
         const text = document.getElementById('compassHdgReadout');
         const headingSvg = document.getElementById('compassCdiSvg');
-        if (headingSvg) headingSvg.style.display = '';
-        if (text) text.textContent = ('00' + ((Math.round(heading) % 360 + 360) % 360)).slice(-3) + '°';
+        setStyle(headingSvg, 'display', '');
+        setText(text, ('00' + ((Math.round(heading) % 360 + 360) % 360)).slice(-3) + '°');
     }
     return { buildRose: buildCompassSvg, buildFixed: buildCompassFixed,
         updateHeading, updateInstruments };
@@ -199,5 +236,5 @@ function restoreTrail(value, sessionId) {
         && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180)) return [];
     return value.points.map(p => p.slice());
 }
-return { aircraftHtml, createCompass, filterTraffic, DIRECT_LINE_STYLE, TRAIL_STYLE, appendTrailPoint, restoreTrail };
+return { setText, setAttribute, setStyle, createEfbSvgRenderer, aircraftHtml, createCompass, filterTraffic, DIRECT_LINE_STYLE, TRAIL_STYLE, appendTrailPoint, restoreTrail };
 }));

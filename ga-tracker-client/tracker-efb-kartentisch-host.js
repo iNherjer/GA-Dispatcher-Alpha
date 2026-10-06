@@ -3,6 +3,7 @@
 
   var API = window.GAMapShellCore;
   var L = window.L;
+  var presentation = window.GAMapLivePresentation;
   var PREFERENCES_KEY = 'ga_efb_tracker_kartentisch_v1';
   var INFO_BOX_STORAGE_KEY = 'ga_efb_tracker_info_boxes_v1';
   var map = null, warningProfileAirspace = null, warningProfileTimer = null;
@@ -13,8 +14,8 @@
     if (progress && progress.getBoundingClientRect().height > 0) {
       bottom = Math.max(bottom, window.GAEfbUiScale.delta(progress.getBoundingClientRect().bottom));
     }
-    document.body.style.setProperty('--ga-efb-warning-top', Math.ceil(bottom) + 'px');
-    document.body.style.setProperty('--ga-training-guidance-top', Math.ceil(bottom + 8) + 'px');
+    presentation.setStyle(document.body, '--ga-efb-warning-top', Math.ceil(bottom) + 'px');
+    presentation.setStyle(document.body, '--ga-training-guidance-top', Math.ceil(bottom + 8) + 'px');
   }
   window.awmDisplayTrackerWarning = function(warning) {
     if (warning.kind !== 'airspace') return true;
@@ -109,9 +110,7 @@
   };
   function byId(id) { return document.getElementById(id); }
   function setText(id, value) {
-    var node = byId(id);
-    var text = String(value == null ? '' : value);
-    if (node && node.textContent !== text) node.textContent = text;
+    presentation.setText(byId(id), value);
   }
   function isFiniteNumber(value) { return typeof value === 'number' && isFinite(value); }
   function finite(value) { var number = Number(value); return isFiniteNumber(number) ? number : null; }
@@ -1302,8 +1301,8 @@
   function setTrackerState(text, error) {
     var node = document.querySelector('.ga-efb-host-state');
     if (!node) return;
-    node.textContent = text;
-    node.classList.toggle('error', !!error);
+    presentation.setText(node, text);
+    if (node.classList.contains('error') !== !!error) node.classList.toggle('error', !!error);
   }
 
   function makeButton(className, label, callback) {
@@ -1635,9 +1634,9 @@
     createStablePane('gaDrawingPane', 450);
     createStablePane('gaWaypointPane', 460);
     createStablePane('gaAircraftPane', 500);
-    routeRenderer = L.svg ? L.svg({ pane: 'gaRoutePane' }) : null;
-    geometryRenderer = L.svg ? L.svg({ pane: 'gaGeometryPane' }) : null;
-    previewRenderer = L.svg ? L.svg({ pane: 'gaPreviewPane' }) : null;
+    routeRenderer = presentation.createEfbSvgRenderer(L, { pane: 'gaRoutePane' });
+    geometryRenderer = presentation.createEfbSvgRenderer(L, { pane: 'gaGeometryPane' });
+    previewRenderer = presentation.createEfbSvgRenderer(L, { pane: 'gaPreviewPane' });
 
     var baseControl = {};
     var overlayControl = {};
@@ -2661,7 +2660,7 @@
     var altitude = Math.max(0, Math.round(sample.altFt));
     setText('teleAGL', altitude);
     var altitudeNode = byId('teleAGL');
-    if (altitudeNode) altitudeNode.style.color = altitude < 1500 ? '#ff4444' : (altitude < 3000 ? '#ffcc44' : '#8ec5ff');
+    presentation.setStyle(altitudeNode, 'color', altitude < 1500 ? '#ff4444' : (altitude < 3000 ? '#ffcc44' : '#8ec5ff'));
     var timestamp = sample.capturedAt || Date.now();
     if (!telemetryPrevious || timestamp < telemetryPrevious.timestamp) {
       telemetryPrevious = { timestamp: timestamp, altitude: sample.altFt };
@@ -2673,7 +2672,7 @@
     setText('teleGS', Number(sample.gsKts).toFixed(1));
     setText('teleVS', Math.round(vs));
     var node = byId('teleVS');
-    if (node) node.style.color = vs > 100 ? 'var(--green)' : (vs < -100 ? 'var(--red)' : '#fff');
+    presentation.setStyle(node, 'color', vs > 100 ? 'var(--green)' : (vs < -100 ? 'var(--red)' : '#fff'));
     telemetryPrevious = { timestamp: timestamp, altitude: sample.altFt };
   }
 
@@ -2687,7 +2686,7 @@
     var bar = byId('routeProgressBar');
     var next = byId('liveNextWpBox');
     if (!navigation || !route) {
-      if (bar) bar.style.display = 'none';
+      presentation.setStyle(bar, 'display', 'none');
       syncToolbarLayout();
       setInfoBoxAvailability('liveNextWpBox', false);
       if (previewLine && previewLayer) previewLayer.removeLayer(previewLine);
@@ -2695,7 +2694,7 @@
       return;
     }
     var selected = selectedWaypointNavigation();
-    if (bar) bar.style.display = 'grid';
+    presentation.setStyle(bar, 'display', 'grid');
     syncToolbarLayout();
     setInfoBoxAvailability('liveNextWpBox', !!next);
     var distance = routeProgressTarget === 'route' ? navigation.remainingDistanceNm : selected.distanceNm;
@@ -2709,21 +2708,31 @@
     setText('currentFreqValue', context.frequency || '\u2014');
     setText('currentFreqSource', context.frequencySource || '');
     Array.prototype.forEach.call(document.querySelectorAll('.route-progress-target'), function (node) {
-      node.textContent = routeProgressTarget === 'route' ? 'RTE' : 'WPT';
+      presentation.setText(node, routeProgressTarget === 'route' ? 'RTE' : 'WPT');
     });
     var labels = context.waypointLabels || [];
     var label = labels.filter(function (item) { return item.lat === selected.waypoint.lat && item.lon === selected.waypoint.lon; })[0];
     var name = label && label.name || selected.waypoint.name || selected.waypoint.id || 'NEXT';
-    setText('nextWpName', name);
-    if (label && label.frequency && byId('nextWpName')) {
-      byId('nextWpName').innerHTML = drawerEscape(name) + '<div style="font-size:11px;color:#9fd3ff;margin-top:1px;line-height:1.1;">' + drawerEscape(label.frequency) + '</div>';
+    var nameNode = byId('nextWpName');
+    var frequency = label && label.frequency ? String(label.frequency) : '';
+    var nameKey = JSON.stringify([String(name), frequency]);
+    if (nameNode && frequency) {
+      // Keep the frequency markup and glyph spans instead of clearing them
+      // to plain name text before rebuilding the same markup each sample.
+      if (nameNode._gaWaypointLabel !== nameKey || nameNode.textContent !== String(name) + frequency
+          || !nameNode.querySelector('div') || nameNode.querySelector('div').textContent !== frequency) {
+        nameNode.innerHTML = drawerEscape(name) + '<div style="font-size:11px;color:#9fd3ff;margin-top:1px;line-height:1.1;">' + drawerEscape(frequency) + '</div>';
+        nameNode._gaWaypointLabel = nameKey;
+      }
+    } else {
+      presentation.setText(nameNode, name);
     }
     setText('nextWpCourse', leftPad(Math.round(selected.bearingDeg || 0), 3) + '\u00b0');
     setText('nextWpDist', formatNumber(selected.distanceNm, 1));
     var previousButton = byId('nextLegPrevBtn');
     var nextButton = byId('nextLegNextBtn');
-    if (previousButton) previousButton.disabled = selected.selectedIndex <= 0;
-    if (nextButton) nextButton.disabled = selected.selectedIndex >= route.waypoints.length - 1;
+    if (previousButton && previousButton.disabled !== (selected.selectedIndex <= 0)) previousButton.disabled = selected.selectedIndex <= 0;
+    if (nextButton && nextButton.disabled !== (selected.selectedIndex >= route.waypoints.length - 1)) nextButton.disabled = selected.selectedIndex >= route.waypoints.length - 1;
     renderPreviewLine(selected);
   }
 
@@ -2749,9 +2758,9 @@
       compassPresentation.updateInstruments(selected.bearingDeg, navigation.inboundBearingDeg, navigation.crossTrackNm);
     } else {
       var bug = byId('compassBugGroup');
-      if (bug) bug.style.display = 'none';
+      presentation.setStyle(bug, 'display', 'none');
       var cdi = byId('compassCdiGroup');
-      if (cdi) cdi.style.display = 'none';
+      presentation.setStyle(cdi, 'display', 'none');
     }
   }
 
@@ -2760,8 +2769,8 @@
     if (!strip) return;
     var node = strip.querySelector('.ga-profile-empty');
     if (!node) { node = document.createElement('div'); node.className = 'ga-profile-empty'; strip.appendChild(node); }
-    node.textContent = text || '';
-    node.style.display = text ? 'flex' : 'none';
+    presentation.setText(node, text || '');
+    presentation.setStyle(node, 'display', text ? 'flex' : 'none');
   }
 
   function setupProfileResize() {
@@ -2997,22 +3006,22 @@
 
   function syncProfileButton() {
     var button = byId('vpToggleBtn');
-    if (button) button.textContent = preferences.profileVisible ? '\uD83D\uDCCA Profil (An)' : '\uD83D\uDCCA Profil (Aus)';
+    presentation.setText(button, preferences.profileVisible ? '\uD83D\uDCCA Profil (An)' : '\uD83D\uDCCA Profil (Aus)');
   }
 
   function syncToolbarLayout() {
     var collapsed = !!preferences.toolbarCollapsed;
     var bar = byId('routeProgressBar');
     var visible = !!(bar && bar.style.display !== 'none' && mapSnapshot && mapSnapshot.navigation && mapSnapshot.route);
-    document.body.classList.toggle('toolbar-collapsed', collapsed);
-    document.body.classList.toggle('route-progress-visible', visible);
+    if (document.body.classList.contains('toolbar-collapsed') !== collapsed) document.body.classList.toggle('toolbar-collapsed', collapsed);
+    if (document.body.classList.contains('route-progress-visible') !== visible) document.body.classList.toggle('route-progress-visible', visible);
     positionAirspaceBanner();
-    if (visible) document.body.style.setProperty('--route-progress-height', Math.round(window.GAEfbUiScale.delta(bar.getBoundingClientRect().height)) + 'px');
+    if (visible) presentation.setStyle(document.body, '--route-progress-height', Math.round(window.GAEfbUiScale.delta(bar.getBoundingClientRect().height)) + 'px');
     var button = byId('mapToolbarToggle');
     if (button) {
-      button.textContent = collapsed ? '\u25bc' : '\u25b2';
-      button.setAttribute('aria-expanded', String(!collapsed));
-      button.setAttribute('aria-label', collapsed ? 'Menüleiste einblenden' : 'Menüleiste ausblenden');
+      presentation.setText(button, collapsed ? '\u25bc' : '\u25b2');
+      presentation.setAttribute(button, 'aria-expanded', String(!collapsed));
+      presentation.setAttribute(button, 'aria-label', collapsed ? 'Menüleiste einblenden' : 'Menüleiste ausblenden');
     }
     if (window.GAEfbFloatingLayout) window.GAEfbFloatingLayout.refresh();
   }

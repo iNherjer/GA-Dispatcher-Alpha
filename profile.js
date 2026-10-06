@@ -11151,8 +11151,10 @@ function vpUpdateLiveProfilePosition(lat, lon, alt, hdg, liveMapVisualActive) {
         const mslFt = Math.max(0, Math.round(alt));
         const aglEl = liveMapVisualActive ? document.getElementById('teleAGL') : null;
         if (aglEl) {
-            aglEl.textContent = mslFt;
-            aglEl.style.color = mslFt < 1500 ? '#ff4444' : (mslFt < 3000 ? '#ffcc44' : '#8ec5ff');
+            if (aglEl.textContent !== String(mslFt)) aglEl.textContent = mslFt;
+            const altitudeColor = mslFt < 1500 ? '#ff4444' : (mslFt < 3000 ? '#ffcc44' : '#8ec5ff');
+            if (window.GAMapLivePresentation) window.GAMapLivePresentation.setStyle(aglEl, 'color', altitudeColor);
+            else aglEl.style.color = altitudeColor;
         }
 
         if (bestDistNm < 10) { // ~10 NM Schwelle für Icon-Anzeige

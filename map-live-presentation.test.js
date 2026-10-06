@@ -6,7 +6,9 @@ function documentFixture() {
     const ids = new Map();
     function element(tag) {
         return {
-            tag, attributes: {}, style: {}, children: [], textContent: '',
+            tag, attributes: {}, style: { getPropertyValue(key) { return this[key] || ''; },
+                getPropertyPriority() { return ''; }, setProperty(key, value) { this[key] = value; } }, children: [], textContent: '',
+            getAttribute(key) { return this.attributes[key] ?? null; },
             setAttribute(key, value) { this.attributes[key] = value; if (key === 'id') ids.set(value, this); },
             appendChild(child) { this.children.push(child); return child; },
             get childElementCount() { return this.children.length; }
@@ -89,4 +91,69 @@ test('restored breadcrumb is scoped to one tracker lifetime and validates stored
   for(const points of [[[null,7]],[[91,7]],[[48,181]],[[48,'7']],[[48,7,2]],Array(12001).fill([48,7])]) {
     assert.deepEqual(restoreTrail({sessionId:'first',points},'first'),[]);
   }
+});
+
+test('repeated instruments preserve their nodes and perform no output writes; changes still render', () => {
+    const document = documentFixture(), compass = presentation.createCompass(document);
+    compass.buildRose(); compass.buildFixed();
+    const ids = ['compassBugGroup', 'compassCdiBarFixed', 'compassCdiSvg', 'compassCdiGroup', 'compassDisc', 'compassHdgReadout'];
+    let writes = 0;
+    for (const id of ids) {
+        const node = document.getElementById(id), attribute = node.setAttribute.bind(node);
+        node.setAttribute = (...args) => { writes++; attribute(...args); };
+        const style = node.style.setProperty.bind(node.style);
+        node.style.setProperty = (...args) => { writes++; style(...args); };
+        let text = node.textContent;
+        Object.defineProperty(node, 'textContent', { get: () => text, set(value) { writes++; text = value; } });
+    }
+    compass.updateHeading(359); compass.updateInstruments(40, 40, .1); writes = 0;
+    for (let i = 0; i < 100; i++) { compass.updateHeading(359); compass.updateInstruments(40, 40, .1); }
+    assert.equal(writes, 0);
+    compass.updateHeading(0); compass.updateInstruments(41, 40, -.2);
+    assert.ok(writes > 0);
+    assert.equal(document.getElementById('compassHdgReadout').textContent, '000°');
+    assert.equal(document.getElementById('compassDisc').style.transform, 'rotate(0deg)');
+    assert.equal(document.getElementById('compassCdiBarFixed').getAttribute('x1'), '4.4');
+    compass.updateHeading(359);
+    assert.equal(document.getElementById('compassDisc').style.transform, 'rotate(1deg)');
+});
+
+test('output comparisons preserve glyph children, CSS priority, normalized colors and external corrections', () => {
+    const glyph = {}, node = { textContent: '▲', children: [glyph] };
+    presentation.setText(node, '▲'); assert.equal(node.children[0], glyph);
+    presentation.setText(node, 0); assert.equal(node.textContent, '0');
+    presentation.setText(node, null); assert.equal(node.textContent, '');
+    const values = {}, priorities = {}; let writes = 0;
+    const style = { getPropertyValue: key => values[key] || '', getPropertyPriority: key => priorities[key] || '',
+        setProperty(key, value, priority) { writes++; values[key] = value === '#ffffff' ? 'rgb(255, 255, 255)' : value; priorities[key] = priority; } };
+    const element = { style };
+    presentation.setStyle(element, 'color', '#ffffff');
+    presentation.setStyle(element, 'color', '#ffffff'); assert.equal(writes, 1);
+    presentation.setStyle(element, 'color', '#ffffff', 'important'); assert.equal(writes, 2);
+    values.color = 'red';
+    presentation.setStyle(element, 'color', '#ffffff', 'important'); assert.equal(writes, 3);
+    priorities.color = '';
+    presentation.setStyle(element, 'color', '#ffffff', 'important'); assert.equal(writes, 4);
+    presentation.setStyle(element, 'color', ''); assert.equal(values.color, '');
+    const document = documentFixture();
+    const oldNode = document.createElementNS('', 'g'), newNode = document.createElementNS('', 'g');
+    presentation.setAttribute(oldNode, 'transform', 'rotate(10)');
+    presentation.setAttribute(newNode, 'transform', 'rotate(10)');
+    assert.equal(newNode.getAttribute('transform'), 'rotate(10)');
+});
+
+test('EFB SVG output keeps Leaflet geometry processing and other renderers untouched', () => {
+    let writes = 0;
+    const native = { _setPath(layer, path) { writes++; layer._path.setAttribute('d', path); } };
+    const L = { svg: options => Object.assign(Object.create(native), { options }) };
+    const regular = L.svg({}), renderer = presentation.createEfbSvgRenderer(L, { pane: 'gaPreviewPane' });
+    const document = documentFixture(), layer = { _path: document.createElementNS('', 'path') };
+    renderer._setPath(layer, 'M0 0L1 1'); renderer._setPath(layer, 'M0 0L1 1'); assert.equal(writes, 1);
+    renderer._setPath(layer, 'M0 0L1.001 1'); assert.equal(writes, 2, 'no position quantization');
+    layer._path = document.createElementNS('', 'path');
+    renderer._setPath(layer, 'M0 0L1.001 1'); assert.equal(writes, 3, 'replacement path gets its output');
+    layer._path.setAttribute('d', 'external');
+    renderer._setPath(layer, 'M0 0L1.001 1'); assert.equal(writes, 4);
+    regular._setPath(layer, 'M0 0L1.001 1'); assert.equal(writes, 5);
+    assert.equal(native._setPath, regular._setPath, 'Leaflet prototype is unchanged');
 });

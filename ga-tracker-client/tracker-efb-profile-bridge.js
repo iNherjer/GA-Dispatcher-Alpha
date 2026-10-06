@@ -232,7 +232,7 @@ function formatAsLimit(lim) {
                     predictionAt=Date.now();
                     var predictions=window.GAMapPrediction.points(gps,smoothedGS,smoothedVS);
                     window.vpPredictionData=predictions;
-                    if(!predictionLayer)predictionLayer=window.GAMapPrediction.createLayer(L,map,{pane:'gaPreviewPane',renderer:L.svg({pane:'gaPreviewPane'})});
+                    if(!predictionLayer)predictionLayer=window.GAMapPrediction.createLayer(L,map,{pane:'gaPreviewPane',renderer:window.GAMapLivePresentation.createEfbSvgRenderer(L,{pane:'gaPreviewPane'})});
                     predictionLayer.render(gps,predictions);
                     // Map predictions need airspaces even with the profile hidden.
                     if(!vpMapProfileVisible && (vpMode==='HDG'||!window._lastVpRouteKey)) refreshAirspaces([gps].concat(predictions),vpMode,
