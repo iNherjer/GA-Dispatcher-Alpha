@@ -1203,3 +1203,13 @@ EXE: 173567453 Bytes, SHA-256
 Der Alpha-Kanal wird erst nach Veröffentlichung und öffentlicher
 Download-/Hash-Kontrolle umgeschaltet. Stable und Desktop-Bootstrapper
 bleiben unverändert. Der Paketstart ersetzt keine MSFS-Feldprüfung.
+
+
+### Verifiziertes Alpha-Paket v483 aktiviert (06.10.2026)
+
+Release-Tag `v483` zeigt auf `7873a9528faaa421097024fa606dc5972cc9cc7f`.
+Der Publisher hat Upload-Größe und GitHub-SHA-256 bestätigt und das Release
+veröffentlicht. Zusätzlich wurde die öffentliche EXE vollständig heruntergeladen:
+173567453 Bytes, SHA-256 identisch zum obigen lokalen Build. Der Alpha-Zeiger
+verwendet genau diesen Tag, Download und Hash. Veröffentlichung der App erfolgt
+über origin/main mit Cache `ga-dispatcher-v1938`; Stable bleibt unverändert.
