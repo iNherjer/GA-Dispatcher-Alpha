@@ -20,6 +20,8 @@ html,body { margin:0; width:100%; height:100%; overflow:hidden; }
 #VfrMultitoolPanel ingame-ui-header .icons { display:flex; align-items:center; }
 #VfrMultitoolPanel ingame-ui-header.vfr-native-actions icon-button.Reduce,
 #VfrMultitoolPanel ingame-ui-header.vfr-native-actions icon-button.Maximize,
+#VfrMultitoolPanel ingame-ui-header.vfr-native-actions icon-button.Extern,
+#VfrMultitoolPanel ingame-ui-header.vfr-native-actions icon-button.Detach,
 #VfrMultitoolPanel ingame-ui-header.vfr-native-actions icon-button.Close {
   box-sizing:border-box; flex:0 0 auto; margin:0;
   height:var(--vfr-native-action-height, 32px); width:var(--vfr-native-action-width, 36px);
