@@ -3013,6 +3013,7 @@
       button.setAttribute('aria-expanded', String(!collapsed));
       button.setAttribute('aria-label', collapsed ? 'Menüleiste einblenden' : 'Menüleiste ausblenden');
     }
+    if (window.GAEfbFloatingLayout) window.GAEfbFloatingLayout.refresh();
   }
 
   window.toggleMapToolbar = function () {

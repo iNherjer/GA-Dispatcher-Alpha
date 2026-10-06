@@ -1352,3 +1352,57 @@ body.ga-efb-tracker-host #routeProgressBar .route-progress-value {
   overflow-wrap: anywhere;
   text-align: center;
 }
+
+/* Detached surfaces use a logical viewport. Keep the attached 3D tablet's
+   existing layout and native surface handling unchanged. */
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] #mapTableOverlay {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+body.ga-efb-tracker-host.ga-efb-embedded[data-ga-efb-layout="floating"] #mapTableOverlay {
+  padding-top: var(--ga-efb-native-inset, 28px) !important;
+}
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] .pinboard-header {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] .pinboard-scroll-area { min-height: 0; }
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] .map-profile-controls {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 3px 4px;
+  gap: 4px;
+}
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] .ga-efb-profile-inputs {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] .ga-efb-profile-inputs > * { flex-shrink: 0; }
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] .ga-efb-profile-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] .map-profile-controls > span { display: none; }
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] .telemetry-box { box-sizing: border-box; }
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] .ga-efb-profile-actions button {
+  opacity: 1;
+  filter: none;
+  text-shadow: none;
+}
+body.ga-efb-tracker-host[data-ga-efb-layout="floating"] #btnVpSettings {
+  color: #fff;
+  background: #24435b;
+  border: 1px solid #8db4ce;
+  border-radius: 4px;
+}

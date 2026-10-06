@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '48001');
+  assert.equal(EFB_WEB_ASSET_REVISION, '48002');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=48001/);
-  assert.match(page, /host\.css\?v=48001/);
-  assert.match(page, /map-shell-core\.js\?v=48001/);
-  assert.match(page, /map-utility-tools\.js\?v=48001/);
-  assert.match(page, /mission-control-ui-core\.js\?v=48001/);
-  assert.match(page, /cockpit-session-client\.js\?v=48001/);
-  assert.match(page, /host\.js\?v=48001/);
+  assert.match(page, /app-styles\.css\?v=48002/);
+  assert.match(page, /host\.css\?v=48002/);
+  assert.match(page, /map-shell-core\.js\?v=48002/);
+  assert.match(page, /map-utility-tools\.js\?v=48002/);
+  assert.match(page, /mission-control-ui-core\.js\?v=48002/);
+  assert.match(page, /cockpit-session-client\.js\?v=48002/);
+  assert.match(page, /host\.js\?v=48002/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,20 +35,20 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=48001"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=48001"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=48001"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=48001"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=48002"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=48002"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=48002"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=48002"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=48001',
-    '/efb/v1/assets/map-utility-tools.js?v=48001',
-    '/efb/v1/assets/mission-control-ui-core.js?v=48001',
-    '/efb/v1/assets/cockpit-session-client.js?v=48001',
-    '/efb/v1/assets/host.js?v=48001'
+    '/efb/v1/assets/map-shell-core.js?v=48002',
+    '/efb/v1/assets/map-utility-tools.js?v=48002',
+    '/efb/v1/assets/mission-control-ui-core.js?v=48002',
+    '/efb/v1/assets/cockpit-session-client.js?v=48002',
+    '/efb/v1/assets/host.js?v=48002'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -151,6 +151,8 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
     '/efb/v1/assets/emoji-text.js',
     '/efb/v1/assets/symbols.js',
     '/efb/v1/assets/checklists.js',
+    '/efb/v1/assets/ui-scale.js',
+    '/efb/v1/assets/floating-layout.js',
     '/efb/v1/assets/airport-radio.js',
     '/efb/v1/assets/airport-details.js',
     '/efb/v1/assets/airport-aip.js',
@@ -602,4 +604,18 @@ test('Fire search overlay is served as a shared compiled module in the tracker-o
  const page=createTrackerEfbWebClientPage();assert.match(page,/mission-fire-search-map\.js\?v=/);
  const asset=getTrackerEfbWebClientAsset('/efb/v1/assets/mission-fire-search-map.js');assert.ok(asset);assert.match(asset.body.toString('utf8'),/Verdachts-Suchgebiet/);
  const host=getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');assert.match(host,/MissionFireSearchMap\.render\(map/);
+});
+
+
+test('floating layout is loaded after scale and before host, packaged, with logical dynamic viewport units', () => {
+  const page = createTrackerEfbWebClientPage();
+  assert.ok(page.indexOf('/assets/ui-scale.js') < page.indexOf('/assets/floating-layout.js'));
+  assert.ok(page.indexOf('/assets/floating-layout.js') < page.indexOf('/assets/host.js'));
+  assert.ok(trackerPackage.pkg.assets.includes('tracker-efb-floating-layout.js'));
+  const layout = getTrackerEfbWebClientAsset('/efb/v1/assets/floating-layout.js');
+  assert.equal(layout.contentType, 'text/javascript; charset=utf-8');
+  assert.doesNotThrow(() => new Function(layout.body.toString('utf8')));
+  const css = getTrackerEfbWebClientAsset('/efb/v1/assets/app-styles.css').body.toString('utf8');
+  assert.match(css, /--ga-efb-dvh/);
+  assert.match(css, /calc\(var\(--ga-efb-dvh, 1dvh\) \* 100\)/);
 });

@@ -11,7 +11,7 @@
   function layout() {
     var body = root.document.body;
     if (!body) return;
-    var size = viewport();
+    var size = viewport(), floating = surface === 'popout' || surface === 'toolbar';
     body.style.setProperty('width', size.width + 'px', 'important');
     body.style.setProperty('height', size.height + 'px', 'important');
     body.style.setProperty('min-height', size.height + 'px', 'important');
@@ -21,8 +21,15 @@
     body.style.setProperty('transform', 'scale(' + factor + ')', 'important');
     body.style.setProperty('--ga-efb-vw', size.width / 100 + 'px');
     body.style.setProperty('--ga-efb-vh', size.height / 100 + 'px');
+    ['dvh','svh','lvh','dvw','svw','lvw'].forEach(function(unit) {
+      body.style.setProperty('--ga-efb-' + unit, floating ? (unit.slice(-1) === 'h' ? size.height : size.width) / 100 + 'px' : '1' + unit);
+    });
+    body.style.setProperty('--ga-efb-native-inset', 28 / factor + 'px');
+    body.setAttribute('data-ga-efb-layout', floating ? 'floating' : 'physical');
     body.setAttribute('data-ga-efb-surface', surface);
     body.setAttribute('data-ga-efb-effective-scale', String(factor));
+    if (typeof root.gaEfbRefreshDrawerLayout === 'function') root.gaEfbRefreshDrawerLayout();
+    if (root.GAEfbFloatingLayout) root.GAEfbFloatingLayout.refresh();
   }
   function apply(value, nextSurface, isVr) {
     user = Math.max(0.9, Math.min(3, Number(value) || 1));

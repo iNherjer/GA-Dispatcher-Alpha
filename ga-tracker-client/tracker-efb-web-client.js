@@ -6,7 +6,7 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '48001';
+const EFB_WEB_ASSET_REVISION = '48002';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -55,6 +55,7 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/map.jpg': [path.join(__dirname, 'efb-web-assets', 'background-placeholder.svg'), 'image/svg+xml; charset=utf-8'],
   '/efb/v1/assets/app-styles.css': [path.join(__dirname, 'efb-web-assets', 'styles.css'), 'text/css; charset=utf-8'],
   '/efb/v1/assets/host.css': [path.join(__dirname, 'tracker-efb-kartentisch-host.css'), 'text/css; charset=utf-8'],
+  '/efb/v1/assets/floating-layout.js': [path.join(__dirname, 'tracker-efb-floating-layout.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/ui-scale.js': [path.join(__dirname, 'tracker-efb-ui-scale.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/host.js': [path.join(__dirname, 'tracker-efb-kartentisch-host.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-training-guidance-ui.js': [path.join(__dirname, 'efb-web-assets', 'mission-training-guidance-ui.js'), 'text/javascript; charset=utf-8'],
@@ -94,7 +95,7 @@ function readCachedFile(filename) {
     let body = fs.readFileSync(filename);
     if (filename.endsWith('tracker-efb-symbols.js')) body = Buffer.from('var gaEfbSymbolArtwork = ' + fs.readFileSync(path.join(__dirname, 'efb-fonts', 'symbols.json'), 'utf8') + ';\n' + body.toString('utf8'));
     if (filename.endsWith('tracker-efb-emoji-text.js')) body = Buffer.from(clientFontSource() + body.toString('utf8'));
-    if (filename.endsWith('.css')) body = Buffer.from(fontDeclarations(body.toString('utf8')).replace(/(-?\d+(?:\.\d+)?)(vw|vh)\b/g, (_, amount, unit) => 'calc(var(--ga-efb-' + unit + ', 1' + unit + ') * ' + amount + ')'));
+    if (filename.endsWith('.css')) body = Buffer.from(fontDeclarations(body.toString('utf8')).replace(/(-?\d+(?:\.\d+)?)([dsl]?v[wh])\b/g, (_, amount, unit) => 'calc(var(--ga-efb-' + unit + ', 1' + unit + ') * ' + amount + ')'));
     if (filename.endsWith('.html')) body = Buffer.from(htmlFontDeclarations(body.toString('utf8'))
       .replace('</head>', '<link rel="stylesheet" href="/efb/v1/assets/fonts.css?v=' + EFB_WEB_ASSET_REVISION + '"><script defer src="/efb/v1/assets/symbols.js?v=' + EFB_WEB_ASSET_REVISION + '"></script><script defer src="/efb/v1/assets/emoji-text.js?v=' + EFB_WEB_ASSET_REVISION + '"></script></head>'));
     fileCache.set(filename, body);
@@ -175,6 +176,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/mission-poi-chain-runtime.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/mission-training-guidance-ui.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/ui-scale.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/floating-layout.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/host.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('host.js')" onerror="__gaEfbScriptError('host.js')"></script>
 </body>
 </html>`;

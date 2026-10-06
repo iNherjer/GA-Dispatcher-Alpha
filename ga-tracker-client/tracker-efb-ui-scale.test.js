@@ -41,6 +41,11 @@ test('root layout and input conversions across surfaces, VR, reset and resize pr
     assert.equal(parseFloat(styles.width), 1200 / expected);
     assert.equal(parseFloat(styles.height), 900 / expected);
     assert.equal(attributes['data-ga-efb-surface'], host);
+    const detached = host === 'popout' || host === 'toolbar';
+    assert.equal(attributes['data-ga-efb-layout'], detached ? 'floating' : 'physical');
+    assert.equal(styles['--ga-efb-dvh'], detached ? (900 / expected / 100) + 'px' : '1dvh');
+    assert.equal(styles['--ga-efb-dvw'], detached ? (1200 / expected / 100) + 'px' : '1dvw');
+    assert.equal(styles['--ga-efb-native-inset'], (28 / expected) + 'px');
   }
   api.apply(1, 'popout', true); window.innerWidth = 600; resize();
   assert.equal(styles.width, '400px'); assert.equal(api.state().effective, 1.5);
