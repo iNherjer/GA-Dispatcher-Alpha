@@ -1131,3 +1131,11 @@ direkte Kurveneinleitung nach dem Klick. Insgesamt **225 Trainings-/Authority-/
 Runtime-/Voice-/UI-/Briefingtests bestanden, 0 fehlgeschlagen oder übersprungen**.
 Original-Prozedur-Selbsttest, Syntaxprüfung und `git diff --check` bestanden.
 Kein Build, Push oder Rollout; reale MSFS-Feldprüfung steht aus.
+
+### Gemeinsamer Alpha-Release v481 (06.10.2026)
+
+Die gesammelten Missionsfixes werden auf dem aktuellen Alpha-Stand inklusive Tracker v480 / EFB SDK 0.4.20 veroeffentlicht. Slew blockiert die besprochenen Trainings-, Vermessungs-, Infrastruktur-, Bush- und Routenansagen nicht mehr; echte Pause, fehlende Telemetrie und fachliche Voraussetzungen bleiben erhalten. Voice-Auftraege behalten den Missions-/Run-/Phasenbezug auch im Audio-Cache. Ein nach Tracker-Neustart neu beginnender, noch gueltiger Sprachclip bleibt gewuenschtes Verhalten.
+
+Der manuelle Trainingsstart verwendet die Revision des eigenen gespeicherten Messstands. Ein APT-Training behaelt dabei seinen Trainings-Checkpoint, wenn kein POI-Checkpoint existiert; konkurrierende Aenderungen aus Authority-Benachrichtigungen werden weiterhin abgewiesen.
+
+Release-Pruefung: 959 Missions-/Voice-/EFB-Tests, 223 Flow-/Storage-/Cargo-/Handoff-Tests und 28 Audio-/HTTP-/Publisher-Tests erfolgreich. Windows-EXE gebaut; Voice-Scope-Modul im Paket geprueft. Der lokal verpackte Missionsprozess startet als Child, persistiert den Run und beendet sich mit Exit 0. Kein neuer realer MSFS-Flugtest in diesem Release-Durchlauf. Die fremde lokale SAR-Testaenderung ist nicht Teil dieses Releases.

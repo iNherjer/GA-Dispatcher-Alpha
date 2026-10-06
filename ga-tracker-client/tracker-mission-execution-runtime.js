@@ -414,7 +414,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       if (!validated.ok) return validated;
       const flushed = flushPoiCheckpoint('intent');
       if (!flushed.ok) return flushed;
-      request = { ...request, expectedRevision: authorityManager.getActiveRun()?.revision ?? validated.snapshot.authorityRevision };
+      request = { ...request, expectedRevision: flushed.activeRun?.revision ?? validated.snapshot.authorityRevision };
     }
     if (String(request.intent || request.action || '').trim().toLowerCase() === 'abort_mission') {
       const validated = adapter.validateIntent(request);
@@ -791,7 +791,11 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   };
   const flushPoiCheckpoint = reason => {
     const training=reportPoiCheckpoint(trainingDriver.flush(), reason);
-    return training.ok ? reportPoiCheckpoint(poiDriver.flush(), reason) : training;
+    if (!training.ok) return training;
+    const poi = reportPoiCheckpoint(poiDriver.flush(), reason);
+    // APT has no POI checkpoint. Keep its own training revision without
+    // absorbing authority changes caused by notification callbacks.
+    return !poi.ok || poi.activeRun ? poi : training;
   };
 
   return Object.freeze({
