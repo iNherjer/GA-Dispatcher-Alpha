@@ -124,7 +124,7 @@ test('map initialization failures remain visible and diagnosable', () => {
 test('tracker-hosted Kartentisch uses a channel handshake and reports iframe diagnostics', () => {
   assert.match(tsx, /private serverFrameChannel = ''/);
   assert.match(tsx, /messageChannel === this\.serverFrameChannel/);
-  assert.match(tsx, /\/efb\/v1\/\?channel=\$\{encodeURIComponent\(this\.serverFrameChannel\)\}&view=10&vr=/);
+  assert.match(tsx, /\/efb\/v1\/\?channel=\$\{encodeURIComponent\(this\.serverFrameChannel\)\}&view=10&surface=\$\{HostSurface\.read\(window\)\}&vr=/);
   assert.match(tsx, /\/api\/v1\/client-log/);
   assert.match(tsx, /this\.reportServerFrameEvent\('parent-message'/);
   assert.match(tsx, /state === 'close'[\s\S]*?this\.setScreen\(this\.serverClientAvailable \? 'server' : 'map'\)/);

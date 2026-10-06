@@ -1,19 +1,11 @@
+function vpEfbLogicalDelta(value) { return window.GAEfbUiScale ? window.GAEfbUiScale.delta(value) : value; }
 /* === VERTICAL PROFILE & CANVAS ENGINE (v220) === */
 // Both clients run this engine. The EFB supplies only local data transport;
 // geometry, weather parsing, drawing and controls remain the standalone code.
 
-// Only the hosted EFB profile opts into UI font scaling. Keep coordinates,
-// terrain and standalone rendering unchanged.
-function vpMapProfilePadding() {
-    const scale = Math.max(0.9, Math.min(3, Number(window.gaEfbProfileFontScale) || 1));
-    return { padLeft: 33 * scale, padRight: 16 * scale, padTop: 12 * scale, padBottom: 22 * scale };
-}
-function vpCanvasFont(ctx, font) {
-    const id = ctx && ctx.canvas && ctx.canvas.id;
-    if (id !== 'mapProfileCanvas' && id !== 'mapProfileCanvasBg') return font;
-    const scale = Math.max(0.9, Math.min(3, Number(window.gaEfbProfileFontScale) || 1));
-    return String(font).replace(/([0-9]+(?:\.[0-9]+)?)px/g, (_, size) => (Number(size) * scale) + 'px');
-}
+// Root UI scaling owns font and geometry sizes; canvas backing resolution stays separate.
+function vpMapProfilePadding() { return { padLeft: 33, padRight: 16, padTop: 12, padBottom: 22 }; }
+function vpCanvasFont(ctx, font) { return font; }
 
 function vpCreateAbortController() {
     return window.gaProfileDataProvider ? window.gaProfileDataProvider.createAbortController() : new AbortController();
@@ -7681,7 +7673,7 @@ function renderVerticalProfile(canvasId) {
     const displayWidth = container.clientWidth || 400;
     const displayHeight = Math.round(displayWidth * 0.4);
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = (window.devicePixelRatio || 1) * (window.GAEfbUiScale ? window.GAEfbUiScale.state().effective : 1);
     const targetW = displayWidth * dpr;
     const targetH = displayHeight * dpr;
 
@@ -8477,7 +8469,7 @@ function renderMapProfileFrames(timeMs) {
     if (wrapper.style.width !== virtualWidth + 'px') wrapper.style.width = virtualWidth + 'px';
 
     // Canvas bleibt immer exakt so groß wie der sichtbare Bildschirm! (Kein iOS Absturz mehr)
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = (window.devicePixelRatio || 1) * (window.GAEfbUiScale ? window.GAEfbUiScale.state().effective : 1);
     const targetW = baseWidth * dpr;
     const targetH = containerHeight * dpr;
 
@@ -9131,7 +9123,7 @@ function initProfileResize() {
     function onMove(e) {
         if (!vpResizeActive) return;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        const delta = startY - clientY; // pulling up = bigger profile
+        const delta = vpEfbLogicalDelta(startY - clientY); // pulling up = bigger profile
         let newH = startH + delta;
         const totalH = maptable.offsetHeight;
         const maxFraction = document.body.classList.contains('map-is-fullscreen') ? 0.75 : 0.6;
@@ -9277,8 +9269,8 @@ function initAltWaypoints() {
 
     function vpClientToCanvas(clientX, clientY, m) {
         // FIX: Koordinaten 1:1 in CSS-Pixeln berechnen
-        const cssX = clientX - m.rect.left;
-        const cssY = clientY - m.rect.top;
+        const cssX = vpEfbLogicalDelta(clientX - m.rect.left);
+        const cssY = vpEfbLogicalDelta(clientY - m.rect.top);
         return { mx: cssX + m.viewX, my: cssY };
     }
 
@@ -9414,10 +9406,10 @@ function initAltWaypoints() {
     function vpHandleDragMove(clientX, clientY, dragStartX, dragStartY, dragOrigWP) {
         const m = vpGetCanvasMetrics();
         if (!m) return;
-        const deltaY = dragStartY - clientY;
+        const deltaY = vpEfbLogicalDelta(dragStartY - clientY);
         const altChange = (deltaY / m.plotH) * m.maxAlt;
         if (vpDraggingWP >= 0) {
-            const deltaX = clientX - dragStartX;
+            const deltaX = vpEfbLogicalDelta(clientX - dragStartX);
             const distChange = (deltaX / m.plotW) * m.totalDist;
             let newDist = dragOrigWP.distNM + distChange;
             newDist = Math.max(0, Math.min(m.totalDist, newDist));
@@ -9656,7 +9648,7 @@ function initAltWaypoints() {
 
             // Y-Achse: Zwei-Finger vertikaler Wisch (Direct Manipulation des Bodens)
             const currentTwoFingerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            const yDiff = currentTwoFingerY - initialTwoFingerY;
+            const yDiff = vpEfbLogicalDelta(currentTwoFingerY - initialTwoFingerY);
             if (Math.abs(yDiff) > 15) {
                 // Wischen nach UNTEN (yDiff > 0): User drückt Boden weg -> Stauchen (MaxAlt wird GRÖSSER)
                 // Wischen nach OBEN (yDiff < 0): User zieht Boden her -> Dehnen (MaxAlt wird KLEINER)
@@ -9670,7 +9662,7 @@ function initAltWaypoints() {
         if (vpIsPanning) {
             e.preventDefault();
             const touch = e.touches[0];
-            const deltaX = vpPanStartX - touch.clientX;
+            const deltaX = vpEfbLogicalDelta(vpPanStartX - touch.clientX);
             const scrollContainer = document.getElementById('mapProfileScroll');
             if (scrollContainer) scrollContainer.scrollLeft = vpPanStartScrollLeft + deltaX;
             return;

@@ -7,8 +7,6 @@
   var status = document.getElementById('vfr-status');
   var offline = document.getElementById('vfr-offline');
   var bar = document.getElementById('vfr-statusbar');
-  var controls = document.getElementById('vfr-window-controls');
-  var minimizeButton = document.getElementById('vfr-minimize');
   var controlsFrame = null;
   var active = false, generation = 0, timer = null, request = null, frame = null;
   var channel = '', ready = false, deadline = 0;
@@ -17,7 +15,7 @@
     if (!active || !frame || !window.GAVrMode) return;
     var mode = vrWatcher ? vrWatcher.read() : window.GAVrMode.read(window);
     if (mode === null) return;
-    frame.contentWindow.postMessage({ type: 'ga-efb-display-mode', channel: channel, vr: mode }, base);
+    frame.contentWindow.postMessage({ type: 'ga-efb-display-mode', channel: channel, vr: mode, surface: 'toolbar' }, base);
   }
   function log(message) { console.log('[VFR_TOOLBAR 0.2.1] ' + message); }
   function clearFrame() {
@@ -60,7 +58,7 @@
         frame.title = 'VFR Multitool Kartentisch';
         channel = 'toolbar-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
         var vr = window.GAVrMode && window.GAVrMode.read(window) === true;
-        frame.src = base + '/efb/v1/?host=toolbar&channel=' + encodeURIComponent(channel) + '&view=10&vr=' + (vr ? '1' : '0');
+        frame.src = base + '/efb/v1/?host=toolbar&channel=' + encodeURIComponent(channel) + '&view=10&surface=toolbar&vr=' + (vr ? '1' : '0');
         deadline = Date.now() + 20000;
         var loadCount = 0;
         frame.onload = function () {
@@ -89,71 +87,85 @@
     return !document.hidden && panel.active === true && panel.visible !== false && !panel.minimized;
   }
   function sync() {
-    controls.hidden = document.hidden || panel.active !== true || panel.visible === false;
-    if (!controls.hidden && controlsFrame === null) positionControls();
-    if (controls.hidden && controlsFrame !== null) {
+    if (!document.hidden && panel.active === true && panel.visible !== false) {
+      if (controlsFrame === null) positionControls();
+    } else if (controlsFrame !== null) {
       window.cancelAnimationFrame(controlsFrame); controlsFrame = null;
     }
-    minimizeButton.setAttribute('aria-expanded', panel.minimized ? 'false' : 'true');
-    minimizeButton.setAttribute('aria-label', panel.minimized ? 'Wiederherstellen' : 'Minimieren');
-    minimizeButton.title = panel.minimized ? 'Wiederherstellen' : 'Minimieren';
     if (visible()) start(); else if (active) stop('native-hidden');
   }
+  // Keep the simulator's own icon-buttons and OnValidate handlers. They are
+  // part of its pointer/navigation and toolbar lifecycle, including VR.
   function positionControls() {
-    var rect = panel.getBoundingClientRect();
     var header = panel.querySelector('ingame-ui-header');
-    var headerRect = header ? header.getBoundingClientRect() : null;
-    var height = headerRect && headerRect.height > 0 ? headerRect.height : 40;
-    // Screen rectangles already include Coherent's native UI transform. Convert
-    // their dimensions back to the overlay's CSS coordinates before sizing.
-    var buttonRect = minimizeButton.getBoundingClientRect ? minimizeButton.getBoundingClientRect() : null;
-    var scaleY = buttonRect && minimizeButton.offsetHeight > 0 ? buttonRect.height / minimizeButton.offsetHeight : 1;
-    var scaleX = buttonRect && minimizeButton.offsetWidth > 0 ? buttonRect.width / minimizeButton.offsetWidth : 1;
-    if (!(scaleY > 0)) scaleY = 1;
-    if (!(scaleX > 0)) scaleX = 1;
-    // Icon strokes need the same compensation as their hit targets.
-    if (typeof controls.style.setProperty === 'function') {
-      controls.style.setProperty('--vfr-icon-stroke', (2 / Math.min(scaleX, scaleY)) + 'px');
-    }
-    var screenHeight = Math.max(28, Math.min(64, height * 0.8));
-    var buttonHeight = screenHeight / scaleY;
-    var buttonWidth = screenHeight * 1.125 / scaleX;
-    var actions = header ? header.querySelector('.action-list') : null;
-    var actionsRect = actions ? actions.getBoundingClientRect() : null;
-    var edge = actionsRect && actionsRect.width > 0 ? actionsRect.left - 4 : rect.right - 8;
-    var targetTop = Math.max(0, (headerRect ? headerRect.top : rect.top) + (height - screenHeight) / 2);
-    var targetRight = Math.max(0, window.innerWidth - edge);
-    var overlayRect = controls.getBoundingClientRect ? controls.getBoundingClientRect() : null;
-    var top = overlayRect ? (parseFloat(controls.style.top) || 0) + (targetTop - overlayRect.top) / scaleY : targetTop;
-    var right = overlayRect ? (parseFloat(controls.style.right) || 0) + (overlayRect.right - (window.innerWidth - targetRight)) / scaleX : targetRight;
-    top += 'px'; right += 'px';
-    if (controls.style.top !== top) controls.style.top = top;
-    if (controls.style.right !== right) controls.style.right = right;
-    var buttons = [minimizeButton, document.getElementById('vfr-window-close')];
-    for (var i = 0; i < buttons.length; i++) {
-      if (buttons[i].style.height !== buttonHeight + 'px') buttons[i].style.height = buttonHeight + 'px';
-      if (buttons[i].style.width !== buttonWidth + 'px') buttons[i].style.width = buttonWidth + 'px';
-    }
-    // Reserve room in the native title without covering its action buttons.
-    var titleWrap = header ? header.querySelector('.wrap') : null;
-    var headerScaleX = headerRect && header.offsetWidth > 0 ? headerRect.width / header.offsetWidth : scaleX;
-    if (!(headerScaleX > 0)) headerScaleX = scaleX;
-    var titlePadding = (screenHeight * 1.125 * 2 + 12) / headerScaleX;
-    if (titleWrap && titleWrap.style.paddingRight !== titlePadding + 'px') {
-      titleWrap.style.paddingRight = titlePadding + 'px';
+    if (header) {
+      var actions = header.querySelector('.action-list');
+      var anchor = header.querySelector('.anchor');
+      var icons = header.querySelector('.icons');
+      var closeButton = header.querySelector('.Close');
+      if (anchor && icons && closeButton && icons.parentElement !== anchor) {
+        anchor.insertBefore(icons, closeButton);
+      }
+      header.classList.add('vfr-native-actions');
+      // setVisible updates native navigation state too; CSS alone would leave
+      // cockpit-attached actions invisible to the simulator input system.
+      var nativeButtons = [['.Reduce', !panel.minimized], ['.Maximize', panel.minimized], ['.Close', true]];
+      for (var i = 0; i < nativeButtons.length; i++) {
+        var button = header.querySelector(nativeButtons[i][0]);
+        var show = nativeButtons[i][1];
+        if (button && typeof button.setVisible === 'function' && button.classList.contains('hide') === show) {
+          button.setVisible(show);
+        }
+      }
+      var rect = header.getBoundingClientRect();
+      var scale = header.offsetHeight > 0 ? rect.height / header.offsetHeight : 1;
+      if (!(scale > 0)) scale = 1;
+      var height = Math.max(28, Math.min(64, rect.height * 0.8));
+      var cssHeight = height / scale + 'px';
+      var cssWidth = height * 1.125 / scale + 'px';
+      if (header.style.getPropertyValue('--vfr-native-action-height') !== cssHeight) {
+        header.style.setProperty('--vfr-native-action-height', cssHeight);
+      }
+      if (header.style.getPropertyValue('--vfr-native-action-width') !== cssWidth) {
+        header.style.setProperty('--vfr-native-action-width', cssWidth);
+      }
+      if (actions && !actions.vfrDiagnosticsBound) {
+        actions.vfrDiagnosticsBound = true;
+        actions.addEventListener('OnValidate', function (event) {
+          log('native-validate ' + JSON.stringify(diagnostics(event)));
+        }, true);
+        actions.addEventListener('click', function (event) {
+          log('native-click ' + JSON.stringify(diagnostics(event)));
+        }, true);
+      }
     }
     controlsFrame = window.requestAnimationFrame(positionControls);
   }
+  function diagnostics(event) {
+    var header = panel.querySelector('ingame-ui-header');
+    var hit = event && typeof event.clientX === 'number' ? document.elementFromPoint(event.clientX, event.clientY) : null;
+    function describe(element) { return element ? element.tagName + '.' + element.className : null; }
+    return {
+      panelId: panel.getAttribute('panel-id'), active: panel.active, attached: panel.attached,
+      minimized: panel.minimized, closePanel: typeof panel.closePanel,
+      ToggleMinimized: typeof panel.ToggleMinimized, target: describe(event && event.target),
+      propagationStopped: event ? event.cancelBubble : null,
+      actions: header ? ['.Reduce', '.Maximize', '.Close', '.Detach', '.Extern'].map(function (selector) {
+        var button = header.querySelector(selector);
+        if (!button) return { selector: selector, present: false };
+        var r = button.getBoundingClientRect();
+        return { selector: selector, nativeVisible: typeof button.isVisible === 'function' ? button.isVisible() : null,
+          left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+      }) : [],
+      hit: describe(hit), header: header ? (function () { var r = header.getBoundingClientRect(); return { left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:r.width, height:r.height }; }()) : null
+    };
+  }
+  window.VfrToolbarDiagnostics = diagnostics;
   document.getElementById('vfr-retry').onclick = function () { stop('retry'); if (visible()) start(); };
   function close() {
     stop('close'); if (typeof panel.closePanel === 'function') panel.closePanel();
   }
   document.getElementById('vfr-close').onclick = close;
-  document.getElementById('vfr-window-close').onclick = close;
-  minimizeButton.onclick = function () {
-    if (typeof panel.ToggleMinimized === 'function') panel.ToggleMinimized();
-    sync();
-  };
   window.addEventListener('message', function (event) {
     if (!active || !frame) return;
     var data = event.data;
@@ -180,7 +192,6 @@
   // Native visibility/minimize changes do not all dispatch panelInactive.
   new MutationObserver(sync).observe(panel, { attributes: true, attributeFilter: ['class'] });
   window.addEventListener('pagehide', function () {
-    controls.hidden = true;
     if (controlsFrame !== null) window.cancelAnimationFrame(controlsFrame);
     controlsFrame = null; stop('pagehide');
   });

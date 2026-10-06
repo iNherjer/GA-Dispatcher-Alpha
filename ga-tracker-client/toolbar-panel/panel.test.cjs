@@ -76,63 +76,6 @@ test('offline start retries; missing probe readiness stops automatic boot attemp
   assert.match(f.elements['vfr-status'].textContent, /antwortet nicht/);
   f.elements['vfr-retry'].onclick(); f.reply(); assert.equal(f.container.children.length, 1);
 });
-test('window buttons remain available after ready and minimize suspends requests until restore', () => {
-  const f = fixture();
-  assert.equal(f.elements['vfr-window-controls'].hidden, true);
-  f.open(); f.reply();
-  f.message({ type: 'ga-efb-kartentisch', state: 'ready' });
-  assert.equal(f.elements['vfr-statusbar'].style.display, 'none');
-  assert.equal(f.elements['vfr-window-controls'].hidden, false);
-  const button = f.elements['vfr-minimize'];
-  button.onclick();
-  assert.deepEqual(f.minimizeCalls, [undefined]);
-  assert.equal(Object.getOwnPropertyDescriptor(f.panel, 'minimized').set, undefined);
-  assert.equal(f.panel.minimized, true);
-  assert.equal(f.container.children.length, 0);
-  assert.equal(f.timers.size, 0);
-  assert.equal(f.elements['vfr-window-controls'].hidden, false);
-  assert.equal(button.attributes['aria-label'], 'Wiederherstellen');
-  button.onclick(); f.reply();
-  assert.deepEqual(f.minimizeCalls, [undefined, undefined]);
-  assert.equal(f.panel.minimized, false);
-  assert.equal(f.container.children.length, 1);
-  assert.equal(button.attributes['aria-expanded'], 'true');
-  f.elements['vfr-window-close'].onclick();
-  assert.equal(f.panel.active, false);
-  assert.equal(f.elements['vfr-window-controls'].hidden, true);
-  assert.equal(f.container.children.length, 0);
-  assert.equal(f.animationFrames.size, 0);
-});
-test('window buttons follow the native panel when dragged and stop tracking when hidden', () => {
-  const f = fixture(); f.open();
-  assert.equal(f.elements['vfr-window-controls'].style.top, '24px');
-  assert.equal(f.elements['vfr-window-controls'].style.right, '108px');
-  f.panel.rect = { top: 80, right: 700 }; f.animationFrame();
-  assert.equal(f.elements['vfr-window-controls'].style.top, '84px');
-  assert.equal(f.elements['vfr-window-controls'].style.right, '308px');
-  f.document.hidden = true; f.events.visibilitychange();
-  assert.equal(f.elements['vfr-window-controls'].hidden, true);
-  assert.equal(f.animationFrames.size, 0);
-});
-
-test('scaled header reserves title space and keeps custom controls clear of native actions', () => {
-  const f = fixture();
-  const title = { style: {} };
-  const actions = { getBoundingClientRect() { return { left: 800, width: 100 }; } };
-  f.panel.header = { getBoundingClientRect() { return { top: 20, height: 28 }; }, querySelector(selector) { return selector === '.wrap' ? title : actions; } };
-  f.open();
-  assert.equal(f.elements['vfr-window-controls'].style.top, '20px');
-  assert.equal(f.elements['vfr-window-controls'].style.right, '204px');
-  assert.equal(f.elements['vfr-minimize'].style.height, '28px');
-  assert.equal(f.elements['vfr-window-close'].style.width, '31.5px');
-  assert.equal(title.style.paddingRight, '75px');
-  f.panel.header.getBoundingClientRect = () => ({ top: 80, height: 84 });
-  f.animationFrame();
-  assert.equal(f.elements['vfr-window-controls'].style.top, '90px');
-  assert.equal(f.elements['vfr-minimize'].style.height, '64px');
-  assert.equal(title.style.paddingRight, '156px');
-});
-
 test('toolbar forwards initial VR and live changes with the current channel, pauses and restores watcher', () => {
   const f = fixture(); f.setVr(true); f.open(); f.reply();
   const frame = f.container.children[0];
@@ -148,13 +91,3 @@ test('toolbar forwards initial VR and live changes with the current channel, pau
   f.minimize(false); f.reply();
   assert.equal(new URL(f.container.children[0].src).searchParams.get('vr'), '1');
 });
- test('native transform does not shrink the visible window hit targets twice', () => {
-  const f = fixture();
-  f.elements['vfr-minimize'].offsetHeight = 32;
-  f.elements['vfr-minimize'].offsetWidth = 36;
-  f.elements['vfr-minimize'].getBoundingClientRect = () => ({ height: 8, width: 9 });
-  f.panel.header = { offsetWidth: 400, getBoundingClientRect() { return { top: 20, height: 60, width: 100 }; }, querySelector() { return null; } };
-  f.open();
-  assert.equal(Number.parseFloat(f.elements['vfr-minimize'].style.height) * 0.25, 48);
-  assert.equal(Number.parseFloat(f.elements['vfr-window-close'].style.width) * 0.25, 54);
- });

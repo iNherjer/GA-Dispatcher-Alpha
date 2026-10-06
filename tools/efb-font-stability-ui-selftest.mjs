@@ -18,7 +18,7 @@ try {
       let body = asset.body;
       if (pathname.endsWith('/host.js')) body = body.toString().replace(/\}\)\(\);\s*$/, `
         pollingClosed=true;
-        window.__fontTest={scale:setEfbFontScale,mission:renderMissionPayload};
+        window.__fontTest={scale:setEfbFontScale,mission:renderMissionPayload, mode:setDisplayMode,pax:renderPaxWidget};
       })();`);
       return route.fulfill({ contentType: asset.contentType, body });
     }
@@ -86,39 +86,65 @@ try {
   assert.equal(await page.locator('#gaEfbFontReset').textContent(), '100 %');
   await page.locator('#gaEfbFontControls').screenshot({ path: path.join(process.env.GA_EFB_SCREENSHOT_DIR || os.tmpdir(), 'ga-efb-font-controls.png') });
   await page.locator('#mapHintsBtn').click();
-  const fixedControls = await page.evaluate(() => {
-    const realStyle = window.getComputedStyle;
-    const gear = document.getElementById('btnVpSettings');
-    const rte = document.getElementById('btnToggleVpMode');
-    const bases = [gear, rte].map(el => Number(el.getAttribute('data-ga-efb-font-base')));
-    // Emulate stale Coherent computed sizes on a scale change.
-    window.getComputedStyle = function(el) {
-      if (el === gear || el === rte) return { fontSize: '999px' };
-      return realStyle.apply(window, arguments);
-    };
-    const samples = [];
-    for (const scale of [1.5, 0.9, 2, 1, 3, 1.5]) {
-      __fontTest.scale(scale);
-      samples.push({scale, actual:[gear,rte].map(el => parseFloat(realStyle.call(window,el).fontSize)), expected:bases.map(value=>Math.round(value*scale*10)/10)});
+  for (const host of ['physical','popout','toolbar','unknown']) {
+    for (const vr of [false,true]) {
+      await page.evaluate(({host,vr}) => { __fontTest.mode(vr,host); __fontTest.scale(1); }, {host,vr});
+      const actual = await page.evaluate(() => GAEfbUiScale.state());
+      assert.equal(actual.effective, vr && ['popout','toolbar'].includes(host) ? 2 : 1);
     }
-    window.getComputedStyle = realStyle;
-    return samples;
+  }
+  await page.setViewportSize({width:1640,height:900});
+  await page.evaluate(() => {
+    const button=document.createElement('button');button.id='scaleHitProbe';button.textContent='Probe';
+    button.style.cssText='position:fixed;left:20px;top:30px;width:60px;height:30px;padding:0;z-index:999999';
+    button.onclick=()=>window.__scaleProbeClicks=(window.__scaleProbeClicks||0)+1;
+    document.body.appendChild(button);
   });
-  for (const sample of fixedControls) assert.deepEqual(sample.actual, sample.expected);
-  console.log('PASS fixed gear/RTE base sizes across grow, shrink and reset', fixedControls);
+  for (const effective of [0.9,1,2,3,6]) {
+    await page.evaluate(effective => { __fontTest.mode(effective===6,'toolbar'); __fontTest.scale(effective===6?3:effective); },effective);
+    const rect=await page.locator('#scaleHitProbe').boundingBox();
+    assert.ok(Math.abs(rect.width-60*effective)<0.1);
+    assert.ok(Math.abs(rect.height-30*effective)<0.1);
+    assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y).id,{x:rect.x+rect.width/2,y:rect.y+rect.height/2}),'scaleHitProbe');
+    await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
+    const mapCheck=await page.evaluate(()=>{
+      const map=window.map;if(!map)return null;
+      const rect=map.getContainer().getBoundingClientRect();
+      const point=map.mouseEventToContainerPoint({clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2});
+      return {x:point.x,y:point.y,width:map.getContainer().clientWidth,height:map.getContainer().clientHeight};
+    });
+    if(mapCheck){assert.ok(Math.abs(mapCheck.x-mapCheck.width/2)<1);assert.ok(Math.abs(mapCheck.y-mapCheck.height/2)<1);}
+  }
+  assert.equal(await page.evaluate(()=>__scaleProbeClicks),5);
+  await page.locator('#scaleHitProbe').evaluate(el=>el.remove());
+  for (const effective of [1,2,3,6]) {
+    await page.evaluate(effective=>{
+      __fontTest.mode(effective===6,'toolbar'); __fontTest.scale(effective===6?3:effective);
+      __fontTest.pax({available:true,runId:'scale-drag-test',control:{}});
+      const widget=document.getElementById('paxVoiceWidget');
+      for(const [name,value] of Object.entries({left:'20px',top:'60px',right:'auto',bottom:'auto','z-index':'999999'}))widget.style.setProperty(name,value,'important');
+    },effective);
+    const before=await page.locator('#paxVoiceBtn').boundingBox();
+    const x=before.x+before.width/2,y=before.y+before.height/2;
+    assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y).closest('button')?.id,{x,y}),'paxVoiceBtn');
+    await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+36,y+24,{steps:3});await page.mouse.up();
+    const after=await page.locator('#paxVoiceBtn').boundingBox();
+    assert.ok(Math.abs(after.x-before.x-36)<1,JSON.stringify({effective,before,after}));
+    assert.ok(Math.abs(after.y-before.y-24)<1,JSON.stringify({effective,before,after}));
+  }
+  await page.evaluate(()=>document.getElementById('paxVoiceWidget').remove());
+
+  await page.setViewportSize({width:1640,height:900});
+  await page.evaluate(() => { __fontTest.mode(false,'physical'); __fontTest.scale(1.5); });
   const canvasFonts = await page.evaluate(() => ({
     scaled: vpCanvasFont({canvas:{id:'mapProfileCanvas'}}, 'bold 10px Arial'),
-    standalone: vpCanvasFont({canvas:{id:'profileCanvas'}}, 'bold 10px Arial'),
-    zoomSize: document.querySelector('#map .leaflet-control-zoom-in')?.getBoundingClientRect().height,
-    profileMin: parseFloat(getComputedStyle(document.getElementById('mapProfileStrip')).minHeight)
+    standalone: vpCanvasFont({canvas:{id:'profileCanvas'}}, 'bold 10px Arial')
   }));
-  assert.equal(canvasFonts.scaled, 'bold 15px Arial');
+  assert.equal(canvasFonts.scaled, 'bold 10px Arial');
   assert.equal(canvasFonts.standalone, 'bold 10px Arial');
-  assert.equal(canvasFonts.profileMin, 150);
-  if (canvasFonts.zoomSize !== undefined) assert.ok(canvasFonts.zoomSize >= 48);
   const result = await page.evaluate(async () => {
     const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
-    const size = el => parseFloat(getComputedStyle(el).fontSize);
+    const size = el => Math.round(parseFloat(getComputedStyle(el).fontSize) * GAEfbUiScale.state().effective * 10) / 10;
     const fixture = document.createElement('section');
     fixture.style.fontSize = '20px';
     fixture.innerHTML = '<span id="stableFont">Live</span><div id="newFonts"></div>';

@@ -1,5 +1,9 @@
 (function (root) {
   'use strict';
+function tgEfbDelta(value) { return root.GAEfbUiScale ? root.GAEfbUiScale.delta(value) : value; }
+function tgEfbViewport() { return root.GAEfbUiScale ? root.GAEfbUiScale.viewport() : {width:root.innerWidth,height:root.innerHeight}; }
+function tgEfbRect(element) { var r = element.getBoundingClientRect(); return {left:tgEfbDelta(r.left),right:tgEfbDelta(r.right),top:tgEfbDelta(r.top),bottom:tgEfbDelta(r.bottom),width:tgEfbDelta(r.width),height:tgEfbDelta(r.height)}; }
+
 
   function clampProgress(value) {
     var number = Number(value);
@@ -95,9 +99,9 @@
     var row = node.querySelector('.training-guidance-row');
     var intro = node.querySelector('.training-guidance-instruction');
     var notice = node.querySelector('.training-guidance-notice');
-    var height = function (element) { return element ? element.getBoundingClientRect().height : 0; };
+    var height = function (element) { return element ? tgEfbRect(element).height : 0; };
     var minimum = height(head) + height(actions) + height(grip) + height(row) + height(intro) + height(notice) + 38;
-    var maximum = Math.max(100, root.innerHeight - node.getBoundingClientRect().top - 8);
+    var maximum = Math.max(100, tgEfbViewport().height - tgEfbRect(node).top - 8);
     var chosen = Math.min(maximum, Math.max(minimum, requested));
     node.style.height = chosen + 'px';
     node.style.maxHeight = maximum + 'px';
@@ -158,25 +162,25 @@
       if (event.target.closest('.training-guidance-resize')) {
         if (event.button != null && event.button !== 0) return;
         event.preventDefault();
-        start = { resize:true, y:event.clientY, height:node.getBoundingClientRect().height, id:event.pointerId };
+        start = { resize:true, y:tgEfbDelta(event.clientY), height:tgEfbRect(node).height, id:event.pointerId };
         if (node.setPointerCapture && event.pointerId != null) node.setPointerCapture(event.pointerId);
         return;
       }
       if (!event.target.closest('.training-guidance-head')) return;
       if (event.target && event.target.closest && event.target.closest('button')) return;
       if (event.button != null && event.button !== 0) return;
-      var rect = node.getBoundingClientRect();
-      start = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top, id: event.pointerId };
+      var rect = tgEfbRect(node);
+      start = { x: tgEfbDelta(event.clientX), y: tgEfbDelta(event.clientY), left: rect.left, top: rect.top, id: event.pointerId };
       if (node.setPointerCapture && event.pointerId != null) node.setPointerCapture(event.pointerId);
     });
     handle.addEventListener('pointermove', function (event) {
       if (!start || (start.id != null && event.pointerId !== start.id)) return;
       if (start.resize) {
-        node._trainingHeight = resizeHeight(node, start.height + event.clientY - start.y);
+        node._trainingHeight = resizeHeight(node, start.height + tgEfbDelta(event.clientY) - start.y);
         return;
       }
-      var left = Math.max(8, Math.min(root.innerWidth - node.offsetWidth - 8, start.left + event.clientX - start.x));
-      var top = Math.max(8, Math.min(root.innerHeight - 40, start.top + event.clientY - start.y));
+      var left = Math.max(8, Math.min(tgEfbViewport().width - node.offsetWidth - 8, start.left + tgEfbDelta(event.clientX) - start.x));
+      var top = Math.max(8, Math.min(tgEfbViewport().height - 40, start.top + tgEfbDelta(event.clientY) - start.y));
       node.style.transform = 'none';
       node._trainingHasSavedPosition = true;
       node.style.left = left + 'px';
@@ -200,15 +204,15 @@
       if (!event.target.closest || !event.target.closest('.training-guidance-resize')) return;
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
       event.preventDefault();
-      node._trainingHeight = resizeHeight(node, node.getBoundingClientRect().height + (event.key === 'ArrowUp' ? -24 : 24));
+      node._trainingHeight = resizeHeight(node, tgEfbRect(node).height + (event.key === 'ArrowUp' ? -24 : 24));
       try { root.localStorage.setItem('ga_training_guidance_height', String(node._trainingHeight)); } catch (_) {}
     });
     root.addEventListener('resize', function () {
       if (node._trainingHeight && !node.hidden && !node.classList.contains('is-collapsed')) resizeHeight(node, node._trainingHeight);
       if (!node.hidden && node.isConnected && node._trainingHasSavedPosition) {
-        var rect = node.getBoundingClientRect();
-        node.style.left = Math.max(8, Math.min(root.innerWidth - rect.width - 8, rect.left)) + 'px';
-        node.style.top = Math.max(8, Math.min(root.innerHeight - 40, rect.top)) + 'px';
+        var rect = tgEfbRect(node);
+        node.style.left = Math.max(8, Math.min(tgEfbViewport().width - rect.width - 8, rect.left)) + 'px';
+        node.style.top = Math.max(8, Math.min(tgEfbViewport().height - 40, rect.top)) + 'px';
       }
     });
   }
@@ -351,12 +355,12 @@
     grip.setAttribute('aria-orientation', 'vertical');
     grip.title = 'Zum Verändern der Höhe nach oben oder unten ziehen';
     node.appendChild(grip);
-    if (!node.classList.contains('is-collapsed')) resizeHeight(node, node._trainingHeight || node.getBoundingClientRect().height);
+    if (!node.classList.contains('is-collapsed')) resizeHeight(node, node._trainingHeight || tgEfbRect(node).height);
     body.scrollTop = previousScrollTop;
     if (node._trainingHasSavedPosition) {
-      var rect = node.getBoundingClientRect();
-      node.style.left = Math.max(8, Math.min(root.innerWidth - rect.width - 8, rect.left)) + 'px';
-      node.style.top = Math.max(8, Math.min(root.innerHeight - rect.height - 8, rect.top)) + 'px';
+      var rect = tgEfbRect(node);
+      node.style.left = Math.max(8, Math.min(tgEfbViewport().width - rect.width - 8, rect.left)) + 'px';
+      node.style.top = Math.max(8, Math.min(tgEfbViewport().height - rect.height - 8, rect.top)) + 'px';
       node.style.right = 'auto';
       try { root.localStorage.setItem('ga_training_guidance_position_v2', JSON.stringify({ left: node.style.left, top: node.style.top })); } catch (_) {}
     }

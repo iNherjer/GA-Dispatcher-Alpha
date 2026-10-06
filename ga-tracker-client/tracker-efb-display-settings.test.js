@@ -12,7 +12,7 @@ test('display settings preserve other config fields, merge modes and survive con
   control.update({ mode: 'vr', fontScale: 3 });
   control.update({ mode: '2d', fontScale: 0.9 });
   control = createDisplaySettingsControl(options);
-  assert.deepEqual(control.snapshot(), { fontScale2d: 0.9, fontScaleVr: 3, configured: true });
+  assert.deepEqual(control.snapshot(), { fontScale2d: 0.9, fontScaleVr: 3, uiScaleVersion: 1, configured: true });
   control.update({ initialize: { fontScale2d: 1, fontScaleVr: 1 } });
   assert.equal(control.snapshot().fontScaleVr, 3);
   assert.equal(config.protectedPin, 'private');

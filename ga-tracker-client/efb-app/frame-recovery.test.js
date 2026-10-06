@@ -7,7 +7,7 @@ const ts = require('./PackageSources/VfrMultitool/node_modules/typescript');
 function harness() {
   const timers = new Map();
   const intervals = new Map(), modeMessages = [];
-  let mode = 0, vrEvent = null;
+  let mode = 0, vrEvent = null, panel2d = false, surfaceEvent = null;
   let timerId = 0;
   const api = { AppView: class {}, App: class {}, AppBootMode: {}, AppSuspendMode: {}, Efb: { use() {} } };
   const sdk = { FSComponent: { createRef: () => ({ getOrDefault: () => null }) } };
@@ -16,10 +16,11 @@ function harness() {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017, jsx: ts.JsxEmit.React }
   }).outputText;
   const context = {
-    exports: {}, require: (name) => name === '@efb/efb-api' ? api : name === '@microsoft/msfs-sdk' ? sdk : name.includes('map-shell-core') ? { default: require('./map-shell-core') } : name.includes('VrMode') ? { default: require('../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode') } : {},
+    exports: {}, require: (name) => name === '@efb/efb-api' ? api : name === '@microsoft/msfs-sdk' ? sdk : name.includes('map-shell-core') ? { default: require('./map-shell-core') } : name.includes('HostSurface') ? { default: require('../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/HostSurface') } : name.includes('VrMode') ? { default: require('../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode') } : {},
     EFB_APP_VERSION: '0.4.13', TRACKER_API_URL: 'http://127.0.0.1:49880',
     setTimeout: (fn) => { timers.set(++timerId, fn); return timerId; },
     clearTimeout: (id) => timers.delete(id), window: {
+      PanelInfo: { is2D: { get: () => panel2d, sub(fn) { surfaceEvent = fn; return { destroy() { surfaceEvent = null; } }; } } },
       SimVar: { GetSimVarValue: () => mode },
       Coherent: { on(name, fn) { vrEvent = fn; return { clear() { vrEvent = null; } }; } },
       setInterval(fn) { intervals.set(++timerId, fn); return timerId; }, clearInterval(id) { intervals.delete(id); },
@@ -38,6 +39,7 @@ function harness() {
   view.bindDomInteractions();
   return {
     view, frame, writes, events, timers, intervals, modeMessages,
+    setSurface(value) { panel2d = value; if (surfaceEvent) surfaceEvent(); },
     setVr(value) { mode = value ? 1 : 0; if (vrEvent) vrEvent(value); },
     expire() { const pending = [...timers.values()]; timers.clear(); pending.forEach((fn) => fn()); },
     ready(channel = view.serverFrameChannel) { view.onWindowMessage({ source: frame.contentWindow, data: { type: 'ga-efb-kartentisch', state: 'ready', channel } }); }
@@ -98,4 +100,24 @@ test('EFB host forwards native VR changes and stops detection while paused', () 
   assert.equal(h.modeMessages.length, messages);
   h.view.onResume(); h.view.startServerFrame(); h.ready();
   assert.equal(h.modeMessages.at(-1).data.vr, true);
+});
+
+test('native physical/popout updates use existing channel without reloading the iframe', () => {
+  const h = harness();
+  h.view.startClock = () => {}; h.view.scheduleMapInitialization = () => {};
+  h.view.startPolling = () => { h.view.active = true; };
+  h.view.stopPolling = () => { h.view.active = false; };
+  h.view.stopClock = () => {}; h.view.closeToolPanel = () => {};
+  h.view.activate(); h.view.startServerFrame(); h.ready();
+  assert.equal(new URL(h.frame.src).searchParams.get('surface'), 'physical');
+  const writes = h.writes.length;
+  h.setSurface(true);
+  assert.equal(h.modeMessages.at(-1).data.surface, 'popout');
+  h.setVr(true);
+  assert.equal(h.modeMessages.at(-1).data.vr, true);
+  assert.equal(h.modeMessages.at(-1).data.surface, 'popout');
+  assert.equal(h.writes.length, writes);
+  h.setSurface(false); assert.equal(h.modeMessages.at(-1).data.surface, 'physical');
+  h.view.onPause(); const messages = h.modeMessages.length;
+  h.setSurface(true); assert.equal(h.modeMessages.length, messages);
 });

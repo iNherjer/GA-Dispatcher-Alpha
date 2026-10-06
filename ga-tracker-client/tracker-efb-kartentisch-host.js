@@ -8,7 +8,7 @@
   var map = null, warningProfileAirspace = null, warningProfileTimer = null;
   function positionAirspaceBanner() {
     var header = document.querySelector('#mapTableOverlay .pinboard-header');
-    var bottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+    var bottom = header ? Math.max(0, window.GAEfbUiScale.delta(header.getBoundingClientRect().bottom)) : 0;
     document.body.style.setProperty('--ga-efb-warning-top', Math.ceil(bottom) + 'px');
     document.body.style.setProperty('--ga-training-guidance-top', Math.ceil(bottom + 8) + 'px');
   }
@@ -73,6 +73,7 @@
   var routeProgressTarget = 'wpt';
   var previewWaypointIndex = null;
   var lastParentState = '';
+  var hostSurface = window.GAEfbUiScale.normalizeSurface(new URLSearchParams(window.location.search).get('surface'));
   var displayMode = new URLSearchParams(window.location.search).get('vr') === '1' ? 'vr' : '2d';
   var displaySettingsReady = false, displaySettingsLoading = false, displaySettingsSaving = false;
   var displaySettingsPending = {}, displaySettingsRetry = null;
@@ -196,7 +197,7 @@
     if (displaySettingsLoading || displaySettingsReady) return;
     displaySettingsLoading = true;
     displaySettingsRequest().then(function (display) {
-      if (display.configured === false) return displaySettingsRequest({ initialize: {
+      if (display.configured === false || display.uiScaleVersion !== 1) return displaySettingsRequest({ initialize: {
         fontScale2d: preferences.fontScale2d, fontScaleVr: preferences.fontScaleVr
       } });
       return display;
@@ -231,9 +232,11 @@
     });
   }
 
-  function setDisplayMode(vr) {
+  function setDisplayMode(vr, surface) {
     var mode = vr ? 'vr' : '2d';
-    if (mode === displayMode) return;
+    var nextSurface = window.GAEfbUiScale.normalizeSurface(surface);
+    if (mode === displayMode && nextSurface === hostSurface) return;
+    hostSurface = nextSurface;
     displayMode = mode;
     preferences.fontScale = preferences[mode === 'vr' ? 'fontScaleVr' : 'fontScale2d'];
     savePreferences(); applyEfbFontScale();
@@ -246,7 +249,8 @@
     if (!window.__gaEfbChannel || data.channel !== window.__gaEfbChannel || window.parent === window) return;
     if (event.source != null && event.source !== window.parent) return;
     if (event.source == null && event.origin !== 'null' && !/^coui:\/\//.test(event.origin || '')) return;
-    setDisplayMode(data.vr);
+    if (data.surface != null && ['physical', 'popout', 'toolbar', 'unknown'].indexOf(data.surface) < 0) return;
+    setDisplayMode(data.vr, data.surface);
   });
 
   function readInfoBoxState() {
@@ -346,8 +350,8 @@
       var parent = node.parentElement;
       var maxLeft = Math.max(5, parent.clientWidth - node.offsetWidth - 5);
       var maxTop = Math.max(5, parent.clientHeight - node.offsetHeight - 5);
-      var left = clamp(startLeft + point.x - startX, 5, maxLeft);
-      var top = clamp(startTop + point.y - startY, 5, maxTop);
+      var left = clamp(startLeft + window.GAEfbUiScale.delta(point.x - startX), 5, maxLeft);
+      var top = clamp(startTop + window.GAEfbUiScale.delta(point.y - startY), 5, maxTop);
       node.style.top = Math.round(top) + 'px';
       node.style.left = Math.round(left) + 'px';
       node.style.right = 'auto';
@@ -434,26 +438,11 @@
     });
   }
 
-  function fontScaleElements() {
-    var all = document.body && document.body.querySelectorAll ? document.body.querySelectorAll('*') : [];
-    var result = document.body ? [document.body] : [];
-    for (var index = 0; index < all.length; index += 1) {
-      var tag = String(all[index].nodeName || '').toUpperCase();
-      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || nodeInsideSvg(all[index])) continue;
-      result.push(all[index]);
-    }
-    return result;
-  }
-
   function syncFontScaleControls() {
-    document.body.style.setProperty('--ga-efb-ui-scale', String(preferences.fontScale));
-    var profileScaleChanged = window.gaEfbProfileFontScale !== preferences.fontScale;
-    window.gaEfbProfileFontScale = preferences.fontScale;
-    if (profileScaleChanged && typeof window.renderMapProfile === 'function') window.renderMapProfile();
     var displayMenu = byId('mapHintsMenu');
-    if (displayMenu) displayMenu.style.width = Math.round(210 * Math.max(1, preferences.fontScale)) + 'px';
+    if (displayMenu) { displayMenu.style.width = '210px'; displayMenu.style.maxWidth = 'calc(100% - 16px)'; }
     var label = document.querySelector('.ga-efb-font-size-hint');
-    var text = 'Schriftgröße (' + (displayMode === 'vr' ? 'VR' : '2D') + '): ' + Math.round(preferences.fontScale * 100) + '%';
+    var text = 'UI-Größe (' + (displayMode === 'vr' ? 'VR' : '2D') + '): ' + Math.round(preferences.fontScale * 100) + '%';
     if (label && label.textContent !== text) label.textContent = text;
     var reset = byId('gaEfbFontReset');
     var percent = Math.round(preferences.fontScale * 100) + ' %';
@@ -463,59 +452,10 @@
   }
 
   function applyEfbFontScale() {
-    var nextScale = clamp(Number(preferences.fontScale) || 1, 0.9, 3);
-    var elements = fontScaleElements();
-    if (nextScale === 1) {
-      elements.forEach(function (element) {
-        if (element.hasAttribute('data-ga-efb-font-original')) {
-          element.style.fontSize = element.getAttribute('data-ga-efb-font-original');
-        }
-      });
-      document.body.setAttribute('data-ga-efb-font-scale', '100');
-      syncFontScaleControls();
-      return;
-    }
-    // Live text updates must not reset already scaled text. Existing base sizes stay immutable, including across resets, because
-    // Coherent can report a previous scaled computed size after a style write.
-    // A preference change reapplies those stored base sizes; inserted nodes are measured
-    // against unscaled ancestors and styled within this same pre-paint turn.
-    var rebase = document.body.getAttribute('data-ga-efb-font-scale') !== String(Math.round(nextScale * 100));
-    var pending = elements.filter(function (element) {
-      return rebase || !element.hasAttribute('data-ga-efb-font-original');
-    });
-    if (!pending.length) return;
-    var ancestors = [];
-    if (!rebase) pending.forEach(function (element) {
-      for (var parent = element.parentElement; parent; parent = parent.parentElement) {
-        if (parent.hasAttribute('data-ga-efb-font-original') && ancestors.indexOf(parent) < 0) ancestors.push(parent);
-      }
-    });
-    var ancestorStyles = ancestors.map(function (element) {
-      return { element: element, fontSize: element.style.fontSize };
-    });
-    ancestors.forEach(function (element) {
-      element.style.fontSize = element.getAttribute('data-ga-efb-font-original') || '';
-    });
-    pending.forEach(function (element) {
-      if (!element.hasAttribute('data-ga-efb-font-original')) element.setAttribute('data-ga-efb-font-original', element.style.fontSize || '');
-    });
-    pending.forEach(function (element) {
-      element.style.fontSize = element.getAttribute('data-ga-efb-font-original') || '';
-    });
-    pending.forEach(function (element) {
-      if (element.hasAttribute('data-ga-efb-font-base')) return;
-      var computed = parseFloat(window.getComputedStyle(element).fontSize);
-      if (!isFiniteNumber(computed) || computed <= 0) return;
-      element.setAttribute('data-ga-efb-font-base', String(Math.round(computed * 100) / 100));
-    });
-    ancestorStyles.forEach(function (entry) { entry.element.style.fontSize = entry.fontSize; });
-    pending.forEach(function (element) {
-      if (!element.hasAttribute('data-ga-efb-font-base')) return;
-      var base = Number(element.getAttribute('data-ga-efb-font-base'));
-      if (isFiniteNumber(base)) element.style.fontSize = Math.round(base * nextScale * 10) / 10 + 'px';
-    });
-    document.body.setAttribute('data-ga-efb-font-scale', String(Math.round(nextScale * 100)));
     syncFontScaleControls();
+    window.GAEfbUiScale.apply(preferences.fontScale, hostSurface, displayMode === 'vr');
+    document.body.setAttribute('data-ga-efb-font-scale', String(Math.round(preferences.fontScale * 100)));
+    positionAirspaceBanner();
   }
 
   function setEfbFontScale(value) {
@@ -541,8 +481,7 @@
         }
         return false;
       });
-      // MutationObserver runs before paint. A timer here exposed new content
-      // at CSS size for a frame before applying the user's EFB font scale.
+      // Normalize glyphs before paint; new elements inherit the root transform immediately.
       if (hasTextContent) {
         mutations.forEach(function (mutation) {
           for (var index = 0; index < mutation.addedNodes.length; index += 1) {
@@ -2373,22 +2312,22 @@
   function initEfbPaxDrag(widget, button, panel) {
     var start = null, moved = false, ignoreUntil = 0, position = null;
     function place(x, y) {
-      position = { x: Math.max(8, Math.min(window.innerWidth - 60, x)), y: Math.max(8, Math.min(window.innerHeight - 60, y)) };
+      position = { x: Math.max(8, Math.min(window.GAEfbUiScale.viewport().width - 60, x)), y: Math.max(8, Math.min(window.GAEfbUiScale.viewport().height - 60, y)) };
       widget.style.setProperty('left', position.x + 'px', 'important');
       widget.style.setProperty('top', position.y + 'px', 'important');
       widget.style.setProperty('right', 'auto', 'important'); widget.style.setProperty('bottom', 'auto', 'important');
-      panel.style.right = position.x > window.innerWidth / 2 ? '0' : 'auto';
-      panel.style.left = position.x > window.innerWidth / 2 ? 'auto' : '0';
-      panel.style.bottom = position.y > window.innerHeight / 2 ? '60px' : 'auto';
-      panel.style.top = position.y > window.innerHeight / 2 ? 'auto' : '60px';
+      panel.style.right = position.x > window.GAEfbUiScale.viewport().width / 2 ? '0' : 'auto';
+      panel.style.left = position.x > window.GAEfbUiScale.viewport().width / 2 ? 'auto' : '0';
+      panel.style.bottom = position.y > window.GAEfbUiScale.viewport().height / 2 ? '60px' : 'auto';
+      panel.style.top = position.y > window.GAEfbUiScale.viewport().height / 2 ? 'auto' : '60px';
     }
     try { var saved = JSON.parse(localStorage.getItem('ga_efb_pax_position')); if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) place(saved.x, saved.y); } catch (_) {}
-    function input(e) { return mapContextEventPoint(e); }
+    function input(e) { var point = mapContextEventPoint(e); if (point) { point.x = window.GAEfbUiScale.delta(point.x); point.y = window.GAEfbUiScale.delta(point.y); } return point; }
     function begin(e) {
       var point = input(e);
       if (!point || start || (e.button != null && e.button !== 0)) return;
       var rect = button.getBoundingClientRect();
-      start = {x:point.x,y:point.y,left:rect.left,top:rect.top,key:point.key}; moved = false;
+      start = {x:point.x,y:point.y,left:window.GAEfbUiScale.delta(rect.left),top:window.GAEfbUiScale.delta(rect.top),key:point.key}; moved = false;
       e.stopPropagation();
     }
     function move(e) {
@@ -3062,7 +3001,7 @@
     document.body.classList.toggle('toolbar-collapsed', collapsed);
     document.body.classList.toggle('route-progress-visible', visible);
     positionAirspaceBanner();
-    if (visible) document.body.style.setProperty('--route-progress-height', Math.round(bar.getBoundingClientRect().height) + 'px');
+    if (visible) document.body.style.setProperty('--route-progress-height', Math.round(window.GAEfbUiScale.delta(bar.getBoundingClientRect().height)) + 'px');
     var button = byId('mapToolbarToggle');
     if (button) {
       button.textContent = collapsed ? '\u25bc' : '\u25b2';

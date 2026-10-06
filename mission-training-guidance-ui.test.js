@@ -91,7 +91,8 @@ assert.equal(signature(null), 'none');
     elements['.training-guidance-'+name]={getBoundingClientRect:()=>({height}),setAttribute:()=>{}};
   }
   const node={style:{},querySelector:key=>elements[key]||null,getBoundingClientRect:()=>({top:12})};
-  const resize=new Function('root',code+';return resizeHeight;')({innerHeight:894});
+  const helpers=source.slice(source.indexOf('function tgEfbDelta('),source.indexOf('  function clampProgress('));
+  const resize=new Function('root',helpers+code+';return resizeHeight;')({innerHeight:894});
   assert.equal(resize(node,100),295);
   assert.equal(resize(node,2000),874);
   assert.equal(resize(node,500),500);

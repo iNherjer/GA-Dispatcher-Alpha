@@ -1,3 +1,6 @@
+function mtEfbDelta(value) { return window.GAEfbUiScale ? window.GAEfbUiScale.delta(value) : value; }
+function mtEfbViewport() { return window.GAEfbUiScale ? window.GAEfbUiScale.viewport() : {width:mtEfbViewport().width,height:mtEfbViewport().height}; }
+function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {left:mtEfbDelta(r.left),right:mtEfbDelta(r.right),top:mtEfbDelta(r.top),bottom:mtEfbDelta(r.bottom),width:mtEfbDelta(r.width),height:mtEfbDelta(r.height)}; }
 (function() {
     'use strict';
 
@@ -276,9 +279,9 @@
     function clampPanel(panel) {
         if (!panel) return;
         const margin = 8;
-        const rect = panel.getBoundingClientRect();
-        const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
-        const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+        const rect = mtEfbRect(panel);
+        const maxLeft = Math.max(margin, mtEfbViewport().width - rect.width - margin);
+        const maxTop = Math.max(margin, mtEfbViewport().height - rect.height - margin);
         let left = Number.parseFloat(panel.style.left);
         let top = Number.parseFloat(panel.style.top);
         if (!Number.isFinite(left)) left = rect.left;
@@ -319,16 +322,16 @@
         }
         let fallback;
         if (cfg.panel === 'mapStopwatchDevice') {
-            fallback = { left: Math.max(72, Math.round(window.innerWidth * 0.18)), top: 76 };
+            fallback = { left: Math.max(72, Math.round(mtEfbViewport().width * 0.18)), top: 76 };
         } else if (cfg.panel === 'mapE6BDevice') {
-            const rect = panel.getBoundingClientRect();
-            const width = rect.width || Math.min(520, window.innerHeight * 0.5 * 510 / 590);
+            const rect = mtEfbRect(panel);
+            const width = rect.width || Math.min(520, mtEfbViewport().height * 0.5 * 510 / 590);
             fallback = {
-                left: Math.max(18, Math.round((window.innerWidth - width) / 2)),
-                top: Math.max(18, Math.round(window.innerHeight * 0.08))
+                left: Math.max(18, Math.round((mtEfbViewport().width - width) / 2)),
+                top: Math.max(18, Math.round(mtEfbViewport().height * 0.08))
             };
         } else {
-            fallback = { left: Math.max(104, Math.round(window.innerWidth * 0.52)), top: 86 };
+            fallback = { left: Math.max(104, Math.round(mtEfbViewport().width * 0.52)), top: 86 };
         }
         panel.style.left = `${fallback.left}px`;
         panel.style.top = `${fallback.top}px`;
@@ -486,7 +489,7 @@
             if (Math.hypot(point.x - e6bDialDrag.startPoint.x, point.y - e6bDialDrag.startPoint.y) > 3) e6bDialDrag.moved = true;
             if (e6bDialDrag.action === 'pan') {
                 const clientX = Number(source && source.clientX) || 0;
-                moveE6BViewBy(clientX - e6bDialDrag.lastClientX, clientY - e6bDialDrag.lastClientY);
+                moveE6BViewBy(mtEfbDelta(clientX - e6bDialDrag.lastClientX), mtEfbDelta(clientY - e6bDialDrag.lastClientY));
                 e6bDialDrag.lastClientX = clientX;
                 e6bDialDrag.lastClientY = clientY;
             } else if (e6bDialDrag.action === 'slide') {
@@ -558,8 +561,8 @@
     }
 
     function clampE6BViewOffset(x, y) {
-        const maxX = Math.max(0, window.innerWidth * 0.9);
-        const maxY = Math.max(0, window.innerHeight * 0.9);
+        const maxX = Math.max(0, mtEfbViewport().width * 0.9);
+        const maxY = Math.max(0, mtEfbViewport().height * 0.9);
         return {
             x: Math.min(Math.max(Number(x) || 0, -maxX), maxX),
             y: Math.min(Math.max(Number(y) || 0, -maxY), maxY)
@@ -577,18 +580,18 @@
 
     function getE6BShellSize(panel) {
         const shell = panel ? panel.querySelector('.map-e6b-shell') : null;
-        const rect = shell ? shell.getBoundingClientRect() : (panel ? panel.getBoundingClientRect() : null);
+        const rect = shell ? mtEfbRect(shell) : (panel ? mtEfbRect(panel) : null);
         return {
-            width: rect ? Math.max(1, rect.width) : window.innerWidth,
-            height: rect ? Math.max(1, rect.height) : window.innerHeight
+            width: rect ? Math.max(1, rect.width) : mtEfbViewport().width,
+            height: rect ? Math.max(1, rect.height) : mtEfbViewport().height
         };
     }
 
     function getE6BFrameOffset(panel) {
         const shell = panel ? panel.querySelector('.map-e6b-shell') : null;
         const frame = el('mapE6BFrame');
-        const shellRect = shell ? shell.getBoundingClientRect() : null;
-        const frameRect = frame ? frame.getBoundingClientRect() : null;
+        const shellRect = shell ? mtEfbRect(shell) : null;
+        const frameRect = frame ? mtEfbRect(frame) : null;
         return {
             x: shellRect && frameRect ? frameRect.left - shellRect.left : 0,
             y: shellRect && frameRect ? frameRect.top - shellRect.top : 0
@@ -770,7 +773,7 @@
         try {
             return window.matchMedia('(max-width: 767px), (pointer: coarse) and (max-width: 900px)').matches;
         } catch (_) {
-            return window.innerWidth <= 900;
+            return mtEfbViewport().width <= 900;
         }
     }
 
@@ -831,9 +834,9 @@
         if (!event || !event.target) return '';
         const dial = event.target.closest('.stopwatch-dial');
         if (!dial) return '';
-        const rect = dial.getBoundingClientRect();
+        const rect = mtEfbRect(dial);
         if (!rect.height) return '';
-        const localY = event.clientY - rect.top;
+        const localY = mtEfbDelta(event.clientY) - rect.top;
         return localY < rect.height / 2 ? 'toggleStopwatch' : 'toggleTimer';
     }
 
@@ -859,13 +862,13 @@
             dragState = {
                 tool,
                 pointerId: event.pointerId,
-                startX: event.clientX,
-                startY: event.clientY,
+                startX: mtEfbDelta(event.clientX),
+                startY: mtEfbDelta(event.clientY),
                 left: startLeft,
                 top: startTop,
                 panMode: e6bPanMode,
-                lastX: event.clientX,
-                lastY: event.clientY,
+                lastX: mtEfbDelta(event.clientX),
+                lastY: mtEfbDelta(event.clientY),
                 moved: false,
                 tapAction: tool === 'stopwatch' ? getStopwatchDialTapAction(event) : ''
             };
@@ -879,18 +882,18 @@
         };
         const moveDrag = event => {
             if (!dragState || dragState.tool !== tool || dragState.pointerId !== event.pointerId) return;
-            const dx = event.clientX - dragState.startX;
-            const dy = event.clientY - dragState.startY;
+            const dx = mtEfbDelta(event.clientX) - dragState.startX;
+            const dy = mtEfbDelta(event.clientY) - dragState.startY;
             if (!dragState.moved && Math.hypot(dx, dy) < 6) {
                 event.preventDefault();
                 return;
             }
             dragState.moved = true;
             if (dragState.panMode) {
-                const panDx = event.clientX - dragState.lastX;
-                const panDy = event.clientY - dragState.lastY;
-                dragState.lastX = event.clientX;
-                dragState.lastY = event.clientY;
+                const panDx = mtEfbDelta(event.clientX) - dragState.lastX;
+                const panDy = mtEfbDelta(event.clientY) - dragState.lastY;
+                dragState.lastX = mtEfbDelta(event.clientX);
+                dragState.lastY = mtEfbDelta(event.clientY);
                 moveE6BViewBy(panDx, panDy);
             } else {
                 panel.style.left = `${dragState.left + dx}px`;
@@ -1238,14 +1241,14 @@
         const valueButton = event.target.closest('[data-timer-drag]');
         if (!valueButton) return;
         if (event.button !== undefined && event.button !== 0) return;
-        startTimerDigitDrag(valueButton, event.pointerId, event.clientY, event);
+        startTimerDigitDrag(valueButton, event.pointerId, mtEfbDelta(event.clientY), event);
     }
 
     function handleTimerPickerMouseDown(event) {
         const valueButton = event.target.closest('[data-timer-drag]');
         if (!valueButton || timerDigitDragState) return;
         if (event.button !== undefined && event.button !== 0) return;
-        startTimerDigitDrag(valueButton, 'mouse', event.clientY, event);
+        startTimerDigitDrag(valueButton, 'mouse', mtEfbDelta(event.clientY), event);
     }
 
     function startTimerDigitDrag(valueButton, pointerId, clientY, event) {
@@ -1274,12 +1277,12 @@
 
     function handleTimerPickerPointerMove(event) {
         if (!timerDigitDragState || timerDigitDragState.pointerId !== event.pointerId) return;
-        moveTimerDigitDrag(event.pointerId, event.clientY, event);
+        moveTimerDigitDrag(event.pointerId, mtEfbDelta(event.clientY), event);
     }
 
     function handleTimerPickerMouseMove(event) {
         if (!timerDigitDragState || timerDigitDragState.pointerId !== 'mouse') return;
-        moveTimerDigitDrag('mouse', event.clientY, event);
+        moveTimerDigitDrag('mouse', mtEfbDelta(event.clientY), event);
     }
 
     function moveTimerDigitDrag(pointerId, clientY, event) {
@@ -2117,26 +2120,26 @@
         if (!panel || !drawer) return;
         const margin = 12;
         const gap = 12;
-        const panelRect = panel.getBoundingClientRect();
-        const spaceRight = window.innerWidth - panelRect.right;
+        const panelRect = mtEfbRect(panel);
+        const spaceRight = mtEfbViewport().width - panelRect.right;
         const spaceLeft = panelRect.left;
         const crampedSide = Math.max(spaceRight, spaceLeft) < 260;
-        const narrowLayout = window.innerWidth <= 767 || crampedSide;
+        const narrowLayout = mtEfbViewport().width <= 767 || crampedSide;
         const drawerHeight = () => Math.min(maxHeight, Math.max(180, drawer.scrollHeight || 220));
 
-        const viewportWidth = Math.max(220, window.innerWidth - margin * 2);
+        const viewportWidth = Math.max(220, mtEfbViewport().width - margin * 2);
         const preferredMaxWidth = Math.min(400, viewportWidth);
         const sideCapacity = Math.max(spaceRight, spaceLeft) - gap - margin;
         let width = Math.min(preferredMaxWidth, Math.max(260, sideCapacity));
-        let maxHeight = Math.min(480, Math.max(220, window.innerHeight - margin * 2 - 28));
+        let maxHeight = Math.min(480, Math.max(220, mtEfbViewport().height - margin * 2 - 28));
 
         if (narrowLayout) {
             width = Math.min(380, Math.max(220, viewportWidth));
-            maxHeight = Math.min(340, Math.max(190, window.innerHeight - margin * 2));
+            maxHeight = Math.min(340, Math.max(190, mtEfbViewport().height - margin * 2));
             let left = panelRect.left + (panelRect.width - width) / 2;
-            left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - width - margin));
+            left = Math.min(Math.max(margin, left), Math.max(margin, mtEfbViewport().width - width - margin));
             const belowTop = panelRect.bottom + gap;
-            const availableBelow = window.innerHeight - margin - belowTop;
+            const availableBelow = mtEfbViewport().height - margin - belowTop;
             const availableAbove = panelRect.top - margin - gap;
             let top;
             if (availableBelow >= 190) {
@@ -2149,7 +2152,7 @@
                 top = panelRect.top + 86;
             }
             const visibleHeight = drawerHeight();
-            top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - visibleHeight - margin));
+            top = Math.min(Math.max(margin, top), Math.max(margin, mtEfbViewport().height - visibleHeight - margin));
             panel.classList.remove('formula-left');
             panel.classList.add('formula-under');
             drawer.style.setProperty('--formula-drawer-left', `${Math.round(left - panelRect.left)}px`);
@@ -2161,9 +2164,9 @@
 
         const openLeft = spaceRight < width + gap + margin && spaceLeft > spaceRight;
         let left = openLeft ? panelRect.left - width - gap : panelRect.right + gap;
-        left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - width - margin));
+        left = Math.min(Math.max(margin, left), Math.max(margin, mtEfbViewport().width - width - margin));
         let top = panelRect.top + 8;
-        top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - drawerHeight() - margin));
+        top = Math.min(Math.max(margin, top), Math.max(margin, mtEfbViewport().height - drawerHeight() - margin));
         panel.classList.toggle('formula-left', openLeft);
         panel.classList.remove('formula-under');
         drawer.style.setProperty('--formula-drawer-left', `${Math.round(left - panelRect.left)}px`);

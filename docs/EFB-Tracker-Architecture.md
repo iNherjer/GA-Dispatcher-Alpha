@@ -1,4 +1,12 @@
 # EFB-/Toolbar-Panel-/Tracker-Architektur
+## Vollstaendige EFB-UI-Skalierung, Windows-Kandidat auf Alpha v477 (05.10.2026)
+
+Gemeinsamer Root-Transform skaliert Texte, Controls, Hitboxen, Menues und Profilcanvas zusammen. Benutzerwert 90–300 %, Reset 100 %. Physisches Tablet und unbekannte Hosts haben Basis 1; bestaetigte Popout-/Toolbar-Hosts in VR erhalten fuer den Feldtest Basis 2. Keine DPR-/Headset-Heuristik. SDK PanelInfo.is2D (get/sub) meldet physisch/popout ueber denselben geprueften iframe-Channel wie VR; Lebenszyklus bereinigt Subscription und Polling. Hostwechsel laden das iframe nicht neu.
+
+Config efbDisplay behaelt kompatible fontScale2d/fontScaleVr und markiert einmalige Migration mit uiScaleVersion:1. Gespeichert wird nur der Benutzerwert, nie der effektive Hostfaktor. Rootbreite/-hoehe und ausgelieferte CSS-Viewport-Einheiten verwenden den logischen Viewport. Einzelne DOM-Fontmessungen und parallele Profil-/Controlmultiplikatoren entfallen. Drag-/Menuekoordinaten werden in Layoutpixel umgerechnet; Leaflet behaelt seine eigene Rechteckumrechnung und geografischen Zoom.
+
+Native Toolbar-Schliessen/Minimieren-Korrektur ist enthalten. EFB-Paketversion 0.4.18 ist nur ein lokaler Kandidat. Typpruefung, App-Bundle und Browser-/Node-Nachweise vorhanden. Offizieller SDK-1.7.2-Paketbau erfolgreich: 0 SDK-Fehler, 20 Layout-Eintraege, 19 Payload-Quellhashes und 22 ZIP-Dateien geprueft. Reales Coherent/Quest-3/Pimax-Testing steht aus. Quellen-Handoff in OneDrive: VFR-Multitool-Full-UI-Scale-Result-2026-10-05. Hauptagent muss auf aktuelle Alpha integrieren, frische Tracker-EXE erzeugen und das validierte SDK-0.4.18-ZIP gemeinsam testen. Keine Kanalumschaltung/Installation durch diesen Kandidaten.
+
 
 ## Prozessgrenzen korrigiert, Alpha v426 (17.09.2026)
 

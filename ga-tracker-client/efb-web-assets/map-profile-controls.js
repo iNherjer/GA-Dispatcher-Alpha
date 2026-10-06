@@ -1,4 +1,24 @@
 // Generated from map-profile-controls.js by sync-efb-web-assets.js. Do not edit.
+function mpEfbDelta(value) {
+  return window.GAEfbUiScale ? window.GAEfbUiScale.delta(value) : value;
+}
+function mpEfbViewport() {
+  return window.GAEfbUiScale ? window.GAEfbUiScale.viewport() : {
+    width: window.innerWidth,
+    height: window.innerHeight
+  };
+}
+function mpEfbRect(element) {
+  var r = element.getBoundingClientRect();
+  return {
+    left: mpEfbDelta(r.left),
+    right: mpEfbDelta(r.right),
+    top: mpEfbDelta(r.top),
+    bottom: mpEfbDelta(r.bottom),
+    width: mpEfbDelta(r.width),
+    height: mpEfbDelta(r.height)
+  };
+}
 // Shared standalone profile menu placement and narrow-screen controls.
 function _openFloatingMenuInViewport(menu, btn) {
   var preferAbove = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
@@ -13,17 +33,17 @@ function _openFloatingMenuInViewport(menu, btn) {
   menu.style.right = 'auto';
   menu.style.bottom = 'auto';
   menu.style.zIndex = '130500';
-  menu.style.maxWidth = `calc(100vw - ${pad * 2}px)`;
-  menu.style.maxHeight = `calc(100vh - ${pad * 2}px)`;
+  menu.style.maxWidth = `${Math.max(1, mpEfbViewport().width - pad * 2)}px`;
+  menu.style.maxHeight = `${Math.max(1, mpEfbViewport().height - pad * 2)}px`;
   menu.style.overflowY = 'auto';
-  var br = btn.getBoundingClientRect();
-  var mr = menu.getBoundingClientRect();
+  var br = mpEfbRect(btn);
+  var mr = mpEfbRect(menu);
   var left = br.right - mr.width;
-  left = Math.max(pad, Math.min(left, window.innerWidth - mr.width - pad));
+  left = Math.max(pad, Math.min(left, mpEfbViewport().width - mr.width - pad));
   var aboveTop = br.top - mr.height - 6;
   var belowTop = br.bottom + 6;
   var aboveSpace = Math.max(0, br.top - 6 - pad);
-  var belowSpace = Math.max(0, window.innerHeight - belowTop - pad);
+  var belowSpace = Math.max(0, mpEfbViewport().height - belowTop - pad);
   var fitsAbove = mr.height <= aboveSpace;
   var fitsBelow = mr.height <= belowSpace;
   var minMenuHeight = 96;
@@ -54,7 +74,7 @@ function _openFloatingMenuInViewport(menu, btn) {
   }
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
-  menu.style.maxHeight = `${Math.max(minMenuHeight, maxHeight || window.innerHeight - pad * 2)}px`;
+  menu.style.maxHeight = `${Math.max(minMenuHeight, maxHeight || mpEfbViewport().height - pad * 2)}px`;
   menu.style.visibility = 'visible';
   if (typeof window.gaBringMapOverlayToFront === 'function') window.gaBringMapOverlayToFront(menu);
 }
@@ -98,7 +118,7 @@ function _closeVpSettingsOnOutside(e) {
   }
 }
 document.addEventListener('DOMContentLoaded', () => {
-  if (window.innerWidth <= 767) {
+  if (mpEfbViewport().width <= 767) {
     var hideSpecificControls = (displayId, labelKeywords) => {
       var el = document.getElementById(displayId);
       if (!el) return;
