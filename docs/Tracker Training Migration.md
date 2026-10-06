@@ -290,3 +290,80 @@ SHA-256 d8076bdcac424d17a49441805be2b6ebd6e8fe3537a46cf92510ad915f5f3150
 verifiziert. Kanalaktivierung mit App-Cache v1925; Stable bleibt unveraendert.
 Windows-EXE auf Apple ARM ohne Bytecode gebaut; ein echter MSFS-Feldtest
 ist weiterhin ausstehend.
+
+
+### Feldbericht 06.10.2026: falsches Slew-Signal (lokal, noch nicht ausgerollt)
+
+Im realen v478-Lauf sind Position, AGL und Abflugdistanz vorhanden; beide
+Freigabegates sind erfüllt. `simPaused=false`, `inMenuOrMap=false`,
+`onGround=false` und `pauseFlags=0`, aber `slewActive=true`. Der Pilot bestätigt,
+dass der Versetzmodus ausgeschaltet war. Die Sperre entspricht damit dem
+empfangenen Status, nicht dem tatsächlich beschriebenen Simulatorzustand.
+
+Die Trainingsanzeige benennt lokal jetzt den konkreten Sperrgrund (Pause,
+Menü, vom Tracker gemeldetes Slew, Boden oder Datenunterbrechung). Ein Wechsel
+des Grunds während einer bestehenden Unterbrechung aktualisiert den Hinweis;
+unveränderte Gründe erzeugen keine weiteren Verlaufseinträge. Die Gates und
+bereits erfüllte Übungen bleiben unverändert.
+
+Die gemeinsame Telemetrie liest optionale SimVars positionsgebunden. Die
+verwendete node-simconnect-Bibliothek liefert bei `addToDataDefinition` eine
+Send-ID, keine Bestätigung der simulatorseitigen Annahme. Asynchrone
+Definitionsfehler werden bislang nicht den einzelnen GPS-Feldern zugeordnet.
+Eine absichtliche Fehlernachstellung mit vier ausgelassenen optionalen
+Wetterfeldern verschiebt Gewichtswerte in Slew/Pause. Dabei entstehen exakt
+die Pausewerte 1700/222 eines älteren Logeintrags. Das beweist den möglichen
+Fehlermechanismus, nicht die tatsächliche Ablehnung dieser vier Felder im
+v478-Feldflug. Rohwert und unabhängige Slew-Abfrage fehlen im Feldlog.
+
+Vorgeschlagener nächster Schritt: `IS SLEW ACTIVE` separat lesen, Lesen über
+eigene Request-/Definition-ID eindeutig zuordnen und Rohwert, Paketform sowie
+Definitionsfehler protokollieren. Kein Abschalten des Slew-Schutzes, keine
+Interpretation von Flugbewegung als Ersatz für den Modus. Diese gemeinsame
+Quelle betrifft auch Survey/Infra, Bush/SAR und Routenansagen. Die User-Freigabe
+für die separate Abfrage und SDK-/Netzrecherche liegt seit 06.10.2026 vor. Die bisherige Sammelpaket-Decodierung wird nicht ungeprüft erweitert.
+
+
+#### SDK-/Bibliotheksprüfung und separate Abfrage (06.10.2026, Tracker v479)
+
+- Das MSFS-2024-SDK definiert `IS SLEW ACTIVE` als tatsächlich aktiven Modus;
+  `IS SLEW ALLOWED` ist eine andere Variable. Der bisherige Variablenname ist
+  richtig. [Aircraft Miscellaneous Variables](https://docs.flightsimulator.com/msfs2024/retail/programming-apis/simvars/aircraft-simvars/aircraft-miscellaneous-variables/).
+- Bool darf als Integer oder Float gelesen werden; FLOAT64 war damit allein
+  kein Fehler. [SimVar Data Types](https://docs.flightsimulator.com/msfs2024/flighting/programming-apis/simvars/simulation-variables/).
+- Das SDK verlangt zusätzlich die Prüfung asynchroner Server-Exceptions;
+  unmittelbare API-Rückgaben bestätigen nur clientseitige Verarbeitung.
+  Send-ID ordnet die Exception dem fehlerhaften Aufruf zu.
+  [SIMCONNECT_RECV_EXCEPTION](https://docs.flightsimulator.com/msfs2024/retail/programming-apis/simconnect/api-reference/structures-and-enumerations/simconnect_recv_exception/).
+  Die lokale node-simconnect-Implementierung bestätigt eine Send-ID als
+  Rückgabe von `addToDataDefinition`, keine native HRESULT-Rückgabe.
+- Die Hersteller-Recherche liefert keinen belastbaren Beleg, dass der MSFS-
+  Comanche-Normalflug absichtlich `IS SLEW ACTIVE=true` melden sollte. Aus ihrem
+  separaten Flight Model wird deshalb keine Sonderausnahme abgeleitet.
+
+`tracker-slew-telemetry.js` liest nun einen einzelnen INT32-Datum für USER (0)
+über Definition/Request 209. Identität, defineCount=1 und vier Datenbytes werden
+vor dem Lesen geprüft. Eigene Server-Exceptions werden per Send-ID korreliert;
+Close entfernt Listener und verwirft Messwerte. Gleicher Visual-Frame-Takt wie
+GPS; keine zusätzlichen Timer oder Cloud-Aufrufe. Der bisherige Sammelpaket-
+Slot bleibt nur für Vergleichsdiagnostik unverändert. Es gibt keinen Fallback
+von der separaten Abfrage auf diesen möglicherweise verschobenen Slot.
+
+`TRACKER_SLEW_DIAGNOSTIC` protokolliert eigenständigen Rohwert, Alter, Status,
+Fehler sowie alten Paketwert und Widerspruch. Änderungen werden geloggt,
+unveränderter Widerspruch maximal alle 30 Sekunden. Zusätzlich protokolliert
+`TRACKER_GPS_DEFINITION_ERROR` die vom Simulator abgelehnte GPS-Definition mit
+Name/Key/Send-ID/Fehler. Die übrige Sammelpaket-Decodierung bleibt außerhalb
+dieser gezielten Korrektur; tatsächliche Ablehnungen können erst der nächste
+MSFS-Feldlauf und sein Log identifizieren.
+
+Neue Tracker-Samples tragen `slewTelemetryStatus`. Training (APT und POI)
+wartet bei waiting/error/stale explizit auf eine gültige Statusmeldung;
+unbekannt wird nicht als „aus“ interpretiert. Legacy-Samples ohne dieses Feld
+behalten ihren bisherigen Vertrag. Die Kriterien für Entfernung, AGL,
+Stabilisierung und die eigentliche Übung ändern sich nicht. Tests prüfen
+falschen Bulk-Gewichtswert, echte Ein/Aus-Wechsel, ungültige Pakete, Exception-
+Zuordnung, frische Werte nach Datenlücke und beide integrierten Trainingspfade.
+Release-Ziel ist Tracker v479 im Alpha-Kanal. 152 gezielte Regressionstests
+bestehen. Die eigenständige Abfrage ist noch nicht in MSFS verifiziert; der
+nächste Feldlauf muss den gemeldeten Rohwert und die Trainingsfreigabe bestätigen.

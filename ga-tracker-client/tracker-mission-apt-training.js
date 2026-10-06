@@ -61,7 +61,7 @@ function createDriver({authorityManager,applySystemEvent}) {
     const at=Number(sample?.observedAt)||Date.now();
     if(at<=task.observedAt)return {ok:true,status:'ignored'};
     const normalized={...sample,observedAt:at,altFt:sample?.altFt??sample?.mslFt??sample?.alt,hdg:sample?.hdg??sample?.headingDeg};
-    const suspended=sample?.simPaused===true||sample?.inMenuOrMap===true||sample?.onGround!==false
+    const suspended=(typeof sample?.slewTelemetryStatus==='string'&&sample.slewTelemetryStatus!=='ok')||sample?.simPaused===true||sample?.inMenuOrMap===true||sample?.onGround!==false
       ||sample?.slewActive===true||sample?.slewMode===true||sample?.isSlewActive===true
       ||!Number.isFinite(normalized.lat)||!Number.isFinite(normalized.lon)||!Number.isFinite(normalized.altFt);
     const previousSuspended=task.suspended;

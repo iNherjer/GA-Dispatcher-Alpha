@@ -172,6 +172,7 @@ function observe(recipe, previous, sample, facts = {}) {
     if ((state.detector.satisfied && !state.trainingState) || state.detector.aborted) return unchanged('poi_task_terminal');
 
     const suspended = sample.simPaused === true || sample.inMenuOrMap === true || facts.suspended === true
+        || (isTrainingRecipe(recipe) && typeof sample.slewTelemetryStatus === 'string' && sample.slewTelemetryStatus !== 'ok')
         || (['mapping_survey', 'infra_chain_recon', ...trainingTask.DOMAINS].includes(recipe.taskDomain) && (sample.onGround === true || sample.slewActive === true || sample.slewMode === true || sample.isSlewActive === true));
     // A pause/menu status is useful even when the simulator omits position.
     // Only a valid running sample may release the persisted suspension.

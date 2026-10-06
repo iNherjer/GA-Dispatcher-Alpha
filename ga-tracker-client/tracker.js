@@ -9,6 +9,7 @@ const { createAudioControl, createAudioCloud } = require('./tracker-audio-contro
 const { createAudioAssetCache } = require('./tracker-audio-asset-cache.js');
 const { handleVoiceRelay } = require('./tracker-voice-relay-core.js');
 const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Waypoint, SimConnectConstants, EventFlag } = require('node-simconnect');
+const { createSlewTelemetry } = require('./tracker-slew-telemetry.js');
 const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
@@ -92,8 +93,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v478';
-const TRACKER_VERSION_CODE = 478;
+const TRACKER_VERSION = 'v479';
+const TRACKER_VERSION_CODE = 479;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -6475,6 +6476,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const TRAFFIC_POLL_MS = 5000;
       const DEF_ID = 206;
       const REQ_ID = 206;
+      const SLEW_DEF_ID = 209;
+      const SLEW_REQ_ID = 209;
       const EVT_PAUSE_EX1 = 910;
       const EVT_PAUSE = 911;
       const EVT_SIM_START = 912;
@@ -6595,15 +6598,29 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         }
       });
 
+      const slewTelemetry = createSlewTelemetry({ handle, definitionId: SLEW_DEF_ID,
+        requestId: SLEW_REQ_ID, int32Type: SimConnectDataType.INT32,
+        period: SimConnectPeriod.VISUAL_FRAME, intervalFrames: GPS_SOURCE_INTERVAL_FRAMES,
+        log: debugLog });
+      const gpsDefinitionSends = new Map();
+      const onGpsDefinitionException = recv => {
+        const field = gpsDefinitionSends.get(recv?.sendId);
+        if (field) debugLog(`TRACKER_GPS_DEFINITION_ERROR data=${JSON.stringify({
+          ...field, sendId: recv.sendId, error: recv.exceptionName || recv.exception,
+          index: recv.index ?? null })}`);
+      };
+      handle.on('exception', onGpsDefinitionException);
       const simVarOrder = [];
       let shortReadWarned = false;
       const addRequiredVar = (name, units, key) => {
         const hr = handle.addToDataDefinition(DEF_ID, name, units, SimConnectDataType.FLOAT64);
+        gpsDefinitionSends.set(hr, { name, units, key });
         if (typeof hr === 'number' && hr < 0) throw new Error(`SimVar nicht verfuegbar: ${name}`);
         simVarOrder.push({ key, required: true });
       };
       const addOptionalVar = (name, units, key) => {
         const hr = handle.addToDataDefinition(DEF_ID, name, units, SimConnectDataType.FLOAT64);
+        gpsDefinitionSends.set(hr, { name, units, key });
         if (typeof hr === 'number' && hr < 0) {
           trackerWarn(`ℹ️ Optionaler SimVar nicht verfuegbar: ${name}`);
           return;
@@ -6637,6 +6654,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       addOptionalVar('AMBIENT PRECIP RATE', 'millimeters of water', 'precipRateMmH');
       addOptionalVar('AMBIENT IN CLOUD', 'Bool', 'inCloud');
       addOptionalVar('AMBIENT TURBULENCE', 'percent', 'turbulencePct');
+      // Retain the old packet layout only for comparison diagnostics.
+      // Mission authority uses the independent INT32 request below.
       addOptionalVar('IS SLEW ACTIVE', 'Bool', 'slewActive');
       addOptionalVar('IS PAUSED', 'Bool', 'simPausedA');
       addOptionalVar('SIM IS PAUSED', 'Bool', 'simPausedB');
@@ -6718,6 +6737,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               const precipRateMmH = raw.precipRateMmH;
               const inCloud = raw.inCloud;
               const turbulencePct = raw.turbulencePct;
+              const slew = slewTelemetry.diagnose(raw.slewActive, now);
               const simPausedA = raw.simPausedA;
               const simPausedB = raw.simPausedB;
               const parkingBrake = raw.parkingBrake;
@@ -6816,7 +6836,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     altFt: Number.isFinite(alt) ? Math.round(alt) : null,
                     aglFt: Number.isFinite(agl) ? Math.round(agl) : null,
                     hdg: Number.isFinite(hdg) ? Math.round(hdg) : null,
-                    slewActive: Number.isFinite(raw.slewActive) ? raw.slewActive > 0.5 : null,
+                    slewActive: slew.active,
+                    slewTelemetryStatus: slew.status,
                     pitchDeg: Number.isFinite(pitchDeg) ? pitchDeg : null,
                     iasKts: Number.isFinite(iasKts) ? iasKts : null,
                     aoaDeg: Number.isFinite(aoaDeg) ? aoaDeg : null,
@@ -7048,6 +7069,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (typeof setTrackerCommandHandler === 'function') setTrackerCommandHandler(null);
         if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
         if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
+        slewTelemetry.dispose();
+        handle.removeListener('exception', onGpsDefinitionException);
         clearInterval(telemetryDiagnosticTimer);
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);

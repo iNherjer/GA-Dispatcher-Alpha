@@ -357,3 +357,28 @@ test('training can prepare and manually start after simulator disconnect and rec
   await h.sample({ observedAt: base + 12500, hdg: 249, bankDeg: 0, vsFpm: 0 });
   assert.equal(h.manager.getExecutionSnapshot().state.poiTask.trainingState.progress.activeExercise.status, 'active');
 });
+
+
+test('independent Slew status blocks unknown/active data and releases fresh off data', async t => {
+  const h = await harness(t); await start(h);
+  const base=Date.now();
+  for(const [i,status] of ['waiting','error','stale'].entries()){
+    await h.sample({observedAt:base+i*1000,bankDeg:0,vsFpm:0,slewActive:null,slewTelemetryStatus:status});
+    const snapshot=h.manager.getExecutionSnapshot();
+    const task=snapshot.recipe==='apt'?snapshot.state.trainingTask.state:snapshot.state.poiTask.trainingState;
+    assert.equal(task.coaching.suspended,true);
+    assert.match(task.guidance.notice,/Slew-Status nicht verfügbar/);
+    assert.equal((await h.intent('training_ready')).ok,false);
+  }
+  await h.sample({observedAt:base+3100,bankDeg:0,vsFpm:0,slewActive:true,slewTelemetryStatus:'ok'});
+  let snapshot=h.manager.getExecutionSnapshot();
+  let task=snapshot.recipe==='apt'?snapshot.state.trainingTask.state:snapshot.state.poiTask.trainingState;
+  assert.match(task.guidance.notice,/Tracker meldet aktiven Slew/);
+  for(const offset of [4200,7400])
+    await h.sample({observedAt:base+offset,bankDeg:0,vsFpm:0,slewActive:false,slewTelemetryStatus:'ok'});
+  snapshot=h.manager.getExecutionSnapshot();
+  task=snapshot.recipe==='apt'?snapshot.state.trainingTask.state:snapshot.state.poiTask.trainingState;
+  assert.equal(task.coaching.suspended,false);
+  assert.equal(task.guidance.canStart,true);
+  assert.equal((await h.intent('training_ready')).ok,true);
+});

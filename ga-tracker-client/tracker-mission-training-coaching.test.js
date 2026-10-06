@@ -319,3 +319,27 @@ test('inflight maneuver tip is spoken during instruction and remains available a
 test('180 turn previews the chosen heading until manual start, then freezes through restore',()=>{const h=harness([{id:'turn',type:'turn_180',targetBankDeg:30}]);h.observe({hdg:90});h.observe({hdg:120,bankDeg:20});assert.equal(h.state.coaching.reference.headingDeg,120);assert.equal(h.state.progress.startAvailable,false);h.observe({hdg:140});h.observe({hdg:140},3100);assert.equal(h.state.progress.startAvailable,true);assert.match(h.row('heading').label,/bei „Übung starten“/);assert.match(h.row('rollout').label,/320°/);h.action('training_ready');h.observe({hdg:141});assert.equal(h.raw().active.startHeadingDeg,140);assert.equal(h.raw().active.targetHeadingDeg,320);h.restore();h.observe({hdg:150,bankDeg:30});assert.equal(h.state.coaching.reference.headingDeg,140);assert.match(h.row('rollout').label,/Ausleiten auf 320°/);});
 
 for(const bank of [30,45])test(`full circle ${bank} degrees fixes the chosen start course only at manual release`,()=>{const h=harness([{id:'circle',type:'constant_bank_360',targetBankDeg:bank}]);h.observe({hdg:90});h.observe({hdg:200,bankDeg:20});assert.equal(h.state.progress.startAvailable,false);h.observe({hdg:210});h.observe({hdg:210},3100);assert.equal(h.state.progress.startAvailable,true);assert.match(h.row('rollout').label,/Vorschau 210°/);h.action('training_ready');h.observe({hdg:211});assert.equal(h.raw().active.startHeadingDeg,210);assert.equal(h.raw().active.targetHeadingDeg,210);h.restore();h.observe({hdg:220,bankDeg:bank});assert.equal(h.state.coaching.reference.headingDeg,210);assert.match(h.row('rollout').label,/Ausleiten auf 210°/);});
+
+
+test('training distinguishes telemetry interruption reasons and updates a changing blocker', () => {
+  const h = harness();
+  const base = { observedAt: 11000, lat:48.3, lon:8.5, altFt:5700, aglFt:3000,
+    hdg:90, bankDeg:0, vsFpm:0, onGround:false, simPaused:false, inMenuOrMap:false };
+  runtime.pause(h.recipe, h.state, 11000, undefined, {...base,slewActive:true});
+  assert.match(h.state.guidance.notice, /Tracker meldet aktiven Slew/);
+  assert.doesNotMatch(h.state.guidance.notice, /Simulator pausiert|unvollständig/);
+  assert.equal(h.state.guidance.canStart, undefined);
+  assert.match(h.state.guidance.rows.find(r=>r.id==='altitude').detail, /3000/);
+  const historySize=h.state.coaching.history.length;
+  runtime.pause(h.recipe, h.state, 12000, undefined, {...base,slewActive:true});
+  assert.equal(h.state.coaching.history.length, historySize, 'identical blocker does not flood history');
+  runtime.pause(h.recipe, h.state, 13000, undefined, {...base,simPaused:true,slewActive:false});
+  assert.match(h.state.guidance.notice, /Simulator pausiert/);
+  assert.doesNotMatch(h.state.guidance.notice, /Slew/);
+  runtime.pause(h.recipe, h.state, 14000, undefined, {...base,inMenuOrMap:true});
+  assert.match(h.state.guidance.notice, /Simulator im Menü/);
+  runtime.pause(h.recipe, h.state, 15000, undefined, {...base,onGround:true});
+  assert.match(h.state.guidance.notice, /Flugzeug am Boden/);
+  runtime.pause(h.recipe, h.state, 16000, 'Expliziter Wiederaufnahmehinweis.', base);
+  assert.equal(h.state.coaching.notice, 'Expliziter Wiederaufnahmehinweis.');
+});

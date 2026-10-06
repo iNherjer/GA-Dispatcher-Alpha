@@ -45,10 +45,21 @@ function captureSample(recipe, state, sample) {
         .map(key => [key, observedSample[key] ?? null]));
     return observedSample;
 }
-function pause(recipe, state, now, reason = 'Flugdaten unterbrochen oder Simulator pausiert. Laufenden Durchgang neu ansetzen.', sample = null) {
+function interruptionNotice(sample) {
+    if (sample?.simPaused === true) return 'Simulator pausiert. Training wird nach dem Fortsetzen wieder vorbereitet.';
+    if (sample?.inMenuOrMap === true) return 'Simulator im Menü. Für das Training zum Flug zurückkehren.';
+    if (typeof sample?.slewTelemetryStatus === 'string' && sample.slewTelemetryStatus !== 'ok')
+        return 'Slew-Status nicht verfügbar. Auf eine gültige Statusmeldung des Trackers warten.';
+    if (sample?.slewActive === true || sample?.slewMode === true || sample?.isSlewActive === true)
+        return 'Tracker meldet aktiven Slew-/Versetzmodus. Das Training bleibt bis zu einer gültigen Flugmeldung gesperrt.';
+    if (sample?.onGround === true) return 'Flugzeug am Boden. Das Training wird erst im Flug freigegeben.';
+    return 'Flugdaten unterbrochen oder unvollständig. Auf gültige Simulatordaten warten.';
+}
+function pause(recipe, state, now, reason, sample = null) {
+    reason = reason || interruptionNotice(sample);
     if (sample) captureSample(recipe, state, sample);
     const c = coaching.init(state);
-    if (!c.suspended) { c.notice = reason; c.pendingNotice = reason; coaching.record(state, reason, now); }
+    if (!c.suspended || c.notice !== reason) { c.notice = reason; c.pendingNotice = reason; coaching.record(state, reason, now); }
     c.suspended = true;
     const raw = state.checkpoint.procedureState.activeState;
     if (raw.active) state.checkpoint = adapter.action(spec(recipe), state.checkpoint, {type:'abort'}, now).state;
