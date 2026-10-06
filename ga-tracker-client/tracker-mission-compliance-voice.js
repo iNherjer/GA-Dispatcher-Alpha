@@ -1,6 +1,7 @@
 'use strict';
 
 const complianceCore = require('../mission-compliance-domain-core.js');
+const { missionVoiceScope, createMissionVoiceScopeGuard } = require('./tracker-mission-voice-scope.js');
 
 function cleanString(value, maxLength = 180) {
   return String(value || '').trim().slice(0, maxLength);
@@ -49,6 +50,7 @@ function createTrackerMissionComplianceVoice(options = {}) {
     throw new TypeError('mission_compliance_voice_authority_manager_required');
   }
 
+  const scopeAllowed = createMissionVoiceScopeGuard(authorityManager);
   const dispatch = async (request = {}) => {
     const effect = object(request.effect);
     const payload = object(effect.payload);
@@ -86,6 +88,7 @@ function createTrackerMissionComplianceVoice(options = {}) {
       voiceService.request({
         effectId,
         kind: 'direct',
+        missionScope: missionVoiceScope(request), isPlaybackAllowed: () => scopeAllowed(missionVoiceScope(request)),
         text,
         taskDomain: speaker.taskDomain,
         speaker,
@@ -109,6 +112,10 @@ function createTrackerMissionComplianceVoice(options = {}) {
         voiceStatus: error?.code || 'voice_request_failed',
         voiceOutcome: voiceOutcome(kind, text, speaker, { status: 'warning', playback: 'not_played', error: error?.code || 'voice_request_failed' })
       });
+    }
+    if (!scopeAllowed(missionVoiceScope(request))) {
+      voiceService.cancel?.(effectId, 'mission_end');
+      return completed(request, { voiceStatus: 'mission_end' });
     }
     if (!job || job.status !== 'ready' || job.audioAvailable !== true) {
       log(`MISSION_COMPLIANCE_VOICE_BEST_EFFORT effect=${effectId} reason=${job?.error || job?.status || 'voice_generation_failed'}`);

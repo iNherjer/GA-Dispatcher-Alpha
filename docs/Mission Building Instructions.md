@@ -856,6 +856,9 @@ Zusatzregeln:
 - keine normale "Arbeitsauftrag erledigt"-Dramaturgie, wenn fachlich ein Uebungsflug gemeint ist
 - Hoehe/Radius/Verweilzeit koennen weiterhin als Uebungsrahmen dienen
 - Trainingsfazit ersetzt den regulaeren Beobachter-/Survey-Abschluss
+- Bei POI- und APT-Training ist Slew kein Freigabe- oder Auswertungsgate. Gültige
+  aktuelle Flugwerte, Pause/Boden, Startstabilisierung und Manöverkriterien werden
+  weiter geprüft; ein fehlender Slew-Status allein blockiert keine Übung.
 
 Wichtige Abgrenzung:
 
@@ -933,6 +936,17 @@ Warnsignal fuer künftige Arbeit:
 
 - Wenn ein Bush-Profil nicht sauber in eine dieser drei Gruppen passt, brauchen wir zuerst eine fachliche Rezeptentscheidung.
 - Wenn nur Story, Rolle, Cargo oder Zieltyp anders sind, darf kein neuer Ablauf gebaut werden.
+
+### Bush-Telemetrie ohne Slew-Sperre (06.10.2026, lokal)
+
+Alle sechs Bush-Profile dürfen mit aktiven Slew-Flags ausgeführt werden.
+Slew und sein Diagnose-Status sind keine Freigabebedingung. Frische, gültige
+Position/Flugwerte, Pause-/Menüprüfung, Bodenstillstand für Bodenaktionen,
+richtiger Ziel-/Heimatort sowie Manifest-, Signatur- und Szenenbestätigungen
+bleiben verbindlich. Keine künstliche Verlade-/Abschlussbestätigung durch
+Versetzen; die aktuelle Position darf jedoch Ankunftsbedingungen erfüllen.
+Bush-Recon nutzt weiterhin das vorhandene POI-On-Task-/Rückkehrrezept.
+Details und Prüfstand: `Mission Flow Reference.md`.
 
 ### 7.3.1 Mission Variety Packs
 

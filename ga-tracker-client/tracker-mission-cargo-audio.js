@@ -1,5 +1,6 @@
 'use strict';
 const cueCore = require('../mission-boarding-voice-core.js');
+const { missionVoiceScope, createMissionVoiceScopeGuard } = require('./tracker-mission-voice-scope.js');
 
 function cueEntry(payload) {
   const item = payload.item || {};
@@ -34,6 +35,7 @@ function cueRecipe(context, entry) {
     variantSeed: `cue-variant-${id}${context.missionAudioKey}|${seed}|${id}` };
 }
 function createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates = () => 0, getAudioSettings = () => null, playbackClaimTimeoutMs = 15000, log = () => {} }) {
+  const scopeAllowed = createMissionVoiceScopeGuard(authorityManager);
   let active = false;
   const pending = [];
   async function play(batch) {
@@ -48,7 +50,8 @@ function createTrackerMissionCargoAudio({ authorityManager, voiceService, getAud
     const cue = cueRecipe(context, entry);
     if (!cue) return;
     const effectId = first.request.commandId;
-    voiceService.request({ effectId, kind: 'cargo', cue, synthesizeAudio: false });
+    voiceService.request({ effectId, kind: 'cargo', cue, synthesizeAudio: false,
+      missionScope: missionVoiceScope(first.request), isPlaybackAllowed: () => scopeAllowed(missionVoiceScope(first.request)) });
     const job = await voiceService.wait(effectId);
     if (!job?.cue?.audioAvailable) { voiceService.cancel?.(effectId, 'cargo_cue_missing'); return; }
     // Like boarding/farewell, an audio-capable device is not proof of playback.

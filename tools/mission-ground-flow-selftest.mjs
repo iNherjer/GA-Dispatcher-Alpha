@@ -232,7 +232,8 @@ assert.match(homebaseWorkbench, /\/api\/assets\/update-install/);
 assert.match(homebasePackageService, /HOMEBASE_ASSETS_INSTALLED/);
 assert.match(homebasePackageService, /homebase-assets-install/);
 assert.doesNotMatch(trackerPackage, /embedded-homebase-assets/);
-assert.match(trackerPackage, /"prebuild:tracker": "node sync-efb-web-assets\.js"/);
+const trackerPrebuild = JSON.parse(trackerPackage).scripts['prebuild:tracker'];
+assert.match(trackerPrebuild, /node \.\.\/tools\/extract-cargo-visual-queue\.cjs --check\s*&&\s*node sync-efb-web-assets\.js/);
 
 const context = {
     window: {

@@ -77,7 +77,7 @@ async function harness(t) {
     return out;
   }
   async function sample(observedAt, patch = {}) {
-    const out = runtime.observeTelemetry({ observedAt, lat: 48.3, lon: 8.5, altFt: 3000, aglFt: 600, gsKts: 85, hdg: 0, headingDeg: 0, onGround: false, ...patch });
+    const out = runtime.observeTelemetry({ observedAt, lat: 48.3, lon: 8.5, altFt: 3000, aglFt: 600, gsKts: 85, hdg: 0, headingDeg: 0, onGround: false, slewActive: true, slewMode: true, isSlewActive: true, slewTelemetryStatus: 'error', ...patch });
     assert.equal(out.ok, true, JSON.stringify(out));
     for (let i = 0; i < 5; i++) await tick();
     await runtime.flush();

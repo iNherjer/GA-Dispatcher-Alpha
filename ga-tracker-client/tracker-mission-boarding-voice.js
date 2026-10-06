@@ -1,5 +1,6 @@
 'use strict';
 const routeVoiceCore = require('../mission-route-voice-core.js');
+const { missionVoiceScope, createMissionVoiceScopeGuard } = require('./tracker-mission-voice-scope.js');
 
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const bushPickupVoiceCore = require('../mission-bush-pickup-voice-core.js');
@@ -59,6 +60,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
     throw new TypeError('mission_boarding_voice_authority_manager_required');
   }
 
+  const scopeAllowed = createMissionVoiceScopeGuard(authorityManager);
   const cargoAudio = createTrackerMissionCargoAudio({ authorityManager, voiceService, getAudioPlaybackCandidates, getAudioSettings, playbackClaimTimeoutMs, log });
   const commitGeneratedText = (request, text) => typeof authorityManager.recordGeneratedText === 'function'
     ? authorityManager.recordGeneratedText(request, text)
@@ -140,8 +142,10 @@ function createTrackerMissionBoardingVoice(options = {}) {
     }
     if (request.effect?.type === 'voice.approach') {
       const context = { ...object(object(object(plan.effects)['voice.approach']).context) };
-      if (run.state?.bushTask?.kind === 'pickup_return') {
-        context.bushContinuityHint = bushPickupVoiceCore.continuityHint(object(plan.bushPickup).voiceContext, run.state.voice?.bushMemory || {}, 'arrival');
+      const snapshot = authorityManager.getExecutionSnapshot?.();
+      if (snapshot?.missionId === run.missionId && snapshot?.runId === run.runId
+          && snapshot.state?.bushTask?.kind === 'pickup_return') {
+        context.bushContinuityHint = bushPickupVoiceCore.continuityHint(object(plan.bushPickup).voiceContext, snapshot.state.voice?.bushMemory || {}, 'arrival');
       }
       const prompt = buildApproachPrompt(context, object(request.effect?.payload?.flightData));
       if (!prompt) return completed(request, { voiceStatus: 'approach_context_missing' });
@@ -189,21 +193,10 @@ function createTrackerMissionBoardingVoice(options = {}) {
     const cancelAtMissionEnd = !(request.prepareOnly && request.effect?.payload?.sarSearchHint)
       && (request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.bush' || request.effect?.type === 'voice.approach'
       || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story', 'private_return_departure', 'pax_query'].includes(request.effect?.payload?.kind)));
-    const isPlaybackAllowed = () => {
-      const current = authorityManager.getExecutionSnapshot?.();
-      if (request.effect?.type === 'voice.poi' && (!current || current.missionId !== run.missionId
-          || !(current.recipe === 'poi' && authorityManager.supportsExecutionRecipe?.('poi')
-            || current.recipe === 'apt' && request.effect?.payload?.aptTraining === true && current.state.trainingTask))) return false;
-      if (request.effect?.type === 'voice.bush' && (!current || current.missionId !== run.missionId
-          || current.recipe !== 'apt' || current.state.bushTask?.kind !== 'pickup_return')) return false;
-      if (request.effect?.payload?.fireSearchHint && (Date.now()>Number(request.effect.payload.expiresAt||0) || ['smoke_confirmed','assessment_complete','false_alarm_rtb'].includes(current?.state?.poiTask?.fireState?.scenario?.state))) return false;
-      if (request.effect?.payload?.sarSearchHint && (Date.now() > Number(request.effect.payload.expiresAt || 0)
-          || current?.state?.poiTask?.sarSearchState?.found || current?.state?.poiTask?.sarSearchState?.complete)) return false;
-      return trainingScopeValid(current) && (!current || (current.runId === run.runId && (current.state.flags.active || (request.effect?.type === 'voice.poi' && request.effect?.payload?.action))
-        && !current.state.flags.closingPending && !current.state.flags.farewellStarted
-        && !current.state.flags.farewellCompleted && !current.state.flags.unloadConfirmed
-        && current.state.phase !== 'closing'));
-    };
+    const scope = missionVoiceScope(request, request.prepareOnly ? 'run'
+      : request.effect?.type === 'voice.poi' ? 'poi' : request.effect?.type === 'voice.bush' ? 'bush'
+        : ['voice.flight', 'voice.approach'].includes(request.effect?.type) ? 'flight' : 'run');
+    const isPlaybackAllowed = () => scopeAllowed(scope);
     try {
       const sarHint = request.effect?.payload?.sarSearchHint === true;
       const preparedId = sarHint ? `sar-hint-preload:${run.runId}` : `boarding-preload:${run.runId}`;
@@ -213,7 +206,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
       if (usePrepared) effectId = preparedId;
       const voiceRequest = {
         deferPlayback: request.prepareOnly === true || usePrepared || cancelAtMissionEnd,
-        ...(cancelAtMissionEnd ? { isPlaybackAllowed } : {}),
+        missionScope: scope, isPlaybackAllowed,
         ...(request.effect?.type === 'voice.poi' && !request.prepareOnly ? {
           resolvedText: authorityManager.getExecutionSnapshot()?.state.effects
             .find(effect => effect.effectId === request.effect.effectId)?.payload.resolvedText || '',
@@ -303,6 +296,10 @@ function createTrackerMissionBoardingVoice(options = {}) {
         }
       }
       voiceService.activatePlayback?.(effectId);
+    }
+    if (!isPlaybackAllowed()) {
+      voiceService.cancel?.(effectId, 'mission_end');
+      return completed(request, { voiceStatus: 'mission_end' });
     }
     if (!job || job.status !== 'ready' || (recipe.audioEnabled === true && job.audioAvailable !== true)) {
       log(`MISSION_BOARDING_VOICE_BEST_EFFORT effect=${effectId} reason=${job?.error || job?.status || 'voice_generation_failed'}`);

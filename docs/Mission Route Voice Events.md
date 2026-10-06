@@ -26,7 +26,7 @@ Der gemeinsame Kern berechnet den Großkreisabstand zur Ereigniskoordinate. Ein 
 
 ## Gates und Verhalten
 
-Nur während einer aktiven Mission und explizit airborne; kein Auslösen bei Pause, Slew, fehlender Position oder Missionsende. Laufende Voice wird nicht unterbrochen. Zwischen Gesprächsmomenten liegen mindestens 45 Sekunden; nach übersprungenen Schwellen werden fällige Events einzeln abgearbeitet. Prozentwerte sind früheste Auslösepunkte, keine Garantie für sekundengenaue Wiedergabe. Späte Ergebnisse werden beim Missionsende verworfen.
+Nur während einer aktiven Mission und explizit airborne; kein Auslösen bei Pause, fehlender Position oder Missionsende. Laufende Voice wird nicht unterbrochen. Zwischen Gesprächsmomenten liegen mindestens 45 Sekunden; nach übersprungenen Schwellen werden fällige Events einzeln abgearbeitet. Prozentwerte sind früheste Auslösepunkte, keine Garantie für sekundengenaue Wiedergabe. Späte Ergebnisse werden beim Missionsende verworfen.
 
 Routenänderungen berechnen offene Schwellen neu. Bereits beanspruchte Ereignis-IDs werden niemals zurückgesetzt. Der Lauf erhält keinen zusätzlichen Erfolgsschritt. Allgemeine Navigation bei Selbstkreuzungen oder weit abseits der Route folgt den bestehenden Regeln der Navigationsgeometrie, nicht einem neuen Voice-spezifischen Routenmatcher.
 
@@ -72,3 +72,49 @@ Quellen-/Fakten-IDs, Persistenz und Tests: [Sightseeing Visits V1](Mission%20Sig
 ## APT Reporter, lokaler Stand 05.10.2026
 
 `apt-news-idea.v1` nutzt dieselben optionalen Route-Events (maximal drei, 45 Sekunden Abstand), ohne Flugaufgaben oder Abschlussbedingungen. Prozenttrigger beziehen sich auf den besetzten Flug; bei späterer Abholung startet der Gesprächsplan erst nach bestätigtem Pickup. Reportertexte umfassen drei bis fünf natürliche Sätze. Auf dem Hinflug bleiben Hinweise unbestätigt und Recherche geplant; auf dem Rückflug werden Details aus dem einmal gespeicherten fiktiven Aufenthalt erzählt. Nur vollständig abgespielte Voices fließen in die Kontinuität ein. Keine Änderung der Limits anderer Profile.
+
+
+## Slew blockiert Routenansagen nicht (06.10.2026, lokal)
+
+Auf Nutzerwunsch ignoriert der gemeinsame Route-Voice-Kern Slew-Flags. Dies gilt
+für App-/Debug-Sim und Tracker-Authority sowie Prozent- und Geo-Trigger.
+Aktive Mission, Airborne-Status, gültige Position, Pause-/Ende-Gates und
+Voice-Verfügbarkeit gelten weiter. Versetzen kann offene Prozentschwellen
+überspringen oder ein Geo-Ereignis innerhalb seines Radius freigeben. Die
+45-Sekunden-Abstände und persistenten Ereignis-Claims verhindern eine Folge
+sofortiger Ansagen und Wiederholungen nach Restore. Außerhalb des Geo-Radius
+entsteht weiterhin kein Ersatztrigger. Keine Änderung an Missionspflichten.
+
+Nachweis: tatsächliche App-Brücke und Tracker-Runtime mit allen aktiven
+Slew-Aliasflags und fehlerhaftem Diagnose-Status; Prozent-/Geo-Auslösung,
+Deduplizierung, Checkpoint/Restore, Voice-Abstand und verbleibende Sperren.
+Zusammen mit Bush-, Trainings-, Survey-, Infrastruktur-, Execution- und
+SAR-Regressionen: zunächst 282 von 284 Tests bestanden. Die zwei zuvor auch im
+unveränderten HEAD fehlgeschlagenen Generator-Paritätsprüfungen sind durch die
+anschließend freigegebene Regeneration des fehlenden APT-Reporter-Hinweises
+behoben. Die breite Abschlussprüfung besteht mit 1.097 Prüfungen vollständig;
+siehe `Mission Flow Reference.md`, Abschnitt Voice-Übergaben aus der Querprüfung.
+
+Zusätzlich nutzt Sightseeing-Farewell dieselbe gespeicherte Gesprächshistory
+wie Boarding und Anflug; Private-Return-Farewell nutzt seine eigene bestehende
+History. Bush-PAX-Pickup-Anflug erhält seine Erinnerung aus dem Execution-
+Snapshot des aktuellen Runs. Regressionsprüfungen kontrollieren die wirklichen
+Voice-Aufträge einschließlich Vorproduktion und JSON-Wiederaufnahme. Kein
+neuer Tracker-Build, Rollout oder Simulator-/Audio-Feldtest.
+
+
+## Charter-Abholfortsetzung: besetzter Rückflug (06.10.2026, lokal)
+
+Der Tracker berücksichtigt im Route-Cache beide bestehenden Ideenarten,
+`aptNewsIdea || charterIdea`. Bei `continuation.pickupRequired` wird die Route
+über den gemeinsamen Continuation-Core erst nach bestätigtem Pickup freigegeben
+und am Abholort abgeschnitten. Ein Gespräch bei 20 Prozent bezieht sich somit
+auf den besetzten Rückflug; der leere Hinflug verbraucht keinen Event-Claim.
+Normale Charterflüge ohne Abholfortsetzung behalten ihre vollständige Route.
+
+Echte Runtime-Tests mit Checkpoint-Neuladen vor Pickup und nach der Ausgabe
+prüfen Charter und Reporter: kein vorzeitiger Claim, genau eine Ausgabe auf
+dem Rückflug, keine Wiederholung nach Neustart. Ein normaler Charterflug dient
+als Kontrollfall. Gesamtstand einschließlich Bush-Voice-Result-Persistenz:
+1.102 Prüfungen bestanden; Details in `Mission Flow Reference.md`, Abschnitt
+„Zweite Querprüfung korrigiert“. Lokal, noch kein Rollout oder Audio-Feldtest.

@@ -42,7 +42,7 @@ test('Bush supply strip stays in the real mission process; restart restores task
 
   async function telemetry(patch={}){
     const observedAt=Date.now();
-    host.runtime.observeTelemetry({observedAt,lat:48,lon:8,altFt:500,aglFt:0,hdg:90,onGround:true,gsKts:0,...patch});
+    host.runtime.observeTelemetry({observedAt,lat:48,lon:8,altFt:500,aglFt:0,hdg:90,onGround:true,gsKts:0,slewActive:true,slewMode:true,isSlewActive:true,slewTelemetryStatus:'error',...patch});
     await until(()=>!host.runtime.publicState().telemetry.inFlight&&!host.runtime.publicState().telemetry.pending,'worker telemetry did not settle');
     await host.runtime.flush();
     return observedAt;

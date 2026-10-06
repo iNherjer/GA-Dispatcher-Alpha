@@ -123,3 +123,43 @@ Qualitätsprüfung. Drei weitere Live-Missionen wurden vollständig erzeugt;
 alle Höhen enthielten Einheit und Bezug. Noch offene Detailansprüche an eine
 unbestimmte Kameraleistung sind in der [verfeinerten Probe](../analysis/mapping-live-20260930-polish.md)
 dokumentiert. Keine nachträgliche semantische Textkorrektur eingeführt.
+
+
+## Slew-Sperre entfernt (06.10.2026, lokal)
+
+Auf ausdrücklichen Nutzerwunsch werden Slew-Flags und deren Diagnosestatus
+nicht mehr als Sperre für Vermessung oder Infrastruktur-Ketten verwendet.
+Die gemeinsame POI-Ausführung und die beiden Task-Adapter ignorieren diese
+Felder. Gültige Messwerte können deshalb auch im Slew-Modus Fortschritt,
+Ereignisansagen und Abschluss auslösen. Die SimConnect-Abfrage bleibt für
+Diagnose und andere Missionsfamilien erhalten.
+
+Pause, Menü, Bodenstatus, Datenfrische, ungültige Telemetrie und tatsächlich
+unplausible Positionssprünge bleiben unabhängig davon geprüft. Ein Sprung
+setzt nur den unvollständigen Messabschnitt zurück; abgeschlossene Arbeit
+bleibt erhalten. Ein gültiger Folgemesswert hebt einen gespeicherten
+Sperrstand auf, ohne übersprungene Strecken künstlich zu vervollständigen.
+Mustergeometrie, Höhenband, Korridor, Punktreihenfolge, Manifest und
+Folgeauftragskriterien bleiben unverändert.
+
+Tests vergleichen Fortschritt und Ereignisse mit identischen Flugdaten ohne
+Slew-Flags, einschließlich JSON-Wiederaufnahme. Scan und Orbit durchlaufen
+den gemeinsamen POI-Pfad; die Infrastruktur-Kette durchläuft zusätzlich den
+echten Tracker-Kindprozess, Rückkehr, Entladung und Folgeauftragserstellung.
+Die gezielten 32 Tests bestehen. Noch kein Rollout oder MSFS-Feldtest.
+
+Breiter Regressionslauf: 250 von 251 Tests bestanden. Ein SAR-Abschlusstest
+liest nach automatischer Freigabe des geschlossenen Runs einen bereits
+entfernten aktiven Snapshot (`null.state`). Einzeln besteht er; derselbe
+Timingfehler tritt auch mit den drei unveränderten Produktionsdateien aus
+HEAD im SAR-Abschlusslauf auf. Kein SAR-Code oder SAR-Test wurde dafür
+geändert. Testprotokolle liegen unter `/tmp/ga-survey-infra-*.txt`.
+
+SAR-Testkorrektur, 06.10.2026: Die zwei V2-Abschlussfälle warten nun auf den
+passenden finalisierten Run in `lastExecution`, statt nach einer festen Zahl
+von Event-Loop-Schritten den bereits freigegebenen aktiven Snapshot zu lesen.
+Sie prüfen zusätzlich erfolgreiche Finalisierung, Suchergebnis und
+unveränderte Wiederherstellung des Abschlusses aus `authority.json`.
+Keine SAR-Produktionslogik geändert. Alle acht SAR-Integrationstests und der
+breite Lauf mit 251 von 251 Tests bestehen. Protokoll:
+`/tmp/ga-sar-close-fix-regression.txt`. Weiterhin nur lokal umgesetzt.

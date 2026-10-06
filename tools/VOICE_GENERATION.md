@@ -265,3 +265,42 @@ Audioassets werden nach dem ersten Abruf innerhalb der SW-Version gecacht.
 Nachweise: `node --test tools/app-startup-loading.test.mjs` und
 `node tools/awm-audio-queue-selftest.mjs`. Eine Zeitmessung auf einem realen
 iPhone/PWA steht noch aus.
+
+
+## Tracker-Voice: Laufzuordnung und Cache-Restore (06.10.2026, lokal)
+
+Missionsaudio erhält vom Dispatcher eine serialisierbare `missionScope`
+(Mission-ID, Run-ID, Policy und gegebenenfalls Trainings-/Hinweisphase).
+`tracker-mission-voice-scope.js` prüft sie gegen die Tracker-Authority.
+Der VoiceService prüft die Zuordnung vor Ausgabe/Claim und bei
+Lease-Verlängerung; `tracker.js` installiert die Prüfung auch für
+wiederhergestellte Cache-Jobs. Fehlender Run bedeutet keine Freigabe.
+
+Policy `run` erlaubt Boarding/Cargo/Compliance vor dem Start und Farewell
+während des Abschlusses. Flugansagen benötigen den aktiven Flug; POI/Bush
+behalten ihre Rezept-, Trainingsphasen- und Hinweisgrenzen. Stille Preloads
+sind zunächst rungebunden und erhalten beim Aktivieren die passende Phase.
+Navigationswarnungen laufen weiter unabhängig von Missionsabbruch.
+
+Der bestehende V2-Cacheindex speichert diese Metadaten neben den unveränderten
+Audio-Blobs. Neue unabhängige Jobs speichern ausdrücklich `missionScope:
+null`. Alte offene Jobs ohne Metadaten werden bis zur identischen erneuten
+Dispatcher-Anfrage zurückgehalten; dabei bleiben Audio und Fingerprint
+verwendbar. Cache-Neuschreiben darf unbekannte Altzuordnungen nicht als
+unabhängige Audiojobs markieren. Andere Runs oder Inhalte dürfen einen
+bereits geprüften Job-Guard nicht überschreiben.
+
+Nachweise: `tracker-mission-voice-lifecycle-integration.test.js`,
+`tracker-mission-voice-scope.test.js` und `tracker-voice-service.test.js`.
+Abbruchproben verzögern die simulierte Providerantwort bis nach einem echten
+Runtime-Abbruch; der positive Abschluss testet echtes Boarding, Landung,
+Farewell-Playback und Finalisierung. Noch kein Release oder MSFS-Hörtest.
+
+Nutzerentscheidung (06.10.2026): Unterbrochene, weiterhin gültige Ansagen
+dürfen nach Tracker-Neustart von vorne beginnen; das ist erwünscht und
+kein offener Fehler. Abgeschlossene Ansagen sowie Ansagen aus ungültigen
+Missionsläufen oder Phasen bleiben gesperrt. Eine zusätzliche laufende
+Cursor-Sicherung ist dafür nicht vorgesehen. Erfolgreicher Gerätewechsel
+über `releasePlayback` behält seine separate Cursor-Wiederaufnahme.
+Der Betriebscode bleibt unverändert; diese Entscheidung erzwingt keinen
+Cursor-Reset in allen Neustart- und Sicherungszeitpunkten.

@@ -341,6 +341,7 @@ function _domainDriftGuard(mode = 'generic') {
         if (m === 'progress') return ' Drift-Guard (Sightseeing): Nur Aussicht, Orientierung, Erinnerungsfotos und ruhige Beobachtung. Keine Arbeits-, Einsatz-, Vermessungs- oder Instruktor-Sprache.';
         return ' Drift-Guard (Sightseeing): Persoenlicher Rundflugston. Keine Arbeitsanweisung, keine feste Arbeitshoehe verlangen, keine Erfassung/Dokumentation/Lagebild/Inspektion. Zielbereich nur als Blickmoment aus der Luft erzaehlen, nicht als Bodenaktionsort.';
     }
+    if (td === 'news_coverage' && window.activePassenger?.narrativeSchema === 'apt-news-idea.v1') return ' APT-Reporter-Kontinuität: Folge dem zeitlichen Standpunkt im APT-REPORTAGEAUFTRAG. Hinflug: Hinweise und Erwartungen, Bodenrecherche noch bevorstehend. Rückflug: nur den gespeicherten fiktiven Aufenthalt erzählen; offene Fragen bleiben offen. Keine Luftarbeitsaufgabe.';
     if (td === 'news_coverage' && window.activePassenger?.narrativeSchema === 'news-briefing.v1') return ' Reporter-Kontinuität: Trage den REPORTAGEAUFTRAG weiter. Neugier, Ernst oder Humor passend zur Geschichte; beobachtbare Eindrücke statt technischer Diagnose. Offene Fragen bleiben offen, Material erst nach Zielabschluss als aufgenommen behandeln.';
     if (td === 'news_coverage') {
         if (m === 'result') return ' Drift-Guard (News): Abschluss als kurze sachliche Lagezusammenfassung. Kein Einsatzabschluss wie SAR, kein Touri-Ton.';

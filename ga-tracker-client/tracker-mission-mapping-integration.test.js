@@ -74,3 +74,32 @@ test('Survey authority overlay draws completed lines without ticking the local d
   assert.deepEqual(api.snapshot(), before);
   assert.ok(layers.some(layer => layer.options.color === '#2fd46f'), 'original Leaflet renderer colors completed line green');
 });
+
+for (const type of ['north_south_scan', 'orbit']) test(`Mapping ${type} completes through POI runtime with Slew after persisted suspension`, () => {
+  const spec = survey.normalizeSpec({ taskDomain: 'mapping_survey', type, center: { lat: 48, lon: 8 }, targetAltFt: 3000,
+    scan: { lineCount: 1, lineLengthNm: .8, bins: 24, minCoverage: .7 },
+    orbit: { radiusNm: .45, requiredTurns: 1, sectorsPerTurn: 36, minTurnCoverage: .8, minTurnSec: 0 } });
+  const passenger = { targetRadiusNm: 1, targetAltFt: 3000, targetDwellMin: 0 };
+  const recipe = { schema: poi.RECIPE_SCHEMA, version: 1, missionId: 'mapping-slew', taskDomain: 'mapping_survey',
+    target: spec.center, home: { lat: 49, lon: 9 }, passenger, strict: true, trackingActive: true, surveyPattern: spec,
+    voiceContext: { schema: voice.CONTEXT_SCHEMA, version: 1, missionId: 'mapping-slew', taskDomain: 'mapping_survey',
+      strict: true, baseContext: 'Messauftrag', passenger, speaker: {}, surveySpec: spec, audioEnabled: false } };
+  assert.equal(poi.validateRecipe(recipe), null);
+  const facts = { active: true, trackingActive: true };
+  let state = poi.observe(recipe, null, { observedAt: 1000, simPaused: true }, facts).state;
+  assert.equal(state.suspendedAt, 1000);
+  state = JSON.parse(JSON.stringify(state));
+  const count = type === 'orbit' ? 180 : 24;
+  for (let i = 0; i <= count; i++) {
+    const pos = type === 'orbit' ? survey.destinationPoint(48, 8, spec.orbit.radiusNm, i * 2 % 360)
+      : survey.interpolateLine(spec.scan.lines[0], i / count);
+    const out = poi.observe(recipe, state, { ...pos, observedAt: 10000 + i * 500, altFt: 3000, gsKts: 95,
+      headingDeg: type === 'orbit' ? (i * 2 + 90) % 360 : 180, onGround: false,
+      slewActive: true, slewMode: true, isSlewActive: true, slewTelemetryStatus: 'error' }, facts);
+    assert.equal(out.state.suspendedAt, null);
+    assert.notEqual(out.reason, 'poi_task_suspended');
+    state = out.state;
+  }
+  assert.equal(state.surveyState.progress.satisfied, true);
+  assert.equal(poi.project(state).satisfied, true);
+});

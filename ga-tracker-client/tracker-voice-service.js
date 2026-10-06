@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const warningCore = require('../navigation-warning-core.js');
+const { normalizeMissionVoiceScope } = require('./tracker-mission-voice-scope.js');
 
 const VOICE_PROVIDERS = new Set(['gemini', 'openai']);
 const EFFECT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
@@ -362,11 +363,22 @@ function createTrackerVoiceService(options = {}) {
   const records = new Map();
   const playbackClients = new Map();
   const playbackGuards = new Map();
+  const isMissionPlaybackAllowed = typeof options.isMissionPlaybackAllowed === 'function' ? options.isMissionPlaybackAllowed : null;
   function checkPlaybackGuard(effectId) {
-    if (!records.has(effectId)) { playbackGuards.delete(effectId); return true; }
+    const record = records.get(effectId);
+    if (!record) { playbackGuards.delete(effectId); return true; }
+    if (record.playback?.status === 'completed') return true;
+    if (record.requiresScopeBinding) return false;
     const guard = playbackGuards.get(effectId);
-    if (guard && !guard()) { cancel(effectId, 'mission_end'); return false; }
+    // Scoped recovery waits for the authority callback or a dispatcher rebind.
+    // Never infer ownership from an opaque effect ID or from a speaker name.
+    if (record.missionScope && !isMissionPlaybackAllowed && !guard) return false;
+    if (record.missionScope && isMissionPlaybackAllowed && !isMissionPlaybackAllowed(record.missionScope)
+        || guard && !guard()) { cancel(effectId, 'mission_end'); return false; }
     return true;
+  }
+  function reconcileMissionScopes() {
+    for (const record of records.values()) checkPlaybackGuard(record.effectId);
   }
   const providerQueue = [];
   const newJobTimestamps = [];
@@ -501,6 +513,9 @@ function createTrackerVoiceService(options = {}) {
             effectId: record.effectId,
             fingerprint: record.fingerprint,
             kind: record.kind || 'direct',
+            // Missing metadata stays unknown across rewrites; null explicitly
+            // marks new non-mission audio and may be restored independently.
+            ...(record.requiresScopeBinding ? {} : { missionScope: record.missionScope || null }),
             synthesizeAudio: record.synthesizeAudio !== false,
             provider: record.provider,
             speaker: record.speaker,
@@ -623,6 +638,8 @@ function createTrackerVoiceService(options = {}) {
           kind: ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story'].includes(String(source.kind || '').trim().toLowerCase())
             ? String(source.kind || '').trim().toLowerCase()
             : 'direct',
+          missionScope: normalizeMissionVoiceScope(source.missionScope),
+          requiresScopeBinding: !!isMissionPlaybackAllowed && source.missionScope !== null && !normalizeMissionVoiceScope(source.missionScope) && playback.status !== 'completed',
           synthesizeAudio,
           provider: normalizeVoiceProvider(source.provider),
           speaker: boardingVoiceCore.normalizeSpeaker(source.speaker),
@@ -762,8 +779,17 @@ function createTrackerVoiceService(options = {}) {
   }
 
   function request(rawRequest) {
-    if (typeof rawRequest?.isPlaybackAllowed === 'function') playbackGuards.set(normalizeEffectId(rawRequest.effectId), rawRequest.isPlaybackAllowed);
     const request = normalizeVoiceRequest(rawRequest);
+    const missionScope = normalizeMissionVoiceScope(rawRequest.missionScope);
+    if (rawRequest.missionScope != null && !missionScope) throw voiceError('invalid_mission_voice_scope', 400, 'Ungueltige Missionszuordnung fuer Voice.');
+    const bindScope = record => {
+      if (record.missionScope && (!missionScope || record.missionScope.missionId !== missionScope.missionId || record.missionScope.runId !== missionScope.runId))
+        throw voiceError('effect_id_conflict', 409, 'Voice-Effekt gehoert zu einem anderen Missionslauf.');
+      record.missionScope = missionScope;
+      record.requiresScopeBinding = false;
+      if (typeof rawRequest.isPlaybackAllowed === 'function') playbackGuards.set(request.effectId, rawRequest.isPlaybackAllowed);
+      if (missionScope) persist();
+    };
     // Process-local authority hooks and already committed recovery text do not
     // alter the immutable prompt fingerprint. Only the POI dispatcher uses them.
     if (request.kind === 'poi' && typeof rawRequest.confirmTextReady === 'function') {
@@ -796,6 +822,7 @@ function createTrackerVoiceService(options = {}) {
       if (existing.fingerprint !== fingerprint) {
         throw voiceError('effect_id_conflict', 409, 'Diese Voice-Effekt-ID gehoert bereits zu einem anderen Inhalt.');
       }
+      bindScope(existing);
       if (existing.status === 'text_blocked' && !existing.promise && request.confirmTextReady) {
         existing.status = 'pending';
         schedule(existing, request);
@@ -834,6 +861,7 @@ function createTrackerVoiceService(options = {}) {
       playback: { status: request.deferPlayback ? 'deferred' : 'available', ownerClientId: '', leaseUntil: 0, completedAt: 0 },
       promise: null
     };
+    bindScope(record);
     records.set(record.effectId, record);
     schedule(record, request);
     evict();
@@ -863,12 +891,13 @@ function createTrackerVoiceService(options = {}) {
 
   function getAudio(effectId) {
     const record = records.get(normalizeEffectId(effectId));
-    if (!record || record.status !== 'ready' || !Buffer.isBuffer(record.audio)) return null;
+    if (!record || !checkPlaybackGuard(record.effectId) || record.status !== 'ready' || !Buffer.isBuffer(record.audio)) return null;
     return { body: record.audio, contentType: record.contentType, effectId: record.effectId };
   }
 
   function getCueAudio(effectId, index = null, stage = '') {
     const record = records.get(normalizeEffectId(effectId));
+    if (record && !checkPlaybackGuard(record.effectId)) return null;
     const sequenceStage = stage === 'before' || stage === 'after' ? stage : '';
     const cue = sequenceStage && Number.isSafeInteger(Number(index))
       ? record?.cueSequence?.[sequenceStage]?.[Number(index)]
@@ -906,7 +935,7 @@ function createTrackerVoiceService(options = {}) {
     for (const [id, seenAt] of playbackClients) if (timestamp - seenAt > 6000) playbackClients.delete(id);
     if (clientId) playbackClients.set(String(clientId).slice(0, 160), timestamp);
     if (playbackClients.size > 32) playbackClients.delete(playbackClients.keys().next().value);
-    for (const id of playbackGuards.keys()) checkPlaybackGuard(id);
+    reconcileMissionScopes();
     if ([...records.values()].some(record => record.playback?.status === 'claimed' && record.playback.leaseUntil > timestamp)) return null;
     let pruned = false;
     for (const candidate of records.values()) {
@@ -924,6 +953,7 @@ function createTrackerVoiceService(options = {}) {
     const record = [...records.values()]
       .filter((candidate) => candidate.status === 'ready' && (candidate.clips || Buffer.isBuffer(candidate.audio) || ((audioControl || candidate.kind === 'cargo') && (candidate.cue?.filePath || candidate.cueSequence?.before?.some(cue => cue.filePath) || candidate.cueSequence?.after?.some(cue => cue.filePath)))))
       .filter((candidate) => !clientId || !(candidate.failedPlaybackClients || []).includes(clientId))
+      .filter((candidate) => !candidate.requiresScopeBinding && (!candidate.missionScope || isMissionPlaybackAllowed || playbackGuards.has(candidate.effectId)))
       .filter((candidate) => candidate.playback?.status !== 'deferred')
       .filter((candidate) => candidate.playback?.status !== 'completed' && candidate.playback?.status !== 'released')
       .filter((candidate) => candidate.playback?.status !== 'claimed' || Number(candidate.playback?.leaseUntil || 0) <= timestamp)
@@ -933,6 +963,7 @@ function createTrackerVoiceService(options = {}) {
 
   function activatePlayback(effectId) {
     const normalizedEffectId = normalizeEffectId(effectId);
+    if (!checkPlaybackGuard(normalizedEffectId)) return { activated: false, reason: 'mission_end', job: null };
     const record = records.get(normalizedEffectId);
     if (!record) return { activated: false, reason: 'missing', job: null };
     if (record.playback?.status === 'deferred') {
@@ -1103,8 +1134,9 @@ function createTrackerVoiceService(options = {}) {
   }
 
   function publicState() {
+    reconcileMissionScopes();
     reconcileAudioSettings();
-    const jobs = [...records.values()];
+    const jobs = [...records.values()].filter(record => !record.requiresScopeBinding && (!record.missionScope || isMissionPlaybackAllowed || playbackGuards.has(record.effectId)));
     const playing = jobs.find(record => record.playback?.status === 'claimed' && record.playback.leaseUntil > now());
     return {
       nowPlaying: playing ? { effectId: playing.effectId, kind: playing.kind, text: playing.text, speaker: { ...playing.speaker }, provider: playing.provider, model: playing.model, voiceName: playing.voiceName } : null,

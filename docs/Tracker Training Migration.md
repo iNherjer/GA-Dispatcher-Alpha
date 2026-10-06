@@ -57,7 +57,7 @@ Instanzen verschiedener Missionen duerfen keine Modul-Singletons teilen.
 - Intents `training_ready`, `training_abort`, `training_extra` flushen den offenen
   Checkpoint und committen Zustand und Ansage atomar unter Revisionsschutz.
   App und EFB zeigen ausschliesslich den bestaetigten Trainingsfortschritt.
-- Pause, Boden, Slew und mehr als fuenf Sekunden zwischen Messwerten setzen nur
+- Pause, Boden und mehr als fuenf Sekunden zwischen Messwerten setzen nur
   den laufenden Durchgang und die Startstabilisierung zurueck. Bestaetigte Uebungen
   und Pflichtabschluss bleiben erhalten. Keine interpolierten Stall-/Kurvenwerte.
 - Der Parent uebertraegt Pitch, IAS, AOA und Stall zusaetzlich zu MSL/AGL,
@@ -373,3 +373,63 @@ Download stimmt mit dem Build überein (173555256 Bytes, SHA-256
 `6b3a36cea20e09bea02decf5d71ec681ebeabb59764da0794dca8919c077b108`).
 Der Alpha-Kanal wird auf dieses unveränderte Artefakt gesetzt. Stable bleibt
 unverändert; die Simulatorprüfung ist weiterhin offen.
+
+
+### Slew ist kein Trainingsgate mehr (06.10.2026, lokal)
+
+Auf ausdrücklichen Nutzerwunsch blockieren `slewActive`, `slewMode`,
+`isSlewActive` und ein fehlender/fehlerhafter/veralteter `slewTelemetryStatus`
+weder POI- noch APT-Training. Beobachtung und manuelle Intents verwenden
+dieselbe Regel. Damit überschreibt diese Entscheidung die v479-Regel oben.
+Pause, Menü, Boden, Datenfrische, gültige Positions-/Flugwerte, AGL-/Distanzgates,
+Startstabilisierung und die eigentlichen Manöverkriterien bleiben erhalten.
+Für das Training bleibt die getrennte SimConnect-Abfrage reine Diagnose. Es gibt keinen neuen
+Schalter und keinen zweiten Ausführungspfad. Ein alter Slew-Sperrstand wird
+mit dem nächsten gültigen Sample aufgelöst; eine laufende Übung wird dadurch
+nicht rückwirkend als bestanden markiert.
+
+Die zunächst breiter gewünschte Entfernung wurde vom automatischen
+Freigabeprüfer blockiert. Der anschließend ausdrücklich auf Survey und
+Infrastruktur begrenzte Auftrag wurde freigegeben und lokal umgesetzt;
+siehe `Mapping Survey Migration Audit.md` und
+`Infrastructure Chain Briefing Migration.md`. Der anschließende Nutzerauftrag
+entfernt nun auch die Bush- und Route-Voice-Slew-Gates; siehe
+`Mission Flow Reference.md` und `Mission Route Voice Events.md`. SAR bleibt
+unverändert. Noch kein Rollout.
+
+Nachweis: 219 Tests der Trainings-, Execution- und übrigen Missionsregression bestanden. Die
+positiven POI-/APT-Manöverläufe verwenden zusätzlich aktive Slew-Flags und
+fehlerhaften Status; Wiederaufnahme wird ebenfalls mit Slew-Flag geprüft.
+
+
+Abschluss der missionsübergreifenden lokalen Prüfung (06.10.2026): Die
+anschließend freigegebenen Voice-Übergabefehler für Sightseeing, Private Return
+und Bush-PAX-Anflug sowie der vorhandene Reporter-Generator-Drift sind korrigiert.
+874 + 223 = 1.097 Prüfungen bestanden ohne Fehler oder übersprungene Tests,
+einschließlich POI-/APT-Training, Restore und Generator-Parität. Details und
+Reproduktionsnachweise stehen in `Mission Flow Reference.md`. Noch kein neuer
+Tracker-Build oder Rollout; die Simulatorprüfung bleibt ausstehend.
+
+
+## Manueller Start bindet den Durchgang sofort (06.10.2026, lokal)
+
+Der akzeptierte `training_ready`-Klick initialisiert jetzt den aktiven
+Übungsdurchgang mit der letzten gültigen Vorbereitungstelemetrie über den
+bestehenden Prozeduradapter. Kurs, Höhe und ggf. IAS sind damit vor dem ersten
+neuen Messwert festgelegt. Direkte Kurveneinleitung kann den bestätigten Start
+nicht mehr durch die Vorbereitungsprüfung zurücknehmen. Die Startansage benennt
+die bereits festgelegten Referenzen; der Banner projiziert sofort den aktiven
+Durchgang. Ein Abbruch benötigt keinen weiteren Messwert.
+
+Vor POI- und APT-Trainingsaktionen wird die gepufferte Telemetrie in den
+Checkpoint übernommen. Controller-Revision zuerst prüfen, dann ausschließlich
+für den eigenen synchronen Checkpoint auf die aktuelle Revision umstellen.
+Eine vor dem Klick verlorene stabile Fluglage lehnt den Start weiterhin ab;
+aktuelle gültige Werte ersetzen dagegen die ältere Vorschau. Gewöhnliche
+APT-Aktionen bleiben außerhalb dieses zusätzlichen Trainingsabgleichs.
+
+Originalcore/Standalone unverändert. Keine automatische Freigabe ohne Klick;
+Pause, Datenlücken, Sicherheitsgates, Abbruch und Zusatzübungen bleiben erhalten.
+Zehn neue Regressionen plus direkte Einleitung in den vorhandenen echten
+Missions-Kindprozess-Tests für POI und APT. **225 betroffene Tests grün**, Original-
+Prozedur-Selbsttest und Syntaxprüfung grün. Noch kein Release oder MSFS-Feldtest.

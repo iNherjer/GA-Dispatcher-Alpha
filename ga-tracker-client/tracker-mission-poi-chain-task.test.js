@@ -53,7 +53,7 @@ const samples = Array.from({ length: 31 }, (_, index) => ({ lat: 48 + index * 0.
     assert.equal(state.progress.corridor.completedCount, core.normalizeSpec(core.normalizeSpec(raw)).corridor.segments.length);
 }
 
-// Pause, ground, slew, a bad GPS sample, teleport, and a long gap sever an
+// Pause, ground, a bad GPS sample, teleport, and a long gap sever an
 // unfinished corridor while keeping durable completions intact.
 {
     let state = task.observe(raw, null, samples[0], { active: true, trackingActive: true }).state;
@@ -61,7 +61,7 @@ const samples = Array.from({ length: 31 }, (_, index) => ({ lat: 48 + index * 0.
     let out = task.observe(raw, state, { observedAt: 4500, simPaused: true }, { active: true, trackingActive: true });
     assert.equal(out.state.previousSample, null);
     assert.ok(out.events.some(event => event.type === 'corridor_segment_reset_discontinuity'));
-    out = task.observe(raw, out.state, { ...samples[4], observedAt: 5500, slewActive: true }, { active: true, trackingActive: true });
+    out = task.observe(raw, out.state, { ...samples[4], observedAt: 5500, onGround: true }, { active: true, trackingActive: true });
     assert.equal(out.progress.corridor.completedCount, 0);
     state = task.observe(raw, null, samples[0], { active: true, trackingActive: true }).state;
     state = task.observe(raw, state, samples[3], { active: true, trackingActive: true }).state;
@@ -134,3 +134,46 @@ assert.equal(task.validateSpec({ ...raw, overlay: { trace: Array(81).fill({ lat:
 assert.throws(() => task.createState(raw, { schema: task.RUNTIME_SCHEMA, specKey: 'other' }), /poi_chain_runtime_identity_mismatch/);
 
 console.log('tracker mission poi-chain task tests ok');
+
+const slewVariants = [
+    { slewActive: true }, { slewMode: true }, { isSlewActive: true },
+    { slewTelemetryStatus: 'waiting' }, { slewTelemetryStatus: 'error' },
+    { slewTelemetryStatus: 'stale' },
+    { slewActive: true, slewMode: true, isSlewActive: true, slewTelemetryStatus: 'error' }
+];
+
+for (const flags of slewVariants) require('node:test')(`Infrastructure ignores ${JSON.stringify(flags)} across checkpoint`, () => {
+    let baseline = null, flagged = null;
+    const sparse = samples.filter((_, i) => i % 2 === 0);
+    for (let i = 0; i < sparse.length; i++) {
+        if (i === 5) flagged = JSON.parse(JSON.stringify(flagged));
+        const a = task.observe(raw, baseline, sparse[i], { active: true, trackingActive: true });
+        const b = task.observe(raw, flagged, { ...sparse[i], ...flags }, { active: true, trackingActive: true });
+        assert.deepEqual(b, a);
+        baseline = a.state; flagged = b.state;
+    }
+    assert.equal(flagged.progress.satisfied, true);
+    assert.deepEqual(flagged.progress.completedPointIds, ['p1', 'p2', 'p3']);
+});
+require('node:test')('Infrastructure preserves real interruptions with Slew active and resumes valid work', () => {
+    for (const [patch, extra] of [
+        [{ simPaused: true }, {}], [{ inMenuOrMap: true }, {}], [{ onGround: true }, {}],
+        [{ lat: null }, {}], [{}, { disconnected: true }], [{}, { suspended: true }]
+    ]) {
+        let state = task.observe(raw, null, samples[0], { active: true, trackingActive: true }).state;
+        state = task.observe(raw, state, samples[3], { active: true, trackingActive: true }).state;
+        const held = task.observe(raw, state, { ...samples[4], slewActive: true, ...patch },
+            { active: true, trackingActive: true, ...extra });
+        assert.equal(held.state.previousSample, null);
+        assert.equal(held.progress.satisfied, false);
+        state = JSON.parse(JSON.stringify(held.state));
+        for (const sample of samples) state = task.observe(raw, state, { ...sample, observedAt: 20000 + sample.observedAt, slewMode: true },
+            { active: true, trackingActive: true }).state;
+        assert.equal(state.progress.satisfied, true);
+    }
+    let state = task.observe(raw, null, samples[0], { active: true, trackingActive: true }).state;
+    state = task.observe(raw, state, samples[3], { active: true, trackingActive: true }).state;
+    const jumped = task.observe(raw, state, { ...samples[20], observedAt: 4500, slewMode: true }, { active: true, trackingActive: true });
+    assert.ok(jumped.events.some(e => e.reason === 'teleport'));
+    assert.equal(jumped.progress.satisfied, false);
+});

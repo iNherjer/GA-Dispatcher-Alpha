@@ -94,8 +94,7 @@ function normalizeSample(raw = {}) {
         altFt: number(raw.altFt), gsKts: number(raw.gsKts),
         headingDeg: number(raw.headingDeg ?? raw.hdg),
         onGround: raw.onGround === true, simPaused: raw.simPaused === true,
-        inMenuOrMap: raw.inMenuOrMap === true,
-        slewMode: raw.slewMode === true || raw.slewActive === true || raw.isSlewActive === true
+        inMenuOrMap: raw.inMenuOrMap === true
     };
 }
 
@@ -187,12 +186,12 @@ function observe(specRaw, previous, rawSample, facts = {}) {
     if (facts.active !== true || facts.trackingActive !== true || facts.ending === true) return unchanged('survey_task_inactive');
     const detector = core.hydrateRuntimeState(spec, state.detector);
     const events = [];
-    const discontinuity = sample.simPaused || sample.inMenuOrMap || sample.slewMode || sample.onGround
+    const discontinuity = sample.simPaused || sample.inMenuOrMap || sample.onGround
         || facts.suspended === true || facts.disconnected === true;
     state.observedAt = sample.observedAt;
     if (discontinuity) {
         resetActive(detector, sample.simPaused || sample.inMenuOrMap || facts.suspended || facts.disconnected ? 'suspended'
-            : sample.slewMode ? 'slew' : 'ground', events);
+            : 'ground', events);
         state.detector = core.serializeState(detector);
         state.progress = core.snapshotState(detector);
         state.previousSample = null;

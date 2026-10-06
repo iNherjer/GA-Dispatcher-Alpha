@@ -1057,12 +1057,16 @@ test('opening cargo is a shared presentation event; close and reopen retain miss
   assert.deepEqual(manager.getExecutionSnapshot().state.flags, before.flags);
 });
 
-test('route narrative triggers on tracker telemetry and survives runtime recreation without DOM', async t => {
+for (const narrativeSchema of [null, 'charter-idea.v1']) test(`${narrativeSchema || 'generic'} route narrative triggers on tracker telemetry and survives runtime recreation without DOM`, async t => {
   const bundle = aptBundle();
   bundle.runtime.cargoManifest.items = [{ id: 'pax', itemType: 'passenger', status: 'pending', required: true, passengerCount: 1 }];
   bundle.missionState.routeWaypoints = [{ lat: 48.1, lng: 8.2 }, { lat: 48.3, lng: 8.5 }];
   bundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, mode: 'passenger', passenger: {},
     narrativeEvents: [{atPercent: 20, intent: 'Gemeinsame Vorfreude'}], baseContext: 'Passenger', departure: { lat: 48.1, lng: 8.2 } } };
+  if (narrativeSchema) {
+    bundle.missionState.currentMissionData.charterIdea = { schema: narrativeSchema };
+    bundle.executionEffectPlan.effects['voice.approach'].context.speaker = { narrativeSchema };
+  }
   bundle.executionReplay = executionCore.createExecutionBundle(bundle);
   bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
   const manager = committedManager(t, bundle);
@@ -1084,7 +1088,7 @@ test('route narrative triggers on tracker telemetry and survives runtime recreat
     assert.equal(result.ok, true, JSON.stringify(result));
     await new Promise(resolve => setImmediate(resolve));
   }
-  const tick = observedAt => runtime.observeTelemetry({ observedAt, lat: 48.2, lon: 8.3, onGround: false,
+  const tick = observedAt => runtime.observeTelemetry({ observedAt, lat: 48.2, lon: 8.3, onGround: false, slewActive: true, slewMode: true, isSlewActive: true, slewTelemetryStatus: 'error',
     gsKts: 70, aglFt: 2000, gForce: 1, bankDeg: 0, vsFpm: 0, windKts: 0 });
   for (let now = 100000; now <= 101500; now += 250) { tick(now); await new Promise(resolve => setImmediate(resolve)); }
   assert.equal(calls.filter(type => type === 'voice.flight').length, 1);
@@ -1134,7 +1138,7 @@ test('geo narrative triggers on tracker telemetry and survives runtime recreatio
     assert.equal(result.ok, true, JSON.stringify(result));
     await new Promise(resolve => setImmediate(resolve));
   }
-  const tick = observedAt => runtime.observeTelemetry({ observedAt, lat: 48.2, lon: 8.3, onGround: false,
+  const tick = observedAt => runtime.observeTelemetry({ observedAt, lat: 48.2, lon: 8.3, onGround: false, slewActive: true, slewMode: true, isSlewActive: true, slewTelemetryStatus: 'error',
     gsKts: 70, aglFt: 2000, gForce: 1, bankDeg: 0, vsFpm: 0, windKts: 0 });
   for (let now = 100000; now <= 101500; now += 250) { tick(now); await new Promise(resolve => setImmediate(resolve)); }
   assert.equal(calls.filter(type => type === 'voice.flight').length, 1);

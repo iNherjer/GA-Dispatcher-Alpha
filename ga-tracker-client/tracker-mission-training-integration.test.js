@@ -103,7 +103,7 @@ test('Original turn completion allows optional exercise after shared POI satisfa
   let state = null, time = 10000;
   const sample = (heading = 0, bank = 0, increment = 1000) => { time += increment; return { observedAt: time,
     lat: 48.3, lon: 8.5, altFt: 3000, aglFt: 3000, hdg: heading, bankDeg: bank, vsFpm: 0, gsKts: 90,
-    gForce: 1.1, onGround: false }; };
+    gForce: 1.1, onGround: false, slewActive: true, slewTelemetryStatus: 'error' }; };
   const tickPoi = (hdg = 0, bank = 0, dt = 1000) => {
     const result = poi.observe(recipe, state, sample(hdg, bank, dt), { active: true, trackingActive: true });
     assert.equal(result.changed, true, result.reason); state = result.state; return result;
@@ -182,9 +182,12 @@ test('training telemetry and intents run in the real mission child process', asy
   const ready = await host.runtime.executeIntent({ intent: 'training_ready', commandId: 'training-process-ready',
     missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
   assert.equal(ready.ok, true, JSON.stringify(ready));
-  await telemetry(base + 3200);
   snapshot = host.authorityManager.getExecutionSnapshot();
-  assert.equal(snapshot.state.poiTask.trainingState.progress.activeExercise.status, 'active');
+  assert.equal(snapshot.state.poiTask.trainingState.progress.activeExercise.status, 'active', 'the click already starts the child-process procedure');
+  assert.equal(snapshot.state.poiTask.trainingState.checkpoint.procedureState.activeState.active.startHeadingDeg, 0);
+  await telemetry(base + 3200, {hdg:5,bankDeg:25});
+  snapshot = host.authorityManager.getExecutionSnapshot();
+  assert.equal(snapshot.state.poiTask.trainingState.progress.activeExercise.phase, 'turning');
   run = host.authorityManager.getActiveRun();
   const abort = await host.runtime.executeIntent({ intent: 'training_abort', commandId: 'training-process-abort',
     missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
@@ -306,7 +309,6 @@ test('training releases each telemetry suspension after fresh airborne values an
     ground: { onGround: true, aglFt: 3, gsKts: 0 },
     pause: { simPaused: true },
     menu: { inMenuOrMap: true },
-    slew: { slewActive: true },
     missingPosition: { lat: null },
     missingAgl: { aglFt: null }
   };
@@ -318,7 +320,7 @@ test('training releases each telemetry suspension after fresh airborne values an
       assert.equal(h.manager.getExecutionSnapshot().state.poiTask.trainingState.coaching.suspended, true);
       const resumed = { lat: 48.1, lon: 8, altFt: 5736, aglFt: 3791,
         hdg: 249, bankDeg: 0, vsFpm: 0, onGround: false, gsKts: 85,
-        simPaused: false, inMenuOrMap: false, slewActive: false };
+        simPaused: false, inMenuOrMap: false, slewActive: true, slewTelemetryStatus: 'stale' };
       await h.sample({ observedAt: base + 1100, ...resumed });
       await h.sample({ observedAt: base + 4300, ...resumed });
       const snapshot = h.manager.getExecutionSnapshot();
@@ -359,26 +361,89 @@ test('training can prepare and manually start after simulator disconnect and rec
 });
 
 
-test('independent Slew status blocks unknown/active data and releases fresh off data', async t => {
-  const h = await harness(t); await start(h);
-  const base=Date.now();
-  for(const [i,status] of ['waiting','error','stale'].entries()){
-    await h.sample({observedAt:base+i*1000,bankDeg:0,vsFpm:0,slewActive:null,slewTelemetryStatus:status});
+// Requested policy: a simulator mode flag must not veto otherwise valid training.
+test('valid training can be released independently of Slew flags and status', async t => {
+  for (const flags of [
+    {slewActive:true}, {slewMode:true}, {isSlewActive:true},
+    {slewActive:null,slewTelemetryStatus:'waiting'},
+    {slewActive:null,slewTelemetryStatus:'error'},
+    {slewActive:null,slewTelemetryStatus:'stale'}
+  ]) await t.test(JSON.stringify(flags), async t => {
+    const h=await harness(t); await start(h);
+    const base=Date.now();
+    await h.sample({observedAt:base,bankDeg:0,vsFpm:0,...flags});
+    await h.sample({observedAt:base+3100,bankDeg:0,vsFpm:0,...flags});
     const snapshot=h.manager.getExecutionSnapshot();
     const task=snapshot.recipe==='apt'?snapshot.state.trainingTask.state:snapshot.state.poiTask.trainingState;
-    assert.equal(task.coaching.suspended,true);
-    assert.match(task.guidance.notice,/Slew-Status nicht verfügbar/);
-    assert.equal((await h.intent('training_ready')).ok,false);
-  }
-  await h.sample({observedAt:base+3100,bankDeg:0,vsFpm:0,slewActive:true,slewTelemetryStatus:'ok'});
-  let snapshot=h.manager.getExecutionSnapshot();
-  let task=snapshot.recipe==='apt'?snapshot.state.trainingTask.state:snapshot.state.poiTask.trainingState;
-  assert.match(task.guidance.notice,/Tracker meldet aktiven Slew/);
-  for(const offset of [4200,7400])
-    await h.sample({observedAt:base+offset,bankDeg:0,vsFpm:0,slewActive:false,slewTelemetryStatus:'ok'});
-  snapshot=h.manager.getExecutionSnapshot();
-  task=snapshot.recipe==='apt'?snapshot.state.trainingTask.state:snapshot.state.poiTask.trainingState;
-  assert.equal(task.coaching.suspended,false);
-  assert.equal(task.guidance.canStart,true);
+    assert.equal(task.coaching.suspended,false);
+    assert.equal(task.guidance.canStart,true);
+    assert.equal((await h.intent('training_ready')).ok,true);
+  });
+});
+
+
+test('manual start commits the active exercise before immediate turn entry and keeps pause recovery', async t => {
+  const h = await harness(t); await start(h);
+  const base = Date.now();
+  const task = () => { const snapshot = h.manager.getExecutionSnapshot(); return snapshot.state.poiTask.trainingState; };
+  await h.sample({observedAt:base,hdg:140,bankDeg:0,vsFpm:0,iasKts:90});
+  await h.sample({observedAt:base+3100,hdg:140,bankDeg:0,vsFpm:0,iasKts:90});
   assert.equal((await h.intent('training_ready')).ok,true);
+  assert.equal(task().progress.activeExercise.status,'active');
+  assert.equal(task().guidance.canAbort,true);
+  assert.ok(h.manager.getExecutionSnapshot().view.allowedActions.includes('training_abort'));
+  assert.equal(task().checkpoint.procedureState.activeState.active.startHeadingDeg,140);
+  await h.sample({observedAt:base+4100,hdg:146,bankDeg:25,vsFpm:0,iasKts:90});
+  assert.equal(task().progress.activeExercise.phase,'turning');
+  assert.equal(task().progress.activeExercise.attempts,1);
+  assert.equal(task().checkpoint.procedureState.activeState.active.startHeadingDeg,140);
+  await h.sample({observedAt:base+4200,simPaused:true,hdg:146,bankDeg:25,vsFpm:0});
+  assert.equal(task().checkpoint.procedureState.activeState.active,null);
+  assert.equal(task().progress.activeExercise.status,'repeat');
+  assert.equal(task().progress.completedCount,0);
+  assert.ok(!h.manager.getExecutionSnapshot().view.allowedActions.includes('training_ready'));
+  await h.sample({observedAt:base+9300,hdg:200,bankDeg:0,vsFpm:0,iasKts:90});
+  await h.sample({observedAt:base+12400,hdg:200,bankDeg:0,vsFpm:0,iasKts:90});
+  assert.equal((await h.intent('training_ready')).ok,true);
+  assert.equal(task().progress.activeExercise.status,'active');
+  assert.equal(task().checkpoint.procedureState.activeState.active.startHeadingDeg,200);
+  assert.equal((await h.intent('training_abort')).ok,true);
+  assert.equal(task().checkpoint.procedureState.activeState.active,null);
+});
+
+
+test('manual start uses the latest buffered preparation values', async t => {
+  const h=await harness(t); await start(h);
+  const base=Date.now();
+  const task=()=>{const snapshot=h.manager.getExecutionSnapshot();return snapshot.state.poiTask.trainingState;};
+  await h.sample({observedAt:base,hdg:140,bankDeg:0,vsFpm:0,iasKts:90});
+  await h.sample({observedAt:base+3100,hdg:140,bankDeg:0,vsFpm:0,iasKts:90});
+  assert.equal(task().guidance.canStart,true);
+  const buffered=h.runtime.observeTelemetry({observedAt:base+3500,lat:48.3,lon:8.5,
+    altFt:3120,aglFt:3000,hdg:155,bankDeg:0,vsFpm:0,iasKts:95,gsKts:85,onGround:false});
+  assert.equal(buffered.ok,true);
+  assert.equal(task().coaching.reference.headingDeg,140,'the new measurement has not been checkpointed yet');
+  assert.equal((await h.intent('training_ready')).ok,true);
+  const active=task().checkpoint.procedureState.activeState.active;
+  assert.equal(active.startHeadingDeg,155);
+  assert.equal(active.startAltFt,3120);
+  await h.sample({observedAt:base+4500,hdg:160,altFt:3130,bankDeg:25,vsFpm:0,iasKts:95});
+  assert.equal(task().progress.activeExercise.phase,'turning');
+  assert.equal(task().checkpoint.procedureState.activeState.active.startHeadingDeg,155);
+});
+
+test('a buffered unstable preparation sample prevents manual start', async t => {
+  const h=await harness(t); await start(h);
+  const base=Date.now();
+  await h.sample({observedAt:base,bankDeg:0,vsFpm:0});
+  await h.sample({observedAt:base+3100,bankDeg:0,vsFpm:0});
+  assert.ok(h.manager.getExecutionSnapshot().view.allowedActions.includes('training_ready'));
+  const buffered=h.runtime.observeTelemetry({observedAt:base+3500,lat:48.3,lon:8.5,
+    altFt:3000,aglFt:3000,hdg:5,bankDeg:25,vsFpm:0,gsKts:85,onGround:false});
+  assert.equal(buffered.ok,true);
+  const denied=await h.intent('training_ready');
+  assert.equal(denied.ok,false);
+  assert.equal(denied.error,'mission_intent_not_allowed_in_state',JSON.stringify(denied));
+  const snapshot=h.manager.getExecutionSnapshot();
+  assert.equal(snapshot.state.poiTask.trainingState.checkpoint.procedureState.activeState.active,null);
 });

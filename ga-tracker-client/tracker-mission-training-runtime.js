@@ -48,10 +48,6 @@ function captureSample(recipe, state, sample) {
 function interruptionNotice(sample) {
     if (sample?.simPaused === true) return 'Simulator pausiert. Training wird nach dem Fortsetzen wieder vorbereitet.';
     if (sample?.inMenuOrMap === true) return 'Simulator im Menü. Für das Training zum Flug zurückkehren.';
-    if (typeof sample?.slewTelemetryStatus === 'string' && sample.slewTelemetryStatus !== 'ok')
-        return 'Slew-Status nicht verfügbar. Auf eine gültige Statusmeldung des Trackers warten.';
-    if (sample?.slewActive === true || sample?.slewMode === true || sample?.isSlewActive === true)
-        return 'Tracker meldet aktiven Slew-/Versetzmodus. Das Training bleibt bis zu einer gültigen Flugmeldung gesperrt.';
     if (sample?.onGround === true) return 'Flugzeug am Boden. Das Training wird erst im Flug freigegeben.';
     return 'Flugdaten unterbrochen oder unvollständig. Auf gültige Simulatordaten warten.';
 }
@@ -106,6 +102,27 @@ function action(recipe, state, intent, now) {
     const type = { training_ready:'ready', training_abort:'abort', training_extra:'optional' }[intent];
     if (!type) throw new TypeError('training_action_invalid');
     const result = adapter.action(spec(recipe), state.checkpoint, {type}, now);
+    if (intent === 'training_ready' && result.ok) {
+        // Commit the procedure's setup with the last valid preparation sample.
+        // The next real sample belongs to the maneuver, even if already banked.
+        const c = coaching.init(state);
+        const at = Math.max(now, state.lastSampleAt ?? now);
+        const sample = { ...c.sample, observedAt: at, nowMs: at, onGround: false };
+        const started = c.sample && !c.suspended
+            ? adapter.observe(spec(recipe), result.state, sample) : null;
+        if (!started?.state.procedureState.activeState.active) {
+            return { state, voices: voice.prepare({ ...recipe.voiceContext, speaker:recipe.voiceContext.trainingSpeaker || recipe.voiceContext.speaker },
+                { action: intent, result: { ok: false, reason: 'not_stable' } }, now) };
+        }
+        state.checkpoint = started.state;
+        coaching.after(recipe, state, sample, started.events);
+        c.lastAt = at;
+        state.progress = progress(state.checkpoint);
+        state.guidance = coaching.project(recipe, state);
+        return { state, voices: announce(recipe, state,
+            `Übung läuft ab jetzt. Ausgangskurs und Ausgangshöhe sind festgelegt. ${state.guidance.currentInstruction}`,
+            now, intent) };
+    }
     state.checkpoint = result.state; state.progress = progress(result.state);
     if (intent==='training_abort') {const c=coaching.init(state);c.notice='Durchgang abgebrochen. Nach fünf Sekunden erneut stabilisieren und starten.'; coaching.record(state,c.notice,now);}
     state.guidance=coaching.project(recipe,state);

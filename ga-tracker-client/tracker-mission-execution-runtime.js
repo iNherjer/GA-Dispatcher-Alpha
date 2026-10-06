@@ -403,14 +403,18 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const executeIntent = async (request = {}) => {
     await recoveryDrain;
     reconcileCargoCheckpoint();
-    if (authorityManager.getActiveRun()?.executionRecipe === 'poi') {
+    const recipe = authorityManager.getActiveRun()?.executionRecipe;
+    const trainingIntent = ['training_ready', 'training_abort', 'training_extra', 'training_repeat_instruction']
+      .includes(String(request.intent || request.action || '').trim().toLowerCase());
+    if (recipe === 'poi' || (recipe === 'apt' && trainingIntent)) {
+      // Training clicks must capture the latest buffered preparation values.
       // Validate the controller's original revision before the private flush.
       // Only our own synchronous checkpoint may rebase that accepted request.
       const validated = adapter.validateIntent(request);
       if (!validated.ok) return validated;
       const flushed = flushPoiCheckpoint('intent');
       if (!flushed.ok) return flushed;
-      request = { ...request, expectedRevision: flushed.activeRun?.revision ?? validated.snapshot.authorityRevision };
+      request = { ...request, expectedRevision: authorityManager.getActiveRun()?.revision ?? validated.snapshot.authorityRevision };
     }
     if (String(request.intent || request.action || '').trim().toLowerCase() === 'abort_mission') {
       const validated = adapter.validateIntent(request);
@@ -854,8 +858,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         effectRunner.drain().catch(error => log(`MISSION_BUSH_SCENE_ERROR error=${error?.message || error}`));
       }
       if (result?.ok && result.status !== 'ignored' && sample?.simPaused !== true && sample?.paused !== true
-          && sample?.isPaused !== true && sample?.inMenuOrMap !== true && sample?.simRunning !== 0
-          && sample?.slewActive !== true && sample?.isSlewActive !== true) {
+          && sample?.isPaused !== true && sample?.inMenuOrMap !== true && sample?.simRunning !== 0) {
         const snapshot = authorityManager.getExecutionSnapshot?.();
         if (snapshot?.state?.bushTask?.kind === 'pickup_return') {
           const context = executionEffectPlan()?.bushPickup?.voiceContext;
@@ -960,13 +963,13 @@ function createTrackerMissionExecutionRuntime(options = {}) {
               const run = authorityManager.getActiveRun({ includeBundle: true });
               const missionState = run?.resumeBundle?.missionState || {};
               const mission = missionState.currentMissionData || {};
-              narrativeRouteCache = { key: routeKey, newsIdea: mission.aptNewsIdea, points: routeMapCore.normalizeRoute({ state: missionState, mission,
+              narrativeRouteCache = { key: routeKey, continuationIdea: mission.aptNewsIdea || mission.charterIdea, points: routeMapCore.normalizeRoute({ state: missionState, mission,
                 contract: mission.missionContract || missionState.activeMissionContract || {}, navigationRoute: run?.navigationRoute }) };
             }
             let route = narrativeRouteCache.points;
             const fresh = authorityManager.getExecutionSnapshot();
-            if(narrativeRouteCache.newsIdea?.continuation?.pickupRequired){
-              const leg=continuationCore.voiceLeg(narrativeRouteCache.newsIdea,route,fresh.state.bushTask?.progress || {},fresh.state.bushTask?.progress?.pickupConfirmed===true);
+            if(narrativeRouteCache.continuationIdea?.continuation?.pickupRequired){
+              const leg=continuationCore.voiceLeg(narrativeRouteCache.continuationIdea,route,fresh.state.bushTask?.progress || {},fresh.state.bushTask?.progress?.pickupConfirmed===true);
               route=leg.ready?leg.route:[];
             }
             const committed = fresh.state.effects.filter(e => e.type === 'voice.flight' && e.payload.kind === 'route_story');
@@ -977,7 +980,6 @@ function createTrackerMissionExecutionRuntime(options = {}) {
               active: fresh.state.flags.active && fresh.state.flags.boardingConfirmed,
               ending: fresh.state.flags.closingPending || fresh.state.flags.farewellStarted || fresh.state.flags.unloadConfirmed,
               paused: sample.simPaused === true || sample.paused === true || sample.isPaused === true || sample.inMenuOrMap === true || sample.simRunning === 0,
-              slew: sample.slewActive === true || sample.isSlewActive === true,
               enabled: audioSettings ? audioSettings.enabled === true && audioSettings.paxEnabled === true : context.enabled !== false && context.audioEnabled !== false,
               busy: fresh.state.effects.some(e => e.type.startsWith('voice.') && e.status === 'requested')
             });

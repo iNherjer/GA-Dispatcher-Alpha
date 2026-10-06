@@ -80,8 +80,7 @@ function normalizeSample(raw = {}) {
     const number = value => finite(value) ? value : NaN;
     return { observedAt: number(raw.observedAt), lat: number(raw.lat), lon: number(raw.lon ?? raw.lng),
         gsKts: number(raw.gsKts ?? raw.gs), headingDeg: number(raw.headingDeg ?? raw.hdg),
-        onGround: raw.onGround === true, simPaused: raw.simPaused === true, inMenuOrMap: raw.inMenuOrMap === true,
-        slewMode: raw.slewMode === true || raw.slewActive === true || raw.isSlewActive === true };
+        onGround: raw.onGround === true, simPaused: raw.simPaused === true, inMenuOrMap: raw.inMenuOrMap === true };
 }
 
 function createState(specRaw, saved = null) {
@@ -144,9 +143,9 @@ function observe(specRaw, previous, rawSample, facts = {}) {
     if (facts.active !== true || facts.trackingActive !== true || facts.ending === true) return result(state, [], false, 'poi_chain_task_inactive');
     const spec = core.normalizeSpec(specRaw), detector = core.hydrateRuntimeState(spec, state.detector), events = [], eventBatches = [];
     state.observedAt = sample.observedAt;
-    const discontinuity = sample.simPaused || sample.inMenuOrMap || sample.slewMode || sample.onGround || facts.suspended === true || facts.disconnected === true;
+    const discontinuity = sample.simPaused || sample.inMenuOrMap || sample.onGround || facts.suspended === true || facts.disconnected === true;
     if (discontinuity || !point(sample)) {
-        resetActive(detector, discontinuity ? (sample.slewMode ? 'slew' : sample.onGround ? 'ground' : 'suspended') : 'invalid_telemetry', events);
+        resetActive(detector, discontinuity ? (sample.onGround ? 'ground' : 'suspended') : 'invalid_telemetry', events);
         state.detector = core.serializeState(detector); state.progress = core.snapshotState(detector); state.previousSample = null;
         return result(state, events, true, discontinuity ? 'poi_chain_task_discontinuous' : 'poi_chain_telemetry_invalid', events.length ? [events] : []);
     }

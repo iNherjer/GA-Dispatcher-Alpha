@@ -13,6 +13,7 @@ const locationCore = require('../mission-location-core.js');
 const manifestCore = require('../mission-manifest-core.js');
 const complianceCore = require('../mission-compliance-domain-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
+const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const flightRecorderCore = require('../mission-flight-recorder-core.js');
 const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
@@ -395,7 +396,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (validated.snapshot.bushRecipe) resetObservationIfNeeded(validated.snapshot);
     if (validated.snapshot.bushRecipe && ['prepare_mission','start_boarding','confirm_load','start_mission','set_manifest_item','set_manifest_items','request_pax_interaction','sign_manifest','confirm_pickup','confirm_unload','request_close'].includes(intent)) {
       const sample=observations.bushTelemetry;
-      if (!sample || !sample.valid || sample.simPaused || sample.inMenuOrMap || sample.slewActive
+      if (!sample || !sample.valid || sample.simPaused || sample.inMenuOrMap
           || now()-sample.observedAt<0 || now()-sample.observedAt>5000) return errorResult('bush_fresh_telemetry_required');
       const airborneCargo=['set_manifest_item','set_manifest_items'].includes(intent) && sample.onGround===false;
       if (!airborneCargo && !(sample.onGround===true && (sample.gsKts<=2 || sample.parkingBrake===true))) return errorResult('bush_ground_stop_required');
@@ -839,15 +840,14 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       if(!recipe || !snapshot.state.trainingTask)return errorResult('training_not_active');
       const sample=observations.latestTelemetry;
       if(intent!=='training_repeat_instruction' && (snapshot.state.trainingTask.suspended || !sample || now()-sample.observedAt>5000
-          || sample.simPaused || sample.inMenuOrMap || sample.onGround || sample.slewActive || sample.slewMode)) return errorResult('training_suspended');
+          || sample.simPaused || sample.inMenuOrMap || sample.onGround)) return errorResult('training_suspended');
       return submitEvent(snapshot,'APT_TRAINING_ACTION_OBSERVED',aptTraining.action(recipe,snapshot.state.trainingTask,intent,now()),`${snapshot.runId}:intent:${commandId}`,`intent:${intent}`);
     }
     if (['training_ready','training_abort','training_extra','training_repeat_instruction'].includes(intent) || (intent==='poi_status' && snapshot.state.poiTask?.trainingState)) {
       if (!snapshot.state.flags.active || !snapshot.state.poiTask?.trainingState) return errorResult('training_not_active');
       const sample = observations.latestTelemetry;
       if (!['training_repeat_instruction','poi_status'].includes(intent) && (snapshot.state.poiTask.suspendedAt !== null || !sample || !Number.isFinite(sample.observedAt)
-          || now() - sample.observedAt > 5000 || sample.simPaused || sample.inMenuOrMap || sample.onGround
-          || sample.slewActive || sample.slewMode)) return errorResult('training_suspended');
+          || now() - sample.observedAt > 5000 || sample.simPaused || sample.inMenuOrMap || sample.onGround)) return errorResult('training_suspended');
       const payload = poiRuntime.trainingAction(authorityManager.getExecutionPoiRecipe(), snapshot.state.poiTask, intent, now());
       return submitEvent(snapshot, 'TRAINING_ACTION_OBSERVED', {...payload, action:intent}, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }
@@ -1013,6 +1013,11 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       ? {trainingTask:safeObject(request.payload?.trainingTask),voiceEffects:Array.isArray(request.payload?.voiceEffects)?request.payload.voiceEffects.slice(0,8):[]}
       : type === 'POI_TASK_OBSERVED'
       ? { poiTask: safeObject(request.payload?.poiTask), voiceEffects: Array.isArray(request.payload?.voiceEffects) ? request.payload.voiceEffects.slice(0, 8) : [] }
+      : type === 'BUSH_VOICE_REQUESTED'
+      ? { kind: cleanString(request.payload?.kind, 40), stage: cleanString(request.payload?.stage, 40),
+          resolvedRecipe: boardingVoiceCore.normalizeRecipe(request.payload?.resolvedRecipe),
+          bushMemory: bushPickupVoiceCore.normalizeMemory(request.payload?.bushMemory),
+          triggerAt: Math.max(0, Number(request.payload?.triggerAt) || 0) }
       : ['BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED', 'LOAD_CONFIRMED', 'PAX_DEBOARDING_CONFIRMED'].includes(type)
       ? { manifest: snapshot.state.manifest }
       : (type === 'COMPLIANCE_INSPECTORS_WAITING'
@@ -1113,11 +1118,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       if (prior && Number.isFinite(sample.observedAt) && sample.observedAt<=prior.observedAt) return {ok:true,status:'ignored',reason:'bush_telemetry_stale'};
       const valid=['observedAt','lat','lon','gsKts'].every(k=>typeof sample[k]==='number' && Number.isFinite(sample[k]))
         && Math.abs(sample.lat)<=90 && Math.abs(sample.lon)<=180 && typeof sample.onGround==='boolean' && sample.gsKts>=0;
-      observations.bushTelemetry={...sample,valid,parkingBrake:sample.parkingBrake===true || sample.parkingBrake===1,
-        slewActive:sample.slewActive===true || sample.slewMode===true || sample.isSlewActive===true};
-      if (!valid || observations.bushTelemetry.slewActive) {
+      observations.bushTelemetry={...sample,valid,parkingBrake:sample.parkingBrake===true || sample.parkingBrake===1};
+      if (!valid) {
         observations.airborneCandidateAt=null;observations.groundStillCandidateAt=null;
-        return {ok:true,status:'ignored',reason:'bush_telemetry_invalid_or_slew'};
+        return {ok:true,status:'ignored',reason:'bush_telemetry_invalid'};
       }
     }
     if (!snapshot.state.flags.started && !snapshot.state.flags.closed) {

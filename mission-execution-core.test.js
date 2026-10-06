@@ -682,6 +682,10 @@ test('remote Origin handoff uses the tracker relay without requiring a loopback 
     const context = vm.createContext({
         window,
         missionExecutionHandoffPromise: null,
+        missionExecutionHandoffFailure: null,
+        _missionPhaseDebugPush: () => {},
+        _missionRequiresSarSearchAuthority: () => false,
+        _missionSceneIsPoiMission: () => false,
         _missionExecutionAuthorityIsTracker: () => false,
         _trackerSupportsMissionIntents: () => true,
         _missionSceneIsBushMission: () => false,

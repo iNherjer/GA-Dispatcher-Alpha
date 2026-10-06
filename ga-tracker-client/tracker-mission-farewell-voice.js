@@ -1,6 +1,7 @@
 'use strict';
 
 const routeVoiceCore = require('../mission-route-voice-core.js');
+const { missionVoiceScope, createMissionVoiceScopeGuard } = require('./tracker-mission-voice-scope.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const poiVoiceCore = require('../mission-poi-voice-core.js');
 const training = require('./tracker-mission-training-runtime.js');
@@ -96,14 +97,20 @@ function createTrackerMissionFarewellVoice(options = {}) {
   const resolveRecipe = (request, run) => {
     let recipe = resolveRecipeSource(request, run);
     const settings = getAudioSettings();
-    if (recipe && (recipe.taskDomain === 'club_utility' || recipe.speaker?.taskDomain === 'club_utility' || ['charter-idea.v1','apt-news-idea.v1'].includes(recipe.speaker?.narrativeSchema))) recipe = {
+    if (recipe && (recipe.taskDomain === 'club_utility' || recipe.speaker?.taskDomain === 'club_utility' || ['charter-idea.v1','sightseeing-idea.v1','apt-news-idea.v1'].includes(recipe.speaker?.narrativeSchema))) recipe = {
       ...recipe, prompt: routeVoiceCore.conversationPrompt(recipe.prompt,
         authorityManager.getExecutionSnapshot?.()?.state?.voice?.clubHistory)
+    };
+    if (recipe && (recipe.taskDomain === 'private_return' || recipe.speaker?.taskDomain === 'private_return')) recipe = {
+      ...recipe, prompt: routeVoiceCore.conversationPrompt(recipe.prompt,
+        authorityManager.getExecutionSnapshot?.()?.state?.voice?.privateReturnHistory)
     };
     return recipe && settings ? { ...recipe, audioEnabled: settings.enabled && settings.paxEnabled, playCue: recipe.playCue && settings.effectsEnabled } : recipe;
   };
 
-  const voiceRequest = (effectId, recipe, deferPlayback = false) => ({
+  const scopeAllowed = createMissionVoiceScopeGuard(authorityManager);
+  const voiceRequest = (effectId, recipe, deferPlayback = false, scope = null) => ({
+    missionScope: scope, isPlaybackAllowed: () => scopeAllowed(scope),
     effectId,
     kind: 'farewell',
     text: recipe.text,
@@ -140,7 +147,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
     }
     const effectId = preloadEffectId(run.runId);
     try {
-      const job = voiceService.request(voiceRequest(effectId, recipe, true));
+      const job = voiceService.request(voiceRequest(effectId, recipe, true, missionVoiceScope(request)));
       log(`MISSION_FAREWELL_VOICE_PREWARM effect=${effectId} status=${job?.status || 'pending'}`);
       return { ok: true, status: job?.status || 'pending', sideEffect: true, effectId };
     } catch (error) {
@@ -194,14 +201,14 @@ function createTrackerMissionFarewellVoice(options = {}) {
         if (prepared && !['pending', 'ready'].includes(prepared.status)) {
           throw Object.assign(new Error('farewell_preload_unavailable'), { code: 'effect_id_conflict' });
         }
-        voiceService.request(voiceRequest(preparedEffectId, recipe, true));
+        voiceService.request(voiceRequest(preparedEffectId, recipe, true, missionVoiceScope(request)));
         voiceEffectId = preparedEffectId;
         voiceService.activatePlayback?.(voiceEffectId);
       } catch (preloadError) {
         log(`MISSION_FAREWELL_VOICE_PREWARM_MISS effect=${preparedEffectId} reason=${preloadError?.code || preloadError?.message}`);
         if (preloadError?.code === 'effect_id_conflict') voiceService.cancel?.(preparedEffectId, 'farewell_preload_stale');
         voiceEffectId = effectId;
-        voiceService.request(voiceRequest(effectId, recipe, false));
+        voiceService.request(voiceRequest(effectId, recipe, false, missionVoiceScope(request)));
       }
       let generationTimer = null;
       try {
@@ -221,6 +228,10 @@ function createTrackerMissionFarewellVoice(options = {}) {
         voiceStatus: error?.code || 'voice_request_failed',
         voiceOutcome: voiceOutcome(recipe, { status: 'warning', playback: 'not_played', error: error?.code || 'voice_request_failed' })
       });
+    }
+    if (!scopeAllowed(missionVoiceScope(request))) {
+      voiceService.cancel?.(voiceEffectId, 'mission_end');
+      return completed(request, { voiceStatus: 'mission_end' });
     }
     if (!job || job.status !== 'ready' || (recipe.audioEnabled === true && job.audioAvailable !== true)) {
       log(`MISSION_FAREWELL_VOICE_BEST_EFFORT effect=${effectId} reason=${job?.error || job?.status || 'voice_generation_failed'}`);

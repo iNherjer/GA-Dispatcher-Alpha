@@ -41,7 +41,7 @@ async function harness(t,name,restartFile=null){
  const bridge=runtime.attachSimulator({getLivePosition:()=>({lat:48.3,lon:8.5,altFt:500,hdg:90}),dispatchCommand:c=>{commands.push(c);return c.type==='mission_scene_deboarding'?{ok:true,status:'pending'}:completed();},syncPayloadManifestState:completed,cleanupMission:completed});await settle();
  let serial=0;
  async function intent(intent,payload={},revision){const r=manager.getActiveRun();const out=await runtime.executeIntent({intent,payload,commandId:(restartFile?'restored-':'bush-')+(++serial),missionId:r.missionId,runId:r.runId,expectedRevision:revision??r.revision});await settle();return out;}
- async function sample(patch={}){now+=1000;const out=runtime.observeTelemetry({observedAt:now,lat:48,lon:8,altFt:500,aglFt:0,hdg:90,onGround:true,gsKts:0,...patch});await settle();await runtime.flush();return out;}
+ async function sample(patch={}){now+=1000;const out=runtime.observeTelemetry({observedAt:now,lat:48,lon:8,altFt:500,aglFt:0,hdg:90,onGround:true,gsKts:0,slewActive:true,slewMode:true,isSlewActive:true,slewTelemetryStatus:'error',...patch});await settle();await runtime.flush();return out;}
  return {b,manager,runtime,bridge,intent,sample,commands,voices,storageFile,advance:ms=>{now+=ms;}};
 }
 async function start(h){
@@ -151,16 +151,33 @@ test('compact Bush handoff preserves the original follow-up stay window and cont
  }
 });
 
-test('navigation edits and invalid/slew samples cannot move the Bush destination or authorize arrival unloading',async t=>{
+test('navigation edits and invalid samples cannot move the Bush destination or authorize arrival unloading with Slew active',async t=>{
  const h=await harness(t);await start(h);
  const original=h.manager.getExecutionSnapshot().location;
  assert.equal(h.manager.editNavigationRoute({routeId:'bush-run',expectedRevision:0,edit:{action:'insert',index:1,point:{lat:49,lng:9}}}).ok,true);
  assert.deepEqual(h.manager.getExecutionSnapshot().location,original);
  await arrive(h);
- for(const patch of [{lat:null,lon:8.5},{lat:48.3,lon:8.5,slewActive:true}]){
+ for(const patch of [{lat:null,lon:8.5},{lat:48.3,lon:8.5,inMenuOrMap:true}]){
   await h.sample(patch);assert.equal((await h.intent('set_manifest_item',{itemId:'box',action:'unload'})).error,'bush_fresh_telemetry_required');
  }
  await h.sample({lat:47,lon:7});assert.equal((await h.intent('set_manifest_item',{itemId:'box',action:'unload'})).error,'bush_target_required');
  await h.sample({lat:48.3,lon:8.5});h.runtime.detachSimulator(h.bridge);
  assert.equal((await h.intent('set_manifest_item',{itemId:'box',action:'unload'})).error,'bush_fresh_telemetry_required');
+});
+
+
+test('Bush accepts every Slew alias independently while retaining data, pause and ground guards',async t=>{
+ for(const flags of [{slewActive:true},{slewMode:true},{isSlewActive:true},{slewTelemetryStatus:'error'}]){
+  const h=await harness(t);
+  const base={slewActive:false,slewMode:false,isSlewActive:false,...flags};
+  const sample=await h.sample(base);assert.notEqual(sample.status,'ignored');
+  assert.equal((await h.intent('prepare_mission')).ok,true);
+  for(const patch of [{simPaused:true},{inMenuOrMap:true},{lat:null},{gsKts:null}]){
+   await h.sample({...base,...patch});
+   assert.equal((await h.intent('start_boarding')).error,'bush_fresh_telemetry_required');
+  }
+  await h.sample({...base,onGround:false,gsKts:80});
+  assert.equal((await h.intent('start_boarding')).error,'bush_ground_stop_required');
+  await h.sample(base);assert.equal((await h.intent('start_boarding')).ok,true);
+ }
 });

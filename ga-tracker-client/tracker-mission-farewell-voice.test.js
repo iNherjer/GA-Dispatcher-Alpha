@@ -299,3 +299,57 @@ for (const reversed of [false, true]) test(`stale farewell preload cannot overri
   assert.equal(result.voiceOutcome.text.includes('Die Uebergabe dieser Ladung ist noch offen: Serumpaket'), reversed);
   assert.equal(jobs.has('mfx-farewell'), true, 'fresh result is generated under the live effect ID');
 });
+
+for (const profile of [
+  { taskDomain: 'sightseeing_tour', narrativeSchema: 'sightseeing-idea.v1', history: 'clubHistory' },
+  { taskDomain: 'private_return', history: 'privateReturnHistory' }
+]) for (const source of ['context', 'recipe']) {
+  test(`${profile.taskDomain} farewell ${source} keeps restored speech history through prewarm and dispatch`, async () => {
+    const speaker = { name: 'Mara', gender: 'female', taskDomain: profile.taskDomain,
+      ...(profile.narrativeSchema ? { narrativeSchema: profile.narrativeSchema } : {}) };
+    const recipe = { taskDomain: profile.taskDomain, speaker, audioEnabled: false };
+    const active = source === 'context' ? activeRunWithContext(authorityContext(recipe)) : activeRun(recipe);
+    active.state = 'active'; // publicRun carries a lifecycle string, not execution state.
+    const snapshot = JSON.parse(JSON.stringify({ missionId: active.missionId, runId: active.runId, state: {
+      voice: {
+        [profile.history]: [{ id: 'route-story-0', text: 'Am Markt möchte ich den alten Brunnen ansehen.' }],
+        [profile.history === 'clubHistory' ? 'privateReturnHistory' : 'clubHistory']:
+          [{ id: 'unrelated', text: 'Dieses andere Gespräch gehört nicht dazu.' }]
+      }
+    } }));
+    const calls = [];
+    const handler = createTrackerMissionFarewellVoice({
+      authorityManager: { getActiveRun: () => active, getExecutionSnapshot: () => snapshot },
+      voiceService: { publicState: () => ({ configured: true }),
+        request: value => { calls.push(value); return { status: 'ready' }; },
+        wait: async () => ({ status: 'ready', audioAvailable: false, text: 'Danke für den Flug.', speaker }) }
+    });
+    assert.equal(handler.prepare(request()).sideEffect, true);
+    const result = await handler.dispatch(request());
+    assert.equal(result.ok, true);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].deferPlayback, true);
+    for (const call of calls) {
+      assert.match(call.prompt, /BEREITS GESPROCHEN/);
+      assert.equal(call.prompt.split('Am Markt möchte ich den alten Brunnen ansehen.').length - 1, 1);
+      assert.doesNotMatch(call.prompt, /Dieses andere Gespräch/);
+      assert.equal(call.speaker.name, 'Mara');
+      assert.equal(call.speaker.taskDomain, profile.taskDomain);
+    }
+  });
+}
+
+test('ordinary farewell does not inherit specialized conversation histories', async () => {
+  const calls = [];
+  const handler = createTrackerMissionFarewellVoice({
+    authorityManager: { getActiveRun: () => activeRun(), getExecutionSnapshot: () => ({ state: { voice: {
+      clubHistory: [{ id: 'club', text: 'Unrelated sightseeing conversation.' }],
+      privateReturnHistory: [{ id: 'private', text: 'Unrelated private conversation.' }]
+    } } }) },
+    voiceService: { publicState: () => ({ configured: true }), request: value => calls.push(value),
+      wait: async () => ({ status: 'ready', audioAvailable: true, text: 'Danke.' }) }
+  });
+  await handler.dispatch(request());
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].prompt, 'Verabschiede dich beim Piloten.');
+});

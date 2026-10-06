@@ -101,7 +101,7 @@ async function harness(t) {
   function sample(lat, lon, patch = {}) {
     now += 1000;
     const result = runtime.observeTelemetry({ observedAt: now, lat, lon, altFt: 1500, aglFt: 1000,
-      hdg: 90, gsKts: 85, onGround: false, ...patch });
+      hdg: 90, gsKts: 85, onGround: false, slewActive: true, slewMode: true, isSlewActive: true, slewTelemetryStatus: 'error', ...patch });
     assert.equal(result.ok, true, JSON.stringify(result));
     return result;
   }

@@ -325,13 +325,13 @@ test('training distinguishes telemetry interruption reasons and updates a changi
   const h = harness();
   const base = { observedAt: 11000, lat:48.3, lon:8.5, altFt:5700, aglFt:3000,
     hdg:90, bankDeg:0, vsFpm:0, onGround:false, simPaused:false, inMenuOrMap:false };
-  runtime.pause(h.recipe, h.state, 11000, undefined, {...base,slewActive:true});
-  assert.match(h.state.guidance.notice, /Tracker meldet aktiven Slew/);
-  assert.doesNotMatch(h.state.guidance.notice, /Simulator pausiert|unvollständig/);
+  runtime.pause(h.recipe, h.state, 11000, undefined, {...base,lat:null});
+  assert.match(h.state.guidance.notice, /Flugdaten unterbrochen oder unvollständig/);
+  assert.doesNotMatch(h.state.guidance.notice, /Simulator pausiert|Slew/);
   assert.equal(h.state.guidance.canStart, undefined);
   assert.match(h.state.guidance.rows.find(r=>r.id==='altitude').detail, /3000/);
   const historySize=h.state.coaching.history.length;
-  runtime.pause(h.recipe, h.state, 12000, undefined, {...base,slewActive:true});
+  runtime.pause(h.recipe, h.state, 12000, undefined, {...base,lat:null});
   assert.equal(h.state.coaching.history.length, historySize, 'identical blocker does not flood history');
   runtime.pause(h.recipe, h.state, 13000, undefined, {...base,simPaused:true,slewActive:false});
   assert.match(h.state.guidance.notice, /Simulator pausiert/);
@@ -342,4 +342,60 @@ test('training distinguishes telemetry interruption reasons and updates a changi
   assert.match(h.state.guidance.notice, /Flugzeug am Boden/);
   runtime.pause(h.recipe, h.state, 16000, 'Expliziter Wiederaufnahmehinweis.', base);
   assert.equal(h.state.coaching.notice, 'Expliziter Wiederaufnahmehinweis.');
+});
+
+
+for (const type of ['turn_180', 'constant_bank_360']) test(`${type} starts at the click before the first banked sample`, () => {
+  const h = harness([{id:'turn', type, targetBankDeg:30}]);
+  h.observe({altFt:3120, hdg:140}); h.observe({altFt:3120, hdg:140}, 3100);
+  const started = h.action('training_ready');
+  assert.equal(h.raw().active.phase, 'entry');
+  assert.equal(h.raw().exercises[0].attempts, 1);
+  assert.equal(h.state.guidance.canAbort, true);
+  assert.equal(h.raw().active.startAltFt, 3120);
+  assert.equal(h.raw().active.startHeadingDeg, 140);
+  assert.equal(h.raw().active.targetHeadingDeg, type==='turn_180'?320:140);
+  assert.match(h.spoken(started), /festgelegt/);
+  assert.doesNotMatch(h.spoken(started), /nächsten Messwert/);
+  assert.ok(started.voices.every(v=>v.trainingScope===runtime.scope(h.state)));
+  h.restore();
+  h.observe({altFt:3130, hdg:146, bankDeg:25}, 1000);
+  assert.equal(h.raw().active.phase, 'turning');
+  assert.equal(h.raw().exercises[0].attempts, 1);
+  assert.equal(h.raw().active.startHeadingDeg, 140);
+  assert.equal(h.raw().active.startAltFt, 3120);
+  assert.equal(h.raw().active.progressDeg, 6);
+});
+
+test('manual start captures IAS immediately and permits abort before the next measurement', () => {
+  const h = harness([{id:'step', type:'altitude_step_hold', altitudeStepFt:500}]);
+  h.observe({altFt:3120, hdg:140, iasKts:90});
+  h.observe({altFt:3120, hdg:140, iasKts:90}, 3100);
+  h.action('training_ready');
+  assert.equal(h.raw().active.phase, 'hold_initial');
+  assert.equal(h.raw().active.refIasKts, 90);
+  assert.equal(h.raw().active.targetAltFt, 3620);
+  h.observe({altFt:3120, hdg:140, iasKts:100});
+  assert.equal(h.raw().active.refIasKts, 90);
+  assert.equal(h.row('hold_initial').status, 'error');
+  h.action('training_abort');
+  assert.equal(h.raw().active, null);
+  h.observe({altFt:3200, hdg:160, iasKts:100}, 5000);
+  h.observe({altFt:3200, hdg:160, iasKts:100}, 3100);
+  h.action('training_ready');
+  assert.equal(h.raw().active.startAltFt, 3200);
+  assert.equal(h.raw().active.startHeadingDeg, 160);
+  assert.equal(h.raw().active.refIasKts, 100);
+  assert.equal(h.raw().exercises[0].attempts, 2);
+  h.action('training_abort');
+  assert.equal(h.raw().active, null, 'abort also works immediately after the click');
+});
+
+test('banking without a manual start keeps the exercise inactive', () => {
+  const h = harness(); h.observe(); h.observe({},3100);
+  assert.equal(h.state.guidance.canStart,true);
+  h.observe({bankDeg:25,hdg:96});
+  assert.equal(h.raw().active,null);
+  assert.equal(h.raw().exercises[0].attempts,0);
+  assert.equal(h.state.guidance.canStart,false);
 });

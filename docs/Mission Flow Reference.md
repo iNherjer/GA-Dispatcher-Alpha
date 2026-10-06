@@ -681,3 +681,453 @@ Bush-Pickup und Bush-Recon bleiben für spätere vollständige Portierungen gesc
 ## Wiederverwendbare POI-Briefings
 
 Für weitere POI-Umbauten verbindlich: [Shared Briefing Guide](POI%20Shared%20Briefing%20Guide.md) und [Foto-Migration als Vorlage](POI%20Photo%20Migration%20Template.md). Lage/Wetter über `MissionPoiBriefingSharedCore` und `MissionPoiBriefingSharedBrowser` anbinden. Die Foto-Mission ist der erste Verbraucher; Auftrag, Profil, History und Runtime bleiben getrennt. Keine neue Lage-/Wetterimplementierung je Profil.
+
+
+### Bush ohne Slew-Sperre (06.10.2026, lokal)
+
+Auf Nutzerwunsch blockieren Slew-Aliasflags und deren Diagnose-Status keine
+Bush-Flugauswertung, Bodenaktionen oder Pickup-/Abflugansagen mehr. Dies gilt
+für Supply, Charter, Scenic Hopper, PAX-/Cargo-Pickup und Recon Return.
+Frische gültige Telemetrie, echte Pause/Menü, Bodenstillstand bei Bodenaktionen,
+unveränderte Ziel-/Heimatanker, Manifestpflichten, Signaturen und bestätigte
+Szenen-/Voice-Effekte bleiben erhalten. Nach Neustart ist ein neues Sample
+für Bodenaktionen notwendig. Versetzen zum Ziel darf Ankunftskriterien erfüllen;
+Cargo-/PAX-Handoff und Heimkehrabschluss werden dadurch nicht erfunden.
+Recon-Aufgaben behalten ihre bestehenden Mess-/Geometriekriterien.
+SAR-Slew-Gates werden nicht geändert.
+
+Die erweiterten Pickup-Voice-Prüfungen fanden zusätzlich einen vorhandenen
+Integrationsfehler: `BUSH_VOICE_REQUESTED` verlor im Execution-Adapter seinen
+Payload und wurde deshalb vom Core abgelehnt. Die Übergabe erhält jetzt das
+normalisierte Boarding-Rezept, Stage, Gesprächsgedächtnis und Triggerzeit.
+Der Fehler wurde auch mit unverändertem HEAD ohne Slew reproduziert.
+Pickup- und Abflugansagen werden bei PAX und Cargo jeweils einmal ausgeführt;
+Restore wiederholt keine erledigte Pickup-Ansage und gibt die ausstehende
+Abflugansage erst anhand neuer Telemetrie frei.
+
+Nachweis: vollständige Strip-/Pickup-/Recon-Läufe mit aktiven Slew-Flags,
+einzelne Aliasflags, ungültige/stale Samples, Pause/Menü, Bodenaktionen,
+immutable Zielanker, Verladung, Rückflug, Home-Unload, Abschluss, Follow-up,
+Checkpoint/Restore und tatsächlicher Child-Process-Lauf. Breite Regression:
+282 von 284 Tests bestanden. Zwei schon im unveränderten HEAD scheiternde
+Generator-Paritätsprüfungen betreffen einen fehlenden APT-Reporter-Hinweis
+im generierten POI-Voice-Core; keine neue Ablaufregression festgestellt.
+Kein neuer Build/Rollout und kein echter Simulator-/Audio-Feldtest.
+
+
+### Querprüfung weiterer Missionsfamilien (06.10.2026, nur Analyse)
+
+Anlass: Der Bush-Voice-Payloadverlust rechtfertigt eine Prüfung der übrigen
+Tracker-/App-Übergaben. Keine neuen Produktionsänderungen oder Veröffentlichung
+in dieser Querprüfung. Bestehende lokale Slew-Patches bleiben erhalten.
+
+Geprüft wurden System-Event-Payloads, Voice-Effektplanung/-Dispatch, Gesprächs-
+Persistenz, manuelle Aktionen und vollständige verfügbare Start-/Ankunfts-/
+Pickup-/Unload-/Abschluss-/Restore-Tests für APT, Charter, Cargo/Fragile Cargo,
+Privat-/Rückflüge, Sightseeing, Reporter, Training, Bush, POI Foto/Inspektion,
+Wissenschaft, Lernführer/Historiker, Survey, Infrastrukturketten, Feuerwache und
+SAR. Dies ist eine Code-/Automatikprüfung, keine reale MSFS-/Audio-Abnahme
+und kein Nachweis beliebiger KI-generierter Inhalte.
+
+Bestätigte zusätzliche Funde:
+
+1. **APT-Sightseeing: Abschied ohne aktuelle Gesprächshistory.**
+   `tracker-mission-farewell-voice.js::resolveRecipe` fügt `clubHistory` für
+   Charter und APT-Reporter hinzu, aber nicht für `sightseeing-idea.v1`.
+   Der State speichert gehörte Sightseeing-Texte korrekt und der Boarding-/
+   Flight-/Approach-Handler nutzt sie; nur der Farewell-Handler lässt sie weg.
+   Ein isolierter Aufruf des echten Farewell-Handlers mit markierter gespeicherter
+   History zeigt sie bei Charter/Reporter im Prompt, bei Sightseeing nicht.
+   Folge: mögliche Wiederholung, kein zusätzlicher Abschlussblocker.
+   Vorschlag: Sightseeing an denselben bestehenden History-Anschluss anbinden.
+
+2. **Private Rückflüge: Abschied ohne aktuelle Heimreise-Gesprächshistory.**
+   Derselbe Handler nutzt `privateReturnHistory` nicht. Der Boarding-/Flight-/
+   Approach-Handler ergänzt sie bereits; die App verwendet die gehörten Texte
+   über `_privateReturnNarrativeHint`. Isolierter Farewell-Aufruf mit vorhandenem
+   markiertem History-Eintrag: Eintrag fehlt im erzeugten Request-Prompt.
+   Der ursprüngliche Aufenthalts-Recap ist davon getrennt und bleibt erhalten.
+   Vorschlag: vorhandene begrenzte `privateReturnHistory` auch an Farewell geben,
+   ohne neue History oder neue Missionsbedingungen.
+
+3. **Bush-PAX-Pickup: Rückflug-Anflug liest das falsche State-Objekt.**
+   `tracker-mission-boarding-voice.js` prüft `run.state.bushTask` und liest
+   `run.state.voice.bushMemory`. `getActiveRun()` liefert aber laut
+   `mission-authority-core.js::publicRun` für `state` nur den String `active`.
+   Der fachliche Bush-/Voice-State liegt in `getExecutionSnapshot().state`.
+   Isolierte echte Handler-Probe: bei realer öffentlicher DTO-Form fehlt der
+   markierte Pickup-/Departure-Inhalt; mit einem künstlichen fachlichen
+   `run.state` kommt er an. Farewell liest schon den korrekten Snapshot.
+   Folge: Anflug spricht ohne aktuellen Pickup-/Rückflug-Kontext, kein
+   neuer Ablaufblocker. Vorschlag: bestehenden Execution-Snapshot nutzen.
+
+Zusätzlich bestätigt: Die schon bekannte POI-Voice-Generator-Abweichung besteht
+auch im unveränderten HEAD. `_domainDriftGuard` enthält in `passenger-voice.js`
+einen APT-Reporter-Kontinuitätshinweis, der im generierten
+`mission-poi-voice-core.js` fehlt. Keine weitere aktive System-Event-Voice-
+Payloadlücke wie der bereits behobene Bush-Fehler gefunden. Die whitelisted
+`BUSH_TASK_OBSERVED`-System-API benötigt zwar einen Payload, wird aber im aktiven
+Pfad direkt über `submitEvent` aufgerufen; keine zusätzliche Feldstörung behauptet.
+
+Teststand: zwei breite Läufe mit 868 + 223 = 1.091 Prüfungen; initial
+863 + 220 bestanden, acht Fehlmeldungen. Aufklärung der acht Meldungen:
+
+- zwei Generator-Paritätsfehler: derselbe echte, bereits vorhandene Reporter-
+  Quell-/Generatordrift; weiterhin offen;
+- EFB-Prozess-/HTTP-Test: Sandbox verbot 127.0.0.1; gezielt freigegeben bestanden;
+- Remote-Origin-Handoff und Private-Return-Kompaktierung: VM-Testkontexte
+  lassen Browser-Helfer/`window` aus; mit allein in /tmp ergänzten Testkontexten
+  bestanden, keine Produktionsänderung;
+- Ground-Flow-Test erwartet exakt den früheren Prebuild-String, der nun eine
+  zusätzliche Cargo-Paritätsprüfung enthält; Replacement-Test matcht den ersten
+  Pause-only-Telemetrieaufruf statt des vollständigen Flugtelemetrieaufrufs.
+  Mit nur in /tmp korrigierter Textprüf-Sicht beide bestanden; keine Entfernung
+  eines Produkt-Gates oder Änderung echter Telemetrie;
+- IndexedDB-Speichertest benötigte `fake-indexeddb`; aus vorhandenem npm-Cache
+  offline nach /tmp installiert und danach vollständig bestanden.
+
+Die unmodifizierte Testsuite ist damit noch nicht vollständig grün. Die
+weiteren echten Voice-Funde stammen aus gezielten Handler-Proben und sind in
+bestehenden positiven Ablauf-Tests bisher nicht abgedeckt. Für einen Fix sind
+History-/Snapshot-Regressionsprüfungen mit der echten öffentlichen Run-DTO
+notwendig. Vor Änderungen an der gemeinsamen Voice-Datenübergabe Nutzerfreigabe
+gemäß AGENTS.md einholen; Klassifikation, Profil und Missionspflichten bleiben
+außerhalb der vorgeschlagenen Korrekturen.
+
+
+### Voice-Übergaben aus der Querprüfung korrigiert (06.10.2026, lokal)
+
+Nach Nutzerfreigabe sind die drei oben analysierten Übergabefehler behoben:
+
+- APT-Sightseeing nimmt beim Farewell nun die bereits gespeicherte `clubHistory`
+  mit. Derselbe Weg gilt für Vorproduktion und tatsächlichen Voice-Auftrag;
+  Boarding und Anflug hatten das Sightseeing-Schema bereits berücksichtigt.
+- Private Return nimmt beim Farewell die vorhandene `privateReturnHistory`
+  mit. Diese Erinnerung an gesprochene Rückflugtexte ergänzt den bestehenden
+  Ausflugs-Recap; sie ersetzt ihn nicht und erhält keinen neuen Speicherpfad.
+- Bush-PAX-Pickup liest für den Rückflug-Anflug `bushTask` und `bushMemory` aus
+  dem Execution-Snapshot desselben Mission-/Run-Paars. Der öffentliche
+  Run-Lifecycle-String `state: active` wird nicht mehr als Fachzustand gelesen.
+  Der gespeicherte Handoff-Kontext bleibt unverändert.
+
+Der Reporter-Generator wurde aus `passenger-voice.js` erneut ausgeführt. Der
+Diff in `mission-poi-voice-core.js` besteht ausschließlich aus dem zuvor
+fehlenden APT-Reporter-Kontinuitätshinweis; `--check` ist wieder driftfrei.
+Keine Änderung an Klassifikation, Parsern, Profilen oder Missionspflichten.
+Nur tatsächlich als abgespielt gespeicherte Texte bilden die History. Ein
+vorproduzierter Clip kennt weiterhin nur den Stand seiner Erstellung.
+
+Sechs neue Handler-Regressionsprüfungen verwenden die öffentliche Run-DTO und
+per JSON wiederhergestellte Erinnerungen. Sie prüfen die tatsächlich an den
+Voice-Dienst übergebenen Prompts, Vorproduktion und Live-Farewell,
+Sprecheridentität, getrennte private/Sightseeing-History und Bush-Anflug.
+Vor dem Fix reproduzierten fünf positive Fälle die fehlende Erinnerung; die
+Negativprüfung ohne passendes Profil verhinderte fremde History. Nach dem Fix
+bestehen alle sechs. Die vier veralteten Testkontexte/-annahmen aus der Analyse
+wurden korrigiert; der Speichertest nutzt `fake-indexeddb` aus /tmp, ohne neue
+Projektabhängigkeit. Der EFB-HTTP-Prozesstest lief mit erlaubtem Loopback.
+
+Gesamtprüfung: 874 Missions-/Voice-Tests und 223 Ablauf-/Paritäts-/Speicher-
+Prüfungen, zusammen **1.097 bestanden, 0 fehlgeschlagen, 0 übersprungen**.
+Syntax, `git diff --check` und POI-Voice-Generatorcheck bestanden. Dies prüft
+auch die bereits lokalen Slew-Änderungen und den Bush-Voice-Payload-Fix.
+Noch kein neuer Tracker-Build, Push oder Rollout; echter MSFS-/Audio-
+Mehrinstanztest steht aus.
+
+
+### Zweite Querprüfung: zwei weitere Voice-Fehler (06.10.2026, Analyse vor Freigabe)
+
+Nach dem lokalen grünen Teststand wurden weitere echte Übergabefälle geprüft.
+Die folgenden Fehler sind reproduziert, noch nicht im Betriebscode korrigiert:
+
+1. **Bush-PAX- und Cargo-Pickup verlieren die Voice-Rückmeldung im Effect-Runner.**
+   `tracker-mission-effect-runner.js::VOICE_EFFECT_TYPES` enthält `voice.bush`
+   nicht. Der gemeinsame ACK-Pfad entfernt dadurch `voiceOutcome` aus dem
+   gespeicherten `EFFECT_ACKNOWLEDGED`, obwohl die Runtime diesen Auftrag über
+   ihren normalen Hintergrund-Voice-Pfad ausführt. Probe mit Authority-Manager,
+   Runtime, Pickup-Boarding-ACK, Rückflug und Neuladen des echten Checkpoints:
+   je zwei erfolgreich abgespielte Stage-Voices, beide Effekte `completed`,
+   aber leere `bushHistory` und leere Boarding-/Departure-Erinnerung vor und
+   nach Restore. Ein Core-Test mit direkt eingespeistem ACK-Result prüft diese
+   vorgelagerte Transportlücke nicht. Wirkung: nachfolgende Departure-, Anflug-
+   und Farewell-Texte können den gesprochenen Pickup-Inhalt nicht berücksichtigen.
+   Vorschlag: ausschließlich `voice.bush` in die bestehende Voice-Result-Liste
+   aufnehmen; keine Änderung an Phasen, Pickup-Triggern oder Abschlussregeln.
+
+2. **Charter-Abholung verbraucht optionale Gespräche auf dem leeren Hinflug.**
+   Der Route-Cache in `tracker-mission-execution-runtime.js` liest nur
+   `mission.aptNewsIdea`. Die bereits vorhandene gemeinsame
+   `MissionCharterContinuationCore.voiceLeg`-Regel für den besetzten Rückflug
+   wird deshalb für `charterIdea.continuation.pickupRequired` nicht angewendet.
+   Probe mit identischer Home–Pickup–Home-Route und 20-Prozent-Gespräch:
+   Charter markiert das Event am halben leeren Hinflug bei 25 Prozent als
+   `completed`; die bestehende Bush-Outbound-Sperre unterdrückt die Ausgabe.
+   Nach tatsächlichem Boarding und Pickup-Bestätigung fehlt das Event auf dem
+   Rückflug. Reporter als Kontrollfall: kein Claim vor Pickup, genau eine
+   Ausgabe bei 20 Prozent des besetzten Rückflugs. App/Debug-Sim berücksichtigt
+   bereits beide Ideenarten in `_missionObserveRouteVoice`.
+   Vorschlag: im Tracker denselben bestehenden Continuation-Vertrag für
+   `aptNewsIdea || charterIdea` verwenden. Normale Charter-Hinflüge ohne
+   Abholfortsetzung behalten ihre Route und Trigger.
+
+Eine nur im Speicher geladene Kandidatenfassung dieser zwei gezielten Änderungen
+besteht die gleichen Proben: Bush-Erinnerung und Stage-History überleben das
+Checkpoint-Neuladen; Charter und Reporter erzeugen vor Pickup keinen Claim
+und nach Pickup jeweils genau eine Rückflugansage. Der Worktree-Betriebscode
+bleibt bei dieser Analyse unverändert. Keine weitere bestätigte Trainings-
+Freigabesperre in dieser Prüfung. POI-, Training-, Bush-Pickup- und Tracker-
+Flight-Voice-Generatorchecks sind driftfrei. Allgemeine Legacy-Narrative-Memory
+kann auch angezeigte Texte berücksichtigen; dies wurde nicht als neuer Fehler
+oder als Änderung der bisherigen Playback-Semantik gewertet.
+
+Proben liegen vorläufig in /tmp: `ga-next-mission-audit.cjs`,
+`ga-bush-voice-ack-audit.cjs`, `ga-charter-route-audit.cjs` und
+`ga-audit-proposed-loader.cjs`. Da beide Korrekturen gemeinsame Tracker-
+Übergabepfade betreffen, vor Implementierung Nutzerfreigabe nach AGENTS.md
+abwarten. Anschließend echte Runtime-/ACK-/Restore-Regressionsprüfungen ergänzen.
+
+
+### Zweite Querprüfung korrigiert (06.10.2026, lokal)
+
+Nach ausdrücklicher Nutzerfreigabe sind beide zuvor dokumentierten
+Übergabefehler gezielt korrigiert:
+
+- Der Effect-Runner nimmt `voice.bush` in seine bestehende Voice-Result-Liste
+  auf. Damit erreichen die Boarding-/Departure-Texte den Execution-Core;
+  vollständige Stage-History und kompakte Erinnerung bleiben im Checkpoint.
+  Die Departure-Vorproduktion erhält den tatsächlich bestätigten Boarding-Text.
+  Keine Änderung an Triggern, Phasen oder bisherigen Playback-/Memory-Regeln.
+- Der Tracker-Route-Cache verwendet `aptNewsIdea || charterIdea`, entsprechend
+  der vorhandenen App-Brücke. Abholfortsetzungen wenden den bestehenden
+  `MissionCharterContinuationCore.voiceLeg`-Vertrag an: kein Event-Claim auf
+  dem leeren Hinflug, Prozenttrigger erst auf dem besetzten Rückflug nach
+  Boarding und bestätigtem Pickup. Normale Charterflüge behalten ihre Route.
+
+Vier neue Integrationsfälle prüfen den vollständigen Authority-/Runtime-/ACK-
+Pfad mit echtem Checkpoint-Neuladen: Bush-PAX und Bush-Cargo behalten ihre
+Stage-Texte ohne Wiederholung; Charter und Reporter lösen das Gespräch erst
+bei 20 Prozent des Rückflugs aus. Ein zusätzlicher normaler Charter-Kontrollfall
+prüft Auslösung und Deduplizierung ohne Abholfortsetzung. Die Test-Controller
+verwenden nach Neustart neue Command-IDs, damit Wiederaufnahme keine alten
+Intent-Antworten aus dem Idempotenzspeicher liest.
+
+Validierung: 57 gezielte Runtime-/Effect-Runner-/Pickup-Tests bestanden;
+Gesamtprüfung **879 Missions-/Voice-Tests + 223 Ablauf-/Paritäts-/Speichertests
+= 1.102 bestanden, 0 fehlgeschlagen, 0 übersprungen**. Syntax und
+`git diff --check` bestanden. Noch kein Tracker-Build, Push oder Rollout;
+MSFS-/Audio-Feldprüfung bleibt ausstehend.
+
+
+### Dritte Querprüfung: Voice nach Abbruch und Cache-Restore (06.10.2026, nur Analyse)
+
+Zwei weitere Übergabefehler sind reproduziert; noch keine Änderung des
+Betriebscodes für diese Funde:
+
+1. **Ansagen können nach Missionsabbruch noch abgespielt werden.**
+   In `tracker-mission-boarding-voice.js::isPlaybackAllowed` bedeutet ein
+   fehlender Execution-Snapshot für Route-/Anflugansagen weiterhin Freigabe
+   (`!current || ...`). `abortExecutionRun` entfernt den aktiven Run bewusst;
+   das ACK-Gate der Runtime verwirft zwar danach die alte Rückmeldung, schützt
+   aber nicht die Playback-Warteschlange. Normales Boarding, Farewell und
+   Compliance registrieren zudem keinen gemeinsamen laufbezogenen
+   Playback-Guard. Probe mit tatsächlichem Authority-Manager, Runtime,
+   `abort_mission`, Voice-Dispatcher und VoiceService; Providerantwort künstlich
+   bis nach Abbruch verzögert: Route, Boarding, Farewell und Compliance-Request
+   bleiben anschließend bei `activeRun=null` ausgabefähig und können einen
+   echten Playback-Claim erhalten. Der Fehler betrifft die Ansagezuordnung,
+   nicht die Freigabe der Übungen oder einen Slew-Schutz.
+   Vorschlag: Missions-Voice-Requests an Mission-ID und Run-ID binden und den
+   laufbezogenen Guard auch während Erzeugung/Playback prüfen. Fehlender Run
+   bedeutet bei solchen Requests Abbruch; Boarding und Farewell erhalten
+   ihre jeweils erlaubten Phasen, statt pauschal `flags.active` zu verlangen.
+
+2. **Cache-Neustart verliert die Playback-Zuordnung zum gültigen Lauf.**
+   `tracker-voice-service.js` speichert Guard-Funktionen ausschließlich im
+   Prozess. Der Cache enthält keine Mission-/Run-Zuordnung; Restore setzt
+   unclaimed/claimed Jobs wieder auf `available`, ohne den Lauf zu prüfen.
+   Der Guard fehlt somit bis zu einer erneuten Dispatcher-Anfrage. Bereits
+   veraltete Jobs werden vom aktiven Run nicht erneut angefragt. Kontrollprobe
+   mit tatsächlichem Boarding-/Route-Dispatcher und VoiceService, erzeugtem
+   Audio und echtem Cache-Neuladen: nach Wechsel auf `new-run` verwirft der
+   bisherige Service `old-route` korrekt, der neu geladene Service bietet
+   denselben alten Job an und akzeptiert den Playback-Claim. Ein möglicher
+   Auslöser ist eine fertige Ansage ohne verbundenen Audioclient vor Neustart.
+   Vorschlag: eine begrenzte, serialisierbare Missions-/Run-Zuordnung speichern
+   und wiederhergestellte Missionsjobs vor Ausgabe/Claim mit der aktuellen
+   Authority abgleichen. Gültige Wiederaufnahme und missionsunabhängige
+   Navigationswarnungen müssen als positive Kontrollfälle erhalten bleiben.
+
+Die zugehörigen bestehenden Boarding-/Farewell-/Compliance-/VoiceService-
+und Follow-up-Tests bestehen mit **80 von 80**. Der Cache-Test benötigte
+Dateizugriff auf seine bestehende temporäre Worktree-Datei; ohne diesen
+scheitert nur die Test-Persistenz an der Sandbox. Die neuen Reproduktionen liegen
+in /tmp (`ga-voice-abort-audit.cjs`, `ga-voice-cache-scope-audit.cjs`); sie nutzen
+simulierte Providerantworten und echte Runtime-/Cachepfade, keine externe
+KI oder Simulator-Audioausgabe. Beide Befunde betreffen gemeinsame
+Voice-Übergaben; vor Umsetzung Nutzerfreigabe nach AGENTS.md abwarten.
+Bisherige lokal geprüfte Korrekturen bleiben erhalten. Kein Build oder Rollout.
+
+
+### Voice-Laufzuordnung korrigiert und auf Folgebrüche geprüft (06.10.2026, lokal)
+
+Die beiden Funde der dritten Querprüfung wurden nach Nutzerfreigabe korrigiert.
+`tracker-mission-voice-scope.js` bildet eine begrenzte, serialisierbare
+Zuordnung aus Mission-ID, Run-ID und Wiedergabephase. Alle Tracker-Dispatcher
+für Boarding, Flug-/Anflugansagen, POI, Bush, Farewell, Compliance und
+Cargo-Cues liefern diese Zuordnung an den gemeinsamen VoiceService.
+
+- Ein fehlender, anderer oder an die App übergebener Run gibt keine alte
+  Missionsansage frei. Späte Providerantworten nach `abort_mission` werden
+  storniert. Die Prüfung gilt auch vor Audioabruf, Aktivierung, Playback-Claim
+  und Lease-Verlängerung. Der vorhandene Audioplayer beendet die Ausgabe,
+  sobald die Verlängerung abgelehnt wird.
+- Boarding, Cargo und Compliance bleiben vor dem Start möglich; Farewell
+  bleibt während des Abschlusses möglich. Flugansagen verlangen den aktiven
+  Flug außerhalb des Abschlusses. POI-Menüaktionen behalten ihre bestehende
+  Ausnahme für erlaubte Aktionen außerhalb des aktiven Fluges.
+- Training behält Übungsindex, Versuch und Phase als Gültigkeitsgrenze;
+  SAR-/Fire-Hinweise behalten ihre Zeit- und Fund-/Bestätigungsgrenzen. Stilles
+  SAR-Vorladen ist zunächst nur an den Run gebunden; beim Aktivieren wird
+  derselbe Audioclip mit der aktuellen Hinweisphase verknüpft.
+- Der Audio-Cache speichert die Zuordnung als optionale Metadaten im
+  bestehenden V2-Index. `tracker.js` liefert den Authority-Checker schon beim
+  Service-Start, damit Restore nicht auf die nächste Dispatcher-Anfrage
+  warten muss. Gültige Clips und abgeschlossene Playback-Deduplizierung
+  bleiben erhalten; der unveränderte Inhalt benötigt keine erneute KI-Anfrage.
+- Neue unabhängige Audiovorschauen werden ausdrücklich mit `missionScope:
+  null` gespeichert. Ältere noch offene Cache-Jobs ohne Zuordnungsmetadaten
+  bleiben bis zur identischen erneuten Dispatcher-Anfrage zurückgehalten.
+  Diese unbekannte Zuordnung bleibt auch bei weiteren Cache-Schreibvorgängen
+  unbekannt; sie darf dabei nicht als unabhängige Audioausgabe freigegeben
+  werden. Unveränderte alte Audio-Blobs werden beim Rebind weiterverwendet.
+  Navigationswarnungen behalten ihren unabhängigen Ablauf.
+- Scope/Guard werden erst nach erfolgreicher Inhaltsprüfung ersetzt. Ein
+  abgelehnter anderer Run oder Inhalt kann die gültige Jobprüfung nicht
+  überschreiben. Der Prompt-Fingerprint bleibt unverändert.
+
+Neue Nachweise: `tracker-mission-voice-lifecycle-integration.test.js`
+(10 Tests mit echtem Authority-Manager, Runtime, Abbruch, Landung,
+Abschluss und Cache-Neustart) sowie `tracker-mission-voice-scope.test.js`
+(6 positive/negative Phasen- und Zuordnungskontrollen).
+Gesamtprüfung: **933 Missions-/Voice-Tests + 223 Ablauf-/Paritäts-/Speichertests
+= 1.156 bestanden, 0 fehlgeschlagen, 0 übersprungen**. Die letzte
+Cache-Metadatenkorrektur wurde anschließend mit allen 38 VoiceService-Tests
+und den 16 neuen Kontrollen erneut geprüft: **54 von 54 bestanden**.
+Zusätzlich **39 Audioplayer-/EFB-HTTP-Tests bestanden**; damit insgesamt
+**1.195 unterschiedliche Tests grün**. Syntax und `git diff --check` bestanden.
+Kein Build, Push oder Rollout. Reale MSFS-/Audio-Feldprüfung steht aus;
+der spätere Release benötigt wegen `tracker.js` eine neue Tracker-EXE.
+
+
+### Vierte Querprüfung: Ansage nach Tracker-Neustart (06.10.2026)
+
+Nutzerentscheidung: Eine unterbrochene, weiterhin gültige Ansage darf nach
+Tracker-Neustart von vorne beginnen. Das Wiederholen des bereits gehörten
+Anfangs ist ausdrücklich erwünscht und wird nicht als offener Fehler
+geführt. Dafür ist keine zusätzliche Cursor-Sicherung vorgesehen.
+Abgeschlossene Ansagen bleiben unterdrückt; Mission-/Run-Zuordnung und
+Phasengrenzen gelten weiterhin auch für erneut angebotene Ansagen.
+
+Der Fall wurde mit echtem Authority-Manager, gestartetem APT-Run,
+Route-Voice-Dispatcher, VoiceService und erneut eingelesenem V2-Cache
+reproduziert. Betriebscode unverändert: `claimPlayback` und `renewPlayback`
+ändern Playback-Metadaten im RAM, markieren den Cache aber nicht als geändert.
+Nach bereits abgeschlossener Cache-Sicherung findet `flushPersistence`
+deshalb keine offene Mutation. Probe: Cache vollständig sichern, danach
+Claim und Lease-Verlängerung bei `stage=audio`, `offset=17.25`, erneut
+flushen und Service aus derselben Datei laden. RAM enthält 17,25 Sekunden;
+die Datei enthält weiterhin `available` ohne Position; Restore bietet den
+noch gültigen Clip bei `stage=cue`, `offset=0` erneut an.
+
+Das ist kein Nachweis, dass jeder Neustart unabhängig vom Sicherungszeitpunkt
+den Cursor zurücksetzt: Bereits gespeicherte Positionen können weiterhin
+wiederhergestellt werden. Ein erfolgreicher Gerätewechsel über
+`releasePlayback` speichert den Cursor und bleibt davon getrennt.
+Endgültige Playback-Fehler bleiben nach Cache-Restore `released` und werden
+nicht erneut angeboten. Navigationswarnungen sind nicht Teil dieses
+persistenten Audio-Caches.
+
+Die bisherige positive Cache-Probe schrieb Claim/Cursor noch während der
+ersten ausstehenden Cache-Sicherung. Sie prüfte den Restore eines
+gespeicherten Cursors, nicht die spätere Erneuerung nach abgeschlossener
+Sicherung. Außerdem nutzte dieser Test `stage=tts`, das normalerweise zu
+`cue` normalisiert wird; der reale Player verwendet `stage=audio`.
+Diese Unterschiede erklären die verschiedenen Ergebnisse der Proben.
+
+Probe mit Assertions: `/tmp/ga-voice-resume-extra-audit.cjs`.
+20 gezielte bestehende Follow-up-/Voice-Lifecycle-/Phasenkontrollen bestanden.
+Keine neue bestätigte Trainingsfreigabesperre oder Folgemissionsblockade
+in dieser begrenzten Querprüfung. Kein Build, Push oder Rollout.
+
+
+### Fünfte Querprüfung: manueller Trainingsstart (06.10.2026, nur Analyse)
+
+Ein neuer Fehler ist für POI- und APT-Training mit echtem Authority-Manager,
+Runtime und akzeptiertem `training_ready` reproduziert. Nach stabiler
+Vorbereitung ist der Bannerstart erlaubt. Der Klick setzt `ready=true`,
+legt aber noch keinen aktiven Übungsdurchgang an. Dieser entsteht erst beim
+nächsten Telemetrie-Tick. `tracker-mission-training-coaching.js::prepare`
+prüft davor weiterhin die Ausgangslage und setzt bei mehr als 8 Grad Bank
+`ready=false`. Wer unmittelbar nach dem bestätigten Klick die Kurve einleitet,
+verliert dadurch den Start; kein Versuch wird begonnen und keine erklärende
+Notice erzeugt. Der gültige Bankwert von 25 Grad bei 5 Grad Kursänderung
+reproduziert dies in beiden Familien. Ein erster Messwert mit Bank 0 startet
+als positive Kontrolle dagegen jeweils die Übung.
+
+Ursache: Der bestätigte Start und das Anlegen des aktiven Durchgangs liegen
+in unterschiedlichen Schritten. Erwarteter Impact: Kurvenübungen starten
+abhängig vom Timing zwischen Klick, Einleiten und nächstem Messwert.
+Der gleiche Vorbereitungspfad prüft auch Kurs, Höhe und Vertikalgeschwindigkeit;
+weitere betroffene Manöver sind damit ein Verdacht, noch kein separater Nachweis.
+Das ist weder eine Slew-Sperre noch fehlende Telemetrie.
+
+Gezielter Lösungsvorschlag: Den Durchgang beim akzeptierten manuellen Start
+mit der zuletzt gültigen, stabilisierten Telemetrie initialisieren und die
+Referenzen festschreiben. Nachfolgende Messwerte gehören dann zur Durchführung;
+echte Pause, Datenlücke und Sicherheitshöhe behalten ihre bestehenden Regeln.
+Vorbereitung ohne Startklick muss unverändert gesperrt bleiben. Regressionen
+für unmittelbares Einleiten, normale Vorbereitung, Referenzbindung sowie
+Pause/Abbruch und Wiederaufnahme in beiden Familien vorsehen. Vor Änderung
+der gemeinsamen Trainingslogik Nutzerfreigabe gemäß AGENTS.md abwarten.
+
+Reproduktion mit Assertions: `/tmp/ga-training-start-race-audit.cjs`
+(vier Fälle: POI/APT jeweils normales und unmittelbares Einleiten).
+68 bestehende Coaching-/POI-/APT-Trainingstests bestanden; ihre Startabläufe
+liefern bisher erst einen waagerechten Messwert nach dem Klick und decken
+diesen Fall nicht ab. Keine Änderung am Betriebscode, kein Build oder Rollout.
+
+
+### Manueller Trainingsstart korrigiert (06.10.2026, lokal)
+
+Nach Nutzerfreigabe ist der Fund der fünften Querprüfung korrigiert.
+`tracker-mission-training-runtime.js::action` führt beim akzeptierten
+`training_ready` den Setup-Schritt des bestehenden Prozedurdetektors bereits
+mit dem letzten gültigen Vorbereitungsmesswert aus. Kurs, Höhe und ggf.
+IAS-Referenz werden dabei festgeschrieben; der Übungsversuch ist im selben
+Action-Checkpoint aktiv. Der nächste reale Messwert gehört zur Durchführung
+und darf bereits Querneigung enthalten. Abbruch ist fachlich bereits vor dem
+nächsten Messwert möglich. Die Tracker-Startansage bestätigt die festgelegten
+Referenzen statt deren Festlegung mit einem späteren Messwert anzukündigen.
+
+POI nutzte bereits einen privaten Checkpoint vor der Intent-Ausführung.
+APT-Trainingsaktionen nutzen jetzt denselben Abgleich für gepufferte Messwerte.
+Die ursprüngliche Controller-Revision wird zuerst validiert, danach die durch
+den eigenen synchronen Checkpoint aktualisierte Revision übernommen. Eine
+vor dem Klick verlorene stabile Vorbereitung wird damit korrekt abgelehnt;
+ein eigener Checkpoint löst keinen künstlichen Revisionskonflikt aus.
+Gewöhnliche APT-Aktionen erhalten keinen zusätzlichen Trainingsflush.
+
+Kein automatischer Start ohne Klick. Pause, Menü, Datenlücke, Sicherheitshöhe,
+Abbruch, abgeschlossene Pflichtübungen und freiwillige Zusatzübungen behalten
+ihre bestehenden Regeln. Original-Prozedurcore und Standalone-App unverändert.
+Fehlt in einem alten Zustand der Vorbereitungsmesswert, wird kein aktiver
+Durchgang erfunden und die bestehende Meldung zur fehlenden Stabilität verwendet.
+
+Nachweise: zehn neue Regressionen für direkte Wende/Vollkreis-Einleitung,
+Referenzen und Restore, IAS-Bindung, sofortigen Abbruch, kein Start ohne Klick,
+POI-/APT-Pause und Wiederaufnahme sowie gepufferte gültige/ungültige Startwerte.
+Die vorhandenen POI-/APT-Tests im echten Missions-Kindprozess prüfen nun ebenfalls
+direkte Kurveneinleitung nach dem Klick. Insgesamt **225 Trainings-/Authority-/
+Runtime-/Voice-/UI-/Briefingtests bestanden, 0 fehlgeschlagen oder übersprungen**.
+Original-Prozedur-Selbsttest, Syntaxprüfung und `git diff --check` bestanden.
+Kein Build, Push oder Rollout; reale MSFS-Feldprüfung steht aus.

@@ -6,6 +6,7 @@ const DEFAULT_RETRY_DELAY_MS = 2000;
 const MAX_DRAIN_EFFECTS = 16;
 const PAYLOAD_EFFECT_TYPES = new Set(['payload.sync_before_start', 'payload.sync_manifest_state']);
 const VOICE_EFFECT_TYPES = new Set([
+  'voice.bush',
   'voice.poi',
   'voice.approach',
   'voice.cargo',

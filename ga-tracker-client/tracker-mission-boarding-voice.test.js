@@ -452,8 +452,45 @@ test('SAR hint prewarms silently, reuses audio and cannot play after a contact',
  active.resumeBundle.executionPoiRecipe={sarScenario:scenario,voiceContext:context};
  const jobs=new Map(),activated=[],cancelled=[];let found=null;
  const handler=createTrackerMissionBoardingVoice({authorityManager:{getActiveRun:()=>active,supportsExecutionRecipe:()=>true,getExecutionSnapshot:()=>({missionId:'mission-a',runId:'run-a',recipe:'poi',state:{flags:{active:true},phase:'in_flight',effects:[],poiTask:{sarSearchState:{found}}}})},voiceService:{publicState:()=>({configured:true}),get:id=>jobs.get(id),request:value=>{jobs.set(value.effectId,{...value,status:'ready'});},activatePlayback:id=>activated.push(id),cancel:(id,reason)=>cancelled.push({id,reason}),wait:async id=>({...jobs.get(id),audioAvailable:false,text:jobs.get(id).fallbackText})}});
- await handler.prepare(request());assert.equal(jobs.size,2);const prepared=jobs.get('sar-hint-preload:run-a');assert.equal(prepared.deferPlayback,true);assert.equal(prepared.synthesizeAudio,true);assert.equal(prepared.isPlaybackAllowed,undefined);assert.deepEqual(activated,[]);
+ await handler.prepare(request());assert.equal(jobs.size,2);const prepared=jobs.get('sar-hint-preload:run-a');assert.equal(prepared.deferPlayback,true);assert.equal(prepared.synthesizeAudio,true);assert.equal(prepared.missionScope.policy,'run');assert.equal(prepared.isPlaybackAllowed(),true);assert.deepEqual(activated,[]);
  const cue=require('./tracker-mission-sar-search-task.js').voices(context,[require('../mission-sar-search-core.js').hint(scenario)],Date.now())[0];
  const effect={effectId:'sar-hint-live',type:'voice.poi',payload:cue};await handler.dispatch({...request(),effect});assert.deepEqual(activated,['sar-hint-preload:run-a']);assert.equal(jobs.has('sar-hint-live'),false);
  found={id:'contact'};const result=await handler.dispatch({...request(),effect});assert.equal(result.voiceStatus,'sar_hint_stale');assert.equal(activated.length,1);assert.ok(cancelled.some(c=>c.reason==='sar_hint_stale'));
+});
+
+test('Bush return approach uses restored pickup speech from the execution snapshot with a public run DTO', async () => {
+  const active = run({ audioEnabled: false });
+  active.state = 'active';
+  active.executionRecipe = 'apt';
+  active.resumeBundle.executionBushRecipe = { kind: 'pickup_return' };
+  const plan = active.resumeBundle.executionEffectPlan;
+  plan.bushPickup = { voiceContext: {
+    missionId: 'mission-a', pickupKind: 'passenger',
+    bush: { profileId: 'bush_pickup_strip', targetMode: 'strip_then_return', requiresReturnHome: true }
+  } };
+  plan.effects['voice.approach'] = { context: { supported: true, missionId: 'mission-a', mode: 'passenger',
+    baseContext: 'ROLLE: Mara, abgeholte Passagierin.', audioEnabled: false, dest: 'Heimatplatz' } };
+  const snapshot = JSON.parse(JSON.stringify({ missionId: 'mission-a', runId: 'run-a', recipe: 'apt', state: {
+    phase: 'enroute', flags: { active: true }, effects: [], bushTask: { kind: 'pickup_return' },
+    voice: { bushMemory: { passenger: {
+      boarding: 'Die Proben aus dem oberen Tal sind verstaut.',
+      departure: 'Morgen werden die Proben in der Basis ausgewertet.'
+    } } }
+  } }));
+  const originalPlan = JSON.stringify(plan);
+  const calls = [];
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: { getActiveRun: () => active, getExecutionSnapshot: () => snapshot },
+    voiceService: { publicState: () => ({ configured: true }), request: value => calls.push(value),
+      wait: async () => ({ status: 'ready', audioAvailable: false, text: 'Gleich sind wir wieder zu Hause.' }) }
+  });
+  const result = await handler.dispatch({ ...request(), effect: { effectId: 'bush-approach', type: 'voice.approach' } });
+  assert.equal(result.ok, true);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].prompt, /Die Proben aus dem oberen Tal sind verstaut/);
+  assert.match(calls[0].prompt, /Morgen werden die Proben in der Basis ausgewertet/);
+  assert.match(calls[0].prompt, /Story-Stufe Anflug/);
+  assert.equal(calls[0].kind, 'approach');
+  assert.equal(calls[0].isPlaybackAllowed(), true);
+  assert.equal(JSON.stringify(plan), originalPlan, 'runtime memory must not mutate the handoff context');
 });

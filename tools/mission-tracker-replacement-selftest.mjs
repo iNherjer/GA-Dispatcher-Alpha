@@ -118,7 +118,10 @@ vm.runInNewContext(`${farewellPrepareSource}\nthis.run = _missionPrepareFarewell
 assert.equal(farewellPrepareContext.run({}, 'tracker-authority-test'), false);
 assert.equal(localFarewellPrepares, 0, 'tracker authority must not start a second App Farewell job');
 
-const trackerTelemetryCall = trackerSource.match(/missionExecutionRuntime\.observeTelemetry\(\{[\s\S]*?\n\s*\}\);/i)?.[0] || '';
+const trackerTelemetryCalls = [...trackerSource.matchAll(/missionExecutionRuntime\.observeTelemetry\(\{[\s\S]*?\}\);/gi)]
+    .map(match => match[0]).filter(call => /\blat\s*[:,]/.test(call) && /\blon\s*[:,]/.test(call) && /\bonGround\s*:/.test(call));
+assert.equal(trackerTelemetryCalls.length, 1, 'one full flight sample must coexist with pause-only telemetry');
+const trackerTelemetryCall = trackerTelemetryCalls[0];
 for (const field of [
     'altFt', 'aglFt', 'hdg', 'bankDeg', 'gForce', 'vsFpm', 'touchdownFpm',
     'windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'precipRateMmH',

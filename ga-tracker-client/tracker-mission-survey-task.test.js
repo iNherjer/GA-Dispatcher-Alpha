@@ -89,7 +89,7 @@ function orbitSamples(spec, intervalMs = 500) {
     assert.equal(state.progress.scan.completedCount, 1);
 }
 
-// A teleport, pause, slew, and long gap sever unfinished tracks. They retain
+// A teleport, pause, and long gap sever unfinished tracks. They retain
 // completed work but cannot create a line completion from stale active state.
 {
     const spec = core.normalizeSpec(scanRaw);
@@ -103,7 +103,7 @@ function orbitSamples(spec, intervalMs = 500) {
     state = result.state;
     result = task.observe(spec, state, { observedAt: 7000, simPaused: true }, { active: true, trackingActive: true });
     assert.equal(result.state.previousSample, null);
-    result = task.observe(spec, result.state, { ...samples[24], observedAt: 14000, slewActive: true }, { active: true, trackingActive: true });
+    result = task.observe(spec, result.state, { ...samples[24], observedAt: 14000, onGround: true }, { active: true, trackingActive: true });
     assert.equal(result.progress.satisfied, false);
 }
 
@@ -166,3 +166,51 @@ assert.equal(task.validateSpec({ ...scanRaw, targetAltFt: Infinity }), 'survey_s
 }
 
 console.log('tracker mission survey task tests ok');
+
+const slewVariants = [
+    { slewActive: true }, { slewMode: true }, { isSlewActive: true },
+    { slewTelemetryStatus: 'waiting' }, { slewTelemetryStatus: 'error' },
+    { slewTelemetryStatus: 'stale' },
+    { slewActive: true, slewMode: true, isSlewActive: true, slewTelemetryStatus: 'error' }
+];
+
+for (const raw of [scanRaw, orbitRaw]) {
+    const spec = core.normalizeSpec(raw);
+    const dense = raw.type === 'orbit' ? orbitSamples(spec) : scanSamples(spec);
+    const sparse = raw.type === 'orbit' ? dense.filter((_, i) => i % 8 === 0 || i === dense.length - 1)
+        : [0, 5, 10, 15, 20, 24].map(i => dense[i]);
+    for (const flags of slewVariants) require('node:test')(`Survey ${raw.type} ignores ${JSON.stringify(flags)} across checkpoint`, () => {
+        let baseline = null, flagged = null;
+        for (let i = 0; i < sparse.length; i++) {
+            if (i === Math.floor(sparse.length / 2)) flagged = JSON.parse(JSON.stringify(flagged));
+            const a = task.observe(spec, baseline, sparse[i], { active: true, trackingActive: true });
+            const b = task.observe(spec, flagged, { ...sparse[i], ...flags }, { active: true, trackingActive: true });
+            assert.deepEqual(b, a);
+            baseline = a.state; flagged = b.state;
+        }
+        assert.equal(flagged.progress.satisfied, true);
+    });
+}
+require('node:test')('Survey preserves real interruptions with Slew active and resumes valid work', () => {
+    const spec = core.normalizeSpec(scanRaw), samples = scanSamples(spec);
+    for (const [patch, extra] of [
+        [{ simPaused: true }, {}], [{ inMenuOrMap: true }, {}], [{ onGround: true }, {}],
+        [{ altFt: null }, {}], [{}, { disconnected: true }], [{}, { suspended: true }]
+    ]) {
+        let state = task.observe(spec, null, samples[0], { active: true, trackingActive: true }).state;
+        state = task.observe(spec, state, samples[5], { active: true, trackingActive: true }).state;
+        const held = task.observe(spec, state, { ...samples[10], slewActive: true, ...patch },
+            { active: true, trackingActive: true, ...extra });
+        assert.equal(held.state.previousSample, null);
+        assert.equal(held.progress.satisfied, false);
+        state = JSON.parse(JSON.stringify(held.state));
+        for (const sample of samples) state = task.observe(spec, state, { ...sample, observedAt: 20000 + sample.observedAt, slewMode: true },
+            { active: true, trackingActive: true }).state;
+        assert.equal(state.progress.satisfied, true);
+    }
+    let state = task.observe(spec, null, samples[0], { active: true, trackingActive: true }).state;
+    state = task.observe(spec, state, samples[5], { active: true, trackingActive: true }).state;
+    const jumped = task.observe(spec, state, { ...samples[20], observedAt: 6000, slewMode: true }, { active: true, trackingActive: true });
+    assert.ok(jumped.events.some(e => e.reason === 'teleport'));
+    assert.equal(jumped.progress.satisfied, false);
+});

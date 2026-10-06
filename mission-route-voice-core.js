@@ -29,7 +29,7 @@
  function observe(plan,route,previous={},facts={}){
   const state=JSON.parse(JSON.stringify(previous||{}));state.done=Array.isArray(state.done)?state.done.slice(0,3):[];
   const list=events(plan);const result={state,event:null};
-  if(!list?.length||!facts.active||facts.ending||facts.onGround!==false||facts.paused||facts.slew||!Number.isFinite(facts.lat)||!Number.isFinite(facts.lon)||Math.abs(facts.lat)>90||Math.abs(facts.lon)>180)return result;
+  if(!list?.length||!facts.active||facts.ending||facts.onGround!==false||facts.paused||!Number.isFinite(facts.lat)||!Number.isFinite(facts.lon)||Math.abs(facts.lat)>90||Math.abs(facts.lon)>180)return result;
   const points=Array.isArray(route)?route.map((p,i)=>({id:String(i),lat:p?.lat,lon:p?.lon??p?.lng})):[];
   state.percent=null;
   if(points.length>=2&&!points.some(p=>!Number.isFinite(p.lat)||!Number.isFinite(p.lon)||Math.abs(p.lat)>90||Math.abs(p.lon)>180)){

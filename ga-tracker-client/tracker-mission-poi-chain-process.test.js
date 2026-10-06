@@ -64,7 +64,7 @@ test('POI-chain telemetry is evaluated in the real mission child process and com
   const base = Date.now();
   for (let index = 0; index <= 30; index++) {
     const observedAt = base + index * 1000;
-    host.runtime.observeTelemetry({ observedAt, lat: 48.3 + index * .001, lon: 8.5, altFt: 3000, alt: 3000, aglFt: 600, gsKts: 85, hdg: 0, headingDeg: 0, onGround: false });
+    host.runtime.observeTelemetry({ observedAt, lat: 48.3 + index * .001, lon: 8.5, altFt: 3000, alt: 3000, aglFt: 600, gsKts: 85, hdg: 0, headingDeg: 0, onGround: false, slewActive: true, slewTelemetryStatus: 'error' });
     await until(() => !host.runtime.publicState().telemetry.inFlight && !host.runtime.publicState().telemetry.pending);
     await host.runtime.flush();
   }

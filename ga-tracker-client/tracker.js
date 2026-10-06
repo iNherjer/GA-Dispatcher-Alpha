@@ -36,6 +36,7 @@ const { createTrackerMissionShadow } = require('./tracker-mission-shadow.js');
 const { createTrackerMissionProcess } = require('./tracker-mission-process.js');
 const { createTrackerMissionExecutionRuntime } = require('./tracker-mission-execution-runtime.js');
 const { createTrackerMissionPayloadHandler } = require('./tracker-mission-payload-handler.js');
+const { createMissionVoiceScopeGuard } = require('./tracker-mission-voice-scope.js');
 const { createTrackerMissionBoardingVoice } = require('./tracker-mission-boarding-voice.js');
 const { createTrackerMissionFarewellVoice } = require('./tracker-mission-farewell-voice.js');
 const { createTrackerMissionComplianceVoice } = require('./tracker-mission-compliance-voice.js');
@@ -4908,6 +4909,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   }) : null;
   if (trackerAudioControl) trackerAudioControl.restore().catch(error => debugLog('AUDIO_RESTORE_FAILED ' + error.message));
   const trackerVoiceService = createTrackerVoiceService({
+    isMissionPlaybackAllowed: createMissionVoiceScopeGuard(missionAuthorityManager),
     audioControl: trackerAudioControl,
     provider: voiceCredentials?.provider,
     apiKey: voiceCredentials?.apiKey,

@@ -10,7 +10,7 @@ test('optional bounded events reject malformed triggers',()=>{
 test('progress follows route legs; durable IDs, pause, queue and end gates',()=>{
  let out=core.observe(plan,route,{},facts);assert.equal(out.event.id,'route-story-0');
  assert.equal(core.observe(plan,route,JSON.parse(JSON.stringify(out.state)),facts).event,null);
- for(const gate of [{onGround:true},{paused:true},{slew:true},{ending:true},{active:false},{busy:true},{enabled:false},{lat:NaN}])assert.equal(core.observe(plan,route,{}, {...facts,...gate}).event,null);
+ for(const gate of [{onGround:true},{paused:true},{ending:true},{active:false},{busy:true},{enabled:false},{lat:NaN}])assert.equal(core.observe(plan,route,{}, {...facts,...gate}).event,null);
  out=core.observe(plan,route,out.state,{...facts,lat:48.9,now:150000});assert.equal(out.event.intent,'B');
  assert.equal(core.observe(plan,route,out.state,{...facts,lat:48.9,now:151000}).event,null);
  out=core.observe(plan,route,out.state,{...facts,lat:48.9,now:200000});assert.equal(out.event.intent,'C');
@@ -30,7 +30,7 @@ test('actual app telemetry bridge commits before speaking and is disabled for tr
  currentMissionData:{clubIdea:{narrativeEvents:plan}},routeWaypoints:route,missionRuntime:{active:true},Date:{now:()=>100000},
  _missionExecutionAuthorityIsTracker:()=>tracker,_persistMissionRuntimeSnapshot:()=>persist};
  vm.createContext(c);vm.runInContext(code.slice(start,end),c);
- const fd={onGround:false};tracker=true;c._missionObserveRouteVoice(48.3,8,fd);assert.equal(calls,0);
+ const fd={onGround:false,slewActive:true,slewMode:true,isSlewActive:true,slewTelemetryStatus:'error'};tracker=true;c._missionObserveRouteVoice(48.3,8,fd);assert.equal(calls,0);
  tracker=false;persist=false;c._missionObserveRouteVoice(48.3,8,fd);assert.equal(calls,0);
  persist=true;c._missionObserveRouteVoice(48.3,8,fd);assert.equal(calls,1);
  c._missionObserveRouteVoice(48.3,8,fd);assert.equal(calls,1);
@@ -43,7 +43,7 @@ test('geo trigger: radius entry, bypass, busy exit, restore and no route require
  assert.equal(core.observe(p,[],JSON.parse(JSON.stringify(out.state)),{...facts,now:200000}).event,null);
  const busy=core.observe(p,route,{}, {...facts,busy:true});assert.equal(busy.event,null);
  assert.equal(core.observe(p,route,busy.state,{...facts,lat:48.5,now:200000}).event,null);
- for(const gate of [{onGround:true},{paused:true},{ending:true},{slew:true}])assert.equal(core.observe(p,route,{}, {...facts,...gate}).event,null);
+ for(const gate of [{onGround:true},{paused:true},{ending:true}])assert.equal(core.observe(p,route,{}, {...facts,...gate}).event,null);
 });
 test('mixed triggers retain stable IDs and reject ambiguous or malformed coordinates',()=>{
  const geo={lat:48.3,lon:8,radiusNm:1};
@@ -91,5 +91,23 @@ test('audio completion hook excludes stop, error and watchdog despite legacy que
   vm.createContext(c);vm.runInContext(code.slice(start,end),c);
   await c._paxDecodeAudioBufferAndPlay(new ArrayBuffer(1),'audio/wav',1,'Test',()=>heard++);
   assert.equal(heard,mode==='ended'?1:0,mode);
+ }
+});
+
+
+test('Slew permits percent and geo narration with unchanged spacing and durable claims',()=>{
+ const variants=[{slew:true},{slewActive:true},{slewMode:true},{isSlewActive:true},{slew:true,slewTelemetryStatus:'error'}];
+ for(const flags of variants){
+  let state={};
+  for(const [now,expected] of [[100000,'route-story-0'],[101000,null],[150000,'route-story-1'],[200000,'route-story-2'],[300000,null]]){
+   const out=core.observe(plan,route,JSON.parse(JSON.stringify(state)),{...facts,...flags,lat:48.9,now});
+   assert.equal(out.event?.id??null,expected);state=out.state;
+  }
+  const geo=[{geo:{lat:48.3,lon:8,radiusNm:1},intent:'Ort'}];
+  const a=core.observe(geo,[],{}, {...facts,...flags});assert.equal(a.event.intent,'Ort');
+  assert.equal(core.observe(geo,[],JSON.parse(JSON.stringify(a.state)),{...facts,...flags,now:200000}).event,null);
+  for(const gate of [{paused:true},{onGround:true},{busy:true},{ending:true},{lat:NaN}]){
+   const held=core.observe(geo,[],{}, {...facts,...flags,...gate});assert.equal(held.event,null);assert.deepEqual(held.state.done,[]);
+  }
  }
 });

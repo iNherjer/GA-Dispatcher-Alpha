@@ -92,7 +92,7 @@ test('return voice uses recap for all A-B phases, keeps both provider voices and
 test('deep cloud compaction retains private episode, recap and voice identity',()=>{
  const {md,record}=fixture(),req=core.request(md,record),p=core.prose(raw(),req.privateReturn,contract());
  const m=core.mission(req,{start:target,dest:home},p).mission;
- const c={};vm.createContext(c);extract(c,'sync.js',['_syncCompactMissionObjectCore','_syncStripDeepMissionPlans']);
+ const c={window:{}};vm.createContext(c);extract(c,'sync.js',['_syncCompactMissionObjectCore','_syncStripDeepMissionPlans']);
  const compact=c._syncStripDeepMissionPlans(c._syncCompactMissionObjectCore(m));
  assert.deepEqual(clone(compact.privateReturn),m.privateReturn);assert.equal(compact.passenger.privateReturn.experienceRecap.summary,p.continuity.experienceRecap.summary);
 });
