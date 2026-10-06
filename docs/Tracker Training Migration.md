@@ -367,3 +367,9 @@ Zuordnung, frische Werte nach Datenlücke und beide integrierten Trainingspfade.
 Release-Ziel ist Tracker v479 im Alpha-Kanal. 152 gezielte Regressionstests
 bestehen. Die eigenständige Abfrage ist noch nicht in MSFS verifiziert; der
 nächste Feldlauf muss den gemeldeten Rohwert und die Trainingsfreigabe bestätigen.
+
+Alpha-Rollout 06.10.2026: Tracker v479 veröffentlicht; der öffentliche EXE-
+Download stimmt mit dem Build überein (173555256 Bytes, SHA-256
+`6b3a36cea20e09bea02decf5d71ec681ebeabb59764da0794dca8919c077b108`).
+Der Alpha-Kanal wird auf dieses unveränderte Artefakt gesetzt. Stable bleibt
+unverändert; die Simulatorprüfung ist weiterhin offen.
