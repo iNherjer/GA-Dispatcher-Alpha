@@ -7,7 +7,7 @@ function distance(a,b){const r=Math.PI/180,x=(b.lon-a.lon)*r*Math.cos((a.lat+b.l
 function validate(s){if(s?.schema!=='sar-search.v2'||!point(s.center)||!['incident','no_contact'].includes(s.truth)||!Number.isFinite(s.radiusNm)||s.radiusNm<=0||s.radiusNm>3||!Number.isFinite(s.minSearchSec)||s.minSearchSec<30||s.minSearchSec>1800||!Number.isFinite(s.maxSearchSec)||s.maxSearchSec<s.minSearchSec||s.maxSearchSec>3600)return 'sar_search_invalid';if(s.truth==='incident'&&(!point(s.source)||distance(s.center,s.source)<0.12||distance(s.center,s.source)>s.radiusNm||!s.source.id||!s.source.label||!Number.isFinite(s.source.altFt)))return 'sar_source_invalid';if(s.truth==='no_contact'&&s.source)return 'sar_unexpected_source';return null;}
 function create(s,previous){const error=validate(s);if(error)throw TypeError(error);return previous?.schema==='sar-search-state.v2'?clone(previous):{schema:'sar-search-state.v2',observedSec:0,assessmentSec:0,evidenceSec:0,lastAt:null,lastDistance:null,inside:false,announced:false,hintDone:false,found:null,complete:false,outcome:null};}
 function observe(s,previous,p,now){const state=create(s,previous),voices=[];if(state.complete)return {state,voices,satisfied:true};
- const inside=point(p)&&p.onGround===false&&!p.simPaused&&!p.inMenuOrMap&&!p.slewActive&&!p.slewMode&&distance(p,s.center)<=s.radiusNm;
+ const inside=point(p)&&p.onGround===false&&!p.simPaused&&!p.inMenuOrMap&&distance(p,s.center)<=s.radiusNm;
  const elapsed=state.lastAt===null?0:Math.min(5,Math.max(0,(now-state.lastAt)/1000));
  if(!Number.isFinite(now)||state.lastAt!==null&&now<=state.lastAt)return {state,voices,satisfied:false};
  const d=s.truth==='incident'&&point(p)?distance(p,s.source):Infinity;

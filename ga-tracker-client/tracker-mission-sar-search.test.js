@@ -35,3 +35,54 @@ test('late Leitstelle hint is coarse, independent of aircraft proximity, once on
  state=core.create(s);state.found={id:'one'};state.observedSec=180;assert.equal(core.observe(s,state,{...center,onGround:false},1000).voices.some(v=>v.label==='Suchhinweis'),false);
  assert.equal(core.hint(scenario('no_contact')),null);
 });
+
+
+for (const truth of ['incident', 'no_contact']) test(`SAR V2 ${truth} search completes with Slew across a restored checkpoint`, () => {
+    const r=bundle(truth).executionPoiRecipe;
+    const slew={slewActive:true,slewMode:true,isSlewActive:true,slewTelemetryStatus:'error'};
+    let state=runtime.createState(r),labels=[];
+    for(let now=1000;now<=610000;now+=1000) {
+        const result=runtime.observe(r,state,sample(r.sarScenario,now,slew),{active:true,trackingActive:true});
+        state=result.state;
+        for(const effect of result.effects) for(const voice of effect.voices||[]) labels.push(voice.label);
+        if(now===3000) {
+            const report=task.action(r,state,sample(r.sarScenario,now,slew),now);
+            assert.equal(report.poiTask.sarSearchState.found,null,'manual report cannot invent a sighting');
+            assert.equal(report.poiTask.detector.satisfied,false);
+        }
+        if(now===60000) {
+            state=JSON.parse(JSON.stringify(state));
+            const report=task.action(r,state,sample(r.sarScenario,now,slew),now);
+            assert.equal(!!report.poiTask.sarSearchState.found,truth==='incident');
+            assert.equal(report.poiTask.detector.satisfied,false);
+        }
+    }
+    assert.equal(state.sarSearchState.complete,true);
+    assert.equal(state.sarSearchState.outcome,truth==='incident'?'contact_reported':'no_contact');
+    assert.equal(labels.filter(label=>label==='Suchabschluss').length,1);
+    assert.equal(labels.filter(label=>label==='Sichtkontakt').length,truth==='incident'?1:0);
+    assert.throws(()=>task.action(r,state,sample(r.sarScenario,611000,slew),611000),/sar_report_task_terminal/);
+});
+
+test('SAR V2 ignores Slew but pauses, missing equipment, ground and outside still stop observation', () => {
+    const r=bundle().executionPoiRecipe,s=r.sarScenario;
+    const slew={slewActive:true,slewMode:true,isSlewActive:true};
+    for(const patch of [{simPaused:true},{inMenuOrMap:true},{onGround:true},{lat:49}]) {
+        let state=core.create(s);
+        for(let now=0;now<=10000;now+=1000) state=core.observe(s,state,sample(s,now,{...slew,...patch}),now).state;
+        assert.equal(state.observedSec,0); assert.equal(state.found,null);
+    }
+    let state=runtime.createState(r);
+    for(let now=1000;now<=4000;now+=1000) state=runtime.observe(r,state,sample(s,now,slew),{active:true,trackingActive:true}).state;
+    assert.ok(state.sarSearchState.observedSec>0);
+    const saved=state.sarSearchState.observedSec;
+    state=runtime.observe(r,state,sample(s,5000,{...slew,simPaused:true}),{active:true,trackingActive:true}).state;
+    assert.throws(()=>task.action(r,state,sample(s,5000,slew),5000),/sar_report_position_unavailable/);
+    state=JSON.parse(JSON.stringify(state));
+    state=runtime.observe(r,state,sample(s,100000,slew),{active:true,trackingActive:true}).state;
+    assert.equal(state.sarSearchState.observedSec,saved,'pause duration earns no search time');
+    state=runtime.observe(r,state,sample(s,101000,slew),{active:true,trackingActive:true}).state;
+    assert.ok(state.sarSearchState.observedSec>saved);
+    const blocked=runtime.observe(r,null,sample(s,1000,slew),{active:true,trackingActive:true,taskItemState:{blockingItems:['Fernglas']}}).state;
+    assert.equal(blocked.sarSearchState.observedSec,0); assert.equal(blocked.sarSearchState.found,null);
+});

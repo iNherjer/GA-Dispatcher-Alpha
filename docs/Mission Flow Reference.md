@@ -694,7 +694,7 @@ Szenen-/Voice-Effekte bleiben erhalten. Nach Neustart ist ein neues Sample
 für Bodenaktionen notwendig. Versetzen zum Ziel darf Ankunftskriterien erfüllen;
 Cargo-/PAX-Handoff und Heimkehrabschluss werden dadurch nicht erfunden.
 Recon-Aufgaben behalten ihre bestehenden Mess-/Geometriekriterien.
-SAR-Slew-Gates werden nicht geändert.
+SAR-Slew-Gates waren in diesem Schritt noch ausgenommen; sie werden im Abschnitt „SAR ohne Slew-Sperre“ unten entfernt.
 
 Die erweiterten Pickup-Voice-Prüfungen fanden zusätzlich einen vorhandenen
 Integrationsfehler: `BUSH_VOICE_REQUESTED` verlor im Execution-Adapter seinen
@@ -1139,3 +1139,11 @@ Die gesammelten Missionsfixes werden auf dem aktuellen Alpha-Stand inklusive Tra
 Der manuelle Trainingsstart verwendet die Revision des eigenen gespeicherten Messstands. Ein APT-Training behaelt dabei seinen Trainings-Checkpoint, wenn kein POI-Checkpoint existiert; konkurrierende Aenderungen aus Authority-Benachrichtigungen werden weiterhin abgewiesen.
 
 Release-Pruefung: 959 Missions-/Voice-/EFB-Tests, 223 Flow-/Storage-/Cargo-/Handoff-Tests und 28 Audio-/HTTP-/Publisher-Tests erfolgreich. Windows-EXE gebaut; Voice-Scope-Modul im Paket geprueft. Der lokal verpackte Missionsprozess startet als Child, persistiert den Run und beendet sich mit Exit 0. Kein neuer realer MSFS-Flugtest in diesem Release-Durchlauf. Die fremde lokale SAR-Testaenderung ist nicht Teil dieses Releases.
+
+### SAR ohne Slew-Sperre (06.10.2026, Tracker v482)
+
+Auf Nutzerwunsch blockieren die Slew-Flags keine SAR-Suchbeobachtung oder Fundmeldung mehr. Dies umfasst die bestehende Fixed-Wing-Fundmeldung und die SAR-V2-Suche mit Sichtkontakt oder ohne Kontakt. Nur die Slew-Bedingungen in `mission-sar-search-core.js`, `tracker-mission-sar-task.js` und `tracker-mission-sar-search-task.js` wurden entfernt.
+
+Suchgebiet, reale Suchzeit, Naehe fuer Sichtkontakt, Mindestbeobachtung und Lageaufnahme bleiben verbindlich. Ein Meldungsbutton erfindet keinen Fund. Echte Pause/Menue, Bodenstatus, aktuelle gueltige Position, fehlende Pflichtausruestung und terminaler Aufgabenstatus behalten ihre Wirkung. Checkpoints koennen mit gesetzten Slew-Flags wiederhergestellt und fortgesetzt werden; Pausenzeiten zaehlen nicht zur Suche. Telemetrie-Diagnose, manueller Komfort-/Frachtschutz und die Positionssprungpruefungen anderer Missionsarten bleiben erhalten.
+
+Nachweis: neue Regressionsfaelle reproduzierten vor der Aenderung die Slew-Blockade; danach 159 SAR-/POI-/Adapter-/Runtime-/Voice-Tests erfolgreich. Der neue Integrationstest prueft die Fundmeldung durch die Tracker-Authority mit allen Slew-Aliasflags. Bestehende Such-/Return-/Close- und Child-Prozess-Tests wurden ebenfalls ausgefuehrt. Die zusaetzlichen 47 vorgeschriebenen Flow-/Cargo-/Payload-/Update-Checks sind ebenfalls erfolgreich. Release-Kandidat: Tracker v482; kein neuer realer MSFS-Flugtest. Die bereits fremd geaenderte SAR-Integrationstest-Datei blieb unveraendert.

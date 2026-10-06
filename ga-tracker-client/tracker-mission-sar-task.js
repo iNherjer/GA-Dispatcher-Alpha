@@ -48,8 +48,7 @@ function action(recipe, previous, sample, now, memory = {}) {
     const requestAt = Number(now);
     if (!finite(observedAt) || !finite(requestAt) || observedAt < (Number(previous.observedAt) || 0)
         || requestAt - observedAt < 0 || requestAt - observedAt > 5000 || !point(sample)
-        || sample.onGround !== false || sample.simPaused === true || sample.inMenuOrMap === true
-        || sample.slewActive === true || sample.slewMode === true || sample.isSlewActive === true)
+        || sample.onGround !== false || sample.simPaused === true || sample.inMenuOrMap === true)
         throw new TypeError('sar_report_position_unavailable');
 
     if(recipe.sarScenario?.schema==='sar-search.v2') return require('./tracker-mission-sar-search-task.js').action(recipe,previous,sample,now);

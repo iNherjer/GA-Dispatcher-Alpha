@@ -85,3 +85,18 @@ test('JSON restored detector and SAR result memory remain usable', () => {
     assert.equal(result.voiceEffects[0].sarSearchOutcome, 'found');
     assert.equal(result.voiceEffects[0].memory.sarSearchOutcome, 'found');
 });
+
+
+test('SAR report accepts Slew flags but still requires a current valid airborne position', () => {
+    const flags = [{slewActive:true}, {slewMode:true}, {isSlewActive:true},
+        {slewActive:true,slewMode:true,isSlewActive:true,slewTelemetryStatus:'error'},
+        {slewTelemetryStatus:'waiting'}, {slewTelemetryStatus:'stale'}];
+    for (const slew of flags) {
+        const result = sar.action(recipe(), previous(), sample(100001, slew), 100002);
+        assert.equal(result.poiTask.detector.manualConfirmed, true, JSON.stringify(slew));
+        for (const invalid of [{simPaused:true}, {inMenuOrMap:true}, {onGround:true}, {lat:NaN}]) {
+            assert.throws(() => sar.action(recipe(), previous(), sample(100001, {...slew,...invalid}), 100002), /sar_report_position_unavailable/);
+        }
+        assert.throws(() => sar.action(recipe(), previous(), sample(90000, slew), 100002), /sar_report_position_unavailable/);
+    }
+});
