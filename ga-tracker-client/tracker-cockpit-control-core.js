@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const weatherPresetCore = require('../mission-weather-preset-core.js');
 const { normalizeCapabilities } = require('./tracker-efb-protocol-core');
 
 const DEFAULT_SESSION_TTL_MS = 45000;
@@ -166,6 +167,10 @@ function createTrackerCockpitControl(options = {}) {
     if (typeof request.audioPlaybackEnabled === 'boolean') {
       auth.session.audioPlaybackEnabled = request.audioPlaybackEnabled;
     }
+    if (auth.session.role === 'efb' && auth.session.capabilities.includes('sim.weather-preset.v1') && Object.hasOwn(request, 'weatherPreset')) {
+      const preset = weatherPresetCore.normalize(request.weatherPreset);
+      auth.session.weatherPreset = preset ? { ...preset, source: auth.session.sessionId, receivedAt: now() } : null;
+    }
     return { ok: true, status: 'ok', session: publicSession(auth.session) };
   };
 
@@ -329,6 +334,12 @@ function createTrackerCockpitControl(options = {}) {
   return Object.freeze({
     authenticate,
     cleanup,
+    weatherPreset: () => {
+      cleanup();
+      const rows = [...sessions.values()].map(row => row.weatherPreset).filter(row => row && now() - row.receivedAt <= 15000);
+      if (!rows.length || rows.some(row => row.index !== rows[0].index)) return null;
+      return rows.sort((a, b) => b.receivedAt - a.receivedAt)[0];
+    },
     heartbeat,
     publicState,
     register,

@@ -939,6 +939,35 @@ let missionExecutionIntentQueue = null;
 let missionExecutionAbortPromise = null;
 let missionExecutionProjectionSignature = '';
 let missionTrackerObserverPromise = null;
+function _missionObserveBushNarrative(lat, lon, fd) {
+    if (_missionExecutionAuthorityIsTracker()) return;
+    const core = window.MissionBushNarrativeCore, plan = currentMissionData?.bushNarrative;
+    if (!core || !plan) return;
+    const progress = currentMissionData?.bushProgress || {}, previous = missionRuntime.bushNarrativeVoice || {};
+    const facts = {
+        now: Date.now(), lat, lon, onGround: fd?.onGround, active: missionRuntime.active,
+        ending: missionRuntime.closingPending || missionRuntime.waitingFarewellDeboarding,
+        paused: fd?.simPaused === true || fd?.paused === true || fd?.isPaused === true || fd?.inMenuOrMap === true || fd?.simRunning === 0,
+        slew: fd?.slewActive === true || fd?.isSlewActive === true,
+        returnLeg: progress.returnLeg === true || progress.pickupConfirmed === true || progress.status === 'return_leg',
+        passengerOnboard: window.missionSceneStatus?.personBoarded === true,
+        speakerName: window.activePassenger?.name, enabled: window.paxVoiceBushNarrativeReady?.() === true
+    };
+    const observed = core.observe(plan, previous, facts);
+    missionRuntime.bushNarrativeVoice = observed.state;
+    if (facts.active && !facts.ending && facts.onGround === false && !facts.paused && !facts.slew
+        && Number.isFinite(lat) && Number.isFinite(lon)
+        && plan.leg === observed.state.leg && facts.passengerOnboard) {
+        window.paxVoicePrepareBushNarrative?.(plan, observed.state, { lat, lon });
+    }
+    if (observed.event) {
+        if (!_persistMissionRuntimeSnapshot('bush-story-claimed', { immediate: true })) {
+            missionRuntime.bushNarrativeVoice = previous;
+            return;
+        }
+        window.paxVoiceSpeakBushNarrative?.(plan, observed.event);
+    } else _persistMissionRuntimeSnapshot('bush-story-progress');
+}
 let missionTrackerObserverRetryAt = 0;
 let missionAuthorityForeignAckLastSig = '';
 let missionAuthorityForeignAckLastLogAt = 0;
@@ -2226,6 +2255,7 @@ function _missionStartUsesTrackerExecution() {
     if (window.simModeActive) return false;
     const recipeAvailable = _missionSceneIsBushMission()
         ? !!_buildMissionBushExecutionSeed() && window.liveTrackerCapabilities?.includes(_activeBushMissionSpec()?.requiresReturnHome ? 'mission.bush-return.v1' : 'mission.bush-strip.v1')
+            && (!currentMissionData?.bushNarrative || window.liveTrackerCapabilities?.includes('mission.bush-narrative.v1'))
         : (!_missionSceneIsPoiMission() || window.liveTrackerCapabilities?.includes('mission.poi.v1'));
     if (_trackerSupportsMissionIntents() && recipeAvailable) missionExecutionRequestedMissionId = missionId;
     return (_trackerSupportsMissionIntents() && recipeAvailable)
@@ -2246,6 +2276,7 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
         };
         if (_missionRequiresSarSearchAuthority() && !window.liveTrackerCapabilities?.includes('mission.sar-search.v2')) return fail('recipe', { error: 'mission_execution_recipe_not_enabled' });
         if (_missionSceneIsBushMission() && (!window.liveTrackerCapabilities?.includes(_activeBushMissionSpec()?.requiresReturnHome ? 'mission.bush-return.v1' : 'mission.bush-strip.v1') || !_buildMissionBushExecutionSeed())) return fail('recipe', { error: 'mission_execution_recipe_not_enabled' });
+        if (_missionSceneIsBushMission() && currentMissionData?.bushNarrative && !window.liveTrackerCapabilities?.includes('mission.bush-narrative.v1')) return fail('recipe', { error: 'mission_bush_narrative_tracker_update_required' });
         if (window.simModeActive || !_trackerSupportsMissionIntents() || _missionStartPhase() !== 'planned') {
             return fail('eligibility', { error: 'mission_execution_handoff_phase_not_safe' });
         }
@@ -3542,6 +3573,7 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
                 : null,
             arrivalFlightRecord: _compactFlightRecordForRuntime(missionRuntime.arrivalFlightRecord),
             routeVoice: _safeCloneJson(missionRuntime.routeVoice, null),
+            bushNarrativeVoice: _safeCloneJson(missionRuntime.bushNarrativeVoice || {}, {}),
             pendingFarewellRecord: _compactFlightRecordForRuntime(missionRuntime.pendingFarewellRecord)
         },
         poiProgress: poiProgress ? {
@@ -5146,6 +5178,7 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
             sceneId: String(snap.sceneStatus?.sceneId || _missionSceneId())
         };
     }
+    missionRuntime.bushNarrativeVoice = _safeCloneJson(runtime.bushNarrativeVoice || {}, {});
     missionRuntime.waitingFarewellDeboarding = false;
     missionRuntime.deboardingAfterFarewellStarted = false;
     missionRuntime.farewellSpeechStarted = false;
@@ -13053,6 +13086,7 @@ function _resetMissionRuntime() {
     window.missionPickupDepartureVoicePending = null;
     window.missionPrivateReturnDepartureVoice = null;
     missionRuntime = {
+        bushNarrativeVoice: {},
         phase: _hasValidMissionForStart() ? 'planned' : 'idle',
         startedAt: 0,
         armed: false,
@@ -15143,7 +15177,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
-        'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress', 'bushNarrative', 'bushNarrativeDebug', 'environmentContext', 'airportInfoContext', 'airportInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
         'missionPlanV2', 'missionPlanV4', 'missionContractV4', 'missionVariety',
@@ -19220,6 +19254,8 @@ function updateFlightRecorder(lat, lon, alt) {
         }
     }
 
+    // The authority owner alone observes optional Bush narrative telemetry.
+    _missionObserveBushNarrative(lat, lon, _lfd);
     // Ohne aktive Mission keine Recorder-/Landungs-/Debrief-Logik.
     if (!missionRuntime.active) return;
 

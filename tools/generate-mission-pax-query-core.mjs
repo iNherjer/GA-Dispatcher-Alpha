@@ -7,6 +7,7 @@ const output=`// Generated from original passenger-voice.js manual queries; do n
 'use strict';
 const comfortCore=require('./mission-comfort-core.js');
 const weatherCore=require('./mission-farewell-voice-core.js');
+${extractOriginalFunction(source,'_precipitationObservation')}
 ${extractOriginalFunction(source,'_missionWeatherReactionLine')}
 function available(context={},fd={}) {
  const focus=comfortCore.evaluate(null,null,context).cargoFocus;

@@ -17,6 +17,11 @@ Aktueller konsolidierter Stand und Übertragung auf weitere Sets: [Missionssets-
 Zielsetzung, aktueller Spielraum, History-Grenzen und Vorgehen für weitere Missionsfamilien: [Mission Narrative Design Guide](Mission%20Narrative%20Design%20Guide.md).
 
 Aktuelle private Erzählversion: [Mission Episode Writer V6](Mission%20Episode%20Writer%20V6.md). V5 bleibt als auswählbare Referenz erhalten; V6 ergänzt KI-verfasste JSON-Erinnerungen und eine freie Erzählform auf Basis einer strukturierten Episode.
+Optionaler gemeinsamer Umgebungskontext, zunächst für Bush: [Mission Environment Context](Mission%20Environment%20Context.md).
+
+Bush-Erzählung mit festen und optionalen Geo-Voice-Momenten:
+[Bush Narrative Voices](Bush%20Narrative%20Voices.md), lokaler Arbeitsstand mit
+integrierter Tracker-Runtime; Veröffentlichung und In-Sim-Abnahme noch offen.
 
 Schnelle Ablaufuebersicht: `docs/Mission Flow Reference.md`.
 
@@ -1011,6 +1016,17 @@ Empfohlene spaetere Anschluesse:
 
 ### 7.4 Bush Supply
 
+Lokale Modernisierung (07.10.2026): `MissionBushNarrativeCore.supplyInstructions`
+schärft ausschließlich Supply-Planner und V4-/V5-Writer. Die Variety-Brief-Daten
+enthalten belegte Länder-/Regionsangaben vom Zielplatz (auch `state`) und den
+Supply-Erzählvertrag. Empfänger, Vorgeschichte und konkreter Nutzen der Fracht
+tragen die Geschichte; fiktive Camps sind keine belegten Szenenstandorte.
+`SupplyReceiverInstructions` ist in der Implementierung als
+`supplyReceiverInstructions` getrennt: der Cargo-Farewell ist Empfängerrede,
+kein Dispatch-Briefing. Ankunft des Ersatzteils beweist keine abgeschlossene
+Reparatur; ein späterer Cargo-Pickup bleibt ein eigener Auftrag.
+
+
 Bausteine:
 
 - `targetMode = strip`
@@ -1343,3 +1359,15 @@ Rettungserfolg vorwegnehmen. Straßenbezug, sichtbare Landflächen, Wasser und
 Inseln sind Einsatzvoraussetzungen, keine nachträglichen Textverbote. Details:
 [Tracker Mission Migration Guide](Tracker%20Mission%20Migration%20Guide.md),
 „SAR-Suchauftrag V2“.
+
+
+### Bush-Platzinformationen (Pilot 07.10.2026)
+
+Der gemeinsame Kontext aus eigenen Flugplatz-/Pistendaten, Wiki, US-FAA und
+vorbereiteten Handbuchhinweisen erreicht V4-Planner und V4-/V5-Writer. Der
+Writer erstellt im selben JSON einen nützlichen fliegerischen Absatz und
+eine umfassendere Zielseiten-Information; die Missionsstory bleibt persönlich.
+Daten fehlen nach spätestens drei Sekunden optional, ohne den Dispatch zu
+blockieren. Nur benannte Bush-Zielplätze, keine Recon-Gebiete; globale
+Freischaltung und Startseite folgen erst nach Bewertung des Piloten.
+Siehe [Platzinformationen V1](Mission%20Airport%20Information.md).

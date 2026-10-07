@@ -718,3 +718,22 @@ test('legacy inline audio migrates losslessly and corrupt v2 audio does not disc
   assert.equal(recovered.get('legacy-a'), null);
   assert.equal(recovered.getAudio('legacy-b').body.toString(), 'second-audio');
 });
+
+
+test('prepared Bush, weather and time jobs preserve their kind across cache restore', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bush-voice-cache-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const options = { storageFile: path.join(directory, 'voices.json'),
+    provider: 'openai', apiKey: 'fixture-key', fetchRemote: async () => ({ ok: true, arrayBuffer: async () => Buffer.from('fixture-audio') }) };
+  const service = createTrackerVoiceService(options);
+  for (const kind of ['bush_story', 'weather_preset', 'time_shift']) {
+    service.request({ effectId: 'prepared:' + kind, kind, text: 'Eine Testansage.', deferPlayback: true });
+    assert.equal((await service.wait('prepared:' + kind)).kind, kind);
+  }
+  await service.flushPersistence();
+  const restored = createTrackerVoiceService(options);
+  for (const kind of ['bush_story', 'weather_preset', 'time_shift']) {
+    assert.equal(restored.get('prepared:' + kind).kind, kind);
+    assert.equal(restored.get('prepared:' + kind).playback.status, 'deferred');
+  }
+});

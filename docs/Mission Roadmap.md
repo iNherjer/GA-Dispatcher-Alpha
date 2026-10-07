@@ -60,6 +60,84 @@ Wichtige Regel:
 
 ## 2. Bush-Roadmap
 
+### 2.0 Laufende Modernisierung: Erzählung und Voice
+
+Freigegeben sind regionale, individuelle Bush-Geschichten mit festen
+Flugzeit-Momenten und zusätzlichen optionalen Geo-Momenten. Die Browser- und Tracker-Erweiterung ist lokal implementiert; Kapitel nutzen
+die zentrale Voice-Lane und Textprojektion zum EFB. Gemini-Textproben sind
+durchgeführt. Vollständiger nativer EFB-Build und In-Sim-Abnahme bleiben vor
+Release offen. Details: [Bush Narrative Voices](Bush%20Narrative%20Voices.md).
+
+Bestehende Missionsrezepte, Pickup-/Cargo-Pflichten und die Bush-Authority-Gates
+bleiben verbindlich. Die Voice-Erweiterung ersetzt keine Rezept-Migration.
+
+### 2.0.1 Bush-Versorgung: laufende Überarbeitung
+
+Lokal geschärft: V4-/V5-Writer und Planner erhalten für `bush_supply_strip`
+einen eigenen regionalen Erzählvertrag. Vorgeschichte, Empfänger, Lieferzweck
+und mögliche Rückfracht bilden eine zusammenhängende Geschichte; 0 PAX und
+Unload am Ziel bleiben bindend. Regionaler Kontext kommt aus Flugplatzdaten,
+nicht aus vermuteten nationalen Zuständigkeiten. Farewell spricht separat als
+Empfänger und bewertet fehlende oder beschädigte Pflichtladung korrekt.
+
+18 lokale Tests und Ground-Flow-Selbsttest bestanden. Eigene Gemini-Proben
+für Supply, Prüfung der tatsächlich komponierten Übergabeszene, durchgehende
+Voice-/Follow-up-Proben und Tracker-/EFB-Parität bleiben vor Release offen.
+Die frühere Variety-Signatur-History ist angeschlossen; eine neue Supply-
+Anekdoten-/Prosa-History wurde hier noch nicht hinzugefügt. Cargo-only besitzt
+keine neuen Passagier-Streckengeschichten.
+
+### 2.0.2 Platzinformationen und Umgebung: freigegebener Bush-Pilot
+
+Freigegeben am 07.10.2026: Derselbe Platzkontext soll vor Planung und Writer
+bereitstehen. Eigene Flugplatz-/Pistendaten haben Vorrang; ein anhand Kennung,
+Name und Koordinaten zugeordneter Wikipedia-Artikel ergaenzt Ortswissen. Fuer
+Big Creek U60 ist ein englischer Artikel vorhanden; fehlende deutsche Artikel
+sind kein Beleg fuer fehlende Informationen. Kein zusaetzlicher langsamer
+Wald-Dienst im Dispatch. Fehlende Waldpolygone bedeuten unbekannt, nicht waldlos.
+
+Das Briefing erhaelt frei formulierte fliegerisch nuetzliche Informationen;
+die Zielseite eine umfassendere Beschreibung mit Bezug auf den geplanten Flug.
+Alle belegten Pilotenhinweise sind relevant, nicht nur Laermschutz: z.B.
+Platzrunde, Hindernisse, PPR, Betriebszeiten, saisonale Einschraenkungen,
+Pistenoberflaeche und besondere Anflugbedingungen. Quellenstand und regionale
+Geltung bleiben erhalten; Schaetzungen werden als solche kenntlich gemacht.
+Wikipedia und alte Platzhandbuecher ersetzen keine aktuellen Betriebshinweise.
+Lokal implementiert und Quellenabruf getestet; Veröffentlichung steht aus.
+Gemeinsames hartes 3-Sekunden-Budget, Quellen-/Fehlercache und zwei Texte im
+bestehenden Writer-Aufruf. Acht Orte mit passenden Zusatzfakten und eigenen
+Pistendaten in 0,45–1,40 Sekunden; Browser inklusive Terrain U60 1,09 s, EDSH
+1,27 s. Wikipedia-Drosselung führte zu Client-Kennung und Retry-After-Pause.
+Keine Live-KI-/TTS-Probe für diesen Informations-Piloten. Details und Grenzen:
+[Platzinformationen V1](Mission%20Airport%20Information.md).
+
+Quellenrecherche vom 07.10.2026: FAA/NASR liefert US-Platzdaten und Bemerkungen;
+U60-Webseite erfolgreich abgerufen, Datenzyklus 01.–29.10.2026. Zusaetzlich
+existiert ein Big-Creek-SOP der Idaho Division of Aeronautics (Dokumentstand
+Oktober 2020). Weltweit kommen nationale AIP/eAIP und Betreiberquellen infrage;
+EUROCONTROL bietet ein AIS-Verzeichnis und EAD. Automatische Uebernahme,
+Speicherung und Weiterverteilung sind je Quelle technisch und hinsichtlich
+Nutzungsrechten zu pruefen; insbesondere DFS und NAV CANADA sind keine frei
+weiterverteilbaren Datenquellen. FAA Airport Display ist lokal über einen schmalen Worker-Endpunkt angebunden;
+die weiteren externen Quellen sind noch nicht angebunden. Perspektive: vorbereitete, versionierte Platzpakete, kein serielles
+Abklappern aller Anbieter waehrend jeder Missionserzeugung.
+
+Nach erfolgreicher Bush-Probe: Startseite ebenfalls mit gemeinsamem Kontext
+versorgen, Platzinformationen fuer alle APT-/POI-/Bush-Missionsfamilien und
+Folge-/Rueckfluege passend zum jeweiligen Zieltyp freischalten. Ebenso den
+bereits vorhandenen gemeinsamen Wetter-/Jahreszeiten-/Prognosekontext fuer alle
+Missionen ausrollen: frei nutzbare Inspiration, keine Wetterquote oder
+Pflichtpassage. Diese globale Freischaltung ist vorgemerkt, noch nicht aktiv.
+
+Quellen:
+- [FAA U60](https://nfdc.faa.gov/nfdcApps/services/ajv5/airportDisplay.jsp?airportId=U60)
+- [NASR Download](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/)
+- [Idaho Platzhandbuecher](https://itd.idaho.gov/aero/pilot-safety/)
+- [Big Creek SOP, Oktober 2020](https://itd.idaho.gov/wp-content/uploads/2020/06/BigCreek_SOP_Aero.pdf)
+- [AIS weltweit](https://www.eurocontrol.int/articles/ais-online)
+- [DFS Datensaetze / Nutzungsrechte](https://aip.dfs.de/datasets/)
+- [NAV CANADA Datenlizenzen](https://www.navcanada.ca/en/aeronautical-information/data-sales.aspx)
+
 ### 2.1 Hohe Prioritaet: neue Bush-Profile
 
 Diese Ideen sind fachlich klar genug, dass daraus bei Bedarf eigene auswählbare Bush-Profile entstehen koennen.

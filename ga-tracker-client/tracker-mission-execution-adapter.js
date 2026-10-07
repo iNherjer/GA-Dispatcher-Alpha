@@ -7,6 +7,7 @@ const { prepareAction: preparePoiAction } = require('./tracker-mission-poi-voice
 const aptTraining = require('./tracker-mission-apt-training.js');
 
 const comfortCore = require('../mission-comfort-core.js');
+const precipitationCore = require('../mission-precipitation-core.js');
 
 const executionCore = require('../mission-execution-core.js');
 const locationCore = require('../mission-location-core.js');
@@ -1023,7 +1024,11 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       : (type === 'COMPLIANCE_INSPECTORS_WAITING'
         ? { sceneFallback: safeObject(request.payload).sceneFallback === true }
         : (type === 'APT_FLIGHT_VOICE_REQUESTED'
-          ? { narrativeEventId: cleanString(request.payload?.narrativeEventId, 80), intent: cleanString(request.payload?.intent, 600), kind: cleanString(request.payload?.kind, 40), prompt: cleanString(request.payload?.prompt, 24000),
+          ? { ...(request.payload?.kind === 'bush_story' ? {
+                narrativeKind: ['fixed','geo'].includes(request.payload.narrativeKind) ? request.payload.narrativeKind : '',
+                fallbackText: cleanString(request.payload.fallbackText, 1200),
+                geo: request.payload.narrativeKind === 'geo' ? safeObject(request.payload.geo) : null
+              } : {}), narrativeEventId: cleanString(request.payload?.narrativeEventId, 80), intent: cleanString(request.payload?.intent, 600), kind: cleanString(request.payload?.kind, 40), prompt: cleanString(request.payload?.prompt, 24000),
               label: cleanString(request.payload?.label, 120), debugDetail: cleanString(request.payload?.debugDetail, 1800),
               delayMs: Math.max(0, Math.min(2000, Number(request.payload?.delayMs) || 0)),
               triggerAt: Math.max(0, Number(request.payload?.triggerAt) || 0) }
@@ -1254,8 +1259,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       windGustKts: finite(sample.windGustKts),
       tempC: finite(sample.tempC),
       visKm: finite(sample.visKm),
-      precipRateMmH: finite(sample.precipRateMmH),
-      precipActive: sample.precipActive === true,
+      ...precipitationCore.observe(sample),
       inCloud: sample.inCloud === true,
       turbulencePct: finite(sample.turbulencePct),
       simPaused: sample.simPaused === true,

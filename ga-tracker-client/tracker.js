@@ -1,3 +1,4 @@
+const precipitationCore = require('../mission-precipitation-core.js');
 if (process.argv.includes('--mission-worker') && typeof process.send === 'function') {
   require('./tracker-mission-worker.js').runMissionWorker();
 } else {
@@ -94,8 +95,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v486';
-const TRACKER_VERSION_CODE = 486;
+const TRACKER_VERSION = 'v488';
+const TRACKER_VERSION_CODE = 488;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -117,7 +118,7 @@ const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cloud-load.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
+  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cloud-load.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1', 'mission.bush-narrative.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -6653,12 +6654,15 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       addOptionalVar('GROUND VELOCITY', 'knots', 'groundSpeedKts');
       addOptionalVar('AMBIENT WIND GUST', 'knots', 'windGustKts');
       addOptionalVar('AMBIENT PRECIP STATE', 'Enum', 'precipState');
-      addOptionalVar('AMBIENT PRECIP RATE', 'millimeters of water', 'precipRateMmH');
+      addOptionalVar('AMBIENT PRECIP RATE', 'millimeters of water', 'precipRateRaw');
       addOptionalVar('AMBIENT IN CLOUD', 'Bool', 'inCloud');
       addOptionalVar('AMBIENT TURBULENCE', 'percent', 'turbulencePct');
       // Retain the old packet layout only for comparison diagnostics.
       // Mission authority uses the independent INT32 request below.
       addOptionalVar('IS SLEW ACTIVE', 'Bool', 'slewActive');
+      addOptionalVar('ABSOLUTE TIME', 'seconds', 'simAbsoluteTimeSeconds');
+      addOptionalVar('LOCAL TIME', 'seconds', 'simLocalTimeSeconds');
+      addOptionalVar('SIMULATION RATE', 'number', 'simulationRate');
       addOptionalVar('IS PAUSED', 'Bool', 'simPausedA');
       addOptionalVar('SIM IS PAUSED', 'Bool', 'simPausedB');
       addOptionalVar('BRAKE PARKING POSITION', 'Bool', 'parkingBrake');
@@ -6735,8 +6739,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               const pitchDeg = raw.pitchDeg;
               const groundSpeedKts = raw.groundSpeedKts;
               const windGustKts = raw.windGustKts;
-              const precipState = raw.precipState;
-              const precipRateMmH = raw.precipRateMmH;
+              const precipitation = precipitationCore.observe(raw);
               const inCloud = raw.inCloud;
               const turbulencePct = raw.turbulencePct;
               const slew = slewTelemetry.diagnose(raw.slewActive, now);
@@ -6831,6 +6834,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     && missionAuthorityManager?.getActiveRun?.()?.executionAuthority === 'tracker') {
                   const executionTelemetry = missionExecutionRuntime.observeTelemetry({
                     observedAt: now,
+                    weatherPreset: trackerCockpitControl?.weatherPreset?.() || null,
+                    simAbsoluteTimeSeconds: Number.isFinite(raw.simAbsoluteTimeSeconds) && raw.simAbsoluteTimeSeconds > 0 ? raw.simAbsoluteTimeSeconds : null,
+                    simLocalTimeSeconds: Number.isFinite(raw.simLocalTimeSeconds) && raw.simLocalTimeSeconds >= 0 && raw.simLocalTimeSeconds < 86400 ? raw.simLocalTimeSeconds : null,
+                    simulationRate: Number.isFinite(raw.simulationRate) && raw.simulationRate > 0 && raw.simulationRate <= 128 ? raw.simulationRate : null,
                     lat,
                     lon,
                     onGround: Boolean(onGround),
@@ -6853,10 +6860,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     windGustKts: Number.isFinite(windGustKts) ? Math.round(windGustKts * 10) / 10 : null,
                     tempC: Number.isFinite(tempC) ? Math.round(tempC * 10) / 10 : null,
                     visKm: Number.isFinite(visMeters) ? Math.round(visMeters / 100) / 10 : null,
-                    precipRateMmH: Number.isFinite(precipRateMmH) ? Math.round(precipRateMmH * 10) / 10 : null,
-                    precipActive: Number.isFinite(precipRateMmH)
-                      ? precipRateMmH > 0.05
-                      : (Number.isFinite(precipState) ? precipState > 0 : null),
+                    ...precipitation,
                     inCloud: Number.isFinite(inCloud) ? inCloud > 0.5 : null,
                     turbulencePct: Number.isFinite(turbulencePct) ? Math.round(turbulencePct) : null,
                     simPaused,
@@ -6881,6 +6885,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               if (ws && ws.readyState === WebSocket.OPEN && currentTelemetryHibernateState.shouldSendTelemetry) {
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {
+                  weatherPreset: trackerCockpitControl?.weatherPreset?.() || null,
+                    simAbsoluteTimeSeconds: Number.isFinite(raw.simAbsoluteTimeSeconds) && raw.simAbsoluteTimeSeconds > 0 ? raw.simAbsoluteTimeSeconds : null,
+                    simLocalTimeSeconds: Number.isFinite(raw.simLocalTimeSeconds) && raw.simLocalTimeSeconds >= 0 && raw.simLocalTimeSeconds < 86400 ? raw.simLocalTimeSeconds : null,
+                    simulationRate: Number.isFinite(raw.simulationRate) && raw.simulationRate > 0 && raw.simulationRate <= 128 ? raw.simulationRate : null,
                   mslFt: Math.round(alt || 0),
                   aglFt: Math.round(agl || 0),
                   bankDeg: Number.isFinite(bank) ? Math.round(bank * 10) / 10 : 0,
@@ -6897,11 +6905,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   windGustKts: Number.isFinite(windGustKts) ? Math.round(windGustKts * 10) / 10 : null,
                   tempC:    Number.isFinite(tempC)    ? Math.round(tempC * 10) / 10   : null,
                   visKm:    Number.isFinite(visMeters) ? Math.round(visMeters / 100) / 10 : null,
-                  precipState: Number.isFinite(precipState) ? Math.round(precipState) : null,
-                  precipRateMmH: Number.isFinite(precipRateMmH) ? Math.round(precipRateMmH * 10) / 10 : null,
-                  precipActive: Number.isFinite(precipRateMmH)
-                    ? precipRateMmH > 0.05
-                    : (Number.isFinite(precipState) ? precipState > 0 : null),
+                  ...precipitation,
                   inCloud: Number.isFinite(inCloud) ? (inCloud > 0.5) : null,
                   turbulencePct: Number.isFinite(turbulencePct) ? Math.round(turbulencePct) : null,
                   simPaused,
@@ -6965,7 +6969,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 ws.send(JSON.stringify(gpsMsg));
                 if (now - lastFlightLog >= 1000) {
                   lastFlightLog = now;
-                  trackerStatus(`GPS Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | IAS ${flight.iasKts ?? '?'}kts | Pitch ${flight.pitchDeg ?? '?'}° | OnG ${flight.onGround ? 'Y' : 'N'} | Park ${flight.parkingBrake == null ? '?' : (flight.parkingBrake ? 'Y' : 'N')} | Pause ${flight.simPaused ? 'Y' : 'N'}(${flight.pauseFlags ?? 0}) | Sim ${flight.simRunning ? 'RUN' : 'STOP'} | Menu ${flight.inMenuOrMap ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
+                  trackerStatus(`GPS Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | IAS ${flight.iasKts ?? '?'}kts | Pitch ${flight.pitchDeg ?? '?'}° | OnG ${flight.onGround ? 'Y' : 'N'} | Park ${flight.parkingBrake == null ? '?' : (flight.parkingBrake ? 'Y' : 'N')} | Pause ${flight.simPaused ? 'Y' : 'N'}(${flight.pauseFlags ?? 0}) | Sim ${flight.simRunning ? 'RUN' : 'STOP'} | Menu ${flight.inMenuOrMap ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipLabel ?? '?'} | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
                 }
               } else if (lat === 0) {
                 if (consoleMode === 'full') process.stdout.write(".");

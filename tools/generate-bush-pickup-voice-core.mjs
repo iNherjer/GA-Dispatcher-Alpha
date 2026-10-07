@@ -19,6 +19,7 @@ const output = `// Generated from original passenger-voice.js functions by tools
 'use strict';
 const SCHEMA = 'ga.mission-bush-pickup-voice-context.v1';
 const MAX_MEMORY = 4;
+${extractOriginalFunction(source, '_precipitationObservation')}
 ${extractOriginalFunction(source, '_weatherContext')}
 function text(value, max = 4000) { return String(value == null ? '' : value).trim().slice(0, max); }
 function normalizeMemory(value = {}) {

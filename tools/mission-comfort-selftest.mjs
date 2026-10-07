@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import core from '../mission-comfort-core.js';
 import {extractOriginalFunction} from './extract-original-function.mjs';
 const source=fs.readFileSync(new URL('../passenger-voice.js',import.meta.url),'utf8');
-const original=['_createMissionComfortScore','_missionComfortScoreState','_cargoMissionFocus','_missionScoreRegisterEvent','_recordMissionComfortSample','_missionComfortSummary'].map(n=>extractOriginalFunction(source,n)).join('\n');
+const original=['_precipitationObservation','_createMissionComfortScore','_missionComfortScoreState','_cargoMissionFocus','_missionScoreRegisterEvent','_recordMissionComfortSample','_missionComfortSummary'].map(n=>extractOriginalFunction(source,n)).join('\n');
 let cases=0;
 for(const cargoText of ['', 'Kamera', 'Wartungsunterlagen']) for(const protection of [false,true]) {
  const context={cargoText,paxText:'1 PAX',missionData:{},taskDomain:'inspection_infra',motionProtectionEnabled:protection};

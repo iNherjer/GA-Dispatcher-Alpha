@@ -1402,3 +1402,42 @@ test('reporter route voice triggers on tracker telemetry and survives runtime re
   assert.equal(manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'voice.flight' && effect.payload.kind === 'route_story').length, 1,
     'a requested approach already blocks comfort, before any voice ACK');
 });
+
+test('central clock shift uses voice effects and persists the shared cooldown without EFB', async t => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [{ id: 'pax', itemType: 'passenger', status: 'pending', required: true, passengerCount: 1 }];
+  bundle.missionState.routeWaypoints = [{ lat: 48.1, lng: 8.2 }, { lat: 48.3, lng: 8.5 }];
+  bundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, mode: 'passenger', passenger: {},
+    baseContext: 'Passenger', departure: { lat: 48.1, lng: 8.2 } } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const calls = [];
+  const options = { authorityManager: manager, enabled: true, playBoardingVoice: request => {
+    calls.push(request.effect.type);
+    return { ok: true, status: 'completed', voiceOutcome: { kind: request.effect.payload.kind || 'boarding', text: 'Komforttest', status: 'ok' } };
+  } };
+  let runtime = createTrackerMissionExecutionRuntime(options);
+  const simulator = { getLivePosition: () => ({ lat: 48.1, lon: 8.2 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }), syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' }) };
+  runtime.attachSimulator(simulator);
+  let seq = 0;
+  for (const intent of ['prepare_mission', 'start_boarding', 'sign_manifest', 'confirm_load', 'start_mission']) {
+    const run = manager.getActiveRun();
+    const result = await runtime.executeIntent({ missionId: run.missionId, runId: run.runId, expectedRevision: run.revision,
+      commandId: `flight-trigger-${++seq}`, intent });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  const tick = (observedAt,shift) => runtime.observeTelemetry({ observedAt, lat: 48.2, lon: 8.3, onGround: false,
+    gsKts: 70, aglFt: 2000, gForce: 1, bankDeg: 0, vsFpm: 0, windKts: 3,
+    simAbsoluteTimeSeconds: 64000000000+observedAt/1000+shift, simLocalTimeSeconds: 40000+observedAt/1000+shift, simulationRate: 1 });
+  for(let now=100000;now<110000;now+=1000){tick(now,0);await new Promise(resolve=>setImmediate(resolve));}
+  for(let now=110000;now<115000;now+=1000){tick(now,7200);await new Promise(resolve=>setImmediate(resolve));}
+  assert.equal(calls.filter(type=>type==='voice.flight').length,1);
+  assert.equal(manager.getExecutionSnapshot().state.voice.flight.kind,'time_shift');
+  const run=manager.getActiveRun();
+  assert.ok(manager.getExecutionRuntimeContext({missionId:run.missionId,runId:run.runId}).flightVoiceState.weatherChange.lastReactionAt);
+  runtime.detachSimulator();
+});

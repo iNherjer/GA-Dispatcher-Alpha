@@ -303,6 +303,14 @@ Audio-Lease oder Missionseffekte. Vollstaendige TP0-/Funktionsparitaet bleibt
 offen. Details, Buildaufruf und Testmatrix: `ga-tracker-client/toolbar-panel/README.md`.
 Keine Installation, Veroeffentlichung oder Kanalumschaltung erfolgt.
 
+## Bush-Erzählmomente – lokaler Arbeitsstand 06.10.2026
+
+Feste und geographisch ausgelöste Bush-Voice-Momente besitzen einen gemeinsamen
+Browser-/Node-Kern. Der Browser gibt bei Tracker-Authority die Auslösung ab.
+Die Übernahme in das Bush-Ausführungsrezept und die bestätigte EFB-Textprojektion
+sind noch offen; keine neue Authority-Freigabe oder Veröffentlichung.
+Siehe [Bush Narrative Voices](Bush%20Narrative%20Voices.md).
+
 Stand: 2026-09-06
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
@@ -6136,3 +6144,132 @@ Nutzer autorisiert Bau und Alpha-Rollout nach dem Nachweis, dass echte Aenderung
 Windows-x64-EXE v486 erfolgreich im gleichen Cross-Build-Modus wie v485 gebaut (no-bytecode/public). 173557031 Bytes, SHA-256 a8f64a5be7a36ff145c6def1066985ff827e52d58e9b7b25063b462fde1a1b29. PE-Machine x64 und exakte eingebettete Inhalte von Shared-Presentation, Host, Profil-Bridge, generiertem Profil und Web-Client geprueft; eingebettete Version v486 und Assetrevision 48601 bestaetigt. 46 betroffene Node-Tests und Interface-Regressionspruefung nach Versionsanpassung erneut bestanden; unveraenderte SDK-Lifecycle-Pruefung umfasst weitere sieben Tests.
 
 Tracker v486 als unveraenderliches GitHub-Release veroeffentlicht; erneuter oeffentlicher Download byte-identisch zur geprueften EXE (173557031 Bytes, SHA-256 a8f64a5be7a36ff145c6def1066985ff827e52d58e9b7b25063b462fde1a1b29). Nur Tracker-Alpha-Zeiger auf v486 gesetzt, SW v1944 fuer die Kanalaktivierung. EFB-Alpha bleibt exakt 0.4.21, beide Stable-Zeiger unveraendert. Reales VR-FPS-/Frametime-Ergebnis ist noch offen.
+
+### 07.10.2026 – frühe Boarding-Wetterreaktion (lokal)
+
+Boarding-Recipe enthält bis zwei kompakte örtliche Wetterbaselines. Tracker
+wertet aktuelle Bodentelemetrie erst bei Wiedergabe aus, nicht im Prewarm.
+Veraltete vorbereitete Ansagen werden über den bestehenden Job-Konfliktpfad
+ersetzt. `weatherMismatchUsed` bleibt im Voice-Outcome und Snapshot erhalten;
+Anflug/Farewell verwenden diesen autoritativen Merker. Web/EFB präsentieren
+weiterhin dieselbe Tracker-Ansage; keine eigene EFB-Erkennungslogik.
+Release/Tracker-Build und Prüfung im laufenden Simulator stehen aus.
+
+
+### 07.10.2026 – optionale Preset-Wechselerkennung (lokal, experimentell)
+
+Die native EFB-App fragt `JS_LISTENER_WEATHER` / `ASK_UPDATE_PRESET` im
+Fünf-Sekunden-Takt ab. `UpdatePreset.index` unterscheidet Live (0) und Presets.
+Das ist aus Entwicklerberichten abgeleitet und noch nicht im Simulator bestätigt.
+Die Host-Nachricht ist an Parent und Frame-Kanal gebunden; das bestehende
+authentifizierte Cockpit-Heartbeat liefert die reine Beobachtung an den Tracker.
+Nur EFB-Sessions mit `sim.weather-preset.v1` dürfen berichten. Fehlende API,
+fehlendes Paket, abgelaufene Antworten und widersprüchliche EFBs liefern unbekannt.
+Das EFB ändert kein Wetter und löst selbst keine Missionsereignisse aus.
+
+Der gemeinsame `mission-weather-preset-core.js` vergleicht Telemetrie vor/nach
+bestätigten Indexwechseln. Gleiche Bedingungen bleiben stumm. Deutliche Änderungen
+müssen mindestens zwei Sekunden und drei Samples anhalten; Übergänge haben ein
+40-Sekunden-Fenster. Zwei Minuten Cooldown, gespeicherter Tracker-Voice-Zustand.
+Ohne frischen Preset-Status erkennt der Tracker kurzfristige Wetterwertänderungen,
+kommentiert aber nur deren Beobachtung, ohne einen Regler-/Presetwechsel zu behaupten.
+Damit läuft der Fallback ohne EFB-Paket im Tracker-Hintergrund. Native Polls laufen
+solange die Simulator-View lebt; SLEEP/Pause kann sie aussetzen, dann greift der
+Fallback. Kein garantierter Hintergrundservice des geschlossenen EFB.
+
+Web-Authority nutzt denselben Kern über bestehende Flugtelemetrie; Tracker-Authority
+nutzt zentrale `voice.flight`-Effekte und projiziert `weather_preset` zum EFB/App.
+Das bestehende Migrationsgate bleibt erhalten: neue Bush-Kapitel sind weiterhin
+nicht vollständig in Tracker-Authority migriert. Neuer Tracker- und EFB-Build
+vor Veröffentlichung erforderlich; kein Release, noch kein In-Sim-Nachweis.
+
+Validierung: 83 Core-, Session-, Runtime-, Voice- und transpilierten nativen
+EFB-Mocktests bestanden. Vollständiger EFB-SDK-Typecheck/Package-Build ist in
+diesem isolierten Checkout mangels SDK-Abhängigkeiten noch nicht durchgeführt.
+
+
+### 07.10.2026 – Wetterwechsel ohne EFB nachgeschärft (lokal)
+
+Starke Messwertänderungen werden unabhängig vom Preset-Status erkannt, auch
+bei unverändertem Live-/Preset-Index. Nur ein tatsächlich beobachteter, noch
+frisch bestätigter Indexwechsel erlaubt eine Preset-Anspielung. Ohne diesen
+Nachweis beschreibt der Passagier ausschließlich das Wetter; diese Vorgabe
+hat auch gegenüber Simulator-Humor im übrigen Missionskontext Vorrang.
+EFB-Abbruch setzt die Messbaseline neu; spätere Änderungen bleiben erkennbar.
+Mehrfachmessung, Bewegungsprüfung und Zwei-Minuten-Cooldown bleiben bestehen.
+Regressionen prüfen Erkennung ohne EFB, nach Verbindungsabbruch, bei gleichem
+Preset und Unterdrückung einzelner Ausreißer. In-Sim-/Release-Nachweis offen.
+
+
+### 07.10.2026 – starke Zeitsprünge (lokal)
+
+Optionale SimConnect-Felder ABSOLUTE TIME, LOCAL TIME und SIMULATION RATE
+gehen in Tracker-Telemetrie und Web-Relay. SDK-Quelle:
+https://docs.flightsimulator.com/msfs2024/html/6_Programming_APIs/Environment_Variables.htm
+Der gemeinsame Beobachtungskern erkennt abrupte Verschiebungen von mehr als
+3600 Sekunden in beide Richtungen, nach Abzug des normalen Zeitablaufs und
+der gemeldeten Zeitbeschleunigung. Die absolute Uhr vermeidet Mitternachts-
+und Zeitzonenfehler. Fehlende Uhrwerte deaktivieren nur diese Beobachtung.
+Kurze Pause-/Menübesuche behalten die Ausgangsuhr bis zwei Minuten, damit
+eine dort vorgenommene Änderung nach Rückkehr erkennbar ist. Lange Lücken,
+Missionstart/-ende und einzelne rückgängig gemachte Ausreißer bleiben stumm.
+Drei Messungen über mindestens zwei Sekunden bestätigen den Sprung; Busy
+wartet bis höchstens 40 Sekunden. Wetter und Zeit teilen zwei Minuten Cooldown.
+Der bestehende Voice-Effect time_shift nutzt denselben Authority-/Queuepfad
+und dieselbe Präsentation in App/EFB; bestehende Familiengates bleiben erhalten.
+PAX darf über die Uhr scherzen, aber keine Lichtverhältnisse, konkrete Ursache
+oder Terminfolgen erfinden. Kein EFB-Paket erforderlich. Build/Release und
+In-Sim-Prüfung stehen aus.
+
+Validierung: 61 Wetter-/Zeit-Core-, Tracker-Runtime- und Boarding-Voice-Tests
+bestanden, darunter ein autoritativer Tracker-Run mit ausgeführtem
+voice.flight/time_shift-Effect und gespeichertem gemeinsamen Cooldown.
+Syntaxprüfungen und git diff --check bestanden. Keine echte TTS-/In-Sim-Probe.
+
+
+### 07.10.2026 – Bush-/Umgebungs-Build-Kandidat v487
+
+Fortschreibung der vorherigen lokalen Abschnitte: Bush-Kapitel sind jetzt auch
+in Tracker-Authority migriert, inklusive stabiler Claims, vorbereiteter Kapitel,
+Sprecher-/Abschnittsprüfung, erneuter Geo-/Pause-/Slew-Prüfung vor Playback und
+persistenter tatsächlich gesprochener Kontinuität bis Farewell. Die zentrale
+Mission-Voice-Lane spielt Ansagen seriell; der Voice-Service sperrt Wiedergabe
+auch über mehrere Clients. Bestehende Bush-Rezepte bleiben aktiviert.
+
+Umgebungskontext ist nur für Bush freigeschaltet. Wetter bleibt optional;
+Telemetrie-basierte Wetter- und Zeitsprungreaktionen funktionieren ohne natives
+EFB. Preset-Ursache wird nur bei frischem authentifiziertem Nachweis erwähnt.
+Windows-Tracker lokal gebaut, gepackter macOS-IPC/Authority-Smoke-Test bestanden.
+SDK-Mocktests prüfen Listener-Ausfall und Heartbeat. Vollständiger nativer
+EFB-SDK-Build sowie Windows/SimConnect/In-Sim-Abnahme fehlen noch; keine
+Veröffentlichung. Die früher genannten offenen Kapitel-Gates sind damit
+fortgeschrieben, nicht die bestehenden Freigaben anderer Rezeptfamilien.
+
+
+### 07.10.2026 – Windows-SDK-Handoff in OneDrive
+
+Auf Nutzerauftrag liegt der nächste Build-/Prüfauftrag unter `OneDrive/VFR-Multitool-Bush-Weather-SDK-Handoff-2026-10-07/HANDOFF.md`. Enthalten sind die vollständigen benötigten SDK-Projektquellen auf Basis 5ab9d3197/Quellversion 0.4.21, der gezielte native Preset-Patch, Quell-/Archivhashes, aktuelle Testlogs sowie die frisch gebaute Tracker-Test-EXE v487. Vorgeschlagene isolierte SDK-Kandidatenversion 0.4.22, vor Veröffentlichung auf Verfügbarkeit prüfen. Der optionale PowerShell-Helfer baut/validiert und legt Ergebnisse in OneDrive ab; er installiert oder veröffentlicht nichts und wurde auf dem Mac nicht ausgeführt.
+
+Windows muss den realen Listener-Vertrag einschließlich Bereitschaft, Payload/Index, Live-Bedeutung und Cleanup anhand offizieller SDK-/Simulatorquellen bestätigen. Die zwei lokalen Mocktests sind kein API-Nachweis. SDK-Build, SimConnect, tatsächliche Wetter-/Zeitsprungreaktionen und serielle Voices mit/ohne EFB bleiben Abnahmepunkte. Nutzer startet den Run selbst.
+
+
+### 07.10.2026 – SDK-Rückgabe integriert, Tracker-Teststand v488
+
+Fortschreibung des v487-Handoffs: Die offizielle SDK-Rückgabe liefert den
+nativen Listener-Vertrag und das gebaute EFB-Paket 0.4.22. Native Quelle exakt
+hashgleich, Archiv/Manifest/Layout/CRC verifiziert. Feldname sPresetName,
+Listener-Readiness, TTL und Destroy-Abbruch sind abgesichert. Echte In-Sim-
+Abnahme fehlt weiterhin; keine Veröffentlichung oder Installation.
+
+Menü-/Pause-/Slew-Behandlung der Wetter-/Zeitbeobachtung korrigiert; gemeinsame
+Niederschlagskorrektur nach ausdrücklicher Nutzerfreigabe: STATE 2 ist trocken,
+4 Regen, 8 Schnee, 12 gemischt; RATE erhält keine erfundene Stundenbasis oder
+Intensitätsbewertung. Worker, Relay, Runtime-/Ankunftssnapshot, Flugprotokoll und
+alle gemeinsamen Voice-Familien nutzen die kanonische Normalisierung. Kern aus
+passenger-voice.js generiert; sieben Drift-Prüfungen bestehen.
+
+Im EFB-Session-Client neue optionale Verkettung/Spread-Ausdrücke für Coherent
+ersetzt. Asset-Revision 48801, Tracker-Test-EXE v488. 359 unterschiedliche
+Automatik-/Browserfälle bestanden; gepackter IPC-/Authority-Test erfolgreich.
+Einzelne letzte Formulierungs-/Speicheränderungen gezielt erneut geprüft.
+Vollständige Details und Feldprobe: analysis/bush-live-20261007/integration-result.md.

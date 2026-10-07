@@ -3,10 +3,12 @@
     var boardingVoiceCore = typeof module === 'object' && module.exports
         ? require('./mission-boarding-voice-core.js')
         : (root && root.GAMissionBoardingVoiceCore);
-    var api = factory(boardingVoiceCore);
+    var precipitationCore = typeof module === 'object' && module.exports
+        ? require('./mission-precipitation-core.js') : (root && root.GAMissionPrecipitationCore);
+    var api = factory(boardingVoiceCore, precipitationCore);
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root && typeof root === 'object') root.GAMissionFarewellVoiceCore = api;
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (boardingVoiceCore) {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (boardingVoiceCore, precipitationCore) {
     'use strict';
 
     var RECIPE_SCHEMA = 'ga.mission-farewell-voice-recipe.v1';
@@ -89,8 +91,7 @@
             windGustKts: number('windGustKts'),
             tempC: number('tempC'),
             visKm: number('visKm'),
-            precipRateMmH: number('precipRateMmH'),
-            precipActive: source.precipActive === true,
+            ...precipitationCore.observe(source),
             inCloud: source.inCloud === true,
             turbulencePct: number('turbulencePct')
         };
@@ -214,13 +215,7 @@
                 : (fd.visKm < 8 ? ' (eingeschränkt)' : (fd.visKm > 20 ? ' (ausgezeichnet)' : ''));
             parts.push('Sicht ' + fd.visKm + ' km' + visibilityDescription);
         }
-        if (fd.precipRateMmH != null) {
-            var precipitationState = fd.precipRateMmH >= 4 ? 'stark'
-                : (fd.precipRateMmH >= 1.5 ? 'mäßig' : (fd.precipRateMmH > 0.05 ? 'leicht' : ''));
-            if (precipitationState) parts.push('Niederschlag ' + precipitationState);
-        } else if (fd.precipActive === true) {
-            parts.push('Niederschlag');
-        }
+        if (fd.precipActive === true) parts.push(fd.precipLabel);
         if (fd.inCloud === true) parts.push('in Wolken');
         if (fd.turbulencePct != null) {
             if (fd.turbulencePct >= 60) parts.push('Turbulenz stark');

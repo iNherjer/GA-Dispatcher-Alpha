@@ -125,7 +125,7 @@ test('context validation keeps strip-target, recon, wrong pickup kind and mismat
 test('Pickup live weather context is extracted from the original App helper', () => {
   const context = {};
   vm.createContext(context);
-  vm.runInContext(extractOriginalFunction(source, '_weatherContext'), context);
+  vm.runInContext(['_precipitationObservation', '_weatherContext'].map(name => extractOriginalFunction(source, name)).join('\n'), context);
   for (const sample of [null, {}, {windKts:22,windDeg:270,windGustKts:30,tempC:9,visKm:2,precipRateMmH:5,inCloud:true,turbulencePct:70}, {windGustKts:8,visKm:30,precipActive:true}]) {
     assert.equal(voice.weatherContext(sample), context._weatherContext(sample));
   }

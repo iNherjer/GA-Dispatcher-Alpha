@@ -7,7 +7,7 @@ export const helperNames = ['_poiMemoryCompact', '_capturePoiNarrativeMemory', '
   '_poiNarrativeMemoryText', '_poiMemoryHasCue', '_factKeywords', '_poiMemoryHasSimilarFact',
   '_getPoiInspectionOutcome', '_inspectionEntryHint', '_inspectionResultHint', '_professionalTaskHint',
   '_domainDriftGuard', '_targetFactHint', '_paxMemoryMentionsLandmark', '_paxApproachLandmarkCueLine',
-  '_paxCardinalGerman', '_weatherContext', '_professionalLandingToneHint', '_getSarSearchOutcome', '_sarResultHint', '_poiManualReportSubject', '_poiManualFoundPrompt', '_poiManualNotFoundPrompt', '_poiManualFoundFallback', '_poiManualNotFoundFallback'];
+  '_paxCardinalGerman', '_precipitationObservation', '_weatherContext', '_professionalLandingToneHint', '_getSarSearchOutcome', '_sarResultHint', '_poiManualReportSubject', '_poiManualFoundPrompt', '_poiManualNotFoundPrompt', '_poiManualFoundFallback', '_poiManualNotFoundFallback'];
 export const knowledgeNames = ['_poiKnowledgeCleanFactText', '_poiKnowledgeContextIdentity', '_poiKnowledgeSyncContext', '_poiKnowledgeFactCandidates', '_poiKnowledgeFactKey', '_poiKnowledgeStageScore', '_poiKnowledgeStageMinIndex', '_poiKnowledgeFactHint', '_poiKnowledgeRichFactCount', '_poiKnowledgeFactSequenceHint', '_poiKnowledgeManualFactCandidates', '_poiKnowledgeTellMoreAvailable', '_poiKnowledgeFreshFactCount', '_poiKnowledgeManualFactClip', '_poiKnowledgeNextManualFact', '_poiKnowledgeTargetName'];
 const actionNames = ['_missionActionContext', '_missionVectorText', '_missionOrientationFactLine', '_missionStatusFacts', '_paxNearLandmarkOrientationLine', '_poiMissionStatusAction', '_poiMissionOrientationAction'];
 const surveyNames = ['_surveyPatternActiveSpec', '_surveyPatternSnapshot', '_surveyPatternProgressSummary',

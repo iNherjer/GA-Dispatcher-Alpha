@@ -402,8 +402,9 @@
             kind: text(source.kind || 'boarding', 40).toLowerCase() || 'boarding',
             status: statuses.includes(rawStatus) ? rawStatus : 'idle',
             text: text(source.text, 4000),
-            ...(source.kind === 'poi' && source.label ? { label: text(source.label, 80) } : {}),
+            ...(['poi','bush_story'].includes(source.kind) && source.label ? { label: text(source.label, 80) } : {}),
             ...(source.wrongStartActive === true ? { wrongStartActive: true } : {}),
+            ...(source.weatherMismatchUsed === true ? { weatherMismatchUsed: true } : {}),
             speaker: {
                 name: text(speaker.name, 120),
                 role: text(speaker.role, 160),
@@ -650,6 +651,10 @@
             })
         };
         if (state.bushTask?.kind === 'pickup_return' && object(source.voice).bush) state.voice.bush = normalizeVoiceOutcome(source.voice.bush);
+        if (Array.isArray(object(source.voice).bushChapters)) state.voice.bushChapters = source.voice.bushChapters
+            .filter(row => row && row.text && row.speakerName).slice(-12).map(row => ({
+                id: text(row.id, 80), kind: text(row.kind, 20), place: text(row.place, 140),
+                text: text(row.text, 1200), speakerName: text(row.speakerName, 120) }));
         if (Array.isArray(object(source.voice).bushHistory)) state.voice.bushHistory = object(source.voice).bushHistory
             .filter(row => row && typeof row === 'object' && row.text)
             .slice(-8).map(row => ({ effectId: text(row.effectId, 220), stage: text(row.stage, 60),
@@ -1714,6 +1719,12 @@
                 }
             }
             var spokenOutcome = object(object(event.payload).result);
+            if(acknowledgedEffect?.type==='voice.flight' && acknowledgedEffect.payload?.kind==='bush_story' && spokenOutcome.text && spokenOutcome.playback==='completed'){
+                var chapters=Array.isArray(state.voice.bushChapters)?state.voice.bushChapters:[];
+                state.voice.bushChapters=chapters.concat({id:acknowledgedEffect.payload.narrativeEventId,kind:acknowledgedEffect.payload.narrativeKind,
+                    place:object(acknowledgedEffect.payload.geo).name||'',text:text(spokenOutcome.text,1200),speakerName:object(spokenOutcome.speaker).name||''}).slice(-12);
+            }
+
             if (state.bushTask?.kind === 'pickup_return' && acknowledgedStatus === 'completed'
                 && ['voice.approach', 'voice.farewell'].includes(acknowledgedEffect?.type)
                 && spokenOutcome.text && bushPickupVoiceCore?.captureMemory) {

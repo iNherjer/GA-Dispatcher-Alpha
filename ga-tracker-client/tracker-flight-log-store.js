@@ -1,5 +1,7 @@
 'use strict';
 
+const precipitationCore = require('../mission-precipitation-core.js');
+
 const fs = require('fs');
 const path = require('path');
 
@@ -43,8 +45,7 @@ function telemetrySample(value = {}) {
     windGustKts: finite(source.windGustKts),
     tempC: finite(source.tempC),
     visKm: finite(source.visKm),
-    precipRateMmH: finite(source.precipRateMmH),
-    precipActive: source.precipActive === true,
+    ...precipitationCore.observe(source),
     inCloud: source.inCloud === true,
     turbulencePct: finite(source.turbulencePct),
     simPaused: source.simPaused === true,

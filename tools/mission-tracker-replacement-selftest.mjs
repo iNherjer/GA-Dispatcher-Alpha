@@ -124,10 +124,12 @@ assert.equal(trackerTelemetryCalls.length, 1, 'one full flight sample must coexi
 const trackerTelemetryCall = trackerTelemetryCalls[0];
 for (const field of [
     'altFt', 'aglFt', 'hdg', 'bankDeg', 'gForce', 'vsFpm', 'touchdownFpm',
-    'windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'precipRateMmH',
-    'precipActive', 'inCloud', 'turbulencePct', 'parkingBrake'
+    'windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm',
+    'inCloud', 'turbulencePct', 'parkingBrake'
 ]) {
     assert.match(trackerTelemetryCall, new RegExp(`\\b${field}\\s*:`), `tracker Farewell telemetry missing ${field}`);
 }
 
+assert.match(trackerTelemetryCall, /\.\.\.precipitation/, 'shared precipitation observation must reach the worker');
+assert.match(trackerSource, /precipitationCore\.observe\(raw\)/, 'SDK bitmask must be normalized before worker and relay samples');
 console.log('Mission tracker replacement selftest passed');

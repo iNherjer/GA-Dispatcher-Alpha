@@ -2,6 +2,25 @@
 'use strict';
 const comfortCore=require('./mission-comfort-core.js');
 const weatherCore=require('./mission-farewell-voice-core.js');
+function _precipitationObservation(fd) {
+    fd = fd && typeof fd === 'object' ? fd : {};
+    // AMBIENT PRECIP STATE: 2 = none, 4 = rain, 8 = snow. RATE has no documented hourly timebase.
+    const state = fd.precipState;
+    const valid = typeof state === 'number' && Number.isSafeInteger(state) && state > 0
+        && (state & ~14) === 0 && !((state & 2) && (state & 12));
+    const active = valid ? Boolean(state & 12)
+        : (state == null && typeof fd.precipActive === 'boolean' ? fd.precipActive : null);
+    const label = valid ? (state === 2 ? 'kein Niederschlag' : state === 4 ? 'Regen'
+        : state === 8 ? 'Schnee' : 'Regen und Schnee') : (active === true ? 'Niederschlag' : active === false ? 'kein Niederschlag' : null);
+    return {
+        precipState: valid ? state : null,
+        precipActive: active,
+        precipLabel: label,
+        precipRateRaw: typeof fd.precipRateRaw === 'number' && Number.isFinite(fd.precipRateRaw) && fd.precipRateRaw >= 0 ? fd.precipRateRaw : null,
+        precipRateUnit: 'millimeters of water; timebase unknown',
+        precipRateMmH: null
+    };
+}
 function _missionWeatherReactionLine(flightData = null) {
     const fd = flightData || window.lastLiveFlightData || {};
     const parts = [];
@@ -9,11 +28,11 @@ function _missionWeatherReactionLine(flightData = null) {
     const gust = Number(fd.windGustKts || 0);
     const spread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
     const turb = Number(fd.turbulencePct || 0);
-    const precip = Number(fd.precipRateMmH || 0);
+    const precip = _precipitationObservation(fd);
     if (wind >= 24) parts.push(`Wind ${Math.round(wind)} kt`);
     if (spread >= 16) parts.push(`Boeen plus ${Math.round(spread)} kt`);
     if (turb >= 55) parts.push(`Turbulenz ${Math.round(turb)} Prozent`);
-    if (precip >= 1.5 || fd.precipActive === true) parts.push(precip >= 1.5 ? `Regen/Niederschlag ${precip.toFixed(1)} mm/h` : 'Niederschlag');
+    if (precip.precipActive === true) parts.push(precip.precipLabel);
     if (fd.inCloud === true) parts.push('in Wolken');
     return parts.join(', ');
 }

@@ -104,6 +104,8 @@
     let session = null;
     let sessionToken = '';
     let heartbeatTimer = null;
+    let weatherPreset = null;
+    let weatherPresetAt = 0;
     let voiceTimer = null;
     let activeVoice = null;
     let audioUnlockPromise = null;
@@ -419,13 +421,13 @@
       if (stopped) return null;
       if (relayAvailable()) { session = null; sessionToken = ''; scheduleVoice(250); schedule(15000); return null; }
       try {
-        const result = await post('/cockpit/sessions', {
+        const result = await post('/cockpit/sessions', Object.assign({
           clientId,
           role,
           appVersion: String(options.appVersion || '').slice(0, 80),
           capabilities: Array.isArray(options.capabilities) ? options.capabilities : [],
           audioPlaybackEnabled: getAudioPlaybackEnabled() === true
-        });
+        }, role === 'efb' ? { weatherPreset: Date.now() - weatherPresetAt <= 12000 ? weatherPreset : null } : {}));
         if (!result.response.ok || !result.payload || !result.payload.session || !result.payload.sessionToken) {
           session = null;
           sessionToken = '';
@@ -449,11 +451,11 @@
       if (stopped) return null;
       if (relayAvailable() || !session || !session.sessionId || !sessionToken) return register();
       try {
-        const result = await post('/cockpit/sessions/heartbeat', {
+        const result = await post('/cockpit/sessions/heartbeat', Object.assign({
           sessionId: session.sessionId,
           sessionToken,
           audioPlaybackEnabled: getAudioPlaybackEnabled() === true
-        });
+        }, role === 'efb' ? { weatherPreset: Date.now() - weatherPresetAt <= 12000 ? weatherPreset : null } : {}));
         if (!result.response.ok || !result.payload || !result.payload.session) return register();
         session = result.payload.session;
         schedule(Math.max(5000, Math.floor((session.expiresAt - Date.now()) / 3)));
@@ -555,6 +557,13 @@
       baseUrl,
       clientId,
       get session() { return session ? Object.assign({}, session) : null; },
+      setWeatherPreset: value => {
+        if (role !== 'efb') return Promise.resolve(null);
+        weatherPreset = value && Number.isSafeInteger(value.index) && value.index >= 0 && value.index <= 1000000
+          ? { index: value.index, name: String(value.name || '').slice(0, 120) } : null;
+        weatherPresetAt = Date.now();
+        return heartbeat();
+      },
       heartbeat,
       missionSnapshot,
       pollVoice,
@@ -587,7 +596,7 @@
     const client = createClient({
       role,
       appVersion: String(script && script.dataset && script.dataset.appVersion || ''),
-      capabilities: ['cockpit.session.v1', 'mission.snapshot.v2', 'voice.playback.v1'],
+      capabilities: ['cockpit.session.v1', 'mission.snapshot.v2', 'voice.playback.v1'].concat(role === 'efb' ? ['sim.weather-preset.v1'] : []),
       listenForVoice: () => role !== 'web'
         || (typeof runtime.gaTrackerExecutionHandlesMission === 'function'
           && runtime.gaTrackerExecutionHandlesMission() === true),
@@ -599,6 +608,11 @@
     client.start().catch(() => {});
     client.pollVoice().catch(() => {});
     if (typeof runtime.addEventListener === 'function') {
+      if (role === 'efb') runtime.addEventListener('message', event => {
+        const expectedChannel = new URLSearchParams(runtime.location.search).get('channel');
+        if (!expectedChannel || event.source !== runtime.parent || !event.data || event.data.channel !== expectedChannel || event.data.type !== 'ga-sim-weather-preset') return;
+        client.setWeatherPreset(event.data.preset).catch(() => {});
+      });
       runtime.addEventListener('ga:audio-playback-device-changed', () => client.heartbeat().catch(() => {}));
       var unlockFromGesture = function () {
         if (typeof runtime.awmShouldPlayOnThisDevice === 'function' && runtime.awmShouldPlayOnThisDevice() === true) {

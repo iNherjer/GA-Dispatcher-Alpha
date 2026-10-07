@@ -15,6 +15,7 @@ function observeFlightVoice(context = {}, previous = {}, facts = {}) {
   const _paxSpeechCanceledByMissionEnd = () => facts.ending === true;
   const _baseContext = () => context.baseContext;
   const _toneHint = () => context.toneHint || '';
+  const _precipitationObservation = require('../mission-precipitation-core.js').observe;
   const _weatherContext = weatherCore.weatherContext;
   const _activeTaskDomain = () => context.taskDomain || '';
   const _missionHasPax = () => !!context.passenger;
@@ -282,7 +283,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
         ? Number(motionAnalysis.derivedTurbulencePct || 0)
         : 0;
     const turbulence = Math.max(directTurbulence, derivedTurbulence);
-    const precipRate = Number(flightData.precipRateMmH || 0);
+    const precipitation = _precipitationObservation(flightData);
     const policy = _comfortFeedbackPolicy(pax);
     const chooseThreshold = (level, highPair, mediumPair) => {
         const lvl = _normLevel3(level);
@@ -297,7 +298,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
     const wThr = chooseThreshold(policy.metricLevels.wind, [24, 34], [30, 42]);
     const gsThr = chooseThreshold(policy.metricLevels.gust, [16, 24], [22, 32]);
     const tThr = chooseThreshold(policy.metricLevels.turb, [55, 75], [70, 90]);
-    const pThr = chooseThreshold(policy.metricLevels.precip, [1.5, 4.0], [3.0, 6.0]);
+    const precipEnabled = _normLevel3(policy.metricLevels.precip) !== 'niedrig';
     const dThr = chooseThreshold(policy.metricLevels.descent, [-1300, -2000], [-1600, -2400]);
 
     const gLevel = gThr ? (g >= gThr.hard ? 'hard' : g >= gThr.warn ? 'warn' : null) : null;
@@ -322,7 +323,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
     const tLevel = (directTLevel === 'hard' || motionTLevel === 'hard')
         ? 'hard'
         : ((directTLevel || motionTLevel) ? 'warn' : null);
-    const pLevel = pThr ? (precipRate >= pThr.hard ? 'hard' : precipRate >= pThr.warn ? 'warn' : null) : null;
+    const pLevel = precipEnabled && precipitation.precipActive === true ? 'warn' : null;
     const dLevel = dThr ? (vsFpm <= dThr.hard ? 'hard' : vsFpm <= dThr.warn ? 'warn' : null) : null;
     if (!gLevel && !bLevel && !wLevel && !gsLevel && !tLevel && !pLevel && !dLevel) return null;
 
@@ -334,7 +335,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
     if (dThr && Number(motionAnalysis?.vsLow) <= dThr.warn) preconfirmedMs.descent = pilotEvidenceMs;
     if (motionAnalysis?.detected) preconfirmedMs.turbulence = Number(motionAnalysis.windowMs || 0);
     return {
-        severity, g, bank, wind, gustSpread, turbulence, precipRate, vsFpm,
+        severity, g, bank, wind, gustSpread, turbulence, precipLabel: precipitation.precipLabel, vsFpm,
         gLevel, bLevel, wLevel, gsLevel, tLevel, pLevel, dLevel, policy,
         directTurbulence,
         directTurbulenceSupported,
@@ -346,7 +347,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
             descent: Number.isFinite(motionVs) && motionVs < currentVsFpm ? 'window' : 'current'
         },
         preconfirmedMs,
-        thresholds: { g: gThr, bank: bThr, wind: wThr, gust: gsThr, turbulence: tThr, precip: pThr, descent: dThr }
+        thresholds: { g: gThr, bank: bThr, wind: wThr, gust: gsThr, turbulence: tThr, precip: null, descent: dThr }
     };
 }
 
@@ -434,7 +435,7 @@ function _comfortBreachDebugDetail(breach) {
     } else {
         add('turbulence', 'Turbulenz', breach.turbulence, '%');
     }
-    add('precip', 'Niederschlag', breach.precipRate, ' mm/h', 1);
+    if (breach.confirmed?.precip) parts.push(`${breach.precipLabel || 'Niederschlag'} (${(breach.confirmed.precip.elapsedMs / 1000).toFixed(1).replace('.', ',')} s)`);
     const descent = breach.confirmed?.descent;
     if (descent) {
         const threshold = breach.thresholds?.descent?.[descent.level];
@@ -461,14 +462,16 @@ function _comfortBreachPrompt(flightData, breach, count) {
             bits.push(`Turbulenz ${Math.round(breach.turbulence)}%`);
         }
     }
-    if (breach.pLevel) bits.push(`Niederschlag ${breach.precipRate.toFixed(1)} mm/h`);
+    if (breach.pLevel) bits.push(breach.precipLabel || 'Niederschlag');
     if (breach.dLevel) bits.push(`${breach.metricSources?.descent === 'window' ? 'Sinkraten-Spitze' : 'Sinkflug'} ${Math.round(breach.vsFpm)} ft/min`);
     const hasPilotIssue = !!(breach.gLevel || breach.bLevel || breach.dLevel);
     const hasWeatherIssue = !!(breach.wLevel || breach.gsLevel || breach.tLevel || breach.pLevel);
     const level = breach.severity === 'hard' ? 'deutlich' : 'spürbar';
     const causeLine = hasPilotIssue
         ? `Mitten im Flug wurden Komfortgrenzen ${level} überschritten (${bits.join(' · ')}).${wx ? ' ' + wx : ''}`
-        : `Mitten im Flug ist das Wetter für mich ${level} unruhig (${bits.join(' · ')}).${wx ? ' ' + wx : ''}`;
+        : (breach.pLevel && !breach.wLevel && !breach.gsLevel && !breach.tLevel
+            ? `Während des Fluges beobachten wir ${breach.precipLabel || 'Niederschlag'}. Die Intensität ist nicht bestätigt.${wx ? ' ' + wx : ''}`
+            : `Mitten im Flug ist das Wetter für mich ${level} unruhig (${bits.join(' · ')}).${wx ? ' ' + wx : ''}`);
     const attributionRule = hasPilotIssue && hasWeatherIssue
         ? 'Du darfst G-Last, steile Kurven oder starken Sinkflug als Flugstil ansprechen; Wind, Böen, Turbulenz und Regen aber ausdrücklich nicht dem Piloten anlasten.'
         : hasPilotIssue

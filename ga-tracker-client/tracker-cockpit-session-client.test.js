@@ -489,3 +489,17 @@ test('revision conflict uses attached snapshot without another GET', async t => 
   assert.equal((await client.submitIntent({ commandId: 'abort', intent: 'abort_mission', missionId: 'm', runId: 'r', expectedRevision: 11 })).ok, true);
   assert.equal(attempts, 2);
 });
+
+test('optional native preset observation travels over authenticated EFB heartbeat; Web cannot submit it', async t => {
+  const bodies=[];
+  const client=createClient({role:'efb',capabilities:['sim.weather-preset.v1'],fetchRemote:async (url,init)=>{
+    bodies.push({url,body:JSON.parse(init.body)});
+    return response({session:{sessionId:'s',expiresAt:Date.now()+45000},sessionToken:'token',heartbeatAfterMs:15000});
+  }});
+  t.after(()=>client.stop());await client.register();await client.setWeatherPreset({index:7,name:'Storm'});
+  assert.equal(bodies.at(-1).url.endsWith('/cockpit/sessions/heartbeat'),true);
+  assert.equal(bodies.at(-1).body.sessionToken,'token');assert.equal(bodies.at(-1).body.weatherPreset.index,7);
+  await client.setWeatherPreset(null);assert.equal(bodies.at(-1).body.weatherPreset,null);
+  const web=createClient({role:'web',fetchRemote:()=>{throw Error('must_not_fetch');}});t.after(()=>web.stop());
+  assert.equal(await web.setWeatherPreset({index:1}),null);
+});

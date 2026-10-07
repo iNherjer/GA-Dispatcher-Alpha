@@ -496,6 +496,26 @@ function _paxCardinalGerman(bearingDeg) {
     return dirs[idx] || '';
 }
 
+function _precipitationObservation(fd) {
+    fd = fd && typeof fd === 'object' ? fd : {};
+    // AMBIENT PRECIP STATE: 2 = none, 4 = rain, 8 = snow. RATE has no documented hourly timebase.
+    const state = fd.precipState;
+    const valid = typeof state === 'number' && Number.isSafeInteger(state) && state > 0
+        && (state & ~14) === 0 && !((state & 2) && (state & 12));
+    const active = valid ? Boolean(state & 12)
+        : (state == null && typeof fd.precipActive === 'boolean' ? fd.precipActive : null);
+    const label = valid ? (state === 2 ? 'kein Niederschlag' : state === 4 ? 'Regen'
+        : state === 8 ? 'Schnee' : 'Regen und Schnee') : (active === true ? 'Niederschlag' : active === false ? 'kein Niederschlag' : null);
+    return {
+        precipState: valid ? state : null,
+        precipActive: active,
+        precipLabel: label,
+        precipRateRaw: typeof fd.precipRateRaw === 'number' && Number.isFinite(fd.precipRateRaw) && fd.precipRateRaw >= 0 ? fd.precipRateRaw : null,
+        precipRateUnit: 'millimeters of water; timebase unknown',
+        precipRateMmH: null
+    };
+}
+
 function _weatherContext(fd) {
     if (!fd) return '';
     const parts = [];
@@ -514,13 +534,8 @@ function _weatherContext(fd) {
         const desc = fd.visKm < 3 ? ' (sehr schlecht)' : fd.visKm < 8 ? ' (eingeschränkt)' : fd.visKm > 20 ? ' (ausgezeichnet)' : '';
         parts.push(`Sicht ${fd.visKm} km${desc}`);
     }
-    if (fd.precipRateMmH != null) {
-        const p = Number(fd.precipRateMmH);
-        const state = p >= 4 ? 'stark' : p >= 1.5 ? 'mäßig' : p > 0.05 ? 'leicht' : '';
-        if (state) parts.push(`Niederschlag ${state}`);
-    } else if (fd.precipActive === true) {
-        parts.push('Niederschlag');
-    }
+    const precipitation = _precipitationObservation(fd);
+    if (precipitation.precipActive === true) parts.push(precipitation.precipLabel);
     if (fd.inCloud === true) parts.push('in Wolken');
     if (fd.turbulencePct != null) {
         const t = Number(fd.turbulencePct);
