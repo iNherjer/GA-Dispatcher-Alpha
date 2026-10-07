@@ -78,7 +78,21 @@
     if (!response.ok) throw new Error('Audio konnte nicht geladen werden.');
     return response.arrayBuffer();
   }
-  function message(text) { var item = root.document.getElementById('gaAudioOutputStatus'); if (item) item.textContent = text; }
+  // Coherent native controls must retain their paint/input state between polls.
+  // Compare against the current node, so external changes and replacement nodes
+  // still receive the next authoritative value.
+  function uiProperty(node, name, value) {
+    if (!node) return;
+    if (name === 'value') {
+      value = String(value);
+      if (root.document.activeElement === node) return;
+    }
+    if (node[name] !== value) node[name] = value;
+  }
+  function uiStyle(node, name, value) {
+    if (node && node.style[name] !== value) node.style[name] = value;
+  }
+  function message(text) { uiProperty(root.document.getElementById('gaAudioOutputStatus'), 'textContent', text); }
   function createPlayer() { return root.GATrackerAudioPlayer.createPlayer({ deviceId: deviceId, clientId: cockpit.clientId,
     request: request, fetchClip: fetchClip, AudioContext: root.AudioContext || root.webkitAudioContext,
     onError: function (error) { lastError = error; message(error); }, onPlayback: function (job) {
@@ -226,33 +240,34 @@
   });
   function render() {
     installMenu(); if (!menu) return;
-    menu.style.display = state ? 'block' : 'none';
+    uiStyle(menu, 'display', state ? 'block' : 'none');
     var old = root.document.getElementById('awmPlayOnThisDeviceCheck');
-    if (old && old.parentNode) old.parentNode.style.display = enabled ? 'none' : 'flex';
-    var oldStatus = root.document.getElementById('awmPlayOnThisDeviceStatus'); if (oldStatus) oldStatus.style.display = enabled ? 'none' : '';
+    if (old && old.parentNode) uiStyle(old.parentNode, 'display', enabled ? 'none' : 'flex');
+    var oldStatus = root.document.getElementById('awmPlayOnThisDeviceStatus'); if (oldStatus) uiStyle(oldStatus, 'display', enabled ? 'none' : '');
     if (!state) return;
-    root.document.getElementById('gaAudioOutputSelect').value = state.target.mode === 'pc' ? 'pc' : state.target.deviceId === deviceId ? 'this' : 'other';
-    root.document.getElementById('gaAudioMasterEnabled').checked = state.settings.enabled;
-    message(lastError || 'Ausgabe: ' + state.target.name + (state.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : ''));
+    uiProperty(root.document.getElementById('gaAudioOutputSelect'), 'value', state.target.mode === 'pc' ? 'pc' : state.target.deviceId === deviceId ? 'this' : 'other');
+    uiProperty(root.document.getElementById('gaAudioMasterEnabled'), 'checked', state.settings.enabled);
+    var statusText = lastError || 'Ausgabe: ' + state.target.name + (state.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : '');
+    if (enabled && state.warnings && ['partial','stale'].indexOf(state.warnings.status) >= 0) statusText = 'Ausgabe: ' + state.target.name + ' · ' + (state.warnings.health || 'Warnungsdaten veraltet');
+    message(statusText);
     if (!enabled) return;
-    if (state.warnings && ['partial','stale'].indexOf(state.warnings.status) >= 0) message('Ausgabe: ' + state.target.name + ' · ' + (state.warnings.health || 'Warnungsdaten veraltet'));
     // Keep standalone state/diagnostics aligned with the authoritative toggles,
     // without starting another warning detector or changing the selected output.
     [['awmSetTerrainWarn','terrain','awm_warn_terrain'],['awmSetAirspaceWarn','airspace','awm_warn_airspace'],['awmSetReadFreq','readFreq','awm_read_freq'],['awmSetWpAlert','waypoint','awm_warn_wp']].forEach(function(entry) {
       try { if (typeof originals[entry[0]] === 'function' && root.localStorage.getItem(entry[2]) !== (state.settings[entry[1]] ? '1' : '0')) originals[entry[0]](state.settings[entry[1]]); } catch (_) {}
     });
     var styleSelect = root.document.getElementById('awmPaxAudioStyleSelect');
-    if (styleSelect) styleSelect.value = state.settings.audioStyle || 'intercom_noise';
-    var packs = root.document.getElementById('gaWarningVoiceSelect'); if (packs) packs.value = state.settings.voicePack || '';
+    uiProperty(styleSelect, 'value', state.settings.audioStyle || 'intercom_noise');
+    var packs = root.document.getElementById('gaWarningVoiceSelect'); uiProperty(packs, 'value', state.settings.voicePack || '');
     root.document.querySelectorAll('[id^="awmVoiceBtn_"]').forEach(function(btn) {
       var selected = btn.id === 'awmVoiceBtn_' + (state.settings.voicePack || 'anna');
       btn.style.border = '1px solid ' + (selected ? '#4da6ff' : '#444');
       btn.style.background = selected ? '#1a3a5c' : '#1e1e1e'; btn.style.color = selected ? '#4da6ff' : '#ccc';
     });
-    [['awmPaxVoiceCheck','paxEnabled'],['awmAudioEffectsCheck','effectsEnabled'],['awmReadFreqCheck','readFreq'],['awmTerrainWarnCheck','terrain'],['awmAirspaceWarnCheck','airspace'],['awmWpAlertCheck','waypoint']].forEach(function (entry) { var el = root.document.getElementById(entry[0]); if (el) el.checked = state.settings[entry[1]]; });
+    [['awmPaxVoiceCheck','paxEnabled'],['awmAudioEffectsCheck','effectsEnabled'],['awmReadFreqCheck','readFreq'],['awmTerrainWarnCheck','terrain'],['awmAirspaceWarnCheck','airspace'],['awmWpAlertCheck','waypoint']].forEach(function (entry) { var el = root.document.getElementById(entry[0]); uiProperty(el, 'checked', state.settings[entry[1]]); });
     var slider = root.document.getElementById('awmVolumeSlider'), label = root.document.getElementById('awmVolumeLabel');
-    if (slider && root.document.activeElement !== slider) slider.value = Math.round(state.settings.volume * 100);
-    if (label) label.textContent = Math.round(state.settings.volume * 100) + '%';
+    uiProperty(slider, 'value', Math.round(state.settings.volume * 100));
+    uiProperty(label, 'textContent', Math.round(state.settings.volume * 100) + '%');
   }
   root.gaTrackerAudioClient = { active: isActive, deviceId: deviceId, apply: apply, change: change };
   root.addEventListener('gatrackercapabilitieschange', function(event) {

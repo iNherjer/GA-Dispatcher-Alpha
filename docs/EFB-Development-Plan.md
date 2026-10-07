@@ -6136,3 +6136,34 @@ Nutzer autorisiert Bau und Alpha-Rollout nach dem Nachweis, dass echte Aenderung
 Windows-x64-EXE v486 erfolgreich im gleichen Cross-Build-Modus wie v485 gebaut (no-bytecode/public). 173557031 Bytes, SHA-256 a8f64a5be7a36ff145c6def1066985ff827e52d58e9b7b25063b462fde1a1b29. PE-Machine x64 und exakte eingebettete Inhalte von Shared-Presentation, Host, Profil-Bridge, generiertem Profil und Web-Client geprueft; eingebettete Version v486 und Assetrevision 48601 bestaetigt. 46 betroffene Node-Tests und Interface-Regressionspruefung nach Versionsanpassung erneut bestanden; unveraenderte SDK-Lifecycle-Pruefung umfasst weitere sieben Tests.
 
 Tracker v486 als unveraenderliches GitHub-Release veroeffentlicht; erneuter oeffentlicher Download byte-identisch zur geprueften EXE (173557031 Bytes, SHA-256 a8f64a5be7a36ff145c6def1066985ff827e52d58e9b7b25063b462fde1a1b29). Nur Tracker-Alpha-Zeiger auf v486 gesetzt, SW v1944 fuer die Kanalaktivierung. EFB-Alpha bleibt exakt 0.4.21, beide Stable-Zeiger unveraendert. Reales VR-FPS-/Frametime-Ergebnis ist noch offen.
+
+
+### 2026-10-07: Alpha-Hotfix v487 fuer Audio-Menue-Eingabefelder
+
+Nutzer autorisiert die unmittelbare Alpha-Auslieferung nach dem Feldvideo mit
+intermittierend fehlenden Audioausgabe-/Warnstimme-Selects und Lautstaerkeregler.
+Die genaue Tester-Runtime ist nicht bestaetigt; Basis ist oeffentliches v486
+(5ab9d31970a392b8765ac2a2788aa06583f0771f). Der gemeinsame Audioclient
+vergleicht value, checked, Statuslabel und Menuesichtbarkeit vor dem Schreiben
+am aktuellen Knoten. Fokussierte Select-/Range-Werte bleiben bis zum naechsten
+Poll nach Fokusverlust unangetastet. Partial/stale-Warnstatus wird direkt als
+finaler Text dargestellt. Echte Settingsaenderungen, Ersatzknoten und externe
+DOM-Aenderungen werden weiter synchronisiert. Pollintervalle, Settings-ACKs,
+Playback-Lease und Mission-Authority bleiben unveraendert.
+
+Instrumentierte Node-DOM-Probe: 20 identische Polls schreiben in v486 280 Mal
+auf die getesteten Felder, im Hotfix kein Mal. Geaenderte Werte, Fokus,
+Fokusverlust, Ersatzknoten und partial-Warnstatus bestehen. Dies beweist den
+vermiedenen Schreibzyklus, noch keine Behebung des Flackerns im Simulator.
+Ein Z-Layer-/Coherent-Paint-Fehler bleibt bis zum realen Vergleich offen.
+
+Tracker v487 / Assetrevision 48701; SW v1945 fuer den Quellpush.
+Der Fix wird aus einem separaten Checkout gebaut. SDK-Paket 0.4.21 bleibt
+unveraendert, da die betroffenen Assets vom Tracker geliefert werden.
+Stable bleibt auf seinem bisherigen Artefakt. Alpha-Kanal wird erst nach
+verifiziertem Release-Download umgeschaltet.
+
+45 Node-Tests und Interface-Regressionspruefung bestanden. Windows-x64-EXE
+mit pkg 6.18.1/Node18 ohne Bytecode gebaut; 173566255 Bytes, SHA-256
+1618552c4041bead3f1077badaca3e6f506cef722d06f24ee5ed1d589910302f. Die exakten Audioclient-/Web-Client-Quellen,
+Tracker v487 und Assetrevision 48701 sind in der EXE nachgewiesen.
