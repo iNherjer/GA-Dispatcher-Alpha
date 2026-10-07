@@ -8,6 +8,7 @@ const require=createRequire(import.meta.url),source=fs.readFileSync('app.js','ut
 const sar=require('../mission-sar-scene-core.js');
 function ai(fetch,models=[['primary','Primary','flash'],['fallback','Fallback','flash']]){
  const env=vm.createContext({fetch,AbortController,window:{},normalizeAiProvider:x=>x,getSelectedAiProvider:()=> 'gemini',getSelectedAiApiKey:()=> 'test-key',getSelectedAiModelProfile:()=> 'auto',getAiTextModelCandidatesForPrompt:()=>models,incrementApiUsage:()=>{},_missionParseJsonTextDetailed:text=>{try{return {parsed:JSON.parse(text)}}catch{return {parsed:null}}},setTimeout:(fn,ms)=>ms===750?setTimeout(fn,0):setTimeout(fn,ms),clearTimeout});
+ vm.runInContext(extractOriginalFunction(source,'geminiQuotaDetails'),env);
  vm.runInContext(source.slice(source.indexOf('async function fetchAiJsonWithFallback'),source.indexOf('window.fetchAiJsonWithFallback')),env);
  vm.runInContext(extractOriginalFunction(source,'formatAiJsonFailure'),env);return env;
 }
@@ -75,3 +76,29 @@ test('OSM parent area relations load complete members; non-area river relations 
  const geo=await api.geometry(target);assert.equal(geo.status,'mapped');assert.ok(geo.sarCandidates.length);assert.equal(calls.filter(u=>u.includes('/relation/')).length,1);
  const rejected=browser(async url=>url.includes('/relation/')?response(504,{}):url.includes('map.json')?response(200,partial):response(504,{}));await assert.rejects(()=>rejected.geometry(target),/nicht vollständig abrufbar/);
 });
+test('confirmed daily token quota survives later 404 and tells the pilot to return tomorrow or upgrade API plan',async()=>{
+ const details=[{'@type':'type.googleapis.com/google.rpc.QuotaFailure',violations:[{quotaId:'GenerateContentInputTokensPerModelPerDay-FreeTier'}]}];
+ let calls=0;const env=ai(async()=>response(++calls===1?429:404,{error:{status:'RESOURCE_EXHAUSTED',details}}));
+ const result=await env.fetchAiJsonWithFallback('prompt');assert.equal(result.attempts[0].quotaPeriod,'day');assert.equal(result.attempts[0].quotaKind,'tokens');
+ assert.match(env.formatAiJsonFailure(result),/Tokenlimit für heute.*morgen.*bezahlten API-Plan/);assert.equal(calls,2);
+});
+test('daily request quota and minute quota have accurate, distinct instructions',async()=>{
+ for(const [quotaId,expected,excluded] of [['GenerateRequestsPerDayPerProjectPerModel-FreeTier',/tägliches Limit für KI-Anfragen.*morgen.*bezahlten API-Plan/,/Tokenlimit für heute/],['GenerateContentInputTokensPerModelPerMinute-FreeTier',/kurzfristige.*warte kurz/,/morgen|für heute/]]){
+  const env=ai(async()=>response(429,{error:{status:'RESOURCE_EXHAUSTED',details:[{violations:[{quotaId}]}]}}));const result=await env.fetchAiJsonWithFallback('prompt');const message=env.formatAiJsonFailure(result);assert.match(message,expected);assert.doesNotMatch(message,excluded);
+ }
+ const env=ai(()=>{});assert.match(env.formatAiJsonFailure({attempts:[{status:'http_429'}]}),/Bei ausgeschöpfter Tagesquote/);
+});
+test('a usable fallback prevents a false daily-quota failure notice',async()=>{
+ let calls=0;const env=ai(async()=>response(++calls===1?429:200,calls===1?{error:{details:[{violations:[{quotaId:'GenerateContentInputTokensPerModelPerDay-FreeTier'}]}]}}:success));
+ const result=await env.fetchAiJsonWithFallback('prompt');assert.ok(result.parsed);assert.equal(result.model,'fallback');
+});
+for(const file of fs.readdirSync('.').filter(name=>/^mission-.*-browser\.js$/.test(name))){
+ const adapter=fs.readFileSync(file,'utf8');const start=adapter.indexOf('async function json(');if(start<0||!adapter.includes('formatAiJsonFailure'))continue;
+ test(file+' preserves the confirmed daily quota message',async()=>{
+  const env=ai(()=>{});const context=vm.createContext({root:{formatAiJsonFailure:env.formatAiJsonFailure},core:()=>({PROMPT_VERSION:'test'}),getSelectedAiApiKey:()=> 'test',fetchGeminiJsonWithFallback:async()=>({parsed:null,attempts:[{status:'http_429',quotaPeriod:'day',quotaKind:'tokens'}]})});
+  let compiled=false;for(let end=adapter.indexOf('}',start);end>=0;end=adapter.indexOf('}',end+1)){
+   const candidate=adapter.slice(start,end+1);try{new vm.Script(candidate);}catch{continue;}vm.runInContext(candidate,context);compiled=true;break;
+  }
+  assert.equal(compiled,true);await assert.rejects(()=>context.json('prompt','version'),/Tokenlimit für heute.*morgen.*bezahlten API-Plan/);
+ });
+}

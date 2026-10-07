@@ -27651,6 +27651,17 @@ async function _fetchOpenAiChatCompletionText(apiKey, model, prompt, { jsonMode 
     }
 }
 
+function geminiQuotaDetails(body) {
+    const details = Array.isArray(body?.error?.details) ? body.error.details : [];
+    const violations = details.flatMap(detail => Array.isArray(detail?.violations) ? detail.violations : []);
+    const daily = violations.filter(v => String(v.quotaId || '').toLowerCase().includes('perday'));
+    const minute = violations.some(v => String(v.quotaId || '').toLowerCase().includes('perminute'));
+    return {
+        quotaPeriod: daily.length ? 'day' : minute ? 'minute' : 'unknown',
+        quotaKind: daily.some(v => String(v.quotaId || '').toLowerCase().includes('token')) ? 'tokens' : daily.length ? 'requests' : 'unknown'
+    };
+}
+
 async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', promptVersion = 'planner-v2', timeoutMs = 14000 } = {}) {
     const selectedProvider = normalizeAiProvider(provider || getSelectedAiProvider());
     const explicitKey = String(apiKey || '').trim();
@@ -27740,7 +27751,7 @@ async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', pro
                     lastError = `http_${res.status}_${model}`;
                     const body = await res.json().catch(() => null);
                     const apiStatus = String(body?.error?.status || '').slice(0, 80);
-                    attempts.push({ model, source, status: `http_${res.status}`, apiStatus, error: lastError });
+                    attempts.push({ model, source, status: `http_${res.status}`, apiStatus, ...(res.status === 429 ? geminiQuotaDetails(body) : {}), error: lastError });
                     if ([502, 503, 504].includes(res.status) && retry === 0) {
                         clearTimeout(timeoutId);
                         await new Promise(resolve => setTimeout(resolve, 750));
@@ -27778,7 +27789,13 @@ function formatAiJsonFailure(result, label = 'Der Auftrag') {
     const has = status => attempts.some(a => a.status === 'http_' + status);
     let reason = 'Die KI hat keine verwertbare Antwort geliefert. Bitte erneut versuchen.';
     if (result?.error === 'missing_api_key') reason = 'Der API-Key fehlt. Bitte die KI-Einstellungen prüfen.';
-    else if (has(429)) reason = 'Das API-Anfrage- oder Tokenlimit wurde erreicht (HTTP 429). Bitte Quote und Abrechnung beim Anbieter prüfen oder später erneut versuchen.';
+    else if (attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'day')) {
+        const tokens = attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'day' && a.quotaKind === 'tokens');
+        reason = (tokens ? 'Dein Tokenlimit für heute ist erreicht.' : 'Dein tägliches Limit für KI-Anfragen ist erreicht.')
+            + ' Bitte versuche es morgen erneut oder wechsle auf einen bezahlten API-Plan beim KI-Anbieter.';
+    }
+    else if (attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'minute')) reason = 'Du hast das kurzfristige Anfrage- oder Tokenlimit erreicht. Bitte warte kurz und versuche es erneut.';
+    else if (has(429)) reason = 'Das API-Anfrage- oder Tokenlimit wurde erreicht. Bitte prüfe deine Quote beim KI-Anbieter. Bei ausgeschöpfter Tagesquote versuche es morgen erneut oder wechsle auf einen bezahlten API-Plan.';
     else if (has(401) || has(403)) reason = 'Der API-Zugang wurde abgewiesen. Bitte API-Key und Berechtigungen prüfen.';
     else if ([502, 503, 504].some(has)) reason = 'Der KI-Dienst ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.';
     else if (has(404)) reason = 'Die gewählten KI-Modelle sind für diesen API-Zugang nicht verfügbar (HTTP 404). Bitte die KI-Einstellungen prüfen.';

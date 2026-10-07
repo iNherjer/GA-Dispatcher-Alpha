@@ -1250,3 +1250,20 @@ inklusive zehn neuer Fehler-Reproduktionstests in
 nachgestellten Overpass-Ausfällen 108 geprüfte Kandidaten. Kein Live-KI-Aufruf,
 keine Kontoquotenprüfung, kein neuer Simulatorflug. Isolierter Worktree;
 Browser-Assets versioniert, SW-Cache v1949; Rollout-Ziel `origin/main`.
+
+
+### Tagesquotenmeldung (07.10.2026, Web-Alpha v1950)
+
+Die strukturierte Gemini-QuotaFailure-Ausgabe bewahrt den Zeitraum (`PerDay`
+oder `PerMinute`) und unterscheidet tägliche Token- und Anfragelimits.
+Eine bestätigte Tagesquote meldet das erreichte Tageslimit und empfiehlt,
+es morgen erneut zu versuchen oder auf einen bezahlten API-Plan zu wechseln.
+Der Anbieter bestimmt den Reset; Gemini setzt Tagesanfragen um Mitternacht
+Pacific Time zurück, nicht um lokale Mitternacht. Ein kurzfristiges Minutenlimit
+fordert nur zum kurzen Warten auf; ein nicht näher bezeichnetes 429 behauptet
+keine Tagesquote. Ein erfolgreiches Ersatzmodell erzeugt keine Fehlermeldung.
+Alle 18 strukturierten Missionsadapter übernehmen die gemeinsame Meldung,
+statt die Quotenursache durch ihren allgemeinen Fehlertext zu verdecken.
+Missionsverträge, Auswahl und Szenen bleiben unverändert. 31 gezielte Tests
+prüfen Quotenklassifikation, Modellfallback und die Adapter-Fehlertexte.
+Quelle: https://ai.google.dev/gemini-api/docs/rate-limits
