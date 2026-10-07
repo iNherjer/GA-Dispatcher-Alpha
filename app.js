@@ -26799,7 +26799,6 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
                             : { mode: reporter ? 'NONE' : 'AUTO' }
                     },
                     generationConfig: {
-                        temperature: reporter ? 1 : 0.18,
                         maxOutputTokens: reporter ? 8000 : 3200,
                         ...(reporter && model.startsWith('gemini-3') ? {thinkingConfig:{thinkingLevel:'low'}} : {})
                     }
@@ -28304,7 +28303,6 @@ async function _missionPipelineV3RunModel(model, source, usageKey, draft, contex
                         : { mode: 'AUTO' }
                 },
                 generationConfig: {
-                    temperature: 0.25,
                     maxOutputTokens: 1800
                 }
             };

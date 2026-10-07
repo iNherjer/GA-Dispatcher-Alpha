@@ -1,0 +1,32 @@
+{
+  "stage": "planners",
+  "createdAt": "2026-10-07T20:15:25.921Z",
+  "scope": "Real API through extracted production functions; synthetic fixtures/tool context, no browser, tracker or simulator test. Production prompts are unchanged; scene sanitizer is stubbed to inspect raw output.",
+  "requests": [
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "maxOutputTokens": 1800
+      },
+      "promptSha256": "b3e2744bbdba30819648138b49ebbec13822568114fbc55cde9615c570b50db8",
+      "ms": 167,
+      "status": 403,
+      "usage": null,
+      "finishReason": null,
+      "error": "Method doesn't allow unregistered callers (callers without established identity). Please use API Key or other form of API consumer identity to call this API."
+    }
+  ],
+  "mission": {
+    "parsed": null,
+    "source": "live",
+    "error": "http_403_gemini-3-flash-preview",
+    "toolCalls": [],
+    "working": {
+      "targetGeoContext": null,
+      "missionTruth": null,
+      "missionFireHazard": null
+    }
+  },
+  "passed": false,
+  "completedAt": "2026-10-07T20:15:26.111Z"
+}

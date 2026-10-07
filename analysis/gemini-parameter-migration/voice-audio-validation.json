@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "channels": 1,
+  "sampleRate": 24000,
+  "byteRate": 48000,
+  "bits": 16,
+  "audioBytes": 476160,
+  "seconds": 9.92,
+  "sha256": "0f6523740268e55eedcb0f252fbb124e9a44038dab68b62375965a8c374e2f64"
+}

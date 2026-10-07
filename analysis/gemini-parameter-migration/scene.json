@@ -1,0 +1,135 @@
+{
+  "stage": "scene",
+  "createdAt": "2026-10-07T20:16:19.971Z",
+  "scope": "Real API through extracted production functions; synthetic fixtures/tool context, no browser, tracker or simulator test. Production prompts are unchanged; scene sanitizer is stubbed to inspect raw output.",
+  "requests": [
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "maxOutputTokens": 3200
+      },
+      "promptSha256": "95e8e59d409b200942579f9763647e0fd89e1df11a65f2282cbc30e5749c838a",
+      "ms": 2268,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 1291,
+        "candidatesTokenCount": 42,
+        "totalTokenCount": 1476,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 1291
+          }
+        ],
+        "thoughtsTokenCount": 143,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "maxOutputTokens": 3200
+      },
+      "promptSha256": "2f19db2a5d7f2b27d7e50652e75a4d675074be30e752072732573c243ba232bb",
+      "ms": 2664,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 1725,
+        "candidatesTokenCount": 40,
+        "totalTokenCount": 2037,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 1725
+          }
+        ],
+        "thoughtsTokenCount": 272,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "maxOutputTokens": 3200
+      },
+      "promptSha256": "132fae649bcf223aabdce42870d671c19c58d67a220e1ccf243206bf3839d399",
+      "ms": 8389,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 2286,
+        "candidatesTokenCount": 511,
+        "totalTokenCount": 4071,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 2286
+          }
+        ],
+        "thoughtsTokenCount": 1274,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "scene": {
+    "status": "ready",
+    "mode": "bush",
+    "targetScene": {
+      "kind": "none",
+      "preset": "",
+      "objectPolicy": "",
+      "placementIntent": {
+        "use": "nature",
+        "anchorId": "",
+        "requiresPaved": false,
+        "reason": "Bush-Landung am Airstrip ohne externe POI-Szene."
+      },
+      "features": [],
+      "requirements": [],
+      "roles": [],
+      "density": "none",
+      "layout": "",
+      "notes": "Handoff erfolgt direkt am Flugplatz-Anker."
+    },
+    "aptArrivalPlan": {
+      "roleLabel": "Frachtübergabe",
+      "expectedBy": "Bodenhelfer",
+      "visibleCue": "Bodenhelfer mit einem Quad am Rand der Piste.",
+      "narrativeHint": "Rollen Sie zum Rand der Piste und übergeben Sie die Werkzeugkiste an den Bodenhelfer.",
+      "preferredPlacement": {
+        "source": "osm_parking_position",
+        "index": 0,
+        "reason": "Sichere Parkposition am Rand der Graspiste."
+      },
+      "items": [
+        {
+          "kind": "arrival_vehicle",
+          "label": "Transport-Quad",
+          "role": "vehicle.quad",
+          "forwardM": 1,
+          "rightM": 7,
+          "hdgOffsetDeg": 165
+        },
+        {
+          "kind": "arrival_person_1",
+          "label": "Bodenhelfer",
+          "role": "person.ground_crew",
+          "forwardM": 4,
+          "rightM": 4,
+          "hdgOffsetDeg": 210
+        }
+      ]
+    },
+    "localizationNotes": [
+      "Objekte werden relativ zum ersten gefundenen Parking-Spot am Bush-Strip platziert."
+    ],
+    "validationNotes": [
+      "targetScene ist 'none' gemäß Bush-Vorgabe.",
+      "Szene wird über aptArrivalPlan am Ziel-Airstrip realisiert."
+    ]
+  },
+  "passed": true,
+  "completedAt": "2026-10-07T20:16:33.321Z"
+}

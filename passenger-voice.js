@@ -4488,15 +4488,13 @@ async function _generateSpokenText(apiKey, situationPrompt, options = {}) {
     const payload = {
         contents: [{ parts: [{ text: situationPrompt }] }],
         generationConfig: {
-            response_mime_type: 'text/plain',
-            temperature: 0.95,
-            topP: 0.9
+            response_mime_type: 'text/plain'
         }
     };
     let opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
 
     for (const [model, source, usageKey] of models) {
-        payload.generationConfig = window.GAMissionBoardingVoiceCore?.geminiTextGenerationConfig(model, options.paxMenuRequest) || { response_mime_type: 'text/plain', temperature: 0.95, topP: 0.9, ...(options.paxMenuRequest === true && model === 'gemini-3.8-flash' ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) };
+        payload.generationConfig = window.GAMissionBoardingVoiceCore?.geminiTextGenerationConfig(model, options.paxMenuRequest) || { response_mime_type: 'text/plain', ...(options.paxMenuRequest === true && model === 'gemini-3.8-flash' ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) };
         opts = { ...opts, body: JSON.stringify(payload) };
         try {
             _paxLog(`Textgen → ${model}${options.paxMenuRequest === true && model === 'gemini-3.8-flash' ? ' · Pax-Menü · Thinking low' : ''}`, 'send');
