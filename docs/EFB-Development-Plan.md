@@ -1,4 +1,16 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
+
+## EFB-SDK 0.4.22: Alpha-Feldtest vor Simulatorabnahme (07.10.2026)
+
+Der Nutzer bestätigt, dass die Abnahme erst nach Auslieferung möglich ist, und
+gibt die EFB-Alpha-Regeländerung ausdrücklich frei. Nach offiziellem SDK-Build,
+technischer Paketvalidierung, öffentlicher Veröffentlichung und Download-/Hash-
+Prüfung darf Alpha für diesen Feldtest aktiviert werden. Simulatorabnahme bleibt
+offen und wird anschließend durchgeführt; Stable-Promotion folgt erst nach
+erfolgreicher Abnahme. Paket 0.4.22 enthält die optionale native Wetter-Preset-
+Erkennung; Tracker v490 ist bereits auf Alpha verfügbar. SDK-Archiv unverändert:
+443663 Bytes, SHA-256 363dd5301f29b877d4d613d086f02c7b878182e97b44bd38c97e2bc10d1dc429.
+
 ## Vollstaendige EFB-UI-Skalierung, Windows-Kandidat auf Alpha v477 (05.10.2026)
 
 Gemeinsamer Root-Transform skaliert Texte, Controls, Hitboxen, Menues und Profilcanvas zusammen. Benutzerwert 90–300 %, Reset 100 %. Physisches Tablet und unbekannte Hosts haben Basis 1; bestaetigte Popout-/Toolbar-Hosts in VR erhalten fuer den Feldtest Basis 2. Keine DPR-/Headset-Heuristik. SDK PanelInfo.is2D (get/sub) meldet physisch/popout ueber denselben geprueften iframe-Channel wie VR; Lebenszyklus bereinigt Subscription und Polling. Hostwechsel laden das iframe nicht neu.

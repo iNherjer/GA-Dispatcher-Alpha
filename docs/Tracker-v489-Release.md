@@ -85,8 +85,10 @@ Cargo/Patienten-/Gruppenmanifest, Landung/Farewell, Speichern/Wiederaufnehmen;
 mit und ohne EFB, Pause/Slew/Menü sowie Wetter-/Zeitsprünge. Keine Fehlansage
 bei identischen Wetterwerten, keine künstliche Ursache ohne Preset-Nachweis.
 Die tatsächliche Preset-API/Audio-/VR-Bedienung ist durch Browser und Mocks
-nicht abgenommen. SDK 0.4.22 bleibt bis zur Simulatorabnahme inaktiv; das bereits aktive
-SDK 0.4.21 bleibt unverändert verfügbar.
+nicht abgenommen. Der Nutzer hat am 07.10.2026 den Alpha-Feldtest-Rollout von
+SDK 0.4.22 vor der Simulatorabnahme sowie die entsprechende EFB-Alpha-Regel
+in `github-push-workflow.md` ausdrücklich freigegeben. Die Abnahme erfolgt
+anschließend mit dem ausgelieferten Paket; Stable erfordert weiter den Test.
 
 ## Reihenfolge beim Alpha-Rollout
 
@@ -99,8 +101,9 @@ SDK 0.4.21 bleibt unverändert verfügbar.
    hochladen und öffentlichen Download gegen Größe/SHA-256 prüfen.
 5. Erst danach Tracker-Alpha-Zeiger aktivieren. Der Kandidatenordner enthält eine
    Vorlage, die nicht in den produktiven Kanal kopiert wurde.
-6. Nach Windows/MSFS-Abnahme das unveränderte offizielle SDK-ZIP unter
-   efb-app-v0.4.22 veröffentlichen, Download prüfen, erst dann EFB-Alpha aktivieren.
+6. Nach technischer SDK-Validierung und ausdrücklicher Alpha-Feldtest-Freigabe
+   das unveränderte offizielle SDK-ZIP unter efb-app-v0.4.22 veröffentlichen,
+   Download prüfen, erst dann EFB-Alpha aktivieren. Windows/MSFS-Abnahme danach.
    Stable bleibt unverändert; eine Stable-Promotion benötigt ihren eigenen Test.
 
 ## Veröffentlichungsnachweis – 7. Oktober 2026

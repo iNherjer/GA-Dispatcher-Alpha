@@ -196,7 +196,8 @@ geschlossenem MSFS auf die Version des neuen Kanals aktualisiert werden;
 andernfalls bleibt es beim Updateangebot.
 
 1. App mit den Abhaengigkeiten des offiziell installierten MSFS-2024-EFB-
-   Templates bauen und im Simulator testen.
+   Templates bauen und technisch pruefen. Die Simulatorabnahme erfolgt fuer
+   ausdruecklich freigegebene Alpha-Feldtests nach Bereitstellung ueber Alpha.
 2. Das Package im Project Editor beziehungsweise Package Tool bauen. Nur dessen
    Ausgabe mit `manifest.json` und `layout.json` verwenden.
 3. `node ga-tracker-client/efb-app/scripts/prepare-release.js alpha` ausfuehren.
@@ -207,8 +208,17 @@ andernfalls bleibt es beim Updateangebot.
 6. Nach dem Alpha-Test exakt dasselbe Release-Artefakt durch Anpassen von
    `stable.json` promoten; nicht neu bauen oder ersetzen.
 
-Solange kein SDK-Build erfolgreich im Simulator getestet wurde, bleibt der
-jeweilige Kanal mit `available: false` deaktiviert.
+Alpha-Feldtest-Regel, vom Nutzer am 07.10.2026 ausdruecklich freigegeben:
+Ein offizieller SDK-Build darf nach technischer Validierung, unveraenderlicher
+Veroeffentlichung, oeffentlicher Download-/Hash-Pruefung und ausdruecklicher
+Nutzerfreigabe im Alpha-Kanal aktiviert werden. Die Simulatorabnahme darf danach
+durch Nutzer und Tester erfolgen, weil sie das Paket erst ueber den Rollout
+beziehen. Offene Abnahmepunkte muessen dokumentiert bleiben; die Aktivierung ist
+keine Behauptung einer bereits bestandenen Simulatorabnahme. Kein pauschaler
+Aufschub von Build-/Archiv-/Downloadpruefungen und keine Stable-Freigabe.
+Ohne technisch validierten offiziellen SDK-Build bleibt der jeweilige Kanal
+mit `available: false` deaktiviert. Stable-Promotion erfordert weiterhin den
+positiven Alpha-/Simulator-Test desselben unveraenderlichen Artefakts.
 Ein selbst signiertes Entwicklungszertifikat darf nicht als produktive
 Vertrauensloesung dargestellt werden.
 

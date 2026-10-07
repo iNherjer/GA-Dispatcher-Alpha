@@ -1,4 +1,18 @@
 # EFB- und Toolbar-Panel-Community-Packages und Rollout
+
+## SDK 0.4.22: freigegebener Alpha-Feldtest (07.10.2026)
+
+Offizielles SDK-Archiv unter `efb-app-v0.4.22` veröffentlicht, öffentlicher
+Download erneut byte- und hashgleich geprüft, CRC/Manifest und produktiver
+Desktop-Entpacker bestehen. 443663 Bytes, SHA-256
+`363dd5301f29b877d4d613d086f02c7b878182e97b44bd38c97e2bc10d1dc429`.
+Alpha-Zeiger wird mit Web-Cache v1958 auf dieses unveränderliche Paket gesetzt.
+Nutzer gibt die Alpha-Feldtest-Regeländerung ausdrücklich frei: Simulatorabnahme
+erfolgt nach Auslieferung. Native Preset-Erkennung, Lifecycle/Audio und VR sind
+weiter Abnahmepunkte; die technische Validierung ersetzt diese Tests nicht.
+Die vorhandene Desktop-Installation erhält das Updateangebot bzw. das aktivierte
+Auto-Update bei geschlossenem MSFS. Erstinstallation bleibt eine Nutzeraktion.
+
 ## Performance-Lifecycle-Kandidat 0.4.21, offizieller Windows-SDK-Bau (06.10.2026)
 
 Auf Nutzerauftrag baut SDK 1.7.2 mit fspackagetool -forcesteam -rebuild -nopause den gemeinsamen EFB-/Toolbar-Kandidaten 0.4.21. SDK onPause/onClose entladen den gestarteten Tracker-Child-iframe; der bereits vorhandene Reload auf onResume/onOpen liest den aktuellen Trackerzustand. Tracker-Runtime und Missionsdetektoren werden nicht pausiert. Aktive Ansichten behalten ihren Aktualisierungstakt.
