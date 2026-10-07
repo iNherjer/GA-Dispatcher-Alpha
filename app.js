@@ -6888,22 +6888,20 @@ const AI_TEXT_MODEL_PROFILES = {
     gemini: {
         auto: [
             ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash'],
-            ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 'lite']
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash'],
+            ['gemini-3.5-flash-lite', 'Gemini 3.5 Flash Lite', 'lite']
         ],
         economy: [
-            ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 'lite'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+            ['gemini-3.5-flash-lite', 'Gemini 3.5 Flash Lite', 'lite'],
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash']
         ],
         quality: [
             ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash']
         ],
         high_quality: [
             ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash'],
-            ['gemini-2.5-pro', 'Gemini 2.5 Pro', 'flash'],
-            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash']
         ]
     },
     openai: {
@@ -7085,15 +7083,14 @@ function getAiTextModelCandidatesForPrompt(provider = getSelectedAiProvider(), p
     if (normalizedProvider === 'gemini' && normalizedProfile === 'high_quality' && /^planner-v4/.test(prompt)) {
         return [
             ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash'],
-            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash']
         ];
     }
     if (normalizedProvider === 'gemini' && /^planner-v4/.test(prompt)) {
         const candidates = getAiTextModelCandidates(normalizedProvider, normalizedProfile)
             .filter(([model]) => !/flash-lite/i.test(String(model || '')));
         if (candidates.length) return candidates;
-        return [['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']];
+        return [['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash']];
     }
     return getAiTextModelCandidates(normalizedProvider, normalizedProfile);
 }
@@ -27727,42 +27724,69 @@ async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', pro
         return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: lastError || 'planner_failed', attempts };
     }
     for (const [model, source, usageKey] of models) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(selectedKey)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                signal: controller.signal
-            });
-            if (!res.ok) {
-                lastError = `http_${res.status}_${model}`;
-                attempts.push({ model, source, status: `http_${res.status}`, error: lastError });
-                continue;
+        // One bounded retry for transient server overload; never repeat quota/auth/model failures.
+        for (let retry = 0; retry < 2; retry++) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(selectedKey)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+                if (!res.ok) {
+                    lastError = `http_${res.status}_${model}`;
+                    const body = await res.json().catch(() => null);
+                    const apiStatus = String(body?.error?.status || '').slice(0, 80);
+                    attempts.push({ model, source, status: `http_${res.status}`, apiStatus, error: lastError });
+                    if ([502, 503, 504].includes(res.status) && retry === 0) {
+                        clearTimeout(timeoutId);
+                        await new Promise(resolve => setTimeout(resolve, 750));
+                        continue;
+                    }
+                    if ([401, 403].includes(res.status)) return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: lastError, attempts };
+                    break;
+                }
+                const data = await res.json();
+                const text = (data?.candidates?.[0]?.content?.parts || []).filter(part => !part.thought).map(part => part.text || '').join('');
+                const parsedResult = _missionParseJsonTextDetailed(text);
+                if (parsedResult?.parsed === null || parsedResult?.parsed === undefined) {
+                    lastError = `json_parse_${model}_${parsedResult?.mode || 'failed'}:${parsedResult?.error || 'unknown'}`;
+                    attempts.push({ model, source, status: 'json_parse_failed', error: lastError });
+                    break;
+                }
+                incrementApiUsage(usageKey);
+                attempts.push({ model, source, status: 'ok', error: '' });
+                return { parsed: parsedResult.parsed, source, provider: selectedProvider, model, promptVersion, parseMode: parsedResult.mode || 'direct', attempts };
+            } catch (err) {
+                lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
+                attempts.push({ model, source, status: err?.name === 'AbortError' ? 'timeout' : 'error', error: lastError });
+                break;
+            } finally {
+                clearTimeout(timeoutId);
             }
-            const data = await res.json();
-            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-            const parsedResult = _missionParseJsonTextDetailed(text);
-            if (parsedResult?.parsed === null || parsedResult?.parsed === undefined) {
-                lastError = `json_parse_${model}_${parsedResult?.mode || 'failed'}:${parsedResult?.error || 'unknown'}`;
-                attempts.push({ model, source, status: 'json_parse_failed', error: lastError });
-                continue;
-            }
-            incrementApiUsage(usageKey);
-            attempts.push({ model, source, status: 'ok', error: '' });
-            return { parsed: parsedResult.parsed, source, provider: selectedProvider, model, promptVersion, parseMode: parsedResult.mode || 'direct', attempts };
-        } catch (err) {
-            lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
-            attempts.push({ model, source, status: err?.name === 'AbortError' ? 'timeout' : 'error', error: lastError });
-        } finally {
-            clearTimeout(timeoutId);
         }
     }
     return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: lastError || 'planner_failed', attempts };
 }
 window.fetchAiJsonWithFallback = fetchAiJsonWithFallback;
+
+function formatAiJsonFailure(result, label = 'Der Auftrag') {
+    const attempts = result?.attempts || [];
+    const has = status => attempts.some(a => a.status === 'http_' + status);
+    let reason = 'Die KI hat keine verwertbare Antwort geliefert. Bitte erneut versuchen.';
+    if (result?.error === 'missing_api_key') reason = 'Der API-Key fehlt. Bitte die KI-Einstellungen prüfen.';
+    else if (has(429)) reason = 'Das API-Anfrage- oder Tokenlimit wurde erreicht (HTTP 429). Bitte Quote und Abrechnung beim Anbieter prüfen oder später erneut versuchen.';
+    else if (has(401) || has(403)) reason = 'Der API-Zugang wurde abgewiesen. Bitte API-Key und Berechtigungen prüfen.';
+    else if ([502, 503, 504].some(has)) reason = 'Der KI-Dienst ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.';
+    else if (has(404)) reason = 'Die gewählten KI-Modelle sind für diesen API-Zugang nicht verfügbar (HTTP 404). Bitte die KI-Einstellungen prüfen.';
+    else if (attempts.some(a => a.status === 'timeout')) reason = 'Die KI-Anfrage hat das Zeitlimit überschritten. Bitte erneut versuchen.';
+    const codes = [...new Set(attempts.map(a => a.status).filter(s => /^http_\d+$/.test(s)))].map(s => s.replace('http_', 'HTTP '));
+    return label + ' konnte nicht erstellt werden. ' + reason + (codes.length ? ' [' + codes.join(', ') + ']' : '');
+}
+window.formatAiJsonFailure = formatAiJsonFailure;
 
 async function fetchGeminiJsonWithFallback(prompt, apiKey, options = {}) {
     return fetchAiJsonWithFallback(prompt, { ...options, apiKey });
