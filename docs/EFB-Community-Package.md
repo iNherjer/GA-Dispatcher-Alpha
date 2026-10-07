@@ -378,3 +378,11 @@ Lokale Archivkontrolle bestaetigt offiziellen Builder, Version, Layout und alle
 sechs Toolbar-Copy-Hashes. Freigegebener Alpha-Feldtest mit Tracker v490;
 Coherent-Neustart, Simulator und VR bleiben reale Abnahmepunkte. Keine
 Installation oder Screenshots durch diesen Release. Stable unveraendert.
+
+Oeffentlicher Release efb-app-v0.4.23 veroeffentlicht und erneut heruntergeladen:
+443860 Bytes/SHA-256 wie oben, 22 Dateien, 20 Layoutgroessen und sechs Toolbar-
+Copy-Hashes erneut geprueft. Alpha wird nach erfolgreicher Downloadkontrolle
+auf 0.4.23 aktiviert. Quellvergleich gegen efb-app-v0.4.22 bestaetigt vollstaendig
+erhaltene native EFB-Quelle einschliesslich Wetterpreset-Erkennung; lediglich
+Panel.js-Recovery, zugehoerige Tests und Versionsfelder ergaenzt. Zwischenzeitlich
+aktiviertes Alpha 0.4.22 wird kontrolliert ersetzt, dessen Archiv unveraendert.
