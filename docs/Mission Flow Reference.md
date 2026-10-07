@@ -1213,3 +1213,61 @@ veröffentlicht. Zusätzlich wurde die öffentliche EXE vollständig heruntergel
 173567453 Bytes, SHA-256 identisch zum obigen lokalen Build. Der Alpha-Zeiger
 verwendet genau diesen Tag, Download und Hash. Veröffentlichung der App erfolgt
 über origin/main mit Cache `ga-dispatcher-v1938`; Stable bleibt unverändert.
+
+
+### Dispatch-Verfügbarkeit: KI-Fallback und SAR-Geografie (07.10.2026, Web-Alpha v1949)
+
+POI-Inspektion scheiterte bei Gemini 503 und anschließend zwei 404-Antworten.
+Die gemeinsamen Textprofile verwenden nun Gemini 3.5 Flash / Flash-Lite als
+Ersatz für die zugangsbeschränkten 2.5-Modelle. Der gewählte Provider bleibt
+maßgeblich. Gemini 502/503/504 wird pro Modell einmal nach 750 ms wiederholt;
+429/404 werden nicht wiederholt, 401/403 brechen sofort ab. Die JSON-Auswertung
+verbindet Textteile und lässt Thinking-Teile aus; eine leere Antwort wird nicht
+als künstliches leeres JSON erfolgreich gemeldet. Inspektion und SAR zeigen
+HTTP-Quoten-, Modell-, Berechtigungs- und Verfügbarkeitsfehler getrennt an.
+Ein 503/404 ist kein Nachweis eines ausgeschöpften Tokenlimits.
+
+SAR V2 unterscheidet nicht abrufbare/unvollständige Geografie von erfolgreich
+kartierten, aber ungeeigneten Flächen. Nach beiden Overpass-Diensten kann der
+direkte OSM-API-Ausschnitt eine vollständig geprüfte Fundfläche liefern.
+Dessen Platzierungsradius ist auf 1200 m begrenzt, ohne den öffentlichen
+Suchradius zu ändern. Kandidaten außerhalb dieser belegten Teilfläche werden
+nicht erzeugt. Über den Ausschnitt hinausreichende Flächenrelationen werden
+mit ihren vollständigen Wegen/Knoten nachgeladen (höchstens acht Relationen,
+8 s pro Abruf, begrenzte Payloads); fehlende Geometrie oder Ausschlüsse bleiben
+ein Abbruchgrund. Nicht flächenhafte Flusslaufrelationen sind keine Polygone;
+ihre lokalen Wege bleiben Wasser-Ausschlussgeometrie. Die bestehenden
+Flächen-, Sichtbarkeits-, Abstands- und Incident-Prüfungen bleiben zuständig.
+Inflight-Zusammenführung, Erfolgs-Cache und 60-s-Pausen ausgefallener Anbieter
+begrenzen Wiederholungen. SAR-Auswahl prüft Ziele nacheinander und behält
+geeignete Angebote, wenn ein anderer Kandidat scheitert; Ziel/Ideenbindung
+bleibt erhalten. Es entsteht kein ungeprüfter Ersatzauftrag.
+
+Nachweis: 157 Dispatch-/POI-/SAR-/Fire-/APT-/Training-Regressionstests erfolgreich,
+inklusive zehn neuer Fehler-Reproduktionstests in
+`tools/dispatch-reliability.test.mjs`. Reale OSM-Daten am gemeldeten Suchpunkt
+48.01369, 10.02912 und drei nachgeladene Flächenrelationen ergeben bei
+nachgestellten Overpass-Ausfällen 108 geprüfte Kandidaten. Kein Live-KI-Aufruf,
+keine Kontoquotenprüfung, kein neuer Simulatorflug. Isolierter Worktree;
+Browser-Assets versioniert, SW-Cache v1949; Rollout-Ziel `origin/main`.
+
+
+### Tagesquotenmeldung (07.10.2026, Web-Alpha v1950)
+
+Die strukturierte Gemini-QuotaFailure-Ausgabe bewahrt den Zeitraum (`PerDay`
+oder `PerMinute`) und unterscheidet tägliche Token- und Anfragelimits.
+Eine bestätigte Tagesquote meldet das erreichte Tageslimit und empfiehlt,
+es morgen erneut zu versuchen oder auf einen bezahlten API-Plan zu wechseln.
+Der Anbieter bestimmt den Reset; Gemini setzt Tagesanfragen um Mitternacht
+Pacific Time zurück, nicht um lokale Mitternacht. Ein kurzfristiges Minutenlimit
+fordert nur zum kurzen Warten auf; ein nicht näher bezeichnetes 429 behauptet
+keine Tagesquote. Ein erfolgreiches Ersatzmodell erzeugt keine Fehlermeldung.
+Alle 18 strukturierten Missionsadapter übernehmen die gemeinsame Meldung,
+statt die Quotenursache durch ihren allgemeinen Fehlertext zu verdecken.
+Missionsverträge, Auswahl und Szenen bleiben unverändert. 31 gezielte Tests
+prüfen Quotenklassifikation, Modellfallback und die Adapter-Fehlertexte.
+Quelle: https://ai.google.dev/gemini-api/docs/rate-limits
+
+Quotenfehler tragen `AI_QUOTA_LIMIT`. Der Dispatch-Fehlerpfad zeigt die Meldung
+im Suchindikator und als Dialog. Ein nachgelagerter allgemeiner Fehlertext darf
+sie nicht überschreiben. Ergänzung mit UI-Regressionsprüfung: Web-Alpha v1951.
