@@ -1,6 +1,11 @@
 (function(root){
  'use strict';
  const memory=new Map(),cooldown=new Map(),MAX=16,CACHE='ga-airport-information-v1',TTL={wikipedia:7*86400000,faa:12*3600000};
+ function enabled({missionType,aiModeEnabled,isPOI,profileId,target}={}){
+  const core=root.MissionAirportInformationCore,loc=core?.location(target);
+  return missionType==='bush'&&!!aiModeEnabled&&!isPOI&&profileId!=='bush_recon_return'
+   &&loc?.lat!==null&&loc?.lon!==null&&!!core?.identifiers(target).length;
+ }
  async function load(target,options={}){
   const core=root.MissionAirportInformationCore,loc=core.location(target);if(loc.lat===null||loc.lon===null)return null;
   const now=options.now||Date.now(),began=Date.now(),budget=Math.max(0,Math.min(3000,Number.isFinite(options.budgetMs)?options.budgetMs:3000)),fetcher=options.fetch||root.fetch.bind(root),controller=new AbortController(),parts={retrieval:{budgetMs:budget,sources:{}}};let closed=false,timer;
@@ -55,5 +60,5 @@
   for(const id of ['airportFlightBriefingSources','airportDestinationInfoSources']){const el=doc?.getElementById(id);if(!el)continue;const label=doc.createElement('span');label.textContent='Grundlage: eigene Flugplatzdaten';el.append(label);for(const s of c.sources.filter(s=>info.sourceIds.includes(s.id)||(info.generated&&['wikipedia','faa'].includes(s.kind)))){if(!/^https:\/\//.test(s.url||s.sourceUrl||''))continue;el.append(doc.createTextNode(' · '));const a=doc.createElement('a');a.href=s.url||s.sourceUrl;a.target='_blank';a.rel='noopener noreferrer';a.textContent=s.kind==='faa'?'FAA ('+(s.effectiveFrom||'Datenzyklus')+')':s.title;el.append(a);}}
   return true;
  }
- root.MissionAirportInformationBrowser={load,generate,render,clear,clearCache:()=>memory.clear()};
+ root.MissionAirportInformationBrowser={enabled,load,generate,render,clear,clearCache:()=>memory.clear()};
 })(typeof window!=='undefined'?window:globalThis);

@@ -1,7 +1,7 @@
 # Bush-Platzinformationen V1
 
-Lokal implementierter Pilot vom 07.10.2026. Noch nicht veröffentlicht. Der neue
-FAA-Endpunkt benötigt ein Worker-Deployment zusammen mit dem App-Release.
+Bush-Pilot am 07.10.2026 mit Tracker v489 / Web-Cache v1954 und FAA-Worker
+veröffentlicht. Freigaben und Grenzen: [Alpha-Rollout](Tracker-v489-Release.md).
 
 ## Umfang und Datenfluss
 
@@ -165,3 +165,38 @@ Leistungszusagen, die eingeschränkte Stationsbezeichnung und Einzelheiten
 zum Wetter/Betriebsstatus sind noch nicht zuverlässig. Keine Release-Freigabe.
 200 Regressionen bestanden. Unveränderte Rohtexte und Bewertung:
 `analysis/bush-live-20261007/quality-refinement-20261007/single-call-refined/`.
+
+
+## U60-Dispatch-Korrektur vom 07.10.2026 (lokal, noch nicht ausgerollt)
+
+Der Dispatch darf die Platzredaktion nicht von `airportDisplayIdent` abhängig
+machen: Ein wiederverwendeter U60-Datensatz kann seine Kennung weiterhin im Feld
+`icao` tragen, obwohl eine separate FAA-/Local-Aliasangabe fehlt und die bisherige
+Anzeige „OHNE ICAO“ liefert. Die Bush-Aktivierung prüft jetzt Kennungen und
+Koordinaten mit dem vorhandenen Platzinformations-Kern. Normale APT-/POI-Flüge,
+Recon-Gebiete und Offline-Generierung bleiben außerhalb dieses Piloten. Die
+zentrale Kennungs-/Stammdatenverarbeitung wurde nicht geändert.
+
+Weitere Ursachen der unvollständigen Bush-Erzählung: Der V4-Draft trägt den
+Missionsmodus in `mode`, nicht in `missionType`. Der Planner bekam daher die
+Bush-Persönlichkeitsanweisung nicht. Der V5-Ausgabeadapter ließ zudem das bereits
+geplante `bushSpec` weg; Charter, Adventure und Recon erreichten damit die
+zusätzliche Kapitelgenerierung nicht. Beide Verbindungen sind korrigiert. Ein
+Bush-Greeting bleibt als freier Writer-Text erhalten; alte subjekt-/ergebnisbasierte
+Satzschablonen ersetzen es nicht mehr. Ohne Greeting gibt es eine neutrale kurze
+Begrüßung. Andere Missionsfamilien behalten ihren bisherigen Greeting-Pfad.
+
+Nachweise: `tools/airport-information.test.cjs` und
+`tools/bush-dispatch-wiring-browser.test.cjs`. Der Browser-Test verbindet echte
+App-Funktionen für gespeichertes U60, Draft/Prompt, Contract, V5-Adapter,
+Kapitelgenerator und Ziel-/Briefinganzeige mit fiktiven Quellen-/KI-Antworten. Er
+prüft außerdem die sechs Bush-Rezepte sowie Cargo-only und unveränderte
+APT-Begrüßung. Das ist kein vollständiger Live-KI-Dispatch oder Simulatorflug.
+Der Diagnosebericht zeigt nun Bausteinverfügbarkeit, Quellenstatus, Textlängen,
+Wetterkontext und Kapitelstatus/-anzahl.
+
+Der neue Flughinweis-Abschnitt verwendet jetzt dieselbe Schrift, Farbe,
+Schriftstärke und Zeilenhöhe wie der Story-Block. Überschrift und Quellenangaben
+sind auf dem Papier ebenfalls lesbar. Der Browser-Test vergleicht die
+berechnete Textformatierung in allen fünf Themes; die mobile Darstellung
+wird zusätzlich als Screenshot kontrolliert.

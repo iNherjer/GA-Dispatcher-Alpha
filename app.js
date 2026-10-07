@@ -32609,7 +32609,7 @@ function _missionPipelineV4CompactDraftForOpenAi(draft = {}) {
 
 function _missionPipelineV4Prompt(draft = {}, contextBundle = {}, options = {}) {
     const environmentPrompt = (window.MissionEnvironmentCore?.prompt(contextBundle.environmentContext) || '') + (window.MissionAirportInformationCore?.plannerPrompt(contextBundle.airportInfoContext) || '');
-    const bushPersonalityPrompt = draft.missionType === 'bush' ? (window.MissionBushNarrativeCore?.personalityInstructions || '') : '';
+    const bushPersonalityPrompt = draft.mode === 'bush' ? (window.MissionBushNarrativeCore?.personalityInstructions || '') : '';
     if (options?.compact) {
         return `<INSTRUKTIONEN>
 Du bist Mission Planner V4 fuer einen GA-Dispatcher. Erzeuge ein knappes, robustes JSON-Formular fuer den Writer.
@@ -37469,6 +37469,12 @@ function _missionPipelineV4FinalizeGreeting(passenger = {}, contract = {}, story
     if (contract?.sightseeingIdea?.schema === 'sightseeing-idea.v1') return {...passenger};
     const pax = (passenger && typeof passenger === 'object') ? { ...passenger } : {};
     const current = String(pax.greetingText || '').trim();
+    // Bush writers already receive the personal story contract. Noun-fragment
+    // coverage must not replace their greeting with the legacy task template.
+    if (contract.mode === 'bush' && String(contract.profile?.id || '').startsWith('bush_')) {
+        pax.greetingText = current || `Hallo, ich bin ${pax.name || 'dein Mitflieger'}. Danke, dass du mich heute mitnimmst.`;
+        return pax;
+    }
     const taskDomain = String(contract?.profile?.taskDomain || pax.taskDomain || '').trim().toLowerCase();
     const isAptSightseeing = taskDomain === 'sightseeing_tour' && _missionSightseeingContractIsApt(contract);
     const isPoiSightseeing = taskDomain === 'sightseeing_tour' && !isAptSightseeing;
@@ -39457,6 +39463,7 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         i: '📋',
         cat: String(plan.targetCategory || context.selectedCategory || (isPOI ? 'poi' : 'std')).toLowerCase(),
         missionType,
+        ...(missionType === 'bush' ? { bush: context.bushSpec || null } : {}),
         missionSubType: context?.poiChain?.points?.length ? 'poi_chain' : undefined,
         poiChain: context?.poiChain || contract?.poiChain || null,
         profileId,
@@ -44115,7 +44122,7 @@ async function generateMission(options = {}) {
     const [environmentContext, airportInfoContext] = await Promise.all([
         requestedMissionType === 'bush' && aiModeEnabled && window.MissionEnvironmentBrowser
             ? dispatchMeasure('bush_environment', () => window.MissionEnvironmentBrowser.load(start, dest)) : null,
-        requestedMissionType === 'bush' && aiModeEnabled && !isPOI && dispatchProfileId !== 'bush_recon_return' && airportDisplayIdent(dest) !== 'OHNE ICAO' && window.MissionAirportInformationBrowser
+        window.MissionAirportInformationBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, isPOI, profileId: dispatchProfileId, target: dest })
             ? dispatchMeasure('bush_airport_information', () => window.MissionAirportInformationBrowser.load(dest, {
                 budgetMs: 3000,
                 terrain: poiTerrainEnvelope || null,

@@ -112,3 +112,11 @@ test('Bush writer material preserves local evidence and cached context while gen
  const unknown=core.writerContext(core.context({...u60,elevation:null,runways:[]}));assert.equal(unknown.pilotHints.length,0);
  const draft=core.factualDraft(out);assert.ok(draft.flightBriefing.includes('1082'));assert.ok(draft.flightBriefing.includes('34'));assert.ok(draft.flightBriefing.includes('5743'));
 });
+
+
+test('Bush airport activation accepts restored U60 without FAA alias and keeps other families/recon outside the pilot',()=>{
+ const b=browser(),target={icao:'U60',name:'Big Creek Airport',lat:45.133202,lon:-115.321999,elevation:5743};
+ const input={missionType:'bush',aiModeEnabled:true,isPOI:false,profileId:'bush_charter_strip',target};
+ assert.equal(b.enabled(input),true);
+ for(const overrides of [{missionType:'apt'},{missionType:'poi'},{aiModeEnabled:false},{isPOI:true},{profileId:'bush_recon_return'},{target:{...target,lat:null}},{target:{...target,icao:''}}])assert.equal(b.enabled({...input,...overrides}),false);
+});

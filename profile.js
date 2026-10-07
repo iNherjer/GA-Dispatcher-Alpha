@@ -4212,6 +4212,18 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push('- (keine aktive Mission oder noch kein Snapshot)');
     } else {
         const p = missionSnap.passenger || {};
+        const bushData = window.currentMissionData;
+        if (bushData?.missionType === 'bush') {
+            lines.push(`- Bush-Bausteine geladen: Wetter=${!!window.MissionEnvironmentBrowser}, Platz=${!!window.MissionAirportInformationBrowser}, Erzählung=${!!window.MissionBushNarrativeBrowser}`);
+            const airportContext = bushData.airportInfoContext;
+            const info = bushData.airportInformation;
+            lines.push(`- Bush-Platztext: ${airportContext ? airportContext.airport?.ident || 'ohne Kennung' : 'kein Kontext'} | Text=${info?.generated ? 'KI' : info ? 'Basisdaten' : 'fehlt'} | Flughinweise=${info?.flightBriefing?.length || 0} Zeichen | Zielseite=${info?.destinationInfo?.length || 0} Zeichen`);
+            if (airportContext?.retrieval) lines.push(`- Bush-Platzquellen: ${Object.entries(airportContext.retrieval.sources || {}).map(([key, value]) => `${key}=${value.status}`).join(', ')} | ${airportContext.retrieval.elapsedMs} ms`);
+            const environment = bushData.environmentContext;
+            lines.push(`- Bush-Wetterkontext: ${environment ? `Start=${environment.start?.status || '?'}, Ziel=${environment.target?.status || '?'}` : 'fehlt'}`);
+            const chapters = bushData.bushNarrative;
+            lines.push(`- Bush-Streckentexte: Rezept=${!!bushData.bush} | Status=${bushData.bushNarrativeDebug?.status || 'nicht gestartet'} | fest=${chapters?.events?.filter(event => event.kind === 'fixed').length || 0} | Geo=${chapters?.events?.filter(event => event.kind === 'geo').length || 0}`);
+        }
         lines.push(`- Zeit: ${vpFormatDebugTs(missionSnap.ts)}`);
         lines.push(`- Modus/Kategorie: ${missionSnap.mode || '?'} / ${missionSnap.category || '?'}`);
         if (missionSnap.requestedCategory) lines.push(`- Gewählt: ${missionSnap.requestedCategory}`);
