@@ -82,6 +82,7 @@ test('actual passenger voice context retains the full planned ground report afte
  const m=core.mission(core.validate(raw,input),written,'',{});
  const c=vm.createContext({window:{activePassenger:m.passenger,MissionAptNewsIdeasCore:core},currentMissionData:{missionContract:{aptNewsIdea:m.aptNewsIdea}},localStorage:{getItem:()=>null},document:{getElementById:()=>({innerText:''})},_getMissionStory:()=>m.s,_sanitizePaxSoftPoiStory:x=>x,_activeTaskDomain:()=> 'news_coverage',_isPOIMission:()=>false,_normUrgencyPriority:()=> 'niedrig',_missionHasPax:()=>true,_personaNarrativeSeedAllowed:()=>true});
  for(const name of ['_activeBushPickupPassengerContract','_roleStyleHint','_personaPersonalityLabel','_personaSpeechSignature','_activeAptTrainingPlan','_aptArrivalContextLine','_poiSightseeingKnowledgeContextLine','_paxTargetProminenceLine','_paxVisualLandmarksLine','_activeMissionStoryFrame','_bushVoiceToneLine','_bushPickupPassengerPerspectiveLine'])c[name]=()=>null;
+ extract('passenger-voice.js','_bushStoryNarrativeContinuityHint',c);
  extract('passenger-voice.js','_baseContext',c);
  const restored=JSON.parse(JSON.stringify({baseContext:c._baseContext()}));
  assert.ok(restored.baseContext.includes(raw.angle));assert.ok(restored.baseContext.includes(raw.publication));assert.ok(restored.baseContext.includes(raw.groundPlan));assert.match(restored.baseContext,/keine Luftaufnahme oder Suche/);

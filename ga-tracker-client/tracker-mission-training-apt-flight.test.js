@@ -25,7 +25,7 @@ function original(sourceText, name) {
 }
 const originalFunctions = [
     '_trainingEvalBegin', '_toBoolStall', '_trainingEvalTick', '_trainingEvalSummary',
-    '_aptTrainingPrompt', '_trainingLandingPrepPrompt', '_weatherContext', '_haversineNm',
+    '_aptTrainingPrompt', '_trainingLandingPrepPrompt', '_precipitationObservation', '_weatherContext', '_haversineNm',
     '_trainingPoiCenterFromRoute'
 ].map(name => original(source, name)).concat(original(appSource, '_isPatternFocusItem')).join('\n');
 const triggerStart = source.indexOf('        if (isPoiMission) {', source.indexOf('window.checkPaxPoiProximity ='));
