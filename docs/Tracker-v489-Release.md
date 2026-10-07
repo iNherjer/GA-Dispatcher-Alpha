@@ -1,6 +1,7 @@
-# Tracker v489 / Bush- und Wetterintegration – Release-Kandidat
+# Tracker v489 / Bush- und Wetterintegration – Alpha-Rollout
 
-Die Bush-Erweiterung wird auf dem veröffentlichten Alpha-Hotfix v488 aufgebaut.
+Die Bush-Erweiterung baut auf Alpha v488 auf und enthält außerdem die am
+7. Oktober veröffentlichten Dispatch-/SAR- und KI-Quota-Hotfixes.
 Offene EFB-Menüs behalten bei laufenden Updates Fokus und Bedienbarkeit; der
 Audio-Hotfix und die Positionierung bleiben bytegleich zum veröffentlichten Stand.
 Der Kandidat ergänzt persönliche Bush-Geschichten, feste und geografische
@@ -10,15 +11,15 @@ und kein Modellwechsel.
 
 ## Artefakte und Basis
 
-- Quellbasis: Alpha `7eb2c46103fbeee98f3f09aad54206cabf074ced`.
-- Lokaler Code-Integrationscommit: `dbf6495aa86e9d73ed6cf57cc42c17a65e42cd59`.
-- Tracker v489, EFB-Web-Assets 48901, vorbereiteter Web-Cache v1949.
+- Quellbasis: Alpha `f09f7735785fdbdc00d4af25833a7833fc794c7d`.
+- Lokaler Code-Integrationscommit: `37a452d1c1164b42c6fbd3a8a1d885a01c71fba3`.
+- Tracker v489, EFB-Web-Assets 48901, Web-Cache v1952 vor Kanalaktivierung.
 - EXE: 173663457 Bytes; SHA-256 `fe6cfc2673e41be0df402c6d22eab447af401cec5d771437a47477cd77830f07`.
 - Unveränderte offizielle SDK-Rückgabe 0.4.22: 443663 Bytes;
   SHA-256 `363dd5301f29b877d4d613d086f02c7b878182e97b44bd38c97e2bc10d1dc429`. Native Quelle exakt hashgleich zur SDK-Rückgabe.
 - Artefaktordner: `analysis/bush-live-20261007/release-v489/`.
-- Lokaler Branch: `codex/bush-weather-release-v489`. Noch kein Push, Tag,
-  Worker-Deployment, Release-Upload, Installationsschritt oder Kanalwechsel.
+- Lokaler Branch: `codex/bush-weather-release-v489`. Alpha-Rollout am 7. Oktober vom Nutzer freigegeben;
+  Veröffentlichungsnachweise werden nach erfolgreicher Prüfung ergänzt.
 
 ## Änderungen und Umfang
 
@@ -39,7 +40,7 @@ Preset-Eingriff benötigt frischen authentifizierten EFB-Nachweis.
 ## Prüfung gegen Regressionen
 
 - 1127/1127 Tracker- und gemeinsame Core-Tests bestanden.
-- 524/524 Missionsfamilien-/Briefingtests bestanden, darunter APT-Reporter,
+- 556/556 Missionsfamilien-/Briefing-/Dispatchtests bestanden, darunter APT-Reporter,
   medizinische Verlegung, Tiertransport, Cargo, POI, Historiker, Guide,
   Sightseeing, Fire, SAR, Mapping, Training, Bush und Folgeaufträge.
 - 58/58 zusätzliche native EFB-/Toolbar-/Paketprüfungen bestanden (teilweise
@@ -67,7 +68,10 @@ anschließend erneut ausgeführt und bestehen.
 
 ## Grenzen und Freigabe
 
-Technisch gebaut und lokal regressionsgeprüft, noch nicht veröffentlicht.
+Technisch gebaut und lokal regressionsgeprüft; Alpha-Veröffentlichung vom Nutzer
+freigegeben. Nach Integration der drei aktuellen Hotfix-Commits wurden beide
+breiten Testsuiten sowie die Worker-Suite erneut erfolgreich ausgeführt. Der
+neu gebaute Windows-Build ist bytegleich zum vorher geprüften Artefakt.
 Die bekannte Prosa-Stichprobe bleibt 4/4 erstellte Platzbriefings, U60 8/8 einzeln
 erreichbare Kapitel nach Restore und ESNC-Kapitel-Timeout. Pistenlänge wird
 teilweise unzulässig als ausreichend beurteilt; einzelne Stations-/Ortsangaben
@@ -75,15 +79,16 @@ bleiben ungenau. Es gibt keinen semantischen Faktenvalidator und keine
 nachträgliche Prosa-Umschreibung. Die Texte sind keine geprüften Flugverfahren.
 Keine weitere bezahlte Text-/TTS-Probe war Teil dieses Build-Auftrags.
 
-Vor Kanalaktivierung im laufenden Windows/MSFS prüfen: Boarding, Bush-Kapitel,
+Nach Alpha-Rollout im laufenden Windows/MSFS noch prüfen: Boarding, Bush-Kapitel,
 Geo-Radius und verpasster Anker, Voice-Priorität, Zwischenlandung/Rückflug,
 Cargo/Patienten-/Gruppenmanifest, Landung/Farewell, Speichern/Wiederaufnehmen;
 mit und ohne EFB, Pause/Slew/Menü sowie Wetter-/Zeitsprünge. Keine Fehlansage
 bei identischen Wetterwerten, keine künstliche Ursache ohne Preset-Nachweis.
 Die tatsächliche Preset-API/Audio-/VR-Bedienung ist durch Browser und Mocks
-nicht abgenommen. SDK-Kanal bleibt bis zur Simulatorabnahme deaktiviert.
+nicht abgenommen. SDK 0.4.22 bleibt bis zur Simulatorabnahme inaktiv; das bereits aktive
+SDK 0.4.21 bleibt unverändert verfügbar.
 
-## Reihenfolge beim späteren Alpha-Rollout
+## Reihenfolge beim Alpha-Rollout
 
 1. Aktuelle Origin-Refs und freie Tags erneut prüfen; neuen Stand kontrolliert
    integrieren, falls Alpha inzwischen weitergelaufen ist.
