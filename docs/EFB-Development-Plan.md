@@ -6367,3 +6367,17 @@ Kanalpush. SDK 0.4.21 und Stable-Zeiger unveraendert. Tester aktualisiert
 und startet den Tracker neu und oeffnet EFB/Toolbar erneut. Reale
 MSFS-/Coherent-Bedienung und Flackern bleiben im Feld zu bestaetigen.
 Release: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v488
+
+
+### 07.10.2026 – gemeinsamer Release-Kandidat v489 mit Menü-Hotfixes
+
+Bush-/Wetter-/Platzintegration auf veröffentlichten Alpha-v488-Stand integriert.
+Die früheren lokalen v487/v488-Bush-Artefakte bleiben überholte Teststände; neuer
+gemeinsamer Kandidat ist v489 / Assets 48901, Web-Cache vorbereitet auf v1949.
+Audio-/Floating-Menü-Hotfix bytegleich erhalten. 1127 Tracker-/Core- und 524
+Missionsfamilien-Tests bestehen nach Ergänzung echter Hilfsfunktionen in fünf
+isolierten Vergleichsfixtures. 58 native/Paketchecks, 18 Menü- und 60 Layoutfälle,
+Font/Canvas/Redraw und Zielseiten-Browserprobe bestanden. Neue Windows-EXE gebaut,
+echter gepackter IPC-/Authority-Prozess getestet; SDK-0.4.22-Archiv unverändert
+validiert. Kein Deployment/Release/Kanalwechsel. Windows/MSFS-Abnahme und bekannte
+einzelne Platztext-Ungenauigkeiten offen. Details: Tracker-v489-Release.md.
