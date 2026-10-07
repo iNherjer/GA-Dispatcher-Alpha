@@ -3,7 +3,7 @@
 const core=()=>root.MissionAptNewsIdeasCore;
 const target=a=>({name:a.n||a.name||a.icao||'',icao:a.icao||'',lat:Number(a.lat),lon:Number(a.lon)});
 const frame=(start,dest)=>core().frame({start:target(start),target:target(dest)},getMissionAircraftCapabilitySnapshot(),core().history(localStorage));
-async function json(prompt){const r=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});if(!r?.parsed)throw Error(root.formatAiJsonFailure?root.formatAiJsonFailure(r,'Der Reporterauftrag'):'Der Reporterauftrag konnte nicht erstellt werden. Bitte erneut versuchen.');return r.parsed;}
+async function json(prompt){const r=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});if(!r?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(r,'Der Reporterauftrag'):Error('Der Reporterauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));return r.parsed;}
 async function ideas(frames){
  if(frames.some(f=>f.passengerCapacity<1))throw Error('Für die Reporter fehlt ein Passagierplatz.');
  const prompt=core().ideaPrompt(frames);

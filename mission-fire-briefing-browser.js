@@ -13,7 +13,7 @@ async function json(prompt) {
  const key=String(getSelectedAiApiKey()||'').trim();
  if(!key)throw Error('Für KI-Feuerwacht-Aufträge fehlt der API-Key des gewählten Providers. Bitte in den Einstellungen eintragen oder ohne KI neu dispatchen.');
  const result=await fetchGeminiJsonWithFallback(prompt,key,{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});
- if(!result?.parsed)throw Error(root.formatAiJsonFailure?root.formatAiJsonFailure(result,'Der POI-Einsatzauftrag'):'Der POI-Einsatzauftrag konnte nicht erstellt werden. Bitte erneut versuchen.');
+ if(!result?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(result,'Der POI-Einsatzauftrag'):Error('Der POI-Einsatzauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));
  return result.parsed;
 }
 function capacity() {if(!(getMissionAircraftCapabilitySnapshot().passengerCapacity>=1))throw Error('Für den Einsatzauftrag ist ein freier Passagierplatz erforderlich.');}

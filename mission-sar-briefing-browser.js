@@ -2,7 +2,7 @@
 'use strict';
 const core=()=>root.MissionSarBriefingCore;
 function enabled({isPOI=true,profileId,aiModeEnabled=true,followup=false,planning=false,bush=false,category=''}={}){return isPOI&&profileId==='search_and_rescue'&&aiModeEnabled&&!followup&&!planning&&!bush&&category!=='chain';}
-async function json(prompt){const r=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'sar-briefing-v2',timeoutMs:40000});if(!r?.parsed)throw Error(root.formatAiJsonFailure?root.formatAiJsonFailure(r,'Der SAR-Auftrag'):'Der SAR-Auftrag konnte nicht erstellt werden. Bitte erneut versuchen.');return r.parsed;}
+async function json(prompt){const r=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'sar-briefing-v2',timeoutMs:40000});if(!r?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(r,'Der SAR-Auftrag'):Error('Der SAR-Auftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));return r.parsed;}
 const geometryCache=new Map(),geometryInflight=new Map(),geometryCooldown=new Map();
 async function geometry(dest){
  const o=root.MissionPoiBriefingSharedCore.point(dest),r=2200,key=o.lat.toFixed(6)+','+o.lon.toFixed(6),cached=geometryCache.get(key);

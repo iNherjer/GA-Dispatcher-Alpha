@@ -1267,3 +1267,7 @@ statt die Quotenursache durch ihren allgemeinen Fehlertext zu verdecken.
 Missionsverträge, Auswahl und Szenen bleiben unverändert. 31 gezielte Tests
 prüfen Quotenklassifikation, Modellfallback und die Adapter-Fehlertexte.
 Quelle: https://ai.google.dev/gemini-api/docs/rate-limits
+
+Quotenfehler tragen `AI_QUOTA_LIMIT`. Der Dispatch-Fehlerpfad zeigt die Meldung
+im Suchindikator und als Dialog. Ein nachgelagerter allgemeiner Fehlertext darf
+sie nicht überschreiben. Ergänzung mit UI-Regressionsprüfung: Web-Alpha v1951.

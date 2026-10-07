@@ -6,7 +6,7 @@ function capacity(){const c=getMissionAircraftCapabilitySnapshot();return Math.m
 async function frame(start,dest){const route={start:target(start),target:target(dest)};let places=[];try{places=(await root.MissionPrivateContextCore.resolveBrowser(route.target)).places||[];}catch{}
  const anchors=root.MissionClubIdeasCore.frame(route,[],null,'',places).geoAnchors;
  return {...core().frame(route,capacity(),core().history(localStorage),anchors),requireReturnPlan:true};}
-async function json(prompt){const r=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'charter-v1',timeoutMs:40000});if(!r?.parsed)throw Error(root.formatAiJsonFailure?root.formatAiJsonFailure(r,'Charterauftrag'):'Charterauftrag konnte nicht erstellt werden. Bitte erneut versuchen.');return r.parsed;}
+async function json(prompt){const r=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'charter-v1',timeoutMs:40000});if(!r?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(r,'Charterauftrag'):Error('Charterauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));return r.parsed;}
 async function choices(airports,context){if(airports.length<3)throw Error('Für Chartervorschläge fehlen passende Zielflugplätze.');
  const selected=airports.slice(0,3),frames=await Promise.all(selected.map(async(a,i)=>({candidateId:'charter-'+i,...await frame(context.start,a)})));context.ensureAlive?.();
  if(!frames[0].maxPassengers)throw Error('Das Flugzeug bietet keinen freien Passagierplatz.');

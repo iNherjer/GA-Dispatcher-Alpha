@@ -10,7 +10,7 @@ function ai(fetch,models=[['primary','Primary','flash'],['fallback','Fallback','
  const env=vm.createContext({fetch,AbortController,window:{},normalizeAiProvider:x=>x,getSelectedAiProvider:()=> 'gemini',getSelectedAiApiKey:()=> 'test-key',getSelectedAiModelProfile:()=> 'auto',getAiTextModelCandidatesForPrompt:()=>models,incrementApiUsage:()=>{},_missionParseJsonTextDetailed:text=>{try{return {parsed:JSON.parse(text)}}catch{return {parsed:null}}},setTimeout:(fn,ms)=>ms===750?setTimeout(fn,0):setTimeout(fn,ms),clearTimeout});
  vm.runInContext(extractOriginalFunction(source,'geminiQuotaDetails'),env);
  vm.runInContext(source.slice(source.indexOf('async function fetchAiJsonWithFallback'),source.indexOf('window.fetchAiJsonWithFallback')),env);
- vm.runInContext(extractOriginalFunction(source,'formatAiJsonFailure'),env);return env;
+ vm.runInContext(extractOriginalFunction(source,'formatAiJsonFailure'),env);vm.runInContext(extractOriginalFunction(source,'createAiJsonFailure'),env);return env;
 }
 const response=(status,body)=>({ok:status===200,status,json:async()=>body,headers:{get:()=>null},text:async()=>JSON.stringify(body)});
 const success={candidates:[{content:{parts:[{text:'internal reasoning',thought:true},{text:'{"ideas":'},{text:'[]}' }]}}]};
@@ -93,12 +93,22 @@ test('a usable fallback prevents a false daily-quota failure notice',async()=>{
  const result=await env.fetchAiJsonWithFallback('prompt');assert.ok(result.parsed);assert.equal(result.model,'fallback');
 });
 for(const file of fs.readdirSync('.').filter(name=>/^mission-.*-browser\.js$/.test(name))){
- const adapter=fs.readFileSync(file,'utf8');const start=adapter.indexOf('async function json(');if(start<0||!adapter.includes('formatAiJsonFailure'))continue;
+ const adapter=fs.readFileSync(file,'utf8');const start=adapter.indexOf('async function json(');if(start<0||!adapter.includes('createAiJsonFailure'))continue;
  test(file+' preserves the confirmed daily quota message',async()=>{
-  const env=ai(()=>{});const context=vm.createContext({root:{formatAiJsonFailure:env.formatAiJsonFailure},core:()=>({PROMPT_VERSION:'test'}),getSelectedAiApiKey:()=> 'test',fetchGeminiJsonWithFallback:async()=>({parsed:null,attempts:[{status:'http_429',quotaPeriod:'day',quotaKind:'tokens'}]})});
+  const env=ai(()=>{});const context=vm.createContext({root:{createAiJsonFailure:env.createAiJsonFailure},core:()=>({PROMPT_VERSION:'test'}),getSelectedAiApiKey:()=> 'test',fetchGeminiJsonWithFallback:async()=>({parsed:null,attempts:[{status:'http_429',quotaPeriod:'day',quotaKind:'tokens'}]})});
   let compiled=false;for(let end=adapter.indexOf('}',start);end>=0;end=adapter.indexOf('}',end+1)){
    const candidate=adapter.slice(start,end+1);try{new vm.Script(candidate);}catch{continue;}vm.runInContext(candidate,context);compiled=true;break;
   }
-  assert.equal(compiled,true);await assert.rejects(()=>context.json('prompt','version'),/Tokenlimit für heute.*morgen.*bezahlten API-Plan/);
+  assert.equal(compiled,true);await assert.rejects(()=>context.json('prompt','version'),error=>error.code==='AI_QUOTA_LIMIT'&&/Tokenlimit für heute.*morgen.*bezahlten API-Plan/.test(error.message));
  });
 }
+
+test('Dispatch displays quota notice in indicator and dialog; ordinary errors stay on their existing path',()=>{
+ const env=ai(()=>{}),indicator={innerText:''},dialogs=[];
+ const ui=vm.createContext({document:{getElementById:()=>indicator},alert:message=>dialogs.push(message)});
+ vm.runInContext(extractOriginalFunction(source,'showDispatchQuotaFailure'),ui);
+ const error=env.createAiJsonFailure({attempts:[{status:'http_429',quotaPeriod:'day',quotaKind:'tokens'}]});
+ assert.equal(ui.showDispatchQuotaFailure(error),true);assert.equal(indicator.innerText,error.message);assert.deepEqual(dialogs,[error.message]);
+ assert.equal(ui.showDispatchQuotaFailure(new Error('other')),false);assert.equal(dialogs.length,1);
+ assert.match(source,/const quotaShown = showDispatchQuotaFailure\(e\)/);
+});

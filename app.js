@@ -27805,6 +27805,21 @@ function formatAiJsonFailure(result, label = 'Der Auftrag') {
 }
 window.formatAiJsonFailure = formatAiJsonFailure;
 
+function createAiJsonFailure(result, label = 'Der Auftrag') {
+    const error = new Error(formatAiJsonFailure(result, label));
+    error.code = (result?.attempts || []).some(a => a.status === 'http_429') ? 'AI_QUOTA_LIMIT' : 'AI_GENERATION_FAILED';
+    return error;
+}
+window.createAiJsonFailure = createAiJsonFailure;
+
+function showDispatchQuotaFailure(error) {
+    if (error?.code !== 'AI_QUOTA_LIMIT') return false;
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = error.message;
+    try { alert(error.message); } catch (_) {}
+    return true;
+}
+
 async function fetchGeminiJsonWithFallback(prompt, apiKey, options = {}) {
     return fetchAiJsonWithFallback(prompt, { ...options, apiKey });
 }
@@ -46432,7 +46447,8 @@ async function generateMission(options = {}) {
         } else {
             console.error('[Dispatch] Fehler:', e);
             const indicator = document.getElementById('searchIndicator');
-            if (indicator) indicator.innerText = 'Fehler beim Dispatch. Bitte erneut versuchen.';
+            const quotaShown = showDispatchQuotaFailure(e);
+            if (indicator && !quotaShown) indicator.innerText = 'Fehler beim Dispatch. Bitte erneut versuchen.';
             setMissionGenerationProgress('error', { error: true });
             const btn = document.getElementById('generateBtn');
             resetBtn(btn);
