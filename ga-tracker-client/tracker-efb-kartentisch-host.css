@@ -1406,3 +1406,13 @@ body.ga-efb-tracker-host[data-ga-efb-layout="floating"] #btnVpSettings {
   border: 1px solid #8db4ce;
   border-radius: 4px;
 }
+
+/* Tool visibility must not depend on Coherent's opacity animation completion. */
+body.ga-efb-tracker-host .map-draw-tool-stack { display: none; transition: none; }
+body.ga-efb-tracker-host .map-draw-tool-stack.open { display: flex; }
+body.ga-efb-tracker-host #liveTelemetryBox.ga-telemetry-stale::after {
+  content: 'Letzte Flugdaten'; display: block; color: #ffcc44; font-size: 11px;
+}
+
+body.ga-efb-tracker-host .map-draw-tool-stack { width: 54px; }
+body.ga-efb-tracker-host .map-draw-tool-stack > button { flex-shrink: 0; }

@@ -606,7 +606,12 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
     }
 
     function syncE6BBaseSize(panel) {
-        const size = getE6BBaseSize(panel || el('mapE6BDevice'));
+        panel = panel || el('mapE6BDevice');
+        // Hidden iframe shells measure zero; never seed the computer with a 1px disc.
+        if (!panel || getComputedStyle(panel).display === 'none') return;
+        const measured = getE6BShellSize(panel);
+        if (measured.width <= 1 || measured.height <= 1) return;
+        const size = getE6BBaseSize(panel);
         postE6BMessage({
             type: 'ga-e6b-set-base-size',
             frontWidth: size.frontWidth,
@@ -758,6 +763,10 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         if (!data || typeof data !== 'object') return;
         if (data.type === 'ga-e6b-diagnostic') {
             reportUtility(data.level || 'info', `e6b-${data.event || 'runtime'}`, data.stage || '', data.message || '', data.details || '');
+            if (data.stage === 'ready') {
+                syncE6BBaseSize(el('mapE6BDevice'));
+                postE6BMessage({ type: 'ga-e6b-report-view' });
+            }
             return;
         }
         if (data.type === 'ga-e6b-close') {
@@ -785,6 +794,9 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         reportUtility('info', 'utility-action', `open-${tool}`, 'Kartenwerkzeug geoeffnet');
         const isOpen = panel.style.display !== 'none';
         if (!isOpen) {
+            // All fixed EFB tools need the same stacking context as its E6B iframe.
+            // Do this only on opening, never while an input is being operated.
+            if (window.GAEfbUiScale && panel.parentNode !== document.body) document.body.appendChild(panel);
             panel.style.display = 'block';
             panel.setAttribute('aria-hidden', 'false');
             if (tool === 'e6b') applyE6BSize(readE6BSizeMode(), false);
@@ -796,6 +808,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
             clampPanel(panel);
             syncE6BBaseSize(panel);
             reclampE6BViewOffset();
+            postE6BMessage({ type: 'ga-e6b-report-view' });
         });
         syncToolButtons();
     }
@@ -2456,7 +2469,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         updateClockFields();
         clearCalc();
         syncToolButtons();
-        window.addEventListener('resize', () => {
+        function refreshUtilityLayout() {
             Object.keys(TOOL_IDS).forEach(tool => {
                 const cfg = TOOL_IDS[tool];
                 const panel = el(cfg.panel);
@@ -2465,11 +2478,15 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
                     if (tool === 'e6b') {
                         syncE6BBaseSize(panel);
                         reclampE6BViewOffset();
+                        postE6BMessage({ type: 'ga-e6b-report-view' });
                     }
+                    if (tool === 'calculator' && panel.classList.contains('formula-open')) placeFormulaDrawer(panel, el('mapCalculatorFormulaDrawer'));
                     savePanelPosition(cfg);
                 }
             });
-        });
+        }
+        window.addEventListener('resize', refreshUtilityLayout);
+        window.addEventListener('ga-efb-layout-change', () => requestAnimationFrame(refreshUtilityLayout));
     }
 
     window.openMapUtilityTool = openMapUtilityTool;

@@ -1454,3 +1454,17 @@ Basis Alpha v485 / SDK 0.4.21, Commit 1bf9a8f9b62852a527cca237235d4832c4ee3c18. 
 
 
 Auf Nutzerauftrag wird der Ausgabe-Deduplizierungskandidat als Tracker v486 / Assetrevision 48601 in Alpha ausgerollt. SDK 0.4.21 unveraendert. Identische Ausgaben entfallen am finalen DOM-Schreibpunkt, Snapshots und fachliche Verarbeitung behalten ihren Rhythmus. PC-Audio und Mission-Authority unveraendert. Realer FPS-/VR-Vergleich bleibt offen.
+
+
+## UI-Layout-Invalidierung nach v488 (Kandidat, 07.10.2026)
+
+GAEfbUiScale dispatcht ga-efb-layout-change nach einer echten Aenderung von
+Viewport/DPR/Skalierung/Surface. Kartenwerkzeuge messen anschliessend im
+naechsten Animation Frame; sie setzen keinen periodischen Layout-Takt voraus.
+Ein Oeffnen ist von Repositionierung getrennt. Fixed-Utility-Panels liegen
+im selben Body-Stacking-Context wie der externe E6B-Host. Der Coherent-E6B-Fork
+uebertraegt keine Shell-Groesse aus display:none; Child-Load und Oeffnen
+synchronisieren sichtbare Shell-Masse explizit. Last-known-Telemetrie bei
+Transportausfall ist als solche markiert und begruendet keine neue Navigation.
+Toolbar-Prozessneustarts werden ueber Snapshot viewSessionId erkannt; zwei
+Fehlchecks bzw. Ready-Timeout fuehren zu einem automatisch erneuerten Child.

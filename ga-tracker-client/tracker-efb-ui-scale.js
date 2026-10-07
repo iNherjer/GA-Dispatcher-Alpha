@@ -34,6 +34,13 @@
     body.setAttribute('data-ga-efb-effective-scale', String(factor));
     if (typeof root.gaEfbRefreshDrawerLayout === 'function') root.gaEfbRefreshDrawerLayout();
     if (root.GAEfbFloatingLayout) root.GAEfbFloatingLayout.refresh();
+    // Root scaling changes logical geometry without a native window resize.
+    // Tools subscribe explicitly; identical telemetry polls never reach here.
+    if (root.dispatchEvent && root.document.createEvent) {
+      var event = root.document.createEvent('Event');
+      event.initEvent('ga-efb-layout-change', false, false);
+      root.dispatchEvent(event);
+    }
   }
   function apply(value, nextSurface, isVr) {
     user = Math.max(0.9, Math.min(3, Number(value) || 1));

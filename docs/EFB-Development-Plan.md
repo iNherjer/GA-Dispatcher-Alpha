@@ -6230,3 +6230,59 @@ Kanalpush. SDK 0.4.21 und Stable-Zeiger unveraendert. Tester aktualisiert
 und startet den Tracker neu und oeffnet EFB/Toolbar erneut. Reale
 MSFS-/Coherent-Bedienung und Flackern bleiben im Feld zu bestaetigen.
 Release: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v488
+
+
+### 2026-10-07: UI-Lifecycle-Kandidat nach v488-Feldbestaetigung
+
+Nutzer bestaetigt die Behebung des urspruenglichen Menueflackerns und beauftragt
+Korrektur weiterer UI-Probleme sowie Pruefung weiterer Performance-Konflikte.
+Arbeit isoliert auf veroeffentlichtem v488 (7eb2c4610); der gemischte
+Hauptworktree wird nicht ueberschrieben. Keine Screenshots auf Nutzerwunsch.
+Dieser Stand ist ein Quellkandidat, noch kein neuer Tracker-/SDK-Release.
+
+- Root-Layout sendet ga-efb-layout-change nur bei geaenderter Layoutsignatur.
+  Werkzeuge erhalten dadurch Skalierungs-/Surfacewechsel auch ohne nativen
+  resize oder ResizeObserver. Identische Telemetrie-Skalierungsaufrufe senden
+  weder neue Ereignisse noch Body-Layoutschreibvorgaenge.
+- Zeichnen verwendet einheitlich logische Koordinaten fuer Position und
+  Bildschirmgrenzen; Pointer-Drag wird aus Bildschirmkoordinaten umgerechnet.
+  Bei wenig Platz ist der Werkzeugstapel scrollbar. EFB-Sichtbarkeit verwendet
+  display statt einer Coherent-Opacity-Transition; Standalone behaelt Animationen.
+- Telemetrie bleibt nach Transportausfall/veralteten Samples mit sichtbarem
+  Hinweis Letzte Flugdaten erhalten. Neue gueltige Daten entfernen den Hinweis;
+  explizit fehlende/ungueltige Simulatorpositionen blenden die Box aus. Navigation,
+  Marker und Profil behalten ihre bisherige Disconnect-Semantik. Nutzerpraeferenz
+  fuer ausgeblendete Telemetrie wird weiter respektiert.
+- E6B-Hidden-Shells duerfen keine 1px-Basisgroessen an den Rechner senden.
+  Oeffnen, Child-Load und echte Layoutwechsel synchronisieren die sichtbare Groesse
+  und fordern eine neu gemessene View an. Bewusster Coherent-Fork bleibt erhalten.
+- Stoppuhr und Rechner werden beim ersten Oeffnen im EFB in denselben Body-Layer
+  wie E6B verschoben; ein vorderer Rechner kann damit tatsaechlich Klicks bekommen.
+  Bereits offene Werkzeuge werden weder umgehaengt noch bei jedem Poll erneuert.
+  Offene Formeldrawer werden bei Skalierung ebenfalls neu positioniert.
+- Offene Anzeige-/Audio-/Profilmenues werden ohne erneutes Oeffnen positioniert;
+  erstmaliges Oeffnen behaelt seinen eigenen Pfad. Checklistenbreite benutzt auch
+  im physischen EFB den logischen Viewport statt unskaliertem vw.
+- Toolbar vertraegt einen einzelnen fehlgeschlagenen Check; zwei Fehler entladen
+  das Child. Neuer viewSessionId stellt den Kartentisch auch ohne beobachteten
+  Ausfall neu her. Ready-Timeout beendet die Wiederverbindung nicht mehr.
+  Generation/Channel/Source schuetzen weiterhin vor spaeten Antworten.
+
+Auslieferung erfordert eine neue Tracker-EXE fuer Host-Assets und ein neues
+Community-Paket fuer Panel.js. Keine Kanalaktivierung in diesem Arbeitsauftrag.
+
+
+Validierung: 35 Node-Tests und Tracker-Interface-Regressionspruefung bestehen.
+60 bestehende Popout-/Toolbar-Layoutfaelle sowie 20 ohne ResizeObserver bestehen
+(Checklisten, Profilaktionen, Telemetrie, Zeichnen-Hitbox, offene Menues bei VR-
+und Surfacewechsel). 18 Menuefaelle pruefen stabilen DOM/Fokus und echte Klicks
+waehrend Flugupdates. 24 neue Lifecycle-Faelle pruefen physical/popout/toolbar,
+Skalierung 1/1.5/3/1, mit/ohne ResizeObserver, geoeffnete Werkzeuge, reale
+Schliessen-Klicks bei gleichzeitig offenen Fenstern, Telemetrie-Stale/Recovery
+und keine 1px-E6B-Basisnachrichten. Insgesamt 122 Browserfaelle, ohne Screenshots.
+Ein paralleler Browserlauf scheiterte einmal vor dem ersten Fokus-Update an
+fehlendem Initialfokus; isolierter finaler Menue-Lauf besteht. Eine Hidden-
+Bootstrap-Testwartebedingung wurde gegen noch fehlenden iframe-Body abgesichert.
+SDK-Lifecycle-Test konnte im isolierten Checkout mangels SDK-TypeScript-
+node_modules nicht geladen werden; SDK-TSX selbst ist unveraendert. Echtes MSFS/
+Coherent bleibt Feldabnahme; Browser- und VM-Nachweise ersetzen diese nicht.

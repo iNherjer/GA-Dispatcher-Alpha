@@ -106,7 +106,7 @@ function positionMapHintsMenuInViewport() {
   var menu = document.getElementById('mapHintsMenu');
   var btn = document.getElementById('mapHintsBtn');
   if (!menu || !btn || menu.style.display !== 'block') return;
-  var openInViewport = typeof window._openFloatingMenuInViewport === 'function' ? window._openFloatingMenuInViewport : typeof _openFloatingMenuInViewport === 'function' ? _openFloatingMenuInViewport : null;
+  var openInViewport = typeof window._positionFloatingMenuInViewport === 'function' ? window._positionFloatingMenuInViewport : typeof window._openFloatingMenuInViewport === 'function' ? window._openFloatingMenuInViewport : typeof _openFloatingMenuInViewport === 'function' ? _openFloatingMenuInViewport : null;
   if (openInViewport) {
     openInViewport(menu, btn, false);
   }
@@ -202,8 +202,11 @@ window.toggleMapHintsMenu = function (force) {
   if (nextOpen) {
     refreshMapHintMenuUi();
     if (btn) {
-      menu.style.display = 'block';
-      positionMapHintsMenuInViewport();
+      var open = window._openFloatingMenuInViewport;
+      if (typeof open === 'function') open(menu, btn, false);else {
+        menu.style.display = 'block';
+        positionMapHintsMenuInViewport();
+      }
     } else {
       menu.style.display = 'block';
     }

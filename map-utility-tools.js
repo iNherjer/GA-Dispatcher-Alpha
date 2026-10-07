@@ -627,6 +627,9 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         if (!panel) return;
         const isOpen = panel.style.display !== 'none';
         if (!isOpen) {
+            // All fixed EFB tools need the same stacking context as its E6B iframe.
+            // Do this only on opening, never while an input is being operated.
+            if (window.GAEfbUiScale && panel.parentNode !== document.body) document.body.appendChild(panel);
             panel.style.display = 'block';
             panel.setAttribute('aria-hidden', 'false');
             if (tool === 'e6b') applyE6BSize(readE6BSizeMode(), false);
@@ -2293,7 +2296,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         updateClockFields();
         clearCalc();
         syncToolButtons();
-        window.addEventListener('resize', () => {
+        function refreshUtilityLayout() {
             Object.keys(TOOL_IDS).forEach(tool => {
                 const cfg = TOOL_IDS[tool];
                 const panel = el(cfg.panel);
@@ -2304,10 +2307,13 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
                         syncE6BBaseSize(panel);
                         reclampE6BViewOffset();
                     }
+                    if (tool === 'calculator' && panel.classList.contains('formula-open')) placeFormulaDrawer(panel, el('mapCalculatorFormulaDrawer'));
                     savePanelPosition(cfg);
                 }
             });
-        });
+        }
+        window.addEventListener('resize', refreshUtilityLayout);
+        window.addEventListener('ga-efb-layout-change', () => requestAnimationFrame(refreshUtilityLayout));
     }
 
     window.openMapUtilityTool = openMapUtilityTool;

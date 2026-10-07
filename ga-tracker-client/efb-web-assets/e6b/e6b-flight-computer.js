@@ -2614,7 +2614,7 @@
                     scheduleEmbeddedViewStatePost();
                 }
             }
-            if (data.type === 'ga-e6b-report-view') scheduleEmbeddedViewStatePost();
+            if (data.type === 'ga-e6b-report-view') { applyViewTransform(); scheduleEmbeddedViewStatePost(); }
         });
         bindWindowPlanControls();
         bindScalePlanControls();

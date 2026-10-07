@@ -63,7 +63,7 @@ try {
      const menu=await page.locator('#mapHintsMenu').boundingBox();
      assert.ok(menu.x>=-.5 && menu.x+menu.width<=size.width+.5 && menu.y>=-.5&&menu.y+menu.height<=size.height+.5,JSON.stringify({surface,vr,scale,menu}));
      await page.waitForTimeout(520);
-     if(size.width===838&&surface==='popout'&&vr&&[1,3].includes(scale))await page.screenshot({path:path.join(out,`popout-vr-${scale*100}-menu.png`)});
+     if(!process.env.GA_EFB_SKIP_SCREENSHOTS&&size.width===838&&surface==='popout'&&vr&&[1,3].includes(scale))await page.screenshot({path:path.join(out,`popout-vr-${scale*100}-menu.png`)});
      samples.push({surface,vr,scale,size,...g});
    }
  }
@@ -100,7 +100,7 @@ try {
  const rail=await page.locator('#mapDrawFloatingBtn').boundingBox();
  const hit=await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('button')?.id,{x:rail.x+rail.width/2,y:rail.y+rail.height/2});
  assert.equal(hit,'mapDrawFloatingBtn','Drawing button stays reachable above profile strip');
- await page.screenshot({path:path.join(out,'popout-vr-100-layout.png')});
+ if(!process.env.GA_EFB_SKIP_SCREENSHOTS)await page.screenshot({path:path.join(out,'popout-vr-100-layout.png')});
  await page.locator('#btnVpSettings').click();
  assert.equal(await page.locator('#vpSettingsMenu').evaluate(e=>e.style.display),'block','Gear opens profile settings');
  await page.locator('#btnVpSettings').click();

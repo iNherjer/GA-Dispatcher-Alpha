@@ -62,7 +62,7 @@ for(const surface of ['physical','popout','toolbar']) {
  return {before,after:document.activeElement===control,removals,adds,styles,blur};
  },menuId);
  if(!baseline || surface==='physical') {
- assert.equal(result.before,true);assert.equal(result.after,true,JSON.stringify({surface,vr,menuId,result}));
+ assert.equal(result.before,true,JSON.stringify({surface,vr,menuId,result}));assert.equal(result.after,true,JSON.stringify({surface,vr,menuId,result}));
  assert.equal(result.removals,0);assert.equal(result.adds,0);assert.equal(result.styles,0);assert.equal(result.blur,0);
  } else {assert.ok(result.removals>=10);assert.equal(result.after,false);}
  if(!baseline) {

@@ -9,7 +9,7 @@
   var bar = document.getElementById('vfr-statusbar');
   var controlsFrame = null;
   var active = false, generation = 0, timer = null, request = null, frame = null;
-  var channel = '', ready = false, deadline = 0;
+  var channel = '', ready = false, deadline = 0, failures = 0, trackerSession = '';
   var vrWatcher = null;
   function sendDisplayMode() {
     if (!active || !frame || !window.GAVrMode) return;
@@ -19,13 +19,13 @@
   }
   function log(message) { console.log('[VFR_TOOLBAR 0.2.1] ' + message); }
   function clearFrame() {
-    ready = false;
+    ready = false; channel = '';
     if (frame) { container.removeChild(frame); frame = null; }
     offline.style.display = '';
     bar.style.display = '';
   }
   function stop(reason) {
-    active = false; generation++;
+    active = false; generation++; failures = 0; trackerSession = '';
     clearTimeout(timer); timer = null;
     if (vrWatcher) { vrWatcher.stop(); vrWatcher = null; }
     if (request) { request.abort(); request = null; }
@@ -38,8 +38,9 @@
   function check() {
     if (!active || request) return;
     if (frame && !ready && Date.now() > deadline) {
-      status.textContent = 'Kartentisch antwortet nicht. Bitte Neu verbinden wählen.';
-      bar.style.display = ''; log('ready-timeout'); return;
+      clearFrame();
+      status.textContent = 'Kartentisch antwortet nicht – Verbindung wird erneuert';
+      bar.style.display = ''; log('ready-timeout');
     }
     var epoch = generation;
     var xhr = new XMLHttpRequest(); request = xhr;
@@ -50,9 +51,17 @@
       if (!ok) {
         bar.style.display = '';
         status.textContent = 'Tracker nicht erreichbar – warte auf Verbindung';
-        // A short outage never discards an already visible frame.
+        // One delayed response is tolerated; sustained outages unload the child.
+        failures++;
+        if (failures >= 2) clearFrame();
         schedule(4000); return;
       }
+      failures = 0;
+      var payload = null;
+      try { var envelope = JSON.parse(xhr.responseText); payload = envelope && envelope.message && envelope.message.payload; } catch (_) {}
+      var session = payload && typeof payload.viewSessionId === 'string' ? payload.viewSessionId : '';
+      if (session && trackerSession && session !== trackerSession) { clearFrame(); log('tracker-restarted'); }
+      if (session) trackerSession = session;
       if (!frame) {
         frame = document.createElement('iframe');
         frame.title = 'VFR Multitool Kartentisch';

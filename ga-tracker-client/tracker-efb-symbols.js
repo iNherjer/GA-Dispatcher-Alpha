@@ -56,7 +56,7 @@
     var drawer = document.getElementById('mapSideDrawer');
     if (!drawer) return;
     var state = window.GAEfbUiScale && window.GAEfbUiScale.state();
-    if (state && (state.surface === 'popout' || state.surface === 'toolbar')) {
+    if (state) {
       var logicalWidth = window.GAEfbUiScale.viewport().width;
       drawer.style.setProperty('--checklist-panel-width', Math.min(logicalWidth * (logicalWidth <= 768 ? .94 : .86), logicalWidth <= 768 ? 420 : 390) + 'px');
       return;

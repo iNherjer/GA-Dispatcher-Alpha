@@ -1,3 +1,10 @@
+function mapDrawLayoutRect(node) {
+    const rect = node.getBoundingClientRect();
+    const delta = value => window.GAEfbUiScale ? window.GAEfbUiScale.delta(value) : value;
+    return { left: delta(rect.left), right: delta(rect.right), top: delta(rect.top),
+        bottom: delta(rect.bottom), width: delta(rect.width), height: delta(rect.height) };
+}
+
 let measureMode = false, measurePoints = [], measurePolyline = null, measureMarkers = [], measureTooltip = null;
 /* Shared Standalone drawing, eraser, ruler and floating rail. */
 const measureIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #fff; width: 12px; height: 12px; min-width: 12px; min-height: 12px;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
@@ -703,7 +710,7 @@ function isMapDrawElementVisible(el) {
     if (!el) return false;
     const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
     if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
-    const rect = el.getBoundingClientRect();
+    const rect = mapDrawLayoutRect(el);
     return rect.width > 0 && rect.height > 0;
 }
 
@@ -713,13 +720,14 @@ function clampMapDrawValue(value, min, max) {
 }
 
 function getMapDrawSafeBounds(area, railWidth = 46, railHeight = 46) {
-    const areaRect = area.getBoundingClientRect();
+    const areaRect = mapDrawLayoutRect(area);
     const edgeMargin = 10;
     const blockerGap = 8;
     let left = edgeMargin;
-    let right = areaRect.width - edgeMargin;
+    const viewport = window.GAEfbUiScale ? window.GAEfbUiScale.viewport() : { width: innerWidth, height: innerHeight };
+    let right = Math.min(areaRect.width, viewport.width - areaRect.left) - edgeMargin;
     let top = edgeMargin;
-    let bottom = areaRect.height - edgeMargin;
+    let bottom = Math.min(areaRect.height, viewport.height - areaRect.top) - edgeMargin;
     const blockers = [
         { id: 'mapToolbarInner', edge: 'top' },
         { id: 'mapToolbarToggleRow', edge: 'top' },
@@ -732,7 +740,7 @@ function getMapDrawSafeBounds(area, railWidth = 46, railHeight = 46) {
     blockers.forEach(({ id, edge }) => {
         const el = document.getElementById(id);
         if (!isMapDrawElementVisible(el)) return;
-        const rect = el.getBoundingClientRect();
+        const rect = mapDrawLayoutRect(el);
         const horizontalOverlap = Math.min(rect.right, areaRect.right) - Math.max(rect.left, areaRect.left);
         if (horizontalOverlap <= 0) return;
         if (edge === 'top') {
@@ -760,7 +768,7 @@ function getMapDrawSafeBounds(area, railWidth = 46, railHeight = 46) {
 
 function getMapDrawToolStackHeight(stack) {
     const buttonCount = stack && stack.children ? stack.children.length : 0;
-    return Math.max(46, stack ? (stack.scrollHeight || stack.offsetHeight || (buttonCount ? ((buttonCount * 40) + ((buttonCount - 1) * 6)) : (5 * 46))) : 46);
+    return Math.max(46, stack ? (stack.offsetHeight || stack.scrollHeight || (buttonCount ? ((buttonCount * 40) + ((buttonCount - 1) * 6)) : (5 * 46))) : 46);
 }
 
 function getMapDrawToolStackDirection(rawTop, bounds, railHeight, stackHeight) {
@@ -809,8 +817,8 @@ function positionMapDrawToolStack() {
         stack.classList.remove('flip-down');
         return;
     }
-    const areaRect = area.getBoundingClientRect();
-    const railRect = rail.getBoundingClientRect();
+    const areaRect = mapDrawLayoutRect(area);
+    const railRect = mapDrawLayoutRect(rail);
     const railHeight = rail.offsetHeight || 46;
     const stackHeight = getMapDrawToolStackHeight(stack);
     const bounds = getMapDrawSafeBounds(area, rail.offsetWidth || 46, railHeight);
@@ -826,7 +834,7 @@ function positionMapDrawMenuNearButton() {
     const area = document.getElementById('mapArea');
     if (!anchor || !menu || !area) return;
     if (!mapDrawState.menuOpen) return;
-    const btnRect = anchor.getBoundingClientRect();
+    const btnRect = mapDrawLayoutRect(anchor);
     const bounds = getMapDrawSafeBounds(area);
     const areaRect = bounds.areaRect;
     const margin = 12;
@@ -838,9 +846,9 @@ function positionMapDrawMenuNearButton() {
     const gap = 6;
     const swatchesEl = menu.querySelector('.map-draw-swatches');
     const preferredWidth = Math.max(220, swatchesEl ? swatchesEl.offsetWidth : 220);
-    const menuWidth = Math.min(preferredWidth, areaRect.width - (margin * 2));
+    const menuWidth = Math.min(preferredWidth, bounds.right - bounds.left);
     menu.style.width = `${menuWidth}px`;
-    menu.style.maxHeight = '';
+    menu.style.maxHeight = `${Math.max(40, bounds.bottom - bounds.top)}px`;
     const measuredHeight = Math.max(96, menu.offsetHeight || 160);
     if (wasHidden) {
         menu.style.display = 'none';
@@ -900,11 +908,15 @@ function clampMapDrawFloatingButtonPosition(rawPosition) {
     const stack = document.getElementById('mapDrawToolStack');
     const area = document.getElementById('mapArea');
     if (!rail || !button || !area) return;
-    const areaRect = area.getBoundingClientRect();
+    const areaRect = mapDrawLayoutRect(area);
     const railWidth = rail.offsetWidth || 46;
     const railHeight = rail.offsetHeight || 46;
     const bounds = getMapDrawSafeBounds(area, railWidth, railHeight);
     if (!isMapDrawFloatingAreaUsable(areaRect, railWidth, railHeight, bounds)) return;
+    if (stack && window.GAEfbUiScale) {
+        stack.style.maxHeight = `${Math.max(40, bounds.bottom - bounds.top - railHeight - 8)}px`;
+        stack.style.overflowY = 'auto';
+    }
     const fallback = getMapDrawFloatingDefaultPosition(areaRect, railWidth, railHeight, bounds);
     const styleLeft = parseFloat(rail.style.left);
     const styleTop = parseFloat(rail.style.top);
@@ -981,10 +993,10 @@ function initMapDrawFloatingButton() {
         const movedPx = Math.hypot(evt.clientX - drag.startX, evt.clientY - drag.startY);
         if (movedPx < dragThresholdPx && !drag.moved) return;
         drag.moved = true;
-        const areaRect = area.getBoundingClientRect();
+        const areaRect = mapDrawLayoutRect(area);
         clampMapDrawFloatingButtonPosition({
-            left: evt.clientX - areaRect.left - drag.offsetX,
-            top: evt.clientY - areaRect.top - drag.offsetY
+            left: (window.GAEfbUiScale ? window.GAEfbUiScale.delta(evt.clientX - drag.offsetX) : evt.clientX - drag.offsetX) - areaRect.left,
+            top: (window.GAEfbUiScale ? window.GAEfbUiScale.delta(evt.clientY - drag.offsetY) : evt.clientY - drag.offsetY) - areaRect.top
         });
         evt.stopPropagation();
         evt.preventDefault();
@@ -1021,9 +1033,8 @@ function initMapDrawFloatingButton() {
         mapDrawState.justDraggedUntil = Date.now() + 350;
     });
 
-    window.addEventListener('resize', () => {
-        clampMapDrawFloatingButtonPosition();
-    });
+    window.addEventListener('resize', clampMapDrawFloatingButtonPosition);
+    window.addEventListener('ga-efb-layout-change', () => requestAnimationFrame(() => clampMapDrawFloatingButtonPosition()));
     button.dataset.drawBound = '1';
     syncMapDrawUi();
 }

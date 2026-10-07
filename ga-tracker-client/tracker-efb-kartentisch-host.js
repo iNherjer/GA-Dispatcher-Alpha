@@ -284,9 +284,10 @@
 
   function updateInfoRestoreButton() { refreshMapHintMenuUi(); }
 
+  var telemetryRetained = false;
   function setInfoBoxAvailability(id, available) {
     var node = byId(id);
-    if (node) node.style.display = available && infoBoxVisible(id) ? 'block' : 'none';
+    presentation.setStyle(node, 'display', available && infoBoxVisible(id) ? 'block' : 'none');
   }
 
   function resetInfoBoxPosition(node) {
@@ -1372,7 +1373,7 @@
       apply: function(key) {
         if (['telemetry', 'currentInfo', 'nextLeg'].indexOf(key) >= 0) {
           Object.keys(infoBoxState).forEach(function(id) {
-            setInfoBoxAvailability(id, id === 'liveNextWpBox' ? !!(mapSnapshot && mapSnapshot.navigation) : !!flight);
+            setInfoBoxAvailability(id, id === 'liveNextWpBox' ? !!(mapSnapshot && mapSnapshot.navigation) : (!!flight || (id === 'liveTelemetryBox' && telemetryRetained)));
           });
         }
         if (key === 'compass') byId('compassRoseWrap').classList.toggle('compass-hint-off', !window.isMapHintEnabled(key));
@@ -1703,6 +1704,17 @@
     if (warningHeader && window.ResizeObserver) new ResizeObserver(positionAirspaceBanner).observe(warningHeader);
     if (byId('routeProgressBar') && window.ResizeObserver) new ResizeObserver(positionAirspaceBanner).observe(byId('routeProgressBar'));
     positionAirspaceBanner();
+    window.addEventListener('ga-efb-layout-change', function () {
+      window.requestAnimationFrame(function () {
+        positionAirspaceBanner();
+        [['mapHintsMenu','mapHintsBtn',false],['mapVoiceMenu','mapVoiceBtn',false],['vpSettingsMenu','btnVpSettings',true]].forEach(function(pair) {
+          var menu = byId(pair[0]), button = byId(pair[1]);
+          if (menu && button && menu.style.display === 'block') window._positionFloatingMenuInViewport(menu, button, pair[2]);
+        });
+        if (window.gaEfbRefreshDrawerLayout) window.gaEfbRefreshDrawerLayout();
+        if (window.GAEfbFloatingLayout) window.GAEfbFloatingLayout.refresh();
+      });
+    });
     window.addEventListener('resize', function () {
       syncToolbarLayout();
       positionAirspaceBanner();
@@ -1796,12 +1808,15 @@
     if (!payload) { disconnectFlight(); return; }
     syncLiveTrailSession(payload);
     var normalized = API.normalizeFlightSnapshot(payload);
-    if (!normalized || !normalized.capturedAt || Date.now() - normalized.capturedAt > 15000) {
-      disconnectFlight();
+    if (!normalized || !normalized.capturedAt) { disconnectFlight(); return; }
+    if (Date.now() - normalized.capturedAt > 15000) {
+      disconnectFlight(true);
       return;
     }
     if (flight && flight.capturedAt === normalized.capturedAt) return;
     var previous = flight;
+    telemetryRetained = false;
+    if (byId('liveTelemetryBox').classList.contains('ga-telemetry-stale')) byId('liveTelemetryBox').classList.remove('ga-telemetry-stale');
     flight = normalized;
     refreshLocalNavigation();
     window.lastLiveFlightData = payload.flight || {};
@@ -2937,14 +2952,17 @@
   }
 
   var localFlightRevision = null;
-  function disconnectFlight() {
+  function disconnectFlight(retainTelemetry) {
+    telemetryRetained = !!retainTelemetry && (!!flight || telemetryRetained);
+    var telemetry = byId('liveTelemetryBox');
+    if (telemetry.classList.contains('ga-telemetry-stale') !== telemetryRetained) telemetry.classList.toggle('ga-telemetry-stale', telemetryRetained);
     flight = null;
     telemetryPrevious = null;
     localNavigationState = {};
     window.lastLiveTerrainFt = null;
     window.gaEfbProfile.disconnected();
     refreshLocalNavigation();
-    ['liveTelemetryBox','liveCurrentBox','liveNextWpBox'].forEach(function(id){setInfoBoxAvailability(id,false);});
+    ['liveTelemetryBox','liveCurrentBox','liveNextWpBox'].forEach(function(id){setInfoBoxAvailability(id, id === 'liveTelemetryBox' && telemetryRetained);});
     if (planeMarker) { map.removeLayer(planeMarker); planeMarker = null; }
     updateCompass();
     renderProgress();
@@ -2973,7 +2991,7 @@
       flightPollFailures++;
       var disconnected = !lastFlightPollSuccessAt || flightPollFailures >= 2 || Date.now() - lastFlightPollSuccessAt >= 10000;
       trackerOnline = false;
-      if (disconnected) { disconnectFlight(); notifyParentState('error'); }
+      if (disconnected) { disconnectFlight(true); notifyParentState('error'); }
       setTrackerState(disconnected ? 'Tracker nicht erreichbar' : 'Tracker antwortet verzögert', true);
       report('warn', 'poll', disconnected ? 'tracker-unreachable' : 'tracker-delayed', 'Snapshot-Polling fehlgeschlagen', String(error && error.message || error));
       pollTimer = window.setTimeout(poll, 1000);

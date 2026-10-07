@@ -99,8 +99,9 @@ function positionMapHintsMenuInViewport() {
     const menu = document.getElementById('mapHintsMenu');
     const btn = document.getElementById('mapHintsBtn');
     if (!menu || !btn || menu.style.display !== 'block') return;
-    const openInViewport = (typeof window._openFloatingMenuInViewport === 'function')
-        ? window._openFloatingMenuInViewport
+    const openInViewport = (typeof window._positionFloatingMenuInViewport === 'function')
+        ? window._positionFloatingMenuInViewport
+        : (typeof window._openFloatingMenuInViewport === 'function') ? window._openFloatingMenuInViewport
         : (typeof _openFloatingMenuInViewport === 'function' ? _openFloatingMenuInViewport : null);
     if (openInViewport) {
         openInViewport(menu, btn, false);
@@ -207,8 +208,9 @@ window.toggleMapHintsMenu = function(force) {
     if (nextOpen) {
         refreshMapHintMenuUi();
         if (btn) {
-            menu.style.display = 'block';
-            positionMapHintsMenuInViewport();
+            const open = window._openFloatingMenuInViewport;
+            if (typeof open === 'function') open(menu, btn, false);
+            else { menu.style.display = 'block'; positionMapHintsMenuInViewport(); }
         } else {
             menu.style.display = 'block';
         }

@@ -77,3 +77,20 @@ test('unchanged telemetry scale causes no layout writes; resize and host changes
   assert.equal(api.state().effective, 3);
   assert.equal(drawerRefreshes, 5);
 });
+
+
+test('logical scale changes explicitly invalidate tools; identical polls do not dispatch', () => {
+  let events = 0;
+  const window = { innerWidth: 838, innerHeight: 883,
+    document: { body: { style: { setProperty() {} }, setAttribute() {} },
+      createEvent() { return { initEvent(name) { this.type = name; } }; } },
+    addEventListener() {}, dispatchEvent(event) { assert.equal(event.type, 'ga-efb-layout-change'); events++; } };
+  vm.runInNewContext(fs.readFileSync(require.resolve('./tracker-efb-ui-scale'), 'utf8'), { window });
+  window.GAEfbUiScale.apply(1, 'physical', false);
+  for (let i = 0; i < 100; i++) window.GAEfbUiScale.apply(1, 'physical', false);
+  assert.equal(events, 1);
+  window.GAEfbUiScale.apply(1.5, 'physical', false);
+  assert.equal(events, 2);
+  window.GAEfbUiScale.apply(1.5, 'toolbar', false);
+  assert.equal(events, 3);
+});
