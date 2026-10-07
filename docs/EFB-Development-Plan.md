@@ -6178,3 +6178,47 @@ Nur Tracker-Alpha wird auf v487 gesetzt, SW v1946 fuer den Kanalpush.
 SDK 0.4.21 und beide Stable-Zeiger bleiben exakt unveraendert.
 Tester soll den Tracker aktualisieren/neustarten und EFB/Toolbar neu oeffnen.
 Reale Coherent-Aussetzer und Settings-ACKs im Simulator bleiben zu bestaetigen.
+
+
+### 2026-10-07: Alpha-Hotfix v488 – offene Menues behalten Fokus und DOM
+
+Nach weiterhin gemeldetem Flackern/Klickausfall unter v487 wurde der gestrige
+Floating-Layoutpfad auf Quellbasis und im Browser reproduziert. Das zusaetzliche
+Testerlog stammt vom 04.10.2026 (v467/SDK0.4.14/Assets46501); es ist kein
+v487-Testnachweis. Unabhaengig davon verliert die veroeffentlichte v487-Basis
+im Browser den Fokus: syncToolbarLayout -> FloatingLayout.refresh ->
+positionMenus ruft fuer bereits geoeffnete Menues erneut die Oeffnungsfunktion
+auf. Zehn identische Flugupdates erzeugen zehn DOM-Remove-/Add-Zyklen und
+130 Menue-Stylemutationen. Das Auswahlfeld verliert den Fokus an BODY.
+Der Floating-Pfad wurde mit v484 am 06.10.2026 eingefuehrt.
+
+Nutzer autorisiert Korrektur und unmittelbaren Alpha-Rollout. Die kanonische
+map-profile-controls.js trennt einmaliges Oeffnen von reinem Repositionieren.
+Der Floating-Host verwendet bei offenen Audio-/Anzeige-/Profilmenues nur noch
+die Positionierung: keine DOM-Neueinsetzung und kein visibility-Umschalten.
+Positions-/Groessenwerte werden nur bei Aenderung geschrieben; natuerliche
+Inhaltshoehe wird ohne Zuruecksetzen der bisherigen max-height gemessen.
+Erstes Oeffnen, Viewportbegrenzung und echte Groessen-/2D-/VR-Wechsel bleiben
+aktiv. Das EFB-Asset wird aus derselben kanonischen App-Quelle neu generiert.
+Keine Aenderung an Telemetrietakt, Mission, Audio-Lease oder SDK-Lifecycle.
+
+49 Node-Tests und Interface-Regressionspruefung bestehen. Neuer Browsertest
+tools/efb-menu-focus-ui-selftest.mjs prueft 18 Kombinationen aus drei Menues,
+physical/popout/toolbar und 2D/VR: nach zehn Updates keine DOM-Neueinsetzung,
+keine Menue-Stylemutationen und kein Fokusverlust. Echte Mausklicks kommen
+auch bei einem Flugupdate zwischen mousedown und mouseup an. Derselbe Test
+mit GA_MENU_BASELINE_REF=v487 reproduziert den alten Fokusverlust. Bestehende
+60 Popout-/Toolbar-Layoutfaelle einschliesslich offener Menues bei VR-Wechsel
+und Rueckkehr zur physischen Ansicht bestehen. Dies ist ein Browsernachweis;
+Coherent-Flackern und Bedienung im MSFS bleiben im Feld zu bestaetigen.
+
+Separater Releasecheckout auf oeffentlichem v487-Aktivierungscommit
+52ce450d687e9cf2dabbc80cda2c05db6670a0f0. Tracker v488 / Assetrevision 48801,
+SW v1947 fuer den Quellpush. SDK-Paket 0.4.21 und Stable-Kanaele unveraendert.
+Windows-x64-EXE mit pkg 6.18.1/Node18 ohne Bytecode gebaut.
+173568049 Bytes, SHA-256 67d354a18d0ad93747a43f7003e5c1c480a9b81cf61f43768f9b9157475806f2.
+Exakte Floating-Layout-, generierte Profilmenue- und Web-Client-Quellen sowie
+Version/Assetrevision sind in der EXE geprueft. Kanalaktivierung erst nach
+verifiziertem oeffentlichem Download.
+
+Weitere 20 bestehende Layoutfaelle ohne ResizeObserver bestehen.

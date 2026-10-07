@@ -20,24 +20,37 @@ function mpEfbRect(element) {
   };
 }
 // Shared standalone profile menu placement and narrow-screen controls.
+function _setFloatingMenuStyle(menu, name, value) {
+  if (menu.style[name] !== value) menu.style[name] = value;
+}
 function _openFloatingMenuInViewport(menu, btn) {
   var preferAbove = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
   if (!menu || !btn) return;
-  var pad = 6;
-  document.body.appendChild(menu);
+  // Reparent only on first open. Live layout updates use the positioning
+  // function and must preserve focus, visibility and native popup state.
+  if (menu.parentNode !== document.body) document.body.appendChild(menu);
   menu.style.position = 'fixed';
   menu.style.display = 'block';
   menu.style.visibility = 'hidden';
-  menu.style.left = '0px';
-  menu.style.top = '0px';
   menu.style.right = 'auto';
   menu.style.bottom = 'auto';
   menu.style.zIndex = '130500';
-  menu.style.maxWidth = `${Math.max(1, mpEfbViewport().width - pad * 2)}px`;
-  menu.style.maxHeight = `${Math.max(1, mpEfbViewport().height - pad * 2)}px`;
   menu.style.overflowY = 'auto';
+  _positionFloatingMenuInViewport(menu, btn, preferAbove);
+  menu.style.visibility = 'visible';
+  if (typeof window.gaBringMapOverlayToFront === 'function') window.gaBringMapOverlayToFront(menu);
+}
+function _positionFloatingMenuInViewport(menu, btn) {
+  var preferAbove = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+  if (!menu || !btn) return;
+  var pad = 6;
+  var viewport = mpEfbViewport();
+  _setFloatingMenuStyle(menu, 'maxWidth', `${Math.max(1, viewport.width - pad * 2)}px`);
   var br = mpEfbRect(btn);
   var mr = mpEfbRect(menu);
+  // Measure natural content without clearing the current height or hiding
+  // a control the user is operating. Use logical pixels under EFB scale.
+  mr.height = Math.min(menu.scrollHeight + menu.offsetHeight - menu.clientHeight, Math.max(1, viewport.height - pad * 2));
   var left = br.right - mr.width;
   left = Math.max(pad, Math.min(left, mpEfbViewport().width - mr.width - pad));
   var aboveTop = br.top - mr.height - 6;
@@ -72,11 +85,9 @@ function _openFloatingMenuInViewport(menu, btn) {
       maxHeight = belowSpace;
     }
   }
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
-  menu.style.maxHeight = `${Math.max(minMenuHeight, maxHeight || mpEfbViewport().height - pad * 2)}px`;
-  menu.style.visibility = 'visible';
-  if (typeof window.gaBringMapOverlayToFront === 'function') window.gaBringMapOverlayToFront(menu);
+  _setFloatingMenuStyle(menu, 'left', `${Math.round(left)}px`);
+  _setFloatingMenuStyle(menu, 'top', `${Math.round(top)}px`);
+  _setFloatingMenuStyle(menu, 'maxHeight', `${Math.max(minMenuHeight, maxHeight || viewport.height - pad * 2)}px`);
 }
 function _setMapFloatingMenuButtonOpen(id, open) {
   var btn = document.getElementById(id);

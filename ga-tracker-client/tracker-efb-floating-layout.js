@@ -108,13 +108,16 @@
     var inset = Math.max(8, Math.min(size.height - widget.offsetHeight - 8, size.height - bottom + 76));
     set(widget, 'bottom', inset + 'px', 'important');
   }
+  function menuStyle(menu, name, value) {
+    if (menu.style[name] !== value) menu.style[name] = value;
+  }
   function constrainMenu(menu) {
     if (!floating() || !menu || menu.style.display !== 'block') return;
     var size = root.GAEfbUiScale.viewport(), pad = Math.min(6, size.height / 4);
     var limit = Math.max(1, size.height - pad * 2);
-    menu.style.maxHeight = Math.min(parseFloat(menu.style.maxHeight) || limit, limit) + 'px';
-    menu.style.top = Math.max(pad, Math.min(menu.offsetTop, size.height - menu.offsetHeight - pad)) + 'px';
-    menu.style.left = Math.max(pad, Math.min(menu.offsetLeft, size.width - menu.offsetWidth - pad)) + 'px';
+    menuStyle(menu, 'maxHeight', Math.min(parseFloat(menu.style.maxHeight) || limit, limit) + 'px');
+    menuStyle(menu, 'top', Math.round(Math.max(pad, Math.min(menu.offsetTop, size.height - menu.offsetHeight - pad))) + 'px');
+    menuStyle(menu, 'left', Math.round(Math.max(pad, Math.min(menu.offsetLeft, size.width - menu.offsetWidth - pad))) + 'px');
   }
   var originalOpenMenu = root._openFloatingMenuInViewport;
   if (typeof originalOpenMenu === 'function') root._openFloatingMenuInViewport = function(menu) {
@@ -124,7 +127,10 @@
   function positionMenus() {
     [['mapHintsMenu','mapHintsBtn',false],['mapVoiceMenu','mapVoiceBtn',false],['vpSettingsMenu','btnVpSettings',true]].forEach(function(pair) {
       var menu = byId(pair[0]), button = byId(pair[1]);
-      if (menu && button && menu.style.display === 'block' && typeof root._openFloatingMenuInViewport === 'function') root._openFloatingMenuInViewport(menu, button, pair[2]);
+      if (menu && button && menu.style.display === 'block' && typeof root._positionFloatingMenuInViewport === 'function') {
+        root._positionFloatingMenuInViewport(menu, button, pair[2]);
+        constrainMenu(menu);
+      }
     });
   }
   function layout() {
