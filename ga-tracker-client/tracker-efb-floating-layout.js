@@ -141,7 +141,7 @@
     if (header) set(header, 'max-height', Math.max(30, Math.min(90, size.height * .24)) + 'px', 'important');
     var content = document.querySelector('.maptable-content'), strip = byId('mapProfileStrip');
     if (content && strip) {
-      set(strip, 'max-height', Math.max(24, content.clientHeight * .32) + 'px', 'important');
+      set(strip, 'max-height', Math.max(24, content.clientHeight * .6) + 'px', 'important');
       set(strip, 'min-height', '0px', 'important');
     }
     var area = byId('mapArea');

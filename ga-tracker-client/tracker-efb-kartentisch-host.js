@@ -83,6 +83,7 @@
   var displaySettingsReady = false, displaySettingsLoading = false, displaySettingsSaving = false;
   var displaySettingsPending = {}, displaySettingsRetry = null;
   var preferences = readPreferences();
+  window.gaProfileModePreference = preferences.profileMode;
   var infoBoxState = readInfoBoxState();
   var lastProfileDiagnostic = '';
   var tileHealthReported = {};
@@ -164,6 +165,7 @@
     catch (_) { source = {}; }
     normalized = API.normalizePreferences(source);
     normalized.theme = 'classic';
+    normalized.profileMode = ['AUTO','ROUTE','HDG'].indexOf(source.profileMode) >= 0 ? source.profileMode : 'AUTO';
     var legacyScale = clamp(Number(source.fontScale) || 1, 0.9, 3);
     normalized.fontScale2d = clamp(Number(source.fontScale2d) || legacyScale, 0.9, 3);
     normalized.fontScaleVr = clamp(Number(source.fontScaleVr) || legacyScale, 0.9, 3);
@@ -172,6 +174,7 @@
   }
 
   function savePreferences() {
+    preferences.profileMode = window.gaProfileModePreference || preferences.profileMode || 'AUTO';
     try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences)); } catch (_) {}
   }
 
@@ -184,6 +187,78 @@
     return window.GATrackerCockpitSessionClient.requestJson(fetch, '/api/v1/display/settings', init, 5000).then(function (result) {
       if (!result.response.ok || !result.body || !result.body.display) throw new Error('display_settings_unavailable');
       return result.body.display;
+    });
+  }
+
+  var uiPreferenceKeys = ['telemetry','currentInfo','nextLeg','routeProgress','compass','lowFps','autoZoom','terrainAvoid','magentaLine'];
+  var uiPending = {}, uiSaving = false, uiRetry = null, uiLoading = false, uiRevision = -1;
+  function applyUiPreferences(display) {
+    var ui = display && display.ui;
+    if (!ui || (typeof display.uiRevision === 'number' && display.uiRevision < uiRevision)) return;
+    if (typeof display.uiRevision === 'number') uiRevision = display.uiRevision;
+    var changed = false;
+    uiPreferenceKeys.forEach(function(key) {
+      if (typeof ui[key] !== 'boolean' || Object.prototype.hasOwnProperty.call(uiPending,key)) return;
+      if (window.mapHints[key] === ui[key]) return;
+      window.mapHints[key] = ui[key];
+      try { localStorage.setItem('ga_map_hint_' + key, String(ui[key])); } catch (_) {}
+      window.gaMapDisplayAdapter.apply(key); changed = true;
+    });
+    ['profileVisible','toolbarCollapsed'].forEach(function(key) {
+      if (typeof ui[key] !== 'boolean' || Object.prototype.hasOwnProperty.call(uiPending,key) || preferences[key] === ui[key]) return;
+      preferences[key] = ui[key]; changed = true;
+    });
+    if (['AUTO','ROUTE','HDG'].indexOf(ui.profileMode) >= 0 && !Object.prototype.hasOwnProperty.call(uiPending,'profileMode') && window.gaProfileModePreference !== ui.profileMode) {
+      window.gaProfileModePreference = ui.profileMode; changed = true;
+    }
+    [['profileAltitudeFt','ga_perf_alt','altMapInput'],['profileRateFpm','ga_perf_rate','rateMapInput']].forEach(function(item) {
+      var key = item[0], value = ui[key];
+      if (typeof value !== 'number' || Object.prototype.hasOwnProperty.call(uiPending,key)) return;
+      var stored = null; try { stored = localStorage.getItem(item[1]); } catch (_) {}
+      if (Number(stored) === value && Number(byId(item[2]).textContent) === value) return;
+      try { localStorage.setItem(item[1], String(value)); } catch (_) {}
+      presentation.setText(byId(item[2]), String(value));
+      if (key === 'profileRateFpm') { vpClimbRate = value; vpDescentRate = value; }
+      changed = true;
+    });
+    if (changed) {
+      if (window.throttledRenderProfiles) window.throttledRenderProfiles();
+      document.body.classList.toggle('profile-hidden', !preferences.profileVisible);
+      syncProfileButton(); syncToolbarLayout(); savePreferences();
+      refreshMapHintMenuUi(); renderProfile();
+      if (map) map.invalidateSize(false);
+    }
+  }
+  function retryUiPreferences() {
+    if (uiRetry !== null || pollingClosed) return;
+    uiRetry = window.setTimeout(function() { uiRetry = null; flushUiPreferences(); }, 4000);
+  }
+  function flushUiPreferences() {
+    if (uiSaving || uiLoading || !Object.keys(uiPending).length) return;
+    var sent = Object.assign({}, uiPending);
+    uiSaving = true;
+    displaySettingsRequest({ui: sent}).then(function(display) {
+      Object.keys(sent).forEach(function(key) { if (uiPending[key] === sent[key]) delete uiPending[key]; });
+      applyUiPreferences(display);
+      uiSaving = false; flushUiPreferences();
+    }).catch(function() { uiSaving = false; retryUiPreferences(); });
+  }
+  function queueUiPreference(key, value) { uiPending[key] = value; flushUiPreferences(); }
+  window.gaPersistMapHintSetting = function(key, value) {
+    if (uiPreferenceKeys.indexOf(key) >= 0) queueUiPreference(key, value);
+  };
+  window.gaPersistProfileSetting = function(key, value) {
+    if (key === 'profileAltitudeFt' || key === 'profileRateFpm') queueUiPreference(key, value);
+  };
+  function loadUiPreferences() {
+    var seed = {profileVisible: preferences.profileVisible, toolbarCollapsed: preferences.toolbarCollapsed, profileMode: window.gaProfileModePreference || 'AUTO'};
+    uiPreferenceKeys.forEach(function(key) { seed[key] = window.isMapHintEnabled(key); });
+    uiLoading = true;
+    displaySettingsRequest({initializeUi: seed}).then(function(display) {
+      applyUiPreferences(display); uiLoading = false; flushUiPreferences();
+    }).catch(function() {
+      uiLoading = false;
+      if (!pollingClosed) window.setTimeout(loadUiPreferences, 4000);
     });
   }
 
@@ -237,7 +312,7 @@
 
   function setDisplayMode(vr, surface) {
     var mode = vr ? 'vr' : '2d';
-    var nextSurface = window.GAEfbUiScale.normalizeSurface(surface);
+    var nextSurface = surface == null ? hostSurface : window.GAEfbUiScale.normalizeSurface(surface);
     if (mode === displayMode && nextSurface === hostSurface) return;
     hostSurface = nextSurface;
     displayMode = mode;
@@ -1446,6 +1521,11 @@
     document.body.classList.toggle('toolbar-collapsed', preferences.toolbarCollapsed);
     document.body.classList.toggle('profile-hidden', !preferences.profileVisible);
     syncProfileButton();
+    var modeButton = byId('btnToggleVpMode');
+    if (modeButton) modeButton.onclick = function() {
+      var before = vpMode; vpToggleMode();
+      if (vpMode !== before) { window.gaProfileModePreference = vpMode; savePreferences(); queueUiPreference('profileMode', vpMode); }
+    };
     applyTheme();
     setupInfoBoxes();
     setupSideDrawer();
@@ -3046,6 +3126,7 @@
 
   window.toggleMapToolbar = function () {
     preferences.toolbarCollapsed = !preferences.toolbarCollapsed;
+    queueUiPreference('toolbarCollapsed', preferences.toolbarCollapsed);
     closeHostMenus();
     syncToolbarLayout();
     savePreferences();
@@ -3056,6 +3137,7 @@
   };
   window.toggleMapProfile = function () {
     preferences.profileVisible = !preferences.profileVisible;
+    queueUiPreference('profileVisible', preferences.profileVisible);
     document.body.classList.toggle('profile-hidden', !preferences.profileVisible);
     syncProfileButton();
     savePreferences();
@@ -3110,6 +3192,7 @@
       if (!map) throw new Error('Leaflet-Karte wurde nicht initialisiert.');
       configureDisplayControls();
       loadDisplaySettings();
+      loadUiPreferences();
       setupEfbUiCompatibility();
       setFollow(preferences.follow);
       var bootStatus = byId('gaEfbBootStatus');
@@ -3118,6 +3201,7 @@
       notifyParentState('ready', { stage: 'host-ready' });
       poll();
       pollAuxiliary('/api/v1/status', function (status) {
+        if (status && status.display) applyUiPreferences(status.display);
         if (trackerOnline) setTrackerState(status && status.simulatorConnected ? 'Tracker + Simulator verbunden' : 'Tracker verbunden | warte auf Simulator', false);
       }, 1000);
       pollAuxiliary('/api/v1/map', renderMapPayload, 1000);

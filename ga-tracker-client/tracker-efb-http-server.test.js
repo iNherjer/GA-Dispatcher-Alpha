@@ -720,3 +720,16 @@ test('rejected stale intent includes authoritative snapshot in its conflict resp
   assert.equal(reply.statusCode, 409);
   assert.equal(JSON.parse(reply.body).message.payload.missionSnapshot.control.authorityRevision, 42);
 });
+
+test('UI visibility survives the local API and reaches the existing status stream', async t => {
+  const {createDisplaySettingsControl}=require('./tracker-efb-display-settings');
+  let config={};
+  const displayControl=createDisplaySettingsControl({readConfig:()=>config,writeConfig(next){config=next;return true;}});
+  const server=createTrackerEfbHttpServer({port:0,displayControl,hello:createTrackerEfbHttpHello({trackerVersion:'v488',trackerVersionCode:488})});
+  t.after(()=>server.stop());const address=await server.start();
+  const saved=await request(address,'/api/v1/display/settings',{method:'POST',body:JSON.stringify({ui:{telemetry:false,currentInfo:false,profileMode:'ROUTE'}})});
+  assert.equal(saved.statusCode,200);
+  const status=JSON.parse((await request(address,'/api/v1/status')).body).message.payload;
+  assert.equal(status.display.ui.telemetry,false);assert.equal(status.display.ui.currentInfo,false);assert.equal(status.display.ui.profileMode,'ROUTE');
+  assert.equal(status.display.uiRevision,JSON.parse(saved.body).display.uiRevision);
+});

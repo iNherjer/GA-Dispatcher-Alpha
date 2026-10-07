@@ -6286,3 +6286,48 @@ Bootstrap-Testwartebedingung wurde gegen noch fehlenden iframe-Body abgesichert.
 SDK-Lifecycle-Test konnte im isolierten Checkout mangels SDK-TypeScript-
 node_modules nicht geladen werden; SDK-TSX selbst ist unveraendert. Echtes MSFS/
 Coherent bleibt Feldabnahme; Browser- und VM-Nachweise ersetzen diese nicht.
+
+
+### 2026-10-07: Persistente Anzeigeoptionen und Hoehenprofil-Paritaet (Kandidat)
+
+Nutzer fordert dauerhaft deaktivierte Kartenfenster, weiteren Skalierungs-/VR-
+Check und Vergleich der Hoehenprofil-Buttons zwischen EFB und Toolbar. Bisher
+sind ga_map_hint_* und Profiloptionen nur im Storage der jeweiligen Simulator-
+Webansicht gespeichert. Erweiterung von efbDisplay.ui speichert die erlaubten
+Anzeigeoptionen im Tracker. Boot-Initialisierung ergaenzt nur fehlende Werte;
+vorhandenes false bleibt erhalten. Aenderungen sind Feld-Patches mit persistenter
+uiRevision. Ausstehende lokale Wahlen und aeltere Statusantworten duerfen eine
+neue Wahl nicht ueberschreiben. Legacy-2D-/VR-Schriftmigration bleibt unabhaengig.
+Ein RAM-publicState des Displaycontrollers wird im bestehenden Statusstrom
+mitgeliefert: kein weiterer Poll-Timer und keine Config-Dateilesung je Tick.
+
+Profilmoduswahl AUTO/RTE/HDG, Profilsichtbarkeit und eingeklappte Toolbar sowie
+explizit geaenderte Reiseflughoehe/Steigrate sind gemeinsam gespeichert.
+LocalStorage dient weiter als Fallback. Bekannte GS aus dem ersten Live-Snapshot
+initialisiert HDG konsistent, statt pro Ansicht auf verschiedene EMA-Anlaufzeiten
+zu warten. Manuelles RTE unterdrueckt erneutes Auto-HDG; Reconnect wendet die Wahl
+wieder an. Gleiche fachliche Daten/Einstellungen bedeuten weiterhin unterschiedliche
+Pixelgroessen bei verschiedenen Fensterabmessungen oder dem bestaetigten VR-
+Grundfaktor 1.5 fuer Toolbar/Popout.
+
+EFB-Bridge stellt den fehlenden throttledRenderProfiles-Einstieg bereit; Y-Achse,
+Zoom und Layeraktionen invalidieren den Hintergrund und fordern explizit einen
+coalescierten Profilframe an. Native prompt()-Aufrufe fuer ALT/V/S sind durch
+lokale HTML-Zahleneingabe mit Uebernehmen/Abbrechen ersetzt. Y-Achse benutzt die
+aktive Profil-Datenbasis, damit HDG ohne Route bedienbar bleibt. Routenupdates
+respektieren profile-hidden statt den Profilbutton wieder auf An zu stellen;
+verborgene Profile fuehren keine sichtbaren Frame-Loops aus. Resize-Handle wird
+nur einmal gebunden. Floating-Profilgrenze folgt mit 60 Prozent demselben Limit
+wie der gemeinsame Split-Regler statt der bisherigen 32-Prozent-Kappung.
+VR-Nachrichten ohne Surface behalten die bekannte Surface, statt auf unknown
+zurueckzufallen und damit den Grundfaktor zu verlieren. Keine andere Aenderung
+an der nativen VR-Erkennung oder an Mission-Authority.
+
+Validierung: 65 Node-/HTTP-Tests plus Interface-Regressionspruefung bestehen.
+33 neue Profil-/Skalierungsfaelle testen frische Storage-Kontexte und einen
+neuen Displaycontroller, dauerhaft deaktivierte Boxen/Profil, RTE/HDG-Paritaet,
+ALT/V/S-Eingabe ohne native Dialoge, unmittelbare Canvas-Neuzeichnung durch
+Buttons, HDG-Y-Achse ohne Route und 0.9/1.5/3 mit VR/2D auf drei Surfaces.
+60 bestehende Layoutfaelle und 20 ohne ResizeObserver, 18 Menue-/Fokusfaelle und
+24 Werkzeug-/Lifecyclefaelle bestehen: insgesamt 155 Browserfaelle, ohne Bilder.
+Echtes MSFS/Coherent bleibt Feldabnahme. Noch kein neuer Release oder Kanalpush.

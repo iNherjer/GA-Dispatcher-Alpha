@@ -3406,7 +3406,7 @@ window.vpHardReloadRouteProfile = function () {
   var status = document.getElementById('verticalProfileStatus');
   if (status) status.textContent = 'Lade Terrain...';
   var mapTable = document.getElementById('mapTableOverlay');
-  if (mapTable && mapTable.classList.contains('active')) {
+  if (mapTable && mapTable.classList.contains('active') && !document.body.classList.contains('profile-hidden')) {
     vpMapProfileVisible = true;
     var strip = document.getElementById('mapProfileStrip');
     var btn = document.getElementById('vpToggleBtn');
@@ -10575,7 +10575,7 @@ function vpHexToRgba(hex, alpha) {
 var vpMapProfileVisible = true;
 function vpCanRunVisibleMapProfileWork() {
   var mapTable = document.getElementById('mapTableOverlay');
-  return !document.hidden && !!(mapTable && mapTable.classList.contains('active')) && vpMapProfileVisible;
+  return !document.hidden && !!(mapTable && mapTable.classList.contains('active')) && vpMapProfileVisible && !document.body.classList.contains('profile-hidden');
 }
 function vpPauseMapProfileWork() {
   var reason = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'hidden';
@@ -10634,6 +10634,7 @@ function toggleMapProfile() {
 }
 function vpEnsureMapProfileVisible() {
   var reason = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'route';
+  if (document.body.classList.contains('profile-hidden')) return false;
   vpMapProfileVisible = true;
   var strip = document.getElementById('mapProfileStrip');
   var btn = document.getElementById('vpToggleBtn');
@@ -11893,7 +11894,8 @@ function initProfileResize() {
   var handle = document.getElementById('profileResizeHandle');
   var strip = document.getElementById('mapProfileStrip');
   var maptable = document.querySelector('.maptable-content');
-  if (!handle || !strip || !maptable) return;
+  if (!handle || !strip || !maptable || handle.dataset.gaProfileResizeBound === '1') return;
+  handle.dataset.gaProfileResizeBound = '1';
   var startY = 0,
     startH = 0;
   function onStart(e) {
@@ -12833,7 +12835,7 @@ function vpChangeYAxis(delta) {
   window.activateFastRender();
   if (vpMaxAltOverride === 0) {
     var _document$getElementB1;
-    var _elevData = typeof vpZoomLevel !== 'undefined' && vpZoomLevel < 100 && vpHighResData ? vpHighResData : vpElevationData;
+    var _elevData = vpGetMapProfileElevationData(typeof vpMode !== 'undefined' && vpMode === 'HDG');
     if (!_elevData) return;
     var cruiseAlt = parseInt(((_document$getElementB1 = document.getElementById('altMapInput')) === null || _document$getElementB1 === void 0 ? void 0 : _document$getElementB1.textContent) || 4500);
     var maxTerrain = Math.max.apply(Math, _toConsumableArray(_elevData.map(p => p.elevFt)));

@@ -2310,7 +2310,7 @@ window.vpHardReloadRouteProfile = function(reason = 'route-change') {
     if (status) status.textContent = 'Lade Terrain...';
 
     const mapTable = document.getElementById('mapTableOverlay');
-    if (mapTable && mapTable.classList.contains('active')) {
+    if (mapTable && mapTable.classList.contains('active') && !document.body.classList.contains('profile-hidden')) {
         vpMapProfileVisible = true;
         const strip = document.getElementById('mapProfileStrip');
         const btn = document.getElementById('vpToggleBtn');
@@ -8064,7 +8064,7 @@ function vpCanRunVisibleMapProfileWork() {
     const mapTable = document.getElementById('mapTableOverlay');
     return !document.hidden &&
         !!(mapTable && mapTable.classList.contains('active')) &&
-        vpMapProfileVisible;
+        vpMapProfileVisible && !document.body.classList.contains('profile-hidden');
 }
 
 function vpPauseMapProfileWork(reason = 'hidden') {
@@ -8117,6 +8117,7 @@ function toggleMapProfile() {
 }
 
 function vpEnsureMapProfileVisible(reason = 'route') {
+    if (document.body.classList.contains('profile-hidden')) return false;
     vpMapProfileVisible = true;
     const strip = document.getElementById('mapProfileStrip');
     const btn = document.getElementById('vpToggleBtn');
@@ -9109,7 +9110,8 @@ function initProfileResize() {
     const handle = document.getElementById('profileResizeHandle');
     const strip = document.getElementById('mapProfileStrip');
     const maptable = document.querySelector('.maptable-content');
-    if (!handle || !strip || !maptable) return;
+    if (!handle || !strip || !maptable || handle.dataset.gaProfileResizeBound === '1') return;
+    handle.dataset.gaProfileResizeBound = '1';
 
     let startY = 0, startH = 0;
 
@@ -10013,7 +10015,7 @@ function syncRateFromInput(val) {
 function vpChangeYAxis(delta) {
     window.activateFastRender();
     if (vpMaxAltOverride === 0) {
-        const elevData = (typeof vpZoomLevel !== 'undefined' && vpZoomLevel < 100 && vpHighResData) ? vpHighResData : vpElevationData;
+        const elevData = vpGetMapProfileElevationData(typeof vpMode !== 'undefined' && vpMode === 'HDG');
         if (!elevData) return;
         const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || 4500);
         const maxTerrain = Math.max(...elevData.map(p => p.elevFt));

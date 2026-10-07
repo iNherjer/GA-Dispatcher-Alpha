@@ -1468,3 +1468,16 @@ synchronisieren sichtbare Shell-Masse explizit. Last-known-Telemetrie bei
 Transportausfall ist als solche markiert und begruendet keine neue Navigation.
 Toolbar-Prozessneustarts werden ueber Snapshot viewSessionId erkannt; zwei
 Fehlchecks bzw. Ready-Timeout fuehren zu einem automatisch erneuerten Child.
+
+
+## Persistente UI-Wahl und Profil-Invalidierung (Kandidat, 07.10.2026)
+
+Displaycontroller speichert efbDisplay.ui als allowlisted Feld-Patches mit
+uiRevision neben den getrennten 2D/VR-Schriftprofilen. initializeUi ergaenzt
+fehlende Werte und ersetzt keine vorhandene Wahl. Snapshot fuer den existierenden
+Statusstream stammt aus RAM-publicState; UI-Ticks lesen keine Config-Datei.
+Clients behalten lokale Pending-Werte bis zum ACK und verwerfen aeltere
+UI-Revisionen. Statusstream synchronisiert EFB/Toolbar ohne zusaetzlichen Timer.
+Profil-Bridge liefert den gemeinsamen expliziten Frame-Invalidierungs-Callback
+fuer die Originalbuttons. Verborgene Profile bleiben auch nach Routenwechseln
+verborgen; gemeinsame Profil-Resize-Listener werden genau einmal registriert.

@@ -156,17 +156,45 @@ function formatAsLimit(lim) {
             .catch(function(error){airportPromise=null;throw error;});
         return airportPromise;
     };
+    // Shared buttons require the same explicit, coalesced invalidation as the App.
+    window.throttledRenderProfiles = function() { window.vpBgNeedsUpdate = true; vpRequestMapProfileFrameNow(); };
     window.handleSliderChange = function(kind,value) {
         if(kind==='alt') {
             localStorage.setItem('ga_perf_alt',value);
+            if (window.gaPersistProfileSetting) window.gaPersistProfileSetting('profileAltitudeFt', Number(value));
             window.scheduleTerrainAvoidOverlayUpdate(true);
         }
         window.activateFastRender(); renderMapProfile();
     };
     window.handleRateChange = function(value) {
         vpClimbRate=value;vpDescentRate=value;localStorage.setItem('ga_perf_rate',value);
+        if (window.gaPersistProfileSetting) window.gaPersistProfileSetting('profileRateFpm', Number(value));
         window.activateFastRender();renderMapProfile();
     };
+    function editProfileNumber(id, label, min, max, step, apply) {
+        var existing = document.getElementById('gaEfbProfileNumber');
+        if (existing) existing.remove();
+        var panel = document.createElement('div'); panel.id = 'gaEfbProfileNumber';
+        panel.setAttribute('role','dialog'); panel.setAttribute('aria-label',label);
+        panel.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483000;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:12px;';
+        var card = document.createElement('form'); card.className = 'ga-efb-reset-confirm-card';
+        var title = document.createElement('label'); title.textContent = label; title.htmlFor = 'gaEfbProfileNumberInput';
+        var input = document.createElement('input'); input.id = title.htmlFor; input.type = 'number';
+        input.min = min; input.max = max; input.step = step; input.value = document.getElementById(id).textContent;
+        input.style.cssText = 'display:block;width:100%;box-sizing:border-box;font:inherit;padding:8px;margin:12px 0;';
+        var accept = document.createElement('button'); accept.type = 'submit'; accept.textContent = 'Übernehmen';
+        var cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Abbrechen';
+        function close() { panel.remove(); document.getElementById(id).focus(); }
+        cancel.onclick = close;
+        card.onsubmit = function(event) { event.preventDefault(); var value = Number(input.value); if(input.value.trim() && Number.isFinite(value)) { apply(Math.round(Math.max(min,Math.min(max,value)))); close(); } };
+        panel.addEventListener('keydown',function(event) { if(event.key==='Escape') close(); });
+        card.appendChild(title); card.appendChild(input); card.appendChild(accept); card.appendChild(cancel);
+        panel.appendChild(card); document.body.appendChild(panel); input.focus();
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+    window.promptForAlt = function() { editProfileNumber('altMapInput','Reiseflughöhe (ft MSL)',1500,13500,500,syncAltFromInput); };
+    window.promptForRate = function() { editProfileNumber('rateMapInput','Steig- und Sinkrate (ft/min)',200,1500,100,syncRateFromInput); };
+    });
     window.gaEfbProfile = {
         disconnected:function(){
             window._hdgAutoActivated=false;window.lastLiveGpsPos=null;
@@ -217,13 +245,15 @@ function formatAsLimit(lim) {
                 if(window.gaUpdateMapContextOwnAltitude)window.gaUpdateMapContextOwnAltitude(gps.alt);
                 window.liveTrackerConnected=true;
                 // Same one-second altitude-derived V/S and EMA as sync.js.
-                if(!lastMotion || at-lastMotion.t>15000 || calcNav(gps.lat,gps.lon,lastMotion.lat,lastMotion.lon).dist>10) {lastMotion=gps;smoothedGS=0;smoothedVS=0;}
+                if(!lastMotion || at-lastMotion.t>15000 || calcNav(gps.lat,gps.lon,lastMotion.lat,lastMotion.lon).dist>10) {lastMotion=gps;smoothedGS=Number(flight.gsKts)||0;smoothedVS=0;}
                 else if(at-lastMotion.t>1000) {
                     var vs=(gps.alt-lastMotion.alt)*60000/(at-lastMotion.t),gs=Number(flight.gsKts)||0;
                     smoothedGS=smoothedGS===0?gs:smoothedGS*.7+gs*.3;
                     smoothedVS=smoothedVS===0?vs:smoothedVS*.7+vs*.3;lastMotion=gps;
                 }
-                if(smoothedGS>20&&!window._hdgAutoActivated&&vpMode==='ROUTE') {window._hdgAutoActivated=true;vpToggleMode();}
+                var choice = window.gaProfileModePreference || 'AUTO';
+                if(choice==='ROUTE') { window._hdgAutoActivated=true; window.vpEnsureRouteMode(); }
+                else if(smoothedGS>20&&vpMode==='ROUTE'&&(choice==='HDG'||!window._hdgAutoActivated)) {window._hdgAutoActivated=true;vpToggleMode();}
                 vpUpdateLiveProfilePosition(flight.lat,flight.lon,flight.altFt,flight.headingDeg,true);
                 if(smoothedGS<=30) {
                     if(predictionLayer)predictionLayer.clear();

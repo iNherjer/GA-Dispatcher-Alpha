@@ -35,7 +35,8 @@ const MAP_HINT_SUBMENU_DEFAULTS = {
 window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULTS };
 function loadMapHintSettings() {
     Object.keys(MAP_HINT_DEFAULTS).forEach(key => {
-        const saved = localStorage.getItem(`ga_map_hint_${key}`);
+        let saved = null;
+        try { saved = localStorage.getItem(`ga_map_hint_${key}`); } catch (_) {}
         if (saved === null) window.mapHints[key] = MAP_HINT_DEFAULTS[key];
         else window.mapHints[key] = saved !== 'false';
     });
@@ -58,7 +59,8 @@ function loadMapHintSettings() {
 
 function saveMapHintSetting(key) {
     if (!(key in MAP_HINT_DEFAULTS)) return;
-    localStorage.setItem(`ga_map_hint_${key}`, String(Boolean(window.mapHints[key])));
+    try { localStorage.setItem(`ga_map_hint_${key}`, String(Boolean(window.mapHints[key]))); } catch (_) {}
+    if (window.gaPersistMapHintSetting) window.gaPersistMapHintSetting(key, Boolean(window.mapHints[key]));
 }
 
 window.isMapHintEnabled = function(key) {

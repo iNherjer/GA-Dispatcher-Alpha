@@ -556,6 +556,7 @@ function createTrackerEfbHttpServer(options = {}) {
         hello,
         message: createMessage('tracker.status', {
           ...safeObject(getStatus()),
+          display: (displayControl?.publicState ? displayControl.publicState() : displayControl?.snapshot()) || null,
           audio: audioControl?.snapshot() || null,
           cockpit: cockpitControl?.publicState?.() || { activeCount: 0, missionIntentsEnabled: false },
           voice: voiceService?.publicState?.() || { configured: false }
