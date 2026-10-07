@@ -6492,3 +6492,19 @@ Font/Canvas/Redraw und Zielseiten-Browserprobe bestanden. Neue Windows-EXE gebau
 echter gepackter IPC-/Authority-Prozess getestet; SDK-0.4.22-Archiv unverändert
 validiert. Kein Deployment/Release/Kanalwechsel. Windows/MSFS-Abnahme und bekannte
 einzelne Platztext-Ungenauigkeiten offen. Details: Tracker-v489-Release.md.
+
+### 2026-10-07: Windows-SDK-Rueckgabe und Alpha-Paket 0.4.23
+
+Windows-Verbindung nach App-Freigabe wieder erreichbar. Bestehenden SDK-Task
+beauftragt, Quellen mit Manifesten geprueft und frisches Paket 0.4.23 offiziell
+gebaut. Typecheck/App-Bundle/37 Tests bestanden, SDK-Fehlerbericht leer;
+20 Layoutgroessen, 19 Copy-Hashes und 22 Archivdateien geprueft.
+ZIP 443860 Bytes, SHA-256
+97c7647411f2d936ca0210d7ed3fbf5bfcb221150f32adea3e75d35a7e56b0d1.
+Release efb-app-v0.4.23 veroeffentlicht, oeffentlich heruntergeladen und lokal
+erneut mit produktivem Entpacker/Layout-/Toolbarhashpruefung validiert.
+Alpha-Paket 0.4.23 gemeinsam mit bereits aktivem Tracker v490; Cache v1960.
+Alle nativen 0.4.22-Aenderungen inklusive Wetterpreset-Erkennung erhalten.
+Reale Coherent-Neustart-/Simulator-/VR-Abnahme offen. Stable unveraendert,
+keine Installation oder Screenshots. SDK-Rueckgabe unter OneDrive/
+VFR-Multitool-UI-Hotfix-SDK-Result-2026-10-07-2211.
