@@ -28,3 +28,14 @@ aktiver EFB-Alpha-Kanal 0.4.21 bleibt bis gebautem/verifiziertem Paket erhalten.
 SDK 0.4.22 ist ein bereits getaggter, inaktiver Wetterkandidat und wird nicht
 ersetzt. Keine selbst erzeugten manifest/layout-Dateien als SDK-Bau ausgeben.
 Stable-Kanäle bleiben unverändert. Reale Windows/MSFS/VR-Abnahme offen.
+
+## Publication evidence
+
+Tracker v490 published at https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v490.
+Tag points to c6b3e3b5f. Public download verified: 173642788 bytes and SHA-256
+2caae1d6c2a87f043ec3260440536fd20047b302e66b2b7b96a6bf104120ba86.
+Packed IPC/authority smoke: MISSION_PACKAGED_PROCESS_SMOKE_OK, worker exit 0.
+24 integrated lifecycle browser cases passed in addition to 33 profile/preferences cases.
+Alpha activation cache v1956. Stable pointers unchanged.
+SDK 0.4.23 handoff in OneDrive/VFR-Multitool-UI-Hotfix-SDK-0.4.23-20261007.
+Official Windows SDK host unavailable; package build/release not complete.
