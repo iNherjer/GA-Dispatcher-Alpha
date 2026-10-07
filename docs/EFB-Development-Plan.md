@@ -6222,3 +6222,11 @@ Version/Assetrevision sind in der EXE geprueft. Kanalaktivierung erst nach
 verifiziertem oeffentlichem Download.
 
 Weitere 20 bestehende Layoutfaelle ohne ResizeObserver bestehen.
+
+Tracker v488 als unveraenderliches GitHub-Release veroeffentlicht. Erneuter
+oeffentlicher Download byte-identisch zur geprueften EXE (Groesse/SHA-256
+wie oben). Nur Tracker-Alpha-Zeiger auf v488 gesetzt, SW v1948 fuer den
+Kanalpush. SDK 0.4.21 und Stable-Zeiger unveraendert. Tester aktualisiert
+und startet den Tracker neu und oeffnet EFB/Toolbar erneut. Reale
+MSFS-/Coherent-Bedienung und Flackern bleiben im Feld zu bestaetigen.
+Release: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v488
