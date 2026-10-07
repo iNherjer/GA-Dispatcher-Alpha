@@ -6167,3 +6167,14 @@ verifiziertem Release-Download umgeschaltet.
 mit pkg 6.18.1/Node18 ohne Bytecode gebaut; 173566255 Bytes, SHA-256
 1618552c4041bead3f1077badaca3e6f506cef722d06f24ee5ed1d589910302f. Die exakten Audioclient-/Web-Client-Quellen,
 Tracker v487 und Assetrevision 48701 sind in der EXE nachgewiesen.
+
+Release v487 veroeffentlicht; erneuter oeffentlicher Download ist byte-identisch
+zu der geprueften EXE (Groesse/SHA-256 wie oben). Browser-Menueprobe mit
+dauerhaft verfuegbarem synthetischen Audio-Snapshot besteht: Checkbox-Kontrast,
+Maus-/Tastatur-Change, deutsche Schrift und PAX-Schliessen. Die unveraenderte
+Offline-Fixture ohne Audio-Snapshot schliesst das Audio-Untermenue beim naechsten
+Poll und scheitert daher erst beim Screenshot; kein realer Simulatornachweis.
+Nur Tracker-Alpha wird auf v487 gesetzt, SW v1946 fuer den Kanalpush.
+SDK 0.4.21 und beide Stable-Zeiger bleiben exakt unveraendert.
+Tester soll den Tracker aktualisieren/neustarten und EFB/Toolbar neu oeffnen.
+Reale Coherent-Aussetzer und Settings-ACKs im Simulator bleiben zu bestaetigen.
