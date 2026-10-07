@@ -22,7 +22,7 @@ export async function handleAirportContextFaa(request,{fetcher=fetch,cache=globa
  try{
   const operation=(async()=>{
    const saved=await cache?.match(key);if(saved){const data=await saved.clone().json();if(data.effectiveFrom&&data.effectiveUntil&&now>=Date.parse(data.effectiveFrom)&&now<Date.parse(data.effectiveUntil))return data;}
-   const r=await fetcher('https://nfdc.faa.gov/nfdcApps/services/ajv5/airportDisplay.jsp?airportId='+ident,{signal:controller.signal,redirect:'error'});if(!r.ok)throw new Error('upstream_http_'+r.status);
+   const r=await fetcher('https://nfdc.faa.gov/nfdcApps/services/ajv5/airportDisplay.jsp?airportId='+ident,{signal:controller.signal,redirect:'manual'});if(!r.ok)throw new Error('upstream_http_'+r.status);
    const reader=r.body.getReader(),chunks=[];let bytes=0;try{for(;;){const {value,done}=await reader.read();if(done)break;bytes+=value.byteLength;if(bytes>256000)throw new Error('upstream_body_too_large');chunks.push(value);}}finally{await reader.cancel().catch(()=>{});}
    const joined=new Uint8Array(bytes);let offset=0;for(const c of chunks){joined.set(c,offset);offset+=c.length;}return parseFaaAirportHtml(new TextDecoder().decode(joined),ident,now);
   })();
