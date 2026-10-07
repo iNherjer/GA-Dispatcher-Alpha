@@ -13,7 +13,7 @@ und kein Modellwechsel.
 
 - Quellbasis: Alpha `f09f7735785fdbdc00d4af25833a7833fc794c7d`.
 - Lokaler Code-Integrationscommit: `37a452d1c1164b42c6fbd3a8a1d885a01c71fba3`.
-- Tracker v489, EFB-Web-Assets 48901, Web-Cache v1952 vor Kanalaktivierung.
+- Tracker v489, EFB-Web-Assets 48901, Web-Cache v1954 bei Kanalaktivierung.
 - EXE: 173663457 Bytes; SHA-256 `fe6cfc2673e41be0df402c6d22eab447af401cec5d771437a47477cd77830f07`.
 - Unveränderte offizielle SDK-Rückgabe 0.4.22: 443663 Bytes;
   SHA-256 `363dd5301f29b877d4d613d086f02c7b878182e97b44bd38c97e2bc10d1dc429`. Native Quelle exakt hashgleich zur SDK-Rückgabe.
@@ -102,3 +102,12 @@ SDK 0.4.21 bleibt unverändert verfügbar.
 6. Nach Windows/MSFS-Abnahme das unveränderte offizielle SDK-ZIP unter
    efb-app-v0.4.22 veröffentlichen, Download prüfen, erst dann EFB-Alpha aktivieren.
    Stable bleibt unverändert; eine Stable-Promotion benötigt ihren eigenen Test.
+
+## Veröffentlichungsnachweis – 7. Oktober 2026
+
+- Alpha vom Nutzer freigegeben; Quellstand inklusive aktueller Dispatch-/SAR-/Quota-Hotfixes nach Main gepusht.
+- Release-Tag `v489` zeigt auf `ab7687beae54beaabb1a84f7f20b7d3487f7f3c9`.
+- [GitHub-Release v489](https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v489) veröffentlicht. Öffentlicher EXE-Download: HTTP 200, 173663457 Bytes und SHA-256 exakt wie oben; Prüfung 2026-10-07T18:31:44Z.
+- Worker `ga-proxy` deployt, Version `b982098d-e3a6-4ff7-85f8-f5a94f7b1fa3`. Die öffentliche Erstprüfung fand die von Cloudflare nicht unterstützte Redirect-Option `error`. Isoliert auf `manual` korrigiert; Redirects bleiben abgewiesen, 7/7 FAA-Tests bestanden, erneut deployt.
+- Öffentliche FAA-Prüfung: U60 HTTP 200 in 598 ms, MYL (FAA-Kennung für KMYL, vom Browser bereits normalisiert) HTTP 200 in 619 ms, gültiger Datenzyklus 1.–29. Oktober. Ungültige Kennung HTTP 400. KMYL direkt wird bewusst nicht als passende FAA-Identität akzeptiert.
+- Tracker-Alpha-Zeiger erst nach öffentlicher Größen-/Hash-Prüfung auf v489 gesetzt. EFB-Alpha bleibt auf aktivem SDK 0.4.21; SDK 0.4.22 und Stable-Zeiger unverändert. Keine Simulatorabnahme behauptet.
