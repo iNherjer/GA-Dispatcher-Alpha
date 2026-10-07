@@ -360,3 +360,21 @@ Native Fensteraktionen: SDK-Hierarchie bleibt unverändert statt Custom-Element-
 ### 2026-10-06: EFB 0.4.21 / Tracker v485 Alpha-Vergleichsrollout
 
 Offizielles SDK-ZIP 0.4.21 unveraendert veroeffentlicht, oeffentlich heruntergeladen und mit Desktop-Entpacker validiert. Alpha aktiviert gemeinsam mit Tracker v485 die Layout-Deduplizierung und das Entladen pausierter Child-Ansichten. SDK-Archiv: 443178 Bytes, SHA-256 c00d3d8d413f895f7c6cee54528627b2ffd84b1b616c4498706056918ab90d82. Nutzer autorisiert den Feldvergleich; echter Headset-FPS-/Mission-/Audio-Lifecycle-Test offen. Stable unveraendert.
+
+### 2026-10-07: UI-Lifecycle-Hotfix 0.4.23 auf Alpha
+
+Nutzer autorisiert Alpha-Release des UI-Hotfixes und die Verbindung zum Windows-
+SDK-Task. Offizieller SDK-1.7.2-Bau in neuem isolierten Ordner: Typpruefung,
+frisches App-Bundle und 37 EFB-/Toolbar-Tests bestanden. Package Tool Exit 0,
+RPTErrors leer. 20 Layoutgroessen, 19 Copy-Quellhashes und 22 Archivdateien
+geprueft; Panel.js hashgleich zu beauftragter Recovery-Quelle.
+ZIP 443860 Bytes, SHA-256
+97c7647411f2d936ca0210d7ed3fbf5bfcb221150f32adea3e75d35a7e56b0d1.
+Unveraenderte vorbereitete SDK-Abhaengigkeiten aus vorherigem offiziellem Bau
+verwendet, Leaflet 1.9.4 ergaenzt; im Ergebnis protokolliert. Derzeit fehlt das
+originale EFB-Sample im SDK-Ordner. Paketquellcode ausser Versionsfeldern
+unveraendert. Rueckgabe: OneDrive/VFR-Multitool-UI-Hotfix-SDK-Result-2026-10-07-2211.
+Lokale Archivkontrolle bestaetigt offiziellen Builder, Version, Layout und alle
+sechs Toolbar-Copy-Hashes. Freigegebener Alpha-Feldtest mit Tracker v490;
+Coherent-Neustart, Simulator und VR bleiben reale Abnahmepunkte. Keine
+Installation oder Screenshots durch diesen Release. Stable unveraendert.
