@@ -97,3 +97,73 @@ Kein Beta-/Stable-Promotion, kein automatischer Modell-/API-Wechsel.
 Der bekannte Cache-Testfehler wurde hier vermieden, indem der neue Worktree
 innerhalb der beschreibbaren /tmp-Wurzel liegt. Die produktive Cachelogik
 wurde nicht veraendert.
+
+## Zweite Stufe: integrierter Release-Kandidat
+
+Mit origin/main fccb0ea09 zusammengefuehrt (EFB 0.4.23 Alpha-Feldtest).
+SW-Kandidat v1961, Tracker-Kandidat v491. Kein Push, Tag oder Release;
+Alpha-/Stable-Kanaldateien wurden nicht umgeschaltet.
+
+Die 241 Tests nach dem Merge erneut bestanden. Der neue begrenzte Test
+`tools/gemini-mission-release-live.mjs` nutzt die komplette App im bestehenden
+Dry-run-VM sowie reale Produktionsfunktionen und Validatoren fuer V4-Planner,
+Contract, V5-Writer, Bush-Kapitel und Scene Planner. Navigation-Geometrie und
+Airport-/Environment-Cores sind geladen. Eingaben: KMYL nach U60, Bush Charter,
+1 PAX, Karten/Markierungsband, fest vorgegebene Bahn-/Hoehenangaben. Keine
+aktuelle Wettermessung, keine Ortsrecherche und keine Geo-Anekdoten-Tiles.
+Dies ist kein UI-, Windows- oder Simulatorflugtest.
+
+Erster Versuch: Planner HTTP 200, Writer-Abbruch nach dem unveraenderten
+produktiven 16-Sekunden-Limit, lokaler Fallback; kein bestandenes Ergebnis.
+Zweiter Versuch: Planner/Writer HTTP 200, Writer vom Produktionsvalidator
+akzeptiert. Fehlende Navigation-Abhaengigkeit im neuen Testaufbau anschliessend
+korrigiert; gespeicherte validierte Planner-/Writer-Ausgaben fuer den weiteren
+Test wiederverwendet, keine doppelte Generierung. Bush-Kapitel ready mit vier
+Events; Scene Planner mit echten Tool-Folgeturns/Validator: targetScene none,
+keine Features. Insgesamt zehn API-Aufrufe in dieser Stufe, neun HTTP 200,
+ein Writer-Timeout. Vorhandene Voice-/TTS-Live-Nachweise bleiben gueltig,
+da danach keine Voice-Quellen geaendert wurden.
+
+### Fachlicher Befund: keine Release-Freigabe
+
+Die Strukturvalidatoren bestanden, aber die manuelle Quellenpruefung nicht:
+
+- Writer behauptet heutiges diffuses Licht ohne aktuelle Wettermessung;
+  die Bush-Voice-Kapitel uebernehmen den Zustand.
+- Flugplatzbeschreibung nennt Payette National Forest und fehlende Infrastruktur
+  ohne einen dazu gelieferten Ortsbeleg.
+- Flugbriefing spricht von dieser Dichtehoehe, obwohl nur die Platzhoehe
+  bekannt ist; Temperatur/QNH und berechnete Dichtehoehe fehlen.
+
+Vermutete Ursache: Prosa-Validierung und Referenz-IDs sichern die Bindung jeder
+Sachbehauptung an vorhandene Daten nicht ausreichend. Der Befund betrifft hier
+Bush Charter, Flugplatzredaktion und die nachfolgenden Voice-Kapitel; vor einem
+Fix ist zu pruefen, welche anderen Bush-Profile dieselben Bausteine verwenden.
+Der V4-Planner/Writer-Code, seine Prompts und die Bush-Narrative-/Airport-
+Information-Cores sind gegenueber 23aa0d4f6e766544b1a57c96fa7401115b6a6187
+unveraendert. app.js unterscheidet sich nur durch die zwei entfernten
+Temperaturfelder in V3 Mission-/Scene-Planner. Eine neu verursachte V4-Regression
+ist damit nicht belegt; der Live-Befund darf trotzdem nicht als fachlich
+bestandener Test veroeffentlicht werden.
+
+Vorgeschlagener naechster Eingriff: belegte Airport-/Wetterfakten und erfundene
+persoenliche Erzaehlung im Bush-Datenvertrag eindeutig auseinanderhalten und
+vor Weitergabe an Writer/Voice pruefen. Keine neue allgemeine Regex-Verbotsliste.
+Freigabe fuer diese zusaetzliche Contract-/Writer-Aenderung wurde gemaess
+AGENTS.md, Drift- und Datenbasis-Regeln, angefragt. Bis dahin kein Ausrollen.
+
+### Paketierung
+
+Windows-EXE v491 erfolgreich gebaut (PE32+ x86-64). Auf dem ARM-Mac war der
+normale x64-Bytecode-Fabricator nicht ausfuehrbar; Build mit vorhandenen
+Abhaengigkeiten und pkg 6.18.1, Node18-Windows-Target, --no-bytecode --public
+--public-packages '*'. Keine fehlenden Abhaengigkeiten in diesem Build.
+Der vollstaendige EFB-Sync wurde ausgefuehrt; unabhaengige Profile-/CSS-
+Neugenerierungen vor dem Paketieren wieder auf den bestehenden Stand gesetzt.
+
+Groesse: 173636963 Bytes.
+SHA-256: 0df3c99faf671c4ac3228a59ea1f12dfc5b324a8b1129d8f5a723651a5838938.
+Publisher-Trockenlauf bestaetigt dieselben Daten. Zusaetzliches ausfuehrbares
+macOS-ARM64-Paket mit derselben pkg-/Node-Version: echter Tracker-Bootstrap,
+Missionsprozess und IPC/Authority erfolgreich, MISSION_PACKAGED_PROCESS_SMOKE_OK,
+Worker-Exit 0. Kein Windows-/SimConnect-Feldtest, keine EXE veroeffentlicht.
