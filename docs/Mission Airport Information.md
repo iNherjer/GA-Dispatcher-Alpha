@@ -167,7 +167,7 @@ zum Wetter/Betriebsstatus sind noch nicht zuverlässig. Keine Release-Freigabe.
 `analysis/bush-live-20261007/quality-refinement-20261007/single-call-refined/`.
 
 
-## U60-Dispatch-Korrektur vom 07.10.2026 (lokal, noch nicht ausgerollt)
+## Bush-Web-Hotfix v1957 vom 07.10.2026
 
 Der Dispatch darf die Platzredaktion nicht von `airportDisplayIdent` abhängig
 machen: Ein wiederverwendeter U60-Datensatz kann seine Kennung weiterhin im Feld
@@ -200,3 +200,7 @@ Schriftstärke und Zeilenhöhe wie der Story-Block. Überschrift und Quellenanga
 sind auf dem Papier ebenfalls lesbar. Der Browser-Test vergleicht die
 berechnete Textformatierung in allen fünf Themes; die mobile Darstellung
 wird zusätzlich als Screenshot kontrolliert.
+
+Rollout vom Nutzer freigegeben. Der Web-Hotfix baut auf dem bereits
+veröffentlichten Tracker-v490-/EFB-UI-Stand auf. Nur Web-Dateien und Nachweise
+werden ergänzt; Tracker- und EFB-Kanäle behalten ihren vorhandenen Stand.
