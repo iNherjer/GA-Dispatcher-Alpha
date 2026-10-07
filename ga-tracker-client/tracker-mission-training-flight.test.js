@@ -24,7 +24,7 @@ function original(name) {
 const originalFunctions = [
     '_trainingEvalBegin', '_toBoolStall', '_trainingEvalTick', '_trainingEvalSummary',
     '_trainingProcedureDebriefLine', '_poiTrainingPreZonePrompt', '_trainingLandingPrepPrompt',
-    '_weatherContext', '_haversineNm', '_trainingPoiCenterFromRoute'
+    '_precipitationObservation', '_weatherContext', '_haversineNm', '_trainingPoiCenterFromRoute'
 ].map(original).join('\n');
 const branchStart = source.indexOf('        if (isPoiMission) {', source.indexOf('window.checkPaxPoiProximity ='));
 const branchEnd = source.indexOf('        } else {\n            // APT-Training:', branchStart);

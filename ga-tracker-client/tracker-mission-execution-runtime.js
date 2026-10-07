@@ -1,4 +1,6 @@
 'use strict';
+const bushNarrativeCore = require('../mission-bush-narrative-core.js');
+const weatherPresetCore = require('../mission-weather-preset-core.js');
 
 const aptTraining = require('./tracker-mission-apt-training.js');
 const trainingCoaching = require('./tracker-mission-training-coaching.js');
@@ -193,6 +195,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       ...template, missionId: snapshot.missionId, hasPassenger: true, kind: 'boarding',
       prompt: rendered.prompt, fallbackText: '', playCue: false, cue: { id: 'none' },
       taskDomain: 'bush_pickup', speaker: rendered.speaker || context.speaker,
+      boardingWeather: template.boardingWeather,
       audioEnabled: context.audioEnabled !== false, textModels: context.textModels, ttsModels: context.ttsModels,
       ttsHedgeEnabled: context.ttsHedgeEnabled, ttsHedgeDelayMs: context.ttsHedgeDelayMs
     });
@@ -248,13 +251,21 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   // Voice rendering/playback has its own persistent ACK gate. It must not hold
   // the effect pump while independent manifest/payload changes are waiting.
   const voiceOperations = new Map();
+  let voiceLane = Promise.resolve();
+  let bushPrewarmRun = '';
+  const bushPrewarmClaims = new Set();
   const backgroundVoice = handler => request => {
     const id = request.effect.effectId;
     if (!voiceOperations.has(id)) {
-      const operation = Promise.resolve().then(() => handler(request)).catch(error => ({
+      const operation = voiceLane.then(() => {
+        const run=authorityManager.getActiveRun();
+        if(run?.runId!==request.runId||run?.missionId!==request.missionId)return {ok:true,status:'completed'};
+        return handler(request);
+      }).catch(error => ({
         ok: true, status: 'completed', voiceOutcome: { schema: 'ga.mission-voice-outcome.v1', status: 'warning',
           kind: request.effect.type.replace('voice.', ''), playback: 'failed', error: error?.message || 'voice_effect_failed' }
       }));
+      voiceLane = operation.then(() => undefined, () => undefined);
       voiceOperations.set(id, operation);
       operation.then(async result => {
         const current = authorityManager.getExecutionSnapshot?.();
@@ -813,10 +824,37 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     },
     observeTelemetry: sample => {
       reconcileCargoCheckpoint();
+      // The normal runtime rejects paused/menu samples. Preserve the optional
+      // weather/clock baseline here so a change in that menu is observable later.
+      if (sample && (sample.simPaused === true || sample.paused === true || sample.isPaused === true
+          || sample.inMenuOrMap === true || sample.simRunning === 0 || sample.slewActive === true
+          || sample.slewMode === true || sample.isSlewActive === true)) {
+        const previous = adapter.getFlightVoiceState();
+        if (previous?.weatherChange) {
+          const flags = authorityManager.getExecutionSnapshot()?.state?.flags || {};
+          const suspended = weatherPresetCore.observe(previous.weatherChange, sample, {
+            now: Number(sample.observedAt) || Date.now(), active: flags.active === true,
+            onboard: flags.boardingConfirmed === true, ending: flags.closingPending || flags.farewellStarted,
+            busy: true
+          }).state;
+          if (JSON.stringify(suspended) !== JSON.stringify(previous.weatherChange)) {
+            adapter.setFlightVoiceState({ ...previous, weatherChange: suspended }, true);
+          }
+        }
+      }
       if (sample && (sample.simPaused === true || sample.paused === true || sample.isPaused === true || sample.inMenuOrMap === true || sample.simRunning === 0)) {
         const previous = adapter.getFlightVoiceState();
-        if (previous?.privateReturnDeparture && !previous.privateReturnDeparture.done && previous.privateReturnDeparture.airborneSince != null)
-          adapter.setFlightVoiceState({ ...previous, privateReturnDeparture: { ...previous.privateReturnDeparture, airborneSince: null } }, true);
+        const suspended = { ...previous };
+        let changed = false;
+        if (previous?.privateReturnDeparture && !previous.privateReturnDeparture.done && previous.privateReturnDeparture.airborneSince != null) {
+          suspended.privateReturnDeparture = { ...previous.privateReturnDeparture, airborneSince: null };
+          changed = true;
+        }
+        if (previous?.bushNarrative?.sampleAt != null) {
+          suspended.bushNarrative = { ...previous.bushNarrative, sampleAt: null };
+          changed = true;
+        }
+        if (changed) adapter.setFlightVoiceState(suspended, true);
       }
       const training=reportPoiCheckpoint(trainingDriver.observeTelemetry(sample),'telemetry');
       logTrainingGateDiagnostic(sample, training);
@@ -931,6 +969,11 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           const departure = context.departure;
           const departureDistanceNm = departure ? locationCore.haversineNm(Number(sample.lat), Number(sample.lon), Number(departure.lat), Number(departure.lng ?? departure.lon)) : null;
           const triggerAt = Number(sample.observedAt) || Date.now();
+          const weatherChange = weatherPresetCore.observe(previous.weatherChange, sample, {
+            now: triggerAt, active: snapshot.state.flags.active, onboard: snapshot.state.flags.boardingConfirmed,
+            ending: snapshot.state.flags.closingPending || snapshot.state.flags.farewellStarted,
+            busy: voiceOperations.size > 0 || (options.getAudioSettings ? !(options.getAudioSettings()?.enabled === true && options.getAudioSettings()?.paxEnabled === true) : context.audioEnabled === false) || comfortPending || snapshot.state.effects.some(effect => effect.type.startsWith('voice.') && effect.status === 'requested')
+          });
           const detected = observeFlightVoice(context, previous, {
             now: triggerAt, missionId: snapshot.missionId, active: snapshot.state.flags.active,
             audioEnabled: options.getAudioSettings ? (options.getAudioSettings()?.enabled === true && options.getAudioSettings()?.paxEnabled === true) : context.audioEnabled !== false,
@@ -951,9 +994,59 @@ function createTrackerMissionExecutionRuntime(options = {}) {
             destinationDistanceNm: result.destination?.dArrivalNm ?? result.destination?.dMissionNm,
             departureDistanceNm, lat: sample.lat, lon: sample.lon, flightData: sample
           });
+          detected.state.weatherChange = weatherChange.state;
+          if (weatherChange.reaction) detected.effects.push({ kind: weatherChange.reaction.kind, prompt: `${context.baseContext}\n${weatherChange.reaction.prompt} ${context.toneHint || ''}`, label: weatherChange.reaction.label, delayMs: 0 });
           for (const effect of detected.effects) adapter.applySystemEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
             type: 'APT_FLIGHT_VOICE_REQUESTED', eventId: `flight-voice:${effect.kind}:${triggerAt}`, payload: { ...effect, triggerAt } });
           if (detected.effects.length) observationSnapshot = undefined;
+          // Bush chapters share the same central voice lane and persistent claim state.
+          const bushPlan = bushNarrativeCore.normalizePlan(context.bushNarrative);
+          let bushState = previous.bushNarrative || {};
+          let bushTriggered = false;
+          if(bushPlan){
+            const fresh=authorityManager.getExecutionSnapshot();
+            const pickup=fresh.state.bushTask?.kind==='pickup_return';
+            const returnLeg=fresh.state.progress.returnLeg===true || fresh.state.bushTask?.progress?.returnLeg===true;
+            const introduced=!pickup || fresh.state.effects.some(e=>e.type==='voice.bush'&&e.payload.stage==='pickup_departure'&&e.status==='completed');
+            const committed=fresh.state.effects.filter(e=>e.type==='voice.flight'&&e.payload.kind==='bush_story');
+            bushState={...bushState,done:[...new Set([...(bushState.done||[]),...committed.map(e=>e.payload.narrativeEventId)])].filter(Boolean)};
+            const settings=options.getAudioSettings?.();
+            const audioEnabled=settings?settings.enabled===true&&settings.paxEnabled===true:context.audioEnabled!==false;
+            if(bushPrewarmRun!==fresh.runId){bushPrewarmRun=fresh.runId;bushPrewarmClaims.clear();}
+            if(audioEnabled&&introduced&&fresh.state.flags.boardingConfirmed&&!voiceOperations.size
+                && typeof options.prepareBoardingVoice==='function'&&!fresh.state.flags.closingPending&&!fresh.state.flags.farewellStarted){
+              const pending=bushPlan.events.filter(e=>!(bushState.done||[]).includes(e.id));
+              const nextFixed=pending.filter(e=>e.kind==='fixed').sort((a,b)=>a.atAirborneSeconds-b.atAirborneSeconds)[0];
+              const nextGeo=pending.filter(e=>e.kind==='geo'&&locationCore.haversineNm(sample.lat,sample.lon,e.geo.lat,e.geo.lon)<=4)
+                .sort((a,b)=>locationCore.haversineNm(sample.lat,sample.lon,a.geo.lat,a.geo.lon)-locationCore.haversineNm(sample.lat,sample.lon,b.geo.lat,b.geo.lon))[0];
+              for(const event of [nextFixed,nextGeo].filter(Boolean))if(!bushPrewarmClaims.has(event.id)){
+                bushPrewarmClaims.add(event.id);
+                Promise.resolve().then(()=>options.prepareBoardingVoice({missionId:fresh.missionId,runId:fresh.runId,
+                  commandId:`bush-story-preload:${fresh.runId}:${event.id}`,effect:{type:'voice.flight',payload:{kind:'bush_story',
+                    narrativeEventId:event.id,narrativeKind:event.kind,geo:event.geo||null,label:event.kind==='geo'?'Bush-Ortsgeschichte':'Bush-Geschichte',fallbackText:event.text,prompt:''}}}))
+                  .catch(error=>log(`MISSION_BUSH_PREWARM_ERROR ${error?.message||error}`));
+              }
+            }
+            const observed=bushNarrativeCore.observe(bushPlan,bushState,{
+              now:triggerAt,lat:sample.lat,lon:sample.lon,onGround:sample.onGround,active:fresh.state.flags.active,
+              ending:fresh.state.flags.closingPending||fresh.state.flags.farewellStarted||fresh.state.flags.unloadConfirmed,
+              paused:sample.simPaused===true||sample.inMenuOrMap===true||sample.simRunning===0,
+              slew:sample.slewActive===true||sample.isSlewActive===true,
+              returnLeg,passengerOnboard:fresh.state.flags.boardingConfirmed&&introduced,
+              speakerName:context.speaker?.name||context.passenger?.name,
+              enabled:settings?settings.enabled===true&&settings.paxEnabled===true:context.audioEnabled!==false,
+              busy:voiceOperations.size>0||fresh.state.effects.some(e=>e.type.startsWith('voice.')&&e.status==='requested')
+            });
+            if(observed.event){
+              const event=observed.event;
+              const accepted=adapter.applySystemEvent({missionId:fresh.missionId,runId:fresh.runId,
+                type:'APT_FLIGHT_VOICE_REQUESTED',eventId:`bush-story:${fresh.runId}:${event.id}`,
+                payload:{kind:'bush_story',narrativeEventId:event.id,narrativeKind:event.kind,geo:event.geo||null,
+                  label:event.kind==='geo'?'Bush-Ortsgeschichte':'Bush-Geschichte',fallbackText:event.text,prompt:'',triggerAt}});
+              if(accepted?.ok){bushState=observed.state;bushTriggered=true;observationSnapshot=undefined;effectRunner.drain().catch(error=>log(`MISSION_BUSH_STORY_ERROR ${error?.message||error}`));}
+            }else bushState=observed.state;
+          }
+          detected.state.bushNarrative=bushState;
           // Route events use the confirmed tracker route and persistent effect IDs.
           const narrativePlan = context.narrativeEvents || [];
           let routeState = previous.routeVoice || {};
@@ -1000,7 +1093,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
               }
             } else routeState = observed.state;
           }
-          adapter.setFlightVoiceState({ ...detected.state, routeVoice: routeState }, detected.effects.length > 0 || routeTriggered);
+          adapter.setFlightVoiceState({ ...detected.state, routeVoice: routeState }, detected.effects.length > 0 || routeTriggered || bushTriggered);
           if (detected.effects.length) effectRunner.drain().catch(error => log(`MISSION_FLIGHT_VOICE_ERROR ${error?.message || error}`));
         }
       }
@@ -1019,7 +1112,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           const context = approachContextForObservation();
           if (context?.supported && context.mode === 'passenger' && !suppressBushOutboundVoice('voice.approach')) {
             const flightData = {};
-            for (const key of ['gForce', 'bankDeg', 'windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'precipRateMmH', 'turbulencePct']) {
+            for (const key of ['gForce', 'bankDeg', 'windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'precipState', 'turbulencePct']) {
               if (sample[key] != null && Number.isFinite(Number(sample[key]))) flightData[key] = Number(sample[key]);
             }
             for (const key of ['precipActive', 'inCloud']) if (typeof sample[key] === 'boolean') flightData[key] = sample[key];

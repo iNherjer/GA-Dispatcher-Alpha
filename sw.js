@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1948';
+const CACHE = 'ga-dispatcher-v1954';
 
 const STATIC = [
     './',
@@ -14,6 +14,12 @@ const STATIC = [
     './navigation-warning-core.js',
     './map-prediction.js',
     './map-navigation-geometry.js',
+    './mission-airport-information-core.js',
+    './mission-airport-information-browser.js',
+    './mission-environment-core.js',
+    './mission-environment-browser.js',
+    './mission-bush-narrative-core.js',
+    './mission-bush-narrative-browser.js',
     './navigation-warning-presentation.js',
     './map-live-presentation.js',
     './map-profile-controls.js',
@@ -114,6 +120,8 @@ const STATIC = [
     './mission-manifest-core.js',
     './mission-start-core.js',
     './mission-boarding-voice-core.js',
+    './mission-precipitation-core.js',
+    './mission-weather-preset-core.js',
     './mission-flight-recorder-core.js',
     './mission-farewell-voice-core.js',
     './mission-apt-ui-core.js',
@@ -243,7 +251,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
     e.waitUntil(
         caches.keys().then(keys =>
-            Promise.all(keys.filter(k => k !== CACHE && k !== 'private-region.v1').map(k => caches.delete(k)))
+            Promise.all(keys.filter(k => k !== CACHE && k !== 'private-region.v1' && k !== 'ga-airport-information-v1').map(k => caches.delete(k)))
         ).then(() => self.clients.claim())
     );
 });

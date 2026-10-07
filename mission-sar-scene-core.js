@@ -4,6 +4,31 @@
 const INCIDENTS={road_vehicle:{primary:'road_vehicles',kind:'road_incident',allowed:['road_vehicles','missing_person','small_equipment'],label:'ein Fahrzeug abseits der kartierten Straße'},missing_hiker:{primary:'missing_person',kind:'sar_land',allowed:['missing_person','small_equipment','tent'],label:'eine Person im Gelände'},missing_aircraft:{primary:'aircraft_wreck',kind:'debris_field',allowed:['aircraft_wreck','debris','small_equipment'],label:'ein luftfahrzeugähnliches Wrack im Gelände'},overdue_boat:{primary:'watercraft',kind:'sar_water',allowed:['watercraft','liferaft'],label:'ein kleines Boot auf der Wasserfläche'}};
 const definition=incident=>INCIDENTS[incident]||null;
 
+// map.json returns node references instead of Overpass's out geom. Do not omit
+// incomplete exclusions or fabricate a ring: placement needs all supplied geometry.
+function osmAreaRelation(e){return e.type==='relation'&&(e.tags?.landuse||e.tags?.natural||e.tags?.waterway&&e.tags?.type==='multipolygon');}
+function missingOsmRelations(raw){
+ if(raw?.remark||!Array.isArray(raw?.elements))throw Error('sar_geometry_payload_invalid');
+ const ways=new Set(raw.elements.filter(e=>e.type==='way').map(e=>e.id));
+ return raw.elements.filter(e=>osmAreaRelation(e)&&(e.members||[]).some(m=>m.type==='way'&&!m.geometry&&!ways.has(m.ref))).map(e=>e.id);
+}
+function osmGeometry(raw) {
+ if(raw?.remark||!Array.isArray(raw?.elements))throw Error('sar_geometry_payload_invalid');
+ const valid=p=>Number.isFinite(p?.lat)&&Math.abs(p.lat)<=90&&Number.isFinite(p?.lon)&&Math.abs(p.lon)<=180;
+ const nodes=new Map(raw.elements.filter(e=>e.type==='node').map(e=>[e.id,{lat:e.lat,lon:e.lon}]));
+ const ways=new Map(raw.elements.filter(e=>e.type==='way').map(e=>[e.id,{...e,geometry:e.geometry||(e.nodes||[]).map(id=>nodes.get(id))}]));
+ const relevant=t=>t&&(t.natural||t.landuse||t.waterway||t.highway||t.building||t.railway||t.amenity==='parking');
+ const checked=g=>{if(!Array.isArray(g)||g.length<2||!g.every(valid))throw Error('sar_geometry_incomplete');return g;};
+ // Non-area waterway relations group long river courses; their local ways
+ // already provide the exclusions. They must not be interpreted as polygons.
+ const elements=raw.elements.filter(e=>!(e.type==='relation'&&e.tags?.waterway&&!osmAreaRelation(e))).map(e=>{
+  if(e.type==='way'){const w=ways.get(e.id);if(relevant(e.tags))checked(w.geometry);return w;}
+  if(osmAreaRelation(e))return {...e,members:(e.members||[]).map(m=>m.type==='way'?{...m,geometry:checked(m.geometry||ways.get(m.ref)?.geometry)}:m)};
+  return e;
+ });
+ return {...raw,elements};
+}
+
 function geometry(raw,center,radiusNm=1.5){const geo=fire.geometry(raw,center,Math.min(2200,radiusNm*1852)),roads=[];for(const e of raw.elements||[]){if(e.type==='way'&&['primary','secondary','tertiary','unclassified','residential','service'].includes(e.tags?.highway)&&e.tags.tunnel!=='yes'&&e.tags.bridge!=='yes'&&e.geometry?.length>=2)roads.push({id:'way/'+e.id,name:e.tags.name||e.tags.ref||'kartierte Straße',points:e.geometry.map(p=>({x:(p.lon-center.lon)*111320*Math.cos(center.lat*Math.PI/180),y:(p.lat-center.lat)*111320})),widthM:Math.max(3,Math.min(25,Number(e.tags.width)||10))});}geo.roads=roads;geo.waterHoles=[];for(const e of raw.elements||[]){if(e.type==='relation'&&(e.tags?.natural==='water'||e.tags?.waterway)){for(const ring of fire.relationRings((e.members||[]).filter(m=>m.type==='way'&&m.role==='inner'))||[])geo.waterHoles.push(ring.map(p=>({x:(p.lon-center.lon)*111320*Math.cos(center.lat*Math.PI/180),y:(p.lat-center.lat)*111320})));}}geo.sarCandidates=[];
  // Roadside slots are sampled along real segments, not around a representative node.
  for(const road of roads)for(let k=1;k<road.points.length;k++){const a=road.points[k-1],b=road.points[k],len=Math.hypot(b.x-a.x,b.y-a.y);for(let d=0;d<=len;d+=50)for(const side of [-1,1]){const t=d/(len||1),p={x:a.x+(b.x-a.x)*t+side*(b.y-a.y)/(len||1)*(road.widthM/2+18),y:a.y+(b.y-a.y)*t-side*(b.x-a.x)/(len||1)*(road.widthM/2+18)};if(!fire.surfaceError(p,8,geo))geo.sarCandidates.push({...p,incident:'road_vehicle',roadId:road.id,reference:road.name});}}
@@ -21,5 +46,5 @@ function accept(raw,idea,geo,catalog=null){const spec=raw?.targetScene||raw;cons
  if(requirements.some((a,i)=>requirements.some((b,j)=>j<i&&Math.hypot(a.forwardM-b.forwardM,a.rightM-b.rightM)<8)))return null;
  return {scene:{...spec,requirements,heading:0,density:'sparse',features:[...new Set(spec.requirements.map(r=>r.feature))]},source:{id:'sar-contact-1',lat:geo.origin.lat+source.forwardM/111320,lon:geo.origin.lon+source.rightM/(111320*Math.cos(geo.origin.lat*Math.PI/180)),label:def.label},reference:idea.incident==='road_vehicle'?geo.roads.find(r=>placement.edgeDistance({x:source.rightM,y:source.forwardM},r.points)<=45)?.name:null};}
 function composerInstructions(packet){return '\nVERBINDLICHER SAR-SUCHSZENENVERTRAG (ersetzt allgemeine APT-/Reporter-Ausgaberegeln): '+JSON.stringify(packet.outputContract)+'\nNimm den Suchanlass und die Straßenbezüge aus sarSearchScene.story. Für das Primärobjekt wähle eine der exakt vorgeprüften sarSearchScene.candidates-Koordinaten. Die candidates.reference benennt den belegten Straßenbezug. Erfinde keinen neuen Standort. Plane zuerst NUR das eine Primärobjekt; höchstens ein zusätzliches Objekt auf derselben passenden Oberfläche (Boot/Rettungsfloß auf Wasser, Landobjekte auf Land), wenn der Alarm es trägt, count immer genau 1 und mindestens 8m, höchstens 35m Abstand. Keine Gruppen oder verlorene Ladung ohne Einsatzbeleg. Output ausschließlich {targetScene:{kind,heading:0,density:"sparse",features:[],requirements:[{feature,count:1,forwardM,rightM,hdgOffsetDeg,notes}]}}. Keine aptArrivalPlan, keine Rettungsfahrzeuge, keine erfundenen Rollen. Die Szene ist privat: Standort oder Befund nicht ins öffentliche Briefing übernehmen.';}
-return {geometry,candidateError,accept,composerInstructions,definition};
+return {missingOsmRelations,osmGeometry,geometry,candidateError,accept,composerInstructions,definition};
 });

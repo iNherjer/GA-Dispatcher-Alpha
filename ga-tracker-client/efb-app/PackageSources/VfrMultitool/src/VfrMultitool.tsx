@@ -1,3 +1,6 @@
+/// <reference path="../node_modules/@microsoft/msfs-types/js/common.d.ts" />
+/// <reference path="../node_modules/@microsoft/msfs-types/js/services/weather.d.ts" />
+
 import {
   App,
   AppBootMode,
@@ -257,6 +260,77 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private stopwatchElapsedMs = 0;
   private calculatorExpression = '';
 
+  // Optional simulator service: absent APIs/packages never affect mission execution.
+  private weatherListener: ViewListener.ViewListener | null = null;
+  private weatherPresetTimer: ReturnType<typeof setInterval> | null = null;
+  private weatherPreset: { index: number; name: string } | null = null;
+  private weatherReplyAt = 0;
+  private weatherProbeDestroyed = false;
+
+  private startWeatherPresetProbe(): void {
+    if (this.weatherProbeDestroyed || this.weatherListener) return;
+    if (typeof RegisterViewListener !== 'function') return;
+    const poll = (): void => {
+      if (this.weatherProbeDestroyed) return;
+      // ViewListener.trigger queues requests before connection in the shipped
+      // runtime. Avoid accumulating optional weather requests while unavailable.
+      if (this.weatherListener?.connected) {
+        try { this.weatherListener.trigger('ASK_UPDATE_PRESET'); }
+        catch (_) { this.weatherPreset = null; this.weatherReplyAt = 0; }
+      }
+      this.publishWeatherPreset();
+    };
+    try {
+      this.weatherListener = RegisterViewListener('JS_LISTENER_WEATHER', poll);
+      this.weatherListener.on('UpdatePreset', (weather: WeatherPresetData | null) => {
+        if (this.weatherProbeDestroyed || !this.weatherListener?.connected) return;
+        // UpdatePreset carries WeatherPresetData.sPresetName. UIWeatherData.name
+        // belongs to SetWeatherList, a different simulator event.
+        if (!weather || !Number.isSafeInteger(weather.index) || weather.index < 0
+          || typeof weather.sPresetName !== 'string') {
+          this.weatherPreset = null;
+          this.weatherReplyAt = 0;
+          this.publishWeatherPreset();
+          return;
+        }
+        this.weatherPreset = { index: weather.index, name: weather.sPresetName.slice(0, 120) };
+        this.weatherReplyAt = Date.now();
+        this.publishWeatherPreset();
+      });
+      this.weatherPresetTimer = setInterval(poll, 5000);
+      poll();
+    } catch (_) {
+      if (this.weatherPresetTimer) clearInterval(this.weatherPresetTimer);
+      this.weatherPresetTimer = null;
+      try { this.weatherListener?.unregister(); } catch (_) {}
+      this.weatherListener = null;
+      this.weatherPreset = null;
+      this.weatherReplyAt = 0;
+      this.publishWeatherPreset();
+    }
+  }
+
+  private publishWeatherPreset(): void {
+    try {
+      this.serverFrameRef.getOrDefault()?.contentWindow?.postMessage({
+        type: 'ga-sim-weather-preset', channel: this.serverFrameChannel,
+        preset: this.weatherListener?.connected && Date.now() >= this.weatherReplyAt
+          && Date.now() - this.weatherReplyAt <= 12000 ? this.weatherPreset : null
+      }, TRACKER_API_URL);
+    } catch (_) {}
+  }
+
+  public destroy(): void {
+    this.weatherProbeDestroyed = true;
+    if (this.weatherPresetTimer) clearInterval(this.weatherPresetTimer);
+    this.weatherPresetTimer = null;
+    try { this.weatherListener?.unregister(); } catch (_) {}
+    this.weatherListener = null;
+    this.weatherPreset = null;
+    this.weatherReplyAt = 0;
+    super.destroy();
+  }
+
   private readonly onWindowResize = (): void => {
     if (this.screen !== 'map') return;
     this.map?.invalidateSize({ pan: false });
@@ -400,6 +474,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       window.addEventListener('message', this.onWindowMessage);
       this.resizeBound = true;
     }
+    this.startWeatherPresetProbe();
     this.preferences = this.readPreferences();
     this.applyPreferencesToChrome();
     this.startPolling();

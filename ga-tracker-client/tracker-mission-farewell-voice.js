@@ -1,5 +1,6 @@
 'use strict';
 
+const bushNarrativeCore = require('../mission-bush-narrative-core.js');
 const routeVoiceCore = require('../mission-route-voice-core.js');
 const { missionVoiceScope, createMissionVoiceScopeGuard } = require('./tracker-mission-voice-scope.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
@@ -85,10 +86,12 @@ function createTrackerMissionFarewellVoice(options = {}) {
       return farewellVoiceCore.createRecipe({ ...poiContext, ...rendered, enabled: true,
         playCue: poiContext.farewellCueId !== 'none', cueId: poiContext.farewellCueId || 'deboarding_pax' });
     }
+    const chapterHint=bushNarrativeCore.continuityHint(object(object(plan.effects)['voice.approach']).context?.bushNarrative,authorityManager.getExecutionSnapshot?.()?.state?.voice?.bushChapters);
     const authorityContext = farewellVoiceCore.normalizeContext(request.farewellContext)
       || farewellVoiceCore.normalizeContext(effectPlan.context);
+    if(authorityContext&&chapterHint)authorityContext.baseContext += chapterHint;
     return (authorityContext
-        ? farewellVoiceCore.createRecipeFromContext(authorityContext, request.farewellDynamicContext)
+        ? farewellVoiceCore.createRecipeFromContext({ ...authorityContext, weatherMismatchAlreadyUsed: authorityContext.weatherMismatchAlreadyUsed || (authorityManager.getExecutionSnapshot?.()?.state?.voice?.boarding?.weatherMismatchUsed === true || authorityManager.getExecutionSnapshot?.()?.state?.voice?.bush?.weatherMismatchUsed === true) }, request.farewellDynamicContext)
         : null)
       || farewellVoiceCore.normalizeRecipe(request.farewellRecipe)
       || farewellVoiceCore.normalizeRecipe(effectPlan.recipe);

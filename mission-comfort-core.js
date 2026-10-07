@@ -9,7 +9,26 @@ function evaluate(previous, sample, context = {}, now = 0) {
  const _activeCargoText = () => String(context.cargoText || '');
  const _activePaxText = () => String(context.paxText || '');
  const _paxDebugMotionProtectionEnabled = () => context.motionProtectionEnabled === true;
- function _createMissionComfortScore() {
+ function _precipitationObservation(fd) {
+    fd = fd && typeof fd === 'object' ? fd : {};
+    // AMBIENT PRECIP STATE: 2 = none, 4 = rain, 8 = snow. RATE has no documented hourly timebase.
+    const state = fd.precipState;
+    const valid = typeof state === 'number' && Number.isSafeInteger(state) && state > 0
+        && (state & ~14) === 0 && !((state & 2) && (state & 12));
+    const active = valid ? Boolean(state & 12)
+        : (state == null && typeof fd.precipActive === 'boolean' ? fd.precipActive : null);
+    const label = valid ? (state === 2 ? 'kein Niederschlag' : state === 4 ? 'Regen'
+        : state === 8 ? 'Schnee' : 'Regen und Schnee') : (active === true ? 'Niederschlag' : active === false ? 'kein Niederschlag' : null);
+    return {
+        precipState: valid ? state : null,
+        precipActive: active,
+        precipLabel: label,
+        precipRateRaw: typeof fd.precipRateRaw === 'number' && Number.isFinite(fd.precipRateRaw) && fd.precipRateRaw >= 0 ? fd.precipRateRaw : null,
+        precipRateUnit: 'millimeters of water; timebase unknown',
+        precipRateMmH: null
+    };
+}
+function _createMissionComfortScore() {
     return {
         startedAt: Date.now(),
         samples: 0,
@@ -27,7 +46,7 @@ function evaluate(previous, sample, context = {}, now = 0) {
         maxWindKts: 0,
         maxGustSpreadKts: 0,
         maxTurbulencePct: 0,
-        maxPrecipRate: 0,
+        maxPrecipRate: null,
         flags: {}
     };
 }
@@ -76,7 +95,7 @@ function _recordMissionComfortSample(flightData) {
     const gust = Number(flightData.windGustKts || 0);
     const gustSpread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
     const turb = Number(flightData.turbulencePct || 0);
-    const precip = Number(flightData.precipRateMmH || 0);
+    const precip = _precipitationObservation(flightData);
     const vs = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
 
     if (Number.isFinite(g)) score.maxG = Math.max(score.maxG || 1.0, g);
@@ -85,7 +104,8 @@ function _recordMissionComfortSample(flightData) {
     if (Number.isFinite(wind)) score.maxWindKts = Math.max(score.maxWindKts || 0, wind);
     if (Number.isFinite(gustSpread)) score.maxGustSpreadKts = Math.max(score.maxGustSpreadKts || 0, gustSpread);
     if (Number.isFinite(turb)) score.maxTurbulencePct = Math.max(score.maxTurbulencePct || 0, turb);
-    if (Number.isFinite(precip)) score.maxPrecipRate = Math.max(score.maxPrecipRate || 0, precip);
+    // No precipitation intensity penalty without a verified rate/timebase.
+    score.maxPrecipRate = null;
 
     _missionScoreRegisterEvent('g', g >= 1.6, g >= 1.85, 'pilot');
     _missionScoreRegisterEvent('bank', bank >= 34, bank >= 45, 'pilot');
@@ -93,7 +113,7 @@ function _recordMissionComfortSample(flightData) {
     _missionScoreRegisterEvent('wind', wind >= 24, wind >= 34, 'weather');
     _missionScoreRegisterEvent('gust', gustSpread >= 16, gustSpread >= 24, 'weather');
     _missionScoreRegisterEvent('turb', turb >= 55, turb >= 75, 'weather');
-    _missionScoreRegisterEvent('precip', precip >= 1.5 || flightData.precipActive === true, precip >= 4.0, 'weather');
+    _missionScoreRegisterEvent('precip', precip.precipActive === true, false, 'weather');
 }
 function _missionComfortSummary() {
     const score = _missionComfortScoreState();
@@ -117,7 +137,7 @@ function _missionComfortSummary() {
             maxWindKts: 0,
             maxGustSpreadKts: 0,
             maxTurbulencePct: 0,
-            maxPrecipRate: '0.0',
+            maxPrecipRate: null,
             debugMotionProtection: true
         };
     }
@@ -140,7 +160,7 @@ function _missionComfortSummary() {
         maxWindKts: Math.round(score.maxWindKts || 0),
         maxGustSpreadKts: Math.round(score.maxGustSpreadKts || 0),
         maxTurbulencePct: Math.round(score.maxTurbulencePct || 0),
-        maxPrecipRate: Number(score.maxPrecipRate || 0).toFixed(1)
+        maxPrecipRate: null
     };
 }
  if (sample) _recordMissionComfortSample(sample);

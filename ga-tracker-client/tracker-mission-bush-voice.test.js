@@ -128,6 +128,7 @@ function makeContext(profileId, overrides = {}, { cargoOnly = false } = {}) {
     _speakerSnapshotForMissionVoice: () => ({ name: 'Ava', role: 'Gast', taskDomain: missionContract.taskDomain }),
     _paxMissionAudioCueId: () => 'none',
     _buildBoardingText: () => 'ORIGINAL BOARDING FALLBACK',
+    _boardingWeatherBaselines: () => [],
     _poiAborted: false,
     localStorage: { getItem: () => null },
     _baseContext: () => baseContext,

@@ -186,3 +186,21 @@ in Gruppen von 128 gelesen. GC schreibt unveraenderte Zaehler nicht erneut.
 Worker vor Web/Tracker ausrollen. Beim Worker-Rollback Inline-Unterstuetzung
 beibehalten. Protokoll, Messwerte und Grenzen: `docs/Cloud Profile Sync V2.md`
 im Repository-Root. Messung: `node tools/cloud-sync-quota-audit.mjs`.
+
+
+## FAA-Platzkontext (Bush-Pilot 07.10.2026, lokal)
+
+`GET /api/airport-context/faa?ident=U60` liefert normalisierte Daten aus FAA
+Airport Display. Fester Upstream-Host, Kennung 2–5 alphanumerische Zeichen,
+2500 ms Timeout inklusive Antwortkörper, maximal 256000 Bytes. Kennung,
+Koordinaten und gültiger FAA-Datenzyklus müssen vorhanden sein. Versteckte
+Baustellen-Platzhalter und Skripte werden nicht als Hinweise übernommen;
+Runway-Ende und zugehörige Angaben bleiben getrennt. Fehler bleiben `no-store`;
+Erfolgsantworten sind öffentlich cachebar, Cache-Hits prüfen den Datenzyklus.
+Cloudflare Cache-Schreiben wird über `ctx.waitUntil` gehalten. Kein allgemeiner
+URL-Proxy und keine KV-/Nutzerdaten.
+
+`airport-context-faa.test.mjs` ist Teil von `npm test`. Der öffentliche Live-Test
+`node tools/airport-information-live-probe.mjs` nutzt den lokalen neuen Handler,
+nicht den veröffentlichten Worker. App und Worker müssen gemeinsam ausgerollt
+werden. Ohne neuen Endpoint fällt nur die optionale FAA-Ergänzung aus.

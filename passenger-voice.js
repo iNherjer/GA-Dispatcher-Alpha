@@ -432,6 +432,7 @@ let _paxPickupDepartureDone = false;
 let _cargoPickupBoardingDone = false;
 let _cargoPickupDepartureDone = false;
 let _paxWxMismatchDone = false;
+let _paxPresetWeatherState = {};
 let _paxSpeechQueue   = Promise.resolve();
 let _paxMissionEpoch  = 1;
 let _paxCurrentPlayback = null;
@@ -554,6 +555,7 @@ window.paxVoiceResetMission = function() {
     _cargoPickupBoardingDone = false;
     _cargoPickupDepartureDone = false;
     _paxWxMismatchDone = false;
+    _paxPresetWeatherState = {};
     _paxSpeechQueue   = Promise.resolve();
     _lastSpokenSpeaker = null;
     _paxWrongStartActive = false;
@@ -725,7 +727,7 @@ function _createMissionComfortScore() {
         maxWindKts: 0,
         maxGustSpreadKts: 0,
         maxTurbulencePct: 0,
-        maxPrecipRate: 0,
+        maxPrecipRate: null,
         flags: {}
     };
 }
@@ -763,6 +765,26 @@ function _capturePoiNarrativeMemory(eventLabel, spokenText) {
     else if (ev.includes('ziel erfüllt') || ev.includes('ziel erfuellt') || ev.includes('am ziel')) _poiNarrativeMemory.done = compact;
 }
 
+function _captureBushStoryNarrativeMemory(eventLabel, spokenText) {
+    if (eventLabel !== 'Bush-Geschichte' && eventLabel !== 'Bush-Ortsgeschichte') return;
+    const plan = window.currentMissionData?.bushNarrative;
+    if (!plan || window.activePassenger?.name !== plan.speakerName || typeof missionRuntime === 'undefined') return;
+    const text = String(spokenText || '').trim().slice(0, 1200);
+    if (!text) return;
+    const state = missionRuntime.bushNarrativeVoice || (missionRuntime.bushNarrativeVoice = {});
+    const spoken = Array.isArray(state.spoken) ? state.spoken : [];
+    state.spoken = [...spoken.filter(row => row.text !== text), { text, eventLabel }].slice(-12);
+    if (typeof _persistMissionRuntimeSnapshot === 'function') _persistMissionRuntimeSnapshot('bush-story-presented', { immediate: true });
+}
+
+function _bushStoryNarrativeContinuityHint() {
+    const plan = window.currentMissionData?.bushNarrative;
+    if (!plan || window.activePassenger?.name !== plan.speakerName || typeof missionRuntime === 'undefined') return '';
+    const spoken = missionRuntime.bushNarrativeVoice?.spoken;
+    if (!Array.isArray(spoken) || !spoken.length) return '';
+    return `\nBereits im PAX-Fenster erzählte Bush-Kapitel (keine Aussage über Audio-Erfolg): ${JSON.stringify(spoken.slice(-6).map(row => row.text))}. Bewahre deren Personen, Ereignisse und die Einordnung unbestätigter Geschichten. Greife bei Landung oder Abschied höchstens ein passendes Detail auf und runde es ab. Wiederhole keine ganze Anekdote; setze keine ungehörten Ortsgeschichten voraus. Eine erzählte Sage bleibt unbestätigt und wird kein Missionsbefund.`;
+}
+
 function _captureBushPickupNarrativeMemory(eventLabel, spokenText) {
     const active = _activeBushPickupPassengerContract();
     if (!active) return;
@@ -781,7 +803,7 @@ function _bushPickupStageProgression(stage = 'departure') {
         return 'Story-Stufe Rückflug: Nenne jetzt ein neues Detail aus der Arbeit draußen oder ein konkretes Ergebnis, das beim Einsteigen noch nicht gesagt wurde. Wiederhole nicht denselben Satz in anderen Worten.';
     }
     if (s === 'arrival') {
-        return 'Story-Stufe Anflug: Verschiebe den Fokus nach vorn auf McCall und den ersten Schritt nach der Landung. Nenne höchstens ein kurzes Ergebnis aus der Wildnis, aber kein erneutes komplettes Debrief.';
+        return 'Story-Stufe Anflug: Verschiebe den Fokus nach vorn auf den im Missionskontext genannten Rückkehrplatz und den ersten Schritt nach der Landung. Nenne höchstens ein kurzes Ergebnis aus der Wildnis, aber kein erneutes komplettes Debrief.';
     }
     if (s === 'farewell') {
         return 'Story-Stufe Abschluss: Runde die Geschichte persönlich ab. Danke dem Piloten, nenne den Handoff oder die Auswertung in der Basis und wiederhole weder Pickup-Grund noch Rückfluggrund ausführlich.';
@@ -3842,7 +3864,7 @@ function _recordMissionComfortSample(flightData) {
     const gust = Number(flightData.windGustKts || 0);
     const gustSpread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
     const turb = Number(flightData.turbulencePct || 0);
-    const precip = Number(flightData.precipRateMmH || 0);
+    const precip = _precipitationObservation(flightData);
     const vs = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
 
     if (Number.isFinite(g)) score.maxG = Math.max(score.maxG || 1.0, g);
@@ -3851,7 +3873,8 @@ function _recordMissionComfortSample(flightData) {
     if (Number.isFinite(wind)) score.maxWindKts = Math.max(score.maxWindKts || 0, wind);
     if (Number.isFinite(gustSpread)) score.maxGustSpreadKts = Math.max(score.maxGustSpreadKts || 0, gustSpread);
     if (Number.isFinite(turb)) score.maxTurbulencePct = Math.max(score.maxTurbulencePct || 0, turb);
-    if (Number.isFinite(precip)) score.maxPrecipRate = Math.max(score.maxPrecipRate || 0, precip);
+    // No precipitation intensity penalty without a verified rate/timebase.
+    score.maxPrecipRate = null;
 
     _missionScoreRegisterEvent('g', g >= 1.6, g >= 1.85, 'pilot');
     _missionScoreRegisterEvent('bank', bank >= 34, bank >= 45, 'pilot');
@@ -3859,7 +3882,7 @@ function _recordMissionComfortSample(flightData) {
     _missionScoreRegisterEvent('wind', wind >= 24, wind >= 34, 'weather');
     _missionScoreRegisterEvent('gust', gustSpread >= 16, gustSpread >= 24, 'weather');
     _missionScoreRegisterEvent('turb', turb >= 55, turb >= 75, 'weather');
-    _missionScoreRegisterEvent('precip', precip >= 1.5 || flightData.precipActive === true, precip >= 4.0, 'weather');
+    _missionScoreRegisterEvent('precip', precip.precipActive === true, false, 'weather');
 }
 
 function _missionComfortSummary() {
@@ -3884,7 +3907,7 @@ function _missionComfortSummary() {
             maxWindKts: 0,
             maxGustSpreadKts: 0,
             maxTurbulencePct: 0,
-            maxPrecipRate: '0.0',
+            maxPrecipRate: null,
             debugMotionProtection: true
         };
     }
@@ -3907,7 +3930,7 @@ function _missionComfortSummary() {
         maxWindKts: Math.round(score.maxWindKts || 0),
         maxGustSpreadKts: Math.round(score.maxGustSpreadKts || 0),
         maxTurbulencePct: Math.round(score.maxTurbulencePct || 0),
-        maxPrecipRate: Number(score.maxPrecipRate || 0).toFixed(1)
+        maxPrecipRate: null
     };
 }
 
@@ -3944,7 +3967,7 @@ window.paxVoiceGetComfortState = function() {
             maxWindKts: Math.max(0, Number(score.maxWindKts || 0)),
             maxGustSpreadKts: Math.max(0, Number(score.maxGustSpreadKts || 0)),
             maxTurbulencePct: Math.max(0, Number(score.maxTurbulencePct || 0)),
-            maxPrecipRate: Math.max(0, Number(score.maxPrecipRate || 0)),
+            maxPrecipRate: null,
             flags: Object.fromEntries(
                 Object.entries(score.flags || {}).slice(0, 20).map(([key, value]) => [String(key).slice(0, 32), !!value])
             )
@@ -3971,7 +3994,7 @@ window.paxVoiceRestoreComfortState = function(snapshot = null) {
     });
     const maxKeys = [
         'maxG', 'maxBankDeg', 'maxWindKts', 'maxGustSpreadKts',
-        'maxTurbulencePct', 'maxPrecipRate'
+        'maxTurbulencePct'
     ];
     maxKeys.forEach(key => {
         const value = Number(snapshot[key]);
@@ -4005,11 +4028,11 @@ function _missionWeatherReactionLine(flightData = null) {
     const gust = Number(fd.windGustKts || 0);
     const spread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
     const turb = Number(fd.turbulencePct || 0);
-    const precip = Number(fd.precipRateMmH || 0);
+    const precip = _precipitationObservation(fd);
     if (wind >= 24) parts.push(`Wind ${Math.round(wind)} kt`);
     if (spread >= 16) parts.push(`Boeen plus ${Math.round(spread)} kt`);
     if (turb >= 55) parts.push(`Turbulenz ${Math.round(turb)} Prozent`);
-    if (precip >= 1.5 || fd.precipActive === true) parts.push(precip >= 1.5 ? `Regen/Niederschlag ${precip.toFixed(1)} mm/h` : 'Niederschlag');
+    if (precip.precipActive === true) parts.push(precip.precipLabel);
     if (fd.inCloud === true) parts.push('in Wolken');
     return parts.join(', ');
 }
@@ -5310,6 +5333,40 @@ function _speakerSnapshotForMissionVoice(kind = 'boarding') {
     return _speakerSnapshotForActivePax() || (_cargoOnlyVoiceContext() ? _cargoMissionSpeaker(kind) : null);
 }
 
+window.paxVoiceBushNarrativeReady = function() {
+    const pickupReturn = window.currentMissionData?.bushNarrative?.leg === 'return';
+    const introduced = pickupReturn ? _paxPickupBoardingDone && _paxPickupDepartureDone : _paxBoardingDone && _paxGreetingDone;
+    return _paxVoiceEnabled && _missionHasPax() && introduced
+        && !_paxCurrentPlayback && !_paxComfortBusy && !_paxMissionEndVoiceActive();
+};
+window.paxVoicePrepareBushNarrative = function(plan, state, position) {
+    if (!window.paxVoiceBushNarrativeReady() || window.activePassenger?.name !== plan.speakerName) return;
+    const fixed = plan.events.filter(e => e.kind === 'fixed' && !state.done?.includes(e.id))
+        .sort((a,b) => a.atAirborneSeconds - b.atAirborneSeconds).slice(0,1);
+    const nearby = plan.events.filter(e => e.kind === 'geo' && !state.done?.includes(e.id)
+        && window.GAMapNavigationGeometry.distanceNm(position,e.geo) <= e.geo.radiusNm + 1)
+        .sort((a,b) => window.GAMapNavigationGeometry.distanceNm(position,a.geo) - window.GAMapNavigationGeometry.distanceNm(position,b.geo)).slice(0,1);
+    for (const e of [...fixed,...nearby]) {
+        const key = _paxMissionAudioKey('bush-story-' + e.id);
+        if (_paxPreparedAudio.has(key)) continue;
+        _prepareTextAsTTS(key,e.text,_speakerSnapshotForActivePax(),_paxMissionEpoch)?.catch?.(() => {});
+    }
+};
+window.paxVoiceSpeakBushNarrative = function(plan, event) {
+    const speaker = _speakerSnapshotForActivePax();
+    if (!speaker || speaker.name !== plan.speakerName || !window.paxVoiceBushNarrativeReady()) return;
+    const relevant = () => {
+        if (_paxMissionEndVoiceActive() || window.activePassenger?.name !== plan.speakerName) return false;
+        if (event.kind !== 'geo') return true;
+        const p = window.lastLiveGpsPos;
+        return p && Number.isFinite(p.lat) && Number.isFinite(p.lon)
+            && window.GAMapNavigationGeometry.distanceNm(p, event.geo) <= event.geo.radiusNm;
+    };
+    return _speakPreparedText(_paxMissionAudioKey('bush-story-' + event.id), event.text, speaker,
+        event.kind === 'geo' ? 'Bush-Ortsgeschichte' : 'Bush-Geschichte',
+        { cancelWhenMissionEnd: true, isStillRelevant: relevant });
+};
+
 function _extractWeightLbs(text) {
     const s = String(text || '');
     let total = 0;
@@ -5769,6 +5826,7 @@ function _rememberAndShowPrepared(text, speaker, eventLabel) {
     _capturePoiNarrativeMemory(eventLabel, text);
     _captureBushPickupNarrativeMemory(eventLabel, text);
     _capturePrivateReturnNarrative(text);
+    _captureBushStoryNarrativeMemory(eventLabel, text);
     _captureBushCargoPickupNarrativeMemory(eventLabel, text);
     _showPaxMessage(text, eventLabel);
 }
@@ -5780,6 +5838,7 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
         _paxLog(`Queue ▶ Start | Event: ${eventLabel}`, 'state');
         try {
             if (epoch !== _paxMissionEpoch) return;
+            if (_paxSpeechCanceledByMissionEnd(options) || (options.isStillRelevant && !options.isStillRelevant())) return;
             _paxLog(`── ${eventLabel} ──`, 'event');
             _rememberAndShowPrepared(text, speaker, eventLabel);
             if (!_paxVoiceEnabled) {
@@ -5804,8 +5863,9 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
             const rec = _paxPreparedAudio.get(key);
             const audio = rec?.audio || await (rec?.promise || _prepareTextAsTTS(key, text, speaker, epoch));
             if (epoch !== _paxMissionEpoch) return;
+            if (_paxSpeechCanceledByMissionEnd(options) || (options.isStillRelevant && !options.isStillRelevant())) return;
             if (audio?.b64) await _paxPlayResolvedTtsAudio(audio, epoch, eventLabel, text);
-            else await _playTextAsTTS(text, speaker, epoch);
+            else if (!options.isStillRelevant) await _playTextAsTTS(text, speaker, epoch);
             if (typeof options.afterAudio === 'function') {
                 await options.afterAudio(epoch);
                 if (epoch !== _paxMissionEpoch) return;
@@ -6914,6 +6974,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
     _capturePoiNarrativeMemory(eventLabel, spokenText);
     _captureBushPickupNarrativeMemory(eventLabel, spokenText);
     _capturePrivateReturnNarrative(spokenText);
+    _captureBushStoryNarrativeMemory(eventLabel, spokenText);
     _captureBushCargoPickupNarrativeMemory(eventLabel, spokenText);
     _showPaxMessage(spokenText, eventLabel, options.debugDetail || '');
 
@@ -6961,6 +7022,23 @@ function _distanceFromDepartureNm(lat, lon) {
     return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 3440.065;
 }
 
+function _boardingWeatherBaselines() {
+    const md = _activeMissionData();
+    const route = typeof routeWaypoints !== 'undefined' ? routeWaypoints : [];
+    return ['start', 'target'].map((key, index) => {
+        const env = md?.environmentContext?.[key];
+        const values = env?.current?.values;
+        const metar = md?.weatherBriefing?.[index ? 'dest' : 'dep'];
+        const point = env?.location || (index ? route?.[route.length - 1] : route?.[0]);
+        return { lat: point?.lat, lon: point?.lon,
+            windKts: values?.wind_speed_10m ?? metar?.windKts,
+            windDeg: values ? null : metar?.windDeg,
+            visKm: values ? null : metar?.visKm,
+            tempC: values?.temperature_2m ?? metar?.tempC,
+            validAt: values ? env?.current?.validAt : '' };
+    });
+}
+
 window.paxVoiceBuildBoardingEffectRecipe = function() {
     const shared = window.GAMissionBoardingVoiceCore;
     if (!shared || typeof shared.createRecipe !== 'function') return null;
@@ -6984,6 +7062,7 @@ window.paxVoiceBuildBoardingEffectRecipe = function() {
         playCue: cueId !== 'none',
         cueId,
         missionAudioKey: _paxMissionAudioKey('boarding'),
+        boardingWeather: _boardingWeatherBaselines(),
         prompt: _boardingBriefingPrompt(),
         fallbackText: _buildBoardingText(),
         taskDomain: _activeTaskDomain(),
@@ -7128,6 +7207,14 @@ window.paxVoicePlayBoarding = async function(options = {}) {
                 : null
         });
         if (!_paxEpochCurrent(epoch)) return false;
+        if (!_paxWxMismatchDone && window.activePassenger) {
+            const reaction = window.GAMissionBoardingVoiceCore?.boardingWeatherReaction?.(_boardingWeatherBaselines(), window.lastLiveFlightData);
+            if (reaction) {
+                await _speakPreparedText(`${key}|weather`, reaction, speaker, 'Wetter am Start');
+                if (!_paxEpochCurrent(epoch)) return false;
+                _paxWxMismatchDone = true;
+            }
+        }
         _paxBoardingDone = true;
         _paxGreetingDone = true;
         _markPaxBoardingPlayed(key);
@@ -7152,6 +7239,7 @@ window.paxVoiceBoardingDone = function() {
 };
 
 function _applyTrackerBoardingVoicePresentation(detail = {}) {
+    if (detail.weatherMismatchUsed === true) _paxWxMismatchDone = true;
     const text = String(detail.text || '').trim();
     if (!text) return false;
     const speaker = detail.speaker && typeof detail.speaker === 'object' ? detail.speaker : null;
@@ -7195,11 +7283,11 @@ window.paxVoiceApplyTrackerOutcome = function(outcome = null) {
     if (kind === 'boarding') return _applyTrackerBoardingVoicePresentation(source);
     if (kind === 'farewell') return _applyTrackerFarewellVoicePresentation(source);
     if (kind === 'approach') return _applyTrackerApproachVoicePresentation(source);
-    if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(kind)) {
+    if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'weather_preset', 'time_shift', 'bush_story'].includes(kind)) {
         const key = `${kind}|${source.text}|${source.updatedAt}`;
         if (_paxTrackerVoicePresentationKey !== key) {
             _paxTrackerVoicePresentationKey = key;
-            _rememberAndShowPrepared(source.text, source.speaker, (kind === 'poi' && source.label) || ({ poi: 'POI-Auftrag', comfort: 'Komfort-Hinweis', wrong_start: 'Route läuft ab hier', off_destination: 'Falscher Landeplatz', landing_roll: 'Nach der Landung', cargo_event: 'Ladung' })[kind]);
+            _rememberAndShowPrepared(source.text, source.speaker, (['poi','bush_story'].includes(kind) && source.label) || ({ bush_story: 'Bush-Geschichte', time_shift: 'Zeitsprung', weather_preset: 'Wetterwechsel', poi: 'POI-Auftrag', comfort: 'Komfort-Hinweis', wrong_start: 'Route läuft ab hier', off_destination: 'Falscher Landeplatz', landing_roll: 'Nach der Landung', cargo_event: 'Ladung' })[kind]);
         }
         return true;
     }
@@ -7216,7 +7304,7 @@ window.addEventListener('ga:tracker-voice-playback', event => {
     if (kind === 'boarding') _applyTrackerBoardingVoicePresentation(detail);
     else if (kind === 'farewell') _applyTrackerFarewellVoicePresentation(detail);
     else if (kind === 'approach') _applyTrackerApproachVoicePresentation(detail);
-    else if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event'].includes(kind)) window.paxVoiceApplyTrackerOutcome(detail);
+    else if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'weather_preset', 'time_shift', 'bush_story'].includes(kind)) window.paxVoiceApplyTrackerOutcome(detail);
 });
 
 window.paxVoicePrepareGreeting = function(lat = null, lon = null) {
@@ -7554,7 +7642,7 @@ function _baseContext() {
         ? `1 PAX (${pickupRole})`
         : (payload || (_missionHasPax() ? '1 PAX' : '0 PAX'));
     const onboardCargo = cargo || 'keine besondere Ausruestung';
-    const roleStyle = _roleStyleHint(pax.role, pax);
+    const roleStyle = _roleStyleHint(pax.role, pax) + _bushStoryNarrativeContinuityHint();
     const personalityLabel = _personaPersonalityLabel(pax);
     const personaSpeechSignature = _personaSpeechSignature(pax);
     const urgency = pax.narrativeSchema === 'infra-briefing.v1' ? 'gemäß gewähltem Inspektionsauftrag' : _normUrgencyPriority(pax?.urgencyPriority);
@@ -7851,6 +7939,10 @@ function _aptArrivalFarewellHint() {
 function _roleStyleHint(roleRaw, pax = null) {
     if (_privateReturnVoiceContext()) return 'Vertraut, persönlich und alltagsnah: gemeinsam Erlebtes klingt nach, der Rückflug rundet eure Unternehmung ab.';
     const taskDomain = _activeTaskDomain();
+    const bushNarrative = window.currentMissionData?.bushNarrative;
+    if (bushNarrative?.schema === 'bush-narrative.v1' && pax?.name === bushNarrative.speakerName) {
+        return `${window.MissionBushNarrativeCore.instructions} Persönlichkeit dieser Person: ${bushNarrative.persona}`;
+    }
     if (taskDomain === 'fire_watch') {
         return 'einsatznah, ruhig und präzise: Fokus auf Rauchentwicklung, Hotspots, Lagebild und klare Calls.';
     }
@@ -8590,6 +8682,26 @@ Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.
 Nur Deutsch, kein Markdown.`;
 }
 
+function _precipitationObservation(fd) {
+    fd = fd && typeof fd === 'object' ? fd : {};
+    // AMBIENT PRECIP STATE: 2 = none, 4 = rain, 8 = snow. RATE has no documented hourly timebase.
+    const state = fd.precipState;
+    const valid = typeof state === 'number' && Number.isSafeInteger(state) && state > 0
+        && (state & ~14) === 0 && !((state & 2) && (state & 12));
+    const active = valid ? Boolean(state & 12)
+        : (state == null && typeof fd.precipActive === 'boolean' ? fd.precipActive : null);
+    const label = valid ? (state === 2 ? 'kein Niederschlag' : state === 4 ? 'Regen'
+        : state === 8 ? 'Schnee' : 'Regen und Schnee') : (active === true ? 'Niederschlag' : active === false ? 'kein Niederschlag' : null);
+    return {
+        precipState: valid ? state : null,
+        precipActive: active,
+        precipLabel: label,
+        precipRateRaw: typeof fd.precipRateRaw === 'number' && Number.isFinite(fd.precipRateRaw) && fd.precipRateRaw >= 0 ? fd.precipRateRaw : null,
+        precipRateUnit: 'millimeters of water; timebase unknown',
+        precipRateMmH: null
+    };
+}
+
 function _weatherContext(fd) {
     if (!fd) return '';
     const parts = [];
@@ -8608,13 +8720,8 @@ function _weatherContext(fd) {
         const desc = fd.visKm < 3 ? ' (sehr schlecht)' : fd.visKm < 8 ? ' (eingeschränkt)' : fd.visKm > 20 ? ' (ausgezeichnet)' : '';
         parts.push(`Sicht ${fd.visKm} km${desc}`);
     }
-    if (fd.precipRateMmH != null) {
-        const p = Number(fd.precipRateMmH);
-        const state = p >= 4 ? 'stark' : p >= 1.5 ? 'mäßig' : p > 0.05 ? 'leicht' : '';
-        if (state) parts.push(`Niederschlag ${state}`);
-    } else if (fd.precipActive === true) {
-        parts.push('Niederschlag');
-    }
+    const precipitation = _precipitationObservation(fd);
+    if (precipitation.precipActive === true) parts.push(precipitation.precipLabel);
     if (fd.inCloud === true) parts.push('in Wolken');
     if (fd.turbulencePct != null) {
         const t = Number(fd.turbulencePct);
@@ -8855,7 +8962,7 @@ function _cargoOnlyFarewellPrompt(record) {
 FLUG: ${cargoCtx.start} → ${cargoCtx.dest} · ${cargoCtx.dist || '?'} NM
 AN BORD: ${cargoCtx.paxText}
 AUSRUESTUNG: ${cargoCtx.cargoText}
-AUFTRAG (kurz): ${cargoCtx.story || 'Versorgungsladung fuer einen abgelegenen Zielplatz.'}
+AUFTRAG (kurz): ${cargoCtx.story || 'Versorgungsladung fuer einen abgelegenen Zielplatz.'}${cargoCtx.bush?.profileId === 'bush_supply_strip' && window.MissionBushNarrativeCore?.supplyReceiverInstructions ? '\n' + window.MissionBushNarrativeCore.supplyReceiverInstructions : ''}
 STIL: kurze Bodenfunk-/Uebergabe-Sprache aus Sicht des Empfaengers; nicht wie ein Passagier an Bord.
 ${cargoCtx.contractSummary ? `MISSION-CONTRACT: ${cargoCtx.contractSummary}` : ''}
 TASK-DOMAIN: ${cargoCtx.taskDomain}
@@ -9141,7 +9248,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
         ? Number(motionAnalysis.derivedTurbulencePct || 0)
         : 0;
     const turbulence = Math.max(directTurbulence, derivedTurbulence);
-    const precipRate = Number(flightData.precipRateMmH || 0);
+    const precipitation = _precipitationObservation(flightData);
     const policy = _comfortFeedbackPolicy(pax);
     const chooseThreshold = (level, highPair, mediumPair) => {
         const lvl = _normLevel3(level);
@@ -9156,7 +9263,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
     const wThr = chooseThreshold(policy.metricLevels.wind, [24, 34], [30, 42]);
     const gsThr = chooseThreshold(policy.metricLevels.gust, [16, 24], [22, 32]);
     const tThr = chooseThreshold(policy.metricLevels.turb, [55, 75], [70, 90]);
-    const pThr = chooseThreshold(policy.metricLevels.precip, [1.5, 4.0], [3.0, 6.0]);
+    const precipEnabled = _normLevel3(policy.metricLevels.precip) !== 'niedrig';
     const dThr = chooseThreshold(policy.metricLevels.descent, [-1300, -2000], [-1600, -2400]);
 
     const gLevel = gThr ? (g >= gThr.hard ? 'hard' : g >= gThr.warn ? 'warn' : null) : null;
@@ -9181,7 +9288,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
     const tLevel = (directTLevel === 'hard' || motionTLevel === 'hard')
         ? 'hard'
         : ((directTLevel || motionTLevel) ? 'warn' : null);
-    const pLevel = pThr ? (precipRate >= pThr.hard ? 'hard' : precipRate >= pThr.warn ? 'warn' : null) : null;
+    const pLevel = precipEnabled && precipitation.precipActive === true ? 'warn' : null;
     const dLevel = dThr ? (vsFpm <= dThr.hard ? 'hard' : vsFpm <= dThr.warn ? 'warn' : null) : null;
     if (!gLevel && !bLevel && !wLevel && !gsLevel && !tLevel && !pLevel && !dLevel) return null;
 
@@ -9193,7 +9300,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
     if (dThr && Number(motionAnalysis?.vsLow) <= dThr.warn) preconfirmedMs.descent = pilotEvidenceMs;
     if (motionAnalysis?.detected) preconfirmedMs.turbulence = Number(motionAnalysis.windowMs || 0);
     return {
-        severity, g, bank, wind, gustSpread, turbulence, precipRate, vsFpm,
+        severity, g, bank, wind, gustSpread, turbulence, precipLabel: precipitation.precipLabel, vsFpm,
         gLevel, bLevel, wLevel, gsLevel, tLevel, pLevel, dLevel, policy,
         directTurbulence,
         directTurbulenceSupported,
@@ -9205,7 +9312,7 @@ function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
             descent: Number.isFinite(motionVs) && motionVs < currentVsFpm ? 'window' : 'current'
         },
         preconfirmedMs,
-        thresholds: { g: gThr, bank: bThr, wind: wThr, gust: gsThr, turbulence: tThr, precip: pThr, descent: dThr }
+        thresholds: { g: gThr, bank: bThr, wind: wThr, gust: gsThr, turbulence: tThr, precip: null, descent: dThr }
     };
 }
 
@@ -9293,7 +9400,7 @@ function _comfortBreachDebugDetail(breach) {
     } else {
         add('turbulence', 'Turbulenz', breach.turbulence, '%');
     }
-    add('precip', 'Niederschlag', breach.precipRate, ' mm/h', 1);
+    if (breach.confirmed?.precip) parts.push(`${breach.precipLabel || 'Niederschlag'} (${(breach.confirmed.precip.elapsedMs / 1000).toFixed(1).replace('.', ',')} s)`);
     const descent = breach.confirmed?.descent;
     if (descent) {
         const threshold = breach.thresholds?.descent?.[descent.level];
@@ -9320,14 +9427,16 @@ function _comfortBreachPrompt(flightData, breach, count) {
             bits.push(`Turbulenz ${Math.round(breach.turbulence)}%`);
         }
     }
-    if (breach.pLevel) bits.push(`Niederschlag ${breach.precipRate.toFixed(1)} mm/h`);
+    if (breach.pLevel) bits.push(breach.precipLabel || 'Niederschlag');
     if (breach.dLevel) bits.push(`${breach.metricSources?.descent === 'window' ? 'Sinkraten-Spitze' : 'Sinkflug'} ${Math.round(breach.vsFpm)} ft/min`);
     const hasPilotIssue = !!(breach.gLevel || breach.bLevel || breach.dLevel);
     const hasWeatherIssue = !!(breach.wLevel || breach.gsLevel || breach.tLevel || breach.pLevel);
     const level = breach.severity === 'hard' ? 'deutlich' : 'spürbar';
     const causeLine = hasPilotIssue
         ? `Mitten im Flug wurden Komfortgrenzen ${level} überschritten (${bits.join(' · ')}).${wx ? ' ' + wx : ''}`
-        : `Mitten im Flug ist das Wetter für mich ${level} unruhig (${bits.join(' · ')}).${wx ? ' ' + wx : ''}`;
+        : (breach.pLevel && !breach.wLevel && !breach.gsLevel && !breach.tLevel
+            ? `Während des Fluges beobachten wir ${breach.precipLabel || 'Niederschlag'}. Die Intensität ist nicht bestätigt.${wx ? ' ' + wx : ''}`
+            : `Mitten im Flug ist das Wetter für mich ${level} unruhig (${bits.join(' · ')}).${wx ? ' ' + wx : ''}`);
     const attributionRule = hasPilotIssue && hasWeatherIssue
         ? 'Du darfst G-Last, steile Kurven oder starken Sinkflug als Flugstil ansprechen; Wind, Böen, Turbulenz und Regen aber ausdrücklich nicht dem Piloten anlasten.'
         : hasPilotIssue
@@ -10194,7 +10303,7 @@ function _farewellAuthorityContext() {
                 dist: cargoCtx.dist,
                 paxText: cargoCtx.paxText,
                 cargoText: cargoCtx.cargoText,
-                story: cargoCtx.story,
+                story: (cargoCtx.story || 'Versorgungsladung fuer einen abgelegenen Zielplatz.') + (cargoCtx.bush?.profileId === 'bush_supply_strip' && window.MissionBushNarrativeCore?.supplyReceiverInstructions ? '\n' + window.MissionBushNarrativeCore.supplyReceiverInstructions : ''),
                 contractSummary: cargoCtx.contractSummary,
                 arrivalLocation: _aptArrivalLocationLabel(arrivalPlan),
                 arrivalCue: _aptArrivalCue(arrivalPlan),
@@ -10371,6 +10480,7 @@ window.paxVoiceBuildApproachAuthorityContext = function() {
         ...context,
         dest: md?.dest || 'dem Flughafen',
         start: md?.start || '?',
+        bushNarrative: window.MissionBushNarrativeCore?.normalizePlan(md?.bushNarrative) || null,
         narrativeEvents: (md?.aptNewsIdea || md?.sightseeingIdea || md?.charterIdea || md?.clubIdea)?.narrativeEvents || [],
         privateReturn: _privateReturnVoiceContext(md),
         departure: typeof routeWaypoints !== 'undefined' ? routeWaypoints?.[0] : null,
@@ -10624,6 +10734,16 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
     if (cargoOnly) {
         _refreshPaxWidgetVisibility();
         return;
+    }
+    if (typeof window.gaTrackerExecutionHandlesMission !== 'function' || !window.gaTrackerExecutionHandlesMission()) {
+        const change = window.GAWeatherPresetCore?.observe(_paxPresetWeatherState, { ...flightData, lat, lon }, {
+            now: Date.now(), active: true, onboard: _paxGreetingDone, ending: _paxMissionEndVoiceActive(),
+            busy: !!_paxCurrentPlayback || _paxComfortBusy || _paxBoardingPromise != null || !_paxVoiceEnabled
+        });
+        if (change) {
+            _paxPresetWeatherState = change.state;
+            if (change.reaction) _speakAndShow(`${_baseContext()}\n${change.reaction.prompt}${_toneHint()}`, change.reaction.label, null, { cancelWhenMissionEnd: true });
+        }
     }
     _maybePaxComfortFeedback(flightData, lat, lon);
     _maybeWrongStartContinue(flightData || window.lastLiveFlightData || {});

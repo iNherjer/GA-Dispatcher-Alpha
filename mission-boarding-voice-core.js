@@ -280,6 +280,44 @@
         }).slice(0, Math.max(1, Number(maxEntries) || 6));
     }
 
+    // Current boarding location only; outlooks and destination weather are not a start baseline.
+    function normalizeBoardingWeather(raw) {
+        return (Array.isArray(raw) ? raw : []).slice(0, 2).map(function (row) {
+            var source = object(row), out = {};
+            ['lat', 'lon', 'windKts', 'windDeg', 'visKm', 'tempC'].forEach(function (key) {
+                out[key] = typeof source[key] === 'number' && Number.isFinite(source[key]) ? source[key] : null;
+            });
+            out.validAt = text(source.validAt, 50);
+            return out;
+        });
+    }
+
+    function boardingWeatherReaction(baselines, live, now) {
+        live = object(live);
+        if (live.onGround !== true || !Number.isFinite(live.lat) || !Number.isFinite(live.lon)) return '';
+        var time = Number.isFinite(now) ? now : Date.now();
+        var baseline = normalizeBoardingWeather(baselines).find(function (row) {
+            if (row.lat == null || row.lon == null) return false;
+            var dLat = (live.lat - row.lat) * Math.PI / 180;
+            var dLon = (live.lon - row.lon) * Math.PI / 180;
+            var a = Math.sin(dLat / 2) ** 2 + Math.cos(row.lat * Math.PI / 180) * Math.cos(live.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+            if (3440.065 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a))) > 1) return false;
+            if (row.validAt && (!Number.isFinite(Date.parse(row.validAt)) || Math.abs(time - Date.parse(row.validAt)) > 2 * 3600000)) return false;
+            return true;
+        });
+        if (!baseline) return '';
+        var n = function (key) { return typeof live[key] === 'number' && Number.isFinite(live[key]) ? live[key] : null; };
+        var score = 0;
+        if (baseline.windKts != null && n('windKts') != null && Math.abs(baseline.windKts - live.windKts) >= 8) score++;
+        if (baseline.windDeg != null && n('windDeg') != null && baseline.windKts >= 5 && live.windKts >= 5
+            && Math.abs(((live.windDeg - baseline.windDeg + 540) % 360) - 180) >= 60) score++;
+        if (baseline.visKm != null && n('visKm') != null && Math.abs(baseline.visKm - live.visKm) >= 4) score++;
+        var temperatureContrast = baseline.tempC != null && n('tempC') != null && Math.abs(baseline.tempC - live.tempC) >= 15;
+        if (score < 2 && !temperatureContrast) return '';
+        var detail = temperatureContrast ? 'Im Briefing standen ' + Math.round(baseline.tempC) + ' Grad, hier sind es jetzt ' + Math.round(live.tempC) + ' Grad.' : 'Das Wetter hier weicht deutlich von den Bedingungen im Briefing ab.';
+        return detail + ' Hat da etwa jemand am Wetterregler gedreht?';
+    }
+
     function createRecipe(raw) {
         var source = object(raw);
         var policy = derivePreparationPolicy(source);
@@ -303,6 +341,7 @@
                 variantSeed: source.playCue !== false ? cueVariantSeed : '',
                 gain: 0.38
             },
+            boardingWeather: normalizeBoardingWeather(source.boardingWeather),
             prompt: prompt,
             fallbackText: fallbackText,
             taskDomain: taskDomain,
@@ -326,6 +365,7 @@
             audioEnabled: source.audioEnabled,
             playCue: source.playCue,
             cue: source.cue,
+            boardingWeather: source.boardingWeather,
             prompt: source.prompt,
             fallbackText: source.fallbackText,
             taskDomain: source.taskDomain,
@@ -348,6 +388,7 @@
         buildBoardingText: buildBoardingText,
         audioCueCandidateNames: audioCueCandidateNames,
         boardingCueVariantSeed: boardingCueVariantSeed,
+        boardingWeatherReaction: boardingWeatherReaction,
         createRecipe: createRecipe,
         derivePreparationPolicy: derivePreparationPolicy,
         finalizeBoardingText: finalizeBoardingText,

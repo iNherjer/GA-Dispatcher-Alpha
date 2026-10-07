@@ -494,3 +494,80 @@ test('Bush return approach uses restored pickup speech from the execution snapsh
   assert.equal(calls[0].isPlaybackAllowed(), true);
   assert.equal(JSON.stringify(plan), originalPlan, 'runtime memory must not mutate the handoff context');
 });
+
+test('boarding weather uses the current local ground baseline, ignores outlook and stale/remote data', () => {
+  const now = Date.now(), validAt = new Date(now).toISOString();
+  const cold = { lat: 45, lon: -115, tempC: -12, windKts: 2, validAt };
+  const live = { lat: 45, lon: -115, onGround: true, tempC: 30, windKts: 2 };
+  const react = (rows, fd = live) => boardingVoiceCore.boardingWeatherReaction(rows, fd, now);
+  assert.match(react([cold]), /-12 Grad.*30 Grad/);
+  assert.equal(react([{ ...cold, tempC: 25 }]), '');
+  assert.equal(react([cold], { ...live, onGround: false }), '');
+  assert.equal(react([cold], { ...live, tempC: null }), '');
+  assert.equal(react([{ ...cold, lat: 46 }]), '');
+  assert.equal(react([{ ...cold, validAt: new Date(now - 3 * 3600000).toISOString() }]), '');
+  assert.equal(react([{ ...cold, validAt: 'bad' }]), '');
+  assert.equal(react([{ lat: 45, lon: -115, forecastNext72Hours: { tempC: -12 } }]), '');
+  assert.equal(react([{ ...cold, tempC: null, windDeg: 270 }], { ...live, windDeg: 90, tempC: null }), '');
+  assert.match(react([{ ...cold, tempC: null, windKts: 35, visKm: 2 }], { ...live, tempC: null, visKm: 10 }), /Wetterregler/);
+  assert.match(react([{ ...cold, lat: 46 }, cold]), /Wetterregler/);
+});
+
+test('tracker computes the weather comment at playback, not prewarm; stale boarding audio is discarded', async () => {
+  const baseline = { lat: 45, lon: -115, tempC: -12, validAt: new Date().toISOString() };
+  const activeRun = run({ boardingWeather: [baseline] });
+  const calls = [], cancelled = [];
+  const voiceService = {
+    publicState: () => ({ configured: true }),
+    get: () => ({ status: 'ready' }),
+    request: value => {
+      calls.push(value);
+      if (value.effectId.startsWith('boarding-preload:') && value.prompt.includes('Wetterregler')) {
+        const error = new Error('changed'); error.code = 'effect_id_conflict'; throw error;
+      }
+    },
+    cancel: (...args) => cancelled.push(args),
+    activatePlayback: () => {},
+    wait: async () => ({ status: 'ready', text: 'Hier ist es wärmer als im Briefing.', speaker: {}, audioAvailable: true })
+  };
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: { getActiveRun: () => activeRun, getExecutionRuntimeContext: () => ({ latestTelemetry: { lat: 45, lon: -115, onGround: true, tempC: 30 } }) },
+    voiceService, getAudioPlaybackCandidates: () => 0
+  });
+  await handler.dispatch({ ...request(), prepareOnly: true });
+  assert.doesNotMatch(calls[0].prompt, /Wetterregler/);
+  const result = await handler.dispatch(request());
+  assert.equal(result.voiceOutcome.weatherMismatchUsed, true);
+  assert.match(calls.at(-1).prompt, /Wetterregler/);
+  assert.equal(calls.at(-1).effectId, 'mfx-boarding');
+  assert.equal(cancelled[0][1], 'boarding_preload_stale');
+});
+
+
+test('weather consumption survives normalized snapshot and resume', () => {
+  const execution = require('../mission-execution-core.js');
+  const state = execution.normalizeState({ voice: { boarding: { status: 'ok', text: 'Wetterhinweis', weatherMismatchUsed: true } } });
+  const restored = execution.normalizeState(JSON.parse(JSON.stringify(state)));
+  assert.equal(restored.voice.boarding.weatherMismatchUsed, true);
+  assert.equal(execution.deriveView(restored).voice.boarding.weatherMismatchUsed, true);
+});
+
+
+test('Bush chapters prewarm without claiming a location and reject delayed audio after leaving the geo radius',async()=>{
+ const core=require('../mission-bush-narrative-core.js'),home={lat:45,lon:-115},target={lat:45,lon:-114};
+ const frame=core.frame({start:home,target,passenger:{name:'Mara'},features:[{id:'lake',name:'See',kind:'lake',lat:45,lon:-114.5}]});
+ const plan=core.validate({persona:'Herzlich',memory:'Fahrt',events:[{id:'a',kind:'fixed',atAirborneSeconds:90,text:'Geschichte eins.'},{id:'b',kind:'fixed',atAirborneSeconds:300,text:'Geschichte zwei.'},{id:'geo',kind:'geo',anchorId:'lake',radiusNm:1,text:'Ein Freund erzählte mir von diesem See.'}]},frame);
+ const active=run();active.resumeBundle.executionEffectPlan.effects['voice.approach']={context:{supported:true,mode:'passenger',speaker:{name:'Mara'},passenger:{name:'Mara'},bushNarrative:plan}};
+ const state={flags:{active:true},effects:[]};let telemetry={...home,onGround:true};
+ const calls=[],cancelled=[],cache=new Map();let leave=false;
+ const handler=createTrackerMissionBoardingVoice({authorityManager:{getActiveRun:()=>active,getExecutionSnapshot:()=>({runId:'run-a',state}),getExecutionRuntimeContext:()=>({latestTelemetry:telemetry})},
+ voiceService:{publicState:()=>({configured:true}),get:id=>cache.get(id),request:q=>{calls.push(q);cache.set(q.effectId,{status:'ready'});},activatePlayback:()=>{},cancel:(id)=>cancelled.push(id),
+ wait:async()=>{if(leave)telemetry={...home,onGround:false};return {status:'ready',audioAvailable:false,text:plan.events[2].text,speaker:{name:'Mara'}};}}});
+ const req={...request(),effect:{type:'voice.flight',effectId:'geo-effect',payload:{kind:'bush_story',narrativeEventId:'geo',narrativeKind:'geo',geo:plan.events[2].geo,fallbackText:plan.events[2].text}}};
+ await handler.prepare(req);assert.equal(calls.length,1);assert.equal(calls[0].deferPlayback,true);assert.equal(calls[0].isPlaybackAllowed(),true);assert.equal(calls[0].fallbackText,plan.events[2].text);
+ telemetry={...plan.events[2].geo,onGround:false};leave=true;
+ const result=await handler.dispatch(req);assert.equal(result.voiceStatus,'mission_end');assert.ok(cancelled.length);assert.equal(calls[1].effectId,calls[0].effectId);
+ const guard=calls[1].isPlaybackAllowed;telemetry={...plan.events[2].geo,onGround:false,simPaused:true};assert.equal(guard(),false);
+ telemetry={...plan.events[2].geo,onGround:false,slewActive:true};assert.equal(guard(),false);
+ telemetry={...plan.events[2].geo,onGround:false};assert.equal(guard(),true);
+});

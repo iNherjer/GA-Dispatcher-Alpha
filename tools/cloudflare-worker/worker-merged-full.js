@@ -1,3 +1,4 @@
+import { handleAirportContextFaa } from './airport-context-faa.mjs';
 import { handleProfileSync, profileStub } from './profile-sync.mjs';
 export { ProfileSync } from './profile-sync.mjs';
 import { handleAudioSettings } from './audio-settings.mjs';
@@ -2624,6 +2625,8 @@ export default {
     }
 
     const requestUrl = new URL(request.url);
+
+    if (requestUrl.pathname === "/api/airport-context/faa") return handleAirportContextFaa(request, { waitUntil: ctx?.waitUntil?.bind(ctx) });
 
     if (requestUrl.pathname.startsWith("/api/sync-v2/")) {
       return handleProfileSync(request, env, verifySyncProfileAuth);

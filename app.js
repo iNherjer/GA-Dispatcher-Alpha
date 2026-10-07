@@ -6888,22 +6888,20 @@ const AI_TEXT_MODEL_PROFILES = {
     gemini: {
         auto: [
             ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash'],
-            ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 'lite']
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash'],
+            ['gemini-3.5-flash-lite', 'Gemini 3.5 Flash Lite', 'lite']
         ],
         economy: [
-            ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 'lite'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+            ['gemini-3.5-flash-lite', 'Gemini 3.5 Flash Lite', 'lite'],
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash']
         ],
         quality: [
             ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash']
         ],
         high_quality: [
             ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash'],
-            ['gemini-2.5-pro', 'Gemini 2.5 Pro', 'flash'],
-            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash']
         ]
     },
     openai: {
@@ -7085,15 +7083,14 @@ function getAiTextModelCandidatesForPrompt(provider = getSelectedAiProvider(), p
     if (normalizedProvider === 'gemini' && normalizedProfile === 'high_quality' && /^planner-v4/.test(prompt)) {
         return [
             ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash'],
-            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
-            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash']
         ];
     }
     if (normalizedProvider === 'gemini' && /^planner-v4/.test(prompt)) {
         const candidates = getAiTextModelCandidates(normalizedProvider, normalizedProfile)
             .filter(([model]) => !/flash-lite/i.test(String(model || '')));
         if (candidates.length) return candidates;
-        return [['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']];
+        return [['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash']];
     }
     return getAiTextModelCandidates(normalizedProvider, normalizedProfile);
 }
@@ -8963,7 +8960,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
-        'sarHeli', 'sarHeliProgress', 'bush',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'environmentContext', 'airportInfoContext', 'airportInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
         'targetScene', 'sceneIntent', 'missionTruth', 'targetGeoContext',
@@ -9605,6 +9602,7 @@ async function restoreMissionState(state, options = {}) {
 
     if (document.getElementById("wikiDepDescText")) document.getElementById("wikiDepDescText").innerText = state.wikiDepDescText || "";
     if (document.getElementById("wikiDestDescText")) document.getElementById("wikiDestDescText").innerText = state.wikiDestDescText || "";
+    window.MissionAirportInformationBrowser?.render(state.currentMissionData || currentMissionData);
 
     if (document.getElementById("wikiDepFreqText")) document.getElementById("wikiDepFreqText").innerHTML = state.wikiDepFreqText || "";
     if (document.getElementById("wikiDestFreqText")) document.getElementById("wikiDestFreqText").innerHTML = state.wikiDestFreqText || "";
@@ -15620,6 +15618,7 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
     const textElement = document.getElementById(elementId);
     const commitAllowed = () => _dispatchUiCommitAllowed(options);
     if (!commitAllowed()) return;
+    if (elementId === 'wikiDestDescText' && window.MissionAirportInformationBrowser?.render(window.currentMissionData || currentMissionData, {lat, lon})) return;
     if (imgContainer) imgContainer.style.display = 'none';
     if (!textElement) return;
     const applyPoiFallback = () => {
@@ -27104,6 +27103,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify(snapshot));
     } catch (_) {}
     saveMissionState();
+    window.MissionAirportInformationBrowser?.render(currentMissionData);
     updateMissionAcceptanceUi();
     if (typeof window.refreshMissionRuntimeUi === 'function') window.refreshMissionRuntimeUi();
     if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
@@ -27654,6 +27654,17 @@ async function _fetchOpenAiChatCompletionText(apiKey, model, prompt, { jsonMode 
     }
 }
 
+function geminiQuotaDetails(body) {
+    const details = Array.isArray(body?.error?.details) ? body.error.details : [];
+    const violations = details.flatMap(detail => Array.isArray(detail?.violations) ? detail.violations : []);
+    const daily = violations.filter(v => String(v.quotaId || '').toLowerCase().includes('perday'));
+    const minute = violations.some(v => String(v.quotaId || '').toLowerCase().includes('perminute'));
+    return {
+        quotaPeriod: daily.length ? 'day' : minute ? 'minute' : 'unknown',
+        quotaKind: daily.some(v => String(v.quotaId || '').toLowerCase().includes('token')) ? 'tokens' : daily.length ? 'requests' : 'unknown'
+    };
+}
+
 async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', promptVersion = 'planner-v2', timeoutMs = 14000 } = {}) {
     const selectedProvider = normalizeAiProvider(provider || getSelectedAiProvider());
     const explicitKey = String(apiKey || '').trim();
@@ -27727,42 +27738,90 @@ async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', pro
         return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: lastError || 'planner_failed', attempts };
     }
     for (const [model, source, usageKey] of models) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(selectedKey)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                signal: controller.signal
-            });
-            if (!res.ok) {
-                lastError = `http_${res.status}_${model}`;
-                attempts.push({ model, source, status: `http_${res.status}`, error: lastError });
-                continue;
+        // One bounded retry for transient server overload; never repeat quota/auth/model failures.
+        for (let retry = 0; retry < 2; retry++) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(selectedKey)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+                if (!res.ok) {
+                    lastError = `http_${res.status}_${model}`;
+                    const body = await res.json().catch(() => null);
+                    const apiStatus = String(body?.error?.status || '').slice(0, 80);
+                    attempts.push({ model, source, status: `http_${res.status}`, apiStatus, ...(res.status === 429 ? geminiQuotaDetails(body) : {}), error: lastError });
+                    if ([502, 503, 504].includes(res.status) && retry === 0) {
+                        clearTimeout(timeoutId);
+                        await new Promise(resolve => setTimeout(resolve, 750));
+                        continue;
+                    }
+                    if ([401, 403].includes(res.status)) return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: lastError, attempts };
+                    break;
+                }
+                const data = await res.json();
+                const text = (data?.candidates?.[0]?.content?.parts || []).filter(part => !part.thought).map(part => part.text || '').join('');
+                const parsedResult = _missionParseJsonTextDetailed(text);
+                if (parsedResult?.parsed === null || parsedResult?.parsed === undefined) {
+                    lastError = `json_parse_${model}_${parsedResult?.mode || 'failed'}:${parsedResult?.error || 'unknown'}`;
+                    attempts.push({ model, source, status: 'json_parse_failed', error: lastError });
+                    break;
+                }
+                incrementApiUsage(usageKey);
+                attempts.push({ model, source, status: 'ok', error: '' });
+                return { parsed: parsedResult.parsed, source, provider: selectedProvider, model, promptVersion, parseMode: parsedResult.mode || 'direct', attempts };
+            } catch (err) {
+                lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
+                attempts.push({ model, source, status: err?.name === 'AbortError' ? 'timeout' : 'error', error: lastError });
+                break;
+            } finally {
+                clearTimeout(timeoutId);
             }
-            const data = await res.json();
-            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-            const parsedResult = _missionParseJsonTextDetailed(text);
-            if (parsedResult?.parsed === null || parsedResult?.parsed === undefined) {
-                lastError = `json_parse_${model}_${parsedResult?.mode || 'failed'}:${parsedResult?.error || 'unknown'}`;
-                attempts.push({ model, source, status: 'json_parse_failed', error: lastError });
-                continue;
-            }
-            incrementApiUsage(usageKey);
-            attempts.push({ model, source, status: 'ok', error: '' });
-            return { parsed: parsedResult.parsed, source, provider: selectedProvider, model, promptVersion, parseMode: parsedResult.mode || 'direct', attempts };
-        } catch (err) {
-            lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
-            attempts.push({ model, source, status: err?.name === 'AbortError' ? 'timeout' : 'error', error: lastError });
-        } finally {
-            clearTimeout(timeoutId);
         }
     }
     return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: lastError || 'planner_failed', attempts };
 }
 window.fetchAiJsonWithFallback = fetchAiJsonWithFallback;
+
+function formatAiJsonFailure(result, label = 'Der Auftrag') {
+    const attempts = result?.attempts || [];
+    const has = status => attempts.some(a => a.status === 'http_' + status);
+    let reason = 'Die KI hat keine verwertbare Antwort geliefert. Bitte erneut versuchen.';
+    if (result?.error === 'missing_api_key') reason = 'Der API-Key fehlt. Bitte die KI-Einstellungen prüfen.';
+    else if (attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'day')) {
+        const tokens = attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'day' && a.quotaKind === 'tokens');
+        reason = (tokens ? 'Dein Tokenlimit für heute ist erreicht.' : 'Dein tägliches Limit für KI-Anfragen ist erreicht.')
+            + ' Bitte versuche es morgen erneut oder wechsle auf einen bezahlten API-Plan beim KI-Anbieter.';
+    }
+    else if (attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'minute')) reason = 'Du hast das kurzfristige Anfrage- oder Tokenlimit erreicht. Bitte warte kurz und versuche es erneut.';
+    else if (has(429)) reason = 'Das API-Anfrage- oder Tokenlimit wurde erreicht. Bitte prüfe deine Quote beim KI-Anbieter. Bei ausgeschöpfter Tagesquote versuche es morgen erneut oder wechsle auf einen bezahlten API-Plan.';
+    else if (has(401) || has(403)) reason = 'Der API-Zugang wurde abgewiesen. Bitte API-Key und Berechtigungen prüfen.';
+    else if ([502, 503, 504].some(has)) reason = 'Der KI-Dienst ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.';
+    else if (has(404)) reason = 'Die gewählten KI-Modelle sind für diesen API-Zugang nicht verfügbar (HTTP 404). Bitte die KI-Einstellungen prüfen.';
+    else if (attempts.some(a => a.status === 'timeout')) reason = 'Die KI-Anfrage hat das Zeitlimit überschritten. Bitte erneut versuchen.';
+    const codes = [...new Set(attempts.map(a => a.status).filter(s => /^http_\d+$/.test(s)))].map(s => s.replace('http_', 'HTTP '));
+    return label + ' konnte nicht erstellt werden. ' + reason + (codes.length ? ' [' + codes.join(', ') + ']' : '');
+}
+window.formatAiJsonFailure = formatAiJsonFailure;
+
+function createAiJsonFailure(result, label = 'Der Auftrag') {
+    const error = new Error(formatAiJsonFailure(result, label));
+    error.code = (result?.attempts || []).some(a => a.status === 'http_429') ? 'AI_QUOTA_LIMIT' : 'AI_GENERATION_FAILED';
+    return error;
+}
+window.createAiJsonFailure = createAiJsonFailure;
+
+function showDispatchQuotaFailure(error) {
+    if (error?.code !== 'AI_QUOTA_LIMIT') return false;
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = error.message;
+    try { alert(error.message); } catch (_) {}
+    return true;
+}
 
 async function fetchGeminiJsonWithFallback(prompt, apiKey, options = {}) {
     return fetchAiJsonWithFallback(prompt, { ...options, apiKey });
@@ -31236,7 +31295,9 @@ const BUSH_MISSION_VARIETY_COPY = {
         writerExpectations: [
             'Erzaehle Supply als praktische Bush-Logistik, nicht als Notfall und nicht als Passagierauftrag.',
             'Fracht, Empfaenger und Folgeablauf muessen aus derselben Kandidatenrichtung kommen.',
-            'Die Mission endet am Zielstrip mit Abladen oder Uebergabe.'
+            'Die Mission endet am Zielstrip mit bestätigtem Entladen der Pflichtfracht und Übergabe.',
+            'Erkläre eine konkrete Vorgeschichte mit Personen und einer kleinen Pointe; die Fracht ist Anlass der Erzählung, keine technische Aufzählung.',
+            'Empfänger bleiben am Boden. Ein späterer Rückfracht-Auftrag ist eine separate Möglichkeit, kein Pflicht-Rückflug.'
         ]
     },
     bush_charter_strip: {
@@ -31244,7 +31305,7 @@ const BUSH_MISSION_VARIETY_COPY = {
         recipe: (targetName, homeName) => `Passagier und kleines Gepaeck von ${homeName} nach ${targetName} bringen, am Zielstrip absetzen und dort abschliessen.`,
         coreQuestions: (targetName) => [
             `Wer fliegt heute nach ${targetName} und warum gerade diese Person?`,
-            'Was beginnt fuer den Gast nach der Landung vor Ort?',
+            'Was moechte dieser Mensch konkret erreichen, und welche persoenliche Vorgeschichte oder Beziehung macht ihm das wichtig?',
             `Warum ist ${targetName} der passende Zugangspunkt statt nur irgendein Flugplatz?`,
             'Welche Ausruestung, Tasche oder Unterlage macht den Auftrag sichtbar?',
             'Welcher praktische Ablauf haengt an der Ankunft, ohne die Story kuenstlich hektisch zu machen?'
@@ -31263,7 +31324,7 @@ const BUSH_MISSION_VARIETY_COPY = {
             'Was nimmt der Gast mit: Kamera, Tagesrucksack, Angelrohr, Skizzenrolle oder anderes leichtes Material?',
             'Was beginnt nach der Landung am Boden: Hike, Lodge-Aufenthalt, Fotozeit, Campbesuch, Flussabschnitt oder stiller Beobachtungspunkt?',
             'Warum macht die Bush-Landung selbst den Auftrag besonders?',
-            'Wie bleibt der Ton ruhig, glaubwuerdig und nicht wie ein formaler Arbeitsauftrag?'
+            'Welches konkrete Erlebnis, Bild, Wiedersehen oder Vorhaben wuenscht sich der Gast, und warum bedeutet es ihm persoenlich etwas?'
         ],
         writerExpectations: [
             'Nicht jedes Adventure-Profil in Arbeit, Forschung oder Zeitdruck verwandeln.',
@@ -31312,6 +31373,7 @@ function buildBushMissionVarietyBrief(context = {}, draft = {}, weatherBundle = 
     if (context.followUpContext?.missionVarietyBrief && typeof context.followUpContext.missionVarietyBrief === 'object') {
         return {
             ...context.followUpContext.missionVarietyBrief,
+            ...(profileId === 'bush_supply_strip' ? { regionalContext: window.MissionBushNarrativeCore?.supplyRegion(context.dest || {}) || {} } : {}),
             weatherNote: context.followUpContext.missionVarietyBrief.weatherNote || ''
         };
     }
@@ -31353,6 +31415,7 @@ function buildBushMissionVarietyBrief(context = {}, draft = {}, weatherBundle = 
             'Welcher naechste Schritt folgt nach dem Flug?'
         ];
     return {
+        ...(profileId === 'bush_supply_strip' ? { regionalContext: window.MissionBushNarrativeCore?.supplyRegion(context.dest || {}) || {}, supplyNarrative: window.MissionBushNarrativeCore?.supplyInstructions || '' } : {}),
         purpose: copy.purpose || 'Offener Kreativrahmen fuer ein Bush-Profil. Keine Vorlage kopieren; aus Profil, Ziel, Wetter und lokalen Fakten eine eigenstaendige Mikrogeschichte bauen.',
         recipe: (typeof copy.recipe === 'function')
             ? copy.recipe(targetName, homeName)
@@ -32406,6 +32469,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     }
     if (profileId === 'bush_supply_strip') {
         routeRules.push('Bush-Supply: Fracht wird am Zielstrip abgegeben; keine Pickup- oder Rueckholstory daraus machen.');
+        routeRules.push(window.MissionBushNarrativeCore?.supplyInstructions || '');
         realismTargets.unshift('Supply braucht Empfaenger, konkrete Ladung, Zweck am Ziel und Folgeablauf nach dem Abladen.');
     } else if (profileId === 'bush_charter_strip') {
         routeRules.push('Bush-Charter: Passagier wird am Zielstrip abgesetzt; der Abschluss liegt am Ziel, nicht daheim.');
@@ -32443,6 +32507,8 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             cargoOnlyPolicy,
             airportDetails: _missionPipelineV3AirportDetails(context),
             weather: weatherBundle,
+            ...(context.environmentContext ? { environmentContext: context.environmentContext } : {}),
+        ...(context.airportInfoContext ? { airportInfoContext: context.airportInfoContext } : {}),
             fireHazard: fire || null,
             targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
             missionTruth: compactMissionTruthForPrompt(truth),
@@ -32506,6 +32572,8 @@ function _missionPipelineV4CompactPlannerBundleForOpenAi(bundle = {}) {
         cargoOnlyPolicy: src.cargoOnlyPolicy || null,
         airportDetails: src.airportDetails || null,
         weather: compactWeather,
+        ...(src.environmentContext ? { environmentContext: src.environmentContext } : {}),
+        ...(src.airportInfoContext ? { airportInfoContext: src.airportInfoContext } : {}),
         fireHazard: src.fireHazard || null,
         targetGeoContext: src.targetGeoContext || null,
         missionTruth: src.missionTruth || null,
@@ -32540,6 +32608,8 @@ function _missionPipelineV4CompactDraftForOpenAi(draft = {}) {
 }
 
 function _missionPipelineV4Prompt(draft = {}, contextBundle = {}, options = {}) {
+    const environmentPrompt = (window.MissionEnvironmentCore?.prompt(contextBundle.environmentContext) || '') + (window.MissionAirportInformationCore?.plannerPrompt(contextBundle.airportInfoContext) || '');
+    const bushPersonalityPrompt = draft.missionType === 'bush' ? (window.MissionBushNarrativeCore?.personalityInstructions || '') : '';
     if (options?.compact) {
         return `<INSTRUKTIONEN>
 Du bist Mission Planner V4 fuer einen GA-Dispatcher. Erzeuge ein knappes, robustes JSON-Formular fuer den Writer.
@@ -32562,7 +32632,7 @@ ${JSON.stringify(draft)}
 </DRAFT>
 
 <CONTEXT_BUNDLE>
-${JSON.stringify(contextBundle)}
+${JSON.stringify({ ...contextBundle, environmentContext: undefined })}
 </CONTEXT_BUNDLE>
 
 <OUTPUT_JSON>
@@ -32608,7 +32678,7 @@ ${JSON.stringify(contextBundle)}
     "confidence": 0.0
   }
 }
-</OUTPUT_JSON>`;
+</OUTPUT_JSON>\n${environmentPrompt}\n${bushPersonalityPrompt}`;
     }
     return `<INSTRUKTIONEN>
 Du bist Mission Planner V4 fuer einen GA-Dispatcher im Flugsimulator.
@@ -32647,7 +32717,7 @@ ${JSON.stringify(draft)}
 </DRAFT>
 
 <CONTEXT_BUNDLE>
-${JSON.stringify(contextBundle)}
+${JSON.stringify({ ...contextBundle, environmentContext: undefined })}
 </CONTEXT_BUNDLE>
 
 <OUTPUT_JSON>
@@ -32693,7 +32763,7 @@ ${JSON.stringify(contextBundle)}
     "confidence": 0.0
   }
 }
-</OUTPUT_JSON>`;
+</OUTPUT_JSON>\n${environmentPrompt}\n${bushPersonalityPrompt}`;
 }
 
 async function fetchMissionPlannerV4(context = {}) {
@@ -33076,6 +33146,8 @@ function buildMissionContractV4({
         ...(taskDomain === 'private_outing' && plannerContext.dest?.privateRegionContext
             ? { privateRegionContext: plannerContext.dest.privateRegionContext } : {}),
         weather: _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null),
+        ...(plannerContext.environmentContext ? { environmentContext: plannerContext.environmentContext } : {}),
+        ...(plannerContext.airportInfoContext ? { airportInfoContext: plannerContext.airportInfoContext } : {}),
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
         missionPlan: plan,
         storyFrame,
@@ -33114,7 +33186,7 @@ Regeln:
 1. Nutze nur Fakten aus <CONTRACT>.
 2. Erfinde keine freien Ortsfakten ausserhalb der dort enthaltenen lokalen Hinweise.
 3. taskDomain, roleProfile, missionType, targetLabel, mustMention und mustAvoid sind bindend.
-4. Die Story muss denselben Sachverhalt beschreiben wie primaryObjective, localFacts, weatherHooks und sceneIntent.
+${contract.environmentContext ? '4. Die Story bewahrt primaryObjective und sceneIntent. localFacts sind belegte Kontextangebote, weatherHooks sind optionale Inspiration und keine Pflichtliste.' : '4. Die Story muss denselben Sachverhalt beschreiben wie primaryObjective, localFacts, weatherHooks und sceneIntent.'}
 5. sceneIntent beschreibt sichtbare, semantische Dinge am Ziel oder begruendet, warum keine Zielszene entstehen soll. Keine Asset-Namen.
 6. Wenn sceneKind="none", dann sceneIntent sehr sparsam halten: keine Zielszene, visibleIdeas=[], densityHint="none".
 7. Bei POI bleibt das Zielgebiet ein Luftarbeits-, Sicht- oder Erkundungsziel mit Abschluss am Start-/Heimatplatz, ausser CONTRACT.sarHeli.enabled ist true; dann muss der SAR-Heli-Ablauf mit Fundstelle, Landung/Hover-Aufnahme und medizinischem Handoff beschrieben werden. Diese Regel nicht als eigenen Briefing-Satz ausgeben.
@@ -33144,7 +33216,7 @@ Regeln:
 19c. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
 19d. bush + bush_pickup_strip: OUTPUT.story ist immer ein Briefing fuer den Piloten aus Dispatcher-/Auftragsperspektive. Keine Ich-Form aus Sicht des Pickup-Gasts, keine Formulierungen wie "ich war", "bring mich", "ich sitze an Bord" oder "ich muss zurueck". Die Ich-Perspektive gehoert nur in passenger.greetingText und die Pickup-Voice-Cues.
 19e. bush + bush_pickup_strip / taskDomain bush_pickup_return: Wenn CONTRACT.varietyHints.passengerNameCandidates vorhanden ist, setze passenger.name auf genau einen passenden Namen aus dieser Liste und halte gender konsistent. Die Liste ist nur eine Rotationshilfe gegen wiederkehrende Fuellnamen; Rolle, Auftrag und Story muessen weiter aus StoryFrame, pickupCreativeBrief, Rollenfamilie und Zielkontext entstehen.
-19f. bush + bush_pickup_strip / taskDomain bush_pickup_return: Das Briefing braucht einen kurzen, natuerlichen Wetter-/Pistenanker aus CONTRACT.weather und dem Zielstrip: Wind/Sicht/Temperatur knapp einbauen, dazu Zielpiste, Bahnzustand oder Randbereich im Anflug nennen. Nicht als Checkliste schreiben.
+19f. bush + bush_pickup_strip / taskDomain bush_pickup_return: Wetter und Pisteninformationen dürfen den Auftrag ergänzen, wenn sie belegt und für diese Geschichte interessant sind. Kein Pflicht-Wetterabsatz und kein Aufzählen von Wind/Sicht/Temperatur. Der persönliche Abholanlass trägt das Briefing; ein Wetterbezug ist optional. Einen Bahnzustand nicht aus dem Wetter ableiten.
 19g. Follow-up-Missionen: Wenn CONTRACT.followUpContext vorhanden ist, schreibe die Mission als natürliche Fortsetzung des vorherigen Auftrags. Nutze sourceMission, storyFrame, lockedPassenger, pickupStory oder missionVarietyBrief als Faktenanker. Das Briefing darf nicht nach Systemanweisung, Debugtext oder Formularfeldern klingen; es soll wie ein neuer Dispatcher-Auftrag mit vertrautem Teamkontext wirken.
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
 19i. sightseeing_tour + POI: Schreibe wie eine professionelle, warme Sightseeing-Notiz: ein konkreter Gast freut sich auf genau dieses Ziel, der Zielbereich ist der Reisegrund, und der Flug liefert den besonderen Blick aus der Luft. Wenn CONTRACT.knowledgeContext.status="accept", nutze title und 1-2 facts als belegten Anlass: Der Pax will dieses Ziel sehen, einordnen, fotografieren oder jemandem zeigen, weil daran etwas Besonderes hängt. Forme Fakten zu Begeisterung und Kontext, nicht zu einer Liste; keine Begriffe wie Wiki, Faktenbasis oder knowledgeContext im Briefing. Der POI bleibt ein Luft-Blickmoment mit Rückkehr zum Startplatz, nicht der Beginn einer Bodenaktivität. Halte den Ton ruhig, gastorientiert und etwas hochwertiger als einen privaten Spaßflug; Arbeitswörter wie Erfassung, Inspektion, Lagebild, Befund oder abgearbeitet passen hier nicht.
@@ -33167,7 +33239,7 @@ Regeln:
 </INSTRUKTIONEN>
 
 <CONTRACT>
-${JSON.stringify(contract)}
+${JSON.stringify({ ...contract, environmentContext: undefined })}
 </CONTRACT>
 
 <OUTPUT>
@@ -33264,6 +33336,7 @@ function _missionWriterV5Unique(values = [], maxItems = 6, maxLen = 180) {
 }
 
 function _missionWriterV5MissionFamily(contract = {}) {
+    if (contract?.profile?.id === 'bush_supply_strip') return 'bush_supply';
     const taskDomain = String(contract?.profile?.taskDomain || '').toLowerCase();
     const mode = normalizeMissionType(contract?.mode || contract?.route?.mode || '', !!contract?.target?.isPOI);
     const isApt = mode === 'apt' && !contract?.target?.isPOI;
@@ -33543,7 +33616,7 @@ function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
     const whyNow = _missionWriterV5FirstSpineValue([
         frame.whyNow,
         frame.stakes,
-        taskDomain === 'historian_guided_tour' ? '' : (Array.isArray(plan.weatherHooks) ? plan.weatherHooks[0] : '')
+        taskDomain === 'historian_guided_tour' || contract.environmentContext ? '' : (Array.isArray(plan.weatherHooks) ? plan.weatherHooks[0] : '')
     ], 220);
     const outcome = _missionWriterV5FirstSpineValue([
         frame.soughtOutcome,
@@ -33745,7 +33818,7 @@ function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
         ], 5, 220).join(' | ');
         spine.softFreedom = 'Erzähle genau diese eine Pickup-Richtung als kleine mündliche Bush-Geschichte. Du darfst glaubwürdige weiche Abenteuerfarbe ergänzen, aber Rolle, Tätigkeit, Gegenstände, Wartepunkt und Rückkehrgrund nicht mit anderen Kandidaten vermischen. Der Pilot wird direkt angesprochen; der Pickup-Gast spricht im Briefing nicht selbst.';
     }
-    if (taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility' && contract?.profile?.id !== 'bush_supply_strip') {
         const seed = _missionPipelineV4ClubUtilitySeed({
             targetLabel: targetName,
             cargoText: _missionPipelineV4CargoLabel(contract, context) || contract?.cargoText || '',
@@ -34103,6 +34176,10 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
 };
 
 function _missionWriterV5DomainRecipe(family = '', taskDomain = '') {
+    if (family === 'bush_supply') return {
+        styleRecipe: 'Herzlicher mündlicher Bush-Dispatch: konkrete Vorgeschichte der gelieferten Fracht, Arbeit am abgelegenen Ziel und Empfänger. Abenteuer und weiche Erlebnisse sind erlaubt; Region und Anlagen stammen aus den Daten. Wetter ist optional. Keine Vereinsflug-Zutaten als Ersatz für den geplanten Versorgungsauftrag.',
+        qualityQuestions: ['Wofür wird genau diese Fracht draußen gebraucht?', 'Passen Vorgeschichte, Region, Empfänger und Übergabe zusammen?', 'Bleiben Ladung, 0 PAX und Entladen am Strip unverändert?']
+    };
     const key = String(family || taskDomain || '').toLowerCase();
     return MISSION_WRITER_V5_DOMAIN_RECIPES[key]
         || MISSION_WRITER_V5_DOMAIN_RECIPES[String(taskDomain || '').toLowerCase()]
@@ -34272,6 +34349,14 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'das Ziel', 120);
     const place = parts.place || _missionWriterV5PlaceLabel(contract);
     const passenger = context?.passenger || contract?.passenger || {};
+    if (family === 'bush_supply') return {
+        cargo: contract.cargoText || contract.cargo || contract.loadout?.cargoText || '',
+        passengerCount: 0,
+        regionalContext: contract.missionVarietyBrief?.regionalContext || {},
+        storyInspiration: { premise: spine.premise, incident: spine.concreteAngle, reason: spine.whyNow, receiverAndHandoff: spine.outcome },
+        completion: 'Vorgegebene Fracht zum Zielstrip bringen und dort entladen.',
+        freedom: window.MissionBushNarrativeCore?.supplyInstructions || 'Regionale Versorgungsgeschichte aus dem bestehenden Auftrag entwickeln.'
+    };
     if (family === 'apt_private_outing') {
         const storyInspiration = _missionWriterV5BuildPrivateOutingStoryInspiration(contract, context, { place });
         return {
@@ -34636,7 +34721,7 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
             seeds.passengerCue
         ], 6, 220);
     }
-    if (String(profile.taskDomain || '').toLowerCase() === 'club_utility') {
+    if (String(profile.taskDomain || '').toLowerCase() === 'club_utility' && contract?.profile?.id !== 'bush_supply_strip') {
         const seed = _missionPipelineV4ClubUtilitySeed({
             targetLabel: _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || '', 120),
             cargoText: _missionPipelineV4CargoLabel(contract, context) || contract?.cargoText || '',
@@ -34746,7 +34831,7 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const privateOutingDirectPromptRule = promptTaskDomain === 'private_outing'
         ? '\n14. PRIVATE-OUTING: Nutze MISSION_BRIEF_FORM.domainDetails.storyInspiration als Rohmaterial fuer ein direktes, warmes Briefing aus Dispatcher- oder Vereinskollegen-Rolle. Sprich Pilot und Mitflieger natuerlich mit du, ihr oder euch an. Schreibe nicht ueber den Missionstyp, sondern sag konkret, was die beiden vorhaben: wohin sie rollen, was der Hinflug zum Tag beiträgt, was nach dem Parken als Erstes passiert, und warum der Anlass am Ziel den Flug wert macht. MISSION_BRIEF_FORM.domainDetails.storyInspiration.mainStory ist der rote Faden, aber kein Text zum Abschreiben. Wenn mainStory, Fakten oder Anlass nur schwach/generisch wirken, nutze MISSION_BRIEF_FORM.domainDetails.storyInspiration.creativeWildcard als Hauptgeschichte: mach daraus eine charmante private Wildcard wie Familienkaffee, Thermengeruecht, Stadtbummel, Schuhsuche, Spezialitaetenladen, Kuchenlegende, Vereins-Empfehlung oder eine andere weiche Alltagsidee. Aus Café-Stopp, Burger, Picknick, Eis, Frühstück, Abendessen, Fotorunde, Badesee, Museum, Markt, Familienbesuch, Paartag, Zielort als Tapetenwechsel, Strecke als kleiner Reiseflug oder einem anderen plausiblen Privatgrund soll eine zusammenhaengende kleine Geschichte entstehen. Bei Familienbesuch zaehlt nur ein konkreter kleiner Anlass als Hauptgeschichte: Kuchen, Fotoalben, Familienkaffee, gedeckter Tisch, kleine Überraschung oder lange verschobene Runde; Abholung und Route duerfen nur hinfuehren. Du darfst weiche private Alltagsdetails dazuerfinden und Nebeninfos weglassen, wenn der Text dadurch menschlicher klingt; auch eine unbenannte Gastgeberin, Familienabholung, ein alter Freund oder ein Cousin am Ziel ist als weiche Privatrolle erlaubt, wenn sie den Anlass traegt. Wenn Wetter, Licht, Route, Entfernung, Taeler, Alb, Schwarzwald, Sicht oder Temperatur den Flug selbst reizvoll machen, baue sie als erlebte Stimmung in denselben Ablauf ein: nicht als Zusatzinfo, sondern als Teil davon, wie der Flug und der Anlass sich anfühlen. Ziele auf 4-5 natuerliche Saetze, wenn dadurch eine rundere kleine Geschichte entsteht; der Zusatzsatz soll Handlung, Stimmung, Route oder Zielmoment weitertragen und nicht wie eine Checklisten-Info klingen. Bleibe bei einem privaten Flug von Start zu Ziel; erfinde keine harten Ortsfakten, echten Café-Namen, Veranstaltungen, Termine, echten Personennamen oder Wetterwerte, und drehe die Mission nicht in Sightseeing, Charter, Fracht oder Arbeit.'
         : '';
-    const clubUtilityPromptRule = promptTaskDomain === 'club_utility'
+    const clubUtilityPromptRule = promptTaskDomain === 'club_utility' && contract?.profile?.id !== 'bush_supply_strip'
         ? '\n14. CLUB-UTILITY: Denk dir: "Hier im JSON sind die Daten zum Flug, schreib dem Piloten daraus ein freundliches, kreatives, kollegiales Briefing aus deiner Rolle als Dispatcher." Es soll wie gesprochen klingen, nicht wie ein Formular. Baue eine kleine Hintergrundgeschichte: Was ist am Ziel gerade los, warum können wir unkompliziert helfen, wer oder was kommt mit, und was passiert nach dem Abstellen? Du darfst direkt ansprechen und Du-/Wir-Form nutzen. Die Ladung ist Wahrheit, aber keine sichtbare Inventarliste; fasse sie frei zu einem natürlichen Motiv zusammen und erwähne nur das, was der Geschichte hilft. Route, Wetter, Tagesstimmung oder Pax dürfen die Geschichte tragen, wenn der eigentliche Auftrag klein ist. Keine Semikolons, keine abgehackten Einzelsätze, keine kopierten StoryCore- oder domainDetails-Sätze. Vermeide Baukastenanfänge wie "Heute geht es mit ...", "Nimm [Name] bitte mit", "Die [Zahl] NM führen dich ...", "Am Ziel geht es kurz ...", "Keine anonyme Fracht", "nicht nur eine beliebige Box", "kennt den Ablauf am Boden", "die Sache direkt mit", "müssen heute", "nicht um eine große Logistiknummer", "bergig und waldig genug" oder "saubere VFR-Planung".'
         : '';
     const bushPickupPromptRule = promptTaskDomain === 'bush_pickup_return'
@@ -34760,7 +34845,7 @@ Arbeitsweise:
 1. Nutze MISSION_BRIEF_FORM als ausgefuelltes Missionsformular. Es enthaelt Identitaet, Route, Personen, Story-Kern, Missionsdetails, Fakten, Stil und Qualitaetskompass.
 2. Schreibe die Story als 4-6 zusammenhaengende deutsche Saetze, bei sehr einfachen Missionen reichen 3.
 3. Die Story soll wie eine kleine Erzaehlung klingen: wer fliegt, warum genau heute, warum dieser Flug Sinn macht, was nach Landung/Rueckkehr passiert.
-4. Route, Entfernung, Wetter und Zielplatz sind erwuenschte Realitaetsanker, aber sie duerfen den Text nicht kippen, wenn sie fehlen oder nicht elegant passen.
+4. ${contract.environmentContext ? 'Route und Ziel geben Orientierung. Wetter ist freiwilliger Erzählkontext, kein erwünschter Pflichtanker und kein eigener Schlusssatz. Erzähle zuerst den Anlass und die Menschen; lasse Wetter ganz weg, wenn es für diese Geschichte nichts beiträgt. Ein weicher Wetterhinweis darf beiläufig passen, ohne Messwerte aufzuzählen.' : 'Route, Entfernung, Wetter und Zielplatz sind erwuenschte Realitaetsanker, aber sie duerfen den Text nicht kippen, wenn sie fehlen oder nicht elegant passen.'}
 5. storyCore ist der rote Faden: premise, concreteReason, whyToday, flightValue, targetFocus und successOutcome sollen als Geschichte spuerbar werden, wenn sie vorhanden sind.
 6. domainDetails sagt dir, was diese Missionsfamilie besonders macht; formuliere daraus frei, nicht als sichtbares Schema.
 7. facts.hardFacts sind die belegten Fakten. Harte Ortsfakten, Landmarken, Baujahre, historische Details oder echte Sehenswuerdigkeiten nur daraus oder aus den Legacy-Feldern targetFacts/storyIngredients verwenden.
@@ -35244,6 +35329,7 @@ function _missionPipelineV4BushPickupStoryHasConditionCue(text = '') {
 
 function _missionPipelineV4EnsureBushPickupConditions(story = '', contract = {}) {
     const base = String(story || '').replace(/\s+/g, ' ').trim();
+    if (contract.environmentContext?.schema === 'mission-environment.v1') return base;
     const condition = _missionPipelineV4BushPickupConditionSentence(contract);
     if (!base) return condition;
     if (_missionPipelineV4BushPickupStoryHasConditionCue(base)) return base;
@@ -39846,15 +39932,16 @@ async function fetchMissionWriterV4(context = {}) {
     if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV4Prompt(contract),
+        buildMissionWriterV4Prompt(contract) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext) || ''),
         apiKey,
         { promptVersion: 'mission-writer-v4', timeoutMs: 16000 }
     );
     if (!result?.parsed) return null;
-    return sanitizeMissionWriterV4Payload(result.parsed, {
+    const mission = sanitizeMissionWriterV4Payload(result.parsed, {
         ...context,
         source: `${result.source || 'Gemini'} + V4 Writer`
     });
+    return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext) || mission;
 }
 window.fetchMissionWriterV4 = fetchMissionWriterV4;
 
@@ -39867,20 +39954,22 @@ async function fetchMissionWriterV5(context = {}) {
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV5Prompt(contract, context),
+        buildMissionWriterV5Prompt(contract, context) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext) || ''),
         apiKey,
         { promptVersion: 'mission-writer-v5', timeoutMs: selectedProvider === 'openai' ? 26000 : 16000 }
     );
     if (!result?.parsed) {
-        return sanitizeMissionWriterV5Payload({}, {
+        const mission = sanitizeMissionWriterV5Payload({}, {
             ...context,
             source: 'Local Fallback + V5 Writer'
         });
+        return window.MissionAirportInformationCore?.attach(mission, {}, contract.airportInfoContext) || mission;
     }
-    return sanitizeMissionWriterV5Payload(result.parsed, {
+    const mission = sanitizeMissionWriterV5Payload(result.parsed, {
         ...context,
         source: `${result.source || 'Gemini'} + V5 Writer`
     });
+    return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext) || mission;
 }
 window.fetchMissionWriterV5 = fetchMissionWriterV5;
 
@@ -40678,7 +40767,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const temporalContextLine = _missionPromptTemporalContext(promptNow, promptStartAirport);
     const temporalRule = `9b) ZEIT-/SAISON-KONTEXT: Nutze Datum, Tageszeit und Wetter aktiv als kreativen Realitaetsanker fuer Story, Stimmung, Auftrag und Beobachtungen. Wenn Jahreszeit, Licht, Temperatur, Wind oder Sicht eine naheliegende Situation erzaehlerisch stuetzen, darfst du das konkret aufgreifen. Bevorzuge stimmige, orts- und wetterpassende Bilder statt allgemeiner Floskeln.`;
 
-    const prompt = `<INSTRUKTIONEN>
+    const prompt = `${window.MissionEnvironmentCore?.prompt(poiTargetMeta?.environmentContext) || ''}\n<INSTRUKTIONEN>
 Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub, kleinen Charterunternehmen oder Bush-Operator.
 Antwortsprache: Deutsch.
 Ton: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik.
@@ -40807,7 +40896,8 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
     }
   }
 }
-</OUTPUT>`;
+</OUTPUT>
+${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionAirportInformationCore?.writerPrompt(poiTargetMeta?.airportInfoContext) || '')) : ''}`;
 
     const buildGeminiMissionResult = (parsed, sourceLabel) => {
         let passenger = sanitizePassengerProfile(parsed.passenger, parsed.story);
@@ -40888,7 +40978,10 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
         });
         if (result?.parsed) {
             const parsed = sanitizeMissionPayloadText(enforceMedicalTransferPayload(enforceCharterPayload(enforceTrainingInstructorPayload(result.parsed))));
-            return buildGeminiMissionResult(parsed, result.source || 'KI Dispatcher');
+            const mission = buildGeminiMissionResult(parsed, result.source || 'KI Dispatcher');
+            return isBushMission
+                ? (window.MissionAirportInformationCore?.attach(mission, result.parsed, poiTargetMeta?.airportInfoContext) || mission)
+                : mission;
         }
     } catch (e) { }
     return null;
@@ -43200,6 +43293,7 @@ async function generateMission(options = {}) {
     document.getElementById("mDestRwy").innerText = "Sucht Pisten-Infos..."; document.getElementById("mDestRwy").style.color = "#fff";
 
     if (document.getElementById("wikiDepDescText")) document.getElementById("wikiDepDescText").innerText = "Lade Start-Info...";
+    window.MissionAirportInformationBrowser?.clear();
     if (document.getElementById("wikiDestDescText")) document.getElementById("wikiDestDescText").innerText = "Lade Ziel-Info...";
     for (const elementId of ['wikiDepFreqText', 'wikiDestFreqText', 'metarContainerDep', 'metarContainerDest']) {
         const element = document.getElementById(elementId);
@@ -44018,7 +44112,20 @@ async function generateMission(options = {}) {
             console.warn('[APT Sightseeing] Wiki context lookup failed', err);
         }
     }
+    const [environmentContext, airportInfoContext] = await Promise.all([
+        requestedMissionType === 'bush' && aiModeEnabled && window.MissionEnvironmentBrowser
+            ? dispatchMeasure('bush_environment', () => window.MissionEnvironmentBrowser.load(start, dest)) : null,
+        requestedMissionType === 'bush' && aiModeEnabled && !isPOI && dispatchProfileId !== 'bush_recon_return' && airportDisplayIdent(dest) !== 'OHNE ICAO' && window.MissionAirportInformationBrowser
+            ? dispatchMeasure('bush_airport_information', () => window.MissionAirportInformationBrowser.load(dest, {
+                budgetMs: 3000,
+                terrain: poiTerrainEnvelope || null,
+                terrainLoader: typeof sampleTerrainEnvelope === 'function' ? (lat, lon) => sampleTerrainEnvelope(lat, lon, 1) : null
+            })) : null
+    ]);
+    _ensureDispatchAlive();
     const plannerContext = {
+        ...(environmentContext ? { environmentContext } : {}),
+        ...(airportInfoContext ? { airportInfoContext } : {}),
         start,
         dest,
         isPOI,
@@ -44423,6 +44530,8 @@ async function generateMission(options = {}) {
                         lon: Number(dest?.lon),
                         name: String(dest?.n || ''),
                         missionPlanV2,
+                        environmentContext,
+                        airportInfoContext,
                         sarHeli: sarHeliSpec,
                         startAirport: start,
                         destAirport: dest
@@ -45498,6 +45607,31 @@ async function generateMission(options = {}) {
         ? sanitizeBushMissionSpec(m?.bush || null)
         : null;
 
+    let bushNarrative = null, bushNarrativeDebug = null;
+    if (missionType === 'bush' && bushSpec && aiModeEnabled && window.MissionBushNarrativeBrowser) {
+        try {
+            const result = await dispatchMeasure('bush_narrative', () => window.MissionBushNarrativeBrowser.generate({
+                bush: bushSpec, passenger: m?.passenger, story: m?.s || m?.story || '',
+                start: { lat: Number(start.lat), lon: Number(start.lon) },
+                target: { lat: Number(dest.lat), lon: Number(dest.lon) },
+                country: dest.country || dest.isoCountry || dest.countryCode || '', region: dest.region || dest.isoRegion || '',
+                environmentContext, airportInfoContext,
+                cruiseKts: missionAircraftCapability.cruiseSpeedKts
+            }, {
+                tileKey: _poiTileKey,
+                tileFeatures: key => _poiFetchTileFeatures(key, { includeCore: false, allowLegacyFallback: false }),
+                storage: localStorage,
+                request: prompt => fetchAiJsonWithFallback(prompt, { promptVersion: 'bush-narrative-v1', timeoutMs: 20000 })
+            }));
+            _ensureDispatchAlive();
+            bushNarrative = result.plan;
+            bushNarrativeDebug = { status: result.status, anchorCount: result.anchorCount, tileStatus: result.tileStatus, source: result.source, error: result.error };
+        } catch (error) {
+            _ensureDispatchAlive();
+            bushNarrativeDebug = { status: 'narrative_unavailable', error: error.message || String(error) };
+            console.warn('[BUSH NARRATIVE] Additional stories unavailable.', error);
+        }
+    }
     const missionActsLikePoi = !!(isPOI || missionUsesPoiTaskRecipe({ missionType, bush: bushSpec }));
     const poiTaskDefaults = getPoiTaskPassengerDefaults({
         mission: { ...m, missionType, bush: bushSpec },
@@ -45541,6 +45675,9 @@ async function generateMission(options = {}) {
         } : (m?.followUpContinuation || null),
         followUpContext: plannerContext.followUpContext || m?.followUpContext || null,
         missionTemporalContext: plannerContext.missionTemporalContext || m?.missionTemporalContext || m?.followUpContinuation?.temporalContext || null,
+        ...(environmentContext ? { environmentContext } : {}),
+        ...(airportInfoContext ? { airportInfoContext } : {}),
+        ...(airportInfoContext ? { airportInformation: m?.airportInformation || window.MissionAirportInformationCore.fallback(airportInfoContext) } : {}),
         followUpProspect: m?.followUpProspect || null,
         selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
         start: currentStartICAO,
@@ -45598,6 +45735,7 @@ async function generateMission(options = {}) {
         sarHeli: sarHeliSpec || m?.sarHeli || null,
         sarHeliProgress: (sarHeliSpec || m?.sarHeli) ? missionSarHeliInitialProgress() : null,
         bush: bushSpec,
+        bushNarrative, bushNarrativeDebug,
         bushProgress: bushSpec ? buildInitialBushMissionProgress(bushSpec) : null,
         isPOI,
         poiPresentation: missionActsLikePoi,
@@ -45778,6 +45916,7 @@ async function generateMission(options = {}) {
         const saved = memoryApi?.remember(localStorage, currentMissionData);
         if (!saved) console.warn('[PRIVATE OUTING] History could not be saved; variety memory unavailable.');
     }
+    if (bushNarrative) window.MissionBushNarrativeCore.remember(localStorage, currentMissionData.missionId, bushNarrative);
     if (currentMissionData.destinationAirport?.source === 'hosted-openaip') {
         try {
             localStorage.setItem('ga_last_hosted_airport_v1', JSON.stringify(currentMissionData.destinationAirport));
@@ -46391,7 +46530,8 @@ async function generateMission(options = {}) {
         } else {
             console.error('[Dispatch] Fehler:', e);
             const indicator = document.getElementById('searchIndicator');
-            if (indicator) indicator.innerText = 'Fehler beim Dispatch. Bitte erneut versuchen.';
+            const quotaShown = showDispatchQuotaFailure(e);
+            if (indicator && !quotaShown) indicator.innerText = 'Fehler beim Dispatch. Bitte erneut versuchen.';
             setMissionGenerationProgress('error', { error: true });
             const btn = document.getElementById('generateBtn');
             resetBtn(btn);

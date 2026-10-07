@@ -46,7 +46,7 @@ for (const flightData of [{}, { bankDeg: -37, gForce: 1.7 }, { windKts: 23, wind
     _bushPickupNarrativeHint: () => '', _toneHint: () => context.toneHint,
     _paxWxMismatchDone: false, _briefingDestWeather: () => context.briefingWeather, flightData };
   vm.createContext(sandbox);
-  vm.runInContext([blockSource('function _weatherContext('), blockSource('function _consumeWeatherMismatchEasteregg('),
+  vm.runInContext([blockSource('function _precipitationObservation('), blockSource('function _weatherContext('), blockSource('function _consumeWeatherMismatchEasteregg('),
     blockSource('function _atTargetPrompt(')].join('\n'), sandbox);
   const actualAppPrompt = vm.runInContext('_atTargetPrompt(flightData)', sandbox);
   assert.equal(approachCore.buildApproachPrompt(context, flightData), actualAppPrompt);

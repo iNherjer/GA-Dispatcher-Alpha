@@ -29,6 +29,7 @@ function observeFlightVoice(context = {}, previous = {}, facts = {}) {
   const _paxSpeechCanceledByMissionEnd = () => facts.ending === true;
   const _baseContext = () => context.baseContext;
   const _toneHint = () => context.toneHint || '';
+  const _precipitationObservation = require('../mission-precipitation-core.js').observe;
   const _weatherContext = weatherCore.weatherContext;
   const _activeTaskDomain = () => context.taskDomain || '';
   const _missionHasPax = () => !!context.passenger;

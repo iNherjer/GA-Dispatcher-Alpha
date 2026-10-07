@@ -16,7 +16,7 @@ const evalTick = source.slice(evalStart, evalEnd);
 const originals = [
   '_trainingEvalBegin', '_toBoolStall', '_trainingEvalTick', '_trainingEvalSummary',
   '_trainingProcedureDebriefLine', '_poiTrainingPreZonePrompt', '_aptTrainingPrompt', '_trainingLandingPrepPrompt',
-  '_weatherContext', '_haversineNm', '_trainingPoiCenterFromRoute'
+  '_precipitationObservation', '_weatherContext', '_haversineNm', '_trainingPoiCenterFromRoute'
 ].map(fn).concat(appFn('_isPatternFocusItem')).join('\n\n');
 const output = `// Generated from original passenger-voice.js by tools/generate-training-flight-core.mjs. Do not edit.
 'use strict';

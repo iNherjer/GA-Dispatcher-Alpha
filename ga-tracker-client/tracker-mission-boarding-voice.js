@@ -2,6 +2,7 @@
 const routeVoiceCore = require('../mission-route-voice-core.js');
 const { missionVoiceScope, createMissionVoiceScopeGuard } = require('./tracker-mission-voice-scope.js');
 
+const bushNarrativeCore = require('../mission-bush-narrative-core.js');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const bushPickupVoiceCore = require('../mission-bush-pickup-voice-core.js');
 const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
@@ -32,6 +33,8 @@ function voiceOutcome(recipe, values = {}) {
   return {
     schema: 'ga.mission-voice-outcome.v1',
     kind: recipe?.kind || 'boarding',
+    ...(recipe?.kind === 'bush_story' ? { label: recipe.label || 'Bush-Geschichte' } : {}),
+    ...(recipe?.weatherMismatchUsed === true && values.text ? { weatherMismatchUsed: true } : {}),
     ...(recipe?.wrongStartActive === true ? { wrongStartActive: true } : {}),
     status: cleanString(values.status, 40) || 'ok',
     text: cleanString(values.text || recipe?.fallbackText, 4000),
@@ -134,11 +137,20 @@ function createTrackerMissionBoardingVoice(options = {}) {
       if (payload.kind === 'cargo_event' && flightContext?.supported) {
         payload = observeFlightVoice(flightContext, {}, { cargoEvent: { type: 'dropped_required', item: payload.item } }).effects[0] || {};
       }
-      if (!flightContext?.supported || !['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'private_return_departure', 'pax_query'].includes(payload.kind) || (!payload.prompt && !payload.fallbackText)) return completed(request);
+      if (!flightContext?.supported || !['comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'private_return_departure', 'pax_query', 'bush_story', 'weather_preset', 'time_shift'].includes(payload.kind) || (!payload.prompt && !payload.fallbackText)) return completed(request);
       await new Promise(resolve => setTimeout(resolve, Math.max(0, Number(payload.delayMs) || 0)));
       const current = authorityManager.getExecutionSnapshot?.();
       if (current && (current.runId !== run.runId || !current.state.flags.active || current.state.flags.closingPending || current.state.flags.farewellStarted)) return completed(request);
-      recipe = { ...recipe, ...flightContext, enabled: true, kind: payload.kind, ...(payload.kind === 'pax_query' ? { paxMenuRequest: true } : {}), prompt: payload.prompt, fallbackText: payload.fallbackText || '', playCue: false };
+      if(payload.kind==='bush_story'){
+        const bushPlan=bushNarrativeCore.normalizePlan(flightContext.bushNarrative);
+        const event=bushPlan?.events.find(e=>e.id===payload.narrativeEventId);
+        if(!event||event.text!==payload.fallbackText||(flightContext.speaker?.name||flightContext.passenger?.name)!==bushPlan.speakerName)return completed(request);
+        const telemetry=authorityManager.getExecutionRuntimeContext?.({missionId:run.missionId,runId:run.runId})?.latestTelemetry;
+        if(request.prepareOnly !== true && telemetry?.onGround!==false)return completed(request);
+        if(request.prepareOnly !== true && event.kind==='geo'&&(!Number.isFinite(telemetry.lat)||!Number.isFinite(telemetry.lon)||locationCore.haversineNm(telemetry.lat,telemetry.lon,event.geo.lat,event.geo.lon)>event.geo.radiusNm))return completed(request);
+        payload={...payload,prompt:'',fallbackText:event.text};
+      }
+      recipe = { ...recipe, ...flightContext, enabled: true, kind: payload.kind, ...(payload.kind === 'pax_query' ? { paxMenuRequest: true } : {}), prompt: payload.prompt, fallbackText: payload.fallbackText || '', label: payload.label, playCue: false };
     }
     if (request.effect?.type === 'voice.approach') {
       const context = { ...object(object(object(plan.effects)['voice.approach']).context) };
@@ -147,6 +159,8 @@ function createTrackerMissionBoardingVoice(options = {}) {
           && snapshot.state?.bushTask?.kind === 'pickup_return') {
         context.bushContinuityHint = bushPickupVoiceCore.continuityHint(object(plan.bushPickup).voiceContext, snapshot.state.voice?.bushMemory || {}, 'arrival');
       }
+      context.weatherMismatchAlreadyUsed ||= (snapshot?.state?.voice?.boarding?.weatherMismatchUsed === true || snapshot?.state?.voice?.bush?.weatherMismatchUsed === true);
+      context.bushContinuityHint = (context.bushContinuityHint || '') + bushNarrativeCore.continuityHint(context.bushNarrative, snapshot?.state?.voice?.bushChapters);
       const prompt = buildApproachPrompt(context, object(request.effect?.payload?.flightData));
       if (!prompt) return completed(request, { voiceStatus: 'approach_context_missing' });
       // Standalone cancels this delay for mission end, not for touchdown itself.
@@ -173,6 +187,13 @@ function createTrackerMissionBoardingVoice(options = {}) {
       recipe = { ...recipe, prompt: routeVoiceCore.conversationPrompt(recipe.prompt,
         authorityManager.getExecutionSnapshot?.()?.state?.voice?.privateReturnHistory) };
     }
+    if ((request.effect?.type === 'voice.boarding' || (request.effect?.type === 'voice.bush' && request.effect.payload.stage === 'pickup_boarding')) && request.prepareOnly !== true && recipe && !recipe.wrongStartActive) {
+      const telemetry = authorityManager.getExecutionRuntimeContext?.({ missionId: run.missionId, runId: run.runId })?.latestTelemetry || request.livePosition;
+      const reaction = boardingVoiceCore.boardingWeatherReaction(recipe.boardingWeather, telemetry);
+      if (reaction) recipe = { ...recipe, weatherMismatchUsed: true,
+        prompt: `${recipe.prompt}\nAktuelle Bedingungen am Boarding-Ort: ${reaction} Erwaehne diese Abweichung kurz mit einem Augenzwinkern; keine unbelegten Wetterdetails erfinden.`,
+        fallbackText: `${recipe.fallbackText} ${reaction}`.trim() };
+    }
     const audioSettings = getAudioSettings();
     if (audioSettings) recipe = { ...recipe, audioEnabled: audioSettings.enabled && audioSettings.paxEnabled, playCue: recipe.playCue && audioSettings.effectsEnabled };
     if (recipe.enabled !== true || (!recipe.prompt && !recipe.fallbackText)) {
@@ -192,15 +213,24 @@ function createTrackerMissionBoardingVoice(options = {}) {
     let job;
     const cancelAtMissionEnd = !(request.prepareOnly && request.effect?.payload?.sarSearchHint)
       && (request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.bush' || request.effect?.type === 'voice.approach'
-      || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story', 'private_return_departure', 'pax_query'].includes(request.effect?.payload?.kind)));
+      || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story', 'private_return_departure', 'pax_query', 'bush_story', 'weather_preset', 'time_shift'].includes(request.effect?.payload?.kind)));
     const scope = missionVoiceScope(request, request.prepareOnly ? 'run'
       : request.effect?.type === 'voice.poi' ? 'poi' : request.effect?.type === 'voice.bush' ? 'bush'
         : ['voice.flight', 'voice.approach'].includes(request.effect?.type) ? 'flight' : 'run');
-    const isPlaybackAllowed = () => scopeAllowed(scope);
+    const isPlaybackAllowed = () => {
+      if (!scopeAllowed(scope)) return false;
+      if (request.prepareOnly === true || request.effect?.payload?.kind !== 'bush_story') return true;
+      const live = authorityManager.getExecutionRuntimeContext?.({missionId:run.missionId,runId:run.runId})?.latestTelemetry;
+      const geo = request.effect.payload.geo;
+      return live?.onGround === false && live.simPaused !== true && live.paused !== true && live.isPaused !== true
+        && live.inMenuOrMap !== true && live.simRunning !== 0 && live.slewActive !== true && live.isSlewActive !== true && (!geo || (Number.isFinite(live.lat) && Number.isFinite(live.lon)
+        && locationCore.haversineNm(live.lat,live.lon,geo.lat,geo.lon) <= geo.radiusNm));
+    };
     try {
       const sarHint = request.effect?.payload?.sarSearchHint === true;
-      const preparedId = sarHint ? `sar-hint-preload:${run.runId}` : `boarding-preload:${run.runId}`;
-      const prepared = request.effect?.type === 'voice.boarding' || sarHint ? voiceService.get?.(preparedId) : null;
+      const bushChapter = request.effect?.type === 'voice.flight' && request.effect.payload?.kind === 'bush_story';
+      const preparedId = bushChapter ? `bush-story-preload:${run.runId}:${request.effect.payload.narrativeEventId}` : sarHint ? `sar-hint-preload:${run.runId}` : `boarding-preload:${run.runId}`;
+      const prepared = request.effect?.type === 'voice.boarding' || sarHint || bushChapter ? voiceService.get?.(preparedId) : null;
       const usePrepared = request.prepareOnly === true || (prepared && ['pending', 'ready'].includes(prepared.status));
       const originalEffectId = effectId;
       if (usePrepared) effectId = preparedId;
@@ -364,7 +394,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
   };
 
   return Object.freeze({ dispatch, prepare: async request => {
-    const result = await dispatch({ ...request, prepareOnly: true, effect: { type: 'voice.boarding' } });
+    const result = await dispatch({ ...request, prepareOnly: true, effect: request.effect?.type === 'voice.flight' && request.effect.payload?.kind === 'bush_story' ? request.effect : { type: 'voice.boarding' } });
     const run = authorityManager.getActiveRun({ includeBundle: true });
     const poi = run?.resumeBundle?.executionPoiRecipe;
     if (poi?.sarScenario?.schema === 'sar-search.v2' && poi.sarScenario.truth === 'incident') {

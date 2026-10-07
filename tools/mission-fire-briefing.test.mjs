@@ -51,7 +51,7 @@ test('real serializable passenger base context carries public alarm only',()=>{
 test('real passenger context survives serialization and never includes private fire layout',()=>{
  const m=mission(),env={window:{activePassenger:m.passenger,MissionFireBriefingCore:core},currentMissionData:{...m,fireScenario:fire()},localStorage:{getItem:()=>null},document:{getElementById:()=>({innerText:''})},_getMissionStory:()=>m.story,_sanitizePaxSoftPoiStory:x=>x,_activeTaskDomain:()=> 'fire_watch',_isPOIMission:()=>true,_normUrgencyPriority:()=> 'mittel',_missionHasPax:()=>true,_personaNarrativeSeedAllowed:()=>true};
  for(const n of ['_activeBushPickupPassengerContract','_roleStyleHint','_personaPersonalityLabel','_personaSpeechSignature','_activeAptTrainingPlan','_aptArrivalContextLine','_poiSightseeingKnowledgeContextLine','_paxTargetProminenceLine','_paxVisualLandmarksLine','_activeMissionStoryFrame','_bushVoiceToneLine','_bushPickupPassengerPerspectiveLine'])env[n]=()=>null;
- vm.createContext(env);vm.runInContext(extractOriginalFunction(fs.readFileSync('passenger-voice.js','utf8'),'_baseContext'),env);
+ vm.createContext(env);for(const name of ['_bushStoryNarrativeContinuityHint','_baseContext'])vm.runInContext(extractOriginalFunction(fs.readFileSync('passenger-voice.js','utf8'),name),env);
  const restored=JSON.parse(JSON.stringify({baseContext:env._baseContext()}));assert.ok(restored.baseContext.includes(i.alarm.uncertainty));assert.doesNotMatch(restored.baseContext,/Chimney|multi_smoke|smoke-1|VO_Fire/);
 });
 test('complete local and cloud states preserve the public briefing and private composer placement',()=>{

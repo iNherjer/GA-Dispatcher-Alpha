@@ -12,7 +12,7 @@ async function context(dest,terrainEnvelope=null) {
 }
 async function json(prompt) {
  const result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});
- if(!result?.parsed)throw Error('Der POI-Inspektionsauftrag konnte nicht erstellt werden. Bitte erneut versuchen.');
+ if(!result?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(result,'Der POI-Inspektionsauftrag'):Error('Der POI-Inspektionsauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));
  return result.parsed;
 }
 function capacity() {if(!(getMissionAircraftCapabilitySnapshot().passengerCapacity>=1))throw Error('Für den Inspektionsauftrag ist ein freier Passagierplatz erforderlich.');}

@@ -76,6 +76,7 @@ const paxContext = {
 vm.runInNewContext(`
 function _paxDebugMotionProtectionEnabled() { return protectionEnabled; }
 function _cargoMissionFocus() { return true; }
+${functionSource(paxSource, '_precipitationObservation')}
 ${functionSource(paxSource, '_createMissionComfortScore')}
 ${functionSource(paxSource, '_missionComfortScoreState')}
 ${functionSource(paxSource, '_missionScoreRegisterEvent')}

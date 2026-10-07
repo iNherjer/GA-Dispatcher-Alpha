@@ -1,3 +1,4 @@
+const precipitationCore = require('../mission-precipitation-core.js');
 const bushCore = require('../mission-bush-execution-core.js');
 const aptTraining = require('./tracker-mission-apt-training.js');
 const poiVoiceAvailability = require('../mission-poi-voice-core.js');
@@ -188,8 +189,8 @@ function normalizeExecutionRuntimeContext(value) {
     cargoObjectRevision: Math.max(0, Number(source.cargoObjectRevision) || 0),
     arrivalFlightRecord,
     arrivalWeather: source.arrivalWeather ? Object.fromEntries(
-      ['windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'precipRateMmH', 'turbulencePct'].map(key => [key, numberOrNull(source.arrivalWeather[key])])
-      .concat([['precipActive', source.arrivalWeather.precipActive === true], ['inCloud', source.arrivalWeather.inCloud === true]])) : null,
+      ['windKts', 'windDeg', 'windGustKts', 'tempC', 'visKm', 'turbulencePct'].map(key => [key, numberOrNull(source.arrivalWeather[key])])
+      .concat(Object.entries(precipitationCore.observe(source.arrivalWeather)), [['inCloud', source.arrivalWeather.inCloud === true]])) : null,
     missionFlightRecord,
     lastFinalizedSegmentStartTs: Math.max(0, Math.round(Number(source.lastFinalizedSegmentStartTs) || 0)) || null,
     segmentDepartureLabel: cleanString(source.segmentDepartureLabel, 180) || null,
@@ -219,8 +220,7 @@ function normalizeExecutionRuntimeContext(value) {
       windGustKts: numberOrNull(latest.windGustKts),
       tempC: numberOrNull(latest.tempC),
       visKm: numberOrNull(latest.visKm),
-      precipRateMmH: numberOrNull(latest.precipRateMmH),
-      precipActive: latest.precipActive === true,
+      ...precipitationCore.observe(latest),
       inCloud: latest.inCloud === true,
       turbulencePct: numberOrNull(latest.turbulencePct),
       simPaused: latest.simPaused === true,

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import {extractOriginalFunction} from './extract-original-function.mjs';
 const source=fs.readFileSync(new URL('../passenger-voice.js',import.meta.url),'utf8');
-const names=['_createMissionComfortScore','_missionComfortScoreState','_cargoMissionFocus','_missionScoreRegisterEvent','_recordMissionComfortSample','_missionComfortSummary'];
+const names=['_precipitationObservation','_createMissionComfortScore','_missionComfortScoreState','_cargoMissionFocus','_missionScoreRegisterEvent','_recordMissionComfortSample','_missionComfortSummary'];
 const functions=names.map(name=>extractOriginalFunction(source,name)).join('\n');
 const output=`// Generated from passenger-voice.js by tools/generate-mission-comfort-core.mjs.
 // Original scoring and event-edge rules; no independent Tracker approximation.

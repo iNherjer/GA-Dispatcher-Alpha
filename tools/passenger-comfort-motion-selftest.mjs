@@ -2,6 +2,7 @@
 
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {extractOriginalFunction} from './extract-original-function.mjs';
 
 const source = fs.readFileSync(new URL('../passenger-voice.js', import.meta.url), 'utf8');
 const start = source.indexOf('const _PAX_COMFORT_MOTION_WINDOW_MS');
@@ -13,6 +14,7 @@ const testSource = `
 let _paxComfortMotionSamples = [];
 let _paxComfortLastMotionAnalysis = null;
 let _paxComfortBreachState = Object.create(null);
+${extractOriginalFunction(source, '_precipitationObservation')}
 ${helpers}
 
 function makeSeries(build, count = 36, stepMs = 100) {

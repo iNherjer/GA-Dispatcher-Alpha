@@ -150,7 +150,7 @@ const aptHint = 'Wir stehen am Vorfeld; dort wartet der Abholer.';
 const passenger = { role: 'Fotografin', gTolerance: 'niedrig', bankTolerance: 'niedrig' };
 
 const legacyPassengerPrompt = runLegacyFunction(
-    ['_weatherContext', '_consumeWeatherMismatchEasteregg', '_farewellPrompt'],
+    ['_precipitationObservation', '_weatherContext', '_consumeWeatherMismatchEasteregg', '_farewellPrompt'],
     {
         window: {
             activePassenger: passenger,

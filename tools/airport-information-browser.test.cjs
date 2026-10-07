@@ -1,0 +1,19 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {chromium}=require(process.env.GA_PLAYWRIGHT_MODULE||'/Users/jofaist/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const root=path.resolve(__dirname,'..');
+test('real browser: generated paragraphs/source links restore, no HTML injection and no stale return target',async()=>{
+ const browser=await chromium.launch({headless:true,...(process.env.GA_BROWSER_CHANNEL?{channel:process.env.GA_BROWSER_CHANNEL}:{})});try{const page=await browser.newPage({viewport:{width:440,height:894}}),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ const briefing=html.match(/<section id="airportFlightBriefing"[\s\S]*?<\/section>/)[0],dest=html.match(/<span id="wikiDestDescText"[^>]*>[\s\S]*?<\/span>/)[0];
+ await page.setContent(briefing+dest+'<small id="airportDestinationInfoSources"></small>');
+ for(const f of ['mission-airport-information-core.js','mission-airport-information-browser.js'])await page.addScriptTag({content:fs.readFileSync(path.join(root,f),'utf8')});
+ await page.evaluate(()=>{const c=MissionAirportInformationCore.context({icao:'U60',name:'Big Creek Airport',lat:45.1332,lon:-115.322,elevation:5743},{wiki:{id:'wikipedia',kind:'wikipedia',title:'Big Creek Airport (Idaho)',url:'https://en.wikipedia.org/wiki/Big_Creek_Airport_(Idaho)'}});const info={flightBriefing:'Eine Grasbahn mit hohen Bergen in der Umgebung.\n\nAktuelle Platzhinweise berücksichtigen.',destinationInfo:'<img src=x onerror="window.injected=true">\n\nDeine Abholung findet am Platz statt.',sourceIds:['wikipedia'],generated:true};window.fixture={missionType:'bush',targetLat:45.1332,targetLon:-115.322,airportInfoContext:c,airportInformation:info};MissionAirportInformationBrowser.render(fixture);});
+ assert.equal(await page.locator('#airportFlightBriefing').isVisible(),true);assert.equal(await page.locator('#wikiDestDescText img').count(),0);assert.equal(await page.locator('#airportDestinationInfoSources a').count(),1);assert.equal(await page.evaluate(()=>window.injected),undefined);
+ await page.evaluate(()=>{const saved=JSON.parse(JSON.stringify(fixture));MissionAirportInformationBrowser.clear();MissionAirportInformationBrowser.render(saved);});assert.equal(await page.locator('#airportFlightBriefing').isVisible(),true);
+ await page.evaluate(()=>{fixture.aptArrivalPlan={icao:'U60',airportLat:45.1332,airportLon:-115.322,expectedBy:'Freundin',items:[{kind:'arrival_vehicle',label:'Abholfahrzeug'}],snapStatus:{status:'resolved'},osmPlacement:{name:'Hangar Nord'}};MissionAirportInformationBrowser.render(fixture);});
+ const airportText=await page.locator('#wikiDestDescText').textContent();assert.match(airportText,/Empfang durch Freundin/);assert.match(airportText,/Treffpunkt bei Hangar Nord/);assert.doesNotMatch(airportText,/weiß/);
+ await page.evaluate(()=>{fixture.aptArrivalPlan.osmPlacement.name='<img src=x onerror="window.injected=true"> Hangar Süd';MissionAirportInformationBrowser.render(JSON.parse(JSON.stringify(fixture)));});
+ assert.equal(await page.locator('#wikiDestDescText img').count(),0);assert.equal(await page.evaluate(()=>window.injected),undefined);assert.doesNotMatch(await page.locator('#wikiDestDescText').textContent(),/Hangar Nord/);
+ await page.evaluate(()=>{fixture.aptArrivalPlan=null;MissionAirportInformationBrowser.render(fixture);});assert.equal(await page.locator('#wikiDestDescText').textContent(),await page.evaluate(()=>fixture.airportInformation.destinationInfo));
+ await page.evaluate(()=>MissionAirportInformationBrowser.render(fixture,{lat:44.8897,lon:-116.101}));assert.equal(await page.locator('#airportFlightBriefing').isVisible(),false);assert.equal(await page.locator('#airportDestinationInfoSources a').count(),0);
+ }finally{await browser.close();}
+});
