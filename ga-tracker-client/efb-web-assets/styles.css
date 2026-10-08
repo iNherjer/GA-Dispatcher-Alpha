@@ -21043,6 +21043,7 @@ body.theme-win95 #mapTableOverlay .leaflet-control-layers-expanded {
 
 /* Draft decisions follow the selected instrument/paper theme. */
 .mission-accept-panel {
+    background: #f4f6f8;
     --draft-action-bg: #20745b;
     --draft-action-hover: #27886c;
     --draft-action-fg: #f4fffb;
@@ -21069,7 +21070,7 @@ body.theme-retro .mission-accept-panel {
     --draft-action-bg: #f2c12e; --draft-action-hover: #ffda62; --draft-action-fg: #201a0b;
     --draft-action-border: #816512; --draft-secondary-bg: #e7ddc5;
     --draft-secondary-hover: #f4ecd9; --draft-secondary-fg: #302b22;
-    background: rgba(129,101,18,.08); border-color: #b6a682;
+    background: #f3e9cf; border-color: #b6a682;
 }
 body.theme-retro .mission-accept-btn { border-radius: 3px; box-shadow: 1px 2px 0 rgba(48,43,34,.25); }
 body.theme-retro .mission-accept-kicker, body.theme-retro .mission-accept-text { color: #403629; }

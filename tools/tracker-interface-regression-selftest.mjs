@@ -55,6 +55,7 @@ assert.equal(queue.size(), 0);
 // A tracker observer ignores browser ownership; Web-Authority still detects it.
 let projected = 0, restores = 0;
 const statusContext = {
+  _syncMissionRestoreBlocked: () => false,
   Date, _normalizeMissionRuntimeId: value => value, _activeMissionRuntimeId: () => 'm',
   _readMissionAuthorityState: () => ({ runId: 'old-run' }), _missionAuthorityClientId: () => 'phone',
   _missionExecutionControlSnapshot: () => ({ runId: 'run' }), _applyTrackerExecutionControl: () => projected++,

@@ -206,5 +206,5 @@ nicht den veröffentlichten Worker. App und Worker müssen gemeinsam ausgerollt
 werden. Ohne neuen Endpoint fällt nur die optionale FAA-Ergänzung aus.
 
 
-### Missionskontrolle v1 (08.10.2026, noch nicht deployed)
-Sync-V2-Head bietet `capabilities.missionControl=true`. Commit mit `missionChange` (`action`, `expectedMissionRevision`, `operationId`) aktiviert/löscht den gemeinsamen Missionsslot mit unabhängiger Serverrevision. Der Head bindet den Vermerk an den Missionshash. Profiländerungen behalten die Missionsrevision; alte Clients können den kontrollierten Slot nicht ohne Aktivierungs-/Löschvermerk wechseln, auch nicht über `force`. Commit-Fingerprint enthält den Vermerk für idempotente Wiederholung nach verlorener Antwort. Worker vor App/Tracker v496 deployen; App verweigert destruktive Übernahme, solange die Fähigkeit fehlt. Siehe Cloud Profile Sync V2.
+### Missionskontrolle v1 (08.10.2026, deployed)
+Sync-V2-Head bietet `capabilities.missionControl=true`. Commit mit `missionChange` (`action`, `expectedMissionRevision`, `operationId`) aktiviert/löscht den gemeinsamen Missionsslot mit unabhängiger Serverrevision. Der Head bindet den Vermerk an den Missionshash. Profiländerungen behalten die Missionsrevision; alte Clients können den kontrollierten Slot nicht ohne Aktivierungs-/Löschvermerk wechseln, auch nicht über `force`. Commit-Fingerprint enthält den Vermerk für idempotente Wiederholung nach verlorener Antwort. Worker vor App/Tracker v500 deployen; App verweigert destruktive Übernahme, solange die Fähigkeit fehlt. Siehe Cloud Profile Sync V2.
