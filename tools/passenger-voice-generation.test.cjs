@@ -7,9 +7,10 @@ for(const central of [true,false])test('standalone speech gate blocks all reques
  vm.createContext(context);vm.runInContext(gate+request,context);
  assert.equal(await vm.runInContext('_requestTTSAudio("Kein neues Audio")',context),null);
 });
-test('missing saved generation preference defaults on',()=>{
- const context={window:{},_paxVoiceEnabled:true,localStorage:{getItem:()=>null}};vm.createContext(context);vm.runInContext(gate,context);
- assert.equal(vm.runInContext('_paxCanGenerateVoice()',context),true);
+for(const saved of [null,'1','0']) test('actual standalone initialization preserves default and explicit preference: '+saved,()=>{
+ const initialization=source.slice(source.indexOf('let _paxVoiceEnabled ='),source.indexOf('let _paxAudioEffectsEnabled'));
+ const context={window:{},localStorage:{getItem:()=>saved}};vm.createContext(context);vm.runInContext(initialization,context);
+ assert.equal(vm.runInContext('_paxCanGenerateVoice()',context),saved!=='0');
 });
 
 test('remote synchronization updates existing runtime flag without replaying old text',()=>{

@@ -13,7 +13,10 @@
   var retiredWarningSessions = [], styleMigration = false;
   var state = null, enabled = false, menu = null, saving = Promise.resolve(), closed = false, lastError = '', volumeTimer = null, tickTimer = null, lifecycleEpoch = 0;
   var pendingSettings = {}, changeSequence = 0;
-  function visibleSetting(name) { return pendingSettings[name] ? pendingSettings[name].value : state.settings[name]; }
+  function visibleSetting(name) {
+    var value = pendingSettings[name] ? pendingSettings[name].value : state.settings[name];
+    return name === 'enabled' || name === 'paxEnabled' ? value !== false : value;
+  }
   var base = cockpit.baseUrl, captionEffect = '';
   function caption(job) {
     if (job && (job.clips || ['airspace', 'terrain', 'waypoint'].indexOf(job.kind) >= 0)) return;
@@ -125,10 +128,10 @@
       var migrated = { audioStyle: savedStyle };
       if (state.revision === 0) {
         [['awm_warn_terrain','terrain'],['awm_warn_airspace','airspace'],['awm_read_freq','readFreq'],['awm_warn_wp','waypoint'],['awm_pax_voice','paxEnabled'],['awm_audio_effects','effectsEnabled']].forEach(function(entry) {
-          try { var value = root.localStorage.getItem(entry[0]); if (value !== null) migrated[entry[1]] = value === '1'; } catch (_) {}
+          try { var value = root.localStorage.getItem(entry[0]); if (value !== null && (entry[1] !== 'paxEnabled' || value === '0' || value === '1')) migrated[entry[1]] = value === '1'; } catch (_) {}
         });
       }
-      change({ settings: migrated }).then(function() {
+      change({ settings: migrated }, { migrationRevision: state.revision }).then(function() {
         if (!state || !state.settings.audioStyle) styleMigration = false;
       });
     }
@@ -138,18 +141,19 @@
     displayWarnings(value && value.warnings);
     render();
   }
-  function change(patch) {
+  function change(patch, options) {
     lastError = '';
     var sequence = ++changeSequence;
     Object.keys(patch.settings || {}).forEach(function(name) { pendingSettings[name] = {value:patch.settings[name], sequence:sequence}; });
     render();
     saving = saving.catch(function () {}).then(async function () {
-      if (!state) return;
+      if (!state || (options && options.migrationRevision !== state.revision)) return;
       var epoch = lifecycleEpoch;
       var result = await request(Object.assign({}, patch, { action: 'settings_update', expectedRevision: state.revision }));
       if (!closed && epoch === lifecycleEpoch && !result.ok && result.error === 'audio_revision_conflict' && result.audio) {
         apply(Object.assign({}, result.audio, { playback: state && state.playback, warnings: state && state.warnings }));
-        result = await request(Object.assign({}, patch, { action: 'settings_update', expectedRevision: state.revision }));
+        if (options && Object.prototype.hasOwnProperty.call(options, 'migrationRevision')) result.ok = true;
+        else result = await request(Object.assign({}, patch, { action: 'settings_update', expectedRevision: state.revision }));
       }
       if (closed || epoch !== lifecycleEpoch) return;
       if (result.audio) apply(Object.assign({}, result.audio, { playback: state && state.playback, warnings: state && state.warnings }));
@@ -304,8 +308,8 @@
     message(statusText);
     // Apply the existing voice flag to the App's runtime without replaying old text.
     try {
-      if (typeof originals.paxVoiceSetEnabled === 'function') originals.paxVoiceSetEnabled(!!state.settings.paxEnabled, { sync: true });
-      else root.localStorage.setItem('awm_pax_voice', state.settings.paxEnabled ? '1' : '0');
+      if (typeof originals.paxVoiceSetEnabled === 'function') originals.paxVoiceSetEnabled(state.settings.paxEnabled !== false, { sync: true });
+      else root.localStorage.setItem('awm_pax_voice', state.settings.paxEnabled !== false ? '1' : '0');
     } catch (_) {}
     if (!enabled) return;
     // Keep standalone state/diagnostics aligned with the authoritative toggles,

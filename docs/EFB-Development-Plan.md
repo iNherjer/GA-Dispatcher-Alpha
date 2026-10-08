@@ -6648,3 +6648,20 @@ Speicherfehlern, 18 Reglerpositionen bei 100/150/300 Prozent in physischem und
 Toolbar-Host. Node-Prüfung umfasst Provider-Abbruch/Fallback, Text-only-Recovery,
 Boarding, Farewell, Compliance, Audio-Player und Missionslebenszyklus.
 Noch nicht veröffentlicht; Windows/MSFS-Feldtest bleibt offen.
+
+
+## TTS-Standard und Start-Migration geprüft (08.10.2026)
+
+TTS ist ohne gespeicherte Einstellung standardmäßig an: Tracker-Normalisierung,
+Standalone-Initialisierung und HTML-Häkchen. Unvollständige zentrale Snapshots
+behandeln fehlende Master-/Voice-Felder ebenfalls als an. Legacy-Übernahme nimmt
+nur explizites `awm_pax_voice=0/1`; fehlende/ungültige Werte erzeugen keine Sperre.
+Bewusst gespeichertes Aus bleibt erhalten. Hintergrundmigration darf einen
+inzwischen neueren zentralen Benutzerwert weder aus einer wartenden Queue noch
+durch einen Konflikt-Retry überschreiben. Normale Benutzeränderungen behalten
+ihren bestehenden Revision-Retry.
+
+178 Node-Tests bestanden: echte lokale Initialisierung, Legacy-Werte, neuere
+Zentralwerte, Cloud-Restore, unabhängige Lautstärkeänderungen und Voice-Lifecycle.
+Browserprüfung mit zwei Geräten und 18 Reglerpositionen bestanden. Weiterhin
+unveröffentlichter Kandidat; kein Alpha-/Stable-Kanalwechsel.

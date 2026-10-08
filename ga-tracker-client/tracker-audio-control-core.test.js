@@ -61,3 +61,12 @@ test('existing voice flag defaults on and persists generation and playback suppr
     reopened.close();
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });
+
+for(const settings of [{}, {volume:.4}, {paxEnabled:false}, {paxEnabled:null}, {paxEnabled:'0'}])test('restore defaults TTS on unless boolean false was saved: '+JSON.stringify(settings),async()=>{
+ const audio=createAudioControl({cloud:{load:async()=>({schema:'ga.audio-control.v1',revision:3,updatedAt:100,settings}),save:async()=>{}}});
+ try {
+  await audio.restore();assert.equal(audio.snapshot().settings.paxEnabled,settings.paxEnabled!==false);
+  audio.update({expectedRevision:3,settings:{volume:.7}});
+  assert.equal(audio.snapshot().settings.paxEnabled,settings.paxEnabled!==false,'Volume update must not alter voice preference');
+ } finally {audio.close();}
+});
