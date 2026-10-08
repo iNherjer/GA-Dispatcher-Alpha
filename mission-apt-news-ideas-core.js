@@ -48,7 +48,7 @@ ABHOLABLAUF: ${idea.continuation?.pickupRequired?"Zunächst fliegt der Pilot lee
 ZEITLICHER STANDPUNKT: ${idea.continuation?`Dies ist der Rückflug. Der gespeicherte fiktive Aufenthalt ${JSON.stringify(idea.continuation.experience)} ist bereits geschehen. Erzähle einen kurzen Rückblick und den nächsten Schritt bei der Redaktion. Ausführliche Details bleiben für die Route. Der Pilot war nicht automatisch dabei. Die vorherige Anweisung über noch bevorstehende Recherche gilt hier für den Hinflug, nicht diesen Rückflug.`:"Hinflug: Bodenrecherche liegt noch bevor."}
 IDEE: ${JSON.stringify(idea)} HISTORY: ${JSON.stringify(recent)}`;}
 function prose(raw,idea){
- if(!raw||!text(raw.title,110)||text(raw.story,1800).length<180||!text(raw.memory)||text(raw.greeting,500).length<20||raw.narrativeEvents?.length||!text(raw.pilotNotes,500))return null;
+ if(!raw||!text(raw.title,110)||text(raw.story,Infinity).length<180||!text(raw.memory)||text(raw.greeting,500).length<20||raw.narrativeEvents?.length||!text(raw.pilotNotes,500))return null;
  return {title:raw.title.trim(),story:raw.story.trim(),greeting:raw.greeting.trim(),memory:raw.memory.trim(),pilotNotes:raw.pilotNotes.trim()};
 }
 function cargoText(idea){return `${idea.shipment.label} (${idea.shipment.weightLbs} lbs)`;}

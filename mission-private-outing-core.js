@@ -138,10 +138,10 @@ RAHMEN: ${JSON.stringify({ ...input, facts: input.facts.filter(fact => core.fact
     function prose(raw) {
         if (!raw || !['title', 'story'].every(key => text(raw[key]))) return null;
         if (raw.greeting?.speaker !== 'companion' || raw.greeting?.addressee !== 'pilot' || !text(raw.greeting?.text)) return null;
-        if (raw.story.length > 1800 || raw.greeting.text.length > 600 || raw.title.length > 160) return null;
+        if (raw.greeting.text.length > 600 || raw.title.length > 160) return null;
         // Formatting only: never infer a leisure activity or relationship from prose.
         if (/[{}]|```/.test(raw.story + raw.greeting.text)) return null;
-        return { title: text(raw.title, 160), story: text(raw.story, 1800), greeting: text(raw.greeting.text, 600) };
+        return { title: text(raw.title, 160), story: text(raw.story, Infinity), greeting: text(raw.greeting.text, 600) };
     }
     const api = { VERSION, HISTORY_KEY, HISTORY_LIMIT, HISTORY_MAX_BYTES, compactMemory, history, remember, eventWindowFor, frame, ideaPrompt, validateIdea, writerPrompt, prose };
     root.MissionPrivateOutingCore = api;

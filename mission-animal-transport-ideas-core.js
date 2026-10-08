@@ -57,7 +57,7 @@ Tierart, Tieranzahl, Zahl der Behälter und Verpackungsmaterial bleiben konsiste
 Nur JSON {title,story,greeting,flightBriefing,pilotNotes,memory}. title bis 110, story 180–1800, greeting 20–500, pilotNotes bis 500, memory bis 600 Zeichen. ${weatherPrompt(flight)}
 IDEE: ${JSON.stringify(idea)} HISTORY: ${JSON.stringify(recent)}`;}
 function prose(raw,idea){
- if(!raw||!text(raw.title,110)||text(raw.story,1800).length<180||!text(raw.memory)||text(raw.greeting,500).length<20||raw.narrativeEvents?.length||!text(raw.pilotNotes,500))return null;
+ if(!raw||!text(raw.title,110)||text(raw.story,Infinity).length<180||!text(raw.memory)||text(raw.greeting,500).length<20||raw.narrativeEvents?.length||!text(raw.pilotNotes,500))return null;
  return {title:raw.title.trim(),story:raw.story.trim(),greeting:raw.greeting.trim(),memory:raw.memory.trim(),pilotNotes:raw.pilotNotes.trim()};
 }
 function cargoText(idea){return `${idea.shipment.label} (${idea.shipment.weightLbs} lbs)`;}

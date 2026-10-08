@@ -46,7 +46,7 @@ FLUGDATEN=${JSON.stringify(flight.context)}
 WERTE=${JSON.stringify(flight.bindings)}
 HISTORY=${JSON.stringify(recent)}`;}
 function validateWriter(raw,idea,c){
- if(raw?.targetId!==c.id||raw.greetingSpeaker!==idea.person.name||!text(raw.title,160)||!text(raw.story,3000)||!text(raw.greeting,800)||!Array.isArray(raw.usedFactIds)||raw.usedFactIds.length>20||raw.usedFactIds.some(id=>![...(c.targetFacts||[]),...(c.facts||[])].some(f=>f.id===id)))throw Error('Das Mapping-Briefing enthält ungültige Texte oder Belegverweise.');
+ if(raw?.targetId!==c.id||raw.greetingSpeaker!==idea.person.name||!text(raw.title,160)||!text(raw.story,Infinity)||!text(raw.greeting,800)||!Array.isArray(raw.usedFactIds)||raw.usedFactIds.length>20||raw.usedFactIds.some(id=>![...(c.targetFacts||[]),...(c.facts||[])].some(f=>f.id===id)))throw Error('Das Mapping-Briefing enthält ungültige Texte oder Belegverweise.');
  const selected=sceneIntent(idea.sceneIntent),resolved=raw.sceneIntent?sceneIntent(raw.sceneIntent):selected;
  if(selected.densityHint==='none'&&resolved.densityHint!=='none')throw Error('Der Writer darf einem Auftrag ohne Zusatzobjekte keine Szene hinzufügen.');
  const memory=narrative.memory(raw.memory);

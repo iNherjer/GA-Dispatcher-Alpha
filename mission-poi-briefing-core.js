@@ -59,7 +59,7 @@ function readIdea(raw,c) {
  return validateIdea(matches[0],c);
 }
 function validateWriter(raw,idea,c) {
- if(!validText(raw?.title,160)||!validText(raw.story,2500)||raw.targetId!==c.id||!validText(raw.greeting,800)||raw.greetingSpeaker!==idea.person.name||!Array.isArray(raw.usedFactIds)||raw.usedFactIds.some(id=>!(c.targetFacts||[]).some(f=>f.id===id)))throw Error('Das POI-Briefing enthält ungültige Texte oder Belegverweise.');
+ if(!validText(raw?.title,160)||!validText(raw.story,Infinity)||raw.targetId!==c.id||!validText(raw.greeting,800)||raw.greetingSpeaker!==idea.person.name||!Array.isArray(raw.usedFactIds)||raw.usedFactIds.some(id=>!(c.targetFacts||[]).some(f=>f.id===id)))throw Error('Das POI-Briefing enthält ungültige Texte oder Belegverweise.');
  const {report,reportStatus}=shared.buildReport(raw.report,c);
  return {title:raw.title.trim(),story:raw.story.trim(),greeting:raw.greeting.trim(),report,reportStatus,memory:validText(raw.memory,600)?raw.memory.trim():null};
 }

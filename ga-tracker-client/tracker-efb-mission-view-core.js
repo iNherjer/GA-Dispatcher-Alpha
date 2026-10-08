@@ -84,7 +84,7 @@ function sanitizeMissionView(value, fallback = {}) {
     version: MISSION_VIEW_VERSION,
     capturedAt: Math.max(0, Math.round(Number(source.capturedAt) || Number(fallbackSource.updatedAt) || 0)),
     title: text(source.title || fallbackSource.title || fallbackSource.name || fallbackSource.missionId || 'Aktive Mission', 150),
-    story: text(source.story || source.summary, 6000),
+    story: text(source.story || source.summary, Infinity),
     status: text(source.status || fallbackSource.state || (fallbackSource.active ? 'Mission aktiv' : 'Mission liegt bereit'), 120),
     detail: text(source.detail, 500),
     currentTask: text(source.currentTask || source.nextStep, 500),

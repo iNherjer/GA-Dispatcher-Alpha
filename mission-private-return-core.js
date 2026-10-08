@@ -121,7 +121,7 @@ Entwickle zuerst experienceRecap: summary fasst das gemeinsame Erlebnis zusammen
 Schreibe daraus story: locker und persönlich erzählt, mit eigenem Einstieg und natürlichem Satzbau. Greife einen Teil des Erlebnisses auf und lasse Raum für weitere Erinnerungen im späteren Gespräch; das Briefing muss nicht alle moments vorwegnehmen. Die Situation führt zur anstehenden Heimreise. Erzähle eine zusammenhängende Fortsetzung, kein weiteres Ausflugsvorhaben und keinen Transportauftrag. Der Text bleibt ein Briefing vor dem Start. greeting ist ein kurzer Satz der Begleitung zum Piloten aus diesem Erlebnis. Keine festgelegte Heimreiseformel.
 flightBriefing schließt in zwei bis drei flüssigen Sätzen im selben Ton an. Nutze ausschließlich FLUGDATEN. Alle Werte aus WERTE werden mit ihrem exakten Schlüssel in doppelten eckigen Klammern eingesetzt, etwa [[route.distance]]. Die Referenz enthält die Einheit bereits. Außerhalb dieser Referenzen keine Ziffern oder eckigen Klammern verwenden; auch Stationskennungen mit Ziffern als vorhandene Stationsreferenz einsetzen. Keine unbekannten Referenzen erfinden. Vorhandene Entfernung sowie Start-/Zielböen müssen vorkommen. Bezug der Wetterbeobachtungen ist jeweils Start oder Ziel (gegebenenfalls abweichende Station), nicht die ganze Strecke oder eine Vorhersage. Fehlende Messwerte bleiben unbekannt. Benenne die Lücke kurz als noch offene Wetterprüfung vor dem Start; leite daraus weder gute Flugbedingungen noch eine Entscheidung zum Fliegen ab. Eine nicht gemeldete Böenangabe belegt keine Böenfreiheit. Wetterbewertungen gehören ausschließlich in flightBriefing; die fiktionale story beschreibt dafür keine eigenen Bedingungen. Nur landscape belegt Landschaft entlang der Route. Über die frühere Flugführung sagen die fiktionalen Erlebnisse nichts aus.
 Antworte nur als JSON: {"title":"...","experienceRecap":{"summary":"...","moments":["..."],"companionReaction":"..."},"story":"...","flightBriefing":"...","greeting":{"speaker":"companion","addressee":"pilot","text":"..."}}.
-Grenzen in Zeichen: title 160, summary 500, je moment 240, companionReaction 300, story 1800, flightBriefing 850, greeting.text 600.
+Grenzen in Zeichen: title 160, summary 500, je moment 240, companionReaction 300, story vollständig ohne harte Zeichengrenze, flightBriefing 850, greeting.text 600.
 AUSFLUG: ${JSON.stringify(c)}
 WERTE: ${JSON.stringify(episodeApi().flightBindings(flight))}
 FLUGDATEN: ${JSON.stringify(flight)}`;
@@ -130,7 +130,7 @@ FLUGDATEN: ${JSON.stringify(flight)}`;
         const errors = [];
         const validText = (v, max) => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
         for (const [path, value, max] of [
-            ['title',raw?.title,160], ['story',raw?.story,1800],
+            ['title',raw?.title,160], ['story',raw?.story,Infinity],
             ['experienceRecap.summary',raw?.experienceRecap?.summary,500],
             ['experienceRecap.companionReaction',raw?.experienceRecap?.companionReaction,300],
             ['greeting.text',raw?.greeting?.text,600]]) {

@@ -6352,7 +6352,7 @@ window.vpBuildWeatherDebugReport = function () {
     lines.push(`- POI-Parameter: alt=${Number(p.targetAltFt || 0)} ft | radius=${Number(p.targetRadiusNm || 0)} NM | dwell=${Number(p.targetDwellMin || 0)} min`);
     if (missionSnap.story) lines.push(`- Story: ${String(missionSnap.story).replace(/\s+/g, ' ').trim()}`);
     if (missionSnap.storyDebug && typeof missionSnap.storyDebug === 'object') {
-      var _sd$privateOuting;
+      var _sd$semanticDiagnosti, _sd$privateOuting;
       var sd = missionSnap.storyDebug;
       var storyBits = [];
       if (sd.source) storyBits.push(`source=${String(sd.source)}`);
@@ -6369,6 +6369,8 @@ window.vpBuildWeatherDebugReport = function () {
       if (typeof sd.writerUsable === 'boolean') storyBits.push(`usable=${sd.writerUsable ? 'ja' : 'nein'}`);
       if (typeof sd.writerAccepted === 'boolean') storyBits.push(`accepted=${sd.writerAccepted ? 'ja' : 'nein'}`);
       if (sd.fallbackReason) storyBits.push(`fallback=${String(sd.fallbackReason)}`);
+      if (sd.textPolicy) storyBits.push(`textPolicy=${String(sd.textPolicy)}`);
+      if ((_sd$semanticDiagnosti = sd.semanticDiagnosticReasons) !== null && _sd$semanticDiagnosti !== void 0 && _sd$semanticDiagnosti.length) storyBits.push(`semanticHints=${sd.semanticDiagnosticReasons.join(',')}`);
       if (typeof sd.postSanitizerFallbackEver === 'boolean') storyBits.push(`postFallback=${sd.postSanitizerFallbackEver ? 'ja' : 'nein'}`);
       if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
       if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);

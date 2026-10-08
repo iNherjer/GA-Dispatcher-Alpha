@@ -1,5 +1,9 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Vollständiger Missionstext, Alpha v503 (08.10.2026)
+
+Die Tracker-Projektion des EFB-/Toolbar-Missionstextes besitzt kein 6000-Zeichen-Limit mehr. Die aufklappbare Vorschau bleibt bestehen und enthält den vollständigen Text. Textbereinigung für HTML/Steuerzeichen und technische Paketlimits bleiben erhalten. Web-Asset-Revision 50301 liefert die vollständige Writer-Diagnose. Kein SDK-Paket oder neues Protokoll erforderlich; Tracker-EXE neu bauen und als Alpha veröffentlichen.
+
 ## Lokaler Missionsentwurf vor Cloud-/Tracker-Ersatz (08.10.2026, vorbereitet)
 
 Die App trennt Vorschau und angenommenen Auftrag. Generieren verändert den EFB-/
