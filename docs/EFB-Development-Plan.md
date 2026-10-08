@@ -6600,3 +6600,10 @@ User confirms outer frame now fits, but painted profile content still runs below
 EFB-only renderer viewport now derives logical width/remaining height from the visible profile border, subtracts controls/border, explicitly sizes scroll/wrapper/canvases and clamps stale client measurements. Hit-testing uses the same budget. Controls cannot consume the complete profile at extreme scales; their overflow remains scrollable. Real layout events invalidate the profile explicitly; unchanged sizes produce no style writes. Standalone sizing is unchanged. A menu hit-test also exposed the oversized drawer handle overlapping profile buttons at maximum VR scale; its hit area is now centered and bounded within the map area.
 
 Validation: 123 painted-content cases each normal, without ResizeObserver and with stale native dimensions; includes painted lower-region pixels, horizontal zoom/scroll and unchanged-layout mutation check. Native MSFS/Coherent verification remains pending; no screenshots taken.
+
+Follow-up release v494 / asset revision 49401 merges current v493 first.
+Final merged build passes 65 Node/HTTP tests, interface regressions and 123
+painted viewport cases with stale client dimensions. Browser geometry is read
+atomically after the queued layout frame to avoid mixing two scaling frames.
+Existing 60 menu/layout/hit tests pass. Windows EXE MZ and 14 embedded UI sources
+verified. Community 0.4.23 and Stable unchanged; real simulator test pending.

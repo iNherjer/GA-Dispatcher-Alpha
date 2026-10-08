@@ -31,7 +31,7 @@ try {
  },fixture);
  const geometry=()=>page.evaluate(()=>{
    const r=id=>{const e=document.getElementById(id);const b=e.getBoundingClientRect();return {x:b.x,y:b.y,right:b.right,bottom:b.bottom,width:b.width,height:b.height};};
-   return {overlay:r('mapTableOverlay'),gear:r('btnVpSettings'),mode:r('btnToggleVpMode'),scale:GAEfbUiScale.state(),width:innerWidth,height:innerHeight,profile:r('mapProfileStrip'),map:r('mapArea'),drawerWidth:getComputedStyle(document.getElementById('mapSideDrawer')).getPropertyValue('--checklist-panel-width')};
+   return {overlay:r('mapTableOverlay'),gear:r('btnVpSettings'),mode:r('btnToggleVpMode'),scale:GAEfbUiScale.state(),width:innerWidth,height:innerHeight,profile:r('mapProfileStrip'),scroll:r('mapProfileScroll'),plot:r('mapProfileCanvas'),map:r('mapArea'),drawerWidth:getComputedStyle(document.getElementById('mapSideDrawer')).getPropertyValue('--checklist-panel-width')};
  });
  await page.evaluate(()=>{__layoutTest.mode(false,'physical');__layoutTest.scale(1);});
  await page.waitForTimeout(180);
@@ -52,15 +52,20 @@ try {
  __layoutTest.mode(vr,surface);__layoutTest.scale(scale);
  },{surface,vr,scale});
  await page.waitForTimeout(80);
+ await page.waitForFunction(()=>{
+ const strip=document.getElementById('mapProfileStrip').getBoundingClientRect(),scroll=document.getElementById('mapProfileScroll').getBoundingClientRect();
+ const canvas=document.getElementById('mapProfileCanvas').getBoundingClientRect();
+ return scroll.bottom<=strip.bottom+1 && scroll.right<=strip.right+1 && canvas.bottom<=scroll.bottom+1 && canvas.right<=scroll.right+1;
+ },{},{timeout:2500});
  const g=await geometry();
  assert.ok(Math.abs(g.overlay.bottom-size.height)<1,JSON.stringify({surface,vr,scale,size,g}));
  assert.ok(g.profile.bottom<=size.height+1,JSON.stringify({surface,vr,scale,size,g}));
  assert.ok(g.profile.height>0,JSON.stringify({surface,vr,scale,size,g}));
  assert.ok(g.profile.x>=-1 && g.profile.right<=size.width+1,JSON.stringify({surface,vr,scale,size,g}));
- const scroll=await page.locator('#mapProfileScroll').boundingBox();
+ const scroll=g.scroll;
  assert.ok(scroll && scroll.x>=-1 && scroll.x+scroll.width<=size.width+1,JSON.stringify({surface,vr,scale,size,scroll}));
  assert.ok(scroll.y+scroll.height<=g.profile.bottom+1,JSON.stringify({surface,vr,scale,size,scroll,g}));
- const plot=await page.locator('#mapProfileCanvas').boundingBox();
+ const plot=g.plot;
  if(plot && plot.width>0 && plot.height>0){
  assert.ok(plot.y+plot.height<=scroll.y+scroll.height+1,JSON.stringify({surface,vr,scale,size,plot}));
  assert.ok(plot.x>=-1 && plot.x+plot.width<=size.width+1,JSON.stringify({surface,vr,scale,size,plot}));
