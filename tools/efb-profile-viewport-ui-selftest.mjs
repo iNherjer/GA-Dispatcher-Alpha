@@ -109,5 +109,10 @@ try {
  await page.evaluate(()=>{vpZoomLevel=100;window.vpBgNeedsUpdate=true;vpRequestMapProfileFrameNow();});
  cases++;
  }
+ const diagnostic=await page.evaluate(()=>gaEfbLayoutDiagnostic());
+ assert.ok(diagnostic.paint && diagnostic.paint.at>0,'Real canvas paint dimensions must be captured');
+ assert.equal(diagnostic.nodes.mapProfileCanvas.pixels[0],diagnostic.paint.pixels[0]);
+ assert.equal(diagnostic.nodes.mapProfileCanvas.pixels[1],diagnostic.paint.pixels[1]);
+ assert.ok(diagnostic.nodes.compassHdgReadout.rect.length===4 && diagnostic.nodes.body.rect.length===4);
  assert.deepEqual(errors,[]);console.log('PASS '+cases+' complete profile bottom and right bounds across physical/popout/toolbar, native viewport override, VR and manual scaling');
 }finally{await browser.close();}

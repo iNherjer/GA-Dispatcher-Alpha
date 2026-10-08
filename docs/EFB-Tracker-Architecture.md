@@ -1559,3 +1559,22 @@ ihren bestehenden Revision-Retry.
 Zentralwerte, Cloud-Restore, unabhängige Lautstärkeänderungen und Voice-Lifecycle.
 Browserprüfung mit zwei Geräten und 18 Reglerpositionen bestanden. Weiterhin
 unveröffentlichter Kandidat; kein Alpha-/Stable-Kanalwechsel.
+
+
+## Alpha-Diagnose v497: Skalierungsfehler im Simulator eingrenzen (08.10.2026)
+
+Vor Benutzer-Skalierung und 350 ms nach Layoutänderung/Start schreibt der
+bestehende EFB-Clientlog-Kanal begrenzte `layout-geometry`-/`layout-element`-
+Messungen ins Tracker-Debuglog. Body, Kartenrahmen, Profilrahmen, Scrollbereich,
+Wrapper, beide Canvas, Kompass und Kurs-SVG liefern Rechtecke, CSS-/Clientmaße,
+Transformation und Canvas-Pixelgröße. Letzter tatsächlicher Profil-Paint meldet
+logische Maße, Backing-Pixelgröße und wirksamen Faktor. Unsupported SVG getBBox
+bleibt separat vermerkt; Positionsdaten bleiben erhalten.
+
+Nur ereignisgebundene Messungen; kein neuer regelmäßiger Refresh/Detektor und
+keine UI-Geometrieänderung. Nachlauf wird bei schnellen Änderungen zusammen-
+gefasst und beim Entladen gestoppt. Bestehendes 800-Zeichen-Detail-Limit erhalten.
+Feldtest: EFB/Toolbar frisch öffnen, UI-Größe 100→150→200→100 Prozent,
+Tracker-Debuglog sichern. In VR sind Benutzerwert und Hostbasis getrennt im Log.
+Chrome-Skalierungsmatrix und Diagnose-Tests bestanden; Coherent-Ursache bleibt
+bis zum Feldlog unbestätigt. Keine Behauptung eines neuen Geometrie-Fixes.

@@ -143,6 +143,50 @@
   function report(level, event, stage, message, details) {
     if (typeof window.__gaEfbReport === 'function') window.__gaEfbReport(level, event, stage, message, details);
   }
+  // Read-only, bounded snapshots for Coherent field diagnosis. No UI writes.
+  function captureLayoutDiagnostic() {
+    var scale = window.GAEfbUiScale.state(), nodes = {};
+    function n(value) { return typeof value === 'number' && isFinite(value) ? Math.round(value * 100) / 100 : null; }
+    ['body','mapTableOverlay','mapArea','mapProfileStrip','mapProfileScroll','vpCanvasWrapper','mapProfileCanvas','mapProfileCanvasBg','compassRoseWrap','compassCdiSvg','compassHdgReadout'].forEach(function(id) {
+      var node = id === 'body' ? document.body : byId(id); if (!node) return;
+      try {
+        var rect = node.getBoundingClientRect(), css = window.getComputedStyle(node);
+        var value = { rect: [n(rect.left), n(rect.top), n(rect.width), n(rect.height)],
+          client: [n(node.clientWidth), n(node.clientHeight)], css: [css.width, css.height],
+          transform: css.transform, position: [css.position, css.top, css.bottom], display: css.display };
+        if (typeof node.getBBox === 'function') {
+          try { var box = node.getBBox(); value.svg = [n(box.x), n(box.y), n(box.width), n(box.height)]; }
+          catch (svgError) { value.svgError = String(svgError.message || svgError).slice(0,80); }
+        }
+        if (node.tagName === 'CANVAS') value.pixels = [node.width, node.height];
+        if (id === 'mapProfileScroll') value.scroll = [n(node.scrollLeft), n(node.scrollWidth), n(node.scrollHeight)];
+        nodes[id] = value;
+      } catch (error) { nodes[id] = { error: String(error.message || error).slice(0,80) }; }
+    });
+    var mapRect = nodes.mapArea && nodes.mapArea.rect, heading = nodes.compassHdgReadout && nodes.compassHdgReadout.rect;
+    return { scale: scale, viewport: [window.innerWidth, window.innerHeight], dpr: window.devicePixelRatio || 1,
+      profileMode: window.gaProfileModePreference, paint: window.vpMapProfilePaintMetrics || null,
+      headingPastMap: mapRect && heading ? n(heading[1] + heading[3] - mapRect[1] - mapRect[3]) : null, nodes: nodes };
+  }
+  var layoutDiagnosticTimer = null, layoutDiagnosticSequence = 0;
+  function reportLayoutDiagnostic(stage) {
+    var data = captureLayoutDiagnostic(), sequence = ++layoutDiagnosticSequence;
+    report('info','layout-geometry',stage,'EFB layout snapshot ' + sequence,
+      JSON.stringify({sequence:sequence,scale:data.scale,viewport:data.viewport,dpr:data.dpr,profileMode:data.profileMode,paint:data.paint,headingPastMap:data.headingPastMap}));
+    // One compact entry per element preserves the existing 800-character log limit.
+    Object.keys(data.nodes).forEach(function(id) {
+      report('info','layout-element',stage,id,JSON.stringify({sequence:sequence,id:id,geometry:data.nodes[id]}));
+    });
+    return data;
+  }
+  function scheduleLayoutDiagnostic() {
+    if (layoutDiagnosticTimer !== null) window.clearTimeout(layoutDiagnosticTimer);
+    layoutDiagnosticTimer = window.setTimeout(function() {
+      layoutDiagnosticTimer = null;
+      if (!pollingClosed) reportLayoutDiagnostic('settled');
+    }, 350);
+  }
+  window.gaEfbLayoutDiagnostic = captureLayoutDiagnostic;
   function boot(stage, message, error) {
     if (typeof window.__gaEfbBoot === 'function') window.__gaEfbBoot(stage, message, error);
     else report(error ? 'error' : 'info', 'boot', stage, message);
@@ -538,6 +582,7 @@
   }
 
   function setEfbFontScale(value) {
+    reportLayoutDiagnostic('before-scale');
     preferences.fontScale = clamp(Math.round((Number(value) || 1) * 10) / 10, 0.9, 3);
     preferences[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'] = preferences.fontScale;
     displaySettingsPending[displayMode] = preferences.fontScale;
@@ -1785,6 +1830,7 @@
     if (byId('routeProgressBar') && window.ResizeObserver) new ResizeObserver(positionAirspaceBanner).observe(byId('routeProgressBar'));
     positionAirspaceBanner();
     window.addEventListener('ga-efb-layout-change', function () {
+      scheduleLayoutDiagnostic();
       window.requestAnimationFrame(function () {
         positionAirspaceBanner();
         [['mapHintsMenu','mapHintsBtn',false],['mapVoiceMenu','mapVoiceBtn',false],['vpSettingsMenu','btnVpSettings',true]].forEach(function(pair) {
@@ -1806,6 +1852,7 @@
     });
     map.on('zoomend', function() { renderRouteLegLabels(); });
     buildCompass();
+    scheduleLayoutDiagnostic();
     window.setTimeout(function () { map.invalidateSize(false); }, 60);
   }
 
@@ -3221,6 +3268,7 @@
   else init();
   window.addEventListener('beforeunload', function () {
     pollingClosed = true;
+    if (layoutDiagnosticTimer !== null) window.clearTimeout(layoutDiagnosticTimer);
     Object.keys(auxiliaryPollTimers).forEach(function (url) { window.clearTimeout(auxiliaryPollTimers[url]); });
     if (pollTimer) window.clearTimeout(pollTimer);
     if (missionPollTimer) window.clearTimeout(missionPollTimer);
