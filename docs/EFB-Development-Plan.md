@@ -17,7 +17,11 @@ Zeitsprungdaten. Beide Diagnosen erzeugen selbst keine Voice-Effekte.
 Trigger, Cooldown und Missionsverträge unverändert. Kein neues EFB-Paket.
 Validierung: 78 gezielte Node-Tests bestanden; gepackter ARM64-Missionsprozess
 startet und beendet seinen Worker erfolgreich. Windows-PE-x64 gebaut; fünf
-betroffene eingebettete Quellen exakt geprüft. Windows/MSFS-Abnahme offen.
+betroffene eingebettete Quellen exakt geprüft. Windows/MSFS-Abnahme offen. Alpha v499 veröffentlicht; öffentlicher Download
+bytegleich geprüft (173678728 Bytes, SHA-256
+12d6d9bfbfd2dafbdc301885092af6c7836ef999e608276b56d8d462be95162c).
+Die zwischenzeitlichen v498-Skalierungsdiagnosen bleiben enthalten; ihre zehn
+gezielten Tests bestehen zusätzlich. Stable-Kanal unverändert.
 
 Simulatorabnahme: aktive Mission mit bestätigtem Boarding; Zeit um >60 Minuten
 ändern, Menü schließen und einige Sekunden warten. Wetter deutlich ändern,
