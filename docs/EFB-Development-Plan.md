@@ -1,8 +1,10 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
-## Umgebungsdiagnose, lokal 08.10.2026
+## Umgebungsdiagnose, Alpha v493 / Web v1965, 08.10.2026
 
-Tracker protokolliert initialen/frischen/fehlenden Wetterpreset und Wechsel sowie initiale Simulatorzeit und Sprünge über 60 Minuten (normaler Ablauf und Simrate abgezogen), auch ohne Mission. Keine Tick-Protokollierung. SIM_ENV_VOICE dokumentiert angeforderte Reaktionen und wechselnde Wartegründe bei ausstehenden Triggern. Empfang bestätigt keinen abgespielten Kommentar. Kein neues EFB-Paket nötig; Tracker-EXE beim Release neu bauen. Simulatorabnahme offen.
+Tracker protokolliert initialen/frischen/fehlenden Wetterpreset und Wechsel sowie initiale Simulatorzeit und Sprünge über 60 Minuten (normaler Ablauf und Simrate abgezogen), auch ohne Mission. Keine Tick-Protokollierung. SIM_ENV_VOICE dokumentiert angeforderte Reaktionen und wechselnde Wartegründe bei ausstehenden Triggern. Empfang bestätigt keinen abgespielten Kommentar. Kein neues EFB-Paket nötig; Tracker v493 neu gebaut; Simulatorabnahme bleibt offen.
+
+Writer V5 erhält begrenzte, schlüsselbereinigte Request-Diagnosen (Modell, Fehler, Parsemodus, Versuche). Bush-Aufträge ohne Writer-Story scheitern sichtbar statt generischen Ersatz-Pax anzulegen; vorhandene Bush-Personas bleiben bei erneuter Profilierung erhalten. APT-Fallback unverändert. Keine automatische zusätzliche KI-Anfrage. Zielhöhen-Diskrepanz bei 1DA separat offen.
 
 ## Bush-Missionsübergabe: Alpha-Web v1962, 08.10.2026
 

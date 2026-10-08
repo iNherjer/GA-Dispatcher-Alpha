@@ -6321,6 +6321,7 @@ window.vpBuildWeatherDebugReport = function () {
       if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
       if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
       if (storyBits.length) lines.push(`- Story-Debug: ${storyBits.join(' | ')}`);
+      if (sd.requestDiagnostics) lines.push('- Writer-Aufruf: ' + JSON.stringify(sd.requestDiagnostics));
       if (sd.taskDomain === 'private_return') {
         var _sd$experienceRecap, _sd$experienceRecap2;
         if (sd.debugCompletion) lines.push('- Private Heimreise Testquelle: Debug-Abschluss, kein geflogener Hinflug.');
