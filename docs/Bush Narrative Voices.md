@@ -357,3 +357,6 @@ Boarding und Begrüßung sind in der produktiven Runtime bereits kombiniert;
 separate Startbegrüßungen werden unterdrückt. Die im Test zusätzlich erzeugte
 Startansage gehörte nicht zum tatsächlichen Ablauf. Kein TTS-/Playback- oder
 Windows-/MSFS-Flugtest durch diese Textprobe.
+
+Alpha-Web-Rollout: Cache v1969. Der bestehende Tracker-/EFB-Release bleibt
+unverändert; diese Änderungen betreffen die App-seitige Charter-Generierung.
