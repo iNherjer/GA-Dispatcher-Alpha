@@ -1,5 +1,29 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Zeitquelle und Wetter-Messdiagnose, Tracker v499, 08.10.2026
+
+Feldlog v496 meldete ABSOLUTE TIME=1, LOCAL TIME=0 und keinen Zeitsprung.
+Die Ursache im optionalen Sammelpaket ist noch nicht im Simulator bewiesen.
+Zeit und Simrate kommen jetzt aus einer separaten FLOAT64-Abfrage (ID 210),
+mit Identitäts-/24-Byte-Prüfung, Werteprüfung und 2,5-Sekunden-Frischegrenze.
+Fehlerhafte/veraltete Pakete liefern keine Zeit statt Sammelpaket-Fallback.
+SIM_ENV_CLOCK_SOURCE protokolliert Quellenstatus und Abweichung zum alten Paket.
+Das offene EFB allein unterbricht die globale Zeitdiagnose nicht mehr.
+
+SIM_ENV_WEATHER dokumentiert Presetwechsel auch über kurze unavailable-Lücken,
+Vorher-/Nachher-Messwerte, Schwellen und Messbefund nach 0/3/10/40 Sekunden.
+SIM_ENV_VOICE enthält zusätzlich Werte, Stabilität, Pax-/Aktivitätsgates und
+Zeitsprungdaten. Beide Diagnosen erzeugen selbst keine Voice-Effekte.
+Trigger, Cooldown und Missionsverträge unverändert. Kein neues EFB-Paket.
+Validierung: 78 gezielte Node-Tests bestanden; gepackter ARM64-Missionsprozess
+startet und beendet seinen Worker erfolgreich. Windows-PE-x64 gebaut; fünf
+betroffene eingebettete Quellen exakt geprüft. Windows/MSFS-Abnahme offen.
+
+Simulatorabnahme: aktive Mission mit bestätigtem Boarding; Zeit um >60 Minuten
+ändern, Menü schließen und einige Sekunden warten. Wetter deutlich ändern,
+nach Rückkehr mindestens 45 Sekunden warten und beide Logs einsenden.
+
+
 ## Umgebungsdiagnose: Logger-Scope korrigiert, Alpha v495, 08.10.2026
 
 v493/v494 initialisierten die Umgebungsdiagnose außerhalb des Hauptprozess-Blocks,

@@ -10,6 +10,7 @@ const { createAudioControl, createAudioCloud } = require('./tracker-audio-contro
 const { createAudioAssetCache } = require('./tracker-audio-asset-cache.js');
 const { handleVoiceRelay } = require('./tracker-voice-relay-core.js');
 const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Waypoint, SimConnectConstants, EventFlag } = require('node-simconnect');
+const { createClockTelemetry } = require('./tracker-clock-telemetry.js');
 const { createSlewTelemetry } = require('./tracker-slew-telemetry.js');
 const WebSocket = require('ws');
 const readline = require('readline');
@@ -95,8 +96,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v498';
-const TRACKER_VERSION_CODE = 498;
+const TRACKER_VERSION = 'v499';
+const TRACKER_VERSION_CODE = 499;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -6606,6 +6607,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         requestId: SLEW_REQ_ID, int32Type: SimConnectDataType.INT32,
         period: SimConnectPeriod.VISUAL_FRAME, intervalFrames: GPS_SOURCE_INTERVAL_FRAMES,
         log: debugLog });
+      const clockTelemetry = createClockTelemetry({handle, definitionId: 210,
+        requestId: 210, float64Type: SimConnectDataType.FLOAT64,
+        period: SimConnectPeriod.VISUAL_FRAME, intervalFrames: GPS_SOURCE_INTERVAL_FRAMES,
+        log: debugLog});
       const gpsDefinitionSends = new Map();
       const onGpsDefinitionException = recv => {
         const field = gpsDefinitionSends.get(recv?.sendId);
@@ -6719,6 +6724,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 }
               }
 
+              const clockSample = clockTelemetry.diagnose(raw, now);
+              raw.simAbsoluteTimeSeconds = clockSample.simAbsoluteTimeSeconds;
+              raw.simLocalTimeSeconds = clockSample.simLocalTimeSeconds;
+              raw.simulationRate = clockSample.simulationRate;
               const lat = raw.lat;
               const lon = raw.lon;
               const alt = raw.alt;
@@ -6769,7 +6778,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               const inMenuOrMap = isInMenuOrMap();
               environmentDiagnostics.observe({observedAt:now,weatherPreset:trackerCockpitControl?.weatherPreset?.()||null,
                 simAbsoluteTimeSeconds:raw.simAbsoluteTimeSeconds,simLocalTimeSeconds:raw.simLocalTimeSeconds,
-                simulationRate:raw.simulationRate,simPaused,inMenuOrMap},
+                simulationRate:raw.simulationRate,simPaused,inMenuOrMap:runtimeState.simRunning === 0,
+                lat,lon,mslFt:alt,tempC:raw.tempC,windKts:raw.windKts,
+                visKm:Number.isFinite(raw.visMeters)?raw.visMeters/1000:null,precipState:raw.precipState},
                 {hasMission:!!missionAuthorityManager?.getActiveRun?.()});
               // MSFS reports DialogMode while cockpit surfaces such as the EFB
               // are open as well. That is useful UI telemetry, but it must not
@@ -7081,6 +7092,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
         if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
         slewTelemetry.dispose();
+        clockTelemetry.dispose();
         handle.removeListener('exception', onGpsDefinitionException);
         clearInterval(telemetryDiagnosticTimer);
         clearInterval(runtimePollInterval);
