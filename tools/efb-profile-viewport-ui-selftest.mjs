@@ -51,11 +51,40 @@ try {
  assert.ok(Math.abs(g.overlay.bottom-size.height)<1,JSON.stringify({surface,vr,scale,size,g}));
  assert.ok(g.profile.bottom<=size.height+1,JSON.stringify({surface,vr,scale,size,g}));
  assert.ok(g.profile.height>0,JSON.stringify({surface,vr,scale,size,g}));
+ assert.ok(g.profile.x>=-1 && g.profile.right<=size.width+1,JSON.stringify({surface,vr,scale,size,g}));
+ const scroll=await page.locator('#mapProfileScroll').boundingBox();
+ assert.ok(scroll && scroll.x>=-1 && scroll.x+scroll.width<=size.width+1,JSON.stringify({surface,vr,scale,size,scroll}));
  const plot=await page.locator('#mapProfileCanvas').boundingBox();
- if(plot && plot.width>0 && plot.height>0)assert.ok(plot.y+plot.height<=size.height+1,JSON.stringify({surface,vr,scale,size,plot}));
+ if(plot && plot.width>0 && plot.height>0){
+ assert.ok(plot.y+plot.height<=size.height+1,JSON.stringify({surface,vr,scale,size,plot}));
+ assert.ok(plot.x>=-1 && plot.x+plot.width<=size.width+1,JSON.stringify({surface,vr,scale,size,plot}));
+ }
  if(scale<=1.5 && size.height>=600)assert.ok(plot && plot.width>0 && plot.height>0,'Profile plot must remain visible at normal/VR-default scale');
  cases++;
  }
  }
- assert.deepEqual(errors,[]);console.log('PASS '+cases+' complete profile bottom bounds across physical/popout/toolbar, native viewport override, VR and manual scaling');
+
+ // Exercise the real painted canvas at horizontal route zoom and scroll.
+ await page.setViewportSize({width:838,height:883});
+ for(const surface of ['physical','popout','toolbar']) {
+ await page.evaluate(surface=>{
+ __layoutTest.mode(true,surface);__layoutTest.scale(1.5);
+ vpMode='ROUTE';vpElevationData=[{lat:48.36,lon:7.83,distNM:0,elevFt:600},{lat:48.45,lon:7.92,distNM:6,elevFt:1400}];
+ vpZoomLevel=25;window.vpBgNeedsUpdate=true;vpRequestMapProfileFrameNow();
+ },surface);
+ await page.waitForFunction(()=>parseFloat(document.getElementById('vpCanvasWrapper').style.width)>document.getElementById('mapProfileScroll').clientWidth);
+ await page.evaluate(()=>{const e=document.getElementById('mapProfileScroll');e.scrollLeft=(e.scrollWidth-e.clientWidth)/2;window.vpBgNeedsUpdate=true;vpRequestMapProfileFrameNow();});
+ await page.waitForTimeout(120);
+ const rects=await page.evaluate(()=>{
+ const r=id=>{const b=document.getElementById(id).getBoundingClientRect();return {left:b.left,right:b.right,width:b.width};};
+ return {scroll:r('mapProfileScroll'),canvas:r('mapProfileCanvas'),background:r('mapProfileCanvasBg')};
+ });
+ for(const rect of Object.values(rects))assert.ok(rect.left>=-1 && rect.right<=839 && rect.width>0,JSON.stringify({surface,rects}));
+ await page.locator('#btnVpSettings').evaluate(e=>e.scrollIntoView({block:'nearest',inline:'nearest'}));
+ const gear=await page.locator('#btnVpSettings').boundingBox();
+ assert.ok(gear.x>=-1 && gear.x+gear.width<=839,JSON.stringify({surface,gear}));
+ await page.evaluate(()=>{vpZoomLevel=100;window.vpBgNeedsUpdate=true;vpRequestMapProfileFrameNow();});
+ cases++;
+ }
+ assert.deepEqual(errors,[]);console.log('PASS '+cases+' complete profile bottom and right bounds across physical/popout/toolbar, native viewport override, VR and manual scaling');
 }finally{await browser.close();}

@@ -1440,3 +1440,15 @@ body.ga-efb-tracker-host:not([data-ga-efb-effective-scale="1"]) #routeProgressBa
   padding: 2px;
 }
 body.ga-efb-tracker-host #mapProfileStrip { box-sizing: border-box; }
+
+/* The zoomed route may be wider internally; its visible viewport and controls
+   must remain within the map shell on physical tablets as well as popouts. */
+body.ga-efb-tracker-host #mapProfileStrip,
+body.ga-efb-tracker-host #mapProfileScroll { min-width: 0; max-width: 100%; }
+body.ga-efb-tracker-host #mapProfileScroll { width: 100%; box-sizing: border-box; }
+body.ga-efb-tracker-host .map-profile-controls {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}

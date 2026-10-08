@@ -6543,3 +6543,21 @@ Tracker-EXE und Assetrevision. Noch kein Build/Release/Kanalwechsel.
 
 Abschliessende bestehende Layoutmatrix: 60 Popout-/Toolbarfaelle einschliesslich
 Menues, Hit-Tests, Host-Rueckwechsel und Statusinset nach finalem Fix bestanden.
+
+### 2026-10-08: Rechte Profilbegrenzung im selben Kandidaten
+
+Nutzer weist auf seitliches Auslaufen im Simulatorbild hin. Rechte Kante von
+Profilbox, sichtbarem Scrollbereich und Canvas in neue Matrix aufgenommen.
+Logische Pixelbreite der Map-Shell deckt auch diesen Root-Beschnitt ab.
+Zusaetzliche Luecke bei physischer manueller Skalierung: Profil-Bedienleiste
+hatte keinen horizontalen Overflow-Container. Leiste jetzt innerhalb der
+Profilbreite scrollbar; sichtbarer Scrollbereich hat explizite Breite und
+Min-/Max-Breiten. Virtuelle Routenbreite fuer Profilzoom bleibt erhalten.
+Drei zusaetzliche Faelle pruefen echten Profilrenderer mit Terrainpunkten,
+25-Prozent-Sichtfenster und horizontalem Scroll, beide Canvas-Layer sowie
+Erreichbarkeit des Einstellungen-Buttons nach ScrollIntoView. Insgesamt
+93 Unter-/Rechtskantenfaelle; Simulator-Abnahme weiter offen. Kein Release.
+
+Abschluss: 93 neue Unter-/Rechtskanten-/Zoomfaelle jeweils mit und ohne
+ResizeObserver bestanden, 60 bestehende Layout-/Menue-/Hit-Testfaelle nach
+horizontaler Leistenbegrenzung ebenfalls bestanden. Keine Screenshots.

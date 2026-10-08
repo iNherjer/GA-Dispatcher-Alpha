@@ -1491,3 +1491,8 @@ Body ist kein Vertrag fuer Coherent. SDK-Surface-/VR-Erkennung und Grundfaktoren
 bleiben unveraendert. Physisch 100 Prozent behaelt seine Standardgroessen.
 Skalierte Flex-Mindesthoehen duerfen das Profil nicht unter den iframe-Rand
 schieben. Layout bleibt ereignisgesteuert, ohne zusaetzliche Polling-Refreshes.
+
+Auch die Profilbreite richtet sich nach dem logischen Host-Viewport. Die
+virtuelle Routenbreite fuer Zoom/Pan darf groesser bleiben; nur der sichtbare
+Scrollbereich und die Bedienleiste sind auf die Profilbreite begrenzt.
+Physische Tablets erhalten bei Platzmangel horizontal scrollbarere Controls.
