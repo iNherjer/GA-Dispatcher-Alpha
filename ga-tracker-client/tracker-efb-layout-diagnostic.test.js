@@ -30,3 +30,12 @@ test('settled logging coalesces repeated changes and respects closed lifecycle',
  assert.ok(h.entries.length>1);for(const entry of h.entries)assert.ok(entry[4].length<=800,'Existing transport bound');
  const count=h.entries.length;h.context.pollingClosed=true;h.context.scheduleLayoutDiagnostic();[...h.timers.values()].at(-1)();assert.equal(h.entries.length,count);
 });
+
+test('grouped logs retain all element measurements inside existing detail limit',()=>{
+ const h=harness();h.context.reportLayoutDiagnostic('manual');
+ const groups=h.entries.filter(e=>e[1]==='layout-element').map(e=>JSON.parse(e[4]));
+ const nodes=Object.assign({},...groups.map(g=>g.nodes));
+ assert.ok(nodes.body && nodes.mapArea && nodes.compassHdgReadout && nodes.mapProfileCanvas);
+ assert.ok(groups.length<5,'Multiple elements share each log request');
+ for(const entry of h.entries)assert.ok(entry[4].length<=800);
+});

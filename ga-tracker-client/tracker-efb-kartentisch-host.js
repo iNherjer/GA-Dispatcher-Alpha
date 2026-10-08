@@ -173,10 +173,19 @@
     var data = captureLayoutDiagnostic(), sequence = ++layoutDiagnosticSequence;
     report('info','layout-geometry',stage,'EFB layout snapshot ' + sequence,
       JSON.stringify({sequence:sequence,scale:data.scale,viewport:data.viewport,dpr:data.dpr,profileMode:data.profileMode,paint:data.paint,headingPastMap:data.headingPastMap}));
-    // One compact entry per element preserves the existing 800-character log limit.
+    // Bundle element measurements without exceeding the existing transport limit.
+    var group = {};
+    function flush() {
+      if (!Object.keys(group).length) return;
+      report('info','layout-element',stage,'EFB element group',JSON.stringify({sequence:sequence,nodes:group}));
+      group = {};
+    }
     Object.keys(data.nodes).forEach(function(id) {
-      report('info','layout-element',stage,id,JSON.stringify({sequence:sequence,id:id,geometry:data.nodes[id]}));
+      var next = Object.assign({},group); next[id] = data.nodes[id];
+      if (JSON.stringify({sequence:sequence,nodes:next}).length > 760) flush();
+      group[id] = data.nodes[id];
     });
+    flush();
     return data;
   }
   function scheduleLayoutDiagnostic() {
@@ -582,7 +591,7 @@
   }
 
   function setEfbFontScale(value) {
-    reportLayoutDiagnostic('before-scale');
+    if (layoutDiagnosticTimer === null) reportLayoutDiagnostic('before-scale');
     preferences.fontScale = clamp(Math.round((Number(value) || 1) * 10) / 10, 0.9, 3);
     preferences[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'] = preferences.fontScale;
     displaySettingsPending[displayMode] = preferences.fontScale;

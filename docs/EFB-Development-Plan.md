@@ -6741,3 +6741,9 @@ Feldtest: EFB/Toolbar frisch öffnen, UI-Größe 100→150→200→100 Prozent,
 Tracker-Debuglog sichern. In VR sind Benutzerwert und Hostbasis getrennt im Log.
 Chrome-Skalierungsmatrix und Diagnose-Tests bestanden; Coherent-Ursache bleibt
 bis zum Feldlog unbestätigt. Keine Behauptung eines neuen Geometrie-Fixes.
+
+Diagnose-Rollout verwendet v498: v497 bleibt unveränderlicher, nicht
+aktivierter Zwischenstand. Gruppierte Elementmessungen und ein gemeinsamer
+Vorher-/Nachher-Snapshot für schnelle Klickfolgen reduzieren Requests unter
+dem vorhandenen Clientlog-Limit von 120/Minute. Details bleiben unter 800
+Zeichen. Nutzer testet zunächst nur einen geöffneten Host.
