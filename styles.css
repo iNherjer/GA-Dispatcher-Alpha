@@ -2453,6 +2453,7 @@ body.theme-retro #airportFlightBriefingText,
 body.theme-retro #airportFlightBriefing h3,
 body.theme-retro #airportFlightBriefingSources,
 body.theme-retro #airportDestinationInfoSources,
+body.theme-retro #airportDepartureInfoSources,
 body.theme-retro .wiki-info-note {
     font-family: 'Courier New', Courier, monospace;
     font-size: 14px;
@@ -14024,6 +14025,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #airportFlightBriefing h3,
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #airportFlightBriefingSources,
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #airportDestinationInfoSources,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #airportDepartureInfoSources,
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .wiki-info-note {
     font-family: 'Courier New', Courier, monospace;
     font-size: 14px;

@@ -159,6 +159,9 @@ for (const profileId of Object.keys(completionByProfile)) {
     assert.equal(authority.taskDomain, fixture.missionContract.taskDomain);
 
     const approach = vm.runInContext('window.paxVoiceBuildApproachAuthorityContext()', fixture.context);
+    assert.equal(approach.schema, 'ga.mission-approach-context.v1');
+    assert.equal(approach.version, 1);
+    assert.equal(authority.schema, 'ga.mission-farewell-voice-context.v1');
     assert.equal(approach.baseContext, fixture.baseContext);
     assert.equal(approach.toneHint, fixture.toneHint);
     assert.equal(approach.bushContinuityHint, '');

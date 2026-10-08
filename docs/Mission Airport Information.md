@@ -102,8 +102,9 @@ Nachweis für das veröffentlichte Cloudflare-Deployment. Live-KI-Proben sind in
 
 ## Vorgemerkt
 
-Startseite, alle Missionsfamilien und deren Folge-/Rückflüge erhalten den
-gemeinsamen Kontext erst nach Bewertung dieses Bush-Piloten. Ebenso ist die
+Weitere Missionsfamilien und deren Folge-/Rückflüge erhalten den
+gemeinsamen Kontext erst nach Bewertung dieses Bush-Piloten. Die Bush-Startseite
+ist im unten beschriebenen lokalen Ausbau ergänzt. Ebenso ist die
 globale Freischaltung des Wetter-/Jahreszeiten-/Prognosebausteins vorgemerkt.
 SkyVector, weitere nationale AIP-Adapter, NASR-Bulk-Import und Big-Creek-SOP
 sind nicht automatisch angebunden. Kein serielles Quellen-Crawling im Dispatch.
@@ -204,3 +205,66 @@ wird zusätzlich als Screenshot kontrolliert.
 Rollout vom Nutzer freigegeben. Der Web-Hotfix baut auf dem bereits
 veröffentlichten Tracker-v490-/EFB-UI-Stand auf. Nur Web-Dateien und Nachweise
 werden ergänzt; Tracker- und EFB-Kanäle behalten ihren vorhandenen Stand.
+
+
+## Startseite und Abfrageprüfung – lokaler Ausbau 07.10.2026
+
+Für KI-Bush-Missionen entsteht zusätzlich `departureAirportInformation.departureInfo`
+im vorhandenen V4-/V5-/Legacy-Writer-Aufruf. Der eigene Kontext
+`departureAirportInfoContext` bleibt an die Startkoordinaten gebunden. Die
+Startseite zeigt denselben sachlichen Platztext-Stil wie die Zielseite, ergänzt
+um Startleistungsplanung und belegte Hinweise zum Abflug (auch Lärmschutz,
+Hindernisse und weitere Pilotennotizen). Sie übernimmt weder Zielabholung noch
+persönliche Missionsstory. Wetter bleibt optional und stammt hier vom Start.
+Bei fehlender/ungültiger KI-Ausgabe erscheint eine Zusammenfassung eigener Daten.
+Beide Speicherpfade, Quellenlinks und Restore sind angeschlossen. Späte alte
+Wiki-Antworten überschreiben die neuen Texte nicht. APT/POI und Offline-Generierung
+bleiben unverändert. Bei Bush-Recon ist der Start ein Platz, das Suchgebiet
+bekommt weiterhin keinen Airport-Text.
+
+`loadPair()` lädt Start/Ziel gleichzeitig, bei gleichem Platz nur einmal.
+Wiki/FAA behalten ihre vorhandenen begrenzten RAM-/CacheStorage-Caches;
+vorhandene Hosted-Pakete und Terrain-Kacheln werden vom jeweiligen Provider
+wiederverwendet. Die neue Startredaktion ersetzt die bisherige separate
+Wikipedia-Suche der Startseite. Es gibt keinen neuen Wetter-/Overpass-Aufruf.
+Fehlende Quellen dürfen erneut versucht werden; erfolgreiche negative Wiki-Suchen
+werden gecacht. Späte Antworten starten nach dem Budget keine Artikelabfrage mehr.
+
+Wikipedia-Abrufe dieses Bausteins sind über beide Sprachen und Plätze auf drei
+parallele Anfragen begrenzt, einschließlich der Antwortkörper. Wartende Anfragen
+werden bei Deadline abgebrochen. 429/503 mit `Retry-After` sowie API-Fehler
+`ratelimited`/`maxlag` innerhalb HTTP 200 pausieren die Quelle. Die Begrenzung
+gilt nicht für unabhängige alte Wiki-Funktionen anderer Missionsmodule.
+Grundlage: [Wikimedia Rate limits](https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits).
+
+Pro kaltem Platz sind 2–4 Wiki-Anfragen und bei US-Plätzen eine FAA-Proxy-Anfrage
+möglich, zuzüglich fehlender Hosted-Pakete und Terrain-Kacheln. Wiederholungen
+machen für erfolgreich gecachte Wiki/FAA-Daten keine Netzabfrage. Es gibt keinen
+zusätzlichen KI-Aufruf, aber mehr Eingabe-/Ausgabetokens: In den beiden Live-
+Quellenbeispielen fügte der Starttext-Auftrag dem Writer-Prompt 6383 bzw. 9126
+Zeichen hinzu (keine Tokenzählung). Der Planner erhält ebenfalls Startquellen.
+Gemini begrenzt auch Tokens pro Minute; konkrete Projektquoten sind hier nicht
+geprüft. [Gemini Rate limits](https://ai.google.dev/gemini-api/docs/rate-limits).
+Damit ist kein pauschaler Ausschluss späterer Limits möglich.
+
+Read-only-Live-Probe: `node tools/airport-information-pair-live-probe.mjs`.
+Veröffentlichte Wikipedia-/FAA-Proxy-/Hosted-Quellen, keine lokale FAA-Nachbildung,
+kein KI-Aufruf, kein Browser-CORS-/Terrain-/Simulator-Latenznachweis:
+
+| Strecke | erster kalter Lauf | kalter Lauf mit Parallelitätsgrenze | warmer letzter Lauf |
+| --- | --- | --- | --- |
+| KMYL → U60 | 678 ms, 6 Wiki + 2 FAA + 4 Hosted | 1816 ms, gleiche Abfragezahl, vollständig | 19 ms, 0 Netzabfragen |
+| EDTW → EDTO | 526 ms, 6 Wiki + 2 Hosted | 3006 ms, 5 Wiki + 2 Hosted, EDTO-Wiki-Timeout | 257 ms, 1 Wiki-Versuch mit API-Fehler |
+
+Im zweiten Lauf blieb EDTO teilweise ohne Zusatzquelle; eigene Pistenwerte waren
+vorhanden. Kein HTTP 429, aber ein HTTP-200-API-Fehler; ein anschließender einzelner
+Abruf lieferte wieder eine gültige Antwort. Drei Sekunden sind ein Fallback-Budget,
+keine Garantie vollständiger Zusatzquellen. Der rohe Laufbericht liegt lokal unter
+`/tmp/ga-start-context-live-report.json` und enthält keine Schlüssel.
+
+Nachweise: erweiterte Modulprüfungen für einen Writer-Aufruf, getrennte
+Start-/Zielquellen, Speicherpfade, kalt/warm/Rückflug, gleicher Platz, Deadline,
+maximal drei parallele Wiki-Anfragen und Drosselung. Chrome prüft echte
+App-/Writer-Funktionen, Darstellung, keine nachfolgende Wiki-Abfrage bei vorhandenem
+Text, Restore, Quellen und späte Wiki-Antworten. Die Browser-Writer-Antworten
+sind Fixtures; noch keine neue Live-KI-Prosa-Abnahme oder Veröffentlichung.
