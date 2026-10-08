@@ -90,6 +90,8 @@ function createTrackerMissionFarewellVoice(options = {}) {
     const authorityContext = farewellVoiceCore.normalizeContext(request.farewellContext)
       || farewellVoiceCore.normalizeContext(effectPlan.context);
     if(authorityContext&&chapterHint)authorityContext.baseContext += chapterHint;
+    const bushSourceBasis=object(object(plan.effects)['voice.approach']).context?.bushSourceBasis;
+    if(authorityContext&&bushSourceBasis?.schema==='bush-source-basis.v1')authorityContext.baseContext += bushNarrativeCore.sourcePrompt({bushSourceBasis});
     return (authorityContext
         ? farewellVoiceCore.createRecipeFromContext({ ...authorityContext, weatherMismatchAlreadyUsed: authorityContext.weatherMismatchAlreadyUsed || (authorityManager.getExecutionSnapshot?.()?.state?.voice?.boarding?.weatherMismatchUsed === true || authorityManager.getExecutionSnapshot?.()?.state?.voice?.bush?.weatherMismatchUsed === true) }, request.farewellDynamicContext)
         : null)

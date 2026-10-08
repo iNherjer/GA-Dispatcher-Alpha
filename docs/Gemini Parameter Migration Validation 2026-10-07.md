@@ -167,3 +167,23 @@ Publisher-Trockenlauf bestaetigt dieselben Daten. Zusaetzliches ausfuehrbares
 macOS-ARM64-Paket mit derselben pkg-/Node-Version: echter Tracker-Bootstrap,
 Missionsprozess und IPC/Authority erfolgreich, MISSION_PACKAGED_PROCESS_SMOKE_OK,
 Worker-Exit 0. Kein Windows-/SimConnect-Feldtest, keine EXE veroeffentlicht.
+
+## Genehmigte Bush-Nachschaerfung, 08.10.2026
+
+Separater zusaetzlicher Eingriff nach Nutzerfreigabe: gemeinsame Bush-Quellenregel
+und Datenbasis in Planner/Writer/Voice; eigene technische Basisdaten werden bei
+fehlendem oertlichem Quellenmaterial direkt als Platzinformation ausgegeben.
+Details und verbliebene fachliche Grenzen in Bush Narrative Voices.md,
+Abschnitt Bush-Quellenbindung, lokaler Kandidat 08.10.2026.
+
+275 Tests bestanden; vier API-Proben (23/23 HTTP 200). Technische Ketten ready,
+sachliche Basisdatenredaktion erfolgreich, freie Story/Voice noch mit unbelegten
+Orts-/Lichtaussagen. Keine fachliche Freigabe, kein Push oder Release.
+Keine neuen KI-Aufrufe im normalen Missionsablauf; neue Prompts/Datenbasis
+benoetigen mehr Eingabetokens. Weiterhin unveraenderte Modelle, Sampling-
+Bereinigung und Thinking-Einstellungen.
+
+Neu gebauter lokaler v491-Kandidat ersetzt den vorherigen lokalen Build:
+173641892 Bytes, SHA-256
+b66021e72f008e9b3440debc4af57b4ee4059eb5af54bdcebcd9bea33b504605.
+Alpha-/Stable-Kanaldateien weiter unveraendert. Kein Windows-/MSFS-Feldtest.
