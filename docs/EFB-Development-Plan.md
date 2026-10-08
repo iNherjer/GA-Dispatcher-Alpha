@@ -1,5 +1,18 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Umgebungsdiagnose: Logger-Scope korrigiert, Alpha v495, 08.10.2026
+
+v493/v494 initialisierten die Umgebungsdiagnose außerhalb des Hauptprozess-Blocks,
+während `debugLog` innerhalb dieses Blocks definiert ist. Der erste Diagnoseeintrag
+warf `ReferenceError: debugLog is not defined`; jeder SimConnect-Telemetrie-Tick
+brach vor der Weitergabe ab, obwohl Prozess und Simulatorverbindung weiterliefen.
+Die Diagnose wird jetzt im Hauptprozess nach `debugLog` angelegt und erhält dessen
+Funktionsreferenz direkt. Der Mission-Worker initialisiert diese Diagnose nicht.
+Ein Regressionstest führt die echten Logger-Deklarationen in ihren originalen
+Entry-Point-Scopes aus: initialer Wetter-/Zeiteintrag und Zeitsprung erreichen
+Debug- und Missionstestlog. Der Fehler wurde vor dem Fix reproduziert. Eine neue
+Windows-EXE ist erforderlich; die Simulatorabnahme bleibt offen.
+
 ## Umgebungsdiagnose, Alpha v493 / Web v1965, 08.10.2026
 
 Tracker protokolliert initialen/frischen/fehlenden Wetterpreset und Wechsel sowie initiale Simulatorzeit und Sprünge über 60 Minuten (normaler Ablauf und Simrate abgezogen), auch ohne Mission. Keine Tick-Protokollierung. SIM_ENV_VOICE dokumentiert angeforderte Reaktionen und wechselnde Wartegründe bei ausstehenden Triggern. Empfang bestätigt keinen abgespielten Kommentar. Kein neues EFB-Paket nötig; Tracker v493 neu gebaut; Simulatorabnahme bleibt offen.
