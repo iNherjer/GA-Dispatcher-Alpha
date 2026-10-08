@@ -1793,6 +1793,7 @@
         });
         if (window.gaEfbRefreshDrawerLayout) window.gaEfbRefreshDrawerLayout();
         if (window.GAEfbFloatingLayout) window.GAEfbFloatingLayout.refresh();
+        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
       });
     });
     window.addEventListener('resize', function () {

@@ -7,6 +7,49 @@ function vpEfbLogicalDelta(value) { return window.GAEfbUiScale ? window.GAEfbUiS
 function vpMapProfilePadding() { return { padLeft: 33, padRight: 16, padTop: 12, padBottom: 22 }; }
 function vpCanvasFont(ctx, font) { return font; }
 
+// Coherent can retain the flex child's previous size after scaling its parent.
+// Derive the drawing budget from the visible strip, in logical CSS pixels.
+function vpMapProfileViewport(scrollContainer) {
+    if (!window.GAEfbUiScale) return { width: scrollContainer.clientWidth || 600, height: scrollContainer.clientHeight || 100 };
+    const strip = document.getElementById('mapProfileStrip');
+    const wrapper = document.getElementById('vpCanvasWrapper');
+    if (!strip || !wrapper) return { width: 0, height: 0 };
+    const stripRect = strip.getBoundingClientRect();
+    const stripStyle = getComputedStyle(strip);
+    const edge = name => parseFloat(stripStyle[name]) || 0;
+    const width = Math.max(0, vpEfbLogicalDelta(stripRect.width) - edge('borderLeftWidth') - edge('borderRightWidth') - edge('paddingLeft') - edge('paddingRight'));
+    const set = (node, name, value) => {
+        if (node.style.getPropertyValue(name) !== value || node.style.getPropertyPriority(name) !== 'important') node.style.setProperty(name, value, 'important');
+    };
+    const controls = strip.querySelector('.map-profile-controls');
+    if (controls) {
+        set(controls, 'max-height', Math.max(0, vpEfbLogicalDelta(stripRect.height) * .5) + 'px');
+        set(controls, 'min-height', '0px');
+        set(controls, 'box-sizing', 'border-box');
+        set(controls, 'overflow-y', 'auto');
+    }
+    const scrollRect = scrollContainer.getBoundingClientRect();
+    const height = Math.max(0, vpEfbLogicalDelta(stripRect.bottom - scrollRect.top) - edge('borderBottomWidth') - edge('paddingBottom'));
+    set(scrollContainer, 'flex', '0 0 ' + height + 'px');
+    set(scrollContainer, 'height', height + 'px');
+    set(scrollContainer, 'width', width + 'px');
+    // Account for a native horizontal scrollbar, but never accept a stale
+    // client measurement larger than the visible parent budget.
+    const drawHeight = Math.max(0, Math.min(height, scrollContainer.clientHeight));
+    const drawWidth = Math.max(0, Math.min(width, scrollContainer.clientWidth));
+    set(wrapper, 'height', drawHeight + 'px');
+    for (const id of ['mapProfileCanvas', 'mapProfileCanvasBg']) {
+        const canvas = document.getElementById(id);
+        if (canvas) {
+            if (canvas.style.width !== drawWidth + 'px' || canvas.style.height !== drawHeight + 'px') window.vpBgNeedsUpdate = true;
+            set(canvas, 'width', drawWidth + 'px');
+            set(canvas, 'height', drawHeight + 'px');
+        }
+    }
+    return { width: drawWidth, height: drawHeight };
+}
+
+
 function vpCreateAbortController() {
     return window.gaProfileDataProvider ? window.gaProfileDataProvider.createAbortController() : new AbortController();
 }
@@ -8456,6 +8499,8 @@ function renderMapProfileFrames(timeMs) {
         return;
     }
 
+    const viewport = vpMapProfileViewport(scrollContainer);
+    if (viewport.width <= 0 || viewport.height <= 0) { vpScheduleMapProfileFrame(250); return; }
     const isHdgMode = (typeof vpMode !== 'undefined' && vpMode === 'HDG');
     const perfMeta = window.vpAnimFrameMeta || (window.vpAnimFrameMeta = { lastPaintMs: 0, lastTargetFps: 0 });
     const targetFps = vpGetMapProfileTargetFps(isHdgMode);
@@ -8477,8 +8522,8 @@ function renderMapProfileFrames(timeMs) {
     perfMeta.lastPaintMs = nowMs;
     perfMeta.lastTargetFps = targetFps;
 
-    const containerHeight = scrollContainer.clientHeight || 100;
-    const baseWidth = scrollContainer.clientWidth || 600;
+    const containerHeight = viewport.height;
+    const baseWidth = viewport.width;
     const zoomFactor = 100 / vpZoomLevel;
     
     // Virtuelle Breite für die Scrollbar
@@ -8620,8 +8665,10 @@ function renderMapProfileFrames(timeMs) {
     // A UI-scale change can keep the backing pixel size identical while
     // changing logical dimensions. CSS size must update independently.
     const bgLayoutChanged = bgCanvas.style.width !== baseWidth + 'px' || bgCanvas.style.height !== containerHeight + 'px';
-    bgCanvas.style.width = baseWidth + 'px';
-    bgCanvas.style.height = containerHeight + 'px';
+    if (!window.GAEfbUiScale) {
+        bgCanvas.style.width = baseWidth + 'px';
+        bgCanvas.style.height = containerHeight + 'px';
+    }
     const needsBgRender = bgLayoutChanged || window.vpBgNeedsUpdate
         || bgCanvas.width !== targetW
         || bgCanvas.height !== targetH;
@@ -8758,8 +8805,10 @@ function renderMapProfileFrames(timeMs) {
         fgCanvas.width = targetW; 
         fgCanvas.height = targetH;
     }
-    fgCanvas.style.width = baseWidth + 'px';
-    fgCanvas.style.height = containerHeight + 'px';
+    if (!window.GAEfbUiScale) {
+        fgCanvas.style.width = baseWidth + 'px';
+        fgCanvas.style.height = containerHeight + 'px';
+    }
     const fgCtx = fgCanvas.getContext('2d');
     fgCtx.save();
     fgCtx.setTransform(targetW / baseWidth, 0, 0, targetH / containerHeight, 0, 0);
@@ -9271,8 +9320,10 @@ function initAltWaypoints() {
         const rect = canvas.getBoundingClientRect();
         const scrollContainer = document.getElementById('mapProfileScroll');
         const viewX = scrollContainer ? scrollContainer.scrollLeft : 0;
-        const containerHeight = scrollContainer?.clientHeight || 100;
-        const baseWidth = scrollContainer?.clientWidth || 600;
+        const viewport = scrollContainer ? vpMapProfileViewport(scrollContainer) : {width:600,height:100};
+        const containerHeight = viewport.height;
+        const baseWidth = viewport.width;
+        if (baseWidth <= 0 || containerHeight <= 0) return null;
         const zoomFactor = 100 / vpZoomLevel;
         const virtualWidth = Math.round(baseWidth * zoomFactor);
         const totalDist = elevData[elevData.length - 1].distNM;

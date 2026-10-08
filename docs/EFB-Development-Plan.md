@@ -6586,3 +6586,11 @@ horizontaler Leistenbegrenzung ebenfalls bestanden. Keine Screenshots.
 - Tracker v492 / EFB asset revision 49201; Community package 0.4.23 remains compatible.
 - After merge: 93 profile viewport browser cases and 62 Node/HTTP tests pass; tracker interface regressions pass. Windows EXE MZ signature and 13 embedded UI source files verified. Real MSFS/VR remains Alpha field validation.
 - Released source/tag v492: d540b4bd91387a6e0e543f1385371060bd77d78f. Public EXE download verified: 173655327 bytes; SHA-256 46c3b239b34484c99aade0cb726048286060fe4d66bfb7b01a7cf2d7bcd04f5c. Alpha channel activated separately after verification; Stable unchanged.
+
+### 2026-10-08: Profile content still clipped after v492 (follow-up)
+
+User confirms outer frame now fits, but painted profile content still runs below it when scaling. Previous viewport matrix seeded terrain only in three zoom cases; its main cases checked an empty profile. The strengthened matrix seeds terrain before every scaling transition and requires the inner scroll area and both painted layers to fit the profile, including a 402x580 tablet viewport. A deliberately stale 220px flex height reproduces the clipping before the fix.
+
+EFB-only renderer viewport now derives logical width/remaining height from the visible profile border, subtracts controls/border, explicitly sizes scroll/wrapper/canvases and clamps stale client measurements. Hit-testing uses the same budget. Controls cannot consume the complete profile at extreme scales; their overflow remains scrollable. Real layout events invalidate the profile explicitly; unchanged sizes produce no style writes. Standalone sizing is unchanged. A menu hit-test also exposed the oversized drawer handle overlapping profile buttons at maximum VR scale; its hit area is now centered and bounded within the map area.
+
+Validation: 123 painted-content cases each normal, without ResizeObserver and with stale native dimensions; includes painted lower-region pixels, horizontal zoom/scroll and unchanged-layout mutation check. Native MSFS/Coherent verification remains pending; no screenshots taken.

@@ -1496,3 +1496,13 @@ Auch die Profilbreite richtet sich nach dem logischen Host-Viewport. Die
 virtuelle Routenbreite fuer Zoom/Pan darf groesser bleiben; nur der sichtbare
 Scrollbereich und die Bedienleiste sind auf die Profilbreite begrenzt.
 Physische Tablets erhalten bei Platzmangel horizontal scrollbarere Controls.
+
+## 2026-10-08: Profile drawing budget follows visible frame
+
+In tracker EFB hosts, the shared profile engine computes its logical drawing
+viewport from the visible strip and controls, then gives the inner scroll area,
+wrapper and both canvases explicit dimensions. Cached flex/client measurements
+cannot enlarge the drawing beyond that budget. Renderer and pointer mapping use
+the same viewport; backing buffer resolution still includes UI scale and DPR.
+Scale events invalidate frames explicitly, with no new polling loop. Unchanged
+geometry produces no style writes. Standalone profile sizing stays unchanged.
