@@ -1518,3 +1518,15 @@ patch is retried once against the returned central revision. Final failures
 restore the authoritative value. Older snapshots cannot undo accepted revisions.
 EFB checkbox marks are real DOM children in the body-portaled Audio menu; native
 input pseudo-elements and the map-shell ancestor are no rendering dependency.
+
+## 2026-10-08: Speech generation is separate from playback
+
+paxGenerationEnabled defaults true and controls new paid passenger/story TTS
+requests only. Audio enabled/paxEnabled still control playback. VoiceService
+retains canonical text/static clips, then gates queued speech and every provider
+fallback using the current central record. Browser fallback uses the same flag,
+or the last locally saved preference offline. generationSkipped marks an
+intentional text-only job and is preserved in persisted voice metadata; voice
+dispatchers finish normally and can still play existing effects. No new timer or
+mission authority is introduced. Cloud audio record normalization allowlists the
+new boolean; deploying this candidate requires both Tracker and worker updates.

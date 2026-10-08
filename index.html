@@ -1428,6 +1428,12 @@
                             🧑‍✈️ Missions-/Story- und Passagierstimmen (Text bleibt sichtbar)
                         </label>
                         <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmPaxGenerationCheck" checked onchange="paxVoiceSetGenerationEnabled(this.checked)"
+                                style="width:14px; height:14px; cursor:pointer; flex-shrink:0;">
+                            Passagierstimmen generieren
+                        </label>
+                        <div style="font-size:10px;line-height:1.35;color:#8294a8;margin:0 2px 8px 22px;">Aus verhindert neue KI-Sprachausgaben und spart TTS-Token. Texte und bereits vorhandene Audios bleiben erhalten.</div>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
                             <input type="checkbox" id="awmAudioEffectsCheck" checked
                                 style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
                                 onchange="paxVoiceSetAudioEffectsEnabled(this.checked)">

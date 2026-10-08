@@ -1,5 +1,6 @@
 'use strict';
 const test = require('node:test');
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const assert = require('node:assert/strict');
 const { createAudioControl } = require('./tracker-audio-control-core');
 test('PC is default; one selected app may play; stale updates cannot steal audio', async () => {
@@ -43,4 +44,20 @@ test('only POI jobs carrying a cue sequence may use effects while PAX is muted',
   assert.equal(audio.canPlay('pc', { kind: 'poi', cueSequence: { before: [], after: [{ audioAvailable: true }] } }), true);
   assert.equal(audio.canPlay('pc', { kind: 'poi', cueSequence: { before: [], after: [] } }), false);
   audio.close();
+});
+
+test('voice generation defaults on, persists independently and does not mute cached audio', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-generation-'));
+  const file = path.join(directory, 'audio.json');
+  try {
+    const audio = createAudioControl({ storageFile: file });
+    assert.equal(audio.snapshot().settings.paxGenerationEnabled, true);
+    assert.equal(audio.update({ expectedRevision: 0, settings: { paxGenerationEnabled: false } }).ok, true);
+    assert.equal(audio.canPlay('pc', 'boarding'), true);
+    assert.equal(audio.snapshot().settings.enabled, true);
+    audio.close();
+    const reopened = createAudioControl({ storageFile: file });
+    assert.equal(reopened.snapshot().settings.paxGenerationEnabled, false);
+    reopened.close();
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });

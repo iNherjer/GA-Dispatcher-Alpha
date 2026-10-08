@@ -1467,3 +1467,10 @@ body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkbox[aria-checked="true"] .
   display: block; width: 5px; height: 10px; border: solid #fff;
   border-width: 0 2px 2px 0; transform: rotate(45deg); margin-top: -3px;
 }
+
+body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-volume { display: block; position: relative; flex: 1 1 0; min-width: 0; height: 28px; }
+body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-volume-track { position: absolute; left: 10px; right: 10px; top: 50%; height: 8px; transform: translateY(-50%); border-radius: 4px; background: linear-gradient(90deg,#7ec7ff,#68f2a0); pointer-events: none; }
+body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-volume-thumb { box-sizing: border-box; position: absolute; top: 50%; width: 14px; height: 14px; border: 1px solid #bde3ff; border-radius: 50%; background: #f8fcff; transform: translate(-50%,-50%); pointer-events: none; }
+
+body.ga-efb-tracker-host #mapVoiceMenu #awmVolumeSlider::-webkit-slider-runnable-track { height: 8px; }
+body.ga-efb-tracker-host #mapVoiceMenu #awmVolumeSlider::-webkit-slider-thumb { width: 20px; height: 28px; margin-top: -10px; border: 0; box-shadow: none; }

@@ -63,6 +63,31 @@ try {
  await pages[0].waitForFunction(()=>document.getElementById('gaAudioOutputStatus').textContent.includes('nicht gespeichert'));
  assert.equal(await pages[0].locator('#'+check).getAttribute('aria-checked'),'true','Rejected write restores authoritative state');
  assert.equal(control.snapshot().settings.enabled,true);
+ assert.equal(await pages[0].locator('#awmPaxGenerationCheckToggle').getAttribute('aria-checked'),'true');
+ await pages[0].locator('#awmPaxGenerationCheckToggle').click();
+ await pages[1].waitForFunction(()=>document.getElementById('awmPaxGenerationCheckToggle').getAttribute('aria-checked')==='false');
+ assert.equal(control.snapshot().settings.paxGenerationEnabled,false);
+ assert.equal(await pages[1].evaluate(()=>gaPaxVoiceGenerationEnabled()),false);
+ assert.equal(control.snapshot().settings.enabled,true,'Generation switch does not mute playback');
+ let sliderCases=0;
+ for(const surface of ['physical','toolbar'])for(const scale of [1,1.5,3]){
+ await pages[0].setViewportSize({width:402,height:580});
+ await pages[0].waitForTimeout(80);
+ await pages[0].evaluate(({surface,scale})=>{GAEfbUiScale.apply(scale,surface,true);if(document.getElementById('mapVoiceMenu').style.display!=='block')toggleMapVoiceMenu();},{surface,scale});
+ await pages[0].waitForTimeout(80);
+ for(const value of [0,25,100]){
+ await pages[0].locator('#awmVolumeSlider').evaluate((e,value)=>{e.focus();e.value=String(value);e.dispatchEvent(new Event('input',{bubbles:true}));},value);
+ await pages[0].locator('#awmVolumeSlider').evaluate(e=>e.scrollIntoView({block:'nearest'}));
+ const bounds=await pages[0].evaluate(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};};return {wrapper:rect(document.querySelector('.ga-audio-volume')),thumb:rect(document.getElementById('gaAudioVolumeThumb')),left:document.getElementById('gaAudioVolumeThumb').style.left};});
+ assert.ok(bounds.wrapper.right>bounds.wrapper.left && bounds.thumb.right>bounds.thumb.left,JSON.stringify({surface,scale,value,bounds}));
+ assert.ok(bounds.thumb.left>=bounds.wrapper.left-.5 && bounds.thumb.right<=bounds.wrapper.right+.5 && bounds.thumb.top>=bounds.wrapper.top-.5 && bounds.thumb.bottom<=bounds.wrapper.bottom+.5,JSON.stringify({surface,scale,value,bounds}));
+ assert.ok(Math.abs((bounds.thumb.top+bounds.thumb.bottom)-(bounds.wrapper.top+bounds.wrapper.bottom))<=1,JSON.stringify({surface,scale,value,bounds,reason:'Thumb must be vertically centered'}));
+ assert.equal(bounds.left,value+'%');sliderCases++;
+ }
+ }
+ await pages[0].locator('#awmVolumeSlider').press('Home');
+ await pages[1].waitForFunction(()=>document.getElementById('awmVolumeLabel').textContent==='0%',{},{timeout:5000}).catch(async error=>{console.log(JSON.stringify({record:control.snapshot(),first:await pages[0].evaluate(()=>({value:document.getElementById('awmVolumeSlider').value,type:document.getElementById('awmVolumeSlider').type,active:document.activeElement.id,handler:window.awmSetVolume.toString(),label:document.getElementById('awmVolumeLabel').textContent})),errors}));throw error;});
+ assert.equal(control.snapshot().settings.volume,0,'Native keyboard input still synchronizes volume');
  assert.deepEqual(errors,[]);
- console.log('PASS audio checkmarks in portaled menu; pending click; revision retry; bidirectional two-device master/warning synchronization; rejected-write recovery');
+ console.log('PASS '+sliderCases+' volume thumb bounds; generation default and sync; audio checkmarks in portaled menu; pending click; revision retry; bidirectional two-device master/warning synchronization; rejected-write recovery');
 }finally{await browser.close();control.close();}

@@ -287,6 +287,16 @@ function _paxDrawZones() {
 
 // ─── TOGGLE ──────────────────────────────────────────────────────────────────
 let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') === '1');
+function _paxCanGenerateVoice() {
+    return typeof window.gaPaxVoiceGenerationEnabled === 'function'
+        ? window.gaPaxVoiceGenerationEnabled() : localStorage.getItem('awm_pax_voice_generation') !== '0';
+}
+window.paxVoiceSetGenerationEnabled = function(on) {
+    localStorage.setItem('awm_pax_voice_generation', on ? '1' : '0');
+    const check = document.getElementById('awmPaxGenerationCheck');
+    if (check) check.checked = !!on;
+};
+
 let _paxAudioEffectsEnabled = (localStorage.getItem('awm_audio_effects') !== '0');
 let _lastSpokenText  = null; // last generated text — for retroactive TTS
 let _lastSpokenSpeaker = null; // speaker snapshot for retroactive TTS
@@ -5577,6 +5587,7 @@ function _buildBoardingText() {
 async function _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidates, signal = null) {
     let lastErr = null;
     for (const voiceName of voiceCandidates) {
+        if (!_paxCanGenerateVoice()) return null;
         const ttsPayload = {
             contents: [{ role: 'user', parts: [window.GAMissionBoardingVoiceCore?.geminiTtsPart(model, text, pax) || { text }] }],
             generationConfig: {
@@ -5621,6 +5632,7 @@ async function _requestOpenAiTTSAudio(apiKey, text, pax, voiceCandidates) {
     const model = 'gpt-4o-mini-tts';
     let lastErr = null;
     for (const voiceName of voiceCandidates) {
+        if (!_paxCanGenerateVoice()) return null;
         try {
             const res = await fetch('https://api.openai.com/v1/audio/speech', {
                 method: 'POST',
@@ -5732,6 +5744,7 @@ function _requestTTSAudioHedged(apiKey, text, pax, voiceCandidates, primaryModel
 }
 
 async function _requestTTSAudio(text, speaker = null, options = {}) {
+    if (!_paxCanGenerateVoice()) return null;
     const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
     const trackerClient = _getTrackerVoiceClient();
     if (trackerClient) {
@@ -10982,6 +10995,8 @@ function _tickPoiDwell(lat, lon, flightData) {
 (function() {
     const chk = document.getElementById('awmPaxVoiceCheck');
     if (chk) chk.checked = _paxVoiceEnabled;
+    const generationCheck = document.getElementById('awmPaxGenerationCheck');
+    if (generationCheck) generationCheck.checked = _paxCanGenerateVoice();
     _syncPaxAudioEffectsControl();
     const modeEl = document.getElementById('awmPaxModeSelect');
     if (modeEl) modeEl.value = _paxStrictMode ? 'strict' : 'easy';

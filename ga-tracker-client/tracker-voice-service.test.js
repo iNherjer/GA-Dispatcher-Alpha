@@ -737,3 +737,48 @@ test('prepared Bush, weather and time jobs preserve their kind across cache rest
     assert.equal(restored.get('prepared:' + kind).playback.status, 'deferred');
   }
 });
+
+test('generation disabled preserves boarding text without requesting paid speech', async () => {
+  const { createAudioControl } = require('./tracker-audio-control-core');
+  const audioControl = createAudioControl();
+  audioControl.update({ expectedRevision: 0, settings: { paxGenerationEnabled: false } });
+  const calls = [];
+  const service = createTrackerVoiceService({ audioControl, provider: 'openai', apiKey: 'test', fetchRemote: async url => {
+    calls.push(url); assert.match(url, /chat\/completions$/);
+    return { ok: true, json: async () => ({ choices: [{ message: { content: 'Wir sind bereit.' } }] }) };
+  } });
+  service.request({ effectId: 'gen-off:boarding', kind: 'boarding', prompt: 'Boarding', fallbackText: 'Bereit.' });
+  const ready = await service.wait('gen-off:boarding');
+  assert.equal(ready.status, 'ready'); assert.equal(ready.text, 'Wir sind bereit.');
+  assert.equal(ready.audioAvailable, false); assert.equal(calls.length, 1);
+  assert.equal(audioControl.snapshot().settings.paxEnabled, true);
+  assert.equal(audioControl.canPlay('pc', 'boarding'), true); audioControl.close();
+});
+
+test('queued synthesis checks generation again when the job starts', async () => {
+  const { createAudioControl } = require('./tracker-audio-control-core');
+  const audioControl = createAudioControl(); let release, calls = 0;
+  const service = createTrackerVoiceService({ audioControl, provider: 'openai', apiKey: 'test', maxProviderConcurrency: 1,
+    fetchRemote: async () => { calls++; await new Promise(resolve => { release = resolve; }); return { ok: true, arrayBuffer: async () => Buffer.from('audio') }; } });
+  service.request({ effectId: 'gen-queue:first', kind: 'boarding', text: 'Erste Stimme.' });
+  while (!release) await new Promise(resolve => setImmediate(resolve));
+  service.request({ effectId: 'gen-queue:second', kind: 'boarding', text: 'Zweiter Text.' });
+  audioControl.update({ expectedRevision: 0, settings: { paxGenerationEnabled: false } }); release();
+  assert.equal((await service.wait('gen-queue:first')).audioAvailable, true);
+  const second = await service.wait('gen-queue:second');
+  assert.equal(second.status, 'ready'); assert.equal(second.text, 'Zweiter Text.');
+  assert.equal(second.audioAvailable, false); assert.equal(calls, 1); audioControl.close();
+});
+
+for (const provider of ['openai', 'gemini']) test(provider + ' fallback sends no new request after generation is disabled', async () => {
+  const { createAudioControl } = require('./tracker-audio-control-core');
+  const audioControl = createAudioControl(); let calls = 0;
+  const service = createTrackerVoiceService({ audioControl, provider, apiKey: 'test', fetchRemote: async () => {
+    calls++; audioControl.update({ expectedRevision: 0, settings: { paxGenerationEnabled: false } });
+    return { ok: false, status: 500 };
+  } });
+  service.request({ effectId: 'gen-fallback:' + provider, kind: 'boarding', text: 'Text bleibt sichtbar.', ttsHedgeEnabled: false });
+  const ready = await service.wait('gen-fallback:' + provider);
+  assert.equal(ready.status, 'ready'); assert.equal(ready.audioAvailable, false);
+  assert.equal(ready.text, 'Text bleibt sichtbar.'); assert.equal(calls, 1); audioControl.close();
+});

@@ -13,7 +13,7 @@
   var retiredWarningSessions = [], styleMigration = false;
   var state = null, enabled = false, menu = null, saving = Promise.resolve(), closed = false, lastError = '', volumeTimer = null, tickTimer = null, lifecycleEpoch = 0;
   var pendingSettings = {}, changeSequence = 0;
-  function visibleSetting(name) { return pendingSettings[name] ? pendingSettings[name].value : state.settings[name]; }
+  function visibleSetting(name) { return pendingSettings[name] ? pendingSettings[name].value : name === 'paxGenerationEnabled' ? state.settings[name] !== false : state.settings[name]; }
   var base = cockpit.baseUrl, captionEffect = '';
   function caption(job) {
     if (job && (job.clips || ['airspace', 'terrain', 'waypoint'].indexOf(job.kind) >= 0)) return;
@@ -145,6 +145,7 @@
     render();
     saving = saving.catch(function () {}).then(async function () {
       if (!state) return;
+      if (Object.prototype.hasOwnProperty.call(patch.settings || {}, 'paxGenerationEnabled') && !Object.prototype.hasOwnProperty.call(state.settings, 'paxGenerationEnabled')) throw new Error('Diese Option ben\u00f6tigt den aktualisierten Tracker.');
       var epoch = lifecycleEpoch;
       var result = await request(Object.assign({}, patch, { action: 'settings_update', expectedRevision: state.revision }));
       if (!closed && epoch === lifecycleEpoch && !result.ok && result.error === 'audio_revision_conflict' && result.audio) {
@@ -205,7 +206,7 @@
     }
   }
   var bindings = { awmSetVolume: ['volume', function (v) { return Number(v) / 100; }],
-    paxVoiceSetAudioStyle: ['audioStyle', String], paxVoiceSetEnabled: ['paxEnabled', Boolean], paxVoiceSetAudioEffectsEnabled: ['effectsEnabled', Boolean] };
+    paxVoiceSetAudioStyle: ['audioStyle', String], paxVoiceSetEnabled: ['paxEnabled', Boolean], paxVoiceSetGenerationEnabled: ['paxGenerationEnabled', Boolean], paxVoiceSetAudioEffectsEnabled: ['effectsEnabled', Boolean] };
   Object.assign(bindings, { awmSetVoice: ['voicePack', String], awmSetReadFreq: ['readFreq', Boolean],
     awmSetTerrainWarn: ['terrain', Boolean], awmSetAirspaceWarn: ['airspace', Boolean], awmSetWpAlert: ['waypoint', Boolean] });
   var seenWarnings = new Set(), warningGeometry = new Map();
@@ -274,6 +275,22 @@
     var value = checked ? 'true' : 'false';
     if (button.getAttribute('aria-checked') !== value) button.setAttribute('aria-checked', value);
   }
+  function renderVolume(slider) {
+    if (!local || !slider || !slider.parentNode) return;
+    var track = root.document.getElementById('gaAudioVolumeTrack');
+    if (!track) {
+      var wrapper = root.document.createElement('span'); wrapper.className = 'ga-audio-volume';
+      track = root.document.createElement('span'); track.id = 'gaAudioVolumeTrack'; track.className = 'ga-audio-volume-track';
+      track.setAttribute('aria-hidden', 'true');
+      var thumb = root.document.createElement('span'); thumb.id = 'gaAudioVolumeThumb'; thumb.className = 'ga-audio-volume-thumb'; track.appendChild(thumb);
+      slider.parentNode.insertBefore(wrapper, slider); wrapper.appendChild(track); wrapper.appendChild(slider);
+      slider.style.cssText = 'box-sizing:border-box;display:block;width:100%;min-width:0;height:28px;margin:0;padding:0;opacity:0;cursor:pointer;';
+      slider.addEventListener('input', function() { renderVolume(slider); });
+    }
+    var thumb = root.document.getElementById('gaAudioVolumeThumb');
+    var value = Math.max(0, Math.min(100, Number(slider.value) || 0));
+    uiStyle(thumb, 'left', value + '%');
+  }
   function render() {
     installMenu(); if (!menu) return;
     uiStyle(menu, 'display', state ? 'block' : 'none');
@@ -286,6 +303,10 @@
     var statusText = lastError || 'Ausgabe: ' + state.target.name + (state.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : '');
     if (!lastError && enabled && state.warnings && ['partial','stale'].indexOf(state.warnings.status) >= 0) statusText = 'Ausgabe: ' + state.target.name + ' · ' + (state.warnings.health || 'Warnungsdaten veraltet');
     message(statusText);
+    try {
+      var generationValue = state.settings.paxGenerationEnabled !== false ? '1' : '0';
+      if (root.localStorage.getItem('awm_pax_voice_generation') !== generationValue) root.localStorage.setItem('awm_pax_voice_generation', generationValue);
+    } catch (_) {}
     if (!enabled) return;
     // Keep standalone state/diagnostics aligned with the authoritative toggles,
     // without starting another warning detector or changing the selected output.
@@ -300,12 +321,17 @@
       btn.style.border = '1px solid ' + (selected ? '#4da6ff' : '#444');
       btn.style.background = selected ? '#1a3a5c' : '#1e1e1e'; btn.style.color = selected ? '#4da6ff' : '#ccc';
     });
-    [['awmPaxVoiceCheck','paxEnabled'],['awmAudioEffectsCheck','effectsEnabled'],['awmReadFreqCheck','readFreq'],['awmTerrainWarnCheck','terrain'],['awmAirspaceWarnCheck','airspace'],['awmWpAlertCheck','waypoint']].forEach(function (entry) { renderCheckbox(entry[0], visibleSetting(entry[1])); });
+    [['awmPaxVoiceCheck','paxEnabled'],['awmPaxGenerationCheck','paxGenerationEnabled'],['awmAudioEffectsCheck','effectsEnabled'],['awmReadFreqCheck','readFreq'],['awmTerrainWarnCheck','terrain'],['awmAirspaceWarnCheck','airspace'],['awmWpAlertCheck','waypoint']].forEach(function (entry) { renderCheckbox(entry[0], visibleSetting(entry[1])); });
     if (local) root.document.querySelectorAll('#mapVoiceMenu input[type="checkbox"]').forEach(function(input) { if (input.id) renderCheckbox(input.id, input.checked); });
     var slider = root.document.getElementById('awmVolumeSlider'), label = root.document.getElementById('awmVolumeLabel');
     uiProperty(slider, 'value', Math.round(state.settings.volume * 100));
     uiProperty(label, 'textContent', Math.round(state.settings.volume * 100) + '%');
+    renderVolume(slider);
   }
+  root.gaPaxVoiceGenerationEnabled = function() {
+    if (state) return visibleSetting('paxGenerationEnabled') !== false;
+    try { return root.localStorage.getItem('awm_pax_voice_generation') !== '0'; } catch (_) { return true; }
+  };
   root.gaTrackerAudioClient = { active: isActive, deviceId: deviceId, apply: apply, change: change };
   root.addEventListener('gatrackercapabilitieschange', function(event) {
     var caps = event.detail && event.detail.capabilities;

@@ -6624,3 +6624,36 @@ Two isolated browser devices verify visible marks in the portal, delayed ACK/old
 Final candidate validation: 34 audio client/core/player/stability tests, 22 EFB
 host tests and the two-device browser test pass. No Tracker build or release
 performed for this audio candidate; Alpha remains v494.
+
+### 2026-10-08: Volume bounds and passenger speech generation option
+
+User adds volume knob overflowing its track and an explicit generation switch
+(default on) to save voice tokens. New paxGenerationEnabled boolean belongs to
+the central audio record, defaults true for old records, and persists locally
+and in the cloud allowlist. The shared Audio menu adds Passagierstimmen generieren
+and explains that off prevents new TTS while text and existing audio remain.
+Web fallback stores its preference locally; connected clients use the same
+central setting and pending-state synchronization. Older Tracker schemas reject
+this new option with a visible upgrade message instead of silently accepting it.
+
+Tracker VoiceService checks the current setting after canonical text/POI commit
+and static clip resolution, and again immediately before every speech provider
+request. Queued jobs and fallback/hedge calls cannot bypass off. Browser TTS and
+provider/voice fallback loops have the same gate. No generation setting changes
+mission text generation, cached/static playback or warning/effect switches.
+Already sent requests may finish; switching off prevents new requests. A skipped
+job remains ready with generationSkipped metadata (persisted across restart);
+voice dispatchers treat it as intentional text-only completion, keep cue playback
+and avoid a false voice-generation failure or waiting for nonexistent speech.
+
+EFB volume visuals use a bounded track/thumb DOM around the retained native range
+input. Thumb radius fits in its side inset; native pointer/keyboard handling and
+central volume synchronization remain. Tested 18 thumb-bound cases at 0/25/100
+percent across physical/toolbar manual/VR scales in a 402x580 viewport, including
+native Home-key volume synchronization. Two-device generation default/sync and
+separation from playback also pass. No screenshots, deployment or release.
+Final checks: 88 audio/generation/host/cloud tests plus 69 mission voice/lifecycle/
+playback tests and Tracker interface regressions pass. Browser confirms all 18
+volume bounds and equal vertical margins, native keyboard volume sync, central
+generation default/sync, delayed settings/revision retry and failure recovery.
+No release/channel changes; this extends the unreleased Audio UI candidate.
