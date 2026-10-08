@@ -358,5 +358,5 @@ separate Startbegrüßungen werden unterdrückt. Die im Test zusätzlich erzeugt
 Startansage gehörte nicht zum tatsächlichen Ablauf. Kein TTS-/Playback- oder
 Windows-/MSFS-Flugtest durch diese Textprobe.
 
-Alpha-Web-Rollout: Cache v1969. Der bestehende Tracker-/EFB-Release bleibt
+Alpha-Web-Rollout: Cache v1970. Der bestehende Tracker-/EFB-Release bleibt
 unverändert; diese Änderungen betreffen die App-seitige Charter-Generierung.
