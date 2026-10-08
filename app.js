@@ -31336,7 +31336,8 @@ const BUSH_MISSION_VARIETY_COPY = {
         writerExpectations: [
             'Erzaehle aus Dispatcher-Perspektive: Wir bringen den Gast hin, der Gast spricht nur in PAX-Texten.',
             'Kein Pickup, kein Rueckflug-Handoff, keine implizite Rettung.',
-            'Der Grund am Ziel darf beruflich, privat, outdoorbezogen oder leicht kurios sein, solange er zum Strip passt.'
+            'Der Grund am Ziel darf beruflich, privat, outdoorbezogen oder leicht kurios sein, solange er zum Strip passt.',
+            'Die Person hat einen individuellen Wunsch, eine persönliche Verbindung und eine kleine Eigenheit; Name und Motiv bleiben in Briefing und Begrüßung gleich.'
         ]
     },
     bush_scenic_hopper: {
@@ -31439,6 +31440,7 @@ function buildBushMissionVarietyBrief(context = {}, draft = {}, weatherBundle = 
         ];
     return {
         ...(profileId === 'bush_supply_strip' ? { regionalContext: window.MissionBushNarrativeCore?.supplyRegion(context.dest || {}) || {}, supplyNarrative: window.MissionBushNarrativeCore?.supplyInstructions || '' } : {}),
+        ...(profileId === 'bush_charter_strip' ? { personalStoryBasis: window.MissionBushNarrativeCore?.charterIdeaBasis || {} } : {}),
         purpose: copy.purpose || 'Offener Kreativrahmen fuer ein Bush-Profil. Keine Vorlage kopieren; aus Profil, Ziel, Wetter und lokalen Fakten eine eigenstaendige Mikrogeschichte bauen.',
         recipe: (typeof copy.recipe === 'function')
             ? copy.recipe(targetName, homeName)
@@ -32634,7 +32636,8 @@ function _missionPipelineV4CompactDraftForOpenAi(draft = {}) {
 
 function _missionPipelineV4Prompt(draft = {}, contextBundle = {}, options = {}) {
     const environmentPrompt = (window.MissionEnvironmentCore?.prompt(contextBundle.environmentContext) || '') + (window.MissionAirportInformationCore?.plannerPrompt(contextBundle.airportInfoContext) || '');
-    const bushPersonalityPrompt = draft.mode === 'bush' ? (window.MissionBushNarrativeCore?.personalityInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt(contextBundle) || '') : '';
+    const bushCharter = draft.mode === 'bush' && contextBundle?.profile?.selected?.id === 'bush_charter_strip';
+    const bushPersonalityPrompt = draft.mode === 'bush' ? (window.MissionBushNarrativeCore?.personalityInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt(contextBundle) || '') + (bushCharter ? '\n' + (window.MissionBushNarrativeCore?.charterPlanningInstructions || '') : '') : '';
     if (options?.compact) {
         return `<INSTRUKTIONEN>
 Du bist Mission Planner V4 fuer einen GA-Dispatcher. Erzeuge ein knappes, robustes JSON-Formular fuer den Writer.
@@ -32682,10 +32685,10 @@ ${JSON.stringify({ ...contextBundle, environmentContext: undefined })}
     "missionStakes": "warum das Ergebnis wichtig ist",
     "completionSignal": "was nach Ueberflug/Landung passiert",
     "storyFrame": {
-      "subjectDetail": "",
-      "incidentContext": "",
-      "whyNow": "",
-      "soughtOutcome": "",
+      "subjectDetail": "${bushCharter ? 'Fiktiver Vorname, Rolle und konkreter individueller Wunsch' : ''}",
+      "incidentContext": "${bushCharter ? 'Konkrete Begebenheit aus dem Vorhaben, eigene Reaktion und Bezug zum heutigen Auftrag' : ''}",
+      "whyNow": "${bushCharter ? 'Heutiger persönlicher Anlass; keine aus Wetterwerten erfundene Dringlichkeit' : ''}",
+      "soughtOutcome": "${bushCharter ? 'Offenes persönliches Vorhaben am Boden; der Pilotauftrag endet beim Absetzen' : ''}",
       "incidentType": "",
       "lastSeenContext": "",
       "probableScenario": "",
@@ -32767,10 +32770,10 @@ ${JSON.stringify({ ...contextBundle, environmentContext: undefined })}
     "missionStakes": "warum das Ergebnis wichtig ist",
     "completionSignal": "welcher Handoff oder Abschluss nach dem Ueberflug folgt",
     "storyFrame": {
-      "subjectDetail": "konkretisiere, wer oder was genau betroffen ist",
-      "incidentContext": "was passiert ist oder welcher Anlass den Einsatz ausloest",
-      "whyNow": "warum der Flug gerade jetzt noetig ist",
-      "soughtOutcome": "welcher konkrete Befund oder welche Entscheidungshilfe gebraucht wird",
+      "subjectDetail": "${bushCharter ? 'Fiktiver Vorname, Rolle und konkreter individueller Wunsch' : 'konkretisiere, wer oder was genau betroffen ist'}",
+      "incidentContext": "${bushCharter ? 'Konkrete Begebenheit aus dem Vorhaben, eigene Reaktion und Bezug zum heutigen Auftrag' : 'was passiert ist oder welcher Anlass den Einsatz ausloest'}",
+      "whyNow": "${bushCharter ? 'Heutiger persönlicher Anlass; keine aus Wetterwerten erfundene Dringlichkeit' : 'warum der Flug gerade jetzt noetig ist'}",
+      "soughtOutcome": "${bushCharter ? 'Offenes persönliches Vorhaben am Boden; der Pilotauftrag endet beim Absetzen' : 'welcher konkrete Befund oder welche Entscheidungshilfe gebraucht wird'}",
       "incidentType": "vor allem bei SAR: z.B. missing_hiker, fallen_climber, missing_kayaker, small_boat_overdue, vehicle_off_road, road_collision, downed_ultralight",
       "lastSeenContext": "wo oder in welchem Zusammenhang das betroffene Subjekt zuletzt gesehen, gemeldet oder vermutet wurde",
       "probableScenario": "wahrscheinliche Lagehypothese",
@@ -34201,7 +34204,10 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
     }
 };
 
-function _missionWriterV5DomainRecipe(family = '', taskDomain = '') {
+function _missionWriterV5DomainRecipe(family = '', taskDomain = '', contract = {}) {
+    if (contract?.profile?.id === 'bush_charter_strip' && window.MissionBushNarrativeCore?.charterWriterRecipe) {
+        return window.MissionBushNarrativeCore.charterWriterRecipe;
+    }
     if (family === 'bush_supply') return {
         styleRecipe: 'Herzlicher mündlicher Bush-Dispatch: konkrete Vorgeschichte der gelieferten Fracht, Arbeit am abgelegenen Ziel und Empfänger. Abenteuer und weiche Erlebnisse sind erlaubt; Region und Anlagen stammen aus den Daten. Wetter ist optional. Keine Vereinsflug-Zutaten als Ersatz für den geplanten Versorgungsauftrag.',
         qualityQuestions: ['Wofür wird genau diese Fracht draußen gebraucht?', 'Passen Vorgeschichte, Region, Empfänger und Übergabe zusammen?', 'Bleiben Ladung, 0 PAX und Entladen am Strip unverändert?']
@@ -34646,7 +34652,7 @@ function _missionWriterV5BuildBriefForm(contract = {}, context = {}, parts = {})
     const plan = contract?.missionPlan?.plan || {};
     const profile = contract?.profile || {};
     const family = parts.family || _missionWriterV5MissionFamily(contract);
-    const recipe = _missionWriterV5DomainRecipe(family, profile.taskDomain);
+    const recipe = _missionWriterV5DomainRecipe(family, profile.taskDomain, contract);
     const route = _missionWriterV5BuildRouteForm(contract, parts.routeLine || '');
     const storySpine = parts.storySpine || _missionWriterV5BuildStorySpine(contract, context);
     const targetFacts = _missionWriterV5Array(parts.targetFacts || [], 7, 180);
@@ -34797,7 +34803,7 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
         geoHighlights,
         arrival
     });
-    const recipe = _missionWriterV5DomainRecipe(family, profile.taskDomain);
+    const recipe = _missionWriterV5DomainRecipe(family, profile.taskDomain, contract);
     const briefingBrief = {
         writerVersion: 'v5',
         missionBriefForm,
@@ -38864,7 +38870,7 @@ function _missionWriterV5DomainStoryNeedsRepair(taskDomain = '', raw = '', contr
     return false;
 }
 
-function _missionWriterV5StoryHasPassengerRoleConflict(story = '', passenger = {}) {
+function _missionWriterV5StoryHasPassengerRoleConflict(story = '', passenger = {}, contract = {}) {
     const name = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
     const role = String(passenger?.role || '').replace(/\s+/g, ' ').trim();
     if (!name || !role || !story) return false;
@@ -38882,6 +38888,8 @@ function _missionWriterV5StoryHasPassengerRoleConflict(story = '', passenger = {
         && !/\b[a-zäöüß-]{4,}(?:in|erin)\b/.test(roleNorm)) {
         return true;
     }
+    if (contract?.profile?.id === 'bush_charter_strip'
+        && window.MissionBushNarrativeCore?.charterRoleMatches(visibleNorm, roleNorm)) return false;
     if (visibleNorm.includes(roleNorm) || roleNorm.includes(visibleNorm)) return false;
     const roleWords = roleNorm.split(/\s+/).filter(word => word.length >= 5);
     return roleWords.length ? !roleWords.some(word => visibleNorm.includes(word)) : visibleNorm !== roleNorm;
@@ -39015,7 +39023,7 @@ function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context
     if (raw && _missionPipelineV4LooksEnumerative(raw)) reasons.push('enumerative_story');
     if (raw && raw.length < 120) reasons.push('too_short');
     if (raw && _missionPipelineV4SentenceCount(raw) < 2) reasons.push('too_few_sentences');
-    if (raw && _missionWriterV5StoryHasPassengerRoleConflict(raw, context?.passenger || {})) reasons.push('passenger_role_conflict');
+    if (raw && _missionWriterV5StoryHasPassengerRoleConflict(raw, context?.passenger || {}, contract)) reasons.push('passenger_role_conflict');
     if (raw) {
         const normalized = normalizeMissionText(raw);
         if (taskDomain === 'sightseeing_tour') {
