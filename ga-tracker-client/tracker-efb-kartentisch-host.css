@@ -1452,3 +1452,18 @@ body.ga-efb-tracker-host .map-profile-controls {
   max-width: 100%;
   overflow-x: auto;
 }
+
+/* Audio menus are portaled to body. Use real elements for Coherent marks,
+   without native input pseudo-elements or ancestor-dependent selectors. */
+body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkbox {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; margin: 0 5px 0 0;
+  flex: 0 0 20px; background: #151b23; border: 1px solid #a6b7c8;
+  border-radius: 3px; cursor: pointer; vertical-align: middle;
+}
+body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkmark { display: none; }
+body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkbox[aria-checked="true"] { background: #235ea7; border-color: #bde3ff; }
+body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkbox[aria-checked="true"] .ga-audio-checkmark {
+  display: block; width: 5px; height: 10px; border: solid #fff;
+  border-width: 0 2px 2px 0; transform: rotate(45deg); margin-top: -3px;
+}

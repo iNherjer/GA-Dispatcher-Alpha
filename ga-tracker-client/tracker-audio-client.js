@@ -12,6 +12,8 @@
   } catch (_) { deviceId = cockpit.clientId; }
   var retiredWarningSessions = [], styleMigration = false;
   var state = null, enabled = false, menu = null, saving = Promise.resolve(), closed = false, lastError = '', volumeTimer = null, tickTimer = null, lifecycleEpoch = 0;
+  var pendingSettings = {}, changeSequence = 0;
+  function visibleSetting(name) { return pendingSettings[name] ? pendingSettings[name].value : state.settings[name]; }
   var base = cockpit.baseUrl, captionEffect = '';
   function caption(job) {
     if (job && (job.clips || ['airspace', 'terrain', 'waypoint'].indexOf(job.kind) >= 0)) return;
@@ -103,7 +105,7 @@
   function isActive() { return !!state && (local || !!(state.warnings && state.warnings.active) || (typeof root.gaTrackerExecutionHandlesMission === 'function' && root.gaTrackerExecutionHandlesMission())); }
   function apply(value) {
     if (value && value.schema !== 'ga.audio-control.v1') return;
-    if (value && state && value.updatedAt < state.updatedAt) return;
+    if (value && state && (value.revision < state.revision || value.updatedAt < state.updatedAt)) return;
     if (value && value.warnings && state && state.warnings && value.warnings.session !== state.warnings.session) {
       if (retiredWarningSessions.indexOf(value.warnings.session) >= 0) value = Object.assign({}, value, { warnings: state.warnings });
       else { retiredWarningSessions.push(state.warnings.session); retiredWarningSessions = retiredWarningSessions.slice(-8); }
@@ -138,14 +140,24 @@
   }
   function change(patch) {
     lastError = '';
+    var sequence = ++changeSequence;
+    Object.keys(patch.settings || {}).forEach(function(name) { pendingSettings[name] = {value:patch.settings[name], sequence:sequence}; });
+    render();
     saving = saving.catch(function () {}).then(async function () {
       if (!state) return;
       var epoch = lifecycleEpoch;
       var result = await request(Object.assign({}, patch, { action: 'settings_update', expectedRevision: state.revision }));
+      if (!closed && epoch === lifecycleEpoch && !result.ok && result.error === 'audio_revision_conflict' && result.audio) {
+        apply(Object.assign({}, result.audio, { playback: state && state.playback, warnings: state && state.warnings }));
+        result = await request(Object.assign({}, patch, { action: 'settings_update', expectedRevision: state.revision }));
+      }
       if (closed || epoch !== lifecycleEpoch) return;
       if (result.audio) apply(Object.assign({}, result.audio, { playback: state && state.playback, warnings: state && state.warnings }));
       if (!result.ok) throw new Error(result.error === 'audio_revision_conflict' ? 'Audioeinstellung wurde auf einem anderen Gerät geändert. Bitte erneut wählen.' : 'Audioeinstellung konnte nicht gespeichert werden.');
-    }).catch(function (error) { lastError = error.message; render(); });
+    }).catch(function (error) { lastError = error.message; }).then(function() {
+      Object.keys(patch.settings || {}).forEach(function(name) { if (pendingSettings[name] && pendingSettings[name].sequence === sequence) delete pendingSettings[name]; });
+      render();
+    });
     return saving;
   }
   function installMenu() {
@@ -174,7 +186,10 @@
     var muteLabel = root.document.createElement('label'); muteLabel.style.cssText = 'display:block;margin-top:6px';
     var mute = root.document.createElement('input'); mute.type = 'checkbox'; mute.id = 'gaAudioMasterEnabled';
     mute.onchange = function () { change({ settings: { enabled: mute.checked } }); };
-    muteLabel.appendChild(mute); muteLabel.appendChild(root.document.createTextNode(' Audio aktiviert')); menu.appendChild(muteLabel);
+    muteLabel.appendChild(mute); muteLabel.appendChild(root.document.createTextNode(' Multitool-Audio aktivieren')); menu.appendChild(muteLabel);
+    var help = root.document.createElement('div'); help.id = 'gaAudioMasterHelp';
+    help.textContent = 'Aus = alle Multitool-Warnungen, Missions-/Story-Stimmen und Audioeffekte stumm. Gilt gemeinsam f\u00fcr alle verbundenen Ger\u00e4te; Ausgabe auf dem gew\u00e4hlten Ger\u00e4t.';
+    help.style.cssText = 'font-size:11px;line-height:1.35;margin-top:5px;color:#a6b7c8';menu.appendChild(help);
     host.insertBefore(menu, host.firstChild);
     // The EFB uses the shared markup without the App's inline voice-list builder.
     var voices = local && root.document.getElementById('awmVoiceList');
@@ -238,6 +253,27 @@
       return change({ settings: settings });
     };
   });
+  function renderCheckbox(id, checked) {
+    var input = root.document.getElementById(id);
+    uiProperty(input, 'checked', !!checked);
+    if (!input || !local || !input.parentNode) return;
+    var button = root.document.getElementById(id + 'Toggle');
+    if (!button) {
+      button = root.document.createElement('button'); button.id = id + 'Toggle'; button.type = 'button';
+      button.className = 'ga-audio-checkbox'; button.setAttribute('role', 'checkbox');
+      button.setAttribute('aria-label', input.parentNode.textContent.trim());
+      var mark = root.document.createElement('span'); mark.className = 'ga-audio-checkmark'; button.appendChild(mark);
+      input.parentNode.insertBefore(button, input); input.style.display = 'none';
+      button.onclick = function(event) {
+        event.preventDefault(); event.stopPropagation();
+        input.checked = button.getAttribute('aria-checked') !== 'true';
+        button.setAttribute('aria-checked', input.checked ? 'true' : 'false');
+        if (typeof input.onchange === 'function') input.onchange();
+      };
+    }
+    var value = checked ? 'true' : 'false';
+    if (button.getAttribute('aria-checked') !== value) button.setAttribute('aria-checked', value);
+  }
   function render() {
     installMenu(); if (!menu) return;
     uiStyle(menu, 'display', state ? 'block' : 'none');
@@ -246,9 +282,9 @@
     var oldStatus = root.document.getElementById('awmPlayOnThisDeviceStatus'); if (oldStatus) uiStyle(oldStatus, 'display', enabled ? 'none' : '');
     if (!state) return;
     uiProperty(root.document.getElementById('gaAudioOutputSelect'), 'value', state.target.mode === 'pc' ? 'pc' : state.target.deviceId === deviceId ? 'this' : 'other');
-    uiProperty(root.document.getElementById('gaAudioMasterEnabled'), 'checked', state.settings.enabled);
+    renderCheckbox('gaAudioMasterEnabled', visibleSetting('enabled'));
     var statusText = lastError || 'Ausgabe: ' + state.target.name + (state.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : '');
-    if (enabled && state.warnings && ['partial','stale'].indexOf(state.warnings.status) >= 0) statusText = 'Ausgabe: ' + state.target.name + ' · ' + (state.warnings.health || 'Warnungsdaten veraltet');
+    if (!lastError && enabled && state.warnings && ['partial','stale'].indexOf(state.warnings.status) >= 0) statusText = 'Ausgabe: ' + state.target.name + ' · ' + (state.warnings.health || 'Warnungsdaten veraltet');
     message(statusText);
     if (!enabled) return;
     // Keep standalone state/diagnostics aligned with the authoritative toggles,
@@ -264,7 +300,8 @@
       btn.style.border = '1px solid ' + (selected ? '#4da6ff' : '#444');
       btn.style.background = selected ? '#1a3a5c' : '#1e1e1e'; btn.style.color = selected ? '#4da6ff' : '#ccc';
     });
-    [['awmPaxVoiceCheck','paxEnabled'],['awmAudioEffectsCheck','effectsEnabled'],['awmReadFreqCheck','readFreq'],['awmTerrainWarnCheck','terrain'],['awmAirspaceWarnCheck','airspace'],['awmWpAlertCheck','waypoint']].forEach(function (entry) { var el = root.document.getElementById(entry[0]); uiProperty(el, 'checked', state.settings[entry[1]]); });
+    [['awmPaxVoiceCheck','paxEnabled'],['awmAudioEffectsCheck','effectsEnabled'],['awmReadFreqCheck','readFreq'],['awmTerrainWarnCheck','terrain'],['awmAirspaceWarnCheck','airspace'],['awmWpAlertCheck','waypoint']].forEach(function (entry) { renderCheckbox(entry[0], visibleSetting(entry[1])); });
+    if (local) root.document.querySelectorAll('#mapVoiceMenu input[type="checkbox"]').forEach(function(input) { if (input.id) renderCheckbox(input.id, input.checked); });
     var slider = root.document.getElementById('awmVolumeSlider'), label = root.document.getElementById('awmVolumeLabel');
     uiProperty(slider, 'value', Math.round(state.settings.volume * 100));
     uiProperty(label, 'textContent', Math.round(state.settings.volume * 100) + '%');

@@ -169,3 +169,32 @@ test('EFB PC button selects the central PC output without claiming local playbac
   elements.get('gaAudioTakeOnPc').onclick();
   assert.equal(JSON.stringify(changes), JSON.stringify([{ target: { mode: 'pc' } }]));
 });
+
+test('web relay shares master audio settings between clients and rejects older snapshots', async () => {
+  const clients = [], updates = [[], []];
+  const { createAudioControl } = require('./tracker-audio-control-core');
+  const control = createAudioControl({ onChange: value => clients.forEach(root => root.gaTrackerAudioClient.apply(value)) });
+  control.update({ expectedRevision: 0, settings: { audioStyle: 'clear' } });
+  for (let i = 0; i < 2; i++) {
+    const root = { document: { getElementById: () => null }, localStorage: { getItem: () => 'web-' + i },
+      gaCockpitSessionClient: { role: 'web', clientId: 'session-' + i }, addEventListener() {},
+      gaTrackerExecutionHandlesMission: () => true,
+      gaTrackerAudioRelayRequest: async payload => control.update(payload),
+      GATrackerAudioPlayer: { createPlayer: () => ({ update: value => updates[i].push(value), stop() {} }) } };
+    vm.runInNewContext(source, { window: root, setTimeout: () => 1, clearTimeout() {} });
+    clients.push(root); root.gaTrackerAudioClient.apply(control.snapshot());
+  }
+  const old = control.snapshot();
+  await clients[0].gaTrackerAudioClient.change({ settings: { enabled: false } });
+  assert.equal(control.snapshot().settings.enabled, false);
+  for (let i = 0; i < 2; i++) {
+    assert.equal(updates[i].at(-1).settings.enabled, false);
+    clients[i].gaTrackerAudioClient.apply(old);
+    assert.equal(updates[i].at(-1).settings.enabled, false);
+  }
+  await clients[1].gaTrackerAudioClient.change({ settings: { enabled: true } });
+  for (let i = 0; i < 2; i++) assert.equal(updates[i].at(-1).settings.enabled, true);
+  assert.equal(control.snapshot().settings.paxEnabled, true);
+  assert.equal(control.snapshot().settings.effectsEnabled, true);
+  control.close();
+});

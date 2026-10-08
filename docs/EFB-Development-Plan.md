@@ -6613,3 +6613,14 @@ Windows EXE verified: 173663617 bytes, SHA-256
 374c70631b36ac8d6a0bc4d0a48e0df5676b01979b1b82647de598184c7d4fcf.
 Alpha activation follows download verification; cache v1967. Stable and
 Community package channels unchanged.
+
+### 2026-10-08: Audio checkbox display and central master setting
+
+User reports invisible checks and ignored Audio aktiviert clicks. Menu is portaled outside mapTableOverlay, so the input skin scoped to that ancestor cannot reach it; Coherent native checks remain unreliable. EFB audio controls now use real button/mark elements with role=checkbox and aria-checked; hidden original inputs retain the existing handlers. Menu-specific host styling follows the portal. Rendering still deduplicates unchanged properties/attributes.
+
+Central enabled setting is now labelled Multitool-Audio aktivieren, explained as warnings, mission/story/passenger voices and effects on the selected output, synchronized across connected devices. The separate voice toggle explicitly says Missions-/Story- und Passagierstimmen (Text bleibt sichtbar). Pending settings survive intervening polls; a revision conflict is retried once against the newest central revision, changing only requested fields. Failed saves restore authoritative state and show the error. Older revisions are ignored.
+
+Two isolated browser devices verify visible marks in the portal, delayed ACK/old poll, concurrent volume update plus mute retry, bidirectional master/warning sync and rejected-save recovery. Node tests also cover web-relay client synchronization; playback/core tests remain unchanged. No screenshots, no new release/channel activation yet. Requires fresh tracker build and EFB asset revision before shipping.
+Final candidate validation: 34 audio client/core/player/stability tests, 22 EFB
+host tests and the two-device browser test pass. No Tracker build or release
+performed for this audio candidate; Alpha remains v494.

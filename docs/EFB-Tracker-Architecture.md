@@ -1506,3 +1506,15 @@ cannot enlarge the drawing beyond that budget. Renderer and pointer mapping use
 the same viewport; backing buffer resolution still includes UI scale and DPR.
 Scale events invalidate frames explicitly, with no new polling loop. Unchanged
 geometry produces no style writes. Standalone profile sizing stays unchanged.
+
+## 2026-10-08: Central audio master and pending UI changes
+
+Audio settings.enabled is the master gate for all Multitool warnings, mission
+voices and effects on the selected output. paxEnabled remains a separate voice
+gate. EFB and Web clients use the same versioned central setting. Pending field
+patches are rendered locally until their own request resolves; unrelated central
+fields are never copied into the patch. On one revision conflict the explicit
+patch is retried once against the returned central revision. Final failures
+restore the authoritative value. Older snapshots cannot undo accepted revisions.
+EFB checkbox marks are real DOM children in the body-portaled Audio menu; native
+input pseudo-elements and the map-shell ancestor are no rendering dependency.
