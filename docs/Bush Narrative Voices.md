@@ -316,3 +316,47 @@ Release: Tracker v491 Alpha, Web-Cache v1961. Stable-/Beta-Kanaele unveraendert.
 275 Regressionstests, vorhandene Live-API-Proben und gepackter
 Tracker-Missionsprozess-Smoke-Test als technische Nachweise; kein
 Windows-/MSFS-Flugtest. Asset vor Aktivierung des Alpha-Kanals verifizieren.
+
+## Bush Charter: persönlicher Planner-Vertrag (08.10.2026)
+
+`bush_charter_strip` erhält eigene Planner-Feldbeschreibungen in beiden
+Promptvarianten und ein eigenes V5-Erzählrezept. Die bestehende technische
+TaskDomain `charter` und das Rollenprofil bleiben erhalten. `subjectDetail`
+enthält den fiktiven Gast und seinen Wunsch, `incidentContext` die persönliche
+Verbindung, `whyNow` den Anlass und `soughtOutcome` das offene Vorhaben am Boden.
+Die allgemeinen Befund-/Entscheidungshilfe-Feldbeschreibungen gelten hier nicht.
+Name und Motiv sollen Briefing, Begrüßung und spätere Kapitel verbinden.
+Absetzen und vereinbarte Übergabe schließen den Pilotauftrag ab; kein zusätzlicher
+Rückflug oder Erfolg der Gastarbeit wird zugesagt. Keine zusätzlichen KI-Aufrufe,
+keine Änderung anderer Bush-/APT-/POI-Profile und keine Prosa-Regex-Korrektur.
+Live-Proben prüfen Planner und Writer gemeinsam statt nur vorbereitete Personen.
+Strukturtests belegen Promptverkabelung und Profilgrenzen, nicht Textqualität.
+
+Der Charter-Rollenvergleich lässt eine kürzere vollständige Berufsbezeichnung
+(z.B. Fotografin gegenüber Projektfotografin) zu, nachdem der bestehende
+Geschlechtskonflikt geprüft wurde. Diese Ausnahme gilt ausschließlich für
+`bush_charter_strip`; echte andere Rollen bleiben Konflikte. Die finale Live-
+Rohantwort ist im Produktions-Sanitizer replay-geprüft. Die technische Prüfung umfasst 73 Regressionstests mit realer Browser-
+Verdrahtung, Writer-Fehlerpfaden, Quellenbindung und Profilgrenzen.
+
+### Charter-Qualitätsmaßstab: Begebenheit und Haltung
+
+Berufliche Chartergeschichten dürfen sachliche Aufträge bleiben. Persönliche
+Qualität entsteht aus einer konkreten zum Vorhaben passenden Begebenheit,
+der eigenen Reaktion und dem heutigen Vorgehen. Kein erzwungener privater
+Nebenanlass, keine Pflichtpointe und kein einheitlich brummeliger Ton. Für Charter
+enthält der Kapitel-FRAME zusätzlich vorhandene Passagier-Persönlichkeit und
+Begrüßung. Live-Proben umfassen Planner, Writer, Kapitel und die bestehenden Boarding-/
+Voice-Prompts. Die letzte Probe lieferte neun erfolgreiche Gemini-3-Flash-
+Antworten ohne Modellwechsel. Kapitel zeigen mehr Persönlichkeit; kurze
+Voice-Ansagen können weiterhin Auftrag und Zeitdruck wiederholen. Zwei
+Antworten enthielten unerwartet JSON statt reinem Sprechtext. Diese offenen
+Qualitätsgrenzen werden durch den Rollout nicht als behoben dargestellt.
+
+Boarding und Begrüßung sind in der produktiven Runtime bereits kombiniert;
+separate Startbegrüßungen werden unterdrückt. Die im Test zusätzlich erzeugte
+Startansage gehörte nicht zum tatsächlichen Ablauf. Kein TTS-/Playback- oder
+Windows-/MSFS-Flugtest durch diese Textprobe.
+
+Alpha-Web-Rollout: Cache v1970. Der bestehende Tracker-/EFB-Release bleibt
+unverändert; diese Änderungen betreffen die App-seitige Charter-Generierung.

@@ -153,7 +153,8 @@ test('Supply writers receive the regional story contract only for Supply',async(
  const source=fs.readFileSync(require.resolve('../app.js'),'utf8');
  for(const version of ['V4','V5']){
   const a=source.indexOf('async function fetchMissionWriter'+version+'('),b=source.indexOf('window.fetchMissionWriter'+version+' =',a);let sent;
-  const c={window:{MissionBushNarrativeCore:core},getSelectedAiApiKey:()=> 'test',getSelectedAiProvider:()=> 'gemini',document:{getElementById:()=>({checked:true})},fetchGeminiJsonWithFallback:async p=>{sent=p;return {parsed:{}}}};
+  const c={window:{MissionBushNarrativeCore:core},getSelectedAiApiKey:()=> 'test',getSelectedAiProvider:()=> 'gemini',document:{getElementById:()=>({checked:true})},fetchGeminiJsonWithFallback:async p=>{sent=p;return {parsed:{story:"Wir bringen den Gast zum Strip."}}}};
+  c._missionWriterRequestDiagnostics=()=>({attempts:[]});
   c['buildMissionWriter'+version+'Prompt']=()=> 'BASE';c['sanitizeMissionWriter'+version+'Payload']=x=>x;
   vm.runInNewContext(source.slice(a,b),c);
   await c['fetchMissionWriter'+version]({missionType:'bush',missionContractV4:{status:'ready',profile:{id:'bush_supply_strip'}}});assert.ok(sent.includes(core.supplyInstructions));
