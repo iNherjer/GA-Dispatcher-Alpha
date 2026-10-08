@@ -19,7 +19,9 @@ der gelesenen Revision. Logbuch und weitere Profilfelder bleiben unverändert.
 Es gibt keinen ungeschützten Zwischen-Upload eines leeren Cloud-Profils.
 Annehmen startet weder Mission noch Boarding; der bestehende Startablauf bleibt.
 
-Ein Cloud-Lesefehler stoppt vor dem Abbruch. Fehlende Tracker-Bestätigung stoppt
+Ohne identifizierten Tracker (Relay allein reicht nicht) blockieren gespeicherte alte Laufstände weder Annahme noch Clear. Der revisionsgesicherte Cloud-Missionsslot wird ersetzt; der Tracker beendet und bereinigt den alten Lauf beim nächsten Start/Abgleich, bevor er die neue Mission lädt.
+
+Ein Cloud-Lesefehler stoppt vor dem Abbruch. Fehlende Bestätigung eines erreichbaren Trackers stoppt
 vor dem Upload. Ein später Revisionskonflikt kann nach dem Tracker-Abbruch
 auftreten: Der vollständige Entwurf bleibt lokal überprüfbar, die veränderte
 Cloud wird nicht überschrieben. Ein abgebrochener alter Lauf wird nicht verdeckt

@@ -1,5 +1,9 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Annahme ohne laufenden Tracker (08.10.2026)
+
+Eine offene Relay-Verbindung ohne identifizierten Tracker blockiert Annahme und Clear nicht. Cloud-Missionskontrolle bleibt dauerhaft und revisionsgesichert; der vorhandene Tracker-Abgleich bereinigt beim späteren Start den alten Lauf vor dem Laden des neuen. Ein bestätigter aktiver Tracker wird weiterhin sofort beendet. Keine Tracker-/SDK-Änderung erforderlich.
+
 ## Vollständiger Missionstext, Alpha v503 (08.10.2026)
 
 Die Tracker-Projektion des EFB-/Toolbar-Missionstextes besitzt kein 6000-Zeichen-Limit mehr. Die aufklappbare Vorschau bleibt bestehen und enthält den vollständigen Text. Textbereinigung für HTML/Steuerzeichen und technische Paketlimits bleiben erhalten. Web-Asset-Revision 50301 liefert die vollständige Writer-Diagnose. Kein SDK-Paket oder neues Protokoll erforderlich; Tracker-EXE neu bauen und als Alpha veröffentlichen.

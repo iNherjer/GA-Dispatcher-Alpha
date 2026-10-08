@@ -27273,7 +27273,7 @@ window.acceptMissionDraft = async function() {
     const session = missionDraftSession();
     if (!session.active()) return prepareMissionDraftScene(); // Existing accepted/legacy scene behavior.
     if (window.gaIsDispatchBusy?.() || ['generating','preparing','committing'].includes(session.status())) return false;
-    if (!confirm('Mission akzeptieren und den bisherigen Auftrag ersetzen?\n\nDer bisherige Tracker-Lauf und seine Szenen werden beendet. Die neue Mission wird anschließend in der Cloud für andere Geräte bereitgestellt. „Mission beginnen“ bleibt ein eigener Schritt.')) return false;
+    if (!confirm('Mission akzeptieren und den bisherigen Auftrag ersetzen?\n\nDie neue Mission ersetzt den bisherigen Cloud-Auftrag. Ein erreichbarer Tracker beendet den alten Lauf sofort; andernfalls bereinigt er ihn bei seiner nächsten Verbindung und übernimmt die neue Mission. „Mission beginnen“ bleibt ein eigener Schritt.')) return false;
     session.phase('preparing'); updateMissionAcceptanceUi();
     try {
         if (!await prepareMissionDraftScene()) return false;

@@ -16285,22 +16285,29 @@ async function _readSharedMissionReplacementBasis() {
     return { client, profile, revision: 0, id };
 }
 async function _cleanupSharedMissionForReplacement() {
+    // A connected relay is not proof of a running Tracker. The durable Cloud
+    // mission control is reconciled on its next start, before loading the new run.
+    const trackerAvailable = !!window.liveTrackerConnected && Number(window.liveTrackerVersionCode) > 0 && _trackerHeartbeatIsFresh();
     // Read the current run before aborting; previews never execute prepare/start.
-    if (window.liveTrackerConnected) {
+    if (trackerAvailable) {
         const snapshot = await _sendMissionAuthorityRequest({ type: 'mission_snapshot_request', clientId: _missionAuthorityClientId(), reason: 'draft-replacement-preview' }, 12000);
         if (!['ok','noop'].includes(snapshot?.status)) throw new Error('Aktueller Tracker-Lauf konnte nicht bestätigt werden.');
         window.lastTrackerMissionAuthority = { ...(window.lastTrackerMissionAuthority || {}), activeRun: snapshot.authoritativeRun || snapshot.activeRun || null };
         window.lastTrackerMissionStatus = snapshot.authoritativeRun || snapshot.activeRun || null;
     }
     const active = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus;
-    if (active?.missionId && active?.runId && !['aborted','closed','completed','ended'].includes(active.state)) {
-        if (!window.liveTrackerConnected) throw new Error('Der bisherige Tracker-Lauf ist noch offen. Tracker verbinden, damit sein Abbruch bestätigt werden kann.');
+    if (trackerAvailable && active?.missionId && active?.runId && !['aborted','closed','completed','ended'].includes(active.state)) {
         const result = await window.gaAbortTrackerMission({ skipConfirm: true, forceLocalCleanup: false, reason: 'new-mission-replacement' });
         if (!result?.ok) throw new Error('Tracker-Abbruch nicht bestätigt: ' + (result?.error || result?.status || 'keine Antwort'));
         window.lastTrackerMissionAuthority = { ...(window.lastTrackerMissionAuthority || {}), activeRun: null, lastRun: result.releasedRun };
         window.lastTrackerMissionStatus = null;
         window.gaTrackerExecutionControl = null;
         _clearMissionAuthorityState('draft-replacement-confirmed');
+    }
+    if (!trackerAvailable) {
+        window.lastTrackerMissionAuthority = null;
+        window.lastTrackerMissionStatus = null;
+        _clearMissionAuthorityState('draft-replacement-cloud-deferred');
     }
     window.gaTrackerExecutionControl = null;
     const reset = window.missionRuntimeReset?.({ draftCommit: true, trackerAbortCompleted: true, skipAuthorityRelease: true,
