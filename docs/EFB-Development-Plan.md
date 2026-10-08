@@ -6706,3 +6706,19 @@ Release-Tag `v496`, Quellstand `ef9864e57dadfe1b28a5e31ef14c3f9f356683dd`.
 183 automatisierte Tests, Interface und Browser erfolgreich. Alpha-Zeiger und
 Web-Cache v1972 aktualisiert; Stable und SDK-Paket 0.4.23 erhalten.
 Windows/MSFS-/VR-Feldabnahme bleibt offen.
+
+
+## Offener Feldfehler nach Alpha v496: Profilinhalt und Kompass (08.10.2026)
+
+Nutzer bestätigt aktuelle Audio-Oberfläche, meldet weiterhin überlaufenden
+Profilinhalt beim Skalieren und wandernde Kompass-Kursanzeige unter das Profil.
+Der Profilinhalt-Fix aus 57cb2725e/v494 ist nachweislich in v496 enthalten,
+inklusive generierter EFB-Profil-Datei. Fehlende Auslieferung ist damit nicht
+die Erklärung. Die bisherige Simulatorabnahme bleibt offen.
+
+Browser-Regression erweitert um die tatsächliche SVG-Kursanzeige relativ zur
+unteren Kartenkante. 123 Fälle bestehen regulär sowie kombiniert ohne
+ResizeObserver/mit künstlich alten Profil-Clientmaßen. Das reproduziert den
+Feldfehler noch nicht; Chrome-Ergebnis bestätigt keine Coherent-Abnahme.
+Host und konkreter Skalierungswert beim Nutzer sind angefragt. Keine weitere
+Produktänderung oder Veröffentlichung aufgrund einer unbestätigten Ursache.
