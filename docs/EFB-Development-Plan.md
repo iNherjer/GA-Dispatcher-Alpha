@@ -6747,3 +6747,10 @@ aktivierter Zwischenstand. Gruppierte Elementmessungen und ein gemeinsamer
 Vorher-/Nachher-Snapshot für schnelle Klickfolgen reduzieren Requests unter
 dem vorhandenen Clientlog-Limit von 120/Minute. Details bleiben unter 800
 Zeichen. Nutzer testet zunächst nur einen geöffneten Host.
+
+Alpha v498 aktiviert nach öffentlicher Download-/SHA-Prüfung: 173682161 Bytes,
+SHA-256 `0e80c02b20f91507c4e537c8b5756f1be10fc66a8ef2b1e3b81a2e194bc9d61c`.
+Quelltag v498 / cbf90098840793d1de6196e4d423ea57084b03e6; Assets 49801,
+Web-Cache v1975. Initiale 192 Tests und 123 Browserfälle erfolgreich; finale
+Bündelung mit 32 gezielten Tests und 123 Browserfällen geprüft. Paket 0.4.23
+und Stable bleiben unverändert. Die Feldursache ist bis zum Nutzerlog offen.
