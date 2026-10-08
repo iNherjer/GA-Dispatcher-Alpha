@@ -2208,7 +2208,7 @@ async function _pushMissionAuthoritySnapshotForExecutionHandoff(reason = 'execut
         return { status: 'conflict', error: 'mission_authority_owner_mismatch' };
     }
     const bundle = _buildMissionAuthorityResumeBundle(reason);
-    if (!bundle || !['apt', 'poi', 'survey_pattern', 'poi_chain'].includes(String(bundle.adapter || '').toLowerCase())) {
+    if (!bundle || !['apt', 'poi', 'survey_pattern', 'poi_chain', 'bush_pickup'].includes(String(bundle.adapter || '').toLowerCase())) {
         return { status: 'blocked', error: 'mission_execution_recipe_not_enabled' };
     }
     const checkpoint = window.GAMissionExecutionShadowJournal?.checkpointForHandoff?.(
@@ -15177,7 +15177,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
-        'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress', 'bushNarrative', 'bushNarrativeDebug', 'environmentContext', 'airportInfoContext', 'airportInformation',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress', 'bushNarrative', 'bushNarrativeDebug', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
         'missionPlanV2', 'missionPlanV4', 'missionContractV4', 'missionVariety',

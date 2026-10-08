@@ -4219,6 +4219,11 @@ window.vpBuildWeatherDebugReport = function() {
             const info = bushData.airportInformation;
             lines.push(`- Bush-Platztext: ${airportContext ? airportContext.airport?.ident || 'ohne Kennung' : 'kein Kontext'} | Text=${info?.generated ? 'KI' : info ? 'Basisdaten' : 'fehlt'} | Flughinweise=${info?.flightBriefing?.length || 0} Zeichen | Zielseite=${info?.destinationInfo?.length || 0} Zeichen`);
             if (airportContext?.retrieval) lines.push(`- Bush-Platzquellen: ${Object.entries(airportContext.retrieval.sources || {}).map(([key, value]) => `${key}=${value.status}`).join(', ')} | ${airportContext.retrieval.elapsedMs} ms`);
+            const departureContext = bushData.departureAirportInfoContext, departureInfo = bushData.departureAirportInformation;
+            lines.push(`- Bush-Starttext: ${departureContext?.airport?.ident || 'kein Kontext'} | Text=${departureInfo?.generated ? 'KI' : departureInfo ? 'Basisdaten' : 'fehlt'} | Startseite=${departureInfo?.departureInfo?.length || 0} Zeichen`);
+            for (const [label, context] of [['Start', departureContext], ['Ziel', airportContext]]) {
+                if (context?.retrieval) lines.push(`- Bush-Platzabrufe ${label}: Wiki=${context.retrieval.requests?.wikipedia ?? '?'} | FAA=${context.retrieval.requests?.faa ?? '?'} | ${context.retrieval.elapsedMs} ms`);
+            }
             const environment = bushData.environmentContext;
             lines.push(`- Bush-Wetterkontext: ${environment ? `Start=${environment.start?.status || '?'}, Ziel=${environment.target?.status || '?'}` : 'fehlt'}`);
             const chapters = bushData.bushNarrative;

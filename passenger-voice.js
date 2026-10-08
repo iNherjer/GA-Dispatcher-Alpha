@@ -10478,6 +10478,8 @@ window.paxVoiceBuildApproachAuthorityContext = function() {
     const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
     return {
         ...context,
+        schema: 'ga.mission-approach-context.v1',
+        version: 1,
         dest: md?.dest || 'dem Flughafen',
         start: md?.start || '?',
         bushNarrative: window.MissionBushNarrativeCore?.normalizePlan(md?.bushNarrative) || null,

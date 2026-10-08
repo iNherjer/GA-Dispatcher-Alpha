@@ -201,3 +201,21 @@ assert.equal(persistence._persistMissionRuntimeSnapshot('before-resume', { minIn
 persistence.missionAuthorityResumeReadPending = true;
 assert.equal(timer(), false); assert.equal(writes, 0);
 console.log('PASS mission start/resume: valid handoff, drift blocker, retry, recipe gate, existing authority, Web progress, stale snapshot, timeout, run replacement, observer and visible error.');
+
+// Use the real preflight snapshot function rather than a successful handoff stub.
+const snapshotSource=block('async function _pushMissionAuthoritySnapshotForExecutionHandoff(', '\nfunction _trackerExecutionUsesRelayController');
+for (const adapter of ['apt','poi','survey_pattern','poi_chain','bush_pickup','sar_heli']) {
+    const sent=[];
+    const ctx={window:{},Date,missionAuthoritySnapshotSequence:0,missionAuthorityLastSnapshotHash:'',missionAuthorityLastSnapshotPushAt:0,
+        _readMissionAuthorityState:()=>({runId:'r',missionId:'m',clientId:'owner',revision:0}),
+        _activeMissionRuntimeId:()=> 'm',_missionAuthorityClientId:()=> 'owner',
+        _buildMissionAuthorityResumeBundle:()=>({adapter,missionId:'m'}),
+        _missionAuthorityResumeBundleHash:()=> 'verified-hash',
+        _sendMissionAuthorityRequest:async cmd=>{sent.push(cmd);return {status:'ok'};}};
+    vm.createContext(ctx);vm.runInContext(snapshotSource,ctx);
+    const result=await ctx._pushMissionAuthoritySnapshotForExecutionHandoff();
+    assert.equal(result.status,adapter==='sar_heli'?'blocked':'ok',adapter);
+    assert.equal(sent.length,adapter==='sar_heli'?0:1,adapter);
+    if(sent.length)assert.equal(sent[0].resumeBundle.adapter,adapter);
+}
+console.log('Preflight snapshots: APT, POI and Bush accepted; unmigrated SAR-Heli remains blocked.');

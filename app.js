@@ -8960,7 +8960,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
-        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'environmentContext', 'airportInfoContext', 'airportInformation',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
         'targetScene', 'sceneIntent', 'missionTruth', 'targetGeoContext',
@@ -9603,6 +9603,10 @@ async function restoreMissionState(state, options = {}) {
     if (document.getElementById("wikiDepDescText")) document.getElementById("wikiDepDescText").innerText = state.wikiDepDescText || "";
     if (document.getElementById("wikiDestDescText")) document.getElementById("wikiDestDescText").innerText = state.wikiDestDescText || "";
     window.MissionAirportInformationBrowser?.render(state.currentMissionData || currentMissionData);
+    window.MissionAirportInformationBrowser?.renderDeparture(state.currentMissionData || currentMissionData, {
+        lat: state.currentMissionData?.initialStartLat ?? state.currentMissionData?.departureAirport?.lat,
+        lon: state.currentMissionData?.initialStartLon ?? state.currentMissionData?.departureAirport?.lon
+    });
 
     if (document.getElementById("wikiDepFreqText")) document.getElementById("wikiDepFreqText").innerHTML = state.wikiDepFreqText || "";
     if (document.getElementById("wikiDestFreqText")) document.getElementById("wikiDestFreqText").innerHTML = state.wikiDestFreqText || "";
@@ -15618,7 +15622,12 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
     const textElement = document.getElementById(elementId);
     const commitAllowed = () => _dispatchUiCommitAllowed(options);
     if (!commitAllowed()) return;
-    if (elementId === 'wikiDestDescText' && window.MissionAirportInformationBrowser?.render(window.currentMissionData || currentMissionData, {lat, lon})) return;
+    const renderAirportInformation = () => {
+        const mission = window.currentMissionData || currentMissionData, browser = window.MissionAirportInformationBrowser;
+        return elementId === 'wikiDestDescText' ? browser?.render(mission, {lat, lon})
+            : elementId === 'wikiDepDescText' ? browser?.renderDeparture(mission, {lat, lon}) : false;
+    };
+    if (renderAirportInformation()) return;
     if (imgContainer) imgContainer.style.display = 'none';
     if (!textElement) return;
     const applyPoiFallback = () => {
@@ -15632,13 +15641,13 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
     try {
         let titleToFetch = exactTitle;
         if (!titleToFetch && icaoCode) titleToFetch = await getWikiTitleForAirport(icaoCode, lat, lon);
-        if (!commitAllowed()) return;
+        if (!commitAllowed() || renderAirportInformation()) return;
 
         if (!titleToFetch) {
             const geoRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=10000&gslimit=1&format=json&origin=*`);
-            if (!commitAllowed()) return;
+            if (!commitAllowed() || renderAirportInformation()) return;
             const geoData = await geoRes.json();
-            if (!commitAllowed()) return;
+            if (!commitAllowed() || renderAirportInformation()) return;
             if (geoData?.query?.geosearch?.length > 0) titleToFetch = geoData.query.geosearch[0].title;
             else {
                 if (applyPoiFallback()) return;
@@ -15649,9 +15658,9 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
 
         if (titleToFetch) {
             const extRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages&exintro=true&explaintext=true&exsentences=4&pithumbsize=1200&titles=${encodeURIComponent(titleToFetch)}&format=json&origin=*`);
-            if (!commitAllowed()) return;
+            if (!commitAllowed() || renderAirportInformation()) return;
             const extData = await extRes.json();
-            if (!commitAllowed()) return;
+            if (!commitAllowed() || renderAirportInformation()) return;
 
             if (extData?.query?.pages) {
                 const pageId = Object.keys(extData.query.pages)[0];
@@ -15671,7 +15680,7 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
         if (applyPoiFallback()) return;
         textElement.innerText = "Der Artikel konnte nicht von Wikipedia abgerufen werden.";
     } catch (e) {
-        if (!commitAllowed()) return;
+        if (!commitAllowed() || renderAirportInformation()) return;
         if (applyPoiFallback()) return;
         textElement.innerText = "Wiki-Daten konnten nicht geladen werden.";
     }
@@ -31007,7 +31016,22 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             soughtOutcome: 'Wir sollen den Gast ruhig und planbar so anliefern, dass der lokale Kontakt den Zielablauf ohne Hektik uebernehmen kann.'
         };
     }
-    if (taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility' && missionMode === 'bush') {
+        const shipment = String(options?.loadout?.cargoText || plan?.storyFrame?.shipment || plan?.cargo || 'die geplante Versorgungsladung').trim();
+        return {
+            trigger: `Am Zielstrip ${targetLabel} wird ${shipment} für die Arbeit vor Ort gebraucht.`,
+            focusSubject: shipment,
+            keyQuestion: 'Wofür braucht die Crew diese Lieferung und wie übernimmt sie die Fracht?',
+            stakes: 'Die Lieferung unterstützt den nächsten Arbeitsschritt vor Ort.',
+            completionSignal: 'Der Auftrag endet mit dem bestätigten Entladen und der Übergabe am Zielstrip.',
+            subjectDetail: shipment,
+            shipment,
+            incidentContext: 'Der konkrete Bedarf und die Vorgeschichte der Empfänger tragen den Versorgungsauftrag.',
+            whyNow: 'Der geplante Umlauf bringt die benötigte Fracht zur Crew am Ziel.',
+            soughtOutcome: 'Die Crew übernimmt die Fracht am Boden; es reist kein Passagier mit.'
+        };
+    }
+    if (taskDomain === 'club_utility' && isAptMode) {
         return _missionPipelineV4ClubUtilityStoryFrame({
             targetLabel,
             cargoText: options?.loadout?.cargoText || plan?.storyFrame?.shipment || plan?.cargo || '',
@@ -31240,7 +31264,7 @@ function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNe
                 ? defaults.visibleClueCandidates.slice(0, 5).map(x => _missionPipelineV3Text(x, 80)).filter(Boolean)
                 : [])
     };
-    if (taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility' && missionMode === 'apt' && !options?.isPOI) {
         return _missionPipelineV4EnrichClubUtilityStoryFrame(frame, {
             targetLabel: semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || '',
             cargoText: options?.loadout?.cargoText || plan?.storyFrame?.shipment || plan?.cargo || '',
@@ -32110,7 +32134,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
             targetName: draft?.target?.name || ''
         });
     }
-    if (taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility' && normalizeMissionType(draft?.mode || base?.plan?.missionType || '', draftIsPOI) === 'apt' && !draftIsPOI) {
         _missionPipelineV4ApplyClubUtilityPlanGuard(base.plan, storyFrame, semantics, {
             targetName: draft?.target?.name || '',
             loadout: debug?.loadout || null
@@ -32508,7 +32532,8 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             airportDetails: _missionPipelineV3AirportDetails(context),
             weather: weatherBundle,
             ...(context.environmentContext ? { environmentContext: context.environmentContext } : {}),
-        ...(context.airportInfoContext ? { airportInfoContext: context.airportInfoContext } : {}),
+            ...(context.airportInfoContext ? { airportInfoContext: context.airportInfoContext } : {}),
+            ...(context.departureAirportInfoContext ? { departureAirportInfoContext: context.departureAirportInfoContext } : {}),
             fireHazard: fire || null,
             targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
             missionTruth: compactMissionTruthForPrompt(truth),
@@ -32574,6 +32599,7 @@ function _missionPipelineV4CompactPlannerBundleForOpenAi(bundle = {}) {
         weather: compactWeather,
         ...(src.environmentContext ? { environmentContext: src.environmentContext } : {}),
         ...(src.airportInfoContext ? { airportInfoContext: src.airportInfoContext } : {}),
+        ...(src.departureAirportInfoContext ? { departureAirportInfoContext: src.departureAirportInfoContext } : {}),
         fireHazard: src.fireHazard || null,
         targetGeoContext: src.targetGeoContext || null,
         missionTruth: src.missionTruth || null,
@@ -33148,6 +33174,7 @@ function buildMissionContractV4({
         weather: _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null),
         ...(plannerContext.environmentContext ? { environmentContext: plannerContext.environmentContext } : {}),
         ...(plannerContext.airportInfoContext ? { airportInfoContext: plannerContext.airportInfoContext } : {}),
+        ...(plannerContext.departureAirportInfoContext ? { departureAirportInfoContext: plannerContext.departureAirportInfoContext } : {}),
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
         missionPlan: plan,
         storyFrame,
@@ -34555,7 +34582,7 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
             ]
         };
     }
-    if (taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility' && contract?.profile?.id !== 'bush_supply_strip') {
         const seed = _missionPipelineV4ClubUtilitySeed({
             targetLabel: targetName,
             cargoText: _missionPipelineV4CargoLabel(contract, context) || contract?.cargoText || '',
@@ -37028,7 +37055,7 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
             `${sought || 'Wir sollen leer zum Pickup fliegen, den Gast aufnehmen und die Geschichte auf dem Rueckflug nach Hause weiterfuehren.'} ${completion}`.trim()
         ].join(' ');
     }
-    if (taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility' && contract?.profile?.id !== 'bush_supply_strip') {
         return _missionPipelineV4ComposeClubUtilityStory(contract, {
             ...context,
             cargoText: context?.cargoText || contract?.cargoText || ''
@@ -37364,7 +37391,7 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
     if (taskDomain === 'bush_pickup_return') {
         return `${opener}, ich war bei ${targetName} draussen wegen ${subject}; bring mich bitte zurück, damit ${outcome ? outcome.toLowerCase() : 'die Unterlagen und Ausrüstung wieder in der Basis ankommen'}.`;
     }
-    if (taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility' && contract?.profile?.id !== 'bush_supply_strip') {
         const seed = _missionPipelineV4ClubUtilitySeed({
             targetLabel: targetName,
             cargoText: contract?.cargoText || frame.shipment || frame.subjectDetail || '',
@@ -38590,7 +38617,7 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
     if (taskDomain === 'animal_transport') {
         return _missionWriterV5ComposeAnimalTransportStory(contract, context);
     }
-    if (taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility' && contract?.profile?.id !== 'bush_supply_strip') {
         return _missionPipelineV4ComposeClubUtilityStory(contract, context);
     }
     const routeSentence = _missionWriterV5RouteSentence(contract);
@@ -38791,7 +38818,7 @@ function _missionWriterV5DomainStoryNeedsRepair(taskDomain = '', raw = '', contr
         const hasArrivalStep = /\b(uebergabe|übergabe|uebernimmt|übernimmt|empfaenger|empfänger|zielkontakt|frachtkontakt|annahme|pruefplatz|prüfplatz|labor|werkstatt|werft|museum|zustandskontrolle|auswertung|weitertransport|vorfeld)\b/.test(normalized);
         return _missionPipelineV4CargoStoryNeedsFallback(raw, contract, context) || !hasCargo || !hasArrivalStep;
     }
-    if (domain === 'club_utility') {
+    if (domain === 'club_utility' && contract?.profile?.id !== 'bush_supply_strip') {
         return _missionWriterV5ClubUtilityStoryNeedsRepair(raw, contract, context);
     }
     if (domain === 'media_photo') {
@@ -39939,7 +39966,7 @@ async function fetchMissionWriterV4(context = {}) {
     if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV4Prompt(contract) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext) || ''),
+        buildMissionWriterV4Prompt(contract) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || ''),
         apiKey,
         { promptVersion: 'mission-writer-v4', timeoutMs: 16000 }
     );
@@ -39948,7 +39975,7 @@ async function fetchMissionWriterV4(context = {}) {
         ...context,
         source: `${result.source || 'Gemini'} + V4 Writer`
     });
-    return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext) || mission;
+    return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
 }
 window.fetchMissionWriterV4 = fetchMissionWriterV4;
 
@@ -39961,7 +39988,7 @@ async function fetchMissionWriterV5(context = {}) {
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV5Prompt(contract, context) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext) || ''),
+        buildMissionWriterV5Prompt(contract, context) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || ''),
         apiKey,
         { promptVersion: 'mission-writer-v5', timeoutMs: selectedProvider === 'openai' ? 26000 : 16000 }
     );
@@ -39970,13 +39997,13 @@ async function fetchMissionWriterV5(context = {}) {
             ...context,
             source: 'Local Fallback + V5 Writer'
         });
-        return window.MissionAirportInformationCore?.attach(mission, {}, contract.airportInfoContext) || mission;
+        return window.MissionAirportInformationCore?.attach(mission, {}, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
     }
     const mission = sanitizeMissionWriterV5Payload(result.parsed, {
         ...context,
         source: `${result.source || 'Gemini'} + V5 Writer`
     });
-    return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext) || mission;
+    return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
 }
 window.fetchMissionWriterV5 = fetchMissionWriterV5;
 
@@ -40792,7 +40819,7 @@ REGELN:
 3g) ${sightseeingKnowledgeRule || 'Kein Sightseeing-Zielwissen aktiv.'}
 4) ${routeRule}
 5) PAX/FRACHT: Wenn <DISPATCH_FORM>.selectedLoadout.paxText oder cargoText gesetzt ist, sind diese Werte bindend. Du darfst sie nicht durch andere Personen-, Material- oder Ersatzteil-Stories ersetzen. Nur wenn selectedLoadout leer oder Platzhalter ist, erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
-5b) Bei taskDomain club_utility: Lies selectedLoadout.cargoText als Signal. Konkrete Vereinsladung wie Banner, Funkakkus, Helferlisten, Schluessel, Checkkarten, Leuchtmittel, Lash-Straps oder Werkzeugtasche bleibt Ladung mit Zielkontakt und naechstem Club-/Hangar-/Flugtag-/Werkstatt-Schritt. Persoenliche Sachen wie Clubjacke, Bordtasche, Notizbuch oder Sonnenbrille bedeuten Clubbesuch, Fly-In, Stammtisch oder Fachsimpeln ohne kuenstliche Uebergabe.
+5b) Nur bei APT-Vereinsmissionen mit taskDomain club_utility (nicht bei Bush-Versorgung): Lies selectedLoadout.cargoText als Signal. Konkrete Vereinsladung wie Banner, Funkakkus, Helferlisten, Schluessel, Checkkarten, Leuchtmittel, Lash-Straps oder Werkzeugtasche bleibt Ladung mit Zielkontakt und naechstem Club-/Hangar-/Flugtag-/Werkstatt-Schritt. Persoenliche Sachen wie Clubjacke, Bordtasche, Notizbuch oder Sonnenbrille bedeuten Clubbesuch, Fly-In, Stammtisch oder Fachsimpeln ohne kuenstliche Uebergabe.
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
 6b) passenger.gender ist PFLICHT und MUSS exakt "male" oder "female" sein (keine anderen Werte).
 7) Leite diese Felder datengetrieben aus Auftrag/Rolle/Fracht/Wetter ab:
@@ -40904,7 +40931,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
   }
 }
 </OUTPUT>
-${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionAirportInformationCore?.writerPrompt(poiTargetMeta?.airportInfoContext) || '')) : ''}`;
+${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionAirportInformationCore?.writerPrompt(poiTargetMeta?.airportInfoContext, poiTargetMeta?.departureAirportInfoContext) || '')) : ''}`;
 
     const buildGeminiMissionResult = (parsed, sourceLabel) => {
         let passenger = sanitizePassengerProfile(parsed.passenger, parsed.story);
@@ -40987,7 +41014,7 @@ ${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') +
             const parsed = sanitizeMissionPayloadText(enforceMedicalTransferPayload(enforceCharterPayload(enforceTrainingInstructorPayload(result.parsed))));
             const mission = buildGeminiMissionResult(parsed, result.source || 'KI Dispatcher');
             return isBushMission
-                ? (window.MissionAirportInformationCore?.attach(mission, result.parsed, poiTargetMeta?.airportInfoContext) || mission)
+                ? (window.MissionAirportInformationCore?.attach(mission, result.parsed, poiTargetMeta?.airportInfoContext, poiTargetMeta?.departureAirportInfoContext) || mission)
                 : mission;
         }
     } catch (e) { }
@@ -44119,20 +44146,31 @@ async function generateMission(options = {}) {
             console.warn('[APT Sightseeing] Wiki context lookup failed', err);
         }
     }
-    const [environmentContext, airportInfoContext] = await Promise.all([
+    const airportInfoBrowser = window.MissionAirportInformationBrowser;
+    const airportInfoEnabled = airportInfoBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, isPOI, profileId: dispatchProfileId, target: dest });
+    const departureInfoEnabled = airportInfoBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, target: start, role: 'departure' });
+    const [environmentContext, airportContexts] = await Promise.all([
         requestedMissionType === 'bush' && aiModeEnabled && window.MissionEnvironmentBrowser
             ? dispatchMeasure('bush_environment', () => window.MissionEnvironmentBrowser.load(start, dest)) : null,
-        window.MissionAirportInformationBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, isPOI, profileId: dispatchProfileId, target: dest })
-            ? dispatchMeasure('bush_airport_information', () => window.MissionAirportInformationBrowser.load(dest, {
-                budgetMs: 3000,
-                terrain: poiTerrainEnvelope || null,
-                terrainLoader: typeof sampleTerrainEnvelope === 'function' ? (lat, lon) => sampleTerrainEnvelope(lat, lon, 1) : null
+        airportInfoEnabled || departureInfoEnabled
+            ? dispatchMeasure('bush_airport_information', () => airportInfoBrowser.loadPair(departureInfoEnabled ? start : null, airportInfoEnabled ? dest : null, {
+                target: {
+                    budgetMs: 3000, terrain: poiTerrainEnvelope || null,
+                    terrainLoader: typeof sampleTerrainEnvelope === 'function' ? (lat, lon) => sampleTerrainEnvelope(lat, lon, 1) : null
+                },
+                departure: {
+                    budgetMs: 3000,
+                    terrainLoader: typeof sampleTerrainEnvelope === 'function' ? (lat, lon) => sampleTerrainEnvelope(lat, lon, 1) : null
+                }
             })) : null
     ]);
+    const airportInfoContext = airportContexts?.airportInfoContext || null;
+    const departureAirportInfoContext = airportContexts?.departureAirportInfoContext || null;
     _ensureDispatchAlive();
     const plannerContext = {
         ...(environmentContext ? { environmentContext } : {}),
         ...(airportInfoContext ? { airportInfoContext } : {}),
+        ...(departureAirportInfoContext ? { departureAirportInfoContext } : {}),
         start,
         dest,
         isPOI,
@@ -44539,6 +44577,7 @@ async function generateMission(options = {}) {
                         missionPlanV2,
                         environmentContext,
                         airportInfoContext,
+                        departureAirportInfoContext,
                         sarHeli: sarHeliSpec,
                         startAirport: start,
                         destAirport: dest
@@ -45622,7 +45661,7 @@ async function generateMission(options = {}) {
                 start: { lat: Number(start.lat), lon: Number(start.lon) },
                 target: { lat: Number(dest.lat), lon: Number(dest.lon) },
                 country: dest.country || dest.isoCountry || dest.countryCode || '', region: dest.region || dest.isoRegion || '',
-                environmentContext, airportInfoContext,
+                environmentContext, airportInfoContext, departureAirportInfoContext,
                 cruiseKts: missionAircraftCapability.cruiseSpeedKts
             }, {
                 tileKey: _poiTileKey,
@@ -45684,7 +45723,9 @@ async function generateMission(options = {}) {
         missionTemporalContext: plannerContext.missionTemporalContext || m?.missionTemporalContext || m?.followUpContinuation?.temporalContext || null,
         ...(environmentContext ? { environmentContext } : {}),
         ...(airportInfoContext ? { airportInfoContext } : {}),
+        ...(departureAirportInfoContext ? { departureAirportInfoContext } : {}),
         ...(airportInfoContext ? { airportInformation: m?.airportInformation || window.MissionAirportInformationCore.fallback(airportInfoContext) } : {}),
+        ...(departureAirportInfoContext ? { departureAirportInformation: m?.departureAirportInformation || window.MissionAirportInformationCore.departureFallback(departureAirportInfoContext) } : {}),
         followUpProspect: m?.followUpProspect || null,
         selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
         start: currentStartICAO,

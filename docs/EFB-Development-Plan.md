@@ -1,5 +1,23 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Bush-Missionsübergabe: lokaler Fix, 08.10.2026
+
+Der reale App-Anflugkontext erbte die Kennung des Abschiedskontexts. Die strenge
+Bush-Validierung lehnte dadurch mit `bush_voice_context_invalid` den ganzen Seed
+ab; Cloud-Profil und Tracker enthielten keine geplante Mission, während die App
+ihren lokalen Startbutton zeigte. Der Anflug-Builder setzt jetzt explizit seine
+Kennung und Version; der Abschiedskontext bleibt unverändert. Die Preflight-
+Snapshot-Zulassung enthält außerdem den bereits migrierten `bush_pickup`-Adapter
+(für die bestehenden Bush-Rezepte), ohne SAR-Heli freizuschalten.
+
+Integration verwendet echte App-Voice-/Seed-Builder, Tracker-Cloud-Validierung,
+Execution-Replay und den gemeinsamen EFB-/Toolbar-Bannerrenderer. Der geplante
+Tracker-Stand bietet `prepare_mission` und zeigt „Mission beginnen“; die noch
+nicht geladene Cloud-Mission bietet zuerst „Neue Mission laden“. Tests behalten
+APT/POI- und nicht migrierte Grenzen bei. Lokal, noch nicht veröffentlicht;
+Windows/MSFS-Abnahme folgt nach Auslieferung.
+
+
 ## EFB-SDK 0.4.22: Alpha-Feldtest vor Simulatorabnahme (07.10.2026)
 
 Der Nutzer bestätigt, dass die Abnahme erst nach Auslieferung möglich ist, und
