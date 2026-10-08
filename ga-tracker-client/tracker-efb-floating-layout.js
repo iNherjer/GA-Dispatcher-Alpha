@@ -138,7 +138,7 @@
     if (!floating()) { restore(); return; }
     profileActions();
     var size = root.GAEfbUiScale.viewport(), header = document.querySelector('.pinboard-header');
-    if (header) set(header, 'max-height', Math.max(30, Math.min(90, size.height * .24)) + 'px', 'important');
+    if (header) set(header, 'max-height', Math.max(1, Math.min(90, size.height * .24)) + 'px', 'important');
     var content = document.querySelector('.maptable-content'), strip = byId('mapProfileStrip');
     if (content && strip) {
       set(strip, 'max-height', Math.max(24, content.clientHeight * .6) + 'px', 'important');

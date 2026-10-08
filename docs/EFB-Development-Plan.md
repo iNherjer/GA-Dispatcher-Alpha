@@ -6530,3 +6530,63 @@ Alle nativen 0.4.22-Aenderungen inklusive Wetterpreset-Erkennung erhalten.
 Reale Coherent-Neustart-/Simulator-/VR-Abnahme offen. Stable unveraendert,
 keine Installation oder Screenshots. SDK-Rueckgabe unter OneDrive/
 VFR-Multitool-UI-Hotfix-SDK-Result-2026-10-07-2211.
+
+### 2026-10-08: Reproduzierter Profilbeschnitt bei UI-Skalierung (Kandidat)
+
+Nutzer reproduziert in Simulator: physisches EFB bei manueller Vergroesserung,
+Popout/Toolbar bereits bei VR-Grundfaktor 1.5. Bisheriger Browsernachweis war
+zu eng: Menuebuttons/oberer Profilrand statt gesamtem Profil/Canvas innerhalb
+der Hostgrenzen. Frischer Kandidat auf Alpha-v491-Basis 60dcbf1e4.
+
+Alle Hosts erhalten logische dvh/dvw/svh/lvh-Einheiten. Map-Shell bekommt
+absolute logische Pixelbreite/-hoehe und skalenbereinigten nativen Inset;
+keine Abhaengigkeit von Coherent-Aufloesung fester/prozentualer Viewporthoehen.
+Flex-Mindesthoehen von Scrollbereich/Inhalt entfernt; skalierte Header und
+Profil begrenzt, mobiler Resize-Griff auf 8 logische Pixel, Telemetriepadding
+kompakter. Profilrahmen wird in die Hoehe eingerechnet. Physisch 100 Prozent
+behaelt bisherige Groessen, Hostbasis bleibt physisch 1/VR-Floating 1.5.
+Identische Telemetriepolls erzeugen weiterhin keine Layoutschreibvorgaenge.
+
+62 Node-/HTTP-Tests und Interface-Regression bestanden. Neuer Browsernachweis:
+90 Unterkantenfaelle (physisch/popout/toolbar, VR/2D, 90/100/150/200/300 Prozent,
+838x883, 838x600, 600x400) mit eingebettetem Statusinset und absichtlich nativer
+Viewport-CSS-Deklaration, auch ohne ResizeObserver bestanden. Sichtbare Canvas-
+Grenzen geprueft; bei normaler/VR-Default-Skala und Hoehen >=600 muss der
+Canvas positiv gross sein. Extrem kleine Fenster mit maximaler effektiver
+Skala koennen keinen positiven Canvas garantieren, obwohl die Profilbox
+innerhalb der Grenzen bleibt; dies ist keine Simulator-Abnahme dieser Extreme.
+33 Profil-/Persistenz- und 24 Tool-/Lifecyclefaelle bestanden. Layoutmatrix
+wird separat protokolliert. Keine Screenshots. Reales Coherent bleibt Feldtest.
+
+EFB-Assets aus aktuellen gemeinsamen Alpha-Quellen neu synchronisiert,
+einschliesslich bereits freigegebener Profil-/Styleaenderungen. Native SDK-
+Quellen nicht geaendert: Paket 0.4.23 bleibt, Auslieferung braucht frische
+Tracker-EXE und Assetrevision. Noch kein Build/Release/Kanalwechsel.
+
+Abschliessende bestehende Layoutmatrix: 60 Popout-/Toolbarfaelle einschliesslich
+Menues, Hit-Tests, Host-Rueckwechsel und Statusinset nach finalem Fix bestanden.
+
+### 2026-10-08: Rechte Profilbegrenzung im selben Kandidaten
+
+Nutzer weist auf seitliches Auslaufen im Simulatorbild hin. Rechte Kante von
+Profilbox, sichtbarem Scrollbereich und Canvas in neue Matrix aufgenommen.
+Logische Pixelbreite der Map-Shell deckt auch diesen Root-Beschnitt ab.
+Zusaetzliche Luecke bei physischer manueller Skalierung: Profil-Bedienleiste
+hatte keinen horizontalen Overflow-Container. Leiste jetzt innerhalb der
+Profilbreite scrollbar; sichtbarer Scrollbereich hat explizite Breite und
+Min-/Max-Breiten. Virtuelle Routenbreite fuer Profilzoom bleibt erhalten.
+Drei zusaetzliche Faelle pruefen echten Profilrenderer mit Terrainpunkten,
+25-Prozent-Sichtfenster und horizontalem Scroll, beide Canvas-Layer sowie
+Erreichbarkeit des Einstellungen-Buttons nach ScrollIntoView. Insgesamt
+93 Unter-/Rechtskantenfaelle; Simulator-Abnahme weiter offen. Kein Release.
+
+Abschluss: 93 neue Unter-/Rechtskanten-/Zoomfaelle jeweils mit und ohne
+ResizeObserver bestanden, 60 bestehende Layout-/Menue-/Hit-Testfaelle nach
+horizontaler Leistenbegrenzung ebenfalls bestanden. Keine Screenshots.
+
+### 2026-10-08: Alpha v492 profile viewport rollout
+
+- User-authorized rollout of the complete profile bottom/right scaling correction; current Alpha source merged before packaging.
+- Tracker v492 / EFB asset revision 49201; Community package 0.4.23 remains compatible.
+- After merge: 93 profile viewport browser cases and 62 Node/HTTP tests pass; tracker interface regressions pass. Windows EXE MZ signature and 13 embedded UI source files verified. Real MSFS/VR remains Alpha field validation.
+- Released source/tag v492: d540b4bd91387a6e0e543f1385371060bd77d78f. Public EXE download verified: 173655327 bytes; SHA-256 46c3b239b34484c99aade0cb726048286060fe4d66bfb7b01a7cf2d7bcd04f5c. Alpha channel activated separately after verification; Stable unchanged.

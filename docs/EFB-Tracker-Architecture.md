@@ -1481,3 +1481,18 @@ UI-Revisionen. Statusstream synchronisiert EFB/Toolbar ohne zusaetzlichen Timer.
 Profil-Bridge liefert den gemeinsamen expliziten Frame-Invalidierungs-Callback
 fuer die Originalbuttons. Verborgene Profile bleiben auch nach Routenwechseln
 verborgen; gemeinsame Profil-Resize-Listener werden genau einmal registriert.
+
+## 2026-10-08: Gemeinsame logische Hoehengrenzen (Kandidat)
+
+Physisches EFB verwendet auch bei manueller UI-Skalierung logische dynamische
+Viewport-Einheiten. Die Map-Shell wird auf jedem Host in expliziten logischen
+Pixeln begrenzt; native Prozent-/Fixed-Layoutaufloesung unter transformiertem
+Body ist kein Vertrag fuer Coherent. SDK-Surface-/VR-Erkennung und Grundfaktoren
+bleiben unveraendert. Physisch 100 Prozent behaelt seine Standardgroessen.
+Skalierte Flex-Mindesthoehen duerfen das Profil nicht unter den iframe-Rand
+schieben. Layout bleibt ereignisgesteuert, ohne zusaetzliche Polling-Refreshes.
+
+Auch die Profilbreite richtet sich nach dem logischen Host-Viewport. Die
+virtuelle Routenbreite fuer Zoom/Pan darf groesser bleiben; nur der sichtbare
+Scrollbereich und die Bedienleiste sind auf die Profilbreite begrenzt.
+Physische Tablets erhalten bei Platzmangel horizontal scrollbarere Controls.
