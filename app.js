@@ -17706,7 +17706,8 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
     // Private outings get their variety from the initial persona/activity pick before the writer.
     // Preserve that combination when the finished mission is profiled again so story, PAX and cargo
     // keep one shared red thread instead of triggering a rewrite through a second random pick.
-    const keepBasePersona = keepBaseChainPersona || keepBaseNewsPersona || keepBasePrivateOutingPersona;
+    const keepBaseBushPersona = String(profileSpec.id || '').startsWith('bush_') && !!String(base.name || '').trim() && !!String(base.role || '').trim();
+    const keepBasePersona = keepBaseChainPersona || keepBaseNewsPersona || keepBasePrivateOutingPersona || keepBaseBushPersona;
     const persona = keepBasePersona ? {} : (newsBriefPersona ? { ...newsBriefPersona } : (_pickRandomProfilePersona(profileSpec, missionContext) || {}));
     const tol = profileSpec.tolerances || {};
     const baseGender = String(base.gender || '').toLowerCase();
@@ -39977,6 +39978,11 @@ async function fetchMissionWriterV4(context = {}) {
 }
 window.fetchMissionWriterV4 = fetchMissionWriterV4;
 
+function _missionWriterRequestDiagnostics(result) {
+    const clean = value => String(value || '').replace(/(key=|Bearer\s+)[^\s&]+/gi, '$1[redacted]').slice(0, 220);
+    return {error:clean(result?.error),provider:clean(result?.provider),model:clean(result?.model),parseMode:clean(result?.parseMode),
+        attempts:(result?.attempts || []).slice(-8).map(a=>({model:clean(a.model),status:clean(a.status),error:clean(a.error)}))};
+}
 async function fetchMissionWriterV5(context = {}) {
     const apiKey = getSelectedAiApiKey();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
@@ -39990,17 +39996,26 @@ async function fetchMissionWriterV5(context = {}) {
         apiKey,
         { promptVersion: 'mission-writer-v5', timeoutMs: selectedProvider === 'openai' ? 26000 : 16000 }
     );
+    const requestDiagnostics = _missionWriterRequestDiagnostics(result);
+    if (context.missionType === 'bush' && !String(result?.parsed?.story || '').trim()) {
+        console.warn('[Mission Writer V5] Bush-Text nicht erstellt', requestDiagnostics);
+        const error = new Error(formatAiJsonFailure(result, 'Das Bush-Briefing') + ' Es wurde keine Ersatzmission mit einem anderen Passagier erstellt.');
+        error.writerDiagnostics = requestDiagnostics;
+        throw error;
+    }
     if (!result?.parsed) {
         const mission = sanitizeMissionWriterV5Payload({}, {
             ...context,
             source: 'Local Fallback + V5 Writer'
         });
+        mission._missionWriterV4Debug = {...mission._missionWriterV4Debug, requestDiagnostics};
         return window.MissionAirportInformationCore?.attach(mission, {}, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
     }
     const mission = sanitizeMissionWriterV5Payload(result.parsed, {
         ...context,
         source: `${result.source || 'Gemini'} + V5 Writer`
     });
+    mission._missionWriterV4Debug = {...mission._missionWriterV4Debug, requestDiagnostics};
     return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
 }
 window.fetchMissionWriterV5 = fetchMissionWriterV5;

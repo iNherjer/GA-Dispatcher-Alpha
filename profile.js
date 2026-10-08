@@ -4487,6 +4487,7 @@ window.vpBuildWeatherDebugReport = function() {
             if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
             if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
             if (storyBits.length) lines.push(`- Story-Debug: ${storyBits.join(' | ')}`);
+            if (sd.requestDiagnostics) lines.push('- Writer-Aufruf: ' + JSON.stringify(sd.requestDiagnostics));
             if (sd.taskDomain === 'private_return') {
                 if (sd.debugCompletion) lines.push('- Private Heimreise Testquelle: Debug-Abschluss, kein geflogener Hinflug.');
                 lines.push(`- Private Heimreise: ${flattenText(sd.sourceMissionId, 120)} | Abschluss=${flattenText(sd.sourceCompletionId, 160)}`);

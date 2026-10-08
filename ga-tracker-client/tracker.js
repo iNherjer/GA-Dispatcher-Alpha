@@ -1,3 +1,4 @@
+const environmentDiagnostics = require('./tracker-environment-diagnostics.js').createEnvironmentDiagnostics(message => debugLog(message));
 const precipitationCore = require('../mission-precipitation-core.js');
 if (process.argv.includes('--mission-worker') && typeof process.send === 'function') {
   require('./tracker-mission-worker.js').runMissionWorker();
@@ -95,8 +96,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v492';
-const TRACKER_VERSION_CODE = 492;
+const TRACKER_VERSION = 'v493';
+const TRACKER_VERSION_CODE = 493;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -6766,6 +6767,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 pauseFlagsUpdatedAt: runtimeState.pauseFlagsUpdatedAt
               });
               const inMenuOrMap = isInMenuOrMap();
+              environmentDiagnostics.observe({observedAt:now,weatherPreset:trackerCockpitControl?.weatherPreset?.()||null,
+                simAbsoluteTimeSeconds:raw.simAbsoluteTimeSeconds,simLocalTimeSeconds:raw.simLocalTimeSeconds,
+                simulationRate:raw.simulationRate,simPaused,inMenuOrMap},
+                {hasMission:!!missionAuthorityManager?.getActiveRun?.()});
               // MSFS reports DialogMode while cockpit surfaces such as the EFB
               // are open as well. That is useful UI telemetry, but it must not
               // stop the authoritative mission detector while the aircraft is
