@@ -13,6 +13,7 @@ try {
  const errors=[];
  for(const page of pages){
  page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{window.testVoiceRuntime=false;window.paxVoiceSetEnabled=(on,options)=>{if(!options?.sync)throw Error('Remote state must not replay old speech');window.testVoiceRuntime=on;};});
  await page.route('**/*',async route=>{
  const path=new URL(route.request().url()).pathname;
  if(path==='/')return route.fulfill({contentType:'text/html',body:efb.createTrackerEfbWebClientPage().replace('data-role="auto"','data-role="efb"')});
@@ -63,12 +64,21 @@ try {
  await pages[0].waitForFunction(()=>document.getElementById('gaAudioOutputStatus').textContent.includes('nicht gespeichert'));
  assert.equal(await pages[0].locator('#'+check).getAttribute('aria-checked'),'true','Rejected write restores authoritative state');
  assert.equal(control.snapshot().settings.enabled,true);
- assert.equal(await pages[0].locator('#awmPaxGenerationCheckToggle').getAttribute('aria-checked'),'true');
- await pages[0].locator('#awmPaxGenerationCheckToggle').click();
- await pages[1].waitForFunction(()=>document.getElementById('awmPaxGenerationCheckToggle').getAttribute('aria-checked')==='false');
- assert.equal(control.snapshot().settings.paxGenerationEnabled,false);
- assert.equal(await pages[1].evaluate(()=>gaPaxVoiceGenerationEnabled()),false);
- assert.equal(control.snapshot().settings.enabled,true,'Generation switch does not mute playback');
+ assert.equal(await pages[0].locator('#awmPaxVoiceCheckToggle').getAttribute('aria-checked'),'true');
+ assert.equal(await pages[0].evaluate(()=>testVoiceRuntime),true,'Central initial value updates stale local runtime');
+ assert.equal(await pages[0].locator('#awmPaxGenerationCheck').count(),0,'No competing generation checkbox');
+ await pages[0].locator('#awmPaxVoiceCheckToggle').click();
+ await pages[1].waitForFunction(()=>document.getElementById('awmPaxVoiceCheckToggle').getAttribute('aria-checked')==='false');
+ assert.equal(control.snapshot().settings.paxEnabled,false);
+ assert.equal(await pages[1].evaluate(()=>gaPaxVoiceEnabled()),false);
+ assert.equal(await pages[1].evaluate(()=>testVoiceRuntime),false);
+ await pages[1].locator('#awmPaxVoiceCheckToggle').click();
+ await pages[0].waitForFunction(()=>document.getElementById('awmPaxVoiceCheckToggle').getAttribute('aria-checked')==='true' && testVoiceRuntime===true);
+ assert.equal(await pages[0].evaluate(()=>gaPaxVoiceEnabled()),true);
+ failNext=true;await pages[0].locator('#awmPaxVoiceCheckToggle').click();
+ await pages[0].waitForFunction(()=>document.getElementById('gaAudioOutputStatus').textContent.includes('nicht gespeichert'));
+ assert.equal(await pages[0].evaluate(()=>gaPaxVoiceEnabled() && testVoiceRuntime),true,'Failed save restores same effective voice state');
+ assert.equal(control.snapshot().settings.enabled,true,'Voice switch leaves warnings master enabled');
  let sliderCases=0;
  for(const surface of ['physical','toolbar'])for(const scale of [1,1.5,3]){
  await pages[0].setViewportSize({width:402,height:580});

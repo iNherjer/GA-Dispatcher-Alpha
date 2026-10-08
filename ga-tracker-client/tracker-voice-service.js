@@ -345,7 +345,11 @@ function createTrackerVoiceService(options = {}) {
   const audioControl = options.audioControl || null;
   const provider = normalizeVoiceProvider(options.provider);
   const apiKey = String(options.apiKey || '').trim();
-  const canGenerateVoice = () => !audioControl || audioControl.snapshot().settings.paxGenerationEnabled !== false;
+  const canGenerateVoice = () => {
+    if (!audioControl) return true;
+    const settings = audioControl.snapshot().settings;
+    return settings.enabled !== false && settings.paxEnabled !== false;
+  };
   const fetchSpeech = (...args) => {
     if (!canGenerateVoice()) throw voiceError('voice_generation_disabled', 409, 'Passagierstimmen-Generierung deaktiviert.');
     return fetchRemote(...args);
@@ -452,7 +456,6 @@ function createTrackerVoiceService(options = {}) {
       kind: record.kind || 'direct',
       ...(record.clips ? { clips: [...record.clips], expiresAt: record.expiresAt } : {}),
       synthesizeAudio: record.synthesizeAudio !== false,
-      ...(record.generationSkipped ? { generationSkipped: true } : {}),
       status: record.status,
       provider: record.provider,
       model: record.model || '',
@@ -524,7 +527,6 @@ function createTrackerVoiceService(options = {}) {
             // marks new non-mission audio and may be restored independently.
             ...(record.requiresScopeBinding ? {} : { missionScope: record.missionScope || null }),
             synthesizeAudio: record.synthesizeAudio !== false,
-            ...(record.generationSkipped ? { generationSkipped: true } : {}),
             provider: record.provider,
             speaker: record.speaker,
             cue: record.cue ? {
@@ -658,7 +660,6 @@ function createTrackerVoiceService(options = {}) {
           updatedAt: timestamp,
           text: String(source.text || '').trim().slice(0, 4000),
           textModel: String(source.textModel || '').trim().slice(0, 100),
-          generationSkipped: source.generationSkipped === true,
           audio: audio.length ? audio : null,
           contentType: String(source.contentType || 'application/octet-stream').slice(0, 120),
           model: String(source.model || '').slice(0, 100),
@@ -726,6 +727,7 @@ function createTrackerVoiceService(options = {}) {
         if (record.cancelled === true) return publicRecord(record);
         record.error = '';
       }
+      if (!canGenerateVoice()) record.synthesizeAudio = request.synthesizeAudio = false;
       if (request.synthesizeAudio === false) {
         record.status = 'ready';
         record.updatedAt = now();
@@ -739,12 +741,6 @@ function createTrackerVoiceService(options = {}) {
         record.model = staticAudio.model; record.voiceName = staticAudio.voiceName;
         record.status = 'ready'; record.updatedAt = now(); totalAudioBytes += staticAudio.audio.length;
         log(`VOICE_STATIC_READY effectId=${record.effectId} model=${staticAudio.model} clip=${request.staticClipKey}`); evict(); persist();
-        return publicRecord(record);
-      }
-      if (!canGenerateVoice()) {
-        record.generationSkipped = true;
-        record.status = 'ready'; record.updatedAt = now();
-        log(`VOICE_TTS_SKIPPED effectId=${record.effectId} reason=generation_disabled`); persist();
         return publicRecord(record);
       }
       const result = provider === 'openai'
@@ -764,7 +760,7 @@ function createTrackerVoiceService(options = {}) {
       return publicRecord(record);
     } catch (error) {
       if (error?.code === 'voice_generation_disabled') {
-        record.generationSkipped = true;
+        record.synthesizeAudio = request.synthesizeAudio = false;
         record.status = 'ready'; record.updatedAt = now(); persist(); return publicRecord(record);
       }
       record.status = 'failed';

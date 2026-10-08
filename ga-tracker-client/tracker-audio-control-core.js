@@ -2,8 +2,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const BOOLEAN_SETTINGS = ['enabled', 'paxEnabled', 'paxGenerationEnabled', 'effectsEnabled', 'readFreq', 'terrain', 'airspace', 'waypoint'];
-const DEFAULT_SETTINGS = Object.freeze({ enabled: true, volume: 1, voicePack: '', audioStyle: '', paxEnabled: true, paxGenerationEnabled: true,
+const BOOLEAN_SETTINGS = ['enabled', 'paxEnabled', 'effectsEnabled', 'readFreq', 'terrain', 'airspace', 'waypoint'];
+const DEFAULT_SETTINGS = Object.freeze({ enabled: true, volume: 1, voicePack: '', audioStyle: '', paxEnabled: true,
   effectsEnabled: true, readFreq: true, terrain: true, airspace: true, waypoint: true });
 function normalizeSettings(value = {}) {
   const result = { ...DEFAULT_SETTINGS };

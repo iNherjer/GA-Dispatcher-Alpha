@@ -204,10 +204,3 @@ URL-Proxy und keine KV-/Nutzerdaten.
 `node tools/airport-information-live-probe.mjs` nutzt den lokalen neuen Handler,
 nicht den veröffentlichten Worker. App und Worker müssen gemeinsam ausgerollt
 werden. Ohne neuen Endpoint fällt nur die optionale FAA-Ergänzung aus.
-
-## Audio generation preference (08.10.2026, candidate)
-
-Audio settings normalization also retains `paxGenerationEnabled`. Old records
-remain compatible; Tracker normalization supplies true when absent. Publishing
-the new passenger speech-generation option requires this worker change as well
-as the new Tracker build, so cloud restore retains an explicit false selection.

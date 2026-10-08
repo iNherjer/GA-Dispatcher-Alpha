@@ -1519,14 +1519,26 @@ restore the authoritative value. Older snapshots cannot undo accepted revisions.
 EFB checkbox marks are real DOM children in the body-portaled Audio menu; native
 input pseudo-elements and the map-shell ancestor are no rendering dependency.
 
-## 2026-10-08: Speech generation is separate from playback
+## Audio-Kandidat: vorhandenen Voice-Schalter konsolidiert (08.10.2026)
 
-paxGenerationEnabled defaults true and controls new paid passenger/story TTS
-requests only. Audio enabled/paxEnabled still control playback. VoiceService
-retains canonical text/static clips, then gates queued speech and every provider
-fallback using the current central record. Browser fallback uses the same flag,
-or the last locally saved preference offline. generationSkipped marks an
-intentional text-only job and is preserved in persisted voice metadata; voice
-dispatchers finish normally and can still play existing effects. No new timer or
-mission authority is introduced. Cloud audio record normalization allowlists the
-new boolean; deploying this candidate requires both Tracker and worker updates.
+Der unveröffentlichte zusätzliche `paxGenerationEnabled`-Schalter entfällt. Ein
+Voice-Häkchen nutzt den bestehenden zentralen `paxEnabled`-Wert und synchronisiert
+den lokalen `awm_pax_voice`-/Runtime-Zustand über den vorhandenen Setter, ohne alte
+Nachrichten erneut abzuspielen. Beschriftung: Missions-/Story- und Passagierstimmen
+generieren und abspielen. Aus verhindert neue TTS-Anfragen und Stimmenwiedergabe;
+Texte bleiben sichtbar. Der Audio-Master bleibt der gemeinsame Mute-Schalter.
+Neue lokale Einstellungen sind standardmäßig an; explizit gespeichertes Aus bleibt.
+
+Tracker-Jobs übernehmen die bestehende Unterdrückung als `synthesizeAudio:false`,
+inklusive Text-only-Persistenz und normalem Missionsabschluss. Vor neuen Provider-
+Versuchen wird derselbe zentrale Voice-/Master-Zustand geprüft; bereits laufende
+Anfragen dürfen enden. Keine zweite Generationseinstellung, kein separates
+`generationSkipped`-Jobformat und keine neue Worker-Einstellung erforderlich.
+
+Sichtbare EFB-Häkchen, Revision-/Fehlerbehandlung und der horizontal wie vertikal
+zentrierte Lautstärke-Regler bleiben erhalten. Browserprüfung ohne Screenshots:
+Voice bidirektional auf zwei Geräten, lokaler Runtime-Zustand, Rücknahme bei
+Speicherfehlern, 18 Reglerpositionen bei 100/150/300 Prozent in physischem und
+Toolbar-Host. Node-Prüfung umfasst Provider-Abbruch/Fallback, Text-only-Recovery,
+Boarding, Farewell, Compliance, Audio-Player und Missionslebenszyklus.
+Noch nicht veröffentlicht; Windows/MSFS-Feldtest bleibt offen.

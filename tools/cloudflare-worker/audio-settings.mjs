@@ -19,7 +19,7 @@ export async function handleAudioSettings(request, requestUrl, env, helpers) {
   try { source = JSON.parse(text); } catch (_) { return json({ error: 'invalid_json' }, 400); }
   if (source?.schema !== 'ga.audio-control.v1' || !Number.isSafeInteger(source.revision) || source.revision < 0 || !Number.isFinite(source.updatedAt) || source.updatedAt < 0) return json({ error: 'invalid_audio_settings' }, 400);
   const settings = {};
-  for (const key of ['enabled', 'paxEnabled', 'paxGenerationEnabled', 'effectsEnabled', 'readFreq', 'terrain', 'airspace', 'waypoint']) {
+  for (const key of ['enabled', 'paxEnabled', 'effectsEnabled', 'readFreq', 'terrain', 'airspace', 'waypoint']) {
     if (typeof source.settings?.[key] === 'boolean') settings[key] = source.settings[key];
   }
   settings.volume = Math.max(0, Math.min(1, Number(source.settings?.volume) || 0));

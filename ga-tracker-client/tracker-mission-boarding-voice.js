@@ -334,7 +334,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
       voiceService.cancel?.(effectId, 'mission_end');
       return completed(request, { voiceStatus: 'mission_end' });
     }
-    if (job?.generationSkipped === true && job.audioAvailable !== true) recipe = { ...recipe, audioEnabled: false };
+    if (job?.synthesizeAudio === false && job.audioAvailable !== true) recipe = { ...recipe, audioEnabled: false };
     if (!job || job.status !== 'ready' || (recipe.audioEnabled === true && job.audioAvailable !== true)) {
       log(`MISSION_BOARDING_VOICE_BEST_EFFORT effect=${effectId} reason=${job?.error || job?.status || 'voice_generation_failed'}`);
       return completed(request, {

@@ -46,18 +46,18 @@ test('only POI jobs carrying a cue sequence may use effects while PAX is muted',
   audio.close();
 });
 
-test('voice generation defaults on, persists independently and does not mute cached audio', () => {
+test('existing voice flag defaults on and persists generation and playback suppression', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-generation-'));
   const file = path.join(directory, 'audio.json');
   try {
     const audio = createAudioControl({ storageFile: file });
-    assert.equal(audio.snapshot().settings.paxGenerationEnabled, true);
-    assert.equal(audio.update({ expectedRevision: 0, settings: { paxGenerationEnabled: false } }).ok, true);
-    assert.equal(audio.canPlay('pc', 'boarding'), true);
+    assert.equal(audio.snapshot().settings.paxEnabled, true);
+    assert.equal(audio.update({ expectedRevision: 0, settings: { paxEnabled: false } }).ok, true);
+    assert.equal(audio.canPlay('pc', 'direct'), false);
     assert.equal(audio.snapshot().settings.enabled, true);
     audio.close();
     const reopened = createAudioControl({ storageFile: file });
-    assert.equal(reopened.snapshot().settings.paxGenerationEnabled, false);
+    assert.equal(reopened.snapshot().settings.paxEnabled, false);
     reopened.close();
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });

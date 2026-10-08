@@ -577,7 +577,7 @@ test('Bush chapters prewarm without claiming a location and reject delayed audio
 test('generation disabled completes with text and preserves cue playback without a voice failure', async () => {
   let playbackRequests = 0;
   const service = { publicState: () => ({ configured: true }), request() {},
-    wait: async () => ({ status: 'ready', generationSkipped: true, audioAvailable: false, text: 'Text bleibt.', cueSequence: { before: [{ audioAvailable: true }] } }),
+    wait: async () => ({ status: 'ready', synthesizeAudio: false, audioAvailable: false, text: 'Text bleibt.', cueSequence: { before: [{ audioAvailable: true }] } }),
     waitForPlayback: async () => { playbackRequests++; return { status: 'completed', completed: true }; } };
   const handler = createTrackerMissionBoardingVoice({ authorityManager: { getActiveRun: () => run() }, voiceService: service, getAudioPlaybackCandidates: () => 1 });
   const result = await handler.dispatch({ missionId: 'mission-a', runId: 'run-a', effect: { effectId: 'gen-disabled:boarding', type: 'voice.boarding' } });

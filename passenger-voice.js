@@ -286,16 +286,11 @@ function _paxDrawZones() {
 }
 
 // ─── TOGGLE ──────────────────────────────────────────────────────────────────
-let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') === '1');
+let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') !== '0');
 function _paxCanGenerateVoice() {
-    return typeof window.gaPaxVoiceGenerationEnabled === 'function'
-        ? window.gaPaxVoiceGenerationEnabled() : localStorage.getItem('awm_pax_voice_generation') !== '0';
+    return typeof window.gaPaxVoiceEnabled === 'function'
+        ? window.gaPaxVoiceEnabled() : _paxVoiceEnabled;
 }
-window.paxVoiceSetGenerationEnabled = function(on) {
-    localStorage.setItem('awm_pax_voice_generation', on ? '1' : '0');
-    const check = document.getElementById('awmPaxGenerationCheck');
-    if (check) check.checked = !!on;
-};
 
 let _paxAudioEffectsEnabled = (localStorage.getItem('awm_audio_effects') !== '0');
 let _lastSpokenText  = null; // last generated text — for retroactive TTS
@@ -386,11 +381,12 @@ window.paxVoiceUnlockAudio = function(reason = 'manual') {
     return ctx;
 };
 
-window.paxVoiceSetEnabled = function(on) {
+window.paxVoiceSetEnabled = function(on, options) {
     const wasOff = !_paxVoiceEnabled;
     _paxVoiceEnabled = !!on;
-    localStorage.setItem('awm_pax_voice', on ? '1' : '0');
-    if (on && wasOff && _lastSpokenText && window.activePassenger && _missionHasPax()) {
+    const savedValue = on ? '1' : '0';
+    if (localStorage.getItem('awm_pax_voice') !== savedValue) localStorage.setItem('awm_pax_voice', savedValue);
+    if (!options?.sync && on && wasOff && _lastSpokenText && window.activePassenger && _missionHasPax()) {
         _paxLog('Voice aktiviert — lade TTS für letzte Nachricht nach', 'event');
         const epoch = _paxMissionEpoch;
         setTimeout(() => _playTextAsTTS(_lastSpokenText, _lastSpokenSpeaker || null, epoch), 400);
@@ -10995,8 +10991,6 @@ function _tickPoiDwell(lat, lon, flightData) {
 (function() {
     const chk = document.getElementById('awmPaxVoiceCheck');
     if (chk) chk.checked = _paxVoiceEnabled;
-    const generationCheck = document.getElementById('awmPaxGenerationCheck');
-    if (generationCheck) generationCheck.checked = _paxCanGenerateVoice();
     _syncPaxAudioEffectsControl();
     const modeEl = document.getElementById('awmPaxModeSelect');
     if (modeEl) modeEl.value = _paxStrictMode ? 'strict' : 'easy';
