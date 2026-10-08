@@ -6867,3 +6867,12 @@ Audio-Ergaenzung vor Release: Erklaertexte als title-Tooltips an Master-/
 Stimmenlabels und EFB-Checkboxbuttons, globale Stumm-/TTS-Bedeutung erhalten.
 Sichtbares Stimmenlabel gekuerzt; Master-Hilfetext nur fuer aria-describedby
 versteckt erhalten. Keine Aenderung an Audioflags, TTS-Defaults oder Synchronisierung.
+
+Alpha v501:70 gezielte Node-Tests,171 Profil-Browserfaelle,15 Menue-/
+Profilknopfkonstellationen,Audio-Sync mit2 Clients inkl.Tooltips und18
+Lautstaerkegeometrien bestanden. Windows-EXE veroeffentlicht und oeffentlicher
+Download byte-/SHA-gleich:173709980 Bytes,
+d36fb872616c553c5411afaaf022db383ba13b85a873d651eed57e76f4468eab.
+Quelltag v501/cf361ee39227c4914283c44dab26dbb30c157d95,UI-Assets50101,
+Aktivierung mit SW1981. SDK0.4.23 unveraendert.200%-Hoehenbudget/VR bleiben
+vereinbarte Feldabnahme; beide Paint-Fixes im 2D-Popout sichtbar bestaetigt.
