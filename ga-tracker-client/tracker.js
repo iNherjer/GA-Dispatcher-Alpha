@@ -1,3 +1,4 @@
+const environmentDiagnostics = require('./tracker-environment-diagnostics.js').createEnvironmentDiagnostics(message => debugLog(message));
 const precipitationCore = require('../mission-precipitation-core.js');
 if (process.argv.includes('--mission-worker') && typeof process.send === 'function') {
   require('./tracker-mission-worker.js').runMissionWorker();
@@ -6766,6 +6767,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 pauseFlagsUpdatedAt: runtimeState.pauseFlagsUpdatedAt
               });
               const inMenuOrMap = isInMenuOrMap();
+              environmentDiagnostics.observe({observedAt:now,weatherPreset:trackerCockpitControl?.weatherPreset?.()||null,
+                simAbsoluteTimeSeconds:raw.simAbsoluteTimeSeconds,simLocalTimeSeconds:raw.simLocalTimeSeconds,
+                simulationRate:raw.simulationRate,simPaused,inMenuOrMap},
+                {hasMission:!!missionAuthorityManager?.getActiveRun?.()});
               // MSFS reports DialogMode while cockpit surfaces such as the EFB
               // are open as well. That is useful UI telemetry, but it must not
               // stop the authoritative mission detector while the aircraft is

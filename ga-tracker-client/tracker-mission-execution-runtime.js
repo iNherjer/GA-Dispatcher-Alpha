@@ -994,6 +994,20 @@ function createTrackerMissionExecutionRuntime(options = {}) {
             destinationDistanceNm: result.destination?.dArrivalNm ?? result.destination?.dMissionNm,
             departureDistanceNm, lat: sample.lat, lon: sample.lon, flightData: sample
           });
+          // Independent observation is diagnostic only: never enqueue its reaction.
+          const diagnosticWeather = weatherPresetCore.observe(previous.environmentObserver, sample, {now:triggerAt,active:true,onboard:true});
+          detected.state.environmentObserver = diagnosticWeather.state;
+          const pendingEnvironment = diagnosticWeather.state?.time?.pending || diagnosticWeather.state?.pending;
+          const diagnosticEvent = diagnosticWeather.reaction;
+          const environmentDecision = weatherChange.reaction ? 'requested' : !snapshot.state.flags.active ? 'mission_inactive'
+            : !snapshot.state.flags.boardingConfirmed ? 'pax_not_onboard' : snapshot.state.flags.closingPending || snapshot.state.flags.farewellStarted ? 'mission_ending'
+            : options.getAudioSettings && !(options.getAudioSettings()?.enabled === true && options.getAudioSettings()?.paxEnabled === true) ? 'voice_disabled'
+            : voiceOperations.size > 0 || comfortPending || snapshot.state.effects.some(effect => effect.type.startsWith('voice.') && effect.status === 'requested') ? 'voice_busy'
+            : previous.weatherChange?.lastReactionAt && triggerAt-previous.weatherChange.lastReactionAt<weatherPresetCore.COOLDOWN_MS ? 'cooldown' : 'settling';
+          const environmentDiagnosticKey = weatherChange.reaction || diagnosticEvent ? `${(weatherChange.reaction || diagnosticEvent).kind}:${triggerAt}` : pendingEnvironment ? `${pendingEnvironment.startedAt}:${environmentDecision}` : null;
+          if (environmentDiagnosticKey && environmentDiagnosticKey !== previous.environmentDiagnosticKey)
+            log(`SIM_ENV_VOICE data=${JSON.stringify({missionId:snapshot.missionId,kind:weatherChange.reaction?.kind || diagnosticEvent?.kind || (diagnosticWeather.state?.time?.pending?'time_shift':'weather_preset'),decision:environmentDecision})}`);
+          detected.state.environmentDiagnosticKey = environmentDiagnosticKey;
           detected.state.weatherChange = weatherChange.state;
           if (weatherChange.reaction) detected.effects.push({ kind: weatherChange.reaction.kind, prompt: `${context.baseContext}\n${weatherChange.reaction.prompt} ${context.toneHint || ''}`, label: weatherChange.reaction.label, delayMs: 0 });
           for (const effect of detected.effects) adapter.applySystemEvent({ missionId: snapshot.missionId, runId: snapshot.runId,

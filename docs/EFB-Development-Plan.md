@@ -1,5 +1,9 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Umgebungsdiagnose, lokal 08.10.2026
+
+Tracker protokolliert initialen/frischen/fehlenden Wetterpreset und Wechsel sowie initiale Simulatorzeit und Sprünge über 60 Minuten (normaler Ablauf und Simrate abgezogen), auch ohne Mission. Keine Tick-Protokollierung. SIM_ENV_VOICE dokumentiert angeforderte Reaktionen und wechselnde Wartegründe bei ausstehenden Triggern. Empfang bestätigt keinen abgespielten Kommentar. Kein neues EFB-Paket nötig; Tracker-EXE beim Release neu bauen. Simulatorabnahme offen.
+
 ## Bush-Missionsübergabe: Alpha-Web v1962, 08.10.2026
 
 Der reale App-Anflugkontext erbte die Kennung des Abschiedskontexts. Die strenge
