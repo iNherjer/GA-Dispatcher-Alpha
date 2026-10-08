@@ -144,7 +144,7 @@ test('paired source timeout remains parallel; no follow-up request starts after 
 test('departure output stays separate, validates its own sources and has a own-data fallback',()=>{
  const c=core.context(u60),dep=core.context({...u60,icao:'KMYL',faa:'MYL',name:'McCall',lon:-116.101},{wiki:{id:'start-source',kind:'wikipedia',title:'McCall'}});
  const raw={airportInformation:{flightBriefing:'Ziel.',destinationInfo:'Big Creek.',sourceIds:[]},departureAirportInformation:{departureInfo:'McCall.\n\nStartleistung planen.',sourceIds:['start-source']}};
- const m=core.attach({},raw,c,dep);assert.equal(m.departureAirportInformation.generated,true);assert.equal(m.airportInformation.destinationInfo,'Big Creek.');
+ const m=core.attach({},raw,c,dep);assert.equal(m.departureAirportInformation.generated,true);assert.equal(m.airportInformation.destinationInfo,core.fallback(c).destinationInfo);assert.equal(m.airportInformation.basis,'own-data-only');
  assert.equal(core.attach({}, {...raw,departureAirportInformation:{...raw.departureAirportInformation,sourceIds:['faa']}},c,dep).departureAirportInformation.generated,false);
  assert.match(core.attach({},null,null,dep).departureAirportInformation.departureInfo,/McCall/);
  const prompt=core.writerPrompt(null,dep);assert.match(prompt,/Start und anschließenden Abflug/);assert.doesNotMatch(prompt,/AIRPORT_INFO_CONTEXT \(Daten\):.*Big Creek/);

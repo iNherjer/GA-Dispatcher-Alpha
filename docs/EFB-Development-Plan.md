@@ -1,6 +1,6 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
-## Bush-Missionsübergabe: lokaler Fix, 08.10.2026
+## Bush-Missionsübergabe: Alpha-Web v1962, 08.10.2026
 
 Der reale App-Anflugkontext erbte die Kennung des Abschiedskontexts. Die strenge
 Bush-Validierung lehnte dadurch mit `bush_voice_context_invalid` den ganzen Seed
@@ -14,7 +14,7 @@ Integration verwendet echte App-Voice-/Seed-Builder, Tracker-Cloud-Validierung,
 Execution-Replay und den gemeinsamen EFB-/Toolbar-Bannerrenderer. Der geplante
 Tracker-Stand bietet `prepare_mission` und zeigt „Mission beginnen“; die noch
 nicht geladene Cloud-Mission bietet zuerst „Neue Mission laden“. Tests behalten
-APT/POI- und nicht migrierte Grenzen bei. Lokal, noch nicht veröffentlicht;
+APT/POI- und nicht migrierte Grenzen bei. Freigegeben für Alpha-Web v1962; Tracker v491 und EFB 0.4.23 bleiben erhalten.
 Windows/MSFS-Abnahme folgt nach Auslieferung.
 
 
