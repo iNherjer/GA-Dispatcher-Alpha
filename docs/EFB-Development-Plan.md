@@ -6579,3 +6579,9 @@ Erreichbarkeit des Einstellungen-Buttons nach ScrollIntoView. Insgesamt
 Abschluss: 93 neue Unter-/Rechtskanten-/Zoomfaelle jeweils mit und ohne
 ResizeObserver bestanden, 60 bestehende Layout-/Menue-/Hit-Testfaelle nach
 horizontaler Leistenbegrenzung ebenfalls bestanden. Keine Screenshots.
+
+### 2026-10-08: Alpha v492 profile viewport rollout
+
+- User-authorized rollout of the complete profile bottom/right scaling correction; current Alpha source merged before packaging.
+- Tracker v492 / EFB asset revision 49201; Community package 0.4.23 remains compatible.
+- After merge: 93 profile viewport browser cases and 62 Node/HTTP tests pass; tracker interface regressions pass. Windows EXE MZ signature and 13 embedded UI source files verified. Real MSFS/VR remains Alpha field validation.

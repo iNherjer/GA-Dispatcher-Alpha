@@ -3066,7 +3066,7 @@ function fetchGpsObstacles(_x12, _x13) {
 }
 function _fetchGpsObstacles() {
   _fetchGpsObstacles = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(lat, lon) {
-    var centerKey, _centerKey$split$map, _centerKey$split$map2, latI, lonI, tileKeys, dy, dx, probe, missing, hostedBatchSize, hostedKeys, hostedResults, hostedOk, _iterator78, _step78, key, _res, _res$features5, _res$features6, restHosted, overpassKeys, i, tileKey, res, _res$features3, _res$features4, rawObs, _iterator79, _step79, item, nav, buckets, finalObs, _i32, _Object$keys, k, group, rep, _t17, _t18;
+    var centerKey, _centerKey$split$map, _centerKey$split$map2, latI, lonI, tileKeys, dy, dx, probe, missing, hostedBatchSize, hostedKeys, hostedResults, hostedOk, _iterator78, _step78, key, _res, _res$features5, _res$features6, restHosted, overpassKeys, i, tileKey, res, _res$features3, _res$features4, rawObs, _iterator79, _step79, item, nav, buckets, finalObs, _i33, _Object$keys, k, group, rep, _t17, _t18;
     return _regenerator().w(function (_context23) {
       while (1) switch (_context23.p = _context23.n) {
         case 0:
@@ -3227,8 +3227,8 @@ function _fetchGpsObstacles() {
             buckets[bIdx].push(obs);
           });
           finalObs = [];
-          for (_i32 = 0, _Object$keys = Object.keys(buckets); _i32 < _Object$keys.length; _i32++) {
-            k = _Object$keys[_i32];
+          for (_i33 = 0, _Object$keys = Object.keys(buckets); _i33 < _Object$keys.length; _i33++) {
+            k = _Object$keys[_i33];
             group = buckets[k].sort((a, b) => b.hFt - a.hFt);
             rep = group[0];
             rep.count = group.length;
@@ -4115,7 +4115,7 @@ function _fetchRouteWeatherMetar() {
                 proxy,
                 pr,
                 ptxt,
-                _arr,
+                _arr2,
                 _args29 = arguments,
                 _t23,
                 _t24,
@@ -4224,13 +4224,13 @@ function _fetchRouteWeatherMetar() {
                     return pr.text();
                   case 17:
                     ptxt = _context29.v;
-                    _arr = parseMetarJsonText(ptxt);
-                    if (!_arr) {
+                    _arr2 = parseMetarJsonText(ptxt);
+                    if (!_arr2) {
                       _context29.n = 18;
                       break;
                     }
                     vpProxyMarkOk(proxy.key);
-                    return _context29.a(2, _arr);
+                    return _context29.a(2, _arr2);
                   case 18:
                     vpProxyMarkFailed(proxy.key);
                     if (![400, 401, 403, 404].includes(pr.status)) {
@@ -6082,7 +6082,7 @@ window.vpBuildWeatherDebugReport = function () {
     var p = missionSnap.passenger || {};
     var bushData = window.currentMissionData;
     if ((bushData === null || bushData === void 0 ? void 0 : bushData.missionType) === 'bush') {
-      var _airportContext$airpo, _info$flightBriefing, _info$destinationInfo, _environment$start, _environment$target, _bushData$bushNarrati, _chapters$events, _chapters$events2;
+      var _airportContext$airpo, _info$flightBriefing, _info$destinationInfo, _departureContext$air, _departureInfo$depart, _environment$start, _environment$target, _bushData$bushNarrati, _chapters$events, _chapters$events2;
       lines.push(`- Bush-Bausteine geladen: Wetter=${!!window.MissionEnvironmentBrowser}, Platz=${!!window.MissionAirportInformationBrowser}, Erzählung=${!!window.MissionBushNarrativeBrowser}`);
       var airportContext = bushData.airportInfoContext;
       var info = bushData.airportInformation;
@@ -6093,6 +6093,16 @@ window.vpBuildWeatherDebugReport = function () {
           value = _ref20[1];
         return `${key}=${value.status}`;
       }).join(', ')} | ${airportContext.retrieval.elapsedMs} ms`);
+      var departureContext = bushData.departureAirportInfoContext,
+        departureInfo = bushData.departureAirportInformation;
+      lines.push(`- Bush-Starttext: ${(departureContext === null || departureContext === void 0 || (_departureContext$air = departureContext.airport) === null || _departureContext$air === void 0 ? void 0 : _departureContext$air.ident) || 'kein Kontext'} | Text=${departureInfo !== null && departureInfo !== void 0 && departureInfo.generated ? 'KI' : departureInfo ? 'Basisdaten' : 'fehlt'} | Startseite=${(departureInfo === null || departureInfo === void 0 || (_departureInfo$depart = departureInfo.departureInfo) === null || _departureInfo$depart === void 0 ? void 0 : _departureInfo$depart.length) || 0} Zeichen`);
+      for (var _i4 = 0, _arr = [['Start', departureContext], ['Ziel', airportContext]]; _i4 < _arr.length; _i4++) {
+        var _context$retrieval$re, _context$retrieval$re2, _context$retrieval$re3, _context$retrieval$re4;
+        var _arr$_i = _slicedToArray(_arr[_i4], 2),
+          label = _arr$_i[0],
+          context = _arr$_i[1];
+        if (context !== null && context !== void 0 && context.retrieval) lines.push(`- Bush-Platzabrufe ${label}: Wiki=${(_context$retrieval$re = (_context$retrieval$re2 = context.retrieval.requests) === null || _context$retrieval$re2 === void 0 ? void 0 : _context$retrieval$re2.wikipedia) !== null && _context$retrieval$re !== void 0 ? _context$retrieval$re : '?'} | FAA=${(_context$retrieval$re3 = (_context$retrieval$re4 = context.retrieval.requests) === null || _context$retrieval$re4 === void 0 ? void 0 : _context$retrieval$re4.faa) !== null && _context$retrieval$re3 !== void 0 ? _context$retrieval$re3 : '?'} | ${context.retrieval.elapsedMs} ms`);
+      }
       var environment = bushData.environmentContext;
       lines.push(`- Bush-Wetterkontext: ${environment ? `Start=${((_environment$start = environment.start) === null || _environment$start === void 0 ? void 0 : _environment$start.status) || '?'}, Ziel=${((_environment$target = environment.target) === null || _environment$target === void 0 ? void 0 : _environment$target.status) || '?'}` : 'fehlt'}`);
       var chapters = bushData.bushNarrative;
@@ -8216,10 +8226,10 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
   if ((vpShowRoads || vpShowRivers || vpShowPowerInfra) && _linSrc.length > 0) {
     var _window$lastLiveGpsPo;
     var getElevY = dNM => {
-      for (var _i4 = 0; _i4 < elevData.length - 1; _i4++) {
-        if (dNM >= elevData[_i4].distNM && dNM <= elevData[_i4 + 1].distNM) {
-          var _f2 = (dNM - elevData[_i4].distNM) / (elevData[_i4 + 1].distNM - elevData[_i4].distNM);
-          return yOf(elevData[_i4].elevFt + _f2 * (elevData[_i4 + 1].elevFt - elevData[_i4].elevFt));
+      for (var _i5 = 0; _i5 < elevData.length - 1; _i5++) {
+        if (dNM >= elevData[_i5].distNM && dNM <= elevData[_i5 + 1].distNM) {
+          var _f2 = (dNM - elevData[_i5].distNM) / (elevData[_i5 + 1].distNM - elevData[_i5].distNM);
+          return yOf(elevData[_i5].elevFt + _f2 * (elevData[_i5 + 1].elevFt - elevData[_i5].elevFt));
         }
       }
       return yOf(elevData[elevData.length - 1].elevFt);
@@ -8235,8 +8245,8 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
       prio: Number(prio || 0)
     });
     var collidesWithHigher = (box, prio) => {
-      for (var _i5 = 0, _occupied = occupied; _i5 < _occupied.length; _i5++) {
-        var occ = _occupied[_i5];
+      for (var _i6 = 0, _occupied = occupied; _i6 < _occupied.length; _i6++) {
+        var occ = _occupied[_i6];
         if (occ.prio >= prio && vpBoxesOverlap(box, occ, VP_DECLUTTER_COLLISION_PAD_PX)) return true;
       }
       return false;
@@ -8399,8 +8409,8 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     }
 
     // NUR NOCH ZEICHNEN (mit weichem Culling)
-    for (var _i6 = 0, _linRender2 = _linRender; _i6 < _linRender2.length; _i6++) {
-      var _feat = _linRender2[_i6];
+    for (var _i7 = 0, _linRender2 = _linRender; _i7 < _linRender2.length; _i7++) {
+      var _feat = _linRender2[_i7];
       if (!_feat._render) continue;
 
       // FIX: X und Y live berechnen, damit Schilder mit der Bodenlinie wandern
@@ -8962,8 +8972,8 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
   rawLabels.sort((a, b) => a.x - b.x);
   var clusters = [];
   var MIN_LABEL_DIST = 16;
-  for (var _i7 = 0, _rawLabels = rawLabels; _i7 < _rawLabels.length; _i7++) {
-    var lbl = _rawLabels[_i7];
+  for (var _i8 = 0, _rawLabels = rawLabels; _i8 < _rawLabels.length; _i8++) {
+    var lbl = _rawLabels[_i8];
     if (clusters.length === 0) {
       clusters.push({
         sumX: lbl.x,
@@ -8995,8 +9005,8 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
   ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  for (var _i8 = 0, _clusters = clusters; _i8 < _clusters.length; _i8++) {
-    var cl = _clusters[_i8];
+  for (var _i9 = 0, _clusters = clusters; _i9 < _clusters.length; _i9++) {
+    var cl = _clusters[_i9];
     if (cl.count <= 1) continue;
     var px = cl.sumX / cl.items;
     var pyBase = cl.sumY / cl.items;
@@ -9163,10 +9173,10 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
   // METAR STATIONEN & GRENZEN BEI 16000 FT (Dezentes Debugging-Overlay)
   var lastIcao = null;
   var lastDist = 0;
-  for (var _i9 = 0; _i9 < vpWeatherData.length; _i9++) {
-    var zone = vpWeatherData[_i9];
+  for (var _i0 = 0; _i0 < vpWeatherData.length; _i0++) {
+    var zone = vpWeatherData[_i0];
     if (zone.icao !== lastIcao) {
-      var bDist = _i9 === 0 ? 0 : (lastDist + zone.distNM) / 2;
+      var bDist = _i0 === 0 ? 0 : (lastDist + zone.distNM) / 2;
       var bx = xOf(bDist);
       if (bx >= viewMinX - 100 && bx <= viewMaxX + 100) {
         ctx.beginPath();
@@ -9908,13 +9918,13 @@ function vpDrawWindComponentsOnIsobars(ctx, xOf, yOf, elevData, viewMinX, viewMa
       }
       if (points.length < 2) return 1; // continue
       var lastLabelX = -Infinity;
-      for (var _i0 = 0; _i0 < points.length; _i0++) {
-        var pt = points[_i0];
+      for (var _i1 = 0; _i1 < points.length; _i1++) {
+        var pt = points[_i1];
         if (pt.x - lastLabelX < minLabelDxPx) continue;
         var c = Math.round(pt.comp);
         if (Math.abs(c) < minShownComponentKt) continue;
-        var prev = points[Math.max(0, _i0 - 1)];
-        var next = points[Math.min(points.length - 1, _i0 + 1)];
+        var prev = points[Math.max(0, _i1 - 1)];
+        var next = points[Math.min(points.length - 1, _i1 + 1)];
         var dx = next.x - prev.x;
         var dy = next.y - prev.y;
         var l = Math.max(1, Math.hypot(dx, dy));
@@ -10015,16 +10025,16 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
       }
       if (polys.length === 0) return 0; // continue
       var pointInsideAnyPoly = pt => {
-        for (var _i1 = 0, _polys = polys; _i1 < _polys.length; _i1++) {
-          var poly = _polys[_i1];
+        for (var _i10 = 0, _polys = polys; _i10 < _polys.length; _i10++) {
+          var poly = _polys[_i10];
           if (vpPointInPoly(pt, poly)) return true;
         }
         return false;
       };
       var segmentCrossFractions = (ptA, ptB) => {
         var vals = [];
-        for (var _i10 = 0, _polys2 = polys; _i10 < _polys2.length; _i10++) {
-          var poly = _polys2[_i10];
+        for (var _i11 = 0, _polys2 = polys; _i11 < _polys2.length; _i11++) {
+          var poly = _polys2[_i11];
           for (var ei = 0, ej = poly.length - 1; ei < poly.length; ej = ei++) {
             var ax = poly[ej][0],
               ay = poly[ej][1],
@@ -10043,8 +10053,8 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
         }
         vals.sort((a, b) => a - b);
         var unique = [];
-        for (var _i11 = 0, _vals = vals; _i11 < _vals.length; _i11++) {
-          var _t0 = _vals[_i11];
+        for (var _i12 = 0, _vals = vals; _i12 < _vals.length; _i12++) {
+          var _t0 = _vals[_i12];
           if (!unique.length || Math.abs(_t0 - unique[unique.length - 1]) > 1e-5) unique.push(_t0);
         }
         return unique;
@@ -10269,8 +10279,8 @@ function renderVerticalProfile(canvasId) {
             var y = yOf(Math.min(realUpper, maxAlt));
             if (i === 0) ctx.moveTo(xOf(p.distNM), y);else ctx.lineTo(xOf(p.distNM), y);
           }
-          for (var _i12 = relevantPts.length - 1; _i12 >= 0; _i12--) {
-            var _p = relevantPts[_i12];
+          for (var _i13 = relevantPts.length - 1; _i13 >= 0; _i13--) {
+            var _p = relevantPts[_i13];
             var realLower = isLowerAgl ? _p.elevFt + lowerFt : lowerFt;
             ctx.lineTo(xOf(_p.distNM), yOf(Math.max(realLower, minAlt)));
           }
@@ -10346,7 +10356,7 @@ function renderVerticalProfile(canvasId) {
   // Terrain polygon
   ctx.beginPath();
   ctx.moveTo(xOf(0), yOf(0));
-  for (var _i13 = 0; _i13 < vpElevationData.length; _i13++) ctx.lineTo(xOf(vpElevationData[_i13].distNM), yOf(vpElevationData[_i13].elevFt));
+  for (var _i14 = 0; _i14 < vpElevationData.length; _i14++) ctx.lineTo(xOf(vpElevationData[_i14].distNM), yOf(vpElevationData[_i14].elevFt));
   ctx.lineTo(xOf(totalDist), yOf(0));
   ctx.closePath();
   var terrainGrad = ctx.createLinearGradient(0, yOf(maxTerrain), 0, yOf(0));
@@ -10357,10 +10367,10 @@ function renderVerticalProfile(canvasId) {
   ctx.fillStyle = terrainGrad;
   ctx.fill();
   ctx.beginPath();
-  for (var _i14 = 0; _i14 < vpElevationData.length; _i14++) {
-    var _x36 = xOf(vpElevationData[_i14].distNM),
-      _y2 = yOf(vpElevationData[_i14].elevFt);
-    if (_i14 === 0) ctx.moveTo(_x36, _y2);else ctx.lineTo(_x36, _y2);
+  for (var _i15 = 0; _i15 < vpElevationData.length; _i15++) {
+    var _x36 = xOf(vpElevationData[_i15].distNM),
+      _y2 = yOf(vpElevationData[_i15].elevFt);
+    if (_i15 === 0) ctx.moveTo(_x36, _y2);else ctx.lineTo(_x36, _y2);
   }
   ctx.strokeStyle = '#3a5a20';
   ctx.lineWidth = 1.5;
@@ -10371,19 +10381,19 @@ function renderVerticalProfile(canvasId) {
   // Flight profile
   if (fpResult && fpResult.profile) {
     ctx.beginPath();
-    for (var _i15 = 0; _i15 < fpResult.profile.length; _i15++) {
-      var _x37 = xOf(fpResult.profile[_i15].distNM),
-        _y3 = yOf(fpResult.profile[_i15].altFt) + 2;
-      if (_i15 === 0) ctx.moveTo(_x37, _y3);else ctx.lineTo(_x37, _y3);
+    for (var _i16 = 0; _i16 < fpResult.profile.length; _i16++) {
+      var _x37 = xOf(fpResult.profile[_i16].distNM),
+        _y3 = yOf(fpResult.profile[_i16].altFt) + 2;
+      if (_i16 === 0) ctx.moveTo(_x37, _y3);else ctx.lineTo(_x37, _y3);
     }
     ctx.strokeStyle = 'rgba(0,0,0,0.2)';
     ctx.lineWidth = 4;
     ctx.stroke();
     ctx.beginPath();
-    for (var _i16 = 0; _i16 < fpResult.profile.length; _i16++) {
-      var _x38 = xOf(fpResult.profile[_i16].distNM),
-        _y4 = yOf(fpResult.profile[_i16].altFt);
-      if (_i16 === 0) ctx.moveTo(_x38, _y4);else ctx.lineTo(_x38, _y4);
+    for (var _i17 = 0; _i17 < fpResult.profile.length; _i17++) {
+      var _x38 = xOf(fpResult.profile[_i17].distNM),
+        _y4 = yOf(fpResult.profile[_i17].altFt);
+      if (_i17 === 0) ctx.moveTo(_x38, _y4);else ctx.lineTo(_x38, _y4);
     }
     ctx.strokeStyle = '#d93829';
     ctx.lineWidth = 2.5;
@@ -10411,10 +10421,10 @@ function renderVerticalProfile(canvasId) {
 
   // Waypoint markers
   var wpCumDist = 0;
-  for (var _i17 = 0; _i17 < routeWaypoints.length; _i17++) {
-    if (_i17 > 0) {
-      var prev = routeWaypoints[_i17 - 1],
-        curr = routeWaypoints[_i17];
+  for (var _i18 = 0; _i18 < routeWaypoints.length; _i18++) {
+    if (_i18 > 0) {
+      var prev = routeWaypoints[_i18 - 1],
+        curr = routeWaypoints[_i18];
       wpCumDist += calcNav(prev.lat, prev.lng || prev.lon, curr.lat, curr.lng || curr.lon).dist;
     }
     var _x39 = xOf(wpCumDist);
@@ -10426,7 +10436,7 @@ function renderVerticalProfile(canvasId) {
     ctx.lineTo(_x39, padTop + plotH);
     ctx.stroke();
     ctx.setLineDash([]);
-    var wpLabel = typeof vpRouteWaypointLabel === 'function' ? vpRouteWaypointLabel(_i17, routeWaypoints[_i17]) : _i17 === 0 ? currentStartICAO || 'DEP' : routeWaypoints[_i17].name || 'WP' + _i17;
+    var wpLabel = typeof vpRouteWaypointLabel === 'function' ? vpRouteWaypointLabel(_i18, routeWaypoints[_i18]) : _i18 === 0 ? currentStartICAO || 'DEP' : routeWaypoints[_i18].name || 'WP' + _i18;
     if (wpLabel.length > 8) wpLabel = wpLabel.substring(0, 7) + '…';
     ctx.save();
     ctx.translate(_x39, padTop + plotH + 4);
@@ -10438,7 +10448,7 @@ function renderVerticalProfile(canvasId) {
     ctx.restore();
     ctx.beginPath();
     ctx.arc(_x39, padTop + 3, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = _i17 === 0 ? '#44ff44' : _i17 === routeWaypoints.length - 1 ? '#ff4444' : '#fdfd86';
+    ctx.fillStyle = _i18 === 0 ? '#44ff44' : _i18 === routeWaypoints.length - 1 ? '#ff4444' : '#fdfd86';
     ctx.fill();
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
@@ -10570,8 +10580,8 @@ function isPointInsideAirspace(as, lat, lon) {
   if (!(as !== null && as !== void 0 && as.geometry)) return false;
   var polys = [];
   if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);else if (as.geometry.type === 'MultiPolygon') as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
-  for (var _i18 = 0, _polys3 = polys; _i18 < _polys3.length; _i18++) {
-    var poly = _polys3[_i18];
+  for (var _i19 = 0, _polys3 = polys; _i19 < _polys3.length; _i19++) {
+    var poly = _polys3[_i19];
     if (vpPointInPoly({
       lat,
       lon
@@ -10721,7 +10731,7 @@ function fetchHighResElevation() {
 }
 function _fetchHighResElevation() {
   _fetchHighResElevation = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee33() {
-    var routeKey, requestedRoute, isCurrent, interpolated, cumulativeDist, i, p1, p2, lat1, lon1, lat2, lon2, segDist, steps, j, f, samplePts, _i33, idx, lats, lons, terrariumData, res, data, _t34;
+    var routeKey, requestedRoute, isCurrent, interpolated, cumulativeDist, i, p1, p2, lat1, lon1, lat2, lon2, segDist, steps, j, f, samplePts, _i34, idx, lats, lons, terrariumData, res, data, _t34;
     return _regenerator().w(function (_context40) {
       while (1) switch (_context40.p = _context40.n) {
         case 0:
@@ -10783,8 +10793,8 @@ function _fetchHighResElevation() {
           samplePts = interpolated;
           if (interpolated.length > 100) {
             samplePts = [];
-            for (_i33 = 0; _i33 < 100; _i33++) {
-              idx = Math.round(_i33 * (interpolated.length - 1) / 99);
+            for (_i34 = 0; _i34 < 100; _i34++) {
+              idx = Math.round(_i34 * (interpolated.length - 1) / 99);
               samplePts.push(interpolated[idx]);
             }
           }
@@ -11226,8 +11236,8 @@ function renderMapProfileFrames(timeMs) {
               var y = yOf(Math.min(realUpper, maxAlt));
               if (i === 0) targetCtx.moveTo(xOf(p.distNM), y);else targetCtx.lineTo(xOf(p.distNM), y);
             }
-            for (var _i19 = relevantPts.length - 1; _i19 >= 0; _i19--) {
-              var _p2 = relevantPts[_i19];
+            for (var _i20 = relevantPts.length - 1; _i20 >= 0; _i20--) {
+              var _p2 = relevantPts[_i20];
               var realLower = isLowerAgl ? _p2.elevFt + lowerFt : lowerFt;
               targetCtx.lineTo(xOf(_p2.distNM), yOf(Math.max(realLower, minAlt)));
             }
@@ -11347,7 +11357,7 @@ function renderMapProfileFrames(timeMs) {
     bgCtx.setLineDash([]);
     bgCtx.beginPath();
     bgCtx.moveTo(xOf(0), yOf(0));
-    for (var _i20 = 0; _i20 < elevData.length; _i20++) bgCtx.lineTo(xOf(elevData[_i20].distNM), yOf(elevData[_i20].elevFt));
+    for (var _i21 = 0; _i21 < elevData.length; _i21++) bgCtx.lineTo(xOf(elevData[_i21].distNM), yOf(elevData[_i21].elevFt));
     bgCtx.lineTo(xOf(totalDist), yOf(0));
     bgCtx.closePath();
     var terrainGrad = bgCtx.createLinearGradient(0, yOf(maxTerrain), 0, yOf(0));
@@ -11358,10 +11368,10 @@ function renderMapProfileFrames(timeMs) {
     bgCtx.fillStyle = terrainGrad;
     bgCtx.fill();
     bgCtx.beginPath();
-    for (var _i21 = 0; _i21 < elevData.length; _i21++) {
-      var _x40 = xOf(elevData[_i21].distNM),
-        _y6 = yOf(elevData[_i21].elevFt);
-      if (_i21 === 0) bgCtx.moveTo(_x40, _y6);else bgCtx.lineTo(_x40, _y6);
+    for (var _i22 = 0; _i22 < elevData.length; _i22++) {
+      var _x40 = xOf(elevData[_i22].distNM),
+        _y6 = yOf(elevData[_i22].elevFt);
+      if (_i22 === 0) bgCtx.moveTo(_x40, _y6);else bgCtx.lineTo(_x40, _y6);
     }
     bgCtx.strokeStyle = '#4a7a30';
     bgCtx.lineWidth = 1.5;
@@ -11546,11 +11556,11 @@ function renderMapProfileFrames(timeMs) {
     if (fpResult && fpResult.profile) {
       fgCtx.beginPath();
       var shStarted = false;
-      for (var _i22 = 0; _i22 < fpResult.profile.length; _i22++) {
-        var _x43 = xOf(fpResult.profile[_i22].distNM);
-        if (_x43 < viewMinX - 100 && _i22 < fpResult.profile.length - 1 && xOf(fpResult.profile[_i22 + 1].distNM) < viewMinX) continue;
-        if (_x43 > viewMaxX + 100 && _i22 > 0 && xOf(fpResult.profile[_i22 - 1].distNM) > viewMaxX) continue;
-        var _y9 = yOf(fpResult.profile[_i22].altFt) + 1;
+      for (var _i23 = 0; _i23 < fpResult.profile.length; _i23++) {
+        var _x43 = xOf(fpResult.profile[_i23].distNM);
+        if (_x43 < viewMinX - 100 && _i23 < fpResult.profile.length - 1 && xOf(fpResult.profile[_i23 + 1].distNM) < viewMinX) continue;
+        if (_x43 > viewMaxX + 100 && _i23 > 0 && xOf(fpResult.profile[_i23 - 1].distNM) > viewMaxX) continue;
+        var _y9 = yOf(fpResult.profile[_i23].altFt) + 1;
         if (!shStarted) {
           fgCtx.moveTo(_x43, _y9);
           shStarted = true;
@@ -11563,11 +11573,11 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.stroke();
       fgCtx.beginPath();
       var rdStarted = false;
-      for (var _i23 = 0; _i23 < fpResult.profile.length; _i23++) {
-        var _x44 = xOf(fpResult.profile[_i23].distNM);
-        if (_x44 < viewMinX - 100 && _i23 < fpResult.profile.length - 1 && xOf(fpResult.profile[_i23 + 1].distNM) < viewMinX) continue;
-        if (_x44 > viewMaxX + 100 && _i23 > 0 && xOf(fpResult.profile[_i23 - 1].distNM) > viewMaxX) continue;
-        var _y0 = yOf(fpResult.profile[_i23].altFt);
+      for (var _i24 = 0; _i24 < fpResult.profile.length; _i24++) {
+        var _x44 = xOf(fpResult.profile[_i24].distNM);
+        if (_x44 < viewMinX - 100 && _i24 < fpResult.profile.length - 1 && xOf(fpResult.profile[_i24 + 1].distNM) < viewMinX) continue;
+        if (_x44 > viewMaxX + 100 && _i24 > 0 && xOf(fpResult.profile[_i24 - 1].distNM) > viewMaxX) continue;
+        var _y0 = yOf(fpResult.profile[_i24].altFt);
         if (!rdStarted) {
           fgCtx.moveTo(_x44, _y0);
           rdStarted = true;
@@ -11617,8 +11627,8 @@ function renderMapProfileFrames(timeMs) {
   // Route-Waypoint-Marker nur im RTE-Modus (Positionen in NM, im HDG unbrauchbar)
   if (!isHdgMode) {
     var wpCumDist = 0;
-    for (var _i24 = 0; _i24 < routeWaypoints.length; _i24++) {
-      if (_i24 > 0) wpCumDist += calcNav(routeWaypoints[_i24 - 1].lat, routeWaypoints[_i24 - 1].lng || routeWaypoints[_i24 - 1].lon, routeWaypoints[_i24].lat, routeWaypoints[_i24].lng || routeWaypoints[_i24].lon).dist;
+    for (var _i25 = 0; _i25 < routeWaypoints.length; _i25++) {
+      if (_i25 > 0) wpCumDist += calcNav(routeWaypoints[_i25 - 1].lat, routeWaypoints[_i25 - 1].lng || routeWaypoints[_i25 - 1].lon, routeWaypoints[_i25].lat, routeWaypoints[_i25].lng || routeWaypoints[_i25].lon).dist;
       var _x45 = xOf(wpCumDist);
       if (_x45 < viewMinX - 40 || _x45 > viewMaxX + 40) continue;
       fgCtx.beginPath();
@@ -11629,7 +11639,7 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.lineTo(_x45, padTop + plotH);
       fgCtx.stroke();
       fgCtx.setLineDash([]);
-      var wpLabel = typeof vpRouteWaypointLabel === 'function' ? vpRouteWaypointLabel(_i24, routeWaypoints[_i24]) : _i24 === 0 ? currentStartICAO || 'DEP' : routeWaypoints[_i24].name || 'WP' + _i24;
+      var wpLabel = typeof vpRouteWaypointLabel === 'function' ? vpRouteWaypointLabel(_i25, routeWaypoints[_i25]) : _i25 === 0 ? currentStartICAO || 'DEP' : routeWaypoints[_i25].name || 'WP' + _i25;
       if (!zoomFactor || zoomFactor < 2) {
         if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…';
       } else {
@@ -11637,7 +11647,7 @@ function renderMapProfileFrames(timeMs) {
       }
       fgCtx.beginPath();
       fgCtx.arc(_x45, padTop + plotH + 3, 3, 0, Math.PI * 2);
-      fgCtx.fillStyle = _i24 === 0 ? '#44ff44' : _i24 === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00';
+      fgCtx.fillStyle = _i25 === 0 ? '#44ff44' : _i25 === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00';
       fgCtx.fill();
       fgCtx.fillStyle = '#bbb';
       fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, zoomFactor >= 2 ? 'bold 11px Arial' : 'bold 9px Arial'));
@@ -11802,8 +11812,8 @@ function renderMapProfileFrames(timeMs) {
 
   // Altitude-Waypoint-Diamanten nur im RTE-Modus (distNM = Route-NM, im HDG unbrauchbar)
   if (!isHdgMode && vpAltWaypoints.length > 0) {
-    for (var _i25 = 0; _i25 < vpAltWaypoints.length; _i25++) {
-      var wp = vpAltWaypoints[_i25],
+    for (var _i26 = 0; _i26 < vpAltWaypoints.length; _i26++) {
+      var wp = vpAltWaypoints[_i26],
         wx = xOf(wp.distNM),
         wy = yOf(wp.altFt);
       if (wx < viewMinX - 20 || wx > viewMaxX + 20) continue;
@@ -11868,14 +11878,14 @@ function renderMapProfileFrames(timeMs) {
         fgCtx.lineTo(x2, ry2);
         fgCtx.lineTo(x1, ry2);
       } else {
-        for (var _i26 = 0; _i26 < relevantPts.length; _i26++) {
-          var p = relevantPts[_i26];
+        for (var _i27 = 0; _i27 < relevantPts.length; _i27++) {
+          var p = relevantPts[_i27];
           var realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
           var _y1 = yOf(Math.min(realUpper, maxAlt));
-          if (_i26 === 0) fgCtx.moveTo(xOf(p.distNM), _y1);else fgCtx.lineTo(xOf(p.distNM), _y1);
+          if (_i27 === 0) fgCtx.moveTo(xOf(p.distNM), _y1);else fgCtx.lineTo(xOf(p.distNM), _y1);
         }
-        for (var _i27 = relevantPts.length - 1; _i27 >= 0; _i27--) {
-          var _p3 = relevantPts[_i27];
+        for (var _i28 = relevantPts.length - 1; _i28 >= 0; _i28--) {
+          var _p3 = relevantPts[_i28];
           var realLower = isLowerAgl ? _p3.elevFt + lowerFt : lowerFt;
           fgCtx.lineTo(xOf(_p3.distNM), yOf(Math.max(realLower, minAlt)));
         }
@@ -12713,8 +12723,8 @@ function updateLinearButtons() {
 }
 function vpSetLinearLoadingPulse(on) {
   var ids = ['btnToggleLinear', 'btnToggleRoads', 'btnToggleRivers', 'btnTogglePower'];
-  for (var _i28 = 0, _ids = ids; _i28 < _ids.length; _i28++) {
-    var id = _ids[_i28];
+  for (var _i29 = 0, _ids = ids; _i29 < _ids.length; _i29++) {
+    var id = _ids[_i29];
     var el = document.getElementById(id);
     if (!el) continue;
     if (on) el.classList.add('vp-loading-pulse');else el.classList.remove('vp-loading-pulse');
@@ -13485,8 +13495,8 @@ function vpBuildCoverageKeyFromPoints(points) {
   if (!Array.isArray(points) || points.length === 0) return '';
   var picks = [0, Math.floor(points.length * 0.25), Math.floor(points.length * 0.5), Math.floor(points.length * 0.75), points.length - 1];
   var chunks = [];
-  for (var _i29 = 0, _picks = picks; _i29 < _picks.length; _i29++) {
-    var idx = _picks[_i29];
+  for (var _i30 = 0, _picks = picks; _i30 < _picks.length; _i30++) {
+    var idx = _picks[_i30];
     var p = points[Math.max(0, Math.min(points.length - 1, idx))];
     if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue;
     var latQ = vpQuantizeCoord(p.lat, stepDeg);
@@ -13905,7 +13915,7 @@ function generateHdgProfile(_x52, _x53, _x54, _x55, _x56) {
 } // ── Landmarks (Städte & Airports) entlang Heading ────────
 function _generateHdgProfile() {
   _generateHdgProfile = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee36(lat, lon, hdg, alt, gs) {
-    var totalMin, totalNM, stepNM, backNM, points, i, ahead, bearing, dist, pt, timeMin, tileSet, tilePromises, _i34, _points, p, z, n, tx, latRad, ty, key, result, _i35, _points2, _p5, elevFt, _t36;
+    var totalMin, totalNM, stepNM, backNM, points, i, ahead, bearing, dist, pt, timeMin, tileSet, tilePromises, _i35, _points, p, z, n, tx, latRad, ty, key, result, _i36, _points2, _p5, elevFt, _t36;
     return _regenerator().w(function (_context43) {
       while (1) switch (_context43.p = _context43.n) {
         case 0:
@@ -13950,8 +13960,8 @@ function _generateHdgProfile() {
           // Tiles parallel vorladen (normalerweise 1-3 Tiles)
           tileSet = new Set();
           tilePromises = [];
-          for (_i34 = 0, _points = points; _i34 < _points.length; _i34++) {
-            p = _points[_i34];
+          for (_i35 = 0, _points = points; _i35 < _points.length; _i35++) {
+            p = _points[_i35];
             z = 10;
             n = Math.pow(2, z);
             tx = Math.floor((p.lon + 180) / 360 * n);
@@ -13978,13 +13988,13 @@ function _generateHdgProfile() {
         case 5:
           // Höhen sampeln (synchron aus Cache)
           result = [];
-          _i35 = 0, _points2 = points;
+          _i36 = 0, _points2 = points;
         case 6:
-          if (!(_i35 < _points2.length)) {
+          if (!(_i36 < _points2.length)) {
             _context43.n = 11;
             break;
           }
-          _p5 = _points2[_i35];
+          _p5 = _points2[_i36];
           if (!(result.length % 8 === 0 && (vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork()))) {
             _context43.n = 7;
             break;
@@ -14014,7 +14024,7 @@ function _generateHdgProfile() {
             lon: _p5.lon
           });
         case 10:
-          _i35++;
+          _i36++;
           _context43.n = 6;
           break;
         case 11:
@@ -14278,12 +14288,12 @@ function vpUpdateLiveProfilePosition(lat, lon, alt, hdg, liveMapVisualActive) {
     var bestIdx = searchLo;
     var bestScore = Infinity;
     var bestDistNm = Infinity;
-    for (var _i30 = searchLo; _i30 <= searchHi; _i30++) {
-      var s = _profileIdxScore(ed, _i30, lat, lon, hdg);
+    for (var _i31 = searchLo; _i31 <= searchHi; _i31++) {
+      var s = _profileIdxScore(ed, _i31, lat, lon, hdg);
       if (s.score < bestScore) {
         bestScore = s.score;
         bestDistNm = s.distNm;
-        bestIdx = _i30;
+        bestIdx = _i31;
       }
     }
 
@@ -14292,12 +14302,12 @@ function vpUpdateLiveProfilePosition(lat, lon, alt, hdg, liveMapVisualActive) {
       var globalBestIdx = 0;
       var globalBestScore = Infinity;
       var globalBestDistNm = Infinity;
-      for (var _i31 = 0; _i31 < ed.length; _i31 += 1) {
-        var _s3 = _profileIdxScore(ed, _i31, lat, lon, hdg);
+      for (var _i32 = 0; _i32 < ed.length; _i32 += 1) {
+        var _s3 = _profileIdxScore(ed, _i32, lat, lon, hdg);
         if (_s3.score < globalBestScore) {
           globalBestScore = _s3.score;
           globalBestDistNm = _s3.distNm;
-          globalBestIdx = _i31;
+          globalBestIdx = _i32;
         }
       }
       bestIdx = globalBestIdx;
