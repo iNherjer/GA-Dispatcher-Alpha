@@ -6698,3 +6698,11 @@ Environment-Wiring- und Charter-Contract-Prüfungen bestanden. Interface-Selbstt
 und Browser mit zwei Geräten/18 Reglerpositionen bestanden. Die zusätzliche
 Bush-Live-Plan-Prüfung benötigt nicht eingecheckte JSON-Fixtures, die im sauberen
 Release-Checkout fehlen; dieser externe Nachweis bleibt unverändert offen.
+
+Alpha v496 aktiviert nach unveränderlicher Veröffentlichung und öffentlichem
+Download-/Hash-Nachweis: 173678207 Bytes, SHA-256
+`ba3efbae902101fb95104a7cb750bf3381af3637ae4e7c0190b2c0a9c04d80fc`.
+Release-Tag `v496`, Quellstand `ef9864e57dadfe1b28a5e31ef14c3f9f356683dd`.
+183 automatisierte Tests, Interface und Browser erfolgreich. Alpha-Zeiger und
+Web-Cache v1972 aktualisiert; Stable und SDK-Paket 0.4.23 erhalten.
+Windows/MSFS-/VR-Feldabnahme bleibt offen.
