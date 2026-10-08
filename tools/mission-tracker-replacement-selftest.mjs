@@ -52,50 +52,39 @@ async function runOverwriteScenario({ localMission = true, trackerMission = fals
     return { result: await context.run(), calls };
 }
 
-let scenario = await runOverwriteScenario({ localMission: false, trackerMission: false });
-assert.equal(scenario.result, true);
-assert.deepEqual(scenario.calls, []);
-
-scenario = await runOverwriteScenario({ localMission: true, trackerMission: false });
-assert.equal(scenario.result, true);
-assert.deepEqual(scenario.calls.map(call => call.type), ['confirm', 'reset']);
-
-scenario = await runOverwriteScenario({ localMission: false, trackerMission: true });
-assert.equal(scenario.result, true);
-assert.deepEqual(scenario.calls.map(call => call.type), ['confirm', 'abort']);
-assert.equal(scenario.calls[1].options.skipConfirm, true);
-assert.equal(scenario.calls[1].options.forceLocalCleanup, true);
-assert.equal(scenario.calls[1].options.reason, 'new-mission-replacement');
-
-scenario = await runOverwriteScenario({ localMission: true, trackerMission: true, abortOk: false });
-assert.equal(scenario.result, false);
-assert.deepEqual(scenario.calls.map(call => call.type), ['confirm', 'abort']);
-
-scenario = await runOverwriteScenario({ localMission: true, trackerMission: true, confirmed: false });
-assert.equal(scenario.result, false);
-assert.deepEqual(scenario.calls.map(call => call.type), ['confirm']);
+for (const trackerMission of [false,true]) {
+    const scenario = await runOverwriteScenario({localMission:true,trackerMission});
+    assert.equal(scenario.result,true);
+    assert.deepEqual(scenario.calls,[], 'a follow-up preview must leave the accepted run intact');
+}
+const draftContext={window:{gaMissionDraftActive:()=>true},confirm:()=>false};
+vm.runInNewContext(`${overwriteSource}\nthis.run = confirmMissionOverwriteIfNeeded;`,draftContext);
+assert.equal(await draftContext.run(),false);
+draftContext.confirm=()=>true;
+assert.equal(await draftContext.run(),true);
+draftContext.window.gaMissionDraftPhase=()=> 'committing';
+assert.equal(await draftContext.run(),false);
 
 const resetSource = functionSource(appSource, 'resetApp', 'async function');
 const resetCalls = [];
 const resetContext = {
-    window: {
-        gaTrackerExecutionHandlesMission: () => true,
-        gaAbortTrackerMission: async options => {
-            resetCalls.push(options);
-            return { ok: true };
-        }
-    },
+    _dispatchRunId: 1,
+    _abortDispatchRun: reason => resetCalls.push(['cancel-generation', reason]),
+    window: { gaClearSharedMission: async () => { resetCalls.push(['shared-clear']); return {ok:true}; } },
     confirm: () => true,
-    clearAppMissionState: () => {
-        throw new Error('tracker reset must not clear before abort ACK');
-    }
+    alert: () => { throw Error('unexpected error'); },
+    clearAppMissionState: () => { throw Error('clear must use the shared coordinator'); }
 };
 vm.runInNewContext(`${resetSource}\nthis.run = resetApp;`, resetContext);
 assert.equal(await resetContext.run(), true);
-assert.equal(resetCalls.length, 1);
-assert.equal(resetCalls[0].forceLocalCleanup, true);
+assert.deepEqual(resetCalls.map(call=>call[0]), ['cancel-generation','shared-clear']);
+assert.equal(resetContext._dispatchRunId, 2);
+resetContext.window.gaClearSharedMission=async()=>({ok:false,error:'offline'});
+let errorMessage='';resetContext.alert=message=>{errorMessage=message;};
+assert.equal(await resetContext.run(),false);
+assert.match(errorMessage,/offline/);
 
-assert.match(appSource, /!await confirmMissionOverwriteIfNeeded\(\)/);
+assert.match(appSource, /missionDraftSession\(\)\.begin\(/);
 assert.match(followupSource, /!await window\.confirmMissionOverwriteIfNeeded\(\)/);
 assert.match(syncSource, /forceLocalCleanup = options\?\.forceLocalCleanup === true/);
 assert.match(syncSource, /forceLocalCleanup: options\.forceLocalCleanup === true,[\s\S]*?preserveMission: options\.preserveMission === true/);

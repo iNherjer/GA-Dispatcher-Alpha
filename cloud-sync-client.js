@@ -1,8 +1,8 @@
 (function (root, factory) {
-    const api = factory(typeof module === 'object' && module.exports ? require('./cloud-sync-core.js') : root.GACloudSyncCore);
+    const api = factory(typeof module === 'object' && module.exports ? require('./cloud-sync-core.js') : root.GACloudSyncCore, typeof module === 'object' && module.exports ? require('./mission-cloud-control-core.js') : root.GAMissionCloudControlCore);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.GACloudSyncClient = api;
-})(globalThis, function (core) {
+})(globalThis, function (core, missionControlCore) {
     'use strict';
     function create({ request, baseUrl, pilotId, pin, getRevision = () => null, setRevision = () => {} }) {
         const cache = new Map(); let cachedChars = 0;
@@ -26,7 +26,8 @@
         async function read(names = null, knownHead = null) {
             const head = knownHead || await call('head?inlineMetadata=1');
             if (!Number.isSafeInteger(head?.revision) || head.revision < 0 || (head.revision > 0 && !head.manifest)) throw new Error('sync_head_invalid');
-            if (!head.manifest) return { migrated: false, revision: 0 };
+            if (!head.manifest) return { migrated: false, revision: 0, missionControl: null, capabilities: head.capabilities };
+            if (head.missionControl) missionControlCore.validate(head.missionControl, head.manifest.sections.mission?.hash);
             const profile = await core.unpack(head.manifest, async id => {
                 if (cache.has(id)) return cache.get(id);
                 const part = await call('chunk/' + id);
@@ -34,10 +35,10 @@
                 if (bytes.length > core.CHUNK_BYTES || await core.hash(bytes) !== id) throw new Error('chunk_integrity');
                 remember(id, part.data); return part.data;
             }, names);
-            return { migrated: true, revision: head.revision, profile };
+            return { migrated: true, revision: head.revision, profile, missionControl: head.missionControl || null, capabilities: head.capabilities };
         }
         let uploading = false;
-        async function write(profile, { force = false, legacyTime = 0 } = {}) {
+        async function write(profile, { force = false, expectedRevision, legacyTime = 0, missionChange = null } = {}) {
             if (uploading) throw new Error('Cloud-Upload läuft bereits; Änderungen bleiben vorgemerkt.');
             uploading = true;
             try {
@@ -46,12 +47,13 @@
                 if (head.manifest) packed.manifest.sections = { ...head.manifest.sections, ...packed.manifest.sections };
                 core.validate(packed.manifest);
                 const sameContent = head.manifest && Object.entries(packed.manifest.sections).every(([name, section]) => name === 'field:lastModified' || head.manifest.sections[name]?.hash === section.hash);
-                if (sameContent) {
+                if (missionChange && head.capabilities?.missionControl !== true) throw new Error('cloud_mission_control_requires_worker_update');
+                if (sameContent && (!missionChange || head.missionControl?.operationId === missionChange.operationId)) {
                     const metadata = await read(['field:lastModified'], head);
                     setRevision(head.revision);
-                    return { revision: head.revision, lastModified: metadata.profile.lastModified, rawBytes: packed.bytes, transferredBytes: 0, uploadedChunks: 0, reusedChunks: Object.keys(packed.chunks).length };
+                    return { missionControl: head.missionControl || null, revision: head.revision, lastModified: metadata.profile.lastModified, rawBytes: packed.bytes, transferredBytes: 0, uploadedChunks: 0, reusedChunks: Object.keys(packed.chunks).length };
                 }
-                let baseRevision = getRevision();
+                let baseRevision = Number.isSafeInteger(expectedRevision) ? expectedRevision : getRevision();
                 // A reload may have the exact previously saved local snapshot, but
                 // observing a new cloud head alone never authorizes overwriting it.
                 if (force) baseRevision = head.revision;
@@ -81,9 +83,10 @@
                         await call('chunk', { id, data: packed.chunks[id] }); transferred += packed.chunks[id].length;
                     }
                 }
-                const saved = await call('commit', { baseRevision, manifest: packed.manifest });
+                const change = missionChange ? { ...missionChange, expectedMissionRevision: missionChange.expectedMissionRevision ?? head.missionControl?.revision ?? 0, operationId: missionChange.operationId || `manual:${head.revision}:${packed.manifest.sections.mission.hash}` } : null;
+                const saved = await call('commit', { baseRevision, manifest: packed.manifest, ...(change ? { missionChange: change } : {}) });
                 setRevision(saved.revision);
-                return { revision: saved.revision, rawBytes: packed.bytes, transferredBytes: transferred, uploadedChunks: missing.length, reusedChunks: ids.length - missing.length };
+                return { missionControl: saved.missionControl || null, revision: saved.revision, rawBytes: packed.bytes, transferredBytes: transferred, uploadedChunks: missing.length, reusedChunks: ids.length - missing.length };
             } finally { uploading = false; }
         }
         return { read, write, acknowledge: revision => setRevision(revision) };

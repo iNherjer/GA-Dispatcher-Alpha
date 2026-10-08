@@ -217,3 +217,24 @@ test('new cloud mission requires confirmation bound to run revision and seed', (
   delete request.payload.replaceRun;
   assert.equal(validateCloudMissionActivation(candidate, request, null), null);
 });
+
+function versionedControl(status='active') {return {schema:'ga.cloud-mission-control.v1',version:1,epoch:'server',revision:1,status,missionId:status==='active'?'mission-cloud-apt':null,updatedAt:2000,missionHash:'a'.repeat(64)};}
+test('versioned seed retains server revision in recovered authority bundle',()=>{
+  const control=versionedControl();const r=buildCloudMissionCandidate(profile(),{missionControl:control});
+  assert.equal(r.ok,true);assert.deepEqual(r.candidate.bundle.cloudMissionControl,control);
+  assert.equal(r.candidate.updatedAt,2000);assert.equal(r.candidate.bundle.runtime.runtime.phase,'planned');
+  const authority=createMissionAuthorityManager({executionAuthorityEnabled:true});
+  assert.equal(authority.acquire({missionId:r.candidate.missionId,clientId:'cloud',resumeBundle:r.candidate.bundle}).ok,true);
+  assert.deepEqual(authority.getActiveRun({includeBundle:true}).resumeBundle.cloudMissionControl,control);
+});
+test('only explicit versioned null mission and null seed mean deletion',()=>{
+  const control=versionedControl('deleted');
+  assert.equal(buildCloudMissionCandidate({activeMission:null,activeMissionTrackerSeed:null},{missionControl:control}).status,'cleared');
+  for(const p of [{},{activeMission:null},{activeMission:null,activeMissionTrackerSeed:profile().activeMissionTrackerSeed},profile()])assert.equal(buildCloudMissionCandidate(p,{missionControl:control}).ok,false);
+});
+test('invalid or missing versioned seed fails without proposing a replacement',()=>{
+  const p=profile();p.activeMissionTrackerSeed=null;
+  assert.equal(buildCloudMissionCandidate(p,{missionControl:versionedControl()}).ok,false);
+  const q=profile();q.activeMission.currentMissionData.missionId='different';
+  assert.equal(buildCloudMissionCandidate(q,{missionControl:versionedControl()}).ok,false);
+});

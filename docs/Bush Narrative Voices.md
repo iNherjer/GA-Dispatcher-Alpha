@@ -360,3 +360,13 @@ Windows-/MSFS-Flugtest durch diese Textprobe.
 
 Alpha-Web-Rollout: Cache v1970. Der bestehende Tracker-/EFB-Release bleibt
 unverändert; diese Änderungen betreffen die App-seitige Charter-Generierung.
+
+
+### Platzinformationen bei internen OpenAIP-Kennungen (08.10.2026)
+
+Ein benannter Bush-Flugplatz mit gültigen Koordinaten kann auch ohne offiziellen
+ICAO-/FAA-Code den bestehenden Platzinformationsbaustein nutzen. Interne
+`OA-*`-Kennungen werden nicht an den FAA-Endpunkt geschickt. Eigene Daten und
+die vorhandenen, begrenzten Wikipedia-/Terrain-Pfade bleiben nutzbar; es entsteht
+kein zusätzlicher separater KI-Aufruf. APT/POI und das Recon-Ziel bleiben außerhalb
+dieses Bush-Platztext-Pfads.

@@ -1,5 +1,16 @@
 # Mission Flow Reference
 
+## Generieren → lokaler Entwurf → akzeptieren → beginnen (08.10.2026)
+
+Der vollständige Ablauf und Fehlergrenzen stehen im
+[Mission Runtime Authority Contract](Mission%20Runtime%20Authority%20Contract.md).
+Generieren ist eine lokale Vorschau und lässt den angenommenen Cloud-/Tracker-
+Auftrag bestehen. Erst bestätigtes Akzeptieren beendet und ersetzt den alten
+Auftrag; Start/Boarding bleiben ein eigener Schritt. Ablehnen verwirft nur die
+Vorschau und lädt den angenommenen Stand. Clear warnt und bereinigt den
+Missionsslot, ohne Logbuch und weitere Profilfelder zu löschen.
+
+
 ## Periodische RAM-Sicherung, Alpha v428 (17.09.2026)
 
 Diese Regel ersetzt fuer den Missions-Kindprozess die oben beschriebenen
@@ -1271,3 +1282,15 @@ Quelle: https://ai.google.dev/gemini-api/docs/rate-limits
 Quotenfehler tragen `AI_QUOTA_LIMIT`. Der Dispatch-Fehlerpfad zeigt die Meldung
 im Suchindikator und als Dialog. Ein nachgelagerter allgemeiner Fehlertext darf
 sie nicht überschreiben. Ergänzung mit UI-Regressionsprüfung: Web-Alpha v1951.
+
+### Öffnungsabgleich der App (2026-10-08, noch nicht veröffentlicht)
+
+- Bei aktiviertem Auto-Sync liest die App beim Öffnen, Anmelden und Wiederanzeigen zuerst das vollständige Cloud-Profil. Vorgemerkte lokale Uploads werden nicht vorher gesendet. Die angenommene lokale Mission wird auch bei bereits bekannter Revision durch den aktuellen Cloud-Missionsslot ersetzt; ein leerer Slot entfernt die lokale Mission.
+- Ein lokaler Entwurf wird weder ersetzt noch hochgeladen. Die App vergleicht nur die Cloud-Missionsidentität mit der zuvor angenommenen lokalen Mission und zeigt im Entwurfsbereich einen Hinweis auf eine andere aktivierte Mission oder eine Cloud-Löschung. Eine reine Profilrevision erzeugt keinen Missionswechsel-Hinweis.
+- Bei Netzwerkfehlern bleibt die lokale Mission erhalten. Antworten nach Pilotwechsel oder neuer Generierung werden verworfen; gleichzeitige Öffnungsereignisse teilen einen Abruf.
+- Nach erfolgreichem Cloud-Abgleich darf ein abweichender alter Tracker-Lauf die App-Mission nicht wiederherstellen. Der laufende Tracker bleibt eigenständig autoritativ; seine Ablösung erfolgt weiterhin über den bestätigten Übernahmeablauf. Die Darstellung der App wird ohne Sim-Clear/Abort neu aufgebaut. Dafür ist keine Änderung des Tracker-/EFB-Protokolls erforderlich.
+- Automatische reine Missionsuploads vergleichen vor der CAS-Schreiboperation die frisch gelesene Cloud-Missionsidentität. Ein anderer oder gelöschter Cloud-Auftrag darf nicht durch eine alte lokale Mission wiederbelebt werden. Beim Verwerfen eines Entwurfs wird zuerst der Cloud-Missionsslot geladen.
+
+
+### Gemeinsame Missionsaktivierung (08.10.2026)
+Generieren erzeugt einen isolierten lokalen Entwurf. Annehmen liest den Cloud-Stand, prüft Worker-Fähigkeit, bestätigt/bereinigt den bisherigen Tracker-Run und veröffentlicht Mission/Seed mit ausdrücklichem Aktivierungsvermerk und erwarteter Missionsrevision. Der Tracker übernimmt den neueren Serververmerk automatisch als geplanten Auftrag. „Mission beginnen“ bleibt eine eigene Aktion. Nicht annehmen verwirft nur den Entwurf und lädt den aktuellen Cloud-Slot. Bestätigtes Löschen veröffentlicht einen eigenen Löschvermerk. Abruf-/Seedfehler sind keine Löschung. Details im Mission Runtime Authority Contract.

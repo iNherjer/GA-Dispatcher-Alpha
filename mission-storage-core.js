@@ -34,12 +34,12 @@
         try { store.setItem(key, raw); return true; }
         catch (_) { prune(store, { all: true }); try { store.setItem(key, raw); return true; } catch (_) { return false; } }
     }
-    function createVault(indexedDB) {
+    function createVault(indexedDB, { databaseName = 'ga-full-mission-v1' } = {}) {
         let opening, queue = Promise.resolve();
         function open() {
             if (!indexedDB) return Promise.reject(new Error('IndexedDB nicht verfuegbar'));
             if (!opening) opening = new Promise((resolve, reject) => {
-                const request = indexedDB.open('ga-full-mission-v1', 1);
+                const request = indexedDB.open(databaseName, 1);
                 request.onupgradeneeded = () => request.result.createObjectStore('snapshots');
                 request.onerror = () => reject(request.error);
                 request.onblocked = () => reject(new Error('Missionsspeicher blockiert'));

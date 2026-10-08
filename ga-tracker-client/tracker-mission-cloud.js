@@ -1,6 +1,7 @@
 const bushCore = require('../mission-bush-execution-core.js');
 'use strict';
 const cloudSync = require('../cloud-sync-client.js');
+const cloudControlCore = require('../mission-cloud-control-core.js');
 const profileClients = new Map();
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
 const aptTraining = require('./tracker-mission-apt-training.js');
@@ -97,7 +98,7 @@ function plannedRuntime(missionId, state, seed) {
   };
 }
 
-function buildCloudMissionCandidate(profile = null, options = {}) {
+function buildCloudMissionSeedCandidate(profile = null, options = {}) {
   const source = object(profile);
   const state = object(source.activeMission);
   if (!Object.keys(state).length && source.freeflightNavigation) {
@@ -198,6 +199,26 @@ function buildCloudMissionCandidate(profile = null, options = {}) {
   return { ok: true, status: 'ready', candidate };
 }
 
+function buildCloudMissionCandidate(profile = null, options = {}) {
+  const missionControl = options.missionControl || null;
+  if (missionControl) {
+    try {
+      cloudControlCore.validate(missionControl);
+      if (!cloudControlCore.matchesProfile(missionControl, object(profile))) throw Error('cloud_mission_control_identity_mismatch');
+      if (missionControl.status === 'deleted') return { ok: true, status: 'cleared', candidate: null, missionControl };
+    } catch (error) { return { ok: false, status: 'invalid', code: error.message, candidate: null }; }
+  }
+  const result = buildCloudMissionSeedCandidate(profile, options);
+  if (missionControl && !result.candidate) return { ok: false, status: 'invalid', code: result.code || 'cloud_mission_seed_missing', candidate: null };
+  if (result.candidate && missionControl) {
+    result.candidate.missionControl = { ...missionControl };
+    result.candidate.bundle.cloudMissionControl = { ...missionControl };
+    result.candidate.updatedAt = missionControl.updatedAt;
+    result.candidate.control.updatedAt = missionControl.updatedAt;
+  }
+  return { ...result, ...(missionControl ? { missionControl } : {}) };
+}
+
 async function fetchTrackerCloudMission(syncId, pin, options = {}) {
   const pilotId = cleanString(syncId, 180);
   const pilotPin = cleanString(pin, 180);
@@ -206,7 +227,7 @@ async function fetchTrackerCloudMission(syncId, pin, options = {}) {
   }
   const request = typeof options.request === 'function' ? options.request : getJson;
   const baseUrl = options.baseUrl || DEFAULT_SYNC_BASE_URL;
-  let response;
+  let response, missionControl = null;
   try {
     const key = JSON.stringify([baseUrl, pilotId, pilotPin]);
     let client = options.request ? null : profileClients.get(key);
@@ -221,6 +242,7 @@ async function fetchTrackerCloudMission(syncId, pin, options = {}) {
       if (!options.request) { if (profileClients.size >= 2) profileClients.clear(); profileClients.set(key, client); }
     }
     const result = await client.read(['mission', 'field:lastModified', 'field:freeflightNavigation']);
+    missionControl = result.migrated ? result.missionControl : null;
     response = result.migrated ? { status: 200, data: result.profile } : await request(syncUrl(baseUrl, pilotId, pilotPin), {
       pin: pilotPin, timeoutMs: options.timeoutMs, maxBytes: MAX_PROFILE_RESPONSE_BYTES
     });
@@ -234,7 +256,7 @@ async function fetchTrackerCloudMission(syncId, pin, options = {}) {
   if (response?.status !== 200 || !response?.data || typeof response.data !== 'object') {
     return { ok: false, status: 'error', code: 'sync_profile_invalid', candidate: null };
   }
-  return buildCloudMissionCandidate(response.data, { ...options, pilotId });
+  return buildCloudMissionCandidate(response.data, { ...options, pilotId, missionControl });
 }
 
 // A replacement binds the confirmation to the exact run and seed that the

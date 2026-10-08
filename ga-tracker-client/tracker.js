@@ -56,6 +56,7 @@ const {
   pendingCloudMission,
   validateCloudMissionActivation
 } = require('./tracker-mission-cloud.js');
+const { createCloudMissionReconciler } = require('./tracker-cloud-mission-reconcile.js');
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 const { createTrackerVoiceService } = require('./tracker-voice-service.js');
 const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core.js');
@@ -95,8 +96,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v495';
-const TRACKER_VERSION_CODE = 495;
+const TRACKER_VERSION = 'v496';
+const TRACKER_VERSION_CODE = 496;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -118,7 +119,7 @@ const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cloud-load.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1', 'mission.bush-narrative.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
+  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cloud-load.v1', 'mission.cloud-control.v1', 'mission.cargo-batch.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1', 'mission.bush-narrative.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -4987,10 +4988,13 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     });
   }
   let _cloudMissionCandidate = null;
+  let cloudMissionReconciler = null;
+  let _cloudMissionControl = null;
   let _cloudMissionActivationInProgress = false;
   const cloudAuthoritySnapshot = () => ({
     ...missionAuthorityManager.getPublicSnapshot(),
-    pendingCloudMission: pendingCloudMission(_cloudMissionCandidate, missionAuthorityManager.getActiveRun())
+    cloudMissionControl: _cloudMissionControl,
+    pendingCloudMission: _cloudMissionControl ? null : pendingCloudMission(_cloudMissionCandidate, missionAuthorityManager.getActiveRun())
   });
   let _cloudMissionSyncInProgress = false;
   let _cloudMissionLastAttemptAt = 0;
@@ -5008,13 +5012,30 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         debugLog(`MISSION_CLOUD_SYNC_ERROR reason=${reason} code=${result.code || 'unknown'} error=${result.message || 'unknown'}`);
         return _cloudMissionCandidate;
       }
+      if (result.missionControl) {
+        const applied = cloudMissionReconciler.applied();
+        if (applied?.epoch === result.missionControl.epoch && applied.revision > result.missionControl.revision) {
+          _cloudMissionLastStatus = 'control-stale';
+          return _cloudMissionCandidate;
+        }
+        _cloudMissionControl = result.missionControl;
+        const reconciled = await cloudMissionReconciler.reconcile(result);
+        if (!reconciled.ok && reconciled.status !== 'pending') {
+          _cloudMissionLastStatus = 'control-' + reconciled.status;
+          debugLog(`MISSION_CLOUD_CONTROL_WAIT revision=${result.missionControl.revision} status=${reconciled.status} error=${reconciled.error || 'none'}`);
+          return _cloudMissionCandidate;
+        }
+        if (reconciled.ok && reconciled.status !== 'unchanged') broadcastMissionAuthorityUpdate('cloud-mission-reconciled');
+        // A consumed activation must not return as a startable old candidate after abort/completion.
+        if (reconciled.ok) result.candidate = null;
+      }
       if (result.navigation) {
         const adopted = cockpitTools.adoptCloud(result.navigation);
         if (adopted.changed) broadcastNavigation();
         if (!adopted.ok && adopted.error !== 'mission_authority_conflict') debugLog(`FREEFLIGHT_CLOUD_ERROR error=${adopted.error}`);
       }
       const completedRun = missionAuthorityManager.getPublicSnapshot().lastRun;
-      if (result.candidate
+      if (!result.missionControl && result.candidate
           && ['completed', 'aborted', 'ended'].includes(completedRun?.state)
           && completedRun.missionId === result.candidate.missionId
           && Number(completedRun.acquiredAt || completedRun.updatedAt || 0) >= Number(result.candidate.updatedAt || 0)) {
@@ -5048,6 +5069,9 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     if (_cloudMissionReplacementCleanupInProgress) return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };
     _cloudMissionReplacementCleanupInProgress = true;
     try {
+    const oldEffects = missionAuthorityManager.getActiveRun({ includeEffects: true });
+    if (oldEffects?.runId !== previousRun.runId) return { ok: false, status: 'conflict', error: 'mission_run_conflict' };
+    const voiceEffectIds = (oldEffects.effects || []).filter(effect => /^voice\./.test(effect.type || '')).map(effect => effect.effectId || effect.commandId).filter(Boolean);
     let aborted;
       if (previousRun.executionAuthority === 'tracker') {
         aborted = await missionExecutionRuntime.executeIntent({
@@ -5070,23 +5094,24 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
           clientId: previousRun.ownerClientId, commandId: `${request.commandId}:replace-release`,
           reason: request.payload?.reason || 'cloud-mission-replacement' });
       }
+    if (aborted?.ok) for (const id of voiceEffectIds) { try { trackerVoiceService.cancel?.(id, 'cloud-mission-replacement'); } catch (_) {} }
     return aborted;
     } finally { _cloudMissionReplacementCleanupInProgress = false; }
   };
-  const activateCloudMissionInternal = async (request = {}) => {
+  const activateCloudMissionInternal = async (request = {}, options = {}) => {
     if (!TRACKER_APT_EXECUTION_ENABLED || !missionExecutionRuntime.enabled) {
       return { ok: false, status: 'blocked', error: 'mission_execution_authority_not_enabled', sideEffect: false };
     }
-    if (!missionExecutionRuntime.publicState().simulatorAttached) {
+    if (!options.candidate && !missionExecutionRuntime.publicState().simulatorAttached) {
       return { ok: false, status: 'blocked', error: 'mission_simulator_not_connected', sideEffect: false };
     }
     // Re-read the cloud before releasing anything. A stale UI must never load
     // a candidate that has since been replaced or removed from the cloud.
-    await refreshCloudMissionCandidate('activation');
-    if (_cloudMissionLastSuccessAt < _cloudMissionLastAttemptAt || _cloudMissionLastStatus !== 'ready') {
+    if (!options.candidate) await refreshCloudMissionCandidate('activation');
+    if (!options.candidate && (_cloudMissionLastSuccessAt < _cloudMissionLastAttemptAt || _cloudMissionLastStatus !== 'ready')) {
       return { ok: false, status: 'blocked', error: 'sync_unavailable', sideEffect: false };
     }
-    const candidate = _cloudMissionCandidate;
+    const candidate = options.candidate || _cloudMissionCandidate;
     const previousRun = missionAuthorityManager.getActiveRun();
     const validationError = validateCloudMissionActivation(candidate, request, previousRun);
     if (validationError) return { ok: false, status: 'conflict', error: validationError, sideEffect: false };
@@ -5164,7 +5189,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     return { ok: true, status: 'ok', cloudActivated: true, sideEffect: false };
   };
   const activateCloudMission = async request => {
-    if (_cloudMissionActivationInProgress) return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };
+    if (cloudMissionReconciler?.busy() || _cloudMissionActivationInProgress) return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };
     _cloudMissionActivationInProgress = true;
     let result;
     try { result = await activateCloudMissionInternal(request); }
@@ -5173,6 +5198,35 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     if (!result.ok) debugLog(`MISSION_CLOUD_ACTIVATE_REJECTED mission=${request?.missionId || 'none'} error=${result.error || result.status}`);
     return result;
   };
+  cloudMissionReconciler = createCloudMissionReconciler({
+    filename: path.join(TRACKER_DATA_DIR, 'cloud-mission-control-' + TRACKER_CHANNEL + '-' + require('node:crypto').createHash('sha256').update(String(syncId)).digest('hex').slice(0,24) + '.json'),
+    pilotId: String(syncId),
+    getRun: () => missionAuthorityManager.getActiveRun({ includeBundle: true, includeEffects: true }),
+    readLatest: () => fetchTrackerCloudMission(syncId, pin, { poiExecutionEnabled: TRACKER_POI_EXECUTION_ENABLED }),
+    blocked: () => _cloudMissionActivationInProgress || _hardMissionResetInProgress,
+    abort: (run, control) => abortCloudReplacementRun({
+      commandId: `cloud-control:${control.epoch}:${control.revision}:abort:${run.runId}:${run.revision}`,
+      payload: { reason: control.status === 'deleted' ? 'cloud-mission-cleared' : 'cloud-mission-replacement' },
+      controllerSession: { clientId: 'tracker-cloud-control', role: 'cloud-sync', capabilities: ['mission.intent.v1'] }
+    }, run),
+    clear: async control => {
+      const recovery = await missionAuthorityManager.clearMissionRecoveryState({
+        commandId: `cloud-control:${control.epoch}:${control.revision}:clear`, reason: 'cloud-mission-control', clientId: 'tracker-cloud-control'
+      });
+      if (recovery?.ok) { trackerMissionShadow.clear(); updateEfbState({ missionSnapshot: null, payloadSnapshot: null }); }
+      return recovery;
+    },
+    load: (candidate, control) => activateCloudMissionInternal({
+      commandId: `cloud-control:${control.epoch}:${control.revision}:load:${Date.now().toString(36)}`, missionId: candidate.missionId,
+      runId: CLOUD_MISSION_PENDING_RUN_ID, expectedRevision: 0,
+      payload: { cloudUpdatedAt: candidate.updatedAt }, controllerSession: { clientId: 'tracker-cloud-control', role: 'cloud-sync' }
+    }, { candidate }),
+    checkpoint: async () => {
+      const flushed = await missionExecutionRuntime.flush();
+      if (flushed?.ok === false || (missionAuthorityManager.flushPersistence && !await missionAuthorityManager.flushPersistence())) throw Error('mission_checkpoint_failed');
+    },
+    log: debugLog
+  });
   let readCockpitPayload = null;
   const cockpitTools = createCockpitTools({
     filename: path.join(TRACKER_DATA_DIR, 'navigation-route-v1.json'),

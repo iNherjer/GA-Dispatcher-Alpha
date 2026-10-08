@@ -185,6 +185,8 @@ let restoreOptions = null;
 let resumeCheckCalled = false;
 let resetCloudUploadQueued = 0;
 const cloudContext = {
+    // Generation-lock behavior has its own production-function race tests.
+    _syncMissionRestoreBlocked: () => false,
     window: {
         storeActiveMissionStateSafely(state) {
             cloudStorage.api.setItem('ga_active_mission', JSON.stringify(state));
@@ -313,6 +315,8 @@ const uploadStorage = storageHarness({
 });
 let fetchShouldFail = true;
 const uploadContext = {
+    _syncLocalMissionChoice: () => null,
+    _syncSetLocalMissionChoice() {},
     window: {},
     localStorage: uploadStorage.api,
     document: { getElementById: id => id === 'syncToggle' ? { checked: true } : null },
@@ -330,6 +334,7 @@ const uploadContext = {
     setNavComLed() {},
     updateSyncStatus() {},
     flashSyncIndicator() {},
+    _syncMissionRestoreBlocked: () => false,
     _syncHomebasePush: async () => ({ ok: true, skipped: true }),
     _missionLogbookForSync: () => [],
     _syncActiveMissionPayload: () => draftState,

@@ -6781,11 +6781,18 @@ function bootAppOnce() {
     }
 
     const activeMission = localStorage.getItem('ga_active_mission');
-    if (activeMission) {
-        setTimeout(() => {
+    if (activeMission || window.gaMissionDraftActive?.()) {
+        setTimeout(async () => {
             try {
                 if (window.__gaCloudActiveMissionApplyInProgress) return;
                 if (window.__gaCloudActiveMissionAppliedAt && (Date.now() - Number(window.__gaCloudActiveMissionAppliedAt || 0)) < 1500) return;
+                if (window.gaMissionDraftActive?.()) {
+                    const draft = await window.gaMissionDraftRead();
+                    if (draft) { await restoreMissionState(draft, { source: 'local-draft-preview', allowDraft: true }); return; }
+                }
+                if (window.gaCloudOpeningPromise) await window.gaCloudOpeningPromise;
+                if (window.gaMissionDraftActive?.()) return;
+                if (window.__gaCloudActiveMissionAppliedAt && Date.now() - window.__gaCloudActiveMissionAppliedAt < 1500) return;
                 const latestActiveMission = localStorage.getItem('ga_active_mission');
                 if (!latestActiveMission) return;
                 const parsedMission = JSON.parse(latestActiveMission);
@@ -6796,6 +6803,7 @@ function bootAppOnce() {
                     });
                 }
             } catch (err) {
+                if (window.gaMissionDraftActive?.()) { console.warn('[MISSION DRAFT] Entwurf konnte nicht geladen werden; angenommene Mission bleibt erhalten.', err); return; }
                 try { console.warn('[MISSION RESTORE] Gespeicherte aktive Mission ist unlesbar und wurde verworfen.', err); } catch (_) {}
                 if (typeof clearExpiredActiveMissionPersistence === 'function') {
                     clearExpiredActiveMissionPersistence('startup-active-mission-parse-error');
@@ -7513,41 +7521,19 @@ function isAcceptedOrActiveMissionPresent() {
 window.isAcceptedOrActiveMissionPresent = isAcceptedOrActiveMissionPresent;
 
 async function confirmMissionOverwriteIfNeeded() {
-    const trackerExecutionActive = window.gaTrackerExecutionHandlesMission?.() === true
-        || window.missionRuntimeResumeConflict?.trackerActive === true;
-    if (!isAcceptedOrActiveMissionPresent() && !trackerExecutionActive) return true;
-    const confirmed = confirm(trackerExecutionActive
-        ? "Auf dem Tracker läuft bereits eine Mission. Diese Mission auf allen Ansichten abbrechen und eine neue Mission erstellen?"
-        : "Es ist bereits eine Mission aktiv. Neue Mission erstellen und die aktuelle Mission ersetzen?");
-    if (!confirmed) return false;
-    if (trackerExecutionActive) {
-        if (typeof window.gaAbortTrackerMission !== 'function') {
-            try { alert('Die Tracker-Mission kann noch nicht sicher beendet werden. Bitte Tracker-Verbindung prüfen.'); } catch (_) {}
-            return false;
-        }
-        const result = await window.gaAbortTrackerMission({
-            skipConfirm: true,
-            forceLocalCleanup: true,
-            reason: 'new-mission-replacement'
-        });
-        return result?.ok === true;
-    }
-    if (typeof window.missionRuntimeReset === 'function') {
-        const reset = window.missionRuntimeReset({
-            respawnAfterClear: false,
-            authorityOutcome: 'aborted',
-            reason: 'new-mission-replacement'
-        });
-        if (reset === false) return false;
-    }
-    return true;
+    // Legacy follow-up callers confirm preview generation, never a shared replacement.
+    if (window.gaMissionDraftPhase?.() === 'committing' || window.gaMissionDraftPhase?.() === 'preparing') return false;
+    if (!window.gaMissionDraftActive?.()) return true;
+    return confirm('Den aktuellen lokalen Entwurf verwerfen und eine neue Mission als Entwurf generieren? Die angenommene Mission in Cloud und Tracker bleibt bis zur Annahme erhalten.');
 }
+
 window.confirmMissionOverwriteIfNeeded = confirmMissionOverwriteIfNeeded;
 
 function clearDraftMissionPersistence(reason = 'draft') {
+    if (window.gaMissionDraftActive?.()) return;
     try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
-    try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
-    try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+    if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {} }
+    if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_passenger'); } catch (_) {} }
     rememberActiveMissionStateMemoryFallback(null);
     try { console.debug('[MISSION DRAFT] Vorherigen aktiven Missionsstand geloescht:', reason); } catch (_) {}
 }
@@ -8031,7 +8017,7 @@ function resetExpiredActiveMissionToPlanned(state = {}, reason = 'active-mission
     if (typeof window.missionRuntimeReset === 'function') {
         try { window.missionRuntimeReset({ respawnAfterClear: false, reason }); } catch (_) {}
     }
-    try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
+    if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {} }
     try { localStorage.removeItem('ga_pending_mission_debrief_v1'); } catch (_) {}
     try {
         storeActiveMissionStateSafely(plannedState, { refreshActiveMissionTimestamp: true });
@@ -8077,9 +8063,9 @@ function clearExpiredActiveMissionPersistence(reason = 'active-mission-expired',
         try { window.missionRuntimeReset({ respawnAfterClear: false }); } catch (_) {}
     }
     try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
-    try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
-    try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
-    try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
+    if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {} }
+    if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_passenger'); } catch (_) {} }
+    if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {} }
     if (typeof clearMissionDebugSnapshot === 'function') clearMissionDebugSnapshot(reason);
     else {
         window.vpMissionDebugSnapshot = null;
@@ -9233,8 +9219,9 @@ function pruneLocalStorageBeforeActiveMissionRetry(options = {}) {
 }
 
 function storeActiveMissionContractSafely(contract = null) {
+    if (window.gaMissionDraftActive?.()) return false;
     if (!contract || typeof contract !== 'object') {
-        try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
+        if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {} }
         return false;
     }
     const compactContract = slimMissionObjectForActiveState(contract);
@@ -9246,7 +9233,7 @@ function storeActiveMissionContractSafely(contract = null) {
             markActiveMissionStorageQuotaPressure();
             pruneLocalStorageBeforeActiveMissionRetry({ removeContract: true });
         }
-        try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
+        if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {} }
         return false;
     }
 }
@@ -9286,6 +9273,7 @@ window.resolveActiveMissionStorageState = async function(state) {
 };
 
 function storeActiveMissionStateSafely(state = {}, options = {}) {
+    if (window.gaMissionDraftActive?.() && options.acceptedDraftCommit !== true) return window.gaStoreMissionDraft(state);
     // A reduced local copy must be resolved before it can become authoritative again.
     if (state.localStorageFallbackId) throw new Error('Vollstaendigen Missionsstand zuerst wiederherstellen.');
     const stampedState = options.refreshActiveMissionTimestamp === false ? state : stampActiveMissionStateForStorage(state);
@@ -9324,6 +9312,56 @@ function storeActiveMissionStateSafely(state = {}, options = {}) {
     return false;
 }
 window.storeActiveMissionStateSafely = storeActiveMissionStateSafely;
+
+// One local preview session; its own vault never displaces accepted full backups.
+let _localMissionDraftSession = null;
+let _localMissionDraftPilot = null;
+function missionDraftSession() {
+    const pilot = String(typeof getSyncId === 'function' ? getSyncId() || 'local' : 'local').toUpperCase();
+    if (_localMissionDraftSession?.active()) return _localMissionDraftSession;
+    if (!_localMissionDraftSession || _localMissionDraftPilot !== pilot) {
+        _localMissionDraftPilot = pilot;
+        _localMissionDraftSession = window.GAMissionDraftCore.create({
+            storage: localStorage, key: 'ga_local_mission_draft_v1:' + pilot,
+            vault: window.GAMissionStorageCore.createVault(window.indexedDB, { databaseName: 'ga-local-mission-drafts-v1-' + pilot })
+        });
+    }
+    return _localMissionDraftSession;
+}
+window.gaMissionDraftActive = () => missionDraftSession().active();
+window.gaMissionDraftPhase = () => missionDraftSession().status();
+window.gaMissionDraftRead = () => missionDraftSession().read();
+window.gaMissionDraftDiscard = () => missionDraftSession().discard();
+window.gaStoreMissionDraft = state => missionDraftSession().save(state);
+window.gaMissionDraftPilotMatches = () => _localMissionDraftPilot === String(getSyncId() || 'local').toUpperCase();
+window.gaMissionDraftCommit = adapters => missionDraftSession().commit({ ...adapters, isCurrent: window.gaMissionDraftPilotMatches });
+window.gaMissionDraftCommandBlocked = command => {
+    if (!window.gaMissionDraftActive()) return false;
+    const type = String(command?.type || '');
+    if (['mission_snapshot_request'].includes(type)) return false;
+    if (window.gaMissionDraftPhase() === 'committing') {
+        if (command?.intent === 'abort_mission' || ['mission_scene_clear_all', 'mission_scene_clear'].includes(type)) return false;
+    }
+    return /^mission_/.test(type);
+};
+
+window.rejectMissionDraft = async function() {
+    const session = missionDraftSession();
+    if (!session.active() || session.status() === 'committing' || session.status() === 'preparing') return false;
+    _abortDispatchRun('Entwurf nicht angenommen');
+    _dispatchRunId++;
+    const rejectionEpoch = _dispatchRunId;
+    if (!session.discard()) return false;
+    const restored = await window.gaReloadAcceptedMissionAfterDraft?.();
+    if (_dispatchRunId !== rejectionEpoch || window.gaMissionDraftActive?.()) return false;
+    if (!restored) {
+        const state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        if (state) await restoreMissionState(state, { source: 'draft-return-local', allowDraft: true, resumeRuntime: true });
+        else clearAppMissionState({ skipRuntimeReset: true, complianceReleased: true, abortDispatch: false });
+    }
+    updateMissionAcceptanceUi();
+    return true;
+};
 
 function saveMissionState() {
     if (document.getElementById("briefingBox").style.display !== "block") return;
@@ -9414,10 +9452,11 @@ function saveMissionState() {
         window.activeMissionContract = null;
         state.activePassenger = null;
         state.activeMissionContract = null;
-        try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
-        try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
-        try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
+        if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_passenger'); } catch (_) {} }
+        if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {} }
+        if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {} }
     }
+    if (window.gaMissionDraftActive?.()) { window.gaStoreMissionDraft(state); return; }
     storeActiveMissionStateSafely(state);
     if (typeof window.queueActiveMissionCloudSave === 'function') {
         window.queueActiveMissionCloudSave(draftPending ? 'mission-draft-saved' : 'mission-state-saved');
@@ -9535,14 +9574,21 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
 }
 
 async function restoreMissionState(state, options = {}) {
+    const restoreEpoch = window.gaDispatchGeneration?.() || 0;
+    const external = /cloud|tracker/.test(String(options.source || ''));
+    const blocked = () => window.gaIsDispatchBusy?.() === true
+        || restoreEpoch !== (window.gaDispatchGeneration?.() || 0)
+        || (external && window.gaMissionExternalRestoreBlocked?.(null, state, String(options.source || '')) === true);
+    if (blocked()) return false;
     if (state?.localStorageFallbackId) state = await window.resolveActiveMissionStorageState(state);
+    if (blocked()) return false;
     const allowDraft = !!options.allowDraft;
     let resumeRuntime = options.resumeRuntime === true;
     const authorityConfirmed = options.authorityConfirmed === true;
     const restoreSource = String(options.source || '').toLowerCase();
     let staleRuntimeResetToPlanned = options.runtimeResetToPlanned === true;
     let staleRuntimeExpiryInfo = options.runtimeResetExpiryInfo || null;
-    if (!resumeRuntime && options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
+    if (!options.presentationOnly && !resumeRuntime && options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
         try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
         return false;
     }
@@ -9557,7 +9603,7 @@ async function restoreMissionState(state, options = {}) {
         if (indicator) indicator.innerText = 'Entwurf verworfen: Mission muss zuerst akzeptiert werden.';
         return false;
     }
-    if (resumeRuntime || restoreSource === 'cloud') {
+    if (!options.presentationOnly && (resumeRuntime || restoreSource === 'cloud')) {
         const expiryInfo = activeMissionRestoreExpiryInfo(state);
         if (expiryInfo.expired && !authorityConfirmed) {
             const plannedState = resetExpiredActiveMissionToPlanned(state, `restore-${restoreSource || 'startup'}-expired`, {
@@ -9574,7 +9620,7 @@ async function restoreMissionState(state, options = {}) {
     } else {
         clearActiveMissionRuntimeMarkersFromState(state);
     }
-    if (!resumeRuntime && !staleRuntimeResetToPlanned && typeof window.missionRuntimeReset === 'function') {
+    if (!options.presentationOnly && !resumeRuntime && !staleRuntimeResetToPlanned && typeof window.missionRuntimeReset === 'function') {
         window.missionRuntimeReset({ respawnAfterClear: false });
     }
     if (!resumeRuntime) {
@@ -9675,7 +9721,7 @@ async function restoreMissionState(state, options = {}) {
         }
         if (!restoredPassenger) {
             try {
-                const lsPassenger = JSON.parse(localStorage.getItem('ga_active_passenger') || 'null');
+                const lsPassenger = window.gaMissionDraftActive?.() ? null : JSON.parse(localStorage.getItem('ga_active_passenger') || 'null');
                 if (
                     lsPassenger
                     && typeof lsPassenger === 'object'
@@ -9706,7 +9752,7 @@ async function restoreMissionState(state, options = {}) {
     }
     if (!restoredFreeflightOnly && !restoredMissionContract) {
         try {
-            const lsContract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null');
+            const lsContract = window.gaMissionDraftActive?.() ? null : JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null');
             if (
                 lsContract
                 && typeof lsContract === 'object'
@@ -9724,9 +9770,9 @@ async function restoreMissionState(state, options = {}) {
         delete currentMissionData.passenger;
         state.activePassenger = null;
         state.activeMissionContract = null;
-        try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
-        try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
-        try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
+        if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_passenger'); } catch (_) {} }
+        if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {} }
+        if (!window.gaMissionDraftActive?.()) { try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {} }
     }
     const restoredV3 = restoredFreeflightOnly
         ? { missionData: currentMissionData, missionContract: null }
@@ -9748,7 +9794,8 @@ async function restoreMissionState(state, options = {}) {
         attachMissionSurveyPattern(currentMissionData, window.activeMissionContract, window.activePassenger);
     }
     try {
-        if (window.activePassenger) localStorage.setItem('ga_active_passenger', JSON.stringify(window.activePassenger));
+        if (window.gaMissionDraftActive?.()) { /* Preview passenger belongs to the draft slot. */ }
+        else if (window.activePassenger) localStorage.setItem('ga_active_passenger', JSON.stringify(window.activePassenger));
         else localStorage.removeItem('ga_active_passenger');
     } catch (_) {}
     storeActiveMissionContractSafely(window.activeMissionContract || null);
@@ -9897,6 +9944,8 @@ async function restoreMissionState(state, options = {}) {
         });
     }
 
+    if (options.presentationOnly) window.gaResetMissionPresentation?.();
+
 }
 
 function clearAppMissionState(options = {}) {
@@ -9933,6 +9982,7 @@ function clearAppMissionState(options = {}) {
         if (resetOk === false) return false;
     }
     if (typeof map !== 'undefined') window.MissionFireSearchMap?.render(map, window.L, null);
+    window.gaReleaseGeneratedMission?.();
     localStorage.removeItem('ga_active_mission');
     localStorage.removeItem('ga_active_mission_contract');
     localStorage.removeItem('ga_active_passenger');
@@ -9994,17 +10044,12 @@ function clearAppMissionState(options = {}) {
 window.clearAppMissionState = clearAppMissionState;
 
 async function resetApp() {
-    if (window.gaTrackerExecutionHandlesMission?.()) {
-        if (!confirm("Tracker-Mission wirklich abbrechen und das aktuelle Briefing verwerfen?\n\nDie Mission wird auf allen verbundenen Ansichten beendet.")) return false;
-        const result = await window.gaAbortTrackerMission?.({
-            skipConfirm: true,
-            forceLocalCleanup: true,
-            reason: 'reset-app'
-        });
-        return result?.ok === true;
-    }
-    if (!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return false;
-    return clearAppMissionState({ reason: 'reset-app' });
+    if (!confirm('Aktuelle Mission wirklich löschen?\n\nDer Tracker-Lauf und seine Szenen werden beendet, der Cloud-Missionsslot und ein lokaler Entwurf werden geleert. Andere Profildaten bleiben erhalten.')) return false;
+    _abortDispatchRun('Mission löschen');
+    _dispatchRunId++;
+    const result = await window.gaClearSharedMission?.();
+    if (!result?.ok) { alert('Mission konnte nicht vollständig gelöscht werden: ' + (result?.error || 'Keine Bestätigung.')); return false; }
+    return true;
 }
 /* =========================================================
    4. HELPER-FUNKTIONEN (UI & Mathe)
@@ -10372,6 +10417,8 @@ const MISSION_PIPELINE_V3_STORAGE_KEY = 'ga_debug_mission_pipeline_v3_tools';
 const MISSION_PIPELINE_V4_STORAGE_KEY = 'ga_debug_mission_pipeline_v4_contract_writer';
 const MISSION_PIPELINE_MODE_STORAGE_KEY = 'ga_mission_pipeline_mode';
 const MISSION_WRITER_MODE_STORAGE_KEY = 'ga_mission_writer_mode';
+
+window.gaDispatchGeneration = () => _dispatchRunId;
 
 function _startDispatchRun() {
     _dispatchRunId += 1;
@@ -26970,18 +27017,27 @@ function updateMissionAcceptanceUi() {
     if (!panel) return;
     const btn = document.getElementById('missionAcceptBtn');
     const text = document.getElementById('missionAcceptText');
+    const notice = document.getElementById('missionDraftCloudNotice');
+    if (notice) {
+        notice.textContent = window.gaMissionDraftCloudNotice || '';
+        notice.hidden = !window.gaMissionDraftActive?.() || !window.gaMissionDraftCloudNotice;
+    }
     const md = currentMissionData || null;
-    if (md && typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(md)) {
+    if (!window.gaMissionDraftActive?.() && md && typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(md)) {
         panel.style.display = 'none';
         return;
     }
-    if (md && typeof window.missionAcceptTrainingNoSceneDraft === 'function' && window.missionAcceptTrainingNoSceneDraft(md, 'accept-ui')) {
+    if (!window.gaMissionDraftActive?.() && md && typeof window.missionAcceptTrainingNoSceneDraft === 'function' && window.missionAcceptTrainingNoSceneDraft(md, 'accept-ui')) {
         panel.style.display = 'none';
         return;
     }
-    const needsAccept = !!(md && md.sceneAccepted === false);
+    const needsAccept = !!(md && (window.gaMissionDraftActive?.() || md.sceneAccepted === false));
     panel.style.display = needsAccept ? 'flex' : 'none';
     if (!needsAccept) return;
+    const draftPhase = window.gaMissionDraftPhase?.();
+    const locked = ['preparing','committing'].includes(draftPhase) || window.gaIsDispatchBusy?.();
+    const reject = document.getElementById('missionRejectBtn');
+    if (reject) reject.disabled = !!locked;
     let composing = md.sceneCompositionStatus === 'composing';
     const composingStartedAt = Number(md.sceneCompositionStartedAt || 0);
     const compositionLimitMs = window.MissionReporterSceneCore?.enabled(md, md?.missionContract) ? 300000 : 60000;
@@ -26991,8 +27047,8 @@ function updateMissionAcceptanceUi() {
         composing = false;
     }
     if (btn) {
-        btn.disabled = composing;
-        btn.textContent = composing ? 'Szene wird gebaut...' : 'Mission akzeptieren';
+        btn.disabled = composing || locked || draftPhase === 'generating';
+        btn.textContent = draftPhase === 'committing' ? 'Mission wird übernommen...' : composing ? 'Szene wird vorbereitet...' : 'Mission akzeptieren';
     }
     if (text) {
         const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
@@ -27000,7 +27056,9 @@ function updateMissionAcceptanceUi() {
             isPOI,
             taskDomain: md.missionContract?.taskDomain || window.activePassenger?.taskDomain || ''
         });
-        text.textContent = composing
+        text.textContent = window.gaMissionDraftActive?.()
+            ? (draftPhase === 'committing' ? 'Bisheriger Auftrag wird bereinigt und die neue Mission veröffentlicht.' : 'Lokaler Entwurf: Cloud und Tracker behalten den bisherigen Auftrag. Erst beim Akzeptieren wird er ersetzt.')
+            : composing
             ? (isPOI ? 'Scene Planner V3 lokalisiert die Zielszene fuer den Tracker.' : 'Scene Planner V3 lokalisiert die Abhol-/Uebergabeszene.')
             : (intent.summary || 'Mission als Entwurf. Beim Akzeptieren wird die Szene vorbereitet.');
     }
@@ -27061,7 +27119,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         window.activeMissionContract = currentMissionData.missionContract;
     }
     storeActiveMissionContractSafely(window.activeMissionContract || currentMissionData.missionContract || null);
-    try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch (_) {}
+    if (!window.gaMissionDraftActive?.()) { try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch (_) {} }
     const debugInfo = {
         sceneAccepted: true,
         sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
@@ -27123,7 +27181,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
     return true;
 }
 
-window.acceptMissionDraft = async function() {
+async function prepareMissionDraftScene() {
     if (!currentMissionData || currentMissionData.sceneAccepted !== false) {
         updateMissionAcceptanceUi();
         return true;
@@ -27201,6 +27259,35 @@ window.acceptMissionDraft = async function() {
         applyMissionTargetSceneComposition(fallback, 'mission-accepted-error-fallback');
         if (indicator) indicator.innerText = 'Mission akzeptiert. Scene Planner V3 Fehler, Fallback genutzt.';
         return true;
+    }
+}
+
+window.acceptMissionDraft = async function() {
+    const session = missionDraftSession();
+    if (!session.active()) return prepareMissionDraftScene(); // Existing accepted/legacy scene behavior.
+    if (window.gaIsDispatchBusy?.() || ['generating','preparing','committing'].includes(session.status())) return false;
+    if (!confirm('Mission akzeptieren und den bisherigen Auftrag ersetzen?\n\nDer bisherige Tracker-Lauf und seine Szenen werden beendet. Die neue Mission wird anschließend in der Cloud für andere Geräte bereitgestellt. „Mission beginnen“ bleibt ein eigener Schritt.')) return false;
+    session.phase('preparing'); updateMissionAcceptanceUi();
+    try {
+        if (!await prepareMissionDraftScene()) return false;
+        saveMissionState();
+        const result = await window.gaPublishAcceptedDraft();
+        if (!result?.ok) {
+            const indicator = document.getElementById('searchIndicator');
+            if (indicator) indicator.innerText = 'Entwurf bleibt lokal: ' + (result?.error || 'Übernahme nicht bestätigt.');
+            return false;
+        }
+        if (currentMissionData?.followUpRequestId) window.missionFollowupMarkAccepted?.(currentMissionData.followUpRequestId, currentMissionData);
+        const indicator = document.getElementById('searchIndicator');
+        if (indicator) indicator.innerText = result.result?.localOnly ? 'Mission lokal angenommen. Cloud-Sync ist nicht eingerichtet.' : 'Mission angenommen und in der Cloud bereitgestellt. Zum Start „Mission beginnen“ wählen.';
+        return true;
+    } catch (error) {
+        const indicator = document.getElementById('searchIndicator');
+        if (indicator) indicator.innerText = 'Entwurf bleibt lokal: ' + (error?.message || error);
+        return false;
+    } finally {
+        if (session.active() && session.status() !== 'committing') session.phase('review');
+        updateMissionAcceptanceUi(); window.refreshMissionRuntimeUi?.();
     }
 };
 
@@ -43190,12 +43277,7 @@ async function generateMission(options = {}) {
         slotId: selectedAC,
         totalSeats: document.getElementById('maxSeats')?.value
     });
-    if (!dispatchOptions.skipOverwriteConfirm && !await confirmMissionOverwriteIfNeeded()) {
-        const indicator = document.getElementById('searchIndicator');
-        if (indicator) indicator.innerText = 'Aktive Mission bleibt bestehen.';
-        setMissionGenerationProgress({ visible: false, force: true });
-        return false;
-    }
+    if (missionDraftSession().status() === 'committing' || missionDraftSession().status() === 'preparing') return false;
     let preflightAircraftAutoResolution = null;
     if (!missionProposalChoice && !followupSeed) {
         const preflightPicker = parseMissionPickerValue(requestedPickerValueAtStart);
@@ -43263,6 +43345,9 @@ async function generateMission(options = {}) {
             saveAiToggle();
         }
     }
+    if (saveMissionTimeout) { clearTimeout(saveMissionTimeout); saveMissionTimeout = null; }
+    window.gaMissionDraftCloudNotice = '';
+    missionDraftSession().begin({ previousMissionId: currentMissionData?.missionId || null });
     const dispatchRunId = _startDispatchRun();
     setMissionGenerationProgress({ phase: 'start', progress: 2, force: true });
     let _dispatchDeferredFinalize = false;
@@ -46219,7 +46304,7 @@ async function generateMission(options = {}) {
     if (missionNeedsAccept) {
         clearDraftMissionPersistence('draft-contract-not-persisted');
     } else {
-        try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
+        if (!window.gaMissionDraftActive?.()) { try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {} }
         storeActiveMissionContractSafely(activeMissionContract);
     }
     try {
@@ -46562,14 +46647,6 @@ async function generateMission(options = {}) {
         else document.getElementById('mkI').classList.add('on');
 
         window.debouncedSaveMissionState();
-        if (followupSeed && typeof window.missionFollowupMarkAccepted === 'function') {
-            setTimeout(() => {
-                if (!_dispatchUiCommitAllowed(dispatchUiOptions)) return;
-                try { window.missionFollowupMarkAccepted(followupSeed.id, currentMissionData); } catch (err) {
-                    console.warn('[FollowUp] Accept-Markierung fehlgeschlagen:', err?.message || err);
-                }
-            }, 900);
-        }
         if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
         refreshGPSAfterDispatch();
         // Position im Profil auf Start zurücksetzen
@@ -46577,6 +46654,7 @@ async function generateMission(options = {}) {
         if (_isDispatchRunAlive(dispatchRunId)) {
             _dispatchState.active = false;
             _emitDispatchStateChange('complete');
+            updateMissionAcceptanceUi(); window.refreshMissionRuntimeUi?.();
         }
     }, 800);
     return true;
@@ -46614,6 +46692,7 @@ async function generateMission(options = {}) {
             const wasActive = !!(_dispatchState.active && !_dispatchState.cancelled);
             _dispatchState.active = false;
             if (wasActive) _emitDispatchStateChange('finish');
+            updateMissionAcceptanceUi(); window.refreshMissionRuntimeUi?.();
         }
     }
 }

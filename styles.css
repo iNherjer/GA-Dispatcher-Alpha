@@ -21033,3 +21033,62 @@ body.theme-win95 #mapTableOverlay .leaflet-control-layers-expanded {
 .dispatch-api-key-dialog .dispatch-api-key-option[hidden] { display: none; }
 .dispatch-api-key-close { position: absolute; right: 12px; top: 10px; width: 36px; height: 36px; padding: 0; border: 0; background: transparent; color: #eef2f7; font-size: 28px; cursor: pointer; }
 .dispatch-api-key-dialog h2 { padding-right: 28px; }
+
+/* A preview has two explicit decisions, also on narrow displays. */
+.mission-accept-panel { flex-wrap: wrap; }
+.mission-accept-panel .mission-accept-body { flex: 1 1 100%; }
+.mission-reject-btn { background: transparent; color: inherit; }
+
+#missionDraftCloudNotice { color: inherit; font-weight: 600; margin-bottom: 6px; }
+
+/* Draft decisions follow the selected instrument/paper theme. */
+.mission-accept-panel {
+    --draft-action-bg: #20745b;
+    --draft-action-hover: #27886c;
+    --draft-action-fg: #f4fffb;
+    --draft-action-border: #196752;
+    --draft-secondary-bg: #f0f3f5;
+    --draft-secondary-hover: #e0e7ec;
+    --draft-secondary-fg: #26343e;
+}
+.mission-accept-btn {
+    font-family: inherit;
+    min-height: 44px;
+    background: var(--draft-action-bg);
+    color: var(--draft-action-fg);
+    border-color: var(--draft-action-border);
+}
+.mission-accept-btn:hover:not(:disabled) { background: var(--draft-action-hover); }
+.mission-accept-btn:focus-visible { outline: 2px solid var(--draft-action-border); outline-offset: 3px; }
+.mission-reject-btn {
+    background: var(--draft-secondary-bg);
+    color: var(--draft-secondary-fg);
+}
+.mission-reject-btn:hover:not(:disabled) { background: var(--draft-secondary-hover); }
+body.theme-retro .mission-accept-panel {
+    --draft-action-bg: #f2c12e; --draft-action-hover: #ffda62; --draft-action-fg: #201a0b;
+    --draft-action-border: #816512; --draft-secondary-bg: #e7ddc5;
+    --draft-secondary-hover: #f4ecd9; --draft-secondary-fg: #302b22;
+    background: rgba(129,101,18,.08); border-color: #b6a682;
+}
+body.theme-retro .mission-accept-btn { border-radius: 3px; box-shadow: 1px 2px 0 rgba(48,43,34,.25); }
+body.theme-retro .mission-accept-kicker, body.theme-retro .mission-accept-text { color: #403629; }
+body.theme-navcom .mission-accept-panel {
+    --draft-action-bg: #183c24; --draft-action-hover: #245432; --draft-action-fg: #aaffb8;
+    --draft-action-border: #4da465; --draft-secondary-bg: #202b23;
+    --draft-secondary-hover: #303e34; --draft-secondary-fg: #c1d6c6;
+    background: #111b15; border-color: #3b5945;
+}
+body.theme-navcom .mission-accept-btn { font-family: monospace; border-radius: 3px; }
+body.theme-navcom .mission-accept-kicker, body.theme-navcom .mission-accept-text { color: #aaffb8; }
+body.theme-ops1940 .mission-accept-panel {
+    --draft-action-bg: #5b4826; --draft-action-hover: #756037; --draft-action-fg: #ffe6a5;
+    --draft-action-border: #a68b50; --draft-secondary-bg: #2c2820;
+    --draft-secondary-hover: #40382a; --draft-secondary-fg: #ead8ab;
+    background: #1c1a16; border-color: #766443;
+}
+body.theme-ops1940 .mission-accept-btn { font-family: 'MS33558', 'Courier New', monospace; border-radius: 2px; box-shadow: inset 0 1px 0 rgba(255,234,169,.15); }
+body.theme-ops1940 .mission-accept-kicker, body.theme-ops1940 .mission-accept-text { color: #ead8ab; }
+body.theme-win95 .mission-accept-panel { background: #c0c0c0; border: 1px solid #808080; border-radius: 0; }
+body.theme-win95 .mission-accept-kicker, body.theme-win95 .mission-accept-text { color: #000; }
+body.theme-win95 .mission-accept-btn:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }

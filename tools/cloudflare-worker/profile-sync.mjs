@@ -1,4 +1,6 @@
 import '../../cloud-sync-core.js';
+import '../../mission-cloud-control-core.js';
+const missionControlCore = globalThis.GAMissionCloudControlCore;
 const core = globalThis.GACloudSyncCore;
 const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
 const reply = (data, status = 200) => new Response(JSON.stringify(data), { status, headers });
@@ -50,14 +52,14 @@ export class ProfileSync {
                         // before returning this head, preserving their delayed-read path.
                         await this.storeParts([{ id: metadata.chunks[0], data: metadata.inline }]);
                     }
-                    return reply({ ...head, capabilities: { inlineMetadata: true, batchChunks: true } });
+                    return reply({ ...head, capabilities: { inlineMetadata: true, batchChunks: true, missionControl: true } });
                 });
             }
             if (request.method === 'GET' && action === 'profile') {
                 const head = await this.storage.get('head');
                 if (!head) return reply({ error: 'not_migrated' }, 404);
                 const profile = await core.unpack(head.manifest, async id => (await this.storage.get('c:' + id))?.data, url.searchParams.get('mission') === '1' ? ['mission', 'field:lastModified'] : null);
-                return reply({ ...profile, _syncRevision: head.revision });
+                return reply({ ...profile, _syncRevision: head.revision, _missionControl: head.missionControl || null });
             }
             if (request.method === 'GET' && core.hashPattern.test(action)) {
                 const chunk = await this.storage.get('c:' + action);
@@ -82,14 +84,20 @@ export class ProfileSync {
             if (action === 'commit') {
                 core.validate(body.manifest);
                 if (!Number.isSafeInteger(body.baseRevision) || body.baseRevision < 0) return reply({ error: 'revision_invalid' }, 400);
-                const fingerprint = await core.hash(new TextEncoder().encode(core.stringify(body.manifest)));
+                const fingerprint = await core.hash(new TextEncoder().encode(core.stringify({ manifest: body.manifest, missionChange: body.missionChange || null })));
                 return await this.ctx.blockConcurrencyWhile(async () => {
                     const previous = await this.storage.get('head');
                     if (previous?.fingerprint === fingerprint) return reply(previous); // Lost reply: idempotent retry.
                     if ((previous?.revision || 0) !== body.baseRevision) return reply({ error: 'revision_conflict', revision: previous?.revision || 0 }, 409);
                     // Validate complete, bounded decoded data before changing the visible head.
-                    await core.unpack(body.manifest, async id => (await this.storage.get('c:' + id))?.data);
-                    const head = { revision: (previous?.revision || 0) + 1, manifest: body.manifest, fingerprint, committedAt: Date.now() };
+                    const profile = await core.unpack(body.manifest, async id => (await this.storage.get('c:' + id))?.data);
+                    let missionControl;
+                    try {
+                        missionControl = missionControlCore.transition(previous?.missionControl || null, body.missionChange || null, profile, body.manifest.sections.mission.hash, Date.now(), globalThis.crypto.randomUUID());
+                    } catch (error) {
+                        return reply({ error: error.message, revision: previous?.revision || 0 }, /required|conflict/.test(error.message) ? 409 : 400);
+                    }
+                    const head = { revision: (previous?.revision || 0) + 1, manifest: body.manifest, fingerprint, ...(missionControl ? { missionControl } : {}), committedAt: Date.now() };
                     await this.storage.put({ head, previous: previous || null });
                     return reply(head);
                 });

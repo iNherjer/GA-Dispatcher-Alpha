@@ -256,3 +256,12 @@ volle lokale Speicherung trotzdem scheitert, bleiben die Originaldaten im
 RAM und in einer separaten IndexedDB-Sicherung; Cloud-Sync verwendet den
 vollen Stand. Markierte reduzierte Kopien werden ohne Sicherung nicht
 hochgeladen. Details und Grenzen: `Local Mission Storage.md`.
+
+
+## 08.10.2026 – Gemeinsamer Missionsslot mit Serverrevision (Tracker v496, noch nicht ausgerollt)
+
+Annehmen und bestätigtes Löschen veröffentlichen einen ausdrücklichen `missionChange` (`activate`/`clear`, erwartete Missionsrevision, Operation-ID). Der Worker vergibt atomar mit dem Profil-Commit `missionControl` im Head: Schema `ga.cloud-mission-control.v1`, Server-Epoch, unabhängige Missionsrevision, Missions-ID oder Löschstatus, Hash der Missionskomponente und Serverzeit. Profil-/Fortschrittsänderungen erhöhen diese Missionsrevision nicht. Ein Client ohne ausdrücklichen Missionswechsel darf den kontrollierten Slot auch mit `force` nicht durch eine andere Mission oder einen alten leeren Stand ersetzen.
+
+Der Tracker prüft den bestehenden Cloud-Poll, verifiziert Kontrollvermerk und Seed und ersetzt den älteren Run über den vorhandenen Abbruch-/Sim-Bereinigungspfad. Nach Bereinigung liest er nochmals den Head; ein inzwischen ersetzter Auftrag wird nicht geladen. Der neue Seed wird als `planned` mit Tracker Authority übernommen, ohne `prepare_mission`, Boarding oder Voice. Löschung erfordert explizit `activeMission=null` und `activeMissionTrackerSeed=null`; Netzwerkfehler, HTTP 404, fehlender Kontrollvermerk und ungültige Seeds sind keine Löschung. Benötigte Sim-Bereinigung bleibt bei fehlender Verbindung ausstehend. Die angewandte Revision wird pro Pilot/Kanal erst nach erfolgreichem Authority-Checkpoint gespeichert, damit abgebrochene/beendete Aufträge nach Neustart nicht erneut laden. Legacy-Profile behalten den manuellen Ladeweg. Nicht unterstützte oder fehlende Tracker-Seeds werden abgewiesen, ohne den alten Run abzubrechen.
+
+App-Entwürfe bleiben lokal isoliert. Beim Öffnen ersetzt der aktuelle Cloud-Slot eine angenommene alte App-Mission; während eines Entwurfs erscheint nur ein Hinweis. Vor destruktiver Annahme-/Löschbereinigung muss der Worker `capabilities.missionControl=true` liefern. Rollout: zuerst Worker, dann Web-App und Tracker-EXE v496. Kein neues SDK-Paket erforderlich. Kontrollmetadata verwendet denselben Head-Abruf; nur bei Missionswechseln werden zusätzliche frische Kontrolllesungen vor/nach Bereinigung benötigt.

@@ -264,3 +264,65 @@ test('Tracker followup outbox survives network/ACK failure, CAS conflict and ret
  assert.equal(f.calls.filter(url=>url.endsWith('/commit')).length,commits,'ACK retry makes no duplicate write');
  const calls=f.calls.length;await cloud.flush();assert.equal(f.calls.length,calls,'idle has no cloud requests');
 });
+
+
+test('mission-only sharing preserves cloud fields and refuses a concurrently changed revision', async () => {
+ const f=fixture(), writer=f.client(), sharing=f.client();
+ await writer.write({activeMission:{missionId:'old'},logbook:['cloud-log'],groupName:'original',lastModified:1});
+ const read=await sharing.read();
+ await writer.write({...read.profile,groupName:'changed elsewhere',lastModified:2});
+ await assert.rejects(sharing.write({...read.profile,activeMission:{missionId:'local'},lastModified:3},{expectedRevision:read.revision}),/Cloud-Konflikt/);
+ const latest=await sharing.read();
+ await sharing.write({...latest.profile,activeMission:{missionId:'local'},lastModified:4},{expectedRevision:latest.revision});
+ const final=await writer.read();assert.equal(final.profile.activeMission.missionId,'local');assert.deepEqual(final.profile.logbook,['cloud-log']);assert.equal(final.profile.groupName,'changed elsewhere');
+});
+
+test('explicit activation and clear get independent server mission revisions; profile edits preserve them', async()=> {
+ const f=fixture(), c=f.client(), p=profile();
+ const activated=await c.write(p,{missionChange:{action:'activate',expectedMissionRevision:0,operationId:'accept:poi'}});
+ assert.equal(activated.missionControl.revision,1);assert.equal(activated.missionControl.status,'active');assert.equal(activated.missionControl.missionId,'poi');
+ const first=(await c.read()).missionControl;
+ await c.write({...p,groupName:'settings-only',lastModified:999});
+ assert.deepEqual((await c.read()).missionControl,first);
+ await c.write({...p,activeMission:null,activeMissionTrackerSeed:null,lastModified:1000},{missionChange:{action:'clear',expectedMissionRevision:1,operationId:'clear:2'}});
+ const empty=await c.read();assert.equal(empty.missionControl.revision,2);assert.equal(empty.missionControl.status,'deleted');assert.equal(empty.profile.activeMission,null);assert.equal(empty.profile.activeMissionTrackerSeed,null);assert.equal(empty.missionControl.epoch,first.epoch);
+});
+test('old clients cannot resurrect or clear a controlled mission even with a fresh profile revision/force',async()=> {
+ const f=fixture(), c=f.client(), old=f.client();await c.write(profile(),{missionChange:{action:'activate',operationId:'accepted-poi'}});
+ await assert.rejects(old.write({...profile(),activeMission:{missionId:'other'},activeMissionTrackerSeed:{missionId:'other'}},{force:true}),/Cloud-Konflikt/);
+ await assert.rejects(old.write({...profile(),activeMission:null,activeMissionTrackerSeed:null},{force:true}),/Cloud-Konflikt/);
+ await c.write({...profile(),activeMission:null,activeMissionTrackerSeed:null},{missionChange:{action:'clear',operationId:'deleted-poi'}});
+ await assert.rejects(old.write(profile(),{force:true}),/Cloud-Konflikt/);
+ assert.equal((await c.read()).missionControl.status,'deleted');
+});
+test('stale explicit mission revision and malformed clear keep the previously accepted head',async()=> {
+ const f=fixture(), c=f.client();await c.write(profile(),{missionChange:{action:'activate',operationId:'accept-1'}});
+ await assert.rejects(c.write({...profile(),groupName:'x'},{missionChange:{action:'clear',expectedMissionRevision:0,operationId:'old-clear'}}),/Cloud-Konflikt/);
+ await assert.rejects(c.write({...profile(),activeMission:null},{missionChange:{action:'clear',expectedMissionRevision:1,operationId:'mixed-clear'}}),/mission_change_invalid/);
+ assert.equal((await c.read()).missionControl.revision,1);assert.equal((await c.read()).profile.activeMission.missionId,'poi');
+});
+test('lost controlled commit response retries idempotently without another mission revision',async()=> {
+ const f=fixture();let lose=true, revision=null;
+ const c=create({baseUrl:'https://test/',pilotId:'T',pin:'p',getRevision:()=>revision,setRevision:v=>revision=v,request:async(url,init)=> {
+  const res=await f.request(url,init);if(url.endsWith('/commit')&&lose){lose=false;throw Error('lost-reply');}return res;
+ }});
+ const options={missionChange:{action:'activate',expectedMissionRevision:0,operationId:'same-acceptance'}};
+ await assert.rejects(c.write(profile(),options),/lost-reply/);
+ const retry=await c.write(profile(),options);assert.equal(retry.missionControl.revision,1);assert.equal(retry.revision,1);
+});
+test('controlled metadata travels on the existing cached head, without a new component request',async()=> {
+ const f=fixture(), c=f.client();await c.write(profile(),{missionChange:{action:'activate',operationId:'accept-cached'}});
+ const reader=f.client();const first=await reader.read(['mission']);const count=f.calls.length;
+ const again=await reader.read(['mission']);assert.equal(f.calls.length-count,1);assert.deepEqual(again.missionControl,first.missionControl);assert.equal(again.profile.logbook,undefined);
+});
+test('ordinary same-mission progress changes its package hash while keeping the mission revision',async()=> {
+ const f=fixture(), c=f.client();await c.write(profile(),{missionChange:{action:'activate',operationId:'accepted-progress'}});
+ const a=await c.read();const p={...a.profile,activeMission:{...a.profile.activeMission,progress:{step:2}}};await c.write(p);
+ const b=await c.read();assert.equal(b.missionControl.revision,1);assert.notEqual(b.missionControl.missionHash,a.missionControl.missionHash);
+ assert.equal(b.missionControl.updatedAt,a.missionControl.updatedAt);
+});
+test('partial or tampered mission control fails before a Tracker could interpret empty Cloud as a deletion',async()=> {
+ const f=fixture(), c=f.client();await c.write(profile(),{missionChange:{action:'activate',operationId:'accepted-integrity'}});
+ const head=f.records.get('head');head.missionControl.missionHash='a'.repeat(64);f.records.set('head',head);
+ await assert.rejects(f.client().read(['mission']),/cloud_mission_control_invalid/);
+});

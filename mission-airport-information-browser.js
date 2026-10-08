@@ -16,7 +16,7 @@
  function enabled({missionType,aiModeEnabled,isPOI,profileId,target,role='destination'}={}){
   const core=root.MissionAirportInformationCore,loc=core?.location(target);
   return missionType==='bush'&&!!aiModeEnabled&&(role==='departure'||(!isPOI&&profileId!=='bush_recon_return'))
-   &&loc?.lat!==null&&loc?.lon!==null&&!!core?.identifiers(target).length;
+   &&loc?.lat!==null&&loc?.lon!==null&&(!!core?.identifiers(target).length||!!String(target?.n||target?.name||'').trim());
  }
  async function load(target,options={}){
   const core=root.MissionAirportInformationCore,loc=core.location(target);if(loc.lat===null||loc.lon===null)return null;

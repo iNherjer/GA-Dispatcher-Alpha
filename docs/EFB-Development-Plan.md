@@ -1,5 +1,18 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Lokaler Missionsentwurf vor Cloud-/Tracker-Ersatz (08.10.2026, vorbereitet)
+
+Die App trennt Vorschau und angenommenen Auftrag. Generieren verändert den EFB-/
+Toolbar-Auftrag nicht; Hintergrund-Snapshots und externe Restores sind während
+der Vorschau gesperrt. Akzeptieren liest Cloud + frischen Relay-Snapshot,
+beendet einen alten Lauf mit bestehendem Abort-ACK und veröffentlicht Mission
+und geplanten Tracker-Seed revisionsgesichert. „Mission beginnen“ bleibt separat.
+Ablehnen lädt den angenommenen Stand zurück. Clear nutzt denselben bestätigten
+Ablauf. Kein neues Tracker-/EFB-Protokoll und kein SDK-Paket für diese Änderung.
+Die frühere Konflikt-Auswahl lokal/geteilt wird durch diese explizite Annahme ersetzt.
+Code-/Browserprüfungen ersetzen keine Mehrgeräte-/MSFS-Abnahme nach Auslieferung.
+
+
 ## Umgebungsdiagnose: Logger-Scope korrigiert, Alpha v495, 08.10.2026
 
 v493/v494 initialisierten die Umgebungsdiagnose außerhalb des Hauptprozess-Blocks,
@@ -6626,3 +6639,22 @@ Windows EXE verified: 173663617 bytes, SHA-256
 374c70631b36ac8d6a0bc4d0a48e0df5676b01979b1b82647de598184c7d4fcf.
 Alpha activation follows download verification; cache v1967. Stable and
 Community package channels unchanged.
+
+### Öffnungsabgleich der App (2026-10-08, noch nicht veröffentlicht)
+
+- Bei aktiviertem Auto-Sync liest die App beim Öffnen, Anmelden und Wiederanzeigen zuerst das vollständige Cloud-Profil. Vorgemerkte lokale Uploads werden nicht vorher gesendet. Die angenommene lokale Mission wird auch bei bereits bekannter Revision durch den aktuellen Cloud-Missionsslot ersetzt; ein leerer Slot entfernt die lokale Mission.
+- Ein lokaler Entwurf wird weder ersetzt noch hochgeladen. Die App vergleicht nur die Cloud-Missionsidentität mit der zuvor angenommenen lokalen Mission und zeigt im Entwurfsbereich einen Hinweis auf eine andere aktivierte Mission oder eine Cloud-Löschung. Eine reine Profilrevision erzeugt keinen Missionswechsel-Hinweis.
+- Bei Netzwerkfehlern bleibt die lokale Mission erhalten. Antworten nach Pilotwechsel oder neuer Generierung werden verworfen; gleichzeitige Öffnungsereignisse teilen einen Abruf.
+- Nach erfolgreichem Cloud-Abgleich darf ein abweichender alter Tracker-Lauf die App-Mission nicht wiederherstellen. Die Darstellung der App wird ohne Sim-Clear/Abort neu aufgebaut. Die bestätigte Übernahme veröffentlicht anschließend einen Server-Aktivierungsvermerk; ab Tracker v496 bereinigt und ersetzt der Tracker den alten Run anhand dieses Vermerks (siehe Gemeinsamer Missionsslot).
+- Automatische reine Missionsuploads vergleichen vor der CAS-Schreiboperation die frisch gelesene Cloud-Missionsidentität. Ein anderer oder gelöschter Cloud-Auftrag darf nicht durch eine alte lokale Mission wiederbelebt werden. Beim Verwerfen eines Entwurfs wird zuerst der Cloud-Missionsslot geladen.
+
+
+## 08.10.2026 – Gemeinsamer Missionsslot mit Serverrevision (Tracker v496, noch nicht ausgerollt)
+
+Annehmen und bestätigtes Löschen veröffentlichen einen ausdrücklichen `missionChange` (`activate`/`clear`, erwartete Missionsrevision, Operation-ID). Der Worker vergibt atomar mit dem Profil-Commit `missionControl` im Head: Schema `ga.cloud-mission-control.v1`, Server-Epoch, unabhängige Missionsrevision, Missions-ID oder Löschstatus, Hash der Missionskomponente und Serverzeit. Profil-/Fortschrittsänderungen erhöhen diese Missionsrevision nicht. Ein Client ohne ausdrücklichen Missionswechsel darf den kontrollierten Slot auch mit `force` nicht durch eine andere Mission oder einen alten leeren Stand ersetzen.
+
+Der Tracker prüft den bestehenden Cloud-Poll, verifiziert Kontrollvermerk und Seed und ersetzt den älteren Run über den vorhandenen Abbruch-/Sim-Bereinigungspfad. Nach Bereinigung liest er nochmals den Head; ein inzwischen ersetzter Auftrag wird nicht geladen. Der neue Seed wird als `planned` mit Tracker Authority übernommen, ohne `prepare_mission`, Boarding oder Voice. Löschung erfordert explizit `activeMission=null` und `activeMissionTrackerSeed=null`; Netzwerkfehler, HTTP 404, fehlender Kontrollvermerk und ungültige Seeds sind keine Löschung. Benötigte Sim-Bereinigung bleibt bei fehlender Verbindung ausstehend. Die angewandte Revision wird pro Pilot/Kanal erst nach erfolgreichem Authority-Checkpoint gespeichert, damit abgebrochene/beendete Aufträge nach Neustart nicht erneut laden. Legacy-Profile behalten den manuellen Ladeweg. Nicht unterstützte oder fehlende Tracker-Seeds werden abgewiesen, ohne den alten Run abzubrechen.
+
+App-Entwürfe bleiben lokal isoliert. Beim Öffnen ersetzt der aktuelle Cloud-Slot eine angenommene alte App-Mission; während eines Entwurfs erscheint nur ein Hinweis. Vor destruktiver Annahme-/Löschbereinigung muss der Worker `capabilities.missionControl=true` liefern. Rollout: zuerst Worker, dann Web-App und Tracker-EXE v496. Kein neues SDK-Paket erforderlich. Kontrollmetadata verwendet denselben Head-Abruf; nur bei Missionswechseln werden zusätzliche frische Kontrolllesungen vor/nach Bereinigung benötigt.
+
+Validierung dieses Kandidaten: 228 gezielte Node-Tests bestanden (Entwurf, App-Öffnung/Cloud, Worker-CAS/Idempotenz, Tracker-Übernahme, Runtime, Boarding und Voice-Abbruch), vier Sync-/Storage-/Replacement-Selbsttests bestanden. Gepackter ARM64-Missionsprozess: `MISSION_PACKAGED_PROCESS_SMOKE_OK`, Worker-Exit 0. Windows-EXE v496 ohne Bytecode gebaut (Intel-Hilfsprozess auf ARM-Mac nicht ausführbar), 173721163 Bytes, SHA-256 `faee340c3dae4487b556439e8e132e8b9f7670e9b65ac3634fe40b04912de1ab`. EXE/Worker/Web noch nicht veröffentlicht. MSFS/SimConnect-Feldtest bleibt offen. Der Legacy-Folgeanfragen-Einstieg bestätigt ebenfalls nur einen lokalen Entwurf und bricht vor dem Generieren keinen Tracker-Run ab.

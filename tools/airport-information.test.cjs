@@ -119,7 +119,7 @@ test('Bush airport activation accepts restored U60 without FAA alias and keeps o
  const b=browser(),target={icao:'U60',name:'Big Creek Airport',lat:45.133202,lon:-115.321999,elevation:5743};
  const input={missionType:'bush',aiModeEnabled:true,isPOI:false,profileId:'bush_charter_strip',target};
  assert.equal(b.enabled(input),true);
- for(const overrides of [{missionType:'apt'},{missionType:'poi'},{aiModeEnabled:false},{isPOI:true},{profileId:'bush_recon_return'},{target:{...target,lat:null}},{target:{...target,icao:''}}])assert.equal(b.enabled({...input,...overrides}),false);
+ for(const overrides of [{missionType:'apt'},{missionType:'poi'},{aiModeEnabled:false},{isPOI:true},{profileId:'bush_recon_return'},{target:{...target,lat:null}},{target:{...target,icao:'',name:''}}])assert.equal(b.enabled({...input,...overrides}),false);
 });
 
 
@@ -170,4 +170,15 @@ test('Wikipedia API throttling inside HTTP 200 also pauses the source, preservin
  for(const code of ['ratelimited','maxlag']){let calls=0;const b=browser(),opts={persistent:false,fetch:async()=>{calls++;return new Response(JSON.stringify({error:{code}}));}};
  const first=await b.load({...u60,country:'DE'},opts);assert.equal(first.airport.ident,'U60');assert.match(first.retrieval.sources['wikipedia-de'].reason,new RegExp(code));const count=calls;
  await b.load({...u60,country:'DE'},opts);assert.equal(calls,count);}
+});
+
+
+test('named Bush airports with internal OA ids load local evidence without an invalid FAA request',async()=>{
+ const target={icao:'OA-D9257336',name:'Dixie Town Airport',country:'US',lat:45.5,lon:-115.4,elevation:5140};
+ const b=browser(),args={missionType:'bush',aiModeEnabled:true,isPOI:false,profileId:'bush_charter_strip',target};
+ assert.equal(b.enabled(args),true);assert.equal(b.enabled({...args,missionType:'apt'}),false);
+ const urls=[];const context=await b.load(target,{persistent:false,fetch:async url=>{urls.push(url);return new Response(JSON.stringify({query:{pages:{}}}));}});
+ assert.ok(context);assert.ok(!urls.some(url=>url.includes('/faa?')));assert.ok(urls.length<=2);
+ assert.match(core.fallback(context).destinationInfo,/Dixie Town/);
+ assert.equal(b.enabled({...args,target:{icao:'U60',lat:45,lon:-115}}),true);
 });

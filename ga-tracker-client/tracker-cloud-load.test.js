@@ -7,13 +7,14 @@ const path = require('node:path');
 const repo = process.env.GA_CLOUD_TEST_REPO || path.resolve(__dirname, '..');
 const { validateCloudMissionActivation } = require(path.join(repo, 'ga-tracker-client/tracker-mission-cloud.js'));
 const source = fs.readFileSync(path.join(repo, 'ga-tracker-client/tracker.js'), 'utf8');
-const activationSource = source.slice(source.indexOf('  let _cloudMissionReplacementCleanupInProgress'), source.indexOf('  let readCockpitPayload = null;'));
+const activationSource = source.slice(source.indexOf('  let _cloudMissionReplacementCleanupInProgress'), source.indexOf('  cloudMissionReconciler = createCloudMissionReconciler({'));
 function fixture({ authority = 'tracker', cleanupOk = true, active = true, seedChanged = false, sim = true } = {}) {
   let run = active ? { missionId: 'active', runId: 'old-run', revision: 4, acquiredAt: 100, ownerClientId: 'old-browser', executionAuthority: authority } : null;
   const candidate = { missionId: 'new-mission', updatedAt: 200, bundle: { execution: { stateHash: 'seed-hash' } } };
   const calls = [];
   const context = {
     TRACKER_APT_EXECUTION_ENABLED: true, CLOUD_MISSION_PENDING_RUN_ID: 'cloud-pending',
+    cloudMissionReconciler: null, trackerVoiceService: { cancel: () => ({ cancelled: true }) },
     _cloudMissionActivationInProgress: false, _cloudMissionCandidate: candidate,
     _cloudMissionLastSuccessAt: 200, _cloudMissionLastAttemptAt: 200, _cloudMissionLastStatus: 'ready',
     validateCloudMissionActivation,
@@ -36,7 +37,7 @@ function fixture({ authority = 'tracker', cleanupOk = true, active = true, seedC
     trackerMissionShadow:{clear:()=>calls.push('shadow-clear'),observe:()=>calls.push('observe')},
     debugLog:()=>{}
   };
-  vm.runInNewContext(activationSource+'\nthis.activate = activateCloudMission;',context);
+  vm.runInNewContext(activationSource+'\nthis.activate = activateCloudMission; this.activateInternal = activateCloudMissionInternal;',context);
   const request={commandId:'load-new',missionId:'new-mission',runId:'cloud-pending',expectedRevision:0,
     payload:{cloudUpdatedAt:200,...(active?{replaceRun:{confirmed:true,missionId:'active',runId:'old-run',revision:4}}:{})}};
   return {context,calls,request,run:()=>run};
@@ -93,7 +94,9 @@ test('App failed cloud load never reopens confirmation on telemetry or a newer t
   const end = syncSource.indexOf('function _handleTrackerMissionAuthoritySnapshot', start);
   const scheduled = [];
   let prompts = 0, submissions = 0;
-  const context = { setTimeout: callback => scheduled.push(callback), confirm: () => { prompts++; return true; },
+  const context = { window: {}, _syncMissionRestoreBlocked: () => false, _syncActiveMissionPayload: () => null,
+    _syncSetLocalMissionChoice: () => {},
+    setTimeout: callback => scheduled.push(callback), confirm: () => { prompts++; return true; },
     _submitTrackerExecutionIntent: async () => { submissions++; return { ok: false, error: 'authority_timeout' }; } };
   vm.runInNewContext(syncSource.slice(start, end) + '\nthis.offer = _offerTrackerCloudMission;', context);
   const snapshot = { activeRun: { missionId: 'active', runId: 'legacy', revision: 4 },
@@ -149,4 +152,21 @@ test('idle cloud polling offers the mission without activating it', async () => 
   const offered = await context.refresh('interval');
   assert.equal(offered.missionId,'new');
   assert.equal(activations,0);
+});
+
+
+test('server-authorized automatic load commits planned authority while simulator is offline',async()=>{
+  const f=fixture({active:false,sim:false});
+  const candidate=f.context._cloudMissionCandidate;
+  const result=await f.context.activateInternal(f.request,{candidate});
+  assert.equal(result.ok,true);
+  assert.equal(f.run().executionAuthority,'tracker');
+  assert.deepEqual(f.calls,['acquire','handoff-prepare','handoff-commit','observe']);
+  assert.ok(!f.calls.includes('prepare_mission'));
+});
+test('replacement cancels old queued Voice after confirmed runtime abort',async()=>{
+  const f=fixture();f.run().effects=[{type:'voice.greeting',effectId:'greeting-old'},{type:'scene.prepare',effectId:'scene-old'}];
+  const cancelled=[];f.context.trackerVoiceService.cancel=(id)=>cancelled.push(id);
+  assert.equal((await f.context.activate(f.request)).ok,true);
+  assert.deepEqual(cancelled,['greeting-old']);
 });

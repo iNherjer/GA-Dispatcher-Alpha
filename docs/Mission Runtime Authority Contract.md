@@ -1,5 +1,44 @@
 # Mission Runtime Authority Contract
 
+## Lokaler Entwurf und bestätigter Missionswechsel (08.10.2026, vorbereitet)
+
+Generieren erzeugt einen lokalen Entwurf in `ga_local_mission_draft_v1:PILOT`.
+Dessen eigener IndexedDB-Speicher verdrängt keine Sicherung des angenommenen
+Auftrags. Generieren und Szenenplanung beenden keine Tracker-Ausführung und
+verändern weder den angenommenen Missionsslot noch dessen Pax-/Contract-Daten.
+Während Generierung und Vorschau bleiben externe Missions-Restores, Missions-
+Uploads, Runtime-Aktionen und Hintergrund-Snapshots gesperrt. Telemetrie bleibt
+verfügbar; die alte Tracker-Ausführung läuft unabhängig weiter.
+
+„Mission akzeptieren“ warnt vor dem Ersatz. Nach der vorhandenen Szenenplanung
+wird zuerst das vollständige Cloud-Profil gelesen, dann der aktuelle Tracker-Lauf
+über das bestehende Snapshot-Protokoll geprüft und gegebenenfalls mit bestätigtem
+Abort beendet. Der alte Szenen-/Runtime-Zustand wird bereinigt. Mission und
+Tracker-Seed ersetzen anschließend gemeinsam den Cloud-Missionsslot, mit genau
+der gelesenen Revision. Logbuch und weitere Profilfelder bleiben unverändert.
+Es gibt keinen ungeschützten Zwischen-Upload eines leeren Cloud-Profils.
+Annehmen startet weder Mission noch Boarding; der bestehende Startablauf bleibt.
+
+Ein Cloud-Lesefehler stoppt vor dem Abbruch. Fehlende Tracker-Bestätigung stoppt
+vor dem Upload. Ein später Revisionskonflikt kann nach dem Tracker-Abbruch
+auftreten: Der vollständige Entwurf bleibt lokal überprüfbar, die veränderte
+Cloud wird nicht überschrieben. Ein abgebrochener alter Lauf wird nicht verdeckt
+neu gestartet. Bei deaktiviertem eingerichtetem Sync muss dieser vor der Annahme
+aktiviert werden; ohne Pilot-ID ist eine ausdrücklich lokale Annahme möglich.
+
+„Mission nicht annehmen“ entfernt nur den lokalen Entwurf und lädt anschließend
+den angenommenen Tracker-/Cloud-Stand; bei fehlender Verbindung bleibt der zuvor
+angenommene lokale Stand als Rückfall verfügbar. Clear warnt und verwendet den
+bestätigten Ersatzablauf mit leerem Missionsslot/Seed. Ein fehlgeschlagener Clear
+verwirft keinen bestehenden Entwurf. Offline-Geräte werden nicht unmittelbar
+fern-gelöscht; sie erhalten den neuen Cloud-Stand über den bestehenden Sync.
+
+Jede Generierung erhöht weiterhin einen Token. Asynchrone Restore-Antworten prüfen
+ihn nach Wartezeiten erneut. Die frühere lokale Vorrang-/Konflikt-Auswahl wird
+hierdurch ersetzt. Der Marker für angenommene mission-only Updates bleibt nur
+zur Wahrung anderer Cloud-Profildaten; er entscheidet nicht über Restore-Authority.
+Automatische Updates lesen ebenfalls das aktuelle Profil und verwenden CAS.
+
 ## Periodische RAM-Sicherung, Alpha v428 (17.09.2026)
 
 Diese Regel ersetzt fuer den Missions-Kindprozess die oben beschriebenen
@@ -1295,3 +1334,20 @@ Dispatch-Missions-ID; Wiederaufnahme und Reconnect behalten ihren Verlauf.
 Fire-Watch-Cloud-Seeds koennen die aktive fireScenario.missionId als bestehende
 Runtime-Identitaet verwenden. Das gilt ausschliesslich fuer poi/fire_watch mit
 enabled=true und type=fire_watch; allgemeine Identitaetspruefungen bleiben aktiv.
+
+### Öffnungsabgleich der App (2026-10-08, noch nicht veröffentlicht)
+
+- Bei aktiviertem Auto-Sync liest die App beim Öffnen, Anmelden und Wiederanzeigen zuerst das vollständige Cloud-Profil. Vorgemerkte lokale Uploads werden nicht vorher gesendet. Die angenommene lokale Mission wird auch bei bereits bekannter Revision durch den aktuellen Cloud-Missionsslot ersetzt; ein leerer Slot entfernt die lokale Mission.
+- Ein lokaler Entwurf wird weder ersetzt noch hochgeladen. Die App vergleicht nur die Cloud-Missionsidentität mit der zuvor angenommenen lokalen Mission und zeigt im Entwurfsbereich einen Hinweis auf eine andere aktivierte Mission oder eine Cloud-Löschung. Eine reine Profilrevision erzeugt keinen Missionswechsel-Hinweis.
+- Bei Netzwerkfehlern bleibt die lokale Mission erhalten. Antworten nach Pilotwechsel oder neuer Generierung werden verworfen; gleichzeitige Öffnungsereignisse teilen einen Abruf.
+- Nach erfolgreichem Cloud-Abgleich darf ein abweichender alter Tracker-Lauf die App-Mission nicht wiederherstellen. Die Darstellung der App wird ohne Sim-Clear/Abort neu aufgebaut. Die bestätigte Übernahme veröffentlicht anschließend einen Server-Aktivierungsvermerk; ab Tracker v496 bereinigt und ersetzt der Tracker den alten Run anhand dieses Vermerks (siehe Gemeinsamer Missionsslot).
+- Automatische reine Missionsuploads vergleichen vor der CAS-Schreiboperation die frisch gelesene Cloud-Missionsidentität. Ein anderer oder gelöschter Cloud-Auftrag darf nicht durch eine alte lokale Mission wiederbelebt werden. Beim Verwerfen eines Entwurfs wird zuerst der Cloud-Missionsslot geladen.
+
+
+## 08.10.2026 – Gemeinsamer Missionsslot mit Serverrevision (Tracker v496, noch nicht ausgerollt)
+
+Annehmen und bestätigtes Löschen veröffentlichen einen ausdrücklichen `missionChange` (`activate`/`clear`, erwartete Missionsrevision, Operation-ID). Der Worker vergibt atomar mit dem Profil-Commit `missionControl` im Head: Schema `ga.cloud-mission-control.v1`, Server-Epoch, unabhängige Missionsrevision, Missions-ID oder Löschstatus, Hash der Missionskomponente und Serverzeit. Profil-/Fortschrittsänderungen erhöhen diese Missionsrevision nicht. Ein Client ohne ausdrücklichen Missionswechsel darf den kontrollierten Slot auch mit `force` nicht durch eine andere Mission oder einen alten leeren Stand ersetzen.
+
+Der Tracker prüft den bestehenden Cloud-Poll, verifiziert Kontrollvermerk und Seed und ersetzt den älteren Run über den vorhandenen Abbruch-/Sim-Bereinigungspfad. Nach Bereinigung liest er nochmals den Head; ein inzwischen ersetzter Auftrag wird nicht geladen. Der neue Seed wird als `planned` mit Tracker Authority übernommen, ohne `prepare_mission`, Boarding oder Voice. Löschung erfordert explizit `activeMission=null` und `activeMissionTrackerSeed=null`; Netzwerkfehler, HTTP 404, fehlender Kontrollvermerk und ungültige Seeds sind keine Löschung. Benötigte Sim-Bereinigung bleibt bei fehlender Verbindung ausstehend. Die angewandte Revision wird pro Pilot/Kanal erst nach erfolgreichem Authority-Checkpoint gespeichert, damit abgebrochene/beendete Aufträge nach Neustart nicht erneut laden. Legacy-Profile behalten den manuellen Ladeweg. Nicht unterstützte oder fehlende Tracker-Seeds werden abgewiesen, ohne den alten Run abzubrechen.
+
+App-Entwürfe bleiben lokal isoliert. Beim Öffnen ersetzt der aktuelle Cloud-Slot eine angenommene alte App-Mission; während eines Entwurfs erscheint nur ein Hinweis. Vor destruktiver Annahme-/Löschbereinigung muss der Worker `capabilities.missionControl=true` liefern. Rollout: zuerst Worker, dann Web-App und Tracker-EXE v496. Kein neues SDK-Paket erforderlich. Kontrollmetadata verwendet denselben Head-Abruf; nur bei Missionswechseln werden zusätzliche frische Kontrolllesungen vor/nach Bereinigung benötigt.
