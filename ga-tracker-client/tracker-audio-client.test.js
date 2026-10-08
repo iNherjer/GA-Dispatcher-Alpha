@@ -169,3 +169,71 @@ test('EFB PC button selects the central PC output without claiming local playbac
   elements.get('gaAudioTakeOnPc').onclick();
   assert.equal(JSON.stringify(changes), JSON.stringify([{ target: { mode: 'pc' } }]));
 });
+
+test('web relay shares master audio settings between clients and rejects older snapshots', async () => {
+  const clients = [], updates = [[], []];
+  const { createAudioControl } = require('./tracker-audio-control-core');
+  const control = createAudioControl({ onChange: value => clients.forEach(root => root.gaTrackerAudioClient.apply(value)) });
+  control.update({ expectedRevision: 0, settings: { audioStyle: 'clear' } });
+  for (let i = 0; i < 2; i++) {
+    const root = { document: { getElementById: () => null }, localStorage: { getItem: () => 'web-' + i },
+      gaCockpitSessionClient: { role: 'web', clientId: 'session-' + i }, addEventListener() {},
+      gaTrackerExecutionHandlesMission: () => true,
+      gaTrackerAudioRelayRequest: async payload => control.update(payload),
+      GATrackerAudioPlayer: { createPlayer: () => ({ update: value => updates[i].push(value), stop() {} }) } };
+    vm.runInNewContext(source, { window: root, setTimeout: () => 1, clearTimeout() {} });
+    clients.push(root); root.gaTrackerAudioClient.apply(control.snapshot());
+  }
+  const old = control.snapshot();
+  await clients[0].gaTrackerAudioClient.change({ settings: { enabled: false } });
+  assert.equal(control.snapshot().settings.enabled, false);
+  for (let i = 0; i < 2; i++) {
+    assert.equal(updates[i].at(-1).settings.enabled, false);
+    clients[i].gaTrackerAudioClient.apply(old);
+    assert.equal(updates[i].at(-1).settings.enabled, false);
+  }
+  await clients[1].gaTrackerAudioClient.change({ settings: { enabled: true } });
+  for (let i = 0; i < 2; i++) assert.equal(updates[i].at(-1).settings.enabled, true);
+  assert.equal(control.snapshot().settings.paxEnabled, true);
+  assert.equal(control.snapshot().settings.effectsEnabled, true);
+  control.close();
+});
+
+for (const settings of [{}, {enabled:true}, {paxEnabled:true}, {enabled:true,paxEnabled:false}, {enabled:false,paxEnabled:true}]) {
+ test('client voice gate defaults missing fields on and respects explicit off: '+JSON.stringify(settings),()=>{
+  const root={document:{getElementById:()=>null},localStorage:{getItem:()=> 'efb'},
+   gaCockpitSessionClient:{role:'efb',clientId:'session'},addEventListener(){},
+   GATrackerAudioPlayer:{createPlayer:()=>({update(){},stop(){}})}};
+  vm.runInNewContext(source,{window:root,setTimeout:()=>1,clearTimeout(){}});
+  root.gaTrackerAudioClient.apply({schema:'ga.audio-control.v1',revision:1,updatedAt:1,target:{deviceId:'pc'},settings});
+  assert.equal(root.gaPaxVoiceEnabled(),settings.enabled!==false && settings.paxEnabled!==false);
+ });
+}
+for(const stored of [null,'','garbage','1','0'])test('legacy migration only accepts an explicit voice on/off: '+stored,async()=>{
+ const writes=[];
+ const root={document:{getElementById:()=>null},localStorage:{getItem:key=>key==='awm_pax_voice'?stored:key==='ga_audio_device_id_v1'?'phone':null},
+  gaCockpitSessionClient:{role:'web',clientId:'session'},addEventListener(){},gaTrackerExecutionHandlesMission:()=>true,
+  gaTrackerAudioRelayRequest:async payload=>{writes.push(payload);return {ok:true};},
+  GATrackerAudioPlayer:{createPlayer:()=>({update(){},stop(){}})}};
+ vm.runInNewContext(source,{window:root,setTimeout:()=>1,clearTimeout(){}});
+ root.gaTrackerAudioClient.apply({schema:'ga.audio-control.v1',revision:0,updatedAt:0,target:{deviceId:'pc'},settings:{enabled:true,paxEnabled:true,audioStyle:''}});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(writes.length,1);
+ if(stored==='0'||stored==='1')assert.equal(writes[0].settings.paxEnabled,stored==='1');
+ else assert.equal(Object.hasOwn(writes[0].settings,'paxEnabled'),false,'Missing or malformed preference cannot switch TTS off');
+});
+
+for(const conflict of [false,true])test('legacy off migration cannot overwrite a newer central on: '+(conflict?'conflict response':'queued snapshot'),async()=>{
+ const writes=[];
+ const current={schema:'ga.audio-control.v1',revision:1,updatedAt:100,target:{deviceId:'pc'},settings:{enabled:true,paxEnabled:true,audioStyle:'clear'}};
+ const root={document:{getElementById:()=>null},localStorage:{getItem:key=>key==='awm_pax_voice'?'0':key==='ga_audio_device_id_v1'?'phone':null},
+  gaCockpitSessionClient:{role:'web',clientId:'session'},addEventListener(){},gaTrackerExecutionHandlesMission:()=>true,
+  gaTrackerAudioRelayRequest:async payload=>{writes.push(payload);return {ok:false,error:'audio_revision_conflict',audio:current};},
+  GATrackerAudioPlayer:{createPlayer:()=>({update(){},stop(){}})}};
+ vm.runInNewContext(source,{window:root,setTimeout:()=>1,clearTimeout(){}});
+ root.gaTrackerAudioClient.apply({...current,revision:0,updatedAt:0,settings:{enabled:true,paxEnabled:true,audioStyle:''}});
+ if(!conflict)root.gaTrackerAudioClient.apply(current);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(writes.length,conflict?1:0,'Background migration never retries against a newer user setting');
+ assert.equal(root.gaPaxVoiceEnabled(),true);
+});

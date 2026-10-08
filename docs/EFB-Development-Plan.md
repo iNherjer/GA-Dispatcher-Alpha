@@ -12,6 +12,33 @@ Ablauf. Kein neues Tracker-/EFB-Protokoll und kein SDK-Paket für diese Änderun
 Die frühere Konflikt-Auswahl lokal/geteilt wird durch diese explizite Annahme ersetzt.
 Code-/Browserprüfungen ersetzen keine Mehrgeräte-/MSFS-Abnahme nach Auslieferung.
 
+## Zeitquelle und Wetter-Messdiagnose, Tracker v499, 08.10.2026
+
+Feldlog v496 meldete ABSOLUTE TIME=1, LOCAL TIME=0 und keinen Zeitsprung.
+Die Ursache im optionalen Sammelpaket ist noch nicht im Simulator bewiesen.
+Zeit und Simrate kommen jetzt aus einer separaten FLOAT64-Abfrage (ID 210),
+mit Identitäts-/24-Byte-Prüfung, Werteprüfung und 2,5-Sekunden-Frischegrenze.
+Fehlerhafte/veraltete Pakete liefern keine Zeit statt Sammelpaket-Fallback.
+SIM_ENV_CLOCK_SOURCE protokolliert Quellenstatus und Abweichung zum alten Paket.
+Das offene EFB allein unterbricht die globale Zeitdiagnose nicht mehr.
+
+SIM_ENV_WEATHER dokumentiert Presetwechsel auch über kurze unavailable-Lücken,
+Vorher-/Nachher-Messwerte, Schwellen und Messbefund nach 0/3/10/40 Sekunden.
+SIM_ENV_VOICE enthält zusätzlich Werte, Stabilität, Pax-/Aktivitätsgates und
+Zeitsprungdaten. Beide Diagnosen erzeugen selbst keine Voice-Effekte.
+Trigger, Cooldown und Missionsverträge unverändert. Kein neues EFB-Paket.
+Validierung: 78 gezielte Node-Tests bestanden; gepackter ARM64-Missionsprozess
+startet und beendet seinen Worker erfolgreich. Windows-PE-x64 gebaut; fünf
+betroffene eingebettete Quellen exakt geprüft. Windows/MSFS-Abnahme offen. Alpha v499 veröffentlicht; öffentlicher Download
+bytegleich geprüft (173678728 Bytes, SHA-256
+12d6d9bfbfd2dafbdc301885092af6c7836ef999e608276b56d8d462be95162c).
+Die zwischenzeitlichen v498-Skalierungsdiagnosen bleiben enthalten; ihre zehn
+gezielten Tests bestehen zusätzlich. Stable-Kanal unverändert.
+
+Simulatorabnahme: aktive Mission mit bestätigtem Boarding; Zeit um >60 Minuten
+ändern, Menü schließen und einige Sekunden warten. Wetter deutlich ändern,
+nach Rückkehr mindestens 45 Sekunden warten und beide Logs einsenden.
+
 
 ## Umgebungsdiagnose: Logger-Scope korrigiert, Alpha v495, 08.10.2026
 
@@ -6658,3 +6685,131 @@ Der Tracker prüft den bestehenden Cloud-Poll, verifiziert Kontrollvermerk und S
 App-Entwürfe bleiben lokal isoliert. Beim Öffnen ersetzt der aktuelle Cloud-Slot eine angenommene alte App-Mission; während eines Entwurfs erscheint nur ein Hinweis. Vor destruktiver Annahme-/Löschbereinigung muss der Worker `capabilities.missionControl=true` liefern. Rollout: zuerst Worker, dann Web-App und Tracker-EXE v496. Kein neues SDK-Paket erforderlich. Kontrollmetadata verwendet denselben Head-Abruf; nur bei Missionswechseln werden zusätzliche frische Kontrolllesungen vor/nach Bereinigung benötigt.
 
 Validierung dieses Kandidaten: 228 gezielte Node-Tests bestanden (Entwurf, App-Öffnung/Cloud, Worker-CAS/Idempotenz, Tracker-Übernahme, Runtime, Boarding und Voice-Abbruch), vier Sync-/Storage-/Replacement-Selbsttests bestanden. Gepackter ARM64-Missionsprozess: `MISSION_PACKAGED_PROCESS_SMOKE_OK`, Worker-Exit 0. Windows-EXE v496 ohne Bytecode gebaut (Intel-Hilfsprozess auf ARM-Mac nicht ausführbar), 173721163 Bytes, SHA-256 `faee340c3dae4487b556439e8e132e8b9f7670e9b65ac3634fe40b04912de1ab`. EXE/Worker/Web noch nicht veröffentlicht. MSFS/SimConnect-Feldtest bleibt offen. Der Legacy-Folgeanfragen-Einstieg bestätigt ebenfalls nur einen lokalen Entwurf und bricht vor dem Generieren keinen Tracker-Run ab.
+
+### 2026-10-08: Audio checkbox display and central master setting
+
+User reports invisible checks and ignored Audio aktiviert clicks. Menu is portaled outside mapTableOverlay, so the input skin scoped to that ancestor cannot reach it; Coherent native checks remain unreliable. EFB audio controls now use real button/mark elements with role=checkbox and aria-checked; hidden original inputs retain the existing handlers. Menu-specific host styling follows the portal. Rendering still deduplicates unchanged properties/attributes.
+
+Central enabled setting is now labelled Multitool-Audio aktivieren, explained as warnings, mission/story/passenger voices and effects on the selected output, synchronized across connected devices. The separate voice toggle explicitly says Missions-/Story- und Passagierstimmen (Text bleibt sichtbar). Pending settings survive intervening polls; a revision conflict is retried once against the newest central revision, changing only requested fields. Failed saves restore authoritative state and show the error. Older revisions are ignored.
+
+Two isolated browser devices verify visible marks in the portal, delayed ACK/old poll, concurrent volume update plus mute retry, bidirectional master/warning sync and rejected-save recovery. Node tests also cover web-relay client synchronization; playback/core tests remain unchanged. No screenshots, no new release/channel activation yet. Requires fresh tracker build and EFB asset revision before shipping.
+Final candidate validation: 34 audio client/core/player/stability tests, 22 EFB
+host tests and the two-device browser test pass. No Tracker build or release
+performed for this audio candidate; Alpha remains v494.
+
+## Audio-Kandidat: vorhandenen Voice-Schalter konsolidiert (08.10.2026)
+
+Der unveröffentlichte zusätzliche `paxGenerationEnabled`-Schalter entfällt. Ein
+Voice-Häkchen nutzt den bestehenden zentralen `paxEnabled`-Wert und synchronisiert
+den lokalen `awm_pax_voice`-/Runtime-Zustand über den vorhandenen Setter, ohne alte
+Nachrichten erneut abzuspielen. Beschriftung: Missions-/Story- und Passagierstimmen
+generieren und abspielen. Aus verhindert neue TTS-Anfragen und Stimmenwiedergabe;
+Texte bleiben sichtbar. Der Audio-Master bleibt der gemeinsame Mute-Schalter.
+Neue lokale Einstellungen sind standardmäßig an; explizit gespeichertes Aus bleibt.
+
+Tracker-Jobs übernehmen die bestehende Unterdrückung als `synthesizeAudio:false`,
+inklusive Text-only-Persistenz und normalem Missionsabschluss. Vor neuen Provider-
+Versuchen wird derselbe zentrale Voice-/Master-Zustand geprüft; bereits laufende
+Anfragen dürfen enden. Keine zweite Generationseinstellung, kein separates
+`generationSkipped`-Jobformat und keine neue Worker-Einstellung erforderlich.
+
+Sichtbare EFB-Häkchen, Revision-/Fehlerbehandlung und der horizontal wie vertikal
+zentrierte Lautstärke-Regler bleiben erhalten. Browserprüfung ohne Screenshots:
+Voice bidirektional auf zwei Geräten, lokaler Runtime-Zustand, Rücknahme bei
+Speicherfehlern, 18 Reglerpositionen bei 100/150/300 Prozent in physischem und
+Toolbar-Host. Node-Prüfung umfasst Provider-Abbruch/Fallback, Text-only-Recovery,
+Boarding, Farewell, Compliance, Audio-Player und Missionslebenszyklus.
+Noch nicht veröffentlicht; Windows/MSFS-Feldtest bleibt offen.
+
+
+## TTS-Standard und Start-Migration geprüft (08.10.2026)
+
+TTS ist ohne gespeicherte Einstellung standardmäßig an: Tracker-Normalisierung,
+Standalone-Initialisierung und HTML-Häkchen. Unvollständige zentrale Snapshots
+behandeln fehlende Master-/Voice-Felder ebenfalls als an. Legacy-Übernahme nimmt
+nur explizites `awm_pax_voice=0/1`; fehlende/ungültige Werte erzeugen keine Sperre.
+Bewusst gespeichertes Aus bleibt erhalten. Hintergrundmigration darf einen
+inzwischen neueren zentralen Benutzerwert weder aus einer wartenden Queue noch
+durch einen Konflikt-Retry überschreiben. Normale Benutzeränderungen behalten
+ihren bestehenden Revision-Retry.
+
+178 Node-Tests bestanden: echte lokale Initialisierung, Legacy-Werte, neuere
+Zentralwerte, Cloud-Restore, unabhängige Lautstärkeänderungen und Voice-Lifecycle.
+Browserprüfung mit zwei Geräten und 18 Reglerpositionen bestanden. Weiterhin
+unveröffentlichter Kandidat; kein Alpha-/Stable-Kanalwechsel.
+
+
+## Alpha v496: Audio-UI und ein gemeinsamer Voice-Schalter (08.10.2026)
+
+Release-Kandidat integriert den aktuellen Alpha-Stand v495 einschließlich
+Diagnose-Hotfix und veröffentlichter Charter-Webänderungen. Neue EXE liefert
+Audio-Häkchen mit sichtbarem Zustand, Synchronisierung/Revision-Retry und
+Rücknahme bei Speicherfehlern sowie den in seinem Rahmen zentrierten Regler.
+Ein vorhandener `paxEnabled`-Schalter steuert TTS-Generierung und Wiedergabe
+geräteübergreifend. Standard an; ausdrücklich gespeichertes Aus bleibt.
+Keine zweite Generationseinstellung. Legacy-Migration kann neuere zentrale
+Benutzerwerte nicht überschreiben. Text-only-Jobs nutzen `synthesizeAudio:false`.
+EFB-Assets 49601, Web-Cache v1971. Gemeinsames SDK-Paket 0.4.23 bleibt erhalten;
+Stable-Kanal unverändert. Simulator-/VR-Audio-Abnahme folgt auf Alpha.
+
+Rollout-Preflight v496: Windows-pkg-Bau erfolgreich; Audio-/Host-/Voice-,
+Environment-Wiring- und Charter-Contract-Prüfungen bestanden. Interface-Selbsttest
+und Browser mit zwei Geräten/18 Reglerpositionen bestanden. Die zusätzliche
+Bush-Live-Plan-Prüfung benötigt nicht eingecheckte JSON-Fixtures, die im sauberen
+Release-Checkout fehlen; dieser externe Nachweis bleibt unverändert offen.
+
+Alpha v496 aktiviert nach unveränderlicher Veröffentlichung und öffentlichem
+Download-/Hash-Nachweis: 173678207 Bytes, SHA-256
+`ba3efbae902101fb95104a7cb750bf3381af3637ae4e7c0190b2c0a9c04d80fc`.
+Release-Tag `v496`, Quellstand `ef9864e57dadfe1b28a5e31ef14c3f9f356683dd`.
+183 automatisierte Tests, Interface und Browser erfolgreich. Alpha-Zeiger und
+Web-Cache v1972 aktualisiert; Stable und SDK-Paket 0.4.23 erhalten.
+Windows/MSFS-/VR-Feldabnahme bleibt offen.
+
+
+## Offener Feldfehler nach Alpha v496: Profilinhalt und Kompass (08.10.2026)
+
+Nutzer bestätigt aktuelle Audio-Oberfläche, meldet weiterhin überlaufenden
+Profilinhalt beim Skalieren und wandernde Kompass-Kursanzeige unter das Profil.
+Der Profilinhalt-Fix aus 57cb2725e/v494 ist nachweislich in v496 enthalten,
+inklusive generierter EFB-Profil-Datei. Fehlende Auslieferung ist damit nicht
+die Erklärung. Die bisherige Simulatorabnahme bleibt offen.
+
+Browser-Regression erweitert um die tatsächliche SVG-Kursanzeige relativ zur
+unteren Kartenkante. 123 Fälle bestehen regulär sowie kombiniert ohne
+ResizeObserver/mit künstlich alten Profil-Clientmaßen. Das reproduziert den
+Feldfehler noch nicht; Chrome-Ergebnis bestätigt keine Coherent-Abnahme.
+Host und konkreter Skalierungswert beim Nutzer sind angefragt. Keine weitere
+Produktänderung oder Veröffentlichung aufgrund einer unbestätigten Ursache.
+
+
+## Alpha-Diagnose v497: Skalierungsfehler im Simulator eingrenzen (08.10.2026)
+
+Vor Benutzer-Skalierung und 350 ms nach Layoutänderung/Start schreibt der
+bestehende EFB-Clientlog-Kanal begrenzte `layout-geometry`-/`layout-element`-
+Messungen ins Tracker-Debuglog. Body, Kartenrahmen, Profilrahmen, Scrollbereich,
+Wrapper, beide Canvas, Kompass und Kurs-SVG liefern Rechtecke, CSS-/Clientmaße,
+Transformation und Canvas-Pixelgröße. Letzter tatsächlicher Profil-Paint meldet
+logische Maße, Backing-Pixelgröße und wirksamen Faktor. Unsupported SVG getBBox
+bleibt separat vermerkt; Positionsdaten bleiben erhalten.
+
+Nur ereignisgebundene Messungen; kein neuer regelmäßiger Refresh/Detektor und
+keine UI-Geometrieänderung. Nachlauf wird bei schnellen Änderungen zusammen-
+gefasst und beim Entladen gestoppt. Bestehendes 800-Zeichen-Detail-Limit erhalten.
+Feldtest: EFB/Toolbar frisch öffnen, UI-Größe 100→150→200→100 Prozent,
+Tracker-Debuglog sichern. In VR sind Benutzerwert und Hostbasis getrennt im Log.
+Chrome-Skalierungsmatrix und Diagnose-Tests bestanden; Coherent-Ursache bleibt
+bis zum Feldlog unbestätigt. Keine Behauptung eines neuen Geometrie-Fixes.
+
+Diagnose-Rollout verwendet v498: v497 bleibt unveränderlicher, nicht
+aktivierter Zwischenstand. Gruppierte Elementmessungen und ein gemeinsamer
+Vorher-/Nachher-Snapshot für schnelle Klickfolgen reduzieren Requests unter
+dem vorhandenen Clientlog-Limit von 120/Minute. Details bleiben unter 800
+Zeichen. Nutzer testet zunächst nur einen geöffneten Host.
+
+Alpha v498 aktiviert nach öffentlicher Download-/SHA-Prüfung: 173682161 Bytes,
+SHA-256 `0e80c02b20f91507c4e537c8b5756f1be10fc66a8ef2b1e3b81a2e194bc9d61c`.
+Quelltag v498 / cbf90098840793d1de6196e4d423ea57084b03e6; Assets 49801,
+Web-Cache v1975. Initiale 192 Tests und 123 Browserfälle erfolgreich; finale
+Bündelung mit 32 gezielten Tests und 123 Browserfällen geprüft. Paket 0.4.23
+und Stable bleiben unverändert. Die Feldursache ist bis zum Nutzerlog offen.

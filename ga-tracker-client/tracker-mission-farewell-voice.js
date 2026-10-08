@@ -171,7 +171,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
       return { ok: false, status: 'blocked', error: 'mission_run_conflict', terminal: false, sideEffect: false, commandId: effectId };
     }
     if (request.farewellDynamicContext?.error) return { ok: true, status: 'pending', sideEffect: false, error: request.farewellDynamicContext.error };
-    const recipe = resolveRecipe(request, run);
+    let recipe = resolveRecipe(request, run);
     if (!recipe || (recipe.missionId && recipe.missionId !== run.missionId)) {
       log(`MISSION_FAREWELL_VOICE_FALLBACK effect=${effectId} reason=recipe_missing`);
       return completed(request, {
@@ -238,6 +238,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
       voiceService.cancel?.(voiceEffectId, 'mission_end');
       return completed(request, { voiceStatus: 'mission_end' });
     }
+    if (job?.synthesizeAudio === false && job.audioAvailable !== true) recipe = { ...recipe, audioEnabled: false };
     if (!job || job.status !== 'ready' || (recipe.audioEnabled === true && job.audioAvailable !== true)) {
       log(`MISSION_FAREWELL_VOICE_BEST_EFFORT effect=${effectId} reason=${job?.error || job?.status || 'voice_generation_failed'}`);
       return completed(request, {

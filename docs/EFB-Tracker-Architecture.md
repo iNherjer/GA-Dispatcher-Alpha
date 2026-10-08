@@ -1506,3 +1506,75 @@ cannot enlarge the drawing beyond that budget. Renderer and pointer mapping use
 the same viewport; backing buffer resolution still includes UI scale and DPR.
 Scale events invalidate frames explicitly, with no new polling loop. Unchanged
 geometry produces no style writes. Standalone profile sizing stays unchanged.
+
+## 2026-10-08: Central audio master and pending UI changes
+
+Audio settings.enabled is the master gate for all Multitool warnings, mission
+voices and effects on the selected output. paxEnabled remains a separate voice
+gate. EFB and Web clients use the same versioned central setting. Pending field
+patches are rendered locally until their own request resolves; unrelated central
+fields are never copied into the patch. On one revision conflict the explicit
+patch is retried once against the returned central revision. Final failures
+restore the authoritative value. Older snapshots cannot undo accepted revisions.
+EFB checkbox marks are real DOM children in the body-portaled Audio menu; native
+input pseudo-elements and the map-shell ancestor are no rendering dependency.
+
+## Audio-Kandidat: vorhandenen Voice-Schalter konsolidiert (08.10.2026)
+
+Der unveröffentlichte zusätzliche `paxGenerationEnabled`-Schalter entfällt. Ein
+Voice-Häkchen nutzt den bestehenden zentralen `paxEnabled`-Wert und synchronisiert
+den lokalen `awm_pax_voice`-/Runtime-Zustand über den vorhandenen Setter, ohne alte
+Nachrichten erneut abzuspielen. Beschriftung: Missions-/Story- und Passagierstimmen
+generieren und abspielen. Aus verhindert neue TTS-Anfragen und Stimmenwiedergabe;
+Texte bleiben sichtbar. Der Audio-Master bleibt der gemeinsame Mute-Schalter.
+Neue lokale Einstellungen sind standardmäßig an; explizit gespeichertes Aus bleibt.
+
+Tracker-Jobs übernehmen die bestehende Unterdrückung als `synthesizeAudio:false`,
+inklusive Text-only-Persistenz und normalem Missionsabschluss. Vor neuen Provider-
+Versuchen wird derselbe zentrale Voice-/Master-Zustand geprüft; bereits laufende
+Anfragen dürfen enden. Keine zweite Generationseinstellung, kein separates
+`generationSkipped`-Jobformat und keine neue Worker-Einstellung erforderlich.
+
+Sichtbare EFB-Häkchen, Revision-/Fehlerbehandlung und der horizontal wie vertikal
+zentrierte Lautstärke-Regler bleiben erhalten. Browserprüfung ohne Screenshots:
+Voice bidirektional auf zwei Geräten, lokaler Runtime-Zustand, Rücknahme bei
+Speicherfehlern, 18 Reglerpositionen bei 100/150/300 Prozent in physischem und
+Toolbar-Host. Node-Prüfung umfasst Provider-Abbruch/Fallback, Text-only-Recovery,
+Boarding, Farewell, Compliance, Audio-Player und Missionslebenszyklus.
+Noch nicht veröffentlicht; Windows/MSFS-Feldtest bleibt offen.
+
+
+## TTS-Standard und Start-Migration geprüft (08.10.2026)
+
+TTS ist ohne gespeicherte Einstellung standardmäßig an: Tracker-Normalisierung,
+Standalone-Initialisierung und HTML-Häkchen. Unvollständige zentrale Snapshots
+behandeln fehlende Master-/Voice-Felder ebenfalls als an. Legacy-Übernahme nimmt
+nur explizites `awm_pax_voice=0/1`; fehlende/ungültige Werte erzeugen keine Sperre.
+Bewusst gespeichertes Aus bleibt erhalten. Hintergrundmigration darf einen
+inzwischen neueren zentralen Benutzerwert weder aus einer wartenden Queue noch
+durch einen Konflikt-Retry überschreiben. Normale Benutzeränderungen behalten
+ihren bestehenden Revision-Retry.
+
+178 Node-Tests bestanden: echte lokale Initialisierung, Legacy-Werte, neuere
+Zentralwerte, Cloud-Restore, unabhängige Lautstärkeänderungen und Voice-Lifecycle.
+Browserprüfung mit zwei Geräten und 18 Reglerpositionen bestanden. Weiterhin
+unveröffentlichter Kandidat; kein Alpha-/Stable-Kanalwechsel.
+
+
+## Alpha-Diagnose v497: Skalierungsfehler im Simulator eingrenzen (08.10.2026)
+
+Vor Benutzer-Skalierung und 350 ms nach Layoutänderung/Start schreibt der
+bestehende EFB-Clientlog-Kanal begrenzte `layout-geometry`-/`layout-element`-
+Messungen ins Tracker-Debuglog. Body, Kartenrahmen, Profilrahmen, Scrollbereich,
+Wrapper, beide Canvas, Kompass und Kurs-SVG liefern Rechtecke, CSS-/Clientmaße,
+Transformation und Canvas-Pixelgröße. Letzter tatsächlicher Profil-Paint meldet
+logische Maße, Backing-Pixelgröße und wirksamen Faktor. Unsupported SVG getBBox
+bleibt separat vermerkt; Positionsdaten bleiben erhalten.
+
+Nur ereignisgebundene Messungen; kein neuer regelmäßiger Refresh/Detektor und
+keine UI-Geometrieänderung. Nachlauf wird bei schnellen Änderungen zusammen-
+gefasst und beim Entladen gestoppt. Bestehendes 800-Zeichen-Detail-Limit erhalten.
+Feldtest: EFB/Toolbar frisch öffnen, UI-Größe 100→150→200→100 Prozent,
+Tracker-Debuglog sichern. In VR sind Benutzerwert und Hostbasis getrennt im Log.
+Chrome-Skalierungsmatrix und Diagnose-Tests bestanden; Coherent-Ursache bleibt
+bis zum Feldlog unbestätigt. Keine Behauptung eines neuen Geometrie-Fixes.

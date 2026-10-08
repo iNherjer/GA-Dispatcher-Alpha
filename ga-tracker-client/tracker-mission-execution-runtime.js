@@ -1,4 +1,5 @@
 'use strict';
+const {describeWeather} = require('./tracker-environment-diagnostics.js');
 const bushNarrativeCore = require('../mission-bush-narrative-core.js');
 const weatherPresetCore = require('../mission-weather-preset-core.js');
 
@@ -999,14 +1000,28 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           detected.state.environmentObserver = diagnosticWeather.state;
           const pendingEnvironment = diagnosticWeather.state?.time?.pending || diagnosticWeather.state?.pending;
           const diagnosticEvent = diagnosticWeather.reaction;
+          const previousEnvironmentPending = previous.environmentObserver?.time?.pending || previous.environmentObserver?.pending;
+          const environmentValues = describeWeather(diagnosticWeather.state?.pending?.before || previous.environmentObserver?.pending?.before, sample);
+          const environmentFinished = !pendingEnvironment && !diagnosticEvent && previousEnvironmentPending;
+
           const environmentDecision = weatherChange.reaction ? 'requested' : !snapshot.state.flags.active ? 'mission_inactive'
             : !snapshot.state.flags.boardingConfirmed ? 'pax_not_onboard' : snapshot.state.flags.closingPending || snapshot.state.flags.farewellStarted ? 'mission_ending'
             : options.getAudioSettings && !(options.getAudioSettings()?.enabled === true && options.getAudioSettings()?.paxEnabled === true) ? 'voice_disabled'
             : voiceOperations.size > 0 || comfortPending || snapshot.state.effects.some(effect => effect.type.startsWith('voice.') && effect.status === 'requested') ? 'voice_busy'
-            : previous.weatherChange?.lastReactionAt && triggerAt-previous.weatherChange.lastReactionAt<weatherPresetCore.COOLDOWN_MS ? 'cooldown' : 'settling';
-          const environmentDiagnosticKey = weatherChange.reaction || diagnosticEvent ? `${(weatherChange.reaction || diagnosticEvent).kind}:${triggerAt}` : pendingEnvironment ? `${pendingEnvironment.startedAt}:${environmentDecision}` : null;
+            : previous.weatherChange?.lastReactionAt && triggerAt-previous.weatherChange.lastReactionAt<weatherPresetCore.COOLDOWN_MS ? 'cooldown'
+            : environmentFinished ? (triggerAt-previousEnvironmentPending.startedAt>40000?'window_expired':'reset_without_reaction')
+            : diagnosticWeather.state?.time?.pending ? 'time_stabilizing'
+            : environmentValues.measurement === 'threshold_met' ? 'weather_stabilizing' : environmentValues.measurement;
+          const environmentDiagnosticKey = weatherChange.reaction || diagnosticEvent ? `${(weatherChange.reaction || diagnosticEvent).kind}:${triggerAt}` : pendingEnvironment ? `${pendingEnvironment.startedAt}:${environmentDecision}` : environmentFinished ? `${previousEnvironmentPending.startedAt}:finished:${environmentDecision}` : null;
           if (environmentDiagnosticKey && environmentDiagnosticKey !== previous.environmentDiagnosticKey)
-            log(`SIM_ENV_VOICE data=${JSON.stringify({missionId:snapshot.missionId,kind:weatherChange.reaction?.kind || diagnosticEvent?.kind || (diagnosticWeather.state?.time?.pending?'time_shift':'weather_preset'),decision:environmentDecision})}`);
+            log(`SIM_ENV_VOICE data=${JSON.stringify({missionId:snapshot.missionId,kind:weatherChange.reaction?.kind || diagnosticEvent?.kind || ((diagnosticWeather.state?.time?.pending || previous.environmentObserver?.time?.pending)?'time_shift':'weather_preset'),decision:environmentDecision,
+              ...environmentValues,
+              stabilityMs:diagnosticWeather.state?.pending?.changedAt ? triggerAt-diagnosticWeather.state.pending.changedAt : 0,
+              stableSamples:diagnosticWeather.state?.pending?.signatures || 0,
+              pendingAgeMs:pendingEnvironment ? triggerAt-pendingEnvironment.startedAt : null,
+              absoluteSeconds:sample.simAbsoluteTimeSeconds ?? null,localSeconds:sample.simLocalTimeSeconds ?? null,
+              shiftSeconds:diagnosticWeather.state?.time?.pending?.shift ?? previous.environmentObserver?.time?.pending?.shift ?? null,
+              active:snapshot.state.flags.active,onboard:snapshot.state.flags.boardingConfirmed})}`);
           detected.state.environmentDiagnosticKey = environmentDiagnosticKey;
           detected.state.weatherChange = weatherChange.state;
           if (weatherChange.reaction) detected.effects.push({ kind: weatherChange.reaction.kind, prompt: `${context.baseContext}\n${weatherChange.reaction.prompt} ${context.toneHint || ''}`, label: weatherChange.reaction.label, delayMs: 0 });

@@ -11965,6 +11965,16 @@ function renderMapProfileFrames(timeMs) {
     vpDrawLandmarks(fgCtx, xOf, yOf, elevData, totalDist, true, zoomFactor, maxAlt, lmOverride);
   }
   fgCtx.restore();
+  if (window.GAEfbUiScale) window.vpMapProfilePaintMetrics = {
+    at: Date.now(),
+    logical: [baseWidth, containerHeight],
+    pixels: [targetW, targetH],
+    effectiveScale: window.GAEfbUiScale.state().effective,
+    dpr: dpr,
+    zoom: zoomFactor,
+    scroll: viewX,
+    plot: [padLeft, padTop, plotW, plotH]
+  };
   if (needsBgRender && window.vpProfilePerfWarn) {
     window.vpProfilePerfWarn('Profile map frame render', frameT0, {
       bg: true,

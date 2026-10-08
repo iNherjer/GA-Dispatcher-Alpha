@@ -117,6 +117,9 @@ function createTrackerMissionComplianceVoice(options = {}) {
       voiceService.cancel?.(effectId, 'mission_end');
       return completed(request, { voiceStatus: 'mission_end' });
     }
+    if (job?.status === 'ready' && job.synthesizeAudio === false && job.audioAvailable !== true) return completed(request, {
+      voiceStatus: 'generation_disabled', voiceOutcome: voiceOutcome(kind, text, speaker, { status: 'ok', playback: 'generation_disabled' })
+    });
     if (!job || job.status !== 'ready' || job.audioAvailable !== true) {
       log(`MISSION_COMPLIANCE_VOICE_BEST_EFFORT effect=${effectId} reason=${job?.error || job?.status || 'voice_generation_failed'}`);
       return completed(request, {

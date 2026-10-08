@@ -286,7 +286,12 @@ function _paxDrawZones() {
 }
 
 // ─── TOGGLE ──────────────────────────────────────────────────────────────────
-let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') === '1');
+let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') !== '0');
+function _paxCanGenerateVoice() {
+    return typeof window.gaPaxVoiceEnabled === 'function'
+        ? window.gaPaxVoiceEnabled() : _paxVoiceEnabled;
+}
+
 let _paxAudioEffectsEnabled = (localStorage.getItem('awm_audio_effects') !== '0');
 let _lastSpokenText  = null; // last generated text — for retroactive TTS
 let _lastSpokenSpeaker = null; // speaker snapshot for retroactive TTS
@@ -376,11 +381,12 @@ window.paxVoiceUnlockAudio = function(reason = 'manual') {
     return ctx;
 };
 
-window.paxVoiceSetEnabled = function(on) {
+window.paxVoiceSetEnabled = function(on, options) {
     const wasOff = !_paxVoiceEnabled;
     _paxVoiceEnabled = !!on;
-    localStorage.setItem('awm_pax_voice', on ? '1' : '0');
-    if (on && wasOff && _lastSpokenText && window.activePassenger && _missionHasPax()) {
+    const savedValue = on ? '1' : '0';
+    if (localStorage.getItem('awm_pax_voice') !== savedValue) localStorage.setItem('awm_pax_voice', savedValue);
+    if (!options?.sync && on && wasOff && _lastSpokenText && window.activePassenger && _missionHasPax()) {
         _paxLog('Voice aktiviert — lade TTS für letzte Nachricht nach', 'event');
         const epoch = _paxMissionEpoch;
         setTimeout(() => _playTextAsTTS(_lastSpokenText, _lastSpokenSpeaker || null, epoch), 400);
@@ -5577,6 +5583,7 @@ function _buildBoardingText() {
 async function _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidates, signal = null) {
     let lastErr = null;
     for (const voiceName of voiceCandidates) {
+        if (!_paxCanGenerateVoice()) return null;
         const ttsPayload = {
             contents: [{ role: 'user', parts: [window.GAMissionBoardingVoiceCore?.geminiTtsPart(model, text, pax) || { text }] }],
             generationConfig: {
@@ -5621,6 +5628,7 @@ async function _requestOpenAiTTSAudio(apiKey, text, pax, voiceCandidates) {
     const model = 'gpt-4o-mini-tts';
     let lastErr = null;
     for (const voiceName of voiceCandidates) {
+        if (!_paxCanGenerateVoice()) return null;
         try {
             const res = await fetch('https://api.openai.com/v1/audio/speech', {
                 method: 'POST',
@@ -5732,6 +5740,7 @@ function _requestTTSAudioHedged(apiKey, text, pax, voiceCandidates, primaryModel
 }
 
 async function _requestTTSAudio(text, speaker = null, options = {}) {
+    if (!_paxCanGenerateVoice()) return null;
     const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
     const trackerClient = _getTrackerVoiceClient();
     if (trackerClient) {

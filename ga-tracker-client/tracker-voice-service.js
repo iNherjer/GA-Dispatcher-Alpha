@@ -247,7 +247,7 @@ async function synthesizeOpenAi({ apiKey, request, fetchRemote }) {
       if (!response?.ok) continue;
       const audio = Buffer.from(await response.arrayBuffer());
       if (audio.length) return { audio, contentType: 'audio/mpeg', model, voiceName };
-    } catch (_) {}
+    } catch (error) { if (error?.code === 'voice_generation_disabled') throw error; }
   }
   throw voiceError('voice_provider_error', 502, `OpenAI TTS antwortete ohne Audio${lastStatus ? ` (HTTP ${lastStatus})` : ''}.`);
 }
@@ -276,7 +276,7 @@ async function synthesizeGeminiModel({ apiKey, request, fetchRemote, model, sign
       const audio = Buffer.from(String(inlineData?.data || ''), 'base64');
       if (audio.length) return { ...normalizeGeminiAudio(audio, inlineData?.mimeType), model, voiceName };
     } catch (error) {
-      if (error?.name === 'AbortError') throw error;
+      if (error?.name === 'AbortError' || error?.code === 'voice_generation_disabled') throw error;
     }
   }
   throw voiceError('voice_provider_error', 502, `Gemini TTS ${model} antwortete ohne Audio${lastStatus ? ` (HTTP ${lastStatus})` : ''}.`);
@@ -290,6 +290,7 @@ async function synthesizeGemini({ apiKey, request, fetchRemote }) {
       try {
         return await synthesizeGeminiModel({ apiKey, request, fetchRemote, model });
       } catch (error) {
+        if (error?.code === 'voice_generation_disabled') throw error;
         lastError = error;
       }
     }
@@ -344,6 +345,15 @@ function createTrackerVoiceService(options = {}) {
   const audioControl = options.audioControl || null;
   const provider = normalizeVoiceProvider(options.provider);
   const apiKey = String(options.apiKey || '').trim();
+  const canGenerateVoice = () => {
+    if (!audioControl) return true;
+    const settings = audioControl.snapshot().settings;
+    return settings.enabled !== false && settings.paxEnabled !== false;
+  };
+  const fetchSpeech = (...args) => {
+    if (!canGenerateVoice()) throw voiceError('voice_generation_disabled', 409, 'Passagierstimmen-Generierung deaktiviert.');
+    return fetchRemote(...args);
+  };
   const fetchRemote = typeof options.fetchRemote === 'function' ? options.fetchRemote : globalThis.fetch;
   const log = typeof options.log === 'function' ? options.log : () => {};
   const now = typeof options.now === 'function' ? options.now : Date.now;
@@ -717,6 +727,7 @@ function createTrackerVoiceService(options = {}) {
         if (record.cancelled === true) return publicRecord(record);
         record.error = '';
       }
+      if (!canGenerateVoice()) record.synthesizeAudio = request.synthesizeAudio = false;
       if (request.synthesizeAudio === false) {
         record.status = 'ready';
         record.updatedAt = now();
@@ -733,8 +744,8 @@ function createTrackerVoiceService(options = {}) {
         return publicRecord(record);
       }
       const result = provider === 'openai'
-        ? await synthesizeOpenAi({ apiKey, request, fetchRemote })
-        : await synthesizeGemini({ apiKey, request, fetchRemote });
+        ? await synthesizeOpenAi({ apiKey, request, fetchRemote: fetchSpeech })
+        : await synthesizeGemini({ apiKey, request, fetchRemote: fetchSpeech });
       if (record.cancelled === true) return publicRecord(record);
       record.audio = result.audio;
       record.contentType = result.contentType;
@@ -748,6 +759,10 @@ function createTrackerVoiceService(options = {}) {
       persist();
       return publicRecord(record);
     } catch (error) {
+      if (error?.code === 'voice_generation_disabled') {
+        record.synthesizeAudio = request.synthesizeAudio = false;
+        record.status = 'ready'; record.updatedAt = now(); persist(); return publicRecord(record);
+      }
       record.status = 'failed';
       record.error = error?.code || 'voice_generation_failed';
       record.updatedAt = now();

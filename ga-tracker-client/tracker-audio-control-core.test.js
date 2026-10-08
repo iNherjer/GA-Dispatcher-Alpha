@@ -1,5 +1,6 @@
 'use strict';
 const test = require('node:test');
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const assert = require('node:assert/strict');
 const { createAudioControl } = require('./tracker-audio-control-core');
 test('PC is default; one selected app may play; stale updates cannot steal audio', async () => {
@@ -43,4 +44,29 @@ test('only POI jobs carrying a cue sequence may use effects while PAX is muted',
   assert.equal(audio.canPlay('pc', { kind: 'poi', cueSequence: { before: [], after: [{ audioAvailable: true }] } }), true);
   assert.equal(audio.canPlay('pc', { kind: 'poi', cueSequence: { before: [], after: [] } }), false);
   audio.close();
+});
+
+test('existing voice flag defaults on and persists generation and playback suppression', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-generation-'));
+  const file = path.join(directory, 'audio.json');
+  try {
+    const audio = createAudioControl({ storageFile: file });
+    assert.equal(audio.snapshot().settings.paxEnabled, true);
+    assert.equal(audio.update({ expectedRevision: 0, settings: { paxEnabled: false } }).ok, true);
+    assert.equal(audio.canPlay('pc', 'direct'), false);
+    assert.equal(audio.snapshot().settings.enabled, true);
+    audio.close();
+    const reopened = createAudioControl({ storageFile: file });
+    assert.equal(reopened.snapshot().settings.paxEnabled, false);
+    reopened.close();
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
+for(const settings of [{}, {volume:.4}, {paxEnabled:false}, {paxEnabled:null}, {paxEnabled:'0'}])test('restore defaults TTS on unless boolean false was saved: '+JSON.stringify(settings),async()=>{
+ const audio=createAudioControl({cloud:{load:async()=>({schema:'ga.audio-control.v1',revision:3,updatedAt:100,settings}),save:async()=>{}}});
+ try {
+  await audio.restore();assert.equal(audio.snapshot().settings.paxEnabled,settings.paxEnabled!==false);
+  audio.update({expectedRevision:3,settings:{volume:.7}});
+  assert.equal(audio.snapshot().settings.paxEnabled,settings.paxEnabled!==false,'Volume update must not alter voice preference');
+ } finally {audio.close();}
 });

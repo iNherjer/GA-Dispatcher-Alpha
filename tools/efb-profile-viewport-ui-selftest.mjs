@@ -31,7 +31,7 @@ try {
  },fixture);
  const geometry=()=>page.evaluate(()=>{
    const r=id=>{const e=document.getElementById(id);const b=e.getBoundingClientRect();return {x:b.x,y:b.y,right:b.right,bottom:b.bottom,width:b.width,height:b.height};};
-   return {overlay:r('mapTableOverlay'),gear:r('btnVpSettings'),mode:r('btnToggleVpMode'),scale:GAEfbUiScale.state(),width:innerWidth,height:innerHeight,profile:r('mapProfileStrip'),scroll:r('mapProfileScroll'),plot:r('mapProfileCanvas'),map:r('mapArea'),drawerWidth:getComputedStyle(document.getElementById('mapSideDrawer')).getPropertyValue('--checklist-panel-width')};
+   return {overlay:r('mapTableOverlay'),gear:r('btnVpSettings'),mode:r('btnToggleVpMode'),scale:GAEfbUiScale.state(),width:innerWidth,height:innerHeight,profile:r('mapProfileStrip'),scroll:r('mapProfileScroll'),plot:r('mapProfileCanvas'),map:r('mapArea'),heading:r('compassHdgReadout'),compass:r('compassRoseWrap'),drawerWidth:getComputedStyle(document.getElementById('mapSideDrawer')).getPropertyValue('--checklist-panel-width')};
  });
  await page.evaluate(()=>{__layoutTest.mode(false,'physical');__layoutTest.scale(1);});
  await page.waitForTimeout(180);
@@ -62,6 +62,7 @@ try {
  assert.ok(g.profile.bottom<=size.height+1,JSON.stringify({surface,vr,scale,size,g}));
  assert.ok(g.profile.height>0,JSON.stringify({surface,vr,scale,size,g}));
  assert.ok(g.profile.x>=-1 && g.profile.right<=size.width+1,JSON.stringify({surface,vr,scale,size,g}));
+ assert.ok(g.heading.bottom<=g.map.bottom+1,JSON.stringify({issue:'heading leaves map',surface,vr,scale,size,g}));
  const scroll=g.scroll;
  assert.ok(scroll && scroll.x>=-1 && scroll.x+scroll.width<=size.width+1,JSON.stringify({surface,vr,scale,size,scroll}));
  assert.ok(scroll.y+scroll.height<=g.profile.bottom+1,JSON.stringify({surface,vr,scale,size,scroll,g}));
@@ -108,5 +109,10 @@ try {
  await page.evaluate(()=>{vpZoomLevel=100;window.vpBgNeedsUpdate=true;vpRequestMapProfileFrameNow();});
  cases++;
  }
+ const diagnostic=await page.evaluate(()=>gaEfbLayoutDiagnostic());
+ assert.ok(diagnostic.paint && diagnostic.paint.at>0,'Real canvas paint dimensions must be captured');
+ assert.equal(diagnostic.nodes.mapProfileCanvas.pixels[0],diagnostic.paint.pixels[0]);
+ assert.equal(diagnostic.nodes.mapProfileCanvas.pixels[1],diagnostic.paint.pixels[1]);
+ assert.ok(diagnostic.nodes.compassHdgReadout.rect.length===4 && diagnostic.nodes.body.rect.length===4);
  assert.deepEqual(errors,[]);console.log('PASS '+cases+' complete profile bottom and right bounds across physical/popout/toolbar, native viewport override, VR and manual scaling');
 }finally{await browser.close();}
