@@ -6678,3 +6678,23 @@ ihren bestehenden Revision-Retry.
 Zentralwerte, Cloud-Restore, unabhängige Lautstärkeänderungen und Voice-Lifecycle.
 Browserprüfung mit zwei Geräten und 18 Reglerpositionen bestanden. Weiterhin
 unveröffentlichter Kandidat; kein Alpha-/Stable-Kanalwechsel.
+
+
+## Alpha v496: Audio-UI und ein gemeinsamer Voice-Schalter (08.10.2026)
+
+Release-Kandidat integriert den aktuellen Alpha-Stand v495 einschließlich
+Diagnose-Hotfix und veröffentlichter Charter-Webänderungen. Neue EXE liefert
+Audio-Häkchen mit sichtbarem Zustand, Synchronisierung/Revision-Retry und
+Rücknahme bei Speicherfehlern sowie den in seinem Rahmen zentrierten Regler.
+Ein vorhandener `paxEnabled`-Schalter steuert TTS-Generierung und Wiedergabe
+geräteübergreifend. Standard an; ausdrücklich gespeichertes Aus bleibt.
+Keine zweite Generationseinstellung. Legacy-Migration kann neuere zentrale
+Benutzerwerte nicht überschreiben. Text-only-Jobs nutzen `synthesizeAudio:false`.
+EFB-Assets 49601, Web-Cache v1971. Gemeinsames SDK-Paket 0.4.23 bleibt erhalten;
+Stable-Kanal unverändert. Simulator-/VR-Audio-Abnahme folgt auf Alpha.
+
+Rollout-Preflight v496: Windows-pkg-Bau erfolgreich; Audio-/Host-/Voice-,
+Environment-Wiring- und Charter-Contract-Prüfungen bestanden. Interface-Selbsttest
+und Browser mit zwei Geräten/18 Reglerpositionen bestanden. Die zusätzliche
+Bush-Live-Plan-Prüfung benötigt nicht eingecheckte JSON-Fixtures, die im sauberen
+Release-Checkout fehlen; dieser externe Nachweis bleibt unverändert offen.
