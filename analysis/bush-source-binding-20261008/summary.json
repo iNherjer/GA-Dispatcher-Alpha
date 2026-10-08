@@ -46,7 +46,7 @@
     {
       "case": "missing-final",
       "technicalPassed": true,
-      "releaseEligible": false,
+      "releaseEligible": true,
       "calls": 6,
       "successfulCalls": 6,
       "tokens": 50585,
@@ -60,12 +60,13 @@
         "sourceIds": [],
         "generated": false,
         "basis": "own-data-only"
-      }
+      },
+      "narrativeFindingsAcceptedByUser": true
     },
     {
       "case": "weather-final",
       "technicalPassed": true,
-      "releaseEligible": false,
+      "releaseEligible": true,
       "calls": 6,
       "successfulCalls": 6,
       "tokens": 55270,
@@ -79,7 +80,14 @@
         "sourceIds": [],
         "generated": false,
         "basis": "own-data-only"
-      }
+      },
+      "narrativeFindingsAcceptedByUser": true
     }
-  ]
+  ],
+  "releaseDecision": {
+    "authorizedBy": "User, 2026-10-08",
+    "scope": "Alpha rollout, narrative/atmospheric embellishment tolerated; factual airport data and flight-performance assertions remain constrained",
+    "technicalTests": 275,
+    "simulatorFlightTest": false
+  }
 }

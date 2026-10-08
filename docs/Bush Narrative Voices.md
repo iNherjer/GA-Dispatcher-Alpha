@@ -301,3 +301,18 @@ noch erforderlich. Keine nachtraegliche Regex-Liste eingebaut. Zusammenfassung
 und manuelle Befunde: analysis/bush-source-binding-20261008/summary.json.
 Vollstaendige lokale JSONs missing/weather/missing-final/weather-final bleiben
 als Ad-hoc-Artefakte ausserhalb des Commits erhalten.
+
+
+## Rollout-Freigabe des Nutzers, 08.10.2026
+
+Der Nutzer hat die verbleibenden atmosphaerischen/erzaehlerischen
+Ausschmueckungen akzeptiert und den Alpha-Rollout ausdruecklich freigegeben.
+Die oben dokumentierten offenen Befunde beschreiben den vorherigen
+Pruef-/Freigabestand; sie bleiben als Nachweis erhalten. Sachliche
+Flugplatzangaben, Bahneignung, Verfahren und konkrete Dichtehoehe benoetigen
+weiterhin passende Daten. Kein vollstaendiger Faktenvalidator fuer freie Prosa.
+
+Release: Tracker v491 Alpha, Web-Cache v1961. Stable-/Beta-Kanaele unveraendert.
+275 Regressionstests, vorhandene Live-API-Proben und gepackter
+Tracker-Missionsprozess-Smoke-Test als technische Nachweise; kein
+Windows-/MSFS-Flugtest. Asset vor Aktivierung des Alpha-Kanals verifizieren.

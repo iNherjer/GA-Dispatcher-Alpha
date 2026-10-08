@@ -187,3 +187,18 @@ Neu gebauter lokaler v491-Kandidat ersetzt den vorherigen lokalen Build:
 173641892 Bytes, SHA-256
 b66021e72f008e9b3440debc4af57b4ee4059eb5af54bdcebcd9bea33b504605.
 Alpha-/Stable-Kanaldateien weiter unveraendert. Kein Windows-/MSFS-Feldtest.
+
+
+## Rollout-Freigabe des Nutzers, 08.10.2026
+
+Der Nutzer hat die verbleibenden atmosphaerischen/erzaehlerischen
+Ausschmueckungen akzeptiert und den Alpha-Rollout ausdruecklich freigegeben.
+Die oben dokumentierten offenen Befunde beschreiben den vorherigen
+Pruef-/Freigabestand; sie bleiben als Nachweis erhalten. Sachliche
+Flugplatzangaben, Bahneignung, Verfahren und konkrete Dichtehoehe benoetigen
+weiterhin passende Daten. Kein vollstaendiger Faktenvalidator fuer freie Prosa.
+
+Release: Tracker v491 Alpha, Web-Cache v1961. Stable-/Beta-Kanaele unveraendert.
+275 Regressionstests, vorhandene Live-API-Proben und gepackter
+Tracker-Missionsprozess-Smoke-Test als technische Nachweise; kein
+Windows-/MSFS-Flugtest. Asset vor Aktivierung des Alpha-Kanals verifizieren.
