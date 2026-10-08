@@ -6607,3 +6607,9 @@ painted viewport cases with stale client dimensions. Browser geometry is read
 atomically after the queued layout frame to avoid mixing two scaling frames.
 Existing 60 menu/layout/hit tests pass. Windows EXE MZ and 14 embedded UI sources
 verified. Community 0.4.23 and Stable unchanged; real simulator test pending.
+
+Published v494 tag/source 6a9fecbb78614ba30777c7ed6eb64f4c6bf4cb3d. Public
+Windows EXE verified: 173663617 bytes, SHA-256
+374c70631b36ac8d6a0bc4d0a48e0df5676b01979b1b82647de598184c7d4fcf.
+Alpha activation follows download verification; cache v1967. Stable and
+Community package channels unchanged.
