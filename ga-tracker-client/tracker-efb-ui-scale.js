@@ -26,12 +26,24 @@
     body.style.setProperty('--ga-efb-vw', size.width / 100 + 'px');
     body.style.setProperty('--ga-efb-vh', size.height / 100 + 'px');
     ['dvh','svh','lvh','dvw','svw','lvw'].forEach(function(unit) {
-      body.style.setProperty('--ga-efb-' + unit, floating ? (unit.slice(-1) === 'h' ? size.height : size.width) / 100 + 'px' : '1' + unit);
+      body.style.setProperty('--ga-efb-' + unit, (unit.slice(-1) === 'h' ? size.height : size.width) / 100 + 'px');
     });
     body.style.setProperty('--ga-efb-native-inset', 28 / factor + 'px');
     body.setAttribute('data-ga-efb-layout', floating ? 'floating' : 'physical');
     body.setAttribute('data-ga-efb-surface', surface);
     body.setAttribute('data-ga-efb-effective-scale', String(factor));
+    // Fixed/percentage viewport sizing under a transformed body differs in
+    // Coherent. Give the map shell its own logical pixel bounds on every host.
+    var overlay = root.document.getElementById && root.document.getElementById('mapTableOverlay');
+    if (overlay) {
+      overlay.style.setProperty('position', 'absolute', 'important');
+      overlay.style.setProperty('width', size.width + 'px', 'important');
+      overlay.style.setProperty('height', size.height + 'px', 'important');
+      overlay.style.setProperty('min-height', '0px', 'important');
+      overlay.style.setProperty('box-sizing', 'border-box', 'important');
+      overlay.style.setProperty('padding-top', body.classList.contains('ga-efb-embedded') ? 28 / factor + 'px' : '0px', 'important');
+    }
+
     if (typeof root.gaEfbRefreshDrawerLayout === 'function') root.gaEfbRefreshDrawerLayout();
     if (root.GAEfbFloatingLayout) root.GAEfbFloatingLayout.refresh();
     // Root scaling changes logical geometry without a native window resize.

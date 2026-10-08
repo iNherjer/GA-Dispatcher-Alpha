@@ -1416,3 +1416,27 @@ body.ga-efb-tracker-host #liveTelemetryBox.ga-telemetry-stale::after {
 
 body.ga-efb-tracker-host .map-draw-tool-stack { width: 54px; }
 body.ga-efb-tracker-host .map-draw-tool-stack > button { flex-shrink: 0; }
+
+/* Every host has the same logical height budget, including manually scaled
+   physical tablets. Do not let flex minimums push the profile below the iframe. */
+body.ga-efb-tracker-host .pinboard-scroll-area,
+body.ga-efb-tracker-host .maptable-content { min-height: 0 !important; }
+body.ga-efb-tracker-host:not([data-ga-efb-effective-scale="1"]) .pinboard-header {
+  max-height: calc(var(--ga-efb-vh, 1vh) * 24);
+  min-height: 0;
+  overflow-y: auto;
+}
+body.ga-efb-tracker-host:not([data-ga-efb-effective-scale="1"]) #mapProfileStrip {
+  min-height: 0 !important;
+  max-height: 60% !important;
+}
+body.ga-efb-tracker-host:not([data-ga-efb-effective-scale="1"]) #profileResizeHandle {
+  height: 8px !important;
+  min-height: 0 !important;
+  flex: 0 0 8px !important;
+}
+body.ga-efb-tracker-host:not([data-ga-efb-effective-scale="1"]) #routeProgressBar {
+  min-height: 0 !important;
+  padding: 2px;
+}
+body.ga-efb-tracker-host #mapProfileStrip { box-sizing: border-box; }

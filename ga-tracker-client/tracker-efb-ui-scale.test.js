@@ -43,8 +43,8 @@ test('root layout and input conversions across surfaces, VR, reset and resize pr
     assert.equal(attributes['data-ga-efb-surface'], host);
     const detached = host === 'popout' || host === 'toolbar';
     assert.equal(attributes['data-ga-efb-layout'], detached ? 'floating' : 'physical');
-    assert.equal(styles['--ga-efb-dvh'], detached ? (900 / expected / 100) + 'px' : '1dvh');
-    assert.equal(styles['--ga-efb-dvw'], detached ? (1200 / expected / 100) + 'px' : '1dvw');
+    assert.equal(styles['--ga-efb-dvh'], (900 / expected / 100) + 'px');
+    assert.equal(styles['--ga-efb-dvw'], (1200 / expected / 100) + 'px');
     assert.equal(styles['--ga-efb-native-inset'], (28 / expected) + 'px');
   }
   api.apply(1, 'popout', true); window.innerWidth = 600; resize();
@@ -93,4 +93,26 @@ test('logical scale changes explicitly invalidate tools; identical polls do not 
   assert.equal(events, 2);
   window.GAEfbUiScale.apply(1.5, 'toolbar', false);
   assert.equal(events, 3);
+});
+
+test('embedded map shell receives logical pixel bounds rather than native viewport/percentage height', () => {
+  const values = {}; let resize, writes = 0;
+  const overlay = { style: { setProperty(key, value, priority) { values[key] = value; assert.equal(priority, 'important'); writes++; } } };
+  const body = { style: { setProperty() {} }, setAttribute() {}, classList: { contains(name) { return name === 'ga-efb-embedded'; } } };
+  const window = { innerWidth: 838, innerHeight: 600,
+    document: { body, getElementById(id) { assert.equal(id, 'mapTableOverlay'); return overlay; } },
+    addEventListener(name, fn) { resize = fn; } };
+  vm.runInNewContext(fs.readFileSync(require.resolve('./tracker-efb-ui-scale'), 'utf8'), { window });
+  for (const surface of ['physical', 'popout', 'toolbar']) for (const scale of [1, 1.5, 3]) {
+    const effective = window.GAEfbUiScale.apply(scale, surface, true);
+    assert.equal(parseFloat(values.height) * effective, 600);
+    assert.equal(parseFloat(values.width) * effective, 838);
+    assert.equal(parseFloat(values['padding-top']) * effective, 28);
+    assert.equal(values.position, 'absolute');
+    assert.equal(values['min-height'], '0px');
+    const before = writes;
+    window.GAEfbUiScale.apply(scale, surface, true); assert.equal(writes, before);
+  }
+  window.innerHeight = 480; resize();
+  assert.equal(parseFloat(values.height) * window.GAEfbUiScale.state().effective, 480);
 });
