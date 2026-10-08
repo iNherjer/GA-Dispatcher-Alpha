@@ -1,5 +1,18 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Umgebungsdiagnose: Logger-Scope korrigiert, Alpha v495, 08.10.2026
+
+v493/v494 initialisierten die Umgebungsdiagnose außerhalb des Hauptprozess-Blocks,
+während `debugLog` innerhalb dieses Blocks definiert ist. Der erste Diagnoseeintrag
+warf `ReferenceError: debugLog is not defined`; jeder SimConnect-Telemetrie-Tick
+brach vor der Weitergabe ab, obwohl Prozess und Simulatorverbindung weiterliefen.
+Die Diagnose wird jetzt im Hauptprozess nach `debugLog` angelegt und erhält dessen
+Funktionsreferenz direkt. Der Mission-Worker initialisiert diese Diagnose nicht.
+Ein Regressionstest führt die echten Logger-Deklarationen in ihren originalen
+Entry-Point-Scopes aus: initialer Wetter-/Zeiteintrag und Zeitsprung erreichen
+Debug- und Missionstestlog. Der Fehler wurde vor dem Fix reproduziert. Eine neue
+Windows-EXE ist erforderlich; die Simulatorabnahme bleibt offen.
+
 ## Umgebungsdiagnose, Alpha v493 / Web v1965, 08.10.2026
 
 Tracker protokolliert initialen/frischen/fehlenden Wetterpreset und Wechsel sowie initiale Simulatorzeit und Sprünge über 60 Minuten (normaler Ablauf und Simrate abgezogen), auch ohne Mission. Keine Tick-Protokollierung. SIM_ENV_VOICE dokumentiert angeforderte Reaktionen und wechselnde Wartegründe bei ausstehenden Triggern. Empfang bestätigt keinen abgespielten Kommentar. Kein neues EFB-Paket nötig; Tracker v493 neu gebaut; Simulatorabnahme bleibt offen.
@@ -6592,3 +6605,24 @@ horizontaler Leistenbegrenzung ebenfalls bestanden. Keine Screenshots.
 - Tracker v492 / EFB asset revision 49201; Community package 0.4.23 remains compatible.
 - After merge: 93 profile viewport browser cases and 62 Node/HTTP tests pass; tracker interface regressions pass. Windows EXE MZ signature and 13 embedded UI source files verified. Real MSFS/VR remains Alpha field validation.
 - Released source/tag v492: d540b4bd91387a6e0e543f1385371060bd77d78f. Public EXE download verified: 173655327 bytes; SHA-256 46c3b239b34484c99aade0cb726048286060fe4d66bfb7b01a7cf2d7bcd04f5c. Alpha channel activated separately after verification; Stable unchanged.
+
+### 2026-10-08: Profile content still clipped after v492 (follow-up)
+
+User confirms outer frame now fits, but painted profile content still runs below it when scaling. Previous viewport matrix seeded terrain only in three zoom cases; its main cases checked an empty profile. The strengthened matrix seeds terrain before every scaling transition and requires the inner scroll area and both painted layers to fit the profile, including a 402x580 tablet viewport. A deliberately stale 220px flex height reproduces the clipping before the fix.
+
+EFB-only renderer viewport now derives logical width/remaining height from the visible profile border, subtracts controls/border, explicitly sizes scroll/wrapper/canvases and clamps stale client measurements. Hit-testing uses the same budget. Controls cannot consume the complete profile at extreme scales; their overflow remains scrollable. Real layout events invalidate the profile explicitly; unchanged sizes produce no style writes. Standalone sizing is unchanged. A menu hit-test also exposed the oversized drawer handle overlapping profile buttons at maximum VR scale; its hit area is now centered and bounded within the map area.
+
+Validation: 123 painted-content cases each normal, without ResizeObserver and with stale native dimensions; includes painted lower-region pixels, horizontal zoom/scroll and unchanged-layout mutation check. Native MSFS/Coherent verification remains pending; no screenshots taken.
+
+Follow-up release v494 / asset revision 49401 merges current v493 first.
+Final merged build passes 65 Node/HTTP tests, interface regressions and 123
+painted viewport cases with stale client dimensions. Browser geometry is read
+atomically after the queued layout frame to avoid mixing two scaling frames.
+Existing 60 menu/layout/hit tests pass. Windows EXE MZ and 14 embedded UI sources
+verified. Community 0.4.23 and Stable unchanged; real simulator test pending.
+
+Published v494 tag/source 6a9fecbb78614ba30777c7ed6eb64f4c6bf4cb3d. Public
+Windows EXE verified: 173663617 bytes, SHA-256
+374c70631b36ac8d6a0bc4d0a48e0df5676b01979b1b82647de598184c7d4fcf.
+Alpha activation follows download verification; cache v1967. Stable and
+Community package channels unchanged.

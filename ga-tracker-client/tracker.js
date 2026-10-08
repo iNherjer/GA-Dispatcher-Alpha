@@ -1,4 +1,3 @@
-const environmentDiagnostics = require('./tracker-environment-diagnostics.js').createEnvironmentDiagnostics(message => debugLog(message));
 const precipitationCore = require('../mission-precipitation-core.js');
 if (process.argv.includes('--mission-worker') && typeof process.send === 'function') {
   require('./tracker-mission-worker.js').runMissionWorker();
@@ -96,8 +95,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v493';
-const TRACKER_VERSION_CODE = 493;
+const TRACKER_VERSION = 'v495';
+const TRACKER_VERSION_CODE = 495;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -194,6 +193,7 @@ const debugLog = (line) => {
   missionTestLog.recordSystemLine(line);
   return written;
 };
+const environmentDiagnostics = require('./tracker-environment-diagnostics.js').createEnvironmentDiagnostics(debugLog);
 const logCostTimer = setInterval(() => {
   writeDebugLog(`TRACKER_LOG_COST totals=${JSON.stringify({ debug: writeDebugLog.metrics(), mission: missionTestLog.metrics() })}`);
 }, 10000);

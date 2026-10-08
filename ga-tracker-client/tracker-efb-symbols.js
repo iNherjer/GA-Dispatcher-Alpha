@@ -58,6 +58,15 @@
     var state = window.GAEfbUiScale && window.GAEfbUiScale.state();
     if (state) {
       var logicalWidth = window.GAEfbUiScale.viewport().width;
+      var area = document.getElementById('mapArea'), handle = document.getElementById('mapSideDrawerHandle');
+      if (area && handle) {
+        var mapRect = area.getBoundingClientRect(), drawerRect = drawer.getBoundingClientRect();
+        var mapHeight = window.GAEfbUiScale.delta(mapRect.height);
+        var top = window.GAEfbUiScale.delta(mapRect.top - drawerRect.top) + mapHeight / 2;
+        var set = function(name, value) { if (handle.style.getPropertyValue(name) !== value) handle.style.setProperty(name, value); };
+        set('top', top + 'px');
+        set('height', Math.max(0, Math.min(88, mapHeight)) + 'px');
+      }
       drawer.style.setProperty('--checklist-panel-width', Math.min(logicalWidth * (logicalWidth <= 768 ? .94 : .86), logicalWidth <= 768 ? 420 : 390) + 'px');
       return;
     }
