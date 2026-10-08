@@ -6585,3 +6585,4 @@ horizontaler Leistenbegrenzung ebenfalls bestanden. Keine Screenshots.
 - User-authorized rollout of the complete profile bottom/right scaling correction; current Alpha source merged before packaging.
 - Tracker v492 / EFB asset revision 49201; Community package 0.4.23 remains compatible.
 - After merge: 93 profile viewport browser cases and 62 Node/HTTP tests pass; tracker interface regressions pass. Windows EXE MZ signature and 13 embedded UI source files verified. Real MSFS/VR remains Alpha field validation.
+- Released source/tag v492: d540b4bd91387a6e0e543f1385371060bd77d78f. Public EXE download verified: 173655327 bytes; SHA-256 46c3b239b34484c99aade0cb726048286060fe4d66bfb7b01a7cf2d7bcd04f5c. Alpha channel activated separately after verification; Stable unchanged.
