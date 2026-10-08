@@ -9629,7 +9629,7 @@ async function restoreMissionState(state, options = {}) {
             else window.gaMissionSceneDebug = null;
         } catch (_) {}
     }
-    state.mStory = (window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionSarBriefingCore?.owns(state.currentMissionData) || window.MissionFireBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.animalTransportIdea?.schema === 'animal-transport-idea.v1' || state.currentMissionData?.aptNewsIdea?.schema === 'apt-news-idea.v1' || state.currentMissionData?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
+    state.mStory = (state.currentMissionData?._missionWriterV4Debug?.textPolicy === 'bush-charter-preserve-writer-v1' || window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionSarBriefingCore?.owns(state.currentMissionData) || window.MissionFireBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.animalTransportIdea?.schema === 'animal-transport-idea.v1' || state.currentMissionData?.aptNewsIdea?.schema === 'apt-news-idea.v1' || state.currentMissionData?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
@@ -22495,6 +22495,14 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     }
     if (m.passenger && typeof m.passenger === 'object') {
         m.passenger.storyHint = String(m.s || '').trim();
+    }
+    if (!isPOI && profile.id === 'bush_charter_strip'
+        && mission?._missionWriterV4Debug?.textPolicy === 'bush-charter-preserve-writer-v1') {
+        // Payload/profile processing must not rewrite a retained writer narrative.
+        m.s = mission.s;
+        m.story = mission.s;
+        m.missionStory = mission.s;
+        if (m.passenger) m.passenger.storyHint = mission.s;
     }
     m.profileId = profile.id;
     return { mission: m, paxText, cargoText, appliedProfile: profile.id };
@@ -39204,10 +39212,26 @@ function _missionWriterV5NormalizeNewsEditorialTerms(text = '', taskDomain = '')
         .replace(/\bbildgeschichte\b/gi, 'Fotoreportage');
 }
 
+function _missionWriterV5PreservesBushCharterStory(contract = {}) {
+    return String(contract?.profile?.id || '').toLowerCase() === 'bush_charter_strip'
+        && String(contract?.mode || contract?.route?.mode || '').toLowerCase() === 'bush'
+        && !contract?.target?.isPOI;
+}
+
 function _missionWriterV5FinalizeStory(story = '', contract = {}, context = {}) {
     const raw = String(story || '').replace(/\s+/g, ' ').trim();
     const taskDomain = String(contract?.profile?.taskDomain || contract?.missionPlan?.plan?.taskDomain || '').toLowerCase();
     const reasons = _missionWriterV5StoryFallbackReasons(raw, contract, context);
+    // Bush Charter prose belongs to the writer. Legacy heuristics are evidence only.
+    if (raw && _missionWriterV5PreservesBushCharterStory(contract)) {
+        return {
+            story: String(story).trim(),
+            fallbackReason: '',
+            acceptedRaw: true,
+            textPolicy: 'bush-charter-preserve-writer-v1',
+            diagnosticReasons: reasons
+        };
+    }
     if (!reasons.length) {
         return {
             story: _missionPipelineV4EnsureCargoRouteContext(_missionWriterV5NormalizeNewsEditorialTerms(raw, taskDomain), contract),
@@ -39562,13 +39586,15 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
             missionFamily: family,
             hasPoiChain: !!(contract?.poiChain?.points?.length >= 2),
             rawStoryLength: String(src.story || '').trim().length,
-            rawAiStory: _missionWriterV5Text(src.story || '', 2400),
+            rawAiStory: String(src.story || '').trim(),
             rawStoryPreview: _missionWriterV5Text(src.story || '', 520),
             finalStoryLength: finalStory.length,
-            writerStory: _missionWriterV5Text(finalStory, 2400),
+            writerStory: finalStory,
             storyChangedByFinalize: String(src.story || '').trim() !== finalStory,
             fallbackReason: finalized.fallbackReason || '',
             writerAccepted: !!finalized.acceptedRaw,
+            textPolicy: finalized.textPolicy || 'legacy',
+            semanticDiagnosticReasons: finalized.diagnosticReasons || [],
             rawTitle,
             titleChangedByFinalize: rawTitle !== finalTitle,
             briefingRoute: !!briefingBrief.route,
@@ -39770,9 +39796,9 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
             taskDomain: requiredTaskDomain,
             hasPoiChain: !!(contract?.poiChain?.points?.length >= 2),
             rawStoryLength: String(src.story || '').trim().length,
-            rawAiStory: _missionWriterV5Text(src.story || '', 2400),
+            rawAiStory: String(src.story || '').trim(),
             finalStoryLength: finalStory.length,
-            writerStory: _missionWriterV5Text(finalStory, 2400),
+            writerStory: finalStory,
             storyChangedByFinalize: String(src.story || '').trim() !== finalStory,
             finalLooksEnumerative: typeof _missionPipelineV4LooksEnumerative === 'function'
                 ? _missionPipelineV4LooksEnumerative(finalStory)
@@ -45913,6 +45939,8 @@ async function generateMission(options = {}) {
         mission: m.t,
         story: m.s,
         missionStory: m.s,
+        // Keep the writer decision with the mission across local and Cloud restores.
+        _missionWriterV4Debug: m._missionWriterV4Debug ? { ...m._missionWriterV4Debug } : null,
         clubIdea: m.clubIdea || null,
         charterIdea: m.charterIdea || null,
         infraBriefing: m.infraBriefing || null,

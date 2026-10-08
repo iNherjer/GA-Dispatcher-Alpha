@@ -4483,6 +4483,8 @@ window.vpBuildWeatherDebugReport = function() {
             if (typeof sd.writerUsable === 'boolean') storyBits.push(`usable=${sd.writerUsable ? 'ja' : 'nein'}`);
             if (typeof sd.writerAccepted === 'boolean') storyBits.push(`accepted=${sd.writerAccepted ? 'ja' : 'nein'}`);
             if (sd.fallbackReason) storyBits.push(`fallback=${String(sd.fallbackReason)}`);
+            if (sd.textPolicy) storyBits.push(`textPolicy=${String(sd.textPolicy)}`);
+            if (sd.semanticDiagnosticReasons?.length) storyBits.push(`semanticHints=${sd.semanticDiagnosticReasons.join(',')}`);
             if (typeof sd.postSanitizerFallbackEver === 'boolean') storyBits.push(`postFallback=${sd.postSanitizerFallbackEver ? 'ja' : 'nein'}`);
             if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
             if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
