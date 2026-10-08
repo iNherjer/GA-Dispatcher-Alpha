@@ -6876,3 +6876,9 @@ d36fb872616c553c5411afaaf022db383ba13b85a873d651eed57e76f4468eab.
 Quelltag v501/cf361ee39227c4914283c44dab26dbb30c157d95,UI-Assets50101,
 Aktivierung mit SW1981. SDK0.4.23 unveraendert.200%-Hoehenbudget/VR bleiben
 vereinbarte Feldabnahme; beide Paint-Fixes im 2D-Popout sichtbar bestaetigt.
+
+
+## Alpha v502 – Cloud-Kontrollinitialisierung korrigiert (08.10.2026)
+Feldlogs zeigen v501-Starts um 10:11:21Z und 10:16:23Z: alter Run geladen, Missionsworker bereit, danach fehlen Cloud-Poll/Relay-/SimConnect-Start. Der neue Initialisierungsblock referenzierte die nicht deklarierte Konstante TRACKER_CHANNEL statt TRACKER_RUNTIME_CHANNEL. Zwei Tests führen diesen produktiven Block für Alpha/Stable aus und reproduzieren vor dem Fix ReferenceError; nach dem Fix initialisieren beide. READY-Diagnose dokumentiert das Passieren dieses Schritts. Keine Änderung an Missionstypen, Klassifikation, Cloud-Daten oder Seeds; alte Missionsdateien bleiben erhalten. Clock-Identitätsfehler im vorherigen v499-Lauf sind ein separater, weiterhin offener Feldbefund.
+
+Hotfix-Validierung: 93 gezielte Startup-/Cloud-/Runtime-/Authority-/Voice-Tests und Interface-Selbsttest bestanden. Neue Windows-EXE v502 gebaut; Web-Cache v1982. Der Fix verändert nur Kanalreferenz und Startup-Diagnose. Keine Worker-/SDK-Aktualisierung erforderlich.

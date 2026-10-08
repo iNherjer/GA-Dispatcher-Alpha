@@ -97,8 +97,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v501';
-const TRACKER_VERSION_CODE = 501;
+const TRACKER_VERSION = 'v502';
+const TRACKER_VERSION_CODE = 502;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5200,7 +5200,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     return result;
   };
   cloudMissionReconciler = createCloudMissionReconciler({
-    filename: path.join(TRACKER_DATA_DIR, 'cloud-mission-control-' + TRACKER_CHANNEL + '-' + require('node:crypto').createHash('sha256').update(String(syncId)).digest('hex').slice(0,24) + '.json'),
+    filename: path.join(TRACKER_DATA_DIR, 'cloud-mission-control-' + TRACKER_RUNTIME_CHANNEL + '-' + require('node:crypto').createHash('sha256').update(String(syncId)).digest('hex').slice(0,24) + '.json'),
     pilotId: String(syncId),
     getRun: () => missionAuthorityManager.getActiveRun({ includeBundle: true, includeEffects: true }),
     readLatest: () => fetchTrackerCloudMission(syncId, pin, { poiExecutionEnabled: TRACKER_POI_EXECUTION_ENABLED }),
@@ -5228,6 +5228,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     },
     log: debugLog
   });
+  debugLog(`MISSION_CLOUD_CONTROL_READY channel=${TRACKER_RUNTIME_CHANNEL} revision=${cloudMissionReconciler.applied()?.revision || 0}`);
   let readCockpitPayload = null;
   const cockpitTools = createCockpitTools({
     filename: path.join(TRACKER_DATA_DIR, 'navigation-route-v1.json'),
