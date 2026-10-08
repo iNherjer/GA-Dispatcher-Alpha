@@ -1,0 +1,35 @@
+{
+  "stage": "weather",
+  "createdAt": "2026-10-07T20:14:15.593Z",
+  "scope": "Real API through extracted production function, synthetic weather fixture; no browser, tracker or simulator test.",
+  "requests": [
+    {
+      "model": "gemini-2.5-flash-lite",
+      "config": {
+        "maxOutputTokens": 260
+      },
+      "promptSha256": "c8d93f489083979870ef1b606c6b74cc4dc2b768acccc9baca9f01b90e2d2a44",
+      "ms": 1499,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 340,
+        "candidatesTokenCount": 152,
+        "totalTokenCount": 492,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 340
+          }
+        ],
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "result": {
+    "text": "Okay Pilot, hier dein Wetterbriefing für den Flug. Am Start auf dem Test-Startplatz haben wir VFR-Bedingungen mit 10 Kilometer Sicht, SCT 3500 Fuß hohe Wolken und Wind aus 240 Grad bei 8 Knoten, ohne Niederschlag. Auf der Strecke musst du mit möglicherweise wechselnden Bedingungen rechnen, da für dein Ziel derzeit keine aktuellen Wetterdaten vorliegen. Das bedeutet, du solltest das Zielwetter im Auge behalten und gegebenenfalls flexibel bleiben. Halte dich über die Wolkenbasis informiert und sei auf mögliche Schauer vorbereitet, besonders gegen Ende des Fluges. Passe deine Flughöhe entsprechend an, um gute Sichtverhältnisse beizubehalten.",
+    "source": "gemini-2.5-flash-lite"
+  },
+  "passed": true,
+  "completedAt": "2026-10-07T20:14:17.106Z"
+}

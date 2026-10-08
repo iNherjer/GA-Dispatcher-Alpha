@@ -1,0 +1,77 @@
+{
+  "stage": "voice",
+  "createdAt": "2026-10-07T20:17:53.774Z",
+  "scope": "Real API through extracted production functions; synthetic fixtures/tool context, no browser, tracker or simulator test. Production prompts are unchanged; scene sanitizer is stubbed to inspect raw output.",
+  "requests": [
+    {
+      "model": "gemini-3.8-flash",
+      "config": {
+        "response_mime_type": "text/plain",
+        "thinkingConfig": {
+          "thinkingLevel": "low"
+        }
+      },
+      "promptSha256": "44660dc6e5a71fd79d413f584aaa390058ecab6895f01a846cb76ac8b49ff40f",
+      "ms": 2485,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 69,
+        "candidatesTokenCount": 36,
+        "totalTokenCount": 105,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 69
+          }
+        ],
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "model": "gemini-3.8-flash-tts",
+      "config": {
+        "responseModalities": [
+          "AUDIO"
+        ],
+        "speechConfig": {
+          "voiceConfig": {
+            "prebuiltVoiceConfig": {
+              "voiceName": "Kore"
+            }
+          }
+        }
+      },
+      "promptSha256": "2aee013b35a61ecb3a20bdf5229187fc055ae3da0e753a3d8c4050fb02d7eb17",
+      "ms": 4990,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 37,
+        "candidatesTokenCount": 248,
+        "totalTokenCount": 285,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 37
+          }
+        ],
+        "candidatesTokensDetails": [
+          {
+            "modality": "AUDIO",
+            "tokenCount": 248
+          }
+        ],
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "text": "Das Zielwetter ist aktuell leider völlig unbekannt, da uns von dort keine Daten vorliegen. Wir müssen den Flug wohl ohne Vorabinformationen für die Landung planen.",
+  "audio": {
+    "model": "gemini-3.8-flash-tts",
+    "mimeType": "audio/wav",
+    "bytes": 482274
+  },
+  "passed": true,
+  "completedAt": "2026-10-07T20:18:01.258Z"
+}

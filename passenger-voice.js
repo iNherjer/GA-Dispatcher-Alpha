@@ -4442,6 +4442,10 @@ Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenpers
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────
 
 async function _generateSpokenText(apiKey, situationPrompt, options = {}) {
+    const bushSourceMission = typeof currentMissionData !== 'undefined' ? currentMissionData : window.currentMissionData;
+    if (bushSourceMission?.missionType === 'bush' || bushSourceMission?.bush?.profileId) {
+        situationPrompt += window.MissionBushNarrativeCore?.sourcePrompt(bushSourceMission) || '';
+    }
     if ((window.activePassenger?.taskDomain === 'club_utility' || ['charter-idea.v1','sightseeing-idea.v1','apt-news-idea.v1'].includes(window.activePassenger?.narrativeSchema)) && window.GAMissionRouteVoiceCore) {
         situationPrompt = window.GAMissionRouteVoiceCore.conversationPrompt(situationPrompt, window.missionClubSpeechHistory?.());
     }
@@ -4488,15 +4492,13 @@ async function _generateSpokenText(apiKey, situationPrompt, options = {}) {
     const payload = {
         contents: [{ parts: [{ text: situationPrompt }] }],
         generationConfig: {
-            response_mime_type: 'text/plain',
-            temperature: 0.95,
-            topP: 0.9
+            response_mime_type: 'text/plain'
         }
     };
     let opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
 
     for (const [model, source, usageKey] of models) {
-        payload.generationConfig = window.GAMissionBoardingVoiceCore?.geminiTextGenerationConfig(model, options.paxMenuRequest) || { response_mime_type: 'text/plain', temperature: 0.95, topP: 0.9, ...(options.paxMenuRequest === true && model === 'gemini-3.8-flash' ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) };
+        payload.generationConfig = window.GAMissionBoardingVoiceCore?.geminiTextGenerationConfig(model, options.paxMenuRequest) || { response_mime_type: 'text/plain', ...(options.paxMenuRequest === true && model === 'gemini-3.8-flash' ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) };
         opts = { ...opts, body: JSON.stringify(payload) };
         try {
             _paxLog(`Textgen → ${model}${options.paxMenuRequest === true && model === 'gemini-3.8-flash' ? ' · Pax-Menü · Thinking low' : ''}`, 'send');
@@ -10483,6 +10485,7 @@ window.paxVoiceBuildApproachAuthorityContext = function() {
         dest: md?.dest || 'dem Flughafen',
         start: md?.start || '?',
         bushNarrative: window.MissionBushNarrativeCore?.normalizePlan(md?.bushNarrative) || null,
+        ...(md?.bush?.profileId || md?.missionType === 'bush' ? {bushSourceBasis:window.MissionBushNarrativeCore?.sourceBasis(md)} : {}),
         narrativeEvents: (md?.aptNewsIdea || md?.sightseeingIdea || md?.charterIdea || md?.clubIdea)?.narrativeEvents || [],
         privateReturn: _privateReturnVoiceContext(md),
         departure: typeof routeWaypoints !== 'undefined' ? routeWaypoints?.[0] : null,

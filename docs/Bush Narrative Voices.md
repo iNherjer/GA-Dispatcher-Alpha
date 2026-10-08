@@ -242,3 +242,77 @@ Writer-Roh-JSON; es entsteht weder ein neuer Runtime-Eventtyp noch ein neues
 Trigger-/Authority-Feld. Radius, Boarding, Pause, Abschluss und Audio-Gates
 bleiben gleich. Finale U60-Probe: 8 Kapitel, einzeln 8/8 erreichbar nach
 Restore; ESNC-Kapitelprobe mit Timeout, daher dafür kein neuer Live-Nachweis.
+
+## Bush-Quellenbindung, lokaler Kandidat 08.10.2026
+
+Noch nicht ausgerollt. Gemeinsame `sourcePolicy` / `sourceBasis` in
+mission-bush-narrative-core.js, ausschliesslich fuer Bush: reale Airport-/Geo-
+Quellen, datierte Wetterdaten und ausdrueckliche Datenluecken getrennt von
+Story, StoryFrame, History und bereits gesprochenen Kapiteln. Unbekannt ist
+keine negative Beobachtung; Platzhoehe ist keine berechnete Dichtehoehe.
+Live-Sim-Telemetrie darf als solche genutzt werden, Modellwetter bestaetigt
+keine aktuelle Cockpitsicht. Persoenliche Erinnerungen, Beziehungen und
+Vorhaben bleiben frei, Rollen, Route, Trigger und Erfolgsbedingungen gleich.
+
+Angebunden: V3-/V4-Planner (inklusive Compact), V4-/V5- und Legacy-Writer,
+Bush Scene Planner, Kapitel-Frame/-Prompt, Browser-Sprachgenerierung sowie
+Tracker-Boarding-/Flight-/Farewell-Voice. Der Approach-Authority-Kontext
+transportiert Bush sourceBasis; keine neue Zustandsmaschine. Kapitel-TTS gibt
+vorbereitete Texte weiterhin unveraendert wieder. APT-/POI-Prompts erhalten
+die Bush-Regel nicht; V4-Prompts beider Familien differentiell unveraendert.
+
+Bush-Platzredaktion: Gibt es nur eigene technische Basisdaten und allgemeine
+Handbuecher, werden Flugplatztexte aus den bekannten Daten ausgegeben statt
+freie lokale KI-Prosa zu akzeptieren. Keine Behauptungen ueber unbekannte
+Infrastruktur, Gebirgs-/Tallage, Bahneignung oder konkrete Dichtehoehe.
+Leere FAA-Remarks gelten nicht als oertliche Prosa. Vorhandene echte lokale
+Wikipedia-/FAA-Texte behalten ihren bisherigen Redaktionspfad. Dieser Pfad
+ist damit noch kein semantischer Faktenvalidator fuer jede Aussage.
+
+275 Tests erfolgreich. Neue gezielte Tests fuer fehlende/partielle Wetterdaten,
+bekannte Nullwerte, Zeit/Ort/Einheiten, Story-Poisoning, getrennte Handbuecher,
+Basisdatenanzeige, leere FAA-Metadaten und korrupte optionale Quellen.
+Bestehende Boarding-/Farewell-/Cargo-/POI-/SAR-/Wettertests ebenfalls bestanden.
+Kein neues Modell und keine zusaetzlichen KI-Aufrufe pro normaler Bush-Mission;
+die neuen Quellenregeln/Datenprojektionen vergroessern allerdings die Eingaben.
+
+### Live-Befund und verbleibende Grenze
+
+Vier begrenzte API-Proben ueber die Produktionsfunktionen im Dry-run-VM:
+23 Aufrufe, 23 HTTP 200; datierte Wetter-/Airport-Testfixtures, kein Wetter-
+Liveabruf, Browser-/Windows-/MSFS-Flug oder Audio-Playback. Erste zwei Proben
+prueften reine Prompt-Nachschaerfung, danach die eigene Basisdatenredaktion.
+Alle vier Ketten technisch ready: Planner, Contract, V5-Writer, vier Bush-
+Kapitel, Scene Planner ohne unerwuenschte Zielobjekte.
+
+In den abschliessenden Proben bleiben Platztexte exakt bei Piste 01/19,
+1082 m Laenge, 34 m Breite, Gras, 5743 ft MSL. Ohne Wetter wurde kein aktueller
+Wetterzustand erfunden. Die semantische Freigabe ist trotzdem offen:
+
+- Ein Kapitel ohne Wetter nennt eine nicht belegte Taloeffnung.
+- Mit 75 % Bewoelkung als datiertem Modell-Testwert schreibt die KI weiterhin
+  diffuses Licht heute, ohne das als Modellannahme einzuordnen; Voice
+  uebernimmt dies als aktuelle Bedingung.
+- Weitere freie Voice-Ortsbeschreibungen koennen unbelegt bleiben.
+
+Daher keine Behauptung vollstaendig geloester Quellenbindung und kein Rollout.
+Eine strengere Trennung/Pruefung realer Aussagen in freier Story und Voice ist
+noch erforderlich. Keine nachtraegliche Regex-Liste eingebaut. Zusammenfassung
+und manuelle Befunde: analysis/bush-source-binding-20261008/summary.json.
+Vollstaendige lokale JSONs missing/weather/missing-final/weather-final bleiben
+als Ad-hoc-Artefakte ausserhalb des Commits erhalten.
+
+
+## Rollout-Freigabe des Nutzers, 08.10.2026
+
+Der Nutzer hat die verbleibenden atmosphaerischen/erzaehlerischen
+Ausschmueckungen akzeptiert und den Alpha-Rollout ausdruecklich freigegeben.
+Die oben dokumentierten offenen Befunde beschreiben den vorherigen
+Pruef-/Freigabestand; sie bleiben als Nachweis erhalten. Sachliche
+Flugplatzangaben, Bahneignung, Verfahren und konkrete Dichtehoehe benoetigen
+weiterhin passende Daten. Kein vollstaendiger Faktenvalidator fuer freie Prosa.
+
+Release: Tracker v491 Alpha, Web-Cache v1961. Stable-/Beta-Kanaele unveraendert.
+275 Regressionstests, vorhandene Live-API-Proben und gepackter
+Tracker-Missionsprozess-Smoke-Test als technische Nachweise; kein
+Windows-/MSFS-Flugtest. Asset vor Aktivierung des Alpha-Kanals verifizieren.

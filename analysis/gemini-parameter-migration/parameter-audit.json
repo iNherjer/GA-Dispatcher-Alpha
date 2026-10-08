@@ -1,0 +1,38 @@
+{
+  "schema": "ga.gemini-parameter-audit.v1",
+  "source": "working-tree",
+  "scannedFiles": 420,
+  "note": "Declaration inventory, not a request-level regression test. Other providers and historical probes require manual classification. No network requests or secrets are printed.",
+  "declarations": [
+    {
+      "file": "app.js",
+      "line": 26803,
+      "field": "thinkingLevel"
+    },
+    {
+      "file": "mission-boarding-voice-core.js",
+      "line": 64,
+      "field": "thinkingLevel"
+    },
+    {
+      "file": "mission-club-events-core.js",
+      "line": 10,
+      "field": "thinkingLevel"
+    },
+    {
+      "file": "passenger-voice.js",
+      "line": 4497,
+      "field": "thinkingLevel"
+    },
+    {
+      "file": "tools/club-ideas-live-probe.mjs",
+      "line": 16,
+      "field": "thinkingLevel"
+    },
+    {
+      "file": "tools/private-grounded-story-probe.mjs",
+      "line": 45,
+      "field": "thinkingLevel"
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "scope": "Real API in production-function VM; supplied dated weather/airport fixtures. No browser, Windows/SimConnect, TTS playback or MSFS flight.",
+  "cases": [
+    {
+      "case": "missing",
+      "technicalPassed": true,
+      "releaseEligible": false,
+      "calls": 5,
+      "successfulCalls": 5,
+      "tokens": 40474,
+      "reviewFindings": [
+        "Nur Prompt-Nachschärfung: sachliche Platztexte noch mit unbelegten Nutzungen/Gebirgsumgebung und Bahn-Eignungsbewertung."
+      ],
+      "airportInformation": {
+        "schema": "airport-information-text.v1",
+        "flightBriefing": "Der Big Creek Airport (U60) stellt mit seiner Lage auf 5743 Fuß MSL eine typische Herausforderung für die Leistungsplanung dar. Die 1082 Meter lange Graspiste 01/19 bietet zwar ausreichend Raum, doch sollte die verminderte Flugleistung in dieser Höhe stets berücksichtigt werden. Da der Zustand einer Graspiste durch Feuchtigkeit oder Bewuchs variieren kann, empfiehlt sich eine aufmerksame Beurteilung der Oberfläche bei der Landung. Die Flugzeugunterlagen bilden die Grundlage für die Berechnung der benötigten Rollstrecken, um sicher im Backcountry zu operieren.",
+        "destinationInfo": "Big Creek Airport (U60) ist ein zentraler Zugangspunkt für die umliegende Wildnis in den USA. Der Platz ist durch seine markante Graspiste (01/19) und die Lage in einer Gebirgsregion auf über 5700 Fuß Höhe gekennzeichnet. Da vor Ort keine spezifischen Dienstleistungsgebäude oder Treibstoffdepots belegt sind, dient er primär als technischer Stützpunkt für Forschung, Infrastrukturprojekte und den Zugang zur Natur. Er ist ein wichtiger Referenzpunkt für die Dokumentation lokaler Bauvorhaben und Backcountry-Einsätze.",
+        "sourceIds": [
+          "faa-mountain-tips",
+          "nz-caa-mountain"
+        ],
+        "generated": true
+      }
+    },
+    {
+      "case": "weather",
+      "technicalPassed": true,
+      "releaseEligible": false,
+      "calls": 6,
+      "successfulCalls": 6,
+      "tokens": 49396,
+      "reviewFindings": [
+        "Nur Prompt-Nachschärfung: Modellwetter zu perfektem Anflugfenster/Tallage und aktuellen Verhältnissen verallgemeinert."
+      ],
+      "airportInformation": {
+        "schema": "airport-information-text.v1",
+        "flightBriefing": "Der Flug führt zum Big Creek Airport (U60), der mit seiner Graspiste 01/19 (1082 m Länge) auf einer stolzen Platzhöhe von 5743 Fuß liegt. Aufgrund dieser Höhe ist die Leistungsplanung für den Gebirgsflug besonders wichtig, da die verfügbare Motor- und Steigleistung spürbar abnehmen kann. Die aktuelle Wetterlage zeigt moderate 14 Grad und etwa 8 Knoten Wind am Ziel bei einer Bewölkung von 75 %, was für den Anflug in das anspruchsvolle Gelände stabil klingt. Beachten Sie bei der Landung auf Gras, dass die Bodenbeschaffenheit die Rollstrecken im Vergleich zu festem Untergrund verlängern kann.",
+        "destinationInfo": "Big Creek Airport (U60) ist ein typischer Backcountry-Flugplatz im US-Bundesstaat Idaho, gelegen in herausforderndem Gebirgsgelände. Der Platz bietet eine einzelne, etwa 1082 Meter lange Graspiste in Nord-Süd-Ausrichtung (01/19) auf einer Höhe von 5743 Fuß über dem Meeresspiegel. Außer der Piste und dem umliegenden Gelände sind keine weiteren Versorgungseinrichtungen oder festen Gebäude für den Flugbetrieb dokumentiert. Die Abgeschiedenheit macht ihn zu einem idealen Ausgangspunkt für Vermessungsarbeiten und die Dokumentation von Liegenschaften in der Wildnis.",
+        "sourceIds": [
+          "faa-mountain-tips",
+          "nz-caa-mountain"
+        ],
+        "generated": true
+      }
+    },
+    {
+      "case": "missing-final",
+      "technicalPassed": true,
+      "releaseEligible": true,
+      "calls": 6,
+      "successfulCalls": 6,
+      "tokens": 50585,
+      "reviewFindings": [
+        "Platzbeschreibung korrekt aus eigenen Daten. Kein erfundenes aktuelles Wetter. Voice-Kapitel nennt aber eine unbelegte Talöffnung."
+      ],
+      "airportInformation": {
+        "schema": "airport-information-text.v1",
+        "flightBriefing": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras.",
+        "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+        "sourceIds": [],
+        "generated": false,
+        "basis": "own-data-only"
+      },
+      "narrativeFindingsAcceptedByUser": true
+    },
+    {
+      "case": "weather-final",
+      "technicalPassed": true,
+      "releaseEligible": true,
+      "calls": 6,
+      "successfulCalls": 6,
+      "tokens": 55270,
+      "reviewFindings": [
+        "Platzbeschreibung korrekt aus eigenen Daten. Story/Voice behaupten diffuses Licht heute, obwohl nur datierte Bewölkungs-Modellwerte vorliegen. Weitere unbelegte örtliche Aussagen in Voice."
+      ],
+      "airportInformation": {
+        "schema": "airport-information-text.v1",
+        "flightBriefing": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras.",
+        "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+        "sourceIds": [],
+        "generated": false,
+        "basis": "own-data-only"
+      },
+      "narrativeFindingsAcceptedByUser": true
+    }
+  ],
+  "releaseDecision": {
+    "authorizedBy": "User, 2026-10-08",
+    "scope": "Alpha rollout, narrative/atmospheric embellishment tolerated; factual airport data and flight-performance assertions remain constrained",
+    "technicalTests": 275,
+    "simulatorFlightTest": false
+  }
+}

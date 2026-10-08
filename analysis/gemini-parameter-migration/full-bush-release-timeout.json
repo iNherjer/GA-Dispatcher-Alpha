@@ -1,0 +1,2861 @@
+{
+  "createdAt": "2026-10-07T20:32:02.536Z",
+  "scope": "Real API, complete production planner/contract/writer/chapter/scene functions and validators in VM. Supplied airport/runway fixtures; no automatic geo research, browser, simulator or audio playback.",
+  "requests": [
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "response_mime_type": "application/json"
+      },
+      "promptSha256": "a7d3e25f1d756300a8b015912db01f2d05416354835e1b2b4352dac347b56aee",
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 9233,
+        "candidatesTokenCount": 1024,
+        "totalTokenCount": 11322,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 9233
+          }
+        ],
+        "thoughtsTokenCount": 1065,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP"
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "response_mime_type": "application/json"
+      },
+      "promptSha256": "6100011cf591af1f1c22dfdc9932e5c7d9749bdd0800116db433ca04775a5924",
+      "error": "This operation was aborted"
+    }
+  ],
+  "planner": {
+    "pipelineVersion": "mission-v4-planner-2026-06-07",
+    "status": "ready",
+    "needs": [],
+    "resolvedNeeds": {
+      "geo_context": null,
+      "mission_truth": null,
+      "weather_snapshot": null,
+      "fire_hazard": null,
+      "airport_details": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      }
+    },
+    "plan": {
+      "taskDomain": "charter",
+      "roleProfile": "charter_professional_neutral_v1",
+      "missionType": "bush",
+      "targetCategory": "charter",
+      "primaryObjective": "Beförderung einer Projektfotografin zur Infrastruktur-Dokumentation nach Big Creek.",
+      "targetLabel": "Big Creek Airport",
+      "missionTrigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+      "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+      "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+      "missionStakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+      "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+      "storyFrame": {
+        "trigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+        "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+        "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+        "stakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+        "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+        "subjectDetail": "Eine erfahrene Fotografin, die auf die Dokumentation von Backcountry-Infrastruktur spezialisiert ist.",
+        "incidentContext": "Für eine neue Projektakte müssen die aktuellen Bodenmarkierungen und der Zustand der Pistenränder am Big Creek Airport visuell erfasst werden.",
+        "whyNow": "Die Lichtverhältnisse am späten Nachmittag bieten heute die nötigen Kontraste, um kleine Unebenheiten in der Graspiste auf den Fotos sichtbar zu machen.",
+        "soughtOutcome": "Ein vollständiger Satz Referenzbilder und die Bestätigung der Wegpunkte vor Ort.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": []
+      },
+      "sceneKind": "none",
+      "sceneDensity": "none",
+      "requiredAnchors": [
+        "runway_threshold",
+        "apron_area"
+      ],
+      "objectFamilies": [
+        "cargo_equipment",
+        "photography_gear"
+      ],
+      "placementPolicy": "standard_airport",
+      "narrativeRules": [
+        "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+        "Task-domain lock: charter bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+        "Das gewaehlte Ziel bleibt Primärsubjekt.",
+        "Erwähne das mitgeführte Kartenmaterial und das Markierungsband.",
+        "Betone die Wichtigkeit der Landung am Big Creek Airport für den Beginn der Geländearbeit.",
+        "Dispatcher-Perspektive: Wir liefern den Profi für den Job ab."
+      ],
+      "lockedFields": {
+        "noLandingAtPoi": false,
+        "requiresRescueAtPoi": false,
+        "requiresReturnHome": false,
+        "primarySubjectLabel": "Big Creek Airport",
+        "primarySubjectType": "generic",
+        "taskDomain": "charter"
+      },
+      "confidence": 1,
+      "localFacts": [
+        "Big Creek Airport (U60) liegt auf 5743 Fuß Höhe.",
+        "Die Piste 01/19 besteht aus Gras.",
+        "Anflug im Gebirgsterrain erfordert Beurteilung der Durchstarthöhe vor dem Sinkflug."
+      ],
+      "weatherHooks": [
+        "Gute Sicht für die geplanten Referenzaufnahmen",
+        "Lokale Talwinde beim Anflug auf Big Creek beachten"
+      ],
+      "operationalDetails": [
+        "Hohe Dichtehohe am Zielplatz einplanen.",
+        "Pistenzustand (Gras) bei der Landeberechnung berücksichtigen.",
+        "Ausreichend Raum für Umkehrkurven im Tal einplanen."
+      ],
+      "realismBrief": "Dieser Charter-Einsatz ist glaubwürdig, da abgelegene Flugplätze regelmäßig für Wartungs- und Dokumentationszwecke von Fachpersonal besucht werden müssen, die auf den Luftweg angewiesen sind.",
+      "narrativeHooks": [
+        "Kartenrolle und Markierungsband sind sicher verstaut.",
+        "Der Gast benötigt nach der Landung Zeit für die Begehung der Pistenränder.",
+        "Der Rückflug erfolgt ohne den Gast, da dieser über Nacht am Strip bleibt."
+      ],
+      "mustMention": [
+        "Projektfotografin",
+        "Karten und Markierungsband",
+        "Zustand der Graspiste",
+        "Big Creek Airport"
+      ],
+      "mustAvoid": [
+        "Rettungs- oder Notfallszenario",
+        "Rückkehr zum Startplatz mit dem Gast",
+        "Fiktive Ortsnamen außerhalb des Idaho-Backcountry",
+        "Kontext darf das Primaerziel nicht ersetzen.",
+        "Kontext darf die TaskDomain nicht umwidmen."
+      ]
+    },
+    "poiChain": null,
+    "debug": {
+      "source": "Gemini 3.0 Flash",
+      "rawStatus": "ready",
+      "pass": "single-shot",
+      "promptVersion": "mission-v4-planner-2026-06-07",
+      "toolCalls": [],
+      "fallbackError": "",
+      "parseMode": "direct",
+      "contextSchema": "missionPlannerV4.contextBundle.v1",
+      "semanticsVersion": "mission-semantics-v4-2026-06-07",
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_charter_strip",
+        "profileId": "bush_charter_strip",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "photographer_assignment",
+          "boundary_survey_visit",
+          "quiet_writer_residency",
+          "biologist_access",
+          "outfitter_client_transfer"
+        ],
+        "selectedFamilies": [
+          "photo_story",
+          "survey_mapping",
+          "wildcard_guest",
+          "wildlife_fieldwork",
+          "outfitter_guest"
+        ],
+        "primaryId": "photographer_assignment",
+        "primaryFamily": "photo_story",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_charter_strip_v1"
+      },
+      "primaryError": "",
+      "compactRetry": false,
+      "compactRetrySource": "",
+      "compactRetryError": "",
+      "aiAttempts": [
+        {
+          "model": "gemini-3-flash-preview",
+          "source": "Gemini 3.0 Flash",
+          "status": "ok",
+          "error": "",
+          "phase": "direct"
+        }
+      ]
+    },
+    "semantics": {
+      "version": "mission-semantics-v4-2026-06-07",
+      "focusLock": {
+        "mode": "bush",
+        "taskDomain": "charter",
+        "targetCategory": "generic",
+        "requestedCategory": "charter",
+        "primarySubjectLabel": "Big Creek Airport",
+        "primarySubjectType": "generic",
+        "contextRoles": [
+          "orientation",
+          "hazard",
+          "access",
+          "support",
+          "evidence",
+          "background"
+        ]
+      },
+      "plannerGuardrails": [
+        "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+        "Task-domain lock: charter bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+        "Das gewaehlte Ziel bleibt Primärsubjekt."
+      ],
+      "writerGuardrails": [
+        "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+        "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+        "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+        "Kontext darf die Mission anreichern, aber nicht umdefinieren.",
+        "Kontext darf nur anreichern, nie umwidmen."
+      ],
+      "forceSceneNone": false,
+      "naturalPriority": false
+    },
+    "missionVarietyBrief": {
+      "purpose": "Offener Kreativrahmen fuer einen Bush-Charter-Dropoff. Das Profil bringt einen Gast zum Zielstrip; die Story erklaert Person, Zielgrund und was danach vor Ort beginnt.",
+      "recipe": "Passagier und kleines Gepaeck von McCall Municipal Airport nach Big Creek Airport bringen, am Zielstrip absetzen und dort abschliessen.",
+      "coreQuestions": [
+        "Wer fliegt heute nach Big Creek Airport und warum gerade diese Person?",
+        "Was moechte dieser Mensch konkret erreichen, und welche persoenliche Vorgeschichte oder Beziehung macht ihm das wichtig?",
+        "Warum ist Big Creek Airport der passende Zugangspunkt statt nur irgendein Flugplatz?",
+        "Welche Ausruestung, Tasche oder Unterlage macht den Auftrag sichtbar?",
+        "Welcher praktische Ablauf haengt an der Ankunft, ohne die Story kuenstlich hektisch zu machen?"
+      ],
+      "candidateShortlist": [
+        {
+          "id": "photographer_assignment",
+          "familyId": "photo_story",
+          "label": "Foto-, Karten- oder Dokumentationstermin",
+          "wildcard": false,
+          "matchTags": [
+            "water"
+          ],
+          "roleIdeas": [
+            "Projektfotografin",
+            "Kartenmacher",
+            "Dokumentationsleiterin"
+          ],
+          "taskIdeas": [
+            "Referenzbilder fuer eine Projektakte aufnehmen",
+            "Wegpunkte und Blickrichtungen am Strip abgleichen",
+            "Bilder fuer Betreiber oder Redaktion erstellen"
+          ],
+          "objectIdeas": [
+            "Kameratasche",
+            "Tablet",
+            "Kartenrolle",
+            "Akkucase"
+          ],
+          "returnDrivers": [
+            "das Licht- und Wetterfenster am Ziel passt heute",
+            "die Projektleitung braucht aktuelle Bilder",
+            "der Termin ist kurz, aber nur per Luftweg sinnvoll"
+          ],
+          "accessReasons": [
+            "der Strip bietet direkten Zugang zum Bildmotiv",
+            "vom Ziel aus laesst sich der Abschnitt ohne langen Marsch erreichen",
+            "das Equipment bleibt mit dem Flugzeug handhabbar"
+          ]
+        },
+        {
+          "id": "boundary_survey_visit",
+          "familyId": "survey_mapping",
+          "label": "Vermessungs- oder Property-Termin",
+          "wildcard": false,
+          "matchTags": [],
+          "roleIdeas": [
+            "Vermessungsleiterin",
+            "Property-Manager",
+            "Versicherungsprueferin"
+          ],
+          "taskIdeas": [
+            "Grenzmarken und alte Wegpunkte vor Ort bestaetigen",
+            "Fotos von Zaun, Zufahrt und Nebengebaeude machen",
+            "kurzen Ortstermin mit lokalem Kontakt halten"
+          ],
+          "objectIdeas": [
+            "Messstab",
+            "Aktenkoffer",
+            "Fototablet",
+            "Kartenrolle"
+          ],
+          "returnDrivers": [
+            "der Termin muss vor der naechsten Entscheidung vor Ort stattfinden",
+            "Originalnotizen werden spaeter in der Basis gebraucht",
+            "der Kontakt wartet am Strip, nicht in der Stadt"
+          ],
+          "accessReasons": [
+            "der Strip ist der praktische Zugang zum Property-Termin",
+            "die Pistenfahrt waere fuer einen Kurztermin unverhaeltnismaessig",
+            "die Person muss mit Akten und Messzeug direkt raus"
+          ]
+        },
+        {
+          "id": "quiet_writer_residency",
+          "familyId": "wildcard_guest",
+          "label": "Kurioser Gast mit harmloser Backcountry-Agenda",
+          "wildcard": true,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Naturautor",
+            "Lodge-Kuenstlerin",
+            "Backcountry-Kursleiterin"
+          ],
+          "taskIdeas": [
+            "einen kurzen Workshop oder Rechercheblock am Camp beginnen",
+            "Skizzen, Notizen oder Kursmaterial am Ziel auspacken",
+            "mit dem Campkontakt einen stillen Arbeitsplatz klaeren"
+          ],
+          "objectIdeas": [
+            "Notizrolle",
+            "kleiner Malkasten",
+            "Kursmappe",
+            "Duffelbag"
+          ],
+          "returnDrivers": [
+            "der Aufenthalt ist geplant und unkritisch",
+            "der Zielstrip ist nur der Eingang in die draussen liegende Arbeit",
+            "die Geschichte darf ungewoehnlich sein, bleibt aber ein normaler Charter"
+          ],
+          "accessReasons": [
+            "der Strip ist der einzige schnelle Zugang zum ruhigen Camp",
+            "das Gepaeck ist klein, aber fuer den Trail unpraktisch",
+            "der Campkontakt holt die Person am Bahnrand ab"
+          ]
+        },
+        {
+          "id": "biologist_access",
+          "familyId": "wildlife_fieldwork",
+          "label": "Biologie, Habitat oder Monitoring",
+          "wildcard": false,
+          "matchTags": [
+            "water"
+          ],
+          "roleIdeas": [
+            "Forstbiologin",
+            "Habitat-Mitarbeiter",
+            "Wildlife-Koordinatorin"
+          ],
+          "taskIdeas": [
+            "Kamerastandorte und Zaunluecken vor Ort kontrollieren",
+            "Ufer- und Wiesenpunkte fuer das Monitoring begehen",
+            "Datenkarten und Batterien in der Beobachtungsroute tauschen"
+          ],
+          "objectIdeas": [
+            "Feldrucksack",
+            "Kamerakarten-Box",
+            "GPS-Handgeraet",
+            "leichte Batterietasche"
+          ],
+          "returnDrivers": [
+            "das Monitoringfenster ist an Wetter und Tageslicht gebunden",
+            "die Daten sollen nach dem Einsatz in die Basis zurueck",
+            "die Person bleibt nur fuer den geplanten Feldblock draussen"
+          ],
+          "accessReasons": [
+            "der Strip liegt nahe an mehreren Kontrollpunkten",
+            "der Zugang ueber Land waere zu lang fuer den Tagesblock",
+            "der Wartepunkt liegt am Anfang der Beobachtungsroute"
+          ]
+        },
+        {
+          "id": "outfitter_client_transfer",
+          "familyId": "outfitter_guest",
+          "label": "Outfitter-, Angler- oder Campgast",
+          "wildcard": false,
+          "matchTags": [
+            "water"
+          ],
+          "roleIdeas": [
+            "Outfitter-Gast",
+            "Fly-Fishing-Guide",
+            "Campgast mit Guidekontakt"
+          ],
+          "taskIdeas": [
+            "Ausrüstung fuer ein ruhiges Wochenende am Wasser absetzen",
+            "Guidekontakt am Strip treffen",
+            "leichte Campausruestung zum Startpunkt bringen"
+          ],
+          "objectIdeas": [
+            "Angelrohr",
+            "Duffelbag",
+            "Tagesrucksack",
+            "leichte Kuehltasche"
+          ],
+          "returnDrivers": [
+            "am Ziel startet ein geplanter Aufenthalt",
+            "der Guide wartet am Striprand",
+            "der Gast muss vor dem Nachmittagsfenster draussen sein"
+          ],
+          "accessReasons": [
+            "der Strip ist der uebliche Einstieg zum Camp",
+            "der Flussabschnitt ist vom Ziel aus schnell erreichbar",
+            "das Gepaeck passt besser in den Flug als auf einen langen Trail"
+          ]
+        }
+      ],
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_charter_strip",
+        "profileId": "bush_charter_strip",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "photographer_assignment",
+          "boundary_survey_visit",
+          "quiet_writer_residency",
+          "biologist_access",
+          "outfitter_client_transfer"
+        ],
+        "selectedFamilies": [
+          "photo_story",
+          "survey_mapping",
+          "wildcard_guest",
+          "wildlife_fieldwork",
+          "outfitter_guest"
+        ],
+        "primaryId": "photographer_assignment",
+        "primaryFamily": "photo_story",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_charter_strip_v1"
+      },
+      "ingredientAxes": {
+        "roleFamilies": [
+          "Projektfotografin",
+          "Kartenmacher",
+          "Dokumentationsleiterin",
+          "Vermessungsleiterin",
+          "Property-Manager",
+          "Versicherungsprueferin",
+          "Naturautor",
+          "Lodge-Kuenstlerin",
+          "Backcountry-Kursleiterin",
+          "Forstbiologin",
+          "Habitat-Mitarbeiter",
+          "Wildlife-Koordinatorin"
+        ],
+        "activityVerbs": [
+          "Referenzbilder fuer eine Projektakte aufnehmen",
+          "Wegpunkte und Blickrichtungen am Strip abgleichen",
+          "Bilder fuer Betreiber oder Redaktion erstellen",
+          "Grenzmarken und alte Wegpunkte vor Ort bestaetigen",
+          "Fotos von Zaun, Zufahrt und Nebengebaeude machen",
+          "kurzen Ortstermin mit lokalem Kontakt halten",
+          "einen kurzen Workshop oder Rechercheblock am Camp beginnen",
+          "Skizzen, Notizen oder Kursmaterial am Ziel auspacken",
+          "mit dem Campkontakt einen stillen Arbeitsplatz klaeren",
+          "Kamerastandorte und Zaunluecken vor Ort kontrollieren",
+          "Ufer- und Wiesenpunkte fuer das Monitoring begehen",
+          "Datenkarten und Batterien in der Beobachtungsroute tauschen",
+          "Ausrüstung fuer ein ruhiges Wochenende am Wasser absetzen",
+          "Guidekontakt am Strip treffen"
+        ],
+        "evidenceObjects": [
+          "Kameratasche",
+          "Tablet",
+          "Kartenrolle",
+          "Akkucase",
+          "Messstab",
+          "Aktenkoffer",
+          "Fototablet",
+          "Notizrolle",
+          "kleiner Malkasten",
+          "Kursmappe",
+          "Duffelbag",
+          "Feldrucksack",
+          "Kamerakarten-Box",
+          "GPS-Handgeraet"
+        ],
+        "returnDrivers": [
+          "das Licht- und Wetterfenster am Ziel passt heute",
+          "die Projektleitung braucht aktuelle Bilder",
+          "der Termin ist kurz, aber nur per Luftweg sinnvoll",
+          "der Termin muss vor der naechsten Entscheidung vor Ort stattfinden",
+          "Originalnotizen werden spaeter in der Basis gebraucht",
+          "der Kontakt wartet am Strip, nicht in der Stadt",
+          "der Aufenthalt ist geplant und unkritisch",
+          "der Zielstrip ist nur der Eingang in die draussen liegende Arbeit",
+          "die Geschichte darf ungewoehnlich sein, bleibt aber ein normaler Charter",
+          "das Monitoringfenster ist an Wetter und Tageslicht gebunden"
+        ],
+        "accessReasons": [
+          "der Strip bietet direkten Zugang zum Bildmotiv",
+          "vom Ziel aus laesst sich der Abschnitt ohne langen Marsch erreichen",
+          "das Equipment bleibt mit dem Flugzeug handhabbar",
+          "der Strip ist der praktische Zugang zum Property-Termin",
+          "die Pistenfahrt waere fuer einen Kurztermin unverhaeltnismaessig",
+          "die Person muss mit Akten und Messzeug direkt raus",
+          "der Strip ist der einzige schnelle Zugang zum ruhigen Camp",
+          "das Gepaeck ist klein, aber fuer den Trail unpraktisch"
+        ]
+      },
+      "writerExpectations": [
+        "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+        "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+        "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+        "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+        "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+        "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+        "Erzaehle aus Dispatcher-Perspektive: Wir bringen den Gast hin, der Gast spricht nur in PAX-Texten.",
+        "Kein Pickup, kein Rueckflug-Handoff, keine implizite Rettung.",
+        "Der Grund am Ziel darf beruflich, privat, outdoorbezogen oder leicht kurios sein, solange er zum Strip passt."
+      ],
+      "weatherNote": ""
+    },
+    "variety": {
+      "schema": "missionVarietyPack.v1",
+      "namespace": "bush_charter_strip",
+      "profileId": "bush_charter_strip",
+      "contextTags": [
+        "bush",
+        "remote_strip",
+        "water"
+      ],
+      "selectedIds": [
+        "photographer_assignment",
+        "boundary_survey_visit",
+        "quiet_writer_residency",
+        "biologist_access",
+        "outfitter_client_transfer"
+      ],
+      "selectedFamilies": [
+        "photo_story",
+        "survey_mapping",
+        "wildcard_guest",
+        "wildlife_fieldwork",
+        "outfitter_guest"
+      ],
+      "primaryId": "photographer_assignment",
+      "primaryFamily": "photo_story",
+      "recentFamilies": [],
+      "recentPrimaryFamilies": [],
+      "recentPrimaryIds": [],
+      "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+      "storageKey": "ga_mission_variety_history_bush_charter_strip_v1"
+    }
+  },
+  "contract": {
+    "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+    "status": "ready",
+    "mode": "bush",
+    "paxText": "1 PAX",
+    "passengerCount": 1,
+    "party": null,
+    "partyNarrative": null,
+    "aircraftCapability": null,
+    "cargoText": "Karten und Markierungsband (25 lbs)",
+    "animalTransportBrief": null,
+    "route": {
+      "startIcao": "",
+      "startName": "McCall Municipal Airport",
+      "targetIcao": "U60",
+      "targetName": "Big Creek Airport",
+      "distanceNm": 36
+    },
+    "profile": {
+      "id": "bush_charter_strip",
+      "label": "Bush Charter",
+      "roleProfile": "charter_professional_neutral_v1",
+      "taskDomain": "charter",
+      "pickerCategory": "charter",
+      "requestedCategory": "charter"
+    },
+    "target": {
+      "isPOI": false,
+      "name": "Big Creek Airport",
+      "lat": 45.133202,
+      "lon": -115.321999,
+      "poiSource": "",
+      "poiCategory": "charter",
+      "terrainFt": null,
+      "terrainMaxFt": null,
+      "terrainRadiusNm": null
+    },
+    "poiChain": null,
+    "knowledgeContext": null,
+    "weather": {
+      "dep": {
+        "summary": "Keine aktuellen Wetterdaten verfügbar.",
+        "raw": null
+      },
+      "dest": {
+        "summary": "Keine aktuellen Wetterdaten verfügbar.",
+        "raw": null
+      },
+      "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+    },
+    "environmentContext": {
+      "schema": "mission-environment.v1",
+      "time": {
+        "source": "user-device-local",
+        "createdAt": "2026-10-07T18:00:00.000Z",
+        "createdLocal": "2026-10-07T20:00:00",
+        "utcOffsetMinutes": 120,
+        "timeZone": "Europe/Berlin",
+        "departureTimeKnown": false
+      },
+      "start": {
+        "location": {
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "status": "unavailable"
+      },
+      "target": {
+        "location": {
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "status": "unavailable"
+      }
+    },
+    "airportInfoContext": {
+      "schema": "mission-airport-information.v1",
+      "airport": {
+        "ident": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "country": "US",
+        "elevationFt": 5743,
+        "runways": [
+          {
+            "designator": "01/19",
+            "lengthM": 1082,
+            "widthM": 34,
+            "surface": "Gras",
+            "trueHeadingDeg": null,
+            "operations": null
+          }
+        ],
+        "ppr": null,
+        "private": null,
+        "source": "eigene Flugplatzdaten"
+      },
+      "terrain": null,
+      "pilotHints": [
+        {
+          "id": "assess-before-descent",
+          "source": "faa-mountain-safety",
+          "section": "Poor Planning",
+          "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+        },
+        {
+          "id": "valley-escape",
+          "source": "nz-caa-mountain",
+          "section": "Entering a valley / Escape routes, pp. 24–26",
+          "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+        },
+        {
+          "id": "valley-wind",
+          "source": "nz-caa-mountain",
+          "section": "Wind, p. 8; Valley flying, p. 22",
+          "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+        },
+        {
+          "id": "lee-turbulence",
+          "source": "faa-mountain-safety",
+          "section": "Mountain Weather",
+          "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+        },
+        {
+          "id": "density-altitude",
+          "source": "faa-mountain-tips",
+          "section": "Performance Considerations",
+          "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+        },
+        {
+          "id": "surface-condition",
+          "source": "nz-caa-mountain",
+          "section": "Approach and landing, pp. 29–30",
+          "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+        },
+        {
+          "id": "local-knowledge",
+          "source": "ntsb-sa039",
+          "section": "What can pilots do?",
+          "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+        }
+      ],
+      "sources": [
+        {
+          "id": "faa-mountain-tips",
+          "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+          "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "faa-mountain-safety",
+          "title": "FAA Aviation Safety: Mountain Flying",
+          "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "nz-caa-mountain",
+          "title": "NZ CAA Mountain Flying, May 2021",
+          "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "ntsb-sa039",
+          "title": "NTSB SA-039 Mastering Mountain Flying",
+          "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+          "kind": "pilot-handbook"
+        }
+      ],
+      "retrieval": {
+        "budgetMs": 3000,
+        "sources": {
+          "wikipedia-de": {
+            "status": "no_match",
+            "ms": 2
+          },
+          "wikipedia-en": {
+            "status": "no_match",
+            "ms": 2
+          },
+          "ownAirport": {
+            "status": "available",
+            "ms": 2,
+            "cached": false
+          },
+          "faa": {
+            "status": "no_match",
+            "ms": 2
+          }
+        },
+        "elapsedMs": 3,
+        "partial": false
+      }
+    },
+    "fireHazard": null,
+    "missionPlan": {
+      "status": "ready",
+      "pipelineVersion": "mission-v4-planner-2026-06-07",
+      "plan": {
+        "taskDomain": "charter",
+        "roleProfile": "charter_professional_neutral_v1",
+        "missionType": "bush",
+        "targetCategory": "charter",
+        "primaryObjective": "Beförderung einer Projektfotografin zur Infrastruktur-Dokumentation nach Big Creek.",
+        "targetLabel": "Big Creek Airport",
+        "missionTrigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+        "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+        "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+        "missionStakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+        "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+        "storyFrame": {
+          "trigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+          "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+          "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+          "stakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+          "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+          "subjectDetail": "Eine erfahrene Fotografin, die auf die Dokumentation von Backcountry-Infrastruktur spezialisiert ist.",
+          "incidentContext": "Für eine neue Projektakte müssen die aktuellen Bodenmarkierungen und der Zustand der Pistenränder am Big Creek Airport visuell erfasst werden.",
+          "whyNow": "Die Lichtverhältnisse am späten Nachmittag bieten heute die nötigen Kontraste, um kleine Unebenheiten in der Graspiste auf den Fotos sichtbar zu machen.",
+          "soughtOutcome": "Ein vollständiger Satz Referenzbilder und die Bestätigung der Wegpunkte vor Ort.",
+          "incidentType": "",
+          "lastSeenContext": "",
+          "probableScenario": "",
+          "visibleClueCandidates": []
+        },
+        "sceneKind": "none",
+        "sceneDensity": "none",
+        "requiredAnchors": [
+          "runway_threshold",
+          "apron_area"
+        ],
+        "objectFamilies": [
+          "cargo_equipment",
+          "photography_gear"
+        ],
+        "placementPolicy": "standard_airport",
+        "narrativeRules": [
+          "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+          "Task-domain lock: charter bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren."
+        ],
+        "localFacts": [
+          "Big Creek Airport (U60) liegt auf 5743 Fuß Höhe.",
+          "Die Piste 01/19 besteht aus Gras.",
+          "Anflug im Gebirgsterrain erfordert Beurteilung der Durchstarthöhe vor dem Sinkflug."
+        ],
+        "weatherHooks": [
+          "Gute Sicht für die geplanten Referenzaufnahmen",
+          "Lokale Talwinde beim Anflug auf Big Creek beachten"
+        ],
+        "operationalDetails": [
+          "Hohe Dichtehohe am Zielplatz einplanen.",
+          "Pistenzustand (Gras) bei der Landeberechnung berücksichtigen.",
+          "Ausreichend Raum für Umkehrkurven im Tal einplanen."
+        ],
+        "realismBrief": "Dieser Charter-Einsatz ist glaubwürdig, da abgelegene Flugplätze regelmäßig für Wartungs- und Dokumentationszwecke von Fachpersonal besucht werden müssen, die auf den Luftweg angewiesen sind.",
+        "narrativeHooks": [
+          "Kartenrolle und Markierungsband sind sicher verstaut.",
+          "Der Gast benötigt nach der Landung Zeit für die Begehung der Pistenränder.",
+          "Der Rückflug erfolgt ohne den Gast, da dieser über Nacht am Strip bleibt."
+        ],
+        "mustMention": [
+          "Projektfotografin",
+          "Karten und Markierungsband",
+          "Zustand der Graspiste",
+          "Big Creek Airport"
+        ],
+        "mustAvoid": [
+          "Rettungs- oder Notfallszenario",
+          "Rückkehr zum Startplatz mit dem Gast",
+          "Fiktive Ortsnamen außerhalb des Idaho-Backcountry",
+          "Kontext darf das Primaerziel nicht ersetzen.",
+          "Kontext darf die TaskDomain nicht umwidmen."
+        ],
+        "lockedFields": {
+          "noLandingAtPoi": false,
+          "requiresRescueAtPoi": false,
+          "requiresReturnHome": false,
+          "primarySubjectLabel": "Big Creek Airport",
+          "primarySubjectType": "generic",
+          "taskDomain": "charter"
+        },
+        "confidence": 1
+      },
+      "poiChain": null,
+      "needs": [],
+      "resolvedNeedTypes": [
+        "geo_context",
+        "mission_truth",
+        "weather_snapshot",
+        "fire_hazard",
+        "airport_details"
+      ]
+    },
+    "storyFrame": {
+      "trigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+      "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+      "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+      "stakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+      "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+      "subjectDetail": "Eine erfahrene Fotografin, die auf die Dokumentation von Backcountry-Infrastruktur spezialisiert ist.",
+      "incidentContext": "Für eine neue Projektakte müssen die aktuellen Bodenmarkierungen und der Zustand der Pistenränder am Big Creek Airport visuell erfasst werden.",
+      "whyNow": "Die Lichtverhältnisse am späten Nachmittag bieten heute die nötigen Kontraste, um kleine Unebenheiten in der Graspiste auf den Fotos sichtbar zu machen.",
+      "soughtOutcome": "Ein vollständiger Satz Referenzbilder und die Bestätigung der Wegpunkte vor Ort.",
+      "incidentType": "",
+      "lastSeenContext": "",
+      "probableScenario": "",
+      "visibleClueCandidates": []
+    },
+    "infraNarrativeHandoff": null,
+    "chainNarrativeBrief": null,
+    "pickupCreativeBrief": null,
+    "missionVarietyBrief": {
+      "purpose": "Offener Kreativrahmen fuer einen Bush-Charter-Dropoff. Das Profil bringt einen Gast zum Zielstrip; die Story erklaert Person, Zielgrund und was danach vor Ort beginnt.",
+      "recipe": "Passagier und kleines Gepaeck von McCall Municipal Airport nach Big Creek Airport bringen, am Zielstrip absetzen und dort abschliessen.",
+      "coreQuestions": [
+        "Wer fliegt heute nach Big Creek Airport und warum gerade diese Person?",
+        "Was moechte dieser Mensch konkret erreichen, und welche persoenliche Vorgeschichte oder Beziehung macht ihm das wichtig?",
+        "Warum ist Big Creek Airport der passende Zugangspunkt statt nur irgendein Flugplatz?",
+        "Welche Ausruestung, Tasche oder Unterlage macht den Auftrag sichtbar?",
+        "Welcher praktische Ablauf haengt an der Ankunft, ohne die Story kuenstlich hektisch zu machen?"
+      ],
+      "candidateShortlist": [
+        {
+          "id": "photographer_assignment",
+          "familyId": "photo_story",
+          "label": "Foto-, Karten- oder Dokumentationstermin",
+          "wildcard": false,
+          "matchTags": [
+            "water"
+          ],
+          "roleIdeas": [
+            "Projektfotografin",
+            "Kartenmacher",
+            "Dokumentationsleiterin"
+          ],
+          "taskIdeas": [
+            "Referenzbilder fuer eine Projektakte aufnehmen",
+            "Wegpunkte und Blickrichtungen am Strip abgleichen",
+            "Bilder fuer Betreiber oder Redaktion erstellen"
+          ],
+          "objectIdeas": [
+            "Kameratasche",
+            "Tablet",
+            "Kartenrolle",
+            "Akkucase"
+          ],
+          "returnDrivers": [
+            "das Licht- und Wetterfenster am Ziel passt heute",
+            "die Projektleitung braucht aktuelle Bilder",
+            "der Termin ist kurz, aber nur per Luftweg sinnvoll"
+          ],
+          "accessReasons": [
+            "der Strip bietet direkten Zugang zum Bildmotiv",
+            "vom Ziel aus laesst sich der Abschnitt ohne langen Marsch erreichen",
+            "das Equipment bleibt mit dem Flugzeug handhabbar"
+          ]
+        },
+        {
+          "id": "boundary_survey_visit",
+          "familyId": "survey_mapping",
+          "label": "Vermessungs- oder Property-Termin",
+          "wildcard": false,
+          "matchTags": [],
+          "roleIdeas": [
+            "Vermessungsleiterin",
+            "Property-Manager",
+            "Versicherungsprueferin"
+          ],
+          "taskIdeas": [
+            "Grenzmarken und alte Wegpunkte vor Ort bestaetigen",
+            "Fotos von Zaun, Zufahrt und Nebengebaeude machen",
+            "kurzen Ortstermin mit lokalem Kontakt halten"
+          ],
+          "objectIdeas": [
+            "Messstab",
+            "Aktenkoffer",
+            "Fototablet",
+            "Kartenrolle"
+          ],
+          "returnDrivers": [
+            "der Termin muss vor der naechsten Entscheidung vor Ort stattfinden",
+            "Originalnotizen werden spaeter in der Basis gebraucht",
+            "der Kontakt wartet am Strip, nicht in der Stadt"
+          ],
+          "accessReasons": [
+            "der Strip ist der praktische Zugang zum Property-Termin",
+            "die Pistenfahrt waere fuer einen Kurztermin unverhaeltnismaessig",
+            "die Person muss mit Akten und Messzeug direkt raus"
+          ]
+        },
+        {
+          "id": "quiet_writer_residency",
+          "familyId": "wildcard_guest",
+          "label": "Kurioser Gast mit harmloser Backcountry-Agenda",
+          "wildcard": true,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Naturautor",
+            "Lodge-Kuenstlerin",
+            "Backcountry-Kursleiterin"
+          ],
+          "taskIdeas": [
+            "einen kurzen Workshop oder Rechercheblock am Camp beginnen",
+            "Skizzen, Notizen oder Kursmaterial am Ziel auspacken",
+            "mit dem Campkontakt einen stillen Arbeitsplatz klaeren"
+          ],
+          "objectIdeas": [
+            "Notizrolle",
+            "kleiner Malkasten",
+            "Kursmappe",
+            "Duffelbag"
+          ],
+          "returnDrivers": [
+            "der Aufenthalt ist geplant und unkritisch",
+            "der Zielstrip ist nur der Eingang in die draussen liegende Arbeit",
+            "die Geschichte darf ungewoehnlich sein, bleibt aber ein normaler Charter"
+          ],
+          "accessReasons": [
+            "der Strip ist der einzige schnelle Zugang zum ruhigen Camp",
+            "das Gepaeck ist klein, aber fuer den Trail unpraktisch",
+            "der Campkontakt holt die Person am Bahnrand ab"
+          ]
+        },
+        {
+          "id": "biologist_access",
+          "familyId": "wildlife_fieldwork",
+          "label": "Biologie, Habitat oder Monitoring",
+          "wildcard": false,
+          "matchTags": [
+            "water"
+          ],
+          "roleIdeas": [
+            "Forstbiologin",
+            "Habitat-Mitarbeiter",
+            "Wildlife-Koordinatorin"
+          ],
+          "taskIdeas": [
+            "Kamerastandorte und Zaunluecken vor Ort kontrollieren",
+            "Ufer- und Wiesenpunkte fuer das Monitoring begehen",
+            "Datenkarten und Batterien in der Beobachtungsroute tauschen"
+          ],
+          "objectIdeas": [
+            "Feldrucksack",
+            "Kamerakarten-Box",
+            "GPS-Handgeraet",
+            "leichte Batterietasche"
+          ],
+          "returnDrivers": [
+            "das Monitoringfenster ist an Wetter und Tageslicht gebunden",
+            "die Daten sollen nach dem Einsatz in die Basis zurueck",
+            "die Person bleibt nur fuer den geplanten Feldblock draussen"
+          ],
+          "accessReasons": [
+            "der Strip liegt nahe an mehreren Kontrollpunkten",
+            "der Zugang ueber Land waere zu lang fuer den Tagesblock",
+            "der Wartepunkt liegt am Anfang der Beobachtungsroute"
+          ]
+        },
+        {
+          "id": "outfitter_client_transfer",
+          "familyId": "outfitter_guest",
+          "label": "Outfitter-, Angler- oder Campgast",
+          "wildcard": false,
+          "matchTags": [
+            "water"
+          ],
+          "roleIdeas": [
+            "Outfitter-Gast",
+            "Fly-Fishing-Guide",
+            "Campgast mit Guidekontakt"
+          ],
+          "taskIdeas": [
+            "Ausrüstung fuer ein ruhiges Wochenende am Wasser absetzen",
+            "Guidekontakt am Strip treffen",
+            "leichte Campausruestung zum Startpunkt bringen"
+          ],
+          "objectIdeas": [
+            "Angelrohr",
+            "Duffelbag",
+            "Tagesrucksack",
+            "leichte Kuehltasche"
+          ],
+          "returnDrivers": [
+            "am Ziel startet ein geplanter Aufenthalt",
+            "der Guide wartet am Striprand",
+            "der Gast muss vor dem Nachmittagsfenster draussen sein"
+          ],
+          "accessReasons": [
+            "der Strip ist der uebliche Einstieg zum Camp",
+            "der Flussabschnitt ist vom Ziel aus schnell erreichbar",
+            "das Gepaeck passt besser in den Flug als auf einen langen Trail"
+          ]
+        }
+      ],
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_charter_strip",
+        "profileId": "bush_charter_strip",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "photographer_assignment",
+          "boundary_survey_visit",
+          "quiet_writer_residency",
+          "biologist_access",
+          "outfitter_client_transfer"
+        ],
+        "selectedFamilies": [
+          "photo_story",
+          "survey_mapping",
+          "wildcard_guest",
+          "wildlife_fieldwork",
+          "outfitter_guest"
+        ],
+        "primaryId": "photographer_assignment",
+        "primaryFamily": "photo_story",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_charter_strip_v1"
+      },
+      "ingredientAxes": {
+        "roleFamilies": [
+          "Projektfotografin",
+          "Kartenmacher",
+          "Dokumentationsleiterin",
+          "Vermessungsleiterin",
+          "Property-Manager",
+          "Versicherungsprueferin",
+          "Naturautor",
+          "Lodge-Kuenstlerin",
+          "Backcountry-Kursleiterin",
+          "Forstbiologin",
+          "Habitat-Mitarbeiter",
+          "Wildlife-Koordinatorin"
+        ],
+        "activityVerbs": [
+          "Referenzbilder fuer eine Projektakte aufnehmen",
+          "Wegpunkte und Blickrichtungen am Strip abgleichen",
+          "Bilder fuer Betreiber oder Redaktion erstellen",
+          "Grenzmarken und alte Wegpunkte vor Ort bestaetigen",
+          "Fotos von Zaun, Zufahrt und Nebengebaeude machen",
+          "kurzen Ortstermin mit lokalem Kontakt halten",
+          "einen kurzen Workshop oder Rechercheblock am Camp beginnen",
+          "Skizzen, Notizen oder Kursmaterial am Ziel auspacken",
+          "mit dem Campkontakt einen stillen Arbeitsplatz klaeren",
+          "Kamerastandorte und Zaunluecken vor Ort kontrollieren",
+          "Ufer- und Wiesenpunkte fuer das Monitoring begehen",
+          "Datenkarten und Batterien in der Beobachtungsroute tauschen",
+          "Ausrüstung fuer ein ruhiges Wochenende am Wasser absetzen",
+          "Guidekontakt am Strip treffen"
+        ],
+        "evidenceObjects": [
+          "Kameratasche",
+          "Tablet",
+          "Kartenrolle",
+          "Akkucase",
+          "Messstab",
+          "Aktenkoffer",
+          "Fototablet",
+          "Notizrolle",
+          "kleiner Malkasten",
+          "Kursmappe",
+          "Duffelbag",
+          "Feldrucksack",
+          "Kamerakarten-Box",
+          "GPS-Handgeraet"
+        ],
+        "returnDrivers": [
+          "das Licht- und Wetterfenster am Ziel passt heute",
+          "die Projektleitung braucht aktuelle Bilder",
+          "der Termin ist kurz, aber nur per Luftweg sinnvoll",
+          "der Termin muss vor der naechsten Entscheidung vor Ort stattfinden",
+          "Originalnotizen werden spaeter in der Basis gebraucht",
+          "der Kontakt wartet am Strip, nicht in der Stadt",
+          "der Aufenthalt ist geplant und unkritisch",
+          "der Zielstrip ist nur der Eingang in die draussen liegende Arbeit",
+          "die Geschichte darf ungewoehnlich sein, bleibt aber ein normaler Charter",
+          "das Monitoringfenster ist an Wetter und Tageslicht gebunden"
+        ],
+        "accessReasons": [
+          "der Strip bietet direkten Zugang zum Bildmotiv",
+          "vom Ziel aus laesst sich der Abschnitt ohne langen Marsch erreichen",
+          "das Equipment bleibt mit dem Flugzeug handhabbar",
+          "der Strip ist der praktische Zugang zum Property-Termin",
+          "die Pistenfahrt waere fuer einen Kurztermin unverhaeltnismaessig",
+          "die Person muss mit Akten und Messzeug direkt raus",
+          "der Strip ist der einzige schnelle Zugang zum ruhigen Camp",
+          "das Gepaeck ist klein, aber fuer den Trail unpraktisch"
+        ]
+      },
+      "writerExpectations": [
+        "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+        "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+        "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+        "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+        "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+        "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+        "Erzaehle aus Dispatcher-Perspektive: Wir bringen den Gast hin, der Gast spricht nur in PAX-Texten.",
+        "Kein Pickup, kein Rueckflug-Handoff, keine implizite Rettung.",
+        "Der Grund am Ziel darf beruflich, privat, outdoorbezogen oder leicht kurios sein, solange er zum Strip passt."
+      ],
+      "weatherNote": ""
+    },
+    "variety": {
+      "schema": "missionVarietyPack.v1",
+      "namespace": "bush_charter_strip",
+      "profileId": "bush_charter_strip",
+      "contextTags": [
+        "bush",
+        "remote_strip",
+        "water"
+      ],
+      "selectedIds": [
+        "photographer_assignment",
+        "boundary_survey_visit",
+        "quiet_writer_residency",
+        "biologist_access",
+        "outfitter_client_transfer"
+      ],
+      "selectedFamilies": [
+        "photo_story",
+        "survey_mapping",
+        "wildcard_guest",
+        "wildlife_fieldwork",
+        "outfitter_guest"
+      ],
+      "primaryId": "photographer_assignment",
+      "primaryFamily": "photo_story",
+      "recentFamilies": [],
+      "recentPrimaryFamilies": [],
+      "recentPrimaryIds": [],
+      "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+      "storageKey": "ga_mission_variety_history_bush_charter_strip_v1"
+    },
+    "sarHeli": null,
+    "missionTruth": null,
+    "semantics": {
+      "version": "mission-semantics-v4-2026-06-07",
+      "focusLock": {
+        "mode": "bush",
+        "taskDomain": "charter",
+        "targetCategory": "generic",
+        "requestedCategory": "charter",
+        "primarySubjectLabel": "Big Creek Airport",
+        "primarySubjectType": "generic",
+        "contextRoles": [
+          "orientation",
+          "hazard",
+          "access",
+          "support",
+          "evidence",
+          "background"
+        ]
+      },
+      "plannerGuardrails": [
+        "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+        "Task-domain lock: charter bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+        "Das gewaehlte Ziel bleibt Primärsubjekt."
+      ],
+      "writerGuardrails": [
+        "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+        "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+        "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+        "Kontext darf die Mission anreichern, aber nicht umdefinieren.",
+        "Kontext darf nur anreichern, nie umwidmen."
+      ],
+      "forceSceneNone": false,
+      "naturalPriority": false
+    },
+    "followUpContext": null,
+    "missionTemporalContext": null,
+    "varietyHints": null,
+    "targetGeoContext": null,
+    "airportDetails": {
+      "start": {
+        "icao": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101
+      },
+      "dest": {
+        "icao": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999
+      },
+      "targetPoi": null
+    }
+  },
+  "mission": {
+    "t": "Mission nach Big Creek Airport",
+    "s": "Heute geht es von McCall Municipal Airport nach Big Creek Airport, rund 36 NM. Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft. Eine erfahrene Fotografin, die auf die Dokumentation von Backcountry-Infrastruktur spezialisiert ist. Für eine neue Projektakte müssen die aktuellen Bodenmarkierungen und der Zustand der Pistenränder am Big Creek Airport visuell erfasst werden.",
+    "pax": "",
+    "cargo": "Karten und Markierungsband (25 lbs)",
+    "knowledgeContext": null,
+    "targetInfo": "",
+    "passenger": {
+      "roleProfile": "charter_professional_neutral_v1",
+      "taskDomain": "charter",
+      "targetAltFt": 0,
+      "targetRadiusNm": 0,
+      "targetDwellMin": 0,
+      "dialectHint": "neutral",
+      "gTolerance": "mittel",
+      "bankTolerance": "mittel",
+      "cargoSensitivity": "mittel",
+      "stomachSensitivity": "mittel",
+      "comfortPriority": "mittel",
+      "urgencyPriority": "niedrig",
+      "name": "Alex Neumann",
+      "role": "Passagier",
+      "gender": "male",
+      "personality": "ruhig, freundlich, professionell",
+      "storySeed": "",
+      "personalStoryCue": "",
+      "paxBriefingSeed": "",
+      "sightseeingInterestSeed": "",
+      "greetingText": "Hi, danke fürs Fliegen heute.",
+      "newsBriefId": "",
+      "trainingPlan": null,
+      "storyHint": ""
+    },
+    "sceneIntent": {
+      "summary": "A-B-Flug ohne Zielszene.",
+      "environment": "",
+      "visibleIdeas": [],
+      "avoid": [],
+      "densityHint": "none",
+      "notes": ""
+    },
+    "targetScene": {
+      "kind": "none",
+      "roles": [],
+      "density": "none",
+      "notes": ""
+    },
+    "sceneCompositionStatus": "draft",
+    "targetSceneDebug": {
+      "source": "Local Fallback + V5 Writer",
+      "sceneIntentRaw": null,
+      "sceneIntent": {
+        "summary": "A-B-Flug ohne Zielszene.",
+        "environment": "",
+        "visibleIdeas": [],
+        "avoid": [],
+        "densityHint": "none",
+        "notes": ""
+      },
+      "aiRaw": null,
+      "normalized": {
+        "kind": "none",
+        "roles": [],
+        "density": "none",
+        "notes": ""
+      },
+      "pendingComposer": true
+    },
+    "_missionWriterV4Debug": {
+      "source": "Mission Writer V5",
+      "writerMode": "v5",
+      "taskDomain": "charter",
+      "missionFamily": "charter",
+      "hasPoiChain": false,
+      "rawStoryLength": 0,
+      "rawAiStory": "",
+      "rawStoryPreview": "",
+      "finalStoryLength": 409,
+      "writerStory": "Heute geht es von McCall Municipal Airport nach Big Creek Airport, rund 36 NM. Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft. Eine erfahrene Fotografin, die auf die Dokumentation von Backcountry-Infrastruktur spezialisiert ist. Für eine neue Projektakte müssen die aktuellen Bodenmarkierungen und der Zustand der Pistenränder am Big Creek Airport visuell erfasst werden.",
+      "storyChangedByFinalize": true,
+      "fallbackReason": "empty_writer_story",
+      "writerAccepted": false,
+      "rawTitle": "",
+      "titleChangedByFinalize": true,
+      "briefingRoute": true,
+      "briefingWeather": true,
+      "briefingFacts": 3,
+      "finalLooksEnumerative": false,
+      "finalSentenceCount": 4
+    },
+    "i": "📋",
+    "cat": "charter",
+    "missionType": "bush",
+    "bush": {
+      "profileId": "bush_charter_strip",
+      "targetMode": "strip",
+      "completionMode": "passenger_dropoff",
+      "reconFocus": "",
+      "reconFocusLabel": "",
+      "requiresReturnHome": false,
+      "pickupKind": "",
+      "pickupLabel": "",
+      "pickupRole": "",
+      "pickupCargoLabel": "",
+      "pickupCargoWeightLbs": 0,
+      "pickupGreetingText": "",
+      "pickupStory": null,
+      "pickupPassengerCount": 0,
+      "homeRef": {
+        "kind": "airport",
+        "icao": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101,
+        "surface": "unknown",
+        "isRemoteStrip": false
+      },
+      "targetRef": {
+        "kind": "airport",
+        "icao": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "surface": "unknown",
+        "isRemoteStrip": false
+      },
+      "areaRef": null,
+      "routeRefs": [],
+      "success": {
+        "minGroundTimeSec": 8,
+        "minAreaTimeSec": 0,
+        "minAreaTrackNm": 0,
+        "cargoMustBeDelivered": false,
+        "passengerMustDeboard": true,
+        "waypointsRequired": 0
+      },
+      "allowedEndLocations": [
+        "target"
+      ],
+      "narrativeMode": "backcountry_charter",
+      "riskFlags": [
+        "high_density_altitude",
+        "terrain_awareness"
+      ],
+      "opsNotes": [
+        "Ruhiger Tal-/Gelandeanflug fuer einen kontrollierten Ausstieg am Strip.",
+        "Passagier-Dropoff erst nach gesichertem Stillstand."
+      ]
+    },
+    "poiChain": null,
+    "profileId": "bush_charter_strip",
+    "_requestedProfile": "bush_charter_strip",
+    "_appliedProfile": "bush_charter_strip",
+    "_missionPlanV2": null,
+    "_missionPlanV4": {
+      "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+      "status": "ready",
+      "mode": "bush",
+      "paxText": "1 PAX",
+      "passengerCount": 1,
+      "party": null,
+      "partyNarrative": null,
+      "aircraftCapability": null,
+      "cargoText": "Karten und Markierungsband (25 lbs)",
+      "animalTransportBrief": null,
+      "route": {
+        "startIcao": "",
+        "startName": "McCall Municipal Airport",
+        "targetIcao": "U60",
+        "targetName": "Big Creek Airport",
+        "distanceNm": 36
+      },
+      "profile": {
+        "id": "bush_charter_strip",
+        "label": "Bush Charter",
+        "roleProfile": "charter_professional_neutral_v1",
+        "taskDomain": "charter",
+        "pickerCategory": "charter",
+        "requestedCategory": "charter"
+      },
+      "target": {
+        "isPOI": false,
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "poiSource": "",
+        "poiCategory": "charter",
+        "terrainFt": null,
+        "terrainMaxFt": null,
+        "terrainRadiusNm": null
+      },
+      "poiChain": null,
+      "knowledgeContext": null,
+      "weather": {
+        "dep": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "dest": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+      },
+      "environmentContext": {
+        "schema": "mission-environment.v1",
+        "time": {
+          "source": "user-device-local",
+          "createdAt": "2026-10-07T18:00:00.000Z",
+          "createdLocal": "2026-10-07T20:00:00",
+          "utcOffsetMinutes": 120,
+          "timeZone": "Europe/Berlin",
+          "departureTimeKnown": false
+        },
+        "start": {
+          "location": {
+            "name": "McCall Municipal Airport",
+            "lat": 44.8897,
+            "lon": -116.101
+          },
+          "status": "unavailable"
+        },
+        "target": {
+          "location": {
+            "name": "Big Creek Airport",
+            "lat": 45.133202,
+            "lon": -115.321999
+          },
+          "status": "unavailable"
+        }
+      },
+      "airportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999,
+          "country": "US",
+          "elevationFt": 5743,
+          "runways": [
+            {
+              "designator": "01/19",
+              "lengthM": 1082,
+              "widthM": 34,
+              "surface": "Gras",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 2
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 2
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 2,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 2
+            }
+          },
+          "elapsedMs": 3,
+          "partial": false
+        }
+      },
+      "fireHazard": null,
+      "missionPlan": {
+        "status": "ready",
+        "pipelineVersion": "mission-v4-planner-2026-06-07",
+        "plan": {
+          "taskDomain": "charter",
+          "roleProfile": "charter_professional_neutral_v1",
+          "missionType": "bush",
+          "targetCategory": "charter",
+          "primaryObjective": "Beförderung einer Projektfotografin zur Infrastruktur-Dokumentation nach Big Creek.",
+          "targetLabel": "Big Creek Airport",
+          "missionTrigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+          "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+          "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+          "missionStakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+          "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+          "storyFrame": {
+            "trigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+            "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+            "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+            "stakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+            "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+            "subjectDetail": "Eine erfahrene Fotografin, die auf die Dokumentation von Backcountry-Infrastruktur spezialisiert ist.",
+            "incidentContext": "Für eine neue Projektakte müssen die aktuellen Bodenmarkierungen und der Zustand der Pistenränder am Big Creek Airport visuell erfasst werden.",
+            "whyNow": "Die Lichtverhältnisse am späten Nachmittag bieten heute die nötigen Kontraste, um kleine Unebenheiten in der Graspiste auf den Fotos sichtbar zu machen.",
+            "soughtOutcome": "Ein vollständiger Satz Referenzbilder und die Bestätigung der Wegpunkte vor Ort.",
+            "incidentType": "",
+            "lastSeenContext": "",
+            "probableScenario": "",
+            "visibleClueCandidates": []
+          },
+          "sceneKind": "none",
+          "sceneDensity": "none",
+          "requiredAnchors": [
+            "runway_threshold",
+            "apron_area"
+          ],
+          "objectFamilies": [
+            "cargo_equipment",
+            "photography_gear"
+          ],
+          "placementPolicy": "standard_airport",
+          "narrativeRules": [
+            "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+            "Task-domain lock: charter bleibt die Art des Auftrags.",
+            "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+            "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+            "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+            "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren."
+          ],
+          "localFacts": [
+            "Big Creek Airport (U60) liegt auf 5743 Fuß Höhe.",
+            "Die Piste 01/19 besteht aus Gras.",
+            "Anflug im Gebirgsterrain erfordert Beurteilung der Durchstarthöhe vor dem Sinkflug."
+          ],
+          "weatherHooks": [
+            "Gute Sicht für die geplanten Referenzaufnahmen",
+            "Lokale Talwinde beim Anflug auf Big Creek beachten"
+          ],
+          "operationalDetails": [
+            "Hohe Dichtehohe am Zielplatz einplanen.",
+            "Pistenzustand (Gras) bei der Landeberechnung berücksichtigen.",
+            "Ausreichend Raum für Umkehrkurven im Tal einplanen."
+          ],
+          "realismBrief": "Dieser Charter-Einsatz ist glaubwürdig, da abgelegene Flugplätze regelmäßig für Wartungs- und Dokumentationszwecke von Fachpersonal besucht werden müssen, die auf den Luftweg angewiesen sind.",
+          "narrativeHooks": [
+            "Kartenrolle und Markierungsband sind sicher verstaut.",
+            "Der Gast benötigt nach der Landung Zeit für die Begehung der Pistenränder.",
+            "Der Rückflug erfolgt ohne den Gast, da dieser über Nacht am Strip bleibt."
+          ],
+          "mustMention": [
+            "Projektfotografin",
+            "Karten und Markierungsband",
+            "Zustand der Graspiste",
+            "Big Creek Airport"
+          ],
+          "mustAvoid": [
+            "Rettungs- oder Notfallszenario",
+            "Rückkehr zum Startplatz mit dem Gast",
+            "Fiktive Ortsnamen außerhalb des Idaho-Backcountry",
+            "Kontext darf das Primaerziel nicht ersetzen.",
+            "Kontext darf die TaskDomain nicht umwidmen."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": false,
+            "requiresRescueAtPoi": false,
+            "requiresReturnHome": false,
+            "primarySubjectLabel": "Big Creek Airport",
+            "primarySubjectType": "generic",
+            "taskDomain": "charter"
+          },
+          "confidence": 1
+        },
+        "poiChain": null,
+        "needs": [],
+        "resolvedNeedTypes": [
+          "geo_context",
+          "mission_truth",
+          "weather_snapshot",
+          "fire_hazard",
+          "airport_details"
+        ]
+      },
+      "storyFrame": {
+        "trigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+        "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+        "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+        "stakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+        "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+        "subjectDetail": "Eine erfahrene Fotografin, die auf die Dokumentation von Backcountry-Infrastruktur spezialisiert ist.",
+        "incidentContext": "Für eine neue Projektakte müssen die aktuellen Bodenmarkierungen und der Zustand der Pistenränder am Big Creek Airport visuell erfasst werden.",
+        "whyNow": "Die Lichtverhältnisse am späten Nachmittag bieten heute die nötigen Kontraste, um kleine Unebenheiten in der Graspiste auf den Fotos sichtbar zu machen.",
+        "soughtOutcome": "Ein vollständiger Satz Referenzbilder und die Bestätigung der Wegpunkte vor Ort.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": []
+      },
+      "infraNarrativeHandoff": null,
+      "chainNarrativeBrief": null,
+      "pickupCreativeBrief": null,
+      "missionVarietyBrief": {
+        "purpose": "Offener Kreativrahmen fuer einen Bush-Charter-Dropoff. Das Profil bringt einen Gast zum Zielstrip; die Story erklaert Person, Zielgrund und was danach vor Ort beginnt.",
+        "recipe": "Passagier und kleines Gepaeck von McCall Municipal Airport nach Big Creek Airport bringen, am Zielstrip absetzen und dort abschliessen.",
+        "coreQuestions": [
+          "Wer fliegt heute nach Big Creek Airport und warum gerade diese Person?",
+          "Was moechte dieser Mensch konkret erreichen, und welche persoenliche Vorgeschichte oder Beziehung macht ihm das wichtig?",
+          "Warum ist Big Creek Airport der passende Zugangspunkt statt nur irgendein Flugplatz?",
+          "Welche Ausruestung, Tasche oder Unterlage macht den Auftrag sichtbar?",
+          "Welcher praktische Ablauf haengt an der Ankunft, ohne die Story kuenstlich hektisch zu machen?"
+        ],
+        "candidateShortlist": [
+          {
+            "id": "photographer_assignment",
+            "familyId": "photo_story",
+            "label": "Foto-, Karten- oder Dokumentationstermin",
+            "wildcard": false,
+            "matchTags": [
+              "water"
+            ],
+            "roleIdeas": [
+              "Projektfotografin",
+              "Kartenmacher",
+              "Dokumentationsleiterin"
+            ],
+            "taskIdeas": [
+              "Referenzbilder fuer eine Projektakte aufnehmen",
+              "Wegpunkte und Blickrichtungen am Strip abgleichen",
+              "Bilder fuer Betreiber oder Redaktion erstellen"
+            ],
+            "objectIdeas": [
+              "Kameratasche",
+              "Tablet",
+              "Kartenrolle",
+              "Akkucase"
+            ],
+            "returnDrivers": [
+              "das Licht- und Wetterfenster am Ziel passt heute",
+              "die Projektleitung braucht aktuelle Bilder",
+              "der Termin ist kurz, aber nur per Luftweg sinnvoll"
+            ],
+            "accessReasons": [
+              "der Strip bietet direkten Zugang zum Bildmotiv",
+              "vom Ziel aus laesst sich der Abschnitt ohne langen Marsch erreichen",
+              "das Equipment bleibt mit dem Flugzeug handhabbar"
+            ]
+          },
+          {
+            "id": "boundary_survey_visit",
+            "familyId": "survey_mapping",
+            "label": "Vermessungs- oder Property-Termin",
+            "wildcard": false,
+            "matchTags": [],
+            "roleIdeas": [
+              "Vermessungsleiterin",
+              "Property-Manager",
+              "Versicherungsprueferin"
+            ],
+            "taskIdeas": [
+              "Grenzmarken und alte Wegpunkte vor Ort bestaetigen",
+              "Fotos von Zaun, Zufahrt und Nebengebaeude machen",
+              "kurzen Ortstermin mit lokalem Kontakt halten"
+            ],
+            "objectIdeas": [
+              "Messstab",
+              "Aktenkoffer",
+              "Fototablet",
+              "Kartenrolle"
+            ],
+            "returnDrivers": [
+              "der Termin muss vor der naechsten Entscheidung vor Ort stattfinden",
+              "Originalnotizen werden spaeter in der Basis gebraucht",
+              "der Kontakt wartet am Strip, nicht in der Stadt"
+            ],
+            "accessReasons": [
+              "der Strip ist der praktische Zugang zum Property-Termin",
+              "die Pistenfahrt waere fuer einen Kurztermin unverhaeltnismaessig",
+              "die Person muss mit Akten und Messzeug direkt raus"
+            ]
+          },
+          {
+            "id": "quiet_writer_residency",
+            "familyId": "wildcard_guest",
+            "label": "Kurioser Gast mit harmloser Backcountry-Agenda",
+            "wildcard": true,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Naturautor",
+              "Lodge-Kuenstlerin",
+              "Backcountry-Kursleiterin"
+            ],
+            "taskIdeas": [
+              "einen kurzen Workshop oder Rechercheblock am Camp beginnen",
+              "Skizzen, Notizen oder Kursmaterial am Ziel auspacken",
+              "mit dem Campkontakt einen stillen Arbeitsplatz klaeren"
+            ],
+            "objectIdeas": [
+              "Notizrolle",
+              "kleiner Malkasten",
+              "Kursmappe",
+              "Duffelbag"
+            ],
+            "returnDrivers": [
+              "der Aufenthalt ist geplant und unkritisch",
+              "der Zielstrip ist nur der Eingang in die draussen liegende Arbeit",
+              "die Geschichte darf ungewoehnlich sein, bleibt aber ein normaler Charter"
+            ],
+            "accessReasons": [
+              "der Strip ist der einzige schnelle Zugang zum ruhigen Camp",
+              "das Gepaeck ist klein, aber fuer den Trail unpraktisch",
+              "der Campkontakt holt die Person am Bahnrand ab"
+            ]
+          },
+          {
+            "id": "biologist_access",
+            "familyId": "wildlife_fieldwork",
+            "label": "Biologie, Habitat oder Monitoring",
+            "wildcard": false,
+            "matchTags": [
+              "water"
+            ],
+            "roleIdeas": [
+              "Forstbiologin",
+              "Habitat-Mitarbeiter",
+              "Wildlife-Koordinatorin"
+            ],
+            "taskIdeas": [
+              "Kamerastandorte und Zaunluecken vor Ort kontrollieren",
+              "Ufer- und Wiesenpunkte fuer das Monitoring begehen",
+              "Datenkarten und Batterien in der Beobachtungsroute tauschen"
+            ],
+            "objectIdeas": [
+              "Feldrucksack",
+              "Kamerakarten-Box",
+              "GPS-Handgeraet",
+              "leichte Batterietasche"
+            ],
+            "returnDrivers": [
+              "das Monitoringfenster ist an Wetter und Tageslicht gebunden",
+              "die Daten sollen nach dem Einsatz in die Basis zurueck",
+              "die Person bleibt nur fuer den geplanten Feldblock draussen"
+            ],
+            "accessReasons": [
+              "der Strip liegt nahe an mehreren Kontrollpunkten",
+              "der Zugang ueber Land waere zu lang fuer den Tagesblock",
+              "der Wartepunkt liegt am Anfang der Beobachtungsroute"
+            ]
+          },
+          {
+            "id": "outfitter_client_transfer",
+            "familyId": "outfitter_guest",
+            "label": "Outfitter-, Angler- oder Campgast",
+            "wildcard": false,
+            "matchTags": [
+              "water"
+            ],
+            "roleIdeas": [
+              "Outfitter-Gast",
+              "Fly-Fishing-Guide",
+              "Campgast mit Guidekontakt"
+            ],
+            "taskIdeas": [
+              "Ausrüstung fuer ein ruhiges Wochenende am Wasser absetzen",
+              "Guidekontakt am Strip treffen",
+              "leichte Campausruestung zum Startpunkt bringen"
+            ],
+            "objectIdeas": [
+              "Angelrohr",
+              "Duffelbag",
+              "Tagesrucksack",
+              "leichte Kuehltasche"
+            ],
+            "returnDrivers": [
+              "am Ziel startet ein geplanter Aufenthalt",
+              "der Guide wartet am Striprand",
+              "der Gast muss vor dem Nachmittagsfenster draussen sein"
+            ],
+            "accessReasons": [
+              "der Strip ist der uebliche Einstieg zum Camp",
+              "der Flussabschnitt ist vom Ziel aus schnell erreichbar",
+              "das Gepaeck passt besser in den Flug als auf einen langen Trail"
+            ]
+          }
+        ],
+        "variety": {
+          "schema": "missionVarietyPack.v1",
+          "namespace": "bush_charter_strip",
+          "profileId": "bush_charter_strip",
+          "contextTags": [
+            "bush",
+            "remote_strip",
+            "water"
+          ],
+          "selectedIds": [
+            "photographer_assignment",
+            "boundary_survey_visit",
+            "quiet_writer_residency",
+            "biologist_access",
+            "outfitter_client_transfer"
+          ],
+          "selectedFamilies": [
+            "photo_story",
+            "survey_mapping",
+            "wildcard_guest",
+            "wildlife_fieldwork",
+            "outfitter_guest"
+          ],
+          "primaryId": "photographer_assignment",
+          "primaryFamily": "photo_story",
+          "recentFamilies": [],
+          "recentPrimaryFamilies": [],
+          "recentPrimaryIds": [],
+          "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+          "storageKey": "ga_mission_variety_history_bush_charter_strip_v1"
+        },
+        "ingredientAxes": {
+          "roleFamilies": [
+            "Projektfotografin",
+            "Kartenmacher",
+            "Dokumentationsleiterin",
+            "Vermessungsleiterin",
+            "Property-Manager",
+            "Versicherungsprueferin",
+            "Naturautor",
+            "Lodge-Kuenstlerin",
+            "Backcountry-Kursleiterin",
+            "Forstbiologin",
+            "Habitat-Mitarbeiter",
+            "Wildlife-Koordinatorin"
+          ],
+          "activityVerbs": [
+            "Referenzbilder fuer eine Projektakte aufnehmen",
+            "Wegpunkte und Blickrichtungen am Strip abgleichen",
+            "Bilder fuer Betreiber oder Redaktion erstellen",
+            "Grenzmarken und alte Wegpunkte vor Ort bestaetigen",
+            "Fotos von Zaun, Zufahrt und Nebengebaeude machen",
+            "kurzen Ortstermin mit lokalem Kontakt halten",
+            "einen kurzen Workshop oder Rechercheblock am Camp beginnen",
+            "Skizzen, Notizen oder Kursmaterial am Ziel auspacken",
+            "mit dem Campkontakt einen stillen Arbeitsplatz klaeren",
+            "Kamerastandorte und Zaunluecken vor Ort kontrollieren",
+            "Ufer- und Wiesenpunkte fuer das Monitoring begehen",
+            "Datenkarten und Batterien in der Beobachtungsroute tauschen",
+            "Ausrüstung fuer ein ruhiges Wochenende am Wasser absetzen",
+            "Guidekontakt am Strip treffen"
+          ],
+          "evidenceObjects": [
+            "Kameratasche",
+            "Tablet",
+            "Kartenrolle",
+            "Akkucase",
+            "Messstab",
+            "Aktenkoffer",
+            "Fototablet",
+            "Notizrolle",
+            "kleiner Malkasten",
+            "Kursmappe",
+            "Duffelbag",
+            "Feldrucksack",
+            "Kamerakarten-Box",
+            "GPS-Handgeraet"
+          ],
+          "returnDrivers": [
+            "das Licht- und Wetterfenster am Ziel passt heute",
+            "die Projektleitung braucht aktuelle Bilder",
+            "der Termin ist kurz, aber nur per Luftweg sinnvoll",
+            "der Termin muss vor der naechsten Entscheidung vor Ort stattfinden",
+            "Originalnotizen werden spaeter in der Basis gebraucht",
+            "der Kontakt wartet am Strip, nicht in der Stadt",
+            "der Aufenthalt ist geplant und unkritisch",
+            "der Zielstrip ist nur der Eingang in die draussen liegende Arbeit",
+            "die Geschichte darf ungewoehnlich sein, bleibt aber ein normaler Charter",
+            "das Monitoringfenster ist an Wetter und Tageslicht gebunden"
+          ],
+          "accessReasons": [
+            "der Strip bietet direkten Zugang zum Bildmotiv",
+            "vom Ziel aus laesst sich der Abschnitt ohne langen Marsch erreichen",
+            "das Equipment bleibt mit dem Flugzeug handhabbar",
+            "der Strip ist der praktische Zugang zum Property-Termin",
+            "die Pistenfahrt waere fuer einen Kurztermin unverhaeltnismaessig",
+            "die Person muss mit Akten und Messzeug direkt raus",
+            "der Strip ist der einzige schnelle Zugang zum ruhigen Camp",
+            "das Gepaeck ist klein, aber fuer den Trail unpraktisch"
+          ]
+        },
+        "writerExpectations": [
+          "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+          "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+          "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+          "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+          "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+          "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+          "Erzaehle aus Dispatcher-Perspektive: Wir bringen den Gast hin, der Gast spricht nur in PAX-Texten.",
+          "Kein Pickup, kein Rueckflug-Handoff, keine implizite Rettung.",
+          "Der Grund am Ziel darf beruflich, privat, outdoorbezogen oder leicht kurios sein, solange er zum Strip passt."
+        ],
+        "weatherNote": ""
+      },
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_charter_strip",
+        "profileId": "bush_charter_strip",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "photographer_assignment",
+          "boundary_survey_visit",
+          "quiet_writer_residency",
+          "biologist_access",
+          "outfitter_client_transfer"
+        ],
+        "selectedFamilies": [
+          "photo_story",
+          "survey_mapping",
+          "wildcard_guest",
+          "wildlife_fieldwork",
+          "outfitter_guest"
+        ],
+        "primaryId": "photographer_assignment",
+        "primaryFamily": "photo_story",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_charter_strip_v1"
+      },
+      "sarHeli": null,
+      "missionTruth": null,
+      "semantics": {
+        "version": "mission-semantics-v4-2026-06-07",
+        "focusLock": {
+          "mode": "bush",
+          "taskDomain": "charter",
+          "targetCategory": "generic",
+          "requestedCategory": "charter",
+          "primarySubjectLabel": "Big Creek Airport",
+          "primarySubjectType": "generic",
+          "contextRoles": [
+            "orientation",
+            "hazard",
+            "access",
+            "support",
+            "evidence",
+            "background"
+          ]
+        },
+        "plannerGuardrails": [
+          "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+          "Task-domain lock: charter bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+          "Das gewaehlte Ziel bleibt Primärsubjekt."
+        ],
+        "writerGuardrails": [
+          "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+          "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+          "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+          "Kontext darf die Mission anreichern, aber nicht umdefinieren.",
+          "Kontext darf nur anreichern, nie umwidmen."
+        ],
+        "forceSceneNone": false,
+        "naturalPriority": false
+      },
+      "followUpContext": null,
+      "missionTemporalContext": null,
+      "varietyHints": null,
+      "targetGeoContext": null,
+      "airportDetails": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      }
+    },
+    "_missionContractV4": {
+      "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+      "status": "ready",
+      "mode": "bush",
+      "paxText": "1 PAX",
+      "passengerCount": 1,
+      "party": null,
+      "partyNarrative": null,
+      "aircraftCapability": null,
+      "cargoText": "Karten und Markierungsband (25 lbs)",
+      "animalTransportBrief": null,
+      "route": {
+        "startIcao": "",
+        "startName": "McCall Municipal Airport",
+        "targetIcao": "U60",
+        "targetName": "Big Creek Airport",
+        "distanceNm": 36
+      },
+      "profile": {
+        "id": "bush_charter_strip",
+        "label": "Bush Charter",
+        "roleProfile": "charter_professional_neutral_v1",
+        "taskDomain": "charter",
+        "pickerCategory": "charter",
+        "requestedCategory": "charter"
+      },
+      "target": {
+        "isPOI": false,
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "poiSource": "",
+        "poiCategory": "charter",
+        "terrainFt": null,
+        "terrainMaxFt": null,
+        "terrainRadiusNm": null
+      },
+      "poiChain": null,
+      "knowledgeContext": null,
+      "weather": {
+        "dep": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "dest": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+      },
+      "environmentContext": {
+        "schema": "mission-environment.v1",
+        "time": {
+          "source": "user-device-local",
+          "createdAt": "2026-10-07T18:00:00.000Z",
+          "createdLocal": "2026-10-07T20:00:00",
+          "utcOffsetMinutes": 120,
+          "timeZone": "Europe/Berlin",
+          "departureTimeKnown": false
+        },
+        "start": {
+          "location": {
+            "name": "McCall Municipal Airport",
+            "lat": 44.8897,
+            "lon": -116.101
+          },
+          "status": "unavailable"
+        },
+        "target": {
+          "location": {
+            "name": "Big Creek Airport",
+            "lat": 45.133202,
+            "lon": -115.321999
+          },
+          "status": "unavailable"
+        }
+      },
+      "airportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999,
+          "country": "US",
+          "elevationFt": 5743,
+          "runways": [
+            {
+              "designator": "01/19",
+              "lengthM": 1082,
+              "widthM": 34,
+              "surface": "Gras",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 2
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 2
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 2,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 2
+            }
+          },
+          "elapsedMs": 3,
+          "partial": false
+        }
+      },
+      "fireHazard": null,
+      "missionPlan": {
+        "status": "ready",
+        "pipelineVersion": "mission-v4-planner-2026-06-07",
+        "plan": {
+          "taskDomain": "charter",
+          "roleProfile": "charter_professional_neutral_v1",
+          "missionType": "bush",
+          "targetCategory": "charter",
+          "primaryObjective": "Beförderung einer Projektfotografin zur Infrastruktur-Dokumentation nach Big Creek.",
+          "targetLabel": "Big Creek Airport",
+          "missionTrigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+          "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+          "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+          "missionStakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+          "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+          "storyFrame": {
+            "trigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+            "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+            "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+            "stakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+            "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+            "subjectDetail": "Eine erfahrene Fotografin, die auf die Dokumentation von Backcountry-Infrastruktur spezialisiert ist.",
+            "incidentContext": "Für eine neue Projektakte müssen die aktuellen Bodenmarkierungen und der Zustand der Pistenränder am Big Creek Airport visuell erfasst werden.",
+            "whyNow": "Die Lichtverhältnisse am späten Nachmittag bieten heute die nötigen Kontraste, um kleine Unebenheiten in der Graspiste auf den Fotos sichtbar zu machen.",
+            "soughtOutcome": "Ein vollständiger Satz Referenzbilder und die Bestätigung der Wegpunkte vor Ort.",
+            "incidentType": "",
+            "lastSeenContext": "",
+            "probableScenario": "",
+            "visibleClueCandidates": []
+          },
+          "sceneKind": "none",
+          "sceneDensity": "none",
+          "requiredAnchors": [
+            "runway_threshold",
+            "apron_area"
+          ],
+          "objectFamilies": [
+            "cargo_equipment",
+            "photography_gear"
+          ],
+          "placementPolicy": "standard_airport",
+          "narrativeRules": [
+            "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+            "Task-domain lock: charter bleibt die Art des Auftrags.",
+            "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+            "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+            "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+            "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren."
+          ],
+          "localFacts": [
+            "Big Creek Airport (U60) liegt auf 5743 Fuß Höhe.",
+            "Die Piste 01/19 besteht aus Gras.",
+            "Anflug im Gebirgsterrain erfordert Beurteilung der Durchstarthöhe vor dem Sinkflug."
+          ],
+          "weatherHooks": [
+            "Gute Sicht für die geplanten Referenzaufnahmen",
+            "Lokale Talwinde beim Anflug auf Big Creek beachten"
+          ],
+          "operationalDetails": [
+            "Hohe Dichtehohe am Zielplatz einplanen.",
+            "Pistenzustand (Gras) bei der Landeberechnung berücksichtigen.",
+            "Ausreichend Raum für Umkehrkurven im Tal einplanen."
+          ],
+          "realismBrief": "Dieser Charter-Einsatz ist glaubwürdig, da abgelegene Flugplätze regelmäßig für Wartungs- und Dokumentationszwecke von Fachpersonal besucht werden müssen, die auf den Luftweg angewiesen sind.",
+          "narrativeHooks": [
+            "Kartenrolle und Markierungsband sind sicher verstaut.",
+            "Der Gast benötigt nach der Landung Zeit für die Begehung der Pistenränder.",
+            "Der Rückflug erfolgt ohne den Gast, da dieser über Nacht am Strip bleibt."
+          ],
+          "mustMention": [
+            "Projektfotografin",
+            "Karten und Markierungsband",
+            "Zustand der Graspiste",
+            "Big Creek Airport"
+          ],
+          "mustAvoid": [
+            "Rettungs- oder Notfallszenario",
+            "Rückkehr zum Startplatz mit dem Gast",
+            "Fiktive Ortsnamen außerhalb des Idaho-Backcountry",
+            "Kontext darf das Primaerziel nicht ersetzen.",
+            "Kontext darf die TaskDomain nicht umwidmen."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": false,
+            "requiresRescueAtPoi": false,
+            "requiresReturnHome": false,
+            "primarySubjectLabel": "Big Creek Airport",
+            "primarySubjectType": "generic",
+            "taskDomain": "charter"
+          },
+          "confidence": 1
+        },
+        "poiChain": null,
+        "needs": [],
+        "resolvedNeedTypes": [
+          "geo_context",
+          "mission_truth",
+          "weather_snapshot",
+          "fire_hazard",
+          "airport_details"
+        ]
+      },
+      "storyFrame": {
+        "trigger": "Ein Auftrag zur aktuellen Fotodokumentation für die zuständige Betreibergesellschaft.",
+        "focusSubject": "Die Projektfotografin und ihre spezialisierte Ausrüstung für Geländekartierung.",
+        "keyQuestion": "Kann die Fotografin vor Ort die benötigten Referenzbilder der Piste und der Markierungen vor dem nächsten Wetterumschwung sichern?",
+        "stakes": "Die Bilder sind die Grundlage für die kommende Wartungsplanung und die Freigabe von Budgetmitteln.",
+        "completionSignal": "Sicheres Absetzen des Gastes und Entladen des Equipments am Rand der Graspiste.",
+        "subjectDetail": "Eine erfahrene Fotografin, die auf die Dokumentation von Backcountry-Infrastruktur spezialisiert ist.",
+        "incidentContext": "Für eine neue Projektakte müssen die aktuellen Bodenmarkierungen und der Zustand der Pistenränder am Big Creek Airport visuell erfasst werden.",
+        "whyNow": "Die Lichtverhältnisse am späten Nachmittag bieten heute die nötigen Kontraste, um kleine Unebenheiten in der Graspiste auf den Fotos sichtbar zu machen.",
+        "soughtOutcome": "Ein vollständiger Satz Referenzbilder und die Bestätigung der Wegpunkte vor Ort.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": []
+      },
+      "infraNarrativeHandoff": null,
+      "chainNarrativeBrief": null,
+      "pickupCreativeBrief": null,
+      "missionVarietyBrief": {
+        "purpose": "Offener Kreativrahmen fuer einen Bush-Charter-Dropoff. Das Profil bringt einen Gast zum Zielstrip; die Story erklaert Person, Zielgrund und was danach vor Ort beginnt.",
+        "recipe": "Passagier und kleines Gepaeck von McCall Municipal Airport nach Big Creek Airport bringen, am Zielstrip absetzen und dort abschliessen.",
+        "coreQuestions": [
+          "Wer fliegt heute nach Big Creek Airport und warum gerade diese Person?",
+          "Was moechte dieser Mensch konkret erreichen, und welche persoenliche Vorgeschichte oder Beziehung macht ihm das wichtig?",
+          "Warum ist Big Creek Airport der passende Zugangspunkt statt nur irgendein Flugplatz?",
+          "Welche Ausruestung, Tasche oder Unterlage macht den Auftrag sichtbar?",
+          "Welcher praktische Ablauf haengt an der Ankunft, ohne die Story kuenstlich hektisch zu machen?"
+        ],
+        "candidateShortlist": [
+          {
+            "id": "photographer_assignment",
+            "familyId": "photo_story",
+            "label": "Foto-, Karten- oder Dokumentationstermin",
+            "wildcard": false,
+            "matchTags": [
+              "water"
+            ],
+            "roleIdeas": [
+              "Projektfotografin",
+              "Kartenmacher",
+              "Dokumentationsleiterin"
+            ],
+            "taskIdeas": [
+              "Referenzbilder fuer eine Projektakte aufnehmen",
+              "Wegpunkte und Blickrichtungen am Strip abgleichen",
+              "Bilder fuer Betreiber oder Redaktion erstellen"
+            ],
+            "objectIdeas": [
+              "Kameratasche",
+              "Tablet",
+              "Kartenrolle",
+              "Akkucase"
+            ],
+            "returnDrivers": [
+              "das Licht- und Wetterfenster am Ziel passt heute",
+              "die Projektleitung braucht aktuelle Bilder",
+              "der Termin ist kurz, aber nur per Luftweg sinnvoll"
+            ],
+            "accessReasons": [
+              "der Strip bietet direkten Zugang zum Bildmotiv",
+              "vom Ziel aus laesst sich der Abschnitt ohne langen Marsch erreichen",
+              "das Equipment bleibt mit dem Flugzeug handhabbar"
+            ]
+          },
+          {
+            "id": "boundary_survey_visit",
+            "familyId": "survey_mapping",
+            "label": "Vermessungs- oder Property-Termin",
+            "wildcard": false,
+            "matchTags": [],
+            "roleIdeas": [
+              "Vermessungsleiterin",
+              "Property-Manager",
+              "Versicherungsprueferin"
+            ],
+            "taskIdeas": [
+              "Grenzmarken und alte Wegpunkte vor Ort bestaetigen",
+              "Fotos von Zaun, Zufahrt und Nebengebaeude machen",
+              "kurzen Ortstermin mit lokalem Kontakt halten"
+            ],
+            "objectIdeas": [
+              "Messstab",
+              "Aktenkoffer",
+              "Fototablet",
+              "Kartenrolle"
+            ],
+            "returnDrivers": [
+              "der Termin muss vor der naechsten Entscheidung vor Ort stattfinden",
+              "Originalnotizen werden spaeter in der Basis gebraucht",
+              "der Kontakt wartet am Strip, nicht in der Stadt"
+            ],
+            "accessReasons": [
+              "der Strip ist der praktische Zugang zum Property-Termin",
+              "die Pistenfahrt waere fuer einen Kurztermin unverhaeltnismaessig",
+              "die Person muss mit Akten und Messzeug direkt raus"
+            ]
+          },
+          {
+            "id": "quiet_writer_residency",
+            "familyId": "wildcard_guest",
+            "label": "Kurioser Gast mit harmloser Backcountry-Agenda",
+            "wildcard": true,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Naturautor",
+              "Lodge-Kuenstlerin",
+              "Backcountry-Kursleiterin"
+            ],
+            "taskIdeas": [
+              "einen kurzen Workshop oder Rechercheblock am Camp beginnen",
+              "Skizzen, Notizen oder Kursmaterial am Ziel auspacken",
+              "mit dem Campkontakt einen stillen Arbeitsplatz klaeren"
+            ],
+            "objectIdeas": [
+              "Notizrolle",
+              "kleiner Malkasten",
+              "Kursmappe",
+              "Duffelbag"
+            ],
+            "returnDrivers": [
+              "der Aufenthalt ist geplant und unkritisch",
+              "der Zielstrip ist nur der Eingang in die draussen liegende Arbeit",
+              "die Geschichte darf ungewoehnlich sein, bleibt aber ein normaler Charter"
+            ],
+            "accessReasons": [
+              "der Strip ist der einzige schnelle Zugang zum ruhigen Camp",
+              "das Gepaeck ist klein, aber fuer den Trail unpraktisch",
+              "der Campkontakt holt die Person am Bahnrand ab"
+            ]
+          },
+          {
+            "id": "biologist_access",
+            "familyId": "wildlife_fieldwork",
+            "label": "Biologie, Habitat oder Monitoring",
+            "wildcard": false,
+            "matchTags": [
+              "water"
+            ],
+            "roleIdeas": [
+              "Forstbiologin",
+              "Habitat-Mitarbeiter",
+              "Wildlife-Koordinatorin"
+            ],
+            "taskIdeas": [
+              "Kamerastandorte und Zaunluecken vor Ort kontrollieren",
+              "Ufer- und Wiesenpunkte fuer das Monitoring begehen",
+              "Datenkarten und Batterien in der Beobachtungsroute tauschen"
+            ],
+            "objectIdeas": [
+              "Feldrucksack",
+              "Kamerakarten-Box",
+              "GPS-Handgeraet",
+              "leichte Batterietasche"
+            ],
+            "returnDrivers": [
+              "das Monitoringfenster ist an Wetter und Tageslicht gebunden",
+              "die Daten sollen nach dem Einsatz in die Basis zurueck",
+              "die Person bleibt nur fuer den geplanten Feldblock draussen"
+            ],
+            "accessReasons": [
+              "der Strip liegt nahe an mehreren Kontrollpunkten",
+              "der Zugang ueber Land waere zu lang fuer den Tagesblock",
+              "der Wartepunkt liegt am Anfang der Beobachtungsroute"
+            ]
+          },
+          {
+            "id": "outfitter_client_transfer",
+            "familyId": "outfitter_guest",
+            "label": "Outfitter-, Angler- oder Campgast",
+            "wildcard": false,
+            "matchTags": [
+              "water"
+            ],
+            "roleIdeas": [
+              "Outfitter-Gast",
+              "Fly-Fishing-Guide",
+              "Campgast mit Guidekontakt"
+            ],
+            "taskIdeas": [
+              "Ausrüstung fuer ein ruhiges Wochenende am Wasser absetzen",
+              "Guidekontakt am Strip treffen",
+              "leichte Campausruestung zum Startpunkt bringen"
+            ],
+            "objectIdeas": [
+              "Angelrohr",
+              "Duffelbag",
+              "Tagesrucksack",
+              "leichte Kuehltasche"
+            ],
+            "returnDrivers": [
+              "am Ziel startet ein geplanter Aufenthalt",
+              "der Guide wartet am Striprand",
+              "der Gast muss vor dem Nachmittagsfenster draussen sein"
+            ],
+            "accessReasons": [
+              "der Strip ist der uebliche Einstieg zum Camp",
+              "der Flussabschnitt ist vom Ziel aus schnell erreichbar",
+              "das Gepaeck passt besser in den Flug als auf einen langen Trail"
+            ]
+          }
+        ],
+        "variety": {
+          "schema": "missionVarietyPack.v1",
+          "namespace": "bush_charter_strip",
+          "profileId": "bush_charter_strip",
+          "contextTags": [
+            "bush",
+            "remote_strip",
+            "water"
+          ],
+          "selectedIds": [
+            "photographer_assignment",
+            "boundary_survey_visit",
+            "quiet_writer_residency",
+            "biologist_access",
+            "outfitter_client_transfer"
+          ],
+          "selectedFamilies": [
+            "photo_story",
+            "survey_mapping",
+            "wildcard_guest",
+            "wildlife_fieldwork",
+            "outfitter_guest"
+          ],
+          "primaryId": "photographer_assignment",
+          "primaryFamily": "photo_story",
+          "recentFamilies": [],
+          "recentPrimaryFamilies": [],
+          "recentPrimaryIds": [],
+          "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+          "storageKey": "ga_mission_variety_history_bush_charter_strip_v1"
+        },
+        "ingredientAxes": {
+          "roleFamilies": [
+            "Projektfotografin",
+            "Kartenmacher",
+            "Dokumentationsleiterin",
+            "Vermessungsleiterin",
+            "Property-Manager",
+            "Versicherungsprueferin",
+            "Naturautor",
+            "Lodge-Kuenstlerin",
+            "Backcountry-Kursleiterin",
+            "Forstbiologin",
+            "Habitat-Mitarbeiter",
+            "Wildlife-Koordinatorin"
+          ],
+          "activityVerbs": [
+            "Referenzbilder fuer eine Projektakte aufnehmen",
+            "Wegpunkte und Blickrichtungen am Strip abgleichen",
+            "Bilder fuer Betreiber oder Redaktion erstellen",
+            "Grenzmarken und alte Wegpunkte vor Ort bestaetigen",
+            "Fotos von Zaun, Zufahrt und Nebengebaeude machen",
+            "kurzen Ortstermin mit lokalem Kontakt halten",
+            "einen kurzen Workshop oder Rechercheblock am Camp beginnen",
+            "Skizzen, Notizen oder Kursmaterial am Ziel auspacken",
+            "mit dem Campkontakt einen stillen Arbeitsplatz klaeren",
+            "Kamerastandorte und Zaunluecken vor Ort kontrollieren",
+            "Ufer- und Wiesenpunkte fuer das Monitoring begehen",
+            "Datenkarten und Batterien in der Beobachtungsroute tauschen",
+            "Ausrüstung fuer ein ruhiges Wochenende am Wasser absetzen",
+            "Guidekontakt am Strip treffen"
+          ],
+          "evidenceObjects": [
+            "Kameratasche",
+            "Tablet",
+            "Kartenrolle",
+            "Akkucase",
+            "Messstab",
+            "Aktenkoffer",
+            "Fototablet",
+            "Notizrolle",
+            "kleiner Malkasten",
+            "Kursmappe",
+            "Duffelbag",
+            "Feldrucksack",
+            "Kamerakarten-Box",
+            "GPS-Handgeraet"
+          ],
+          "returnDrivers": [
+            "das Licht- und Wetterfenster am Ziel passt heute",
+            "die Projektleitung braucht aktuelle Bilder",
+            "der Termin ist kurz, aber nur per Luftweg sinnvoll",
+            "der Termin muss vor der naechsten Entscheidung vor Ort stattfinden",
+            "Originalnotizen werden spaeter in der Basis gebraucht",
+            "der Kontakt wartet am Strip, nicht in der Stadt",
+            "der Aufenthalt ist geplant und unkritisch",
+            "der Zielstrip ist nur der Eingang in die draussen liegende Arbeit",
+            "die Geschichte darf ungewoehnlich sein, bleibt aber ein normaler Charter",
+            "das Monitoringfenster ist an Wetter und Tageslicht gebunden"
+          ],
+          "accessReasons": [
+            "der Strip bietet direkten Zugang zum Bildmotiv",
+            "vom Ziel aus laesst sich der Abschnitt ohne langen Marsch erreichen",
+            "das Equipment bleibt mit dem Flugzeug handhabbar",
+            "der Strip ist der praktische Zugang zum Property-Termin",
+            "die Pistenfahrt waere fuer einen Kurztermin unverhaeltnismaessig",
+            "die Person muss mit Akten und Messzeug direkt raus",
+            "der Strip ist der einzige schnelle Zugang zum ruhigen Camp",
+            "das Gepaeck ist klein, aber fuer den Trail unpraktisch"
+          ]
+        },
+        "writerExpectations": [
+          "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+          "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+          "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+          "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+          "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+          "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+          "Erzaehle aus Dispatcher-Perspektive: Wir bringen den Gast hin, der Gast spricht nur in PAX-Texten.",
+          "Kein Pickup, kein Rueckflug-Handoff, keine implizite Rettung.",
+          "Der Grund am Ziel darf beruflich, privat, outdoorbezogen oder leicht kurios sein, solange er zum Strip passt."
+        ],
+        "weatherNote": ""
+      },
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_charter_strip",
+        "profileId": "bush_charter_strip",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "photographer_assignment",
+          "boundary_survey_visit",
+          "quiet_writer_residency",
+          "biologist_access",
+          "outfitter_client_transfer"
+        ],
+        "selectedFamilies": [
+          "photo_story",
+          "survey_mapping",
+          "wildcard_guest",
+          "wildlife_fieldwork",
+          "outfitter_guest"
+        ],
+        "primaryId": "photographer_assignment",
+        "primaryFamily": "photo_story",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_charter_strip_v1"
+      },
+      "sarHeli": null,
+      "missionTruth": null,
+      "semantics": {
+        "version": "mission-semantics-v4-2026-06-07",
+        "focusLock": {
+          "mode": "bush",
+          "taskDomain": "charter",
+          "targetCategory": "generic",
+          "requestedCategory": "charter",
+          "primarySubjectLabel": "Big Creek Airport",
+          "primarySubjectType": "generic",
+          "contextRoles": [
+            "orientation",
+            "hazard",
+            "access",
+            "support",
+            "evidence",
+            "background"
+          ]
+        },
+        "plannerGuardrails": [
+          "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+          "Task-domain lock: charter bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+          "Das gewaehlte Ziel bleibt Primärsubjekt."
+        ],
+        "writerGuardrails": [
+          "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+          "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+          "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+          "Kontext darf die Mission anreichern, aber nicht umdefinieren.",
+          "Kontext darf nur anreichern, nie umwidmen."
+        ],
+        "forceSceneNone": false,
+        "naturalPriority": false
+      },
+      "followUpContext": null,
+      "missionTemporalContext": null,
+      "varietyHints": null,
+      "targetGeoContext": null,
+      "airportDetails": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      }
+    },
+    "_source": "Local Fallback + V5 Writer",
+    "airportInformation": {
+      "schema": "airport-information-text.v1",
+      "flightBriefing": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras.",
+      "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+      "sourceIds": [],
+      "generated": false
+    }
+  },
+  "passed": false,
+  "failure": "Writer fell back"
+}

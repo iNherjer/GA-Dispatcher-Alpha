@@ -26774,7 +26774,7 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
         aptArrivalGeoContext: null
     };
     const reporter = window.MissionReporterSceneCore?.enabled(md, contract);
-    const contents = [{ role: 'user', parts: [{ text: scenePlannerV3Prompt({ isPOI, missionMode }) + (md.sarSearchScene ? window.MissionSarSceneCore.composerInstructions(md.sarSearchScene) : '') }] }];
+    const contents = [{ role: 'user', parts: [{ text: scenePlannerV3Prompt({ isPOI, missionMode }) + (missionMode === 'bush' ? (window.MissionBushNarrativeCore?.sourcePrompt({...md,airportInfoContext:md.airportInfoContext||contract.airportInfoContext,environmentContext:md.environmentContext||contract.environmentContext}) || '') : '') + (md.sarSearchScene ? window.MissionSarSceneCore.composerInstructions(md.sarSearchScene) : '') }] }];
     const tools = [{ functionDeclarations: scenePlannerV3ToolDeclarations() }];
     const baseModels = [
         ['gemini-3-flash-preview', 'Gemini 3.0 Flash Scene Planner V3', 'flash'],
@@ -26808,7 +26808,6 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
                             : { mode: reporter ? 'NONE' : 'AUTO' }
                     },
                     generationConfig: {
-                        temperature: reporter ? 1 : 0.18,
                         maxOutputTokens: reporter ? 8000 : 3200,
                         ...(reporter && model.startsWith('gemini-3') ? {thinkingConfig:{thinkingLevel:'low'}} : {})
                     }
@@ -28296,7 +28295,7 @@ async function _missionPipelineV3RunModel(model, source, usageKey, draft, contex
         missionTruth: context.missionTruth || null,
         missionFireHazard: context.missionFireHazard || null
     };
-    const contents = [{ role: 'user', parts: [{ text: _missionPipelineV3Prompt(draft) }] }];
+    const contents = [{ role: 'user', parts: [{ text: _missionPipelineV3Prompt(draft) + (draft.mode === 'bush' || draft.missionType === 'bush' ? (window.MissionBushNarrativeCore?.sourcePrompt(context) || '') : '') }] }];
     const tools = [{ functionDeclarations: _missionPipelineV3ToolDeclarations() }];
     const toolCalls = [];
     let lastError = '';
@@ -28313,7 +28312,6 @@ async function _missionPipelineV3RunModel(model, source, usageKey, draft, contex
                         : { mode: 'AUTO' }
                 },
                 generationConfig: {
-                    temperature: 0.25,
                     maxOutputTokens: 1800
                 }
             };
@@ -32635,7 +32633,7 @@ function _missionPipelineV4CompactDraftForOpenAi(draft = {}) {
 
 function _missionPipelineV4Prompt(draft = {}, contextBundle = {}, options = {}) {
     const environmentPrompt = (window.MissionEnvironmentCore?.prompt(contextBundle.environmentContext) || '') + (window.MissionAirportInformationCore?.plannerPrompt(contextBundle.airportInfoContext) || '');
-    const bushPersonalityPrompt = draft.mode === 'bush' ? (window.MissionBushNarrativeCore?.personalityInstructions || '') : '';
+    const bushPersonalityPrompt = draft.mode === 'bush' ? (window.MissionBushNarrativeCore?.personalityInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt(contextBundle) || '') : '';
     if (options?.compact) {
         return `<INSTRUKTIONEN>
 Du bist Mission Planner V4 fuer einen GA-Dispatcher. Erzeuge ein knappes, robustes JSON-Formular fuer den Writer.
@@ -39966,7 +39964,7 @@ async function fetchMissionWriterV4(context = {}) {
     if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV4Prompt(contract) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || ''),
+        buildMissionWriterV4Prompt(contract) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (context.missionType === 'bush' ? (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') : ''),
         apiKey,
         { promptVersion: 'mission-writer-v4', timeoutMs: 16000 }
     );
@@ -39988,7 +39986,7 @@ async function fetchMissionWriterV5(context = {}) {
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV5Prompt(contract, context) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || ''),
+        buildMissionWriterV5Prompt(contract, context) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (context.missionType === 'bush' ? (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') : ''),
         apiKey,
         { promptVersion: 'mission-writer-v5', timeoutMs: selectedProvider === 'openai' ? 26000 : 16000 }
     );
@@ -40931,7 +40929,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
   }
 }
 </OUTPUT>
-${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionAirportInformationCore?.writerPrompt(poiTargetMeta?.airportInfoContext, poiTargetMeta?.departureAirportInfoContext) || '')) : ''}`;
+${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({airportInfoContext:poiTargetMeta?.airportInfoContext,missionWeather}) || '') + (window.MissionAirportInformationCore?.writerPrompt(poiTargetMeta?.airportInfoContext, poiTargetMeta?.departureAirportInfoContext) || '')) : ''}`;
 
     const buildGeminiMissionResult = (parsed, sourceLabel) => {
         let passenger = sanitizePassengerProfile(parsed.passenger, parsed.story);

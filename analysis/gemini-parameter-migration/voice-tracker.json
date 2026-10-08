@@ -1,0 +1,37 @@
+{
+  "stage": "voice-tracker",
+  "createdAt": "2026-10-07T20:19:31.852Z",
+  "scope": "Real API through extracted production functions; synthetic fixtures/tool context, no browser, tracker or simulator test. Production prompts are unchanged; scene sanitizer is stubbed to inspect raw output.",
+  "requests": [
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "response_mime_type": "text/plain"
+      },
+      "promptSha256": "44660dc6e5a71fd79d413f584aaa390058ecab6895f01a846cb76ac8b49ff40f",
+      "ms": 2617,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 69,
+        "candidatesTokenCount": 25,
+        "totalTokenCount": 382,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 69
+          }
+        ],
+        "thoughtsTokenCount": 288,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "result": {
+    "status": "ready",
+    "text": "Das Zielwetter ist leider völlig unbekannt. Es liegen aktuell keine Wetterdaten für den Zielflughafen vor.",
+    "textModel": "gemini-3-flash-preview"
+  },
+  "passed": true,
+  "completedAt": "2026-10-07T20:19:34.474Z"
+}

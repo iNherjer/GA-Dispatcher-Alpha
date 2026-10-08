@@ -59,7 +59,7 @@
     }
 
     function geminiTextGenerationConfig(model, paxMenuRequest) {
-        var config = { response_mime_type: 'text/plain', temperature: 0.95, topP: 0.9 };
+        var config = { response_mime_type: 'text/plain' };
         if (paxMenuRequest === true && model === 'gemini-3.8-flash') {
             config.thinkingConfig = { thinkingLevel: 'low' };
         }

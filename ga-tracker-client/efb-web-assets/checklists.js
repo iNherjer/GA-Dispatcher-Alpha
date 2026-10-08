@@ -2524,7 +2524,6 @@ ${routeLines}`;
                 }]
               }],
               generationConfig: {
-                temperature: 0.25,
                 maxOutputTokens: 260
               }
             };

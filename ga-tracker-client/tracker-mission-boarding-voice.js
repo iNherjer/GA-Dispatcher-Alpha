@@ -234,6 +234,9 @@ function createTrackerMissionBoardingVoice(options = {}) {
       const usePrepared = request.prepareOnly === true || (prepared && ['pending', 'ready'].includes(prepared.status));
       const originalEffectId = effectId;
       if (usePrepared) effectId = preparedId;
+      if (recipe.prompt && (flightContext?.bushSourceBasis || flightContext?.bushNarrative || plan.bushPickup)) {
+        recipe = {...recipe, prompt:recipe.prompt + bushNarrativeCore.sourcePrompt({bushSourceBasis:flightContext?.bushSourceBasis})};
+      }
       const voiceRequest = {
         deferPlayback: request.prepareOnly === true || usePrepared || cancelAtMissionEnd,
         missionScope: scope, isPlaybackAllowed,

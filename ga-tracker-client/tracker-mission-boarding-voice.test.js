@@ -68,7 +68,9 @@ test('Bush pickup voice dispatch validates the private Bush context and plays re
     effect: { effectId: 'bush-effect', type: 'voice.bush', payload: { stage: 'pickup_boarding', resolvedRecipe: prepared } } });
   assert.equal(result.ok, true, result.error || result.voiceStatus || JSON.stringify(result));
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].prompt, 'Pickup prompt.');
+  assert.ok(calls[0].prompt.startsWith('Pickup prompt.'));
+  assert.ok(calls[0].prompt.includes(require('../mission-bush-narrative-core.js').sourcePolicy));
+  assert.ok(calls[0].prompt.includes('BUSH_SOURCE_BASIS'));
   assert.equal(result.voiceOutcome.text, 'Pickup words.');
 });
 

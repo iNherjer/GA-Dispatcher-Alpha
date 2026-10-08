@@ -2355,7 +2355,6 @@ ${routeLines}`;
         const payload = {
             contents: [{ parts: [{ text: weatherAiPrompt(rows, assessment) }] }],
             generationConfig: {
-                temperature: 0.25,
                 maxOutputTokens: 260
             }
         };

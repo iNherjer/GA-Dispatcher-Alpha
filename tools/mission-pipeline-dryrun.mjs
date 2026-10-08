@@ -3502,7 +3502,9 @@ async function main() {
   console.log(JSON.stringify({ report: path.relative(root, outPath), roll, summary }, null, 2));
 }
 
-main().catch(err => {
+export { setupContext, loadScript, initUiForRun };
+
+if (process.argv[1] && path.resolve(process.argv[1]) === decodeURIComponent(new URL(import.meta.url).pathname)) main().catch(err => {
   console.error(err);
   process.exitCode = 1;
 });
