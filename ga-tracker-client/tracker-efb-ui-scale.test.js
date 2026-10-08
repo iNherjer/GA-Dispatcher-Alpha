@@ -34,7 +34,7 @@ test('root layout and input conversions across surfaces, VR, reset and resize pr
     map: { invalidateSize(options) { assert.equal(options.pan, false); invalidations++; }, setZoom() { assert.fail('geographic zoom changed'); }, panTo() { assert.fail('center changed'); } } };
   vm.runInNewContext(fs.readFileSync(require.resolve('./tracker-efb-ui-scale'), 'utf8'), { window });
   const api = window.GAEfbUiScale;
-  for (const host of ['physical', 'popout', 'toolbar', 'unknown']) for (const vr of [false, true]) for (const user of [0.9, 1, 2, 3]) {
+  for (const host of ['physical', 'popout', 'toolbar', 'unknown']) for (const vr of [false, true]) for (const user of [0.5, 0.7, 0.9, 1, 2, 3]) {
     const expected = user * (vr && ['popout', 'toolbar'].includes(host) ? 1.5 : 1);
     assert.equal(api.apply(user, host, vr), expected);
     assert.ok(Math.abs(api.delta(30 * expected) - 30) < 1e-9);

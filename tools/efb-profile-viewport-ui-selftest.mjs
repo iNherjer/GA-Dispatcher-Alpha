@@ -46,7 +46,7 @@ try {
  let cases=0;
  for(const size of [{width:838,height:883},{width:838,height:600},{width:600,height:400},{width:402,height:580}]) {
  await page.setViewportSize(size);
- for(const surface of ['physical','popout','toolbar']) for(const vr of [false,true]) for(const scale of [.9,1,1.5,2,3]) {
+ for(const surface of ['physical','popout','toolbar']) for(const vr of [false,true]) for(const scale of [.5,.7,.9,1,1.5,2,3]) {
  await page.evaluate(({surface,vr,scale})=>{
  document.body.classList.add('ga-efb-embedded');document.body.classList.remove('profile-hidden');
  __layoutTest.mode(vr,surface);__layoutTest.scale(scale);
@@ -113,6 +113,9 @@ try {
  assert.ok(diagnostic.paint && diagnostic.paint.at>0,'Real canvas paint dimensions must be captured');
  assert.equal(diagnostic.nodes.mapProfileCanvas.pixels[0],diagnostic.paint.pixels[0]);
  assert.equal(diagnostic.nodes.mapProfileCanvas.pixels[1],diagnostic.paint.pixels[1]);
+ const nativeDpr=await page.evaluate(()=>devicePixelRatio);
+ assert.equal(diagnostic.paint.dpr,nativeDpr,'UI scale must not multiply backing DPR');
+ assert.equal(diagnostic.paint.pixels[0],Math.round(diagnostic.paint.logical[0]*nativeDpr));
  assert.ok(diagnostic.nodes.compassHdgReadout.rect.length===4 && diagnostic.nodes.body.rect.length===4);
  assert.deepEqual(errors,[]);console.log('PASS '+cases+' complete profile bottom and right bounds across physical/popout/toolbar, native viewport override, VR and manual scaling');
 }finally{await browser.close();}

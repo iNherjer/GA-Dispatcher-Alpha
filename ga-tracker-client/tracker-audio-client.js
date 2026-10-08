@@ -193,7 +193,9 @@
     muteLabel.appendChild(mute); muteLabel.appendChild(root.document.createTextNode(' Multitool-Audio aktivieren')); menu.appendChild(muteLabel);
     var help = root.document.createElement('div'); help.id = 'gaAudioMasterHelp';
     help.textContent = 'Aus = alle Multitool-Warnungen, Missions-/Story-Stimmen und Audioeffekte stumm. Gilt gemeinsam f\u00fcr alle verbundenen Ger\u00e4te; Ausgabe auf dem gew\u00e4hlten Ger\u00e4t.';
-    help.style.cssText = 'font-size:11px;line-height:1.35;margin-top:5px;color:#a6b7c8';menu.appendChild(help);
+    muteLabel.title = help.textContent;
+    muteLabel.setAttribute('aria-describedby', help.id);
+    help.style.display = 'none'; menu.appendChild(help);
     host.insertBefore(menu, host.firstChild);
     // The EFB uses the shared markup without the App's inline voice-list builder.
     var voices = local && root.document.getElementById('awmVoiceList');
@@ -266,6 +268,8 @@
       button = root.document.createElement('button'); button.id = id + 'Toggle'; button.type = 'button';
       button.className = 'ga-audio-checkbox'; button.setAttribute('role', 'checkbox');
       button.setAttribute('aria-label', input.parentNode.textContent.trim());
+      if (input.parentNode.title) button.title = input.parentNode.title;
+      if (input.parentNode.getAttribute('aria-describedby')) button.setAttribute('aria-describedby', input.parentNode.getAttribute('aria-describedby'));
       var mark = root.document.createElement('span'); mark.className = 'ga-audio-checkmark'; button.appendChild(mark);
       input.parentNode.insertBefore(button, input); input.style.display = 'none';
       button.onclick = function(event) {

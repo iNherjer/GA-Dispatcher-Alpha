@@ -11197,7 +11197,9 @@ function renderMapProfileFrames(timeMs) {
   if (wrapper.style.width !== virtualWidth + 'px') wrapper.style.width = virtualWidth + 'px';
 
   // Canvas bleibt immer exakt so groß wie der sichtbare Bildschirm! (Kein iOS Absturz mehr)
-  var dpr = (window.devicePixelRatio || 1) * (window.GAEfbUiScale ? window.GAEfbUiScale.state().effective : 1);
+  // Coherent paints the backing store under the root UI transform. Applying
+  // the UI factor here as well scales the content again inside its frame.
+  var dpr = window.devicePixelRatio || 1;
   var targetW = Math.max(1, Math.round(baseWidth * dpr));
   var targetH = Math.max(1, Math.round(containerHeight * dpr));
   var _vpMapProfilePadding = vpMapProfilePadding(),

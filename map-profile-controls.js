@@ -11,7 +11,10 @@ function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {
         // Reparent only on first open. Live layout updates use the positioning
         // function and must preserve focus, visibility and native popup state.
         if (menu.parentNode !== document.body) document.body.appendChild(menu);
-        menu.style.position = 'fixed';
+        // Coherent loses painted submenu rows when a fixed scroll container
+        // sits under the scaled EFB body. Anchor this menu in its logical body.
+        const efbDisplayMenu = !!window.GAEfbUiScale && menu.id === 'mapHintsMenu';
+        menu.style.setProperty('position', efbDisplayMenu ? 'absolute' : 'fixed', efbDisplayMenu ? 'important' : '');
         menu.style.display = 'block';
         menu.style.visibility = 'hidden';
         menu.style.right = 'auto';
@@ -122,7 +125,9 @@ function _closeVpSettingsOnOutside(e) {
     }
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (mpEfbViewport().width <= 767) {
+    // EFB controls already have a bounded, scrollable row. The standalone
+    // mobile shortcut must not remove the profile zoom and height controls.
+    if (!window.GAEfbUiScale && mpEfbViewport().width <= 767) {
         const hideSpecificControls = (displayId, labelKeywords) => {
             const el = document.getElementById(displayId);
             if (!el) return;

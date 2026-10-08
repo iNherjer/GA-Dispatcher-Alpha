@@ -43,6 +43,10 @@ try {
  assert.equal(await page.locator('#'+check+' .ga-audio-checkmark').evaluate(e=>getComputedStyle(e).display),'block');
  assert.equal(await page.locator('#mapVoiceMenu').evaluate(e=>!!e.closest('#mapTableOverlay')),false,'Portaled menu must retain checkmark styling');
  assert.match(await page.locator('#gaTrackerAudioOutput').textContent(),/Multitool-Audio aktivieren/);
+ assert.equal(await page.locator('#gaAudioMasterHelp').isVisible(),false);
+ assert.match(await page.locator('#gaAudioMasterEnabledToggle').getAttribute('title'),/alle Multitool-Warnungen/);
+ assert.match(await page.locator('#awmPaxVoiceCheckToggle').getAttribute('title'),/keine neuen TTS-Anfragen/);
+ assert.match(await page.locator('#awmPaxVoiceCheckToggle').getAttribute('aria-label'),/Missions-\/Passagierstimmen/);
  }
  const old=control.snapshot();hold=true;conflict=true;
  await pages[0].locator('#'+check).click();

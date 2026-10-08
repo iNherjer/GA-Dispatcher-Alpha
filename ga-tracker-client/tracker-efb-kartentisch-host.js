@@ -219,9 +219,9 @@
     normalized = API.normalizePreferences(source);
     normalized.theme = 'classic';
     normalized.profileMode = ['AUTO','ROUTE','HDG'].indexOf(source.profileMode) >= 0 ? source.profileMode : 'AUTO';
-    var legacyScale = clamp(Number(source.fontScale) || 1, 0.9, 3);
-    normalized.fontScale2d = clamp(Number(source.fontScale2d) || legacyScale, 0.9, 3);
-    normalized.fontScaleVr = clamp(Number(source.fontScaleVr) || legacyScale, 0.9, 3);
+    var legacyScale = clamp(Number(source.fontScale) || 1, 0.5, 3);
+    normalized.fontScale2d = clamp(Number(source.fontScale2d) || legacyScale, 0.5, 3);
+    normalized.fontScaleVr = clamp(Number(source.fontScaleVr) || legacyScale, 0.5, 3);
     normalized.fontScale = normalized[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'];
     return normalized;
   }
@@ -335,7 +335,7 @@
     }).then(function (display) {
       ['2d', 'vr'].forEach(function (mode) {
         var key = mode === 'vr' ? 'fontScaleVr' : 'fontScale2d';
-        if (!Object.prototype.hasOwnProperty.call(displaySettingsPending, mode)) preferences[key] = clamp(Number(display[key]) || 1, 0.9, 3);
+        if (!Object.prototype.hasOwnProperty.call(displaySettingsPending, mode)) preferences[key] = clamp(Number(display[key]) || 1, 0.5, 3);
       });
       displaySettingsReady = true;
       preferences.fontScale = preferences[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'];
@@ -579,7 +579,7 @@
     var reset = byId('gaEfbFontReset');
     var percent = Math.round(preferences.fontScale * 100) + ' %';
     if (reset && reset.textContent !== percent) reset.textContent = percent;
-    if (byId('gaEfbFontSmaller')) byId('gaEfbFontSmaller').disabled = preferences.fontScale <= 0.9;
+    if (byId('gaEfbFontSmaller')) byId('gaEfbFontSmaller').disabled = preferences.fontScale <= 0.5;
     if (byId('gaEfbFontLarger')) byId('gaEfbFontLarger').disabled = preferences.fontScale >= 3;
   }
 
@@ -592,7 +592,7 @@
 
   function setEfbFontScale(value) {
     if (layoutDiagnosticTimer === null) reportLayoutDiagnostic('before-scale');
-    preferences.fontScale = clamp(Math.round((Number(value) || 1) * 10) / 10, 0.9, 3);
+    preferences.fontScale = clamp(Math.round((Number(value) || 1) * 10) / 10, 0.5, 3);
     preferences[displayMode === 'vr' ? 'fontScaleVr' : 'fontScale2d'] = preferences.fontScale;
     displaySettingsPending[displayMode] = preferences.fontScale;
     savePreferences();

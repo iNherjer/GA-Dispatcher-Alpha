@@ -10,15 +10,15 @@ test('display settings preserve other config fields, merge modes and survive con
   assert.equal(control.snapshot().configured, false);
   assert.equal(control.update({ initialize: { fontScale2d: 1.3, fontScaleVr: 1.3 } }).ok, true);
   control.update({ mode: 'vr', fontScale: 3 });
-  control.update({ mode: '2d', fontScale: 0.9 });
+  control.update({ mode: '2d', fontScale: 0.5 });
   control = createDisplaySettingsControl(options);
-  assert.deepEqual(control.snapshot(), { fontScale2d: 0.9, fontScaleVr: 3, uiScaleVersion: 1, configured: true });
+  assert.deepEqual(control.snapshot(), { fontScale2d: 0.5, fontScaleVr: 3, uiScaleVersion: 1, configured: true });
   control.update({ initialize: { fontScale2d: 1, fontScaleVr: 1 } });
   assert.equal(control.snapshot().fontScaleVr, 3);
   assert.equal(config.protectedPin, 'private');
   assert.deepEqual(config.arbitrary, { unchanged: true });
   assert.equal(Object.hasOwn(control.snapshot(), 'protectedPin'), false);
-  for (const fontScale of [0.8, 3.1, NaN, Infinity, '1.5', null]) assert.equal(control.update({ mode: 'vr', fontScale }).ok, false);
+  for (const fontScale of [0.49, 3.1, NaN, Infinity, '1.5', null]) assert.equal(control.update({ mode: 'vr', fontScale }).ok, false);
   assert.equal(control.update({ mode: 'unknown', fontScale: 1 }).ok, false);
 });
 

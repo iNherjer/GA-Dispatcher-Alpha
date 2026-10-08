@@ -6819,3 +6819,51 @@ und Stable bleiben unverändert. Die Feldursache ist bis zum Nutzerlog offen.
 Aktuellen Alpha-v499-Stand einschließlich Audio-, Scaling- und Umgebungsdiagnose integriert. Annehmen/Nicht annehmen folgen Modern, Retro, Nav/Com, Ops1940 und Win95; mobile Buttons stehen untereinander, beide mindestens 44 CSS-Pixel hoch. Browservergleich bei 360/440/1100 Pixeln bestanden. 229 Missions-/Cloud-/Authority-/Voice-Tests, vollständige Worker-Suite, Interface- und Sync-Selbsttests bestanden. EFB-Assetrevision 50001, Web-Cache v1978. Worker zuerst deployed: Version 8abff805-dce7-4f89-97ac-de6a96acca08. Neue Windows-EXE v500 ohne Bytecode gebaut. Das bestehende SDK-Paket bleibt erhalten; Stable wird nicht promoviert. MSFS-Feldtest der neuen Übernahme/Löschung bleibt offen.
 
 Alpha v500 nach unveränderlicher Veröffentlichung und öffentlicher Downloadprüfung aktiviert: 173744526 Bytes, SHA-256 `b11dd12c43573a670c65ac63ca53033b40f0e6c4efeb69848d49d510c4d68b6b`. Release-Quellstand `f7630e1a48e547942a22a77c0baaab70ac8dadfc`. Worker-Version `8abff805-dce7-4f89-97ac-de6a96acca08`. Kanalzeiger v500, Web-Cache v1979. Stable und SDK 0.4.23 unverändert.
+
+
+## UI-Skalierung und Menue-Repaint weiterhin offen (08.10.2026)
+
+Feldtest nach erneutem EFB-Oeffnen bestaetigt weiterhin leere Anzeige-Menueoptionen
+(bis Klick/Scrollen) und falsch skalierten Hoehenband-Inhalt. Gemeint ist A-/A+
+im Anzeige-Menue, nicht der horizontale Profilzoom. Korrekte DOM-Rechtecke sind
+kein Nachweis einer korrekten Coherent-Darstellung. Windows-Inspector erreichbar;
+physisches EFB hielt zuvor Revision 49001, wurde auf aktuelle Quellen neu geladen;
+Fehler tritt laut Nutzer dennoch wieder auf. Kein neuer Hauptfehler-Fix freigegeben.
+
+Separater lokaler Kandidat: Standalone-Mobile-Regel fuer Viewports <=767 darf im
+EFB Zoom- und Y-Achsencontrols nicht entfernen. GAEfbUiScale verhindert diese
+Ausblendung; bestehende begrenzte, scrollbare EFB-Controlrow bleibt zustaendig.
+Babelasset synchronisiert. Browser-DOM-Test ohne Screenshots: physisch/popout/toolbar
+bei 665x756 und UI90/100/150 Prozent, originale Zoomfunktion und Controls vorhanden.
+Kandidat noch nicht veroeffentlicht. Hauptfehler werden separat im Simulator untersucht.
+
+
+### Anzeige-Menue: sichtbarer Positionsversuch bestaetigt (08.10.2026)
+
+Nutzer bestaetigt im laufenden 2D-EFB, dass Anzeige-/Terrain-Untermenue mit
+position:absolute statt fixed sichtbar bleibt. Das portierte Scrollmenue sitzt
+unter dem skalierten BODY; Coherent verlor zuvor gezeichnete Optionszeilen bis
+zum Klick/Scrollen. Dauerhafter Kandidat setzt nur mapHintsMenu bei GAEfbUiScale
+auf absolute!important; andere Menues und Standalone bleiben unveraendert.
+Babelasset synchronisiert. Ohne Screenshots: Browser-DOM-/Hit-Test aller drei
+EFB-Oberflaechen bei UI90/100/150 Prozent bestanden, inkl. Scrollen zu Telemetrie
+und erhaltenen Profil-Zoom-/Y-Achsencontrols. Noch kein Release.
+Hoehenband-Inhalt/Kompass separat offen; geplante reversible Canvas-Probe
+entfernt nur den effektiven UI-Faktor aus der Canvas-Backingstore-Aufloesung.
+
+
+## Alpha v501: bestaetigte Coherent-Fixes, UI50–300 Prozent (08.10.2026)
+
+Menueposition und natives Canvas-DPR aus dem Windows-Handoff integriert.
+Beide Aenderungen im 2D-Popout vom Nutzer sichtbar bestaetigt; andere Hosts/VR
+bleiben Feldtest. Nur grosses Profil renderMapProfileFrames angepasst, keine
+pauschale Canvas-Aenderung. Profilzoom/Y-Achsencontrols im EFB erhalten.
+UI-Untergrenze50% in Host, Skalierungsmodul und Tracker-Persistenz gemeinsam;
+Default/Reset100%, separate2D/VR-Praeferenzen und VR-Hostbasis unveraendert.
+Hoehenbudget bei200% bleibt auf Nutzerwunsch offene Realbetriebsabnahme;
+keine Behauptung einer behobenen Mindesthoehe. Tracker-EXE fuer Alpha neu bauen.
+
+Audio-Ergaenzung vor Release: Erklaertexte als title-Tooltips an Master-/
+Stimmenlabels und EFB-Checkboxbuttons, globale Stumm-/TTS-Bedeutung erhalten.
+Sichtbares Stimmenlabel gekuerzt; Master-Hilfetext nur fuer aria-describedby
+versteckt erhalten. Keine Aenderung an Audioflags, TTS-Defaults oder Synchronisierung.

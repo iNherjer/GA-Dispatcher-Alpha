@@ -55,7 +55,7 @@
     }
   }
   function apply(value, nextSurface, isVr) {
-    user = Math.max(0.9, Math.min(3, Number(value) || 1));
+    user = Math.max(0.5, Math.min(3, Number(value) || 1));
     surface = normalizeSurface(nextSurface); vr = isVr === true;
     var next = user * base(surface, vr), changed = next !== factor;
     factor = next; layout();
