@@ -30,7 +30,7 @@ test('production POI projection preserves exact Recon seconds and radius',()=>{
  const plan=c.normalizeBushReconPlan({radiusNm:0.25,observationSeconds:3});const bush=c.applyBushReconPlan({profileId:'bush_recon_return',areaRef:{},success:{}},plan);
  const defaults=a.getPoiTaskPassengerDefaults({mission:{bush},isPOI:true});assert.equal(defaults.defaultTargetRadiusNm,0.25);assert.equal(defaults.defaultTargetDwellMin*60,3);
 });
-test('production Recon planner preserves a single array-wrapped proposal without changing other parsers',async()=>{
+test('production Bush planner preserves single wrapped plans while other families and ambiguous arrays stay unchanged',async()=>{
  const app=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
  const raw={plan:{bushReconPlan:{radiusNm:0.25,observationSeconds:3,rationale:'Ein Überflug'}}};
  let seen;
@@ -44,6 +44,9 @@ test('production Recon planner preserves a single array-wrapped proposal without
  vm.runInContext(declaration(app,'fetchMissionPlannerV4'),a);
  const result=await a.fetchMissionPlannerV4({missionType:'bush',dispatchProfileId:'bush_recon_return',aircraftCapability:{cruiseSpeedKts:110}});
  assert.equal(seen,raw);assert.equal(result.plan.bushReconPlan.observationSeconds,3);
+ for(const id of ['bush_charter_strip','bush_supply_strip','bush_scenic_hopper','bush_pickup_strip','bush_pickup_cargo']){await a.fetchMissionPlannerV4({missionType:'bush',dispatchProfileId:id});assert.equal(seen,raw);}
+ for(const type of ['apt','poi']){await a.fetchMissionPlannerV4({missionType:type});assert.ok(Array.isArray(seen));}
+ for(const payload of [[raw,raw],[null],[{plan:[]}]] ){a.fetchGeminiJsonWithFallback=async()=>({parsed:payload});await a.fetchMissionPlannerV4({missionType:'bush',dispatchProfileId:'bush_charter_strip'});assert.equal(seen,payload);}
 });
 test('new Recon timing is real qualifying seconds even in easy mode and at zone centre',async()=>{
  const {default:task}=await import('../mission-poi-task-core.js');

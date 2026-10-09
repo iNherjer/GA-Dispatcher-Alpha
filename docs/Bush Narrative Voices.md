@@ -543,3 +543,18 @@ Bush-Recon baut die Basis aus dem Zieltyp: bekannte Flugplaetze behalten ihre Pl
 Einzelner Ueberflug: wenige Sekunden im Zielbereich. Umfangreichere Aufklaerung: KI-gewaehlte Zeit und ausreichend grosse Zone fuer ruhigen Kurvenflug. Ein paar oder zwei bis drei Kreise sind erzaehlerische Annaeherung, keine zusaetzliche Pflicht zur Zahl abgeschlossener Kreise. Der Gast kann nach Erfuellen seiner Beobachtung zufrieden sein.
 
 Finaler Live-Masttest: Objekt/Fundament/Abspannungen, keine Piste, kein Windsack, keine Flugplatzmarkierungen; 150 Sekunden, KI-Radius 0,6 NM technisch auf 1,14 NM angehoben (110 kt). Texte vollstaendig. Fiktive Simulatorwelt-Details sind vom Nutzer akzeptiert; jahreszeitliche Passung und echte Wetterdringlichkeit bleiben eigene Qualitaetsmerkmale.
+
+
+### Bush-Kreativrahmen entschlackt, 09.10.2026
+
+Persönliche Begebenheiten, Marotten und Pointen sind Möglichkeiten, kein Pflichtgerüst. Charter hat keine feste Satzanzahl. Bekannte Platz-/Wetterdaten und der operative Vertrag bleiben Anker. Plausible lokale Begleitumstände dürfen in der fiktiven Simulatorgeschichte frei ergänzt werden; sachliche Platzseiten und Navigationshinweise bleiben quellengebunden. Keine neuen Quellen, Messwerte oder fliegerischen Freigaben daraus ableiten. Quellen-/Wetterbasis wird im Writer nur einmal statt doppelt angehängt. Recon-Zeit und Radius bleiben technische Planung, nicht erzählerische Schablone. Andere APT-/POI-Stränge bleiben unverändert.
+
+Validierung: 59 gezielte Tests einschließlich produktivem Browser-Adapter bestanden; andere APT-/POI-Planner bleiben im Vergleich unverändert. Zwei Charter-Live-Läufe: ein Array-verpackter Planner lieferte trotz ready nur generische Standardfelder; erneuter Lauf mit expliziter Einzelobjekt-Anweisung transportierte den individuellen Plan. Dies ist ein separater Parser-/Diagnosepunkt, keine semantische Textablehnung. Live-Erzählqualität noch nicht durchgehend zufriedenstellend: saisonale Wetterdringlichkeit blieb im zweiten Lauf zu stark. Kurze Wetter-Ankerpräzisierung beibehalten; kein nachträglicher Textfilter. Dieser Arbeitsstand ist noch nicht ausgerollt.
+
+Nachbesserung: Ein einzelner Array-verpackter Bush-Plan mit Objekt-plan wird vor der bestehenden Normalisierung entpackt. Gilt für alle sechs Bush-Familien; andere APT-/POI-Antworten und mehrdeutige Arrays bleiben unverändert. Keine neue Parserheuristik oder Prosaablehnung. Wetterleitlinie trennt saisonale Vorsorge von Eile und erinnert den Writer, dass ein erfundener Planner-Termin keine Wetterquelle ist.
+
+Nachkontrolle: 58 Core-/Vertragstests und produktiver Browser-Integrationstest bestanden. Zwei weitere Live-Läufe erhielten den individuellen Bush-Plan und vollständigen Writer-Text ohne Ersatzfelder. Saisonale Wetterdringlichkeit trat weiterhin auf; die kurze positive whyNow-Leitlinie mindert diese Tendenz nicht zuverlässig. Keine Garantie durch Prompt allein, keine Textablehnung oder Nachkürzung eingeführt. Arbeitsstand weiterhin nicht ausgerollt.
+
+### Alpha-Rollout Web v1989 / Tracker v505
+
+Der Nutzer akzeptiert gelegentliche saisonale Ausreißer und hat den Rollout freigegeben. Der entschlackte Kreativrahmen und die Bush-spezifische Erhaltung einzelner Array-Pläne gehen gemeinsam in Web und Tracker-Voice-Modul. 89 gezielte Tests bestanden; der Browser-Integrationstest wurde zuvor separat bestanden. Wiederholungen trotz History werden bei Häufung im Realbetrieb erneut bewertet. Keine Stable-Promotion.

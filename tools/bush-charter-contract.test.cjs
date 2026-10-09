@@ -11,7 +11,7 @@ test('real planner schemas carry personal Charter fields without changing other 
   const schema=charter.split('<OUTPUT_JSON>')[1].split('</OUTPUT_JSON>')[0];
   const frame=JSON.parse(schema).plan.storyFrame;
   assert.match(frame.subjectDetail,/Fiktiver Vorname/);
-  assert.match(frame.incidentContext,/Konkrete Begebenheit/);
+  assert.match(frame.incidentContext,/Passender persönlicher Hintergrund/);
   assert.match(frame.soughtOutcome,/Pilotauftrag endet beim Absetzen/);
   for(const [mode,id] of [['apt','apt_charter'],['bush','bush_scenic_hopper'],['bush','bush_supply_strip'],['poi','media_photo']]){
    const other=c._missionPipelineV4Prompt({mode},{profile:{selected:{id}}},{compact});

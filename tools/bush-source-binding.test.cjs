@@ -18,7 +18,7 @@ test('local and general sources remain separate; a handbook cannot supply local 
 test('chapter frame carries original evidence separately from poisoned narrative',()=>{
  const f=core.frame({bush:{homeRef:home,targetRef:target},passenger:{name:'Alex'},story:'Heute ist es sonnig; dort gibt es keine Einrichtungen.'});
  assert.equal(f.sourceBasis.weather.target.current,null);assert.equal(f.narrationBasis.liveObservationsAvailable,false);assert.equal(f.sourceBasis.limits.narrativeIsEvidence,false);assert.equal(f.sourceBasis.airport,null);
- assert.ok(core.prompt(f).includes(core.sourcePolicy));assert.ok(core.writerInstructions.includes(core.sourcePolicy));
+ assert.ok(core.prompt(f).includes(core.sourcePolicy));assert.ok(!core.writerInstructions.includes(core.sourcePolicy));
 });
 test('production V4 planner applies Bush basis only to Bush; APT/POI prompt bytes remain identical',async()=>{
  const {setupContext,loadScript}=await import('./mission-pipeline-dryrun.mjs');
