@@ -6971,3 +6971,24 @@ Blockmap und Release-Metadaten wurden per Größe/SHA-256 geprüft; der Kanal
 bestehen. Die vom Nutzer beauftragte Kanalaktivierung ersetzt die zuvor
 zurückgestellte Auslieferung; ein zusätzlicher realer Windows-Installations-,
 Start- und Update-Feldtest bleibt offen und wird nicht als bestanden behauptet.
+
+
+## Folgeauftrags-Rollout auf Origin, Alpha und Stable, 09.10.2026
+
+Der aktuelle Origin-/Stable-Stand enthaelt bereits den seit v418 integrierten
+autonomen Folgeauftrags-Pfad; die verifizierten Alpha-/Stable-Kanaele bleiben
+auf Tracker v508. Der Tracker erzeugt Angebote mit den vorhandenen App-Domain-
+Funktionen und persistiert Abschluss plus pilotgebundenen Postausgang atomar.
+Cloud-Sync V2 synchronisiert ohne geoeffnete App und behaelt Angebote bei
+Netzfehlern, CAS-Konflikten und fehlgeschlagenem lokalen ACK. Voraussetzung
+bleibt ein nach V2 migriertes Profil; der Tracker muss fuer den Versand laufen.
+
+Erneut geprueft: vier Folgeauftrags-Tests, 111 Authority-/Handoff-/Runtime-Tests
+und die komplette Worker-Suite, einschliesslich Cloud-Outbox-Konflikt/Retry.
+Der produktive V2-Endpunkt ist vorhanden und verlangt Pilot-ID/PIN.
+Kein neuer EXE-Build oder zweiter Cloud-Folgeauftrags-Endpunkt erforderlich.
+Web-Cache v1997 aktiviert den aktuellen Stand erneut. Stable erhaelt beim
+Deploy ueber das bestehende Deploy-Tool wieder CNAME www.vfr-multitool.de;
+die Pages-Konfiguration hatte die Domain verloren und lieferte dort 404.
+Narrative Verbesserungen und neue Generierungslogik bleiben Folgearbeit.
+Ein neuer realer Windows-/MSFS-Flug wird nicht als getestet behauptet.
