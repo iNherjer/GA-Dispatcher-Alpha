@@ -6951,3 +6951,23 @@ können v507 mit normaler Tracker-Missionslogik starten; für den neuen wirksame
 Debug-Schalter muss Desktop 1.6.13 installiert sein. Kein neuer Windows-/MSFS-
 Feldtest auf diesem macOS-Rechner behauptet. Beta wird nicht verändert; die
 Stable-Promotion erfolgt auf ausdrücklichen Wunsch direkt aus Origin.
+
+## Desktop-Updatekanal auf Nutzerwunsch aktiviert, 09.10.2026
+
+Der Nutzer verlangt auch die Bereitstellung über den automatischen Downloader
+und bestätigt den bestehenden Zustimmungsablauf ausdrücklich: initial wird das
+Update angeboten; erst die Auswahl „Automatisch“ speichert die Zustimmung für
+künftige automatische Downloads/Installationen. „Einmal“ und „Später“ bleiben
+vorhanden. Die bisherigen `ask`-Defaults und gespeicherten Einstellungen bleiben
+unverändert. Desktop-Updates werden nach dem geprüften Download beim regulären
+Beenden oder über den vorhandenen Neustart-Button installiert. Runtime-Updates
+werden vor dem Engine-Start anhand von Größe und SHA-256 geprüft und aktiviert.
+
+`channel/desktop/latest.yml` zeigt nun auf den bereits unveränderlich
+veröffentlichten und öffentlich heruntergeladenen Installer 1.6.13. Installer,
+Blockmap und Release-Metadaten wurden per Größe/SHA-256 geprüft; der Kanal
+übernimmt die vom Builder erzeugte SHA-512 und exakte Installergröße.
+54 Desktop-Tests einschließlich initialer Zustimmung und automatischem Download
+bestehen. Die vom Nutzer beauftragte Kanalaktivierung ersetzt die zuvor
+zurückgestellte Auslieferung; ein zusätzlicher realer Windows-Installations-,
+Start- und Update-Feldtest bleibt offen und wird nicht als bestanden behauptet.
