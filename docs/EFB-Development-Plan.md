@@ -6897,3 +6897,5 @@ Alpha-Hotfix v502 veröffentlicht und öffentlicher Download hashgleich geprüft
 ## Bush-Recon-Zeitvertrag, Alpha v504
 
 Neue Bush-Recon-Missionen mit bush-recon-plan.v1 zaehlen im gemeinsamen POI-Task-Core exakt die vertraglichen Beobachtungssekunden in der Zone und im Hoehenband. Die bisherigen Easy-/Naehe-Boni gelten fuer alte Missionen weiter. Tracker und Browser uebergeben denselben Bush-Vertrag. EFB-/Toolbar-Protokoll und SDK-Package unveraendert; Runtime-EXE neu gebaut.
+
+Recon-Briefing (09.10.2026, Alpha v506): additive bushReconInfo.flightBriefing-Daten, keine Protokoll- oder SDK-Paketänderung. Web-Zieleinschätzung und bestehende Restore-Pfade; gemeinsame Bush-Core-Datei im Tracker neu gebündelt.

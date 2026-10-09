@@ -558,3 +558,7 @@ Nachkontrolle: 58 Core-/Vertragstests und produktiver Browser-Integrationstest b
 ### Alpha-Rollout Web v1989 / Tracker v505
 
 Der Nutzer akzeptiert gelegentliche saisonale Ausreißer und hat den Rollout freigegeben. Der entschlackte Kreativrahmen und die Bush-spezifische Erhaltung einzelner Array-Pläne gehen gemeinsam in Web und Tracker-Voice-Modul. 89 gezielte Tests bestanden; der Browser-Integrationstest wurde zuvor separat bestanden. Wiederholungen trotz History werden bei Häufung im Realbetrieb erneut bewertet. Keine Stable-Promotion.
+
+### Recon-Zieleinschätzung, Web v1990 / Tracker v506
+
+Recon erhält reconFlightBriefing im bestehenden Writer-Aufruf, gespeichert vollständig in bushReconInfo.flightBriefing. Der Briefing-Block zeigt Zielgebiet und Beobachtungsbedingungen; die Zielseite behält ihren separaten Objekttext. Bestehende Recon-Missionen ohne neues Feld zeigen den vorhandenen Zieltext. Allgemeine passende Handbuchhinweise werden aus vorhandenen Airport-/Handbuchdaten geliefert, keine Landung oder neuen Manöver verlangt. Fehler in Zusatzrecherche lassen einen Basiskontext und separaten Airport-Abruf bestehen; bei fehlender Writer-Prosa wird eine faktenbasierte Überflug-Einschätzung gespeichert.

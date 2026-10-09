@@ -40,3 +40,15 @@ test('production Bush V5 writer receives a bounded 45-second timeout for both pr
  await c.fetchMissionWriterV5({...base,missionType:'bush'});assert.equal(captured.timeoutMs,45000);
  await c.fetchMissionWriterV5({...base,missionType:'apt'});assert.equal(captured.timeoutMs,16000);provider='openai';await c.fetchMissionWriterV5({...base,missionType:'bush'});assert.equal(captured.timeoutMs,45000);
 });
+test('Recon briefing keeps complete prose, handbook sources and restore rendering separate from landing guidance',()=>{
+ const c=context();c.handbookContext=airport.context({name:'Testmast',lat:48,lon:8,elevation:1200});
+ const prose='Beobachtungsgebiet und allgemeiner Planungshinweis. '.repeat(60);
+ const m=bush.attachRecon({missionType:'bush'}, {targetInfo:'Zielbeschreibung',reconFlightBriefing:prose},c,shared);
+ assert.equal(m.bushReconInfo.flightBriefing,prose.trim());assert.ok(bush.reconWriterPrompt(c,shared,airport).includes('Handbüchern'));
+ const els={};for(const id of ['airportFlightBriefing','airportFlightBriefingText','airportFlightBriefingHeading','wikiDestDescText'])els[id]={hidden:true,textContent:'',replaceChildren(){}};
+ const sandbox={window:{document:{getElementById:id=>els[id]},MissionAirportInformationCore:airport}};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../mission-airport-information-browser.js'),'utf8'),sandbox);
+ assert.equal(sandbox.window.MissionAirportInformationBrowser.render(JSON.parse(JSON.stringify(m))),true);
+ assert.equal(els.airportFlightBriefing.hidden,false);assert.equal(els.airportFlightBriefingText.textContent,prose.trim());assert.match(els.airportFlightBriefingHeading.textContent,/Zielgebiet/);assert.equal(els.wikiDestDescText.textContent,'Zielbeschreibung\n\n'+shared.formatReport(shared.buildReport(undefined,c).report));
+ const fallback=bush.attachRecon({missionType:'bush'}, {},c,shared);assert.match(fallback.bushReconInfo.flightBriefing,/Landung.*nicht vorgesehen/);
+});

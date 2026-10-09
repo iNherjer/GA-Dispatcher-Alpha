@@ -15674,6 +15674,7 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
         const mission = window.currentMissionData || currentMissionData, browser = window.MissionAirportInformationBrowser;
         const recon = mission?.bushReconInfo;
         if (elementId === 'wikiDestDescText' && recon?.schema === 'bush-recon-information.v1' && window.MissionPoiBriefingSharedCore?.relation(recon.target, {lat,lon}).distanceM <= 280) {
+            browser?.render(mission, {lat,lon});
             if (textElement) textElement.innerText = recon.text;
             if (imgContainer) imgContainer.style.display = 'none';
             return true;
@@ -40169,6 +40170,7 @@ async function fetchMissionWriterV5(context = {}) {
             source: 'Local Fallback + V5 Writer'
         });
         mission._missionWriterV4Debug = {...mission._missionWriterV4Debug, requestDiagnostics};
+        window.MissionBushNarrativeCore?.attachRecon(mission, {}, reconContext, window.MissionPoiBriefingSharedCore);
         return window.MissionAirportInformationCore?.attach(mission, {}, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
     }
     const mission = sanitizeMissionWriterV5Payload(result.parsed, {
@@ -44324,16 +44326,20 @@ async function generateMission(options = {}) {
     }
     let bushReconContext = null;
     if (requestedMissionType === 'bush' && dispatchProfileId === 'bush_recon_return' && aiModeEnabled) {
+        const sharedCore = window.MissionPoiBriefingSharedCore;
+        bushReconContext = {target:sharedCore.point(dest),radiusM:5556,facts:[],targetFacts:[],coverage:[{status:'unavailable'}],supplements:[],terrain:{status:'missing'}};
         try {
             const shared = window.MissionPoiBriefingSharedBrowser;
             if (shared) {
                 bushReconContext = await shared.context(dest, poiTerrainEnvelope || null);
                 bushReconContext = await shared.enrichSelected(bushReconContext, _ensureDispatchAlive);
-                if (dest?.icao || dest?.ident || dest?.runways) {
-                    bushReconContext.airportInfoContext = await window.MissionAirportInformationBrowser?.load(dest, {budgetMs:3000});
-                }
             }
         } catch (err) { console.warn('[Bush Recon Information] Optional context unavailable', err); }
+        if (dest?.icao || dest?.ident || dest?.runways) {
+            try {bushReconContext.airportInfoContext = await window.MissionAirportInformationBrowser?.load(dest, {budgetMs:3000});}
+            catch (err) {console.warn('[Bush Recon Information] Airport context unavailable',err);}
+        }
+        bushReconContext.handbookContext = bushReconContext.airportInfoContext || window.MissionAirportInformationCore?.context(dest);
         _ensureDispatchAlive();
     }
     const airportInfoBrowser = window.MissionAirportInformationBrowser;
