@@ -592,3 +592,36 @@ test('lost cargo ACK can be retried after original queue has flushed', async () 
   assert.equal(commands[0].objectRevision, commands[1].objectRevision, 'retry retains identity, simulator deduplicates');
   bridge.cancelPending();
 });
+
+
+test('departure boarding skips animation only with authoritative cargo proving no departure passengers', async () => {
+  const run = runWithPlan();
+  for (const [items, skips] of [
+    [[], true],
+    [[{ itemType: 'cargo', pickup: 'departure', status: 'pending' }], true],
+    [[{ itemType: 'passenger', pickup: 'target', status: 'pending' }], true],
+    [[{ itemType: 'passenger', pickup: 'departure', status: 'pending' }], false],
+    [[{ itemType: 'passenger', pickup: 'departure', status: 'loaded' }], false],
+    [undefined, false]
+  ]) {
+    const commands = [];
+    const acknowledgements = [];
+    const bridge = createTrackerMissionSimulatorEffects({
+      authorityManager: { getActiveRun: () => run, getExecutionSnapshot: () => ({ state: { cargo: { items } } }) },
+      getLivePosition: () => ({ lat: 48, lon: 8, alt: 1000, hdg: 0 }),
+      dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending' }; },
+      acknowledgeEffect: acknowledgement => acknowledgements.push(acknowledgement)
+    });
+    const result = await bridge.dispatch({ commandId: 'boarding', missionId: run.missionId, runId: run.runId,
+      effect: { type: 'scene.boarding' } });
+    assert.equal(result.status, skips ? 'completed' : 'pending');
+    assert.equal(commands.length, skips ? 0 : 1);
+    if (!skips) {
+      bridge.handleAck({ type: 'mission_scene_boarding_ack', commandId: 'boarding', status: 'noop', error: 'no_passengers' });
+      assert.equal(acknowledgements[0].status, 'failed');
+    }
+    const conflict = await bridge.dispatch({ commandId: 'wrong-run', missionId: run.missionId, runId: 'different-run',
+      effect: { type: 'scene.boarding' } });
+    assert.equal(conflict.ok, false);
+  }
+});

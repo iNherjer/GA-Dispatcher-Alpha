@@ -481,13 +481,18 @@ test('restored confirmed unload keeps the passenger loaded until voice, continua
 });
 
 test('enabled runtime dispatches app-prepared APT scenes and advances only from simulator ACKs', async (t) => {
-  const manager = committedManager(t);
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [{ id: 'pax', itemType: 'passenger', status: 'loaded', passengerCount: 1 }];
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
   const commands = [];
   const runtimeLogs = [];
   let payloadSyncs = 0;
   const runtime = createTrackerMissionExecutionRuntime({
     authorityManager: manager,
     enabled: true,
+    playBoardingVoice: () => ({ ok: true, status: 'completed', sideEffect: false }),
     log: line => runtimeLogs.push(line)
   });
   const bridge = runtime.attachSimulator({
@@ -1440,4 +1445,44 @@ test('central clock shift uses voice effects and persists the shared cooldown wi
   const run=manager.getActiveRun();
   assert.ok(manager.getExecutionRuntimeContext({missionId:run.missionId,runId:run.runId}).flightVoiceState.weatherChange.lastReactionAt);
   runtime.detachSimulator();
+});
+
+
+test('cargo-only boarding keeps loading available and preserves required cargo and signature gates', async (t) => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.dispatchSignature = null;
+  bundle.runtime.cargoManifest.items = [{ id: 'oil-box', itemType: 'cargo', required: true, status: 'pending', weightLbs: 265 }];
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const commands = [];
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,
+    playBoardingVoice: () => ({ ok: true, status: 'completed', sideEffect: false }) });
+  runtime.attachSimulator({
+    getLivePosition: () => ({ lat: 48, lon: 8, alt: 1000, hdg: 0 }),
+    dispatchCommand: command => { commands.push(command.type); return { ok: true, status: 'completed' }; },
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' })
+  });
+  let seq = 0;
+  const intent = async (name, payload = {}) => {
+    const run = manager.getActiveRun();
+    return runtime.executeIntent({ commandId: `cargo-hotfix-${++seq}`, intent: name, payload,
+      missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  };
+  assert.equal((await intent('prepare_mission')).ok, true);
+  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().view.allowedActions.includes('start_boarding')), true);
+  assert.equal((await intent('start_boarding')).ok, true);
+  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().state.flags.boardingSceneConfirmed), true);
+  assert.equal(commands.includes('mission_scene_boarding'), false);
+  assert.equal(manager.getExecutionSnapshot().view.allowedActions.includes('set_manifest_item'), true);
+  assert.equal((await intent('start_mission')).ok, false);
+  assert.equal((await intent('sign_manifest')).ok, false);
+  assert.equal((await intent('set_manifest_item', { itemId: 'oil-box', action: 'load' })).ok, true);
+  assert.equal(manager.getExecutionSnapshot().state.cargo.items.find(i => i.id === 'oil-box').status, 'loaded');
+  assert.equal((await intent('start_mission')).ok, false);
+  assert.equal((await intent('sign_manifest')).ok, true);
+  assert.equal((await intent('confirm_load')).ok, true);
+  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().view.allowedActions.includes('start_mission')), true);
+  assert.equal((await intent('start_mission')).ok, true);
 });

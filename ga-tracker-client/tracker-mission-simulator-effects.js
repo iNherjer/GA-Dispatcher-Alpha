@@ -442,6 +442,14 @@ function createTrackerMissionSimulatorEffects(options = {}) {
         && ['scene.prepare', 'scene.boarding'].includes(effectType)) {
       return { ok: true, status: 'completed', sideEffect: false, commandId, sceneStatus: 'explicit_empty_scene' };
     }
+    // Match the App/Core boarding contract: cargo-only departures and pickup
+    // passengers at the target have no departure boarding animation to ACK.
+    // Missing authoritative cargo state must keep the normal simulator path.
+    const cargoItems = authorityManager.getExecutionSnapshot?.()?.state?.cargo?.items;
+    if (effectType === 'scene.boarding' && Array.isArray(cargoItems)
+        && !cargoItems.some(item => item.itemType === 'passenger' && item.pickup !== 'target')) {
+      return { ok: true, status: 'completed', sideEffect: false, commandId, sceneStatus: 'no_departure_passengers' };
+    }
     const template = commandTemplateFor(plan, effectType);
     if (!template) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
