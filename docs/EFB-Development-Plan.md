@@ -6987,8 +6987,10 @@ Erneut geprueft: vier Folgeauftrags-Tests, 111 Authority-/Handoff-/Runtime-Tests
 und die komplette Worker-Suite, einschliesslich Cloud-Outbox-Konflikt/Retry.
 Der produktive V2-Endpunkt ist vorhanden und verlangt Pilot-ID/PIN.
 Kein neuer EXE-Build oder zweiter Cloud-Folgeauftrags-Endpunkt erforderlich.
-Web-Cache v1997 aktiviert den aktuellen Stand erneut. Stable erhaelt beim
-Deploy ueber das bestehende Deploy-Tool wieder CNAME www.vfr-multitool.de;
-die Pages-Konfiguration hatte die Domain verloren und lieferte dort 404.
+Web-Cache v1998 aktiviert den aktuellen Stand erneut. Stable bleibt unter
+https://inherjer.github.io/VFR-Multitool/ erreichbar. Die separate Produktseite
+www.vfr-multitool.de ist kein App-Hosting-Ziel. Der veraltete CNAME-Standard
+des Deploy-Tools wurde beim Rollout erkannt und die temporaere Zuordnung
+wieder entfernt; beide App-Repositories liefern denselben finalen Stand aus.
 Narrative Verbesserungen und neue Generierungslogik bleiben Folgearbeit.
 Ein neuer realer Windows-/MSFS-Flug wird nicht als getestet behauptet.
