@@ -8946,7 +8946,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
-        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
         'targetScene', 'sceneIntent', 'missionTruth', 'targetGeoContext',
@@ -15562,6 +15562,7 @@ function buildPoiTargetInfoFromMission(missionData = null, options = {}) {
         ? missionData
         : ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null);
     if (!md || !missionUsesPoiPresentation(md)) return '';
+    if (md.bushReconInfo?.schema === 'bush-recon-information.v1') return md.bushReconInfo.text || '';
 
     const explicit = sanitizeGeneratedPoiTargetInfo(
         md.targetInfo || md.poiTargetInfo || md.generatedTargetInfo || '',
@@ -15671,6 +15672,12 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
     if (!commitAllowed()) return;
     const renderAirportInformation = () => {
         const mission = window.currentMissionData || currentMissionData, browser = window.MissionAirportInformationBrowser;
+        const recon = mission?.bushReconInfo;
+        if (elementId === 'wikiDestDescText' && recon?.schema === 'bush-recon-information.v1' && window.MissionPoiBriefingSharedCore?.relation(recon.target, {lat,lon}).distanceM <= 280) {
+            if (textElement) textElement.innerText = recon.text;
+            if (imgContainer) imgContainer.style.display = 'none';
+            return true;
+        }
         return elementId === 'wikiDestDescText' ? browser?.render(mission, {lat, lon})
             : elementId === 'wikiDepDescText' ? browser?.renderDeparture(mission, {lat, lon}) : false;
     };
@@ -18457,6 +18464,7 @@ function getPoiTaskPassengerDefaults({ mission = null, isPOI = false, poiTerrain
     const terrainFt = Number.isFinite(resolvedTerrainFt)
         ? resolvedTerrainFt
         : Math.round(Number(mission?.poiTerrainFt ?? mission?.targetAltFt ?? currentDestElev) || 0);
+    if (bush?.reconPlan?.schema === 'bush-recon-plan.v1') return {treatAsPoiTask:true,defaultTargetAltFt:terrainFt>0?terrainFt+1000:0,defaultTargetRadiusNm:bush.areaRef.radiusNm,defaultTargetDwellMin:bush.success.minAreaTimeSec/60};
     const areaRadiusNm = Math.max(1.5, Number(bush?.areaRef?.radiusNm) || 0);
     const successMinAreaTimeSec = Math.max(0, Number(bush?.success?.minAreaTimeSec) || 0);
     return {
@@ -27633,7 +27641,10 @@ function buildMissionPlannerV2Draft({
             requiresReturnHome: !!bushSpec.requiresReturnHome,
             homeRef: bushSpec.homeRef || null,
             targetRef: bushSpec.targetRef || null,
-            areaRef: bushSpec.areaRef || null
+            areaRef: bushSpec.areaRef || null,
+            reconFocus: bushSpec.reconFocus || '',
+            reconFocusLabel: bushSpec.reconFocusLabel || '',
+            opsNotes: bushSpec.opsNotes || []
         } : null,
         poiLikeTask: !!usesPoiTaskRecipe,
         targetGeoContext: targetGeoContext ? {
@@ -30383,6 +30394,13 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             incidentType: 'infra_chain_recon'
         };
     }
+    if (taskDomain === 'inspection_infra' && normalizeMissionType(options?.missionType || plan?.missionType || '', !!options?.isPOI) === 'bush') {
+        return { trigger: `Für ${targetLabel} ist eine Sichtprüfung aus der Luft vorgesehen.`, focusSubject: targetLabel,
+            keyQuestion: `Welche sichtbaren Auffälligkeiten bei ${targetLabel} eine spätere Prüfung am Boden erfordern.`,
+            stakes: 'Die Beobachtung unterstützt die weitere Planung am Boden.',
+            completionSignal: 'Nach der Sichtprüfung zum Heimatplatz zurückkehren.',
+            subjectDetail: 'die vereinbarte Beobachtungsfrage', incidentContext: '', whyNow: '', soughtOutcome: 'Ein Lagebild für die weitere Planung, ohne den Befund vorwegzunehmen.' };
+    }
     if (taskDomain === 'inspection_infra') {
         const targetText = normalizeMissionText(targetLabel);
         const isWindTarget = /(windpark|windkraft|windrad|windturbine|wind turbine|windenergie|wind farm)/.test(targetText);
@@ -31456,7 +31474,7 @@ const BUSH_MISSION_VARIETY_COPY = {
         recipe: (targetName, homeName) => `Von ${homeName} zum Zielgebiet bei ${targetName}, dort Recon aus der Luft, keine geplante Landung, danach Rueckflug nach ${homeName}.`,
         coreQuestions: (targetName, homeName) => [
             `Was genau wird bei ${targetName} aus der Luft geprueft?`,
-            'Welche Meldung, Wetterfolge, Betreiberfrage oder Saisonlogik loest den Recon aus?',
+            'Welche konkrete Beobachtungsfrage oder Meldung begründet den Recon? Eine Wetterfolge nur bei einem ausdrücklich gelieferten markanten Ereignis; saisonale Vorsorge darf eine konkrete Beobachtungsfrage begründen, aber allein keine Eile oder bereits eingetretene Wetterfolgen.',
             'Welche sichtbaren Dinge sollen wir beurteilen: Piste, Zufahrt, Hindernisse, Wasserlauf, Rauch, Markierungen?',
             `Warum muss der Befund zurueck nach ${homeName}, statt den Flug am Ziel enden zu lassen?`,
             'Welche Entscheidung kann nach dem Rueckflug getroffen werden?'
@@ -31534,7 +31552,7 @@ function buildBushMissionVarietyBrief(context = {}, draft = {}, weatherBundle = 
         ];
     return {
         ...(profileId === 'bush_supply_strip' ? { regionalContext: window.MissionBushNarrativeCore?.supplyRegion(context.dest || {}) || {}, supplyNarrative: window.MissionBushNarrativeCore?.supplyInstructions || '' } : {}),
-        ...(profileId === 'bush_charter_strip' ? { personalStoryBasis: window.MissionBushNarrativeCore?.charterIdeaBasis || {} } : {}),
+        ...(window.MissionBushNarrativeCore?.storyBasis?.(profileId) ? { personalStoryBasis: window.MissionBushNarrativeCore.storyBasis(profileId), weatherIdeaPolicy: window.MissionBushNarrativeCore.weatherIdeaInstructions, candidateEvidencePolicy: 'Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.' } : {}),
         purpose: copy.purpose || 'Offener Kreativrahmen fuer ein Bush-Profil. Keine Vorlage kopieren; aus Profil, Ziel, Wetter und lokalen Fakten eine eigenstaendige Mikrogeschichte bauen.',
         recipe: (typeof copy.recipe === 'function')
             ? copy.recipe(targetName, homeName)
@@ -32597,7 +32615,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         routeRules.push('Bush-Adventure-Hopper: Hinflug zu einem Remote Strip; Landung, Ausstieg und Beginn des Bodenplans am Ziel sind bindend.');
         realismTargets.unshift('Adventure braucht einen Gast, einen persoenlichen Bodenplan nach der Landung und einen plausiblen Grund fuer genau diesen Zielstrip.');
     } else if (profileId === 'bush_recon_return') {
-        routeRules.push('Bush-Recon-Return: Zielstrip oder Umfeld wird aus der Luft geprueft; keine geplante Landung, Rueckflug zur Basis ist Pflicht.');
+        routeRules.push(_bushReconTargetKind(context.dest) === 'poi' ? 'Bush-Recon-Return: Das ausgewaehlte POI und seine Umgebung werden aus der Luft untersucht; kein Flugplatzauftrag. Rueckkehr zur Basis ohne Landung am Objekt.' : 'Bush-Recon-Return: Zielstrip oder Umfeld wird aus der Luft geprueft; keine geplante Landung, Rueckflug zur Basis ist Pflicht.');
         realismTargets.unshift('Recon braucht Anlass, sichtbare Pruefpunkte und die Folgeentscheidung in der Basis.');
     } else if (profileId === 'bush_pickup_cargo') {
         routeRules.push('Bush-Cargo-Pickup: Leerflug zum Zielstrip, Rueckholfracht aufnehmen, Rueckflug zur Basis; kein Passagier-Pickup.');
@@ -32629,6 +32647,8 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             ...(context.environmentContext ? { environmentContext: context.environmentContext } : {}),
             ...(context.airportInfoContext ? { airportInfoContext: context.airportInfoContext } : {}),
             ...(context.departureAirportInfoContext ? { departureAirportInfoContext: context.departureAirportInfoContext } : {}),
+            ...(context.bushReconContext ? { bushReconContext: context.bushReconContext } : {}),
+            aircraftCapability: context.aircraftCapability || null,
             fireHazard: fire || null,
             targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
             missionTruth: compactMissionTruthForPrompt(truth),
@@ -32695,6 +32715,7 @@ function _missionPipelineV4CompactPlannerBundleForOpenAi(bundle = {}) {
         ...(src.environmentContext ? { environmentContext: src.environmentContext } : {}),
         ...(src.airportInfoContext ? { airportInfoContext: src.airportInfoContext } : {}),
         ...(src.departureAirportInfoContext ? { departureAirportInfoContext: src.departureAirportInfoContext } : {}),
+        ...(src.bushReconContext ? { bushReconContext: src.bushReconContext } : {}),
         fireHazard: src.fireHazard || null,
         targetGeoContext: src.targetGeoContext || null,
         missionTruth: src.missionTruth || null,
@@ -32709,6 +32730,7 @@ function _missionPipelineV4CompactPlannerBundleForOpenAi(bundle = {}) {
         missionTemporalContext: src.missionTemporalContext || null,
         pickupCreativeBrief: src.pickupCreativeBrief || null,
         missionVarietyBrief: src.missionVarietyBrief || null,
+        aircraftCapability: src.aircraftCapability || null,
         variety: src.variety || null,
         routeRules: Array.isArray(src.routeRules) ? src.routeRules.slice(0, 8) : [],
         realismTargets: Array.isArray(src.realismTargets) ? src.realismTargets.slice(0, 6) : []
@@ -32731,7 +32753,9 @@ function _missionPipelineV4CompactDraftForOpenAi(draft = {}) {
 function _missionPipelineV4Prompt(draft = {}, contextBundle = {}, options = {}) {
     const environmentPrompt = (window.MissionEnvironmentCore?.prompt(contextBundle.environmentContext) || '') + (window.MissionAirportInformationCore?.plannerPrompt(contextBundle.airportInfoContext) || '');
     const bushCharter = draft.mode === 'bush' && contextBundle?.profile?.selected?.id === 'bush_charter_strip';
-    const bushPersonalityPrompt = draft.mode === 'bush' ? (window.MissionBushNarrativeCore?.personalityInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt(contextBundle) || '') + (bushCharter ? '\n' + (window.MissionBushNarrativeCore?.charterPlanningInstructions || '') : '') : '';
+    const bushStoryBasis = draft.mode === 'bush' ? window.MissionBushNarrativeCore?.storyBasis?.(contextBundle?.profile?.selected?.id) : null;
+    const bushPersonalityPrompt = draft.mode === 'bush' ? (window.MissionBushNarrativeCore?.personalityInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt(contextBundle) || '') + '\n' + (window.MissionBushNarrativeCore?.planningInstructions?.(contextBundle?.profile?.selected?.id) || '') : '';
+    const reconPlanningPrompt = draft.mode === 'bush' && contextBundle?.profile?.selected?.id === 'bush_recon_return' ? '\nRECON-ZIELBASIS: DRAFT.bush.targetRef.kind und das konkrete Ziel tragen den Auftrag. Bei kind=poi beziehen sich Beobachtungsfrage, Ausrüstung und sichtbare Prüfpunkte auf das Objekt und sein Umfeld. Die generischen Strip-Beispiele des Profils sind dann nicht die Grundlage; Windsack, Bahnmarkierungen und Flugbetrieb gehören nur zu einem tatsächlich als Flugplatz gelieferten Ziel. RECON-SPIELPLAN: Ergänze plan.bushReconPlan={radiusNm:number,observationSeconds:number,rationale:string}. Wähle eine zur konkreten Prüfaufgabe passende Zone und Beobachtungszeit von 3 bis 300 Sekunden, nicht pauschal mehrere Minuten. Einzelner Überflug und längeres Beobachten sind gleichwertige Möglichkeiten. Bei längerem Beobachten muss ruhiges Kreisen innerhalb der Zone möglich sein: Fluggeschwindigkeit aus aircraftCapability.cruiseSpeedKts (wenn unbekannt 110 kt), Schräglage höchstens 15 Grad, Kurvenradius v²/(g*tan(15 Grad)) plus großzügige Reserve für Einflug und Wind. Zonenradius ist Radius, kein Durchmesser. Begründe Größe und Dauer mit Prüfaufgabe und Objektabmessungen, sofern geliefert. Keine zusätzliche Mindestflugstrecke erforderlich. StoryFrame und Auftrag müssen denselben Ablauf beschreiben. Ein einzelner Überflug ohne längere Detailbeobachtung verlangt nur wenige Sekunden (etwa 3 bis 10) im Zielbereich, keine zweiminütige Verweilpflicht. Bei umfangreicherer Beobachtung darf der Gast nach der gewählten Zeit zufrieden sein; Angaben wie ein paar Kreise sind ungefähre Erzählung, keine zusätzliche Pflicht zur Zahl vollständiger Kreise. Verwende den gelieferten zeitlichen Kontext: Herbstvorbereitung ist kein aktueller Abschluss einer Winterruhe; Erinnerungen an frühere Jahreszeiten klar von heutigem Anlass trennen.' : '';
     if (options?.compact) {
         return `<INSTRUKTIONEN>
 Du bist Mission Planner V4 fuer einen GA-Dispatcher. Erzeuge ein knappes, robustes JSON-Formular fuer den Writer.
@@ -32779,10 +32803,10 @@ ${JSON.stringify({ ...contextBundle, environmentContext: undefined })}
     "missionStakes": "warum das Ergebnis wichtig ist",
     "completionSignal": "was nach Ueberflug/Landung passiert",
     "storyFrame": {
-      "subjectDetail": "${bushCharter ? 'Fiktiver Vorname, Rolle und konkreter individueller Wunsch' : ''}",
-      "incidentContext": "${bushCharter ? 'Konkrete Begebenheit aus dem Vorhaben, eigene Reaktion und Bezug zum heutigen Auftrag' : ''}",
-      "whyNow": "${bushCharter ? 'Heutiger persönlicher Anlass; keine aus Wetterwerten erfundene Dringlichkeit' : ''}",
-      "soughtOutcome": "${bushCharter ? 'Offenes persönliches Vorhaben am Boden; der Pilotauftrag endet beim Absetzen' : ''}",
+      "subjectDetail": "${bushCharter ? 'Fiktiver Vorname, Rolle und konkreter individueller Wunsch' : bushStoryBasis ? 'Fiktiver Vorname und Rolle der vertraglichen Person oder des Kontakts am Boden; konkretes individuelles Anliegen' : ''}",
+      "incidentContext": "${bushCharter ? 'Konkrete Begebenheit aus dem Vorhaben, eigene Reaktion und Bezug zum heutigen Auftrag' : bushStoryBasis ? 'Konkrete Begebenheit: Handlung der Person, eigene Reaktion oder beiläufige Bemerkung; Bezug zum heutigen Auftrag' : ''}",
+      "whyNow": "${bushStoryBasis ? 'Heutiger persönlicher Anlass; keine aus Wetterwerten erfundene Dringlichkeit' : ''}",
+      "soughtOutcome": "${bushCharter ? 'Offenes persönliches Vorhaben am Boden; der Pilotauftrag endet beim Absetzen' : bushStoryBasis ? 'Offenes Vorhaben der Person; Pilotabschluss gemäß Profil: ' + bushStoryBasis.outcome : ''}",
       "incidentType": "",
       "lastSeenContext": "",
       "probableScenario": "",
@@ -32800,7 +32824,7 @@ ${JSON.stringify({ ...contextBundle, environmentContext: undefined })}
     "confidence": 0.0
   }
 }
-</OUTPUT_JSON>\n${environmentPrompt}\n${bushPersonalityPrompt}`;
+</OUTPUT_JSON>\n${environmentPrompt}\n${bushPersonalityPrompt}${reconPlanningPrompt}`;
     }
     return `<INSTRUKTIONEN>
 Du bist Mission Planner V4 fuer einen GA-Dispatcher im Flugsimulator.
@@ -32864,10 +32888,10 @@ ${JSON.stringify({ ...contextBundle, environmentContext: undefined })}
     "missionStakes": "warum das Ergebnis wichtig ist",
     "completionSignal": "welcher Handoff oder Abschluss nach dem Ueberflug folgt",
     "storyFrame": {
-      "subjectDetail": "${bushCharter ? 'Fiktiver Vorname, Rolle und konkreter individueller Wunsch' : 'konkretisiere, wer oder was genau betroffen ist'}",
-      "incidentContext": "${bushCharter ? 'Konkrete Begebenheit aus dem Vorhaben, eigene Reaktion und Bezug zum heutigen Auftrag' : 'was passiert ist oder welcher Anlass den Einsatz ausloest'}",
-      "whyNow": "${bushCharter ? 'Heutiger persönlicher Anlass; keine aus Wetterwerten erfundene Dringlichkeit' : 'warum der Flug gerade jetzt noetig ist'}",
-      "soughtOutcome": "${bushCharter ? 'Offenes persönliches Vorhaben am Boden; der Pilotauftrag endet beim Absetzen' : 'welcher konkrete Befund oder welche Entscheidungshilfe gebraucht wird'}",
+      "subjectDetail": "${bushCharter ? 'Fiktiver Vorname, Rolle und konkreter individueller Wunsch' : bushStoryBasis ? 'Fiktiver Vorname und Rolle der vertraglichen Person oder des Kontakts am Boden; konkretes individuelles Anliegen' : 'konkretisiere, wer oder was genau betroffen ist'}",
+      "incidentContext": "${bushCharter ? 'Konkrete Begebenheit aus dem Vorhaben, eigene Reaktion und Bezug zum heutigen Auftrag' : bushStoryBasis ? 'Konkrete Begebenheit: Handlung der Person, eigene Reaktion oder beiläufige Bemerkung; Bezug zum heutigen Auftrag' : 'was passiert ist oder welcher Anlass den Einsatz ausloest'}",
+      "whyNow": "${bushStoryBasis ? 'Heutiger persönlicher Anlass; keine aus Wetterwerten erfundene Dringlichkeit' : 'warum der Flug gerade jetzt noetig ist'}",
+      "soughtOutcome": "${bushCharter ? 'Offenes persönliches Vorhaben am Boden; der Pilotauftrag endet beim Absetzen' : bushStoryBasis ? 'Offenes Vorhaben der Person; Pilotabschluss gemäß Profil: ' + bushStoryBasis.outcome : 'welcher konkrete Befund oder welche Entscheidungshilfe gebraucht wird'}",
       "incidentType": "vor allem bei SAR: z.B. missing_hiker, fallen_climber, missing_kayaker, small_boat_overdue, vehicle_off_road, road_collision, downed_ultralight",
       "lastSeenContext": "wo oder in welchem Zusammenhang das betroffene Subjekt zuletzt gesehen, gemeldet oder vermutet wurde",
       "probableScenario": "wahrscheinliche Lagehypothese",
@@ -32885,7 +32909,7 @@ ${JSON.stringify({ ...contextBundle, environmentContext: undefined })}
     "confidence": 0.0
   }
 }
-</OUTPUT_JSON>\n${environmentPrompt}\n${bushPersonalityPrompt}`;
+</OUTPUT_JSON>\n${environmentPrompt}\n${bushPersonalityPrompt}${reconPlanningPrompt}`;
 }
 
 async function fetchMissionPlannerV4(context = {}) {
@@ -32901,7 +32925,7 @@ async function fetchMissionPlannerV4(context = {}) {
     const useGeminiHighQualityPlanner = normalizedProvider === 'gemini' && selectedProfile === 'high_quality';
     const promptDraft = useOpenAiCompactPlanner ? _missionPipelineV4CompactDraftForOpenAi(draft) : draft;
     const promptBundle = useOpenAiCompactPlanner ? _missionPipelineV4CompactPlannerBundleForOpenAi(bundle) : bundle;
-    const timeoutMs = useOpenAiCompactPlanner ? 30000 : (useGeminiHighQualityPlanner ? 28000 : 20000);
+    const timeoutMs = context.missionType === 'bush' ? 45000 : (useOpenAiCompactPlanner ? 30000 : (useGeminiHighQualityPlanner ? 28000 : 20000));
     const primaryResult = await fetchGeminiJsonWithFallback(
         _missionPipelineV4Prompt(promptDraft, promptBundle, { compact: useOpenAiCompactPlanner }),
         apiKey,
@@ -32917,9 +32941,13 @@ async function fetchMissionPlannerV4(context = {}) {
                 { compact: true }
             ),
             apiKey,
-            { provider: selectedProvider, promptVersion: 'planner-v4-compact-retry', timeoutMs: useGeminiHighQualityPlanner ? 26000 : 18000 }
+            { provider: selectedProvider, promptVersion: 'planner-v4-compact-retry', timeoutMs: context.missionType === 'bush' ? 45000 : (useGeminiHighQualityPlanner ? 26000 : 18000) }
         );
         if (compactRetryResult?.parsed) result = compactRetryResult;
+    }
+    // A single Recon proposal wrapped in an array is still the same plan.
+    if (context.missionType === 'bush' && context.dispatchProfileId === 'bush_recon_return' && Array.isArray(result?.parsed) && result.parsed.length === 1) {
+        result = {...result,parsed:result.parsed[0]};
     }
     const resolvedNeeds = {
         geo_context: working.targetGeoContext || context.targetGeoContext || null,
@@ -32962,6 +32990,9 @@ async function fetchMissionPlannerV4(context = {}) {
         followUpContext: bundle?.followUpContext || null,
         loadout: bundle?.loadout || null
     });
+    if (context.missionType === 'bush' && context.dispatchProfileId === 'bush_recon_return') {
+        normalized.plan.bushReconPlan = normalizeBushReconPlan(result.parsed?.plan?.bushReconPlan, context.aircraftCapability || {});
+    }
     normalized.debug = {
         ...(normalized.debug || {}),
         primaryError: primaryResult?.error || '',
@@ -33220,6 +33251,7 @@ function buildMissionContractV4({
     const partyNarrative = buildMissionPartyNarrativeContext(plannerContext.party || null, plannerContext.passenger || null);
     return {
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
+        bushReconPlan: mode === 'bush' && profile.id === 'bush_recon_return' ? plannerResult?.plan?.bushReconPlan || null : null,
         status: String(plan?.status || 'invalid'),
         mode,
         paxText: String(plannerContext.paxText || profile.paxText || ''),
@@ -34299,9 +34331,8 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
 };
 
 function _missionWriterV5DomainRecipe(family = '', taskDomain = '', contract = {}) {
-    if (contract?.profile?.id === 'bush_charter_strip' && window.MissionBushNarrativeCore?.charterWriterRecipe) {
-        return window.MissionBushNarrativeCore.charterWriterRecipe;
-    }
+    const bushRecipe = window.MissionBushNarrativeCore?.writerRecipe?.(contract?.profile?.id);
+    if (bushRecipe) return bushRecipe;
     if (family === 'bush_supply') return {
         styleRecipe: 'Herzlicher mündlicher Bush-Dispatch: konkrete Vorgeschichte der gelieferten Fracht, Arbeit am abgelegenen Ziel und Empfänger. Abenteuer und weiche Erlebnisse sind erlaubt; Region und Anlagen stammen aus den Daten. Wetter ist optional. Keine Vereinsflug-Zutaten als Ersatz für den geplanten Versorgungsauftrag.',
         qualityQuestions: ['Wofür wird genau diese Fracht draußen gebraucht?', 'Passen Vorgeschichte, Region, Empfänger und Übergabe zusammen?', 'Bleiben Ladung, 0 PAX und Entladen am Strip unverändert?']
@@ -34648,6 +34679,12 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
             handoffSentence: animalBrief.handoffSentence || ''
         };
     }
+    if (contract?.profile?.id === 'bush_pickup_cargo') {
+        return { shipment: contract.cargoText || context.cargoText || '', contactLocation: 'Kontakt bleibt am Zielstrip am Boden',
+            routeTruth: { outbound: 'Leerflug zum Zielstrip', pickup: 'Nur vereinbarte Fracht am Strip laden', return: 'Fracht zum Heimatplatz zurückbringen und dort entladen' },
+            briefingIntent: 'Die Geschichte der zurückgeholten Sache und ihres Kontakts am Boden bildet den roten Faden. 0 PAX auf beiden Flugabschnitten; kein Boarding oder Gast-Rückflug.',
+            personalStoryBasis: window.MissionBushNarrativeCore?.storyBasis?.('bush_pickup_cargo') || null };
+    }
     if (taskDomain === 'bush_pickup_return') {
         const candidate = Array.isArray(contract?.pickupCreativeBrief?.candidateShortlist)
             ? contract.pickupCreativeBrief.candidateShortlist[0] || null
@@ -34960,11 +34997,11 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const clubUtilityPromptRule = promptTaskDomain === 'club_utility' && contract?.profile?.id !== 'bush_supply_strip'
         ? '\n14. CLUB-UTILITY: Denk dir: "Hier im JSON sind die Daten zum Flug, schreib dem Piloten daraus ein freundliches, kreatives, kollegiales Briefing aus deiner Rolle als Dispatcher." Es soll wie gesprochen klingen, nicht wie ein Formular. Baue eine kleine Hintergrundgeschichte: Was ist am Ziel gerade los, warum können wir unkompliziert helfen, wer oder was kommt mit, und was passiert nach dem Abstellen? Du darfst direkt ansprechen und Du-/Wir-Form nutzen. Die Ladung ist Wahrheit, aber keine sichtbare Inventarliste; fasse sie frei zu einem natürlichen Motiv zusammen und erwähne nur das, was der Geschichte hilft. Route, Wetter, Tagesstimmung oder Pax dürfen die Geschichte tragen, wenn der eigentliche Auftrag klein ist. Keine Semikolons, keine abgehackten Einzelsätze, keine kopierten StoryCore- oder domainDetails-Sätze. Vermeide Baukastenanfänge wie "Heute geht es mit ...", "Nimm [Name] bitte mit", "Die [Zahl] NM führen dich ...", "Am Ziel geht es kurz ...", "Keine anonyme Fracht", "nicht nur eine beliebige Box", "kennt den Ablauf am Boden", "die Sache direkt mit", "müssen heute", "nicht um eine große Logistiknummer", "bergig und waldig genug" oder "saubere VFR-Planung".'
         : '';
-    const bushPickupPromptRule = promptTaskDomain === 'bush_pickup_return'
+    const bushPickupPromptRule = promptTaskDomain === 'bush_pickup_return' && contract?.profile?.id !== 'bush_pickup_cargo'
         ? '\n14. BUSH-PICKUP: Schreib so, als würdest du dem Piloten den Auftrag gerade mündlich im Bush-Dispatch erzählen. Sprich ihn direkt mit du an und mache aus genau einer Richtung in pickupCreativeBrief beziehungsweise MISSION_BRIEF_FORM.domainDetails eine kleine Abenteuergeschichte mit Anfang, Szene am Strip und sinnvoller Rückkehr. Name, Rolle, Arbeit draußen, Gegenstände am Wartepunkt und Rückkehrgrund müssen aus derselben Richtung stammen. Der Ablauf bleibt fest: leer hinaus, am Strip landen, genau eine Person aufnehmen, zur Heimatbasis zurück. Du darfst weiche glaubwürdige Wilderness-Details erfinden und Spannung aufbauen, aber keine neuen Ortsnamen, Notfälle, harten Geofakten oder weiteren Personen hinzufügen. Wenn belastbare Wetter- oder Pistenangaben vorhanden sind und ohne Zusatzsatz in die Erzählung passen, darfst du sie als erlebten Flugrahmen verwenden. Wetter ist kein Pflichtpunkt; lieber weglassen als den Erzählfluss mit einem Datenanhang oder einer erzwungenen Wetterbegründung zu belasten. Keine Steckbrieferöffnung nach dem Muster "Name, Rolle, wartet heute", keine Inventarliste, keine Semikolons und keine sichtbare Folge von Formularfeldern. Das story-Feld bleibt Dispatcher-Perspektive; Ich-Sätze des Pickup-Gasts gehören ausschließlich in passenger.greetingText und pickupStory-Voice-Cues.'
         : '';
     return `<INSTRUKTIONEN>
-Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub.
+Du bist ${window.MissionBushNarrativeCore?.storyBasis?.(contract?.profile?.id) ? 'ein lokaler Bush-Dispatcher, der den Auftrag und die beteiligten Menschen kennt' : 'ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub'}.
 Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formularantwort.
 
 Arbeitsweise:
@@ -40087,7 +40124,7 @@ async function fetchMissionWriterV4(context = {}) {
     const result = await fetchGeminiJsonWithFallback(
         buildMissionWriterV4Prompt(contract) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (context.missionType === 'bush' ? (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') : ''),
         apiKey,
-        { promptVersion: 'mission-writer-v4', timeoutMs: 16000 }
+        { promptVersion: 'mission-writer-v4', timeoutMs: context.missionType === 'bush' ? 45000 : 16000 }
     );
     if (!result?.parsed) return null;
     const mission = sanitizeMissionWriterV4Payload(result.parsed, {
@@ -40110,11 +40147,14 @@ async function fetchMissionWriterV5(context = {}) {
     if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
     if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
+    const reconContext = contract.profile?.id === 'bush_recon_return' ? context.bushReconContext : null;
+    if (contract.bushReconPlan && context.bushSpec) context = {...context,bushSpec:applyBushReconPlan(context.bushSpec,contract.bushReconPlan)};
+    const reconContractPrompt = contract.bushReconPlan ? '\nBINDENDER RECON-SPIELPLAN: '+JSON.stringify(contract.bushReconPlan)+' Beschreibe genau diese Beobachtungsdauer und diesen Ablauf; bei längerem Aufenthalt keinen einmaligen Überflug als ausreichend bezeichnen. Der heutige saisonale Anlass folgt dem gelieferten Datum. Diese Zahlen sind vertraglich, passenger.targetRadiusNm und targetDwellMin müssen ihnen entsprechen (Sekunden/60). Keine neue niedrigere Flugzielhöhe erfinden.' : '';
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV5Prompt(contract, context) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (context.missionType === 'bush' ? (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') : ''),
+        buildMissionWriterV5Prompt(contract, context) + reconContractPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (context.missionType === 'bush' ? (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') : '') + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
         apiKey,
-        { promptVersion: 'mission-writer-v5', timeoutMs: selectedProvider === 'openai' ? 26000 : 16000 }
+        { promptVersion: 'mission-writer-v5', timeoutMs: context.missionType === 'bush' ? 45000 : (selectedProvider === 'openai' ? 26000 : 16000) }
     );
     const requestDiagnostics = _missionWriterRequestDiagnostics(result);
     if (context.missionType === 'bush' && !String(result?.parsed?.story || '').trim()) {
@@ -40136,6 +40176,11 @@ async function fetchMissionWriterV5(context = {}) {
         source: `${result.source || 'Gemini'} + V5 Writer`
     });
     mission._missionWriterV4Debug = {...mission._missionWriterV4Debug, requestDiagnostics};
+    if (contract.bushReconPlan && context.bushSpec) {
+        mission.bush = context.bushSpec;
+        if (mission.passenger) {mission.passenger.targetRadiusNm=contract.bushReconPlan.radiusNm;mission.passenger.targetDwellMin=contract.bushReconPlan.observationSeconds/60;}
+    }
+    window.MissionBushNarrativeCore?.attachRecon(mission, result.parsed, reconContext, window.MissionPoiBriefingSharedCore);
     return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
 }
 window.fetchMissionWriterV5 = fetchMissionWriterV5;
@@ -41141,7 +41186,7 @@ ${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') +
         const result = await fetchAiJsonWithFallback(prompt, {
             apiKey,
             promptVersion: 'legacy-mission-writer',
-            timeoutMs: 18000
+            timeoutMs: isBushMission ? 45000 : 18000
         });
         if (result?.parsed) {
             const parsed = sanitizeMissionPayloadText(enforceMedicalTransferPayload(enforceCharterPayload(enforceTrainingInstructorPayload(result.parsed))));
@@ -44277,6 +44322,20 @@ async function generateMission(options = {}) {
             console.warn('[APT Sightseeing] Wiki context lookup failed', err);
         }
     }
+    let bushReconContext = null;
+    if (requestedMissionType === 'bush' && dispatchProfileId === 'bush_recon_return' && aiModeEnabled) {
+        try {
+            const shared = window.MissionPoiBriefingSharedBrowser;
+            if (shared) {
+                bushReconContext = await shared.context(dest, poiTerrainEnvelope || null);
+                bushReconContext = await shared.enrichSelected(bushReconContext, _ensureDispatchAlive);
+                if (dest?.icao || dest?.ident || dest?.runways) {
+                    bushReconContext.airportInfoContext = await window.MissionAirportInformationBrowser?.load(dest, {budgetMs:3000});
+                }
+            }
+        } catch (err) { console.warn('[Bush Recon Information] Optional context unavailable', err); }
+        _ensureDispatchAlive();
+    }
     const airportInfoBrowser = window.MissionAirportInformationBrowser;
     const airportInfoEnabled = airportInfoBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, isPOI, profileId: dispatchProfileId, target: dest });
     const departureInfoEnabled = airportInfoBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, target: start, role: 'departure' });
@@ -44302,6 +44361,7 @@ async function generateMission(options = {}) {
         ...(environmentContext ? { environmentContext } : {}),
         ...(airportInfoContext ? { airportInfoContext } : {}),
         ...(departureAirportInfoContext ? { departureAirportInfoContext } : {}),
+        ...(bushReconContext ? { bushReconContext } : {}),
         start,
         dest,
         isPOI,
@@ -44660,6 +44720,7 @@ async function generateMission(options = {}) {
                     missionContractV4
                 );
                 const writerContext = {
+                    bushReconContext,
                     missionContractV4,
                     missionPlanV2,
                     missionType: requestedMissionType,
@@ -44753,7 +44814,7 @@ async function generateMission(options = {}) {
             m._requestedProfile = selectedMissionProfile;
             m._appliedProfile = dispatchProfileId || 'auto';
             m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
-            let dispatchBushSpec = applyFollowupAcceptanceToBushSpec(m?.bush || null);
+            let dispatchBushSpec = applyBushReconPlan(applyFollowupAcceptanceToBushSpec(m?.bush || null), missionContractV4?.bushReconPlan);
             if (dispatchBushSpec && m && typeof m === 'object') {
                 m.bush = dispatchBushSpec;
             }
@@ -45792,13 +45853,13 @@ async function generateMission(options = {}) {
                 start: { lat: Number(start.lat), lon: Number(start.lon) },
                 target: { lat: Number(dest.lat), lon: Number(dest.lon) },
                 country: dest.country || dest.isoCountry || dest.countryCode || '', region: dest.region || dest.isoRegion || '',
-                environmentContext, airportInfoContext, departureAirportInfoContext,
+                environmentContext, airportInfoContext, departureAirportInfoContext, bushReconContext,
                 cruiseKts: missionAircraftCapability.cruiseSpeedKts
             }, {
                 tileKey: _poiTileKey,
                 tileFeatures: key => _poiFetchTileFeatures(key, { includeCore: false, allowLegacyFallback: false }),
                 storage: localStorage,
-                request: prompt => fetchAiJsonWithFallback(prompt, { promptVersion: 'bush-narrative-v1', timeoutMs: 20000 })
+                request: prompt => fetchAiJsonWithFallback(prompt, { promptVersion: 'bush-narrative-v1', timeoutMs: 45000 })
             }));
             _ensureDispatchAlive();
             bushNarrative = result.plan;
@@ -45925,7 +45986,8 @@ async function generateMission(options = {}) {
         poiLookup: poiLookup || null,
         poiChain: isPOI ? compactPoiChainForMission(dest?.poiChain || m?.poiChain || missionContractV4?.poiChain || missionPlanV2?.poiChain || null, 8) : null,
         knowledgeContext,
-        targetInfo: isPOI ? sanitizeGeneratedPoiTargetInfo(m?.targetInfo || m?.poiTargetInfo || m?.destinationInfo || '', { maxLen: 760 }) : '',
+        bushReconInfo: m?.bushReconInfo || null,
+        targetInfo: m?.bushReconInfo?.text || (isPOI ? sanitizeGeneratedPoiTargetInfo(m?.targetInfo || m?.poiTargetInfo || m?.destinationInfo || '', { maxLen: 760 }) : ''),
         targetName: dest.n,
         targetLat: Number(dest.lat),
         targetLon: Number(dest.lon),
@@ -46163,6 +46225,10 @@ async function generateMission(options = {}) {
     window.activePassenger = shouldActivateMissionPassenger
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, effectiveWorkAreaTerrainFt, poiTaskDefaults)
         : null;
+    if (window.activePassenger && bushSpec?.reconPlan?.schema === 'bush-recon-plan.v1') {
+        window.activePassenger.targetRadiusNm=bushSpec.areaRef.radiusNm;
+        window.activePassenger.targetDwellMin=bushSpec.success.minAreaTimeSec/60;
+    }
     if (window.activePassenger && knowledgeContext) {
         window.activePassenger.knowledgeContext = knowledgeContext;
     }

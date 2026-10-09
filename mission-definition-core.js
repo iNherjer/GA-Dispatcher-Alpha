@@ -222,6 +222,31 @@ function _applyBushRecipeGuardrails(spec = null) {
     return next;
 }
 
+// Recon planning uses the existing zone/time contract; no extra runtime phase.
+function normalizeBushReconPlan(raw = null, aircraft = {}) {
+    if (!raw || typeof raw !== 'object') return null;
+    const radius = Number(raw.radiusNm), dwell = Number(raw.observationSeconds);
+    if (!Number.isFinite(radius) || radius <= 0 || !Number.isFinite(dwell) || dwell < 3) return null;
+    const speedKts = Math.max(60, Math.min(250, Number(aircraft.cruiseSpeedKts) || 110));
+    const observationSeconds = Math.max(3, Math.min(300, Math.round(dwell)));
+    const turnRadiusNm = (speedKts * 0.514444) ** 2 / (9.80665 * Math.tan(15 * Math.PI / 180)) / 1852;
+    // A long observation must accommodate a gentle orbit plus entry/drift reserve.
+    const minimumRadiusNm = observationSeconds > 20 ? turnRadiusNm * 1.5 + 0.15 : Math.max(0.1, speedKts * observationSeconds / 7200 * 1.25);
+    const radiusNm = Math.ceil(Math.max(minimumRadiusNm, Math.min(8, radius)) * 100) / 100;
+    return {schema:'bush-recon-plan.v1', radiusNm, observationSeconds,
+        minAreaTrackNm:0, planningSpeedKts:speedKts, comfortBankDeg:15,
+        minimumRadiusNm:Math.ceil(minimumRadiusNm*100)/100,
+        requestedRadiusNm:radius, requestedObservationSeconds:dwell,
+        rationale:String(raw.rationale || '').trim().slice(0,800)};
+}
+
+function applyBushReconPlan(spec, plan) {
+    if (spec?.profileId !== 'bush_recon_return' || plan?.schema !== 'bush-recon-plan.v1') return spec;
+    return sanitizeBushMissionSpec({...spec, reconPlan:plan,
+        areaRef:{...spec.areaRef,radiusNm:plan.radiusNm},
+        success:{...spec.success,minAreaTimeSec:plan.observationSeconds,minAreaTrackNm:0}});
+}
+
 function sanitizeBushMissionSpec(raw = null) {
     if (!raw || typeof raw !== 'object') return null;
     const targetModeRaw = String(raw.targetMode || '').trim().toLowerCase();
@@ -240,6 +265,7 @@ function sanitizeBushMissionSpec(raw = null) {
         profileId: String(raw.profileId || 'bush_generic').trim().toLowerCase().slice(0, 80),
         targetMode,
         completionMode,
+        ...(raw.reconPlan?.schema === 'bush-recon-plan.v1' ? {reconPlan:raw.reconPlan} : {}),
         reconFocus: String(raw.reconFocus || '').trim().slice(0, 240),
         reconFocusLabel: String(raw.reconFocusLabel || '').trim().slice(0, 120),
         requiresReturnHome: !!raw.requiresReturnHome,
@@ -523,8 +549,8 @@ const BUSH_PERSONA_LIBRARY = {
             name: 'Elena Brooks',
             role: 'Backcountry-Operationsleiterin',
             gender: 'female',
-            storySeed: '{name} will nach dem letzten Wetterzug bei {targetName} aus der Luft klaeren, ob Bahn, Vorfeld und Materialbereich fuer den naechsten Einsatz sauber wirken.',
-            greetingText: 'Nach dem letzten Wetterzug wollen wir dort unten keine Ueberraschungen auf dem Strip haben. Ein sauberer Ueberflug, ein kurzer Check aus der Luft und dann direkt wieder heim.'
+            storySeed: '{name} will bei {targetName} aus der Luft klaeren, ob Bahn, Vorfeld und Materialbereich fuer den naechsten Einsatz sauber wirken.',
+            greetingText: 'Vor dem naechsten Einsatz wollen wir dort unten keine Ueberraschungen auf dem Strip haben. Ein sauberer Ueberflug, ein kurzer Check aus der Luft und dann direkt wieder heim.'
         },
         {
             name: 'Mason Reed',
@@ -631,9 +657,9 @@ const BUSH_RECON_OBJECTIVES = [
         story: 'Vor Ort braucht ihr einen ruhigen Kontrollflug ueber Bahn, Randstreifen und Anflugsektoren, um Spurrinnen, Auswaschungen oder weiche Stellen frueh zu erkennen.'
     },
     {
-        label: 'Sturmschaden-Check',
-        focus: 'nach Wind und Wetter Vorfeld, Windsack, Zaunlinie und abgestellte Geraete auf Sturmschaeden pruefen',
-        story: 'Im Zielgebiet sollt ihr die Folgen des letzten Wetterdurchgangs bewerten und dokumentieren, ob Windsack, Vorfeld oder Randbereiche fuer den Betrieb eingeschraenkt sind.'
+        label: 'Anlagen-Zustandscheck',
+        focus: 'Vorfeld, Windsack, Zaunlinie und abgestellte Geraete auf sichtbare Schaeden und Auffaelligkeiten pruefen',
+        story: 'Im Zielgebiet sollt ihr den aktuellen sichtbaren Zustand bewerten und dokumentieren, ob Windsack, Vorfeld oder Randbereiche fuer den Betrieb eingeschraenkt sind.'
     },
     {
         label: 'Hindernis- und Sicherheitscheck',
@@ -643,7 +669,7 @@ const BUSH_RECON_OBJECTIVES = [
     {
         label: 'Drainage- und Randbereichskontrolle',
         focus: 'Entwaesserung, Wasserlaeufe, Unterspuelungen und weiche Randzonen rund um den Platz aus der Luft abschaetzen',
-        story: 'Im Fokus stehen heute Drainage, Randzonen und moegliche Unterspuelungen, damit der Platz nach der naechsten Niederschlagsphase nicht ueberraschend unbrauchbar wird.'
+        story: 'Im Fokus stehen heute Drainage, Randzonen und moegliche Unterspuelungen, als Grundlage fuer die weitere Wartungsplanung am Platz.'
     },
     {
         label: 'Betriebsflaechen-Check',
@@ -652,7 +678,23 @@ const BUSH_RECON_OBJECTIVES = [
     }
 ];
 
-function _pickBushReconObjective() {
+function _bushReconTargetKind(target = null) {
+    const t = target || {};
+    if (Array.isArray(t.runways) && t.runways.length) return 'airport';
+    if (t.man_made || t.natural) return 'poi';
+    const icao = String(t.icao || '').trim().toUpperCase();
+    if (icao && icao !== 'POI') return 'airport';
+    if (t.poiSource || t.poiCategory) return 'poi';
+    const ident = String(t.icao || t.ident || '').trim().toUpperCase();
+    return ident && ident !== 'POI' ? 'airport' : 'poi';
+}
+
+function _pickBushReconObjective(target = null) {
+    if (target && _bushReconTargetKind(target) === 'poi') return {
+        label:'Objekt- und Umfeldaufklaerung',
+        focus:'das ausgewaehlte Objekt und seine unmittelbare Umgebung auf die konkrete Beobachtungsfrage und sichtbare Auffaelligkeiten untersuchen',
+        story:'Der Luftblick liefert ein Lagebild zum ausgewaehlten Objekt und seinen sichtbaren Bezugspunkten; danach wird der Befund an der Basis uebergeben.'
+    };
     return { ...(BUSH_RECON_OBJECTIVES[Math.floor(Math.random() * BUSH_RECON_OBJECTIVES.length)] || BUSH_RECON_OBJECTIVES[0]) };
 }
 
@@ -763,7 +805,12 @@ function _buildBushPickupBriefingStory({ passenger = null, bushSpec = null, home
 }
 
 function _buildBushPassenger(profileId = 'bush_charter_strip', context = {}) {
-    const persona = _pickBushPersona(profileId, context);
+    const pickedPersona = _pickBushPersona(profileId, context);
+    const persona = profileId === 'bush_recon_return' && context.targetKind === 'poi' && pickedPersona
+        ? {...pickedPersona,role:'Backcountry-Beobachter',
+            storySeed:'{name} braucht einen Luftblick auf {targetName}, um eine konkrete Auffaelligkeit am Objekt oder im Umfeld fuer die weitere Bodenplanung zu dokumentieren.',
+            greetingText:'Wir sehen uns heute das Objekt und seine Umgebung aus der Luft an. Danach nehmen wir die Beobachtungen mit zur Basis.'}
+        : pickedPersona;
     if (!persona) return null;
     const storySeed = _applyBushTemplateText(persona.storySeed || persona.personalStoryCue || '', context);
     const templatedPersona = {
@@ -854,7 +901,10 @@ function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = 
     if (profile.id === 'bush_recon_return') {
         const areaRadiusNm = Number(distNm) >= 80 ? 4.5 : 3.2;
         const areaRef = buildBushAreaRefFromAirport(destAirport, areaRadiusNm);
-        const reconObjective = _pickBushReconObjective();
+        const targetKind = _bushReconTargetKind(destAirport);
+        const reconObjective = _pickBushReconObjective(destAirport);
+        if (targetKind === 'poi' && targetRef) {targetRef.kind='poi';targetRef.poiCategory=String(destAirport?.poiCategory || destAirport?.man_made || destAirport?.natural || 'generic');}
+        if (targetKind === 'poi' && areaRef) areaRef.poiCategory=targetRef?.poiCategory || 'generic';
         return sanitizeBushMissionSpec({
             profileId: profile.id,
             targetMode: 'area_then_return',
@@ -877,7 +927,7 @@ function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = 
             allowedEndLocations: ['home'],
             narrativeMode: profile.narrativeMode,
             riskFlags: [...riskFlags, 'return_leg_required'],
-            opsNotes: profile.opsNotes
+            opsNotes: targetKind === 'poi' ? ['Das konkrete Objekt und seine Umgebung aus der Luft beobachten.', 'Keine Landung am Objekt; Befund an der Basis uebergeben.'] : profile.opsNotes
         });
     }
     if (profile.id === 'bush_pickup_strip') {
@@ -999,12 +1049,12 @@ function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirpor
         story = `${paxCue || `${passenger?.name || 'Ein Gast'} nutzt den Flug von ${homeName} nach ${targetName} als echten Backcountry-Hop.`} Mit an Bord: ${cargoText}. Der kurze Hinflug bringt den Gast an einen abgelegenen Strip, wo nach der sauberen Landung der Aufenthalt oder Outdoor-Plan beginnt.`;
         paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
     } else if (profile.id === 'bush_recon_return') {
-        passenger = _buildBushPassenger(profile.id, { homeName, targetName });
+        passenger = _buildBushPassenger(profile.id, { homeName, targetName, targetKind:_bushReconTargetKind(destAirport) });
         const paxCue = String(passenger?.storySeed || '').trim();
-        const reconFocusLabel = String(bushSpec?.reconFocusLabel || 'Strip-Check').trim();
+        const reconFocusLabel = String(bushSpec?.reconFocusLabel || 'Recon-Check').trim();
         const reconStory = String(bushSpec?.reconFocus || '').trim();
         title = `Bush Recon RTB: ${targetName}`;
-        story = `${paxCue || `${passenger?.name || 'Ein Beobachter'} fliegt heute mit dir von ${homeName} nach ${targetName}, um dort einen ${reconFocusLabel} durchzufuehren.`} Ausruestung: ${cargoText}. Vor Ort braucht ihr einen kurzen sauberen Recon-Run ueber dem Zielbereich und den Betriebsflaechen; konkret sollt ihr ${reconStory || 'den Zustand von Strip und Umfeld bewerten'}. Danach geht es ohne Zwischenstopp wieder zurueck an den Heimatplatz.`;
+        story = `${paxCue || `${passenger?.name || 'Ein Beobachter'} fliegt heute mit dir von ${homeName} nach ${targetName}, um dort einen ${reconFocusLabel} durchzufuehren.`} Ausruestung: ${cargoText}. Vor Ort braucht ihr einen kurzen sauberen Recon-Run ueber dem Zielbereich; konkret sollt ihr ${reconStory || 'das ausgewaehlte Ziel und sein Umfeld bewerten'}. Danach geht es ohne Zwischenstopp wieder zurueck an den Heimatplatz.`;
         paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
     } else if (profile.id === 'bush_pickup_strip') {
         passenger = pickupPassengerForSpec || _buildBushPassenger(profile.id, { homeName, targetName });

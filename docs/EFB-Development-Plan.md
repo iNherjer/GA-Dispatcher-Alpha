@@ -6892,3 +6892,8 @@ Feldlogs zeigen v501-Starts um 10:11:21Z und 10:16:23Z: alter Run geladen, Missi
 Hotfix-Validierung: 93 gezielte Startup-/Cloud-/Runtime-/Authority-/Voice-Tests und Interface-Selbsttest bestanden. Neue Windows-EXE v502 gebaut; Web-Cache v1982. Der Fix verändert nur Kanalreferenz und Startup-Diagnose. Keine Worker-/SDK-Aktualisierung erforderlich.
 
 Alpha-Hotfix v502 veröffentlicht und öffentlicher Download hashgleich geprüft: 173745916 Bytes, SHA-256 `7d0c36ecc30c3d9ab5a19a4dfb79c4505733802996a93b67386bf4f691e607eb`, Quellstand `80242f8c0`. Alpha-Zeiger auf v502 aktiviert, Cache v1983. Stable und SDK bleiben unverändert.
+
+
+## Bush-Recon-Zeitvertrag, Alpha v504
+
+Neue Bush-Recon-Missionen mit bush-recon-plan.v1 zaehlen im gemeinsamen POI-Task-Core exakt die vertraglichen Beobachtungssekunden in der Zone und im Hoehenband. Die bisherigen Easy-/Naehe-Boni gelten fuer alte Missionen weiter. Tracker und Browser uebergeben denselben Bush-Vertrag. EFB-/Toolbar-Protokoll und SDK-Package unveraendert; Runtime-EXE neu gebaut.

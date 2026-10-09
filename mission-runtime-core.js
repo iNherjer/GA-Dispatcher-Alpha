@@ -8,7 +8,7 @@ function _missionBushAreaRef() {
     if (!area || typeof area !== 'object') return null;
     const lat = Number(area.lat);
     const lon = Number(area.lon);
-    const radiusNm = Math.max(0.5, Number(area.radiusNm) || 3);
+    const radiusNm = Math.max(bush?.reconPlan?.schema === 'bush-recon-plan.v1' ? 0.1 : 0.5, Number(area.radiusNm) || 3);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     return { ...area, lat, lon, radiusNm };
 }

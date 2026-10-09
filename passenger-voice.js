@@ -10981,6 +10981,7 @@ function _tickPoiDwell(lat, lon, flightData) {
     _applyPoiTaskCoreEffects(window.GAMissionPoiTaskCore.observe(_poiTaskDetectorState(), {
         pax, distNm, now, flightData, taskDomain, strict, etaMin, effectiveGs, clockPos,
         taskItemState, poiChainTickResult, surveyTickResult,
+        bush: _activeMissionData()?.bush || null,
         surveySpec: taskDomain === 'mapping_survey' && !surveyTickResult?.progress?.startedAt && Number.isFinite(distNm)
             ? _surveyPatternActiveSpec() : null
     }));

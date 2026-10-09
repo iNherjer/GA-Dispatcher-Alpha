@@ -2,6 +2,66 @@
 
 Stand: 07.10.2026 – lokale Erweiterung, kein Release.
 
+## Persönliche Grundlagen der übrigen Bush-Stränge (09.10.2026, lokal)
+
+Die persönliche Charter-Planung wird profilbezogen ergänzt, ohne die technischen
+Rezepte, Profile, Manifestregeln oder Abschlussbedingungen zu ändern.
+`storyBasis`, `planningInstructions` und `writerRecipe` verbinden kreativen
+Profilkontext, beide Planner-JSON-Vorlagen und den V5-Writer. Die vorhandenen
+storyFrame-Felder fragen nach einer konkreten Person beziehungsweise dem
+Kontakt am Boden, einer erlebten Begebenheit, eigener Handlung/Reaktion und dem
+heutigen Anliegen. Das Pilotziel bleibt aus dem jeweiligen Vertrag.
+
+| Strang | Erzählkern | Ablauf und Sprecher |
+| --- | --- | --- |
+| Supply | Konkrete Sendung und persönlicher Bezug des Empfängers | 0 PAX, Entladen am Ziel; Dispatch über Kontakt am Boden |
+| Adventure | Eigener Outdoor-Wunsch und eine passende Erfahrung | Hinflug mit Gast, Landung am Ziel; kein Rundflug |
+| Passenger-Pickup | Aufenthalt, persönliche Reaktion und Rückkehrgrund | Leer hinaus; Gast spricht erst nach Aufnahme auf dem Rückflug |
+| Cargo-Pickup | Geschichte der Sache und des beteiligten Kontakts | Leer hinaus, Fracht zurück und daheim entladen; keine Bordperson |
+| Recon | Konkreter Aufklärungsanlass und Untersuchungsfrage, persönlich aus demselben Sachverhalt erzählt | Luftbeobachtung und Rückkehr; nur vertraglicher Beobachter spricht |
+
+Eine konkrete Handlung oder beiläufige Bemerkung soll den Ton tragen. Keine
+Witzpflicht, feste Grummel-Persona oder Panne pro Auftrag. Gesperrte Follow-up-
+Personen und tatsächliche Vorgeschichten bleiben bindend. Erzählerische Details
+sind keine zusätzliche Aufgabe und kein Beleg für reale Anlagen oder Wetter.
+
+Auch Adventure-, Pickup- und Recon-Kapitel erhalten Persönlichkeit und
+Begrüßung des tatsächlichen Passagiers. Ohne Sprecher entsteht kein Erzählplan;
+Cargo-only bleibt weiterhin ohne erfundenen Mitflieger. Keine neue KI-Abfrage
+im Produktionsablauf: Es werden die bestehenden Prompts und Frames ergänzt.
+
+Prüfungen: `tools/bush-profile-personality.test.cjs` ergänzt die bestehenden
+Charter-, Quellen-, Erzähl- und Tracker-Rezepttests. Der begrenzte Live-Prüfer
+`tools/bush-profile-personality-live.mjs --profile=... --live` führt produktive
+Planner/Contract/Writer-Funktionen mit fiktivem Auftrag und gelieferten
+Flugplatzfixtures aus. Kein Browser-, Sim-, Audio- oder vollständiger Boarding-
+Durchlauf; automatische Quellenabrufe sind in der Probe ersetzt. Ergebnisse
+unter `analysis/bush-profile-personality-20261009/` bleiben lokale Prüfarbelege.
+
+Recon-Gewichtung: Das Ereignis beziehungsweise die Auffälligkeit trägt die
+Geschichte. Der persönliche Bezug vertieft denselben Anlass, statt eine eigene
+Nebenepisode zu eröffnen. Planner und Writer erhalten dafür einen gezielten
+Profilzusatz ohne Beispielgeschichte; Felder und Ablauf bleiben unverändert.
+
+### Prüfung und Cargo-Pickup-Korrektur
+
+75 lokale Regressionstests bestehen, einschließlich Charter, Quellenbindung,
+Writer-Erhalt und Tracker-Abläufen für die Bush-Rezepte. Live-Proben aller fünf
+Stränge verwenden den Produktionsplanner und -writer mit Gemini. Persönliche
+Anlässe werden sichtbar, die erzählerische Qualität variiert weiterhin; dies ist
+keine Zusage, dass jeder generierte Text bereits Charter-Beispielqualität hat.
+Ein Writer-Aufruf lief in ein Timeout; die erfolgreiche Wiederholung verwendete
+den vorhandenen Plan. In den geprüften Antworten trat kein Quota-Modellwechsel auf.
+
+Cargo-Pickup teilt die technische TaskDomain `bush_pickup_return` mit dem
+Personen-Pickup. Dessen bisherige Writer-Vorgabe verlangte eine Personenaufnahme
+und verursachte im Live-Text einen Mitflug trotz 0 PAX. Cargo-Pickup erhält nun
+vor diesem gemeinsamen Zweig eigene DomainDetails; die Personen-Promptvorgabe
+wird nur für Personen-Pickup ergänzt. Kontakt bleibt am Ziel am Boden, nur die
+vereinbarte Fracht kehrt zurück. Die korrigierte Live-Probe
+`bush_pickup_cargo-proof.json` bestätigt dieses Verhalten. Keine nachträgliche
+Textumschreibung, neue Klassifikation oder zusätzliche Produktionsabfrage.
+
 ## Erzählvertrag
 
 Eine individuelle Person trägt die Geschichte. Abenteuer, Spannung, herzlicher
@@ -370,3 +430,116 @@ ICAO-/FAA-Code den bestehenden Platzinformationsbaustein nutzen. Interne
 die vorhandenen, begrenzten Wikipedia-/Terrain-Pfade bleiben nutzbar; es entsteht
 kein zusätzlicher separater KI-Aufruf. APT/POI und das Recon-Ziel bleiben außerhalb
 dieses Bush-Platztext-Pfads.
+
+## Live-Review Planner/Writer und Platzfelder (09.10.2026, lokal)
+
+Alle sechs Bush-Profile wurden mit produktiven Planner-/Writer-Funktionen,
+gelieferten Flugplatzfixtures und ohne Browser/Simulator geprüft. Fünf Profile
+ließen beide Stufen erfolgreich durchlaufen. Personen-Pickup: Planner erfolgreich,
+Writer abgebrochen; genau eine Wiederholung mit gespeichertem Plan brach ebenfalls
+ab. Keine weiteren Wiederholungen. Insgesamt 17 API-Aufrufe einschließlich einer
+zusätzlichen Recon-Konfigurationsprobe und einer Quellenprobe; kein beobachteter
+Quota-Fehler oder Modellwechsel. Technischer Erfolg ist kein Qualitätsnachweis.
+
+Produktiv ist Startredaktion für alle Bush-Profile aktiviert. Zielredaktion und
+Anflugbriefing gelten für die fünf Profile mit Ziellandung; Recon ist ausdrücklich
+ausgenommen. Der Live-Prüfer berücksichtigt nun denselben enabled-Schalter. Die
+ursprüngliche Recon-review-Probe lieferte künstlich Zielplatzmaterial und ist kein
+Beleg für die produktive Zielseite; recon-review prüft die korrekte Konfiguration.
+Reine Pistenbasisdaten führten erwartungsgemäß zu generated=false/own-data-only am
+Ziel. Eine zusätzliche Charter-Probe mit gekennzeichneten gelieferten Testnotizen
+erzeugte generated=true für Anflugbriefing und Zielseite. Beide Platztexte werden
+im bestehenden Writer-Aufruf erstellt, ohne zusätzliche KI-Abfrage.
+
+Offene Qualitätsbefunde: künstliche Dringlichkeit, unbelegte saisonale/wetterliche
+Behauptungen, örtliche Einrichtungen oder Nutzung aus persönlicher Story übernommen.
+Die Quellenprobe zeigte dies auch in Platztexten. Recon stellt den Anlass deutlicher
+voran, erfindet aber noch saisonale Bedingungen und lokale Anlagen. Kein Rollout
+und keine stillschweigende Änderung gemeinsamer Semantik/Quellenverarbeitung aus
+diesem Review. Ergebnisse: analysis/bush-profile-personality-20261009/*review*.json
+und bush_charter_strip-source-proof.json. Keine vollständige UI-, Boarding- oder
+Audio-Prüfung; echte externe Quellenabrufe und aktuelles Wetter waren nicht Teil
+der gelieferten Testfixtures.
+
+## Wettergewichtung und Recon-Objektseite (09.10.2026, lokal)
+
+Bestehende Bush-Prompts erhalten Wettergewichtung: gewöhnliche Werte und Saison
+begründen keine Wettermission; ein markantes ausdrücklich geliefertes Ereignis
+kann den Anlass tragen. Kandidaten sind Möglichkeiten, keine Ereignismeldungen.
+Recon fragt zuerst nach Beobachtungsanlass; die Bush-spezifische Rückfallbasis
+erzeugt keine automatische Sturm-/Schadensmeldung. Andere Infrastrukturprofile
+behalten ihre bisherigen Vorlagen. Keine Prosaheuristik oder nachträgliche Kürzung.
+
+Das gewählte Recon-Objekt erhält bushReconInfo (Text und Quellenstand). Gemeinsame
+POI-Bausteine beschaffen und formatieren Lage, Orientierung, Gelände und Hindernisse;
+bei Flugplatzzielen werden vorhandene Platzquellen zur Beobachtung aus der Luft
+geliefert. Kein Landeauftrag, keine Höhenänderung oder sichere Tiefflugfreigabe.
+Historie/Zweck ausschließlich aus passenden Belegen; fiktiver Verdacht bleibt
+Missionsanlass. Im bestehenden V5-Aufruf entstehen targetInfo und reconReport;
+keine zusätzliche KI-Abfrage. Optionale Geo-/Wiki-/Umgebungsabrufe am gewählten
+Ziel nutzen gemeinsame Cache-/Inflight-/Cooldown-Regeln. Außerhalb vorhandener
+Tile-Abdeckung bleibt diese Datenlücke sichtbar. Vollständiger Text und
+Quellenstand bleiben bei lokaler Speicherung und Cloud-Kompaktierung erhalten.
+Die bestehende Zielseite rendert den Recon-Text vor der alten Wikipedia-Abfrage.
+
+100 Tests bestanden (einschließlich lokaler/Cloud-Kompaktierung, voller Texte,
+Quellenrückfälle, unveränderter POI-Navigation und Recon-Runtime). Drei Live-Proben
+mit gelieferten Fixtures: Flugplatz und Funkmast technisch erfolgreich, aber
+Funkmasttexte ergänzten unbelegte Wetter-/Gelände-/Objektangaben. Der letzte
+Nachschärfungsschritt an Kandidatenstatus, Recon-Anlassfrage und Writer-Belegarbeit
+ist lokal getestet, noch nicht erneut live oder im Browser/Simulator geprüft.
+Kein Rollout; keine Zusage zuverlässiger Quellenbindung allein durch Prompts.
+
+## Writer-Zeitlimit und erneute Live-Serie (09.10.2026, lokal)
+
+Die vorherigen Personen-Pickup-Abbrüche waren abgebrochene Requests, keine
+semantischen Textablehnungen. Das Gemini-Zeitlimit des Bush-V5-Writers wurde
+gezielt von 16 auf 30 Sekunden angehoben; Gemini-APT bleibt bei 16, OpenAI bei
+26 Sekunden. Kein zusätzlicher KI-Aufruf und keine neue Wiederholungsregel.
+Die neue Probe benötigte für den Pickup-Writer 17410 ms und wurde erfolgreich
+angenommen; Supply benötigte 17062 ms. Die Überschreitung des bisherigen Limits
+bestätigt den Zeitengpass, beweist aber nicht jede historische Netzwerkursache.
+101 Regressionstests bestehen. Live-Reports messen nun Request-Dauer und bewahren
+für spätere Proben auch den fiktiven Modell-Rohtext zur Abgrenzung vom Parser.
+
+Dreiergruppe 1: Personen-Pickup, Recon-Flugplatz, Recon-Funkmast erfolgreich.
+Recon erfindet diesmal kein Wetterereignis oder Hanggelände; die Stories bleiben
+generisch. Mast-Zieltext ergänzt unbelegte zentrale Bedeutung und Prüfpflicht.
+Dreiergruppe 2: Charter, Supply, Adventure erfolgreich. Supply persönlich und
+ohne Wetterdruck; Charter und Adventure erfinden weiterhin saisonale Bedingungen
+und Eile. Adventure leitet sichtbares diffuses Licht aus der Modellbewölkung ab.
+Die Adventure-Rohdaten zeigen bereits im Planner erfundene Herbst-/Frostlogik;
+der Writer übernimmt und erweitert sie. Die verbleibende Drift ist keine bloße
+Textkürzung oder Quota-Umschaltung. Cargo-Pickup erfolgreich, 0 PAX und Fracht-Rücktransport bleiben erhalten;
+Story weiterhin sachlich. Insgesamt sieben Missionen mit 14 erfolgreichen
+HTTP-200-Aufrufen, ohne neuen Abort, beobachteten Quota-Fehler oder Modellwechsel. Ergebnisse unter analysis/bush-profile-personality-20261009/*fix*.json.
+Diese Serie ersetzt keine echte Wetter-/Geo-Netzprobe oder Simulatorprüfung.
+Noch kein Rollout und keine Zusage erreichter Charter-Beispielqualität für alle
+Stränge. Weitere fachliche Änderungen aus den Befunden sind separat zu entscheiden.
+
+
+### Saisonale Anlässe und Bush-Antwortbudgets
+
+Alle Bush-Profile dürfen reguläre saisonale Aufgaben als längerfristigen Anlass nutzen, etwa Herbstwartung vor dem Winter. Jahreszeit und normales Wetter erzeugen allein keine Dringlichkeit. Wetterbedingte Eile erfordert ein belegtes bevorstehendes Ereignis mit relevantem Ort, Zeitpunkt und Bezug zum Auftrag. Diese gemeinsame Vorgabe geht an Planner, Writer und Erzählkapitel; Texte werden weiterhin vollständig übernommen.
+
+Bush-Planner einschließlich vorhandener kompakter Wiederholung, Writer V4/V5, Legacy-Writer und Erzählkapitel erhalten je 45 Sekunden Antwortbudget. Die Live-Messungen lagen zuletzt bei rund 12–17,4 Sekunden; das Budget lässt Reserve für längere Texte und langsamere Antworten. Es erzeugt keine zusätzlichen Abfragen oder Wiederholungen. APT-/POI-Budgets bleiben unverändert. Das Budget gilt je vorhandener Anfrage, nicht als Gesamtdauer der Pipeline.
+
+
+### KI-geplante Recon-Zone und Beobachtungsdauer
+
+V4-Bush-Recon ergänzt plan.bushReconPlan mit radiusNm, observationSeconds und rationale. Der Planner entscheidet passend zur Aufgabe statt eines festen Überflug-Sonderprofils. Der fertige Vertrag geht unverändert an den Writer, wird auf Bush-areaRef/success und Passenger-Zielwerte projiziert und in App/Tracker ausgeführt. Keine zusätzliche Mindestflugstrecke.
+
+Für Beobachtungen über 20 Sekunden gilt als technische Untergrenze ein Kurvenradius aus der gelieferten Reisegeschwindigkeit bei 15° Schräglage, multipliziert mit 1,5 plus 0,15 NM Reserve. Bei fehlender Geschwindigkeit werden 110 kt angenommen. Dies ist eine geometrische Planungsreserve, keine Garantie gegen Übelkeit, Wind oder Abweichungen vom geplanten Flugzustand. Kurze Beobachtungen berücksichtigen eine Durchflugreserve. Dauer 3–300 Sekunden, gewünschter Radius maximal 8 NM. Fehlende/ungültige KI-Werte behalten den bisherigen Recon-Fallback.
+
+Nur Missionen mit bush-recon-plan.v1 zählen echte qualifizierende Beobachtungssekunden: kein Easy-Modus-Halbierungsfaktor oder Nähe-Bonus. Bestehende POI- und alte Recon-Missionen bleiben unverändert. Neue kleine Recon-Zonen werden nicht mehr durch die alten Bush-/Passenger-Mindestgrößen vergrößert.
+
+Live-Kontrolle: 80 kt / 3,2 NM / 150 s; 110 kt / 2,5 NM / 150 s; 160 kt / 2,24 NM / 90 s (KI 2,0 NM, geometrisch angehoben). Drei gültige Planner-/Writer-Läufe; ein Array-verpackter Vorversuch wurde nach gezielter Reparatur ersetzt. Saisonale Sprache bleibt qualitativ nicht vollständig zuverlässig. Kein Rollout und kein Simulator-End-to-End-Test.
+
+
+### Abschluss und POI-Trennung, Web v1988 / Tracker v504
+
+Bush-Recon baut die Basis aus dem Zieltyp: bekannte Flugplaetze behalten ihre Platzpruefung; Objekt-POIs bekommen Objekt-/Umfeld-Aufklaerung, passende neutrale Beobachterrolle und eigene Betriebsnotizen. Flugplatz-Persona-Seeds werden nicht auf Funkmasten uebertragen. Die vorhandenen Recon-Zustandsziele setzen kein bereits eingetretenes Wetterereignis voraus. Der Planner darf aus konkretem Wetterkontext weiterhin einen solchen Anlass entwickeln.
+
+Einzelner Ueberflug: wenige Sekunden im Zielbereich. Umfangreichere Aufklaerung: KI-gewaehlte Zeit und ausreichend grosse Zone fuer ruhigen Kurvenflug. Ein paar oder zwei bis drei Kreise sind erzaehlerische Annaeherung, keine zusaetzliche Pflicht zur Zahl abgeschlossener Kreise. Der Gast kann nach Erfuellen seiner Beobachtung zufrieden sein.
+
+Finaler Live-Masttest: Objekt/Fundament/Abspannungen, keine Piste, kein Windsack, keine Flugplatzmarkierungen; 150 Sekunden, KI-Radius 0,6 NM technisch auf 1,14 NM angehoben (110 kt). Texte vollstaendig. Fiktive Simulatorwelt-Details sind vom Nutzer akzeptiert; jahreszeitliche Passung und echte Wetterdringlichkeit bleiben eigene Qualitaetsmerkmale.

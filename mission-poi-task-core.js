@@ -108,13 +108,14 @@
         const { pax, distNm, now, flightData, taskDomain, strict, etaMin, effectiveGs, clockPos,
             poiChainTickResult = null, surveyTickResult = null,
             taskItemState = { blockingItems: [], reason: 'missing' } } = input;
+        const exactReconTiming = input.bush?.profileId === 'bush_recon_return' && input.bush?.reconPlan?.schema === 'bush-recon-plan.v1';
         const radius = pax.targetRadiusNm || 1.5;
         const inRadius = distNm <= radius;
         const missingTaskItems = taskItemState.blockingItems;
         function advance() {
             const tightAltitudeBand = /^(fire_watch|search_and_rescue|inspection_infra|infra_chain_recon|mapping_survey)$/.test(taskDomain);
             const altTolerance         = strict ? 200  : (tightAltitudeBand ? 300 : 600);
-            const dwellRequired        = pax.targetDwellMin > 0 ? pax.targetDwellMin * 60 * (strict ? 1.0 : 0.5) : 0;
+            const dwellRequired        = pax.targetDwellMin > 0 ? pax.targetDwellMin * 60 * (exactReconTiming || strict ? 1.0 : 0.5) : 0;
             const maxAttempts          = strict ? 2 : 3;
             const graceSec             = strict ? 15  : 25;
             const complaintIntervalSec = strict ? 30 : 45;
@@ -205,7 +206,7 @@
 
             if (altOk) {
                 // Proximity boost: 2× at centre, 1× at edge (linear)
-                const proximityFactor = 1 + Math.max(0, 1 - distNm / radius);
+                const proximityFactor = exactReconTiming ? 1 : 1 + Math.max(0, 1 - distNm / radius);
                 state.dwellSec += dt * proximityFactor;
 
                 if (state.altWasOk === false) {

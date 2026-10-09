@@ -272,6 +272,7 @@ function observe(recipe, previous, sample, facts = {}) {
     const flightData = { ...sample, mslFt: Math.max(0, Math.round(sample.altFt)), gs: sample.gsKts };
     const result = taskCore.observe(state.detector, {
         pax: recipe.passenger,
+        bush: recipe.bush || null,
         taskDomain: recipe.taskDomain,
         surveyTickResult: surveyResult ? { ...surveyResult, handled: true, progress: surveyResult.progress || state.surveyState.progress } : null,
         surveySpec: recipe.surveyPattern || null,

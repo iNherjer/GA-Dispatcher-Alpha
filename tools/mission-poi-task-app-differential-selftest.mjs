@@ -34,6 +34,7 @@ function harness(modern, config) {
         _poiChainActiveSpec: () => config.chain?.spec || null,
         _refreshPaxWidgetVisibility: () => record('refresh-widget'),
         _surveyPatternActiveSpec: () => config.surveySpec || null,
+        _activeMissionData: () => ({}),
         _tickFireMissionSearch: () => config.fire === true,
         _paxLog: (text, level) => record('log', text, level),
         _paxMissionTimeout: (fn, delay) => { record('delay', delay); fn(); },

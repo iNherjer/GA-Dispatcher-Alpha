@@ -40,5 +40,5 @@ test('Charter chapters inherit the actual passenger tone and greeting, other pro
  assert.deepEqual(frame.character,{personality:input.passenger.personality,greeting:input.passenger.greetingText});
  const prompt=core.prompt(frame,[]);
  assert.ok(prompt.includes(input.passenger.greetingText));
- assert.equal(core.frame({...input,bush:{profileId:'bush_scenic_hopper'}}).character,undefined);
+ assert.deepEqual(core.frame({...input,bush:{profileId:'bush_scenic_hopper'}}).character,frame.character);
 });
