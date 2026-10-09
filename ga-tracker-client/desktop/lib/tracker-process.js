@@ -26,7 +26,7 @@ class TrackerProcess extends EventEmitter {
     this.getRuntimeChannel = typeof getRuntimeChannel === 'function' ? getRuntimeChannel : () => 'stable';
     this.getAptMissionExecutionEnabled = typeof getAptMissionExecutionEnabled === 'function'
       ? getAptMissionExecutionEnabled
-      : () => false;
+      : () => true;
     this.child = null;
     this.status = createTrackerStatus();
     this.logs = [];
@@ -51,7 +51,7 @@ class TrackerProcess extends EventEmitter {
   executableSpec() {
     const credentials = this.getCredentials();
     const runtimeChannel = this.getRuntimeChannel() === 'alpha' ? 'alpha' : 'stable';
-    const aptMissionExecutionEnabled = runtimeChannel === 'alpha' && this.getAptMissionExecutionEnabled() === true;
+    const aptMissionExecutionEnabled = this.getAptMissionExecutionEnabled() !== false;
     const desktopControlToken = this.ensureDesktopControlToken();
     const sharedEnvironment = {
       ...process.env,
@@ -59,6 +59,7 @@ class TrackerProcess extends EventEmitter {
       VFR_MULTITOOL_TRACKER_HEADLESS: '1',
       VFR_MULTITOOL_TRACKER_CHANNEL: runtimeChannel,
       VFR_MULTITOOL_APT_EXECUTION: aptMissionExecutionEnabled ? '1' : '0',
+      VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED: aptMissionExecutionEnabled ? '0' : '1',
       VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER: '1',
       VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER: '1',
       VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: desktopControlToken

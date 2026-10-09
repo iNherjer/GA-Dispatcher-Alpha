@@ -408,22 +408,19 @@ function render(state) {
       ? 'Alpha erhält neue Tracker-Versionen zuerst. Die Stable-Runtime bleibt als Rückweg erhalten.'
       : 'Stable verwendet ausschließlich freigegebene Tracker-Versionen.';
   }
-  setChecked(elements.aptMissionExecutionCheckbox, runtimeChannel === 'alpha' && settings.aptMissionExecutionEnabled === true);
-  elements.aptMissionExecutionCheckbox.disabled = runtimeChannel !== 'alpha' || aptMissionExecutionChangePending;
-  elements.aptMissionExecutionMessage.textContent = runtimeChannel !== 'alpha'
-    ? 'Nur im Alpha-Kanal verfügbar. Stable verwendet immer die bisherige Missionssteuerung.'
-    : (settings.aptMissionExecutionEnabled === true
-      ? 'Aktiv: Der Tracker führt unterstützte Missionen (APT und POI) eigenständig aus.'
-      : 'Aus: Die bisherige Missionssteuerung der App bleibt aktiv.');
+  setChecked(elements.aptMissionExecutionCheckbox, settings.aptMissionExecutionEnabled === false);
+  elements.aptMissionExecutionCheckbox.disabled = aptMissionExecutionChangePending;
+  elements.aptMissionExecutionMessage.textContent = settings.aptMissionExecutionEnabled !== false
+    ? 'Tracker-Missionslogik aktiv (Standard). Nur zur Fehlersuche deaktivieren.'
+    : 'Warnung: Tracker-Missionslogik für Debug deaktiviert. Die App übernimmt unterstützte neue Missionsläufe. Für normalen Betrieb wieder einschalten.';
   const hardMissionResetAvailable = tracker.process === 'running'
-    && runtimeChannel === 'alpha'
     && settings.aptMissionExecutionEnabled === true;
   elements.hardMissionResetButton.disabled = !hardMissionResetAvailable || hardMissionResetPending;
   if (!hardMissionResetPending && !elements.hardMissionResetMessage.textContent) {
     elements.hardMissionResetMessage.className = 'form-message';
     elements.hardMissionResetMessage.textContent = hardMissionResetAvailable
       ? 'Nur verwenden, wenn eine Tracker-Mission festhängt. Eine Rückfrage schützt vor Versehen.'
-      : 'Verfügbar nur bei laufendem Alpha-Tracker mit aktivierter experimenteller APT-Steuerung.';
+      : 'Verfügbar bei laufendem Tracker mit aktiver Missionslogik.';
   }
   setChecked(elements.trackerAutoUpdateCheckbox, modulePolicy(settings, 'tracker') === 'automatic');
   setChecked(elements.desktopAutoUpdateCheckbox, modulePolicy(settings, 'desktop') === 'automatic');
@@ -529,9 +526,9 @@ elements.runtimeChannelSelect.addEventListener('change', async () => {
 });
 
 elements.aptMissionExecutionCheckbox.addEventListener('change', async () => {
-  const previous = latestState?.settings?.aptMissionExecutionEnabled === true;
-  const enabled = elements.aptMissionExecutionCheckbox.checked;
-  if (enabled && !window.confirm('Experimentelle Tracker-Missionssteuerung aktivieren? Ein laufender Tracker wird neu gestartet. Verwende diese Funktion vorerst nur für den Alpha-Missionstest.')) {
+  const previous = latestState?.settings?.aptMissionExecutionEnabled === false;
+  const enabled = !elements.aptMissionExecutionCheckbox.checked;
+  if (!enabled && !window.confirm('Tracker-Missionslogik nur zu Debug-Zwecken deaktivieren?\n\nDiese Option ist ausschließlich zur Fehlersuche gedacht. Der Tracker wird neu gestartet. Nicht während einer laufenden Mission umschalten. Für den normalen Betrieb die Missionslogik anschließend wieder aktivieren.')) {
     elements.aptMissionExecutionCheckbox.checked = previous;
     return;
   }

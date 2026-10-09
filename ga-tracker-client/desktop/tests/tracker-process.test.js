@@ -67,7 +67,7 @@ test('desktop credentials use stdin and are not copied into the child environmen
   assert.equal(tracker.publicState().desktopControlToken, undefined);
 });
 
-test('APT execution opt-in is forced off outside Alpha and overrides inherited process state', () => {
+test('mission execution works on Stable and explicit debug opt-out overrides inherited process state', () => {
   const inherited = process.env.VFR_MULTITOOL_APT_EXECUTION;
   process.env.VFR_MULTITOOL_APT_EXECUTION = '1';
   try {
@@ -85,7 +85,9 @@ test('APT execution opt-in is forced off outside Alpha and overrides inherited p
       getAptMissionExecutionEnabled: () => false,
       getCredentials: () => ({ pilotId: 'Alpha-Pilot', pin: '1234' })
     });
-    assert.equal(stable.executableSpec().env.VFR_MULTITOOL_APT_EXECUTION, '0');
+    assert.equal(stable.executableSpec().env.VFR_MULTITOOL_APT_EXECUTION, '1');
+    assert.equal(stable.executableSpec().env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED, '0');
+    assert.equal(alphaOff.executableSpec().env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED, '1');
     assert.equal(alphaOff.executableSpec().env.VFR_MULTITOOL_APT_EXECUTION, '0');
   } finally {
     if (inherited === undefined) delete process.env.VFR_MULTITOOL_APT_EXECUTION;

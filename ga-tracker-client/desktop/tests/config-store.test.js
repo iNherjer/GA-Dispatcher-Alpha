@@ -111,7 +111,7 @@ test('startup preferences default to automatic tracker start and visible window'
     homebaseUpdatePolicy: 'ask',
     efbUpdatePolicy: 'ask',
     bridgeUpdatePolicy: 'ask',
-    aptMissionExecutionEnabled: false,
+    aptMissionExecutionEnabled: true,
     autoStartTracker: true,
     startMinimized: false,
     autoStartBridge: false,
@@ -179,4 +179,20 @@ test('physical audio output is stored locally without changing pilot or voice cr
   assert.equal(store.readDesktop().encryptedPin, before.encryptedPin);
   store.setAudioOutputDeviceId('');
   assert.equal(store.publicSettings().audioOutputDeviceId, '');
+});
+
+
+test('stable promotion enables old opt-in defaults and persists an explicit debug opt-out', () => {
+  const store = createStore();
+  store.writeDesktop({ preferences: { runtimeChannel: 'stable', aptMissionExecutionEnabled: false } });
+  assert.equal(store.publicSettings().aptMissionExecutionEnabled, true);
+  store.setAptMissionExecutionEnabled(false);
+  assert.equal(store.readDesktop().preferences.missionExecutionDebugDisabled, true);
+  assert.equal(store.publicSettings().aptMissionExecutionEnabled, false);
+  store.setRuntimeChannel('alpha');
+  assert.equal(store.publicSettings().aptMissionExecutionEnabled, false);
+  store.setAptMissionExecutionEnabled(true);
+  assert.equal(store.publicSettings().aptMissionExecutionEnabled, true);
+  store.setRuntimeChannel('stable');
+  assert.equal(store.publicSettings().aptMissionExecutionEnabled, true);
 });

@@ -6899,3 +6899,31 @@ Alpha-Hotfix v502 veröffentlicht und öffentlicher Download hashgleich geprüft
 Neue Bush-Recon-Missionen mit bush-recon-plan.v1 zaehlen im gemeinsamen POI-Task-Core exakt die vertraglichen Beobachtungssekunden in der Zone und im Hoehenband. Die bisherigen Easy-/Naehe-Boni gelten fuer alte Missionen weiter. Tracker und Browser uebergeben denselben Bush-Vertrag. EFB-/Toolbar-Protokoll und SDK-Package unveraendert; Runtime-EXE neu gebaut.
 
 Recon-Briefing (09.10.2026, Alpha v506): additive bushReconInfo.flightBriefing-Daten, keine Protokoll- oder SDK-Paketänderung. Web-Zieleinschätzung und bestehende Restore-Pfade; gemeinsame Bush-Core-Datei im Tracker neu gebündelt.
+
+
+## Stable-Freigabe vom 09.10.2026
+
+Auf ausdrücklichen Nutzerwunsch wird der geprüfte Origin-Stand vom 09.10.2026
+(65394ba0ec0dab6be614244ed0eb4af1549d9a7e, Tracker v506) mit den gezielten
+Release-Änderungen als Stable veröffentlicht. Tracker v507 führt die bereits
+freigegebenen Rezepte in Stable und Alpha standardmäßig aus. Rezeptvalidierung,
+Paritätsbereitschaft, Capability-Handshake und atomarer Authority-Commit bleiben
+Voraussetzungen. Die frühere Alpha-/Opt-in-Beschränkung ist aufgehoben.
+
+Desktop 1.6.13 ersetzt den bisherigen Opt-in durch
+**Tracker-Missionslogik deaktivieren (nur Debug)**. Ein gesetzter Haken deaktiviert
+die Logik erst nach einer Warnung; ein dauerhaft sichtbarer Hinweis fordert die
+Rückkehr zum normalen Betrieb. Änderungen starten eine laufende Runtime neu;
+nicht während einer laufenden Mission umschalten. Es gibt keinen automatischen
+Authority-Wechsel eines begonnenen Runs.
+
+Die alte Einstellung `aptMissionExecutionEnabled=false` wird beim Upgrade nicht
+als bewusste Debug-Entscheidung übernommen. Erst die neue gespeicherte Einstellung
+`missionExecutionDebugDisabled=true` schaltet aus. Die neue Prozessvariable
+`VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED=1` ist der explizite Debug-Opt-out.
+Ein altes `VFR_MULTITOOL_APT_EXECUTION=0` aus älteren Desktop-Versionen blockiert
+den neuen Stable-Standard nicht mehr. Der IPC-Name bleibt kompatibel.
+
+Die Routen-Capability `navigation.route.v1` steht ebenfalls in Stable bereit.
+Nicht freigegebene Rezepte bleiben im bisherigen App-Pfad. Debug aus erzeugt
+keine schreibenden Tracker-Missions-Capabilities.

@@ -97,8 +97,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v506';
-const TRACKER_VERSION_CODE = 506;
+const TRACKER_VERSION = 'v507';
+const TRACKER_VERSION_CODE = 507;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -106,15 +106,16 @@ const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'a
 // Parent→Child-Umgebung weitergereicht. Er ist weder Teil eines Snapshots noch
 // einer Browser-/EFB-Session und schützt den lokalen Desktop-Recovery-Endpunkt.
 const TRACKER_DESKTOP_CONTROL_TOKEN = String(process.env.VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN || '').trim();
-const TRACKER_APT_EXECUTION_REQUESTED = TRACKER_RUNTIME_CHANNEL === 'alpha'
-  && process.env.VFR_MULTITOOL_APT_EXECUTION === '1';
+// Stable and Alpha execute supported recipes by default. Old desktops pass
+// APT_EXECUTION=0 as their former opt-in default; only the new debug flag opts out.
+const TRACKER_APT_EXECUTION_REQUESTED = process.env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED !== '1';
 const TRACKER_APT_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_REQUESTED
   && missionExecutionCore.TRACKER_AUTHORITY_READY === true;
 const TRACKER_APT_EXECUTION_BLOCK_REASON = TRACKER_APT_EXECUTION_REQUESTED && !TRACKER_APT_EXECUTION_ENABLED
   ? `parity_pending:${(missionExecutionCore.TRACKER_AUTHORITY_PENDING || []).join(',')}`
   : '';
 const TRACKER_NAVIGATION_PLAYER_READY = process.env.VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER === '1';
-// The existing desktop opt-in controls every explicitly supported recipe.
+// The desktop debug override controls every explicitly supported recipe.
 // Keep the legacy APT setting/env name compatible with installed desktops.
 const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
@@ -128,7 +129,7 @@ const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   clientId: 'ga-tracker',
   id: `tracker-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, ...(TRACKER_RUNTIME_CHANNEL === 'alpha' ? ['navigation.route.v1'] : [])]
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1']
 });
 const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   trackerVersion: TRACKER_VERSION,
@@ -137,7 +138,7 @@ const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   clientId: 'ga-tracker-local',
   id: `tracker-efb-http-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, ...(TRACKER_RUNTIME_CHANNEL === 'alpha' ? ['navigation.route.v1'] : [])]
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1']
 });
 const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;
 const PA24_FUEL_TANK_LVARS = [
@@ -5957,7 +5958,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       if (source === 'direct-stabilizer-fallback') _directHangarAckCommandIds.set(commandId, Date.now());
       debugLog(`HOMEBASE_CONTROL_DISPATCH source=${source} type=${type} commandId=${commandId} controlId=${command?.controlId || 'door'} state=${command?.state || ''}`);
     }
-    if (type === 'navigation_route_request' && TRACKER_RUNTIME_CHANNEL === 'alpha') {
+    if (type === 'navigation_route_request') {
       executeNavigationRelay(command).then(result => sendHomebaseAck({ ...result,
         type: 'navigation_route_ack', commandId: command.commandId, clientId: command.clientId,
         status: result.ok ? 'ok' : (result.status || 'error') }));

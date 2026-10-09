@@ -73,7 +73,7 @@ function currentState() {
       homebaseUpdatePolicy: 'ask',
       efbUpdatePolicy: 'ask',
       bridgeUpdatePolicy: 'ask',
-      aptMissionExecutionEnabled: false,
+      aptMissionExecutionEnabled: true,
       autoStartTracker: true,
       startMinimized: false,
       autoStartBridge: false,
@@ -228,9 +228,6 @@ async function switchRuntimeChannel(rawChannel) {
 async function setAptMissionExecutionEnabled(rawEnabled) {
   const enabled = rawEnabled === true;
   const settings = configStore.publicSettings();
-  if (enabled && settings.runtimeChannel !== 'alpha') {
-    return { ok: false, message: 'Die experimentelle Tracker-Missionssteuerung kann nur im Alpha-Kanal aktiviert werden.' };
-  }
   if (settings.aptMissionExecutionEnabled === enabled) {
     return { ok: true, unchanged: true, settings };
   }
