@@ -6927,3 +6927,27 @@ den neuen Stable-Standard nicht mehr. Der IPC-Name bleibt kompatibel.
 Die Routen-Capability `navigation.route.v1` steht ebenfalls in Stable bereit.
 Nicht freigegebene Rezepte bleiben im bisherigen App-Pfad. Debug aus erzeugt
 keine schreibenden Tracker-Missions-Capabilities.
+
+## Stable-Veröffentlichung 09.10.2026: Tracker v507 / Desktop 1.6.13
+
+Release-Basis Origin 65394ba0e (v506); gezielte Stable-Änderungen und Tags auf
+9ac1febe6915602a1eb9f776983e589423456e95. Runtime v507: 173702295 Bytes,
+SHA-256 cf4e167a2518f18215b965ddee9d07eaed76d4a9ad274a7351188a09187eba4f.
+Desktop 1.6.13: 100241700 Bytes, SHA-256
+fe218c2ba96025ca86cdfdd7b374143fb950dfa36b683c2633519a6fabbb65fa.
+GitHub-Upload und öffentliche Downloads werden vor Kanalaktivierung verifiziert.
+
+54 Desktop-, 55 Authority-Gate- und 80 Runtime-/HTTP-/Prozess-Tests bestanden;
+Interface-Regressions-, Authority-Handoff- und gepackter Missionsprozess-Smoke
+bestanden (Worker-Exit 0). Gepackte Updater-Abhängigkeiten vollständig geprüft.
+Stable und Alpha verwenden dieselbe unveränderliche v507-EXE; Stable-EFB nutzt
+das bestehende unveränderte, per Download/Hash geprüfte Alpha-Paket 0.4.23.
+Web-Cache v1992; App-Installerlink zeigt auf Desktop 1.6.13.
+
+Desktop-Autoupdater bleibt unverändert auf 1.6.2, bis der in
+github-push-workflow.md geforderte Windows-Installations-/Start-/Update-Test
+bestätigt ist. 1.6.13 ist als manueller Installer verfügbar. Ältere Desktops
+können v507 mit normaler Tracker-Missionslogik starten; für den neuen wirksamen
+Debug-Schalter muss Desktop 1.6.13 installiert sein. Kein neuer Windows-/MSFS-
+Feldtest auf diesem macOS-Rechner behauptet. Beta wird nicht verändert; die
+Stable-Promotion erfolgt auf ausdrücklichen Wunsch direkt aus Origin.
