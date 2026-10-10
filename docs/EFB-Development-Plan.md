@@ -7062,3 +7062,13 @@ Tracker v511 auf GitHub unter unveränderlichem Tag veröffentlicht. Upload und
 überein. Alpha-Kanal auf dieses Artefakt aktiviert, SW v2004. Stable-Kanaldateien
 und Stable-Remote werden nicht geändert. Simulator-/Audio-Abnahme folgt im
 Alpha-Feldtest.
+
+Origin/Alpha v512, 10.10.2026: Nutzerfreigabe für natürlichere Aufenthaltsangaben
+und selbstverständlich gebuchte Transportflüge. 79 Regressionstests bestanden.
+Frischer Windows-x64-Cross-Build (no-bytecode/public), v512 und die exakten
+Tracker-Abhängigkeiten charter-continuation/legacy-charter-narrative geprüft.
+Die Ideen-/Hauptwriter werden in der Web-App ausgeliefert. Unveränderliches
+GitHub-Release v512 veröffentlicht; Upload und öffentlicher Download stimmen
+exakt mit dem Build überein: 173609370 Bytes, SHA-256 854d5b0d5faffb6b8205d495026caf2f2ba731b87f0236653356b9d6d6c262d0.
+Alpha auf dieses Artefakt aktiviert, Web-Cache v2006. Stable bleibt v508.
+Keine neue Live-/Simulator-/Audio-Abnahme der Prompt-Präzisierung.
