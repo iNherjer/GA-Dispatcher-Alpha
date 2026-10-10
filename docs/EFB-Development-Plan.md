@@ -7056,3 +7056,9 @@ no-bytecode/public-Cross-Build erzeugt, v511 und die exakten drei aktualisierten
 Follow-up-/Erzählmodule eingebettet geprüft. 173608554 Bytes, SHA-256
 4f252e32b5b88bf56b82f7b7a738c559217c89cb44e4377bf03aa55e3ddd0941.
 Stable v508 bleibt unverändert; echte MSFS-/Audio-Abnahme bleibt offen.
+
+Tracker v511 auf GitHub unter unveränderlichem Tag veröffentlicht. Upload und
+öffentlicher Download stimmen in Größe und SHA-256 exakt mit dem geprüften Build
+überein. Alpha-Kanal auf dieses Artefakt aktiviert, SW v2004. Stable-Kanaldateien
+und Stable-Remote werden nicht geändert. Simulator-/Audio-Abnahme folgt im
+Alpha-Feldtest.
