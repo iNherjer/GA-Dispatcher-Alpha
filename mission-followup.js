@@ -12,6 +12,7 @@
     const LAST_LANDING_STORAGE_KEY = 'ga_followup_last_landing_ref_v1';
     const SCHEMA = 'ga.followup.request.v1';
     const narrativeCore = typeof module === 'object' && module.exports ? require('./mission-poi-followup-narrative-core.js') : window.MissionPoiFollowupNarrativeCore;
+    const bushNarrativeCore = typeof module === 'object' && module.exports ? require('./mission-bush-narrative-core.js') : window.MissionBushNarrativeCore;
     const EXPIRE_DAYS = 14;
     const TOMBSTONE_DAYS = 14;
     const MAX_PENDING = 20;
@@ -1429,6 +1430,15 @@
     }
 
     function buildPipelineContext(req, context = {}) {
+        const bushContinuation = bushNarrativeCore?.followupContext(req);
+        // Domain routes/tasks stay in the original builder; narrative ideas are additive.
+        const idea = bushContinuation?.betweenFlights?.summary;
+        const seed = idea ? {...req, narrativeMemory:{...req.narrativeMemory,stayOrWorkSummary:idea}} : req;
+        const base = buildLegacyPipelineContext(seed, context);
+        return base && bushContinuation ? {...base,bushContinuation} : base;
+    }
+
+    function buildLegacyPipelineContext(req, context = {}) {
         if(window.MissionCharterContinuationCore?.context(req))return {
             schema:'ga.followup.pipelineContext.v1',requestId:req.id,followUpKind:req.followUpKind,
             charterContinuation:req.charterContinuation,lockedPassenger:req.passenger,
@@ -2285,6 +2295,7 @@
             narrativeMemory: {
                 ...memory,
                 ...(followUpNarrative ? {followUpNarrative} : {}),
+                ...(String(cfg.followUpKind||'').startsWith('bush_') ? {bushFollowUpNarrative:bushNarrativeCore?.followupComplete(md, options.completionRecord, cfg.followUpKind)||null} : {}),
                 serviceRun: serviceRun || memory.serviceRun || null,
                 technicianPlan: technicianPlan || memory.technicianPlan || null,
                 reconOutcome: reconOutcome || memory.reconOutcome || null,
@@ -3176,7 +3187,7 @@
     window.missionFollowupAcceptRequest = acceptRequest;
     window.missionFollowupDismissRequest = dismissRequest;
 
-    if (environment.headless) return { create: maybeCreateFromCompletedMission, merge: applyFromSync, requests: getForSync, saveCharterExperience, buildAcceptance, buildDispatchMission };
+    if (environment.headless) return { create: maybeCreateFromCompletedMission, merge: applyFromSync, requests: getForSync, saveCharterExperience, buildAcceptance, buildDispatchMission, buildPipelineContext };
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init, { once: true });
     } else {

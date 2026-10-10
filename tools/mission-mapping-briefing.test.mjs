@@ -72,7 +72,7 @@ test('real finalizer, compact cloud and resume adapter retain narrative, pattern
  const restored=copy(env._syncCompactMissionObjectCore(env.compactMissionObjectForQuotaStorage(m)));
  for(const k of ['mappingBriefing','surveyPattern','followUpNarrative','followUpContinuation'])assert.deepEqual(restored[k],copy(m[k]));
  assert.equal(adapters.createDescriptor({missionId:'m',runtime:{missionId:'m'}},{currentMissionData:{...restored,missionId:'m'}}).primaryAdapter,'survey_pattern');
- assert.match(app,/followupIsPoiTarget \? window.MissionPoiFollowupNarrativeCore\?\.continuationFields\(followupSeed\)/);
+ assert.match(app,/\(followupIsPoiTarget \|\| isBushDispatch\) \? window.MissionPoiFollowupNarrativeCore\?\.continuationFields\(followupSeed\)/);
 });
 test('history remembers actual assignment cores; prompts have no scenario examples or catalogue anchors',()=>{
  const s=storage(),m=fixture();for(let i=0;i<20;i++)core.remember(s,'m'+i,m.mappingBriefing);core.remember(s,'m19',m.mappingBriefing);const recent=core.history(s);assert.equal(recent.length,12);assert.ok(JSON.stringify(recent).length<=16000);

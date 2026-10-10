@@ -8946,7 +8946,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
-        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'bushFollowUpNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
         'targetScene', 'sceneIntent', 'missionTruth', 'targetGeoContext',
@@ -8956,6 +8956,10 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'surveyPattern', 'poiChain', 'poiChainProgress',
         'cargoManifest', 'cargoOutcome', 'fireScenario'
     ];
+    // Keep the existing Bush chain identity together with its new writer memory.
+    if (window.GAMissionBushExecutionCore?.PROFILES?.[value.bush?.profileId || value.missionContract?.bush?.profileId]) {
+        keep.push('followUpRequestId', 'followUpProspect', 'missionTemporalContext', 'followUpContext', 'followUpContinuation');
+    }
     // POI follow-up identity and outcome must survive compact saves on every device.
     if (value.missionType === 'poi' || value.isPOI || value.poiPresentation || ['mapping_survey','inspection_infra','infra_chain_recon','media_photo'].includes(value.taskDomain || value.passenger?.taskDomain)) {
         keep.push('isPOI', 'poiPresentation', 'poiCategory', 'requestedCategory', '_appliedProfile', '_requestedProfile',
@@ -27633,6 +27637,7 @@ function buildMissionPlannerV2Draft({
             storyFrame: followUpContext.storyFrame || null,
             pickupStory: followUpContext.pickupStory || null,
             serviceRun: followUpContext.serviceRun || null,
+            bushContinuation: followUpContext.bushContinuation || null,
             missionVarietyBrief: followUpContext.missionVarietyBrief || null
         } : null,
         bush: bushSpec ? {
@@ -40123,7 +40128,7 @@ async function fetchMissionWriterV4(context = {}) {
     if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV4Prompt(contract) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || ''),
+        buildMissionWriterV4Prompt(contract) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || ''),
         apiKey,
         { promptVersion: 'mission-writer-v4', timeoutMs: context.missionType === 'bush' ? 45000 : 16000 }
     );
@@ -40132,6 +40137,7 @@ async function fetchMissionWriterV4(context = {}) {
         ...context,
         source: `${result.source || 'Gemini'} + V4 Writer`
     });
+    window.MissionBushNarrativeCore?.attachFollowup(mission, result.parsed, context);
     return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
 }
 window.fetchMissionWriterV4 = fetchMissionWriterV4;
@@ -40153,7 +40159,7 @@ async function fetchMissionWriterV5(context = {}) {
     const reconContractPrompt = contract.bushReconPlan ? '\nBINDENDER RECON-SPIELPLAN: '+JSON.stringify(contract.bushReconPlan)+' Beschreibe genau diese Beobachtungsdauer und diesen Ablauf; bei längerem Aufenthalt keinen einmaligen Überflug als ausreichend bezeichnen. Der heutige saisonale Anlass folgt dem gelieferten Datum. Diese Zahlen sind vertraglich, passenger.targetRadiusNm und targetDwellMin müssen ihnen entsprechen (Sekunden/60). Keine neue niedrigere Flugzielhöhe erfinden.' : '';
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV5Prompt(contract, context) + reconContractPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
+        buildMissionWriterV5Prompt(contract, context) + reconContractPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
         apiKey,
         { promptVersion: 'mission-writer-v5', timeoutMs: context.missionType === 'bush' ? 45000 : (selectedProvider === 'openai' ? 26000 : 16000) }
     );
@@ -40183,6 +40189,7 @@ async function fetchMissionWriterV5(context = {}) {
         if (mission.passenger) {mission.passenger.targetRadiusNm=contract.bushReconPlan.radiusNm;mission.passenger.targetDwellMin=contract.bushReconPlan.observationSeconds/60;}
     }
     window.MissionBushNarrativeCore?.attachRecon(mission, result.parsed, reconContext, window.MissionPoiBriefingSharedCore);
+    window.MissionBushNarrativeCore?.attachFollowup(mission, result.parsed, context);
     return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
 }
 window.fetchMissionWriterV5 = fetchMissionWriterV5;
@@ -44727,6 +44734,7 @@ async function generateMission(options = {}) {
                 );
                 const writerContext = {
                     bushReconContext,
+                    followUpContext: plannerFollowUpContext,
                     missionContractV4,
                     missionPlanV2,
                     missionType: requestedMissionType,
@@ -45856,6 +45864,7 @@ async function generateMission(options = {}) {
         try {
             const result = await dispatchMeasure('bush_narrative', () => window.MissionBushNarrativeBrowser.generate({
                 bush: bushSpec, passenger: m?.passenger, story: m?.s || m?.story || '',
+                followUpContext: plannerFollowUpContext,
                 start: { lat: Number(start.lat), lon: Number(start.lon) },
                 target: { lat: Number(dest.lat), lon: Number(dest.lon) },
                 country: dest.country || dest.isoCountry || dest.countryCode || '', region: dest.region || dest.isoRegion || '',
@@ -45909,7 +45918,7 @@ async function generateMission(options = {}) {
             sourceKind: followupSeed.sourceKind || null,
             followUpKind: followupSeed.followUpKind || null,
             effectiveProfileId: followupDispatchProfileId || null,
-            ...(followupIsPoiTarget ? window.MissionPoiFollowupNarrativeCore?.continuationFields(followupSeed) : {}),
+            ...((followupIsPoiTarget || isBushDispatch) ? window.MissionPoiFollowupNarrativeCore?.continuationFields(followupSeed) : {}),
             pilotStartPolicy: followupAcceptance?.mode || followupSeed.pilotStartPolicy || 'original_home',
             acceptanceMode: followupAcceptance?.mode || null,
             acceptance: followupAcceptance || null,
@@ -45982,6 +45991,7 @@ async function generateMission(options = {}) {
         sarHeliProgress: (sarHeliSpec || m?.sarHeli) ? missionSarHeliInitialProgress() : null,
         bush: bushSpec,
         bushNarrative, bushNarrativeDebug,
+        bushFollowUpNarrative: m?.bushFollowUpNarrative || null,
         bushProgress: bushSpec ? buildInitialBushMissionProgress(bushSpec) : null,
         isPOI,
         poiPresentation: missionActsLikePoi,

@@ -7015,3 +7015,18 @@ PAX-Kontinuitätsregeln und Folgeangebots-UI-Korrekturen werden auf Origin/Alpha
 mit Tracker v509 veröffentlicht. Stable bleibt auf v508 unverändert.
 101 relevante Node-Tests bestanden; die vierteilige Live-Kette wurde mit
 simulierten Abschlüssen geprüft. Keine neue MSFS-/Mehrgeräte-Abnahme behauptet.
+
+
+## Bush-Erzählübergabe 10.10.2026 (lokal)
+Neue optionale Writer-Erinnerung reist mit dem bestehenden Missionspaket und
+den bestätigten Tracker-Folgeangeboten. Keine Runtime-, EFB-Protokoll- oder
+Authority-Änderung. Vor Veröffentlichung Tracker wegen eingebundener Core-
+Module neu bauen. Details: Bush Narrative Voices.md.
+
+## Bush-Folgen Alpha v510, 10.10.2026
+
+Die Bush-Übergaben werden auf Nutzerwunsch auf Origin/Alpha veröffentlicht.
+264 relevante Tests und der gepackte Missionsprozess bestanden; finale Live-
+Technikerkette vollständig und terminal. Tracker v510 bündelt die neuen Core-
+Dateien, Web-Cache v2001. Keine EFB-Protokoll- oder Worker-Deploy-Änderung.
+Stable bleibt v508. Details: Tracker-v510-Release.md.

@@ -15298,7 +15298,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
-        'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress', 'bushNarrative', 'bushNarrativeDebug', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress', 'bushNarrative', 'bushNarrativeDebug', 'bushFollowUpNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
         'missionPlanV2', 'missionPlanV4', 'missionContractV4', 'missionVariety',
@@ -15307,7 +15307,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
     // Bush handoff must retain the already chosen stay window and story seed.
     // Recomputing these after compact restore would change the follow-up.
     if (window.GAMissionBushExecutionCore?.PROFILES?.[value.bush?.profileId || value.missionContract?.bush?.profileId || fallback.bush?.profileId]) {
-        keep.push('followUpProspect', 'missionTemporalContext', 'followUpContext', 'followUpContinuation');
+        keep.push('followUpRequestId', 'followUpProspect', 'missionTemporalContext', 'followUpContext', 'followUpContinuation');
     }
     // POI follow-up identity and outcome must survive compact saves on every device.
     if (value.missionType === 'poi' || value.isPOI || value.poiPresentation || ['mapping_survey','inspection_infra','infra_chain_recon','media_photo'].includes(value.taskDomain || value.passenger?.taskDomain)) {

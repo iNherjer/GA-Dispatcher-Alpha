@@ -562,3 +562,59 @@ Der Nutzer akzeptiert gelegentliche saisonale Ausreißer und hat den Rollout fre
 ### Recon-Zieleinschätzung, Web v1990 / Tracker v506
 
 Recon erhält reconFlightBriefing im bestehenden Writer-Aufruf, gespeichert vollständig in bushReconInfo.flightBriefing. Der Briefing-Block zeigt Zielgebiet und Beobachtungsbedingungen; die Zielseite behält ihren separaten Objekttext. Bestehende Recon-Missionen ohne neues Feld zeigen den vorhandenen Zieltext. Allgemeine passende Handbuchhinweise werden aus vorhandenen Airport-/Handbuchdaten geliefert, keine Landung oder neuen Manöver verlangt. Fehler in Zusatzrecherche lassen einen Basiskontext und separaten Airport-Abruf bestehen; bei fehlender Writer-Prosa wird eine faktenbasierte Überflug-Einschätzung gespeichert.
+
+
+## Dynamische Bush-Folgen, 10.10.2026 (lokal, unveröffentlicht)
+
+Die vorhandenen V4-/V5-Bush-Writer liefern optional `bushContinuationMemory`
+im selben Antwortobjekt: Zusammenfassung (700 Zeichen), bis zu sechs Beteiligte,
+vier offene Fragen (220 Zeichen) und vier profilgebundene Zwischenideen
+(600 Zeichen). Maximal 6000 Zeichen serialisierte Erinnerung. Keine zusätzliche
+KI-Abfrage. Die Mission trägt diese als `bushFollowUpNarrative` mit Schema
+`ga.bush.followup-memory.v1`; kompakte Missionsspeicherung behält sie.
+
+Bestätigter Abschluss ergänzt Identität/Abschluss und übernimmt ausschließlich
+die Idee für den tatsächlich freigegebenen Folgeauftrag. Die vorhandene App-/
+Tracker-Folgeplanung bleibt allein zuständig für Befund, Fracht, Person, Wartezeit
+und Kettenlänge. Der Pipelineadapter liefert `bushContinuation` an Planner und
+Writer; vorliegende dynamische Entwicklung ersetzt den festen Legacy-Aufenthalt
+als Ausgangsmaterial. Fehlende oder ungültige optionale Erinnerung blockiert
+den vorhandenen Folgepfad nicht; neue Writer entwickeln den Aufenthalt aus dem
+ursprünglichen Anliegen und bekannten Befund.
+
+Ton bleibt persönlich, draußen, abenteuerlich und bei Bedarf humorvoll; keine
+Pflichtpanne und keine Übernahme des formellen Infrastruktur-Inspektionsstils.
+Abholgäste bleiben dieselbe Person, Techniker kennen bisherige Beteiligte aus
+der Übergabe, eigene frühere Flugteilnahme wird nicht erfunden. Die bestehenden
+Bush-Kapitel erhalten ebenfalls den aktuellen Übergabekontext. Leerer Hinflug
+und reine Frachtflüge bekommen keine erfundene Bordperson.
+
+Abdeckung: Charter-/Adventure-Abholung, Versorgung/Rückfracht, Recon/Service,
+Recon/Techniker-Dropoff/Abholung. Techniker-Kette bleibt bei zwei Folgen; kein
+zusätzlicher Rückfrachtauftrag nach einem Recon-Serviceflug. Noch kein Live-KI-
+Qualitätsnachweis für die neue Bush-Übergabe und keine Simulatorabnahme.
+
+## Bush-Folgen: Nachschärfung aus Live-Test (10.10.2026, lokal)
+
+Die vorhandenen Planner-/Writer-Prompts erhalten einen kompakten Zeit- und
+Kontinuitätsanker. Die Bush-Datenbasis enthält jetzt den bereits gelieferten
+Umgebungszeitpunkt. Heutiger saisonaler Anlass folgt Datum und Region; frühere
+Erinnerungen dürfen davon abweichen. Bestehendes Gepäck bleibt mit Label und
+Gewicht erhalten, abweichende Rückfracht folgt ihrem eigenen Vertrag.
+
+Die Übergabe erläutert die vier möglichen Folgearten und ihre Personen-/
+Frachtrollen. Technikerabholung bleibt Personenabholung. Recon-Zwischenideen
+planen Auswertung und bedingte Arbeit; der bestätigte Befund trägt anschließend
+die konkrete Entwicklung. Ideen erzeugen keine Freigabe. Wetterregeln wurden
+nicht verschärft. Keine Änderung an Klassifikation, Parser, Manifest oder Runtime.
+
+Nachprüfung: 61 gezielte Regressionstests und der Browser-Integrationstest
+bestanden; ein historischer Fixture-Test ausgenommen. Live nachgeprüft wurden
+Charter/Abholung, Supply/Rückfracht und Recon/Techniker/Abholung. Die letzte
+Recon-Probe ist saisonal passend, hält Fachpersonen und 62 lbs stabil und nutzt
+die richtige Personenabholidee. Terminale Übergaben enthalten keine neue Idee.
+Fiktive Schäden dürfen nach Nutzerentscheidung den Story-Anlass konkretisieren;
+dies verändert keine technischen Aufgaben oder Freigaben. Geplante
+Rückfrachtideen können noch vom später verbindlichen Vertrag abweichen. Der
+konkrete Folgeflug wahrt dessen Ladung. Keine semantische Garantie. Prüfarbelege:
+`analysis/bush-followup-live-20261010/refinement.md`.
