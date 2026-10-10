@@ -997,6 +997,16 @@
             urgencyPriority: 'niedrig',
             greetingText: 'Ich brauche heute saubere, wiederholbare Bahnen ueber dem Befund. Wenn Linie und Hoehe stabil bleiben, wird der Datensatz brauchbar.'
         });
+        // A recheck keeps the expert from the initial inspection. Other follow-up
+        // professions retain their own role; narrative memory does not choose tasks.
+        const priorExpert = req.followUpKind === 'infra_recheck' && req.sourceKind === 'inspection_infra'
+            ? narrativeCore?.forWriter(req.narrativeMemory?.followUpNarrative)?.memory?.participants?.[0]
+            : null;
+        if (priorExpert?.name && priorExpert?.role) {
+            passenger.name = cleanText(priorExpert.name, 120);
+            passenger.role = cleanText(priorExpert.role, 160);
+            delete passenger.gender; // The former default identity does not describe this expert.
+        }
         const cargoText = isPhoto
             ? 'Kamera-Gimbal und Ersatzakkus (30 lbs)'
             : (isRecheck ? 'Kamera-Gimbal und Prüfnotizen (28 lbs)' : 'Photogrammetrie-Kamera und Referenzmarker (36 lbs)');

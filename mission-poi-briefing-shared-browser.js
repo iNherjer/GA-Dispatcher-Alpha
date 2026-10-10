@@ -18,7 +18,7 @@ async function tile(layer,key) {
 }
 const environmentCache=new Map(),environmentInflight=new Map(),environmentCooldown=new Map();
 const ENVIRONMENT_CACHE_KEY='ga_poi_environment_v1';
-async function environment(target) {
+async function environment(target,{cachedOnly=false}={}) {
  const key=target.lat.toFixed(6)+','+target.lon.toFixed(6),now=Date.now();
  if(!environmentCache.size)try {
   const stored=JSON.parse(localStorage.getItem(ENVIRONMENT_CACHE_KEY)||'[]');
@@ -26,6 +26,7 @@ async function environment(target) {
  }catch{}
  const cached=environmentCache.get(key);
  if(cached&&cached.expires>now)return cached.facts;
+ if(cachedOnly)return [];
  if(environmentInflight.has(key))return environmentInflight.get(key);
  const request=(async()=>{
   let facts=[],ok=false;
@@ -104,5 +105,11 @@ async function enrichSelected(c,ensureAlive) {
  const surroundings=await environment(c.target);ensureAlive?.();
  return {...c,environmentFacts:surroundings,targetFacts:[...(c.targetFacts||[]).filter(f=>f.scope!=='target-environment'),...surroundings]};
 }
-root.MissionPoiBriefingSharedBrowser={context,enrichSelected};
+// Read-only access for idea frames: no provider request, cooldown or cache write.
+async function cachedEnvironment(c) {
+ const surroundings=await environment(c.target,{cachedOnly:true});
+ if(!surroundings.length)return c;
+ return {...c,environmentFacts:surroundings,targetFacts:[...(c.targetFacts||[]).filter(f=>f.scope!=='target-environment'),...surroundings]};
+}
+root.MissionPoiBriefingSharedBrowser={context,enrichSelected,cachedEnvironment};
 })(window);

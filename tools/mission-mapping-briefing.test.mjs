@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import core from '../mission-mapping-briefing-core.js';
+import infra from '../mission-infra-briefing-core.js';
+import photo from '../mission-poi-briefing-core.js';
 import narrative from '../mission-poi-followup-narrative-core.js';
 import shared from '../mission-poi-briefing-shared-core.js';
 import charter from '../mission-charter-ideas-core.js';
@@ -28,7 +30,7 @@ function pattern(category='dam'){
 }
 function fixture(){const i=core.validateIdea(idea,c),w=core.validateWriter(raw,i,c);return core.mission(i,w,c,{},pattern());}
 function browserEnv(){
- const calls=[],env=originalHelpers({window:{MissionMappingBriefingCore:core,MissionPoiFollowupNarrativeCore:narrative,MissionPoiBriefingSharedCore:shared,MissionCharterIdeasCore:charter,MissionPoiBriefingSharedBrowser:{context:async()=>copy(c),enrichSelected:async x=>x}},localStorage:storage(),getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:1}),getSelectedAiApiKey:()=>'',normalizeMissionProposalChoice:x=>x,missionProposalCompactTarget:x=>x,missionProposalFormatRoute:()=>({label:'20 NM'}),fetchGeminiJsonWithFallback:async p=>{calls.push(p);return {parsed:p.includes('RAHMEN=')?{ideas:[idea]}:raw};}});
+ const calls=[],env=originalHelpers({window:{MissionPoiBriefingCore:photo,MissionInfraBriefingCore:infra,MissionMappingBriefingCore:core,MissionPoiFollowupNarrativeCore:narrative,MissionPoiBriefingSharedCore:shared,MissionCharterIdeasCore:charter,MissionPoiBriefingSharedBrowser:{context:async()=>copy(c),enrichSelected:async x=>x}},localStorage:storage(),getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:1}),getSelectedAiApiKey:()=>'',normalizeMissionProposalChoice:x=>x,missionProposalCompactTarget:x=>x,missionProposalFormatRoute:()=>({label:'20 NM'}),fetchGeminiJsonWithFallback:async p=>{calls.push(p);return {parsed:p.includes('RAHMEN=')?{ideas:[idea]}:raw};}});
  vm.runInContext(fs.readFileSync('mission-mapping-briefing-browser.js','utf8'),env);return {env,calls,api:env.window.MissionMappingBriefingBrowser};
 }
 test('original geometry selects dam scan and bridge orbit; writer receives that exact pattern',()=>{
@@ -83,14 +85,14 @@ test('optional scenes stay optional; writer cannot invent a scene after scene-fr
 });
 test('confirmed headless chain preserves narrative, known finding and target across mapping and photo',()=>{
  const now=Date.now(),control={phase:'closed',flags:{closed:true,groundStill:true},cargo:{summary:{failed:false}},flight:{missionRecord:{createdAt:now,distanceNm:20,distanceSource:'gps',durationSec:600,telemetrySampleCount:100},destination:{atDestination:true}}};
- const md={missionId:'initial',missionType:'poi',isPOI:true,mission:'Initiale Inspektion',story:'Inspektion für den Planungsverband',start:'EDTW',dest:'POI',initialStartLat:48.27,initialStartLon:8.42,initialTargetName:c.target.name,initialTargetLat:48,initialTargetLon:8,poiName:c.target.name,poiCategory:'dam',_appliedProfile:'inspection_infra',passenger:{name:'Kim',role:'Prüferin',taskDomain:'inspection_infra'},infraInspectionOutcome:{outcome:'minor_damage',createdAt:now-10000},followUpNarrative:narrative.draft(memory)};
+ const md={missionId:'initial',missionType:'poi',isPOI:true,mission:'Initiale Inspektion',story:'Inspektion für den Planungsverband',start:'EDTW',dest:'POI',initialStartLat:48.27,initialStartLon:8.42,initialTargetName:c.target.name,initialTargetLat:48,initialTargetLon:8,poiName:c.target.name,poiCategory:'dam',_appliedProfile:'inspection_infra',passenger:{name:'Kim',role:'Prüferin',taskDomain:'inspection_infra'},infraInspectionOutcome:{outcome:'minor_damage',createdAt:now-10000},followUpNarrative:narrative.draft({...memory,betweenFlightsIdeas:[{followUpKind:'infra_damage_mapping',summary:'Das Team wertet den Befund aus und plant gezielte Aufnahmen.'}]})};
  const closed=m=>followup.createForCompletedRun({missionId:m.missionId,executionAuthority:'tracker',resumeBundle:{missionState:{currentMissionData:copy(m)}}},control,now);
- const first=closed(md).requests[0];assert.equal(first.followUpProfileId,'mapping_survey');assert.equal(first.narrativeMemory.followUpNarrative.completion.result,'completed');
- const mapping={...fixture(),missionId:'mapping',start:'EDTW',dest:'POI',poiName:c.target.name,poiCategory:'dam',followUpContinuation:{...narrative.continuationFields(first),requestId:first.id,sourceKind:first.sourceKind,followUpKind:first.followUpKind,targetRef:first.route.targetRef,returnHomeRef:first.route.homeRef}};
- const second=closed(mapping).requests[0];assert.equal(second.followUpKind,'infra_repair_photo');assert.equal(second.chain.depth,2);assert.equal(second.chain.id,first.chain.id);assert.equal(second.narrativeMemory.followUpNarrative.memory.client.name,idea.client.name);assert.equal(second.narrativeMemory.followUpNarrative.identity.sourceMissionId,'mapping');assert.equal(second.route.targetRef.lat,48);assert.equal(second.infraInspectionOutcome.outcome,'minor_damage');
+ const first=closed(md).requests[0];assert.equal(first.followUpProfileId,'mapping_survey');assert.equal(narrative.context(first).betweenFlights.summary,'Das Team wertet den Befund aus und plant gezielte Aufnahmen.');assert.equal(first.narrativeMemory.followUpNarrative.completion.result,'completed');
+ const mapping={...fixture(),followUpNarrative:narrative.draft({...memory,betweenFlightsIdeas:[{followUpKind:'infra_repair_photo',summary:'Nach der Bildauswertung beginnt das Bodenteam mit einer gezielten Sicherung.'}]}),missionId:'mapping',start:'EDTW',dest:'POI',poiName:c.target.name,poiCategory:'dam',followUpContinuation:{...narrative.continuationFields(first),requestId:first.id,sourceKind:first.sourceKind,followUpKind:first.followUpKind,targetRef:first.route.targetRef,returnHomeRef:first.route.homeRef}};
+ const second=closed(mapping).requests[0];assert.equal(second.followUpKind,'infra_repair_photo');assert.equal(narrative.context(second).betweenFlights.summary,'Nach der Bildauswertung beginnt das Bodenteam mit einer gezielten Sicherung.');assert.equal(second.chain.depth,2);assert.equal(second.chain.id,first.chain.id);assert.equal(second.narrativeMemory.followUpNarrative.memory.client.name,idea.client.name);assert.equal(second.narrativeMemory.followUpNarrative.identity.sourceMissionId,'mapping');assert.equal(second.route.targetRef.lat,48);assert.equal(second.infraInspectionOutcome.outcome,'minor_damage');
  const base=followup.service([],now).buildDispatchMission(second).mission;
- const photo={...base,missionId:'photo',followUpNarrative:narrative.draft({...memory,summary:'Dokumentation der Arbeiten als nächster Auftrag.'})};
- const third=closed(photo).requests[0];assert.equal(third.followUpKind,'infra_final_review');assert.equal(third.chain.depth,3);assert.equal(third.narrativeMemory.followUpNarrative.memory.summary,'Dokumentation der Arbeiten als nächster Auftrag.');
+ const photo={...base,missionId:'photo',followUpNarrative:narrative.draft({...memory,summary:'Dokumentation der Arbeiten als nächster Auftrag.',betweenFlightsIdeas:[{followUpKind:'infra_final_review',summary:'Der Betreiber meldet nach den dokumentierten Arbeiten deren Abschluss und bittet um Nachprüfung.'}]})};
+ const third=closed(photo).requests[0];assert.equal(third.followUpKind,'infra_final_review');assert.equal(narrative.context(third).betweenFlights.summary,'Der Betreiber meldet nach den dokumentierten Arbeiten deren Abschluss und bittet um Nachprüfung.');assert.equal(third.chain.depth,3);assert.equal(third.narrativeMemory.followUpNarrative.memory.summary,'Dokumentation der Arbeiten als nächster Auftrag.');
  const failed={...control,cargo:{summary:{failed:true}}};assert.equal(followup.createForCompletedRun({missionId:mapping.missionId,executionAuthority:'tracker',resumeBundle:{missionState:{currentMissionData:mapping}}},failed,now).requests.length,0);
  assert.equal(closed({...fixture(),missionId:'standalone'}).requests.length,0,'writer memory cannot create an unauthorized standalone followup');
 });
@@ -116,3 +118,48 @@ test('new scripts are offline assets in dependency order',()=>{
  const cyclic={schema:narrative.SCHEMA};cyclic.self=cyclic;assert.equal(narrative.normalize(cyclic),null);
  assert.equal(narrative.complete({missionId:'current'},{},{result:'completed',missionId:'other'}),null);
  });
+
+
+test('continuation prompt specifies the strict scene format; object entries remain rejected',async()=>{
+ const {api,calls}=browserEnv(),req={id:'recheck',poiFollowUp:true,sourceKind:'inspection_infra',followUpKind:'infra_recheck',followUpProfileId:'inspection_infra',route:{targetRef:{kind:'poi',name:c.target.name,lat:48,lon:8}},narrativeMemory:{followUpNarrative:narrative.draft(memory)}};
+ const base={passenger:{...idea.person,taskDomain:'inspection_infra',greetingText:'Ich bin die Fachperson und erzähle selbst.'},cargo:'Kamera',followUpContext:{storyFrame:{focusSubject:'Nachprüfung'}}};
+ await api.continuation({req,base,dest:{...c.target,poiCategory:'dam'}});
+ assert.match(calls[0],/visibleIdeas als Array aus höchstens zehn Zeichenketten/);
+ assert.match(calls[0],/kein JSON-Objekt/);
+ assert.match(calls[0],/Das ursprüngliche Ziel aus BASE bleibt/);
+ assert.ok(calls[0].includes(infra.writerRules()));
+ assert.match(calls[0],/Etwa 90–130 Wörter/);
+ assert.match(calls[0],/story beschreibt die mitfliegende Fachperson/);
+ assert.match(calls[0],/eindeutig markiertes, ihr zugeordnetes Zitat/);
+ const baseLine=calls[0].split("\n").find(line=>line.startsWith("BASE="));
+ assert.equal(JSON.parse(baseLine.slice(5)).person.greetingText,undefined);
+ assert.match(calls[0],/separaten Lagebericht/);
+ assert.throws(()=>core.sceneIntent({summary:'Nachprüfung',visibleIdeas:[{object:'Leitkegel'}],densityHint:'sparse',notes:''}),/Szenenabsicht/);
+ assert.deepEqual(core.sceneIntent({summary:'Nachprüfung',visibleIdeas:['Leitkegel'],densityHint:'sparse',notes:''}).visibleIdeas,['Leitkegel']);
+});
+
+
+test('all infrastructure continuation steps reuse narrative rules while preserving their own task',async()=>{
+ assert.ok(core.writerRules().includes(narrative.writerRules()));assert.ok(infra.writerRules().includes(narrative.writerRules()));assert.ok(photo.writerRules().includes(narrative.writerRules()));
+ assert.ok(core.writerPrompt(c,core.validateIdea(idea,c),[],shared.prepareFlight({}),pattern()).includes(core.writerRules()));
+ for(const [kind,domain,rules] of [['infra_repair_photo','media_photo',photo.writerRules()],['infra_final_review','inspection_infra',infra.writerRules()]]){
+  const {api,calls}=browserEnv(),req={id:kind,poiFollowUp:true,sourceKind:'inspection_infra',followUpKind:kind,followUpProfileId:domain,route:{targetRef:{kind:'poi',name:c.target.name,lat:48,lon:8}},narrativeMemory:{followUpNarrative:narrative.draft(memory)},infraInspectionOutcome:{outcome:'minor_damage'}};
+  const base={passenger:{...idea.person,taskDomain:domain},cargo:'Bestehende Ausrüstung',followUpContext:{storyFrame:{focusSubject:kind}}};
+  const m=await api.continuation({req,base,dest:{...c.target,poiCategory:'dam'}});
+  assert.ok(calls[0].includes(rules));assert.equal(m.passenger.taskDomain,domain);assert.equal(m.cargo,base.cargo);assert.ok(calls[0].includes(kind));
+  if(domain==='media_photo'){assert.match(calls[0],/An Bord erfolgt keine Bewertung/);assert.ok(!calls[0].includes('qualitative_aerial_visual_assessment'));}
+  else assert.ok(calls[0].includes('qualitative_aerial_visual_assessment'));
+ }
+});
+
+test('writer transition ideas survive completion and JSON transport and select only the authorized kind',()=>{
+ const m={...memory,betweenFlightsIdeas:[{followUpKind:'infra_recheck',summary:'Nach gemeinsamer Bildauswertung beauftragt das Team eine gezielte Nachkontrolle.'},{followUpKind:'infra_damage_mapping',summary:'Die Fachgruppe grenzt anhand des Befunds den Aufnahmebedarf ein.'}]};
+ const handoff=narrative.complete({missionId:'dynamic',followUpNarrative:narrative.draft(m)},{followUpKind:'infra_recheck'},{missionId:'dynamic',result:'completed'});
+ const req=JSON.parse(JSON.stringify({poiFollowUp:true,followUpKind:'infra_recheck',narrativeMemory:{followUpNarrative:handoff}}));
+ assert.equal(narrative.context(req).betweenFlights.summary,m.betweenFlightsIdeas[0].summary);
+ assert.equal(narrative.context(req).betweenFlights.origin,'writer_story_plan');
+ assert.equal(narrative.context({...req,followUpKind:'infra_final_review'}).betweenFlights,null);
+ assert.equal(narrative.memory({...m,betweenFlightsIdeas:[{followUpKind:'new_task',summary:'Invented'}]}),null);
+ assert.equal(narrative.memory({...m,betweenFlightsIdeas:[{followUpKind:'infra_recheck',summary:'x'.repeat(601)}]}),null);
+ assert.equal(narrative.complete({missionId:'dynamic',followUpNarrative:narrative.draft(m)},{followUpKind:'infra_recheck'},{result:'failed'}),null);
+});

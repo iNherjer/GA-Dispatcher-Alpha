@@ -103,3 +103,13 @@ Der Extraktionstest vergleicht vollständige Foto-Briefings, Reports und Writer-
 - [Umbauhistorie und Freigaben](POI%20Narrative%20APT%20Alignment.md)
 - [Reale Umgebungsbelege](examples/POI%20Environment%20Evidence.md)
 - [Beispielausgabe](examples/POI%20Situation%20Preview.md)
+
+
+## Optionaler Cache-Lesezugriff für Infrastruktur-Ideen, 09.10.2026 (lokal)
+
+`cachedEnvironment(context)` ergänzt ausschließlich bereits gültige, exakt
+zielgebundene Flächenbelege des bestehenden Umgebungscaches. Kein Abruf und
+kein Cache-Schreiben. Bei fehlendem Cache-Treffer wird der unveränderte Kontext
+zurückgegeben; fehlende Belege bedeuten keine freie Fläche oder Hanglage.
+Zunächst verwendet nur der Infrastruktur-Ideenrahmen diesen Zugriff.
+`enrichSelected` und die Provider-/Geometrie-/Fristenregeln bleiben unverändert.

@@ -73,3 +73,168 @@ Flug-Voice: [Erzählkontinuität nach APT-Muster](POI%20Flight%20Narrative%20Con
 ## History-Verfeinerung v1.9 (unveröffentlicht)
 
 APT-Vergleich übernommen: Intern verschiedene Auftragskerne entwickeln, gegenüber früheren Anlässen, Prüfungsfragen und Folgeentscheidungen einen eigenständigen auswählen. Andere Firmen oder Schadenswörter allein genügen nicht. Writer-Memory fasst den fachlichen Kern zusammen. Vorhandene History-Daten und beruflicher Missionsvertrag bleiben erhalten. [Gemeinsame Dokumentation](POI%20Photo%20Migration%20Template.md#history-abgleich-mit-apt-29092026).
+
+
+## Hauptinspektion → Nachkontrolle: strukturierte Übergabe, 09.10.2026
+
+Lokaler Arbeitsstand auf dem veröffentlichten v508-/Origin-Stand, nicht ausgerollt.
+Prompt v1.10 fordert zusätzlich zur bisherigen History-Notiz `memory` ein
+`continuationMemory` im selben Writer-Antwortobjekt an. Kein weiterer KI-Aufruf.
+Der vorhandene Vertrag `ga.followup-narrative.v1` übernimmt diese Erinnerung als
+`followUpNarrative` in Mission und V4-Vertrag. Kein zweites History-System.
+
+- `summary`: kompakte angenommene Geschichte, höchstens 700 Zeichen.
+- `participants`: bekannte Namen und Rollen, höchstens sechs; die gewählte
+  Fachperson steht für diesen Strang zuerst.
+- `client`: genau der ausgewählte Auftraggeber samt Organisationsart.
+- `openQuestions`: höchstens vier offene Fragen, je 220 Zeichen.
+- `possibleContinuations`: höchstens drei Möglichkeiten, je 220 Zeichen.
+
+Die Erinnerung beschreibt den Auftrag, keinen bereits erfolgreichen Flug oder
+vorgezogenen Inspektionsbefund. Auftraggeber und Fachperson werden strukturell
+gegen die ausgewählte Idee geprüft. Fehlende, zu große oder widersprüchliche
+optionale Erinnerung verwirft keine gültige Mission; `memoryStatus` dokumentiert
+den Rückfall auf den bisherigen Kontext. Die Prüfung beweist keine inhaltliche
+Qualität der Zusammenfassung.
+
+Der bestehende bestätigte Tracker-Abschluss ergänzt Mission-/Abschluss-ID und
+Erfolg. Der bekannte Befund bleibt im bestehenden `infraInspectionOutcome`.
+Das vorhandene Folgeangebot, Cloud-Sync V2 und der POI-Fortsetzungswriter
+transportieren beide Teile; Erzählideen entscheiden weder Verfügbarkeit noch
+Folgeprofil. `infra_recheck` einer ursprünglichen `inspection_infra` übernimmt
+Name und Rolle der damaligen Fachperson aus dieser Erinnerung. Die technische
+Rolle bleibt `technical_inspector_v1`. Andere Folgeprofile behalten ihre eigenen
+Fachrollen; Legacy-Angebote ohne Erinnerung behalten ihren bisherigen Rückfall.
+
+Geprüft sind der vorhandene Hauptwriter-Aufruf, echte Speicherkompaktierung,
+bestätigter Headless-Tracker-Abschluss, Erfolgs-/Fehlertrennung und der Aufruf
+des bestehenden Nachkontroll-Writers mit bekannter Geschichte und Befund.
+Script-Ladereihenfolge enthält den Narrative-Core vor dem Inspektions-Core.
+Tests mit simulierten Writer-Antworten ersetzen keine neue Live-KI-Serie oder
+Browser-/MSFS-Abnahme. Diese Qualitätsprüfung ist vor Veröffentlichung offen.
+
+
+### Erste Live-Fortsetzungsprobe, 09.10.2026
+
+Eine Hauptinspektion am Sommerbergtunnel und deren Nachkontrolle wurden mit
+drei echten Gemini-Antworten über die bestehenden Ideen-/Writer-Bausteine
+erzeugt. Der bestätigte Abschluss mit `monitor` wurde für die Probe simuliert.
+Identität, ursprüngliche Fachperson, vollständiger Auftraggeber im Folge-Input
+und bekannter Befund bleiben erhalten. Qualitätsabnahme noch nicht bestanden:
+Hauptidee/-writer behaupten unbelegte Umgebung, die Folge erzählt teilweise
+als Fachperson und verkürzt den Auftraggebernamen im neuen Gedächtnis. Die
+bestehende Identitätsprüfung verwirft dieses optionale Gedächtnis korrekt.
+Keine Änderungen am übergreifenden Folge-Writer und keine Reparaturaufrufe.
+Texte und Bewertung: `analysis/infra-continuation-20261009/live-01.md`;
+Prompts, Rohantworten und vollständige Übergabe: entsprechende JSON-Datei.
+
+
+## Belegte Ortsgrundlage im Ideenschritt, 09.10.2026 (lokal)
+
+Prompt v1.11 erweitert ausschließlich den Infrastruktur-Rahmen um
+`geography` aus dem vorhandenen `MissionPoiBriefingSharedCore.sourceSnapshot`.
+Kartierte Umgebungs-/Landmarkenpunkte behalten Quelle, Richtung und Abstand;
+vorhandene Flächenbelege und Geländehöhen behalten ihren Geltungsbereich.
+Benachbarte Punkte beweisen keine durchgehende Fläche am Bauwerk und eine
+Höhenübersicht keine bestimmte Hanglage. Bei fehlenden Belegen wird die
+Prüfungsfrage am Bauwerk entwickelt, ohne Landschaft hinzuzuerfinden.
+
+Bei direkter Erstellung eines bereits gewählten Ziels erfolgt die bestehende
+Umgebungsanreicherung einmal vor dem Ideenaufruf. Der Writer nutzt denselben
+Kontext. Picker-Ideen erhalten bereits bekannte Kartenbelege; für die Kandidaten
+entstehen keine zusätzlichen Flächenabfragen. Nach Auswahl werden weiterhin
+die vorhandenen Shared-Daten ergänzt. Der Writer muss räumliche Annahmen der
+Idee anhand dieses genaueren Kontextes anpassen, während Anlass, Auftraggeber,
+Fachperson und Entscheidungsbedarf bestehen bleiben.
+
+Gemeinsame Geo-Verarbeitung, Klassifikation, Parser, Ergebnis- und
+Folgefreigaberegeln bleiben unverändert. Keine neuen Wortverbotslisten oder
+semantischen Reparaturaufrufe. Neue Tests prüfen Kartenrelationen, Flächenscope,
+fehlende Umgebung und Anreicherung vor der direkten Idee ohne Kandidatenabrufe.
+
+
+### Vorhandene Flächenbelege für Picker-Ideen, Prompt v1.12
+
+Die erste Gegenprobe mit v1.11 zeigte: Kartenpunkte allein verhinderten die
+unbelegte Hangannahme noch nicht. Der Infrastruktur-Kontext übernimmt deshalb
+vor seiner Rahmenbildung zusätzlich vorhandene, zielgebundene Flächenbelege
+über `MissionPoiBriefingSharedBrowser.cachedEnvironment`. Dieser additive
+Lesezugriff verwendet exakt den bestehenden Cache mit seinen Zielschlüsseln
+und Ablaufzeiten. Er verursacht weder Netzwerkzugriffe noch Cache-Schreibvorgänge.
+Fehlende oder abgelaufene Einträge bleiben unbekannt; der bisherige Abruf nach
+Auswahl bleibt zuständig. Bestehende Geo-Verarbeitung und andere Profilpfade
+ändern sich nicht. Cache-Treffer, andere Ziele, Ablauf und Null-Requests sind
+getestet. Der reguläre Ideenschritt der dritten Live-Probe erhält damit die
+bereits gespeicherten vier Flächenbelege des Sommerbergtunnel-Testkontexts.
+
+
+### Live-Gegenprobe mit Cache-Ortsbindung
+
+Drei echte KI-Aufrufe mit v1.12: Idee und Hauptwriter berücksichtigen nun die
+belegte Wiesenfläche am Ziel statt eines erfundenen Waldgürtels. Die Folgeantwort
+erreicht den bestehenden Validator, wird aber wegen eines Objektwertes in
+`sceneIntent.visibleIdeas` abgewiesen (erwartet sind Zeichenketten). Die
+übergreifende Szenenprüfung bleibt unverändert; keine Reparaturaufrufe.
+Fachliche Diagnose und Erzählperspektive bleiben weitere Qualitätsfragen.
+67 Missions-/Shared-/Tracker-Tests bestanden. Texte und Befunde:
+`analysis/infra-continuation-20261009/live-03-cached-grounding.md`.
+
+
+### Folge-Writer: Szenenformat korrigiert, 09.10.2026 (lokal)
+
+Auf Nutzerwunsch erklärt der bestehende Fortsetzungswriter jetzt ausdrücklich
+`visibleIdeas` als Array kurzer Zeichenketten, die Zeichenbudgets und die
+Zusammengehörigkeit mit `densityHint`. Der Validator bleibt unverändert streng.
+Ein neuer Regressionstest deckt den beobachteten Objektwert-Fehler ab.
+Die unveränderte Hauptmission/Übergabe wurde in genau einem neuen Live-Aufruf
+weiterverwendet. Folgebriefing und Fortsetzungsgedächtnis werden angenommen;
+Fachperson und vollständiger Auftraggeber bleiben erhalten. Räumliche
+Formulierungen der Antwort sind noch nicht durchgehend sauber (Flächenausdehnung
+und vertauschter Bezug zur Wohnbebauung); formal akzeptiert ist keine
+abschließende Qualitätsfreigabe. Artefakt:
+`analysis/infra-continuation-20261009/followup-04-format-fixed.json`.
+
+
+### Bauwerk als Erzählanker, Nutzerklarstellung 09.10.2026
+
+Haupt- und Folgebriefing erzählen den Prüfschritt unmittelbar am ursprünglichen
+Bauwerk. Beim Tunnel kann die Tunnelachse den Bezug bilden; konkrete
+Portalpositionen werden nicht aus dem Zielpunkt abgeleitet. Ergänzende
+Geo-Referenzen bleiben im vorhandenen separaten Lagebericht. Im Missionstext
+werden Umgebungsmerkmale nur bei fachlicher Notwendigkeit und vorhandener
+Ortsgrundlage genutzt, ohne daraus neue Prüfbereiche oder Flugpositionen zu
+machen. Die Ortsdaten und ihr Lagebericht bleiben erhalten; kein Textparser
+und keine nachträgliche Umschreibung. Lokaler Stand, nicht veröffentlicht.
+
+
+### Erzählerperspektive bei Folgebriefings, 09.10.2026 (lokal)
+
+Die Fachperson wird im Erzähltext mit Namen bzw. in der dritten Person
+beschrieben. Direkte Ich-Rede bleibt in `greeting` und eindeutig markierten,
+der Fachperson zugeordneten Zitaten erlaubt. `BASE.person` liefert dem
+Fortsetzungswriter jetzt nur Name, Rolle, Rollenprofil und TaskDomain; die
+generische Ich-Begrüßung des technischen Basisauftrags wird nicht mehr als
+Erzählvorlage mitgegeben. Aufgaben, Teilnehmeridentität und Ergebnisregeln
+bleiben erhalten. Ein Regressionstest prüft Perspektivvorgabe, erlaubte Zitate
+und die Trennung der gespeicherten Basisbegrüßung vom Writer-Input.
+
+
+### Gemeinsame Regeln für Haupt- und Folgeinspektion, 09.10.2026 (lokal)
+
+`MissionInfraBriefingCore.writerRules()` liefert jetzt dieselben professionellen
+Auftrags-, Erzähler-, Ortsbindungs- und Sichtprüfregeln an Hauptwriter und
+Nachkontroll-Writer. Beide zielen auf ein vollständig ausgearbeitetes Briefing
+von etwa 90–130 Wörtern; keine zusätzliche Kürzung der Fortsetzung.
+Unterschiedlich sind die Planungsgrundlagen: ausgewählte Ausgangsidee für
+die Hauptmission, bekannter Befund und verbindlicher nächster Auftrag für
+die Folge. Erzählkontext ist keine Ergebnisfreigabe. Fotos behalten ihre
+eigenen fachlichen Regeln. Gemeinsame Regelverwendung wird im Test geprüft.
+
+
+## Alpha-Freigabe 10.10.2026
+
+Die in diesem Chat umgesetzten Writer-Übergaben, dynamischen Zwischenideen,
+PAX-Kontinuitätsregeln und Folgeangebots-UI-Korrekturen werden auf Origin/Alpha
+mit Tracker v509 veröffentlicht. Stable bleibt auf v508 unverändert.
+101 relevante Node-Tests bestanden; die vierteilige Live-Kette wurde mit
+simulierten Abschlüssen geprüft. Keine neue MSFS-/Mehrgeräte-Abnahme behauptet.

@@ -144,3 +144,87 @@ Follow-up-Seed-Anbindung absichern. Beide Seiten verwenden denselben Vertrag.
 Dieser Eintrag dokumentiert die gewünschte Situation. Die Schema-/Transport- und
 Writer-Änderungen sind erst nach ihrer separaten Implementierung als umgesetzt zu
 markieren.
+
+
+## Anschluss der Hauptinspektion, 09.10.2026 (lokal)
+
+Der initiale Infrastruktur-Writer liefert jetzt `continuationMemory` zusätzlich
+zur bisherigen History-Notiz. Es wird über den bestehenden Narrative-Core in
+`followUpNarrative` übernommen. Bestätigter Tracker-Abschluss und Nachkontroll-
+Writer verwenden ihre bestehenden Anschlussstellen. Es werden keine neuen
+Runtime-/Cloud-Endpunkte eingeführt. Umfang, Rückfälle und offene Live-Abnahme:
+[Infrastruktur-Inspektion](Infrastructure%20Inspection%20Briefing%20Migration.md).
+
+
+## Gemeinsame Erzählregeln der Infrastruktur-Kette, 09.10.2026 (lokal)
+
+`MissionPoiFollowupNarrativeCore.writerRules()` ist die gemeinsame Erzählbasis
+für Inspektion, Mapping und Foto. Die Profil-Cores ergänzen ihren vorhandenen
+fachlichen Vertrag und geben diese Regeln an Haupt-/Folgewriter weiter.
+Reparaturfoto erbt Fotoregeln, Nachkontrolle und Abschlussbegutachtung
+Inspektionsregeln; Schadenskartierung verwendet weiterhin seinen vorhandenen
+Mapping-Writer mit unverändertem Survey-Muster. Keine neuen Falllisten,
+Klassifikation oder Freigaberegeln. Zitate sind erlaubt, Ergebnisse bleiben
+vor dem jeweils bestätigten Abschluss offen.
+
+Die bestehende Folgeplanung setzt nach Mapping bereits Auswertung und laufende
+Reparaturen, später eine abgeschlossene Reparatur voraus. Gemeinsame Writer-Regeln
+beweisen diese Ereignisse nicht. Vor breiter Abnahme muss entschieden werden,
+welche Zwischenschritte als ausdrücklich festgelegte fiktionale Planung gelten
+und welche als bestätigte Ergebnisse geführt werden. Ergebnis-/Profil-Logik
+wurde bei dieser Erzählregel-Anpassung nicht geändert.
+
+
+### Zwischenzeitliche Entwicklung ausdrücklich freigegeben, 09.10.2026
+
+Nutzerklarstellung: Zwischen den Flügen soll mindestens Auswertung, gegebenenfalls
+auch umfangreiche Arbeit stattgefunden haben. `narrativeMemory.betweenFlights`
+kennzeichnet diese etablierte fiktionale Vorgeschichte als `fictional_story_plan`
+vor dem nächsten Flug. Erstinspektion → Folge: Befund ausgewertet. Kartierung
+→ Reparaturfoto: Daten ausgewertet und Arbeiten begonnen. Reparaturfoto →
+Abschlussbegutachtung: Arbeiten fortgeführt, Betreiber meldet Abschluss.
+Die Freigabe des Bauwerks und das Ergebnis des kommenden Flugs bleiben offen.
+Der bestehende Kontextadapter reicht den Abschnitt an die Writer weiter;
+Abschlussbelege, verfügbare Profile und Termine bleiben bei den vorhandenen
+Regeln. Tests prüfen die Übergabe entlang der bestätigten Headless-Kette.
+Lokaler Arbeitsstand, noch nicht veröffentlicht.
+
+### Dynamische Zwischenentwicklung, ersetzt feste Texte (lokal)
+
+Der Writer liefert nun optionale `betweenFlightsIdeas` in seiner bestehenden
+Erinnerung: höchstens vier `{followUpKind, summary}` mit jeweils 600 Zeichen.
+Die Erstinspektion verwendet continuationMemory, Mapping und weitere Folgen
+verwenden memory. Vorschläge bleiben bis zur tatsächlichen Folgefreigabe
+optional. Der bestehende Kontextadapter wählt ausschließlich die Idee zum
+freigegebenen Folgeauftrag und liefert sie als `betweenFlights` mit Ursprung
+`writer_story_plan`. Bestätigte Abschlussdaten bleiben separat. Ohne gültige
+Idee entwickelt der Folgewriter einen passenden Zwischenablauf aus vorhandenem
+Befund und Auftrag. Es gibt keine fest vorgegebenen Ereignistexte mehr. Keine
+zusätzlichen KI-Aufrufe, Endpunkte oder Änderungen der Missionsfreigabe.
+
+### PAX-Wechsel, 10.10.2026 (lokal)
+
+Eine kurze gemeinsame Writer-/Voice-Regel nutzt die vorhandenen Beteiligten
+und deren Namen aus der Übergabe: Neue Fachpersonen kennen den Vorgang aus
+diesen Unterlagen, beanspruchen aber nicht die frühere Flugteilnahme oder
+Beobachtungen für sich. Namentlicher Bezug ist möglich; persönliche Bekanntschaft
+wird nicht vorausgesetzt. Keine neuen Datenfelder oder Textfilter. Die bildliche
+Formulierung einer Begehung bleibt zulässig.
+
+### Folgeangebot und Entwurf, 10.10.2026 (lokal)
+
+Die lokale Annahmesperre schützt nur die laufende Generierung und wird in finally
+auch nach erfolgreicher Vorschau oder Fehler aufgehoben. Erst bestätigte
+Missionsannahme markiert das Angebot accepted; Verwerfen lässt es pending.
+Die App plant eine lokale Aktualisierung an Freigabe-/Ablaufgrenzen, prüft
+dabei spätestens jede Minute die Wanduhr und aktualisiert zusätzlich beim
+Sichtbarwerden. Headless-Tracker erzeugt keine UI-Timer. Keine neuen Cloud-Calls.
+
+
+## Alpha-Freigabe 10.10.2026
+
+Die in diesem Chat umgesetzten Writer-Übergaben, dynamischen Zwischenideen,
+PAX-Kontinuitätsregeln und Folgeangebots-UI-Korrekturen werden auf Origin/Alpha
+mit Tracker v509 veröffentlicht. Stable bleibt auf v508 unverändert.
+101 relevante Node-Tests bestanden; die vierteilige Live-Kette wurde mit
+simulierten Abschlüssen geprüft. Keine neue MSFS-/Mehrgeräte-Abnahme behauptet.

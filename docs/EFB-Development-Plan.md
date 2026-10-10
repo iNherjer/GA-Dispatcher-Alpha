@@ -6994,3 +6994,24 @@ des Deploy-Tools wurde beim Rollout erkannt und die temporaere Zuordnung
 wieder entfernt; beide App-Repositories liefern denselben finalen Stand aus.
 Narrative Verbesserungen und neue Generierungslogik bleiben Folgearbeit.
 Ein neuer realer Windows-/MSFS-Flug wird nicht als getestet behauptet.
+
+
+## Infrastruktur-Erzählübergabe, 09.10.2026 (lokal, nicht veröffentlicht)
+
+Der Hauptinspektions-Writer speichert eine strukturierte Erinnerung im bestehenden
+`followUpNarrative`-Vertrag. Der bestätigte Tracker-Abschluss und dessen vorhandene
+Cloud-Outbox transportieren sie ohne offene App; keine Tracker-Ausführungs-,
+Worker- oder SDK-Änderung. Der vorhandene Nachkontroll-Writer bekommt Erinnerung
+und Befund getrennt. Nachkontrollen der Erstinspektion behalten dieselbe
+Fachperson; Aufgabe und technische Rolle bleiben beim vorhandenen Rezept.
+Weitere Details und offene Live-Qualitätsprüfung in der Infrastruktur-Briefing-
+Migration. Dieser Arbeitsstand wird mit diesem Schritt nicht veröffentlicht.
+
+
+## Alpha-Freigabe 10.10.2026
+
+Die in diesem Chat umgesetzten Writer-Übergaben, dynamischen Zwischenideen,
+PAX-Kontinuitätsregeln und Folgeangebots-UI-Korrekturen werden auf Origin/Alpha
+mit Tracker v509 veröffentlicht. Stable bleibt auf v508 unverändert.
+101 relevante Node-Tests bestanden; die vierteilige Live-Kette wurde mit
+simulierten Abschlüssen geprüft. Keine neue MSFS-/Mehrgeräte-Abnahme behauptet.

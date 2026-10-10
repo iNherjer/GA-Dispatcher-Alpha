@@ -818,13 +818,32 @@
         return winner;
     }
 
+    let availabilityTimer = null;
+    function scheduleAvailabilityRefresh() {
+        if (environment.headless) return;
+        const cancel = environment.clearTimeout || clearTimeout;
+        const schedule = environment.setTimeout || setTimeout;
+        if (availabilityTimer !== null) cancel(availabilityTimer);
+        availabilityTimer = null;
+        const now = nowMs();
+        const boundaries = getRequests().filter(req => getStatus(req) === 'pending')
+            .flatMap(req => [Number(req.eligibleAt), Number(req.expiresAt) + 1])
+            .filter(at => Number.isFinite(at) && at > now);
+        if (!boundaries.length) return;
+        // Recheck the wall clock at least once a minute, including after sleep.
+        availabilityTimer = schedule(() => {
+            availabilityTimer = null;
+            writeRequests(getRequests(), { cloud: false });
+        }, Math.max(1, Math.min(60000, Math.min(...boundaries) - now)));
+    }
+
     function writeRequests(list, options = {}) {
         const compacted = compactRequests(list);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(compacted)); } catch (err) {
             if (environment.headless) throw err;
             console.warn('[FollowUp] Speicher fehlgeschlagen:', err?.message || err);
         }
-        if (!environment.headless) { render(); updateDebugButton(); }
+        if (!environment.headless) { render(); updateDebugButton(); scheduleAvailabilityRefresh(); }
         if (options.cloud === true && typeof window.triggerCloudSave === 'function') {
             setTimeout(() => {
                 try { window.triggerCloudSave(true); } catch (_) {}
@@ -2465,12 +2484,13 @@
         };
         acceptingIds.add(id);
         render();
-        const ok = await window.generateMission({ followupSeed: acceptedSeed, skipOverwriteConfirm: true });
-        if (!ok) {
+        try {
+            return await window.generateMission({ followupSeed: acceptedSeed, skipOverwriteConfirm: true });
+        } finally {
+            // This lock protects generation only. A preview is still a pending offer.
             acceptingIds.delete(id);
             render();
         }
-        return ok;
     }
 
     function markAccepted(id, missionData = null) {

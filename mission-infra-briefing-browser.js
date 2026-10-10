@@ -6,7 +6,8 @@ function enabled({isPOI=true,profileId,category='',aiModeEnabled=true,followup=f
  try{return localStorage.getItem(FLAG)!=='off'&&isPOI&&profileId==='inspection_infra'&&aiModeEnabled&&!followup&&!planning&&!bush&&category!=='chain';}catch{return false;}
 }
 async function context(dest,terrainEnvelope=null) {
- const c=await root.MissionPoiBriefingSharedBrowser.context(dest,terrainEnvelope);
+ const base=await root.MissionPoiBriefingSharedBrowser.context(dest,terrainEnvelope);
+ const c=await root.MissionPoiBriefingSharedBrowser.cachedEnvironment?.(base)||base;
  const category=String(dest.poiCategory||dest.category||'infrastructure');
  return {...c,targetCategory:category,targetFacts:[...c.targetFacts,{id:'target-selection-category',fact:'Ausgewählte Zielkategorie: '+category,source:dest.poiSource||'existing-poi-picker'}],task:{recipe:'poi_on_task',passengers:1,return:'home'}};
 }
@@ -30,17 +31,18 @@ async function choices(candidates,dispatch) {
 async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensureAlive}) {
  capacity();
  if(dest?.poiChain)throw Error('Ketten verwenden ihren bestehenden Inspektionsablauf.');
- let c,idea;
+ let c,idea,environmentReady=false;
  if(proposal) {
   if(proposal.schema!=='infra-proposal.v1'||!root.MissionPoiBriefingSharedCore.samePoint(proposal.start,start)||!root.MissionPoiBriefingSharedCore.samePoint(proposal.context?.target,dest))throw Error('Die Inspektionsidee passt nicht mehr zur gewählten Route. Bitte neu auswählen.');
   c={...proposal.context,terrainEnvelope};idea=core().validateIdea(proposal.idea,c);
  }else{
   c=await context(dest,terrainEnvelope);ensureAlive?.();
+  c=await root.MissionPoiBriefingSharedBrowser.enrichSelected(c,ensureAlive);environmentReady=true;
   const raw=await json(core().ideaPrompt([core().frame(c,core().history(localStorage))]));ensureAlive?.();
   idea=core().readIdea(raw,c);
  }
  // Enrich only the selected mission, not all three picker candidates.
- c=await root.MissionPoiBriefingSharedBrowser.enrichSelected(c,ensureAlive);
+ if(!environmentReady)c=await root.MissionPoiBriefingSharedBrowser.enrichSelected(c,ensureAlive);
  const shared=root.MissionPoiBriefingSharedCore,flight=shared.prepareFlight(contract),flightContext=flight.context,recent=core().history(localStorage);
  const raw=await json(core().writerPrompt(c,idea,recent,flight));ensureAlive?.();
  // Weather validation must never discard a valid narrative.
