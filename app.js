@@ -4182,7 +4182,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Auffangstations-Koordinatorin',
                 gender: 'female',
                 personality: 'warm, organisiert, klar',
-                storySeed: '{name} koordiniert den Transfer zur Auffangstation; der kurze Luftweg spart dem Tier einen langen Straßentransport.',
+                storySeed: '{name} koordiniert den gebuchten Transfer zur Auffangstation, wo das Tier von seiner Betreuung übernommen wird.',
                 greetingText: 'Hi, danke fürs Mitnehmen. Je ruhiger der Flug, desto entspannter wird die Übergabe an der Station.'
             },
             {
@@ -17248,12 +17248,7 @@ function _charterArrivalSubject(passenger = null, context = {}) {
 
 function _charterRouteValueSentence(context = {}, occasion = {}) {
     const target = _charterTemplateContext(null, context).targetName;
-    const distanceNm = _charterDistanceNm(context);
-    const routeValue = String(occasion.routeValue || 'spart lange Bodenzeit und hält den Zielablauf übersichtlich').replace(/\.$/, '');
-    if (Number.isFinite(distanceNm) && distanceNm > 0) {
-        return `Der Flug über rund ${distanceNm} NM nach ${target} ${routeValue}.`;
-    }
-    return `Der Flug nach ${target} ${routeValue}.`;
+    return `Die gebuchte Charterbeförderung führt nach ${target}.`;
 }
 
 function _charterOccasionFromContext(passenger = null, context = {}) {
@@ -35027,7 +35022,7 @@ Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formulara
 Arbeitsweise:
 1. Nutze MISSION_BRIEF_FORM als ausgefuelltes Missionsformular. Es enthaelt Identitaet, Route, Personen, Story-Kern, Missionsdetails, Fakten, Stil und Qualitaetskompass.
 2. ${personalCharterReturn ? 'Erzähle den persönlichen Aufenthalt des Gasts als zusammenhängende Geschichte in dritter Person. Konkrete Erlebnisse, Begegnungen und seine Reaktion bilden den Hauptteil; der Umfang richtet sich nach dem Erzählstoff. Die Abholung und Heimreise geben den Rahmen.' : 'Schreibe die Story als 4-6 zusammenhaengende deutsche Saetze, bei sehr einfachen Missionen reichen 3.'}
-3. Die Story soll wie eine kleine Erzaehlung klingen: wer fliegt, warum genau heute, warum dieser Flug Sinn macht, was nach Landung/Rueckkehr passiert.
+3. Die Story soll wie eine kleine Erzaehlung klingen: wer fliegt, welches konkrete Anliegen die Beteiligten haben und was nach Landung/Rueckkehr vorgesehen ist. Bei Transporten ist der Flug bereits beauftragt; erzaehle den Bedarf am Ziel statt die Wahl des Flugzeugs gegenueber der Strasse zu rechtfertigen. Bei Luftarbeit bleibt der fachliche Erkenntnisgewinn aus der Luft Teil des Anliegens.
 4. ${contract.environmentContext ? 'Route und Ziel geben Orientierung. Wetter ist freiwilliger Erzählkontext, kein erwünschter Pflichtanker und kein eigener Schlusssatz. Erzähle zuerst den Anlass und die Menschen; lasse Wetter ganz weg, wenn es für diese Geschichte nichts beiträgt. Ein weicher Wetterhinweis darf beiläufig passen, ohne Messwerte aufzuzählen.' : 'Route, Entfernung, Wetter und Zielplatz sind erwuenschte Realitaetsanker, aber sie duerfen den Text nicht kippen, wenn sie fehlen oder nicht elegant passen.'}
 5. storyCore ist der rote Faden: premise, concreteReason, whyToday, flightValue, targetFocus und successOutcome sollen als Geschichte spuerbar werden, wenn sie vorhanden sind.
 6. domainDetails sagt dir, was diese Missionsfamilie besonders macht; formuliere daraus frei, nicht als sichtbares Schema.
@@ -40567,13 +40562,13 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const aptCargoCategoryRule = isAptCargoMission
         ? (forcedProfile?.id === 'cargo_fragile'
             ? `16c. APT-CARGO-FRAGILE-RAHMEN: Schreibe als hochwertigen Frachtflug mit konkreter empfindlicher Sendung, Route ${startName} → ${destName}, grober Entfernung ${dist} NM, Zielkontakt und nächstem Arbeitsschritt nach der Landung. Wenn pax 0 PAX ist, sitzt niemand bei der Fracht im Flugzeug; wenn pax ausdrücklich eine Frachtbegleitung enthält, darf diese Begleitperson zur High-Care-Story gehören. Route, Wetter und Entfernung sind Erzählanker, keine Pflichtliste.`
-            : `16c. APT-CARGO-RAHMEN: Schreibe als reinen, unbegleiteten Frachtflug mit 0 PAX, konkreter Sendung, Route ${startName} → ${destName}, grober Entfernung ${dist} NM, Zielkontakt und nächstem Arbeitsschritt nach der Landung. Techniker, Prüfer, Werft, Fachpersonal oder Empfänger warten am Ziel und sind keine Passagiere. Normale APT-Cargo-Fracht ist sorgfältig zu behandeln, aber nicht automatisch hochsensibel oder dramatisch. Gute Anlässe reichen von AOG-Ersatzteil, Industrie-Schnellkurier und Postdienst-Sendungen bis zu Eventkisten, Drucksachen, Messgerät, Werkstattkit oder vier Kästen Bier fürs Dorffest. Route, Wetter und Entfernung sind Erzählanker, keine Pflichtliste; wichtiger ist eine natürliche Frachtgeschichte, die erklärt, warum diese Sendung heute per Flugzeug sinnvoll zum Ziel kommt.`)
+            : `16c. APT-CARGO-RAHMEN: Schreibe als reinen, unbegleiteten Frachtflug mit 0 PAX, konkreter Sendung, Route ${startName} → ${destName}, grober Entfernung ${dist} NM, Zielkontakt und nächstem Arbeitsschritt nach der Landung. Techniker, Prüfer, Werft, Fachpersonal oder Empfänger warten am Ziel und sind keine Passagiere. Normale APT-Cargo-Fracht ist sorgfältig zu behandeln, aber nicht automatisch hochsensibel oder dramatisch. Gute Anlässe reichen von AOG-Ersatzteil, Industrie-Schnellkurier und Postdienst-Sendungen bis zu Eventkisten, Drucksachen, Messgerät, Werkstattkit oder vier Kästen Bier fürs Dorffest. Route, Wetter und Entfernung sind Erzählanker, keine Pflichtliste; wichtiger ist eine natürliche Frachtgeschichte über den Bedarf an der Sendung und den nächsten Schritt am Ziel. Der Transportflug ist bereits beauftragt; die Verkehrsmittelwahl braucht keine Begründung.`)
         : '';
     const medicalProfileRule = (forcedProfile?.id === 'medical_transfer')
         ? `16. MEDICAL-KONSISTENZ: Wenn pax nur 1 PAX ist, ist diese Person medizinische Begleitung/Notarzt, NICHT Patient. Keine Patientin/keinen Patienten im Flugzeug erwaehnen, ausser pax ist explizit mindestens 2 PAX und die Story modelliert Patient plus medizinische Begleitung. Bei 1 PAX keine Formulierung "Notarztteam"; nutze "medizinische Begleitung", "Notarzt" oder "Notaerztin".`
         : '';
     const animalProfileRule = (forcedProfile?.id === 'animal_transport')
-        ? `16b. TIERTRANSPORT-BASIS: Baue den Auftrag aus konkreter Tier-/Vet-Sendung, kurzem Pflegegrund, Begleitperson, ruhiger Flugführung, Zielkontakt und nächstem Betreuungsschritt. Der Flug ist sinnvoll, weil der kurze Luftweg Stress, Bodenzeit oder Hitze reduziert und die Übergabe vorbereitet ist. Kleine Tiere dürfen frei und passend gewählt werden, wenn sie in Box, Tasche oder gesicherter Transportkiste plausibel in die Maschine passen; größere Tiere nur als Vet-Material, Unterlagen oder vorbereitete Kiste. Der Ton darf kurz warm oder leicht humorvoll sein, bleibt aber ein glaubhafter Tierschutz- oder Veterinärtransfer.`
+        ? `16b. TIERTRANSPORT-BASIS: Baue den Auftrag aus konkreter Tier-/Vet-Sendung, kurzem Pflegegrund, Begleitperson, ruhiger Flugführung, Zielkontakt und nächstem Betreuungsschritt. Der Flug ist bereits gebucht; erzähle den Betreuungsbedarf und die vorbereitete Übergabe, ohne einen Vergleich mit der Straße oder erfundene Transportvorteile. Kleine Tiere dürfen frei und passend gewählt werden, wenn sie in Box, Tasche oder gesicherter Transportkiste plausibel in die Maschine passen; größere Tiere nur als Vet-Material, Unterlagen oder vorbereitete Kiste. Der Ton darf kurz warm oder leicht humorvoll sein, bleibt aber ein glaubhafter Tierschutz- oder Veterinärtransfer.`
         : '';
     const aptCharterSeedPassenger = isAptCharterMission ? buildCharterPassenger(null) : null;
     const aptCharterSeedStory = aptCharterSeedPassenger

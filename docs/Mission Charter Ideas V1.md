@@ -183,3 +183,26 @@ der Abholung, gespeicherter Live-Hinflug wiederverwendet. Derselbe Gast, sechs
 Tage simulierte Wartezeit, persönliche Begegnung im Rückkehrbriefing und
 passende Begrüßung; technische Prüfung erfolgreich. Kein Cloud-/Simulator-/
 Audio-End-to-End-Test. Keine Veröffentlichung.
+
+## Charter-Flugwahl und Aufenthaltsangaben (10.10.2026, lokal nach v511)
+
+Nutzerdiagnose: Der CHARTER-V1-Rohtext begründete die Flugwahl mit vermiedenen
+Straßenerschütterungen und erzählte einen angeblich nötigen 26-Stunden-Zyklus.
+Gezielte Prompt-Präzisierung im Ideen- und Hauptwriter: Die Beförderung ist
+bereits gebucht; der Kundenanlass trägt die Geschichte ohne Straßenvergleich.
+stayHours bleibt die technische Planungszahl für Freigabe/Angebot. stayText und
+die Erzählung verwenden natürliche ungefähre Zeiträume passend dazu. Exakte
+Stundenwerte werden nicht als erfundene fachliche Notwendigkeit ausgeschmückt.
+Keine Änderung an Zeitrechnung, Contracts, Parsern oder anderen Missionstypen.
+Noch keine Veröffentlichung oder Live-Probe dieser Präzisierung.
+
+Weitere Transportpfade nach Nutzerfreigabe gezielt nachgezogen: Reporter-Ideen
+und -Writer sowie Charter-/Reporter-Aufenthaltsentwürfe verwenden die gleiche
+Trennung interner stayHours und natürlicher ungefährer Erzählzeit. Legacy-
+Charter-Personalisierung fügt nur noch den gebuchten Zieltransport hinzu, keine
+Straßenersparnis. Legacy-Charter-Writer und allgemeiner V5-Writer setzen den
+Transport voraus; bei Luftarbeit bleibt der fachliche Luftblick erhalten. Alte
+Cargo-/Tiertransport-Promptvorgaben und Tiertransport-Seed auf den tatsächlichen
+Bedarf/Übergabe ausgerichtet. 79 relevante Regressionstests bestanden. Keine
+Zeitrechnung, Parser-, Klassifikations- oder Runtime-Änderung; kein Live-Test
+oder Rollout dieser lokalen Prompt-Präzisierung.
