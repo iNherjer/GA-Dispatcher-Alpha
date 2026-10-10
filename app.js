@@ -8946,7 +8946,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
-        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'bushFollowUpNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'bushFollowUpNarrative', 'legacyCharterNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
         'targetScene', 'sceneIntent', 'missionTruth', 'targetGeoContext',
@@ -8960,6 +8960,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
     if (window.GAMissionBushExecutionCore?.PROFILES?.[value.bush?.profileId || value.missionContract?.bush?.profileId]) {
         keep.push('followUpRequestId', 'followUpProspect', 'missionTemporalContext', 'followUpContext', 'followUpContinuation');
     }
+    if (window.MissionLegacyCharterNarrativeCore?.owns(value)) keep.push('followUpRequestId','followUpProspect','missionTemporalContext','followUpContext','followUpContinuation');
     // POI follow-up identity and outcome must survive compact saves on every device.
     if (value.missionType === 'poi' || value.isPOI || value.poiPresentation || ['mapping_survey','inspection_infra','infra_chain_recon','media_photo'].includes(value.taskDomain || value.passenger?.taskDomain)) {
         keep.push('isPOI', 'poiPresentation', 'poiCategory', 'requestedCategory', '_appliedProfile', '_requestedProfile',
@@ -27638,6 +27639,7 @@ function buildMissionPlannerV2Draft({
             pickupStory: followUpContext.pickupStory || null,
             serviceRun: followUpContext.serviceRun || null,
             bushContinuation: followUpContext.bushContinuation || null,
+            legacyCharterContinuation: followUpContext.legacyCharterContinuation || null,
             missionVarietyBrief: followUpContext.missionVarietyBrief || null
         } : null,
         bush: bushSpec ? {
@@ -34987,6 +34989,18 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const legacyBriefingBrief = { ...briefingBrief };
     delete legacyBriefingBrief.missionBriefForm;
     const promptTaskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
+    const personalCharterReturn = window.MissionLegacyCharterNarrativeCore?.owns({...context,missionContractV4:contract}) && contract.followUpContext?.followUpKind === 'apt_charter_pickup';
+    if (personalCharterReturn) {
+        const personalStyle = {
+            tone: 'warme persönliche Rückkehrgeschichte',
+            perspective: 'Erzähler in dritter Person; zugeordnete Zitate des Gasts sind erlaubt',
+            length: 'Eine ausgearbeitete kleine Geschichte; Umfang nach Erzählstoff',
+            allowedFreedom: 'Konkrete fiktive Begegnungen, Gespräche und persönliche Erlebnisse während des Aufenthalts passend zur übergebenen Vorgeschichte; keine neuen harten Ortsfakten oder Flugaufgaben.',
+            styleRecipe: 'Erzähle eine konkrete Szene aus dem Aufenthalt und was sie beim Gast ausgelöst hat. Was geschah, wer sagte oder tat etwas, wie reagierte er und was nimmt er davon mit? Die übergebene Aufenthaltsidee ist der Anfang dieser Geschichte, keine fertige Zusammenfassung. Der Termin und ein Spaziergang dürfen Zugang zur Szene sein. Abholung und Heimflug rahmen die persönliche Geschichte kurz ein.'
+        };
+        missionBriefForm.style = personalStyle;
+        legacyBriefingBrief.styleRecipe = personalStyle.styleRecipe;
+    }
     const promptNewsIsPoi = promptTaskDomain === 'news_coverage' ? _missionNewsContractIsPoi(contract, context) : false;
     const newsCoveragePromptRule = promptTaskDomain === 'news_coverage'
         ? (promptNewsIsPoi
@@ -35012,7 +35026,7 @@ Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formulara
 
 Arbeitsweise:
 1. Nutze MISSION_BRIEF_FORM als ausgefuelltes Missionsformular. Es enthaelt Identitaet, Route, Personen, Story-Kern, Missionsdetails, Fakten, Stil und Qualitaetskompass.
-2. Schreibe die Story als 4-6 zusammenhaengende deutsche Saetze, bei sehr einfachen Missionen reichen 3.
+2. ${personalCharterReturn ? 'Erzähle den persönlichen Aufenthalt des Gasts als zusammenhängende Geschichte in dritter Person. Konkrete Erlebnisse, Begegnungen und seine Reaktion bilden den Hauptteil; der Umfang richtet sich nach dem Erzählstoff. Die Abholung und Heimreise geben den Rahmen.' : 'Schreibe die Story als 4-6 zusammenhaengende deutsche Saetze, bei sehr einfachen Missionen reichen 3.'}
 3. Die Story soll wie eine kleine Erzaehlung klingen: wer fliegt, warum genau heute, warum dieser Flug Sinn macht, was nach Landung/Rueckkehr passiert.
 4. ${contract.environmentContext ? 'Route und Ziel geben Orientierung. Wetter ist freiwilliger Erzählkontext, kein erwünschter Pflichtanker und kein eigener Schlusssatz. Erzähle zuerst den Anlass und die Menschen; lasse Wetter ganz weg, wenn es für diese Geschichte nichts beiträgt. Ein weicher Wetterhinweis darf beiläufig passen, ohne Messwerte aufzuzählen.' : 'Route, Entfernung, Wetter und Zielplatz sind erwuenschte Realitaetsanker, aber sie duerfen den Text nicht kippen, wenn sie fehlen oder nicht elegant passen.'}
 5. storyCore ist der rote Faden: premise, concreteReason, whyToday, flightValue, targetFocus und successOutcome sollen als Geschichte spuerbar werden, wenn sie vorhanden sind.
@@ -35037,7 +35051,7 @@ ${JSON.stringify(legacyBriefingBrief)}
 Antworte ausschliesslich als JSON ohne Markdown:
 {
   "title": "Kurzer, passender Missionstitel",
-  "story": "4-6 natuerliche Saetze als zusammenhaengender Dispatch-Zettel",
+  "story": "${personalCharterReturn ? 'Persönliche Geschichte aus dem Aufenthalt in Erzählerperspektive, mit konkreten Erlebnissen und Reaktionen, eingebettet in die vereinbarte Abholung' : '4-6 natuerliche Saetze als zusammenhaengender Dispatch-Zettel'}",
   "pax": "z.B. 1 PAX (...) oder 0 PAX",
   "cargo": "z.B. Tagesrucksack (12 lbs)",
   "targetInfo": "Bei POI: 2-3 sachliche Saetze fuer die Ziel-Info-Seite aus belegten Daten; bei A-B leerer String",
@@ -40128,7 +40142,7 @@ async function fetchMissionWriterV4(context = {}) {
     if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV4Prompt(contract) + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || ''),
+        buildMissionWriterV4Prompt(contract) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || ''),
         apiKey,
         { promptVersion: 'mission-writer-v4', timeoutMs: context.missionType === 'bush' ? 45000 : 16000 }
     );
@@ -40138,6 +40152,7 @@ async function fetchMissionWriterV4(context = {}) {
         source: `${result.source || 'Gemini'} + V4 Writer`
     });
     window.MissionBushNarrativeCore?.attachFollowup(mission, result.parsed, context);
+    window.MissionLegacyCharterNarrativeCore?.attach(mission, result.parsed, context);
     return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
 }
 window.fetchMissionWriterV4 = fetchMissionWriterV4;
@@ -40159,7 +40174,7 @@ async function fetchMissionWriterV5(context = {}) {
     const reconContractPrompt = contract.bushReconPlan ? '\nBINDENDER RECON-SPIELPLAN: '+JSON.stringify(contract.bushReconPlan)+' Beschreibe genau diese Beobachtungsdauer und diesen Ablauf; bei längerem Aufenthalt keinen einmaligen Überflug als ausreichend bezeichnen. Der heutige saisonale Anlass folgt dem gelieferten Datum. Diese Zahlen sind vertraglich, passenger.targetRadiusNm und targetDwellMin müssen ihnen entsprechen (Sekunden/60). Keine neue niedrigere Flugzielhöhe erfinden.' : '';
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV5Prompt(contract, context) + reconContractPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
+        buildMissionWriterV5Prompt(contract, context) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + reconContractPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
         apiKey,
         { promptVersion: 'mission-writer-v5', timeoutMs: context.missionType === 'bush' ? 45000 : (selectedProvider === 'openai' ? 26000 : 16000) }
     );
@@ -40190,6 +40205,7 @@ async function fetchMissionWriterV5(context = {}) {
     }
     window.MissionBushNarrativeCore?.attachRecon(mission, result.parsed, reconContext, window.MissionPoiBriefingSharedCore);
     window.MissionBushNarrativeCore?.attachFollowup(mission, result.parsed, context);
+    window.MissionLegacyCharterNarrativeCore?.attach(mission, result.parsed, context);
     return window.MissionAirportInformationCore?.attach(mission, result.parsed, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
 }
 window.fetchMissionWriterV5 = fetchMissionWriterV5;
@@ -44404,6 +44420,9 @@ async function generateMission(options = {}) {
         followUpContext: plannerFollowUpContext,
         missionTemporalContext: plannerFollowUpContext?.temporalContext || followupSeed?.temporalContext || null
     };
+    if (requestedMissionType === 'bush' && plannerContext.dispatchProfileId === 'bush_scenic_hopper' && !plannerContext.missionTemporalContext) {
+        plannerContext.missionTemporalContext = window.missionFollowupBuildTemporalContext?.('bush_scenic_hopper') || null;
+    }
     const absorbPlannerResolvedNeeds = (plan) => {
         if (plan?.resolvedNeeds?.geo_context && !preMissionTargetGeoContext) {
             preMissionTargetGeoContext = plan.resolvedNeeds.geo_context;
@@ -45339,8 +45358,8 @@ async function generateMission(options = {}) {
                 ...m,
                 cat: 'charter',
                 missionType: 'apt',
-                passenger: locked.passenger || m.passenger || null,
-                bush: locked.bush || m.bush || null,
+                passenger: window.MissionLegacyCharterNarrativeCore?.pickupPassenger(locked.passenger,m) || locked.passenger || m.passenger || null,
+                bush: window.MissionLegacyCharterNarrativeCore?.pickupBush(locked.bush,locked.passenger,m) || locked.bush || m.bush || null,
                 followUpRequestId: locked.followUpRequestId || m.followUpRequestId || null,
                 followUpContinuation: locked.followUpContinuation || m.followUpContinuation || null,
                 missionTemporalContext: locked.missionTemporalContext || m.missionTemporalContext || null,
@@ -45865,6 +45884,7 @@ async function generateMission(options = {}) {
             const result = await dispatchMeasure('bush_narrative', () => window.MissionBushNarrativeBrowser.generate({
                 bush: bushSpec, passenger: m?.passenger, story: m?.s || m?.story || '',
                 followUpContext: plannerFollowUpContext,
+                missionTemporalContext: plannerContext.missionTemporalContext,
                 start: { lat: Number(start.lat), lon: Number(start.lon) },
                 target: { lat: Number(dest.lat), lon: Number(dest.lon) },
                 country: dest.country || dest.isoCountry || dest.countryCode || '', region: dest.region || dest.isoRegion || '',
@@ -45992,6 +46012,7 @@ async function generateMission(options = {}) {
         bush: bushSpec,
         bushNarrative, bushNarrativeDebug,
         bushFollowUpNarrative: m?.bushFollowUpNarrative || null,
+        legacyCharterNarrative: m?.legacyCharterNarrative || null,
         bushProgress: bushSpec ? buildInitialBushMissionProgress(bushSpec) : null,
         isPOI,
         poiPresentation: missionActsLikePoi,

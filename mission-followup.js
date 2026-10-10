@@ -13,6 +13,7 @@
     const SCHEMA = 'ga.followup.request.v1';
     const narrativeCore = typeof module === 'object' && module.exports ? require('./mission-poi-followup-narrative-core.js') : window.MissionPoiFollowupNarrativeCore;
     const bushNarrativeCore = typeof module === 'object' && module.exports ? require('./mission-bush-narrative-core.js') : window.MissionBushNarrativeCore;
+    const legacyCharterCore = typeof module === 'object' && module.exports ? require('./mission-legacy-charter-narrative-core.js') : window.MissionLegacyCharterNarrativeCore;
     const EXPIRE_DAYS = 14;
     const TOMBSTONE_DAYS = 14;
     const MAX_PENDING = 20;
@@ -156,17 +157,17 @@
         }
     }
 
-    function clampStayDays(value = null) {
+    function clampStayDays(value = null, sourceKind = '') {
         const n = Math.round(Number(value || 0));
-        return Number.isFinite(n) && n >= 1 && n <= 7 ? n : 0;
+        return Number.isFinite(n) && n >= 1 && n <= (sourceKind === 'bush_scenic_hopper' ? 30 : 7) ? n : 0;
     }
 
-    function randomStayDays() {
-        return Math.floor(Math.random() * 7) + 1;
+    function randomStayDays(sourceKind = '') {
+        return sourceKind === 'bush_scenic_hopper' ? Math.floor(Math.random() * 24) + 7 : Math.floor(Math.random() * 7) + 1;
     }
 
     function stayDurationText(days = null, sourceKind = '') {
-        const n = clampStayDays(days);
+        const n = clampStayDays(days, String(sourceKind || '').toLowerCase());
         if (!n) return '';
         const source = String(sourceKind || '').toLowerCase();
         if (source === 'bush_scenic_hopper') {
@@ -192,7 +193,7 @@
     }
 
     function stayPeriodText(days = null, sourceKind = '') {
-        const n = clampStayDays(days);
+        const n = clampStayDays(days, String(sourceKind || '').toLowerCase());
         if (!n) return '';
         const source = String(sourceKind || '').toLowerCase();
         if (source === 'bush_scenic_hopper') {
@@ -241,7 +242,7 @@
     function buildTemporalContext(sourceKind = '', options = {}) {
         const source = String(sourceKind || '').toLowerCase();
         if (!SOURCE_MAP[source]) return null;
-        const stayDays = clampStayDays(options.stayDays) || randomStayDays();
+        const stayDays = clampStayDays(options.stayDays, source) || randomStayDays(source);
         const eligibleAt = Number(options.eligibleAt || 0) > 0
             ? Number(options.eligibleAt)
             : localMorningAfterDays(stayDays, 8);
@@ -1431,11 +1432,12 @@
 
     function buildPipelineContext(req, context = {}) {
         const bushContinuation = bushNarrativeCore?.followupContext(req);
+        const legacyCharterContinuation = legacyCharterCore?.context(req);
         // Domain routes/tasks stay in the original builder; narrative ideas are additive.
-        const idea = bushContinuation?.betweenFlights?.summary;
+        const idea = bushContinuation?.betweenFlights?.summary || legacyCharterContinuation?.memory?.stayIdea;
         const seed = idea ? {...req, narrativeMemory:{...req.narrativeMemory,stayOrWorkSummary:idea}} : req;
         const base = buildLegacyPipelineContext(seed, context);
-        return base && bushContinuation ? {...base,bushContinuation} : base;
+        return base ? {...base,...(bushContinuation?{bushContinuation}:{}),...(legacyCharterContinuation?{legacyCharterContinuation}:{})} : base;
     }
 
     function buildLegacyPipelineContext(req, context = {}) {
@@ -2294,6 +2296,7 @@
             technicianPlan,
             narrativeMemory: {
                 ...memory,
+                ...(sourceKind==='apt_charter'?{legacyCharterNarrative:legacyCharterCore?.complete(md,options.completionRecord)||null}:{}),
                 ...(followUpNarrative ? {followUpNarrative} : {}),
                 ...(String(cfg.followUpKind||'').startsWith('bush_') ? {bushFollowUpNarrative:bushNarrativeCore?.followupComplete(md, options.completionRecord, cfg.followUpKind)||null} : {}),
                 serviceRun: serviceRun || memory.serviceRun || null,

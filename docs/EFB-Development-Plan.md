@@ -7030,3 +7030,29 @@ Die Bush-Übergaben werden auf Nutzerwunsch auf Origin/Alpha veröffentlicht.
 Technikerkette vollständig und terminal. Tracker v510 bündelt die neuen Core-
 Dateien, Web-Cache v2001. Keine EFB-Protokoll- oder Worker-Deploy-Änderung.
 Stable bleibt v508. Details: Tracker-v510-Release.md.
+
+## Persönlicher Aufenthalt bei älteren Charter-Abholungen (10.10.2026, lokal)
+
+Optionale Hauptwriter-Erinnerung und persönliche Folgebegrüßung reisen im
+bestehenden Missions-/Folgepaket. Die App hält weiterhin die gesperrte
+Gastidentität und das technische Pickup-Rezept. 103 Regressionstests und
+gezielte Produktions-KI-Probe bestanden; Flugabschluss und Zeit lokal simuliert.
+Kein EFB-Protokoll- oder Worker-Endpoint-Ausbau. Vor Veröffentlichung neuen
+Tracker mit dem zusätzlichen Core-Modul bauen. Details: Mission Charter Ideas V1.md.
+
+Adventure-Hopper, 10.10.2026 (lokal): Neue Aufenthalte 7–30 Tage, Dauer schon
+vor Hauptplanner/-writer gewählt und über bestehenden Tracker-/Cloud-Folgepfad
+weitergereicht; alte geplante Termine erhalten. Adventure-Abholungen planen vier
+feste persönliche Voice-Kapitel mit Zeitkontext. Bestehende Leg-/Boarding-/
+Voice-Sperren gelten weiter, keine Authority-Änderung. Details und Testgrenzen
+in Bush Narrative Voices.md. Noch kein Rollout oder In-Sim-/Audio-Test.
+
+Origin-/Alpha-Release v511, 10.10.2026: Persönliche Legacy-Charter-Abholungen
+und Adventure-Aufenthalte 7–30 Tage mit vier festen Rückflugkapiteln vom Nutzer
+freigegeben. 133 Regressionstests bestanden; fehlende historische Live-Fixture
+gezielt ausgenommen. Gepackter Host-Missionsprozess startet/endet erfolgreich
+(MISSION_PACKAGED_PROCESS_SMOKE_OK). Windows-x64-EXE frisch im dokumentierten
+no-bytecode/public-Cross-Build erzeugt, v511 und die exakten drei aktualisierten
+Follow-up-/Erzählmodule eingebettet geprüft. 173608554 Bytes, SHA-256
+4f252e32b5b88bf56b82f7b7a738c559217c89cb44e4377bf03aa55e3ddd0941.
+Stable v508 bleibt unverändert; echte MSFS-/Audio-Abnahme bleibt offen.

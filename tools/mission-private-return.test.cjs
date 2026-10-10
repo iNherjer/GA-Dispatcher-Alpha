@@ -23,7 +23,7 @@ function followupSandbox(){
  const store=new Map();const c={console,Date,Math,Map,Set,JSON,Number,String,Array,Object,Promise,
   localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,String(v))},
   document:{readyState:'loading',addEventListener(){},getElementById:()=>null},
-  setTimeout:()=>0,alert(){},MissionPrivateReturnCore:core};c.window=c;vm.createContext(c);
+  setTimeout:()=>0,clearTimeout(){},alert(){},MissionPrivateReturnCore:core};c.window=c;vm.createContext(c);
  vm.runInContext(fs.readFileSync(require.resolve('../mission-followup.js'),'utf8'),c);
  return c;
 }

@@ -266,3 +266,24 @@ test('natural geo place comments remain plain speech on the existing radius trig
  assert.equal(core.observe(restored,{},facts({lat:e.geo.lat,lon:e.geo.lon})).event.text,spoken);
  assert.equal(core.observe(restored,{},facts()).event,null);
 });
+
+
+test('Adventure pickup uses four fixed anecdotes and the booked duration only on its return',()=>{
+ const followUpContext={sourceKind:'bush_scenic_hopper',followUpKind:'bush_pickup_strip',temporalContext:{stayDays:28,stayText:'28 Tage draußen'}};
+ const input={bush:{profileId:'bush_pickup_strip',pickupKind:'passenger',targetMode:'strip_then_return',homeRef:home,targetRef:target},passenger,followUpContext};
+ const frame=core.frame(input);assert.equal(frame.leg,'return');assert.equal(frame.temporalContext.stayDays,28);
+ const events=Array.from({length:4},(_,i)=>({id:'chapter-'+i,kind:'fixed',atAirborneSeconds:100+i*150,text:'Persönliche Erinnerung '+i}));
+ assert.ok(core.validate({...raw,events},frame));assert.equal(core.validate({...raw,events:events.slice(0,3)},frame),null);
+ assert.equal(core.validate({...raw,events:[...events,raw.events[2]]},frame),null);
+ assert.match(core.prompt(frame),/Plane 4 feste Momente/);assert.match(core.prompt(frame),/"stayDays":28/);
+ const p=core.validate({...raw,events},frame);let state={},seen=[];
+ for(let sec=0;sec<1200;sec+=10){const result=core.observe(p,state,facts({speakerName:passenger.name,returnLeg:true,now:100000+sec*1000}));state=result.state;if(result.event)seen.push(result.event.id);}
+ assert.deepEqual(seen,events.map(e=>e.id));
+ const onsite=core.frame({...input,bush:{profileId:'bush_charter_strip',homeRef:target,targetRef:home}});
+ assert.equal(onsite.adventureReturn,true);assert.equal(onsite.leg,'outbound');
+
+ const charter=core.frame({...input,followUpContext:{...followUpContext,sourceKind:'bush_charter_strip'}});
+ assert.equal(charter.adventureReturn,false);assert.ok(core.validate({...raw,events:events.slice(0,2)},charter));
+ const outbound=core.frame({...input,bush:{profileId:'bush_scenic_hopper',homeRef:home,targetRef:target},followUpContext:null,missionTemporalContext:followUpContext.temporalContext});
+ assert.equal(outbound.leg,'outbound');assert.equal(outbound.temporalContext.stayDays,28);assert.equal(outbound.adventureReturn,false);
+});

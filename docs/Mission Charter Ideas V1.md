@@ -131,3 +131,55 @@ Die besprochene Hin-/Rückflug-Kombination bestätigt die gewünschte Qualität,
 Der Erlebnisentwurf entwickelt aus dem ursprünglichen Kundenanliegen einen konkreten Aufenthalt und dessen Bedeutung für die Reisenden. Ein alltäglicher Verlauf reicht; Humor, Überraschung und Meinungsänderung sind Möglichkeiten, keine Pflichtbausteine. Das Rückflugbriefing verbindet kurzen Rückblick, aktuellen Stand und nächsten Schritt mit dem bevorstehenden Beförderungsauftrag. Es bleibt in Erzählerperspektive vor Abflug. Die Bordstimme darf anschließend persönliche Facetten vertiefen und an tatsächlich gehörte Gespräche anknüpfen. Die optionalen 0–3 Ereignisse sollen unterschiedliche Gedanken beitragen, ohne eine feste dramaturgische Reihenfolge oder Wiederholung des Briefings.
 
 Diese Präzisierung gilt im Code gezielt für die neuen Charter-Fortsetzungen. Andere Missionsfamilien und ältere Follow-up-Verträge werden dadurch nicht umgestellt. Die bestehende Trennung von App-Pickup und Tracker-APT sowie der unveröffentlichte Stand bleiben bestehen.
+
+## Persönliche Legacy-Abholungen (10.10.2026, lokal)
+
+Die verbleibenden generischen APT-Charter-Abholungen erhalten über
+`mission-legacy-charter-narrative-core.js` eine optionale kompakte
+`ga.legacy-charter-memory.v1`-Erinnerung. Der bestehende Hauptwriter ergänzt
+Anlass, exakte Gastidentität und eine frei entwickelte persönliche Aufenthaltsidee
+im selben JSON. Nach bestätigtem Abschluss transportiert der bestehende
+Tracker-/Cloud-Folgepfad diese Erinnerung. Der Folgeplanner und -writer erzählen
+den Aufenthalt aus der Idee; bei Altdaten aus der vorhandenen Ursprungsstory.
+
+Die bestehende App-Pickup-Finalisierung hält weiterhin Personenidentität,
+Fracht und Ablauf fest. Eine persönliche, zur gesperrten Person passende
+Writer-Begrüßung und der Aufenthaltskontext bleiben für Pickup-Voices erhalten.
+Ungültige optionale Daten fallen auf den vorhandenen Pfad zurück. Route,
+Wartezeit, Annahme/Ablehnung und terminaler Kettenabschluss bleiben unverändert.
+Neue `charter-idea.v1`-/Reporter-Rückreisen und private Rückflüge behalten ihre
+eigenen Erzählpfade. Keine Klassifikations-/Parseränderung, keine zusätzlichen
+KI-Aufrufe und kein Runtime-Erfolg aus der Geschichte.
+
+103 relevante Tests bestanden. Ein alter Private-Return-VM-Testhost erhielt den
+fehlenden clearTimeout-Stub für die bereits bestehende Angebotstaktung; keine
+Änderung an der privaten Produktionslogik. Live-Hinflug/Abholung mit derselben
+Person, akzeptierter Erinnerung, persönlicher Begrüßung und terminalem Ende
+geprüft. Ein Writer-Aufruf lief in das bestehende 16-Sekunden-API-Limit;
+Wiederholung mit dem gespeicherten Plan erfolgreich. Ein weiterer gültiger
+Writer ließ die optionale Hauptmissionserinnerung aus; der Altdatenpfad blieb
+funktionsfähig. Prompt anschließend präzisiert, finale Probe liefert Erinnerung.
+Prüfarbelege lokal unter `analysis/legacy-charter-followup-live-20261010/`,
+final `apt_charter-personal-04.md`. Kein neuer Cloud-/MSFS-/Audio-End-to-End-Test.
+Vor Veröffentlichung muss der Tracker wegen des eingebundenen Core-Moduls
+neu gebaut werden. Noch kein Rollout dieses lokalen Arbeitsstands.
+
+Persönlicher Aufenthaltskern (10.10.2026, lokal): Legacy-Charter-Abholungen
+erzählen den Aufenthalt in dritter Person; zugeordnete Zitate bleiben erlaubt.
+Der Writer darf konkrete fiktive Begegnungen und persönliche Entwicklungen
+ausarbeiten. Auch das V5-Missionsformular erhält hierfür einen gezielten
+persönlichen Stil statt der allgemeinen knappen Dispatch-Vorgabe. Andere
+Missionsfamilien behalten ihre bisherigen Stilrezepte. Die generierte Erinnerung
+und Begrüßung gehen außerdem in bush.pickupStory ein, da diese beim
+Pickup-Voice-Kontext Vorrang vor passenger.pickupStory hat. Identität, Route,
+Cargo, Boarding und Freigaben bleiben gesperrte Vertragsdaten.
+
+Live-Probe personal-rich-03: technische Kette erfolgreich, gleicher Gast, fünf
+Tage simulierte Wartezeit; Aufenthaltsgeschichte noch allgemein. Danach den
+Formularstil gezielt angepasst. 103 Regressionstests, Syntax und diff-check
+erfolgreich. Abschließende Live-Probe nach ausdrücklicher Nutzerzustimmung erfolgreich:
+`apt_charter-personal-rich-04.md`, zwei Live-Modellaufrufe für Planner/Writer
+der Abholung, gespeicherter Live-Hinflug wiederverwendet. Derselbe Gast, sechs
+Tage simulierte Wartezeit, persönliche Begegnung im Rückkehrbriefing und
+passende Begrüßung; technische Prüfung erfolgreich. Kein Cloud-/Simulator-/
+Audio-End-to-End-Test. Keine Veröffentlichung.

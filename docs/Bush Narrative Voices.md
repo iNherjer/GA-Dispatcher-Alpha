@@ -618,3 +618,29 @@ dies verändert keine technischen Aufgaben oder Freigaben. Geplante
 Rückfrachtideen können noch vom später verbindlichen Vertrag abweichen. Der
 konkrete Folgeflug wahrt dessen Ladung. Keine semantische Garantie. Prüfarbelege:
 `analysis/bush-followup-live-20261010/refinement.md`.
+
+## Adventure-Aufenthalt und Rückflug (10.10.2026, lokal)
+
+Neue Adventure-Hopper-Aufenthalte werden auf 7–30 Tage geplant. Die konkrete
+Dauer wird vor dem Hinflug-Planner/Writer festgelegt und als missionTemporalContext
+in Vertrag, Mission und Folgeanfrage weitergegeben. Bereits geplante kürzere
+Aufenthalte behalten ihre Dauer und Freigabezeit. Die übrigen Bush-/Charter-
+Stränge verwenden weiterhin 1–7 Tage. Die Angebotslaufzeit beginnt weiterhin
+erst mit eligibleAt; ein langer Aufenthalt verkürzt das Annahmefenster nicht.
+
+Der Folgewriter und der bestehende Bush-Voice-Writer erhalten stayDays/stayText
+explizit als Erzählgrundlage. Entwicklungen passen zum Zeitraum; kein fester
+Ereigniskatalog und kein Ereignis pro Tag. Der Adventure-Rückflug plant genau
+vier feste persönliche Anekdoten ohne zusätzliche Geo-Kapitel. Begrüßung und
+Abschied bleiben separate Ansagen. Beim Pickup beginnen die Kapitel erst nach
+der Aufnahme, beim Vor-Ort-Charter gelten dessen vorhandene Boarding-Regeln.
+Die technischen outbound/return-Leg-Werte bleiben entsprechend dem Rezept.
+
+Die bestehende Voice-Queue, Mindestabstände und Anflug-/Abschluss-Sperren bleiben
+erhalten: Vier geplante Kapitel garantieren bei sehr kurzen oder unterbrochenen
+Flügen nicht vier tatsächlich abgespielte Ansagen. Keine neue Runtime-Authority
+oder zusätzliche KI-Abfrage. Testabdeckung: neue Bereichs-/Altdaten-/30-Tage-
+Übergabetests, vier Kapitel inklusive einmaliger Wiedergabe und Vor-Ort-Start.
+133 Regressionstests bestanden; ein weiterer Test benötigt fehlende alte
+Live-JSON-Fixtures und wurde gezielt ausgelassen. Keine neue Live-/Audio-/
+Simulatorprobe dieses Stands und noch keine Veröffentlichung.

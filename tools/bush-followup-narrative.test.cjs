@@ -52,3 +52,24 @@ test('real compact mission/cloud functions preserve bounded Bush memory and curr
  assert.deepEqual(saved.missionContract.bushFollowUpNarrative,m.bushFollowUpNarrative);
  assert.deepEqual(saved.followUpContinuation,m.followUpContinuation);
 });
+
+
+test('Adventure stays span 7–30 days and retain old booked stays and exact cloud eligibility',()=>{
+ for(let i=0;i<80;i++){
+  const req=close(md('bush_scenic_hopper','bush_pickup_strip')).requests[0];
+  assert.ok(req.stayDays>=7&&req.stayDays<=30);
+ }
+ for(const days of [2,7,30]){
+  const m=md('bush_scenic_hopper','bush_pickup_strip'),eligibleAt=now+days*86400000;
+  m.missionTemporalContext={sourceKind:'bush_scenic_hopper',stayDays:days,followUpEligibleAt:eligibleAt};
+  const req=close(m).requests[0];assert.equal(req.stayDays,days);assert.equal(req.eligibleAt,eligibleAt);
+  const restored=follow.mergeRequests([],copy([req]),now)[0];assert.equal(restored.stayDays,days);
+  const pipeline=follow.service([restored],now).buildPipelineContext(restored);
+  assert.equal(pipeline.temporalContext.stayDays,days);assert.equal(pipeline.bushContinuation.temporalContext.stayDays,days);
+  assert.match(core.followupPrompt({missionType:'bush',followUpContext:pipeline}),new RegExp('"stayDays":'+days));
+ }
+ for(const profile of ['bush_charter_strip','bush_supply_strip']){
+  const req=close(md(profile,profile==='bush_supply_strip'?'bush_pickup_cargo':'bush_pickup_strip')).requests[0];
+  assert.ok(req.stayDays>=1&&req.stayDays<=7);
+ }
+});
