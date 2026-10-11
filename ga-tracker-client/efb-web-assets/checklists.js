@@ -337,6 +337,10 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       controller: null
     }
   };
+  var DRAWER_IDLE_MS = 45000;
+  var drawerIdleTimer = null;
+  var drawerPinned = false;
+  var placeRenderKey = '';
   var miniMaps = new Map();
   var expandedPlaceMap = null;
   var expandedPlaceMapEl = null;
@@ -792,7 +796,10 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       lat,
       lon,
       elevation: Number.isFinite(elev) ? elev : null,
-      country: input.country || input.iso_country || input.cc || ''
+      country: input.country || input.iso_country || input.cc || '',
+      // Display-only source details from the existing airport response.
+      runways: Array.isArray(input.runways) ? input.runways : [],
+      frequencies: Array.isArray(input.frequencies) ? input.frequencies : []
     };
   }
   function getCurrentAirport(kind) {
@@ -914,9 +921,33 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     }));
     return _fetchJson.apply(this, arguments);
   }
+  function resetDrawerIdleTimer() {
+    clearTimeout(drawerIdleTimer);
+    drawerIdleTimer = null;
+    if (!isDrawerOpen() || drawerPinned) return;
+    drawerIdleTimer = setTimeout(() => {
+      // Do not remove a form while the pilot is entering data.
+      if (drawerEl.contains(document.activeElement) && document.activeElement.matches('input, textarea, select, [contenteditable="true"]')) {
+        resetDrawerIdleTimer();
+        return;
+      }
+      setDrawerOpen(false);
+    }, DRAWER_IDLE_MS);
+  }
+  function syncDrawerPin() {
+    var pin = document.getElementById('mapSideDrawerPin');
+    if (!pin) return;
+    pin.setAttribute('aria-pressed', String(drawerPinned));
+    pin.classList.toggle('is-active', drawerPinned);
+    pin.title = drawerPinned ? 'Menü bleibt offen' : 'Menü offen halten';
+  }
   function setDrawerOpen(open) {
     if (!drawerEl) return;
+    if (!open) closeExpandedPlaceMap();
+    if (!isDrawerOpen() || !open) drawerPinned = false;
     drawerEl.classList.toggle('is-open', !!open);
+    syncDrawerPin();
+    resetDrawerIdleTimer();
     if (open && typeof window.gaBringMapOverlayToFront === 'function') {
       window.gaBringMapOverlayToFront(drawerEl);
     }
@@ -959,7 +990,10 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       bodyEl.innerHTML = toolTopline(state.view) + renderToolEmpty('Diese Funktion ist im EFB noch nicht verfügbar. Niederschlagsradar ist im Layer-Menü wählbar.');
       return;
     }
-    destroyPlaceMiniMaps();
+    if (state.view !== 'place' && state.view !== 'airport-info') {
+      destroyPlaceMiniMaps();
+      placeRenderKey = '';
+    }
     if (state.view === 'home') renderHome();else if (state.view === 'list') renderList();else if (state.view === 'manager') renderManager();else if (state.view === 'viewer') renderViewer();else if (state.view === 'editor') renderEditor();else if (state.view === 'import') renderImport();else if (state.view === 'weather') renderWeatherTool();else if (state.view === 'radio') renderRadioTool();else if (state.view === 'warnings') renderWarningsTool();else if (state.view === 'place') renderPlaceTool();else if (state.view === 'nearest') renderNearestTool();else if (state.view === 'airport-info') renderAirportInfoTool();else if (state.view === 'cargo') renderCargoTool();else if (state.view === 'mission') renderMissionTool();else renderHome();
     renderStatus();
     if ((_window$gaChecklistHo5 = window.gaChecklistHost) !== null && _window$gaChecklistHo5 !== void 0 && _window$gaChecklistHo5.supportsAction) {
@@ -3291,6 +3325,9 @@ ${routeLines}`;
             ${data ? renderFreqBlock('Ziel', data.dest, `radio_dest_${((_data$dest = data.dest) === null || _data$dest === void 0 ? void 0 : _data$dest.icao) || 'none'}`) : renderToolEmpty(entry.loading ? 'Radio-Daten werden geladen...' : 'Keine Radio-Daten.')}
         `;
   }
+  function refreshVisiblePlaceDetails() {
+    if (isDrawerOpen() && (state.view === 'place' || state.view === 'airport-info')) render();
+  }
   function ensurePlaceTool() {
     var force = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
     var key = `${getCurrentAirport('dep').icao}|${getCurrentAirport('dest').icao}|${getRouteKey()}`;
@@ -3304,7 +3341,7 @@ ${routeLines}`;
     };
     var airports = [entry.data.dep, entry.data.dest].filter(a => (a === null || a === void 0 ? void 0 : a.icao) && /^[A-Z0-9]{4}$/.test(a.icao));
     airports.forEach((apt, idx) => {
-      if (typeof fetchAirportFreq === 'function' && !getFreqLines(apt.icao).length) fetchAirportFreq(apt.icao, null, idx === 0 ? 'dep' : 'dest').catch(() => null);
+      if (typeof fetchAirportFreq === 'function' && !getFreqLines(apt.icao).length) fetchAirportFreq(apt.icao, null, idx === 0 ? 'dep' : 'dest').catch(() => null).then(() => refreshVisiblePlaceDetails());
       if (typeof fetchRunwayDetails === 'function' && !getRunwayText(apt.icao) && Number.isFinite(apt.lat) && Number.isFinite(apt.lon)) {
         var id = `routeToolHiddenRwy_${apt.icao}`;
         var hidden = document.getElementById(id);
@@ -3314,12 +3351,9 @@ ${routeLines}`;
           hidden.style.display = 'none';
           document.body.appendChild(hidden);
         }
-        fetchRunwayDetails(apt.lat, apt.lon, id, apt.icao).catch(() => null);
+        fetchRunwayDetails(apt.lat, apt.lon, id, apt.icao).catch(() => null).then(() => refreshVisiblePlaceDetails());
       }
     });
-    if (state.view === 'place') setTimeout(() => {
-      if (state.view === 'place') render();
-    }, 800);
   }
   function placeMapId(label, apt) {
     var raw = `${label}_${(apt === null || apt === void 0 ? void 0 : apt.icao) || (apt === null || apt === void 0 ? void 0 : apt.name) || ''}_${Number((apt === null || apt === void 0 ? void 0 : apt.lat) || 0).toFixed(3)}_${Number((apt === null || apt === void 0 ? void 0 : apt.lon) || 0).toFixed(3)}`;
@@ -3443,6 +3477,7 @@ ${routeLines}`;
       return null;
     }
     var interactive = !!options.interactive;
+    el.textContent = '';
     var map = L.map(el, {
       zoomControl: interactive,
       dragging: interactive,
@@ -3451,7 +3486,9 @@ ${routeLines}`;
       boxZoom: interactive,
       keyboard: interactive,
       tap: interactive,
-      attributionControl: false
+      attributionControl: false,
+      zoomAnimation: false,
+      fadeAnimation: false
     });
     var layers = makePlaceMapLayers();
     if (!layers) {
@@ -3474,7 +3511,10 @@ ${routeLines}`;
     }).addTo(map);
     map.setView([lat, lon], options.zoom || 13);
     var resizeTimer = setTimeout(() => {
-      if (el.isConnected) map.invalidateSize();
+      if (el.isConnected) map.invalidateSize({
+        animate: false,
+        pan: false
+      });
     }, 80);
     map.once('unload', () => clearTimeout(resizeTimer));
     return entry;
@@ -3518,7 +3558,7 @@ ${routeLines}`;
                     <div class="route-tool-map-modal-actions">
                         <button class="route-tool-map-toggle" type="button" data-place-map-modal-layer="vfr">VFR</button>
                         <button class="route-tool-map-toggle" type="button" data-place-map-modal-layer="sat">Sat</button>
-                        <button class="route-tool-map-close" type="button" aria-label="Karte schließen">×</button>
+                        <button class="route-tool-map-close" type="button" aria-label="Karte schließen">Schließen</button>
                     </div>
                 </div>
                 <div id="routeToolExpandedPlaceMap" class="route-tool-expanded-map"></div>
@@ -3532,6 +3572,9 @@ ${routeLines}`;
       zoom: 14,
       markerRadius: 7
     });
+    ['pointerdown', 'wheel', 'keydown'].forEach(type => wrapper.addEventListener(type, resetDrawerIdleTimer, {
+      passive: true
+    }));
     wrapper.addEventListener('click', event => {
       if (event.target === wrapper || event.target.closest('.route-tool-map-close')) {
         closeExpandedPlaceMap();
@@ -3547,8 +3590,8 @@ ${routeLines}`;
   function placeCard(label, apt) {
     var detailAction = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
     var coords = Number.isFinite(apt === null || apt === void 0 ? void 0 : apt.lat) && Number.isFinite(apt === null || apt === void 0 ? void 0 : apt.lon) ? `${apt.lat.toFixed(4)}, ${apt.lon.toFixed(4)}` : '—';
-    var freqs = getFreqLines(apt === null || apt === void 0 ? void 0 : apt.icao).slice(0, 5);
-    var rwy = getRunwayText(apt === null || apt === void 0 ? void 0 : apt.icao);
+    var freqs = airportDisplayFrequencies(apt).slice(0, 5);
+    var rwy = airportDisplayRunways(apt);
     var rwyRows = parseRunwayRows(rwy);
     var aip = getAipUrlForAirport(apt);
     var mapId = placeMapId(label, apt);
@@ -3576,22 +3619,24 @@ ${routeLines}`;
                             <span>${hasCoords ? 'Karte lädt…' : 'Keine Kartenposition'}</span>
                         </div>
                     </div>
-                    <div class="route-tool-place-facts">
-                        <div class="route-tool-place-chip"><span>Koordinaten</span><b>${escapeHtml(coords)}</b></div>
-                        <div class="route-tool-place-chip"><span>Elevation</span><b>${(apt === null || apt === void 0 ? void 0 : apt.elevation) != null ? `${Math.round(apt.elevation)} ft` : '—'}</b></div>
-                    </div>
                 </div>
+                <div data-place-details>
                 <div class="route-tool-place-block">
-                    <div class="route-tool-place-block-title">Wetter</div>
-                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget">Wetter lädt bei Bedarf…</div>
+                    <div class="route-tool-place-block-title">Frequenzen</div>
+                    ${freqs.length ? `<div class="route-tool-frequency-chips">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : renderToolEmpty('Keine Frequenzen im Cache.')}
                 </div>
                 <div class="route-tool-place-block">
                     <div class="route-tool-place-block-title">Pisten</div>
                     ${rwyRows.length ? rwyRows.map(row => `<div class="route-tool-runway-row"><span>${escapeHtml(row.ident)}</span><b>${escapeHtml(row.detail || 'Details offen')}</b></div>`).join('') : renderToolEmpty('Keine Pistendaten im Cache.')}
                 </div>
+                </div>
+                    <div class="route-tool-place-facts">
+                        <div class="route-tool-place-chip"><span>Koordinaten</span><b>${escapeHtml(coords)}</b></div>
+                        <div class="route-tool-place-chip"><span>Elevation</span><b>${(apt === null || apt === void 0 ? void 0 : apt.elevation) != null ? `${Math.round(apt.elevation)} ft` : '—'}</b></div>
+                    </div>
                 <div class="route-tool-place-block">
-                    <div class="route-tool-place-block-title">Frequenzen</div>
-                    ${freqs.length ? `<div class="route-tool-frequency-chips">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : renderToolEmpty('Keine Frequenzen im Cache.')}
+                    <div class="route-tool-place-block-title">Wetter</div>
+                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget">Wetter lädt bei Bedarf…</div>
                 </div>
                 ${aip ? `<a class="route-tool-link" data-action="airport-aip" data-airport="${escapeAttr(encoded)}" href="${escapeAttr(aip)}" target="_blank" rel="noopener noreferrer">AIP öffnen ↗</a>` : ''}
             </div>
@@ -3614,6 +3659,26 @@ ${routeLines}`;
       }
     });
   }
+  function renderPlaceBody(html) {
+    var draft = document.createElement('div');
+    draft.innerHTML = html;
+    var key = state.view + '|' + Array.from(draft.querySelectorAll('.route-tool-mini-map')).map(el => el.id).join('|');
+    if (placeRenderKey !== key || !bodyEl.querySelector('.route-tool-place-card')) {
+      destroyPlaceMiniMaps();
+      bodyEl.innerHTML = html;
+      placeRenderKey = key;
+      return;
+    }
+    var oldCards = bodyEl.querySelectorAll('.route-tool-place-card');
+    draft.querySelectorAll('.route-tool-place-card').forEach((card, index) => {
+      var current = oldCards[index];
+      ['.route-tool-place-head', '.route-tool-place-facts', '[data-place-details]'].forEach(selector => {
+        var oldNode = current.querySelector(selector),
+          newNode = card.querySelector(selector);
+        if (oldNode && newNode && oldNode.innerHTML !== newNode.innerHTML) oldNode.innerHTML = newNode.innerHTML;
+      });
+    });
+  }
   function renderPlaceTool() {
     setTitle('Platz');
     ensurePlaceTool(false);
@@ -3621,11 +3686,11 @@ ${routeLines}`;
       dep: getCurrentAirport('dep'),
       dest: getCurrentAirport('dest')
     };
-    bodyEl.innerHTML = `
+    renderPlaceBody(`
             ${toolTopline('place')}
             ${placeCard('Start', data.dep)}
             ${placeCard('Ziel', data.dest)}
-        `;
+        `);
     setTimeout(renderPlaceEnhancements, 0);
   }
   function ensureNearestTool() {
@@ -3721,6 +3786,33 @@ ${routeLines}`;
     }));
     return _ensureNearestTool.apply(this, arguments);
   }
+  function airportDisplayRunways(apt) {
+    return (typeof formatOpenAipAirportRunways === 'function' ? formatOpenAipAirportRunways(apt) : '') || getRunwayText(apt === null || apt === void 0 ? void 0 : apt.icao);
+  }
+  function airportDisplayFrequencies(apt) {
+    var cached = getFreqLines(apt === null || apt === void 0 ? void 0 : apt.icao);
+    return cached.length ? cached : ((apt === null || apt === void 0 ? void 0 : apt.frequencies) || []).filter(f => f && f.value).map(f => ({
+      label: f.name || f.label || 'Freq',
+      value: f.value
+    }));
+  }
+  function nearestAirportDetails(apt) {
+    var rows = parseRunwayRows(airportDisplayRunways(apt));
+    var runways = rows.map(row => {
+      var match = row.ident.match(/^(0?[1-9]|[12]\d|3[0-6])([LRC]?)(?:\/(0?[1-9]|[12]\d|3[0-6])([LRC]?))?$/i);
+      if (!match) return `<span>${escapeHtml(row.ident)}</span>`;
+      var number = Number(match[1]);
+      var first = ('0' + number).slice(-2) + match[2].toUpperCase();
+      var label = match[3] ? first + '/' + ('0' + Number(match[3])).slice(-2) + (match[4] || '').toUpperCase() : first;
+      // Approximate magnetic axis from the designator; north is up.
+      var radians = number * 10 * Math.PI / 180;
+      var dx = Math.sin(radians) * 13,
+        dy = Math.cos(radians) * 13;
+      return `<span class="route-tool-nearest-runway"><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><line x1="${16 - dx}" y1="${16 + dy}" x2="${16 + dx}" y2="${16 - dy}" stroke="currentColor" stroke-width="1.5" /></svg><b>${escapeHtml(label)}</b></span>`;
+    }).join('');
+    var freqs = airportDisplayFrequencies(apt);
+    return `<span class="route-tool-nearest-details"><span class="route-tool-nearest-runways">${runways || 'Pisten: keine Angaben'}</span><span class="route-tool-nearest-frequencies">${freqs.length ? freqs.map(f => `<span class="route-tool-nearest-frequency">${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('') : 'Frequenz: keine Angaben'}</span></span>`;
+  }
   function renderNearestTool() {
     var _entry$data;
     setTitle('Nearest');
@@ -3736,6 +3828,7 @@ ${routeLines}`;
                         <span>
                             <span class="route-tool-row-title">${escapeHtml(apt.icao)} · ${escapeHtml(apt.name)}</span>
                             <span class="route-tool-row-meta">${fmtNm(apt.nav.dist)} NM · ${apt.nav.brng}° ${compassFromBearing(apt.nav.brng)}</span>
+                            ${nearestAirportDetails(apt)}
                         </span>
                         <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                     </button>
@@ -3771,13 +3864,13 @@ ${routeLines}`;
       return;
     }
     ensurePlaceTool(false);
-    bodyEl.innerHTML = `
+    renderPlaceBody(`
             <div class="checklist-topline route-tool-topline">
                 <button class="checklist-back-btn" type="button" data-action="open-tool" data-tool="${escapeAttr(state.placeInfoReturn || 'place')}">Zurück</button>
                 <button class="checklist-action-btn" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encodeURIComponent(JSON.stringify(apt)))}">Direct To</button>
             </div>
             ${placeCard('Info', apt, false)}
-        `;
+        `);
     setTimeout(renderPlaceEnhancements, 0);
   }
   function renderList() {
@@ -5765,7 +5858,7 @@ ${routeLines}`;
       state.radioAirportMenuKey = '';
       setStatus('');
       if (typeof fetchAirportFreq === 'function' && _apt4.icao && !getFreqLines(_apt4.icao).length) {
-        fetchAirportFreq(_apt4.icao, null, null).catch(() => null);
+        fetchAirportFreq(_apt4.icao, null, null).catch(() => null).then(() => refreshVisiblePlaceDetails());
       }
       if (typeof fetchRunwayDetails === 'function' && _apt4.icao && !getRunwayText(_apt4.icao) && Number.isFinite(_apt4.lat) && Number.isFinite(_apt4.lon)) {
         var rid = `routeToolHiddenRwy_${_apt4.icao}`;
@@ -5776,12 +5869,9 @@ ${routeLines}`;
           hidden.style.display = 'none';
           document.body.appendChild(hidden);
         }
-        fetchRunwayDetails(_apt4.lat, _apt4.lon, rid, _apt4.icao).catch(() => null);
+        fetchRunwayDetails(_apt4.lat, _apt4.lon, rid, _apt4.icao).catch(() => null).then(() => refreshVisiblePlaceDetails());
       }
       render();
-      setTimeout(() => {
-        if (state.view === 'airport-info') render();
-      }, 900);
     } else if (action === 'cargo-toggle-detail') {
       var _itemId = button.dataset.itemId || '';
       state.cargoExpandedItemId = state.cargoExpandedItemId === _itemId ? '' : _itemId;
@@ -5868,6 +5958,18 @@ ${routeLines}`;
       drawerEl.addEventListener(type, event => event.stopPropagation(), {
         passive: true
       });
+    });
+    ['pointerdown', 'click', 'wheel', 'input', 'change', 'keydown', 'scroll'].forEach(type => {
+      drawerEl.addEventListener(type, resetDrawerIdleTimer, {
+        passive: true,
+        capture: true
+      });
+    });
+    var pin = document.getElementById('mapSideDrawerPin');
+    if (pin) pin.addEventListener('click', () => {
+      drawerPinned = !drawerPinned;
+      syncDrawerPin();
+      resetDrawerIdleTimer();
     });
     bodyEl.addEventListener('click', handleClick);
     bodyEl.addEventListener('input', handleInput);

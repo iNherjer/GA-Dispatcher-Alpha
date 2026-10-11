@@ -1,5 +1,65 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## VR-Bedienung und Nearest-Platzdaten (11.10.2026, Alpha v513)
+
+Isolierter Worktree `efb-vr-nearest`, Basis `origin/main` 3905fadc6 (Alpha v512).
+Die gemeinsame Seitenmenue-UI schliesst nach 45 Sekunden ohne Bedienung.
+Klicks, Scrollen und Eingaben erneuern die Frist; eine aktiv fokussierte Eingabe
+wird nicht weggenommen. Die Pin-Schaltflaeche haelt das gesamte Seitenmenue
+bis zum manuellen Schliessen offen, ein neues Oeffnen beginnt ungepinnt.
+Die vergroesserte Platzkarte zaehlt als Bedienung desselben Menues und wird
+beim Menueschliessen ebenfalls entfernt. Breite Schliessen-Buttons mit
+mindestens 42 px Hoehe ersetzen die kleinen X-Ziele im Seitenmenue und
+in der vergroesserten Platzkarte. Frequenz-/Luftraumhinweise verschwinden
+unabhaengig voneinander nach 45 Sekunden; Audio und fachliche Warnregeln
+bleiben unveraendert. Bestaetigungsdialoge werden nicht automatisch beantwortet.
+
+Platz und Platz Info zeigen Karte, Frequenzen, Pisten, Koordinaten/Platzhoehe
+und Wetter in dieser Reihenfolge. Antworten der vorhandenen Datenabrufe
+aktualisieren die Textbloecke bei ihrem tatsaechlichen Abschluss. Identische
+Platz-Updates ersetzen weder Leaflet-Container noch Karte oder Wetterwidget;
+Kachel-Fade und Zoomanimation sind fuer die Platzkarte abgeschaltet.
+Das adressiert einen konkreten Renderpfad, ist aber kein MSFS-/VR-Nachweis
+fuer die vom Tester beobachtete Ursache.
+
+Nearest verwendet nach Testerfeedback 22 px fuer Platznamen, 20 px fuer
+Pisten/Frequenzen und 16 px fuer Entfernung/Kurs (jeweils vor gemeinsamer
+UI-Skalierung). Die Regeln sind auf Nearest begrenzt und werden ueber das
+gemeinsame App-CSS auch in EFB und Toolbar ausgeliefert. Die Textflaeche
+nutzt die gesamte Zeilenbreite; Pisten stehen links, Frequenzen rechts.
+Pisten und Frequenzen stehen jeweils einzeln untereinander in ihrer Spalte;
+Flex-Wrapping stellt bei geringer logischer Breite die Spalten untereinander.
+
+Nearest behaelt die Pisten/Frequenzen aus seiner bestehenden Flughafenantwort
+in der UI-Projektion. Jeder Eintrag zeigt direkt Pistenpaare, je eine duenne
+Linie ohne SVG-Labels und die verfuegbaren Frequenzen. Die Linie ist nordorientiert
+und stellt die aus der Pistennummer abgeleitete magnetische Achse naeherungsweise
+dar; sie ist keine vermessene Pisten-Geometrie. Parallele Pisten behalten L/R/C,
+mehrere Pisten erhalten eigene Linien. Fehlende oder nicht numerische
+Pistendaten erzeugen keine erfundene Linie. Vorhandene App-Caches sind ein
+Darstellungsfallback. Keine neuen Einzelabfragen pro Nearest-Platz, kein
+Protokoll-/Missionsregelwechsel.
+
+Pruefung: 38 Node-Tests inklusive Coherent-Syntax, Warnhinweis-Ablauf und
+Cockpit-Control bestehen; bestehende Interface-Regressionspruefung besteht.
+`tools/efb-vr-nearest-ui-selftest.cjs` prueft echte Browserklicks fuer Quellcode
+und generierte Assets, drei Viewports, 100/150/200/300-Prozent-Skalierung,
+Karten-DOM-/Leaflet-Identitaet, Textaktualisierung, Datenreihenfolge, Linien-
+Geometrie, fehlende Pisten, Pin/Unpin, Scroll-Inaktivitaet und Eingabefokus.
+Der Test verwendet eine kontrollierte 45-Sekunden-Uhr und blockiert externe
+Netzwerkzugriffe; echte Kachelverfuegbarkeit und Coherent/VR bleiben offen.
+Screenshots von Platz und Nearest wurden visuell geprueft.
+
+Releasevorbereitung: Tracker v513, Assetrevision `51301`, Web-Cache v2007.
+Der Nutzer hat am 11.10.2026 den Alpha-/Origin-Release ausdruecklich beauftragt.
+Generierte Assets sind aktualisiert; Windows-EXE, unveraenderlicher Release
+und oeffentlicher Download werden vor Alpha-Kanalaktivierung verifiziert.
+Windows-x64-Build (pkg 6.18.1/Node18 ohne Bytecode) erfolgreich: 173756096
+Bytes, SHA-256 3819ecd741e61dc64df2812d14f58cc68bd3bdebeec0e5e407a8a3a05e810dc4.
+PE-AMD64-Header, v513 und neun exakt eingebettete UI-Quelldateien geprueft. Das vorhandene
+Community-Paket bleibt kompatibel, da keine Parent-/SDK-Datei geaendert wurde.
+
+
 ## Annahme ohne laufenden Tracker (08.10.2026)
 
 Eine offene Relay-Verbindung ohne identifizierten Tracker blockiert Annahme und Clear nicht. Cloud-Missionskontrolle bleibt dauerhaft und revisionsgesichert; der vorhandene Tracker-Abgleich bereinigt beim späteren Start den alten Lauf vor dem Laden des neuen. Ein bestätigter aktiver Tracker wird weiterhin sofort beendet. Keine Tracker-/SDK-Änderung erforderlich.

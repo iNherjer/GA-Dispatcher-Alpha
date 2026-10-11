@@ -266,7 +266,8 @@
                         </div>
                         <div class="map-side-drawer-actions">
                             <button type="button" class="settings-help-btn map-side-help-btn" onclick="showSettingsHelp('map-side-drawer', event)" aria-label="Hilfe zu Seitenmenue und Checklisten" aria-expanded="false">?</button>
-                            <button class="map-side-drawer-close" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer(false)" title="Schließen">×</button>
+                            <button id="mapSideDrawerPin" class="map-side-drawer-pin" type="button" aria-label="Menü offen halten" aria-pressed="false" title="Menü offen halten">📌</button>
+                            <button class="map-side-drawer-close" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer(false)" title="Schließen">Schließen</button>
                         </div>
                     </div>
                     <div id="checklistDrawerStatus" class="map-side-drawer-status" aria-live="polite"></div>

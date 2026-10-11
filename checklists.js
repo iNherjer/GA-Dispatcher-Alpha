@@ -172,6 +172,10 @@
         nearest: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null, origin: null },
         airportInfo: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null }
     };
+    const DRAWER_IDLE_MS = 45000;
+    let drawerIdleTimer = null;
+    let drawerPinned = false;
+    let placeRenderKey = '';
     const miniMaps = new Map();
     let expandedPlaceMap = null;
     let expandedPlaceMapEl = null;
@@ -635,7 +639,10 @@
             lat,
             lon,
             elevation: Number.isFinite(elev) ? elev : null,
-            country: input.country || input.iso_country || input.cc || ''
+            country: input.country || input.iso_country || input.cc || '',
+            // Display-only source details from the existing airport response.
+            runways: Array.isArray(input.runways) ? input.runways : [],
+            frequencies: Array.isArray(input.frequencies) ? input.frequencies : []
         };
     }
 
@@ -740,9 +747,35 @@
         return res.json();
     }
 
+    function resetDrawerIdleTimer() {
+        clearTimeout(drawerIdleTimer);
+        drawerIdleTimer = null;
+        if (!isDrawerOpen() || drawerPinned) return;
+        drawerIdleTimer = setTimeout(() => {
+            // Do not remove a form while the pilot is entering data.
+            if (drawerEl.contains(document.activeElement) && document.activeElement.matches('input, textarea, select, [contenteditable="true"]')) {
+                resetDrawerIdleTimer();
+                return;
+            }
+            setDrawerOpen(false);
+        }, DRAWER_IDLE_MS);
+    }
+
+    function syncDrawerPin() {
+        const pin = document.getElementById('mapSideDrawerPin');
+        if (!pin) return;
+        pin.setAttribute('aria-pressed', String(drawerPinned));
+        pin.classList.toggle('is-active', drawerPinned);
+        pin.title = drawerPinned ? 'Menü bleibt offen' : 'Menü offen halten';
+    }
+
     function setDrawerOpen(open) {
         if (!drawerEl) return;
+        if (!open) closeExpandedPlaceMap();
+        if (!isDrawerOpen() || !open) drawerPinned = false;
         drawerEl.classList.toggle('is-open', !!open);
+        syncDrawerPin();
+        resetDrawerIdleTimer();
         if (open && typeof window.gaBringMapOverlayToFront === 'function') {
             window.gaBringMapOverlayToFront(drawerEl);
         }
@@ -788,7 +821,10 @@
             bodyEl.innerHTML = toolTopline(state.view) + renderToolEmpty('Diese Funktion ist im EFB noch nicht verfügbar. Niederschlagsradar ist im Layer-Menü wählbar.');
             return;
         }
-        destroyPlaceMiniMaps();
+        if (state.view !== 'place' && state.view !== 'airport-info') {
+            destroyPlaceMiniMaps();
+            placeRenderKey = '';
+        }
         if (state.view === 'home') renderHome();
         else if (state.view === 'list') renderList();
         else if (state.view === 'manager') renderManager();
@@ -2796,6 +2832,10 @@ ${routeLines}`;
         `;
     }
 
+    function refreshVisiblePlaceDetails() {
+        if (isDrawerOpen() && (state.view === 'place' || state.view === 'airport-info')) render();
+    }
+
     function ensurePlaceTool(force = false) {
         const key = `${getCurrentAirport('dep').icao}|${getCurrentAirport('dest').icao}|${getRouteKey()}`;
         const entry = toolState.place;
@@ -2805,7 +2845,7 @@ ${routeLines}`;
         entry.data = { dep: getCurrentAirport('dep'), dest: getCurrentAirport('dest') };
         const airports = [entry.data.dep, entry.data.dest].filter(a => a?.icao && /^[A-Z0-9]{4}$/.test(a.icao));
         airports.forEach((apt, idx) => {
-            if (typeof fetchAirportFreq === 'function' && !getFreqLines(apt.icao).length) fetchAirportFreq(apt.icao, null, idx === 0 ? 'dep' : 'dest').catch(() => null);
+            if (typeof fetchAirportFreq === 'function' && !getFreqLines(apt.icao).length) fetchAirportFreq(apt.icao, null, idx === 0 ? 'dep' : 'dest').catch(() => null).then(() => refreshVisiblePlaceDetails());
             if (typeof fetchRunwayDetails === 'function' && !getRunwayText(apt.icao) && Number.isFinite(apt.lat) && Number.isFinite(apt.lon)) {
                 const id = `routeToolHiddenRwy_${apt.icao}`;
                 let hidden = document.getElementById(id);
@@ -2815,10 +2855,9 @@ ${routeLines}`;
                     hidden.style.display = 'none';
                     document.body.appendChild(hidden);
                 }
-                fetchRunwayDetails(apt.lat, apt.lon, id, apt.icao).catch(() => null);
+                fetchRunwayDetails(apt.lat, apt.lon, id, apt.icao).catch(() => null).then(() => refreshVisiblePlaceDetails());
             }
         });
-        if (state.view === 'place') setTimeout(() => { if (state.view === 'place') render(); }, 800);
     }
 
     function placeMapId(label, apt) {
@@ -2935,6 +2974,7 @@ ${routeLines}`;
             return null;
         }
         const interactive = !!options.interactive;
+        el.textContent = '';
         const map = L.map(el, {
             zoomControl: interactive,
             dragging: interactive,
@@ -2943,7 +2983,9 @@ ${routeLines}`;
             boxZoom: interactive,
             keyboard: interactive,
             tap: interactive,
-            attributionControl: false
+            attributionControl: false,
+            zoomAnimation: false,
+            fadeAnimation: false
         });
         const layers = makePlaceMapLayers();
         if (!layers) {
@@ -2960,7 +3002,7 @@ ${routeLines}`;
             fillOpacity: 1
         }).addTo(map);
         map.setView([lat, lon], options.zoom || 13);
-        const resizeTimer = setTimeout(() => { if (el.isConnected) map.invalidateSize(); }, 80);
+        const resizeTimer = setTimeout(() => { if (el.isConnected) map.invalidateSize({ animate: false, pan: false }); }, 80);
         map.once('unload', () => clearTimeout(resizeTimer));
         return entry;
     }
@@ -3001,7 +3043,7 @@ ${routeLines}`;
                     <div class="route-tool-map-modal-actions">
                         <button class="route-tool-map-toggle" type="button" data-place-map-modal-layer="vfr">VFR</button>
                         <button class="route-tool-map-toggle" type="button" data-place-map-modal-layer="sat">Sat</button>
-                        <button class="route-tool-map-close" type="button" aria-label="Karte schließen">×</button>
+                        <button class="route-tool-map-close" type="button" aria-label="Karte schließen">Schließen</button>
                     </div>
                 </div>
                 <div id="routeToolExpandedPlaceMap" class="route-tool-expanded-map"></div>
@@ -3011,6 +3053,7 @@ ${routeLines}`;
         expandedPlaceMapEl = wrapper;
         const mapHost = wrapper.querySelector('#routeToolExpandedPlaceMap');
         expandedPlaceMap = buildPlaceLeafletMap(mapHost, apt, { interactive: true, zoom: 14, markerRadius: 7 });
+        ['pointerdown', 'wheel', 'keydown'].forEach(type => wrapper.addEventListener(type, resetDrawerIdleTimer, { passive: true }));
         wrapper.addEventListener('click', (event) => {
             if (event.target === wrapper || event.target.closest('.route-tool-map-close')) {
                 closeExpandedPlaceMap();
@@ -3026,8 +3069,8 @@ ${routeLines}`;
 
     function placeCard(label, apt, detailAction = true) {
         const coords = Number.isFinite(apt?.lat) && Number.isFinite(apt?.lon) ? `${apt.lat.toFixed(4)}, ${apt.lon.toFixed(4)}` : '—';
-        const freqs = getFreqLines(apt?.icao).slice(0, 5);
-        const rwy = getRunwayText(apt?.icao);
+        const freqs = airportDisplayFrequencies(apt).slice(0, 5);
+        const rwy = airportDisplayRunways(apt);
         const rwyRows = parseRunwayRows(rwy);
         const aip = getAipUrlForAirport(apt);
         const mapId = placeMapId(label, apt);
@@ -3055,22 +3098,24 @@ ${routeLines}`;
                             <span>${hasCoords ? 'Karte lädt…' : 'Keine Kartenposition'}</span>
                         </div>
                     </div>
-                    <div class="route-tool-place-facts">
-                        <div class="route-tool-place-chip"><span>Koordinaten</span><b>${escapeHtml(coords)}</b></div>
-                        <div class="route-tool-place-chip"><span>Elevation</span><b>${apt?.elevation != null ? `${Math.round(apt.elevation)} ft` : '—'}</b></div>
-                    </div>
                 </div>
+                <div data-place-details>
                 <div class="route-tool-place-block">
-                    <div class="route-tool-place-block-title">Wetter</div>
-                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget">Wetter lädt bei Bedarf…</div>
+                    <div class="route-tool-place-block-title">Frequenzen</div>
+                    ${freqs.length ? `<div class="route-tool-frequency-chips">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : renderToolEmpty('Keine Frequenzen im Cache.')}
                 </div>
                 <div class="route-tool-place-block">
                     <div class="route-tool-place-block-title">Pisten</div>
                     ${rwyRows.length ? rwyRows.map(row => `<div class="route-tool-runway-row"><span>${escapeHtml(row.ident)}</span><b>${escapeHtml(row.detail || 'Details offen')}</b></div>`).join('') : renderToolEmpty('Keine Pistendaten im Cache.')}
                 </div>
+                </div>
+                    <div class="route-tool-place-facts">
+                        <div class="route-tool-place-chip"><span>Koordinaten</span><b>${escapeHtml(coords)}</b></div>
+                        <div class="route-tool-place-chip"><span>Elevation</span><b>${apt?.elevation != null ? `${Math.round(apt.elevation)} ft` : '—'}</b></div>
+                    </div>
                 <div class="route-tool-place-block">
-                    <div class="route-tool-place-block-title">Frequenzen</div>
-                    ${freqs.length ? `<div class="route-tool-frequency-chips">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : renderToolEmpty('Keine Frequenzen im Cache.')}
+                    <div class="route-tool-place-block-title">Wetter</div>
+                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget">Wetter lädt bei Bedarf…</div>
                 </div>
                 ${aip ? `<a class="route-tool-link" data-action="airport-aip" data-airport="${escapeAttr(encoded)}" href="${escapeAttr(aip)}" target="_blank" rel="noopener noreferrer">AIP öffnen ↗</a>` : ''}
             </div>
@@ -3094,15 +3139,35 @@ ${routeLines}`;
         });
     }
 
+    function renderPlaceBody(html) {
+        const draft = document.createElement('div');
+        draft.innerHTML = html;
+        const key = state.view + '|' + Array.from(draft.querySelectorAll('.route-tool-mini-map')).map(el => el.id).join('|');
+        if (placeRenderKey !== key || !bodyEl.querySelector('.route-tool-place-card')) {
+            destroyPlaceMiniMaps();
+            bodyEl.innerHTML = html;
+            placeRenderKey = key;
+            return;
+        }
+        const oldCards = bodyEl.querySelectorAll('.route-tool-place-card');
+        draft.querySelectorAll('.route-tool-place-card').forEach((card, index) => {
+            const current = oldCards[index];
+            ['.route-tool-place-head', '.route-tool-place-facts', '[data-place-details]'].forEach(selector => {
+                const oldNode = current.querySelector(selector), newNode = card.querySelector(selector);
+                if (oldNode && newNode && oldNode.innerHTML !== newNode.innerHTML) oldNode.innerHTML = newNode.innerHTML;
+            });
+        });
+    }
+
     function renderPlaceTool() {
         setTitle('Platz');
         ensurePlaceTool(false);
         const data = toolState.place.data || { dep: getCurrentAirport('dep'), dest: getCurrentAirport('dest') };
-        bodyEl.innerHTML = `
+        renderPlaceBody(`
             ${toolTopline('place')}
             ${placeCard('Start', data.dep)}
             ${placeCard('Ziel', data.dest)}
-        `;
+        `);
         setTimeout(renderPlaceEnhancements, 0);
     }
 
@@ -3149,6 +3214,32 @@ ${routeLines}`;
         }
     }
 
+    function airportDisplayRunways(apt) {
+        return (typeof formatOpenAipAirportRunways === 'function' ? formatOpenAipAirportRunways(apt) : '') || getRunwayText(apt?.icao);
+    }
+
+    function airportDisplayFrequencies(apt) {
+        const cached = getFreqLines(apt?.icao);
+        return cached.length ? cached : (apt?.frequencies || []).filter(f => f && f.value).map(f => ({ label: f.name || f.label || 'Freq', value: f.value }));
+    }
+
+    function nearestAirportDetails(apt) {
+        const rows = parseRunwayRows(airportDisplayRunways(apt));
+        const runways = rows.map(row => {
+            const match = row.ident.match(/^(0?[1-9]|[12]\d|3[0-6])([LRC]?)(?:\/(0?[1-9]|[12]\d|3[0-6])([LRC]?))?$/i);
+            if (!match) return `<span>${escapeHtml(row.ident)}</span>`;
+            const number = Number(match[1]);
+            const first = ('0' + number).slice(-2) + match[2].toUpperCase();
+            const label = match[3] ? first + '/' + ('0' + Number(match[3])).slice(-2) + (match[4] || '').toUpperCase() : first;
+            // Approximate magnetic axis from the designator; north is up.
+            const radians = number * 10 * Math.PI / 180;
+            const dx = Math.sin(radians) * 13, dy = Math.cos(radians) * 13;
+            return `<span class="route-tool-nearest-runway"><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><line x1="${16-dx}" y1="${16+dy}" x2="${16+dx}" y2="${16-dy}" stroke="currentColor" stroke-width="1.5" /></svg><b>${escapeHtml(label)}</b></span>`;
+        }).join('');
+        const freqs = airportDisplayFrequencies(apt);
+        return `<span class="route-tool-nearest-details"><span class="route-tool-nearest-runways">${runways || 'Pisten: keine Angaben'}</span><span class="route-tool-nearest-frequencies">${freqs.length ? freqs.map(f => `<span class="route-tool-nearest-frequency">${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('') : 'Frequenz: keine Angaben'}</span></span>`;
+    }
+
     function renderNearestTool() {
         setTitle('Nearest');
         const entry = toolState.nearest;
@@ -3164,6 +3255,7 @@ ${routeLines}`;
                         <span>
                             <span class="route-tool-row-title">${escapeHtml(apt.icao)} · ${escapeHtml(apt.name)}</span>
                             <span class="route-tool-row-meta">${fmtNm(apt.nav.dist)} NM · ${apt.nav.brng}° ${compassFromBearing(apt.nav.brng)}</span>
+                            ${nearestAirportDetails(apt)}
                         </span>
                         <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                     </button>
@@ -3201,13 +3293,13 @@ ${routeLines}`;
             return;
         }
         ensurePlaceTool(false);
-        bodyEl.innerHTML = `
+        renderPlaceBody(`
             <div class="checklist-topline route-tool-topline">
                 <button class="checklist-back-btn" type="button" data-action="open-tool" data-tool="${escapeAttr(state.placeInfoReturn || 'place')}">Zurück</button>
                 <button class="checklist-action-btn" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encodeURIComponent(JSON.stringify(apt)))}">Direct To</button>
             </div>
             ${placeCard('Info', apt, false)}
-        `;
+        `);
         setTimeout(renderPlaceEnhancements, 0);
     }
 
@@ -4424,7 +4516,7 @@ ${routeLines}`;
             state.radioAirportMenuKey = '';
             setStatus('');
             if (typeof fetchAirportFreq === 'function' && apt.icao && !getFreqLines(apt.icao).length) {
-                fetchAirportFreq(apt.icao, null, null).catch(() => null);
+                fetchAirportFreq(apt.icao, null, null).catch(() => null).then(() => refreshVisiblePlaceDetails());
             }
             if (typeof fetchRunwayDetails === 'function' && apt.icao && !getRunwayText(apt.icao) && Number.isFinite(apt.lat) && Number.isFinite(apt.lon)) {
                 const rid = `routeToolHiddenRwy_${apt.icao}`;
@@ -4435,10 +4527,9 @@ ${routeLines}`;
                     hidden.style.display = 'none';
                     document.body.appendChild(hidden);
                 }
-                fetchRunwayDetails(apt.lat, apt.lon, rid, apt.icao).catch(() => null);
+                fetchRunwayDetails(apt.lat, apt.lon, rid, apt.icao).catch(() => null).then(() => refreshVisiblePlaceDetails());
             }
             render();
-            setTimeout(() => { if (state.view === 'airport-info') render(); }, 900);
         } else if (action === 'cargo-toggle-detail') {
             const itemId = button.dataset.itemId || '';
             state.cargoExpandedItemId = state.cargoExpandedItemId === itemId ? '' : itemId;
@@ -4535,6 +4626,15 @@ ${routeLines}`;
         if (!drawerEl) return;
         ['pointerdown', 'mousedown', 'touchstart', 'click', 'dblclick', 'wheel'].forEach(type => {
             drawerEl.addEventListener(type, event => event.stopPropagation(), { passive: true });
+        });
+        ['pointerdown', 'click', 'wheel', 'input', 'change', 'keydown', 'scroll'].forEach(type => {
+            drawerEl.addEventListener(type, resetDrawerIdleTimer, { passive: true, capture: true });
+        });
+        const pin = document.getElementById('mapSideDrawerPin');
+        if (pin) pin.addEventListener('click', () => {
+            drawerPinned = !drawerPinned;
+            syncDrawerPin();
+            resetDrawerIdleTimer();
         });
         bodyEl.addEventListener('click', handleClick);
         bodyEl.addEventListener('input', handleInput);

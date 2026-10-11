@@ -139,10 +139,12 @@ function _awShowFreqBanner(as, col) {
         `<span style="color:#555;font-size:10px;">·</span>` +
         `<span class="awm-freq-vals">${valsHtml}</span>` +
         `</span>` +
-        `<button class="awm-freq-dismiss" type="button">✕</button>`;
+        `<button class="awm-freq-dismiss" type="button">Schließen</button>`;
 
     // Antippen / Klick → Eintrag entfernen, Banner verstecken wenn leer
+    let expiryTimer;
     const dismiss = (ev) => {
+        clearTimeout(expiryTimer);
         _awConsumeFreqBannerEvent(ev);
         if (!entry.isConnected) return;
         entry.remove();
@@ -161,6 +163,7 @@ function _awShowFreqBanner(as, col) {
 
     banner.appendChild(entry);
     banner.style.display = 'block';
+    expiryTimer = setTimeout(() => dismiss(), 45000);
     return true;
 }
 

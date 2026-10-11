@@ -1,12 +1,12 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict'), vm = require('node:vm'), fs = require('node:fs');
 function fixture() {
-  const listeners = {}, intervals = [];
+  const listeners = {}, intervals = [], timeouts = [];
   const banner = { children: [], style: {}, addEventListener() {}, appendChild(entry) { this.children.push(entry); entry.isConnected = true; }, querySelector(selector) { return this.children.find(e => selector.includes(e.dataset.askey)); } };
   const document = { getElementById: () => banner, createElement: () => ({ dataset: {}, style: {}, addEventListener(type, action) { listeners[type] = action; }, querySelector: () => ({ addEventListener() {} }), remove() { banner.children.splice(banner.children.indexOf(this),1); this.isConnected = false; } }) };
   const window = {};
-  vm.runInNewContext(fs.readFileSync('navigation-warning-presentation.js','utf8'), { window, document, setInterval: fn => { intervals.push(fn); return 1; }, clearInterval() {} });
-  return { api: window.GANavigationWarningPresentation, banner, listeners, intervals };
+  vm.runInNewContext(fs.readFileSync('navigation-warning-presentation.js','utf8'), { window, document, setInterval: fn => { intervals.push(fn); return 1; }, clearInterval() {}, setTimeout: (fn, ms) => { timeouts.push({fn, ms}); return timeouts.length; }, clearTimeout(id) { if (id) timeouts[id-1].cleared = true; } });
+  return { api: window.GANavigationWarningPresentation, banner, listeners, intervals, timeouts };
 }
 test('standalone frequency markup, colors, squawk and dismissal are shared; external labels are escaped', () => {
   const f = fixture(), space = { type: 27, name: 'TMZ Test <img>', frequencies: [{ name: 'XPDR', value: '7000' }, { name: 'INFO', value: '123.450' }] };
@@ -30,4 +30,18 @@ test('exact polygon rings pulse three times on either map and are removed afterw
   for (let i=0;i<6;i++) f.intervals[0]();
   assert.deepEqual(styles.map(s => s.opacity), [1,0,1,0,1,0]); assert.equal(removed.length, 1);
   assert.doesNotThrow(() => f.api.pulseOnMap({}, '#fff', null, null));
+});
+
+test('each frequency hint expires after 45 seconds and manual dismissal clears its timer', () => {
+  const f = fixture();
+  f.api.showFrequency({type:5,name:'A',frequencies:[{value:'123.450'}]}, '#fff');
+  f.api.showFrequency({type:5,name:'B',frequencies:[{value:'124.450'}]}, '#fff');
+  assert.deepEqual(f.timeouts.map(t => t.ms), [45000,45000]);
+  f.timeouts[0].fn();
+  assert.equal(f.banner.children.length,1);
+  assert.equal(f.banner.style.display,'block');
+  f.listeners.click({stopPropagation() {},preventDefault() {},cancelable:true});
+  assert.equal(f.timeouts[1].cleared,true);
+  assert.equal(f.banner.style.display,'none');
+  assert.doesNotThrow(() => f.timeouts[1].fn());
 });
