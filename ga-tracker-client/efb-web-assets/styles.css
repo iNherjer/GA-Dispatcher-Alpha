@@ -21123,3 +21123,12 @@ body.theme-win95 .mission-accept-btn:focus-visible { outline: 1px dotted #000; o
 .route-tool-nearest .route-tool-row-meta { font-size: 16px; }
 
 .route-tool-nearest-frequency { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0 5px; min-height: 32px; }
+
+/* Match the cockpit main map: plus-lighter sends preview tiles through a
+   separate blend surface in Coherent. Keep the VFR layer's own opacity. */
+.route-tool-place-map-host img.leaflet-tile,
+.route-tool-expanded-map img.leaflet-tile {
+    mix-blend-mode: normal !important;
+    filter: none !important;
+    backface-visibility: visible !important;
+}

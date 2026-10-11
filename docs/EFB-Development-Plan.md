@@ -1,5 +1,20 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Platz-Kachel-Compositing (11.10.2026, Alpha v514)
+
+Die Testeraufnahme zeigt einen kurzen schwarzen Kachelaussetzer bei weiterhin
+sichtbarem Platzmarker. Die gemeinsame Platz-Vorschau und vergroesserte
+Platzkarte verwenden jetzt `mix-blend-mode: normal`, keinen geerbten Filter
+und sichtbare Bildrueckseiten. Das entspricht der bestehenden Hauptkarten-
+Korrektur im EFB-Host: dessen `#map`-Selektor hatte die weiteren Leaflet-Karten
+nicht erfasst; dort blieb Leaflets `plus-lighter` aktiv. VFR-Ebenen behalten
+ihre eigene Opacity, Kachelquellen und fachliche Daten bleiben unveraendert.
+Browser-Regressionspruefung kontrolliert beide Karten mit geladenen Testkacheln,
+Quell-/Build-CSS sowie die Kachel-DOM-Identitaet bei wiederholten Updates.
+22 EFB-Node-Tests und die Interface-Regressionspruefung bestehen.
+Release-Assetrevision 51401, Web-Cache v2009 (Quellpush), v2010 (Aktivierung). Der reale Coherent-/
+VR-Nachweis fuer diese konkrete Korrektur steht noch aus.
+
 ## VR-Bedienung und Nearest-Platzdaten (11.10.2026, Alpha v513)
 
 Isolierter Worktree `efb-vr-nearest`, Basis `origin/main` 3905fadc6 (Alpha v512).

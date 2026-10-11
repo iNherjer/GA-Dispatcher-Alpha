@@ -31,7 +31,12 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
 
  const browser=await chromium.launch({...(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {}),headless:true});
  const context=await browser.newContext({viewport:{width:894,height:700}});
- await context.route('**/*',r=>r.request().url().startsWith(address)?r.continue():r.abort());
+ const tilePng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1S8AAAAASUVORK5CYII=','base64');
+ await context.route('**/*',r=>{
+  if(r.request().url().startsWith(address))return r.continue();
+  if(/tile\.opentopomap\.org|nwy-tiles-api\.prod\.newaydata\.com|server\.arcgisonline\.com/.test(r.request().url()))return r.fulfill({status:200,contentType:'image/png',body:tilePng});
+  return r.abort();
+ });
  await context.addInitScript(()=>{
   String.prototype.padStart = undefined; // Coherent does not provide this newer built-in.
   const originalSet=window.setTimeout, originalClear=window.clearTimeout;
@@ -59,11 +64,24 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   await page.evaluate(()=>{window.__mapNode=document.querySelector('.route-tool-mini-map');window.__leafletId=__mapNode._leaflet_id;freqCache.EDTL=[{label:'TWR',value:'126.000'}];gaChecklistRefresh();});
   assert.equal(await page.evaluate(()=>__mapNode===document.querySelector('.route-tool-mini-map')&&__leafletId===__mapNode._leaflet_id),true);
   assert.match(await page.locator('[data-place-details]').first().innerText(),/126.000/);
+  // The main map already disables Leaflet's plus-lighter compositor. Preview
+  // and expanded place maps need the same rule, including the generated CSS.
+  const previewTile=page.locator('.route-tool-mini-map img.leaflet-tile').first();
+  await page.waitForFunction(()=>document.querySelector('.route-tool-mini-map img.leaflet-tile-loaded'));
+  assert.equal(await previewTile.evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
+  assert.equal(await previewTile.evaluate(el=>el.complete && el.naturalWidth>0),true);
+  await page.evaluate(()=>{
+    window.__previewTiles=Array.from(__mapNode.querySelectorAll('img.leaflet-tile'));
+    for(let i=0;i<12;i++)gaChecklistRefresh();
+  });
+  assert.equal(await page.evaluate(()=>__previewTiles.every(el=>el.isConnected && __mapNode.contains(el))),true);
+
   assert.deepEqual(await page.locator('.route-tool-place-card').first().locator('.route-tool-place-block-title').allTextContents(),['Frequenzen','Pisten','Wetter']);
   for(const size of [{width:440,height:894},{width:894,height:440},{width:1024,height:768}]){
     await page.setViewportSize(size);await page.waitForTimeout(100);
     const rect=await page.locator('.map-side-drawer-close').boundingBox();assert.ok(rect.width>=88&&rect.height>=42);assert.ok(rect.x>=0&&rect.x+rect.width<=size.width);
     await page.locator('[data-action="place-map-expand"]').first().click();
+    assert.equal(await page.locator('.route-tool-expanded-map img.leaflet-tile').first().evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
     await page.locator('.route-tool-map-close').click();
   }
   await page.screenshot({path:path.join(process.env.TMPDIR || '/tmp', 'efb-vr-place-')+(raw?'source':'compiled')+'.png'});
