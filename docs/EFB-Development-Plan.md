@@ -20,6 +20,11 @@ Alpha-v517-Rollout vom Nutzer fuer App, EFB und Tracker beauftragt.
 Basis ist der aktuelle Alpha-v516-Hotfix; EFB-Web-Assetrevision
 51701. Kein neues SDK-/Community-Paket erforderlich, da ausschliesslich
 die Tracker-gehostete gemeinsame Oberflaeche erweitert wird.
+Release-Tag v517: 11e8c4040; Quellpush nach Kanalabgleich: 20f14fa57.
+Oeffentlicher Download exakt buildgleich: 173778617 Bytes, SHA-256
+fa906f257b83f543abfd3ad77fa7d49059219c7babd5621c10d73cf1aa4f34ed.
+Alpha-Kanalaktivierung mit Web-Cache v2016; gemeinsames EFB-Asset 51701.
+Realer Simulator-/VR-Nachtest bleibt offen.
 
 
 
