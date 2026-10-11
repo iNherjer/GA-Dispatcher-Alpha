@@ -21132,3 +21132,29 @@ body.theme-win95 .mission-accept-btn:focus-visible { outline: 1px dotted #000; o
     filter: none !important;
     backface-visibility: visible !important;
 }
+
+/* Destination awareness in the shared Next WPT floating window. */
+#liveNextWpBox.has-airport-details {
+    width: 230px !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 20px);
+}
+#nextWpAirportDetails[hidden] { display: none; }
+#nextWpAirportDetails .route-tool-nearest-details {
+    font-size: 18px;
+    margin: 6px 0 8px;
+    gap: 6px 10px;
+    color: #9fd3ff;
+}
+#nextWpAirportDetails .route-tool-nearest-runways { flex-basis: 85px; }
+#nextWpAirportDetails .route-tool-nearest-frequencies { flex-basis: 105px; }
+#nextWpAirportDetails .route-tool-nearest-runway { color: #eef5ff; }
+#nextWpAirportDetails .route-tool-nearest-frequency { min-height: 26px; }
+
+@media (max-width: 650px) {
+    #liveNextWpBox.has-airport-details:not(.tele-dragged) {
+        left: auto !important;
+        right: 8px !important;
+        transform: none !important;
+    }
+}

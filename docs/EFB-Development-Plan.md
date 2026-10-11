@@ -1,5 +1,28 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Zielplatz im Next-WPT-Fenster (11.10.2026)
+
+App, EFB und Toolbar verwenden dieselbe Anzeige der Zielplatzdaten aus
+`checklists.js`. Nur der angezeigte letzte Routenpunkt mit passendem
+Ziel-ICAO und passendem Wegpunktnamen oder Zielkoordinaten erweitert Next WPT um Pistenpaare, duenne
+nordorientierte Achsen wie in Nearest und einzelne Frequenzen. Die Linien
+bleiben eine Naeherung aus der Pistennummer. Enroute-Wegpunkte und Routen
+ohne Zielplatz behalten ihre bisherige Darstellung. Bestehende Platzabfragen
+laden fehlende Daten, pro Datentyp/ICAO begrenzt auf den vorhandenen
+Vier-Minuten-Cachezeitraum. Spaete Antworten rendern nur die dann aktuelle
+Auswahl; identische Telemetrie ersetzt den Detail-DOM nicht. Keine Aenderung
+an Navigationsfortschaltung, Missionslogik oder Tracker-Protokoll.
+Geprueft: Browser mit Quell-/Build-Dateien, Ziel-/Nichtziel-Umschaltung,
+fehlende Daten, spaete Frequenzantwort, identische DOM-Knoten bei 20 Polls,
+schmale/weite Viewports und Screenshot. 22 EFB-Node-Tests, bestehende
+Interface-Regressionspruefung und originale App-Telemetriefunktion bestehen.
+Alpha-v517-Rollout vom Nutzer fuer App, EFB und Tracker beauftragt.
+Basis ist der aktuelle Alpha-v516-Hotfix; EFB-Web-Assetrevision
+51701. Kein neues SDK-/Community-Paket erforderlich, da ausschliesslich
+die Tracker-gehostete gemeinsame Oberflaeche erweitert wird.
+
+
+
 ## Platz-Kachel-Compositing (11.10.2026, Alpha v514)
 
 Die Testeraufnahme zeigt einen kurzen schwarzen Kachelaussetzer bei weiterhin

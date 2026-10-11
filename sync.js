@@ -18274,6 +18274,7 @@ function updateNextWpTelemetry(lat, lon) {
     if (!box || !nameEl || !courseEl || !distEl) return;
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2 || typeof calcNav !== 'function') {
         box.style.display = 'none';
+        window.gaUpdateNextWaypointAirportInfo?.(null, -1, 0);
         if (liveToWpLine) {
             try { liveToWpLine.remove(); } catch (e) {}
             liveToWpLine = null;
@@ -18300,7 +18301,8 @@ function updateNextWpTelemetry(lat, lon) {
     const nextInfo = { wpIdx, maxWp, distToWpNm: nav.dist, brng: nav.brng };
 
     const wpName = getWpDisplayName(wpIdx);
-    const freqInfo = getWpFrequencyText(wpIdx);
+    const airportDetails = window.gaUpdateNextWaypointAirportInfo?.(wp, wpIdx, routeWaypoints.length);
+    const freqInfo = airportDetails ? '' : getWpFrequencyText(wpIdx);
     if (freqInfo) {
         nameEl.innerHTML = `${escapeHtmlLite(wpName)}<div style="font-size:11px; color:#9fd3ff; margin-top:1px; line-height:1.1;">${escapeHtmlLite(freqInfo)}</div>`;
     } else {

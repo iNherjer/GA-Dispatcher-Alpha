@@ -3240,6 +3240,67 @@ ${routeLines}`;
         return `<span class="route-tool-nearest-details"><span class="route-tool-nearest-runways">${runways || 'Pisten: keine Angaben'}</span><span class="route-tool-nearest-frequencies">${freqs.length ? freqs.map(f => `<span class="route-tool-nearest-frequency">${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('') : 'Frequenz: keine Angaben'}</span></span>`;
     }
 
+    let nextAirportSelection = null;
+    const nextAirportRequests = new Map();
+
+    function requestNextAirportDetails(apt) {
+        const request = (kind, load) => {
+            const key = kind + ':' + apt.icao;
+            if (Date.now() - (nextAirportRequests.get(key) || 0) < TOOL_CACHE_TTL_MS) return;
+            nextAirportRequests.set(key, Date.now());
+            Promise.resolve().then(load).catch(() => null).then(() => {
+                if (nextAirportSelection) window.gaUpdateNextWaypointAirportInfo(...nextAirportSelection);
+            });
+        };
+        if (!airportDisplayFrequencies(apt).length && typeof fetchAirportFreq === 'function') {
+            request('freq', () => fetchAirportFreq(apt.icao, null, null));
+        }
+        if (!airportDisplayRunways(apt) && typeof fetchRunwayDetails === 'function') {
+            request('runways', () => {
+                const id = 'routeToolHiddenRwy_' + apt.icao;
+                if (!document.getElementById(id)) {
+                    const hidden = document.createElement('div');
+                    hidden.id = id;
+                    hidden.hidden = true;
+                    document.body.appendChild(hidden);
+                }
+                return fetchRunwayDetails(apt.lat, apt.lon, id, apt.icao);
+            });
+        }
+    }
+
+    // Shared by standalone telemetry and tracker-hosted EFB/Toolbar telemetry.
+    // Only the selected final destination qualifies; an enroute airport does not.
+    window.gaUpdateNextWaypointAirportInfo = function(wp, index, count) {
+        const box = document.getElementById('liveNextWpBox');
+        const node = document.getElementById('nextWpAirportDetails');
+        if (!box || !node) return false;
+        const apt = getCurrentAirport('dest');
+        const lon = Number(wp?.lon ?? wp?.lng);
+        const waypointCode = String(wp?.icao || wp?.icaoCode || wp?.name || wp?.id || '').trim().toUpperCase();
+        const matchesAirport = waypointCode === apt.icao
+            || (Math.abs(Number(wp?.lat) - apt.lat) < 0.0001 && Math.abs(lon - apt.lon) < 0.0001);
+        const eligible = !!wp && count >= 2 && index === count - 1
+            && /^[A-Z0-9]{4}$/.test(apt.icao)
+            && Number.isFinite(apt.lat) && Number.isFinite(apt.lon)
+            && matchesAirport;
+        nextAirportSelection = eligible ? [wp, index, count] : null;
+        node.hidden = !eligible;
+        box.classList.toggle('has-airport-details', eligible);
+        if (!eligible) {
+            if (node.innerHTML) node.innerHTML = '';
+            node._gaAirportDetailsHtml = '';
+            return false;
+        }
+        const html = nearestAirportDetails(apt);
+        if (node._gaAirportDetailsHtml !== html) {
+            node.innerHTML = html;
+            node._gaAirportDetailsHtml = html;
+        }
+        requestNextAirportDetails(apt);
+        return true;
+    };
+
     function renderNearestTool() {
         setTitle('Nearest');
         const entry = toolState.nearest;

@@ -2839,6 +2839,7 @@
     var next = byId('liveNextWpBox');
     if (!navigation || !route) {
       presentation.setStyle(bar, 'display', 'none');
+      if (window.gaUpdateNextWaypointAirportInfo) window.gaUpdateNextWaypointAirportInfo(null, -1, 0);
       syncToolbarLayout();
       setInfoBoxAvailability('liveNextWpBox', false);
       if (previewLine && previewLayer) previewLayer.removeLayer(previewLine);
@@ -2866,7 +2867,8 @@
     var label = labels.filter(function (item) { return item.lat === selected.waypoint.lat && item.lon === selected.waypoint.lon; })[0];
     var name = label && label.name || selected.waypoint.name || selected.waypoint.id || 'NEXT';
     var nameNode = byId('nextWpName');
-    var frequency = label && label.frequency ? String(label.frequency) : '';
+    var airportDetails = window.gaUpdateNextWaypointAirportInfo && window.gaUpdateNextWaypointAirportInfo(selected.waypoint, selected.selectedIndex, route.waypoints.length);
+    var frequency = !airportDetails && label && label.frequency ? String(label.frequency) : '';
     var nameKey = JSON.stringify([String(name), frequency]);
     if (nameNode && frequency) {
       // Keep the frequency markup and glyph spans instead of clearing them

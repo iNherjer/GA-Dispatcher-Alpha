@@ -3813,6 +3813,63 @@ ${routeLines}`;
     var freqs = airportDisplayFrequencies(apt);
     return `<span class="route-tool-nearest-details"><span class="route-tool-nearest-runways">${runways || 'Pisten: keine Angaben'}</span><span class="route-tool-nearest-frequencies">${freqs.length ? freqs.map(f => `<span class="route-tool-nearest-frequency">${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('') : 'Frequenz: keine Angaben'}</span></span>`;
   }
+  var nextAirportSelection = null;
+  var nextAirportRequests = new Map();
+  function requestNextAirportDetails(apt) {
+    var request = (kind, load) => {
+      var key = kind + ':' + apt.icao;
+      if (Date.now() - (nextAirportRequests.get(key) || 0) < TOOL_CACHE_TTL_MS) return;
+      nextAirportRequests.set(key, Date.now());
+      Promise.resolve().then(load).catch(() => null).then(() => {
+        var _window7;
+        if (nextAirportSelection) (_window7 = window).gaUpdateNextWaypointAirportInfo.apply(_window7, _toConsumableArray(nextAirportSelection));
+      });
+    };
+    if (!airportDisplayFrequencies(apt).length && typeof fetchAirportFreq === 'function') {
+      request('freq', () => fetchAirportFreq(apt.icao, null, null));
+    }
+    if (!airportDisplayRunways(apt) && typeof fetchRunwayDetails === 'function') {
+      request('runways', () => {
+        var id = 'routeToolHiddenRwy_' + apt.icao;
+        if (!document.getElementById(id)) {
+          var hidden = document.createElement('div');
+          hidden.id = id;
+          hidden.hidden = true;
+          document.body.appendChild(hidden);
+        }
+        return fetchRunwayDetails(apt.lat, apt.lon, id, apt.icao);
+      });
+    }
+  }
+
+  // Shared by standalone telemetry and tracker-hosted EFB/Toolbar telemetry.
+  // Only the selected final destination qualifies; an enroute airport does not.
+  window.gaUpdateNextWaypointAirportInfo = function (wp, index, count) {
+    var _wp$lon;
+    var box = document.getElementById('liveNextWpBox');
+    var node = document.getElementById('nextWpAirportDetails');
+    if (!box || !node) return false;
+    var apt = getCurrentAirport('dest');
+    var lon = Number((_wp$lon = wp === null || wp === void 0 ? void 0 : wp.lon) !== null && _wp$lon !== void 0 ? _wp$lon : wp === null || wp === void 0 ? void 0 : wp.lng);
+    var waypointCode = String((wp === null || wp === void 0 ? void 0 : wp.icao) || (wp === null || wp === void 0 ? void 0 : wp.icaoCode) || (wp === null || wp === void 0 ? void 0 : wp.name) || (wp === null || wp === void 0 ? void 0 : wp.id) || '').trim().toUpperCase();
+    var matchesAirport = waypointCode === apt.icao || Math.abs(Number(wp === null || wp === void 0 ? void 0 : wp.lat) - apt.lat) < 0.0001 && Math.abs(lon - apt.lon) < 0.0001;
+    var eligible = !!wp && count >= 2 && index === count - 1 && /^[A-Z0-9]{4}$/.test(apt.icao) && Number.isFinite(apt.lat) && Number.isFinite(apt.lon) && matchesAirport;
+    nextAirportSelection = eligible ? [wp, index, count] : null;
+    node.hidden = !eligible;
+    box.classList.toggle('has-airport-details', eligible);
+    if (!eligible) {
+      if (node.innerHTML) node.innerHTML = '';
+      node._gaAirportDetailsHtml = '';
+      return false;
+    }
+    var html = nearestAirportDetails(apt);
+    if (node._gaAirportDetailsHtml !== html) {
+      node.innerHTML = html;
+      node._gaAirportDetailsHtml = html;
+    }
+    requestNextAirportDetails(apt);
+    return true;
+  };
   function renderNearestTool() {
     var _entry$data;
     setTitle('Nearest');
@@ -5064,7 +5121,7 @@ ${routeLines}`;
       var force,
         now,
         _window$gaRunWhenAwak,
-        _window8,
+        _window9,
         res,
         data,
         nextMeta,
@@ -5098,7 +5155,7 @@ ${routeLines}`;
               _context19.n = 4;
               break;
             }
-            (_window$gaRunWhenAwak = (_window8 = window).gaRunWhenAwake) === null || _window$gaRunWhenAwak === void 0 || _window$gaRunWhenAwak.call(_window8, 'checklists-community', () => maybePullCommunity(true));
+            (_window$gaRunWhenAwak = (_window9 = window).gaRunWhenAwake) === null || _window$gaRunWhenAwak === void 0 || _window$gaRunWhenAwak.call(_window9, 'checklists-community', () => maybePullCommunity(true));
             return _context19.a(2);
           case 4:
             if (!(!force && now - lastCommunityPullAt < COMMUNITY_POLL_INTERVAL_MS)) {
@@ -5701,7 +5758,7 @@ ${routeLines}`;
       var cargoMode = phase === 'on_task' ? 'pickup' : /^(arrival|end_unloading|end_ready|closing)$/.test(phase) ? 'unload' : 'load';
       if (typeof window.openMissionCargoDialog === 'function') window.openMissionCargoDialog(cargoMode);
     } else if (action === 'mission-control-intent') {
-      var _window$gaTrackerExec3, _window7;
+      var _window$gaTrackerExec3, _window8;
       var intent = String(button.dataset.missionIntent || '');
       if (!intent || window.gaMissionControlIntentPending === true) return;
       var confirmed = true;
@@ -5718,7 +5775,7 @@ ${routeLines}`;
       var submit = intent === 'abort_mission' && typeof window.gaAbortTrackerMission === 'function' ? window.gaAbortTrackerMission({
         skipConfirm: true,
         reason: 'mission-control'
-      }) : (_window$gaTrackerExec3 = (_window7 = window).gaTrackerExecutionSubmitIntent) === null || _window$gaTrackerExec3 === void 0 ? void 0 : _window$gaTrackerExec3.call(_window7, intent);
+      }) : (_window$gaTrackerExec3 = (_window8 = window).gaTrackerExecutionSubmitIntent) === null || _window$gaTrackerExec3 === void 0 ? void 0 : _window$gaTrackerExec3.call(_window8, intent);
       Promise.resolve(submit).finally(() => {
         if (state.view === 'mission') render();
       });
