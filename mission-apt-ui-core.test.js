@@ -413,3 +413,21 @@ test('queued loading and unloading immediately show feedback while other items s
   assert.equal(begin.intent, 'prepare_mission');
   assert.equal(begin.button, 'Mission beginnen');
 });
+
+test('preflight sheets offer replacement for lost boardbook and chocks, with authoritative locks', () => {
+  const manifest = { items: ['bordbuch', 'chocks'].map(id => ({ id, persistentEquipment: true, status: 'lost' })) };
+  for (const phase of ['prepare', 'boarding', 'boarded']) {
+    const snapshot = control(phase, ['set_manifest_item'], { groundStill: true, active: false, started: false });
+    const model = core.cargoModel({ control: snapshot, manifest });
+    for (const item of model.items) assert.deepEqual(item.action, {
+      intent: 'set_manifest_item', action: 'load', label: 'Ersatz einladen', disabled: false
+    });
+    for (const flags of [{ groundStill: false }, { active: true }, { started: true }]) {
+      const locked = core.cargoModel({ control: { ...snapshot, flags: { ...snapshot.flags, ...flags } }, manifest });
+      assert.ok(locked.items.every(item => item.action.disabled));
+    }
+    const inspection = core.cargoModel({ control: { ...snapshot,
+      workflows: { complianceInspection: { selected: true, phase: 'evidence_open' } } }, manifest });
+    assert.ok(inspection.items.every(item => item.action.disabled));
+  }
+});

@@ -384,3 +384,41 @@ test('browser and Node expose the same manifest core', () => {
     const browserView = context.GAMissionManifestCore.deriveGateState(JSON.parse(JSON.stringify(manifest)), { atHome: false });
     assert.deepEqual(JSON.parse(JSON.stringify(browserView)), JSON.parse(JSON.stringify(nodeView)));
 });
+
+test('lost onboard equipment can be replaced at preflight without reviving lost mission cargo', () => {
+    const facts = { now: 1000, beforeDeparture: true, groundHandlingAllowed: true,
+        complianceAllowed: true, missionActive: false, missionStarted: false,
+        serialId: 'NEW-SERIAL', expiresAt: '2099-12-31' };
+    for (const id of ['bordbuch', 'chocks', 'first-aid', 'fire-extinguisher']) {
+        const item = { id, status: 'lost', persistentEquipment: true, lostAt: 500,
+            healthPct: 20, log: { startAt: 123 },
+            ...(id === 'first-aid' || id === 'fire-extinguisher'
+                ? { equipmentType: 'expiry', serialId: 'OLD', expiresAt: '2020-01-01' } : {}) };
+        const manifest = { items: [item], dispatchSignature: { scope: 'departure' } };
+        const plan = core.planItemTransition(manifest, { itemId: id, action: 'load' }, facts);
+        assert.equal(plan.ok, true, JSON.stringify(plan));
+        assert.equal(item.status, 'lost', 'planning must not mutate the old item');
+        assert.equal(core.commitItemTransition(manifest, plan).ok, true);
+        assert.equal(item.status, 'loaded');
+        assert.equal(item.lostAt, 0);
+        assert.equal(item.healthPct, 100);
+        assert.equal(item.persistentEquipmentInherited, false);
+        assert.equal(manifest.dispatchSignature, null);
+        if (id === 'bordbuch') assert.deepEqual(item.log, {});
+        if (item.equipmentType === 'expiry') {
+            assert.equal(item.serialId, 'NEW-SERIAL');
+            assert.equal(item.expiresAt, '2099-12-31');
+        }
+    }
+    const lost = { id: 'chocks', status: 'lost', persistentEquipment: true };
+    for (const blocked of [{ groundHandlingAllowed: false }, { complianceAllowed: false },
+        { missionActive: true }, { missionStarted: true }, { beforeDeparture: false }]) {
+        assert.equal(core.planItemTransition({ items: [lost] }, { itemId: 'chocks', action: 'load' },
+            { ...facts, ...blocked }).ok, false);
+        assert.equal(lost.status, 'lost');
+    }
+    for (const cargo of [{ id: 'medical-box', persistentEquipment: true }, { id: 'chocks', persistentEquipment: false }]) {
+        assert.equal(core.planItemTransition({ items: [{ ...cargo, status: 'lost' }] },
+            { itemId: cargo.id, action: 'load' }, facts).ok, false);
+    }
+});

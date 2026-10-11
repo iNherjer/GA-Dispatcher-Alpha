@@ -258,3 +258,9 @@ test('load unload load preserves the final correction while adjacent duplicates 
   assert.deepEqual(await Promise.all([first, opposite, correction]), ['load', 'unload', 'load']);
   assert.deepEqual(calls, ['load', 'unload', 'load']);
 });
+
+test('equipment load failures explain distance and replacement restrictions without a generic phase error', () => {
+  assert.match(core.formatIntentResult({ ok: false, error: 'manifest_reload_too_far' }).text, /200 m/);
+  assert.match(core.formatIntentResult({ ok: false, error: 'manifest_lost_item_replacement_required' }).text, /vor Missionsbeginn/);
+  assert.match(core.formatIntentResult({ ok: false, error: 'manifest_ground_handling_required' }).text, /Stillstand/);
+});

@@ -144,6 +144,15 @@
         }, object(details) || {});
     }
 
+    function canReplaceLostEquipment(item, context) {
+        var facts = object(context) || {};
+        return !!item && item.status === 'lost' && item.persistentEquipment === true
+            && ['bordbuch', 'first-aid', 'fire-extinguisher', 'chocks'].indexOf(item.id) >= 0
+            && facts.groundHandlingAllowed === true && facts.complianceAllowed === true
+            && facts.missionActive !== true && facts.missionStarted !== true
+            && (facts.groundInventory === true || facts.beforeDeparture === true);
+    }
+
     function planItemTransition(manifest, request, context) {
         var source = object(request) || {};
         var facts = object(context) || {};
@@ -164,7 +173,13 @@
                 return transitionError(action, item, 'manifest_ground_handling_required');
             }
             if (facts.complianceAllowed !== true) return transitionError(action, item, 'manifest_compliance_locked');
-            if (status === 'lost') return transitionError(action, item, 'manifest_lost_item_replacement_required');
+            if (status === 'lost' && !canReplaceLostEquipment(item, facts)) {
+                return transitionError(action, item, 'manifest_lost_item_replacement_required');
+            }
+            if (status === 'lost' && item.equipmentType === 'expiry'
+                && (!facts.serialId || !facts.expiresAt || now <= 0)) {
+                return transitionError(action, item, 'manifest_equipment_replacement_identity_required');
+            }
             if (!itemCanLoadAtCurrentStage(item, facts)) {
                 return transitionError(action, item, 'manifest_pickup_not_available');
             }
@@ -226,6 +241,16 @@
                 handedOffAt: 0
             };
             if (item.persistentEquipment === true) loadPatch.persistentEquipmentInherited = false;
+            if (status === 'lost') {
+                loadPatch.healthPct = 100;
+                loadPatch.replacedAt = now;
+                if (item.id === 'bordbuch') loadPatch.log = {};
+                if (item.equipmentType === 'expiry') {
+                    loadPatch.issuedAt = now;
+                    loadPatch.serialId = String(facts.serialId);
+                    loadPatch.expiresAt = String(facts.expiresAt);
+                }
+            }
             return transitionPlan(action, item, loadPatch, { wasUnloaded: status === 'unloaded' });
         }
 
@@ -656,6 +681,7 @@
         itemNeedsUnloadHere: itemNeedsUnloadHere,
         clearDispatchSignature: clearDispatchSignature,
         planItemTransition: planItemTransition,
+        canReplaceLostEquipment: canReplaceLostEquipment,
         commitItemTransition: commitItemTransition,
         boardBookActionState: boardBookActionState,
         planBoardBookEntry: planBoardBookEntry,

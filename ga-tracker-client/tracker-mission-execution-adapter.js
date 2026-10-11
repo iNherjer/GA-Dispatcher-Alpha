@@ -529,6 +529,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       groundHandlingAllowed: snapshot.state.flags.groundStill === true,
       complianceAllowed: complianceAllowsItem(snapshot, itemId),
       missionActive: snapshot.state.flags.active === true,
+      missionStarted: snapshot.state.flags.started === true,
+      beforeDeparture: departurePhase,
       airborne: airborneDrop,
       atHome: snapshot.bushRecipe?.spec?.requiresReturnHome===true && locationCore.haversineNm(observations.lastPosition?.lat,observations.lastPosition?.lon,snapshot.bushRecipe.spec.homeRef.lat,snapshot.bushRecipe.spec.homeRef.lon)<=0.35,
       atTarget: snapshot.state.phase === 'on_task' && snapshot.state.flags.groundStill === true,
@@ -536,6 +538,14 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       ...reloadFacts(item),
       ...(manualPassenger ? { skipPassengerEffect: true, effectAcknowledged: load ? 'passenger.board' : 'passenger.deboard' } : {})
     };
+    if (item.status === 'lost') {
+      // Replacement is a preflight equipment load, never recovery of mission cargo.
+      transitionContext.complianceAllowed = snapshot.state.workflows?.complianceInspection?.selected !== true
+        || snapshot.state.workflows.complianceInspection.released === true;
+      const seed = `${snapshot.runId}|${itemId}|lost-replacement|${transitionContext.now}`;
+      transitionContext.serialId = `${itemId.toUpperCase()}-${transitionContext.now.toString(36).toUpperCase()}-${seededInt(1000, 9999, seed)}`;
+      transitionContext.expiresAt = replacementExpiryDate(seed, transitionContext.now);
+    }
     const plan = manifestCore.planItemTransition(manifest, {
       action: load ? 'load' : 'unload',
       itemId

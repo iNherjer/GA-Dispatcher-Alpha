@@ -7155,3 +7155,11 @@ GitHub-Release v512 veröffentlicht; Upload und öffentlicher Download stimmen
 exakt mit dem Build überein: 173609370 Bytes, SHA-256 854d5b0d5faffb6b8205d495026caf2f2ba731b87f0236653356b9d6d6c262d0.
 Alpha auf dieses Artefakt aktiviert, Web-Cache v2006. Stable bleibt v508.
 Keine neue Live-/Simulator-/Audio-Abnahme der Prompt-Präzisierung.
+
+### 2026-10-11: Alpha-Hotfix v515 – verlorenen Bordbestand vor Abflug ersetzen
+
+App und EFB bieten fuer verlorenes Bordbuch, Chocks, Verbandzeug und Feuerloescher vor Missionsbeginn die Aktion „Ersatz einladen“. Die gemeinsame Manifest-Transition prueft Boden/Stillstand, noch nicht gestarteten Lauf und Kontrolldaten. Missionsfracht bleibt von Ersatz ausgeschlossen. Ersatz wird atomar gespeichert; Ablaufartikel erhalten neue Seriennummer und Gueltigkeit, das neue Bordbuch beginnt ohne alte Flugdaten. Eine vorhandene Frachtlisten-Unterschrift wird geloescht, bestaetigtes Boarding bleibt erhalten. Ausgeladene Gegenstaende koennen mit aktueller Vorflugposition innerhalb von 200 m wieder eingeladen werden; zu grosse oder unbekannte Entfernungen erhalten eine konkrete Meldung. Die aktuelle Alpha-Runtime besitzt bereits die Vorflug-Positionsbeobachtung; sie bleibt erhalten und ist durch den neuen Regressionstest abgedeckt.
+
+Der separate EFB-Bodenservice ausserhalb einer Mission bleibt eine Folgeaufgabe. Der Hotfix nutzt bestehende Missionsaktionen und benoetigt kein neues Community-Package.
+
+Validierung: 72 gezielte Manifest-/UI-/Tracker-/App-Tests bestanden, einschliesslich Ersatz nach abgeschlossenem Boarding, erneuter Unterschrift, Neustart-Persistenz und 200-m-Grenze. 153 relevante Manifest-/UI-/Tracker-/App-/EFB-Tests sowie drei Persistenz-/Legacy-/Schnittstellen-Selbsttests bestanden. Der breitere Lauf umfasst 172 Tests; nach Aktualisierung der Asset-Revisions-Erwartung bleibt ein bereits auf dem unveraenderten v514-Stand reproduzierbarer Testfehler (veraltete Erwartung `VFR_MULTITOOL_APT_EXECUTION` in `mission-execution-core.test.js`). Windows-x64-EXE mit pkg 6.18.1 gebaut (`--no-bytecode --public --public-packages *`, da der x64-Bytecode-Compiler auf diesem ARM-Mac nicht startet). PE-Format und eingebettete Hotfix-Quellen geprueft. Kein Live-MSFS-Test durchgefuehrt.

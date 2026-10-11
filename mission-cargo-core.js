@@ -2027,6 +2027,17 @@ function _missionCargoItemCanLoadAtCurrentStage(item = null) {
     return true;
 }
 
+function _missionCargoLostEquipmentReplacementFacts(manifest) {
+    return {
+        groundInventory: manifest?.groundInventory === true,
+        beforeDeparture: missionRuntime.active !== true && !missionRuntime.startedAt && !missionRuntime.closingPending,
+        missionActive: missionRuntime.active === true,
+        missionStarted: manifest?.groundInventory !== true && Number(missionRuntime.startedAt || 0) > 0,
+        groundHandlingAllowed: _missionCargoGroundHandlingAllowed(),
+        complianceAllowed: window.missionComplianceGetCargoUiState?.()?.active !== true
+    };
+}
+
 function _missionCargoItemNeedsUnloadHere(item = null) {
     if (!item || typeof item !== 'object') return false;
     const core = _missionCargoManifestCore();
@@ -4877,12 +4888,11 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         } else if (dropped) {
             rowActionLabel = 'Abgeworfen';
         } else if (lost) {
-            const replacementAvailable = isEquipment
-                && manifest.groundInventory === true
-                && missionRuntime.active !== true
-                && complianceUi.active !== true;
+            const replacementAvailable = _missionCargoManifestCore()?.canReplaceLostEquipment?.(
+                item, _missionCargoLostEquipmentReplacementFacts(manifest)
+            ) === true;
             rowActionJs = replacementAvailable
-                ? `window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'equipment', replaceLost: true })`
+                ? `window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${mode}', replaceLost: true })`
                 : '';
             rowActionLabel = replacementAvailable ? 'Ersatz einladen' : 'Verloren';
             rowActionDisabled = !replacementAvailable || !groundHandlingAllowed;
@@ -5452,29 +5462,22 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         return false;
     }
     const replacingLostEquipment = item.status === 'lost';
+    let replacementIdentity = {};
     if (replacingLostEquipment) {
-        const replacementAllowed = options.replaceLost === true
-            && manifest.groundInventory === true
-            && missionRuntime.active !== true
-            && window.missionComplianceGetCargoUiState?.()?.active !== true;
+        const replacementAllowed = _missionCargoManifestCore()?.canReplaceLostEquipment?.(
+            item, _missionCargoLostEquipmentReplacementFacts(manifest)
+        ) === true;
         if (!replacementAllowed) {
-            window.missionCargoStatus.error = 'Verlorener Bordbestand kann erst beim naechsten Bodenservice ersetzt werden.';
+            window.missionCargoStatus.error = 'Ersatz fuer verlorenen Bordbestand ist nur vor Missionsbeginn oder beim Bodenservice moeglich, nicht waehrend einer Kontrolle.';
             if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
             return false;
         }
         const issuedAt = Date.now();
-        item.status = 'pending';
-        item.lostAt = 0;
-        item.loadedAt = 0;
-        item.unloadedAt = 0;
-        item.unloadLat = null;
-        item.unloadLon = null;
-        item.unloadAltFt = null;
         if (item.equipmentType === 'expiry') {
-            item.issuedAt = issuedAt;
-            item.serialId = _missionCargoNewEquipmentSerial(item.id, issuedAt);
-            item.expiresAt = _missionCargoNewExpiryDate(`${manifest.aircraftSlot}|${item.id}|lost-replacement|${issuedAt}`, issuedAt);
-            item.replacedAt = issuedAt;
+            replacementIdentity = {
+                serialId: _missionCargoNewEquipmentSerial(item.id, issuedAt),
+                expiresAt: _missionCargoNewExpiryDate(`${manifest.aircraftSlot}|${item.id}|lost-replacement|${issuedAt}`, issuedAt)
+            };
         }
     }
     if (!_missionCargoItemCanLoadAtCurrentStage(item)) {
@@ -5520,6 +5523,8 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         return ok;
     }
     const coreTransition = _missionCargoCommitCoreItemTransition(manifest, item, 'load', {
+        ..._missionCargoLostEquipmentReplacementFacts(manifest),
+        ...replacementIdentity,
         now: Date.now(),
         groundHandlingAllowed: true,
         complianceAllowed: true,

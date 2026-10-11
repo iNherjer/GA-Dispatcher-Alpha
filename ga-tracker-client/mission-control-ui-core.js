@@ -310,6 +310,15 @@
     if (error === 'cockpit_session_unavailable' || error === 'mission_execution_authority_web') {
       return { tone: 'danger', text: 'Der Tracker ist für diese Aktion noch nicht erreichbar.' };
     }
+    if (error === 'manifest_reload_too_far') {
+      return { tone: 'warn', text: 'Der ausgeladene Gegenstand ist zu weit entfernt oder seine aktuelle Entfernung ist unbekannt. Wiederladen ist nur im Umkreis von 200 m möglich.' };
+    }
+    if (error === 'manifest_lost_item_replacement_required') {
+      return { tone: 'warn', text: 'Verlorenen Bordbestand kannst du vor Missionsbeginn am Boden und im Stillstand durch Ersatz einladen. Während einer laufenden Mission oder Kontrolle ist das gesperrt.' };
+    }
+    if (error === 'manifest_ground_handling_required') {
+      return { tone: 'warn', text: 'Verladen ist nur am Boden und im Stillstand möglich.' };
+    }
     if (/not_allowed|not_ready|invalid_phase|blocked|manifest/.test(error)) {
       return { tone: 'warn', text: 'Diese Aktion ist im aktuellen Missionsschritt nicht verfügbar.' };
     }

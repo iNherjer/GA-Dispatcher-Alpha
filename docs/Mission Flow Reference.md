@@ -1294,3 +1294,7 @@ sie nicht überschreiben. Ergänzung mit UI-Regressionsprüfung: Web-Alpha v1951
 
 ### Gemeinsame Missionsaktivierung (08.10.2026)
 Generieren erzeugt einen isolierten lokalen Entwurf. Annehmen liest den Cloud-Stand, prüft Worker-Fähigkeit, bestätigt/bereinigt den bisherigen Tracker-Run und veröffentlicht Mission/Seed mit ausdrücklichem Aktivierungsvermerk und erwarteter Missionsrevision. Der Tracker übernimmt den neueren Serververmerk automatisch als geplanten Auftrag. „Mission beginnen“ bleibt eine eigene Aktion. Nicht annehmen verwirft nur den Entwurf und lädt den aktuellen Cloud-Slot. Bestätigtes Löschen veröffentlicht einen eigenen Löschvermerk. Abruf-/Seedfehler sind keine Löschung. Details im Mission Runtime Authority Contract.
+
+### Bordbestand-Ersatz vor Missionsbeginn
+
+Verlorenes Bordbuch, Chocks, Verbandzeug und Feuerloescher koennen in der Vorflug-Verladung durch „Ersatz einladen“ erneuert werden. Voraussetzung: Flugzeug am Boden und im Stillstand, Mission noch nicht gestartet, keine laufende Kontrolle. Das gilt fuer App und EFB. Ersatz setzt den Artikel atomar auf geladen und erzeugt bei Ablaufartikeln neue Seriennummer/Gueltigkeit. Die Frachtliste muss erneut unterschrieben werden; bereits bestaetigtes Boarding bleibt erhalten. Ausgeladene Artikel werden innerhalb von 200 m am bisherigen Ablageort wieder geladen. Verlorene Missionsfracht kann nicht ersetzt werden.

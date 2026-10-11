@@ -1250,3 +1250,61 @@ test('EFB signing uses authenticated Tracker pilot identity without fabricated m
   assert.equal(signed.ok, true);
   assert.equal(f.manager.getExecutionSnapshot().state.manifest.dispatchSignature.by,'Actual-Pilot');
 });
+
+test('preflight replaces lost equipment after boarding, invalidates the signature and survives restart', t => {
+  const bundle = aptResumeBundle();
+  bundle.runtime.cargoManifest.items.push(...['bordbuch', 'chocks', 'first-aid'].map(id => ({
+    id, status: 'lost', persistentEquipment: true, deliverAtDestination: false, required: false,
+    weightLbs: 3, lostAt: 500, log: { startAt: 500, flightId: 'old-flight' },
+    ...(id === 'first-aid' ? { equipmentType: 'expiry', serialId: 'OLD', expiresAt: '2020-01-01' } : {})
+  })));
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const fixture = createCommittedFixture(t, { bundle });
+  assert.equal(executeCurrent(fixture, 'prepare_mission', 'prepare-replacement').ok, true);
+  assert.equal(beginBoarding(fixture, 'replacement').ok, true);
+  assert.equal(executeCurrent(fixture, 'set_manifest_item', 'load-required', { itemId: 'medical-box', action: 'load' }).ok, true);
+  assert.equal(executeCurrent(fixture, 'sign_manifest', 'sign-before-replacement').ok, true);
+  assert.equal(executeCurrent(fixture, 'confirm_load', 'confirm-before-replacement').ok, true);
+  assert.equal(acknowledgePayloadCurrent(fixture, 'replacement').ok, true);
+  assert.equal(acknowledgeBoardingCurrent(fixture, 'replacement').ok, true);
+  assert.equal(fixture.manager.getExecutionSnapshot().state.phase, 'boarded');
+  const replaced = executeCurrent(fixture, 'set_manifest_item', 'replace-lost', {
+    items: ['bordbuch', 'chocks', 'first-aid'].map(itemId => ({ itemId, action: 'load' }))
+  });
+  assert.equal(replaced.ok, true, JSON.stringify(replaced));
+  const state = fixture.manager.getExecutionSnapshot().state;
+  assert.equal(state.phase, 'boarding');
+  assert.equal(state.manifest.dispatchSignature, null);
+  assert.equal(state.flags.boardingSceneConfirmed, true, 'replacement must not board passengers twice');
+  for (const id of ['bordbuch', 'chocks', 'first-aid']) {
+    const item = state.manifest.items.find(row => row.id === id);
+    assert.equal(item.status, 'loaded');
+    assert.equal(item.lostAt, 0);
+  }
+  assert.deepEqual(state.manifest.items.find(row => row.id === 'bordbuch').log, {});
+  assert.notEqual(state.manifest.items.find(row => row.id === 'first-aid').serialId, 'OLD');
+  const restored = createMissionAuthorityManager(fixture.managerOptions);
+  assert.deepEqual(restored.getExecutionSnapshot().state.manifest, state.manifest);
+  assert.equal(executeCurrent(fixture, 'sign_manifest', 'sign-after-replacement').ok, true);
+  assert.equal(executeCurrent(fixture, 'confirm_load', 'confirm-after-replacement').ok, true);
+  assert.equal(acknowledgePayloadCurrent(fixture, 'replacement-after').ok, true);
+  assert.equal(executeCurrent(fixture, 'start_mission', 'start-after-replacement').ok, true);
+});
+
+test('unloaded boardbook reloads near the aircraft before departure and stays blocked beyond 200 m', t => {
+  for (const near of [true, false]) {
+    const bundle = aptResumeBundle();
+    bundle.runtime.cargoManifest.items.push({ id: 'bordbuch', persistentEquipment: true,
+      deliverAtDestination: false, status: 'unloaded', unloadLat: 48, unloadLon: 8 });
+    bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+    bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+    const fixture = createCommittedFixture(t, { bundle });
+    fixture.adapter.observeTelemetry({ observedAt: 2000, lat: near ? 48 : 49, lon: 8, onGround: true, gsKts: 0 });
+    executeCurrent(fixture, 'prepare_mission', `prepare-reload-${near}`);
+    beginBoarding(fixture, `reload-${near}`);
+    const result = executeCurrent(fixture, 'set_manifest_item', `reload-book-${near}`, { itemId: 'bordbuch', action: 'load' });
+    assert.equal(result.ok, near, JSON.stringify(result));
+    if (!near) assert.equal(result.error, 'manifest_reload_too_far');
+  }
+});

@@ -3,10 +3,13 @@
     var complianceCore = typeof module === 'object' && module.exports
         ? require('./mission-compliance-domain-core.js')
         : (root && root.GAMissionComplianceDomainCore);
-    var api = factory(complianceCore);
+    var manifestCore = typeof module === 'object' && module.exports
+        ? require('./mission-manifest-core.js')
+        : (root && root.GAMissionManifestCore);
+    var api = factory(complianceCore, manifestCore);
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root && typeof root === 'object') root.GAMissionAptUiCore = api;
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (complianceCore) {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (complianceCore, manifestCore) {
     'use strict';
 
     var UI_SCHEMA = 'ga.mission-apt-ui.v1';
@@ -315,7 +318,19 @@
             label: object(paxOperation.payload).operation === 'unload' ? 'Aussteigen läuft' : 'Einsteigen läuft', disabled: true };
         if (handedOff) return { intent: '', action: '', label: passenger ? 'Verabschiedet' : 'Vom PAX mitgenommen', disabled: true };
         if (status === 'dropped') return { intent: '', action: '', label: 'Abgeworfen', disabled: true };
-        if (status === 'lost') return { intent: '', action: '', label: 'Verloren', disabled: true };
+        if (status === 'lost') {
+            var compliance = object(object(control.workflows).complianceInspection);
+            var replacementAvailable = manifestCore && manifestCore.canReplaceLostEquipment(item, {
+                beforeDeparture: /^(prepare|boarding|boarded)$/.test(phase),
+                missionActive: flags.active === true,
+                missionStarted: flags.started === true,
+                groundHandlingAllowed: groundHandlingAllowed,
+                complianceAllowed: compliance.selected !== true || compliance.released === true
+            });
+            return replacementAvailable
+                ? { intent: 'set_manifest_item', action: 'load', label: 'Ersatz einladen', disabled: !includes(allowed, 'set_manifest_item') }
+                : { intent: '', action: '', label: 'Verloren', disabled: true };
+        }
 
         if (mode === 'unload') {
             if (status === 'loaded') {
