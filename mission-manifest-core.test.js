@@ -422,3 +422,33 @@ test('lost onboard equipment can be replaced at preflight without reviving lost 
             { itemId: cargo.id, action: 'load' }, facts).ok, false);
     }
 });
+
+test('offboard inventory loss uses previous manifest provenance and strict 200 m boundary for all four items', () => {
+    const ids = ['bordbuch', 'first-aid', 'fire-extinguisher', 'chocks'];
+    const make = (key = 'previous') => ({ key: 'current', dispatchSignature: { scope: 'departure' }, items: ids.map(id => ({
+        id, persistentEquipment: true, status: 'unloaded', unloadManifestKey: key,
+        unloadLat: 48, unloadLon: 8, expiresAt: '2027-01-01', serialId: 'original', log: { start: 'original' }
+    })).concat([{ id: 'mission-box', status: 'unloaded', unloadLat: 48, unloadLon: 8 }]) });
+    const north = metres => ({ lat: 48 + metres / 6371000 * 180 / Math.PI, lon: 8 });
+    for (const metres of [199.9, 200, 200.1]) {
+        const manifest = make();
+        const changed = core.reconcileOffboardEquipment(manifest, { beforeDeparture: true, position: north(metres), now: 1234 });
+        assert.deepEqual(changed, metres > 200 ? ids : []);
+        assert.equal(manifest.items[4].status, 'unloaded');
+        assert.equal(manifest.items[0].serialId, 'original');
+        assert.equal(manifest.items[0].log.start, 'original');
+        if (metres > 200) {
+            assert.equal(manifest.dispatchSignature, null);
+            assert.equal(manifest.items[0].lostAt, 1234);
+            assert.deepEqual(core.reconcileOffboardEquipment(manifest, { departed: true, now: 9999 }), []);
+        }
+    }
+    for (const position of [null, { lat: null, lon: 8 }, { lat: NaN, lon: 8 }, { lat: 91, lon: 8 }]) {
+        assert.deepEqual(core.reconcileOffboardEquipment(make(), { beforeDeparture: true, position, now: 1234 }), []);
+    }
+    assert.deepEqual(core.reconcileOffboardEquipment(make('current'), { beforeDeparture: true, position: north(500), now: 1234 }), []);
+    assert.deepEqual(core.reconcileOffboardEquipment(make(), { beforeDeparture: true, position: north(500), simPaused: true }), []);
+    assert.deepEqual(core.reconcileOffboardEquipment(make('current'), { departed: true, now: 1234 }), ids);
+    const legacy = make('');
+    assert.deepEqual(core.reconcileOffboardEquipment(legacy, { beforeDeparture: true, position: north(500), now: 1234 }), ids);
+});

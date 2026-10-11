@@ -57,7 +57,7 @@
         'CARGO_WINDOW_OPENED', 'CARGO_WINDOW_CLOSED', 'MISSION_ACCEPTED', 'PREPARE_REQUESTED', 'BOARDING_STARTED',
         'BOARDING_SCENE_CONFIRMED', 'BOARDING_CONFIRMED',
         'LOAD_CONFIRMATION_REQUESTED', 'LOAD_CONFIRMED', 'MISSION_STARTED', 'AIRBORNE',
-        'BUSH_VOICE_REQUESTED', 'BUSH_PICKUP_SCENE_REQUESTED', 'BUSH_PICKUP_BOARDING_REQUESTED', 'BUSH_TASK_OBSERVED', 'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'SAR_REPORT_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'PREFLIGHT_GROUND_OBSERVED',
+        'BUSH_VOICE_REQUESTED', 'BUSH_PICKUP_SCENE_REQUESTED', 'BUSH_PICKUP_BOARDING_REQUESTED', 'BUSH_TASK_OBSERVED', 'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'SAR_REPORT_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'GROUND_HANDLING_INVALIDATED', 'PREFLIGHT_GROUND_OBSERVED',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
         'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
@@ -985,6 +985,7 @@
             && (eventPayload.onGround === null || typeof eventPayload.onGround === 'boolean')
             && typeof eventPayload.groundStill === 'boolean'
             && (!eventPayload.groundStill || eventPayload.onGround === true);
+        if (event.type === 'GROUND_HANDLING_INVALIDATED') return state.flags.started === true;
         if (event.type === 'CARGO_STATE_CHANGED') return true;
         if (event.type === 'PREPARE_REQUESTED') return phase === 'planned';
         if (event.type === 'BOARDING_STARTED') {
@@ -1421,6 +1422,8 @@
             state.progress.dwellSec = Math.max(state.progress.dwellSec, Math.max(0, round(object(event.payload).dwellSec, 1, 0)));
             state.progress.attempts = Math.max(state.progress.attempts, Math.max(0, integer(object(event.payload).attempts, 0)));
             state.subphase = state.progress.targetSatisfied ? 'task_satisfied' : 'task_progress';
+        } else if (event.type === 'GROUND_HANDLING_INVALIDATED') {
+            state.flags.groundStill = false;
         } else if (event.type === 'PREFLIGHT_GROUND_OBSERVED') {
             state.flags.onGround = event.payload.onGround;
             state.flags.groundStill = event.payload.groundStill;
@@ -2007,7 +2010,10 @@
                 return item && (item.id === 'first-aid' || item.id === 'fire-extinguisher')
                     && item.equipmentType === 'expiry' && item.status === 'unloaded';
             })) actions.push('replace_equipment');
-        if (!state.flags.closed && compliance.selected === true && compliance.phase === 'evidence_open') {
+        if (!state.flags.closed && state.flags.groundStill && compliance.selected === true
+            && ['inspectors_waiting', 'evidence_open'].includes(compliance.phase)
+            && ['end_unloading', 'end_ready'].includes(phase)) actions.push('set_manifest_item');
+        if (!state.flags.closed && state.flags.groundStill && compliance.selected === true && compliance.phase === 'evidence_open') {
             actions.push('submit_compliance_evidence');
         }
         var closeReasons = blockingReasons(state);

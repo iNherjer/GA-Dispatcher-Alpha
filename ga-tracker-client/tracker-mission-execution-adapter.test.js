@@ -110,10 +110,16 @@ function createCommittedFixture(t, options = {}) {
     commandId: 'commit-handoff'
   });
   assert.equal(committed.ok, true);
+  const adapter = { ...createTrackerMissionExecutionAdapter({ authorityManager: manager, now: () => clock, getPilotId: options.getPilotId }) };
+  const observe = adapter.observeTelemetry;
+  adapter.observeTelemetry = sample => {
+    if (Number.isFinite(sample.observedAt)) clock = Math.max(clock, sample.observedAt);
+    return observe(sample);
+  };
   return {
     manager,
     managerOptions,
-    adapter: createTrackerMissionExecutionAdapter({ authorityManager: manager, now: () => clock, getPilotId: options.getPilotId }),
+    adapter,
     setClock(value) { clock = value; }
   };
 }
@@ -408,7 +414,7 @@ test('airborne unload follows the App drop transition and requests the latest pa
   assert.equal(payloadEffect.payload.transition.action, 'drop');
   assert.equal(executeCurrent(fixture, 'set_manifest_item', 'reload-dropped-box', {
     itemId: 'medical-box', action: 'load'
-  }).error, 'mission_manifest_load_not_allowed');
+  }).error, 'manifest_ground_handling_required');
 });
 
 test('tracker preserves airborne evidence and uses immediate standalone ground readiness for APT arrival', (t) => {
@@ -964,6 +970,7 @@ test('cargo pickup confirmation uses the existing gated PICKUP_CONFIRMED reducer
     }
   });
   assert.equal(targetEntered.ok, true);
+  fixture.adapter.observeTelemetry({ observedAt: 5001, lat: 48.1, lon: 8.2, onGround: true, gsKts: 0 });
   assert.equal(executeCurrent(fixture, 'set_manifest_item', 'load-pickup-box', {
     itemId: 'pickup-box', action: 'load'
   }).ok, true);
@@ -1051,7 +1058,7 @@ test('ground cargo batch validates atomically, emits every visual and one payloa
   assert.deepEqual(restarted.getExecutionSnapshot().state, after.state);
 });
 
-test('ground readiness accepts the parking brake without a speed sample and ignores a paused simulator', t => {
+test('ground readiness requires measured low speed even with parking brake and ignores a paused simulator', t => {
   const fixture = createCommittedFixture(t);
   executeCurrent(fixture, 'prepare_mission', 'brake-prepare');
   beginBoarding(fixture, 'brake');
@@ -1070,8 +1077,11 @@ test('ground readiness accepts the parking brake without a speed sample and igno
     onGround: true }).status, 'noop', 'unknown speed without brake must not unlock unloading');
   const result = fixture.adapter.observeTelemetry({ observedAt: 13300, lat: 48.3001, lon: 8.5001,
     onGround: true, parkingBrake: true });
-  assert.equal(result.acceptedEvent.type, 'GROUND_STILL');
-  assert.equal(result.view.phase, 'end_unloading');
+  assert.equal(result.status, 'noop');
+  const stopped = fixture.adapter.observeTelemetry({ observedAt: 13400, lat: 48.3001, lon: 8.5001,
+    onGround: true, gsKts: 0, parkingBrake: true });
+  assert.equal(stopped.acceptedEvent.type, 'GROUND_STILL');
+  assert.equal(stopped.view.phase, 'end_unloading');
 });
 
 test('semantic revision guard tolerates effect bookkeeping but rejects another cargo edit and unknown revisions', t => {
@@ -1296,7 +1306,8 @@ test('unloaded boardbook reloads near the aircraft before departure and stays bl
   for (const near of [true, false]) {
     const bundle = aptResumeBundle();
     bundle.runtime.cargoManifest.items.push({ id: 'bordbuch', persistentEquipment: true,
-      deliverAtDestination: false, status: 'unloaded', unloadLat: 48, unloadLon: 8 });
+      deliverAtDestination: false, status: 'unloaded', unloadLat: 48, unloadLon: 8,
+      unloadManifestKey: bundle.runtime.cargoManifest.key });
     bundle.executionReplay = executionCore.createExecutionBundle(bundle);
     bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
     const fixture = createCommittedFixture(t, { bundle });
@@ -1307,4 +1318,168 @@ test('unloaded boardbook reloads near the aircraft before departure and stays bl
     assert.equal(result.ok, near, JSON.stringify(result));
     if (!near) assert.equal(result.error, 'manifest_reload_too_far');
   }
+});
+
+function inspectionAfterFlight(t) {
+  const bundle = aptResumeBundle();
+  bundle.runtime.cargoManifest.items = [
+    { id: 'medical-box', itemType: 'cargo', required: true, status: 'pending', weightLbs: 42, deliverAtDestination: true },
+    { id: 'bordbuch', persistentEquipment: true, status: 'loaded', deliverAtDestination: false, log: {} },
+    { id: 'fire-extinguisher', persistentEquipment: true, status: 'loaded', deliverAtDestination: false,
+      equipmentType: 'expiry', expiresAt: '2099-12-31', serialId: 'FIRE-OLD' },
+    { id: 'first-aid', persistentEquipment: true, status: 'loaded', deliverAtDestination: false,
+      equipmentType: 'expiry', expiresAt: '2099-12-31', serialId: 'AID-OLD' }
+  ];
+  // Fixture selection only: production probability and UI remain unchanged.
+  bundle.runtime.complianceInspection = { selected: null, forced: true, phase: 'none' };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const f = createCommittedFixture(t, { bundle });
+  assert.equal(executeCurrent(f, 'prepare_mission', 'inspection-prepare').ok, true);
+  assert.equal(beginBoarding(f, 'inspection').ok, true);
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'inspection-load-box', { itemId: 'medical-box', action: 'load' }).ok, true);
+  assert.equal(executeCurrent(f, 'sign_manifest', 'inspection-sign').ok, true);
+  assert.equal(executeCurrent(f, 'confirm_load', 'inspection-load').ok, true);
+  assert.equal(acknowledgePayloadCurrent(f, 'inspection').ok, true);
+  assert.equal(acknowledgeBoardingCurrent(f, 'inspection').ok, true);
+  assert.equal(executeCurrent(f, 'start_mission', 'inspection-start').ok, true);
+  for (const sample of [
+    { observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 },
+    { observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 },
+    { observedAt: 13000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 15 },
+    { observedAt: 14000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 }
+  ]) { f.setClock(sample.observedAt); f.adapter.observeTelemetry(sample); }
+  assert.equal(f.manager.getExecutionSnapshot().state.workflows.complianceInspection.phase, 'approach_started');
+  assert.equal(executeCurrent(f, 'set_boardbook_time', 'inspection-log-start', { itemId: 'bordbuch', field: 'start' }).ok, true);
+  assert.equal(executeCurrent(f, 'set_boardbook_time', 'inspection-log-landing', { itemId: 'bordbuch', field: 'landing' }).ok, true);
+  assert.equal(systemCurrent(f, 'COMPLIANCE_INSPECTORS_WAITING', 'inspection-arrival').ok, true);
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'inspection-unload-box', { itemId: 'medical-box', action: 'unload' }).ok, true);
+  acknowledgeAllPendingEffects(f, 'inspection-arrival');
+  assert.equal(executeCurrent(f, 'sign_manifest', 'inspection-sign-arrival').ok, true);
+  assert.equal(executeCurrent(f, 'confirm_unload', 'inspection-confirm-unload').ok, true);
+  assert.equal(executeCurrent(f, 'request_close', 'inspection-close').ok, true);
+  assert.equal(systemCurrent(f, 'FAREWELL_COMPLETED', 'inspection-farewell').ok, true);
+  assert.equal(systemCurrent(f, 'COMPLIANCE_REQUEST_COMPLETED', 'inspection-request').ok, true);
+  assert.equal(f.manager.getExecutionSnapshot().state.workflows.complianceInspection.phase, 'evidence_open');
+  return f;
+}
+
+test('actual flight inspection requires all requested unloads, rejects reloaded evidence, persists and deduplicates completion', t => {
+  const f = inspectionAfterFlight(t);
+  assert.deepEqual(executeCurrent(f, 'submit_compliance_evidence', 'inspection-still-loaded').blockingUnload,
+    ['Bordbuch', 'Feuerloescher', 'Verbandzeug']);
+  const unloaded = executeCurrent(f, 'set_manifest_item', 'inspection-unload-all', {
+    items: ['bordbuch', 'fire-extinguisher', 'first-aid'].map(itemId => ({ itemId, action: 'unload' }))
+  });
+  assert.equal(unloaded.ok, true, JSON.stringify(unloaded));
+  for (const item of f.manager.getExecutionSnapshot().state.manifest.items) {
+    assert.equal(item.status, 'unloaded'); assert.equal(item.unloadLat, 48.3001);
+  }
+  assert.equal(executeCurrent(f, 'replace_equipment', 'inspection-cannot-renew', { itemId: 'first-aid' }).ok, false);
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'inspection-reload', { itemId: 'first-aid', action: 'load' }).ok, true);
+  assert.deepEqual(executeCurrent(f, 'submit_compliance_evidence', 'inspection-reloaded').blockingUnload, ['Verbandzeug']);
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'inspection-unload-again', { itemId: 'first-aid', action: 'unload' }).ok, true);
+  const restored = createMissionAuthorityManager(f.managerOptions);
+  assert.equal(restored.getExecutionSnapshot().state.workflows.complianceInspection.phase, 'evidence_open');
+  assert.deepEqual(restored.getExecutionSnapshot().state.manifest, f.manager.getExecutionSnapshot().state.manifest);
+  assert.equal(executeCurrent(f, 'submit_compliance_evidence', 'inspection-done').ok, true);
+  const completed = f.manager.getExecutionSnapshot().state;
+  assert.equal(completed.workflows.complianceInspection.result.entryCount, 0);
+  assert.equal(completed.workflows.complianceInspection.result.warningCount, 0);
+  assert.equal(executeCurrent(f, 'submit_compliance_evidence', 'inspection-duplicate').ok, false);
+  assert.equal(f.manager.getExecutionSnapshot().executionRevision, completed.revision);
+});
+
+test('inspection batch unload is atomic on a stale/missing item and duplicate unload creates no extra transition', t => {
+  const f = inspectionAfterFlight(t);
+  const before = f.manager.getExecutionSnapshot();
+  const invalid = executeCurrent(f, 'set_manifest_item', 'inspection-invalid-batch', {
+    items: [{ itemId: 'bordbuch', action: 'unload' }, { itemId: 'removed-item', action: 'unload' }]
+  });
+  assert.equal(invalid.ok, false);
+  assert.deepEqual(f.manager.getExecutionSnapshot().state.manifest, before.state.manifest);
+  assert.equal(f.manager.getExecutionSnapshot().executionRevision, before.executionRevision);
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'inspection-unload-book', { itemId: 'bordbuch', action: 'unload' }).ok, true);
+  const unloaded = f.manager.getExecutionSnapshot();
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'inspection-repeat-unload', { itemId: 'bordbuch', action: 'unload' }).ok, true);
+  assert.equal(f.manager.getExecutionSnapshot().executionRevision, unloaded.executionRevision);
+});
+
+test('inspection ground authorization revokes rolling, brake at speed, pause and menu; fresh stop restores it', t => {
+  for (const patch of [{ gsKts: 12 }, { gsKts: 12, parkingBrake: true }, { simPaused: true }, { inMenuOrMap: true }]) {
+    const f = inspectionAfterFlight(t);
+    f.adapter.observeTelemetry({ observedAt: 16000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0, ...patch });
+    assert.equal(f.manager.getExecutionSnapshot().state.flags.groundStill, false);
+    const before = f.manager.getExecutionSnapshot().state.manifest;
+    assert.equal(executeCurrent(f, 'set_manifest_item', 'unsafe-unload', { itemId: 'bordbuch', action: 'unload' }).ok, false);
+    assert.equal(executeCurrent(f, 'submit_compliance_evidence', 'unsafe-evidence').ok, false);
+    assert.deepEqual(f.manager.getExecutionSnapshot().state.manifest, before);
+    f.adapter.observeTelemetry({ observedAt: 17000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 });
+    assert.equal(executeCurrent(f, 'set_manifest_item', 'safe-unload', { itemId: 'bordbuch', action: 'unload' }).ok, true);
+    f.setClock(23000);
+    assert.equal(executeCurrent(f, 'set_manifest_item', 'stale-unload', { itemId: 'first-aid', action: 'unload' }).error,
+      'manifest_ground_handling_required');
+  }
+});
+
+test('inspection without destination cargo exposes and executes board item unload', t => {
+  const f = inspectionAfterFlight(t);
+  const snapshot = f.manager.getExecutionSnapshot();
+  const manifest = executionCore.normalizeManifest(snapshot.state.manifest);
+  manifest.items = manifest.items.filter(item => item.persistentEquipment);
+  assert.equal(f.manager.applyExecutionEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
+    expectedRevision: snapshot.authorityRevision, expectedExecutionRevision: snapshot.executionRevision,
+    expectedExecutionStateHash: snapshot.executionStateHash, event: { eventId: 'no-destination-cargo', type: 'CARGO_STATE_CHANGED',
+      sequence: snapshot.executionRevision + 1, occurredAt: 14000, payload: { manifest } } }).ok, true);
+  assert.equal(f.manager.getExecutionSnapshot().state.cargo.summary.destinationTotal, 0);
+  assert.ok(f.manager.getExecutionSnapshot().view.allowedActions.includes('set_manifest_item'));
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'only-board-unload', { itemId: 'bordbuch', action: 'unload' }).ok, true);
+});
+
+test('tracker reconciles distant previous inventory before boarding and replacement survives restart for every board item', t => {
+  for (const id of ['bordbuch', 'first-aid', 'fire-extinguisher', 'chocks']) {
+    const bundle = aptResumeBundle();
+    bundle.runtime.cargoManifest.items.push({ id, persistentEquipment: true, deliverAtDestination: false,
+      status: 'unloaded', unloadManifestKey: 'old-mission-manifest', unloadLat: 48, unloadLon: 8,
+      ...(id === 'first-aid' || id === 'fire-extinguisher' ? { equipmentType: 'expiry', expiresAt: '2026-11-01', serialId: 'old' } : {}) });
+    bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+    bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+    const f = createCommittedFixture(t, { bundle });
+    f.adapter.observeTelemetry({ observedAt: 2000, onGround: true, gsKts: 0 });
+    assert.equal(f.manager.getExecutionSnapshot().state.manifest.items.find(item => item.id === id).status, 'unloaded');
+    f.adapter.observeTelemetry({ observedAt: 3000, lat: 49, lon: 8, onGround: true, gsKts: 0 });
+    assert.equal(f.manager.getExecutionSnapshot().state.manifest.items.find(item => item.id === id).status, 'lost');
+    executeCurrent(f, 'prepare_mission', `lost-prepare-${id}`);
+    beginBoarding(f, `lost-${id}`);
+    const result = executeCurrent(f, 'set_manifest_item', `lost-replace-${id}`, { itemId: id, action: 'load' });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    const restored = createMissionAuthorityManager(f.managerOptions).getExecutionSnapshot().state.manifest.items.find(item => item.id === id);
+    assert.equal(restored.status, 'loaded');
+    assert.equal(restored.unloadLat, null);
+    if (restored.equipmentType === 'expiry') assert.notEqual(restored.serialId, 'old');
+  }
+});
+
+test('tracker marks items unloaded in this mission lost on departure without losing ordinary cargo', t => {
+  const bundle = aptResumeBundle();
+  bundle.runtime.cargoManifest.items.push(...['bordbuch', 'first-aid', 'fire-extinguisher', 'chocks'].map(id => ({
+    id, persistentEquipment: true, status: 'unloaded', unloadManifestKey: bundle.runtime.cargoManifest.key,
+    unloadLat: 48, unloadLon: 8, deliverAtDestination: false
+  })));
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const f = createCommittedFixture(t, { bundle });
+  f.adapter.observeTelemetry({ observedAt: 2000, lat: 48, lon: 8, onGround: true, gsKts: 0 });
+  executeCurrent(f, 'prepare_mission', 'abandon-prepare'); beginBoarding(f, 'abandon');
+  executeCurrent(f, 'set_manifest_item', 'abandon-load-box', { itemId: 'medical-box', action: 'load' });
+  executeCurrent(f, 'sign_manifest', 'abandon-sign'); executeCurrent(f, 'confirm_load', 'abandon-confirm');
+  acknowledgePayloadCurrent(f, 'abandon'); acknowledgeBoardingCurrent(f, 'abandon');
+  executeCurrent(f, 'start_mission', 'abandon-start');
+  f.adapter.observeTelemetry({ observedAt: 3000, lat: 48, lon: 8, onGround: false, gsKts: 65 });
+  const items = f.manager.getExecutionSnapshot().state.manifest.items;
+  assert.ok(items.filter(item => item.persistentEquipment).every(item => item.status === 'lost'));
+  assert.equal(items.find(item => item.id === 'medical-box').status, 'loaded');
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'abandon-replace-airborne', { itemId: 'bordbuch', action: 'load' }).ok, false);
+  const restored = createMissionAuthorityManager(f.managerOptions).getExecutionSnapshot().state.manifest;
+  assert.ok(restored.items.filter(item => item.persistentEquipment).every(item => item.status === 'lost'));
 });

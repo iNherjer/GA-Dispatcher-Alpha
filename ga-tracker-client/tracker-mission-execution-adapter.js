@@ -387,20 +387,26 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (!commandId) return errorResult('command_id_required');
     const validated = validateSnapshot(request);
     if (!validated.ok) return validated;
-    if (!(['close_cargo_window', 'open_cargo_window'].includes(intent) && !validated.snapshot.state.flags.closed)
-        && !validated.snapshot.view.allowedActions.includes(intent)) {
-      return errorResult('mission_intent_not_allowed_in_state', {
-        activeRun: authorityManager.getActiveRun(),
-        view: validated.snapshot.view
-      });
+    resetObservationIfNeeded(validated.snapshot);
+    if (!validated.snapshot.bushRecipe && ['set_manifest_item', 'set_manifest_items', 'request_pax_interaction', 'submit_compliance_evidence',
+        'replace_equipment', 'confirm_unload', 'confirm_pickup', 'confirm_load'].includes(intent)) {
+      const sample = observations.groundTelemetry;
+      const airborneDrop = ['set_manifest_item', 'set_manifest_items'].includes(intent)
+        && request.payload?.action === 'unload' && validated.snapshot.state.flags.onGround === false;
+      if (!sample && validated.snapshot.state.flags.started) return errorResult('manifest_ground_handling_required');
+      if (sample && (!Number.isFinite(sample.observedAt) || sample.simPaused === true || sample.inMenuOrMap === true
+          || now() - sample.observedAt < 0 || now() - sample.observedAt > 5000
+          || (!airborneDrop && !(sample.onGround === true && typeof sample.gsKts === 'number'
+            && Number.isFinite(sample.gsKts) && sample.gsKts >= 0 && sample.gsKts <= 2)))) {
+        return errorResult('manifest_ground_handling_required');
+      }
     }
-    if (validated.snapshot.bushRecipe) resetObservationIfNeeded(validated.snapshot);
-    if (validated.snapshot.bushRecipe && ['prepare_mission','start_boarding','confirm_load','start_mission','set_manifest_item','set_manifest_items','request_pax_interaction','sign_manifest','confirm_pickup','confirm_unload','request_close'].includes(intent)) {
+    if (validated.snapshot.bushRecipe && ['prepare_mission','start_boarding','confirm_load','start_mission','set_manifest_item','set_manifest_items','request_pax_interaction','sign_manifest','confirm_pickup','confirm_unload','request_close','replace_equipment','submit_compliance_evidence'].includes(intent)) {
       const sample=observations.bushTelemetry;
       if (!sample || !sample.valid || sample.simPaused || sample.inMenuOrMap
           || now()-sample.observedAt<0 || now()-sample.observedAt>5000) return errorResult('bush_fresh_telemetry_required');
       const airborneCargo=['set_manifest_item','set_manifest_items'].includes(intent) && sample.onGround===false;
-      if (!airborneCargo && !(sample.onGround===true && (sample.gsKts<=2 || sample.parkingBrake===true))) return errorResult('bush_ground_stop_required');
+      if (!airborneCargo && !(sample.onGround===true && (Number.isFinite(sample.gsKts) && sample.gsKts>=0 && sample.gsKts<=2))) return errorResult('bush_ground_stop_required');
       const pickupAction=validated.snapshot.bushRecipe.kind==='pickup_return' && !validated.snapshot.state.progress.returnLeg
         && (intent==='confirm_pickup' || (validated.snapshot.state.phase==='on_task' && ['sign_manifest','set_manifest_item','set_manifest_items','request_pax_interaction'].includes(intent)));
       if(pickupAction && !locationCore.resolveAptDestination(validated.snapshot.bushRecipe.location,sample).atDestination)return errorResult('bush_pickup_target_required');
@@ -408,6 +414,13 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         && ['set_manifest_item','set_manifest_items','request_pax_interaction'].includes(intent) && request.payload?.action==='unload';
       if ((['confirm_unload','request_close'].includes(intent) || unloadingAtArrival)
           && !locationCore.resolveAptDestination(validated.snapshot.location,sample).atDestination) return errorResult('bush_target_required');
+    }
+    if (!(['close_cargo_window', 'open_cargo_window'].includes(intent) && !validated.snapshot.state.flags.closed)
+        && !validated.snapshot.view.allowedActions.includes(intent)) {
+      return errorResult('mission_intent_not_allowed_in_state', {
+        activeRun: authorityManager.getActiveRun(),
+        view: validated.snapshot.view
+      });
     }
     return { ok: true, intent, snapshot: validated.snapshot };
   };
@@ -1060,6 +1073,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     observations.runKey = runKey;
     observations.preflightObservedAt = -1;
     observations.bushTelemetry = null;
+    observations.groundTelemetry = null;
     observations.airborneCandidateAt = null;
     observations.groundStillCandidateAt = null;
     const persisted = typeof authorityManager.getExecutionRuntimeContext === 'function'
@@ -1128,6 +1142,46 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (!validated.ok) return validated;
     let snapshot = validated.snapshot;
     resetObservationIfNeeded(snapshot);
+    if (typeof sample.observedAt !== 'number' || !Number.isFinite(sample.observedAt)) {
+      observations.groundTelemetry = { observedAt: NaN };
+      observations.bushTelemetry = null;
+      if (snapshot.state.flags.started && snapshot.state.flags.groundStill) {
+        return submitEvent(snapshot, 'GROUND_HANDLING_INVALIDATED', {},
+          `${snapshot.runId}:ground-invalid:${snapshot.executionRevision + 1}`, 'telemetry:ground_handling_invalid');
+      }
+      return { ok: true, status: 'ignored', reason: 'ground_telemetry_invalid', sideEffect: false };
+    }
+    const previousGroundSample = observations.groundTelemetry;
+    if (previousGroundSample && typeof sample.observedAt === 'number'
+        && sample.observedAt <= previousGroundSample.observedAt) {
+      return { ok: true, status: 'ignored', reason: 'ground_telemetry_stale', sideEffect: false };
+    }
+    if (typeof sample.observedAt === 'number' && Number.isFinite(sample.observedAt)
+        && (!previousGroundSample || sample.observedAt > previousGroundSample.observedAt)) {
+      observations.groundTelemetry = { ...sample };
+      const safeGround = sample.onGround === true && typeof sample.gsKts === 'number'
+        && Number.isFinite(sample.gsKts) && sample.gsKts >= 0 && sample.gsKts <= 2
+        && sample.simPaused !== true && sample.inMenuOrMap !== true;
+      if (snapshot.state.flags.started && snapshot.state.flags.groundStill && !safeGround) {
+        const invalidated = submitEvent(snapshot, 'GROUND_HANDLING_INVALIDATED', {},
+          `${snapshot.runId}:ground-invalid:${snapshot.executionRevision + 1}`, 'telemetry:ground_handling_invalidated');
+        if (!invalidated.ok) return invalidated;
+        snapshot = current();
+      }
+      const manifest = executionCore.normalizeManifest(snapshot.state.manifest);
+      const changed = manifestCore.reconcileOffboardEquipment(manifest, {
+        now: now(), departed: sample.onGround === false && now() - sample.observedAt >= 0 && now() - sample.observedAt <= 5000,
+        beforeDeparture: !snapshot.state.flags.started && now() - sample.observedAt >= 0 && now() - sample.observedAt <= 5000,
+        position: { lat: sample.lat, lon: sample.lon },
+        simPaused: sample.simPaused, inMenuOrMap: sample.inMenuOrMap
+      });
+      if (changed.length) {
+        const applied = submitEvent(snapshot, 'CARGO_STATE_CHANGED', { manifest },
+          `${snapshot.runId}:equipment-lost:${snapshot.executionRevision + 1}`, 'telemetry:equipment_left_behind');
+        if (!applied.ok) return applied;
+        snapshot = current();
+      }
+    }
     if (snapshot.bushRecipe) {
       const prior=observations.bushTelemetry;
       if (prior && Number.isFinite(sample.observedAt) && sample.observedAt<=prior.observedAt) return {ok:true,status:'ignored',reason:'bush_telemetry_stale'};
@@ -1153,8 +1207,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
         ? { lat: sample.lat, lon: sample.lon, altFt: finite(sample.altFt), hdg: finite(sample.hdg) } : null;
       const onGround = typeof sample.onGround === 'boolean' ? sample.onGround : null;
       const groundStill = onGround === true && typeof sample.gsKts === 'number'
-        && Number.isFinite(sample.gsKts) && sample.gsKts >= 0 && (sample.gsKts <= GROUND_STILL_MAX_GS_KTS
-          || (!!snapshot.bushRecipe && (sample.parkingBrake===true || sample.parkingBrake===1)))
+        && Number.isFinite(sample.gsKts) && sample.gsKts >= 0 && sample.gsKts <= GROUND_STILL_MAX_GS_KTS
         && sample.simPaused !== true && sample.inMenuOrMap !== true;
       if (snapshot.state.flags.onGround === onGround && snapshot.state.flags.groundStill === groundStill) {
         return { ok: true, status: 'noop', sideEffect: false };
@@ -1205,7 +1258,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     });
     observations.flightRecorder = recorded.state;
     if (snapshot.bushRecipe && sample.simPaused !== true && sample.inMenuOrMap !== true) {
-      const groundStill=onGround===true && (gsKts<=2 || sample.parkingBrake===true || sample.parkingBrake===1);
+      const groundStill=onGround===true && Number.isFinite(gsKts) && gsKts>=0 && gsKts<=2;
       const targetDestination=locationCore.resolveAptDestination(snapshot.bushRecipe.location,sample);
       const atHome=locationCore.haversineNm(sample.lat,sample.lon,snapshot.bushRecipe.spec.homeRef.lat,snapshot.bushRecipe.spec.homeRef.lon)<=0.35;
       const result=bushTaskCore.evaluate({atHome,atArrivalPoint:targetDestination.dArrivalNm!=null && targetDestination.dArrivalNm<=0.16,poiProgress:snapshot.state.poiTask?{...snapshot.state.poiTask.detector,trackingActive:true}:null,spec:snapshot.bushRecipe.spec,progress:snapshot.state.bushTask?.progress || {status:'enroute'},
@@ -1365,8 +1418,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     observations.airborneCandidateAt = null;
 
-    const groundReady = onGround === true && (sample.parkingBrake === true || ((fullPoi || snapshot.bushRecipe) && sample.parkingBrake === 1)
-      || (Number.isFinite(gsKts) && gsKts <= GROUND_STILL_MAX_GS_KTS));
+    const groundReady = onGround === true && Number.isFinite(gsKts) && gsKts >= 0 && gsKts <= GROUND_STILL_MAX_GS_KTS;
     if (onGround === true && snapshot.state.flags.onGround === false) {
       observations.groundStillCandidateAt = groundReady ? observedAt : null;
       const applied = submitEvent(
@@ -1427,7 +1479,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     executeIntent,
     getFarewellAuthorityContext: farewellAuthorityContext,
     flushRuntimeContext(suspend = false) {
-      if (suspend) observations.bushTelemetry = null;
+      if (suspend) {
+        observations.bushTelemetry = null;
+        observations.groundTelemetry = { observedAt: NaN };
+      }
       const snapshot = current();
       if (!snapshot || snapshot.recipe !== 'poi' || !poiRuntime.hasLifecycle(authorityManager.getExecutionPoiRecipe?.())) return { ok: true, status: 'ignored' };
       resetObservationIfNeeded(snapshot);

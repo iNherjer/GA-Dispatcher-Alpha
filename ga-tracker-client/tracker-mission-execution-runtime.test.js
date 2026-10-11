@@ -141,7 +141,9 @@ async function exerciseUnloadCompletion(t, restart = '') {
     return { ok: true, status: 'pending', sideEffect: true };
   };
   const authorityChanges = [];
+  let clock = 1000;
   const runtimeOptions = {
+    now: () => clock,
     enabled: true,
     onAuthorityChanged: (reason, snapshot) => authorityChanges.push({
       reason,
@@ -236,6 +238,7 @@ async function exerciseUnloadCompletion(t, restart = '') {
   assert.equal(farewellPrewarms[0].farewellContext, null);
   assert.equal(typeof farewellPrewarms[0].farewellDynamicContext?.record, 'object');
   runtime.observeTelemetry({ observedAt: 14000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
+  clock = 17000;
   runtime.observeTelemetry({ observedAt: 17000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
   run = manager.getActiveRun();
   assert.equal((await runtime.executeIntent({
@@ -272,7 +275,9 @@ async function exerciseUnloadCompletion(t, restart = '') {
     if (restart === 'after-confirm') {
       // Crash window: the intent is durable, but the runtime has not yet run
       // its continuation or acknowledged the unload bookkeeping effect.
-      const confirmed = createTrackerMissionExecutionAdapter({ authorityManager: manager }).executeIntent(confirmUnload());
+      const adapter = createTrackerMissionExecutionAdapter({ authorityManager: manager, now: () => clock });
+      adapter.observeTelemetry({ observedAt: clock, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
+      const confirmed = adapter.executeIntent(confirmUnload());
       assert.equal(confirmed.ok, true);
       assert.equal(manager.getExecutionSnapshot().state.flags.unloadConfirmed, true);
     }
@@ -280,6 +285,7 @@ async function exerciseUnloadCompletion(t, restart = '') {
     runtime = createTrackerMissionExecutionRuntime({ ...runtimeOptions, authorityManager: manager });
     runtime.attachSimulator(simulator);
     if (restart === 'before-confirm') {
+      runtime.observeTelemetry({ observedAt: clock, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
       await new Promise(resolve => setImmediate(resolve));
       assert.equal(manager.getExecutionSnapshot().state.flags.unloadConfirmed, false);
       assert.equal(farewellCalls.length, 0, 'a restored signature alone cannot start Farewell');
@@ -1485,4 +1491,20 @@ test('cargo-only boarding keeps loading available and preserves required cargo a
   assert.equal((await intent('confirm_load')).ok, true);
   assert.equal(await waitUntil(() => manager.getExecutionSnapshot().view.allowedActions.includes('start_mission')), true);
   assert.equal((await intent('start_mission')).ok, true);
+});
+
+test('a missing Crewboard writer keeps the sanction effect pending instead of falsely completing it', async t => {
+  const bundle = aptBundle();
+  bundle.runtime.complianceInspection = { selected: true, phase: 'evidence_open', flightId: 'missing-writer-flight',
+    farewellComplete: true, snapshot: { items: [], flightId: 'missing-writer-flight' } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true });
+  const run = manager.getActiveRun();
+  const result = await runtime.executeIntent({ intent: 'submit_compliance_evidence', commandId: 'missing-writer-evidence',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(manager.getExecutionSnapshot().state.effects.find(effect => effect.type === 'crewboard.authority_sanction').status, 'requested');
+  assert.ok(manager.getActiveRun(), 'a sanction still awaiting local storage cannot be finalized');
 });

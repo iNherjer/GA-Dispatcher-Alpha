@@ -246,6 +246,7 @@ function _missionCargoNormalizeOnboardEquipmentState(raw = null) {
                 unloadLat,
                 unloadLon,
                 unloadAltFt,
+                unloadManifestKey: String(rawItem.unloadManifestKey || '').slice(0, 220),
                 lostAt: Number.isFinite(lostAt) && lostAt > 0 ? Math.round(lostAt) : 0,
                 updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? Math.round(updatedAt) : 0
             };
@@ -330,6 +331,8 @@ function _missionCargoApplyStoredOnboardEquipment(items = [], aircraftSlot = '')
             item.persistentEquipmentInherited = false;
         } else {
             item.status = 'unloaded';
+            item.offboardInventoryInherited = true;
+            item.unloadManifestKey = String(stored.unloadManifestKey || '');
             item.loadedAt = 0;
             item.unloadedAt = Number(stored.updatedAt || 0) || Date.now();
             item.unloadLat = _missionCargoNullableNumber(stored.unloadLat);
@@ -377,6 +380,7 @@ function _missionCargoPersistOnboardEquipment(manifest = null) {
             || String(previous.unloadLat ?? '') !== String(unloadLat ?? '')
             || String(previous.unloadLon ?? '') !== String(unloadLon ?? '')
             || String(previous.unloadAltFt ?? '') !== String(unloadAltFt ?? '')
+            || String(previous.unloadManifestKey || '') !== String(item.unloadManifestKey || '')
             || Number(previous.lostAt || 0) !== lostAt;
         nextItems[id] = {
             onboard,
@@ -388,6 +392,7 @@ function _missionCargoPersistOnboardEquipment(manifest = null) {
             unloadLat,
             unloadLon,
             unloadAltFt,
+            unloadManifestKey: String(item.unloadManifestKey || ''),
             lostAt,
             updatedAt: itemChanged ? now : Number(previous.updatedAt || 0)
         };
@@ -1008,6 +1013,10 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         });
     }
     _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
+    _missionCargoManifestCore()?.reconcileOffboardEquipment?.({ key, items }, {
+        beforeDeparture: true, position: _missionCargoLivePos(), now: Date.now(),
+        simPaused: window.lastLiveFlightData?.simPaused, inMenuOrMap: window.lastLiveFlightData?.inMenuOrMap
+    });
     return {
         version: 6,
         key,
@@ -1265,6 +1274,10 @@ window.missionCargoBeginGroundInventorySession = function() {
     const key = `ground-inventory-${aircraftSlot}-${createdAt}`;
     const items = _missionCargoPersistentEquipmentDefinitions();
     _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
+    _missionCargoManifestCore()?.reconcileOffboardEquipment?.({ key, items }, {
+        beforeDeparture: true, position: _missionCargoLivePos(), now: createdAt,
+        simPaused: window.lastLiveFlightData?.simPaused, inMenuOrMap: window.lastLiveFlightData?.inMenuOrMap
+    });
     missionCargoGroundInventoryManifest = {
         version: 4,
         key,
@@ -1631,6 +1644,7 @@ function _missionCargoLivePos() {
     const pos = (window.simModeActive && window.gaSimGpsPos)
         ? window.gaSimGpsPos
         : (window.lastLiveGpsPos || {});
+    if (pos.lat == null || pos.lon == null || pos.lat === '' || pos.lon === '') return null;
     const lat = Number(pos.lat);
     const lon = Number(pos.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -5680,7 +5694,32 @@ window.missionCargoHandleAircraftMovement = function(rawFlightData = null) {
             try { _updateMissionRuntimeUi(); } catch (_) {}
         }, 0);
     }
-    if (!departed) return false;
+    if (fd.simPaused === true || fd.inMenuOrMap === true) return false;
+    // The tracker owns its manifest. Its projection persists inventory through
+    // the normal adoption path; never overwrite it from a browser telemetry tick.
+    if (typeof _missionExecutionAuthorityIsTracker === 'function' && _missionExecutionAuthorityIsTracker()) return false;
+    const core = _missionCargoManifestCore();
+    const manifestsToCheck = Array.from(new Set([missionCargoGroundInventoryManifest, _missionCargoGetManifest()].filter(Boolean)));
+    let reconciled = false;
+    manifestsToCheck.forEach(manifest => {
+        const lost = core?.reconcileOffboardEquipment?.(manifest, {
+            now: Date.now(), departed, beforeDeparture: !missionRuntime.active,
+            position: _missionCargoLivePos()
+        }) || [];
+        if (lost.length) {
+            lost.forEach(id => {
+                const item = manifest.items.find(entry => entry.id === id);
+                _missionCargoQueueVisibleItemState(item, false, {
+                    sceneId: _missionCargoUnloadSceneId(), reason: 'ground-equipment-left-behind', unloaded: true
+                });
+            });
+            _missionCargoPersistManifest(manifest);
+            window.missionCargoStatus.lastEquipmentLossAt = Date.now();
+            window.missionCargoStatus.lastEquipmentLossIds = lost.slice();
+            reconciled = true;
+        }
+    });
+    if (!departed) return reconciled;
 
     const aircraftSlot = _missionCargoAircraftSlot();
     const state = _missionCargoReadOnboardEquipmentState();
@@ -5689,7 +5728,7 @@ window.missionCargoHandleAircraftMovement = function(rawFlightData = null) {
         const stored = storedEntry?.items?.[id];
         return !!stored && stored.onboard !== true && stored.status !== 'lost';
     });
-    if (!lostIds.length) return false;
+    if (!lostIds.length) return reconciled;
 
     const now = Date.now();
     lostIds.forEach((id) => {

@@ -19,7 +19,7 @@ async function createTrackerMissionProcess(options) {
   const context = () => ({ audioSettings: options.getAudioSettings?.() || null, livePosition: simulator?.getLivePosition?.() || null });
   const ipc = createMissionIpc(child, {
     callback(name, args, generation) {
-      const target = ['playBoardingVoice', 'prepareBoardingVoice', 'playFarewellVoice', 'playComplianceVoice'].includes(name) ? options : simulator;
+      const target = ['playBoardingVoice', 'prepareBoardingVoice', 'playFarewellVoice', 'playComplianceVoice', 'recordAuthoritySanction'].includes(name) ? options : simulator;
       if (target !== options && generation !== simulatorGeneration) throw Error('mission_simulator_connection_changed');
       if (!target || typeof target[name] !== 'function') throw Error('mission_simulator_not_connected');
       return target[name](...args);

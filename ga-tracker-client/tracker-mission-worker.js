@@ -66,6 +66,7 @@ function runMissionWorker() {
         prepareBoardingVoice: request => invokeParent('prepareBoardingVoice', request),
         playFarewellVoice: request => invokeParent('playFarewellVoice', request),
         playComplianceVoice: request => invokeParent('playComplianceVoice', request),
+        recordAuthoritySanction: request => invokeParent('recordAuthoritySanction', request),
         onAuthorityChanged(reason, snapshot) {
           publish(); ipc.event('authorityChanged', { reason, phase: snapshot?.state?.phase });
         }, log

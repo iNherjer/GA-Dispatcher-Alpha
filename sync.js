@@ -2145,6 +2145,12 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
             }
         } catch (_) {}
     }
+    // Inventory is an aircraft-level mirror, not a competing mission authority.
+    // Persist the tracker projection so a later mission cannot resurrect the old
+    // offboard/loaded state from browser storage or the cloud profile.
+    if (manifest && trackerManifest && typeof _missionCargoPersistOnboardEquipment === 'function') {
+        try { _missionCargoPersistOnboardEquipment(manifest); } catch (_) {}
+    }
     window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
     try {
         window.GATrainingGuidanceUi?.render?.(control.executionAuthority === 'tracker'

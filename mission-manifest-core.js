@@ -21,6 +21,44 @@
             : [];
     }
 
+    // Only aircraft inventory is abandoned; mission cargo keeps its own contract.
+    function reconcileOffboardEquipment(manifest, context) {
+        var facts = object(context) || {};
+        if (facts.simPaused === true || facts.inMenuOrMap === true) return [];
+        var position = object(facts.position);
+        function coordinate(value, max) {
+            return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= max;
+        }
+        var changed = [];
+        items(manifest).forEach(function (item) {
+            if (item.persistentEquipment !== true || item.status !== 'unloaded'
+                || !['bordbuch', 'first-aid', 'fire-extinguisher', 'chocks'].includes(item.id)) return;
+            var previousMission = item.unloadManifestKey
+                ? item.unloadManifestKey !== manifest.key
+                : true; // Legacy inventory has no provenance; new unloads always record the manifest key.
+            var distant = false;
+            if (previousMission && facts.beforeDeparture === true && position
+                && coordinate(position.lat, 90) && coordinate(position.lon, 180)
+                && coordinate(item.unloadLat, 90) && coordinate(item.unloadLon, 180)
+                && !(item.unloadLat === 0 && item.unloadLon === 0)) {
+                var rad = Math.PI / 180;
+                var dlat = (position.lat - item.unloadLat) * rad;
+                var dlon = (position.lon - item.unloadLon) * rad;
+                var h = Math.sin(dlat / 2) ** 2 + Math.cos(item.unloadLat * rad)
+                    * Math.cos(position.lat * rad) * Math.sin(dlon / 2) ** 2;
+                distant = 6371000 * 2 * Math.asin(Math.sqrt(Math.min(1, h))) > 200 + 1e-6;
+            }
+            if (facts.departed !== true && !distant) return;
+            Object.assign(item, { status: 'lost', loadedAt: 0, unloadedAt: 0,
+                unloadLat: null, unloadLon: null, unloadAltFt: null,
+                lostAt: Number(facts.now) || Date.now(), persistentEquipmentInherited: false,
+                offboardInventoryInherited: false });
+            changed.push(item.id);
+        });
+        if (changed.length) clearDispatchSignature(manifest);
+        return changed;
+    }
+
     function normalizeMode(mode) {
         var normalized = String(mode || '').toLowerCase();
         if (normalized === 'unload') return 'unload';
@@ -335,7 +373,8 @@
             unloadPatch.handoffComplete = false;
             unloadPatch.handedOffAt = 0;
         }
-        if (item.persistentEquipment === true) unloadPatch.persistentEquipmentInherited = false;
+        if (item.persistentEquipment === true) Object.assign(unloadPatch, { persistentEquipmentInherited: false,
+            offboardInventoryInherited: false, unloadManifestKey: String(manifest.key || '') });
         return transitionPlan('unload', item, unloadPatch, {
             dropped: false,
             acknowledgedEffect: facts.effectAcknowledged || null
@@ -682,6 +721,7 @@
         clearDispatchSignature: clearDispatchSignature,
         planItemTransition: planItemTransition,
         canReplaceLostEquipment: canReplaceLostEquipment,
+        reconcileOffboardEquipment: reconcileOffboardEquipment,
         commitItemTransition: commitItemTransition,
         boardBookActionState: boardBookActionState,
         planBoardBookEntry: planBoardBookEntry,

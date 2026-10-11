@@ -56,6 +56,7 @@ function windowFunction(name) {
 }
 
 const executableSource = [
+    namedFunction('_missionCargoLostEquipmentReplacementFacts'),
     namedFunction('_missionCargoSignatureScope'),
     namedFunction('_missionCargoSignatureMatchesMode'),
     namedFunction('_missionCargoCommitCoreItemTransition'),

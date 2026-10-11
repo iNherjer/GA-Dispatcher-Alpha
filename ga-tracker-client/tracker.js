@@ -4,6 +4,7 @@ if (process.argv.includes('--mission-worker') && typeof process.send === 'functi
 } else {
 const missionTransferCore = require('../mission-transfer-core.js');
 const { createFollowupCloud } = require('./tracker-mission-followup-cloud.js');
+const { createComplianceSanctions } = require('./tracker-compliance-sanctions.js');
 const { createNavigationData } = require('./tracker-navigation-data.js');
 const { createNavigationWarnings } = require('./tracker-navigation-warnings.js');
 const { createAudioControl, createAudioCloud } = require('./tracker-audio-control-core.js');
@@ -97,8 +98,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v515';
-const TRACKER_VERSION_CODE = 515;
+const TRACKER_VERSION = 'v516';
+const TRACKER_VERSION_CODE = 516;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4881,6 +4882,10 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     poiExecutionEnabled: TRACKER_POI_EXECUTION_ENABLED,
     poiLifecycleRequired: true
   };
+  const complianceSanctions = createComplianceSanctions({
+    storageFile: path.join(TRACKER_DATA_DIR, 'compliance-sanctions-v1.json'),
+    pilotId: String(syncId), pin: String(pin), log: debugLog
+  });
   const missionProcess = TRACKER_APT_EXECUTION_ENABLED ? await createTrackerMissionProcess({
     authority: authorityOptions, enabled: true, pilotId: syncId,
     flightLogDirectory: TRACKER_FLIGHT_LOG_DIR,
@@ -4889,6 +4894,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     prepareBoardingVoice: request => missionBoardingVoice.prepare(request),
     playFarewellVoice: request => missionFarewellVoice.dispatch(request),
     playComplianceVoice: request => missionComplianceVoice.dispatch(request),
+    recordAuthoritySanction: complianceSanctions.record,
     onAuthorityChanged: (reason, snapshot) => broadcastMissionAuthorityUpdate(
       `execution:${reason}`, {}, { ok: true, status: snapshot?.state?.phase || 'updated' }),
     log: debugLog
@@ -4899,6 +4905,9 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   const followupSyncTimer = setInterval(() => { void followupCloud.flush(); }, 5000);
   followupSyncTimer.unref?.();
   void followupCloud.flush();
+  const sanctionSyncTimer = setInterval(() => { void complianceSanctions.flush(); }, 5000);
+  sanctionSyncTimer.unref?.();
+  void complianceSanctions.flush();
   const trackerFlightLogStore = missionProcess?.flightLog || createTrackerFlightLogStore({
     directory: TRACKER_FLIGHT_LOG_DIR,
     log: debugLog
@@ -4960,6 +4969,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     prepareBoardingVoice: missionBoardingVoice.prepare,
     playFarewellVoice: missionFarewellVoice.dispatch,
     playComplianceVoice: missionComplianceVoice.dispatch,
+    recordAuthoritySanction: complianceSanctions.record,
     flightLog: trackerFlightLogStore,
     onAuthorityChanged: (reason, snapshot) => broadcastMissionAuthorityUpdate(
       `execution:${reason}`,

@@ -550,3 +550,18 @@ const nextMissionPlan = payloadContext._missionCargoBuildMissionExtraPlan(manife
 assert.equal(nextMissionPlan.missionByStation.get(5), 10, 'inherited equipment was counted twice');
 
 console.log('mission cargo persistence selftest: ok');
+
+// The provenance survives the same profile/storage normalization used on cloud restore.
+const provenanceManifest = { key: 'mission-before', aircraftSlot: 'C172', items: [{ id: 'chocks',
+    persistentEquipment: true, status: 'unloaded', unloadManifestKey: 'mission-before', unloadLat: 48, unloadLon: 8 }] };
+context._missionCargoPersistOnboardEquipment(provenanceManifest);
+const inheritedOffboard = [{ id: 'chocks', persistentEquipment: true, status: 'pending' }];
+context._missionCargoApplyStoredOnboardEquipment(inheritedOffboard, 'C172');
+assert.equal(inheritedOffboard[0].unloadManifestKey, 'mission-before');
+assert.equal(inheritedOffboard[0].offboardInventoryInherited, true);
+assert.equal(manifestCore.reconcileOffboardEquipment({ key: 'mission-next', items: inheritedOffboard }, {
+    beforeDeparture: true, position: { lat: 49, lon: 8 }, now: 12345
+}).length, 1);
+context._missionCargoPersistOnboardEquipment({ key: 'mission-next', aircraftSlot: 'C172', items: inheritedOffboard });
+assert.equal(context.window.missionCargoGetOnboardEquipmentForSync().aircraft.C172.items.chocks.status, 'lost');
+assert.equal(context.window.missionCargoGetOnboardEquipmentForSync().aircraft.C172.items.chocks.lostAt, 12345);

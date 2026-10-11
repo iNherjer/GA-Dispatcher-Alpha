@@ -243,7 +243,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     : completeLocalEffect;
   const recordAuthoritySanction = typeof options.recordAuthoritySanction === 'function'
     ? options.recordAuthoritySanction
-    : completeLocalEffect;
+    : missingEffectHandler('crewboard.authority_sanction');
   const releaseComplianceLogically = async request => {
     const delayMs = Math.max(0, Math.min(5000, Number(request?.effect?.payload?.delayMs) || 900));
     if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));

@@ -435,3 +435,33 @@ test('Mapping Survey pattern, progress and manual status cross the real worker b
   assert.equal(status.ok, true, JSON.stringify(status));
   await until(() => /Survey-Scan 1\/1 Linien gruen/.test(host.authorityManager.getExecutionSnapshot().state.effects.find(effect => effect.payload?.action === 'poi_status')?.payload?.resolvedRecipe?.fallbackText || ''));
 });
+
+test('real mission worker queues Crewboard sanctions in the parent without App or simulator connection', async t => {
+  const { createComplianceSanctions } = require('./tracker-compliance-sanctions.js');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-worker-sanction-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const service = createComplianceSanctions({ storageFile: path.join(directory, 'outbox.json'), pilotId: 'test',
+    client: { read: async () => { throw Error('offline'); } } });
+  let calls = 0;
+  const host = await fixture(t, { recordAuthoritySanction: async request => {
+    calls++; assert.equal(request.effect.type, 'crewboard.authority_sanction');
+    return service.record(request);
+  } });
+  const bundle = aptBundle();
+  bundle.runtime.complianceInspection = { selected: true, phase: 'evidence_open', flightId: 'worker-flight',
+    farewellComplete: true, snapshot: { items: [], flightId: 'worker-flight' } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  await activate(host, bundle);
+  const run = host.authorityManager.getActiveRun();
+  const result = await host.runtime.executeIntent({ intent: 'submit_compliance_evidence', commandId: 'worker-evidence',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  await until(() => fs.existsSync(path.join(directory, 'outbox.json')));
+  assert.equal(calls, 1);
+  const stored = JSON.parse(fs.readFileSync(path.join(directory, 'outbox.json'), 'utf8'));
+  assert.equal(stored.entries[0].pilotId, 'test');
+  assert.equal(stored.entries[0].record.offences.length, 3);
+  assert.equal(stored.entries[0].savedAt, null);
+  assert.equal((await service.flush()).status, 'pending');
+});
