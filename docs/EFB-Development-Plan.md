@@ -50,10 +50,14 @@ Der Test verwendet eine kontrollierte 45-Sekunden-Uhr und blockiert externe
 Netzwerkzugriffe; echte Kachelverfuegbarkeit und Coherent/VR bleiben offen.
 Screenshots von Platz und Nearest wurden visuell geprueft.
 
-Releasevorbereitung: Tracker v513, Assetrevision `51301`, Web-Cache v2007.
-Der Nutzer hat am 11.10.2026 den Alpha-/Origin-Release ausdruecklich beauftragt.
-Generierte Assets sind aktualisiert; Windows-EXE, unveraenderlicher Release
-und oeffentlicher Download werden vor Alpha-Kanalaktivierung verifiziert.
+Alpha-Release v513 (11.10.2026): Quellcommit/Tag
+`d16ef13dd5eca019d1ecb52e1cbed6edaa4403af`, Assetrevision `51301`,
+Quellpush mit Web-Cache v2007; Alpha-Kanalaktivierung mit Web-Cache v2008.
+Der Nutzer hat den Alpha-/Origin-Release ausdruecklich beauftragt.
+GitHub-Upload und oeffentlicher Download sind in Dateigroesse und SHA-256
+exakt gleich zum geprueften Build. Alpha verweist auf dieses unveraenderliche
+Artefakt: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v513 .
+Stable-Kanaldateien bleiben unveraendert; der MSFS-/VR-Feldtest folgt.
 Windows-x64-Build (pkg 6.18.1/Node18 ohne Bytecode) erfolgreich: 173756096
 Bytes, SHA-256 3819ecd741e61dc64df2812d14f58cc68bd3bdebeec0e5e407a8a3a05e810dc4.
 PE-AMD64-Header, v513 und neun exakt eingebettete UI-Quelldateien geprueft. Das vorhandene
