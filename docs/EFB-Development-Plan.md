@@ -14,6 +14,10 @@ Quell-/Build-CSS sowie die Kachel-DOM-Identitaet bei wiederholten Updates.
 22 EFB-Node-Tests und die Interface-Regressionspruefung bestehen.
 Release-Assetrevision 51401, Web-Cache v2009 (Quellpush), v2010 (Aktivierung). Der reale Coherent-/
 VR-Nachweis fuer diese konkrete Korrektur steht noch aus.
+Alpha v514 ist als unveraenderlicher Release veroeffentlicht; oeffentlicher
+Download und lokaler Build stimmen vollstaendig ueberein (173756451 Bytes,
+SHA-256 a94b225af0a79eac7b8020ed4583138b0ccfc0a708b5c46e2b8d44b6aa9df48f).
+Der Alpha-Kanal wird auf dieses Artefakt aktiviert.
 
 ## VR-Bedienung und Nearest-Platzdaten (11.10.2026, Alpha v513)
 
