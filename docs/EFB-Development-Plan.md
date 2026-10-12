@@ -7329,3 +7329,5 @@ Restore-Guard-Abhaengigkeiten. Simulator-, Voice- und Netzwerk-IO sind
 simuliert; keine Aussage ueber die physische Entfernung aller MSFS-Objekte.
 Kein neuer Tracker-Build, kein Worker- oder Community-Package-Deployment;
 Stable/Beta werden durch diesen Alpha-Web-Rollout nicht promotet.
+
+Alpha v521 veröffentlicht und aktiviert: öffentlicher Download bytegleich mit dem Build (173804850 Bytes, SHA-256 b2f595feae62da8fd262383c43d6cb70545fa3524e52a7f282b0216198c2d99b). 22 EFB-Tests und Button-Prüfung an Quell-/Build-Datei bestanden. Windows-x64 ohne Bytecode gebaut; MSFS-Feldnachtest offen.
