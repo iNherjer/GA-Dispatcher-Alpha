@@ -1,5 +1,13 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Missionsseite ohne Aktualisieren-Button, Alpha v521, 12.10.2026
+
+Der gemeinsame Werkzeugkopf blendet Aktualisieren auf der Missionsseite aus.
+Der Button zeichnete nur den vorhandenen Snapshot neu; der automatische
+Tracker-Abgleich bleibt unverändert. Andere Werkzeuge behalten den Button.
+Tracker-Webassets 52101, Web-Cache v2024; kein neues Community-Paket erforderlich.
+
+
 ## Zeitpaket-Identität und Voice-Ausgabe, Alpha v519, 12.10.2026
 
 Testerlog enthält 811 clock_packet_identity_invalid und keine gültige Zeit.

@@ -1083,7 +1083,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     return `
             <div class="checklist-topline route-tool-topline">
                 <button class="checklist-back-btn" type="button" data-action="home">${label}</button>
-                <button class="checklist-action-btn" type="button" data-action="refresh-tool" data-tool="${escapeAttr(tool)}">Aktualisieren</button>
+                ${tool === 'mission' ? '' : `<button class="checklist-action-btn" type="button" data-action="refresh-tool" data-tool="${escapeAttr(tool)}">Aktualisieren</button>`}
             </div>
         `;
   }
