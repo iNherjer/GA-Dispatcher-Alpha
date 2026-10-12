@@ -98,6 +98,77 @@
   var missionIntentStatus = '';
   var missionIntentTone = '';
   var missionBannerDismissedKey = '';
+  var flightPlanBridgeReadyUntil = 0;
+  var flightPlanBridgeHost = '';
+  var flightPlanJobs = {};
+  var flightPlanStatusTimer = null;
+
+  function flightPlanMessage(type, data) {
+    window.parent.postMessage(Object.assign({ type: type, channel: window.__gaEfbChannel }, data || {}), '*');
+  }
+  function flightPlanStatus(text, result) {
+    var node = byId('gaFlightPlanStatus');
+    if (!node) {
+      node = document.createElement('div'); node.id = 'gaFlightPlanStatus'; node.setAttribute('role', 'status');
+      node.style.cssText = 'position:absolute;left:12px;right:12px;bottom:20px;z-index:10006;padding:12px;background:#172536;color:white;border-radius:8px;pointer-events:none;';
+      var host = byId('missionStartBanner');
+      if (host && host.parentNode) host.parentNode.appendChild(node);
+    }
+    node.textContent = text; node.style.display = 'block';
+    clearTimeout(flightPlanStatusTimer); flightPlanStatusTimer = setTimeout(function() { node.style.display = 'none'; }, 45000);
+    report(result && result.ok ? 'info' : 'warn', 'flightplan-export', 'result', text, JSON.stringify(result || {}).slice(0, 790));
+  }
+  window.addEventListener('message', function(event) {
+    var data = event.data || {};
+    var nativeParentFallback = event.source == null && ['coui://html_ui', 'null'].indexOf(event.origin) >= 0;
+    if ((event.source !== window.parent && !nativeParentFallback) || !window.__gaEfbChannel || data.channel !== window.__gaEfbChannel) return;
+    if (data.type === 'ga-flightplan-capabilities') {
+      flightPlanBridgeHost = ['efb', 'toolbar'].indexOf(data.host) >= 0 ? data.host : '';
+      flightPlanBridgeReadyUntil = data.ready === true && flightPlanBridgeHost ? Date.now() + 12000 : 0;
+      renderMissionActionBanner(missionSnapshot);
+    }
+    if (data.type === 'ga-flightplan-result' && data.result && flightPlanJobs[data.result.jobId]) {
+      var pending = flightPlanJobs[data.result.jobId];
+      var result = data.result;
+      if (result.routeHash !== pending.routeHash) { report('warn', 'flightplan-export', 'reject-result', 'Routenhash der Antwort passt nicht', result.jobId); return; }
+      clearTimeout(pending.timer); delete flightPlanJobs[data.result.jobId];
+      var current = missionSnapshot && missionSnapshot.control;
+      if (!current || current.missionId !== pending.missionId || current.runId !== pending.runId) {
+        report('warn', 'flightplan-export', 'stale-result', 'Antwort für früheren Missionslauf', JSON.stringify(result)); return;
+      }
+      flightPlanStatus(result.ok ? (result.avionics === 'sent' ? 'Flugplan an MSFS übertragen und an Avionik gesendet.' : 'Flugplan an MSFS übertragen.')
+        : ['flightplan_timeout', 'flightplan_readback_mismatch'].indexOf(result.error) >= 0 ? 'Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.'
+          : result.msfs === 'confirmed' ? 'Flugplan an MSFS übertragen; Senden an Avionik fehlgeschlagen. Mission läuft weiter.'
+            : 'Flugplanübertragung fehlgeschlagen. Mission läuft unabhängig weiter.', result);
+    }
+  });
+  setInterval(function() {
+    if (window.parent !== window && window.__gaEfbChannel) flightPlanMessage('ga-flightplan-probe');
+    if (flightPlanBridgeReadyUntil && Date.now() > flightPlanBridgeReadyUntil) { flightPlanBridgeReadyUntil = 0; renderMissionActionBanner(missionSnapshot); }
+  }, 4000);
+
+  function transferStartedFlightPlan(target, missionId, navigationRevision) {
+    var control = missionSnapshot && missionSnapshot.control;
+    var client = window.gaCockpitSessionClient;
+    var jobId = 'flightplan-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    if (!control || control.missionId !== missionId || !client || !client.submitTool || Date.now() >= flightPlanBridgeReadyUntil) {
+      flightPlanStatus('Flugplanübertragung nicht verfügbar. Mission läuft unabhängig weiter.', { ok: false, jobId: jobId, error: 'flightplan_host_unavailable' }); return;
+    }
+    var runId = control.runId;
+    report('info', 'flightplan-export', 'request', 'Flugplanauftrag nach bestätigtem Missionsstart', JSON.stringify({jobId: jobId, missionId: missionId, runId: runId, target: target, host: flightPlanBridgeHost}));
+    client.submitTool({ commandId: jobId, intent: 'flightplan_export', payload: {missionId: missionId, runId: runId, navigationRevision: navigationRevision} }).then(function(result) {
+      var current = missionSnapshot && missionSnapshot.control;
+      if (!result || !result.ok || !result.plan) throw new Error(result && result.error || 'flightplan_export_unavailable');
+      if (!current || current.runId !== runId || current.missionId !== missionId) throw new Error('flightplan_run_changed');
+      if (Date.now() >= flightPlanBridgeReadyUntil) throw new Error('flightplan_host_unavailable');
+      var timer = setTimeout(function() {
+        delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0;
+        flightPlanStatus('Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, routeHash:result.plan.routeHash, error:'flightplan_timeout'});
+      }, 65000);
+      flightPlanJobs[jobId] = {timer:timer, routeHash:result.plan.routeHash, missionId:missionId, runId:runId};
+      flightPlanMessage('ga-flightplan-send', {job:{jobId:jobId, target:target, plan:result.plan}});
+    }).catch(function(error) { flightPlanStatus('Flugplanübertragung fehlgeschlagen. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, error:String(error.message || error)}); });
+  }
   var cargoManagerOpen = false;
   var cargoManagerSignature = '';
   var cargoSignatureAnimationEndsAt = 0;
@@ -2415,6 +2486,17 @@
       report('info', 'mission-action-banner', model.kind, 'Missionsaktion über Kartenbanner ausgelöst', model.intent || 'cargo');
       return false;
     };
+    window.handleMissionStartFlightPlanAction = function(target) {
+      var model = banner._gaMissionActionModel;
+      if (!model || missionIntentPending || ['activate_cloud_mission', 'prepare_mission'].indexOf(model.intent) < 0) return false;
+      var missionId = missionSnapshot && missionSnapshot.control && missionSnapshot.control.missionId;
+      var navigationRevision = mapSnapshot && mapSnapshot.missionId === missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
+      // Same intent and gates as the existing button. Export must never join its promise or mutate its result.
+      requestMissionIntent(model.intent, {}).then(function(ok) {
+        if (ok) transferStartedFlightPlan(target, missionId, navigationRevision);
+      });
+      return false;
+    };
     window.dismissMissionStartBanner = function () {
       var model = banner._gaMissionActionModel;
       missionBannerDismissedKey = model ? model.key : '';
@@ -2607,8 +2689,32 @@
   function renderMissionActionBanner(payload) {
     var banner = setupMissionActionBanner();
     if (!banner) return;
+    Object.keys(flightPlanJobs).forEach(function(jobId) {
+      var job = flightPlanJobs[jobId], control = payload && payload.control;
+      if (!control || control.missionId !== job.missionId || control.runId !== job.runId) {
+        flightPlanMessage('ga-flightplan-cancel', {jobId:jobId}); clearTimeout(job.timer); delete flightPlanJobs[jobId];
+        report('warn', 'flightplan-export', 'cancel', 'Missionslauf gewechselt; weitere Übertragungsschritte verwerfen', jobId);
+      }
+    });
     var model = missionActionBannerModel(payload);
     banner._gaMissionActionModel = model;
+    var exportActions = byId('gaFlightPlanStartActions');
+    if (!exportActions) {
+      exportActions = document.createElement('div'); exportActions.id = 'gaFlightPlanStartActions';
+      exportActions.style.cssText = 'display:none;flex-direction:column;gap:6px;flex:1 1 100%;';
+      ['msfs', 'avionics'].forEach(function(target) {
+        var action = document.createElement('button'); action.type = 'button'; action.className = 'mission-start-banner-btn';
+        action.style.cssText = 'white-space:normal;text-align:left;width:100%;min-width:0;height:auto;min-height:44px;padding:8px;line-height:1.25;';
+        action.textContent = target === 'msfs' ? 'Mission starten und Flugplan an den MSFS senden' : 'Mission starten sowie Flugplan an den MSFS und Avionik senden';
+        action.onclick = function(event) { event.stopPropagation(); return window.handleMissionStartFlightPlanAction(target); };
+        exportActions.appendChild(action);
+      });
+      banner.appendChild(exportActions);
+    }
+    var showExport = !!(model && ['activate_cloud_mission', 'prepare_mission'].indexOf(model.intent) >= 0 && Date.now() < flightPlanBridgeReadyUntil);
+    exportActions.style.display = showExport ? 'flex' : 'none';
+    if (showExport) banner.style.flexWrap = 'wrap';
+    Array.from(exportActions.children).forEach(function(action) { action.disabled = missionIntentPending || !!(model && model.disabled); });
     banner.classList.remove('is-begin-action');
     banner.classList.remove('is-end-ready');
     banner.classList.remove('is-final-action');
@@ -3332,6 +3438,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
   window.addEventListener('beforeunload', function () {
+    Object.keys(flightPlanJobs).forEach(function(jobId) { flightPlanMessage('ga-flightplan-cancel', {jobId:jobId}); clearTimeout(flightPlanJobs[jobId].timer); });
     pollingClosed = true;
     if (layoutDiagnosticTimer !== null) window.clearTimeout(layoutDiagnosticTimer);
     Object.keys(auxiliaryPollTimers).forEach(function (url) { window.clearTimeout(auxiliaryPollTimers[url]); });

@@ -17,7 +17,27 @@
     if (mode === null) return;
     frame.contentWindow.postMessage({ type: 'ga-efb-display-mode', channel: channel, vr: mode, surface: 'toolbar' }, base);
   }
-  function log(message) { console.log('[VFR_TOOLBAR 0.2.1] ' + message); }
+  function log(message) { console.log('[VFR_TOOLBAR 0.2.2] ' + message); }
+  function logFlightPlan(stage, data) {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', base + '/api/v1/client-log', true);
+      xhr.timeout = 3000;
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(JSON.stringify({ level:'info', event:'flightplan-export', stage:stage,
+        message:'Native Toolbar Flugplanuebergabe', appVersion:'0.2.2',
+        details:JSON.stringify({host:'toolbar', data:data}).slice(0,760) }));
+    } catch (_) {}
+  }
+  var flightPlanBridge = window.GANativeFlightPlanBridge ? window.GANativeFlightPlanBridge.create({
+    host:'toolbar', getFrame:function(){ return frame; }, getChannel:function(){ return channel; },
+    isActive:function(){ return active && visible(); }, trackerOrigin:base,
+    sdk:window.msfssdk || {}, log:logFlightPlan,
+    registerViewListener:function(name, callback) {
+      if (typeof RegisterViewListener !== 'function') throw new Error('plannedroute_listener_unavailable');
+      return RegisterViewListener(name, callback);
+    }
+  }) : null;
   function clearFrame() {
     ready = false; channel = '';
     if (frame) { container.removeChild(frame); frame = null; }
@@ -183,6 +203,7 @@
   }
   document.getElementById('vfr-close').onclick = close;
   window.addEventListener('message', function (event) {
+    if (flightPlanBridge && flightPlanBridge.handle(event)) return;
     if (!active || !frame) return;
     var data = event.data;
     if (!data || data.type !== 'ga-efb-kartentisch' || !channel || data.channel !== channel) return;

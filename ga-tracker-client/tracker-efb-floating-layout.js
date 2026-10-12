@@ -161,4 +161,8 @@
   if (root.ResizeObserver) observer = new root.ResizeObserver(refresh);
   root.GAEfbFloatingLayout = { refresh: refresh };
   root.addEventListener('resize', refresh);
+  root.addEventListener('load', refresh);
+  if (document.addEventListener) document.addEventListener('DOMContentLoaded', refresh);
+  // Initial host sizing may precede this script; don't wait for user input.
+  refresh();
 })(window);

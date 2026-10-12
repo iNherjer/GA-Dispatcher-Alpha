@@ -72,5 +72,11 @@
     state: function () { return { user: user, surface: surface, vr: vr, base: base(surface, vr), effective: factor }; } };
   root.GAEfbUiScale = api;
   root.addEventListener('resize', layout);
+  // Coherent can change the initial host viewport without emitting resize.
+  // Check geometry only: the layout signature prevents unchanged DOM writes.
+  if (root.setInterval && root.clearInterval) {
+    var geometryTimer = root.setInterval(layout, 500);
+    root.addEventListener('unload', function () { root.clearInterval(geometryTimer); });
+  }
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof window === 'object' ? window : globalThis);

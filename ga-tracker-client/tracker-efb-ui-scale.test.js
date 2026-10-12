@@ -116,3 +116,19 @@ test('embedded map shell receives logical pixel bounds rather than native viewpo
   window.innerHeight = 480; resize();
   assert.equal(parseFloat(values.height) * window.GAEfbUiScale.state().effective, 480);
 });
+
+
+test('host viewport change without resize updates before input and stops on unload', () => {
+  const styles = {}, handlers = {}; let tick, cleared = false, writes = 0;
+  const window = { innerWidth: 800, innerHeight: 600,
+    document: { body: { style: { setProperty(k, v) { styles[k] = v; writes++; } }, setAttribute() {} } },
+    addEventListener(k, fn) { handlers[k] = fn; },
+    setInterval(fn, delay) { assert.equal(delay, 500); tick = fn; return 7; },
+    clearInterval(id) { assert.equal(id, 7); cleared = true; } };
+  vm.runInNewContext(fs.readFileSync(require.resolve('./tracker-efb-ui-scale'), 'utf8'), { window });
+  window.GAEfbUiScale.apply(1.5, 'popout', false);
+  window.innerWidth = 600; window.innerHeight = 450; tick();
+  assert.equal(styles.width, '400px'); assert.equal(styles.height, '300px');
+  const before = writes; for (let i = 0; i < 20; i++) tick();
+  assert.equal(writes, before); handlers.unload(); assert.equal(cleared, true);
+});

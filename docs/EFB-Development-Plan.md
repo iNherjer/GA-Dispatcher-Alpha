@@ -7346,3 +7346,21 @@ Kein neuer Tracker-Build, kein Worker- oder Community-Package-Deployment;
 Stable/Beta werden durch diesen Alpha-Web-Rollout nicht promotet.
 
 Alpha v521 veröffentlicht und aktiviert: öffentlicher Download bytegleich mit dem Build (173804850 Bytes, SHA-256 b2f595feae62da8fd262383c43d6cb70545fa3524e52a7f282b0216198c2d99b). 22 EFB-Tests und Button-Prüfung an Quell-/Build-Datei bestanden. Windows-x64 ohne Bytecode gebaut; MSFS-Feldnachtest offen.
+
+
+### 12.10.2026: Tracker v523 / EFB 0.4.24 Alpha-Release
+
+Gemeinsamer, vom Nutzer beauftragter Release fuer Flugplanuebergabe und UI-Fixes.
+Auf aktuellem origin/main mit NAVCOM v522 integriert; dessen Funk-/Squawk-
+Intents bleiben erhalten. Der SDK-Testtracker mit gleicher Versionsnummer v522
+war ein separater Kandidat und wird nicht als oeffentliche Tracker-EXE verwendet.
+Neuer Tracker v523 mit Assetrevision 52301. Erstes Missionsstartbanner bietet
+native MSFS-/Avionikuebergabe; Missionsstart bleibt unabhaengig von Exportfehlern.
+EFB 0.4.24 einschliesslich Toolbar 0.2.2 verwendet exakt das auf dem SDK-PC
+gebaute und laut Nutzer im Simulator positiv getestete Archiv.
+SVG-Pfeile/Trennpunkte und initiale Floating-Messung mit signaturgeschuetzter
+Geometriepruefung sind tracker-gehostete Fixes. 102 gezielte Tests, 24 HTTP-Tests
+und Interface-Regressionspruefung bestanden. Windows-PE-x64 und eingebettete
+Quellen geprueft. Lokaler pkg-Build ohne Bytecode: die x64-Fabricator-Laufzeit
+kann auf diesem Mac nicht starten; keine Funktionsaenderung durch Bytecodeverzicht.
+UI-Fixes noch ohne eigenen In-Sim-Nachweis. Stable bleibt unveraendert.

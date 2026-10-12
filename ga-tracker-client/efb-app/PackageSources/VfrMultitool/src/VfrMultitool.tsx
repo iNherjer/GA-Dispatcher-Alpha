@@ -27,6 +27,7 @@ import HostSurfaceImport from '../../../../toolbar-panel/PackageSources/html_ui/
 import VrModeImport from '../../../../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode.js';
 
 import './VfrMultitool.scss';
+import { createNativeFlightPlanBridge } from './FlightPlanBridge';
 
 declare const BASE_URL: string;
 declare const EFB_APP_VERSION: string;
@@ -337,7 +338,15 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.syncE6bFrameSize();
   };
 
+  private readonly flightPlanBridge = createNativeFlightPlanBridge({
+    host: 'efb', getFrame: () => this.serverFrameRef.getOrDefault(),
+    getChannel: () => this.serverFrameChannel, isActive: () => this.active && this.serverFrameStarted,
+    trackerOrigin: TRACKER_API_URL,
+    log: (stage, data) => this.reportServerFrameEvent('flightplan-native', stage, 'Native Flugplanbrücke', 'info', JSON.stringify(data).slice(0, 790))
+  });
+
   private readonly onWindowMessage = (event: MessageEvent): void => {
+    if (this.flightPlanBridge.handle(event)) return;
     if (event?.data?.type === 'ga-e6b-close') this.closeToolPanel();
     const frameWindow = this.serverFrameRef.getOrDefault()?.contentWindow;
     const messageChannel = String(event?.data?.channel || '');
@@ -688,7 +697,8 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     event: string,
     stage: string,
     message = '',
-    level: 'info' | 'warn' | 'error' = 'info'
+    level: 'info' | 'warn' | 'error' = 'info',
+    details = ''
   ): void {
     try {
       void fetch(`${TRACKER_API_URL}/api/v1/client-log`, {
@@ -698,6 +708,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
           level,
           event,
           stage,
+          details,
           message: `package=${EFB_APP_VERSION} parent=${this.parentInstance} active=${this.active} ready=${this.serverFrameReady} loads=${this.serverFrameLoads} retries=${this.serverFrameRetries} ${message}`,
           sessionId: this.parentInstance,
           channel: this.serverFrameChannel,

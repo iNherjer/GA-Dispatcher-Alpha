@@ -61,6 +61,10 @@ function createCockpitTools(options) {
       if (!options.isSimulatorConnected()) return {ok:false,error:'simulator_not_connected'};
       return options.tuneRadio ? options.tuneRadio(data) : {ok:false,error:'radio_unavailable'};
     }
+    if (request.intent === 'flightplan_export') {
+      try { return { ok: true, status: 'ok', plan: require('./tracker-flightplan-export').createFlightPlanExport(options.getRun(), data) }; }
+      catch (error) { return { ok: false, error: error.message }; }
+    }
     if (request.intent === 'navigation_get') return { ok: true, status: 'ok', navigation: navigation(), map: snapshot() };
     if (request.intent === 'navigation_edit' || request.intent === 'navigation_adopt') {
       const current = navigation();

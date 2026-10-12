@@ -26,7 +26,7 @@
       children.forEach(update);
       return;
     }
-    if (node.nodeType !== 3 || !/[\u00b0\u00b1\u00d7\u2190-\uffff\ud800-\udfff]/.test(node.nodeValue) || !node.parentNode) return;
+    if (node.nodeType !== 3 || !/[\u00b0\u00b1\u00b7\u00d7\u203a\u2022\u2190-\uffff\ud800-\udfff]/.test(node.nodeValue) || !node.parentNode) return;
     if (node.parentNode.namespaceURI !== 'http://www.w3.org/1999/xhtml' || /^(SCRIPT|STYLE|TEXTAREA|INPUT|OPTION)$/.test(node.parentNode.tagName)) return;
     if (node.parentNode.classList.contains('ga-efb-emoji-sequence') || node.parentNode.classList.contains('ga-efb-symbol')) return;
     var value = node.nodeValue, match, offset = 0, fragment = document.createDocumentFragment();

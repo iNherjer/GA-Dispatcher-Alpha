@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const ts = require('./PackageSources/VfrMultitool/node_modules/typescript');
+const ts = require(process.env.GA_EFB_TEST_TYPESCRIPT || './PackageSources/VfrMultitool/node_modules/typescript');
 
 function harness() {
   const timers = new Map();
@@ -16,7 +16,7 @@ function harness() {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017, jsx: ts.JsxEmit.React }
   }).outputText;
   const context = {
-    exports: {}, require: (name) => name === '@efb/efb-api' ? api : name === '@microsoft/msfs-sdk' ? sdk : name.includes('map-shell-core') ? { default: require('./map-shell-core') } : name.includes('HostSurface') ? { default: require('../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/HostSurface') } : name.includes('VrMode') ? { default: require('../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode') } : {},
+    exports: {}, require: (name) => name === '@efb/efb-api' ? api : name === '@microsoft/msfs-sdk' ? sdk : name === './FlightPlanBridge' ? { createNativeFlightPlanBridge: () => ({ handle: () => false }) } : name.includes('map-shell-core') ? { default: require('./map-shell-core') } : name.includes('HostSurface') ? { default: require('../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/HostSurface') } : name.includes('VrMode') ? { default: require('../toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode') } : {},
     EFB_APP_VERSION: '0.4.13', TRACKER_API_URL: 'http://127.0.0.1:49880',
     setTimeout: (fn) => { timers.set(++timerId, fn); return timerId; },
     clearTimeout: (id) => timers.delete(id), window: {

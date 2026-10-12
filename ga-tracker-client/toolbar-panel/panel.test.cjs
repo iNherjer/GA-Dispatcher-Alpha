@@ -10,7 +10,7 @@ test('toolbar loads SDK icon-button templates before constructing its native hea
   const header = html.indexOf('href="/templates/ingameUiHeader/ingameUiHeader.html"');
   assert.ok(buttons >= 0 && buttons < header, 'Missing SDK template leaves icon-button unregistered, empty and without click processing');
 });
-function fixture() {
+function fixture(options = {}) {
   const events = {}, timers = new Map(), requests = [], minimizeCalls = [];
   const intervals = new Map(), modeMessages = [];
   let vr = 0;
@@ -20,12 +20,24 @@ function fixture() {
   const elements = { VfrMultitoolPanel: panel, 'vfr-frame-container': container, 'vfr-status': {}, 'vfr-statusbar': { style: {} }, 'vfr-offline': { style: {} }, 'vfr-retry': {}, 'vfr-close': {}, 'vfr-window-controls': { style: {} }, 'vfr-window-close': { style: {} }, 'vfr-minimize': { style: {}, attributes: {}, setAttribute(name, value) { this.attributes[name] = value; } } };
   const document = { hidden: false, getElementById: id => elements[id], createElement: () => ({ contentWindow: { postMessage(data, origin) { modeMessages.push({ data, origin }); } } }), addEventListener(n, fn) { events[n] = fn; } };
   const animationFrames = new Map();
-  vm.runInNewContext(source, { document, window: { GAVrMode: require('./PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode'), SimVar: { GetSimVarValue() { return vr; } }, Coherent: { on(name, callback) { events.vr = callback; return { clear() { delete events.vr; } }; } }, setInterval(fn) { const id = ++next; intervals.set(id, fn); return id; }, clearInterval(id) { intervals.delete(id); }, innerWidth: 1000, requestAnimationFrame(fn) { const id = ++next; animationFrames.set(id, fn); return id; }, cancelAnimationFrame(id) { animationFrames.delete(id); }, addEventListener(n, fn) { events[n] = fn; } }, console: { log() {} }, Date: { now: () => clock }, Math,
+  const context = { document, window: { GAVrMode: require('./PackageSources/html_ui/InGamePanels/VfrMultitool/VrMode'), SimVar: { GetSimVarValue() { return vr; } }, Coherent: { on(name, callback) { events.vr = callback; return { clear() { delete events.vr; } }; } }, setInterval(fn) { const id = ++next; intervals.set(id, fn); return id; }, clearInterval(id) { intervals.delete(id); }, innerWidth: 1000, requestAnimationFrame(fn) { const id = ++next; animationFrames.set(id, fn); return id; }, cancelAnimationFrame(id) { animationFrames.delete(id); }, addEventListener(n, fn) { events[n] = fn; } }, console: { log() {} }, Date: { now: () => clock }, Math,
     MutationObserver: function (fn) { observer = fn; this.observe = () => {}; },
     setTimeout(fn) { const id = ++next; timers.set(id, fn); return id; }, clearTimeout(id) { timers.delete(id); },
     XMLHttpRequest: function () { this.open = (method, url) => { this.method = method; this.url = url; }; this.send = () => requests.push(this); this.abort = () => { this.aborted = true; }; }
-  });
-  return { panel, container, elements, events, requests, timers, document, animationFrames, minimizeCalls, modeMessages, intervals,
+  };
+  const nativeCalls = []; let nativeRoute = { __Type: 'JS_FlightPlanRoute' };
+  vm.createContext(context);
+  if (options.flightPlan) {
+    if (!options.missingListener) context.RegisterViewListener = (name, callback) => {
+      assert.equal(name, 'JS_LISTENER_PLANNEDROUTE'); queueMicrotask(callback);
+      return { call(command, route) { nativeCalls.push(command); if (command === 'SAVE_EFB_ROUTE') nativeRoute = route; return Promise.resolve(command === 'GET_EFB_ROUTE' ? nativeRoute : undefined); } };
+    };
+    for (const name of ['flightplan-bridge-core.js', 'native-flightplan-bridge.js']) {
+      vm.runInContext(fs.readFileSync(path.join(__dirname, 'PackageSources/html_ui/InGamePanels/VfrMultitool', name), 'utf8'), context);
+    }
+  }
+  vm.runInContext(source, context);
+  return { panel, container, elements, events, requests, timers, document, animationFrames, minimizeCalls, modeMessages, intervals, nativeCalls,
     setVr(value) { vr = value ? 1 : 0; if (events.vr) events.vr(!!value); },
     animationFrame() { const pending = [...animationFrames.values()]; animationFrames.clear(); pending.forEach(fn => fn()); },
     open() { panel.active = true; events.panelActive(); },
@@ -35,6 +47,31 @@ function fixture() {
     message(data, origin = 'http://127.0.0.1:49880', sender = container.children[0]?.contentWindow) { events.message({ data: { channel: new URL(container.children[0].src).searchParams.get('channel'), ...data }, origin, source: sender }); }
   };
 }
+test('actual toolbar and both packaged modules route only trusted active jobs and retain coordinate fallback', async () => {
+  const f = fixture({ flightPlan: true }); f.open(); f.reply();
+  f.message({ type: 'ga-flightplan-probe' }, 'https://evil.invalid');
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(f.nativeCalls.length, 0);
+  f.message({ type: 'ga-flightplan-probe' }, undefined, null);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.modeMessages.at(-1).data.type, 'ga-flightplan-capabilities');
+  assert.equal(f.modeMessages.at(-1).data.ready, true);
+  const job = { jobId: 'job-1', target: 'avionics', plan: { schema:'ga.flightplan-export.v1', routeHash:'hash', departureIcao:'EDAA', destinationIcao:'EDBB', points:[{lat:48,lon:8},{lat:49,lon:9}] } };
+  f.message({ type:'ga-flightplan-send', job }, undefined, {});
+  await new Promise(resolve => setImmediate(resolve)); assert.deepEqual(f.nativeCalls, ['GET_EFB_ROUTE']);
+  f.message({ type:'ga-flightplan-send', job }, undefined, null);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(f.nativeCalls, ['GET_EFB_ROUTE','SAVE_EFB_ROUTE','SEND_ROUTE_TO_EFB','GET_EFB_ROUTE','SEND_ROUTE_TO_AVIONICS']);
+  const result = f.modeMessages.at(-1).data.result;
+  assert.equal(result.ok, true); assert.equal(result.msfs,'confirmed'); assert.equal(result.avionics,'sent');
+  assert.equal(result.warnings.length,2);
+});
+test('packaged toolbar with missing native listener remains usable and declines export capability', async () => {
+  const f = fixture({ flightPlan:true, missingListener:true }); f.open(); f.reply();
+  f.message({ type:'ga-flightplan-probe' }, undefined, null);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.modeMessages.at(-1).data.ready, false);
+  assert.equal(f.container.children.length,1);
+});
 test('only visible panel performs GETs; close aborts and stale response cannot recreate frame', () => {
   const f = fixture(); assert.equal(f.requests.length, 0); f.open();
   assert.equal(f.requests[0].method, 'GET'); f.elements['vfr-close'].onclick();

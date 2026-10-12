@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '52201');
+  assert.equal(EFB_WEB_ASSET_REVISION, '52301');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=52201/);
-  assert.match(page, /host\.css\?v=52201/);
-  assert.match(page, /map-shell-core\.js\?v=52201/);
-  assert.match(page, /map-utility-tools\.js\?v=52201/);
-  assert.match(page, /mission-control-ui-core\.js\?v=52201/);
-  assert.match(page, /cockpit-session-client\.js\?v=52201/);
-  assert.match(page, /host\.js\?v=52201/);
+  assert.match(page, /app-styles\.css\?v=52301/);
+  assert.match(page, /host\.css\?v=52301/);
+  assert.match(page, /map-shell-core\.js\?v=52301/);
+  assert.match(page, /map-utility-tools\.js\?v=52301/);
+  assert.match(page, /mission-control-ui-core\.js\?v=52301/);
+  assert.match(page, /cockpit-session-client\.js\?v=52301/);
+  assert.match(page, /host\.js\?v=52301/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,20 +35,20 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=52201"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=52201"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=52201"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=52201"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=52301"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=52301"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=52301"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=52301"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=52201',
-    '/efb/v1/assets/map-utility-tools.js?v=52201',
-    '/efb/v1/assets/mission-control-ui-core.js?v=52201',
-    '/efb/v1/assets/cockpit-session-client.js?v=52201',
-    '/efb/v1/assets/host.js?v=52201'
+    '/efb/v1/assets/map-shell-core.js?v=52301',
+    '/efb/v1/assets/map-utility-tools.js?v=52301',
+    '/efb/v1/assets/mission-control-ui-core.js?v=52301',
+    '/efb/v1/assets/cockpit-session-client.js?v=52301',
+    '/efb/v1/assets/host.js?v=52301'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -100,7 +100,7 @@ test('tracker-hosted static assets are allowlisted and browser scripts parse', (
 });
 
 test('EFB cargo manager keeps app toggle semantics and avoids poll-time DOM rebuilds', () => {
-  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
   assert.match(source, /function appCargoManagerMarkup\(mission, model\)/);
   assert.match(source, /app-cargo-dialog-v1/);
   assert.match(source, /mission-cargo-sheet-table/);
@@ -118,7 +118,7 @@ test('EFB cargo manager keeps app toggle semantics and avoids poll-time DOM rebu
 });
 
 test('tracker-controlled boarding opens the initiating client cargo manager once accepted', () => {
-  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
   const appSource = fs.readFileSync(path.join(__dirname, '..', 'sync.js'), 'utf8');
   assert.match(hostSource, /var opensCargoAfterBoarding = intent === 'start_boarding';/);
   assert.match(hostSource, /if \(ok && opensCargoAfterBoarding && .*cargoWindowCloseId\)\) openCargoManager\(true\);/);
@@ -126,14 +126,14 @@ test('tracker-controlled boarding opens the initiating client cargo manager once
 });
 
 test('EFB signature animation is locally bounded and cannot be refreshed by mission polls', () => {
-  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
   assert.match(source, /signatureAge >= -5000 && signatureAge < 1600/);
   assert.match(source, /var localSignatureAnimation = signature\.signed === true/);
   assert.doesNotMatch(source, /var localSignatureAnimation = signature\.animating === true/);
 });
 
 test('unchanged mission polls do not redraw the EFB banner, toolbar or cargo overlay', () => {
-  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
   assert.match(source, /var missionPresentationSignature = ''/);
   const renderStart = source.indexOf('function renderMissionPayload(payload)');
   const presentationGuard = source.indexOf('if (presentationSignature !== missionPresentationSignature)', renderStart);
@@ -204,7 +204,7 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   const utilitySource = getTrackerEfbWebClientAsset('/efb/v1/assets/map-utility-tools.js').body.toString('utf8');
   assert.doesNotMatch(utilitySource, /calcState\.expression\.trimEnd/);
   assert.match(utilitySource, /ga-e6b-diagnostic/);
-  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
   assert.match(hostSource, /notifyParentState\('live'\)/);
   assert.doesNotMatch(hostSource, /notifyParent\('live'\)/);
   assert.match(hostSource, /stepLiveNextLegPreview = function \(delta, event\)/);
@@ -327,7 +327,7 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
 });
 
 test('EFB map banner exposes only contextual tracker-approved actions', () => {
-  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
   const modelSource = hostSource.match(/function missionActionBannerModel\(payload\) \{[\s\S]*?\n  \}\n\n  function setupMissionActionBanner/)?.[0]
     .replace(/\n\n  function setupMissionActionBanner$/, '');
   assert.ok(modelSource);
@@ -382,7 +382,7 @@ test('EFB map banner exposes only contextual tracker-approved actions', () => {
 });
 
 test('EFB host toggles utilities even when Coherent still serves the legacy utility module', () => {
-  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
   const toggleSource = hostSource.match(/function toggleUtilityTool\(tool\) \{[\s\S]*?\n  \}\n\n  function infoBoxHintKey/)?.[0]
     .replace(/\n\n  function infoBoxHintKey$/, '');
   assert.ok(toggleSource);
@@ -407,7 +407,7 @@ test('EFB host toggles utilities even when Coherent still serves the legacy util
 });
 
 test('mission drawer signatures ignore volatile relay and flight fields', () => {
-  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
   const signatureSource = hostSource.match(/function missionRenderSignature\(payload\) \{[\s\S]*?\n  \}\n\n  function missionActionBannerModel/)?.[0]
     .replace(/\n\n  function missionActionBannerModel$/, '');
   assert.ok(signatureSource);
@@ -446,7 +446,7 @@ test('mission drawer signatures ignore volatile relay and flight fields', () => 
 });
 
 test('EFB map long-press input normalizes mouse, pointer and touch coordinates', () => {
-  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
   const inputTypeSource = hostSource.match(/function mapContextInputType\(event\) \{[\s\S]*?\n  \}\n\n  function mapContextEventPoint/)?.[0]
     .replace(/\n\n  function mapContextEventPoint$/, '');
   const eventPointSource = hostSource.match(/function mapContextEventPoint\(event\) \{[\s\S]*?\n  \}\n\n  function bindMapContextLongPress/)?.[0]
@@ -606,7 +606,7 @@ test('EFB map credits preserve attribution and cancel external link navigation',
 test('Fire search overlay is served as a shared compiled module in the tracker-only map',()=>{
  const page=createTrackerEfbWebClientPage();assert.match(page,/mission-fire-search-map\.js\?v=/);
  const asset=getTrackerEfbWebClientAsset('/efb/v1/assets/mission-fire-search-map.js');assert.ok(asset);assert.match(asset.body.toString('utf8'),/Verdachts-Suchgebiet/);
- const host=getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');assert.match(host,/MissionFireSearchMap\.render\(map/);
+ const host=getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');assert.match(host,/MissionFireSearchMap\.render\(map/);
 });
 
 
