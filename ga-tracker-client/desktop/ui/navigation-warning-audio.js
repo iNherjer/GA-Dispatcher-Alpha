@@ -6,7 +6,7 @@
 'use strict';
 function assetPath(key, pack = '') {
     if (key === 'taws-alert') return 'taws-alert.m4a';
-    if (!/^aw-(?:achtung|in|ctr|charlie|delta|rmz|tmz|edr|para|[1-9]min|10min|freq|sqwk|komma|d[0-9]|zwo|wp-erreicht|neuer-kurs|grad|fuer|meilen)$/.test(key)
+    if (!/^aw-(?:achtung|in|ctr|charlie|delta|rmz|tmz|edr|para|[1-9]min|10min|freq|sqwk|komma|d[0-9]|zwo|wp-erreicht|neuer-kurs|grad|fuer|meilen|ein|zwei|hundert|tausend|fuss|oberhalb|unterhalb|weniger-als)$/.test(key)
         || !/^[a-zA-Z0-9_-]*$/.test(pack)) throw new Error('invalid_warning_clip');
     return pack ? `audio-warnings/voices/${pack}/${key}.mp3` : `audio-warnings/${key}.m4a`;
 }

@@ -4,6 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { VERTICAL_WARNING_CLIPS } from './vertical-warning-voice-clips.mjs';
 
 const ROOT = process.cwd();
 const VOICES_ROOT = path.join(ROOT, 'audio-warnings', 'voices');
@@ -98,7 +99,10 @@ const CLIP_SETS = {
 
 function getPackClips(pack) {
   const clipSetId = String(pack.clipSet || 'de').toLowerCase();
-  return CLIP_SETS[clipSetId] || CLIP_SETS.de;
+  const language = CLIP_SETS[clipSetId] ? clipSetId : 'de';
+  return [...CLIP_SETS[language], ...VERTICAL_WARNING_CLIPS[language].map(clip => ({
+    ...clip, text: language === 'de' ? `Das nächste Wort lautet.\n\n${clip.text}.` : `The next word is.\n\n${clip.text}.`, trim: 'last'
+  }))];
 }
 
 function parseArgs() {
@@ -395,9 +399,14 @@ async function writeCatalog(allPacks) {
 }
 
 async function main() {
-  const apiKey = process.env.ELEVENLABS_API_KEY || '';
+  let apiKey = process.env.ELEVENLABS_API_KEY || '';
   if (!apiKey) {
-    throw new Error('ELEVENLABS_API_KEY fehlt. Beispiel: ELEVENLABS_API_KEY=... node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam,ava-en --force');
+    const localEnv = await fs.readFile(path.join(ROOT, 'key.env.local'), 'utf8').catch(() => '');
+    const line = localEnv.split(/\r?\n/).find(entry => entry.trim().startsWith('ELEVENLABS_API_KEY='));
+    if (line) apiKey = line.slice(line.indexOf('=') + 1).trim().replace(/^['"]|['"]$/g, '');
+  }
+  if (!apiKey) {
+    throw new Error('ELEVENLABS_API_KEY fehlt in der Shell oder in key.env.local.');
   }
   const args = parseArgs();
   const cfg = await readJson(CONFIG_PATH);

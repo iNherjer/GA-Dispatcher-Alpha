@@ -4,6 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { VERTICAL_WARNING_CLIPS } from './vertical-warning-voice-clips.mjs';
 
 const execFileAsync = promisify(execFile);
 const ROOT = process.cwd();
@@ -149,7 +150,7 @@ async function main() {
   await ensureDir(packDir);
   const clipFilter = new Set(opts.clips || []);
 
-  for (const clip of EN_CLIPS) {
+  for (const clip of [...EN_CLIPS, ...VERTICAL_WARNING_CLIPS.en]) {
     if (clipFilter.size && !clipFilter.has(clip.key)) continue;
     const outFile = path.join(packDir, `${clip.key}.mp3`);
     if (!opts.force && await exists(outFile)) continue;

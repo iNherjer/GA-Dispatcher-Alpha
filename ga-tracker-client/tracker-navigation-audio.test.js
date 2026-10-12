@@ -61,3 +61,14 @@ test('warnings need no TTS key, obey category/target, expire and never jump ahea
   assert.equal(service.claimPlayback({ effectId: 'warning-2', clientId: 'tab', deviceId: 'pc' }).reason, 'audio_device_not_selected');
   control.close();
 });
+test('vertical warnings use static clips and obey their own switch independently of horizontal airspace', () => {
+  const control=createAudioControl(), service=createTrackerVoiceService({audioControl:control});
+  control.update({expectedRevision:0,settings:{airspace:false,airspaceVertical:true}});
+  const clips=['aw-achtung','aw-charlie','aw-ein','aw-tausend','aw-ein','aw-hundert','aw-fuss','aw-oberhalb'];
+  service.enqueueWarning({effectId:'vertical-1',kind:'airspaceVertical',text:'1100 ft above',clips});
+  assert.equal(service.getNextPlayback('tab','pc').effectId,'vertical-1');
+  assert.deepEqual(service.get('vertical-1').clips,clips);
+  control.update({expectedRevision:1,settings:{airspaceVertical:false}});
+  assert.equal(service.claimPlayback({effectId:'vertical-1',clientId:'tab',deviceId:'pc'}).reason,'audio_device_not_selected');
+  control.close();
+});

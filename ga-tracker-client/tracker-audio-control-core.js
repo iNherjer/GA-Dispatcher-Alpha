@@ -2,9 +2,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const BOOLEAN_SETTINGS = ['enabled', 'paxEnabled', 'effectsEnabled', 'readFreq', 'terrain', 'airspace', 'waypoint'];
+const BOOLEAN_SETTINGS = ['enabled', 'paxEnabled', 'effectsEnabled', 'readFreq', 'terrain', 'airspace', 'airspaceVertical', 'waypoint'];
 const DEFAULT_SETTINGS = Object.freeze({ enabled: true, volume: 1, voicePack: '', audioStyle: '', paxEnabled: true,
-  effectsEnabled: true, readFreq: true, terrain: true, airspace: true, waypoint: true });
+  effectsEnabled: true, readFreq: true, terrain: true, airspace: true, airspaceVertical: true, waypoint: true });
 function normalizeSettings(value = {}) {
   const result = { ...DEFAULT_SETTINGS };
   for (const key of BOOLEAN_SETTINGS) if (typeof value[key] === 'boolean') result[key] = value[key];
@@ -98,7 +98,7 @@ function createAudioControl({ storageFile, cloud, now = Date.now, onChange = () 
       && (poiSequence ? (settings.paxEnabled || settings.effectsEnabled)
         : kind === 'cargo' ? settings.effectsEnabled
         : ['boarding', 'farewell'].includes(kind) ? (settings.paxEnabled || settings.effectsEnabled)
-        : ['terrain', 'airspace', 'waypoint', 'readFreq'].includes(kind) ? settings[kind] : settings.paxEnabled);
+        : ['terrain', 'airspace', 'airspaceVertical', 'waypoint', 'readFreq'].includes(kind) ? settings[kind] : settings.paxEnabled);
   }
   return { snapshot, update, restore, canPlay, flush: () => uploading,
     close() { stopped = true; if (retryTimer) clearTimeout(retryTimer); retryTimer = null; },

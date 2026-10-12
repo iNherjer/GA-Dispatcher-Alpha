@@ -98,8 +98,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v517';
-const TRACKER_VERSION_CODE = 517;
+const TRACKER_VERSION = 'v518';
+const TRACKER_VERSION_CODE = 518;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5407,7 +5407,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       navigationWarnings.setEnabled(!run || run.executionAuthority === 'tracker');
       const point = patch.snapshot, flight = point.flight || {};
       navigationWarnings.observe({ lat: point.lat, lon: point.lon, alt: point.alt, hdg: point.hdg,
-        gs: flight.gsKts, vs: flight.vsFpm, agl: flight.aglFt, onGround: flight.onGround, paused: flight.simPaused || flight.simRunning === 0 });
+        gs: flight.gsKts, vs: flight.vsFpm, agl: flight.aglFt, pressureAltitudeFt: flight.pressureAltitudeFt,
+        onGround: flight.onGround, paused: flight.simPaused || flight.simRunning === 0 });
     }
     if (Object.hasOwn(patch, 'missionSnapshot')) _lastEfbMissionSnapshot = patch.missionSnapshot && typeof patch.missionSnapshot === 'object' ? patch.missionSnapshot : null;
     if (Object.hasOwn(patch, 'payloadSnapshot')) _lastPayloadSnapshot = patch.payloadSnapshot && typeof patch.payloadSnapshot === 'object' ? patch.payloadSnapshot : null;
@@ -6722,6 +6723,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       addRequiredVar('STALL WARNING', 'Bool', 'stallState');
       // Wetter-Zusatzwerte (optional je nach SimConnect/Sim-Version)
       addOptionalVar('AIRSPEED INDICATED', 'knots', 'iasKts');
+      addOptionalVar('PRESSURE ALTITUDE', 'feet', 'pressureAltitudeFt');
       addOptionalVar('PLANE PITCH DEGREES', 'degrees', 'pitchDeg');
       addOptionalVar('GROUND VELOCITY', 'knots', 'groundSpeedKts');
       addOptionalVar('AMBIENT WIND GUST', 'knots', 'windGustKts');
@@ -6892,6 +6894,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                       alt: Math.round(alt),
                       hdg: Math.round(hdg),
                       flight: {
+                        pressureAltitudeFt: Number.isFinite(raw.pressureAltitudeFt) ? raw.pressureAltitudeFt : null,
                         vsFpm: Number.isFinite(vsFpm) ? vsFpm : null,
                         gsKts: Number.isFinite(groundSpeedKts) ? Math.round(groundSpeedKts * 10) / 10 : null,
                         iasKts: Number.isFinite(iasKts) ? Math.round(iasKts * 10) / 10 : null,
@@ -6967,6 +6970,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               if (ws && ws.readyState === WebSocket.OPEN && currentTelemetryHibernateState.shouldSendTelemetry) {
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {
+                  pressureAltitudeFt: Number.isFinite(raw.pressureAltitudeFt) ? raw.pressureAltitudeFt : null,
                   weatherPreset: trackerCockpitControl?.weatherPreset?.() || null,
                     simAbsoluteTimeSeconds: Number.isFinite(raw.simAbsoluteTimeSeconds) && raw.simAbsoluteTimeSeconds > 0 ? raw.simAbsoluteTimeSeconds : null,
                     simLocalTimeSeconds: Number.isFinite(raw.simLocalTimeSeconds) && raw.simLocalTimeSeconds >= 0 && raw.simLocalTimeSeconds < 86400 ? raw.simLocalTimeSeconds : null,

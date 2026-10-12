@@ -11,7 +11,7 @@
       return options.request(Object.assign({}, payload, { deviceId: deviceId, clientId: clientId }));
     }), 'audio_control_timeout', null, options.controlTimeoutMs || 2500); };
     var warningBuffers = new Map();
-    function warningKind(kind) { return ['airspace', 'terrain', 'waypoint'].indexOf(kind) >= 0; }
+    function warningKind(kind) { return ['airspace', 'airspaceVertical', 'terrain', 'waypoint'].indexOf(kind) >= 0; }
     function sequenceStage(stage) { return /^(before|after):[0-7]$/.test(stage); }
     function effectStage(stage) { return stage === 'cue' || sequenceStage(stage); }
     function setStage(current, stage) {

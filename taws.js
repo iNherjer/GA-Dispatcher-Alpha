@@ -203,6 +203,7 @@ document.addEventListener('click',      _tawsUnlockAll, { once: true });
 
 const _AWM_CLIPS = [
     'aw-achtung','aw-in',
+    'aw-ein','aw-zwei','aw-hundert','aw-tausend','aw-fuss','aw-oberhalb','aw-unterhalb','aw-weniger-als',
     'aw-ctr','aw-charlie','aw-delta','aw-rmz','aw-tmz','aw-edr','aw-para',
     'aw-1min','aw-2min','aw-3min','aw-4min','aw-5min',
     'aw-6min','aw-7min','aw-8min','aw-9min','aw-10min',
@@ -221,6 +222,9 @@ const _AWM_CLIPS = [
 let _awmReadFreq = (localStorage.getItem('awm_read_freq') !== '0');
 let _awmTerrainWarn = (localStorage.getItem('awm_warn_terrain') !== '0');
 let _awmAirspaceWarn = (localStorage.getItem('awm_warn_airspace') !== '0');
+window.awmSetVerticalAirspaceWarn = function(on) {
+    localStorage.setItem('awm_warn_airspace_vertical', on ? '1' : '0');
+};
 window.awmSetReadFreq = function(on) {
     _awmReadFreq = !!on;
     localStorage.setItem('awm_read_freq', on ? '1' : '0');

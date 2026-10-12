@@ -931,7 +931,7 @@ function createTrackerVoiceService(options = {}) {
 
   function enqueueWarning(value) {
     const effectId = normalizeEffectId(value.effectId);
-    if (!['airspace', 'terrain', 'waypoint'].includes(value.kind) || !Array.isArray(value.clips)
+    if (!['airspace', 'airspaceVertical', 'terrain', 'waypoint'].includes(value.kind) || !Array.isArray(value.clips)
         || !value.clips.length || value.clips.length > 64) throw new Error('invalid_navigation_warning');
     for (const key of value.clips) if (key !== 'taws-whoop') warningCore.assetPath(key);
     if (records.has(effectId)) return publicRecord(records.get(effectId));

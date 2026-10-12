@@ -5,6 +5,20 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync(__dirname + '/tracker-audio-client.js', 'utf8');
 const download = source.slice(source.indexOf('  async function fetchClip('), source.indexOf('  function message('));
+test('legacy mission playback enables only tracker vertical warnings without taking over local voice or horizontal warnings', () => {
+  const updates=[];
+  const root={document:{getElementById:()=>null},localStorage:{getItem:()=> 'phone'},
+    gaCockpitSessionClient:{role:'web',clientId:'session'},gaTrackerExecutionHandlesMission:()=>false,
+    addEventListener(){},GATrackerAudioPlayer:{createPlayer:()=>({update:value=>updates.push(value),stop(){}})}};
+  vm.runInNewContext(source,{window:root,setTimeout:()=>1,clearTimeout(){}});
+  root.gaTrackerAudioClient.apply({schema:'ga.audio-control.v1',revision:1,updatedAt:1,target:{deviceId:'phone'},
+    settings:{enabled:true,airspaceVertical:true,paxEnabled:true,effectsEnabled:true,airspace:true,terrain:true,waypoint:true,audioStyle:'clear'},
+    warnings:{schema:'ga.navigation-warnings.v1',active:false,verticalActive:true,capabilities:{verticalAirspace:true},session:'a',revision:1,events:[]}});
+  const settings=updates.at(-1).settings;
+  assert.equal(settings.airspaceVertical,true);
+  for(const kind of ['paxEnabled','effectsEnabled','airspace','terrain','waypoint']) assert.equal(settings[kind],false);
+  assert.equal(root.gaTrackerWarningsActive(),false,'standalone horizontal warnings remain enabled');
+});
 test('local audio polling and settings updates recover after a stalled HTTP response', async () => {
   const { requestJson } = require('./tracker-cockpit-session-client');
   const timers = [], updates = [], calls = [];

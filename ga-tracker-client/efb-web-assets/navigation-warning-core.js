@@ -7,7 +7,7 @@ function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbol
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
-function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _toPrimitive(t, e) { if ("object" != typeof t || !t) return t; var r; if ("undefined" != typeof Symbol && void 0 !== (r = t[Symbol.toPrimitive])) { var i = r.call(t, e || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === e ? String : Number)(t); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
@@ -738,7 +738,194 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       }
     };
   }
+  // Vertical proximity uses current position and the boundary's own height datum.
+  // It deliberately does not change the existing predictive airspace detector.
+  function verticalAirspaceGap(as, gps, terrainFt) {
+    if (!gps || !Number.isFinite(gps.alt) || !isPointInsideAirspace(as, gps.lat, gps.lon)) return null;
+    function clearance(limit, boundary) {
+      if (!limit || !Number.isFinite(limit.value) || ![0, 1, 6].includes(limit.unit)) return null;
+      var agl = !!(limit.referenceDatum === 0 || (boundary === 'lower' ? as._lowerIsAgl : as._upperIsAgl));
+      if (agl && !Number.isFinite(terrainFt)) return null;
+      var altitude = limit.unit === 6 ? gps.pressureAltitudeFt : gps.alt;
+      if (!Number.isFinite(altitude)) return null;
+      return altitude - (airspaceLimitToFt(limit) + (agl ? terrainFt : 0));
+    }
+    var lower = clearance(as.lowerLimit, 'lower'),
+      upper = clearance(as.upperLimit, 'upper');
+    if (lower !== null && lower < 0) return {
+      direction: 'above',
+      distanceFt: -lower
+    };
+    if (upper !== null && upper > 0) return {
+      direction: 'below',
+      distanceFt: upper
+    };
+    return null;
+  }
+  function verticalDistanceClips(distanceFt, direction) {
+    var feet = Math.max(100, Math.floor(distanceFt / 100) * 100),
+      clips = [];
+    if (distanceFt < 100) clips.push('aw-weniger-als');
+    if (feet >= 1000) clips.push('aw-ein', 'aw-tausend');
+    var hundreds = Math.floor(feet % 1000 / 100);
+    if (hundreds) clips.push(hundreds === 1 ? 'aw-ein' : hundreds === 2 ? 'aw-zwei' : _awDigitClip(hundreds), 'aw-hundert');
+    return [].concat(clips, ['aw-fuss', direction === 'above' ? 'aw-oberhalb' : 'aw-unterhalb']);
+  }
+  function createVerticalAirspaceDetector() {
+    var states = new Map(),
+      thresholds = [1500, 1000, 500, 100];
+    return {
+      reset() {
+        states.clear();
+      },
+      evaluate(_ref2) {
+        var _ref2$airspaces = _ref2.airspaces,
+          airspaces = _ref2$airspaces === void 0 ? [] : _ref2$airspaces,
+          gps = _ref2.gps,
+          _ref2$terrainFt = _ref2.terrainFt,
+          terrainFt = _ref2$terrainFt === void 0 ? null : _ref2$terrainFt,
+          _ref2$now = _ref2.now,
+          now = _ref2$now === void 0 ? Date.now() : _ref2$now;
+        var candidates = [],
+          seen = new Set();
+        var _iterator8 = _createForOfIteratorHelper(airspaces),
+          _step8;
+        try {
+          for (_iterator8.s(); !(_step8 = _iterator8.n()).done;) {
+            var as = _step8.value;
+            var type = _awTypeKey(as);
+            if (!type || as.type === 33) continue;
+            var id = getAirspaceStableId(as, `${as.type}:${as.name}:${JSON.stringify(as.lowerLimit)}:${JSON.stringify(as.upperLimit)}`);
+            var limits = [as.lowerLimit, as.upperLimit];
+            var pressureMissing = limits.some(limit => (limit === null || limit === void 0 ? void 0 : limit.unit) === 6) && !Number.isFinite(gps === null || gps === void 0 ? void 0 : gps.pressureAltitudeFt);
+            var terrainMissing = (as._lowerIsAgl || as._upperIsAgl || limits.some(limit => (limit === null || limit === void 0 ? void 0 : limit.referenceDatum) === 0)) && !Number.isFinite(terrainFt);
+            // Unknown data must not rearm a previously announced proximity band.
+            if (isPointInsideAirspace(as, gps === null || gps === void 0 ? void 0 : gps.lat, gps === null || gps === void 0 ? void 0 : gps.lon) && (pressureMissing || terrainMissing)) {
+              seen.add(`${id}:above`);
+              seen.add(`${id}:below`);
+              continue;
+            }
+            var gap = verticalAirspaceGap(as, gps, terrainFt);
+            for (var _i4 = 0, _arr = ['above', 'below']; _i4 < _arr.length; _i4++) {
+              var direction = _arr[_i4];
+              var key = `${id}:${direction}`;
+              seen.add(key);
+              if (!states.has(key)) states.set(key, thresholds.map(threshold => ({
+                threshold,
+                armed: true,
+                active: false,
+                lastAt: null
+              })));
+              var stages = states.get(key);
+              if (!gap || gap.direction !== direction) {
+                stages.forEach(stage => {
+                  stage.armed = true;
+                  stage.active = false;
+                });
+                continue;
+              }
+              var _iterator1 = _createForOfIteratorHelper(stages),
+                _step1;
+              try {
+                for (_iterator1.s(); !(_step1 = _iterator1.n()).done;) {
+                  var _stage = _step1.value;
+                  if (gap.distanceFt > _stage.threshold + 150) {
+                    _stage.armed = true;
+                    _stage.active = false;
+                  } else if (gap.distanceFt <= _stage.threshold) _stage.active = true;
+                  // A re-entry during cooldown is consumed, never replayed just
+                  // because two minutes pass while remaining in the same band.
+                  if (_stage.active && _stage.armed && _stage.lastAt !== null && now - _stage.lastAt < 120000) _stage.armed = false;
+                }
+                // Emit only the deepest currently entered level, including jumps.
+              } catch (err) {
+                _iterator1.e(err);
+              } finally {
+                _iterator1.f();
+              }
+              var activeStages = stages.filter(s => s.active);
+              var stage = activeStages[activeStages.length - 1];
+              if (stage !== null && stage !== void 0 && stage.armed && (stage.lastAt === null || now - stage.lastAt >= 120000)) candidates.push(_objectSpread(_objectSpread({
+                as,
+                type
+              }, gap), {}, {
+                stage,
+                stages,
+                key
+              }));
+            }
+          }
+        } catch (err) {
+          _iterator8.e(err);
+        } finally {
+          _iterator8.f();
+        }
+        var _iterator9 = _createForOfIteratorHelper(states),
+          _step9;
+        try {
+          for (_iterator9.s(); !(_step9 = _iterator9.n()).done;) {
+            var _step9$value = _slicedToArray(_step9.value, 2),
+              _key = _step9$value[0],
+              _stages = _step9$value[1];
+            if (!seen.has(_key)) {
+              // Retain cooldown through horizontal departure, but avoid accumulating
+              // sectors for the entire flight after that cooldown has elapsed.
+              _stages.forEach(s => {
+                s.armed = true;
+                s.active = false;
+              });
+              if (_stages.every(s => s.lastAt === null || now - s.lastAt >= 120000)) states.delete(_key);
+            }
+          }
+        } catch (err) {
+          _iterator9.e(err);
+        } finally {
+          _iterator9.f();
+        }
+        var chosen = candidates.sort((a, b) => a.distanceFt - b.distanceFt || a.key.localeCompare(b.key))[0];
+        if (!chosen) return [];
+        var _iterator0 = _createForOfIteratorHelper(chosen.stages),
+          _step0;
+        try {
+          for (_iterator0.s(); !(_step0 = _iterator0.n()).done;) {
+            var _stage2 = _step0.value;
+            if (_stage2.active && _stage2.threshold >= chosen.stage.threshold) {
+              _stage2.armed = false;
+              _stage2.lastAt = now;
+            }
+          }
+        } catch (err) {
+          _iterator0.e(err);
+        } finally {
+          _iterator0.f();
+        }
+        var feet = Math.max(100, Math.floor(chosen.distanceFt / 100) * 100);
+        var names = {
+          'aw-charlie': 'Luftraum Charlie',
+          'aw-delta': 'Luftraum Delta',
+          'aw-ctr': 'Kontrollzone',
+          'aw-tmz': 'Transponder Mandatory Zone',
+          'aw-rmz': 'Radio Mandatory Zone',
+          'aw-edr': 'Flugbeschränkungsgebiet',
+          'aw-para': 'Fallschirmsprunggebiet'
+        };
+        return [{
+          kind: 'airspaceVertical',
+          as: chosen.as,
+          level: chosen.stage.threshold,
+          direction: chosen.direction,
+          distanceFt: chosen.distanceFt,
+          spokenFt: feet,
+          text: `Achtung, ${names[chosen.type]}, ${chosen.distanceFt < 100 ? 'weniger als ' : ''}${feet} Fuß ${chosen.direction === 'above' ? 'oberhalb' : 'unterhalb'}`,
+          clips: ['aw-achtung', chosen.type].concat(_toConsumableArray(verticalDistanceClips(chosen.distanceFt, chosen.direction)))
+        }];
+      }
+    };
+  }
   return Object.assign({
+    verticalAirspaceGap,
+    verticalDistanceClips,
+    createVerticalAirspaceDetector,
     getDestinationPoint,
     fillAirportFrequencies,
     getAirspaceApproxCenter,

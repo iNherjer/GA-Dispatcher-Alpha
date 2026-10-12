@@ -515,5 +515,89 @@ function createWaypointDetector() {
         return [{ kind: 'waypoint', waypointIndex: index, text: `Wegpunkt ${reached.name || index} erreicht · Kurs ${course.brng}° · ${Math.round(course.dist)} NM`, clips: waypointClips(course.brng, course.dist) }];
     }, reset() { routeKey = ''; } };
 }
-return Object.assign({ getDestinationPoint, fillAirportFrequencies, getAirspaceApproxCenter, approxNmBetween, pickAirportForAirspaceFallback, prepareAirspaces, relevantAirspace, normalizeAirspaceNameForFreq, inferAirspaceLimitIsAgl, applyAirspaceLimitHeuristics, createAirspaceDetector, createTerrainDetector, createWaypointDetector, terrainThreat, predictions, predictionBounds, frequencyClips, waypointClips, getAirspaceVerticalBandFt, isPointInsideAirspace, calcNav }, audio);
+// Vertical proximity uses current position and the boundary's own height datum.
+// It deliberately does not change the existing predictive airspace detector.
+function verticalAirspaceGap(as, gps, terrainFt) {
+    if (!gps || !Number.isFinite(gps.alt) || !isPointInsideAirspace(as, gps.lat, gps.lon)) return null;
+    function clearance(limit, boundary) {
+        if (!limit || !Number.isFinite(limit.value) || ![0, 1, 6].includes(limit.unit)) return null;
+        const agl = !!(limit.referenceDatum === 0 || (boundary === 'lower' ? as._lowerIsAgl : as._upperIsAgl));
+        if (agl && !Number.isFinite(terrainFt)) return null;
+        const altitude = limit.unit === 6 ? gps.pressureAltitudeFt : gps.alt;
+        if (!Number.isFinite(altitude)) return null;
+        return altitude - (airspaceLimitToFt(limit) + (agl ? terrainFt : 0));
+    }
+    const lower = clearance(as.lowerLimit, 'lower'), upper = clearance(as.upperLimit, 'upper');
+    if (lower !== null && lower < 0) return { direction: 'above', distanceFt: -lower };
+    if (upper !== null && upper > 0) return { direction: 'below', distanceFt: upper };
+    return null;
+}
+function verticalDistanceClips(distanceFt, direction) {
+    const feet = Math.max(100, Math.floor(distanceFt / 100) * 100), clips = [];
+    if (distanceFt < 100) clips.push('aw-weniger-als');
+    if (feet >= 1000) clips.push('aw-ein', 'aw-tausend');
+    const hundreds = Math.floor((feet % 1000) / 100);
+    if (hundreds) clips.push(hundreds === 1 ? 'aw-ein' : hundreds === 2 ? 'aw-zwei' : _awDigitClip(hundreds), 'aw-hundert');
+    return [...clips, 'aw-fuss', direction === 'above' ? 'aw-oberhalb' : 'aw-unterhalb'];
+}
+function createVerticalAirspaceDetector() {
+    const states = new Map(), thresholds = [1500, 1000, 500, 100];
+    return { reset() { states.clear(); }, evaluate({ airspaces = [], gps, terrainFt = null, now = Date.now() }) {
+        const candidates = [], seen = new Set();
+        for (const as of airspaces) {
+            const type = _awTypeKey(as);
+            if (!type || as.type === 33) continue;
+            const id = getAirspaceStableId(as, `${as.type}:${as.name}:${JSON.stringify(as.lowerLimit)}:${JSON.stringify(as.upperLimit)}`);
+            const limits = [as.lowerLimit, as.upperLimit];
+            const pressureMissing = limits.some(limit => limit?.unit === 6) && !Number.isFinite(gps?.pressureAltitudeFt);
+            const terrainMissing = (as._lowerIsAgl || as._upperIsAgl || limits.some(limit => limit?.referenceDatum === 0)) && !Number.isFinite(terrainFt);
+            // Unknown data must not rearm a previously announced proximity band.
+            if (isPointInsideAirspace(as, gps?.lat, gps?.lon) && (pressureMissing || terrainMissing)) {
+                seen.add(`${id}:above`); seen.add(`${id}:below`); continue;
+            }
+            const gap = verticalAirspaceGap(as, gps, terrainFt);
+            for (const direction of ['above', 'below']) {
+                const key = `${id}:${direction}`;
+                seen.add(key);
+                if (!states.has(key)) states.set(key, thresholds.map(threshold => ({ threshold, armed: true, active: false, lastAt: null })));
+                const stages = states.get(key);
+                if (!gap || gap.direction !== direction) {
+                    stages.forEach(stage => { stage.armed = true; stage.active = false; });
+                    continue;
+                }
+                for (const stage of stages) {
+                    if (gap.distanceFt > stage.threshold + 150) { stage.armed = true; stage.active = false; }
+                    else if (gap.distanceFt <= stage.threshold) stage.active = true;
+                    // A re-entry during cooldown is consumed, never replayed just
+                    // because two minutes pass while remaining in the same band.
+                    if (stage.active && stage.armed && stage.lastAt !== null && now - stage.lastAt < 120000) stage.armed = false;
+                }
+                // Emit only the deepest currently entered level, including jumps.
+                const activeStages = stages.filter(s => s.active);
+                const stage = activeStages[activeStages.length - 1];
+                if (stage?.armed && (stage.lastAt === null || now - stage.lastAt >= 120000))
+                    candidates.push({ as, type, ...gap, stage, stages, key });
+            }
+        }
+        for (const [key, stages] of states) if (!seen.has(key)) {
+            // Retain cooldown through horizontal departure, but avoid accumulating
+            // sectors for the entire flight after that cooldown has elapsed.
+            stages.forEach(s => { s.armed = true; s.active = false; });
+            if (stages.every(s => s.lastAt === null || now - s.lastAt >= 120000)) states.delete(key);
+        }
+        const chosen = candidates.sort((a, b) => a.distanceFt - b.distanceFt || a.key.localeCompare(b.key))[0];
+        if (!chosen) return [];
+        for (const stage of chosen.stages) if (stage.active && stage.threshold >= chosen.stage.threshold) {
+            stage.armed = false; stage.lastAt = now;
+        }
+        const feet = Math.max(100, Math.floor(chosen.distanceFt / 100) * 100);
+        const names = { 'aw-charlie': 'Luftraum Charlie', 'aw-delta': 'Luftraum Delta', 'aw-ctr': 'Kontrollzone',
+            'aw-tmz': 'Transponder Mandatory Zone', 'aw-rmz': 'Radio Mandatory Zone', 'aw-edr': 'Flugbeschränkungsgebiet', 'aw-para': 'Fallschirmsprunggebiet' };
+        return [{ kind: 'airspaceVertical', as: chosen.as, level: chosen.stage.threshold,
+            direction: chosen.direction, distanceFt: chosen.distanceFt, spokenFt: feet,
+            text: `Achtung, ${names[chosen.type]}, ${chosen.distanceFt < 100 ? 'weniger als ' : ''}${feet} Fuß ${chosen.direction === 'above' ? 'oberhalb' : 'unterhalb'}`,
+            clips: ['aw-achtung', chosen.type, ...verticalDistanceClips(chosen.distanceFt, chosen.direction)] }];
+    } };
+}
+return Object.assign({ verticalAirspaceGap, verticalDistanceClips, createVerticalAirspaceDetector, getDestinationPoint, fillAirportFrequencies, getAirspaceApproxCenter, approxNmBetween, pickAirportForAirspaceFallback, prepareAirspaces, relevantAirspace, normalizeAirspaceNameForFreq, inferAirspaceLimitIsAgl, applyAirspaceLimitHeuristics, createAirspaceDetector, createTerrainDetector, createWaypointDetector, terrainThreat, predictions, predictionBounds, frequencyClips, waypointClips, getAirspaceVerticalBandFt, isPointInsideAirspace, calcNav }, audio);
 });

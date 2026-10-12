@@ -530,6 +530,18 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 
 ## Aktueller freigegebener Stand
 
+### Lokale Ergaenzung: vertikale Luftraumwarnungen (12.10.2026)
+
+Tracker-eigene Naeherungswarnungen mit 1500/1000/500/100-ft-Stufen, separatem
+Audio-Schalter, 150-ft-Hysterese und zweiminuetigem Cooldown sind lokal vorbereitet.
+MSL/AGL/FL verwenden ihre passende Hoehenreferenz. Anna, Matilda, Hannah, Liam
+und Ava EN besitzen die Zusatzclips; Paula/Irene bleiben zurueckgestellt.
+Web-authoritative Missionen behalten ihre bisherigen Audio-/Warning-Gates;
+nur die additive vertikale Kategorie bleibt Tracker-owned. Capability und
+generierte Menue-/Player-Assets sind enthalten. Alpha-Rollout v518: Worker deployed, Windows-Builds erfolgreich; Upload und Kanalpruefung folgen.
+Vertrag, Nachweise und Rollout: [Vertical Airspace Warnings](Vertical%20Airspace%20Warnings.md).
+
+
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |

@@ -1,5 +1,37 @@
 # ElevenLabs Voice Packs
 
+## Vertikale Luftraumwarnungen: neue Wortclips
+
+Anna ist die lokale macOS-Stimme, Matilda/Hannah/Liam sind ElevenLabs-Packs.
+Die acht gemeinsamen Zusatzkeys stehen in `tools/vertical-warning-voice-clips.mjs`:
+`aw-ein`, `aw-zwei`, `aw-hundert`, `aw-tausend`, `aw-fuss`, `aw-oberhalb`, `aw-unterhalb`, `aw-weniger-als`.
+`ein` ersetzt das fuer Zahlkomposition ungeeignete `eins`; `zwei` erlaubt
+natuerliches `zweihundert`, waehrend Frequenzen weiterhin `zwo` verwenden.
+
+Anna lokal als AAC/M4A im bestehenden Standardpfad rendern:
+
+```bash
+node tools/generate-anna-vertical-voice-assets.mjs
+```
+
+Die vorhandenen Anna-Dateien bleiben erhalten. `--force` ersetzt nur die acht
+Zusatzclips. macOS `say`, `ffmpeg` und `ffprobe` werden benoetigt. Eine Sandbox
+kann `say` am Zugriff auf den Sprachdienst hindern; leere Ausgaben werden abgewiesen.
+
+Dieselben neuen Woerter fuer die drei ElevenLabs-Stimmen erzeugen:
+
+```bash
+node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam --clips aw-ein,aw-zwei,aw-hundert,aw-tausend,aw-fuss,aw-oberhalb,aw-unterhalb,aw-weniger-als
+```
+
+Der Generator liest `ELEVENLABS_API_KEY` aus der Prozessumgebung oder
+`key.env.local`. Bestehende Dateien werden ohne `--force` uebersprungen.
+Die bestehende lokale Ava-EN-Generierung unterstuetzt dieselben acht Keys mit
+englischen Texten. Detektor, Audio-Key-Freigabe, Clip-Warmup und Menueschalter
+sind im lokalen Stand angeschlossen. Erst ein Release veroeffentlicht die
+Dateien fuer installierte Clients. Details: `docs/Vertical Airspace Warnings.md`.
+
+
 Dieses Projekt rendert die AWM-Snippets pro Stimme als einzelne Dateien nach:
 
 `audio-warnings/voices/<pack-id>/aw-*.mp3`

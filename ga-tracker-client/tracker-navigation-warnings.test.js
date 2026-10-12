@@ -164,3 +164,41 @@ test('airspace geometry is fetched once on demand, never added to periodic snaps
   assert.throws(() => f.engine.geometry(event.id, -1), /range_invalid/);
   f.advance(61000); assert.throws(() => f.engine.geometry(event.id), /unavailable/);
 });
+
+test('vertical proximity works without horizontal warnings and cancels obsolete queued audio', async () => {
+  const overhead={...ctr,id:'overhead',type:0,icaoClass:2,lowerLimit:{value:3000,unit:1,referenceDatum:1},
+    geometry:{type:'Polygon',coordinates:[[[-1,-1],[1,-1],[1,1],[-1,1],[-1,-1]]]}};
+  const settings={airspace:false,terrain:false,airspaceVertical:true};
+  const f=fixture({getSettings:()=>settings,data:{airspaces:async()=>[overhead]}});
+  await f.tick(); await f.tick();
+  assert.equal(f.jobs[0].kind,'airspaceVertical');
+  const first=f.jobs[0]; assert.ok(first.clips.includes('aw-oberhalb'));
+  await f.tick({alt:2000,agl:1900});
+  assert.equal(f.jobs.at(-1).kind,'airspaceVertical'); assert.ok(f.cancelled.includes(first.effectId));
+  const last=f.jobs.at(-1);
+  await f.tick({lon:2},100);
+  assert.ok(f.cancelled.includes(last.effectId),'horizontal exit cancels before throttled async evaluation');
+  settings.airspaceVertical=false; await f.tick();
+  assert.equal(f.jobs.length,2);
+});
+test('vertical warnings remain tracker-owned while a legacy mission keeps the horizontal warning path', async () => {
+  const overhead={...ctr,id:'overhead',type:0,icaoClass:2,lowerLimit:{value:3000,unit:1,referenceDatum:1},
+    geometry:{type:'Polygon',coordinates:[[[-1,-1],[1,-1],[1,1],[-1,1],[-1,-1]]]}};
+  const f=fixture({data:{airspaces:async()=>[overhead]}});
+  f.engine.setEnabled(false);
+  await f.tick(); await f.tick();
+  assert.equal(f.engine.snapshot().active,false);
+  assert.equal(f.engine.snapshot().verticalActive,true);
+  assert.equal(f.jobs.length,1); assert.equal(f.jobs[0].kind,'airspaceVertical');
+  f.engine.setEnabled(true); await f.tick(); await f.tick();
+  assert.equal(f.jobs.filter(job=>job.kind==='airspaceVertical').length,1,'authority handoff retains vertical deduplication');
+});
+test('a vertical switch changed during terrain I/O is respected before emitting audio', async () => {
+  const overhead={...ctr,id:'overhead',type:0,icaoClass:2,lowerLimit:{value:3000,unit:1,referenceDatum:1},
+    geometry:{type:'Polygon',coordinates:[[[-1,-1],[1,-1],[1,1],[-1,1],[-1,-1]]]}};
+  const settings={airspace:false,terrain:false,airspaceVertical:true}; let resolve;
+  const pending=new Promise(done=>{resolve=done;});
+  const f=fixture({getSettings:()=>settings,data:{airspaces:async()=>[overhead],terrain:()=>pending}});
+  await f.tick(); settings.airspaceVertical=false; resolve(100); await flush();
+  assert.equal(f.jobs.length,0);
+});
