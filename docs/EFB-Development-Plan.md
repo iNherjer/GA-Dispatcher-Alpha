@@ -7364,3 +7364,11 @@ und Interface-Regressionspruefung bestanden. Windows-PE-x64 und eingebettete
 Quellen geprueft. Lokaler pkg-Build ohne Bytecode: die x64-Fabricator-Laufzeit
 kann auf diesem Mac nicht starten; keine Funktionsaenderung durch Bytecodeverzicht.
 UI-Fixes noch ohne eigenen In-Sim-Nachweis. Stable bleibt unveraendert.
+
+Beide unveraenderlichen Releases veroeffentlicht und oeffentlich erneut
+heruntergeladen: v523 173864717 Bytes / SHA-256
+`d6c58257e85ade1b6b006c68072858d7a80e9e5e0dc87a65ff8b2bac79984281`,
+EFB 0.4.24 452419 Bytes / SHA-256
+`1be7307b7952bc908f952bbcca7380c1febe88115c81dbdd44c5046483061b6d`.
+Alpha-Zeiger auf diese Artefakte aktiviert. Gepackter Missionsprozess-Smoke-Test
+bestanden. Keine SDK-Agentkommunikation; kein neues SDK-Paket gebaut.
