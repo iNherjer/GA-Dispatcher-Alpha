@@ -11,6 +11,7 @@ const MAX_COMMAND_RESULTS = 256;
 const MAX_INTENTS_PER_MINUTE = 60;
 const COCKPIT_ROLES = new Set(['web', 'efb', 'toolbar']);
 const MISSION_INTENTS = new Set([
+  'close_debrief',
   'activate_cloud_mission',
   'poi_status',
   'poi_orientation',
@@ -231,6 +232,16 @@ function createTrackerCockpitControl(options = {}) {
           result = { ok: false, status: 'error', error: cleanString(error?.code || error?.message || error, 160) || 'cloud_mission_activation_failed', activeRun: publicRun(getMissionRun()) };
         }
       }
+    } else if (intent === 'close_debrief' && !activeRun && executeIntent) {
+      try {
+        result = safeObject(await executeIntent({ commandId, intent,
+          missionId: cleanString(request.missionId), runId: cleanString(request.runId, 220),
+          expectedRevision: Number(request.expectedRevision), controllerSession: publicSession(auth.session) }));
+      } catch (error) {
+        result = resultError(cleanString(error?.message || error, 160));
+      }
+    } else if (intent === 'close_debrief') {
+      result = { ok: false, status: 'conflict', error: 'mission_authority_conflict', sideEffect: false };
     } else if (!activeRun) {
       result = { ok: false, status: 'conflict', error: 'no_active_run', sideEffect: false, activeRun: null };
     } else if (cleanString(request.missionId) !== activeRun.missionId || cleanString(request.runId, 220) !== activeRun.runId) {

@@ -7251,3 +7251,29 @@ Zusaetzlicher beauftragter Fix: Ausgeladener Bordbestand wird im Tracker beim Ab
 Validierung vor Release: 158 Core-/Manifest-/UI-/Voice-/Adapter-/Runtime-/Outbox-/EFB-/Bush-Tests und 12 echte Kindprozess-/HTTP-Tests bestanden; App-Bordbestand-/Persistenz-/Manifest-Differential-/Compliance-/Schnittstellen-Selbsttests bestanden. Gepackter ARM64-Host-Missionsprozess startet und endet erfolgreich (MISSION_PACKAGED_PROCESS_SMOKE_OK, Worker-Exit 0). Windows-x64 v516 frisch im dokumentierten no-bytecode/public-Cross-Build erzeugt; PE-Format und eingebettete Quellen geprueft. Keine neue Community-Package-Version erforderlich. Kein Live-MSFS- oder produktiver Crewboard-Schreibtest ausgefuehrt; Simulatorabnahme folgt im Alpha-Feldtest. Wahrscheinlichkeit bleibt 0 %, kein neuer manueller Schalter.
 
 Alpha-Hotfix v516 veroeffentlicht: Quellstand `6c4f61da507b300cb940ba6729ccfb76e37a3271`, unveraenderliches Release https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v516 . Upload und oeffentlicher EXE-Download bytegleich geprueft: 173640586 Bytes, SHA-256 `3f9f636c4500f19fcf7d388ef37b95606d1d668ece1831d75abfbf6f19cef791`. Oeffentliche App-Core-Datei entspricht dem Release. Alpha-Zeiger auf v516, Web-Cache v2014 und EFB-Asset-Revision 51601. Stable bleibt unveraendert. Tester: Alpha-Tracker aktualisieren/neustarten, App/EFB neu laden, aktuelle Bodenposition abwarten, verlorene Bordartikel per „Ersatz einladen“ laden und Frachtliste neu unterschreiben.
+
+
+### EFB-Debrief und gemeinsames Schließen (12.10.2026, lokal)
+
+Der abgeschlossene Tracker-Lauf wird im EFB/Toolbar-Panel mit dem aus der App
+extrahierten `flight-debrief.js` angezeigt. Die kompakte Authority-Projektion
+enthält Run-ID, terminale Revision, gespeicherte Flugwerte und Abschlussstatus.
+Die Schließen-Aktion `close_debrief` benötigt eine authentifizierte Cockpit-Sitzung
+sowie exakt die Mission, Run-ID und Revision des terminalen Tracker-Laufs.
+Sie speichert nur `debriefClosedAt`; Execution-State, Flightlog, Effekte und
+Payload-Recovery bleiben erhalten. Ein aktiver neuer Lauf sperrt die Aktion.
+Schreibfehler behalten das offene Debrief. Derselbe bestätigte Abschluss wird
+in allen EFB-Ansichten und der verbundenen App übernommen; eine später
+verbundene App übernimmt den Marker und räumt nur ihren passenden lokalen
+Auftrag auf. Ohne App-Verbindung bleibt deren lokaler/Cloudstand bis zur
+Wiederverbindung bestehen. Standalone und ältere Tracker behalten den
+bestehenden App-Abschluss. Die Schaltfläche bleibt unten im Debrief erreichbar;
+PDF wird nur in der App angeboten, wo der vorhandene Export geladen ist.
+
+Assetrevision 52001 enthält das für Coherent kompilierte gemeinsame Modul.
+Tests: `ga-tracker-client/tracker-debrief.test.js`, bestehende Cockpit-/Runtime-
+und EFB-Tests, `tools/tracker-interface-regression-selftest.mjs` und lokaler
+Electron-Nachweis `tools/efb-debrief-ui-selftest.cjs` (900×640, 440×894, 894×440).
+Noch kein Release oder realer MSFS-Feldnachweis. Das frühere Debrief-Backlog
+ist damit für Anzeige und synchrones Schließen lokal umgesetzt; Flightlog-
+Explorer und terminales Wiederöffnen nach bestätigtem Schließen bleiben offen.

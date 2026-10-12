@@ -79,6 +79,7 @@
       "efb-web-assets/map-display-controls.js",
       "efb-web-assets/airport-radio.js",
       "efb-web-assets/checklists.js",
+      "efb-web-assets/flight-debrief.js",
       "efb-web-assets/map-layer-controls.js",
       "efb-web-assets/map-tool-focus.js",
       "efb-web-assets/map-autozoom.js",

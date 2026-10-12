@@ -6,7 +6,7 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '51801';
+const EFB_WEB_ASSET_REVISION = '52001';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -57,6 +57,7 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/host.css': [path.join(__dirname, 'tracker-efb-kartentisch-host.css'), 'text/css; charset=utf-8'],
   '/efb/v1/assets/floating-layout.js': [path.join(__dirname, 'tracker-efb-floating-layout.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/ui-scale.js': [path.join(__dirname, 'tracker-efb-ui-scale.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/flight-debrief.js': [path.join(__dirname, 'efb-web-assets', 'flight-debrief.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/host.js': [path.join(__dirname, 'tracker-efb-kartentisch-host.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-training-guidance-ui.js': [path.join(__dirname, 'efb-web-assets', 'mission-training-guidance-ui.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-control-ui-core.js': [path.join(__dirname, 'mission-control-ui-core.js'), 'text/javascript; charset=utf-8'],
@@ -177,6 +178,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/mission-training-guidance-ui.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/ui-scale.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/floating-layout.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/flight-debrief.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/host.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('host.js')" onerror="__gaEfbScriptError('host.js')"></script>
 </body>
 </html>`;

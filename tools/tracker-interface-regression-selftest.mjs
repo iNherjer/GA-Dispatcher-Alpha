@@ -89,7 +89,7 @@ let opened = 0;
 const efb = { window: {}, missionSnapshot: null, missionIntentPending: false, missionIntentStatus: '', missionIntentTone: '',
   cargoManagerOpen: false, missionPresentationSignature: '', missionSignature: '',
   missionRenderSignature: value => JSON.stringify(value), openCargoManager: () => opened++,
-  offerCloudMissionReplacement() {}, renderPaxWidget() {}, renderTrainingGuidance() {},
+  offerCloudMissionReplacement() {}, renderPaxWidget() {}, renderTrainingGuidance() {}, renderDebrief() {},
   renderBoardBookReminder() {}, renderMissionActionBanner() {}, renderMissionToolbar() {}, renderCargoManager() {}, byId: () => null,
   document: { querySelector: () => null }, report() {} };
 vm.createContext(efb);
@@ -400,7 +400,7 @@ const cleanupContext = {
   triggerCloudSave() {}, MISSION_DEBRIEF_PENDING_KEY: 'pending'
 };
 vm.createContext(cleanupContext);
-vm.runInContext(between(sync, 'window.completeMissionCloseCleanup =', 'window.toggleManualMissionRuntime ='), cleanupContext);
+vm.runInContext(between(sync, 'function _completeMissionCloseCleanupLocal(', 'window.toggleManualMissionRuntime ='), cleanupContext);
 assert.equal(cleanupContext.window.completeMissionCloseCleanup({ missionId: 'finished', dest: 'EDTO' }), true);
 assert.equal(cleanupCalls.some(call => call[0] === 'remote-reset'), false);
 assert.equal(cleanupCalls.find(call => call[0] === 'clear')[1].skipRuntimeReset, true);
@@ -417,6 +417,35 @@ cleanupContext.window.gaTrackerExecutionControl = null;
 cleanupContext.window.lastTrackerMissionAuthority.activeRun = null;
 assert.equal(cleanupContext.window.completeMissionCloseCleanup({ missionId: 'standalone' }), true);
 assert.equal(cleanupCalls.some(call => call[0] === 'remote-reset'), true, 'standalone retains its existing reset path');
+// New trackers share a durable close marker; failure never clears the App.
+cleanupCalls.length = 0;
+cleanupContext.window.gaTrackerExecutionControl = debriefClosedControl;
+cleanupContext.window.lastTrackerMissionAuthority = { activeRun: null,
+  debrief: { missionId: 'finished', runId: 'finished-run', revision: 17, closedAt: null } };
+const terminalRecord = { missionId: 'finished', runId: 'finished-run', dest: 'EDTO' };
+let submittedClose = null;
+cleanupContext.window.gaCockpitSessionClient = { submitIntent: async request => { submittedClose = request; return { ok: false }; } };
+assert.equal(await cleanupContext.window.completeMissionCloseCleanup(terminalRecord), false);
+assert.equal(cleanupCalls.length, 0);
+assert.equal(submittedClose.intent, 'close_debrief');
+assert.equal(submittedClose.expectedRevision, 17);
+cleanupContext.window.gaCockpitSessionClient.submitIntent = async () => ({ ok: true });
+assert.equal(await cleanupContext.window.completeMissionCloseCleanup(terminalRecord), true);
+assert.equal(cleanupCalls.some(call => call[0] === 'remote-reset'), false);
+cleanupCalls.length = 0;
+cleanupContext.window.gaTrackerExecutionControl = debriefClosedControl;
+cleanupContext.window.lastTrackerMissionAuthority.debrief.closedAt = 100;
+cleanupContext._readPendingMissionDebrief = () => terminalRecord;
+cleanupContext.missionRuntime = {};
+let hiddenDebrief = null;
+cleanupContext.window.hideFlightDebrief = (...args) => { hiddenDebrief = args; };
+assert.equal(cleanupContext._applyTrackerDebriefClosed(cleanupContext.window.lastTrackerMissionAuthority), true);
+assert.deepEqual(hiddenDebrief, ['finished', 'finished-run']);
+cleanupCalls.length = 0;
+cleanupContext.window.lastTrackerMissionAuthority.activeRun = { missionId: 'new', runId: 'new-run' };
+assert.equal(cleanupContext._applyTrackerDebriefClosed(cleanupContext.window.lastTrackerMissionAuthority), false);
+assert.equal(cleanupContext.window.completeMissionCloseCleanup(terminalRecord), false);
+assert.equal(cleanupCalls.length, 0);
 console.log('PASS tracker debrief closes locally; new missions protected; standalone cleanup unchanged.');
 
 // The App negotiates batching; an older tracker still receives single-item intents.

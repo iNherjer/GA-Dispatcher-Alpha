@@ -2694,7 +2694,47 @@
     }, 0);
   }
 
+  var efbDebrief = null, efbDebriefKey = '';
+  window.completeMissionCloseCleanup = function(record) {
+    var debrief = efbDebrief, client = window.gaCockpitSessionClient;
+    if (!debrief || !record || record.missionId !== debrief.missionId || record.runId !== debrief.runId
+        || !client || !client.submitIntent) return false;
+    return client.submitIntent({
+      commandId: 'debrief-close-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+      intent: 'close_debrief', missionId: debrief.missionId, runId: debrief.runId,
+      expectedRevision: debrief.revision, payload: {}
+    }).then(function(result) {
+      if (!result || !result.ok) {
+        window.alert('Das Debrief konnte nicht geschlossen werden. Bitte Verbindung und aktuellen Missionsstand prüfen.');
+        return false;
+      }
+      // The successful ACK is durable; ignore older polls still in flight.
+      efbDebriefKey = debrief.runId + ':closed';
+      window.hideFlightDebrief(debrief.missionId, debrief.runId);
+      return true;
+    });
+  };
+
+  function renderDebrief(payload) {
+    var next = payload && payload.authoritySnapshot && payload.authoritySnapshot.debrief;
+    if (!next) {
+      if (efbDebrief) window.hideFlightDebrief(efbDebrief.missionId, efbDebrief.runId);
+      efbDebrief = null;
+      return;
+    }
+    efbDebrief = next;
+    if (next.closedAt) {
+      efbDebriefKey = next.runId + ':closed';
+      window.hideFlightDebrief(next.missionId, next.runId);
+    } else if (efbDebriefKey !== next.runId && efbDebriefKey !== next.runId + ':closed') {
+      efbDebriefKey = next.runId;
+      closeCargoManager(true);
+      window.showFlightDebrief(next.record, { awaitingCleanup: true });
+    }
+  }
+
   function renderMissionPayload(payload) {
+    renderDebrief(payload);
     offerCloudMissionReplacement(payload);
     var next = payload && (payload.available === true || (payload.authoritySnapshot && payload.authoritySnapshot.pendingCloudMission)) ? payload : null;
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};

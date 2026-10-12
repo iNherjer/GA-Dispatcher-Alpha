@@ -79,6 +79,7 @@ compileShared('map-airport-popup.js');
 compileShared('map-drawing.js');
 compileShared('map-navigation-geometry.js');
 compileShared('map-navpoint-core.js');
+compileShared('flight-debrief.js');
 compileShared('map-single-click.js');
 compileShared('map-context-popup.js');
 compileShared('map-direct-to-core.js');

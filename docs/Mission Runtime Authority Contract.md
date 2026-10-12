@@ -1390,3 +1390,20 @@ Der Simulator-Effekt `scene.boarding` wird nach Run-/Authority-/Plan-Pruefung lo
 Ursache des Testerfehlers: Eine reine Frachtmission bekam `noop/no_passengers` auf den unnoetigen Boardingbefehl. Der Tracker setzte den Run deshalb von boarding nach prepare/boarding_failed zurueck und sperrte die Manifestaktionen. Bestehende betroffene Runs koennen nach Runtime-Update erneut Boarding starten; kein Missionsreset ist erforderlich. Pflichtfracht, Signatur und Payload-/Startfreigaben bleiben unveraendert.
 
 Regressionsnachweise: Simulator-Effekt-Matrix fuer leeres/Fracht-/Ziel-PAX-/Abflug-PAX-Manifest, fehlenden Snapshot und Run-Konflikt; produktiver Runtime-/Authority-Test fuer Beladen, Pflichtfracht, Signatur und Missionsstart; weiterhin echter Boarding-ACK bei Abflug-PAX. Rollout auf Origin und Stable vom Nutzer am 09.10.2026 ausdruecklich freigegeben. Validierung: 642 Missions-/Authority-Tests bestanden; gepackter Node-18-Missionsprozess mit `MISSION_PACKAGED_PROCESS_SMOKE_OK` und Worker-Exit 0. Der Windows-/MSFS-Feldtest des Testerfalls erfolgt nach Bereitstellung.
+
+
+### Terminales Debrief-Schließen (12.10.2026, lokaler Stand)
+
+`close_debrief` bestätigt ausschließlich die Präsentation eines bereits
+abgeschlossenen Tracker-Laufs. Der authentifizierte Cockpit-/Relay-Pfad prüft,
+dass kein neuer Lauf aktiv ist; die Authority prüft terminale Phase/Flags,
+Tracker-Autorität sowie exakte Mission, Run-ID und Revision. `debriefClosedAt`
+ist atomar persistiert und Bestandteil der kompakten öffentlichen Projektion.
+Wiederholungen sind wirkungslose Bestätigungen. Execution-Revision, fachliche
+Events, Simulator-Effekte, Flightlog und Payload-Baseline werden nicht verändert.
+App und EFB schließen erst nach ACK bzw. gespeichertem Marker. Ein Fehler
+behält das offene Debrief; eine neue Mission bleibt vor altem Cleanup geschützt.
+Die App übernimmt den Marker auch nach Wiederverbindung und räumt nur den
+passenden lokalen Auftrag auf. Die bereits bestehende Standalone-/Legacy-
+App-Bereinigung bleibt erhalten. Siehe EFB-Development-Plan, Abschnitt vom
+12.10.2026, für die lokale Validierung und verbleibenden Feldnachweis.

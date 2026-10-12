@@ -415,6 +415,14 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const executeIntent = async (request = {}) => {
     await recoveryDrain;
+    if (String(request.intent || request.action || '').trim().toLowerCase() === 'close_debrief') {
+      const result = await authorityManager.closeExecutionDebrief(request);
+      if (result.ok) {
+        try { onAuthorityChanged('debrief-closed', request); }
+        catch (error) { log(`MISSION_EXECUTION_NOTIFY_ERROR reason=debrief-closed error=${error.message}`); }
+      }
+      return result;
+    }
     reconcileCargoCheckpoint();
     const recipe = authorityManager.getActiveRun()?.executionRecipe;
     const trainingIntent = ['training_ready', 'training_abort', 'training_extra', 'training_repeat_instruction']

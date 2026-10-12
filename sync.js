@@ -2190,7 +2190,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     return true;
 }
 
-function _finalizeTrackerExecutionProjection(control = null, reason = 'tracker-execution-finalized') {
+function _finalizeTrackerExecutionProjection(control = null, reason = 'tracker-execution-finalized', showDebrief = true) {
     if (!control || typeof control !== 'object' || control.executionAuthority !== 'tracker') return false;
     if (String(control.phase || '').toLowerCase() !== 'closed' || control.flags?.closed !== true) return false;
     const missionId = _normalizeMissionRuntimeId(control.missionId || '');
@@ -2224,9 +2224,10 @@ function _finalizeTrackerExecutionProjection(control = null, reason = 'tracker-e
         outcome: missionRuntime.closingOutcome
     });
     if (record) {
+        record.runId = runId;
         missionRuntime.completionRecord = record;
         _persistMissionCompletion(record);
-        _showMissionCompletionDebrief(record);
+        if (showDebrief) _showMissionCompletionDebrief(record);
     }
     _clearMissionRuntimeSnapshot(reason);
     _clearActiveMissionRuntimeMarker(reason);
@@ -2261,7 +2262,8 @@ async function _refreshTrackerExecutionControl(reason = 'intent-refresh') {
         }
         if (activeRun) window.lastTrackerMissionStatus = { ...activeRun, receivedAt: Date.now() };
         if (!_applyTrackerExecutionControl(snapshot?.control, activeRun, reason)) {
-            _finalizeTrackerExecutionProjection(snapshot?.lastControl, `${reason}:completed`);
+            _finalizeTrackerExecutionProjection(snapshot?.lastControl, `${reason}:completed`, !snapshot?.authoritySnapshot?.debrief?.closedAt);
+            _applyTrackerDebriefClosed(snapshot?.authoritySnapshot);
         }
         return snapshot;
     } catch (_) {
@@ -5497,9 +5499,10 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
     if (!active?.missionId || !active?.runId) {
         const aborted = _applyTrackerExecutionAbortLocally(snapshot, `${reason}:aborted`);
         const completed = snapshot.lastExecution?.phase === 'closed'
-            ? _finalizeTrackerExecutionProjection(snapshot.lastExecution, `${reason}:completed`)
+            ? _finalizeTrackerExecutionProjection(snapshot.lastExecution, `${reason}:completed`, !snapshot.debrief?.closedAt)
             : false;
         window.lastTrackerMissionAuthority = { ...snapshot, receivedAt: Date.now() };
+        _applyTrackerDebriefClosed(snapshot);
         if (!completed || aborted) {
             window.gaTrackerExecutionControl = null;
             try { window.GATrainingGuidanceUi?.render?.(null, { id: 'trainingGuidanceBanner' }); } catch (_) {}
@@ -14738,13 +14741,15 @@ window.completeMissionClose = function(reason = 'mission-close', options = {}) {
     return true;
 };
 
-window.completeMissionCloseCleanup = function(record = null, reason = 'debrief-close-cleanup') {
+function _completeMissionCloseCleanupLocal(record = null, reason = 'debrief-close-cleanup') {
     const pending = record && typeof record === 'object' ? record : (_readPendingMissionDebrief() || missionRuntime.completionRecord);
     if (!pending) return false;
+    if (pending.runId && window.lastTrackerMissionAuthority?.activeRun) return false;
     const trackerControl = window.gaTrackerExecutionControl || window.lastTrackerMissionAuthority?.lastExecution;
     const trackerCompleted = trackerControl?.executionAuthority === 'tracker'
         && trackerControl.phase === 'closed' && trackerControl.flags?.closed === true
         && trackerControl.missionId === pending.missionId
+        && (!pending.runId || trackerControl.runId === pending.runId)
         && trackerControl.runId === window.gaTrackerExecutionFinalizedRunId;
     if (_missionExecutionAuthorityIsTracker() && !trackerCompleted) return false;
     if (trackerCompleted) {
@@ -14796,6 +14801,35 @@ window.completeMissionCloseCleanup = function(record = null, reason = 'debrief-c
     }
     try { triggerCloudSave(true); } catch (_) {}
     return true;
+}
+
+function _applyTrackerDebriefClosed(snapshot) {
+    const debrief = snapshot?.debrief;
+    if (!debrief?.closedAt || snapshot.activeRun) return false;
+    const record = _readPendingMissionDebrief() || missionRuntime.completionRecord;
+    if (!record || record.missionId !== debrief.missionId || record.runId !== debrief.runId) return false;
+    const cleaned = _completeMissionCloseCleanupLocal(record, 'tracker-debrief-closed');
+    if (cleaned) window.hideFlightDebrief?.(record.missionId, record.runId);
+    return cleaned;
+}
+
+window.completeMissionCloseCleanup = function(record = null, reason = 'debrief-close-cleanup') {
+    const pending = record || _readPendingMissionDebrief() || missionRuntime.completionRecord;
+    const debrief = window.lastTrackerMissionAuthority?.debrief;
+    if (debrief && pending?.missionId === debrief.missionId && pending?.runId === debrief.runId && !debrief.closedAt) {
+        const client = window.gaCockpitSessionClient;
+        if (!client?.submitIntent) return false;
+        return client.submitIntent({
+            commandId: `debrief-close-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            intent: 'close_debrief', missionId: debrief.missionId, runId: debrief.runId,
+            expectedRevision: debrief.revision, payload: {}
+        }).then(result => {
+            if (!result?.ok) return false;
+            debrief.closedAt = Date.now();
+            return _completeMissionCloseCleanupLocal(pending, reason);
+        });
+    }
+    return _completeMissionCloseCleanupLocal(pending, reason);
 };
 
 window.toggleManualMissionRuntime = function() {

@@ -385,6 +385,7 @@ function publicRun(run, options = {}) {
     stateHash: cleanString(run.stateHash, 160) || null,
     acquiredAt: Number(run.acquiredAt || 0) || null,
     updatedAt: Number(run.updatedAt || 0) || null,
+    debriefClosedAt: Number(run.debriefClosedAt || 0) || null,
     lastCommandType: cleanString(run.lastCommandType, 140) || null,
     lastReason: cleanString(run.lastReason, 240) || null,
     lastSnapshotSequence: Math.max(0, Math.round(Number(run.lastSnapshotSequence) || 0)),
@@ -1454,6 +1455,80 @@ function createMissionAuthorityManager(options = {}) {
     return { ok: true, status: 'ok', outcome: 'completed', releasedRun: publicRun(state.lastRun), activeRun: null };
   };
 
+  const pendingDebriefCloses = new Map();
+
+  // Presentation acknowledgement only: retain the terminal run and payload baseline.
+  const closeExecutionDebrief = (request = {}) => {
+    const run = state.lastRun;
+    if (state.activeRun) return { ok: false, status: 'conflict', error: 'mission_authority_conflict', sideEffect: false };
+    if (!run || run.executionAuthority !== EXECUTION_AUTHORITY_TRACKER
+        || run.phase !== 'closed' || run.executionState?.flags?.closed !== true) {
+      return { ok: false, status: 'blocked', error: 'mission_debrief_unavailable', sideEffect: false };
+    }
+    if (request.missionId !== run.missionId || request.runId !== run.runId) {
+      return { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false };
+    }
+    if (Number(request.expectedRevision) !== run.revision) {
+      return { ok: false, status: 'conflict', error: 'mission_revision_conflict', sideEffect: false };
+    }
+    if (pendingDebriefCloses.has(run.runId)) return pendingDebriefCloses.get(run.runId);
+    if (run.debriefClosedAt) return { ok: true, status: 'noop', sideEffect: false };
+    const previousState = jsonClone(state);
+    run.debriefClosedAt = now();
+    addEvent('debrief_closed', request);
+    if (!persist()) {
+      state = previousState;
+      return { ok: false, status: 'error', error: 'mission_debrief_persist_failed', sideEffect: false };
+    }
+    if (checkpoint) {
+      // The worker normally checkpoints periodically. Hold this presentation
+      // ACK until its marker is written, without reverting concurrent missions.
+      const pending = checkpoint.flush().then(saved => {
+        pendingDebriefCloses.delete(run.runId);
+        publicationVersion++;
+        if (!saved) {
+          run.debriefClosedAt = null;
+          state.events = state.events.filter(event => !(event.kind === 'debrief_closed'
+            && event.runId === request.runId && event.commandId === request.commandId));
+          checkpoint.markDirty();
+          return { ok: false, status: 'error', error: 'mission_debrief_persist_failed', sideEffect: false };
+        }
+        return { ok: true, status: 'ok', sideEffect: false };
+      });
+      pendingDebriefCloses.set(run.runId, pending);
+      return pending;
+    }
+    return { ok: true, status: 'ok', sideEffect: false };
+  };
+
+  const debriefProjection = () => {
+    const run = state.lastRun;
+    if (state.activeRun || run?.executionAuthority !== EXECUTION_AUTHORITY_TRACKER || run.phase !== 'closed') return null;
+    const control = publicExecutionSnapshot(run);
+    if (!control?.flags?.closed) return null;
+    const missionState = safeObject(run.resumeBundle?.missionState);
+    const mission = safeObject(missionState.currentMissionData || missionState);
+    const flight = control.flight?.missionRecord || {};
+    const outcome = control.poiOutcome || flight.missionCargoOutcome
+      || flightRecorderCore.evaluateFarewellOutcome(control.manifest, {}, { motionProtectionEnabled: false });
+    const endedAt = Number(flight.createdAt || flight.endTs || run.updatedAt);
+    const cargoItems = (control.manifest?.items || []).filter(item => !/passenger|pax/i.test(item.itemType || item.type || ''));
+    return {
+      missionId: run.missionId, runId: run.runId, revision: run.revision,
+      closedAt: pendingDebriefCloses.has(run.runId) ? null : run.debriefClosedAt || null,
+      record: {
+        ...jsonClone(flight), schemaVersion: 2, missionId: run.missionId, runId: run.runId,
+        completionId: `${run.missionId}-${Math.round(endedAt)}`, createdAt: endedAt,
+        depLabel: flight.depLabel || mission.start || 'START',
+        arrLabel: flight.arrLabel || mission.dest || 'LANDUNG',
+        missionTitle: mission.mission || mission.title || mission.missionTitle || 'Mission',
+        failed: outcome?.failed === true || flight.missionFailed === true,
+        cargo: cargoItems.length ? jsonClone(outcome) : null,
+        comfort: jsonClone(flight.comfort || null)
+      }
+    };
+  };
+
   const abortExecutionRun = (request = {}) => {
     const active = state.activeRun;
     if (!active) return { ok: true, status: 'noop', outcome: 'aborted', activeRun: null, releasedRun: publicRun(state.lastRun) };
@@ -1897,6 +1972,7 @@ function createMissionAuthorityManager(options = {}) {
         resumeBundle: publicationBundle(run.resumeBundle), navigationRoute: copyPublicationPart(run.navigationRoute || null) } : null,
       public: { schema: STATE_SCHEMA, version: STATE_VERSION, activeRun: summary,
         execution: publicationControl(run), lastRun: publicRun(state.lastRun), lastExecution: publicationControl(state.lastRun),
+        debrief: debriefProjection(),
         updatedAt: Number(run?.updatedAt || state.lastRun?.updatedAt || 0) || null },
       execution: buildExecutionSnapshot(copyPublicationPart),
       context: run ? { latestTelemetry: copyPublicationPart(run.executionRuntimeContext?.latestTelemetry) } : null,
@@ -1935,6 +2011,7 @@ function createMissionAuthorityManager(options = {}) {
     canRebaseIntentRevision,
     abortExecutionRun,
     finalizeExecutionRun,
+    closeExecutionDebrief,
     getPublicationVersion: () => publicationVersion,
     getPersistenceMetrics: () => checkpoint ? checkpoint.metrics() : ({ ...persistenceMetrics, mode: 'synchronous' }),
     flushPersistence: () => checkpoint ? checkpoint.flush() : Promise.resolve(true),
@@ -1948,6 +2025,7 @@ function createMissionAuthorityManager(options = {}) {
         execution: publicExecutionSnapshot(state.activeRun),
         lastRun: publicRun(state.lastRun, { includeBundle: options.includeBundle === true }),
         lastExecution: publicExecutionSnapshot(state.lastRun),
+        debrief: debriefProjection(),
         updatedAt: Number(state.activeRun?.updatedAt || state.lastRun?.updatedAt || 0) || null
       };
     },
