@@ -3045,7 +3045,7 @@ ${routeLines}`;
                     <div class="route-tool-row-main">
                         <div class="route-tool-row-title"><span class="route-tool-airspace-dot"></span>${escapeHtml(style.icon || '⚠️')} ${escapeHtml(airspaceNameForDrawer(row.as))}</div>
                         <div class="route-tool-row-meta">${escapeHtml(style.category || 'Luftraum')}${limit ? ` · ${escapeHtml(limit)}` : ''}</div>
-                        ${freqs ? `<div class="route-tool-row-value">${escapeHtml(freqs)}</div>` : ''}
+                        ${freqs ? `<div class="route-tool-row-value">${GARadioTuningCore.text(freqs, 'COM')}</div>` : ''}
                     </div>
                     <div class="route-tool-row-actions">
                         ${locateButton('locate-airspace', `data-as-idx="${escapeAttr(row.idx)}"`, 'Luftraum auf Karte zeigen')}
@@ -3207,6 +3207,7 @@ ${routeLines}`;
                 lat,
                 lon,
                 freq,
+                radioKind: GARadioTuningCore.navaidKind(typeof getOpenAipNavaidTypeLabel === 'function' ? getOpenAipNavaidTypeLabel(n.type) : ''),
                 routeDist: distancePointToRouteNm(lat, lon, route)
               };
             }).filter(n => Number.isFinite(n.lat) && Number.isFinite(n.lon) && n.routeDist <= 12).sort((a, b) => a.routeDist - b.routeDist).slice(0, 10);
@@ -3270,7 +3271,7 @@ ${routeLines}`;
                     <div class="route-tool-section-title">${escapeHtml(heading)}</div>
                     <div class="route-tool-section-sub">${escapeHtml((apt === null || apt === void 0 ? void 0 : apt.name) || '')}</div>
                 `}
-                ${freqs.length ? freqs.map(f => `<div class="route-tool-freq"><span>${escapeHtml(f.label)}</span><b>${escapeHtml(f.value)}</b></div>`).join('') : renderToolEmpty('Noch keine Frequenzen im Cache. Aktualisieren lädt nach.')}
+                ${freqs.length ? freqs.map(f => `<div class="route-tool-freq"><span>${escapeHtml(f.label)}</span><b>${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label) ? 'XPDR' : 'COM')}</b></div>`).join('') : renderToolEmpty('Noch keine Frequenzen im Cache. Aktualisieren lädt nach.')}
             </div>
         `;
   }
@@ -3291,7 +3292,7 @@ ${routeLines}`;
                         <div class="route-tool-row-main">
                             <div class="route-tool-row-title">${escapeHtml(r.title)}</div>
                             <div class="route-tool-row-meta">${escapeHtml(r.meta)}</div>
-                            <div class="route-tool-row-value">${escapeHtml(r.values)}</div>
+                            <div class="route-tool-row-value">${GARadioTuningCore.text(r.values, 'COM')}</div>
                         </div>
                         <div class="route-tool-row-actions">
                             ${locateButton('locate-airspace', `data-as-idx="${escapeAttr(r.idx)}"`, 'Luftraum auf Karte zeigen')}
@@ -3313,14 +3314,14 @@ ${routeLines}`;
                             </span>
                             <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                         </button>
-                        ${freqs.length ? `<div class="route-tool-radio-freqs">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : '<div class="route-tool-row-meta">Frequenzen werden bei Bedarf geladen.</div>'}
+                        ${freqs.length ? `<div class="route-tool-radio-freqs">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label) ? 'XPDR' : 'COM')}</b></span>`).join('')}</div>` : '<div class="route-tool-row-meta">Frequenzen werden bei Bedarf geladen.</div>'}
                         ${open ? renderAirportContext(key, a) : ''}
                     </div>`;
     }).join('') : renderToolEmpty(entry.loading ? 'Nahe Plätze werden geladen...' : 'Keine nahen Plätze gefunden.')}
             </div>
             <div class="route-tool-section">
                 <div class="route-tool-section-title">Funkfeuer</div>
-                ${data !== null && data !== void 0 && (_data$navaids = data.navaids) !== null && _data$navaids !== void 0 && _data$navaids.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title">${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</div><div class="route-tool-row-meta">${fmtNm(n.routeDist)} NM neben Route${n.freq ? ` · ${escapeHtml(n.freq)}` : ''}</div></div>`).join('') : renderToolEmpty(entry.loading ? 'Funkfeuer werden geladen...' : 'Keine Funkfeuer entlang der Route gefunden.')}
+                ${data !== null && data !== void 0 && (_data$navaids = data.navaids) !== null && _data$navaids !== void 0 && _data$navaids.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title">${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</div><div class="route-tool-row-meta">${fmtNm(n.routeDist)} NM neben Route${n.freq ? ` · ${GARadioTuningCore.html(n.freq, n.radioKind)}` : ''}</div></div>`).join('') : renderToolEmpty(entry.loading ? 'Funkfeuer werden geladen...' : 'Keine Funkfeuer entlang der Route gefunden.')}
             </div>
             ${data ? renderFreqBlock('Ziel', data.dest, `radio_dest_${((_data$dest = data.dest) === null || _data$dest === void 0 ? void 0 : _data$dest.icao) || 'none'}`) : renderToolEmpty(entry.loading ? 'Radio-Daten werden geladen...' : 'Keine Radio-Daten.')}
         `;
@@ -3623,7 +3624,7 @@ ${routeLines}`;
                 <div data-place-details>
                 <div class="route-tool-place-block">
                     <div class="route-tool-place-block-title">Frequenzen</div>
-                    ${freqs.length ? `<div class="route-tool-frequency-chips">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : renderToolEmpty('Keine Frequenzen im Cache.')}
+                    ${freqs.length ? `<div class="route-tool-frequency-chips">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label) ? 'XPDR' : 'COM')}</b></span>`).join('')}</div>` : renderToolEmpty('Keine Frequenzen im Cache.')}
                 </div>
                 <div class="route-tool-place-block">
                     <div class="route-tool-place-block-title">Pisten</div>
@@ -3811,7 +3812,7 @@ ${routeLines}`;
       return `<span class="route-tool-nearest-runway"><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><line x1="${16 - dx}" y1="${16 + dy}" x2="${16 + dx}" y2="${16 - dy}" stroke="currentColor" stroke-width="1.5" /></svg><b>${escapeHtml(label)}</b></span>`;
     }).join('');
     var freqs = airportDisplayFrequencies(apt);
-    return `<span class="route-tool-nearest-details"><span class="route-tool-nearest-runways">${runways || 'Pisten: keine Angaben'}</span><span class="route-tool-nearest-frequencies">${freqs.length ? freqs.map(f => `<span class="route-tool-nearest-frequency">${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('') : 'Frequenz: keine Angaben'}</span></span>`;
+    return `<span class="route-tool-nearest-details"><span class="route-tool-nearest-runways">${runways || 'Pisten: keine Angaben'}</span><span class="route-tool-nearest-frequencies">${freqs.length ? freqs.map(f => `<span class="route-tool-nearest-frequency">${escapeHtml(f.label)} <b>${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label) ? 'XPDR' : 'COM')}</b></span>`).join('') : 'Frequenz: keine Angaben'}</span></span>`;
   }
   var nextAirportSelection = null;
   var nextAirportRequests = new Map();

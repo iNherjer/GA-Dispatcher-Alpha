@@ -728,7 +728,7 @@ function renderMapContextAirspaces(state) {
     var frequencyRows = frequencies.length ? frequencies.map(frequency => `
                 <span class="ga-map-context-frequency-row">
                     <span class="ga-map-context-frequency-label">${escapePopupText(frequency.label)}</span>
-                    <span class="ga-map-context-frequency-value">${escapePopupText(frequency.value)}</span>
+                    <span class="ga-map-context-frequency-value">${GARadioTuningCore.text(frequency.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(frequency.label) ? 'XPDR' : 'COM')}</span>
                 </span>`).join('') : `
                 <span class="ga-map-context-frequency-row">
                     <span class="ga-map-context-frequency-label">FUNK</span>
@@ -1249,7 +1249,10 @@ function buildMapContextAirportWidget(state, selected) {
                     aria-pressed="${selected ? 'true' : 'false'}">
                 <span class="ga-map-context-feature-kind">FLUGPLATZ</span>
                 <b>${escapePopupText(title || 'Flugplatz')}</b>
-                ${details.map(detail => `<span>${escapePopupText(detail)}</span>`).join('')}
+                ${details.map(detail => {
+      var _feature$frequencies3;
+      return `<span>${(_feature$frequencies3 = feature.frequencies) !== null && _feature$frequencies3 !== void 0 && _feature$frequencies3.length && detail === feature.frequencies.join('; ') ? GARadioTuningCore.text(detail, 'COM') : escapePopupText(detail)}</span>`;
+    }).join('')}
                 ${selected ? '<span class="ga-map-context-feature-action">Karte + Höhenband markiert</span>' : ''}
             </button>`;
   }
@@ -1350,7 +1353,7 @@ function hydrateMapContextAirportWidget(state) {
   }
 }
 function renderMapContextFeature(state) {
-  var _feature$frequencies3;
+  var _feature$frequencies4;
   if (state.loading.feature && !state.feature) {
     return '<div class="ga-map-context-loading">Objekte am Punkt werden geprüft…</div>';
   }
@@ -1362,14 +1365,17 @@ function renderMapContextFeature(state) {
   }
   var isReportingPoint = feature.kind === 'vrp';
   var title = isReportingPoint ? feature.name : [feature.identifier, feature.name].filter(Boolean).join(' · ');
-  var details = isReportingPoint ? [feature.airportIcao ? `Zugehöriger Flugplatz ${feature.airportIcao}` : '', feature.description].filter(Boolean) : [feature.typeLabel, (_feature$frequencies3 = feature.frequencies) !== null && _feature$frequencies3 !== void 0 && _feature$frequencies3.length ? `Funk ${feature.frequencies.join('; ')}` : '', feature.channel ? `Kanal ${feature.channel}` : '', feature.range ? `Reichweite ${feature.range}` : ''].filter(Boolean);
+  var details = isReportingPoint ? [feature.airportIcao ? `Zugehöriger Flugplatz ${feature.airportIcao}` : '', feature.description].filter(Boolean) : [feature.typeLabel, (_feature$frequencies4 = feature.frequencies) !== null && _feature$frequencies4 !== void 0 && _feature$frequencies4.length ? `Funk ${feature.frequencies.join('; ')}` : '', feature.channel ? `Kanal ${feature.channel}` : '', feature.range ? `Reichweite ${feature.range}` : ''].filter(Boolean);
   return `
         <button type="button" class="ga-map-context-feature${selected ? ' is-selected' : ''}"
                 data-map-context-feature-id="${escapePopupText(feature.id)}"
                 aria-pressed="${selected ? 'true' : 'false'}">
             <span class="ga-map-context-feature-kind">${isReportingPoint ? 'VRP · VFR-MELDEPUNKT' : 'NAVAID'}</span>
             <b>${escapePopupText(title || (isReportingPoint ? 'VFR-Meldepunkt' : 'Navaid'))}</b>
-            ${details.map(detail => `<span>${escapePopupText(detail)}</span>`).join('')}
+            ${details.map(detail => {
+    var _feature$frequencies5;
+    return `<span>${!isReportingPoint && (_feature$frequencies5 = feature.frequencies) !== null && _feature$frequencies5 !== void 0 && _feature$frequencies5.length && detail === `Funk ${feature.frequencies.join('; ')}` ? GARadioTuningCore.text(detail, GARadioTuningCore.navaidKind(feature.typeLabel)) : escapePopupText(detail)}</span>`;
+  }).join('')}
             ${selected ? '<span class="ga-map-context-feature-action">Markiert · erneut antippen zum Lösen</span>' : ''}
         </button>`;
 }

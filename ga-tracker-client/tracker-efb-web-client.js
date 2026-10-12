@@ -6,10 +6,12 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '52101';
+const EFB_WEB_ASSET_REVISION = '52201';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
+  '/efb/v1/assets/radio-tuning-core.js': [path.join(__dirname, 'efb-web-assets', 'radio-tuning-core.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/radio-tuning-ui.js': [path.join(__dirname, 'efb-web-assets', 'radio-tuning-ui.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-fire-search-map.js': [path.join(__dirname, 'efb-web-assets', 'mission-fire-search-map.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-survey-pattern.js': [path.join(__dirname, 'efb-web-assets', 'mission-survey-pattern.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-poi-chain-runtime.js': [path.join(__dirname, 'efb-web-assets', 'mission-poi-chain-runtime.js'), 'text/javascript; charset=utf-8'],
@@ -142,6 +144,8 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/mission-control-ui-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('mission-control-ui-core.js')" onerror="__gaEfbScriptError('mission-control-ui-core.js')"></script>
 <script src="/efb/v1/assets/mission-manifest-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('mission-manifest-core.js')" onerror="__gaEfbScriptError('mission-manifest-core.js')"></script>
 <script src="/efb/v1/assets/map-live-presentation.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/radio-tuning-core.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/radio-tuning-ui.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/navigation-warning-presentation.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/navigation-warning-audio.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/pax-audio-style.js?v=${EFB_WEB_ASSET_REVISION}"></script>

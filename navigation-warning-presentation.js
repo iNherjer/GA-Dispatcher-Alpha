@@ -112,7 +112,7 @@ function _awShowFreqBanner(as, col) {
                     : (t === 5 || t === 27) ? (nm || 'FREQ')
                     : (t === 6 || t === 28 || t === 33) ? (nm || 'INFO')
                     : (nm || 'TWR');
-        freqParts.push(`${icon}\u202F${escapeHtml(label)}: <b>${escapeHtml(f.value)}</b>`);
+        freqParts.push(`${icon}\u202F${escapeHtml(label)}: <b>${typeof GARadioTuningCore !== 'undefined' ? GARadioTuningCore.html(f.value, isSquawk ? 'XPDR' : 'COM') : escapeHtml(f.value)}</b>`);
     }
     if (!freqParts.length) return;
 

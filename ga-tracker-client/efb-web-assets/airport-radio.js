@@ -306,7 +306,7 @@ function _fetchAirportFreq() {
               value: f.value
             };
           });
-          lines = labeledFreqs.map(lf => `📻 ${lf.label}: ${lf.value}`);
+          lines = labeledFreqs.map(lf => `📻 ${GARadioTuningCore.escape(lf.label)}: ${GARadioTuningCore.html(lf.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(lf.label) ? 'XPDR' : 'COM')}`);
           if (el) el.innerHTML = lines.join('<br>');
           freqCache[icaoQuery] = labeledFreqs;
           return _context.a(2, bestFreqValue);

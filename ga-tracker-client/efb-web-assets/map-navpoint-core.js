@@ -10,8 +10,8 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
 /* Original standalone navpoint labels, airport enrichment and geographic filters.
  * Shared by the App and the Tracker's local EFB/Toolbar data source. */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();else root.GAMapNavpointCore = factory();
-})(typeof window !== 'undefined' ? window : globalThis, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./radio-tuning-core'));else root.GAMapNavpointCore = factory(root.GARadioTuningCore);
+})(typeof window !== 'undefined' ? window : globalThis, function (radio) {
   'use strict';
 
   function normalizeOpenAipAirportForPopup(airport) {
@@ -65,6 +65,7 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
       sourceId,
       navaidIdentifier: identifier,
       navaidType: (_enrichedItem$type = enrichedItem === null || enrichedItem === void 0 ? void 0 : enrichedItem.type) !== null && _enrichedItem$type !== void 0 ? _enrichedItem$type : null,
+      radioKind: radio ? radio.navaidKind(enrichedItem === null || enrichedItem === void 0 ? void 0 : enrichedItem.type) : '',
       navaidSource: source,
       navaidData: _objectSpread(_objectSpread({}, enrichedItem), {}, {
         id: sourceId || (enrichedItem === null || enrichedItem === void 0 ? void 0 : enrichedItem.id) || '',

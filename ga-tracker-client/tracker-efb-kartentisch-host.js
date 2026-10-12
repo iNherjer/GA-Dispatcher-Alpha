@@ -1279,6 +1279,8 @@
 
   function openSideDrawer(view) { window.gaChecklistOpen(view || 'home'); }
 
+  window.gaRadioTune = function(payload) { return submitCockpitTool('radio_tune',payload); };
+
   function submitCockpitTool(intent, payload) {
     var client = window.gaCockpitSessionClient;
     if (!client || !client.submitTool) return Promise.reject(new Error('Tracker nicht verbunden.'));
@@ -2090,7 +2092,7 @@
             navigationDragging = false;
             if (!mapSnapshot) return;
             var pos = marker.getLatLng(), closest = snappedPoint(pos);
-            var point = closest ? { lat: closest.lat, lng: closest.lng, name: closest.name, rppAirportIcao: closest.rppAirportIcao || '' } : { lat: pos.lat, lng: pos.lng };
+            var point = closest ? { lat: closest.lat, lng: closest.lng, name: closest.name, radioKind: closest.radioKind || '', rppAirportIcao: closest.rppAirportIcao || '' } : { lat: pos.lat, lng: pos.lng };
             if (!navigationClient.edit({ action: 'move', index: index, point: point })) renderRoute(mapSnapshot);
           });
         }
@@ -2868,10 +2870,18 @@
     telemetryPrevious = { timestamp: timestamp, altitude: sample.altFt };
   }
 
+  function setRadioText(id, value, kind) {
+    var node = byId(id); if (!node) return;
+    var markup = GARadioTuningCore.text(value,kind);
+    if (node._gaRadioMarkup !== markup || node.textContent !== String(value)) {
+      node.innerHTML = markup; node._gaRadioMarkup = markup;
+    }
+  }
+
   function renderProgress() {
     var currentContext = mapSnapshot && mapSnapshot.context || {};
     setText('currentPosRef', currentContext.currentPosition || 'Position aktiv');
-    setText('currentFreqValue', currentContext.frequency || '\u2014');
+    setRadioText('currentFreqValue', currentContext.frequency || '\u2014', 'COM');
     setText('currentFreqSource', currentContext.frequencySource || '');
     var navigation = mapSnapshot && mapSnapshot.navigation;
     var route = mapSnapshot && mapSnapshot.route;
@@ -2897,8 +2907,8 @@
     setText('routeProgressDst', formatNumber(distance, 1) + ' NM');
     setText('routeProgressEta', etaText(distance, gs));
     setText('routeProgressDur', durationText(distance, gs));
-    setText('routeProgressFreq', context.frequency || '--');
-    setText('currentFreqValue', context.frequency || '\u2014');
+    setRadioText('routeProgressFreq', context.frequency || '--', 'COM');
+    setRadioText('currentFreqValue', context.frequency || '\u2014', 'COM');
     setText('currentFreqSource', context.frequencySource || '');
     Array.prototype.forEach.call(document.querySelectorAll('.route-progress-target'), function (node) {
       presentation.setText(node, routeProgressTarget === 'route' ? 'RTE' : 'WPT');
@@ -2909,17 +2919,21 @@
     var nameNode = byId('nextWpName');
     var airportDetails = window.gaUpdateNextWaypointAirportInfo && window.gaUpdateNextWaypointAirportInfo(selected.waypoint, selected.selectedIndex, route.waypoints.length);
     var frequency = !airportDetails && label && label.frequency ? String(label.frequency) : '';
-    var nameKey = JSON.stringify([String(name), frequency]);
+    var radioKind = label && label.radioKind || selected.waypoint.radioKind || (selected.waypoint.kind === 'navaid' ? '' : 'COM');
+    var nameKey = JSON.stringify([String(name), frequency, radioKind]);
     if (nameNode && frequency) {
       // Keep the frequency markup and glyph spans instead of clearing them
       // to plain name text before rebuilding the same markup each sample.
       if (nameNode._gaWaypointLabel !== nameKey || nameNode.textContent !== String(name) + frequency
           || !nameNode.querySelector('div') || nameNode.querySelector('div').textContent !== frequency) {
-        nameNode.innerHTML = drawerEscape(name) + '<div style="font-size:11px;color:#9fd3ff;margin-top:1px;line-height:1.1;">' + drawerEscape(frequency) + '</div>';
+        nameNode.innerHTML = GARadioTuningCore.waypoint(name,radioKind) + '<div style="font-size:11px;color:#9fd3ff;margin-top:1px;line-height:1.1;">' + GARadioTuningCore.text(frequency, radioKind) + '</div>';
         nameNode._gaWaypointLabel = nameKey;
       }
     } else {
-      presentation.setText(nameNode, name);
+      if (nameNode && (nameNode._gaWaypointLabel !== nameKey || nameNode.textContent !== String(name))) {
+        nameNode.innerHTML = GARadioTuningCore.waypoint(name, radioKind);
+        nameNode._gaWaypointLabel = nameKey;
+      }
     }
     setText('nextWpCourse', leftPad(Math.round(selected.bearingDeg || 0), 3) + '\u00b0');
     setText('nextWpDist', formatNumber(selected.distanceNm, 1));

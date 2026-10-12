@@ -1272,6 +1272,7 @@
             <div style="position:relative; display:inline-flex; align-items:center;">
                 <button class="pb-btn" id="mapHintsBtn" onclick="window.toggleMapHintsMenu && toggleMapHintsMenu()" aria-expanded="false">⚙️ Anzeige</button>
                 <div id="mapHintsMenu" style="display:none; position:absolute; top:38px; right:0; width:210px; max-width:calc(100vw - 16px); box-sizing:border-box; overflow:hidden; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
+                    <button id="navcomModeBtn" class="pb-btn" onclick="window.gaCycleNavcomMode && gaCycleNavcomMode()" style="display:block;width:100%;margin:0 0 6px;text-align:left;">NAVCOM: AUS</button>
                     <button id="hintToggleSnapping" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
                     <button id="hintToggleAirportSingleClick" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.cycleMapSingleClickMode && cycleMapSingleClickMode()" aria-label="Einzelklick für Flugplätze, VRPs und Navaids: Aus">🛩️ Einzelklick: Aus</button>
                     <button id="hintToggleMagentaLine" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('magentaLine')">🟣 Direkt-Linie (An)</button>
@@ -2887,6 +2888,8 @@
 <script defer src="tutorial.js?v=mission-airport-types-20260728-01"></script>
 <script src="map-profile-controls.js"></script>
 <script src="map-display-controls.js"></script>
+<script src="radio-tuning-core.js"></script>
+<script src="radio-tuning-ui.js"></script>
 <script src="airport-radio.js"></script>
 <script src="airport-details.js"></script>
 <script src="airport-aip.js"></script>

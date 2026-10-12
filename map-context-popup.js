@@ -663,7 +663,7 @@ function renderMapContextAirspaces(state) {
             ? frequencies.map((frequency) => `
                 <span class="ga-map-context-frequency-row">
                     <span class="ga-map-context-frequency-label">${escapePopupText(frequency.label)}</span>
-                    <span class="ga-map-context-frequency-value">${escapePopupText(frequency.value)}</span>
+                    <span class="ga-map-context-frequency-value">${GARadioTuningCore.text(frequency.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(frequency.label) ? 'XPDR' : 'COM')}</span>
                 </span>`).join('')
             : `
                 <span class="ga-map-context-frequency-row">
@@ -1184,7 +1184,7 @@ function buildMapContextAirportWidget(state, selected) {
                     aria-pressed="${selected ? 'true' : 'false'}">
                 <span class="ga-map-context-feature-kind">FLUGPLATZ</span>
                 <b>${escapePopupText(title || 'Flugplatz')}</b>
-                ${details.map(detail => `<span>${escapePopupText(detail)}</span>`).join('')}
+                ${details.map(detail => `<span>${feature.frequencies?.length && detail === feature.frequencies.join('; ') ? GARadioTuningCore.text(detail, 'COM') : escapePopupText(detail)}</span>`).join('')}
                 ${selected ? '<span class="ga-map-context-feature-action">Karte + Höhenband markiert</span>' : ''}
             </button>`;
     }
@@ -1345,7 +1345,7 @@ function renderMapContextFeature(state) {
                 aria-pressed="${selected ? 'true' : 'false'}">
             <span class="ga-map-context-feature-kind">${isReportingPoint ? 'VRP · VFR-MELDEPUNKT' : 'NAVAID'}</span>
             <b>${escapePopupText(title || (isReportingPoint ? 'VFR-Meldepunkt' : 'Navaid'))}</b>
-            ${details.map(detail => `<span>${escapePopupText(detail)}</span>`).join('')}
+            ${details.map(detail => `<span>${!isReportingPoint && feature.frequencies?.length && detail === `Funk ${feature.frequencies.join('; ')}` ? GARadioTuningCore.text(detail, GARadioTuningCore.navaidKind(feature.typeLabel)) : escapePopupText(detail)}</span>`).join('')}
             ${selected ? '<span class="ga-map-context-feature-action">Markiert · erneut antippen zum Lösen</span>' : ''}
         </button>`;
 }

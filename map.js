@@ -5894,7 +5894,7 @@ function renderMainRoute() {
 
                 const closest = snapMode ? window.GAMapRouteEditCore.snap(dropLatLng, cachedNavData,
                     p => map.latLngToLayerPoint([p.lat, p.lng ?? p.lon])) : null;
-                const point = closest ? { lat: closest.lat, lng: closest.lng, name: closest.name, rppAirportIcao: closest.rppAirportIcao || '' }
+                const point = closest ? { lat: closest.lat, lng: closest.lng, name: closest.name, radioKind: closest.radioKind || '', rppAirportIcao: closest.rppAirportIcao || '' }
                     : { lat: dropLatLng.lat, lng: dropLatLng.lng };
                 if (window.gaNavigationEdit?.({ action: 'move', index, point })) return;
                 routeWaypoints = window.GAMapRouteEditCore.apply(routeWaypoints, { action: 'move', index, point });

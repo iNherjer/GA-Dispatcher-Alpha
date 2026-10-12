@@ -77,6 +77,8 @@
       "efb-web-assets/map-prediction.js",
       "efb-web-assets/map-profile-controls.js",
       "efb-web-assets/map-display-controls.js",
+      "efb-web-assets/radio-tuning-core.js",
+      "efb-web-assets/radio-tuning-ui.js",
       "efb-web-assets/airport-radio.js",
       "efb-web-assets/checklists.js",
       "efb-web-assets/flight-debrief.js",

@@ -98,8 +98,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v521';
-const TRACKER_VERSION_CODE = 521;
+const TRACKER_VERSION = 'v522';
+const TRACKER_VERSION_CODE = 522;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -130,7 +130,7 @@ const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   clientId: 'ga-tracker',
   id: `tracker-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1']
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'radio.tuning.v1']
 });
 const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   trackerVersion: TRACKER_VERSION,
@@ -139,7 +139,7 @@ const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   clientId: 'ga-tracker-local',
   id: `tracker-efb-http-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1']
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'radio.tuning.v1']
 });
 const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;
 const PA24_FUEL_TANK_LVARS = [
@@ -5241,6 +5241,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   });
   debugLog(`MISSION_CLOUD_CONTROL_READY channel=${TRACKER_RUNTIME_CHANNEL} revision=${cloudMissionReconciler.applied()?.revision || 0}`);
   let readCockpitPayload = null;
+  let tuneCockpitRadio = null;
   const cockpitTools = createCockpitTools({
     filename: path.join(TRACKER_DATA_DIR, 'navigation-route-v1.json'),
     getRun: () => missionAuthorityManager.getActiveRun({ includeBundle: true }),
@@ -5249,6 +5250,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     getRunSummary: () => missionAuthorityManager.getActiveRun(),
     getFlight: () => _lastEfbSnapshot,
     isSimulatorConnected: () => _simulatorConnected,
+    tuneRadio: payload => tuneCockpitRadio ? tuneCockpitRadio(payload) : Promise.resolve({ok:false,error:'simulator_not_connected'}),
     readPayload: count => readCockpitPayload ? readCockpitPayload(count) : Promise.reject(new Error('simulator_not_connected')),
     openExternal: url => new Promise((resolve, reject) => {
       require('node:child_process').execFile('rundll32.exe', ['url.dll,FileProtocolHandler', url], error => error ? reject(error) : resolve());
@@ -5261,6 +5263,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
 
   const broadcastNavigation = () => sendHomebaseAck({ type: 'navigation_route_changed', navigation: cockpitTools.navigation() });
   const executeNavigationRelay = require('./tracker-cockpit-tools').createNavigationRelay(cockpitTools, broadcastNavigation);
+  const executeRadioRelay = require('./tracker-radio-relay').createRadioRelay(payload => cockpitTools.execute({intent:'radio_tune',payload}));
   trackerCockpitControl = createTrackerCockpitControl({
     executeTool: async request => {
       const result = await cockpitTools.execute(request);
@@ -5383,6 +5386,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   const updateEfbState = (patch = {}) => {
     if (Object.hasOwn(patch, 'relayConnected')) _relayConnected = patch.relayConnected === true;
     if (typeof patch.readPayload === 'function') readCockpitPayload = patch.readPayload;
+    if (Object.hasOwn(patch, 'tuneRadio')) tuneCockpitRadio = patch.tuneRadio;
     if (typeof patch.cleanupLegacyCloudRun === 'function') cleanupLegacyCloudRun = patch.cleanupLegacyCloudRun;
     if (Object.hasOwn(patch, 'simulatorConnected')) {
       if (_simulatorConnected && patch.simulatorConnected !== true) navigationWarnings?.reset();
@@ -5969,6 +5973,10 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       if (source === 'direct-stabilizer-fallback') _directHangarAckCommandIds.set(commandId, Date.now());
       debugLog(`HOMEBASE_CONTROL_DISPATCH source=${source} type=${type} commandId=${commandId} controlId=${command?.controlId || 'door'} state=${command?.state || ''}`);
     }
+    if (type === 'radio_tuning_request') {
+      executeRadioRelay(command).then(result => sendHomebaseAck({...result, type:'radio_tuning_ack', commandId:command.commandId, clientId:command.clientId, status:result.ok ? 'ok' : 'error'}));
+      return;
+    }
     if (type === 'navigation_route_request') {
       executeNavigationRelay(command).then(result => sendHomebaseAck({ ...result,
         type: 'navigation_route_ack', commandId: command.commandId, clientId: command.clientId,
@@ -6078,6 +6086,10 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     }
     if (command.pin && String(command.pin) !== String(pin)) {
       debugLog(`RELAY_COMMAND_REJECT type=${commandType || 'unknown'} commandId=${commandId || 'none'} reason=command-pin-mismatch`);
+      return;
+    }
+    if (commandType === 'radio_tuning_request' && !require('./tracker-radio-relay').hasRadioPin(data, command, pin)) {
+      debugLog(`RELAY_COMMAND_REJECT type=${commandType} commandId=${commandId || 'none'} reason=radio-pin-required`);
       return;
     }
     if (!isTrustedMissionIntentEnvelope(data, command, pin)) {
@@ -6292,7 +6304,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
 function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null, missionTransfer = null, getCloudAuthoritySnapshot = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
-      if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: true });
+      const radioTuning = require('./tracker-radio-tuning').createRadioTuning(handle, {SimConnectDataType, SimConnectPeriod, SimConnectConstants, EventFlag});
+      if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: true, tuneRadio: payload => radioTuning.execute(payload) });
       trackerLog("✈️ MSFS gefunden! Warte auf Positionsdaten...");
       let lastGpsMsg = null;
       let latestGroundTrafficSnapshot = [];
@@ -7154,6 +7167,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         missionExecutionRuntime?.detachSimulator?.(missionSimulatorEffects);
         if (typeof updateEfbState === 'function') updateEfbState({
           simulatorConnected: false,
+          tuneRadio: null,
           telemetryHibernate: disconnectedTelemetryHibernateState(),
           snapshot: null,
           payloadSnapshot: null

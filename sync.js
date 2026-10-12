@@ -1513,6 +1513,7 @@ function _buildMissionAuthorityMapProfile() {
                 waypointLabels: (typeof routeWaypoints !== 'undefined' ? routeWaypoints : []).slice(0, 128).map((wp, index) => ({
                     lat: Number(wp.lat), lon: Number(wp.lng ?? wp.lon),
                     name: typeof getWpDisplayName === 'function' ? getWpDisplayName(index) : wp.name || '',
+                    radioKind: wp.radioKind || (wp.type === 'NAVAID' ? GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(wp.navaidType)) : 'COM'),
                     frequency: typeof getWpFrequencyText === 'function' ? getWpFrequencyText(index) : ''
                 })),
                 currentPosition: (() => {
@@ -1853,6 +1854,12 @@ function _sendMissionAuthorityRequest(command = {}, timeoutMs = 10000) {
         }
     });
 }
+
+window.gaRadioTune = payload => {
+    if (window.simModeActive || !window.liveTrackerConnected) return Promise.resolve({ok:false,error:'tracker_not_connected'});
+    if (!(window.liveTrackerCapabilities || []).includes('radio.tuning.v1')) return Promise.resolve({ok:false,error:'radio_unavailable'});
+    return _sendMissionAuthorityRequest({type:'radio_tuning_request',payload,clientId:_missionAuthorityClientId()}, 10000);
+};
 
 window.gaNavigationAvailable = () => window.liveTrackerConnected === true && !window.simModeActive
     && (window.liveTrackerCapabilities || []).includes('navigation.route.v1');
@@ -10973,6 +10980,11 @@ function _handleTrackerAck(ack) {
     // must not reset the projected passenger/boarding flags during reconnect.
     if (ack.error === 'mission_authority_owned_by_versioned_client'
         && /^mission_(scene|smoke)_/.test(ackType)) return;
+    if (ackType === 'radio_tuning_ack') {
+        _trackerPendingHandleAck(ack);
+        _resolveMissionAuthorityAck(ack);
+        return;
+    }
     if (ackType === 'navigation_route_ack') {
         _trackerPendingHandleAck(ack);
         _resolveMissionAuthorityAck(ack);
@@ -17780,7 +17792,7 @@ function updateRouteProgressBar(lat, lon, gsKts = null, nextInfo = null) {
     const posEl = document.getElementById('routeProgressPos');
     if (posEl) posEl.textContent = formatRouteProgressPosition(lat, lon);
     const freqEl = document.getElementById('routeProgressFreq');
-    if (freqEl) freqEl.textContent = formatRouteProgressFrequency(lat, lon, window.lastLiveGpsPos?.alt);
+    if (freqEl) freqEl.innerHTML = GARadioTuningCore.text(formatRouteProgressFrequency(lat, lon, window.lastLiveGpsPos?.alt), 'COM');
 
     const wpIdx = getLiveRouteTargetIndex(nextInfo);
     const distNm = getRouteProgressDistanceNm(lat, lon, wpIdx, nextInfo);
@@ -18190,7 +18202,7 @@ function updateCurrentInfoTelemetry(lat, lon, alt = null) {
 
     const freq = getCurrentFrequencyInfo(lat, lon, alt);
     if (freq) {
-        freqEl.textContent = freq.value;
+        freqEl.innerHTML = GARadioTuningCore.text(freq.value, 'COM');
         freqEl.style.color = freq.color || '#9fd3ff';
         sourceEl.textContent = freq.source || '';
     } else {
@@ -18353,9 +18365,10 @@ function updateNextWpTelemetry(lat, lon) {
     const airportDetails = window.gaUpdateNextWaypointAirportInfo?.(wp, wpIdx, routeWaypoints.length);
     const freqInfo = airportDetails ? '' : getWpFrequencyText(wpIdx);
     if (freqInfo) {
-        nameEl.innerHTML = `${escapeHtmlLite(wpName)}<div style="font-size:11px; color:#9fd3ff; margin-top:1px; line-height:1.1;">${escapeHtmlLite(freqInfo)}</div>`;
+        nameEl.innerHTML = `${GARadioTuningCore.waypoint(wpName, wp.radioKind || (wp.type === 'NAVAID' ? GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(wp.navaidType)) : 'COM'))}<div style="font-size:11px; color:#9fd3ff; margin-top:1px; line-height:1.1;">${GARadioTuningCore.text(freqInfo, 'COM')}</div>`;
     } else {
-        nameEl.textContent = wpName;
+        const kind = wp.radioKind || (wp.type === 'NAVAID' ? GARadioTuningCore.navaidKind(typeof getOpenAipNavaidTypeLabel === 'function' ? getOpenAipNavaidTypeLabel(wp.navaidType) : '') : 'COM');
+        nameEl.innerHTML = GARadioTuningCore.waypoint(wpName, kind);
     }
     courseEl.textContent = crs;
     distEl.textContent = dist;

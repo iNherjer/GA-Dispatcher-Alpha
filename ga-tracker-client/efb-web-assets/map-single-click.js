@@ -40,7 +40,7 @@ function getOpenAipAirportTooltip(airport) {
         <span class="ga-airport-hover-tooltip">
             <b>${escapePopupText(icao || 'APT')}</b> · ${escapePopupText(name)}
             ${runwayLabels.length ? `<br><span>PISTE&nbsp; ${escapePopupText(runwayLabels.join(' · '))}</span>` : ''}
-            ${frequencies.length ? `<br><span>FREQ&nbsp;&nbsp; ${escapePopupText(frequencies[0])}</span>` : ''}
+            ${frequencies.length ? `<br><span>FREQ&nbsp;&nbsp; ${GARadioTuningCore.text(frequencies[0], 'COM')}</span>` : ''}
         </span>`;
 }
 function findNearestAirport(latlng, maxPixels) {
@@ -215,7 +215,7 @@ function getMapNavigationPointTooltip(point) {
   return `
         <span class="ga-airport-hover-tooltip ga-map-point-hover-tooltip">
             <b>${escapePopupText(title)}</b> · ${escapePopupText(nav.name)}
-            <br><span>${escapePopupText(getOpenAipNavaidTypeLabel(nav.type))}${frequency ? `&nbsp; ${escapePopupText(frequency)}` : ''}</span>
+            <br><span>${escapePopupText(getOpenAipNavaidTypeLabel(nav.type))}${frequency ? `&nbsp; ${GARadioTuningCore.text(frequency, GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(nav.type)))}` : ''}</span>
         </span>`;
 }
 var mapSingleClickTooltipLayer = null;
@@ -245,6 +245,7 @@ function openMapPointSingleClickTooltip(match) {
   if (!content) return false;
   clearMapSingleClickTooltip();
   mapSingleClickTooltipLayer = L.tooltip({
+    interactive: true,
     direction: 'top',
     offset: [0, -8],
     opacity: 1,
@@ -312,7 +313,7 @@ function openNavaidInfoPopup(navaid) {
   var title = nav.identifier ? `${escapePopupText(nav.identifier)} · ${escapePopupText(nav.name)}` : escapePopupText(nav.name);
   var typeLabel = getOpenAipNavaidTypeLabel(nav.type);
   var sourceLabel = getOpenAipPopupSourceLabel(nav.source);
-  var lines = [`<div style="font-size:11px; line-height:1.65;"><b>Typ:</b> ${escapePopupText(typeLabel)}`, nav.frequencyValue ? `<b>Frequenz:</b> ${escapePopupText(nav.frequencyValue)}${nav.frequencyUnit ? ` ${escapePopupText(nav.frequencyUnit)}` : ''}` : '<b>Frequenz:</b> Keine Angabe', nav.channel ? `<b>Kanal:</b> ${escapePopupText(nav.channel)}` : '', nav.rangeValue ? `<b>Reichweite:</b> ${escapePopupText(nav.rangeValue)}${nav.rangeUnit ? ` ${escapePopupText(nav.rangeUnit)}` : ''}` : '', nav.country ? `<b>Land:</b> ${escapePopupText(nav.country)}` : '', `<b>Position:</b> ${nav.lat.toFixed(5)}, ${nav.lon.toFixed(5)}`, `<span style="color:#666;">Quelle: ${escapePopupText(sourceLabel)}</span></div>`].filter(Boolean).join('<br>');
+  var lines = [`<div style="font-size:11px; line-height:1.65;"><b>Typ:</b> ${escapePopupText(typeLabel)}`, nav.frequencyValue ? `<b>Frequenz:</b> ${GARadioTuningCore.html(nav.frequencyValue, GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(nav.type)))}${nav.frequencyUnit ? ` ${escapePopupText(nav.frequencyUnit)}` : ''}` : '<b>Frequenz:</b> Keine Angabe', nav.channel ? `<b>Kanal:</b> ${escapePopupText(nav.channel)}` : '', nav.rangeValue ? `<b>Reichweite:</b> ${escapePopupText(nav.rangeValue)}${nav.rangeUnit ? ` ${escapePopupText(nav.rangeUnit)}` : ''}` : '', nav.country ? `<b>Land:</b> ${escapePopupText(nav.country)}` : '', `<b>Position:</b> ${nav.lat.toFixed(5)}, ${nav.lon.toFixed(5)}`, `<span style="color:#666;">Quelle: ${escapePopupText(sourceLabel)}</span></div>`].filter(Boolean).join('<br>');
   var content = `
         <div style="font-family:'Courier New',monospace; min-width:190px; color:#111;">
             <b style="font-size:13px;">${title}</b>

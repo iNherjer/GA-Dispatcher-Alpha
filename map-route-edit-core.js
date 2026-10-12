@@ -9,7 +9,7 @@
         if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
         const out = { lat, lng, lon: lng };
         if (typeof p.elevationFt === 'number' && Number.isFinite(p.elevationFt)) out.elevationFt = p.elevationFt;
-        ['name', 'icao', 'rppAirportIcao', 'poiChainPointId'].forEach(k => {
+        ['name', 'icao', 'rppAirportIcao', 'poiChainPointId', 'radioKind'].forEach(k => {
             if (typeof p[k] === 'string') out[k] = p[k].slice(0, 180);
         });
         ['isPOI', 'isPoiChainEndpoint', 'isPoiChainReturnHome'].forEach(k => { if (p[k] === true) out[k] = true; });

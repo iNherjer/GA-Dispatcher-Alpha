@@ -312,7 +312,7 @@ function createTrackerCockpitControl(options = {}) {
     const auth = authenticate(request);
     if (!auth.ok) return auth;
     const intent = cleanString(request.intent, 80);
-    if (!['airport_direct_to', 'read_payload', 'open_airport_aip', 'open_airport_weather', 'navigation_get', 'navigation_edit', 'navigation_adopt'].includes(intent) || !options.executeTool) return resultError('cockpit_tool_not_allowed');
+    if (!['radio_tune', 'airport_direct_to', 'read_payload', 'open_airport_aip', 'open_airport_weather', 'navigation_get', 'navigation_edit', 'navigation_adopt'].includes(intent) || !options.executeTool) return resultError('cockpit_tool_not_allowed');
     const commandId = cleanString(request.commandId, 220);
     if (!commandId) return resultError('command_id_required');
     const key = `${auth.session.sessionId}:tool:${commandId}`;

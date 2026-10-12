@@ -1,9 +1,9 @@
 /* Original standalone navpoint labels, airport enrichment and geographic filters.
  * Shared by the App and the Tracker's local EFB/Toolbar data source. */
 (function(root, factory) {
-    if (typeof module === 'object' && module.exports) module.exports = factory();
-    else root.GAMapNavpointCore = factory();
-})(typeof window !== 'undefined' ? window : globalThis, function() {
+    if (typeof module === 'object' && module.exports) module.exports = factory(require('./radio-tuning-core'));
+    else root.GAMapNavpointCore = factory(root.GARadioTuningCore);
+})(typeof window !== 'undefined' ? window : globalThis, function(radio) {
 'use strict';
 function normalizeOpenAipAirportForPopup(airport) {
     const coords = airport?.geometry?.coordinates;
@@ -69,6 +69,7 @@ function buildOpenAipNavaidCacheEntry(item, source = 'live', byId = null) {
         sourceId,
         navaidIdentifier: identifier,
         navaidType: enrichedItem?.type ?? null,
+        radioKind: radio ? radio.navaidKind(enrichedItem?.type) : '',
         navaidSource: source,
         navaidData: {
             ...enrichedItem,

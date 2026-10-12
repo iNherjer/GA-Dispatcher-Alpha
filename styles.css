@@ -21162,3 +21162,21 @@ body.theme-win95 .mission-accept-btn:focus-visible { outline: 1px dotted #000; o
         transform: none !important;
     }
 }
+
+/* Shared NAVCOM selector: fixed row geometry across device/slot steps. */
+.ga-radio-value { cursor: text; }
+body[data-navcom-mode="direct"] .ga-radio-value,
+body[data-navcom-mode="select"] .ga-radio-value { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.ga-radio-value:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.ga-radio-dialog { position: fixed; z-index: 2147483000; width: 240px; max-width: calc(100vw - 16px); padding: 12px; box-sizing: border-box; background: var(--card); color: var(--text); border: 1px solid var(--blue); border-radius: 8px; box-shadow: 0 8px 28px #0009; font-family: inherit; }
+.ga-radio-heading { height: 34px; display: flex; align-items: center; justify-content: space-between; }
+.ga-radio-dialog .ga-radio-choices { display: grid; grid-template-rows: 44px 44px; gap: 8px; margin: 8px 0; }
+.ga-radio-dialog .ga-radio-choices .pb-btn { width: 100%; height: 44px; margin: 0; color: inherit; }
+.ga-radio-back { width: 100%; height: 30px; margin: 0; }
+.ga-radio-status { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2147483001; max-width: calc(100vw - 32px); padding: 12px; background: var(--card); color: var(--text); border: 1px solid var(--blue); border-radius: 6px; }
+body.theme-retro .ga-radio-dialog { background: #262b26; color: #e8dbb5; border-color: #a39a7b; border-radius: 3px; }
+body.theme-navcom .ga-radio-dialog { background: #151a15; color: #a7f579; border: 3px ridge #686b62; border-radius: 3px; font-family: monospace; }
+body.theme-ops1940 .ga-radio-dialog { background: #252b28; color: #e7dec2; border: 3px ridge #686b62; border-radius: 2px; }
+body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3px outset #eee; border-radius: 0; }
+
+.ga-radio-heading b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

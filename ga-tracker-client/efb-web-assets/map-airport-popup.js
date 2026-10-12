@@ -279,7 +279,7 @@ function buildPopupFrequencyLines(icao) {
   return freqCache[icao].slice(0, 6).map(f => `
             <span class="ga-popup-frequency-row">
                 <span class="ga-popup-frequency-label">📻 ${escapePopupText(abbreviateMapFrequencyLabel(f.label || 'Freq'))}</span>
-                <span class="ga-popup-frequency-value">${escapePopupText(f.value || '--')}</span>
+                <span class="ga-popup-frequency-value">${GARadioTuningCore.html(f.value || '--', /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label || '') ? 'XPDR' : 'COM')}</span>
             </span>`).join('');
 }
 function updatePopupFrequencyBlock(containerId, icao) {

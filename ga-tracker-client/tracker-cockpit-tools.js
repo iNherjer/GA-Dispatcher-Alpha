@@ -57,6 +57,10 @@ function createCockpitTools(options) {
   }
   async function execute(request) {
     const data = request.payload || {};
+    if (request.intent === 'radio_tune') {
+      if (!options.isSimulatorConnected()) return {ok:false,error:'simulator_not_connected'};
+      return options.tuneRadio ? options.tuneRadio(data) : {ok:false,error:'radio_unavailable'};
+    }
     if (request.intent === 'navigation_get') return { ok: true, status: 'ok', navigation: navigation(), map: snapshot() };
     if (request.intent === 'navigation_edit' || request.intent === 'navigation_adopt') {
       const current = navigation();

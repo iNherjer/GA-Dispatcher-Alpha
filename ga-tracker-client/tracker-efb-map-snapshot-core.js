@@ -38,6 +38,7 @@ function normalizeWaypoint(value, index) {
     lat,
     lon,
     elevationFt: waypointElevationFt(source),
+    ...(['COM','NAV','ADF'].includes(source.radioKind) ? {radioKind:source.radioKind} : {}),
     kind: cleanText(source.kind || source.type || (source.isPOI ? 'poi' : 'waypoint'), 40).toLowerCase(),
     ...(typeof source.icao === 'string' ? { icao: source.icao.slice(0, 12) } : {}),
     ...(typeof source.rppAirportIcao === 'string' ? { rppAirportIcao: source.rppAirportIcao.slice(0, 12) } : {}),
@@ -182,7 +183,7 @@ function normalizeMapContext(parts) {
     currentPosition: cleanText(source.currentPosition, 100),
     waypointLabels: (Array.isArray(source.waypointLabels) ? source.waypointLabels : []).slice(0, 128)
       .filter(item => item && Number.isFinite(item.lat) && Number.isFinite(item.lon))
-      .map(item => ({ lat: item.lat, lon: item.lon, name: cleanText(item.name, 100), frequency: cleanText(item.frequency, 100) })),
+      .map(item => ({ lat: item.lat, lon: item.lon, name: cleanText(item.name, 100), frequency: cleanText(item.frequency, 100), radioKind: ['COM','NAV','ADF'].includes(item.radioKind) ? item.radioKind : null })),
     frequency: cleanText(source.frequency, 40),
     frequencySource: cleanText(source.frequencySource, 80)
   };

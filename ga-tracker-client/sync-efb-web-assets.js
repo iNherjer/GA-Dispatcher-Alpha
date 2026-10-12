@@ -71,6 +71,8 @@ compileShared('mission-survey-pattern.js');
 compileShared('mission-poi-chain-runtime.js');
 compileShared('map-profile-controls.js');
 compileShared('map-display-controls.js');
+compileShared('radio-tuning-core.js');
+compileShared('radio-tuning-ui.js');
 compileShared('airport-radio.js');
 compileShared('airport-details.js');
 compileShared('airport-aip.js');

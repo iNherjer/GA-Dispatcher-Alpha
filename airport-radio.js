@@ -132,7 +132,7 @@ async function fetchAirportFreq(icao, elementId, type, airportHint = null, optio
                     const label = freqLabelMap[fName] || f.name || 'Freq';
                     return { label: label, value: f.value };
                 });
-                const lines = labeledFreqs.map(lf => `📻 ${lf.label}: ${lf.value}`);
+                const lines = labeledFreqs.map(lf => `📻 ${GARadioTuningCore.escape(lf.label)}: ${GARadioTuningCore.html(lf.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(lf.label) ? 'XPDR' : 'COM')}`);
                 if (el) el.innerHTML = lines.join('<br>');
 
                 freqCache[icaoQuery] = labeledFreqs;

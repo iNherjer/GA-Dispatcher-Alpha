@@ -1,5 +1,20 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## NAVCOM und Squawk-Übernahme, Alpha v522, 12.10.2026
+
+Gezielt auf Origin v521 ergänzt: Anzeige-Menü AUS / Gerät 1 aktiv / Auswahl;
+COM/NAV/ADF und Squawks in Kartenfenstern, Warnbannern, Seitenmenü, Nearest,
+Flugplatzansichten, Telemetrie und Next WPT. Gerät → Aktiv/Standby behält
+identische Zeilenpositionen; native EFB-Skalierung berücksichtigt.
+Additive `radio.tuning.v1`, PIN-Relay und lokaler Cockpit-Tool-Intent;
+ein SimConnect-Set-Event mit begrenztem Rücklesen. Modus/IDENT unverändert.
+92 gezielte und 89 Trainings-/Anzeige-Regressionen, UI-/Zielplatztests,
+Generatorchecks, voller Asset-Build und gepackter Missionsprozess bestanden.
+Windows-x64 ohne Bytecode gebaut; realer MSFS-/Avioniknachtest offen.
+Web-Cache v2025, EFB-Assets 52201. Kein neues natives Community-Paket;
+Stable bleibt unverändert. Vertrag: [NAVCOM Frequency Tuning](NAVCOM%20Frequency%20Tuning.md).
+
+
 ## Missionsseite ohne Aktualisieren-Button, Alpha v521, 12.10.2026
 
 Der gemeinsame Werkzeugkopf blendet Aktualisieren auf der Missionsseite aus.

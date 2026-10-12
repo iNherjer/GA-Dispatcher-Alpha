@@ -71,6 +71,18 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   assert.equal(await page.locator('#nextWpAirportDetails').isVisible(),true);
   assert.match(await page.locator('#nextWpAirportDetails').innerText(),/09\/27/);
   assert.match(await page.locator('#nextWpAirportDetails').innerText(),/128.950/);
+  assert.equal(await page.locator('#nextWpAirportDetails .ga-radio-value[data-radio-kind="COM"]').count(),2);
+  await page.evaluate(()=>{
+    window.__navcomCalls=[];
+    window.gaRadioTune=async payload=>{__navcomCalls.push(payload);return {ok:true,confirmed:true,target:GARadioTuningCore.normalize(payload)};};
+    for(let i=0;i<3&&document.body.dataset.navcomMode!=='direct';i++)gaCycleNavcomMode();
+  });
+  await page.evaluate(()=>gaChecklistCloseDrawer());
+  await page.waitForTimeout(550); // The open drawer intentionally overlays the telemetry widget.
+  await page.locator('#nextWpAirportDetails .ga-radio-value').first().click();
+  await page.waitForFunction(()=>__navcomCalls.length===1);
+  assert.deepEqual(await page.evaluate(()=>__navcomCalls[0]),{kind:'COM',value:'128.950',index:1,slot:'active'});
+  await page.evaluate(()=>gaChecklistOpen('nearest'));
   assert.equal(await page.locator('#nextWpAirportDetails svg line').count(),2);
   assert.equal(await page.locator('#nextWpAirportDetails svg text').count(),0);
   for(const size of [{width:440,height:894},{width:894,height:440}]){

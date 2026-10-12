@@ -41425,7 +41425,7 @@ function getAirspaceFreqInfo(a) {
         const primary = pickPreferredAirspaceFrequency(a.frequencies, t);
         if (primary) {
             const label = primary.name || 'TWR';
-            return `<span style="color:#f2c12e; font-weight:bold; font-size:10px;">📻 ${label}: ${primary.value}</span>`;
+            return `<span style="color:#f2c12e; font-weight:bold; font-size:10px;">📻 ${GARadioTuningCore.escape(label)}: ${GARadioTuningCore.html(primary.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(label) ? 'XPDR' : 'COM')}</span>`;
         }
     }
 
@@ -41433,7 +41433,7 @@ function getAirspaceFreqInfo(a) {
     if (t === 5 || t === 27) {
         const primary = pickPreferredAirspaceFrequency(a.frequencies, t);
         if (primary) {
-            return `<span style="color:#9966ff; font-weight:bold; font-size:10px;">📻 ${primary.name || 'XPDR'}: ${primary.value}</span>`;
+            return `<span style="color:#9966ff; font-weight:bold; font-size:10px;">📻 ${GARadioTuningCore.escape(primary.name || 'XPDR')}: ${GARadioTuningCore.html(primary.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(primary.name || '') ? 'XPDR' : 'COM')}</span>`;
         }
     }
     // For RMZ (type 6 or 28) and FIS (type 33): show freq
@@ -41444,7 +41444,7 @@ function getAirspaceFreqInfo(a) {
             const isPara = isParaAirspace(a);
             const col  = isPara ? '#ffaa00' : '#66cccc';
             const icon = isPara ? '🪂' : '📻';
-            return `<span style="color:${col}; font-weight:bold; font-size:10px;">${icon} ${primary.name || 'INFO'}: ${primary.value}</span>`;
+            return `<span style="color:${col}; font-weight:bold; font-size:10px;">${icon} ${GARadioTuningCore.escape(primary.name || 'INFO')}: ${GARadioTuningCore.html(primary.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(primary.name || '') ? 'XPDR' : 'COM')}</span>`;
         }
     }
 
@@ -47259,7 +47259,7 @@ async function renderAirportInfo(left, right, type) {
         const fLabel = freqPages > 1 ? `FREQ (${freqIdx + 1}/${freqPages}):` : 'FREQ:';
         right.innerHTML =
             `<div class="kln90b-line dim" style="font-size:9px; margin-bottom:1px;">${fLabel}</div>` +
-            fSlice.map(f => `<div class="kln90b-line" style="font-size:9px; white-space:normal; line-height:1.4;">▸ ${f.label}: ${f.value}</div>`).join('');
+            fSlice.map(f => `<div class="kln90b-line" style="font-size:9px; white-space:normal; line-height:1.4;">▸ ${GARadioTuningCore.escape(f.label)}: ${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label || '') ? 'XPDR' : 'COM')}</div>`).join('');
 
         const wikiN = gpsState.wikiCache[icao]?.length || 1;
         const total = rwyPages + freqPages + wikiN;

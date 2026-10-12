@@ -42,7 +42,7 @@ function getOpenAipAirportTooltip(airport) {
         <span class="ga-airport-hover-tooltip">
             <b>${escapePopupText(icao || 'APT')}</b> · ${escapePopupText(name)}
             ${runwayLabels.length ? `<br><span>PISTE&nbsp; ${escapePopupText(runwayLabels.join(' · '))}</span>` : ''}
-            ${frequencies.length ? `<br><span>FREQ&nbsp;&nbsp; ${escapePopupText(frequencies[0])}</span>` : ''}
+            ${frequencies.length ? `<br><span>FREQ&nbsp;&nbsp; ${GARadioTuningCore.text(frequencies[0], 'COM')}</span>` : ''}
         </span>`;
 }
 
@@ -201,7 +201,7 @@ function getMapNavigationPointTooltip(point) {
     return `
         <span class="ga-airport-hover-tooltip ga-map-point-hover-tooltip">
             <b>${escapePopupText(title)}</b> · ${escapePopupText(nav.name)}
-            <br><span>${escapePopupText(getOpenAipNavaidTypeLabel(nav.type))}${frequency ? `&nbsp; ${escapePopupText(frequency)}` : ''}</span>
+            <br><span>${escapePopupText(getOpenAipNavaidTypeLabel(nav.type))}${frequency ? `&nbsp; ${GARadioTuningCore.text(frequency, GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(nav.type)))}` : ''}</span>
         </span>`;
 }
 
@@ -240,6 +240,7 @@ function openMapPointSingleClickTooltip(match) {
 
     clearMapSingleClickTooltip();
     mapSingleClickTooltipLayer = L.tooltip({
+        interactive: true,
         direction: 'top',
         offset: [0, -8],
         opacity: 1,
@@ -335,7 +336,7 @@ function openNavaidInfoPopup(navaid) {
     const lines = [
         `<div style="font-size:11px; line-height:1.65;"><b>Typ:</b> ${escapePopupText(typeLabel)}`,
         nav.frequencyValue
-            ? `<b>Frequenz:</b> ${escapePopupText(nav.frequencyValue)}${nav.frequencyUnit ? ` ${escapePopupText(nav.frequencyUnit)}` : ''}`
+            ? `<b>Frequenz:</b> ${GARadioTuningCore.html(nav.frequencyValue, GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(nav.type)))}${nav.frequencyUnit ? ` ${escapePopupText(nav.frequencyUnit)}` : ''}`
             : '<b>Frequenz:</b> Keine Angabe',
         nav.channel ? `<b>Kanal:</b> ${escapePopupText(nav.channel)}` : '',
         nav.rangeValue
