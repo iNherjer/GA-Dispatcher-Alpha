@@ -7277,3 +7277,18 @@ Electron-Nachweis `tools/efb-debrief-ui-selftest.cjs` (900×640, 440×894, 894×
 Noch kein Release oder realer MSFS-Feldnachweis. Das frühere Debrief-Backlog
 ist damit für Anzeige und synchrones Schließen lokal umgesetzt; Flightlog-
 Explorer und terminales Wiederöffnen nach bestätigtem Schließen bleiben offen.
+
+
+### Alpha-Rollout v520: EFB-Debrief (12.10.2026)
+
+v520 ist als unveränderlicher Tracker-Release veröffentlicht und erneut von
+GitHub heruntergeladen: 173321881 Bytes, SHA-256
+`936fed9fc471d74ef54e6782f21589bc6d79e9d8fa7a5d4fccf49f5dd97e22aa`.
+Alpha zeigt auf v520, EFB-Hostassets auf 52001 und Web-Cache auf v2022.
+Die Übertragung erfolgte gezielt auf dem aktuellen v519-Alpha-Stand in einem
+sauberen Release-Worktree; unabhängige lokale Änderungen wurden nicht übernommen.
+Der aktuelle Mission-Worker veröffentlicht den Debrief-Marker; sein ACK wartet
+auch bei periodischen Checkpoints auf die bestätigte Speicherung.
+154 Release-Tests, Interface-/Electron-UI-Test und gepackter Worker-Start
+mit Exit 0 sind grün. Das EFB-Community-Paket und Stable bleiben unverändert.
+Windows-/MSFS-Feldnachweis bleibt offen.

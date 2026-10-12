@@ -7,7 +7,7 @@ wird vor ACK gespeichert und in App und EFB übernommen; neue Läufe werden
 vor altem Cleanup geschützt. Ohne Verbindung übernimmt die App den Marker
 beim nächsten Verbinden. PDF-Export bleibt in der App verfügbar.
 
-Tracker v520, EFB-Hostassets 52001, Web-App-Cache v2021.
+Tracker v520, EFB-Hostassets 52001, Web-App-Cache v2022.
 Das installierte EFB-Community-Paket benötigt kein neues Archiv.
 
 Validierung: 154 Node-Tests, App-/EFB-Interface-Selftest, Electron-UI-Test in
@@ -18,5 +18,6 @@ Windows-/MSFS-Feldtest steht noch aus.
 
 Release-Asset: `VFR-Multitool-Tracker.exe`, 173321881 Bytes,
 SHA-256 `936fed9fc471d74ef54e6782f21589bc6d79e9d8fa7a5d4fccf49f5dd97e22aa`.
-Alpha-Aktivierung erfolgt nach veröffentlichtem und verifiziertem Download.
+v520 ist veröffentlicht; der erneut heruntergeladene Release stimmt in Größe
+und SHA-256 mit dem Build überein. Der Alpha-Kanal wurde auf dieses Asset gesetzt.
 Stable und Beta bleiben auf ihrem bisherigen Stand.
