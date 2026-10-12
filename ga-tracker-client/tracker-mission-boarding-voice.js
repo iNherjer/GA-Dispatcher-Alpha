@@ -345,6 +345,10 @@ function createTrackerMissionBoardingVoice(options = {}) {
       });
     }
     const sequenceAvailable = recipe.playCue === true && ['before', 'after'].some(stage => job.cueSequence?.[stage]?.some(cue => cue.audioAvailable));
+    const environmentVoice = ['weather_preset','time_shift'].includes(recipe.kind);
+    if (environmentVoice) log(`SIM_ENV_VOICE_TEXT data=${JSON.stringify({effectId,
+      kind:recipe.kind,missionId:run.missionId,speaker:job.speaker?.name || recipe.speaker?.name || '',
+      text:cleanString(job.text,4000),provider:job.provider,model:job.model})}`);
     const playbackEnabled = recipe.audioEnabled === true || sequenceAvailable;
     const candidates = playbackEnabled
       ? Math.max(0, Math.round(Number(getAudioPlaybackCandidates({ effects: sequenceAvailable })) || 0))
@@ -366,6 +370,9 @@ function createTrackerMissionBoardingVoice(options = {}) {
         playback = await voiceService.waitForPlayback(effectId, { timeoutMs: playbackTimeoutMs });
       }
     }
+    if (environmentVoice) log(`SIM_ENV_VOICE_PLAYBACK data=${JSON.stringify({effectId,
+      kind:recipe.kind,stage:'result',status:playback.status,candidates,
+      clientId:playback.job?.playback?.ownerClientId || null})}`);
     log(`MISSION_BOARDING_VOICE_COMPLETE effect=${effectId} job=${job.status} playback=${playback.status} candidates=${candidates}`);
     return completed(request, {
       sideEffect: true,

@@ -1,5 +1,29 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Zeitpaket-Identität und Voice-Ausgabe, Alpha v519, 12.10.2026
+
+Testerlog enthält 811 clock_packet_identity_invalid und keine gültige Zeit.
+Die bisherige Prüfung verlangte die Objekt-ID 0 in Antworten. Diese ist der
+USER-Selektor der Anfrage; konkrete Nutzerflugzeug-IDs sind in Antworten gültig.
+Zeitabfrage bleibt isoliert und an Request/Definition 210 gebunden. Antworten
+müssen eine nichtnegative Objekt-ID, drei FLOAT64-Werte, genau 24 Bytes und,
+wenn geliefert, Single-Object entryNumber/outOf=1 enthalten. Werte und Frische
+bleiben geprüft. SIM_ENV_CLOCK_SOURCE enthält nun die tatsächlich empfangene
+Identität und Paketgröße. Die Slew-Abfrage bleibt in diesem gezielten Fix unberührt.
+Regression mit echtem node-simconnect-Decoder und Objekt-ID 1 reproduziert die
+bisherige Ablehnung und prüft danach einen erkannten Zwei-Stunden-Zeitsprung.
+Die exakten fehlerhaften Paketfelder fehlen im alten Feldlog; Simulatorabnahme offen.
+
+Wetter reagierte im Feldlog auf 16,5 -> 4,7 Grad; Job angefordert und Playback
+als completed bestätigt. SIM_ENV_VOICE_TEXT protokolliert nur für Wetter-/Zeitjobs
+den aufgelösten gesprochenen Text, Sprecher und Effect-ID. SIM_ENV_VOICE_PLAYBACK
+verknüpft Claim, Freigabe und Ergebnis mit Audioclient und gewähltem Gerät.
+Keine Prompts, Keys oder zusätzliche KI-Anfragen. Diagnose landet in beiden Logs.
+Trigger, Audiogerätewahl und Playback-Gates unverändert. Kein neues EFB-Paket.
+111 gezielte Tests bestehen; gepackter ARM64-Missionsprozess startet und beendet
+seinen Worker erfolgreich. Windows/MSFS-Hör- und Zeittest bleiben offen.
+
+
 ## Zielplatz im Next-WPT-Fenster (11.10.2026)
 
 App, EFB und Toolbar verwenden dieselbe Anzeige der Zielplatzdaten aus

@@ -1087,6 +1087,12 @@ function createTrackerVoiceService(options = {}) {
     record.playback = { status: 'claimed', ownerClientId: clientId, deviceId: String(value.deviceId || ''),
       position: record.playback.position || { stage: 'cue', offset: 0 }, leaseUntil: timestamp + leaseMs, completedAt: 0 };
     record.updatedAt = timestamp;
+    if (['weather_preset','time_shift'].includes(record.kind)) {
+      const target = audioControl?.snapshot?.()?.target;
+      log(`SIM_ENV_VOICE_PLAYBACK data=${JSON.stringify({effectId,kind:record.kind,stage:'claimed',
+        clientId,deviceId:record.playback.deviceId,targetMode:target?.mode || null,
+        selectedDeviceId:target?.deviceId || null})}`);
+    }
     const result = { claimed: true, reason: '', job: publicRecord(record) };
     settlePlaybackClaimWaiters(effectId, { status: 'claimed', claimed: true, job: result.job });
     return result;
@@ -1106,6 +1112,9 @@ function createTrackerVoiceService(options = {}) {
     if (!completed && value.error) log(`VOICE_PLAYBACK_FAILED effectId=${effectId} reason=${String(value.error).replace(/[\r\n]/g, ' ').slice(0, 160)}`);
     if (retryable && value.deviceSwitch !== true) record.failedPlaybackClients = [...new Set([...(record.failedPlaybackClients || []), clientId])].slice(-32);
     if (!retryable) playbackGuards.delete(effectId);
+    if (['weather_preset','time_shift'].includes(record.kind))
+      log(`SIM_ENV_VOICE_PLAYBACK data=${JSON.stringify({effectId,kind:record.kind,stage:'released',
+        clientId,deviceId:record.playback.deviceId || null,completed,retryable})}`);
     const position = normalizePlaybackPosition(value.position || record.playback.position);
     record.playback = completed
       ? { status: 'completed', ownerClientId: clientId, leaseUntil: 0, completedAt: timestamp }

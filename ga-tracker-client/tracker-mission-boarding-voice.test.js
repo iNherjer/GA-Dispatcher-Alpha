@@ -586,3 +586,19 @@ test('generation disabled completes with text and preserves cue playback without
   assert.equal(result.voiceOutcome.text, 'Text bleibt.');
   assert.equal(playbackRequests, 1);
 });
+
+test('environment voice diagnostics bind actual resolved text to effect and playback client',async()=>{
+ const rows=[],active=run();
+ active.resumeBundle.executionEffectPlan.effects['voice.approach']={context:{supported:true,audioEnabled:true,speaker:{name:'Maren',gender:'female'}}};
+ const handler=createTrackerMissionBoardingVoice({log:x=>rows.push(x),
+   authorityManager:{getActiveRun:()=>active,getExecutionSnapshot:()=>({runId:'run-a',state:{flags:{active:true}}})},
+   getAudioPlaybackCandidates:()=>1,
+   voiceService:{publicState:()=>({configured:true}),request:()=>({}),
+     wait:async()=>({status:'ready',audioAvailable:true,text:'Mir ist plötzlich kalt!',speaker:{name:'Maren'}}),
+     waitForPlayback:async()=>({status:'completed',job:{playback:{ownerClientId:'pc-audio'}}})}});
+ await handler.dispatch({...request(),effect:{type:'voice.flight',effectId:'weather-comment',payload:{kind:'weather_preset',prompt:'Wetterwechsel'}}});
+ const text=JSON.parse(rows.find(x=>x.startsWith('SIM_ENV_VOICE_TEXT')).split('data=')[1]);
+ assert.equal(text.text,'Mir ist plötzlich kalt!');assert.equal(text.effectId,'weather-comment');assert.equal(text.speaker,'Maren');
+ const playback=JSON.parse(rows.find(x=>x.startsWith('SIM_ENV_VOICE_PLAYBACK')).split('data=')[1]);
+ assert.equal(playback.clientId,'pc-audio');assert.equal(playback.status,'completed');
+});

@@ -798,3 +798,18 @@ test('disabled existing voice flag persists through the existing text-only job f
   assert.equal(restored.status,'ready');assert.equal(restored.synthesizeAudio,false);assert.equal(restored.text,'Text bleibt.');
  } finally {audioControl.close();fs.rmSync(directory,{recursive:true,force:true});}
 });
+
+test('environment playback diagnostics identify client, selected device and completion without keys',async()=>{
+ const rows=[];
+ const service=createTrackerVoiceService({provider:'openai',apiKey:'secret-env-key',
+   audioControl:createAudioControl(),log:x=>rows.push(x),
+   fetchRemote:async()=>({ok:true,arrayBuffer:async()=>Buffer.from('audio')})});
+ service.request({effectId:'env-weather',kind:'weather_preset',text:'Mir ist kalt.',speaker:{name:'Maren',gender:'female'}});
+ await service.wait('env-weather');
+ assert.equal(service.claimPlayback({effectId:'env-weather',clientId:'pc-audio',deviceId:'pc'}).claimed,true);
+ service.releasePlayback({effectId:'env-weather',clientId:'pc-audio',completed:true});
+ const diagnostics=rows.filter(x=>x.startsWith('SIM_ENV_VOICE_PLAYBACK')).map(x=>JSON.parse(x.split('data=')[1]));
+ assert.equal(diagnostics.length,2);assert.equal(diagnostics[0].selectedDeviceId,'pc');
+ assert.equal(diagnostics[0].clientId,'pc-audio');assert.equal(diagnostics[1].deviceId,'pc');
+ assert.equal(diagnostics[1].completed,true);assert.ok(!rows.join('\n').includes('secret-env-key'));
+});

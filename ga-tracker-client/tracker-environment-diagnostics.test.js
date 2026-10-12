@@ -23,5 +23,5 @@ test('same-weather preset change reports below threshold rather than a hypotheti
 
 test('actual mission test log accepts every environment diagnostic event',()=>{
  const {SYSTEM_LINE_PATTERN}=require('./tracker-apt-mission-test-log');
- for(const event of ['PRESET','TIME','VOICE','WEATHER','CLOCK_SOURCE'])assert.ok(SYSTEM_LINE_PATTERN.test('SIM_ENV_'+event+' data={}'));
+ for(const event of ['PRESET','TIME','VOICE','VOICE_TEXT','VOICE_PLAYBACK','WEATHER','CLOCK_SOURCE'])assert.ok(SYSTEM_LINE_PATTERN.test('SIM_ENV_'+event+' data={}'));
 });

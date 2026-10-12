@@ -5,7 +5,7 @@
 function createClockTelemetry({handle, definitionId, requestId, float64Type, period,
   intervalFrames = 3, now = Date.now, log = () => {}, maxAgeMs = 2500}) {
   const sends = new Map();
-  let values = null, capturedAt = null, error = null, disposed = false, diagnosticKey, diagnosticAt = -Infinity;
+  let values = null, capturedAt = null, error = null, disposed = false, diagnosticKey, diagnosticAt = -Infinity, packetIdentity = null;
   const snapshot = (at = now()) => {
     const ageMs = capturedAt === null ? null : Math.max(0, at - capturedAt);
     const status = disposed ? 'disconnected' : error ? 'error' : !values ? 'waiting'
@@ -22,7 +22,7 @@ function createClockTelemetry({handle, definitionId, requestId, float64Type, per
     const key = JSON.stringify([current.status, current.error, mismatch]);
     if (key !== diagnosticKey || at - diagnosticAt >= 30000) {
       diagnosticKey = key; diagnosticAt = at;
-      log(`SIM_ENV_CLOCK_SOURCE data=${JSON.stringify({...current, mismatch,
+      log(`SIM_ENV_CLOCK_SOURCE data=${JSON.stringify({...current, mismatch, packetIdentity,
         bulkAbsoluteSeconds:bulk.simAbsoluteTimeSeconds ?? null,
         bulkLocalSeconds:bulk.simLocalTimeSeconds ?? null, definitionId, requestId})}`);
     }
@@ -32,7 +32,16 @@ function createClockTelemetry({handle, definitionId, requestId, float64Type, per
   const receive = recv => {
     if (disposed || recv?.requestID !== requestId) return;
     try {
-      if (recv.defineID !== definitionId || recv.objectID !== 0 || recv.defineCount !== 3)
+      packetIdentity = {requestId:recv.requestID,definitionId:recv.defineID,
+        objectId:recv.objectID,defineCount:recv.defineCount,
+        entryNumber:recv.entryNumber ?? null,outOf:recv.outOf ?? null,
+        bytes:typeof recv.data?.remaining === 'function' ? recv.data.remaining() : null};
+      // Request ID + definition identify our user-aircraft-only request.
+      // USER=0 is the request selector; replies may carry the concrete object ID.
+      if (recv.defineID !== definitionId || !Number.isSafeInteger(recv.objectID) || recv.objectID < 0
+          || recv.defineCount !== 3
+          || (recv.entryNumber !== undefined && recv.entryNumber !== 1)
+          || (recv.outOf !== undefined && recv.outOf !== 1))
         throw Error('clock_packet_identity_invalid');
       if (typeof recv.data?.remaining !== 'function' || recv.data.remaining() !== 24)
         throw Error('clock_packet_size_invalid');
