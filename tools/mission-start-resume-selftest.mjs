@@ -82,6 +82,7 @@ const planned = { missionId: 'm', startPhase: 'planned', runtime: { active: fals
 let reply, local, restored, recovered = 0, observer = 0;
 const ctx = {
     window: { resumeTrackerMissionOnThisDevice: async () => { observer++; return true; } }, Date,
+    _syncMissionRestoreBlocked: () => false, _syncTrackerRestoreBlocked: () => false,
     _sendMissionAuthorityRequest: async () => reply, _missionAuthorityClientId: () => 'client',
     _missionPhaseDebugPush() {}, alert() {}, _readMissionRuntimeSnapshot: () => local,
     _snapshotMatchesActiveMission: snap => snap.missionId === 'm',

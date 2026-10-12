@@ -1220,6 +1220,7 @@ function _missionAuthorityRuntimeNeedsLateBind() {
         && String(lastExecution?.phase || '').toLowerCase() === 'closed';
     if (trackerFinishedThisMission
         || (window.gaTrackerExecutionFinalizedRunId
+            && _normalizeMissionRuntimeId(lastExecution?.missionId || '') === missionId
             && String(lastExecution?.runId || '') === String(window.gaTrackerExecutionFinalizedRunId))) {
         missionAuthorityLateBindPending = false;
         return false;
@@ -2257,10 +2258,12 @@ async function _refreshTrackerExecutionControl(reason = 'intent-refresh') {
             return snapshot;
         }
         if (snapshot?.authoritySnapshot) {
-            window.lastTrackerMissionAuthority = { ...snapshot.authoritySnapshot, receivedAt: Date.now() };
-            _applyTrackerExecutionAbortLocally(snapshot.authoritySnapshot, `${reason}:aborted`);
+            // HTTP and relay snapshots must retire the same run/status fallbacks.
+            // A rejected stale/draft projection must not be applied again below.
+            if (!_handleTrackerMissionAuthoritySnapshot(snapshot.authoritySnapshot, reason)) return snapshot;
+        } else if (activeRun) {
+            window.lastTrackerMissionStatus = { ...activeRun, receivedAt: Date.now() };
         }
-        if (activeRun) window.lastTrackerMissionStatus = { ...activeRun, receivedAt: Date.now() };
         if (!_applyTrackerExecutionControl(snapshot?.control, activeRun, reason)) {
             _finalizeTrackerExecutionProjection(snapshot?.lastControl, `${reason}:completed`, !snapshot?.authoritySnapshot?.debrief?.closedAt);
             _applyTrackerDebriefClosed(snapshot?.authoritySnapshot);
@@ -5487,6 +5490,18 @@ function _offerTrackerCloudMission(snapshot) {
 }
 
 function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'tracker-authority') {
+    const incomingRun = snapshot?.activeRun;
+    const lastRun = window.lastTrackerMissionAuthority?.lastRun;
+    // A confirmed terminal run cannot become active again through a late reply.
+    // A new run of the same mission has a different runId and remains valid.
+    if (incomingRun?.runId && (incomingRun.runId === window.gaTrackerExecutionFinalizedRunId
+        || incomingRun.runId === window.gaTrackerExecutionAbortedRunId
+        || (incomingRun.runId === lastRun?.runId && ['completed', 'aborted'].includes(lastRun?.state)))) {
+        _missionPhaseDebugPush('authority_terminal_run_stale_ignored', {
+            reason, missionId: incomingRun.missionId, runId: incomingRun.runId
+        });
+        return false;
+    }
     if (window.gaCloudOpeningPending || _syncMissionRestoreBlocked(null, snapshot?.activeRun || snapshot?.lastExecution)) {
         window.lastTrackerMissionAuthority = snapshot;
         _offerTrackerCloudMission(snapshot);
@@ -5512,8 +5527,8 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
         if (local?.runId) _clearMissionAuthorityState(`${reason}:tracker-no-active-run`);
         if (window.missionRuntimeResumeConflict?.trackerActive) {
             window.missionRuntimeResumeConflict = null;
-            _updateMissionRuntimeUi();
         }
+        _updateMissionRuntimeUi();
         return true;
     }
     const relation = _missionAuthorityIncomingRunRelation(local, active, _missionAuthorityClientId());
@@ -18579,6 +18594,7 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
                     && _normalizeMissionRuntimeId(completedExecution?.missionId || '') === missionId
                     && String(completedExecution?.phase || '').toLowerCase() === 'closed';
                 if (alreadyCompleted || (window.gaTrackerExecutionFinalizedRunId
+                    && _normalizeMissionRuntimeId(completedExecution?.missionId || '') === missionId
                     && String(completedExecution?.runId || '') === String(window.gaTrackerExecutionFinalizedRunId))) {
                     missionAuthorityLateBindPending = false;
                     return;

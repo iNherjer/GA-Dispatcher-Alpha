@@ -7292,3 +7292,32 @@ auch bei periodischen Checkpoints auf die bestätigte Speicherung.
 154 Release-Tests, Interface-/Electron-UI-Test und gepackter Worker-Start
 mit Exit 0 sind grün. Das EFB-Community-Paket und Stable bleiben unverändert.
 Windows-/MSFS-Feldnachweis bleibt offen.
+
+
+### Alpha-Web v2023: Missionswechsel ohne Reload (12.10.2026)
+
+Direkte Cockpit-Snapshots laufen durch denselben Authority-Handler wie Relay-
+Projektionen. Ein bestaetigtes `activeRun: null` entfernt alte Status-/Control-
+Fallbacks und aktualisiert die Aktions-UI. Verspaetete aktive Projektionen eines
+bereits bestaetigt abgeschlossenen oder abgebrochenen Run werden verworfen;
+ein neuer Run derselben Mission und echte fremde aktive Runs bleiben erlaubt.
+Die Abschlussmarkierung der alten Mission darf Late-Bind und Wiederverbindung
+nur fuer diese Mission unterdruecken, nicht fuer den naechsten Auftrag.
+
+Auch bewusstes Ersetzen einer noch laufenden Mission ist abgesichert: Der
+aktuelle Alpha-Entwurf bleibt bis zur Annahme lokal. Bei Annahme wartet die
+bestehende Ersetzungs-Transaktion auf den bestaetigten Tracker-Abbruch und
+Cleanup. Fehler behalten den alten Run und verhindern Cloud-Publish/Install
+der neuen Mission. Historisches Debrief und Payload-Recovery werden nicht
+pauschal geloescht. Der Fix benoetigt keine Tracker-Aenderung; Alpha v520
+bleibt kompatibel. Web-Cache wird von v2022 auf v2023 angehoben.
+
+Nachweise: 10 deterministische Wechseltests mit echtem Authority-/Runtime-/
+Cockpit-Core, 5 Web-Regressionsfaelle, 92 bestehende Runtime-/Cockpit-/Debrief-/
+Entwurfs-Tests sowie Start-/Resume- und Interface-Selftests. Vier der fuenf
+neuen Web-Regressionsfaelle scheitern am unveraenderten v2022-Stand und
+bestehen mit dem Fix. Die Start-/Resume-Fixture ergaenzt die bereits vorhandenen
+Restore-Guard-Abhaengigkeiten. Simulator-, Voice- und Netzwerk-IO sind
+simuliert; keine Aussage ueber die physische Entfernung aller MSFS-Objekte.
+Kein neuer Tracker-Build, kein Worker- oder Community-Package-Deployment;
+Stable/Beta werden durch diesen Alpha-Web-Rollout nicht promotet.
