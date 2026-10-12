@@ -565,7 +565,10 @@ MSL/AGL/FL verwenden ihre passende Hoehenreferenz. Anna, Matilda, Hannah, Liam
 und Ava EN besitzen die Zusatzclips; Paula/Irene bleiben zurueckgestellt.
 Web-authoritative Missionen behalten ihre bisherigen Audio-/Warning-Gates;
 nur die additive vertikale Kategorie bleibt Tracker-owned. Capability und
-generierte Menue-/Player-Assets sind enthalten. Alpha-Rollout v518: Worker deployed, Windows-Builds erfolgreich; Upload und Kanalpruefung folgen.
+generierte Menue-/Player-Assets sind enthalten. Alpha-Rollout v518: Worker deployed, Windows-Builds und Downloads verifiziert,
+40 Audioassets auf Pages geprueft. Separater Desktop-Alpha-Installer 1.6.14-alpha.1;
+Stable-Zeiger unveraendert. Der neuere Alpha-Tracker v519 enthaelt die v518-Warnungen und bleibt aktiv;
+Desktop-Alpha wird separat auf den neuen Installer gesetzt.
 Vertrag, Nachweise und Rollout: [Vertical Airspace Warnings](Vertical%20Airspace%20Warnings.md).
 
 

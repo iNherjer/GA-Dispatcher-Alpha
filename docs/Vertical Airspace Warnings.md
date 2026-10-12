@@ -1,6 +1,7 @@
 # Vertikale Luftraumwarnungen – lokale Rollout-Vorbereitung
 
-Stand: 12.10.2026. Alpha-Release v518 wird aus dem aktuellen Origin-Stand veroeffentlicht.
+Stand: 12.10.2026. Alpha-Release v518 und Desktop 1.6.14-alpha.1 sind veroeffentlicht;
+Downloads und die 40 Alpha-Audioassets wurden verifiziert.
 Release-Nachweis: `docs/Tracker-v518-Release.md`.
 
 ## Verhalten
@@ -77,8 +78,9 @@ Rollout. Es wurden fuer diese Vorbereitung keine weiteren Clips fuer sie erzeugt
 6. Erst nach Alpha-Feldtest nach den normalen Regeln promoten.
 
 Worker deployed, Windows-EXE und separater Alpha-Desktop-Installer gebaut.
-App-/Asset-Push, Release-Upload und Kanalpruefung folgen in der dokumentierten
-Reihenfolge. Build-/Push-Vertrag: `docs/github-push-workflow.md`.
+App-/Asset-Push und Release-Uploads sind abgeschlossen und verifiziert.
+Der Runtime-Alpha-Zeiger bleibt auf dem neueren, ebenfalls verifizierten v519,
+das die vertikalen Warnungen enthaelt. Desktop-Alpha zeigt separat auf 1.6.14-alpha.1. Build-/Push-Vertrag: `docs/github-push-workflow.md`.
 
 ## Lokale Nachweise
 
