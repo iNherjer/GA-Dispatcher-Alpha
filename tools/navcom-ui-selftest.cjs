@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'..'),efb=require('../ga-tracker-client/tracke
 app.whenReady().then(async()=>{
  const server=http.createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost');
-  if(url.pathname==='/'){res.setHeader('Content-Type','text/html');res.end(efb.createTrackerEfbWebClientPage().replace('<head>','<head><script>String.prototype.padStart=undefined;NodeList.prototype.forEach=undefined;</script>'));return;}
+  if(url.pathname==='/'){res.setHeader('Content-Type','text/html');res.end(efb.createTrackerEfbWebClientPage().replace('<head>','<head><script>String.prototype.padStart=undefined;NodeList.prototype.forEach=undefined;' + (process.env.GA_NAVCOM_NO_OBSERVER ? 'window.MutationObserver=undefined;' : '') + '</script>'));return;}
   const asset=efb.getTrackerEfbWebClientAsset(url.pathname);
   if(asset){res.setHeader('Content-Type',asset.contentType);let body=asset.body;
    if(url.pathname.endsWith('/host.js')) body=body.toString().replace(/\}\)\(\);\s*$/, 'pollingClosed=true;window.__radioTest={setMap:function(value){mapSnapshot=value;renderProgress();}};})();');
@@ -37,9 +37,21 @@ app.whenReady().then(async()=>{
   check(calls[2].kind==='NAV'&&calls[2].index===2&&calls[2].slot==='standby','NAV2 standby target wrong');
   nodes[2].click();dialog=document.querySelector('.ga-radio-dialog');check(dialog.querySelector('.ga-radio-choices button').textContent==='ADF1','NDB did not offer ADF');dialog.querySelector('.ga-radio-close').click();
   nodes[3].click();dialog=document.querySelector('.ga-radio-dialog');dialog.querySelector('.ga-radio-choices button').click();check(dialog.querySelectorAll('.ga-radio-choices button')[1].style.visibility==='hidden','Squawk offers standby');dialog.querySelector('.ga-radio-choices button').click();await new Promise(r=>setTimeout(r,20));check(calls[3].value==='0042','Leading squawk zeros lost');
-  // Capture must keep a frequency banner visible while tuning.
+  // Native DOM callback works without document propagation or Element.closest.
+  mode('direct');check(typeof nodes[0].onclick==='function','Native callback missing');
+  nodes[0].onclick({target:nodes[0].firstChild,preventDefault(){},stopPropagation(){}});
+  await new Promise(r=>setTimeout(r,20));check(calls.length===5&&calls[4].kind==='COM','Native text-node click failed');
+  const dynamic=document.createElement('div');dynamic.innerHTML=core.html('124.500','COM');host.appendChild(dynamic);
+  await new Promise(r=>setTimeout(r,600));const added=dynamic.firstChild;
+  check(typeof added.onclick==='function'&&added.tabIndex===0,'Dynamic input not bound');
+  added.click();await new Promise(r=>setTimeout(r,20));check(calls.length===6&&calls[5].value==='124.500','Dynamic click failed');
+  mode('off');added.onclick({target:added});check(calls.length===6,'Off native callback sent command');
+  mode('select');
+  // Native input must keep a frequency banner visible while tuning.
+
   const warning={type:27,name:'TMZ TEST',frequencies:[{name:'XPDR',value:'7000'},{name:'INFO',value:'123.450'}]};
   GANavigationWarningPresentation.showFrequency(warning,'#9966ff');const banner=document.getElementById('awmFreqBanner'),value=banner.querySelector('.ga-radio-value');
+  await new Promise(r=>setTimeout(r,600));
   value.dispatchEvent(new MouseEvent('pointerup',{bubbles:true,cancelable:true}));value.click();check(banner.children.length===1,'Tuning dismissed the banner');document.querySelector('.ga-radio-close').click();
   __radioTest.setMap({context:{frequency:'INFO 123.450',waypointLabels:[{lat:48.45,lon:7.92,name:'NDB TEST (350)',frequency:'',radioKind:'ADF'}]},route:{waypoints:[{lat:48.36,lon:7.83},{lat:48.45,lon:7.92,name:'NDB TEST (350)',kind:'navaid'}],totalDistanceNm:6},navigation:{activeLegIndex:0,distanceToNextNm:6,bearingToNextDeg:40,remainingDistanceNm:6,crossTrackNm:1}});
   check(document.querySelector('#nextWpName [data-radio-kind="ADF"]'),'EFB Next Waypoint not tunable');check(document.querySelector('#routeProgressFreq [data-radio-kind="COM"]'),'EFB progress not tunable');check(document.querySelector('#currentFreqValue [data-radio-kind="COM"]'),'EFB telemetry not tunable');
@@ -58,9 +70,19 @@ app.whenReady().then(async()=>{
     check(device.x===slot.x&&device.y===slot.y,'Scaled rows moved');panel.querySelector('.ga-radio-close').click();
   }
   GAEfbUiScale.apply(1,'physical',false);
+  // Original Webapp sources retain delegated input independently of EFB binding.
+  const frame=document.createElement('iframe');document.body.appendChild(frame);
+  const web=frame.contentWindow;web.localStorage.setItem('ga-navcom-mode-v1','off');web.eval(${JSON.stringify(fs.readFileSync(path.join(root,'radio-tuning-core.js'),'utf8'))});
+  web.eval(${JSON.stringify(fs.readFileSync(path.join(root,'radio-tuning-ui.js'),'utf8'))});
+  const webCalls=[];web.gaRadioTune=async payload=>{webCalls.push(payload);return {ok:true,confirmed:true,target:web.GARadioTuningCore.normalize(payload)};};
+  web.document.body.innerHTML=web.GARadioTuningCore.html('123.450','COM');
+  web.gaCycleNavcomMode();const webValue=web.document.querySelector('.ga-radio-value');webValue.click();
+  await new Promise(r=>setTimeout(r,20));check(webCalls.length===1,'Webapp delegated click failed');
+  web.gaCycleNavcomMode();webValue.click();check(web.document.querySelector('.ga-radio-dialog'),'Webapp selection failed');
+  frame.remove();
   mode('select');nodes[0].click();return {calls: calls,rows:before,mode:document.body.dataset.navcomMode};
  })()`);
- assert.equal(report.calls.length,4);
+ assert.equal(report.calls.length,6);
  const output='/tmp/ga-navcom-ui';fs.mkdirSync(output,{recursive:true});
  for(const theme of ['classic','retro','navcom','ops1940','win95']){
   await win.webContents.executeJavaScript(`document.body.className='map-is-fullscreen ga-efb-tracker-host theme-${theme}'`);

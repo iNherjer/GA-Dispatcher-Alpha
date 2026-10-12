@@ -7,11 +7,33 @@
     try { const saved = localStorage.getItem('ga-navcom-mode-v1'); if (modes.indexOf(saved) >= 0) mode = saved; } catch (_) {}
     const labels = {off:'AUS', direct:'Gerät 1 aktiv', select:'Auswahl'};
     function each(nodes, fn) { Array.prototype.forEach.call(nodes, fn); }
+    const nativeEfb = document.body && document.body.classList.contains('ga-efb-tracker-host');
+    function radioNode(target) {
+        while (target && target !== document) {
+            if (target.nodeType === 1 && target.classList.contains('ga-radio-value')) return target;
+            target = target.parentNode;
+        }
+        return null;
+    }
+    function bindNativeInput(node) {
+        if (!nativeEfb || node._gaRadioInputBound) return;
+        node._gaRadioInputBound = true;
+        // Coherent controls also need a handler on the actual DOM element.
+        node.onclick = function(event) { activate(event, node); };
+        ['pointerdown','mousedown','touchstart','pointerup','mouseup','touchend'].forEach(type => {
+            node.addEventListener(type, function(event) {
+                // Keep draggable windows and dismissible banners from consuming
+                // the gesture; do not cancel native click synthesis.
+                if (mode !== 'off') event.stopPropagation();
+            });
+        });
+    }
     function refresh() {
         document.body.setAttribute('data-navcom-mode', mode);
         const button = document.getElementById('navcomModeBtn');
         if (button && button.textContent !== 'NAVCOM: ' + labels[mode]) button.textContent = 'NAVCOM: ' + labels[mode];
         each(document.querySelectorAll('.ga-radio-value'), node => {
+            bindNativeInput(node);
             node.tabIndex = mode === 'off' ? -1 : 0;
             node.setAttribute('aria-disabled', mode === 'off' ? 'true' : 'false');
         });
@@ -96,10 +118,12 @@
         deviceStep();
         dialog.style.top = Math.max(8, Math.min((rect.bottom - origin.top) / scale + 6, height - dialog.offsetHeight - 8)) + 'px';
     }
-    function activate(event) {
-        const node = event.target.closest && event.target.closest('.ga-radio-value');
+    function activate(event, boundNode) {
+        const node = boundNode || radioNode(event.target);
         if (!node || mode === 'off') return;
-        event.preventDefault(); event.stopImmediatePropagation();
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        else if (event.stopPropagation) event.stopPropagation();
         if (busy) return;
         const spec = {kind:node.dataset.radioKind,value:node.dataset.radioValue};
         if (mode === 'direct') send(spec,1,'active'); else open(node,spec);
@@ -111,22 +135,37 @@
     };
     function install() {
         refresh();
-        new MutationObserver(refresh).observe(document.body,{childList:true,subtree:true});
         document.addEventListener('click', function(event) {
-            if (event.target.closest && event.target.closest('.ga-radio-value') && mode !== 'off') { activate(event); return; }
+            if (radioNode(event.target) && mode !== 'off') {
+                activate(event);
+                return;
+            }
             if (dialog && !busy && !dialog.contains(event.target)) close();
         }, true);
         ['pointerdown','mousedown','touchstart'].forEach(type => document.addEventListener(type,function(event) {
-            if (mode !== 'off' && event.target.closest && event.target.closest('.ga-radio-value')) event.stopImmediatePropagation();
+            if (!nativeEfb && mode !== 'off' && radioNode(event.target)) event.stopImmediatePropagation();
         },true));
         // Capture release events before the frequency banner's dismiss listener.
         ['pointerup','touchend'].forEach(type => document.addEventListener(type,function(event) {
-            if (mode !== 'off' && event.target.closest && event.target.closest('.ga-radio-value')) event.stopImmediatePropagation();
+            if (!nativeEfb && mode !== 'off' && radioNode(event.target)) event.stopImmediatePropagation();
         },true));
         document.addEventListener('keydown',function(event) {
             if (event.key === 'Escape' && dialog && !busy) { event.preventDefault(); close(); }
             else if (event.key === 'Enter' || event.key === ' ') activate(event);
         },true);
+        let observed = false;
+        try {
+            if (typeof window.MutationObserver === 'function') {
+                new window.MutationObserver(refresh).observe(document.body,{childList:true,subtree:true});
+                observed = true;
+            }
+        } catch (_) {}
+        // Dynamic airport/telemetry fields must remain usable on hosts without
+        // MutationObserver. Installing input never depends on this optional API.
+        if (!observed) setInterval(refresh, 500);
+        if (typeof window.__gaEfbReport === 'function') {
+            window.__gaEfbReport('info','navcom-ready','radio-tuning-ui',mode,{nativeInput:nativeEfb,observer:observed});
+        }
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',install); else install();
 })();

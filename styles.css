@@ -21166,7 +21166,7 @@ body.theme-win95 .mission-accept-btn:focus-visible { outline: 1px dotted #000; o
 /* Shared NAVCOM selector: fixed row geometry across device/slot steps. */
 .ga-radio-value { cursor: text; }
 body[data-navcom-mode="direct"] .ga-radio-value,
-body[data-navcom-mode="select"] .ga-radio-value { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+body[data-navcom-mode="select"] .ga-radio-value { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
 .ga-radio-value:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 .ga-radio-dialog { position: fixed; z-index: 2147483000; width: 240px; max-width: calc(100vw - 16px); padding: 12px; box-sizing: border-box; background: var(--card); color: var(--text); border: 1px solid var(--blue); border-radius: 8px; box-shadow: 0 8px 28px #0009; font-family: inherit; }
 .ga-radio-heading { height: 34px; display: flex; align-items: center; justify-content: space-between; }

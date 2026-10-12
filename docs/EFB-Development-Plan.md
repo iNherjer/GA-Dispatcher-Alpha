@@ -1,5 +1,27 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## NAVCOM EFB-Kompatibilität, Alpha v524, 12.10.2026
+
+Tester meldet in v523 alle Frequenzen ohne Klick/Unterstreichung. Öffentliche
+v523-EXE enthält die unveränderten NAVCOM-Assets; kein fehlender Release-Inhalt.
+Ohne MutationObserver reproduziert die bisherige UI einen Initialisierungsabbruch.
+Der genaue Coherent-Feldfehler ist noch nicht durch ein Testerlog bestätigt.
+Bedienung wird jetzt unabhängig vom optionalen Observer installiert; ohne ihn
+aktualisiert ein 500-ms-Fallback dynamische Felder. EFB-Frequenzen bekommen
+zusätzlich direkte DOM-onclick-Handler. Maus/Touch-Gesten verhindern Drag/Dismiss
+auf Eltern, ohne die native Klickerzeugung abzubrechen. Textknoten werden erkannt.
+Unterstreichung verwendet eine kompatible Basis mit optionalem dotted-Stil.
+`navcom-ready` meldet Modus, Eingabebindung und Observer-Verfügbarkeit im EFB-Log.
+Echte EFB-Browserseite mit/ohne Observer geprüft: AUS, direkte und zweistufige
+Übernahme, COM/NAV/ADF/XPDR, dynamische Felder, Banner, feste Zeilen, Skalierung
+50–300 Prozent; ursprüngliche Webapp-Quellen ebenfalls geprüft. 76 gezielte
+Node-Tests plus acht Trainings-/Anzeige-Regressionen, Zielplatz-Browserklick
+und gepackter Missionsprozess bestehen. Windows-x64-EXE enthält sechs geprüfte
+Quellen/Assets bytegleich. Simulatorabnahme nach Alpha-Rollout bleibt offen.
+Basis Origin v523; Assetrevision 52401, Web-Cache v2028. Keine Missions-, Trainings-
+oder Flightplan-Änderung und kein neues Community-Paket; Stable bleibt unverändert.
+
+
 ## NAVCOM und Squawk-Übernahme, Alpha v522, 12.10.2026
 
 Gezielt auf Origin v521 ergänzt: Anzeige-Menü AUS / Gerät 1 aktiv / Auswahl;
