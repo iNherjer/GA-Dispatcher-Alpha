@@ -21,7 +21,10 @@ verknüpft Claim, Freigabe und Ergebnis mit Audioclient und gewähltem Gerät.
 Keine Prompts, Keys oder zusätzliche KI-Anfragen. Diagnose landet in beiden Logs.
 Trigger, Audiogerätewahl und Playback-Gates unverändert. Kein neues EFB-Paket.
 111 gezielte Tests bestehen; gepackter ARM64-Missionsprozess startet und beendet
-seinen Worker erfolgreich. Windows/MSFS-Hör- und Zeittest bleiben offen.
+seinen Worker erfolgreich. Weitere 26 Tests des integrierten v518-Stands bestehen.
+Windows-x64 gebaut und öffentliche EXE bytegleich geprüft: 173778146 Bytes,
+SHA-256 fd82fd1771b3961fcd89a55e914c45ea58448319a2d2490511b6279f74d930bf.
+Alpha v519 veröffentlicht; Stable unverändert. Windows/MSFS-Hör- und Zeittest bleiben offen.
 
 
 ## Zielplatz im Next-WPT-Fenster (11.10.2026)
