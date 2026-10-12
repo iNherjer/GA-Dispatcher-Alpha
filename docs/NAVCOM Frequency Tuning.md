@@ -68,3 +68,7 @@ Testannahmen wurden nicht verändert. Neues Auswahlfenster separat skaliert gepr
 
 Web-Cache v2025, EFB-Assets 52201. Kein neues natives Community-Paket.
 Stable-Kanal unverändert. Windows-/MSFS-Gerätenachtest nach Alpha-Rollout offen.
+
+Alpha-Asset veröffentlicht und Upload-Hash verifiziert: 173358337 Bytes,
+SHA-256 `9add30d657165b9ff6e4edd87b376647102c285237e41861a96218a8025063a9`.
+Release: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v522
