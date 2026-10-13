@@ -2551,13 +2551,87 @@ ${routeLines}`;
         return null;
     }
 
-    function airspaceFreqRows(spaces = activeAirspaces) {
+    // Radio-only route selection/order. Do not change warning/profile authority.
+    function radioAirspaceRouteOrder(airspace, route) {
+        if (!Array.isArray(route) || route.length < 2) return null;
+        const geometry = airspace?.geometry;
+        const polygons = geometry?.type === 'Polygon' ? [geometry.coordinates]
+            : (geometry?.type === 'MultiPolygon' ? geometry.coordinates : []);
+        if (!Array.isArray(polygons)) return null;
+        const epsilon = 1e-10;
+        const cross = (a, b) => a[0] * b[1] - a[1] * b[0];
+        const subtract = (a, b) => [a[0] - b[0], a[1] - b[1]];
+        const onEdge = (point, a, b) => Math.abs(cross(subtract(point, a), subtract(b, a))) < epsilon
+            && point[0] >= Math.min(a[0], b[0]) - epsilon && point[0] <= Math.max(a[0], b[0]) + epsilon
+            && point[1] >= Math.min(a[1], b[1]) - epsilon && point[1] <= Math.max(a[1], b[1]) + epsilon;
+        function inRing(point, ring) {
+            let inside = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const a = ring[j], b = ring[i];
+                if (onEdge(point, a, b)) return true;
+                if ((a[1] > point[1]) !== (b[1] > point[1])
+                    && point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+            }
+            return inside;
+        }
+        function inPolygon(point, polygon) {
+            return inRing(point, polygon[0]) && !polygon.slice(1).some(ring => inRing(point, ring));
+        }
+        for (let leg = 0; leg < route.length - 1; leg++) {
+            const a = [Number(route[leg].lon ?? route[leg].lng), Number(route[leg].lat)];
+            const b = [Number(route[leg + 1].lon ?? route[leg + 1].lng), Number(route[leg + 1].lat)];
+            if (![...a, ...b].every(Number.isFinite)) continue;
+            const direction = subtract(b, a);
+            let first = null;
+            for (const polygon of polygons) {
+                if (!Array.isArray(polygon) || !polygon.length || polygon.some(ring => !Array.isArray(ring)
+                    || ring.length < 3 || ring.some(point => !Array.isArray(point) || point.length < 2
+                        || !Number.isFinite(point[0]) || !Number.isFinite(point[1])))) continue;
+                if (inPolygon(a, polygon)) { first = 0; break; }
+                const hits = [];
+                for (const ring of polygon) {
+                    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                        const edge = subtract(ring[i], ring[j]);
+                        const offset = subtract(ring[j], a);
+                        const denominator = cross(direction, edge);
+                        if (Math.abs(denominator) < epsilon) {
+                            // A route running on the boundary still touches it.
+                            const lengthSquared = direction[0] ** 2 + direction[1] ** 2;
+                            if (lengthSquared > epsilon && Math.abs(cross(offset, direction)) < epsilon) {
+                                const ts = [ring[j], ring[i]].map(point => {
+                                    const v = subtract(point, a);
+                                    return (v[0] * direction[0] + v[1] * direction[1]) / lengthSquared;
+                                });
+                                if (Math.max(...ts) >= 0 && Math.min(...ts) <= 1) hits.push(Math.max(0, Math.min(...ts)));
+                            }
+                        } else {
+                            const t = cross(offset, edge) / denominator;
+                            const u = cross(offset, direction) / denominator;
+                            if (t >= -epsilon && t <= 1 + epsilon && u >= -epsilon && u <= 1 + epsilon) hits.push(Math.max(0, Math.min(1, t)));
+                        }
+                    }
+                }
+                // A leg wholly inside a polygon hole has neither containment
+                // nor boundary hits, and is correctly excluded.
+                if (hits.length) {
+                    const t = Math.min(...hits);
+                    if (first === null || t < first) first = t;
+                }
+            }
+            if (first !== null) return leg + first;
+        }
+        return null;
+    }
+
+    function airspaceFreqRows(spaces = activeAirspaces, route = getRoutePoints()) {
         try {
             if (!Array.isArray(spaces)) return [];
             const rows = [];
             const groups = new Map();
             spaces.forEach((as, idx) => {
                 if (!as) return;
+                const routeOrder = radioAirspaceRouteOrder(as, route);
+                if (routeOrder === null) return;
                 const isCtr = Number(as.type) === 4 || /\bCTR\b/i.test(as.name || '');
                 const freqs = Array.isArray(as.frequencies) ? as.frequencies.slice() : [];
                 if (isCtr) {
@@ -2569,24 +2643,25 @@ ${routeLines}`;
                 if (!freqs.length) return;
                 const cls = Number(as.icaoClass);
                 const groupable = !isCtr && [0, 7, 26].includes(Number(as.type)) && [2, 3].includes(cls);
-                const frequencyKey = freqs.map(f => String(f.value).trim().replace(',', '.')).sort().join('|');
+                const frequencyKey = freqs.map(f => String(f.value).trim().replace(/\s*MHz$/i, '').trim().replace(',', '.')).sort().join('|');
                 const name = as.name || 'Luftraum';
                 const key = groupable ? `${name.trim().toUpperCase()}|${frequencyKey}` : `row:${idx}`;
                 const existing = groups.get(key);
                 if (existing) {
                     existing.count++;
+                    if (routeOrder < existing.routeOrder) { existing.routeOrder = routeOrder; existing.idx = idx; }
                     if (!existing.classes.includes(cls === 2 ? 'C' : 'D')) existing.classes.push(cls === 2 ? 'C' : 'D');
                     return;
                 }
                 const row = {
-                    idx, title: name, frequencies: freqs, count: 1, classes: groupable ? [cls === 2 ? 'C' : 'D'] : [],
+                    idx, routeOrder, title: name, frequencies: freqs, count: 1, classes: groupable ? [cls === 2 ? 'C' : 'D'] : [],
                     meta: `Enroute · ${Number(as.type) === 33 ? 'FIS' : (isCtr ? 'CTR' : 'Luftraum')}`,
                     values: freqs.map(f => `${f.name || f.label || 'INFO'} ${f.value}`).join(' · ')
                 };
                 groups.set(key, row);
                 rows.push(row);
             });
-            return rows.slice(0, 18).map(row => ({ ...row,
+            return rows.sort((a, b) => a.routeOrder - b.routeOrder || a.idx - b.idx).map(row => ({ ...row,
                 meta: row.classes.length ? `Enroute · ${row.classes.sort().join('/')} · ${row.count} Luftraum${row.count === 1 ? '' : 'sektoren'}` : row.meta
             }));
         } catch (_) {
@@ -2766,7 +2841,8 @@ ${routeLines}`;
                 // Radio uses the same route-area query in App and EFB. The
                 // warning/profile selection stays independent and untouched.
                 if (Array.isArray(airspaceItems) && window.GANavigationWarnings?.prepareAirspaces) {
-                    radioAirspaces = window.GANavigationWarnings.prepareAirspaces(airspaceItems);
+                    radioAirspaces = window.GANavigationWarnings.prepareAirspaces(airspaceItems
+                        .filter(as => radioAirspaceRouteOrder(as, route) !== null));
                     if (typeof fetchAirportFreq === 'function') {
                         const airportsForRadio = new Set(radioAirspaces
                             .filter(as => Number(as?.type) === 4 || /\bCTR\b/i.test(as?.name || ''))
@@ -2826,7 +2902,7 @@ ${routeLines}`;
         const display = String(value == null ? '' : value).trim();
         const suffix = kind === 'ADF' ? /\s*kHz$/i : (kind === 'COM' || kind === 'NAV' ? /\s*MHz$/i : null);
         const numeric = suffix ? display.replace(suffix, '').trim() : display;
-        return GARadioTuningCore.html(numeric, kind, display);
+        return GARadioTuningCore.html(numeric, kind, numeric);
     }
 
     function renderRadioFrequencyRows(freqs, kind = 'COM') {

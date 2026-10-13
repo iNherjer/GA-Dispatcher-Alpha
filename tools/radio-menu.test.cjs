@@ -5,8 +5,11 @@ const vm=require('node:vm');
 const source=fs.readFileSync('checklists.js','utf8');
 const start=source.indexOf('    function radioCtrAirport(as)');
 const end=source.indexOf('    function getProblemAirspaces()',start);
-function rows(activeAirspaces){
- const context={activeAirspaces,pickAirportForAirspaceFallback:()=>({icao:'EDDS'}),getFreqLines:()=>[{label:'ATIS',value:'126.130'}]};
+const box=(west,east,south=-1,north=1)=>({type:'Polygon',coordinates:[[[west,south],[east,south],[east,north],[west,north],[west,south]]]});
+const route=[{lat:0,lon:0},{lat:0,lon:10}];
+function rows(items, testRoute=route){
+ const activeAirspaces=items.map(as=>({...as,geometry:as.geometry || box(1,2)}));
+ const context={activeAirspaces,getRoutePoints:()=>testRoute,pickAirportForAirspaceFallback:()=>({icao:'EDDS'}),getFreqLines:()=>[{label:'ATIS',value:'126.130'}]};
  vm.createContext(context);vm.runInContext(source.slice(start,end)+';result=airspaceFreqRows();',context);
  return JSON.parse(JSON.stringify(context.result));
 }
@@ -43,12 +46,48 @@ test('unit-bearing Radio fields create numeric intents, preserving labels and st
  const start=source.indexOf('    function radioFrequencyHtml('),end=source.indexOf('    function renderFreqBlock(',start);
  const context={GARadioTuningCore:core,escapeHtml:core.escape};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
  const cases=[['125.180 MHz','COM','125.180'],['127,155 MHz','COM','127.155'],['110.500 MHz','NAV','110.500'],['350.5 kHz','ADF','350.5'],['0042','XPDR','0042']];
- for(const [display,kind,value] of cases){const html=context.radioFrequencyHtml(display,kind);assert.ok(html.includes('data-radio-value="'+value+'"'));assert.ok(html.includes(core.escape(display)));}
+ for(const [display,kind,value] of cases){const html=context.radioFrequencyHtml(display,kind);assert.ok(html.includes('data-radio-value="'+value+'"'));assert.ok(html.includes(core.escape(display.replace(/\s*(MHz|kHz)$/i,''))));assert.ok(!/>[^<]*(?:MHz|kHz)/i.test(html));}
  for(const [display,kind] of [['42X','COM'],['123.450 kHz','COM'],['350.5 MHz','ADF'],['0082','XPDR'],['136.995 MHz','COM']])assert.ok(!context.radioFrequencyHtml(display,kind).includes('data-radio-value'));
 });
 test('Radio can display its own HX snapshot without altering warning selection',()=>{
  const fixture=[{id:'hx-altdorf',name:'CTR SEKTOR ALTDORF (HX)',type:0,icaoClass:3,frequencies:[{name:'LAHR TWR',value:'125.180 MHz'}]},{id:'hx-offenburg',name:'CTR SEKTOR OFFENBURG (HX)',type:0,icaoClass:3,frequencies:[{name:'OFFENBURG RADIO',value:'132.040 MHz'}]}];
  const context={activeAirspaces:[],pickAirportForAirspaceFallback:()=>null,getFreqLines:()=>[]};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
- const before=JSON.stringify(fixture);const result=context.airspaceFreqRows(fixture);
+ fixture.forEach(as=>as.geometry=box(1,2));
+ const before=JSON.stringify(fixture);const result=context.airspaceFreqRows(fixture,route);
  assert.equal(result.length,2);assert.equal(result[0].idx,0);assert.equal(result[1].idx,1);assert.equal(context.activeAirspaces.length,0);assert.equal(JSON.stringify(fixture),before);
+});
+
+test('only crossed polygons are listed, ordered by first route encounter rather than type',()=>{
+ const freq=[{name:'INFO',value:'123.450'}];
+ const result=rows([
+  {name:'CTR LATE',type:4,frequencies:freq,geometry:box(8,9)},
+  {name:'EARLY TMA',type:7,icaoClass:3,frequencies:freq,geometry:box(2,3)},
+  {name:'OFF ROUTE',type:7,icaoClass:3,frequencies:freq,geometry:box(1,2,2,3)},
+  {name:'CTR MIDDLE',type:4,frequencies:freq,geometry:box(5,6)},
+  {name:'START FIS',type:33,frequencies:freq,geometry:box(-1,1)}
+ ]);
+ assert.deepEqual(result.map(r=>r.title),['START FIS','EARLY TMA','CTR MIDDLE','CTR LATE']);
+ const reverse=rows([
+  {name:'WEST',type:7,icaoClass:3,frequencies:freq,geometry:box(1,2)},
+  {name:'EAST CTR',type:4,frequencies:freq,geometry:box(8,9)}
+ ],[...route].reverse());assert.deepEqual(reverse.map(r=>r.title),['EAST CTR','WEST']);
+});
+test('grouped sectors use earliest encounter; units normalize but differing frequencies and CTR stay separate',()=>{
+ const make=(name,type,value,west)=>({name,type,icaoClass:3,frequencies:[{name:'INFO',value}],geometry:box(west,west+0.2)});
+ const result=rows([make('REGION',7,'128.950 MHz',8),make('CTR SAME',4,'123.450',5),make('REGION',7,'128.950',2),make('CTR SAME',4,'123.450',6),make('REGION',7,'125.000',4)]);
+ assert.deepEqual(result.map(r=>r.title),['REGION','REGION','CTR SAME','CTR SAME']);assert.equal(result[0].count,2);assert.equal(result[0].routeOrder,0.2);assert.equal(result[0].idx,2);
+});
+test('thin crossings, holes, multipolygons and bent routes are handled without vertex sampling',()=>{
+ const context={};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ const first=(geometry,points=route)=>context.radioAirspaceRouteOrder({geometry},points);
+ assert.ok(Math.abs(first(box(4.01,4.02))-.401)<1e-9);
+ const hole=box(-2,12);hole.coordinates.push(box(-1,11).coordinates[0]);assert.equal(first(hole),null);
+ assert.equal(first({type:'MultiPolygon',coordinates:[box(20,21).coordinates,box(3,4).coordinates]}),.3);
+ assert.equal(first(box(5,6),[{lat:0,lon:0},{lat:2,lon:0},{lat:2,lon:10}]),null);
+ assert.equal(first(box(5,6,1,3),[{lat:0,lon:0},{lat:2,lon:0},{lat:2,lon:10}]),1.5);
+ assert.equal(first(null),null);
+});
+test('the Radio list does not truncate later crossed areas after 18 rows',()=>{
+ const result=rows(Array.from({length:22},(_,i)=>({name:'CTR '+i,type:4,frequencies:[{name:'TOWER',value:'123.450'}],geometry:box(i/3,i/3+.1)})));
+ assert.equal(result.length,22);
 });

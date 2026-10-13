@@ -1,5 +1,27 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Radio-Routenfolge: zuerst Webapp-Abnahme (13.10.2026)
+
+Nutzer korrigiert die v528-Radioauswahl: nur tatsächlich von der Routenlinie
+berührte/geschnittene Lufträume, Reihenfolge nach erster Begegnung statt Typ.
+Der Radio-Renderer prüft Polygon-/MultiPolygon-Ringe gegen alle Routenlegs;
+kleine Zwischenräume, Start innerhalb, Löcher und umgekehrte Route berücksichtigt.
+Die Flächenabfrage bleibt Datenquelle, aber ihre ungeschnittenen Treffer werden
+vor der Radio-Aufbereitung ausgeschlossen. Zusammengehörende gleichnamige
+C-/D-Sektoren mit gleicher Frequenzzuordnung bleiben zusammengefasst und
+verwenden die früheste Begegnung; CTR/HX-CTR separat mit allen Frequenzen und
+verfügbarer ATIS. Die 18-Zeilen-Grenze entfällt, damit spätere Treffer sichtbar
+bleiben. Anzeige ohne MHz/kHz-Suffix, Intent weiter strikt validiert.
+Nur Radio-UI-Geometrie; zentrale Warnungsauswahl/Profil/Missionen unverändert.
+Neun Radio-Tests inklusive dünner Kreuzung, Löcher, MultiPolygon, Routenknick,
+Gegenrichtung, Gruppierung/CTR und späteren Treffern bestehen; Quell-Browserseite
+mit tatsächlichem Frequenz-/Lupenklick und ausgeschlossenen Nachbarsektoren
+geprüft. Schmale Vorschau visuell geprüft.
+Auf ausdrücklichen Nutzerwunsch ausschließlich Webapp auf Origin veröffentlicht
+(Cache v2036). Tracker und EFB-Assets bleiben auf v528/52801. Erst nach seiner
+Layout-Freigabe Assets synchronisieren, Tracker bauen und Alpha veröffentlichen.
+
+
 ## HX-Radiofelder, Lupen und Werkzeugkopf, Alpha v528 (13.10.2026)
 
 Tester bestätigt gleiche Route und Tracker v527: HX-Zeilen Lahr/Offenburg fehlen

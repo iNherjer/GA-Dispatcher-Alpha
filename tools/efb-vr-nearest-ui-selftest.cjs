@@ -5,6 +5,9 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
  let raw=false;const requests=[];
  const airports=[{icaoCode:'EDTL',name:'Lahr',geometry:{coordinates:[7.83,48.36]},runways:[{designator:'03',dimension:{length:{value:3000,unit:0}},surface:{name:'Asphalt'}},{designator:'21'},{designator:'09L'},{designator:'27R'}],frequencies:[{name:'TWR',value:'125.180'}]}, {icaoCode:'EDTO',name:'Offenburg',geometry:{coordinates:[7.92,48.45]},frequencies:[{name:'INFO',value:'128.950'}]}];
  const radioAirspaces=[{id:'hx-altdorf',name:'CTR SEKTOR ALTDORF (HX)',type:0,icaoClass:3,frequencies:[{name:'LAHR TWR',value:'125.180 MHz'},{name:'ALTDORF RADIO',value:'127.155 MHz'}],geometry:{type:'Polygon',coordinates:[[[7.8,48.3],[7.9,48.3],[7.9,48.4],[7.8,48.4],[7.8,48.3]]]}},{id:'hx-offenburg',name:'CTR SEKTOR OFFENBURG (HX)',type:0,icaoClass:3,frequencies:[{name:'OFFENBURG SEGELFLUG',value:'123.355 MHz'},{name:'OFFENBURG RADIO',value:'132.040 MHz'}],geometry:{type:'Polygon',coordinates:[[[7.9,48.4],[8,48.4],[8,48.5],[7.9,48.5],[7.9,48.4]]]}}];
+ radioAirspaces.unshift({id:'off-route',name:'CTR OFF ROUTE',type:4,icaoClass:3,frequencies:[{name:'WRONG',value:'129.000'}],geometry:{type:'Polygon',coordinates:[[[8.1,48.3],[8.2,48.3],[8.2,48.4],[8.1,48.4],[8.1,48.3]]]}});
+ const compiledRadioRoute=fs.readFileSync(path.join(root,'ga-tracker-client/efb-web-assets/checklists.js'),'utf8').includes('function radioAirspaceRouteOrder');
+ const servedRadioAirspaces=()=>radioAirspaces.filter(as=>as.id!=='off-route'||raw||compiledRadioRoute);
  const server=http.createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
   if(pathname==='/'){res.setHeader('Content-Type','text/html');res.end(efb.createTrackerEfbWebClientPage().replace('<head>','<head><script>window.__errors=[];addEventListener("error",e=>__errors.push(e.error&&e.error.stack||e.message));addEventListener("unhandledrejection",e=>__errors.push(String(e.reason)));</script>'));return;}
@@ -21,9 +24,9 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
     if(input.url.includes('rainviewer'))data={radar:{past:[{path:'/v2/radar/123456'}]}};
     else if(input.url==='./airports.json')data={EDTL:{lat:48.36,lon:7.83,name:'Lahr'},EDTO:{lat:48.45,lon:7.92,name:'Offenburg'}};
     else if(input.url.includes('/api/airports'))data={items:airports};
-    else if(input.url.includes('/api/airspaces'))data={items:radioAirspaces};
+    else if(input.url.includes('/api/airspaces'))data={items:servedRadioAirspaces()};
     else data={items:[]};
-   }else if(input.kind==='aviation')data={airspaces:radioAirspaces,airports:[],navaids:[],reportingPoints:[]};
+   }else if(input.kind==='aviation')data={airspaces:servedRadioAirspaces(),airports:[],navaids:[],reportingPoints:[]};
    else if(input.kind==='airports')data=[{airports}];
    else if(input.kind==='airspaces')data=[];
    else if(input.kind==='terrain')data=input.points.map(p=>({...p,elevFt:500}));
@@ -50,7 +53,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
  });
  const page=await context.newPage();
  const checks=[];
- for(raw of [false,true]){
+ for(raw of (process.env.GA_RADIO_WEB_ONLY ? [true] : [false,true])){
   await page.goto(address);await page.waitForFunction(()=>window.__test);
   await page.evaluate(()=>{
     window.map=__test.map();routeWaypoints=[{lat:48.36,lon:7.83,name:'EDTL'},{lat:48.45,lon:7.92,name:'EDTO'}];currentStartICAO='EDTL';currentDestICAO='EDTO';
@@ -67,6 +70,8 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   await page.waitForSelector('.route-tool-radio-page .ga-radio-value[data-radio-value="132.040"]');
   assert.equal(await page.locator('.route-tool-radio-page [data-action="refresh-tool"]').count(),0);
   assert.match(await page.locator('.route-tool-radio-page').innerText(),/ALTDORF.*OFFENBURG/s);
+  // Web-only previews intentionally retain the previous packed Tracker assets.
+  if(raw||compiledRadioRoute)assert.doesNotMatch(await page.locator('.route-tool-radio-page').innerText(),/CTR OFF ROUTE|MHz/);
   assert.equal(await page.evaluate(()=>activeAirspaces.length),0);
   const radioValues=page.locator('.route-tool-radio-page .ga-radio-value');
   assert.equal(await radioValues.count(),6); // four HX and start/destination.
