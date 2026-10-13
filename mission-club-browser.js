@@ -26,7 +26,7 @@ if(!idea)throw Error('Die Vereinsidee benötigt einen mitfliegenden Vereinskolle
 const flightApi=root.MissionPrivateEpisodeV6;
 const flightContext=flightApi?.flightContext(contract);
 const flight=flightContext?{context:flightContext,bindings:flightApi.flightBindings(flightContext)}:null;
-const raw=await json(core().writerPrompt(idea,input.recent,flight),'mission-club-writer-v1');const prose=core().prose(raw,idea);if(!prose)throw Error('Das Vereinsbriefing ist unvollständig. Die Idee wurde nicht durch Textbausteine ersetzt.');
+const raw=await (root.MissionAirportInformationBrowser?.writePages(core().writerPrompt(idea,input.recent,flight),contract,null,p=>json(p,'mission-club-writer-v1'))||json(core().writerPrompt(idea,input.recent,flight),'mission-club-writer-v1'));const prose=core().prose(raw,idea);if(!prose)throw Error('Das Vereinsbriefing ist unvollständig. Die Idee wurde nicht durch Textbausteine ersetzt.');
 prose.rawFlightBriefing=typeof raw.flightBriefing==='string'?raw.flightBriefing:'';
 prose.flightBriefing=flightApi?.resolveFlightBriefing(raw.flightBriefing,flightContext)||'';
 const m=core().mission(idea,prose);m._missionWriterV4Debug.historyCount=input.recent.length;

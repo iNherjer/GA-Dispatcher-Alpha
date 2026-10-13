@@ -4256,6 +4256,17 @@ window.vpBuildWeatherDebugReport = function() {
     } else {
         const p = missionSnap.passenger || {};
         const bushData = window.currentMissionData;
+        if (['apt', 'poi'].includes(bushData?.missionType)) {
+            for (const [label, context, info, textKey, imageId] of [
+                ['Start', bushData.departureAirportInfoContext, bushData.departureAirportInformation, 'departureInfo', 'wikiDepImageContainer'],
+                ['Ziel', bushData.airportInfoContext, bushData.airportInformation, 'destinationInfo', 'wikiDestImageContainer']
+            ]) {
+                lines.push(`- Briefingseite ${label}: Text=${info?.generated ? 'KI' : info ? 'Basisdaten-Fallback' : 'fehlt'} | ${info?.[textKey]?.length || 0} Zeichen | Bildcontainer=${document.getElementById(imageId)?.style.display || 'nicht gesetzt'}`);
+                if (context?.retrieval) lines.push(`- Briefingquellen ${label}: ${Object.entries(context.retrieval.sources || {}).map(([key, value]) => `${key}=${value.status}`).join(', ')} | ${context.retrieval.elapsedMs} ms`);
+            }
+            if (bushData.poiInformation) lines.push(`- POI-Zielseite: Text=${bushData.poiInformation.generated ? 'KI' : 'Lagebericht-Fallback'} | ${bushData.poiInformation.text?.length || 0} Zeichen`);
+        }
+
         if (bushData?.missionType === 'bush') {
             lines.push(`- Bush-Bausteine geladen: Wetter=${!!window.MissionEnvironmentBrowser}, Platz=${!!window.MissionAirportInformationBrowser}, Erzählung=${!!window.MissionBushNarrativeBrowser}`);
             const airportContext = bushData.airportInfoContext;

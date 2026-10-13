@@ -41,9 +41,10 @@ async function story({start,dest,proposal,contract={}}){
  }else{input=await frame(start,dest);idea=(await ideas([{candidateId:'direct',...input}]))[0];}
  if(!idea)throw Error('Die gewählte Reisegruppe oder die Besuchsziele passen nicht mehr zum Flug. Bitte neu auswählen.');
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
+ const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent),parse=raw=>core().prose(resolveText(raw,flight.bindings),idea);
- let raw=await json(prompt),written=parse(raw);
- if(!written){raw=await json(prompt+'\nPRÜFBEFUNDE: '+JSON.stringify(core().proseErrors(resolveText(raw,flight.bindings),idea))+'\nFORMATKORREKTUR: Bewahre Orte, Fakten und Perspektive. Jeder gewählte Ort genau einmal mit gültigen factIds. Prüfe Textlängen und Referenzen. Vollständiges JSON. ENTWURF: '+JSON.stringify(raw));written=parse(raw);}
+ let raw=await pageWriter(prompt),written=parse(raw);
+ if(!written){raw=await pageWriter(prompt+'\nPRÜFBEFUNDE: '+JSON.stringify(core().proseErrors(resolveText(raw,flight.bindings),idea))+'\nFORMATKORREKTUR: Bewahre Orte, Fakten und Perspektive. Jeder gewählte Ort genau einmal mit gültigen factIds. Prüfe Textlängen und Referenzen. Vollständiges JSON. ENTWURF: '+JSON.stringify(raw));written=parse(raw);}
  if(!written)throw Error('Das Sightseeing-Briefing enthält ungültige Texte oder Ortsverweise. Bitte erneut versuchen.');
  let brief=api.resolveFlightBriefing(raw.flightBriefing,context),weatherBriefingStatus=brief?'accepted-bindings':'pending';
  if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null)){brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';weatherBriefingStatus='unavailable';}

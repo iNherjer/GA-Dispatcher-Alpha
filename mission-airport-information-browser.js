@@ -15,7 +15,7 @@
  }
  function enabled({missionType,aiModeEnabled,isPOI,profileId,target,role='destination'}={}){
   const core=root.MissionAirportInformationCore,loc=core?.location(target);
-  return missionType==='bush'&&!!aiModeEnabled&&(role==='departure'||(!isPOI&&profileId!=='bush_recon_return'))
+  return ['bush','apt','poi'].includes(missionType)&&!!aiModeEnabled&&(role==='departure'||(missionType!=='poi'&&!isPOI&&profileId!=='bush_recon_return'))
    &&loc?.lat!==null&&loc?.lon!==null&&(!!core?.identifiers(target).length||!!String(target?.n||target?.name||'').trim());
  }
  async function load(target,options={}){
@@ -90,6 +90,13 @@
  }
  function render(m,point){const core=root.MissionAirportInformationCore,c=m?.airportInfoContext,info=m?.airportInformation;clear('destination');
   const doc=root.document,heading=doc?.getElementById('airportFlightBriefingHeading');if(heading)heading.textContent='Zielplatz und Flugbedingungen';
+  const poi=m?.poiInformation;
+  if(m?.missionType==='poi'&&poi?.schema==='poi-target-information.v1'&&typeof poi.text==='string'&&core.distance(poi.target,point||{lat:m.targetLat??m.initialTargetLat,lon:m.targetLon??m.initialTargetLon})<=.15){
+   const d=doc?.getElementById('wikiDestDescText');if(d)d.textContent=poi.text;
+   const sources=doc?.getElementById('airportDestinationInfoSources');
+   if(sources)sources.textContent='Grundlage: zielgebundene Orts- und Kartenbelege';
+   return true;
+  }
   const recon=m?.bushReconInfo;
   if(m?.missionType==='bush'&&recon?.schema==='bush-recon-information.v1'&&core.distance(recon.target,point||recon.target)<=.15){
    const b=doc?.getElementById('airportFlightBriefing'),t=doc?.getElementById('airportFlightBriefingText'),d=doc?.getElementById('wikiDestDescText');
@@ -98,7 +105,8 @@
    const sources=doc?.getElementById('airportFlightBriefingSources');if(sources){sources.textContent='Grundlage: Zieldaten und allgemeine fliegerische Hinweise';for(const source of recon.handbookSources||[]){if(!/^https:\/\//.test(source.url||''))continue;const a=doc.createElement('a');a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=source.title;sources.append(doc.createTextNode(' · '),a);}}
    return true;
   }
- if(!c?.airport||!Array.isArray(c.sources)||!info||typeof info.flightBriefing!=='string'||typeof info.destinationInfo!=='string'||!Array.isArray(info.sourceIds)||m.missionType!=='bush'||core.distance(c.airport,point||{lat:m.targetLat??m.initialTargetLat,lon:m.targetLon??m.initialTargetLon})>.15)return false;
+ if(!c?.airport||!Array.isArray(c.sources)||!info||typeof info.flightBriefing!=='string'||typeof info.destinationInfo!=='string'||!Array.isArray(info.sourceIds)||!['bush','apt','poi'].includes(m.missionType)||core.distance(c.airport,point||{lat:m.targetLat??m.initialTargetLat,lon:m.targetLon??m.initialTargetLon})>.15)return false;
+  if(m.missionType!=='bush'&&info.generated!==true)return false;
   const b=doc?.getElementById('airportFlightBriefing'),t=doc?.getElementById('airportFlightBriefingText'),d=doc?.getElementById('wikiDestDescText');if(b&&t){t.textContent=info.flightBriefing;b.hidden=false;}if(d){const arrival=core.arrivalNote(m,c);d.textContent=info.destinationInfo+(arrival?'\n\n'+arrival:'');}
   renderSources(c,info,['airportFlightBriefingSources','airportDestinationInfoSources']);
   return true;
@@ -107,8 +115,15 @@
  }
  function renderDeparture(m,point){const doc=root.document,core=root.MissionAirportInformationCore,c=m?.departureAirportInfoContext,info=m?.departureAirportInformation;
   doc?.getElementById('airportDepartureInfoSources')?.replaceChildren();
-  if(!c?.airport||!Array.isArray(c.sources)||typeof info?.departureInfo!=='string'||!Array.isArray(info.sourceIds)||m.missionType!=='bush'||core.distance(c.airport,point)>.15)return false;
+  if(!c?.airport||!Array.isArray(c.sources)||typeof info?.departureInfo!=='string'||!Array.isArray(info.sourceIds)||!['bush','apt','poi'].includes(m.missionType)||core.distance(c.airport,point)>.15)return false;
+  if(m.missionType!=='bush'&&info.generated!==true)return false;
   const d=doc?.getElementById('wikiDepDescText');if(!d)return false;d.textContent=info.departureInfo;renderSources(c,info,['airportDepartureInfoSources']);return true;
  }
- root.MissionAirportInformationBrowser={enabled,load,loadPair,generate,render,renderDeparture,clear,clearCache:()=>memory.clear()};
+ // Reuse the existing writer request; never add a page-only AI call.
+ async function writePages(prompt,contract={},poiContext=null,request){
+  const core=root.MissionAirportInformationCore;
+  const raw=await request(prompt+core.pagesPrompt(contract,poiContext));
+  return core.acceptPages(raw,contract,poiContext);
+ }
+ root.MissionAirportInformationBrowser={writePages,enabled,load,loadPair,generate,render,renderDeparture,clear,clearCache:()=>memory.clear()};
 })(typeof window!=='undefined'?window:globalThis);

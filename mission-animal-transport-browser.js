@@ -27,10 +27,11 @@ async function story({start,dest,proposal,contract={}}){
  }else idea=(await ideas([{candidateId:'direct',...input}]))[0];
  if(!idea)throw Error('Die gewählte Sendung passt nicht mehr zum aktuellen Flugzeug. Bitte neu auswählen.');
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
+ const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent);
  const parse=raw=>{const resolved=root.MissionCharterIdeasCore.resolveReferences(raw,flight.bindings);return resolved&&core().prose(resolved,idea);};
- let raw=await json(prompt),written=parse(raw);
- if(!written){raw=await json(prompt+'\nFORMATKORREKTUR: Behalte Auftrag und Sendung bei. Prüfe Textlängen, ausschließlich bekannte Referenzen, genau einen Tierbegleiter, natürliche Begrüßung und konkrete pilotNotes zur Handhabung. In doppelten eckigen Klammern ausschließlich SCHLÜSSEL, niemals deren Werte. Erlaubt: '+Object.keys(flight.bindings).map(k=>'[['+k+']]').join(', ')+'. Vollständiges JSON. ENTWURF: '+JSON.stringify(raw));written=parse(raw);}
+ let raw=await pageWriter(prompt),written=parse(raw);
+ if(!written){raw=await pageWriter(prompt+'\nFORMATKORREKTUR: Behalte Auftrag und Sendung bei. Prüfe Textlängen, ausschließlich bekannte Referenzen, genau einen Tierbegleiter, natürliche Begrüßung und konkrete pilotNotes zur Handhabung. In doppelten eckigen Klammern ausschließlich SCHLÜSSEL, niemals deren Werte. Erlaubt: '+Object.keys(flight.bindings).map(k=>'[['+k+']]').join(', ')+'. Vollständiges JSON. ENTWURF: '+JSON.stringify(raw));written=parse(raw);}
  if(!written)throw Error('Das Tiertransportbriefing enthält ungültige Texte oder Referenzen. Bitte erneut versuchen.');
  let brief=api.resolveFlightBriefing(raw.flightBriefing,context);
  if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null))brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';

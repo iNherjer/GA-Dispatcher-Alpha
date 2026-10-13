@@ -21,11 +21,12 @@ async function story({start,dest,proposal,contract={}}){
 }
 async function write(idea,input,contract,extraPrompt=''){
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
+ const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent)+extraPrompt;
- let raw=await json(prompt),resolved=core().resolveReferences(raw,flight.bindings);
+ let raw=await pageWriter(prompt),resolved=core().resolveReferences(raw,flight.bindings);
  let written=resolved&&core().prose(resolved),brief=api.resolveFlightBriefing(raw.flightBriefing,context);
  if(!written){
-  raw=await json(prompt+'\nKORREKTUR: Der erste Entwurf hat die Formatprüfung nicht bestanden. Kürze greeting auf maximal 400 Zeichen, title auf 110, memory auf 600, story auf 250–1800. Liefere das vollständige JSON erneut. Behalte Kundenauftrag und Personen bei. In doppelten eckigen Klammern stehen ausschließlich die SCHLÜSSEL aus WERTE, niemals deren aufgelöste Werte oder Ortsnamen. Erlaubte Referenzen: '+Object.keys(flight.bindings).map(k=>'[['+k+']]').join(', ')+' . Alle Referenzen müssen in WERTE existieren; flightBriefing verwendet ausschließlich diese Referenzen für Zahlen und Einheiten und enthält die geforderten vorhandenen Distanz-/Böenwerte.\nERSTER ENTWURF: '+JSON.stringify(raw));
+  raw=await pageWriter(prompt+'\nKORREKTUR: Der erste Entwurf hat die Formatprüfung nicht bestanden. Kürze greeting auf maximal 400 Zeichen, title auf 110, memory auf 600, story auf 250–1800. Liefere das vollständige JSON erneut. Behalte Kundenauftrag und Personen bei. In doppelten eckigen Klammern stehen ausschließlich die SCHLÜSSEL aus WERTE, niemals deren aufgelöste Werte oder Ortsnamen. Erlaubte Referenzen: '+Object.keys(flight.bindings).map(k=>'[['+k+']]').join(', ')+' . Alle Referenzen müssen in WERTE existieren; flightBriefing verwendet ausschließlich diese Referenzen für Zahlen und Einheiten und enthält die geforderten vorhandenen Distanz-/Böenwerte.\nERSTER ENTWURF: '+JSON.stringify(raw));
   resolved=core().resolveReferences(raw,flight.bindings);written=resolved&&core().prose(resolved);brief=api.resolveFlightBriefing(raw.flightBriefing,context);
  }
  if(!written)throw Error('Das Charterbriefing enthält ungültige Texte oder Referenzen. Bitte erneut versuchen.');

@@ -8946,7 +8946,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
         'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
-        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'bushFollowUpNarrative', 'legacyCharterNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'bushFollowUpNarrative', 'legacyCharterNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation', 'poiInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
         'targetScene', 'sceneIntent', 'missionTruth', 'targetGeoContext',
@@ -15687,30 +15687,50 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
         return elementId === 'wikiDestDescText' ? browser?.render(mission, {lat, lon})
             : elementId === 'wikiDepDescText' ? browser?.renderDeparture(mission, {lat, lon}) : false;
     };
-    if (renderAirportInformation()) return;
-    if (imgContainer) imgContainer.style.display = 'none';
+    // Bush keeps its existing presentation. Other families still fetch the
+    // article/photo; accepted page prose only owns the text, not the image.
+    const initialPageRendered = renderAirportInformation();
+    if (initialPageRendered && (window.currentMissionData || currentMissionData)?.missionType === 'bush') return;
+    const pageMission = window.currentMissionData || currentMissionData;
+    const pageContext = elementId === 'wikiDepDescText' ? pageMission?.departureAirportInfoContext : pageMission?.airportInfoContext;
+    const samePageContext = window.MissionAirportInformationCore?.distance(pageContext?.airport, {lat,lon}) <= .15;
+    if (imgContainer && !initialPageRendered && !samePageContext) imgContainer.style.display = 'none';
     if (!textElement) return;
     const applyPoiFallback = () => {
         if (!commitAllowed()) return false;
         const fallback = buildAreaDescriptionPoiFallback(lat, lon, elementId, exactTitle, icaoCode, options);
-        if (!fallback) return false;
+        if (!fallback) {
+            const mission = window.currentMissionData || currentMissionData;
+            const isDeparture = elementId === 'wikiDepDescText';
+            const c = isDeparture ? mission?.departureAirportInfoContext : mission?.airportInfoContext;
+            const info = isDeparture ? mission?.departureAirportInformation : mission?.airportInformation;
+            if (window.MissionAirportInformationCore?.distance(c?.airport, {lat,lon}) > .15) return false;
+            const text = isDeparture ? info?.departureInfo : info?.destinationInfo;
+            if (!text) return false;
+            textElement.innerText = info.generated ? text : 'Für diesen Platz liegen derzeit keine weiterführenden Ortsinformationen vor.';
+            return true;
+        }
         textElement.innerText = fallback;
         return true;
     };
 
     try {
-        let titleToFetch = exactTitle;
+        const mission = window.currentMissionData || currentMissionData;
+        const c = elementId === 'wikiDepDescText' ? mission?.departureAirportInfoContext : mission?.airportInfoContext;
+        const boundWiki = window.MissionAirportInformationCore?.distance(c?.airport, {lat,lon}) <= .15
+            ? c?.sources?.find(source => source.kind === 'wikipedia' && source.language === 'de') : null;
+        let titleToFetch = exactTitle || boundWiki?.title;
         if (!titleToFetch && icaoCode) titleToFetch = await getWikiTitleForAirport(icaoCode, lat, lon);
-        if (!commitAllowed() || renderAirportInformation()) return;
+        if (!commitAllowed()) return;
 
         if (!titleToFetch) {
             const geoRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=10000&gslimit=1&format=json&origin=*`);
-            if (!commitAllowed() || renderAirportInformation()) return;
+            if (!commitAllowed()) return;
             const geoData = await geoRes.json();
-            if (!commitAllowed() || renderAirportInformation()) return;
+            if (!commitAllowed()) return;
             if (geoData?.query?.geosearch?.length > 0) titleToFetch = geoData.query.geosearch[0].title;
             else {
-                if (applyPoiFallback()) return;
+                if (renderAirportInformation() || applyPoiFallback()) return;
                 textElement.innerText = "Keine regionalen Wikipedia-Daten gefunden.";
                 return;
             }
@@ -15718,15 +15738,15 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
 
         if (titleToFetch) {
             const extRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages&exintro=true&explaintext=true&exsentences=4&pithumbsize=1200&titles=${encodeURIComponent(titleToFetch)}&format=json&origin=*`);
-            if (!commitAllowed() || renderAirportInformation()) return;
+            if (!commitAllowed()) return;
             const extData = await extRes.json();
-            if (!commitAllowed() || renderAirportInformation()) return;
+            if (!commitAllowed()) return;
 
             if (extData?.query?.pages) {
                 const pageId = Object.keys(extData.query.pages)[0];
-                if (pageId !== "-1" && extData.query.pages[pageId].extract) {
+                if (pageId !== "-1" && (extData.query.pages[pageId].extract || extData.query.pages[pageId].thumbnail?.source)) {
                     let prefix = exactTitle ? "" : `Region (${titleToFetch}):\n\n`;
-                    textElement.innerText = prefix + extData.query.pages[pageId].extract;
+                    if (!renderAirportInformation() && extData.query.pages[pageId].extract) textElement.innerText = prefix + extData.query.pages[pageId].extract;
 
                     const imgUrl = extData.query.pages[pageId].thumbnail?.source;
                     if (imgUrl && imgContainer && imgElement) {
@@ -15737,11 +15757,11 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
                 }
             }
         }
-        if (applyPoiFallback()) return;
+        if (renderAirportInformation() || applyPoiFallback()) return;
         textElement.innerText = "Der Artikel konnte nicht von Wikipedia abgerufen werden.";
     } catch (e) {
-        if (!commitAllowed() || renderAirportInformation()) return;
-        if (applyPoiFallback()) return;
+        if (!commitAllowed()) return;
+        if (renderAirportInformation() || applyPoiFallback()) return;
         textElement.innerText = "Wiki-Daten konnten nicht geladen werden.";
     }
 }
@@ -33306,6 +33326,7 @@ function buildMissionContractV4({
         ...(plannerContext.environmentContext ? { environmentContext: plannerContext.environmentContext } : {}),
         ...(plannerContext.airportInfoContext ? { airportInfoContext: plannerContext.airportInfoContext } : {}),
         ...(plannerContext.departureAirportInfoContext ? { departureAirportInfoContext: plannerContext.departureAirportInfoContext } : {}),
+        ...(plannerContext.poiInformationContext ? { poiInformationContext: plannerContext.poiInformationContext } : {}),
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
         missionPlan: plan,
         storyFrame,
@@ -39869,6 +39890,16 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     };
 }
 
+// Narrative-only writers use compact contracts, bypassing buildMissionContractV4.
+// Bind the selected page sources after proposal/training adjustments, before writing.
+function attachMissionBriefingContexts(contract, sources = {}) {
+    if (!contract || typeof contract !== 'object') return contract;
+    for (const key of ['airportInfoContext', 'departureAirportInfoContext', 'poiInformationContext']) {
+        if (sources[key]) contract[key] = sources[key];
+    }
+    return contract;
+}
+
 async function fetchPrivateReturnStory(context = {}) {
     const core = window.MissionPrivateReturnCore;
     const contract = context.missionContractV4;
@@ -39878,10 +39909,11 @@ async function fetchPrivateReturnStory(context = {}) {
     let prose = null;
     if (context.aiModeEnabled) {
         context.onPrivateStoryPhase?.('writer', 'v6');
-        const response = await fetchGeminiJsonWithFallback(core.prompt(pipeline.privateReturn, contract), getSelectedAiApiKey(), {
-            promptVersion: 'mission-private-return-' + core.REVISION, timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 20000
+        const response = await fetchGeminiJsonWithFallback(core.prompt(pipeline.privateReturn, contract) + (window.MissionAirportInformationCore?.pagesPrompt(contract) || ''), getSelectedAiApiKey(), {
+            promptVersion: 'mission-private-return-' + core.REVISION, timeoutMs: contract.airportInfoContext || contract.departureAirportInfoContext ? 40000 : (getSelectedAiProvider() === 'openai' ? 26000 : 20000)
         });
-        const validation = core.validateProse(response?.parsed, pipeline.privateReturn, contract);
+        const pageNarrative = window.MissionAirportInformationCore?.acceptPages(response?.parsed, contract) || response?.parsed;
+        const validation = core.validateProse(pageNarrative, pipeline.privateReturn, contract);
         window.gaPrivateReturnWriterValidation = {at: new Date().toISOString(),
             accepted: validation.accepted, errors: validation.errors,
             warnings: validation.warnings, moments: validation.momentDiagnostics,
@@ -39922,7 +39954,7 @@ async function fetchPrivateOutingStory(context = {}) {
     const input = planned?.input || coreApi.frame(contract, recent);
     const writerLabel = v6 ? 'Episode Writer V6 Privat' : 'Story Planner V5 Privat';
     const apiKey = getSelectedAiApiKey();
-    const options = { promptVersion: v6 ? 'mission-writer-private-v6-3-1' : 'mission-writer-private-v5-7', timeoutMs: getSelectedAiProvider() === 'openai' ? 26000 : 16000 };
+    const options = { promptVersion: v6 ? 'mission-writer-private-v6-3-1' : 'mission-writer-private-v5-7', timeoutMs: contract.airportInfoContext || contract.departureAirportInfoContext ? 40000 : (getSelectedAiProvider() === 'openai' ? 26000 : 16000) };
     let ideaResult = null;
     if (!planned) {
         context.onPrivateStoryPhase?.('idea', v6 ? 'v6' : 'v5');
@@ -39931,8 +39963,9 @@ async function fetchPrivateOutingStory(context = {}) {
     const idea = planned?.idea || coreApi.validateIdea(ideaResult?.parsed, input);
     if (!idea) throw new Error('Die private Ausflugsidee konnte nicht vollständig erstellt werden. Bitte erneut generieren.');
     context.onPrivateStoryPhase?.('writer', v6 ? 'v6' : 'v5');
-    const written = await fetchGeminiJsonWithFallback(coreApi.writerPrompt(idea, input), apiKey, options);
-    const prose = coreApi.prose(written?.parsed, idea, input);
+    const written = await fetchGeminiJsonWithFallback(coreApi.writerPrompt(idea, input) + (window.MissionAirportInformationCore?.pagesPrompt(contract) || ''), apiKey, options);
+    const pageNarrative = window.MissionAirportInformationCore?.acceptPages(written?.parsed, contract) || written?.parsed;
+    const prose = coreApi.prose(pageNarrative, idea, input);
     if (v6) {
         idea.writerMemory = prose?.memory || null;
         idea.flightBriefing = prose?.flightBriefing || '';
@@ -40109,10 +40142,10 @@ async function fetchTrainingNarrative(context = {}) {
         && typeof raw.story==='string' && raw.story.trim().length>=180 && raw.story.length<=2000
         && typeof raw.greeting==='string' && raw.greeting.trim().length>=20 && raw.greeting.length<=400
         && !/\[\[|\]\]/.test(raw.title+raw.story+raw.greeting);
-    let result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
-    if(!validNarrative(result?.parsed)) result=await fetchGeminiJsonWithFallback(prompt+' FORMATKORREKTUR: Nur die vier Textfelder in gültigem JSON und den angegebenen Längen. ENTWURF: '+JSON.stringify(result?.parsed||{}),getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
+    let result=await fetchGeminiJsonWithFallback(prompt+(window.MissionAirportInformationCore?.pagesPrompt(contract)||''),getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
+    if(!validNarrative(result?.parsed)) result=await fetchGeminiJsonWithFallback(prompt+(window.MissionAirportInformationCore?.pagesPrompt(contract)||'')+' FORMATKORREKTUR: Die vier bisherigen Textfelder und zusätzliche Seitenfelder in gültigem JSON und den angegebenen Längen. ENTWURF: '+JSON.stringify(result?.parsed||{}),getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
     if(!validNarrative(result?.parsed)) throw Error('Der Trainingsrahmen konnte nicht vollständig erstellt werden. Bitte erneut versuchen.');
-    const raw=result.parsed;
+    const raw=window.MissionAirportInformationCore?.acceptPages(result.parsed,contract)||result.parsed;
     const hints = await fetchTrainingCoaching(frame, raw.story, recent);
     prepared.passenger.trainingRecipe.exercises.forEach(ex=>{ex.inflightTip=hints.maneuverTips.find(t=>t.exerciseId===ex.id).text.trim();});
     const brief=api.resolveFlightBriefing(raw.flightBriefing,flightContext)||api.weatherFallback(flightContext);
@@ -40137,11 +40170,12 @@ async function fetchMissionWriterV4(context = {}) {
     if (!context.isPOI && contract.profile?.taskDomain === 'private_outing') return fetchPrivateOutingStory(context);
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV4Prompt(contract) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || ''),
+        buildMissionWriterV4Prompt(contract) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (context.missionType === 'bush' ? (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext,contract.departureAirportInfoContext)||'') : (window.MissionAirportInformationCore?.pagesPrompt(contract)||'')),
         apiKey,
-        { promptVersion: 'mission-writer-v4', timeoutMs: context.missionType === 'bush' ? 45000 : 16000 }
+        { promptVersion: 'mission-writer-v4', timeoutMs: context.missionType === 'bush' ? 45000 : (contract.airportInfoContext || contract.departureAirportInfoContext || contract.poiInformationContext ? 40000 : 16000) }
     );
     if (!result?.parsed) return null;
+    window.MissionAirportInformationCore?.acceptPages(result.parsed, contract);
     const mission = sanitizeMissionWriterV4Payload(result.parsed, {
         ...context,
         source: `${result.source || 'Gemini'} + V4 Writer`
@@ -40169,9 +40203,9 @@ async function fetchMissionWriterV5(context = {}) {
     const reconContractPrompt = contract.bushReconPlan ? '\nBINDENDER RECON-SPIELPLAN: '+JSON.stringify(contract.bushReconPlan)+' Beschreibe genau diese Beobachtungsdauer und diesen Ablauf; bei längerem Aufenthalt keinen einmaligen Überflug als ausreichend bezeichnen. Der heutige saisonale Anlass folgt dem gelieferten Datum. Diese Zahlen sind vertraglich, passenger.targetRadiusNm und targetDwellMin müssen ihnen entsprechen (Sekunden/60). Keine neue niedrigere Flugzielhöhe erfinden.' : '';
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV5Prompt(contract, context) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + reconContractPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext, contract.departureAirportInfoContext) || '') + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
+        buildMissionWriterV5Prompt(contract, context) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + reconContractPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (context.missionType === 'bush' ? (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext,contract.departureAirportInfoContext)||'') : (window.MissionAirportInformationCore?.pagesPrompt(contract)||'')) + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
         apiKey,
-        { promptVersion: 'mission-writer-v5', timeoutMs: context.missionType === 'bush' ? 45000 : (selectedProvider === 'openai' ? 26000 : 16000) }
+        { promptVersion: 'mission-writer-v5', timeoutMs: context.missionType === 'bush' ? 45000 : (contract.airportInfoContext || contract.departureAirportInfoContext || contract.poiInformationContext ? 40000 : (selectedProvider === 'openai' ? 26000 : 16000)) }
     );
     const requestDiagnostics = _missionWriterRequestDiagnostics(result);
     if (context.missionType === 'bush' && !String(result?.parsed?.story || '').trim()) {
@@ -40189,6 +40223,7 @@ async function fetchMissionWriterV5(context = {}) {
         window.MissionBushNarrativeCore?.attachRecon(mission, {}, reconContext, window.MissionPoiBriefingSharedCore);
         return window.MissionAirportInformationCore?.attach(mission, {}, contract.airportInfoContext, contract.departureAirportInfoContext) || mission;
     }
+    window.MissionAirportInformationCore?.acceptPages(result.parsed, contract);
     const mission = sanitizeMissionWriterV5Payload(result.parsed, {
         ...context,
         source: `${result.source || 'Gemini'} + V5 Writer`
@@ -41129,7 +41164,8 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
   }
 }
 </OUTPUT>
-${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({airportInfoContext:poiTargetMeta?.airportInfoContext,missionWeather}) || '') + (window.MissionAirportInformationCore?.writerPrompt(poiTargetMeta?.airportInfoContext, poiTargetMeta?.departureAirportInfoContext) || '')) : ''}`;
+${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.sourcePrompt({airportInfoContext:poiTargetMeta?.airportInfoContext,missionWeather}) || '')) : ''}
+${isBushMission ? (window.MissionAirportInformationCore?.writerPrompt(poiTargetMeta?.airportInfoContext,poiTargetMeta?.departureAirportInfoContext)||'') : (window.MissionAirportInformationCore?.pagesPrompt(poiTargetMeta||{})||'')}`;
 
     const buildGeminiMissionResult = (parsed, sourceLabel) => {
         let passenger = sanitizePassengerProfile(parsed.passenger, parsed.story);
@@ -41211,9 +41247,12 @@ ${isBushMission ? ((window.MissionBushNarrativeCore?.writerInstructions || '') +
         if (result?.parsed) {
             const parsed = sanitizeMissionPayloadText(enforceMedicalTransferPayload(enforceCharterPayload(enforceTrainingInstructorPayload(result.parsed))));
             const mission = buildGeminiMissionResult(parsed, result.source || 'KI Dispatcher');
-            return isBushMission
-                ? (window.MissionAirportInformationCore?.attach(mission, result.parsed, poiTargetMeta?.airportInfoContext, poiTargetMeta?.departureAirportInfoContext) || mission)
-                : mission;
+            if (window.MissionAirportInformationCore) {
+                const pages = {airportInfoContext:poiTargetMeta?.airportInfoContext,departureAirportInfoContext:poiTargetMeta?.departureAirportInfoContext,poiInformationContext:poiTargetMeta?.poiInformationContext};
+                window.MissionAirportInformationCore.acceptPages(result.parsed, pages);
+                for (const key of ['airportInformation','departureAirportInformation','poiInformation']) if (pages[key]) mission[key]=pages[key];
+            }
+            return mission;
         }
     } catch (e) { }
     return null;
@@ -44361,8 +44400,8 @@ async function generateMission(options = {}) {
         _ensureDispatchAlive();
     }
     const airportInfoBrowser = window.MissionAirportInformationBrowser;
-    const airportInfoEnabled = airportInfoBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, isPOI, profileId: dispatchProfileId, target: dest });
-    const departureInfoEnabled = airportInfoBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, target: start, role: 'departure' });
+    const airportInfoEnabled = !isPlanningOnlyMode && airportInfoBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, isPOI, profileId: dispatchProfileId, target: dest });
+    const departureInfoEnabled = !isPlanningOnlyMode && airportInfoBrowser?.enabled({ missionType: requestedMissionType, aiModeEnabled, target: start, role: 'departure' });
     const [environmentContext, airportContexts] = await Promise.all([
         requestedMissionType === 'bush' && aiModeEnabled && window.MissionEnvironmentBrowser
             ? dispatchMeasure('bush_environment', () => window.MissionEnvironmentBrowser.load(start, dest)) : null,
@@ -44378,6 +44417,13 @@ async function generateMission(options = {}) {
                 }
             })) : null
     ]);
+    let poiInformationContext = null;
+    if (requestedMissionType === 'poi' && aiModeEnabled && !isPlanningOnlyMode && window.MissionPoiBriefingSharedBrowser) {
+        try {
+            poiInformationContext = await window.MissionPoiBriefingSharedBrowser.context(dest, poiTerrainEnvelope);
+            poiInformationContext = await window.MissionPoiBriefingSharedBrowser.enrichSelected(poiInformationContext, _ensureDispatchAlive);
+        } catch (error) { _ensureDispatchAlive(); console.warn('[Briefing pages] POI context unavailable', error?.message); }
+    }
     const airportInfoContext = airportContexts?.airportInfoContext || null;
     const departureAirportInfoContext = airportContexts?.departureAirportInfoContext || null;
     _ensureDispatchAlive();
@@ -44385,6 +44431,7 @@ async function generateMission(options = {}) {
         ...(environmentContext ? { environmentContext } : {}),
         ...(airportInfoContext ? { airportInfoContext } : {}),
         ...(departureAirportInfoContext ? { departureAirportInfoContext } : {}),
+        ...(poiInformationContext ? { poiInformationContext } : {}),
         ...(bushReconContext ? { bushReconContext } : {}),
         start,
         dest,
@@ -44696,6 +44743,9 @@ async function generateMission(options = {}) {
         missionPlanV2 = enforceTrainingPlannerResultFields(missionPlanV2, { isPOI: trainingIsPoi });
         missionPlanV4 = enforceTrainingPlannerResultFields(missionPlanV4, { isPOI: trainingIsPoi });
         missionContractV4 = enforceTrainingContractFields(missionContractV4, { isPOI: trainingIsPoi });
+    }
+    if (aiModeEnabled && !isPlanningOnlyMode) {
+        attachMissionBriefingContexts(missionContractV4, {airportInfoContext, departureAirportInfoContext, poiInformationContext});
     }
     setMissionGenerationProgress('mission_content');
     let m = null;
@@ -45328,6 +45378,9 @@ async function generateMission(options = {}) {
                     lat: Number(dest?.lat),
                     lon: Number(dest?.lon),
                     name: String(dest?.n || ''),
+                    airportInfoContext,
+                    departureAirportInfoContext,
+                    poiInformationContext,
                     requestedCategory: String(selectedPoiCategory || 'all'),
                     poiCategory: String(dest?.poiCategory || ''),
                     startAirport: start,
@@ -45765,6 +45818,7 @@ async function generateMission(options = {}) {
         if (finalPassengerPlan.plannedPassengerCount <= 0) missionContractV4.passenger = null;
         if (m && typeof m === 'object') m._missionContractV4 = missionContractV4;
     }
+    if (missionContractV4) delete missionContractV4.poiInformationContext;
     _ensureDispatchAlive();
     setMissionGenerationProgress('assemble_mission');
 
@@ -45946,8 +46000,9 @@ async function generateMission(options = {}) {
         ...(environmentContext ? { environmentContext } : {}),
         ...(airportInfoContext ? { airportInfoContext } : {}),
         ...(departureAirportInfoContext ? { departureAirportInfoContext } : {}),
-        ...(airportInfoContext ? { airportInformation: m?.airportInformation || window.MissionAirportInformationCore.fallback(airportInfoContext) } : {}),
-        ...(departureAirportInfoContext ? { departureAirportInformation: m?.departureAirportInformation || window.MissionAirportInformationCore.departureFallback(departureAirportInfoContext) } : {}),
+        ...((missionContractV4?.poiInformation || m?.poiInformation) ? { poiInformation: missionContractV4?.poiInformation || m.poiInformation } : {}),
+        ...(airportInfoContext ? { airportInformation: missionContractV4?.airportInformation || m?.airportInformation || window.MissionAirportInformationCore.fallback(airportInfoContext) } : {}),
+        ...(departureAirportInfoContext ? { departureAirportInformation: missionContractV4?.departureAirportInformation || m?.departureAirportInformation || window.MissionAirportInformationCore.departureFallback(departureAirportInfoContext) } : {}),
         followUpProspect: m?.followUpProspect || null,
         selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
         start: currentStartICAO,

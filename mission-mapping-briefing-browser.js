@@ -58,7 +58,7 @@ async function story({start,dest,proposal,contract={},terrainEnvelope=null,poiTe
  const spec=buildMissionSurveyPatternSpec({missionData:{isPOI:true,targetName:dest.n||dest.name,poiName:dest.n||dest.name,targetLat:dest.lat,targetLon:dest.lon,poiCategory:c.targetCategory,missionTruth},missionContract:{...contract,missionTruth},passenger});
  // Mapping-specific factual binding; no inference or text repair.
  flight.bindings={...flight.bindings,targetAltFt:String(spec.targetAltFt)};
- const raw=await json(core().writerPrompt(c,idea,recent,flight,spec));ensureAlive?.();
+ const raw=await (root.MissionAirportInformationBrowser?.writePages(core().writerPrompt(c,idea,recent,flight,spec),contract,c,json)||json(core().writerPrompt(c,idea,recent,flight,spec)));ensureAlive?.();
  // Weather validation must never discard a valid narrative.
  const {flightBriefing:weatherTemplate,...narrative}=raw;
  const resolved=root.MissionCharterIdeasCore.resolveReferences(narrative,flight.bindings);
@@ -94,7 +94,7 @@ SCENE_CAPABILITIES=${JSON.stringify(c.sceneCapabilities)}
 FLUGDATEN=${JSON.stringify(flight.context)}
 WERTE=${JSON.stringify(flight.bindings)}
 TARGET_ID=${JSON.stringify(c.id)}`;
- const raw=await json(prompt);ensureAlive?.();
+ const raw=await (root.MissionAirportInformationBrowser?.writePages(prompt,contract,c,json)||json(prompt));ensureAlive?.();
  const {flightBriefing:weatherTemplate,...prose}=raw,resolved=root.MissionCharterIdeasCore.resolveReferences(prose,flight.bindings);
  const client=c.continuation?.narrative?.memory?.client||resolved?.memory?.client;
  const idea={person,client:client||{name:'',kind:''},sceneIntent:core().sceneIntent(resolved?.sceneIntent)};

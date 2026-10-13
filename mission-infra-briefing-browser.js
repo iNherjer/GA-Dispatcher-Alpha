@@ -44,7 +44,7 @@ async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensur
  // Enrich only the selected mission, not all three picker candidates.
  if(!environmentReady)c=await root.MissionPoiBriefingSharedBrowser.enrichSelected(c,ensureAlive);
  const shared=root.MissionPoiBriefingSharedCore,flight=shared.prepareFlight(contract),flightContext=flight.context,recent=core().history(localStorage);
- const raw=await json(core().writerPrompt(c,idea,recent,flight));ensureAlive?.();
+ const raw=await (root.MissionAirportInformationBrowser?.writePages(core().writerPrompt(c,idea,recent,flight),contract,c,json)||json(core().writerPrompt(c,idea,recent,flight)));ensureAlive?.();
  // Weather validation must never discard a valid narrative.
  const {flightBriefing:weatherTemplate,...narrative}=raw;
  const resolved=root.MissionCharterIdeasCore.resolveReferences(narrative,flight.bindings);

@@ -1371,3 +1371,10 @@ Daten fehlen nach spätestens drei Sekunden optional, ohne den Dispatch zu
 blockieren. Nur benannte Bush-Zielplätze, keine Recon-Gebiete; globale
 Freischaltung und Startseite folgen erst nach Bewertung des Piloten.
 Siehe [Platzinformationen V1](Mission%20Airport%20Information.md).
+
+### Gemeinsame Start- und Zielseiten (13.10.2026, lokal)
+
+Neue Writer verwenden für ergänzende Flugplatz-/POI-Seitentexte die bestehende
+Airport-Information-Redaktion und den gewählten POI-Shared-Kontext. Kein eigener
+Lage-/Wetterabruf und kein zusätzlicher Seiten-Writer. Schnittstellen und
+Persistenz: [Gemeinsame Start- und Zielseiten](Mission%20Briefing%20Pages.md).

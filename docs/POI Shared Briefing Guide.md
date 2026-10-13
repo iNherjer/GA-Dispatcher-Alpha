@@ -113,3 +113,11 @@ kein Cache-Schreiben. Bei fehlendem Cache-Treffer wird der unveränderte Kontext
 zurückgegeben; fehlende Belege bedeuten keine freie Fläche oder Hanglage.
 Zunächst verwendet nur der Infrastruktur-Ideenrahmen diesen Zugriff.
 `enrichSelected` und die Provider-/Geometrie-/Fristenregeln bleiben unverändert.
+
+## Start-/Zielseiten, 13.10.2026 (lokal)
+
+Die zusätzlichen Seitenfelder werden im vorhandenen Profil-Writer über
+`MissionAirportInformationBrowser.writePages` erzeugt. Für POI-Ziele wird
+jeweils der bereits gewählte Shared-Kontext übergeben; der bestehende Wetter-
+und Aufgabenvertrag bleibt unverändert. Anschluss, Speicherung und Prüfung:
+[Gemeinsame Start- und Zielseiten](Mission%20Briefing%20Pages.md).

@@ -40,7 +40,7 @@ test('arrival note uses the current matching scene plan and only resolved named 
 });
 
 
-test('isolated production Legacy request and response carry the Bush airport addition, while APT stays unchanged',async()=>{
+test('isolated production Legacy request carries airport pages for Bush and APT',async()=>{
  const source=fs.readFileSync(require.resolve('../app.js'),'utf8');
 const fn=source.slice(source.indexOf('async function fetchGeminiMission('),source.indexOf('/* =========================================================\n   6. HAUPT-LOGIK',source.indexOf('async function fetchGeminiMission(')));
 const airport=core,env=require('../mission-environment-core.js'),bush=require('../mission-bush-narrative-core.js');
@@ -56,7 +56,7 @@ for(const m of fn.matchAll(/(?<![.\w])([A-Za-z_]\w*)\s*\(/g)){const name=m[1];if
  const call=kind=>c.fetchGeminiMission('Start','Test strip',50,false,'1 PAX','Kamera',null,null,{baseType:kind,profile:kind==='bush'?'bush_scenic_hopper':'auto',category:'all'},null,meta);
  let result=await call('bush');assert.ok(sent.includes('AIRPORT_INFO_CONTEXT'));assert.equal(result.airportInformation.generated,false);assert.equal(result.airportInformation.basis,'own-data-only');assert.equal(result.departureAirportInformation.generated,true);assert.equal(result.airportInformation.destinationInfo,core.fallback(airportInfoContext).destinationInfo);
  delete parsed.airportInformation;result=await call('bush');assert.equal(result.airportInformation.generated,false);assert.match(result.airportInformation.destinationInfo,/5743/);
- result=await call('apt');assert.ok(!sent.includes('AIRPORT_INFO_CONTEXT'));assert.equal(result.airportInformation,undefined);
+ result=await call('apt');assert.ok(sent.includes('AIRPORT_INFO_CONTEXT'));assert.equal(result.airportInformation.generated,false);assert.equal(result.departureAirportInformation.generated,true);
 });
 
 
@@ -115,11 +115,11 @@ test('Bush writer material preserves local evidence and cached context while gen
 });
 
 
-test('Bush airport activation accepts restored U60 without FAA alias and keeps other families/recon outside the pilot',()=>{
+test('airport activation accepts Bush/APT and keeps POI targets/recon outside airport lookup',()=>{
  const b=browser(),target={icao:'U60',name:'Big Creek Airport',lat:45.133202,lon:-115.321999,elevation:5743};
  const input={missionType:'bush',aiModeEnabled:true,isPOI:false,profileId:'bush_charter_strip',target};
  assert.equal(b.enabled(input),true);
- for(const overrides of [{missionType:'apt'},{missionType:'poi'},{aiModeEnabled:false},{isPOI:true},{profileId:'bush_recon_return'},{target:{...target,lat:null}},{target:{...target,icao:'',name:''}}])assert.equal(b.enabled({...input,...overrides}),false);
+ for(const overrides of [{missionType:'unknown'},{aiModeEnabled:false},{isPOI:true},{profileId:'bush_recon_return'},{target:{...target,lat:null}},{target:{...target,icao:'',name:''}}])assert.equal(b.enabled({...input,...overrides}),false);
 });
 
 
@@ -152,7 +152,7 @@ test('departure output stays separate, validates its own sources and has a own-d
 test('Bush recon has departure info while its search area stays outside airport destination rendering',()=>{
  const b=browser();assert.equal(b.enabled({missionType:'bush',aiModeEnabled:true,isPOI:true,profileId:'bush_recon_return',target:u60,role:'departure'}),true);
  assert.equal(b.enabled({missionType:'bush',aiModeEnabled:true,isPOI:true,profileId:'bush_recon_return',target:u60}),false);
- assert.equal(b.enabled({missionType:'apt',aiModeEnabled:true,target:u60,role:'departure'}),false);
+ assert.equal(b.enabled({missionType:'apt',aiModeEnabled:true,target:u60,role:'departure'}),true);
  assert.equal(b.enabled({missionType:'bush',aiModeEnabled:false,target:u60,role:'departure'}),false);
 });
 
@@ -176,7 +176,7 @@ test('Wikipedia API throttling inside HTTP 200 also pauses the source, preservin
 test('named Bush airports with internal OA ids load local evidence without an invalid FAA request',async()=>{
  const target={icao:'OA-D9257336',name:'Dixie Town Airport',country:'US',lat:45.5,lon:-115.4,elevation:5140};
  const b=browser(),args={missionType:'bush',aiModeEnabled:true,isPOI:false,profileId:'bush_charter_strip',target};
- assert.equal(b.enabled(args),true);assert.equal(b.enabled({...args,missionType:'apt'}),false);
+ assert.equal(b.enabled(args),true);assert.equal(b.enabled({...args,missionType:'apt'}),true);
  const urls=[];const context=await b.load(target,{persistent:false,fetch:async url=>{urls.push(url);return new Response(JSON.stringify({query:{pages:{}}}));}});
  assert.ok(context);assert.ok(!urls.some(url=>url.includes('/faa?')));assert.ok(urls.length<=2);
  assert.match(core.fallback(context).destinationInfo,/Dixie Town/);
