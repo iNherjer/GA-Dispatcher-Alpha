@@ -7444,3 +7444,8 @@ Navigationsrevision, veraltete Antworten und Doppelklicks sind abgesichert.
 Checklist-Quellen stimmen mit dem Release-Quellstand ueberein. Tracker lokal
 ohne Bytecode gebaut wie v523; kein SDK-Agentkontakt. EFB 0.4.24, Toolbar
 und Stable unveraendert. Zurueckgestellter Timing-Kandidat nicht integriert.
+
+Tracker v526 veroeffentlicht und oeffentlich erneut heruntergeladen: 173870482
+Bytes, SHA-256 `b6857ef43c8d1524207d935d49f6e58f84c80157db5c418b440e16c79dc35a64`.
+Alpha-Zeiger auf das gepruefte Artefakt aktiviert. EFB 0.4.24 und Stable
+bleiben unveraendert. Release: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v526
