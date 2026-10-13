@@ -11,7 +11,9 @@ Ein-Sekunden-Update ersetzt nur Distanztext/Rotation, behält Namen, DOM-Knoten,
 Scroll und Frequenz-/Kontextmenüs. Routenabstand bleibt separat gekennzeichnet.
 Quell-Browserseite prüft Bewegung, Pfeil, Positionsverlust und Knotenidentität,
 zusätzlich bestehende ATIS-/Lupen-/NAVCOM-/Routenwechsel-Nachweise.
-Nur Webapp (Cache v2038), Tracker/EFB weiterhin v528 bis zur Nutzerfreigabe.
+Nutzer präzisiert den Zielpfeil: dünne Liniennadel mit kleiner offener Spitze
+statt gefüllter Fläche. Nur Webapp (Cache v2039), Tracker/EFB weiterhin v528
+bis zur Nutzerfreigabe.
 
 
 ## Radio-Webabnahme: ATIS, SVG-Lupen und Routenänderungen (13.10.2026)

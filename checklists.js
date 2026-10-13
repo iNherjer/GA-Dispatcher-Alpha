@@ -2954,7 +2954,7 @@ ${routeLines}`;
         const airport = typeof globalAirports !== 'undefined' && target?.icao ? globalAirports?.[target.icao] : null;
         const lat = airport?.lat ?? target?.lat, lon = airport?.lon ?? airport?.lng ?? target?.lon ?? target?.lng;
         if (lat == null || lon == null || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return '';
-        return `<span class="radio-target-nav" data-target-lat="${Number(lat)}" data-target-lon="${Number(lon)}"><span class="radio-target-distance">– NM</span><svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true" hidden><g><path d="M10 1 L16 17 L10 13 L4 17 Z" fill="currentColor"></path></g></svg></span>`;
+        return `<span class="radio-target-nav" data-target-lat="${Number(lat)}" data-target-lon="${Number(lon)}"><span class="radio-target-distance">– NM</span><svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true" hidden><g><path d="M10 18 V2 M6.5 6 L10 2 L13.5 6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></g></svg></span>`;
     }
 
     function updateRadioNavigationBadges() {
