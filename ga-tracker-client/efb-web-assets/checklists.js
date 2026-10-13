@@ -1086,7 +1086,6 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     return `
             <div class="checklist-topline route-tool-topline">
                 <button class="checklist-back-btn" type="button" data-action="home">${label}</button>
-                ${tool === 'mission' ? '' : `<button class="checklist-action-btn" type="button" data-action="refresh-tool" data-tool="${escapeAttr(tool)}">Aktualisieren</button>`}
             </div>
         `;
   }
@@ -2898,17 +2897,21 @@ ${routeLines}`;
     return null;
   }
   function airspaceFreqRows() {
+    var spaces = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : activeAirspaces;
     try {
-      if (typeof activeAirspaces === 'undefined' || !Array.isArray(activeAirspaces)) return [];
+      if (!Array.isArray(spaces)) return [];
       var rows = [];
       var groups = new Map();
-      activeAirspaces.forEach((as, idx) => {
+      spaces.forEach((as, idx) => {
         if (!as) return;
         var isCtr = Number(as.type) === 4 || /\bCTR\b/i.test(as.name || '');
         var freqs = Array.isArray(as.frequencies) ? as.frequencies.slice() : [];
         if (isCtr) {
           var airport = radioCtrAirport(as);
-          getFreqLines(airport === null || airport === void 0 ? void 0 : airport.icao).filter(f => /\bATIS\b/i.test(f.label)).forEach(f => {
+          getFreqLines(airport === null || airport === void 0 ? void 0 : airport.icao).filter(f => {
+            var _as$frequencies;
+            return !((_as$frequencies = as.frequencies) !== null && _as$frequencies !== void 0 && _as$frequencies.length) || /\bATIS\b/i.test(f.label);
+          }).forEach(f => {
             if (!freqs.some(existing => String(existing.value) === String(f.value))) freqs.push(f);
           });
         }
@@ -2986,7 +2989,7 @@ ${routeLines}`;
   function locateButton(action) {
     var attrs = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
     var label = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'Auf Karte zeigen';
-    return `<button class="route-tool-locate-btn" type="button" data-action="${escapeAttr(action)}" ${attrs} title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}">🔎</button>`;
+    return `<button class="route-tool-locate-btn" type="button" data-action="${escapeAttr(action)}" ${attrs} title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="route-tool-locate-icon" aria-hidden="true"></span></button>`;
   }
   function ensureWarningsTool() {
     return _ensureWarningsTool.apply(this, arguments);
@@ -3120,10 +3123,21 @@ ${routeLines}`;
             }
             return _context7.a(2, []);
           case 1:
-            bbox = `${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}`;
-            _context7.n = 2;
-            return fetchJson(`${ROUTE_TOOLS_PROXY}/api/${path}?bbox=${encodeURIComponent(bbox)}&limit=${limit}&t=${Date.now()}`, signal);
+            if (!(path === 'airspaces' && typeof window.gaGetAviationCollectionForBounds === 'function')) {
+              _context7.n = 2;
+              break;
+            }
+            return _context7.a(2, window.gaGetAviationCollectionForBounds('airspaces', {
+              west: bounds.minLon,
+              south: bounds.minLat,
+              east: bounds.maxLon,
+              north: bounds.maxLat
+            }));
           case 2:
+            bbox = `${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}`;
+            _context7.n = 3;
+            return fetchJson(`${ROUTE_TOOLS_PROXY}/api/${path}?bbox=${encodeURIComponent(bbox)}&limit=${limit}&t=${Date.now()}`, signal);
+          case 3:
             data = _context7.v;
             return _context7.a(2, Array.isArray(data === null || data === void 0 ? void 0 : data.items) ? data.items : []);
         }
@@ -3148,10 +3162,14 @@ ${routeLines}`;
         bounds,
         airports,
         navaids,
+        radioAirspaces,
+        _window$GANavigationW2,
         _yield$Promise$all,
         _yield$Promise$all2,
         aptItems,
         navItems,
+        airspaceItems,
+        airportsForRadio,
         _args8 = arguments,
         _t7,
         _t8;
@@ -3228,17 +3246,35 @@ ${routeLines}`;
             bounds = routeBounds(route, 10);
             airports = [];
             navaids = [];
+            radioAirspaces = null;
             if (!(bounds && route.length >= 2)) {
-              _context8.n = 11;
+              _context8.n = 12;
               break;
             }
             _context8.n = 10;
-            return Promise.all([fetchRouteOpenAip('airports', bounds, 120, entry.controller.signal).catch(() => []), fetchRouteOpenAip('navaids', bounds, 120, entry.controller.signal).catch(() => [])]);
+            return Promise.all([fetchRouteOpenAip('airports', bounds, 120, entry.controller.signal).catch(() => []), fetchRouteOpenAip('navaids', bounds, 120, entry.controller.signal).catch(() => []), fetchRouteOpenAip('airspaces', bounds, 800, entry.controller.signal).catch(() => null)]);
           case 10:
             _yield$Promise$all = _context8.v;
-            _yield$Promise$all2 = _slicedToArray(_yield$Promise$all, 2);
+            _yield$Promise$all2 = _slicedToArray(_yield$Promise$all, 3);
             aptItems = _yield$Promise$all2[0];
             navItems = _yield$Promise$all2[1];
+            airspaceItems = _yield$Promise$all2[2];
+            if (!(Array.isArray(airspaceItems) && (_window$GANavigationW2 = window.GANavigationWarnings) !== null && _window$GANavigationW2 !== void 0 && _window$GANavigationW2.prepareAirspaces)) {
+              _context8.n = 11;
+              break;
+            }
+            radioAirspaces = window.GANavigationWarnings.prepareAirspaces(airspaceItems);
+            if (!(typeof fetchAirportFreq === 'function')) {
+              _context8.n = 11;
+              break;
+            }
+            airportsForRadio = new Set(radioAirspaces.filter(as => Number(as === null || as === void 0 ? void 0 : as.type) === 4 || /\bCTR\b/i.test((as === null || as === void 0 ? void 0 : as.name) || '')).map(as => {
+              var _radioCtrAirport2;
+              return (_radioCtrAirport2 = radioCtrAirport(as)) === null || _radioCtrAirport2 === void 0 ? void 0 : _radioCtrAirport2.icao;
+            }).filter(Boolean));
+            _context8.n = 11;
+            return Promise.all(Array.from(airportsForRadio).filter(icao => !getFreqLines(icao).length).map(icao => fetchAirportFreq(icao, null, null).catch(() => null)));
+          case 11:
             airports = aptItems.map(normalizeToolAirport).filter(a => (a === null || a === void 0 ? void 0 : a.icao) && Number.isFinite(a.lat) && Number.isFinite(a.lon) && a.icao !== dep.icao && a.icao !== dest.icao).map(a => _objectSpread(_objectSpread({}, a), {}, {
               routeDist: distancePointToRouteNm(a.lat, a.lon, route)
             })).filter(a => a.routeDist <= 8).sort((a, b) => a.routeDist - b.routeDist).slice(0, 10);
@@ -3269,31 +3305,32 @@ ${routeLines}`;
                 routeDist: distancePointToRouteNm(lat, lon, route)
               };
             }).filter(n => Number.isFinite(n.lat) && Number.isFinite(n.lon) && n.routeDist <= 12).sort((a, b) => a.routeDist - b.routeDist).slice(0, 10);
-          case 11:
+          case 12:
             entry.data = {
               dep,
               dest,
               airports,
               navaids,
+              radioAirspaces,
               generatedAt: Date.now()
             };
             entry.updatedAt = Date.now();
-            _context8.n = 13;
+            _context8.n = 14;
             break;
-          case 12:
-            _context8.p = 12;
-            _t8 = _context8.v;
-            if ((_t8 === null || _t8 === void 0 ? void 0 : _t8.name) !== 'AbortError') entry.error = 'Radio-Daten konnten nicht geladen werden.';
           case 13:
             _context8.p = 13;
+            _t8 = _context8.v;
+            if ((_t8 === null || _t8 === void 0 ? void 0 : _t8.name) !== 'AbortError') entry.error = 'Radio-Daten konnten nicht geladen werden.';
+          case 14:
+            _context8.p = 14;
             entry.loading = false;
             entry.controller = null;
             if (state.view === 'radio') render();
-            return _context8.f(13);
-          case 14:
+            return _context8.f(14);
+          case 15:
             return _context8.a(2);
         }
-      }, _callee8, null, [[4, 6], [3, 12, 13, 14]]);
+      }, _callee8, null, [[4, 6], [3, 13, 14, 15]]);
     }));
     return _ensureRadioTool.apply(this, arguments);
   }
@@ -3308,12 +3345,19 @@ ${routeLines}`;
             </div>
         ` : '';
   }
+  function radioFrequencyHtml(value, kind) {
+    // Unit suffixes belong to display fields, never to the simulator intent.
+    var display = String(value == null ? '' : value).trim();
+    var suffix = kind === 'ADF' ? /\s*kHz$/i : kind === 'COM' || kind === 'NAV' ? /\s*MHz$/i : null;
+    var numeric = suffix ? display.replace(suffix, '').trim() : display;
+    return GARadioTuningCore.html(numeric, kind, display);
+  }
   function renderRadioFrequencyRows(freqs) {
     var kind = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'COM';
     return freqs.map(f => {
       var label = f.label || f.name || 'Frequenz';
       var target = /XPDR|SQK|SQUAWK|TRANSP/i.test(label) ? 'XPDR' : kind;
-      return `<div class="route-tool-freq"><span>${escapeHtml(label)}</span><b>${GARadioTuningCore.html(f.value, target)}</b></div>`;
+      return `<div class="route-tool-freq"><span>${escapeHtml(label)}</span><b>${radioFrequencyHtml(f.value, target)}</b></div>`;
     }).join('');
   }
   function renderFreqBlock(label, apt) {
@@ -3337,7 +3381,7 @@ ${routeLines}`;
                     <div class="route-tool-section-title">${escapeHtml(heading)}</div>
                     <div class="route-tool-section-sub">${escapeHtml((apt === null || apt === void 0 ? void 0 : apt.name) || '')}</div>
                 `}
-                ${freqs.length ? renderRadioFrequencyRows(freqs) : renderToolEmpty('Noch keine Frequenzen im Cache. Aktualisieren lädt nach.')}
+                ${freqs.length ? renderRadioFrequencyRows(freqs) : renderToolEmpty('Frequenzen werden automatisch geladen.')}
             </div>
         `;
   }
@@ -3346,7 +3390,7 @@ ${routeLines}`;
     setTitle('Radio');
     var entry = toolState.radio;
     var data = entry.data;
-    var airRows = airspaceFreqRows();
+    var airRows = airspaceFreqRows((data === null || data === void 0 ? void 0 : data.radioAirspaces) || activeAirspaces);
     bodyEl.innerHTML = `
             <div class="route-tool-radio-page">
             ${toolTopline('radio')}
@@ -3362,7 +3406,7 @@ ${routeLines}`;
                             <div class="route-tool-radio-freqs">${renderRadioFrequencyRows(r.frequencies)}</div>
                         </div>
                         <div class="route-tool-row-actions">
-                            ${locateButton('locate-airspace', `data-as-idx="${escapeAttr(r.idx)}"`, 'Luftraum auf Karte zeigen')}
+                            ${locateButton('locate-radio-airspace', `data-as-idx="${escapeAttr(r.idx)}"`, 'Luftraum auf Karte zeigen')}
                         </div>
                     </div>
                 `).join('') : renderToolEmpty(entry.loading ? 'Lufträume/FIS werden geladen...' : 'Keine Enroute-Frequenzen gefunden.')}
@@ -5962,14 +6006,22 @@ ${routeLines}`;
       } else {
         setStatus('Kartenfokus nicht verfügbar.', 'error');
       }
-    } else if (action === 'locate-airspace') {
+    } else if (action === 'locate-radio-airspace') {
+      var _toolState$radio$data;
       var idx = Number(button.dataset.asIdx);
-      if (!Number.isInteger(idx)) return;
+      var spaces = ((_toolState$radio$data = toolState.radio.data) === null || _toolState$radio$data === void 0 ? void 0 : _toolState$radio$data.radioAirspaces) || activeAirspaces;
+      var airspace = Number.isInteger(idx) ? spaces === null || spaces === void 0 ? void 0 : spaces[idx] : null;
+      if (!airspace || typeof window.gaFocusAirspaceOnMap !== 'function') return;
+      var ok = window.gaFocusAirspaceOnMap(null, airspace);
+      setStatus(ok === false ? 'Luftraum nicht verfügbar.' : 'Luftraum auf Karte markiert.', ok === false ? 'error' : 'good');
+    } else if (action === 'locate-airspace') {
+      var _idx = Number(button.dataset.asIdx);
+      if (!Number.isInteger(_idx)) return;
       if (typeof window.gaFocusAirspaceOnMap === 'function') {
-        var ok = window.gaFocusAirspaceOnMap(idx);
-        setStatus(ok === false ? 'Luftraum nicht verfügbar.' : 'Luftraum auf Karte markiert.', ok === false ? 'error' : 'good');
+        var _ok = window.gaFocusAirspaceOnMap(_idx);
+        setStatus(_ok === false ? 'Luftraum nicht verfügbar.' : 'Luftraum auf Karte markiert.', _ok === false ? 'error' : 'good');
       } else if (typeof toggleAirspaceHighlight === 'function') {
-        toggleAirspaceHighlight(idx);
+        toggleAirspaceHighlight(_idx);
         setStatus('Luftraum markiert.', 'good');
       } else {
         setStatus('Kartenfokus nicht verfügbar.', 'error');
@@ -6011,24 +6063,24 @@ ${routeLines}`;
       render();
     } else if (action === 'cargo-load') {
       var _itemId2 = button.dataset.itemId || '';
-      var _ok = typeof window.missionCargoLoadItem === 'function' && window.missionCargoLoadItem(_itemId2, {
+      var _ok2 = typeof window.missionCargoLoadItem === 'function' && window.missionCargoLoadItem(_itemId2, {
         render: false
       });
-      setStatus(_ok ? 'Ladung als geladen markiert.' : 'Ladung konnte nicht geladen werden.', _ok ? 'good' : 'warn');
+      setStatus(_ok2 ? 'Ladung als geladen markiert.' : 'Ladung konnte nicht geladen werden.', _ok2 ? 'good' : 'warn');
       render();
     } else if (action === 'cargo-unload') {
       var _itemId3 = button.dataset.itemId || '';
       var airborne = cargoIsAirborne();
-      var _ok2 = typeof window.missionCargoUnloadItem === 'function' && window.missionCargoUnloadItem(_itemId3, {
+      var _ok3 = typeof window.missionCargoUnloadItem === 'function' && window.missionCargoUnloadItem(_itemId3, {
         render: false,
         drop: airborne
       });
-      setStatus(_ok2 ? airborne ? 'Ladung abgeworfen.' : 'Ladung entladen und am Cargo-Spot abgestellt.' : 'Ladung konnte nicht entladen werden.', _ok2 ? 'good' : 'warn');
+      setStatus(_ok3 ? airborne ? 'Ladung abgeworfen.' : 'Ladung entladen und am Cargo-Spot abgestellt.' : 'Ladung konnte nicht entladen werden.', _ok3 ? 'good' : 'warn');
       render();
     } else if (action === 'cargo-replace') {
       var _itemId4 = button.dataset.itemId || '';
-      var _ok3 = typeof window.missionCargoReplaceEquipment === 'function' && window.missionCargoReplaceEquipment(_itemId4);
-      setStatus(_ok3 ? 'Gegenstand durch ein neues Exemplar ersetzt.' : 'Austausch derzeit nicht moeglich.', _ok3 ? 'good' : 'warn');
+      var _ok4 = typeof window.missionCargoReplaceEquipment === 'function' && window.missionCargoReplaceEquipment(_itemId4);
+      setStatus(_ok4 ? 'Gegenstand durch ein neues Exemplar ersetzt.' : 'Austausch derzeit nicht moeglich.', _ok4 ? 'good' : 'warn');
       render();
     } else if (action === 'cargo-open-modal') {
       if (typeof window.openMissionGroundCargoDialog === 'function') {
@@ -6046,10 +6098,10 @@ ${routeLines}`;
     } else if (action === 'cargo-boardbook-time') {
       var _itemId5 = button.dataset.itemId || '';
       var field = button.dataset.field || 'start';
-      var _ok4 = typeof window.missionCargoSetBoardBookTime === 'function' && window.missionCargoSetBoardBookTime(_itemId5, field, {
+      var _ok5 = typeof window.missionCargoSetBoardBookTime === 'function' && window.missionCargoSetBoardBookTime(_itemId5, field, {
         source: 'side-menu'
       });
-      setStatus(_ok4 ? 'Bordbuch aktualisiert.' : 'Bordbuch konnte nicht aktualisiert werden.', _ok4 ? 'good' : 'warn');
+      setStatus(_ok5 ? 'Bordbuch aktualisiert.' : 'Bordbuch konnte nicht aktualisiert werden.', _ok5 ? 'good' : 'warn');
       render();
     }
   }

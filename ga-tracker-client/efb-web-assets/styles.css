@@ -4902,7 +4902,7 @@ body.theme-ops1940 .route-weather-source {
 .route-tool-locatable-row,
 .route-tool-warning-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 34px;
+    grid-template-columns: minmax(0, 1fr) 48px;
     gap: 8px;
     align-items: center;
 }
@@ -4918,20 +4918,56 @@ body.theme-ops1940 .route-weather-source {
 }
 
 .route-tool-locate-btn {
-    width: 32px;
-    height: 32px;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid color-mix(in srgb, var(--drawer-accent) 45%, transparent);
+    border: 2px solid var(--drawer-heading);
     border-radius: 8px;
-    background: color-mix(in srgb, var(--drawer-accent) 18%, var(--drawer-row-bg));
+    background: var(--drawer-row-bg);
     color: var(--drawer-heading);
     font-family: var(--drawer-font-mono);
     font-size: 18px;
     font-weight: 900;
     line-height: 1;
     cursor: pointer;
+}
+
+.route-tool-locate-icon {
+    position: relative;
+    display: block;
+    width: 26px;
+    height: 26px;
+    pointer-events: none;
+}
+.route-tool-locate-icon::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 15px;
+    height: 15px;
+    border: 3px solid currentColor;
+    border-radius: 50%;
+    box-sizing: border-box;
+}
+.route-tool-locate-icon::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    left: 15px;
+    width: 12px;
+    height: 3px;
+    background: currentColor;
+    transform: rotate(45deg);
+    transform-origin: left center;
+}
+.route-tool-locate-btn:focus {
+    outline: 2px solid var(--drawer-accent-2);
+    outline-offset: 2px;
 }
 
 .route-tool-locate-btn:hover {

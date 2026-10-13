@@ -4,6 +4,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
 (async()=>{
  let raw=false;const requests=[];
  const airports=[{icaoCode:'EDTL',name:'Lahr',geometry:{coordinates:[7.83,48.36]},runways:[{designator:'03',dimension:{length:{value:3000,unit:0}},surface:{name:'Asphalt'}},{designator:'21'},{designator:'09L'},{designator:'27R'}],frequencies:[{name:'TWR',value:'125.180'}]}, {icaoCode:'EDTO',name:'Offenburg',geometry:{coordinates:[7.92,48.45]},frequencies:[{name:'INFO',value:'128.950'}]}];
+ const radioAirspaces=[{id:'hx-altdorf',name:'CTR SEKTOR ALTDORF (HX)',type:0,icaoClass:3,frequencies:[{name:'LAHR TWR',value:'125.180 MHz'},{name:'ALTDORF RADIO',value:'127.155 MHz'}],geometry:{type:'Polygon',coordinates:[[[7.8,48.3],[7.9,48.3],[7.9,48.4],[7.8,48.4],[7.8,48.3]]]}},{id:'hx-offenburg',name:'CTR SEKTOR OFFENBURG (HX)',type:0,icaoClass:3,frequencies:[{name:'OFFENBURG SEGELFLUG',value:'123.355 MHz'},{name:'OFFENBURG RADIO',value:'132.040 MHz'}],geometry:{type:'Polygon',coordinates:[[[7.9,48.4],[8,48.4],[8,48.5],[7.9,48.5],[7.9,48.4]]]}}];
  const server=http.createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
   if(pathname==='/'){res.setHeader('Content-Type','text/html');res.end(efb.createTrackerEfbWebClientPage().replace('<head>','<head><script>window.__errors=[];addEventListener("error",e=>__errors.push(e.error&&e.error.stack||e.message));addEventListener("unhandledrejection",e=>__errors.push(String(e.reason)));</script>'));return;}
@@ -20,8 +21,10 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
     if(input.url.includes('rainviewer'))data={radar:{past:[{path:'/v2/radar/123456'}]}};
     else if(input.url==='./airports.json')data={EDTL:{lat:48.36,lon:7.83,name:'Lahr'},EDTO:{lat:48.45,lon:7.92,name:'Offenburg'}};
     else if(input.url.includes('/api/airports'))data={items:airports};
+    else if(input.url.includes('/api/airspaces'))data={items:radioAirspaces};
     else data={items:[]};
-   }else if(input.kind==='airports')data=[{airports}];
+   }else if(input.kind==='aviation')data={airspaces:radioAirspaces,airports:[],navaids:[],reportingPoints:[]};
+   else if(input.kind==='airports')data=[{airports}];
    else if(input.kind==='airspaces')data=[];
    else if(input.kind==='terrain')data=input.points.map(p=>({...p,elevFt:500}));
   }
@@ -60,6 +63,25 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   assert.match(await page.locator('.route-tool-nearest').nth(1).innerText(),/Pisten: keine Angaben/);
   const geometry=await page.locator('.route-tool-nearest-runway svg line').first().evaluate(el=>({x1:+el.getAttribute('x1'),x2:+el.getAttribute('x2'),y1:+el.getAttribute('y1'),y2:+el.getAttribute('y2')}));
   assert.ok(geometry.x2>geometry.x1&&geometry.y2<geometry.y1);
+  await page.evaluate(()=>{activeAirspaces=[];gaChecklistOpen('radio');});
+  await page.waitForSelector('.route-tool-radio-page .ga-radio-value[data-radio-value="132.040"]');
+  assert.equal(await page.locator('.route-tool-radio-page [data-action="refresh-tool"]').count(),0);
+  assert.match(await page.locator('.route-tool-radio-page').innerText(),/ALTDORF.*OFFENBURG/s);
+  assert.equal(await page.evaluate(()=>activeAirspaces.length),0);
+  const radioValues=page.locator('.route-tool-radio-page .ga-radio-value');
+  assert.equal(await radioValues.count(),6); // four HX and start/destination.
+  const magnifier=page.locator('[data-action="locate-radio-airspace"]').first();
+  const hit=await magnifier.boundingBox();assert.ok(hit.width>=48&&hit.height>=48);
+  assert.equal(await magnifier.locator('.route-tool-locate-icon').count(),1);
+  await magnifier.click();assert.match(await page.locator('#checklistDrawerStatus').innerText(),/markiert/);
+  await page.evaluate(()=>{window.__hxCalls=[];gaRadioTune=async p=>{__hxCalls.push(p);return {ok:true,confirmed:true,target:GARadioTuningCore.normalize(p)};};for(let i=0;i<3&&document.body.dataset.navcomMode!=='direct';i++)gaCycleNavcomMode();});
+  await page.locator('.route-tool-radio-page .ga-radio-value[data-radio-value="125.180"]').first().click();
+  await page.waitForFunction(()=>__hxCalls.length===1);
+  assert.equal(await page.evaluate(()=>__hxCalls[0].value),'125.180');
+  await page.setViewportSize({width:440,height:894});
+  await page.screenshot({path:'/tmp/ga-radio-hx-'+(raw?'source':'compiled')+'.png'});
+  await page.setViewportSize({width:894,height:700});
+  await page.evaluate(()=>gaChecklistOpen('nearest'));
   // Exercise the actual host telemetry renderer at the destination and away
   // from it, including unchanged polls and late responses after selection changes.
   await page.evaluate(()=>{

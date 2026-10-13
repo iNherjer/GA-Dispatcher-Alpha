@@ -1,5 +1,31 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## HX-Radiofelder, Lupen und Werkzeugkopf, Alpha v528 (13.10.2026)
+
+Tester bestätigt gleiche Route und Tracker v527: HX-Zeilen Lahr/Offenburg fehlen
+in der Webapp; EFB zeigt Werte mit MHz-Suffix als unbedienbaren Text. Der Radio-
+Renderer trennt jetzt den passenden Anzeige-Suffix vom validierten COM/NAV/ADF-
+Intent; falsche Einheiten und ungültige Kanäle bleiben unbedienbar. XPDR bleibt
+strikt vierstellig. Die gemeinsame Radioansicht lädt dieselbe Routenumgebung
+(10-NM-Rand, bestehende aviation/resource-Abfrage) in App und EFB, statt nur die
+unterschiedlichen Warnungs-/Profilvorauswahlen zu übernehmen. Vorbereitung über
+den bestehenden Core-Vertrag; keine Änderung an Klassifikation, Warnungsauswahl,
+Profil oder Missionszustand. Flughafen-Fallback und ATIS bleiben UI-Ergänzungen.
+Radio-eigene Sektoren lassen sich unabhängig von der Warnungsindexliste auf der
+Karte markieren. Lupen sind CSS-Geometrie statt schwer lesbarem Emoji, mit
+kontrastreichem Rahmen und 48×48-Pixel-Klickfläche. Große Aktualisieren-Buttons
+im gemeinsamen Werkzeugkopf entfallen; Laden beim Öffnen und bestehende
+Snapshot-/Datenupdates bleiben bestehen. Leermeldung verweist auf automatisches
+Laden. Assetrevision 52801; kein neues Community-Paket, Stable unverändert.
+Browsernachweis mit Quell-/Build-Dateien: vier HX-Frequenzen einschließlich MHz,
+identische Daten trotz leerer Warnungsliste, echter COM-Klick, Lupenklick auf
+Radio-Sektor, Mindest-Hitbox, kein Aktualisieren-Button; schmale Ansicht visuell
+geprüft. 84 Node-Tests, NAVCOM mit/ohne MutationObserver und gepackter
+Missionsprozess bestehen. Windows-x64 mit sieben bytegleich geprüften
+Quellen/Assets gebaut. Simulator-/VR-Nachtest
+bleibt nach Alpha-Rollout offen.
+
+
 ## Startplatz in der Next-WPT-Vorschau (13.10.2026)
 
 Der erste Routenpunkt zeigt beim Zurueckblaettern dieselben Pistenlinien und

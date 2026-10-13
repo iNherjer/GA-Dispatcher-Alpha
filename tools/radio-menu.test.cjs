@@ -37,3 +37,18 @@ test('ATIS from airport data is labeled and rendered as a tunable COM value',asy
  await context.fetchAirportFreq('EDDS',null,null);
  assert.equal(context.freqCache.EDDS[1].label,'ATIS');assert.match(core.html(context.freqCache.EDDS[1].value,'COM'),/data-radio-kind="COM"/);
 });
+
+test('unit-bearing Radio fields create numeric intents, preserving labels and strict validation',()=>{
+ const core=require('../radio-tuning-core');
+ const start=source.indexOf('    function radioFrequencyHtml('),end=source.indexOf('    function renderFreqBlock(',start);
+ const context={GARadioTuningCore:core,escapeHtml:core.escape};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ const cases=[['125.180 MHz','COM','125.180'],['127,155 MHz','COM','127.155'],['110.500 MHz','NAV','110.500'],['350.5 kHz','ADF','350.5'],['0042','XPDR','0042']];
+ for(const [display,kind,value] of cases){const html=context.radioFrequencyHtml(display,kind);assert.ok(html.includes('data-radio-value="'+value+'"'));assert.ok(html.includes(core.escape(display)));}
+ for(const [display,kind] of [['42X','COM'],['123.450 kHz','COM'],['350.5 MHz','ADF'],['0082','XPDR'],['136.995 MHz','COM']])assert.ok(!context.radioFrequencyHtml(display,kind).includes('data-radio-value'));
+});
+test('Radio can display its own HX snapshot without altering warning selection',()=>{
+ const fixture=[{id:'hx-altdorf',name:'CTR SEKTOR ALTDORF (HX)',type:0,icaoClass:3,frequencies:[{name:'LAHR TWR',value:'125.180 MHz'}]},{id:'hx-offenburg',name:'CTR SEKTOR OFFENBURG (HX)',type:0,icaoClass:3,frequencies:[{name:'OFFENBURG RADIO',value:'132.040 MHz'}]}];
+ const context={activeAirspaces:[],pickAirportForAirspaceFallback:()=>null,getFreqLines:()=>[]};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ const before=JSON.stringify(fixture);const result=context.airspaceFreqRows(fixture);
+ assert.equal(result.length,2);assert.equal(result[0].idx,0);assert.equal(result[1].idx,1);assert.equal(context.activeAirspaces.length,0);assert.equal(JSON.stringify(fixture),before);
+});

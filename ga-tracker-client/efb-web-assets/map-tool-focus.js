@@ -115,11 +115,28 @@ function getAirspaceLeafletBounds(airspace) {
   return bounds.isValid() ? bounds : null;
 }
 window.gaFocusAirspaceOnMap = function (idx) {
-  var numericIdx = Number(idx);
-  var airspace = activeAirspaces[numericIdx];
+  var radioAirspace = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
+  var id = radioAirspace && (radioAirspace._id || radioAirspace.id);
+  var numericIdx = radioAirspace ? activeAirspaces.findIndex(as => as === radioAirspace || id && (as._id || as.id) === id) : Number(idx);
+  var airspace = radioAirspace || activeAirspaces[numericIdx];
   if (!airspace || !map) return false;
   clearRouteToolPointFocus();
-  if (highlightedAirspaceIdx !== numericIdx) toggleAirspaceHighlight(numericIdx);
+  if (numericIdx >= 0) {
+    if (highlightedAirspaceIdx !== numericIdx) toggleAirspaceHighlight(numericIdx);
+  } else {
+    // A Radio-only sector need not be part of the warning/profile list.
+    clearRouteToolMapFocus();
+    if (airspace.geometry && typeof L !== 'undefined') {
+      routeToolFocusLayer = L.geoJSON(airspace.geometry, {
+        style: {
+          color: '#ffffff',
+          weight: 3,
+          fillColor: '#ff334f',
+          fillOpacity: 0.18
+        }
+      }).addTo(map);
+    }
+  }
   var bounds = getAirspaceLeafletBounds(airspace);
   if (bounds) {
     map.fitBounds(bounds.pad(0.18), {
