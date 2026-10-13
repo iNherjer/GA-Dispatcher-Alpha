@@ -1,5 +1,25 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Freigegebene Radio-Webfassung in Tracker, Toolbar und EFB: Alpha v529 (13.10.2026)
+
+Nutzer übernimmt die Webabnahme ausdrücklich für Tracker/Toolbar/EFB. Shared-
+Asset-Sync übernimmt die geprüften Rootquellen unverändert: tatsächliche
+Routenschnitte und erste Begegnung, Sektorgruppierung, separate CTR/ATIS,
+aktuelle Flugzeugdistanz mit dünner nordorientierter SVG-Nadel, Lupen im
+Namenkopf bei voller Frequenzbreite, Live-Routenänderungen und gegen Altantworten
+abgesicherte Funkfeuerlisten. Legacy-ATIS-Cache wird aus Quelldaten korrigiert;
+fehlgeschlagene Neukennzeichnung erhält gespeicherte Frequenzen. Große
+Aktualisieren-Buttons entfallen. Einheitensuffixe nur beim Import entfernen;
+Sim-Intents bleiben validiert. Keine zentralen Missions-/Warnungsänderungen.
+Tracker v529, EFB-Webassetrevision 52901, Webcache v2041. Beide nativen Oberflächen
+laden die Tracker-gehostete Shared-UI; kein neues SDK-/Community-Paket nötig.
+92 Node-Tests, Browserklicks mit Quell-/Build-Assets einschließlich Live-Distanz,
+Routenwechsel und ATIS, NAVCOM mit/ohne MutationObserver sowie gepackter
+Missionsprozess bestehen. Windows-x64 gebaut; sieben enthaltene Quellen/Assets
+bytegleich geprüft. Stable unverändert; reale MSFS-/VR-Abnahme bleibt nach
+Alpha-Rollout offen.
+
+
 ## Radio-Webabnahme: aktuelle Distanz und Zielpfeil (13.10.2026)
 
 Start/Ziel, Flugplätze entlang der Route und Funkfeuer zeigen rechts neben dem

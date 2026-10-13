@@ -4943,28 +4943,6 @@ body.theme-ops1940 .route-weather-source {
     height: 26px;
     pointer-events: none;
 }
-.route-tool-locate-icon::before {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 15px;
-    height: 15px;
-    border: 3px solid currentColor;
-    border-radius: 50%;
-    box-sizing: border-box;
-}
-.route-tool-locate-icon::after {
-    content: '';
-    position: absolute;
-    top: 16px;
-    left: 15px;
-    width: 12px;
-    height: 3px;
-    background: currentColor;
-    transform: rotate(45deg);
-    transform-origin: left center;
-}
 .route-tool-locate-btn:focus {
     outline: 2px solid var(--drawer-accent-2);
     outline-offset: 2px;
@@ -21263,3 +21241,13 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
     line-height: 1.2;
     white-space: nowrap;
 }
+
+/* Radio live navigation: compact north-up target arrow, no full row redraw. */
+.route-tool-radio-page .route-tool-airport-main > span:first-child { flex: 1; min-width: 0; }
+.radio-target-title { display: flex; align-items: center; gap: 10px; }
+.radio-target-title > span:first-child { flex: 1; min-width: 0; }
+.radio-target-nav { display: inline-flex; align-items: center; justify-content: flex-end; gap: 5px; margin-left: auto; flex: 0 0 auto; white-space: nowrap; color: var(--drawer-accent-2); font-family: var(--drawer-font-mono); font-size: 12px; font-weight: 700; pointer-events: none; }
+.radio-target-nav svg { flex: 0 0 22px; }
+
+.radio-airspace-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.radio-airspace-heading > .route-tool-row-main { flex: 1; min-width: 0; }

@@ -300,10 +300,13 @@ function _fetchAirportFreq() {
           // Für die Detail-Anzeige auf der Karte alle formatieren
           labeledFreqs = apt.frequencies.map(f => {
             var fName = (f.name || '').toUpperCase().trim();
-            var label = f.type === 15 || /\bATIS\b/.test(fName) ? 'ATIS' : freqLabelMap[fName] || f.name || 'Freq';
+            var label = Number(f.type) === 15 || /\bATIS\b/.test(fName) ? 'ATIS' : freqLabelMap[fName] || f.name || 'Freq';
             return {
               label: label,
-              value: f.value
+              value: f.value,
+              type: f.type,
+              name: f.name,
+              labelVersion: 2
             };
           });
           lines = labeledFreqs.map(lf => `📻 ${GARadioTuningCore.escape(lf.label)}: ${GARadioTuningCore.html(lf.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(lf.label) ? 'XPDR' : 'COM')}`);

@@ -86,7 +86,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   const magnifier=page.locator('[data-action="locate-radio-airspace"]').first();
   const hit=await magnifier.boundingBox();assert.ok(hit.width>=48&&hit.height>=48);
   assert.equal(await magnifier.locator('.route-tool-locate-icon').count(),1);
-  if(raw){
+  if(raw||compiledAtisRefresh){
    const heading=await page.locator('.radio-airspace-heading').first().boundingBox();
    const frequency=await page.locator('.route-tool-radio-airspace .route-tool-freq').first().boundingBox();
    assert.ok(heading&&frequency&&frequency.y>=heading.y+heading.height);
@@ -101,7 +101,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   await page.setViewportSize({width:440,height:894});
   await page.screenshot({path:'/tmp/ga-radio-hx-'+(raw?'source':'compiled')+'.png'});
   await page.setViewportSize({width:894,height:700});
-  if(raw){
+  if(raw||compiledAtisRefresh){
    const hasNavigation=await page.locator('.radio-target-nav').count();
    assert.ok(hasNavigation>=2);
    if(hasNavigation){
