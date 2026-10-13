@@ -7413,3 +7413,20 @@ EFB 0.4.24 452419 Bytes / SHA-256
 `1be7307b7952bc908f952bbcca7380c1febe88115c81dbdd44c5046483061b6d`.
 Alpha-Zeiger auf diese Artefakte aktiviert. Gepackter Missionsprozess-Smoke-Test
 bestanden. Keine SDK-Agentkommunikation; kein neues SDK-Paket gebaut.
+
+
+### 13.10.2026: Lokaler Kandidat fuer manuelle Flugplanuebergabe
+
+Missionsseitenmenue erhaelt zwei native-gegatete Aktionen: Flugplan an MSFS
+oder MSFS und Avionik senden. Ohne passenden Parent, aktiven Run oder bei
+geschlossener Mission bleiben sie verborgen. Ein Klick verwendet den bestehenden
+authentifizierten Export mit aktueller Navigationsrevision und vollstaendiger
+Tracker-Route; kein Missionsstart/Restart-Intent. Doppelklicks und parallele
+Exportauftraege bleiben gesperrt, Fehler melden Status und lassen die Mission
+unberuehrt. Waehrend der Anfrage geaenderte Routen werden vor nativen Writes
+verworfen; spaetere Antworten auf alte Routenversionen fordern erneute Uebertragung.
+Shared Checklist-Adapter-Hooks bleiben in der Standalone ohne Host inaktiv.
+25 gezielte Tests und echter EFB-Host-Klicktest bei 440px bestanden.
+Keine nativen Paketaenderungen und keine zurueckgestellte Timing-Aenderung
+integriert; kein Release. Quellen separat auf veroeffentlichter v523-Basis,
+Primary-Worktree wegen gemischtem Altstand unangetastet.

@@ -102,6 +102,7 @@
   var flightPlanBridgeHost = '';
   var flightPlanJobs = {};
   var flightPlanStatusTimer = null;
+  var flightPlanRequestPending = false;
 
   function flightPlanMessage(type, data) {
     window.parent.postMessage(Object.assign({ type: type, channel: window.__gaEfbChannel }, data || {}), '*');
@@ -123,18 +124,23 @@
     var nativeParentFallback = event.source == null && ['coui://html_ui', 'null'].indexOf(event.origin) >= 0;
     if ((event.source !== window.parent && !nativeParentFallback) || !window.__gaEfbChannel || data.channel !== window.__gaEfbChannel) return;
     if (data.type === 'ga-flightplan-capabilities') {
+      var wasReady = Date.now() < flightPlanBridgeReadyUntil;
       flightPlanBridgeHost = ['efb', 'toolbar'].indexOf(data.host) >= 0 ? data.host : '';
       flightPlanBridgeReadyUntil = data.ready === true && flightPlanBridgeHost ? Date.now() + 12000 : 0;
       renderMissionActionBanner(missionSnapshot);
+      if (wasReady !== (Date.now() < flightPlanBridgeReadyUntil)) requestSideDrawerRefresh();
     }
     if (data.type === 'ga-flightplan-result' && data.result && flightPlanJobs[data.result.jobId]) {
       var pending = flightPlanJobs[data.result.jobId];
       var result = data.result;
       if (result.routeHash !== pending.routeHash) { report('warn', 'flightplan-export', 'reject-result', 'Routenhash der Antwort passt nicht', result.jobId); return; }
-      clearTimeout(pending.timer); delete flightPlanJobs[data.result.jobId];
+      clearTimeout(pending.timer); delete flightPlanJobs[data.result.jobId]; requestSideDrawerRefresh();
       var current = missionSnapshot && missionSnapshot.control;
       if (!current || current.missionId !== pending.missionId || current.runId !== pending.runId) {
         report('warn', 'flightplan-export', 'stale-result', 'Antwort für früheren Missionslauf', JSON.stringify(result)); return;
+      }
+      if (mapSnapshot && mapSnapshot.missionId === pending.missionId && mapSnapshot.routeEdit && mapSnapshot.routeEdit.revision !== pending.navigationRevision) {
+        flightPlanStatus('Die Route wurde inzwischen geändert. Aktuellen Flugplan bitte erneut übertragen.', {ok:false, jobId:result.jobId, error:'flightplan_route_changed'}); return;
       }
       flightPlanStatus(result.ok ? (result.avionics === 'sent' ? 'Flugplan an MSFS übertragen und an Avionik gesendet.' : 'Flugplan an MSFS übertragen.')
         : ['flightplan_timeout', 'flightplan_readback_mismatch'].indexOf(result.error) >= 0 ? 'Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.'
@@ -144,30 +150,53 @@
   });
   setInterval(function() {
     if (window.parent !== window && window.__gaEfbChannel) flightPlanMessage('ga-flightplan-probe');
-    if (flightPlanBridgeReadyUntil && Date.now() > flightPlanBridgeReadyUntil) { flightPlanBridgeReadyUntil = 0; renderMissionActionBanner(missionSnapshot); }
+    if (flightPlanBridgeReadyUntil && Date.now() > flightPlanBridgeReadyUntil) { flightPlanBridgeReadyUntil = 0; renderMissionActionBanner(missionSnapshot); requestSideDrawerRefresh(); }
   }, 4000);
 
-  function transferStartedFlightPlan(target, missionId, navigationRevision) {
+  function flightPlanTransferMarkup() {
+    var control = missionSnapshot && missionSnapshot.control;
+    if (!control || !control.runId || !control.missionId || control.phase === 'closed' || missionSnapshot.cloudPending
+      || Date.now() >= flightPlanBridgeReadyUntil || !window.gaCockpitSessionClient || !window.gaCockpitSessionClient.submitTool) return '';
+    var disabled = flightPlanRequestPending || Object.keys(flightPlanJobs).length > 0 || missionIntentPending;
+    var attr = disabled ? ' disabled' : '';
+    return '<section class="mission-flightplan-transfer" aria-label="Flugplan übertragen" style="margin-top:12px">'
+      + '<b>Flugplan übertragen</b><p>Sendet die aktuelle Missionsroute. Für die Avionik-Übernahme das Gerät vorher einschalten und hochfahren lassen.</p>'
+      + '<div style="display:flex;flex-direction:column;gap:8px">'
+      + '<button type="button" class="checklist-action-btn" style="white-space:normal;min-height:44px;flex:0 0 auto;width:100%;line-height:1.3" data-action="mission-flightplan-transfer" data-target="msfs"' + attr + '>Flugplan an MSFS senden</button>'
+      + '<button type="button" class="checklist-action-btn" style="white-space:normal;min-height:44px;flex:0 0 auto;width:100%;line-height:1.3" data-action="mission-flightplan-transfer" data-target="avionics"' + attr + '>Flugplan an MSFS und Avionik senden</button></div></section>';
+  }
+  function transferCurrentMissionFlightPlan(target) {
+    var control = missionSnapshot && missionSnapshot.control;
+    if (!control || control.phase === 'closed' || missionSnapshot.cloudPending || missionIntentPending || ['msfs','avionics'].indexOf(target) < 0) return Promise.resolve(false);
+    var revision = mapSnapshot && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
+    return transferStartedFlightPlan(target, control.missionId, revision, 'manual');
+  }
+  function transferStartedFlightPlan(target, missionId, navigationRevision, trigger) {
     var control = missionSnapshot && missionSnapshot.control;
     var client = window.gaCockpitSessionClient;
     var jobId = 'flightplan-' + Date.now() + '-' + Math.random().toString(36).slice(2);
     if (!control || control.missionId !== missionId || !client || !client.submitTool || Date.now() >= flightPlanBridgeReadyUntil) {
-      flightPlanStatus('Flugplanübertragung nicht verfügbar. Mission läuft unabhängig weiter.', { ok: false, jobId: jobId, error: 'flightplan_host_unavailable' }); return;
+      flightPlanStatus('Flugplanübertragung nicht verfügbar. Mission läuft unabhängig weiter.', { ok: false, jobId: jobId, error: 'flightplan_host_unavailable' }); return Promise.resolve(false);
     }
+    if (flightPlanRequestPending || Object.keys(flightPlanJobs).length) return Promise.resolve(false);
+    flightPlanRequestPending = true; requestSideDrawerRefresh();
     var runId = control.runId;
-    report('info', 'flightplan-export', 'request', 'Flugplanauftrag nach bestätigtem Missionsstart', JSON.stringify({jobId: jobId, missionId: missionId, runId: runId, target: target, host: flightPlanBridgeHost}));
-    client.submitTool({ commandId: jobId, intent: 'flightplan_export', payload: {missionId: missionId, runId: runId, navigationRevision: navigationRevision} }).then(function(result) {
+    report('info', 'flightplan-export', 'request', trigger === 'manual' ? 'Manuelle Flugplanübertragung' : 'Flugplanauftrag nach bestätigtem Missionsstart', JSON.stringify({jobId: jobId, missionId: missionId, runId: runId, target: target, host: flightPlanBridgeHost}));
+    return client.submitTool({ commandId: jobId, intent: 'flightplan_export', payload: {missionId: missionId, runId: runId, navigationRevision: navigationRevision} }).then(function(result) {
       var current = missionSnapshot && missionSnapshot.control;
       if (!result || !result.ok || !result.plan) throw new Error(result && result.error || 'flightplan_export_unavailable');
       if (!current || current.runId !== runId || current.missionId !== missionId) throw new Error('flightplan_run_changed');
+      if (mapSnapshot && mapSnapshot.missionId === missionId && mapSnapshot.routeEdit && mapSnapshot.routeEdit.revision !== result.plan.navigationRevision) throw new Error('flightplan_route_changed');
       if (Date.now() >= flightPlanBridgeReadyUntil) throw new Error('flightplan_host_unavailable');
       var timer = setTimeout(function() {
-        delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0;
+        delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh();
         flightPlanStatus('Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, routeHash:result.plan.routeHash, error:'flightplan_timeout'});
       }, 65000);
-      flightPlanJobs[jobId] = {timer:timer, routeHash:result.plan.routeHash, missionId:missionId, runId:runId};
+      flightPlanJobs[jobId] = {timer:timer, routeHash:result.plan.routeHash, missionId:missionId, runId:runId, navigationRevision:result.plan.navigationRevision};
       flightPlanMessage('ga-flightplan-send', {job:{jobId:jobId, target:target, plan:result.plan}});
-    }).catch(function(error) { flightPlanStatus('Flugplanübertragung fehlgeschlagen. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, error:String(error.message || error)}); });
+      return true;
+    }).catch(function(error) { flightPlanStatus('Flugplanübertragung fehlgeschlagen. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, error:String(error.message || error)}); return false; })
+      .then(function(value) { flightPlanRequestPending = false; requestSideDrawerRefresh(); return value; });
   }
   var cargoManagerOpen = false;
   var cargoManagerSignature = '';
@@ -1415,6 +1444,8 @@
         return { id:list.id, title:list.title, source:'tracker', editable:false, updatedAt:list.updatedAt,
           chapters:(list.sections || []).map(function(section) { return {id:section.id,title:section.title,items:section.items}; }) };
       }); },
+      flightPlanActions: flightPlanTransferMarkup,
+      transferFlightPlan: transferCurrentMissionFlightPlan,
       missionView: function() { return missionSnapshot && missionSnapshot.available !== false && (missionSnapshot.view || missionSnapshot) || null; },
       missionSummary: function() { var view = missionSnapshot && missionSnapshot.view; return view && (view.taskText || view.title) || 'Keine aktive Mission'; },
       cargoAction: function(action, itemId, field) {

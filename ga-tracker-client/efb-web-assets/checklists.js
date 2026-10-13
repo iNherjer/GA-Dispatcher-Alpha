@@ -896,12 +896,12 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
   }
   function _fetchJson() {
     _fetchJson = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(url, signal) {
-      var _window$gaChecklistHo11;
+      var _window$gaChecklistHo13;
       var request, res;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.n) {
           case 0:
-            request = ((_window$gaChecklistHo11 = window.gaChecklistHost) === null || _window$gaChecklistHo11 === void 0 ? void 0 : _window$gaChecklistHo11.fetch) || fetch;
+            request = ((_window$gaChecklistHo13 = window.gaChecklistHost) === null || _window$gaChecklistHo13 === void 0 ? void 0 : _window$gaChecklistHo13.fetch) || fetch;
             _context.n = 1;
             return request(url, {
               signal,
@@ -983,7 +983,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     }
   }
   function render() {
-    var _window$gaChecklistHo3, _window$gaChecklistHo4, _window$gaChecklistHo5;
+    var _window$gaChecklistHo3, _window$gaChecklistHo4, _window$gaChecklistHo5, _window$gaChecklistHo6;
     if (!bodyEl) return;
     if (((_window$gaChecklistHo3 = window.gaChecklistHost) === null || _window$gaChecklistHo3 === void 0 || (_window$gaChecklistHo4 = _window$gaChecklistHo3.supportsTool) === null || _window$gaChecklistHo4 === void 0 ? void 0 : _window$gaChecklistHo4.call(_window$gaChecklistHo3, state.view)) === false) {
       setTitle(state.view === 'weather' ? 'Wetter' : 'Kartenwerkzeuge');
@@ -995,8 +995,11 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       placeRenderKey = '';
     }
     if (state.view === 'home') renderHome();else if (state.view === 'list') renderList();else if (state.view === 'manager') renderManager();else if (state.view === 'viewer') renderViewer();else if (state.view === 'editor') renderEditor();else if (state.view === 'import') renderImport();else if (state.view === 'weather') renderWeatherTool();else if (state.view === 'radio') renderRadioTool();else if (state.view === 'warnings') renderWarningsTool();else if (state.view === 'place') renderPlaceTool();else if (state.view === 'nearest') renderNearestTool();else if (state.view === 'airport-info') renderAirportInfoTool();else if (state.view === 'cargo') renderCargoTool();else if (state.view === 'mission') renderMissionTool();else renderHome();
+    if (state.view === 'mission' && (_window$gaChecklistHo5 = window.gaChecklistHost) !== null && _window$gaChecklistHo5 !== void 0 && _window$gaChecklistHo5.flightPlanActions) {
+      bodyEl.insertAdjacentHTML('beforeend', window.gaChecklistHost.flightPlanActions());
+    }
     renderStatus();
-    if ((_window$gaChecklistHo5 = window.gaChecklistHost) !== null && _window$gaChecklistHo5 !== void 0 && _window$gaChecklistHo5.supportsAction) {
+    if ((_window$gaChecklistHo6 = window.gaChecklistHost) !== null && _window$gaChecklistHo6 !== void 0 && _window$gaChecklistHo6.supportsAction) {
       bodyEl.querySelectorAll('[data-action]').forEach(button => {
         if (window.gaChecklistHost.supportsAction(button.dataset.action) !== false) return;
         button.disabled = true;
@@ -1490,8 +1493,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     return items.slice(0, 4);
   }
   function missionHomeSummary() {
-    var _window$gaChecklistHo6;
-    if ((_window$gaChecklistHo6 = window.gaChecklistHost) !== null && _window$gaChecklistHo6 !== void 0 && _window$gaChecklistHo6.missionSummary) return window.gaChecklistHost.missionSummary();
+    var _window$gaChecklistHo7;
+    if ((_window$gaChecklistHo7 = window.gaChecklistHost) !== null && _window$gaChecklistHo7 !== void 0 && _window$gaChecklistHo7.missionSummary) return window.gaChecklistHost.missionSummary();
     var data = missionGlobalData();
     if (!data.exists) return 'Keine aktive Mission';
     var runtimeSnapshot = missionRuntimePhaseSnapshot();
@@ -1502,10 +1505,10 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     return active ? `${missionDomainLabel(missionTaskDomain(data))} läuft` : 'Mission liegt bereit';
   }
   function renderMissionTool() {
-    var _window$gaChecklistHo7, _window$gaTrackerExec, _window$GAMissionCont, _data$md19, _data$md20, _data$md21, _data$md22, _data$md23, _data$md24, _data$contract8, _cargoOutcome$conditi2, _data$passenger8;
+    var _window$gaChecklistHo8, _window$gaTrackerExec, _window$GAMissionCont, _data$md19, _data$md20, _data$md21, _data$md22, _data$md23, _data$md24, _data$contract8, _cargoOutcome$conditi2, _data$passenger8;
     setTitle('Mission Control');
     var data = missionGlobalData();
-    if ((_window$gaChecklistHo7 = window.gaChecklistHost) !== null && _window$gaChecklistHo7 !== void 0 && _window$gaChecklistHo7.missionView && window.GAMissionControlUiCore) {
+    if ((_window$gaChecklistHo8 = window.gaChecklistHost) !== null && _window$gaChecklistHo8 !== void 0 && _window$gaChecklistHo8.missionView && window.GAMissionControlUiCore) {
       var view = window.gaChecklistHost.missionView();
       if (view) {
         var _window$gaMissionCont, _window$gaMissionCont2;
@@ -1974,7 +1977,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
         `;
   }
   function openTool(tool) {
-    var _window$gaChecklistHo8, _window$gaChecklistHo9;
+    var _window$gaChecklistHo9, _window$gaChecklistHo0;
     var force = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
     var valid = new Set(['weather', 'radio', 'warnings', 'place', 'nearest', 'cargo', 'mission']);
     if (!valid.has(tool)) return;
@@ -1988,7 +1991,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     state.placeInfoReturn = tool;
     setStatus('');
     render();
-    if (((_window$gaChecklistHo8 = window.gaChecklistHost) === null || _window$gaChecklistHo8 === void 0 || (_window$gaChecklistHo9 = _window$gaChecklistHo8.supportsTool) === null || _window$gaChecklistHo9 === void 0 ? void 0 : _window$gaChecklistHo9.call(_window$gaChecklistHo8, tool)) === false) return;
+    if (((_window$gaChecklistHo9 = window.gaChecklistHost) === null || _window$gaChecklistHo9 === void 0 || (_window$gaChecklistHo0 = _window$gaChecklistHo9.supportsTool) === null || _window$gaChecklistHo0 === void 0 ? void 0 : _window$gaChecklistHo0.call(_window$gaChecklistHo9, tool)) === false) return;
     if (tool === 'weather') ensureWeatherTool(force);
     if (tool === 'radio') ensureRadioTool(force);
     if (tool === 'warnings') ensureWarningsTool(force);
@@ -2724,7 +2727,7 @@ ${routeLines}`;
   }
   function _ensureWeatherTool() {
     _ensureWeatherTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-      var _window$gaChecklistHo12, _window$gaChecklistHo13;
+      var _window$gaChecklistHo14, _window$gaChecklistHo15;
       var force,
         key,
         entry,
@@ -2767,7 +2770,7 @@ ${routeLines}`;
             entry.loading = true;
             entry.key = key;
             entry.error = '';
-            entry.controller = ((_window$gaChecklistHo12 = window.gaChecklistHost) === null || _window$gaChecklistHo12 === void 0 || (_window$gaChecklistHo13 = _window$gaChecklistHo12.createAbortController) === null || _window$gaChecklistHo13 === void 0 ? void 0 : _window$gaChecklistHo13.call(_window$gaChecklistHo12)) || new AbortController();
+            entry.controller = ((_window$gaChecklistHo14 = window.gaChecklistHost) === null || _window$gaChecklistHo14 === void 0 || (_window$gaChecklistHo15 = _window$gaChecklistHo14.createAbortController) === null || _window$gaChecklistHo15 === void 0 ? void 0 : _window$gaChecklistHo15.call(_window$gaChecklistHo14)) || new AbortController();
             if (state.view === 'weather') render();
             _context5.p = 4;
             samples = pickRouteSamplePoints(5);
@@ -3098,7 +3101,7 @@ ${routeLines}`;
   }
   function _ensureRadioTool() {
     _ensureRadioTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
-      var _window$gaChecklistHo14, _window$gaChecklistHo15;
+      var _window$gaChecklistHo16, _window$gaChecklistHo17;
       var force,
         key,
         entry,
@@ -3138,7 +3141,7 @@ ${routeLines}`;
             entry.loading = true;
             entry.key = key;
             entry.error = '';
-            entry.controller = ((_window$gaChecklistHo14 = window.gaChecklistHost) === null || _window$gaChecklistHo14 === void 0 || (_window$gaChecklistHo15 = _window$gaChecklistHo14.createAbortController) === null || _window$gaChecklistHo15 === void 0 ? void 0 : _window$gaChecklistHo15.call(_window$gaChecklistHo14)) || new AbortController();
+            entry.controller = ((_window$gaChecklistHo16 = window.gaChecklistHost) === null || _window$gaChecklistHo16 === void 0 || (_window$gaChecklistHo17 = _window$gaChecklistHo16.createAbortController) === null || _window$gaChecklistHo17 === void 0 ? void 0 : _window$gaChecklistHo17.call(_window$gaChecklistHo16)) || new AbortController();
             if (state.view === 'radio') render();
             _context8.p = 3;
             route = getRoutePoints();
@@ -3699,7 +3702,7 @@ ${routeLines}`;
   }
   function _ensureNearestTool() {
     _ensureNearestTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-      var _window$gaChecklistHo16, _window$gaChecklistHo17;
+      var _window$gaChecklistHo18, _window$gaChecklistHo19;
       var force,
         origin,
         entry,
@@ -3748,7 +3751,7 @@ ${routeLines}`;
             entry.key = key;
             entry.origin = origin;
             entry.error = '';
-            entry.controller = ((_window$gaChecklistHo16 = window.gaChecklistHost) === null || _window$gaChecklistHo16 === void 0 || (_window$gaChecklistHo17 = _window$gaChecklistHo16.createAbortController) === null || _window$gaChecklistHo17 === void 0 ? void 0 : _window$gaChecklistHo17.call(_window$gaChecklistHo16)) || new AbortController();
+            entry.controller = ((_window$gaChecklistHo18 = window.gaChecklistHost) === null || _window$gaChecklistHo18 === void 0 || (_window$gaChecklistHo19 = _window$gaChecklistHo18.createAbortController) === null || _window$gaChecklistHo19 === void 0 ? void 0 : _window$gaChecklistHo19.call(_window$gaChecklistHo18)) || new AbortController();
             if (state.view === 'nearest') render();
             _context9.p = 4;
             b = routeBounds([{
@@ -5721,12 +5724,16 @@ ${routeLines}`;
     return _setCustomPublished.apply(this, arguments);
   }
   function handleClick(event) {
-    var _window$gaChecklistHo0;
+    var _window$gaChecklistHo1, _window$gaChecklistHo10;
     var button = event.target.closest('[data-action]');
     if (!button || !bodyEl.contains(button)) return;
     if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
     var action = button.dataset.action;
-    if ((_window$gaChecklistHo0 = window.gaChecklistHost) !== null && _window$gaChecklistHo0 !== void 0 && _window$gaChecklistHo0.cargoAction && ['cargo-load', 'cargo-unload', 'cargo-replace', 'cargo-boardbook-time'].includes(action)) {
+    if (action === 'mission-flightplan-transfer' && (_window$gaChecklistHo1 = window.gaChecklistHost) !== null && _window$gaChecklistHo1 !== void 0 && _window$gaChecklistHo1.transferFlightPlan) {
+      window.gaChecklistHost.transferFlightPlan(button.dataset.target);
+      return;
+    }
+    if ((_window$gaChecklistHo10 = window.gaChecklistHost) !== null && _window$gaChecklistHo10 !== void 0 && _window$gaChecklistHo10.cargoAction && ['cargo-load', 'cargo-unload', 'cargo-replace', 'cargo-boardbook-time'].includes(action)) {
       var itemId = button.dataset.itemId || '';
       button.disabled = true;
       setStatus('Tracker verarbeitet die Aktion …');
@@ -5900,8 +5907,8 @@ ${routeLines}`;
         setStatus('Kartenfokus nicht verfügbar.', 'error');
       }
     } else if (action === 'airport-aip') {
-      var _window$gaChecklistHo1;
-      if ((_window$gaChecklistHo1 = window.gaChecklistHost) !== null && _window$gaChecklistHo1 !== void 0 && _window$gaChecklistHo1.openAip) {
+      var _window$gaChecklistHo11;
+      if ((_window$gaChecklistHo11 = window.gaChecklistHost) !== null && _window$gaChecklistHo11 !== void 0 && _window$gaChecklistHo11.openAip) {
         event.preventDefault();
         var _apt3 = decodeAirportDataset(button);
         if (_apt3) Promise.resolve(window.gaChecklistHost.openAip(_apt3)).then(() => setStatus('AIP im Browser geöffnet.', 'good')).catch(() => setStatus('AIP konnte nicht geöffnet werden.', 'warn'));
@@ -6100,11 +6107,11 @@ ${routeLines}`;
     scheduleCustomChecklistsForTracker(120);
   });
   setInterval(() => {
-    var _window$gaChecklistHo10;
+    var _window$gaChecklistHo12;
     if (document.visibilityState !== 'visible' || !isDrawerOpen() || state.view !== 'mission' || !bodyEl) return;
     // The EFB host refreshes semantic changes and live fields from tracker
     // snapshots. Replacing its entire menu here causes a one-second blink.
-    if ((_window$gaChecklistHo10 = window.gaChecklistHost) !== null && _window$gaChecklistHo10 !== void 0 && _window$gaChecklistHo10.missionView) return;
+    if ((_window$gaChecklistHo12 = window.gaChecklistHost) !== null && _window$gaChecklistHo12 !== void 0 && _window$gaChecklistHo12.missionView) return;
     var scrollTop = bodyEl.scrollTop;
     renderMissionTool();
     bodyEl.scrollTop = scrollTop;

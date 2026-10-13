@@ -840,6 +840,9 @@
         else if (state.view === 'cargo') renderCargoTool();
         else if (state.view === 'mission') renderMissionTool();
         else renderHome();
+        if (state.view === 'mission' && window.gaChecklistHost?.flightPlanActions) {
+            bodyEl.insertAdjacentHTML('beforeend', window.gaChecklistHost.flightPlanActions());
+        }
         renderStatus();
         if (window.gaChecklistHost?.supportsAction) {
             bodyEl.querySelectorAll('[data-action]').forEach(button => {
@@ -4387,6 +4390,10 @@ ${routeLines}`;
         if (!button || !bodyEl.contains(button)) return;
         if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
         const action = button.dataset.action;
+        if (action === 'mission-flightplan-transfer' && window.gaChecklistHost?.transferFlightPlan) {
+            window.gaChecklistHost.transferFlightPlan(button.dataset.target);
+            return;
+        }
         if (window.gaChecklistHost?.cargoAction && ['cargo-load', 'cargo-unload', 'cargo-replace', 'cargo-boardbook-time'].includes(action)) {
             const itemId = button.dataset.itemId || '';
             button.disabled = true;

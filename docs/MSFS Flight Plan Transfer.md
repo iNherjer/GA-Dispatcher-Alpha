@@ -121,3 +121,15 @@ from the unchanged tested SDK archive. Export remains gated by the native host
 capability; failures report status without blocking mission start.
 102 targeted tests and 24 HTTP tests pass. UI changes have local first-render
 and silent-viewport tests; independent Coherent verification remains pending.
+
+
+## Manual mission route transfer candidate (13.10.2026)
+
+The Mission side menu exposes MSFS and MSFS-plus-avionics buttons after native
+host readiness with an active mission run. Each click fetches the latest full
+confirmed private tracker route using current navigation revision. No mission
+intent is submitted. Concurrent exports are disabled; changed revision during
+fetch rejects the send, changed revision before result prevents a stale success
+message. Errors remain status-only. Avionics should be powered and booted first.
+The deferred timing candidate is not included. These controls use the existing
+0.4.24 native bridge, so no SDK-package changes are necessary. Not released.

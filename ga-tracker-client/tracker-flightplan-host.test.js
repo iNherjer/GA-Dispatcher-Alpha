@@ -12,7 +12,7 @@ function harness() {
     window:{parent,__gaEfbChannel:'channel',addEventListener:(name,handler)=>listeners[name]=handler},
     setInterval(){},setTimeout:fn=>{timers.set(++timer,fn);return timer;},clearTimeout:id=>timers.delete(id),
     byId:id=>nodes[id]||null,report:(...values)=>logs.push(values),
-    renderMissionActionBanner(){},openCargoManager(){},submitMissionIntent(){},
+    requestSideDrawerRefresh(){},renderMissionActionBanner(){},openCargoManager(){},submitMissionIntent(){},
     missionSnapshot:{control:{missionId:'m',runId:'r'}},mapSnapshot:{missionId:'m',routeEdit:{revision:0}},
     missionIntentPending:false,missionIntentStatus:'',missionIntentTone:'',missionBannerDismissedKey:'',
     missionActionBannerModel:()=>banner._gaMissionActionModel,
@@ -26,7 +26,7 @@ function harness() {
   let resolveStart;
   const starts=[],exports=[];
   context.requestMissionIntent=intent=>{starts.push(intent);return new Promise(resolve=>{resolveStart=resolve;});};
-  context.window.gaCockpitSessionClient={submitTool:async req=>{exports.push(req);return {ok:true,plan:{routeHash:'hash'}};}};
+  context.window.gaCockpitSessionClient={submitTool:async req=>{exports.push(req);return {ok:true,plan:{routeHash:'hash',navigationRevision:0}};}};
   function capability(data={}) {listeners.message({source:parent,data:{type:'ga-flightplan-capabilities',channel:'channel',host:'efb',ready:true,...data}});}
   return {context,banner,nodes,parent,listeners,posted,logs,starts,exports,capability,
     resolveStart:ok=>resolveStart(ok),flush:()=>new Promise(resolve=>setImmediate(resolve))};
@@ -63,4 +63,29 @@ test('export failure is a status message and never replays start',async()=>{
   h.context.window.handleMissionStartFlightPlanAction('msfs');h.resolveStart(true);await h.flush();
   assert.equal(h.starts.length,1);assert.match(h.nodes.gaFlightPlanStatus.textContent,/fehlgeschlagen/);
   assert.ok(h.logs.some(entry=>entry.includes('result')));
+});
+test('manual mission buttons use current route revision and never issue mission intents',async()=>{
+  const h=harness();h.capability();h.context.mapSnapshot.routeEdit.revision=7;
+  h.context.window.gaCockpitSessionClient.submitTool=async req=>{h.exports.push(req);return {ok:true,plan:{routeHash:'latest',navigationRevision:7}};};
+  assert.match(h.context.flightPlanTransferMarkup(),/Flugplan an MSFS und Avionik senden/);
+  await h.context.transferCurrentMissionFlightPlan('avionics');
+  assert.equal(h.starts.length,0);assert.equal(h.exports[0].payload.navigationRevision,7);
+  assert.equal(h.posted[0].job.plan.routeHash,'latest');assert.equal(h.posted[0].job.target,'avionics');
+  assert.match(h.context.flightPlanTransferMarkup(),/disabled/);
+  await h.context.transferCurrentMissionFlightPlan('msfs');assert.equal(h.exports.length,1);
+});
+test('manual actions disappear without a native bridge or active mission and closed missions cannot send',async()=>{
+  const h=harness();assert.equal(h.context.flightPlanTransferMarkup(),'');
+  h.capability();h.context.missionSnapshot.control.phase='closed';
+  assert.equal(h.context.flightPlanTransferMarkup(),'');await h.context.transferCurrentMissionFlightPlan('msfs');assert.equal(h.exports.length,0);
+  h.context.missionSnapshot.control.phase='active';h.context.missionSnapshot.cloudPending=true;
+  assert.equal(h.context.flightPlanTransferMarkup(),'');
+});
+test('manual response for a changed route is rejected before simulator writes; failed export remains retryable',async()=>{
+  const h=harness();h.capability();
+  h.context.window.gaCockpitSessionClient.submitTool=async()=>{h.context.mapSnapshot.routeEdit.revision=1;return {ok:true,plan:{routeHash:'old',navigationRevision:0}};};
+  assert.equal(await h.context.transferCurrentMissionFlightPlan('msfs'),false);assert.equal(h.posted.length,0);
+  assert.match(h.nodes.gaFlightPlanStatus.textContent,/fehlgeschlagen/);assert.doesNotMatch(h.context.flightPlanTransferMarkup(),/disabled/);
+  h.context.window.gaCockpitSessionClient.submitTool=async()=>{throw Error('offline');};
+  assert.equal(await h.context.transferCurrentMissionFlightPlan('msfs'),false);assert.equal(h.starts.length,0);
 });
