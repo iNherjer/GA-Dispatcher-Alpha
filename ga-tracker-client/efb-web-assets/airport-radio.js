@@ -89,7 +89,7 @@ function _fetchAirportFreq() {
             'TOWER': 'Turm',
             'GND': 'Rollkontrolle',
             'GROUND': 'Rollkontrolle',
-            'ATIS': 'Information',
+            'ATIS': 'ATIS',
             'INFO': 'Information',
             'RADIO': 'Radio',
             'CTAF': 'Radio',
@@ -300,7 +300,7 @@ function _fetchAirportFreq() {
           // Für die Detail-Anzeige auf der Karte alle formatieren
           labeledFreqs = apt.frequencies.map(f => {
             var fName = (f.name || '').toUpperCase().trim();
-            var label = freqLabelMap[fName] || f.name || 'Freq';
+            var label = f.type === 15 || /\bATIS\b/.test(fName) ? 'ATIS' : freqLabelMap[fName] || f.name || 'Freq';
             return {
               label: label,
               value: f.value

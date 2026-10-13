@@ -21180,3 +21180,50 @@ body.theme-ops1940 .ga-radio-dialog { background: #252b28; color: #e7dec2; borde
 body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3px outset #eee; border-radius: 0; }
 
 .ga-radio-heading b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Radio drawer: separate frequency rows and generous VR click targets. */
+.route-tool-radio-page .route-tool-radio-freqs {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 6px;
+}
+.route-tool-radio-page .route-tool-freq {
+    flex-wrap: wrap;
+    min-height: 48px;
+    margin-top: 0;
+    padding: 6px 8px;
+    font-size: 14px;
+    gap: 4px 12px;
+}
+.route-tool-radio-page .route-tool-freq > span {
+    flex: 1 1 110px;
+    overflow-wrap: anywhere;
+    color: var(--drawer-text);
+    font-family: var(--drawer-font-main);
+    font-size: 14px;
+    line-height: 1.35;
+    padding: 0;
+}
+.route-tool-radio-page .route-tool-freq b {
+    flex: 0 0 auto;
+    margin-left: auto;
+    font-size: 22px;
+}
+.route-tool-radio-page .route-tool-freq .ga-radio-value {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    min-width: 112px;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    border: 1px solid var(--drawer-border-soft);
+    border-radius: 6px;
+    color: var(--drawer-accent-2);
+    font-family: var(--drawer-font-mono);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+}

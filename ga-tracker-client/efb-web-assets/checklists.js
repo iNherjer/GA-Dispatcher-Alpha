@@ -2889,20 +2889,55 @@ ${routeLines}`;
             <div class="route-tool-list">${body}</div>
         `;
   }
+  function radioCtrAirport(as) {
+    var _window$GANavigationW;
+    if (typeof pickAirportForAirspaceFallback === 'function') return pickAirportForAirspaceFallback(as);
+    if ((_window$GANavigationW = window.GANavigationWarnings) !== null && _window$GANavigationW !== void 0 && _window$GANavigationW.pickAirportForAirspaceFallback) {
+      return window.GANavigationWarnings.pickAirportForAirspaceFallback(as, typeof globalAirports !== 'undefined' ? globalAirports : null);
+    }
+    return null;
+  }
   function airspaceFreqRows() {
     try {
       if (typeof activeAirspaces === 'undefined' || !Array.isArray(activeAirspaces)) return [];
-      return activeAirspaces.map((as, idx) => ({
-        as,
-        idx
-      })).filter(row => {
-        var _row$as;
-        return Array.isArray((_row$as = row.as) === null || _row$as === void 0 ? void 0 : _row$as.frequencies) && row.as.frequencies.length > 0;
-      }).slice(0, 18).map(row => ({
-        idx: row.idx,
-        title: row.as.name || 'Luftraum',
-        meta: `Enroute · ${row.as.type === 33 ? 'FIS' : 'Luftraum'}`,
-        values: row.as.frequencies.slice(0, 3).map(f => `${f.name || f.label || 'INFO'} ${f.value}`).join(' · ')
+      var rows = [];
+      var groups = new Map();
+      activeAirspaces.forEach((as, idx) => {
+        if (!as) return;
+        var isCtr = Number(as.type) === 4 || /\bCTR\b/i.test(as.name || '');
+        var freqs = Array.isArray(as.frequencies) ? as.frequencies.slice() : [];
+        if (isCtr) {
+          var airport = radioCtrAirport(as);
+          getFreqLines(airport === null || airport === void 0 ? void 0 : airport.icao).filter(f => /\bATIS\b/i.test(f.label)).forEach(f => {
+            if (!freqs.some(existing => String(existing.value) === String(f.value))) freqs.push(f);
+          });
+        }
+        if (!freqs.length) return;
+        var cls = Number(as.icaoClass);
+        var groupable = !isCtr && [0, 7, 26].includes(Number(as.type)) && [2, 3].includes(cls);
+        var frequencyKey = freqs.map(f => String(f.value).trim().replace(',', '.')).sort().join('|');
+        var name = as.name || 'Luftraum';
+        var key = groupable ? `${name.trim().toUpperCase()}|${frequencyKey}` : `row:${idx}`;
+        var existing = groups.get(key);
+        if (existing) {
+          existing.count++;
+          if (!existing.classes.includes(cls === 2 ? 'C' : 'D')) existing.classes.push(cls === 2 ? 'C' : 'D');
+          return;
+        }
+        var row = {
+          idx,
+          title: name,
+          frequencies: freqs,
+          count: 1,
+          classes: groupable ? [cls === 2 ? 'C' : 'D'] : [],
+          meta: `Enroute · ${Number(as.type) === 33 ? 'FIS' : isCtr ? 'CTR' : 'Luftraum'}`,
+          values: freqs.map(f => `${f.name || f.label || 'INFO'} ${f.value}`).join(' · ')
+        };
+        groups.set(key, row);
+        rows.push(row);
+      });
+      return rows.slice(0, 18).map(row => _objectSpread(_objectSpread({}, row), {}, {
+        meta: row.classes.length ? `Enroute · ${row.classes.sort().join('/')} · ${row.count} Luftraum${row.count === 1 ? '' : 'sektoren'}` : row.meta
       }));
     } catch (_) {
       return [];
@@ -3109,6 +3144,7 @@ ${routeLines}`;
         dep,
         dest,
         hasAirspaces,
+        ctrAirports,
         bounds,
         airports,
         navaids,
@@ -3171,16 +3207,34 @@ ${routeLines}`;
             _context8.p = 6;
             _t7 = _context8.v;
           case 7:
+            if (!(typeof activeAirspaces !== 'undefined' && Array.isArray(activeAirspaces) && typeof fetchAirportFreq === 'function')) {
+              _context8.n = 9;
+              break;
+            }
+            if (!(typeof globalAirports !== 'undefined' && !globalAirports && typeof loadGlobalAirports === 'function')) {
+              _context8.n = 8;
+              break;
+            }
+            _context8.n = 8;
+            return loadGlobalAirports();
+          case 8:
+            ctrAirports = new Set(activeAirspaces.filter(as => Number(as === null || as === void 0 ? void 0 : as.type) === 4 || /\bCTR\b/i.test((as === null || as === void 0 ? void 0 : as.name) || '')).map(as => {
+              var _radioCtrAirport;
+              return (_radioCtrAirport = radioCtrAirport(as)) === null || _radioCtrAirport === void 0 ? void 0 : _radioCtrAirport.icao;
+            }).filter(Boolean));
+            _context8.n = 9;
+            return Promise.all(Array.from(ctrAirports).filter(icao => !getFreqLines(icao).length).map(icao => fetchAirportFreq(icao, null, null).catch(() => null)));
+          case 9:
             bounds = routeBounds(route, 10);
             airports = [];
             navaids = [];
             if (!(bounds && route.length >= 2)) {
-              _context8.n = 9;
+              _context8.n = 11;
               break;
             }
-            _context8.n = 8;
+            _context8.n = 10;
             return Promise.all([fetchRouteOpenAip('airports', bounds, 120, entry.controller.signal).catch(() => []), fetchRouteOpenAip('navaids', bounds, 120, entry.controller.signal).catch(() => [])]);
-          case 8:
+          case 10:
             _yield$Promise$all = _context8.v;
             _yield$Promise$all2 = _slicedToArray(_yield$Promise$all, 2);
             aptItems = _yield$Promise$all2[0];
@@ -3210,11 +3264,12 @@ ${routeLines}`;
                 lat,
                 lon,
                 freq,
+                typeLabel: typeof getOpenAipNavaidTypeLabel === 'function' ? getOpenAipNavaidTypeLabel(n.type) : 'Funkfeuer',
                 radioKind: GARadioTuningCore.navaidKind(typeof getOpenAipNavaidTypeLabel === 'function' ? getOpenAipNavaidTypeLabel(n.type) : ''),
                 routeDist: distancePointToRouteNm(lat, lon, route)
               };
             }).filter(n => Number.isFinite(n.lat) && Number.isFinite(n.lon) && n.routeDist <= 12).sort((a, b) => a.routeDist - b.routeDist).slice(0, 10);
-          case 9:
+          case 11:
             entry.data = {
               dep,
               dest,
@@ -3223,22 +3278,22 @@ ${routeLines}`;
               generatedAt: Date.now()
             };
             entry.updatedAt = Date.now();
-            _context8.n = 11;
+            _context8.n = 13;
             break;
-          case 10:
-            _context8.p = 10;
+          case 12:
+            _context8.p = 12;
             _t8 = _context8.v;
             if ((_t8 === null || _t8 === void 0 ? void 0 : _t8.name) !== 'AbortError') entry.error = 'Radio-Daten konnten nicht geladen werden.';
-          case 11:
-            _context8.p = 11;
+          case 13:
+            _context8.p = 13;
             entry.loading = false;
             entry.controller = null;
             if (state.view === 'radio') render();
-            return _context8.f(11);
-          case 12:
+            return _context8.f(13);
+          case 14:
             return _context8.a(2);
         }
-      }, _callee8, null, [[4, 6], [3, 10, 11, 12]]);
+      }, _callee8, null, [[4, 6], [3, 12, 13, 14]]);
     }));
     return _ensureRadioTool.apply(this, arguments);
   }
@@ -3252,6 +3307,14 @@ ${routeLines}`;
                 <button class="checklist-mini-btn" type="button" data-action="locate-airport" data-airport="${escapeAttr(encoded)}">🔎 Karte</button>
             </div>
         ` : '';
+  }
+  function renderRadioFrequencyRows(freqs) {
+    var kind = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'COM';
+    return freqs.map(f => {
+      var label = f.label || f.name || 'Frequenz';
+      var target = /XPDR|SQK|SQUAWK|TRANSP/i.test(label) ? 'XPDR' : kind;
+      return `<div class="route-tool-freq"><span>${escapeHtml(label)}</span><b>${GARadioTuningCore.html(f.value, target)}</b></div>`;
+    }).join('');
   }
   function renderFreqBlock(label, apt) {
     var menuKey = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
@@ -3274,7 +3337,7 @@ ${routeLines}`;
                     <div class="route-tool-section-title">${escapeHtml(heading)}</div>
                     <div class="route-tool-section-sub">${escapeHtml((apt === null || apt === void 0 ? void 0 : apt.name) || '')}</div>
                 `}
-                ${freqs.length ? freqs.map(f => `<div class="route-tool-freq"><span>${escapeHtml(f.label)}</span><b>${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label) ? 'XPDR' : 'COM')}</b></div>`).join('') : renderToolEmpty('Noch keine Frequenzen im Cache. Aktualisieren lädt nach.')}
+                ${freqs.length ? renderRadioFrequencyRows(freqs) : renderToolEmpty('Noch keine Frequenzen im Cache. Aktualisieren lädt nach.')}
             </div>
         `;
   }
@@ -3285,6 +3348,7 @@ ${routeLines}`;
     var data = entry.data;
     var airRows = airspaceFreqRows();
     bodyEl.innerHTML = `
+            <div class="route-tool-radio-page">
             ${toolTopline('radio')}
             ${entry.error ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}
             ${data ? renderFreqBlock('Start', data.dep, `radio_start_${((_data$dep = data.dep) === null || _data$dep === void 0 ? void 0 : _data$dep.icao) || 'none'}`) : ''}
@@ -3295,7 +3359,7 @@ ${routeLines}`;
                         <div class="route-tool-row-main">
                             <div class="route-tool-row-title">${escapeHtml(r.title)}</div>
                             <div class="route-tool-row-meta">${escapeHtml(r.meta)}</div>
-                            <div class="route-tool-row-value">${GARadioTuningCore.text(r.values, 'COM')}</div>
+                            <div class="route-tool-radio-freqs">${renderRadioFrequencyRows(r.frequencies)}</div>
                         </div>
                         <div class="route-tool-row-actions">
                             ${locateButton('locate-airspace', `data-as-idx="${escapeAttr(r.idx)}"`, 'Luftraum auf Karte zeigen')}
@@ -3306,7 +3370,7 @@ ${routeLines}`;
             <div class="route-tool-section">
                 <div class="route-tool-section-title">Plätze entlang der Route</div>
                 ${data !== null && data !== void 0 && (_data$airports = data.airports) !== null && _data$airports !== void 0 && _data$airports.length ? data.airports.map(a => {
-      var freqs = getFreqLines(a.icao).slice(0, 3);
+      var freqs = getFreqLines(a.icao);
       var key = `radio_${a.icao}_${Math.round(a.routeDist * 10)}`;
       var open = state.radioAirportMenuKey === key;
       return `<div class="route-tool-row route-tool-radio-airport">
@@ -3317,16 +3381,20 @@ ${routeLines}`;
                             </span>
                             <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                         </button>
-                        ${freqs.length ? `<div class="route-tool-radio-freqs">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label) ? 'XPDR' : 'COM')}</b></span>`).join('')}</div>` : '<div class="route-tool-row-meta">Frequenzen werden bei Bedarf geladen.</div>'}
+                        ${freqs.length ? `<div class="route-tool-radio-freqs">${renderRadioFrequencyRows(freqs)}</div>` : '<div class="route-tool-row-meta">Frequenzen werden bei Bedarf geladen.</div>'}
                         ${open ? renderAirportContext(key, a) : ''}
                     </div>`;
     }).join('') : renderToolEmpty(entry.loading ? 'Nahe Plätze werden geladen...' : 'Keine nahen Plätze gefunden.')}
             </div>
             <div class="route-tool-section">
                 <div class="route-tool-section-title">Funkfeuer</div>
-                ${data !== null && data !== void 0 && (_data$navaids = data.navaids) !== null && _data$navaids !== void 0 && _data$navaids.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title">${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</div><div class="route-tool-row-meta">${fmtNm(n.routeDist)} NM neben Route${n.freq ? ` · ${GARadioTuningCore.html(n.freq, n.radioKind)}` : ''}</div></div>`).join('') : renderToolEmpty(entry.loading ? 'Funkfeuer werden geladen...' : 'Keine Funkfeuer entlang der Route gefunden.')}
+                ${data !== null && data !== void 0 && (_data$navaids = data.navaids) !== null && _data$navaids !== void 0 && _data$navaids.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title">${escapeHtml((n.typeLabel || 'Funkfeuer').replace(/^DVOR/, 'VOR'))} ${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</div><div class="route-tool-row-meta">${fmtNm(n.routeDist)} NM neben Route</div>${n.freq ? renderRadioFrequencyRows([{
+      label: 'Frequenz',
+      value: n.freq
+    }], n.radioKind) : ''}</div>`).join('') : renderToolEmpty(entry.loading ? 'Funkfeuer werden geladen...' : 'Keine Funkfeuer entlang der Route gefunden.')}
             </div>
             ${data ? renderFreqBlock('Ziel', data.dest, `radio_dest_${((_data$dest = data.dest) === null || _data$dest === void 0 ? void 0 : _data$dest.icao) || 'none'}`) : renderToolEmpty(entry.loading ? 'Radio-Daten werden geladen...' : 'Keine Radio-Daten.')}
+            </div>
         `;
   }
   function refreshVisiblePlaceDetails() {

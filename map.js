@@ -7172,7 +7172,7 @@ function seedOpenAipAirportFrequencies(airports) {
     const labels = {
         TWR: 'Turm', TOWER: 'Turm',
         GND: 'Rollkontrolle', GROUND: 'Rollkontrolle',
-        ATIS: 'Information', INFO: 'Information', INFORMATION: 'Information',
+        ATIS: 'ATIS', INFO: 'Information', INFORMATION: 'Information',
         RADIO: 'Radio', CTAF: 'Radio', UNICOM: 'Radio', MULTICOM: 'Radio',
         APP: 'Anflug', APPROACH: 'Anflug',
         DEP: 'Abflug', DEPARTURE: 'Abflug',
@@ -7187,7 +7187,7 @@ function seedOpenAipAirportFrequencies(airports) {
             .map((f) => {
                 const rawName = String(f.name || '').trim();
                 return {
-                    label: labels[rawName.toUpperCase()] || rawName || 'Freq',
+                    label: f.type === 15 || /\bATIS\b/i.test(rawName) ? 'ATIS' : (labels[rawName.toUpperCase()] || rawName || 'Freq'),
                     value: f.value
                 };
             });

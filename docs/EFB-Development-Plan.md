@@ -621,6 +621,31 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 
 ## Aktueller freigegebener Stand
 
+### Alpha-Rollout v527: Radio-Menü und ATIS (13.10.2026)
+
+ATIS aus dem bestehenden OpenAIP-Flugplatzdatensatz bleibt als ATIS erkennbar
+(statt „Information“), einschließlich Frequenztyp 15. Der gemeinsame
+Flugplatzrenderer übernimmt die Werte über die vorhandene NAVCOM-Bedienung.
+Das Radio-Menü ergänzt CTR-Zeilen um verfügbare Flugplatz-ATIS aus dem Cache,
+ohne Luftraum-, Warnungs- oder Missionsdaten zu verändern. C-/D-Sektoren mit
+gleichem Namen und derselben vollständigen Frequenzliste werden nur in dieser
+Ansicht zusammengefasst; CTR, FIS und abweichende Frequenzlisten bleiben separat.
+Funkfeuer zeigen ihren OpenAIP-Typ (VOR, DME, VOR/DME, NDB usw.).
+Im Radio-Menü werden DVOR, DVOR/DME und DVORTAC vereinfacht als VOR,
+VOR/DME und VORTAC bezeichnet; Quelldaten und Gerätezuordnung bleiben gleich.
+Alle Frequenzen des Radio-Menüs stehen einzeln in eigenen Zeilen, einschließlich
+CTR/FIS, nahen Plätzen und Funkfeuern. Frequenzwerte erhalten 22px Schrift und
+mindestens 48px hohe Klickflächen für VR; die Ansicht bleibt scrollbar.
+Der vollständige EFB-Asset-Sync wurde im sauberen Release-Checkout ausgeführt.
+Frequenzlisten naher Plätze und Karten-Kurzinfos werden nicht mehr vor ATIS
+abgeschnitten. Der lokale Electron-NAVCOM-UI-Test besteht in fünf Designs.
+51 Radio-/NAVCOM-, Cockpit- und HTTP-Tests bestehen. Die lokale EFB-Stuttgart-
+Ansicht bestätigt 15 Frequenzwerte mit 22px Schrift und 48px Klickflächen.
+Tracker v527 wird auf dem veröffentlichten v526-Stand gebaut; Webcache v2033,
+EFB-Assetrevision 52701. Stable und Community-Paket bleiben unverändert.
+
+
+
 ### Lokale Ergaenzung: vertikale Luftraumwarnungen (12.10.2026)
 
 Tracker-eigene Naeherungswarnungen mit 1500/1000/500/100-ft-Stufen, separatem

@@ -12,7 +12,7 @@ async function fetchAirportFreq(icao, elementId, type, airportHint = null, optio
     const freqLabelMap = {
         'TWR': 'Turm', 'TOWER': 'Turm',
         'GND': 'Rollkontrolle', 'GROUND': 'Rollkontrolle',
-        'ATIS': 'Information', 'INFO': 'Information',
+        'ATIS': 'ATIS', 'INFO': 'Information',
         'RADIO': 'Radio', 'CTAF': 'Radio', 'UNICOM': 'Radio', 'MULTICOM': 'Radio',
         'APP': 'Anflug', 'APPROACH': 'Anflug',
         'DEP': 'Abflug', 'DEPARTURE': 'Abflug',
@@ -129,7 +129,7 @@ async function fetchAirportFreq(icao, elementId, type, airportHint = null, optio
                 // Für die Detail-Anzeige auf der Karte alle formatieren
                 const labeledFreqs = apt.frequencies.map(f => {
                     const fName = (f.name || '').toUpperCase().trim();
-                    const label = freqLabelMap[fName] || f.name || 'Freq';
+                    const label = f.type === 15 || /\bATIS\b/.test(fName) ? 'ATIS' : (freqLabelMap[fName] || f.name || 'Freq');
                     return { label: label, value: f.value };
                 });
                 const lines = labeledFreqs.map(lf => `📻 ${GARadioTuningCore.escape(lf.label)}: ${GARadioTuningCore.html(lf.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(lf.label) ? 'XPDR' : 'COM')}`);

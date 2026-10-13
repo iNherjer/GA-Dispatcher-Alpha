@@ -302,7 +302,7 @@ function getMapContextAirportFrequencies(airport, icao) {
         .map((entry) => {
             if (entry === null || entry === undefined) return '';
             if (typeof entry !== 'object') return String(entry).trim();
-            const name = String(entry.name || entry.label || 'Freq').trim();
+            const name = entry.type === 15 ? 'ATIS' : String(entry.name || entry.label || 'Freq').trim();
             const value = String(entry.value ?? '').trim();
             if (!value) return '';
             const unitCode = Number(entry.unit);
@@ -310,8 +310,7 @@ function getMapContextAirportFrequencies(airport, icao) {
             return `${abbreviateMapFrequencyLabel(name)}: ${value}${unit}`;
         })
         .filter(Boolean)
-        .filter((value, index, values) => values.indexOf(value) === index)
-        .slice(0, 4);
+        .filter((value, index, values) => values.indexOf(value) === index);
 }
 
 function normalizeMapContextAirportFeature(airport) {

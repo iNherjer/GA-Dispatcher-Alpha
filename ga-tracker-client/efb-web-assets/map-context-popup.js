@@ -345,13 +345,13 @@ function getMapContextAirportFrequencies(airport, icao) {
     var _entry$value;
     if (entry === null || entry === undefined) return '';
     if (typeof entry !== 'object') return String(entry).trim();
-    var name = String(entry.name || entry.label || 'Freq').trim();
+    var name = entry.type === 15 ? 'ATIS' : String(entry.name || entry.label || 'Freq').trim();
     var value = String((_entry$value = entry.value) !== null && _entry$value !== void 0 ? _entry$value : '').trim();
     if (!value) return '';
     var unitCode = Number(entry.unit);
     var unit = unitCode === 1 ? ' kHz' : unitCode === 2 ? ' MHz' : '';
     return `${abbreviateMapFrequencyLabel(name)}: ${value}${unit}`;
-  }).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).slice(0, 4);
+  }).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index);
 }
 function normalizeMapContextAirportFeature(airport) {
   var _raw$geometry, _ref2, _raw$lat, _ref3, _ref4, _ref5, _raw$lon, _raw$elevation;
