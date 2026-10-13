@@ -368,7 +368,33 @@ window.missionComplianceEnsureFinalDecision = function(options = {}) {
     return state.selected;
 };
 
+let missionComplianceDebugForcePromise = null;
 window.missionComplianceDebugForceCurrentFlight = function() {
+    if (_missionComplianceTrackerAuthority()) {
+        if (missionComplianceDebugForcePromise) return missionComplianceDebugForcePromise;
+        const run = window.gaTrackerExecutionControl;
+        if (!run?.allowedActions?.includes('debug_force_compliance')
+            || typeof window.gaTrackerExecutionSubmitIntent !== 'function') {
+            try { alert('Tracker-Kontrolle kann jetzt nicht forciert werden. Aktuelle Alpha-Version und laufenden Missionsflug pruefen.'); } catch (_) {}
+            return Promise.resolve(false);
+        }
+        // Never mutate local inspection state or fall back after a rejected intent.
+        missionComplianceDebugForcePromise = Promise.resolve().then(() =>
+            window.gaTrackerExecutionSubmitIntent('debug_force_compliance', {})
+        ).then(result => {
+            if (result?.ok !== true) {
+                try { alert('Kontrolle wurde vom Tracker nicht angenommen. Verbindung und Missionsstatus pruefen.'); } catch (_) {}
+            }
+            return result?.ok === true;
+        }).catch(() => {
+            try { alert('Kontrolle konnte nicht an den Tracker uebergeben werden.'); } catch (_) {}
+            return false;
+        }).finally(() => {
+            missionComplianceDebugForcePromise = null;
+            try { window.vpRefreshWeatherDebugReport?.(); } catch (_) {}
+        });
+        return missionComplianceDebugForcePromise;
+    }
     if (typeof window.missionRuntimeIsActive === 'function' && !window.missionRuntimeIsActive()) {
         try { alert('Die Kontrolle kann nur fuer einen laufenden Missionsflug erzwungen werden.'); } catch (_) {}
         return false;

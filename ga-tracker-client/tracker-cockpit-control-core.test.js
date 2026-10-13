@@ -351,3 +351,14 @@ test('training actions reach the tracker executor from web and EFB sessions', as
     assert.deepEqual(executed, ['training_ready', 'training_abort', 'training_extra', 'training_repeat_instruction']);
   }
 });
+
+test('debug inspection intent uses the authenticated Web HTTP/relay path', async () => {
+  const calls = [];
+  const app = fixture({ executeIntent: async request => { calls.push(request); return { ok: true }; } });
+  const session = app.control.register({ clientId: 'debug-web', role: 'web' });
+  const request = { intent: 'debug_force_compliance', commandId: 'web-debug', missionId: 'mission-a', runId: 'run-a', expectedRevision: 7 };
+  assert.equal((await app.control.submitIntent({ ...request, sessionId: session.session.sessionId, sessionToken: session.sessionToken })).ok, true);
+  assert.equal((await app.control.submitTrustedIntent({ ...request, commandId: 'relay-debug' }, { clientId: 'debug-web-relay', role: 'web' })).ok, true);
+  assert.deepEqual(calls.map(call => call.intent), ['debug_force_compliance', 'debug_force_compliance']);
+  assert.ok(calls.every(call => call.controllerSession.role === 'web'));
+});

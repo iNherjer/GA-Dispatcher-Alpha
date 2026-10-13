@@ -1320,7 +1320,7 @@ test('unloaded boardbook reloads near the aircraft before departure and stays bl
   }
 });
 
-function inspectionAfterFlight(t) {
+function inspectionAfterFlight(t, debug = false, late = false) {
   const bundle = aptResumeBundle();
   bundle.runtime.cargoManifest.items = [
     { id: 'medical-box', itemType: 'cargo', required: true, status: 'pending', weightLbs: 42, deliverAtDestination: true },
@@ -1331,7 +1331,7 @@ function inspectionAfterFlight(t) {
       equipmentType: 'expiry', expiresAt: '2099-12-31', serialId: 'AID-OLD' }
   ];
   // Fixture selection only: production probability and UI remain unchanged.
-  bundle.runtime.complianceInspection = { selected: null, forced: true, phase: 'none' };
+  bundle.runtime.complianceInspection = { selected: null, forced: !debug, phase: 'none' };
   bundle.executionReplay = executionCore.createExecutionBundle(bundle);
   bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
   const f = createCommittedFixture(t, { bundle });
@@ -1343,12 +1343,22 @@ function inspectionAfterFlight(t) {
   assert.equal(acknowledgePayloadCurrent(f, 'inspection').ok, true);
   assert.equal(acknowledgeBoardingCurrent(f, 'inspection').ok, true);
   assert.equal(executeCurrent(f, 'start_mission', 'inspection-start').ok, true);
+  if (debug && !late) {
+    assert.equal(executeCurrent(f, 'debug_force_compliance', 'inspection-debug-force').ok, true);
+    assert.equal(f.manager.getExecutionSnapshot().state.workflows.complianceInspection.snapshot, null);
+  }
   for (const sample of [
     { observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 },
     { observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 },
     { observedAt: 13000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 15 },
     { observedAt: 14000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 }
   ]) { f.setClock(sample.observedAt); f.adapter.observeTelemetry(sample); }
+  if (debug && late) {
+    assert.equal(f.manager.getExecutionSnapshot().state.workflows.complianceInspection.selected, false);
+    assert.equal(executeCurrent(f, 'set_manifest_item', 'inspection-debug-pre-unload', { itemId: 'bordbuch', action: 'unload' }).ok, true);
+    assert.equal(executeCurrent(f, 'debug_force_compliance', 'inspection-debug-late').ok, true);
+    assert.equal(f.manager.getExecutionSnapshot().state.workflows.complianceInspection.snapshot.items.find(item => item.id === 'bordbuch').status, 'loaded');
+  }
   assert.equal(f.manager.getExecutionSnapshot().state.workflows.complianceInspection.phase, 'approach_started');
   assert.equal(executeCurrent(f, 'set_boardbook_time', 'inspection-log-start', { itemId: 'bordbuch', field: 'start' }).ok, true);
   assert.equal(executeCurrent(f, 'set_boardbook_time', 'inspection-log-landing', { itemId: 'bordbuch', field: 'landing' }).ok, true);
@@ -1482,4 +1492,35 @@ test('tracker marks items unloaded in this mission lost on departure without los
   assert.equal(executeCurrent(f, 'set_manifest_item', 'abandon-replace-airborne', { itemId: 'bordbuch', action: 'load' }).ok, false);
   const restored = createMissionAuthorityManager(f.managerOptions).getExecutionSnapshot().state.manifest;
   assert.ok(restored.items.filter(item => item.persistentEquipment).every(item => item.status === 'lost'));
+});
+
+
+test('debug forcing enters the regular inspection and evidence flow, before and after arrival', t => {
+  for (const late of [false, true]) {
+    const f = inspectionAfterFlight(t, true, late);
+    const before = f.manager.getExecutionSnapshot();
+    assert.equal(executeCurrent(f, 'debug_force_compliance', 'debug-again').ok, true);
+    assert.equal(f.manager.getExecutionSnapshot().executionRevision, before.executionRevision);
+    assert.equal(before.state.effects.filter(e => e.type === 'scene.compliance_visit').length, 1);
+    assert.equal(before.state.workflows.complianceInspection.forced, true);
+    assert.equal(executeCurrent(f, 'set_manifest_item', 'debug-present-all', { items:
+      ['bordbuch','fire-extinguisher','first-aid'].map(itemId => ({ itemId, action: 'unload' })) }).ok, true);
+    assert.equal(executeCurrent(f, 'submit_compliance_evidence', 'debug-result').ok, true);
+    assert.equal(f.manager.getExecutionSnapshot().state.workflows.complianceInspection.phase, 'result_playing');
+    assert.equal(f.manager.getExecutionSnapshot().state.workflows.complianceInspection.result.entryCount, 0);
+    const restored = createMissionAuthorityManager(f.managerOptions).getExecutionSnapshot();
+    assert.equal(restored.state.workflows.complianceInspection.forced, true);
+    assert.equal(restored.state.workflows.complianceInspection.phase, 'result_playing');
+  }
+});
+
+test('debug forcing is unavailable before mission start and never bypasses run/revision guards', t => {
+  const f = createCommittedFixture(t);
+  assert.equal(executeCurrent(f, 'debug_force_compliance', 'debug-before-start').ok, false);
+  const live = inspectionAfterFlight(t, true);
+  const run = live.manager.getActiveRun();
+  assert.equal(live.adapter.executeIntent({ intent: 'debug_force_compliance', commandId: 'debug-old-run',
+    missionId: run.missionId, runId: 'old-run', expectedRevision: run.revision }).ok, false);
+  assert.equal(live.adapter.executeIntent({ intent: 'debug_force_compliance', commandId: 'debug-old-revision',
+    missionId: run.missionId, runId: run.runId, expectedRevision: -1 }).ok, false);
 });

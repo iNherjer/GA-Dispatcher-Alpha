@@ -34,6 +34,7 @@ const MISSION_INTENTS = new Set([
   'training_extra',
   'training_repeat_instruction',
   'submit_compliance_evidence',
+  'debug_force_compliance',
   'request_close',
   'abort_mission'
 ]);

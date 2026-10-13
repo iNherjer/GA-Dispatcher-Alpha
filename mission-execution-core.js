@@ -60,7 +60,7 @@
         'BUSH_VOICE_REQUESTED', 'BUSH_PICKUP_SCENE_REQUESTED', 'BUSH_PICKUP_BOARDING_REQUESTED', 'BUSH_TASK_OBSERVED', 'APT_TRAINING_OBSERVED', 'APT_TRAINING_ACTION_OBSERVED', 'TRAINING_ACTION_OBSERVED', 'FIRE_SCENE_RECOVERY_REQUESTED', 'FIRE_ACTION_OBSERVED', 'SAR_REPORT_OBSERVED', 'POI_ACTION_VOICE_REQUESTED', 'POI_LIFECYCLE_OBSERVED', 'POI_TASK_OBSERVED', 'POI_VOICE_TEXT_READY', 'APT_FLIGHT_VOICE_REQUESTED', 'APT_APPROACH_VOICE_REQUESTED', 'TARGET_ENTERED', 'TASK_PROGRESS', 'TOUCHDOWN', 'GROUND_STILL', 'GROUND_HANDLING_INVALIDATED', 'PREFLIGHT_GROUND_OBSERVED',
         'PICKUP_CONFIRMED', 'UNLOAD_CONFIRMED', 'FAREWELL_STARTED', 'FAREWELL_COMPLETED',
         'PAX_DEBOARDING_REQUESTED', 'PAX_DEBOARDING_CONFIRMED',
-        'CARGO_STATE_CHANGED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
+        'CARGO_STATE_CHANGED', 'COMPLIANCE_DEBUG_FORCED', 'COMPLIANCE_EVENT', 'COMPLIANCE_INSPECTORS_WAITING',
         'COMPLIANCE_REQUEST_COMPLETED', 'COMPLIANCE_RESULT_COMPLETED', 'COMPLIANCE_RELEASED',
         'EFFECT_ACKNOWLEDGED', 'CLOSE_REQUESTED', 'MISSION_CLOSED',
         'AUTHORITATIVE_SNAPSHOT_IMPORTED'
@@ -922,15 +922,17 @@
                 flightId: currentFlightEvents(state).flightId
             }));
         }
-        if (compliance.selected !== true || compliance.phase === 'released') {
-            state.workflows.complianceInspection = compliance;
-            return false;
-        }
+        // Retain the arrival inventory even at 0 %, so a later debug request
+        // evaluates what was carried then, rather than already unloaded items.
         if (!compliance.snapshot && complianceCore && typeof complianceCore.createSnapshot === 'function') {
             compliance.snapshot = complianceCore.createSnapshot(compliance, state.manifest, {
                 now: event.occurredAt,
                 flightId: currentFlightEvents(state).flightId
             });
+        }
+        if (compliance.selected !== true || compliance.phase === 'released') {
+            state.workflows.complianceInspection = compliance;
+            return false;
         }
         if (compliance.phase === 'selected') {
             compliance.phase = 'approach_started';
@@ -1142,6 +1144,9 @@
                     return effect.type === 'voice.farewell' && effect.status === 'requested';
                 });
         }
+        if (event.type === 'COMPLIANCE_DEBUG_FORCED') return state.flags.started && state.flags.active
+            && ['active', 'enroute', 'on_task', 'return_leg', 'end_unloading', 'end_ready'].includes(phase)
+            && compliance.phase !== 'released';
         if (event.type === 'COMPLIANCE_EVENT') return !state.flags.closed;
         if (event.type === 'COMPLIANCE_INSPECTORS_WAITING') {
             return compliance.selected === true
@@ -1569,6 +1574,18 @@
             }
             if ((state.phase === 'end_unloading' || state.phase === 'end_ready') && state.cargo.signatureScope !== 'arrival') {
                 state.flags.unloadConfirmed = false;
+            }
+        } else if (event.type === 'COMPLIANCE_DEBUG_FORCED') {
+            if (state.workflows.complianceInspection.selected !== true) {
+                state.workflows.complianceInspection = normalizeCompliance(complianceCore.decide(
+                    state.workflows.complianceInspection, { force: true, roll: 0, now: event.occurredAt,
+                        missionKey: state.missionId, flightId: currentFlightEvents(state).flightId }));
+                state.workflows.complianceInspection.revision += 1;
+                // Selection during flight has no scene/snapshot side effects.
+                // A late request at the final stop enters the same arrival chain.
+                if (state.flags.groundStill && ['end_unloading', 'end_ready'].includes(state.phase)) {
+                    startComplianceArrival(state, event);
+                }
             }
         } else if (event.type === 'COMPLIANCE_EVENT') {
             var compliancePayload = object(event.payload);
@@ -2015,6 +2032,10 @@
             && ['end_unloading', 'end_ready'].includes(phase)) actions.push('set_manifest_item');
         if (!state.flags.closed && state.flags.groundStill && compliance.selected === true && compliance.phase === 'evidence_open') {
             actions.push('submit_compliance_evidence');
+        }
+        if (state.flags.started && state.flags.active && !state.flags.closed && compliance.phase !== 'released'
+            && ['active', 'enroute', 'on_task', 'return_leg', 'end_unloading', 'end_ready'].includes(phase)) {
+            actions.push('debug_force_compliance');
         }
         var closeReasons = blockingReasons(state);
         var complianceCloseStart = compliance.selected === true

@@ -465,3 +465,44 @@ test('real mission worker queues Crewboard sanctions in the parent without App o
   assert.equal(stored.entries[0].savedAt, null);
   assert.equal((await service.flush()).status, 'pending');
 });
+
+test('Web debug intent is committed by the real tracker worker without local scene shortcuts', async t => {
+  const host = await fixture(t);
+  const bundle = aptBundle();
+  bundle.executionEffectPlan.effects['voice.boarding'] = { recipe:
+    require('../mission-boarding-voice-core.js').createRecipe({ missionId: bundle.missionId, prompt: 'Bereit.', audioEnabled: false }) };
+  bundle.runtime.complianceInspection = { selected: false, phase: 'not_selected' };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  await activate(host, bundle);
+  host.runtime.attachSimulator({
+    getLivePosition: () => ({ lat: 48, lon: 8, altFt: 500, hdg: 90 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }),
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' })
+  });
+  await until(() => host.runtime.publicState().simulatorAttached);
+  for (const intent of ['prepare_mission', 'start_boarding', 'confirm_load', 'start_mission']) {
+    const run = host.authorityManager.getActiveRun();
+    const result = await host.runtime.executeIntent({ intent, commandId: `debug-${intent}`,
+      missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    await until(() => host.runtime.publicState().effects.pendingEffects.length === 0);
+  }
+  const before = host.authorityManager.getExecutionSnapshot();
+  const run = host.authorityManager.getActiveRun();
+  const request = { intent: 'debug_force_compliance', commandId: 'web-debug-force',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision };
+  const forced = await host.runtime.executeIntent(request);
+  assert.equal(forced.ok, true, JSON.stringify(forced));
+  const state = host.authorityManager.getExecutionSnapshot().state;
+  assert.equal(state.workflows.complianceInspection.forced, true);
+  assert.equal(state.workflows.complianceInspection.phase, 'selected');
+  assert.equal(state.workflows.complianceInspection.snapshot, null);
+  assert.equal(state.effects.length, before.state.effects.length, 'selection cannot summon a scene in flight');
+  assert.equal((await host.runtime.executeIntent({ ...request, expectedRevision: host.authorityManager.getActiveRun().revision })).ok, true);
+  assert.equal(host.authorityManager.getExecutionSnapshot().state.revision, state.revision);
+  await host.runtime.flush();
+  const saved = JSON.parse(fs.readFileSync(path.join(host.testDirectory, 'authority.json'), 'utf8'));
+  assert.ok(JSON.stringify(saved).includes('COMPLIANCE_DEBUG_FORCED'));
+});

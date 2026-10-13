@@ -636,7 +636,7 @@ test('browser shell and tracker wire the shared core additively behind existing 
     assert.match(trackerSource, /createTrackerMissionShadow/);
     assert.match(trackerSource, /observeAuthorityResult/);
     assert.match(trackerSource, /executionShadow: trackerMissionShadow\.publicState\(\)/);
-    assert.match(trackerSource, /VFR_MULTITOOL_APT_EXECUTION/);
+    assert.match(trackerSource, /VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED/);
     assert.match(trackerSource, /missionExecutionCore\.TRACKER_AUTHORITY_READY === true/);
     assert.match(trackerSource, /createTrackerMissionExecutionRuntime/);
     assert.match(trackerSource, /if \(type === 'mission_scene_object_remove'\)[\s\S]*?enqueueSceneObjectOperation/);

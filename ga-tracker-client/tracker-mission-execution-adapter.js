@@ -918,6 +918,19 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (intent === 'set_boardbook_time') return setBoardBookTime(snapshot, request);
     if (intent === 'replace_equipment') return replaceEquipment(snapshot, request);
     if (intent === 'submit_compliance_evidence') return submitComplianceEvidence(snapshot, request);
+    if (intent === 'debug_force_compliance') {
+      if (snapshot.state.workflows.complianceInspection.selected === true) return noopResult(authorityManager, snapshot);
+      if (['end_unloading', 'end_ready'].includes(snapshot.state.phase)) {
+        const sample = observations.groundTelemetry;
+        if (!sample || !Number.isFinite(sample.observedAt) || now() - sample.observedAt < 0
+            || now() - sample.observedAt > 5000 || sample.simPaused === true || sample.inMenuOrMap === true
+            || sample.onGround !== true || !Number.isFinite(sample.gsKts) || sample.gsKts < 0 || sample.gsKts > 2) {
+          return errorResult('manifest_ground_handling_required');
+        }
+      }
+      return submitEvent(snapshot, 'COMPLIANCE_DEBUG_FORCED', {},
+        `${snapshot.runId}:intent:${commandId}`, 'intent:debug_force_compliance');
+    }
     if (intent === 'request_pax_interaction') {
       const action = cleanString(safeObject(request.payload).action, 40).toLowerCase();
       if(action==='load' && snapshot.bushRecipe?.kind==='pickup_return' && snapshot.state.manifest.items.some(i=>i.id===request.payload?.itemId && i.pickupLocation==='target' && i.itemType==='passenger')) {
