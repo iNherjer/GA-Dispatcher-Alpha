@@ -133,3 +133,9 @@ fetch rejects the send, changed revision before result prevents a stale success
 message. Errors remain status-only. Avionics should be powered and booted first.
 The deferred timing candidate is not included. These controls use the existing
 0.4.24 native bridge, so no SDK-package changes are necessary. Not released.
+
+
+Manual transfer is released on Alpha with Tracker v526 (13.10.2026),
+integrated on v525. EFB 0.4.24 remains unchanged. All sends use the current
+authenticated route export, with no mission start/restart intent. The separate
+readback-settling candidate remains deferred.

@@ -7430,3 +7430,17 @@ Shared Checklist-Adapter-Hooks bleiben in der Standalone ohne Host inaktiv.
 Keine nativen Paketaenderungen und keine zurueckgestellte Timing-Aenderung
 integriert; kein Release. Quellen separat auf veroeffentlichter v523-Basis,
 Primary-Worktree wegen gemischtem Altstand unangetastet.
+
+
+### 13.10.2026: Manuelle Flugplanuebergabe als Tracker v526 Alpha
+
+Auf Nutzerauftrag ausgerollt: Missionsseitenmenue kann die aktuelle
+Tracker-Missionsroute nachtraeglich an MSFS oder MSFS und Avionik senden.
+Neuere Alpha-Fixes aus v524/v525 bleiben enthalten. Nativer Host und aktiver
+Run sind vorausgesetzt; Exportfehler blockieren Missionen nicht. Aktuelle
+Navigationsrevision, veraltete Antworten und Doppelklicks sind abgesichert.
+105 gezielte Tests, 24 HTTP-Tests, Interface-Regressionspruefung und echter
+440px-Host-Klicktest bestanden. Windows-PE-x64 und eingebettete Host-/Export-/
+Checklist-Quellen stimmen mit dem Release-Quellstand ueberein. Tracker lokal
+ohne Bytecode gebaut wie v523; kein SDK-Agentkontakt. EFB 0.4.24, Toolbar
+und Stable unveraendert. Zurueckgestellter Timing-Kandidat nicht integriert.
