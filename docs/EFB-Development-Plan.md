@@ -14,6 +14,10 @@ Startplatz bei 0 NM, weiterer Telemetrie und COM1-Aktiv-Frequenzklick geprueft.
 6 Navigations- und 22 EFB-Node-Tests bestehen; Screenshot geprueft.
 Alpha-v525-Rollout vom Nutzer beauftragt, Basis Origin v524.
 EFB-Assetrevision 52501, kein neues Community-Paket erforderlich.
+Release-Tag v525 / Quellcommit 7de516904. Upload und oeffentlicher Download
+bytegleich zum Windows-x64-Build: 173878937 Bytes, SHA-256
+ea06bbe917e58de7f9e4567e4f713a216c3b853585813a80b1ec237243ec1d53.
+Alpha-Aktivierung mit App-Cache v2030; realer MSFS-/VR-Nachtest offen.
 
 ## NAVCOM EFB-Kompatibilität, Alpha v524, 12.10.2026
 
