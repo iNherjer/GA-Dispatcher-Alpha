@@ -129,8 +129,8 @@ async function fetchAirportFreq(icao, elementId, type, airportHint = null, optio
                 // Für die Detail-Anzeige auf der Karte alle formatieren
                 const labeledFreqs = apt.frequencies.map(f => {
                     const fName = (f.name || '').toUpperCase().trim();
-                    const label = f.type === 15 || /\bATIS\b/.test(fName) ? 'ATIS' : (freqLabelMap[fName] || f.name || 'Freq');
-                    return { label: label, value: f.value };
+                    const label = Number(f.type) === 15 || /\bATIS\b/.test(fName) ? 'ATIS' : (freqLabelMap[fName] || f.name || 'Freq');
+                    return { label: label, value: f.value, type: f.type, name: f.name, labelVersion: 2 };
                 });
                 const lines = labeledFreqs.map(lf => `📻 ${GARadioTuningCore.escape(lf.label)}: ${GARadioTuningCore.html(lf.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(lf.label) ? 'XPDR' : 'COM')}`);
                 if (el) el.innerHTML = lines.join('<br>');

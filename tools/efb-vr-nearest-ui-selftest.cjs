@@ -3,9 +3,11 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
 const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-client/tracker-efb-web-client'));
 (async()=>{
  let raw=false;const requests=[];
- const airports=[{icaoCode:'EDTL',name:'Lahr',geometry:{coordinates:[7.83,48.36]},runways:[{designator:'03',dimension:{length:{value:3000,unit:0}},surface:{name:'Asphalt'}},{designator:'21'},{designator:'09L'},{designator:'27R'}],frequencies:[{name:'TWR',value:'125.180'}]}, {icaoCode:'EDTO',name:'Offenburg',geometry:{coordinates:[7.92,48.45]},frequencies:[{name:'INFO',value:'128.950'}]}];
+ const airports=[{icaoCode:'EDTL',name:'Lahr',geometry:{coordinates:[7.83,48.36]},runways:[{designator:'03',dimension:{length:{value:3000,unit:0}},surface:{name:'Asphalt'}},{designator:'21'},{designator:'09L'},{designator:'27R'}],frequencies:[{name:'TWR',value:'125.180'},{name:'INFO',type:15,value:'126.130'}]}, {icaoCode:'EDTO',name:'Offenburg',geometry:{coordinates:[7.92,48.45]},frequencies:[{name:'INFO',value:'128.950'}]}];
  const radioAirspaces=[{id:'hx-altdorf',name:'CTR SEKTOR ALTDORF (HX)',type:0,icaoClass:3,frequencies:[{name:'LAHR TWR',value:'125.180 MHz'},{name:'ALTDORF RADIO',value:'127.155 MHz'}],geometry:{type:'Polygon',coordinates:[[[7.8,48.3],[7.9,48.3],[7.9,48.4],[7.8,48.4],[7.8,48.3]]]}},{id:'hx-offenburg',name:'CTR SEKTOR OFFENBURG (HX)',type:0,icaoClass:3,frequencies:[{name:'OFFENBURG SEGELFLUG',value:'123.355 MHz'},{name:'OFFENBURG RADIO',value:'132.040 MHz'}],geometry:{type:'Polygon',coordinates:[[[7.9,48.4],[8,48.4],[8,48.5],[7.9,48.5],[7.9,48.4]]]}}];
  radioAirspaces.unshift({id:'off-route',name:'CTR OFF ROUTE',type:4,icaoClass:3,frequencies:[{name:'WRONG',value:'129.000'}],geometry:{type:'Polygon',coordinates:[[[8.1,48.3],[8.2,48.3],[8.2,48.4],[8.1,48.4],[8.1,48.3]]]}});
+ const radioNavaids=[{name:'SULZ TEST',identifier:'SUL',type:3,frequency:{value:'113.000'},geometry:{coordinates:[8.3,48.36]}}];
+ const compiledAtisRefresh=fs.readFileSync(path.join(root,'ga-tracker-client/efb-web-assets/checklists.js'),'utf8').includes('function radioAirportNeedsFrequencyLoad');
  const compiledRadioRoute=fs.readFileSync(path.join(root,'ga-tracker-client/efb-web-assets/checklists.js'),'utf8').includes('function radioAirspaceRouteOrder');
  const servedRadioAirspaces=()=>radioAirspaces.filter(as=>as.id!=='off-route'||raw||compiledRadioRoute);
  const server=http.createServer(async(req,res)=>{
@@ -26,7 +28,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
     else if(input.url.includes('/api/airports'))data={items:airports};
     else if(input.url.includes('/api/airspaces'))data={items:servedRadioAirspaces()};
     else data={items:[]};
-   }else if(input.kind==='aviation')data={airspaces:servedRadioAirspaces(),airports:[],navaids:[],reportingPoints:[]};
+   }else if(input.kind==='aviation')data={airspaces:servedRadioAirspaces(),airports:[],navaids:radioNavaids,reportingPoints:[]};
    else if(input.kind==='airports')data=[{airports}];
    else if(input.kind==='airspaces')data=[];
    else if(input.kind==='terrain')data=input.points.map(p=>({...p,elevFt:500}));
@@ -66,7 +68,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   assert.match(await page.locator('.route-tool-nearest').nth(1).innerText(),/Pisten: keine Angaben/);
   const geometry=await page.locator('.route-tool-nearest-runway svg line').first().evaluate(el=>({x1:+el.getAttribute('x1'),x2:+el.getAttribute('x2'),y1:+el.getAttribute('y1'),y2:+el.getAttribute('y2')}));
   assert.ok(geometry.x2>geometry.x1&&geometry.y2<geometry.y1);
-  await page.evaluate(()=>{activeAirspaces=[];gaChecklistOpen('radio');});
+  await page.evaluate(()=>{activeAirspaces=[];freqCache.EDTL=[{label:'TWR',value:'125.180'},{label:'Information',value:'126.130'}];window.pickAirportForAirspaceFallback=()=>({icao:'EDTL'});gaChecklistOpen('radio');});
   await page.waitForSelector('.route-tool-radio-page .ga-radio-value[data-radio-value="132.040"]');
   assert.equal(await page.locator('.route-tool-radio-page [data-action="refresh-tool"]').count(),0);
   assert.match(await page.locator('.route-tool-radio-page').innerText(),/ALTDORF.*OFFENBURG/s);
@@ -74,7 +76,12 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   if(raw||compiledRadioRoute)assert.doesNotMatch(await page.locator('.route-tool-radio-page').innerText(),/CTR OFF ROUTE|MHz/);
   assert.equal(await page.evaluate(()=>activeAirspaces.length),0);
   const radioValues=page.locator('.route-tool-radio-page .ga-radio-value');
-  assert.equal(await radioValues.count(),6); // four HX and start/destination.
+  assert.equal(await radioValues.count(),raw||compiledAtisRefresh?9:7); // four HX, start/destination, ATIS additions after legacy cache refresh.
+  if(raw||compiledAtisRefresh){
+   assert.equal(await page.locator('.route-tool-radio-page .route-tool-row:has-text("CTR SEKTOR ALTDORF") .ga-radio-value[data-radio-value="126.130"]').count(),1);
+   assert.doesNotMatch(await page.locator('.route-tool-radio-page .route-tool-section').first().innerText(),/Information/);
+   assert.equal(await page.locator('[data-action="locate-radio-airspace"] svg circle').count(),2);
+  }
   const magnifier=page.locator('[data-action="locate-radio-airspace"]').first();
   const hit=await magnifier.boundingBox();assert.ok(hit.width>=48&&hit.height>=48);
   assert.equal(await magnifier.locator('.route-tool-locate-icon').count(),1);
@@ -86,6 +93,15 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   await page.setViewportSize({width:440,height:894});
   await page.screenshot({path:'/tmp/ga-radio-hx-'+(raw?'source':'compiled')+'.png'});
   await page.setViewportSize({width:894,height:700});
+  if(raw){
+   // Keep Radio open while moving a long leg over the navaid, then away again.
+   await page.evaluate(()=>{routeWaypoints=[{lat:48.36,lon:7.83,name:'EDTL'},{lat:48.36,lon:8.6,name:'NEW'}];});
+   await page.waitForFunction(()=>document.querySelector('.route-tool-radio-page')?.textContent.includes('SULZ TEST'));
+   assert.equal(await page.locator('.route-tool-radio-page [data-radio-value="113.000"]').count(),1);
+   await page.evaluate(()=>{routeWaypoints=[{lat:48.36,lon:7.83,name:'EDTL'},{lat:48.45,lon:7.92,name:'EDTO'}];});
+   await page.waitForFunction(()=>!document.querySelector('.route-tool-radio-page')?.textContent.includes('SULZ TEST')
+    &&document.querySelector('.route-tool-radio-page')?.textContent.includes('CTR SEKTOR OFFENBURG'));
+  }
   await page.evaluate(()=>gaChecklistOpen('nearest'));
   // Exercise the actual host telemetry renderer at the destination and away
   // from it, including unchanged polls and late responses after selection changes.

@@ -91,3 +91,45 @@ test('the Radio list does not truncate later crossed areas after 18 rows',()=>{
  const result=rows(Array.from({length:22},(_,i)=>({name:'CTR '+i,type:4,frequencies:[{name:'TOWER',value:'123.450'}],geometry:box(i/3,i/3+.1)})));
  assert.equal(result.length,22);
 });
+
+test('legacy Information cache is refreshed from source, while confirmed INFO stays INFO',()=>{
+ const core=require('../radio-tuning-core');
+ const a=source.indexOf('    function getFreqLines('),b=source.indexOf('    function getRunwayText(',a);
+ const context={freqCache:{EDDS:[{label:'Information',value:'126.130'}],TEST:[{label:'Information',value:'123.450',labelVersion:2}]}};
+ vm.createContext(context);vm.runInContext(source.slice(a,b),context);
+ assert.equal(context.radioAirportNeedsFrequencyLoad('EDDS'),true);assert.equal(context.radioAirportNeedsFrequencyLoad('TEST'),false);
+ context.freqCache.EDDS=[{label:'ATIS',value:'126.130',type:15,labelVersion:2}];
+ assert.equal(context.radioAirportNeedsFrequencyLoad('EDDS'),false);
+});
+
+test('Radio distance includes the flown leg, not just its endpoints',()=>{
+ const a=source.indexOf('    function distancePointToRouteNm('),b=source.indexOf('    async function fetchRouteOpenAip(',a);
+ const context={navBetween:(lat,lon,lat2,lon2)=>({dist:Math.hypot(lat-lat2,lon-lon2)*60})};vm.createContext(context);vm.runInContext(source.slice(a,b),context);
+ assert.equal(context.distancePointToRouteNm(0,5,[{lat:0,lon:0},{lat:0,lon:10}]),0);
+ assert.equal(context.distancePointToRouteNm(.1,5,[{lat:0,lon:0},{lat:0,lon:10}]),6);
+ assert.equal(context.distancePointToRouteNm(0,11,[{lat:0,lon:0},{lat:0,lon:10}]),60);
+});
+test('late old-route result cannot overwrite the new Radio snapshot',async()=>{
+ const a=source.indexOf('    async function ensureRadioTool('),b=source.indexOf('    function renderAirportContext(',a);
+ let key='old',resolveOld;
+ const entry={key:'',data:null,loading:false,controller:null};
+ const nav=name=>[{name,type:3,frequency:{value:'113.000'},geometry:{coordinates:[.5,0]}}];
+ const context={AbortController,toolState:{radio:entry},state:{view:'radio'},window:{gaChecklistHost:{},GANavigationWarnings:{prepareAirspaces:()=>[]}},
+  getRouteKey:()=>key,isCacheFresh:()=>false,abortToolRequest:()=>entry.controller?.abort(),render:()=>{},
+  getRoutePoints:()=>[{lat:0,lon:0},{lat:0,lon:1}],getCurrentAirport:()=>({icao:''}),getFreqLines:()=>[],fetchAirportFreq:async()=>{},
+  radioAirportNeedsFrequencyLoad:()=>false,radioCtrAirport:()=>null,activeAirspaces:[],globalAirports:{},
+  routeBounds:()=>({key}),fetchRouteOpenAip:(path,bounds)=>path==='navaids'?(bounds.key==='old'?new Promise(resolve=>{resolveOld=resolve;}):Promise.resolve(nav('NEW'))):Promise.resolve([]),
+  normalizeToolAirport:a=>a,distancePointToRouteNm:()=>0,getOpenAipNavaidTypeLabel:()=> 'VOR',GARadioTuningCore:require('../radio-tuning-core')};
+ vm.createContext(context);vm.runInContext(source.slice(a,b),context);
+ const pending=context.ensureRadioTool();for(let i=0;i<8&&!resolveOld;i++)await Promise.resolve();assert.ok(resolveOld);
+ key='new';await context.ensureRadioTool();assert.equal(entry.data.navaids[0].name,'NEW');
+ resolveOld(nav('OLD'));await pending;assert.equal(entry.data.navaids[0].name,'NEW');assert.equal(entry.key,'new');assert.equal(entry.loading,false);
+});
+
+test('failed legacy label refresh preserves usable saved frequencies',async()=>{
+ const a=source.indexOf('    function getFreqLines('),b=source.indexOf('    function getRunwayText(',a);
+ const old=[{label:'TOWER',value:'119.055'},{label:'Information',value:'126.130'}];
+ const context={freqCache:{EDDS:old},fetchAirportFreq:async()=>{context.freqCache.EDDS=[];}};
+ vm.createContext(context);vm.runInContext(source.slice(a,b),context);
+ await context.loadRadioAirportFrequencies('EDDS');assert.deepEqual(Array.from(context.freqCache.EDDS),old);
+});

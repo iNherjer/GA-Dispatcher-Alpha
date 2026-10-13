@@ -1,5 +1,30 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Radio-Webabnahme: ATIS, SVG-Lupen und Routenänderungen (13.10.2026)
+
+Gespeicherte Alt-Frequenzlisten behalten „Information“ für früher als ATIS
+importierte Felder. Der Import speichert jetzt Typ, Originalname und Labelversion;
+Radio lädt mehrdeutige alte Information-Labels aus der Quelle nach. Echte INFO
+bleibt Information; keine Umbenennung anhand der Frequenzzahl. Start/Ziel und
+CTR warten auf diesen Import, späte Flughafenantworten aktualisieren die Liste.
+Lupen verwenden direkt eingebettete SVG-Geometrie mit expliziten Abmessungen;
+der leere CSS-Pseudoelement-Träger entfällt. Klickfläche bleibt 48×48 Pixel.
+Das offene Radio-Menü erkennt geänderte Routenkoordinaten innerhalb einer
+Sekunde und lädt neu. Controller-/Routenschlüssel verhindern Commit und Cleanup
+verspäteter Altantworten. Funkfeuerabstand bezieht die gesamten Routenlegs ein,
+statt nur Wegpunkte zu messen; dasselbe gilt für die nahe Radio-Flugplatzliste.
+Navaids nutzen die vorhandene Aviation-Abfrage; die Zehn-Einträge-Grenze entfällt.
+COM/NAV/ADF-fähige Funkfeuer bleiben sichtbar, TACAN/reines DME ausgeschlossen.
+Keine zentralen Missions-/Warnungs-/Klassifikationsänderungen.
+20 Node-Tests inklusive alter Cacheliste, Legabstand, verspäteter Altantwort
+und Erhalt gespeicherter Frequenzen bei fehlgeschlagener Label-Neuladung
+bestehen. Browsernachweis: ATIS bei CTR, SVG-Lupen, echter Frequenz-/Kartenklick,
+Radio bleibt offen während Route über Test-Funkfeuer gezogen und wieder entfernt
+wird; Anzeige lädt jeweils automatisch nach. Schmale Ansicht visuell geprüft.
+Ausschließlich Webapp-Update (Cache v2037). Tracker/EFB bleiben v528/52801;
+Tracker-Build erst nach ausdrücklicher Layout-Freigabe des Nutzers.
+
+
 ## Radio-Routenfolge: zuerst Webapp-Abnahme (13.10.2026)
 
 Nutzer korrigiert die v528-Radioauswahl: nur tatsächlich von der Routenlinie

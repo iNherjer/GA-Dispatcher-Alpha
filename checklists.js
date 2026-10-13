@@ -688,6 +688,24 @@
         return [];
     }
 
+    function radioAirportNeedsFrequencyLoad(icao) {
+        const code = String(icao || '').trim().toUpperCase();
+        if (!code) return false;
+        if (!getFreqLines(code).length) return true;
+        const cached = typeof freqCache !== 'undefined' && freqCache ? freqCache[code] : null;
+        // Persisted legacy labels lost ATIS source type. Re-read the source;
+        // INFO frequencies must never be guessed into ATIS by their number.
+        return Array.isArray(cached) && cached.some(f => f && f.label === 'Information' && f.labelVersion !== 2);
+    }
+
+    async function loadRadioAirportFrequencies(icao, type = null) {
+        const code = String(icao || '').trim().toUpperCase();
+        const previous = typeof freqCache !== 'undefined' && Array.isArray(freqCache[code]) ? freqCache[code].slice() : null;
+        try { await fetchAirportFreq(code, null, type); } catch (_) {}
+        // A failed label refresh must not erase usable saved radio frequencies.
+        if (previous?.length && !getFreqLines(code).length) freqCache[code] = previous;
+    }
+
     function getRunwayText(icao) {
         const code = String(icao || '').trim().toUpperCase();
         if (!code) return '';
@@ -2711,7 +2729,7 @@ ${routeLines}`;
     }
 
     function locateButton(action, attrs = '', label = 'Auf Karte zeigen') {
-        return `<button class="route-tool-locate-btn" type="button" data-action="${escapeAttr(action)}" ${attrs} title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="route-tool-locate-icon" aria-hidden="true"></span></button>`;
+        return `<button class="route-tool-locate-btn" type="button" data-action="${escapeAttr(action)}" ${attrs} title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><svg class="route-tool-locate-icon" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M16 16 L24 24"></path></svg></button>`;
     }
 
     async function ensureWarningsTool(force = false) {
@@ -2780,13 +2798,22 @@ ${routeLines}`;
         if (!routePts.length) return Infinity;
         let best = Infinity;
         routePts.forEach(p => { best = Math.min(best, navBetween(lat, lon, p.lat, p.lon).dist); });
+        for (let i = 1; i < routePts.length; i++) {
+            const a = routePts[i - 1], b = routePts[i];
+            const cos = Math.cos((a.lat + b.lat) * Math.PI / 360);
+            const dx = (b.lon - a.lon) * cos, dy = b.lat - a.lat;
+            const lengthSquared = dx * dx + dy * dy;
+            if (!lengthSquared) continue;
+            const t = Math.max(0, Math.min(1, (((lon - a.lon) * cos) * dx + (lat - a.lat) * dy) / lengthSquared));
+            best = Math.min(best, navBetween(lat, lon, a.lat + t * (b.lat - a.lat), a.lon + t * (b.lon - a.lon)).dist);
+        }
         return best;
     }
 
     async function fetchRouteOpenAip(path, bounds, limit, signal) {
         if (!bounds) return [];
-        if (path === 'airspaces' && typeof window.gaGetAviationCollectionForBounds === 'function') {
-            return window.gaGetAviationCollectionForBounds('airspaces', {
+        if (['airspaces', 'navaids'].includes(path) && typeof window.gaGetAviationCollectionForBounds === 'function') {
+            return window.gaGetAviationCollectionForBounds(path, {
                 west: bounds.minLon, south: bounds.minLat, east: bounds.maxLon, north: bounds.maxLat
             });
         }
@@ -2802,16 +2829,22 @@ ${routeLines}`;
         if (entry.loading && entry.key === key && !force) return;
         abortToolRequest('radio');
         entry.loading = true;
+        if (entry.key !== key) entry.data = null;
         entry.key = key;
         entry.error = '';
         entry.controller = window.gaChecklistHost?.createAbortController?.() || new AbortController();
+        const controller = entry.controller;
+        const commitAllowed = () => entry.key === key && entry.controller === controller && getRouteKey() === key;
         if (state.view === 'radio') render();
         try {
             const route = getRoutePoints();
             const dep = getCurrentAirport('dep');
             const dest = getCurrentAirport('dest');
-            if (dep.icao && typeof fetchAirportFreq === 'function' && !getFreqLines(dep.icao).length) fetchAirportFreq(dep.icao, null, 'dep').catch(() => null);
-            if (dest.icao && typeof fetchAirportFreq === 'function' && !getFreqLines(dest.icao).length) fetchAirportFreq(dest.icao, null, 'dest').catch(() => null);
+            if (typeof fetchAirportFreq === 'function') {
+                await Promise.all([{airport:dep,type:'dep'},{airport:dest,type:'dest'}]
+                    .filter(row => radioAirportNeedsFrequencyLoad(row.airport.icao))
+                    .map(row => loadRadioAirportFrequencies(row.airport.icao, row.type)));
+            }
             if (route.length >= 2 && typeof fetchRouteAirspaces === 'function') {
                 try {
                     const hasAirspaces = typeof activeAirspaces !== 'undefined' && Array.isArray(activeAirspaces) && activeAirspaces.length;
@@ -2825,8 +2858,8 @@ ${routeLines}`;
                 const ctrAirports = new Set(activeAirspaces
                     .filter(as => Number(as?.type) === 4 || /\bCTR\b/i.test(as?.name || ''))
                     .map(as => radioCtrAirport(as)?.icao).filter(Boolean));
-                await Promise.all(Array.from(ctrAirports).filter(icao => !getFreqLines(icao).length)
-                    .map(icao => fetchAirportFreq(icao, null, null).catch(() => null)));
+                await Promise.all(Array.from(ctrAirports).filter(icao => radioAirportNeedsFrequencyLoad(icao))
+                    .map(icao => loadRadioAirportFrequencies(icao)));
             }
             const bounds = routeBounds(route, 10);
             let airports = [];
@@ -2834,9 +2867,9 @@ ${routeLines}`;
             let radioAirspaces = null;
             if (bounds && route.length >= 2) {
                 const [aptItems, navItems, airspaceItems] = await Promise.all([
-                    fetchRouteOpenAip('airports', bounds, 120, entry.controller.signal).catch(() => []),
-                    fetchRouteOpenAip('navaids', bounds, 120, entry.controller.signal).catch(() => []),
-                    fetchRouteOpenAip('airspaces', bounds, 800, entry.controller.signal).catch(() => null)
+                    fetchRouteOpenAip('airports', bounds, 120, controller.signal).catch(() => []),
+                    fetchRouteOpenAip('navaids', bounds, 120, controller.signal).catch(() => []),
+                    fetchRouteOpenAip('airspaces', bounds, 800, controller.signal).catch(() => null)
                 ]);
                 // Radio uses the same route-area query in App and EFB. The
                 // warning/profile selection stays independent and untouched.
@@ -2847,8 +2880,8 @@ ${routeLines}`;
                         const airportsForRadio = new Set(radioAirspaces
                             .filter(as => Number(as?.type) === 4 || /\bCTR\b/i.test(as?.name || ''))
                             .map(as => radioCtrAirport(as)?.icao).filter(Boolean));
-                        await Promise.all(Array.from(airportsForRadio).filter(icao => !getFreqLines(icao).length)
-                            .map(icao => fetchAirportFreq(icao, null, null).catch(() => null)));
+                        await Promise.all(Array.from(airportsForRadio).filter(icao => radioAirportNeedsFrequencyLoad(icao))
+                            .map(icao => loadRadioAirportFrequencies(icao)));
                     }
                 }
                 airports = aptItems.map(normalizeToolAirport)
@@ -2858,8 +2891,10 @@ ${routeLines}`;
                     .sort((a, b) => a.routeDist - b.routeDist)
                     .slice(0, 10);
                 airports.forEach(a => {
-                    if (typeof fetchAirportFreq === 'function' && a.icao && !getFreqLines(a.icao).length) {
-                        fetchAirportFreq(a.icao, null, null).catch(() => null);
+                    if (typeof fetchAirportFreq === 'function' && radioAirportNeedsFrequencyLoad(a.icao)) {
+                        loadRadioAirportFrequencies(a.icao).then(() => {
+                            if (state.view === 'radio') window.gaChecklistRefresh?.();
+                        });
                     }
                 });
                 if (airports.length) setTimeout(() => { if (state.view === 'radio') render(); }, 1100);
@@ -2870,18 +2905,20 @@ ${routeLines}`;
                         const freq = n.frequency?.value || n.frequency || n.frequencies?.[0]?.value || '';
                         return { name: n.name || n.identifier || 'Funkfeuer', ident: n.identifier || n.designator || '', lat, lon, freq, typeLabel: typeof getOpenAipNavaidTypeLabel === 'function' ? getOpenAipNavaidTypeLabel(n.type) : 'Funkfeuer', radioKind: GARadioTuningCore.navaidKind(typeof getOpenAipNavaidTypeLabel === 'function' ? getOpenAipNavaidTypeLabel(n.type) : ''), routeDist: distancePointToRouteNm(lat, lon, route) };
                     })
-                    .filter(n => Number.isFinite(n.lat) && Number.isFinite(n.lon) && n.routeDist <= 12)
-                    .sort((a, b) => a.routeDist - b.routeDist)
-                    .slice(0, 10);
+                    .filter(n => n.radioKind && Number.isFinite(n.lat) && Number.isFinite(n.lon) && n.routeDist <= 12)
+                    .sort((a, b) => a.routeDist - b.routeDist);
             }
+            if (!commitAllowed()) return;
             entry.data = { dep, dest, airports, navaids, radioAirspaces, generatedAt: Date.now() };
             entry.updatedAt = Date.now();
         } catch (error) {
-            if (error?.name !== 'AbortError') entry.error = 'Radio-Daten konnten nicht geladen werden.';
+            if (commitAllowed() && error?.name !== 'AbortError') entry.error = 'Radio-Daten konnten nicht geladen werden.';
         } finally {
-            entry.loading = false;
-            entry.controller = null;
-            if (state.view === 'radio') render();
+            if (commitAllowed()) {
+                entry.loading = false;
+                entry.controller = null;
+                if (state.view === 'radio') render();
+            }
         }
     }
 
@@ -4942,7 +4979,12 @@ ${routeLines}`;
         scheduleCustomChecklistsForTracker(120);
     });
     setInterval(() => {
-        if (document.visibilityState !== 'visible' || !isDrawerOpen() || state.view !== 'mission' || !bodyEl) return;
+        if (document.visibilityState !== 'visible' || !isDrawerOpen() || !bodyEl) return;
+        if (state.view === 'radio') {
+            if (toolState.radio.key !== getRouteKey()) ensureRadioTool(false);
+            return;
+        }
+        if (state.view !== 'mission') return;
         // The EFB host refreshes semantic changes and live fields from tracker
         // snapshots. Replacing its entire menu here causes a one-second blink.
         if (window.gaChecklistHost?.missionView) return;
