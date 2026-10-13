@@ -10,7 +10,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   const asset=efb.getTrackerEfbWebClientAsset(pathname);
   if(asset){res.setHeader('Content-Type',asset.contentType);let body=asset.body;
    if(raw&&/\/(checklists|airport-radio|airport-details|airport-aip|map-direct-to-core|map-layer-controls|map-tool-focus)\.js$/.test(pathname))body=fs.readFileSync(path.join(root,path.basename(pathname)));
-   if(pathname.endsWith('/host.js'))body=body.toString().replace(/\}\)\(\);\s*$/,`pollingClosed=true;window.__test={map:function(){return map;},layers:function(){return layerControl;},radar:function(){return overlayLayers.radar;},mission:function(value){missionSnapshot=value;window.gaTrackerExecutionControl=value.control;},library:function(value){trackerChecklistLibrary={checklists:value};},progress:function(value,index){mapSnapshot=value;previewWaypointIndex=index==null?null:index;renderProgress();}};})();`);
+   if(pathname.endsWith('/host.js'))body=body.toString().replace(/\}\)\(\);\s*$/,`pollingClosed=true;window.__test={map:function(){return map;},layers:function(){return layerControl;},radar:function(){return overlayLayers.radar;},mission:function(value){missionSnapshot=value;window.gaTrackerExecutionControl=value.control;},library:function(value){trackerChecklistLibrary={checklists:value};},progress:function(value,index){mapSnapshot=value;previewWaypointIndex=index==null?null:index;renderProgress();},live:function(value){flight=value;refreshLocalNavigation();renderProgress();}};})();`);
    res.end(body);return;
   }
   let data={available:false,items:[],ok:true};
@@ -63,6 +63,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   // Exercise the actual host telemetry renderer at the destination and away
   // from it, including unchanged polls and late responses after selection changes.
   await page.evaluate(()=>{
+    freqCache.EDTL=[{label:'TWR',value:'125.180'}];runwayCache.EDTL='03/21 – 3000m';
     freqCache.EDTO=[{label:'INFO',value:'128.950'},{label:'TWR',value:'123.450'}];
     runwayCache.EDTO='09/27 – 800m\n18/36 – 600m';
     window.__nextSnapshot={route:{waypoints:routeWaypoints},navigation:{selectedWaypointIndex:1,activeLegIndex:0,distanceToNextNm:3,bearingToNextDeg:90}};
@@ -97,7 +98,21 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
 
   await page.evaluate(()=>{window.__nextNode=document.querySelector('#nextWpAirportDetails svg');for(let i=0;i<20;i++)__test.progress(__nextSnapshot);});
   assert.equal(await page.evaluate(()=>__nextNode===document.querySelector('#nextWpAirportDetails svg')),true);
-  await page.evaluate(()=>{__nextSnapshot.navigation.selectedWaypointIndex=0;__test.progress(__nextSnapshot,0);});
+  // Use the real arrow buttons with live position at the departure.
+  await page.evaluate(()=>__test.live({lat:48.36,lon:7.83,capturedAt:Date.now(),gsKts:0}));
+  await page.locator('#nextLegPrevBtn').click();
+  assert.equal(await page.locator('#nextWpName').innerText(),'EDTL');
+  assert.equal(await page.locator('#nextLegPrevBtn').isDisabled(),true);
+  assert.match(await page.locator('#nextWpAirportDetails').innerText(),/03\/21/);
+  await page.locator('#nextWpAirportDetails .ga-radio-value').first().click();
+  assert.equal(await page.evaluate(()=>__navcomCalls.at(-1).value),'125.180');
+  assert.equal(await page.evaluate(()=>__navcomCalls.at(-1).kind),'COM');
+  await page.evaluate(()=>__test.live({lat:48.36,lon:7.83,capturedAt:Date.now()+2000,gsKts:0}));
+  assert.equal(await page.locator('#nextWpName').innerText(),'EDTL');
+  if(process.env.START_WPT_SCREENSHOT)await page.locator('#liveNextWpBox').screenshot({path:process.env.START_WPT_SCREENSHOT.replace('.png',raw?'-source.png':'-compiled.png')});
+  await page.locator('#nextLegNextBtn').click();
+  assert.equal(await page.locator('#nextWpName').innerText(),'EDTO');
+  await page.evaluate(()=>{currentStartICAO='POI';__nextSnapshot.navigation.selectedWaypointIndex=0;__test.progress(__nextSnapshot,0);});
   assert.equal(await page.locator('#nextWpAirportDetails').isVisible(),false);
   assert.equal(await page.locator('#liveNextWpBox').evaluate(el=>el.classList.contains('has-airport-details')),false);
   await page.evaluate(()=>{
@@ -116,7 +131,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   assert.equal(await page.locator('#nextWpAirportDetails').isVisible(),false);
   await page.evaluate(()=>{__nextSnapshot.navigation.selectedWaypointIndex=1;__test.progress(__nextSnapshot);});
   assert.match(await page.locator('#nextWpAirportDetails').innerText(),/130.000/);
-  await page.evaluate(()=>gaChecklistOpen('place'));await page.waitForSelector('.route-tool-mini-map .leaflet-pane',{state:'attached'});await page.waitForTimeout(1000);
+  await page.evaluate(()=>{currentStartICAO='EDTL';gaChecklistOpen('place');});await page.waitForSelector('.route-tool-mini-map .leaflet-pane',{state:'attached'});await page.waitForTimeout(1000);
   await page.evaluate(()=>{window.__mapNode=document.querySelector('.route-tool-mini-map');window.__leafletId=__mapNode._leaflet_id;freqCache.EDTL=[{label:'TWR',value:'126.000'}];gaChecklistRefresh();});
   assert.equal(await page.evaluate(()=>__mapNode===document.querySelector('.route-tool-mini-map')&&__leafletId===__mapNode._leaflet_id),true);
   assert.match(await page.locator('[data-place-details]').first().innerText(),/126.000/);

@@ -3270,17 +3270,17 @@ ${routeLines}`;
     }
 
     // Shared by standalone telemetry and tracker-hosted EFB/Toolbar telemetry.
-    // Only the selected final destination qualifies; an enroute airport does not.
+    // The first departure and final destination qualify; enroute airports do not.
     window.gaUpdateNextWaypointAirportInfo = function(wp, index, count) {
         const box = document.getElementById('liveNextWpBox');
         const node = document.getElementById('nextWpAirportDetails');
         if (!box || !node) return false;
-        const apt = getCurrentAirport('dest');
+        const apt = getCurrentAirport(index === 0 ? 'dep' : 'dest');
         const lon = Number(wp?.lon ?? wp?.lng);
         const waypointCode = String(wp?.icao || wp?.icaoCode || wp?.name || wp?.id || '').trim().toUpperCase();
         const matchesAirport = waypointCode === apt.icao
             || (Math.abs(Number(wp?.lat) - apt.lat) < 0.0001 && Math.abs(lon - apt.lon) < 0.0001);
-        const eligible = !!wp && count >= 2 && index === count - 1
+        const eligible = !!wp && count >= 2 && (index === 0 || index === count - 1)
             && /^[A-Z0-9]{4}$/.test(apt.icao)
             && Number.isFinite(apt.lat) && Number.isFinite(apt.lon)
             && matchesAirport;

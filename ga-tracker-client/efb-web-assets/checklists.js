@@ -3844,17 +3844,17 @@ ${routeLines}`;
   }
 
   // Shared by standalone telemetry and tracker-hosted EFB/Toolbar telemetry.
-  // Only the selected final destination qualifies; an enroute airport does not.
+  // The first departure and final destination qualify; enroute airports do not.
   window.gaUpdateNextWaypointAirportInfo = function (wp, index, count) {
     var _wp$lon;
     var box = document.getElementById('liveNextWpBox');
     var node = document.getElementById('nextWpAirportDetails');
     if (!box || !node) return false;
-    var apt = getCurrentAirport('dest');
+    var apt = getCurrentAirport(index === 0 ? 'dep' : 'dest');
     var lon = Number((_wp$lon = wp === null || wp === void 0 ? void 0 : wp.lon) !== null && _wp$lon !== void 0 ? _wp$lon : wp === null || wp === void 0 ? void 0 : wp.lng);
     var waypointCode = String((wp === null || wp === void 0 ? void 0 : wp.icao) || (wp === null || wp === void 0 ? void 0 : wp.icaoCode) || (wp === null || wp === void 0 ? void 0 : wp.name) || (wp === null || wp === void 0 ? void 0 : wp.id) || '').trim().toUpperCase();
     var matchesAirport = waypointCode === apt.icao || Math.abs(Number(wp === null || wp === void 0 ? void 0 : wp.lat) - apt.lat) < 0.0001 && Math.abs(lon - apt.lon) < 0.0001;
-    var eligible = !!wp && count >= 2 && index === count - 1 && /^[A-Z0-9]{4}$/.test(apt.icao) && Number.isFinite(apt.lat) && Number.isFinite(apt.lon) && matchesAirport;
+    var eligible = !!wp && count >= 2 && (index === 0 || index === count - 1) && /^[A-Z0-9]{4}$/.test(apt.icao) && Number.isFinite(apt.lat) && Number.isFinite(apt.lon) && matchesAirport;
     nextAirportSelection = eligible ? [wp, index, count] : null;
     node.hidden = !eligible;
     box.classList.toggle('has-airport-details', eligible);

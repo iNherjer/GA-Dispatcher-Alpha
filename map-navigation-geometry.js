@@ -145,7 +145,8 @@ function selectWaypoint(position, routeWaypoints, state = {}, advance = true) {
   const alongTrack = navToTarget.dist * Math.cos(angleDiffRad);
   const crossTrack = Math.abs(navToTarget.dist * Math.sin(angleDiffRad));
   let advanced = false, automaticAdvance = false;
-  if ((advance || routeChanged) && alongTrack <= 0.5 && alongTrack >= -0.5 && crossTrack <= 2.5 && wpIdx < maxWp) {
+  // The departure is a manual info preview, never an automatic next leg.
+  if (wpIdx > 0 && (advance || routeChanged) && alongTrack <= 0.5 && alongTrack >= -0.5 && crossTrack <= 2.5 && wpIdx < maxWp) {
     advanced = true; automaticAdvance = liveActiveWpIndex == null;
     wpIdx += 1;
     if (liveActiveWpIndex == null) legIdx = Math.max(0, wpIdx - 1);

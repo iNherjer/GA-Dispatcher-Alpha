@@ -52,3 +52,18 @@ test('map and profile share original prediction horizons, distance and altitude'
     prediction.applyTerrain(points,[{threat:'red',terrainFt:3200},{threat:'amber',terrainFt:2300},{threat:'green',terrainFt:0},{threat:'unknown',terrainFt:null}],()=> '#f2c12e');
     assert.deepEqual(points.map(p=>p.asColor),[null,null,'#f2c12e',null]);
 });
+
+
+test('Manual departure preview stays selected at the airport until the pilot steps forward', () => {
+    const pos={lat:48,lon:8};
+    const initialized=nav.selectWaypoint(pos,route);
+    const state={...initialized,selectedIndex:0};
+    const legs=nav.buildLegs(route);
+    for(const at of [10000,12000,14000]) {
+        const result=nav.buildNavigation({...pos,capturedAt:at},route,legs,state);
+        assert.equal(result.nextWaypointId,'A');
+        assert.equal(state.selectedIndex,0);
+    }
+    state.selectedIndex=1;
+    assert.equal(nav.buildNavigation({...pos,capturedAt:16000},route,legs,state).nextWaypointId,'B');
+});

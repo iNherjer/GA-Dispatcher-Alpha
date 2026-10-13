@@ -1,5 +1,20 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Startplatz in der Next-WPT-Vorschau (13.10.2026)
+
+Der erste Routenpunkt zeigt beim Zurueckblaettern dieselben Pistenlinien und
+Frequenzfelder wie der Zielplatz. Gemeinsames GARadioTuningCore-Markup nutzt
+die vorhandene NAVCOM-Klickfunktion auch am Startplatz. Eine manuelle
+Auswahl von Punkt 0 bleibt in Startplatznaehe erhalten, statt sofort
+automatisch zum naechsten Punkt zu wechseln. Ab Punkt 1 bleibt die bisherige
+Navigationsfortschaltung unveraendert. Nur passende Start-/Zielplaetze
+qualifizieren; Zwischenpunkte behalten die bisherige Darstellung.
+Nachweis: Quell- und generierte EFB-Seite mit echten Zurueck-/Weiter-Klicks,
+Startplatz bei 0 NM, weiterer Telemetrie und COM1-Aktiv-Frequenzklick geprueft.
+6 Navigations- und 22 EFB-Node-Tests bestehen; Screenshot geprueft.
+Alpha-v525-Rollout vom Nutzer beauftragt, Basis Origin v524.
+EFB-Assetrevision 52501, kein neues Community-Paket erforderlich.
+
 ## NAVCOM EFB-Kompatibilität, Alpha v524, 12.10.2026
 
 Tester meldet in v523 alle Frequenzen ohne Klick/Unterstreichung. Öffentliche
