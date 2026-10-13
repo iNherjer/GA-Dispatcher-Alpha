@@ -27,7 +27,12 @@ Wiederverbindung und Reload-Persistenz. 440px-Menü visuell geprüft.
 Windows-x64-Cross-Build ohne Bytecode/public wie bei den vorherigen Releases.
 Zwei fachlich unbeteiligte, durch die lokale Babel-Version abweichend erzeugte
 Profile-/Navigation-Assets bleiben exakt auf dem Origin-Basisstand.
-Release vorbereitet; realer MSFS-Feldnachweis bleibt offen.
+Alpha-Release v531 veröffentlicht, Quellstand `7d154e426`. Upload und
+öffentlicher Download bytegleich geprüft: 173792686 Bytes, SHA-256
+`28cdcbb41e633f6cacfe138b9d26282effc1760691d91b652fc5babc03fa1a78`. Alpha-Zeiger auf dieses Artefakt aktiviert.
+Stable und EFB-/Toolbar-Community-Pakete bleiben unverändert. Nutzer:
+Alpha-Tracker aktualisieren/neustarten, Webapp und EFB neu laden.
+Realer MSFS-Feldnachweis bleibt offen.
 
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
