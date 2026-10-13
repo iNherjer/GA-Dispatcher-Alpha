@@ -641,7 +641,7 @@ Frequenzlisten naher Plätze und Karten-Kurzinfos werden nicht mehr vor ATIS
 abgeschnitten. Der lokale Electron-NAVCOM-UI-Test besteht in fünf Designs.
 51 Radio-/NAVCOM-, Cockpit- und HTTP-Tests bestehen. Die lokale EFB-Stuttgart-
 Ansicht bestätigt 15 Frequenzwerte mit 22px Schrift und 48px Klickflächen.
-Tracker v527 wird auf dem veröffentlichten v526-Stand gebaut; Webcache v2033,
+Tracker v527 wird auf dem veröffentlichten v526-Stand gebaut; Webcache v2034,
 EFB-Assetrevision 52701. Stable und Community-Paket bleiben unverändert.
 
 
