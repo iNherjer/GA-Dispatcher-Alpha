@@ -2950,6 +2950,33 @@ ${routeLines}`;
         }).join('');
     }
 
+    function radioNavigationBadge(target) {
+        const airport = typeof globalAirports !== 'undefined' && target?.icao ? globalAirports?.[target.icao] : null;
+        const lat = airport?.lat ?? target?.lat, lon = airport?.lon ?? airport?.lng ?? target?.lon ?? target?.lng;
+        if (lat == null || lon == null || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return '';
+        return `<span class="radio-target-nav" data-target-lat="${Number(lat)}" data-target-lon="${Number(lon)}"><span class="radio-target-distance">– NM</span><svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true" hidden><g><path d="M10 1 L16 17 L10 13 L4 17 Z" fill="currentColor"></path></g></svg></span>`;
+    }
+
+    function updateRadioNavigationBadges() {
+        if (!bodyEl) return;
+        const position = getLiveAircraftPosition();
+        Array.prototype.forEach.call(bodyEl.querySelectorAll('.radio-target-nav'), node => {
+            const nav = position ? navBetween(position.lat, position.lon, Number(node.dataset.targetLat), Number(node.dataset.targetLon)) : null;
+            const valid = nav && Number.isFinite(Number(nav.dist)) && Number.isFinite(Number(nav.brng));
+            const distance = node.querySelector('.radio-target-distance');
+            const text = valid ? fmtNm(nav.dist) + ' NM' : '– NM';
+            if (distance.textContent !== text) distance.textContent = text;
+            const arrow = node.querySelector('svg');
+            arrow.style.display = valid && Number(nav.dist) > 0 ? 'block' : 'none';
+            arrow.removeAttribute('hidden');
+            if (valid) {
+                const bearing = (Number(nav.brng) % 360 + 360) % 360;
+                arrow.querySelector('g').setAttribute('transform', 'rotate(' + bearing + ' 10 10)');
+                node.title = Math.round(bearing) + '° zum Ziel · Norden oben';
+            } else node.title = 'Keine aktuelle Flugzeugposition';
+        });
+    }
+
     function renderFreqBlock(label, apt, menuKey = '') {
         const freqs = getFreqLines(apt?.icao);
         const heading = apt?.icao ? `${label} · ${apt.icao}` : label;
@@ -2963,7 +2990,7 @@ ${routeLines}`;
                             <span class="route-tool-section-title">${escapeHtml(heading)}</span>
                             <span class="route-tool-section-sub">${escapeHtml(apt?.name || '')}</span>
                         </span>
-                        <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                        ${radioNavigationBadge(apt)}<span class="checklist-tool-arrow" aria-hidden="true">›</span>
                     </button>
                     ${renderAirportContext(key, apt)}
                 ` : `
@@ -3012,7 +3039,7 @@ ${routeLines}`;
                                 <span class="route-tool-row-title">${escapeHtml(a.icao)} · ${escapeHtml(a.name)}</span>
                                 <span class="route-tool-row-meta">${fmtNm(a.routeDist)} NM neben Route</span>
                             </span>
-                            <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                            ${radioNavigationBadge(a)}<span class="checklist-tool-arrow" aria-hidden="true">›</span>
                         </button>
                         ${freqs.length ? `<div class="route-tool-radio-freqs">${renderRadioFrequencyRows(freqs)}</div>` : '<div class="route-tool-row-meta">Frequenzen werden bei Bedarf geladen.</div>'}
                         ${open ? renderAirportContext(key, a) : ''}
@@ -3021,11 +3048,12 @@ ${routeLines}`;
             </div>
             <div class="route-tool-section">
                 <div class="route-tool-section-title">Funkfeuer</div>
-                ${data?.navaids?.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title">${escapeHtml((n.typeLabel || 'Funkfeuer').replace(/^DVOR/, 'VOR'))} ${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</div><div class="route-tool-row-meta">${fmtNm(n.routeDist)} NM neben Route</div>${n.freq ? renderRadioFrequencyRows([{label: 'Frequenz', value: n.freq}], n.radioKind) : ''}</div>`).join('') : renderToolEmpty(entry.loading ? 'Funkfeuer werden geladen...' : 'Keine Funkfeuer entlang der Route gefunden.')}
+                ${data?.navaids?.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title radio-target-title"><span>${escapeHtml((n.typeLabel || 'Funkfeuer').replace(/^DVOR/, 'VOR'))} ${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</span>${radioNavigationBadge(n)}</div><div class="route-tool-row-meta">${fmtNm(n.routeDist)} NM neben Route</div>${n.freq ? renderRadioFrequencyRows([{label: 'Frequenz', value: n.freq}], n.radioKind) : ''}</div>`).join('') : renderToolEmpty(entry.loading ? 'Funkfeuer werden geladen...' : 'Keine Funkfeuer entlang der Route gefunden.')}
             </div>
             ${data ? renderFreqBlock('Ziel', data.dest, `radio_dest_${data.dest?.icao || 'none'}`) : renderToolEmpty(entry.loading ? 'Radio-Daten werden geladen...' : 'Keine Radio-Daten.')}
             </div>
         `;
+        updateRadioNavigationBadges();
     }
 
     function refreshVisiblePlaceDetails() {
@@ -4982,6 +5010,7 @@ ${routeLines}`;
         if (document.visibilityState !== 'visible' || !isDrawerOpen() || !bodyEl) return;
         if (state.view === 'radio') {
             if (toolState.radio.key !== getRouteKey()) ensureRadioTool(false);
+            updateRadioNavigationBadges();
             return;
         }
         if (state.view !== 'mission') return;

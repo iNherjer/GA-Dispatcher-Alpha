@@ -15,6 +15,7 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   if(pathname==='/'){res.setHeader('Content-Type','text/html');res.end(efb.createTrackerEfbWebClientPage().replace('<head>','<head><script>window.__errors=[];addEventListener("error",e=>__errors.push(e.error&&e.error.stack||e.message));addEventListener("unhandledrejection",e=>__errors.push(String(e.reason)));</script>'));return;}
   const asset=efb.getTrackerEfbWebClientAsset(pathname);
   if(asset){res.setHeader('Content-Type',asset.contentType);let body=asset.body;
+   if(raw&&pathname.endsWith('/app-styles.css'))body=fs.readFileSync(path.join(root,'styles.css'));
    if(raw&&/\/(checklists|airport-radio|airport-details|airport-aip|map-direct-to-core|map-layer-controls|map-tool-focus)\.js$/.test(pathname))body=fs.readFileSync(path.join(root,path.basename(pathname)));
    if(pathname.endsWith('/host.js'))body=body.toString().replace(/\}\)\(\);\s*$/,`pollingClosed=true;window.__test={map:function(){return map;},layers:function(){return layerControl;},radar:function(){return overlayLayers.radar;},mission:function(value){missionSnapshot=value;window.gaTrackerExecutionControl=value.control;},library:function(value){trackerChecklistLibrary={checklists:value};},progress:function(value,index){mapSnapshot=value;previewWaypointIndex=index==null?null:index;renderProgress();},live:function(value){flight=value;refreshLocalNavigation();renderProgress();}};})();`);
    res.end(body);return;
@@ -94,6 +95,18 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   await page.screenshot({path:'/tmp/ga-radio-hx-'+(raw?'source':'compiled')+'.png'});
   await page.setViewportSize({width:894,height:700});
   if(raw){
+   const hasNavigation=await page.locator('.radio-target-nav').count();
+   assert.ok(hasNavigation>=2);
+   if(hasNavigation){
+    await page.evaluate(()=>{window.__navNode=document.querySelector('.radio-target-nav');window.lastLiveGpsPos={lat:48.36,lon:8.1,t:Date.now()};});
+    await page.waitForFunction(()=>document.querySelector('.radio-target-nav .radio-target-distance').textContent!=='0.0 NM'&&document.querySelector('.radio-target-nav .radio-target-distance').textContent!=='– NM');
+    assert.equal(await page.evaluate(()=>__navNode===document.querySelector('.radio-target-nav')),true);
+    assert.match(await page.locator('.radio-target-nav').first().getAttribute('title'),/Norden oben/);
+    await page.evaluate(()=>{window.lastLiveGpsPos=null;});
+    await page.waitForFunction(()=>document.querySelector('.radio-target-nav .radio-target-distance').textContent==='– NM');
+    assert.equal(await page.locator('.radio-target-nav svg').first().isVisible(),false);
+    await page.evaluate(()=>{window.lastLiveGpsPos={lat:48.36,lon:7.83,t:Date.now()};});
+   }
    // Keep Radio open while moving a long leg over the navaid, then away again.
    await page.evaluate(()=>{routeWaypoints=[{lat:48.36,lon:7.83,name:'EDTL'},{lat:48.36,lon:8.6,name:'NEW'}];});
    await page.waitForFunction(()=>document.querySelector('.route-tool-radio-page')?.textContent.includes('SULZ TEST'));

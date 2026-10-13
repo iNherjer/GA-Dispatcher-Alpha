@@ -21241,3 +21241,10 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
     line-height: 1.2;
     white-space: nowrap;
 }
+
+/* Radio live navigation: compact north-up target arrow, no full row redraw. */
+.route-tool-radio-page .route-tool-airport-main > span:first-child { flex: 1; min-width: 0; }
+.radio-target-title { display: flex; align-items: center; gap: 10px; }
+.radio-target-title > span:first-child { flex: 1; min-width: 0; }
+.radio-target-nav { display: inline-flex; align-items: center; justify-content: flex-end; gap: 5px; margin-left: auto; flex: 0 0 auto; white-space: nowrap; color: var(--drawer-accent-2); font-family: var(--drawer-font-mono); font-size: 12px; font-weight: 700; pointer-events: none; }
+.radio-target-nav svg { flex: 0 0 22px; }

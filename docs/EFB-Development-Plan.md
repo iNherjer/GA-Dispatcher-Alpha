@@ -1,5 +1,19 @@
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
+## Radio-Webabnahme: aktuelle Distanz und Zielpfeil (13.10.2026)
+
+Start/Ziel, Flugplätze entlang der Route und Funkfeuer zeigen rechts neben dem
+Namen die aktuelle Entfernung vom Flugzeug und einen kompakten SVG-Zielpfeil.
+Nordorientierte Peilung, Norden oben; kein instrumentengleicher magnetischer
+Kompass und keine Kurs-/Heading-Drehung. Vorhandene navBetween-/fmtNm-Logik,
+frische lastLiveGpsPos; fehlende/veraltete Position zeigt – NM ohne Pfeil.
+Ein-Sekunden-Update ersetzt nur Distanztext/Rotation, behält Namen, DOM-Knoten,
+Scroll und Frequenz-/Kontextmenüs. Routenabstand bleibt separat gekennzeichnet.
+Quell-Browserseite prüft Bewegung, Pfeil, Positionsverlust und Knotenidentität,
+zusätzlich bestehende ATIS-/Lupen-/NAVCOM-/Routenwechsel-Nachweise.
+Nur Webapp (Cache v2038), Tracker/EFB weiterhin v528 bis zur Nutzerfreigabe.
+
+
 ## Radio-Webabnahme: ATIS, SVG-Lupen und Routenänderungen (13.10.2026)
 
 Gespeicherte Alt-Frequenzlisten behalten „Information“ für früher als ATIS
