@@ -86,6 +86,13 @@ const root=path.resolve(__dirname,'..'),efb=require(path.join(root,'ga-tracker-c
   const magnifier=page.locator('[data-action="locate-radio-airspace"]').first();
   const hit=await magnifier.boundingBox();assert.ok(hit.width>=48&&hit.height>=48);
   assert.equal(await magnifier.locator('.route-tool-locate-icon').count(),1);
+  if(raw){
+   const heading=await page.locator('.radio-airspace-heading').first().boundingBox();
+   const frequency=await page.locator('.route-tool-radio-airspace .route-tool-freq').first().boundingBox();
+   assert.ok(heading&&frequency&&frequency.y>=heading.y+heading.height);
+   assert.ok(frequency.width>=heading.width-2);
+   assert.ok(hit.x+hit.width>=heading.x+heading.width-2);
+  }
   await magnifier.click();assert.match(await page.locator('#checklistDrawerStatus').innerText(),/markiert/);
   await page.evaluate(()=>{window.__hxCalls=[];gaRadioTune=async p=>{__hxCalls.push(p);return {ok:true,confirmed:true,target:GARadioTuningCore.normalize(p)};};for(let i=0;i<3&&document.body.dataset.navcomMode!=='direct';i++)gaCycleNavcomMode();});
   await page.locator('.route-tool-radio-page .ga-radio-value[data-radio-value="125.180"]').first().click();

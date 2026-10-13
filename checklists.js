@@ -3015,15 +3015,15 @@ ${routeLines}`;
             <div class="route-tool-section">
                 <div class="route-tool-section-title">Enroute / FIS</div>
                 ${airRows.length ? airRows.map(r => `
-                    <div class="route-tool-row route-tool-locatable-row">
-                        <div class="route-tool-row-main">
-                            <div class="route-tool-row-title">${escapeHtml(r.title)}</div>
-                            <div class="route-tool-row-meta">${escapeHtml(r.meta)}</div>
-                            <div class="route-tool-radio-freqs">${renderRadioFrequencyRows(r.frequencies)}</div>
-                        </div>
-                        <div class="route-tool-row-actions">
+                    <div class="route-tool-row route-tool-radio-airspace">
+                        <div class="radio-airspace-heading">
+                            <div class="route-tool-row-main">
+                                <div class="route-tool-row-title">${escapeHtml(r.title)}</div>
+                                <div class="route-tool-row-meta">${escapeHtml(r.meta)}</div>
+                            </div>
                             ${locateButton('locate-radio-airspace', `data-as-idx="${escapeAttr(r.idx)}"`, 'Luftraum auf Karte zeigen')}
                         </div>
+                        <div class="route-tool-radio-freqs">${renderRadioFrequencyRows(r.frequencies)}</div>
                     </div>
                 `).join('') : renderToolEmpty(entry.loading ? 'Lufträume/FIS werden geladen...' : 'Keine Enroute-Frequenzen gefunden.')}
             </div>

@@ -12,7 +12,8 @@ Scroll und Frequenz-/Kontextmenüs. Routenabstand bleibt separat gekennzeichnet.
 Quell-Browserseite prüft Bewegung, Pfeil, Positionsverlust und Knotenidentität,
 zusätzlich bestehende ATIS-/Lupen-/NAVCOM-/Routenwechsel-Nachweise.
 Nutzer präzisiert den Zielpfeil: dünne Liniennadel mit kleiner offener Spitze
-statt gefüllter Fläche. Nur Webapp (Cache v2039), Tracker/EFB weiterhin v528
+statt gefüllter Fläche. Luftraum-Lupe rechts im Namenkopf; darunter Frequenzzeilen über die volle
+Kartenbreite. Nur Webapp (Cache v2040), Tracker/EFB weiterhin v528
 bis zur Nutzerfreigabe.
 
 
