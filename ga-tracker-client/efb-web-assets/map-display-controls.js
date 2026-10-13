@@ -36,7 +36,9 @@ Object.keys(MAP_HINT_DEFAULTS).forEach(key => {
 var MAP_HINT_SUBMENU_DEFAULTS = {
   weatherMenu: false,
   vfrIndexMenu: false,
-  terrainAvoidMenu: false
+  terrainAvoidMenu: false,
+  infoWindowsMenu: false,
+  clockMenu: false
 };
 window.mapHintSubmenus = window.mapHintSubmenus || _objectSpread({}, MAP_HINT_SUBMENU_DEFAULTS);
 function loadMapHintSettings() {
@@ -91,6 +93,16 @@ function setMapHintSubmenuOpen(key, open) {
       btn: 'btnToggleTerrainAvoidMenu',
       panel: 'terrainAvoidMenuBlock',
       label: 'Terrain Avoid'
+    },
+    infoWindowsMenu: {
+      btn: 'btnToggleInfoWindowsMenu',
+      panel: 'infoWindowsMenuBlock',
+      label: 'Info Fenster'
+    },
+    clockMenu: {
+      btn: 'btnToggleClockMenu',
+      panel: 'clockMenuBlock',
+      label: 'Zeit'
     }
   };
   var meta = ids[key];
@@ -101,8 +113,9 @@ function setMapHintSubmenuOpen(key, open) {
   if (window.mapHintSubmenus) window.mapHintSubmenus[key] = isOpen;
   if (panel) panel.style.display = isOpen ? 'block' : 'none';
   if (btn) {
-    btn.textContent = key === 'weatherMenu' || key === 'vfrIndexMenu' || key === 'terrainAvoidMenu' ? isOpen ? '▾' : '▸' : `${isOpen ? '▾' : '▸'} ${meta.label}`;
+    btn.textContent = isOpen ? '▾' : '▸';
     btn.classList.toggle('active', isOpen);
+    btn.setAttribute('aria-expanded', String(isOpen));
   }
 }
 function closeAllMapHintSubmenus() {

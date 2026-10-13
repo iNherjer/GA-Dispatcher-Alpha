@@ -84,3 +84,15 @@ test('status polling uses RAM; a successful control update refreshes the shared 
   for (let i = 0; i < 100; i++) assert.equal(control.publicState().ui.telemetry,false);
   assert.equal(reads,afterUpdate);
 });
+
+test('clock selection is presentation-only, persisted and shared across EFB views', () => {
+  let config = { pilot:'private', efbDisplay:{ui:{telemetry:false}} };
+  const control = createDisplaySettingsControl({readConfig:()=>config,writeConfig:value=>{config=value;return true;}});
+  assert.equal(control.update({initializeUi:{clockSource:'simulator',clockZone:'utc'}}).ok,true);
+  assert.equal(control.update({ui:{clockSource:'device',clockZone:'local'}}).ok,true);
+  assert.equal(config.pilot,'private');
+  assert.deepEqual(control.snapshot().ui,{telemetry:false,clockSource:'device',clockZone:'local'});
+  for(const patch of [{clockSource:'bad'},{clockZone:'bad'},{clockSource:true}]) assert.equal(control.update({ui:patch}).ok,false);
+  const restored=createDisplaySettingsControl({readConfig:()=>config,writeConfig:()=>false});
+  assert.equal(restored.snapshot().ui.clockZone,'local');
+});

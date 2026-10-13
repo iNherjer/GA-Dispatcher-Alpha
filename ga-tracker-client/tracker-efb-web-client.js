@@ -6,7 +6,7 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '53001';
+const EFB_WEB_ASSET_REVISION = '53101';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -32,6 +32,7 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/map-profile-controls.js': [path.join(__dirname, 'efb-web-assets', 'map-profile-controls.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-prediction.js': [path.join(__dirname, 'efb-web-assets', 'map-prediction.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/navigation-warning-core.js': [path.join(__dirname, 'efb-web-assets', 'navigation-warning-core.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/display-clock.js': [path.join(__dirname, 'efb-web-assets', 'display-clock.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-display-controls.js': [path.join(__dirname, 'efb-web-assets', 'map-display-controls.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/airport-details.js': [path.join(__dirname, 'efb-web-assets', 'airport-details.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/airport-aip.js': [path.join(__dirname, 'efb-web-assets', 'airport-aip.js'), 'text/javascript; charset=utf-8'],
@@ -140,6 +141,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/emoji-text.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/leaflet.js" onload="__gaEfbScriptLoaded('leaflet.js')" onerror="__gaEfbScriptError('leaflet.js')"></script>
 <script src="/efb/v1/assets/map-shell-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('map-shell-core.js')" onerror="__gaEfbScriptError('map-shell-core.js')"></script>
+<script src="/efb/v1/assets/display-clock.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-utility-tools.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('map-utility-tools.js')" onerror="__gaEfbScriptError('map-utility-tools.js')"></script>
 <script src="/efb/v1/assets/mission-control-ui-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('mission-control-ui-core.js')" onerror="__gaEfbScriptError('mission-control-ui-core.js')"></script>
 <script src="/efb/v1/assets/mission-manifest-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('mission-manifest-core.js')" onerror="__gaEfbScriptError('mission-manifest-core.js')"></script>

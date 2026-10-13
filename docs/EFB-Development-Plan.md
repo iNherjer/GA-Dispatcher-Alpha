@@ -1,3 +1,34 @@
+## Anzeigezeit: Simulator/Gerät und UTC/Lokal (13.10.2026, Alpha v531)
+
+Basis `743c38ce7`, frisch gegen origin/main geprüft (0/0). Nutzer beauftragt
+reine Anzeigeauswahl: Standard Simulator/UTC, bei fehlenden oder mehr als acht
+Sekunden alten Sim-Zeitdaten automatisch Gerät/UTC, auch bei gewähltem Lokal.
+Auswahl bleibt gespeichert und kehrt bei frischen Daten zur Simulatorzeit zurück.
+Shared `display-clock.js` verwendet vorhandene absolute/local Sim-Telemetrie;
+UTC als Tagesrest von ABSOLUTE TIME, Lokal als LOCAL TIME am Flugzeug. Gerät/Lokal
+verwendet die Gerätezeitzone. Keine neue SimConnect-Abfrage oder Tracker.js-Änderung.
+Uhranzeige und ETA in Web/EFB/Toolbar verwenden denselben Core. Keine
+Extrapolation einer pausierten Sim-Uhr, keine Simrate-Multiplikation der ETE.
+ETA-Basis und automatischer Fallback werden sichtbar gekennzeichnet.
+Stoppuhr/Countdown, Missionszeitstempel, Detektoren, Voice und Wetter behalten
+ihre vorhandenen Zeitgrundlagen. UTC-/Lokal-Uhren im Stoppuhrfenster verwenden
+die gewählte Quelle; die zweite Uhr ist bei Fallback ausdrücklich UTC.
+Telemetrie, Aktuell, Wegpunkt-Info und Route-Leiste sind unter Info Fenster
+zusammengefasst. Info Fenster und Zeit verwenden wie Wetter eine geteilte
+Kopfzeile mit separatem 42px-Pfeilknopf und identischem ausklappbarem Rahmen.
+EFB/Toolbar speichern die zwei String-Einstellungen über den
+bestehenden Anzeige-Konfigurationspfad; Web speichert lokal.
+Tracker-hosted Assetrevision 53101, Web-Cache v2045; kein SDK-/Community-
+Paket erforderlich. Validierung: 38 Uhr-/Sim-Telemetrie-/Anzeige-Konfigurations-/EFB-Assettests,
+35 bestehende EFB-HTTP-/Map-Shell-Tests und Tracker-Interface-Selftest bestehen.
+Browsernachweis mit echtem EFB-Host sowie Web-Menü, Quell-/Chrome-49-Assets:
+Auswahlklicks, Mitternachts-ETA, Pause, Zeitsprung, Datenverlust/Fallback,
+Wiederverbindung und Reload-Persistenz. 440px-Menü visuell geprüft.
+Windows-x64-Cross-Build ohne Bytecode/public wie bei den vorherigen Releases.
+Zwei fachlich unbeteiligte, durch die lokale Babel-Version abweichend erzeugte
+Profile-/Navigation-Assets bleiben exakt auf dem Origin-Basisstand.
+Release vorbereitet; realer MSFS-Feldnachweis bleibt offen.
+
 # EFB-/Toolbar-Panel-Entwicklungsplan
 
 ## Freigegebene Radio-Webfassung in Tracker, Toolbar und EFB: Alpha v529 (13.10.2026)

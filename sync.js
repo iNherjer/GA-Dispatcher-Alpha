@@ -17737,9 +17737,8 @@ function formatRouteProgressDuration(minutes) {
 
 function formatRouteProgressEta(minutes) {
     const n = Number(minutes);
-    if (!Number.isFinite(n)) return '--:--';
-    const eta = new Date(Date.now() + Math.max(0, n) * 60000);
-    return `${String(eta.getHours()).padStart(2, '0')}:${String(eta.getMinutes()).padStart(2, '0')}`;
+    if (minutes == null || !Number.isFinite(n)) return '--:--';
+    return window.GADisplayClock.eta(Math.max(0, n));
 }
 
 function getRouteProgressMinutes(distNm, gsKts) {
@@ -18744,7 +18743,10 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
                 }
                 if (data.flight && typeof data.flight === 'object') {
                     window.lastLiveFlightData = data.flight;
+                    window.GADisplayClock?.observe(data.flight);
                     window.missionCargoHandleLiveFuelUpdate?.(data.flight);
+                } else {
+                    window.GADisplayClock?.clear();
                 }
                 updateLivePlanePosition(data.lat, data.lon, data.alt, data.hdg);
                 _handleLiveGpsTelemetryForWakeLock();
@@ -19994,6 +19996,7 @@ window.hideLivePlane = function (options = {}) {
     if (typeof vpUpdateLiveAircraft === 'function') vpUpdateLiveAircraft(-1, 0, 0);
     window.lastLiveGpsPos = null;
     window.lastLiveFlightData = null;
+    window.GADisplayClock?.clear();
     window.gaUpdateMapContextOwnAltitude?.(null);
     window.gaLastTrackerTelemetryAt = 0;
     lastTelemetryUpdateAt = 0;

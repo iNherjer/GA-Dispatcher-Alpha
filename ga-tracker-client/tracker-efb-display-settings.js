@@ -11,6 +11,8 @@ function normalizeUi(value) {
   for (const key of UI_BOOLEAN_KEYS) if (typeof value[key] === 'boolean') result[key] = value[key];
   for (const [key,min,max] of [['profileAltitudeFt',1500,13500],['profileRateFpm',200,1500]]) if (Number.isInteger(value[key]) && value[key] >= min && value[key] <= max) result[key] = value[key];
   if (['AUTO', 'ROUTE', 'HDG'].includes(value.profileMode)) result.profileMode = value.profileMode;
+  if (['device', 'simulator'].includes(value.clockSource)) result.clockSource = value.clockSource;
+  if (['utc', 'local'].includes(value.clockZone)) result.clockZone = value.clockZone;
   return result;
 }
 function normalizeDisplaySettings(value) {

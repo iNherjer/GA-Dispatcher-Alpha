@@ -1444,17 +1444,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
     }
 
     function updateClockFields() {
-        const now = new Date();
-        const utc = el('mapStopwatchUtc');
-        const local = el('mapStopwatchLocal');
-        if (utc) utc.textContent = now.toISOString().slice(11, 19);
-        if (local) {
-            local.textContent = now.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-        }
+        window.GADisplayClock.refreshClocks();
     }
 
     function startClockTimer() {

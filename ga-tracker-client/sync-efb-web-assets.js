@@ -70,6 +70,7 @@ compileShared('mission-fire-search-map.js');
 compileShared('mission-survey-pattern.js');
 compileShared('mission-poi-chain-runtime.js');
 compileShared('map-profile-controls.js');
+compileShared('display-clock.js');
 compileShared('map-display-controls.js');
 compileShared('radio-tuning-core.js');
 compileShared('radio-tuning-ui.js');

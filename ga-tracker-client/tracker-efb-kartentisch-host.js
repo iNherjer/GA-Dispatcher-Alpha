@@ -302,8 +302,7 @@
   }
   function etaText(distanceNm, gsKts) {
     if (!(distanceNm >= 0) || !(gsKts > 1)) return '--:--';
-    var date = new Date(Date.now() + distanceNm / gsKts * 3600000);
-    return pad2(date.getHours()) + ':' + pad2(date.getMinutes());
+    return window.GADisplayClock.eta(distanceNm / gsKts * 60);
   }
   function durationText(distanceNm, gsKts) {
     if (!(distanceNm >= 0) || !(gsKts > 1)) return '--';
@@ -357,6 +356,11 @@
       try { localStorage.setItem('ga_map_hint_' + key, String(ui[key])); } catch (_) {}
       window.gaMapDisplayAdapter.apply(key); changed = true;
     });
+    [['clockSource','source'],['clockZone','zone']].forEach(function(item) {
+      if (typeof ui[item[0]] !== 'string' || Object.prototype.hasOwnProperty.call(uiPending,item[0])) return;
+      if (window.GADisplayClock.settings()[item[1]] === ui[item[0]]) return;
+      var patch = {}; patch[item[1]] = ui[item[0]]; window.GADisplayClock.set(patch, false);
+    });
     ['profileVisible','toolbarCollapsed'].forEach(function(key) {
       if (typeof ui[key] !== 'boolean' || Object.prototype.hasOwnProperty.call(uiPending,key) || preferences[key] === ui[key]) return;
       preferences[key] = ui[key]; changed = true;
@@ -400,12 +404,15 @@
   window.gaPersistMapHintSetting = function(key, value) {
     if (uiPreferenceKeys.indexOf(key) >= 0) queueUiPreference(key, value);
   };
+  window.gaPersistDisplayClockSetting = queueUiPreference;
   window.gaPersistProfileSetting = function(key, value) {
     if (key === 'profileAltitudeFt' || key === 'profileRateFpm') queueUiPreference(key, value);
   };
   function loadUiPreferences() {
     var seed = {profileVisible: preferences.profileVisible, toolbarCollapsed: preferences.toolbarCollapsed, profileMode: window.gaProfileModePreference || 'AUTO'};
     uiPreferenceKeys.forEach(function(key) { seed[key] = window.isMapHintEnabled(key); });
+    var clockSettings = window.GADisplayClock.settings();
+    seed.clockSource = clockSettings.source; seed.clockZone = clockSettings.zone;
     uiLoading = true;
     displaySettingsRequest({initializeUi: seed}).then(function(display) {
       applyUiPreferences(display); uiLoading = false; flushUiPreferences();
@@ -2061,6 +2068,7 @@
     flight = normalized;
     refreshLocalNavigation();
     window.lastLiveFlightData = payload.flight || {};
+    window.GADisplayClock.observe(payload.flight, normalized.capturedAt);
     window.lastLiveTerrainFt = Number.isFinite(Number(payload.flight && payload.flight.aglFt))
       ? flight.altFt - Number(payload.flight.aglFt) : null;
     if(Array.isArray(payload.traffic)) window.vpTrafficData = window.GAMapLivePresentation.filterTraffic(payload.traffic, payload);
@@ -3287,6 +3295,7 @@
     var telemetry = byId('liveTelemetryBox');
     if (telemetry.classList.contains('ga-telemetry-stale') !== telemetryRetained) telemetry.classList.toggle('ga-telemetry-stale', telemetryRetained);
     flight = null;
+    window.GADisplayClock.clear();
     telemetryPrevious = null;
     localNavigationState = {};
     window.lastLiveTerrainFt = null;
@@ -3404,6 +3413,7 @@
     report('info', 'help', normalized || 'map', text);
     return false;
   };
+  window.refreshRouteProgressBar = renderProgress;
   window.toggleRouteProgressTarget = function () { routeProgressTarget = routeProgressTarget === 'wpt' ? 'route' : 'wpt'; renderProgress(); };
   window.stepLiveNextLegPreview = function (delta, event) {
     if (event) { event.preventDefault(); event.stopPropagation(); }

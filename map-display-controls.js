@@ -30,7 +30,9 @@ Object.keys(MAP_HINT_DEFAULTS).forEach((key) => {
 const MAP_HINT_SUBMENU_DEFAULTS = {
     weatherMenu: false,
     vfrIndexMenu: false,
-    terrainAvoidMenu: false
+    terrainAvoidMenu: false,
+    infoWindowsMenu: false,
+    clockMenu: false
 };
 window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULTS };
 function loadMapHintSettings() {
@@ -76,7 +78,9 @@ function setMapHintSubmenuOpen(key, open) {
     const ids = {
         weatherMenu: { btn: 'btnToggleWeatherMenu', panel: 'weatherMenuBlock', label: 'Wetter' },
         vfrIndexMenu: { btn: 'btnToggleVfrIndexMenu', panel: 'vfrIndexMenuBlock', label: 'VFR-Index' },
-        terrainAvoidMenu: { btn: 'btnToggleTerrainAvoidMenu', panel: 'terrainAvoidMenuBlock', label: 'Terrain Avoid' }
+        terrainAvoidMenu: { btn: 'btnToggleTerrainAvoidMenu', panel: 'terrainAvoidMenuBlock', label: 'Terrain Avoid' },
+        infoWindowsMenu: { btn: 'btnToggleInfoWindowsMenu', panel: 'infoWindowsMenuBlock', label: 'Info Fenster' },
+        clockMenu: { btn: 'btnToggleClockMenu', panel: 'clockMenuBlock', label: 'Zeit' }
     };
     const meta = ids[key];
     if (!meta) return;
@@ -86,10 +90,9 @@ function setMapHintSubmenuOpen(key, open) {
     if (window.mapHintSubmenus) window.mapHintSubmenus[key] = isOpen;
     if (panel) panel.style.display = isOpen ? 'block' : 'none';
     if (btn) {
-        btn.textContent = key === 'weatherMenu' || key === 'vfrIndexMenu' || key === 'terrainAvoidMenu'
-            ? (isOpen ? '▾' : '▸')
-            : `${isOpen ? '▾' : '▸'} ${meta.label}`;
+        btn.textContent = isOpen ? '▾' : '▸';
         btn.classList.toggle('active', isOpen);
+        btn.setAttribute('aria-expanded', String(isOpen));
     }
 }
 
