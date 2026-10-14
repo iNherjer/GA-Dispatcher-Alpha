@@ -108,7 +108,7 @@ Tipps:
 
 ### Homebase planen und installieren
 
-Die **Homebase Workbench** wird im Bereich **Einstellungen** geoeffnet. Dort lassen sich Hangar, Spawnpunkt und beliebig viele Ausstattungsobjekte auf der Karte platzieren, verschieben, drehen und in der Hoehe anpassen.
+Die **Homebase Workbench** wird ueber die Blaupause **Homebase Designer** auf der Hauptseite geoeffnet. Die Blaupause wird aus ihrem Fach gezogen und als Zoom-Uebergang in die Workbench verwendet; beim Schliessen laeuft der Uebergang rueckwaerts. Der Designer hat ein eigenes, gealtertes Blaupausen-Design und bleibt unabhaengig von der Darstellung des Hauptmenues. Dort lassen sich Hangar, Spawnpunkt und beliebig viele Ausstattungsobjekte auf der Karte platzieren, verschieben, drehen und in der Hoehe anpassen.
 
 - Die Live-Vorschau benoetigt den produktiven PC-Tracker ab **v288** und eine aktive SimConnect-Verbindung.
 - Der Tracker prueft das gemeinsame Homebase-Assetpaket und bietet neue Versionen nach ausdruecklicher Bestaetigung zum Download und zur Installation an.

@@ -1,0 +1,20 @@
+# Homebase-Einstieg: Blaupause und Fach
+
+Erstellt am 2026-10-14 mit dem eingebauten image_gen-Tool, als transparente PNGs. Vollständige Blaupause und separate Vorderblende; das UI verdeckt den unteren Papierbereich. Der Zoom wird als Übergang in die vorhandene Workbench verwendet.
+
+## blueprint-09-27.png (aktuelle Fassung)
+
+Use case: product-mockup. Asset type: complete transparent-background blue paper blueprint for a cockpit web UI pocket and zoom transition. One full landscape sheet, width:height about 1.45:1, almost straight-on orthographic view. Rich Prussian blue cyanotype paper, lightly worn folded creases, cream-white fine architectural linework. Exact prominent typewriter title "Homebase Designer" across upper 18 percent. Below it a coherent small GENERAL AVIATION homebase plan: front elevation of a modest hangar with a civilian high-wing single-engine Cessna-like propeller airplane in front, top-down small propeller aircraft parking apron, grass airstrip with runway markings, hangar floor plan and small office, compass rose, precise dimension lines. Civilian light aircraft only, no military jets. Paper subtly bent near center crease, softly aged corners, all edges visible, minimal transparent margins. Detailed realistic material with authentic legible blueprint design; no UI frame, no holder, no hands, no background. Entire sheet generated fully; lower third will be hidden by a UI pocket.
+
+### Korrektur der Pistenkennzeichnung
+
+Edit only the runway in this Homebase Designer blueprint. Correct its threshold numbers to exactly "09" at the LEFT/western end and exactly "27" at the RIGHT/eastern end, each facing the approaching aircraft (numbers 180 degrees apart). Remove the incorrect left number entirely. Make the runway axis east-west, horizontal on the plan with the existing north-up compass, so 09/27 is physically consistent. Keep the same right upper blueprint area, sensible taxiway connection. Preserve everything else exactly: blue folded aged paper, Homebase Designer title, civilian GA hangar and Cessna-like propeller aircraft, drawings, dimensions, framing, genuine alpha background. No other new text.
+
+
+### Abschließende Lesbarkeitskorrektur der Pistenkennzeichnung
+
+Edit ONLY the runway numbers on this Homebase Designer blueprint. The left threshold currently looks like "60" because the 09 is upside down. Replace it with exact characters "09", clearly upright to the VIEWER of the blueprint, with the 0 on the left and 9 on the right and a horizontal baseline, same orientation as the Homebase Designer title. The right threshold must read exactly "27", also upright to the viewer with a horizontal baseline. Both numbers should be easy to read as 09 and 27 from this image; do NOT invert, mirror or rotate either number, even if runway marking conventions would rotate them. Keep the numbers inside the runway near their existing ends and retain all threshold stripes. Change NOTHING ELSE: preserve the entire paper, alpha background, blueprint geometry, hangar, GA aircraft, textures, title, all other linework and labels.
+
+## pocket.png
+
+Use case: product-mockup. Asset type: transparent PNG foreground pocket for vintage aviation cockpit UI. One EMPTY wide black leather document pocket, front-on orthographic, width:height approximately 4.5:1. Entire pocket visible uncropped with minimal transparent margins. Dark charcoal pebbled leather, tan fine double perimeter stitching, modest silver screw at lower left and lower right. Upper edge has a shallow wide central dip: higher rounded corners at sides, lower curved center, so a blueprint inserted behind can be seen above the edge. Pocket is a single opaque leather front panel, NOT an open pouch with a rear wall; transparent everywhere above the curved top contour. Thin worn raised edge, realistic soft highlights, small subtly embossed civilian propeller airplane silhouette at bottom center. No paper inside, no title, no text, no surrounding frame, no scene, no hands. Genuinely transparent background.

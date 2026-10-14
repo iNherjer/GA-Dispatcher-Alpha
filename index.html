@@ -126,11 +126,12 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=tracker-recovery-20260818-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="stylesheet" href="homebase-integration.css?v=homebase-main-launch-20260724-01">
+    <link rel="preload" href="styles.css?v=notes-subtle-stack-20261014-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="stylesheet" href="homebase-integration.css?v=document-pockets-clean-20261014-01">
+    <link rel="stylesheet" href="settings-toolroll.css?v=toolroll-settings-tidy-20261014-01">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=tracker-recovery-20260818-01">
+        <link rel="stylesheet" href="styles.css?v=notes-subtle-stack-20261014-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -792,42 +793,52 @@
             </div>
         </div>
 
-        <div style="margin-top: 15px;">
-            <button class="btn-log" style="width: 100%; opacity: 0.5; cursor: not-allowed;" type="button" disabled>✈️ Flug beendet? Weiterflug planen?</button>
-            <div style="margin-top: 6px; font-size: 11px; color: #9aa3ad; text-align: center;">
-                Voruebergehend deaktiviert, bis der Abschluss-Flow wieder stabil ist.
-            </div>
-        </div>
     </div>
 
     <div class="logbook">
-        <h3 class="theme-title-text logbook-heading">Flugbuch <button class="logbook-clear" type="button" onclick="clearLog()">Leeren</button></h3>
-        <div id="logContent"></div>
+        <div class="logbook-stage" id="logbookStage" onkeydown="if (event.key === 'Escape') toggleLogbook(false)">
+            <div class="logbook-cover-mask">
+            <button class="logbook-cover" id="logbookCover" type="button" onclick="toggleLogbook(true)" aria-expanded="false" aria-controls="logbookReading" aria-label="Flugbuch herausziehen und öffnen">
+                <img src="assets/ui/logbook/closed-tall-v2.png" alt="Rotes ledergebundenes Flugbuch" width="1340" height="1171">
+            </button>
+            </div>
+            <div class="logbook-pocket" aria-hidden="true"><img src="assets/ui/homebase/pocket.png" alt="" width="2172" height="724"></div>
+            <div class="logbook-reading" id="logbookReading" hidden>
+                <div class="logbook-spread" id="logContent"></div>
+                <button class="logbook-paper-action logbook-close" type="button" onclick="toggleLogbook(false)">Zuklappen</button>
+                <button class="logbook-paper-action logbook-clear" type="button" onclick="clearLog()" aria-label="Gesamtes Flugbuch leeren">Leeren</button>
+                <nav class="logbook-navigation" aria-label="Flugbuchseiten">
+                    <button id="logbookPrev" type="button" onclick="turnLogbookPage(-1)" aria-label="Vorherige Seiten">&lt;</button>
+                    <span id="logbookPageLabel" class="logbook-status" role="status" aria-live="polite"></span>
+                    <button id="logbookNext" type="button" onclick="turnLogbookPage(1)" aria-label="Nächste Seiten">&gt;</button>
+                </nav>
+            </div>
+        </div>
+        <p class="logbook-caption" id="logbookCaption">Anklicken zum Öffnen</p>
     </div>
 
-    <div class="homebase-main-launch" role="group" aria-labelledby="homebaseMainTitle">
-        <span class="homebase-main-icon" aria-hidden="true">⌂</span>
-        <span class="homebase-main-copy">
-            <span class="homebase-main-kicker">Dein Stützpunkt</span>
-            <span class="homebase-main-title" id="homebaseMainTitle">Homebase</span>
-            <span class="homebase-main-description">Startplatz, Hangar und Ausstattung im Simulator planen</span>
-            <span id="homebaseAssetStatus" class="homebase-asset-status">Benötigte Homebase-Objekte werden beim Start des PC-Trackers geprüft</span>
-        </span>
-        <button type="button" class="btn-preset homebase-main-action" onclick="openHomebaseEnvironment()" aria-describedby="homebaseAssetStatus">
-            Öffnen <span aria-hidden="true">›</span>
+    <section class="homebase-blueprint-launch" aria-labelledby="homebaseMainTitle">
+        <button id="homebaseBlueprintLaunch" class="homebase-blueprint-button" type="button" onpointerenter="prepareHomebaseBlueprint()" onfocus="prepareHomebaseBlueprint()" onclick="openHomebaseEnvironment()" aria-describedby="homebaseAssetStatus" aria-controls="homebaseOverlay" aria-expanded="false">
+            <span class="homebase-blueprint-sr" id="homebaseMainTitle">Homebase Designer öffnen</span>
+            <span class="homebase-blueprint-mask">
+                <img id="homebaseBlueprintSheet" class="homebase-blueprint-sheet" src="assets/ui/homebase/blueprint-09-27.png" alt="Blaupause einer General-Aviation-Homebase mit Hangar und Propellerflugzeugen" width="1450" height="1000">
+            </span>
+            <img class="homebase-blueprint-pocket" src="assets/ui/homebase/pocket.png" alt="" aria-hidden="true" width="1350" height="300">
         </button>
-    </div>
+        <span id="homebaseAssetStatus" class="homebase-asset-status homebase-blueprint-sr">Benötigte Homebase-Objekte werden beim Start des PC-Trackers geprüft</span>
+    </section>
     </div>
 
-    <div class="settings-shell">
+    <div class="settings-shell settings-toolroll">
         <button class="settings-toggle-btn" id="settingsToggleBtn" type="button" onclick="toggleSettingsPanel()" aria-expanded="false" aria-controls="settingsPanel">
-            <span class="settings-toggle-icon">⚙️</span>
-            <span class="settings-toggle-label">Einstellungen</span>
+            <img class="settings-roll-head" src="assets/ui/settings/roll-head-suede-v2.png" alt="" aria-hidden="true" width="2048" height="724">
+            <span class="settings-toggle-label settings-roll-sr">Einstellungen</span>
             <span class="settings-toggle-chevron" id="settingsToggleChevron">▾</span>
         </button>
         <button type="button" class="win95-window-minimize-btn win95-settings-minimize-btn" id="win95SettingsMinimizeBtn" onclick="minimizeWin95SettingsWindow(event)" aria-label="Einstellungen minimieren" title="Einstellungen minimieren"></button>
         <button type="button" class="win95-window-close-btn win95-settings-close-btn" id="win95SettingsCloseBtn" onclick="closeWin95SettingsWindow(event)" aria-label="Einstellungen schliessen" title="Einstellungen schliessen">X</button>
-        <div class="settings-panel" id="settingsPanel">
+        <div class="settings-panel" id="settingsPanel" aria-hidden="true" inert>
+        <div class="settings-roll-body">
         <div class="settings-panel-inner">
 
     <div class="api-settings settings-section">
@@ -837,21 +848,6 @@
                 <label class="settings-section-title">KI-Dispatcher</label>
             </div>
             <div class="settings-section-actions">
-                <div class="analog-meter api-fuel-meter" title="API Quota (Täglich)">
-                    <div class="meter-face">
-                        <div class="meter-scale api-scale"></div>
-                        <div class="meter-label" style="width: 100%; left: 0; text-align: center;">
-                            <span style="position:absolute; left: 4px; color: #d93829;">E</span>
-                            <span style="color: #888;">FUEL</span>
-                            <span style="position:absolute; right: 4px; color: #00ff41;">F</span>
-                        </div>
-                    </div>
-                    <div class="meter-needle" id="apiNeedle"></div>
-                </div>
-                <label class="switch" style="transform: scale(0.7); margin: 0; transform-origin: right;">
-                    <input type="checkbox" id="aiToggle" onchange="saveAiToggle()" checked>
-                    <span class="slider"></span>
-                </label>
                 <button type="button" class="settings-help-btn" onclick="showSettingsHelp('dispatcher', event)" aria-label="Hilfe zu KI-Dispatcher" aria-expanded="false">?</button>
             </div>
         </div>
@@ -860,7 +856,7 @@
                 <span>Provider</span>
                 <select id="aiProviderSelect" onchange="saveAiProvider(this.value)">
                     <option value="gemini">Gemini</option>
-                    <option value="openai">OpenAI</option>
+                    <option value="openai">ChatGPT (OpenAI)</option>
                 </select>
             </label>
             <label class="ai-provider-field">
@@ -872,17 +868,23 @@
                     <option value="high_quality">High Quality</option>
                 </select>
             </label>
+            <div class="ai-enable-field"><span>KI an/aus</span>
+                <label class="switch" style="transform: scale(0.65); margin: 0; transform-origin: center;">
+                    <input type="checkbox" id="aiToggle" onchange="saveAiToggle()" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
         </div>
         <input type="text" style="display:none;" aria-hidden="true" autocomplete="username">
+        <div id="aiKeyGemini" class="ai-provider-key">
         <label class="ai-key-field" for="apiKeyInput">Gemini API-Key</label>
         <input type="password" id="apiKeyInput" placeholder="Optional. Leer = Lokale Datenbank" onchange="saveApiKey(true, 'gemini')" autocomplete="new-password">
         <div id="apiKeyStatus" style="font-size:11px; margin-top:6px; color:#888;" aria-live="polite">Noch nicht geprueft.</div>
+        </div>
+        <div id="aiKeyOpenai" class="ai-provider-key" hidden>
         <label class="ai-key-field" for="openAiApiKeyInput">OpenAI API-Key</label>
         <input type="password" id="openAiApiKeyInput" placeholder="Optional. sk-..." onchange="saveApiKey(true, 'openai')" autocomplete="new-password">
         <div id="openAiApiKeyStatus" style="font-size:11px; margin-top:6px; color:#888;" aria-live="polite">Noch nicht geprueft.</div>
-        <div class="api-hint">
-            <strong>Tipp:</strong> Mehr Abwechslung? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Gemini API-Key</a> oder <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI API-Key</a> benutzen. <br>
-            <span style="opacity: 0.7;">Schluessel werden nur lokal in deinem Browser gespeichert. Browser-Extensions oder ein kompromittiertes Geraet koennen lokale Daten trotzdem auslesen.</span>
         </div>
     </div>
 
@@ -917,9 +919,6 @@
                 <span>📥</span> Tracker Desktop 1.6.13 installieren
             </a>
         </div>
-        <div style="margin: -6px 0 12px; color: #7890a8; font-size: 10px; text-align: center; line-height: 1.35;">
-            Standard: Stable mit aktiver Tracker-Missionslogik. Deaktivieren nur zu Debug-Zwecken. Updates werden zunächst zur Bestätigung angeboten.
-        </div>
         <div class="settings-sync-row">
             <label class="switch" style="transform: scale(0.6); margin: 0; transform-origin: left;">
                 <input type="checkbox" id="syncToggle" onchange="saveSyncToggle()" disabled>
@@ -933,9 +932,9 @@
             </div>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin:4px 0 8px 0;">
-            <label style="margin:0; font-size:12px;">🎯 Missionsstatus</label>
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+        <div class="settings-mission-status">
+            <label>🎯 Missionsstatus</label>
+            <div class="settings-mission-status-lines">
                 <span id="missionRuntimeStatus" style="font-size:10px; color:#888;">Wartet auf Boden-Stabilisierung</span>
                 <span id="missionRuntimeDetail" style="font-size:10px; color:#8ea0b8; max-width:260px; text-align:right;">Statusdetails folgen nach Missionsstart</span>
                 <span id="missionRuntimeNextStep" style="font-size:10px; color:#777;">Nächster Schritt: Mission vorbereiten</span>
@@ -985,14 +984,11 @@
                 <button type="button" class="settings-help-btn" onclick="showSettingsHelp('aircraft-presets', event)" aria-label="Hilfe zu Aircraft Presets" aria-expanded="false">?</button>
             </div>
         </div>
-        <div class="settings-form-row">
-            <select id="aircraftPresetSlot" onchange="selectAircraftPresetSlotFromSettings(this.value)" style="flex: 1;">
-                <option value="C172">Slot 1</option>
-                <option value="PA-24">Slot 2</option>
-                <option value="AERO">Slot 3</option>
-            </select>
-            <input type="text" id="aircraftPresetName" placeholder="Name" maxlength="20" style="flex: 2;" autocomplete="off" spellcheck="false">
-        </div>
+        <div id="settingsPresetButtons" class="settings-preset-list" aria-label="Flugzeug-Presets"></div>
+        <div id="settingsPresetEditor" class="settings-preset-editor" inert aria-hidden="true">
+        <div class="settings-preset-editor-body">
+        <select id="aircraftPresetSlot" hidden aria-hidden="true" tabindex="-1"><option value="C172">Slot 1</option><option value="PA-24">Slot 2</option><option value="AERO">Slot 3</option></select>
+        <div class="settings-form-row"><label for="aircraftPresetName">Name</label><input type="text" id="aircraftPresetName" placeholder="Name" maxlength="20" autocomplete="off" spellcheck="false"></div>
         <div class="settings-form-row">
             <div class="aircraft-preset-settings-field">
                 <label for="aircraftPresetTas">TAS (kt)</label>
@@ -1089,12 +1085,14 @@
         <div class="api-hint">
             Normaler Klick wählt ein Preset. Rechtsklick oder Langdruck öffnet den Schnell-Editor. Alle Werte und Boarding-Punkte werden pro Slot gespeichert und mit der Pilot-ID synchronisiert.
         </div>
+        </div>
+        </div>
     </div>
 
     <div class="theme-switch-wrapper settings-section settings-theme-section" style="flex-direction: column; align-items: center; border-top: 2px dashed #444; margin-top: 30px; padding-top: 15px;">
         <div class="settings-section-head">
             <div>
-                <div class="settings-section-kicker">Darstellung</div>
+                <label class="settings-section-title">Darstellung</label>
             </div>
             <button type="button" class="settings-help-btn" onclick="showSettingsHelp('appearance', event)" aria-label="Hilfe zur Darstellung" aria-expanded="false">?</button>
         </div>
@@ -1118,6 +1116,7 @@
             </div>
         </div>
     </div>
+        </div>
         </div>
         </div>
     </div>
@@ -2667,7 +2666,7 @@
             <span>VFR Multitool – Homebase</span>
             <button type="button" onclick="closeHomebaseEnvironment()" aria-label="Homebase schließen">Schließen</button>
         </div>
-        <iframe id="homebaseFrame" src="homebase/index.html?integrated=1&amp;v=homebase-pavilion-door-controls-20260724-01" title="Homebase Workbench" loading="lazy"></iframe>
+        <iframe id="homebaseFrame" src="homebase/index.html?integrated=1&amp;v=homebase-blueprint-20261014-01" title="Homebase Workbench" loading="lazy"></iframe>
     </div>
 </div>
 
@@ -2881,7 +2880,7 @@
 <script defer src="sync.js?v=cloud-load-manual-20261002-01"></script>
 <script defer src="homebase/homebase-asset-catalog.js?v=homebase-proximity-automation-optout-20260816-01"></script>
 <script defer src="homebase-capability-retry-core.js?v=homebase-capability-backoff-20260814-01"></script>
-<script defer src="homebase-integration.js?v=homebase-crew-share-v100-20260815-01"></script>
+<script defer src="homebase-integration.js?v=homebase-faster-fade-20261014-01"></script>
 <script defer src="mission-training-guidance-ui.js?v=tracker-training-guidance-20260923-01"></script>
 <script defer src="checklists.js?v=ground-cargo-entry-20260729-01"></script>
 <script defer src="profile.js?v=tracker-mission-ui-20260907-01"></script>
@@ -2889,7 +2888,7 @@
 <script defer src="map-utility-tools.js?v=map-tool-toggle-20260817-01"></script>
 <script defer src="aircraft-mission-capability-core.js?v=aircraft-mission-party-20260817-01"></script>
 <script defer src="aircraft-mission-profile-core.js?v=aircraft-mission-capability-20260817-01"></script>
-<script defer src="app.js?v=quota-20261007-02"></script>
+<script defer src="app.js?v=toolroll-settings-tidy-20261014-01"></script>
 <script defer src="mission-fire-search-map.js"></script>
 <script defer src="mission-survey-pattern.js?v=overlay-throttle-20260710-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>

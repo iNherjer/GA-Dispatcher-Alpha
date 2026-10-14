@@ -1,11 +1,17 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2045';
+const CACHE = 'ga-dispatcher-v2068';
 
 const STATIC = [
     './',
     './index.html',
     './legal.html',
     './styles.css',
+    './settings-toolroll.css',
+    './assets/ui/settings/roll-head-suede-v2.png',
+    './assets/ui/settings/roll-body-suede-v2.png',
+    './assets/ui/logbook/closed-tall-v2.png',
+    './assets/ui/logbook/open.png',
+    './ga-tracker-client/efb-fonts/Caveat-SemiBold.ttf',
     './app.js',
     './taws.js',
     './ga-tracker-client/tracker-audio-player.js',
@@ -115,6 +121,8 @@ const STATIC = [
     './homebase-capability-retry-core.js',
     './homebase-integration.js',
     './homebase-integration.css',
+    './assets/ui/homebase/blueprint-09-27.png',
+    './assets/ui/homebase/pocket.png',
     './homebase/index.html',
     './homebase/homebase-workbench.js',
     './homebase/homebase-workbench.css',

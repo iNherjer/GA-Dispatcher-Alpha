@@ -624,6 +624,7 @@ function updateNavComAircraftButtons() {
 }
 
 function updateAircraftPresetButtonsUI() {
+    updateSettingsPresetButtons();
     AIRCRAFT_PRESET_SLOT_ORDER.forEach(slotId => {
         const preset = getAircraftPreset(slotId);
         const aircraftClass = getAircraftClassOption(preset.aircraftClass);
@@ -657,6 +658,32 @@ function updateAircraftPresetButtonsUI() {
 }
 window.updateAircraftPresetButtonsUI = updateAircraftPresetButtonsUI;
 
+function updateSettingsPresetButtons() {
+    const list = document.getElementById('settingsPresetButtons');
+    const editor = document.getElementById('settingsPresetEditor');
+    if (!list) return;
+    list.replaceChildren();
+    AIRCRAFT_PRESET_SLOT_ORDER.forEach(slot => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = getAircraftPreset(slot).name;
+        button.dataset.presetSlot = slot;
+        const expanded = editor?.classList.contains('is-open') && activeAircraftPresetSettingsSlot === slot;
+        button.setAttribute('aria-expanded', String(!!expanded));
+        button.setAttribute('aria-controls', 'settingsPresetEditor');
+        button.addEventListener('click', () => {
+            const opening = !(editor.classList.contains('is-open') && activeAircraftPresetSettingsSlot === slot);
+            selectAircraftPresetSlotFromSettings(slot);
+            editor.classList.toggle('is-open', opening);
+            editor.inert = !opening;
+            editor.setAttribute('aria-hidden', String(!opening));
+            updateSettingsPresetButtons();
+            list.querySelector(`[data-preset-slot="${slot}"]`)?.focus({ preventScroll: true });
+        });
+        list.appendChild(button);
+    });
+}
+
 function selectAircraftPresetSlotFromSettings(slotId) {
     if (!AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId)) slotId = 'C172';
     activeAircraftPresetSettingsSlot = slotId;
@@ -682,6 +709,7 @@ function selectAircraftPresetSlotFromSettings(slotId) {
     });
     updateBoardingPresetEditorUI(preset.boarding);
     setAircraftPresetStatus(`${getAircraftPresetSlotLabel(slotId)} geladen`, '#9aa3ad');
+    updateSettingsPresetButtons();
 }
 window.selectAircraftPresetSlotFromSettings = selectAircraftPresetSlotFromSettings;
 
@@ -1730,13 +1758,47 @@ function preserveDisclosureTriggerPosition(trigger, update = null) {
     return result;
 }
 
+function animateSettingsRoll(shell, panel, open, fromHeight, fromTransform) {
+    const inner = panel.querySelector('.settings-panel-inner');
+    if (!inner) return;
+    const fullHeight = inner.offsetHeight;
+    shell.classList.add('is-unrolling');
+    const timing = { duration: 520, easing: 'cubic-bezier(.22,.7,.25,1)' };
+    // Both use the same pixel distance and clock. Grid fractions do not grow
+    // linearly with content height and would detach the bottom of the leather.
+    const height = panel.animate([{ height: `${fromHeight}px` }, { height: `${open ? fullHeight : 0}px` }], timing);
+    const motion = inner.animate([{ transform: fromTransform }, { transform: `translateY(${open ? 0 : -fullHeight}px)` }], timing);
+    const run = { height, motion };
+    panel._rollAnimation = run;
+    Promise.allSettled([height.finished, motion.finished]).then(() => {
+        if (panel._rollAnimation !== run) return;
+        shell.classList.remove('is-unrolling');
+        delete panel._rollAnimation;
+    });
+}
+
 function setSettingsPanelOpen(open, persist = true) {
     const shell = document.querySelector('.settings-shell');
     const panel = document.getElementById('settingsPanel');
     const btn = document.getElementById('settingsToggleBtn');
     const chevron = document.getElementById('settingsToggleChevron');
     if (!shell || !panel) return;
+    const inner = panel.querySelector('.settings-panel-inner');
+    const changed = shell.classList.contains('is-open') !== !!open;
+    const fromHeight = panel.getBoundingClientRect().height;
+    const fromTransform = inner ? getComputedStyle(inner).transform : 'none';
+    if (panel._rollAnimation) {
+        panel._rollAnimation.height.cancel();
+        panel._rollAnimation.motion.cancel();
+        delete panel._rollAnimation;
+    }
+    shell.classList.remove('is-unrolling');
     shell.classList.toggle('is-open', !!open);
+    if (changed && persist && !isWin95DesktopMode() && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        animateSettingsRoll(shell, panel, !!open, fromHeight, fromTransform);
+    }
+    panel.inert = !open;
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
     document.body.classList.toggle('win95-settings-window-open', !!open && isWin95DesktopMode());
     if (open && isWin95DesktopMode()) {
         setWin95DesktopTaskActive('settings');
@@ -1755,6 +1817,17 @@ function toggleSettingsPanel() {
     }
     const shell = document.querySelector('.settings-shell');
     if (isWin95DesktopMode() && shell?.classList.contains('is-open')) return;
+    const trigger = document.getElementById('settingsToggleBtn');
+    const scrollContainer = _disclosureScrollContainer(trigger);
+    const previousAnchor = shell._rollAnchorPrevious ?? scrollContainer.style.overflowAnchor;
+    shell._rollAnchorPrevious = previousAnchor;
+    // Prevent the footer from becoming a moving scroll anchor as the roll grows.
+    scrollContainer.style.overflowAnchor = 'none';
+    window.clearTimeout(shell._rollAnchorTimer);
+    shell._rollAnchorTimer = window.setTimeout(() => {
+        scrollContainer.style.overflowAnchor = previousAnchor;
+        delete shell._rollAnchorPrevious;
+    }, 560);
     preserveDisclosureTriggerPosition(
         document.getElementById('settingsToggleBtn'),
         () => setSettingsPanelOpen(!(shell && shell.classList.contains('is-open')))
@@ -1910,12 +1983,11 @@ const SETTINGS_HELP_CONTENT = {
         intro: 'Hier stellst du ein, ob Missionen aus der lokalen Datenbank kommen oder ob Gemini oder OpenAI neue Auftraege erzeugen darf.',
         items: [
             { term: 'Schalter', text: 'Schaltet die KI-Missionen ein oder aus. Aus bedeutet: Die App nutzt feste lokale Aufträge.' },
-            { term: 'FUEL-Anzeige', text: 'Zeigt grob, wie viel Tageskontingent fuer KI-Anfragen noch uebrig ist.' },
             { term: 'API-Key', text: 'Optionale Provider-Schluessel fuer Gemini und OpenAI. Der aktive Provider bestimmt, welcher Key fuer Text und Voice genutzt wird.' },
             { term: 'Provider / Profil', text: 'Auto ist der Normalbetrieb, Sparsam priorisiert guenstigere Modelle, Qualitaet priorisiert staerkere Textmodelle. High Quality nutzt fuer Gemini zuerst Gemini 3.5 Flash.' },
             { term: 'Kosten grob', text: () => getAiCostEstimateText() },
             { term: 'Status', text: 'Zeigt, ob der Key zuletzt erfolgreich geprueft wurde.' },
-            { term: 'Sicherheit', text: 'Der Key wird nur in diesem Browser gespeichert und nicht in dein Profil geschrieben.' }
+            { term: 'Sicherheit', text: 'Der Key wird nur in diesem Browser gespeichert und nicht in dein Profil geschrieben. Browser-Erweiterungen oder ein kompromittiertes Gerät können lokale Daten trotzdem auslesen.' }
         ]
     },
     'pilot-sync': {
@@ -7240,11 +7312,20 @@ function updateAiCostEstimate() {
 }
 window.updateAiCostEstimate = updateAiCostEstimate;
 
+function updateAiProviderFields() {
+    const provider = getSelectedAiProvider();
+    const gemini = document.getElementById('aiKeyGemini');
+    const openai = document.getElementById('aiKeyOpenai');
+    if (gemini) gemini.hidden = provider !== 'gemini';
+    if (openai) openai.hidden = provider !== 'openai';
+}
+
 function saveAiProvider(provider) {
     const normalized = normalizeAiProvider(provider);
     localStorage.setItem(AI_PROVIDER_STORAGE_KEY, normalized);
     const select = document.getElementById('aiProviderSelect');
     if (select) select.value = normalized;
+    updateAiProviderFields();
     updateAiCostEstimate();
 }
 window.saveAiProvider = saveAiProvider;
@@ -7463,6 +7544,7 @@ function initAiProviderSettings() {
     setTimeout(() => promptForStartupApiKey(validation[provider]), 0);
     _bindAiKeyInput('gemini', 'apiKeyInput');
     _bindAiKeyInput('openai', 'openAiApiKeyInput');
+    updateAiProviderFields();
     updateAiCostEstimate();
 }
 
@@ -46900,60 +46982,194 @@ function logCurrentFlight() {
     alert('Das Flugbuch wird beim finalen Missionsabschluss automatisch geschrieben.');
 }
 
+// Presentation state only; flight records remain owned by the existing logbook store.
+const logbookView = { spread: 0, open: false, animating: false };
+const LOGBOOK_ENTRIES_PER_SPREAD = 4;
+function updateLogbookWidth() {
+    const stage = document.getElementById('logbookStage');
+    if (!stage) return;
+    const panel = stage.closest('.container') || stage.closest('.logbook');
+    const bounds = panel.getBoundingClientRect();
+    const inner = stage.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth;
+    stage.style.setProperty('--logbook-bleed-left', `${Math.max(0, inner.left - Math.max(3, bounds.left - 6))}px`);
+    stage.style.setProperty('--logbook-bleed-right', `${Math.max(0, Math.min(viewportWidth - 3, bounds.right + 6) - inner.right)}px`);
+}
+document.addEventListener('click', event => {
+    if (!logbookView.open || logbookView.animating) return;
+    const debrief = document.getElementById('flightDebriefOverlay');
+    if (debrief && getComputedStyle(debrief).display !== 'none') return;
+    const book = document.getElementById('logbookReading');
+    if (book && !book.contains(event.target)) toggleLogbook(false, { returnFocus: false });
+}, true);
+window.addEventListener('resize', () => {
+    if (logbookView.open) {
+        updateLogbookWidth();
+        const stage = document.getElementById('logbookStage');
+        if (stage?.dataset.closedWidth) stage.style.height = `${12 + (Number(stage.dataset.closedHeight) - 12) * stage.clientWidth / Number(stage.dataset.closedWidth)}px`;
+    }
+});
+async function toggleLogbook(open, options = {}) {
+    const stage = document.getElementById('logbookStage');
+    const cover = document.getElementById('logbookCover');
+    const reading = document.getElementById('logbookReading');
+    const pocket = stage?.querySelector('.logbook-pocket');
+    if (!stage || !cover || !reading || logbookView.animating || logbookView.open === !!open) return;
+    updateLogbookWidth();
+    logbookView.animating = true;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const animations = [];
+    const animate = async (element, frames, duration) => {
+        const animation = element.animate(frames, { duration: reduced ? 0 : duration, easing: 'cubic-bezier(.22,.7,.25,1)', fill: 'forwards' });
+        animations.push(animation);
+        try { await animation.finished; } catch (_) {}
+    };
+    try {
+        // Measure only the resting book. Closing reuses this geometry so showing
+        // the cover never briefly puts it back into the document flow.
+        if (open) {
+            const closedHeight = stage.getBoundingClientRect().height;
+            const pocketTop = pocket.offsetTop;
+            stage.dataset.closedHeight = String(closedHeight);
+            stage.dataset.closedWidth = String(stage.clientWidth);
+            stage.style.setProperty('--logbook-pocket-top', `${pocketTop}px`);
+            stage.style.setProperty('--logbook-extract-lift', `${Math.max(48, 12 + cover.offsetHeight - pocketTop + 20)}px`);
+        }
+        const lift = parseFloat(stage.style.getPropertyValue('--logbook-extract-lift'));
+        const closedHeight = 12 + (Number(stage.dataset.closedHeight) - 12) * stage.clientWidth / Number(stage.dataset.closedWidth);
+        stage.style.height = `${closedHeight}px`;
+        stage.classList.add('is-transitioning');
+        stage.classList.remove('is-open');
+        cover.hidden = false;
+        reading.hidden = false;
+        logbookView.open = !!open;
+        cover.setAttribute('aria-expanded', String(!!open));
+        renderLog();
+        const tucked = 'translateY(12px) rotate(-2deg)';
+        const extracted = `translateY(-${lift}px) rotate(0)`;
+        const foreground = 'translateY(18px) rotate(0) scale(1.035)';
+        const restingShadow = 'drop-shadow(5px 8px 6px #0009)';
+        const foregroundShadow = 'drop-shadow(10px 18px 14px #000b)';
+        if (open) {
+            reading.style.opacity = '0';
+            // The fixed leather pocket occludes the book until its lower edge clears the lip.
+            await animate(cover, [{ transform: tucked, opacity: 1, filter: restingShadow }, { transform: extracted, opacity: 1, filter: foregroundShadow }], 600);
+            // Once fully removed, bring the whole book down in front of the leather pocket.
+            stage.classList.add('is-foreground');
+            await animate(cover, [{ transform: extracted }, { transform: foreground }], 350);
+            await Promise.all([
+                animate(cover, [{ transform: foreground, opacity: 1 }, { transform: 'translateY(18px) rotateY(-75deg) scale(1.035)', opacity: 0 }], 300),
+                animate(reading, [{ opacity: 0, transform: 'perspective(1000px) rotateX(12deg) scale(.94)' }, { opacity: 1, transform: 'none' }], 300)
+            ]);
+        } else {
+            stage.classList.add('is-foreground');
+            await Promise.all([
+                animate(reading, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'perspective(1000px) rotateX(12deg) scale(.94)' }], 300),
+                animate(cover, [{ transform: 'translateY(18px) rotateY(-75deg) scale(1.035)', opacity: 0, filter: foregroundShadow }, { transform: foreground, opacity: 1, filter: foregroundShadow }], 300)
+            ]);
+            reading.style.opacity = '0';
+            await animate(cover, [{ transform: foreground }, { transform: extracted }], 350);
+            stage.classList.remove('is-foreground');
+            await animate(cover, [{ transform: extracted, filter: foregroundShadow }, { transform: tucked, filter: restingShadow }], 600);
+        }
+    } finally {
+        cover.hidden = logbookView.open;
+        reading.hidden = !logbookView.open;
+        stage.classList.toggle('is-open', logbookView.open);
+        stage.classList.remove('is-transitioning', 'is-foreground');
+        if (!logbookView.open) stage.style.height = '';
+        reading.style.opacity = '';
+        animations.forEach(animation => animation.cancel());
+        logbookView.animating = false;
+        const target = logbookView.open ? document.querySelector('.logbook-close') : cover;
+        if (options.returnFocus !== false) target?.focus({ preventScroll: true });
+    }
+}
+function turnLogbookPage(direction) {
+    const focusedButton = document.activeElement;
+    logbookView.spread += direction;
+    renderLog();
+    if (focusedButton?.disabled) {
+        document.getElementById(direction > 0 ? 'logbookPrev' : 'logbookNext').focus({ preventScroll: true });
+    }
+    const spread = document.getElementById('logContent');
+    if (spread && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        spread.animate([{ opacity: .35, transform: `translateX(${direction * 8}px)` }, { opacity: 1, transform: 'translateX(0)' }], { duration: 230, easing: 'ease-out' });
+    }
+}
 function renderLog() {
     let log = [];
     try { log = JSON.parse(localStorage.getItem('ga_logbook') || '[]'); } catch (_) {}
     if (!Array.isArray(log)) log = [];
+    log = log.filter(entry => entry && typeof entry === 'object');
     const container = document.getElementById('logContent');
     if (!container) return;
+    const perSpread = LOGBOOK_ENTRIES_PER_SPREAD;
+    const spreads = Math.max(1, Math.ceil(log.length / perSpread));
+    logbookView.spread = Math.max(0, Math.min(spreads - 1, logbookView.spread));
     container.replaceChildren();
+    const table = document.createElement('div');
+    table.className = 'logbook-table';
+    const header = document.createElement('div');
+    header.className = 'logbook-table-header';
+    const labels = ['Datum', 'Muster', 'Route', '', 'Dauer', 'NM', 'Notiz'];
+    labels.forEach(label => {
+        const cell = document.createElement('span');
+        cell.textContent = label;
+        header.appendChild(cell);
+    });
+    table.appendChild(header);
+    for (let row = 0; row < perSpread; row++) {
+        const e = log[logbookView.spread * perSpread + row];
+        const entry = document.createElement(e ? 'button' : 'div');
+        entry.className = `logbook-flight${e ? '' : ' logbook-blank'}`;
+        if (e) {
+            entry.type = 'button';
+            const seconds = e.durationSec == null ? NaN : Number(e.durationSec);
+            const minutes = Number.isFinite(seconds) ? Math.max(1, Math.round(seconds / 60)) : null;
+            const rawDistance = e.distanceNm ?? e.dist;
+            const distance = rawDistance == null || rawDistance === '' ? NaN : Number(rawDistance);
+            const rawDate = String(e.date || e.dateLabel || '—');
+            const date = rawDate.split(',')[0].trim();
+            const route = [e.start || e.depLabel || 'START', e.poiName, e.dest || e.arrLabel || 'LANDUNG'].filter(Boolean).join(' → ');
+            const values = [date, e.ac || e.aircraft || '—', route, '', minutes == null ? '—' : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`, Number.isFinite(distance) ? distance.toFixed(1) : '—', e.mission || e.missionTitle || 'Mission'];
+            values.forEach((value, index) => {
+                const cell = document.createElement('span');
+                cell.className = `logbook-cell logbook-cell-${index}`;
+                const ink = document.createElement('span');
+                ink.textContent = value;
+                cell.appendChild(ink);
+                entry.appendChild(cell);
+            });
+            entry.title = [rawDate, ...values.slice(1)].filter(Boolean).join(' — ');
+            entry.setAttribute('aria-label', entry.title);
+            entry.addEventListener('click', () => window.showFlightDebrief?.(e, { awaitingCleanup: false }));
+        } else {
+            for (let index = 0; index < 7; index++) {
+                const cell = document.createElement('span');
+                cell.className = `logbook-cell logbook-cell-${index}`;
+                entry.appendChild(cell);
+            }
+        }
+        table.appendChild(entry);
+    }
+    container.appendChild(table);
     if (!log.length) {
-        const empty = document.createElement('div');
-        empty.className = 'log-empty';
-        empty.textContent = 'Keine Einträge vorhanden.';
+        const empty = document.createElement('span');
+        empty.className = 'logbook-empty-note';
+        empty.textContent = 'Dein nächster Flug beginnt hier.';
         container.appendChild(empty);
-        return;
     }
-    const createLogEntry = (e, options = {}) => {
-        const div = document.createElement('button');
-        div.type = 'button';
-        div.className = `log-entry${options.current ? ' log-entry-current' : ''}`;
-        const meta = document.createElement('span');
-        meta.className = 'log-entry-meta';
-        const durationMin = e.durationSec != null && Number.isFinite(Number(e.durationSec)) ? `${Math.max(1, Math.round(Number(e.durationSec) / 60))} min` : '';
-        meta.textContent = [e.date || e.dateLabel || '', e.ac || e.aircraft || '', durationMin].filter(Boolean).join(' • ');
-        const route = document.createElement('strong');
-        route.className = 'log-entry-route';
-        route.textContent = e.poiName
-            ? `${e.start || e.depLabel || 'START'} ➔ ${e.poiName} ➔ ${e.dest || e.arrLabel || 'LANDUNG'}`
-            : `${e.start || e.depLabel || 'START'} ➔ ${e.dest || e.arrLabel || 'LANDUNG'}`;
-        const mission = document.createElement('span');
-        mission.className = 'log-entry-mission';
-        const rawDist = e.distanceNm ?? e.dist;
-        const dist = rawDist == null || rawDist === '' ? null : Number(rawDist);
-        mission.textContent = `${e.mission || e.missionTitle || 'Mission'}${Number.isFinite(dist) ? ` (${dist.toFixed(1)} NM)` : ''}`;
-        div.append(meta, route, mission);
-        div.addEventListener('click', () => {
-            if (typeof window.showFlightDebrief === 'function') window.showFlightDebrief(e, { awaitingCleanup: false });
-        });
-        return div;
-    };
-
-    const [currentEntry, ...olderEntries] = log;
-    container.appendChild(createLogEntry(currentEntry, { current: true }));
-
-    if (olderEntries.length) {
-        const history = document.createElement('details');
-        history.className = 'logbook-history';
-        const summary = document.createElement('summary');
-        summary.textContent = `${olderEntries.length} ältere ${olderEntries.length === 1 ? 'Eintrag' : 'Einträge'} anzeigen`;
-        summary.addEventListener('click', () => preserveDisclosureTriggerPosition(summary));
-        const entries = document.createElement('div');
-        entries.className = 'logbook-history-list';
-        olderEntries.forEach(entry => entries.appendChild(createLogEntry(entry)));
-        history.append(summary, entries);
-        container.appendChild(history);
+    for (let side = 0; side < 2; side++) {
+        const number = document.createElement('span');
+        number.className = `logbook-paper-number logbook-paper-number-${side}`;
+        number.textContent = `${logbookView.spread * 2 + side + 1} / ${spreads * 2}`;
+        container.appendChild(number);
     }
+    document.getElementById('logbookPrev').disabled = logbookView.spread === 0;
+    document.getElementById('logbookNext').disabled = logbookView.spread === spreads - 1;
+    document.getElementById('logbookPageLabel').textContent = `Seiten ${logbookView.spread * 2 + 1}–${logbookView.spread * 2 + 2} von ${spreads * 2}`;
+    document.getElementById('logbookCaption').textContent = `${log.length} ${log.length === 1 ? 'Flug' : 'Flüge'} · ${logbookView.open ? 'Eintrag für Details anklicken' : 'Anklicken zum Öffnen'}`;
 }
 window.renderLog = renderLog;
 function clearLog() { if (confirm("Gesamtes Logbuch löschen?")) { localStorage.removeItem('ga_logbook'); localStorage.removeItem('last_icao_dest'); renderLog(); triggerCloudSave(true); } }

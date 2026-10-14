@@ -334,3 +334,31 @@ body.theme-win95 #homebaseFrame { background: #008080; }
         border-radius: 0;
     }
 }
+
+/* A real paper sheet occluded by the separate leather pocket. */
+.homebase-blueprint-launch { position: relative; width: calc(100% - 30px); margin: 18px 15px 0; }
+.homebase-blueprint-button { position: relative; display: block; width: 100%; aspect-ratio: 1.65; padding: 0; border: 0; background: transparent; border-radius: 9px; text-align: left; cursor: pointer; isolation: isolate; }
+.homebase-blueprint-button:focus-visible { outline: 2px solid #b6daf0; outline-offset: 4px; }
+.homebase-blueprint-mask { position: absolute; inset: 0 0 6%; overflow: visible; clip-path: inset(-60px -16px 0 -16px); border-radius: 8px; }
+.homebase-blueprint-sheet { position: absolute; top: 8%; left: 5%; display: block; width: 90%; height: auto; transform: translateY(0) rotate(-.7deg); transform-origin: center center; }
+.homebase-blueprint-pocket { position: absolute; bottom: 0; left: 0; width: 100%; height: auto; z-index: 2; pointer-events: none; }
+.homebase-blueprint-button:hover .homebase-blueprint-sheet { filter: drop-shadow(3px 7px 5px #0007) brightness(1.05); }
+.homebase-blueprint-button:disabled { cursor: default; }
+.homebase-blueprint-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.homebase-blueprint-transition { position: fixed; inset: 0; z-index: 2147483000; overflow: hidden; pointer-events: auto; isolation: isolate; will-change: opacity; }
+.homebase-blueprint-veil { position: absolute; inset: 0; background: #124575; opacity: 0; }
+.homebase-blueprint-zoom { position: absolute; display: block; max-width: none; transform-origin: center center; will-change: transform, opacity; }
+@media (prefers-reduced-motion: reduce) {
+    .homebase-blueprint-zoom { will-change: auto; }
+}
+
+/* The designer frame shares its fixed blueprint style, irrespective of main UI skin. */
+#homebaseOverlay .homebase-overlay-window { background: #104675; border: 1px solid #ffffff73; border-radius: 3px; box-shadow: 0 12px 35px #00182f55; }
+#homebaseOverlay .homebase-overlay-titlebar { background: #104675; color: #ffffffe6; font: 700 12px 'Courier New', Courier, monospace; border-bottom: 1px solid #ffffff73; text-transform: none; letter-spacing: 0; }
+#homebaseOverlay .homebase-overlay-titlebar button { background: transparent; color: #ffffffe6; border: 1px solid #ffffffe6; border-radius: 2px; font: inherit; box-shadow: none; }
+#homebaseOverlay .homebase-overlay-titlebar button { background: transparent !important; color: #ffffffe6 !important; border: 1px solid #ffffffe6 !important; border-radius: 2px !important; box-shadow: none !important; text-shadow: none !important; }
+
+/* A shared upper-left light source: contact shadows sit down and to the right. */
+.homebase-blueprint-sheet { filter: drop-shadow(3px 7px 5px #0007); }
+.homebase-blueprint-pocket { filter: drop-shadow(3px 6px 5px #0009); }
+.homebase-blueprint-zoom { filter: drop-shadow(5px 12px 8px #0007); }

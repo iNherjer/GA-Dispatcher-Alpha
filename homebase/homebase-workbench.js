@@ -8,14 +8,12 @@
   const STANDALONE_PIN = String(URL_PARAMS.get('pin') || '').trim();
   const PARENT_ORIGIN = window.location.origin;
 
-  function applyWorkbenchTheme(value) {
-    const raw = String(value || '').trim().toLowerCase();
-    const theme = raw === 'win31' ? 'win95' : (['classic', 'retro', 'navcom', 'ops1940', 'win95'].includes(raw) ? raw : 'classic');
-    document.documentElement.dataset.theme = theme;
-    return theme;
+  // The designer is a blueprint workspace, independent of the parent cockpit skin.
+  function applyWorkbenchTheme() {
+    document.documentElement.dataset.theme = 'blueprint';
+    return 'blueprint';
   }
-
-  applyWorkbenchTheme(document.documentElement.dataset.theme || localStorage.getItem('ga_theme'));
+  applyWorkbenchTheme();
   const STORAGE_KEY = 'vfr-homebase-workbench-v2';
   const SYNC_META_KEY = 'vfr-homebase-workbench-sync-v1';
   const DEVICE_ID_KEY = 'vfr-homebase-device-id';

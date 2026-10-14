@@ -4,18 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>VFR Multitool Homebase Workbench</title>
-  <script>
-    (() => {
-      try {
-        const theme = localStorage.getItem('ga_theme');
-        document.documentElement.dataset.theme = ['classic', 'retro', 'navcom', 'ops1940', 'win95'].includes(theme) ? theme : 'classic';
-      } catch (_) {
-        document.documentElement.dataset.theme = 'classic';
-      }
-    })();
-  </script>
+  <script>document.documentElement.dataset.theme = 'blueprint';</script>
   <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-control-categories-20260724-01">
+  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-blueprint-20261014-01">
 </head>
 <body>
   <header class="topbar">
@@ -275,6 +266,6 @@
   <script src="../vendor/leaflet/leaflet.js"></script>
   <script src="./homebase-asset-catalog.js?v=homebase-proximity-automation-optout-20260816-01"></script>
   <script src="./homebase-route-core.js?v=homebase-route-planner-v1-20260721-01"></script>
-  <script src="./homebase-workbench.js?v=homebase-pavilion-door-controls-20260724-01"></script>
+  <script src="./homebase-workbench.js?v=homebase-blueprint-20261014-01"></script>
 </body>
 </html>

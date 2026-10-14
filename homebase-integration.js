@@ -65,21 +65,6 @@
   const overlay = () => document.getElementById('homebaseOverlay');
   const frame = () => document.getElementById('homebaseFrame');
 
-  function normalizeHomebaseTheme(value) {
-    const theme = String(value || '').trim().toLowerCase();
-    if (theme === 'win31') return 'win95';
-    return ['classic', 'retro', 'navcom', 'ops1940', 'win95'].includes(theme) ? theme : 'classic';
-  }
-
-  function currentHomebaseTheme() {
-    const body = document.body;
-    if (body?.classList.contains('theme-win95')) return 'win95';
-    if (body?.classList.contains('theme-ops1940')) return 'ops1940';
-    if (body?.classList.contains('theme-navcom')) return 'navcom';
-    if (body?.classList.contains('theme-retro')) return 'retro';
-    return normalizeHomebaseTheme(localStorage.getItem('ga_theme'));
-  }
-
   function postToWorkbench(kind, payload = {}) {
     const target = frame()?.contentWindow;
     if (!target) return false;
@@ -88,7 +73,7 @@
   }
 
   function syncHomebaseTheme() {
-    return postToWorkbench('theme-change', { theme: currentHomebaseTheme() });
+    return postToWorkbench('theme-change', { theme: 'blueprint' });
   }
 
   function relayMessage(payload) {
@@ -1412,26 +1397,153 @@
     applyCrewScene(window.lastLiveGpsPos, 'tracker-status');
   }
 
-  function openHomebaseEnvironment() {
+  const BLUEPRINT_ZOOM_MS = 1100 / 1.3;
+  const BLUEPRINT_PULL_MS = 380 / 1.3;
+  const blueprintTransition = { busy: false, openedFromPocket: false, scrollX: 0, scrollY: 0 };
+  const blueprintButton = () => document.getElementById('homebaseBlueprintLaunch');
+  const blueprintSheet = () => document.getElementById('homebaseBlueprintSheet');
+  function prepareHomebaseBlueprint() {
+    if (frame()) frame().loading = 'eager';
+  }
+  const blueprintReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  async function blueprintAnimate(element, frames, duration, easing = 'cubic-bezier(.22,.7,.25,1)') {
+    const animation = element.animate(frames, { duration, easing, fill: 'forwards' });
+    try { await animation.finished; } catch (_) {}
+    return animation;
+  }
+  function blueprintPortal(rect) {
+    const root = document.createElement('div');
+    root.className = 'homebase-blueprint-transition';
+    root.setAttribute('aria-hidden', 'true');
+    const veil = document.createElement('div');
+    veil.className = 'homebase-blueprint-veil';
+    const paper = document.createElement('img');
+    paper.className = 'homebase-blueprint-zoom';
+    paper.src = blueprintSheet().currentSrc || blueprintSheet().src;
+    paper.alt = '';
+    Object.assign(paper.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
+    root.append(veil, paper);
+    root.addEventListener('wheel', event => event.preventDefault(), { passive: false });
+    root.addEventListener('touchmove', event => event.preventDefault(), { passive: false });
+    document.body.appendChild(root);
+    const scale = Math.max(window.innerWidth / rect.width, window.innerHeight / rect.height) * 2.8;
+    const dx = window.innerWidth / 2 - (rect.left + rect.width / 2);
+    const dy = window.innerHeight / 2 - (rect.top + rect.height / 2);
+    return { root, veil, paper, coverProgress: (scale / 2.8 * 1.08 - 1) / (scale - 1), coverZoom: `translate(${dx}px, ${dy}px) scale(${scale / 2.8 * 1.08})`, zoom: `translate(${dx}px, ${dy}px) scale(${scale})` };
+  }
+  function showHomebaseEnvironment() {
     const element = overlay();
     if (!element) return;
     element.hidden = false;
     element.classList.add('active');
     document.body.classList.add('homebase-environment-open');
+    blueprintButton()?.setAttribute('aria-expanded', 'true');
     setTimeout(() => {
       frame()?.focus();
       syncHomebaseTheme();
       postToWorkbench('environment-opened');
     }, 0);
   }
-
-  function closeHomebaseEnvironment() {
+  function hideHomebaseEnvironment() {
     const element = overlay();
     if (!element) return;
     element.classList.remove('active');
     element.hidden = true;
     document.body.classList.remove('homebase-environment-open');
+    blueprintButton()?.setAttribute('aria-expanded', 'false');
     flushHomebaseDraft('workbench-close');
+  }
+  async function openHomebaseEnvironment() {
+    if (blueprintTransition.busy || overlay()?.classList.contains('active')) return;
+    const sheet = blueprintSheet();
+    const button = blueprintButton();
+    if (!sheet || !button || blueprintReducedMotion()) {
+      blueprintTransition.openedFromPocket = false;
+      showHomebaseEnvironment();
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    if (rect.bottom <= 0 || rect.top >= window.innerHeight || !sheet.complete || !sheet.naturalWidth) {
+      blueprintTransition.openedFromPocket = false;
+      showHomebaseEnvironment();
+      return;
+    }
+    blueprintTransition.busy = true;
+    blueprintTransition.openedFromPocket = true;
+    blueprintTransition.scrollX = window.scrollX;
+    blueprintTransition.scrollY = window.scrollY;
+    button.disabled = true;
+    prepareHomebaseBlueprint();
+    let portal;
+    let pull;
+    try {
+      pull = await blueprintAnimate(sheet, [{ transform: 'translateY(0) rotate(-.7deg)' }, { transform: 'translateY(-32px) rotate(0)' }], BLUEPRINT_PULL_MS);
+      portal = blueprintPortal(sheet.getBoundingClientRect());
+      // One uninterrupted zoom; fading only changes opacity, never transform.
+      const zoom = portal.paper.animate([{ transform: 'none', offset: 0 }, { transform: portal.coverZoom, offset: portal.coverProgress }, { transform: portal.zoom, offset: 1 }], { duration: BLUEPRINT_ZOOM_MS, easing: 'linear', fill: 'forwards' });
+      portal.veil.style.opacity = '1';
+      await new Promise(resolve => {
+        const checkCoverage = () => {
+          // Geometry is known from the portal keyframes. Use the animation
+          // clock, avoiding delayed compositor bounds updates in Safari.
+          if (Number(zoom.currentTime) >= BLUEPRINT_ZOOM_MS * portal.coverProgress || zoom.playState === 'finished') resolve();
+          else requestAnimationFrame(checkCoverage);
+        };
+        requestAnimationFrame(checkCoverage);
+      });
+      showHomebaseEnvironment();
+      await Promise.all([
+        zoom.finished,
+        // Fade the entire composited layer, including its opaque backing.
+        blueprintAnimate(portal.root, [{ opacity: 1 }, { opacity: 0 }], Math.max(1, BLUEPRINT_ZOOM_MS - Number(zoom.currentTime)), 'linear')
+      ]);
+    } finally {
+      if (!overlay()?.classList.contains('active')) showHomebaseEnvironment();
+      portal?.root.remove();
+      pull?.cancel();
+      button.disabled = false;
+      blueprintTransition.busy = false;
+    }
+  }
+  async function closeHomebaseEnvironment() {
+    if (blueprintTransition.busy || !overlay()?.classList.contains('active')) return;
+    const sheet = blueprintSheet();
+    const button = blueprintButton();
+    if (!blueprintTransition.openedFromPocket || !sheet || !button || blueprintReducedMotion()) {
+      hideHomebaseEnvironment();
+      button?.focus({ preventScroll: true });
+      return;
+    }
+    blueprintTransition.busy = true;
+    button.disabled = true;
+    let portal;
+    let pull;
+    try {
+      // The main page remains at its saved position behind the workbench.
+      pull = await blueprintAnimate(sheet, [{ transform: 'translateY(-32px) rotate(0)' }, { transform: 'translateY(-32px) rotate(0)' }], 0);
+      portal = blueprintPortal(sheet.getBoundingClientRect());
+      // Reverse the same continuous zoom while the paper fades in. Switch
+      // underneath it once it is opaque, then keep shrinking into the pocket.
+      const zoom = portal.paper.animate([{ transform: portal.zoom, offset: 0 }, { transform: portal.coverZoom, offset: 1 - portal.coverProgress }, { transform: 'none', offset: 1 }], { duration: BLUEPRINT_ZOOM_MS, easing: 'linear', fill: 'forwards' });
+      portal.veil.style.opacity = '1';
+      await blueprintAnimate(portal.root, [{ opacity: 0 }, { opacity: 1 }], BLUEPRINT_ZOOM_MS * (1 - portal.coverProgress), 'linear');
+      hideHomebaseEnvironment();
+      window.scrollTo(blueprintTransition.scrollX, blueprintTransition.scrollY);
+      await Promise.all([
+        zoom.finished,
+        blueprintAnimate(portal.veil, [{ opacity: 1 }, { opacity: 0 }], Math.max(0, BLUEPRINT_ZOOM_MS - Number(zoom.currentTime)), 'linear')
+      ]);
+      portal.root.remove();
+      await blueprintAnimate(sheet, [{ transform: 'translateY(-32px) rotate(0)' }, { transform: 'translateY(0) rotate(-.7deg)' }], BLUEPRINT_PULL_MS);
+    } finally {
+      portal?.root.remove();
+      pull?.cancel();
+      sheet.getAnimations().forEach(animation => animation.cancel());
+      button.disabled = false;
+      blueprintTransition.busy = false;
+      blueprintTransition.openedFromPocket = false;
+      button.focus({ preventScroll: true });
+    }
   }
 
   window.addEventListener('message', (event) => {
@@ -1500,16 +1612,7 @@
   window.addEventListener('homebasetelemetry', handleTelemetry);
   window.addEventListener('gatrackercapabilitieschange', handleTrackerCapabilitiesChange);
 
-  if (document.body && typeof MutationObserver === 'function') {
-    let lastTheme = currentHomebaseTheme();
-    new MutationObserver(() => {
-      const nextTheme = currentHomebaseTheme();
-      if (nextTheme === lastTheme) return;
-      lastTheme = nextTheme;
-      syncHomebaseTheme();
-    }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  }
-
+  window.prepareHomebaseBlueprint = prepareHomebaseBlueprint;
   window.openHomebaseEnvironment = openHomebaseEnvironment;
   window.closeHomebaseEnvironment = closeHomebaseEnvironment;
   window.homebaseUpdateAssetStatus = updateAssetStatus;

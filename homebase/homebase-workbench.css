@@ -665,3 +665,83 @@ html[data-theme="win95"] .homebase-control-tile.is-active .homebase-control-pict
 @media (max-width: 560px) {
   html[data-theme="win95"] .map-panel { height: 43vh; min-height: 310px; }
 }
+
+/* Fixed blueprint workspace: no dependency on the cockpit's selected skin. */
+html[data-theme="blueprint"] body::before { content: ''; position: fixed; inset: 0; z-index: 1200; pointer-events: none; opacity: .13; mix-blend-mode: soft-light; background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22384%22%20height%3D%22384%22%3E%3Cfilter%20id%3D%22paper%22%3E%3CfeTurbulence%20type%3D%22fractalNoise%22%20baseFrequency%3D%22.65%22%20numOctaves%3D%223%22%20seed%3D%229%22%20stitchTiles%3D%22stitch%22%2F%3E%3CfeColorMatrix%20type%3D%22saturate%22%20values%3D%220%22%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20filter%3D%22url(%23paper)%22%20opacity%3D%22.65%22%2F%3E%3C%2Fsvg%3E") repeat; }
+html[data-theme="blueprint"] {
+  color-scheme: dark;
+  --bg: #104675; --panel: #124b7d; --card: transparent;
+  --line: rgba(255,255,255,.45); --text: rgba(255,255,255,.9);
+  --muted: rgba(255,255,255,.9); --lime: rgba(255,255,255,.9);
+  --cyan: rgba(255,255,255,.9); --orange: rgba(255,255,255,.9);
+  --red: rgba(255,255,255,.9); --shadow: 0 4px 14px rgba(4,22,45,.16);
+}
+html[data-theme="blueprint"] body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse at 13% 29%, #031e3542, transparent 22%),
+    radial-gradient(ellipse at 92% 78%, #08203560, transparent 26%),
+    radial-gradient(ellipse at 62% 8%, #e6d5a522, transparent 18%),
+    linear-gradient(90deg, transparent 32%, #ffffff0a 32.2%, #001a3430 32.5%, transparent 33%),
+    repeating-linear-gradient(0deg, transparent 0 31px, #ffffff0b 31px 32px),
+    repeating-linear-gradient(90deg, transparent 0 31px, #ffffff0b 31px 32px),
+    linear-gradient(145deg, #195985, #10416f 65%, #164f7a);
+  font-family: 'Courier New', Courier, monospace;
+}
+html[data-theme="blueprint"] .topbar { background: #104675ed; backdrop-filter: none; box-shadow: none; }
+html[data-theme="blueprint"] .topbar h1 { font-family: 'Courier New', Courier, monospace; letter-spacing: -.035em; color: var(--text); }
+html[data-theme="blueprint"] .control-panel { background: transparent; }
+html[data-theme="blueprint"] .card { background: #0c335321; border-radius: 3px; box-shadow: none; border-color: var(--line); }
+html[data-theme="blueprint"] button,
+html[data-theme="blueprint"] button.primary,
+html[data-theme="blueprint"] button.secondary,
+html[data-theme="blueprint"] button.danger,
+html[data-theme="blueprint"] input,
+html[data-theme="blueprint"] select,
+html[data-theme="blueprint"] input[readonly] { color: var(--text); background: #ffffff08; border: 1px solid var(--line); border-radius: 2px; box-shadow: none; }
+html[data-theme="blueprint"] button.primary { background: #ffffff14; border-color: #ffffffe6; }
+html[data-theme="blueprint"] button.danger { border-style: dashed; }
+html[data-theme="blueprint"] button:hover { background: #ffffff1c; border-color: #ffffffe6; }
+html[data-theme="blueprint"] button:focus-visible,
+html[data-theme="blueprint"] input:focus-visible,
+html[data-theme="blueprint"] select:focus-visible { outline: 2px solid #ffffffe6; outline-offset: 2px; box-shadow: none; }
+html[data-theme="blueprint"] input[type="range"], html[data-theme="blueprint"] input[type="checkbox"] { accent-color: #ffffffe6; }
+html[data-theme="blueprint"] .pill,
+html[data-theme="blueprint"] .pill.ok,
+html[data-theme="blueprint"] .pill.warn,
+html[data-theme="blueprint"] .pill.bad { color: var(--text); background: transparent; border-color: var(--line); border-radius: 3px; }
+html[data-theme="blueprint"] .pill.warn, html[data-theme="blueprint"] .pill.bad { border-style: dashed; }
+html[data-theme="blueprint"] .map-legend,
+html[data-theme="blueprint"] .map-hint { background: #104675eb; color: var(--text); border-radius: 2px; backdrop-filter: none; box-shadow: none; }
+html[data-theme="blueprint"] #map { background: #104675; }
+html[data-theme="blueprint"] .leaflet-tile-pane { filter: grayscale(1) invert(1); mix-blend-mode: screen; opacity: .7; }
+html[data-theme="blueprint"] .leaflet-overlay-pane path { stroke: #ffffffe6; }
+html[data-theme="blueprint"] .leaflet-overlay-pane path[fill]:not([fill="none"]) { fill: #ffffff; fill-opacity: .08; }
+html[data-theme="blueprint"] .plane-icon,
+html[data-theme="blueprint"] .spawn-icon,
+html[data-theme="blueprint"] .hangar-icon,
+html[data-theme="blueprint"] .object-icon,
+html[data-theme="blueprint"] .object-icon.selected,
+html[data-theme="blueprint"] .route-debug-start-icon,
+html[data-theme="blueprint"] .route-debug-target-icon { background: #104675; color: var(--text); border-color: #ffffffe6; box-shadow: none; }
+html[data-theme="blueprint"] .object-icon.selected { box-shadow: 0 0 0 3px #ffffff38; }
+html[data-theme="blueprint"] .legend-dot, html[data-theme="blueprint"] .legend-box { background: #ffffffe6; border-color: #ffffffe6; }
+html[data-theme="blueprint"] .object-list-item,
+html[data-theme="blueprint"] .object-list-item.active,
+html[data-theme="blueprint"] .build-progress,
+html[data-theme="blueprint"] .log-card pre { color: var(--text); background: #ffffff08; border-color: var(--line); border-radius: 2px; }
+html[data-theme="blueprint"] .result-line,
+html[data-theme="blueprint"] .result-line.ok,
+html[data-theme="blueprint"] .result-line.bad { color: var(--text); }
+html[data-theme="blueprint"] .leaflet-control-attribution { background: #104675dd !important; color: var(--text); }
+html[data-theme="blueprint"] .leaflet-control-zoom a { background: #104675; color: var(--text); border-color: var(--line); }
+html[data-theme="blueprint"] .object-index { background: transparent; color: var(--text); border: 1px solid #ffffffe6; }
+html[data-theme="blueprint"] .object-list-item.selected { background: #ffffff14; border-color: #ffffffe6; box-shadow: none; }
+html[data-theme="blueprint"] .route-swatch, html[data-theme="blueprint"] .route-swatch-path { background: #ffffffe6; }
+html[data-theme="blueprint"] .route-swatch-raw { background: repeating-linear-gradient(90deg, #ffffffe6 0 4px, transparent 4px 7px); }
+html[data-theme="blueprint"] .probe-row, html[data-theme="blueprint"] .person-stop, html[data-theme="blueprint"] .route-debug-panel { background: #ffffff05; border-color: var(--line); }
+html[data-theme="blueprint"] .progress-track { background: #ffffff15; }
+html[data-theme="blueprint"] #map {
+  background-image: radial-gradient(ellipse at 9% 35%, #041f3c55, transparent 32%), radial-gradient(ellipse at 84% 82%, #ccba8d16, transparent 22%), linear-gradient(90deg, transparent 47.5%, #ffffff0b 48%, #001b3438 48.3%, transparent 49%), repeating-linear-gradient(0deg, transparent 0 31px, #ffffff08 31px 32px), repeating-linear-gradient(90deg, transparent 0 31px, #ffffff08 31px 32px);
+}
+html[data-theme="blueprint"] .object-index { filter: grayscale(1); }
