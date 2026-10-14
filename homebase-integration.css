@@ -362,3 +362,8 @@ body.theme-win95 #homebaseFrame { background: #008080; }
 .homebase-blueprint-sheet { filter: drop-shadow(3px 7px 5px #0007); }
 .homebase-blueprint-pocket { filter: drop-shadow(3px 6px 5px #0009); }
 .homebase-blueprint-zoom { filter: drop-shadow(5px 12px 8px #0007); }
+
+/* The designer owns the foreground above map-table/pinboard drawer windows. */
+#homebaseOverlay { z-index: 130000; }
+body #mapTableOverlay.homebase-background-suspended,
+body #pinboardOverlay.homebase-background-suspended { display: none !important; }

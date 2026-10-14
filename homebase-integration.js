@@ -1431,9 +1431,37 @@
     const dy = window.innerHeight / 2 - (rect.top + rect.height / 2);
     return { root, veil, paper, coverProgress: (scale / 2.8 * 1.08 - 1) / (scale - 1), coverZoom: `translate(${dx}px, ${dy}px) scale(${scale / 2.8 * 1.08})`, zoom: `translate(${dx}px, ${dy}px) scale(${scale})` };
   }
+  let suspendedBackgroundViews = null;
+  function suspendHomebaseBackground() {
+    if (suspendedBackgroundViews) return;
+    suspendedBackgroundViews = ['mapTableOverlay', 'pinboardOverlay']
+      .map(id => document.getElementById(id))
+      .filter(element => element?.classList.contains('active'))
+      .map(element => ({ element, inert: element.inert }));
+    suspendedBackgroundViews.forEach(({ element }) => {
+      element.inert = true;
+      element.classList.add('homebase-background-suspended');
+    });
+    if (suspendedBackgroundViews.some(({ element }) => element.id === 'mapTableOverlay')) {
+      window.vpPauseMapProfile?.('homebase-designer');
+    }
+  }
+  function restoreHomebaseBackground() {
+    const previous = suspendedBackgroundViews || [];
+    suspendedBackgroundViews = null;
+    previous.forEach(({ element, inert }) => {
+      element.inert = inert;
+      element.classList.remove('homebase-background-suspended');
+    });
+    if (previous.some(({ element }) => element.id === 'mapTableOverlay' && element.classList.contains('active'))) {
+      window.vpResumeMapProfile?.('homebase-designer-close');
+      requestAnimationFrame(() => window.gaRequestLiveMapVisualRefresh?.('homebase-designer-close'));
+    }
+  }
   function showHomebaseEnvironment() {
     const element = overlay();
     if (!element) return;
+    suspendHomebaseBackground();
     element.hidden = false;
     element.classList.add('active');
     document.body.classList.add('homebase-environment-open');
@@ -1450,6 +1478,7 @@
     element.classList.remove('active');
     element.hidden = true;
     document.body.classList.remove('homebase-environment-open');
+    restoreHomebaseBackground();
     blueprintButton()?.setAttribute('aria-expanded', 'false');
     flushHomebaseDraft('workbench-close');
   }
