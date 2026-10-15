@@ -1,6 +1,7 @@
 .ga-media-layer { position:absolute; inset:0; pointer-events:none; z-index:130600; font-family:Arial, sans-serif; }
 .ga-media-device, .ga-media-launcher { position:absolute; pointer-events:auto; box-sizing:border-box; touch-action:none; user-select:none; }
 .ga-media-device { width:640px; height:264px; transform-origin:top left; color:#dce5e6; padding:7px 9px 10px; background:linear-gradient(135deg,#423d59,#272238 46%,#1d1b2a); border:3px solid #11101a; box-shadow:inset 2px 2px #77748c,inset -2px -2px #090b15,0 13px 25px #0008; }
+.ga-media-device, .ga-media-launcher, .ga-media-device *, .ga-media-launcher * { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
 .ga-media-device *, .ga-media-launcher * { box-sizing:border-box; }
 .ga-media-device[hidden], .ga-media-launcher[hidden] { display:none; }
 .ga-media-header { display:flex; align-items:center; gap:9px; height:24px; margin-bottom:10px; cursor:grab; border-bottom:2px solid #151323; }

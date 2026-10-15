@@ -195,7 +195,7 @@
     var host = options.host || document.body,
       layer = document.createElement('div');
     layer.className = 'ga-media-layer';
-    layer.innerHTML = '<button type="button" class="ga-media-launcher" aria-label="Mediensteuerung öffnen">𝄞</button><section class="ga-media-device ga-media-ipod" role="region" aria-label="iPod Mediensteuerung" hidden><div class="ga-ipod-drag" title="iPod verschieben"><span>HOLD</span><i></i></div><div class="ga-ipod-lcd"><canvas width="240" height="180" role="img" aria-label="Musikdisplay"></canvas><button type="button" class="ga-ipod-button ga-ipod-zoom ga-ipod-minus" data-zoom="-1" aria-label="Gerät verkleinern">−</button><button type="button" class="ga-ipod-button ga-ipod-zoom ga-ipod-plus" data-zoom="1" aria-label="Gerät vergrößern">+</button><div class="ga-ipod-screen-menu" role="group" aria-label="Musik-App auswählen" hidden></div><span class="ga-ipod-readable" aria-live="polite"></span><output class="ga-ipod-readable ga-ipod-zoom-value" aria-label="Gerätegröße"></output></div><div class="ga-ipod-wheel" role="slider" tabindex="0" aria-label="Musiklautstärke per Clickwheel" aria-valuemin="0" aria-valuemax="100"><button type="button" class="ga-ipod-button ga-ipod-menu" data-ipod-action="menu" aria-label="Gerätemenü" aria-expanded="false">MENU</button><button type="button" class="ga-ipod-button ga-ipod-previous" data-ipod-action="previous" aria-label="Vorheriger Titel"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M4 4h2v16H4z M15 4v16L6 12z M24 4v16l-9-8z"/></svg></button><button type="button" class="ga-ipod-button ga-ipod-next" data-ipod-action="next" aria-label="Nächster Titel"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M22 4h2v16h-2z M13 4l9 8-9 8z M4 4l9 8-9 8z"/></svg></button><button type="button" class="ga-ipod-button ga-ipod-toggle" data-ipod-action="toggle" aria-label="Abspielen oder pausieren"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M3 4l11 8-11 8z M17 4h3v16h-3z M23 4h3v16h-3z"/></svg></button><button type="button" class="ga-ipod-button ga-ipod-center" data-ipod-action="source" aria-label="Nächste Musik-App" title="Musik-App wechseln"></button></div></section>';
+    layer.innerHTML = '<button type="button" class="ga-media-launcher" aria-label="Mediensteuerung öffnen">𝄞</button><section class="ga-media-device ga-media-ipod" role="region" aria-label="iPod Mediensteuerung" hidden><div class="ga-ipod-drag" title="iPod verschieben"><span>HOLD</span><i></i></div><div class="ga-ipod-lcd"><canvas width="240" height="180" role="img" aria-label="Musikdisplay"></canvas><button type="button" class="ga-ipod-button ga-ipod-zoom ga-ipod-minus" data-zoom="-1" aria-label="Gerät verkleinern">−</button><button type="button" class="ga-ipod-button ga-ipod-zoom ga-ipod-plus" data-zoom="1" aria-label="Gerät vergrößern">+</button><div class="ga-ipod-screen-menu" role="group" aria-label="Musik-App auswählen" hidden></div><span class="ga-ipod-readable" aria-live="polite"></span><output class="ga-ipod-readable ga-ipod-zoom-value" aria-label="Gerätegröße"></output></div><div class="ga-ipod-wheel" role="slider" tabindex="0" aria-label="Musiklautstärke per Clickwheel" aria-valuemin="0" aria-valuemax="100"><button type="button" class="ga-ipod-button ga-ipod-menu" data-ipod-action="menu" aria-label="Gerätemenü" title="MENU: Zurück · Gedrückt halten: Schließen" aria-expanded="false">MENU</button><button type="button" class="ga-ipod-button ga-ipod-previous" data-ipod-action="previous" aria-label="Vorheriger Titel"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M4 4h2v16H4z M15 4v16L6 12z M24 4v16l-9-8z"/></svg></button><button type="button" class="ga-ipod-button ga-ipod-next" data-ipod-action="next" aria-label="Nächster Titel"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M22 4h2v16h-2z M13 4l9 8-9 8z M4 4l9 8-9 8z"/></svg></button><button type="button" class="ga-ipod-button ga-ipod-toggle" data-ipod-action="toggle" aria-label="Abspielen oder pausieren"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M3 4l11 8-11 8z M17 4h3v16h-3z M23 4h3v16h-3z"/></svg></button><button type="button" class="ga-ipod-button ga-ipod-center" data-ipod-action="source" aria-label="Nächste Musik-App" title="Musik-App wechseln"></button></div></section>';
     host.appendChild(layer);
     var device = layer.querySelector('.ga-media-device'),
       launcher = layer.querySelector('.ga-media-launcher'),
@@ -211,7 +211,12 @@
       menu = layer.querySelector(".ga-ipod-screen-menu");
     var game = null,
       gameFrame = null,
-      gameAt = 0;
+      gameAt = 0,
+      menuHold = null;
+    function clearMenuHold() {
+      clearTimeout(menuHold);
+      menuHold = null;
+    }
     var seekMode = false,
       seekPreview = null,
       seekIdentity = '',
@@ -424,6 +429,10 @@
     }
     function show(value) {
       open = value;
+      if (!value) {
+        clearMenuHold();
+        gesture = null;
+      }
       if (!value) pauseGame();
       if (!value) {
         menuOpen = false;
@@ -689,6 +698,7 @@
     }
     wheel.addEventListener('pointerdown', function (e) {
       wheelIgnore = 0;
+      clearMenuHold();
       if (e.button !== 0 || e.target.closest('.ga-ipod-center')) return;
       var r = wheel.getBoundingClientRect(),
         dx = e.clientX - (r.left + r.width / 2),
@@ -707,13 +717,27 @@
         duration: state.durationSeconds,
         identity: identity(),
         steps: 0,
-        button: e.target.closest('[data-ipod-action]')
+        button: e.target.closest('[data-ipod-action]'),
+        px: e.clientX,
+        py: e.clientY
       };
+      if (gesture.button && gesture.button.dataset.ipodAction === 'menu') {
+        var held = gesture;
+        menuHold = setTimeout(function () {
+          menuHold = null;
+          if (gesture !== held || held.moved || destroyed) return;
+          gesture = null;
+          wheelIgnore = Date.now() + 500;
+          ignoreClick = Date.now() + 500;
+          act('close');
+        }, 700);
+      }
       wheel.setPointerCapture(e.pointerId);
       e.preventDefault();
     });
     wheel.addEventListener('pointermove', function (e) {
       if (!gesture || gesture.id !== e.pointerId) return;
+      if (Math.abs(e.clientX - gesture.px) + Math.abs(e.clientY - gesture.py) > 8) clearMenuHold();
       var r = wheel.getBoundingClientRect(),
         dx = e.clientX - r.left - r.width / 2,
         dy = e.clientY - r.top - r.height / 2;
@@ -724,7 +748,10 @@
       if (delta < -Math.PI) delta += Math.PI * 2;
       gesture.angle = angle;
       gesture.total += delta;
-      if (Math.abs(gesture.total) > .045) gesture.moved = true;
+      if (Math.abs(gesture.total) > .045) {
+        gesture.moved = true;
+        clearMenuHold();
+      }
       if (gesture.moved && gesture.game) {
         game.move(delta / (Math.PI * 2) * 240);
         paint();
@@ -746,6 +773,7 @@
     });
     function wheelEnd(e) {
       if (!gesture || gesture.id !== e.pointerId) return;
+      clearMenuHold();
       var g = gesture;
       gesture = null;
       wheelIgnore = Date.now() + 400;
@@ -759,7 +787,7 @@
     wheel.addEventListener('lostpointercapture', wheelEnd);
     wheel.addEventListener('click', function (e) {
       var button = e.target.closest('[data-ipod-action]');
-      if (button && !button.disabled && (e.detail === 0 || Date.now() > wheelIgnore)) act(button.dataset.ipodAction);
+      if (button && !button.disabled && Date.now() > ignoreClick && (e.detail === 0 || Date.now() > wheelIgnore)) act(button.dataset.ipodAction);
       e.preventDefault();
       e.stopPropagation();
     });
@@ -834,11 +862,16 @@
       el.addEventListener('pointerup', dragEnd);
       el.addEventListener('pointercancel', dragEnd);
     });
-    layer.addEventListener('pointerdown', function (e) {
-      e.stopPropagation();
+    ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'touchstart', 'touchmove', 'touchend', 'touchcancel', 'mousedown', 'mousemove', 'mouseup', 'dblclick', 'wheel'].forEach(function (type) {
+      layer.addEventListener(type, function (e) {
+        e.stopPropagation();
+      }, false);
     });
-    layer.addEventListener('wheel', function (e) {
-      e.stopPropagation();
+    ['contextmenu', 'selectstart'].forEach(function (type) {
+      layer.addEventListener(type, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      });
     });
     function update(value) {
       var oldIdentity = identity();
@@ -898,12 +931,17 @@
       },
       setEnabled: function setEnabled(value) {
         enabled = !!value;
-        if (!enabled) pauseGame();
+        if (!enabled) {
+          pauseGame();
+          clearMenuHold();
+          gesture = null;
+        }
         refreshMenu();
         layout();
         if (options.onVisibilityChange) options.onVisibilityChange(enabled && open);
       },
       destroy: function destroy() {
+        clearMenuHold();
         pauseGame();
         document.removeEventListener('visibilitychange', visibility);
         flush();

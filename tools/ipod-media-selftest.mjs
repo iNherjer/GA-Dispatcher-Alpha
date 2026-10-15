@@ -87,5 +87,19 @@ try{
  await page.evaluate(()=>{sample.connected=true;sample.volumeAvailable=true;player.update(sample);});assert.ok(await page.getByRole('button',{name:'Vorheriger Titel',exact:true}).isEnabled());
  // Full-size visual proof on a fresh device; game is paused for a deterministic image.
  await page.goto('http://127.0.0.1:'+server.address().port+'/?skin=ipod');await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Extras',exact:true}).click();await page.getByRole('button',{name:'Breakout',exact:true}).click();await device.screenshot({path:folder+'/ipod-breakout.png'});
+ // Long MENU closes from gameplay; release must not reopen or fire a short MENU.
+ const holdBox=await page.getByRole('button',{name:'Gerätemenü',exact:true}).boundingBox();
+ await page.mouse.move(holdBox.x+holdBox.width/2,holdBox.y+holdBox.height/2);await page.mouse.down();await page.waitForTimeout(800);assert.ok(await device.isHidden());await page.mouse.up();await page.waitForTimeout(100);assert.ok(await device.isHidden());
+ await page.waitForTimeout(500);await page.getByRole('button',{name:'Mediensteuerung öffnen'}).click();assert.ok(await device.isVisible());
+ // Real touch hold also collapses and the browser's selection/context events stay inside the device.
+ const holdTouch=await page.getByRole('button',{name:'Gerätemenü',exact:true}).boundingBox();
+ await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:holdTouch.x+holdTouch.width/2,y:holdTouch.y+holdTouch.height/2}]});await page.waitForTimeout(800);assert.ok(await device.isHidden());await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(550);assert.ok(await device.isHidden());
+ await page.getByRole('button',{name:'Mediensteuerung öffnen'}).click();
+ const guard=await page.locator('.ga-ipod-menu').evaluate(el=>{var leaked=0;function outside(){leaked++;}document.body.addEventListener('touchstart',outside);document.body.addEventListener('contextmenu',outside);document.body.addEventListener('selectstart',outside);var context=new Event('contextmenu',{bubbles:true,cancelable:true}),selection=new Event('selectstart',{bubbles:true,cancelable:true});el.dispatchEvent(new Event('touchstart',{bubbles:true}));el.dispatchEvent(context);el.dispatchEvent(selection);document.body.removeEventListener('touchstart',outside);document.body.removeEventListener('contextmenu',outside);document.body.removeEventListener('selectstart',outside);return {leaked:leaked,context:context.defaultPrevented,selection:selection.defaultPrevented,userSelect:getComputedStyle(el).webkitUserSelect};});
+ assert.equal(guard.leaked,0);assert.equal(guard.context,true);assert.equal(guard.selection,true);assert.equal(guard.userSelect,'none');
+ // Cancellation and turning on MENU do not close the device later.
+ const canceled=await page.getByRole('button',{name:'Gerätemenü',exact:true}).boundingBox();
+ await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:canceled.x+canceled.width/2,y:canceled.y+canceled.height/2}]});await session.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await page.waitForTimeout(800);assert.ok(await device.isVisible());
+ await page.mouse.move(canceled.x+canceled.width/2,canceled.y+canceled.height/2);await page.mouse.down();await page.mouse.move(canceled.x+canceled.width/2+20,canceled.y+canceled.height/2+8,{steps:6});await page.waitForTimeout(800);assert.ok(await device.isVisible());await page.mouse.up();
  assert.deepEqual(errors,[]);console.log('IPOD_UI_OK: bitmap display, relative mouse/touch wheel, seam, keyboard, source cycle, menu rotation/confirmation/touch/offline/pagination, transport, zoom, drag, collapse, missing duration, offline, bounds, Breakout mouse/touch/pause/offline/command-isolation');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

@@ -87,6 +87,7 @@ try {
   await page.evaluate(t=>document.body.className='map-is-fullscreen ga-efb-tracker-host '+t,theme);
   const box=await page.locator('.ga-ipod-center').boundingBox();assert.ok(box.width>30&&box.width<100,'theme must not resize clickwheel center');
  }
+ const heldMenu=await page.getByRole('button',{name:'Gerätemenü',exact:true}).boundingBox();await page.mouse.move(heldMenu.x+heldMenu.width/2,heldMenu.y+heldMenu.height/2);await page.mouse.down();await page.waitForTimeout(800);assert.ok(await page.getByRole('region',{name:'iPod Mediensteuerung'}).isHidden());await page.mouse.up();await page.waitForTimeout(550);await page.getByRole('button',{name:'Mediensteuerung öffnen',exact:true}).press('Enter');assert.ok(await page.getByRole('region',{name:'iPod Mediensteuerung'}).isVisible());
  await page.evaluate(()=>toggleMapVoiceMenu());
  await page.selectOption('.ga-media-skin','winamp');
  await page.getByRole('button',{name:'Mediensteuerung schließen',exact:true}).click();

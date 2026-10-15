@@ -75,6 +75,8 @@
     [launcher,device.querySelector('.ga-media-header')].forEach(function(el){el.addEventListener('pointerdown',start);el.addEventListener('pointermove',move);el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);});
     layer.addEventListener('pointerdown',function(event){event.stopPropagation();});
     layer.addEventListener('wheel',function(event){event.stopPropagation();});
+    ['pointermove','pointerup','pointercancel','touchstart','touchmove','touchend','touchcancel','mousedown','mousemove','mouseup','dblclick'].forEach(function(type){layer.addEventListener(type,function(event){event.stopPropagation();},false);});
+    ['contextmenu','selectstart'].forEach(function(type){layer.addEventListener(type,function(event){event.preventDefault();event.stopPropagation();});});
     function update(value) {
       state=value||{};
       var title=[state.artist,state.title].filter(Boolean).join(' — ')||'Kein Titel';

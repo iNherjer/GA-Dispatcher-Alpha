@@ -24,6 +24,8 @@ try {
  const device=page.locator('.ga-media-device'),launcher=page.locator('.ga-media-launcher');
  assert.ok(await device.isVisible());assert.ok(await launcher.isHidden());
  assert.equal(await page.locator('.ga-media-digits').getAttribute('aria-label'),'1:38');
+ const touchGuard=await device.evaluate(el=>{const event=new Event('contextmenu',{bubbles:true,cancelable:true});el.dispatchEvent(event);return {blocked:event.defaultPrevented,select:getComputedStyle(el.querySelector('.ga-media-brand')).webkitUserSelect};});assert.equal(touchGuard.blocked,true);assert.equal(touchGuard.select,'none');
+
  const seek=page.getByRole('slider',{name:'Wiedergabeposition',exact:true});
  await seek.evaluate(el=>{el.value='750';el.dispatchEvent(new Event('input',{bubbles:true}));});assert.equal(await page.evaluate(()=>commands.filter(c=>c.action==='seek').length),0,'drag preview must stay local');
  await seek.dispatchEvent('change');assert.equal(await page.evaluate(()=>commands.at(-1).positionSeconds),567*.75);

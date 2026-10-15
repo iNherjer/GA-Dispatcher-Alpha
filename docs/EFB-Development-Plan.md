@@ -1,3 +1,19 @@
+## Medienplayer: MENU halten / Smartphone-Touchschutz – Webapp und v537 Alpha (15.10.2026)
+
+Classic-MENU: kurzer Druck bleibt Zurück; 700 ms Halten schließt das Gerät zum
+Notenschlüssel, auch aus Breakout. Bewegung, Pointer-Abbruch, Deaktivierung und
+Destroy räumen den Halte-Timer auf. Der anschließende Touch-/Maus-Klick wird
+unterdrückt, damit das Gerät geschlossen bleibt. Beide Skins erhalten explizites
+-webkit-user-select:none und -webkit-touch-callout:none inklusive Kindknoten;
+selectstart/contextmenu werden nur innerhalb der Mediensteuerung unterdrückt.
+Legacy-Touch-/Maus- und Pointer-Ereignisse blubbern nicht zur Karte weiter.
+Listener verwenden false statt Optionsobjekten für Coherent/Chrome 49.
+Kein neuer Desktop-/Medienbefehl, keine zusätzlichen Relay-Abfragen.
+Webquelle, gepinnte EFB-Quellen und kompilierte Assets vom Nutzer für Webapp
+und Tracker v537 Alpha freigegeben. Maus-/Touch-Emulation und EFB-/Toolbar-
+Integration bestanden; echte iOS-Langdruck-Abnahme bleibt am Gerät erforderlich.
+Desktop bleibt 1.6.16, Runtime Stable und Community-Paket unverändert.
+
 ## Classic: Extras / Breakout – Webapp und Tracker v536 Alpha (15.10.2026)
 
 Hauptmenü Extras → Breakout. Ein Level mit 24 Steinen, 3 Leben, Punktestand,
