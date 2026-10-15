@@ -22,7 +22,11 @@ bestanden; echte MSFS-/Coherent-/VR-Abnahme erfolgt im Alpha-Feldtest.
 
 Freigegebener Rollout: Tracker v538, Assetrevision 53801, Web-SW v2092 für
 Quellen. Frische Windows-x64-EXE gebaut und Paketinhalt lokal geprüft.
-Öffentliche Release- und Downloadprüfung sowie Alpha-Aktivierung folgen.
+Release v538 veröffentlicht; öffentlicher Download byte-/hashgleich geprüft:
+173911652 Bytes, SHA-256 a0464df92d7f26e36dd856fd007c0292395ef511122dc00666832eee6768c108.
+Alpha-Zeiger wird auf exakt dieses Artefakt aktiviert, SW-Cache dafür v2093.
+GitHub Pages bestätigt den Quellcommit ba9ed6ee2; live ausgelieferte Webdateien
+wurden gegen die lokalen Release-Dateien gehasht.
 Desktop 1.6.16, Community-Paket und Stable-Kanäle unverändert.
 
 ## Medienplayer: MENU halten / Smartphone-Touchschutz – Webapp und v537 Alpha (15.10.2026)
