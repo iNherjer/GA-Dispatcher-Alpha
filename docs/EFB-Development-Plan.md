@@ -24,6 +24,9 @@ gebündelten Adapter-/Medienassets im PE-Artefakt verifiziert; Web-SW v2095 für
 Quellen. Echter Coherent-/Simulatornachweis bleibt erforderlich.
 Native Regler und normale Tasten sind vom Legacy-Drag ausgenommen; ein zusätzlicher
 Maus-Volumendrag prüft diese Abgrenzung. v539 wurde nicht im Alpha-Kanal aktiviert.
+Öffentliches v540-Artefakt heruntergeladen und gegen den Build geprüft: 173921260 Bytes,
+SHA-256 `7db3913e8cd3b771f0f5c9032ec24dbc8da6e28314507ba74a609e5f3c196ef8`. Alpha zeigt auf dieses
+unveränderte Artefakt; Web-SW v2096 aktiviert den Kanalstand.
 Desktop, Community-Paket und Stable bleiben unverändert.
 
 ## Instrumente und Stoppuhr: Webapp / Tracker v538 Alpha (15.10.2026)
