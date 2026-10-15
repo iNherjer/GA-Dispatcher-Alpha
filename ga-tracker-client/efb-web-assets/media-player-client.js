@@ -26,6 +26,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       state = null,
       revision = -1,
       lastReceived = 0,
+      lastReachable = 0,
       pendingAction = false,
       audible = new Set(),
       closed = false,
@@ -61,21 +62,33 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         })[0] || 'WINDOWS',
         connected: state.ok === true
       });
-      if (state.playing && Number.isFinite(state.positionSeconds) && Number.isFinite(state.durationSeconds)) display.positionSeconds = Math.min(state.durationSeconds, state.positionSeconds + Math.min(20, Math.max(0, Date.now() - lastReceived) / 1000));
+      display.volumeAvailable = state.ok === true && state.volumeAvailable !== false;
+      if (state.playing && Number.isFinite(state.positionSeconds)) {
+        display.positionSeconds = state.positionSeconds + Math.min(20, Math.max(0, Date.now() - lastReceived) / 1000);
+        if (Number.isFinite(state.durationSeconds)) display.positionSeconds = Math.min(state.durationSeconds, display.positionSeconds);
+      }
       ui.update(display);
     }
     function receive(result) {
       if (!result.ok) {
         message.textContent = errors[result.error] || result.error || 'Player nicht erreichbar.';
         state = Object.assign({}, state, {
-          ok: false,
-          playing: false,
-          volumeAvailable: false
+          ok: false
         });
         render();
         return;
       }
-      if (result.changed === false) return;
+      lastReachable = Date.now();
+      if (result.changed === false) {
+        if (state) {
+          if (!state.ok) message.textContent = 'Windows-Player verbunden.';
+          state = Object.assign({}, state, {
+            ok: true
+          });
+          render();
+        }
+        return;
+      }
       if (state && result.serverId === state.serverId && Number.isSafeInteger(result.revision) && result.revision < revision) return;
       state = result;
       revision = Number.isSafeInteger(result.revision) ? result.revision : -1;
@@ -257,10 +270,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         action: 'duck',
         active: true
       }).catch(function () {});
-      if (state && Date.now() - lastReceived > 45000) {
+      if (state && Date.now() - lastReachable > 45000) {
         state = Object.assign({}, state, {
-          ok: false,
-          playing: false
+          ok: false
         });
         render();
       }

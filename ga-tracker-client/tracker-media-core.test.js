@@ -30,3 +30,8 @@ test('unavailable playback time and paused playback need no periodic full update
   assert.equal(mediaStateChanged(base,{...base},1000,16000),false);
  }
 });
+test('position becoming available or disappearing publishes immediately, without a duration',()=>{
+ const base={ok:true,playing:false,positionSeconds:null,durationSeconds:null};
+ assert.equal(mediaStateChanged(base,{...base,positionSeconds:0},1000,1001),true);
+ assert.equal(mediaStateChanged({...base,positionSeconds:0},base,1000,1001),true);
+});

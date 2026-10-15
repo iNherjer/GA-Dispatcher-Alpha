@@ -1,3 +1,63 @@
+## Integrierter Feldteststand v534 / Desktop 1.6.14-alpha.4
+
+Der nachfolgende Windows-Kandidat wurde auf seiner exakten Basis integriert.
+Erreichbarkeit und Positionsanker sind getrennt. Dauerlose native Positionen
+bleiben nutzbar; geschätzte Zeit ist als solche gekennzeichnet. Keine zusätzliche
+Relay-Abfragefolge, keine Roh-Timeline oder Audiodaten über das Relay.
+Installer und Runtime müssen für den vollständigen Web-/EFB-Feldtest aktualisiert
+werden. Kein neues Community-Paket nötig; Legacy-WMP bleibt ohne eigenen Adapter.
+
+## Windows-Medien: Timeline und Erreichbarkeit – lokaler Kandidat 15.10.2026
+
+Basis fec4dbd8dba3fbf77f17c40918d2ec9b63ebd1dd, vor Arbeit frisch von origin/main
+geholt. Kein Release und keine Installation dieses Kandidaten.
+
+Echter Chrome-Feldbefund: Playing, Position 0.010672 Sekunden, StartTime 0,
+EndTime -0.000001 Sekunden, gueltiger LastUpdatedTime. Bisher wurde eine
+brauchbare native Position wegen ungueltiger Dauer verworfen. ReadTimeline
+validiert beide jetzt unabhaengig. Fehlende Timeline laesst Transport intakt.
+
+Desktop bereitet einmal lokal vor dem Fan-out positionSeconds, durationSeconds
+und positionKind (native / estimated / unavailable) auf. Native Position hat
+Vorrang; ohne sie zaehlt eine monotone Uhr nur beobachtete Wiedergabezeit,
+pausiert bei Pause und synchronisiert bei wieder gueltiger Position. Titel-
+oder Appwechsel setzen die Schaetzung zurueck; unveraenderte alte Timeline
+nach Titelwechsel wird bis zur Aktualisierung nicht als neue Position/Dauer
+uebernommen. Metadatenanreicherung allein startet keinen neuen Zaehler.
+Repeat ist bei nativem Positionsruecksprung oder eigenem next/previous erkennbar;
+ein komplett unsichtbarer Same-Title-Repeat ohne Timeline-/Metadaten-/Transport-
+Signal ist technisch nicht unterscheidbar. Unbekannte Dauer bleibt null.
+Erstkontakt mitten im Titel ohne native Daten bedeutet nur Zeit seit Beobachtung.
+Roh-Timeline, Album und Tracknummer verlassen den Desktop-Adapter nicht.
+
+Erreichbarkeit ist vom Wiedergabezeitanker getrennt: erfolgreiche changed:false-
+Antworten erneuern den Heartbeat, nicht den Positionsanker. Die bisherige
+45-Sekunden-Grenze erklaert das vom Nutzer nach 47 Sekunden beobachtete
+Ausgrauen. Nach echtem Fehler bleiben Mixer-/Playing-Daten fuer spaetere
+unveraenderte Erholungsantworten erhalten. Echter Antwortausfall bleibt offline.
+Web/EFB extrapolieren auch ohne Dauer, maximal 20 Sekunden seit Zeitanker.
+Schaetzzeit ist sichtbar gekennzeichnet; Fortschritt nur bei bekannter Dauer.
+15-Sekunden-Anker und Watch-/Relay-Frequenz bleiben erhalten.
+
+Windows-11-Media-Player Microsoft.ZuneMusic 11.2607.16.0 meldet die Sitzung
+Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic; Erkennung/Bedienung vom
+Nutzer bestaetigt. Sein Manifest nennt Microsoft.Media.Player.exe; diese exakte
+Familie wird fuer Core Audio nun darauf abgebildet. Lautstaerke bleibt von
+wirklich vorhandener Prozess-Audiositzung abhaengig. Legacy wmplayer.exe lief,
+lieferte aber keine GSMTC-Sitzung. Keine Prozess-only-Fake-Erkennung ergaenzt.
+Ein eigener Legacy-Adapter braeuchte die dokumentierte WMP-Remoting-Anbindung
+(IServiceProvider/IWMPRemoteMediaServices), keine neue isolierte WMPlayer.OCX-
+Instanz. Das ist hier nicht implementiert.
+
+83 Desktop-/Core-/EFB-HTTP-/Regressionstests unter Windows bestanden, inklusive
+sechs nativer PowerShell-Konverterfaelle. Zwei Minuten unveraenderte virtuelle
+Watches fuer Playing und Pause sowie echter Antwortausfall/Erholung geprueft.
+Live-Smoke mit produktivem Windows-Helfer und privater HTTP-Bruecke: 9 Watches,
+mehr als eine Minute, kein Fehler. Keine Audiodaten, Zugangsdaten oder
+zusaetzliche Relaylast. Bestehende alpha.3-Mixer-/IID-/Fehlercachefixes erhalten.
+Gezielt nur zwei Medien-EFB-Assets mit produktivem compileShared erzeugt.
+Hauptagent uebernimmt Versionswahl, Builds und Feldrollout; diese Arbeitskopie
+veraendert keine Versions-/Kanaldateien und keine oeffentlichen Artefakte.
 ## Desktop-Hotfix 1.6.14-alpha.3
 
 Der Chrome-Feldtest zeigte einen nativen Mixerfehler und einen festgehaltenen

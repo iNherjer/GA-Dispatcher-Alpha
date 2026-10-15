@@ -43,6 +43,7 @@ function mediaStateChanged(previous, next, anchorAt, now = Date.now()) {
     ? Object.fromEntries(Object.keys(value).sort().map(key => [key,canonical(value[key])])) : value;
   const omit = value => { const { id, positionSeconds, sampledAt, ...rest } = value; return canonical(rest); };
   if (JSON.stringify(omit(previous)) !== JSON.stringify(omit(next))) return true;
+  if (Number.isFinite(previous.positionSeconds) !== Number.isFinite(next.positionSeconds)) return true;
   if (next.playing && Number.isFinite(next.positionSeconds) && now - anchorAt >= 15000) return true;
   if (Number.isFinite(previous.positionSeconds) && Number.isFinite(next.positionSeconds)) {
     const predicted = previous.positionSeconds + (previous.playing ? Math.max(0, now - previous.sampledAt) / 1000 : 0);

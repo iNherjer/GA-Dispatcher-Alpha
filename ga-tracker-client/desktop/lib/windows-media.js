@@ -2,6 +2,7 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 const readline = require('node:readline');
+const { createMediaTimeline } = require('./media-timeline');
 
 // A single helper owns Windows media sessions and their volume restoration.
 // JSON over stdin only; user input never becomes executable PowerShell text.
@@ -18,6 +19,7 @@ class WindowsMedia {
     this.duckClients = new Map();
     this.duckTimer = null;
     this.duckBusy = false;
+    this.timeline = createMediaTimeline();
   }
   start() {
     if (this.child) return;
@@ -81,7 +83,7 @@ class WindowsMedia {
       }, 1000);
       this.duckTimer?.unref();
     }
-    const operation = () => this.send(command);
+    const operation = async () => this.timeline(await this.send(command), command.action);
     const result = this.queue.then(operation, operation);
     this.queue = result.catch(() => {});
     return result;

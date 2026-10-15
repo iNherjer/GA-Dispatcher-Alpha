@@ -74,9 +74,11 @@
       var source=device.querySelector('.ga-media-source');
       source.textContent=state.player||'WINDOWS';source.title=state.player||'Windows-Musikplayer';
       device.querySelectorAll('[data-source-step]').forEach(function(el){el.disabled=state.connected===false||(state.players||[]).length<2;});
-      device.querySelector('.ga-media-status').textContent=state.ducking?'ABSENKUNG':state.playing?'PLAYING':'PAUSE';
+      device.querySelector('.ga-media-status').textContent=(state.connected===false?'OFFLINE':state.ducking?'ABSENKUNG':state.playing?'PLAYING':'PAUSE')+(state.positionKind==='estimated'?' · ZEIT GESCHÄTZT':'');
       device.querySelector('.ga-media-state-icon').innerHTML=symbols[state.playing?'play':'pause'];
       var digits=device.querySelector('.ga-media-digits');digits.innerHTML=clock(state.positionSeconds);digits.setAttribute('aria-label',Number.isFinite(state.positionSeconds)?Math.floor(state.positionSeconds/60)+':'+('0'+Math.floor(state.positionSeconds%60)).slice(-2):'Abspielzeit nicht verfügbar');
+      digits.title=state.positionKind==='estimated'?'Geschätzte Wiedergabezeit seit Beobachtung; keine bestätigte Titelposition.':'Vom Windows-Player gemeldete Titelposition';
+      if(state.positionKind==='estimated')digits.setAttribute('aria-label','Geschätzte Zeit seit Beobachtung: '+digits.getAttribute('aria-label'));
       if(document.activeElement!==volume)volume.value=Math.round((Number.isFinite(state.volume)?state.volume:0)*100);
       volume.disabled=state.volumeAvailable===false;device.querySelector('.ga-media-volume-text').textContent=state.volumeAvailable===false?'–':volume.value+'%';
       device.querySelectorAll('[data-command]').forEach(function(el){var action=el.dataset.command;el.disabled=state.connected===false||state.controls&&state.controls[action]===false;});

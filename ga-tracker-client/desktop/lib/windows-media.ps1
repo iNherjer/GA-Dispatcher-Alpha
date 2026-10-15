@@ -15,10 +15,29 @@ function Await($operation, $type) {
 }
 function ProcessName($source) {
     if ($source -match '^Spotify(?:\.exe)?$' -or $source -match '^SpotifyAB\.SpotifyMusic_') { return 'Spotify' }
+    if ($source -match '^Microsoft\.ZuneMusic_8wekyb3d8bbwe!') { return 'Microsoft.Media.Player' }
     if ($source -match '^([A-Za-z0-9_. -]+)\.exe$') { return $Matches[1] }
     # Chromium may expose its desktop ID as a bare process name.
     if ($source -match '^[A-Za-z0-9_. -]+$') { return $source }
     return ''
+}
+function ReadTimeline($timeline, $playing, $at = [DateTime]::UtcNow) {
+    $positionSeconds = $null; $durationSeconds = $null
+    $updated = $timeline.LastUpdatedTime.UtcDateTime
+    $raw = @{ position=$timeline.Position.TotalSeconds; start=$timeline.StartTime.TotalSeconds; end=$timeline.EndTime.TotalSeconds; updated=$updated.Ticks }
+    $duration = ($timeline.EndTime - $timeline.StartTime).TotalSeconds
+    if ($duration -gt 0 -and $duration -lt 86400) { $durationSeconds = $duration }
+    $position = ($timeline.Position - $timeline.StartTime).TotalSeconds
+    # All-zero/default timelines are absent, not a confirmed position of zero.
+    if ($position -ge 0 -and $position -lt 86400 -and ($null -ne $durationSeconds -or $updated.Year -gt 1970 -or $position -gt 0)) {
+        $positionSeconds = $position
+        if ($playing -and $updated.Year -gt 1970) {
+            $elapsed = ($at - $updated).TotalSeconds
+            if ($elapsed -gt 0 -and $elapsed -lt 86400) { $positionSeconds += $elapsed }
+        }
+        if ($null -ne $durationSeconds) { $positionSeconds = [Math]::Min($durationSeconds, $positionSeconds) }
+    }
+    return @{positionSeconds=$positionSeconds; durationSeconds=$durationSeconds; timeline=$raw}
 }
 $manager = Await ($managerType::RequestAsync()) $managerType
 $volume = New-Object GAMedia.SessionVolume
@@ -83,23 +102,18 @@ try {
             }
             $title = ''; $artist = ''; $playing = $false
             $controls = @{ play=$false; pause=$false; playPause=$false; next=$false; previous=$false }
-            $positionSeconds = $null; $durationSeconds = $null
+            $positionSeconds = $null; $durationSeconds = $null; $timelineData = $null; $album = ''; $trackNumber = 0
             if ($null -ne $session) {
                 $properties = Await ($session.TryGetMediaPropertiesAsync()) $propertiesType
                 $title = $properties.Title; $artist = $properties.Artist
+                $album = $properties.AlbumTitle; $trackNumber = $properties.TrackNumber
                 $info = $session.GetPlaybackInfo(); $playing = $info.PlaybackStatus.ToString() -eq 'Playing'
                 $controls = @{ play=$info.Controls.IsPlayEnabled; pause=$info.Controls.IsPauseEnabled; playPause=$info.Controls.IsPlayPauseToggleEnabled; next=$info.Controls.IsNextEnabled; previous=$info.Controls.IsPreviousEnabled }
-                $timeline = $session.GetTimelineProperties()
-                $duration = ($timeline.EndTime - $timeline.StartTime).TotalSeconds
-                if ($duration -gt 0 -and $duration -lt 86400) {
-                    $durationSeconds = $duration
-                    $positionSeconds = ($timeline.Position - $timeline.StartTime).TotalSeconds
-                    if ($playing -and $timeline.LastUpdatedTime.UtcDateTime -gt [DateTime]::MinValue) {
-                        $elapsed = ([DateTime]::UtcNow - $timeline.LastUpdatedTime.UtcDateTime).TotalSeconds
-                        if ($elapsed -gt 0 -and $elapsed -lt 86400) { $positionSeconds += $elapsed }
-                    }
-                    $positionSeconds = [Math]::Min($duration, [Math]::Max(0, $positionSeconds))
-                }
+                # A missing/failed timeline must not disable otherwise valid transport controls.
+                try {
+                    $reading = ReadTimeline ($session.GetTimelineProperties()) $playing
+                    $positionSeconds = $reading.positionSeconds; $durationSeconds = $reading.durationSeconds; $timelineData = $reading.timeline
+                } catch { $positionSeconds = $null; $durationSeconds = $null; $timelineData = $null }
             }
             $result = @{ id=$request.id; ok=$true; source=$source; title=$title; artist=$artist; playing=$playing;
                 players=@($sessions | ForEach-Object {
@@ -107,7 +121,7 @@ try {
                     if (-not $name) { $name = $_.SourceAppUserModelId }
                     @{ source=$_.SourceAppUserModelId; name=$name }
                 });
-                controls=$controls; positionSeconds=$positionSeconds; durationSeconds=$durationSeconds;
+                controls=$controls; positionSeconds=$positionSeconds; durationSeconds=$durationSeconds; timeline=$timelineData; album=$album; trackNumber=$trackNumber;
                 volumeAvailable=($null -ne $session -and $volume.Available); volume=$volume.Volume;
                 duckEnabled=$enabled; duckFactor=$factor; ducking=($enabled -and ([DateTime]::UtcNow -lt $duckUntil -or [DateTime]::UtcNow -lt $releaseAt)) }
             [Console]::WriteLine(($result | ConvertTo-Json -Depth 5 -Compress))
