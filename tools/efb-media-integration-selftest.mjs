@@ -8,12 +8,13 @@ const {createMediaServer}=require('../ga-tracker-client/desktop/lib/media-server
 const {createMediaBridge}=require('../ga-tracker-client/tracker-media-bridge');
 const {createMediaRelay}=require('../ga-tracker-client/tracker-media-core');
 const native=[],local=[],errors=[];
-const state={ok:true,source:'Spotify.exe',title:'Local playback',artist:'EFB test',players:[{source:'Spotify.exe',name:'Spotify'},{source:'Browser.exe',name:'Browser'}],playing:true,positionSeconds:98,durationSeconds:400,volume:.6,volumeAvailable:true,duckEnabled:true,duckFactor:.2,controls:{play:true,pause:true,next:true,previous:true}};
+const state={ok:true,source:'Spotify.exe',title:'Local playback',artist:'EFB test',players:[{source:'Spotify.exe',name:'Spotify'},{source:'Browser.exe',name:'Browser'}],playing:true,positionSeconds:98,durationSeconds:400,volume:.6,volumeAvailable:true,duckEnabled:true,duckFactor:.2,controls:{seek:true,play:true,pause:true,next:true,previous:true}};
 const desktop=createMediaServer({request:async command=>{
  native.push(command);
  if(command.action==='select')state.source=command.source;
  if(command.action==='pause')state.playing=false;
  if(command.action==='play')state.playing=true;
+ if(command.action==='seek')state.positionSeconds=command.positionSeconds;
  if(command.action==='volume')state.volume=command.volume;
  if(command.action==='duck')return {ok:true};
  return structuredClone(state);
@@ -47,6 +48,9 @@ try {
  await page.waitForFunction(()=>document.querySelector('.ga-media-source').textContent==='Browser');
  await page.getByRole('button',{name:'Pause',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('.ga-media-status').textContent==='PAUSE');
+ await page.getByRole('slider',{name:'Wiedergabeposition',exact:true}).fill('500');await page.getByRole('slider',{name:'Wiedergabeposition',exact:true}).dispatchEvent('change');
+ await page.waitForFunction(()=>document.querySelector('.ga-media-seek-row').getAttribute('aria-valuenow')==='50');
+ assert.equal(state.positionSeconds,state.durationSeconds/2);
  await page.locator('.ga-media-volume').fill('40');await page.locator('.ga-media-volume').dispatchEvent('change');
  await page.waitForFunction(()=>document.querySelector('.ga-media-volume-text').textContent==='40%');
  await page.evaluate(()=>dispatchEvent(new CustomEvent('ga:media-audible',{detail:{active:true,effectId:'local-warning',stage:'warning'}})));
@@ -62,6 +66,22 @@ try {
  await page.mouse.move(brand.x+5,brand.y+5);await page.mouse.down();await page.mouse.move(brand.x+65,brand.y+5,{steps:5});await page.mouse.up();
  assert.ok(Math.abs((await device.evaluate(e=>parseFloat(e.style.left)))-x-40)<2,'scaled dragging advances 40 logical pixels');
  await page.evaluate(()=>{document.body.style.transform='';window.GAEfbUiScale=window.testOriginalUiScale;});
+ await page.evaluate(()=>toggleMapVoiceMenu());
+ await page.selectOption('.ga-media-skin','ipod');
+ await page.getByRole('region',{name:'iPod Mediensteuerung'}).waitFor({state:'visible'});
+ await page.evaluate(()=>toggleMapVoiceMenu());
+ await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Bibliothek',exact:true}).click();await page.getByRole('button',{name:'Musik-App: Spotify',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('.ga-media-select').value==='Spotify.exe');
+ await page.getByRole('button',{name:'Im Titel spulen',exact:true}).click();await page.getByRole('slider',{name:'Musiklautstärke per Clickwheel'}).focus();await page.keyboard.press('ArrowRight');
+ await page.waitForFunction(()=>(document.querySelector('.ga-ipod-lcd canvas').getAttribute('aria-label')||'').includes('Spulen'));
+ await page.getByRole('button',{name:'Lautstärke regeln',exact:true}).click();
+
+ for(const theme of ['theme-retro','theme-win95','theme-ops1940']){
+  await page.evaluate(t=>document.body.className='map-is-fullscreen ga-efb-tracker-host '+t,theme);
+  const box=await page.locator('.ga-ipod-center').boundingBox();assert.ok(box.width>30&&box.width<100,'theme must not resize clickwheel center');
+ }
+ await page.evaluate(()=>toggleMapVoiceMenu());
+ await page.selectOption('.ga-media-skin','winamp');
  await page.getByRole('button',{name:'Mediensteuerung schließen',exact:true}).click();
  const count=local.length;await page.waitForTimeout(1200);assert.equal(local.length,count,'closed player stops local watches');
  assert.equal(relays,0,'no websocket or relay needed');

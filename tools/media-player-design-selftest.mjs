@@ -8,7 +8,7 @@ const {chromium}=require(process.env.GA_PLAYWRIGHT_MODULE||'/Users/jofaist/.cach
 const root=path.resolve(import.meta.dirname,'..');
 const output=path.join(root,'analysis/media-player-design-2026-10-14');
 fs.mkdirSync(output,{recursive:true});
-const files={'/':'tools/previews/media-player.html','/media-player.css':'media-player.css','/media-player-ui.js':'media-player-ui.js'};
+const files={'/':'tools/previews/media-player.html','/media-player.css':'media-player.css','/media-player-ui.js':'media-player-ui.js','/media-player-ipod.js':'media-player-ipod.js'};
 const server=http.createServer((request,response)=>{
   const file=files[new URL(request.url,'http://localhost').pathname];
   if(!file){response.writeHead(404);response.end();return;}
@@ -24,6 +24,12 @@ try {
  const device=page.locator('.ga-media-device'),launcher=page.locator('.ga-media-launcher');
  assert.ok(await device.isVisible());assert.ok(await launcher.isHidden());
  assert.equal(await page.locator('.ga-media-digits').getAttribute('aria-label'),'1:38');
+ const seek=page.getByRole('slider',{name:'Wiedergabeposition',exact:true});
+ await seek.evaluate(el=>{el.value='750';el.dispatchEvent(new Event('input',{bubbles:true}));});assert.equal(await page.evaluate(()=>commands.filter(c=>c.action==='seek').length),0,'drag preview must stay local');
+ await seek.dispatchEvent('change');assert.equal(await page.evaluate(()=>commands.at(-1).positionSeconds),567*.75);
+ await page.evaluate(()=>{sample.controls.seek=false;player.update(sample);});assert.ok(await seek.isDisabled());
+ await page.evaluate(()=>{sample.controls.seek=true;sample.positionSeconds=98;player.update(sample);});
+
  await page.getByRole('button',{name:'Pause',exact:true}).click();
  assert.equal(await page.locator('.ga-media-status').textContent(),'PAUSE');
  await page.getByRole('button',{name:'Abspielen',exact:true}).click();

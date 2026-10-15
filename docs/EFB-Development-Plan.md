@@ -1,3 +1,26 @@
+## Classic-Medien-Skin – Webapp-Release auf Origin (15.10.2026)
+
+Zweiter Medien-Skin neben Winamp, unabhängig vom App-Designpreset. Weißes
+Classic-Gerät mit lokal gezeichneter Bitmap-Schrift im Monochrom-LCD: verbundene
+Musik-App als Kopfzeile, Titel/Interpret, Zeit und optionaler Fortschritt.
+Batteriesymbol zeigt Zoom-Prozent, links −/+; MENU öffnet ein Hauptmenü mit mittigem Titel, großen Bitmap-Zeilen und Auswahlleiste: Musik (Wiedergabe), Bibliothek (Quellen), Einstellungen (Absenkung ein/aus und Restlautstärke 10/20/35/50 %) sowie Schließen. Untermenüs haben Zurück; MENU geht eine Ebene zurück. Einstellungen senden bestehende settings-Befehle und verwenden denselben Tracker-Status wie das Audio-Menü. Transportzeichen sind SVG, das Clickwheel hat eine dezente Schattierung entlang des Kreisrands und zentrierte Symbole im Außenring und das Gehäuse trägt keinen Schriftzug.
+Im Menü navigiert die Maus-/Touch-Drehung relativ in 45°-Schritten durch die hervorgehobenen Einträge; die Mitteltaste bestätigt. MENU führt zurück. Außerhalb des Menüs schaltet die Mitteltaste zwischen Lautstärke und Spulen um. Quellenwahl erfolgt über Bibliothek. Spulen setzt controls.seek=true, bekannte Position und Dauer voraus. Wheel zeigt lokal die Zielzeit, sendet beim Loslassen genau einen source-gebundenen seek-Befehl. Winamp verwendet denselben Befehl über den Positionsslider; ohne Unterstützung bleibt dieser deaktiviert. Der Desktop-Helper validiert Fähigkeit, frische Zeitleiste, StartTime und Min/MaxSeekTime; Windows TryChangePlaybackPositionAsync setzt die Position. Protokollvalidatoren in Runtime und Desktop ergänzt. Kein zusätzlicher Pollingpfad. Desktop 1.6.16 und Runtime v535 Alpha sind veröffentlicht. Die Webapp wird nach lokaler Nutzerabnahme auf Origin freigegeben. Apple Music meldet in der geprüften nativen Windows-App IsPlaybackPositionEnabled=false; dort bleiben Spulbedienelemente gesperrt. Maus-/Touch-Drehung
+auf dem Wheel verändert Lautstärke relativ (kein Sprung zur Winkelposition),
+mit temporärer Lautstärkebar. Tastaturbedienung zusätzlich möglich.
+Volumebefehle werden gedrosselt und bei laufendem Befehl auf den letzten Wert
+zusammengefasst. Keine neue Status-/Relay-Abfragefolge. Skinwahl und Layout pro
+Skin werden lokal gespeichert; Skinwechsel ersetzt das Gerät bei gleicher
+Medienanbindung. EFB-Skalierung wird für Drag berücksichtigt.
+
+Webquellen und drei Chrome-49-Medienassets gezielt eingebunden; keine übrigen
+EFB-Assets regeneriert. Browserprüfungen: Maus/Touch, Winkelsprung, Tasten,
+Zoom/Drag/Grenzen, Skinswitch, Webrelay sowie lokale EFB-/Toolbar-Wege und
+Designpresets. 29 Clock-/EFB-Asset-Node-Tests bestanden. Vorschauen unter
+analysis/ipod-skin-2026-10-15 mit Beispieldaten. Tracker v535 Alpha und Desktop
+1.6.16 sind bereits veröffentlicht; nun folgt die vom Nutzer lokal abgenommene
+Webapp auf Origin mit SW-Cache v2087. Für diese Web-Promotion sind keine weiteren
+Windows- oder Community-Package-Builds und keine Kanalwechsel erforderlich.
+
 ## Desktop 1.6.15: Chrome-Zeitanker und Apple-Music-Mixer (15.10.2026)
 
 Windows-Nachtrag auf Basis 3292ffd79 integriert: veraltete Playing-Anker werden
