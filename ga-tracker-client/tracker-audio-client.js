@@ -302,6 +302,7 @@
       track = root.document.createElement('span'); track.id = 'gaAudioVolumeTrack'; track.className = 'ga-audio-volume-track';
       track.setAttribute('aria-hidden', 'true');
       var thumb = root.document.createElement('span'); thumb.id = 'gaAudioVolumeThumb'; thumb.className = 'ga-audio-volume-thumb'; track.appendChild(thumb);
+      slider.parentNode.classList.add('ga-audio-volume-row');
       slider.parentNode.insertBefore(wrapper, slider); wrapper.appendChild(track); wrapper.appendChild(slider);
       slider.style.cssText = 'box-sizing:border-box;display:block;width:100%;min-width:0;height:28px;margin:0;padding:0;opacity:0;cursor:pointer;';
       slider.addEventListener('input', function() { renderVolume(slider); });

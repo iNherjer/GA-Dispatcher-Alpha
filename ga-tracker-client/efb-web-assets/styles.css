@@ -2395,35 +2395,35 @@ body.theme-retro .mission-note-page::before {
 
 body.theme-retro .front-note {
     z-index: 2;
-    transform: rotate(-1.5deg);
+    transform: rotate(-0.6deg) !important;
     box-shadow: 3px 5px 12px rgba(0, 0, 0, 0.6);
     opacity: 1;
 }
 
 body.theme-retro .back-note {
     z-index: 1;
-    transform: rotate(2deg) translate(8px, 6px);
+    transform: rotate(0.8deg) translate(4px, 3px) !important;
     box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.5);
     filter: brightness(0.85);
 }
 
 body.theme-retro .third-note {
     z-index: 0;
-    transform: rotate(-3deg) translate(14px, 12px);
+    transform: rotate(-1.1deg) translate(7px, 6px) !important;
     box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.4);
     filter: brightness(0.7);
 }
 
 body.theme-retro .fourth-note {
     z-index: -1;
-    transform: rotate(1deg) translate(2px, 18px);
+    transform: rotate(0.5deg) translate(1px, 9px) !important;
     box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.3);
     filter: brightness(0.6);
 }
 
 body.theme-retro .fifth-note {
     z-index: -2;
-    transform: rotate(-2deg) translate(-4px, 24px);
+    transform: rotate(-0.8deg) translate(-2px, 12px) !important;
     box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.2);
     filter: brightness(0.5);
 }
@@ -13966,35 +13966,35 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .front-note {
     z-index: 2;
-    transform: rotate(-1.5deg) !important;
+    transform: rotate(-0.6deg) !important;
     box-shadow: 3px 5px 12px rgba(0, 0, 0, 0.6);
     opacity: 1;
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .back-note {
     z-index: 1;
-    transform: rotate(2deg) translate(8px, 6px) !important;
+    transform: rotate(0.8deg) translate(4px, 3px) !important;
     box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.5);
     filter: brightness(0.85);
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .third-note {
     z-index: 0;
-    transform: rotate(-3deg) translate(14px, 12px) !important;
+    transform: rotate(-1.1deg) translate(7px, 6px) !important;
     box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.4);
     filter: brightness(0.7);
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .fourth-note {
     z-index: -1;
-    transform: rotate(1deg) translate(2px, 18px) !important;
+    transform: rotate(0.5deg) translate(1px, 9px) !important;
     box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.3);
     filter: brightness(0.6);
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .fifth-note {
     z-index: -2;
-    transform: rotate(-2deg) translate(-4px, 24px) !important;
+    transform: rotate(-0.8deg) translate(-2px, 12px) !important;
     box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.2);
     filter: brightness(0.5);
 }
@@ -20814,6 +20814,11 @@ body.theme-ops1940 .mission-reset-btn {
 #mapVoiceMenu select {
     box-sizing: border-box;
 }
+#mapVoiceMenu {
+    width: 320px;
+    min-width: 0 !important;
+    max-width: calc(100vw - 12px);
+}
 #mapVoiceMenu select {
     min-width: 0;
     max-width: 100%;
@@ -21251,3 +21256,112 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
 
 .radio-airspace-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .radio-airspace-heading > .route-tool-row-main { flex: 1; min-width: 0; }
+
+/* Leather logbook: local ink font and paper-aligned, continuous flight ledger. */
+/* Slight ink wear is clipped to the glyphs; paper and controls stay untouched. */
+.logbook-cell > span, .logbook-table-header > span, .logbook-paper-action,
+.logbook-paper-number, .logbook-empty-note, .logbook-navigation button {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2296%22%20height%3D%2248%22%3E%3Cdefs%3E%3Cmask%20id%3D%22w%22%3E%3Crect%20width%3D%2296%22%20height%3D%2248%22%20fill%3D%22white%22%2F%3E%3Cg%20fill%3D%22black%22%20opacity%3D%22.85%22%3E%3Ccircle%20cx%3D%226%22%20cy%3D%228%22%20r%3D%221%22%2F%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2221%22%20r%3D%221.1%22%2F%3E%3Ccircle%20cx%3D%2248%22%20cy%3D%225%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2273%22%20cy%3D%2231%22%20r%3D%221.1%22%2F%3E%3Ccircle%20cx%3D%2290%22%20cy%3D%2212%22%20r%3D%220.95%22%2F%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2239%22%20r%3D%221%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2242%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2262%22%20cy%3D%2217%22%20r%3D%220.95%22%2F%3E%3Ccircle%20cx%3D%2285%22%20cy%3D%2245%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2217%22%20r%3D%220.9%22%2F%3E%3Ccircle%20cx%3D%2233%22%20cy%3D%226%22%20r%3D%221%22%2F%3E%3Ccircle%20cx%3D%2252%22%20cy%3D%2243%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2280%22%20cy%3D%2222%22%20r%3D%220.9%22%2F%3E%3Ccircle%20cx%3D%2245%22%20cy%3D%2225%22%20r%3D%220.85%22%2F%3E%3Ccircle%20cx%3D%2227%22%20cy%3D%2244%22%20r%3D%220.85%22%2F%3E%3Ccircle%20cx%3D%2268%22%20cy%3D%227%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%226%22%20cy%3D%2236%22%20r%3D%221%22%2F%3E%3Ccircle%20cx%3D%2293%22%20cy%3D%2233%22%20r%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M31%2010h3v.8h-3zM55%2029h3v.7H55zM8%2030h2v.7H8zM77%207h2.8v.8H77zM21%2035h2.6v.7h-2.6z%22%2F%3E%3C%2Fg%3E%3C%2Fmask%3E%3C%2Fdefs%3E%3Crect%20width%3D%2296%22%20height%3D%2248%22%20fill%3D%22white%22%20mask%3D%22url(%23w)%22%2F%3E%3C%2Fsvg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2296%22%20height%3D%2248%22%3E%3Cdefs%3E%3Cmask%20id%3D%22w%22%3E%3Crect%20width%3D%2296%22%20height%3D%2248%22%20fill%3D%22white%22%2F%3E%3Cg%20fill%3D%22black%22%20opacity%3D%22.85%22%3E%3Ccircle%20cx%3D%226%22%20cy%3D%228%22%20r%3D%221%22%2F%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2221%22%20r%3D%221.1%22%2F%3E%3Ccircle%20cx%3D%2248%22%20cy%3D%225%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2273%22%20cy%3D%2231%22%20r%3D%221.1%22%2F%3E%3Ccircle%20cx%3D%2290%22%20cy%3D%2212%22%20r%3D%220.95%22%2F%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2239%22%20r%3D%221%22%2F%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2242%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2262%22%20cy%3D%2217%22%20r%3D%220.95%22%2F%3E%3Ccircle%20cx%3D%2285%22%20cy%3D%2245%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2217%22%20r%3D%220.9%22%2F%3E%3Ccircle%20cx%3D%2233%22%20cy%3D%226%22%20r%3D%221%22%2F%3E%3Ccircle%20cx%3D%2252%22%20cy%3D%2243%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%2280%22%20cy%3D%2222%22%20r%3D%220.9%22%2F%3E%3Ccircle%20cx%3D%2245%22%20cy%3D%2225%22%20r%3D%220.85%22%2F%3E%3Ccircle%20cx%3D%2227%22%20cy%3D%2244%22%20r%3D%220.85%22%2F%3E%3Ccircle%20cx%3D%2268%22%20cy%3D%227%22%20r%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%226%22%20cy%3D%2236%22%20r%3D%221%22%2F%3E%3Ccircle%20cx%3D%2293%22%20cy%3D%2233%22%20r%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M31%2010h3v.8h-3zM55%2029h3v.7H55zM8%2030h2v.7H8zM77%207h2.8v.8H77zM21%2035h2.6v.7h-2.6z%22%2F%3E%3C%2Fg%3E%3C%2Fmask%3E%3C%2Fdefs%3E%3Crect%20width%3D%2296%22%20height%3D%2248%22%20fill%3D%22white%22%20mask%3D%22url(%23w)%22%2F%3E%3C%2Fsvg%3E");
+    -webkit-mask-size: 80px 40px;
+    mask-size: 80px 40px;
+    -webkit-mask-repeat: repeat;
+    mask-repeat: repeat;
+}
+@font-face {
+    font-family: 'GA Logbook Ink';
+    src: url('ga-tracker-client/efb-fonts/Caveat-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+.logbook-stage { position: relative; isolation: isolate; overflow: hidden; padding-top: 12px; padding-bottom: 0; box-sizing: border-box; container-type: inline-size; }
+.logbook-cover-mask { overflow: hidden; }
+.logbook-cover { display: block; position: relative; width: 100%; margin: 0 auto -38%; padding: 0; border: 0; background: transparent; cursor: pointer; transform: translateY(12px) rotate(-2deg); transform-origin: center center; transition: none; }
+.logbook-cover img { display: block; width: 100%; height: auto; }
+.logbook-cover:focus-visible { outline: 2px solid #dab96c; outline-offset: -9px; border-radius: 16px; }
+.logbook-pocket { position: relative; z-index: 2; width: 100%; aspect-ratio: 3; margin-top: -15cqw; pointer-events: none; line-height: 0; filter: drop-shadow(3px 6px 5px #0008); }
+.logbook-pocket img { position: absolute; top: 0; left: 0; display: block; width: 100%; height: auto; }
+.logbook-stage.is-open { overflow: visible; padding: 0; z-index: 10; }
+.logbook-stage.is-open .logbook-reading { position: absolute; top: 0; left: calc(-1 * var(--logbook-bleed-left, 0px)); margin-left: 0; }
+.logbook-stage.is-open .logbook-pocket { display: block; position: absolute; top: var(--logbook-pocket-top); left: 0; margin: 0; }
+.logbook-stage.is-transitioning { padding: 0; overflow: visible; z-index: 10; }
+.logbook-stage.is-transitioning .logbook-cover-mask { position: absolute; top: 0; left: 0; width: 100%; height: calc(var(--logbook-pocket-top) + 15cqw); overflow: visible; clip-path: inset(calc(-1 * var(--logbook-extract-lift) - 48px) -20px 0 -20px); z-index: 1; }
+.logbook-stage.is-transitioning .logbook-cover { position: absolute; top: 12px; left: 0; margin: 0; }
+.logbook-reading { position: relative; width: calc(100% + var(--logbook-bleed-left, 0px) + var(--logbook-bleed-right, 0px)); margin-left: calc(-1 * var(--logbook-bleed-left, 0px)); container-type: inline-size; }
+.logbook-stage.is-transitioning .logbook-reading { position: absolute; top: 0; left: calc(-1 * var(--logbook-bleed-left, 0px)); margin-left: 0; }
+.logbook-stage.is-transitioning .logbook-pocket { position: absolute; margin: 0; top: var(--logbook-pocket-top); bottom: auto; left: 0; width: 100%; }
+.logbook-cover[hidden], .logbook-reading[hidden] { display: none; }
+.logbook-spread { position: relative; width: 100%; min-width: 0; aspect-ratio: 1.8; min-height: 320px; box-sizing: border-box; background: url('assets/ui/logbook/open.png') center / 100% 100% no-repeat; color: #3e4350; }
+.logbook-table { position: absolute; inset: 18% 7.5% 25%; display: grid; grid-template-rows: 25px repeat(4, minmax(0, 1fr)); font-family: 'GA Logbook Ink', 'Caveat', 'Segoe Print', cursive; font-weight: 600; font-size: clamp(11px, 3.6cqw, 18px); line-height: 1.05; }
+.logbook-table-header, .logbook-flight { display: grid; grid-template-columns: 16% 13% 18% 6% 12% 11% 24%; min-width: 0; }
+.logbook-table-header { align-items: stretch; font: 700 clamp(9px, 2.7cqw, 13px) 'Courier New', Courier, monospace; color: #77644c; }
+.logbook-table-header > span { display: flex; align-items: center; padding: 0 3px; min-width: 0; opacity: .7; box-sizing: border-box; }
+.logbook-flight { position: relative; width: 100%; margin: 0; padding: 0; box-sizing: border-box; border: 0; border-radius: 0; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; align-items: stretch; }
+.logbook-flight::before, .logbook-flight::after { content: ''; position: absolute; height: 8px; background: transparent; pointer-events: none; }
+.logbook-flight::before { top: -3px; left: 0; width: 47%; }
+.logbook-flight::after { top: -3px; right: 0; width: 47%; }
+.logbook-flight:hover { color: #723726; }
+.logbook-flight:hover::before, .logbook-flight:hover::after { opacity: .85; }
+.logbook-flight:focus-visible { outline: 2px solid #943b2d; outline-offset: 1px; }
+.logbook-cell { display: flex; align-items: center; min-width: 0; max-height: 100%; overflow: hidden; padding: 3px; box-sizing: border-box; }
+.logbook-cell > span { width: 100%; opacity: .8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.logbook-cell-0 > span, .logbook-cell-1 > span, .logbook-cell-4 > span, .logbook-cell-5 > span { -webkit-line-clamp: 2; }
+.logbook-cell-0 { font-size: .9em; }
+.logbook-cell-0 > span, .logbook-cell-1 > span, .logbook-cell-4 > span, .logbook-cell-5 > span { display: block; white-space: nowrap; text-overflow: ellipsis; }
+.logbook-cell-1 { font-size: .95em; }
+/* Gentle mirrored page curvature: ink rises across the leaf, then drops into the gutter. */
+.logbook-cell-0 > span { transform: translateY(0) rotate(-.4deg); }
+.logbook-cell-1 > span { transform: translateY(-1px) rotate(.2deg); }
+.logbook-cell-2 > span { transform: translateY(1px) rotate(1.4deg); transform-origin: left center; }
+.logbook-cell-3 { padding: 0; }
+.logbook-cell-4 > span { transform: translateY(1px) rotate(-1.4deg); transform-origin: right center; }
+.logbook-cell-5 > span { transform: translateY(-1px) rotate(-.2deg); }
+.logbook-cell-6 > span { transform: translateY(0) rotate(.4deg); }
+.logbook-cell-6 { padding-left: 5px; }
+.logbook-blank { cursor: default; }
+.logbook-cell-0, .logbook-cell-1, .logbook-cell-4, .logbook-cell-5,
+.logbook-table-header > span:nth-child(1), .logbook-table-header > span:nth-child(2),
+.logbook-table-header > span:nth-child(5), .logbook-table-header > span:nth-child(6) { border-right: 1px solid #937b5540; }
+.logbook-table::before, .logbook-table::after { content: ''; position: absolute; bottom: -4px; width: 47%; height: 8px; pointer-events: none; }
+.logbook-table::before { left: 0; }
+.logbook-table::after { right: 0; }
+.logbook-flight::before, .logbook-table::before { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%208%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M0%203%20C24%200%2066%200%20100%206%22%20fill%3D%22none%22%20stroke%3D%22%23937b55%22%20stroke-opacity%3D%22.32%22%20stroke-width%3D%22.65%22%20vector-effect%3D%22non-scaling-stroke%22%2F%3E%3C%2Fsvg%3E"); background-size: 100% 100%; background-repeat: no-repeat; }
+.logbook-flight::after, .logbook-table::after { background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%208%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M0%206%20C34%200%2076%200%20100%203%22%20fill%3D%22none%22%20stroke%3D%22%23937b55%22%20stroke-opacity%3D%22.32%22%20stroke-width%3D%22.65%22%20vector-effect%3D%22non-scaling-stroke%22%2F%3E%3C%2Fsvg%3E"); background-size: 100% 100%; background-repeat: no-repeat; }
+.logbook-paper-number { position: absolute; bottom: 15%; font: 600 13px 'GA Logbook Ink', cursive; color: #3e4350; opacity: .8; }
+.logbook-paper-number-0 { left: 27%; }
+.logbook-paper-number-1 { right: 27%; }
+.logbook-empty-note { position: absolute; top: 32%; left: 10%; max-width: 34%; font: 600 18px 'GA Logbook Ink', cursive; color: #7b705c; }
+.logbook-navigation { position: absolute; inset: 0; pointer-events: none; }
+.logbook-navigation button { position: absolute; bottom: 11.5%; width: 44px; height: 40px; padding: 0; border: 0; border-radius: 0; background: transparent; color: #3e4350; opacity: .8; font: 600 30px 'GA Logbook Ink', cursive; cursor: pointer; pointer-events: auto; }
+#logbookPrev { left: 8%; }
+#logbookNext { right: 8%; }
+.logbook-navigation button:disabled { opacity: .2; cursor: default; }
+.logbook-paper-action { position: absolute; top: 10%; margin: 0; padding: 2px 6px; border: 0; border-radius: 0; background: transparent; color: #3e4350; opacity: .8; font: 600 clamp(14px, 3.6cqw, 19px) 'GA Logbook Ink', cursive; cursor: pointer; }
+.logbook-paper-action.logbook-close { left: 8%; transform: rotate(-3deg); }
+.logbook-paper-action.logbook-clear { right: 8%; transform: rotate(2deg); }
+.logbook-paper-action:hover, .logbook-navigation button:not(:disabled):hover { color: #723726; opacity: 1; }
+.logbook-navigation button:focus-visible, .logbook-paper-action:focus-visible { outline: 1px dashed #943b2d; outline-offset: 1px; }
+.logbook-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.logbook-caption { margin: 12px 0 0; font-size: 11px; color: #9aa3ad; text-align: center; }
+@media (max-width: 480px) {
+    .logbook-spread { min-height: 320px; }
+    .logbook-cell { padding: 3px 2px; }
+    .logbook-cell-6 { padding-left: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .logbook-cover { transition: none; }
+}
+
+/* Patina is masked to the assets' alpha so it never creates a rectangular veil. */
+.logbook-stage { overflow: visible; }
+.logbook-cover { filter: drop-shadow(5px 8px 6px #0009); }
+.logbook-reading { filter: drop-shadow(8px 15px 10px #000a); }
+.logbook-table, .logbook-paper-number, .logbook-empty-note { z-index: 1; }
+
+/* The leather pocket stays attached while the book moves in a separate layer. */
+.logbook { position: relative; border: 0 !important; border-radius: 0; background: transparent; box-shadow: none; padding: 16px 15px 24px !important; margin-bottom: 0; }
+.logbook-caption { position: absolute; left: 0; right: 0; bottom: 6px; margin: 0; font-size: 10px; }
+
+.logbook-stage.is-foreground .logbook-cover-mask { clip-path: none; z-index: 4; }
+.logbook-reading { z-index: 5; }

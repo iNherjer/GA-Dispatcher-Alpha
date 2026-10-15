@@ -1,3 +1,27 @@
+## Lokale EFB-/Toolbar-Mediensteuerung, Alpha v533 (15.10.2026)
+
+Basis `590a9f75b`, frisch gegen Origin geprüft. EFB und Toolbar laden die
+geteilte Winamp-Oberfläche aus der Tracker-Runtime (Assetrevision 53301).
+`POST /api/v1/media/control` verwendet die bestehenden lokalen Cockpit-Sitzungen;
+nur EFB-/Toolbar-Rollen, lokale Origins und validierte Medienbefehle sind erlaubt.
+Befehle und Status gehen direkt über Loopback zur privaten Desktop-Brücke,
+ohne Relay und ohne Pilot-PIN im Medienprotokoll. Jede Sitzung besitzt eine
+eigene Absenk-Lease und einen deduplizierten Befehlsraum.
+
+Notenschlüssel, Gerät, Skin-/Musik-App-Auswahl, Zoom und Absenkung entsprechen
+der Webapp. Verschieben berücksichtigt die logische EFB-Skalierung; bei sehr
+schmalem logischem Viewport darf die Audio-Lautstärkezeile umbrechen.
+Chrome-49-Assets verwenden die geteilten Quellen; die nicht unterstützte
+DOM-Methode replaceChildren wurde entfernt. Bestehende Profile-/Navigation-
+Assets bleiben trotz lokal abweichender Babel-Ausgabe auf Origin-Basis.
+
+161 EFB-/Cockpit-/Medien-Node-Tests, 27 Audio-Tests, reale lokale EFB-/Toolbar-
+HTTP-Browserintegration mit simuliertem Windows-Player, Web-Medienintegration,
+Audio-Menüprüfung mit 18 Skalierungsfällen und Tracker-Interface-Regressionen
+bestanden. Native Windows-/MSFS-/Coherent-Abnahme durch Tester bleibt offen.
+Benötigt Desktop 1.6.14-alpha.2 und Runtime v533; kein neuer Desktop-Installer
+und kein neues EFB-/Toolbar-Community-Paket. Stable bleibt unverändert.
+
 ## Origin-Alpha: Web-Mediensteuerung und Windows-Player (15.10.2026)
 
 Release auf Basis `86de66006`, Quellcommit `4b695cdb2`: Tracker v532 und Desktop

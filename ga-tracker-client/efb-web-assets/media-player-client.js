@@ -1,0 +1,288 @@
+// Generated from media-player-client.js by sync-efb-web-assets.js. Do not edit.
+function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
+function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
+function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
+function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+(function (root) {
+  'use strict';
+
+  function install() {
+    var host = document.getElementById('mapTableOverlay'),
+      menu = document.getElementById('mapVoiceMenu');
+    if (!host || !menu || !root.GAMediaPlayerUI) return;
+    var container = document.createElement('div');
+    container.className = 'ga-media-settings';
+    container.innerHTML = '<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option></select></label><label class="ga-media-player-choice" hidden>Musik-App <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Keine Musik-App aktiv</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
+    menu.insertBefore(container, menu.firstChild);
+    var check = container.querySelector('.ga-media-enable'),
+      select = container.querySelector('.ga-media-select'),
+      duck = container.querySelector('.ga-media-duck'),
+      factor = container.querySelector('.ga-media-factor'),
+      message = container.querySelector('.ga-media-message');
+    var enabled = false,
+      open = false,
+      watching = false,
+      epoch = 0,
+      state = null,
+      revision = -1,
+      lastReceived = 0,
+      pendingAction = false,
+      audible = new Set(),
+      closed = false,
+      nextWatchAt = 0,
+      watchTimer = null;
+    try {
+      var saved = JSON.parse(localStorage.getItem('ga.media.web.v1') || '{}');
+      enabled = saved.enabled === true;
+    } catch (_) {}
+    check.checked = enabled;
+    var errors = {
+      tracker_not_connected: 'Tracker nicht verbunden.',
+      media_desktop_unavailable: 'Mediensteuerung benötigt die vorbereitete Windows-Tracker-App und Runtime.',
+      authority_timeout: 'Keine Tracker-Bestätigung.',
+      media_rate_limited: 'Mediensteuerung kurz ausgelastet.'
+    };
+    function hasMediaControl() {
+      return typeof root.gaMediaControlAvailable === 'function' ? root.gaMediaControlAvailable() : (root.liveTrackerCapabilities || []).includes('media.control.v1');
+    }
+    function send(payload) {
+      return typeof root.gaMediaRequest === 'function' ? root.gaMediaRequest(payload) : Promise.resolve({
+        ok: false,
+        error: 'tracker_not_connected'
+      });
+    }
+    function render() {
+      if (!state) return;
+      var display = Object.assign({}, state, {
+        player: (state.players || []).filter(function (p) {
+          return p.source === state.source;
+        }).map(function (p) {
+          return p.name;
+        })[0] || 'WINDOWS',
+        connected: state.ok === true
+      });
+      if (state.playing && Number.isFinite(state.positionSeconds) && Number.isFinite(state.durationSeconds)) display.positionSeconds = Math.min(state.durationSeconds, state.positionSeconds + Math.min(20, Math.max(0, Date.now() - lastReceived) / 1000));
+      ui.update(display);
+    }
+    function receive(result) {
+      if (!result.ok) {
+        message.textContent = errors[result.error] || result.error || 'Player nicht erreichbar.';
+        state = Object.assign({}, state, {
+          ok: false,
+          playing: false,
+          volumeAvailable: false
+        });
+        render();
+        return;
+      }
+      if (result.changed === false) return;
+      if (state && result.serverId === state.serverId && Number.isSafeInteger(result.revision) && result.revision < revision) return;
+      state = result;
+      revision = Number.isSafeInteger(result.revision) ? result.revision : -1;
+      lastReceived = Date.now() - Math.min(20000, Math.max(0, Number(result.sampleAgeMs) || 0));
+      var players = result.players || [],
+        values = players.map(function (p) {
+          return p.source;
+        }).join('\n');
+      if (Array.from(select.options).map(function (p) {
+        return p.value;
+      }).join('\n') !== values) {
+        while (select.firstChild) select.removeChild(select.firstChild);
+        if (!players.length) select.add(new Option('Keine Musik-App aktiv', ''));
+        players.forEach(function (p) {
+          select.add(new Option(p.name, p.source));
+        });
+      }
+      select.value = result.source || '';
+      select.disabled = !players.length;
+      container.querySelector('.ga-media-player-choice').hidden = players.length < 2;
+      duck.checked = result.duckEnabled !== false;
+      factor.value = String(result.duckFactor || 0.2);
+      message.textContent = players.length ? result.ducking ? 'Musik für Ansage abgesenkt.' : 'Windows-Player verbunden.' : 'Player am Windows-PC öffnen und einen Titel starten.';
+      render();
+    }
+    function action(_x) {
+      return _action.apply(this, arguments);
+    }
+    function _action() {
+      _action = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(payload) {
+        var _t, _t2;
+        return _regenerator().w(function (_context) {
+          while (1) switch (_context.p = _context.n) {
+            case 0:
+              if (!pendingAction) {
+                _context.n = 1;
+                break;
+              }
+              return _context.a(2);
+            case 1:
+              pendingAction = true;
+              _context.p = 2;
+              _t = receive;
+              _context.n = 3;
+              return send(payload);
+            case 3:
+              _t(_context.v);
+              _context.n = 5;
+              break;
+            case 4:
+              _context.p = 4;
+              _t2 = _context.v;
+              receive({
+                ok: false,
+                error: 'tracker_not_connected'
+              });
+            case 5:
+              _context.p = 5;
+              pendingAction = false;
+              return _context.f(5);
+            case 6:
+              return _context.a(2);
+          }
+        }, _callee, null, [[2, 4, 5, 6]]);
+      }));
+      return _action.apply(this, arguments);
+    }
+    function visible() {
+      return !closed && enabled && open && !document.hidden && root.getComputedStyle(host).visibility !== 'hidden' && host.getBoundingClientRect().width > 0 && host.getBoundingClientRect().height > 0;
+    }
+    function watch() {
+      return _watch.apply(this, arguments);
+    }
+    function _watch() {
+      _watch = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+        var current, result, delay, _t3;
+        return _regenerator().w(function (_context2) {
+          while (1) switch (_context2.p = _context2.n) {
+            case 0:
+              if (!(watching || !visible() || Date.now() < nextWatchAt)) {
+                _context2.n = 1;
+                break;
+              }
+              return _context2.a(2);
+            case 1:
+              watching = true;
+              current = epoch;
+              _context2.p = 2;
+              _context2.n = 3;
+              return send({
+                action: 'watch',
+                after: revision
+              });
+            case 3:
+              result = _context2.v;
+              if (current === epoch && visible()) receive(result);
+              _context2.n = 5;
+              break;
+            case 4:
+              _context2.p = 4;
+              _t3 = _context2.v;
+              if (current === epoch) receive({
+                ok: false,
+                error: 'tracker_not_connected'
+              });
+            case 5:
+              _context2.p = 5;
+              watching = false;
+              clearTimeout(watchTimer);
+              delay = state && state.ok ? 50 : 5000;
+              nextWatchAt = Date.now() + delay;
+              if (visible()) watchTimer = setTimeout(watch, delay);
+              return _context2.f(5);
+            case 6:
+              return _context2.a(2);
+          }
+        }, _callee2, null, [[2, 4, 5, 6]]);
+      }));
+      return _watch.apply(this, arguments);
+    }
+    var ui = root.GAMediaPlayerUI.create({
+      host: host,
+      storageKey: 'ga.media.winamp.layout.v1',
+      state: {
+        connected: false,
+        volumeAvailable: false
+      },
+      onCommand: action,
+      onVisibilityChange: function onVisibilityChange(value) {
+        open = value;
+        epoch++;
+        clearTimeout(watchTimer);
+        nextWatchAt = 0;
+        if (value) watch();
+      }
+    });
+    ui.setEnabled(enabled);
+    check.onchange = function () {
+      enabled = check.checked;
+      try {
+        localStorage.setItem('ga.media.web.v1', JSON.stringify({
+          enabled: enabled,
+          skin: 'winamp'
+        }));
+      } catch (_) {}
+      ui.setEnabled(enabled);
+    };
+    select.onchange = function () {
+      action({
+        action: 'select',
+        source: select.value
+      });
+    };
+    function settings() {
+      action({
+        action: 'settings',
+        enabled: duck.checked,
+        factor: Number(factor.value)
+      });
+    }
+    duck.onchange = settings;
+    factor.onchange = settings;
+    root.addEventListener('ga:media-audible', function (event) {
+      var d = event.detail || {},
+        key = String(d.effectId || '') + ':' + d.stage;
+      if (d.active) audible.add(key);else audible.delete(key);
+      if (hasMediaControl()) send({
+        action: 'duck',
+        active: audible.size > 0
+      }).catch(function () {});
+    });
+    var timer = setInterval(function () {
+      if (visible()) {
+        render();
+        watch();
+      }
+      // Only active speech renews its short lease; collapsed controls need no status traffic.
+      if (audible.size && hasMediaControl()) send({
+        action: 'duck',
+        active: true
+      }).catch(function () {});
+      if (state && Date.now() - lastReceived > 45000) {
+        state = Object.assign({}, state, {
+          ok: false,
+          playing: false
+        });
+        render();
+      }
+    }, 1000);
+    root.addEventListener('visibilitychange', function () {
+      epoch++;
+      if (!document.hidden) watch();
+    });
+    root.addEventListener('pagehide', function () {
+      closed = true;
+      clearInterval(timer);
+      clearTimeout(watchTimer);
+      if (audible.size) send({
+        action: 'duck',
+        active: false
+      }).catch(function () {});
+      audible.clear();
+    });
+    root.gaMediaPlayerClient = {
+      receive: receive,
+      ui: ui
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);else install();
+})(window);

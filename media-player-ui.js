@@ -61,7 +61,7 @@
       event.preventDefault();event.stopPropagation();drag={id:event.pointerId,px:event.clientX,py:event.clientY,x:x,y:y,moved:false};
       event.currentTarget.setPointerCapture(event.pointerId);
     }
-    function move(event){if(!drag||drag.id!==event.pointerId)return;var dx=event.clientX-drag.px,dy=event.clientY-drag.py;if(Math.abs(dx)+Math.abs(dy)>5)drag.moved=true;x=drag.x+dx;y=drag.y+dy;layout();event.stopPropagation();}
+    function move(event){if(!drag||drag.id!==event.pointerId)return;var delta=root.GAEfbUiScale?root.GAEfbUiScale.delta:function(value){return value;};var dx=delta(event.clientX-drag.px),dy=delta(event.clientY-drag.py);if(Math.abs(dx)+Math.abs(dy)>5)drag.moved=true;x=drag.x+dx;y=drag.y+dy;layout();event.stopPropagation();}
     function end(event){if(!drag||drag.id!==event.pointerId)return;if(drag.moved)suppressUntil=Date.now()+250;drag=null;save();}
     [launcher,device.querySelector('.ga-media-header')].forEach(function(el){el.addEventListener('pointerdown',start);el.addEventListener('pointermove',move);el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);});
     layer.addEventListener('pointerdown',function(event){event.stopPropagation();});

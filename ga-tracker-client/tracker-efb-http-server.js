@@ -316,6 +316,25 @@ function createTrackerEfbHttpServer(options = {}) {
     let pathname = '';
     let requestUrl = null;
     try { requestUrl = new URL(request.url || '/', `http://${host}`); pathname = requestUrl.pathname; } catch (_) {}
+    if (pathname === '/api/v1/media/control') {
+      const origin = String(request.headers.origin || '').trim();
+      const localOrigin = !origin || /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/.test(origin);
+      if (!localOrigin || !options.mediaControl || !cockpitControl) {
+        request.resume(); jsonResponse(response, localOrigin ? 503 : 403, { ok: false, error: localOrigin ? 'media_desktop_unavailable' : 'media_origin_rejected' }); return;
+      }
+      if (request.method !== 'POST') { request.resume(); jsonResponse(response, 405, { ok: false, error: 'method_not_allowed' }); return; }
+      try {
+        const command = await readJsonBody(request, 4096);
+        const auth = cockpitControl.authenticate(command);
+        if (!auth.ok || !['efb', 'toolbar'].includes(auth.session.role)) {
+          jsonResponse(response, 401, { ok: false, error: 'cockpit_session_invalid' }); return;
+        }
+        // The authenticated view owns its duck lease and command namespace.
+        const result = await options.mediaControl({ clientId: 'local:' + auth.session.sessionId, commandId: command.commandId, payload: command.payload });
+        jsonResponse(response, 200, result);
+      } catch (error) { jsonResponse(response, 400, { ok: false, error: error.code || error.message || 'media_command_invalid' }); }
+      return;
+    }
     if (pathname === '/api/v1/display/settings') {
       // This endpoint is for the loopback-hosted view, never a remote website.
       const origin = String(request.headers.origin || '').trim();

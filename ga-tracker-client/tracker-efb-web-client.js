@@ -6,10 +6,14 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '53101';
+const EFB_WEB_ASSET_REVISION = '53301';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
+  '/efb/v1/assets/media-player.css': [path.join(__dirname, 'efb-web-assets', 'media-player.css'), 'text/css; charset=utf-8'],
+  '/efb/v1/assets/media-player-ui.js': [path.join(__dirname, 'efb-web-assets', 'media-player-ui.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/media-player-client.js': [path.join(__dirname, 'efb-web-assets', 'media-player-client.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/media-local-client.js': [path.join(__dirname, 'tracker-efb-media-client.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/radio-tuning-core.js': [path.join(__dirname, 'efb-web-assets', 'radio-tuning-core.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/radio-tuning-ui.js': [path.join(__dirname, 'efb-web-assets', 'radio-tuning-ui.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/mission-fire-search-map.js': [path.join(__dirname, 'efb-web-assets', 'mission-fire-search-map.js'), 'text/javascript; charset=utf-8'],
@@ -132,6 +136,7 @@ function createTrackerEfbWebClientPage() {
   <link rel="stylesheet" href="/efb/v1/assets/fonts.css?v=${EFB_WEB_ASSET_REVISION}">
   <link rel="stylesheet" href="/efb/v1/assets/leaflet.css" onload="__gaEfbReport('info','style-loaded','leaflet.css')" onerror="__gaEfbReport('error','style-error','leaflet.css')">
   <link rel="stylesheet" href="/efb/v1/assets/app-styles.css?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbReport('info','style-loaded','app-styles.css')" onerror="__gaEfbReport('error','style-error','app-styles.css')">
+  <link rel="stylesheet" href="/efb/v1/assets/media-player.css?v=${EFB_WEB_ASSET_REVISION}">
   <link rel="stylesheet" href="/efb/v1/assets/host.css?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbReport('info','style-loaded','host.css')" onerror="__gaEfbReport('error','style-error','host.css')">
 </head>
 <body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="9">
@@ -185,6 +190,9 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/ui-scale.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/floating-layout.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/flight-debrief.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/media-player-ui.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/media-local-client.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/media-player-client.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/host.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('host.js')" onerror="__gaEfbScriptError('host.js')"></script>
 </body>
 </html>`;

@@ -11,6 +11,7 @@
   try{var saved=JSON.parse(localStorage.getItem('ga.media.web.v1')||'{}');enabled=saved.enabled===true;}catch(_){}
   check.checked=enabled;
   var errors={tracker_not_connected:'Tracker nicht verbunden.',media_desktop_unavailable:'Mediensteuerung benötigt die vorbereitete Windows-Tracker-App und Runtime.',authority_timeout:'Keine Tracker-Bestätigung.',media_rate_limited:'Mediensteuerung kurz ausgelastet.'};
+  function hasMediaControl(){return typeof root.gaMediaControlAvailable==='function'?root.gaMediaControlAvailable():(root.liveTrackerCapabilities||[]).includes('media.control.v1');}
   function send(payload){return typeof root.gaMediaRequest==='function'?root.gaMediaRequest(payload):Promise.resolve({ok:false,error:'tracker_not_connected'});}
   function render(){
    if(!state)return;
@@ -24,7 +25,7 @@
    if(state&&result.serverId===state.serverId&&Number.isSafeInteger(result.revision)&&result.revision<revision)return;
    state=result;revision=Number.isSafeInteger(result.revision)?result.revision:-1;lastReceived=Date.now()-Math.min(20000,Math.max(0,Number(result.sampleAgeMs)||0));
    var players=result.players||[],values=players.map(function(p){return p.source;}).join('\n');
-   if(Array.from(select.options).map(function(p){return p.value;}).join('\n')!==values){select.replaceChildren();if(!players.length)select.add(new Option('Keine Musik-App aktiv',''));players.forEach(function(p){select.add(new Option(p.name,p.source));});}
+   if(Array.from(select.options).map(function(p){return p.value;}).join('\n')!==values){while(select.firstChild)select.removeChild(select.firstChild);if(!players.length)select.add(new Option('Keine Musik-App aktiv',''));players.forEach(function(p){select.add(new Option(p.name,p.source));});}
    select.value=result.source||'';select.disabled=!players.length;
    container.querySelector('.ga-media-player-choice').hidden=players.length<2;
    duck.checked=result.duckEnabled!==false;factor.value=String(result.duckFactor||0.2);
@@ -49,11 +50,11 @@
   select.onchange=function(){action({action:'select',source:select.value});};
   function settings(){action({action:'settings',enabled:duck.checked,factor:Number(factor.value)});}
   duck.onchange=settings;factor.onchange=settings;
-  root.addEventListener('ga:media-audible',function(event){var d=event.detail||{},key=String(d.effectId||'')+':'+d.stage;if(d.active)audible.add(key);else audible.delete(key);if((root.liveTrackerCapabilities||[]).includes('media.control.v1'))send({action:'duck',active:audible.size>0}).catch(function(){});});
+  root.addEventListener('ga:media-audible',function(event){var d=event.detail||{},key=String(d.effectId||'')+':'+d.stage;if(d.active)audible.add(key);else audible.delete(key);if(hasMediaControl())send({action:'duck',active:audible.size>0}).catch(function(){});});
   var timer=setInterval(function(){
    if(visible()){render();watch();}
    // Only active speech renews its short lease; collapsed controls need no status traffic.
-   if(audible.size&&(root.liveTrackerCapabilities||[]).includes('media.control.v1'))send({action:'duck',active:true}).catch(function(){});
+   if(audible.size&&hasMediaControl())send({action:'duck',active:true}).catch(function(){});
    if(state&&Date.now()-lastReceived>45000){state=Object.assign({},state,{ok:false,playing:false});render();}
   },1000);
   root.addEventListener('visibilitychange',function(){epoch++;if(!document.hidden)watch();});
