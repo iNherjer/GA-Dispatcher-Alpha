@@ -188,7 +188,11 @@
         y: y,
         moved: false
       };
-      event.currentTarget.setPointerCapture(event.pointerId);
+      if (event.currentTarget.setPointerCapture) {
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch (_) {}
+      }
     }
     function move(event) {
       if (!drag || drag.id !== event.pointerId) return;
@@ -289,6 +293,7 @@
         layout();
         if (options.onVisibilityChange) options.onVisibilityChange(enabled && open);
       },
+      refresh: resize,
       destroy: function destroy() {
         root.removeEventListener('resize', resize);
         layer.remove();

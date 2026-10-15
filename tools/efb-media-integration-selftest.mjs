@@ -37,7 +37,7 @@ try {
  await page.waitForFunction(()=>window.gaMediaPlayerClient&&window.gaCockpitSessionClient&&window.gaCockpitSessionClient.session);
  assert.equal(await page.evaluate(()=>gaCockpitSessionClient.role),role);
  await page.evaluate(()=>toggleMapVoiceMenu());
- await page.locator('.ga-media-enable').check();
+ await page.locator('#gaMediaEnabledCheckToggle').click();
  const before=local.length;
  await page.waitForTimeout(150);
  assert.equal(local.length,before,'collapsed media sends no requests');
@@ -67,7 +67,7 @@ try {
  assert.ok(Math.abs((await device.evaluate(e=>parseFloat(e.style.left)))-x-40)<2,'scaled dragging advances 40 logical pixels');
  await page.evaluate(()=>{document.body.style.transform='';window.GAEfbUiScale=window.testOriginalUiScale;});
  await page.evaluate(()=>toggleMapVoiceMenu());
- await page.selectOption('.ga-media-skin','ipod');
+ await page.getByRole('group',{name:'Medien-Skin',exact:true}).getByRole('button',{name:'iPod',exact:true}).click();
  await page.getByRole('region',{name:'iPod Mediensteuerung'}).waitFor({state:'visible'});
  await page.evaluate(()=>toggleMapVoiceMenu());
  await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Bibliothek',exact:true}).click();await page.getByRole('button',{name:'Musik-App: Spotify',exact:true}).click();
@@ -89,7 +89,7 @@ try {
  }
  const heldMenu=await page.getByRole('button',{name:'Gerätemenü',exact:true}).boundingBox();await page.mouse.move(heldMenu.x+heldMenu.width/2,heldMenu.y+heldMenu.height/2);await page.mouse.down();await page.waitForTimeout(800);assert.ok(await page.getByRole('region',{name:'iPod Mediensteuerung'}).isHidden());await page.mouse.up();await page.waitForTimeout(550);await page.getByRole('button',{name:'Mediensteuerung öffnen',exact:true}).press('Enter');assert.ok(await page.getByRole('region',{name:'iPod Mediensteuerung'}).isVisible());
  await page.evaluate(()=>toggleMapVoiceMenu());
- await page.selectOption('.ga-media-skin','winamp');
+ await page.locator('.ga-efb-media-choices[aria-label="Medien-Skin"] [data-value=winamp]').click();
  await page.getByRole('button',{name:'Mediensteuerung schließen',exact:true}).click();
  const count=local.length;await page.waitForTimeout(1200);assert.equal(local.length,count,'closed player stops local watches');
  assert.equal(relays,0,'no websocket or relay needed');

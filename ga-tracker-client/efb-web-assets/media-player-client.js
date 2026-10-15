@@ -116,6 +116,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       container.querySelector('.ga-media-player-choice').hidden = players.length < 2;
       duck.checked = result.duckEnabled !== false;
       factor.value = String(result.duckFactor || 0.2);
+      if (root.gaEfbRefreshMediaSettings) root.gaEfbRefreshMediaSettings();
       message.textContent = players.length ? result.ducking ? 'Musik für Ansage abgesenkt.' : 'Windows-Player verbunden.' : 'Player am Windows-PC öffnen und einen Titel starten.';
       render();
     }
@@ -258,6 +259,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       enabled = check.checked;
       savePreferences();
       ui.setEnabled(enabled);
+      if (root.gaEfbRefreshMediaSettings) root.gaEfbRefreshMediaSettings();
     };
     container.querySelector('.ga-media-skin').onchange = function () {
       var reopen = open;
@@ -332,6 +334,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       receive: receive,
       ui: ui
     };
+    if (root.gaEfbMediaSettings) root.gaEfbMediaSettings(container);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);else install();
 })(window);

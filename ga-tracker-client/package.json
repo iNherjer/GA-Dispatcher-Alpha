@@ -30,6 +30,7 @@
       "tracker-efb-symbols.js",
       "tracker-efb-ui-scale.js",
       "tracker-efb-floating-layout.js",
+      "tracker-efb-media-ui.js",
       "efb-web-assets/kartentisch-fragment.html",
       "efb-web-assets/styles.css",
       "efb-web-assets/media-player.css",

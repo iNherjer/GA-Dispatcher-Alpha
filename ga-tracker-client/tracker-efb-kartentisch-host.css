@@ -1467,8 +1467,8 @@ body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkbox {
 body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkmark { display: none; }
 body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkbox[aria-checked="true"] { background: #235ea7; border-color: #bde3ff; }
 body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkbox[aria-checked="true"] .ga-audio-checkmark {
-  display: block; width: 5px; height: 10px; border: solid #fff;
-  border-width: 0 2px 2px 0; transform: rotate(45deg); margin-top: -3px;
+  display: block; width: 16px; height: 16px; border: 0;
+  transform: none; margin: 0;
 }
 
 body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-volume-row { flex-wrap: wrap; }
@@ -1478,3 +1478,30 @@ body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-volume-thumb { box-sizing: bord
 
 body.ga-efb-tracker-host #mapVoiceMenu #awmVolumeSlider::-webkit-slider-runnable-track { height: 8px; }
 body.ga-efb-tracker-host #mapVoiceMenu #awmVolumeSlider::-webkit-slider-thumb { width: 20px; height: 28px; margin-top: -10px; border: 0; box-shadow: none; }
+
+/* Explicit Coherent geometry: no inset shorthand or native select popup. */
+body.ga-efb-tracker-host .ga-efb-media-viewport { position:absolute; overflow:hidden; pointer-events:none; z-index:130400; }
+body.ga-efb-tracker-host .ga-media-layer { left:0; right:0; top:0; bottom:0; width:100%; height:100%; }
+body.ga-efb-tracker-host .ga-media-settings { margin-bottom:10px; }
+body.ga-efb-tracker-host .ga-media-settings label { display:flex; align-items:center; margin:8px 0; }
+body.ga-efb-tracker-host .ga-efb-media-choices { display:flex; flex-wrap:wrap; }
+body.ga-efb-tracker-host .ga-efb-media-choices button { min-height:32px; margin:2px 5px 2px 0; padding:5px 9px; border:1px solid #8399ae; border-radius:4px; background:#1c2936; color:#eff8ff; cursor:pointer; }
+body.ga-efb-tracker-host .ga-efb-media-choices button[aria-pressed="true"] { background:#235ea7; border-color:#bde3ff; }
+body.ga-efb-tracker-host #mapVoiceMenu .ga-audio-checkmark svg { display:block; width:16px; height:16px; }
+/* Older Coherent also ignores inset on shared slider/screen elements. */
+body.ga-efb-tracker-host .ga-media-seek { left:0; top:0; right:0; bottom:0; }
+body.ga-efb-tracker-host .ga-ipod-screen-menu { left:3px; top:3px; right:3px; bottom:3px; }
+/* Chrome-49-era Coherent has neither CSS Grid nor flex gap. */
+body.ga-efb-tracker-host .ga-media-main { display:flex; }
+body.ga-efb-tracker-host .ga-media-clock { flex:0 0 210px; width:210px; margin-right:12px; }
+body.ga-efb-tracker-host .ga-media-now { flex:1 1 0; min-width:0; }
+body.ga-efb-tracker-host .ga-media-header > * { margin-right:9px; }
+body.ga-efb-tracker-host .ga-media-header > :last-child { margin-right:0; }
+body.ga-efb-tracker-host .ga-media-state-icon { margin-right:10px; }
+body.ga-efb-tracker-host .ga-media-leds i { margin-right:3px; }
+body.ga-efb-tracker-host .ga-media-app-switcher > * { margin-right:4px; }
+body.ga-efb-tracker-host .ga-media-mixer > * { margin-right:8px; }
+body.ga-efb-tracker-host .ga-media-transport .ga-media-key,
+body.ga-efb-tracker-host .ga-media-zoom .ga-media-key { margin-right:5px; }
+body.ga-efb-tracker-host .ga-ipod-lcd::after { left:0; right:0; top:0; bottom:0; }
+body.ga-efb-tracker-host .ga-ipod-wheel::before { left:25px; right:25px; top:25px; bottom:25px; }

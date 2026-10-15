@@ -282,18 +282,26 @@
       button.setAttribute('aria-label', input.parentNode.textContent.trim());
       if (input.parentNode.title) button.title = input.parentNode.title;
       if (input.parentNode.getAttribute('aria-describedby')) button.setAttribute('aria-describedby', input.parentNode.getAttribute('aria-describedby'));
-      var mark = root.document.createElement('span'); mark.className = 'ga-audio-checkmark'; button.appendChild(mark);
+      var mark = root.document.createElement('span'); mark.className = 'ga-audio-checkmark';
+      mark.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8l3 3 7-7" fill="none" stroke="white" stroke-width="2.5"/></svg>'; button.appendChild(mark);
       input.parentNode.insertBefore(button, input); input.style.display = 'none';
       button.onclick = function(event) {
         event.preventDefault(); event.stopPropagation();
         input.checked = button.getAttribute('aria-checked') !== 'true';
         button.setAttribute('aria-checked', input.checked ? 'true' : 'false');
+        renderCheckbox(id, input.checked);
         if (typeof input.onchange === 'function') input.onchange();
       };
     }
+    uiProperty(button, 'disabled', !!input.disabled);
     var value = checked ? 'true' : 'false';
     if (button.getAttribute('aria-checked') !== value) button.setAttribute('aria-checked', value);
+    var mark = button.querySelector('.ga-audio-checkmark');
+    if (mark) mark.style.display = checked ? 'block' : 'none';
   }
+  if (local) root.gaRefreshLocalAudioCheckboxes = function() {
+    root.document.querySelectorAll('#mapVoiceMenu input[type="checkbox"]').forEach(function(input) { if (input.id) renderCheckbox(input.id, input.checked); });
+  };
   function renderVolume(slider) {
     if (!local || !slider || !slider.parentNode) return;
     var track = root.document.getElementById('gaAudioVolumeTrack');

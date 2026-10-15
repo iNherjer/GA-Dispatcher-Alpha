@@ -734,7 +734,11 @@
           act('close');
         }, 700);
       }
-      wheel.setPointerCapture(e.pointerId);
+      if (wheel.setPointerCapture) {
+        try {
+          wheel.setPointerCapture(e.pointerId);
+        } catch (_) {}
+      }
       e.preventDefault();
     });
     wheel.addEventListener('pointermove', function (e) {
@@ -838,7 +842,11 @@
         y: y,
         moved: false
       };
-      e.currentTarget.setPointerCapture(e.pointerId);
+      if (e.currentTarget.setPointerCapture) {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch (_) {}
+      }
     }
     function dragMove(e) {
       if (!drag || drag.id !== e.pointerId) return;
@@ -942,6 +950,7 @@
         layout();
         if (options.onVisibilityChange) options.onVisibilityChange(enabled && open);
       },
+      refresh: resize,
       destroy: function destroy() {
         clearMenuHold();
         pauseGame();

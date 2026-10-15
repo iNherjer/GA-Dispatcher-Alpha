@@ -34,6 +34,7 @@
    select.value=result.source||'';select.disabled=!players.length;
    container.querySelector('.ga-media-player-choice').hidden=players.length<2;
    duck.checked=result.duckEnabled!==false;factor.value=String(result.duckFactor||0.2);
+   if(root.gaEfbRefreshMediaSettings)root.gaEfbRefreshMediaSettings();
    message.textContent=players.length?(result.ducking?'Musik für Ansage abgesenkt.':'Windows-Player verbunden.'):'Player am Windows-PC öffnen und einen Titel starten.';
    render();
   }
@@ -53,7 +54,7 @@
     onVisibilityChange:function(value){open=value;epoch++;clearTimeout(watchTimer);nextWatchAt=0;if(value)watch();}});}
   var ui=createSkin();
   ui.setEnabled(enabled);
-  check.onchange=function(){enabled=check.checked;savePreferences();ui.setEnabled(enabled);};
+  check.onchange=function(){enabled=check.checked;savePreferences();ui.setEnabled(enabled);if(root.gaEfbRefreshMediaSettings)root.gaEfbRefreshMediaSettings();};
   container.querySelector('.ga-media-skin').onchange=function(){var reopen=open;skin=this.value==='ipod'?'ipod':'winamp';savePreferences();epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);if(reopen&&enabled)ui.open();render();if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;};
   select.onchange=function(){action({action:'select',source:select.value});};
   function settings(){action({action:'settings',enabled:duck.checked,factor:Number(factor.value)});}
@@ -68,6 +69,7 @@
   root.addEventListener('visibilitychange',function(){epoch++;if(!document.hidden)watch();});
   root.addEventListener('pagehide',function(){closed=true;clearInterval(timer);clearTimeout(watchTimer);if(audible.size)send({action:'duck',active:false}).catch(function(){});audible.clear();});
   root.gaMediaPlayerClient={receive:receive,ui:ui};
+  if(root.gaEfbMediaSettings)root.gaEfbMediaSettings(container);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })(window);

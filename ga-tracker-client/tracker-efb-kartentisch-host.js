@@ -1670,7 +1670,7 @@
     var profileButton = byId('vpToggleBtn');
     if (actions && profileButton) {
       actions.classList.add('ga-efb-host-actions');
-      actions.appendChild(makeButton('ga-efb-host-state', 'Tracker wird verbunden', function () {}));
+
 
     }
     setupMissionActionBanner();

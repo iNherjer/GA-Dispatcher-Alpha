@@ -1,3 +1,29 @@
+## Tracker v539 Alpha: EFB-Mediensteuerung / Coherent-Korrektur (15.10.2026)
+
+Feldbefund: Medien-Häkchen unsichtbar, Skins nicht wählbar, Startknopf hinter
+Header und nicht verschiebbar; geöffnetes Gerät winzig oben links. Ursachen:
+geteilte Medien-CSS mit inset ohne Coherent-Fallback, native Checkbox-/Select-
+Controls und Pointer-only-Gesten. Neuer ausschließlich im EFB geladener Adapter
+setzt eine explizit dimensionierte Medienebene unter die Menüleiste, erneuert
+sie bei UI-Skalierungswechseln und verbindet Legacy-Maus/Touch mit den bestehenden
+Gesten. Mausbewegung wird vor der Karten-Ereignisabschirmung erfasst. Capture-
+Aufrufe in gepinnten Medienquellen sind optional; Webquellen unverändert.
+
+Medienoptionen verwenden echte Schalter/SVG-Häkchen und Skin-/Auswahl-Tasten
+statt nativer Popups. Alle Audio-Häkchen erhalten einen SVG-Marker mit sofortiger
+Paint-Aktualisierung; Zustands-/Revisionenvertrag unverändert. Die redundante
+Toolbar-Anzeige „Tracker verbunden“ entfällt; Verbindungsfehler bleiben in
+Host-/Parent-Diagnostik sichtbar. Kein neuer Endpunkt und kein neuer Pollingpfad.
+
+Vier EFB-/Toolbar-Fälle ohne inset, Grid, flex-gap sowie Pointer-/Capture-Support
+bei 100/150 Prozent bestanden. Audio-Synchronisierung (18 Sliderfälle, Schalter,
+Revisionen, Rücknahme) und vollständige authentifizierte Medienintegration bis
+zur Desktop-Bridge bestanden. 32 Asset-/Parser-/Transportprüfungen bestanden.
+Tracker v539 / Assetrevision 53901 für den Alpha-Feldtest gebaut und die
+gebündelten Adapter-/Medienassets im PE-Artefakt verifiziert; Web-SW v2094 für
+Quellen. Echter Coherent-/Simulatornachweis bleibt erforderlich.
+Desktop, Community-Paket und Stable bleiben unverändert.
+
 ## Instrumente und Stoppuhr: Webapp / Tracker v538 Alpha (15.10.2026)
 
 Kürzere Sekunden-/Fünfermarkierungen und Hauptstriche halten den Zahlenring

@@ -68,7 +68,7 @@
     function start(event) {
       if(event.button!==0 || event.target.closest('button')!==launcher&&event.target.closest('button,input'))return;
       event.preventDefault();event.stopPropagation();drag={id:event.pointerId,px:event.clientX,py:event.clientY,x:x,y:y,moved:false};
-      event.currentTarget.setPointerCapture(event.pointerId);
+      if(event.currentTarget.setPointerCapture){try{event.currentTarget.setPointerCapture(event.pointerId);}catch(_){}}
     }
     function move(event){if(!drag||drag.id!==event.pointerId)return;var delta=root.GAEfbUiScale?root.GAEfbUiScale.delta:function(value){return value;};var dx=delta(event.clientX-drag.px),dy=delta(event.clientY-drag.py);if(Math.abs(dx)+Math.abs(dy)>5)drag.moved=true;x=drag.x+dx;y=drag.y+dy;layout();event.stopPropagation();}
     function end(event){if(!drag||drag.id!==event.pointerId)return;if(drag.moved)suppressUntil=Date.now()+250;drag=null;save();}
@@ -102,7 +102,7 @@
     function resize(){layout();save();}root.addEventListener('resize',resize);
     layout();update(options.state);
     return { update:update,open:function(){show(true);update(state);},close:function(){show(false);},setEnabled:function(value){enabled=!!value;layout();if(options.onVisibilityChange)options.onVisibilityChange(enabled&&open);},
-      destroy:function(){root.removeEventListener('resize',resize);layer.remove();},element:device,launcher:launcher };
+      refresh:resize,destroy:function(){root.removeEventListener('resize',resize);layer.remove();},element:device,launcher:launcher };
   }
   root.GAMediaPlayerUI={create:create};
 })(window);
