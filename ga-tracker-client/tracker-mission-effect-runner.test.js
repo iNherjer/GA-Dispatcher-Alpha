@@ -346,6 +346,7 @@ test('APT effect runner persists ACKs, advances system events and closes the rep
     onGround: true,
     gsKts: 0.2
   }).view.phase, 'end_unloading');
+  fixture.setClock(17000); // Intent time must match the preceding live telemetry sample.
   assert.equal(executeCurrent(fixture, 'set_manifest_item', 'unload', {
     itemId: 'medical-box',
     action: 'unload'

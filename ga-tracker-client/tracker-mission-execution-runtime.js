@@ -903,6 +903,11 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       }
       const result = adapter.observeTelemetry(sample);
       const bushEffects = authorityManager.getExecutionSnapshot?.();
+      if (result?.acceptedEvent?.type === 'GROUND_STILL'
+          && bushEffects?.state.effects.some(effect => effect.type === 'scene.compliance_visit' && effect.status === 'requested')) {
+        // Arrival can create this effect without a following cargo/voice intent.
+        effectRunner.drain().catch(error => log(`MISSION_COMPLIANCE_SCENE_ERROR error=${error?.message || error}`));
+      }
       if (bushEffects?.state.bushTask?.kind === 'pickup_return' && bushEffects.state.effects.some(effect => effect.type === 'scene.arrival' && effect.status === 'requested')) {
         effectRunner.drain().catch(error => log(`MISSION_BUSH_SCENE_ERROR error=${error?.message || error}`));
       }

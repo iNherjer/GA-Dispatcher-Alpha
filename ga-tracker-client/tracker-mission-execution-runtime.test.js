@@ -105,8 +105,16 @@ function committedManager(t, bundle = aptBundle(), storageFile = null) {
   return manager;
 }
 
-async function exerciseUnloadCompletion(t, restart = '') {
+async function exerciseUnloadCompletion(t, restart = '', inspection = false) {
   const bundle = aptBundle();
+  if (inspection) {
+    bundle.runtime.complianceInspection = { selected: null, forced: true, phase: 'none' };
+    bundle.executionEffectPlan.effects['scene.compliance_visit'] = { command: {
+      type: 'mission_scene_ground_visit', sceneId: 'inspection-runtime-visit',
+      vehicleArrivalPath: [{ forwardM: -24, rightM: 18 }, { forwardM: 22, rightM: 12 }],
+      visitorPaths: ['one', 'two'].map(id => ({ id, path: [{ forwardM: 22, rightM: 12 }, { forwardM: 4, rightM: 4 }] }))
+    } };
+  }
   bundle.runtime.cargoManifest = {
     version: 6,
     key: 'arrival-manifest',
@@ -172,9 +180,11 @@ async function exerciseUnloadCompletion(t, restart = '') {
     finalizeExecutionRun: () => ({ ok: false, status: 'interrupted' })
   } : manager;
   let runtime = createTrackerMissionExecutionRuntime({ ...runtimeOptions, authorityManager: runtimeAuthority });
+  const dispatched = [];
   const simulator = {
     getLivePosition: () => ({ lat: 48.3, lon: 8.5, alt: 500, hdg: 90 }),
-    dispatchCommand: () => ({ ok: true, status: 'completed', sideEffect: false }),
+    dispatchCommand: command => { dispatched.push(command); return command.type === 'mission_scene_ground_visit'
+      ? { ok: true, status: 'pending', sideEffect: true } : { ok: true, status: 'completed', sideEffect: false }; },
     syncPayloadManifestState: () => ({ ok: true, status: 'completed', sideEffect: false })
   };
   runtime.attachSimulator(simulator);
@@ -240,6 +250,20 @@ async function exerciseUnloadCompletion(t, restart = '') {
   runtime.observeTelemetry({ observedAt: 14000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
   clock = 17000;
   runtime.observeTelemetry({ observedAt: 17000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
+  if (inspection) {
+    assert.equal(await waitUntil(() => dispatched.some(command => command.type === 'mission_scene_ground_visit')), true,
+      'landing must dispatch inspectors without a cargo action or another voice effect');
+    const visits = dispatched.filter(command => command.type === 'mission_scene_ground_visit');
+    assert.equal(visits.length, 1);
+    assert.equal(visits[0].lat, 48.3);
+    assert.equal(manager.getExecutionSnapshot().state.workflows.complianceInspection.phase, 'approach_started');
+    runtime.observeTelemetry({ observedAt: 18000, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(dispatched.filter(command => command.type === 'mission_scene_ground_visit').length, 1);
+    runtime.detachSimulator();
+    return;
+  }
+
   run = manager.getActiveRun();
   assert.equal((await runtime.executeIntent({
     commandId: 'unload-arrival-runtime',
@@ -1507,4 +1531,8 @@ test('a missing Crewboard writer keeps the sanction effect pending instead of fa
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(manager.getExecutionSnapshot().state.effects.find(effect => effect.type === 'crewboard.authority_sanction').status, 'requested');
   assert.ok(manager.getActiveRun(), 'a sanction still awaiting local storage cannot be finalized');
+});
+
+test('inspector visit dispatches automatically at the final ground stop and is not duplicated', async t => {
+  await exerciseUnloadCompletion(t, '', true);
 });

@@ -1524,3 +1524,17 @@ test('debug forcing is unavailable before mission start and never bypasses run/r
   assert.equal(live.adapter.executeIntent({ intent: 'debug_force_compliance', commandId: 'debug-old-revision',
     missionId: run.missionId, runId: run.runId, expectedRevision: -1 }).ok, false);
 });
+
+
+test('fresh ground telemetry recovers after POI suspension or an invalid timestamp without accepting stale samples', t => {
+  for (const invalidate of [f => f.adapter.flushRuntimeContext(true),
+    f => f.adapter.observeTelemetry({ observedAt: NaN, onGround: true, gsKts: 0 })]) {
+    const f = inspectionAfterFlight(t, true);
+    invalidate(f);
+    assert.equal(executeCurrent(f, 'set_manifest_item', 'unknown-ground', { itemId: 'bordbuch', action: 'unload' }).ok, false);
+    f.adapter.observeTelemetry({ observedAt: 16000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 });
+    f.adapter.observeTelemetry({ observedAt: 15000, lat: 48.3001, lon: 8.5001, onGround: false, gsKts: 60 });
+    assert.equal(f.manager.getExecutionSnapshot().state.flags.groundStill, true);
+    assert.equal(executeCurrent(f, 'set_manifest_item', 'recovered-ground', { itemId: 'bordbuch', action: 'unload' }).ok, true);
+  }
+});

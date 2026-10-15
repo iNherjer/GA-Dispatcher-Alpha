@@ -471,13 +471,22 @@ test('Web debug intent is committed by the real tracker worker without local sce
   const bundle = aptBundle();
   bundle.executionEffectPlan.effects['voice.boarding'] = { recipe:
     require('../mission-boarding-voice-core.js').createRecipe({ missionId: bundle.missionId, prompt: 'Bereit.', audioEnabled: false }) };
+  bundle.executionEffectPlan.effects['scene.compliance_visit'] = { command: {
+    type: 'mission_scene_ground_visit', sceneId: 'worker-inspection',
+    vehicleArrivalPath: [{ forwardM: -24, rightM: 18 }, { forwardM: 22, rightM: 12 }],
+    visitorPaths: ['one', 'two'].map(id => ({ id, path: [{ forwardM: 22, rightM: 12 }, { forwardM: 4, rightM: 4 }] }))
+  } };
+  const visits = [];
   bundle.runtime.complianceInspection = { selected: false, phase: 'not_selected' };
   bundle.executionReplay = executionCore.createExecutionBundle(bundle);
   bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
   await activate(host, bundle);
   host.runtime.attachSimulator({
     getLivePosition: () => ({ lat: 48, lon: 8, altFt: 500, hdg: 90 }),
-    dispatchCommand: () => ({ ok: true, status: 'completed' }),
+    dispatchCommand: command => {
+      if (command.type === 'mission_scene_ground_visit') { visits.push(command); return { ok: true, status: 'pending' }; }
+      return { ok: true, status: 'completed' };
+    },
     syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
     syncPayloadManifestState: () => ({ ok: true, status: 'completed' })
   });
@@ -505,4 +514,14 @@ test('Web debug intent is committed by the real tracker worker without local sce
   await host.runtime.flush();
   const saved = JSON.parse(fs.readFileSync(path.join(host.testDirectory, 'authority.json'), 'utf8'));
   assert.ok(JSON.stringify(saved).includes('COMPLIANCE_DEBUG_FORCED'));
+  const sample = patch => host.runtime.observeTelemetry({ observedAt: Date.now(), lat: 48.1, lon: 8.2,
+    altFt: 2500, aglFt: 1000, onGround: false, gsKts: 65, ...patch });
+  sample({}); await delay(2100); sample({});
+  await until(() => host.authorityManager.getExecutionSnapshot().state.progress.airborneSeen);
+  await delay(20); sample({ lat: 48.3, lon: 8.5, onGround: true, gsKts: 20, aglFt: 0 });
+  await until(() => host.authorityManager.getExecutionSnapshot().state.flags.onGround);
+  await delay(20); sample({ lat: 48.3, lon: 8.5, onGround: true, gsKts: 0, aglFt: 0 });
+  await until(() => visits.length === 1);
+  assert.equal(host.authorityManager.getExecutionSnapshot().state.workflows.complianceInspection.phase, 'approach_started');
+
 });

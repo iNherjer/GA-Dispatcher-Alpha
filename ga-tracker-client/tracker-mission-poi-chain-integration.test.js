@@ -60,13 +60,14 @@ async function harness(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'poi-chain-integration-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const b = bundle();
-  let manager = createMissionAuthorityManager({ storageFile: path.join(dir, 'authority.json'), executionAuthorityEnabled: true, poiExecutionEnabled: true, idFactory: () => 'chain-run' });
+  let clock = 1000;
+  let manager = createMissionAuthorityManager({ now: () => clock, storageFile: path.join(dir, 'authority.json'), executionAuthorityEnabled: true, poiExecutionEnabled: true, idFactory: () => 'chain-run' });
   const acquired = manager.acquire({ missionId: b.missionId, clientId: 'app', stateHash: 'app', resumeBundle: b });
   let run = acquired.activeRun;
   const prepared = manager.prepareExecutionAuthority({ missionId: b.missionId, runId: run.runId, clientId: 'app', expectedRevision: run.revision, expectedStateHash: run.stateHash, expectedExecutionStateHash: execution.replay(b.executionReplay).stateHash });
   assert.equal(prepared.ok, true, JSON.stringify(prepared));
   assert.equal(manager.commitExecutionAuthority({ missionId: b.missionId, runId: run.runId, clientId: 'app', expectedRevision: prepared.activeRun.revision, expectedExecutionStateHash: prepared.activeRun.executionStateHash, handoffId: prepared.handoff.handoffId }).ok, true);
-  const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager, payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: completed });
+  const runtime = createTrackerMissionExecutionRuntime({ enabled: true, now: () => clock, authorityManager: manager, payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: completed });
   runtime.attachSimulator({ getLivePosition: () => ({ lat: 48, lon: 8, altFt: 500, hdg: 0 }), dispatchCommand: completed, syncPayloadManifestState: completed, cleanupMission: completed });
   await tick();
   let serial = 0;
@@ -77,6 +78,7 @@ async function harness(t) {
     return out;
   }
   async function sample(observedAt, patch = {}) {
+    clock = observedAt;
     const out = runtime.observeTelemetry({ observedAt, lat: 48.3, lon: 8.5, altFt: 3000, aglFt: 600, gsKts: 85, hdg: 0, headingDeg: 0, onGround: false, slewActive: true, slewMode: true, isSlewActive: true, slewTelemetryStatus: 'error', ...patch });
     assert.equal(out.ok, true, JSON.stringify(out));
     for (let i = 0; i < 5; i++) await tick();
@@ -106,6 +108,9 @@ test('chain recipe crosses shared authority lifecycle, retains cargo gate, proje
   const view = projectTrackerEfbMissionView(h.manager().getActiveRun({ includeBundle: true }), null, null, control);
   assert.ok(view.view.progress.some(row => row.label === 'Kettenpunkte' && /3\/3/.test(row.detail)));
 
+  // Real POI pause handling suspends the adapter's ground observations.
+  await h.sample(41000, { simPaused: true });
+  await h.sample(42000, { simPaused: false });
   await h.sample(50000, { lat: 48, lon: 8, onGround: true, aglFt: 0, gsKts: 20 });
   await h.sample(51000, { lat: 48, lon: 8, onGround: true, aglFt: 0, gsKts: 0 });
   assert.equal(h.manager().getExecutionSnapshot().state.phase, 'end_unloading');

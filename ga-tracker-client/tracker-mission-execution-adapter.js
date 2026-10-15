@@ -1165,12 +1165,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       return { ok: true, status: 'ignored', reason: 'ground_telemetry_invalid', sideEffect: false };
     }
     const previousGroundSample = observations.groundTelemetry;
-    if (previousGroundSample && typeof sample.observedAt === 'number'
+    if (Number.isFinite(previousGroundSample?.observedAt)
         && sample.observedAt <= previousGroundSample.observedAt) {
       return { ok: true, status: 'ignored', reason: 'ground_telemetry_stale', sideEffect: false };
     }
     if (typeof sample.observedAt === 'number' && Number.isFinite(sample.observedAt)
-        && (!previousGroundSample || sample.observedAt > previousGroundSample.observedAt)) {
+        && (!Number.isFinite(previousGroundSample?.observedAt) || sample.observedAt > previousGroundSample.observedAt)) {
       observations.groundTelemetry = { ...sample };
       const safeGround = sample.onGround === true && typeof sample.gsKts === 'number'
         && Number.isFinite(sample.gsKts) && sample.gsKts >= 0 && sample.gsKts <= 2
