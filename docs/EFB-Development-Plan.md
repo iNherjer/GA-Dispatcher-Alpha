@@ -9,6 +9,11 @@ Produktiver NSIS-Updater akzeptiert 1.6.14 als Upgrade von 1.6.13 und alpha.4.
 Beide Desktop-Zeiger werden nach Downloadprüfung auf den regulären Installer
 geführt. Runtime-Alpha bleibt v534, Runtime-Stable und Community-Kanäle gleich.
 Bestehende Runtime-Kanalauswahl bleibt gespeichert. Kein Beta-/Stable-Repo-Push.
+Regulärer Release `tracker-desktop-v1.6.14` veröffentlicht; Installer, Blockmap,
+latest.yml und alpha.yml öffentlich bytegleich geprüft. Installer 100252777 Bytes,
+SHA-256 `a47fc152354ec03bdb88b88c55309fa19650fe5c365a773056b5b9e23135b314`.
+Danach beide Desktop-Updatezeiger auf 1.6.14 aktiviert. Runtime- und Community-
+Zeiger unverändert. Webcache v2082; normale Installerlinks ebenfalls aktualisiert.
 
 ## Medien-Zeit und Heartbeats: Runtime v534 / Desktop 1.6.14-alpha.4 (15.10.2026)
 
