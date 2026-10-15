@@ -1,3 +1,15 @@
+## Desktop-Autoupdater: regulär 1.6.14, Runtime weiter Alpha (15.10.2026)
+
+Nutzer beauftragt die Freigabe des neuen Desktop-Programms über den normalen
+Autoupdater, ausdrücklich keine Stable-Promotion der Tracker-Runtime.
+Desktop 1.6.14 enthält denselben Programmcode wie die geprüfte alpha.4;
+285 ASAR-Dateien sowie native Hilfsdateien verglichen, nur Paketversion anders.
+75 Desktop-Tests bestanden, ein Windows-Konvertertest auf macOS ausgelassen.
+Produktiver NSIS-Updater akzeptiert 1.6.14 als Upgrade von 1.6.13 und alpha.4.
+Beide Desktop-Zeiger werden nach Downloadprüfung auf den regulären Installer
+geführt. Runtime-Alpha bleibt v534, Runtime-Stable und Community-Kanäle gleich.
+Bestehende Runtime-Kanalauswahl bleibt gespeichert. Kein Beta-/Stable-Repo-Push.
+
 ## Medien-Zeit und Heartbeats: Runtime v534 / Desktop 1.6.14-alpha.4 (15.10.2026)
 
 Windows-geprüfte Rückgabe auf Basis fec4dbd8d integriert. Unveränderte erfolgreiche
