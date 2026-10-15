@@ -9,8 +9,9 @@ selectstart/contextmenu werden nur innerhalb der Mediensteuerung unterdrückt.
 Legacy-Touch-/Maus- und Pointer-Ereignisse blubbern nicht zur Karte weiter.
 Listener verwenden false statt Optionsobjekten für Coherent/Chrome 49.
 Kein neuer Desktop-/Medienbefehl, keine zusätzlichen Relay-Abfragen.
-Webquelle, gepinnte EFB-Quellen und kompilierte Assets vom Nutzer für Webapp
-und Tracker v537 Alpha freigegeben. Maus-/Touch-Emulation und EFB-/Toolbar-
+Webquelle, gepinnte EFB-Quellen und kompilierte Assets auf Origin veröffentlicht;
+Tracker v537 nach öffentlicher Download-/SHA-256-Prüfung auf Alpha aktiviert.
+Webapp-SW-Cache v2091. Maus-/Touch-Emulation und EFB-/Toolbar-
 Integration bestanden; echte iOS-Langdruck-Abnahme bleibt am Gerät erforderlich.
 Desktop bleibt 1.6.16, Runtime Stable und Community-Paket unverändert.
 
