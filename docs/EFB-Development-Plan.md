@@ -12,7 +12,9 @@ Schließen, deaktivierter Steuerung, unsichtbarem Panel oder verborgenem Dokumen
 Spielzustand wird nur bis zum Skinwechsel/Neuladen behalten. Physik in festen
 Teilschritten; lange Frames werden begrenzt. Keine Sounds, Scorespeicherung oder
 weiteren Level. Webquelle, gepinnte EFB-Quelle und Chrome-49-Asset vorbereitet.
-Vom Nutzer nach lokaler Abnahme für Origin-Webapp und Tracker v536 Alpha freigegeben.
+Nach lokaler Nutzerabnahme auf Origin veröffentlicht und mit Tracker v536 im
+Alpha-Kanal aktiviert. Öffentlicher EXE-Download gegen Build-SHA-256 geprüft;
+Webapp-SW-Cache v2089.
 Desktop bleibt 1.6.16; Runtime Stable und Community-Paket unverändert.
 27 Node-Prüfungen sowie Maus-/Touch-/Lebenszyklus- und lokale EFB-/Toolbar-
 Integrationstests bestanden.
