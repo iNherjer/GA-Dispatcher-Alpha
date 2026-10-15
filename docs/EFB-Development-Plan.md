@@ -1,3 +1,20 @@
+## Desktop-Medien-Hotfix 1.6.14-alpha.3 (15.10.2026)
+
+Feldtest mit Chrome: Desktop erkannte Titel, Transport blieb ohne Wirkung,
+Mixer nicht verfügbar, Webgerät blieb mit Windows-Medienfehler leer.
+Native IMMDeviceCollection-Kennung auf den Windows-SDK-Wert korrigiert.
+Ein Fehler beim periodischen Mixerzugriff darf den unabhängigen Medien-
+Transporthelfer nicht mehr beenden. Prozesskennungen ohne `.exe`, etwa
+`chrome`, werden für die Core-Audio-Zuordnung berücksichtigt.
+Die private Brücke liefert fehlgeschlagene Snapshots nicht mehr dauerhaft
+aus dem Cache; jeder neue Watch darf den Windows-Helfer erneut abfragen.
+
+64 Desktop-Tests bestanden, darunter ein reproduzierter Fehler/Erholung-
+Test der privaten HTTP-Brücke. Windows-Installer gebaut und entpackte native
+sowie ASAR-Quellen geprüft. Tatsächliche Windows-/Suno-/Chrome-Bedienung
+bleibt im Feld abzunehmen. Runtime v533 und Community-Paket unverändert.
+Der temporäre Test-Runtime-Sonderstart entfällt mit diesem Desktop-Update.
+
 ## Lokale EFB-/Toolbar-Mediensteuerung, Alpha v533 (15.10.2026)
 
 Basis `590a9f75b`, frisch gegen Origin geprüft. EFB und Toolbar laden die
@@ -62,9 +79,10 @@ Status wird nur bei sichtbarem geöffnetem Gerät angefordert: Änderung oder
 Zeit/Fortschritt lokal fort. Kein Cover-/Audio-/Spektrumtransport. Absenksignale
 laufen nur bei tatsächlich hörbarem Web-Audio; mehrere Audioclients haben eigene
 kurze Leases. EFB-/Toolbar-Anbindung bleibt ein separater nächster Schritt.
-Lokaler Testbuild mit explizitem `--media-local-test` verwendet die beigelegte
-Runtime, ohne Alpha-/Stable-Zeiger oder die installierte Runtime zu ersetzen.
-Keine Veröffentlichung beauftragt. Windows-/Spotify-Feldprüfung weiterhin offen.
+Der erste lokale Testbuild wurde durch die veröffentlichte Alpha v532 mit
+Desktop 1.6.14-alpha.2 abgelöst. Der temporäre Sonderstart wurde aus den Quellen
+entfernt; neue Builds verwenden ausschließlich die reguläre Runtime-Verwaltung.
+Windows-/Spotify-Feldprüfung weiterhin offen.
 
 Auf Basis `86de66006` (frisch 0/0 gegen Origin) entsteht zuerst eine minimale
 Windows-Player-Steuerung in der Tracker-Desktop-App. GSMTC bedient den externen

@@ -22,3 +22,14 @@ test('unconfigured media bridge reports unavailable without network access',asyn
  const bridge=createMediaBridge({});assert.equal(bridge.available,false);
  assert.equal((await bridge.request({action:'next'})).error,'media_desktop_unavailable');
 });
+
+test('a failed watch is refreshed and recovers without reopening the web UI',async t=>{
+ let calls=0;
+ const server=createMediaServer({request:async()=>++calls===1?{ok:false,error:'Windows-Mediensteuerung ist nicht verfügbar.'}:{ok:true,title:'Recovered',players:[{source:'chrome.exe',name:'Chrome'}]}});
+ const endpoint=await server.start();t.after(()=>server.close());
+ const bridge=createMediaBridge({VFR_MULTITOOL_MEDIA_PORT:endpoint.port,VFR_MULTITOOL_MEDIA_TOKEN:endpoint.token});
+ const failed=await bridge.request({action:'watch',after:-1,clientId:'web-1'});
+ assert.equal(failed.ok,false);
+ const recovered=await bridge.request({action:'watch',after:-1,clientId:'web-1'});
+ assert.equal(recovered.ok,true);assert.equal(recovered.title,'Recovered');assert.equal(calls,2);
+});

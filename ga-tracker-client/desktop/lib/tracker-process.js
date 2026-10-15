@@ -17,13 +17,12 @@ function cleanLogLine(line) {
 }
 
 class TrackerProcess extends EventEmitter {
-  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials, getRuntimeChannel, getAptMissionExecutionEnabled, getMediaEndpoint, getLocalTestRuntime }) {
+  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials, getRuntimeChannel, getAptMissionExecutionEnabled, getMediaEndpoint }) {
     super();
     this.app = electronApp;
     this.dataDirectory = dataDirectory;
     this.runtimeManager = runtimeManager;
     this.getMediaEndpoint = typeof getMediaEndpoint === 'function' ? getMediaEndpoint : () => null;
-    this.getLocalTestRuntime = typeof getLocalTestRuntime === 'function' ? getLocalTestRuntime : () => '';
     this.getCredentials = typeof getCredentials === 'function' ? getCredentials : () => null;
     this.getRuntimeChannel = typeof getRuntimeChannel === 'function' ? getRuntimeChannel : () => 'stable';
     this.getAptMissionExecutionEnabled = typeof getAptMissionExecutionEnabled === 'function'
@@ -71,7 +70,7 @@ class TrackerProcess extends EventEmitter {
     const media = this.getMediaEndpoint();
     if (media) { sharedEnvironment.VFR_MULTITOOL_MEDIA_PORT = String(media.port); sharedEnvironment.VFR_MULTITOOL_MEDIA_TOKEN = media.token; }
     if (this.app.isPackaged) {
-      const executable = this.getLocalTestRuntime() || this.runtimeManager?.currentExecutablePath() || '';
+      const executable = this.runtimeManager?.currentExecutablePath() || '';
       return { command: executable, args: [], cwd: path.dirname(executable), env: sharedEnvironment, credentials };
     }
     const trackerScript = path.resolve(__dirname, '..', '..', 'tracker.js');

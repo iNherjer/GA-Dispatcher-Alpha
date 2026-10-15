@@ -664,9 +664,6 @@ async function startApplication() {
     dataDirectory: configStore.dataDirectory,
     runtimeManager,
     getMediaEndpoint: () => mediaEndpoint,
-    // Explicit local test launcher only; published channel descriptors stay intact.
-    getLocalTestRuntime: () => app.isPackaged && process.argv.includes('--media-local-test')
-      ? path.join(process.resourcesPath, 'media-test-runtime.exe') : '',
     getCredentials: () => {
       const credentials = configStore.credentials();
       if (!credentials) return null;

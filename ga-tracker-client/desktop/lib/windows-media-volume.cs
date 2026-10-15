@@ -11,7 +11,7 @@ namespace GAMedia {
   void EnumAudioEndpoints(int flow, uint state, out IDeviceCollection devices);
   void GetDefaultAudioEndpoint(int flow, int role, out IDevice device);
  }
- [ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-C0A2B7EAAEC8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+ [ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
  interface IDeviceCollection { void GetCount(out uint count); void Item(uint index, out IDevice device); }
  [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
  interface IDevice { void Activate(ref Guid iid, uint context, IntPtr parameters, [MarshalAs(UnmanagedType.IUnknown)] out object result); }

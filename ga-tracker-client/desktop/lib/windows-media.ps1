@@ -16,6 +16,8 @@ function Await($operation, $type) {
 function ProcessName($source) {
     if ($source -match '^Spotify(?:\.exe)?$' -or $source -match '^SpotifyAB\.SpotifyMusic_') { return 'Spotify' }
     if ($source -match '^([A-Za-z0-9_. -]+)\.exe$') { return $Matches[1] }
+    # Chromium may expose its desktop ID as a bare process name.
+    if ($source -match '^[A-Za-z0-9_. -]+$') { return $source }
     return ''
 }
 $manager = Await ($managerType::RequestAsync()) $managerType
@@ -29,7 +31,8 @@ try {
         $now = [DateTime]::UtcNow
         $effective = 1.0
         if ($enabled -and ($now -lt $duckUntil -or $now -lt $releaseAt)) { $effective = $factor }
-        $volume.Tick([single]$effective, [single]-1)
+        # Mixer access must not terminate the independent transport/metadata helper.
+        try { $volume.Tick([single]$effective, [single]-1) } catch { $volume.Restore() }
         if (-not $read.IsCompleted) { Start-Sleep -Milliseconds 100; continue }
         $line = $read.Result
         if ($null -eq $line) { break }

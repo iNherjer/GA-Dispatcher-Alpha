@@ -1,3 +1,18 @@
+## Desktop-Hotfix 1.6.14-alpha.3
+
+Der Chrome-Feldtest zeigte einen nativen Mixerfehler und einen festgehaltenen
+Fehlerstatus im Web. Die IMMDeviceCollection-IID muss
+`0BD7A1BE-7A1A-44DB-8397-CC5392387B5E` sein, siehe
+[Microsofts COM-Referenzquelle](https://github.com/microsoft/psi/blob/master/Sources/Audio/Microsoft.Psi.Audio.Windows/ComInterop/Guids.cs).
+Der periodische Mixerzugriff ist vom Transport-/Metadatenprozess abgefangen.
+Prozessnamen ohne `.exe` werden akzeptiert; tatsächliche Prozesszuordnung
+bleibt durch Core Audio geprüft. Fehlgeschlagene private Watches werden
+bei der nächsten Anfrage frisch ausgeführt statt dauerhaft gecacht.
+
+Der neue Desktop benötigt weiterhin Runtime v533. 64 Desktop-Tests bestanden;
+reale Windows-/Browser-Abnahme bleibt offen. Der lokale Test-Runtime-
+Sonderstart wurde entfernt.
+
 # Windows-Mediensteuerung
 
 ## Origin-Alpha-Rollout 15.10.2026
@@ -67,11 +82,10 @@ Lautstärke/Absenkung benötigen zusätzlich eine eindeutig abbildbare Prozess-
 Audiositzung. Bei Browsern betrifft sie unter Umständen weitere Tabs desselben
 Prozesses. Fähigkeiten und Zeitdaten sind playerabhängig und auf Windows zu prüfen.
 
-Lokaler Windows-Test: das reguläre Tracker-Desktop-Programm vollständig beenden,
-Test-ZIP entpacken und `Start Medien Test.cmd` starten. Der explizite Testparameter
-lädt die mitgelieferte `resources/media-test-runtime.exe`. Normale Starts laden
-weiterhin den unveränderten veröffentlichten Kanal. Der lokale Kandidat verwendet
-noch v531 als Basis und ist kein veröffentlichter v531-Update-Ersatz.
+Windows-Test: den veröffentlichten Desktop 1.6.14-alpha.2 installieren und im
+Tracker den Alpha-Kanal mit Runtime v532 wählen. Die alten lokalen Test-ZIPs
+sind abgelöst. Der temporäre Sonderstart wurde aus den Quellen entfernt; neue
+Builds verwenden ausschließlich die reguläre Runtime-Verwaltung.
 
 Die Origin-Webapp enthält die Funktion nach dem Rollout. Auf Webapp und
 Windows-Tracker mit derselben Pilot-ID/PIN anmelden. Musiksteuerung benötigt

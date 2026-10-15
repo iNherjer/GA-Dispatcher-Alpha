@@ -24,7 +24,7 @@ function createMediaServer(media) {
     finally {polling=false;if(watchers.size)timer=setTimeout(poll,1000);}
   }
   function watch(after) {
-    if(cached && after!==revision)return Promise.resolve({...cached,revision,serverId,sampleAgeMs:Math.max(0,Date.now()-cached.sampledAt),changed:true});
+    if(cached?.ok && after!==revision)return Promise.resolve({...cached,revision,serverId,sampleAgeMs:Math.max(0,Date.now()-cached.sampledAt),changed:true});
     if(watchers.size>=8)return Promise.resolve({ok:false,error:'media_watch_limit'});
     return new Promise(resolve=>{const watcher={after,resolve,timer:setTimeout(()=>finish(watcher,{ok:true,revision,changed:false}),15000)};watchers.add(watcher);if(!polling&&!timer)poll();});
   }
