@@ -236,6 +236,8 @@
     }
 
     function clampViewPan(x, y, scale) {
+        // Embedded devices retain a visible 20% strip at every edge below.
+        if (embeddedMode) return { x, y };
         const stage = qs('.e6b-stage');
         const rect = stage ? stage.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
         const embeddedSlack = embeddedMode ? (scale > 1.01 ? 1.15 : 0.42) : 0;
@@ -320,6 +322,31 @@
         viewState.x = pan.x;
         viewState.y = pan.y;
         applyViewTransform();
+        if (embeddedMode) {
+            const stack = qs(state.side === 'wind' ? '.wind-stack' : '.front-stack');
+            const stage = qs('.e6b-stage');
+            if (stack && stage) {
+                const bounds = stage.getBoundingClientRect();
+                const rect = stack.getBoundingClientRect();
+                const cx = (rect.left + rect.right) / 2;
+                const cy = (rect.top + rect.bottom) / 2;
+                let targetX = clamp(cx, bounds.left - rect.width * 0.3, bounds.right + rect.width * 0.3);
+                let targetY = clamp(cy, bounds.top - rect.height * 0.3, bounds.bottom + rect.height * 0.3);
+                if (state.side === 'front') {
+                    const dx = targetX - clamp(targetX, bounds.left, bounds.right);
+                    const dy = targetY - clamp(targetY, bounds.top, bounds.bottom);
+                    const distance = Math.hypot(dx, dy);
+                    const limit = Math.min(rect.width, rect.height) * 0.45;
+                    if (distance > limit) {
+                        targetX -= dx * (1 - limit / distance);
+                        targetY -= dy * (1 - limit / distance);
+                    }
+                }
+                viewState.x += targetX - cx;
+                viewState.y += targetY - cy;
+                applyViewTransform();
+            }
+        }
     }
 
     function startViewGesture() {
@@ -2260,6 +2287,10 @@
 
     function isWindViewPanHit(stack, event) {
         if (!viewTransformMode || !stack || stack.dataset.dial !== 'wind' || state.side !== 'wind') return false;
+        const rect = stack.getBoundingClientRect();
+        const edge = Math.min(rect.width, rect.height) * 0.045;
+        if (event.clientX < rect.left + edge || event.clientX > rect.right - edge
+            || event.clientY < rect.top + edge || event.clientY > rect.bottom - edge) return true;
         const radius = windRotorRadiusFromEvent(stack, event);
         if (radius >= WIND_SLIDER_HIT.panInnerRadius && radius <= WIND_SLIDER_HIT.panOuterRadius) return true;
         return false;
@@ -2323,10 +2354,10 @@
         let action = kind === 'front' ? 'front-rotate' : 'wind-rotate';
         if (kind === 'front' && isFrontViewPanHit(stack, event)) {
             action = 'view-pan';
-        } else if (kind === 'wind' && isWindSliderHit(stack, event)) {
-            action = 'wind-slide';
         } else if (kind === 'wind' && isWindViewPanHit(stack, event)) {
             action = 'view-pan';
+        } else if (kind === 'wind' && isWindSliderHit(stack, event)) {
+            action = 'wind-slide';
         }
         const token = ++dragSequence;
         drag = {

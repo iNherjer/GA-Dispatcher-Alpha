@@ -415,8 +415,10 @@
       var w = layer.clientWidth,
         h = layer.clientHeight;
       if (open) scale = Math.min(scale, Math.max(.15, Math.min((w - 12) / 300, (h - 12) / 500)));
-      x = Math.max(6, Math.min(x, Math.max(6, w - (open ? 300 * scale : 58) - 6)));
-      y = Math.max(6, Math.min(y, Math.max(6, h - (open ? 500 * scale : 58) - 6)));
+      var width = open ? 300 * scale : 58,
+        height = open ? 500 * scale : 58;
+      x = Math.max(open ? -width * .8 : 6, Math.min(x, open ? w - width * .2 : Math.max(6, w - width - 6)));
+      y = Math.max(open ? -height * .8 : 6, Math.min(y, open ? h - height * .2 : Math.max(6, h - height - 6)));
       [device, launcher].forEach(function (el) {
         el.style.left = x + 'px';
         el.style.top = y + 'px';
@@ -826,7 +828,7 @@
       e.stopPropagation();
     });
     function dragStart(e) {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || e.currentTarget === device && e.target.closest('button,input,.ga-ipod-wheel,.ga-ipod-screen-menu')) return;
       e.preventDefault();
       drag = {
         id: e.pointerId,
@@ -856,7 +858,7 @@
       drag = null;
       save();
     }
-    [launcher, layer.querySelector('.ga-ipod-drag')].forEach(function (el) {
+    [launcher, device].forEach(function (el) {
       el.addEventListener('pointerdown', dragStart);
       el.addEventListener('pointermove', dragMove);
       el.addEventListener('pointerup', dragEnd);

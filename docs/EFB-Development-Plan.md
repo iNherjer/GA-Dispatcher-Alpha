@@ -1,3 +1,30 @@
+## Instrumente und Stoppuhr: Webapp / Tracker v538 Alpha (15.10.2026)
+
+Kürzere Sekunden-/Fünfermarkierungen und Hauptstriche halten den Zahlenring
+frei; gemeinsames CSS und Coherent-SVG-Fallback angeglichen. Uhr, Rechner,
+Mediengeräte und beide E6B-Seiten dürfen bis zu 80 Prozent über Bildschirmränder
+hinausgeschoben werden. Freie Gehäuseränder sind greifbar; Controls behalten
+ihre Funktion. Runde Geräte erhalten Eckenschutz für einen sichtbaren Bogen.
+Uhr-/Rechner-Zoom hält die Mitte fest; die bisherige Uhr-Zoomtransition entfällt.
+
+Webapp-Koordinaten berücksichtigen body.zoom. Eine feste Viewport-Ebene mit
+overflow:clip verhindert vergrößerte Scrollbereiche und abgeschnittene Karten
+bei Gerätefokus. EFB behält Body-Anbindung und Skalierungsadapter. Instrumente
+werden mit dem Kartentisch ausgeblendet, ohne Position oder Timer zu verlieren.
+Web-/EFB-Forks gezielt angeglichen, gepinnte Medienquellen kompiliert.
+
+114 gezielte Browserfälle (70/100/150 Prozent, EFB-Skalierung, vier Ränder,
+Ecken und echter Rückzug aus dem 20-Prozent-Rand) bestanden. Dazu 24 EFB-
+Layout-/Lebenszyklusfälle und 36 Node-Prüfungen. Vollständiger LOCAL-NavCom-
+Ladepfad mit 70 Prozent bestätigt feste Kartengeometrie ohne Scrollversatz.
+Direkter Safari-LOCAL-Test der vorherigen 50-Prozent-Grenze und Layoutkorrektur
+bestanden; echte MSFS-/Coherent-/VR-Abnahme erfolgt im Alpha-Feldtest.
+
+Freigegebener Rollout: Tracker v538, Assetrevision 53801, Web-SW v2092 für
+Quellen. Frische Windows-x64-EXE gebaut und Paketinhalt lokal geprüft.
+Öffentliche Release- und Downloadprüfung sowie Alpha-Aktivierung folgen.
+Desktop 1.6.16, Community-Paket und Stable-Kanäle unverändert.
+
 ## Medienplayer: MENU halten / Smartphone-Touchschutz – Webapp und v537 Alpha (15.10.2026)
 
 Classic-MENU: kurzer Druck bleibt Zurück; 700 ms Halten schließt das Gerät zum

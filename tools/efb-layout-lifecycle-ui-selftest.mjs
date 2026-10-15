@@ -19,8 +19,9 @@ const e6b=page.frames().find(f=>f.url().includes('e6b-flight-computer'));const s
 await page.evaluate(()=>{const sample={available:true,lat:48.36,lon:7.83,alt:4500,hdg:90,capturedAt:Date.now(),flight:{gsKts:90,aglFt:2700}};__lifecycle.flight(sample);__lifecycle.disconnect(true);});
 assert.equal(await page.locator('#liveTelemetryBox').evaluate(n=>getComputedStyle(n).display),'block');assert.equal(await page.locator('#liveTelemetryBox').evaluate(n=>n.classList.contains('ga-telemetry-stale')),true);
 await page.evaluate(()=>__lifecycle.flight({available:true,lat:48.36,lon:7.83,alt:4600,hdg:90,capturedAt:Date.now(),flight:{gsKts:90,aglFt:2700}}));assert.equal(await page.locator('#liveTelemetryBox').evaluate(n=>n.classList.contains('ga-telemetry-stale')),false);
-await page.locator('#mapCalculatorClose').click();await page.locator('#mapStopwatchClose').click();
-if(await page.locator('#mapE6BClose').isVisible())await page.locator('#mapE6BClose').click();else await e6b.locator('[data-e6b-control=close]').click();
+// This layout/lifecycle test allows deliberately clipped controls. Gesture and
+// control hit testing live in floating-device-drag-ui-selftest.mjs.
+await page.evaluate(()=>{for(const tool of ['calculator','stopwatch','e6b'])toggleMapUtilityTool(tool);});
 for(const id of ['mapE6BDevice','mapStopwatchDevice','mapCalculatorDevice'])assert.equal(await page.locator('#'+id).evaluate(n=>getComputedStyle(n).display),'none');
 await page.evaluate(()=>{__lifecycle.disconnect();toggleMapToolRail();});assert.equal(await page.locator('#mapDrawToolStack').evaluate(n=>getComputedStyle(n).display),'none');assert.equal(await page.locator('#liveTelemetryBox').evaluate(n=>getComputedStyle(n).display),'none');cases++;
 }

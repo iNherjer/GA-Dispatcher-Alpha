@@ -9134,6 +9134,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     z-index: 100125;
     box-sizing: border-box;
     pointer-events: auto;
+    cursor: grab;
     touch-action: none;
     user-select: none;
     color: #f8f2dc;
@@ -9343,7 +9344,6 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     padding-top: 40px;
     transform: scale(var(--stopwatch-scale));
     transform-origin: top left;
-    transition: transform 0.16s ease;
 }
 
 .map-stopwatch-device.is-compact {
@@ -9482,21 +9482,37 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     cursor: pointer;
 }
 
+/* Short seconds, slightly longer five-second marks, then a clear numeral ring. */
 .stopwatch-tick-ring {
     position: absolute;
     z-index: 1;
     inset: 10px;
     border-radius: 50%;
-    background:
-        repeating-conic-gradient(from -0.5deg,
-            rgba(246,240,220,0.8) 0deg 1deg,
-            transparent 1deg 6deg),
-        repeating-conic-gradient(from -1deg,
-            rgba(246,240,220,0.92) 0deg 2deg,
-            transparent 2deg 30deg);
-    -webkit-mask: radial-gradient(circle, transparent 0 74px, #000 75px 100%);
-    mask: radial-gradient(circle, transparent 0 74px, #000 75px 100%);
     opacity: 0.82;
+}
+
+.stopwatch-tick-ring::before,
+.stopwatch-tick-ring::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+}
+
+.stopwatch-tick-ring::before {
+    background: repeating-conic-gradient(from -0.5deg,
+        rgba(246,240,220,0.8) 0deg 1deg,
+        transparent 1deg 6deg);
+    -webkit-mask: radial-gradient(circle, transparent 0 85px, #000 86px 100%);
+    mask: radial-gradient(circle, transparent 0 85px, #000 86px 100%);
+}
+
+.stopwatch-tick-ring::after {
+    background: repeating-conic-gradient(from -1deg,
+        rgba(246,240,220,0.92) 0deg 2deg,
+        transparent 2deg 30deg);
+    -webkit-mask: radial-gradient(circle, transparent 0 81px, #000 82px 100%);
+    mask: radial-gradient(circle, transparent 0 81px, #000 82px 100%);
 }
 
 .stopwatch-tick {
@@ -9505,7 +9521,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     left: 50%;
     top: 50%;
     width: 4px;
-    height: 22px;
+    height: 14px;
     margin-left: -2px;
     margin-top: -96px;
     border-radius: 2px;

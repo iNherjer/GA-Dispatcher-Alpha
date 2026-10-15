@@ -36,7 +36,7 @@
       var w=layer.clientWidth,h=layer.clientHeight;
       if(open)scale=Math.min(scale,Math.max(0.15,Math.min((w-12)/640,(h-12)/264)));
       var width=open?640*scale:58,height=open?264*scale:58;
-      x=Math.max(6,Math.min(x,Math.max(6,w-width-6))); y=Math.max(6,Math.min(y,Math.max(6,h-height-6)));
+      x=Math.max(open?-width*.8:6,Math.min(x,open?w-width*.2:Math.max(6,w-width-6))); y=Math.max(open?-height*.8:6,Math.min(y,open?h-height*.2:Math.max(6,h-height-6)));
       [device,launcher].forEach(function(el){el.style.left=x+'px';el.style.top=y+'px';});
       device.style.transform='scale('+scale+')'; device.hidden=!enabled||!open; launcher.hidden=!enabled||open;
       device.querySelector('.ga-media-zoom-label output').textContent=Math.round(scale*100)+'%';
@@ -72,7 +72,7 @@
     }
     function move(event){if(!drag||drag.id!==event.pointerId)return;var delta=root.GAEfbUiScale?root.GAEfbUiScale.delta:function(value){return value;};var dx=delta(event.clientX-drag.px),dy=delta(event.clientY-drag.py);if(Math.abs(dx)+Math.abs(dy)>5)drag.moved=true;x=drag.x+dx;y=drag.y+dy;layout();event.stopPropagation();}
     function end(event){if(!drag||drag.id!==event.pointerId)return;if(drag.moved)suppressUntil=Date.now()+250;drag=null;save();}
-    [launcher,device.querySelector('.ga-media-header')].forEach(function(el){el.addEventListener('pointerdown',start);el.addEventListener('pointermove',move);el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);});
+    [launcher,device].forEach(function(el){el.addEventListener('pointerdown',start);el.addEventListener('pointermove',move);el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);});
     layer.addEventListener('pointerdown',function(event){event.stopPropagation();});
     layer.addEventListener('wheel',function(event){event.stopPropagation();});
     ['pointermove','pointerup','pointercancel','touchstart','touchmove','touchend','touchcancel','mousedown','mousemove','mouseup','dblclick'].forEach(function(type){layer.addEventListener(type,function(event){event.stopPropagation();},false);});

@@ -1,4 +1,5 @@
-function mtEfbDelta(value) { return window.GAEfbUiScale ? window.GAEfbUiScale.delta(value) : value; }
+function mtAppUiZoom() { return Math.max(0.01, Number.parseFloat(document.body && getComputedStyle(document.body).zoom) || 1); }
+function mtEfbDelta(value) { return window.GAEfbUiScale ? window.GAEfbUiScale.delta(value) : value / mtAppUiZoom(); }
 function mtEfbViewport() { return window.GAEfbUiScale ? window.GAEfbUiScale.viewport() : {width:mtEfbViewport().width,height:mtEfbViewport().height}; }
 function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {left:mtEfbDelta(r.left),right:mtEfbDelta(r.right),top:mtEfbDelta(r.top),bottom:mtEfbDelta(r.bottom),width:mtEfbDelta(r.width),height:mtEfbDelta(r.height)}; }
 (function() {
@@ -278,18 +279,36 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
 
     function clampPanel(panel) {
         if (!panel) return;
-        const margin = 8;
         const rect = mtEfbRect(panel);
-        const maxLeft = Math.max(margin, mtEfbViewport().width - rect.width - margin);
-        const maxTop = Math.max(margin, mtEfbViewport().height - rect.height - margin);
+        const viewport = mtEfbViewport();
+        // Leave at least 20% of the rendered device inside each screen edge.
+        const minLeft = -rect.width * 0.8;
+        const minTop = -rect.height * 0.8;
+        const maxLeft = viewport.width - rect.width * 0.2;
+        const maxTop = viewport.height - rect.height * 0.2;
         let left = Number.parseFloat(panel.style.left);
         let top = Number.parseFloat(panel.style.top);
         if (!Number.isFinite(left)) left = rect.left;
         if (!Number.isFinite(top)) top = rect.top;
-        panel.style.left = `${Math.min(Math.max(margin, left), maxLeft)}px`;
-        panel.style.top = `${Math.min(Math.max(margin, top), maxTop)}px`;
+        panel.style.left = `${Math.min(Math.max(minLeft, left), maxLeft)}px`;
+        panel.style.top = `${Math.min(Math.max(minTop, top), maxTop)}px`;
         panel.style.right = 'auto';
         panel.style.bottom = 'auto';
+        // A round bezel can disappear in a corner despite a visible rectangle.
+        // Keep a usable arc inside the viewport without reducing side parking.
+        if (panel.id === 'mapStopwatchDevice') {
+            const bezel = mtEfbRect(el('mapStopwatchHandle'));
+            const cx = bezel.left + bezel.width / 2, cy = bezel.top + bezel.height / 2;
+            const dx = cx - Math.max(0, Math.min(viewport.width, cx));
+            const dy = cy - Math.max(0, Math.min(viewport.height, cy));
+            const distance = Math.hypot(dx, dy);
+            const radius = Math.min(bezel.width, bezel.height) / 2;
+            const limit = radius * 0.9;
+            if (distance > limit) {
+                panel.style.left = `${Number.parseFloat(panel.style.left) - dx * (1 - limit / distance)}px`;
+                panel.style.top = `${Number.parseFloat(panel.style.top) - dy * (1 - limit / distance)}px`;
+            }
+        }
     }
 
     function savePanelPosition(cfg) {
@@ -786,6 +805,23 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         }
     }
 
+    function utilityViewportHost() {
+        if (window.GAEfbUiScale) return document.body;
+        let host = el('mapUtilityViewport');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'mapUtilityViewport';
+            // Contain fixed children so partially hidden devices cannot enlarge the
+            // document or make accessibility focus scroll the Kartentisch sideways.
+            host.style.cssText = 'position:fixed;left:0;top:0;overflow:clip;pointer-events:none;transform:translate3d(0,0,0);z-index:130500';
+            document.body.appendChild(host);
+        }
+        const viewport = mtEfbViewport();
+        host.style.width = `${viewport.width}px`;
+        host.style.height = `${viewport.height}px`;
+        return host;
+    }
+
     function openMapUtilityTool(tool) {
         const cfg = getToolConfig(tool);
         if (!cfg) return;
@@ -794,11 +830,11 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         reportUtility('info', 'utility-action', `open-${tool}`, 'Kartenwerkzeug geoeffnet');
         const isOpen = panel.style.display !== 'none';
         if (!isOpen) {
-            // All fixed EFB tools need the same stacking context as its E6B iframe.
-            // Do this only on opening, never while an input is being operated.
-            if (window.GAEfbUiScale && panel.parentNode !== document.body) document.body.appendChild(panel);
+            const host = utilityViewportHost();
+            if (panel.parentNode !== host) host.appendChild(panel);
             panel.style.display = 'block';
             panel.setAttribute('aria-hidden', 'false');
+            syncUtilityMapVisibility();
             if (tool === 'e6b') applyE6BSize(readE6BSizeMode(), false);
             restorePanelPosition(cfg);
             if (tool === 'stopwatch') startClockTimer();
@@ -811,6 +847,17 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
             postE6BMessage({ type: 'ga-e6b-report-view' });
         });
         syncToolButtons();
+    }
+
+    function syncUtilityMapVisibility() {
+        const board = el('mapTableOverlay');
+        if (!board) return;
+        Object.keys(TOOL_IDS).forEach(tool => {
+            const panel = el(TOOL_IDS[tool].panel);
+            if (panel && (panel.parentNode === document.body || panel.parentNode.id === 'mapUtilityViewport')) {
+                panel.style.visibility = board.classList.contains('active') ? '' : 'hidden';
+            }
+        });
     }
 
     function closeMapUtilityTool(tool) {
@@ -856,7 +903,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
     function bindDrag(tool) {
         const cfg = getToolConfig(tool);
         const panel = cfg ? el(cfg.panel) : null;
-        const handle = cfg ? el(cfg.handle) : null;
+        const handle = cfg && cfg.handle ? panel : null;
         if (!cfg || !panel || !handle || handle.dataset.utilityDragBound === '1') return;
         let lastPointerDown = -Infinity;
         const beginDrag = event => {
@@ -1489,9 +1536,15 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         const scale = Math.max(0.5, Math.min(2, Number(requested) || 1));
         utilityScales[tool] = scale;
         if (panel) {
+            const before = mtEfbRect(panel);
             panel.classList.toggle('is-compact', scale === 0.5);
             panel.style.transform = `scale(${scale})`;
             panel.style.transformOrigin = 'top left';
+            if (panel.style.display !== 'none') {
+                const after = mtEfbRect(panel);
+                panel.style.left = `${before.left + (before.width - after.width) / 2}px`;
+                panel.style.top = `${before.top + (before.height - after.height) / 2}px`;
+            }
             if (panel.style.display !== 'none') requestAnimationFrame(() => {
                 clampPanel(panel);
                 savePanelPosition(getToolConfig(tool));
@@ -2460,6 +2513,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         clearCalc();
         syncToolButtons();
         function refreshUtilityLayout() {
+            if (el('mapUtilityViewport')) utilityViewportHost();
             Object.keys(TOOL_IDS).forEach(tool => {
                 const cfg = TOOL_IDS[tool];
                 const panel = el(cfg.panel);
@@ -2475,6 +2529,9 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
                 }
             });
         }
+        if (!window.GAEfbUiScale) new MutationObserver(() => requestAnimationFrame(refreshUtilityLayout)).observe(document.body, { attributes: true, attributeFilter: ['style'] });
+        const mapBoard = el('mapTableOverlay');
+        if (mapBoard) new MutationObserver(syncUtilityMapVisibility).observe(mapBoard, { attributes: true, attributeFilter: ['class'] });
         window.addEventListener('resize', refreshUtilityLayout);
         window.addEventListener('ga-efb-layout-change', () => requestAnimationFrame(refreshUtilityLayout));
     }

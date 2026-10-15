@@ -79,8 +79,8 @@
       if (open) scale = Math.min(scale, Math.max(0.15, Math.min((w - 12) / 640, (h - 12) / 264)));
       var width = open ? 640 * scale : 58,
         height = open ? 264 * scale : 58;
-      x = Math.max(6, Math.min(x, Math.max(6, w - width - 6)));
-      y = Math.max(6, Math.min(y, Math.max(6, h - height - 6)));
+      x = Math.max(open ? -width * .8 : 6, Math.min(x, open ? w - width * .2 : Math.max(6, w - width - 6)));
+      y = Math.max(open ? -height * .8 : 6, Math.min(y, open ? h - height * .2 : Math.max(6, h - height - 6)));
       [device, launcher].forEach(function (el) {
         el.style.left = x + 'px';
         el.style.top = y + 'px';
@@ -209,7 +209,7 @@
       drag = null;
       save();
     }
-    [launcher, device.querySelector('.ga-media-header')].forEach(function (el) {
+    [launcher, device].forEach(function (el) {
       el.addEventListener('pointerdown', start);
       el.addEventListener('pointermove', move);
       el.addEventListener('pointerup', end);
