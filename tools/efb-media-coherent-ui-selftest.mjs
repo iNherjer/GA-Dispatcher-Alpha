@@ -58,6 +58,9 @@ try {
   const touchBefore=(await winamp.boundingBox()).x;
   await winamp.evaluate(n=>{const r=n.getBoundingClientRect(),x=r.left+5,y=r.top+r.height/2;function fire(type,dx){const touch=new Touch({identifier:7,target:n,clientX:x+dx,clientY:y});n.dispatchEvent(new TouchEvent(type,{bubbles:true,cancelable:true,touches:type==='touchend'?[]:[touch],changedTouches:[touch]}));}fire('touchstart',0);fire('touchmove',30);fire('touchend',30);});
   assert.ok(Math.abs((await winamp.boundingBox()).x-touchBefore-30)<2,'legacy touch edge drag');
+  await page.evaluate(()=>{const original=gaMediaRequest;window.__lastMediaVolume=null;window.gaMediaRequest=p=>{if(p.action==='volume')window.__lastMediaVolume=p.volume;return original(p);};});
+  await page.evaluate(()=>{const d=document.querySelector('.ga-media-device');d.style.left='20px';});const volume=await page.locator('.ga-media-volume').boundingBox();await page.mouse.move(volume.x+8,volume.y+volume.height/2);await page.mouse.down();await page.mouse.move(volume.x+volume.width-8,volume.y+volume.height/2,{steps:8});await page.mouse.up();await page.waitForTimeout(50);
+  assert.ok(await page.evaluate(()=>window.__lastMediaVolume>.8),'native volume drag must remain usable with legacy fallback: '+JSON.stringify(await page.evaluate(()=>({last:window.__lastMediaVolume,value:document.querySelector('.ga-media-volume').value,disabled:document.querySelector('.ga-media-volume').disabled}))) );
   assert.deepEqual(errors,[]);await page.screenshot({path:'/tmp/ga-coherent-media-'+role+'-'+scale+'.png'});cases++;await page.close();
  }
  console.log('PASS '+cases+' EFB/toolbar Coherent capability cases: no inset/Grid/gap, no pointer capture/events, painted checkbox, skin buttons, launcher and device drag, header bounds');

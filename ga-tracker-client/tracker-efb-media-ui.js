@@ -32,7 +32,10 @@
   function point(event) { return event.touches && event.touches[0] || event.changedTouches && event.changedTouches[0] || event; }
   function begin(event) {
     if (Date.now() - lastPointer < 600 || legacy || event.button !== undefined && event.button !== 0) return;
-    legacy = {target:event.target}; pointer('pointerdown', event, point(event));
+    var target = event.target;
+    // Keep native controls in charge of their own mouse/touch gestures.
+    if (!target.closest('.ga-ipod-wheel,.ga-media-launcher') && target.closest('button,input,select,textarea,.ga-ipod-screen-menu')) return;
+    legacy = {target:target}; pointer('pointerdown', event, point(event));
   }
   function move(event) { if (legacy) { pointer('pointermove',event,point(event)); event.preventDefault(); } }
   function end(event) { if (!legacy) return; pointer(event.type === 'touchcancel' ? 'pointercancel' : 'pointerup',event,point(event)); legacy = null; }
