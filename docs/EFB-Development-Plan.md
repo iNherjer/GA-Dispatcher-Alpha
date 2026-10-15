@@ -17,6 +17,14 @@ Neue Windows-Runtime und Desktop-Installer; Community-Paket unverändert.
 Erneuter Feldtest mit mehreren Apple-Music-Titeln, Pause/Weiter und mehr als
 zwei Minuten Wiedergabe bleibt erforderlich. Stable unverändert.
 
+Quellcommit `9b08405e0`; Runtime `v534` und Desktop `tracker-desktop-v1.6.14-alpha.4`
+veröffentlicht und alle vier Assets öffentlich bytegleich geprüft. Runtime:
+173855129 Bytes, SHA-256 `0abe3a9cd25bb2058a553935c06f60a499e03b2738f5d81edaccaaff44c2e41b`.
+Installer: 100252350 Bytes, SHA-256
+`db1bf4486767fb70576b287d096ec2d6d887036784a61f41f42671413a63b96d`.
+Danach beide Alpha-Zeiger und der separate Medien-Installerlink aktualisiert;
+Webcache v2080. Stable- und Community-Kanäle unverändert.
+
 ## Windows-Medien: Timeline und Erreichbarkeit – lokaler Kandidat 15.10.2026
 
 Basis fec4dbd8dba3fbf77f17c40918d2ec9b63ebd1dd, vor Arbeit frisch von origin/main
