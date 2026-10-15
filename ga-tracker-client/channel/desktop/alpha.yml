@@ -1,8 +1,8 @@
-version: 1.6.14-alpha.2
+version: 1.6.14-alpha.3
 files:
-  - url: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/tracker-desktop-v1.6.14-alpha.2/VFR-Multitool-Tracker-Setup-1.6.14-alpha.2.exe
-    sha512: BJu/tRQLd7ORH1VnW6PX6BrnW9C3gZaRHxAJ8xumtL6ZNuWR2oXyGaBrRU6uK9sKl1aUsgYxvt1OyQeHsuAIEw==
-    size: 100251394
-path: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/tracker-desktop-v1.6.14-alpha.2/VFR-Multitool-Tracker-Setup-1.6.14-alpha.2.exe
-sha512: BJu/tRQLd7ORH1VnW6PX6BrnW9C3gZaRHxAJ8xumtL6ZNuWR2oXyGaBrRU6uK9sKl1aUsgYxvt1OyQeHsuAIEw==
-releaseDate: '2026-10-15T04:07:10.588Z'
+  - url: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/tracker-desktop-v1.6.14-alpha.3/VFR-Multitool-Tracker-Setup-1.6.14-alpha.3.exe
+    sha512: /M/PaVPm0Hm4xCS45tjTgC3hsLgyBCRIFPfMGtA2fGDe7STGWDKKoJHvRPVzWvgNDJh7GH+v92STuKVU5CcasQ==
+    size: 100251360
+path: https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/tracker-desktop-v1.6.14-alpha.3/VFR-Multitool-Tracker-Setup-1.6.14-alpha.3.exe
+sha512: /M/PaVPm0Hm4xCS45tjTgC3hsLgyBCRIFPfMGtA2fGDe7STGWDKKoJHvRPVzWvgNDJh7GH+v92STuKVU5CcasQ==
+releaseDate: '2026-10-15T05:56:27.140Z'

@@ -14,6 +14,10 @@ Test der privaten HTTP-Brücke. Windows-Installer gebaut und entpackte native
 sowie ASAR-Quellen geprüft. Tatsächliche Windows-/Suno-/Chrome-Bedienung
 bleibt im Feld abzunehmen. Runtime v533 und Community-Paket unverändert.
 Der temporäre Test-Runtime-Sonderstart entfällt mit diesem Desktop-Update.
+Release `tracker-desktop-v1.6.14-alpha.3` veröffentlicht und alle drei Assets
+öffentlich bytegleich geprüft. Installer: 100251360 Bytes, SHA-256
+`ec9454ef0529d6d74464e41f830922800d83c0f32899384d05c9000d5d449caa`.
+Desktop-Alpha-Zeiger und separater Medien-Test-Download aktualisiert.
 
 ## Lokale EFB-/Toolbar-Mediensteuerung, Alpha v533 (15.10.2026)
 
