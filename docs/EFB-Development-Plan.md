@@ -10,6 +10,11 @@ Tests ausgelassen. Lautstärkesitzung im Windows-Feldtest auch nach Playerwechse
 gefunden; hörbare Regelung/Absenkung bleibt nach Installation zu prüfen.
 Regulärer Desktop-Rollout über den bestehenden Autoupdater. Runtime v534,
 Runtime-Stable und Community-Pakete unverändert. Kein Web-Beta-/Stable-Repo-Push.
+Release `tracker-desktop-v1.6.15` veröffentlicht, alle vier Assets öffentlich
+bytegleich geprüft. Installer: 100253434 Bytes, SHA-256
+`3d375f73f99831b0ade92f14d5efb99dfbdf641fc1de1c7bf08492c47b60a176`.
+Danach Desktop latest.yml/alpha.yml auf 1.6.15 aktiviert, Installerlinks
+aktualisiert und Webcache auf v2084 angehoben.
 
 ## Apple-Music-App: eigener Audioprozess, lokaler Kandidat 15.10.2026
 
