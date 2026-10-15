@@ -1,0 +1,62 @@
+.ga-media-layer { position:absolute; inset:0; pointer-events:none; z-index:130600; font-family:Arial, sans-serif; }
+.ga-media-device, .ga-media-launcher { position:absolute; pointer-events:auto; box-sizing:border-box; touch-action:none; user-select:none; }
+.ga-media-device { width:640px; height:264px; transform-origin:top left; color:#dce5e6; padding:7px 9px 10px; background:linear-gradient(135deg,#423d59,#272238 46%,#1d1b2a); border:3px solid #11101a; box-shadow:inset 2px 2px #77748c,inset -2px -2px #090b15,0 13px 25px #0008; }
+.ga-media-device *, .ga-media-launcher * { box-sizing:border-box; }
+.ga-media-device[hidden], .ga-media-launcher[hidden] { display:none; }
+.ga-media-header { display:flex; align-items:center; gap:9px; height:24px; margin-bottom:10px; cursor:grab; border-bottom:2px solid #151323; }
+.ga-media-header:active { cursor:grabbing; }
+.ga-media-bolt { color:#f3d66b; font-size:22px; line-height:1; transform:rotate(-12deg); }
+.ga-media-header-line { height:10px; flex:1; background:linear-gradient(#5e4d30 0 15%,#f6e6ae 15% 33%,#87703e 33% 49%,#fff8d9 49% 64%,#d3b674 64% 80%,#403220 80%); border:1px solid #7c7949; box-shadow:0 1px #090b14; }
+.ga-media-brand { font:bold 17px/1 Arial,sans-serif; letter-spacing:2px; color:#e3e3ee; text-shadow:1px 1px #060512,-1px 0 #9993b0; white-space:nowrap; }
+.ga-media-close { width:23px; height:20px; margin:0 0 2px; padding:0; font:bold 17px/16px Arial; color:#2f3640; cursor:pointer; background:linear-gradient(#e6e6b5,#aaa56d); border:2px outset #c8c79b; }
+.ga-media-main { display:grid; grid-template-columns:210px minmax(0,1fr); gap:12px; height:109px; }
+.ga-media-display { position:relative; overflow:hidden; background:#050705; border:3px solid; border-color:#151422 #77758b #77758b #151422; box-shadow:inset 0 0 7px #000; color:#1aff18; }
+.ga-media-clock { height:102px; padding:10px 10px 9px; background-image:radial-gradient(#182219 0.6px,transparent 0.8px); background-size:4px 4px; }
+.ga-media-clock-top { display:flex; gap:10px; align-items:center; }
+.ga-media-state-icon { width:20px; height:26px; fill:#24ff17; filter:drop-shadow(0 0 2px #16a41755); }
+.ga-media-digits { width:153px; height:48px; fill:#24ff17; filter:drop-shadow(0 0 2px #16a41755); }
+.ga-media-signal { display:flex; justify-content:space-between; align-items:center; border-top:1px solid #16441b; margin-top:9px; padding-top:8px; font:11px/1 monospace; letter-spacing:2px; color:#4a9d4a; }
+.ga-media-leds { display:flex; gap:3px; }
+.ga-media-leds i { width:5px; height:7px; background:#28f017; box-shadow:0 0 3px #14be2960; }
+.ga-media-leds i:nth-last-child(-n+3) { background:#214a20; box-shadow:none; }
+.ga-media-now { min-width:0; }
+.ga-media-track { height:41px; padding:8px 9px; font:bold 18px/20px 'Courier New',monospace; white-space:nowrap; }
+.ga-media-marquee { display:flex; width:max-content; gap:44px; text-shadow:0 0 4px #00ff222b; }
+.ga-media-track.is-overflow .ga-media-marquee { animation:ga-media-scroll 13s linear infinite; }
+.ga-media-copy { display:none; }
+.ga-media-track.is-overflow .ga-media-copy { display:block; }
+@keyframes ga-media-scroll { 0%,15% { transform:translateX(0); } 85%,100% { transform:translateX(calc(-50% - 22px)); } }
+.ga-media-status-row { display:flex; align-items:center; gap:8px; height:31px; font:11px/1 'Courier New',monospace; font-weight:bold; letter-spacing:0.8px; }
+.ga-media-source { max-width:105px; overflow:hidden; padding:4px 5px; color:#25fd22; background:#060807; border:2px inset #68657f; text-overflow:ellipsis; white-space:nowrap; }
+.ga-media-status { margin-left:auto; display:flex; align-items:center; gap:5px; color:#49eb30; }
+.ga-media-status::before { content:''; width:5px; height:5px; background:currentColor; box-shadow:0 0 4px currentColor; }
+.ga-media-mixer { display:flex; align-items:center; gap:8px; height:32px; }
+.ga-media-label { font:bold 9px/1 Arial; letter-spacing:1px; color:#a6a3bb; }
+.ga-media-volume { flex:1; min-width:0; accent-color:#bfc6c7; height:22px; margin:0; cursor:pointer; appearance:none; background:transparent; }
+.ga-media-volume::-webkit-slider-runnable-track { height:9px; border:1px solid #090a16; background:linear-gradient(to right,#d41433 0%,#bb0c2e 55%,#339f13 100%); box-shadow:0 1px #5a5670,inset 0 1px #ee657244; }
+.ga-media-volume::-webkit-slider-thumb { appearance:none; width:24px; height:22px; margin-top:-7px; background:repeating-linear-gradient(90deg,#bfc9ca 0 5px,#4e5963 5px 7px,#d9e2dd 7px 9px); border:3px outset #c0ccd0; box-shadow:1px 1px #090b19; }
+.ga-media-volume::-moz-range-track { height:9px; background:linear-gradient(to right,#d41433,#339f13); }
+.ga-media-volume::-moz-range-thumb { border:3px outset #c0ccd0; border-radius:0; width:18px; height:16px; background:#bfc9ca; }
+.ga-media-volume-text { min-width:33px; color:#b0b9b8; font:11px/1 monospace; }
+.ga-media-seek-row { margin:14px 1px 12px; height:18px; position:relative; background:#161523; border:2px solid; border-color:#100f1b #66637b #66637b #100f1b; }
+.ga-media-progress { height:100%; background:linear-gradient(#61527a,#373047); width:0; }
+.ga-media-position { position:absolute; top:-3px; left:0; width:53px; height:19px; border:3px outset #cdbb79; background:linear-gradient(#f7e8b5,#ac9853 40%,#fff1c2 45% 57%,#9a803d 62%,#dfcd8b); transform:translateX(-50%); }
+.ga-media-position.is-unknown { display:none; }
+.ga-media-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.ga-media-transport, .ga-media-zoom { display:flex; gap:5px; }
+.ga-media-key { display:flex; align-items:center; justify-content:center; width:47px; height:37px; padding:0; background:linear-gradient(145deg,#e1efea,#a5bcc2 50%,#819ba9); border:3px solid; border-color:#d3e3df #3f5769 #3f5769 #d3e3df; box-shadow:inset 1px 1px #fafcf0,inset -1px -1px #8398a5,1px 1px #111522; color:#365265; cursor:pointer; }
+.ga-media-key:active { border-color:#3f5769 #d3e3df #d3e3df #3f5769; background:#93a9b2; }
+.ga-media-key svg { width:24px; height:24px; fill:currentColor; filter:drop-shadow(1px 1px #e0ebe7); }
+.ga-media-key:disabled { opacity:0.4; cursor:default; }
+.ga-media-zoom .ga-media-key { width:48px; font:bold 25px/1 Arial; }
+.ga-media-zoom-label { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; margin-right:3px; font:9px/1 monospace; color:#aaa8be; letter-spacing:1px; }
+.ga-media-zoom-label output { color:#e2e2d1; font-size:11px; }
+.ga-media-footer-mark { font-size:30px; color:#efc66e; line-height:1; text-shadow:2px 1px #7a6232,-1px -1px #fff3bc; padding-right:5px; }
+.ga-media-launcher { width:58px; height:58px; border-radius:50%; background:linear-gradient(145deg,#514b65,#262135); color:#f3d985; border:2px solid #a4a0b6; box-shadow:inset 1px 1px #d2cfda66,inset -2px -2px #07080e,0 5px 12px #0007; font:36px/1 'Segoe UI Symbol','Apple Symbols',serif; cursor:grab; padding:0; }
+.ga-media-device :focus-visible, .ga-media-launcher:focus-visible { outline:2px solid #f8dd84; outline-offset:3px; }
+.ga-media-settings { padding:8px 2px 12px; margin-bottom:10px; border-bottom:1px solid #555; color:#ddd; font:12px/1.4 Arial,sans-serif; }
+.ga-media-settings label { display:flex; align-items:center; gap:7px; margin:6px 0; }
+.ga-media-settings input[type="checkbox"] { width:14px; height:14px; }
+.ga-media-settings select { min-width:0; max-width:170px; color:#ddd; background:#242330; border:1px solid #666; padding:4px; }
+.ga-media-message { color:#9daebd; font-size:11px; max-width:230px; }
+@media (prefers-reduced-motion:reduce) { .ga-media-track.is-overflow .ga-media-marquee { animation:none; } }

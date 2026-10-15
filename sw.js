@@ -1,11 +1,14 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2069';
+const CACHE = 'ga-dispatcher-v2071';
 
 const STATIC = [
     './',
     './index.html',
     './legal.html',
     './styles.css',
+    './media-player.css',
+    './media-player-ui.js',
+    './media-player-client.js',
     './settings-toolroll.css',
     './assets/ui/settings/roll-head-suede-v2.png',
     './assets/ui/settings/roll-body-suede-v2.png',

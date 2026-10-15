@@ -18,6 +18,9 @@
       return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     },
     onPlayback: job => { if (job) lastError = ''; playbackText = job ? job.text || 'Audioeffekt wird abgespielt.' : ''; render(); },
+    onAudible: (active, job, stage) => {
+      if (window.GAMediaAudioActivity) window.GAMediaAudioActivity(active && audio?.settings?.volume > 0, job, stage);
+    },
     onError: error => { lastError = error; $('audioPlaybackStatus').textContent = error; }
   });
   function render() {

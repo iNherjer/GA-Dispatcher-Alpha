@@ -1,6 +1,6 @@
 {
   "name": "vfr-multitool-tracker-desktop",
-  "version": "1.6.14-alpha.1",
+  "version": "1.6.14-alpha.2",
   "private": true,
   "description": "Desktop UI and updater for the VFR Multitool MSFS tracker",
   "author": "VFR Multitool",
@@ -30,6 +30,7 @@
     "appId": "de.vfrmultitool.tracker",
     "productName": "VFR Multitool Tracker",
     "asar": true,
+    "asarUnpack": ["lib/windows-media.ps1", "lib/windows-media-volume.cs"],
     "directories": {
       "output": "dist"
     },

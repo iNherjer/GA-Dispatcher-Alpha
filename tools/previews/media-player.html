@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Winamp Mediensteuerung – Designvorschau</title>
+<link rel="stylesheet" href="../../media-player.css">
+<style>
+html,body {margin:0;width:100%;height:100%;overflow:hidden;background:#151d24;color:#e4e9ec;font:14px Arial,sans-serif;}
+body {background:radial-gradient(ellipse at 50% 35%,#3d4452 0,#242d38 45%,#141b23 85%);}
+.preview-toolbar {position:absolute;top:24px;left:30px;display:flex;align-items:center;gap:16px;z-index:140000;}
+.preview-toolbar button {color:#dce1e6;background:#303947;border:1px solid #626d7b;padding:10px 16px;border-radius:5px;cursor:pointer;}
+.preview-toolbar small {color:#a3afbd;}
+.preview-menu {position:absolute;top:70px;left:30px;padding:16px;background:#242c37;border:1px solid #687080;border-radius:6px;z-index:140001;}
+.preview-menu label {display:flex;align-items:center;gap:9px;}
+</style>
+<div class="preview-toolbar"><button id="audioMenuButton">Audio</button><small>Designvorschau · Beispieldaten</small></div>
+<div class="preview-menu" id="audioMenu" hidden><label><input type="checkbox" id="mediaEnabled" checked>Mediensteuerung anzeigen</label></div>
+<script src="../../media-player-ui.js"></script>
+<script>
+var sample={connected:true,player:'SPOTIFY',artist:'Orbital',title:'Halcyon and On and On',playing:true,positionSeconds:98,durationSeconds:567,volume:0.65,volumeAvailable:true};
+window.commands=[];
+window.player=GAMediaPlayerUI.create({x:160,y:130,state:sample,onCommand:function(command){commands.push(command);if(command.action==='play')sample.playing=true;if(command.action==='pause')sample.playing=false;if(command.action==='volume')sample.volume=command.volume;player.update(sample);}});
+player.open();
+document.getElementById('audioMenuButton').onclick=function(){document.getElementById('audioMenu').hidden=!document.getElementById('audioMenu').hidden;};
+document.getElementById('mediaEnabled').onchange=function(){player.setEnabled(this.checked);};
+</script>
+</html>

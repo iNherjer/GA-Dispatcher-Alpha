@@ -15,6 +15,17 @@
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
 }
 
+.media-control { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+.media-control > * { min-width: 0; }
+.media-control h3, .media-control p { margin: 0; }
+.media-title { font-weight: 600; overflow-wrap: anywhere; }
+.media-buttons { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 8px; }
+.media-buttons button { min-height: 44px; }
+.media-control input[type="range"] { width: 100%; margin: 0; }
+.media-duck-toggle { display: flex; gap: 10px; align-items: center; }
+.media-control .media-duck-toggle input { flex: 0 0 18px; width: 18px; height: 18px; padding: 0; }
+.media-control label > span { display: inline; }
+
 * {
   box-sizing: border-box;
 }

@@ -1,0 +1,87 @@
+(function () {
+  'use strict';
+  const api = window.trackerDesktop;
+  const request = payload => typeof api?.mediaRequest === 'function' ? api.mediaRequest(payload)
+    : Promise.resolve({ ok: false, error: 'Mediensteuerung benötigt die aktualisierte Windows-Tracker-App.' });
+  const $ = id => document.getElementById(id);
+  const audible = new Set();
+  let stopped = false, busy = false, state = null, available = false;
+  let enabled = true, factor = 0.2;
+  // Independent media preferences; never inherit the app's display preset.
+  try {
+    const saved = JSON.parse(localStorage.getItem('ga.media.preferences.v1') || '{}');
+    enabled = saved.duckEnabled !== false;
+    if ([0.1, 0.2, 0.35, 0.5].includes(saved.duckFactor)) factor = saved.duckFactor;
+  } catch (_) {}
+  $('mediaDuckEnabled').checked = enabled;
+  $('mediaDuckFactor').value = factor;
+  function render(result) {
+    if (!result.ok) {
+      available = false;
+      $('mediaStatus').textContent = result.error || 'Mediensteuerung nicht verfügbar.';
+      for (const id of ['mediaPlayer', 'mediaPrevious', 'mediaPlayPause', 'mediaNext', 'mediaVolume']) $(id).disabled = true;
+      return;
+    }
+    available = true; state = result;
+    const select = $('mediaPlayer');
+    const players = result.players || [];
+    const existing = Array.from(select.options).map(option => option.value).join('\n');
+    const next = players.map(player => player.source).join('\n');
+    if (existing !== next) {
+      select.replaceChildren();
+      if (!players.length) select.add(new Option('Kein Player geöffnet', ''));
+      for (const player of players) select.add(new Option(player.name, player.source));
+    }
+    select.value = result.source || ''; select.disabled = busy || !players.length;
+    $('mediaTitle').textContent = result.title || 'Keine Wiedergabe';
+    $('mediaArtist').textContent = result.artist || '';
+    $('mediaPlayPause').textContent = result.playing ? 'Pause' : 'Play';
+    for (const [id, control] of [['mediaPrevious','previous'], ['mediaPlayPause','playPause'], ['mediaNext','next']]) $(id).disabled = busy || !result.controls?.[control];
+    $('mediaVolume').disabled = busy || !result.volumeAvailable;
+    if (document.activeElement !== $('mediaVolume')) $('mediaVolume').value = Math.round((result.volume || 0) * 100);
+    $('mediaVolumeValue').textContent = result.volumeAvailable ? Math.round(result.volume * 100) + ' %' : '–';
+    $('mediaStatus').textContent = !players.length ? 'Player öffnen und dort einen Titel starten.'
+      : result.ducking ? 'Musik für Ansage abgesenkt.' : !result.volumeAvailable ? 'Bedienung verfügbar; Windows-Audiositzung fehlt für Lautstärke und Absenkung.' : 'Windows-Player verbunden.';
+  }
+  async function command(payload) {
+    if (busy) return;
+    busy = true; if (state) render(state);
+    try {
+      const result = await request(payload);
+      busy = false; render(result);
+    } catch (_) { busy = false; render({ ok: false, error: 'Windows-Mediensteuerung nicht erreichbar.' }); }
+  }
+  $('mediaPlayer').onchange = () => command({ action: 'select', source: $('mediaPlayer').value });
+  for (const [id, action] of [['mediaPrevious','previous'], ['mediaPlayPause','playPause'], ['mediaNext','next']]) $(id).onclick = () => command({ action });
+  $('mediaVolume').oninput = () => { $('mediaVolumeValue').textContent = $('mediaVolume').value + ' %'; };
+  $('mediaVolume').onchange = () => command({ action: 'volume', volume: Number($('mediaVolume').value) / 100 });
+  async function settings() {
+    enabled = $('mediaDuckEnabled').checked; factor = Number($('mediaDuckFactor').value);
+    try { localStorage.setItem('ga.media.preferences.v1', JSON.stringify({ duckEnabled: enabled, duckFactor: factor, skin: 'minimal' })); } catch (_) {}
+    await command({ action: 'settings', enabled, factor });
+  }
+  $('mediaDuckEnabled').onchange = settings;
+  $('mediaDuckFactor').onchange = settings;
+  window.GAMediaAudioActivity = (active, job, stage) => {
+    const key = String(job?.effectId || '') + ':' + stage;
+    if (active) audible.add(key); else audible.delete(key);
+    if (available) request({ action: 'duck', active: audible.size > 0 }).catch(() => {});
+  };
+  async function tick() {
+    if (stopped) return;
+    try {
+      if (!busy) {
+        const result = await request({ action: 'snapshot' });
+        if (!stopped && !busy) render(result);
+        if (result.ok && (result.duckEnabled !== enabled || result.duckFactor !== factor)) await request({ action: 'settings', enabled, factor });
+      }
+      if (available && audible.size) await request({ action: 'duck', active: true });
+    } catch (_) { render({ ok: false, error: 'Windows-Mediensteuerung nicht erreichbar.' }); }
+    if (!stopped) setTimeout(tick, 1000);
+  }
+  window.addEventListener('pagehide', () => {
+    stopped = true; audible.clear();
+    request({ action: 'duck', active: false }).catch(() => {});
+  });
+  tick();
+})();

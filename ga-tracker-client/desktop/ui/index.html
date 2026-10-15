@@ -222,6 +222,25 @@
               </div>
               <p id="audioPlaybackStatus" class="form-message" role="status">Tracker-Audio wird verbunden.</p>
             </div>
+            <section class="media-control" aria-label="Windows-Mediensteuerung">
+              <h3>Musik / Windows-Player</h3>
+              <p class="subtle">Spotify oder einen anderen Windows-Player öffnen und dort anmelden.</p>
+              <label for="mediaPlayer">Player</label>
+              <select id="mediaPlayer"><option value="">Kein Player geöffnet</option></select>
+              <p id="mediaTitle" class="media-title">Keine Wiedergabe</p>
+              <p id="mediaArtist" class="subtle"></p>
+              <div class="media-buttons">
+                <button id="mediaPrevious" type="button" class="secondary-button" disabled aria-label="Vorheriger Titel">Zurück</button>
+                <button id="mediaPlayPause" type="button" class="secondary-button" disabled>Play / Pause</button>
+                <button id="mediaNext" type="button" class="secondary-button" disabled aria-label="Nächster Titel">Weiter</button>
+              </div>
+              <label for="mediaVolume">Musiklautstärke <span id="mediaVolumeValue">–</span></label>
+              <input id="mediaVolume" type="range" min="0" max="100" value="50" disabled>
+              <label class="media-duck-toggle"><input id="mediaDuckEnabled" type="checkbox" checked> Bei Stimmen und Warnungen leiser</label>
+              <label for="mediaDuckFactor">Restlautstärke während Ansagen</label>
+              <select id="mediaDuckFactor"><option value="0.1">10 %</option><option value="0.2" selected>20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select>
+              <p id="mediaStatus" class="form-message" role="status">Windows-Player wird gesucht.</p>
+            </section>
             <form id="voiceCredentialsForm" class="voice-credentials-form">
               <label>
                 <span>Provider</span>
@@ -443,6 +462,7 @@
   <script src="./navigation-warning-audio.js"></script>
   <script src="./pax-audio-style.js"></script>
   <script src="./tracker-audio-player.js"></script>
+  <script src="./media.js"></script>
   <script src="./audio.js"></script>
   <script src="./renderer.js"></script>
 </body>

@@ -100,6 +100,9 @@
   function message(text) { uiProperty(root.document.getElementById('gaAudioOutputStatus'), 'textContent', text); }
   function createPlayer() { return root.GATrackerAudioPlayer.createPlayer({ deviceId: deviceId, clientId: cockpit.clientId,
     request: request, fetchClip: fetchClip, AudioContext: root.AudioContext || root.webkitAudioContext,
+    onAudible: function(active,job,stage) {
+      root.dispatchEvent(new root.CustomEvent('ga:media-audible',{detail:{active:active&&!!state&&state.settings.volume>0,effectId:job.effectId,stage:stage}}));
+    },
     onError: function (error) { lastError = error; message(error); }, onPlayback: function (job) {
       if (job) lastError = '';
       if (job) caption(job);

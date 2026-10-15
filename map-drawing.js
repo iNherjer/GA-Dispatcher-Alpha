@@ -41,6 +41,8 @@ function isMapUiClickTarget(evt) {
         t.closest('.map-overlay-btn') ||
         t.closest('.map-draw-rail') ||
         t.closest('.map-draw-floating-btn') ||
+        t.closest('.ga-media-device') ||
+        t.closest('.ga-media-launcher') ||
         t.closest('.map-draw-tool-stack') ||
         t.closest('.map-draw-menu') ||
         t.closest('.map-utility-device') ||

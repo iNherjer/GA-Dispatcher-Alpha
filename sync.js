@@ -1860,6 +1860,12 @@ window.gaRadioTune = payload => {
     if (!(window.liveTrackerCapabilities || []).includes('radio.tuning.v1')) return Promise.resolve({ok:false,error:'radio_unavailable'});
     return _sendMissionAuthorityRequest({type:'radio_tuning_request',payload,clientId:_missionAuthorityClientId()}, 10000);
 };
+window.gaMediaRequest = payload => {
+    if (!window.liveTrackerConnected) return Promise.resolve({ok:false,error:'tracker_not_connected'});
+    if (!(window.liveTrackerCapabilities || []).includes('media.control.v1')) return Promise.resolve({ok:false,error:'media_desktop_unavailable'});
+    if (!window.gaMediaClientId) window.gaMediaClientId = 'media-' + (window.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2));
+    return _sendMissionAuthorityRequest({type:'media_control_request',payload,clientId:window.gaMediaClientId}, 35000);
+};
 
 window.gaNavigationAvailable = () => window.liveTrackerConnected === true && !window.simModeActive
     && (window.liveTrackerCapabilities || []).includes('navigation.route.v1');
@@ -10980,7 +10986,7 @@ function _handleTrackerAck(ack) {
     // must not reset the projected passenger/boarding flags during reconnect.
     if (ack.error === 'mission_authority_owned_by_versioned_client'
         && /^mission_(scene|smoke)_/.test(ackType)) return;
-    if (ackType === 'radio_tuning_ack') {
+    if (ackType === 'radio_tuning_ack' || ackType === 'media_control_ack') {
         _trackerPendingHandleAck(ack);
         _resolveMissionAuthorityAck(ack);
         return;

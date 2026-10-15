@@ -10,6 +10,8 @@ const { createNavigationWarnings } = require('./tracker-navigation-warnings.js')
 const { createAudioControl, createAudioCloud } = require('./tracker-audio-control-core.js');
 const { createAudioAssetCache } = require('./tracker-audio-asset-cache.js');
 const { handleVoiceRelay } = require('./tracker-voice-relay-core.js');
+const mediaBridge = require('./tracker-media-bridge').createMediaBridge();
+const executeMediaRelay = require('./tracker-media-core').createMediaRelay(payload => mediaBridge.request(payload));
 const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Waypoint, SimConnectConstants, EventFlag } = require('node-simconnect');
 const { createClockTelemetry } = require('./tracker-clock-telemetry.js');
 const { createSlewTelemetry } = require('./tracker-slew-telemetry.js');
@@ -98,8 +100,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v531';
-const TRACKER_VERSION_CODE = 531;
+const TRACKER_VERSION = 'v532';
+const TRACKER_VERSION_CODE = 532;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -130,7 +132,7 @@ const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   clientId: 'ga-tracker',
   id: `tracker-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'radio.tuning.v1']
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'radio.tuning.v1', ...(mediaBridge.available ? ['media.control.v1'] : [])]
 });
 const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   trackerVersion: TRACKER_VERSION,
@@ -139,7 +141,7 @@ const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   clientId: 'ga-tracker-local',
   id: `tracker-efb-http-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'radio.tuning.v1']
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'radio.tuning.v1', ...(mediaBridge.available ? ['media.control.v1'] : [])]
 });
 const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;
 const PA24_FUEL_TANK_LVARS = [
@@ -5977,6 +5979,10 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       executeRadioRelay(command).then(result => sendHomebaseAck({...result, type:'radio_tuning_ack', commandId:command.commandId, clientId:command.clientId, status:result.ok ? 'ok' : 'error'}));
       return;
     }
+    if (type === 'media_control_request') {
+      executeMediaRelay(command).then(result => sendHomebaseAck({...result,type:'media_control_ack',commandId:command.commandId,clientId:command.clientId,status:result.ok?'ok':'error'}));
+      return;
+    }
     if (type === 'navigation_route_request') {
       executeNavigationRelay(command).then(result => sendHomebaseAck({ ...result,
         type: 'navigation_route_ack', commandId: command.commandId, clientId: command.clientId,
@@ -6088,7 +6094,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       debugLog(`RELAY_COMMAND_REJECT type=${commandType || 'unknown'} commandId=${commandId || 'none'} reason=command-pin-mismatch`);
       return;
     }
-    if (commandType === 'radio_tuning_request' && !require('./tracker-radio-relay').hasRadioPin(data, command, pin)) {
+    if (['radio_tuning_request','media_control_request'].includes(commandType) && !require('./tracker-radio-relay').hasRadioPin(data, command, pin)) {
       debugLog(`RELAY_COMMAND_REJECT type=${commandType} commandId=${commandId || 'none'} reason=radio-pin-required`);
       return;
     }

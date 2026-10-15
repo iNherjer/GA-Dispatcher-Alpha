@@ -126,6 +126,30 @@ function shortAudio() {
   }
   return Context;
 }
+
+test('audible events start after decoding and release on completion and cancellation', async t => {
+  for (const cancel of [false, true]) {
+    const events = []; let offered = false, decode;
+    class Context extends shortAudio() {
+      decodeAudioData(_bytes, resolve) { decode = () => resolve({ duration: 0.025 }); }
+    }
+    const player = createPlayer({ deviceId: 'pc', clientId: 'media-test', AudioContext: Context,
+      request: async command => {
+        if (command.action === 'next') { if (offered) return {}; offered = true; return { job: { effectId: 'media-voice', kind: 'boarding', audioAvailable: true } }; }
+        if (command.action === 'claim') return { claimed: true };
+        return { continued: true };
+      }, fetchClip: async () => new ArrayBuffer(1),
+      onAudible: (active, job, stage) => events.push({ active, effectId: job.effectId, stage }) });
+    t.after(() => player.stop());
+    player.update({ revision: 1, target: { deviceId: 'pc' }, settings: { enabled: true, paxEnabled: true, volume: 1, audioStyle: 'clear' }, playback: { playbackAvailable: true } });
+    await wait(15);
+    assert.deepEqual(events, [], 'loading/decoding must not attenuate music');
+    decode(); await wait(10);
+    assert.deepEqual(events, [{ active: true, effectId: 'media-voice', stage: 'audio' }]);
+    if (cancel) await player.stop(); else await wait(45);
+    assert.deepEqual(events.map(event => event.active), [true, false], 'every audible start gets one release');
+  }
+});
 for (const failure of ['cue', 'audio']) test(`stalled ${failure} download releases the queue without waiting for mission timeout`, async t => {
   const commands = [], errors = [], stages = []; let offered = false, cancelled = false;
   const player = createPlayer({ deviceId: 'phone', clientId: 'phone-tab', AudioContext: shortAudio(), preparationTimeoutMs: 40,

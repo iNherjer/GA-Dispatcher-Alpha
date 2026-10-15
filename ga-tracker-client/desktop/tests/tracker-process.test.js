@@ -66,6 +66,16 @@ test('desktop credentials use stdin and are not copied into the child environmen
   assert.match(spec.env.VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN, /^[a-f0-9]{64}$/);
   assert.equal(tracker.publicState().desktopControlToken, undefined);
 });
+test('private media endpoint is inherited only by the child and local runtime opt-in leaves the channel intact', () => {
+  const tracker=new TrackerProcess({electronApp:{isPackaged:true},dataDirectory:os.tmpdir(),
+    runtimeManager:{currentExecutablePath:()=>'/normal/runtime.exe'},getCredentials:()=>({pilotId:'Pilot',pin:'1234'}),
+    getMediaEndpoint:()=>({port:45678,token:'a'.repeat(64)}),getLocalTestRuntime:()=>'/test/media-runtime.exe'});
+  const spec=tracker.executableSpec();
+  assert.equal(spec.command,'/test/media-runtime.exe');
+  assert.equal(spec.env.VFR_MULTITOOL_MEDIA_PORT,'45678');
+  assert.equal(spec.env.VFR_MULTITOOL_MEDIA_TOKEN,'a'.repeat(64));
+  assert.equal(spec.args.length,0,'private media token must not be in process arguments');
+});
 
 test('mission execution works on Stable and explicit debug opt-out overrides inherited process state', () => {
   const inherited = process.env.VFR_MULTITOOL_APT_EXECUTION;

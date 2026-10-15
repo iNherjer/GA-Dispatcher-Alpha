@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+fs.copyFileSync(path.resolve(__dirname, '../../tracker-media-core.js'), path.resolve(__dirname, '../lib/media-core.js'));
 fs.copyFileSync(path.resolve(__dirname, '../../tracker-audio-player.js'), path.resolve(__dirname, '../ui/tracker-audio-player.js'));
 
 fs.copyFileSync(path.resolve(__dirname, '../../../navigation-warning-audio.js'), path.resolve(__dirname, '../ui/navigation-warning-audio.js'));

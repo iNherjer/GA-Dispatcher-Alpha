@@ -1,3 +1,52 @@
+## Origin-Alpha: Web-Mediensteuerung und Windows-Player (15.10.2026)
+
+Release-Kandidat auf Basis `86de66006`: Tracker v532 und Desktop
+1.6.14-alpha.2, Webcache v2071. Winamp-Gerät im Web-Audiomenü, verschiebbarer
+Notenschlüssel, Zoom und gemeinsame Windows-Mediensteuerung über den
+PIN-geprüften Relay-Pfad. Medienmetadaten sind kein Teil der GPS-Telemetrie;
+Status nur bei offenem Gerät, lokale Zeitfortschreibung und 15-Sekunden-Anker.
+Absenkung nutzt kurze, pro Audioclient getrennte Leases.
+
+84 Node-Tests sowie Web-/Medien- und Winamp-Browsernachweise bestanden.
+Bestehender Tracker-Interface-Selftest bestanden. Windows-x64-Runtime und
+NSIS-Installer samt Blockmap gebaut; gepackte Medienquellen bytegleich geprüft.
+Die native Windows-/Spotify-Abnahme erfolgt durch den Tester nach Alpha-Rollout.
+EFB/Toolbar erhalten noch keine Medienoberfläche. Stable-Kanäle unverändert.
+Veröffentlichung und Alpha-Aktivierung werden nach Download-/Hashprüfung im
+Release-Protokoll unter [Windows Media Control](Windows%20Media%20Control.md)
+festgehalten.
+
+## Windows-Mediensteuerung: minimaler Desktop-Kandidat (14.10.2026)
+
+Lokale Web-Anbindung ergänzt: Audio-Menü aktiviert den verschiebbaren
+Winamp-Notenschlüssel; Öffnen/Schließen wechselt zwischen Button und Gerät.
+Eigene Layout-/Zoom-Präferenzen, unabhängig vom Hauptdesign. `media.control.v1`
+wird nur mit konfiguriertem privaten Desktop-Medienkanal beworben. PIN-geprüfte
+Web-Relay-Befehle mit Deduplizierung und Limits; der Desktop besitzt die einzige
+native Player-/Lautstärkesteuerung. Loopback-Port/Token werden nur dem Kindprozess
+mitgegeben, weder veröffentlicht noch in Befehlsargumente geschrieben.
+
+Status wird nur bei sichtbarem geöffnetem Gerät angefordert: Änderung oder
+15-Sekunden-Zeitanker, kein Eintrag in laufender GPS-Telemetrie. Web schreibt
+Zeit/Fortschritt lokal fort. Kein Cover-/Audio-/Spektrumtransport. Absenksignale
+laufen nur bei tatsächlich hörbarem Web-Audio; mehrere Audioclients haben eigene
+kurze Leases. EFB-/Toolbar-Anbindung bleibt ein separater nächster Schritt.
+Lokaler Testbuild mit explizitem `--media-local-test` verwendet die beigelegte
+Runtime, ohne Alpha-/Stable-Zeiger oder die installierte Runtime zu ersetzen.
+Keine Veröffentlichung beauftragt. Windows-/Spotify-Feldprüfung weiterhin offen.
+
+Auf Basis `86de66006` (frisch 0/0 gegen Origin) entsteht zuerst eine minimale
+Windows-Player-Steuerung in der Tracker-Desktop-App. GSMTC bedient den externen
+Player; Core Audio regelt dessen Anwendungslautstärke. Der bestehende Audioplayer
+meldet den tatsächlichen Clipstart und das Ende über einen optionalen Callback.
+Absenkung besitzt eine native Fünf-Sekunden-Lease, kurze Haltezeit und sanfte
+Wiederherstellung. Missionsentscheidungen und Playback-Authority bleiben gleich.
+Separate Medien-Designauswahl: später Winamp, iPod Classic und Retro-Taschenradio,
+unabhängig vom App-Designpreset; aktuell ausschließlich minimal.
+Kartentisch/EFB-/Tablet-Anbindung ist noch nicht Teil dieses Desktop-Kandidaten.
+Native Windows-Abnahme offen; lokal gebaut, noch nicht veröffentlicht.
+Vertrag, Grenzen und Prüfschritte: [Windows Media Control](Windows%20Media%20Control.md).
+
 ## Anzeigezeit: Simulator/Gerät und UTC/Lokal (13.10.2026, Alpha v531)
 
 Basis `743c38ce7`, frisch gegen origin/main geprüft (0/0). Nutzer beauftragt

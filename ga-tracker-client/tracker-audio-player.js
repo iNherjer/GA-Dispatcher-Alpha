@@ -156,6 +156,9 @@
           if (done) return; done = true;
           clearTimeout(playbackTimer);
           source.onended = null;
+          if (typeof options.onAudible === 'function') {
+            try { options.onAudible(false, current.job, stage); } catch (_) {}
+          }
           try { if (current.noise) current.noise.stop(); } catch (_) {}
           current.noise = null;
           if (chain) chain.disconnect();
@@ -164,7 +167,11 @@
         }
         current.resolveClip = function () { end(); };
         source.onended = function () { end(); };
-        source.start(0, current.offset);
+        try { source.start(0, current.offset); }
+        catch (error) { end(error); return; }
+        if (typeof options.onAudible === 'function') {
+          try { options.onAudible(true, current.job, stage); } catch (_) {}
+        }
         if (current.noise) current.noise.start();
         current.stopAt = ctx.currentTime + Math.max(0, current.leaseDeadline - Date.now()) / 1000;
         source.stop(current.stopAt);

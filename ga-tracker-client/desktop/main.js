@@ -27,6 +27,11 @@ const { HomebaseAssetManager } = require('./lib/homebase-manager');
 const { TrackerRuntimeManager } = require('./lib/runtime-manager');
 const { TrackerProcess } = require('./lib/tracker-process');
 const { UpdateController } = require('./lib/update-controller');
+const { WindowsMedia } = require('./lib/windows-media');
+const windowsMedia = new WindowsMedia();
+const { createMediaServer } = require('./lib/media-server');
+const mediaServer = createMediaServer(windowsMedia);
+let mediaEndpoint = null;
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 
@@ -416,6 +421,7 @@ function registerIpc() {
   });
   ipcMain.handle('tracker:stop', () => trackerProcess.stop());
   ipcMain.handle('tracker:audio', (_event, kind, payload) => trackerProcess.audioRequest(kind, payload));
+  ipcMain.handle('tracker:media', (_event, payload) => windowsMedia.request(payload));
   ipcMain.handle('settings:audio-output', (_event, id) => { configStore.setAudioOutputDeviceId(id); broadcastState(); return { ok: true }; });
   ipcMain.handle('tracker:hard-reset-mission', async () => {
     const result = await trackerProcess.hardResetMission();
@@ -593,6 +599,8 @@ async function startApplication() {
     savePolicy: (policy) => configStore.setModuleUpdatePolicy('desktop', policy),
     beforeInstall: async () => {
       app.isQuitting = true;
+      await windowsMedia.close();
+      await mediaServer.close();
       trackerProcess?.stop();
       bridgeManager?.stopPolling();
       if (bridgeManager) await bridgeManager.shutdownOwned();
@@ -648,10 +656,17 @@ async function startApplication() {
     channel: configStore.publicSettings().runtimeChannel
   });
   efbPackageManager.inspect();
+  if (process.platform === 'win32') {
+    try { mediaEndpoint = await mediaServer.start(); } catch (_) { mediaEndpoint = null; }
+  }
   trackerProcess = new TrackerProcess({
     electronApp: app,
     dataDirectory: configStore.dataDirectory,
     runtimeManager,
+    getMediaEndpoint: () => mediaEndpoint,
+    // Explicit local test launcher only; published channel descriptors stay intact.
+    getLocalTestRuntime: () => app.isPackaged && process.argv.includes('--media-local-test')
+      ? path.join(process.resourcesPath, 'media-test-runtime.exe') : '',
     getCredentials: () => {
       const credentials = configStore.credentials();
       if (!credentials) return null;
@@ -739,11 +754,11 @@ if (!singleInstanceLock) {
     trackerProcess?.stop();
     bridgeManager?.stopPolling();
     const shouldStopBridge = configStore?.publicSettings().stopBridgeWithTracker !== false;
-    if (finalQuitReady || !shouldStopBridge || !bridgeManager) return;
+    if (finalQuitReady) return;
     event.preventDefault();
     if (bridgeShutdownInProgress) return;
     bridgeShutdownInProgress = true;
-    bridgeManager.shutdownOwned().finally(() => {
+    Promise.allSettled([windowsMedia.close(), mediaServer.close(), shouldStopBridge && bridgeManager ? bridgeManager.shutdownOwned() : Promise.resolve()]).finally(() => {
       finalQuitReady = true;
       app.quit();
     });

@@ -56,7 +56,7 @@ var MAP_DRAW_XR_POINTER_UA_RE = /OculusBrowser|Quest|Meta Quest|VR/i;
 function isMapUiClickTarget(evt) {
   var t = evt && evt.target;
   if (!t || !t.closest) return false;
-  return Boolean(t.closest('.leaflet-control') || t.closest('.map-overlay-btn') || t.closest('.map-draw-rail') || t.closest('.map-draw-floating-btn') || t.closest('.map-draw-tool-stack') || t.closest('.map-draw-menu') || t.closest('.map-utility-device') || t.closest('.pb-btn') || t.closest('#vpSettingsMenu') || t.closest('#awmFreqBanner') || t.closest('.telemetry-box') || t.closest('.leaflet-popup') || t.closest('.leaflet-tooltip'));
+  return Boolean(t.closest('.leaflet-control') || t.closest('.map-overlay-btn') || t.closest('.map-draw-rail') || t.closest('.map-draw-floating-btn') || t.closest('.ga-media-device') || t.closest('.ga-media-launcher') || t.closest('.map-draw-tool-stack') || t.closest('.map-draw-menu') || t.closest('.map-utility-device') || t.closest('.pb-btn') || t.closest('#vpSettingsMenu') || t.closest('#awmFreqBanner') || t.closest('.telemetry-box') || t.closest('.leaflet-popup') || t.closest('.leaflet-tooltip'));
 }
 window.gaMapOverlayZ = window.gaMapOverlayZ || 130500;
 function bringMapOverlayToFront() {
