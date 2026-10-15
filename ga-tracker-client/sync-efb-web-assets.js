@@ -5,6 +5,9 @@ const path = require('node:path');
 
 const TRACKER_ROOT = __dirname;
 const PROJECT_ROOT = path.resolve(TRACKER_ROOT, '..');
+// Pin media sources independently while the browser rollout awaits approval.
+const MEDIA_ROOT = path.join(TRACKER_ROOT, 'efb-media-source');
+function sourceRoot(name) { return name.startsWith('media-player') && fs.existsSync(path.join(MEDIA_ROOT,name)) ? MEDIA_ROOT : PROJECT_ROOT; }
 const OUTPUT_ROOT = path.join(TRACKER_ROOT, 'efb-web-assets');
 const { canvasFontPlugin } = require('./tracker-efb-fonts');
 
@@ -13,7 +16,7 @@ function ensureParent(filename) {
 }
 
 function copy(relativeSource, relativeTarget = relativeSource) {
-  const source = path.join(PROJECT_ROOT, relativeSource);
+  const source = path.join(sourceRoot(relativeSource), relativeSource);
   const target = path.join(OUTPUT_ROOT, relativeTarget);
   ensureParent(target);
   fs.copyFileSync(source, target);
@@ -23,7 +26,7 @@ function copy(relativeSource, relativeTarget = relativeSource) {
 // Compile the actual standalone sources for Coherent. Generated assets never
 // acquire a separate renderer or independent control logic.
 function compileShared(relativeSource) {
-  const source = path.join(PROJECT_ROOT, relativeSource);
+  const source = path.join(sourceRoot(relativeSource), relativeSource);
   const target = path.join(OUTPUT_ROOT, relativeSource);
   const result = require('@babel/core').transformFileSync(source, {
     babelrc: false, configFile: false, sourceType: 'script', comments: true, compact: false,
@@ -62,6 +65,7 @@ function writeKartentischFragment() {
 writeKartentischFragment();
 copy('styles.css');
 copy('media-player.css');
+compileShared('media-player-ipod.js');
 compileShared('media-player-ui.js');
 compileShared('media-player-client.js');
 copy('mission-training-guidance-ui.js', 'mission-training-guidance-ui.js');

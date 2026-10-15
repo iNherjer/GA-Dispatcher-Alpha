@@ -38,10 +38,11 @@
   }
   function create(options) {
     options = options || {};
+    if (options.skin === 'ipod') return root.GAMediaIPodUI.create(options);
     var host = options.host || document.body;
     var layer = document.createElement('div');
     layer.className = 'ga-media-layer';
-    layer.innerHTML = '<button class="ga-media-launcher" type="button" aria-label="Mediensteuerung öffnen" title="Mediensteuerung öffnen">𝄞</button>' + '<section class="ga-media-device" role="region" aria-label="Winamp Mediensteuerung" hidden>' + '<header class="ga-media-header"><span class="ga-media-bolt" aria-hidden="true">ϟ</span><span class="ga-media-header-line"></span><span class="ga-media-brand">WINAMP</span><span class="ga-media-header-line"></span><button class="ga-media-close" type="button" aria-label="Mediensteuerung schließen">×</button></header>' + '<div class="ga-media-main"><div class="ga-media-display ga-media-clock"><div class="ga-media-clock-top"><svg class="ga-media-state-icon" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ga-media-digits" viewBox="0 0 138 48" role="img" aria-label="Abspielzeit"></svg></div><div class="ga-media-signal"><span>PC AUDIO</span><div class="ga-media-leds" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>' + '<div class="ga-media-now"><div class="ga-media-display ga-media-track"><div class="ga-media-marquee"><span class="ga-media-title"></span><span class="ga-media-title ga-media-copy" aria-hidden="true"></span></div></div><div class="ga-media-status-row"><div class="ga-media-app-switcher" role="group" aria-label="Musik-App auswählen"><button class="ga-media-app-key" type="button" data-source-step="-1" aria-label="Vorherige Musik-App" title="Vorherige Musik-App">◀</button><span class="ga-media-source"></span><button class="ga-media-app-key" type="button" data-source-step="1" aria-label="Nächste Musik-App" title="Nächste Musik-App">▶</button></div><span class="ga-media-status"></span></div><div class="ga-media-mixer"><label class="ga-media-label">VOL</label><input class="ga-media-volume" aria-label="Musiklautstärke" type="range" min="0" max="100"><output class="ga-media-volume-text"></output></div></div></div>' + '<div class="ga-media-seek-row" role="progressbar" aria-label="Wiedergabefortschritt"><div class="ga-media-progress"></div><div class="ga-media-position"></div></div>' + '<footer class="ga-media-footer"><div class="ga-media-transport">' + key('previous', 'Vorheriger Titel') + key('play', 'Abspielen') + key('pause', 'Pause') + key('next', 'Nächster Titel') + '</div><div class="ga-media-zoom"><span class="ga-media-zoom-label">ZOOM<output>100%</output></span><button class="ga-media-key" type="button" data-zoom="-1" aria-label="Gerät verkleinern">−</button><button class="ga-media-key" type="button" data-zoom="1" aria-label="Gerät vergrößern">+</button></div><span class="ga-media-footer-mark" aria-hidden="true">ϟ</span></footer></section>';
+    layer.innerHTML = '<button class="ga-media-launcher" type="button" aria-label="Mediensteuerung öffnen" title="Mediensteuerung öffnen">𝄞</button>' + '<section class="ga-media-device" role="region" aria-label="Winamp Mediensteuerung" hidden>' + '<header class="ga-media-header"><span class="ga-media-bolt" aria-hidden="true">ϟ</span><span class="ga-media-header-line"></span><span class="ga-media-brand">WINAMP</span><span class="ga-media-header-line"></span><button class="ga-media-close" type="button" aria-label="Mediensteuerung schließen">×</button></header>' + '<div class="ga-media-main"><div class="ga-media-display ga-media-clock"><div class="ga-media-clock-top"><svg class="ga-media-state-icon" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ga-media-digits" viewBox="0 0 138 48" role="img" aria-label="Abspielzeit"></svg></div><div class="ga-media-signal"><span>PC AUDIO</span><div class="ga-media-leds" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>' + '<div class="ga-media-now"><div class="ga-media-display ga-media-track"><div class="ga-media-marquee"><span class="ga-media-title"></span><span class="ga-media-title ga-media-copy" aria-hidden="true"></span></div></div><div class="ga-media-status-row"><div class="ga-media-app-switcher" role="group" aria-label="Musik-App auswählen"><button class="ga-media-app-key" type="button" data-source-step="-1" aria-label="Vorherige Musik-App" title="Vorherige Musik-App">◀</button><span class="ga-media-source"></span><button class="ga-media-app-key" type="button" data-source-step="1" aria-label="Nächste Musik-App" title="Nächste Musik-App">▶</button></div><span class="ga-media-status"></span></div><div class="ga-media-mixer"><label class="ga-media-label">VOL</label><input class="ga-media-volume" aria-label="Musiklautstärke" type="range" min="0" max="100"><output class="ga-media-volume-text"></output></div></div></div>' + '<div class="ga-media-seek-row" role="progressbar" aria-label="Wiedergabefortschritt"><div class="ga-media-progress"></div><div class="ga-media-position"></div><input class="ga-media-seek" type="range" min="0" max="1000" step="1" aria-label="Wiedergabeposition" disabled></div>' + '<footer class="ga-media-footer"><div class="ga-media-transport">' + key('previous', 'Vorheriger Titel') + key('play', 'Abspielen') + key('pause', 'Pause') + key('next', 'Nächster Titel') + '</div><div class="ga-media-zoom"><span class="ga-media-zoom-label">ZOOM<output>100%</output></span><button class="ga-media-key" type="button" data-zoom="-1" aria-label="Gerät verkleinern">−</button><button class="ga-media-key" type="button" data-zoom="1" aria-label="Gerät vergrößern">+</button></div><span class="ga-media-footer-mark" aria-hidden="true">ϟ</span></footer></section>';
     host.appendChild(layer);
     var device = layer.querySelector('.ga-media-device'),
       launcher = layer.querySelector('.ga-media-launcher');
@@ -136,6 +137,45 @@
         volume: Number(volume.value) / 100
       });
     });
+    var seekInput = device.querySelector('.ga-media-seek'),
+      seekDraft = null,
+      seekKey = '';
+    function seekAvailable() {
+      return state.connected !== false && state.controls && state.controls.seek === true && Number.isFinite(state.positionSeconds) && Number.isFinite(state.durationSeconds) && state.durationSeconds > 0;
+    }
+    function seekIdentity() {
+      return [state.source, state.title, state.artist].join('|');
+    }
+    seekInput.addEventListener('input', function () {
+      if (!seekAvailable()) return;
+      seekKey = seekIdentity();
+      seekDraft = Number(seekInput.value) / 1000 * state.durationSeconds;
+      drawProgress(seekDraft, state.durationSeconds);
+    });
+    seekInput.addEventListener('change', function () {
+      if (seekDraft !== null && seekKey === seekIdentity() && seekAvailable() && options.onCommand) options.onCommand({
+        action: 'seek',
+        source: state.source,
+        positionSeconds: seekDraft
+      });
+      seekDraft = null;
+    });
+    seekInput.addEventListener('pointercancel', function () {
+      seekDraft = null;
+      update(state);
+    });
+    function drawProgress(positionSeconds, durationSeconds) {
+      var known = Number.isFinite(positionSeconds) && Number.isFinite(durationSeconds) && durationSeconds > 0,
+        progress = known ? Math.min(100, Math.max(0, positionSeconds / durationSeconds * 100)) : 0;
+      device.querySelector('.ga-media-progress').style.width = progress + '%';
+      var position = device.querySelector('.ga-media-position');
+      position.classList.toggle('is-unknown', !known);
+      position.style.left = 'calc(' + progress + '% + ' + (26 - progress * .52) + 'px)';
+      var row = device.querySelector('.ga-media-seek-row');
+      row.setAttribute('aria-valuemin', '0');
+      row.setAttribute('aria-valuemax', '100');
+      if (known) row.setAttribute('aria-valuenow', String(Math.round(progress)));else row.removeAttribute('aria-valuenow');
+    }
     function start(event) {
       if (event.button !== 0 || event.target.closest('button') !== launcher && event.target.closest('button,input')) return;
       event.preventDefault();
@@ -209,16 +249,13 @@
         var action = el.dataset.command;
         el.disabled = state.connected === false || state.controls && state.controls[action] === false;
       });
-      var known = Number.isFinite(state.positionSeconds) && Number.isFinite(state.durationSeconds) && state.durationSeconds > 0;
-      var progress = known ? Math.min(100, Math.max(0, state.positionSeconds / state.durationSeconds * 100)) : 0;
-      device.querySelector('.ga-media-progress').style.width = progress + '%';
-      var position = device.querySelector('.ga-media-position');
-      position.classList.toggle('is-unknown', !known);
-      position.style.left = 'calc(' + progress + '% + ' + (26 - progress * 0.52) + 'px)';
-      var seek = device.querySelector('.ga-media-seek-row');
-      seek.setAttribute('aria-valuemin', '0');
-      seek.setAttribute('aria-valuemax', '100');
-      if (known) seek.setAttribute('aria-valuenow', String(Math.round(progress)));else seek.removeAttribute('aria-valuenow');
+      if (seekKey !== seekIdentity() || !seekAvailable()) seekDraft = null;
+      seekInput.disabled = !seekAvailable();
+      seekInput.title = seekAvailable() ? 'Wiedergabeposition ändern' : 'Spulen für diesen Player nicht verfügbar';
+      var positionSeconds = seekDraft === null ? state.positionSeconds : seekDraft;
+      drawProgress(positionSeconds, state.durationSeconds);
+      if (seekDraft === null) seekInput.value = Number.isFinite(positionSeconds) && state.durationSeconds > 0 ? Math.round(positionSeconds / state.durationSeconds * 1000) : 0;
+      seekInput.setAttribute('aria-valuetext', Number.isFinite(positionSeconds) ? Math.floor(positionSeconds / 60) + ':' + ('0' + Math.floor(positionSeconds % 60)).slice(-2) : 'Nicht verfügbar');
     }
     function resize() {
       layout();

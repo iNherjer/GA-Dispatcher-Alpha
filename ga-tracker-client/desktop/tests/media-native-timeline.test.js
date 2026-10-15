@@ -23,8 +23,18 @@ $v=ReadTimeline (Timeline -2 0 300 $at) $false $at
 Check ($null -eq $v.positionSeconds -and $v.durationSeconds -eq 300) 'duration independent of bad position'
 $v=ReadTimeline (Timeline 330.403561 0 -0.000001 ($at.AddSeconds(-205))) $true $at
 Check ($null -eq $v.positionSeconds -and $null -eq $v.durationSeconds) 'stale previous-track position must not run away'
-'NATIVE_TIMELINE_CASES_OK: 7'
+$tl=Timeline 130 100 300 $at
+$tl | Add-Member NoteProperty MinSeekTime ([timespan]::FromSeconds(100))
+$tl | Add-Member NoteProperty MaxSeekTime ([timespan]::FromSeconds(300))
+$info=[pscustomobject]@{Controls=[pscustomobject]@{IsPlaybackPositionEnabled=$true};PlaybackStatus='Paused'}
+Check ((SeekTarget $tl $info ([pscustomobject]@{positionSeconds=25}) $at) -eq [timespan]::FromSeconds(125).Ticks) 'seek adds nonzero start offset'
+Check ((SeekTarget $tl $info ([pscustomobject]@{positionSeconds=250}) $at) -eq [timespan]::FromSeconds(300).Ticks) 'seek clamps to duration'
+foreach($target in @(-1,86400,[double]::NaN,[double]::PositiveInfinity)){$rejected=$false;try{SeekTarget $tl $info ([pscustomobject]@{positionSeconds=$target}) $at}catch{$rejected=$true};Check $rejected 'invalid seek rejected'}
+$info.Controls.IsPlaybackPositionEnabled=$false
+$rejected=$false;try{SeekTarget $tl $info ([pscustomobject]@{positionSeconds=10}) $at}catch{$rejected=$true};Check $rejected 'unsupported seek rejected'
+'NATIVE_TIMELINE_AND_SEEK_CASES_OK'
+
 `;
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'ga-media-timeline-')),file=path.join(directory,'test.ps1');
- try{fs.writeFileSync(file,script);const run=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',file],{encoding:'utf8',windowsHide:true});assert.equal(run.status,0,run.stdout+run.stderr);assert.match(run.stdout,/NATIVE_TIMELINE_CASES_OK/);}finally{fs.rmSync(directory,{recursive:true,force:true});}
+ try{fs.writeFileSync(file,script);const run=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',file],{encoding:'utf8',windowsHide:true});assert.equal(run.status,0,run.stdout+run.stderr);assert.match(run.stdout,/NATIVE_TIMELINE_AND_SEEK_CASES_OK/);}finally{fs.rmSync(directory,{recursive:true,force:true});}
 });

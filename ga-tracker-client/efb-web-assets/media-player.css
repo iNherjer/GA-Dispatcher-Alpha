@@ -66,3 +66,39 @@
 #mapVoiceMenu .ga-media-settings .ga-media-factor { width:72px; max-width:72px; flex-basis:72px; }
 .ga-media-message { color:#9daebd; font-size:11px; max-width:230px; }
 @media (prefers-reduced-motion:reduce) { .ga-media-track.is-overflow .ga-media-marquee { animation:none; } }
+
+/* White classic player: independent of cockpit theme, bitmap LCD, relative wheel. */
+.ga-media-device.ga-media-ipod { width:300px; height:500px; padding:0; overflow:hidden; border:2px solid #9faaa9; border-radius:27px; background:linear-gradient(105deg,#c8ccca 0,#fafbf7 5%,#f2f3ef 46%,#e1e4e1 91%,#b5bcbb 100%); box-shadow:inset 2px 2px 3px #fff,inset -3px -2px 5px #9da5a2,0 12px 24px #0008; color:#787f7d; font:14px Arial,sans-serif; }
+.ga-ipod-drag { position:absolute; top:0; left:0; width:100%; height:37px; cursor:grab; display:flex; align-items:center; justify-content:center; gap:8px; color:#929996; font:8px Arial,sans-serif; letter-spacing:1px; }
+.ga-ipod-drag:active { cursor:grabbing; }
+.ga-ipod-drag i { display:block; width:31px; height:6px; border-radius:5px; background:linear-gradient(#8b9290,#c3c8c5); box-shadow:0 1px #fff; }
+.ga-ipod-lcd { position:absolute; left:23px; top:38px; width:250px; height:190px; padding:3px; border:2px solid #697773; border-radius:7px; background:#8d9a90; box-shadow:inset 0 2px 5px #26362c99,0 1px 1px #fff; overflow:hidden; }
+.ga-ipod-lcd canvas { display:block; width:240px; height:180px; image-rendering:pixelated; image-rendering:crisp-edges; opacity:.94; }
+.ga-ipod-lcd::after { content:''; position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,#f4fff408 0 1px,#193b2808 1px 2px),linear-gradient(120deg,#ffffff18,transparent 65%); }
+.ga-ipod-readable { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+.ga-media-device.ga-media-ipod button.ga-ipod-button { box-sizing:border-box; margin:0; padding:0; min-width:0; min-height:0; font:13px Arial,sans-serif; letter-spacing:0; text-shadow:0 1px #fff; color:#989e9b; cursor:pointer; border:0; box-shadow:none; background:transparent; border-radius:0; touch-action:none; }
+.ga-media-device.ga-media-ipod button.ga-ipod-button:disabled { opacity:.35; cursor:default; }
+.ga-media-device.ga-media-ipod button.ga-ipod-button:focus-visible,.ga-ipod-wheel:focus-visible { outline:2px solid #626e69; outline-offset:-3px; }
+.ga-media-device.ga-media-ipod button.ga-ipod-zoom { position:absolute; top:3px; width:23px; height:21px; color:#303b33; font:bold 17px/20px monospace; text-shadow:none; z-index:1; }
+.ga-ipod-minus { left:3px; }.ga-ipod-plus { left:27px; }
+.ga-ipod-wheel { position:absolute; left:32px; top:241px; width:232px; height:232px; border:1px solid #a4aaa6; border-radius:50%; background:linear-gradient(180deg,#fafbf8,#edf0ea); box-shadow:inset 0 1px 2px rgba(255,255,255,.9),inset 0 -1px 2px rgba(65,78,67,.10),0 1px 2px rgba(45,57,48,.08); touch-action:none; cursor:crosshair; }
+.ga-ipod-wheel::before { content:''; position:absolute; inset:25px; border:1px solid #a7aea8; border-radius:50%; background:#f4f5f1; box-shadow:0 1px 1px rgba(255,255,255,.6); pointer-events:none; }
+.ga-ipod-wheel[aria-readonly="true"] { cursor:default; }
+.ga-media-device.ga-media-ipod button.ga-ipod-menu { position:absolute; top:0; left:74px; width:84px; height:26px; font-size:10px; letter-spacing:.5px; }
+.ga-media-device.ga-media-ipod button.ga-ipod-previous { position:absolute; left:0; top:103px; width:26px; height:26px; font-size:11px; }
+.ga-media-device.ga-media-ipod button.ga-ipod-next { position:absolute; right:0; top:103px; width:26px; height:26px; font-size:11px; }
+.ga-media-device.ga-media-ipod button.ga-ipod-toggle { position:absolute; bottom:0; left:90px; width:52px; height:26px; font-size:14px; }
+.ga-media-device.ga-media-ipod button.ga-ipod-center { position:absolute; left:80px; top:80px; width:72px; height:72px; border-radius:50%; border:1px solid #9fa8a1; background:#f4f5f1; box-shadow:none; cursor:pointer; }
+.ga-ipod-wheel svg { width:18px; height:14px; fill:currentColor; vertical-align:middle; pointer-events:none; }
+.ga-ipod-screen-menu { position:absolute; inset:3px; z-index:2; }
+.ga-ipod-screen-menu[hidden] { display:none; }
+.ga-media-device.ga-media-ipod button.ga-ipod-menu-row { position:absolute; left:2px; width:236px; height:28px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; cursor:pointer; }
+.ga-media-device.ga-media-ipod button.ga-ipod-menu-row:focus-visible { outline:1px solid #303b33; outline-offset:-1px; }
+.ga-media-device.ga-media-ipod button.ga-ipod-menu,
+.ga-media-device.ga-media-ipod button.ga-ipod-previous,
+.ga-media-device.ga-media-ipod button.ga-ipod-next,
+.ga-media-device.ga-media-ipod button.ga-ipod-toggle { display:flex; align-items:center; justify-content:center; line-height:1; }
+
+.ga-media-seek { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+.ga-media-seek:disabled { cursor:default; }
+.ga-media-seek-row:focus-within { outline:2px solid #d9cf91; outline-offset:2px; }

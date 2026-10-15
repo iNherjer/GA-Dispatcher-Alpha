@@ -65,3 +65,9 @@ test('one audio client cannot release attenuation still owned by another', async
   assert.equal(f.commands.at(-1).active,false);
   await f.media.close();
 });
+
+test('seek serializes a source-bound target and rejects invalid positions before native dispatch',async()=>{
+ const f=fixture();for(const positionSeconds of [-1,86400,Infinity,NaN,'10',null])assert.equal((await f.media.request({action:'seek',source:'Chrome',positionSeconds})).ok,false);
+ assert.equal(f.commands.length,0);await f.media.request({action:'seek',source:'Chrome',positionSeconds:123.5});
+ assert.equal(f.commands[0].positionSeconds,123.5);assert.equal(f.commands[0].source,'Chrome');await f.media.close();
+});

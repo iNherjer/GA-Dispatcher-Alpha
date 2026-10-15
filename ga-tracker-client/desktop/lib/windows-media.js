@@ -50,14 +50,18 @@ class WindowsMedia {
     child.stderr.on('data', () => {});
   }
   request(payload = {}) {
-    const allowed = ['snapshot', 'select', 'play', 'pause', 'playPause', 'next', 'previous', 'volume', 'duck', 'settings'];
+    const allowed = ['snapshot', 'select', 'play', 'pause', 'playPause', 'next', 'previous', 'seek', 'volume', 'duck', 'settings'];
     if (!payload || typeof payload !== 'object' || !allowed.includes(payload.action)) return Promise.resolve({ ok: false, error: 'Ungültiger Medienbefehl.' });
     if (this.platform !== 'win32') return Promise.resolve({ ok: false, unsupported: true, error: 'Mediensteuerung benötigt den Windows-Tracker.' });
     if (this.closed) return Promise.resolve({ ok: false, error: 'Mediensteuerung wurde beendet.' });
     const command = { action: payload.action };
-    if (payload.action === 'select') {
-      if (typeof payload.source !== 'string' || payload.source.length > 256) return Promise.resolve({ ok: false, error: 'Ungültiger Player.' });
+    if (payload.action === 'select' || payload.action === 'seek') {
+      if (typeof payload.source !== 'string' || !payload.source || payload.source.length > 256) return Promise.resolve({ ok: false, error: 'Ungültiger Player.' });
       command.source = payload.source;
+    }
+    if (payload.action === 'seek') {
+      if (!Number.isFinite(payload.positionSeconds) || payload.positionSeconds < 0 || payload.positionSeconds >= 86400) return Promise.resolve({ok:false,error:'media_position_invalid'});
+      command.positionSeconds = payload.positionSeconds;
     }
     if (payload.action === 'volume' || payload.action === 'settings') {
       const value = payload.action === 'volume' ? payload.volume : payload.factor;

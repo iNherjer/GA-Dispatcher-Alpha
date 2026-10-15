@@ -12,7 +12,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     if (!host || !menu || !root.GAMediaPlayerUI) return;
     var container = document.createElement('div');
     container.className = 'ga-media-settings';
-    container.innerHTML = '<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option></select></label><label class="ga-media-player-choice" hidden>Musik-App <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Keine Musik-App aktiv</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
+    container.innerHTML = '<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option><option value="ipod">iPod</option></select></label><label class="ga-media-player-choice" hidden>Musik-App <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Keine Musik-App aktiv</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
     menu.insertBefore(container, menu.firstChild);
     var check = container.querySelector('.ga-media-enable'),
       select = container.querySelector('.ga-media-select'),
@@ -28,6 +28,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       lastReceived = 0,
       lastReachable = 0,
       pendingAction = false,
+      pendingVolume = null,
+      pendingSeek = null,
+      skin = 'winamp',
       audible = new Set(),
       closed = false,
       nextWatchAt = 0,
@@ -35,8 +38,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     try {
       var saved = JSON.parse(localStorage.getItem('ga.media.web.v1') || '{}');
       enabled = saved.enabled === true;
+      skin = saved.skin === 'ipod' ? 'ipod' : 'winamp';
     } catch (_) {}
     check.checked = enabled;
+    container.querySelector('.ga-media-skin').value = skin;
     var errors = {
       tracker_not_connected: 'Tracker nicht verbunden.',
       media_desktop_unavailable: 'Mediensteuerung benötigt die vorbereitete Windows-Tracker-App und Runtime.',
@@ -119,7 +124,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     }
     function _action() {
       _action = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(payload) {
-        var _t, _t2;
+        var seek, next, _t, _t2;
         return _regenerator().w(function (_context) {
           while (1) switch (_context.p = _context.n) {
             case 0:
@@ -127,6 +132,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 _context.n = 1;
                 break;
               }
+              if (payload.action === 'volume') pendingVolume = payload;
+              if (payload.action === 'seek') pendingSeek = payload;
               return _context.a(2);
             case 1:
               pendingAction = true;
@@ -148,6 +155,15 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             case 5:
               _context.p = 5;
               pendingAction = false;
+              if (pendingSeek) {
+                seek = pendingSeek;
+                pendingSeek = null;
+                action(seek);
+              } else if (pendingVolume) {
+                next = pendingVolume;
+                pendingVolume = null;
+                action(next);
+              }
               return _context.f(5);
             case 6:
               return _context.a(2);
@@ -209,32 +225,53 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }));
       return _watch.apply(this, arguments);
     }
-    var ui = root.GAMediaPlayerUI.create({
-      host: host,
-      storageKey: 'ga.media.winamp.layout.v1',
-      state: {
-        connected: false,
-        volumeAvailable: false
-      },
-      onCommand: action,
-      onVisibilityChange: function onVisibilityChange(value) {
-        open = value;
-        epoch++;
-        clearTimeout(watchTimer);
-        nextWatchAt = 0;
-        if (value) watch();
-      }
-    });
-    ui.setEnabled(enabled);
-    check.onchange = function () {
-      enabled = check.checked;
+    function savePreferences() {
       try {
         localStorage.setItem('ga.media.web.v1', JSON.stringify({
           enabled: enabled,
-          skin: 'winamp'
+          skin: skin
         }));
       } catch (_) {}
+    }
+    function createSkin() {
+      return root.GAMediaPlayerUI.create({
+        host: host,
+        skin: skin,
+        storageKey: 'ga.media.' + skin + '.layout.v1',
+        state: {
+          connected: false,
+          volumeAvailable: false
+        },
+        onCommand: action,
+        onVisibilityChange: function onVisibilityChange(value) {
+          open = value;
+          epoch++;
+          clearTimeout(watchTimer);
+          nextWatchAt = 0;
+          if (value) watch();
+        }
+      });
+    }
+    var ui = createSkin();
+    ui.setEnabled(enabled);
+    check.onchange = function () {
+      enabled = check.checked;
+      savePreferences();
       ui.setEnabled(enabled);
+    };
+    container.querySelector('.ga-media-skin').onchange = function () {
+      var reopen = open;
+      skin = this.value === 'ipod' ? 'ipod' : 'winamp';
+      savePreferences();
+      epoch++;
+      clearTimeout(watchTimer);
+      ui.destroy();
+      open = false;
+      ui = createSkin();
+      ui.setEnabled(enabled);
+      if (reopen && enabled) ui.open();
+      render();
+      if (root.gaMediaPlayerClient) root.gaMediaPlayerClient.ui = ui;
     };
     select.onchange = function () {
       action({

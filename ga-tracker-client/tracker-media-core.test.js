@@ -35,3 +35,10 @@ test('position becoming available or disappearing publishes immediately, without
  assert.equal(mediaStateChanged(base,{...base,positionSeconds:0},1000,1001),true);
  assert.equal(mediaStateChanged({...base,positionSeconds:0},base,1000,1001),true);
 });
+
+test('seek validates finite bounded positions and binds the selected source',()=>{
+ for(const file of ['./tracker-media-core','./desktop/lib/media-core']){const {normalizeMediaCommand:normalize}=require(file);
+ for(const positionSeconds of [-1,86400,Infinity,NaN,'10',null])assert.throws(()=>normalize({action:'seek',source:'Chrome',positionSeconds}));
+ assert.throws(()=>normalize({action:'seek',positionSeconds:20}));
+ assert.deepEqual(normalize({action:'seek',source:'Chrome',positionSeconds:20.25,shell:'ignored'}),{action:'seek',source:'Chrome',positionSeconds:20.25});}
+});

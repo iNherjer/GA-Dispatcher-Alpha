@@ -45,6 +45,17 @@ function ReadTimeline($timeline, $playing, $at = [DateTime]::UtcNow) {
     }
     return @{positionSeconds=$positionSeconds; durationSeconds=$durationSeconds; timeline=$raw}
 }
+function SeekTarget($timeline, $info, $request, $at = [DateTime]::UtcNow) {
+    if (-not $info.Controls.IsPlaybackPositionEnabled) { throw 'Dieser Player unterstützt kein Spulen.' }
+    $target = [double]$request.positionSeconds
+    if ([double]::IsNaN($target) -or [double]::IsInfinity($target) -or $target -lt 0 -or $target -ge 86400) { throw 'Ungültige Wiedergabeposition.' }
+    $reading = ReadTimeline $timeline ($info.PlaybackStatus.ToString() -eq 'Playing') $at
+    if ($null -eq $reading.positionSeconds -or $null -eq $reading.durationSeconds) { throw 'Keine verlässliche Zeitleiste zum Spulen verfügbar.' }
+    $target = [Math]::Min($target, $reading.durationSeconds)
+    $absolute = $timeline.StartTime + [TimeSpan]::FromSeconds($target)
+    if ($absolute -lt $timeline.MinSeekTime -or $absolute -gt $timeline.MaxSeekTime) { throw 'Diese Position liegt außerhalb des spulbaren Bereichs.' }
+    return [long]$absolute.Ticks
+}
 $manager = Await ($managerType::RequestAsync()) $managerType
 $volume = New-Object GAMedia.SessionVolume
 $source = ''; $enabled = $true; $factor = 0.2; $duckUntil = [DateTime]::MinValue; $releaseAt = [DateTime]::MinValue
@@ -89,6 +100,11 @@ try {
                     }
                     if (-not (Await $operation ([bool]))) { throw 'Der Player unterstützt diesen Befehl derzeit nicht.' }
                 }
+                'seek' {
+                    if ($null -eq $session -or $request.source -ne $source) { throw 'Der ausgewählte Player hat sich geändert.' }
+                    $ticks = SeekTarget ($session.GetTimelineProperties()) ($session.GetPlaybackInfo()) $request
+                    if (-not (Await ($session.TryChangePlaybackPositionAsync($ticks)) ([bool]))) { throw 'Der Player hat das Spulen abgelehnt.' }
+                }
                 'volume' {
                     if ($null -eq $session -or -not $volume.Available) { throw 'Für diesen Player ist keine Windows-Audiositzung verfügbar.' }
                     $volume.Tick([single]$effective, [single]$request.volume)
@@ -107,18 +123,19 @@ try {
                 continue
             }
             $title = ''; $artist = ''; $playing = $false
-            $controls = @{ play=$false; pause=$false; playPause=$false; next=$false; previous=$false }
+            $controls = @{ play=$false; pause=$false; playPause=$false; next=$false; previous=$false; seek=$false }
             $positionSeconds = $null; $durationSeconds = $null; $timelineData = $null; $album = ''; $trackNumber = 0
             if ($null -ne $session) {
                 $properties = Await ($session.TryGetMediaPropertiesAsync()) $propertiesType
                 $title = $properties.Title; $artist = $properties.Artist
                 $album = $properties.AlbumTitle; $trackNumber = $properties.TrackNumber
                 $info = $session.GetPlaybackInfo(); $playing = $info.PlaybackStatus.ToString() -eq 'Playing'
-                $controls = @{ play=$info.Controls.IsPlayEnabled; pause=$info.Controls.IsPauseEnabled; playPause=$info.Controls.IsPlayPauseToggleEnabled; next=$info.Controls.IsNextEnabled; previous=$info.Controls.IsPreviousEnabled }
+                $controls = @{ play=$info.Controls.IsPlayEnabled; pause=$info.Controls.IsPauseEnabled; playPause=$info.Controls.IsPlayPauseToggleEnabled; next=$info.Controls.IsNextEnabled; previous=$info.Controls.IsPreviousEnabled; seek=$false }
                 # A missing/failed timeline must not disable otherwise valid transport controls.
                 try {
                     $reading = ReadTimeline ($session.GetTimelineProperties()) $playing
                     $positionSeconds = $reading.positionSeconds; $durationSeconds = $reading.durationSeconds; $timelineData = $reading.timeline
+                    $controls.seek = $info.Controls.IsPlaybackPositionEnabled -and $null -ne $positionSeconds -and $null -ne $durationSeconds
                 } catch { $positionSeconds = $null; $durationSeconds = $null; $timelineData = $null }
             }
             $result = @{ id=$request.id; ok=$true; source=$source; title=$title; artist=$artist; playing=$playing;

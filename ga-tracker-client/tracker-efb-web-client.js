@@ -6,10 +6,11 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '53401';
+const EFB_WEB_ASSET_REVISION = '53501';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
+  '/efb/v1/assets/media-player-ipod.js': [path.join(__dirname, 'efb-web-assets', 'media-player-ipod.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/media-player.css': [path.join(__dirname, 'efb-web-assets', 'media-player.css'), 'text/css; charset=utf-8'],
   '/efb/v1/assets/media-player-ui.js': [path.join(__dirname, 'efb-web-assets', 'media-player-ui.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/media-player-client.js': [path.join(__dirname, 'efb-web-assets', 'media-player-client.js'), 'text/javascript; charset=utf-8'],
@@ -190,6 +191,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/ui-scale.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/floating-layout.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/flight-debrief.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/media-player-ipod.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/media-player-ui.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/media-local-client.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/media-player-client.js?v=${EFB_WEB_ASSET_REVISION}"></script>

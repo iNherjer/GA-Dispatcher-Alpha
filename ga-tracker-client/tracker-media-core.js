@@ -1,11 +1,15 @@
 'use strict';
-const ACTIONS = new Set(['snapshot','watch','select','play','pause','playPause','next','previous','volume','settings','duck']);
+const ACTIONS = new Set(['snapshot','watch','select','play','pause','playPause','next','previous','seek','volume','settings','duck']);
 function normalizeMediaCommand(value = {}) {
   if (!value || !ACTIONS.has(value.action)) throw new Error('media_command_invalid');
   const result = { action: value.action };
-  if (value.action === 'select') {
+  if (value.action === 'select' || value.action === 'seek') {
     if (typeof value.source !== 'string' || !value.source || value.source.length > 256) throw new Error('media_source_invalid');
     result.source = value.source;
+  }
+  if (value.action === 'seek') {
+    if (!Number.isFinite(value.positionSeconds) || value.positionSeconds < 0 || value.positionSeconds >= 86400) throw new Error('media_position_invalid');
+    result.positionSeconds = value.positionSeconds;
   }
   if (value.action === 'watch') result.after = Number.isSafeInteger(value.after) && value.after >= 0 ? value.after : -1;
   if (value.action === 'volume' || value.action === 'settings') {
