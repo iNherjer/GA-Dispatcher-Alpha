@@ -27,6 +27,10 @@
 .ga-media-track.is-overflow .ga-media-copy { display:block; }
 @keyframes ga-media-scroll { 0%,15% { transform:translateX(0); } 85%,100% { transform:translateX(calc(-50% - 22px)); } }
 .ga-media-status-row { display:flex; align-items:center; gap:8px; height:31px; font:11px/1 'Courier New',monospace; font-weight:bold; letter-spacing:0.8px; }
+.ga-media-app-switcher { display:flex; align-items:center; gap:4px; min-width:0; }
+.ga-media-app-key { display:flex; align-items:center; justify-content:center; flex:0 0 23px; width:23px; height:24px; margin:0; padding:0; color:#365265; font:11px/1 Arial,sans-serif; background:linear-gradient(145deg,#e1efea,#819ba9); border:2px outset #c0ccd0; border-radius:0; cursor:pointer; }
+.ga-media-app-key:active { border-style:inset; }
+.ga-media-app-key:disabled { opacity:0.4; cursor:default; }
 .ga-media-source { max-width:105px; overflow:hidden; padding:4px 5px; color:#25fd22; background:#060807; border:2px inset #68657f; text-overflow:ellipsis; white-space:nowrap; }
 .ga-media-status { margin-left:auto; display:flex; align-items:center; gap:5px; color:#49eb30; }
 .ga-media-status::before { content:''; width:5px; height:5px; background:currentColor; box-shadow:0 0 4px currentColor; }

@@ -53,6 +53,10 @@ try{
  await page.waitForFunction(()=>document.querySelector('.ga-media-title').textContent.includes('Orbital'));
  await page.getByRole('button',{name:'Pause',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('.ga-media-status').textContent==='PAUSE');
+ await page.getByRole('button',{name:'Nächste Musik-App',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('.ga-media-source').textContent==='VLC');
+ await page.getByRole('button',{name:'Vorherige Musik-App',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('.ga-media-source').textContent==='Spotify');
  await page.selectOption('.ga-media-select','vlc.exe');
  await page.waitForFunction(()=>document.querySelector('.ga-media-source').textContent==='VLC');
  await page.locator('.ga-media-volume').fill('40');await page.locator('.ga-media-volume').dispatchEvent('change');
