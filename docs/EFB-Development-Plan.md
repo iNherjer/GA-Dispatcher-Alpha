@@ -22,6 +22,12 @@ bestanden. Native Windows-/MSFS-/Coherent-Abnahme durch Tester bleibt offen.
 Benötigt Desktop 1.6.14-alpha.2 und Runtime v533; kein neuer Desktop-Installer
 und kein neues EFB-/Toolbar-Community-Paket. Stable bleibt unverändert.
 
+Release `v533`, Quellcommit `e4a22b0be`, veröffentlicht und öffentlich heruntergeladen:
+173854209 Bytes, SHA-256
+`d9733b7444c33da7a4834744fa6edd7d2d277d04586ba851c2cdf7fa29fc83f0`.
+Danach Runtime-Alpha-Zeiger aktiviert, Webcache v2076. Desktop- und Community-
+Kanäle unverändert.
+
 ## Origin-Alpha: Web-Mediensteuerung und Windows-Player (15.10.2026)
 
 Release auf Basis `86de66006`, Quellcommit `4b695cdb2`: Tracker v532 und Desktop
