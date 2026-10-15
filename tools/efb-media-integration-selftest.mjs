@@ -76,6 +76,13 @@ try {
  await page.waitForFunction(()=>(document.querySelector('.ga-ipod-lcd canvas').getAttribute('aria-label')||'').includes('Spulen'));
  await page.getByRole('button',{name:'Lautstärke regeln',exact:true}).click();
 
+ const gameCommands=local.filter(c=>!['watch','snapshot'].includes(c.payload.action)).length;
+ await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Extras',exact:true}).click();await page.getByRole('button',{name:'Breakout',exact:true}).click();
+ await page.getByRole('button',{name:'Ball starten',exact:true}).click();
+ const paddle=page.getByRole('slider',{name:'Breakout-Paddle',exact:true});await paddle.focus();await paddle.press('ArrowRight');await paddle.press('Enter');
+ assert.match(await page.locator('.ga-ipod-lcd canvas').getAttribute('aria-label'),/Breakout: paused/);
+ await paddle.press('Escape');await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Musik',exact:true}).click();
+ assert.equal(local.filter(c=>!['watch','snapshot'].includes(c.payload.action)).length,gameCommands,'compiled game does not issue media commands');
  for(const theme of ['theme-retro','theme-win95','theme-ops1940']){
   await page.evaluate(t=>document.body.className='map-is-fullscreen ga-efb-tracker-host '+t,theme);
   const box=await page.locator('.ga-ipod-center').boundingBox();assert.ok(box.width>30&&box.width<100,'theme must not resize clickwheel center');

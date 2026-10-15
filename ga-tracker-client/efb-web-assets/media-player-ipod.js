@@ -85,6 +85,111 @@
     value = Math.floor(Math.max(0, value));
     return Math.floor(value / 60) + ':' + ('0' + value % 60).slice(-2);
   }
+  // Single local level. Fixed substeps keep collisions independent of display FPS.
+  function createBreakout() {
+    var state = {};
+    function reset() {
+      state.paddle = 120;
+      state.ball = {
+        x: 120,
+        y: 150,
+        vx: 52,
+        vy: -85
+      };
+      state.lives = 3;
+      state.score = 0;
+      state.status = 'ready';
+      state.bricks = [];
+      for (var row = 0; row < 4; row++) for (var col = 0; col < 6; col++) state.bricks.push({
+        x: 12 + col * 36,
+        y: 46 + row * 12,
+        w: 33,
+        h: 9,
+        alive: true
+      });
+    }
+    function move(delta) {
+      state.paddle = Math.max(28, Math.min(212, state.paddle + delta));
+      if (state.status === 'ready') state.ball.x = state.paddle;
+    }
+    function action() {
+      if (state.status === 'won' || state.status === 'lost') reset();
+      if (state.status === 'ready') {
+        state.ball.x = state.paddle;
+        state.status = 'playing';
+      } else if (state.status === 'playing') state.status = 'paused';else if (state.status === 'paused') state.status = 'playing';
+    }
+    function pause() {
+      if (state.status === 'playing') state.status = 'paused';
+    }
+    function step(seconds) {
+      if (state.status !== 'playing' || !Number.isFinite(seconds) || seconds <= 0) return;
+      var remaining = Math.min(seconds, .05),
+        ball = state.ball,
+        r = 2;
+      while (remaining > 0 && state.status === 'playing') {
+        var dt = Math.min(remaining, 1 / 240),
+          oldX = ball.x,
+          oldY = ball.y;
+        remaining -= dt;
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+        if (ball.x < 10) {
+          ball.x = 10;
+          ball.vx = Math.abs(ball.vx);
+        }
+        if (ball.x > 230) {
+          ball.x = 230;
+          ball.vx = -Math.abs(ball.vx);
+        }
+        if (ball.y < 40) {
+          ball.y = 40;
+          ball.vy = Math.abs(ball.vy);
+        }
+        for (var i = 0; i < state.bricks.length; i++) {
+          var brick = state.bricks[i];
+          if (!brick.alive || ball.x + r < brick.x || ball.x - r > brick.x + brick.w || ball.y + r < brick.y || ball.y - r > brick.y + brick.h) continue;
+          brick.alive = false;
+          state.score += 10;
+          if (oldX + r <= brick.x || oldX - r >= brick.x + brick.w) {
+            ball.vx = -ball.vx;
+            ball.x = oldX;
+          } else {
+            ball.vy = -ball.vy;
+            ball.y = oldY;
+          }
+          if (!state.bricks.some(function (b) {
+            return b.alive;
+          })) state.status = 'won';
+          break;
+        }
+        if (ball.vy > 0 && oldY + r <= 156 && ball.y + r >= 156 && Math.abs(ball.x - state.paddle) <= 22) {
+          var hit = Math.max(-1, Math.min(1, (ball.x - state.paddle) / 20)),
+            speed = Math.min(145, 100 + state.score * .15);
+          ball.vx = hit * speed * .85;
+          ball.vy = -Math.sqrt(speed * speed - ball.vx * ball.vx);
+          ball.y = 154;
+        }
+        if (ball.y - r > 174) {
+          state.lives--;
+          state.status = state.lives > 0 ? 'ready' : 'lost';
+          ball.x = state.paddle;
+          ball.y = 150;
+          ball.vx = 52;
+          ball.vy = -85;
+        }
+      }
+    }
+    reset();
+    return {
+      state: state,
+      move: move,
+      action: action,
+      pause: pause,
+      step: step,
+      reset: reset
+    };
+  }
   function create(options) {
     options = options || {};
     var host = options.host || document.body,
@@ -104,6 +209,9 @@
       menuRows = [],
       menuKey = "",
       menu = layer.querySelector(".ga-ipod-screen-menu");
+    var game = null,
+      gameFrame = null,
+      gameAt = 0;
     var seekMode = false,
       seekPreview = null,
       seekIdentity = '',
@@ -160,6 +268,64 @@
       }
       ctx.restore();
     }
+    function inGame() {
+      return menuOpen && menuView === 'breakout';
+    }
+    function pauseGame() {
+      if (game) game.pause();
+      if (gameFrame !== null) root.cancelAnimationFrame(gameFrame);
+      gameFrame = null;
+      gameAt = 0;
+    }
+    function gameLoop(at) {
+      gameFrame = null;
+      if (destroyed || !inGame() || !enabled || !open || document.hidden || root.getComputedStyle(host).visibility === 'hidden' || host.getBoundingClientRect().width <= 0 || host.getBoundingClientRect().height <= 0) {
+        pauseGame();
+        if (inGame()) {
+          refreshMenu();
+          paint();
+        }
+        return;
+      }
+      game.step(gameAt ? (at - gameAt) / 1000 : 0);
+      gameAt = at;
+      refreshMenu();
+      paint();
+      if (game.state.status === 'playing') gameFrame = root.requestAnimationFrame(gameLoop);else gameAt = 0;
+    }
+    function startGameLoop() {
+      if (inGame() && game.state.status === 'playing' && gameFrame === null && enabled && open && !document.hidden) gameFrame = root.requestAnimationFrame(gameLoop);
+    }
+    function drawGame() {
+      var g = game.state;
+      ctx.fillStyle = '#303b33';
+      text('PUNKTE ' + g.score, 8, 28, 1, 130, false);
+      text('LEBEN ' + g.lives, 164, 28, 1, 70, false);
+      g.bricks.forEach(function (b) {
+        if (b.alive) {
+          ctx.strokeRect(b.x + .5, b.y + .5, b.w - 1, b.h - 1);
+          ctx.fillRect(b.x + 2, b.y + 2, b.w - 4, b.h - 4);
+        }
+      });
+      ctx.fillRect(Math.round(g.paddle - 20), 156, 40, 4);
+      ctx.fillRect(Math.round(g.ball.x - 2), Math.round(g.ball.y - 2), 4, 4);
+      if (g.status !== 'playing') {
+        var label = g.status === 'won' ? 'GESCHAFFT!' : g.status === 'lost' ? 'GAME OVER' : g.status === 'paused' ? 'PAUSE' : 'BREAKOUT';
+        ctx.fillStyle = '#b1bbb0';
+        ctx.fillRect(10, 107, 220, 39);
+        ctx.fillStyle = '#303b33';
+        text(label, 10, 110, 2, 220, true);
+        text(g.status === 'paused' ? 'MITTE: WEITER' : g.status === 'ready' ? 'MITTE: START' : 'MITTE: NEU', 10, 132, 1, 220, true);
+      }
+      wheel.setAttribute('aria-valuemin', '0');
+      wheel.setAttribute('aria-valuemax', '100');
+      wheel.setAttribute('aria-valuenow', String(Math.round((g.paddle - 28) / 184 * 100)));
+      wheel.setAttribute('aria-valuetext', 'Paddle ' + Math.round((g.paddle - 28) / 184 * 100) + ' Prozent');
+      canvas.setAttribute('aria-label', 'Breakout: ' + g.status + ', Punkte ' + g.score + ', Leben ' + g.lives);
+      var readable = layer.querySelector('.ga-ipod-readable'),
+        summary = 'Breakout: ' + g.status + ', ' + g.lives + ' Leben';
+      if (readable.textContent !== summary) readable.textContent = summary;
+    }
     function paint() {
       if (destroyed) return;
       ctx.imageSmoothingEnabled = false;
@@ -167,7 +333,7 @@
       ctx.fillRect(0, 0, 240, 180);
       ctx.fillStyle = '#303b33';
       if (menuOpen) {
-        text(menuView === 'library' ? 'Bibliothek' : menuView === 'settings' ? 'Einstellungen' : menuView === 'factor' ? 'Restlautstaerke' : 'Menue', 54, 8, 1, 116, true);
+        text(menuView === 'library' ? 'Bibliothek' : menuView === 'settings' ? 'Einstellungen' : menuView === 'factor' ? 'Restlautstaerke' : menuView === 'extras' ? 'Extras' : menuView === 'breakout' ? 'Breakout' : 'Menue', 54, 8, 1, 116, true);
       } else if (state.connected === false) {
         text('Offline', 54, 8, 1, 116, true);
       } else {
@@ -179,6 +345,10 @@
       ctx.strokeRect(180.5, 5.5, 52, 14);
       ctx.fillRect(233, 9, 3, 7);
       text(Math.round(scale * 100) + '%', 183, 9, 1, 47, true);
+      if (inGame()) {
+        drawGame();
+        return;
+      }
       if (menuOpen) {
         var selected = menu.querySelectorAll('button')[menuSelection];
         menuRows.forEach(function (row, i) {
@@ -254,6 +424,7 @@
     }
     function show(value) {
       open = value;
+      if (!value) pauseGame();
       if (!value) {
         menuOpen = false;
         refreshMenu();
@@ -281,6 +452,15 @@
     }
     function act(action) {
       if (action === 'menu') {
+        if (inGame()) {
+          pauseGame();
+          menuView = 'extras';
+          menuSelection = 0;
+          menuKey = '';
+          refreshMenu();
+          paint();
+          return;
+        }
         if (!menuOpen) {
           menuOpen = true;
           menuView = 'main';
@@ -297,6 +477,14 @@
         launcher.focus();
         return;
       }
+      if (action === 'source' && inGame()) {
+        game.action();
+        refreshMenu();
+        paint();
+        startGameLoop();
+        return;
+      }
+      if (inGame()) return;
       if (action === 'source' && menuOpen) {
         var selected = menu.querySelectorAll('button')[menuSelection];
         if (selected && !selected.disabled) selected.click();
@@ -321,12 +509,20 @@
       wheel.setAttribute('aria-readonly', String(!menuOpen && !seekMode && !available()));
       var center = layer.querySelector('.ga-ipod-center');
       center.disabled = !menuOpen && !seekAvailable();
-      center.setAttribute('aria-label', menuOpen ? 'Menüauswahl bestätigen' : seekMode ? 'Lautstärke regeln' : 'Im Titel spulen');
+      center.setAttribute('aria-label', inGame() ? game.state.status === 'playing' ? 'Spiel pausieren' : game.state.status === 'paused' ? 'Spiel fortsetzen' : game.state.status === 'ready' ? 'Ball starten' : 'Neues Spiel' : menuOpen ? 'Menüauswahl bestätigen' : seekMode ? 'Lautstärke regeln' : 'Im Titel spulen');
       center.title = menuOpen ? 'Auswahl bestätigen' : seekMode ? 'Zur Lautstärke wechseln' : 'Zum Spulen wechseln';
-      menu.hidden = !menuOpen;
+      wheel.setAttribute('aria-label', inGame() ? 'Breakout-Paddle' : 'Musiklautstärke per Clickwheel');
+      layer.querySelectorAll('[data-ipod-action]').forEach(function (button) {
+        var action = button.dataset.ipodAction,
+          control = action === 'toggle' ? state.playing ? 'pause' : 'play' : action;
+        if (action !== 'menu' && action !== 'source') button.disabled = inGame() || state.connected === false || !!state.controls && state.controls[control] === false;
+      });
+      menu.hidden = !menuOpen || inGame();
       layer.querySelector('.ga-ipod-menu').setAttribute('aria-expanded', String(menuOpen));
+      if (inGame()) return;
       function go(view) {
         menuView = view;
+        if (view === 'breakout' && !game) game = createBreakout();
         menuPage = 0;
         menuSelection = 0;
         menuKey = '';
@@ -365,6 +561,9 @@
         add('Einstellungen', function () {
           go('settings');
         }, true);
+        add('Extras', function () {
+          go('extras');
+        }, true);
         add('Schliessen', function () {
           act('close');
         }, false, false, 'Mediensteuerung schließen');
@@ -386,6 +585,13 @@
           refreshMenu();
           paint();
         }, true, false, 'Weitere Player');
+        add('Zurueck', function () {
+          go('main');
+        }, false, false, 'Zurück');
+      } else if (menuView === 'extras') {
+        add('Breakout', function () {
+          go('breakout');
+        }, true);
         add('Zurueck', function () {
           go('main');
         }, false, false, 'Zurück');
@@ -494,6 +700,7 @@
         total: 0,
         start: currentVolume(),
         moved: false,
+        game: inGame(),
         menu: menuOpen,
         seek: !menuOpen && seekMode,
         startPosition: state.positionSeconds,
@@ -518,7 +725,10 @@
       gesture.angle = angle;
       gesture.total += delta;
       if (Math.abs(gesture.total) > .045) gesture.moved = true;
-      if (gesture.moved && gesture.menu) {
+      if (gesture.moved && gesture.game) {
+        game.move(delta / (Math.PI * 2) * 240);
+        paint();
+      } else if (gesture.moved && gesture.menu) {
         var steps = Math.trunc(gesture.total / (Math.PI / 4));
         while (gesture.steps !== steps) {
           var direction = steps > gesture.steps ? 1 : -1;
@@ -555,6 +765,13 @@
     });
     wheel.addEventListener('keydown', function (e) {
       if (e.target !== wheel) return;
+      if (inGame()) {
+        if (e.key === 'ArrowLeft') game.move(-12);else if (e.key === 'ArrowRight') game.move(12);else if (e.key === 'Home') game.move(-240);else if (e.key === 'End') game.move(240);else if (e.key === 'Enter' || e.key === ' ') act('source');else if (e.key === 'Escape') act('menu');else return;
+        paint();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (menuOpen) {
         if (e.key === 'ArrowRight' || e.key === 'ArrowDown') moveMenu(1);else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') moveMenu(-1);else if (e.key === 'Enter' || e.key === ' ') act('source');else if (e.key === 'Escape') act('menu');else return;
         e.preventDefault();
@@ -642,7 +859,7 @@
       layer.querySelectorAll('[data-ipod-action]').forEach(function (button) {
         var action = button.dataset.ipodAction,
           control = action === 'toggle' ? state.playing ? 'pause' : 'play' : action;
-        button.disabled = action === 'close' || action === 'menu' || action === 'source' && menuOpen ? false : state.connected === false || (action === 'source' ? !seekAvailable() : !!state.controls && state.controls[control] === false);
+        button.disabled = inGame() && action !== 'menu' && action !== 'source' ? true : action === 'close' || action === 'menu' || action === 'source' && menuOpen ? false : state.connected === false || (action === 'source' ? !seekAvailable() : !!state.controls && state.controls[control] === false);
       });
       var readable = layer.querySelector('.ga-ipod-readable');
       var label = (state.title || 'Kein Titel') + ' — ' + (state.artist || '');
@@ -652,6 +869,16 @@
     var animationTimer = setInterval(function () {
       if (enabled && open && !document.hidden && ((state.title || '').length * 12 > 220 || (state.artist || '').length * 6 > 220 || (state.player || '').length * 6 > 116)) paint();
     }, 120);
+    function visibility() {
+      if (document.hidden) {
+        pauseGame();
+        if (inGame()) {
+          refreshMenu();
+          paint();
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', visibility);
     function resize() {
       layout();
       save();
@@ -671,10 +898,14 @@
       },
       setEnabled: function setEnabled(value) {
         enabled = !!value;
+        if (!enabled) pauseGame();
+        refreshMenu();
         layout();
         if (options.onVisibilityChange) options.onVisibilityChange(enabled && open);
       },
       destroy: function destroy() {
+        pauseGame();
+        document.removeEventListener('visibilitychange', visibility);
         flush();
         destroyed = true;
         clearInterval(animationTimer);
@@ -686,6 +917,7 @@
     };
   }
   root.GAMediaIPodUI = {
-    create: create
+    create: create,
+    createBreakout: createBreakout
   };
 })(window);

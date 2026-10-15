@@ -15,7 +15,7 @@ try{
  await page.getByRole('button',{name:'Abspielen oder pausieren'}).click();assert.equal(await page.evaluate(()=>sample.playing),false);
  await page.getByRole('button',{name:'Abspielen oder pausieren'}).click();assert.equal(await page.evaluate(()=>sample.playing),true);
  for(const [label,command] of [['Vorheriger Titel','previous'],['Nächster Titel','next']]){await page.getByRole('button',{name:label,exact:true}).click();assert.equal(await page.evaluate(()=>commands.at(-1).action),command);}
- async function turn(start,end){const r=await wheel.boundingBox(),cx=r.x+r.width/2,cy=r.y+r.height/2,rad=r.width*.36;await page.mouse.move(cx+Math.cos(start)*rad,cy+Math.sin(start)*rad);await page.mouse.down();const count=await page.evaluate(()=>commands.length);assert.equal(await page.evaluate(()=>commands.length),count);for(let n=1;n<=20;n++){const a=start+(end-start)*n/20;await page.mouse.move(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad);}await page.mouse.up();await page.waitForTimeout(180);}
+ async function turn(start,end,target=wheel){const r=await target.boundingBox(),cx=r.x+r.width/2,cy=r.y+r.height/2,rad=r.width*.36;await page.mouse.move(cx+Math.cos(start)*rad,cy+Math.sin(start)*rad);await page.mouse.down();const count=await page.evaluate(()=>commands.length);assert.equal(await page.evaluate(()=>commands.length),count);for(let n=1;n<=20;n++){const a=start+(end-start)*n/20;await page.mouse.move(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad);}await page.mouse.up();await page.waitForTimeout(180);}
  // Menu rotation moves selection without volume or transport commands; center confirms.
  await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await device.screenshot({path:folder+'/ipod-main-menu.png'});await page.getByRole('button',{name:'Bibliothek',exact:true}).click();
  const menuVolume=await page.evaluate(()=>sample.volume),menuCommands=await page.evaluate(()=>commands.length);
@@ -64,5 +64,28 @@ try{
  await page.getByRole('button',{name:'Restlautstärke: 20 Prozent',exact:true}).click();await page.getByRole('button',{name:'35 Prozent',exact:true}).click();assert.equal(await page.evaluate(()=>sample.duckFactor),.35);assert.equal(await page.evaluate(()=>sample.duckEnabled),false);
  await page.getByRole('button',{name:'Absenkung einschalten',exact:true}).click();assert.deepEqual(await page.evaluate(()=>commands.at(-1)),{action:'settings',enabled:true,factor:.35});
  await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Musik',exact:true}).click();assert.ok(await page.getByRole('group',{name:'Musik-App auswählen'}).isHidden());
- assert.deepEqual(errors,[]);console.log('IPOD_UI_OK: bitmap display, relative mouse/touch wheel, seam, keyboard, source cycle, menu rotation/confirmation/touch/offline/pagination, transport, zoom, drag, collapse, missing duration, offline, bounds');
+ // Breakout remains local, including when the Windows media player is unavailable.
+ await page.evaluate(()=>{sample.connected=false;sample.volumeAvailable=false;player.update(sample);});
+ const beforeGame=await page.evaluate(()=>commands.length);
+ await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Extras',exact:true}).click();await page.getByRole('button',{name:'Breakout',exact:true}).click();
+ const paddle=page.getByRole('slider',{name:'Breakout-Paddle',exact:true});
+ assert.match(await page.locator('canvas').getAttribute('aria-label'),/Breakout: ready/);assert.ok(await page.getByRole('button',{name:'Ball starten',exact:true}).isEnabled());
+ const startPaddle=Number(await paddle.getAttribute('aria-valuenow'));await turn(0,Math.PI/2,paddle);assert.ok(Number(await paddle.getAttribute('aria-valuenow'))>startPaddle+25);
+ await turn(0,-Math.PI/2,paddle);assert.ok(Math.abs(Number(await paddle.getAttribute('aria-valuenow'))-startPaddle)<3);
+ await page.getByRole('button',{name:'Ball starten',exact:true}).click();await page.waitForTimeout(100);assert.match(await page.locator('canvas').getAttribute('aria-label'),/Breakout: playing/);
+ await page.getByRole('button',{name:'Spiel pausieren',exact:true}).click();const pausedFrame=await page.locator('canvas').evaluate(c=>c.toDataURL());await page.waitForTimeout(180);assert.equal(await page.locator('canvas').evaluate(c=>c.toDataURL()),pausedFrame,'paused physics does not move');
+ const pr=await paddle.boundingBox(),pcx=pr.x+pr.width/2,pcy=pr.y+pr.height/2,prad=pr.width*.36;
+ const beforeTouch=Number(await paddle.getAttribute('aria-valuenow'));await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:pcx+prad,y:pcy}]});
+ for(let n=1;n<=8;n++){const a=n/8*Math.PI/3;await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:pcx+prad*Math.cos(a),y:pcy+prad*Math.sin(a)}]});}await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.ok(Number(await paddle.getAttribute('aria-valuenow'))>beforeTouch+15);
+ await paddle.focus();await paddle.press('Enter');assert.match(await page.locator('canvas').getAttribute('aria-label'),/playing/);await paddle.press('Escape');assert.ok(await page.getByRole('button',{name:'Breakout',exact:true}).isVisible());
+ await page.getByRole('button',{name:'Breakout',exact:true}).click();assert.ok(await page.getByRole('button',{name:'Spiel fortsetzen',exact:true}).isVisible());
+ await page.getByRole('button',{name:'Spiel fortsetzen',exact:true}).click();await page.evaluate(()=>document.body.style.visibility='hidden');await page.waitForTimeout(100);await page.evaluate(()=>document.body.style.visibility='visible');assert.match(await page.locator('canvas').getAttribute('aria-label'),/Breakout: paused/);assert.ok(await page.getByRole('button',{name:'Spiel fortsetzen',exact:true}).isVisible());
+ await page.getByRole('button',{name:'Spiel fortsetzen',exact:true}).click();await page.evaluate(()=>player.setEnabled(false));await page.waitForTimeout(60);await page.evaluate(()=>player.setEnabled(true));assert.match(await page.locator('canvas').getAttribute('aria-label'),/Breakout: paused/);
+
+ await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Musik',exact:true}).click();
+ assert.equal(await page.evaluate(()=>commands.length),beforeGame,'game input must never change music, volume, seek or relay commands');
+ await page.evaluate(()=>{sample.connected=true;sample.volumeAvailable=true;player.update(sample);});assert.ok(await page.getByRole('button',{name:'Vorheriger Titel',exact:true}).isEnabled());
+ // Full-size visual proof on a fresh device; game is paused for a deterministic image.
+ await page.goto('http://127.0.0.1:'+server.address().port+'/?skin=ipod');await page.getByRole('button',{name:'Gerätemenü',exact:true}).click();await page.getByRole('button',{name:'Extras',exact:true}).click();await page.getByRole('button',{name:'Breakout',exact:true}).click();await device.screenshot({path:folder+'/ipod-breakout.png'});
+ assert.deepEqual(errors,[]);console.log('IPOD_UI_OK: bitmap display, relative mouse/touch wheel, seam, keyboard, source cycle, menu rotation/confirmation/touch/offline/pagination, transport, zoom, drag, collapse, missing duration, offline, bounds, Breakout mouse/touch/pause/offline/command-isolation');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

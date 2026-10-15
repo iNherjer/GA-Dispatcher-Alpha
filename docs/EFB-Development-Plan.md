@@ -1,3 +1,22 @@
+## Classic: Extras / Breakout – Webapp und Tracker v536 Alpha (15.10.2026)
+
+Hauptmenü Extras → Breakout. Ein Level mit 24 Steinen, 3 Leben, Punktestand,
+Paddle-/Wand-/Steinkollisionen. Clickwheel-Drehbewegung steuert das Paddle
+relativ; keine feste Winkelposition. Mitteltaste startet/pausiert/setzt fort;
+nach Sieg oder Game Over startet sie dasselbe Level neu. MENU geht zurück zu
+Extras, danach zum Hauptmenü und zur Musik. Maus, Touch und Pfeiltasten werden
+unterstützt. Läuft ohne verbundenen Medienplayer. Im Spiel sind die übrigen
+Transporttasten gesperrt; Spieleingaben erzeugen keine Medien-/Relaybefehle.
+Lokale requestAnimationFrame-Schleife nur während des aktiven Spiels; Pause bei
+Schließen, deaktivierter Steuerung, unsichtbarem Panel oder verborgenem Dokument.
+Spielzustand wird nur bis zum Skinwechsel/Neuladen behalten. Physik in festen
+Teilschritten; lange Frames werden begrenzt. Keine Sounds, Scorespeicherung oder
+weiteren Level. Webquelle, gepinnte EFB-Quelle und Chrome-49-Asset vorbereitet.
+Vom Nutzer nach lokaler Abnahme für Origin-Webapp und Tracker v536 Alpha freigegeben.
+Desktop bleibt 1.6.16; Runtime Stable und Community-Paket unverändert.
+27 Node-Prüfungen sowie Maus-/Touch-/Lebenszyklus- und lokale EFB-/Toolbar-
+Integrationstests bestanden.
+
 ## Classic-Medien-Skin – Webapp-Release auf Origin (15.10.2026)
 
 Zweiter Medien-Skin neben Winamp, unabhängig vom App-Designpreset. Weißes
