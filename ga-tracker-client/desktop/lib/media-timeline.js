@@ -1,6 +1,6 @@
 'use strict';
 // One local clock, before Desktop/Web/EFB fan-out. No extra polling or relay data.
-function createMediaTimeline(now = () => performance.now()) {
+function createMediaTimeline(now = () => performance.now(), wallNow = Date.now) {
   let previous = null;
   return function update(value, action = 'snapshot') {
     const { timeline, album, trackNumber, ...result } = value;
@@ -18,8 +18,13 @@ function createMediaTimeline(now = () => performance.now()) {
     const changed = sameSource && identity.some((part,i) => part && previous.identity[i] && part !== previous.identity[i]);
     const explicitRestart = sameSource && ['next','previous'].includes(action);
     const reset = !sameSource || changed || explicitRestart;
+    const trackObservedAt = reset ? wallNow() : previous.trackObservedAt;
     let blocked = reset && sameSource && signature === previous.signature ? signature : null;
     if (!reset && previous.blocked === signature) blocked = signature;
+    // EndTime may change while Position/LastUpdatedTime still belong to the old song.
+    // Once a title changes, only an anchor from this observation epoch may resync it.
+    const guarded = reset ? sameSource && (changed || explicitRestart) : previous.guarded;
+    if (guarded && Number.isFinite(timeline?.updatedAtMs) && timeline.updatedAtMs < trackObservedAt - 1500) blocked = signature;
     const native = blocked === null && Number.isFinite(value.positionSeconds) && value.positionSeconds >= 0;
     let position = native ? value.positionSeconds : reset ? 0 : previous.position + (previous.playing ? Math.max(0,at-previous.at)/1000 : 0);
     const duration = blocked === null && Number.isFinite(value.durationSeconds) && value.durationSeconds > 0 ? value.durationSeconds : null;
@@ -27,7 +32,7 @@ function createMediaTimeline(now = () => performance.now()) {
     const observed = identity.some(Boolean);
     if (!native && !observed) position = null;
     if (position !== null && duration !== null) position = Math.min(duration, position);
-    previous = {source:value.source,identity,signature,blocked,position:position || 0,playing:value.playing,at};
+    previous = {source:value.source,identity,signature,blocked,trackObservedAt,guarded,position:position || 0,playing:value.playing,at};
     return {...result,positionSeconds:position,durationSeconds:duration,positionKind:native?'native':observed?'estimated':'unavailable'};
   };
 }

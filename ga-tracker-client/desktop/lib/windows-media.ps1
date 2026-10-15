@@ -24,7 +24,13 @@ function ProcessName($source) {
 function ReadTimeline($timeline, $playing, $at = [DateTime]::UtcNow) {
     $positionSeconds = $null; $durationSeconds = $null
     $updated = $timeline.LastUpdatedTime.UtcDateTime
-    $raw = @{ position=$timeline.Position.TotalSeconds; start=$timeline.StartTime.TotalSeconds; end=$timeline.EndTime.TotalSeconds; updated=$updated.Ticks }
+    $raw = @{ position=$timeline.Position.TotalSeconds; start=$timeline.StartTime.TotalSeconds; end=$timeline.EndTime.TotalSeconds; updated=$updated.Ticks; updatedAtMs=($updated.Ticks / 10000 - 62135596800000) }
+    # A Playing session can retain a previous song's anchor indefinitely.
+    # Prefer an explicitly estimated local clock over extrapolating stale native data.
+    $age = ($at - $updated).TotalSeconds
+    if ($playing -and $updated.Year -gt 1970 -and ($age -gt 30 -or $age -lt -2)) {
+        return @{positionSeconds=$null; durationSeconds=$null; timeline=$raw}
+    }
     $duration = ($timeline.EndTime - $timeline.StartTime).TotalSeconds
     if ($duration -gt 0 -and $duration -lt 86400) { $durationSeconds = $duration }
     $position = ($timeline.Position - $timeline.StartTime).TotalSeconds

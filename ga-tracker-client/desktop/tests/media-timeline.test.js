@@ -36,3 +36,12 @@ test('private raw timeline/album stay local and duration-only does not manufactu
  const f=fixture();const s=f.update(sample({durationSeconds:300,timeline:{end:300},album:'Private'}));
  assert.equal(s.positionKind,'estimated');assert.equal(s.durationSeconds,300);assert.ok(!('timeline' in s));assert.ok(!('album' in s));
 });
+test('a changed EndTime cannot attach a previous song anchor to a new title',()=>{
+ let at=0;const update=createMediaTimeline(()=>at,()=>100000+at);
+ const old={position:330,end:500,updatedAtMs:99000};
+ update(sample({positionSeconds:330,durationSeconds:500,timeline:old}));at=5000;
+ let s=update(sample({title:'New song',positionSeconds:335,durationSeconds:510,timeline:{...old,end:510}}));
+ assert.equal(s.positionSeconds,0);assert.equal(s.durationSeconds,null);assert.equal(s.positionKind,'estimated');
+ at=20000;s=update(sample({title:'New song',positionSeconds:350,durationSeconds:525,timeline:{...old,end:525}}));assert.equal(s.positionSeconds,15);assert.equal(s.durationSeconds,null);
+ s=update(sample({title:'New song',positionSeconds:17,durationSeconds:240,timeline:{position:17,end:240,updatedAtMs:120000}}));assert.equal(s.positionSeconds,17);assert.equal(s.positionKind,'native');
+});

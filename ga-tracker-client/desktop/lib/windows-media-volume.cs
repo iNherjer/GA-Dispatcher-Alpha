@@ -70,8 +70,30 @@ namespace GAMedia {
     } catch (COMException) { }
    }
   }
+  static bool MatchesAudioProcess(string selected, string name, string filename, string[] owners) {
+   if (String.Equals(name, selected, StringComparison.OrdinalIgnoreCase)) return true;
+   if (!String.Equals(selected, "AppleMusic", StringComparison.OrdinalIgnoreCase) ||
+       !String.Equals(name, "AMPLibraryAgent", StringComparison.OrdinalIgnoreCase) || String.IsNullOrEmpty(filename)) return false;
+   string directory = System.IO.Path.GetDirectoryName(filename);
+   if (String.IsNullOrEmpty(directory) || !System.IO.Path.GetFileName(directory).StartsWith("AppleInc.AppleMusicWin_", StringComparison.OrdinalIgnoreCase)) return false;
+   foreach (string owner in owners) {
+    if (String.Equals(System.IO.Path.GetFileName(owner), "AppleMusic.exe", StringComparison.OrdinalIgnoreCase) &&
+        String.Equals(directory, System.IO.Path.GetDirectoryName(owner), StringComparison.OrdinalIgnoreCase)) return true;
+   }
+   return false;
+  }
+  string[] AudioOwners() {
+   var paths = new List<string>();
+   if (String.Equals(processName, "AppleMusic", StringComparison.OrdinalIgnoreCase)) {
+    foreach (Process owner in Process.GetProcessesByName("AppleMusic")) {
+     using (owner) { try { paths.Add(owner.MainModule.FileName); } catch (Exception) { } }
+    }
+   }
+   return paths.ToArray();
+  }
   void Discover() {
    if (processName.Length == 0) return;
+   string[] owners = AudioOwners();
    object enumerator = null; IDeviceCollection devices = null;
    var seen = new HashSet<string>();
    try {
@@ -87,9 +109,12 @@ namespace GAMedia {
        object raw = null;
        try {
         sessions.GetSession(i, out raw); IControl control = (IControl)raw; uint pid; control.GetProcessId(out pid);
-        string name;
-        using (Process p = Process.GetProcessById((int)pid)) name = p.ProcessName;
-        if (!String.Equals(name, processName, StringComparison.OrdinalIgnoreCase)) continue;
+        string name, filename = "";
+        using (Process p = Process.GetProcessById((int)pid)) {
+         name = p.ProcessName;
+         if (String.Equals(processName, "AppleMusic", StringComparison.OrdinalIgnoreCase) && String.Equals(name, "AMPLibraryAgent", StringComparison.OrdinalIgnoreCase)) filename = p.MainModule.FileName;
+        }
+        if (!MatchesAudioProcess(processName, name, filename, owners)) continue;
         string id; control.GetSessionInstanceIdentifier(out id); seen.Add(id);
         if (entries.ContainsKey(id)) continue;
         IVolume volume = (IVolume)control; float original; volume.GetMasterVolume(out original);

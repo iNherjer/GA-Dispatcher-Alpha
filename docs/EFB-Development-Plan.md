@@ -1,3 +1,68 @@
+## Desktop 1.6.15: Chrome-Zeitanker und Apple-Music-Mixer (15.10.2026)
+
+Windows-Nachtrag auf Basis 3292ffd79 integriert: veraltete Playing-Anker werden
+konservativ als unbrauchbar gewertet, Titelwechsel schützt gegen alte Anker auch
+bei nachträglicher Änderung der Dauer. Fallback bleibt sichtbar geschätzt.
+AppleMusic-Audiositzung darf den AMPLibraryAgent im selben bekannten Paketordner
+wie die laufende Hauptanwendung verwenden; keine pauschale Namensfreigabe.
+87 Tests unter Windows bestanden; hier 85 bestanden und zwei native Windows-
+Tests ausgelassen. Lautstärkesitzung im Windows-Feldtest auch nach Playerwechsel
+gefunden; hörbare Regelung/Absenkung bleibt nach Installation zu prüfen.
+Regulärer Desktop-Rollout über den bestehenden Autoupdater. Runtime v534,
+Runtime-Stable und Community-Pakete unverändert. Kein Web-Beta-/Stable-Repo-Push.
+
+## Apple-Music-App: eigener Audioprozess, lokaler Kandidat 15.10.2026
+
+Nutzer: Titel/Zeit korrekt, Lautstaerkeregler bewegt sich ohne Wirkung;
+nach Playercycling bleibt er bei0%. Reale Core-Audio-Abfrage zeigt Audio bei
+AMPLibraryAgent.exe PID43232; GSMTC meldet AppleMusic.exe PID45960.
+Beide liegen im identischen installierten AppleInc.AppleMusicWin_1.1540.23041.0-
+Paket. Bisher filterte Discover ausschliesslich auf Prozessname AppleMusic.
+Damit wird eine anfangs gefundene direkte Sitzung spaeter nicht durch die echte
+Agent-Sitzung ersetzt; volumeAvailable=false und0 ist dann fehlende Sitzung,
+nicht nachgewiesene Stummschaltung. Die fruehere Aussage „korrekt zugeordnet“
+bezog sich nur auf den sichtbaren Hauptprozess, nicht alle realen Audioprozesse.
+
+Gezielte Erweiterung: Fuer gewaehlten Player AppleMusic sind direkte AppleMusic-
+Sitzungen weiterhin erlaubt. AMPLibraryAgent nur dann, wenn eine laufende
+AppleMusic.exe aus exakt demselben AppleInc.AppleMusicWin_-Paketordner stammt.
+Kein generischer Agent- oder Prozess-only-Match. Getrennte Apps/Installationen
+werden nicht versehentlich geregelt. Mixer/IID/Restore-/Duck-Lease unveraendert.
+Native C#-Pruefung fuer8 positive/negative Zuordnungsfaelle bestanden.
+Realer Helfer vor Fix: AppleMusic nach Select/Cycling wiederholt unavailable/0.
+Nach Fix: Select und Snapshot sowie AppleMusic->Chrome->AppleMusic jeweils
+available/1.0. Das sind echte Windows-Ausfuehrungen, ohne Lautstaerkebefehl.
+Hoerbare Wirkung und Duck/Restore nach Installerintegration bleiben Feldabnahme.
+Keine Installation/Release/Kanalumschaltung durch diesen Kandidaten.
+## Nachtrag 15.10.2026: veralteter Titelzeitanker, lokaler Kandidat
+
+Basis 3292ffd7, frisch nach Integration des ersten Medienfixes geladen.
+Nutzer meldet Anzeige 7:15 bei echter Apple-Music-Zeit ca.1:30; Anzeige springt
+nur bei Statusantworten. Reale GSMTC-Abfragen um09:11 Uhr melden Playing,
+Position330.403561, EndTime=-0.000001 und unveraendert LastUpdatedTime09:07:42.
+Der erste Fix akzeptierte einen gueltigen, aber veralteten Zeitanker zu lange.
+15-Sekunden-Sync besteht bereits und kann diesen falschen Quellwert nicht heilen.
+
+Konservative lokale Policy: Playing-Anker aelter als30s oder mehr als2s in der
+Zukunft gelten nicht als aktuelle native Zeit/Dauer. Pausierte native Position
+bleibt auch bei altem Zeitstempel nutzbar. Ohne aktuellen Anker greift der bereits
+sichtbar markierte lokale Schaetzzaehler; keine erfundene Dauer. 30s sind eine
+bewusste Fallback-Policy, keine Windows-SDK-Garantie. Player, die nur einmal am
+Titelanfang einen gueltigen Anker melden, wechseln deshalb ebenfalls zur Schaetzung.
+Bei Titelwechsel muss ein spaeterer nativer Zeitanker zur neuen Beobachtungs-
+epoche gehoeren (1.5s Toleranz); EndTime-Aenderung allein bestaetigt keinen neuen
+Titelanker. Neues updatedAtMs bleibt ausschliesslich in der privaten Roh-Timeline.
+
+86 Windows-/Desktop-/EFB-/Coretests bestanden, sieben native PowerShellfaelle,
+einschliesslich realem Stale-Sample und Titelwechsel mit geaenderter EndTime,
+aber altem Positionstimestamp. Sichtbar aktiver Original- und Coherent-Client
+laufen im Test sekundenweise zwischen15s-Ankern. Kein UI-Quellfix noetig.
+Das vom Nutzer berichtete vollstaendige Stehen der UI ist im Live-Browser nicht
+separat reproduziert; die falsche native Zeit ist direkt nachgewiesen.
+Keine weiteren Requests, kein neuer Browserzugriff, keine Audio-/Zugangsdaten.
+Kein Release/Installationsschritt; Hauptagent uebernimmt Desktop-Folgeversion.
+Fuer diesen Nachtrag ist kein Tracker-/EFB-Paketbau erforderlich, da nur native
+Desktop-Zeitaufbereitung geaendert ist; sekundenweiser Client existiert bereits.
 ## Desktop-Autoupdater: regulär 1.6.14, Runtime weiter Alpha (15.10.2026)
 
 Nutzer beauftragt die Freigabe des neuen Desktop-Programms über den normalen
