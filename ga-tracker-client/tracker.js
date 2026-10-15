@@ -100,8 +100,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v540';
-const TRACKER_VERSION_CODE = 540;
+const TRACKER_VERSION = 'v541';
+const TRACKER_VERSION_CODE = 541;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5427,7 +5427,11 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     if (_hardMissionResetInProgress) {
       return { ok: false, status: 'blocked', error: 'tracker_mission_reset_in_progress', sideEffect: false };
     }
+    if (_cloudMissionSyncInProgress || cloudMissionReconciler.busy() || _cloudMissionActivationInProgress) {
+      return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };
+    }
     _hardMissionResetInProgress = true;
+    let aborted, recovery, voiceCancelled = 0;
     const commandId = `desktop-hard-reset-${Date.now().toString(36)}`;
     try {
       const activeRun = missionAuthorityManager.getActiveRun({ includeBundle: true, includeEffects: true });
@@ -5438,7 +5442,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         .filter(effect => /^voice\./.test(String(effect?.type || '')))
         .map(effect => String(effect?.effectId || effect?.commandId || '').trim())
         .filter(Boolean);
-      let aborted = { ok: true, status: 'noop', activeRun: null, releasedRun: null, sideEffect: false };
+      aborted = { ok: true, status: 'noop', activeRun: null, releasedRun: null, sideEffect: false };
       if (activeRun) {
         aborted = await missionExecutionRuntime.executeIntent({
           commandId,
@@ -5459,13 +5463,12 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
           return { ...aborted, hardReset: false };
         }
       }
-      let voiceCancelled = 0;
       for (const effectId of voiceEffectIds) {
         try {
           if (trackerVoiceService.cancel?.(effectId, 'desktop-hard-reset')?.cancelled === true) voiceCancelled += 1;
         } catch (_) {}
       }
-      const recovery = await missionAuthorityManager.clearMissionRecoveryState({
+      recovery = await missionAuthorityManager.clearMissionRecoveryState({
         commandId,
         clientId: 'tracker-desktop-recovery',
         reason: 'desktop-hard-reset'
@@ -5479,27 +5482,29 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       updateEfbState({ missionSnapshot: null, payloadSnapshot: null });
       _cloudMissionCandidate = null;
       broadcastMissionAuthorityUpdate('desktop-hard-reset', { commandId }, { ...aborted, status: 'ok' });
-      const cloudMission = await refreshCloudMissionCandidate('desktop-hard-reset');
-      const result = {
-        ok: true,
-        status: 'ok',
-        hardReset: true,
-        activeRun: null,
-        releasedRun: aborted?.releasedRun || null,
-        cleanup: aborted?.cleanup || null,
-        recovery,
-        voiceCancelled,
-        cloudMissionAvailable: Boolean(cloudMission),
-        cloudMissionId: cloudMission?.missionId || null,
-        sideEffect: aborted?.sideEffect === true
-      };
-      debugLog(`MISSION_DESKTOP_HARD_RESET command=${commandId} cleared=${Math.max(0, Number(aborted?.cleanup?.cleared) || 0)} voiceCancelled=${voiceCancelled} cloud=${cloudMission?.missionId || 'none'}`);
-      broadcastMissionAuthorityUpdate('desktop-hard-reset-cloud-sync', { commandId }, result);
-      return result;
+      await cloudMissionReconciler.requestReload();
     } finally {
       _hardMissionResetInProgress = false;
     }
+    const cloudMission = await refreshCloudMissionCandidate('desktop-hard-reset');
+    const result = {
+      ok: true,
+      status: 'ok',
+      hardReset: true,
+      activeRun: missionAuthorityManager.getActiveRun(),
+      releasedRun: aborted?.releasedRun || null,
+      cleanup: aborted?.cleanup || null,
+      recovery,
+      voiceCancelled,
+      cloudMissionAvailable: Boolean(cloudMission || missionAuthorityManager.getActiveRun()),
+      cloudMissionId: cloudMission?.missionId || missionAuthorityManager.getActiveRun()?.missionId || null,
+      sideEffect: aborted?.sideEffect === true
+    };
+    debugLog(`MISSION_DESKTOP_HARD_RESET command=${commandId} cleared=${Math.max(0, Number(aborted?.cleanup?.cleared) || 0)} voiceCancelled=${voiceCancelled} cloud=${cloudMission?.missionId || 'none'}`);
+    broadcastMissionAuthorityUpdate('desktop-hard-reset-cloud-sync', { commandId }, result);
+    return result;
   };
+
   try {
     const configuredPort = Number(process.env.VFR_MULTITOOL_EFB_PORT || DEFAULT_EFB_HTTP_PORT);
     _efbHttpServer = createTrackerEfbHttpServer({

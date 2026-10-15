@@ -8,7 +8,7 @@ function createCloudMissionReconciler({ filename, pilotId, getRun, readLatest, a
   let applied = null, inProgress = false;
   try {
     const stored = JSON.parse(fs.readFileSync(filename, 'utf8'));
-    if (stored.pilotId === pilotId) applied = controlCore.validate(stored.control);
+    if (stored.pilotId === pilotId) applied = stored.control ? controlCore.validate(stored.control) : null;
   } catch (error) { if (error.code !== 'ENOENT') log(`MISSION_CLOUD_CONTROL_CHECKPOINT_ERROR error=${error.message}`); }
   function acknowledged(control) {
     return applied?.epoch === control.epoch && applied.revision >= control.revision;
@@ -29,6 +29,17 @@ function createCloudMissionReconciler({ filename, pilotId, getRun, readLatest, a
     await fs.promises.writeFile(temp, JSON.stringify({ version: 1, pilotId, control }), 'utf8');
     await fs.promises.rename(temp, filename);
     applied = { ...control };
+  }
+  async function requestReload() {
+    if (inProgress) throw Error('cloud_mission_activation_pending');
+    // Only an explicit successful reset may reopen an already consumed activation.
+    // Keep this durable so an offline reset can retry after a tracker restart.
+    await checkpoint();
+    fs.mkdirSync(path.dirname(filename), { recursive: true });
+    const temp = filename + '.tmp';
+    await fs.promises.writeFile(temp, JSON.stringify({ version: 1, pilotId, control: null }), 'utf8');
+    await fs.promises.rename(temp, filename);
+    applied = null;
   }
   async function reconcile(result) {
     if (inProgress || blocked()) return { ok: false, status: 'pending' };
@@ -71,6 +82,6 @@ function createCloudMissionReconciler({ filename, pilotId, getRun, readLatest, a
       return { ok: false, status: 'retry', error: error.message };
     } finally { inProgress = false; }
   }
-  return { reconcile, busy: () => inProgress, applied: () => applied && { ...applied } };
+  return { reconcile, requestReload, busy: () => inProgress, applied: () => applied && { ...applied } };
 }
 module.exports = { createCloudMissionReconciler };

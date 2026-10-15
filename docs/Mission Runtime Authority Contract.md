@@ -379,11 +379,26 @@ fachlicher Resetpfad: Er sendet intern zuerst denselben `abort_mission` mit
 Payload-Restore und Szenenbereinigung. Nur nach dessen Erfolg entfernt er den
 lokalen Authority-LastRun, Effect-/Shadow-Recovery und die zugehoerige
 Tracker-Projektion; Flightlog und die Cloud-Mission der App bleiben erhalten.
-Danach liest der Tracker den aktuellen Cloud-Seed neu ein. Ist die sichere
+Nach erfolgreicher Bereinigung gibt der explizite Desktop-Reset die konsumierte
+Cloud-Aktivierung dauerhaft erneut frei. Erst nach Aufheben der Reset-Sperre
+liest der Tracker den aktuellen Cloud-Slot neu ein und uebernimmt ihn wieder
+als `planned`, ohne Boarding oder Missionsstart. Auch bei unveraenderter
+Cloud-Revision ist kein erneuter App-Push notwendig. Bei Netzausfall bleibt
+die Freigabe ueber Neustarts erhalten; der regulaere Poll wiederholt den
+Abgleich. Cloud-Wechsel und Loeschungen behalten Vorrang. Normales Abbrechen
+oder Abschliessen gibt keine konsumierte Aktivierung erneut frei.
+Ist die sichere
 Bereinigung nicht moeglich, bleibt der Run erhalten und der Desktop meldet den
 Blocker statt ihn gewaltsam zu verwerfen. Der Endpunkt ist ausschliesslich an
 Loopback gebunden und durch ein pro Trackerprozess erzeugtes Desktop-Token
 geschuetzt; weder App noch EFB erhalten dieses Token.
+
+Validierung des Reset-Fixes (Tracker v541, 15.10.2026): 79 Cloud-/Reset-/
+Checkpoint-/Loopback-Regressionstests bestanden. Isolierter Windows-x64-Build
+mit pkg/Node 18 und `--no-bytecode --public --public-packages '*'`, weil die
+Intel-Fabricator-Runtime auf dem Build-Mac nicht startet. Zusaetzlicher
+ARM64-Paketstart: `MISSION_PACKAGED_PROCESS_SMOKE_OK`, Worker-Exit 0.
+Windows-/MSFS-Feldtest bleibt offen; Bereitstellung ausschliesslich Alpha.
 
 ## 4. Verantwortungsgrenzen im Tracker-Modus
 

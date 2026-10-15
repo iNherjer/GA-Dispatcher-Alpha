@@ -44,3 +44,33 @@ test('payload timeout removes request so late SimConnect response cannot satisfy
   assert.equal(pending.has(forwarded[0]), false);
   assert.match(logs[0], /requestId=9300.*reason=abort-restore/);
 });
+
+const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
+const resetStart = trackerSource.indexOf('  let _hardMissionResetInProgress = false;');
+const resetSource = trackerSource.slice(resetStart, trackerSource.indexOf('  try {\n    const configuredPort', resetStart));
+function resetFixture({abortOk=true, clearOk=true, cloudBusy=false}={}) {
+  let run={missionId:'mission',runId:'old',revision:3,executionAuthority:'tracker'};
+  const calls=[];
+  const ctx={TRACKER_APT_EXECUTION_ENABLED:true,_cloudMissionSyncInProgress:false,
+    _cloudMissionActivationInProgress:false,_cloudMissionCandidate:null,
+    missionExecutionRuntime:{enabled:true,executeIntent:async()=>{calls.push('abort');if(abortOk)run=null;return{ok:abortOk};}},
+    missionAuthorityManager:{getActiveRun:()=>run,clearMissionRecoveryState:async()=>{calls.push('clear');return{ok:clearOk};}},
+    cloudMissionReconciler:{busy:()=>cloudBusy,requestReload:async()=>calls.push('reload')},
+    trackerMissionShadow:{clear(){}},trackerVoiceService:{},updateEfbState(){},debugLog(){},broadcastMissionAuthorityUpdate(){},
+    refreshCloudMissionCandidate:async()=>{
+      assert.equal(vm.runInNewContext('_hardMissionResetInProgress',ctx),false);
+      calls.push('fetch');run={missionId:'mission',runId:'fresh',executionAuthority:'tracker',state:'planned'};return null;
+    }};
+  vm.runInNewContext(resetSource+'\nthis.reset = hardResetTrackerMission;',ctx);
+  return {ctx,calls};
+}
+test('production desktop reset releases its lock and reloads the cloud mission after cleanup',async()=>{
+  const f=resetFixture();const result=await f.ctx.reset();
+  assert.deepEqual(f.calls,['abort','clear','reload','fetch']);
+  assert.equal(result.ok,true);assert.equal(result.activeRun.runId,'fresh');
+  assert.equal(result.cloudMissionAvailable,true);assert.equal(result.cloudMissionId,'mission');
+});
+for(const config of [{abortOk:false},{clearOk:false},{cloudBusy:true}])test(`failed or concurrent reset never reopens cloud activation ${JSON.stringify(config)}`,async()=>{
+  const f=resetFixture(config);const result=await f.ctx.reset();
+  assert.equal(result.ok,false);assert.ok(!f.calls.includes('reload'));assert.ok(!f.calls.includes('fetch'));
+});

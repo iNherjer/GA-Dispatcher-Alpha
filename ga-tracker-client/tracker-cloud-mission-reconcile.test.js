@@ -25,3 +25,36 @@ test('failed checkpoint retries recovery without repeating abort or load',async 
 test('parallel polls cannot execute two transitions',async t=>{const f=fixture(t);let release;f.opts.readLatest=()=>new Promise(r=>{release=r;});f.agent=createCloudMissionReconciler(f.opts);const first=f.agent.reconcile(result());assert.equal((await f.agent.reconcile(result())).status,'pending');release(result(2));assert.equal((await first).status,'cloud_changed');assert.equal(f.agent.busy(),false);});
 test('pilot mismatch never consumes another pilot acknowledgement',async t=>{const f=fixture(t);await f.agent.reconcile(result());const other=createCloudMissionReconciler({...f.opts,pilotId:'other'});assert.equal(other.applied(),null);});
 test('a new server epoch may replace even a numerically lower revision',async t=>{const f=fixture(t);f.state.latest=result(9);await f.agent.reconcile(f.state.latest);f.state.latest=result(1,'deleted',null,'server-b');assert.equal((await f.agent.reconcile(f.state.latest)).status,'cleared');assert.equal(f.agent.applied().epoch,'server-b');});
+
+test('explicit reset reloads the same acknowledged cloud mission once', async t => {
+ const f=fixture(t); await f.agent.reconcile(f.state.latest);
+ f.state.run=null; f.state.calls=[];
+ await f.agent.requestReload();
+ assert.equal(f.agent.applied(),null);
+ assert.equal((await f.agent.reconcile(f.state.latest)).status,'loaded');
+ assert.equal(f.state.run.state,'planned');
+ assert.equal(f.state.calls.filter(call=>call==='load').length,1);
+ assert.equal((await f.agent.reconcile(f.state.latest)).status,'unchanged');
+});
+test('offline reset survives restart and loads the current cloud slot', async t => {
+ const f=fixture(t); await f.agent.reconcile(f.state.latest); f.state.run=null;
+ await f.agent.requestReload();
+ const restarted=createCloudMissionReconciler(f.opts);
+ assert.equal((await restarted.reconcile({ok:false})).ok,false);
+ f.state.latest=result(2,'active','replacement');
+ assert.equal((await restarted.reconcile(f.state.latest)).status,'loaded');
+ assert.equal(f.state.run.missionId,'replacement');
+});
+test('reset followed by cloud deletion never resurrects the former mission', async t => {
+ const f=fixture(t); await f.agent.reconcile(f.state.latest); f.state.run=null;
+ await f.agent.requestReload(); f.state.calls=[]; f.state.latest=result(2,'deleted');
+ assert.equal((await f.agent.reconcile(f.state.latest)).status,'cleared');
+ assert.equal(f.state.run,null); assert.ok(!f.state.calls.includes('load'));
+});
+test('failed reset checkpoint preserves the consumed activation', async t => {
+ const f=fixture(t); await f.agent.reconcile(f.state.latest); f.state.run=null;
+ f.state.checkpointFail=true;
+ await assert.rejects(f.agent.requestReload(),/disk/);
+ assert.equal(f.agent.applied().revision,1);
+ assert.equal(createCloudMissionReconciler(f.opts).applied().revision,1);
+});
