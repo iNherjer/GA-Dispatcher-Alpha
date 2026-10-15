@@ -20814,6 +20814,11 @@ body.theme-ops1940 .mission-reset-btn {
 #mapVoiceMenu select {
     box-sizing: border-box;
 }
+#mapVoiceMenu {
+    width: 320px;
+    min-width: 0 !important;
+    max-width: calc(100vw - 12px);
+}
 #mapVoiceMenu select {
     min-width: 0;
     max-width: 100%;

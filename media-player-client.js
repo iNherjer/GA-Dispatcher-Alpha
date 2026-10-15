@@ -4,7 +4,7 @@
   var host=document.getElementById('mapTableOverlay'),menu=document.getElementById('mapVoiceMenu');
   if(!host||!menu||!root.GAMediaPlayerUI)return;
   var container=document.createElement('div');container.className='ga-media-settings';
-  container.innerHTML='<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Player <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Player öffnen</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
+  container.innerHTML='<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option></select></label><label class="ga-media-player-choice" hidden>Musik-App <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Keine Musik-App aktiv</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
   menu.insertBefore(container,menu.firstChild);
   var check=container.querySelector('.ga-media-enable'),select=container.querySelector('.ga-media-select'),duck=container.querySelector('.ga-media-duck'),factor=container.querySelector('.ga-media-factor'),message=container.querySelector('.ga-media-message');
   var enabled=false,open=false,watching=false,epoch=0,state=null,revision=-1,lastReceived=0,pendingAction=false,audible=new Set(),closed=false,nextWatchAt=0,watchTimer=null;
@@ -24,8 +24,9 @@
    if(state&&result.serverId===state.serverId&&Number.isSafeInteger(result.revision)&&result.revision<revision)return;
    state=result;revision=Number.isSafeInteger(result.revision)?result.revision:-1;lastReceived=Date.now()-Math.min(20000,Math.max(0,Number(result.sampleAgeMs)||0));
    var players=result.players||[],values=players.map(function(p){return p.source;}).join('\n');
-   if(Array.from(select.options).map(function(p){return p.value;}).join('\n')!==values){select.replaceChildren();if(!players.length)select.add(new Option('Player öffnen',''));players.forEach(function(p){select.add(new Option(p.name,p.source));});}
+   if(Array.from(select.options).map(function(p){return p.value;}).join('\n')!==values){select.replaceChildren();if(!players.length)select.add(new Option('Keine Musik-App aktiv',''));players.forEach(function(p){select.add(new Option(p.name,p.source));});}
    select.value=result.source||'';select.disabled=!players.length;
+   container.querySelector('.ga-media-player-choice').hidden=players.length<2;
    duck.checked=result.duckEnabled!==false;factor.value=String(result.duckFactor||0.2);
    message.textContent=players.length?(result.ducking?'Musik für Ansage abgesenkt.':'Windows-Player verbunden.'):'Player am Windows-PC öffnen und einen Titel starten.';
    render();

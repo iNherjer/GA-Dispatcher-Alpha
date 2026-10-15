@@ -55,8 +55,10 @@
 .ga-media-launcher { width:58px; height:58px; border-radius:50%; background:linear-gradient(145deg,#514b65,#262135); color:#f3d985; border:2px solid #a4a0b6; box-shadow:inset 1px 1px #d2cfda66,inset -2px -2px #07080e,0 5px 12px #0007; font:36px/1 'Segoe UI Symbol','Apple Symbols',serif; cursor:grab; padding:0; }
 .ga-media-device :focus-visible, .ga-media-launcher:focus-visible { outline:2px solid #f8dd84; outline-offset:3px; }
 .ga-media-settings { padding:8px 2px 12px; margin-bottom:10px; border-bottom:1px solid #555; color:#ddd; font:12px/1.4 Arial,sans-serif; }
-.ga-media-settings label { display:flex; align-items:center; gap:7px; margin:6px 0; }
+#mapVoiceMenu .ga-media-settings label { display:flex; align-items:center; flex-wrap:wrap; gap:7px; width:auto; min-width:0; margin:6px 0; box-sizing:border-box; }
 .ga-media-settings input[type="checkbox"] { width:14px; height:14px; }
-.ga-media-settings select { min-width:0; max-width:170px; color:#ddd; background:#242330; border:1px solid #666; padding:4px; }
+#mapVoiceMenu .ga-media-settings label[hidden] { display:none; }
+#mapVoiceMenu .ga-media-settings select { width:140px; min-width:0; max-width:140px; flex:0 1 140px; margin:0; color:#ddd; background:#242330; border:1px solid #666; padding:4px; font-size:12px; }
+#mapVoiceMenu .ga-media-settings .ga-media-factor { width:72px; max-width:72px; flex-basis:72px; }
 .ga-media-message { color:#9daebd; font-size:11px; max-width:230px; }
 @media (prefers-reduced-motion:reduce) { .ga-media-track.is-overflow .ga-media-marquee { animation:none; } }
