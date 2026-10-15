@@ -1,7 +1,7 @@
 ## Origin-Alpha: Web-Mediensteuerung und Windows-Player (15.10.2026)
 
-Release-Kandidat auf Basis `86de66006`: Tracker v532 und Desktop
-1.6.14-alpha.2, Webcache v2071. Winamp-Gerät im Web-Audiomenü, verschiebbarer
+Release auf Basis `86de66006`, Quellcommit `4b695cdb2`: Tracker v532 und Desktop
+1.6.14-alpha.2, Webcache v2072. Winamp-Gerät im Web-Audiomenü, verschiebbarer
 Notenschlüssel, Zoom und gemeinsame Windows-Mediensteuerung über den
 PIN-geprüften Relay-Pfad. Medienmetadaten sind kein Teil der GPS-Telemetrie;
 Status nur bei offenem Gerät, lokale Zeitfortschreibung und 15-Sekunden-Anker.
@@ -12,9 +12,10 @@ Bestehender Tracker-Interface-Selftest bestanden. Windows-x64-Runtime und
 NSIS-Installer samt Blockmap gebaut; gepackte Medienquellen bytegleich geprüft.
 Die native Windows-/Spotify-Abnahme erfolgt durch den Tester nach Alpha-Rollout.
 EFB/Toolbar erhalten noch keine Medienoberfläche. Stable-Kanäle unverändert.
-Veröffentlichung und Alpha-Aktivierung werden nach Download-/Hashprüfung im
-Release-Protokoll unter [Windows Media Control](Windows%20Media%20Control.md)
-festgehalten.
+Beide Prereleases veröffentlicht und öffentliche Downloads von Runtime,
+Installer, Blockmap und Alpha-Updatemetadaten bytegleich geprüft. Danach
+Runtime-/Desktop-Alpha-Zeiger aktiviert; direkter Alpha-Installer-Link in der
+Origin-Webapp. Prüfsummen unter [Windows Media Control](Windows%20Media%20Control.md).
 
 ## Windows-Mediensteuerung: minimaler Desktop-Kandidat (14.10.2026)
 

@@ -1,4 +1,4 @@
-# Windows-Mediensteuerung – erster lokaler Kandidat
+# Windows-Mediensteuerung
 
 ## Origin-Alpha-Rollout 15.10.2026
 
@@ -16,6 +16,20 @@ begrenzt; Titeländerungen und gelegentliche Zeitanker werden übermittelt.
 Eine belastbare Messung der realen Relay-Last ist beim Feldtest noch offen.
 Keine zusätzlichen Cloudflare-Endpoints und kein Worker-Deployment nötig.
 
+Beide Prereleases veröffentlicht, Quellcommit `4b695cdb2`:
+
+- Runtime v532: 173799370 Bytes, SHA-256
+  `64baaba76273b114cac837a7265caafdc8e7450d0b47de6a7f1209dc7c1f2e08`.
+- Desktop-Installer 1.6.14-alpha.2: 100251394 Bytes, SHA-256
+  `9b86d447ed4a8c1f3d846e484615c0f6a153aa65a95939d59e2c6ae97711f225`.
+- Blockmap: 106684 Bytes, SHA-256
+  `fa6d29f46ccbe9be8dc46e27020945aa144ffbd2c95a1d91682749c1536ca5cc`.
+
+GitHub-Assetdigests und öffentliche Downloads für Runtime, Installer, Blockmap
+und Alpha-Updatemetadaten stimmen mit den lokalen Builds überein. Danach die
+Alpha-Zeiger für Runtime/Desktop auf diese Artefakte aktiviert; Webcache v2072.
+Die Origin-Webapp bietet den direkten Alpha-Installer-Link in den Sync-Einstellungen.
+
 Prüfung vor Veröffentlichung: 84 Node-Tests, bestehender Tracker-Interface-
 Selftest, Web-Relay-Desktop-Integration mit simuliertem Windows-Player und
 Winamp-Layout-/Drag-/Zoom-Browsernachweis bestanden. Windows-x64-NSIS-Build,
@@ -23,7 +37,7 @@ Blockmap und Runtime erstellt; Medienquellen in ASAR/Unpacked bytegleich geprüf
 
 Stand 14.10.2026, Basis `86de66006`, frisch gegen Origin geprüft (0/0).
 
-## Lokale Web-Anbindung
+## Web-Anbindung
 
 Die Webapp lädt `media-player-ui.js` / `media-player-client.js` und aktiviert
 das Winamp-Gerät über das Audio-Menü. Der Client nutzt `gaMediaRequest` in
@@ -59,9 +73,8 @@ lädt die mitgelieferte `resources/media-test-runtime.exe`. Normale Starts laden
 weiterhin den unveränderten veröffentlichten Kanal. Der lokale Kandidat verwendet
 noch v531 als Basis und ist kein veröffentlichter v531-Update-Ersatz.
 
-Die Webapp muss ebenfalls aus den lokalen geänderten Quellen laufen; die
-veröffentlichte Website enthält diese Funktion noch nicht. Auf Webapp und
-Windows-Testtracker mit derselben Pilot-ID/PIN anmelden. Musiksteuerung benötigt
+Die Origin-Webapp enthält die Funktion nach dem Rollout. Auf Webapp und
+Windows-Tracker mit derselben Pilot-ID/PIN anmelden. Musiksteuerung benötigt
 keinen laufenden Simulator. `tools/web-media-integration-selftest.mjs` prüft die
 echte UI und Relay-/Token-/Desktop-Brücke mit simuliertem Windows-Player;
 native GSMTC-/Core-Audio-Abnahme bleibt offen.
@@ -158,8 +171,8 @@ bleiben dafür die Grundlage.
 - Echte GSMTC-/Core-Audio-Ausführung, Helper-Kompilierung unter Windows und
   hörbare Absenkung mit Spotify sind noch auf Windows abzunehmen. Browser- und
   Node-Tests allein belegen keine funktionierende native Windows-Integration.
-- Lokal vorbereitet, nicht veröffentlicht; Web-Relay-Erweiterung in der
-  Tracker-Runtime und passender Desktop-Kandidat gebaut.
+- Auf Origin als Alpha-Test veröffentlicht; Web-Relay-Erweiterung in der
+  Tracker-Runtime und passender Desktop-Installer gebaut.
 
 Ergebnis des lokalen Durchlaufs: 59 Desktop- und 17 Audioplayer-Tests bestanden;
 Medien-UI-Test inklusive 440-px-Screenshot bestanden. Windows-x64-Desktop-Paket
