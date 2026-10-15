@@ -29,8 +29,21 @@ function progress(checkpoint) {
     return core.snapshot();
 }
 function createState(recipe, saved) {
-    const checkpoint = adapter.createState(spec(recipe), saved?.checkpoint || null);
-    return { checkpoint, progress: progress(checkpoint), flight: flight.createState(saved?.flight), lastSampleAt: saved?.lastSampleAt ?? null, coaching: saved?.coaching ? JSON.parse(JSON.stringify(saved.coaching)) : null, guidance: saved?.guidance || null };
+    let checkpoint = adapter.createState(spec(recipe), saved?.checkpoint || null);
+    const active = checkpoint.procedureState.activeState.active;
+    const ex = recipe.trainingRecipe.exercises[checkpoint.procedureState.activeState.activeIndex];
+    const oldTurn = active && ['turn_180', 'constant_bank_360'].includes(ex?.type)
+        && active.turnDirectionConvention !== 'msfs-bank-positive-left-v1';
+    if (oldTurn) checkpoint = adapter.action(spec(recipe), checkpoint, {type:'abort'}, saved?.lastSampleAt ?? 0).state;
+    const state = { checkpoint, progress: progress(checkpoint), flight: flight.createState(saved?.flight), lastSampleAt: saved?.lastSampleAt ?? null, coaching: saved?.coaching ? JSON.parse(JSON.stringify(saved.coaching)) : null, guidance: saved?.guidance || null };
+    if (oldTurn) {
+        const c = coaching.init(state);
+        c.notice = c.pendingNotice = 'Kurvenauswertung aktualisiert. Aktuellen Durchgang neu stabilisieren und starten; abgeschlossene Übungen bleiben erhalten.';
+        c.phaseKey = ''; c.driftSince = null; c.lastAt = null;
+        state.lastSampleAt = null;
+        state.guidance = coaching.project(recipe, state);
+    }
+    return state;
 }
 function context(recipe) { return { ...recipe.voiceContext, target: recipe.target, home: recipe.home, trainingRecipe: recipe.trainingRecipe, missionMode:recipe.missionMode || 'POI' }; }
 function captureSample(recipe, state, sample) {

@@ -49,10 +49,10 @@ function testTurn180() {
   let state = markReady(createInitialState(trainingProcedure.normalizeRecipe(recipe)));
   state = tick(recipe, state, sample({ t: 0, hdg: 0, bank: 0 }));
   for (let i = 1; i <= 18; i++) {
-    state = tick(recipe, state, sample({ t: i, hdg: i * 10, bank: 30 }));
+    state = tick(recipe, state, sample({ t: i, hdg: i * 10, bank: -30 }));
   }
-  state = tick(recipe, state, sample({ t: 19, hdg: 180, bank: 5 }));
-  state = tick(recipe, state, sample({ t: 21, hdg: 181, bank: 2 }));
+  state = tick(recipe, state, sample({ t: 19, hdg: 180, bank: -5 }));
+  state = tick(recipe, state, sample({ t: 21, hdg: 181, bank: -2 }));
   assert.equal(state.satisfied, true, '180-degree turn should complete');
 }
 
@@ -74,10 +74,10 @@ function testTurn360UsesManualReference() {
   assert.equal(state.active?.startHeadingDeg, 270, 'manual start tick must define the turn reference heading');
   assert.equal(state.active?.startAltFt, 3500, 'manual start tick must define the turn reference altitude');
   for (let i = 1; i <= 36; i++) {
-    state = tick(recipe, state, sample({ t: i, alt: 3500, hdg: 270 + i * 10, bank: 30 }));
+    state = tick(recipe, state, sample({ t: i, alt: 3500, hdg: 270 + i * 10, bank: -30 }));
   }
-  state = tick(recipe, state, sample({ t: 37, alt: 3500, hdg: 270, bank: 5 }));
-  state = tick(recipe, state, sample({ t: 39, alt: 3500, hdg: 271, bank: 2 }));
+  state = tick(recipe, state, sample({ t: 37, alt: 3500, hdg: 270, bank: -5 }));
+  state = tick(recipe, state, sample({ t: 39, alt: 3500, hdg: 271, bank: -2 }));
   assert.equal(state.satisfied, true, '360-degree turn should finish on the manually captured reference heading');
 }
 
@@ -99,9 +99,9 @@ function testStallBreakRecovery() {
   state = tick(recipe, state, sample({ t: 0, alt: 4000, agl: 3000, hdg: 90, pitch: 3, ias: 80, aoa: 5 }));
   state = tick(recipe, state, sample({ t: 2, alt: 4000, agl: 3000, hdg: 90, pitch: 4, ias: 78, aoa: 6 }));
   state = tick(recipe, state, sample({ t: 4, alt: 3995, agl: 2995, hdg: 90, pitch: 8, ias: 62, aoa: 12, stall: true }));
-  state = tick(recipe, state, sample({ t: 5, alt: 3940, agl: 2940, hdg: 94, bank: 20, pitch: 2, ias: 58, vs: -900, aoa: 15, stall: true }));
-  state = tick(recipe, state, sample({ t: 7, alt: 3880, agl: 2880, hdg: 94, bank: 6, pitch: 1, ias: 76, vs: -100, aoa: 8, stall: false }));
-  state = tick(recipe, state, sample({ t: 9, alt: 3890, agl: 2890, hdg: 94, bank: 3, pitch: 2, ias: 82, vs: 100, aoa: 6, stall: false }));
+  state = tick(recipe, state, sample({ t: 5, alt: 3940, agl: 2940, hdg: 94, bank: -18, pitch: 2, ias: 58, vs: -900, aoa: 15, stall: true }));
+  state = tick(recipe, state, sample({ t: 7, alt: 3880, agl: 2880, hdg: 94, bank: -6, pitch: 1, ias: 76, vs: -100, aoa: 8, stall: false }));
+  state = tick(recipe, state, sample({ t: 9, alt: 3890, agl: 2890, hdg: 94, bank: -3, pitch: 2, ias: 82, vs: 100, aoa: 6, stall: false }));
   assert.equal(state.satisfied, true, 'stall recovery should complete after confirmed break and stable recovery');
   assert.ok(state.exercises[0].summary.heightLossFt >= 50, 'stall summary should include height loss');
 }
@@ -136,9 +136,9 @@ function testRequiredGateAndOptionalRequest() {
   assert.equal(result.state.startAvailable, true, 'start button should unlock only after a stable setup');
   state = markReady(result.state);
   state = tick(recipe, state, sample({ t: 5, hdg: 0, bank: 0 }));
-  for (let i = 6; i <= 23; i++) state = tick(recipe, state, sample({ t: i, hdg: (i - 5) * 10, bank: 30 }));
-  state = tick(recipe, state, sample({ t: 24, hdg: 180, bank: 5 }));
-  state = tick(recipe, state, sample({ t: 26, hdg: 181, bank: 2 }));
+  for (let i = 6; i <= 23; i++) state = tick(recipe, state, sample({ t: i, hdg: (i - 5) * 10, bank: -30 }));
+  state = tick(recipe, state, sample({ t: 24, hdg: 180, bank: -5 }));
+  state = tick(recipe, state, sample({ t: 26, hdg: 181, bank: -2 }));
   assert.equal(state.requiredComplete, true, 'required part should complete after first exercise');
   assert.equal(state.satisfied, true, 'mission should be satisfied after required exercises');
   assert.equal(state.activeIndex, 1, 'optional exercise should remain pending');
@@ -166,23 +166,23 @@ function testFeedbackThrottleAndFailureReset() {
   let state = markReady(createInitialState(recipe));
   let result = tickState(recipe, state, sample({ t: 0, hdg: 20, bank: 0, alt: 3200 }));
   state = result.state;
-  result = tickState(recipe, state, sample({ t: 1, hdg: 25, bank: 30, alt: 3200 }));
+  result = tickState(recipe, state, sample({ t: 1, hdg: 25, bank: -30, alt: 3200 }));
   state = result.state;
-  result = tickState(recipe, state, sample({ t: 2, hdg: 35, bank: 30, alt: 3200 }));
+  result = tickState(recipe, state, sample({ t: 2, hdg: 35, bank: -30, alt: 3200 }));
   assert.ok(result.events.some(event => event.type === 'training_values_correct'), 'reaching target values should be confirmed once');
   state = result.state;
-  result = tickState(recipe, state, sample({ t: 3, hdg: 45, bank: 20, alt: 3200 }));
+  result = tickState(recipe, state, sample({ t: 3, hdg: 45, bank: -18, alt: 3200 }));
   assert.ok(result.events.some(event => event.type === 'training_values_deviation'), 'leaving target values should be announced immediately');
   state = result.state;
-  result = tickState(recipe, state, sample({ t: 8, hdg: 55, bank: 20, alt: 3200 }));
+  result = tickState(recipe, state, sample({ t: 8, hdg: 55, bank: -18, alt: 3200 }));
   assert.ok(!result.events.some(event => event.type === 'training_values_deviation'), 'deviation feedback must not repeat inside ten seconds');
   state = result.state;
-  result = tickState(recipe, state, sample({ t: 13, hdg: 65, bank: 20, alt: 3200 }));
+  result = tickState(recipe, state, sample({ t: 13, hdg: 65, bank: -18, alt: 3200 }));
   assert.ok(result.events.some(event => event.type === 'training_values_deviation'), 'persistent deviation may repeat after ten seconds');
   state = result.state;
-  result = tickState(recipe, state, sample({ t: 14, hdg: 75, bank: 65, alt: 3450 }));
+  result = tickState(recipe, state, sample({ t: 14, hdg: 75, bank: -65, alt: 3450 }));
   state = result.state;
-  result = tickState(recipe, state, sample({ t: 25, hdg: 85, bank: 65, alt: 3450 }));
+  result = tickState(recipe, state, sample({ t: 25, hdg: 85, bank: -65, alt: 3450 }));
   assert.equal(result.state.active, null, 'an out-of-control exercise should stop instead of looping');
   assert.equal(result.state.ready, false, 'a failed exercise must require a new manual start');
   assert.equal(result.state.readyPrompted, false, 'a failed exercise must return to a fresh briefing/setup gate');

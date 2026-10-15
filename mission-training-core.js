@@ -26,8 +26,8 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
                 targetBankDeg: 30,
                 minEntryBankDeg: 22,
                 rolloutBankDeg: 12,
-                rolloutHeadingToleranceDeg: 6,
-                maxAltitudeDeltaFt: 50,
+                rolloutHeadingToleranceDeg: 10,
+                maxAltitudeDeltaFt: 100,
                 maxG: 2.2,
                 maxOvershootDeg: 32
             },
@@ -35,8 +35,8 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
                 targetBankDeg: 30,
                 minEntryBankDeg: 20,
                 rolloutBankDeg: 10,
-                rolloutHeadingToleranceDeg: 5,
-                maxAltitudeDeltaFt: 50,
+                rolloutHeadingToleranceDeg: 10,
+                maxAltitudeDeltaFt: 100,
                 maxG: 2.0,
                 maxOvershootDeg: 24
             },
@@ -209,9 +209,12 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
         if (type === 'constant_bank_360' || type === 'turn_180') {
             normalized.targetBankDeg = clamp(raw.targetBankDeg ?? base.targetBankDeg, 15, 55);
             normalized.minEntryBankDeg = clamp(raw.minEntryBankDeg ?? Math.max(12, normalized.targetBankDeg - 8), 8, 52);
-            normalized.maxAltitudeDeltaFt = clamp(raw.maxAltitudeDeltaFt ?? base.maxAltitudeDeltaFt, 20, 250);
+            // Also upgrade persisted recipes with the old, narrower limits.
+            normalized.maxAltitudeDeltaFt = clamp(raw.maxAltitudeDeltaFt ?? base.maxAltitudeDeltaFt, 100, 250);
+            normalized.bankToleranceDeg = clamp(raw.bankToleranceDeg ?? 10, 10, 20);
+            normalized.valueDeviationGraceSec = clamp(raw.valueDeviationGraceSec ?? 30, 30, 120);
             normalized.rolloutBankDeg = clamp(raw.rolloutBankDeg ?? base.rolloutBankDeg, 5, 20);
-            normalized.rolloutHeadingToleranceDeg = clamp(raw.rolloutHeadingToleranceDeg ?? base.rolloutHeadingToleranceDeg, 2, 15);
+            normalized.rolloutHeadingToleranceDeg = clamp(raw.rolloutHeadingToleranceDeg ?? base.rolloutHeadingToleranceDeg, 10, 15);
             normalized.maxG = clamp(raw.maxG ?? base.maxG, 1.2, 3.5);
             normalized.maxOvershootDeg = clamp(raw.maxOvershootDeg ?? base.maxOvershootDeg, 8, 60);
         } else if (type === 'altitude_step_hold') {
@@ -780,9 +783,11 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
         const now = sample.nowMs;
         updateCommonMetrics(active, sample);
         const absBank = Math.abs(Number(sample.bankDeg || 0));
-        const sign = Number(sample.bankDeg || 0) >= 0 ? 1 : -1;
+        // MSFS bank is positive to the left; heading grows to the right.
+        const sign = Number(sample.bankDeg || 0) >= 0 ? -1 : 1;
         const wantedDirection = ex.direction === 'left' ? -1 : (ex.direction === 'right' ? 1 : 0);
         if (active.phase === 'setup') {
+            active.turnDirectionConvention = 'msfs-bank-positive-left-v1';
             active.startAltFt = Math.round(Number(sample.altFt || 0));
             active.startHeadingDeg = normalizeHeading(sample.headingDeg || 0);
             active.targetHeadingDeg = normalizeHeading(active.startHeadingDeg + targetDeg);
@@ -845,7 +850,9 @@ clock = clock && typeof clock.now === 'function' ? clock : { now: () => Date.now
         }
         if (active.phase === 'rollout') {
             const headingDev = angleDiffAbs(sample.headingDeg, active.targetHeadingDeg);
-            const rolloutOk = absBank <= Number(ex.rolloutBankDeg || 12) && headingDev <= Number(ex.rolloutHeadingToleranceDeg || 6);
+            const rolloutOk = absBank <= Number(ex.rolloutBankDeg || 12)
+                && headingDev <= Number(ex.rolloutHeadingToleranceDeg || 10)
+                && Math.abs(Number(sample.altFt || 0) - Number(active.startAltFt || 0)) <= Number(ex.maxAltitudeDeltaFt || 100);
             if (!rolloutOk) pushCaution(active, events, 'rollout', now, { headingDevDeg: roundNumber(headingDev, 1), bankDeg: roundNumber(absBank, 1) });
             if (stableFor(active, rolloutOk, now, ex.stableSec)) {
                 const rates = active.turnRates || [];

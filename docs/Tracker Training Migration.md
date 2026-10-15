@@ -433,3 +433,41 @@ Pause, Datenlücken, Sicherheitsgates, Abbruch und Zusatzübungen bleiben erhalt
 Zehn neue Regressionen plus direkte Einleitung in den vorhandenen echten
 Missions-Kindprozess-Tests für POI und APT. **225 betroffene Tests grün**, Original-
 Prozedur-Selbsttest und Syntaxprüfung grün. Noch kein Release oder MSFS-Feldtest.
+
+
+## Kurvenkorrektur vom 15.10.2026 (Tracker v542 Alpha)
+
+Die gemeinsame Prozedur und das Tracker-Coaching interpretieren die MSFS-Bank
+jetzt korrekt: positive Bank = links / abnehmender Kurs, negative Bank = rechts /
+zunehmender Kurs. Das gilt für 180°-Wenden und Vollkreise mit allen Zielbanken,
+freier oder fester Richtung, Pflicht- und Zusatzübungen sowie POI-/APT-Training
+inklusive beider Club-Domains. Andere Telemetrieverbraucher bleiben unverändert.
+
+Kurven verwenden mindestens ±100 ft Höhe, ±10° Bank und ±10° Ausleitkurs.
+Die Normalisierung hebt auch engere Werte gespeicherter Rezepte an; bereits
+weiter gefasste Werte bleiben innerhalb der Normalisierungsgrenzen erhalten.
+Eine fortlaufende Sollwertabweichung darf 30 statt 15 Sekunden korrigiert werden;
+Rückkehr in das gültige Band setzt die Frist zurück. Das gemeinsame Guidance-
+Modell verwendet dieselbe Normalisierung wie der Detektor und liefert die Werte
+für Banner und dynamische Ansagen. Die stabilisierte Ausleitung prüft auch im
+Standalone-Kern das Höhenband. G-/Extrembankgrenzen, Sicherheitshöhen, manueller
+Start und Ausleit-Stabilisierungszeit bleiben erhalten. Geradeaus-/Höhenwechsel-
+und Stallübungen behalten ihre bisherigen Sollwerte und Korrekturfristen.
+
+Ein gespeicherter laufender Kurvenversuch ohne die neue Vorzeichenkennung wird
+beim Tracker-Restore einmal zum Neuansetzen zurückgesetzt. So wird ein mit
+falscher Richtung aufgebauter Winkel nicht übernommen. Abgeschlossene Übungen,
+Pflichtabschluss und angeforderte Zusatzübung bleiben erhalten. Neue Versuche
+werden mit Kennung gespeichert und normal fortgesetzt.
+
+Nachweise: Live-Vorzeichenmatrix für POI/APT, alle drei Trainings-Domains,
+180°/30°, 360°/30° und 360°/45°, jeweils feste und freie Links-/Rechtskurve,
+0°-Kursübergang, alte Rezeptwerte, 75 ft Höhen- und 8° Bankabweichung,
+8° Ausleitabweichung und Restore. Zusätzlich Korrekturfrist/Reset, falsche
+vorgegebene Richtung und Migration eines laufenden Zusatzversuchs.
+
+
+Releaseprüfung v542: Die Trainings-Integration verwendet dieselbe injizierte Uhr
+für Telemetrie und Freshness-Gates. Damit scheitern simulierte Auswärtslandungen
+nicht mehr an Zeitstempeln in der Zukunft; Runtime-Gates bleiben unverändert.
+Die Simulatorabnahme der Kurvenkorrektur bleibt nach Alpha-Veröffentlichung offen.

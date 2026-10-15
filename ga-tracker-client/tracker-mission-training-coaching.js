@@ -9,7 +9,8 @@ const delta = (a,b) => ((b-a+540)%360)-180;
 const hdg = value => String(Math.round((value+360)%360)%360).padStart(3,'0')+'°';
 const finite = value => typeof value==='number' && Number.isFinite(value);
 const raw = state => state.checkpoint.procedureState.activeState;
-const exercise = (recipe,state) => recipe.trainingRecipe.exercises[raw(state).activeIndex];
+// Use the same effective limits as the detector, including persisted old recipes.
+const exercise = (recipe,state) => procedure.normalizeExercise(recipe.trainingRecipe.exercises[raw(state).activeIndex]);
 function init(state) {
   return state.coaching ||= {reference:null,history:[],notice:'',lastAt:null,holdMs:0,holdGood:false,driftSince:null,
     phaseKey:'',lastProgressAt:null,bestProgress:null,lastFeedbackAt:0,lastFeedbackKey:'',pendingNotice:''};
@@ -74,7 +75,7 @@ function prepare(recipe,state,sample) {
       && Number(sample.gForce||1)<=Number(ex.maxG||2.2)&&directed>=-0.5;
     // Reversals must undo travelled angle, not earn another positive arc later.
     if(directed<0)a.progressDeg=Math.max(0,a.progressDeg+directed);
-    c.turnDirectionGood=directed>=-0.5 && (!ex.direction || ex.direction==='either' || (ex.direction==='left'?sample.bankDeg<0:sample.bankDeg>0));
+    c.turnDirectionGood=directed>=-0.5 && (!ex.direction || ex.direction==='either' || (ex.direction==='left'?sample.bankDeg>0:sample.bankDeg<0));
     const target=ex.type==='turn_180'?180:360;
     if(a.progressDeg+Math.max(0,directed)>target+Number(ex.maxOvershootDeg||30))return 'Kurvenziel überschossen. Durchgang neu ansetzen und rechtzeitig ausleiten.';
     metric=a.progressDeg;timeout=45000;
@@ -91,7 +92,8 @@ function prepare(recipe,state,sample) {
   else if(a.phase==='hold_to_break') {metric=0;timeout=60000;}
   else if(a.phase==='recovery') {metric=0;timeout=60000;}
   if(!good){if(c.driftSince==null)c.driftSince=now;}else c.driftSince=null;
-  if(c.driftSince!=null&&now-c.driftSince>=15000) return 'Sollwerte länger als 15 Sekunden verlassen. Diesen Durchgang neu ansetzen; abgeschlossene Übungen bleiben erhalten.';
+  const graceSec=Number(ex.valueDeviationGraceSec||15);
+  if(c.driftSince!=null&&now-c.driftSince>=graceSec*1000) return `Sollwerte länger als ${graceSec} Sekunden verlassen. Diesen Durchgang neu ansetzen; abgeschlossene Übungen bleiben erhalten.`;
   if(c.bestProgress==null||metric>c.bestProgress+0.5){c.bestProgress=metric;c.lastProgressAt=now;}
   if(now-c.phaseBeganAt>=600000)return 'Abschnitt dauert länger als zehn Minuten. Durchgang neu ansetzen; die bereits erfüllten Übungen bleiben erhalten.';
   if(now-c.lastProgressAt>=timeout)return 'Kein ausreichender Fortschritt in diesem Abschnitt. Durchgang neu ansetzen; im Banner stehen die benötigten Sollwerte.';
@@ -173,7 +175,7 @@ function project(recipe,state) {
     const target=ex.type==='turn_180'?180:360;
     const direction=a?.direction===-1?'links':a?.direction===1?'rechts':ex.direction==='left'?'links':ex.direction==='right'?'rechts':'links oder rechts';
     const bankGood=finite(sample.bankDeg)&&Math.abs(Math.abs(sample.bankDeg)-Number(ex.targetBankDeg||30))<=Number(ex.bankToleranceDeg||6);
-    row('turn',`${target}° ${direction} · Bank ${ex.targetBankDeg}° ±${ex.bankToleranceDeg||6}° · Höhe ±${x.altTolerance} ft · maximal ${ex.maxG} G`,status(['entry','turning'].includes(phase),phase==='rollout',x.height&&bankGood&&c.turnDirectionGood!==false&&Number(sample.gForce||1)<=ex.maxG),phase==='rollout'?1:(a?.progressDeg||0)/target,`${Math.round(a?.progressDeg||0)}° / ${target}° · Bank ${Math.round(sample.bankDeg||0)}°, Höhe ${Math.round(sample.altFt||0)} ft, ${Number(sample.gForce||1).toFixed(1)} G`);
+    row('turn',`${target}° ${direction} · Bank ${ex.targetBankDeg}° ±${ex.bankToleranceDeg||6}° · Höhe ±${x.altTolerance} ft · maximal ${ex.maxG} G · ${ex.valueDeviationGraceSec} s Korrekturfrist bei Sollwertabweichung`,status(['entry','turning'].includes(phase),phase==='rollout',x.height&&bankGood&&c.turnDirectionGood!==false&&Number(sample.gForce||1)<=ex.maxG),phase==='rollout'?1:(a?.progressDeg||0)/target,`${Math.round(a?.progressDeg||0)}° / ${target}° · Bank ${Math.round(sample.bankDeg||0)}°, Höhe ${Math.round(sample.altFt||0)} ft, ${Number(sample.gForce||1).toFixed(1)} G`);
     row('rollout',`${headingPreview?'Zielkurs-Vorschau':'Ausleiten auf'} ${hdg((c.reference.headingDeg+target)%360)} · ±${ex.rolloutHeadingToleranceDeg||6}°, Bank ≤${ex.rolloutBankDeg}°, Höhe ±${x.altTolerance} ft; ${ex.stableSec||4} s stabil`,status(phase==='rollout',done,x.height&&angle(sample.hdg||0,(c.reference.headingDeg+target)%360)<=Number(ex.rolloutHeadingToleranceDeg||6)&&Math.abs(sample.bankDeg||0)<=Number(ex.rolloutBankDeg||12)),a?.stableSince?((c.lastAt||0)-a.stableSince)/((ex.stableSec||4)*1000):0);
     phaseLabel={entry:'Kurve einleiten',turning:'Kurve fliegen',rollout:'Ausleiten'}[phase]||phaseLabel;
   } else if(ex.type==='altitude_step_hold') {

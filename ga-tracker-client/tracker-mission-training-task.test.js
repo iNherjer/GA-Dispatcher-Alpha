@@ -58,7 +58,7 @@ function createMidTurnCore() {
     tick(13100, { mslFt: 5000, aglFt: 3000, hdg: 90, bankDeg: 0, vsFpm: 0, onGround: false });
     assert.equal(core.signalReady(specA.missionData, specA.missionData.passenger).ok, true);
     tick(13201, { mslFt: 5000, aglFt: 3000, hdg: 90, bankDeg: 0, vsFpm: 0, onGround: false });
-    tick(13301, { mslFt: 5000, aglFt: 3000, hdg: 95, bankDeg: 25, vsFpm: 0, onGround: false });
+    tick(13301, { mslFt: 5000, aglFt: 3000, hdg: 95, bankDeg: -25, vsFpm: 0, onGround: false });
     return core;
 }
 const midTurnCore = createMidTurnCore();
@@ -74,12 +74,12 @@ resumedCore.importFullState(exported);
 const resumeInput = {
     missionData: specA.missionData, passenger: specA.missionData.passenger,
     lat: 47, lon: 8, departureDistanceNm: 6,
-    flightData: { mslFt: 5000, aglFt: 3000, hdg: 100, bankDeg: 28, vsFpm: 0, gForce: 1.4 },
+    flightData: { mslFt: 5000, aglFt: 3000, hdg: 100, bankDeg: -28, vsFpm: 0, gForce: 1.4 },
     nowMs: 13401
 };
 const normalizedResumeSample = {
     lat: 47, lon: 8, altFt: 5000, aglFt: 3000, headingDeg: 100,
-    bankDeg: 28, vsFpm: 0, gForce: 1.4, onGround: false, nowMs: 13401
+    bankDeg: -28, vsFpm: 0, gForce: 1.4, onGround: false, nowMs: 13401
 };
 const originalResume = original._test.tickState(recipeA, JSON.parse(JSON.stringify(raw.activeState)), normalizedResumeSample);
 const generatedResume = generated.create({}, { now: () => 13401 })._test.tickState(

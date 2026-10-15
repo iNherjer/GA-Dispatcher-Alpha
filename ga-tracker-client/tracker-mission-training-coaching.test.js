@@ -7,8 +7,12 @@ const coaching = require('./tracker-mission-training-coaching.js');
 const { bundle } = require('./tracker-mission-training-fixture.js');
 const trainingCore = require('../mission-training-core.js').create({}, { now: () => 0 });
 
-function harness(exercises, requiredCount = 1, minDepartureDistanceNm = 5) {
+function harness(exercises, requiredCount = 1, minDepartureDistanceNm = 5, options = {}) {
   const recipe = structuredClone(bundle().executionPoiRecipe);
+  recipe.missionMode = options.mode || 'POI';
+  recipe.taskDomain = options.domain || 'training';
+  recipe.voiceContext.taskDomain = recipe.taskDomain;
+  recipe.voiceContext.passenger.taskDomain = recipe.taskDomain;
   if (exercises) {
     recipe.trainingRecipe = trainingCore.normalizeRecipe({
       schema: 'ga.trainingRecipe.v1', key: 'coaching-test', requiredCount,
@@ -183,11 +187,11 @@ test('wrong direction and telemetry gaps retry only the active exercise', () => 
   const h = harness();
   h.observe(); h.observe({}, 3100); h.action('training_ready');
   h.observe({}, 100); // setup -> entry
-  h.observe({ hdg: 100, bankDeg: 30 }, 100); // entry -> turning, right
-  h.observe({ hdg: 110, bankDeg: 30 }, 100);
+  h.observe({ hdg: 100, bankDeg: -30 }, 100); // entry -> turning, right
+  h.observe({ hdg: 110, bankDeg: -30 }, 100);
   assert.equal(h.raw().active.phase, 'turning');
   // The source detector allows a ten-second grace period for a sustained reversal.
-  for (let i = 0; i < 12 && h.raw().active; i++) h.observe({ hdg: 95 - i * 10, bankDeg: 30 }, 1000);
+  for (let i = 0; i < 12 && h.raw().active; i++) h.observe({ hdg: 95 - i * 10, bankDeg: -30 }, 1000);
   assert.equal(h.raw().exercises[0].status, 'repeat');
   assert.equal(h.raw().active, null);
   const before = h.state.coaching.history.length;
@@ -200,10 +204,10 @@ test('stalled rollout requires a retry instead of waiting indefinitely', () => {
   const h = harness();
   h.observe(); h.observe({}, 3100); h.action('training_ready');
   h.observe({}, 100); // setup -> entry
-  h.observe({ hdg: 100, bankDeg: 30 }, 100); // entry -> turning
-  for (let heading = 110; heading <= 270; heading += 10) h.observe({ hdg: heading, bankDeg: 30 }, 1000);
+  h.observe({ hdg: 100, bankDeg: -30 }, 100); // entry -> turning
+  for (let heading = 110; heading <= 270; heading += 10) h.observe({ hdg: heading, bankDeg: -30 }, 1000);
   assert.equal(h.raw().active.phase, 'rollout');
-  for (let i = 0; i < 48 && h.raw().active; i++) h.observe({ hdg: 260, bankDeg: 0 }, 1000);
+  for (let i = 0; i < 48 && h.raw().active; i++) h.observe({ hdg: 250, bankDeg: 0 }, 1000);
   assert.equal(h.raw().exercises[0].status, 'repeat');
   assert.equal(h.raw().active, null);
   assert.match(h.state.guidance.notice, /Fortschritt|neu ansetzen/i);
@@ -216,8 +220,8 @@ test('a completed required exercise remains complete when optional work is inter
   ]);
   h.observe(); h.observe({}, 3100); h.action('training_ready');
   h.observe({}, 100);
-  h.observe({ hdg: 100, bankDeg: 30 }, 100);
-  for (let heading = 110; heading <= 270; heading += 10) h.observe({ hdg: heading, bankDeg: 30 }, 1000);
+  h.observe({ hdg: 100, bankDeg: -30 }, 100);
+  for (let heading = 110; heading <= 270; heading += 10) h.observe({ hdg: heading, bankDeg: -30 }, 1000);
   h.observe({ hdg: 270, bankDeg: 0 }, 1000);
   h.observe({ hdg: 270, bankDeg: 0 }, 1100);
   assert.equal(h.raw().exercises[0].status, 'complete');
@@ -246,9 +250,9 @@ test('start uses the announced reference even within preparation tolerance', () 
 
 test('rollout cannot pass outside the altitude band even with correct heading', () => {
   const h=harness();h.observe();h.observe({},3100);h.action('training_ready');h.observe({},100);
-  h.observe({hdg:100,bankDeg:30},100);
-  for(let hdg=110;hdg<=270;hdg+=10)h.observe({hdg,bankDeg:30});
-  for(let i=0;i<8;i++)h.observe({hdg:270,altFt:3100,bankDeg:0});
+  h.observe({hdg:100,bankDeg: -30},100);
+  for(let hdg=110;hdg<=270;hdg+=10)h.observe({hdg,bankDeg: -30});
+  for(let i=0;i<8;i++)h.observe({hdg:270,altFt:3150,bankDeg: 0});
   assert.equal(h.raw().active.phase,'rollout');
   assert.equal(h.row('rollout').status,'error');
   assert.equal(h.state.progress.completedCount,0);
@@ -259,13 +263,13 @@ for (const type of ['constant_bank_360','turn_180']) for (const direction of ['l
     const h=harness([{id:'turn',type,direction,targetBankDeg,stableSec:1}]);
     h.observe();h.observe({},3100);h.action('training_ready');h.observe({},100);
     const sign=direction==='left'?-1:1,target=type==='turn_180'?180:360;
-    for(let arc=10;arc<=target;arc+=10)h.observe({hdg:(90+sign*arc+360)%360,bankDeg:sign*targetBankDeg},1000);
+    for(let arc=10;arc<=target;arc+=10)h.observe({hdg:(90+sign*arc+360)%360,bankDeg:-sign*targetBankDeg},1000);
     assert.equal(h.raw().active.phase,'rollout');
     assert.equal(h.row('turn').status,'complete');
     assert.equal(h.row('turn').progress,1);
     assert.match(h.row('turn').label,new RegExp(`${target}° ${sign<0?'links':'rechts'}`));
     const hdg=(90+target)%360;
-    h.observe({hdg,bankDeg:0});h.observe({hdg,bankDeg:0},1100);
+    h.observe({hdg,bankDeg: 0});h.observe({hdg,bankDeg: 0},1100);
     assert.equal(h.state.progress.requiredComplete,true);
     assert.equal(h.state.guidance.visible,false);
   });
@@ -291,11 +295,11 @@ test('stall banner follows stabilize, approach, break and timed recovery with ma
   const h=harness([{id:'stall',type:'stall_recovery',setupStableSec:2,recoveryStableSec:3,targetAoaDeg:14,maxRecoveryBankDeg:10}]);
   h.observe();h.observe({},3100);h.action('training_ready');h.observe({},100);
   assert.equal(h.raw().active.phase,'stabilize');
-  h.observe({bankDeg:10});assert.equal(h.row('stabilize').status,'error');
+  h.observe({bankDeg: -10});assert.equal(h.row('stabilize').status,'error');
   h.observe();h.observe();assert.ok(h.row('stabilize').progress>0);
   h.restore();h.observe();assert.equal(h.raw().active.phase,'approach');
   assert.equal(h.row('stabilize').status,'complete');
-  h.observe({bankDeg:16});assert.equal(h.row('approach').status,'error');
+  h.observe({bankDeg: -16});assert.equal(h.row('approach').status,'error');
   h.observe({iasKts:70,aoaDeg:14});assert.equal(h.raw().active.phase,'hold_to_break');
   assert.equal(h.row('approach').status,'complete');
   h.observe({iasKts:70,aoaDeg:14,vsFpm:-700,altFt:2960});
@@ -310,21 +314,21 @@ test('stall banner follows stabilize, approach, break and timed recovery with ma
 });
 test('turn banner marks excessive G as an error before the detector grace period expires',()=>{
   const h=harness();h.observe();h.observe({},3100);h.action('training_ready');h.observe({},100);
-  h.observe({hdg:100,bankDeg:30});h.observe({hdg:110,bankDeg:30,gForce:3});
+  h.observe({hdg:100,bankDeg: -30});h.observe({hdg:110,bankDeg: -30,gForce:3});
   assert.equal(h.row('turn').status,'error');assert.match(h.row('turn').detail,/3.0 G/);
 });
 
 test('inflight maneuver tip is spoken during instruction and remains available after restore',()=>{const tip='Beim Ausleiten die Leistung wieder anpassen, damit die Geschwindigkeit stabil bleibt.';const h=harness([{id:'turn-tip',type:'constant_bank_360',targetBankDeg:45,inflightTip:tip}]);const first=h.observe();assert.match(h.spoken(first),/Beim Ausleiten die Leistung/);h.restore();assert.match(h.spoken(h.action('training_repeat_instruction')),/Beim Ausleiten die Leistung/);assert.equal(h.raw().requiredComplete,false);});
 
-test('180 turn previews the chosen heading until manual start, then freezes through restore',()=>{const h=harness([{id:'turn',type:'turn_180',targetBankDeg:30}]);h.observe({hdg:90});h.observe({hdg:120,bankDeg:20});assert.equal(h.state.coaching.reference.headingDeg,120);assert.equal(h.state.progress.startAvailable,false);h.observe({hdg:140});h.observe({hdg:140},3100);assert.equal(h.state.progress.startAvailable,true);assert.match(h.row('heading').label,/bei „Übung starten“/);assert.match(h.row('rollout').label,/320°/);h.action('training_ready');h.observe({hdg:141});assert.equal(h.raw().active.startHeadingDeg,140);assert.equal(h.raw().active.targetHeadingDeg,320);h.restore();h.observe({hdg:150,bankDeg:30});assert.equal(h.state.coaching.reference.headingDeg,140);assert.match(h.row('rollout').label,/Ausleiten auf 320°/);});
+test('180 turn previews the chosen heading until manual start, then freezes through restore',()=>{const h=harness([{id:'turn',type:'turn_180',targetBankDeg:30}]);h.observe({hdg:90});h.observe({hdg:120,bankDeg: -20});assert.equal(h.state.coaching.reference.headingDeg,120);assert.equal(h.state.progress.startAvailable,false);h.observe({hdg:140});h.observe({hdg:140},3100);assert.equal(h.state.progress.startAvailable,true);assert.match(h.row('heading').label,/bei „Übung starten“/);assert.match(h.row('rollout').label,/320°/);h.action('training_ready');h.observe({hdg:141});assert.equal(h.raw().active.startHeadingDeg,140);assert.equal(h.raw().active.targetHeadingDeg,320);h.restore();h.observe({hdg:150,bankDeg: -30});assert.equal(h.state.coaching.reference.headingDeg,140);assert.match(h.row('rollout').label,/Ausleiten auf 320°/);});
 
-for(const bank of [30,45])test(`full circle ${bank} degrees fixes the chosen start course only at manual release`,()=>{const h=harness([{id:'circle',type:'constant_bank_360',targetBankDeg:bank}]);h.observe({hdg:90});h.observe({hdg:200,bankDeg:20});assert.equal(h.state.progress.startAvailable,false);h.observe({hdg:210});h.observe({hdg:210},3100);assert.equal(h.state.progress.startAvailable,true);assert.match(h.row('rollout').label,/Vorschau 210°/);h.action('training_ready');h.observe({hdg:211});assert.equal(h.raw().active.startHeadingDeg,210);assert.equal(h.raw().active.targetHeadingDeg,210);h.restore();h.observe({hdg:220,bankDeg:bank});assert.equal(h.state.coaching.reference.headingDeg,210);assert.match(h.row('rollout').label,/Ausleiten auf 210°/);});
+for(const bank of [30,45])test(`full circle ${bank} degrees fixes the chosen start course only at manual release`,()=>{const h=harness([{id:'circle',type:'constant_bank_360',targetBankDeg:bank}]);h.observe({hdg:90});h.observe({hdg:200,bankDeg: -20});assert.equal(h.state.progress.startAvailable,false);h.observe({hdg:210});h.observe({hdg:210},3100);assert.equal(h.state.progress.startAvailable,true);assert.match(h.row('rollout').label,/Vorschau 210°/);h.action('training_ready');h.observe({hdg:211});assert.equal(h.raw().active.startHeadingDeg,210);assert.equal(h.raw().active.targetHeadingDeg,210);h.restore();h.observe({hdg:220,bankDeg:bank});assert.equal(h.state.coaching.reference.headingDeg,210);assert.match(h.row('rollout').label,/Ausleiten auf 210°/);});
 
 
 test('training distinguishes telemetry interruption reasons and updates a changing blocker', () => {
   const h = harness();
   const base = { observedAt: 11000, lat:48.3, lon:8.5, altFt:5700, aglFt:3000,
-    hdg:90, bankDeg:0, vsFpm:0, onGround:false, simPaused:false, inMenuOrMap:false };
+    hdg:90, bankDeg: 0, vsFpm:0, onGround:false, simPaused:false, inMenuOrMap:false };
   runtime.pause(h.recipe, h.state, 11000, undefined, {...base,lat:null});
   assert.match(h.state.guidance.notice, /Flugdaten unterbrochen oder unvollständig/);
   assert.doesNotMatch(h.state.guidance.notice, /Simulator pausiert|Slew/);
@@ -359,7 +363,7 @@ for (const type of ['turn_180', 'constant_bank_360']) test(`${type} starts at th
   assert.doesNotMatch(h.spoken(started), /nächsten Messwert/);
   assert.ok(started.voices.every(v=>v.trainingScope===runtime.scope(h.state)));
   h.restore();
-  h.observe({altFt:3130, hdg:146, bankDeg:25}, 1000);
+  h.observe({altFt:3130, hdg:146, bankDeg: -25}, 1000);
   assert.equal(h.raw().active.phase, 'turning');
   assert.equal(h.raw().exercises[0].attempts, 1);
   assert.equal(h.raw().active.startHeadingDeg, 140);
@@ -394,8 +398,88 @@ test('manual start captures IAS immediately and permits abort before the next me
 test('banking without a manual start keeps the exercise inactive', () => {
   const h = harness(); h.observe(); h.observe({},3100);
   assert.equal(h.state.guidance.canStart,true);
-  h.observe({bankDeg:25,hdg:96});
+  h.observe({bankDeg: -25,hdg:96});
   assert.equal(h.raw().active,null);
   assert.equal(h.raw().exercises[0].attempts,0);
   assert.equal(h.state.guidance.canStart,false);
+});
+
+// Live MSFS convention: positive bank turns left, negative bank turns right.
+for (const mode of ['POI','APT']) for (const domain of ['training','club_training_basic','club_training_advanced'])
+for (const [type,bank] of [['turn_180',30],['constant_bank_360',30],['constant_bank_360',45]])
+for (const choice of ['left','right','either-left','either-right']) {
+  test(`${mode}/${domain} ${type}/${bank} ${choice} uses MSFS signs and forgiving legacy limits`,()=>{
+    const sign=choice.endsWith('left')?-1:1, target=type==='turn_180'?180:360;
+    const h=harness([{id:'live',type,targetBankDeg:bank,direction:choice.startsWith('either')?'either':choice,
+      maxAltitudeDeltaFt:50,bankToleranceDeg:6,rolloutHeadingToleranceDeg:5,stableSec:1}],1,5,{mode,domain});
+    // An existing mission can still carry the old serialized values.
+    Object.assign(h.recipe.trainingRecipe.exercises[0],{maxAltitudeDeltaFt:50,bankToleranceDeg:6,rolloutHeadingToleranceDeg:5});
+    h.observe({hdg:5});h.observe({hdg:5},3100);
+    assert.match(h.spoken(h.action('training_repeat_instruction')),/±10°.*±100 ft.*30 s/);
+    h.action('training_ready');
+    for(let arc=5;arc<=target;arc+=5) {
+      h.observe({hdg:(5+sign*arc+720)%360,bankDeg:-sign*(bank+8),altFt:3075});
+      assert.ok(h.raw().active, 'within the new limits must not abort after 15 or 30 seconds');
+      if(arc===80)h.restore();
+    }
+    assert.equal(h.raw().active.phase,'rollout');
+    assert.equal(h.raw().active.direction,sign);
+    assert.match(h.row('turn').label,new RegExp(sign<0?'links':'rechts'));
+    assert.match(h.row('turn').label,/±10°.*±100 ft.*30 s/);
+    assert.match(h.row('rollout').label,/±10°/);
+    const targetHeading=(5+target)%360;
+    h.observe({hdg:(targetHeading+8)%360,bankDeg:0,altFt:3075});
+    h.observe({hdg:(targetHeading+8)%360,bankDeg:0,altFt:3075},1100);
+    assert.equal(h.state.progress.requiredComplete,true);
+  });
+}
+
+for(const type of ['turn_180','constant_bank_360']) test(`${type} permits correction for 30 seconds and resets the deviation clock`,()=>{
+  const h=harness([{id:'grace',type}]);
+  h.observe();h.observe({},3100);h.action('training_ready');
+  h.observe({hdg:91,bankDeg:-30});
+  let hdg=91;
+  for(let i=0;i<30;i++)h.observe({hdg:++hdg,bankDeg:-30,altFt:3150});
+  assert.ok(h.raw().active,'29 seconds outside the height band are tolerated');
+  h.observe({hdg:++hdg,bankDeg:-30,altFt:3000});
+  for(let i=0;i<30;i++)h.observe({hdg:++hdg,bankDeg:-30,altFt:3150});
+  assert.ok(h.raw().active,'returning inside the limits resets the clock');
+  h.observe({hdg:++hdg,bankDeg:-30,altFt:3150});
+  assert.equal(h.raw().active,null);
+  assert.match(h.state.coaching.notice,/30 Sekunden/);
+});
+
+for(const direction of ['left','right']) test(`fixed ${direction} turn does not accept the opposite bank`,()=>{
+  const h=harness([{id:'fixed',type:'constant_bank_360',direction}]);
+  h.observe();h.observe({},3100);h.action('training_ready');
+  const sign=direction==='left'?-1:1;
+  h.observe({hdg:90-sign*5,bankDeg:sign*30});
+  assert.equal(h.raw().active.phase,'entry');
+  assert.equal(h.raw().active.progressDeg,0);
+  h.observe({hdg:90+sign*5,bankDeg:-sign*30});
+  assert.equal(h.raw().active.phase,'turning');
+  assert.equal(h.raw().active.direction,sign);
+  assert.equal(h.raw().active.progressDeg,5);
+});
+
+test('an old in-flight turn is restarted once on restore while completed work survives',()=>{
+  const h=harness([{id:'required',type:'turn_180',stableSec:1},{id:'optional',type:'constant_bank_360'}]);
+  h.observe();h.observe({},3100);h.action('training_ready');
+  for(let arc=10;arc<=180;arc+=10)h.observe({hdg:90+arc,bankDeg:-30});
+  h.observe({hdg:270});h.observe({hdg:270},1100);
+  assert.equal(h.state.progress.requiredComplete,true);
+  h.action('training_extra');
+  h.observe({hdg:270},5000);h.observe({hdg:270},3100);h.action('training_ready');
+  h.observe({hdg:280,bankDeg:-30});
+  assert.equal(h.raw().active.phase,'turning');
+  delete h.raw().active.turnDirectionConvention;
+  h.restore();
+  assert.equal(h.raw().active,null);
+  assert.equal(h.raw().exercises[0].status,'complete');
+  assert.equal(h.raw().exercises[1].status,'repeat');
+  assert.equal(h.state.progress.requiredComplete,true);
+  assert.match(h.state.coaching.notice,/Kurvenauswertung aktualisiert/);
+  h.observe({hdg:280},5000);h.observe({hdg:280},3100);h.action('training_ready');
+  h.observe({hdg:290,bankDeg:-30});h.restore();
+  assert.equal(h.raw().active.phase,'turning','new convention resumes without another reset');
 });
