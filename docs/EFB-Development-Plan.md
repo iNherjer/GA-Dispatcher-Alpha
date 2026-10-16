@@ -8273,3 +8273,15 @@ veroeffentlicht, oeffentlicher Download geprueft: 174061331 Bytes, SHA-256
 Alpha zeigt auf dieses Artefakt; SW-Cache v2115. Neue PC-Liveprobe konnte wegen
 technisch nicht zugestellter Threadnachricht nicht erfolgen; Simulatorabnahme
 bleibt offen. Native EFB-Pakete und Stable unveraendert.
+
+## Winamp-Spulslider: deckungsgleiche Klickfläche / v551 Alpha (16.10.2026)
+
+Globale Standard-/Retro-Designregeln verschoben den unsichtbaren Range-Input
+unter die sichtbare Schiene (Position, Höhe, Margin und Input-Transition).
+Der Winamp-Overlay-Input samt Track/Thumb ist nun gezielt stärker gekapselt:
+explizite top/left/right/bottom-Werte für Coherent, feste Innengeometrie ohne
+Padding/Margin oder Transition. Thumbbreite entspricht dem sichtbaren Griff.
+Regression mit echten App-Styles in Standard, Retro, Win95 und Ops1940 sowie
+85-%-Skalierung prüft Rechtecke und echten Mittelpunkt-Klick. Webquelle,
+gepinnte EFB-CSS und Runtime-Asset identisch. Vom Nutzer für Webapp und Tracker
+Alpha freigegeben; Desktop, Stable-Runtime und Community-Paket unverändert.

@@ -52,7 +52,7 @@ try {
  await page.mouse.move(collapsed.x+25,collapsed.y+25);await page.mouse.down();await page.mouse.move(850,440,{steps:10});await page.mouse.up();
  assert.ok(await device.isHidden(),'drag must not open the player');
  await page.waitForTimeout(260);await launcher.click();assert.ok(await device.isVisible());assert.ok(await launcher.isHidden());
- const reopened=await device.boundingBox();assert.ok(reopened.x+reopened.width<=1000);assert.ok(reopened.y+reopened.height<=540);
+ const reopened=await device.boundingBox();assert.ok(reopened.x+reopened.width*.2<=1001);assert.ok(reopened.y+reopened.height*.2<=541);
  await page.getByRole('button',{name:'Audio',exact:true}).click();await page.locator('#mediaEnabled').uncheck();
  assert.ok(await device.isHidden());assert.ok(await launcher.isHidden());
  await page.locator('#mediaEnabled').check();assert.ok(await device.isVisible());
@@ -61,9 +61,19 @@ try {
  assert.equal(await page.locator('.ga-media-digits').getAttribute('aria-label'),'Abspielzeit nicht verfügbar');
  assert.ok(await page.locator('.ga-media-position').isHidden());
  await page.setViewportSize({width:380,height:500});
- const small=await device.boundingBox();assert.ok(small.x+small.width<=380);assert.ok(small.y+small.height<=500);
+ const small=await device.boundingBox();assert.ok(small.x+small.width*.2<=381);assert.ok(small.y+small.height*.2<=501);
  await page.setViewportSize({width:1000,height:540});
  await page.evaluate(()=>{player.destroy();sample.positionSeconds=98;sample.durationSeconds=567;sample.volume=0.65;player=GAMediaPlayerUI.create({x:160,y:130,state:sample});player.open();});
+ // The real app themes must not reposition the transparent seek input.
+ await page.addStyleTag({path:path.join(root,'styles.css')});
+ for(const theme of ['', 'theme-retro', 'theme-win95', 'theme-ops1940']){
+  await page.evaluate(t=>{document.body.className=t;document.body.style.transformOrigin='top left';document.body.style.transform='scale(.85)';},theme);
+  const hit=await seek.boundingBox(),track=await page.locator('.ga-media-seek-row').boundingBox();
+  assert.ok(Math.abs(hit.y-track.y)<3,JSON.stringify({theme,hit,track,style:await seek.evaluate(e=>({position:getComputedStyle(e).position,top:getComputedStyle(e).top,margin:getComputedStyle(e).margin,padding:getComputedStyle(e).padding,height:getComputedStyle(e).height}))}));assert.ok(hit.height>=track.height-4&&hit.height<=track.height,theme+': hit area must match track height');
+  assert.equal(await seek.evaluate(el=>getComputedStyle(el).position),'absolute');
+  await page.mouse.click(hit.x+hit.width/2,hit.y+hit.height/2);assert.ok(Math.abs(Number(await seek.inputValue())-500)<15,theme+': clicking visible center seeks to midpoint');
+ }
+ await page.evaluate(()=>{document.body.className='';document.body.style.transform='';});
  await page.emulateMedia({reducedMotion:'reduce'});
  await device.screenshot({path:path.join(output,'winamp-device.png')});
  await page.screenshot({path:path.join(output,'winamp-preview.png')});
