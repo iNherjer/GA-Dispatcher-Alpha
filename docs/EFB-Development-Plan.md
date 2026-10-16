@@ -8155,5 +8155,23 @@ Menue, Slew aktiv, Stale und fehlerhafte Pakete. 117 relevante Tests bestanden;
 ein Loopback-Test separat ausserhalb der Sandbox ausgefuehrt (zuvor EPERM).
 Unabhaengige PC-/SimConnect-Messung bestaetigt im geladenen Cockpit:
 User-Objekt-ID 540672 in Slew- und Kameraantwort, Slew aus, keine Pause,
-Kamera stabil 2. Auslieferung und Test mit neuem Decoder noch ausstehend.
+Kamera stabil 2. Live-Test mit den korrigierten Produktionsdecodern und
+StartReadiness aus Quellcommit `435f39705`: 13 echte SimConnect-Samples,
+Slew raw=0/active=false/status=ok, Kamera 2, am Boden/GS praktisch 0.
+Erste Freigabe nach 3057 ms, weiter stabil bis 11982 ms. Kein synthetischer
+Slew-Ersatz. 36 Decoder-/Readiness-Tests auch auf Windows bestanden.
+Aktuelle Authority korrekt tracker, Cloud ready, Auftrag planned,
+prepared=false/started=false, keine offenen Effekte. Kein weiterer
+Authority-Blocker erkennbar. Kein Runtimewechsel ausserhalb des regulaeren
+Desktop-Start-/Auth-Pfads; volle v547-Runtime-/UI-Abnahme bleibt offen.
 Kein neues natives EFB-Paket erforderlich.
+
+
+Nutzer hat v547-Rollout ausdruecklich freigegeben. Unveraenderliches
+Windows-x64-Artefakt (pkg/Node18 ohne Bytecode) unter Tag v547, Quellcommit
+`435f39705`, veroeffentlicht. Upload und oeffentlicher Download auf
+174097524 Bytes und SHA-256
+`1dd7cd41c871713184b6c7af2e242f9f4c56d1346b74fc7413b248cb244fd558`
+geprueft. Alpha auf v547 aktiviert, Web-Cache v2110.
+EFB/Toolbar 0.4.25 und Stable-Zeiger unveraendert. Vollstaendige
+v547-Runtime-/UI-Abnahme nach regulaerem Desktop-Update noch offen.
