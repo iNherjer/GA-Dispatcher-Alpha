@@ -8070,3 +8070,42 @@ Download identisch: 174102672 Bytes, SHA-256
 `e8d8440776cc4776fd62c9cd4db4405eff296f169a4fc893ab1b4b8637f1192b`.
 Alpha-Kanal auf dieses Artefakt gestellt, Web-Cache v2106. Stable und
 Community-Pakete bleiben unveraendert. Simulatorabnahme weiter offen.
+
+
+## 16.10.2026 – Vorflugplanung an ATC/World Map, Kandidat v546 / EFB 0.4.25
+
+Nutzerbefund: Uebertragung an den EFB-Planner alleine traegt die Route nicht in
+die World-Map-Planung ein; die native Aktion „An Flugsicherung uebertragen“
+fehlte. Offizielle FlightPlanRouteManager-Implementierung bestaetigt
+`fileRouteWithAtc` -> `FILE_ROUTE_WITH_ATC` und `getAtcRoute` -> `GET_ATC_ROUTE`.
+Die bisherige MSFS-/Avionikuebergabe bleibt kompatibel; zusaetzlicher ATC-Auftrag
+verwendet Save/Send/Read des EFB-Plans, reicht exakt dieselbe Route einmal bei
+ATC ein und bestaetigt sie erst nach begrenztem Readback. Scheduling-ACK allein
+ist keine Uebernahmebestaetigung. Hash-/Run-/Routenwechsel-, Herkunfts-, Channel-,
+Timeout- und Deduplizierungspruefungen bleiben erhalten.
+
+Lesender PC-Befund mit v545: auf der vom Nutzer geoeffneten World Map
+CAMERA STATE=12, startReadiness.ready=false, Hibernate/menu_zero. Natives EFB und Parent melden zugleich gamestate=ingame; Sim=1 und dieses
+GameState-Attribut sind daher ebenfalls kein Cockpit-Nachweis. Die Mission
+ist dabei korrekt planned, prepared=false, started=false und Cloud-Sync ready.
+Kamera 12
+bezeichnet laut SDK Hangar Custom und ist somit kein eindeutiger World-Map-
+Nachweis. Die neue reine Planungsaktion wird daher in der frischen geplanten
+Vorflug-/Menuephase angeboten, wenn der native Host ATC-Readback unterstuetzt;
+kein Kamera-12-gleich-World-Map-Vertrag und keine Seattle-Koordinaten-Sonderregel.
+Abweichende Cloud-Auswahl, laufender Cloud-Bereinigungsabgleich, alte oder
+unbekannte Daten, Cockpit/Flug und fehlende ATC-Capability verbergen die Aktion.
+Ein Klick exportiert die geplante Route ohne prepare_mission, Boarding oder
+Missionsbeginn. Die v545-Cockpit-Startfreigabe bleibt erhalten.
+
+Kandidat: Tracker v546, EFB-Assetrevision 54601 und offizielles gemeinsames
+EFB-/Toolbar-Paket 0.4.25. Aeltere native Pakete bewerben keine ATC-Capability.
+Offizieller SDK-Build, Archivpruefung und Simulator-/World-Map-Readback stehen
+vor Auslieferung noch aus. Keine Installation in den laufenden Simulator.
+Quellen: https://github.com/microsoft/msfs-avionics-mirror/blob/main/src/sdk/flightplan/FlightPlanRouteManager.ts
+
+Lokaler Kandidat: 112 gezielte Konvertierungs-/Native-/EFB-Host-/Toolbar-/
+Export-/Startfreigabe-/Paket-/Frame-Tests bestanden. Live-ATC-Readback wurde
+bisher nicht ausgefuehrt; reine SDK-Bestaetigung darf nicht als bestandener
+World-Map-Test bezeichnet werden. Offizielle Windows-Bauumgebung vom PC-Agenten
+bestaetigt: SDK 1.7.2, Microsoft-SDK 2.1.1.

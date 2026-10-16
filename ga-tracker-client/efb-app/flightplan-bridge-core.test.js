@@ -53,3 +53,16 @@ test('unknown avionics timeout retains MSFS success and marks delivery unconfirm
   const result=await f.bridge.execute(job);assert.equal(result.msfs,'confirmed');assert.equal(result.avionics,'unconfirmed');
   assert.equal(result.stage,'send_avionics');assert.equal(result.error,'flightplan_timeout');
 });
+test('ATC transfer files once and confirms the filed route without starting mission or sending avionics',async()=>{
+ const f=fixture({timeoutMs:1000});let filed,reads=0;f.manager.fileRouteWithAtc=async route=>{f.calls.push('atc');filed=route;};
+ f.manager.getAtcRoute=async()=>{f.calls.push('read-atc');return ++reads===1?null:filed;};
+ const result=await f.bridge.execute({...job,jobId:'atc',target:'atc'});
+ assert.equal(result.ok,true);assert.equal(result.msfs,'confirmed');assert.equal(result.atc,'confirmed');assert.equal(result.avionics,'not_requested');
+ assert.deepEqual(f.calls,['save','efb','read','atc','read-atc','read-atc']);
+ assert.equal((await f.bridge.execute({...job,jobId:'atc',target:'atc'})).atc,'confirmed');assert.equal(f.calls.filter(c=>c==='atc').length,1);
+});
+test('ATC write scheduling is not confirmation, and missing ATC support causes no simulator write',async()=>{
+ const f=fixture();let result=await f.bridge.execute({...job,target:'atc'});assert.equal(result.error,'flightplan_atc_unavailable');assert.deepEqual(f.calls,[]);
+ const g=fixture();g.manager.fileRouteWithAtc=()=>new Promise(()=>{});g.manager.getAtcRoute=async()=>null;
+ result=await g.bridge.execute({...job,target:'atc'});assert.equal(result.msfs,'confirmed');assert.equal(result.atc,'unconfirmed');assert.equal(result.stage,'file_atc');
+});

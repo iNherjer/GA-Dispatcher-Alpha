@@ -9,6 +9,7 @@
     let managerPromise = null;
     let facilityLoader = null;
     let ready = false;
+    let atcReady = false;
     let uncertain = false;
     const jobChannels = new Map();
     const getManager = () => {
@@ -19,7 +20,9 @@
               saveEfbRoute: (route) => listener.call('SAVE_EFB_ROUTE', route),
               sendRouteToEfb: (route) => listener.call('SEND_ROUTE_TO_EFB', route),
               sendRouteToAvionics: (route) => listener.call('SEND_ROUTE_TO_AVIONICS', route),
-              getEfbRoute: () => listener.call('GET_EFB_ROUTE')
+              getEfbRoute: () => listener.call('GET_EFB_ROUTE'),
+              fileRouteWithAtc: (route) => listener.call('FILE_ROUTE_WITH_ATC', route),
+              getAtcRoute: () => listener.call('GET_ATC_ROUTE')
             };
             resolve(manager);
           });
@@ -61,14 +64,18 @@
         if (uncertain) { send(channel, {type:'ga-flightplan-capabilities', host:options.host, ready:false}); return true; }
         void Core.deadline(async () => { const manager = await getManager(); const route = await manager.getEfbRoute();
           return !!route && route.__Type === 'JS_FlightPlanRoute'; }, 5000).then((available) => {
-          ready = available; send(channel, {type:'ga-flightplan-capabilities', host:options.host, ready});
+          ready = available; send(channel, {type:'ga-flightplan-capabilities', host:options.host, ready, atcReady:ready && atcReady});
+          if (ready) void Core.deadline(async () => { const manager = await getManager(); return manager.getAtcRoute(); }, 2000).then((route) => {
+            atcReady = !!route && route.__Type === 'JS_FlightPlanRoute';
+            send(channel, {type:'ga-flightplan-capabilities', host:options.host, ready, atcReady});
+          }).catch(() => { atcReady = false; send(channel, {type:'ga-flightplan-capabilities', host:options.host, ready, atcReady:false}); });
         }).catch((error) => {
-          ready = false; send(channel, {type:'ga-flightplan-capabilities', host:options.host, ready:false});
+          ready = false; atcReady = false; send(channel, {type:'ga-flightplan-capabilities', host:options.host, ready:false});
           options.log('probe-failed', String(error));
         });
         return true;
       }
-      if (!ready || uncertain) {
+      if (!ready || uncertain || data.job && data.job.target === 'atc' && !atcReady) {
         send(channel, {type:'ga-flightplan-result', result:{ok:false, jobId:data.job && data.job.jobId, routeHash:data.job && data.job.plan && data.job.plan.routeHash, error:'flightplan_host_unavailable'}});
         return true;
       }

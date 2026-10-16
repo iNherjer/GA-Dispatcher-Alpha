@@ -55,14 +55,14 @@
     var timeoutMs = options.timeoutMs || 8000;
     function log(stage, data) { try { if (options.log) options.log(stage, data); } catch (_) {} }
     function execute(job) {
-      if (!job || !job.jobId || !['msfs', 'avionics'].includes(job.target)) return Promise.resolve({ ok: false, error: 'flightplan_request_invalid' });
+      if (!job || !job.jobId || !['msfs', 'avionics', 'atc'].includes(job.target)) return Promise.resolve({ ok: false, error: 'flightplan_request_invalid' });
       var fingerprint = JSON.stringify(job);
       var previous = jobs.get(job.jobId);
       if (previous) return previous.fingerprint === fingerprint ? previous.promise : Promise.resolve({ ok: false, error: 'flightplan_job_conflict' });
       if (busy) return Promise.resolve({ ok: false, error: 'flightplan_busy' });
       busy = true;
       var cancelled = false;
-      var result = { jobId: job.jobId, routeHash: job.plan && job.plan.routeHash, msfs: 'pending', avionics: job.target === 'avionics' ? 'pending' : 'not_requested' };
+      var result = { jobId: job.jobId, routeHash: job.plan && job.plan.routeHash, msfs: 'pending', atc: job.target === 'atc' ? 'pending' : 'not_requested', avionics: job.target === 'avionics' ? 'pending' : 'not_requested' };
       function step(stage, operation) {
         if (cancelled || options.isActive && !options.isActive() || options.isCurrent && !options.isCurrent(job)) throw new Error('flightplan_host_closed');
         result.stage = stage;
@@ -74,11 +74,23 @@
         var built = await step('convert', function() { return buildRoute(job.plan, options.resolveAirport); });
         result.warnings = built.warnings;
         var manager = await step('manager', options.getManager);
+        if (job.target === 'atc' && (typeof manager.fileRouteWithAtc !== 'function' || typeof manager.getAtcRoute !== 'function')) throw new Error('flightplan_atc_unavailable');
         await step('save_efb', function() { return manager.saveEfbRoute(built.route); }); result.msfs = 'saved';
         await step('send_efb', function() { return manager.sendRouteToEfb(built.route); }); result.msfs = 'sent';
         var readback = await step('read_efb', function() { return manager.getEfbRoute(); });
         if (!matches(built.route, readback)) throw new Error('flightplan_readback_mismatch');
         result.msfs = 'confirmed';
+        if (job.target === 'atc') {
+          await step('file_atc', function() { return manager.fileRouteWithAtc(built.route); }); result.atc = 'sent';
+          await step('read_atc', async function() {
+            for (var attempt = 0; attempt < 6; attempt++) {
+              if (cancelled || options.isActive && !options.isActive() || options.isCurrent && !options.isCurrent(job)) throw new Error('flightplan_host_closed');
+              if (matches(built.route, await manager.getAtcRoute())) return;
+              if (attempt < 5) await new Promise(function(resolve) { setTimeout(resolve, 250); });
+            }
+            throw new Error('flightplan_atc_readback_mismatch');
+          }); result.atc = 'confirmed';
+        }
         if (job.target === 'avionics') {
           await step('send_avionics', function() { return manager.sendRouteToAvionics(built.route); }); result.avionics = 'sent';
         }
@@ -86,6 +98,7 @@
       }).catch(function(error) {
         cancelled = true; result.error = String(error && error.message || error).slice(0, 180);
         if (result.msfs === 'pending') result.msfs = result.error === 'flightplan_timeout' && result.stage === 'save_efb' ? 'unconfirmed' : 'failed';
+        if (job.target === 'atc' && result.atc !== 'confirmed') result.atc = result.stage === 'file_atc' && result.error === 'flightplan_timeout' || result.stage === 'read_atc' ? 'unconfirmed' : result.atc === 'sent' ? 'unconfirmed' : 'not_sent';
         if (result.avionics === 'pending') result.avionics = result.error === 'flightplan_timeout' && result.stage === 'send_avionics' ? 'unconfirmed' : 'not_sent';
         return Object.assign(result, { ok: false });
       }).then(function(value) { busy = value.error === 'flightplan_timeout'; log('result', value); return value; });

@@ -100,6 +100,7 @@
   var missionBannerDismissedKey = '';
   var flightPlanBridgeReadyUntil = 0;
   var flightPlanBridgeHost = '';
+  var flightPlanAtcReadyUntil = 0;
   var flightPlanJobs = {};
   var flightPlanStatusTimer = null;
   var flightPlanRequestPending = false;
@@ -127,6 +128,7 @@
       var wasReady = Date.now() < flightPlanBridgeReadyUntil;
       flightPlanBridgeHost = ['efb', 'toolbar'].indexOf(data.host) >= 0 ? data.host : '';
       flightPlanBridgeReadyUntil = data.ready === true && flightPlanBridgeHost ? Date.now() + 12000 : 0;
+      flightPlanAtcReadyUntil = data.ready === true && data.atcReady === true && flightPlanBridgeHost ? Date.now() + 12000 : 0;
       renderMissionActionBanner(missionSnapshot);
       if (wasReady !== (Date.now() < flightPlanBridgeReadyUntil)) requestSideDrawerRefresh();
     }
@@ -142,6 +144,12 @@
       if (mapSnapshot && mapSnapshot.missionId === pending.missionId && mapSnapshot.routeEdit && mapSnapshot.routeEdit.revision !== pending.navigationRevision) {
         flightPlanStatus('Die Route wurde inzwischen geändert. Aktuellen Flugplan bitte erneut übertragen.', {ok:false, jobId:result.jobId, error:'flightplan_route_changed'}); return;
       }
+      if (result.atc === 'confirmed') {
+        flightPlanStatus('Flugplan an die Flugsicherung übertragen und zurückgelesen. Mission wurde nicht begonnen.', result); return;
+      }
+      if (result.atc && result.atc !== 'not_requested') {
+        flightPlanStatus('Übernahme in die Simulator-Flugplanung nicht bestätigt. Mission wurde nicht begonnen.', result); return;
+      }
       flightPlanStatus(result.ok ? (result.avionics === 'sent' ? 'Flugplan an MSFS übertragen und an Avionik gesendet.' : 'Flugplan an MSFS übertragen.')
         : ['flightplan_timeout', 'flightplan_readback_mismatch'].indexOf(result.error) >= 0 ? 'Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.'
           : result.msfs === 'confirmed' ? 'Flugplan an MSFS übertragen; Senden an Avionik fehlgeschlagen. Mission läuft weiter.'
@@ -153,6 +161,25 @@
     if (flightPlanBridgeReadyUntil && Date.now() > flightPlanBridgeReadyUntil) { flightPlanBridgeReadyUntil = 0; renderMissionActionBanner(missionSnapshot); requestSideDrawerRefresh(); }
   }, 4000);
 
+  function preflightPlanningModel(payload) {
+    var control = payload && payload.control, readiness = control && control.startReadiness;
+    var sync = payload && payload.authoritySnapshot && payload.authoritySnapshot.cloudMissionSync;
+    var selection = payload && payload.authoritySnapshot && payload.authoritySnapshot.cloudMissionControl;
+    if (!control || control.executionAuthority !== 'tracker' || !control.runId || !control.missionId
+      || control.phase !== 'planned' || payload.available === false || payload.cloudPending
+      || sync && String(sync.status || '').indexOf('control-') === 0
+      || selection && (selection.status !== 'active' || selection.missionId !== control.missionId)
+      || !readiness || readiness.worldReady !== false || !Number.isFinite(readiness.observedAt)
+      || Date.now() - readiness.observedAt < 0 || Date.now() - readiness.observedAt > 5000
+      || [9,10,11,12,13,19,27,29,30,33].indexOf(readiness.cameraState) < 0
+      || Date.now() >= flightPlanAtcReadyUntil) return null;
+    // Camera 12 also occurs on World Map (measured in MSFS 2024); it does not
+    // uniquely identify that page. Offer pure planning throughout preflight.
+    return {key:'preflight-plan:' + control.runId, missionId:control.missionId, kind:'flightplan', target:'atc',
+      kicker:'Flugplanung', text:'Route an die Simulator-Flugplanung übertragen. Die Mission beginnt erst im geladenen Cockpit.',
+      button:'Flugplan an Flugsicherung senden', closeHidden:true,
+      disabled:flightPlanRequestPending || Object.keys(flightPlanJobs).length > 0};
+  }
   function flightPlanTransferMarkup() {
     var control = missionSnapshot && missionSnapshot.control;
     if (!control || !control.runId || !control.missionId || control.phase === 'closed' || missionSnapshot.cloudPending
@@ -167,7 +194,8 @@
   }
   function transferCurrentMissionFlightPlan(target) {
     var control = missionSnapshot && missionSnapshot.control;
-    if (!control || control.phase === 'closed' || missionSnapshot.cloudPending || missionIntentPending || ['msfs','avionics'].indexOf(target) < 0) return Promise.resolve(false);
+    if (!control || control.phase === 'closed' || missionSnapshot.cloudPending || missionIntentPending || ['msfs','avionics','atc'].indexOf(target) < 0) return Promise.resolve(false);
+    if (target === 'atc' && !preflightPlanningModel(missionSnapshot)) return Promise.resolve(false);
     var revision = mapSnapshot && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
     return transferStartedFlightPlan(target, control.missionId, revision, 'manual');
   }
@@ -188,6 +216,7 @@
       if (!current || current.runId !== runId || current.missionId !== missionId) throw new Error('flightplan_run_changed');
       if (mapSnapshot && mapSnapshot.missionId === missionId && mapSnapshot.routeEdit && mapSnapshot.routeEdit.revision !== result.plan.navigationRevision) throw new Error('flightplan_route_changed');
       if (Date.now() >= flightPlanBridgeReadyUntil) throw new Error('flightplan_host_unavailable');
+      if (target === 'atc' && !preflightPlanningModel(missionSnapshot)) throw new Error('flightplan_planning_state_changed');
       var timer = setTimeout(function() {
         delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh();
         flightPlanStatus('Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, routeHash:result.plan.routeHash, error:'flightplan_timeout'});
@@ -2519,6 +2548,7 @@
       var model = banner._gaMissionActionModel;
       if (!model || missionIntentPending) return false;
       if (model.kind === 'cloud-replacement') offerCloudMissionReplacement(missionSnapshot, true);
+      else if (model.kind === 'flightplan') return transferCurrentMissionFlightPlan(model.target);
       else if (model.kind === 'cargo') openCargoManager();
       else if (model.intent) requestMissionIntent(model.intent, {});
       else return false;
@@ -2526,6 +2556,7 @@
       return false;
     };
     window.handleMissionStartFlightPlanAction = function(target) {
+      if (['msfs','avionics'].indexOf(target) < 0) return false;
       var model = banner._gaMissionActionModel;
       if (!model || missionIntentPending || ['activate_cloud_mission', 'prepare_mission'].indexOf(model.intent) < 0) return false;
       var missionId = missionSnapshot && missionSnapshot.control && missionSnapshot.control.missionId;
@@ -2735,7 +2766,7 @@
         report('warn', 'flightplan-export', 'cancel', 'Missionslauf gewechselt; weitere Übertragungsschritte verwerfen', jobId);
       }
     });
-    var model = missionActionBannerModel(payload);
+    var model = preflightPlanningModel(payload) || missionActionBannerModel(payload);
     banner._gaMissionActionModel = model;
     var exportActions = byId('gaFlightPlanStartActions');
     if (!exportActions) {

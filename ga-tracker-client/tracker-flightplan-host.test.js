@@ -89,3 +89,30 @@ test('manual response for a changed route is rejected before simulator writes; f
   h.context.window.gaCockpitSessionClient.submitTool=async()=>{throw Error('offline');};
   assert.equal(await h.context.transferCurrentMissionFlightPlan('msfs'),false);assert.equal(h.starts.length,0);
 });
+function worldMapHarness() {
+ const h=harness();h.context.missionSnapshot={missionId:'m',available:true,control:{executionAuthority:'tracker',missionId:'m',runId:'r',phase:'planned',startReadiness:{worldReady:false,ready:false,cameraState:12,observedAt:Date.now()}}};
+ h.capability({atcReady:true});return h;
+}
+test('World Map menu offers pure ATC planning and never begins the mission',async()=>{
+ const h=worldMapHarness();h.context.renderMissionActionBanner(h.context.missionSnapshot);
+ assert.equal(h.banner._gaMissionActionModel.kind,'flightplan');assert.equal(h.nodes.gaFlightPlanStartActions.style.display,'none');
+ await h.context.window.handleMissionStartBannerAction();assert.equal(h.starts.length,0);assert.equal(h.exports.length,1);assert.equal(h.posted[0].job.target,'atc');
+});
+test('planning action requires fresh menu state, verified ATC support, and the selected cloud mission',()=>{
+ const h=worldMapHarness();assert.ok(h.context.preflightPlanningModel(h.context.missionSnapshot));
+ h.capability({atcReady:false});assert.equal(h.context.preflightPlanningModel(h.context.missionSnapshot),null);h.capability({atcReady:true});
+ for(const patch of [{worldReady:true},{cameraState:2},{observedAt:Date.now()-6000}]){
+  const current=h.context.missionSnapshot.control.startReadiness;h.context.missionSnapshot.control.startReadiness={...current,...patch};
+  assert.equal(h.context.preflightPlanningModel(h.context.missionSnapshot),null);h.context.missionSnapshot.control.startReadiness=current;
+ }
+ h.context.missionSnapshot.authoritySnapshot={cloudMissionControl:{status:'active',missionId:'other'}};
+ assert.equal(h.context.preflightPlanningModel(h.context.missionSnapshot),null);
+});
+test('leaving World Map before export reply cannot submit ATC route',async()=>{
+ const h=worldMapHarness();h.context.window.gaCockpitSessionClient.submitTool=async()=>{
+  h.context.missionSnapshot.control.startReadiness={worldReady:true,ready:true,cameraState:2,observedAt:Date.now()};return{ok:true,plan:{routeHash:'hash',navigationRevision:0}};};
+ assert.equal(await h.context.transferCurrentMissionFlightPlan('atc'),false);assert.equal(h.posted.length,0);assert.equal(h.starts.length,0);
+});
+test('ATC is never accepted as a combined mission-start/export action',()=>{
+ const h=harness();h.capability({atcReady:true});h.context.window.handleMissionStartFlightPlanAction('atc');assert.equal(h.starts.length,0);assert.equal(h.exports.length,0);
+});

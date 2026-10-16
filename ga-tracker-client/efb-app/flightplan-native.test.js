@@ -3,8 +3,8 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const ts=require(process.env.GA_EFB_TEST_TYPESCRIPT || './PackageSources/VfrMultitool/node_modules/typescript');
 const adapter=require('./native-flightplan-bridge');
 function fixture(listenerAvailable=true) {
-  const sent=[],calls=[],frameWindow={postMessage:(value,origin)=>sent.push({value,origin})};let saved={__Type:'JS_FlightPlanRoute'},channel='c',active=true;
-  const listener={call:async (name,route)=>{calls.push(name);if(name==='GET_EFB_ROUTE')return saved;if(name==='SAVE_EFB_ROUTE')saved=route;}};
+  const sent=[],calls=[],frameWindow={postMessage:(value,origin)=>sent.push({value,origin})};let saved={__Type:'JS_FlightPlanRoute'},filed={__Type:'JS_FlightPlanRoute'},channel='c',active=true;
+  const listener={call:async (name,route)=>{calls.push(name);if(name==='GET_EFB_ROUTE')return saved;if(name==='GET_ATC_ROUTE')return filed;if(name==='FILE_ROUTE_WITH_ATC')filed=route;if(name==='SAVE_EFB_ROUTE')saved=route;}};
   const sdk={EventBus:class{},FacilityRepository:{getRepository:()=>({})},FacilitySearchType:{Airport:1},
     FacilityLoader:class{async findNearestFacilitiesByIdent(){return [];}}};
   const source=fs.readFileSync(__dirname+'/PackageSources/VfrMultitool/src/FlightPlanBridge.ts','utf8');
@@ -22,9 +22,9 @@ function fixture(listenerAvailable=true) {
 test('toolbar bridge advertises only after native route read succeeds; wrong origin/channel never reaches simulator',async()=>{
   const f=fixture();f.bridge.handle({...f.event('ga-flightplan-probe'),origin:'https://evil.test'});await f.flush();assert.equal(f.calls.length,0);
   f.bridge.handle(f.event('ga-flightplan-probe',{channel:'old'}));await f.flush();assert.equal(f.calls.length,0);
-  f.bridge.handle(f.event('ga-flightplan-probe'));await f.flush();assert.deepEqual(f.calls,['GET_EFB_ROUTE']);
+  f.bridge.handle(f.event('ga-flightplan-probe'));await f.flush();assert.deepEqual(f.calls,['GET_EFB_ROUTE','GET_ATC_ROUTE']);
   assert.equal(f.sent[0].value.ready,true);assert.equal(f.sent[0].value.host,'toolbar');assert.equal(f.sent[0].origin,'http://127.0.0.1:49880');
-  f.pause();f.bridge.handle(f.event('ga-flightplan-probe'));await f.flush();assert.equal(f.calls.length,1);
+  f.pause();f.bridge.handle(f.event('ga-flightplan-probe'));await f.flush();assert.equal(f.calls.length,2);
 });
 test('native wrapper executes one authorized job and reports separate MSFS and avionics results',async()=>{
   const f=fixture();f.bridge.handle(f.event('ga-flightplan-probe'));await f.flush();
@@ -32,7 +32,7 @@ test('native wrapper executes one authorized job and reports separate MSFS and a
   f.bridge.handle(f.event('ga-flightplan-send',{job}));await f.flush();
   const result=f.sent.find(item=>item.value.type==='ga-flightplan-result').value.result;
   assert.equal(result.msfs,'confirmed');assert.equal(result.avionics,'sent');assert.equal(result.routeHash,'hash');
-  assert.deepEqual(f.calls,['GET_EFB_ROUTE','SAVE_EFB_ROUTE','SEND_ROUTE_TO_EFB','GET_EFB_ROUTE','SEND_ROUTE_TO_AVIONICS']);
+  assert.deepEqual(f.calls,['GET_EFB_ROUTE','GET_ATC_ROUTE','SAVE_EFB_ROUTE','SEND_ROUTE_TO_EFB','GET_EFB_ROUTE','SEND_ROUTE_TO_AVIONICS']);
 });
 test('missing simulator listener disables export without breaking native host construction',async()=>{
   const f=fixture(false);f.bridge.handle(f.event('ga-flightplan-probe'));await f.flush();
@@ -42,4 +42,11 @@ test('known child WindowProxy tolerates Coherent null origin, but foreign window
   const f=fixture();f.bridge.handle({...f.event('ga-flightplan-probe'),source:{}});await f.flush();assert.equal(f.calls.length,0);
   f.bridge.handle({...f.event('ga-flightplan-probe'),source:f.frameWindow,origin:'https://evil.test'});await f.flush();assert.equal(f.calls.length,0);
   f.bridge.handle({...f.event('ga-flightplan-probe'),source:f.frameWindow,origin:'null'});await f.flush();assert.equal(f.sent[0].value.ready,true);
+});
+test('ATC transfer advertises a separate read-verified capability and uses official file/read calls',async()=>{
+ const f=fixture();f.bridge.handle(f.event('ga-flightplan-probe'));await f.flush();assert.equal(f.sent.at(-1).value.atcReady,true);
+ const job={jobId:'atc',target:'atc',plan:{schema:'ga.flightplan-export.v1',routeHash:'h',points:[{lat:48,lon:8},{lat:49,lon:9}]}};
+ f.bridge.handle(f.event('ga-flightplan-send',{job}));await f.flush();
+ const result=f.sent.find(item=>item.value.type==='ga-flightplan-result').value.result;assert.equal(result.atc,'confirmed');
+ assert.deepEqual(f.calls,['GET_EFB_ROUTE','GET_ATC_ROUTE','SAVE_EFB_ROUTE','SEND_ROUTE_TO_EFB','GET_EFB_ROUTE','FILE_ROUTE_WITH_ATC','GET_ATC_ROUTE']);
 });

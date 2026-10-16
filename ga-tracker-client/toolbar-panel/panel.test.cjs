@@ -57,10 +57,10 @@ test('actual toolbar and both packaged modules route only trusted active jobs an
   assert.equal(f.modeMessages.at(-1).data.ready, true);
   const job = { jobId: 'job-1', target: 'avionics', plan: { schema:'ga.flightplan-export.v1', routeHash:'hash', departureIcao:'EDAA', destinationIcao:'EDBB', points:[{lat:48,lon:8},{lat:49,lon:9}] } };
   f.message({ type:'ga-flightplan-send', job }, undefined, {});
-  await new Promise(resolve => setImmediate(resolve)); assert.deepEqual(f.nativeCalls, ['GET_EFB_ROUTE']);
+  await new Promise(resolve => setImmediate(resolve)); assert.deepEqual(f.nativeCalls, ['GET_EFB_ROUTE','GET_ATC_ROUTE']);
   f.message({ type:'ga-flightplan-send', job }, undefined, null);
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(f.nativeCalls, ['GET_EFB_ROUTE','SAVE_EFB_ROUTE','SEND_ROUTE_TO_EFB','GET_EFB_ROUTE','SEND_ROUTE_TO_AVIONICS']);
+  assert.deepEqual(f.nativeCalls, ['GET_EFB_ROUTE','GET_ATC_ROUTE','SAVE_EFB_ROUTE','SEND_ROUTE_TO_EFB','GET_EFB_ROUTE','SEND_ROUTE_TO_AVIONICS']);
   const result = f.modeMessages.at(-1).data.result;
   assert.equal(result.ok, true); assert.equal(result.msfs,'confirmed'); assert.equal(result.avionics,'sent');
   assert.equal(result.warnings.length,2);
