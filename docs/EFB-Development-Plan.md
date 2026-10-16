@@ -8109,3 +8109,28 @@ Export-/Startfreigabe-/Paket-/Frame-Tests bestanden. Live-ATC-Readback wurde
 bisher nicht ausgefuehrt; reine SDK-Bestaetigung darf nicht als bestandener
 World-Map-Test bezeichnet werden. Offizielle Windows-Bauumgebung vom PC-Agenten
 bestaetigt: SDK 1.7.2, Microsoft-SDK 2.1.1.
+
+
+## 16.10.2026 – Alpha-Auslieferung v546 / EFB-/Toolbar 0.4.25
+
+Nutzer hat GitHub-Veroeffentlichung und gemeinsame Alpha-Aktivierung
+ausdruecklich freigegeben. Quellbasis `b4bf475ef3b8651ef888e089ce0c76da752718fb`.
+Windows-x64-Tracker unveraendert als `v546` veroeffentlicht; oeffentlicher
+Download auf 174100315 Bytes und SHA-256
+`2887da778b8ba79e77715fe46b1e443642aa3caf45267044c743809433375e05`
+geprueft.
+
+Offizieller Windows-SDK-Bau des gemeinsamen EFB-/Toolbar-Pakets 0.4.25:
+Typecheck und Bundle erfolgreich, 59/59 Native-/Toolbar-Tests im seriellen
+Lauf bestanden (paralleler Lauf zuvor mit Timing-Timeout). SDK Exitcode 0,
+keine SDK-Fehler. 22 Layout-Eintraege, 21 Payload-Hashes und 24 ZIP-Dateien
+geprueft. Unveraendertes Archiv als `efb-app-v0.4.25` veroeffentlicht;
+oeffentlicher Download auf 453474 Bytes und SHA-256
+`1cbc6b95b9bc64f230664a401273404d71c2f68a7cc5bee0d629a13e1fd9f0d0`
+geprueft. Beide Alpha-Zeiger gemeinsam aktiviert, Web-Cache v2108.
+
+Simulator-/World-Map-/ATC-Abnahme bleibt offen: Vorflugaktion anzeigen, Route
+an Flugsicherung senden und in World Map pruefen; Missionsstart weiterhin
+erst im geladenen Cockpit am Boden im Stillstand. Keine Behauptung einer
+bestandenen Simulatorabnahme. Keine manuelle Installation vorgenommen.
+Stable-Zeiger unveraendert.
