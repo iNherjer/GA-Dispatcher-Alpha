@@ -8221,3 +8221,41 @@ Natives EFB/Toolbar0.4.25 und Stable-Zeiger unveraendert. Vollstaendige
 Simulator-/UI-Abnahme der Wartezustaende und Browser-Revisionskontrolle
 nach Update bleiben offen. Die Ursache der langen Tracker-/HTTP-Luecken
 ist weiterhin nicht als behoben oder eindeutig lokalisiert zu betrachten.
+
+
+## 16.10.2026 – Unabhaengige Startpruefung, Kandidat v549
+
+Nutzer hat die Entkopplung der gemeinsamen Startpruefung ausdruecklich
+freigegeben. Die Cockpit-/Bodenfreigabe benutzt eine eigene kleine, rein
+lesende SimConnect-Verbindung. Ein erforderliches FLOAT64-Paket enthaelt
+Kamera, Slew, Position, Hoehe, Bodenstatus und Geschwindigkeit; Sim/Pause
+werden auf derselben Verbindung durch Systemzustand und Ereignisse belegt.
+Period SECOND ohne Frame-Intervall, passend zur unabhaengigen PC-Messung.
+Keine optionalen GPS-/Wetter-/Payload-Felder und kein Rueckfall auf alte GPS-
+Daten bei fehlender Startquelle. Keine pauschale Frischeverlaengerung.
+
+Eigener begrenzter Latest-value-IPC-Pfad zum Missionsprozess, an die aktuelle
+Simulatorgeneration gebunden. Neue Quelle aktualisiert nur die fluechtige
+Startfreigabe, keine Missionsevents oder Fortschrittsflags. Die bisherige
+Missionstelemetrie bleibt fuer eigentliche Missionsausfuehrung bestehen und
+darf die dedizierte Startfreigabe nicht mehr ueberschreiben. Frische Position
+der Quelle steht der Szenen-/Simulatoranbindung zur Verfuegung, wenn das
+grosse GPS-Paket ausbleibt. Hauptverbindungsende stoppt die Startquelle;
+Fehler/Detach/Neuverbindung starten ohne Vertrauensvorschuss. Systemereignisse
+erneuern nicht das Alter einer alten Position. Diagnostik: startReadinessSource
+independent-simconnect, MISSION_START_SOURCE.
+
+Bisherige Regeln bleiben: Kamera-Liveansicht, Sim laeuft, keine Pause/Slew,
+keine Menueposition, Bodenstillstand drei Sekunden, maximal2.5s Datenalter.
+Kein automatischer Missionsbeginn, kein Abflugplatzvergleich. Keine Aenderung
+an node-simconnect-Empfangsparsern: separat reproduzierter Backpressurefehler
+ist weiterhin nicht als Ursache im Live-Tracker bewiesen.
+
+109 relevante Tests (108 Lauf mit einem Sandbox-EPERM und separat erfolgreichem
+Loopback-Test plus weiterer Lifecycle-Test). Echter Kindprozess belegt:
+Freigabe ohne GPS-Updates, alte GPS-Werte wirkungslos fuer diese Freigabe,
+keine Fortschrittsrevision allein durch Startdaten, Bewegung/Verlust sperrt.
+Gepackter Node18-ARM64-Prozess: MISSION_PACKAGED_INDEPENDENT_READINESS_OK
+und MISSION_PACKAGED_PROCESS_SMOKE_OK, Worker-Exit0. Windows-/Sim-Liveprobe
+der neuen Quelle noch offen.
+Kein neues EFB-/Toolbar-SDK-Paket erforderlich.

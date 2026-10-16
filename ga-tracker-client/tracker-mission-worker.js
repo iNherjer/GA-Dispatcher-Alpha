@@ -65,7 +65,9 @@ function runMissionWorker() {
       }
       flightLog = createTrackerFlightLogStore({ directory: options.flightLogDirectory, log });
       runtime = createTrackerMissionExecutionRuntime({
-        authorityManager: authority, enabled: options.enabled, requireCockpitReady: options.requireCockpitReady, syncInitialPayload: true, allowIntentRevisionRebase: true, recoverCargoCheckpoint: true, fairEffectScheduling: true,
+        authorityManager: authority, enabled: options.enabled, requireCockpitReady: options.requireCockpitReady,
+        independentStartReadiness: options.independentStartReadiness === true,
+        syncInitialPayload: true, allowIntentRevisionRebase: true, recoverCargoCheckpoint: true, fairEffectScheduling: true,
         getPilotId: () => options.pilotId, getAudioSettings: () => audioSettings,
         flightLog,
         playBoardingVoice: request => invokeParent('playBoardingVoice', request),
@@ -98,6 +100,11 @@ function runMissionWorker() {
       publish();
       log(`MISSION_PROCESS_WORK intent=${request.intent || ''} commandId=${request.commandId || ''} durationMs=${Date.now() - started}`);
       return result;
+    },
+    readiness(sample, generation) {
+      if (generation !== simulatorGeneration) return false;
+      const result = runtime.observeStartReadiness(sample);
+      publish(); return result;
     },
     telemetry(sample, motion, context) {
       livePosition = context?.livePosition || sample || livePosition;

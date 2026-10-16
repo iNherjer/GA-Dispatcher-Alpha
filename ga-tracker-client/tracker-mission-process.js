@@ -16,6 +16,7 @@ async function createTrackerMissionProcess(options) {
   stderr.on('line', line => log(`MISSION_PROCESS_STDERR ${line.slice(0, 2000)}`));
   let state = {}, simulator = null, activeBridge = null, disconnected = false, simulatorGeneration = 0, closing = null;
   let pendingSample = null, pendingMotion = [], telemetrySending = false, coalesced = 0, motionOverflow = 0;
+  let pendingReadiness, readinessSending = false;
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
   const context = () => ({ audioSettings: options.getAudioSettings?.() || null, livePosition: simulator?.getLivePosition?.() || null });
   const ipc = createMissionIpc(child, {
@@ -39,6 +40,7 @@ async function createTrackerMissionProcess(options) {
   });
   const initialized = await ipc.request('initialize', {
     authority: options.authority, enabled: options.enabled, pilotId: options.pilotId, requireCockpitReady: options.requireCockpitReady === true,
+    independentStartReadiness: options.independentStartReadiness === true,
     flightLogDirectory: options.flightLogDirectory
   }).catch(error => { log(`MISSION_PROCESS_START_ERROR error=${error.message}`); child.kill(); throw error; });
   const authorityManager = {};
@@ -69,6 +71,13 @@ async function createTrackerMissionProcess(options) {
       telemetrySending = false; sendTelemetry();
     }));
   };
+  const sendReadiness = () => {
+    if (readinessSending || disconnected || pendingReadiness === undefined) return;
+    const sample = pendingReadiness; pendingReadiness = undefined; readinessSending = true;
+    background(ipc.request('readiness', sample, simulatorGeneration).finally(() => {
+      readinessSending = false; sendReadiness();
+    }));
+  };
   const runtime = {
     enabled: options.enabled, executionAuthority: options.enabled ? 'tracker' : 'web',
     publicState: () => ({ ...clone(state.runtime), ...(state.runtime?.startReadiness ? { startReadiness: projectStartReadiness({}, state.runtime.startReadiness).startReadiness } : {}), simulatorAttached: !disconnected && Boolean(simulator) && state.runtime?.simulatorAttached === true, processId: initialized.pid, processAvailable: !disconnected, telemetry: { inFlight: Number(telemetrySending), pending: Number(Boolean(pendingSample)), motionPending: pendingMotion.length, coalesced, motionOverflow } }),
@@ -78,6 +87,7 @@ async function createTrackerMissionProcess(options) {
       finally { log(`MISSION_PROCESS_INTENT intent=${request.intent || ''} commandId=${request.commandId || ''} roundTripMs=${Date.now() - started}`); }
     },
     observeTelemetry(sample) { if (pendingSample) coalesced++; pendingSample = sample; sendTelemetry(); return null; },
+    observeStartReadiness(sample) { pendingReadiness = sample; sendReadiness(); },
     observeMotionTelemetry(sample) {
       pendingMotion.push(sample);
       if (pendingMotion.length > 512) { pendingMotion.shift(); motionOverflow++; }
@@ -95,6 +105,7 @@ async function createTrackerMissionProcess(options) {
       background(Promise.resolve(simulator?.cancelPayloadSync?.('simulator-detached')));
       simulator = null; activeBridge = null; simulatorGeneration++;
       pendingSample = null; pendingMotion = [];
+      pendingReadiness = undefined;
       background(ipc.request('detach')); return true;
     },
     diagnostics: () => ipc.request('diagnostics'),

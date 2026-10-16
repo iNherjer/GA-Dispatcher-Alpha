@@ -16,6 +16,7 @@ const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Way
 const { createCameraTelemetry } = require('./tracker-camera-telemetry');
 const { createClockTelemetry } = require('./tracker-clock-telemetry.js');
 const { createSlewTelemetry } = require('./tracker-slew-telemetry.js');
+const { createStartReadinessSource } = require('./tracker-start-readiness-source.js');
 const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
@@ -101,8 +102,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v548';
-const TRACKER_VERSION_CODE = 548;
+const TRACKER_VERSION = 'v549';
+const TRACKER_VERSION_CODE = 549;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4890,7 +4891,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     pilotId: String(syncId), pin: String(pin), log: debugLog
   });
   const missionProcess = TRACKER_APT_EXECUTION_ENABLED ? await createTrackerMissionProcess({
-    authority: authorityOptions, enabled: true, pilotId: syncId, requireCockpitReady: true,
+    authority: authorityOptions, enabled: true, pilotId: syncId, requireCockpitReady: true, independentStartReadiness: true,
     flightLogDirectory: TRACKER_FLIGHT_LOG_DIR,
     getAudioSettings: () => trackerAudioControl?.snapshot().settings || null,
     playBoardingVoice: request => missionBoardingVoice.dispatch(request),
@@ -4965,7 +4966,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   const missionExecutionRuntime = missionProcess?.runtime || createTrackerMissionExecutionRuntime({
     getPilotId: () => syncId,
     syncInitialPayload: true,
-    requireCockpitReady: true,
+    requireCockpitReady: true, independentStartReadiness: true,
     getAudioSettings: () => trackerAudioControl?.snapshot().settings || null,
     authorityManager: missionAuthorityManager,
     enabled: TRACKER_APT_EXECUTION_ENABLED,
@@ -6329,6 +6330,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
 }
 
 function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null, missionTransfer = null, getCloudAuthoritySnapshot = null) {
+  let independentReadiness = null;
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       const radioTuning = require('./tracker-radio-tuning').createRadioTuning(handle, {SimConnectDataType, SimConnectPeriod, SimConnectConstants, EventFlag});
@@ -6342,7 +6344,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         getWs,
         syncId,
         pin,
-        () => lastGpsMsg,
+        () => independentReadiness?.position() || lastGpsMsg,
         () => latestGroundTrafficSnapshot,
         missionAuthorityManager,
         trackerMissionShadow,
@@ -6366,13 +6368,17 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const payloadSnapshotInterval = setInterval(refreshMissionPayloadSnapshot, 5000);
       refreshMissionPayloadSnapshot();
       missionSimulatorEffects = missionExecutionRuntime?.attachSimulator?.({
-        getLivePosition: () => lastGpsMsg,
+        getLivePosition: () => independentReadiness?.position() || lastGpsMsg,
         dispatchCommand: command => missionSmokeController.dispatchExecutionCommand(command),
         syncPayloadBeforeStart: request => missionSmokeController.syncExecutionPayload(request),
         syncPayloadManifestState: request => missionSmokeController.scheduleExecutionPayload(request),
         cancelPayloadSync: reason => missionSmokeController.cancelExecutionPayloadSync(reason),
         cleanupMission: request => missionSmokeController.cleanupExecutionRun(request)
       }) || null;
+      if (missionExecutionRuntime?.enabled) independentReadiness = createStartReadinessSource({
+        open, float64Type: SimConnectDataType.FLOAT64, secondPeriod: SimConnectPeriod.SECOND,
+        onSample: sample => missionExecutionRuntime.observeStartReadiness(sample), log: debugLog
+      });
       const sendHomebaseAck = (payload = {}) => {
         const ws = getWs();
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -7195,6 +7201,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       }, TRAFFIC_POLL_MS);
 
       handle.on('close', () => {
+        independentReadiness?.stop();
         missionExecutionRuntime?.detachSimulator?.(missionSimulatorEffects);
         if (typeof updateEfbState === 'function') updateEfbState({
           simulatorConnected: false,
@@ -7219,6 +7226,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       });
     })
     .catch(err => {
+      independentReadiness?.stop();
       if (typeof updateEfbState === 'function') updateEfbState({
         simulatorConnected: false,
         telemetryHibernate: disconnectedTelemetryHibernateState(),

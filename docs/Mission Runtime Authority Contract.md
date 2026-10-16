@@ -1469,3 +1469,32 @@ Validierung: 246 gezielte Core-/Cloud-/App-/Runtime-/Effekt-/API-/Kindprozess-
 Tests bestanden, darunter reale IPC-Startfreigabe bei fremdem Flugplatz. Der
 Windows-/MSFS-Feldtest bleibt offen. SDK-Kamerazustaende:
 https://docs.flightsimulator.com/msfs2024/html/6_Programming_APIs/SimVars/Camera_Variables.htm
+
+
+## 16.10.2026 – Startfreigabe unabhaengig vom grossen GPS-Paket (v549)
+
+Die Freigabe wird in Produktion ausschliesslich aus einer eigenen rein lesenden
+SimConnect-Verbindung gespeist. Ein geschlossenes erforderliches FLOAT64-Paket
+uebertraegt Kamera, Slew, Lat/Lon/Hoehe, Bodenstatus und GS; dieselbe Verbindung
+liefert Sim-/Pause-Systemzustand. Dies ersetzt fuer die Startfreigabe das
+Zusammenfuehren der getrennten Kamera-/Slew-Werte mit dem optionalen GPS-Paket.
+Kamera-Liveansichten, Menuepositionsausschluss, Bodenstillstand3s und Datenalter
+max2.5s bleiben identisch. Keine neue Tracker-Missionsausfuehrung aus diesen
+Daten: der dedizierte IPC-Aufruf aendert nur fluechtige StartReadiness.
+GPS-/Motion-IPC und eigentliche Fortschrittsverarbeitung bleiben getrennt.
+
+Die Latest-value-Queue fuer die Freigabe ist unabhaengig vom GPS-/Motion-IPC
+und an die Simulatorgeneration gebunden. Alte Verbindungen koennen eine neue
+Freigabe nicht widerrufen oder erzeugen. Detach stoppt die Datenquelle; eigene
+Verbindungsfehler, ungueltige Pakete und fehlender Sim-/Pause-Nachweis sperren.
+Systemereignisse erneuern keine alte Position. Bei Ausfall gibt es keinen
+Rueckfall auf GPS-Daten zur Startfreigabe. Die frische Position steht auch
+der Simulator-/Szenenanbindung zur Verfuegung, damit eine Freigabe nicht mit
+einer alten/fehlenden Position aus dem grossen Paket kombiniert wird.
+
+Regressionen: produktive Quellklasse inkl. Menu/Pause/Slew/Bewegung/Stale/
+Reconnect/Retired-Handle; echter Worker mit GPS-Stillstand und ungueltigem
+GPS-Folgewert; keine Missionsrevision allein durch Startdaten. Gepackter
+Node18-ARM64-Prozess bestaetigt neuen IPC-Pfad und Entzug durch null-Sample:
+MISSION_PACKAGED_INDEPENDENT_READINESS_OK, MISSION_PACKAGED_PROCESS_SMOKE_OK,
+Worker-Exit0. Windows-/MSFS-Abnahme separat.

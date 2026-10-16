@@ -554,3 +554,28 @@ test('a legacy Web run observes the loaded cockpit for cloud cleanup without pro
  await host.runtime.flush();await until(()=>host.runtime.publicState().startReadiness?.worldReady);
  assert.equal(host.authorityManager.getActiveRun().revision,before);assert.equal(host.authorityManager.getActiveRun().executionAuthority,'web');
 });
+
+test('independent start input crosses real IPC without GPS updates, cannot advance a mission and cannot be overwritten by stale GPS',async t=>{
+ const host=await fixture(t,{requireCockpitReady:true,independentStartReadiness:true});await activate(host);
+ const commands=[];host.runtime.attachSimulator({getLivePosition:()=>({lat:51.5,lon:7,alt:600}),
+   dispatchCommand:command=>{commands.push(command);return{ok:true,status:'completed'};}});
+ await until(()=>host.runtime.publicState().simulatorAttached);
+ const before=host.authorityManager.getActiveRun().revision;
+ const sample=patch=>host.runtime.observeStartReadiness({observedAt:Date.now(),lat:51.5,lon:7,altFt:600,
+   simRunning:1,simPaused:false,inMenuOrMap:false,slewActive:false,cameraState:2,onGround:true,gsKts:0,...patch});
+ for(let n=0;n<8;n++){sample();await delay(450);}
+ await until(()=>host.runtime.publicState().startReadiness?.ready);
+ assert.equal(host.authorityManager.getActiveRun().revision,before,'readiness alone never commits mission progress');
+ assert.equal(host.authorityManager.getActiveRun().phase,'planned');assert.equal(commands.length,0);
+ host.runtime.observeTelemetry({observedAt:Date.now()-30000,cameraState:12,simRunning:0});
+ await host.runtime.flush();assert.equal(host.runtime.publicState().startReadiness.ready,true);
+ assert.ok(host.authorityManager.getPublicSnapshot().execution.allowedActions.includes('prepare_mission'));
+ sample({gsKts:2});await until(()=>host.runtime.publicState().startReadiness?.reason==='ground_stop_required');
+ assert.ok(!host.authorityManager.getPublicSnapshot().execution.allowedActions.includes('prepare_mission'));
+ host.runtime.observeStartReadiness(null);await until(()=>host.runtime.publicState().startReadiness?.reason==='telemetry_stale');
+ // Even good legacy GPS cannot supply permission when the dedicated source is unavailable.
+ host.runtime.observeTelemetry({observedAt:Date.now(),lat:51.5,lon:7,altFt:600,simRunning:1,simPaused:false,
+   inMenuOrMap:false,slewActive:false,cameraState:2,onGround:true,gsKts:0});
+ await host.runtime.flush();assert.equal(host.runtime.publicState().startReadiness.ready,false);
+ host.runtime.detachSimulator();await host.runtime.flush();assert.equal(host.runtime.publicState().startReadiness.ready,false);
+});

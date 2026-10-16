@@ -42,6 +42,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       detachSimulator: () => false,
       flush: () => ({ ok: true, status: 'ignored', sideEffect: false }),
       observeTelemetry: () => ({ ok: false, status: 'blocked', error: 'mission_execution_runtime_disabled', sideEffect: false }),
+      observeStartReadiness: () => null,
       publicState: () => ({ enabled: false, executionAuthority: 'web', simulatorAttached: false })
     });
   }
@@ -827,9 +828,16 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     return !poi.ok || poi.activeRun ? poi : training;
   };
 
+  const observeStartReadiness = sample => {
+    const wasReady = startReadiness?.snapshot().ready;
+    const readiness = startReadiness?.observe(sample);
+    if (readiness?.ready && !wasReady) effectRunner.drain().catch(error => log(`MISSION_PREFLIGHT_RESUME_ERROR error=${error.message}`));
+    return readiness;
+  };
   return Object.freeze({
     enabled: true,
     executionAuthority: 'tracker',
+    observeStartReadiness,
     executeIntent,
     attachSimulator,
     detachSimulator,
@@ -843,14 +851,12 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       motionBuffer.observe(sample, authorityManager.getActiveRun()?.runId);
     },
     observeTelemetry: sample => {
-      const wasReady = startReadiness?.snapshot().ready;
-      const readiness = startReadiness?.observe(sample);
+      if (options.independentStartReadiness !== true) observeStartReadiness(sample);
       // Simulator readiness must be observable before replacing an old Web run.
       // That does not grant its legacy execution any telemetry-driven authority.
       if (startReadiness && authorityManager.getActiveRun()?.executionAuthority !== 'tracker') {
         return { ok: true, status: 'ignored', reason: 'awaiting_tracker_authority', sideEffect: false };
       }
-      if (readiness?.ready && !wasReady) effectRunner.drain().catch(error => log(`MISSION_PREFLIGHT_RESUME_ERROR error=${error.message}`));
       reconcileCargoCheckpoint();
       // The normal runtime rejects paused/menu samples. Preserve the optional
       // weather/clock baseline here so a change in that menu is observable later.
@@ -1244,6 +1250,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       enabled: true,
       executionAuthority: authorityManager.getActiveRun()?.executionAuthority || 'web',
       simulatorAttached: Boolean(simulatorEffects),
+      startReadinessSource: options.independentStartReadiness === true ? 'independent-simconnect' : 'mission-telemetry',
       startReadiness: startReadiness?.snapshot() || null,
       effects: effectRunner.publicState()
     })
