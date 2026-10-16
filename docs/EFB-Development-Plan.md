@@ -1,3 +1,19 @@
+## v552-Funktionsstand als Tracker v555 Alpha (16.10.2026)
+
+Auf Nutzerauftrag wird der v552-Quellstand als neue Version v555 gebaut, damit
+der bestehende Desktop-Updater ihn auch über v553/v554 installiert.
+Alle Tracker-Laufzeitquellen und ausgelieferten Assets entsprechen dem Tag
+`v552` (44f8785bd), ausschließlich Versionslabel/-code und die EFB-Cachekennung
+werden auf v555/555 bzw. 55501 angehoben. Auch der damalige Kartenkatalog wird
+unverändert übernommen; kein Canvas-/OpenLayers-Renderer aus v553.
+Keine Fehlerbehebung oder weitere Laufzeitänderung in diesem Rollout.
+Der Missionsreset-Fix aus v552 ist enthalten.
+
+Neue unveränderliche EXE unter Tag v555; Kanalaktivierung erst nach
+öffentlicher Download-/Hashprüfung. Kein neues Community-Paket oder
+Desktop-Installer. Stable bleibt unverändert. Reale MSFS-Abnahme bleibt offen.
+Dieser Rollout ersetzt den nachfolgend beschriebenen reinen Kanal-Downgrade.
+
 ## Alpha-Rollback auf unverändertes Tracker v552 (16.10.2026)
 
 Nutzer meldet auch mit v554 weiterhin CTD beim EFB-Popout, stehende Routenlinie

@@ -184,13 +184,3 @@ test('EFB overlay zoom limits match the standalone map', () => {
  assert.equal(core.OVERLAY_LAYERS.find(x=>x.id==='dfs').options.maxNativeZoom,11);
  assert.match(host,/maxZoom: 18/);
 });
-
-test('EFB retains only raster basemaps and migrates removed blank selections to topo', () => {
-  assert.deepEqual(core.BASE_LAYERS.map(layer => layer.id), ['topo', 'terrain', 'satellite']);
-  for (const baseLayer of ['light', 'dark', 'fiord', 'positron']) {
-    const migrated = core.normalizePreferences({ baseLayer, overlays: ['aero'], follow: false });
-    assert.equal(migrated.baseLayer, 'topo');
-    assert.deepEqual(migrated.overlays, ['aero']);
-    assert.equal(migrated.follow, false);
-  }
-});

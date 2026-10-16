@@ -39,6 +39,20 @@ const BASE_LAYERS = Object.freeze([
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     localUrl: '/api/v1/map-tile/satellite/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: 'Tiles &copy; Esri', maxNativeZoom: 18, maxZoom: 18 })
+  }),
+  Object.freeze({
+    id: 'dark',
+    label: 'Dunkel',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    localUrl: '/api/v1/map-tile/dark/{z}/{x}/{y}.png',
+    options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, &copy; CARTO', maxNativeZoom: 20, maxZoom: 20 })
+  }),
+  Object.freeze({
+    id: 'light',
+    label: 'Hell',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    localUrl: '/api/v1/map-tile/light/{z}/{x}/{y}.png',
+    options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, &copy; CARTO', maxNativeZoom: 20, maxZoom: 20 })
   })
 ]);
 
