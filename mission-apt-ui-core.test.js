@@ -15,6 +15,25 @@ function control(phase, allowedActions, flags = {}) {
   };
 }
 
+test('planned ground-data waits stay visible without an intent and never offer start in menus or flight', () => {
+  const poi = require('./mission-poi-ui-core');
+  for (const ui of [core, poi]) {
+    for (const reason of ['telemetry_stale', 'ground_stabilizing', 'simulator_not_ready']) {
+      const state = {...control('planned', ['abort_mission']), startReadiness:{ready:false,cameraState:2,reason}};
+      const model = ui.bannerModel(state);
+      assert.equal(model.kind,'wait');assert.equal(model.disabled,true);assert.equal(model.intent,'');
+      assert.equal(ui.bannerModel({...state,phase:'on_task'}),null);
+      assert.equal(ui.bannerModel({...state,startReadiness:{...state.startReadiness,cameraState:12}}),null);
+      assert.equal(ui.bannerModel({...state,startReadiness:{...state.startReadiness,reason:'ground_required'}}),null);
+      assert.equal(ui.bannerModel({...state,startReadiness:{ready:false,cameraState:null,reason:'cockpit_not_loaded'}}).kind,'wait');
+      const readyState = {...state,allowedActions:['prepare_mission'],startReadiness:{ready:true,cameraState:2,reason:'',observedAt:Date.now()}};
+      const ready = ui.bannerModel(readyState);
+      assert.equal(ready.intent,'prepare_mission');assert.equal(ready.disabled,false);
+      assert.equal(ui.bannerModel({...readyState,startReadiness:{...readyState.startReadiness,observedAt:Date.now()-3000}}).disabled,true);
+    }
+  }
+});
+
 test('tracker APT banner preserves the characterized App wording', () => {
   assert.deepEqual(core.bannerModel(control('planned', ['prepare_mission'])), {
     intent: 'prepare_mission', kind: 'intent', kicker: 'Mission bereit',

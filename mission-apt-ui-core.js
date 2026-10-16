@@ -82,6 +82,14 @@
         var phase = phaseOf(source, control);
         var subphase = text(control.subphase, 80).toLowerCase();
         var flags = object(control.flags);
+        var readiness = object(control.startReadiness);
+        var sampleAge = Date.now() - readiness.observedAt;
+        var waitingReason = readiness.ready === true
+            && (!Number.isFinite(readiness.observedAt) || sampleAge < 0 || sampleAge > 2500)
+            ? 'telemetry_stale' : readiness.ready === false ? readiness.reason : '';
+        var waitingForGroundData = (readiness.cameraState == null
+                || (Number.isInteger(readiness.cameraState) && readiness.cameraState >= 2 && readiness.cameraState <= 8))
+            && ['telemetry_stale', 'ground_stabilizing', 'simulator_not_ready', 'cockpit_not_loaded'].includes(waitingReason);
         var manifest = object(source.manifest);
         var manifestItems = Array.isArray(manifest.items)
             ? manifest.items
@@ -117,6 +125,13 @@
                 intent: 'activate_cloud_mission', kind: 'intent', kicker: 'Cloud-Mission bereit',
                 text: 'Mission aus der Cloud laden.', button: 'Neue Mission laden',
                 className: 'is-begin-action', disabled: false
+            };
+        } else if ((phase === 'planned' || phase === 'boarded') && waitingForGroundData) {
+            model = {
+                intent: '', kind: 'wait', kicker: 'Mission wartet',
+                text: waitingReason === 'ground_stabilizing'
+                    ? 'Stillstand am Boden wird geprüft.' : 'Warte auf aktuelle Simulatordaten und Startfreigabe.',
+                button: 'Bitte warten...', className: '', disabled: true, closeHidden: true
             };
         } else if (phase === 'planned' && includes(allowed, 'prepare_mission')) {
             model = {

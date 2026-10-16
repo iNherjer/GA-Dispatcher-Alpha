@@ -8175,3 +8175,35 @@ Windows-x64-Artefakt (pkg/Node18 ohne Bytecode) unter Tag v547, Quellcommit
 geprueft. Alpha auf v547 aktiviert, Web-Cache v2110.
 EFB/Toolbar 0.4.25 und Stable-Zeiger unveraendert. Vollstaendige
 v547-Runtime-/UI-Abnahme nach regulaerem Desktop-Update noch offen.
+
+
+## 16.10.2026 – Cloud-Revisionsbestätigung und Banner-Wartezustand, Kandidat v548
+
+Handoff vom PC: Cloud-Hinweis kommt auch nach Ja erneut; Mission/Run und
+Authority-Revision bleiben unveraendert. Reproduziert mit echten Sync-Funktionen:
+`tracker-observer-current` meldet erfolgreiches Laden, lieferte aber das von
+`_syncAcknowledgeProfile` erforderliche `cloudMatchesTracker` nicht. Gleiche
+Revision blieb dadurch neu. Nur der bereits explizit identitaetsgepruefte
+Tracker/current-Pfad liefert jetzt diesen Nachweis. Abgelehnte/teilweise
+Restores quittieren weiterhin nichts; spaetere Revisionen bleiben erkennbar.
+Idle-Singleflight wird nach fruehen Rueckgaben im finally wieder freigegeben.
+Kein stilles Uebernehmen/Quittieren unbekannter Cloud-Inhalte.
+
+Gemeinsamer App-/Tracker-APT-/POI-Presenter zeigt bei geplantem Auftrag bzw.
+vor Missionsstart einen deaktivierten Wartezustand bei Stale/Stabilisierung
+oder unbekannter Kamera. Bekannte Menuekameras bieten keinen Missionsstart;
+Flug-/Abschlussphasen behalten ihren bisherigen Vertrag. Vorflug-Planungsbanner
+im EFB bleibt bei kurzzeitiger Daten-/ATC-Lease-Luecke deaktiviert sichtbar,
+sofern derselbe native Host zuvor ATC unterstuetzte. Der ausfuehrende ATC-Pfad
+verlangt unveraendert frische Menue-/Missionsdaten und aktuelle Capability.
+Klicks im Wartezustand sind wirkungslos. Keine Verlaengerung von Start-/
+Transfer-Frischegrenzen, keine Aenderung an Mission Authority oder Szenen.
+EFB-Web-Assets 54801; natives EFB/Toolbar-Paket 0.4.25 bleibt kompatibel.
+
+109 gezielte Node-Tests und die beiden bestehenden Sync-/Storage-Selftests
+bestanden. PC-Vergleich: unabhaengige Kamera-/Slew-Streams per SIM_FRAME/
+VISUAL_FRAME ~76 ms Mittelwert, max301–304 ms; SECOND max~1.4s. Parallel
+Tracker-Stale und HTTP-Antwort ~3.6s. Keine Grundlage fuer pauschalen Wechsel
+auf SECOND oder Lockerung der Frische. Genauere Ursache im Tracker-/HTTP-Pfad
+weiter offen; Kandidat behebt bestaetigten Cloud-Loop und Darstellung, nicht
+behauptet die langen Telemetrieluecken zu beseitigen.

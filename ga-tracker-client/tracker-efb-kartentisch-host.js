@@ -101,6 +101,7 @@
   var flightPlanBridgeReadyUntil = 0;
   var flightPlanBridgeHost = '';
   var flightPlanAtcReadyUntil = 0;
+  var flightPlanAtcKnownHost = '';
   var flightPlanJobs = {};
   var flightPlanStatusTimer = null;
   var flightPlanRequestPending = false;
@@ -129,6 +130,8 @@
       flightPlanBridgeHost = ['efb', 'toolbar'].indexOf(data.host) >= 0 ? data.host : '';
       flightPlanBridgeReadyUntil = data.ready === true && flightPlanBridgeHost ? Date.now() + 12000 : 0;
       flightPlanAtcReadyUntil = data.ready === true && data.atcReady === true && flightPlanBridgeHost ? Date.now() + 12000 : 0;
+      if (flightPlanAtcReadyUntil) flightPlanAtcKnownHost = flightPlanBridgeHost;
+      else if (flightPlanAtcKnownHost !== flightPlanBridgeHost) flightPlanAtcKnownHost = '';
       renderMissionActionBanner(missionSnapshot);
       if (wasReady !== (Date.now() < flightPlanBridgeReadyUntil)) requestSideDrawerRefresh();
     }
@@ -158,10 +161,11 @@
   });
   setInterval(function() {
     if (window.parent !== window && window.__gaEfbChannel) flightPlanMessage('ga-flightplan-probe');
-    if (flightPlanBridgeReadyUntil && Date.now() > flightPlanBridgeReadyUntil) { flightPlanBridgeReadyUntil = 0; renderMissionActionBanner(missionSnapshot); requestSideDrawerRefresh(); }
+    renderMissionActionBanner(missionSnapshot);
+    if (flightPlanBridgeReadyUntil && Date.now() > flightPlanBridgeReadyUntil) { flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh(); }
   }, 4000);
 
-  function preflightPlanningModel(payload) {
+  function preflightPlanningModel(payload, allowWaiting) {
     var control = payload && payload.control, readiness = control && control.startReadiness;
     var sync = payload && payload.authoritySnapshot && payload.authoritySnapshot.cloudMissionSync;
     var selection = payload && payload.authoritySnapshot && payload.authoritySnapshot.cloudMissionControl;
@@ -170,15 +174,17 @@
       || sync && String(sync.status || '').indexOf('control-') === 0
       || selection && (selection.status !== 'active' || selection.missionId !== control.missionId)
       || !readiness || readiness.worldReady !== false || !Number.isFinite(readiness.observedAt)
-      || Date.now() - readiness.observedAt < 0 || Date.now() - readiness.observedAt > 5000
-      || [9,10,11,12,13,19,27,29,30,33].indexOf(readiness.cameraState) < 0
-      || Date.now() >= flightPlanAtcReadyUntil) return null;
+      || [9,10,11,12,13,19,27,29,30,33].indexOf(readiness.cameraState) < 0) return null;
+    var fresh = Date.now() - readiness.observedAt >= 0 && Date.now() - readiness.observedAt <= 5000;
+    var available = fresh && Date.now() < flightPlanAtcReadyUntil;
+    if (!available && !(allowWaiting === true && flightPlanAtcKnownHost && flightPlanAtcKnownHost === flightPlanBridgeHost)) return null;
     // Camera 12 also occurs on World Map (measured in MSFS 2024); it does not
     // uniquely identify that page. Offer pure planning throughout preflight.
-    return {key:'preflight-plan:' + control.runId, missionId:control.missionId, kind:'flightplan', target:'atc',
-      kicker:'Flugplanung', text:'Route an die Simulator-Flugplanung übertragen. Die Mission beginnt erst im geladenen Cockpit.',
-      button:'Flugplan an Flugsicherung senden', closeHidden:true,
-      disabled:flightPlanRequestPending || Object.keys(flightPlanJobs).length > 0};
+    return {key:'preflight-plan:' + control.runId, missionId:control.missionId, kind:available ? 'flightplan' : 'wait', target:'atc',
+      kicker:'Flugplanung', text:available ? 'Route an die Simulator-Flugplanung übertragen. Die Mission beginnt erst im geladenen Cockpit.'
+        : 'Warte auf aktuelle Simulatordaten und die Verbindung zur Flugplanung.',
+      button:available ? 'Flugplan an Flugsicherung senden' : 'Bitte warten...', closeHidden:true,
+      disabled:!available || flightPlanRequestPending || Object.keys(flightPlanJobs).length > 0};
   }
   function flightPlanTransferMarkup() {
     var control = missionSnapshot && missionSnapshot.control;
@@ -2766,7 +2772,13 @@
         report('warn', 'flightplan-export', 'cancel', 'Missionslauf gewechselt; weitere Übertragungsschritte verwerfen', jobId);
       }
     });
-    var model = preflightPlanningModel(payload) || missionActionBannerModel(payload);
+    var model = preflightPlanningModel(payload, true) || missionActionBannerModel(payload);
+    var readiness = payload && payload.control && payload.control.startReadiness;
+    if (model && ['prepare_mission', 'start_boarding', 'confirm_load', 'start_mission'].indexOf(model.intent) >= 0
+      && readiness && (!Number.isFinite(readiness.observedAt) || Date.now() - readiness.observedAt < 0 || Date.now() - readiness.observedAt > 2500)) {
+      model = Object.assign({}, model, {kind:'wait', intent:'', disabled:true, closeHidden:true,
+        text:'Warte auf aktuelle Simulatordaten und Startfreigabe.', button:'Bitte warten...'});
+    }
     banner._gaMissionActionModel = model;
     var exportActions = byId('gaFlightPlanStartActions');
     if (!exportActions) {

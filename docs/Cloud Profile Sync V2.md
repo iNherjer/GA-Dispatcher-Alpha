@@ -265,3 +265,18 @@ Annehmen und bestätigtes Löschen veröffentlichen einen ausdrücklichen `missi
 Der Tracker prüft den bestehenden Cloud-Poll, verifiziert Kontrollvermerk und Seed und ersetzt den älteren Run über den vorhandenen Abbruch-/Sim-Bereinigungspfad. Nach Bereinigung liest er nochmals den Head; ein inzwischen ersetzter Auftrag wird nicht geladen. Der neue Seed wird als `planned` mit Tracker Authority übernommen, ohne `prepare_mission`, Boarding oder Voice. Löschung erfordert explizit `activeMission=null` und `activeMissionTrackerSeed=null`; Netzwerkfehler, HTTP 404, fehlender Kontrollvermerk und ungültige Seeds sind keine Löschung. Benötigte Sim-Bereinigung bleibt bei fehlender Verbindung ausstehend. Die angewandte Revision wird pro Pilot/Kanal erst nach erfolgreichem Authority-Checkpoint gespeichert, damit abgebrochene/beendete Aufträge nach Neustart nicht erneut laden. Legacy-Profile behalten den manuellen Ladeweg. Nicht unterstützte oder fehlende Tracker-Seeds werden abgewiesen, ohne den alten Run abzubrechen.
 
 App-Entwürfe bleiben lokal isoliert. Beim Öffnen ersetzt der aktuelle Cloud-Slot eine angenommene alte App-Mission; während eines Entwurfs erscheint nur ein Hinweis. Vor destruktiver Annahme-/Löschbereinigung muss der Worker `capabilities.missionControl=true` liefern. Rollout: zuerst Worker, dann Web-App und Tracker-EXE v500. Kein neues SDK-Paket erforderlich. Kontrollmetadata verwendet denselben Head-Abruf; nur bei Missionswechseln werden zusätzliche frische Kontrolllesungen vor/nach Bereinigung benötigt.
+
+
+## 16.10.2026 – Revisionsquittung bei identischer Tracker-Mission
+
+Der bestehende schnelle Cloud-Pull-Pfad fuer dieselbe bereits lokal dargestellte
+Tracker-Mission setzt `cloudMatchesTracker=true` im Ergebnis. Dies ist der
+Nachweis fuer die unveraenderte Revisionsquittung nach erfolgreicher kompletter
+Profilanwendung. Ohne das Merkmal kehrte der Pull erfolgreich zurueck, liess
+aber dieselbe Cloudrevision unquittiert und wiederholt als neu erscheinen,
+auch nach bestaetigtem Laden. Fehlgeschlagene, abgelehnte oder lokal gekuerzte
+Restores bleiben gegen automatische Ueberschreibung geschuetzt. Neue echte
+Cloudrevisionen bleiben erkennbar; keine pauschale Hinweisunterdrueckung.
+Der Idle-Singleflight-Guard wird auch bei fruehen Rueckgaben freigegeben.
+Regressionen verwenden die echten Sync-Funktionen inklusive unvollstaendigem
+Restore, fehlendem Identitaetsnachweis und nachfolgender neuer Revision.

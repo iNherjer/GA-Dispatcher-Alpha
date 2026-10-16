@@ -16146,7 +16146,8 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
     if (cloudMatchesTracker && trackerRun.executionAuthority === 'tracker') {
         // Only the same selected mission may restore execution progress.
         if (_activeMissionRuntimeId('') === trackerRun.missionId && window.gaTrackerExecutionControl?.runId === trackerRun.runId) {
-            _syncRecordCloudMissionPullOutcome('tracker-observer-current', { source: options.source || 'cloud-pull', trackerMissionId: trackerRun.missionId });
+            _syncRecordCloudMissionPullOutcome('tracker-observer-current', { source: options.source || 'cloud-pull', trackerMissionId: trackerRun.missionId,
+                cloudMatchesTracker: true });
             return true;
         }
     }
@@ -16891,6 +16892,7 @@ let syncLastFetchTime = Date.now();
 let syncIsSleeping = false;
 let idleCheckInProgress = false;
 async function checkCloudAfterIdle() {
+    if (idleCheckInProgress) return;
     if (window.gaIsDispatchBusy?.() === true) return;
     if (window.gaMissionDraftActive?.()) return syncPendingUploadThenLoad('draft-cloud-check');
     if (window.gaCloudOpeningPending) return;
@@ -17001,9 +17003,11 @@ async function checkCloudAfterIdle() {
         }
     } catch(e) {
         updateSyncStatus("Cloud-Prüfung fehlgeschlagen", true);
+    } finally {
+        // Also release the guard after early returns (e.g. an already current
+        // Tracker mission or an expired restore generation).
+        setTimeout(() => { idleCheckInProgress = false; }, 10000);
     }
-    // 10 Sekunden Cooldown, damit man bei vielen Klicks nicht bombardiert wird
-    setTimeout(() => { idleCheckInProgress = false; }, 10000);
 }
 let lastTrustedAppWakeAt = 0;
 function resetSyncTimer(event = null) {

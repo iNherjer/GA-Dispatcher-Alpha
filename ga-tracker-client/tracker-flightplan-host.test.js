@@ -116,3 +116,27 @@ test('leaving World Map before export reply cannot submit ATC route',async()=>{
 test('ATC is never accepted as a combined mission-start/export action',()=>{
  const h=harness();h.capability({atcReady:true});h.context.window.handleMissionStartFlightPlanAction('atc');assert.equal(h.starts.length,0);assert.equal(h.exports.length,0);
 });
+
+test('planning banner stays disabled through stale telemetry and expired bridge leases without permitting writes',async()=>{
+ const h=worldMapHarness();let at=Date.now();h.context.Date={now:()=>at};
+ h.context.renderMissionActionBanner(h.context.missionSnapshot);assert.equal(h.banner.style.display,'flex');
+ at+=6000;h.context.renderMissionActionBanner(h.context.missionSnapshot);
+ assert.equal(h.banner.style.display,'flex');assert.equal(h.banner._gaMissionActionModel.kind,'wait');
+ assert.equal(h.nodes.missionStartBannerBtn.disabled,true);
+ assert.equal(await h.context.transferCurrentMissionFlightPlan('atc'),false);assert.equal(h.exports.length,0);
+ h.capability({atcReady:false});h.context.renderMissionActionBanner(h.context.missionSnapshot);
+ assert.equal(h.banner._gaMissionActionModel.kind,'wait');assert.equal(h.banner.style.display,'flex');
+ h.context.missionSnapshot.control.startReadiness.observedAt=at;h.capability({atcReady:true});
+ assert.equal(h.banner._gaMissionActionModel.kind,'flightplan');assert.equal(h.nodes.missionStartBannerBtn.disabled,false);
+ h.context.missionSnapshot.authoritySnapshot={cloudMissionControl:{status:'active',missionId:'other'}};
+ assert.equal(h.context.preflightPlanningModel(h.context.missionSnapshot,true),null);
+ h.context.missionSnapshot.control.phase='closed';assert.equal(h.context.preflightPlanningModel(h.context.missionSnapshot,true),null);
+});
+
+test('an old start model becomes a disabled wait without retaining its intent',()=>{
+ const h=harness();h.context.missionSnapshot.control.startReadiness={ready:true,observedAt:Date.now()-3000,cameraState:2};
+ h.context.renderMissionActionBanner(h.context.missionSnapshot);
+ assert.equal(h.banner.style.display,'flex');assert.equal(h.banner._gaMissionActionModel.kind,'wait');
+ assert.equal(h.banner._gaMissionActionModel.intent,'');assert.equal(h.nodes.missionStartBannerBtn.disabled,true);
+ h.context.window.handleMissionStartBannerAction();assert.equal(h.starts.length,0);
+});
