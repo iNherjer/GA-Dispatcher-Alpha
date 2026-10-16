@@ -15,6 +15,10 @@ Web-App-Karten und Missionsreset von v552 bleiben bestehen.
 
 Assetrevision 55401; neue Tracker-EXE v554 erforderlich. Community-Paket und
 Desktop-Installer unverändert. Simulatorabnahme nach dem Rollout bleibt offen.
+35 EFB-/Katalogtests und gepackter Node-18-Rücknahmetest bestanden.
+Release v554 veröffentlicht; öffentlicher Download auf 173961553 Bytes und
+SHA-256 `1d60bef25797d79f31bc14e3e3cf4c324843ca2b143cf10be551fe53794a533f`
+geprüft. Alpha wird auf dieses Artefakt aktiviert, Web-SW v2125. Stable unverändert.
 Die folgenden v553-Angaben sind historisch; diese Implementierung ist entfernt.
 
 ## Tracker v553 Alpha: OpenFreeMap im EFB/Toolbar (16.10.2026)
