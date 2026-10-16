@@ -525,3 +525,32 @@ test('Web debug intent is committed by the real tracker worker without local sce
   assert.equal(host.authorityManager.getExecutionSnapshot().state.workflows.complianceInspection.phase, 'approach_started');
 
 });
+test('production cockpit gate hides prepare and blocks stale direct clicks until a foreign-airport aircraft is fully loaded and still',async t=>{
+ const host=await fixture(t,{requireCockpitReady:true});await activate(host);
+ const commands=[];host.runtime.attachSimulator({getLivePosition:()=>({lat:51.5,lon:7,altFt:600}),
+   dispatchCommand:command=>{commands.push(command);return{ok:true,status:'completed'};}});
+ await until(()=>host.runtime.publicState().simulatorAttached);
+ const prepare=()=>{const r=host.authorityManager.getActiveRun();return host.runtime.executeIntent({commandId:'cockpit-'+Date.now(),intent:'prepare_mission',missionId:r.missionId,runId:r.runId,expectedRevision:r.revision,deferEffects:true});};
+ assert.ok(!host.authorityManager.getPublicSnapshot().execution.allowedActions.includes('prepare_mission'));
+ assert.equal((await prepare()).error,'mission_cockpit_not_ready');assert.equal(commands.length,0);
+ const sample=patch=>host.runtime.observeTelemetry({observedAt:Date.now(),lat:51.5,lon:7,altFt:600,aglFt:5,simRunning:1,simPaused:false,inMenuOrMap:false,slewActive:false,cameraState:2,onGround:true,gsKts:0,...patch});
+ sample({cameraState:13});await host.runtime.flush();assert.equal((await prepare()).error,'mission_cockpit_not_ready');
+ sample();await host.runtime.flush();assert.equal((await prepare()).error,'mission_cockpit_not_ready');
+ for(let n=0;n<7;n++){await delay(500);sample();await host.runtime.flush();}
+ await until(()=>host.runtime.publicState().startReadiness?.ready);
+ assert.ok(host.authorityManager.getPublicSnapshot().execution.allowedActions.includes('prepare_mission'));
+ sample({gsKts:1});await host.runtime.flush();assert.equal((await prepare()).error,'mission_cockpit_not_ready');
+ assert.ok(!host.authorityManager.getPublicSnapshot().execution.allowedActions.includes('prepare_mission'));
+ for(let n=0;n<8;n++){sample();await host.runtime.flush();await delay(450);}
+ assert.equal((await prepare()).ok,true);assert.equal(host.authorityManager.getExecutionSnapshot().state.phase,'prepare');
+ host.runtime.detachSimulator();await host.runtime.flush();assert.equal(host.runtime.publicState().startReadiness?.ready,false);
+});
+test('a legacy Web run observes the loaded cockpit for cloud cleanup without processing mission telemetry',async t=>{
+ const host=await fixture(t,{requireCockpitReady:true});const acquired=await host.authorityManager.acquire({missionId:'mission-runtime-apt',clientId:'old-web',resumeBundle:aptBundle(),stateHash:'web'});
+ assert.equal(acquired.ok,true);assert.equal(host.authorityManager.getActiveRun().executionAuthority,'web');
+ host.runtime.attachSimulator({getLivePosition:()=>({lat:51.5,lon:7,altFt:600})});await until(()=>host.runtime.publicState().simulatorAttached);
+ const before=host.authorityManager.getActiveRun().revision;
+ host.runtime.observeTelemetry({observedAt:Date.now(),lat:51.5,lon:7,altFt:600,simRunning:1,simPaused:false,inMenuOrMap:false,slewActive:false,cameraState:2,onGround:true,gsKts:0});
+ await host.runtime.flush();await until(()=>host.runtime.publicState().startReadiness?.worldReady);
+ assert.equal(host.authorityManager.getActiveRun().revision,before);assert.equal(host.authorityManager.getActiveRun().executionAuthority,'web');
+});

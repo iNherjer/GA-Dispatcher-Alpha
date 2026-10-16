@@ -1,4 +1,5 @@
 'use strict';
+const { projectStartReadiness } = require('./tracker-mission-start-readiness');
 const { createMissionIpc, difference, missionRequestTimeout } = require('./tracker-mission-ipc.js');
 const { recordGeneratedText } = require('./tracker-mission-poi-voice.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
@@ -32,7 +33,12 @@ function runMissionWorker() {
       publishMetrics.builds++;
       publishMetrics.buildMs += Number(process.hrtime.bigint() - started) / 1e6;
     }
-    const next = { ...cachedAuthority, flightLog: flightLog?.publicState(), runtime: runtime?.publicState() || null };
+    const readiness = runtime?.publicState()?.startReadiness;
+    const projectedAuthority = readiness ? { ...cachedAuthority,
+      public: { ...cachedAuthority.public, execution: projectStartReadiness(cachedAuthority.public?.execution, readiness) },
+      execution: cachedAuthority.execution ? { ...cachedAuthority.execution, view: projectStartReadiness(cachedAuthority.execution.view, readiness) } : null
+    } : cachedAuthority;
+    const next = { ...projectedAuthority, flightLog: flightLog?.publicState(), runtime: runtime?.publicState() || null };
     const started = process.hrtime.bigint();
     const changes = difference(published, next);
     publishMetrics.diffMs += Number(process.hrtime.bigint() - started) / 1e6;
@@ -59,7 +65,7 @@ function runMissionWorker() {
       }
       flightLog = createTrackerFlightLogStore({ directory: options.flightLogDirectory, log });
       runtime = createTrackerMissionExecutionRuntime({
-        authorityManager: authority, enabled: options.enabled, syncInitialPayload: true, allowIntentRevisionRebase: true, recoverCargoCheckpoint: true, fairEffectScheduling: true,
+        authorityManager: authority, enabled: options.enabled, requireCockpitReady: options.requireCockpitReady, syncInitialPayload: true, allowIntentRevisionRebase: true, recoverCargoCheckpoint: true, fairEffectScheduling: true,
         getPilotId: () => options.pilotId, getAudioSettings: () => audioSettings,
         flightLog,
         playBoardingVoice: request => invokeParent('playBoardingVoice', request),

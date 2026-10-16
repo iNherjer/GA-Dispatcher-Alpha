@@ -64,3 +64,21 @@ test('simultaneous opening and visibility wake share one read',async()=>{
  const a=f.context.syncPendingUploadThenLoad(),b=f.context.syncPendingUploadThenLoad();assert.equal(f.context._syncTrackerRestoreBlocked(mission('old')),true);
  release({ok:true,json:async()=>({activeMission:mission('new'),lastModified:7})});await Promise.all([a,b]);assert.equal(f.calls.filter(x=>x==='restore').length,1);
 });
+test('manual cloud pull keeps cloud selection over a different active legacy tracker without takeover',async()=>{
+ const f=fixture();f.env._syncActiveTrackerRunForCloudPull=()=>({missionId:'stale-tracker',runId:'old',executionAuthority:'web'});
+ f.env.window.liveTrackerCapabilities=[];
+ f.env.window.resumeTrackerMissionOnThisDevice=()=>{throw Error('must never offer old tracker takeover');};
+ const applied=await f.context._syncApplyActiveMissionFromCloud(mission('new'),{source:'manual-cloud-pull',allowTrackerHandoff:true});
+ assert.equal(applied,true);assert.equal(JSON.parse(f.values.get('ga_active_mission')).currentMissionData.missionId,'new');
+ assert.equal(f.env.window.gaLastCloudMissionPullOutcome.status,'cloud-mission-applied');
+});
+test('different tracker mission status becomes a waiting cloud-sync state, never an automatic observer',async()=>{
+ const f=fixture();await f.context.syncPendingUploadThenLoad();
+ let updates=0;f.env._normalizeMissionRuntimeId=v=>v;f.env._activeMissionRuntimeId=()=> 'new';f.env._readMissionAuthorityState=()=>null;
+ f.env._updateMissionRuntimeUi=()=>updates++;f.env._missionPhaseDebugPush=()=>{};
+ f.env.window.resumeTrackerMissionOnThisDevice=()=>{throw Error('no takeover');};
+ vm.runInContext('let missionRuntimeResumeConflictLastSig=""; let missionRuntimeResumeConflictLastLogAt=0;',f.context);
+ vm.runInContext(declaration(source,'_handleTrackerMissionStatus'),f.context);
+ assert.equal(f.context._handleTrackerMissionStatus({missionId:'stale-tracker',runId:'old',executionAuthority:'web'}),false);
+ assert.equal(f.env.window.missionRuntimeResumeConflict.reason,'cloud-mission-pending');assert.equal(updates,1);
+});

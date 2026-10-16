@@ -1,4 +1,5 @@
 'use strict';
+const { projectStartReadiness } = require('./tracker-mission-start-readiness');
 const { fork } = require('node:child_process');
 const { createInterface } = require('node:readline');
 const { createMissionIpc, applyDifference, missionRequestTimeout } = require('./tracker-mission-ipc.js');
@@ -37,7 +38,7 @@ async function createTrackerMissionProcess(options) {
     log(`MISSION_PROCESS_EXIT pid=${child.pid} code=${code} signal=${signal || ''}`);
   });
   const initialized = await ipc.request('initialize', {
-    authority: options.authority, enabled: options.enabled, pilotId: options.pilotId,
+    authority: options.authority, enabled: options.enabled, pilotId: options.pilotId, requireCockpitReady: options.requireCockpitReady === true,
     flightLogDirectory: options.flightLogDirectory
   }).catch(error => { log(`MISSION_PROCESS_START_ERROR error=${error.message}`); child.kill(); throw error; });
   const authorityManager = {};
@@ -49,7 +50,11 @@ async function createTrackerMissionProcess(options) {
       return clone({ ...summary, ...(settings.includeBundle ? { resumeBundle, navigationRoute } : {}), ...(settings.includeEffects ? { effects } : {}) });
     },
     recordGeneratedText: (request, text) => ipc.request('recordGeneratedText', request, text),
-    getPublicSnapshot: () => clone(state.public),
+    getPublicSnapshot: () => {
+      const snapshot = clone(state.public);
+      if (snapshot?.execution && state.runtime?.startReadiness) snapshot.execution = projectStartReadiness(snapshot.execution, state.runtime.startReadiness);
+      return snapshot;
+    },
     getExecutionSnapshot: () => clone(state.execution),
     getExecutionTrainingRecipe: () => clone(state.active?.resumeBundle?.executionTrainingRecipe || null),
     getExecutionRuntimeContext: request => request?.runId === state.active?.runId ? clone(state.context) : null,
@@ -66,7 +71,7 @@ async function createTrackerMissionProcess(options) {
   };
   const runtime = {
     enabled: options.enabled, executionAuthority: options.enabled ? 'tracker' : 'web',
-    publicState: () => ({ ...clone(state.runtime), simulatorAttached: !disconnected && Boolean(simulator) && state.runtime?.simulatorAttached === true, processId: initialized.pid, processAvailable: !disconnected, telemetry: { inFlight: Number(telemetrySending), pending: Number(Boolean(pendingSample)), motionPending: pendingMotion.length, coalesced, motionOverflow } }),
+    publicState: () => ({ ...clone(state.runtime), ...(state.runtime?.startReadiness ? { startReadiness: projectStartReadiness({}, state.runtime.startReadiness).startReadiness } : {}), simulatorAttached: !disconnected && Boolean(simulator) && state.runtime?.simulatorAttached === true, processId: initialized.pid, processAvailable: !disconnected, telemetry: { inFlight: Number(telemetrySending), pending: Number(Boolean(pendingSample)), motionPending: pendingMotion.length, coalesced, motionOverflow } }),
     async executeIntent(request) {
       const started = Date.now();
       try { return await ipc.request('intent', request, context()); }

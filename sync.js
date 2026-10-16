@@ -5361,6 +5361,25 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
     const activeMissionId = _activeMissionRuntimeId('');
     const localAuthority = _readMissionAuthorityState();
     const trackerRunId = String(status.runId || '').trim();
+    if (status.active === false || /^(ended|closed|reset|cleared|completed|aborted)$/.test(String(status.state || ''))) {
+        if (window.missionRuntimeResumeConflict?.trackerMissionId === trackerMissionId) {
+            window.missionRuntimeResumeConflict = null;
+            missionRuntimeResumeConflictLastSig = '';
+            _updateMissionRuntimeUi();
+        }
+        return true;
+    }
+    if (typeof _syncTrackerRestoreBlocked === 'function' && _syncTrackerRestoreBlocked(status)) {
+        const sig = `cloud-mission-pending|${trackerMissionId}|${activeMissionId}`;
+        window.missionRuntimeResumeConflict = { reason: 'cloud-mission-pending', trackerMissionId, trackerRunId,
+            activeMissionId, trackerActive: true, at: Date.now() };
+        if (sig !== missionRuntimeResumeConflictLastSig) {
+            missionRuntimeResumeConflictLastSig = sig;
+            _missionPhaseDebugPush('resume_conflict', window.missionRuntimeResumeConflict);
+            _updateMissionRuntimeUi();
+        }
+        return false;
+    }
     if (status.executionAuthority === 'tracker') {
         if (status.active === false || /^(ended|closed|reset|cleared|completed|aborted)$/.test(String(status.state || ''))) return true;
         window.missionRuntimeResumeConflict = null;
@@ -12648,6 +12667,7 @@ function _renderTrackerMissionBanner(banner, control, elements = {}) {
     if (elements.text) elements.text.textContent = model.text;
     if (elements.close) elements.close.style.display = model.closeHidden === true ? 'none' : '';
     if (elements.button) {
+        elements.button.style.display = '';
         elements.button.textContent = model.button;
         elements.button.disabled = !!missionExecutionIntentPromise || model.disabled === true;
     }
@@ -12677,6 +12697,7 @@ function _syncMissionMainNotificationFromBanner(sourceBanner = null) {
     if (notificationKicker) notificationKicker.textContent = sourceKicker?.textContent || 'Mission';
     if (notificationText) notificationText.textContent = sourceText?.textContent || 'Die nächste Missionsaktion ist verfügbar.';
     if (notificationButton) {
+        notificationButton.style.display = sourceButton?.style.display || '';
         notificationButton.textContent = sourceButton?.textContent || 'Kartentisch öffnen';
         notificationButton.disabled = !!sourceButton?.disabled || !!missionMainNotificationActionPromise;
         notificationButton.title = sourceButton?.title || 'Kartentisch öffnen und Missionsaktion ausführen';
@@ -12760,6 +12781,14 @@ function _updateMissionStartBanner() {
     banner.classList.toggle('is-end-ready', showEnd);
     banner.classList.toggle('is-begin-action', showStart && phase === 'planned');
     banner.classList.toggle('is-final-action', showFinalEndAction);
+    if (btn) btn.style.display = '';
+    if (showAuthorityConflict && authorityConflict.reason === 'cloud-mission-pending') {
+        if (kickerEl) kickerEl.textContent = 'Cloud-Auftrag wird synchronisiert';
+        if (textEl) textEl.textContent = 'Der Tracker bereinigt den bisherigen Lauf und lädt den aktuellen Cloud-Auftrag. Falls nötig, erst den Flug im Simulator fertig laden.';
+        if (closeBtn) closeBtn.style.display = 'none';
+        if (btn) { btn.style.display = 'none'; btn.disabled = true; }
+        return;
+    }
     if (showAuthorityConflict) {
         if ((window.liveTrackerCapabilities || []).includes('mission.cloud-load.v1')) {
             const pending = window.lastTrackerMissionAuthority?.pendingCloudMission;
@@ -14912,6 +14941,7 @@ window.handleMissionStartBannerAction = async function() {
     missionStartActionPromise = (async () => {
         window.requestTrackerTelemetryWake?.('mission-start');
         if (window.missionRuntimeResumeConflict?.trackerActive === true) {
+            if (window.missionRuntimeResumeConflict.reason === 'cloud-mission-pending') return false;
             if ((window.liveTrackerCapabilities || []).includes('mission.cloud-load.v1')) {
                 trackerCloudMissionOfferKey = '';
                 _offerTrackerCloudMission(window.lastTrackerMissionAuthority);
@@ -16112,60 +16142,17 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
         localMission = null;
     }
     const trackerRun = options.authoritativeOpening ? null : _syncActiveTrackerRunForCloudPull();
-    if (trackerRun && (window.liveTrackerCapabilities || []).includes('mission.cloud-load.v1')) {
-        _offerTrackerCloudMission(window.lastTrackerMissionAuthority);
-        _syncRecordCloudMissionPullOutcome('tracker-authority-retained', {
-            source: String(options.source || 'cloud-pull'), trackerMissionId: trackerRun.missionId,
-            cloudMissionId: _syncMissionIdentityValues(activeMission)[0] || null
-        });
-        return false;
-    }
-    if (trackerRun) {
-        const trackerMissionId = String(trackerRun.missionId || '').trim().toLowerCase();
-        const cloudMissionIds = _syncMissionIdentityValues(activeMission);
-        const cloudMatchesTracker = !!(trackerMissionId && cloudMissionIds.includes(trackerMissionId));
-        const cloudMissionTitle = activeMission ? _syncMissionTitleForPrompt(activeMission) : '';
-        const commonOutcome = {
-            source: String(options.source || 'cloud-pull'),
-            trackerMissionId: trackerRun.missionId,
-            trackerRunId: trackerRun.runId,
-            trackerOwnerClientId: trackerRun.ownerClientId || null,
-            cloudMissionId: cloudMissionIds[0] || null,
-            cloudMatchesTracker
-        };
-        const trackerExecutionObserver = trackerRun.executionAuthority === 'tracker';
-        if (trackerExecutionObserver && _activeMissionRuntimeId('') === trackerRun.missionId
-            && window.gaTrackerExecutionControl?.runId === trackerRun.runId) {
-            _syncRecordCloudMissionPullOutcome('tracker-observer-current', commonOutcome);
+    const cloudMatchesTracker = trackerRun && activeMission && _syncMissionStatesShareIdentity(activeMission, trackerRun);
+    if (cloudMatchesTracker && trackerRun.executionAuthority === 'tracker') {
+        // Only the same selected mission may restore execution progress.
+        if (_activeMissionRuntimeId('') === trackerRun.missionId && window.gaTrackerExecutionControl?.runId === trackerRun.runId) {
+            _syncRecordCloudMissionPullOutcome('tracker-observer-current', { source: options.source || 'cloud-pull', trackerMissionId: trackerRun.missionId });
             return true;
         }
-        if ((!trackerExecutionObserver && options.allowTrackerHandoff !== true)
-            || typeof window.resumeTrackerMissionOnThisDevice !== 'function') {
-            _syncRecordCloudMissionPullOutcome('tracker-authority-retained', commonOutcome);
-            return false;
-        }
-        const promptContext = cloudMatchesTracker
-            ? 'Der Cloud-Pull gehört zur laufenden Tracker-Mission. Phase und Fortschritt werden deshalb aus dem autoritativen Tracker-Stand übernommen.'
-            : (activeMission
-                ? `Die Cloud-Kopie „${cloudMissionTitle}“ gehört nicht zum laufenden Tracker-Lauf und darf ihn nicht überschreiben. Der Tracker-Stand hat Vorrang.`
-                : 'In der Cloud ist keine aktive Mission gespeichert. Der laufende Tracker-Lauf darf dadurch nicht gelöscht werden und hat Vorrang.');
-        let resumed = false;
-        try {
-            resumed = (await window.resumeTrackerMissionOnThisDevice({
-                source: options.source || 'cloud-pull',
-                promptContext
-            })) === true;
-        } catch (error) {
-            try { console.warn('[SYNC] Tracker-Mission konnte nach Cloud-Pull nicht übernommen werden:', error); } catch (_) {}
-        }
-        _syncRecordCloudMissionPullOutcome(
-            resumed
-                ? (trackerExecutionObserver ? 'tracker-observer-restored' : 'tracker-handoff-complete')
-                : (trackerExecutionObserver ? 'tracker-observer-incomplete' : 'tracker-handoff-incomplete'),
-            commonOutcome
-        );
-        return resumed;
     }
+    // Cloud owns the accepted selection on every pull. An older/different run
+    // is cleaned up by the Tracker; never offer to replace the Cloud with it.
+    if (trackerRun) options = { ...options, authoritativeOpening: true };
     if (!activeMission && options.freeflightNavigation) {
         // Tracker authority was handled above. Preserve pending local edits and
         // ask through the existing replacement guard before replacing a flight.

@@ -1393,7 +1393,7 @@ enabled=true und type=fire_watch; allgemeine Identitaetspruefungen bleiben aktiv
 
 Annehmen und bestätigtes Löschen veröffentlichen einen ausdrücklichen `missionChange` (`activate`/`clear`, erwartete Missionsrevision, Operation-ID). Der Worker vergibt atomar mit dem Profil-Commit `missionControl` im Head: Schema `ga.cloud-mission-control.v1`, Server-Epoch, unabhängige Missionsrevision, Missions-ID oder Löschstatus, Hash der Missionskomponente und Serverzeit. Profil-/Fortschrittsänderungen erhöhen diese Missionsrevision nicht. Ein Client ohne ausdrücklichen Missionswechsel darf den kontrollierten Slot auch mit `force` nicht durch eine andere Mission oder einen alten leeren Stand ersetzen.
 
-Der Tracker prüft den bestehenden Cloud-Poll, verifiziert Kontrollvermerk und Seed und ersetzt den älteren Run über den vorhandenen Abbruch-/Sim-Bereinigungspfad. Nach Bereinigung liest er nochmals den Head; ein inzwischen ersetzter Auftrag wird nicht geladen. Der neue Seed wird als `planned` mit Tracker Authority übernommen, ohne `prepare_mission`, Boarding oder Voice. Löschung erfordert explizit `activeMission=null` und `activeMissionTrackerSeed=null`; Netzwerkfehler, HTTP 404, fehlender Kontrollvermerk und ungültige Seeds sind keine Löschung. Benötigte Sim-Bereinigung bleibt bei fehlender Verbindung ausstehend. Die angewandte Revision wird pro Pilot/Kanal erst nach erfolgreichem Authority-Checkpoint gespeichert, damit abgebrochene/beendete Aufträge nach Neustart nicht erneut laden. Legacy-Profile behalten den manuellen Ladeweg. Nicht unterstützte oder fehlende Tracker-Seeds werden abgewiesen, ohne den alten Run abzubrechen.
+Der Tracker prüft den bestehenden Cloud-Poll, verifiziert Kontrollvermerk und Seed und ersetzt den älteren Run über den vorhandenen Abbruch-/Sim-Bereinigungspfad. Nach Bereinigung liest er nochmals den Head; ein inzwischen ersetzter Auftrag wird nicht geladen. Der neue Seed wird als `planned` mit Tracker Authority übernommen, ohne `prepare_mission`, Boarding oder Voice. Löschung erfordert explizit `activeMission=null` und `activeMissionTrackerSeed=null`; Netzwerkfehler, HTTP 404, fehlender Kontrollvermerk und ungültige Seeds sind keine Löschung. Benötigte Sim-Bereinigung bleibt bei fehlender Verbindung ausstehend. Die angewandte Revision wird pro Pilot/Kanal erst nach erfolgreichem Authority-Checkpoint gespeichert, damit abgebrochene/beendete Aufträge nach Neustart nicht erneut laden. Ab Tracker v545 werden auch Legacy-Profile mit vollstaendig validiertem Tracker-Seed automatisch uebernommen; zwei frische Lesepruefungen binden die Uebernahme an dieselbe Missions-/Seed-Auswahl. Unversionierte Leerantworten sind weiterhin keine Loeschung. Ein serverkontrollierter Slot wird nie auf eine unversionierte Antwort zurueckgestuft. Nicht unterstützte oder fehlende Tracker-Seeds werden abgewiesen, ohne den alten Run abzubrechen.
 
 App-Entwürfe bleiben lokal isoliert. Beim Öffnen ersetzt der aktuelle Cloud-Slot eine angenommene alte App-Mission; während eines Entwurfs erscheint nur ein Hinweis. Vor destruktiver Annahme-/Löschbereinigung muss der Worker `capabilities.missionControl=true` liefern. Rollout: zuerst Worker, dann Web-App und Tracker-EXE v500. Kein neues SDK-Paket erforderlich. Kontrollmetadata verwendet denselben Head-Abruf; nur bei Missionswechseln werden zusätzliche frische Kontrolllesungen vor/nach Bereinigung benötigt.
 
@@ -1422,3 +1422,50 @@ Die App übernimmt den Marker auch nach Wiederverbindung und räumt nur den
 passenden lokalen Auftrag auf. Die bereits bestehende Standalone-/Legacy-
 App-Bereinigung bleibt erhalten. Siehe EFB-Development-Plan, Abschnitt vom
 12.10.2026, für die lokale Validierung und verbleibenden Feldnachweis.
+
+
+## 16.10.2026 – Cloud-Auswahl und geladener Simulator (Tracker v545)
+
+Der bestaetigte Cloud-Slot bestimmt die Missionsauswahl. Ein abweichender
+aktiver Tracker-Lauf wird auch bei bereits bestaetigter Cloud-Revision sauber
+abgebrochen, Payload restauriert, Szenen bereinigt und erst danach durch den
+aktuellen geplanten Auftrag ersetzt. Reine Wiederholungen nach Abschluss oder
+Abbruch starten denselben konsumierten Auftrag nicht neu. Das gilt ebenfalls
+fuer explizite serverkontrollierte Loeschungen mit unerwartetem lokalem Lauf.
+Legacy-Seeds verwenden denselben Bereinigungs-/Authority-Pfad und einen eigenen
+persistenten Konsumvermerk, keinen erfundenen Server-Aktivierungsvermerk.
+Netz-/Seedfehler, unversionierte Leerantworten und Cloud-Wechsel waehrend des
+Abgleichs bleiben wirkungslos. Erforderliche Bereinigung wartet auf eine
+frische, geladene Simulatorwelt; ein fehlender Sim wird nicht umgangen.
+
+Die App ersetzt bei Cloud-Pulls ihre angenommene Auswahl durch den Cloud-Auftrag,
+ohne einen fremden Tracker-Lauf zur Uebernahme anzubieten. Fortschritt einer
+identischen Tracker-Mission bleibt autoritativ. Bei abweichendem Lauf zeigt sie
+einen passiven Synchronisationshinweis ohne Uebernahmebutton; Entwuerfe und
+laufende Generierung behalten ihre bestehenden Schutzregeln.
+
+`startReadiness` ist eine fluechtige Tracker-Projektion, kein gespeicherter
+Missionsfortschritt. Freigabe erfordert laufende Simulation, frische isolierte
+INT32-`CAMERA STATE`-Telemetrie (Live-Flugansichten 2–8), keine Pause/kein Slew,
+eine plausible Position ausserhalb 0/0 und 0/90 und drei Sekunden bestaetigten
+Stillstand am Boden: GS <= 0,5 kt, Positionsabweichung <= 3 m, maximal 2,5 s
+Abstand/Alter der Samples. Menü-/Warte-/Hangar-/Lade-Kamerazustaende suspendieren
+auch die Missions-Telemetrie, selbst wenn MSFS noch Sim=1 meldet. DialogMode
+allein sperrt nicht, da auch ein offenes Cockpit-EFB DialogMode ausloest.
+Die Cockpit-Telemetrie wird auch ohne Tracker-Authority fuer die ausstehende
+Bereinigung beobachtet; alte Web-Laeufe verarbeiten sie nicht als Fortschritt.
+Kein Abflugplatz-/Distanzvergleich: Start an einem fremden Platz bleibt erlaubt.
+
+Bis zur Freigabe fehlen prepare_mission, start_boarding, confirm_load und
+start_mission in der oeffentlichen Aktionsliste; direkte Intents werden vor
+Seiteneffekten abgewiesen. Vorgemerkte Szenenvorbereitung, Boarding und
+Vorstart-Payload-Sync warten ohne fehlgeschlagenes Dispatch-Journal und setzen
+bei Freigabe fort. Detach, Pause, Bewegung, Menue und Telemetrieausfall entziehen
+die Freigabe. IPC-/HTTP-/Relay-Projektionen verwenden denselben Status; die
+Elternprozess-Lesekopie laesst auch ohne neue Samples keine veraltete Freigabe
+stehen. Keine persistierte Freigabe und kein automatischer Missionsbeginn.
+
+Validierung: 246 gezielte Core-/Cloud-/App-/Runtime-/Effekt-/API-/Kindprozess-
+Tests bestanden, darunter reale IPC-Startfreigabe bei fremdem Flugplatz. Der
+Windows-/MSFS-Feldtest bleibt offen. SDK-Kamerazustaende:
+https://docs.flightsimulator.com/msfs2024/html/6_Programming_APIs/SimVars/Camera_Variables.htm

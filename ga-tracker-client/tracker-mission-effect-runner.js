@@ -248,6 +248,7 @@ function createTrackerMissionEffectRunner(options = {}) {
     const timestamp = now();
     const effect = effects.find(candidate => {
       if (preferredId && candidate.effectId !== preferredId) return false;
+      if (options.canDispatchEffect && !options.canDispatchEffect(candidate)) return false;
       // Preserve POI speech order through generation, playback and durable ACK.
       // Other runtime work remains free to process intents and telemetry.
       if (snapshot.recipe === 'poi' && candidate.type === 'voice.poi'

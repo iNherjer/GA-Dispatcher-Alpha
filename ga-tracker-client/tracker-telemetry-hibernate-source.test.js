@@ -23,7 +23,7 @@ test('tracker status reports hibernate while full relay telemetry is gated', () 
   assert.match(trackerSource, /sim-event:Pause_EX1/);
   assert.match(trackerSource, /sim-event:PositionChanged/);
   assert.match(trackerSource, /sim-event:FlightLoaded/);
-  assert.match(trackerSource, /const missionTelemetryInMenu = runtimeState\.simRunning === 0/);
+  assert.match(trackerSource, /const missionTelemetryInMenu = runtimeState\.simRunning !== 1/);
   assert.match(trackerSource, /inMenuOrMap: missionTelemetryInMenu/);
   assert.match(trackerSource, /dialogMode: runtimeState\.dialogMode/);
 });

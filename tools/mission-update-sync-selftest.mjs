@@ -278,33 +278,21 @@ assert.equal(await vm.runInContext('_syncApplyActiveMissionFromCloud', cloudCont
     source: 'manual-cloud-pull',
     allowTrackerHandoff: true
 }), true);
-assert.equal(trackerHandoffCalls, 1, 'manual cloud pull must enter the tracker handoff path');
-assert.equal(restoreOptions, null, 'a foreign cloud mission must never be restored over an active tracker run');
-assert.match(trackerHandoffOptions?.promptContext || '', /darf ihn nicht überschreiben/);
-assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.status, 'tracker-handoff-complete');
-assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.cloudMatchesTracker, false);
-
-const handoffsBeforeSilentPull = trackerHandoffCalls;
+assert.equal(trackerHandoffCalls, 0, 'cloud selection must never offer the older tracker mission');
+assert.equal(restoreOptions?.presentationOnly, true, 'foreign cloud selection is applied as presentation while Tracker cleans up');
+assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.status, 'cloud-mission-applied');
 assert.equal(await vm.runInContext('_syncApplyActiveMissionFromCloud', cloudContext)(foreignCloudMission, {
-    source: 'silent-cloud-pull',
-    allowTrackerHandoff: false
-}), false);
-assert.equal(trackerHandoffCalls, handoffsBeforeSilentPull, 'silent cloud pull must not take mission ownership');
-assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.status, 'tracker-authority-retained');
-
+    source: 'silent-cloud-pull', allowTrackerHandoff: false
+}), true);
+assert.equal(trackerHandoffCalls, 0);
+assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.status, 'cloud-mission-applied');
 const matchingCloudMission = {
-    currentMissionData: {
-        missionId: trackerRun.missionId,
-        missionTitle: 'Alpha-Mission',
-        sceneAccepted: true
-    }
+    currentMissionData: { missionId: trackerRun.missionId, missionTitle: 'Alpha-Mission', sceneAccepted: true }
 };
 assert.equal(await vm.runInContext('_syncApplyActiveMissionFromCloud', cloudContext)(matchingCloudMission, {
-    source: 'manual-cloud-pull',
-    allowTrackerHandoff: true
+    source: 'manual-cloud-pull', allowTrackerHandoff: true
 }), true);
-assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.cloudMatchesTracker, true);
-assert.match(trackerHandoffOptions?.promptContext || '', /Phase und Fortschritt.*Tracker-Stand/);
+assert.equal(trackerHandoffCalls, 0, 'legacy same-mission presentation does not take execution ownership');
 
 cloudContext._syncActiveTrackerRunForCloudPull = () => null;
 

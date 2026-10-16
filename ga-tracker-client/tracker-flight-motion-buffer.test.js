@@ -29,5 +29,5 @@ test('production entry delivers local motion before the unchanged relay throttle
  assert.ok(source.indexOf('observeMotionTelemetry?.({ observedAt: now')<source.indexOf('if (now - lastSent < SEND_INTERVAL_MS) return;'));
  assert.match(source,/const SEND_INTERVAL_MS = 500/);
  assert.match(source,/gForce, bankDeg: bank, vsFpm, pitchDeg, simPaused/);
- assert.match(source,/!validPosition && missionExecutionRuntime\?\.enabled && \(simPaused \|\| missionTelemetryInMenu\)/);
+ assert.match(source,/!validPosition && missionExecutionRuntime\?\.enabled/);
 });

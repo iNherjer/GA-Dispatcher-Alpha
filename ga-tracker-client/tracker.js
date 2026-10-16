@@ -13,6 +13,7 @@ const { handleVoiceRelay } = require('./tracker-voice-relay-core.js');
 const mediaBridge = require('./tracker-media-bridge').createMediaBridge();
 const executeMediaRelay = require('./tracker-media-core').createMediaRelay(payload => mediaBridge.request(payload));
 const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Waypoint, SimConnectConstants, EventFlag } = require('node-simconnect');
+const { createCameraTelemetry } = require('./tracker-camera-telemetry');
 const { createClockTelemetry } = require('./tracker-clock-telemetry.js');
 const { createSlewTelemetry } = require('./tracker-slew-telemetry.js');
 const WebSocket = require('ws');
@@ -100,8 +101,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v544';
-const TRACKER_VERSION_CODE = 544;
+const TRACKER_VERSION = 'v545';
+const TRACKER_VERSION_CODE = 545;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4889,7 +4890,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     pilotId: String(syncId), pin: String(pin), log: debugLog
   });
   const missionProcess = TRACKER_APT_EXECUTION_ENABLED ? await createTrackerMissionProcess({
-    authority: authorityOptions, enabled: true, pilotId: syncId,
+    authority: authorityOptions, enabled: true, pilotId: syncId, requireCockpitReady: true,
     flightLogDirectory: TRACKER_FLIGHT_LOG_DIR,
     getAudioSettings: () => trackerAudioControl?.snapshot().settings || null,
     playBoardingVoice: request => missionBoardingVoice.dispatch(request),
@@ -4964,6 +4965,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   const missionExecutionRuntime = missionProcess?.runtime || createTrackerMissionExecutionRuntime({
     getPilotId: () => syncId,
     syncInitialPayload: true,
+    requireCockpitReady: true,
     getAudioSettings: () => trackerAudioControl?.snapshot().settings || null,
     authorityManager: missionAuthorityManager,
     enabled: TRACKER_APT_EXECUTION_ENABLED,
@@ -5008,6 +5010,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   const cloudAuthoritySnapshot = () => ({
     ...missionAuthorityManager.getPublicSnapshot(),
     cloudMissionControl: _cloudMissionControl,
+    cloudMissionSync: { status: _cloudMissionLastStatus, cloudMissionId: _cloudMissionControl?.missionId || _cloudMissionCandidate?.missionId || null },
     pendingCloudMission: _cloudMissionControl ? null : pendingCloudMission(_cloudMissionCandidate, missionAuthorityManager.getActiveRun())
   });
   let _cloudMissionSyncInProgress = false;
@@ -5042,6 +5045,16 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         if (reconciled.ok && reconciled.status !== 'unchanged') broadcastMissionAuthorityUpdate('cloud-mission-reconciled');
         // A consumed activation must not return as a startable old candidate after abort/completion.
         if (reconciled.ok) result.candidate = null;
+      }
+      if (!result.missionControl && result.candidate?.bundle?.execution) {
+        const reconciled = await cloudMissionReconciler.reconcileLegacy(result);
+        if (!reconciled.ok) {
+          _cloudMissionLastStatus = 'control-' + reconciled.status;
+          debugLog(`MISSION_CLOUD_CONTROL_WAIT status=${reconciled.status} error=${reconciled.error || 'none'}`);
+          return _cloudMissionCandidate;
+        }
+        result.candidate = null;
+        if (reconciled.status !== 'unchanged') broadcastMissionAuthorityUpdate('cloud-mission-reconciled');
       }
       if (result.navigation) {
         const adopted = cockpitTools.adoptCloud(result.navigation);
@@ -5081,6 +5094,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   let _cloudMissionReplacementCleanupInProgress = false;
   const abortCloudReplacementRun = async (request, previousRun) => {
     if (_cloudMissionReplacementCleanupInProgress) return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };
+    const readiness = missionExecutionRuntime.publicState().startReadiness;
+    if (readiness && !readiness.worldReady) return { ok: false, status: 'pending', error: 'mission_simulator_not_ready', sideEffect: false };
     _cloudMissionReplacementCleanupInProgress = true;
     try {
     const oldEffects = missionAuthorityManager.getActiveRun({ includeEffects: true });
@@ -6608,7 +6623,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const runtimeState = {
         pauseFlags: 0,
         pauseFlagsUpdatedAt: 0,
-        simRunning: 1,
+        simRunning: null,
         dialogMode: 0,
         lastPositionChangedAt: 0,
         lastFlightLoadedAt: 0
@@ -6699,6 +6714,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         requestId: SLEW_REQ_ID, int32Type: SimConnectDataType.INT32,
         period: SimConnectPeriod.VISUAL_FRAME, intervalFrames: GPS_SOURCE_INTERVAL_FRAMES,
         log: debugLog });
+      const cameraTelemetry = createCameraTelemetry({ handle, definitionId: 211, requestId: 211,
+        int32Type: SimConnectDataType.INT32, period: SimConnectPeriod.VISUAL_FRAME,
+        intervalFrames: GPS_SOURCE_INTERVAL_FRAMES, log: debugLog });
       const clockTelemetry = createClockTelemetry({handle, definitionId: 210,
         requestId: 210, float64Type: SimConnectDataType.FLOAT64,
         period: SimConnectPeriod.VISUAL_FRAME, intervalFrames: GPS_SOURCE_INTERVAL_FRAMES,
@@ -6875,11 +6893,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 lat,lon,mslFt:alt,tempC:raw.tempC,windKts:raw.windKts,
                 visKm:Number.isFinite(raw.visMeters)?raw.visMeters/1000:null,precipState:raw.precipState},
                 {hasMission:!!missionAuthorityManager?.getActiveRun?.()});
-              // MSFS reports DialogMode while cockpit surfaces such as the EFB
-              // are open as well. That is useful UI telemetry, but it must not
-              // stop the authoritative mission detector while the aircraft is
-              // still flying. SimStop remains the fail-closed menu signal.
-              const missionTelemetryInMenu = runtimeState.simRunning === 0;
+              // DialogMode also means an open cockpit EFB. Use explicit camera
+              // menu/loading states alongside SimStop, never DialogMode alone.
+              const cameraState = cameraTelemetry.snapshot();
+              const missionTelemetryInMenu = runtimeState.simRunning !== 1
+                || [9, 10, 11, 12, 13, 14, 19, 27, 29, 30, 33].includes(cameraState);
 
               const ws = getWs();
               currentTelemetryHibernateState = telemetryHibernateController.update({
@@ -6889,17 +6907,17 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 onGround,
                 groundSpeedKts,
                 paused: simPaused,
-                menuDetected: runtimeState.simRunning === 0
+                menuDetected: missionTelemetryInMenu
               });
               const validPosition = currentTelemetryHibernateState.validPosition;
               if (missionExecutionRuntime?.enabled) {
                 missionExecutionRuntime.observeMotionTelemetry?.({ observedAt: now,
                   gForce, bankDeg: bank, vsFpm, pitchDeg, simPaused, inMenuOrMap: missionTelemetryInMenu });
               }
-              if (!validPosition && missionExecutionRuntime?.enabled && (simPaused || missionTelemetryInMenu)
+              if (!validPosition && missionExecutionRuntime?.enabled
                   && now - lastSent >= SEND_INTERVAL_MS) {
                 lastSent = now;
-                missionExecutionRuntime.observeTelemetry({ observedAt: now, simPaused, inMenuOrMap: missionTelemetryInMenu });
+                missionExecutionRuntime.observeTelemetry({ observedAt: now, simPaused, inMenuOrMap: missionTelemetryInMenu, simRunning: runtimeState.simRunning, cameraState });
               }
 
               if (validPosition) {
@@ -6940,8 +6958,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 if (now - lastSent < SEND_INTERVAL_MS) return;
                 lastSent = now;
                 applyHomebaseFallback(lastGpsMsg);
-                if (missionExecutionRuntime?.enabled
-                    && missionAuthorityManager?.getActiveRun?.()?.executionAuthority === 'tracker') {
+                if (missionExecutionRuntime?.enabled) {
                   const executionTelemetry = missionExecutionRuntime.observeTelemetry({
                     observedAt: now,
                     weatherPreset: trackerCockpitControl?.weatherPreset?.() || null,
@@ -6977,6 +6994,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     simPausedA: Number.isFinite(Number(simPausedA)) ? Number(simPausedA) : null,
                     simPausedB: Number.isFinite(Number(simPausedB)) ? Number(simPausedB) : null,
                     pauseFlags: runtimeState.pauseFlags || 0,
+                    simRunning: runtimeState.simRunning,
+                    cameraState,
                     inMenuOrMap: missionTelemetryInMenu,
                     dialogMode: runtimeState.dialogMode,
                     parkingBrake: Number.isFinite(parkingBrake) ? parkingBrake > 0.5 : null
@@ -7189,6 +7208,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
         slewTelemetry.dispose();
         clockTelemetry.dispose();
+        cameraTelemetry.dispose();
         handle.removeListener('exception', onGpsDefinitionException);
         clearInterval(telemetryDiagnosticTimer);
         clearInterval(runtimePollInterval);

@@ -529,3 +529,14 @@ test('worker publications match public getters and reuse unchanged large data ac
   external.resumeBundle.missionState.currentMissionData.start = 'mutated';
   assert.equal(read().active.resumeBundle.missionState.currentMissionData.start, 'EDTW');
 });
+test('a cockpit-blocked preparation stays requested without dispatch or failure and resumes after readiness',async t=>{
+ const f=createCommittedFixture(t);assert.equal(executeCurrent(f,'prepare_mission','prepare-wait').ok,true);
+ let ready=false,dispatches=0;
+ const runner=createTrackerMissionEffectRunner({authorityManager:f.manager,applySystemEvent:r=>f.adapter.applySystemEvent(r),
+  canDispatchEffect:()=>ready,handlers:{'scene.prepare':()=>{dispatches++;return{ok:true,status:'completed'};}}});
+ const before=f.manager.getActiveRun().revision;
+ assert.equal((await runner.drain()).ok,true);assert.equal(dispatches,0);assert.equal(f.manager.getActiveRun().revision,before);
+ assert.equal(f.manager.getExecutionSnapshot().state.effects.find(e=>e.type==='scene.prepare').status,'requested');
+ ready=true;assert.equal((await runner.drain()).ok,true);assert.equal(dispatches,1);
+ assert.equal(f.manager.getExecutionSnapshot().state.effects.find(e=>e.type==='scene.prepare').status,'completed');
+});

@@ -58,3 +58,38 @@ test('failed reset checkpoint preserves the consumed activation', async t => {
  assert.equal(f.agent.applied().revision,1);
  assert.equal(createCloudMissionReconciler(f.opts).applied().revision,1);
 });
+test('acknowledged cloud selection replaces a different active local run',async t=>{
+ const f=fixture(t);await f.agent.reconcile(f.state.latest);f.state.run={missionId:'stale-local',runId:'stale',executionAuthority:'tracker'};f.state.calls=[];
+ assert.equal((await f.agent.reconcile(f.state.latest)).status,'loaded');assert.equal(f.state.run.missionId,'new');assert.ok(f.state.calls.includes('abort'));
+});
+test('acknowledged cloud deletion still cleans up an unexpected active local run',async t=>{
+ const f=fixture(t);f.state.latest=result(3,'deleted');await f.agent.reconcile(f.state.latest);f.state.run={missionId:'old',runId:'old'};
+ assert.equal((await f.agent.reconcile(f.state.latest)).status,'cleared');assert.equal(f.state.run,null);
+});
+function legacyResult(id='legacy') {return {ok:true,status:'ready',candidate:{missionId:id,updatedAt:1234,bundle:{execution:{stateHash:'hash'},executionReplay:{missionId:id}},resumeBundle:{}}};}
+test('legacy cloud profile replaces older local run, persists consumption, and respects later cloud selection',async t=>{
+ const f=fixture(t);f.state.latest=legacyResult();assert.equal((await f.agent.reconcileLegacy(f.state.latest)).status,'loaded');
+ assert.equal(f.state.run.missionId,'legacy');f.state.run=null;
+ const restarted=createCloudMissionReconciler(f.opts);assert.equal((await restarted.reconcileLegacy(f.state.latest)).status,'unchanged');
+ f.state.latest=legacyResult('replacement');assert.equal((await restarted.reconcileLegacy(f.state.latest)).status,'loaded');assert.equal(f.state.run.missionId,'replacement');
+});
+test('legacy cloud rereads protect against replacement during simulator cleanup',async t=>{
+ const f=fixture(t);f.state.latest=legacyResult();f.opts.abort=async()=>{f.state.run=null;f.state.latest=legacyResult('newer');return{ok:true};};f.agent=createCloudMissionReconciler(f.opts);
+ assert.equal((await f.agent.reconcileLegacy(legacyResult())).status,'cloud_changed');assert.ok(!f.state.calls.includes('load'));
+});
+test('legacy profile cannot downgrade a server-controlled slot or infer deletion',async t=>{
+ const f=fixture(t);await f.agent.reconcile(f.state.latest);f.state.calls=[];
+ assert.equal((await f.agent.reconcileLegacy(legacyResult())).status,'unversioned');
+ assert.equal((await f.agent.reconcileLegacy({ok:true,status:'empty',candidate:null})).status,'unversioned');assert.deepEqual(f.state.calls,[]);
+});
+test('incomplete legacy candidate never throws or cleans up an active run',async t=>{
+ const f=fixture(t);const r=legacyResult();delete r.candidate.bundle.executionReplay;
+ assert.equal((await f.agent.reconcileLegacy(r)).status,'unversioned');assert.deepEqual(f.state.calls,[]);
+});
+test('legacy same-mission scene-plan change during cleanup invalidates the selection',async t=>{
+ const f=fixture(t);f.state.latest=legacyResult();f.state.latest.candidate.bundle.executionEffectPlan={scene:'first'};
+ const first=structuredClone(f.state.latest);
+ f.opts.abort=async()=>{f.state.run=null;f.state.latest.candidate.bundle.executionEffectPlan={scene:'changed'};return{ok:true};};
+ f.agent=createCloudMissionReconciler(f.opts);
+ assert.equal((await f.agent.reconcileLegacy(first)).status,'cloud_changed');assert.ok(!f.state.calls.includes('load'));
+});

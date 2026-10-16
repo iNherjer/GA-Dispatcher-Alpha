@@ -170,3 +170,10 @@ test('replacement cancels old queued Voice after confirmed runtime abort',async(
   assert.equal((await f.context.activate(f.request)).ok,true);
   assert.deepEqual(cancelled,['greeting-old']);
 });
+for(const authority of ['tracker','web'])test(`${authority} cloud replacement waits for loaded simulator before payload restore and cleanup`,async()=>{
+ const f=fixture({authority});f.context.missionExecutionRuntime.publicState=()=>({simulatorAttached:true,startReadiness:{worldReady:false,ready:false}});
+ const result=await f.context.activate(f.request);assert.equal(result.error,'mission_simulator_not_ready');
+ assert.equal(f.run().runId,'old-run');assert.deepEqual(f.calls,['fetch']);
+ f.context.missionExecutionRuntime.publicState=()=>({simulatorAttached:true,startReadiness:{worldReady:true,ready:false}});
+ assert.equal((await f.context.activate(f.request)).ok,true);assert.equal(f.run().missionId,'new-mission');
+});

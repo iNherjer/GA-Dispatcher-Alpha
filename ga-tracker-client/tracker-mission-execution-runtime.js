@@ -1,4 +1,5 @@
 'use strict';
+const { createMissionStartReadiness, START_INTENTS } = require('./tracker-mission-start-readiness');
 const {describeWeather} = require('./tracker-environment-diagnostics.js');
 const bushNarrativeCore = require('../mission-bush-narrative-core.js');
 const weatherPresetCore = require('../mission-weather-preset-core.js');
@@ -45,6 +46,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     });
   }
 
+  const startReadiness = options.requireCockpitReady === true ? createMissionStartReadiness({ now: options.now }) : null;
   const adapter = createTrackerMissionExecutionAdapter({
     now: options.now,
     random: options.random,
@@ -282,6 +284,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   };
   effectRunner = createTrackerMissionEffectRunner({
     fairScheduling: options.fairEffectScheduling === true,
+    canDispatchEffect: effect => !startReadiness
+      || !['scene.prepare', 'scene.boarding', 'payload.sync_before_start'].includes(effect.type)
+      || (Boolean(simulatorEffects) && startReadiness.snapshot().ready),
     log,
     authorityManager,
     applySystemEvent: request => adapter.applySystemEvent(request),
@@ -415,6 +420,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const executeIntent = async (request = {}) => {
     await recoveryDrain;
+    if (startReadiness && START_INTENTS.has(String(request.intent || request.action || '').trim().toLowerCase())) {
+      const readiness = startReadiness.snapshot();
+      if (!simulatorEffects || !readiness.ready) return { ok: false, status: 'blocked', error: 'mission_cockpit_not_ready', startReadiness: readiness, sideEffect: false };
+    }
     if (String(request.intent || request.action || '').trim().toLowerCase() === 'close_debrief') {
       const result = await authorityManager.closeExecutionDebrief(request);
       if (result.ok) {
@@ -576,6 +585,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   };
 
   const attachSimulator = (simulator = {}) => {
+    startReadiness?.reset();
     getSimulatorPosition = typeof simulator.getLivePosition === 'function' ? simulator.getLivePosition : () => null;
     simulatorPayloadSyncBeforeStart = typeof simulator.syncPayloadBeforeStart === 'function'
       ? simulator.syncPayloadBeforeStart
@@ -687,6 +697,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     getSimulatorPosition = () => null;
     simulatorEffects?.cancelPending?.({ preserveManual: true });
     simulatorEffects = null;
+    startReadiness?.reset();
     simulatorPayloadSyncBeforeStart = null;
     simulatorPayloadSyncManifestState = null;
     if (cancelSimulatorPayloadSync) {
@@ -832,6 +843,14 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       motionBuffer.observe(sample, authorityManager.getActiveRun()?.runId);
     },
     observeTelemetry: sample => {
+      const wasReady = startReadiness?.snapshot().ready;
+      const readiness = startReadiness?.observe(sample);
+      // Simulator readiness must be observable before replacing an old Web run.
+      // That does not grant its legacy execution any telemetry-driven authority.
+      if (startReadiness && authorityManager.getActiveRun()?.executionAuthority !== 'tracker') {
+        return { ok: true, status: 'ignored', reason: 'awaiting_tracker_authority', sideEffect: false };
+      }
+      if (readiness?.ready && !wasReady) effectRunner.drain().catch(error => log(`MISSION_PREFLIGHT_RESUME_ERROR error=${error.message}`));
       reconcileCargoCheckpoint();
       // The normal runtime rejects paused/menu samples. Preserve the optional
       // weather/clock baseline here so a change in that menu is observable later.
@@ -1225,6 +1244,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       enabled: true,
       executionAuthority: authorityManager.getActiveRun()?.executionAuthority || 'web',
       simulatorAttached: Boolean(simulatorEffects),
+      startReadiness: startReadiness?.snapshot() || null,
       effects: effectRunner.publicState()
     })
   });

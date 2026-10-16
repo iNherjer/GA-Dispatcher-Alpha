@@ -5,10 +5,13 @@ const controlCore = require('../mission-cloud-control-core.js');
 
 function createCloudMissionReconciler({ filename, pilotId, getRun, readLatest, abort, load, clear,
   checkpoint, blocked = () => false, log = () => {} }) {
-  let applied = null, inProgress = false;
+  let applied = null, legacyMissionId = null, inProgress = false;
   try {
     const stored = JSON.parse(fs.readFileSync(filename, 'utf8'));
-    if (stored.pilotId === pilotId) applied = stored.control ? controlCore.validate(stored.control) : null;
+    if (stored.pilotId === pilotId) {
+      applied = stored.control ? controlCore.validate(stored.control) : null;
+      legacyMissionId = typeof stored.legacyMissionId === 'string' ? stored.legacyMissionId : null;
+    }
   } catch (error) { if (error.code !== 'ENOENT') log(`MISSION_CLOUD_CONTROL_CHECKPOINT_ERROR error=${error.message}`); }
   function acknowledged(control) {
     return applied?.epoch === control.epoch && applied.revision >= control.revision;
@@ -40,12 +43,18 @@ function createCloudMissionReconciler({ filename, pilotId, getRun, readLatest, a
     await fs.promises.writeFile(temp, JSON.stringify({ version: 1, pilotId, control: null }), 'utf8');
     await fs.promises.rename(temp, filename);
     applied = null;
+    legacyMissionId = null;
   }
   async function reconcile(result) {
     if (inProgress || blocked()) return { ok: false, status: 'pending' };
     if (!valid(result)) return { ok: false, status: 'unversioned' };
     const control = result.missionControl;
-    if (acknowledged(control)) return { ok: true, status: 'unchanged' };
+    const active = getRun();
+    const sameMission = active?.executionAuthority === 'tracker'
+      && control.status === 'active' && active.missionId?.toLowerCase() === control.missionId.toLowerCase();
+    // A terminal/consumed selection stays consumed. A different active local run
+    // must still yield to the current cloud selection, even after its ACK survived.
+    if (acknowledged(control) && (applied.revision > control.revision || !active || sameMission)) return { ok: true, status: 'unchanged' };
     inProgress = true;
     try {
       // A recovered run may already have committed this control before the ACK file was written.
@@ -82,6 +91,56 @@ function createCloudMissionReconciler({ filename, pilotId, getRun, readLatest, a
       return { ok: false, status: 'retry', error: error.message };
     } finally { inProgress = false; }
   }
-  return { reconcile, requestReload, busy: () => inProgress, applied: () => applied && { ...applied } };
+  function legacyKey(result) {
+    const candidate = result?.candidate;
+    if (!result?.ok || result.missionControl || result.status !== 'ready'
+        || !candidate?.missionId || !candidate.bundle?.execution?.stateHash
+        || !candidate.bundle.executionReplay || typeof candidate.bundle.executionReplay !== 'object') return null;
+    return candidate.missionId + ':' + require('node:crypto').createHash('sha256')
+      .update(JSON.stringify(candidate.bundle)).digest('hex');
+  }
+  async function acknowledgeLegacy(missionId) {
+    await checkpoint();
+    fs.mkdirSync(path.dirname(filename), { recursive: true });
+    await fs.promises.writeFile(filename + '.tmp', JSON.stringify({ version: 1, pilotId, control: null, legacyMissionId: missionId }), 'utf8');
+    await fs.promises.rename(filename + '.tmp', filename);
+    legacyMissionId = missionId;
+  }
+  async function reconcileLegacy(result) {
+    if (inProgress || blocked()) return { ok: false, status: 'pending' };
+    const key = legacyKey(result), candidate = result?.candidate;
+    // Never downgrade a server-controlled profile to an unversioned response.
+    if (applied || !key) return { ok: false, status: 'unversioned' };
+    const active = getRun();
+    if (!active && legacyMissionId === candidate.missionId) return { ok: true, status: 'unchanged' };
+    inProgress = true;
+    try {
+      if (active?.executionAuthority === 'tracker' && active.missionId === candidate.missionId) {
+        if (legacyMissionId !== candidate.missionId) await acknowledgeLegacy(candidate.missionId);
+        return { ok: true, status: 'unchanged' };
+      }
+      const latest = await readLatest();
+      if (legacyKey(latest) !== key) return { ok: false, status: 'cloud_changed' };
+      const run = getRun();
+      // Use the same confirmed abort, payload restore and simulator cleanup path.
+      const selection = { epoch: 'legacy-profile', revision: candidate.updatedAt, status: 'active' };
+      if (run) {
+        const stopped = await abort(run, selection);
+        if (!stopped?.ok) return { ok: false, status: 'cleanup_pending', error: stopped?.error };
+      }
+      const fresh = await readLatest();
+      if (legacyKey(fresh) !== key) return { ok: false, status: 'cloud_changed' };
+      if (getRun()) return { ok: false, status: 'run_changed' };
+      const cleaned = await clear(selection);
+      if (!cleaned?.ok) return { ok: false, status: 'cleanup_pending', error: cleaned?.error };
+      const loaded = await load(fresh.candidate, selection);
+      if (!loaded?.ok) return { ok: false, status: 'load_pending', error: loaded?.error };
+      await acknowledgeLegacy(candidate.missionId);
+      log(`MISSION_CLOUD_LEGACY_APPLIED mission=${candidate.missionId}`);
+      return { ok: true, status: 'loaded' };
+    } catch (error) { return { ok: false, status: 'retry', error: error.message }; }
+    finally { inProgress = false; }
+  }
+  return { reconcile, reconcileLegacy, requestReload, busy: () => inProgress, applied: () => applied && { ...applied } };
 }
 module.exports = { createCloudMissionReconciler };

@@ -8035,3 +8035,28 @@ Regressionen: fehlende Bodenfreigabe nach Suspension/ungueltigem Zeitstempel, an
 Validierung: 147 Core-/Adapter-/Runtime-/Szenen-/Effekt-/POI-/Outbox-Tests und 37 echte Kindprozess-/Bush-/Cockpit-Tests bestanden (184 gesamt). Der Kindprozess-Test fuehrt Debug-Auswahl -> echter Runtime-Flug -> Landung/Stillstand -> automatischen Pruefer-Simulatorauftrag durch; kein weiterer UI-Intent zwischen Landung und Besuch. Compliance-/App-Differential-/Tracker-Interface-Selbsttests bestanden. Gepackter ARM64-Host-Missionsprozess: MISSION_PACKAGED_PROCESS_SMOKE_OK, Worker-Exit 0. Windows-x64-Cross-Build ohne Bytecode/public, PE-Format, eingebettete Hotfix-Quellen und unveraenderte gebuendelte UI-Basis-Assets geprueft. Zwei bestehende Flight-Fixtures verwenden nun die passende Intent-Zeit statt veralteter Testuhren. Keine neue Coherent-/MSFS-Szenenabnahme.
 
 Hotfix v543 veroeffentlicht (Quellstand `429da6acb`). Upload und oeffentlicher Download bytegleich: 173924324 Bytes, SHA-256 `f5f829a441161850adcd4aa8e530481bd3d936a13e288b1f953fb43c33b29e6c`. Alpha-Kanal auf den geprueften Build aktiviert, Web-Cache v2102. EFB-Assetrevision 54001, Community-Pakete und Stable bleiben unveraendert: reine Tracker-Ablaufkorrektur, keine UI-Dateiaenderung. Primaerer Worktree liegt auf dem aktuellen Release; nur fremde AGENTS.md-Aenderung/ungetrackte Referenzartefakte bleiben lokal. Sichtbare MSFS-Pruefer-Ankunft nach Rollout erneut testen; Erfolg im Simulator wird hier nicht behauptet.
+
+
+## 16.10.2026 – Tracker v545: Cloud-Vorrang und Cockpit-Startfreigabe
+
+Cloud-Auftrag ersetzt abweichende Tracker-Laeufe erst nach bestaetigter
+Payload-/Szenenbereinigung. Bereits konsumierte Serverrevisionen verhindern
+keine Korrektur eines anderen aktiven lokalen Laufs. Auch validierte Legacy-
+Cloud-Seeds koennen ueber denselben Pfad automatisch laden; kein erzwungener
+App-Push und keine Browser-Owner-Uebernahme. Die App zeigt beim Warten auf
+Bereinigung den Cloud-Synchronisationshinweis ohne Uebernahmeaktion.
+
+Oeffentliche Tracker-Control-Projektionen erhalten `startReadiness` und bieten
+Vorbereitung/Boarding/Load-Bestaetigung/Start nur bei frischer geladener
+Simulatorwelt und drei Sekunden Stillstand am Boden an (<=0,5 kt, <=3 m Drift,
+<=2,5 s Samplealter). Isolierte INT32-Kameraquelle, Sim=1, Live-Flugansicht,
+keine Pause/Slew, keine bekannten Menuekoordinaten. Kein Ortszwang am geplanten
+Abflugplatz. EFB-/App-Intents bleiben durch dieselbe Runtime-Pruefung geschuetzt;
+verzoegerte Vorbereitungseffekte warten auf die Freigabe. DialogMode durch
+ein geoeffnetes EFB ist kein Menuebeweis. Keine neue Community-Paketversion
+noetig: die geaenderte Freigabe kommt vom Tracker-Control-Snapshot.
+
+246 gezielte Tests inkl. echter Kindprozess-/Loopback-Protokolltests bestanden.
+Windows-/MSFS-Abnahme (Hauptmenue -> Flug laden -> Stillstand -> Mission beginnen;
+fremder Startplatz; alte aktive Mission; Rollbewegung; Rueckkehr ins Menue)
+bleibt als Alpha-Feldtest offen. Details im Mission Runtime Authority Contract.
