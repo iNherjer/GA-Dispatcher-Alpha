@@ -26,6 +26,13 @@ Kein neues Community-Paket und kein Desktop-Installer nötig. OpenFreeMap bleibt
 ein Webfeature; keine Änderung der EFB-Karten durch diesen Trackerfix.
 Reale MSFS-/Coherent-Abnahme des EFB-Resets bleibt ein Alpha-Feldtest.
 
+Release v552 veröffentlicht; EXE-Upload mit GitHub-Digest geprüft und danach
+öffentlich vollständig heruntergeladen: 173962186 Bytes, SHA-256
+`48f23d7a2529a72b111fcfcc9bce1bd7aaf3ba2dd2339c2b7ebc391b2e2140e1`.
+129 gezielte Tests, zusätzliche Worker-/HTTP-Nachweise und tatsächlich
+gepackter Node-18-Missionsprozess-Smoke bestanden. Alpha wird auf genau dieses
+Artefakt aktiviert, Web-SW dafür v2121. Stable bleibt unverändert.
+
 ## OpenFreeMap-Webrelease / EFB-Abgrenzung (16.10.2026)
 
 Die Web-App erhält Positron, Dark und Fiord als originale OpenFreeMap-Stile.
