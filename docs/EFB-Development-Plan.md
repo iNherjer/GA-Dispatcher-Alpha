@@ -8266,3 +8266,10 @@ nicht ueberschreiben. Echter IPC-Test bereitet die Szene vor und prueft
 Lat/Lon/Kurs gegen die neue Quelle bei absichtlich abweichender alter Position.
 Der fruehe Quellkandidat v549 wurde nicht als EXE ausgerollt; finaler Kandidat
 v550 enthaelt diesen vollstaendigen Szenenpfad.
+
+Rollout v550: Windows-x64-EXE isoliert aus Tag v550 gebaut. Release unveraenderlich
+veroeffentlicht, oeffentlicher Download geprueft: 174061331 Bytes, SHA-256
+`3810c5b5222d3abff7b4f5a2fbd268623b96f377128f15c9dcd3206f8bf8bba4`.
+Alpha zeigt auf dieses Artefakt; SW-Cache v2115. Neue PC-Liveprobe konnte wegen
+technisch nicht zugestellter Threadnachricht nicht erfolgen; Simulatorabnahme
+bleibt offen. Native EFB-Pakete und Stable unveraendert.
