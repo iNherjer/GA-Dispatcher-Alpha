@@ -7,6 +7,7 @@ function createSlewTelemetry({ handle, definitionId, requestId, int32Type, perio
   const sends = new Map();
   let value = null, capturedAt = null, error = null, disposed = false;
   let lastDiagnosticKey = null, lastDiagnosticAt = null, comparisonRaw = null;
+  let packetIdentity = null;
   const snapshot = (at = now()) => {
     const ageMs = capturedAt === null ? null : Math.max(0, at - capturedAt);
     const status = disposed ? 'disconnected' : error ? 'error'
@@ -24,17 +25,25 @@ function createSlewTelemetry({ handle, definitionId, requestId, int32Type, perio
     if (key !== lastDiagnosticKey || (mismatch && at - lastDiagnosticAt >= 30000)) {
       lastDiagnosticKey = key; lastDiagnosticAt = at;
       log(`TRACKER_SLEW_DIAGNOSTIC data=${JSON.stringify({ ...current, bulkRaw: bulk,
-        bulkActive, mismatch, definitionId, requestId })}`);
+        bulkActive, mismatch, definitionId, requestId, packetIdentity })}`);
     }
     return current;
   };
   const fail = reason => { value = null; capturedAt = null; error = reason; diagnose(); };
   const receive = recv => {
     if (disposed || recv?.requestID !== requestId) return;
-    if (recv.defineID !== definitionId || recv.objectID !== 0 || recv.defineCount !== 1) {
-      fail('slew_packet_identity_invalid'); return;
-    }
     try {
+      packetIdentity = { requestId: recv.requestID, definitionId: recv.defineID,
+        objectId: recv.objectID, defineCount: recv.defineCount,
+        entryNumber: recv.entryNumber ?? null, outOf: recv.outOf ?? null,
+        bytes: typeof recv.data?.remaining === 'function' ? recv.data.remaining() : null };
+      // USER=0 selects the user aircraft in the request. The reply can carry
+      // its concrete object ID, as it does for the isolated clock request.
+      if (recv.defineID !== definitionId || !Number.isSafeInteger(recv.objectID) || recv.objectID < 0
+          || recv.objectID > 0xffffffff || recv.defineCount !== 1
+          || (recv.entryNumber !== undefined && recv.entryNumber !== 1)
+          || (recv.outOf !== undefined && recv.outOf !== 1))
+        throw Error('slew_packet_identity_invalid');
       if (typeof recv.data?.remaining !== 'function' || recv.data.remaining() !== 4
           || typeof recv.data.readInt32 !== 'function') throw Error('slew_packet_size_invalid');
       const raw = recv.data.readInt32();

@@ -2,15 +2,22 @@
 // Independent INT32 request: optional aircraft SimVars must never shift CAMERA STATE.
 function createCameraTelemetry({ handle, definitionId, requestId, int32Type, period, intervalFrames = 3, now = Date.now, log = () => {} }) {
   let state = null, at = null, disposed = false, lastError = null;
+  let packetIdentity = null, rawValue = null;
   const sends = new Set();
-  const fail = reason => { state = null; at = null; if (lastError !== reason) log(`MISSION_CAMERA_SOURCE_ERROR error=${reason}`); lastError = reason; };
+  const fail = reason => { state = null; at = null; if (lastError !== reason) log(`MISSION_CAMERA_SOURCE_ERROR error=${reason} data=${JSON.stringify({ packetIdentity, rawValue })}`); lastError = reason; };
   const receive = packet => {
     if (disposed || packet?.requestID !== requestId) return;
     try {
+      rawValue = null;
+      packetIdentity = { requestId: packet.requestID, definitionId: packet.defineID,
+        objectId: packet.objectID, defineCount: packet.defineCount,
+        entryNumber: packet.entryNumber ?? null, outOf: packet.outOf ?? null,
+        bytes: packet.data?.remaining?.() ?? null };
       if (packet.defineID !== definitionId || !Number.isSafeInteger(packet.objectID) || packet.objectID < 0
           || packet.defineCount !== 1 || (packet.entryNumber !== undefined && packet.entryNumber !== 1)
           || (packet.outOf !== undefined && packet.outOf !== 1) || packet.data?.remaining?.() !== 4) throw Error('camera_packet_invalid');
       const value = packet.data.readInt32();
+      rawValue = value;
       if (!Number.isInteger(value) || value < 0 || value > 33) throw Error('camera_state_invalid');
       state = value; at = now(); lastError = null;
     } catch (error) { fail(error.message); }

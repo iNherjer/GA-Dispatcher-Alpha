@@ -41,13 +41,32 @@ test('shifted bulk weight cannot set Slew and produces a bounded mismatch diagno
 test('unrelated requests are ignored; malformed identity, packet length and read failures stay unknown',()=>{
   const h=harness();h.receive(0);
   h.receive(2000,{requestID:206});assert.equal(h.reader.snapshot().active,false);
-  for(const patch of [{defineID:206},{objectID:88},{defineCount:2},
+  for(const patch of [{defineID:206},{objectID:-1},{objectID:null},{objectID:1.5},{objectID:0x100000000},
+    {defineCount:2},{entryNumber:0},{outOf:2},
     {data:{remaining:()=>8,readInt32:()=>2000}},
     {data:{remaining:()=>4,readInt32:()=>{throw Error('short read');}}}]){
     h.receive(1,patch);assert.equal(h.reader.snapshot().status,'error');
     assert.equal(h.reader.snapshot().active,null);
     h.receive(0);assert.equal(h.reader.snapshot().active,false);
   }
+});
+
+test('concrete user-aircraft reply IDs preserve off/on states and cockpit readiness',()=>{
+  const {createMissionStartReadiness}=require('./tracker-mission-start-readiness');
+  const h=harness();let at=10000;const gate=createMissionStartReadiness({now:()=>at});
+  const sample=(slewValue,patch={})=>{
+    h.receive(slewValue,{objectID:540672,entryNumber:1,outOf:1});
+    return gate.observe({observedAt:at,simRunning:1,simPaused:false,inMenuOrMap:false,
+      cameraState:2,lat:48.2769,lon:8.430896,altFt:2202,onGround:true,gsKts:0,
+      slewActive:h.reader.snapshot().active,...patch});
+  };
+  assert.equal(sample(0).ready,false);
+  for(let n=0;n<6;n++){at+=500;h.advance(500);sample(0);}
+  assert.equal(gate.snapshot().ready,true);
+  h.reader.diagnose();assert.equal(h.logs.at(-1).packetIdentity.objectId,540672);
+  assert.equal(sample(1).ready,false);assert.equal(h.reader.snapshot().active,true);
+  at+=500;h.advance(500);assert.equal(sample(0,{cameraState:12,inMenuOrMap:true}).ready,false);
+  h.advance(2501);assert.equal(h.reader.snapshot().active,null);
 });
 
 test('server errors are correlated by send ID; stale and disconnect states never invent an off value',()=>{

@@ -18,4 +18,11 @@ test('malformed, unrelated, shifted packets and SimConnect exceptions cannot man
  }
  f.handle.emit('exception',{sendId:100,exceptionName:'NAME_UNRECOGNIZED'});assert.equal(f.camera.snapshot(),null);
  f.receive(2000);assert.equal(f.camera.snapshot(),null);const n=f.logs.length;f.receive(2000);assert.equal(f.logs.length,n);
+ assert.match(f.logs.at(-1),/"rawValue":2000/);
+});
+test('concrete user aircraft IDs are accepted; an invalid transition cannot retain cockpit readiness',()=>{
+ const f=fixture();f.receive(2,{objectID:540672,entryNumber:1,outOf:1});assert.equal(f.camera.snapshot(),2);
+ f.receive(-1,{objectID:540672});assert.equal(f.camera.snapshot(),null);
+ assert.match(f.logs.at(-1),/"objectId":540672/);
+ f.receive(2,{objectID:540672});assert.equal(f.camera.snapshot(),2);
 });

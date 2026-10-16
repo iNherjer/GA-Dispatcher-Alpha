@@ -8134,3 +8134,26 @@ an Flugsicherung senden und in World Map pruefen; Missionsstart weiterhin
 erst im geladenen Cockpit am Boden im Stillstand. Keine Behauptung einer
 bestandenen Simulatorabnahme. Keine manuelle Installation vorgenommen.
 Stable-Zeiger unveraendert.
+
+
+## 16.10.2026 – Startfreigabe nach World-Map-Transfer, Tracker v547
+
+Nutzer bestaetigt erfolgreichen World-Map-/ATC-Transfer mit v546 und
+EFB/Toolbar 0.4.25. Nach Laden des Cockpits fehlten die Missionsstartaktionen.
+Logs: Auftrag weiter planned, `slew_packet_identity_invalid`; isolierte
+Clock-Telemetrie meldet konkrete Flugzeug-ID 540672. Slew-Reader verwechselte
+USER=0 (Request-Selektor) mit der konkreten Objekt-ID einer Antwort. Dadurch
+blieb Slew unbekannt und die Startfreigabe korrekt gesperrt.
+
+Gezielter Fix: nur zur eigenen Request-/Definitionskennung gehoerende
+Einzelantworten mit gueltiger UINT32-Objekt-ID akzeptieren; Count, Bytegroesse
+und entryNumber/outOf weiter pruefen. Kein Bulk-Fallback und keine Annahme
+Slew=false bei Fehlern. Paketkennung im Slew-Log sowie Rohwert/Paketkennung
+bei Kamera-Fehlern ergaenzt. Kamerazustaende/Startfreigabe unveraendert.
+Regression fuer konkrete Objekt-ID bis zur echten Startfreigabe sowie
+Menue, Slew aktiv, Stale und fehlerhafte Pakete. 117 relevante Tests bestanden;
+ein Loopback-Test separat ausserhalb der Sandbox ausgefuehrt (zuvor EPERM).
+Unabhaengige PC-/SimConnect-Messung bestaetigt im geladenen Cockpit:
+User-Objekt-ID 540672 in Slew- und Kameraantwort, Slew aus, keine Pause,
+Kamera stabil 2. Auslieferung und Test mit neuem Decoder noch ausstehend.
+Kein neues natives EFB-Paket erforderlich.
