@@ -2533,7 +2533,7 @@
           if (previousFocus && previousFocus.focus) previousFocus.focus();
           var current = missionSnapshot && missionSnapshot.control;
           if (!accepted || !current || current.missionId !== missionId || current.runId !== runId) { resolve(false); return; }
-          resolve(submitMissionIntent('abort_mission', { reason: String(settings.reason || 'efb-toolbar-reset') }));
+          resolve(submitMissionIntent('abort_mission', { reason: String(settings.reason || 'efb-toolbar-reset'), resetToPlanned: true }));
         }
         function keydown(event) {
           if (event.key === 'Escape') { event.preventDefault(); finish(false); }
@@ -2930,6 +2930,10 @@
     var view = next && next.view && typeof next.view === 'object' ? next.view : {};
     var previousControl = missionSnapshot && missionSnapshot.control;
     var nextControl = next && next.control;
+    if (!nextControl || !previousControl || previousControl.runId !== nextControl.runId) {
+      cargoSignatureAnimationEndsAt = 0;
+      cargoSignatureAnimationScope = '';
+    }
     if (previousControl && nextControl && previousControl.runId === nextControl.runId
         && previousControl.missionId === nextControl.missionId
         && Number(nextControl.authorityRevision) < Number(previousControl.authorityRevision)) return;

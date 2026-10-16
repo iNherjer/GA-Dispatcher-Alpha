@@ -21381,3 +21381,17 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
 
 .logbook-stage.is-foreground .logbook-cover-mask { clip-path: none; z-index: 4; }
 .logbook-reading { z-index: 5; }
+
+/* OpenFreeMap stays underneath the Leaflet aviation/weather and marker panes. */
+.leaflet-gl-layer {
+    pointer-events: none;
+}
+
+.ga-vector-map-status {
+    max-width: 260px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: #202830;
+    color: #fff;
+    font: 12px/1.4 sans-serif;
+}

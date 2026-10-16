@@ -497,7 +497,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         expectedRevision: authorityManager.getActiveRun()?.revision ?? validated.snapshot.authorityRevision,
         commandId: request.commandId,
         clientId: request.controllerSession?.clientId || 'tracker-execution-runtime',
-        reason: String(request.payload?.reason || request.reason || 'mission-execution-abort')
+        reason: String(request.payload?.reason || request.reason || 'mission-execution-abort'),
+        resetToPlanned: request.payload?.resetToPlanned === true
+          && ['efb', 'toolbar'].includes(request.controllerSession?.role)
       });
       if (aborted.ok) {
         log([

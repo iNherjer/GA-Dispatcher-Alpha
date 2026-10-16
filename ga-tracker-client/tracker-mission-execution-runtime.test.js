@@ -696,6 +696,74 @@ test('tracker abort cleans simulator effects before atomically releasing the act
   assert.match(logs.join('\n'), /MISSION_EXECUTION_ABORTED .*cleared=3 .*source=efb/);
 });
 
+for (const role of ['efb', 'toolbar']) test(`${role}-only reset clears manifest and persists a fresh planned run without a browser`, async t => {
+  const bundle = aptBundle();
+  bundle.missionState.currentMissionData.mission = 'Retained order';
+  bundle.runtime.cargoManifest.items = [
+    { id: 'box', itemType: 'cargo', status: 'loaded', loadedAt: 50, healthPct: 45, log: { damaged: true } },
+    { id: 'pax', itemType: 'passenger', status: 'loaded', handoffComplete: true, handedOffAt: 50 },
+    { id: 'kit', itemType: 'equipment', status: 'loaded', persistentEquipment: true, persistentEquipmentInherited: true, loadedAt: 25 }
+  ];
+  bundle.runtime.cargoManifest.dispatchSignature = { by: 'Pilot', scope: 'departure', at: 50 };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { legacyBundle: bundle });
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-efb-reset-'));
+  const storageFile = path.join(directory, 'authority.json');
+  const manager = committedManager(t, bundle, storageFile);
+  const calls = [];
+  let cleanupSucceeds = false;
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true });
+  runtime.attachSimulator({
+    getLivePosition: () => null,
+    dispatchCommand: () => { throw Error('reset must not spawn, board or load automatically'); },
+    cleanupMission: async () => {
+      calls.push('cleanup');
+      assert.equal(manager.getExecutionSnapshot().state.manifest.dispatchSignature.by, 'Pilot');
+      return cleanupSucceeds ? { ok: true, status: 'ok', cleared: 2 } : { ok: false, status: 'error', error: 'scene_cleanup_failed' };
+    }
+  });
+  const previous = manager.getActiveRun();
+  const rejected = await runtime.executeIntent({ commandId: 'efb-reset-failed', intent: 'abort_mission',
+    missionId: previous.missionId, runId: previous.runId, expectedRevision: previous.revision,
+    payload: { reason: 'map-toolbar-reset', resetToPlanned: true }, controllerSession: { clientId: 'efb-only', role } });
+  assert.equal(rejected.ok, false);
+  assert.equal(manager.getActiveRun().runId, previous.runId);
+  assert.equal(manager.getExecutionSnapshot().state.manifest.dispatchSignature.by, 'Pilot');
+  cleanupSucceeds = true;
+  const result = await runtime.executeIntent({ commandId: 'efb-reset', intent: 'abort_mission',
+    missionId: previous.missionId, runId: previous.runId, expectedRevision: previous.revision,
+    payload: { reason: 'map-toolbar-reset', resetToPlanned: true }, controllerSession: { clientId: 'efb-only', role } });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.resetToPlanned, true);
+  assert.deepEqual(calls, ['cleanup', 'cleanup']);
+  const current = manager.getActiveRun({ includeBundle: true });
+  assert.notEqual(current.runId, previous.runId);
+  assert.equal(current.missionId, previous.missionId);
+  assert.equal(current.phase, 'planned');
+  assert.equal(current.resumeBundle.missionState.currentMissionData.mission, 'Retained order');
+  for (const snapshot of [manager.getExecutionSnapshot(), createMissionAuthorityManager({
+    storageFile, executionAuthorityEnabled: true
+  }).getExecutionSnapshot()]) {
+    assert.equal(snapshot.state.manifest.dispatchSignature, null);
+    assert.deepEqual(snapshot.state.manifest.items.map(item => item.status), ['pending', 'pending', 'loaded']);
+    assert.equal(snapshot.state.manifest.items[0].healthPct, 100);
+    assert.deepEqual(snapshot.state.manifest.items[0].log, {});
+    assert.equal(snapshot.state.manifest.items[1].handoffComplete, false);
+    assert.equal(snapshot.state.flags.loadConfirmed, false);
+    assert.deepEqual(snapshot.state.effects, []);
+    assert.ok(snapshot.view.allowedActions.includes('prepare_mission'));
+  }
+  const view = require('./tracker-efb-mission-view-core.js').projectTrackerEfbMissionView(current, null, null, manager.getPublicSnapshot().execution);
+  assert.ok(view.ui);
+  assert.equal(view.manifest.dispatchSignature, null);
+  assert.equal(view.manifest.items[0].status, 'pending');
+  const stale = await runtime.executeIntent({ commandId: 'late-old-load', intent: 'set_manifest_item',
+    missionId: previous.missionId, runId: previous.runId, expectedRevision: previous.revision,
+    payload: { itemId: 'box', action: 'load' }, controllerSession: { clientId: 'old-client', role } });
+  assert.equal(stale.ok, false);
+  assert.equal(manager.getExecutionSnapshot().state.manifest.items[0].status, 'pending');
+});
+
 test('tracker abort retains authority when simulator cleanup fails', async (t) => {
   const manager = committedManager(t);
   const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true });

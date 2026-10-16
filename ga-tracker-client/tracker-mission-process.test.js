@@ -158,6 +158,39 @@ test('real mission process commits authority and supports reverse simulator jour
   assert.equal(host.authorityManager.getActiveRun(), null);
 });
 
+test('EFB-only reset publishes the new planned manifest across the real worker boundary', async t => {
+  const host = await fixture(t);
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [{ id: 'box', itemType: 'cargo', status: 'loaded', required: true }];
+  bundle.runtime.cargoManifest.dispatchSignature = { by: 'Pilot', at: 1, scope: 'departure' };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { legacyBundle: bundle });
+  await activate(host, bundle);
+  let cleaned = 0;
+  host.runtime.attachSimulator({
+    getLivePosition: () => null,
+    dispatchCommand: () => { throw Error('reset must not launch scene effects'); },
+    cleanupMission: () => { cleaned++; return { ok: true, status: 'ok' }; }
+  });
+  await until(() => host.runtime.publicState().simulatorAttached);
+  const run = host.authorityManager.getActiveRun();
+  const result = await host.runtime.executeIntent({ commandId: 'efb-only-reset', intent: 'abort_mission',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision,
+    payload: { reason: 'map-toolbar-reset', resetToPlanned: true }, controllerSession: { clientId: 'efb-only', role: 'efb' } });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.resetToPlanned, true);
+  assert.equal(cleaned, 1);
+  const current = host.authorityManager.getActiveRun({ includeBundle: true });
+  const control = host.authorityManager.getPublicSnapshot().execution;
+  assert.notEqual(current.runId, run.runId);
+  assert.equal(control.phase, 'planned');
+  assert.equal(control.manifest.dispatchSignature, null);
+  assert.equal(control.manifest.items[0].status, 'pending');
+  const view = require('./tracker-efb-mission-view-core.js').projectTrackerEfbMissionView(current, null, null, control);
+  assert.equal(view.manifest.dispatchSignature, null);
+  assert.equal(view.manifest.items[0].status, 'pending');
+});
+
 test('stopped mission process cannot block local EFB HTTP or parent timers; telemetry backlog stays bounded',
   { skip: process.platform === 'win32' }, async t => {
     const host = await fixture(t);

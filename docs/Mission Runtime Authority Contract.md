@@ -352,6 +352,18 @@ lokal daran vorbeischreiben. Die App fuehrt dafuer eine atomare Kette aus:
 7. Erst danach darf Clear/Reset enden, der geplante Reset-Seed erneut
    veroeffentlicht oder die Erzeugung der neuen Mission begonnen werden.
 
+Für den ausdrücklich bestätigten EFB-/Toolbar-Reset ergänzt Tracker v552 den
+lokalen Zusatz `payload.resetToPlanned: true` am bestehenden `abort_mission`.
+Nur authentifizierte EFB-/Toolbar-Controller können diesen Neustart anfordern.
+Nach derselben Bereinigung schreibt der Tracker den alten abgebrochenen Lauf
+und einen neuen geplanten Lauf mit frischer Run-ID atomar. Auftrag und Recipe
+bleiben erhalten; Ladung, Signatur, Flug- und Aufgabenfortschritt werden
+zurückgesetzt, geerbte Bordausrüstung bleibt erhalten. Dies benötigt weder eine
+geöffnete Web-App noch einen Cloudabruf und löst keine Vorbereitung oder
+Simulatorbeladung aus. Normales Abort/Clear und der Web-Resetpfad bleiben
+unverändert. Bei fehlgeschlagener Bereinigung oder Persistenz gibt es keinen
+bestätigten Reset; der bisherige Authority-Stand bleibt erhalten.
+
 Falls ein bereits terminaler Run aus einem Fehlerfall noch eine unaufgeraeumte
 Missionszuladung im Simulator hinterlassen hat, uebernimmt der erste
 Payload-Sync eines kompatiblen Ersatz-Runs dessen privat persistierte

@@ -13,6 +13,7 @@ const executionCore = require('../mission-execution-core.js');
 const locationCore = require('../mission-location-core.js');
 const payloadCore = require('../mission-payload-core.js');
 const flightRecorderCore = require('../mission-flight-recorder-core.js');
+const { plannedResetBundle } = require('./tracker-mission-reset.js');
 
 const STATE_SCHEMA = 'ga.mission-authority.v1';
 const STATE_VERSION = 1;
@@ -1552,6 +1553,14 @@ function createMissionAuthorityManager(options = {}) {
     if (!executionCore.deriveView(executionState).allowedActions.includes('abort_mission')) {
       return { ok: false, status: 'blocked', error: 'mission_intent_not_allowed_in_state', activeRun: publicRun(active) };
     }
+    let resetBundle = null, resetProjection = null;
+    if (request.resetToPlanned === true) {
+      resetBundle = safeResumeBundle(plannedResetBundle(active));
+      resetProjection = executionProjection(resetBundle);
+      if (!resetProjection.ok || resetProjection.phase !== 'planned' || !supportsExecutionRecipe(resetProjection.recipe, resetBundle)) {
+        return { ok: false, status: 'error', error: resetProjection.error || 'mission_reset_seed_invalid', activeRun: publicRun(active) };
+      }
+    }
     const previousState = jsonClone(state);
     active.active = false;
     active.state = 'aborted';
@@ -1562,6 +1571,24 @@ function createMissionAuthorityManager(options = {}) {
     active.lastReason = cleanString(request.reason, 240) || 'tracker-execution-aborted';
     state.lastRun = normalizeStoredRun(active);
     state.activeRun = null;
+    if (resetBundle) {
+      const candidateId = idFactory();
+      state.activeRun = {
+        ...jsonClone(active),
+        runId: candidateId !== active.runId ? candidateId : `mission-reset-${crypto.randomBytes(12).toString('hex')}`,
+        active: true, state: 'active', phase: 'planned', revision: 1,
+        acquiredAt: now(), updatedAt: now(), lastSnapshotSequence: 0,
+        lastCommandType: 'mission_execution_reset', lastReason: active.lastReason,
+        stateHash: resetProjection.stateHash,
+        executionRecipe: resetProjection.recipe,
+        executionRevision: 0, executionAppliedEvents: 0,
+        executionStateHash: resetProjection.stateHash,
+        executionWebStateHash: null,
+        executionState: resetProjection.state,
+        executionPayloadRecovery: null, executionRuntimeContext: null, executionHandoff: null,
+        resumeBundle: resetBundle, effects: []
+      };
+    }
     addEvent('execution_aborted', {
       missionId: active.missionId,
       runId: active.runId,
@@ -1578,7 +1605,7 @@ function createMissionAuthorityManager(options = {}) {
         activeRun: publicRun(state.activeRun)
       };
     }
-    return { ok: true, status: 'ok', outcome: 'aborted', releasedRun: publicRun(state.lastRun), activeRun: null };
+    return { ok: true, status: 'ok', outcome: 'aborted', resetToPlanned: Boolean(resetBundle), releasedRun: publicRun(state.lastRun), activeRun: publicRun(state.activeRun) };
   };
 
   const release = (request = {}) => {

@@ -77,6 +77,28 @@ function fixture(t, options = {}) {
     apply, restart() { manager = createMissionAuthorityManager(managerOptions); connect(); } };
 }
 
+test('EFB-only reset discards active POI work and survives restart as a planned original order', async t => {
+  const f = fixture(t);
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: f.manager, enabled: true });
+  const before = f.manager.getActiveRun();
+  assert.notEqual(f.manager.getExecutionSnapshot().state.phase, 'planned');
+  const result = await runtime.executeIntent({ commandId: 'poi-efb-reset', intent: 'abort_mission',
+    missionId: before.missionId, runId: before.runId, expectedRevision: before.revision,
+    payload: { reason: 'map-toolbar-reset', resetToPlanned: true }, controllerSession: { clientId: 'efb-only', role: 'efb' } });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  for (let pass = 0; pass < 2; pass++) {
+    if (pass) f.restart();
+    const snapshot = f.manager.getExecutionSnapshot();
+    assert.equal(snapshot.state.phase, 'planned');
+    assert.equal(snapshot.state.flags.started, false);
+    assert.equal(snapshot.state.progress.dwellSec, 0);
+    assert.equal(snapshot.state.manifest.dispatchSignature, null);
+    assert.deepEqual(snapshot.state.effects, []);
+    assert.notEqual(snapshot.runId, before.runId);
+    assert.equal(f.manager.getActiveRun({ includeBundle: true }).resumeBundle.executionPoiRecipe.taskDomain, 'media_photo');
+  }
+});
+
 test('POI recipe is explicitly gated and rejects unsupported/ambiguous task data', t => {
   assert.equal(fixture(t, { poiExecutionEnabled: false }).prepared.error, 'mission_execution_recipe_not_enabled');
   for (const patch of [{ taskDomain: 'mapping_survey' }, { target: { lat: null, lon: 0 } },

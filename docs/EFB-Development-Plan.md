@@ -1,3 +1,31 @@
+## Tracker v552 Alpha: eigenständiger EFB-/Toolbar-Missionsreset (16.10.2026)
+
+Nutzerbefund: Ladung und Unterschrift bleiben auch bei ausschließlich geöffnetem
+EFB erhalten. Der Web-App-Fix allein deckt diesen Betrieb nicht ab. Der bisherige
+Cockpit-Reset sendete nur Abort; die Rückkehr zu einem bereinigten geplanten Seed
+war noch von der Web-App abhängig. Die frühere Aussage, für den gesamten Befund
+sei kein Tracker-Update nötig, ist damit korrigiert.
+
+Der bestätigte EFB-/Toolbar-Reset sendet zusätzlich `resetToPlanned: true` über
+den bestehenden authentifizierten Abort-Intent. Nur diese beiden lokalen
+Controllerrollen dürfen damit einen geplanten Neustart anfordern. Nach der
+bestehenden Simulator-/Szenenbereinigung schreibt der Authority-Manager den
+abgebrochenen Lauf und den neuen geplanten Lauf atomar: neue Run-ID, derselbe
+Auftrag/Briefing/Recipe, Missionsladung und PAX offen, keine Unterschrift,
+kein Flug-/Aufgaben-/Payload-/Voice-Fortschritt und keine gestarteten Effekte.
+Geerbte, weiterhin geladene Bordausrüstung bleibt erhalten. Der neue Lauf wird
+lokal gespeichert und unmittelbar im ACK projiziert, ohne Cloudabruf oder App.
+Späte Aktionen des alten Laufs werden wegen dessen alter Run-ID abgewiesen.
+Normales Abort, Clear, Cloudersetzung und Desktop-Hard-Reset behalten ihre
+bisherige Semantik. Das EFB verwirft beim Laufwechsel auch Signaturanimationen.
+
+APT-/POI-Regressionen, Toolbar, Persistenz/Neustart, Fehler bei Szenenbereinigung
+und echte Worker-IPC-Projektion geprüft. Tracker v552 / Assetrevision 55201;
+Web-SW v2120 für Quellen, nach Downloadprüfung separater Alpha-Kanalcommit.
+Kein neues Community-Paket und kein Desktop-Installer nötig. OpenFreeMap bleibt
+ein Webfeature; keine Änderung der EFB-Karten durch diesen Trackerfix.
+Reale MSFS-/Coherent-Abnahme des EFB-Resets bleibt ein Alpha-Feldtest.
+
 ## OpenFreeMap-Webrelease / EFB-Abgrenzung (16.10.2026)
 
 Die Web-App erhält Positron, Dark und Fiord als originale OpenFreeMap-Stile.
@@ -27,7 +55,8 @@ bleiben Tracker-, Desktop-, EFB-/Toolbar-Community-Pakete und Kanäle unverände
 Der vorherige Verlade-Reset-Fix betrifft den lokalen Web-App-Manifestreset nach
 bestätigtem Tracker-Abbruch (`sync.js`, `mission-cargo-core.js`). Der vorhandene
 Tracker führt Abort/Payload-/Scene-Cleanup schon aus; hierfür ist keine neue
-Tracker-Runtime erforderlich. Kein Nachweis eines zusätzlichen EFB-Resetfehlers.
+Tracker-Runtime erforderlich. Der danach bestätigte EFB-only-Befund benötigt
+dagegen den oben beschriebenen Tracker-v552-Fix.
 
 ## Tracker v540 Alpha: EFB-Mediensteuerung / Coherent-Korrektur (15.10.2026)
 
