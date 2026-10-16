@@ -8285,3 +8285,8 @@ Regression mit echten App-Styles in Standard, Retro, Win95 und Ops1940 sowie
 85-%-Skalierung prüft Rechtecke und echten Mittelpunkt-Klick. Webquelle,
 gepinnte EFB-CSS und Runtime-Asset identisch. Vom Nutzer für Webapp und Tracker
 Alpha freigegeben; Desktop, Stable-Runtime und Community-Paket unverändert.
+
+Rollout v551: öffentliche EXE vollständig heruntergeladen und gegen den Build
+verifiziert (173956773 Bytes, SHA-256
+`a9bf5f564f818a070ece36e122b5b635826bfd6d3964b01248138c304819c0e1`).
+Alpha aktiviert; Webapp-SW-Cache v2117. Desktop und Stable unverändert.
