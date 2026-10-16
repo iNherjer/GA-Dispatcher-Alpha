@@ -1,3 +1,22 @@
+## Alpha-Rollback auf unverändertes Tracker v552 (16.10.2026)
+
+Nutzer meldet auch mit v554 weiterhin CTD beim EFB-Popout, stehende Routenlinie
+und fehlendes Übergabebanner. Auf ausdrücklichen Auftrag zeigt Alpha wieder
+auf das bereits veröffentlichte, unveränderte v552-Artefakt. Kein Neubau,
+keine Umnummerierung alter Binärdateien und keine Stable-Änderung.
+Öffentlicher Download erneut geprüft: 173962186 Bytes, SHA-256
+`48f23d7a2529a72b111fcfcc9bce1bd7aaf3ba2dd2339c2b7ebc391b2e2140e1`.
+SW v2126 für die Kanalumschaltung. v553/v554-Quellhistorie bleibt erhalten;
+der ausgelieferte Alpha-Tracker ist exakt v552 mit dessen EFB-Assets.
+
+Der bestehende Desktop-Runtime-Updater installiert ausschließlich höhere
+Versionscodes bzw. geänderte Hashes bei derselben Version. Er führt deshalb
+keinen automatischen Downgrade von v554 auf v552 aus, auch nicht mit force.
+Betroffene Nutzer schließen MSFS und den Desktop-Tracker vollständig und
+starten die direkt heruntergeladene portable v552-EXE. Ein Desktop-Neustart
+allein bleibt bei der bereits installierten neueren Version. Kein neuer
+Community-Paketbau. Simulatorprüfung der zurückgerollten Version steht aus.
+
 ## Tracker v554 Alpha: EFB-Kartenrücknahme (16.10.2026)
 
 MSFS-Feldtest von v553 fehlgeschlagen: Nutzer meldet eingefrorene Karte,
