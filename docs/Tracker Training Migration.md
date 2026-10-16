@@ -471,3 +471,29 @@ Releaseprüfung v542: Die Trainings-Integration verwendet dieselbe injizierte Uh
 für Telemetrie und Freshness-Gates. Damit scheitern simulierte Auswärtslandungen
 nicht mehr an Zeitstempeln in der Zukunft; Runtime-Gates bleiben unverändert.
 Die Simulatorabnahme der Kurvenkorrektur bleibt nach Alpha-Veröffentlichung offen.
+
+
+## Weitere Trainingskorrekturen (Tracker v544 Alpha)
+
+- Stall-Break: MSFS-Pitch ist positiv nach unten. Das Pitch-Indiz berechnet jetzt
+  aktuellen Pitch minus Eintrittspitch. Weiteres Hochziehen erzeugt kein
+  Abkipp-Indiz; die anderen bestehenden Break-Indizien bleiben erhalten.
+- Stallstart: `startReserveFt` beträgt mindestens 500 ft (größere Rezeptwerte
+  bis 2000 ft bleiben erhalten). Der Standardstart liegt damit bei 3000 ft AGL,
+  die laufende Sicherheitshöhe weiterhin bei 2500 ft AGL. Die gemeinsame
+  Mindesthöhenfunktion normalisiert auch gespeicherte alte Übungswerte.
+  Optionale Stalls erhalten ihre eigene Reserve, ohne den Pflichtteil anzuheben.
+- Geradeaus-/Höhenwechsel: mindestens ±100 ft Höhe, ±10° Kurs, Bank ≤10°,
+  IAS ±10 kt und 30 Sekunden Korrekturfrist. Engere gespeicherte Werte werden
+  angehoben. Haltezeit wird bei einer Abweichung weiterhin zurückgesetzt.
+- `altitudeStepChecks()` ist die gemeinsame Kriterienfunktion für Detektor und
+  Tracker-Guidance. Der Übergang in die finale Haltephase verlangt durchgehend
+  Zielhöhe, Kurs, Bank, IAS und |VS| ≤350 ft/min für die veröffentlichte
+  Stabilisierungszeit. Eine Abweichung setzt diese Zeit zurück. Die vorbereitende
+  Bankfreigabe verwendet für diese Übungen ebenfalls den veröffentlichten Wert.
+- Alte laufende Stall-/Höhenwechselversuche werden beim Tracker-Restore einmal
+  neu angesetzt; neue Kennungen verhindern eine wiederholte Rücksetzung.
+  Bereits abgeschlossene Übungen und Pflichtabschluss bleiben erhalten.
+
+Die Änderungen gelten für POI/APT, alle Trainings-Domains sowie Pflicht- und
+Zusatzübungen. Die übrigen Missionsfamilien bleiben unverändert. Die Simulator-Abnahme erfolgt nach dem Alpha-Rollout.

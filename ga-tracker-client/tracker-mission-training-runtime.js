@@ -34,11 +34,16 @@ function createState(recipe, saved) {
     const ex = recipe.trainingRecipe.exercises[checkpoint.procedureState.activeState.activeIndex];
     const oldTurn = active && ['turn_180', 'constant_bank_360'].includes(ex?.type)
         && active.turnDirectionConvention !== 'msfs-bank-positive-left-v1';
-    if (oldTurn) checkpoint = adapter.action(spec(recipe), checkpoint, {type:'abort'}, saved?.lastSampleAt ?? 0).state;
+    const oldStall = active && ex?.type === 'stall_recovery'
+        && active.stallPitchConvention !== 'msfs-pitch-positive-down-v1';
+    const oldStep = active && ex?.type === 'altitude_step_hold' && active.altitudeStepRulesVersion !== 2;
+    const restart = oldTurn || oldStall || oldStep;
+    if (restart) checkpoint = adapter.action(spec(recipe), checkpoint, {type:'abort'}, saved?.lastSampleAt ?? 0).state;
     const state = { checkpoint, progress: progress(checkpoint), flight: flight.createState(saved?.flight), lastSampleAt: saved?.lastSampleAt ?? null, coaching: saved?.coaching ? JSON.parse(JSON.stringify(saved.coaching)) : null, guidance: saved?.guidance || null };
-    if (oldTurn) {
+    if (restart) {
         const c = coaching.init(state);
-        c.notice = c.pendingNotice = 'Kurvenauswertung aktualisiert. Aktuellen Durchgang neu stabilisieren und starten; abgeschlossene Übungen bleiben erhalten.';
+        const subject = oldTurn ? 'Kurvenauswertung' : oldStall ? 'Stallauswertung' : 'Höhenwechselauswertung';
+        c.notice = c.pendingNotice = `${subject} aktualisiert. Aktuellen Durchgang neu stabilisieren und starten; abgeschlossene Übungen bleiben erhalten.`;
         c.phaseKey = ''; c.driftSince = null; c.lastAt = null;
         state.lastSampleAt = null;
         state.guidance = coaching.project(recipe, state);

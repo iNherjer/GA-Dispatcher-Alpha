@@ -13,7 +13,7 @@ function harness(mode='POI', raw={}) {
   let state=runtime.createState(recipe),now=10000;
   const observe=(patch={},dt=1000)=>{
     now+=dt;
-    const result=runtime.observe(recipe,state,{observedAt:now,lat:48.3,lon:8.5,altFt:3000,aglFt:1750,
+    const result=runtime.observe(recipe,state,{observedAt:now,lat:48.3,lon:8.5,altFt:3000,aglFt:1800,
       hdg:90,bankDeg:0,vsFpm:0,iasKts:90,gsKts:90,gForce:1.1,onGround:false,...patch});
     state=result.state;return result;
   };
@@ -23,7 +23,7 @@ function harness(mode='POI', raw={}) {
 }
 test('descent readiness includes the step and published altitude tolerance, even with an old lower gate',()=>{
   const h=harness('POI',{readyMinAglFt:1200});
-  assert.equal(h.recipe.trainingRecipe.readyMinAglFt,1750);
+  assert.equal(h.recipe.trainingRecipe.readyMinAglFt,1800);
   const custom=harness('POI',{minAglFt:1500,exercises:[{id:'d',type:'altitude_step_hold',direction:'descent',altitudeStepFt:1000,maxAltitudeDeltaFt:100}]});
   assert.equal(custom.recipe.trainingRecipe.readyMinAglFt,2600);
 });
@@ -33,8 +33,8 @@ for(const mode of ['POI','APT']) {
     const first=h.observe({aglFt:1400});h.observe({aglFt:1400},3100);
     assert.equal(h.state.progress.startAvailable,false);
     assert.equal(h.raw.active,null);
-    assert.match(h.state.guidance.rows.find(r=>r.id==='altitude').label,/1750 ft AGL/);
-    assert.match(first.voices.map(v=>v.resolvedRecipe.fallbackText).join(' '),/1750 ft AGL/);
+    assert.match(h.state.guidance.rows.find(r=>r.id==='altitude').label,/1800 ft AGL/);
+    assert.match(first.voices.map(v=>v.resolvedRecipe.fallbackText).join(' '),/1800 ft AGL/);
     h.action('training_ready');assert.equal(h.raw.active,null);
   });
   test(`${mode} descent at the reserve completes after restore with Slew and the allowed low edge`,()=>{
@@ -44,9 +44,9 @@ for(const mode of ['POI','APT']) {
     h.restore();
     for(let i=0;i<7;i++)h.observe(slew);
     assert.equal(h.raw.active.phase,'altitude_change');
-    h.observe({...slew,altFt:2500,aglFt:1250});h.observe({...slew,altFt:2500,aglFt:1250});
+    h.observe({...slew,altFt:2500,aglFt:1300});h.observe({...slew,altFt:2500,aglFt:1300});
     assert.equal(h.raw.active.phase,'hold_final');
-    for(let i=0;i<7;i++)h.observe({...slew,altFt:2450,aglFt:1200});
+    for(let i=0;i<7;i++)h.observe({...slew,altFt:2400,aglFt:1200});
     assert.equal(h.state.progress.requiredComplete,true);
   });
   test(`${mode} an optional descent gets its own start reserve without raising a turn's gate`,()=>{
@@ -60,8 +60,8 @@ for(const mode of ['POI','APT']) {
     h.action('training_ready');assert.equal(h.raw.active.targetAltFt,2500);
   });
 }
-test('climb, turn and stall gates keep their existing minima',()=>{
-  for(const [type,direction,expected] of [['altitude_step_hold','climb',1200],['turn_180','either',1200],['stall_recovery','either',2500]]) {
+test('climb and turn keep their minima while stall receives a start reserve',()=>{
+  for(const [type,direction,expected] of [['altitude_step_hold','climb',1200],['turn_180','either',1200],['stall_recovery','either',3000]]) {
     assert.equal(harness('POI',{exercises:[{id:type,type,direction}]}).recipe.trainingRecipe.readyMinAglFt,expected);
   }
 });
@@ -69,7 +69,7 @@ test('climb, turn and stall gates keep their existing minima',()=>{
 for(const mode of ['POI','APT']) {
   test(`${mode} losing the descent reserve before the click revokes a prepared start`,()=>{
     const h=harness(mode);h.observe();h.observe({},3100);assert.equal(h.state.guidance.canStart,true);
-    h.observe({aglFt:1749});assert.equal(h.state.guidance.canStart,false);
+    h.observe({aglFt:1799});assert.equal(h.state.guidance.canStart,false);
     h.action('training_ready');assert.equal(h.raw.active,null);
     h.observe();h.observe({},3100);assert.equal(h.state.guidance.canStart,true);
   });
@@ -78,7 +78,7 @@ for(const mode of ['POI','APT']) {
     h.raw.recipe.readyMinAglFt=1200;h.restore();
     h.observe({aglFt:1400});h.observe({aglFt:1400},3100);
     assert.equal(h.state.progress.startAvailable,false);
-    assert.match(h.state.guidance.rows.find(r=>r.id==='altitude').label,/1750 ft AGL/);
+    assert.match(h.state.guidance.rows.find(r=>r.id==='altitude').label,/1800 ft AGL/);
     h.observe();h.observe({},3100);assert.equal(h.state.guidance.canStart,true);
   });
 }

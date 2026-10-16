@@ -30,13 +30,15 @@ function checks(recipe,state,sample) {
   if(!ex || !c.reference) return null;
   const alt=a?.phase==='hold_final' || a?.phase==='altitude_change' ? a.targetAltFt : c.reference.altFt;
   const altTolerance=Number(ex.maxAltitudeDeltaFt||50), headingTolerance=Number(ex.maxHeadingDeltaDeg||5);
+  const step=ex.type==='altitude_step_hold' ? procedure.altitudeStepChecks(ex,a||{
+    startAltFt:c.reference.altFt,startHeadingDeg:c.reference.headingDeg,refIasKts:null},sample) : {};
   return {ex,a,alt,altTolerance,headingTolerance,
     height:finite(sample.altFt)&&Math.abs(sample.altFt-alt)<=altTolerance,
     heading:finite(sample.hdg)&&angle(sample.hdg,c.reference.headingDeg)<=headingTolerance,
     bank:finite(sample.bankDeg)&&Math.abs(sample.bankDeg)<=Number(ex.maxBankDeg||8),
     speed:!finite(a?.refIasKts)||(finite(sample.iasKts)&&Math.abs(sample.iasKts-a.refIasKts)<=Number(ex.speedToleranceKts||7)),
     altitudeGate:finite(sample.aglFt)&&sample.aglFt>=altitudeGateMinimum(recipe,state,ex),
-    stable:finite(sample.vsFpm)&&Math.abs(sample.vsFpm)<=350};
+    stable:finite(sample.vsFpm)&&Math.abs(sample.vsFpm)<=350,...step};
 }
 function prepare(recipe,state,sample) {
   const c=init(state), s=raw(state), ex=exercise(recipe,state);
@@ -66,7 +68,7 @@ function prepare(recipe,state,sample) {
     c.holdMs=good?(c.holdGood?c.holdMs+dt:0):0;c.holdGood=good;
     a.phaseStartedAt=now-c.holdMs;metric=c.holdMs;
   } else if(a.phase==='altitude_change') {
-    good=x.heading&&x.bank&&x.speed&&Math.abs(sample.vsFpm)<=Number(ex.maxVsFpm||900)+250;
+    good=x.change;
     metric=-Math.abs(sample.altFt-a.targetAltFt);
   } else if(a.phase==='entry') {timeout=45000;metric=Math.abs(sample.bankDeg);}
   else if(a.phase==='turning') {
@@ -138,6 +140,7 @@ function project(recipe,state) {
   if(!c.reference || c.reference.exerciseId!==ex.id) {
     const distanceRequired=departureMinimum(recipe);
     const altitudeRequired=altitudeGateMinimum(recipe,state,ex);
+    const reserveText=ex.type==='stall_recovery'?` · einschließlich ${ex.startReserveFt} ft Startreserve`:'';
     const distance=sample.departureDistanceNm,agl=sample.aglFt;
     const distanceKnown=finite(distance),altitudeKnown=finite(agl),suspended=c.suspended===true;
     const distanceReady=(s.departureGatePassed||distanceRequired<=0||(distanceKnown&&distance>=distanceRequired))&&!suspended;
@@ -147,7 +150,7 @@ function project(recipe,state) {
     const distanceProgress=distanceRequired<=0?1:distanceKnown?Math.max(0,Math.min(1,distance/distanceRequired)):0;
     const rows=[
       {id:'distance',label:`Mindestens ${distanceRequired.toFixed(1)} NM vom Start entfernen`,status:suspended?'pending':distanceReady?'complete':distanceKnown?'error':'pending',progress:distanceProgress,detail:distanceText},
-      {id:'altitude',label:`Mindestens ${Math.round(altitudeRequired)} ft AGL erreichen`,status:suspended?'pending':altitudeReady?'complete':altitudeKnown?'error':'pending',progress:altitudeKnown&&altitudeRequired>0?Math.max(0,Math.min(1,agl/altitudeRequired)):altitudeReady?1:0,detail:altitudeText}
+      {id:'altitude',label:`Mindestens ${Math.round(altitudeRequired)} ft AGL erreichen${reserveText}`,status:suspended?'pending':altitudeReady?'complete':altitudeKnown?'error':'pending',progress:altitudeKnown&&altitudeRequired>0?Math.max(0,Math.min(1,agl/altitudeRequired)):altitudeReady?1:0,detail:altitudeText}
     ];
     const missing=[];
     if(!distanceKnown)missing.push('Position/Entfernung');
@@ -166,7 +169,8 @@ function project(recipe,state) {
   const headingPreview=preparing&&!s.ready;
   row('heading',headingPreview?`Startkurs bei „Übung starten“ festlegen · aktuell ${hdg(c.reference.headingDeg)}`:`Kurs ${hdg(c.reference.headingDeg)} · ±${x.headingTolerance}°`,preparing?completedOr(x.heading):'complete',preparing&&x.heading?1:0,`Aktuell ${hdg(sample.hdg||0)}`);
   const currentMinAgl=altitudeGateMinimum(recipe,state,ex);
-  row('ready',`Flügel waagerecht, Vertikalgeschwindigkeit ≤350 ft/min · mindestens ${currentMinAgl} ft AGL`,a?'complete':s.startAvailable?'complete':x.bank&&x.stable&&x.altitudeGate?'active':'error',s.startAvailable||a?1:0,
+  const reserveNote=!a&&ex.type==='stall_recovery'?` · einschließlich ${ex.startReserveFt} ft Startreserve`:'';
+  row('ready',`Flügel waagerecht, Vertikalgeschwindigkeit ≤350 ft/min · mindestens ${currentMinAgl} ft AGL${reserveNote}`,a?'complete':s.startAvailable?'complete':x.bank&&x.stable&&x.altitudeGate?'active':'error',s.startAvailable||a?1:0,
     `${a?'Gestartet':s.startAvailable?'Bereit – Übung starten':'Drei Sekunden stabilisieren'} · Bank ${Math.round(sample.bankDeg||0)}° (max. ${ex.maxBankDeg||8}°), VS ${Math.round(sample.vsFpm||0)} ft/min, AGL ${Math.round(sample.aglFt||0)} ft`);
   let phaseLabel='Vorbereitung';
   const status=(current,past,ok=true)=>past?'complete':current?(ok?'active':'error'):'pending';
@@ -181,10 +185,10 @@ function project(recipe,state) {
   } else if(ex.type==='altitude_step_hold') {
     const target=c.reference.altFt+(ex.direction==='descent'?-1:1)*Number(ex.altitudeStepFt||500);
     const speed=finite(a?.refIasKts)?`IAS ${Math.round(a.refIasKts)} ±${ex.speedToleranceKts} kt`:`Geschwindigkeit bei Übungsstart ±${ex.speedToleranceKts} kt halten`;
-    const limits=`Kurs ${hdg(c.reference.headingDeg)} ±${x.headingTolerance}°, Bank ≤${ex.maxBankDeg}°, ${speed}`;
+    const limits=`Kurs ${hdg(c.reference.headingDeg)} ±${x.headingTolerance}°, Bank ≤${ex.maxBankDeg}°, ${speed} · ${ex.valueDeviationGraceSec} s Korrekturfrist bei Sollwertabweichung`;
     const actual=`Höhe ${Math.round(sample.altFt||0)} ft · Kurs ${hdg(sample.hdg||0)} · Bank ${Math.round(sample.bankDeg||0)}° · IAS ${finite(sample.iasKts)?Math.round(sample.iasKts)+' kt':'nicht verfügbar'} · VS ${Math.round(sample.vsFpm||0)} ft/min`;
     row('hold_initial',`${ex.holdSec} s auf ${c.reference.altFt} ft ±${x.altTolerance} ft halten · ${limits}`,status(phase==='hold_initial',['altitude_change','hold_final'].includes(phase),x.height&&x.heading&&x.bank&&x.speed),phase==='hold_initial'?c.holdMs/(ex.holdSec*1000):['altitude_change','hold_final'].includes(phase)?1:0,phase==='hold_initial'?`${Math.round(c.holdMs/1000)} / ${ex.holdSec} s · ${actual}`:['altitude_change','hold_final'].includes(phase)?'Erfüllt':'');
-    row('altitude_change',`${ex.direction==='descent'?'Sinken':'Steigen'} auf ${target} ft MSL · VS maximal ${Number(ex.maxVsFpm)+250} ft/min · am Ziel ≤350 ft/min für ${ex.stableSec} s · ${limits}`,status(phase==='altitude_change',phase==='hold_final',x.heading&&x.bank&&x.speed&&Math.abs(sample.vsFpm)<=Number(ex.maxVsFpm||900)+250),phase==='hold_final'?1:phase==='altitude_change'?1-Math.abs((sample.altFt||0)-target)/ex.altitudeStepFt:0,actual);
+    row('altitude_change',`${ex.direction==='descent'?'Sinken':'Steigen'} auf ${target} ft MSL · Höhe ±${x.altTolerance} ft · VS maximal ${Number(ex.maxVsFpm)+250} ft/min · am Ziel ≤350 ft/min für ${ex.stableSec} s · ${limits}`,status(phase==='altitude_change',phase==='hold_final',x.height?x.levelOff:x.change),phase==='hold_final'?1:phase==='altitude_change'?1-Math.abs((sample.altFt||0)-target)/ex.altitudeStepFt:0,actual);
     row('hold_final',`${ex.holdSec} s auf ${target} ft MSL · ±${x.altTolerance} ft halten · ${limits}`,status(phase==='hold_final',done,x.height&&x.heading&&x.bank&&x.speed),phase==='hold_final'?c.holdMs/(ex.holdSec*1000):0,phase==='hold_final'?`${Math.round(c.holdMs/1000)} / ${ex.holdSec} s · ${actual}`:'');
     phaseLabel={hold_initial:'Ausgangslage halten',altitude_change:'Höhenwechsel',hold_final:'Neue Höhe halten'}[phase]||phaseLabel;
   } else {

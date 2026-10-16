@@ -866,10 +866,19 @@ Zusatzregeln:
   weiter geprüft; ein fehlender Slew-Status allein blockiert keine Übung.
 - Vor einem Sinkflug-Höhenwechsel muss die Starthöhe mindestens die normale
   Übungsgrenze plus geplante Sinkflugstrecke plus veröffentlichte Höhentoleranz
-  abdecken. Bei 1200 ft AGL, 500 ft Sinkflug und ±50 ft sind das 1750 ft AGL.
+  abdecken. Bei 1200 ft AGL, 500 ft Sinkflug und ±100 ft sind das 1800 ft AGL.
   Während der Durchführung gilt weiterhin die normale Übungsgrenze. Freigabe,
   Banner und Einweisung verwenden dieselbe Berechnung; freiwillige Sinkübungen
   erhalten ihre eigene Startreserve, ohne den vorherigen Pflichtteil anzuheben.
+- Stall-Recovery benötigt vor dem Start zusätzlich mindestens 500 ft Reserve
+  über der laufenden Stall-Sicherheitshöhe (standardmäßig 3000 statt 2500 ft AGL).
+  Rezept, Freigabe, Banner und Ansage verwenden dieselbe Berechnung; während
+  des Manövers gilt weiterhin die laufende Sicherheitshöhe. Optionale Stalls
+  erhöhen die Freigabehöhe des vorherigen Pflichtteils nicht.
+- Geradeaus-/Höhenwechselübungen verwenden mindestens ±100 ft Höhe, ±10° Kurs,
+  Bank ≤10°, IAS ±10 kt und 30 Sekunden Korrekturfrist. Ein Höhenwechsel gilt
+  erst nach kontinuierlicher Einhaltung aller Kriterien über die veröffentlichte
+  Stabilisierungszeit als erfüllt.
 
 Wichtige Abgrenzung:
 

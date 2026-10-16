@@ -70,21 +70,21 @@ test('pre-instruction guidance stays visible and uses the core required altitude
   assert.equal(h.state.guidance.visible, true);
   assert.equal(h.state.guidance.instruction, 'Vor der Einweisung müssen Entfernung und Sicherheitshöhe passen.');
   assert.equal(h.row('distance').status, 'complete');
-  assert.match(h.row('altitude').label, /2500 ft AGL/,
+  assert.match(h.row('altitude').label, /3000 ft AGL/,
     'ready altitude must match the core gate when a required stall exercise is present');
   assert.equal(h.row('altitude').status, 'error');
   assert.equal(h.state.progress.readyPrompted, false);
-  h.observe({ aglFt: 2499 });
+  h.observe({ aglFt: 2999 });
   assert.equal(h.row('altitude').status, 'error');
-  h.observe({ aglFt: 2500 });
+  h.observe({ aglFt: 3000 });
   assert.equal(h.state.progress.readyPrompted, true);
   assert.equal(h.state.coaching.reference.exerciseId, 'required_turn');
   h.observe({ aglFt: 1500 });
   assert.equal(h.state.progress.startAvailable, false,
     'falling below the core ready gate before the ready intent must keep the start locked');
-  assert.match(h.row('ready').label, /2500 ft AGL/);
+  assert.match(h.row('ready').label, /3000 ft AGL/);
   assert.equal(h.row('ready').status, 'error');
-  assert.match(h.state.guidance.notice, /2500 ft AGL/);
+  assert.match(h.state.guidance.notice, /3000 ft AGL/);
 });
 
 test('completed guidance keeps POI return wording and sends APT training to its destination', () => {
@@ -171,7 +171,7 @@ test('continuous hold clock resets on brief invalid values and survives restore'
   h.observe({}, 2000);
   h.observe({}, 1000);
   assert.ok(h.row('hold_initial').progress > 0);
-  h.observe({ altFt: 3070 }, 1000);
+  h.observe({ altFt: 3120 }, 1000);
   assert.equal(h.row('hold_initial').status, 'error');
   assert.equal(h.row('hold_initial').progress, 0);
   h.restore();
@@ -275,15 +275,15 @@ for (const type of ['constant_bank_360','turn_180']) for (const direction of ['l
   });
 }
 for(const direction of ['climb','descent']) test(`height and speed guidance covers ${direction} with custom recipe values`,()=>{
-  const h=harness([{id:'step',type:'altitude_step_hold',direction,holdSec:7,altitudeStepFt:700,speedToleranceKts:4,maxVsFpm:600}]);
+  const h=harness([{id:'step',type:'altitude_step_hold',direction,holdSec:7,altitudeStepFt:700,speedToleranceKts:12,maxVsFpm:600}]);
   h.observe();h.observe({},3100);h.action('training_ready');h.observe({},100);
-  assert.match(h.row('hold_initial').label,/7 s.*IAS 90 ±4 kt/);
+  assert.match(h.row('hold_initial').label,/7 s.*IAS 90 ±12 kt/);
   assert.match(h.row('altitude_change').label,/850 ft\/min/);
   const target=direction==='climb'?3700:2300;
   assert.match(h.row('altitude_change').label,new RegExp(`${target} ft`));
-  h.observe({iasKts:96});
+  h.observe({iasKts:106});
   assert.equal(h.row('hold_initial').status,'error');
-  assert.match(h.row('hold_initial').detail,/IAS 96 kt/);
+  assert.match(h.row('hold_initial').detail,/IAS 106 kt/);
   for(let i=0;i<9;i++)h.observe();
   assert.equal(h.raw().active.phase,'altitude_change');
   h.observe({altFt:target,vsFpm:900});
@@ -379,7 +379,7 @@ test('manual start captures IAS immediately and permits abort before the next me
   assert.equal(h.raw().active.phase, 'hold_initial');
   assert.equal(h.raw().active.refIasKts, 90);
   assert.equal(h.raw().active.targetAltFt, 3620);
-  h.observe({altFt:3120, hdg:140, iasKts:100});
+  h.observe({altFt:3120, hdg:140, iasKts:101});
   assert.equal(h.raw().active.refIasKts, 90);
   assert.equal(h.row('hold_initial').status, 'error');
   h.action('training_abort');
@@ -482,4 +482,118 @@ test('an old in-flight turn is restarted once on restore while completed work su
   h.observe({hdg:280},5000);h.observe({hdg:280},3100);h.action('training_ready');
   h.observe({hdg:290,bankDeg:-30});h.restore();
   assert.equal(h.raw().active.phase,'turning','new convention resumes without another reset');
+});
+
+for(const mode of ['POI','APT']) for(const domain of ['training','club_training_basic','club_training_advanced']) {
+  test(`${mode}/${domain} stall uses the real MSFS pitch sign and preserves recovery after restore`,()=>{
+    const h=harness([{id:'stall',type:'stall_recovery',setupStableSec:1,recoveryStableSec:2}],1,5,{mode,domain});
+    h.observe({pitchDeg:-3});h.observe({pitchDeg:-3},3100);h.action('training_ready');
+    h.observe({pitchDeg:-3});h.observe({pitchDeg:-3});
+    h.observe({pitchDeg:-10,iasKts:65,stallState:true,aoaDeg:12});
+    assert.equal(h.raw().active.phase,'hold_to_break');
+    h.observe({pitchDeg:-16,iasKts:65,stallState:true,aoaDeg:12});
+    assert.equal(h.raw().active.phase,'hold_to_break','raising the nose must not earn a break');
+    h.restore();
+    const drop=h.observe({pitchDeg:-4,iasKts:65,stallState:true,aoaDeg:12,altFt:3000,aglFt:3000});
+    assert.equal(h.raw().active.phase,'recovery');
+    assert.match(h.spoken(drop),/Break erkannt/);
+    for(let i=0;i<4;i++)h.observe({altFt:2900,aglFt:2900,aoaDeg:8,stallState:false,vsFpm:-100});
+    assert.equal(h.state.progress.requiredComplete,true);
+  });
+  test(`${mode}/${domain} stall start reserve is shown, revoked on descent and enforced on old recipes`,()=>{
+    const h=harness([{id:'stall',type:'stall_recovery',setupStableSec:1}],1,5,{mode,domain});
+    h.recipe.trainingRecipe.readyMinAglFt=2500;
+    delete h.recipe.trainingRecipe.exercises[0].startReserveFt;
+    const waiting=h.observe({aglFt:2500});h.observe({aglFt:2500},3100);
+    assert.equal(h.state.guidance.canStart,undefined);
+    assert.match(h.spoken(waiting),/3000 ft AGL/);
+    assert.match(h.row('altitude').label,/3000 ft AGL.*500 ft Startreserve/);
+    h.observe();h.observe({},3100);assert.equal(h.state.guidance.canStart,true);
+    assert.match(h.spoken(h.action('training_repeat_instruction')),/3000 ft AGL.*500 ft Startreserve/);
+    h.observe({aglFt:2999});assert.equal(h.state.guidance.canStart,false);
+    h.action('training_ready');assert.equal(h.raw().active,null);
+    h.observe();h.observe({},3100);h.action('training_ready');
+    h.observe({aglFt:2500});assert.ok(h.raw().active,'the flight minimum remains 2500, not the start minimum');
+    h.observe({aglFt:2499});assert.equal(h.raw().active,null);
+    assert.match(h.state.coaching.notice,/mindestens 2500 ft AGL/);
+  });
+}
+
+for(const mode of ['POI','APT']) for(const direction of ['climb','descent'])
+for(const [name,invalid] of [['heading',{hdg:101}],['bank',{bankDeg:11}],['speed',{iasKts:101}],['height',{altOffset:101}],['vertical speed',{vsFpm:351}]]) {
+  test(`${mode} ${direction} leveloff checks ${name} continuously with matching guidance`,()=>{
+    const h=harness([{id:'step',type:'altitude_step_hold',direction,holdSec:5,stableSec:2}],1,5,{mode});
+    h.observe();h.observe({},3100);h.action('training_ready');
+    while(h.raw().active.phase==='hold_initial')h.observe();
+    const sign=direction==='climb'?1:-1,target=3000+sign*500;
+    for(let i=1;i<50;i++)h.observe({altFt:3000+sign*i*10,vsFpm:sign*600});
+    const {altOffset=0,...badValues}=invalid;
+    h.observe({altFt:target+altOffset,...badValues});
+    h.observe({altFt:target+altOffset,...badValues},2100);
+    assert.equal(h.raw().active.phase,'altitude_change');
+    assert.notEqual(h.row('altitude_change').status,'complete');
+    if(name!=='height')assert.equal(h.row('altitude_change').status,'error');
+    h.restore();
+    h.observe({altFt:target});h.observe({altFt:target},1000);
+    assert.equal(h.raw().active.phase,'altitude_change');
+    h.observe({altFt:target+altOffset,...badValues},100);
+    assert.equal(h.raw().active.stableSince,0,'a bad sample must reset stabilization');
+    h.observe({altFt:target});h.observe({altFt:target},2100);
+    assert.equal(h.raw().active.phase,'hold_final');
+    assert.equal(h.row('altitude_change').status,'complete');
+    for(let i=0;i<7;i++)h.observe({altFt:target});
+    assert.equal(h.state.progress.requiredComplete,true);
+  });
+}
+
+for(const mode of ['POI','APT']) test(`${mode} old straight-flight limits use the new shared bands and 30-second grace`,()=>{
+  const h=harness([{id:'step',type:'altitude_step_hold',holdSec:60}],1,5,{mode});
+  Object.assign(h.recipe.trainingRecipe.exercises[0],{maxAltitudeDeltaFt:50,maxHeadingDeltaDeg:5,maxBankDeg:8,speedToleranceKts:7});
+  h.observe({bankDeg:9});h.observe({bankDeg:9},3100);
+  assert.equal(h.state.guidance.canStart,true,'entry gate agrees with displayed 10-degree bank limit');
+  h.action('training_ready');
+  for(let i=0;i<25;i++)h.observe({altFt:3075,hdg:98,bankDeg:9,iasKts:99});
+  h.restore();
+  assert.equal(h.raw().active.phase,'hold_initial');
+  assert.match(h.row('hold_initial').label,/±100 ft.*±10°.*≤10°.*±10 kt.*30 s/);
+  assert.match(h.spoken(h.action('training_repeat_instruction')),/±100 ft.*±10°.*≤10°.*±10 kt.*30 s/);
+  for(let i=0;i<30;i++)h.observe({altFt:3150});
+  assert.ok(h.raw().active,'29 seconds outside the height band remain correctable');
+  assert.equal(h.row('hold_initial').progress,0);
+  h.observe({altFt:3075});
+  for(let i=0;i<30;i++)h.observe({altFt:3150});
+  assert.ok(h.raw().active,'valid values reset the grace clock');
+  h.observe({altFt:3150});assert.equal(h.raw().active,null);
+  assert.match(h.state.coaching.notice,/30 Sekunden/);
+});
+
+for(const type of ['stall_recovery','altitude_step_hold']) test(`legacy ${type} attempt restarts once and keeps completed exercises`,()=>{
+  const h=harness([{id:'first',type:'turn_180'},{id:'next',type}],1);
+  h.raw().activeIndex=1;h.raw().requiredComplete=true;h.raw().satisfied=true;h.raw().exercises[0].status='complete';
+  h.state.progress=trainingCore._test.snapshotState(h.raw());h.action('training_extra');
+  h.observe();h.observe({},3100);h.action('training_ready');
+  assert.ok(h.raw().active);
+  if(type==='stall_recovery')delete h.raw().active.stallPitchConvention;
+  else delete h.raw().active.altitudeStepRulesVersion;
+  h.restore();assert.equal(h.raw().active,null);
+  assert.equal(h.raw().exercises[0].status,'complete');assert.equal(h.raw().requiredComplete,true);
+  assert.match(h.state.coaching.notice,/auswertung aktualisiert/);
+  h.observe({},5000);h.observe({},3100);h.action('training_ready');h.restore();
+  assert.ok(h.raw().active,'updated attempts resume normally');
+});
+
+test('optional stall start reserve does not raise the completed required turn gate',()=>{
+  const h=harness([{id:'first',type:'turn_180'},{id:'stall',type:'stall_recovery'}]);
+  assert.equal(h.recipe.trainingRecipe.readyMinAglFt,1200);
+  h.raw().activeIndex=1;h.raw().requiredComplete=true;h.raw().satisfied=true;h.raw().exercises[0].status='complete';
+  h.state.progress=trainingCore._test.snapshotState(h.raw());h.action('training_extra');
+  h.observe({aglFt:2500});h.observe({aglFt:2500},3100);
+  assert.notEqual(h.state.guidance.canStart,true);
+  h.observe();h.observe({},3100);assert.equal(h.state.guidance.canStart,true);
+});
+
+test('custom larger stall reserve is preserved in the normalized recipe and guidance',()=>{
+  const h=harness([{id:'stall',type:'stall_recovery',startReserveFt:750}]);
+  assert.equal(h.recipe.trainingRecipe.readyMinAglFt,3250);
+  h.observe({aglFt:3000});assert.match(h.row('altitude').label,/3250 ft AGL.*750 ft Startreserve/);
 });

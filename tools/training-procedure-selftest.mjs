@@ -96,12 +96,12 @@ function testStallBreakRecovery() {
     }]
   };
   let state = markReady(createInitialState(trainingProcedure.normalizeRecipe(recipe)));
-  state = tick(recipe, state, sample({ t: 0, alt: 4000, agl: 3000, hdg: 90, pitch: 3, ias: 80, aoa: 5 }));
-  state = tick(recipe, state, sample({ t: 2, alt: 4000, agl: 3000, hdg: 90, pitch: 4, ias: 78, aoa: 6 }));
-  state = tick(recipe, state, sample({ t: 4, alt: 3995, agl: 2995, hdg: 90, pitch: 8, ias: 62, aoa: 12, stall: true }));
-  state = tick(recipe, state, sample({ t: 5, alt: 3940, agl: 2940, hdg: 94, bank: -18, pitch: 2, ias: 58, vs: -900, aoa: 15, stall: true }));
-  state = tick(recipe, state, sample({ t: 7, alt: 3880, agl: 2880, hdg: 94, bank: -6, pitch: 1, ias: 76, vs: -100, aoa: 8, stall: false }));
-  state = tick(recipe, state, sample({ t: 9, alt: 3890, agl: 2890, hdg: 94, bank: -3, pitch: 2, ias: 82, vs: 100, aoa: 6, stall: false }));
+  state = tick(recipe, state, sample({ t: 0, alt: 4000, agl: 3000, hdg: 90, pitch: -3, ias: 80, aoa: 5 }));
+  state = tick(recipe, state, sample({ t: 2, alt: 4000, agl: 3000, hdg: 90, pitch: -4, ias: 78, aoa: 6 }));
+  state = tick(recipe, state, sample({ t: 4, alt: 3995, agl: 2995, hdg: 90, pitch: -8, ias: 62, aoa: 12, stall: true }));
+  state = tick(recipe, state, sample({ t: 5, alt: 3940, agl: 2940, hdg: 94, bank: -18, pitch: -2, ias: 58, vs: -900, aoa: 15, stall: true }));
+  state = tick(recipe, state, sample({ t: 7, alt: 3880, agl: 2880, hdg: 94, bank: -6, pitch: -1, ias: 76, vs: -100, aoa: 8, stall: false }));
+  state = tick(recipe, state, sample({ t: 9, alt: 3890, agl: 2890, hdg: 94, bank: -3, pitch: -2, ias: 82, vs: 100, aoa: 6, stall: false }));
   assert.equal(state.satisfied, true, 'stall recovery should complete after confirmed break and stable recovery');
   assert.ok(state.exercises[0].summary.heightLossFt >= 50, 'stall summary should include height loss');
 }

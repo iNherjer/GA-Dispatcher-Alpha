@@ -35,14 +35,15 @@
             altitude_step_hold: {
                 holdSec: 60,
                 altitudeStepFt: 500,
-                maxAltitudeDeltaFt: 50,
-                maxHeadingDeltaDeg: 5,
-                maxBankDeg: 8,
+                maxAltitudeDeltaFt: 100,
+                maxHeadingDeltaDeg: 10,
+                maxBankDeg: 10,
                 targetVsFpm: 500,
                 maxVsFpm: 900,
-                speedToleranceKts: 7
+                speedToleranceKts: 10
             },
             stall_recovery: {
+                startReserveFt: 500,
                 targetAoaDeg: 12,
                 preBreakAltitudeToleranceFt: 100,
                 maxBankBeforeBreakDeg: 15,
@@ -212,12 +213,14 @@
         } else if (type === 'altitude_step_hold') {
             normalized.holdSec = clamp(raw.holdSec ?? base.holdSec, 5, 180);
             normalized.altitudeStepFt = clamp(raw.altitudeStepFt ?? base.altitudeStepFt, 200, 2000);
-            normalized.maxAltitudeDeltaFt = clamp(raw.maxAltitudeDeltaFt ?? base.maxAltitudeDeltaFt, 20, 250);
-            normalized.maxHeadingDeltaDeg = clamp(raw.maxHeadingDeltaDeg ?? base.maxHeadingDeltaDeg, 2, 20);
-            normalized.maxBankDeg = clamp(raw.maxBankDeg ?? base.maxBankDeg, 3, 20);
+            normalized.maxAltitudeDeltaFt = clamp(raw.maxAltitudeDeltaFt ?? base.maxAltitudeDeltaFt, 100, 250);
+            normalized.maxHeadingDeltaDeg = clamp(raw.maxHeadingDeltaDeg ?? base.maxHeadingDeltaDeg, 10, 20);
+            normalized.maxBankDeg = clamp(raw.maxBankDeg ?? base.maxBankDeg, 10, 20);
             normalized.maxVsFpm = clamp(raw.maxVsFpm ?? base.maxVsFpm, 300, 2000);
-            normalized.speedToleranceKts = clamp(raw.speedToleranceKts ?? base.speedToleranceKts, 3, 25);
+            normalized.speedToleranceKts = clamp(raw.speedToleranceKts ?? base.speedToleranceKts, 10, 25);
+            normalized.valueDeviationGraceSec = clamp(raw.valueDeviationGraceSec ?? 30, 30, 120);
         } else if (type === 'stall_recovery') {
+            normalized.startReserveFt = clamp(raw.startReserveFt ?? base.startReserveFt, 500, 2000);
             normalized.targetAoaDeg = clamp(raw.targetAoaDeg ?? base.targetAoaDeg, 6, 24);
             normalized.preBreakAltitudeToleranceFt = clamp(raw.preBreakAltitudeToleranceFt ?? base.preBreakAltitudeToleranceFt, 50, 300);
             normalized.maxBankBeforeBreakDeg = clamp(raw.maxBankBeforeBreakDeg ?? base.maxBankBeforeBreakDeg, 8, 35);
@@ -229,13 +232,16 @@
         return normalized;
     }
 
-    // Descent needs enough room for the full step and the permitted low edge.
+    // Start reserves cover the planned descent or the stall's expected height loss.
     // Once started, the unchanged base minimum protects the whole maneuver.
     function minimumAglFt(recipe, ex, starting = false) {
+        ex = normalizeExercise(ex) || ex;
         const base = ex?.type === 'stall_recovery'
             ? Number(recipe.stallMinAglFt || DEFAULTS.stallMinAglFt)
             : Number(recipe.minAglFt || DEFAULTS.minAglFt);
-        const reserve = starting && ex?.type === 'altitude_step_hold' && ex.direction === 'descent'
+        const reserve = starting && ex?.type === 'stall_recovery'
+            ? Number(ex.startReserveFt || DEFAULTS.exercises.stall_recovery.startReserveFt)
+            : starting && ex?.type === 'altitude_step_hold' && ex.direction === 'descent'
             ? Number(ex.altitudeStepFt || DEFAULTS.exercises.altitude_step_hold.altitudeStepFt)
                 + Number(ex.maxAltitudeDeltaFt || DEFAULTS.altitudeToleranceFt)
             : 0;
@@ -693,11 +699,28 @@
         if (Number.isFinite(sample.gForce)) active.maxG = Math.max(Number(active.maxG || 1), sample.gForce);
     }
 
+    // Shared by the detector and Tracker guidance, using normalized exercise limits.
+    function altitudeStepChecks(ex, active, sample) {
+        const altTarget = ['hold_final', 'altitude_change'].includes(active.phase) ? active.targetAltFt : active.startAltFt;
+        const heading = sample.headingDeg ?? sample.hdg;
+        const heightOk = Number.isFinite(sample.altFt) && Math.abs(sample.altFt - altTarget) <= ex.maxAltitudeDeltaFt;
+        const headingOk = Number.isFinite(heading) && angleDiffAbs(heading, active.startHeadingDeg) <= ex.maxHeadingDeltaDeg;
+        const bankOk = Number.isFinite(sample.bankDeg) && Math.abs(sample.bankDeg) <= ex.maxBankDeg;
+        const speedOk = !Number.isFinite(active.refIasKts) || (Number.isFinite(sample.iasKts)
+            && Math.abs(sample.iasKts - active.refIasKts) <= ex.speedToleranceKts);
+        const levelVsOk = Number.isFinite(sample.vsFpm) && Math.abs(sample.vsFpm) <= 350;
+        const changeVsOk = Number.isFinite(sample.vsFpm) && Math.abs(sample.vsFpm) <= ex.maxVsFpm + 250;
+        return { height: heightOk, heading: headingOk, bank: bankOk, speed: speedOk,
+            change: headingOk && bankOk && speedOk && changeVsOk,
+            levelOff: heightOk && headingOk && bankOk && speedOk && levelVsOk };
+    }
+
     function tickAltitudeStep(recipe, state, ex, sample, events) {
         const active = state.active;
         const now = sample.nowMs;
         updateCommonMetrics(active, sample);
         if (active.phase === 'setup') {
+            active.altitudeStepRulesVersion = 2;
             active.startAltFt = Math.round(Number(sample.altFt || 0));
             active.startHeadingDeg = normalizeHeading(sample.headingDeg || 0);
             active.refIasKts = Number.isFinite(sample.iasKts) ? sample.iasKts : null;
@@ -710,9 +733,9 @@
         const bank = Math.abs(Number(sample.bankDeg || 0));
         const altTarget = active.phase === 'hold_final' ? active.targetAltFt : active.startAltFt;
         const altDev = Math.abs(Number(sample.altFt || 0) - Number(altTarget || 0));
-        const speedBad = Number.isFinite(active.refIasKts) && Number.isFinite(sample.iasKts)
-            && Math.abs(sample.iasKts - active.refIasKts) > Number(ex.speedToleranceKts || 7);
-        const courseBad = headingDev > Number(ex.maxHeadingDeltaDeg || 5) || bank > Number(ex.maxBankDeg || 8);
+        const criteria = altitudeStepChecks(ex, active, sample);
+        const speedBad = !criteria.speed;
+        const courseBad = !criteria.heading || !criteria.bank;
         if (active.phase === 'hold_initial' || active.phase === 'hold_final') {
             const bad = altDev > Number(ex.maxAltitudeDeltaFt || 50) || courseBad || speedBad;
             const reason = altDev > Number(ex.maxAltitudeDeltaFt || 50) ? 'altitude' : (headingDev > Number(ex.maxHeadingDeltaDeg || 5) ? 'heading' : (speedBad ? 'speed' : 'bank'));
@@ -759,7 +782,7 @@
                 repeatExercise(state, ex, sample, events, reason);
                 return;
             }
-            if (targetDev <= Number(ex.maxAltitudeDeltaFt || 50) && vs <= 350) {
+            if (criteria.levelOff) {
                 if (stableFor(active, true, now, ex.stableSec)) {
                     active.maxTargetAltDevFt = 0;
                     setPhase(active, 'hold_final', now, events, { targetAltFt: active.targetAltFt });
@@ -871,6 +894,7 @@
         const now = sample.nowMs;
         updateCommonMetrics(active, sample);
         if (active.phase === 'setup') {
+            active.stallPitchConvention = 'msfs-pitch-positive-down-v1';
             active.startAltFt = Math.round(Number(sample.altFt || 0));
             active.startHeadingDeg = normalizeHeading(sample.headingDeg || 0);
             active.refIasKts = Number.isFinite(sample.iasKts) ? sample.iasKts : null;
@@ -921,8 +945,9 @@
                 repeatExercise(state, ex, sample, events, reason);
                 return;
             }
+            // MSFS pitch grows when the nose drops.
             const pitchDrop = Number.isFinite(active.stallEntryPitchDeg) && Number.isFinite(sample.pitchDeg)
-                ? active.stallEntryPitchDeg - sample.pitchDeg
+                ? sample.pitchDeg - active.stallEntryPitchDeg
                 : 0;
             const altDrop = Number(active.stallEntryAltFt || active.startAltFt || sample.altFt || 0) - Number(sample.altFt || 0);
             const cues = [
@@ -1045,7 +1070,8 @@
                 });
                 state.readyPrompted = true;
             }
-            const stable = Math.abs(Number(sample.bankDeg || 0)) <= 8
+            const startBankLimit = nextEx.type === 'altitude_step_hold' ? nextEx.maxBankDeg : 8;
+            const stable = Math.abs(Number(sample.bankDeg || 0)) <= startBankLimit
                 && Math.abs(Number(sample.vsFpm || 0)) <= 350;
             if (stable) {
                 if (!state.preStartStableSince) state.preStartStableSince = sample.nowMs;
@@ -1181,6 +1207,7 @@
         getActiveRecipe: getMissionRecipe,
         normalizeRecipe,
         minimumAglFt,
+        altitudeStepChecks,
         readyMinimumAglFt,
         normalizeExercise,
         defaultExercisesForPlan,
