@@ -8207,3 +8207,17 @@ Tracker-Stale und HTTP-Antwort ~3.6s. Keine Grundlage fuer pauschalen Wechsel
 auf SECOND oder Lockerung der Frische. Genauere Ursache im Tracker-/HTTP-Pfad
 weiter offen; Kandidat behebt bestaetigten Cloud-Loop und Darstellung, nicht
 behauptet die langen Telemetrieluecken zu beseitigen.
+
+
+### Alpha-Rollout v548
+
+Nutzer hat Veroeffentlichung der v548-EXE auf GitHub und Aktivierung in Alpha
+ausdruecklich freigegeben. Unveraenderliches Windows-x64-Artefakt unter Tag
+`v548`, Quellcommit `f765bf97e`, veroeffentlicht. Upload und oeffentlicher
+Download auf 174107634 Bytes und SHA-256
+`0f3b97b800b04afc574589cdaaf5fbfbeb5ac03f0678b270d74222074fc61552`
+geprueft. Alpha-Tracker v548, EFB-Web-Assets54801, Web-Cache v2112.
+Natives EFB/Toolbar0.4.25 und Stable-Zeiger unveraendert. Vollstaendige
+Simulator-/UI-Abnahme der Wartezustaende und Browser-Revisionskontrolle
+nach Update bleiben offen. Die Ursache der langen Tracker-/HTTP-Luecken
+ist weiterhin nicht als behoben oder eindeutig lokalisiert zu betrachten.
