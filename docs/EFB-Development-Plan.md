@@ -8060,3 +8060,13 @@ noetig: die geaenderte Freigabe kommt vom Tracker-Control-Snapshot.
 Windows-/MSFS-Abnahme (Hauptmenue -> Flug laden -> Stillstand -> Mission beginnen;
 fremder Startplatz; alte aktive Mission; Rollbewegung; Rueckkehr ins Menue)
 bleibt als Alpha-Feldtest offen. Details im Mission Runtime Authority Contract.
+
+
+Tracker v545 veroeffentlicht, Quellcommit `96da40ce3`. Isolierter Windows-x64-
+Cross-Build mit pkg/Node 18 ohne Bytecode; neue Kamera-/Readiness-/Legacy-
+Bereinigungspfade im PE-Artefakt nachgewiesen. Gepackter ARM64-Missionsprozess:
+`MISSION_PACKAGED_PROCESS_SMOKE_OK`, Worker-Exit 0. Upload und oeffentlicher
+Download identisch: 174102672 Bytes, SHA-256
+`e8d8440776cc4776fd62c9cd4db4405eff296f169a4fc893ab1b4b8637f1192b`.
+Alpha-Kanal auf dieses Artefakt gestellt, Web-Cache v2106. Stable und
+Community-Pakete bleiben unveraendert. Simulatorabnahme weiter offen.
