@@ -1,3 +1,24 @@
+## Tracker v553 Alpha: OpenFreeMap im EFB/Toolbar (16.10.2026)
+
+Positron (bisherige Preference-ID `light`), Dark und Fiord sind jetzt im
+gemeinsamen Kartenkatalog angebunden. Coherent hat kein WebGL; deshalb zeichnet
+ein isolierter OpenLayers-6-/ol-mapbox-style-8-Renderer die originalen Stile in
+Canvas 2D unter den bestehenden Leaflet-Ebenen. Leaflet behält Interaktion,
+Routen, Marker und Overlays. Lokale Noto-Schrift ersetzt den GL-Glyphenabruf.
+Stile, Sprites und Vektorkacheln kommen direkt von OpenFreeMap ohne API-Key.
+Kein neuer Rasterdienst und keine Arbeit im Missionsprozess.
+
+Renderer lädt erst bei Auswahl, begrenzt parallele Kachelladevorgänge auf vier,
+nutzt Pixelratio 1 und wird beim Kartenwechsel freigegeben. Schnelle Wechsel
+verwerfen veraltete Initialisierungen; Ladefehler erscheinen an der Karte.
+Build/Lockdatei: `tools/efb-vector-build/README.md`; generiertes Bundle und
+Lizenzinventar sind explizite Tracker-Package-Assets. Assetrevision 55301.
+
+Live-Browsertest aller drei Stile ohne WebGL, Fetch, Worker und weitere moderne
+APIs bestanden: Zoom/Pan, mobile Größe, Klickmarker, schnelles Umschalten und
+Abbau. Das ist keine vollständige Coherent-Emulation: Abnahme und Leistung
+im echten MSFS bleiben offen. Zur Veröffentlichung als Tracker v553 vorbereitet. Community-Shell bleibt unverändert.
+
 ## Tracker v552 Alpha: eigenständiger EFB-/Toolbar-Missionsreset (16.10.2026)
 
 Nutzerbefund: Ladung und Unterschrift bleiben auch bei ausschließlich geöffnetem

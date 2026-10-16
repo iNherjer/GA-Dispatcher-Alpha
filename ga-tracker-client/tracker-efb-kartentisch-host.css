@@ -1505,3 +1505,7 @@ body.ga-efb-tracker-host .ga-media-transport .ga-media-key,
 body.ga-efb-tracker-host .ga-media-zoom .ga-media-key { margin-right:5px; }
 body.ga-efb-tracker-host .ga-ipod-lcd::after { left:0; right:0; top:0; bottom:0; }
 body.ga-efb-tracker-host .ga-ipod-wheel::before { left:25px; right:25px; top:25px; bottom:25px; }
+
+/* Canvas-2D base map stays below the existing Leaflet aviation/route panes. */
+.ga-efb-vector-layer { pointer-events: none; overflow: hidden; }
+.ga-efb-vector-layer canvas { mix-blend-mode: normal !important; }

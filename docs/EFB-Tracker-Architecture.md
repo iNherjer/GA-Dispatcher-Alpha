@@ -1,4 +1,15 @@
 # EFB-/Toolbar-Panel-/Tracker-Architektur
+
+## Canvas-Basiskarten, Tracker v553 Alpha (16.10.2026)
+
+Der Tracker liefert einen lazily geladenen Canvas-Renderer für OpenFreeMap
+Positron, Dark und Fiord. OpenLayers zeichnet ausschließlich die Basiskarte;
+Leaflet bleibt Besitzer von Kamera, Eingaben und fachlichen Overlays. Stile
+und Tiles lädt nur der UI-Prozess, ohne Beteiligung des Missionsworkers.
+Gemeinsame Anbindung für EFB und Toolbar, Assetrevision 55301. Build und
+Abnahmegrenzen siehe `EFB-Development-Plan.md` und
+`../tools/efb-vector-build/README.md`. Kein Shell-Protokollwechsel.
+
 ## Vollstaendige EFB-UI-Skalierung, Windows-Kandidat auf Alpha v477 (05.10.2026)
 
 Gemeinsamer Root-Transform skaliert Texte, Controls, Hitboxen, Menues und Profilcanvas zusammen. Benutzerwert 90–300 %, Reset 100 %. Physisches Tablet und unbekannte Hosts haben Basis 1; bestaetigte Popout-/Toolbar-Hosts in VR erhalten fuer den Feldtest Basis 2. Keine DPR-/Headset-Heuristik. SDK PanelInfo.is2D (get/sub) meldet physisch/popout ueber denselben geprueften iframe-Channel wie VR; Lebenszyklus bereinigt Subscription und Polling. Hostwechsel laden das iframe nicht neu.

@@ -1,0 +1,10 @@
+{
+  "name": "ga-efb-vector-build",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "esbuild": "0.25.10",
+    "ol": "6.15.1",
+    "ol-mapbox-style": "8.2.1"
+  }
+}
