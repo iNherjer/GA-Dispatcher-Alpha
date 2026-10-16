@@ -34,7 +34,7 @@ for(const mode of ['POI','APT']) {
     assert.equal(h.state.progress.startAvailable,false);
     assert.equal(h.raw.active,null);
     assert.match(h.state.guidance.rows.find(r=>r.id==='altitude').label,/1800 ft AGL/);
-    assert.match(first.voices.map(v=>v.resolvedRecipe.fallbackText).join(' '),/1800 ft AGL/);
+    assert.match(first.voices.map(v=>v.resolvedRecipe.fallbackText).join(' '),/mehr Höhe/);
     h.action('training_ready');assert.equal(h.raw.active,null);
   });
   test(`${mode} descent at the reserve completes after restore with Slew and the allowed low edge`,()=>{

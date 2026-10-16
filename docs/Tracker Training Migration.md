@@ -497,3 +497,34 @@ Die Simulatorabnahme der Kurvenkorrektur bleibt nach Alpha-Veröffentlichung off
 
 Die Änderungen gelten für POI/APT, alle Trainings-Domains sowie Pflicht- und
 Zusatzübungen. Die übrigen Missionsfamilien bleiben unverändert. Die Simulator-Abnahme erfolgt nach dem Alpha-Rollout.
+
+
+## Kurze gesprochene Trainingsführung (Tracker v556 Alpha)
+
+Nach erfolgreichem Feldflug sollen die dynamischen Trainingsansagen keine
+nummerierten Bannerzeilen und keine Toleranz-/Parameterlisten mehr vorlesen.
+`tracker-mission-training-speech.js` formuliert kurze Einweisungen und relevante
+Phasenwechsel für POI/APT, Club-Training und alle vier Übungstypen. Start und
+Wiederholen verwenden ebenfalls diese kurzen Ansagen. Freie Manövertipps und
+die vollständigen Sollwerte bleiben in der sichtbaren Guidance erhalten.
+
+Beispiel Vollkreis: „Gut, beginne jetzt mit dem Vollkreis. Achte dabei auf deine
+Höhe.“ Während der Kurve sind keine laufenden Bereitschafts- oder Lob-Pings
+nötig. Vor dem Ausleiten und beim Abschluss gibt es kurze gezielte Hinweise.
+
+Die Feedbackauswahl liest die tatsächlich geprüften Messwerte und benennt nur
+eine aktuelle Abweichung, etwa Höhe, Querneigung, Kurs oder Geschwindigkeit.
+Kurze Ausschläge unter drei Sekunden bleiben stumm. Nach einer Ansage bleiben
+mindestens acht Sekunden Ruhe, zwischen Feedbackmeldungen mindestens 30 Sekunden;
+dieselbe unveränderte Abweichung wird frühestens nach einer Minute wiederholt.
+„Passt wieder, so halten“ folgt nur auf eine tatsächlich gesprochene Korrektur.
+Sprechpausen und Korrekturstatus sind im Coaching-Checkpoint wiederherstellbar.
+Sicherheits-/Unterbrechungsereignisse und notwendige Phasenanweisungen behalten
+Vorrang vor dem normalen Feedbacktakt, werden aber ebenfalls kurz formuliert.
+
+Erfolgskriterien, Toleranzen, Haltezeiten, manueller Start und Audio-Phasenbezug
+bleiben erhalten. Der neue Sprachtext verwendet die bestehende TTS-/Cache-Route;
+die ausführlichen Bannertexte werden nicht als Sprachvorlage verwendet.
+Validierung: 332 Tests, darunter 32 neue Sprach-/Takt-/Restore-Regressionen.
+Ein sauberer Vollkreis mit 30° oder 45° erzeugt höchstens fünf kurze Ansagen
+über den gesamten Testablauf statt laufender Parameterlisten.

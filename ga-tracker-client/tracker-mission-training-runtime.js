@@ -5,6 +5,7 @@ const adapter = require('./tracker-mission-training-task.js').createAdapter();
 const voice = require('./tracker-mission-training-voice.js');
 const flight = require('../mission-training-flight-core.js');
 const coaching = require('./tracker-mission-training-coaching.js');
+const speech = require('./tracker-mission-training-speech.js');
 const geo = require('../mission-poi-task-core.js');
 const DOMAINS = ['training', 'club_training_basic', 'club_training_advanced'];
 const { canonicalStringify } = require('../mission-execution-core.js');
@@ -90,7 +91,7 @@ function observe(recipe, state, sample) {
     if (problem) {
         pause(recipe,state,sample.observedAt,problem);
         state.guidance = coaching.project(recipe,state);
-        const voices = announce(recipe,state,c.pendingNotice,sample.observedAt); c.pendingNotice='';
+        const voices = announce(recipe,state,speech.notice(c.pendingNotice),sample.observedAt); c.pendingNotice='';
         return {state,satisfied:state.progress.requiredComplete,voices};
     }
     c.suspended=false;
@@ -115,7 +116,7 @@ function observe(recipe, state, sample) {
 function action(recipe, state, intent, now) {
     if (intent === 'training_repeat_instruction' || intent === 'poi_status') {
         state.guidance=coaching.project(recipe,state);
-        return {state,voices:announce(recipe,state,[state.guidance.notice, state.guidance.instruction, state.guidance.currentInstruction].filter(Boolean).join(' '),now,intent)};
+        return {state,voices:announce(recipe,state,state.coaching.suspended ? speech.notice(state.guidance.notice) : speech.instruction(recipe,state),now,intent)};
     }
     const type = { training_ready:'ready', training_abort:'abort', training_extra:'optional' }[intent];
     if (!type) throw new TypeError('training_action_invalid');
@@ -138,7 +139,7 @@ function action(recipe, state, intent, now) {
         state.progress = progress(state.checkpoint);
         state.guidance = coaching.project(recipe, state);
         return { state, voices: announce(recipe, state,
-            `Übung läuft ab jetzt. Ausgangskurs und Ausgangshöhe sind festgelegt. ${state.guidance.currentInstruction}`,
+            speech.instruction(recipe,state,true),
             now, intent) };
     }
     state.checkpoint = result.state; state.progress = progress(result.state);
@@ -152,6 +153,7 @@ function scope(state) {
 }
 function announce(recipe,state,text,now,action) {
     if(!text)return [];
+    speech.mark(state,now);
     coaching.record(state,text,now);
     state.guidance=coaching.project(recipe,state);
     return [{label:'Training',notBefore:now,...(action?{action}:{}),trainingScope:scope(state),resolvedRecipe:{
@@ -160,30 +162,26 @@ function announce(recipe,state,text,now,action) {
         textModels:recipe.voiceContext.textModels,ttsModels:recipe.voiceContext.ttsModels}}];
 }
 function trainingMessages(recipe,state,events,now) {
-    const c=coaching.init(state),g=state.guidance;
+    const c=coaching.init(state);
     const has=type=>events.some(e=>e.type===type);
     let text='';
     const pending=c.pendingNotice;c.pendingNotice='';
     if(has('training_required_complete')||has('training_complete')) {
-        const nextStep=recipe.missionMode==='APT'
-            ? 'Weiter zum Zielflugplatz und dort gemäß Flugplan landen.'
-            : 'Rückkehr frei.';
-        text=`Pflichtteil abgeschlossen: ${state.progress.completedCount} Übungen erfüllt. ${nextStep}${state.progress.optionalAvailable?' Eine Zusatzübung ist im PAX-Menü verfügbar.':''}`;
+        text=recipe.missionMode==='APT'
+            ? 'Gut gemacht, Pflichtteil abgeschlossen. Weiter zum Zielflugplatz und dort gemäß Flugplan landen.'
+            : 'Gut gemacht, Pflichtteil abgeschlossen. Rückkehr frei.';
     }
-    else if(has('exercise_repeat_required')){text='Durchgang nicht erfüllt. Neu stabilisieren und starten. '+g.instruction;c.notice=text;}
-    else if(has('stall_break_detected'))text='Break erkannt. Jetzt Recovery: Flügel waagerecht, Stallwarnung beenden und Sinkrate stoppen.';
-    else if(has('exercise_instruction'))text=g.instruction;
-    else if(has('phase_started'))text=g.currentInstruction;
-    else if(has('exercise_pass_clean'))text='Übung erfüllt. Der Durchgang bleibt gespeichert. Auf die nächste Einweisung warten.';
-    else if(has('training_start_available'))text='Höhe, Kurs und Ausgangslage passen. Jetzt im Banner Übung starten.';
-    else if(has('training_wait_altitude'))text=g.notice||`Für die Einweisung mindestens ${events.find(e=>e.type==='training_wait_altitude').minAglFt} ft AGL herstellen.`;
-    else if(has('training_values_deviation')||has('training_values_correct')||has('training_caution')) {
-        const key=g.rows?.filter(r=>r.status==='error').map(r=>r.id).join(',')||'good';
-        if(now-c.lastFeedbackAt>=10000 && (key!==c.lastFeedbackKey || (key!=='good' && now-c.lastFeedbackAt>=30000))) {
-            text=key==='good'?`Werte passen. ${g.currentInstruction}`:`Korrektur: ${g.rows.filter(r=>r.status==='error').map(r=>r.label).join('. ')}`;
-            c.lastFeedbackAt=now;c.lastFeedbackKey=key;
-        }
-    }
-    return announce(recipe,state,[pending,text].filter(Boolean).join(' '),now);
+    else if(has('exercise_repeat_required')){text='Diesen Versuch setzen wir neu an. Stabilisiere die Ausgangslage.';c.notice=text;}
+    else if(has('stall_break_detected'))text=speech.phase(recipe,state);
+    else if(has('exercise_instruction'))text=speech.instruction(recipe,state);
+    else if(has('phase_started'))text=speech.phase(recipe,state);
+    else if(has('exercise_pass_clean'))text='Gut gemacht, die Übung ist geschafft.';
+    else if(has('training_wait_altitude'))text='Für die nächste Übung brauchst du noch mehr Höhe.';
+    else if(events.some(e=>e.type==='training_caution'&&e.caution==='rollout_soon'))text='Gleich ausleiten.';
+    // No automatic reading of checklist rows, readiness pings or routine praise.
+    if(pending)text=speech.notice(pending);
+    if(!text)text=speech.feedback(recipe,state,now);
+    return announce(recipe,state,text,now);
 }
+
 module.exports = { scope, DOMAINS, validate, createState, observe, action, pause, summary:flight.summary, debrief:flight.debrief };

@@ -147,17 +147,17 @@ test('pre-instruction guidance reports unavailable position, AGL and suspension 
   assert.notEqual(paused.row('altitude').status, 'complete');
 });
 
-test('repeat instruction reads the persisted ordered plan after restore', () => {
+test('repeat instruction stays brief while the persisted ordered plan remains visible', () => {
   const h = harness();
   const first = h.observe();
-  assert.match(h.spoken(first), /1\. Starthöhen-Vorschau/);
+  assert.match(h.spoken(first), /Als Nächstes.*Kursumkehr/);
   assert.doesNotMatch(h.spoken(first), /Korrektur:|Werte passen/,
     'the initial exercise instruction must win over generic value feedback');
   const planned = h.state.guidance.instruction;
   assert.match(planned, /1\. Starthöhen-Vorschau .*2\. Startkurs .*3\. Flügel .*4\. 180° .*5\. Zielkurs-Vorschau/);
   h.restore();
   const repeated = h.action('training_repeat_instruction');
-  assert.match(h.spoken(repeated), /1\. Starthöhen-Vorschau .*2\. Startkurs .*3\. Flügel .*4\. 180° .*5\. Zielkurs-Vorschau/);
+  assert.match(h.spoken(repeated), /Als Nächstes.*Kursumkehr/);
   assert.equal(h.state.guidance.instruction, planned);
 });
 
@@ -318,7 +318,7 @@ test('turn banner marks excessive G as an error before the detector grace period
   assert.equal(h.row('turn').status,'error');assert.match(h.row('turn').detail,/3.0 G/);
 });
 
-test('inflight maneuver tip is spoken during instruction and remains available after restore',()=>{const tip='Beim Ausleiten die Leistung wieder anpassen, damit die Geschwindigkeit stabil bleibt.';const h=harness([{id:'turn-tip',type:'constant_bank_360',targetBankDeg:45,inflightTip:tip}]);const first=h.observe();assert.match(h.spoken(first),/Beim Ausleiten die Leistung/);h.restore();assert.match(h.spoken(h.action('training_repeat_instruction')),/Beim Ausleiten die Leistung/);assert.equal(h.raw().requiredComplete,false);});
+test('inflight maneuver tip remains visible without lengthening the spoken instruction',()=>{const tip='Beim Ausleiten die Leistung wieder anpassen, damit die Geschwindigkeit stabil bleibt.';const h=harness([{id:'turn-tip',type:'constant_bank_360',targetBankDeg:45,inflightTip:tip}]);const first=h.observe();assert.match(h.state.guidance.instruction,/Beim Ausleiten die Leistung/);assert.doesNotMatch(h.spoken(first),/Beim Ausleiten die Leistung/);h.restore();assert.doesNotMatch(h.spoken(h.action('training_repeat_instruction')),/Beim Ausleiten die Leistung/);assert.match(h.state.guidance.instruction,/Beim Ausleiten die Leistung/);assert.equal(h.raw().requiredComplete,false);});
 
 test('180 turn previews the chosen heading until manual start, then freezes through restore',()=>{const h=harness([{id:'turn',type:'turn_180',targetBankDeg:30}]);h.observe({hdg:90});h.observe({hdg:120,bankDeg: -20});assert.equal(h.state.coaching.reference.headingDeg,120);assert.equal(h.state.progress.startAvailable,false);h.observe({hdg:140});h.observe({hdg:140},3100);assert.equal(h.state.progress.startAvailable,true);assert.match(h.row('heading').label,/bei „Übung starten“/);assert.match(h.row('rollout').label,/320°/);h.action('training_ready');h.observe({hdg:141});assert.equal(h.raw().active.startHeadingDeg,140);assert.equal(h.raw().active.targetHeadingDeg,320);h.restore();h.observe({hdg:150,bankDeg: -30});assert.equal(h.state.coaching.reference.headingDeg,140);assert.match(h.row('rollout').label,/Ausleiten auf 320°/);});
 
@@ -359,7 +359,7 @@ for (const type of ['turn_180', 'constant_bank_360']) test(`${type} starts at th
   assert.equal(h.raw().active.startAltFt, 3120);
   assert.equal(h.raw().active.startHeadingDeg, 140);
   assert.equal(h.raw().active.targetHeadingDeg, type==='turn_180'?320:140);
-  assert.match(h.spoken(started), /festgelegt/);
+  assert.match(h.spoken(started), /beginne jetzt/);
   assert.doesNotMatch(h.spoken(started), /nächsten Messwert/);
   assert.ok(started.voices.every(v=>v.trainingScope===runtime.scope(h.state)));
   h.restore();
@@ -415,7 +415,7 @@ for (const choice of ['left','right','either-left','either-right']) {
     // An existing mission can still carry the old serialized values.
     Object.assign(h.recipe.trainingRecipe.exercises[0],{maxAltitudeDeltaFt:50,bankToleranceDeg:6,rolloutHeadingToleranceDeg:5});
     h.observe({hdg:5});h.observe({hdg:5},3100);
-    assert.match(h.spoken(h.action('training_repeat_instruction')),/±10°.*±100 ft.*30 s/);
+    assert.match(h.spoken(h.action('training_repeat_instruction')),type==='turn_180'?/Kursumkehr/:/Vollkreis/);
     h.action('training_ready');
     for(let arc=5;arc<=target;arc+=5) {
       h.observe({hdg:(5+sign*arc+720)%360,bankDeg:-sign*(bank+8),altFt:3075});
@@ -496,7 +496,7 @@ for(const mode of ['POI','APT']) for(const domain of ['training','club_training_
     h.restore();
     const drop=h.observe({pitchDeg:-4,iasKts:65,stallState:true,aoaDeg:12,altFt:3000,aglFt:3000});
     assert.equal(h.raw().active.phase,'recovery');
-    assert.match(h.spoken(drop),/Break erkannt/);
+    assert.match(h.spoken(drop),/Abkippen erkannt/);
     for(let i=0;i<4;i++)h.observe({altFt:2900,aglFt:2900,aoaDeg:8,stallState:false,vsFpm:-100});
     assert.equal(h.state.progress.requiredComplete,true);
   });
@@ -506,10 +506,10 @@ for(const mode of ['POI','APT']) for(const domain of ['training','club_training_
     delete h.recipe.trainingRecipe.exercises[0].startReserveFt;
     const waiting=h.observe({aglFt:2500});h.observe({aglFt:2500},3100);
     assert.equal(h.state.guidance.canStart,undefined);
-    assert.match(h.spoken(waiting),/3000 ft AGL/);
+    assert.match(h.spoken(waiting),/mehr Höhe/);
     assert.match(h.row('altitude').label,/3000 ft AGL.*500 ft Startreserve/);
     h.observe();h.observe({},3100);assert.equal(h.state.guidance.canStart,true);
-    assert.match(h.spoken(h.action('training_repeat_instruction')),/3000 ft AGL.*500 ft Startreserve/);
+    assert.match(h.spoken(h.action('training_repeat_instruction')),/Stallübung/);
     h.observe({aglFt:2999});assert.equal(h.state.guidance.canStart,false);
     h.action('training_ready');assert.equal(h.raw().active,null);
     h.observe();h.observe({},3100);h.action('training_ready');
@@ -556,7 +556,7 @@ for(const mode of ['POI','APT']) test(`${mode} old straight-flight limits use th
   h.restore();
   assert.equal(h.raw().active.phase,'hold_initial');
   assert.match(h.row('hold_initial').label,/±100 ft.*±10°.*≤10°.*±10 kt.*30 s/);
-  assert.match(h.spoken(h.action('training_repeat_instruction')),/±100 ft.*±10°.*≤10°.*±10 kt.*30 s/);
+  assert.match(h.spoken(h.action('training_repeat_instruction')),/Kurs und Höhe/);
   for(let i=0;i<30;i++)h.observe({altFt:3150});
   assert.ok(h.raw().active,'29 seconds outside the height band remain correctable');
   assert.equal(h.row('hold_initial').progress,0);
