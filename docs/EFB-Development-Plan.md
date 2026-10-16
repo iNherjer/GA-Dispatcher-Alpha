@@ -17,7 +17,10 @@ Lizenzinventar sind explizite Tracker-Package-Assets. Assetrevision 55301.
 Live-Browsertest aller drei Stile ohne WebGL, Fetch, Worker und weitere moderne
 APIs bestanden: Zoom/Pan, mobile Größe, Klickmarker, schnelles Umschalten und
 Abbau. Das ist keine vollständige Coherent-Emulation: Abnahme und Leistung
-im echten MSFS bleiben offen. Zur Veröffentlichung als Tracker v553 vorbereitet. Community-Shell bleibt unverändert.
+im echten MSFS bleiben offen. Tracker v553 veröffentlicht und öffentlich vollständig heruntergeladen: 174767096 Bytes,
+SHA-256 `adb49e96e292cef4210787a605011256242f286aa8f08e8747dbe6c98cd721f3`.
+Gepackter Node-18-Assettest bestanden. Alpha wird auf dieses Artefakt aktiviert;
+Web-SW v2123, Stable unverändert. Community-Shell bleibt unverändert.
 
 ## Tracker v552 Alpha: eigenständiger EFB-/Toolbar-Missionsreset (16.10.2026)
 
