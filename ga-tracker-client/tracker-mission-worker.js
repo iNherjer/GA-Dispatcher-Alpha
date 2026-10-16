@@ -10,7 +10,7 @@ function runMissionWorker() {
   let authority, runtime, bridge, flightLog, published = null, publishScheduled = false;
   let cachedAuthority = null, cachedVersion = -1, readPublication;
   const publishMetrics = { calls: 0, builds: 0, buildMs: 0, diffMs: 0, sends: 0 };
-  let livePosition = null, audioSettings = null, simulatorGeneration = 0;
+  let livePosition = null, readinessPosition = null, audioSettings = null, simulatorGeneration = 0;
   let motionDiagnostics = { samples:0, paused:0, menu:0, gSamples:0, bankSamples:0, maxG:null, maxBank:null, minVs:null };
   function recordMotionDiagnostic(sample) {
     if (!sample) return;
@@ -103,6 +103,7 @@ function runMissionWorker() {
     },
     readiness(sample, generation) {
       if (generation !== simulatorGeneration) return false;
+      readinessPosition = sample ? {...sample, alt:sample.altFt} : null;
       const result = runtime.observeStartReadiness(sample);
       publish(); return result;
     },
@@ -120,7 +121,9 @@ function runMissionWorker() {
       livePosition = position;
       const simulatorCall = (name, ...args) => { publish(); return ipc.request('callback', name, args, generation); };
       bridge = runtime.attachSimulator({
-        getLivePosition: () => livePosition,
+        getLivePosition: () => readinessPosition && runtime.publicState().startReadiness?.worldReady
+          && Date.now()-readinessPosition.observedAt >= 0 && Date.now()-readinessPosition.observedAt <= 2500
+          ? readinessPosition : livePosition,
         dispatchCommand: request => simulatorCall('dispatchCommand', request),
         syncPayloadBeforeStart: request => simulatorCall('syncPayloadBeforeStart', request),
         syncPayloadManifestState: request => simulatorCall('syncPayloadManifestState', request),
@@ -132,7 +135,7 @@ function runMissionWorker() {
       publish(); return true;
     },
     async ack(ack, generation) { if (generation !== simulatorGeneration) return false; const result = await bridge?.handleAck(ack); publish(); return result; },
-    detach() { simulatorGeneration++; const result = runtime.detachSimulator(bridge); bridge = null; publish(); return result; },
+    detach() { simulatorGeneration++; readinessPosition = null; const result = runtime.detachSimulator(bridge); bridge = null; publish(); return result; },
     diagnostics() { return { publication: { ...publishMetrics }, persistence: authority.getPersistenceMetrics() }; },
     async flush() {
       const result = await runtime.flush();

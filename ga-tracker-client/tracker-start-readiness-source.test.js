@@ -19,8 +19,9 @@ async function fixture() {
     schedule:fn=>{const id={};retries.set(id,fn);return id;},cancel:id=>retries.delete(id)});
   await new Promise(resolve=>setImmediate(resolve));
   const frame = (values=[2,0,48.1,8.2,600,1,0], patch={}, handle=handles.at(-1)) => {
-    let n=0;handle.emit('simObjectData',{requestID:1,defineID:1,objectID:540672,defineCount:7,entryNumber:1,outOf:1,
-      data:{remaining:()=>56,readFloat64:()=>values[n++]},...patch});
+    if (values.length === 7) values = [...values, 123];
+    let n=0;handle.emit('simObjectData',{requestID:1,defineID:1,objectID:540672,defineCount:FIELDS.length,entryNumber:1,outOf:1,
+      data:{remaining:()=>FIELDS.length*8,readFloat64:()=>values[n++]},...patch});
   };
   const event = (clientEventId,data,handle=handles.at(-1)) => handle.emit('event',{clientEventId,data});
   const running = () => {handles.at(-1).emit('systemState',{requestID:2,dataInteger:1});event(3,0);};
@@ -32,7 +33,7 @@ test('one coherent required packet proves readiness without a GPS/relay stream',
   assert.deepEqual(f.calls.at(-1),['requestDataOnSimObject',1,1,0,4,0,0,0,0]);
   f.frame();assert.equal(f.gate.snapshot().ready,false,'missing Sim/Pause evidence cannot authorize start');
   f.running();f.frame();for(let n=0;n<3;n++){f.advance(1000);f.frame();}
-  assert.equal(f.gate.snapshot().ready,true);assert.deepEqual(f.source.position(),{lat:48.1,lon:8.2,alt:600});
+  assert.equal(f.gate.snapshot().ready,true);assert.deepEqual(f.source.position(),{lat:48.1,lon:8.2,alt:600,hdg:123});
   f.source.stop();assert.equal(f.gate.snapshot().ready,false);assert.equal(f.source.position(),null);
 });
 test('pause, menu, airborne, movement and bad packets revoke the permission',async()=>{

@@ -8223,12 +8223,12 @@ nach Update bleiben offen. Die Ursache der langen Tracker-/HTTP-Luecken
 ist weiterhin nicht als behoben oder eindeutig lokalisiert zu betrachten.
 
 
-## 16.10.2026 – Unabhaengige Startpruefung, Kandidat v549
+## 16.10.2026 – Unabhaengige Startpruefung, Kandidat v550
 
 Nutzer hat die Entkopplung der gemeinsamen Startpruefung ausdruecklich
 freigegeben. Die Cockpit-/Bodenfreigabe benutzt eine eigene kleine, rein
 lesende SimConnect-Verbindung. Ein erforderliches FLOAT64-Paket enthaelt
-Kamera, Slew, Position, Hoehe, Bodenstatus und Geschwindigkeit; Sim/Pause
+Kamera, Slew, Position, Hoehe, Bodenstatus, Geschwindigkeit und Kurs; Sim/Pause
 werden auf derselben Verbindung durch Systemzustand und Ereignisse belegt.
 Period SECOND ohne Frame-Intervall, passend zur unabhaengigen PC-Messung.
 Keine optionalen GPS-/Wetter-/Payload-Felder und kein Rueckfall auf alte GPS-
@@ -8259,3 +8259,10 @@ Gepackter Node18-ARM64-Prozess: MISSION_PACKAGED_INDEPENDENT_READINESS_OK
 und MISSION_PACKAGED_PROCESS_SMOKE_OK, Worker-Exit0. Windows-/Sim-Liveprobe
 der neuen Quelle noch offen.
 Kein neues EFB-/Toolbar-SDK-Paket erforderlich.
+
+Ergaenzung vor Auslieferung: der Worker behaelt eine separate frische
+Startposition samt Kurs. Alte GPS-/Kontextwerte koennen diese Szenenposition
+nicht ueberschreiben. Echter IPC-Test bereitet die Szene vor und prueft
+Lat/Lon/Kurs gegen die neue Quelle bei absichtlich abweichender alter Position.
+Der fruehe Quellkandidat v549 wurde nicht als EXE ausgerollt; finaler Kandidat
+v550 enthaelt diesen vollstaendigen Szenenpfad.

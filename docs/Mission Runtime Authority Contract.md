@@ -1471,11 +1471,11 @@ Windows-/MSFS-Feldtest bleibt offen. SDK-Kamerazustaende:
 https://docs.flightsimulator.com/msfs2024/html/6_Programming_APIs/SimVars/Camera_Variables.htm
 
 
-## 16.10.2026 – Startfreigabe unabhaengig vom grossen GPS-Paket (v549)
+## 16.10.2026 – Startfreigabe unabhaengig vom grossen GPS-Paket (v550)
 
 Die Freigabe wird in Produktion ausschliesslich aus einer eigenen rein lesenden
 SimConnect-Verbindung gespeist. Ein geschlossenes erforderliches FLOAT64-Paket
-uebertraegt Kamera, Slew, Lat/Lon/Hoehe, Bodenstatus und GS; dieselbe Verbindung
+uebertraegt Kamera, Slew, Lat/Lon/Hoehe, Bodenstatus, GS und Kurs; dieselbe Verbindung
 liefert Sim-/Pause-Systemzustand. Dies ersetzt fuer die Startfreigabe das
 Zusammenfuehren der getrennten Kamera-/Slew-Werte mit dem optionalen GPS-Paket.
 Kamera-Liveansichten, Menuepositionsausschluss, Bodenstillstand3s und Datenalter

@@ -557,12 +557,12 @@ test('a legacy Web run observes the loaded cockpit for cloud cleanup without pro
 
 test('independent start input crosses real IPC without GPS updates, cannot advance a mission and cannot be overwritten by stale GPS',async t=>{
  const host=await fixture(t,{requireCockpitReady:true,independentStartReadiness:true});await activate(host);
- const commands=[];host.runtime.attachSimulator({getLivePosition:()=>({lat:51.5,lon:7,alt:600}),
+ const commands=[];host.runtime.attachSimulator({getLivePosition:()=>({lat:1,lon:1,alt:100}),
    dispatchCommand:command=>{commands.push(command);return{ok:true,status:'completed'};}});
  await until(()=>host.runtime.publicState().simulatorAttached);
  const before=host.authorityManager.getActiveRun().revision;
  const sample=patch=>host.runtime.observeStartReadiness({observedAt:Date.now(),lat:51.5,lon:7,altFt:600,
-   simRunning:1,simPaused:false,inMenuOrMap:false,slewActive:false,cameraState:2,onGround:true,gsKts:0,...patch});
+   simRunning:1,simPaused:false,inMenuOrMap:false,slewActive:false,cameraState:2,onGround:true,gsKts:0,hdg:123,...patch});
  for(let n=0;n<8;n++){sample();await delay(450);}
  await until(()=>host.runtime.publicState().startReadiness?.ready);
  assert.equal(host.authorityManager.getActiveRun().revision,before,'readiness alone never commits mission progress');
@@ -577,5 +577,14 @@ test('independent start input crosses real IPC without GPS updates, cannot advan
  host.runtime.observeTelemetry({observedAt:Date.now(),lat:51.5,lon:7,altFt:600,simRunning:1,simPaused:false,
    inMenuOrMap:false,slewActive:false,cameraState:2,onGround:true,gsKts:0});
  await host.runtime.flush();assert.equal(host.runtime.publicState().startReadiness.ready,false);
+ for(let n=0;n<8;n++){sample();await delay(450);}
+ await until(()=>host.runtime.publicState().startReadiness?.ready);
+ const run=host.authorityManager.getActiveRun();
+ const prepared=await host.runtime.executeIntent({commandId:'independent-prepare',intent:'prepare_mission',
+   missionId:run.missionId,runId:run.runId,expectedRevision:run.revision});
+ assert.equal(prepared.ok,true,JSON.stringify(prepared));
+ await until(()=>commands.some(command=>command.type==='mission_scene_spawn'));
+ const spawn=commands.find(command=>command.type==='mission_scene_spawn');
+ assert.equal(spawn.lat,51.5);assert.equal(spawn.lon,7);assert.equal(spawn.hdg,123);
  host.runtime.detachSimulator();await host.runtime.flush();assert.equal(host.runtime.publicState().startReadiness.ready,false);
 });

@@ -10,7 +10,8 @@ const FIELDS = [
   ['PLANE LONGITUDE', 'degrees', 'lon'],
   ['PLANE ALTITUDE', 'feet', 'altFt'],
   ['SIM ON GROUND', 'Bool', 'ground'],
-  ['GROUND VELOCITY', 'knots', 'gsKts']
+  ['GROUND VELOCITY', 'knots', 'gsKts'],
+  ['PLANE HEADING DEGREES TRUE', 'degrees', 'hdg']
 ];
 function createStartReadinessSource({ open, float64Type, secondPeriod, onSample,
   now = Date.now, log = () => {}, schedule = setTimeout, cancel = clearTimeout }) {
@@ -80,7 +81,8 @@ function createStartReadinessSource({ open, float64Type, secondPeriod, onSample,
           if (!Number.isInteger(values.cameraState) || values.cameraState < 0 || values.cameraState > 33
             || ![0,1].includes(values.slew) || ![0,1].includes(values.ground)) throw Error('packet_enum');
           latest = { observedAt: now(), cameraState: values.cameraState, slewActive: values.slew === 1,
-            lat: values.lat, lon: values.lon, altFt: values.altFt, onGround: values.ground === 1, gsKts: values.gsKts };
+            lat: values.lat, lon: values.lon, altFt: values.altFt, hdg: values.hdg,
+            onGround: values.ground === 1, gsKts: values.gsKts };
           if (lastError !== null) log('MISSION_START_SOURCE status=receiving');
           lastError = null; emit();
         } catch (error) { latest = null; invalidate(error.message); }
@@ -105,7 +107,7 @@ function createStartReadinessSource({ open, float64Type, secondPeriod, onSample,
     if (!s || now() - s.observedAt < 0 || now() - s.observedAt > 2500 || s.simRunning !== 1
       || s.simPaused || s.slewActive || s.inMenuOrMap || s.cameraState < 2 || s.cameraState > 8
       || Math.abs(s.lat) > 90 || Math.abs(s.lon) > 180 || isMsfsMenuPosition(s.lat, s.lon, {paused:true})) return null;
-    return { lat:s.lat, lon:s.lon, alt:Math.round(s.altFt) };
+    return { lat:s.lat, lon:s.lon, alt:Math.round(s.altFt), hdg:s.hdg };
   }, stop() {
     if (stopped) return;
     stopped = true; generation++;
