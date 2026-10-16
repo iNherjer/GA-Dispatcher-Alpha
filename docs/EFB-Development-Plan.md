@@ -13,6 +13,10 @@ Neue unveränderliche EXE unter Tag v555; Kanalaktivierung erst nach
 öffentlicher Download-/Hashprüfung. Kein neues Community-Paket oder
 Desktop-Installer. Stable bleibt unverändert. Reale MSFS-Abnahme bleibt offen.
 Dieser Rollout ersetzt den nachfolgend beschriebenen reinen Kanal-Downgrade.
+Release v555 veröffentlicht und erneut öffentlich heruntergeladen: 173962186
+Bytes, SHA-256 `4569a6a2b060cb2a99222f5c72babae082ec6f05602a4f967f71c30df834c0b5`.
+39 Prüfungen und vollständiger v552-Quellvergleich bestanden. Alpha wird auf
+v555 aktiviert; SW v2128.
 
 ## Alpha-Rollback auf unverändertes Tracker v552 (16.10.2026)
 
