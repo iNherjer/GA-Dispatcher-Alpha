@@ -8334,11 +8334,9 @@ function initMapBase() {
     });
     const topoLightMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
     const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
-    // Key-free basemaps; style only the base tiles so aviation/weather overlays
-    // and route markers keep their original colors.
-    const neutralMapOptions = { attribution: `${osmAttribution} contributors`, maxNativeZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin' };
-    const darkMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { ...neutralMapOptions, className: 'ga-basemap-dark' });
-    const lightMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { ...neutralMapOptions, className: 'ga-basemap-light' });
+    const positronMap = createOpenFreeMapLayer('positron');
+    const darkMap = createOpenFreeMapLayer('dark');
+    const fiordMap = createOpenFreeMapLayer('fiord');
 
     // Overlays
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
@@ -8460,8 +8458,9 @@ function initMapBase() {
         "⛰️ Topografie (Mit Text)": topoMap,
         "🗺️ Terrain (Ohne Text)": topoLightMap,
         "🛰️ Satellit": satMap,
-        "🌑 Dark Mode (Clean)": darkMap,
-        "📝 Blank Mode (Weiß)": lightMap
+        "📝 Positron (Hell)": positronMap,
+        "🌑 Dark": darkMap,
+        "🌊 Fiord": fiordMap
     };
 
     const radarOverlay = createMapRadarOverlay(map, GA_MAP_OVERLAY_PANES.weather.name);

@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2118';
+const CACHE = 'ga-dispatcher-v2119';
 
 const STATIC = [
     './',
@@ -170,6 +170,10 @@ const STATIC = [
     './airport-type-filter.js',
     './aviation-data-hosted.js',
     './map.js',
+    './map-vector-basemaps.js',
+    './vendor/maplibre/maplibre-gl.js',
+    './vendor/maplibre/maplibre-gl.css',
+    './vendor/maplibre/leaflet-maplibre-gl.js',
     './map-utility-tools.js',
     './e6b/e6b-flight-computer.html',
     './e6b/e6b-flight-computer.css',
@@ -231,6 +235,7 @@ const NETWORK_ONLY = [
     'nominatim.openstreetmap.org',
     'opensky-network.org',
     'tile.openstreetmap.org',
+    'tiles.openfreemap.org',
     'tiles.arcgis.com',
     'maps.dwd.de',
     'brz-maps.dwd.de',

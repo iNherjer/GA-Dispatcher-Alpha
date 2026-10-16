@@ -1,3 +1,34 @@
+## OpenFreeMap-Webrelease / EFB-Abgrenzung (16.10.2026)
+
+Die Web-App erhält Positron, Dark und Fiord als originale OpenFreeMap-Stile.
+MapLibre GL JS 5.24.0 und der Leaflet-Adapter 0.1.4 werden lokal gebündelt und
+erst bei Auswahl geladen. Der Leaflet-Kartentisch mit seinen Luftfahrt-,
+Wetter-, Routen- und Marker-Panes bleibt erhalten. Web-SW v2119.
+Browsernachweise: alle drei echten Stile/Kacheln, schneller Wechsel während
+Bibliotheksladen, Pan/Zoom, Marker-Klick, Rendererabbau, Fehlerbehandlung,
+mobile Größe und deaktiviertes WebGL sowie Auswahl im vollständigen Kartentisch.
+
+Dies ist ausdrücklich kein EFB-/Toolbar-Kartenrollout. Beide verwenden den
+tracker-gehosteten Cockpit-View mit eigenem Rasterkartenkatalog in
+`ga-tracker-client/efb-app/map-shell-core.js` und optionalem Tile-Proxy.
+Die neuen Webdateien werden von diesem Host nicht geladen. MapLibre benötigt
+WebGL; die Coherent-GT-Umgebung ist kein kompatibler moderner Webbrowser.
+Ein bloßer EXE-/Community-Neubau übernimmt die Stile daher nicht. Vor einem
+EFB-Rollout ist ein kompatibler Renderweg (Rasterbereitstellung oder ein
+geeigneter 2D-Vektorrenderer) zu wählen und mit Coherent zu prüfen. Die alten
+EFB-CARTO-Layer einschließlich API-Key-Problem bleiben ein offener Punkt.
+Referenz: [Coherent-GT-Browsergrenzen](https://coherent-labs.com/Documentation/cpp-gt/da/d0d/quick_start.html).
+
+Eine spätere Änderung am tracker-gehosteten Kartenkatalog benötigt eine neue
+Tracker-Runtime samt Assets; das bestehende Community-Paket muss nur geändert
+werden, wenn dessen Parent-/Hostvertrag betroffen ist. Für diesen Webrelease
+bleiben Tracker-, Desktop-, EFB-/Toolbar-Community-Pakete und Kanäle unverändert.
+
+Der vorherige Verlade-Reset-Fix betrifft den lokalen Web-App-Manifestreset nach
+bestätigtem Tracker-Abbruch (`sync.js`, `mission-cargo-core.js`). Der vorhandene
+Tracker führt Abort/Payload-/Scene-Cleanup schon aus; hierfür ist keine neue
+Tracker-Runtime erforderlich. Kein Nachweis eines zusätzlichen EFB-Resetfehlers.
+
 ## Tracker v540 Alpha: EFB-Mediensteuerung / Coherent-Korrektur (15.10.2026)
 
 Feldbefund: Medien-Häkchen unsichtbar, Skins nicht wählbar, Startknopf hinter

@@ -29,11 +29,13 @@ Das VFR Multitool hat mehrere Oberflaechen, die dieselben Daten bedienen:
 
 Die Darstellung aenderst du in **Einstellungen > Darstellung**. Die **Seitengroesse** hilft auf iPad, Quest, Tablet oder kleinen Monitoren. Im Analog-Modus kann die obere linke Schraube die Panel-Lackierung wechseln.
 
-Im Kartentisch verwenden **Blank Mode (Weiß)** und **Dark Mode (Clean)** die
-OpenStreetMap-Standardkarte ohne API-Key mit lokal angepasster Helligkeit und
-Graustufen. Straßen und Ortsnamen bleiben sichtbar; Lufträume, Wetter und
-Routen behalten ihre eigenen Farben. Kartenkacheln werden beim Betrachten
-online geladen.
+Im Kartentisch stehen **Positron (Hell)**, **Dark** und **Fiord** als reduzierte
+OpenFreeMap-Vektorkarten ohne API-Key zur Verfügung. Sie ersetzen die früheren
+Blank-/Dark-Ersatzkarten. Die Originalstile behalten ihre dezente Beschriftung;
+Lufträume, Wetter, Routen und Marker liegen unverändert darüber. Die Karten
+benötigen WebGL und eine Internetverbindung. Die zusätzliche Kartenbibliothek
+wird erst beim Auswählen eines dieser Stile geladen. Die übrigen Basiskarten
+bleiben auch ohne WebGL nutzbar. Eine geneigte 3D-Ansicht ist nicht aktiviert.
 
 Tipps:
 
