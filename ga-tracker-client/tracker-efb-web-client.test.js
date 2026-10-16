@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '55301');
+  assert.equal(EFB_WEB_ASSET_REVISION, '55401');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=55301/);
-  assert.match(page, /host\.css\?v=55301/);
-  assert.match(page, /map-shell-core\.js\?v=55301/);
-  assert.match(page, /map-utility-tools\.js\?v=55301/);
-  assert.match(page, /mission-control-ui-core\.js\?v=55301/);
-  assert.match(page, /cockpit-session-client\.js\?v=55301/);
-  assert.match(page, /host\.js\?v=55301/);
+  assert.match(page, /app-styles\.css\?v=55401/);
+  assert.match(page, /host\.css\?v=55401/);
+  assert.match(page, /map-shell-core\.js\?v=55401/);
+  assert.match(page, /map-utility-tools\.js\?v=55401/);
+  assert.match(page, /mission-control-ui-core\.js\?v=55401/);
+  assert.match(page, /cockpit-session-client\.js\?v=55401/);
+  assert.match(page, /host\.js\?v=55401/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,20 +35,20 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=55301"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=55301"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=55301"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=55301"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=55401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=55401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=55401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=55401"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=55301',
-    '/efb/v1/assets/map-utility-tools.js?v=55301',
-    '/efb/v1/assets/mission-control-ui-core.js?v=55301',
-    '/efb/v1/assets/cockpit-session-client.js?v=55301',
-    '/efb/v1/assets/host.js?v=55301'
+    '/efb/v1/assets/map-shell-core.js?v=55401',
+    '/efb/v1/assets/map-utility-tools.js?v=55401',
+    '/efb/v1/assets/mission-control-ui-core.js?v=55401',
+    '/efb/v1/assets/cockpit-session-client.js?v=55401',
+    '/efb/v1/assets/host.js?v=55401'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -148,7 +148,6 @@ test('unchanged mission polls do not redraw the EFB banner, toolbar or cargo ove
 
 test('all Coherent-facing scripts avoid syntax rejected by the simulator engine', () => {
   const paths = [
-    '/efb/v1/assets/vector-basemaps.js',
     '/efb/v1/assets/emoji-text.js',
     '/efb/v1/assets/symbols.js',
     '/efb/v1/assets/checklists.js',
@@ -624,14 +623,12 @@ test('floating layout is loaded after scale and before host, packaged, with logi
   assert.match(css, /calc\(var\(--ga-efb-dvh, 1dvh\) \* 100\)/);
 });
 
-// Inspect tokens: upstream style-parser error strings contain literal "[...]".
-test('Canvas renderer is packaged as legacy syntax without modern operators', () => {
-  const parser = require('@babel/parser');
-  const source = getTrackerEfbWebClientAsset('/efb/v1/assets/vector-renderer.js').body.toString('utf8');
-  const parsed = parser.parse(source, { sourceType: 'script', tokens: true });
-  for (const token of parsed.tokens) {
-    assert.ok(!['...', '?.', '??', '**'].includes(token.type.label), 'unsupported operator: ' + token.type.label);
-    assert.ok(!(token.type.label === 'name' && token.value === 'async'), 'async syntax must be transpiled');
+test('removed EFB vector renderer cannot be loaded or packaged', () => {
+  assert.doesNotMatch(createTrackerEfbWebClientPage(), /vector-basemaps|vector-renderer/);
+  for (const name of ['vector-basemaps', 'vector-renderer']) {
+    assert.equal(getTrackerEfbWebClientAsset('/efb/v1/assets/' + name + '.js'), null);
   }
-  new (require('node:vm').Script)(source);
+  assert.ok(trackerPackage.pkg.assets.every(asset => !/efb-vector|tracker-efb-vector/.test(asset)));
+  const host = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  assert.doesNotMatch(host, /GAEfbVector|canvas-vector/);
 });

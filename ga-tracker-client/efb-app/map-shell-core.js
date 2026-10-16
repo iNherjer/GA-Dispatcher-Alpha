@@ -39,23 +39,6 @@ const BASE_LAYERS = Object.freeze([
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     localUrl: '/api/v1/map-tile/satellite/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: 'Tiles &copy; Esri', maxNativeZoom: 18, maxZoom: 18 })
-  }),
-  Object.freeze({
-    id: 'dark',
-    label: 'Dark', kind: 'canvas-vector', style: 'dark',
-    url: 'https://tiles.openfreemap.org/styles/dark',
-    options: Object.freeze({ attribution: '<a href="https://openfreemap.org/">OpenFreeMap</a> · &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> · &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 18 })
-  }),
-  Object.freeze({
-    id: 'light',
-    label: 'Positron (Hell)', kind: 'canvas-vector', style: 'positron',
-    url: 'https://tiles.openfreemap.org/styles/positron',
-    options: Object.freeze({ attribution: '<a href="https://openfreemap.org/">OpenFreeMap</a> · &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> · &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 18 })
-  }),
-  Object.freeze({
-    id: 'fiord', label: 'Fiord', kind: 'canvas-vector', style: 'fiord',
-    url: 'https://tiles.openfreemap.org/styles/fiord',
-    options: Object.freeze({ attribution: '<a href="https://openfreemap.org/">OpenFreeMap</a> · &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> · &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 18 })
   })
 ]);
 

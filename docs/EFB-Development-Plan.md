@@ -1,3 +1,22 @@
+## Tracker v554 Alpha: EFB-Kartenrücknahme (16.10.2026)
+
+MSFS-Feldtest von v553 fehlgeschlagen: Nutzer meldet eingefrorene Karte,
+fehlendes Übergabebanner und Crash to Desktop beim Auswählen der neuen Karten.
+Die bisherigen Browser-/Pakettests haben diese Coherent-Unverträglichkeit nicht
+ausgeschlossen. Die genaue native Crashursache ist mit den Trackerlogs nicht
+bewiesen; keine weitere Canvas-Integration als Teil dieser Rücknahme.
+
+OpenFreeMap-/OpenLayers-Renderer, Leaflet-Adapter, Script-Routen, Package-Assets
+und isolierte Build-Eingaben entfernt. Im gemeinsamen EFB-/Toolbar-Katalog
+bleiben nur Topografie, Terrain und Satellit. Bestehende Präferenzen für
+`light`, `dark` oder `fiord` werden durch die vorhandene Normalisierung auf
+`topo` zurückgeführt; Overlays und übrige Einstellungen bleiben erhalten.
+Web-App-Karten und Missionsreset von v552 bleiben bestehen.
+
+Assetrevision 55401; neue Tracker-EXE v554 erforderlich. Community-Paket und
+Desktop-Installer unverändert. Simulatorabnahme nach dem Rollout bleibt offen.
+Die folgenden v553-Angaben sind historisch; diese Implementierung ist entfernt.
+
 ## Tracker v553 Alpha: OpenFreeMap im EFB/Toolbar (16.10.2026)
 
 Positron (bisherige Preference-ID `light`), Dark und Fiord sind jetzt im

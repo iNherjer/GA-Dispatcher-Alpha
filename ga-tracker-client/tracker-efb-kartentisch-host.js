@@ -1852,7 +1852,6 @@
     options.updateWhenZooming = true;
     options.keepBuffer = 2;
     options.className = 'ga-efb-map-tile ga-efb-map-tile-' + String(definition.id || 'layer');
-    if (definition.kind === 'canvas-vector') return window.GAEfbVectorBasemaps.createLayer(definition, options);
     if (definition.kind === 'wms' && L.tileLayer.wms) return L.tileLayer.wms(definition.url, options);
     // The native EFB map renders direct HTTPS image tiles correctly, while the
     // same images served through the loopback proxy remain black in some

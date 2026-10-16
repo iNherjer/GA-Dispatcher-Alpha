@@ -1,5 +1,15 @@
 # EFB-/Toolbar-Panel-/Tracker-Architektur
 
+## Kartenrücknahme v554 (16.10.2026)
+
+Canvas-Basiskarten aus v553 nach fehlgeschlagenem Simulator-Feldtest vollständig
+entfernt. EFB und Toolbar verwenden ausschließlich die bestehenden Leaflet-
+Rasterbasiskarten Topografie, Terrain und Satellit. Entfernte gespeicherte
+Karten-IDs fallen auf Topografie zurück. Kein Renderer-Script, kein
+OpenLayers-Bundle und kein neuer Kartendienst im Tracker-Paket.
+Der nachfolgende v553-Abschnitt beschreibt den zurückgenommenen Stand.
+
+
 ## Canvas-Basiskarten, Tracker v553 Alpha (16.10.2026)
 
 Der Tracker liefert einen lazily geladenen Canvas-Renderer für OpenFreeMap
