@@ -29,6 +29,12 @@ Das VFR Multitool hat mehrere Oberflaechen, die dieselben Daten bedienen:
 
 Die Darstellung aenderst du in **Einstellungen > Darstellung**. Die **Seitengroesse** hilft auf iPad, Quest, Tablet oder kleinen Monitoren. Im Analog-Modus kann die obere linke Schraube die Panel-Lackierung wechseln.
 
+Im Kartentisch verwenden **Blank Mode (Weiß)** und **Dark Mode (Clean)** die
+OpenStreetMap-Standardkarte ohne API-Key mit lokal angepasster Helligkeit und
+Graustufen. Straßen und Ortsnamen bleiben sichtbar; Lufträume, Wetter und
+Routen behalten ihre eigenen Farben. Kartenkacheln werden beim Betrachten
+online geladen.
+
 Tipps:
 
 - Wenn Text oder Bedienelemente zu klein wirken, zuerst **Seitengroesse** anpassen, nicht den Browser-Zoom.

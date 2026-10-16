@@ -8334,8 +8334,11 @@ function initMapBase() {
     });
     const topoLightMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
     const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
-    const darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: `${osmAttribution}, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>` });
-    const lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: `${osmAttribution}, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>` });
+    // Key-free basemaps; style only the base tiles so aviation/weather overlays
+    // and route markers keep their original colors.
+    const neutralMapOptions = { attribution: `${osmAttribution} contributors`, maxNativeZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin' };
+    const darkMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { ...neutralMapOptions, className: 'ga-basemap-dark' });
+    const lightMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { ...neutralMapOptions, className: 'ga-basemap-light' });
 
     // Overlays
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {

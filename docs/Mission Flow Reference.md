@@ -93,6 +93,12 @@ nicht dessen Abschluss; Missions-/Run-Identitaet wird weiterhin geprueft.
 Die allgemeinen EFB-Hauptschleifenverzoegerungen sind damit nicht als behoben
 nachgewiesen. Payload-Timeouts enthalten Request-ID und tatsaechliche Dauer.
 
+Ergänzung 16.10.2026: Nach bestätigtem Tracker-Abbruch setzt die App das
+beibehaltene Manifest lokal zurück: Missionsladung und PAX auf `pending`,
+Unterschrift und Übergabefortschritt leer. Persistente Bordausrüstung bleibt
+gemäß Inventar erhalten. Dieser Pfad plant und sendet keinen zweiten
+Simulator-Payload-Restore; erst danach wird der geplante Reset-Seed gespeichert.
+
 
 Lokal ergänzter Vereins-KI-Pfad: [Vereins-/Utility-Ideen V1](Mission%20Club%20Utility%20Ideas%20V1.md). Vor dem Picker optional regionale Eventsuche, anschließend drei strukturierte Ideen in einem Aufruf, nach Auswahl ein Writer. A-B-Runtime bleibt bestehen; persönliches Gepäck und Pflichtlieferung werden im Manifest ausdrücklich unterschieden. Kein Pickup-Ausbau.
 

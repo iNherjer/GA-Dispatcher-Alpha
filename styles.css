@@ -21381,3 +21381,12 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
 
 .logbook-stage.is-foreground .logbook-cover-mask { clip-path: none; z-index: 4; }
 .logbook-reading { z-index: 5; }
+
+/* Neutral base maps; overlays and markers retain their colors. */
+.ga-basemap-light .leaflet-tile {
+    filter: grayscale(1) contrast(0.65) brightness(1.25);
+}
+
+.ga-basemap-dark .leaflet-tile {
+    filter: grayscale(1) invert(1) brightness(0.8);
+}

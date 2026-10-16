@@ -90,6 +90,57 @@ assert.match(syncSource, /forceLocalCleanup = options\?\.forceLocalCleanup === t
 assert.match(syncSource, /forceLocalCleanup: options\.forceLocalCleanup === true,[\s\S]*?preserveMission: options\.preserveMission === true/);
 assert.match(syncSource, /tracker-mission-reset-to-planned/);
 assert.match(syncSource, /window\.missionCargoResetPromise = _missionCargoResetForMissionReset/);
+assert.match(syncSource, /skipPayloadRestore: options\?\.trackerAbortCompleted === true/);
+
+// Execute the real manifest/reset helpers with simulator access forbidden:
+// a confirmed Tracker abort must clear the retained seed locally only.
+const cargoSource = fs.readFileSync(new URL('../mission-cargo-core.js', import.meta.url), 'utf8');
+for (const hasManifest of [true, false]) {
+    const manifest = hasManifest ? {
+        aircraftSlot: 'c172',
+        dispatchSignature: { by: 'Pilot', at: 123, scope: 'departure' },
+        items: [
+            { id: 'cargo', status: 'loaded', loadedAt: 123, healthPct: 80 },
+            { id: 'pax', status: 'unloaded', handoffComplete: true, handedOffAt: 123 },
+            { id: 'equipment', status: 'loaded', persistentEquipment: true }
+        ]
+    } : null;
+    let persisted = 0;
+    const context = {
+        window: {
+            liveTrackerConnected: true,
+            missionCargoStatus: { payloadPendingResetStations: [{ index: 1, weightLbs: 100 }], payloadNeedsSync: true },
+            trackerPayloadGet: () => { throw Error('duplicate payload read'); },
+            trackerPayloadSet: () => { throw Error('duplicate payload restore'); }
+        },
+        missionCargoManualPaxRollbackTimer: null,
+        _missionCargoCancelVisibleItemActions() {},
+        _missionCargoCancelPayloadSyncQueue() {},
+        _missionCargoGetManifest: () => manifest,
+        _missionCargoHasActiveMission: () => false,
+        _missionCargoStoredEquipmentItems: () => ({ equipment: { onboard: true, loadedAt: 42 } }),
+        _missionCargoIsPassengerHandoffLocked: item => item.handoffComplete === true,
+        _missionCargoPersistManifest: () => { persisted += 1; },
+        _missionCargoResetPayloadPlanForMissionKey() {}
+    };
+    vm.runInNewContext([
+        functionSource(cargoSource, '_missionCargoResetManifestState'),
+        functionSource(cargoSource, '_missionCargoResetForMissionReset', 'async function'),
+        'this.run = _missionCargoResetForMissionReset;'
+    ].join('\n'), context);
+    await context.run('tracker-abort-test', { skipPayloadRestore: true });
+    assert.equal(context.window.missionCargoStatus.payloadPendingResetStations, null);
+    assert.equal(context.window.missionCargoStatus.payloadNeedsSync, false);
+    if (hasManifest) {
+        assert.equal(persisted, 1);
+        assert.equal(manifest.dispatchSignature, null);
+        assert.deepEqual(manifest.items.map(item => item.status), ['pending', 'pending', 'loaded']);
+        assert.equal(manifest.items[0].loadedAt, 0);
+        assert.equal(manifest.items[0].healthPct, 100);
+        assert.equal(manifest.items[1].handoffComplete, false);
+        assert.equal(manifest.items[2].loadedAt, 42);
+    }
+}
 assert.match(appSource, /function clearAppMissionState[\s\S]*?gaAbortTrackerMission\?\.\(\{[\s\S]*?forceLocalCleanup: true/);
 assert.match(appSource, /if \(!trackerExecutionReplacement && window\.missionComplianceBlockReset\?\.\(\)\)/);
 assert.match(syncSource, /mission_local_cleanup_failed/);

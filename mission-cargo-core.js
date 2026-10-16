@@ -3167,7 +3167,7 @@ function _missionCargoResetManifestState(manifest) {
     return changed;
 }
 
-async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset') {
+async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset', options = {}) {
     if (missionCargoManualPaxRollbackTimer) clearTimeout(missionCargoManualPaxRollbackTimer);
     missionCargoManualPaxRollbackTimer = null;
     window.missionCargoStatus.manualPaxPending = null;
@@ -3187,14 +3187,18 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
     if ((!manifest || !Array.isArray(manifest.items)) && _missionCargoHasActiveMission()) {
         manifest = _missionCargoEnsureManifest();
     }
-    if (!manifest || !Array.isArray(manifest.items) || !manifest.items.length) {
+    // A confirmed Tracker abort already restored simulator payload. Reset the
+    // retained App manifest as well, without planning or sending another restore.
+    if (options.skipPayloadRestore === true || !manifest || !Array.isArray(manifest.items) || !manifest.items.length) {
+        const changed = _missionCargoResetManifestState(manifest);
+        if (changed) _missionCargoPersistManifest(manifest);
         _missionCargoResetPayloadPlanForMissionKey('');
         window.missionCargoStatus.payloadPendingResetStations = null;
         window.missionCargoStatus.payloadPendingResetMaxStations = 0;
         window.missionCargoStatus.payloadPendingResetAdapter = '';
         window.missionCargoStatus.payloadPendingResetPa24State = null;
         window.missionCargoStatus.payloadNeedsSync = false;
-        return { status: 'no_manifest' };
+        return { status: changed ? 'reset_app_only' : 'no_manifest' };
     }
     const manifestBeforeReset = JSON.parse(JSON.stringify(manifest));
     const baseline = _missionCargoNormalizePayloadSnapshot(window.missionCargoStatus?.payloadBaseline);

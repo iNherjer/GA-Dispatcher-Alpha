@@ -14302,8 +14302,10 @@ window.missionRuntimeReset = function(options = {}) {
         try { window.paxVoiceResetMission(); } catch (_) {}
     }
     window.missionCargoResetPromise = null;
-    if (options?.trackerAbortCompleted !== true && typeof _missionCargoResetForMissionReset === 'function') {
-        window.missionCargoResetPromise = _missionCargoResetForMissionReset('mission-runtime-reset').catch(err => {
+    if (typeof _missionCargoResetForMissionReset === 'function') {
+        window.missionCargoResetPromise = _missionCargoResetForMissionReset('mission-runtime-reset', {
+            skipPayloadRestore: options?.trackerAbortCompleted === true
+        }).catch(err => {
             console.warn('[MissionCargo] Reset payload sync failed:', err?.message || err);
             return false;
         });
