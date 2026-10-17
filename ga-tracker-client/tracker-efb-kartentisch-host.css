@@ -1615,3 +1615,16 @@ body.ga-efb-tracker-host .ga-map-context-panel section { display: block; }
 body.ga-efb-tracker-host .ga-map-context-frequency-row,
 body.ga-efb-tracker-host .ga-popup-frequency-row { display: flex; justify-content: space-between; }
 body.ga-efb-tracker-host .ga-popup-frequency-label { flex: 1 1 0; }
+
+/* Explicit edges: older Coherent leaves inset-only absolute layers unsized. */
+body.ga-efb-tracker-host .ga-map-context-height-sky { top:0; right:0; bottom:0; left:0; }
+body.ga-efb-tracker-host .ga-map-context-height-scale { top:5px; right:auto; bottom:5px; left:2px; }
+body.ga-efb-tracker-host .ga-map-context-height-stack,
+body.ga-efb-tracker-host .ga-map-context-height-atmosphere { top:5px; right:3px; bottom:5px; left:30px; }
+body.ga-efb-tracker-host .ga-map-context-height-band { flex:0 0 72px; width:72px; box-sizing:border-box; }
+body.ga-efb-tracker-host .ga-map-context-height-airspace { background:var(--ga-efb-band-fill, rgba(77,166,255,.38)); }
+body.ga-efb-tracker-host .ga-map-context-height-airspace:hover,
+body.ga-efb-tracker-host .ga-map-context-height-airspace:focus,
+body.ga-efb-tracker-host .ga-map-context-height-airspace.is-selected { background:var(--ga-efb-band-selected, rgba(77,166,255,.88)); }
+body.ga-efb-tracker-host .ga-map-context-height-class-letter.is-ctr { font-size:18px; }
+body.ga-efb-tracker-host .ga-map-context-airport-full .ga-weather-layout-responsive { flex-direction:column !important; }

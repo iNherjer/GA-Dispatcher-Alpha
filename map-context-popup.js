@@ -1088,6 +1088,14 @@ function renderMapContextHeightBand(state) {
         const heightPct = Math.max(2.8, bottomPct - topPct);
         const classSizePx = Math.max(16, Math.min(29, 13 + (heightPct * 0.58)));
         const selected = state.selectedAirspaceId === id;
+        // Coherent does not support color-mix(). Keep per-airspace colors with
+        // ordinary RGBA values; the standalone stylesheet remains unchanged.
+        const colorHex = /^#([0-9a-f]{6})$/i.exec(style.mapColor || style.color || '#4da6ff');
+        const colorValue = parseInt(colorHex ? colorHex[1] : '4da6ff', 16);
+        const rgb = [(colorValue >> 16) & 255, (colorValue >> 8) & 255, colorValue & 255].join(',');
+        const efbPaint = document.body.classList.contains('ga-efb-tracker-host')
+            ? `--ga-efb-band-fill:rgba(${rgb},0.38);--ga-efb-band-selected:rgba(${rgb},0.88);`
+            : '';
         return `
             <button type="button"
                     class="ga-map-context-height-airspace${selected ? ' is-selected' : ''}"
@@ -1095,7 +1103,7 @@ function renderMapContextHeightBand(state) {
                     aria-label="${escapePopupText(`${name}, ${mapContextFormatLimit(airspace.lowerLimit)} bis ${mapContextFormatLimit(airspace.upperLimit)}`)}"
                     aria-pressed="${selected ? 'true' : 'false'}"
                     title="${escapePopupText(`${name} · ${mapContextFormatLimit(airspace.lowerLimit)}–${mapContextFormatLimit(airspace.upperLimit)}`)}"
-                    style="top:${topPct.toFixed(2)}%;height:${heightPct.toFixed(2)}%;--ga-map-context-airspace-color:${escapePopupText(style.mapColor || style.color || '#4da6ff')};--ga-map-context-class-size:${classSizePx.toFixed(1)}px;--ga-map-context-band-layer:${getMapContextHeightBandLayer(airspace)}">
+                    style="top:${topPct.toFixed(2)}%;height:${heightPct.toFixed(2)}%;${efbPaint}--ga-map-context-airspace-color:${escapePopupText(style.mapColor || style.color || '#4da6ff')};--ga-map-context-class-size:${classSizePx.toFixed(1)}px;--ga-map-context-band-layer:${getMapContextHeightBandLayer(airspace)}">
                 ${classLetter || isControlZone
                     ? `<span class="ga-map-context-height-class-letter${isControlZone ? ' is-ctr' : ''}">${escapePopupText(shortLabel)}</span>`
                     : `<span class="ga-map-context-height-airspace-label">${escapePopupText(shortLabel)}</span>`}
@@ -1404,7 +1412,7 @@ function renderMapContextInfoPopup(state, options = {}) {
     if (document.body.classList.contains('ga-efb-tracker-host') && mapContextPopupLayer?._container) {
         const area = map.getContainer();
         const viewport = window.GAEfbUiScale ? window.GAEfbUiScale.viewport() : { width: innerWidth, height: innerHeight };
-        const width = Math.max(100, Math.min(440, area.clientWidth - 40, viewport.width - 40));
+        const width = Math.max(100, Math.min(320, area.clientWidth - 40, viewport.width - 40));
         const height = Math.max(40, Math.min(560, area.clientHeight - 90, viewport.height - 140));
         mapContextPopupLayer._container.style.setProperty('--ga-efb-context-width', width + 'px');
         state.content.style.setProperty('--ga-efb-context-height', height + 'px');

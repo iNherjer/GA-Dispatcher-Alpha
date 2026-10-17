@@ -4,6 +4,7 @@ const require=createRequire(import.meta.url),{chromium}=require(process.env.GA_P
 const efb=require('../ga-tracker-client/tracker-efb-web-client');
 const browser=await chromium.launch({headless:true,...(process.env.GA_CHROME_EXECUTABLE?{executablePath:process.env.GA_CHROME_EXECUTABLE}:{})});
 const airport={icaoCode:'EDTL',name:'Lahr – Süd',country:'DE',elevation:{value:512,unit:1},geometry:{type:'Point',coordinates:[7.83,48.36]},runways:[],frequencies:[{name:'TWR',value:'125.180',unit:2}]};
+const spaces=[{_id:'fis',name:'FIS LANGEN',type:33,icaoClass:8,lowerLimit:{value:0,unit:1,referenceDatum:0},upperLimit:{value:100,unit:6,referenceDatum:1}},{_id:'delta',name:'TMA DELTA STUTTGART',type:5,icaoClass:3,lowerLimit:{value:75,unit:6,referenceDatum:1},upperLimit:{value:100,unit:6,referenceDatum:1}}].map(s=>({...s,geometry:{type:'Polygon',coordinates:[[[7.7,48.2],[8,48.2],[8,48.6],[7.7,48.6],[7.7,48.2]]]}}));
 try {
  const page=await browser.newPage({viewport:{width:838,height:883}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>{Element.prototype.setPointerCapture=function(){throw Error('capture unsupported')};});
@@ -14,11 +15,12 @@ try {
   if(asset){let body=asset.body;if(path.endsWith('/host.js'))body=body.toString().replace(/\}\)\(\);\s*$/,`pollingClosed=true;window.__photoTest={map:function(){return map;},mode:setDisplayMode,scale:setEfbFontScale};})();`);
    // The affected host does not reliably implement grid. Exercise the fallback.
    if(path.endsWith('app-styles.css'))body=body.toString().replace(/display:\s*grid\s*;/g,'display:block;');
+   if(asset.contentType.startsWith('text/css'))body=body.toString().replace(/\binset:\s*[^;{}]+;/g,'').replace(/background:\s*color-mix\([^;{}]+;/g,'');
    return r.fulfill({contentType:asset.contentType,body});}
   let data={ok:true,available:false,items:[]};
   if(path==='/api/v1/profile-data'){
    const input=r.request().postDataJSON();
-   if(input.kind==='aviation')data={airports:[airport],airspaces:[],navaids:[],reportingPoints:[]};
+   if(input.kind==='aviation')data={airports:[airport],airspaces:spaces,navaids:[],reportingPoints:[]};
    if(input.kind==='terrain')data=input.points.map(p=>({...p,elevFt:512}));
    if(input.kind==='resource')data=input.url==='./airports.json'?{EDTL:{lat:48.36,lon:7.83,name:'Lahr',country:'DE',elevation:512}}:[];
   }
@@ -48,6 +50,12 @@ try {
   const geometry=await page.evaluate(()=>{const body=document.querySelector('.ga-map-context-body'),band=document.querySelector('.ga-map-context-height-band'),details=document.querySelector('.ga-map-context-details');return {body:body.getBoundingClientRect().toJSON(),band:band.getBoundingClientRect().toJSON(),details:details.getBoundingClientRect().toJSON(),display:getComputedStyle(body).display};});
   const compactColors=await page.locator('.ga-map-context-airport-full .ga-airport-popup > div').evaluateAll(nodes=>nodes.slice(0,2).map(n=>getComputedStyle(n).color));for(const color of compactColors)assert.equal(color,'rgb(238, 245, 255)');
   assert.equal(geometry.display,'flex');assert.ok(geometry.details.width>70,JSON.stringify(geometry));assert.ok(geometry.details.x>=geometry.band.right-1);assert.ok(Math.abs(geometry.details.y-geometry.band.y)<1);assert.ok(geometry.body.height<883);assert.ok(geometry.band.width<geometry.body.width*.4);
+  const bandProof=await page.evaluate(()=>{const stack=document.querySelector('.ga-map-context-height-stack');return {stack:stack.getBoundingClientRect().toJSON(),content:document.querySelector('.ga-map-context-popup .leaflet-popup-content').getBoundingClientRect().toJSON(),bands:[...stack.querySelectorAll('.ga-map-context-height-airspace')].map(n=>({id:n.dataset.mapContextAirspaceId,rect:n.getBoundingClientRect().toJSON(),fill:getComputedStyle(n).backgroundColor}))};});
+  assert.ok(bandProof.content.width<=320*scale+1);assert.ok(geometry.band.width<=72*scale+1);
+  assert.ok(bandProof.stack.width>20&&bandProof.stack.height>100,JSON.stringify(bandProof));
+  for(const id of ['fis','delta']){const band=bandProof.bands.find(n=>n.id===id);assert.ok(band,JSON.stringify(bandProof));assert.ok(band.rect.width>15&&band.rect.height>10);assert.notEqual(band.fill,'rgba(0, 0, 0, 0)');}
+  await page.locator('.ga-map-context-height-airspace[data-map-context-airspace-id="delta"]').click();
+  assert.equal(await page.evaluate(()=>mapContextInfoState.selectedAirspaceId),'delta');
   if(width===838&&scale===1)await page.screenshot({path:'/tmp/ga-efb-context-fixed.png'});
   await page.evaluate(()=>{map.closePopup();runwayCache.EDTL='14/32 - 704m';freqCache.EDTL=[{label:'TWR',value:'125.180'}];L.popup().setLatLng([48.36,7.83]).setContent(_buildAptPopup('DEP','Lahr',512,'EDTL',{countryCode:'DE'})).openOn(map);});
   const colors=await page.evaluate(()=>{const root=document.querySelector('.ga-airport-popup'),link=root.querySelector('[data-ga-airport-aip]');return {text:getComputedStyle(root).color,link:getComputedStyle(link).color,background:getComputedStyle(root).backgroundColor};});
@@ -56,5 +64,5 @@ try {
   if(width===838&&scale===1)await page.screenshot({path:'/tmp/ga-efb-airport-fixed.png'});
   await page.evaluate(()=>map.closePopup());cases++;
  }
- assert.deepEqual(errors,[]);console.log(`PASS ${cases} photo-layout cases: corner follow, mouse/touch drag without pointer capture, no-grid context columns, airport text/link contrast`);
+ assert.deepEqual(errors,[]);console.log(`PASS ${cases} photo-layout cases: corner follow, mouse/touch drag without pointer capture, no-grid/inset/color-mix context with visible clickable FIS/Delta bands, compact width, airport contrast`);
 }finally{await browser.close();}

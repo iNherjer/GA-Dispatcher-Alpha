@@ -1,3 +1,27 @@
+## EFB-Höhenband und kompakte Kontextbreite – v562 Kandidat (17.10.2026)
+
+Feldtest v561 zeigt Lufträume in der Liste, aber ein leeres Höhenband. Vergleich
+v558–v561: Höhen-/Bandberechnung unverändert; v561 stellt den EFB-Container von
+Grid auf Flex um. Ein kausaler MSFS-Nachweis für genau diese Regression liegt
+nicht vor. Bestehende inset-only Zeichenflächen und color-mix-Hintergründe sind
+auf älteren Coherent-Hosts jedoch nicht ausreichend portabel.
+
+EFB-Overrides setzen daher alle vier Kanten von Höhen-Skala, Stack, Himmel und
+Atmosphäre ausdrücklich. Die Luftraumbänder verwenden aus der bestehenden
+Luftraumfarbe abgeleitete RGBA-Werte, auch für Auswahl/Hover. Höhen, Datenfilter
+und Luftraumklassifikation bleiben unverändert. Inhaltsbreite maximal 320 statt
+440 logische Pixel, Höhenspalte inklusive Rahmen 72 Pixel. Eingebettete Wetter-
+Widgets laufen in der schmaleren EFB-Ansicht untereinander.
+
+Fotofall-Test mit FIS GND–FL100 und Delta FL75–FL100, 4 Breiten-/Skalierungsfällen
+und deaktiviertem Grid/inset/color-mix bestanden. Geprüft sind nichtleere
+Zeichenfläche, sichtbare Bandgeometrie/-farbe, Auswahl per echtem Klick sowie
+kompakte Fenstermaße. Screenshot visuell geprüft; 28 Daten-/Assettests bestehen.
+Assetrevision 56201, Web-Cache v2142. Windows-x64-Kandidat gebaut und bestehender
+Popup-Browsertest bestanden; reale MSFS-/VR-Abnahme bleibt erforderlich.
+Siehe [Tracker-v562-Release](Tracker-v562-Release.md) und
+[EFB-Coherent-Testing](EFB-Coherent-Testing.md) für Testgrenzen.
+
 ## EFB-Fotofunde: Folgen, Tool-Drag und Popup-Kontrast/Layout – v561 (17.10.2026)
 
 Folgen sitzt wieder mit 6 logischen Pixeln Randabstand rechts unten. Der
