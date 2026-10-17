@@ -1415,7 +1415,7 @@ function positionMapContextPopupBesideAnchor(state) {
         panY = popupRect.top - (mapRect.top + padding);
       }
       if (panX || panY) {
-        var nextCenterPoint = map.getSize().divideBy(2).add(L.point(Math.round(panX), Math.round(panY)));
+        var nextCenterPoint = map.getSize().divideBy(2).add(L.point(Math.round(window.GAEfbUiScale ? window.GAEfbUiScale.delta(panX) : panX), Math.round(window.GAEfbUiScale ? window.GAEfbUiScale.delta(panY) : panY)));
         map.setView(map.containerPointToLatLng(nextCenterPoint), map.getZoom(), {
           animate: false
         });
@@ -1424,9 +1424,22 @@ function positionMapContextPopupBesideAnchor(state) {
   });
 }
 function renderMapContextInfoPopup(state) {
-  var _state$content$queryS, _state$content, _map2, _map2$getContainer, _mapContextPopupLayer6, _mapContextPopupLayer7;
+  var _mapContextPopupLayer6, _state$content$queryS, _state$content, _map2, _map2$getContainer, _mapContextPopupLayer7, _mapContextPopupLayer8;
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
   if (!state || state !== mapContextInfoState || !state.content) return;
+  if (document.body.classList.contains('ga-efb-tracker-host') && (_mapContextPopupLayer6 = mapContextPopupLayer) !== null && _mapContextPopupLayer6 !== void 0 && _mapContextPopupLayer6._container) {
+    var area = map.getContainer();
+    var viewport = window.GAEfbUiScale ? window.GAEfbUiScale.viewport() : {
+      width: innerWidth,
+      height: innerHeight
+    };
+    var width = Math.max(100, Math.min(440, area.clientWidth - 40, viewport.width - 40));
+    var height = Math.max(40, Math.min(560, area.clientHeight - 90, viewport.height - 140));
+    mapContextPopupLayer._container.style.setProperty('--ga-efb-context-width', width + 'px');
+    state.content.style.setProperty('--ga-efb-context-height', height + 'px');
+    mapContextPopupLayer.options.minWidth = width;
+    mapContextPopupLayer.options.maxWidth = width;
+  }
   var preserveDetailsScroll = Boolean(options.preserveDetailsScroll);
   var previousDetailsScrollTop = preserveDetailsScroll ? Number((_state$content$queryS = (_state$content = state.content).querySelector) === null || _state$content$queryS === void 0 || (_state$content$queryS = _state$content$queryS.call(_state$content, '.ga-map-context-details')) === null || _state$content$queryS === void 0 ? void 0 : _state$content$queryS.scrollTop) : null;
   captureMapContextAirportWidgetState(state);
@@ -1461,7 +1474,7 @@ function renderMapContextInfoPopup(state) {
             </div>
         </div>`;
   hydrateMapContextAirportWidget(state);
-  (_mapContextPopupLayer6 = mapContextPopupLayer) === null || _mapContextPopupLayer6 === void 0 || (_mapContextPopupLayer7 = _mapContextPopupLayer6.update) === null || _mapContextPopupLayer7 === void 0 || _mapContextPopupLayer7.call(_mapContextPopupLayer6);
+  (_mapContextPopupLayer7 = mapContextPopupLayer) === null || _mapContextPopupLayer7 === void 0 || (_mapContextPopupLayer8 = _mapContextPopupLayer7.update) === null || _mapContextPopupLayer8 === void 0 || _mapContextPopupLayer8.call(_mapContextPopupLayer7);
   positionMapContextPopupBesideAnchor(state);
   if (preserveDetailsScroll && Number.isFinite(previousDetailsScrollTop)) {
     var restoreDetailsScroll = () => {
@@ -1551,9 +1564,9 @@ function highlightMapContextFeature(featureId) {
   });
 }
 window.gaUpdateMapContextOwnAltitude = function (altitudeFt) {
-  var _mapContextPopupLayer8, _state$content3, _state$content3$query;
+  var _mapContextPopupLayer9, _state$content3, _state$content3$query;
   var state = mapContextInfoState;
-  if (!state || ((_mapContextPopupLayer8 = mapContextPopupLayer) === null || _mapContextPopupLayer8 === void 0 ? void 0 : _mapContextPopupLayer8._map) !== map) return;
+  if (!state || ((_mapContextPopupLayer9 = mapContextPopupLayer) === null || _mapContextPopupLayer9 === void 0 ? void 0 : _mapContextPopupLayer9._map) !== map) return;
   var value = Number(altitudeFt);
   var hasValue = altitudeFt !== null && altitudeFt !== undefined && altitudeFt !== '';
   state.currentAltitudeFt = hasValue && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
@@ -1650,8 +1663,8 @@ function openMapContextInfo(latlng) {
   (_map$getContainer2 = (_map3 = map).getContainer) === null || _map$getContainer2 === void 0 || (_map$getContainer2 = _map$getContainer2.call(_map3)) === null || _map$getContainer2 === void 0 || _map$getContainer2.classList.add('ga-map-context-open');
   renderMapContextInfoPopup(state);
   window.setTimeout(() => {
-    var _mapContextPopupLayer9;
-    if (state !== mapContextInfoState || ((_mapContextPopupLayer9 = mapContextPopupLayer) === null || _mapContextPopupLayer9 === void 0 ? void 0 : _mapContextPopupLayer9._map) !== map) return;
+    var _mapContextPopupLayer0;
+    if (state !== mapContextInfoState || ((_mapContextPopupLayer0 = mapContextPopupLayer) === null || _mapContextPopupLayer0 === void 0 ? void 0 : _mapContextPopupLayer0._map) !== map) return;
     state.popupPositioned = false;
     state.popupPositionScheduled = false;
     positionMapContextPopupBesideAnchor(state);
@@ -1683,6 +1696,15 @@ function openMapContextInfo(latlng) {
   });
 }
 window.gaOpenMapContextInfo = openMapContextInfo;
+function refreshEfbContextPopupLayout() {
+  if (!mapContextInfoState || !document.body.classList.contains('ga-efb-tracker-host')) return;
+  mapContextInfoState.popupPositioned = false;
+  renderMapContextInfoPopup(mapContextInfoState, {
+    preserveDetailsScroll: true
+  });
+}
+window.addEventListener('resize', refreshEfbContextPopupLayout);
+window.addEventListener('ga-efb-layout-change', refreshEfbContextPopupLayout);
 window.gaMapContextPopupClosed = function (event) {
   var _map$getContainer3;
   if (event.popup !== mapContextPopupLayer) return;

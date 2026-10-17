@@ -995,70 +995,72 @@ function initMapDrawFloatingButton() {
         });
     }
 
-    button.addEventListener('pointerdown', (evt) => {
-        if (evt.button !== 0) return;
+    function startButtonDrag(evt, point, kind, id) {
+        if (mapDrawState.buttonDrag || !point || (evt.button != null && evt.button !== 0)) return;
         const rect = rail.getBoundingClientRect();
-        mapDrawState.buttonDrag = {
-            pointerId: evt.pointerId,
-            startX: evt.clientX,
-            startY: evt.clientY,
-            offsetX: evt.clientX - rect.left,
-            offsetY: evt.clientY - rect.top,
-            moved: false
-        };
+        mapDrawState.buttonDrag = { kind, pointerId: id, startX: point.clientX, startY: point.clientY,
+            offsetX: point.clientX - rect.left, offsetY: point.clientY - rect.top, moved: false };
         mapDrawState.suppressButtonClickUntil = 0;
         button.classList.add('is-dragging');
-        button.setPointerCapture(evt.pointerId);
+        // Coherent may omit capture or expose a stub that throws. Document
+        // listeners below own the gesture in either case.
+        if (kind === 'pointer' && button.setPointerCapture) {
+            try { button.setPointerCapture(id); } catch (_) {}
+        }
+        if (kind === 'touch') evt.preventDefault();
         evt.stopPropagation();
-    });
-
-    button.addEventListener('pointermove', (evt) => {
+    }
+    function moveButtonDrag(evt, point, kind, id) {
         const drag = mapDrawState.buttonDrag;
-        if (!drag || drag.pointerId !== evt.pointerId) return;
-        const movedPx = Math.hypot(evt.clientX - drag.startX, evt.clientY - drag.startY);
+        if (!drag || drag.kind !== kind || drag.pointerId !== id || !point) return;
+        const movedPx = Math.hypot(point.clientX - drag.startX, point.clientY - drag.startY);
         if (movedPx < dragThresholdPx && !drag.moved) return;
         drag.moved = true;
         const areaRect = mapDrawLayoutRect(area);
         clampMapDrawFloatingButtonPosition({
-            left: (window.GAEfbUiScale ? window.GAEfbUiScale.delta(evt.clientX - drag.offsetX) : evt.clientX - drag.offsetX) - areaRect.left,
-            top: (window.GAEfbUiScale ? window.GAEfbUiScale.delta(evt.clientY - drag.offsetY) : evt.clientY - drag.offsetY) - areaRect.top
+            left: (window.GAEfbUiScale ? window.GAEfbUiScale.delta(point.clientX - drag.offsetX) : point.clientX - drag.offsetX) - areaRect.left,
+            top: (window.GAEfbUiScale ? window.GAEfbUiScale.delta(point.clientY - drag.offsetY) : point.clientY - drag.offsetY) - areaRect.top
         });
-        evt.stopPropagation();
-        evt.preventDefault();
-    });
-
-    button.addEventListener('pointerup', (evt) => {
+        evt.stopPropagation(); evt.preventDefault();
+    }
+    function finishButtonDrag(evt, kind, id, cancelled) {
         const drag = mapDrawState.buttonDrag;
-        if (!drag || drag.pointerId !== evt.pointerId) return;
+        if (!drag || drag.kind !== kind || drag.pointerId !== id) return;
         button.classList.remove('is-dragging');
-        if (button.hasPointerCapture && button.hasPointerCapture(evt.pointerId)) button.releasePointerCapture(evt.pointerId);
+        if (kind === 'pointer' && button.hasPointerCapture && button.releasePointerCapture) {
+            try { if (button.hasPointerCapture(id)) button.releasePointerCapture(id); } catch (_) {}
+        }
         mapDrawState.buttonDrag = null;
-        const left = parseFloat(rail.style.left);
-        const top = parseFloat(rail.style.top);
-        if (Number.isFinite(left) && Number.isFinite(top)) {
-            const areaSize = mapDrawFloatingAreaSize;
-            localStorage.setItem('ga_map_draw_button_pos', JSON.stringify({ left, top,
-                ...(areaSize ? { areaWidth: areaSize.width, areaHeight: areaSize.height } : {}) }));
+        if (!cancelled) {
+            const left = parseFloat(rail.style.left), top = parseFloat(rail.style.top), areaSize = mapDrawFloatingAreaSize;
+            if (Number.isFinite(left) && Number.isFinite(top)) {
+                localStorage.setItem('ga_map_draw_button_pos', JSON.stringify({ left, top,
+                    ...(areaSize ? { areaWidth: areaSize.width, areaHeight: areaSize.height } : {}) }));
+            }
         }
-        if (drag.moved) {
-            mapDrawState.suppressButtonClickUntil = Date.now() + 350;
-            mapDrawState.justDraggedUntil = Date.now() + 350;
-        } else {
-            mapDrawState.suppressButtonClickUntil = 0;
-            mapDrawState.justDraggedUntil = 0;
-        }
+        const suppress = drag.moved || cancelled ? Date.now() + 350 : 0;
+        mapDrawState.suppressButtonClickUntil = suppress;
+        mapDrawState.justDraggedUntil = suppress;
+        if (kind === 'touch' && !drag.moved && !cancelled) toggleMapToolRail();
         evt.stopPropagation();
-    });
-
-    button.addEventListener('pointercancel', (evt) => {
+    }
+    function touchPoint(evt, changed) {
+        const points = changed ? evt.changedTouches : evt.touches;
         const drag = mapDrawState.buttonDrag;
-        if (!drag || drag.pointerId !== evt.pointerId) return;
-        button.classList.remove('is-dragging');
-        if (button.hasPointerCapture && button.hasPointerCapture(evt.pointerId)) button.releasePointerCapture(evt.pointerId);
-        mapDrawState.buttonDrag = null;
-        mapDrawState.suppressButtonClickUntil = Date.now() + 350;
-        mapDrawState.justDraggedUntil = Date.now() + 350;
-    });
+        for (let i = 0; points && i < points.length; i++) if (!drag || points[i].identifier === drag.pointerId) return points[i];
+        return null;
+    }
+    button.addEventListener('pointerdown', evt => startButtonDrag(evt, evt, 'pointer', evt.pointerId));
+    document.addEventListener('pointermove', evt => moveButtonDrag(evt, evt, 'pointer', evt.pointerId), { passive: false });
+    document.addEventListener('pointerup', evt => finishButtonDrag(evt, 'pointer', evt.pointerId, false));
+    document.addEventListener('pointercancel', evt => finishButtonDrag(evt, 'pointer', evt.pointerId, true));
+    button.addEventListener('mousedown', evt => startButtonDrag(evt, evt, 'mouse', 'mouse'));
+    document.addEventListener('mousemove', evt => moveButtonDrag(evt, evt, 'mouse', 'mouse'));
+    document.addEventListener('mouseup', evt => finishButtonDrag(evt, 'mouse', 'mouse', false));
+    button.addEventListener('touchstart', evt => { const point = touchPoint(evt); if (point) startButtonDrag(evt, point, 'touch', point.identifier); }, { passive: false });
+    document.addEventListener('touchmove', evt => { const point = touchPoint(evt); if (point) moveButtonDrag(evt, point, 'touch', point.identifier); }, { passive: false });
+    document.addEventListener('touchend', evt => { const point = touchPoint(evt, true); if (point) finishButtonDrag(evt, 'touch', point.identifier, false); });
+    document.addEventListener('touchcancel', evt => { const point = touchPoint(evt, true); if (point) finishButtonDrag(evt, 'touch', point.identifier, true); });
 
     window.addEventListener('resize', clampMapDrawFloatingButtonPosition);
     window.addEventListener('ga-efb-layout-change', () => requestAnimationFrame(() => clampMapDrawFloatingButtonPosition()));

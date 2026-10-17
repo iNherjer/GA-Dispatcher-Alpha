@@ -1,3 +1,29 @@
+## EFB-Fotofunde: Folgen, Tool-Drag und Popup-Kontrast/Layout – v561 (17.10.2026)
+
+Folgen sitzt wieder mit 6 logischen Pixeln Randabstand rechts unten. Der
+Tool-Button hat zusätzlich zum Pointer-Pfad dokumentweite Maus-/Touch-Dragpfade;
+fehlendes oder werfendes Pointer-Capture verhindert keine Bewegung mehr.
+Drag-Ende speichert die Position und unterdrückt den anschließenden Tool-Klick.
+
+Der dunkle Flugplatz-Popup-Hintergrund bleibt erhalten. Grundtext, Frequenzwerte,
+Ladehinweise und AIP-Links besitzen eine passende helle Palette, einschließlich
+des eingebetteten Flugplatz-Widgets in „Was ist hier?“. Helle Wetterkarten
+behalten ihren eigenen Text-/Hintergrundkontrast.
+
+Das Kontextfenster verwendet im EFB explizite Pixelmaße und Flexspalten für
+Höhenband und Details, unabhängig von CSS-Grid/min/max-Unterstützung. Maße
+berücksichtigen Kartenbereich und logischen Viewport; Skalierung/Resize passen
+offene Fenster erneut an. Karten-Panning rechnet Client- in Layoutpixel um.
+Eine veraltete Timerreferenz im EFB-Schließpfad wurde entfernt.
+
+36 betroffene Asset-/Popupdaten-/Font-Tests bestehen. Neuer Fotofall-Browsertest:
+4 Kombinationen aus 838/440 Pixel Breite und 100/150 Prozent; deaktiviertes
+Grid, werfendes Pointer-Capture, reine Maus-/Touch-Gesten, Eckposition und
+Text-/Link-Kontrast >= 4,5:1. Kontext- und Flugplatz-Screenshots visuell geprüft.
+Vorhandener Original-/Coherent-Popup-Browsertest mit Wetter, AIP, Rotation,
+Highlights, Fehlern/Retry und Schließen besteht ebenfalls. EFB-Assetrevision
+56101, Web-Cache v2140. Windows-x64-Kandidat gebaut; reale MSFS-Abnahme offen.
+
 ## Handle-Vordergrund, Modern-Kontrast und Stiftposition – v560 (17.10.2026)
 
 Feldtest v559: Kartencontrols bleiben sichtbar, der obere Menü-Handle wird

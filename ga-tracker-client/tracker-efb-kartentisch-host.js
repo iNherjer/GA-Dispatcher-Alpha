@@ -3537,7 +3537,6 @@
     Object.keys(auxiliaryPollTimers).forEach(function (url) { window.clearTimeout(auxiliaryPollTimers[url]); });
     if (pollTimer) window.clearTimeout(pollTimer);
     if (missionPollTimer) window.clearTimeout(missionPollTimer);
-    if (efbUiRefreshTimer) window.clearTimeout(efbUiRefreshTimer);
     if (efbUiObserver) efbUiObserver.disconnect();
   });
 })();

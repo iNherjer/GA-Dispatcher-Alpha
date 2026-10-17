@@ -16,7 +16,7 @@ function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
     const icaoEsc = escapeJsSingleQuoted(icaoSafe);
     const countryEsc = escapeJsSingleQuoted(String(countryCode || '').toUpperCase());
     const opacityPct = Math.round((typeof getAipCurrentOpacity === 'function' ? getAipCurrentOpacity(icaoSafe) : 0.65) * 100);
-    let html = `<div class="${compactLayout ? 'ga-airport-popup-compact' : ''}" style="font-family:'Courier New',monospace; min-width:${compactLayout ? '0' : '190px'}; color:#111;">`;
+    let html = `<div class="ga-airport-popup${compactLayout ? ' ga-airport-popup-compact' : ''}" style="font-family:'Courier New',monospace; min-width:${compactLayout ? '0' : '190px'}; color:#111;">`;
     html += titleHtml;
 
     if (elev != null) {
@@ -33,7 +33,7 @@ function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
     const runwayHtml = (() => {
         if (!rwCacheKey || typeof runwayCache === 'undefined' || !runwayCache[rwCacheKey] || runwayCache[rwCacheKey] === 'Keine Daten gefunden') {
             return runwayContainerId
-                ? `<div id="${runwayContainerId}" style="font-size:11px; line-height:${detailLineHeight}; color:#666;">Pisten laden…</div>`
+                ? `<div id="${runwayContainerId}" class="ga-airport-popup-loading" style="font-size:11px; line-height:${detailLineHeight}; color:#666;">Pisten laden…</div>`
                 : '';
         }
 
@@ -336,10 +336,10 @@ function abbreviateMapFrequencyLabel(label) {
 
 function buildPopupFrequencyLines(icao) {
     if (!icao || typeof freqCache === 'undefined' || !Array.isArray(freqCache[icao])) {
-        return '<span style="color:#666;">Frequenzen laden…</span>';
+        return '<span class="ga-airport-popup-loading" style="color:#666;">Frequenzen laden…</span>';
     }
     if (freqCache[icao].length === 0) {
-        return '<span style="color:#666;">Keine Frequenzen verfügbar</span>';
+        return '<span class="ga-airport-popup-loading" style="color:#666;">Keine Frequenzen verfügbar</span>';
     }
     return freqCache[icao]
         .slice(0, 6)

@@ -40,7 +40,7 @@ app.whenReady().then(async()=>{
  win.webContents.on('console-message',(_event,level,message)=>{if(level===3)console.log('RENDER',message);});
  const js=async text=>{try{return await win.webContents.executeJavaScript('Promise.resolve().then(()=>eval('+JSON.stringify(text)+')).catch(e=>{console.error(e.stack);throw e;})')}catch(error){console.error('AT',text.slice(0,160));throw error}},wait=ms=>new Promise(r=>setTimeout(r,ms));
  for(raw of [false,true]){
-  await session.defaultSession.clearStorageData();await win.loadURL(address);await wait(450);
+  await session.defaultSession.clearStorageData();await win.loadURL(address);win.webContents.setZoomFactor(1);await wait(450);
   await js(`(async function(){
    if(!window.__test)throw Error('Host missing '+JSON.stringify(__errors));
    map=__test.map();map.setView([48.36,7.83],14,{animate:false});
@@ -67,7 +67,7 @@ app.whenReady().then(async()=>{
   for(const size of [[894,440],[440,894]]){
    win.setSize(...size);await wait(150);
    await js(`mapContextInfoState.popupPositioned=false;renderMapContextInfoPopup(mapContextInfoState);`);await wait(100);
-   const bounds=await js(`({popup:document.querySelector('.ga-map-context-popup').getBoundingClientRect().toJSON(),details:document.querySelector('.ga-map-context-details').getBoundingClientRect().toJSON(),scroll:getComputedStyle(document.querySelector('.ga-map-context-details')).overflowY})`);
+   const bounds=await js(`({popup:document.querySelector('.ga-map-context-popup').getBoundingClientRect().toJSON(),details:document.querySelector('.ga-map-context-details').getBoundingClientRect().toJSON(),scroll:getComputedStyle(document.querySelector('.ga-map-context-details')).overflowY,viewport:{width:innerWidth,height:innerHeight,scale:GAEfbUiScale.state().effective,logical:GAEfbUiScale.viewport()},contextWidth:getComputedStyle(document.querySelector('.ga-map-context-popup')).getPropertyValue('--ga-efb-context-width')})`);
    assert.ok(bounds.popup.width<=size[0]+1,JSON.stringify(bounds));assert.ok(bounds.details.height>40,JSON.stringify(bounds));assert.match(bounds.scroll,/auto|scroll/);
   }
   fs.writeFileSync(path.join(output,raw?'original.png':'compiled.png'),(await win.webContents.capturePage()).toPNG());

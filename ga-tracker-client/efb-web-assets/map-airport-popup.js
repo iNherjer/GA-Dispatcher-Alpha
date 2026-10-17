@@ -29,7 +29,7 @@ function _buildAptPopup(label, name, elev, icaoForRunways) {
   var icaoEsc = escapeJsSingleQuoted(icaoSafe);
   var countryEsc = escapeJsSingleQuoted(String(countryCode || '').toUpperCase());
   var opacityPct = Math.round((typeof getAipCurrentOpacity === 'function' ? getAipCurrentOpacity(icaoSafe) : 0.65) * 100);
-  var html = `<div class="${compactLayout ? 'ga-airport-popup-compact' : ''}" style="font-family:'Courier New',monospace; min-width:${compactLayout ? '0' : '190px'}; color:#111;">`;
+  var html = `<div class="ga-airport-popup${compactLayout ? ' ga-airport-popup-compact' : ''}" style="font-family:'Courier New',monospace; min-width:${compactLayout ? '0' : '190px'}; color:#111;">`;
   html += titleHtml;
   if (elev != null) {
     var elevRnd = Math.round(elev);
@@ -41,7 +41,7 @@ function _buildAptPopup(label, name, elev, icaoForRunways) {
   }
   var runwayHtml = (() => {
     if (!rwCacheKey || typeof runwayCache === 'undefined' || !runwayCache[rwCacheKey] || runwayCache[rwCacheKey] === 'Keine Daten gefunden') {
-      return runwayContainerId ? `<div id="${runwayContainerId}" style="font-size:11px; line-height:${detailLineHeight}; color:#666;">Pisten laden…</div>` : '';
+      return runwayContainerId ? `<div id="${runwayContainerId}" class="ga-airport-popup-loading" style="font-size:11px; line-height:${detailLineHeight}; color:#666;">Pisten laden…</div>` : '';
     }
     var rwys = runwayCache[rwCacheKey].split(/\s*(?:\||\n|<br\s*\/?>)\s*/i).filter(r => r.trim());
     if (rwys.length === 0) return '';
@@ -271,10 +271,10 @@ function abbreviateMapFrequencyLabel(label) {
 }
 function buildPopupFrequencyLines(icao) {
   if (!icao || typeof freqCache === 'undefined' || !Array.isArray(freqCache[icao])) {
-    return '<span style="color:#666;">Frequenzen laden…</span>';
+    return '<span class="ga-airport-popup-loading" style="color:#666;">Frequenzen laden…</span>';
   }
   if (freqCache[icao].length === 0) {
-    return '<span style="color:#666;">Keine Frequenzen verfügbar</span>';
+    return '<span class="ga-airport-popup-loading" style="color:#666;">Keine Frequenzen verfügbar</span>';
   }
   return freqCache[icao].slice(0, 6).map(f => `
             <span class="ga-popup-frequency-row">

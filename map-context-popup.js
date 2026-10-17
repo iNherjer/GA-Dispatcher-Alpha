@@ -1388,7 +1388,7 @@ function positionMapContextPopupBesideAnchor(state) {
             if (panX || panY) {
                 const nextCenterPoint = map.getSize()
                     .divideBy(2)
-                    .add(L.point(Math.round(panX), Math.round(panY)));
+                    .add(L.point(Math.round(window.GAEfbUiScale ? window.GAEfbUiScale.delta(panX) : panX), Math.round(window.GAEfbUiScale ? window.GAEfbUiScale.delta(panY) : panY)));
                 map.setView(
                     map.containerPointToLatLng(nextCenterPoint),
                     map.getZoom(),
@@ -1401,6 +1401,16 @@ function positionMapContextPopupBesideAnchor(state) {
 
 function renderMapContextInfoPopup(state, options = {}) {
     if (!state || state !== mapContextInfoState || !state.content) return;
+    if (document.body.classList.contains('ga-efb-tracker-host') && mapContextPopupLayer?._container) {
+        const area = map.getContainer();
+        const viewport = window.GAEfbUiScale ? window.GAEfbUiScale.viewport() : { width: innerWidth, height: innerHeight };
+        const width = Math.max(100, Math.min(440, area.clientWidth - 40, viewport.width - 40));
+        const height = Math.max(40, Math.min(560, area.clientHeight - 90, viewport.height - 140));
+        mapContextPopupLayer._container.style.setProperty('--ga-efb-context-width', width + 'px');
+        state.content.style.setProperty('--ga-efb-context-height', height + 'px');
+        mapContextPopupLayer.options.minWidth = width;
+        mapContextPopupLayer.options.maxWidth = width;
+    }
     const preserveDetailsScroll = Boolean(options.preserveDetailsScroll);
     const previousDetailsScrollTop = preserveDetailsScroll
         ? Number(state.content.querySelector?.('.ga-map-context-details')?.scrollTop)
@@ -1664,6 +1674,13 @@ function openMapContextInfo(latlng, source = 'longpress') {
 
 
 window.gaOpenMapContextInfo = openMapContextInfo;
+function refreshEfbContextPopupLayout() {
+    if (!mapContextInfoState || !document.body.classList.contains('ga-efb-tracker-host')) return;
+    mapContextInfoState.popupPositioned = false;
+    renderMapContextInfoPopup(mapContextInfoState, { preserveDetailsScroll: true });
+}
+window.addEventListener('resize', refreshEfbContextPopupLayout);
+window.addEventListener('ga-efb-layout-change', refreshEfbContextPopupLayout);
 window.gaMapContextPopupClosed = function(event) {
     if (event.popup !== mapContextPopupLayer) return;
     dismissMapContextInfo();

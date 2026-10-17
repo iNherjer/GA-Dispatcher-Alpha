@@ -929,7 +929,8 @@ body.ga-efb-tracker-host #mapArea > .leaflet-control-layers {
   z-index: 130501 !important;
 }
 body.ga-efb-tracker-host #autoFollowBtn {
-  right: 52px;
+  right: 6px;
+  bottom: 6px;
   z-index: 10003;
 }
 body.ga-efb-tracker-host #mapArea > .leaflet-control-layers,
@@ -1570,3 +1571,47 @@ body.ga-efb-tracker-host .ga-media-transport .ga-media-key,
 body.ga-efb-tracker-host .ga-media-zoom .ga-media-key { margin-right:5px; }
 body.ga-efb-tracker-host .ga-ipod-lcd::after { left:0; right:0; top:0; bottom:0; }
 body.ga-efb-tracker-host .ga-ipod-wheel::before { left:25px; right:25px; top:25px; bottom:25px; }
+
+/* Dark airport surface with readable data; light weather cards retain their palette. */
+body.ga-efb-tracker-host .ga-airport-popup { color: #eef5ff !important; background: #17212b; }
+body.ga-efb-tracker-host .ga-airport-popup [data-ga-airport-aip] { color: #91d9ff !important; }
+body.ga-efb-tracker-host .ga-airport-popup .ga-popup-frequency-row { color: #eef5ff; }
+body.ga-efb-tracker-host .ga-airport-popup .ga-popup-frequency-label,
+body.ga-efb-tracker-host .ga-airport-popup .ga-popup-frequency-value { color: #b9e6ff; }
+body.ga-efb-tracker-host .ga-airport-popup-loading { color: #b8cbd9 !important; }
+body.ga-efb-tracker-host .ga-map-context-airport-full {
+  color: #eef5ff !important;
+  background: #17212b !important;
+}
+body.ga-efb-tracker-host .ga-map-context-airport-full .ga-airport-popup > div:not(.ga-weather-card) {
+  color: #eef5ff !important;
+}
+
+/* Coherent fallback: pixel sizing and flex columns, independent of grid/min/max support. */
+body.ga-efb-tracker-host .ga-map-context-popup .leaflet-popup-content {
+  width: var(--ga-efb-context-width, 292px) !important;
+  margin: 9px 10px 10px;
+}
+body.ga-efb-tracker-host .ga-map-context-panel { display: block; }
+body.ga-efb-tracker-host .ga-map-context-heading { display: block; margin-bottom: 7px; }
+body.ga-efb-tracker-host .ga-map-context-heading > * { display: block; }
+body.ga-efb-tracker-host .ga-map-context-body {
+  display: flex;
+  height: var(--ga-efb-context-height, 300px);
+  min-height: 0;
+  overflow: hidden;
+}
+body.ga-efb-tracker-host .ga-map-context-height-band {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 29%;
+  width: 29%;
+  margin-right: 7px;
+}
+body.ga-efb-tracker-host .ga-map-context-height-title { flex: 0 0 auto; }
+body.ga-efb-tracker-host .ga-map-context-height-plot { flex: 1 1 0; }
+body.ga-efb-tracker-host .ga-map-context-details { flex: 1 1 0; width: 0; min-width: 0; }
+body.ga-efb-tracker-host .ga-map-context-panel section { display: block; }
+body.ga-efb-tracker-host .ga-map-context-frequency-row,
+body.ga-efb-tracker-host .ga-popup-frequency-row { display: flex; justify-content: space-between; }
+body.ga-efb-tracker-host .ga-popup-frequency-label { flex: 1 1 0; }
