@@ -21,5 +21,6 @@ Realer MSFS-/VR-Feldtest bleibt erforderlich.
 Windows-x64-EXE mit pkg/Node18 ohne Bytecode gebaut und PE-Architektur geprüft.
 174008187 Bytes, SHA-256
 `346889b1ace9411739a79067837517b56f5f18054c79d6eb9f1f453ba2a40038`.
-EFB-Assetrevision 56101, Web-Cache v2140. Kein Community-Paket-/Worker-Update.
-Veröffentlichung und Alpha-Aktivierung stehen noch aus.
+EFB-Assetrevision 56101, Web-Cache v2141. Kein Community-Paket-/Worker-Update.
+Release v561 veröffentlicht, öffentlicher Download größen- und SHA-256-gleich
+verifiziert. Alpha auf v561 aktiviert; Stable unverändert.

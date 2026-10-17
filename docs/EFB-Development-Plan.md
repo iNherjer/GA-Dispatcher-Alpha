@@ -22,7 +22,9 @@ Grid, werfendes Pointer-Capture, reine Maus-/Touch-Gesten, Eckposition und
 Text-/Link-Kontrast >= 4,5:1. Kontext- und Flugplatz-Screenshots visuell geprüft.
 Vorhandener Original-/Coherent-Popup-Browsertest mit Wetter, AIP, Rotation,
 Highlights, Fehlern/Retry und Schließen besteht ebenfalls. EFB-Assetrevision
-56101, Web-Cache v2140. Windows-x64-Kandidat gebaut; reale MSFS-Abnahme offen.
+56101, Web-Cache v2141. Release v561 veröffentlicht, öffentlicher EXE-Download
+größen- und SHA-256-gleich bestätigt, Alpha aktiviert; Stable unverändert.
+Siehe [Tracker-v561-Release](Tracker-v561-Release.md). Reale MSFS-Abnahme offen.
 
 ## Handle-Vordergrund, Modern-Kontrast und Stiftposition – v560 (17.10.2026)
 
