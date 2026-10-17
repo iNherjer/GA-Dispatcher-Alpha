@@ -1280,6 +1280,10 @@
             <div style="position:relative; display:inline-flex; align-items:center;">
                 <button class="pb-btn" id="mapHintsBtn" onclick="window.toggleMapHintsMenu && toggleMapHintsMenu()" aria-expanded="false">⚙️ Anzeige</button>
                 <div id="mapHintsMenu" style="display:none; position:absolute; top:38px; right:0; width:210px; max-width:calc(100vw - 16px); box-sizing:border-box; overflow:hidden; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
+                    <div style="margin:0 0 8px; color:#fff;">
+                        <label for="displayBrightnessSlider">Helligkeit <span id="displayBrightnessValue">100 %</span></label>
+                        <input id="displayBrightnessSlider" type="range" min="20" max="100" step="1" value="100" aria-label="Helligkeit in Prozent" oninput="window.setDisplayBrightness(this.value)" onchange="window.setDisplayBrightness(this.value)" style="display:block;width:100%;margin:4px 0;min-height:28px;box-sizing:border-box;">
+                    </div>
                     <button id="navcomModeBtn" class="pb-btn" onclick="window.gaCycleNavcomMode && gaCycleNavcomMode()" style="display:block;width:100%;margin:0 0 6px;text-align:left;">NAVCOM: AUS</button>
                     <button id="hintToggleSnapping" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
                     <button id="hintToggleAirportSingleClick" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.cycleMapSingleClickMode && cycleMapSingleClickMode()" aria-label="Einzelklick für Flugplätze, VRPs und Navaids: Aus">🛩️ Einzelklick: Aus</button>
@@ -1398,10 +1402,6 @@
                 <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()" aria-expanded="false">🔊 Audio</button>
                 <div id="mapVoiceMenu" style="display:none; position:absolute; top:38px; right:0; min-width:230px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
                     <div>
-                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
-                            <div style="font-size:11px; color:#888; letter-spacing:0.04em;">AUDIO WARNINGS</div>
-                            <button type="button" class="settings-help-btn map-voice-help-btn" onclick="showSettingsHelp('map-voice', event)" aria-label="Hilfe zum Audio-Menue" aria-expanded="false">?</button>
-                        </div>
                         <label class="pb-btn" style="display:flex; width:100%; margin:0 0 4px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
                             <input type="checkbox" id="awmPlayOnThisDeviceCheck" checked
                                 style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
@@ -1412,11 +1412,15 @@
                             Diese Instanz darf zentrale Ansagen übernehmen.
                         </div>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-                            <span style="font-size:13px;">🔊</span>
+                            <label for="awmVolumeSlider" style="font-size:11px; color:#aaa;">Master</label>
                             <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"
                                 style="flex:1; min-width:90px; accent-color:#4da6ff; cursor:pointer;"
                                 oninput="awmSetVolume(this.value)">
                             <span id="awmVolumeLabel" style="font-size:11px; color:#aaa; min-width:34px; text-align:right;">100%</span>
+                        </div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                            <div style="font-size:11px; color:#888; letter-spacing:0.04em;">AUDIO WARNINGS</div>
+                            <button type="button" class="settings-help-btn map-voice-help-btn" onclick="showSettingsHelp('map-voice', event)" aria-label="Hilfe zum Audio-Menue" aria-expanded="false">?</button>
                         </div>
                         <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
                             <input type="checkbox" id="awmReadFreqCheck" checked

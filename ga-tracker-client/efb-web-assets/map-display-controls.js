@@ -4,6 +4,45 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+// One viewport veil avoids CSS filters changing fixed positioning or map rendering.
+// It is a root sibling of the scaled EFB body, so UI scale cannot crop it.
+var DISPLAY_BRIGHTNESS_KEY = 'ga_display_brightness';
+function normalizeDisplayBrightness(value) {
+  var n = Number(value);
+  return value === null || value === '' || !Number.isFinite(n) ? 100 : Math.max(20, Math.min(100, Math.round(n)));
+}
+function initDisplayBrightness() {
+  var veil = document.getElementById('gaDisplayDimmer');
+  if (!veil) {
+    veil = document.createElement('div');
+    veil.id = 'gaDisplayDimmer';
+    veil.setAttribute('aria-hidden', 'true');
+    veil.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#000;pointer-events:none;z-index:2147483647;';
+    document.documentElement.appendChild(veil);
+  }
+  var saved = null;
+  try {
+    saved = localStorage.getItem(DISPLAY_BRIGHTNESS_KEY);
+  } catch (_) {}
+  window.setDisplayBrightness(saved, false);
+}
+window.setDisplayBrightness = function (value) {
+  var persist = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+  var brightness = normalizeDisplayBrightness(value);
+  var veil = document.getElementById('gaDisplayDimmer');
+  if (veil) veil.style.opacity = String(1 - brightness / 100);
+  var slider = document.getElementById('displayBrightnessSlider');
+  var output = document.getElementById('displayBrightnessValue');
+  if (slider) slider.value = String(brightness);
+  if (output) output.textContent = brightness + ' %';
+  if (persist) {
+    try {
+      localStorage.setItem(DISPLAY_BRIGHTNESS_KEY, String(brightness));
+    } catch (_) {}
+  }
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initDisplayBrightness);else initDisplayBrightness();
+
 // Original standalone display menu and aircraft settings, shared with the EFB.
 var MAP_HINT_DEFAULTS = {
   magentaLine: true,

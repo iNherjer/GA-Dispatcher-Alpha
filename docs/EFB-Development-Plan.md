@@ -1,3 +1,16 @@
+## Helligkeitsregler und Audio-Menü – Tracker v558 Alpha (17.10.2026)
+
+Anzeige enthält einen stufenlosen Helligkeitsregler von 20 bis 100 Prozent
+(Standard 100). Gemeinsamer Web-/EFB-Code speichert `ga_display_brightness`
+lokal je Browser/Host; keine geräteübergreifende Synchronisation. Eine schwarze,
+klickdurchlässige Viewport-Ebene dimmt Karte, Profil, Menüs und Dialoge gemeinsam.
+Sie liegt außerhalb des skalierten EFB-Body; keine CSS-Filter auf dem Kartenrenderer.
+Audio-Gerätewahl und Master-Lautstärke stehen vor AUDIO WARNINGS.
+Generierte Coherent-Assets aktualisiert, Assetrevision 55801. Tracker v558,
+kein Shell-/Community-Protokollwechsel. Reale MSFS-/VR-Abnahme bleibt offen.
+38 EFB-Quell-/Assettests und Audio-Browserprüfung bestanden. Windows-x64-Build
+mit pkg/Node18 ohne Bytecode (x64-Fabricator auf diesem Mac nicht ausführbar).
+
 ## Flugtest-Reparaturen vom 17.10.2026 – Tracker v557 Alpha
 
 Quest-Web-App quittiert das terminale Debrief über den vorhandenen authentifizierten

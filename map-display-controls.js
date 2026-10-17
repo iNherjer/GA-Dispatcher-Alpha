@@ -1,3 +1,39 @@
+// One viewport veil avoids CSS filters changing fixed positioning or map rendering.
+// It is a root sibling of the scaled EFB body, so UI scale cannot crop it.
+const DISPLAY_BRIGHTNESS_KEY = 'ga_display_brightness';
+function normalizeDisplayBrightness(value) {
+    const n = Number(value);
+    return value === null || value === '' || !Number.isFinite(n)
+        ? 100 : Math.max(20, Math.min(100, Math.round(n)));
+}
+function initDisplayBrightness() {
+    let veil = document.getElementById('gaDisplayDimmer');
+    if (!veil) {
+        veil = document.createElement('div');
+        veil.id = 'gaDisplayDimmer';
+        veil.setAttribute('aria-hidden', 'true');
+        veil.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#000;pointer-events:none;z-index:2147483647;';
+        document.documentElement.appendChild(veil);
+    }
+    let saved = null;
+    try { saved = localStorage.getItem(DISPLAY_BRIGHTNESS_KEY); } catch (_) {}
+    window.setDisplayBrightness(saved, false);
+}
+window.setDisplayBrightness = function(value, persist = true) {
+    const brightness = normalizeDisplayBrightness(value);
+    const veil = document.getElementById('gaDisplayDimmer');
+    if (veil) veil.style.opacity = String(1 - brightness / 100);
+    const slider = document.getElementById('displayBrightnessSlider');
+    const output = document.getElementById('displayBrightnessValue');
+    if (slider) slider.value = String(brightness);
+    if (output) output.textContent = brightness + ' %';
+    if (persist) {
+        try { localStorage.setItem(DISPLAY_BRIGHTNESS_KEY, String(brightness)); } catch (_) {}
+    }
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initDisplayBrightness);
+else initDisplayBrightness();
+
 // Original standalone display menu and aircraft settings, shared with the EFB.
 const MAP_HINT_DEFAULTS = {
     magentaLine: true,
