@@ -1698,6 +1698,11 @@
     document.body.classList.toggle('ga-efb-embedded', window.parent !== window);
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
+    // The header scrolls at large scales/in floating hosts. Its protruding tab
+    // would be clipped after collapse, so anchor it to the map content instead.
+    var toolbarTab = byId('mapToolbarToggleRow');
+    var scrollArea = overlay && overlay.querySelector('.pinboard-scroll-area');
+    if (toolbarTab && scrollArea) scrollArea.appendChild(toolbarTab);
     setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.8');
 
     var toolbarRow = byId('mapToolbarInner');

@@ -3,6 +3,10 @@
 function configureMapLayerControl(map, layerControl) {
   if (layerControl && layerControl._container) {
     var portalLayerControl = function portalLayerControl(open) {
+      if (nativeEfb) {
+        lc.classList.toggle('ga-layer-menu-open', open);
+        return;
+      }
       if (open && mapFrame) {
         mapFrame.appendChild(lc);
         lc.classList.add('ga-layer-menu-open');
@@ -15,17 +19,28 @@ function configureMapLayerControl(map, layerControl) {
       var rect = lc.getBoundingClientRect();
       var list = lc.querySelector('.leaflet-control-layers-list');
       var bottom = Math.min(window.innerHeight, map.getContainer().getBoundingClientRect().bottom);
-      lc.style.maxWidth = Math.max(120, Math.min(320, window.innerWidth - 24)) + 'px';
+      var scale = nativeEfb && window.GAEfbUiScale;
+      var logical = value => scale ? scale.delta(value) : value;
+      lc.style.maxWidth = Math.max(120, Math.min(320, logical(window.innerWidth) - 24)) + 'px';
       if (list) {
-        list.style.maxHeight = Math.max(80, bottom - Math.max(0, rect.top) - 30) + 'px';
+        list.style.maxHeight = Math.max(40, logical(bottom - Math.max(0, rect.top)) - 30) + 'px';
         list.style.overflowY = 'auto';
       }
     };
     var lc = layerControl._container;
     var controlParent = lc.parentElement;
     var mapFrame = map.getContainer().parentElement;
+    var nativeEfb = document.body.classList.contains('ga-efb-tracker-host');
+    // Coherent can lose the paint surfaces of sibling controls when a live
+    // Leaflet control is reparented. Keep a stable parent in the EFB.
+    if (nativeEfb && mapFrame) mapFrame.appendChild(lc);
     window.addEventListener('resize', fitMapLayerControl);
+    if (nativeEfb) window.addEventListener('ga-efb-layout-change', fitMapLayerControl);
     var bringLayerControlToFront = () => {
+      if (nativeEfb) {
+        if (typeof bringMapOverlayToFront === 'function') bringMapOverlayToFront(lc);
+        return;
+      }
       if (lc.classList.contains('ga-layer-menu-open')) {
         window.gaMapOverlayZ = Math.max(130500, Number(window.gaMapOverlayZ) || 130500) + 1;
         lc.style.zIndex = String(window.gaMapOverlayZ);

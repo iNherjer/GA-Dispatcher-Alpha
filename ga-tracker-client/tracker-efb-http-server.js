@@ -268,6 +268,7 @@ function createTrackerEfbHttpServer(options = {}) {
   const voiceService = options.voiceService && typeof options.voiceService === 'object' ? options.voiceService : null;
   const audioControl = options.audioControl || null;
   const displayControl = options.displayControl || null;
+  const navcomPreferences = options.navcomPreferences || null;
   const audioAssets = options.audioAssets || null;
   const cockpitControl = options.cockpitControl && typeof options.cockpitControl === 'object' ? options.cockpitControl : null;
   const desktopControlToken = String(options.desktopControlToken || '').trim();
@@ -333,6 +334,25 @@ function createTrackerEfbHttpServer(options = {}) {
         const result = await options.mediaControl({ clientId: 'local:' + auth.session.sessionId, commandId: command.commandId, payload: command.payload });
         jsonResponse(response, 200, result);
       } catch (error) { jsonResponse(response, 400, { ok: false, error: error.code || error.message || 'media_command_invalid' }); }
+      return;
+    }
+    if (pathname === '/api/v1/navcom/settings') {
+      const origin = String(request.headers.origin || '').trim();
+      const trusted = !origin || /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/.test(origin);
+      if (!navcomPreferences || !trusted) {
+        request.resume(); jsonResponse(response, trusted ? 503 : 403, { error: 'navcom_settings_unavailable' }); return;
+      }
+      try {
+        if (request.method === 'GET') {
+          void navcomPreferences.refresh();
+          jsonResponse(response, 200, navcomPreferences.state());
+        }
+        else if (request.method === 'POST') {
+          const command = await readJsonBody(request, 256);
+          const result = navcomPreferences.update(command?.mode);
+          jsonResponse(response, result.ok ? 200 : 400, result);
+        } else { request.resume(); jsonResponse(response, 405, { error: 'method_not_allowed' }); }
+      } catch (_) { jsonResponse(response, 400, { error: 'invalid_navcom_settings' }); }
       return;
     }
     if (pathname === '/api/v1/display/settings') {

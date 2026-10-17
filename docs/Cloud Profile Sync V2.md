@@ -68,6 +68,22 @@ Kontingentfehler darf niemals eine gekuerzte Ersatzversion erzeugen.
 
 ## Ablauf und Konflikte
 
+### Einzelne Darstellungspräferenzen (NAVCOM, 17.10.2026)
+
+`patchFields` schreibt ausschließlich ausdrücklich übergebene Profilfelder
+gegen den frisch gelesenen Head per CAS. Der vorhandene Mission-/Seed-Deskriptor
+bleibt bytegleich erhalten; ein Patch darf weder Mission, Seed, PIN, Pilot-ID
+noch den allgemeinen Profilzeitstempel enthalten. Eine Teiländerung quittiert
+keinen vollständig geladenen Profilstand. Gleichzeitige Commits erzeugen einen
+Konflikt; die Präferenz bleibt zur Wiederholung vorgemerkt. Ein nicht migriertes
+Profil muss zuvor über den normalen verlustfreien Legacy-Vertrag übernommen
+werden. Bestehende Vollprofil-Clients behalten unbekannte Abschnitte bei.
+
+`navcomMode` enthält `off`, `direct` oder `select`. Die Übernahme steuert nur
+die Bedienungsart der Frequenzfelder und sendet keine Simulatorbefehle.
+
+### Vollständige Profile
+
 1. Authentifizierten Head lesen (`GET /api/sync-v2/head`).
 2. Abschnitte bilden und fehlende SHA-256-Teile erfragen (`POST .../missing`).
 3. Nur fehlende Teile hochladen (`POST .../chunk`), maximal ein Upload gleichzeitig.

@@ -81,6 +81,7 @@ compileShared('display-clock.js');
 compileShared('map-display-controls.js');
 compileShared('radio-tuning-core.js');
 compileShared('radio-tuning-ui.js');
+compileShared('navcom-preferences-client.js');
 compileShared('airport-radio.js');
 compileShared('airport-details.js');
 compileShared('airport-aip.js');

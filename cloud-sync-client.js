@@ -38,11 +38,20 @@
             return { migrated: true, revision: head.revision, profile, missionControl: head.missionControl || null, capabilities: head.capabilities };
         }
         let uploading = false;
-        async function write(profile, { force = false, expectedRevision, legacyTime = 0, missionChange = null } = {}) {
+        async function write(profile, { force = false, expectedRevision, legacyTime = 0, missionChange = null, fieldPatch = false } = {}) {
             if (uploading) throw new Error('Cloud-Upload läuft bereits; Änderungen bleiben vorgemerkt.');
             uploading = true;
             try {
                 const head = await call('head?inlineMetadata=1'), packed = await core.pack(profile, { inlineMetadata: head.capabilities?.inlineMetadata === true });
+                // An explicit presentation-field update must preserve the exact
+                // mission/seed descriptor, including an unversioned mission.
+                if (fieldPatch) {
+                    if (!head.manifest) throw new Error('sync_profile_not_migrated');
+                    delete packed.manifest.sections.mission;
+                    const referenced = new Set(Object.values(packed.manifest.sections).flatMap(section => section.chunks));
+                    for (const id of Object.keys(packed.chunks)) if (!referenced.has(id)) delete packed.chunks[id];
+                    if (missionChange || force) throw new Error('field_patch_invalid');
+                }
                 // Retain fields introduced by another client version; absence is not deletion.
                 if (head.manifest) packed.manifest.sections = { ...head.manifest.sections, ...packed.manifest.sections };
                 core.validate(packed.manifest);
@@ -50,10 +59,11 @@
                 if (missionChange && head.capabilities?.missionControl !== true) throw new Error('cloud_mission_control_requires_worker_update');
                 if (sameContent && (!missionChange || head.missionControl?.operationId === missionChange.operationId)) {
                     const metadata = await read(['field:lastModified'], head);
-                    setRevision(head.revision);
+                    if (!fieldPatch) setRevision(head.revision);
                     return { missionControl: head.missionControl || null, revision: head.revision, lastModified: metadata.profile.lastModified, rawBytes: packed.bytes, transferredBytes: 0, uploadedChunks: 0, reusedChunks: Object.keys(packed.chunks).length };
                 }
                 let baseRevision = Number.isSafeInteger(expectedRevision) ? expectedRevision : getRevision();
+                if (fieldPatch && expectedRevision === undefined) baseRevision = head.revision;
                 // A reload may have the exact previously saved local snapshot, but
                 // observing a new cloud head alone never authorizes overwriting it.
                 if (force) baseRevision = head.revision;
@@ -85,11 +95,17 @@
                 }
                 const change = missionChange ? { ...missionChange, expectedMissionRevision: missionChange.expectedMissionRevision ?? head.missionControl?.revision ?? 0, operationId: missionChange.operationId || `manual:${head.revision}:${packed.manifest.sections.mission.hash}` } : null;
                 const saved = await call('commit', { baseRevision, manifest: packed.manifest, ...(change ? { missionChange: change } : {}) });
-                setRevision(saved.revision);
+                if (!fieldPatch) setRevision(saved.revision);
                 return { missionControl: saved.missionControl || null, revision: saved.revision, rawBytes: packed.bytes, transferredBytes: transferred, uploadedChunks: missing.length, reusedChunks: ids.length - missing.length };
             } finally { uploading = false; }
         }
-        return { read, write, acknowledge: revision => setRevision(revision), knownRevision: () => getRevision() };
+        function patchFields(fields) {
+            if (!fields || typeof fields !== 'object' || Array.isArray(fields) || !Object.keys(fields).length
+                || Object.keys(fields).some(key => !/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(key)
+                    || ['activeMission','activeMissionTrackerSeed','pin','syncId','lastModified'].includes(key))) throw new Error('field_patch_invalid');
+            return write(fields, { fieldPatch: true });
+        }
+        return { read, write, patchFields, acknowledge: revision => setRevision(revision), knownRevision: () => getRevision() };
     }
     return { create };
 });

@@ -29,6 +29,11 @@ Das VFR Multitool hat mehrere Oberflaechen, die dieselben Daten bedienen:
 
 Die Darstellung aenderst du in **Einstellungen > Darstellung**. Die **Seitengroesse** hilft auf iPad, Quest, Tablet oder kleinen Monitoren. Im Analog-Modus kann die obere linke Schraube die Panel-Lackierung wechseln.
 
+Die **NAVCOM**-Bedienungsart im Kartenmenü **Anzeige** wird mit Pilot-ID und PIN
+über das Cloud-Profil zwischen Web-Geräten, EFB und Toolbar gespeichert. Geöffnete
+Ansichten übernehmen Änderungen innerhalb von etwa 15 Sekunden. Eine Übernahme
+ändert nur die Bedienungsart der Frequenzfelder, keine eingestellte Funkfrequenz.
+
 Im Kartentisch stehen **Positron (Hell)**, **Dark** und **Fiord** als reduzierte
 OpenFreeMap-Vektorkarten ohne API-Key zur Verfügung. Sie ersetzen die früheren
 Blank-/Dark-Ersatzkarten. Die Originalstile behalten ihre dezente Beschriftung;

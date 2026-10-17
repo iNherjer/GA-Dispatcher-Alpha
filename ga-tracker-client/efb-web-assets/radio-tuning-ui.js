@@ -228,13 +228,22 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     };
     if (mode === 'direct') send(spec, 1, 'active');else open(node, spec);
   }
-  window.gaCycleNavcomMode = function () {
-    mode = modes[(modes.indexOf(mode) + 1) % modes.length];
+  window.gaGetNavcomMode = function () {
+    return mode;
+  };
+  window.gaSetNavcomMode = function (value, persist) {
+    if (modes.indexOf(value) < 0) return;
+    if (mode === value && persist === false) return;
+    mode = value;
     try {
       localStorage.setItem('ga-navcom-mode-v1', mode);
     } catch (_) {}
     close();
     refresh();
+    if (persist !== false && window.gaPersistNavcomMode) window.gaPersistNavcomMode(mode);
+  };
+  window.gaCycleNavcomMode = function () {
+    window.gaSetNavcomMode(modes[(modes.indexOf(mode) + 1) % modes.length]);
   };
   function install() {
     refresh();

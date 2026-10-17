@@ -25,6 +25,63 @@ function fixture() {
     return { coordinator, records, calls, request, client, fail: fn => { fail = fn; } };
 }
 const profile = () => ({ activeMission: { missionId: 'poi', missionTruth: { text: '🌍 ÄÖÜ'.repeat(45000) }, targetGeoContext: { target: 'bridge' } }, activeMissionTrackerSeed: { schema: 'ga.tracker-cloud-mission-seed.v1', missionId: 'poi', voice: 'Ansage'.repeat(20000) }, logbook: Array.from({ length: 60 }, (_, i) => ({ id: i, text: 'vollständig' })), lastModified: 123, pin: 'secret' });
+test('NAVCOM field patches preserve the entire profile and mission control without acknowledging unseen data', async () => {
+    const f = fixture(), app = f.client(), efb = f.client();
+    await app.write(profile(), { missionChange: { action: 'activate', operationId: 'navcom-test' } });
+    const before = await app.read(), descriptor = structuredClone(f.records.get('head').manifest.sections.mission);
+    const cloud = require('../../navcom-preferences-core').createCloud({ client: efb, readLegacy: () => { throw Error('unexpected migration'); } });
+    assert.equal(await cloud.read(), null);
+    await cloud.write('direct');
+    assert.equal(efb.knownRevision(), null);
+    const after = await app.read();
+    assert.equal(after.profile.navcomMode, 'direct');
+    assert.deepEqual(after.missionControl, before.missionControl);
+    assert.deepEqual(f.records.get('head').manifest.sections.mission, descriptor);
+    for (const key of Object.keys(before.profile)) assert.deepEqual(after.profile[key], before.profile[key]);
+    // Even an older app that knows nothing about NAVCOM retains this section.
+    app.acknowledge(after.revision);
+    await app.write({ ...profile(), groupName: 'new crew' });
+    assert.equal(await cloud.read(), 'direct');
+    await cloud.write('select');
+    assert.equal(await require('../../navcom-preferences-core').createCloud({ client: f.client(), readLegacy: () => null }).read(), 'select');
+    await assert.rejects(cloud.write('invalid'), /invalid_navcom/);
+    for (const value of [{activeMission:null},{pin:'bad'},{lastModified:9},{}]) assert.throws(() => efb.patchFields(value), /field_patch_invalid/);
+});
+test('a concurrent profile commit rejects a NAVCOM patch; retry keeps the newer mission', async () => {
+    const f = fixture(), app = f.client(); await app.write(profile());
+    let intercept = true;
+    const efb = create({ pilotId:'TEST', pin:'secret', baseUrl:'https://test/api/sync-v2/', request: async (url, init) => {
+        if (intercept && url.endsWith('/commit')) {
+            intercept = false;
+            await app.write({ ...profile(), groupName:'concurrent', activeMission:{missionId:'new'} });
+        }
+        return f.request(url, init);
+    } });
+    await assert.rejects(efb.patchFields({navcomMode:'direct'}), /Cloud-Konflikt/);
+    assert.equal((await app.read()).profile.activeMission.missionId, 'new');
+    await efb.patchFields({navcomMode:'direct'});
+    const result = await app.read();
+    assert.equal(result.profile.activeMission.missionId, 'new');
+    assert.equal(result.profile.groupName, 'concurrent');
+    assert.equal(result.profile.navcomMode, 'direct');
+});
+test('Tracker NAVCOM persists offline changes per pilot and retries after restart', async () => {
+    const f = fixture(); await f.client().write(profile());
+    const {createNavcomPreferences} = require('../../ga-tracker-client/tracker-navcom-preferences');
+    let config = { private:'preserved' }, offline = true;
+    const options = {pilotId:'TEST', pin:'secret', baseUrl:'https://test/api/sync-v2/',readConfig:()=>config,writeConfig:value=>(config=value,true),request:(...args)=>offline?Promise.reject(Error('offline')):f.request(...args)};
+    let control = createNavcomPreferences(options);
+    assert.equal(control.update('select').ok, true);
+    await control.refresh(); assert.equal(control.state().pending, true);
+    offline = false; control = createNavcomPreferences(options); await control.refresh();
+    assert.deepEqual(control.state(), {mode:'select',pending:false});
+    assert.equal((await f.client().read()).profile.navcomMode, 'select');
+    assert.equal(config.private, 'preserved');
+    const other = createNavcomPreferences({...options,pilotId:'OTHER'});
+    assert.equal(other.state().mode, null);
+    assert.equal(control.update('invalid').ok, false);
+    assert.ok(!JSON.stringify(config).includes('secret'));
+});
 test('full >256KiB profile round trip, Unicode, seed and >50 logbook records survive', async () => {
     const f = fixture(), c = f.client(), source = profile();
     const saved = await c.write(source); assert.ok(saved.rawBytes > 256 * 1024); assert.ok(saved.transferredBytes < saved.rawBytes);

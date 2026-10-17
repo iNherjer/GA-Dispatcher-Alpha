@@ -1,3 +1,37 @@
+## Kartenmenü, Toolbar-Handle und NAVCOM – v559 Kandidat (17.10.2026)
+
+Das EFB-Kartenmenü bleibt ab Initialisierung als fester Geschwisterknoten der
+Karte im mapArea. Öffnen/Schließen verschiebt keine bestehenden Controls mehr
+und verändert keine Leaflet-Elternebenen. Menühöhen/-breiten werden bei
+Skalierungswechseln in logischen Pixeln begrenzt. Zentrieren liegt oberhalb
+des Kompasses und links neben dem Drawer-Handle. Keine Filter-/Animations-
+Abhängigkeit dieser Controls. Der berichtete Coherent-Paintverlust nach Öffnen
+ist im Browser nicht reproduzierbar; die bisher auslösenden DOM-/Ebenenwechsel
+sind entfernt. Reale Simulatorabnahme bleibt erforderlich.
+
+Der Toolbar-Handle sitzt außerhalb des scrollbar begrenzten Headers in der
+pinboard-scroll-area, auch bei gespeichert eingeklappter Toolbar nach Neustart.
+27 Kartenmenü-/Zentrieren-Zyklen und 9 Skalierungs-/Hostkombinationen sowie
+Neustart mit eingeklappter Toolbar sind mit echten Browserklicks geprüft.
+
+NAVCOM off/direct/select synchronisiert als eigener `navcomMode`-Abschnitt im
+Cloud-Pilotenprofil. Web und EFB/Toolbar verwenden denselben Vertrag. Ein
+explizites CAS-Feldpatch behält Mission/Seed, Missionskontrollmarker, Zeitstempel
+und alle fremden Profilabschnitte unverändert. Teilupdates quittieren keinen
+vollständig geladenen App-Profilstand. Ein vorhandenes Legacy-Profil wird
+verlustfrei über den bestehenden Migrationsvertrag übernommen. Keine neue
+Worker-Version nötig; keine Sim-/Frequenzbefehle durch Präferenzübernahme.
+
+Web-Outbox bleibt je Pilot im lokalen Speicher, Tracker-Outbox je Pilot in der
+Konfiguration. Fehler bleiben pending und werden beim nächsten sichtbaren
+Abruf/Neustart wiederholt. Sichtbare Ansichten gleichen alle 15 Sekunden sowie
+beim Öffnen/Wiederanzeigen ab. Unveränderte Modi schließen keinen offenen
+Frequenzdialog. Ein Radio-/Darstellungsfehler erfordert keinen Missionsreset.
+Assetrevision 55901, Web-Cache v2136. Kein Community-Paketwechsel erforderlich.
+110 API-/Radio-/Asset-/Cloud-Tests und ein gepackter Node18-Smoke bestehen.
+Windows-x64-Artefakt gebaut; Nachweise und Abnahmegrenzen:
+[Tracker-v559-Release](Tracker-v559-Release.md). Alpha-Veröffentlichung folgt.
+
 ## Helligkeitsregler und Audio-Menü – Tracker v558 Alpha (17.10.2026)
 
 Anzeige enthält einen stufenlosen Helligkeitsregler von 20 bis 100 Prozent

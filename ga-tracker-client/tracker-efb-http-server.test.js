@@ -734,3 +734,19 @@ test('UI visibility survives the local API and reaches the existing status strea
   assert.equal(status.display.ui.telemetry,false);assert.equal(status.display.ui.currentInfo,false);assert.equal(status.display.ui.profileMode,'ROUTE');
   assert.equal(status.display.uiRevision,JSON.parse(saved.body).display.uiRevision);
 });
+
+test('NAVCOM settings use bounded loopback-only commands and return before cloud work', async t => {
+  let mode = 'off';
+  const navcomPreferences = {state:()=>({mode,pending:false}),refresh:()=>new Promise(()=>{}),update:value=>{
+    if (!['off','direct','select'].includes(value)) return {ok:false,error:'invalid_navcom_mode'};
+    mode=value;return {ok:true,mode,pending:true};
+  }};
+  const server=createTrackerEfbHttpServer({port:0,navcomPreferences,hello:createTrackerEfbHttpHello({trackerVersion:'v558',trackerVersionCode:558})});
+  t.after(()=>server.stop());const address=await server.start();
+  const send=(value,origin)=>request(address,'/api/v1/navcom/settings',{method:'POST',headers:{Origin:origin||'http://127.0.0.1'},body:JSON.stringify({mode:value})});
+  assert.equal((await send('direct')).statusCode,200);
+  assert.equal(JSON.parse((await request(address,'/api/v1/navcom/settings')).body).mode,'direct');
+  assert.equal((await send('select','https://untrusted.example')).statusCode,403);
+  assert.equal((await send('invalid')).statusCode,400);
+  assert.equal(mode,'direct');
+});

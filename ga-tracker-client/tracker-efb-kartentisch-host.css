@@ -919,6 +919,37 @@ body.ga-efb-tracker-host #map img.leaflet-tile {
   mix-blend-mode: normal !important;
 }
 
+/* Stable siblings of the map, independent of Leaflet's transformed panes. */
+body.ga-efb-tracker-host #mapArea > .leaflet-control-layers {
+  position: absolute !important;
+  top: 10px;
+  right: 10px;
+  margin: 0;
+  float: none;
+  z-index: 130501 !important;
+}
+body.ga-efb-tracker-host #autoFollowBtn {
+  right: 52px;
+  z-index: 10003;
+}
+body.ga-efb-tracker-host #mapArea > .leaflet-control-layers,
+body.ga-efb-tracker-host #autoFollowBtn,
+body.ga-efb-tracker-host #mapToolbarToggle {
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+}
+body.ga-efb-tracker-host #mapToolbarToggleRow {
+  top: 0;
+  bottom: auto;
+  transform: translate(-50%, 0);
+}
+body.ga-efb-tracker-host.route-progress-visible #mapToolbarToggleRow {
+  top: var(--route-progress-height, 34px);
+  transform: translate(-50%, 0);
+}
+
 body.ga-efb-tracker-host #map img.ga-efb-map-tile {
   display: block !important;
   visibility: visible !important;
@@ -1318,7 +1349,7 @@ body.ga-efb-tracker-host .ga-efb-font-size-hint { overflow-wrap: break-word; }
 
 /* Keep fixed map hit targets in step with EFB text preferences. */
 body.ga-efb-tracker-host #map .leaflet-bar a { width:32px; height:32px; line-height:32px; }
-body.ga-efb-tracker-host #map .leaflet-control-layers-toggle { width:36px; height:36px; background-size:26px; }
+body.ga-efb-tracker-host .leaflet-control-layers-toggle { width:36px; height:36px; background-size:26px; }
 body.ga-efb-tracker-host .map-profile-controls button,
 body.ga-efb-tracker-host #mapTableOverlay .pb-btn { min-height:24px; padding:3px 6px; }
 body.ga-efb-tracker-host #mapProfileStrip { min-height:100px; }
