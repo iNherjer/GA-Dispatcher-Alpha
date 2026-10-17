@@ -615,8 +615,15 @@ function editNote(id, isGroup) {
         }
     }
 }
-function pinCurrentFlight() {
-    if (document.getElementById("briefingBox").style.display !== "block" || !currentMissionData) return;
+function pinCurrentFlight(target) {
+    if (document.getElementById("briefingBox").style.display !== "block" || !currentMissionData) {
+        if (target === 'private' || target === 'group') alert("Es ist kein aktuelles Briefing vorhanden. Bitte zuerst einen Flug erstellen oder laden.");
+        return;
+    }
+    if (target === 'group' && !getGroupName()) {
+        alert("Bitte zuerst unten in den Einstellungen einer Crew beitreten!");
+        return;
+    }
     if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
         alert("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann speichern oder mit der Crew teilen.");
         return;
@@ -664,7 +671,9 @@ function pinCurrentFlight() {
         text: `✈️ <b>${routeText}</b><br><span style="font-size:11px; color:#555;">${state.currentMissionData?.mission || ''}</span><br><span style="font-size:11px;">${state.mDistNote}</span>`,
         x: 35 + Math.random() * 15, y: 20 + Math.random() * 15, rot: Math.floor(Math.random() * 9) - 4
     };
-    if(getGroupName()) {
+    if (target === 'private' || target === 'group') {
+        executePin(target);
+    } else if(getGroupName()) {
         document.getElementById('pinModalOverlay').style.display = 'flex';
         document.getElementById('btnPinGroup').innerText = `👥 An die Crew (${getGroupName()})`;
     } else {
